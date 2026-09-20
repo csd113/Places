@@ -1,0 +1,213 @@
+{
+  "format_version": 1,
+  "id": "level_1",
+  "name": "Level 1",
+  "author": "Liminal Team",
+  "spawn": {
+    "x": -2.0,
+    "z": -1.0,
+    "yaw_degrees": 0.0
+  },
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "rooms": [
+    {
+      "x": -16.0,
+      "z": -15.0,
+      "width": 32.0,
+      "depth": 16.0,
+      "height": 3.5
+    },
+    {
+      "x": -16.0,
+      "z": 1.0,
+      "width": 32.0,
+      "depth": 14.0,
+      "height": 3.5
+    }
+  ],
+  "walls": [
+    {
+      "x": -16.0,
+      "z": -15.4,
+      "width": 32.0,
+      "depth": 0.4,
+      "height": 3.5
+    },
+    {
+      "x": -16.0,
+      "z": 15.0,
+      "width": 32.0,
+      "depth": 0.4,
+      "height": 3.5
+    },
+    {
+      "x": -16.4,
+      "z": -15.0,
+      "width": 0.4,
+      "depth": 30.0,
+      "height": 3.5
+    },
+    {
+      "x": 16.0,
+      "z": -15.0,
+      "width": 0.4,
+      "depth": 30.0,
+      "height": 3.5
+    },
+    {
+      "x": -16.0,
+      "z": -7.0,
+      "width": 8.0,
+      "depth": 0.4,
+      "height": 3.5
+    },
+    {
+      "x": -8.4,
+      "z": -12.0,
+      "width": 0.4,
+      "depth": 5.4,
+      "height": 3.5
+    },
+    {
+      "x": 5.0,
+      "z": -7.2,
+      "width": 6.0,
+      "depth": 0.4,
+      "height": 3.5
+    },
+    {
+      "x": 7.8,
+      "z": -10.0,
+      "width": 0.4,
+      "depth": 6.0,
+      "height": 3.5
+    },
+    {
+      "x": 7.0,
+      "z": 2.8,
+      "width": 6.0,
+      "depth": 0.4,
+      "height": 3.5
+    },
+    {
+      "x": 9.8,
+      "z": 0.0,
+      "width": 0.4,
+      "depth": 6.0,
+      "height": 3.5
+    },
+    {
+      "x": -5.0,
+      "z": 7.8,
+      "width": 6.0,
+      "depth": 0.4,
+      "height": 3.5
+    },
+    {
+      "x": -2.2,
+      "z": 5.0,
+      "width": 0.4,
+      "depth": 6.0,
+      "height": 3.5
+    },
+    {
+      "x": 5.0,
+      "z": 10.0,
+      "width": 7.0,
+      "depth": 0.4,
+      "height": 3.5
+    },
+    {
+      "x": 11.6,
+      "z": 7.0,
+      "width": 0.4,
+      "depth": 5.0,
+      "height": 3.5
+    },
+    {
+      "x": 5.0,
+      "z": 10.0,
+      "width": 0.4,
+      "depth": 5.0,
+      "height": 3.5
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": -10.0,
+      "z": -10.0,
+      "rotation_degrees": 0.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": -2.0,
+      "z": -10.0,
+      "rotation_degrees": 0.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 6.0,
+      "z": -10.0,
+      "rotation_degrees": 0.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 12.0,
+      "z": -10.0,
+      "rotation_degrees": 0.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": -10.0,
+      "z": -2.0,
+      "rotation_degrees": 0.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": -2.0,
+      "z": -2.0,
+      "rotation_degrees": 0.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 6.0,
+      "z": -2.0,
+      "rotation_degrees": 0.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 12.0,
+      "z": -2.0,
+      "rotation_degrees": 0.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": -10.0,
+      "z": 6.0,
+      "rotation_degrees": 0.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": -2.0,
+      "z": 6.0,
+      "rotation_degrees": 0.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 6.0,
+      "z": 6.0,
+      "rotation_degrees": 0.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 12.0,
+      "z": 6.0,
+      "rotation_degrees": 0.0
+    }
+  ]
+}
