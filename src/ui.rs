@@ -89,11 +89,11 @@ fn add_ui_quad(
     });
 }
 
-fn add_rect(vertices: &mut Vec<Vertex>, x0: f32, y0: f32, x1: f32, y1: f32, color: [f32; 3]) {
+pub fn add_rect(vertices: &mut Vec<Vertex>, x0: f32, y0: f32, x1: f32, y1: f32, color: [f32; 3]) {
     add_ui_quad(vertices, x0, y0, x1, y1, color, get_white_uv());
 }
 
-fn draw_text(
+pub fn draw_text(
     vertices: &mut Vec<Vertex>,
     text: &str,
     mut x: f32,

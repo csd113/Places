@@ -86,6 +86,10 @@ impl InputHandler {
         };
     }
 
+    pub fn set_overlay_visible(&mut self, visible: bool) {
+        self.state.toggle_overlay = visible;
+    }
+
     /// Handles gameplay events using active KeyBindings.
     pub fn handle_gameplay_event(&mut self, event: &Event, bindings: &KeyBindings) {
         match event {
@@ -122,7 +126,7 @@ impl InputHandler {
                 if name == bindings.look_right {
                     self.state.look_right = true;
                 }
-                if *key == Keycode::Minus {
+                if *key == Keycode::Minus || *key == Keycode::KpMinus {
                     self.state.toggle_overlay = !self.state.toggle_overlay;
                 }
             }

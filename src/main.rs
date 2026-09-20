@@ -3,6 +3,7 @@ pub mod font;
 pub mod game;
 pub mod input;
 pub mod level;
+pub mod perf;
 pub mod render;
 pub mod settings;
 pub mod ui;
@@ -14,6 +15,7 @@ use sdl2::keyboard::Keycode;
 use game::{AppState, Game};
 use input::{InputHandler, MenuNavEvent, keycode_to_str};
 use level::LevelDef;
+use perf::PerfOverlay;
 use render::{Renderer, WINDOW_HEIGHT, WINDOW_WIDTH};
 use settings::Settings;
 use ui::{SETTINGS_ITEM_COUNT, UiState, activate_settings_item, build_ui_geometry};
@@ -61,10 +63,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let spawn_yaw = level.spawn.yaw_degrees.to_radians();
     let mut game = Game::new(spawn_pos, spawn_yaw, level.collision_aabbs());
     let mut ui_state = UiState::new();
+    let mut perf_overlay = PerfOverlay::new();
 
     // Clean main loop
     while game.is_running() {
         game.update_timing();
+        perf_overlay.update(game.delta_seconds());
 
         for event in event_pump.poll_iter() {
             if let Event::Quit { .. } = event {
@@ -97,6 +101,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         ui_state.rebinding_action = None;
                     }
                 }
+                continue;
+            }
+
+            // Performance overlay toggle with '-' key (hidden by default)
+            if let Event::KeyDown {
+                keycode: Some(Keycode::Minus | Keycode::KpMinus),
+                repeat: false,
+                ..
+            } = event
+            {
+                perf_overlay.toggle();
+                input_handler.set_overlay_visible(perf_overlay.is_visible());
                 continue;
             }
 
@@ -256,8 +272,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             settings.fov_degrees,
         );
 
-        // Render UI overlay on top if in a menu or pause state
-        let ui_vertices = build_ui_geometry(game.app_state(), &ui_state, &settings, APP_VERSION);
+        // Render UI overlay on top if in a menu or pause state, plus performance overlay if visible
+        let mut ui_vertices = build_ui_geometry(game.app_state(), &ui_state, &settings, APP_VERSION);
+        if perf_overlay.is_visible() {
+            ui_vertices.extend_from_slice(perf_overlay.cached_vertices());
+        }
         renderer.render_ui(WINDOW_WIDTH, WINDOW_HEIGHT, &ui_vertices);
 
         // Swap window buffer (double buffered, VSync synchronized)
