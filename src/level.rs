@@ -87,6 +87,8 @@ pub struct CeilingLightDef {
     pub z: f32,
     #[serde(default)]
     pub rotation_degrees: f32,
+    #[serde(default)]
+    pub brightness: Option<f32>,
 }
 
 /// Level schema corresponding to Sections 22 and 24 of the design document,

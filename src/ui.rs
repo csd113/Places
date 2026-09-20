@@ -12,6 +12,7 @@ pub struct UiState {
     pub settings_idx: usize,
     pub rebinding_action: Option<&'static str>,
     pub status_message: Option<String>,
+    pub level_entries: Vec<String>,
 }
 
 impl Default for UiState {
@@ -23,6 +24,7 @@ impl Default for UiState {
             settings_idx: 0,
             rebinding_action: None,
             status_message: None,
+            level_entries: Vec::new(),
         }
     }
 }
@@ -203,19 +205,42 @@ pub fn build_ui_geometry(
                 [0.92, 0.88, 0.45],
             );
 
-            let items = [
-                ("Level 1", true),
-                ("Under construction", false),
-                ("Under construction", false),
-                ("Under construction", false),
-                ("Back", true),
-            ];
+            let mut items: Vec<(String, bool)> = if ui_state.level_entries.is_empty() {
+                vec![("Level 1".to_string(), true)]
+            } else {
+                ui_state
+                    .level_entries
+                    .iter()
+                    .map(|name| (name.clone(), true))
+                    .collect()
+            };
+            items.push(("Load/Import Level".to_string(), true));
+            items.push(("Back".to_string(), true));
 
-            let start_y = 80.0;
+            // Show at most 6 items per page with scrolling
+            let max_visible = 6;
+            let total = items.len();
+            let scroll_offset = if total <= max_visible {
+                0
+            } else if ui_state.level_select_idx < max_visible {
+                0
+            } else if ui_state.level_select_idx >= total - max_visible {
+                total - max_visible
+            } else {
+                ui_state.level_select_idx - (max_visible - 1)
+            };
+
+            let start_y = 75.0;
             let line_h = 22.0;
 
-            for (i, &(label, enabled)) in items.iter().enumerate() {
-                let y = start_y + (i as f32) * line_h;
+            for (vi, (i, (label, enabled))) in items
+                .iter()
+                .enumerate()
+                .skip(scroll_offset)
+                .take(max_visible)
+                .enumerate()
+            {
+                let y = start_y + (vi as f32) * line_h;
                 let is_sel = i == ui_state.level_select_idx;
 
                 if is_sel {
@@ -223,12 +248,12 @@ pub fn build_ui_geometry(
                         &mut vertices,
                         38.0,
                         y - 2.0,
-                        300.0,
+                        380.0,
                         y + 14.0,
                         [0.25, 0.23, 0.16],
                     );
                     let line = format!("> {label}");
-                    let col = if enabled {
+                    let col = if *enabled {
                         [1.0, 0.95, 0.40]
                     } else {
                         [0.55, 0.50, 0.35]
@@ -236,13 +261,22 @@ pub fn build_ui_geometry(
                     draw_text(&mut vertices, &line, 40.0, y, 1.0, col);
                 } else {
                     let line = format!("  {label}");
-                    let col = if enabled {
+                    let col = if *enabled {
                         [0.85, 0.85, 0.80]
                     } else {
                         [0.45, 0.45, 0.42]
                     };
                     draw_text(&mut vertices, &line, 40.0, y, 1.0, col);
                 }
+            }
+
+            if let Some(ref msg) = ui_state.status_message {
+                let col = if msg.starts_with("Error") || msg.starts_with("Failed") {
+                    [1.0, 0.4, 0.3]
+                } else {
+                    [0.4, 0.9, 0.4]
+                };
+                draw_text(&mut vertices, msg, 40.0, 212.0, 1.0, col);
             }
 
             draw_text(

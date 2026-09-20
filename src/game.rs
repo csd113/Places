@@ -76,6 +76,16 @@ impl Game {
         self.app_state = new_state;
     }
 
+    /// Resets player position, orientation, and level collision walls when loading a level.
+    pub fn reset_level(&mut self, spawn_pos: Vec3, spawn_yaw: f32, walls: Vec<WallAabb>) {
+        self.player_position = spawn_pos;
+        self.player_yaw = spawn_yaw.rem_euclid(TWO_PI);
+        self.player_pitch = 0.0;
+        self.walls = walls;
+        self.last_frame_time = Instant::now();
+        self.delta_seconds = 0.0;
+    }
+
     /// Handles Escape key in gameplay / pause states.
     pub fn handle_escape(&mut self) {
         match self.app_state {

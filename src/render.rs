@@ -707,6 +707,96 @@ impl Renderer {
         })
     }
 
+    unsafe fn upload_texture(
+        gl: &glow::Context,
+        texture: glow::Texture,
+        raw_image: &crate::loader::RawImage,
+        repeat: bool,
+    ) {
+        unsafe {
+            gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+            gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA as i32,
+                raw_image.width as i32,
+                raw_image.height as i32,
+                0,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                glow::PixelUnpackData::Slice(Some(&raw_image.rgba)),
+            );
+
+            let wrap_mode = if repeat {
+                glow::REPEAT as i32
+            } else {
+                glow::CLAMP_TO_EDGE as i32
+            };
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, wrap_mode);
+            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, wrap_mode);
+
+            if repeat {
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_MIN_FILTER,
+                    glow::LINEAR_MIPMAP_LINEAR as i32,
+                );
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_MAG_FILTER,
+                    glow::LINEAR as i32,
+                );
+                gl.generate_mipmap(glow::TEXTURE_2D);
+            } else {
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_MIN_FILTER,
+                    glow::NEAREST as i32,
+                );
+                gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_MAG_FILTER,
+                    glow::NEAREST as i32,
+                );
+            }
+
+            gl.bind_texture(glow::TEXTURE_2D, None);
+        }
+    }
+
+    /// Re-uploads new level geometry and textures dynamically into OpenGL without recompilation.
+    pub fn set_level(&mut self, loaded: &crate::loader::LoadedLevel) {
+        let mesh = build_level_geometry(&loaded.level);
+        self.batches = mesh.batches;
+
+        unsafe {
+            self.gl
+                .bind_buffer(glow::ARRAY_BUFFER, Some(self.level_vbo));
+            let byte_slice = std::slice::from_raw_parts(
+                mesh.vertices.as_ptr() as *const u8,
+                mesh.vertices.len() * std::mem::size_of::<Vertex>(),
+            );
+            self.gl
+                .buffer_data_u8_slice(glow::ARRAY_BUFFER, byte_slice, glow::STATIC_DRAW);
+            self.gl.bind_buffer(glow::ARRAY_BUFFER, None);
+
+            Self::upload_texture(&self.gl, self.wall_texture, &loaded.textures.wall, true);
+            Self::upload_texture(&self.gl, self.floor_texture, &loaded.textures.floor, true);
+            Self::upload_texture(
+                &self.gl,
+                self.ceiling_texture,
+                &loaded.textures.ceiling,
+                true,
+            );
+            Self::upload_texture(
+                &self.gl,
+                self.white_texture,
+                &loaded.textures.fixture,
+                false,
+            );
+        }
+    }
+
     /// Renders the 3D level combining yaw and pitch into the view matrix.
     pub fn render_scene(
         &self,

@@ -3,6 +3,7 @@ pub mod font;
 pub mod game;
 pub mod input;
 pub mod level;
+pub mod loader;
 pub mod perf;
 pub mod render;
 pub mod settings;
@@ -14,13 +15,11 @@ use sdl2::keyboard::Keycode;
 
 use game::{AppState, Game};
 use input::{InputHandler, MenuNavEvent, keycode_to_str};
-use level::LevelDef;
 use perf::PerfOverlay;
 use render::{Renderer, WINDOW_HEIGHT, WINDOW_WIDTH};
 use settings::Settings;
 use ui::{SETTINGS_ITEM_COUNT, UiState, activate_settings_item, build_ui_geometry};
 
-const LEVEL1_JSON: &str = include_str!("../assets/levels/level1.json");
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -47,22 +46,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         sdl2::video::SwapInterval::Immediate
     });
 
-    // Load Level 1 layout from data-driven JSON format
-    let level = LevelDef::from_json(LEVEL1_JSON)
-        .map_err(|e| format!("Failed to parse Level 1 JSON: {e}"))?;
+    let mut level_manager = loader::LevelManager::new();
+    let initial_level = level_manager
+        .load_default_or_level1()
+        .map_err(|e| format!("Failed to load initial level: {e}"))?;
 
-    let renderer = Renderer::new(&window, &video_subsystem, &level)
+    let mut renderer = Renderer::new(&window, &video_subsystem, &initial_level.level)
         .map_err(|e| format!("Failed to initialize renderer: {e}"))?;
+    renderer.set_level(&initial_level);
 
     let mut event_pump = sdl_context
         .event_pump()
         .map_err(|e| format!("Failed to init event pump: {e}"))?;
 
     let mut input_handler = InputHandler::new();
-    let spawn_pos = Vec3::new(level.spawn.x, 1.6, level.spawn.z);
-    let spawn_yaw = level.spawn.yaw_degrees.to_radians();
-    let mut game = Game::new(spawn_pos, spawn_yaw, level.collision_aabbs());
+    let mut spawn_pos = Vec3::new(initial_level.level.spawn.x, 1.6, initial_level.level.spawn.z);
+    let mut spawn_yaw = initial_level.level.spawn.yaw_degrees.to_radians();
+    let mut game = Game::new(spawn_pos, spawn_yaw, initial_level.level.collision_aabbs());
     let mut ui_state = UiState::new();
+    ui_state.level_entries = level_manager
+        .entries()
+        .iter()
+        .map(|e| e.name.clone())
+        .collect();
     let mut perf_overlay = PerfOverlay::new();
 
     // Clean main loop
@@ -119,13 +125,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // 2. Menu navigation for non-playing states (independent of gameplay bindings)
             if app_state != AppState::Playing {
                 if let Some(nav) = InputHandler::poll_menu_nav_event(&event) {
+                    let level_items_count = ui_state.level_entries.len() + 2; // levels + Load/Import + Back
                     match nav {
                         MenuNavEvent::Up => match app_state {
                             AppState::MainMenu => {
                                 ui_state.main_menu_idx = (ui_state.main_menu_idx + 3 - 1) % 3;
                             }
                             AppState::LevelSelect => {
-                                ui_state.level_select_idx = (ui_state.level_select_idx + 5 - 1) % 5;
+                                ui_state.level_select_idx =
+                                    (ui_state.level_select_idx + level_items_count - 1)
+                                        % level_items_count;
                             }
                             AppState::Paused => {
                                 ui_state.pause_menu_idx = (ui_state.pause_menu_idx + 3 - 1) % 3;
@@ -142,7 +151,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 ui_state.main_menu_idx = (ui_state.main_menu_idx + 1) % 3;
                             }
                             AppState::LevelSelect => {
-                                ui_state.level_select_idx = (ui_state.level_select_idx + 1) % 5;
+                                ui_state.level_select_idx =
+                                    (ui_state.level_select_idx + 1) % level_items_count;
                             }
                             AppState::Paused => {
                                 ui_state.pause_menu_idx = (ui_state.pause_menu_idx + 1) % 3;
@@ -179,20 +189,81 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                         MenuNavEvent::Activate => match app_state {
                             AppState::MainMenu => match ui_state.main_menu_idx {
-                                0 => game.set_app_state(AppState::LevelSelect),
+                                0 => {
+                                    level_manager.refresh();
+                                    ui_state.level_entries = level_manager
+                                        .entries()
+                                        .iter()
+                                        .map(|e| e.name.clone())
+                                        .collect();
+                                    game.set_app_state(AppState::LevelSelect);
+                                }
                                 1 => game.set_app_state(AppState::Settings),
                                 2 => game.stop(),
                                 _ => {}
                             },
-                            AppState::LevelSelect => match ui_state.level_select_idx {
-                                0 => {
-                                    // Launch Level 1
-                                    input_handler.clear_gameplay_inputs();
-                                    game.set_app_state(AppState::Playing);
+                            AppState::LevelSelect => {
+                                let num_levels = level_manager.entries().len();
+                                if ui_state.level_select_idx < num_levels {
+                                    if let Some(entry) =
+                                        level_manager.get_entry(ui_state.level_select_idx)
+                                    {
+                                        match level_manager.load_level(entry) {
+                                            Ok(loaded) => {
+                                                renderer.set_level(&loaded);
+                                                spawn_pos = Vec3::new(
+                                                    loaded.level.spawn.x,
+                                                    1.6,
+                                                    loaded.level.spawn.z,
+                                                );
+                                                spawn_yaw =
+                                                    loaded.level.spawn.yaw_degrees.to_radians();
+                                                game.reset_level(
+                                                    spawn_pos,
+                                                    spawn_yaw,
+                                                    loaded.level.collision_aabbs(),
+                                                );
+                                                input_handler.clear_gameplay_inputs();
+                                                ui_state.status_message = None;
+                                                game.set_app_state(AppState::Playing);
+                                            }
+                                            Err(err) => {
+                                                ui_state.status_message =
+                                                    Some(format!("Load failed: {err}"));
+                                            }
+                                        }
+                                    }
+                                } else if ui_state.level_select_idx == num_levels {
+                                    // Load/Import Level
+                                    match level_manager.import_available() {
+                                        Ok(count) => {
+                                            level_manager.refresh();
+                                            ui_state.level_entries = level_manager
+                                                .entries()
+                                                .iter()
+                                                .map(|e| e.name.clone())
+                                                .collect();
+                                            if count > 0 {
+                                                ui_state.status_message = Some(format!(
+                                                    "Imported {count} level(s) from import/"
+                                                ));
+                                            } else {
+                                                ui_state.status_message = Some(
+                                                    "No new .json/.zip in import/ or levels/import/"
+                                                        .to_string(),
+                                                );
+                                            }
+                                        }
+                                        Err(err) => {
+                                            ui_state.status_message =
+                                                Some(format!("Import error: {err}"));
+                                        }
+                                    }
+                                } else {
+                                    // Back
+                                    game.set_app_state(AppState::MainMenu);
                                 }
-                                4 => game.set_app_state(AppState::MainMenu),
-                                _ => {} // Under construction (disabled)
-                            },
+                            }
                             AppState::Paused => match ui_state.pause_menu_idx {
                                 0 => {
                                     input_handler.clear_gameplay_inputs();

@@ -11,9 +11,11 @@ publish = false
 [dependencies]
 glam = "0.29"
 glow = "0.16"
+png = "0.18.1"
 sdl2 = { version = "0.38", features = ["use-pkgconfig"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 
 [profile.release]
 opt-level = "z"
