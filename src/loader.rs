@@ -338,10 +338,23 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     }
 
     for (i, w) in level.walls.iter().enumerate() {
-        if !w.width.is_finite() || !w.depth.is_finite() || !w.height.is_finite() {
+        if !w.x.is_finite()
+            || !w.y.is_finite()
+            || !w.z.is_finite()
+            || !w.width.is_finite()
+            || !w.depth.is_finite()
+        {
             return Err(format!("Wall {i} dimensions must be finite numbers"));
         }
-        if w.width <= 0.0 || w.depth <= 0.0 || w.height <= 0.0 {
+        if let Some(h) = w.height {
+            if !h.is_finite() {
+                return Err(format!("Wall {i} dimensions must be finite numbers"));
+            }
+            if h <= 0.0 {
+                return Err(format!("Wall {i} width, depth, and height must be positive"));
+            }
+        }
+        if w.width <= 0.0 || w.depth <= 0.0 {
             return Err(format!("Wall {i} width, depth, and height must be positive"));
         }
     }
@@ -774,10 +787,11 @@ mod tests {
             defaults: Default::default(),
             walls: vec![WallDef {
                 x: 10.0,
+                y: 0.0,
                 z: 10.0,
                 width: 2.0,
                 depth: 1.0,
-                height: 3.5,
+                height: Some(3.5),
                 faces: HashMap::new(),
             }],
             floor_patches: vec![],
@@ -842,18 +856,20 @@ mod tests {
             walls: vec![
                 WallDef {
                     x: 2.0,
+                    y: 0.0,
                     z: 2.0,
                     width: 4.0,
                     depth: 4.0,
-                    height: 3.5,
+                    height: Some(3.5),
                     faces: HashMap::new(),
                 },
                 WallDef {
                     x: 3.0,
+                    y: 0.0,
                     z: 3.0,
                     width: 4.0,
                     depth: 4.0,
-                    height: 3.5,
+                    height: Some(3.5),
                     faces: HashMap::new(),
                 },
             ],

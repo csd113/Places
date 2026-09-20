@@ -293,8 +293,11 @@ pub fn build_level_geometry(level: &LevelDef) -> LevelMesh {
         let x1 = wall.x.max(wall.x + wall.width);
         let z0 = wall.z.min(wall.z + wall.depth);
         let z1 = wall.z.max(wall.z + wall.depth);
-        let y0 = 0.0;
-        let y1 = wall.height;
+        let ceiling_h =
+            level.ceiling_height_at(wall.x + wall.width * 0.5, wall.z + wall.depth * 0.5);
+        let h = wall.resolved_height(ceiling_h);
+        let y0 = wall.y.min(wall.y + h);
+        let y1 = wall.y.max(wall.y + h);
 
         let north_mult = 1.00;
         let south_mult = 0.88;
@@ -387,6 +390,46 @@ pub fn build_level_geometry(level: &LevelDef) -> LevelMesh {
             e_top,
             [z0, y1],
         );
+
+        // Top face (y = y1, normal +Y) - visible on half-height walls or window sills
+        if y1 < ceiling_h - 1e-3 {
+            let top_col = scale_color(1.00, top_grad);
+            add_quad(
+                &mut vertices,
+                [x0, y1, z1],
+                top_col,
+                [x0, z1],
+                [x1, y1, z1],
+                top_col,
+                [x1, z1],
+                [x1, y1, z0],
+                top_col,
+                [x1, z0],
+                [x0, y1, z0],
+                top_col,
+                [x0, z0],
+            );
+        }
+
+        // Bottom face (y = y0, normal -Y) - visible on raised walls or window headers
+        if y0 > 1e-3 {
+            let bot_col = scale_color(0.85, bot_grad);
+            add_quad(
+                &mut vertices,
+                [x0, y0, z0],
+                bot_col,
+                [x0, z0],
+                [x1, y0, z0],
+                bot_col,
+                [x1, z0],
+                [x1, y0, z1],
+                bot_col,
+                [x1, z1],
+                [x0, y0, z1],
+                bot_col,
+                [x0, z1],
+            );
+        }
     }
     batches.wall_batch = BatchRange {
         start: wall_start,

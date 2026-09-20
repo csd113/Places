@@ -1,22 +1,34 @@
 use glam::Vec2;
 
 pub const PLAYER_RADIUS: f32 = 0.30;
+pub const PLAYER_HEIGHT: f32 = 1.8;
 
-/// Axis-aligned horizontal wall bounding box in the XZ plane.
+/// Axis-aligned horizontal wall bounding box in 3D space.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct WallAabb {
     pub min_x: f32,
     pub max_x: f32,
+    pub min_y: f32,
+    pub max_y: f32,
     pub min_z: f32,
     pub max_z: f32,
 }
 
 impl WallAabb {
     pub fn new(x: f32, z: f32, width: f32, depth: f32) -> Self {
+        Self::with_y(x, 0.0, z, width, 3.5, depth)
+    }
+
+    pub fn with_y(x: f32, y: f32, z: f32, width: f32, height: f32, depth: f32) -> Self {
         let (min_x, max_x) = if width >= 0.0 {
             (x, x + width)
         } else {
             (x + width, x)
+        };
+        let (min_y, max_y) = if height >= 0.0 {
+            (y, y + height)
+        } else {
+            (y + height, y)
         };
         let (min_z, max_z) = if depth >= 0.0 {
             (z, z + depth)
@@ -26,13 +38,23 @@ impl WallAabb {
         Self {
             min_x,
             max_x,
+            min_y,
+            max_y,
             min_z,
             max_z,
         }
     }
 
+    /// Checks if this wall intersects the player vertically.
+    pub fn intersects_player_y(&self) -> bool {
+        self.max_y > 0.0 && self.min_y < PLAYER_HEIGHT
+    }
+
     /// Checks if a 2D circle intersects this wall AABB.
     pub fn intersects_circle(&self, center: Vec2, radius: f32) -> bool {
+        if !self.intersects_player_y() {
+            return false;
+        }
         let closest_x = center.x.clamp(self.min_x, self.max_x);
         let closest_z = center.y.clamp(self.min_z, self.max_z);
         let diff_x = center.x - closest_x;
@@ -47,6 +69,9 @@ pub fn resolve_player_collision(mut pos: Vec2, radius: f32, walls: &[WallAabb]) 
     for _ in 0..4 {
         let mut collided = false;
         for wall in walls {
+            if !wall.intersects_player_y() {
+                continue;
+            }
             let closest_x = pos.x.clamp(wall.min_x, wall.max_x);
             let closest_z = pos.y.clamp(wall.min_z, wall.max_z);
             let diff = pos - Vec2::new(closest_x, closest_z);
@@ -144,5 +169,23 @@ mod tests {
         // Should be constrained on both axes: x <= 5.0 - radius (4.70), z >= -10.0 + radius (-9.70)
         assert!((resolved.x - (5.0 - PLAYER_RADIUS)).abs() < 1e-3);
         assert!((resolved.y - (-10.0 + PLAYER_RADIUS)).abs() < 1e-3);
+    }
+
+    #[test]
+    fn test_variable_height_wall_collision() {
+        // Raised wall segment from y: 2.0 to 3.5 (player can walk under)
+        let raised_wall = WallAabb::with_y(0.0, 2.0, 0.0, 5.0, 1.5, 0.4);
+        assert!(!raised_wall.intersects_player_y());
+        let walls = vec![raised_wall];
+        let candidate = Vec2::new(2.5, 0.2);
+        let resolved = resolve_player_collision(candidate, PLAYER_RADIUS, &walls);
+        assert_eq!(resolved, candidate);
+
+        // Half-height wall from y: 0.0 to 1.0 (blocks player)
+        let half_wall = WallAabb::with_y(0.0, 0.0, 0.0, 5.0, 1.0, 0.4);
+        assert!(half_wall.intersects_player_y());
+        let walls = vec![half_wall];
+        let resolved = resolve_player_collision(candidate, PLAYER_RADIUS, &walls);
+        assert_ne!(resolved, candidate);
     }
 }
