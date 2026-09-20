@@ -43,6 +43,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             game.stop();
         }
 
+        // Update basic first-person movement from WASD input
+        game.update_player_movement(input_handler.state());
+
         // Render simple blank background/scene
         renderer.render_blank_scene(WINDOW_WIDTH, WINDOW_HEIGHT);
 
