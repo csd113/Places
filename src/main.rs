@@ -273,7 +273,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         // Render UI overlay on top if in a menu or pause state, plus performance overlay if visible
-        let mut ui_vertices = build_ui_geometry(game.app_state(), &ui_state, &settings, APP_VERSION);
+        let mut ui_vertices =
+            build_ui_geometry(game.app_state(), &ui_state, &settings, APP_VERSION);
         if perf_overlay.is_visible() {
             ui_vertices.extend_from_slice(perf_overlay.cached_vertices());
         }

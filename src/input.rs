@@ -194,7 +194,7 @@ mod tests {
         let mut handler = InputHandler::new();
         let bindings = KeyBindings::default();
 
-        // Press W (forward) and K (look left) and Q (look up) simultaneously
+        // Press W (forward) and K (look left) and O (look up) simultaneously
         handler.handle_gameplay_event(
             &Event::KeyDown {
                 timestamp: 0,
@@ -221,7 +221,7 @@ mod tests {
             &Event::KeyDown {
                 timestamp: 0,
                 window_id: 0,
-                keycode: Some(Keycode::Q),
+                keycode: Some(Keycode::O),
                 scancode: None,
                 keymod: sdl2::keyboard::Mod::NOMOD,
                 repeat: false,
@@ -308,5 +308,52 @@ mod tests {
             InputHandler::poll_menu_nav_event(&esc_event),
             Some(MenuNavEvent::Back)
         );
+    }
+
+    #[test]
+    fn test_toggle_overlay_event() {
+        let mut handler = InputHandler::new();
+        let bindings = KeyBindings::default();
+
+        assert!(!handler.state().toggle_overlay);
+
+        handler.handle_gameplay_event(
+            &Event::KeyDown {
+                timestamp: 0,
+                window_id: 0,
+                keycode: Some(Keycode::Minus),
+                scancode: None,
+                keymod: sdl2::keyboard::Mod::NOMOD,
+                repeat: false,
+            },
+            &bindings,
+        );
+        assert!(handler.state().toggle_overlay);
+
+        handler.handle_gameplay_event(
+            &Event::KeyDown {
+                timestamp: 0,
+                window_id: 0,
+                keycode: Some(Keycode::Minus),
+                scancode: None,
+                keymod: sdl2::keyboard::Mod::NOMOD,
+                repeat: false,
+            },
+            &bindings,
+        );
+        assert!(!handler.state().toggle_overlay);
+
+        handler.handle_gameplay_event(
+            &Event::KeyDown {
+                timestamp: 0,
+                window_id: 0,
+                keycode: Some(Keycode::KpMinus),
+                scancode: None,
+                keymod: sdl2::keyboard::Mod::NOMOD,
+                repeat: false,
+            },
+            &bindings,
+        );
+        assert!(handler.state().toggle_overlay);
     }
 }

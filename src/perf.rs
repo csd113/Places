@@ -124,7 +124,7 @@ fn sample_macos_cpu() -> Option<CpuSample> {
     struct HostCpuLoadInfo {
         cpu_ticks: [u32; 4],
     }
-    extern "C" {
+    unsafe extern "C" {
         fn mach_host_self() -> u32;
         fn host_statistics64(
             host_priv: u32,
@@ -575,10 +575,16 @@ intr 114930548 10 11 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
         assert!(!overlay.is_visible(), "Overlay must be hidden by default");
 
         overlay.toggle();
-        assert!(overlay.is_visible(), "Overlay must become visible on toggle");
+        assert!(
+            overlay.is_visible(),
+            "Overlay must become visible on toggle"
+        );
 
         overlay.toggle();
-        assert!(!overlay.is_visible(), "Overlay must become hidden on toggle");
+        assert!(
+            !overlay.is_visible(),
+            "Overlay must become hidden on toggle"
+        );
     }
 
     #[test]
@@ -595,10 +601,7 @@ intr 114930548 10 11 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
         overlay.refresh_metrics();
 
         let text = overlay.cached_text();
-        assert!(
-            text.starts_with("CPU "),
-            "Text must begin with CPU: {text}"
-        );
+        assert!(text.starts_with("CPU "), "Text must begin with CPU: {text}");
         assert!(text.contains("GPU "), "Text must contain GPU: {text}");
         assert!(text.contains("FPS "), "Text must contain FPS: {text}");
 

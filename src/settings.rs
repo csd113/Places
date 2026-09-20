@@ -24,7 +24,7 @@ impl Default for KeyBindings {
             backward: "Z".to_string(),
             strafe_left: "A".to_string(),
             strafe_right: "S".to_string(),
-            look_up: "Q".to_string(),
+            look_up: "O".to_string(),
             look_down: ".".to_string(),
             look_left: "K".to_string(),
             look_right: "L".to_string(),
@@ -205,7 +205,7 @@ mod tests {
         assert_eq!(bindings.backward, "Z");
         assert_eq!(bindings.strafe_left, "A");
         assert_eq!(bindings.strafe_right, "S");
-        assert_eq!(bindings.look_up, "Q");
+        assert_eq!(bindings.look_up, "O");
         assert_eq!(bindings.look_down, ".");
         assert_eq!(bindings.look_left, "K");
         assert_eq!(bindings.look_right, "L");

@@ -133,7 +133,7 @@ Movement:
 - Z = move backward
 
 Looking:
-- Q = look up
+- O = look up
 - K = look left
 - L = look right
 - . = look down
@@ -1059,7 +1059,7 @@ edges. Double buffering and actual synchronized presentation are requirements.
 - A left
 - S right
 - Z backward
-- Q look up
+- O look up
 - K look left
 - L look right
 - . look down
