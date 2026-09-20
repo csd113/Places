@@ -1,0 +1,23 @@
+[package]
+name = "liminal-rust"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+description = "PocketCHIP first-person liminal walking game"
+license = "MIT"
+repository = "https://github.com/csd113/Vitrallis-Apps"
+publish = false
+
+[dependencies]
+glam = "0.29"
+glow = "0.16"
+sdl2 = { version = "0.38", features = ["use-pkgconfig"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
