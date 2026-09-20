@@ -11,10 +11,10 @@ const VERTEX_SHADER_SRC: &str = r#"
 precision mediump float;
 #endif
 attribute vec3 a_pos;
-attribute vec3 a_color;
+attribute vec4 a_color;
 attribute vec2 a_uv;
 uniform mat4 u_mvp;
-varying vec3 v_color;
+varying vec4 v_color;
 varying vec2 v_uv;
 
 void main() {
@@ -29,12 +29,12 @@ const FRAGMENT_SHADER_SRC: &str = r#"
 precision mediump float;
 #endif
 uniform sampler2D u_texture;
-varying vec3 v_color;
+varying vec4 v_color;
 varying vec2 v_uv;
 
 void main() {
     vec4 tex_color = texture2D(u_texture, v_uv);
-    gl_FragColor = tex_color * vec4(v_color, 1.0);
+    gl_FragColor = tex_color * v_color;
 }
 "#;
 
@@ -42,7 +42,7 @@ void main() {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vertex {
     pub pos: [f32; 3],
-    pub color: [f32; 3],
+    pub color: [f32; 4],
     pub uv: [f32; 2],
 }
 
@@ -80,34 +80,38 @@ fn add_quad(
     c3: [f32; 3],
     uv3: [f32; 2],
 ) {
+    let col0 = [c0[0], c0[1], c0[2], 1.0];
+    let col1 = [c1[0], c1[1], c1[2], 1.0];
+    let col2 = [c2[0], c2[1], c2[2], 1.0];
+    let col3 = [c3[0], c3[1], c3[2], 1.0];
     vertices.push(Vertex {
         pos: p0,
-        color: c0,
+        color: col0,
         uv: uv0,
     });
     vertices.push(Vertex {
         pos: p1,
-        color: c1,
+        color: col1,
         uv: uv1,
     });
     vertices.push(Vertex {
         pos: p2,
-        color: c2,
+        color: col2,
         uv: uv2,
     });
     vertices.push(Vertex {
         pos: p0,
-        color: c0,
+        color: col0,
         uv: uv0,
     });
     vertices.push(Vertex {
         pos: p2,
-        color: c2,
+        color: col2,
         uv: uv2,
     });
     vertices.push(Vertex {
         pos: p3,
-        color: c3,
+        color: col3,
         uv: uv3,
     });
 }
@@ -852,7 +856,7 @@ impl Renderer {
             self.gl.enable_vertex_attrib_array(self.a_color_loc);
             self.gl.vertex_attrib_pointer_f32(
                 self.a_color_loc,
-                3,
+                4,
                 glow::FLOAT,
                 false,
                 std::mem::size_of::<Vertex>() as i32,
@@ -866,7 +870,7 @@ impl Renderer {
                 glow::FLOAT,
                 false,
                 std::mem::size_of::<Vertex>() as i32,
-                24,
+                28,
             );
 
             // 1. Draw floor with repeating carpet texture
@@ -972,7 +976,7 @@ impl Renderer {
             self.gl.enable_vertex_attrib_array(self.a_color_loc);
             self.gl.vertex_attrib_pointer_f32(
                 self.a_color_loc,
-                3,
+                4,
                 glow::FLOAT,
                 false,
                 std::mem::size_of::<Vertex>() as i32,
@@ -986,7 +990,7 @@ impl Renderer {
                 glow::FLOAT,
                 false,
                 std::mem::size_of::<Vertex>() as i32,
-                24,
+                28,
             );
 
             self.gl

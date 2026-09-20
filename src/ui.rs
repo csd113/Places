@@ -46,7 +46,7 @@ fn add_ui_quad(
     y0: f32,
     x1: f32,
     y1: f32,
-    color: [f32; 3],
+    color: [f32; 4],
     uv: [f32; 4],
 ) {
     let u0 = uv[0];
@@ -91,8 +91,19 @@ fn add_ui_quad(
     });
 }
 
-pub fn add_rect(vertices: &mut Vec<Vertex>, x0: f32, y0: f32, x1: f32, y1: f32, color: [f32; 3]) {
+pub fn add_rect_rgba(
+    vertices: &mut Vec<Vertex>,
+    x0: f32,
+    y0: f32,
+    x1: f32,
+    y1: f32,
+    color: [f32; 4],
+) {
     add_ui_quad(vertices, x0, y0, x1, y1, color, get_white_uv());
+}
+
+pub fn add_rect(vertices: &mut Vec<Vertex>, x0: f32, y0: f32, x1: f32, y1: f32, color: [f32; 3]) {
+    add_rect_rgba(vertices, x0, y0, x1, y1, [color[0], color[1], color[2], 1.0]);
 }
 
 pub fn draw_text(
@@ -109,7 +120,15 @@ pub fn draw_text(
     for ch in text.chars() {
         if let Some(uv) = get_char_uv(ch) {
             if ch != ' ' {
-                add_ui_quad(vertices, x, y, x + char_w, y + char_h, color, uv);
+                add_ui_quad(
+                    vertices,
+                    x,
+                    y,
+                    x + char_w,
+                    y + char_h,
+                    [color[0], color[1], color[2], 1.0],
+                    uv,
+                );
             }
         }
         x += char_w;
@@ -130,9 +149,15 @@ pub fn build_ui_geometry(
             // No full-screen menu; optional version or overlay if needed
         }
         AppState::MainMenu => {
-            // Dark scrim background panel
-            add_rect(&mut vertices, 20.0, 20.0, 460.0, 252.0, [0.08, 0.08, 0.07]);
-            add_rect(&mut vertices, 22.0, 22.0, 458.0, 250.0, [0.12, 0.11, 0.10]);
+            // Partially transparent dark scrim background panel (70% opacity)
+            let opacity = 0.70;
+            // Border outline strips (non-overlapping with inner panel)
+            add_rect_rgba(&mut vertices, 20.0, 20.0, 460.0, 22.0, [0.08, 0.08, 0.07, opacity]);
+            add_rect_rgba(&mut vertices, 20.0, 250.0, 460.0, 252.0, [0.08, 0.08, 0.07, opacity]);
+            add_rect_rgba(&mut vertices, 20.0, 22.0, 22.0, 250.0, [0.08, 0.08, 0.07, opacity]);
+            add_rect_rgba(&mut vertices, 458.0, 22.0, 460.0, 250.0, [0.08, 0.08, 0.07, opacity]);
+            // Inner panel
+            add_rect_rgba(&mut vertices, 22.0, 22.0, 458.0, 250.0, [0.12, 0.11, 0.10, opacity]);
 
             // Title
             draw_text(
