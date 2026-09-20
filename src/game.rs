@@ -5,6 +5,7 @@ use glam::Vec3;
 use crate::input::InputState;
 
 const WALK_SPEED: f32 = 1.4;
+const TURN_SPEED: f32 = 1.5707963; // ~90 degrees/sec in radians
 
 /// Manages game loop timing and foundational lifecycle state.
 pub struct Game {
@@ -58,8 +59,15 @@ impl Game {
         self.frame_count
     }
 
-    /// Updates first-person WASD movement without physics or collision.
+    /// Updates first-person WASD movement and Q/E camera turning.
     pub fn update_player_movement(&mut self, input: &InputState) {
+        if input.look_left {
+            self.player_yaw -= TURN_SPEED * self.delta_seconds;
+        }
+        if input.look_right {
+            self.player_yaw += TURN_SPEED * self.delta_seconds;
+        }
+
         let forward = Vec3::new(self.player_yaw.sin(), 0.0, -self.player_yaw.cos());
         let right = Vec3::new(self.player_yaw.cos(), 0.0, self.player_yaw.sin());
 
