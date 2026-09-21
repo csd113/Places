@@ -298,12 +298,24 @@ impl Frustum {
             // The box's furthest corner along the plane normal: if even that is
             // behind the plane, every corner is.
             let furthest = [
-                if plane[0] >= 0.0 { bounds.max[0] } else { bounds.min[0] },
-                if plane[1] >= 0.0 { bounds.max[1] } else { bounds.min[1] },
-                if plane[2] >= 0.0 { bounds.max[2] } else { bounds.min[2] },
+                if plane[0] >= 0.0 {
+                    bounds.max[0]
+                } else {
+                    bounds.min[0]
+                },
+                if plane[1] >= 0.0 {
+                    bounds.max[1]
+                } else {
+                    bounds.min[1]
+                },
+                if plane[2] >= 0.0 {
+                    bounds.max[2]
+                } else {
+                    bounds.min[2]
+                },
             ];
-            let distance = plane[0] * furthest[0] + plane[1] * furthest[1] + plane[2] * furthest[2]
-                + plane[3];
+            let distance =
+                plane[0] * furthest[0] + plane[1] * furthest[1] + plane[2] * furthest[2] + plane[3];
             if distance < 0.0 {
                 return false;
             }
@@ -484,11 +496,19 @@ fn index_run(run: &[crate::render::Vertex]) -> Vec<IndexedRange> {
         // with two repeated. Indexing keeps p0..p3 and re-derives the repeat,
         // which is where the six-to-four saving comes from. A short trailing run
         // is treated as a single triangle rather than being discarded.
-        let corner_count = if quad.len() >= QUAD { 4 } else { quad.len().min(3) };
+        let corner_count = if quad.len() >= QUAD {
+            4
+        } else {
+            quad.len().min(3)
+        };
         let mut corners = [0u16; 4];
         for (slot, corner) in corners.iter_mut().enumerate().take(corner_count) {
             // Slot 3 lives at run position 5 in a full quad.
-            let source = if corner_count == 4 && slot == 3 { 5 } else { slot };
+            let source = if corner_count == 4 && slot == 3 {
+                5
+            } else {
+                slot
+            };
             let vertex = &quad[source];
             let key = vertex_key(vertex);
             *corner = match seen.get(&key) {
@@ -759,9 +779,9 @@ mod tests {
         let drained = buckets.drain_sorted();
         assert_eq!(drained.len(), 2);
         // Sorted by cell key: (0,0) before (1,0).
-        assert_eq!(drained[0].0 .1, CellKey { x: 0, z: 0 });
+        assert_eq!(drained[0].0.1, CellKey { x: 0, z: 0 });
         assert_eq!(drained[0].1.len(), 12, "two quads in the origin cell");
-        assert_eq!(drained[1].0 .1, CellKey { x: 1, z: 0 });
+        assert_eq!(drained[1].0.1, CellKey { x: 1, z: 0 });
         assert_eq!(drained[1].1.len(), 6, "one quad in the neighbouring cell");
 
         let total: usize = drained.iter().map(|(_, vertices)| vertices.len()).sum();
@@ -817,7 +837,11 @@ mod tests {
         // stay separate.
         type Corner = ([f32; 3], [f32; 2]);
 
-        fn emit(corners: &[Corner; 4], adjust: &dyn Fn(Corner) -> Corner, out: &mut Vec<crate::render::Vertex>) {
+        fn emit(
+            corners: &[Corner; 4],
+            adjust: &dyn Fn(Corner) -> Corner,
+            out: &mut Vec<crate::render::Vertex>,
+        ) {
             // Written the way the emitters write a quad: (p0,p1,p2, p0,p2,p3).
             for slot in [0usize, 1, 2, 0, 2, 3] {
                 let (pos, uv) = adjust(corners[slot]);
@@ -904,7 +928,11 @@ mod tests {
         push(0.8, true, &mut run);
         push(0.8, false, &mut run);
         let same = index_run(&run);
-        assert_eq!(same[0].vertices.len(), 6, "identical lighting shares corners");
+        assert_eq!(
+            same[0].vertices.len(),
+            6,
+            "identical lighting shares corners"
+        );
 
         let mut mixed = Vec::new();
         push(0.8, true, &mut mixed);
@@ -1011,7 +1039,10 @@ mod tests {
         assert_eq!(corridor.z, SPATIAL_CELL_MIN_METRES);
 
         // Degenerate extents are treated as small.
-        assert_eq!(CellGrid::for_extent(0.0, f32::NAN).x, SPATIAL_CELL_MIN_METRES);
+        assert_eq!(
+            CellGrid::for_extent(0.0, f32::NAN).x,
+            SPATIAL_CELL_MIN_METRES
+        );
     }
 
     #[test]
@@ -1080,7 +1111,10 @@ mod tests {
         let b = reverse.drain_indexed();
         let keys_a: Vec<CellKey> = a.iter().map(|((_, cell), _)| *cell).collect();
         let keys_b: Vec<CellKey> = b.iter().map(|((_, cell), _)| *cell).collect();
-        assert_eq!(keys_a, keys_b, "cell order must be sorted, not insertion order");
+        assert_eq!(
+            keys_a, keys_b,
+            "cell order must be sorted, not insertion order"
+        );
         assert_eq!(
             keys_a,
             vec![

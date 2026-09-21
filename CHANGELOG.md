@@ -30,6 +30,8 @@ expects.
 
 ### Changed
 
+- Include the project license and third-party license texts in the installed package, and normalize Rust source formatting for release validation.
+
 - Resolve the package root from the installed executable
   (`bin/<target-triple>/app`), so levels, props, imported level packs and
   `settings.json` are found when App Center launches the app from its own

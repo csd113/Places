@@ -16,8 +16,8 @@ pub mod loader;
 pub mod perf;
 pub mod props;
 pub mod render;
-pub mod spatial;
 pub mod settings;
+pub mod spatial;
 pub mod ui;
 
 use glam::Vec3;

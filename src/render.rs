@@ -2486,7 +2486,6 @@ impl MeshPacker {
     fn index_total(&self) -> usize {
         self.chunks.iter().map(|chunk| chunk.indices.len()).sum()
     }
-
 }
 
 /// Instanced prop geometry for one distinct prop model in a level.
@@ -2547,8 +2546,7 @@ pub fn build_level_geometry_with_assets_and_lighting(
     catalog: &crate::loader::PropCatalog,
     assets: &mut crate::props::PropAssets,
 ) -> (LevelMesh, Vec<PropMeshBatch>, LevelLighting) {
-    let (mesh, batches, lighting, _) =
-        build_level_geometry_timed(level, catalog, assets);
+    let (mesh, batches, lighting, _) = build_level_geometry_timed(level, catalog, assets);
     (mesh, batches, lighting)
 }
 
@@ -2666,9 +2664,13 @@ fn resolve_prop_instances<'a>(
         // happens to be centred in: a chair on a cell boundary must not be
         // culled while a sliver of it is still on screen.
         let instance_bounds = match asset.model.bounds() {
-            Some((low, high)) => {
-                transform_bounds(&crate::spatial::Aabb { min: low, max: high }, &model)
-            }
+            Some((low, high)) => transform_bounds(
+                &crate::spatial::Aabb {
+                    min: low,
+                    max: high,
+                },
+                &model,
+            ),
             None => crate::spatial::Aabb::from_point([prop.x, prop.y, prop.z]),
         };
         let cell = grid.cell_of(instance_bounds.centre());
@@ -2705,8 +2707,11 @@ fn resolve_prop_instances<'a>(
         // lit exactly once per placement.
         let base = batch.vertices.len();
         for vertex in &asset.model.vertices {
-            let position =
-                model.transform_point3(glam::Vec3::new(vertex.pos[0], vertex.pos[1], vertex.pos[2]));
+            let position = model.transform_point3(glam::Vec3::new(
+                vertex.pos[0],
+                vertex.pos[1],
+                vertex.pos[2],
+            ));
             // Bake the environment into the instance's colour: the same model in
             // a dark corner and under a fixture still shares one batch, but is
             // no longer uniformly lit.
@@ -3359,11 +3364,8 @@ impl Renderer {
     /// rest of the session.
     pub fn rebuild_level_geometry(&mut self, level: &crate::level::LevelDef) {
         let started = std::time::Instant::now();
-        let (mesh, batches, lighting, timings) = build_level_geometry_timed(
-            level,
-            &self.prop_catalog,
-            &mut self.prop_assets,
-        );
+        let (mesh, batches, lighting, timings) =
+            build_level_geometry_timed(level, &self.prop_catalog, &mut self.prop_assets);
         self.spatial_grid = spatial_cell_grid(level);
 
         // Pack the static ranges into 16-bit-indexable buffer pairs. Each range
@@ -3838,11 +3840,7 @@ impl Renderer {
     fn set_vertex_attributes(&self) {
         let stride = self.vertex_layout.stride();
         let (color_type, color_normalized, color_offset) = match self.vertex_layout {
-            VertexLayout::Packed => (
-                glow::UNSIGNED_BYTE,
-                true,
-                packed_layout::COLOR_OFFSET,
-            ),
+            VertexLayout::Packed => (glow::UNSIGNED_BYTE, true, packed_layout::COLOR_OFFSET),
             VertexLayout::Exact => (glow::FLOAT, false, 12),
         };
         let uv_offset = match self.vertex_layout {
@@ -3863,8 +3861,14 @@ impl Renderer {
                 color_offset,
             );
             self.gl.enable_vertex_attrib_array(self.a_uv_loc);
-            self.gl
-                .vertex_attrib_pointer_f32(self.a_uv_loc, 2, glow::FLOAT, false, stride, uv_offset);
+            self.gl.vertex_attrib_pointer_f32(
+                self.a_uv_loc,
+                2,
+                glow::FLOAT,
+                false,
+                stride,
+                uv_offset,
+            );
         }
     }
 
@@ -3881,8 +3885,7 @@ impl Renderer {
         unsafe {
             self.gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
             self.set_vertex_attributes();
-            self.gl
-                .bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ibo));
+            self.gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ibo));
         }
         true
     }
@@ -4017,7 +4020,10 @@ mod tests {
             std::mem::offset_of!(PackedVertex, uv),
             packed_layout::UV_OFFSET as usize
         );
-        assert_eq!(packed_layout::UV_OFFSET as usize + 2 * 4, packed_layout::STRIDE as usize);
+        assert_eq!(
+            packed_layout::UV_OFFSET as usize + 2 * 4,
+            packed_layout::STRIDE as usize
+        );
         assert_eq!(
             packed_layout::COLOR_OFFSET as usize + 4,
             packed_layout::UV_OFFSET as usize,
@@ -4061,8 +4067,7 @@ mod tests {
         let mut worst = 0.0f32;
         for step in 0..=1000 {
             let value = crate::lighting::MIN_AMBIENT
-                + (crate::lighting::MAX_BRIGHTNESS - crate::lighting::MIN_AMBIENT)
-                    * step as f32
+                + (crate::lighting::MAX_BRIGHTNESS - crate::lighting::MIN_AMBIENT) * step as f32
                     / 1000.0;
             worst = worst.max(packed_channel_error(value));
         }
@@ -4100,7 +4105,11 @@ mod tests {
             color: [f32::NAN; 4],
             uv: [0.0, 0.0],
         });
-        assert_eq!(nan.color, [0, 0, 0, 0], "NaN must not become a bright value");
+        assert_eq!(
+            nan.color,
+            [0, 0, 0, 0],
+            "NaN must not become a bright value"
+        );
     }
 
     #[test]
@@ -4262,7 +4271,10 @@ mod tests {
         let mesh = build_level_geometry(&level);
         assert!(mesh.vertex_count != 0);
         assert_eq!(mesh.index_count % 6, 0, "geometry is whole quads");
-        assert!(mesh.vertex_count < mesh.index_count, "indexing must share corners");
+        assert!(
+            mesh.vertex_count < mesh.index_count,
+            "indexing must share corners"
+        );
         assert!(mesh.batches.floor_batch.count > 0);
         assert!(mesh.batches.ceiling_batch.count > 0);
         assert!(mesh.batches.wall_batch.count > 0);
@@ -4512,7 +4524,10 @@ mod tests {
         let mesh = build_level_geometry(&level);
         assert!(mesh.vertex_count != 0);
         assert_eq!(mesh.index_count % 6, 0, "geometry is whole quads");
-        assert!(mesh.vertex_count < mesh.index_count, "indexing must share corners");
+        assert!(
+            mesh.vertex_count < mesh.index_count,
+            "indexing must share corners"
+        );
         assert!(mesh.batches.floor_batch.count > 0);
         assert!(mesh.batches.ceiling_batch.count > 0);
         assert!(mesh.batches.wall_batch.count > 0);
@@ -4739,7 +4754,10 @@ mod tests {
             "{floor_quads} floor quads exceed the {}-quad estimate",
             estimate.floor_quads
         );
-        assert!(damaged_variants_used(&level).1, "the patch needs damp carpet");
+        assert!(
+            damaged_variants_used(&level).1,
+            "the patch needs damp carpet"
+        );
     }
 
     #[test]
@@ -4859,7 +4877,10 @@ mod tests {
 
         let mut total_indices = 0usize;
         for range in &mesh.ranges {
-            assert!(!range.indices.is_empty(), "empty ranges must not be emitted");
+            assert!(
+                !range.indices.is_empty(),
+                "empty ranges must not be emitted"
+            );
             assert_eq!(range.indices.len() % 6, 0, "ranges are whole quads");
             assert!(
                 range.vertices.len() <= crate::spatial::MAX_INDEX_VERTICES,
@@ -5047,11 +5068,7 @@ mod tests {
 
         let far_visible = visible_static_vertices(&mesh, &toward_far);
         let near_visible = visible_static_vertices(&mesh, &toward_near);
-        let total: usize = mesh
-            .ranges
-            .iter()
-            .map(|batch| batch.vertices.len())
-            .sum();
+        let total: usize = mesh.ranges.iter().map(|batch| batch.vertices.len()).sum();
 
         assert!(
             far_visible < total,
@@ -5093,9 +5110,10 @@ mod tests {
             } else {
                 SurfaceKind::Ceiling
             };
-            let saw_expected = mesh.ranges.iter().any(|batch| {
-                batch.kind == expected && frustum.intersects_aabb(&batch.bounds)
-            });
+            let saw_expected = mesh
+                .ranges
+                .iter()
+                .any(|batch| batch.kind == expected && frustum.intersects_aabb(&batch.bounds));
             assert!(
                 saw_expected,
                 "pitch {pitch} must still see the {expected:?}"
@@ -5238,7 +5256,10 @@ mod tests {
             .iter()
             .filter(|range| range.kind == SurfaceKind::PropFallback)
             .collect::<Vec<_>>();
-        assert!(!props.is_empty(), "both crates must emit placeholder geometry");
+        assert!(
+            !props.is_empty(),
+            "both crates must emit placeholder geometry"
+        );
         assert!(
             props.iter().any(|range| range.bounds.min[1] < -0.2),
             "the sunk crate must keep its negative extent: {:?}",
@@ -5264,7 +5285,11 @@ mod tests {
         assert_eq!(first.ranges, second.ranges);
         assert_eq!(first.batches, second.batches);
         assert_eq!(first.vertex_count, second.vertex_count);
-        for (a, b) in first.all_vertices().iter().zip(second.all_vertices().iter()) {
+        for (a, b) in first
+            .all_vertices()
+            .iter()
+            .zip(second.all_vertices().iter())
+        {
             assert_eq!(a.pos, b.pos);
             assert_eq!(a.color, b.color);
             assert_eq!(a.uv, b.uv);
@@ -5331,7 +5356,10 @@ mod tests {
             }
         }
         // Mirror symmetry: the batches sit either side of the origin.
-        let centres: Vec<f32> = batches.iter().map(|batch| batch.bounds.centre()[0]).collect();
+        let centres: Vec<f32> = batches
+            .iter()
+            .map(|batch| batch.bounds.centre()[0])
+            .collect();
         assert!(
             centres.iter().any(|x| *x < -15.0) && centres.iter().any(|x| *x > 15.0),
             "both clusters must be represented: {centres:?}"
@@ -5432,7 +5460,8 @@ mod tests {
     }
 
     #[test]
-    fn placeholder_prop_boxes_receive_the_environment_lighting() {        let level = lit_room_level(
+    fn placeholder_prop_boxes_receive_the_environment_lighting() {
+        let level = lit_room_level(
             20.0,
             20.0,
             3.0,
@@ -6180,5 +6209,3 @@ mod tests {
         assert_eq!(assets.stats().models_failed, 1);
     }
 }
-
-

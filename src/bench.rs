@@ -358,7 +358,11 @@ impl Bench {
                 + millis(t_render.saturating_duration_since(t_update)),
             swap_ms: millis(t_swap.saturating_duration_since(t_ui)),
             frame_ms,
-            loop_ms: if self.recorded == 0 { frame_ms } else { loop_ms },
+            loop_ms: if self.recorded == 0 {
+                frame_ms
+            } else {
+                loop_ms
+            },
         };
         self.recorded += 1;
 

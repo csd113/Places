@@ -515,9 +515,21 @@ fn lighting_benchmark_report() {
     add("H Worst reasonable", bench_worst_reasonable(), &mut assets);
     // The three authored residential levels ship with the game, so their
     // geometry, prop and lighting cost is measured on every test run.
-    add("I The Residence", shipped_level("the_residence"), &mut assets);
-    add("J Quiet Apartments", shipped_level("quiet_apartments"), &mut assets);
-    add("K After the Leak", shipped_level("after_the_leak"), &mut assets);
+    add(
+        "I The Residence",
+        shipped_level("the_residence"),
+        &mut assets,
+    );
+    add(
+        "J Quiet Apartments",
+        shipped_level("quiet_apartments"),
+        &mut assets,
+    );
+    add(
+        "K After the Leak",
+        shipped_level("after_the_leak"),
+        &mut assets,
+    );
 
     println!();
     println!(
@@ -910,11 +922,14 @@ fn group_r_repeated_builds_are_bit_identical() {
         let first = build_level_geometry(level);
         let second = build_level_geometry(level);
         assert_eq!(
-            first.vertex_count,
-            second.vertex_count,
+            first.vertex_count, second.vertex_count,
             "level {index}: vertex count drifted"
         );
-        for (a, b) in first.all_vertices().iter().zip(second.all_vertices().iter()) {
+        for (a, b) in first
+            .all_vertices()
+            .iter()
+            .zip(second.all_vertices().iter())
+        {
             assert_eq!(a.pos, b.pos, "level {index}: position drifted");
             assert_eq!(a.color, b.color, "level {index}: colour drifted");
             assert_eq!(a.uv, b.uv, "level {index}: uv drifted");
@@ -1062,8 +1077,7 @@ fn deterministic_fuzz_levels_bake_and_build_within_budget() {
         }
         assert!(mesh.vertex_count as u64 <= level.estimate_geometry().total_vertices);
         assert!(
-            mesh.vertex_count as u64
-                + batches.iter().map(|b| b.vertices.len() as u64).sum::<u64>()
+            mesh.vertex_count as u64 + batches.iter().map(|b| b.vertices.len() as u64).sum::<u64>()
                 <= MAX_LEVEL_VERTICES + MAX_LEVEL_PROP_VERTICES as u64
         );
 
