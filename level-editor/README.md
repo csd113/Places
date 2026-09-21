@@ -33,7 +33,7 @@ python3 -m http.server 8765      # then open http://127.0.0.1:8765/level-editor/
 | Wall | `W` | Drag horizontally or vertically; thickness and height come from the tool bar. |
 | Door | `D` | Click a wall for a standard doorway, or drag along the wall to set its width. |
 | Window | `N` | Same as doors, with a sill height. |
-| Light | `L` | Ceiling light; brightness and fixture in the tool bar. |
+| Light | `L` | Ceiling light; brightness (intensity) and fixture in the tool bar. |
 | Prop | `P` | Opens the prop browser: search, filter by category, click, then click in a view. |
 | Spawn | `M` | The player start; drag to fine-tune, `Q`/`E` to rotate. |
 | Floor patch | `T` | Advanced only: damp carpet / stain patches. |
@@ -62,6 +62,7 @@ not the game renderer — Play/Test is how you see the real thing.
 ```
 index.html          markup only
 css/editor.css      one dark workspace theme
+js/lighting.js      static baked-lighting mirror for the 3D preview (mirrors src/lighting.rs)
 js/geometry.js      pure geometry: wall openings, collision boxes, 3D mesh spec, picking
 js/model.js         level data model + validation (mirrors src/level.rs)
 js/ops.js           every editing operation, DOM-free (create/move/resize/delete/...)
@@ -113,6 +114,36 @@ segments. A wall owns its openings:
 
 Old levels that build doorways from separate sill/header walls still load and
 still work; the editor keeps editing them as plain walls.
+
+## Ceiling lights
+
+```json
+{ "fixture": "core:fluorescent_panel_01", "x": 8.0, "z": 5.0, "rotation_degrees": 0, "brightness": 1.0 }
+```
+
+* `brightness` is the fixture's **intensity** (output). Omitted means `1.0`, the
+  standard panel, so every existing level behaves exactly as before. `0.5` is a
+  weak fixture, `0.8` a lower-output one, `1.4` a strong one, `2.0` a high-output
+  one; values above `8` still load but are clamped by the game.
+* `intensity` is accepted as a **spelling alias** when importing (the game's
+  loader reads both) and is normalised to `brightness` on export. Generated
+  development levels use `intensity`; both produce identical levels.
+* The game bakes the value into the room's baseline brightness and into the pool
+  of light under the panel at level load (`src/lighting.rs`). The editor's
+  inspector shows and edits it, and validates it exactly like the game loader:
+  non-finite or negative values are errors, values above the clamp are warnings.
+
+### Lighting in the 3D preview
+
+The preview applies an *approximation* of the game's static lighting to its mesh,
+using the same tuned constants (`js/lighting.js` mirrors `src/lighting.rs`):
+room baselines from floor area, fixture count/intensity and ceiling height; broad
+local pools under fixtures; and bounded blending through doorways.
+
+It is a preview, not a second renderer. The editor's floors and ceilings are
+single quads, so a room reads at its baseline brightness and only walls and props
+carry per-vertex pool variation; there are no baked light maps. Use `▶ Play/Test`
+to see the real thing.
 
 ## Props
 
@@ -194,6 +225,9 @@ node --test 'tests/*.test.mjs'
 * `props.test.mjs` — catalogue parsing, search, fallbacks, a check that the
   built-in editor catalogue matches `assets/props/props.json`, and proxy
   parsing/fallbacks (valid file, missing file, malformed entries, unknown ids).
+* `lighting.test.mjs` — the preview's static lighting: density/area/intensity/
+  ceiling-height behaviour, saturation, sanitising, fixture pools, doorway
+  blending, and the baked vertex colours the 3D preview draws.
 * `camera3d.test.mjs` — camera matrices, screen rays, movement, focus.
 * `viewport3d.test.mjs` — the 3D viewport against a mock WebGL context: batches
   drawn, mesh rebuild caching, view toggles, picking, 3D drag intents, proxy

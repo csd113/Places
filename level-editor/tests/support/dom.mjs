@@ -340,7 +340,7 @@ export function createEnvironment(options = {}) {
 
   const scripts = [
     'js/jszip.min.js',
-    'js/geometry.js', 'js/model.js', 'js/props.js', 'js/history.js', 'js/ops.js',
+    'js/model.js', 'js/lighting.js', 'js/geometry.js', 'js/props.js', 'js/history.js', 'js/ops.js',
     'js/renderer.js', 'js/camera3d.js', 'js/viewport3d.js', 'js/properties.js',
     'js/io.js', 'js/editor.js', 'js/app.js'
   ];

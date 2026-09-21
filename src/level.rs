@@ -313,6 +313,11 @@ pub struct FloorPatchDef {
 }
 
 /// Ceiling light fixture placement.
+///
+/// `brightness` is the optional fixture intensity/power. It is the field the
+/// level editor already authors and writes, so it stays the canonical key; the
+/// more descriptive `intensity` spelling is accepted as an alias so levels
+/// written from the design notes load unchanged. Omitted means `1.0`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CeilingLightDef {
     pub fixture: String,
@@ -320,8 +325,25 @@ pub struct CeilingLightDef {
     pub z: f32,
     #[serde(default)]
     pub rotation_degrees: f32,
-    #[serde(default)]
+    #[serde(default, alias = "intensity")]
     pub brightness: Option<f32>,
+}
+
+impl CeilingLightDef {
+    /// Authored fixture intensity, sanitised for rendering.
+    ///
+    /// * omitted (or `NaN`) -> `1.0`, the standard fixture;
+    /// * negative -> `0.0` (no output) rather than invalid negative lighting;
+    /// * non-finite -> the finite [`MAX_LIGHT_INTENSITY`] or `0.0`.
+    ///
+    /// The value is therefore always finite and never negative; baking clamps it
+    /// to [`crate::lighting::MAX_LIGHT_INTENSITY`] as well.
+    pub fn intensity(&self) -> f32 {
+        match self.brightness {
+            None => 1.0,
+            Some(value) => crate::lighting::sanitize_intensity(value),
+        }
+    }
 }
 
 /// Fallback prop box extents [width, height, depth] in metres, used whenever
@@ -396,9 +418,10 @@ pub struct LevelDef {
     pub props: Vec<PropDef>,
 }
 
-/// Conservative upper bound on the number of quads a single wall can generate
-/// (four side faces plus an optional top and bottom face).
-pub const MAX_WALL_FACES_PER_WALL: u64 = 6;
+/// Conservative upper bound on the number of quads a single wall can generate:
+/// its two length-parallel faces (each split into baked-lighting segments) plus
+/// its two end caps and an optional top and bottom face.
+pub const MAX_WALL_FACES_PER_WALL: u64 = 2 * crate::lighting::MAX_WALL_LIGHT_SEGMENTS as u64 + 4;
 /// Additional quads a single wall opening can introduce (jamb reveals, the
 /// header underside and the sill surface).
 pub const MAX_WALL_QUADS_PER_OPENING: u64 = 12;
@@ -459,16 +482,23 @@ impl LevelDef {
     /// arithmetic, so malformed input cannot overflow the calculation.
     pub fn estimate_geometry(&self) -> GeometryEstimate {
         let mut floor_area_m2: u64 = 0;
-        let mut room_count: u64 = 0;
+        let mut floor_quads: u64 = 0;
+        let mut ceiling_quads: u64 = 0;
         for room in self.room_iter() {
-            room_count = room_count.saturating_add(1);
             let w = room.width.max(0.0).min(1_000_000.0).ceil() as u64;
             let d = room.depth.max(0.0).min(1_000_000.0).ceil() as u64;
             floor_area_m2 = floor_area_m2.saturating_add(w.saturating_mul(d));
+
+            // Floors and ceilings are tessellated on the baked-lighting grid so
+            // fixture pools can vary across them. The cell count is capped by
+            // `lighting::MAX_LIGHT_GRID_CELLS`, so this stays bounded no matter
+            // how large a room is.
+            let cells = crate::lighting::light_grid_cells(room.width.abs()) as u64
+                * crate::lighting::light_grid_cells(room.depth.abs()) as u64;
+            floor_quads = floor_quads.saturating_add(cells);
+            ceiling_quads = ceiling_quads.saturating_add(cells);
         }
 
-        let floor_quads = room_count;
-        let ceiling_quads = room_count;
         let opening_count = self.walls.iter().fold(0u64, |total, wall| {
             total.saturating_add(wall.openings.len() as u64)
         });
@@ -667,7 +697,9 @@ mod tests {
 
     #[test]
     fn test_estimate_geometry_scales_with_rooms_not_area() {
-        // A 100x100 m room must estimate a single floor quad, not 10,000 tiles.
+        // A 100x100 m room must stay a bounded number of floor/ceiling quads,
+        // and a 400x400 m room must not cost any more: the baked-lighting grid
+        // is capped per axis, so geometry never scales with floor area.
         let json = r#"{
             "format_version": 1,
             "id": "big",
@@ -677,9 +709,41 @@ mod tests {
         }"#;
         let level = LevelDef::from_json(json).expect("valid json");
         let estimate = level.estimate_geometry();
-        assert_eq!(estimate.floor_quads, 1);
-        assert_eq!(estimate.ceiling_quads, 1);
+        let cap =
+            (crate::lighting::MAX_LIGHT_GRID_CELLS * crate::lighting::MAX_LIGHT_GRID_CELLS) as u64;
+        assert!(
+            estimate.floor_quads <= cap,
+            "floor geometry must stay bounded, got {} quads",
+            estimate.floor_quads
+        );
+        assert!(estimate.floor_quads > 1, "a large room is subdivided");
+        assert_eq!(estimate.ceiling_quads, estimate.floor_quads);
         assert_eq!(estimate.floor_area_m2, 10_000);
+
+        let huge = r#"{
+            "format_version": 1,
+            "id": "huge",
+            "name": "Huge",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 400.0, "depth": 400.0, "height": 3.5 }]
+        }"#;
+        let huge = LevelDef::from_json(huge).expect("valid json");
+        assert_eq!(huge.estimate_geometry().floor_quads, estimate.floor_quads);
+
+        // A small room that needs no lighting resolution stays a single quad.
+        let small = LevelDef::from_json(
+            r#"{
+                "format_version": 1,
+                "id": "small",
+                "name": "Small",
+                "spawn": { "x": 0.0, "z": 0.0 },
+                "rooms": [{ "x": 0.0, "z": 0.0, "width": 2.0, "depth": 2.0 }]
+            }"#,
+        )
+        .expect("valid json");
+        let small = small.estimate_geometry();
+        assert_eq!(small.floor_quads, 1);
+        assert_eq!(small.ceiling_quads, 1);
     }
 
     #[test]
@@ -713,7 +777,8 @@ mod tests {
         // Values are clamped before multiplication, so no wrap-around occurs and
         // the absurd area is still reported as over budget.
         assert!(estimate.floor_area_m2 >= MAX_LEVEL_FLOOR_AREA_M2);
-        assert_eq!(estimate.total_vertices, 12);
+        assert!(estimate.floor_quads >= 1);
+        assert!(estimate.total_vertices < MAX_LEVEL_VERTICES);
     }
 
     fn wall_with_openings(openings_json: &str) -> WallDef {

@@ -1,5 +1,10 @@
 // model.js - Data structures, core materials, and validation for Liminal 2D Level Editor
 
+// Highest ceiling-light intensity the game uses before clamping (mirrors
+// src/lighting.rs::MAX_LIGHT_INTENSITY). Higher values still load; the game
+// simply saturates them, so the editor warns instead of rejecting.
+const LIGHT_INTENSITY_MAX = 8.0;
+
 const CORE_MATERIALS = {
   'core:wallpaper_yellow_01': {
     id: 'core:wallpaper_yellow_01',
@@ -352,7 +357,13 @@ class CeilingLight {
     this.x = Number(data.x ?? 0);
     this.z = Number(data.z ?? 0);
     this.rotation_degrees = Number(data.rotation_degrees ?? 0);
-    this.brightness = data.brightness !== undefined && data.brightness !== null ? Number(data.brightness) : 1.0;
+    // Fixture intensity. `brightness` is the canonical key the game and this
+    // editor write; `intensity` is accepted as an alias for levels authored
+    // from the design notes. Omitted means the standard 1.0 fixture.
+    const intensity = data.brightness !== undefined && data.brightness !== null
+      ? data.brightness
+      : data.intensity;
+    this.brightness = intensity !== undefined && intensity !== null ? Number(intensity) : 1.0;
   }
 
   clone() {
@@ -753,7 +764,28 @@ function validateLevel(level) {
     }
   });
 
-  // 5. Materials validation
+  // 5. Ceiling lights: fixtures, positions and optional intensity. `brightness`
+  // is the canonical key (also accepted as `intensity` when importing); omitted
+  // means the standard 1.0 fixture. Messages mirror the game loader.
+  level.ceiling_lights.forEach((l, i) => {
+    if (!Number.isFinite(l.x) || !Number.isFinite(l.z) || !Number.isFinite(l.rotation_degrees)) {
+      errors.push(`Ceiling light ${i} position and rotation must be finite numbers`);
+    }
+    if (!l.fixture || !String(l.fixture).trim()) {
+      errors.push(`Ceiling light ${i} must reference a non-empty fixture id`);
+    }
+    if (l.brightness !== null && l.brightness !== undefined) {
+      if (!Number.isFinite(l.brightness)) {
+        errors.push(`Ceiling light ${i} intensity must be a finite number`);
+      } else if (l.brightness < 0) {
+        errors.push(`Ceiling light ${i} intensity cannot be negative`);
+      } else if (l.brightness > LIGHT_INTENSITY_MAX) {
+        warnings.push(`Ceiling light ${i} intensity ${l.brightness} is above ${LIGHT_INTENSITY_MAX} and will be clamped by the game`);
+      }
+    }
+  });
+
+  // 6. Materials validation
   const knownMaterials = new Set(Object.keys(CORE_MATERIALS));
   if (level.custom_textures) {
     for (const id of Object.keys(level.custom_textures)) {
@@ -791,7 +823,7 @@ function validateLevel(level) {
     checkMaterial(p.material, `Floor patch ${i}`);
   });
 
-  // 6. Texture dimensions check
+  // 7. Texture dimensions check
   if (level.custom_textures) {
     for (const [id, tex] of Object.entries(level.custom_textures)) {
       if (tex.width > 1024 || tex.height > 1024) {
@@ -830,7 +862,8 @@ if (typeof window !== 'undefined') {
     Level,
     openingLabel,
     validateLevel,
-    generateUniqueId
+    generateUniqueId,
+    LIGHT_INTENSITY_MAX
   });
 }
 
@@ -847,6 +880,7 @@ if (typeof module !== 'undefined' && module.exports) {
     LevelDefaults,
     Level,
     openingLabel,
-    validateLevel
+    validateLevel,
+    LIGHT_INTENSITY_MAX
   };
 }

@@ -15,7 +15,10 @@
 //   * Holes, overlaps and deliberate clipping between walls/rooms/props are allowed.
 
 (function (root, factory) {
-  const api = factory();
+  const deps = (typeof module !== 'undefined' && module.exports)
+    ? { lighting: require('./lighting.js') }
+    : { lighting: root ? root.LiminalLighting : null };
+  const api = factory(deps.lighting);
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = api;
   }
@@ -23,7 +26,7 @@
     root.LiminalGeometry = api;
     for (const key of Object.keys(api)) root[key] = api[key];
   }
-})(typeof window !== 'undefined' ? window : null, function () {
+})(typeof window !== 'undefined' ? window : null, function (lighting) {
   'use strict';
 
   const EPS = 1e-6;
@@ -889,6 +892,13 @@
       pushProp(builder, prop, opts.catalog, opts.proxies);
     }
 
+    // Bake the static lighting into every generated vertex colour so the
+    // preview's room brightness matches the game (src/lighting.rs). The
+    // fixture panels themselves stay emissive.
+    if (opts.lighting !== false && lighting && typeof lighting.bakeLevelLighting === 'function') {
+      applyBakedLighting(builder, level, opts.lightingBake);
+    }
+
     return {
       positions: new Float32Array(builder.positions),
       colors: new Float32Array(builder.colors),
@@ -897,6 +907,53 @@
       batches: builder.batches,
       vertexCount: builder.positions.length / 3
     };
+  }
+
+  /**
+   * Multiplies every vertex colour by the baked lighting sampled at its world
+   * position, using the owning room for wall/room surfaces so boundary vertices
+   * are lit by the surface's own room (exactly like the game). Vertices whose
+   * owner has no room fall back to the deterministic containment rule, and the
+   * emissive fixture batch is left alone.
+   */
+  function applyBakedLighting(builder, level, bake) {
+    const baked = bake || lighting.bakeLevelLighting(level);
+
+    // Map each batch owner to the room that lights it.
+    const ownerRoom = new Map();
+    (level.rooms || []).forEach((room, index) => {
+      if (room && room.id) ownerRoom.set(room.id, index);
+    });
+    for (const wall of level.walls || []) {
+      if (!wall || !wall.id) continue;
+      const x = (Number(wall.x) || 0) + (Number(wall.width) || 0) * 0.5;
+      const z = (Number(wall.z) || 0) + (Number(wall.depth) || 0) * 0.5;
+      ownerRoom.set(wall.id, baked.roomIndexAt(x, z));
+    }
+    for (const prop of level.props || []) {
+      if (!prop || !prop.id) continue;
+      ownerRoom.set(prop.id, baked.roomIndexAt(Number(prop.x) || 0, Number(prop.z) || 0));
+    }
+
+    const positions = builder.positions;
+    const colors = builder.colors;
+    const owners = builder.owners;
+    for (const batch of builder.batches) {
+      if (batch.material === 'light') continue;
+      for (let vertex = batch.start; vertex < batch.start + batch.count; vertex++) {
+        const p = vertex * 3;
+        let roomIndex = ownerRoom.get(owners[vertex]);
+        if (roomIndex === undefined) {
+          roomIndex = baked.roomIndexAt(positions[p], positions[p + 2]);
+        }
+        if (roomIndex === undefined || roomIndex < 0) continue;
+        const light = baked.sampleInRoom(roomIndex, positions[p], positions[p + 1], positions[p + 2]);
+        const c = vertex * 4;
+        colors[c] = Math.min(1, colors[c] * light);
+        colors[c + 1] = Math.min(1, colors[c + 1] * light);
+        colors[c + 2] = Math.min(1, colors[c + 2] * light);
+      }
+    }
   }
 
   /** Level statistics for the "nothing selected" inspector state. */

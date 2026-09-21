@@ -2,6 +2,7 @@ use glow::HasContext;
 
 use crate::font::generate_font_atlas;
 use crate::level::{LevelDef, PropDef, WallAxis, ceiling_height_at, wall_solid_slices};
+use crate::lighting::{LevelLighting, light_grid_cells, wall_light_segments};
 
 /// PocketCHIP reference resolution. The game logic and UI layout are authored
 /// against this 480x272 space; it is also the default window size. It is *not*
@@ -242,6 +243,91 @@ fn add_quad_flat(
     add_quad(
         vertices, p0, color, uv0, p1, color, uv1, p2, color, uv2, p3, color, uv3,
     );
+}
+
+/// Distance a wall face is probed away from the wall when sampling baked
+/// lighting, so the face is lit by the room it looks into rather than by
+/// whichever room the boundary point happens to fall in.
+const LIGHT_FACE_PROBE_M: f32 = 0.25;
+
+/// Multiplies one shaded colour by a baked brightness.
+fn shade(base: [f32; 3], light: f32) -> [f32; 3] {
+    [
+        (base[0] * light).clamp(0.0, 1.0),
+        (base[1] * light).clamp(0.0, 1.0),
+        (base[2] * light).clamp(0.0, 1.0),
+    ]
+}
+
+/// Baked brightness sampled at each of four quad corners.
+fn lit_corners(base: [f32; 3], points: [[f32; 3]; 4], lighting: &LevelLighting) -> [[f32; 3]; 4] {
+    points.map(|point| shade(base, lighting.sample(point[0], point[1], point[2])))
+}
+
+/// One length-parallel wall face: the world coordinate across the thickness,
+/// the outward normal along that axis, the bottom/top shaded colours and whether
+/// the winding runs against the length axis.
+type WallLengthFace = (f32, f32, [f32; 3], [f32; 3], bool);
+
+/// Emits one wall face parallel to the wall's length axis as a strip of quads.
+///
+/// The face is split along its length (bounded by
+/// `lighting::MAX_WALL_LIGHT_SEGMENTS`) so baked fixture pools and doorway
+/// blends vary along it; a single quad would smear them across the whole wall.
+/// UVs keep the original convention: the world coordinate along the length
+/// axis, then Y.
+#[allow(clippy::too_many_arguments)]
+fn add_wall_length_face(
+    vertices: &mut Vec<Vertex>,
+    axis: WallAxis,
+    l0: f32,
+    l1: f32,
+    face: f32,
+    normal: f32,
+    bottom: f32,
+    top: f32,
+    bottom_shade: [f32; 3],
+    top_shade: [f32; 3],
+    reversed: bool,
+    lighting: &LevelLighting,
+) {
+    let point = |at: f32, y: f32| -> [f32; 3] {
+        match axis {
+            WallAxis::X => [at, y, face],
+            WallAxis::Z => [face, y, at],
+        }
+    };
+    // Probe inside the room this face looks into, so the wall is lit by its own
+    // side of the wall even when the surface sits exactly on a room boundary.
+    let color = |at: f32, y: f32, base: [f32; 3]| -> [f32; 3] {
+        let probe = match axis {
+            WallAxis::X => [at, y, face + normal * LIGHT_FACE_PROBE_M],
+            WallAxis::Z => [face + normal * LIGHT_FACE_PROBE_M, y, at],
+        };
+        shade(base, lighting.sample(probe[0], probe[1], probe[2]))
+    };
+
+    let segments = wall_light_segments((l1 - l0).abs());
+    for segment in 0..segments {
+        let start = l0 + (l1 - l0) * segment as f32 / segments as f32;
+        let end = l0 + (l1 - l0) * (segment + 1) as f32 / segments as f32;
+        let (a, b) = if reversed { (end, start) } else { (start, end) };
+        add_quad(
+            vertices,
+            point(a, bottom),
+            color(a, bottom, bottom_shade),
+            [a, bottom],
+            point(b, bottom),
+            color(b, bottom, bottom_shade),
+            [b, bottom],
+            point(b, top),
+            color(b, top, top_shade),
+            [b, top],
+            point(a, top),
+            color(a, top, top_shade),
+            [a, top],
+        );
+    }
 }
 
 pub(crate) fn generate_wall_texture() -> [u8; 64 * 64 * 4] {
@@ -515,8 +601,15 @@ fn add_wall_cross_quad(
 const PROP_FACE_SHADES: [f32; 6] = [1.00, 0.62, 0.90, 0.80, 0.74, 0.86];
 
 /// Emits one Y-rotated box for a prop: six quads tinted with the catalog
-/// colour, ready to be drawn with the unshaded white texture.
-fn add_prop_box(vertices: &mut Vec<Vertex>, prop: &PropDef, size: [f32; 3], color: [f32; 3]) {
+/// colour and the baked lighting sampled at each corner, ready to be drawn with
+/// the unshaded white texture.
+fn add_prop_box(
+    vertices: &mut Vec<Vertex>,
+    prop: &PropDef,
+    size: [f32; 3],
+    color: [f32; 3],
+    lighting: &LevelLighting,
+) {
     let half_w = size[0] * 0.5;
     let half_h = size[1] * 0.5;
     let half_d = size[2] * 0.5;
@@ -533,11 +626,12 @@ fn add_prop_box(vertices: &mut Vec<Vertex>, prop: &PropDef, size: [f32; 3], colo
         let (world_x, world_z) = rotate(sx * half_w, sz * half_d);
         [world_x, center_y + sy * half_h, world_z]
     };
-    let shaded = |mult: f32| -> [f32; 3] {
+    let shaded = |mult: f32, point: [f32; 3]| -> [f32; 3] {
+        let light = lighting.sample(point[0], point[1], point[2]);
         [
-            (color[0] * mult).min(1.0),
-            (color[1] * mult).min(1.0),
-            (color[2] * mult).min(1.0),
+            (color[0] * mult * light).min(1.0),
+            (color[1] * mult * light).min(1.0),
+            (color[2] * mult * light).min(1.0),
         ]
     };
 
@@ -582,25 +676,39 @@ fn add_prop_box(vertices: &mut Vec<Vertex>, prop: &PropDef, size: [f32; 3], colo
     ];
     let uvs = [[0.0, 1.0], [1.0, 1.0], [1.0, 0.0], [0.0, 0.0]];
 
-    for (face, shade) in faces.iter().zip(PROP_FACE_SHADES) {
-        let face_color = shaded(shade);
+    for (face, shade_mult) in faces.iter().zip(PROP_FACE_SHADES) {
         let points = [
             corner(face[0].0, face[0].1, face[0].2),
             corner(face[1].0, face[1].1, face[1].2),
             corner(face[2].0, face[2].1, face[2].2),
             corner(face[3].0, face[3].1, face[3].2),
         ];
-        add_quad_flat(
-            vertices, points[0], points[1], points[2], points[3], face_color, uvs[0], uvs[1],
-            uvs[2], uvs[3],
+        let colors = points.map(|point| shaded(shade_mult, point));
+        add_quad(
+            vertices, points[0], colors[0], uvs[0], points[1], colors[1], uvs[1], points[2],
+            colors[2], uvs[2], points[3], colors[3], uvs[3],
         );
     }
+}
+
+/// True when a room can be tessellated without producing invalid geometry.
+///
+/// Malformed rooms (non-finite or non-positive dimensions) are skipped rather
+/// than allowed to poison the vertex buffer with NaN positions; the loader
+/// rejects them long before this point.
+fn room_is_tessellatable(room: &crate::level::RoomDef) -> bool {
+    room.x.is_finite()
+        && room.z.is_finite()
+        && room.height.is_finite()
+        && room.width > 0.0
+        && room.depth > 0.0
 }
 
 fn build_level_geometry_mesh(
     level: &LevelDef,
     catalog: &crate::loader::PropCatalog,
     fallback_props: &[&PropDef],
+    lighting: &LevelLighting,
 ) -> LevelMesh {
     // Collect the merged room list once; geometry and ceiling lookups then
     // borrow it instead of cloning the room vector repeatedly.
@@ -609,55 +717,106 @@ fn build_level_geometry_mesh(
     let mut vertices = Vec::with_capacity(estimate.total_vertices as usize);
     let mut batches = LevelMeshBatches::default();
 
-    // 1. Floor batch: one quad per rectangular room. The metre-scale checker
-    //    tint is baked into the derived floor texture (see
-    //    `generate_floor_checker_texture`), so no per-cell tessellation is needed.
+    // 1. Floor batch: one quad per room per baked-lighting cell, so the broad
+    //    pools cast by ceiling fixtures actually vary across the floor. The
+    //    cell count is bounded by `lighting::MAX_LIGHT_GRID_CELLS`, and UVs keep
+    //    mapping the same world space as the original single quad. The
+    //    metre-scale checker tint stays baked into the derived floor texture
+    //    (see `generate_floor_checker_texture`), so no per-cell texture work is
+    //    needed.
     let floor_start = vertices.len() as i32;
-    let floor_color = [1.0, 1.0, 1.0];
-    for room in &rooms {
-        if room.width <= 0.0 || room.depth <= 0.0 {
+    for (room_index, room) in rooms.iter().enumerate() {
+        if !room_is_tessellatable(room) {
             continue;
         }
         let x0 = room.x;
-        let x1 = room.x + room.width;
         let z0 = room.z;
-        let z1 = room.z + room.depth;
+        let cells_x = light_grid_cells(room.width);
+        let cells_z = light_grid_cells(room.depth);
         let uv = |x: f32, z: f32| [x / FLOOR_TILE_METRES, z / FLOOR_TILE_METRES];
-        add_quad_flat(
-            &mut vertices,
-            [x0, 0.0, z0],
-            [x1, 0.0, z0],
-            [x1, 0.0, z1],
-            [x0, 0.0, z1],
-            floor_color,
-            uv(x0, z0),
-            uv(x1, z0),
-            uv(x1, z1),
-            uv(x0, z1),
-        );
+
+        for iz in 0..cells_z {
+            for ix in 0..cells_x {
+                let ax = x0 + room.width * ix as f32 / cells_x as f32;
+                let bx = x0 + room.width * (ix + 1) as f32 / cells_x as f32;
+                let az = z0 + room.depth * iz as f32 / cells_z as f32;
+                let bz = z0 + room.depth * (iz + 1) as f32 / cells_z as f32;
+                let points = [[ax, 0.0, az], [bx, 0.0, az], [bx, 0.0, bz], [ax, 0.0, bz]];
+                let colors = points.map(|point| {
+                    let light = lighting.sample_in_room(room_index, point[0], 0.0, point[2]);
+                    [light, light, light]
+                });
+                add_quad(
+                    &mut vertices,
+                    points[0],
+                    colors[0],
+                    uv(points[0][0], points[0][2]),
+                    points[1],
+                    colors[1],
+                    uv(points[1][0], points[1][2]),
+                    points[2],
+                    colors[2],
+                    uv(points[2][0], points[2][2]),
+                    points[3],
+                    colors[3],
+                    uv(points[3][0], points[3][2]),
+                );
+            }
+        }
     }
     batches.floor_batch = BatchRange {
         start: floor_start,
         count: vertices.len() as i32 - floor_start,
     };
 
-    // 2. Ceiling batch
+    // 2. Ceiling batch: the same grid and the same lighting sample, with the
+    //    fixture panels themselves drawn brighter by the light batch below.
     let ceiling_start = vertices.len() as i32;
-    for room in &rooms {
+    let ceiling_tint = [0.72, 0.72, 0.70];
+    for (room_index, room) in rooms.iter().enumerate() {
+        if !room_is_tessellatable(room) {
+            continue;
+        }
         let h = room.height;
-        let ceiling_color = [0.72, 0.72, 0.70];
-        add_quad_flat(
-            &mut vertices,
-            [room.x, h, room.z + room.depth],
-            [room.x + room.width, h, room.z + room.depth],
-            [room.x + room.width, h, room.z],
-            [room.x, h, room.z],
-            ceiling_color,
-            [room.x, room.z + room.depth],
-            [room.x + room.width, room.z + room.depth],
-            [room.x + room.width, room.z],
-            [room.x, room.z],
-        );
+        let x0 = room.x;
+        let z0 = room.z;
+        let cells_x = light_grid_cells(room.width);
+        let cells_z = light_grid_cells(room.depth);
+
+        for iz in 0..cells_z {
+            for ix in 0..cells_x {
+                let ax = x0 + room.width * ix as f32 / cells_x as f32;
+                let bx = x0 + room.width * (ix + 1) as f32 / cells_x as f32;
+                let az = z0 + room.depth * iz as f32 / cells_z as f32;
+                let bz = z0 + room.depth * (iz + 1) as f32 / cells_z as f32;
+                // Winding matches the original single ceiling quad: visible from
+                // below, with world-space UVs.
+                let points = [[ax, h, bz], [bx, h, bz], [bx, h, az], [ax, h, az]];
+                let colors = points.map(|point| {
+                    let light = lighting.sample_in_room(room_index, point[0], h, point[2]);
+                    [
+                        ceiling_tint[0] * light,
+                        ceiling_tint[1] * light,
+                        ceiling_tint[2] * light,
+                    ]
+                });
+                add_quad(
+                    &mut vertices,
+                    points[0],
+                    colors[0],
+                    [points[0][0], points[0][2]],
+                    points[1],
+                    colors[1],
+                    [points[1][0], points[1][2]],
+                    points[2],
+                    colors[2],
+                    [points[2][0], points[2][2]],
+                    points[3],
+                    colors[3],
+                    [points[3][0], points[3][2]],
+                );
+            }
+        }
     }
     batches.ceiling_batch = BatchRange {
         start: ceiling_start,
@@ -719,7 +878,8 @@ fn build_level_geometry_mesh(
             let (slice_bottom, slice_top) = (slice.bottom, slice.top);
 
             // Faces parallel to the length axis: north/south for X-axis
-            // walls, west/east for Z-axis walls.
+            // walls, west/east for Z-axis walls. Each face is a strip of quads
+            // so the baked lighting varies along the wall.
             let n_top = scale_color(north_mult, top_grad);
             let n_bot = scale_color(north_mult, bot_grad);
             let s_top = scale_color(south_mult, top_grad);
@@ -729,113 +889,87 @@ fn build_level_geometry_mesh(
             let e_top = scale_color(east_mult, top_grad);
             let e_bot = scale_color(east_mult, bot_grad);
 
-            match axis {
-                WallAxis::X => {
-                    // North face (z = z0, normal -Z)
-                    add_quad(
-                        &mut vertices,
-                        [l0, slice_bottom, z0],
-                        n_bot,
-                        [l0, slice_bottom],
-                        [l1, slice_bottom, z0],
-                        n_bot,
-                        [l1, slice_bottom],
-                        [l1, slice_top, z0],
-                        n_top,
-                        [l1, slice_top],
-                        [l0, slice_top, z0],
-                        n_top,
-                        [l0, slice_top],
-                    );
-
-                    // South face (z = z1, normal +Z)
-                    add_quad(
-                        &mut vertices,
-                        [l1, slice_bottom, z1],
-                        s_bot,
-                        [l1, slice_bottom],
-                        [l0, slice_bottom, z1],
-                        s_bot,
-                        [l0, slice_bottom],
-                        [l0, slice_top, z1],
-                        s_top,
-                        [l0, slice_top],
-                        [l1, slice_top, z1],
-                        s_top,
-                        [l1, slice_top],
-                    );
-                }
-                WallAxis::Z => {
-                    // West face (x = x0, normal -X)
-                    add_quad(
-                        &mut vertices,
-                        [x0, slice_bottom, l1],
-                        w_bot,
-                        [l1, slice_bottom],
-                        [x0, slice_bottom, l0],
-                        w_bot,
-                        [l0, slice_bottom],
-                        [x0, slice_top, l0],
-                        w_top,
-                        [l0, slice_top],
-                        [x0, slice_top, l1],
-                        w_top,
-                        [l1, slice_top],
-                    );
-
-                    // East face (x = x1, normal +X)
-                    add_quad(
-                        &mut vertices,
-                        [x1, slice_bottom, l0],
-                        e_bot,
-                        [l0, slice_bottom],
-                        [x1, slice_bottom, l1],
-                        e_bot,
-                        [l1, slice_bottom],
-                        [x1, slice_top, l1],
-                        e_top,
-                        [l1, slice_top],
-                        [x1, slice_top, l0],
-                        e_top,
-                        [l0, slice_top],
-                    );
-                }
+            // (face coordinate across the thickness, outward normal, bottom/top
+            // colour, whether the winding runs against the length axis).
+            let faces: [WallLengthFace; 2] = match axis {
+                WallAxis::X => [
+                    (z0, -1.0, n_bot, n_top, false),
+                    (z1, 1.0, s_bot, s_top, true),
+                ],
+                WallAxis::Z => [
+                    (x0, -1.0, w_bot, w_top, true),
+                    (x1, 1.0, e_bot, e_top, false),
+                ],
+            };
+            for (face, normal, bottom_shade, top_shade, reversed) in faces {
+                add_wall_length_face(
+                    &mut vertices,
+                    axis,
+                    l0,
+                    l1,
+                    face,
+                    normal,
+                    slice_bottom,
+                    slice_top,
+                    bottom_shade,
+                    top_shade,
+                    reversed,
+                    lighting,
+                );
             }
 
             // Top face (normal +Y): half-height walls and window sills.
             if slice_top < ceiling_h - 1e-3 {
                 let top_col = scale_color(1.00, top_grad);
                 match axis {
-                    WallAxis::X => add_quad(
-                        &mut vertices,
-                        [l0, slice_top, t1],
-                        top_col,
-                        [l0, t1],
-                        [l1, slice_top, t1],
-                        top_col,
-                        [l1, t1],
-                        [l1, slice_top, t0],
-                        top_col,
-                        [l1, t0],
-                        [l0, slice_top, t0],
-                        top_col,
-                        [l0, t0],
-                    ),
-                    WallAxis::Z => add_quad(
-                        &mut vertices,
-                        [t1, slice_top, l0],
-                        top_col,
-                        [l0, t1],
-                        [t1, slice_top, l1],
-                        top_col,
-                        [l1, t1],
-                        [t0, slice_top, l1],
-                        top_col,
-                        [l1, t0],
-                        [t0, slice_top, l0],
-                        top_col,
-                        [l0, t0],
-                    ),
+                    WallAxis::X => {
+                        let points = [
+                            [l0, slice_top, t1],
+                            [l1, slice_top, t1],
+                            [l1, slice_top, t0],
+                            [l0, slice_top, t0],
+                        ];
+                        let colors = lit_corners(top_col, points, lighting);
+                        add_quad(
+                            &mut vertices,
+                            points[0],
+                            colors[0],
+                            [l0, t1],
+                            points[1],
+                            colors[1],
+                            [l1, t1],
+                            points[2],
+                            colors[2],
+                            [l1, t0],
+                            points[3],
+                            colors[3],
+                            [l0, t0],
+                        );
+                    }
+                    WallAxis::Z => {
+                        let points = [
+                            [t1, slice_top, l0],
+                            [t1, slice_top, l1],
+                            [t0, slice_top, l1],
+                            [t0, slice_top, l0],
+                        ];
+                        let colors = lit_corners(top_col, points, lighting);
+                        add_quad(
+                            &mut vertices,
+                            points[0],
+                            colors[0],
+                            [l0, t1],
+                            points[1],
+                            colors[1],
+                            [l1, t1],
+                            points[2],
+                            colors[2],
+                            [l1, t0],
+                            points[3],
+                            colors[3],
+                            [l0, t0],
+                        );
+                    }
                 }
             }
 
@@ -845,36 +979,54 @@ fn build_level_geometry_mesh(
             if slice_bottom > 1e-3 {
                 let bot_col = scale_color(0.85, bot_grad);
                 match axis {
-                    WallAxis::X => add_quad(
-                        &mut vertices,
-                        [l0, slice_bottom, t0],
-                        bot_col,
-                        [l0, t0],
-                        [l1, slice_bottom, t0],
-                        bot_col,
-                        [l1, t0],
-                        [l1, slice_bottom, t1],
-                        bot_col,
-                        [l1, t1],
-                        [l0, slice_bottom, t1],
-                        bot_col,
-                        [l0, t1],
-                    ),
-                    WallAxis::Z => add_quad(
-                        &mut vertices,
-                        [t0, slice_bottom, l0],
-                        bot_col,
-                        [l0, t0],
-                        [t0, slice_bottom, l1],
-                        bot_col,
-                        [l1, t0],
-                        [t1, slice_bottom, l1],
-                        bot_col,
-                        [l1, t1],
-                        [t1, slice_bottom, l0],
-                        bot_col,
-                        [l0, t1],
-                    ),
+                    WallAxis::X => {
+                        let points = [
+                            [l0, slice_bottom, t0],
+                            [l1, slice_bottom, t0],
+                            [l1, slice_bottom, t1],
+                            [l0, slice_bottom, t1],
+                        ];
+                        let colors = lit_corners(bot_col, points, lighting);
+                        add_quad(
+                            &mut vertices,
+                            points[0],
+                            colors[0],
+                            [l0, t0],
+                            points[1],
+                            colors[1],
+                            [l1, t0],
+                            points[2],
+                            colors[2],
+                            [l1, t1],
+                            points[3],
+                            colors[3],
+                            [l0, t1],
+                        );
+                    }
+                    WallAxis::Z => {
+                        let points = [
+                            [t0, slice_bottom, l0],
+                            [t0, slice_bottom, l1],
+                            [t1, slice_bottom, l1],
+                            [t1, slice_bottom, l0],
+                        ];
+                        let colors = lit_corners(bot_col, points, lighting);
+                        add_quad(
+                            &mut vertices,
+                            points[0],
+                            colors[0],
+                            [l0, t0],
+                            points[1],
+                            colors[1],
+                            [l1, t0],
+                            points[2],
+                            colors[2],
+                            [l1, t1],
+                            points[3],
+                            colors[3],
+                            [l0, t1],
+                        );
+                    }
                 }
             }
         }
@@ -929,6 +1081,18 @@ fn build_level_geometry_mesh(
                     WallAxis::X => origin_x + position,
                     WallAxis::Z => origin_z + position,
                 };
+                // Light the reveal from its own side of the wall: sample at the
+                // bottom and top edges through the wall's thickness.
+                let (bottom_light, top_light) = match axis {
+                    WallAxis::X => (
+                        lighting.sample(at, bottom, (t0 + t1) * 0.5),
+                        lighting.sample(at, top, (t0 + t1) * 0.5),
+                    ),
+                    WallAxis::Z => (
+                        lighting.sample((t0 + t1) * 0.5, bottom, at),
+                        lighting.sample((t0 + t1) * 0.5, top, at),
+                    ),
+                };
                 add_wall_cross_quad(
                     &mut vertices,
                     axis,
@@ -936,8 +1100,8 @@ fn build_level_geometry_mesh(
                     (t0, t1),
                     bottom,
                     top,
-                    scale_color(mult, bot_grad),
-                    scale_color(mult, top_grad),
+                    shade(scale_color(mult, bot_grad), bottom_light),
+                    shade(scale_color(mult, top_grad), top_light),
                 );
             }
         }
@@ -947,22 +1111,29 @@ fn build_level_geometry_mesh(
         count: vertices.len() as i32 - wall_start,
     };
 
-    // 4. Ceiling lights batch
+    // 4. Ceiling lights batch. Panels hang just below their room's ceiling
+    //    (a 2.6 m corridor and a 3 m room therefore get different fixture
+    //    heights) and glow slightly more or less with their authored intensity.
     let light_start = vertices.len() as i32;
     for light in &level.ceiling_lights {
+        if !light.x.is_finite() || !light.z.is_finite() {
+            continue;
+        }
         let (half_w, half_d) = if light.rotation_degrees as i32 % 180 != 0 {
             (0.30, 0.60)
         } else {
             (0.60, 0.30)
         };
 
-        let y = 3.49;
+        let y = lighting.fixture_y(light.x, light.z);
         let x0 = light.x - half_w;
         let x1 = light.x + half_w;
         let z0 = light.z - half_d;
         let z1 = light.z + half_d;
 
-        let fixture_glow = [1.00, 0.98, 0.92];
+        let intensity = light.intensity();
+        let output = (0.60 + 0.40 * intensity.clamp(0.0, 2.0)).clamp(0.0, 1.0);
+        let fixture_glow = [1.00 * output, 0.98 * output, 0.92 * output];
         add_quad_flat(
             &mut vertices,
             [x0, y, z1],
@@ -1026,7 +1197,7 @@ fn build_level_geometry_mesh(
         {
             continue;
         }
-        add_prop_box(&mut vertices, prop, size, entry.color);
+        add_prop_box(&mut vertices, prop, size, entry.color, lighting);
     }
     batches.prop_batch = BatchRange {
         start: prop_start,
@@ -1066,9 +1237,26 @@ pub fn build_level_geometry_with_assets(
     catalog: &crate::loader::PropCatalog,
     assets: &mut crate::props::PropAssets,
 ) -> (LevelMesh, Vec<PropMeshBatch>) {
-    let (batches, fallbacks) = resolve_prop_instances(level, catalog, assets);
-    let mesh = build_level_geometry_mesh(level, catalog, &fallbacks);
+    let (mesh, batches, _lighting) =
+        build_level_geometry_with_assets_and_lighting(level, catalog, assets);
     (mesh, batches)
+}
+
+/// [`build_level_geometry_with_assets`], also returning the baked lighting that
+/// was folded into the vertex colours.
+///
+/// The lighting is baked exactly once here, at level load, and passed to both
+/// the world geometry and the prop instancing so the whole level shares one
+/// consistent set of room baselines, fixture pools and opening blends.
+pub fn build_level_geometry_with_assets_and_lighting(
+    level: &LevelDef,
+    catalog: &crate::loader::PropCatalog,
+    assets: &mut crate::props::PropAssets,
+) -> (LevelMesh, Vec<PropMeshBatch>, LevelLighting) {
+    let lighting = LevelLighting::bake(level);
+    let (batches, fallbacks) = resolve_prop_instances(level, catalog, assets, &lighting);
+    let mesh = build_level_geometry_mesh(level, catalog, &fallbacks, &lighting);
+    (mesh, batches, lighting)
 }
 
 /// Builds level geometry using only built-in prop fallbacks.
@@ -1085,16 +1273,22 @@ pub fn build_level_geometry_with_catalog(
     level: &LevelDef,
     catalog: &crate::loader::PropCatalog,
 ) -> LevelMesh {
+    let lighting = LevelLighting::bake(level);
     let fallbacks: Vec<&PropDef> = level.props.iter().collect();
-    build_level_geometry_mesh(level, catalog, &fallbacks)
+    build_level_geometry_mesh(level, catalog, &fallbacks, &lighting)
 }
 
 /// Resolves every placed prop into either a batched real mesh or a fallback box,
 /// sharing one decoded model (and one texture) per distinct model path.
+///
+/// Baked lighting is sampled per transformed vertex in world space, so a prop
+/// standing on a crate or lying on a bed is lit at its real height and still
+/// contributes to the same shared per-model batch (one draw call per model).
 fn resolve_prop_instances<'a>(
     level: &'a LevelDef,
     catalog: &crate::loader::PropCatalog,
     assets: &mut crate::props::PropAssets,
+    lighting: &LevelLighting,
 ) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
     use std::collections::HashMap;
 
@@ -1146,9 +1340,18 @@ fn resolve_prop_instances<'a>(
                     vertex.pos[1],
                     vertex.pos[2],
                 ));
+                // Bake the environment into the instance's colour: the same
+                // model in a dark corner and under a fixture still shares one
+                // batch, but is no longer uniformly lit.
+                let light = lighting.sample(position.x, position.y, position.z);
                 batch.vertices.push(Vertex {
                     pos: [position.x, position.y, position.z],
-                    color: vertex.color,
+                    color: [
+                        vertex.color[0] * light,
+                        vertex.color[1] * light,
+                        vertex.color[2] * light,
+                        vertex.color[3],
+                    ],
                     uv: vertex.uv,
                 });
             }
@@ -1303,6 +1506,25 @@ struct PropDraw {
     count: i32,
 }
 
+/// Static-geometry and baked-lighting statistics for the current level.
+///
+/// Exposed so a hardware run (PocketCHIP over SSH) can check that lighting did
+/// not change the level's draw-call shape or per-frame work, and so the
+/// developer log can report the one-off build cost.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct LevelBuildStats {
+    /// Vertices in the shared static level buffer (floors, ceilings, walls, fixtures).
+    pub static_vertices: usize,
+    /// Vertices in the batched prop buffer (every instance, one per model draw).
+    pub prop_vertices: usize,
+    /// One draw call per distinct prop model in the level.
+    pub prop_draws: usize,
+    /// Wall-clock cost of the last level build (geometry + lighting bake), in ms.
+    pub build_millis: f64,
+    /// Summary of the baked static lighting.
+    pub lighting: crate::lighting::LightingSummary,
+}
+
 /// Manages OpenGL ES 2.0-compatible accelerated rendering context, textures, and scene/UI drawing.
 pub struct Renderer {
     _gl_context: sdl2::video::GLContext,
@@ -1338,6 +1560,8 @@ pub struct Renderer {
     /// Physical framebuffer size currently being rendered to. Updated on resize
     /// and HiDPI/backing-scale changes via [`Renderer::set_drawable_size`].
     drawable_size: DrawableSize,
+    /// Cost and shape of the most recently built level.
+    level_stats: LevelBuildStats,
 }
 
 impl Renderer {
@@ -1478,6 +1702,7 @@ impl Renderer {
             a_uv_loc,
             linear_filtering: true,
             drawable_size: DrawableSize::new(initial_width, initial_height),
+            level_stats: LevelBuildStats::default(),
         };
         renderer.rebuild_level_geometry(level);
         Ok(renderer)
@@ -1523,6 +1748,11 @@ impl Renderer {
     /// model), exposed for the performance overlay and tests.
     pub fn prop_draw_count(&self) -> usize {
         self.prop_draws.len()
+    }
+
+    /// Static-geometry and baked-lighting statistics for the current level.
+    pub fn level_stats(&self) -> LevelBuildStats {
+        self.level_stats
     }
 
     /// Reads back the default framebuffer as a top-down RGBA image.
@@ -1626,8 +1856,12 @@ impl Renderer {
     /// buffer, and each model's texture is uploaded once and then reused for the
     /// rest of the session.
     pub fn rebuild_level_geometry(&mut self, level: &crate::level::LevelDef) {
-        let (mesh, batches) =
-            build_level_geometry_with_assets(level, &self.prop_catalog, &mut self.prop_assets);
+        let started = std::time::Instant::now();
+        let (mesh, batches, lighting) = build_level_geometry_with_assets_and_lighting(
+            level,
+            &self.prop_catalog,
+            &mut self.prop_assets,
+        );
         self.batches = mesh.batches;
 
         // Concatenate every prop batch into one buffer; each batch keeps its range.
@@ -1684,6 +1918,13 @@ impl Renderer {
             }
             self.gl.bind_buffer(glow::ARRAY_BUFFER, None);
         }
+        self.level_stats = LevelBuildStats {
+            static_vertices: mesh.vertices.len(),
+            prop_vertices: vertices.len(),
+            prop_draws: draws.len(),
+            build_millis: started.elapsed().as_secs_f64() * 1000.0,
+            lighting: lighting.summary(),
+        };
         self.prop_draws = draws;
     }
 
@@ -2079,18 +2320,36 @@ mod tests {
 
     #[test]
     fn test_floor_geometry_does_not_scale_with_room_area() {
-        let json = r#"{
-            "format_version": 1,
-            "id": "big",
-            "name": "Big",
-            "spawn": { "x": 0.0, "z": 0.0 },
-            "rooms": [{ "x": 0.0, "z": 0.0, "width": 100.0, "depth": 100.0, "height": 3.5 }]
-        }"#;
-        let level = LevelDef::from_json(json).expect("valid json");
-        let mesh = build_level_geometry(&level);
-        // A 100x100 m room must be a single quad (6 vertices), not 10,000 quads.
-        assert_eq!(mesh.batches.floor_batch.count, 6);
-        assert_eq!(mesh.batches.ceiling_batch.count, 6);
+        let level = |size: f32| {
+            let json = format!(
+                r#"{{
+                    "format_version": 1,
+                    "id": "big",
+                    "name": "Big",
+                    "spawn": {{ "x": 0.0, "z": 0.0 }},
+                    "rooms": [{{ "x": 0.0, "z": 0.0, "width": {size}, "depth": {size}, "height": 3.5 }}]
+                }}"#
+            );
+            LevelDef::from_json(&json).expect("valid json")
+        };
+
+        // A large room is subdivided on the bounded baked-lighting grid so
+        // fixture pools can vary across the floor, but the cell count is capped:
+        // a 400x400 m room costs exactly the same as a 100x100 m one.
+        let hundred = build_level_geometry(&level(100.0));
+        let four_hundred = build_level_geometry(&level(400.0));
+        let cap = (crate::lighting::MAX_LIGHT_GRID_CELLS * crate::lighting::MAX_LIGHT_GRID_CELLS)
+            as i32
+            * 6;
+        assert_eq!(hundred.batches.floor_batch.count, cap);
+        assert_eq!(hundred.batches.ceiling_batch.count, cap);
+        assert_eq!(four_hundred.batches.floor_batch.count, cap);
+        assert_eq!(four_hundred.batches.ceiling_batch.count, cap);
+
+        // A room smaller than one lighting cell stays a single quad.
+        let small = build_level_geometry(&level(2.0));
+        assert_eq!(small.batches.floor_batch.count, 6);
+        assert_eq!(small.batches.ceiling_batch.count, 6);
     }
 
     #[test]
@@ -2285,14 +2544,22 @@ mod tests {
         assert!(mesh.batches.wall_batch.count > 0);
         assert!(mesh.batches.light_batch.count > 0);
 
-        // Floor geometry must be one quad per room, independent of room area.
-        let room_count = level.room_iter().count() as i32;
-        assert_eq!(mesh.batches.floor_batch.count, room_count * 6);
-        assert_eq!(mesh.batches.ceiling_batch.count, room_count * 6);
-        // The whole shipped level should now be a few thousand vertices, not
-        // the ~424,000 it used to be when the floor was tessellated per metre.
+        // Floor/ceiling geometry follows the bounded baked-lighting grid: one
+        // quad per cell, never per square metre.
+        let expected_cells: i32 = level
+            .room_iter()
+            .map(|room| {
+                (crate::lighting::light_grid_cells(room.width)
+                    * crate::lighting::light_grid_cells(room.depth)) as i32
+            })
+            .sum();
+        assert_eq!(mesh.batches.floor_batch.count, expected_cells * 6);
+        assert_eq!(mesh.batches.ceiling_batch.count, expected_cells * 6);
+
+        // The whole shipped level stays a few tens of thousands of vertices.
+        // (Per-metre tessellation of its 25 large rooms would be ~800,000.)
         assert!(
-            mesh.vertices.len() < 20_000,
+            mesh.vertices.len() < 100_000,
             "level1 unexpectedly large: {} vertices",
             mesh.vertices.len()
         );
@@ -2301,6 +2568,15 @@ mod tests {
     /// Builds a compact test level: one 10x10 m room, one 10 x 0.4 m wall
     /// spanning the full ceiling height, plus the supplied openings/props.
     fn level_with_wall(openings_json: &str, props_json: &str) -> LevelDef {
+        level_with_wall_and_lights(openings_json, props_json, "[]")
+    }
+
+    /// As [`level_with_wall`], with explicit ceiling fixtures.
+    fn level_with_wall_and_lights(
+        openings_json: &str,
+        props_json: &str,
+        lights_json: &str,
+    ) -> LevelDef {
         let json = format!(
             r#"{{
                 "format_version": 1,
@@ -2312,19 +2588,365 @@ mod tests {
                     "x": -5.0, "z": 0.0, "width": 10.0, "depth": 0.4, "height": 3.5,
                     "openings": {openings_json}
                 }}],
+                "ceiling_lights": {lights_json},
                 "props": {props_json}
             }}"#
         );
         LevelDef::from_json(&json).expect("valid json")
     }
 
+    /// A square room with the given ceiling fixtures and nothing else.
+    fn lit_room_level(width: f32, depth: f32, height: f32, lights_json: &str) -> LevelDef {
+        let json = format!(
+            r#"{{
+                "format_version": 1,
+                "id": "lit_room",
+                "name": "Lit Room",
+                "spawn": {{ "x": 0.0, "z": 0.0 }},
+                "rooms": [{{ "x": 0.0, "z": 0.0, "width": {width}, "depth": {depth}, "height": {height} }}],
+                "ceiling_lights": {lights_json}
+            }}"#
+        );
+        LevelDef::from_json(&json).expect("valid lit room json")
+    }
+
+    fn batch_slice(mesh: &LevelMesh, range: BatchRange) -> &[Vertex] {
+        &mesh.vertices[range.start as usize..(range.start + range.count) as usize]
+    }
+
+    fn brightest(vertices: &[Vertex]) -> &Vertex {
+        vertices
+            .iter()
+            .max_by(|a, b| a.color[0].partial_cmp(&b.color[0]).unwrap())
+            .expect("non-empty vertex slice")
+    }
+
+    fn dimmest(vertices: &[Vertex]) -> &Vertex {
+        vertices
+            .iter()
+            .min_by(|a, b| a.color[0].partial_cmp(&b.color[0]).unwrap())
+            .expect("non-empty vertex slice")
+    }
+
+    #[test]
+    fn floors_are_lit_by_the_baseline_and_the_local_fixture_pool() {
+        let level = lit_room_level(
+            20.0,
+            20.0,
+            3.0,
+            r#"[{ "fixture": "core:fluorescent_panel_01", "x": 10.0, "z": 10.0 }]"#,
+        );
+        let mesh = build_level_geometry(&level);
+        let floor = batch_slice(&mesh, mesh.batches.floor_batch);
+        assert!(!floor.is_empty());
+
+        let bright = brightest(floor);
+        let dim = dimmest(floor);
+        assert!(
+            (bright.pos[0] - 10.0).abs() < 2.5 && (bright.pos[2] - 10.0).abs() < 2.5,
+            "the brightest floor vertex must sit under the fixture, got {:?}",
+            bright.pos
+        );
+        assert!(
+            bright.color[0] - dim.color[0] > 0.05,
+            "the pool must be visible: {} vs {}",
+            bright.color[0],
+            dim.color[0]
+        );
+        assert!(
+            dim.color[0] >= crate::lighting::MIN_AMBIENT - 1e-4,
+            "no floor vertex may fall below the minimum ambient, got {}",
+            dim.color[0]
+        );
+        for vertex in floor {
+            for channel in vertex.color {
+                assert!(channel.is_finite() && (0.0..=1.0).contains(&channel));
+            }
+        }
+    }
+
+    #[test]
+    fn wall_faces_vary_with_the_baked_lighting() {
+        // A fixture right above the wall's west end: the wall face nearest to it
+        // must be brighter than the far end, and long walls are split so the
+        // change is gradual rather than one flat quad.
+        let level = level_with_wall_and_lights(
+            "[]",
+            "[]",
+            r#"[{ "fixture": "core:fluorescent_panel_01", "x": -4.0, "z": 0.2 }]"#,
+        );
+        let mesh = build_level_geometry(&level);
+        let walls = batch_slice(&mesh, mesh.batches.wall_batch);
+        let bright = brightest(walls);
+        let dim = dimmest(walls);
+        assert!(
+            bright.color[0] - dim.color[0] > 0.05,
+            "wall lighting must vary: {} vs {}",
+            bright.color[0],
+            dim.color[0]
+        );
+        assert!(
+            bright.pos[0] < -2.0,
+            "the brightest wall vertex must be near the fixture, got {:?}",
+            bright.pos
+        );
+
+        // Smooth, not banded: the bottom edge of the wall face carries several
+        // distinct brightness levels instead of one flat colour.
+        let mut edge: Vec<f32> = walls
+            .iter()
+            .filter(|v| v.pos[2].abs() < 1e-3 && v.pos[1].abs() < 1e-3)
+            .map(|v| (v.color[0] * 1000.0).round() / 1000.0)
+            .collect();
+        edge.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        edge.dedup();
+        assert!(
+            edge.len() >= 3,
+            "expected a gradient along the wall, got {edge:?}"
+        );
+        assert!(edge[edge.len() - 1] - edge[0] > 0.1);
+    }
+
+    #[test]
+    fn placeholder_prop_boxes_receive_the_environment_lighting() {
+        let level = lit_room_level(
+            20.0,
+            20.0,
+            3.0,
+            r#"[{ "fixture": "core:fluorescent_panel_01", "x": 10.0, "z": 10.0 }]"#,
+        );
+        let mut level = level;
+        level.props = vec![
+            PropDef {
+                model: "core:crate".into(),
+                x: 10.0,
+                y: 0.0,
+                z: 10.0,
+                rotation_degrees: 0.0,
+                scale: 1.0,
+                size: Some([1.0, 1.0, 1.0]),
+                solid: false,
+            },
+            PropDef {
+                model: "core:crate".into(),
+                x: 1.0,
+                y: 0.0,
+                z: 1.0,
+                rotation_degrees: 0.0,
+                scale: 1.0,
+                size: Some([1.0, 1.0, 1.0]),
+                solid: false,
+            },
+        ];
+        let mesh = build_level_geometry(&level);
+        let props = batch_slice(&mesh, mesh.batches.prop_batch);
+        assert_eq!(props.len(), 72, "two Y-rotated boxes");
+
+        let under: Vec<&Vertex> = props.iter().filter(|v| v.pos[0] > 5.0).collect();
+        let far: Vec<&Vertex> = props.iter().filter(|v| v.pos[0] <= 5.0).collect();
+        assert!(!under.is_empty() && !far.is_empty());
+        let mean = |slice: &[&Vertex]| {
+            slice.iter().map(|vertex| vertex.color[0]).sum::<f32>() / slice.len() as f32
+        };
+        assert!(
+            mean(&under) > mean(&far) + 0.05,
+            "the prop under the fixture must be brighter: {} vs {}",
+            mean(&under),
+            mean(&far)
+        );
+        // No prop may be lit as if it were outside the level: even the darkest
+        // face of a mid-grey box at minimum ambient stays clearly visible.
+        let darkest_possible = crate::lighting::MIN_AMBIENT * 0.541 * 0.62;
+        for vertex in props {
+            assert!(
+                vertex.color[0] >= darkest_possible - 1e-4,
+                "prop vertex {} is darker than the minimum ambient allows",
+                vertex.color[0]
+            );
+        }
+    }
+
+    #[test]
+    fn vertically_offset_props_sample_their_true_world_position() {
+        let mut level = lit_room_level(
+            20.0,
+            20.0,
+            3.0,
+            r#"[{ "fixture": "core:fluorescent_panel_01", "x": 10.0, "z": 10.0 }]"#,
+        );
+        let base = PropDef {
+            model: "core:crate".into(),
+            x: 10.0,
+            y: 0.0,
+            z: 10.0,
+            rotation_degrees: 0.0,
+            scale: 1.0,
+            size: Some([1.0, 1.0, 1.0]),
+            solid: false,
+        };
+        let mut raised = base.clone();
+        raised.y = 2.0;
+        level.props = vec![base, raised];
+
+        let lighting = crate::lighting::LevelLighting::bake(&level);
+        let mesh = build_level_geometry(&level);
+        let props = batch_slice(&mesh, mesh.batches.prop_batch);
+        assert_eq!(props.len(), 72);
+        let floor_box = &props[..36];
+        let raised_box = &props[36..];
+
+        // The box on the floor is 3 m below the panel, the raised one 1 m; every
+        // corresponding vertex must carry exactly the ratio of the two samples
+        // taken at its own transformed world position.
+        let mut brighter_vertices = 0;
+        for index in 0..36 {
+            let low = floor_box[index].color[0];
+            let high = raised_box[index].color[0];
+            if high > low + 1e-6 {
+                brighter_vertices += 1;
+            }
+            let low_light = lighting.sample(
+                floor_box[index].pos[0],
+                floor_box[index].pos[1],
+                floor_box[index].pos[2],
+            );
+            let high_light = lighting.sample(
+                raised_box[index].pos[0],
+                raised_box[index].pos[1],
+                raised_box[index].pos[2],
+            );
+            assert!(low_light > 0.0 && high_light > 0.0);
+            let expected_ratio = high_light / low_light;
+            assert!(
+                (high / low - expected_ratio).abs() < 1e-3,
+                "vertex {index} ratio {} does not match the world-space samples {expected_ratio}",
+                high / low
+            );
+        }
+        assert!(
+            brighter_vertices > 0,
+            "the raised prop must be closer to the light"
+        );
+    }
+
+    #[test]
+    fn real_props_are_lit_per_vertex_and_stay_batched() {
+        let catalog = shipped_catalog();
+        let mut assets = shipped_assets();
+        let lights = r#"[
+            { "fixture": "core:fluorescent_panel_01", "x": 0.0, "z": 0.0 },
+            { "fixture": "core:fluorescent_panel_01", "x": 8.0, "z": 0.0 }
+        ]"#;
+        let mut props: Vec<String> = Vec::new();
+        for index in 0..10 {
+            props.push(format!(
+                r#"{{ "model": "core:chair", "x": {}, "z": 0.0 }}"#,
+                index as f32
+            ));
+        }
+        let level = level_with_wall_and_lights("[]", &format!("[{}]", props.join(",")), lights);
+        let (_, batches, lighting) =
+            build_level_geometry_with_assets_and_lighting(&level, &catalog, &mut assets);
+
+        assert_eq!(batches.len(), 1, "ten chairs still cost one draw call");
+        let vertices = &batches[0].vertices;
+        let min = vertices.iter().map(|v| v.color[0]).fold(f32::MAX, f32::min);
+        let max = vertices.iter().map(|v| v.color[0]).fold(f32::MIN, f32::max);
+        assert!(
+            max - min > 0.05,
+            "instances across the room must not be uniformly lit: {min}..{max}"
+        );
+
+        // Every vertex carries its model colour multiplied by the bake sampled
+        // at its own transformed world position (instances are concatenated, so
+        // the model index wraps once per instance).
+        let asset = assets.resolve("models/chair.glb").expect("chair loads");
+        let model = &asset.model;
+        let source_vertices = model.indices.len();
+        for (position_index, vertex) in vertices.iter().enumerate() {
+            let source = model.vertices[model.indices[position_index % source_vertices] as usize];
+            let light = lighting.sample(vertex.pos[0], vertex.pos[1], vertex.pos[2]);
+            assert!(
+                (vertex.color[0] - source.color[0] * light).abs() < 1e-4,
+                "vertex {position_index}: baked colour {} does not match {} * {light}",
+                vertex.color[0],
+                source.color[0]
+            );
+        }
+        assert!(assets.stats().models_failed == 0);
+    }
+
+    #[test]
+    fn malformed_geometry_never_reaches_the_vertex_buffer() {
+        // A room with non-finite dimensions and fixtures with non-finite
+        // coordinates must be skipped, not turned into NaN vertices. The loader
+        // rejects such levels, but direct construction must stay safe too.
+        let mut level = lit_room_level(
+            12.0,
+            8.0,
+            3.0,
+            r#"[{ "fixture": "core:fluorescent_panel_01", "x": 6.0, "z": 4.0 }]"#,
+        );
+        level.rooms[0].width = f32::NAN;
+        level.ceiling_lights[0].x = f32::NAN;
+        level.ceiling_lights[0].z = f32::INFINITY;
+
+        let mesh = build_level_geometry(&level);
+        assert_eq!(mesh.batches.floor_batch.count, 0);
+        assert_eq!(mesh.batches.ceiling_batch.count, 0);
+        assert_eq!(mesh.batches.light_batch.count, 0);
+        for vertex in mesh.vertices.iter() {
+            assert!(
+                vertex.pos.iter().all(|value| value.is_finite()),
+                "non-finite position {:?}",
+                vertex.pos
+            );
+        }
+    }
+
+    #[test]
+    fn a_room_without_fixtures_stays_visible_and_within_range() {
+        let mut level = lit_room_level(12.0, 8.0, 3.0, "[]");
+        level.walls = vec![crate::level::WallDef {
+            x: -6.0,
+            y: 0.0,
+            z: 4.0,
+            width: 12.0,
+            depth: 0.4,
+            height: None,
+            faces: Default::default(),
+            openings: Vec::new(),
+        }];
+        let mesh = build_level_geometry(&level);
+        let floor = batch_slice(&mesh, mesh.batches.floor_batch);
+        let ceiling = batch_slice(&mesh, mesh.batches.ceiling_batch);
+        let walls = batch_slice(&mesh, mesh.batches.wall_batch);
+        assert!(!floor.is_empty() && !ceiling.is_empty() && !walls.is_empty());
+
+        for vertex in mesh.vertices.iter() {
+            assert!(
+                vertex.color.iter().all(|c| c.is_finite()),
+                "non-finite baked colour at {:?}",
+                vertex.pos
+            );
+            assert!(vertex.color.iter().all(|c| (0.0..=1.0).contains(c)));
+        }
+        // The floor uses an untinted base colour, so minimum ambient shows up
+        // directly; wall and ceiling tints are darker by design but stay visible.
+        assert_eq!(floor[0].color[0], crate::lighting::MIN_AMBIENT);
+        assert!(ceiling[0].color[0] > 0.3);
+        assert!(walls[0].color[0] > 0.3);
+    }
+
     #[test]
     fn test_wall_without_openings_emits_four_faces() {
         let level = level_with_wall("[]", "[]");
         let mesh = build_level_geometry(&level);
-        // Two faces parallel to the wall's length plus two end caps. The wall
-        // reaches the ceiling height, so there is no top or bottom face.
-        assert_eq!(mesh.batches.wall_batch.count, 4 * 6);
+        // Two faces parallel to the wall's length, each split into lighting
+        // segments, plus two end caps. The wall reaches the ceiling height, so
+        // there is no top or bottom face.
+        let segments = crate::lighting::wall_light_segments(10.0) as i32;
+        assert_eq!(mesh.batches.wall_batch.count, (2 * segments + 2) * 6);
         assert_eq!(mesh.batches.prop_batch.count, 0);
     }
 
@@ -2340,9 +2962,14 @@ mod tests {
             door.batches.wall_batch.count > plain.batches.wall_batch.count,
             "doorway must add jamb and header geometry"
         );
-        // Three slices (2 length faces each) + door head underside + 4 cross
-        // section caps (2 wall ends, 2 door jambs).
-        assert_eq!(door.batches.wall_batch.count, 11 * 6);
+        // Three slices, each split into lighting segments, two faces each; plus
+        // the door head underside and four cross-section caps (2 wall ends,
+        // 2 door jambs).
+        let mut expected = 0;
+        for length in [4.0f32, 2.0, 4.0] {
+            expected += 2 * crate::lighting::wall_light_segments(length) as i32;
+        }
+        assert_eq!(door.batches.wall_batch.count, (expected + 1 + 4) * 6);
     }
 
     #[test]
@@ -2352,10 +2979,14 @@ mod tests {
             "[]",
         );
         let mesh = build_level_geometry(&level);
-        // Four slices (2 length faces each): the full-height wall either side
-        // of the window plus the sill and header slices, which add a sill top
-        // and a head underside, plus 4 cross section caps.
-        assert_eq!(mesh.batches.wall_batch.count, 14 * 6);
+        // Four slices: the full-height wall either side of the window plus the
+        // sill and header slices, which add a sill top and a head underside,
+        // plus 4 cross-section caps.
+        let mut expected = 0;
+        for length in [4.0f32, 2.0, 2.0, 4.0] {
+            expected += 2 * crate::lighting::wall_light_segments(length) as i32;
+        }
+        assert_eq!(mesh.batches.wall_batch.count, (expected + 2 + 4) * 6);
     }
 
     #[test]
@@ -2384,9 +3015,14 @@ mod tests {
         let level = LevelDef::from_json(json).expect("valid json");
         let mesh = build_level_geometry(&level);
 
-        // Same decomposition as the equivalent X-axis wall: 3 slices x 2
-        // length faces + door head underside + 4 cross section caps.
-        assert_eq!(mesh.batches.wall_batch.count, 11 * 6);
+        // Same decomposition as the equivalent X-axis wall: 3 slices, each
+        // split into lighting segments, two faces each; plus door head
+        // underside and 4 cross-section caps.
+        let mut expected = 0;
+        for length in [4.0f32, 2.0, 4.0] {
+            expected += 2 * crate::lighting::wall_light_segments(length) as i32;
+        }
+        assert_eq!(mesh.batches.wall_batch.count, (expected + 1 + 4) * 6);
 
         let start = mesh.batches.wall_batch.start as usize;
         let end = start + mesh.batches.wall_batch.count as usize;

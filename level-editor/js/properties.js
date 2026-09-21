@@ -413,6 +413,8 @@ class PropertiesPanel {
         ${this.field('Brightness', this.input('light', 'brightness', light.brightness, { min: 0.1, max: 5, step: 0.1 }))}
         <label class="switch"><input type="checkbox" data-obj="light" data-field="turned" ${Math.round(light.rotation_degrees / 90) % 2 !== 0 ? 'checked' : ''}><span>Turned 90°</span></label>
       </div>
+      <p class="field-note">Fixture output (intensity ×): 0.5 weak, 1.0 standard, 2.0 high output.
+        The game bakes this into the room's brightness and the pool beneath the panel; omitted means 1.0.</p>
       <p class="hint">Fits the ceiling at ${this.num(level.getCeilingHeight(light.x, light.z), 1)} m.</p>
       ${this.actions(light.id)}
       ${this.advanced(`

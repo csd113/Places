@@ -422,8 +422,8 @@ test('every script referenced by index.html exists', () => {
   const loaded = env.loadAll();
   const referenced = Array.from(readIndexHtml().matchAll(/<script src="([^"]+)"/g)).map(m => m[1]);
   assert.deepEqual(referenced, [
-    'js/jszip.min.js', 'js/geometry.js', 'js/model.js', 'js/props.js', 'js/history.js',
-    'js/ops.js', 'js/renderer.js', 'js/camera3d.js', 'js/viewport3d.js',
+    'js/jszip.min.js', 'js/model.js', 'js/lighting.js', 'js/geometry.js', 'js/props.js',
+    'js/history.js', 'js/ops.js', 'js/renderer.js', 'js/camera3d.js', 'js/viewport3d.js',
     'js/properties.js', 'js/io.js', 'js/editor.js', 'js/app.js'
   ]);
   assert.equal(loaded.length, referenced.length, 'every referenced script exists on disk');

@@ -4,6 +4,7 @@ pub mod game;
 pub mod gltf;
 pub mod input;
 pub mod level;
+pub mod lighting;
 pub mod loader;
 pub mod perf;
 pub mod props;
@@ -24,9 +25,9 @@ use ui::{SETTINGS_ITEM_COUNT, UiGeometryCache, UiState, activate_settings_item};
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Prints what the level's props cost, so hardware runs (PocketCHIP over SSH)
-/// can be checked without a debugger: decoded models, texture memory and the
-/// number of draw calls the props need.
+/// Prints what the level's props and baked lighting cost, so hardware runs
+/// (PocketCHIP over SSH) can be checked without a debugger: decoded models,
+/// texture memory, draw calls, level-build time and the baked room baselines.
 fn log_prop_usage(renderer: &Renderer) {
     let stats = renderer.prop_asset_stats();
     println!(
@@ -36,6 +37,19 @@ fn log_prop_usage(renderer: &Renderer) {
         stats.triangles,
         stats.texture_bytes / 1024,
         renderer.prop_draw_count()
+    );
+    let level = renderer.level_stats();
+    println!(
+        "[level] {} static vertices, {} prop vertices, {} prop draw call(s), built in {:.1} ms",
+        level.static_vertices, level.prop_vertices, level.prop_draws, level.build_millis
+    );
+    println!(
+        "[lighting] baked {} room(s) from {} fixture(s): baselines {:.2}..{:.2} (avg {:.2})",
+        level.lighting.rooms,
+        level.lighting.lights,
+        level.lighting.min_baseline,
+        level.lighting.max_baseline,
+        level.lighting.average_baseline
     );
 }
 

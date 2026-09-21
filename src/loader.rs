@@ -671,6 +671,27 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
         }
     }
 
+    for (i, light) in level.ceiling_lights.iter().enumerate() {
+        if !light.x.is_finite() || !light.z.is_finite() || !light.rotation_degrees.is_finite() {
+            return Err(format!(
+                "Ceiling light {i} position and rotation must be finite numbers"
+            ));
+        }
+        // The optional fixture intensity (`brightness`, also accepted as
+        // `intensity`). Omitted means the standard 1.0 fixture; negative or
+        // non-finite values are rejected, high values are clamped while baking.
+        if let Some(brightness) = light.brightness {
+            if !brightness.is_finite() {
+                return Err(format!(
+                    "Ceiling light {i} intensity must be a finite number"
+                ));
+            }
+            if brightness < 0.0 {
+                return Err(format!("Ceiling light {i} intensity cannot be negative"));
+            }
+        }
+    }
+
     for (i, prop) in level.props.iter().enumerate() {
         if prop.model.trim().is_empty() {
             return Err(format!("Prop {i} must reference a non-empty model id"));
@@ -1850,8 +1871,12 @@ mod tests {
 
         // The level builds real prop geometry, not placeholder boxes.
         let mut assets = crate::props::PropAssets::load_default();
-        let (mesh, batches) =
-            crate::render::build_level_geometry_with_assets(level, &catalog, &mut assets);
+        let (mesh, batches, lighting) =
+            crate::render::build_level_geometry_with_assets_and_lighting(
+                level,
+                &catalog,
+                &mut assets,
+            );
         assert_eq!(
             mesh.batches.prop_batch.count, 0,
             "no placeholder boxes expected"
@@ -1862,6 +1887,151 @@ mod tests {
             batches.len()
         );
         assert_eq!(assets.stats().models_failed, 0);
+
+        // Lighting: all twelve fixtures are owned exactly once, every room gets
+        // a navigable baseline, and the brighter, lower-ceilinged corridor beats
+        // the large rooms it connects.
+        assert_eq!(lighting.summary().rooms, 5);
+        assert_eq!(lighting.summary().lights, 12);
+        assert_eq!(
+            lighting
+                .rooms()
+                .iter()
+                .map(|room| room.fixture_count)
+                .sum::<usize>(),
+            level.ceiling_lights.len(),
+            "every fixture must be owned by exactly one room"
+        );
+        for room in lighting.rooms() {
+            assert!(
+                room.baseline >= crate::lighting::MIN_AMBIENT
+                    && room.baseline <= crate::lighting::MAX_BRIGHTNESS,
+                "baseline {} out of range",
+                room.baseline
+            );
+            assert!(room.baseline.is_finite());
+        }
+        let corridor = &lighting.rooms()[4];
+        for room in &lighting.rooms()[..4] {
+            assert!(
+                corridor.baseline > room.baseline,
+                "the corridor ({}) should read brighter than a room ({})",
+                corridor.baseline,
+                room.baseline
+            );
+        }
+        // A fixture casts a local pool: directly beneath a corridor panel is
+        // brighter than the corridor's baseline.
+        let beneath = lighting.sample(-7.0, 0.0, 0.0);
+        assert!(
+            beneath > corridor.baseline + 0.02,
+            "expected a visible pool beneath the panel: {beneath} vs {}",
+            corridor.baseline
+        );
+        // Doorway blending: the two sides of the living-room door (25 cm apart,
+        // on opposite sides of the wall) read nearly the same, even though the
+        // two rooms' baselines differ by enough to show a seam without blending.
+        let living = lighting.rooms()[0].baseline;
+        assert!(
+            (corridor.baseline - living).abs() > 0.05,
+            "the demo's rooms and corridor should differ enough to prove blending"
+        );
+        let living_side = lighting.sample(-13.4, 0.0, -1.9);
+        let corridor_side = lighting.sample(-13.4, 0.0, -1.6);
+        assert!(
+            (living_side - corridor_side).abs() < 0.05,
+            "the doorway seam should be blended, got {living_side} vs {corridor_side}"
+        );
+
+        // Baked colours stay in range, and floors genuinely vary across the demo
+        // (the corridor has fixture pools, the rooms have their own).
+        let floor = &mesh.vertices[mesh.batches.floor_batch.start as usize
+            ..(mesh.batches.floor_batch.start + mesh.batches.floor_batch.count) as usize];
+        let floor_min = floor.iter().map(|v| v.color[0]).fold(f32::MAX, f32::min);
+        let floor_max = floor.iter().map(|v| v.color[0]).fold(f32::MIN, f32::max);
+        assert!(floor_max - floor_min > 0.05, "floors must not be flat-lit");
+        for vertex in mesh.vertices.iter() {
+            assert!(vertex.color.iter().all(|c| c.is_finite()));
+            assert!(vertex.color.iter().all(|c| (0.0..=1.0).contains(c)));
+        }
+        // Real prop instances are baked per vertex, and every instance of a
+        // model still shares one batch (no extra draw calls for lighting).
+        for batch in &batches {
+            let min = batch
+                .vertices
+                .iter()
+                .map(|v| v.color[0])
+                .fold(f32::MAX, f32::min);
+            let max = batch
+                .vertices
+                .iter()
+                .map(|v| v.color[0])
+                .fold(f32::MIN, f32::max);
+            assert!(max - min > 1e-4, "prop batch {} is flat-lit", batch.model);
+        }
+    }
+
+    #[test]
+    fn test_ceiling_light_intensity_is_optional_and_sanitized() {
+        let base = |lights: &str| {
+            format!(
+                r#"{{
+                    "format_version": 1,
+                    "id": "intensity",
+                    "name": "Intensity",
+                    "spawn": {{ "x": 0.0, "z": 0.0 }},
+                    "room": {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 }},
+                    "ceiling_lights": {lights}
+                }}"#
+            )
+        };
+
+        // Backward compatibility: an omitted intensity is the standard fixture.
+        let omitted = LevelDef::from_json(&base(
+            r#"[{ "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0 }]"#,
+        ))
+        .expect("omitted intensity parses");
+        validate_level(&omitted).expect("an omitted intensity validates");
+        assert_eq!(omitted.ceiling_lights[0].brightness, None);
+        assert_eq!(omitted.ceiling_lights[0].intensity(), 1.0);
+
+        // The editor's `brightness` key and the `intensity` alias both load.
+        let both = LevelDef::from_json(&base(
+            r#"[
+                { "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0, "brightness": 0.8 },
+                { "fixture": "core:fluorescent_panel_01", "x": 8.0, "z": 8.0, "intensity": 1.4 }
+            ]"#,
+        ))
+        .expect("both spellings parse");
+        assert_eq!(both.ceiling_lights[0].intensity(), 0.8);
+        assert_eq!(both.ceiling_lights[1].intensity(), 1.4);
+        validate_level(&both).expect("authored intensities validate");
+
+        // A negative intensity is malformed data; the loader says so instead of
+        // producing negative lighting.
+        let negative = LevelDef::from_json(&base(
+            r#"[{ "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0, "brightness": -1.0 }]"#,
+        ))
+        .expect("negative intensity still parses");
+        let error = validate_level(&negative).expect_err("negative intensity is rejected");
+        assert!(error.contains("intensity"), "unexpected error: {error}");
+
+        // Non-finite light coordinates are rejected like every other element.
+        let mut non_finite = both.clone();
+        non_finite.ceiling_lights[0].x = f32::NAN;
+        assert!(validate_level(&non_finite).is_err());
+
+        // Very high intensities are allowed through validation (they saturate),
+        // but sanitise to a finite, bounded value.
+        let high = LevelDef::from_json(&base(
+            r#"[{ "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0, "brightness": 1000.0 }]"#,
+        ))
+        .expect("high intensity parses");
+        validate_level(&high).expect("high intensity still loads");
+        assert_eq!(
+            high.ceiling_lights[0].intensity(),
+            crate::lighting::MAX_LIGHT_INTENSITY
+        );
     }
 
     #[test]

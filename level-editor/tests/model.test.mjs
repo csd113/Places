@@ -155,6 +155,53 @@ test('validation rejects malformed openings and props only', () => {
   assert.ok(result.errors.some(e => e.includes('non-empty model id')));
 });
 
+test('ceiling light intensity is optional, aliased and validated', () => {
+  // Omitted means the standard 1.0 fixture, and the JSON stays terse.
+  const standard = new model.CeilingLight({ fixture: 'core:fluorescent_panel_01', x: 1, z: 2 });
+  assert.equal(standard.brightness, 1.0);
+  assert.equal('brightness' in standard.toJSON(), false);
+
+  // `intensity` is accepted on import as an alias for `brightness`.
+  const aliased = new model.CeilingLight({ fixture: 'core:fluorescent_panel_01', x: 1, z: 2, intensity: 1.4 });
+  assert.equal(aliased.brightness, 1.4);
+  assert.equal(aliased.toJSON().brightness, 1.4);
+
+  // A non-default intensity survives a round trip.
+  const strong = new model.CeilingLight({ fixture: 'core:fluorescent_panel_01', x: 1, z: 2, brightness: 0.8 });
+  assert.equal(new model.CeilingLight(JSON.parse(JSON.stringify(strong.toJSON()))).brightness, 0.8);
+
+  const build = (lights) => new Level({
+    id: 'lights', name: 'Lights', spawn: { x: 0, z: 0 },
+    rooms: [{ x: 0, z: 0, width: 6, depth: 6, height: 3.5 }],
+    ceiling_lights: lights
+  });
+  assert.deepEqual(model.validateLevel(build([
+    { fixture: 'core:fluorescent_panel_01', x: 1, z: 1 },
+    { fixture: 'core:fluorescent_panel_01', x: 4, z: 4, brightness: 2.0 }
+  ])).errors, []);
+
+  const negative = model.validateLevel(build([
+    { fixture: 'core:fluorescent_panel_01', x: 1, z: 1, brightness: -1 }
+  ]));
+  assert.equal(negative.valid, false);
+  assert.ok(negative.errors.some(e => e.includes('intensity cannot be negative')), negative.errors.join());
+
+  const malformed = model.validateLevel(build([
+    { fixture: 'core:fluorescent_panel_01', x: Number.NaN, z: 0 },
+    { fixture: 'core:fluorescent_panel_01', x: 0, z: 0, rotation_degrees: Number.POSITIVE_INFINITY }
+  ]));
+  assert.equal(malformed.valid, false);
+  assert.equal(malformed.errors.length, 2, malformed.errors.join());
+  assert.ok(malformed.errors.every(e => e.includes('finite numbers')), malformed.errors.join());
+
+  // Above the game's clamp the level still loads, so the editor warns only.
+  const high = model.validateLevel(build([
+    { fixture: 'core:fluorescent_panel_01', x: 1, z: 1, brightness: 20 }
+  ]));
+  assert.equal(high.valid, true);
+  assert.ok(high.warnings.some(w => w.includes('clamped')), high.warnings.join());
+});
+
 test('unknown opening kinds stay forward compatible', () => {
   const level = new Level({
     id: 'future', name: 'Future', spawn: { x: 0, z: 0 },

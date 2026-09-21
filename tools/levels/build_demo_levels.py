@@ -63,6 +63,16 @@ def prop(model, x, z, rotation=0.0, y=0.0, scale=1.0, solid=None, size=None) -> 
     return entry
 
 
+def light(x, z, rotation=0.0, intensity=None) -> Dict:
+    """Ceiling fixture entry. `intensity` is omitted for the standard 1.0 panel."""
+    entry: Dict = {"fixture": "core:fluorescent_panel_01", "x": x, "z": z}
+    if rotation:
+        entry["rotation_degrees"] = rotation
+    if intensity is not None:
+        entry["intensity"] = intensity
+    return entry
+
+
 def room_box(room: Dict) -> List[Dict]:
     """Four walls around a room, with a doorway in the front (+Z) wall."""
     x, z, width, depth = room["x"], room["z"], room["width"], room["depth"]
@@ -139,8 +149,10 @@ def showcase_level() -> Dict:
         "rooms": [west, east],
         "walls": walls,
         "ceiling_lights": [
-            {"fixture": "core:fluorescent_panel_01", "x": -7.0, "z": -1.0},
-            {"fixture": "core:fluorescent_panel_01", "x": 3.0, "z": -1.0},
+            # Deliberately mixed fixture outputs, so the development fixture also
+            # exercises the optional intensity field (0.8 low output, 1.4 high).
+            light(-7.0, -1.0, intensity=0.8),
+            light(3.0, -1.0, intensity=1.4),
         ],
         "props": props,
     }
@@ -217,10 +229,10 @@ def stress_level() -> Dict:
         "room": room,
         "walls": walls,
         "ceiling_lights": [
-            {"fixture": "core:fluorescent_panel_01", "x": -6.0, "z": -4.0},
-            {"fixture": "core:fluorescent_panel_01", "x": 6.0, "z": -4.0},
-            {"fixture": "core:fluorescent_panel_01", "x": -6.0, "z": 6.0},
-            {"fixture": "core:fluorescent_panel_01", "x": 6.0, "z": 6.0},
+            light(-6.0, -4.0),
+            light(6.0, -4.0),
+            light(-6.0, 6.0),
+            light(6.0, 6.0),
         ],
         "props": props,
     }
@@ -320,19 +332,21 @@ def asset_demo_level() -> Dict:
         prop("spooner-man", -4.4, 0.5, rotation=88.0),
     ]
 
+    # All twelve fixtures stay at the standard output, which keeps the demo map
+    # a live proof that levels without an intensity field behave as 1.0.
     lights = [
-        {"fixture": "core:fluorescent_panel_01", "x": -11.0, "z": -7.0},
-        {"fixture": "core:fluorescent_panel_01", "x": -7.0, "z": -10.0},
-        {"fixture": "core:fluorescent_panel_01", "x": -1.5, "z": -6.0},
-        {"fixture": "core:fluorescent_panel_01", "x": 2.5, "z": -10.0},
-        {"fixture": "core:fluorescent_panel_01", "x": -11.0, "z": 7.0},
-        {"fixture": "core:fluorescent_panel_01", "x": -7.0, "z": 10.0},
-        {"fixture": "core:fluorescent_panel_01", "x": -1.5, "z": 6.0},
-        {"fixture": "core:fluorescent_panel_01", "x": 3.0, "z": 10.0},
-        {"fixture": "core:fluorescent_panel_01", "x": -12.0, "z": 0.0, "rotation_degrees": 90.0},
-        {"fixture": "core:fluorescent_panel_01", "x": -7.0, "z": 0.0, "rotation_degrees": 90.0},
-        {"fixture": "core:fluorescent_panel_01", "x": -1.0, "z": 0.0, "rotation_degrees": 90.0},
-        {"fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 0.0, "rotation_degrees": 90.0},
+        light(-11.0, -7.0),
+        light(-7.0, -10.0),
+        light(-1.5, -6.0),
+        light(2.5, -10.0),
+        light(-11.0, 7.0),
+        light(-7.0, 10.0),
+        light(-1.5, 6.0),
+        light(3.0, 10.0),
+        light(-12.0, 0.0, rotation=90.0),
+        light(-7.0, 0.0, rotation=90.0),
+        light(-1.0, 0.0, rotation=90.0),
+        light(4.0, 0.0, rotation=90.0),
     ]
 
     return {
