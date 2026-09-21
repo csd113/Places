@@ -125,6 +125,30 @@ test('the viewport builds and draws the level mesh', () => {
   assert.ok(gl.calls.bufferData >= uploadsAfterFirst, 'a level change re-uploads geometry');
 });
 
+test('proxy geometry replaces the fallback box in the viewport mesh', () => {
+  const { env } = bootWithGL();
+
+  // With no proxies loaded, every starter prop is a catalogue fallback box.
+  const props = env.run('app.level.props.length');
+  env.run('app.viewport3d.markDirty(); app.viewport3d.render();');
+  assert.equal(env.run('app.viewport3d._batches.props.count'), props * 36);
+
+  const model = env.run('app.level.props[0].model');
+  const payload = { props: {} };
+  payload.props[model] = {
+    name: 'Proxy',
+    model: 'models/proxy.glb',
+    parts: [
+      { shape: 'box', center: [0, 0.5, 0], size: [1, 1, 1], color: '#ffffff' },
+      { shape: 'box', center: [0, 1.5, 0], size: [0.5, 1, 0.5], color: '#ffffff' }
+    ]
+  };
+  env.run(`app.propProxies = LiminalProps.PropProxies.fromJSON(${JSON.stringify(payload)});
+    app.levelRevision++; app.viewport3d.markDirty(); app.viewport3d.render();`);
+  // One 36-vertex fallback box is replaced by two 36-vertex proxy boxes.
+  assert.equal(env.run('app.viewport3d._batches.props.count'), (props - 1) * 36 + 72, 'the proxy parts are uploaded');
+});
+
 test('x-ray and ceiling modes switch without rebuilding geometry', () => {
   const { env, gl } = bootWithGL();
   const before = env.run('JSON.stringify(app.viewport3d.ceilingsMode())');

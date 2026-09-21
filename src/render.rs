@@ -597,9 +597,10 @@ fn add_prop_box(vertices: &mut Vec<Vertex>, prop: &PropDef, size: [f32; 3], colo
     }
 }
 
-pub fn build_level_geometry_with_catalog(
+fn build_level_geometry_mesh(
     level: &LevelDef,
     catalog: &crate::loader::PropCatalog,
+    fallback_props: &[&PropDef],
 ) -> LevelMesh {
     // Collect the merged room list once; geometry and ceiling lookups then
     // borrow it instead of cloning the room vector repeatedly.
@@ -1007,16 +1008,19 @@ pub fn build_level_geometry_with_catalog(
         count: vertices.len() as i32 - light_start,
     };
 
-    // 5. Props batch: one Y-rotated box per prop, tinted with the catalog
-    //    colour and drawn with the unshaded white texture.
+    // 5. Props batch: placeholder boxes for every prop whose real model is
+    //    unavailable (unknown catalogue entry, missing file, malformed GLB).
+    //    Real prop geometry is added by `build_level_geometry_with_assets`,
+    //    which batches instances per model and draws them with their own texture.
     let prop_start = vertices.len() as i32;
-    for prop in &level.props {
+    for prop in fallback_props {
         let entry = catalog.get(&prop.model);
         let size = prop.resolved_size(entry.size);
         if !prop.x.is_finite()
             || !prop.y.is_finite()
             || !prop.z.is_finite()
             || !prop.rotation_degrees.is_finite()
+            || !prop.scale.is_finite()
             || !size.iter().all(|v| v.is_finite() && *v > 0.0)
             || !entry.color.iter().all(|c| c.is_finite())
         {
@@ -1032,12 +1036,139 @@ pub fn build_level_geometry_with_catalog(
     LevelMesh { vertices, batches }
 }
 
+/// Instanced prop geometry for one distinct prop model in a level.
+///
+/// Every placed instance of the same model is transformed on the CPU at level
+/// load time and appended here, so the renderer binds one buffer and one
+/// texture per model and issues one draw call for all of its instances. The
+/// decoded model itself is parsed once and shared through
+/// [`crate::props::PropAssets`].
+#[derive(Clone, Debug)]
+pub struct PropMeshBatch {
+    /// Catalogue model path, e.g. `models/chair.glb`.
+    pub model: String,
+    /// Diffuse texture shared by every instance in this batch.
+    pub texture: crate::loader::RawImage,
+    /// Pre-transformed, non-indexed triangles (six vertices per quad).
+    pub vertices: Vec<Vertex>,
+}
+
+/// Builds the level mesh with real prop geometry where possible, plus one
+/// batched draw per distinct prop model.
+///
+/// Props whose model is missing, malformed or simply absent from the catalogue
+/// still emit their catalogue-sized placeholder box into
+/// `LevelMesh::batches.prop_batch`, so a broken asset degrades visibly instead
+/// of vanishing, and never crashes or loops (failures are cached by
+/// [`crate::props::PropAssets`]).
+pub fn build_level_geometry_with_assets(
+    level: &LevelDef,
+    catalog: &crate::loader::PropCatalog,
+    assets: &mut crate::props::PropAssets,
+) -> (LevelMesh, Vec<PropMeshBatch>) {
+    let (batches, fallbacks) = resolve_prop_instances(level, catalog, assets);
+    let mesh = build_level_geometry_mesh(level, catalog, &fallbacks);
+    (mesh, batches)
+}
+
 /// Builds level geometry using only built-in prop fallbacks.
 ///
 /// Callers that can resolve the prop catalog should prefer
 /// [`build_level_geometry_with_catalog`].
 pub fn build_level_geometry(level: &LevelDef) -> LevelMesh {
     build_level_geometry_with_catalog(level, &crate::loader::PropCatalog::builtin())
+}
+
+/// Builds level geometry, drawing every prop as its catalogue placeholder box
+/// (no GLB assets are read). Used by tests and by the asset-less fallback path.
+pub fn build_level_geometry_with_catalog(
+    level: &LevelDef,
+    catalog: &crate::loader::PropCatalog,
+) -> LevelMesh {
+    let fallbacks: Vec<&PropDef> = level.props.iter().collect();
+    build_level_geometry_mesh(level, catalog, &fallbacks)
+}
+
+/// Resolves every placed prop into either a batched real mesh or a fallback box,
+/// sharing one decoded model (and one texture) per distinct model path.
+fn resolve_prop_instances<'a>(
+    level: &'a LevelDef,
+    catalog: &crate::loader::PropCatalog,
+    assets: &mut crate::props::PropAssets,
+) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
+    use std::collections::HashMap;
+
+    let mut batches: Vec<PropMeshBatch> = Vec::new();
+    let mut index_by_model: HashMap<String, usize> = HashMap::new();
+    let mut fallbacks: Vec<&PropDef> = Vec::new();
+    let mut busy_vertices = 0usize;
+
+    for prop in &level.props {
+        let entry = catalog.get(&prop.model);
+        let Some(model_path) = entry.model.clone() else {
+            fallbacks.push(prop);
+            continue;
+        };
+        if busy_vertices >= crate::level::MAX_LEVEL_PROP_VERTICES {
+            fallbacks.push(prop);
+            continue;
+        }
+        let asset = match assets.resolve(&model_path) {
+            Ok(asset) => asset,
+            Err(error) => {
+                assets.report_failure(&model_path, &error);
+                fallbacks.push(prop);
+                continue;
+            }
+        };
+        if !index_by_model.contains_key(&model_path)
+            && batches.len() >= crate::level::MAX_LEVEL_PROP_MODELS
+        {
+            fallbacks.push(prop);
+            continue;
+        }
+
+        let model = prop_instance_matrix(prop);
+        let batch_index = *index_by_model.entry(model_path.clone()).or_insert_with(|| {
+            batches.push(PropMeshBatch {
+                model: model_path.clone(),
+                texture: asset.model.texture.clone(),
+                vertices: Vec::with_capacity(asset.model.triangles * 6),
+            });
+            batches.len() - 1
+        });
+        let batch = &mut batches[batch_index];
+        for triangle in asset.model.indices.as_chunks::<3>().0 {
+            for index in triangle {
+                let vertex = asset.model.vertices[*index as usize];
+                let position = model.transform_point3(glam::Vec3::new(
+                    vertex.pos[0],
+                    vertex.pos[1],
+                    vertex.pos[2],
+                ));
+                batch.vertices.push(Vertex {
+                    pos: [position.x, position.y, position.z],
+                    color: vertex.color,
+                    uv: vertex.uv,
+                });
+            }
+        }
+        busy_vertices += asset.model.triangles * 3;
+    }
+
+    (batches, fallbacks)
+}
+
+/// Instance transform for a placed prop: translate, rotate about Y and scale.
+///
+/// This is exactly the transform the placeholder boxes use (see
+/// [`add_prop_box`]), so a prop keeps its position, orientation and vertical
+/// offset when its real model replaces the box. Model space is metres with the
+/// origin at the floor-contact centre (see `assets/props/README.md`).
+pub fn prop_instance_matrix(prop: &PropDef) -> glam::Mat4 {
+    let rotation = glam::Mat4::from_rotation_y(prop.rotation_degrees.to_radians());
+    let scale = glam::Mat4::from_scale(glam::Vec3::splat(prop.scale));
+    glam::Mat4::from_translation(glam::Vec3::new(prop.x, prop.y, prop.z)) * rotation * scale
 }
 
 /// Applies min/mag filtering for a repeating, mipmapped texture.
@@ -1163,6 +1294,15 @@ unsafe fn create_program(
     }
 }
 
+/// One drawable batch of placed props: all instances of a single model, sharing
+/// one texture, drawn as a contiguous vertex range of the prop buffer.
+#[derive(Clone, Copy, Debug)]
+struct PropDraw {
+    texture: glow::Texture,
+    start: i32,
+    count: i32,
+}
+
 /// Manages OpenGL ES 2.0-compatible accelerated rendering context, textures, and scene/UI drawing.
 pub struct Renderer {
     _gl_context: sdl2::video::GLContext,
@@ -1170,9 +1310,18 @@ pub struct Renderer {
     program: glow::Program,
     level_vbo: glow::Buffer,
     ui_vbo: glow::Buffer,
+    /// Buffer holding every batched prop instance of the current level.
+    prop_vbo: glow::Buffer,
     batches: LevelMeshBatches,
     /// Catalog used to size and colour placed props. Loaded once at startup.
     prop_catalog: crate::loader::PropCatalog,
+    /// Decoded prop models, shared between instances and cached across levels.
+    prop_assets: crate::props::PropAssets,
+    /// Per-model prop draw ranges for the current level.
+    prop_draws: Vec<PropDraw>,
+    /// GPU textures for prop models, keyed by catalogue model path so a level
+    /// change never re-uploads a texture that is already resident.
+    prop_textures: std::collections::HashMap<String, glow::Texture>,
     wall_texture: glow::Texture,
     floor_texture: glow::Texture,
     ceiling_texture: glow::Texture,
@@ -1230,6 +1379,7 @@ impl Renderer {
             program,
             level_vbo,
             ui_vbo,
+            prop_vbo,
             batches,
             wall_texture,
             floor_texture,
@@ -1272,25 +1422,23 @@ impl Renderer {
             let font_texture =
                 create_texture_2d(&gl, 128, 64, &generate_font_atlas(), false, false)?;
 
-            // Upload initial 3D level geometry
-            let mesh = build_level_geometry_with_catalog(level, &prop_catalog);
+            // Level geometry is uploaded by `rebuild_level_geometry` once the
+            // renderer (and its prop asset cache) exists.
             let level_vbo = gl.create_buffer()?;
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(level_vbo));
-            let byte_slice = std::slice::from_raw_parts(
-                mesh.vertices.as_ptr() as *const u8,
-                mesh.vertices.len() * std::mem::size_of::<Vertex>(),
-            );
-            gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, byte_slice, glow::STATIC_DRAW);
+            gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, &[], glow::STATIC_DRAW);
 
             // Create UI VBO
             let ui_vbo = gl.create_buffer()?;
+            let prop_vbo = gl.create_buffer()?;
             gl.bind_buffer(glow::ARRAY_BUFFER, None);
 
             (
                 program,
                 level_vbo,
                 ui_vbo,
-                mesh.batches,
+                prop_vbo,
+                LevelMeshBatches::default(),
                 wall_texture,
                 floor_texture,
                 ceiling_texture,
@@ -1306,14 +1454,18 @@ impl Renderer {
 
         let (initial_width, initial_height) = window.drawable_size();
 
-        Ok(Self {
+        let mut renderer = Self {
             _gl_context: gl_context,
             gl,
             program,
             level_vbo,
             ui_vbo,
+            prop_vbo,
             batches,
             prop_catalog,
+            prop_assets: crate::props::PropAssets::load_default(),
+            prop_draws: Vec::new(),
+            prop_textures: std::collections::HashMap::new(),
             wall_texture,
             floor_texture,
             ceiling_texture,
@@ -1326,7 +1478,9 @@ impl Renderer {
             a_uv_loc,
             linear_filtering: true,
             drawable_size: DrawableSize::new(initial_width, initial_height),
-        })
+        };
+        renderer.rebuild_level_geometry(level);
+        Ok(renderer)
     }
 
     /// Records the current physical framebuffer size.
@@ -1344,7 +1498,8 @@ impl Renderer {
     }
 
     /// Applies the user-facing texture filtering mode to the repeating 3D
-    /// textures. UI/atlas textures stay nearest-filtered to preserve crisp text.
+    /// textures and to every cached prop texture. UI/atlas textures stay
+    /// nearest-filtered to preserve crisp text.
     pub fn set_texture_filtering(&mut self, mode: &str) {
         let linear = mode != "nearest";
         if self.linear_filtering == linear {
@@ -1356,8 +1511,63 @@ impl Renderer {
                 self.gl.bind_texture(glow::TEXTURE_2D, Some(texture));
                 set_repeat_filter(&self.gl, linear);
             }
+            for texture in self.prop_textures.values() {
+                self.gl.bind_texture(glow::TEXTURE_2D, Some(*texture));
+                set_repeat_filter(&self.gl, linear);
+            }
             self.gl.bind_texture(glow::TEXTURE_2D, None);
         }
+    }
+
+    /// Number of draw calls the current level's props need (one per distinct
+    /// model), exposed for the performance overlay and tests.
+    pub fn prop_draw_count(&self) -> usize {
+        self.prop_draws.len()
+    }
+
+    /// Reads back the default framebuffer as a top-down RGBA image.
+    ///
+    /// Used by the `LIMINAL_CAPTURE` developer/hardware path: it is the only way
+    /// to inspect real prop rendering on the PocketCHIP (no screenshots over
+    /// SSH) and on desktops where the window cannot be captured. Call it after
+    /// drawing and before swapping buffers.
+    pub fn capture_default_framebuffer(&self) -> Result<crate::loader::RawImage, String> {
+        let drawable = self.drawable_size;
+        if drawable.is_empty() {
+            return Err("drawable has zero size; nothing to capture".into());
+        }
+        let width = drawable.width as usize;
+        let height = drawable.height as usize;
+        let mut pixels = vec![0u8; width * height * 4];
+        unsafe {
+            self.gl.read_pixels(
+                0,
+                0,
+                width as i32,
+                height as i32,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                glow::PixelPackData::Slice(Some(&mut pixels)),
+            );
+        }
+        // OpenGL returns bottom-up rows; flip into top-down image order.
+        let stride = width * 4;
+        let mut flipped = vec![0u8; pixels.len()];
+        for row in 0..height {
+            let source = (height - 1 - row) * stride;
+            flipped[row * stride..(row + 1) * stride]
+                .copy_from_slice(&pixels[source..source + stride]);
+        }
+        Ok(crate::loader::RawImage::new(
+            drawable.width,
+            drawable.height,
+            flipped,
+        ))
+    }
+
+    /// Cached prop asset statistics (models loaded/failed, triangles, texture bytes).
+    pub fn prop_asset_stats(&self) -> crate::props::PropAssetStats {
+        self.prop_assets.stats()
     }
 
     unsafe fn upload_texture(
@@ -1409,26 +1619,120 @@ impl Renderer {
         }
     }
 
+    /// Builds and uploads the level's static geometry plus every placed prop.
+    ///
+    /// Called once per level load (never per frame): each distinct prop model is
+    /// parsed once, every instance transform is baked into one shared vertex
+    /// buffer, and each model's texture is uploaded once and then reused for the
+    /// rest of the session.
+    pub fn rebuild_level_geometry(&mut self, level: &crate::level::LevelDef) {
+        let (mesh, batches) =
+            build_level_geometry_with_assets(level, &self.prop_catalog, &mut self.prop_assets);
+        self.batches = mesh.batches;
+
+        // Concatenate every prop batch into one buffer; each batch keeps its range.
+        let total: usize = batches.iter().map(|batch| batch.vertices.len()).sum();
+        let mut vertices: Vec<Vertex> = Vec::with_capacity(total);
+        let mut draws: Vec<PropDraw> = Vec::with_capacity(batches.len());
+        for batch in &batches {
+            let texture = match self.prop_textures.get(&batch.model) {
+                Some(texture) => *texture,
+                None => match unsafe { self.upload_prop_texture(&batch.texture) } {
+                    Ok(texture) => {
+                        self.prop_textures.insert(batch.model.clone(), texture);
+                        texture
+                    }
+                    Err(error) => {
+                        eprintln!(
+                            "[props] cannot upload texture for {}: {error}; skipping that batch",
+                            batch.model
+                        );
+                        continue;
+                    }
+                },
+            };
+            let start = vertices.len() as i32;
+            vertices.extend_from_slice(&batch.vertices);
+            draws.push(PropDraw {
+                texture,
+                start,
+                count: vertices.len() as i32 - start,
+            });
+        }
+
+        unsafe {
+            self.gl
+                .bind_buffer(glow::ARRAY_BUFFER, Some(self.level_vbo));
+            let level_bytes = std::slice::from_raw_parts(
+                mesh.vertices.as_ptr() as *const u8,
+                mesh.vertices.len() * std::mem::size_of::<Vertex>(),
+            );
+            self.gl
+                .buffer_data_u8_slice(glow::ARRAY_BUFFER, level_bytes, glow::STATIC_DRAW);
+
+            self.gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.prop_vbo));
+            if vertices.is_empty() {
+                self.gl
+                    .buffer_data_u8_slice(glow::ARRAY_BUFFER, &[], glow::STATIC_DRAW);
+            } else {
+                let prop_bytes = std::slice::from_raw_parts(
+                    vertices.as_ptr() as *const u8,
+                    vertices.len() * std::mem::size_of::<Vertex>(),
+                );
+                self.gl
+                    .buffer_data_u8_slice(glow::ARRAY_BUFFER, prop_bytes, glow::STATIC_DRAW);
+            }
+            self.gl.bind_buffer(glow::ARRAY_BUFFER, None);
+        }
+        self.prop_draws = draws;
+    }
+
+    /// Uploads one prop model's diffuse texture with mipmaps and CLAMP_TO_EDGE
+    /// wrapping (prop UVs never tile), matching the game's filtering setting.
+    unsafe fn upload_prop_texture(
+        &self,
+        image: &crate::loader::RawImage,
+    ) -> Result<glow::Texture, String> {
+        unsafe {
+            let texture = self.gl.create_texture()?;
+            self.gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+            self.gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA as i32,
+                image.width as i32,
+                image.height as i32,
+                0,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                glow::PixelUnpackData::Slice(Some(&image.rgba)),
+            );
+            self.gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_S,
+                glow::CLAMP_TO_EDGE as i32,
+            );
+            self.gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_T,
+                glow::CLAMP_TO_EDGE as i32,
+            );
+            set_repeat_filter(&self.gl, self.linear_filtering);
+            self.gl.generate_mipmap(glow::TEXTURE_2D);
+            self.gl.bind_texture(glow::TEXTURE_2D, None);
+            Ok(texture)
+        }
+    }
+
     /// Re-uploads new level geometry and textures dynamically into OpenGL without recompilation.
     pub fn set_level(&mut self, loaded: &crate::loader::LoadedLevel) {
-        let mesh = build_level_geometry_with_catalog(&loaded.level, &self.prop_catalog);
-        self.batches = mesh.batches;
+        self.rebuild_level_geometry(&loaded.level);
         // Bake the metre checkerboard tint into the floor texture so a room
         // floor is a single quad (see `generate_floor_checker_texture`).
         let floor_texture = generate_floor_checker_texture(&loaded.textures.floor);
         let linear = self.linear_filtering;
 
         unsafe {
-            self.gl
-                .bind_buffer(glow::ARRAY_BUFFER, Some(self.level_vbo));
-            let byte_slice = std::slice::from_raw_parts(
-                mesh.vertices.as_ptr() as *const u8,
-                mesh.vertices.len() * std::mem::size_of::<Vertex>(),
-            );
-            self.gl
-                .buffer_data_u8_slice(glow::ARRAY_BUFFER, byte_slice, glow::STATIC_DRAW);
-            self.gl.bind_buffer(glow::ARRAY_BUFFER, None);
-
             Self::upload_texture(
                 &self.gl,
                 self.wall_texture,
@@ -1580,8 +1884,9 @@ impl Renderer {
                 );
             }
 
-            // 5. Draw props using the unshaded white texture and their
-            //    per-vertex catalog colours
+            // 5. Draw placeholder boxes for props whose real model is missing
+            //    (or for catalogue entries that declare none) using the unshaded
+            //    white texture and their per-vertex catalog colours.
             if self.batches.prop_batch.count > 0 {
                 self.gl
                     .bind_texture(glow::TEXTURE_2D, Some(self.white_texture));
@@ -1590,6 +1895,43 @@ impl Renderer {
                     self.batches.prop_batch.start,
                     self.batches.prop_batch.count,
                 );
+            }
+
+            // 6. Draw the batched real prop geometry: one buffer, one draw call
+            //    and one texture bind per distinct prop model in the level.
+            if !self.prop_draws.is_empty() {
+                self.gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.prop_vbo));
+                self.gl.vertex_attrib_pointer_f32(
+                    self.a_pos_loc,
+                    3,
+                    glow::FLOAT,
+                    false,
+                    std::mem::size_of::<Vertex>() as i32,
+                    0,
+                );
+                self.gl.vertex_attrib_pointer_f32(
+                    self.a_color_loc,
+                    4,
+                    glow::FLOAT,
+                    false,
+                    std::mem::size_of::<Vertex>() as i32,
+                    12,
+                );
+                self.gl.vertex_attrib_pointer_f32(
+                    self.a_uv_loc,
+                    2,
+                    glow::FLOAT,
+                    false,
+                    std::mem::size_of::<Vertex>() as i32,
+                    28,
+                );
+                for draw in &self.prop_draws {
+                    if draw.count <= 0 {
+                        continue;
+                    }
+                    self.gl.bind_texture(glow::TEXTURE_2D, Some(draw.texture));
+                    self.gl.draw_arrays(glow::TRIANGLES, draw.start, draw.count);
+                }
             }
 
             self.gl.disable_vertex_attrib_array(self.a_pos_loc);
@@ -2106,5 +2448,272 @@ mod tests {
         );
         let mesh = build_level_geometry_with_catalog(&level, &catalog);
         assert_eq!(mesh.batches.prop_batch.count, 36);
+    }
+
+    /// Catalogue + assets used by the real prop-geometry tests. Reading the
+    /// shipped catalogue keeps the tests honest about ids and model paths.
+    fn shipped_catalog() -> crate::loader::PropCatalog {
+        let catalog = crate::loader::PropCatalog::load_default();
+        assert!(
+            catalog.contains("core:chair"),
+            "shipped catalogue must list core:chair"
+        );
+        catalog
+    }
+
+    fn shipped_assets() -> crate::props::PropAssets {
+        let assets = crate::props::PropAssets::load_default();
+        assert!(
+            assets.root().is_some(),
+            "assets/props must exist for these tests"
+        );
+        assets
+    }
+
+    fn bounds_of(vertices: &[Vertex]) -> ([f32; 3], [f32; 3]) {
+        let mut min = vertices[0].pos;
+        let mut max = vertices[0].pos;
+        for vertex in vertices {
+            for axis in 0..3 {
+                min[axis] = min[axis].min(vertex.pos[axis]);
+                max[axis] = max[axis].max(vertex.pos[axis]);
+            }
+        }
+        (min, max)
+    }
+
+    #[test]
+    fn real_prop_geometry_replaces_the_placeholder_box() {
+        let catalog = shipped_catalog();
+        let mut assets = shipped_assets();
+        let level = level_with_wall("[]", r#"[{ "model": "core:chair", "x": 3.0, "z": -2.0 }]"#);
+        let (mesh, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
+
+        // The box placeholder is gone: the chair renders as real geometry.
+        assert_eq!(mesh.batches.prop_batch.count, 0);
+        assert_eq!(batches.len(), 1, "one draw batch per distinct model");
+        assert_eq!(batches[0].model, "models/chair.glb");
+        assert!(!batches[0].vertices.is_empty());
+        assert_eq!(batches[0].texture.width, 64);
+
+        // Placed at (3, 0, -2), resting on the floor: a 0.5 x 0.9 x 0.5 chair.
+        let (low, high) = bounds_of(&batches[0].vertices);
+        assert!(
+            (low[1]).abs() < 0.02,
+            "chair must rest on the floor, got {}",
+            low[1]
+        );
+        assert!((high[1] - 0.9).abs() < 0.06, "seat height {}", high[1]);
+        assert!(
+            low[0] > 2.6 && high[0] < 3.4,
+            "x bounds {:?}..{:?}",
+            low[0],
+            high[0]
+        );
+        assert!(
+            low[2] > -2.4 && high[2] < -1.6,
+            "z bounds {:?}..{:?}",
+            low[2],
+            high[2]
+        );
+    }
+
+    #[test]
+    fn repeated_instances_share_one_batch_and_reuse_the_model() {
+        let catalog = shipped_catalog();
+        let mut assets = shipped_assets();
+        let mut props: Vec<String> = Vec::new();
+        for index in 0..10 {
+            props.push(format!(
+                r#"{{ "model": "core:chair", "x": {}, "z": 0.0 }}"#,
+                index as f32
+            ));
+        }
+        let level = level_with_wall("[]", &format!("[{}]", props.join(",")));
+        let (_, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
+
+        assert_eq!(batches.len(), 1, "ten chairs are one draw batch");
+        let single = {
+            let one = level_with_wall("[]", r#"[{ "model": "core:chair", "x": 0.0, "z": 0.0 }]"#);
+            let (_, batches) = build_level_geometry_with_assets(&one, &catalog, &mut assets);
+            batches[0].vertices.len()
+        };
+        assert_eq!(
+            batches[0].vertices.len(),
+            single * 10,
+            "each instance contributes its triangles to the shared batch"
+        );
+        // The decoded model is parsed once and shared by every instance.
+        let stats = assets.stats();
+        assert_eq!(stats.models_loaded, 1);
+        assert_eq!(stats.models_failed, 0);
+    }
+
+    #[test]
+    fn prop_transforms_follow_position_rotation_scale_and_vertical_offset() {
+        let catalog = shipped_catalog();
+        let mut assets = shipped_assets();
+        // The bed is 1.4 x 0.55 x 2.0 m, so a 90 degree yaw is visible in the
+        // bounds; rotation, scale and a negative vertical offset all apply.
+        let level = level_with_wall(
+            "[]",
+            r#"[{ "model": "core:bed", "x": 1.0, "y": -0.1, "z": 4.0, "rotation_degrees": 90.0, "scale": 0.5 }]"#,
+        );
+        let (_, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
+        let (low, high) = bounds_of(&batches[0].vertices);
+
+        // Rotated: 2.0 m deep bed becomes 2.0 m of X extent, at half scale 1.0 m.
+        assert!(
+            (low[0] - 0.5).abs() < 0.06 && (high[0] - 1.5).abs() < 0.06,
+            "rotated x bounds {:?}..{:?}",
+            low[0],
+            high[0]
+        );
+        assert!(
+            (low[2] - 3.65).abs() < 0.06 && (high[2] - 4.35).abs() < 0.06,
+            "rotated z bounds {:?}..{:?}",
+            low[2],
+            high[2]
+        );
+        assert!(
+            (low[1] + 0.1).abs() < 0.02,
+            "vertical offset must sink the prop: base at {}",
+            low[1]
+        );
+        assert!(
+            (high[1] - 0.175).abs() < 0.03,
+            "half-scale bed top at {}",
+            high[1]
+        );
+    }
+
+    fn shipped_level(name: &str) -> crate::level::LevelDef {
+        let path = format!("assets/levels/{name}.json");
+        let content = std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
+        crate::level::LevelDef::from_json(&content)
+            .unwrap_or_else(|error| panic!("{path} must parse: {error}"))
+    }
+
+    #[test]
+    fn the_showcase_level_renders_every_core_prop_with_real_geometry() {
+        let catalog = shipped_catalog();
+        let mut assets = shipped_assets();
+        let level = shipped_level("prop_showcase");
+        let (mesh, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
+
+        assert_eq!(
+            mesh.batches.prop_batch.count, 0,
+            "no placeholder boxes expected"
+        );
+        assert_eq!(
+            batches.len(),
+            21,
+            "the showcase places every catalogue prop"
+        );
+        let mut models: Vec<&str> = batches.iter().map(|batch| batch.model.as_str()).collect();
+        models.sort_unstable();
+        models.dedup();
+        assert_eq!(models.len(), 21, "each prop model appears exactly once");
+
+        // Every catalogue prop id is exercised by this fixture.
+        let used: std::collections::HashSet<&str> =
+            level.props.iter().map(|prop| prop.model.as_str()).collect();
+        for entry in catalog.entries() {
+            assert!(
+                used.contains(entry.id.as_str()),
+                "the showcase must place {}",
+                entry.id
+            );
+        }
+        assert_eq!(assets.stats().models_failed, 0);
+
+        // The intentional clipping is present in the data, not corrected.
+        let sunk = level
+            .props
+            .iter()
+            .find(|prop| prop.model == "core:crate" && prop.y < 0.0)
+            .expect("the showcase keeps one crate sunk into the floor");
+        assert!(sunk.solid, "the sunk crate still blocks the player");
+    }
+
+    #[test]
+    fn the_stress_level_batches_repeats_into_one_draw_per_model() {
+        let catalog = shipped_catalog();
+        let mut assets = shipped_assets();
+        let level = shipped_level("prop_stress");
+        assert!(
+            level.props.len() >= 100,
+            "the stress level needs a real load"
+        );
+
+        let (_, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
+        assert!(
+            batches.len() <= 12,
+            "{} distinct models must collapse into a handful of draw calls, got {}",
+            level.props.len(),
+            batches.len()
+        );
+        assert_eq!(assets.stats().models_failed, 0);
+
+        let total_vertices: usize = batches.iter().map(|batch| batch.vertices.len()).sum();
+        // Cross-check the expansion: one draw batch per model, but every placed
+        // instance contributes its triangles. The decoded asset is shared, so
+        // the cache only holds one copy per model (proving instance reuse).
+        let expected: usize = level
+            .props
+            .iter()
+            .map(|prop| {
+                let entry = catalog.get(&prop.model);
+                let path = entry.model.expect("stress props come from the catalogue");
+                assets.resolve(&path).expect("model loads").model.triangles * 3
+            })
+            .sum();
+        assert_eq!(total_vertices, expected);
+        assert!(
+            total_vertices > assets.stats().triangles * 3,
+            "repeated instances must cost vertices, not extra decoded models"
+        );
+        assert!(
+            total_vertices <= crate::level::MAX_LEVEL_PROP_VERTICES,
+            "the stress level must stay inside the prop vertex budget ({} vertices)",
+            total_vertices
+        );
+
+        // Ten-plus instances of one model still share a single batch entry.
+        let chair_batch = batches
+            .iter()
+            .find(|batch| batch.model == "models/chair.glb")
+            .expect("chairs are the stress level's main load");
+        assert!(
+            chair_batch.vertices.len() > 60 * 100,
+            "sixty chairs should expand into one large shared batch, got {} vertices",
+            chair_batch.vertices.len()
+        );
+    }
+
+    #[test]
+    fn a_broken_model_falls_back_to_the_placeholder_box_without_panicking() {
+        let catalog = crate::loader::PropCatalog::from_json_str(
+            r##"{
+                "format_version": 1,
+                "props": [{
+                    "id": "core:broken", "name": "Broken", "category": "Other",
+                    "size": [0.5, 1.0, 0.5], "color": "#808080",
+                    "model": "models/does_not_exist.glb"
+                }]
+            }"##,
+        )
+        .expect("valid catalog");
+        let mut assets = shipped_assets();
+        let level = level_with_wall("[]", r#"[{ "model": "core:broken", "x": 0.0, "z": 0.0 }]"#);
+        let (mesh, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
+
+        assert!(batches.is_empty(), "no real geometry for a missing model");
+        assert_eq!(
+            mesh.batches.prop_batch.count, 36,
+            "a missing model must draw its placeholder box"
+        );
+        assert_eq!(assets.stats().models_failed, 1);
     }
 }

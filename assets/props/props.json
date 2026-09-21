@@ -5,7 +5,11 @@
       "id": "core:couch",
       "name": "Couch",
       "category": "Furniture",
-      "size": [2.0, 0.9, 0.9],
+      "size": [
+        2.0,
+        0.9,
+        0.9
+      ],
       "color": "#6b5f4a",
       "model": "models/couch.glb",
       "solid": true
@@ -14,171 +18,260 @@
       "id": "core:armchair",
       "name": "Armchair",
       "category": "Furniture",
-      "size": [0.9, 0.9, 0.9],
+      "size": [
+        0.9,
+        0.9,
+        0.9
+      ],
       "color": "#7a6a55",
-      "model": null,
+      "model": "models/armchair.glb",
       "solid": true
     },
     {
       "id": "core:chair",
       "name": "Chair",
       "category": "Furniture",
-      "size": [0.5, 0.9, 0.5],
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
       "color": "#8a7a63",
-      "model": null,
+      "model": "models/chair.glb",
       "solid": true
     },
     {
       "id": "core:table",
       "name": "Table",
       "category": "Furniture",
-      "size": [1.4, 0.75, 0.8],
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ],
       "color": "#6f5a41",
-      "model": null,
+      "model": "models/table.glb",
       "solid": true
     },
     {
       "id": "core:desk",
       "name": "Desk",
       "category": "Furniture",
-      "size": [1.6, 0.75, 0.7],
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
       "color": "#5f5142",
-      "model": null,
+      "model": "models/desk.glb",
       "solid": true
     },
     {
       "id": "core:bookshelf",
       "name": "Bookshelf",
       "category": "Furniture",
-      "size": [1.0, 1.8, 0.35],
+      "size": [
+        1.0,
+        1.8,
+        0.35
+      ],
       "color": "#57452f",
-      "model": null,
+      "model": "models/bookshelf.glb",
       "solid": true
     },
     {
       "id": "core:cabinet",
       "name": "Cabinet",
       "category": "Furniture",
-      "size": [0.9, 0.85, 0.45],
+      "size": [
+        0.9,
+        0.85,
+        0.45
+      ],
       "color": "#6a5c4a",
-      "model": null,
+      "model": "models/cabinet.glb",
       "solid": true
     },
     {
       "id": "core:bed",
       "name": "Bed",
       "category": "Furniture",
-      "size": [1.4, 0.55, 2.0],
+      "size": [
+        1.4,
+        0.55,
+        2.0
+      ],
       "color": "#7d7568",
-      "model": null,
+      "model": "models/bed.glb",
       "solid": true
     },
     {
       "id": "core:stove",
       "name": "Stove",
       "category": "Appliances",
-      "size": [0.6, 0.9, 0.6],
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
       "color": "#8f8a80",
-      "model": null,
+      "model": "models/stove.glb",
       "solid": true
     },
     {
       "id": "core:sink",
       "name": "Sink",
       "category": "Appliances",
-      "size": [0.6, 0.85, 0.55],
+      "size": [
+        0.6,
+        0.85,
+        0.55
+      ],
       "color": "#9aa0a0",
-      "model": null,
+      "model": "models/sink.glb",
       "solid": true
     },
     {
       "id": "core:fridge",
       "name": "Fridge",
       "category": "Appliances",
-      "size": [0.7, 1.8, 0.7],
+      "size": [
+        0.7,
+        1.8,
+        0.7
+      ],
       "color": "#b8bcc0",
-      "model": null,
+      "model": "models/fridge.glb",
       "solid": true
     },
     {
       "id": "core:washing_machine",
       "name": "Washing Machine",
       "category": "Appliances",
-      "size": [0.6, 0.85, 0.6],
+      "size": [
+        0.6,
+        0.85,
+        0.6
+      ],
       "color": "#a2a6aa",
-      "model": null,
+      "model": "models/washing_machine.glb",
       "solid": true
     },
     {
       "id": "core:vending_machine",
       "name": "Vending Machine",
       "category": "Appliances",
-      "size": [1.0, 1.9, 0.8],
+      "size": [
+        1.0,
+        1.9,
+        0.8
+      ],
       "color": "#4f5a63",
-      "model": null,
+      "model": "models/vending_machine.glb",
       "solid": true
     },
     {
       "id": "core:water_cooler",
       "name": "Water Cooler",
       "category": "Appliances",
-      "size": [0.35, 1.1, 0.35],
+      "size": [
+        0.35,
+        1.1,
+        0.35
+      ],
       "color": "#8fa4ae",
-      "model": null,
+      "model": "models/water_cooler.glb",
       "solid": true
     },
     {
       "id": "core:crate",
       "name": "Crate",
       "category": "Utility",
-      "size": [0.6, 0.6, 0.6],
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
       "color": "#7a6244",
-      "model": null,
+      "model": "models/crate.glb",
       "solid": true
     },
     {
       "id": "core:cardboard_box",
       "name": "Cardboard Box",
       "category": "Other",
-      "size": [0.5, 0.5, 0.5],
+      "size": [
+        0.5,
+        0.5,
+        0.5
+      ],
       "color": "#a8895f",
-      "model": null,
+      "model": "models/cardboard_box.glb",
       "solid": false
     },
     {
       "id": "core:plant",
       "name": "Plant",
       "category": "Decorative",
-      "size": [0.4, 1.0, 0.4],
+      "size": [
+        0.4,
+        1.0,
+        0.4
+      ],
       "color": "#4f6b43",
-      "model": null,
+      "model": "models/plant.glb",
       "solid": false
     },
     {
       "id": "core:rug",
       "name": "Rug",
       "category": "Decorative",
-      "size": [2.0, 0.02, 1.4],
+      "size": [
+        2.0,
+        0.02,
+        1.4
+      ],
       "color": "#6d5a52",
-      "model": null,
+      "model": "models/rug.glb",
       "solid": false
     },
     {
       "id": "core:lamp",
       "name": "Floor Lamp",
       "category": "Decorative",
-      "size": [0.35, 1.5, 0.35],
+      "size": [
+        0.35,
+        1.5,
+        0.35
+      ],
       "color": "#8a8272",
-      "model": null,
+      "model": "models/lamp.glb",
       "solid": false
     },
     {
       "id": "core:tv",
       "name": "Television",
       "category": "Decorative",
-      "size": [1.1, 0.7, 0.1],
+      "size": [
+        1.1,
+        0.7,
+        0.1
+      ],
       "color": "#33363a",
       "model": "models/tv.glb",
+      "solid": false
+    },
+    {
+      "id": "spooner-man",
+      "name": "Spooner-Man",
+      "category": "Decorative",
+      "size": [
+        0.27,
+        0.39,
+        1.02
+      ],
+      "color": "#33343a",
+      "model": "models/spooner-man.glb",
       "solid": false
     }
   ]

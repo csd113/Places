@@ -404,8 +404,24 @@ pub const MAX_WALL_FACES_PER_WALL: u64 = 6;
 pub const MAX_WALL_QUADS_PER_OPENING: u64 = 12;
 /// Number of quads each ceiling light fixture generates (panel plus two bezels).
 pub const MAX_LIGHT_QUADS: u64 = 3;
-/// Number of quads each prop generates (an axis-aligned box).
+/// Number of quads a prop generates in its placeholder-box form. Real prop
+/// geometry is batched separately and bounded by [`MAX_LEVEL_PROP_VERTICES`].
 pub const MAX_PROP_QUADS: u64 = 6;
+/// Preferred triangle count for one prop model (see `assets/props/README.md`).
+pub const PROP_TRIANGLE_TARGET: usize = 500;
+/// Triangle count above which a prop model needs an explicit justification.
+pub const PROP_TRIANGLE_REVIEW: usize = 800;
+/// Hard ceiling on one prop model's triangle count, enforced by the loader.
+pub const MAX_PROP_TRIANGLES: usize = 1_500;
+/// Hard ceiling on one prop model's vertex count (16-bit indices, PocketCHIP RAM).
+pub const MAX_PROP_VERTICES: usize = 65_535;
+/// Hard ceiling on prop texture dimensions; 64x64/128x128 are the preferred sizes.
+pub const MAX_PROP_TEXTURE_SIZE: u32 = 256;
+/// Hard ceiling on the number of distinct prop models a single level may use.
+pub const MAX_LEVEL_PROP_MODELS: usize = 256;
+/// Upper bound on the summed prop vertex count a level may expand into after
+/// instance transforms are baked, keeping one level's prop geometry bounded.
+pub const MAX_LEVEL_PROP_VERTICES: usize = 1_500_000;
 /// PocketCHIP-safe budget for total authored floor area, in square metres.
 ///
 /// Floor rendering no longer scales with area, but absurdly large levels still

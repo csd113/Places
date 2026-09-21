@@ -1,10 +1,12 @@
 pub mod collision;
 pub mod font;
 pub mod game;
+pub mod gltf;
 pub mod input;
 pub mod level;
 pub mod loader;
 pub mod perf;
+pub mod props;
 pub mod render;
 pub mod settings;
 pub mod ui;
@@ -21,6 +23,40 @@ use settings::Settings;
 use ui::{SETTINGS_ITEM_COUNT, UiGeometryCache, UiState, activate_settings_item};
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Prints what the level's props cost, so hardware runs (PocketCHIP over SSH)
+/// can be checked without a debugger: decoded models, texture memory and the
+/// number of draw calls the props need.
+fn log_prop_usage(renderer: &Renderer) {
+    let stats = renderer.prop_asset_stats();
+    println!(
+        "[props] {} models cached ({} failed), {} triangles, {} KiB of textures, {} draw call(s)",
+        stats.models_loaded,
+        stats.models_failed,
+        stats.triangles,
+        stats.texture_bytes / 1024,
+        renderer.prop_draw_count()
+    );
+}
+
+/// Parses `LIMINAL_SPAWN` overrides: `x,z,yaw_degrees` keeps the default eye
+/// height, `x,y,z,yaw_degrees` sets it explicitly. Invalid input is ignored.
+fn parse_spawn_override(value: &str) -> Option<[f32; 4]> {
+    let parts: Vec<f32> = value
+        .split(',')
+        .map(|part| part.trim().parse::<f32>().ok())
+        .collect::<Option<Vec<f32>>>()?;
+    let numbers: Vec<f32> = parts
+        .iter()
+        .copied()
+        .filter(|number| number.is_finite())
+        .collect();
+    match numbers.len() {
+        3 => Some([numbers[0], 1.6, numbers[1], numbers[2]]),
+        4 => Some([numbers[0], numbers[1], numbers[2], numbers[3]]),
+        _ => None,
+    }
+}
 
 /// Configures SDL OpenGL attributes before the window/context is created.
 ///
@@ -114,9 +150,55 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let mut spawn_yaw = initial_level.level.spawn.yaw_degrees.to_radians();
     let mut game = Game::new(spawn_pos, spawn_yaw, initial_level.level.collision_aabbs());
+    log_prop_usage(&renderer);
     // All required level state has been extracted (spawn, collision walls,
     // renderer uploads), so release the CPU-side textures and level definition.
     drop(initial_level);
+
+    // Developer / hardware shortcut: boot straight into a level, which is how
+    // the prop showcase and stress levels are checked on the PocketCHIP (where
+    // the menu cannot be driven over SSH):
+    //   LIMINAL_LEVEL=prop_showcase ./liminal-rust
+    if let Some(requested) = std::env::var("LIMINAL_LEVEL")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        let index = level_manager
+            .entries()
+            .iter()
+            .position(|entry| entry.id == requested || entry.name.eq_ignore_ascii_case(&requested));
+        match index.and_then(|index| level_manager.get_entry(index).cloned()) {
+            Some(entry) => match level_manager.load_level(&entry) {
+                Ok(loaded) => {
+                    println!(
+                        "LIMINAL_LEVEL: loading '{}' ({}) - {} props",
+                        loaded.level.name,
+                        loaded.level.id,
+                        loaded.level.props.len()
+                    );
+                    renderer.set_level(&loaded);
+                    log_prop_usage(&renderer);
+                    spawn_pos = Vec3::new(loaded.level.spawn.x, 1.6, loaded.level.spawn.z);
+                    spawn_yaw = loaded.level.spawn.yaw_degrees.to_radians();
+                    game.reset_level(spawn_pos, spawn_yaw, loaded.level.collision_aabbs());
+                    game.set_app_state(AppState::Playing);
+                }
+                Err(error) => {
+                    eprintln!("LIMINAL_LEVEL: could not load '{requested}': {error}");
+                }
+            },
+            None => eprintln!(
+                "LIMINAL_LEVEL: no level matches '{requested}'; installed levels: {}",
+                level_manager
+                    .entries()
+                    .iter()
+                    .map(|entry| entry.id.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        }
+    }
     let mut ui_state = UiState::new();
     ui_state.level_entries = level_manager
         .entries()
@@ -127,6 +209,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut ui_cache = UiGeometryCache::new();
     let mut ui_scratch: Vec<Vertex> = Vec::new();
     let mut applied_filtering = settings.texture_filtering.clone();
+    let mut capture_path: Option<std::path::PathBuf> = std::env::var("LIMINAL_CAPTURE")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .map(std::path::PathBuf::from);
+    // `LIMINAL_SPAWN=x,z,yaw_degrees` (or `x,y,z,yaw_degrees`) overrides the
+    // level's spawn point, so a hardware run can stand in front of a specific
+    // prop instead of walking there with a pad.
+    let spawn_override: Option<[f32; 4]> = std::env::var("LIMINAL_SPAWN")
+        .ok()
+        .and_then(|value| parse_spawn_override(&value));
+    if let Some([x, y, z, yaw]) = spawn_override {
+        spawn_pos = Vec3::new(x, y, z);
+        spawn_yaw = yaw.to_radians();
+        game.reset_level(spawn_pos, spawn_yaw, game.walls.clone());
+    }
 
     // Clean main loop
     while game.is_running() {
@@ -427,6 +525,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             renderer.render_ui(&ui_scratch);
         } else {
             renderer.render_ui(ui_vertices);
+        }
+
+        // Developer / hardware capture: `LIMINAL_CAPTURE=frame.png` renders one
+        // frame of the running level and writes it out, which is how prop
+        // rendering is inspected on the PocketCHIP over SSH (or on a desktop
+        // where the window cannot be screenshotted).
+        if let Some(path) = capture_path.as_ref() {
+            match renderer.capture_default_framebuffer() {
+                Ok(image) => match loader::encode_png(&image) {
+                    Ok(bytes) => match std::fs::write(path, bytes) {
+                        Ok(()) => println!("LIMINAL_CAPTURE: wrote {}", path.display()),
+                        Err(error) => eprintln!("LIMINAL_CAPTURE: cannot write {path:?}: {error}"),
+                    },
+                    Err(error) => eprintln!("LIMINAL_CAPTURE: {error}"),
+                },
+                Err(error) => eprintln!("LIMINAL_CAPTURE: {error}"),
+            }
+            game.stop();
+            capture_path = None;
         }
 
         // Swap window buffer (double buffered, VSync synchronized)

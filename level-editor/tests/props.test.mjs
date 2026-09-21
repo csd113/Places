@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import props from '../js/props.js';
 
-const { PropCatalog, parsePropCatalog, parseHexColor, loadPropCatalog } = props;
+const { PropCatalog, PropProxies, parsePropCatalog, parseHexColor, loadPropCatalog, loadPropProxies } = props;
 const here = path.dirname(fileURLToPath(import.meta.url));
 const catalogPath = path.resolve(here, '../../assets/props/props.json');
 
@@ -94,4 +94,98 @@ test('solid props default to blocking, decorative ones do not', () => {
   const catalog = PropCatalog.builtin();
   assert.equal(catalog.get('core:stove').solid, true);
   assert.equal(catalog.get('core:rug').solid, false);
+});
+
+test('proxy geometry parses every part shape and resolves entries by id', () => {
+  const proxies = PropProxies.fromJSON({
+    format_version: 1,
+    props: {
+      'core:chair': {
+        name: 'Chair',
+        model: 'models/chair.glb',
+        parts: [
+          { shape: 'box', center: [0, 0.45, 0], size: [0.46, 0.05, 0.46], rotation: [0, 0, 0], color: '#a08a6a' },
+          { shape: 'cylinder', axis: 'y', base: [0.2, 0, 0.2], radius: 0.02, height: 0.45, segments: 6, taper: 1.0, color: '#8a6f4d' },
+          { shape: 'tube', start: [0, 0.4, 0], end: [0, 0.5, 0.1], radius: 0.012, color: '#8a6f4d' },
+          { shape: 'plane', center: [0, 0.9, 0.25], size: [0.4, 0.4, 0.4], normal: 'y', color: '#7a6a55' }
+        ]
+      }
+    }
+  });
+
+  assert.equal(proxies.size, 1);
+  assert.equal(proxies.has('core:chair'), true);
+  const proxy = proxies.get('core:chair');
+  assert.equal(proxy.parts.length, 4);
+  assert.deepEqual(proxy.parts[0].center, [0, 0.45, 0]);
+  assert.deepEqual(proxy.parts[0].color, parseHexColor('#a08a6a'));
+  assert.equal(proxy.parts[1].shape, 'cylinder');
+  assert.equal(proxy.parts[1].segments, 6);
+  assert.equal(proxy.parts[2].shape, 'tube');
+  assert.equal(proxy.parts[3].normal, 'y');
+
+  // Unknown ids behave like the catalogue: no proxy, no throw.
+  assert.equal(proxies.has('core:does_not_exist'), false);
+  assert.equal(proxies.get('core:does_not_exist'), null);
+});
+
+test('malformed proxy entries are dropped instead of breaking the editor', () => {
+  const proxies = PropProxies.fromJSON({
+    props: {
+      'core:no_parts': { parts: [] },
+      'core:bad_parts': { parts: [null, { shape: 'box' }, { shape: 'cylinder', base: [0, 0, 0], radius: -1, height: 1 }, { shape: 'rug' }] },
+      'core:good': { parts: [{ shape: 'box', center: [0, 0, 0], size: [1, 1, 1], color: '#ffffff' }] },
+      'core:partial': {
+        parts: [
+          { shape: 'box', center: [0, 0, 0], size: [1, 1, 1], color: 'not-a-colour' },
+          { shape: 'plane', center: [0, 0, 0], size: [0, 1, 0], normal: 'y' }
+        ]
+      }
+    }
+  });
+
+  assert.equal(proxies.size, 2);
+  assert.equal(proxies.has('core:no_parts'), false, 'a proxy without parts falls back to the box');
+  assert.equal(proxies.has('core:bad_parts'), false);
+  assert.equal(proxies.get('core:good').parts.length, 1);
+  const partial = proxies.get('core:partial');
+  assert.equal(partial.parts.length, 1);
+  assert.equal(partial.parts[0].shape, 'box', 'the zero-extent plane is dropped');
+  assert.deepEqual(partial.parts[0].color, props.PROP_FALLBACK_COLOR, 'a bad colour falls back');
+
+  // Junk payloads never throw and never produce usable proxies.
+  assert.equal(PropProxies.fromJSON(null).size, 0);
+  assert.equal(PropProxies.fromJSON([null, 42, 'nope']).size, 0);
+});
+
+test('a missing proxy file yields an empty set so the editor keeps working', async () => {
+  const failing = async () => { throw new Error('offline'); };
+  const proxies = await loadPropProxies(['does-not-exist.json'], failing);
+  assert.equal(proxies.size, 0);
+  assert.equal(proxies.has('core:chair'), false);
+  assert.equal(proxies.get('core:chair'), null);
+  assert.equal(proxies.source, 'none');
+});
+
+test('a fetched proxy file is used when valid; junk yields an empty set', async () => {
+  const payload = {
+    props: {
+      'core:chair': {
+        name: 'Chair',
+        model: 'models/chair.glb',
+        parts: [{ shape: 'box', center: [0, 0.45, 0], size: [0.46, 0.05, 0.46], rotation: [0, 0, 0], color: '#a08a6a' }]
+      }
+    }
+  };
+  const okFetch = async () => ({ ok: true, json: async () => payload });
+  const proxies = await loadPropProxies(['prop_proxies.json'], okFetch);
+  assert.equal(proxies.source, 'prop_proxies.json');
+  assert.equal(proxies.size, 1);
+  assert.equal(proxies.get('core:chair').parts[0].shape, 'box');
+
+  const junk = async () => ({ ok: true, json: async () => ({ props: 'not an object' }) });
+  assert.equal((await loadPropProxies(['prop_proxies.json'], junk)).size, 0);
+
+  const notFound = async () => ({ ok: false, json: async () => ({}) });
+  assert.equal((await loadPropProxies(['prop_proxies.json'], notFound)).size, 0);
 });

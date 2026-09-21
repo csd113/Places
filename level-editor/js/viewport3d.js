@@ -219,8 +219,9 @@
   class Viewport3D {
     /**
      * `canvas` is the 3D canvas element. `app` is the editor app:
-     * { level, propCatalog, editor.selectedIds, levelRevision, selectionRevision,
-     *   viewportSelect, viewportDragBegin/Update/End, updateStatus, requestRender }.
+     * { level, propCatalog, propProxies, editor.selectedIds, levelRevision,
+     *   selectionRevision, viewportSelect, viewportDragBegin/Update/End,
+     *   updateStatus, requestRender }.
      * Never throws: on any failure `isSupported()` returns false and the app
      * keeps running in 2D-only mode.
      */
@@ -605,7 +606,11 @@
       try {
         // Ceilings are always built; hiding them just skips the batch at draw
         // time so toggling visibility never rebuilds the mesh.
-        mesh = geometry.buildLevelMesh(level, { catalog: this.app.propCatalog, includeCeilings: true });
+        mesh = geometry.buildLevelMesh(level, {
+          catalog: this.app.propCatalog,
+          proxies: this.app.propProxies,
+          includeCeilings: true
+        });
       } catch (err) {
         if (typeof console !== 'undefined' && console.warn) {
           console.warn('Viewport3D: level mesh build failed:', err);

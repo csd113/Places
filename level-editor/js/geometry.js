@@ -246,6 +246,10 @@
   const PROP_FALLBACK_SIZE = [0.6, 0.9, 0.6];
   const PROP_FALLBACK_COLOR = [0.54, 0.53, 0.5];
 
+  // Per-face shading multipliers for a prop box in its local space, mirroring
+  // `PROP_FACE_SHADES` in src/render.rs: top, bottom, +Z, -Z, -X, +X.
+  const PROP_BOX_SHADES = [1.0, 0.62, 0.9, 0.8, 0.74, 0.86];
+
   function propSize(prop, catalog) {
     const entry = catalog && typeof catalog.get === 'function' ? catalog.get(prop.model) : null;
     let size = Array.isArray(prop.size) && prop.size.length === 3 ? prop.size.slice() : (entry && entry.size) || PROP_FALLBACK_SIZE;
@@ -470,6 +474,16 @@
           this.owners.push(owner || '');
         }
         if (this._current) this._current.count += 6;
+      },
+      triangle(p0, p1, p2, colors, uvs, owner) {
+        const pts = [p0, p1, p2];
+        for (let i = 0; i < 3; i++) {
+          this.positions.push(pts[i][0], pts[i][1], pts[i][2]);
+          this.colors.push(colors[i][0], colors[i][1], colors[i][2], 1);
+          this.uvs.push(uvs[i][0], uvs[i][1]);
+          this.owners.push(owner || '');
+        }
+        if (this._current) this._current.count += 3;
       }
     };
   }
@@ -556,9 +570,226 @@
     }
   }
 
-  function pushProp(builder, prop, catalog) {
+  // ------------------------------------------------------------ proxy props
+  //
+  // `assets/props/prop_proxies.json` (derived from the shipped GLBs) describes a
+  // prop as local-space boxes/cylinders/tubes/planes. Each part is transformed by
+  // the instance's position, Y rotation and uniform scale, then flat-shaded with
+  // the same multipliers the game bakes into its prop meshes.
+
+  // Same corner order, colour and per-face shading as the game's `add_prop_box`
+  // (src/render.rs); the part's own rotation (if any) is applied first.
+  const PROXY_BOX_FACES = [
+    { signs: [[-1, 1, -1], [-1, 1, 1], [1, 1, 1], [1, 1, -1]], shade: PROP_BOX_SHADES[0] },
+    { signs: [[-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1]], shade: PROP_BOX_SHADES[1] },
+    { signs: [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]], shade: PROP_BOX_SHADES[2] },
+    { signs: [[1, -1, -1], [-1, -1, -1], [-1, 1, -1], [1, 1, -1]], shade: PROP_BOX_SHADES[3] },
+    { signs: [[-1, -1, -1], [-1, -1, 1], [-1, 1, 1], [-1, 1, -1]], shade: PROP_BOX_SHADES[4] },
+    { signs: [[1, -1, 1], [1, -1, -1], [1, 1, -1], [1, 1, 1]], shade: PROP_BOX_SHADES[5] }
+  ];
+
+  function propScale(prop) {
+    const scale = Number(prop && prop.scale);
+    return Number.isFinite(scale) && scale > 0 ? scale : 1;
+  }
+
+  /** Prop-local point -> world: uniform scale, Y rotation, translation. */
+  function proxyToWorld(prop) {
+    const scale = propScale(prop);
+    const rot = ((Number(prop.rotation_degrees) || 0) * Math.PI) / 180;
+    const cos = Math.cos(rot), sin = Math.sin(rot);
+    const x = Number(prop.x) || 0;
+    const y = Number(prop.y) || 0;
+    const z = Number(prop.z) || 0;
+    return (lx, ly, lz) => {
+      const sx = lx * scale, sy = ly * scale, sz = lz * scale;
+      return [x + sx * cos + sz * sin, y + sy, z - sx * sin + sz * cos];
+    };
+  }
+
+  /** XYZ Euler rotation in degrees, in the same order as the asset toolkit. */
+  function rotateProxyPoint(point, rotation) {
+    let x = point[0], y = point[1], z = point[2];
+    const rx = ((Number(rotation[0]) || 0) * Math.PI) / 180;
+    if (rx) { const c = Math.cos(rx), s = Math.sin(rx); const ny = y * c - z * s; z = y * s + z * c; y = ny; }
+    const ry = ((Number(rotation[1]) || 0) * Math.PI) / 180;
+    if (ry) { const c = Math.cos(ry), s = Math.sin(ry); const nx = x * c + z * s; z = -x * s + z * c; x = nx; }
+    const rz = ((Number(rotation[2]) || 0) * Math.PI) / 180;
+    if (rz) { const c = Math.cos(rz), s = Math.sin(rz); const nx = x * c - y * s; y = x * s + y * c; x = nx; }
+    return [x, y, z];
+  }
+
+  function pushProxyBox(builder, part, toWorld, owner) {
+    const center = part.center;
+    const hx = part.size[0] / 2, hy = part.size[1] / 2, hz = part.size[2] / 2;
+    const rotation = part.rotation;
+    const corner = (signs) => {
+      const local = rotateProxyPoint([signs[0] * hx, signs[1] * hy, signs[2] * hz], rotation);
+      return toWorld(center[0] + local[0], center[1] + local[1], center[2] + local[2]);
+    };
+    for (const face of PROXY_BOX_FACES) {
+      const color = scaleColor(part.color, face.shade);
+      builder.quad(
+        corner(face.signs[0]), corner(face.signs[1]), corner(face.signs[2]), corner(face.signs[3]),
+        [color, color, color, color], [[0, 0], [1, 0], [1, 1], [0, 1]], owner
+      );
+    }
+  }
+
+  function pushProxyCylinder(builder, part, toWorld, owner) {
+    const base = part.base;
+    const axis = part.axis;
+    const radius = part.radius, height = part.height, taper = part.taper;
+    const segments = part.segments;
+    const point = (angle, along, radial) => {
+      const cos = Math.cos(angle), sin = Math.sin(angle);
+      const ox = cos * radial, oz = sin * radial;
+      // Same basis as the toolkit's `point_at` for x/y/z cylinders.
+      if (axis === 'x') return toWorld(base[0] + along, base[1] + oz, base[2] + ox);
+      if (axis === 'z') return toWorld(base[0] + ox, base[1] + oz, base[2] + along);
+      return toWorld(base[0] + ox, base[1] + along, base[2] + oz);
+    };
+    const sideUv = [[0, 1], [1, 1], [1, 0], [0, 0]];
+    for (let i = 0; i < segments; i++) {
+      const a0 = (i / segments) * Math.PI * 2;
+      const a1 = ((i + 1) / segments) * Math.PI * 2;
+      const shade = 0.72 + 0.28 * (0.5 + 0.5 * Math.cos(a0 - 0.9));
+      const color = scaleColor(part.color, shade);
+      builder.quad(
+        point(a0, 0, radius), point(a1, 0, radius),
+        point(a1, height, radius * taper), point(a0, height, radius * taper),
+        [color, color, color, color], sideUv, owner
+      );
+    }
+    // Top cap only: proxy cylinders always rest on, or are drawn from, their base.
+    const capColor = scaleColor(part.color, 0.96);
+    const capUv = [[0.5, 0.5], [0, 1], [1, 1]];
+    const capCenter = point(0, height, 0);
+    for (let i = 0; i < segments; i++) {
+      const a0 = (i / segments) * Math.PI * 2;
+      const a1 = ((i + 1) / segments) * Math.PI * 2;
+      builder.triangle(
+        capCenter, point(a0, height, radius * taper), point(a1, height, radius * taper),
+        [capColor, capColor, capColor], capUv, owner
+      );
+    }
+  }
+
+  function cross3(a, b) {
+    return [
+      a[1] * b[2] - a[2] * b[1],
+      a[2] * b[0] - a[0] * b[2],
+      a[0] * b[1] - a[1] * b[0]
+    ];
+  }
+
+  function normalize3(v) {
+    const length = Math.hypot(v[0], v[1], v[2]);
+    return length < 1e-9 ? [0, 0, 1] : [v[0] / length, v[1] / length, v[2] / length];
+  }
+
+  function pushProxyTube(builder, part, toWorld, owner) {
+    const start = part.start, end = part.end, radius = part.radius;
+    const dx = end[0] - start[0], dy = end[1] - start[1], dz = end[2] - start[2];
+    const length = Math.hypot(dx, dy, dz);
+    if (!(length > EPS)) return;
+    const direction = [dx / length, dy / length, dz / length];
+    const reference = Math.abs(direction[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+    const ux = normalize3(cross3(reference, direction));
+    const uy = cross3(direction, ux);
+    const ring = (point, angle) => {
+      const cos = Math.cos(angle), sin = Math.sin(angle);
+      return toWorld(
+        point[0] + (ux[0] * cos + uy[0] * sin) * radius,
+        point[1] + (ux[1] * cos + uy[1] * sin) * radius,
+        point[2] + (ux[2] * cos + uy[2] * sin) * radius
+      );
+    };
+    const segments = 6; // the toolkit's default tube resolution
+    const sideUv = [[0, 1], [1, 1], [1, 0], [0, 0]];
+    for (let i = 0; i < segments; i++) {
+      const a0 = (i / segments) * Math.PI * 2;
+      const a1 = ((i + 1) / segments) * Math.PI * 2;
+      const shade = 0.74 + 0.26 * (0.5 + 0.5 * Math.cos(a0 - 1.1));
+      const color = scaleColor(part.color, shade);
+      builder.quad(
+        ring(start, a0), ring(start, a1), ring(end, a1), ring(end, a0),
+        [color, color, color, color], sideUv, owner
+      );
+    }
+    const endColor = scaleColor(part.color, 0.95);
+    const startColor = scaleColor(part.color, 0.7);
+    const capUv = [[0.5, 0.5], [0, 1], [1, 1]];
+    const startPoint = toWorld(start[0], start[1], start[2]);
+    const endPoint = toWorld(end[0], end[1], end[2]);
+    for (let i = 0; i < segments; i++) {
+      const a0 = (i / segments) * Math.PI * 2;
+      const a1 = ((i + 1) / segments) * Math.PI * 2;
+      builder.triangle(endPoint, ring(end, a0), ring(end, a1), [endColor, endColor, endColor], capUv, owner);
+      builder.triangle(startPoint, ring(start, a1), ring(start, a0), [startColor, startColor, startColor], capUv, owner);
+    }
+  }
+
+  function pushProxyPlane(builder, part, toWorld, owner) {
+    const center = part.center;
+    const hx = part.size[0] / 2, hy = part.size[1] / 2, hz = part.size[2] / 2;
+    // Corner order matches the toolkit's `plane` helper for each normal.
+    let corners;
+    if (part.normal === 'z') {
+      corners = [
+        [center[0] - hx, center[1] - hy, center[2]], [center[0] + hx, center[1] - hy, center[2]],
+        [center[0] + hx, center[1] + hy, center[2]], [center[0] - hx, center[1] + hy, center[2]]
+      ];
+    } else if (part.normal === '-z') {
+      corners = [
+        [center[0] + hx, center[1] - hy, center[2]], [center[0] - hx, center[1] - hy, center[2]],
+        [center[0] - hx, center[1] + hy, center[2]], [center[0] + hx, center[1] + hy, center[2]]
+      ];
+    } else if (part.normal === 'x') {
+      corners = [
+        [center[0], center[1] - hy, center[2] + hz], [center[0], center[1] - hy, center[2] - hz],
+        [center[0], center[1] + hy, center[2] - hz], [center[0], center[1] + hy, center[2] + hz]
+      ];
+    } else if (part.normal === '-x') {
+      corners = [
+        [center[0], center[1] - hy, center[2] - hz], [center[0], center[1] - hy, center[2] + hz],
+        [center[0], center[1] + hy, center[2] + hz], [center[0], center[1] + hy, center[2] - hz]
+      ];
+    } else {
+      corners = [
+        [center[0] - hx, center[1], center[2] - hz], [center[0] + hx, center[1], center[2] - hz],
+        [center[0] + hx, center[1], center[2] + hz], [center[0] - hx, center[1], center[2] + hz]
+      ];
+    }
+    const color = part.color;
+    builder.quad(
+      toWorld(corners[0][0], corners[0][1], corners[0][2]),
+      toWorld(corners[1][0], corners[1][1], corners[1][2]),
+      toWorld(corners[2][0], corners[2][1], corners[2][2]),
+      toWorld(corners[3][0], corners[3][1], corners[3][2]),
+      [color, color, color, color], [[0, 0], [1, 0], [1, 1], [0, 1]], owner
+    );
+  }
+
+  function pushProxyProp(builder, prop, proxy) {
+    const toWorld = proxyToWorld(prop);
+    const owner = prop.id;
+    for (const part of proxy.parts) {
+      if (part.shape === 'box') pushProxyBox(builder, part, toWorld, owner);
+      else if (part.shape === 'cylinder') pushProxyCylinder(builder, part, toWorld, owner);
+      else if (part.shape === 'tube') pushProxyTube(builder, part, toWorld, owner);
+      else if (part.shape === 'plane') pushProxyPlane(builder, part, toWorld, owner);
+    }
+  }
+
+  function pushProp(builder, prop, catalog, proxies) {
     const size = propSize(prop, catalog);
     const entry = catalog && typeof catalog.get === 'function' ? catalog.get(prop.model) : null;
+    const proxy = proxies && typeof proxies.get === 'function' ? proxies.get(prop.model) : null;
+    if (proxy && Array.isArray(proxy.parts) && proxy.parts.length) {
+      pushProxyProp(builder, prop, proxy);
+      return;
+    }
     const base = (entry && entry.color) || PROP_FALLBACK_COLOR;
     const rot = ((Number(prop.rotation_degrees) || 0) * Math.PI) / 180;
     const cos = Math.cos(rot), sin = Math.sin(rot);
@@ -602,7 +833,9 @@
 
   /**
    * Builds the complete 3D mesh spec for a level.
-   * options: { catalog, includeRooms, includeCeilings, defaultCeiling }
+   * options: { catalog, proxies, includeRooms, includeCeilings, defaultCeiling }
+   * `proxies` is the derived prop_proxies.json accessor; without it (or for an
+   * unknown prop) the catalogue box is drawn instead.
    */
   function buildLevelMesh(level, options) {
     const opts = options || {};
@@ -653,7 +886,7 @@
 
     builder.beginBatch('props', 'prop');
     for (const prop of level.props || []) {
-      pushProp(builder, prop, opts.catalog);
+      pushProp(builder, prop, opts.catalog, opts.proxies);
     }
 
     return {

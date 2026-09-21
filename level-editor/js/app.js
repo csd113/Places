@@ -63,6 +63,7 @@ class App {
 
     // Shared level + selection state
     this.propCatalog = LiminalProps.PropCatalog.builtin();
+    this.propProxies = LiminalProps.PropProxies.empty();
     this.activePropModel = (this.propCatalog.list[0] || {}).id || 'core:crate';
     this.propCategory = 'All';
     this.propQuery = '';
@@ -108,6 +109,7 @@ class App {
     this.updateStatus('Ready — drag a room, or open a level');
 
     this.loadPropCatalog();
+    this.loadPropProxies();
     this.requestRender();
   }
 
@@ -795,6 +797,18 @@ class App {
     this.dom.propBrowser.hidden = !(visible && !this.propBrowserDismissed);
   }
 
+  /**
+   * Thumbnail URL for a catalogue entry. `tools/props/build.py --thumbs` writes
+   * `assets/thumbs/<short-name>.png` (the id after `core:`); entries with no
+   * model, or a missing image, simply keep the colour swatch behind.
+   */
+  propThumbUrl(entry) {
+    if (!entry || !entry.model) return null;
+    const short = String(entry.id || '').split(':').pop();
+    if (!short) return null;
+    return 'assets/thumbs/' + encodeURIComponent(short) + '.png';
+  }
+
   renderPropBrowser() {
     const catalog = this.propCatalog;
     const categories = ['All'].concat(catalog.categories());
@@ -805,13 +819,25 @@ class App {
     const entries = catalog.search(this.propQuery, this.propCategory);
     this.dom.propGrid.innerHTML = entries.length === 0
       ? '<p class="hint">No props match. Add entries to <code>assets/props/props.json</code> — they appear here automatically.</p>'
-      : entries.map(entry => `
+      : entries.map(entry => {
+        const thumb = this.propThumbUrl(entry);
+        const image = thumb
+          ? `<img src="${thumb}" alt="" loading="lazy" onerror="this.style.display='none'">`
+          : '';
+        // Real asset budgets from prop_proxies.json, so the browser shows what
+        // each prop costs on the PocketCHIP instead of a hand-written guess.
+        const proxy = this.propProxies && this.propProxies.get(entry.id);
+        const budget = proxy && proxy.triangles
+          ? ` · ${proxy.triangles} tris`
+          : '';
+        return `
         <button class="prop-card ${entry.id === this.activePropModel ? 'active' : ''}" data-model="${this.escape(entry.id)}"
-          title="${this.escape(entry.name)} · ${entry.size.map(v => v.toFixed(2)).join(' × ')} m">
-          <span class="prop-thumb" style="--prop-color: rgb(${entry.color.map(v => Math.round(v * 255)).join(',')})"></span>
+          title="${this.escape(entry.name)} · ${entry.size.map(v => v.toFixed(2)).join(' × ')} m${budget}">
+          <span class="prop-thumb" style="--prop-color: rgb(${entry.color.map(v => Math.round(v * 255)).join(',')})">${image}</span>
           <span class="prop-name">${this.escape(entry.name)}</span>
           <span class="prop-meta">${this.escape(entry.category)}</span>
-        </button>`).join('');
+        </button>`;
+      }).join('');
   }
 
   bindPropBrowser() {
@@ -855,6 +881,23 @@ class App {
       }
     } catch (err) {
       // The built-in catalogue is always available; nothing to do.
+    }
+  }
+
+  async loadPropProxies() {
+    try {
+      const proxies = await LiminalProps.loadPropProxies();
+      if (proxies && proxies.size > 0) {
+        this.propProxies = proxies;
+        // The 3D mesh substitutes real part geometry, so it must be rebuilt,
+        // and the browser refreshes to show the real triangle budgets.
+        this.levelRevision++;
+        if (this.viewport3d) this.viewport3d.markDirty();
+        this.renderPropBrowser();
+        this.requestRender();
+      }
+    } catch (err) {
+      // No proxies: props keep the catalogue-box fallback.
     }
   }
 

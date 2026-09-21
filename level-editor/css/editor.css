@@ -314,6 +314,17 @@ button, input, select, textarea { font: inherit; color: inherit; }
   border-radius: 2px;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
 }
+/* Real render from tools/props/build.py --thumbs; a broken/missing file hides
+   itself (onerror) so the swatch above stays as the fallback. */
+.prop-thumb img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .prop-name { font-size: 11px; color: var(--text); }
 .prop-meta { font-size: 10px; color: var(--text-faint); }
 

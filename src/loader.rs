@@ -81,6 +81,32 @@ pub struct LoadedLevel {
     pub entry: LevelEntry,
 }
 
+/// Encodes an 8-bit RGBA image as PNG bytes.
+///
+/// Mirror of [`decode_png`], used by the `LIMINAL_CAPTURE` developer path so a
+/// rendered frame can be inspected on hardware without a screenshot tool.
+pub fn encode_png(image: &RawImage) -> Result<Vec<u8>, String> {
+    if image.width == 0 || image.height == 0 {
+        return Err("cannot encode a zero-sized image".into());
+    }
+    if image.rgba.len() != (image.width * image.height * 4) as usize {
+        return Err("image buffer length does not match its dimensions".into());
+    }
+    let mut out = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut out, image.width, image.height);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder
+            .write_header()
+            .map_err(|error| format!("PNG header error: {error}"))?;
+        writer
+            .write_image_data(&image.rgba)
+            .map_err(|error| format!("PNG encode error: {error}"))?;
+    }
+    Ok(out)
+}
+
 /// Decodes PNG bytes into 8-bit RGBA raw image buffer with dimensions validation.
 pub fn decode_png(bytes: &[u8]) -> Result<RawImage, String> {
     let decoder = png::Decoder::new(Cursor::new(bytes));
@@ -491,6 +517,13 @@ impl PropCatalog {
     /// Number of catalog entries.
     pub fn len(&self) -> usize {
         self.entries.len()
+    }
+
+    /// Every catalogue entry, ordered by id so validation and reports are stable.
+    pub fn entries(&self) -> Vec<PropCatalogEntry> {
+        let mut entries: Vec<PropCatalogEntry> = self.entries.values().cloned().collect();
+        entries.sort_by(|a, b| a.id.cmp(&b.id));
+        entries
     }
 
     /// True when the catalog defines this exact model id.
@@ -1736,6 +1769,99 @@ mod tests {
         let mesh = crate::render::build_level_geometry(&level);
         assert!(mesh.batches.wall_batch.count > 0);
         assert!(mesh.batches.prop_batch.count > 0);
+    }
+
+    /// The playable demo map lives in the custom `levels/` folder, so this also
+    /// proves it is discovered and loaded through the ordinary level path.
+    #[test]
+    fn test_asset_demo_level_loads_and_shows_every_asset() {
+        let manager = LevelManager::new();
+        let entry = manager
+            .entries()
+            .iter()
+            .find(|entry| entry.id == "asset_demo")
+            .cloned()
+            .unwrap_or_else(|| {
+                panic!(
+                    "levels/asset_demo.json is not discovered; found: {:?}",
+                    manager
+                        .entries()
+                        .iter()
+                        .map(|e| e.id.as_str())
+                        .collect::<Vec<_>>()
+                )
+            });
+        let loaded = manager
+            .load_level(&entry)
+            .expect("the asset demo level loads");
+        let level = &loaded.level;
+
+        // Every catalogue prop (including spooner-man) appears at least once.
+        let catalog = PropCatalog::load_default();
+        let placed: std::collections::HashSet<&str> =
+            level.props.iter().map(|prop| prop.model.as_str()).collect();
+        for asset in catalog.entries() {
+            assert!(
+                placed.contains(asset.id.as_str()),
+                "levels/asset_demo.json must place {}",
+                asset.id
+            );
+        }
+
+        // Every structural feature the level format supports is exercised.
+        let kinds: std::collections::HashSet<&str> = level
+            .walls
+            .iter()
+            .flat_map(|wall| wall.openings.iter().map(|opening| opening.kind.as_str()))
+            .collect();
+        for kind in ["door", "window", "passage", "vent"] {
+            assert!(
+                kinds.contains(kind),
+                "the demo map must include a {kind} opening"
+            );
+        }
+        assert!(
+            level.ceiling_lights.len() >= 4,
+            "the demo map lights every room"
+        );
+        assert_eq!(
+            level.defaults.wall, "core:wallpaper_stained_01",
+            "the demo map shows the stained wallpaper variant"
+        );
+        assert_eq!(level.defaults.floor, "core:carpet_damp_01");
+
+        // Props keep the placement features the editor and game support: a
+        // prop standing on another prop (positive vertical offset) and one
+        // placed on furniture.
+        assert!(
+            level
+                .props
+                .iter()
+                .any(|prop| prop.y > 0.3 && prop.model == "core:plant"),
+            "the demo map shows a positive vertical offset"
+        );
+        assert!(
+            level
+                .props
+                .iter()
+                .any(|prop| prop.model == "spooner-man" && prop.y > 0.3),
+            "spooner-man is placed on the bed, exercising the vertical offset"
+        );
+
+        // The level builds real prop geometry, not placeholder boxes.
+        let mut assets = crate::props::PropAssets::load_default();
+        let (mesh, batches) =
+            crate::render::build_level_geometry_with_assets(level, &catalog, &mut assets);
+        assert_eq!(
+            mesh.batches.prop_batch.count, 0,
+            "no placeholder boxes expected"
+        );
+        assert!(
+            batches.len() >= 18,
+            "the demo map draws most of the pack in one batch per model, got {}",
+            batches.len()
+        );
+        assert_eq!(assets.stats().models_failed, 0);
     }
 
     #[test]

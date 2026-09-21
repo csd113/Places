@@ -116,6 +116,55 @@ mod tests {
     use super::*;
     use crate::level::LevelDef;
 
+    /// Solid props block with their catalogue-sized box; non-solid props
+    /// (rugs, plants, lamps, TVs, cardboard boxes) never affect collision.
+    #[test]
+    fn test_showcase_level_collision_matches_the_solid_flags() {
+        let content = std::fs::read_to_string("assets/levels/prop_showcase.json")
+            .expect("the prop showcase level ships with the game");
+        let level = LevelDef::from_json(&content).expect("showcase level parses");
+        let aabbs = level.collision_aabbs();
+
+        let solid_props = level.props.iter().filter(|prop| prop.solid).count();
+        let non_solid = level.props.iter().filter(|prop| !prop.solid).count();
+        assert!(solid_props >= 12, "the showcase places most props as solid");
+        assert!(non_solid >= 4, "rug/plant/lamp/tv stay passable");
+        assert!(
+            aabbs.len() > solid_props,
+            "prop boxes are added alongside the walls"
+        );
+
+        // A sunk prop still blocks: the player cannot stand inside the crate
+        // that is deliberately sunk into the floor.
+        let sunk = level
+            .props
+            .iter()
+            .find(|prop| prop.model == "core:crate" && prop.y < 0.0)
+            .expect("showcase keeps one crate sunk into the floor");
+        let resolved = resolve_player_collision(Vec2::new(sunk.x, sunk.z), PLAYER_RADIUS, &aabbs);
+        assert!(
+            (resolved - Vec2::new(sunk.x, sunk.z)).length() > 1e-3,
+            "the sunk solid crate must push the player out"
+        );
+
+        // A non-solid prop never pushes the player out of its own centre. Only
+        // props standing clear of walls are checked here: the rug sits under
+        // the solid coffee table and the TV hugs the back wall on purpose.
+        for model in ["core:lamp", "core:plant"] {
+            let prop = level
+                .props
+                .iter()
+                .find(|prop| prop.model == model)
+                .unwrap_or_else(|| panic!("showcase places a {model}"));
+            let resolved =
+                resolve_player_collision(Vec2::new(prop.x, prop.z), PLAYER_RADIUS, &aabbs);
+            assert!(
+                (resolved - Vec2::new(prop.x, prop.z)).length() < 1e-3,
+                "{model} must stay passable"
+            );
+        }
+    }
+
     #[test]
     fn test_wall_aabb_creation() {
         let wall = WallAabb::new(2.0, -5.0, 4.0, 1.0);

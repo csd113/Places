@@ -65,7 +65,7 @@ css/editor.css      one dark workspace theme
 js/geometry.js      pure geometry: wall openings, collision boxes, 3D mesh spec, picking
 js/model.js         level data model + validation (mirrors src/level.rs)
 js/ops.js           every editing operation, DOM-free (create/move/resize/delete/...)
-js/props.js         prop catalogue: parsing, search, fallbacks
+js/props.js         prop catalogue + derived proxy geometry: parsing, search, fallbacks
 js/history.js       undo/redo snapshots (one entry per user action, incl. a drag)
 js/renderer.js      2D plan renderer (canvas)
 js/camera3d.js      pure camera math (matrices, screen rays)
@@ -128,22 +128,53 @@ The catalogue lives in `assets/props/props.json` and is shared with the game
 
 ```json
 { "id": "core:stove", "name": "Stove", "category": "Appliances",
-  "size": [0.6, 0.9, 0.6], "color": "#8f8a80", "model": null, "solid": true }
+  "size": [0.6, 0.9, 0.6], "color": "#8f8a80", "model": "models/stove.glb", "solid": true }
 ```
 
 * `size` is the full box extents in metres `[width, height, depth]`, resting on the
-  prop's base.
-* `model` is reserved for a future mesh asset; until then the game and the editor
-  draw a coloured box, so levels never depend on assets that do not exist yet.
+  prop's base. It is also the pick/drag box, whatever the 3D preview draws.
+* `model` points at the shipped GLB asset (`models/*.glb`, relative to
+  `assets/props/`). Until an asset exists the game and the editor draw a
+  coloured box, so levels never depend on assets that do not exist yet.
 * `solid: true` makes the prop block the player (an axis-aligned box in the game's
   collision list). Decorative props stay walk-through.
 * `y` may be negative on purpose: sinking a chair into the floor is allowed, as is
   a prop inside a wall. Validation only rejects malformed data, never artistic
   choices.
 
+### Proxy geometry (what the 3D preview draws)
+
+`assets/props/prop_proxies.json` is written by `python3 tools/props/build.py` and
+derived from the shipped GLB meshes — never edit it by hand. The editor loads it
+next to the catalogue (same candidate URLs and `no-store` fetch options) and draws
+each prop from its real parts: boxes, low-segment cylinders,
+tubes and single-sided planes, in metres in prop-local space (origin at the floor
+contact, +Z front). Per-part colours are the asset's base colours, shaded with
+the game's face multipliers so the preview reflects the real asset instead of a
+hand-maintained duplicate.
+
+Everything degrades cleanly: if the file is absent (older checkout, `file://`),
+an entry is malformed, or the prop is a custom/unknown id with no proxy, the
+editor keeps drawing the catalogue box. Editing, picking and dragging are
+unchanged — proxies only change what the 3D viewport previews.
+
+Each proxy also carries the asset's generated metadata (`triangles`, `texture`,
+`bounds_min`/`bounds_max`). The prop browser shows the triangle count in a
+card's tooltip, and `tests/prop-assets.test.mjs` asserts the pack's budgets and
+scale conventions through the editor's own parser and geometry builder.
+
+### Thumbnails
+
+`tools/props/build.py --thumbs` renders `level-editor/assets/thumbs/<short-name>.png`,
+where `<short-name>` is the id after `core:` (`core:washing_machine` →
+`washing_machine.png`). The prop browser layers the image over the existing
+colour swatch; a missing file (or a missing `assets/thumbs/` folder) simply
+reveals the swatch, so the browser always renders.
+
 **Adding a model later:** add an entry to `assets/props/props.json`, point its
-`model` at the asset, and it appears in the editor's prop browser automatically.
-No editor or game code changes.
+`model` at the asset, run `tools/props/build.py` (which refreshes the proxies and,
+with `--thumbs`, the thumbnails), and it appears in the editor's prop browser
+automatically. No editor or game code changes.
 
 ## Tests
 
@@ -153,20 +184,25 @@ node --test 'tests/*.test.mjs'
 ```
 
 * `geometry.test.mjs` — walls with/without openings, sills, wall ends, overlapping
-  openings, collision boxes, mesh contents, picking (incl. rotated props).
+  openings, collision boxes, mesh contents, picking (incl. rotated props), and the
+  proxy mesh: every part shape, per-part colours/shading, position/yaw/scale and
+  the catalogue-box fallback.
 * `model.test.mjs` — serialization round trips, id stability for undo, validation
   messages, intentional clipping.
 * `ops.test.mjs` — create/resize/move, doorway and window placement, selection,
   delete/duplicate, one history entry per drag, advanced property persistence.
-* `props.test.mjs` — catalogue parsing, search, fallbacks, and a check that the
-  built-in editor catalogue matches `assets/props/props.json`.
+* `props.test.mjs` — catalogue parsing, search, fallbacks, a check that the
+  built-in editor catalogue matches `assets/props/props.json`, and proxy
+  parsing/fallbacks (valid file, missing file, malformed entries, unknown ids).
 * `camera3d.test.mjs` — camera matrices, screen rays, movement, focus.
 * `viewport3d.test.mjs` — the 3D viewport against a mock WebGL context: batches
-  drawn, mesh rebuild caching, view toggles, picking, 3D drag intents, no level
-  mutation, graceful behaviour without WebGL.
+  drawn, mesh rebuild caching, view toggles, picking, 3D drag intents, proxy
+  geometry replacing the fallback boxes, no level mutation, graceful behaviour
+  without WebGL.
 * `app-smoke.test.mjs` — boots the real editor in a stubbed DOM and walks the whole
   workflow (build → place → select → move → undo → advanced edit → save → reload →
-  validate), including keyboard shortcuts and a check that every element id the
-  code looks up exists in `index.html`.
+  validate), including keyboard shortcuts, prop-browser thumbnails with the swatch
+  fallback, proxy loading marking the mesh dirty, and a check that every element id
+  the code looks up exists in `index.html`.
 
 The game's own tests cover the Rust side: `cargo test --offline` in the app root.

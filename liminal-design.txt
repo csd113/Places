@@ -1156,3 +1156,41 @@ After that milestone:
 ===============================================================================
 END OF CURRENT DESIGN DOCUMENT
 ===============================================================================
+
+===============================================================================
+APPENDIX A. CORE PROP ASSETS (IMPLEMENTED)
+===============================================================================
+
+The open questions above about the prop/asset format, texture dimensions, the
+material model, prop collision and the initial prop library are settled by the
+shipped core prop pack:
+
+- registry: assets/props/props.json, shared by the game (src/loader.rs) and the
+  level editor (level-editor/js/props.js); there is only one prop list.
+- models: assets/props/models/*.glb, generated from primitives by tools/props
+  (pure Python, no Blender) and reproducible with `python3 tools/props/build.py`.
+- scope: twenty core props - eight furniture, six appliances, crate and
+  cardboard box, plant/rug/floor lamp/television - plus `spooner-man`, a
+  low-poly tuxedo cat built from the same toolkit and registered as an ordinary
+  static prop. No variants, no interactive props.
+- format: self-contained GLB, one scene/node/mesh/primitive/material, POSITION +
+  TEXCOORD_0 + COLOR_0, one embedded PNG (64x64 or 128x128, 256x256 hard cap),
+  triangles only, no extensions, no skins, no animation.
+- material model: diffuse texture multiplied by baked vertex colour (per-face
+  shading and contact darkening), unlit, straight through the existing GLES2
+  shader. No normal/metallic/roughness/AO maps, no alpha.
+- budgets: 50-500 triangles preferred per ordinary prop (1500 hard ceiling),
+  one draw call per distinct prop model per level; instances of one model share
+  a decoded mesh, one CPU copy and one GPU texture.
+- collision: the catalogue's axis-aligned box, never the render mesh; the
+  level's per-placement `solid` flag decides whether it blocks the player.
+- convention: 1 unit = 1 metre, Y up, origin at the floor-contact centre, +Z is
+  the prop's front; the bounding box matches the catalogue `size`.
+- documentation: assets/props/README.md (asset rules) and
+  tools/props/README.md (toolkit and commands).
+- validation: `python3 tools/props/build.py --check` for the files and the Rust
+  test `props::tests::shipped_prop_assets_match_the_catalogue_and_budgets` for
+  the catalogue, budgets, scale, origin and UVs.
+- fixtures: assets/levels/prop_showcase.json (every catalogue prop, including
+  deliberately sunk and overlapping placements) and
+  assets/levels/prop_stress.json (repeated-prop load for batching and memory).

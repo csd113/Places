@@ -267,6 +267,52 @@ test('view switching, prop browser and tool options are wired', () => {
   assert.match(env.document.getElementById('tool-options').innerHTML, /Add walls around each room/);
 });
 
+test('the prop browser shows thumbnails with the colour swatch as fallback', () => {
+  const env = boot();
+  const grid = env.document.getElementById('prop-grid').innerHTML;
+  assert.match(grid, /src="assets\/thumbs\/washing_machine\.png"/);
+  assert.match(grid, /src="assets\/thumbs\/couch\.png"/);
+  assert.match(grid, /class="prop-thumb"/);
+  assert.match(grid, /--prop-color: rgb\(/);
+  assert.match(grid, /onerror=/, 'a missing thumbnail hides itself instead of breaking the grid');
+
+  // A catalogue entry with no model has no thumbnail, but still renders.
+  env.run(`app.propCatalog = LiminalProps.PropCatalog.fromJSON({ props: [
+    { id: 'pack:no_thumb', name: 'No Thumb', category: 'Other', size: [0.5, 0.5, 0.5], color: '#123456' }
+  ] }); app.renderPropBrowser();`);
+  const custom = env.document.getElementById('prop-grid').innerHTML;
+  assert.match(custom, /pack:no_thumb/);
+  assert.match(custom, /class="prop-thumb"/);
+  assert.match(custom, /--prop-color: rgb\(18,52,86\)/);
+  assert.doesNotMatch(custom, /<img/);
+
+  // A model whose thumbnail file is missing still renders the swatch behind it.
+  env.run(`app.propCatalog = LiminalProps.PropCatalog.fromJSON({ props: [
+    { id: 'core:mystery', name: 'Mystery', category: 'Other', size: [0.5, 0.5, 0.5], color: '#ffffff', model: 'models/mystery.glb' }
+  ] }); app.renderPropBrowser();`);
+  const missing = env.document.getElementById('prop-grid').innerHTML;
+  assert.match(missing, /src="assets\/thumbs\/mystery\.png"/);
+  assert.match(missing, /class="prop-thumb"/);
+  assert.match(missing, /onerror=/);
+});
+
+test('loaded proxy geometry is handed to the viewport and marks it dirty', async () => {
+  const env = boot();
+  const model = env.run('app.level.props[0].model');
+  const payload = { props: {} };
+  payload.props[model] = {
+    name: 'Proxy',
+    model: 'models/proxy.glb',
+    parts: [{ shape: 'box', center: [0, 0.45, 0], size: [0.46, 0.05, 0.46], rotation: [0, 0, 0], color: '#a08a6a' }]
+  };
+  env.run(`window.__proxyMarks = 0; app.viewport3d = { markDirty() { window.__proxyMarks++; } };`);
+  env.run(`LiminalProps.loadPropProxies = async () => LiminalProps.PropProxies.fromJSON(${JSON.stringify(payload)});`);
+  await env.run('app.loadPropProxies()');
+  assert.equal(env.run('app.propProxies.size'), 1);
+  assert.equal(env.run(`app.propProxies.has(${JSON.stringify(model)})`), true);
+  assert.ok(env.run('window.__proxyMarks') >= 1, 'the 3D mesh is marked dirty after proxies load');
+});
+
 test('placing and deleting single objects is undoable', () => {
   const env = boot();
   const propsBefore = env.run('app.level.props.length');
