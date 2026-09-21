@@ -5,6 +5,12 @@ pub mod gltf;
 pub mod input;
 pub mod level;
 pub mod lighting;
+#[cfg(test)]
+mod lighting_audit;
+#[cfg(test)]
+mod lighting_audit_cases;
+#[cfg(test)]
+mod lighting_parity;
 pub mod loader;
 pub mod perf;
 pub mod props;
@@ -147,7 +153,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .load_default_or_level1()
         .map_err(|e| format!("Failed to load initial level: {e}"))?;
 
-    let mut renderer = Renderer::new(&window, &video_subsystem, &initial_level.level)
+    let mut renderer = Renderer::new(&window, &video_subsystem)
         .map_err(|e| format!("Failed to initialize renderer: {e}"))?;
     renderer.set_level(&initial_level);
     renderer.set_texture_filtering(&settings.texture_filtering);

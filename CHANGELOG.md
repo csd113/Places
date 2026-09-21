@@ -1,5 +1,89 @@
 # Changelog
 
+## 0.7.0 — 2026-09-20
+
+### Added
+
+- Add `core:ceiling_stained_01`, a water-damaged ceiling material: three of its
+  four 1 m panels stay recognisable ceiling tile and one carries the leak — an
+  irregular soaked field running to the grid, a leak trail onto its neighbour
+  and a browner cast where the water sat. It is a level default like the other
+  materials (`"ceiling": "core:ceiling_stained_01"`) and is offered by the
+  level editor's ceiling material dropdown next to the maintained panel.
+- Add `levels/asset_maintained.json`, the Asset Demo building on the maintained
+  material set. A level carries exactly one wall, one floor and one ceiling
+  material, so the maintained and water-damaged sets are compared by walking
+  the same rooms in the two demo levels.
+- Add texture regression tests: every built-in surface sheet must tile (its
+  wrapped edges must meet) and every damaged material id must resolve to its
+  own sheet rather than the maintained one.
+
+### Changed
+
+- Polish every generated prop except `spooner-man`. The couch and armchair are
+  rebuilt around a proper sofa structure (block feet, seat frame and apron,
+  panel arms capped by a 6-segment padded roll, a full-width back under a crest
+  rail, three seat and three back cushions with soft top puffs, and two muted
+  olive throw cushions on their own fabric swatch); the chair's back is widened
+  to match its seat and raked 4 degrees with two slats and a top rail; the bed
+  gains a raised headboard, a draped blanket with side drops and two pillows;
+  the television becomes a thin bezel panel on a pedestal stand with a recessed
+  screen; the water cooler's bottle gets a real bottle silhouette (neck,
+  shoulder, straight body); the sink gets a counter upstand, a taller faucet and
+  a lighter painted basin; the table's legs are tapered square sections and the
+  desk's pedestal and knee-hole shelf stand on plinths. Hidden faces are dropped
+  while polishing, so the twenty core props together fall from 2912 to 2836
+  triangles.
+- Rebuild the built-in surface textures. Wallpaper is now a printed 25 cm
+  stripe with a groove, a paper grain and a faint age mottle over a **two
+  metre** repeat; the carpet is a short pile (per-texel speckle, short
+  directional dashes and 5–12 cm mottle) instead of a 4 px loop grid; the
+  ceiling is a 2 x 2 m patch of four 1 m mineral-fibre tiles in a T-bar grid
+  whose panels differ slightly in tone and scuffing. Wall and ceiling UVs run at
+  half speed to match, so the texel density is unchanged (64 texels per metre)
+  while the repeats are half as visible.
+- Make the worn material variants carry the same design as the maintained ones.
+  The stained wallpaper is dominated by vertical runs that continue down the
+  wall, with damp fields and a rusty cast in the wet areas; the damp carpet
+  keeps its pile and is darker, flatter and greyer over large bounded regions
+  instead of being a uniformly darkened sheet.
+- Soften the metre checker baked into the derived floor texture (11 % to 6 %
+  between adjacent cells) so the floor reads as uneven carpet wear rather than
+  as a tiled floor.
+- Update the editor's 3D preview to mirror the new wall and ceiling sheets
+  (128x128, two metres per repeat) and to offer the damaged ceiling material.
+
+### Notes
+
+- `levels/asset_demo.json` now also uses the stained ceiling, so all three worn
+  materials are visible in one walkable map; Level 1 keeps the maintained set.
+- Surface texture memory grows from 16 KiB each to 64 KiB for the wall and
+  ceiling sheets (about 96 KiB more for a level), and no prop's texture grew.
+
+## 0.6.0 — 2026-09-20
+
+### Added
+
+- Add a full adversarial audit of the static lighting system under `src/lighting_audit.rs` and `src/lighting_audit_cases.rs`: room area and density, zero-light rooms, dense fixture grids (10/50/100/250 fixtures), intensity boundaries, ceiling-height extremes, fixture ownership at room boundaries and overlaps, opening blending variants, one-hop propagation, local pools and saturation, material modulation, prop lighting at extreme vertical offsets, fixtures outside every room, degenerate data, colour safety and bit-for-bit determinism. A fixed-seed stress test builds 48 pseudo-random valid levels and checks every baked value stays finite and in range.
+- Add Rust/editor cross-implementation parity coverage: `src/lighting_parity.rs` generates and locks `level-editor/tests/support/lighting_vectors.json` (eight representative scenarios), the Rust suite replays it exactly, and `level-editor/tests/lighting-parity.test.mjs` replays the same file inside the preview's tolerance so the two models cannot drift silently.
+- Add a release-build benchmark report (`cargo test --release lighting_benchmark_report -- --nocapture`) over a tiny level, the Asset Demo, Level 1, a 100-fixture room, very large surfaces, 36 rooms, a prop-heavy level and a worst-reasonable community level, with vertex counts, draw calls, bake/build times and budget-estimate cross-checks.
+- Add a lighting demonstration wing to the Asset Demo: a long spine corridor with two widely spaced fixtures (bright pool → darker gap → bright pool), four identical rooms with 0/1/2/4 fixtures (density), two identical rooms with 0.5/1.8 fixtures (intensity), two identical rooms at 2.6 m/4.2 m ceilings (height), a bright room joined to a dark one by a wide doorway (opening bleed), and three props plus a `spooner-man` placed where the environmental lighting is easy to see. The wing is walkable: a test drives a 0.3 m player path from the spawn to every comparison room and the dark/bright doorway without intersecting collision boxes.
+- Add regression tests for the audited fixes: raised walls and malformed openings must not blend, fractional fixture rotations must agree between the baked pool and the drawn panel, wall reveals must carry both rooms' light, merged lighting cells must keep their exact sampled colours and tile their room, wall strips must share exact edges, and the geometry estimate must bound what the builder emits.
+
+### Changed
+
+- Make per-room baked lighting cheaper without changing a single baked value: every room keeps its own fixture candidate list, the light loop rejects candidates by squared distance before any square root, and the floor/ceiling corner grids and wall strips are sampled once per corner instead of once per quad.
+- Merge flat baked-lighting cells and wall segments into larger quads while every corner stays within 1/512 of a colour step, so unlit and far-from-fixture surfaces collapse instead of being densely tessellated. On Level 1 this cuts the static geometry from 61,266 to 42,540 vertices and the release build from ~8.6 ms to ~0.8 ms with unchanged draw calls; the Asset Demo stays ~2.1k static vertices plus its prop batches.
+- Stop building the initial level twice at startup: `Renderer::new` now only sets up the context and buffers, and the first level is uploaded once by `Renderer::set_level`.
+- Correct the level geometry estimate to replay the same solid-slice decomposition the builder uses, so a wall with many openings can no longer under-count its own vertices; the wall estimate was also tightened so representative levels reserve close to what they use.
+
+### Fixed
+
+- Doorway blending no longer treats an opening in a raised wall (or a malformed zero-size/non-finite opening) as a walk-through passage, so light cannot leak through a hole above head height that has no floor connection.
+- Doorway and window reveals are now lit from both faces of the wall instead of sampling the middle of the wall cavity, so jambs blend the two rooms they join rather than dropping to ambient.
+- The fixture rotation rule is now one shared helper (`fixture_is_turned`) used by both the baked pools and the drawn panels, and the editor's preview uses the same rule; previously a fractional rotation such as 179.6° could make the two disagree.
+- The editor's preview and its lighting mirror now agree on turned fixtures (previously a 135° fixture drew in one orientation and pooled in the other).
+
 ## 0.5.0 — 2026-09-20
 
 ### Added

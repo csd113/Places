@@ -197,3 +197,43 @@ test('the preview respects the model-level intensity limit', () => {
   const baked = bakeLevelLighting(parsed);
   assert.equal(baked.lights[0].intensity, 1.4);
 });
+
+test('fixture orientation is one shared rule for the bake and the preview mesh', () => {
+  const { fixtureIsTurned, fixtureHalfExtents } = lighting;
+  const cases = [
+    [0, false], [45, true], [89.6, true], [90, true], [135, true],
+    [179.0, true], [179.6, false], [180, false], [180.4, false], [270, true],
+    [360, false], [-90, true], [-0.6, true]
+  ];
+  for (const [rotation, turned] of cases) {
+    assert.equal(fixtureIsTurned(rotation), turned, `rotation ${rotation}`);
+    const [halfW, halfD] = fixtureHalfExtents(rotation);
+    assert.equal(halfW, turned ? 0.3 : 0.6, `rotation ${rotation} width`);
+    assert.equal(halfD, turned ? 0.6 : 0.3, `rotation ${rotation} depth`);
+  }
+
+  // The preview's drawn panel footprint must match the pool footprint for the
+  // same rotation (this used to drift for 135-degree fixtures).
+  for (const rotation of [0, 45, 90, 135, 180, 270, 315]) {
+    const level = {
+      rooms: [{ id: 'r', x: 0, z: 0, width: 10, depth: 10, height: 3 }],
+      walls: [],
+      props: [],
+      ceiling_lights: [{ id: 'l', fixture: 'core:fluorescent_panel_01', x: 5, z: 5, rotation_degrees: rotation }],
+      getCeilingHeight: () => 3
+    };
+    const mesh = geometry.buildLevelMesh(level, { lighting: false });
+    const batch = mesh.batches.find((entry) => entry.name === 'lights');
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (let vertex = batch.start; vertex < batch.start + batch.count; vertex++) {
+      const p = vertex * 3;
+      minX = Math.min(minX, mesh.positions[p]);
+      maxX = Math.max(maxX, mesh.positions[p]);
+      minZ = Math.min(minZ, mesh.positions[p + 2]);
+      maxZ = Math.max(maxZ, mesh.positions[p + 2]);
+    }
+    const [halfW, halfD] = fixtureHalfExtents(rotation);
+    assert.ok(Math.abs((maxX - minX) - halfW * 2) < 1e-6, `rotation ${rotation} x extent`);
+    assert.ok(Math.abs((maxZ - minZ) - halfD * 2) < 1e-6, `rotation ${rotation} z extent`);
+  }
+});

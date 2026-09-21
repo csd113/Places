@@ -121,9 +121,9 @@ def _leaf(mesh, base, tip, bend, width: float, uv, up, down, shade: float = 1.0)
         tuple(p + n * (width * 0.12) for p, n in zip(mid, normal)),
         tip,
     ]
-    # Widest at 38 % of the blade and ending in a short blunt edge rather than a
-    # spike: a triangle tip is what makes a leaf read as a paper dart.
-    widths = (width * 0.34, width * 1.0, width * 0.70, width * 0.16)
+    # Widest just past the base and tapering to a short blunt tip: a broad
+    # paddle reads as a paper dart from across the room, a lance does not.
+    widths = (width * 0.40, width * 0.85, width * 0.62, width * 0.14)
     left = [(p[0] - side[0] * w, p[1], p[2] - side[2] * w) for p, w in zip(spine, widths)]
     right = [(p[0] + side[0] * w, p[1], p[2] + side[2] * w) for p, w in zip(spine, widths)]
 
@@ -173,15 +173,15 @@ def build_plant(p: PropBuilder) -> None:
     tex.spots("soil", palette.mix(palette.hex_to_rgb(palette.CARDBOARD), soil, 0.5), count=3, seed=14, radius=1, alpha=60)
 
     # --- texture: leaf (base dark at the region's bottom, tip light on top) --
-    # Kept deliberately quiet: a smooth gradient, a central rib and three faint
-    # bands.  Busier paint turns the crown into noise at 480x272.
-    tex.gradient("leaf", leaf_tip, leaf_base, jitter=4, seed=21)
-    tex.bar("leaf", palette.shade(leaf_tip, 1.06), (0.47, 0.0, 0.53, 1.0), alpha=30)
-    for index in range(3):
-        v = 0.24 + index * 0.22
-        tex.band("leaf", palette.shade(leaf_base, 0.90), v, v + 0.03, alpha=28)
-    tex.spots("leaf", palette.hex_to_rgb(palette.RUST), count=2, seed=23, radius=1, alpha=20)
-    tex.border("leaf", palette.shade(leaf_base, 0.90), width=1, alpha=20)
+    # Kept deliberately quiet: one smooth gradient, a midrib and two faint
+    # veins.  A leaf blade stretches a 64 px cell over half a metre, so any
+    # speckle in the paint reads as noise at 480x272.
+    tex.gradient("leaf", leaf_tip, leaf_base, jitter=2, seed=21)
+    tex.bar("leaf", palette.shade(leaf_tip, 1.08), (0.48, 0.0, 0.52, 1.0), alpha=34)
+    for index in range(2):
+        v = 0.30 + index * 0.26
+        tex.band("leaf", palette.shade(leaf_base, 0.92), v, v + 0.025, alpha=22)
+    tex.border("leaf", palette.shade(leaf_base, 0.88), width=1, alpha=26)
 
     # --- texture: stem ------------------------------------------------------
     tex.fill("stem", stem, jitter=6, seed=31)
@@ -230,29 +230,31 @@ def build_plant(p: PropBuilder) -> None:
     # inside the 0.40 m size) and the tallest tips stop just under 1.00 m.
     #
     # (azimuth, base height, tip radius, tip height, blade width, shade)
+    # Blade widths are roughly 40 % of the leaf's length: broad enough to close
+    # the crown at 480x272, narrow enough that no leaf reads as a paper dart.
     leaves = (
-        # upper fan: broad leaves on the top third of the stem, each tipping
+        # upper fan: long leaves on the top third of the stem, each tipping
         # over so its flat face still catches light from above
-        (0.0, 0.68, 0.192, 0.900, 0.186, 1.02),
-        (180.0, 0.67, 0.192, 0.915, 0.184, 0.97),
-        (90.0, 0.70, 0.192, 0.880, 0.180, 1.00),
-        (270.0, 0.69, 0.192, 0.930, 0.176, 0.94),
-        (315.0, 0.74, 0.150, 0.995, 0.166, 1.05),
-        (135.0, 0.73, 0.146, 0.985, 0.162, 0.92),
+        (0.0, 0.68, 0.192, 0.900, 0.132, 1.02),
+        (180.0, 0.67, 0.192, 0.915, 0.130, 0.97),
+        (90.0, 0.70, 0.192, 0.880, 0.128, 1.00),
+        (270.0, 0.69, 0.192, 0.930, 0.126, 0.94),
+        (315.0, 0.74, 0.150, 0.995, 0.118, 1.05),
+        (135.0, 0.73, 0.146, 0.985, 0.116, 0.92),
         # middle fan: the azimuth gaps left by the top four
-        (45.0, 0.56, 0.176, 0.800, 0.170, 0.99),
-        (225.0, 0.55, 0.172, 0.790, 0.168, 1.03),
-        (20.0, 0.52, 0.150, 0.700, 0.160, 0.95),
-        (200.0, 0.51, 0.146, 0.690, 0.158, 1.01),
-        # lower pair: short leaves on the bare stem, heavier droop
-        (160.0, 0.42, 0.142, 0.590, 0.150, 0.96),
-        (340.0, 0.41, 0.138, 0.575, 0.146, 1.04),
-        (110.0, 0.34, 0.130, 0.470, 0.140, 1.02),
-        (290.0, 0.33, 0.126, 0.455, 0.136, 0.98),
+        (45.0, 0.56, 0.176, 0.800, 0.121, 0.99),
+        (225.0, 0.55, 0.172, 0.790, 0.120, 1.03),
+        (20.0, 0.52, 0.150, 0.700, 0.114, 0.95),
+        (200.0, 0.51, 0.146, 0.690, 0.113, 1.01),
+        # lower pair: shorter leaves on the bare stem, heavier droop
+        (160.0, 0.42, 0.142, 0.590, 0.108, 0.96),
+        (340.0, 0.41, 0.138, 0.575, 0.105, 1.04),
+        (110.0, 0.34, 0.130, 0.470, 0.101, 1.02),
+        (290.0, 0.33, 0.126, 0.455, 0.098, 0.98),
     )
     leaf_uv = tex.uv("leaf")
     leaf_up = palette.mix(leaf_tip, palette.hex_to_rgb(palette.PLASTIC_WHITE), 0.70)
-    leaf_down = palette.mix(_tint(leaf_base, 0.35), palette.hex_to_rgb(palette.PLASTIC_WHITE), 0.20)
+    leaf_down = palette.mix(_tint(leaf_base, 0.55), palette.hex_to_rgb(palette.PLASTIC_WHITE), 0.38)
     for azimuth, base_y, tip_radius, tip_y, width, shade in leaves:
         angle = math.radians(azimuth)
         direction = (math.cos(angle), 0.0, math.sin(angle))
@@ -260,7 +262,7 @@ def build_plant(p: PropBuilder) -> None:
         tip = (direction[0] * tip_radius, tip_y, direction[2] * tip_radius)
         # The bend lifts the blade's middle and lets the tip fall away: the
         # leaf arcs outwards instead of running straight up the stem.
-        bend = (direction[0] * 0.030, 0.035, direction[2] * 0.030)
+        bend = (direction[0] * 0.030, 0.020 + 0.045 * max(0.0, base_y - 0.33), direction[2] * 0.030)
         _leaf(p.mesh, base, tip, bend, width, leaf_uv, leaf_up, leaf_down, shade)
     p.add_note("twelve opaque folded leaf blades in three tiers; no alpha cut-outs")
 
@@ -430,13 +432,17 @@ def build_tv(p: PropBuilder) -> None:
                                        palette.hex_to_rgb(palette.GLASS_TINT), 0.26), 1.05)
     dark = palette.hex_to_rgb(palette.ELECTRONICS_DARK)
 
-    # --- texture: the screen (dark, static, slightly reflective) -------------
-    tex.gradient("screen", palette.shade(screen, 1.22), palette.shade(screen, 0.80), jitter=4, seed=3)
-    for row in range(0, 32, 2):
-        tex.band("screen", palette.shade(screen, 0.74), row / 32.0, (row + 1) / 32.0, alpha=90)
-    tex.streaks("screen", palette.shade(screen, 1.45), count=2, seed=4, alpha=26, direction="v")
-    tex.spots("screen", palette.hex_to_rgb(palette.GRIME), count=3, seed=5, radius=1, alpha=26)
-    tex.border("screen", palette.shade(screen, 0.62), width=1, alpha=130)
+    # --- texture: the screen (dark, switched off, faintly reflective) --------
+    # A switched-off LCD is a dark grey sheet with one diagonal sheen, not a
+    # striped pattern: a couple of very faint scanline bands are all the detail
+    # it takes to read as a screen at 480x272.
+    tex.gradient("screen", palette.shade(screen, 1.30), palette.shade(screen, 0.74), jitter=3, seed=3)
+    tex.band("screen", palette.shade(screen, 1.42), 0.06, 0.13, alpha=26)
+    tex.bar("screen", palette.shade(screen, 1.18), (0.60, 0.0, 0.66, 1.0), alpha=22)
+    for row in range(0, 32, 6):
+        tex.band("screen", palette.shade(screen, 0.90), row / 32.0, (row + 1) / 32.0, alpha=40)
+    tex.spots("screen", palette.hex_to_rgb(palette.GRIME), count=3, seed=5, radius=1, alpha=22)
+    tex.border("screen", palette.shade(screen, 0.58), width=1, alpha=150)
 
     # --- texture: the plain bezel bars --------------------------------------
     tex.fill("bezel", case, jitter=7, seed=11)
@@ -468,46 +474,51 @@ def build_tv(p: PropBuilder) -> None:
     tex.border("body", palette.shade(case_dark, 0.6), width=1, alpha=90)
 
     # --- geometry -----------------------------------------------------------
-    # The four bezel bars carry the full catalogue width and height; the
-    # housing sits behind them and the feet lift the panel 2 cm off the floor.
-    bar_depth = 0.020
-    bar_z = size[2] * 0.5 - bar_depth * 0.5
-    bar = 0.05
+    # A thin bezel and housing on a small pedestal stand. The panel itself is
+    # 1.10 x 0.61 m (a 16:9 sheet of glass), lifted 9 cm by the stand so the
+    # prop reads as a television rather than a picture frame laid against the
+    # floor. The panel's top edge is the catalogue height.
+    half_d = size[2] * 0.5
+    stand_top = 0.09
+    bezel_d = 0.022
+    box_d = size[2] - bezel_d     # housing fills the depth behind the bezel
+    bezel_z = half_d - bezel_d * 0.5
+    side_bar, top_bar, chin = 0.035, 0.030, 0.065
+    panel_top = size[1]
+    panel_bottom = stand_top
+    screen_bottom = panel_bottom + chin
+    screen_top = panel_top - top_bar
     frame = _tint(case, 0.45)
-    housing_depth = size[2] - bar_depth
-    housing_front = size[2] * 0.5 - bar_depth
-    p.box(
-        (0.0, 0.35, housing_front - housing_depth * 0.5),
-        (size[0] - 0.04, size[1] - 0.04, housing_depth),
-        uv={"+z": tex.uv("screen"), "-z": tex.uv("body"), "+y": tex.uv("body"),
-            "-y": None, "+x": tex.uv("body"), "-x": tex.uv("body")},
-        color=_tint(case_dark, 0.40),
-    )
-    # One box per bezel bar: side bars own the height, top and bottom the width.
+    bezel_uv = {"+z": tex.uv("bezel"), "-z": None, "+y": tex.uv("bezel"), "-y": None,
+                "+x": tex.uv("bezel"), "-x": tex.uv("bezel")}
+    # Stand: a low plinth and a short neck, both inside the 0.10 m depth.
+    p.box((0.0, 0.015, -0.005), (0.42, 0.03, size[2] - 0.02), uv=tex.uv("body"),
+          color=_tint(dark, 0.35))
+    p.box((0.0, 0.06, -0.005), (0.14, 0.06, 0.06), uv=tex.uv("body"),
+          color=_tint(case_dark, 0.5), proxy=False)
+    # Housing behind the bezel, with the vented back on its rear face.
+    p.box((0.0, (panel_bottom + panel_top) * 0.5, half_d - bezel_d - box_d * 0.5),
+          (size[0] - 0.04, panel_top - panel_bottom - 0.02, box_d),
+          uv={"+z": tex.uv("body"), "-z": tex.uv("body"), "+y": tex.uv("body"),
+              "-y": None, "+x": tex.uv("body"), "-x": tex.uv("body")},
+          color=_tint(case_dark, 0.40))
+    # One box per bezel bar: the side bars own the panel's height, the top bar
+    # and the deeper chin own its width.
     for sx in (-1.0, 1.0):
-        p.box((sx * (size[0] * 0.5 - bar * 0.5), 0.35, bar_z), (bar, size[1], bar_depth),
-              uv={"+z": tex.uv("bezel"), "-z": tex.uv("body"), "+y": tex.uv("bezel"),
-                  "-y": None, "+x": tex.uv("bezel"), "-x": tex.uv("bezel")},
-              color=frame)
-    p.box((0.0, size[1] - bar * 0.5, bar_z), (size[0] - bar * 2, bar, bar_depth),
-          uv={"+z": tex.uv("bezel"), "-z": tex.uv("body"), "+y": tex.uv("bezel"),
-              "-y": None, "+x": tex.uv("bezel"), "-x": tex.uv("bezel")},
+        p.box((sx * (size[0] * 0.5 - side_bar * 0.5), (panel_bottom + panel_top) * 0.5, bezel_z),
+              (side_bar, panel_top - panel_bottom, bezel_d), uv=bezel_uv, color=frame)
+    p.box((0.0, panel_top - top_bar * 0.5, bezel_z), (size[0] - side_bar * 2, top_bar, bezel_d),
+          uv=bezel_uv, color=frame)
+    p.box((0.0, panel_bottom + chin * 0.5, bezel_z), (size[0] - side_bar * 2, chin, bezel_d),
+          uv={"+z": tex.uv("panel"), "-z": None, "+y": tex.uv("bezel"), "-y": None,
+              "+x": tex.uv("bezel"), "-x": tex.uv("bezel")},
           color=frame)
-    p.box((0.0, bar * 0.5 + 0.02, bar_z), (size[0] - bar * 2, bar, bar_depth),
-          uv={"+z": tex.uv("panel"), "-z": tex.uv("body"), "+y": tex.uv("bezel"),
-              "-y": None, "+x": tex.uv("bezel"), "-x": tex.uv("bezel")},
-          color=frame)
-    # Screen: 5 mm inside the bezel opening on every side and 2 mm proud of the
-    # housing, so the recess reads as a dark slot around the glass.
-    p.plane((0.0, 0.35, housing_front + 0.002), (0.99, 0.57, 0.0), normal="z",
+    # Screen: set 1 cm back from the bezel's front face, so the frame casts a
+    # real recess around the glass instead of sitting proud of it.
+    p.plane((0.0, (screen_bottom + screen_top) * 0.5, bezel_z + 0.022),
+            (size[0] - side_bar * 2 - 0.01, screen_top - screen_bottom, 0.0), normal="z",
             uv=tex.uv("screen"), color=_tint(screen, 0.45))
-    # Two feet and a cross-bar: a token stand, all of it inside the silhouette.
-    for sx in (-1.0, 1.0):
-        p.box((sx * 0.42, 0.010, 0.0), (0.06, 0.020, 0.06), uv=tex.uv("body"),
-              color=_tint(dark, 0.35), proxy=False)
-    p.box((0.0, 0.011, -0.010), (0.78, 0.018, 0.05), uv=tex.uv("body"),
-          color=_tint(dark, 0.35), proxy=False)
-    p.add_note("flat panel: bezel bars carry the size, screen is one recessed quad")
+    p.add_note("flat panel on a pedestal stand; bezel bars carry the size, one recessed screen quad")
 
 
 PROPS = {

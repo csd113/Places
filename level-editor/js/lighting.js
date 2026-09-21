@@ -88,6 +88,26 @@
     return u * u * (1 + 2 * clamped);
   }
 
+  /**
+   * Whether a fixture's panel is turned 90 degrees from its default.
+   *
+   * Mirrors `fixture_is_turned` in src/lighting.rs: the authored rotation is
+   * rounded to whole degrees and tested against 180, so the drawn panel and its
+   * light pool always agree (a 180-degree rotation is back to default, a 90 is
+   * turned, and fractional rotations cannot make the two disagree).
+   */
+  function fixtureIsTurned(rotationDegrees) {
+    const rotation = Number(rotationDegrees) || 0;
+    return Math.abs(Math.round(rotation)) % 180 > 0;
+  }
+
+  /** Half-extents of a fixture panel in world X/Z after rotation. */
+  function fixtureHalfExtents(rotationDegrees) {
+    return fixtureIsTurned(rotationDegrees)
+      ? [TUNING.FIXTURE_HALF_DEPTH_M, TUNING.FIXTURE_HALF_WIDTH_M]
+      : [TUNING.FIXTURE_HALF_WIDTH_M, TUNING.FIXTURE_HALF_DEPTH_M];
+  }
+
   /** Baseline brightness of a room from its floor area and effective fixture power. */
   function roomBaseline(areaM2, effectivePower) {
     const area = isFiniteNumber(areaM2) ? Math.max(areaM2, 0.01) : 0.01;
@@ -167,9 +187,7 @@
         : light.intensity);
       const heightFactor = ceilingHeightFactor(height);
       const rotation = Number(light.rotation_degrees) || 0;
-      const turned = Math.abs(Math.round(rotation) % 180) > 0;
-      const halfW = turned ? TUNING.FIXTURE_HALF_DEPTH_M : TUNING.FIXTURE_HALF_WIDTH_M;
-      const halfD = turned ? TUNING.FIXTURE_HALF_WIDTH_M : TUNING.FIXTURE_HALF_DEPTH_M;
+      const [halfW, halfD] = fixtureHalfExtents(rotation);
       if (roomIndex >= 0) {
         rooms[roomIndex].fixtureCount += 1;
         rooms[roomIndex].effectivePower += intensity * heightFactor;
@@ -323,6 +341,8 @@
     ceilingHeightFactor,
     saturatingBrightness,
     smoothFalloff,
+    fixtureIsTurned,
+    fixtureHalfExtents,
     roomBaseline,
     bakeLevelLighting
   };

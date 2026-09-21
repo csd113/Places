@@ -2,7 +2,7 @@ use glow::HasContext;
 
 use crate::font::generate_font_atlas;
 use crate::level::{LevelDef, PropDef, WallAxis, ceiling_height_at, wall_solid_slices};
-use crate::lighting::{LevelLighting, light_grid_cells, wall_light_segments};
+use crate::lighting::{LevelLighting, fixture_half_extents, light_grid_cells, wall_light_segments};
 
 /// PocketCHIP reference resolution. The game logic and UI layout are authored
 /// against this 480x272 space; it is also the default window size. It is *not*
@@ -175,6 +175,19 @@ pub struct LevelMesh {
     pub batches: LevelMeshBatches,
 }
 
+/// Metres of wall covered by one repeat of the authored wallpaper. Two metres
+/// (the authored sheet is 128x128, so the texel density is unchanged) keeps the
+/// pattern and its age marks from announcing their repeat every metre.
+const WALL_TILE_METRES: f32 = 2.0;
+
+/// Wall texture coordinates from a world-space (along the wall, up the wall)
+/// pair in metres. The authored wallpaper covers `WALL_TILE_METRES` per repeat
+/// in both directions, which is what keeps a metre of wall from showing the
+/// same water stain three times over.
+fn wall_uv(along: f32, up: f32) -> [f32; 2] {
+    [along / WALL_TILE_METRES, up / WALL_TILE_METRES]
+}
+
 #[allow(clippy::too_many_arguments)]
 fn add_quad(
     vertices: &mut Vec<Vertex>,
@@ -308,99 +321,396 @@ fn add_wall_length_face(
     };
 
     let segments = wall_light_segments((l1 - l0).abs());
-    for segment in 0..segments {
-        let start = l0 + (l1 - l0) * segment as f32 / segments as f32;
-        let end = l0 + (l1 - l0) * (segment + 1) as f32 / segments as f32;
-        let (a, b) = if reversed { (end, start) } else { (start, end) };
+    // Sample the lighting once per segment boundary, then merge runs of
+    // boundaries whose colours are effectively flat. Adjacent segments share a
+    // corner, so each boundary is sampled exactly once (a 2x saving) and the
+    // merged strip keeps a single value at every surviving edge.
+    let boundary_count = segments as usize + 1;
+    let mut boundaries: Vec<(f32, [f32; 3], [f32; 3])> = Vec::with_capacity(boundary_count);
+    for boundary in 0..boundary_count {
+        let at = l0 + (l1 - l0) * boundary as f32 / segments as f32;
+        boundaries.push((
+            at,
+            color(at, bottom, bottom_shade),
+            color(at, top, top_shade),
+        ));
+    }
+    let matches_run = |reference: &(f32, [f32; 3], [f32; 3]),
+                       candidate: &(f32, [f32; 3], [f32; 3])| {
+        (0..3).all(|channel| {
+            (candidate.1[channel] - reference.1[channel]).abs() <= LIGHT_GRID_MERGE_EPS
+                && (candidate.2[channel] - reference.2[channel]).abs() <= LIGHT_GRID_MERGE_EPS
+        })
+    };
+    let mut start = 0;
+    while start < segments as usize {
+        let mut end = start + 1;
+        while end < segments as usize
+            && boundaries[start..=end]
+                .iter()
+                .all(|candidate| matches_run(&boundaries[start], candidate))
+        {
+            end += 1;
+        }
+        let (at_start, bottom_start, top_start) = boundaries[start];
+        let (at_end, bottom_end, top_end) = boundaries[end];
+        let (a, b) = if reversed {
+            (at_end, at_start)
+        } else {
+            (at_start, at_end)
+        };
+        let (color_a_bottom, color_a_top) = if reversed {
+            (bottom_end, top_end)
+        } else {
+            (bottom_start, top_start)
+        };
+        let (color_b_bottom, color_b_top) = if reversed {
+            (bottom_start, top_start)
+        } else {
+            (bottom_end, top_end)
+        };
         add_quad(
             vertices,
             point(a, bottom),
-            color(a, bottom, bottom_shade),
-            [a, bottom],
+            color_a_bottom,
+            wall_uv(a, bottom),
             point(b, bottom),
-            color(b, bottom, bottom_shade),
-            [b, bottom],
+            color_b_bottom,
+            wall_uv(b, bottom),
             point(b, top),
-            color(b, top, top_shade),
-            [b, top],
+            color_b_top,
+            wall_uv(b, top),
             point(a, top),
-            color(a, top, top_shade),
-            [a, top],
+            color_a_top,
+            wall_uv(a, top),
         );
+        start = end;
     }
 }
 
-pub(crate) fn generate_wall_texture() -> [u8; 64 * 64 * 4] {
-    let mut data = [255u8; 64 * 64 * 4];
-    for y in 0..64 {
-        for x in 0..64 {
-            let idx = (y * 64 + x) * 4;
-            let stripe = ((x % 16) as f32 - 8.0).abs() / 8.0;
-            let stripe_factor = 0.94 + 0.06 * stripe;
-            let weave = if (x + y) % 2 == 0 { 1.0 } else { 0.97 };
-            let groove = if x % 4 == 0 { 0.95 } else { 1.0 };
-            let total = stripe_factor * weave * groove;
+// ------------------------------------------------------------ texture noise
+//
+// The three built-in surface textures are authored texel by texel here rather
+// than shipped as PNGs: they are 64x64/128x128, they must tile, and they must
+// stay deterministic, so a few lines of wrapped value noise beat a binary
+// asset that has to be regenerated through a toolchain.
 
-            data[idx] = (245.0 * total).clamp(0.0, 255.0) as u8;
-            data[idx + 1] = (238.0 * total).clamp(0.0, 255.0) as u8;
-            data[idx + 2] = (218.0 * total).clamp(0.0, 255.0) as u8;
-            data[idx + 3] = 255;
-        }
-    }
-    data
+/// Deterministic per-texel hash in `[0, 1)` (the same integer mix on every
+/// platform, so the baked textures are reproducible).
+fn hash01(x: i32, y: i32, seed: u32) -> f32 {
+    let mut h = (x as u32).wrapping_mul(0x9E37_79B9)
+        ^ (y as u32).wrapping_mul(0x85EB_CA6B)
+        ^ seed.wrapping_mul(0xC2B2_AE35);
+    h ^= h >> 15;
+    h = h.wrapping_mul(0x2545_F491);
+    h ^= h >> 13;
+    h = h.wrapping_mul(0x27D4_EB2D);
+    h ^= h >> 16;
+    (h & 0x00FF_FFFF) as f32 / 16_777_216.0
 }
 
-pub(crate) fn generate_carpet_texture() -> [u8; 64 * 64 * 4] {
-    let mut data = [255u8; 64 * 64 * 4];
-    for y in 0..64 {
-        for x in 0..64 {
-            let idx = (y * 64 + x) * 4;
-            let lx = x % 4;
-            let ly = y % 4;
-            let is_center = (lx == 1 || lx == 2) && (ly == 1 || ly == 2);
-            let is_crevice = lx == 0 || ly == 0;
-
-            let loop_val = if is_center {
-                1.05
-            } else if is_crevice {
-                0.92
-            } else {
-                1.00
-            };
-
-            let stipple = (((x * 37 + y * 17) % 7) as f32 / 7.0) * 0.06 - 0.03;
-            let factor = (loop_val + stipple).clamp(0.85, 1.15);
-
-            data[idx] = (232.0 * factor).clamp(0.0, 255.0) as u8;
-            data[idx + 1] = (224.0 * factor).clamp(0.0, 255.0) as u8;
-            data[idx + 2] = (212.0 * factor).clamp(0.0, 255.0) as u8;
-            data[idx + 3] = 255;
-        }
-    }
-    data
+/// Tileable value noise in `[0, 1]`: a `period` x `period` lattice of hashed
+/// corners, smoothstep-interpolated and wrapped over the texture's square, so
+/// every octave joins itself at the edges with no seam.
+fn tile_noise(x: i32, y: i32, size: i32, period: i32, seed: u32) -> f32 {
+    let period = period.max(1);
+    let scale = period as f32 / size as f32;
+    let fx = x as f32 * scale;
+    let fy = y as f32 * scale;
+    let x0 = fx.floor() as i32;
+    let y0 = fy.floor() as i32;
+    let tx = fx - x0 as f32;
+    let ty = fy - y0 as f32;
+    let sx = tx * tx * (3.0 - 2.0 * tx);
+    let sy = ty * ty * (3.0 - 2.0 * ty);
+    let wrap = |value: i32| value.rem_euclid(period);
+    let v00 = hash01(wrap(x0), wrap(y0), seed);
+    let v10 = hash01(wrap(x0 + 1), wrap(y0), seed);
+    let v01 = hash01(wrap(x0), wrap(y0 + 1), seed);
+    let v11 = hash01(wrap(x0 + 1), wrap(y0 + 1), seed);
+    let top = v00 + (v10 - v00) * sx;
+    let bottom = v01 + (v11 - v01) * sx;
+    top + (bottom - top) * sy
 }
 
-pub(crate) fn generate_ceiling_texture() -> [u8; 64 * 64 * 4] {
-    let mut data = [255u8; 64 * 64 * 4];
-    for y in 0..64 {
-        for x in 0..64 {
-            let idx = (y * 64 + x) * 4;
-            let is_border = x <= 1 || x >= 62 || y <= 1 || y >= 62;
+/// Two octaves of tileable noise, the shape most of the surface ageing uses.
+fn tile_noise2(x: i32, y: i32, size: i32, coarse: i32, fine: i32, seed: u32) -> f32 {
+    (tile_noise(x, y, size, coarse, seed) * 0.65
+        + tile_noise(x, y, size, fine, seed.wrapping_add(7)) * 0.35)
+        .clamp(0.0, 1.0)
+}
 
-            if is_border {
-                data[idx] = 160;
-                data[idx + 1] = 160;
-                data[idx + 2] = 155;
-                data[idx + 3] = 255;
-            } else {
-                let is_pit = (x * 13 + y * 29) % 19 == 0;
-                let factor = if is_pit { 0.88 } else { 1.0 };
+fn write_texel(data: &mut [u8], index: usize, rgb: [f32; 3]) {
+    for channel in 0..3 {
+        data[index + channel] = rgb[channel].clamp(0.0, 255.0) as u8;
+    }
+    data[index + 3] = 255;
+}
 
-                data[idx] = (245.0 * factor) as u8;
-                data[idx + 1] = (245.0 * factor) as u8;
-                data[idx + 2] = (240.0 * factor) as u8;
-                data[idx + 3] = 255;
+/// Yellow wallpaper: a two metre square of wall.
+///
+/// A printed two-tone stripe (16 px = 25 cm) with a groove and highlight line,
+/// a fine paper grain, and a faint wrapped age mottle.  The renderer tints
+/// walls gold (0.85, 0.80, 0.42), so the texture itself stays pale and nearly
+/// neutral: painting it yellow here would multiply into orange mud.
+pub(crate) fn generate_wall_texture() -> [u8; 128 * 128 * 4] {
+    let mut data = [0u8; 128 * 128 * 4];
+    const PAPER: [f32; 3] = [243.0, 237.0, 220.0];
+    for y in 0..128i32 {
+        for x in 0..128i32 {
+            let index = ((y * 128 + x) * 4) as usize;
+            // Printed stripe: a wide light band, a narrow darker band, a dark
+            // groove between them and a hairline highlight inside the light one.
+            let phase = x % 16;
+            let mut tone: f32 = if phase < 7 { 0.997 } else { 0.928 };
+            if phase == 7 || phase == 15 {
+                tone *= 0.960;
+            } else if phase == 3 {
+                tone *= 1.014;
             }
+            // Paper: a 1 px fibre grain and two octaves of age mottle.
+            let fibre = (hash01(x, y, 11) - 0.5) * 0.030;
+            let age = tile_noise2(x, y, 128, 6, 17, 23) - 0.5;
+            let tone = tone * (1.0 + fibre + 0.075 * age);
+            // Aged areas warm very slightly: the paper yellows where it has
+            // been exposed, instead of just getting darker.
+            write_texel(
+                &mut data,
+                index,
+                [
+                    PAPER[0] * tone,
+                    PAPER[1] * tone * (1.0 - 0.008 * age),
+                    PAPER[2] * tone * (1.0 - 0.022 * age),
+                ],
+            );
+        }
+    }
+    data
+}
+
+/// Short-pile carpet: one square metre of floor per repeat.
+///
+/// The read comes from three scales: a per-texel speckle and a short
+/// directional dash (the pile, which mipmaps average into a soft and slightly
+/// directional tone), a 5-12 cm mottle (the traffic and vacuum marks that
+/// survive at distance), and a very slight warm/cool drift so one square metre
+/// never looks like a flat swatch.
+pub(crate) fn generate_carpet_texture() -> [u8; 64 * 64 * 4] {
+    let mut data = [0u8; 64 * 64 * 4];
+    const PILE: [f32; 3] = [231.0, 223.0, 210.0];
+    for y in 0..64i32 {
+        for x in 0..64i32 {
+            let index = ((y * 64 + x) * 4) as usize;
+            let speckle = hash01(x, y, 31) - 0.5;
+            // Pile lies in one direction: short dashes, two texels long.
+            let dash_v = hash01(x, y >> 1, 37) - 0.5;
+            let dash_h = hash01(x >> 1, y, 41) - 0.5;
+            let tuft = tile_noise(x, y, 64, 21, 45) - 0.5;
+            let mottle = tile_noise(x, y, 64, 5, 43) - 0.5;
+            let broad = tile_noise(x, y, 64, 13, 47) - 0.5;
+            let warm = tile_noise(x, y, 64, 3, 53) - 0.5;
+            let tone = 1.0
+                + 0.070 * speckle
+                + 0.050 * dash_v
+                + 0.035 * dash_h
+                + 0.035 * tuft
+                + 0.060 * mottle
+                + 0.040 * broad;
+            write_texel(
+                &mut data,
+                index,
+                [
+                    PILE[0] * tone * (1.0 + 0.020 * warm),
+                    PILE[1] * tone,
+                    PILE[2] * tone * (1.0 - 0.028 * warm),
+                ],
+            );
+        }
+    }
+    data
+}
+
+/// Suspended mineral-fibre ceiling: a 2 x 2 m patch of grid.
+///
+/// Four 1 m tiles share a 3 cm T-bar grid, and the four differ slightly in
+/// tone, speckle and scuffing, so a large ceiling is not one tile stamped
+/// forever.  The repeat is two metres rather than one for the same reason.
+pub(crate) fn generate_ceiling_texture() -> [u8; 128 * 128 * 4] {
+    let mut data = [0u8; 128 * 128 * 4];
+    const TILE: [f32; 3] = [247.0, 247.0, 242.0];
+    const BAR: [f32; 3] = [168.0, 168.0, 162.0];
+    // How the tile dips towards the T-bar: the gap, the bar's shading, the
+    // tile's edge shadow and the first clean row of the tile.
+    const DIP: [f32; 4] = [0.52, 0.66, 0.84, 0.95];
+    for y in 0..128i32 {
+        for x in 0..128i32 {
+            let index = ((y * 128 + x) * 4) as usize;
+            let tx = x % 64;
+            let ty = y % 64;
+            let edge = tx.min(63 - tx).min(ty.min(63 - ty));
+            // Each of the four tiles gets its own tone and scuffing.
+            let tile = (x / 64) + 2 * (y / 64);
+            let tile_tone = 1.0 + (hash01(tile, tile * 7, 61) - 0.5) * 0.024;
+            let fibre = (hash01(x, y, 67) - 0.5) * 0.045;
+            let pores = if hash01(x, y, 71) > 0.945 {
+                -0.075
+            } else {
+                0.0
+            };
+            let blotch = tile_noise(x, y, 128, 9, 73) - 0.5;
+            let field = tile_tone * (1.0 + fibre + pores + 0.035 * blotch);
+            let dip = if edge < 4 { DIP[edge as usize] } else { 1.0 };
+            // The T-bar itself keeps a hair of its own grain, so the grid does
+            // not read as a flat drawn line up close.
+            let bar_mix = if edge < 2 {
+                1.0 - (edge as f32) * 0.35
+            } else {
+                0.0
+            };
+            let base = [
+                TILE[0] * field * dip * (1.0 - bar_mix) + BAR[0] * bar_mix * field,
+                TILE[1] * field * dip * (1.0 - bar_mix) + BAR[1] * bar_mix * field,
+                TILE[2] * field * dip * (1.0 - bar_mix) + BAR[2] * bar_mix * field,
+            ];
+            write_texel(&mut data, index, base);
+        }
+    }
+    data
+}
+
+/// Water-damaged wallpaper for `core:wallpaper_stained_01`.
+///
+/// The same printed paper, faded and marked.  The damage is dominated by
+/// vertical runs: a wrapped column mask times a wrapped *length* mask, so a
+/// run is continuous down the whole two metre repeat and therefore down the
+/// whole wall, exactly the way a long-standing leak behaves.  Broad damp
+/// fields sit underneath them -- their shoulder gets the tide mark, their
+/// middle is just wet paper -- and the wet areas warm towards a rusty brown
+/// instead of only darkening.
+pub(crate) fn generate_stained_wall_texture() -> [u8; 128 * 128 * 4] {
+    let mut data = generate_wall_texture();
+    for y in 0..128i32 {
+        for x in 0..128i32 {
+            let index = ((y * 128 + x) * 4) as usize;
+            // Broad damp fields: two octaves at a 25-60 cm scale.
+            let field = tile_noise2(x, y, 128, 3, 8, 101);
+            let wet = ((field - 0.62) / 0.24).clamp(0.0, 1.0);
+            let shoulder = ((field - 0.52) / 0.24).clamp(0.0, 1.0);
+            // Vertical runs. The column mask picks a few bands, the length mask
+            // makes each band fade in and out along its own length, and the
+            // band's width feathers with a second column octave.
+            let column = tile_noise(x, 0, 128, 9, 103);
+            let feather = tile_noise(x, 0, 128, 21, 105);
+            let length = tile_noise(0, y, 128, 5, 107);
+            let run = ((column + 0.35 * feather - 0.62) / 0.20).clamp(0.0, 1.0)
+                * ((length - 0.28) / 0.44).clamp(0.0, 1.0);
+            let fibre = (hash01(x, y, 109) - 0.5) * 0.05;
+            // The run weight is kept low on purpose: the sheet repeats every
+            // two metres, and a strong run would turn that repeat into a
+            // visible rhythm of stripes down the wall.
+            let darken = 1.0 - 0.06 * shoulder - 0.05 * wet - 0.11 * run - 0.03 * fibre;
+            // Brown the damp paper as well as darkening it: soaked paper loses
+            // its yellow and picks up a rusty grey-brown.
+            let warmth = 0.14 * shoulder + 0.12 * run;
+            let aged = [
+                data[index] as f32 * darken * (1.0 + warmth * 0.30),
+                data[index + 1] as f32 * darken * (1.0 + warmth * 0.02),
+                data[index + 2] as f32 * darken * (1.0 - warmth * 0.55),
+            ];
+            write_texel(&mut data, index, aged);
+        }
+    }
+    data
+}
+
+/// Water-damaged carpet for `core:carpet_damp_01`.
+///
+/// The same short pile pushed darker, flatter and greyer over large irregular
+/// regions rather than across the whole tile: a damp patch has a boundary and
+/// the dry carpet around it still looks like carpet.
+pub(crate) fn generate_damp_carpet_texture() -> [u8; 64 * 64 * 4] {
+    let mut data = generate_carpet_texture();
+    for y in 0..64i32 {
+        for x in 0..64i32 {
+            let index = ((y * 64 + x) * 4) as usize;
+            let field = tile_noise2(x, y, 64, 3, 6, 201);
+            // Large, clearly bounded damp regions: roughly half of the tile
+            // stays dry, so the wet part still reads as a patch of the same
+            // carpet rather than as a darker material.
+            let wet = ((field - 0.52) / 0.24).clamp(0.0, 1.0);
+            let margin = ((field - 0.40) / 0.24).clamp(0.0, 1.0) - wet;
+            let flatten = ((tile_noise(x, y, 64, 11, 203) - 0.60) / 0.30).clamp(0.0, 1.0) * wet;
+            let darken = 1.0 - 0.30 * wet - 0.08 * flatten - 0.07 * margin;
+            // Damp pile reads grey-brown: pull the red and green down less than
+            // the blue so the hue shifts instead of just the brightness.
+            let warmth = 0.55 * wet;
+            let damp = [
+                data[index] as f32 * (darken + 0.03 * warmth),
+                data[index + 1] as f32 * darken,
+                data[index + 2] as f32 * (darken - 0.06 * warmth),
+            ];
+            write_texel(&mut data, index, damp);
+        }
+    }
+    data
+}
+
+/// Water-damaged ceiling for `core:ceiling_stained_01`.
+///
+/// Deliberately restrained: three of the four tiles stay recognisable ceiling
+/// panels and one carries the leak -- a brown tide ring, a spread stain down
+/// one edge and a darker corner where the water collected.  A ceiling where
+/// every panel is ruined reads as decoration; one bad panel reads as a
+/// building.
+pub(crate) fn generate_stained_ceiling_texture() -> [u8; 128 * 128 * 4] {
+    let mut data = generate_ceiling_texture();
+    const STAIN: [f32; 3] = [128.0, 98.0, 62.0];
+    for y in 0..128i32 {
+        for x in 0..128i32 {
+            let index = ((y * 128 + x) * 4) as usize;
+            let tx = x % 64;
+            let ty = y % 64;
+            let tile = (x / 64) + 2 * (y / 64);
+            // One panel carries the leak, its neighbour catches the edge of it
+            // and the other two stay clean but a little aged. Nothing here is
+            // a circle: an irregular field with a damp shoulder reads as water
+            // where a drawn ring reads as a target.
+            let severity = match tile {
+                3 => 1.0,
+                1 => 0.38,
+                _ => 0.14,
+            };
+            let dx = tx.min(63 - tx) as f32;
+            let dy = ty.min(63 - ty) as f32;
+            let edge = dx.min(dy);
+            let field = tile_noise2(x, y, 128, 3, 9, 301);
+            let spread = ((field - 0.48) / 0.32).clamp(0.0, 1.0);
+            let shoulder = ((field - 0.36) / 0.32).clamp(0.0, 1.0);
+            // A leak trail creeping towards the lighter panel next door.
+            let trail = if tile == 3 || tile == 2 {
+                ((1.0 - (dx / 40.0).clamp(0.0, 1.0))
+                    * 0.34
+                    * ((tile_noise(x, y, 128, 5, 307) - 0.46) / 0.30).clamp(0.0, 1.0))
+                    * if tile == 2 { 0.45 } else { 1.0 }
+            } else {
+                0.0
+            };
+            // Water collects against the grid and the metal T-bar interrupts
+            // it, which also keeps the stain seamless where the sheet wraps.
+            let grid_fade = (edge / 6.0).clamp(0.0, 1.0);
+            let stain =
+                ((0.62 * spread + 0.30 * shoulder + trail) * severity).clamp(0.0, 1.0) * grid_fade;
+            // The paper yellows before it browns: mixing towards the stain
+            // colour keeps a pale panel pale instead of multiplying it away.
+            // The ceiling sheet repeats every two metres, so the stain is kept
+            // light enough that its repeat reads as ageing, not as a pattern.
+            let mix = 0.40 * stain;
+            let soaked = [
+                data[index] as f32 * (1.0 - mix) + STAIN[0] * mix,
+                data[index + 1] as f32 * (1.0 - mix) + STAIN[1] * mix,
+                data[index + 2] as f32 * (1.0 - mix) + STAIN[2] * mix,
+            ];
+            write_texel(&mut data, index, soaked);
         }
     }
     data
@@ -414,6 +724,11 @@ pub(crate) fn generate_white_texture() -> [u8; 2 * 2 * 4] {
 /// texture is 64x64 and is displayed once per metre, so 64 keeps the default
 /// floor pixel-identical while custom textures are resampled to a sane size.
 const FLOOR_TEXELS_PER_METRE: u32 = 64;
+/// Metres covered by one repeat of the authored ceiling texture. The sheet is
+/// 128x128 -- four 1 m tiles in a T-bar grid -- so the ceiling's world UVs run
+/// at half speed. Two metres hides the repeat and still gives each panel 64
+/// texels, the same density as every other surface in the game.
+const CEILING_TILE_METRES: f32 = 2.0;
 /// Number of metres covered by one repeat of the derived floor texture. Two
 /// metres covers the 1 m checker tint period.
 const FLOOR_TILE_METRES: f32 = 2.0;
@@ -470,11 +785,13 @@ pub(crate) fn generate_floor_checker_texture(
         for tx in 0..tile {
             let cell_x = tx / FLOOR_TEXELS_PER_METRE;
             let cell_y = ty / FLOOR_TEXELS_PER_METRE;
-            // Matches the original per-tile vertex colours `(ix + iz) % 2 == 0`.
-            let tint = if (cell_x + cell_y) % 2 == 0 {
-                [0.56f32, 0.51, 0.39]
+            // The original per-tile vertex colours `(ix + iz) % 2 == 0`. The
+            // two tints are deliberately close: the metre checker is meant to
+            // be felt as uneven carpet wear, not read as a tiled floor.
+            let tint = if (cell_x + cell_y).is_multiple_of(2) {
+                [0.550f32, 0.500, 0.383]
             } else {
-                [0.50, 0.45, 0.34]
+                [0.518, 0.471, 0.360]
             };
             let u = ((tx % FLOOR_TEXELS_PER_METRE) as f32 + 0.5) / FLOOR_TEXELS_PER_METRE as f32;
             let v = ((ty % FLOOR_TEXELS_PER_METRE) as f32 + 0.5) / FLOOR_TEXELS_PER_METRE as f32;
@@ -545,7 +862,10 @@ fn interval_symmetric_difference(left: &[(f32, f32)], right: &[(f32, f32)]) -> V
 /// the wall's length axis: a wall end cap or an opening reveal.
 ///
 /// `at` is the world coordinate along the length axis and `thickness` the
-/// world span of the wall across it. UVs follow the wall face convention
+/// world span of the wall across it. `corners` are the shaded colours of the
+/// four quad corners in emitted winding order, so a reveal between two rooms
+/// can carry each side's baked light through the door rather than falling back
+/// to ambient in the middle of the wall. UVs follow the wall face convention
 /// (horizontal world coordinate, then Y).
 #[allow(clippy::too_many_arguments)]
 fn add_wall_cross_quad(
@@ -555,8 +875,7 @@ fn add_wall_cross_quad(
     thickness: (f32, f32),
     bottom: f32,
     top: f32,
-    bottom_color: [f32; 3],
-    top_color: [f32; 3],
+    corners: [[f32; 3]; 4],
 ) {
     let (t0, t1) = thickness;
     match axis {
@@ -564,33 +883,33 @@ fn add_wall_cross_quad(
         WallAxis::X => add_quad(
             vertices,
             [at, bottom, t1],
-            bottom_color,
-            [t1, bottom],
+            corners[0],
+            wall_uv(t1, bottom),
             [at, bottom, t0],
-            bottom_color,
-            [t0, bottom],
+            corners[1],
+            wall_uv(t0, bottom),
             [at, top, t0],
-            top_color,
-            [t0, top],
+            corners[2],
+            wall_uv(t0, top),
             [at, top, t1],
-            top_color,
-            [t1, top],
+            corners[3],
+            wall_uv(t1, top),
         ),
         // Length runs along Z, so the cross section lies in the X/Y plane.
         WallAxis::Z => add_quad(
             vertices,
             [t0, bottom, at],
-            bottom_color,
-            [t0, bottom],
+            corners[0],
+            wall_uv(t0, bottom),
             [t1, bottom, at],
-            bottom_color,
-            [t1, bottom],
+            corners[1],
+            wall_uv(t1, bottom),
             [t1, top, at],
-            top_color,
-            [t1, top],
+            corners[2],
+            wall_uv(t1, top),
             [t0, top, at],
-            top_color,
-            [t0, top],
+            corners[3],
+            wall_uv(t0, top),
         ),
     }
 }
@@ -704,6 +1023,162 @@ fn room_is_tessellatable(room: &crate::level::RoomDef) -> bool {
         && room.depth > 0.0
 }
 
+/// Colour difference below which adjacent baked-lighting cells may be merged
+/// into a single quad.
+///
+/// 1/512 is under half of one 8-bit colour step (1/255), so a merged surface is
+/// indistinguishable on screen from the per-cell surface it replaces, while
+/// surfaces that carry no lighting gradient (unlit rooms, rooms far from every
+/// fixture, the flanks of large rooms) collapse back to one quad per region.
+const LIGHT_GRID_MERGE_EPS: f32 = 1.0 / 512.0;
+
+/// True when every corner of the grid rectangle spanning cells
+/// `ix0..=ix1` × `iz0..=iz1` is within [`LIGHT_GRID_MERGE_EPS`] of `reference`.
+fn grid_rect_is_uniform(
+    colors: &[[f32; 3]],
+    row_len: usize,
+    ix0: usize,
+    ix1: usize,
+    iz0: usize,
+    iz1: usize,
+    reference: [f32; 3],
+) -> bool {
+    for iz in iz0..=iz1 + 1 {
+        for ix in ix0..=ix1 + 1 {
+            let color = colors[iz * row_len + ix];
+            for channel in 0..3 {
+                if (color[channel] - reference[channel]).abs() > LIGHT_GRID_MERGE_EPS {
+                    return false;
+                }
+            }
+        }
+    }
+    true
+}
+
+/// Emits one lit floor or ceiling from a precomputed corner-colour grid.
+///
+/// Cells are greedily merged along X and then Z while every corner of the
+/// candidate rectangle stays within [`LIGHT_GRID_MERGE_EPS`], so uniform
+/// regions cost one quad instead of up to `MAX_LIGHT_GRID_CELLS`² of them.
+/// The surviving corners keep their exact sampled colours; only interior
+/// corners that were already within the tolerance of the merged corners are
+/// removed. UVs stay world-space, so merging is invisible to texturing.
+fn emit_lit_surface_grid(
+    vertices: &mut Vec<Vertex>,
+    xs: &[f32],
+    zs: &[f32],
+    colors: &[[f32; 3]],
+    y: f32,
+    ceiling: bool,
+    uv: impl Fn(f32, f32) -> [f32; 2],
+) {
+    let cells_x = xs.len().saturating_sub(1);
+    let cells_z = zs.len().saturating_sub(1);
+    if cells_x == 0 || cells_z == 0 {
+        return;
+    }
+    let row_len = xs.len();
+    let mut covered = vec![false; cells_x * cells_z];
+    // True when every cell of the `ix0..=ix1` x `iz0..=iz1` block is still
+    // uncovered, so a growing rectangle can never re-emit an earlier one.
+    let region_free = |covered: &[bool], ix0: usize, ix1: usize, iz0: usize, iz1: usize| {
+        (iz0..=iz1).all(|z| (ix0..=ix1).all(|x| !covered[z * cells_x + x]))
+    };
+    for iz in 0..cells_z {
+        for ix in 0..cells_x {
+            if covered[iz * cells_x + ix] {
+                continue;
+            }
+            let reference = colors[iz * row_len + ix];
+            let mut ix1 = ix;
+            while ix1 + 1 < cells_x
+                && region_free(&covered, ix, ix1 + 1, iz, iz)
+                && grid_rect_is_uniform(colors, row_len, ix, ix1 + 1, iz, iz, reference)
+            {
+                ix1 += 1;
+            }
+            let mut iz1 = iz;
+            while iz1 + 1 < cells_z
+                && region_free(&covered, ix, ix1, iz, iz1 + 1)
+                && grid_rect_is_uniform(colors, row_len, ix, ix1, iz, iz1 + 1, reference)
+            {
+                iz1 += 1;
+            }
+            for z in iz..=iz1 {
+                for x in ix..=ix1 {
+                    covered[z * cells_x + x] = true;
+                }
+            }
+
+            let (ax, bx) = (xs[ix], xs[ix1 + 1]);
+            let (az, bz) = (zs[iz], zs[iz1 + 1]);
+            let c00 = colors[iz * row_len + ix];
+            let c10 = colors[iz * row_len + ix1 + 1];
+            let c11 = colors[(iz1 + 1) * row_len + ix1 + 1];
+            let c01 = colors[(iz1 + 1) * row_len + ix];
+            // Winding mirrors the original per-cell loops: floors run +X/+Z
+            // from the minimum corner, ceilings run the opposite way so they
+            // face down. Colours follow their own corners in both cases.
+            let (points, corners) = if ceiling {
+                (
+                    [[ax, y, bz], [bx, y, bz], [bx, y, az], [ax, y, az]],
+                    [c01, c11, c10, c00],
+                )
+            } else {
+                (
+                    [[ax, y, az], [bx, y, az], [bx, y, bz], [ax, y, bz]],
+                    [c00, c10, c11, c01],
+                )
+            };
+            add_quad(
+                vertices,
+                points[0],
+                corners[0],
+                uv(points[0][0], points[0][2]),
+                points[1],
+                corners[1],
+                uv(points[1][0], points[1][2]),
+                points[2],
+                corners[2],
+                uv(points[2][0], points[2][2]),
+                points[3],
+                corners[3],
+                uv(points[3][0], points[3][2]),
+            );
+        }
+    }
+}
+
+/// Samples a `(cells_x + 1) x (cells_z + 1)` corner grid of baked colours.
+fn lit_surface_grid(
+    lighting: &LevelLighting,
+    room_index: usize,
+    xs: &[f32],
+    zs: &[f32],
+    y: f32,
+    tint: Option<[f32; 3]>,
+) -> Vec<[f32; 3]> {
+    let mut colors = Vec::with_capacity(xs.len() * zs.len());
+    for z in zs {
+        for x in xs {
+            let light = lighting.sample_in_room(room_index, *x, y, *z);
+            colors.push(match tint {
+                Some(tint) => [tint[0] * light, tint[1] * light, tint[2] * light],
+                None => [light, light, light],
+            });
+        }
+    }
+    colors
+}
+
+/// Corner coordinates of a room surface along one axis, `cells + 1` values.
+fn surface_axis_positions(origin: f32, extent: f32, cells: u32) -> Vec<f32> {
+    (0..=cells)
+        .map(|index| origin + extent * index as f32 / cells as f32)
+        .collect()
+}
+
 fn build_level_geometry_mesh(
     level: &LevelDef,
     catalog: &crate::loader::PropCatalog,
@@ -717,11 +1192,12 @@ fn build_level_geometry_mesh(
     let mut vertices = Vec::with_capacity(estimate.total_vertices as usize);
     let mut batches = LevelMeshBatches::default();
 
-    // 1. Floor batch: one quad per room per baked-lighting cell, so the broad
-    //    pools cast by ceiling fixtures actually vary across the floor. The
-    //    cell count is bounded by `lighting::MAX_LIGHT_GRID_CELLS`, and UVs keep
-    //    mapping the same world space as the original single quad. The
-    //    metre-scale checker tint stays baked into the derived floor texture
+    // 1. Floor batch: the baked-lighting grid over the room, sampled once per
+    //    corner and greedily merged wherever the lighting is effectively flat
+    //    (unlit rooms and the far flanks of large rooms therefore stay one or
+    //    two quads). The cell count is bounded by `lighting::MAX_LIGHT_GRID_CELLS`,
+    //    and UVs keep mapping the same world space as the original single quad.
+    //    The metre-scale checker tint stays baked into the derived floor texture
     //    (see `generate_floor_checker_texture`), so no per-cell texture work is
     //    needed.
     let floor_start = vertices.len() as i32;
@@ -729,40 +1205,14 @@ fn build_level_geometry_mesh(
         if !room_is_tessellatable(room) {
             continue;
         }
-        let x0 = room.x;
-        let z0 = room.z;
         let cells_x = light_grid_cells(room.width);
         let cells_z = light_grid_cells(room.depth);
-        let uv = |x: f32, z: f32| [x / FLOOR_TILE_METRES, z / FLOOR_TILE_METRES];
-
-        for iz in 0..cells_z {
-            for ix in 0..cells_x {
-                let ax = x0 + room.width * ix as f32 / cells_x as f32;
-                let bx = x0 + room.width * (ix + 1) as f32 / cells_x as f32;
-                let az = z0 + room.depth * iz as f32 / cells_z as f32;
-                let bz = z0 + room.depth * (iz + 1) as f32 / cells_z as f32;
-                let points = [[ax, 0.0, az], [bx, 0.0, az], [bx, 0.0, bz], [ax, 0.0, bz]];
-                let colors = points.map(|point| {
-                    let light = lighting.sample_in_room(room_index, point[0], 0.0, point[2]);
-                    [light, light, light]
-                });
-                add_quad(
-                    &mut vertices,
-                    points[0],
-                    colors[0],
-                    uv(points[0][0], points[0][2]),
-                    points[1],
-                    colors[1],
-                    uv(points[1][0], points[1][2]),
-                    points[2],
-                    colors[2],
-                    uv(points[2][0], points[2][2]),
-                    points[3],
-                    colors[3],
-                    uv(points[3][0], points[3][2]),
-                );
-            }
-        }
+        let xs = surface_axis_positions(room.x, room.width, cells_x);
+        let zs = surface_axis_positions(room.z, room.depth, cells_z);
+        let colors = lit_surface_grid(lighting, room_index, &xs, &zs, 0.0, None);
+        emit_lit_surface_grid(&mut vertices, &xs, &zs, &colors, 0.0, false, |x, z| {
+            [x / FLOOR_TILE_METRES, z / FLOOR_TILE_METRES]
+        });
     }
     batches.floor_batch = BatchRange {
         start: floor_start,
@@ -778,45 +1228,14 @@ fn build_level_geometry_mesh(
             continue;
         }
         let h = room.height;
-        let x0 = room.x;
-        let z0 = room.z;
         let cells_x = light_grid_cells(room.width);
         let cells_z = light_grid_cells(room.depth);
-
-        for iz in 0..cells_z {
-            for ix in 0..cells_x {
-                let ax = x0 + room.width * ix as f32 / cells_x as f32;
-                let bx = x0 + room.width * (ix + 1) as f32 / cells_x as f32;
-                let az = z0 + room.depth * iz as f32 / cells_z as f32;
-                let bz = z0 + room.depth * (iz + 1) as f32 / cells_z as f32;
-                // Winding matches the original single ceiling quad: visible from
-                // below, with world-space UVs.
-                let points = [[ax, h, bz], [bx, h, bz], [bx, h, az], [ax, h, az]];
-                let colors = points.map(|point| {
-                    let light = lighting.sample_in_room(room_index, point[0], h, point[2]);
-                    [
-                        ceiling_tint[0] * light,
-                        ceiling_tint[1] * light,
-                        ceiling_tint[2] * light,
-                    ]
-                });
-                add_quad(
-                    &mut vertices,
-                    points[0],
-                    colors[0],
-                    [points[0][0], points[0][2]],
-                    points[1],
-                    colors[1],
-                    [points[1][0], points[1][2]],
-                    points[2],
-                    colors[2],
-                    [points[2][0], points[2][2]],
-                    points[3],
-                    colors[3],
-                    [points[3][0], points[3][2]],
-                );
-            }
-        }
+        let xs = surface_axis_positions(room.x, room.width, cells_x);
+        let zs = surface_axis_positions(room.z, room.depth, cells_z);
+        let colors = lit_surface_grid(lighting, room_index, &xs, &zs, h, Some(ceiling_tint));
+        emit_lit_surface_grid(&mut vertices, &xs, &zs, &colors, h, true, |x, z| {
+            [x / CEILING_TILE_METRES, z / CEILING_TILE_METRES]
+        });
     }
     batches.ceiling_batch = BatchRange {
         start: ceiling_start,
@@ -934,16 +1353,16 @@ fn build_level_geometry_mesh(
                             &mut vertices,
                             points[0],
                             colors[0],
-                            [l0, t1],
+                            wall_uv(l0, t1),
                             points[1],
                             colors[1],
-                            [l1, t1],
+                            wall_uv(l1, t1),
                             points[2],
                             colors[2],
-                            [l1, t0],
+                            wall_uv(l1, t0),
                             points[3],
                             colors[3],
-                            [l0, t0],
+                            wall_uv(l0, t0),
                         );
                     }
                     WallAxis::Z => {
@@ -958,16 +1377,16 @@ fn build_level_geometry_mesh(
                             &mut vertices,
                             points[0],
                             colors[0],
-                            [l0, t1],
+                            wall_uv(l0, t1),
                             points[1],
                             colors[1],
-                            [l1, t1],
+                            wall_uv(l1, t1),
                             points[2],
                             colors[2],
-                            [l1, t0],
+                            wall_uv(l1, t0),
                             points[3],
                             colors[3],
-                            [l0, t0],
+                            wall_uv(l0, t0),
                         );
                     }
                 }
@@ -991,16 +1410,16 @@ fn build_level_geometry_mesh(
                             &mut vertices,
                             points[0],
                             colors[0],
-                            [l0, t0],
+                            wall_uv(l0, t0),
                             points[1],
                             colors[1],
-                            [l1, t0],
+                            wall_uv(l1, t0),
                             points[2],
                             colors[2],
-                            [l1, t1],
+                            wall_uv(l1, t1),
                             points[3],
                             colors[3],
-                            [l0, t1],
+                            wall_uv(l0, t1),
                         );
                     }
                     WallAxis::Z => {
@@ -1015,16 +1434,16 @@ fn build_level_geometry_mesh(
                             &mut vertices,
                             points[0],
                             colors[0],
-                            [l0, t0],
+                            wall_uv(l0, t0),
                             points[1],
                             colors[1],
-                            [l1, t0],
+                            wall_uv(l1, t0),
                             points[2],
                             colors[2],
-                            [l1, t1],
+                            wall_uv(l1, t1),
                             points[3],
                             colors[3],
-                            [l0, t1],
+                            wall_uv(l0, t1),
                         );
                     }
                 }
@@ -1081,28 +1500,41 @@ fn build_level_geometry_mesh(
                     WallAxis::X => origin_x + position,
                     WallAxis::Z => origin_z + position,
                 };
-                // Light the reveal from its own side of the wall: sample at the
-                // bottom and top edges through the wall's thickness.
-                let (bottom_light, top_light) = match axis {
+                // Light the reveal from both sides of the wall: each edge of
+                // the cross quad sits on a wall face, inside whichever room
+                // looks at that face. This carries doorway light through the
+                // jamb instead of dropping to ambient in the wall cavity.
+                let (bottom_t0, bottom_t1, top_t0, top_t1) = match axis {
                     WallAxis::X => (
-                        lighting.sample(at, bottom, (t0 + t1) * 0.5),
-                        lighting.sample(at, top, (t0 + t1) * 0.5),
+                        lighting.sample(at, bottom, t0),
+                        lighting.sample(at, bottom, t1),
+                        lighting.sample(at, top, t0),
+                        lighting.sample(at, top, t1),
                     ),
                     WallAxis::Z => (
-                        lighting.sample((t0 + t1) * 0.5, bottom, at),
-                        lighting.sample((t0 + t1) * 0.5, top, at),
+                        lighting.sample(t0, bottom, at),
+                        lighting.sample(t1, bottom, at),
+                        lighting.sample(t0, top, at),
+                        lighting.sample(t1, top, at),
                     ),
                 };
-                add_wall_cross_quad(
-                    &mut vertices,
-                    axis,
-                    at,
-                    (t0, t1),
-                    bottom,
-                    top,
-                    shade(scale_color(mult, bot_grad), bottom_light),
-                    shade(scale_color(mult, top_grad), top_light),
-                );
+                let corners = match axis {
+                    // The emitted winding visits t1 first for X-axis walls and
+                    // t0 first for Z-axis walls (see add_wall_cross_quad).
+                    WallAxis::X => [
+                        shade(scale_color(mult, bot_grad), bottom_t1),
+                        shade(scale_color(mult, bot_grad), bottom_t0),
+                        shade(scale_color(mult, top_grad), top_t0),
+                        shade(scale_color(mult, top_grad), top_t1),
+                    ],
+                    WallAxis::Z => [
+                        shade(scale_color(mult, bot_grad), bottom_t0),
+                        shade(scale_color(mult, bot_grad), bottom_t1),
+                        shade(scale_color(mult, top_grad), top_t1),
+                        shade(scale_color(mult, top_grad), top_t0),
+                    ],
+                };
+                add_wall_cross_quad(&mut vertices, axis, at, (t0, t1), bottom, top, corners);
             }
         }
     }
@@ -1119,11 +1551,7 @@ fn build_level_geometry_mesh(
         if !light.x.is_finite() || !light.z.is_finite() {
             continue;
         }
-        let (half_w, half_d) = if light.rotation_degrees as i32 % 180 != 0 {
-            (0.30, 0.60)
-        } else {
-            (0.60, 0.30)
-        };
+        let (half_w, half_d) = fixture_half_extents(light.rotation_degrees);
 
         let y = lighting.fixture_y(light.x, light.z);
         let x0 = light.x - half_w;
@@ -1565,12 +1993,14 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    /// Initializes an accelerated OpenGL context with VSync, textures, and initial level geometry.
-    pub fn new(
-        window: &sdl2::video::Window,
-        video: &sdl2::VideoSubsystem,
-        level: &LevelDef,
-    ) -> Result<Self, String> {
+    /// Initializes an accelerated OpenGL context with VSync, textures and an
+    /// empty level buffer.
+    ///
+    /// The caller uploads the first level with [`Renderer::set_level`] (or
+    /// [`Renderer::rebuild_level_geometry`]); building here as well would bake
+    /// and upload the same level twice before the first frame, which is real
+    /// cost on the PocketCHIP.
+    pub fn new(window: &sdl2::video::Window, video: &sdl2::VideoSubsystem) -> Result<Self, String> {
         let gl_attr = video.gl_attr();
         gl_attr.set_double_buffer(true);
         gl_attr.set_depth_size(24);
@@ -1636,11 +2066,11 @@ impl Renderer {
 
             // Create textures
             let wall_texture =
-                create_texture_2d(&gl, 64, 64, &generate_wall_texture(), true, true)?;
+                create_texture_2d(&gl, 128, 128, &generate_wall_texture(), true, true)?;
             let floor_texture =
                 create_texture_2d(&gl, 64, 64, &generate_carpet_texture(), true, true)?;
             let ceiling_texture =
-                create_texture_2d(&gl, 64, 64, &generate_ceiling_texture(), true, true)?;
+                create_texture_2d(&gl, 128, 128, &generate_ceiling_texture(), true, true)?;
             let white_texture =
                 create_texture_2d(&gl, 2, 2, &generate_white_texture(), false, false)?;
             let font_texture =
@@ -1678,7 +2108,7 @@ impl Renderer {
 
         let (initial_width, initial_height) = window.drawable_size();
 
-        let mut renderer = Self {
+        let renderer = Self {
             _gl_context: gl_context,
             gl,
             program,
@@ -1704,7 +2134,6 @@ impl Renderer {
             drawable_size: DrawableSize::new(initial_width, initial_height),
             level_stats: LevelBuildStats::default(),
         };
-        renderer.rebuild_level_geometry(level);
         Ok(renderer)
     }
 
@@ -2294,15 +2723,70 @@ mod tests {
         let ceiling = generate_ceiling_texture();
         let white = generate_white_texture();
 
-        assert_eq!(wall.len(), 64 * 64 * 4);
+        // Wallpaper and ceiling cover two metres per repeat at the same texel
+        // density as the carpet's one metre; all three stay tiny.
+        assert_eq!(wall.len(), 128 * 128 * 4);
         assert_eq!(carpet.len(), 64 * 64 * 4);
-        assert_eq!(ceiling.len(), 64 * 64 * 4);
+        assert_eq!(ceiling.len(), 128 * 128 * 4);
         assert_eq!(white.len(), 2 * 2 * 4);
 
-        for i in 0..(64 * 64) {
-            assert_eq!(wall[i * 4 + 3], 255);
-            assert_eq!(carpet[i * 4 + 3], 255);
-            assert_eq!(ceiling[i * 4 + 3], 255);
+        for image in [
+            generate_wall_texture().to_vec(),
+            generate_carpet_texture().to_vec(),
+            generate_ceiling_texture().to_vec(),
+            generate_stained_wall_texture().to_vec(),
+            generate_damp_carpet_texture().to_vec(),
+            generate_stained_ceiling_texture().to_vec(),
+        ] {
+            assert_eq!(image.len() % 4, 0);
+            for texel in image.chunks_exact(4) {
+                assert_eq!(texel[3], 255, "surface textures are fully opaque");
+            }
+        }
+    }
+
+    /// The surface textures tile: a wrapped edge must join its opposite edge,
+    /// or a floor or ceiling shows a grid of seams every repeat.
+    #[test]
+    fn test_surface_textures_tile() {
+        let cases: [(&str, Vec<u8>, u32); 6] = [
+            ("wall", generate_wall_texture().to_vec(), 128),
+            (
+                "wall_stained",
+                generate_stained_wall_texture().to_vec(),
+                128,
+            ),
+            ("carpet", generate_carpet_texture().to_vec(), 64),
+            ("carpet_damp", generate_damp_carpet_texture().to_vec(), 64),
+            ("ceiling", generate_ceiling_texture().to_vec(), 128),
+            (
+                "ceiling_stained",
+                generate_stained_ceiling_texture().to_vec(),
+                128,
+            ),
+        ];
+        for (name, data, size) in cases {
+            let texel = |x: u32, y: u32| -> [i32; 3] {
+                let index = ((y * size + x) * 4) as usize;
+                [
+                    data[index] as i32,
+                    data[index + 1] as i32,
+                    data[index + 2] as i32,
+                ]
+            };
+            for i in 0..size {
+                // Horizontal wrap: the last column meets the first.
+                for channel in 0..3 {
+                    assert!(
+                        (texel(size - 1, i)[channel] - texel(0, i)[channel]).abs() <= 40,
+                        "{name}: column seam at row {i}"
+                    );
+                    assert!(
+                        (texel(i, size - 1)[channel] - texel(i, 0)[channel]).abs() <= 40,
+                        "{name}: row seam at column {i}"
+                    );
+                }
+            }
         }
     }
 
@@ -2334,17 +2818,40 @@ mod tests {
         };
 
         // A large room is subdivided on the bounded baked-lighting grid so
-        // fixture pools can vary across the floor, but the cell count is capped:
-        // a 400x400 m room costs exactly the same as a 100x100 m one.
+        // fixture pools can vary across the floor, but the cell count is capped
+        // and flat regions merge: a 400x400 m room costs exactly the same as a
+        // 100x100 m one, and with no fixtures both collapse to a single quad.
         let hundred = build_level_geometry(&level(100.0));
         let four_hundred = build_level_geometry(&level(400.0));
         let cap = (crate::lighting::MAX_LIGHT_GRID_CELLS * crate::lighting::MAX_LIGHT_GRID_CELLS)
             as i32
             * 6;
-        assert_eq!(hundred.batches.floor_batch.count, cap);
-        assert_eq!(hundred.batches.ceiling_batch.count, cap);
-        assert_eq!(four_hundred.batches.floor_batch.count, cap);
-        assert_eq!(four_hundred.batches.ceiling_batch.count, cap);
+        for mesh in [&hundred, &four_hundred] {
+            assert!(mesh.batches.floor_batch.count > 0);
+            assert!(mesh.batches.ceiling_batch.count > 0);
+            assert!(
+                mesh.batches.floor_batch.count <= cap,
+                "floor geometry must stay capped, got {}",
+                mesh.batches.floor_batch.count
+            );
+            assert!(
+                mesh.batches.ceiling_batch.count <= cap,
+                "ceiling geometry must stay capped, got {}",
+                mesh.batches.ceiling_batch.count
+            );
+        }
+        // No fixtures and no fixtures nearby: the uniform room merges to one
+        // quad on each surface, so area genuinely stops mattering.
+        assert_eq!(hundred.batches.floor_batch.count, 6);
+        assert_eq!(hundred.batches.ceiling_batch.count, 6);
+        assert_eq!(
+            hundred.batches.floor_batch.count,
+            four_hundred.batches.floor_batch.count
+        );
+        assert_eq!(
+            hundred.batches.ceiling_batch.count,
+            four_hundred.batches.ceiling_batch.count
+        );
 
         // A room smaller than one lighting cell stays a single quad.
         let small = build_level_geometry(&level(2.0));
@@ -2544,8 +3051,9 @@ mod tests {
         assert!(mesh.batches.wall_batch.count > 0);
         assert!(mesh.batches.light_batch.count > 0);
 
-        // Floor/ceiling geometry follows the bounded baked-lighting grid: one
-        // quad per cell, never per square metre.
+        // Floor/ceiling geometry follows the bounded baked-lighting grid: never
+        // per square metre, and flat cells merge, so the emitted count is at
+        // most the cell grid and usually below it.
         let expected_cells: i32 = level
             .room_iter()
             .map(|room| {
@@ -2553,8 +3061,12 @@ mod tests {
                     * crate::lighting::light_grid_cells(room.depth)) as i32
             })
             .sum();
-        assert_eq!(mesh.batches.floor_batch.count, expected_cells * 6);
-        assert_eq!(mesh.batches.ceiling_batch.count, expected_cells * 6);
+        assert!(mesh.batches.floor_batch.count <= expected_cells * 6);
+        assert!(mesh.batches.ceiling_batch.count <= expected_cells * 6);
+        assert!(
+            mesh.batches.floor_batch.count < expected_cells * 6,
+            "level 1's large rooms must merge uniform lighting cells"
+        );
 
         // The whole shipped level stays a few tens of thousands of vertices.
         // (Per-metre tessellation of its 25 large rooms would be ~800,000.)
@@ -2944,9 +3456,12 @@ mod tests {
         let mesh = build_level_geometry(&level);
         // Two faces parallel to the wall's length, each split into lighting
         // segments, plus two end caps. The wall reaches the ceiling height, so
-        // there is no top or bottom face.
+        // there is no top or bottom face. This test room has no fixtures, so the
+        // lighting along each face is flat and the segments merge back into one
+        // quad per face.
         let segments = crate::lighting::wall_light_segments(10.0) as i32;
-        assert_eq!(mesh.batches.wall_batch.count, (2 * segments + 2) * 6);
+        assert_eq!(mesh.batches.wall_batch.count, 4 * 6);
+        assert!(4 * 6 <= (2 * segments + 2) * 6);
         assert_eq!(mesh.batches.prop_batch.count, 0);
     }
 
@@ -2964,12 +3479,13 @@ mod tests {
         );
         // Three slices, each split into lighting segments, two faces each; plus
         // the door head underside and four cross-section caps (2 wall ends,
-        // 2 door jambs).
+        // 2 door jambs). Flat segments merge, so the bound is an upper limit.
         let mut expected = 0;
         for length in [4.0f32, 2.0, 4.0] {
             expected += 2 * crate::lighting::wall_light_segments(length) as i32;
         }
-        assert_eq!(door.batches.wall_batch.count, (expected + 1 + 4) * 6);
+        assert!(door.batches.wall_batch.count <= (expected + 1 + 4) * 6);
+        assert!(door.batches.wall_batch.count > 0);
     }
 
     #[test]
@@ -2981,12 +3497,13 @@ mod tests {
         let mesh = build_level_geometry(&level);
         // Four slices: the full-height wall either side of the window plus the
         // sill and header slices, which add a sill top and a head underside,
-        // plus 4 cross-section caps.
+        // plus 4 cross-section caps. Flat segments merge, so this is a bound.
         let mut expected = 0;
         for length in [4.0f32, 2.0, 2.0, 4.0] {
             expected += 2 * crate::lighting::wall_light_segments(length) as i32;
         }
-        assert_eq!(mesh.batches.wall_batch.count, (expected + 2 + 4) * 6);
+        assert!(mesh.batches.wall_batch.count <= (expected + 2 + 4) * 6);
+        assert!(mesh.batches.wall_batch.count > 0);
     }
 
     #[test]
@@ -3017,12 +3534,14 @@ mod tests {
 
         // Same decomposition as the equivalent X-axis wall: 3 slices, each
         // split into lighting segments, two faces each; plus door head
-        // underside and 4 cross-section caps.
+        // underside and 4 cross-section caps. Flat segments merge, so the bound
+        // is an upper limit.
         let mut expected = 0;
         for length in [4.0f32, 2.0, 4.0] {
             expected += 2 * crate::lighting::wall_light_segments(length) as i32;
         }
-        assert_eq!(mesh.batches.wall_batch.count, (expected + 1 + 4) * 6);
+        assert!(mesh.batches.wall_batch.count <= (expected + 1 + 4) * 6);
+        assert!(mesh.batches.wall_batch.count > 0);
 
         let start = mesh.batches.wall_batch.start as usize;
         let end = start + mesh.batches.wall_batch.count as usize;

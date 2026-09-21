@@ -7,7 +7,8 @@ use zip::ZipArchive;
 
 use crate::level::{LevelDef, MAX_LEVEL_FLOOR_AREA_M2, MAX_LEVEL_VERTICES};
 use crate::render::{
-    generate_carpet_texture, generate_ceiling_texture, generate_wall_texture,
+    generate_carpet_texture, generate_ceiling_texture, generate_damp_carpet_texture,
+    generate_stained_ceiling_texture, generate_stained_wall_texture, generate_wall_texture,
     generate_white_texture,
 };
 
@@ -47,9 +48,9 @@ pub struct LoadedTextures {
 impl Default for LoadedTextures {
     fn default() -> Self {
         Self {
-            wall: RawImage::new(64, 64, generate_wall_texture().to_vec()),
+            wall: RawImage::new(128, 128, generate_wall_texture().to_vec()),
             floor: RawImage::new(64, 64, generate_carpet_texture().to_vec()),
-            ceiling: RawImage::new(64, 64, generate_ceiling_texture().to_vec()),
+            ceiling: RawImage::new(128, 128, generate_ceiling_texture().to_vec()),
             fixture: RawImage::new(2, 2, generate_white_texture().to_vec()),
         }
     }
@@ -742,36 +743,6 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     Ok(())
 }
 
-/// Stained wall texture generator for core:wallpaper_stained_01.
-fn generate_stained_wall_texture() -> [u8; 64 * 64 * 4] {
-    let mut data = generate_wall_texture();
-    for y in 0..64 {
-        for x in 0..64 {
-            let idx = (y * 64 + x) * 4;
-            // Darker damp/stained streaks
-            let stain = if (x + y * 2) % 31 < 8 { 0.75 } else { 1.0 };
-            data[idx] = (data[idx] as f32 * stain) as u8;
-            data[idx + 1] = (data[idx + 1] as f32 * stain) as u8;
-            data[idx + 2] = (data[idx + 2] as f32 * stain) as u8;
-        }
-    }
-    data
-}
-
-/// Damp carpet texture generator for core:carpet_damp_01.
-fn generate_damp_carpet_texture() -> [u8; 64 * 64 * 4] {
-    let mut data = generate_carpet_texture();
-    for y in 0..64 {
-        for x in 0..64 {
-            let idx = (y * 64 + x) * 4;
-            data[idx] = (data[idx] as f32 * 0.65) as u8;
-            data[idx + 1] = (data[idx + 1] as f32 * 0.60) as u8;
-            data[idx + 2] = (data[idx + 2] as f32 * 0.55) as u8;
-        }
-    }
-    data
-}
-
 /// Resolves materials and textures for a level.
 /// Missing custom resources fail gracefully with an obvious fallback rather than crashing.
 pub fn resolve_textures(
@@ -819,7 +790,7 @@ pub fn resolve_textures(
     if let Some(img) = try_decode_material(&level.defaults.wall) {
         loaded.wall = img;
     } else if level.defaults.wall == "core:wallpaper_stained_01" {
-        loaded.wall = RawImage::new(64, 64, generate_stained_wall_texture().to_vec());
+        loaded.wall = RawImage::new(128, 128, generate_stained_wall_texture().to_vec());
     }
 
     // Floor texture
@@ -832,6 +803,8 @@ pub fn resolve_textures(
     // Ceiling texture
     if let Some(img) = try_decode_material(&level.defaults.ceiling) {
         loaded.ceiling = img;
+    } else if level.defaults.ceiling == "core:ceiling_stained_01" {
+        loaded.ceiling = RawImage::new(128, 128, generate_stained_ceiling_texture().to_vec());
     }
 
     // Fixture texture
@@ -1386,11 +1359,72 @@ mod tests {
             props: vec![],
         };
 
-        // No custom textures supplied -> should gracefully fallback
+        // No custom textures supplied -> should gracefully fallback to the
+        // built-in sheets (wallpaper and ceiling cover two metres per repeat,
+        // the carpet one, all at 64 texels per metre).
         let textures = resolve_textures(&level, &HashMap::new(), &HashMap::new());
-        assert_eq!(textures.wall.width, 64);
+        assert_eq!(textures.wall.width, 128);
         assert_eq!(textures.floor.width, 64);
-        assert_eq!(textures.ceiling.width, 64);
+        assert_eq!(textures.ceiling.width, 128);
+        assert_eq!(
+            (textures.ceiling.width, textures.ceiling.height),
+            (128, 128)
+        );
+        assert_eq!(
+            textures.ceiling.rgba.len(),
+            (textures.ceiling.width * textures.ceiling.height * 4) as usize
+        );
+    }
+
+    /// The built-in material variants resolve to distinct images, so a level
+    /// that asks for the water-damaged surfaces really draws them.
+    #[test]
+    fn test_damaged_material_variants_resolve() {
+        let checksum = |image: &RawImage| -> u64 {
+            image
+                .rgba
+                .iter()
+                .enumerate()
+                .fold(0x811c_9dc5u64, |hash, (index, byte)| {
+                    (hash ^ (*byte as u64 + index as u64)).wrapping_mul(0x0100_0000_01b3)
+                })
+        };
+        // (field, maintained id, damaged id)
+        let variants = [
+            (
+                0usize,
+                "core:wallpaper_yellow_01",
+                "core:wallpaper_stained_01",
+            ),
+            (1, "core:carpet_beige_01", "core:carpet_damp_01"),
+            (2, "core:ceiling_panel_01", "core:ceiling_stained_01"),
+        ];
+        for (field, maintained, damaged) in variants {
+            let sample = |material: &str| {
+                let mut level = LevelDef::from_json(
+                    r#"{"format_version": 1, "id": "x", "name": "x", "spawn": {"x": 0.0, "z": 0.0}}"#,
+                )
+                .expect("minimal level");
+                match field {
+                    0 => level.defaults.wall = material.into(),
+                    1 => level.defaults.floor = material.into(),
+                    _ => level.defaults.ceiling = material.into(),
+                }
+                let textures = resolve_textures(&level, &HashMap::new(), &HashMap::new());
+                let image = match field {
+                    0 => textures.wall,
+                    1 => textures.floor,
+                    _ => textures.ceiling,
+                };
+                (image.width, image.height, checksum(&image))
+            };
+            let plain = sample(maintained);
+            let worn = sample(damaged);
+            assert_ne!(
+                plain, worn,
+                "{damaged} must resolve to its own sheet, not {maintained}'s"
+            );
+        }
     }
 
     fn level_from_rooms_json(rooms_json: &str) -> LevelDef {
@@ -1888,11 +1922,19 @@ mod tests {
         );
         assert_eq!(assets.stats().models_failed, 0);
 
-        // Lighting: all twelve fixtures are owned exactly once, every room gets
-        // a navigable baseline, and the brighter, lower-ceilinged corridor beats
-        // the large rooms it connects.
-        assert_eq!(lighting.summary().rooms, 5);
-        assert_eq!(lighting.summary().lights, 12);
+        // Lighting: every fixture is owned exactly once, every room gets a
+        // navigable baseline, and the original corridor beats the large rooms
+        // it connects.
+        assert_eq!(
+            lighting.summary().rooms,
+            level.room_iter().count(),
+            "every room must bake"
+        );
+        assert_eq!(
+            lighting.summary().lights,
+            level.ceiling_lights.len(),
+            "every fixture must bake"
+        );
         assert_eq!(
             lighting
                 .rooms()
@@ -1942,6 +1984,191 @@ mod tests {
             (living_side - corridor_side).abs() < 0.05,
             "the doorway seam should be blended, got {living_side} vs {corridor_side}"
         );
+
+        // -------------------------------------------------------------------
+        // The lighting demonstration wing: each showcase must actually differ.
+        // -------------------------------------------------------------------
+        let room_at = |x: f32, z: f32| {
+            lighting
+                .rooms()
+                .iter()
+                .position(|room| (room.x0 - x).abs() < 1e-3 && (room.z0 - z).abs() < 1e-3)
+                .unwrap_or_else(|| panic!("no room with its minimum corner at ({x}, {z})"))
+        };
+
+        // Light density: identical rooms with 0, 1, 2 and 4 fixtures must get
+        // strictly brighter in that order.
+        let density: Vec<usize> = [6.4_f32, 10.4, 14.4, 18.4]
+            .iter()
+            .map(|x| room_at(*x, 9.2))
+            .collect();
+        let counts: Vec<usize> = density
+            .iter()
+            .map(|index| lighting.rooms()[*index].fixture_count)
+            .collect();
+        assert_eq!(counts, vec![0, 1, 2, 4], "density row fixture counts");
+        for pair in density.windows(2) {
+            assert!(
+                lighting.rooms()[pair[0]].baseline < lighting.rooms()[pair[1]].baseline,
+                "the density row must brighten eastwards: {:?} vs {:?}",
+                lighting.rooms()[pair[0]].baseline,
+                lighting.rooms()[pair[1]].baseline
+            );
+        }
+
+        // Fixture intensity: same room, same single fixture, 0.5 vs 1.8.
+        let weak = room_at(6.4, 0.8);
+        let strong = room_at(10.4, 0.8);
+        assert_eq!(lighting.rooms()[weak].fixture_count, 1);
+        assert_eq!(lighting.rooms()[strong].fixture_count, 1);
+        assert!(
+            lighting.rooms()[strong].baseline > lighting.rooms()[weak].baseline + 0.05,
+            "the strong fixture room ({}) must clearly beat the weak one ({})",
+            lighting.rooms()[strong].baseline,
+            lighting.rooms()[weak].baseline
+        );
+
+        // Ceiling height: same area and fixtures, 2.6 m vs 4.2 m. The lower
+        // room reads brighter and its pool beneath the fixture is stronger.
+        let low = room_at(14.4, 0.8);
+        let tall = room_at(18.4, 0.8);
+        assert_eq!(
+            lighting.rooms()[low].fixture_count,
+            lighting.rooms()[tall].fixture_count
+        );
+        assert!(
+            lighting.rooms()[low].baseline > lighting.rooms()[tall].baseline,
+            "the lower room ({}) must beat the taller one ({})",
+            lighting.rooms()[low].baseline,
+            lighting.rooms()[tall].baseline
+        );
+        // Matched corners beside each room's outer wall: the 2.6 m room's pool
+        // is strong enough to reach the cap while the 4.2 m room's floor at the
+        // same relative point stays visibly below it.
+        let low_corner = lighting.sample(14.6, 0.0, 1.2);
+        let tall_corner = lighting.sample(22.2, 0.0, 1.2);
+        assert!(
+            low_corner > tall_corner + 0.05,
+            "the 2.6 m room ({low_corner}) must clearly out-light the 4.2 m one ({tall_corner})"
+        );
+
+        // Doorway bleed: the bright room (four fixtures) against the dark room
+        // (none), joined by a wide doorway. Standing just inside the dark room
+        // the doorway must lift the tone; deep in its corner it stays dark.
+        let bright_room = room_at(40.8, 4.0);
+        let dark_room = room_at(40.8, -2.0);
+        assert_eq!(lighting.rooms()[dark_room].fixture_count, 0);
+        assert_eq!(
+            lighting.rooms()[dark_room].baseline,
+            crate::lighting::MIN_AMBIENT
+        );
+        let at_door = lighting.sample_in_room(dark_room, 43.8, 0.0, 3.6);
+        let corner = lighting.sample_in_room(dark_room, 41.4, 0.0, -1.4);
+        assert!(
+            at_door > lighting.rooms()[dark_room].baseline + 0.02,
+            "the doorway must spill light into the dark room: {at_door}"
+        );
+        assert!(
+            (corner - lighting.rooms()[dark_room].baseline).abs() < 0.02,
+            "the dark room's far corner must stay dim: {corner}"
+        );
+        assert!(
+            at_door <= crate::lighting::MAX_BRIGHTNESS
+                && at_door < lighting.sample_in_room(bright_room, 43.8, 0.0, 7.0) + 0.01,
+            "the doorway spill must stay below the bright room itself: {at_door}"
+        );
+
+        // Local pools: the wing corridor (room 5) brightens under each of its
+        // four spaced fixtures and dips between them.
+        let wing_corridor = &lighting.rooms()[5];
+        let pool = lighting.sample(25.0, 0.0, 7.0);
+        let gap = lighting.sample(31.0, 0.0, 7.0);
+        assert!(
+            pool > gap + 0.01 && gap > wing_corridor.baseline,
+            "spaced fixtures must read as pools: {pool} > {gap} > {}",
+            wing_corridor.baseline
+        );
+
+        // Prop lighting demonstration: the two-fixture room carries a chair, a
+        // crate and a plant, and the bright room one more spooner-man. Every
+        // wing prop must sit inside a wing room (x > 6, away from the base map).
+        let wing_models: Vec<&str> = level
+            .props
+            .iter()
+            .filter(|prop| prop.x > 6.0)
+            .map(|prop| prop.model.as_str())
+            .collect();
+        assert!(wing_models.contains(&"core:chair"));
+        assert!(wing_models.contains(&"core:crate"));
+        assert!(wing_models.contains(&"core:plant"));
+        assert_eq!(
+            wing_models
+                .iter()
+                .filter(|model| **model == "spooner-man")
+                .count(),
+            1
+        );
+        for prop in level.props.iter().filter(|prop| prop.x > 6.0) {
+            assert!(
+                prop.z > 0.0,
+                "wing props stay in the wing's rooms: {prop:?}"
+            );
+        }
+
+        // The wing is walkable: a player path from the spawn to every
+        // comparison room and to both sides of the dark/bright doorway must
+        // never intersect a collision box. Sampled at 10 cm steps with the
+        // player's radius, this proves the doorways line up with the rooms.
+        let walls = level.collision_aabbs();
+        let assert_walkable = |points: &[(f32, f32)]| {
+            for pair in points.windows(2) {
+                let (ax, az) = pair[0];
+                let (bx, bz) = pair[1];
+                let distance = ((bx - ax).hypot(bz - az) * 10.0).ceil() as i32;
+                for step in 0..=distance {
+                    let t = step as f32 / distance.max(1) as f32;
+                    let x = ax + (bx - ax) * t;
+                    let z = az + (bz - az) * t;
+                    for wall in &walls {
+                        assert!(
+                            !wall.intersects_circle(glam::Vec2::new(x, z), 0.3),
+                            "player path blocked at ({x:.2}, {z:.2}) by {wall:?}"
+                        );
+                    }
+                }
+            }
+        };
+        // Spawn -> base corridor -> lobby -> wing corridor.
+        // Through the corridor doorway (x ~ 0.6) then west of the lobby chairs
+        // to the wing door (z ~ 7).
+        let mut waypoints = vec![
+            (-13.0, 0.0),
+            (0.6, 1.0),
+            (0.6, 3.0),
+            (-1.5, 3.0),
+            (-1.5, 7.2),
+            (1.0, 7.2),
+            (6.2, 7.2),
+            (7.0, 7.0),
+        ];
+        // Every comparison room through its own doorway.
+        for x in [8.4_f32, 12.4, 16.4, 20.4] {
+            waypoints.push((x, 7.0));
+            waypoints.push((x, 11.2));
+            waypoints.push((x, 7.0));
+            waypoints.push((x, 2.8));
+            waypoints.push((x, 7.0));
+        }
+        // The bright/dark pair.
+        waypoints.extend([
+            (24.0, 7.0),
+            (40.6, 7.0),
+            (42.0, 7.0),
+            (43.8, 6.0),
+            (43.8, 3.0),
+            (43.8, 1.0),
+        ]);
+        assert_walkable(&waypoints);
 
         // Baked colours stay in range, and floors genuinely vary across the demo
         // (the corridor has fixture pools, the rooms have their own).

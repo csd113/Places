@@ -1,12 +1,12 @@
 {
   "format_version": 1,
-  "id": "asset_demo",
-  "name": "Asset Demo (Water Damage)",
+  "id": "asset_maintained",
+  "name": "Asset Demo (Maintained)",
   "author": "Liminal Team",
   "defaults": {
-    "wall": "core:wallpaper_stained_01",
-    "floor": "core:carpet_damp_01",
-    "ceiling": "core:ceiling_stained_01"
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
   },
   "spawn": {
     "x": -13.0,

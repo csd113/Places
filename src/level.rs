@@ -418,13 +418,6 @@ pub struct LevelDef {
     pub props: Vec<PropDef>,
 }
 
-/// Conservative upper bound on the number of quads a single wall can generate:
-/// its two length-parallel faces (each split into baked-lighting segments) plus
-/// its two end caps and an optional top and bottom face.
-pub const MAX_WALL_FACES_PER_WALL: u64 = 2 * crate::lighting::MAX_WALL_LIGHT_SEGMENTS as u64 + 4;
-/// Additional quads a single wall opening can introduce (jamb reveals, the
-/// header underside and the sill surface).
-pub const MAX_WALL_QUADS_PER_OPENING: u64 = 12;
 /// Number of quads each ceiling light fixture generates (panel plus two bezels).
 pub const MAX_LIGHT_QUADS: u64 = 3;
 /// Number of quads a prop generates in its placeholder-box form. Real prop
@@ -485,8 +478,8 @@ impl LevelDef {
         let mut floor_quads: u64 = 0;
         let mut ceiling_quads: u64 = 0;
         for room in self.room_iter() {
-            let w = room.width.max(0.0).min(1_000_000.0).ceil() as u64;
-            let d = room.depth.max(0.0).min(1_000_000.0).ceil() as u64;
+            let w = room.width.clamp(0.0, 1_000_000.0).ceil() as u64;
+            let d = room.depth.clamp(0.0, 1_000_000.0).ceil() as u64;
             floor_area_m2 = floor_area_m2.saturating_add(w.saturating_mul(d));
 
             // Floors and ceilings are tessellated on the baked-lighting grid so
@@ -499,13 +492,51 @@ impl LevelDef {
             ceiling_quads = ceiling_quads.saturating_add(cells);
         }
 
-        let opening_count = self.walls.iter().fold(0u64, |total, wall| {
-            total.saturating_add(wall.openings.len() as u64)
-        });
-        let wall_quads = (self.walls.len() as u64).saturating_mul(
-            MAX_WALL_FACES_PER_WALL
-                .saturating_add(opening_count.saturating_mul(MAX_WALL_QUADS_PER_OPENING)),
-        );
+        // Walls are bounded by replaying the same solid-slice decomposition the
+        // geometry builder uses (`wall_solid_slices`), so the estimate tracks
+        // per-slice segment counts and opening reveals instead of assuming a
+        // fixed number of faces per wall. Everything saturates, so malformed
+        // dimensions cannot overflow the total.
+        let room_refs: Vec<&RoomDef> = self.room_iter().collect();
+        let mut wall_quads: u64 = 0;
+        for wall in &self.walls {
+            let default_height = ceiling_height_at(
+                &room_refs,
+                wall.x + wall.width * 0.5,
+                wall.z + wall.depth * 0.5,
+            );
+            let slices = wall_solid_slices(wall, default_height);
+            for slice in &slices {
+                let segments = crate::lighting::wall_light_segments(slice.end - slice.start) as u64;
+                wall_quads =
+                    wall_quads.saturating_add(segments.saturating_mul(2).saturating_add(2));
+            }
+
+            // Cross-section faces appear at slice boundaries. The builder's
+            // symmetric difference of the solid intervals on either side can
+            // emit at most one merged interval per interval present, so the
+            // number of intervals meeting at a boundary is a safe bound.
+            let mut boundaries: Vec<f32> = Vec::with_capacity(slices.len() * 2 + 2);
+            boundaries.push(0.0);
+            boundaries.push(wall.length());
+            for slice in &slices {
+                boundaries.push(slice.start);
+                boundaries.push(slice.end);
+            }
+            boundaries.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            boundaries.dedup_by(|a, b| (*a - *b).abs() <= 1e-3);
+            for position in boundaries {
+                let ending = slices
+                    .iter()
+                    .filter(|slice| (slice.end - position).abs() <= 1e-3)
+                    .count() as u64;
+                let starting = slices
+                    .iter()
+                    .filter(|slice| (slice.start - position).abs() <= 1e-3)
+                    .count() as u64;
+                wall_quads = wall_quads.saturating_add(ending.saturating_add(starting));
+            }
+        }
         let light_quads = (self.ceiling_lights.len() as u64).saturating_mul(MAX_LIGHT_QUADS);
         let prop_quads = (self.props.len() as u64).saturating_mul(MAX_PROP_QUADS);
         let total_quads = floor_quads
@@ -1000,10 +1031,18 @@ mod tests {
         let level = LevelDef::from_json(json).expect("valid json");
         let estimate = level.estimate_geometry();
         assert_eq!(estimate.prop_quads, MAX_PROP_QUADS);
-        assert_eq!(
-            estimate.wall_quads,
-            MAX_WALL_FACES_PER_WALL + MAX_WALL_QUADS_PER_OPENING
+        // The wall estimate follows the real solid slices: three slices (left
+        // jamb, door header, right jamb), each one segment long, plus the
+        // boundary reveals. It must bound what the builder emits.
+        assert!(
+            estimate.wall_quads >= 6,
+            "a wall with one door must account for its slices and reveals, got {}",
+            estimate.wall_quads
         );
+        assert!(estimate.wall_quads <= 64, "estimate unexpectedly loose");
+        // The estimate must bound the geometry that is actually generated.
+        let mesh = crate::render::build_level_geometry(&level);
+        assert!(mesh.batches.wall_batch.count as u64 <= estimate.wall_quads * 6);
         let expected_quads = estimate.floor_quads
             + estimate.ceiling_quads
             + estimate.wall_quads

@@ -76,16 +76,20 @@ Nothing here is required at runtime: the game loads ordinary packaged GLBs.
 
 ## Development fixtures and checks
 
-Three demo levels exercise the pack (none of them touch `level1`):
+Four demo levels exercise the pack (none of them touch `level1`):
 
 * `levels/asset_demo.json` — **the walkable demo map**, discovered in the game's
   custom-level folder and shown in the level select menu. Four rooms around a
   corridor place every catalogue asset (all twenty core props plus
   `spooner-man`), and it exercises the whole level format: doorways, a wide
   passage, windows, a vent, twelve ceiling lights, several props standing on
-  other props, and the worn material set (stained wallpaper, damp carpet) that
-  Level 1 does not use. Regenerate it with
-  `python3 tools/levels/build_demo_levels.py`.
+  other props, and the worn material set (stained wallpaper, damp carpet,
+  stained ceiling) that Level 1 does not use.
+* `levels/asset_maintained.json` — the same building on the maintained material
+  set (yellow wallpaper, beige carpet, panel ceiling). A level carries one wall,
+  one floor and one ceiling material, so the two demos are how the maintained
+  and water-damaged sets are compared in game.
+  Regenerate both with `python3 tools/levels/build_demo_levels.py`.
 * `assets/levels/prop_showcase.json` — every catalogue prop placed once
   (the twenty core props plus `spooner-man`), arranged as a domestic room plus a
   utility room, including one crate deliberately sunk into the floor and a box

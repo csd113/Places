@@ -184,6 +184,31 @@ pub fn effective_power(intensity: f32, ceiling_height_m: f32) -> f32 {
     sanitize_intensity(intensity) * ceiling_height_factor(ceiling_height_m)
 }
 
+/// Whether a ceiling fixture's panel is turned 90 degrees from its default.
+///
+/// The canonical rule shared by baked lighting and fixture geometry: rounding
+/// the authored rotation to the nearest whole degree and testing it against
+/// 180 keeps a `90` panel turned, a `180` panel back to default, and fractional
+/// rotations identical in both places. The level editor mirrors this rule.
+pub fn fixture_is_turned(rotation_degrees: f32) -> bool {
+    if !rotation_degrees.is_finite() {
+        return false;
+    }
+    (rotation_degrees.round() as i64).rem_euclid(180) != 0
+}
+
+/// Half-extents of a fixture's luminous panel in world X/Z after rotation.
+///
+/// Mirrors the panel geometry emitted by `crate::render`: the default 1.2 x 0.6
+/// panel runs along X, and a turned fixture swaps its axes.
+pub fn fixture_half_extents(rotation_degrees: f32) -> (f32, f32) {
+    if fixture_is_turned(rotation_degrees) {
+        (FIXTURE_HALF_DEPTH_M, FIXTURE_HALF_WIDTH_M)
+    } else {
+        (FIXTURE_HALF_WIDTH_M, FIXTURE_HALF_DEPTH_M)
+    }
+}
+
 /// Smoothly saturating brightness component of a normalised light density.
 ///
 /// `n / (1 + n)`: continuous, monotonic, zero at zero, asymptotically 1 as the
@@ -328,6 +353,13 @@ pub struct LevelLighting {
     lights: Vec<BakedLight>,
     /// Per room, the opening links that blend neighbouring light into it.
     blends: Vec<Vec<OpeningBlend>>,
+    /// Per room, indices of the fixtures whose pool can reach that room, in
+    /// fixture order. A fixture outside the list is farther than
+    /// [`LOCAL_LIGHT_RADIUS_M`] from every point in the room, so pruning is
+    /// exact and the per-vertex sum is unchanged.
+    room_lights: Vec<Vec<u32>>,
+    /// Every fixture index, for samples outside all rooms.
+    all_lights: Vec<u32>,
     /// Ceiling height used for fixtures that no room contains.
     default_ceiling_height_m: f32,
 }
@@ -400,13 +432,9 @@ impl LevelLighting {
             let height_factor = ceiling_height_factor(height_m);
             let intensity = sanitize_intensity(light.intensity());
             // Rotation swaps the panel's long axis, exactly like the fixture
-            // geometry emitted by `crate::render`.
-            let turned = (light.rotation_degrees.round() as i64).rem_euclid(180) != 0;
-            let (half_w, half_d) = if turned {
-                (FIXTURE_HALF_DEPTH_M, FIXTURE_HALF_WIDTH_M)
-            } else {
-                (FIXTURE_HALF_WIDTH_M, FIXTURE_HALF_DEPTH_M)
-            };
+            // geometry emitted by `crate::render` (shared helper, so a
+            // fractional rotation cannot drift between the two).
+            let (half_w, half_d) = fixture_half_extents(light.rotation_degrees);
             if let Some(index) = room {
                 rooms[index].fixture_count += 1;
                 rooms[index].effective_power += effective_power(intensity, height_m);
@@ -426,6 +454,20 @@ impl LevelLighting {
         for room in &mut rooms {
             room.baseline = room_baseline(room.area_m2, room.effective_power);
         }
+
+        // Per-room fixture candidates: only fixtures whose panel can come
+        // within `LOCAL_LIGHT_RADIUS_M` of the room footprint, always including
+        // the owning room. Built in fixture order so the per-vertex sum (and
+        // its early saturation) is bit-identical to checking every fixture.
+        let mut room_lights: Vec<Vec<u32>> = vec![Vec::new(); rooms.len()];
+        for (index, light) in lights.iter().enumerate() {
+            for (room_index, room) in rooms.iter().enumerate() {
+                if light.room == Some(room_index) || Self::light_reaches_room(light, room) {
+                    room_lights[room_index].push(index as u32);
+                }
+            }
+        }
+        let all_lights: Vec<u32> = (0..lights.len() as u32).collect();
 
         // Link the rooms on either side of every walk-through opening.
         let mut blends: Vec<Vec<OpeningBlend>> = vec![Vec::new(); rooms.len()];
@@ -451,7 +493,22 @@ impl LevelLighting {
                 if !opening.is_door() || !opening.reaches_floor() {
                     continue;
                 }
-                if !opening.offset.is_finite() || !opening.width.is_finite() {
+                // Only openings the geometry actually cuts count as passages:
+                // the same guards `wall_solid_slices` uses, so a zero-width or
+                // non-finite opening cannot blend light through a solid wall.
+                if !opening.offset.is_finite()
+                    || !opening.width.is_finite()
+                    || !opening.height.is_finite()
+                    || !opening.sill.is_finite()
+                    || opening.width <= 0.0
+                    || opening.height <= 0.0
+                {
+                    continue;
+                }
+                // A wall raised off the floor (`wall.y`) is a header or lintel,
+                // not a walk-through; its opening is above head height, so it
+                // must not join the rooms for lighting either.
+                if wall.y + opening.sill.max(0.0) > 1e-3 {
                     continue;
                 }
                 let center = (opening.offset + opening.width * 0.5).clamp(0.0, length);
@@ -493,6 +550,8 @@ impl LevelLighting {
             rooms,
             lights,
             blends,
+            room_lights,
+            all_lights,
             default_ceiling_height_m,
         }
     }
@@ -558,7 +617,8 @@ impl LevelLighting {
     pub fn sample(&self, x: f32, y: f32, z: f32) -> f32 {
         match self.room_index_at(x, z) {
             Some(index) => self.sample_in_room(index, x, y, z),
-            None => (MIN_AMBIENT + self.local_light(x, y, z)).clamp(MIN_AMBIENT, MAX_BRIGHTNESS),
+            None => (MIN_AMBIENT + self.local_light(&self.all_lights, x, y, z))
+                .clamp(MIN_AMBIENT, MAX_BRIGHTNESS),
         }
     }
 
@@ -575,7 +635,8 @@ impl LevelLighting {
             return MIN_AMBIENT;
         }
 
-        let mut value = info.baseline + self.local_light(x, y, z);
+        let candidates = &self.room_lights[room];
+        let mut value = info.baseline + self.local_light(candidates, x, y, z);
 
         // Bounded doorway blending: mix a fraction of the neighbouring room's
         // baseline that fades to nothing over `OPENING_BLEND_RADIUS_M` and above
@@ -608,33 +669,60 @@ impl LevelLighting {
     /// panel to zero at [`LOCAL_LIGHT_RADIUS_M`], scaled by the fixture's
     /// intensity and by its room's ceiling-height factor. The sum is capped at
     /// [`LOCAL_LIGHT_MAX`] so clusters stay in range.
-    fn local_light(&self, x: f32, y: f32, z: f32) -> f32 {
+    ///
+    /// `candidates` are indices into [`Self::lights`]; squared distances are
+    /// compared against the radius before the square root, so fixtures that
+    /// cannot reach the sample are rejected with a couple of multiplies.
+    fn local_light(&self, candidates: &[u32], x: f32, y: f32, z: f32) -> f32 {
         if !x.is_finite() || !y.is_finite() || !z.is_finite() {
             return 0.0;
         }
+        let radius_squared = LOCAL_LIGHT_RADIUS_M * LOCAL_LIGHT_RADIUS_M;
+        let inv_radius = 1.0 / LOCAL_LIGHT_RADIUS_M;
         let mut sum = 0.0;
-        for light in &self.lights {
+        for index in candidates {
+            let light = &self.lights[*index as usize];
             // Horizontal distance to the rotated panel footprint.
             let dx = ((x - light.x).abs() - light.half_w).max(0.0);
             let dz = ((z - light.z).abs() - light.half_d).max(0.0);
-            let horizontal = (dx * dx + dz * dz).sqrt();
-            if !horizontal.is_finite() || horizontal >= LOCAL_LIGHT_RADIUS_M {
+            let horizontal_squared = dx * dx + dz * dz;
+            if !horizontal_squared.is_finite() || horizontal_squared >= radius_squared {
                 continue;
             }
             // Full 3D distance to the panel, so a wall at fixture height reads
             // brighter than the floor below it.
             let vertical = y - light.y;
-            let distance = (horizontal * horizontal + vertical * vertical).sqrt();
-            if !distance.is_finite() || distance >= LOCAL_LIGHT_RADIUS_M {
+            let distance_squared = horizontal_squared + vertical * vertical;
+            if !distance_squared.is_finite() || distance_squared >= radius_squared {
                 continue;
             }
-            let falloff = smooth_falloff(distance / LOCAL_LIGHT_RADIUS_M);
+            let falloff = smooth_falloff(distance_squared.sqrt() * inv_radius);
             sum += LOCAL_LIGHT_STRENGTH * light.intensity * light.height_factor * falloff;
             if sum >= LOCAL_LIGHT_MAX {
                 return LOCAL_LIGHT_MAX;
             }
         }
         sum.clamp(0.0, LOCAL_LIGHT_MAX)
+    }
+
+    /// True when a fixture's panel can come within [`LOCAL_LIGHT_RADIUS_M`] of
+    /// some point above a room's footprint.
+    ///
+    /// Used to build the per-room candidate lists: a fixture this test rejects
+    /// contributes exactly zero everywhere in the room, so pruning is lossless.
+    /// The test ignores vertical distance, which only makes it more permissive.
+    fn light_reaches_room(light: &BakedLight, room: &RoomLighting) -> bool {
+        let panel_x0 = light.x - light.half_w;
+        let panel_x1 = light.x + light.half_w;
+        let panel_z0 = light.z - light.half_d;
+        let panel_z1 = light.z + light.half_d;
+        let room_x0 = room.x0 - ROOM_EDGE_EPS_M;
+        let room_x1 = room.x1 + ROOM_EDGE_EPS_M;
+        let room_z0 = room.z0 - ROOM_EDGE_EPS_M;
+        let room_z1 = room.z1 + ROOM_EDGE_EPS_M;
+        let gap_x = (room_x0 - panel_x1).max(panel_x0 - room_x1).max(0.0);
+        let gap_z = (room_z0 - panel_z1).max(panel_z0 - room_z1).max(0.0);
+        gap_x * gap_x + gap_z * gap_z < LOCAL_LIGHT_RADIUS_M * LOCAL_LIGHT_RADIUS_M
     }
 
     /// Aggregate statistics for developer logging.

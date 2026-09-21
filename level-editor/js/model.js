@@ -41,6 +41,13 @@ const CORE_MATERIALS = {
     color: '#d5d5ce',
     border: '#9a9a92'
   },
+  'core:ceiling_stained_01': {
+    id: 'core:ceiling_stained_01',
+    name: 'Stained Ceiling',
+    category: 'ceiling',
+    color: '#c3b49c',
+    border: '#8d7d63'
+  },
   'core:fluorescent_panel_01': {
     id: 'core:fluorescent_panel_01',
     name: 'Fluorescent Panel Light',
@@ -117,7 +124,21 @@ function initCoreThumbnails() {
   ctx.strokeRect(0, size / 2, size, 0);
   CORE_THUMBNAILS['core:ceiling_panel_01'] = canvas.toDataURL();
 
-  // 6. Fluorescent Panel Light
+  // 6. Water-Damaged Ceiling: the same grid with one panel soaked through
+  ctx.fillStyle = '#d3d2ca';
+  ctx.fillRect(0, 0, size, size);
+  ctx.strokeStyle = '#9a9a92';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(1, 1, size - 2, size - 2);
+  ctx.strokeRect(size / 2, 0, 0, size);
+  ctx.strokeRect(0, size / 2, size, 0);
+  ctx.fillStyle = 'rgba(120, 88, 52, 0.55)';
+  ctx.beginPath();
+  ctx.ellipse(size * 0.75, size * 0.75, size * 0.20, size * 0.16, 0.5, 0, Math.PI * 2);
+  ctx.fill();
+  CORE_THUMBNAILS['core:ceiling_stained_01'] = canvas.toDataURL();
+
+  // 7. Fluorescent Panel Light
   ctx.fillStyle = '#333333';
   ctx.fillRect(0, 0, size, size);
   ctx.fillStyle = '#fffde8';

@@ -315,9 +315,9 @@ def build_sink(p: PropBuilder) -> None:
     # The counter top's +Y face maps the region rotated a quarter turn (region
     # rows run along x, columns along z), so the basin is painted symmetric.
     _paint(tex, "basin", palette.shade(steel, 1.05), seed=7, grain_density=0.3)
-    tex.border("basin", steel_dark, width=2, alpha=110)
-    tex.bar("basin", palette.shade(steel_dark, 0.95), (0.17, 0.17, 0.83, 0.83))
-    tex.bar("basin", basin_floor, (0.21, 0.21, 0.79, 0.79))
+    tex.border("basin", steel_dark, width=1, alpha=90)
+    tex.bar("basin", palette.shade(steel_mid, 0.88), (0.16, 0.16, 0.84, 0.84))
+    tex.bar("basin", basin_floor, (0.20, 0.20, 0.80, 0.80))
     tex.band("basin", palette.shade(basin_floor, 1.35), 0.23, 0.28, alpha=80)
     tex.dots("basin", palette.shade(steel_dark, 0.6), [(0.5, 0.5)], radius=3, alpha=170)
     tex.dots("basin", palette.shade(chrome, 1.1), [(0.5, 0.5)], radius=1, alpha=200)
@@ -327,8 +327,8 @@ def build_sink(p: PropBuilder) -> None:
     proud = 0.035
     cabinet_front = half_d - proud
     cabinet_depth = depth - proud
-    cabinet_top = height - 0.17   # counter slab sits 0.17 m below the catalogue height
-    counter_h = 0.05
+    cabinet_top = 0.66            # counter slab sits on the cabinet carcass
+    counter_h = 0.04
     counter_top = cabinet_top + counter_h
 
     p.box(
@@ -347,19 +347,21 @@ def build_sink(p: PropBuilder) -> None:
     )
     for sx in (-1.0, 1.0):
         p.box(
-            (sx * 0.155, 0.10 + (0.62 - 0.10) * 0.5, cabinet_front + 0.01),
-            (0.27, 0.62 - 0.10, 0.02),
+            (sx * 0.1525, 0.10 + (0.60 - 0.10) * 0.5, cabinet_front + 0.01),
+            (0.275, 0.60 - 0.10, 0.02),
             uv={"+z": tex.uv("door"), "-z": None, "+y": tex.uv("side"), "-y": None,
                 "+x": tex.uv("side"), "-x": tex.uv("side")},
             color=palette.shade(steel_mid, 1.04),
         )
         p.box(
-            (sx * 0.075, 0.33, cabinet_front + 0.0275),
-            (0.024, 0.14, 0.015),
+            (sx * 0.075, 0.35, cabinet_front + 0.0275),
+            (0.024, 0.13, 0.015),
             uv=tex.uv("side"),
             color=chrome,
             proxy=False,
         )
+    # Counter slab with a raised back edge: the upstand is what makes a painted
+    # basin read as a sink unit rather than a cabinet with a lid.
     p.box(
         (0.0, cabinet_top + counter_h * 0.5, 0.0),
         (width, counter_h, depth),
@@ -367,16 +369,22 @@ def build_sink(p: PropBuilder) -> None:
             "-y": None, "+x": tex.uv("side"), "-x": tex.uv("side")},
         color=steel,
     )
-    # Faucet: a short post, a forward spout and a cross handle.  Its tip is the
+    p.box(
+        (0.0, counter_top + 0.035, -half_d + 0.0125),
+        (width, 0.07, 0.025),
+        uv={"+z": tex.uv("side"), "-z": tex.uv("side"), "+y": tex.uv("side"),
+            "-y": None, "+x": tex.uv("side"), "-x": tex.uv("side")},
+        color=palette.shade(steel, 1.03),
+    )
+    # Faucet: a taller post, a forward spout and a cross handle.  Its tip is the
     # prop's highest point, just inside the 0.85 m catalogue height.
-    post = (0.0, counter_top, -0.17)
-    p.cylinder(post, 0.02, 0.106, segments=6, side_uv=tex.uv("side"), cap_uv=tex.uv("side"),
-               color=chrome)
-    p.tube((0.0, 0.832, -0.17), (0.0, 0.806, -0.04), 0.016, segments=6, uv=tex.uv("side"),
+    p.cylinder((0.0, counter_top, -0.17), 0.02, 0.145, segments=6, side_uv=tex.uv("side"),
+               cap_uv=tex.uv("side"), color=chrome)
+    p.tube((0.0, 0.838, -0.17), (0.0, 0.808, -0.05), 0.016, segments=6, uv=tex.uv("side"),
            color=chrome)
-    p.cylinder((-0.035, 0.792, -0.17), 0.009, 0.07, segments=4, axis="x",
+    p.cylinder((-0.04, 0.795, -0.17), 0.009, 0.08, segments=4, axis="x",
                side_uv=tex.uv("side"), cap_uv=tex.uv("side"), color=chrome, proxy=False)
-    p.add_note("basin recess is painted on the counter top; faucet is a 6-segment post and spout")
+    p.add_note("basin recess is painted on the counter top; upstand and faucet are geometry")
 
 
 # -------------------------------------------------------------------- fridge
@@ -807,18 +815,24 @@ def build_water_cooler(p: PropBuilder) -> None:
             "-y": None, "+x": tex.uv("side"), "-x": tex.uv("side")},
         color=metal_light,
     )
-    # Inverted bottle: neck into the collar, a rounded shoulder and a gently
-    # flaring body under the cap.  Hand-built rather than three toolkit
-    # cylinders so the facet shading can be compressed to 0.90..1.00: the
-    # stock 0.72..1.00 range stripes a pale bottle into bright and dark
-    # plastic bands, which is exactly the showroom look this prop must not have.
+    # Inverted bottle: a short neck, a quick shoulder and then a nearly
+    # straight body -- the silhouette a 19 litre water bottle actually has.
+    # Hand-built rather than three toolkit cylinders so the facet shading can
+    # be compressed to 0.90..1.00: the stock 0.72..1.00 range stripes a pale
+    # bottle into bright and dark plastic bands, which is exactly the showroom
+    # look this prop must not have.
     bottle_segments = 8
-    p.cylinder((0.0, collar_top, 0.0), 0.052, 0.06, segments=bottle_segments,
-               side_uv=tex.uv("bottle"), cap_uv=tex.uv("cap"), color=bottle_tint,
-               shades=False, top_color=bottle_tint)
-    # (height, radius): the neck's mouth, the shoulder flare, the shoulder and
-    # the body's widest ring under the cap.
-    bottle_rings = ((collar_top + 0.06, 0.052), (0.86, 0.105), (0.96, 0.145), (height, 0.160))
+    # (height, radius): neck mouth, collar, shoulder flare, shoulder, body,
+    # body's widest ring and the base's chamfer.
+    bottle_rings = (
+        (collar_top, 0.050),
+        (0.78, 0.057),
+        (0.86, 0.118),
+        (0.94, 0.146),
+        (1.03, 0.152),
+        (height - 0.015, 0.143),
+        (height, 0.128),
+    )
     u0, v0, u1, v1 = tex.uv("bottle")
     cap_u0, cap_v0, cap_u1, cap_v1 = tex.uv("cap")
     cap_centre = ((cap_u0 + cap_u1) * 0.5, (cap_v0 + cap_v1) * 0.5)

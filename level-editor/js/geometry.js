@@ -307,9 +307,9 @@
 
     const light = findLight(level, id);
     if (light) {
-      const turned = Math.round((Number(light.rotation_degrees) || 0) / 90) % 2 !== 0;
-      const halfW = turned ? 0.3 : 0.6;
-      const halfD = turned ? 0.6 : 0.3;
+      // Same rule as the game and lighting.js, so the picked bounds, the drawn
+      // panel and its light pool always agree.
+      const [halfW, halfD] = lighting.fixtureHalfExtents(light.rotation_degrees);
       const y = (level && level.getCeilingHeight ? level.getCeilingHeight(light.x, light.z) : 3.5) - 0.06;
       return { kind: 'light', center: [light.x, y, light.z], half: [halfW, 0.06, halfD], rotationY: 0 };
     }
@@ -516,7 +516,9 @@
     const owner = wall.id;
 
     for (const s of slices) {
-      const texUv = (u, y) => [u, y];
+      // Wallpaper covers two metres per repeat in the game (see
+      // WALL_TILE_METRES in src/render.rs), so the preview matches.
+      const texUv = (u, y) => [u / 2, y / 2];
       const lowColors = [scaleColor(COLOR.wallSide, 0.92), scaleColor(COLOR.wallSide, 0.92), scaleColor(COLOR.wallSide, 1.0), scaleColor(COLOR.wallSide, 1.0)];
       const highColors = [scaleColor(COLOR.wall, 0.92), scaleColor(COLOR.wall, 0.92), scaleColor(COLOR.wall, 1.0), scaleColor(COLOR.wall, 1.0)];
       const sideUv = [texUv(s.start, s.bottom), texUv(s.end, s.bottom), texUv(s.end, s.top), texUv(s.start, s.top)];
@@ -526,12 +528,12 @@
 
       if (s.top < wallTop - 1e-3) {
         const topColor = scaleColor(COLOR.wall, 1.06);
-        const uv = [[s.start, 0], [s.end, 0], [s.end, thickness], [s.start, thickness]];
+        const uv = [[s.start / 2, 0], [s.end / 2, 0], [s.end / 2, thickness / 2], [s.start / 2, thickness / 2]];
         builder.quad(world(s.start, 0, s.top), world(s.end, 0, s.top), world(s.end, thickness, s.top), world(s.start, thickness, s.top), [topColor, topColor, topColor, topColor], uv, owner);
       }
       if (s.bottom > baseY + 1e-3) {
         const botColor = scaleColor(COLOR.wallSide, 0.82);
-        const uv = [[s.start, 0], [s.end, 0], [s.end, thickness], [s.start, thickness]];
+        const uv = [[s.start / 2, 0], [s.end / 2, 0], [s.end / 2, thickness / 2], [s.start / 2, thickness / 2]];
         builder.quad(world(s.start, thickness, s.bottom), world(s.end, thickness, s.bottom), world(s.end, 0, s.bottom), world(s.start, 0, s.bottom), [botColor, botColor, botColor, botColor], uv, owner);
       }
     }
@@ -563,7 +565,7 @@
       for (const [bottom, top, dir] of holes) {
         const color = bottom <= baseY + 1e-3 ? scaleColor(COLOR.jamb, 1.0) : scaleColor(COLOR.head, 1.0);
         const colors = [color, color, scaleColor(color, 1.06), scaleColor(color, 1.06)];
-        const uv = [[0, bottom], [thickness, bottom], [thickness, top], [0, top]];
+        const uv = [[0, bottom / 2], [thickness / 2, bottom / 2], [thickness / 2, top / 2], [0, top / 2]];
         if (dir > 0) {
           builder.quad(world(u, 0, bottom), world(u, thickness, bottom), world(u, thickness, top), world(u, 0, top), colors, uv, owner);
         } else {
@@ -819,9 +821,8 @@
   }
 
   function pushLight(builder, light, ceilingHeight) {
-    const turned = Math.round((Number(light.rotation_degrees) || 0) / 90) % 2 !== 0;
-    const halfW = turned ? 0.3 : 0.6;
-    const halfD = turned ? 0.6 : 0.3;
+    // Same rule as the game and lighting.js (see lighting.fixtureIsTurned).
+    const [halfW, halfD] = lighting.fixtureHalfExtents(light.rotation_degrees);
     const y = Math.max(0.05, (ceilingHeight || 3.5) - 0.06);
     const x0 = light.x - halfW, x1 = light.x + halfW;
     const z0 = light.z - halfD, z1 = light.z + halfD;

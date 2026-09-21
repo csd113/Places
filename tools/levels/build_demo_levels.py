@@ -5,8 +5,13 @@
   (all twenty core props plus ``spooner-man``) placed in a small building made
   of four rooms around a corridor, with doorways, a passage, windows, a vent and
   ceiling lights. It uses the worn material set (stained wallpaper, damp
-  carpet) so it also shows the material variants Level 1 does not. It lives in
-  the game's custom-level folder, so it appears in the level select menu.
+  carpet, stained ceiling) so it also shows the material variants Level 1 does
+  not. It lives in the game's custom-level folder, so it appears in the level
+  select menu.
+* ``levels/asset_maintained.json`` — the same building on the maintained
+  material set. A level carries exactly one wall/floor/ceiling material, so
+  this is the only way to see both sets walkable side by side: switch between
+  the two demos to compare the maintained and water-damaged surfaces.
 * ``assets/levels/prop_showcase.json`` — the development fixture: every
   catalogue prop once, including deliberately sunk and overlapping placements
   (both legal in this game and never "corrected").
@@ -239,7 +244,17 @@ def stress_level() -> Dict:
 
 
 def asset_demo_level() -> Dict:
-    """The walkable demo map: every prop asset plus every structural feature."""
+    """The walkable demo map: every prop asset plus every structural feature.
+
+    East of the main building is originally a lighting demonstration wing
+    reached through the lobby's east wall: a spine corridor with spaced fixtures
+    (local light pools), a row of four equal rooms with 0/1/2/4 fixtures (light
+    density), two equal rooms with weak/strong fixtures (intensity), two equal
+    rooms at 2.6 m/4.2 m ceiling heights (height effect), and a bright room
+    facing a dark one through a wide doorway (opening bleed). Three props in the
+    two-fixture room sit under a fixture, between fixtures and in a dark corner,
+    and one more spooner-man stands in the bright room near the doorway.
+    """
     living = {"x": -14.0, "z": -12.0, "width": 10.0, "depth": 10.0, "height": WALL_HEIGHT}
     kitchen = {"x": -4.0, "z": -12.0, "width": 10.0, "depth": 10.0, "height": WALL_HEIGHT}
     bedroom = {"x": -14.0, "z": 2.0, "width": 10.0, "depth": 10.0, "height": WALL_HEIGHT}
@@ -253,11 +268,12 @@ def asset_demo_level() -> Dict:
         return {"kind": "window", "offset": offset, "width": width, "height": height, "sill": sill}
 
     walls = [
-        # Outer shell, with windows on the long north and south faces.
+        # Outer shell, with windows on the long north and south faces. The east
+        # wall gets a doorway into the lighting wing corridor.
         wall(-14.4, -12.4, 20.8, WALL_THICKNESS, openings=[window(7.6), window(14.0)]),
         wall(-14.4, 12.0, 20.8, WALL_THICKNESS, openings=[window(9.2)]),
         wall(-14.4, -12.0, WALL_THICKNESS, 24.0),
-        wall(6.0, -12.0, WALL_THICKNESS, 24.0),
+        wall(6.0, -12.0, WALL_THICKNESS, 24.0, openings=[doorway(18.4)]),
         # Corridor walls: a door into each room, plus a vent grille.
         wall(-14.0, -2.4, 20.0, WALL_THICKNESS, openings=[doorway(6.0), doorway(14.0)]),
         wall(-14.0, 2.0, 20.0, WALL_THICKNESS,
@@ -332,8 +348,9 @@ def asset_demo_level() -> Dict:
         prop("spooner-man", -4.4, 0.5, rotation=88.0),
     ]
 
-    # All twelve fixtures stay at the standard output, which keeps the demo map
-    # a live proof that levels without an intensity field behave as 1.0.
+    # All twelve fixtures of the original building stay at the standard output,
+    # which keeps the demo map a live proof that levels without an intensity
+    # field behave as 1.0.
     lights = [
         light(-11.0, -7.0),
         light(-7.0, -10.0),
@@ -349,24 +366,159 @@ def asset_demo_level() -> Dict:
         light(4.0, 0.0, rotation=90.0),
     ]
 
+    wing_rooms, wing_walls, wing_lights, wing_props = lighting_wing(doorway)
+    rooms = [living, kitchen, bedroom, lobby, corridor] + wing_rooms
+    walls = walls + wing_walls
+    lights = lights + wing_lights
+    props = props + wing_props
+
     return {
         "format_version": 1,
         "id": "asset_demo",
-        "name": "Asset Demo",
+        "name": "Asset Demo (Water Damage)",
         "author": "Liminal Team",
         # The worn material set, so the demo also shows the variants Level 1
-        # does not use (stained wallpaper, damp carpet).
+        # does not use (stained wallpaper, damp carpet, stained ceiling).
         "defaults": {
             "wall": "core:wallpaper_stained_01",
             "floor": "core:carpet_damp_01",
-            "ceiling": "core:ceiling_panel_01",
+            "ceiling": "core:ceiling_stained_01",
         },
         "spawn": {"x": -13.0, "z": 0.0, "yaw_degrees": 90.0},
-        "rooms": [living, kitchen, bedroom, lobby, corridor],
+        "rooms": rooms,
         "walls": walls,
         "ceiling_lights": lights,
         "props": props,
     }
+
+
+def maintained_demo_level() -> Dict:
+    """The Asset Demo building on the maintained material set.
+
+    A level carries one wall, one floor and one ceiling material, so the two
+    faces of the material comparison (maintained vs water damaged) have to be
+    two levels. This is the same building as ``asset_demo`` with the three
+    maintained defaults, which is exactly what makes the difference between
+    the sets obvious: walk the same rooms twice and only the surfaces change.
+    """
+    level = asset_demo_level()
+    level["id"] = "asset_maintained"
+    level["name"] = "Asset Demo (Maintained)"
+    level["defaults"] = dict(DEFAULTS)
+    return level
+
+
+def lighting_wing(doorway) -> tuple:
+    """The lighting demonstration wing east of the main building.
+
+    Layout (metres): one long spine corridor is x 6.4..40.4, z 5.2..8.8. Its
+    first 16 m carry the eight comparison rooms (four north at z 9.2..13.2, four
+    south at z 0.8..4.8, each with its own doorway); its last 18 m are deliberately
+    door-free and dim so two widely spaced fixtures read as bright pools with a
+    genuinely darker gap between them. Two 6x6 m rooms hang off the east end: a
+    bright one (four fixtures) and a dark one (no fixtures) joined by a wide
+    doorway, so the player can look from the dark room into the light.
+    """
+    rooms = []
+    walls = []
+    lights = []
+    props = []
+
+    # --- spine corridor -----------------------------------------------------
+    # The comparison rooms' doorways light the western gallery; the eastern
+    # stretch has no doors, so its two fixtures 12 m apart (their 6 m pools just
+    # meet in the middle) read as bright pool -> dim gap -> bright pool.
+    corridor = {"x": 6.4, "z": 5.2, "width": 34.0, "depth": 3.6, "height": 2.6}
+    rooms.append(corridor)
+    for x in (25.0, 37.0):
+        lights.append(light(x, 7.0))
+
+    # Corridor walls with one doorway into every comparison room.
+    door_offsets = (1.4, 5.4, 9.4, 13.4)
+    walls.append(wall(6.4, 8.8, 34.0, WALL_THICKNESS,
+                      openings=[doorway(offset) for offset in door_offsets]))
+    walls.append(wall(6.4, 4.8, 34.0, WALL_THICKNESS, height=4.2,
+                      openings=[doorway(offset) for offset in door_offsets]))
+    # North/south outer arms, the room rows' east walls and the corridor's east
+    # wall (with the doorway into the bright/dim pair). The lobby's east wall
+    # (built by the caller) forms the wing's west boundary. The 4.2 m heights
+    # close the tall comparison room; the extra height hides above the lower
+    # ceilings.
+    walls.append(wall(6.0, 12.0, WALL_THICKNESS, 1.6))
+    walls.append(wall(6.4, 13.2, 16.0, WALL_THICKNESS))
+    walls.append(wall(6.4, 0.4, 16.0, WALL_THICKNESS, height=4.2))
+    walls.append(wall(22.4, 9.2, WALL_THICKNESS, 4.0))
+    walls.append(wall(22.4, 0.8, WALL_THICKNESS, 4.0, height=4.2))
+    walls.append(wall(40.4, -2.4, WALL_THICKNESS, 16.0, height=4.2,
+                      openings=[{"kind": "door", "offset": 8.7, "width": 1.4, "height": 2.2, "sill": 0.0}]))
+
+    # --- light density row: 0, 1, 2 and 4 fixtures in equal rooms ----------
+    # Identical 4x4 m rooms at the same 3.0 m ceiling on the same materials:
+    # walking east along the corridor the doorways read dim -> under-lit ->
+    # normally lit -> bright.
+    for index, (room_x, fixture_positions) in enumerate(
+        [
+            (6.4, []),
+            (10.4, [(0.5, 0.5)]),
+            (14.4, [(0.35, 0.5), (0.65, 0.5)]),
+            (18.4, [(0.25, 0.25), (0.75, 0.25), (0.25, 0.75), (0.75, 0.75)]),
+        ]
+    ):
+        room_z = 9.2
+        rooms.append({"x": room_x, "z": room_z, "width": 4.0, "depth": 4.0, "height": WALL_HEIGHT})
+        if index > 0:
+            walls.append(wall(room_x, room_z, WALL_THICKNESS, 4.0))
+        for fx, fz in fixture_positions:
+            lights.append(light(room_x + fx * 4.0, room_z + fz * 4.0))
+
+    # --- fixture intensity pair --------------------------------------------
+    # Same 4x4 m room, same single fixture: 0.5 on the left, 1.8 on the right.
+    for room_x, intensity in ((6.4, 0.5), (10.4, 1.8)):
+        rooms.append({"x": room_x, "z": 0.8, "width": 4.0, "depth": 4.0, "height": WALL_HEIGHT})
+        lights.append(light(room_x + 2.0, 2.8, intensity=intensity))
+    walls.append(wall(10.4, 0.8, WALL_THICKNESS, 4.0))
+
+    # --- ceiling height pair ------------------------------------------------
+    # Same area, same two fixtures, same intensity: 2.6 m on the left (fixtures
+    # read higher and their pools tighter) and 4.2 m on the right.
+    for room_x, height in ((14.4, 2.6), (18.4, 4.2)):
+        rooms.append({"x": room_x, "z": 0.8, "width": 4.0, "depth": 4.0, "height": height})
+        lights.append(light(room_x + 1.4, 2.8))
+        lights.append(light(room_x + 2.6, 2.8))
+    walls.append(wall(14.4, 0.8, WALL_THICKNESS, 4.0))
+    # The tall room's walls must reach its 4.2 m ceiling or the gap above them
+    # would be visible from inside.
+    walls.append(wall(18.4, 0.8, WALL_THICKNESS, 4.0, height=4.2))
+
+    # --- doorway bleed: bright room facing a dark room ----------------------
+    bright = {"x": 40.8, "z": 4.0, "width": 6.0, "depth": 6.0, "height": WALL_HEIGHT}
+    dark = {"x": 40.8, "z": -2.0, "width": 6.0, "depth": 6.0, "height": WALL_HEIGHT}
+    rooms.extend([bright, dark])
+    for fx, fz in ((0.25, 0.25), (0.75, 0.25), (0.25, 0.75), (0.75, 0.75)):
+        lights.append(light(bright["x"] + fx * 6.0, bright["z"] + fz * 6.0))
+    # The two rooms share a wall with a wide, floor-level doorway, so standing
+    # in the dark room and looking north shows the light spilling through.
+    walls.append(wall(40.8, 4.0, 6.0, WALL_THICKNESS,
+                      openings=[{"kind": "door", "offset": 2.3, "width": 1.4, "height": 2.2, "sill": 0.0}]))
+    walls.append(wall(40.8, 10.0, 6.0, WALL_THICKNESS))
+    walls.append(wall(40.8, -2.4, 6.0, WALL_THICKNESS))
+    walls.append(wall(46.8, -2.0, WALL_THICKNESS, 12.4))
+
+    # --- prop lighting demonstration ---------------------------------------
+    # Three props in the four-fixture room: directly beneath one fixture,
+    # between fixtures, and in the darker corner. They also keep the environment
+    # lighting on real prop geometry easy to demonstrate up close.
+    props.extend(
+        [
+            prop("core:chair", 19.4, 10.2, rotation=180.0, solid=True),
+            prop("core:crate", 20.4, 12.0, rotation=18.0, solid=True),
+            prop("core:plant", 21.8, 12.8),
+            # One extra spooner-man under the bright room's first fixture, so his
+            # shading reads clearly against the doorway spill.
+            prop("spooner-man", 42.3, 5.5, rotation=20.0),
+        ]
+    )
+    return rooms, walls, lights, props
 
 
 def assign_prop_ids(level: Dict) -> None:
@@ -385,7 +537,10 @@ def assign_prop_ids(level: Dict) -> None:
 def main() -> int:
     os.makedirs(LEVELS_DIR, exist_ok=True)
     os.makedirs(CUSTOM_LEVELS_DIR, exist_ok=True)
-    game_levels = [(asset_demo_level(), CUSTOM_LEVELS_DIR)]
+    game_levels = [
+        (asset_demo_level(), CUSTOM_LEVELS_DIR),
+        (maintained_demo_level(), CUSTOM_LEVELS_DIR),
+    ]
     dev_fixtures = [(showcase_level(), LEVELS_DIR), (stress_level(), LEVELS_DIR)]
     for level, directory in game_levels + dev_fixtures:
         assign_prop_ids(level)

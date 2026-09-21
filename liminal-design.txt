@@ -610,6 +610,7 @@ Examples of permanent material codes:
 - core:carpet_beige_01
 - core:carpet_damp_01
 - core:ceiling_panel_01
+- core:ceiling_stained_01
 
 A "material" can represent more than a raw image.
 

@@ -96,15 +96,55 @@
     return value < 0 ? 0 : value > 255 ? 255 : value | 0;
   }
 
+  /** Deterministic per-texel hash in [0, 1); the integer mix of src/render.rs. */
+  function hash01(x, y, seed) {
+    let h = Math.imul(x | 0, 0x9e3779b9) ^ Math.imul(y | 0, 0x85ebca6b) ^ Math.imul(seed | 0, 0xc2b2ae35);
+    h ^= h >>> 15;
+    h = Math.imul(h, 0x2545f491);
+    h ^= h >>> 13;
+    h = Math.imul(h, 0x27d4eb2d);
+    h ^= h >>> 16;
+    return (h >>> 8) / 16777216;
+  }
+
+  /** Tileable value noise: the wrapped-lattice sampler of src/render.rs. */
+  function tileNoise(x, y, size, period, seed) {
+    const p = Math.max(1, period | 0);
+    const scale = p / size;
+    const fx = x * scale;
+    const fy = y * scale;
+    const x0 = Math.floor(fx);
+    const y0 = Math.floor(fy);
+    const tx = fx - x0;
+    const ty = fy - y0;
+    const sx = tx * tx * (3 - 2 * tx);
+    const sy = ty * ty * (3 - 2 * ty);
+    const wrap = (v) => ((v % p) + p) % p;
+    const v00 = hash01(wrap(x0), wrap(y0), seed);
+    const v10 = hash01(wrap(x0 + 1), wrap(y0), seed);
+    const v01 = hash01(wrap(x0), wrap(y0 + 1), seed);
+    const v11 = hash01(wrap(x0 + 1), wrap(y0 + 1), seed);
+    const top = v00 + (v10 - v00) * sx;
+    const bottom = v01 + (v11 - v01) * sx;
+    return top + (bottom - top) * sy;
+  }
+
+  function tileNoise2(x, y, size, coarse, fine, seed) {
+    const value = tileNoise(x, y, size, coarse, seed) * 0.65
+      + tileNoise(x, y, size, fine, seed + 7) * 0.35;
+    return value < 0 ? 0 : value > 1 ? 1 : value;
+  }
+
   /**
-   * Builds one of the game's procedural 64x64 tiles as ImageData, mirroring
+   * Builds one of the game's procedural surface tiles as ImageData, mirroring
    * generate_wall_texture / generate_carpet_texture / generate_ceiling_texture
-   * in src/render.rs so the preview matches in-game materials.
+   * in src/render.rs so the preview matches in-game materials. Wallpaper and
+   * ceiling cover two metres per repeat, the carpet one.
    */
   function paintTile(kind) {
     const doc = root && root.document;
     if (!doc || typeof doc.createElement !== 'function') return null;
-    const size = 64;
+    const size = kind === 'floor' ? 64 : 128;
     const canvas = doc.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -115,39 +155,55 @@
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
         const i = (y * size + x) * 4;
+        let r = 0;
+        let g = 0;
+        let b = 0;
         if (kind === 'wall') {
-          const stripe = Math.abs((x % 16) - 8) / 8;
-          const stripeFactor = 0.94 + 0.06 * stripe;
-          const weave = (x + y) % 2 === 0 ? 1.0 : 0.97;
-          const groove = x % 4 === 0 ? 0.95 : 1.0;
-          const total = stripeFactor * weave * groove;
-          data[i] = clampByte(245 * total);
-          data[i + 1] = clampByte(238 * total);
-          data[i + 2] = clampByte(218 * total);
+          const phase = x % 16;
+          let tone = phase < 7 ? 0.997 : 0.928;
+          if (phase === 7 || phase === 15) tone *= 0.96;
+          else if (phase === 3) tone *= 1.014;
+          const fibre = (hash01(x, y, 11) - 0.5) * 0.03;
+          const age = tileNoise2(x, y, 128, 6, 17, 23) - 0.5;
+          tone *= 1 + fibre + 0.075 * age;
+          r = 243 * tone;
+          g = 237 * tone * (1 - 0.008 * age);
+          b = 220 * tone * (1 - 0.022 * age);
         } else if (kind === 'floor') {
-          const lx = x % 4;
-          const ly = y % 4;
-          const isCenter = (lx === 1 || lx === 2) && (ly === 1 || ly === 2);
-          const isCrevice = lx === 0 || ly === 0;
-          const loop = isCenter ? 1.05 : isCrevice ? 0.92 : 1.0;
-          const stipple = (((x * 37 + y * 17) % 7) / 7) * 0.06 - 0.03;
-          const factor = Math.max(0.85, Math.min(1.15, loop + stipple));
-          data[i] = clampByte(232 * factor);
-          data[i + 1] = clampByte(224 * factor);
-          data[i + 2] = clampByte(212 * factor);
+          const speckle = hash01(x, y, 31) - 0.5;
+          const dashV = hash01(x, y >> 1, 37) - 0.5;
+          const dashH = hash01(x >> 1, y, 41) - 0.5;
+          const tuft = tileNoise(x, y, 64, 21, 45) - 0.5;
+          const mottle = tileNoise(x, y, 64, 5, 43) - 0.5;
+          const broad = tileNoise(x, y, 64, 13, 47) - 0.5;
+          const warm = tileNoise(x, y, 64, 3, 53) - 0.5;
+          const tone = 1 + 0.07 * speckle + 0.05 * dashV + 0.035 * dashH
+            + 0.035 * tuft + 0.06 * mottle + 0.04 * broad;
+          r = 231 * tone * (1 + 0.02 * warm);
+          g = 223 * tone;
+          b = 210 * tone * (1 - 0.028 * warm);
         } else {
-          const isBorder = x <= 1 || x >= size - 2 || y <= 1 || y >= size - 2;
-          if (isBorder) {
-            data[i] = 160;
-            data[i + 1] = 160;
-            data[i + 2] = 155;
-          } else {
-            const factor = (x * 13 + y * 29) % 19 === 0 ? 0.88 : 1.0;
-            data[i] = clampByte(245 * factor);
-            data[i + 1] = clampByte(245 * factor);
-            data[i + 2] = clampByte(240 * factor);
-          }
+          const tx = x % 64;
+          const ty = y % 64;
+          const edge = Math.min(tx, 63 - tx, ty, 63 - ty);
+          const tile = Math.floor(x / 64) + 2 * Math.floor(y / 64);
+          const tileTone = 1 + (hash01(tile, tile * 7, 61) - 0.5) * 0.024;
+          const fibre = (hash01(x, y, 67) - 0.5) * 0.045;
+          const pores = hash01(x, y, 71) > 0.945 ? -0.075 : 0;
+          const blotch = tileNoise(x, y, 128, 9, 73) - 0.5;
+          const field = tileTone * (1 + fibre + pores + 0.035 * blotch);
+          const dipTable = [0.52, 0.66, 0.84, 0.95];
+          const dip = edge < 4 ? dipTable[edge] : 1;
+          const barMix = edge < 2 ? 1 - edge * 0.35 : 0;
+          const tileColor = [247, 247, 242];
+          const barColor = [168, 168, 162];
+          r = tileColor[0] * field * dip * (1 - barMix) + barColor[0] * barMix * field;
+          g = tileColor[1] * field * dip * (1 - barMix) + barColor[1] * barMix * field;
+          b = tileColor[2] * field * dip * (1 - barMix) + barColor[2] * barMix * field;
         }
+        data[i] = clampByte(r);
+        data[i + 1] = clampByte(g);
+        data[i + 2] = clampByte(b);
         data[i + 3] = 255;
       }
     }
@@ -343,9 +399,9 @@
       this._gridBuffer = gl.createBuffer();
       this._textures = {
         white: this._uploadTexture(new Uint8Array(16).fill(255), 2, 2),
-        wall: this._uploadTexture(paintTile('wall'), 64, 64),
+        wall: this._uploadTexture(paintTile('wall'), 128, 128),
         floor: this._uploadTexture(paintTile('floor'), 64, 64),
-        ceiling: this._uploadTexture(paintTile('ceiling'), 64, 64)
+        ceiling: this._uploadTexture(paintTile('ceiling'), 128, 128)
       };
       this._uploadGrid();
 

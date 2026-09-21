@@ -26,8 +26,10 @@ nothing can flicker in the depth buffer.
 
 from __future__ import annotations
 
+import math
+
 import palette
-from mesh import PropBuilder
+from mesh import FACE_KEYS, PropBuilder
 
 # Triangle targets from the pack spec (build.py enforces the 500 preferred /
 # 1500 hard budget itself; these are what each prop aims for).
@@ -114,25 +116,80 @@ def _paint_bedding(tex, region: str, base: tuple[int, int, int], seed: int, stri
     tex.border(region, palette.shade(base, 0.80), width=1, alpha=55)
 
 
+# ------------------------------------------------------------------- helpers
+
+
+def _solid(p: PropBuilder, center, size, uv, color, hidden=("-y",), colors=None, rotation=None) -> None:
+    """A box that skips the faces a prop can never show.
+
+    Every hidden face is two triangles and two vertices of the PocketCHIP
+    budget, and internal faces (a cushion's underside, a panel face buried in
+    another panel) are never visible from any legal camera angle.
+    """
+    face_uv = dict(uv) if isinstance(uv, dict) else {key: uv for key in FACE_KEYS}
+    for key in hidden:
+        face_uv[key] = None
+    p.box(center, size, uv=face_uv, color=color, colors=colors, rotation=rotation)
+
+
+def _split_cell(tex, name: str, extra: str, side: str = "v") -> None:
+    """Divides a texture region in two and registers the second half.
+
+    The pack's 64/128 canvases are split by ``tex.auto`` into equal cells; a
+    prop that needs one more small swatch (a cushion's contrasting fabric, a
+    handle's metal) can take half of an existing cell instead of growing the
+    canvas or adding a whole cell.
+    """
+    x, y, w, h = tex.cell(name)
+    if side == "v":
+        half = max(8, w // 2)
+        tex.region(name, (x, y, half, h))
+        tex.region(extra, (x + half, y, w - half, h))
+    else:
+        half = max(8, h // 2)
+        tex.region(name, (x, y, w, half))
+        tex.region(extra, (x, y + half, w, h - half))
+
+
+def _cushion(p: PropBuilder, center, size, uv, color, top: float = 0.03, inset: float = 0.024) -> None:
+    """A cushion: the padded block plus its inset top puff.
+
+    The second, smaller box is what stops a sofa seat from reading as a stack
+    of crates -- it gives the cushion a soft, slightly domed top edge for two
+    extra triangles and no texture work.
+    """
+    cx, cy, cz = center
+    sx, sy, sz = size
+    _solid(p, (cx, cy, cz), (sx, sy, sz), uv, color)
+    _solid(p, (cx, cy + sy * 0.5 + top * 0.5, cz), (sx - inset * 2, top, sz - inset * 2), uv,
+           palette.shade(color, 1.05), colors={"+y": palette.shade(color, 1.09)})
+
+
 # ----------------------------------------------------------------- furniture
 
 
 def build_couch(p: PropBuilder) -> None:
-    """Couch: sprung base on wooden feet, back panel, two padded arms, three
-    seat and three back cushions."""
+    """Couch: wooden feet, a seat frame, panel arms with padded caps, a full
+    width back under a crest rail, three seat and three back cushions."""
     size = p.size  # [2.0, 0.9, 0.9]
     tex = p.set_texture(128, seed=41)
     tex.auto("body", "seat", "back", "wood")
 
-    body = palette.hex_to_rgb(palette.FABRIC_BROWN)
-    seat = palette.mix(palette.hex_to_rgb(palette.FABRIC_TAN), body, 0.35)
-    back = palette.mix(palette.hex_to_rgb(palette.FABRIC_TAN), body, 0.55)
+    body = palette.shade(palette.hex_to_rgb(palette.FABRIC_BROWN), 0.92)
+    seat = palette.hex_to_rgb(palette.FABRIC_TAN)
+    back = palette.mix(palette.hex_to_rgb(palette.FABRIC_TAN), body, 0.45)
+    pillow = palette.mix(palette.hex_to_rgb(palette.FABRIC_OLIVE), body, 0.52)
     wood = palette.hex_to_rgb(palette.WOOD_DARK)
+
+    # The wood cell is split so the throw cushions get their own woven swatch
+    # (a shared region would just be the frame fabric multiplied into mud).
+    _split_cell(tex, "wood", "pillow")
 
     _paint_fabric(tex, "body", body, seed=101)
     _paint_cushion(tex, "seat", seat, seed=107)
     _paint_cushion(tex, "back", back, seed=113)
     _paint_wood(tex, "wood", wood, seed=127, wear=1.4)
+    _paint_fabric(tex, "pillow", pillow, seed=131)
 
     half_w = size[0] * 0.5  # 1.00
     half_d = size[2] * 0.5  # 0.45
@@ -140,37 +197,57 @@ def build_couch(p: PropBuilder) -> None:
     seat_uv = tex.uv("seat")
     back_uv = tex.uv("back")
     wood_uv = tex.uv("wood")
+    pillow_uv = tex.uv("pillow")
 
-    # Four turned feet carry the base 7 cm off the floor and define y = 0.
+    frame_top = 0.32          # seat platform
+    arm_x = half_w - 0.085    # arm centre: outer face owns the footprint
+    arm_top = 0.60            # where the padded roll takes over
+    arm_front = 0.45          # the arms run to the front edge of the footprint
+    arm_back = -0.32          # sunk 3 cm into the back panel
+    back_front = -0.29        # the back panel's front face
+
+    # Four block feet, then the seat frame: the frame's front face is the apron
+    # that carries the couch's silhouette at floor level.
     for sx in (-1.0, 1.0):
         for sz in (-1.0, 1.0):
-            p.cylinder((sx * (half_w - 0.12), 0.0, sz * (half_d - 0.07)), 0.045, 0.075, segments=6,
-                       uv=wood_uv, color=_tint(wood, 0.5))
-    # Base block: widest and deepest part, so it owns the catalogue footprint.
-    p.box((0.0, 0.22, 0.0), (size[0], 0.30, size[2]), uv=body_uv, color=_tint(body))
-    # Back panel rises to the full catalogue height; cushions cover its front.
-    p.box((0.0, 0.63, -half_d + 0.085), (size[0], 0.54, 0.17), uv=body_uv,
-          color=_tint(palette.shade(body, 0.94)))
-    # Arms + padded caps: the couch's main silhouette cue.
+            _solid(p, (sx * 0.88, 0.06, sz * 0.36), (0.06, 0.12, 0.06), wood_uv, _tint(wood, 0.5))
+    _solid(p, (0.0, 0.22, 0.0), (size[0], frame_top - 0.12, size[2]), body_uv, _tint(body),
+           hidden=("-y",))
+    # Back panel spans the full width *behind* the arms and rises to the
+    # catalogue height; the crest rail caps it and breaks the flat top edge.
+    _solid(p, (0.0, 0.60, -half_d + 0.08), (size[0], 0.56, 0.16), body_uv,
+           _tint(palette.shade(body, 0.94)), hidden=("-y", "+y"))
+    _solid(p, (0.0, 0.87, -half_d + 0.095), (size[0], 0.06, 0.19), body_uv,
+           _tint(palette.shade(body, 1.02)), hidden=("-y",),
+           colors={"+y": _tint(palette.shade(body, 1.08))})
+    # Arms: a panel from the seat platform to 0.60, capped by a 6-segment roll
+    # that is the one soft silhouette cue on an otherwise angular frame.
     for sx in (-1.0, 1.0):
-        p.box((sx * (half_w - 0.09), 0.50, 0.05), (0.18, 0.28, 0.70), uv=body_uv, color=_tint(body))
-        p.box((sx * (half_w - 0.09), 0.66, 0.05), (0.16, 0.08, 0.62), uv=body_uv,
-              color=_tint(palette.shade(body, 1.05)), colors={"+y": _tint(palette.shade(body, 1.10))})
-    # Three seat cushions: two clear divisions down the seat.
-    for sx in (-1.0, 0.0, 1.0):
-        p.box((sx * 0.54, 0.44, 0.12), (0.53, 0.14, 0.64), uv=seat_uv, color=_tint(seat))
-        p.box((sx * 0.54, 0.525, 0.12), (0.49, 0.05, 0.60), uv=seat_uv,
-              color=_tint(palette.shade(seat, 1.06)))
-    # Matching back cushions lean on the back panel.
-    for sx in (-1.0, 0.0, 1.0):
-        p.box((sx * 0.54, 0.58, -0.23), (0.53, 0.36, 0.12), uv=back_uv, color=_tint(back))
-        p.box((sx * 0.54, 0.58, -0.15), (0.47, 0.30, 0.06), uv=back_uv,
-              color=_tint(palette.shade(back, 1.08)))
-    # Two loose cushions against the arms: the only deliberately soft note.
+        _solid(p, (sx * arm_x, (frame_top + arm_top) * 0.5, (arm_back + arm_front) * 0.5),
+               (0.17, arm_top - frame_top, arm_front - arm_back), body_uv, _tint(body),
+               hidden=("-y", "+y"))
+        p.cylinder((sx * arm_x, arm_top, arm_back - 0.02), 0.085, arm_front - arm_back - 0.01,
+                   segments=6, axis="z", side_uv=body_uv, cap_uv=body_uv,
+                   color=_tint(palette.shade(body, 1.06)), shades=False, proxy=False)
+    # Three seat cushions between the arms, each with a soft top puff.
+    for index in range(3):
+        cx = (index - 1) * 0.56
+        _cushion(p, (cx, frame_top + 0.07, 0.07), (0.535, 0.14, 0.70), seat_uv, _tint(seat))
+    # Matching back cushions, leaning on the back panel at slightly different
+    # angles, each with a shallow front pad so the row reads as loose cushions
+    # instead of one extruded block.
+    for index, lean in enumerate((-6.0, -8.0, -5.0)):
+        cx = (index - 1) * 0.56
+        _solid(p, (cx, 0.64, -0.18), (0.535, 0.36, 0.20), back_uv, _tint(back),
+               hidden=("-y",), rotation=(lean, 0.0, 0.0))
+        _solid(p, (cx, 0.64, -0.115), (0.47, 0.30, 0.05), back_uv,
+               _tint(palette.shade(back, 1.07)), hidden=("-y",), rotation=(lean, 0.0, 0.0))
+    # Two loose cushions tucked into the corners: the only deliberately soft
+    # note, in the pack's muted olive so they read against the brown frame.
     for sx in (-1.0, 1.0):
-        p.box((sx * 0.56, 0.63, -0.12), (0.32, 0.28, 0.10), uv=body_uv,
-              color=_tint(palette.shade(body, 0.90)), rotation=(0.0, 0.0, sx * 12.0))
-    p.add_note("three seat/back cushions; turned feet; two arm cushions")
+        _solid(p, (sx * 0.575, 0.62, -0.03), (0.32, 0.30, 0.13), pillow_uv,
+               _tint(pillow), hidden=(), rotation=(0.0, sx * 18.0, sx * -7.0))
+    p.add_note("frame, rolled arm panels, crest rail; three seat/back cushions; block feet")
 
 
 def build_armchair(p: PropBuilder) -> None:
@@ -179,15 +256,19 @@ def build_armchair(p: PropBuilder) -> None:
     tex = p.set_texture(128, seed=53)
     tex.auto("body", "seat", "back", "wood")
 
-    body = palette.hex_to_rgb(palette.FABRIC_BROWN)
-    seat = palette.mix(palette.hex_to_rgb(palette.FABRIC_TAN), body, 0.35)
-    back = palette.mix(palette.hex_to_rgb(palette.FABRIC_TAN), body, 0.55)
+    body = palette.shade(palette.hex_to_rgb(palette.FABRIC_BROWN), 0.92)
+    seat = palette.hex_to_rgb(palette.FABRIC_TAN)
+    back = palette.mix(palette.hex_to_rgb(palette.FABRIC_TAN), body, 0.45)
+    pillow = palette.mix(palette.hex_to_rgb(palette.FABRIC_OLIVE), body, 0.52)
     wood = palette.hex_to_rgb(palette.WOOD_DARK)
+
+    _split_cell(tex, "wood", "pillow")
 
     _paint_fabric(tex, "body", body, seed=201)
     _paint_cushion(tex, "seat", seat, seed=207)
     _paint_cushion(tex, "back", back, seed=213)
     _paint_wood(tex, "wood", wood, seed=227, wear=1.4)
+    _paint_fabric(tex, "pillow", pillow, seed=231)
 
     half_w = size[0] * 0.5  # 0.45
     half_d = size[2] * 0.5  # 0.45
@@ -195,33 +276,48 @@ def build_armchair(p: PropBuilder) -> None:
     seat_uv = tex.uv("seat")
     back_uv = tex.uv("back")
     wood_uv = tex.uv("wood")
+    pillow_uv = tex.uv("pillow")
+
+    frame_top = 0.32
+    arm_top = 0.56
+    arm_x = half_w - 0.075
+    arm_front = 0.45
+    arm_back = -0.32
+    back_front = -0.29
 
     for sx in (-1.0, 1.0):
         for sz in (-1.0, 1.0):
-            p.cylinder((sx * (half_w - 0.10), 0.0, sz * (half_d - 0.11)), 0.04, 0.075, segments=6,
-                       uv=wood_uv, color=_tint(wood, 0.5))
-    p.box((0.0, 0.22, 0.0), (size[0], 0.30, size[2]), uv=body_uv, color=_tint(body))
-    p.box((0.0, 0.63, -half_d + 0.085), (size[0], 0.54, 0.17), uv=body_uv,
-          color=_tint(palette.shade(body, 0.94)))
+            _solid(p, (sx * 0.36, 0.06, sz * 0.36), (0.06, 0.12, 0.06), wood_uv, _tint(wood, 0.5))
+    _solid(p, (0.0, 0.22, 0.0), (size[0], frame_top - 0.12, size[2]), body_uv, _tint(body),
+           hidden=("-y",))
+    _solid(p, (0.0, 0.60, -half_d + 0.08), (size[0], 0.56, 0.16), body_uv,
+           _tint(palette.shade(body, 0.94)), hidden=("-y", "+y"))
+    _solid(p, (0.0, 0.87, -half_d + 0.095), (size[0], 0.06, 0.19), body_uv,
+           _tint(palette.shade(body, 1.02)), hidden=("-y",),
+           colors={"+y": _tint(palette.shade(body, 1.08))})
     for sx in (-1.0, 1.0):
-        p.box((sx * (half_w - 0.08), 0.50, 0.05), (0.16, 0.28, 0.70), uv=body_uv, color=_tint(body))
-        p.box((sx * (half_w - 0.08), 0.66, 0.05), (0.14, 0.08, 0.62), uv=body_uv,
-              color=_tint(palette.shade(body, 1.05)), colors={"+y": _tint(palette.shade(body, 1.10))})
+        _solid(p, (sx * arm_x, (frame_top + arm_top) * 0.5, (arm_back + arm_front) * 0.5),
+               (0.15, arm_top - frame_top, arm_front - arm_back), body_uv, _tint(body),
+               hidden=("-y", "+y"))
+        p.cylinder((sx * arm_x, arm_top, arm_back - 0.02), 0.07, arm_front - arm_back - 0.01,
+                   segments=6, axis="z", side_uv=body_uv, cap_uv=body_uv,
+                   color=_tint(palette.shade(body, 1.06)), shades=False, proxy=False)
     # One broad seat cushion and one back cushion: the couch's three, merged.
-    p.box((0.0, 0.44, 0.12), (0.56, 0.14, 0.64), uv=seat_uv, color=_tint(seat))
-    p.box((0.0, 0.525, 0.12), (0.50, 0.07, 0.58), uv=seat_uv, color=_tint(palette.shade(seat, 1.06)))
-    p.box((0.0, 0.58, -0.23), (0.56, 0.36, 0.12), uv=back_uv, color=_tint(back))
-    p.box((0.0, 0.58, -0.15), (0.50, 0.30, 0.06), uv=back_uv, color=_tint(palette.shade(back, 1.08)))
-    # A front apron and one loose cushion, as on the couch.
-    p.box((0.0, 0.12, 0.425), (size[0] - 0.04, 0.10, 0.04), uv=body_uv,
-          color=_tint(palette.shade(body, 0.90)))
-    p.box((0.0, 0.63, -0.12), (0.32, 0.28, 0.10), uv=body_uv,
-          color=_tint(palette.shade(body, 0.90)), rotation=(0.0, 0.0, 12.0))
+    _cushion(p, (0.0, frame_top + 0.07, 0.07), (0.58, 0.14, 0.70), seat_uv, _tint(seat),
+             top=0.035, inset=0.03)
+    _solid(p, (0.0, 0.62, -0.18), (0.58, 0.32, 0.18), back_uv, _tint(back), hidden=("-y",),
+           rotation=(-7.0, 0.0, 0.0))
+    _solid(p, (0.0, 0.62, -0.13), (0.51, 0.26, 0.05), back_uv, _tint(palette.shade(back, 1.07)),
+           hidden=("-y",), rotation=(-7.0, 0.0, 0.0))
+    # A single loose cushion tucked against one arm.
+    _solid(p, (0.15, 0.60, -0.04), (0.30, 0.28, 0.12), pillow_uv,
+           _tint(pillow), hidden=(), rotation=(0.0, 24.0, -6.0))
     p.add_note("couch vocabulary at 0.9 m; one seat and one back cushion")
 
 
 def build_chair(p: PropBuilder) -> None:
-    """Chair: wooden seat on four turned legs, two stiles, three back slats."""
+    """Chair: wooden seat on four turned legs, two raked stiles, two slats and
+    a top rail, with four aprons under the seat."""
     size = p.size  # [0.5, 0.9, 0.5]
     tex = p.set_texture(64, seed=67)
     tex.auto("seat", "wood", "back", "worn")
@@ -240,26 +336,42 @@ def build_chair(p: PropBuilder) -> None:
     back_uv = tex.uv("back")
     worn_uv = tex.uv("worn")
 
-    # Seat slab: 0.445 m sitting height and the catalogue width exactly.
-    p.box((0.0, 0.445, 0.0), (size[0], 0.05, size[2]),
-          uv={"+y": seat_uv, "-y": worn_uv, "+x": seat_uv, "-x": seat_uv, "+z": seat_uv, "-z": seat_uv},
-          color=_tint(pale), colors={"+y": _tint(palette.shade(pale, 1.08))})
+    seat_top = 0.45
+    seat_w, seat_d = 0.48, 0.46
+    # The back leans 4 degrees: stiles, slats and rail all sit on one raked
+    # line, so the chair reads as a single object instead of a stool with a
+    # ladder bolted on.
+    rake = 4.0
+    back_ref_y = 0.42
+    back_ref_z = -0.212
+
+    def back_z(y: float) -> float:
+        return back_ref_z - (y - back_ref_y) * math.tan(math.radians(rake))
+
+    # Seat slab: the catalogue width, 0.45 m sitting height.
+    _solid(p, (0.0, seat_top - 0.025, 0.015), (seat_w, 0.05, seat_d), seat_uv, _tint(pale),
+           hidden=("-y",), colors={"+y": _tint(palette.shade(pale, 1.08))})
     # Four turned legs; their tops sink into the seat slab.
     for sx in (-1.0, 1.0):
         for sz in (-1.0, 1.0):
-            p.cylinder((sx * 0.19, 0.0, sz * 0.19), 0.021, 0.44, segments=6, uv=wood_uv, color=_tint(wood))
-    # Rear stiles run from below the seat to the full catalogue height.
+            p.cylinder((sx * 0.20, 0.0, sz * 0.19 + 0.015), 0.021, seat_top - 0.02, segments=6,
+                       taper=0.82, uv=wood_uv, color=_tint(wood))
+    # Rear stiles and the back's slats.
     for sx in (-1.0, 1.0):
-        p.box((sx * 0.185, (0.40 + size[1]) * 0.5, -0.2125), (0.035, size[1] - 0.40, 0.035),
-              uv=worn_uv, color=_tint(dark))
-    for index in range(3):
-        p.box((0.0, 0.56 + index * 0.14, -0.2125), (0.38, 0.07, 0.03), uv=back_uv, color=_tint(pale))
+        _solid(p, (sx * 0.20, (back_ref_y + size[1]) * 0.5, back_z((back_ref_y + size[1]) * 0.5)),
+               (0.04, size[1] - back_ref_y, 0.04), worn_uv, _tint(dark), hidden=("-y",),
+               rotation=(-rake, 0.0, 0.0))
+    for y, height, width in ((0.545, 0.06, 0.43), (0.70, 0.06, 0.43), (0.855, 0.09, 0.44)):
+        _solid(p, (0.0, y, back_z(y)), (width, height, 0.03), back_uv, _tint(pale), hidden=("-y",),
+               rotation=(-rake, 0.0, 0.0))
     # Four aprons tie the legs together just under the seat.
     for sz in (-1.0, 1.0):
-        p.box((0.0, 0.405, sz * 0.19), (0.38, 0.07, 0.03), uv=worn_uv, color=_tint(dark))
+        _solid(p, (0.0, 0.3775, sz * 0.19 + 0.015), (0.38, 0.045, 0.03), worn_uv, _tint(dark),
+               hidden=("-y",))
     for sx in (-1.0, 1.0):
-        p.box((sx * 0.19, 0.405, 0.0), (0.03, 0.07, 0.38), uv=worn_uv, color=_tint(dark))
-    p.add_note("four turned legs, three back slats, four aprons")
+        _solid(p, (sx * 0.20, 0.3775, 0.015), (0.03, 0.045, 0.34), worn_uv, _tint(dark),
+               hidden=("-y",))
+    p.add_note("raked back (4 deg) with two slats and a top rail; four turned legs, four aprons")
 
 
 def build_table(p: PropBuilder) -> None:
@@ -283,22 +395,25 @@ def build_table(p: PropBuilder) -> None:
     apron_uv = tex.uv("apron")
 
     # The top slab owns the catalogue width and depth.
-    p.box((0.0, 0.725, 0.0), (size[0], 0.05, size[2]),
-          uv={"+y": top_uv, "-y": None, "+x": edge_uv, "-x": edge_uv, "+z": edge_uv, "-z": edge_uv},
-          color=_tint(pale), colors={"+y": _tint(palette.shade(pale, 1.06))})
+    _solid(p, (0.0, 0.728, 0.0), (size[0], 0.044, size[2]),
+           {"+y": top_uv, "-y": None, "+x": edge_uv, "-x": edge_uv, "+z": edge_uv, "-z": edge_uv},
+           _tint(pale), hidden=("-y",), colors={"+y": _tint(palette.shade(pale, 1.06))})
     # An inset frame under the slab keeps the top from reading as a floating card.
-    p.box((0.0, 0.685, 0.0), (size[0] - 0.10, 0.05, size[2] - 0.10), uv=apron_uv, color=_tint(dark))
+    _solid(p, (0.0, 0.688, 0.0), (size[0] - 0.10, 0.048, size[2] - 0.10), apron_uv, _tint(dark),
+           hidden=("-y", "+y"))
+    # Square legs, tapered to a slimmer foot the way a plain timber leg is.
     for sx in (-1.0, 1.0):
         for sz in (-1.0, 1.0):
-            p.box((sx * (size[0] * 0.5 - 0.08), 0.36, sz * (size[2] * 0.5 - 0.07)), (0.075, 0.72, 0.075),
-                  uv=wood_uv, color=_tint(wood))
+            p.cylinder((sx * (size[0] * 0.5 - 0.08), 0.0, sz * (size[2] * 0.5 - 0.07)), 0.045,
+                       0.706, segments=4, taper=0.86, rotation=0.7854,
+                       side_uv=wood_uv, cap_uv=wood_uv, color=_tint(wood))
     for sz in (-1.0, 1.0):
-        p.box((0.0, 0.635, sz * (size[2] * 0.5 - 0.085)), (size[0] - 0.20, 0.07, 0.03), uv=apron_uv,
+        p.box((0.0, 0.638, sz * (size[2] * 0.5 - 0.085)), (size[0] - 0.20, 0.07, 0.03), uv=apron_uv,
               color=_tint(wood))
     for sx in (-1.0, 1.0):
-        p.box((sx * (size[0] * 0.5 - 0.095), 0.635, 0.0), (0.03, 0.07, size[2] - 0.18), uv=apron_uv,
+        p.box((sx * (size[0] * 0.5 - 0.095), 0.638, 0.0), (0.03, 0.07, size[2] - 0.18), uv=apron_uv,
               color=_tint(wood))
-    p.add_note("slab top, four square legs, four aprons")
+    p.add_note("slab top, four tapered square legs, four aprons")
 
 
 def build_desk(p: PropBuilder) -> None:
@@ -323,7 +438,7 @@ def build_desk(p: PropBuilder) -> None:
     drawer_uv = tex.uv("drawer")
     metal_uv = tex.uv("metal")
 
-    p.box((0.0, 0.7275, 0.0), (size[0], 0.045, size[2]),
+    p.box((0.0, 0.729, 0.0), (size[0], 0.042, size[2]),
           uv={"+y": top_uv, "-y": None, "+x": body_uv, "-x": body_uv, "+z": body_uv, "-z": body_uv},
           color=_tint(top), colors={"+y": _tint(palette.shade(top, 1.05))})
     # Slab ends instead of legs: the desk's institutional read.
@@ -333,13 +448,19 @@ def build_desk(p: PropBuilder) -> None:
     # Modesty panel across the back, clear of the floor.
     p.box((0.0, 0.50, -(size[2] * 0.5 - 0.03)), (size[0] - 0.08, 0.36, 0.03), uv=body_uv,
           color=_tint(palette.shade(body, 0.92)))
-    # Pedestal with two drawers and bar handles.
-    p.box((-0.52, 0.33, 0.0), (0.46, 0.66, 0.60), uv=body_uv, color=_tint(body))
+    # Pedestal with two drawers and bar handles, lifted on a recessed plinth.
+    p.box((-0.52, 0.025, 0.01), (0.40, 0.05, 0.52), uv=body_uv,
+          color=_tint(palette.shade(body, 0.86)), proxy=False)
+    p.box((-0.52, 0.355, 0.0), (0.46, 0.61, 0.60), uv=body_uv, color=_tint(body))
     for cy in (0.50, 0.27):
         p.box((-0.52, cy, 0.295), (0.40, 0.16, 0.03), uv=drawer_uv, color=_tint(drawer))
         p.box((-0.52, cy, 0.315), (0.12, 0.025, 0.02), uv=metal_uv, color=_tint(metal, 0.45))
-    # Knee-hole shelf and the shallow centre drawer under the top.
-    p.box((0.30, 0.10, 0.0), (0.60, 0.03, 0.60), uv=body_uv, color=_tint(palette.shade(body, 0.95)))
+    # Knee-hole shelf, lifted on two stub supports, and the shallow centre
+    # drawer under the top.
+    p.box((0.30, 0.14, 0.0), (0.60, 0.035, 0.60), uv=body_uv, color=_tint(palette.shade(body, 0.95)))
+    for sz in (-1.0, 1.0):
+        p.box((0.30, 0.07, sz * 0.27), (0.56, 0.14, 0.04), uv=body_uv,
+              color=_tint(palette.shade(body, 0.9)), proxy=False)
     p.box((0.25, 0.645, 0.0), (size[0] - 0.60, 0.13, size[2] - 0.12), uv=body_uv, color=_tint(body))
     p.box((0.25, 0.645, size[2] * 0.5 - 0.06), (0.46, 0.10, 0.03), uv=drawer_uv, color=_tint(drawer))
     p.box((0.25, 0.645, size[2] * 0.5 - 0.04), (0.12, 0.025, 0.02), uv=metal_uv,
@@ -436,7 +557,8 @@ def build_cabinet(p: PropBuilder) -> None:
 
 
 def build_bed(p: PropBuilder) -> None:
-    """Bed: wooden frame on short legs, mattress, folded blanket, one pillow."""
+    """Bed: wooden frame on stub legs, mattress, a blanket draped over the
+    foot half and two pillows against a raised headboard."""
     size = p.size  # [1.4, 0.55, 2.0]
     tex = p.set_texture(128, seed=97)
     tex.auto("frame", "mattress", "linen", "board")
@@ -456,39 +578,62 @@ def build_bed(p: PropBuilder) -> None:
     mattress_uv = tex.uv("mattress")
     linen_uv = tex.uv("linen")
 
+    half_w = size[0] * 0.5   # 0.70
+    half_d = size[2] * 0.5   # 1.00
+    # Vertical plan of the bed, from the frame up to the 0.55 m catalogue top.
+    rail_bottom, rail_top = 0.08, 0.28
+    mattress_top = 0.42
+    sheet_top = 0.45
+    pillow_top = 0.53
+
     # Head at -Z (the prop's back), foot at +Z.  Side rails own the footprint.
     for sx in (-1.0, 1.0):
-        p.box((sx * (size[0] * 0.5 - 0.03), 0.17, 0.0), (0.06, 0.22, size[2]), uv=frame_uv,
-              color=_tint(frame))
+        _solid(p, (sx * (half_w - 0.03), (rail_bottom + rail_top) * 0.5, 0.0),
+               (0.06, rail_top - rail_bottom, size[2]), frame_uv, _tint(frame))
     for sz in (-1.0, 1.0):
-        p.box((0.0, 0.17, sz * (size[2] * 0.5 - 0.04)), (size[0] - 0.16, 0.22, 0.06), uv=frame_uv,
-              color=_tint(frame))
+        _solid(p, (0.0, (rail_bottom + rail_top) * 0.5, sz * (half_d - 0.03)),
+               (size[0] - 0.12, rail_top - rail_bottom, 0.06), frame_uv,
+               _tint(palette.shade(frame, 0.96)))
     for sx in (-1.0, 1.0):
         for sz in (-1.0, 1.0):
-            p.cylinder((sx * (size[0] * 0.5 - 0.06), 0.0, sz * (size[2] * 0.5 - 0.08)), 0.03, 0.075,
-                       segments=6, uv=board_uv, color=_tint(board, 0.5))
-    # Head- and footboard span the catalogue width; the posts hold the height.
-    p.box((0.0, 0.33, -(size[2] * 0.5 - 0.025)), (size[0] - 0.04, 0.36, 0.05), uv=board_uv,
-          color=_tint(board))
-    p.box((0.0, 0.21, size[2] * 0.5 - 0.025), (size[0] - 0.04, 0.30, 0.05), uv=board_uv,
-          color=_tint(palette.shade(board, 1.08)))
+            _solid(p, (sx * (half_w - 0.05), 0.04, sz * (half_d - 0.06)), (0.07, 0.08, 0.07),
+                   board_uv, _tint(board, 0.5))
+    # Headboard: posts to the catalogue height, a panel between them and a top
+    # rail, so the bed has a clear head end from across the room.
     for sx in (-1.0, 1.0):
-        p.box((sx * (size[0] * 0.5 - 0.04), (0.10 + size[1]) * 0.5, -(size[2] * 0.5 - 0.04)),
-              (0.06, size[1] - 0.10, 0.06), uv=board_uv, color=_tint(board))
+        _solid(p, (sx * (half_w - 0.035), 0.275, -(half_d - 0.035)), (0.07, 0.55, 0.07),
+               board_uv, _tint(board))
+    _solid(p, (0.0, 0.40, -(half_d - 0.035)), (size[0] - 0.10, 0.24, 0.05), board_uv, _tint(board),
+           hidden=("-y",))
+    _solid(p, (0.0, 0.51, -(half_d - 0.035)), (size[0] - 0.06, 0.08, 0.07), board_uv,
+           _tint(palette.shade(board, 1.06)), hidden=("-y",))
+    # Footboard: lower than the head, so the bed reads head-to-foot at a glance.
+    _solid(p, (0.0, 0.34, half_d - 0.025), (size[0] - 0.08, 0.20, 0.05), board_uv,
+           _tint(palette.shade(board, 1.08)), hidden=("-y",))
     # Mattress slab plus a thin top layer: the piping read, no cloth sim.
-    p.box((0.0, 0.33, 0.0), (size[0] - 0.10, 0.14, size[2] - 0.18), uv=mattress_uv,
-          color=_tint(mattress))
-    p.box((0.0, 0.405, 0.0), (size[0] - 0.16, 0.03, size[2] - 0.24), uv=mattress_uv,
-          color=_tint(palette.shade(mattress, 1.05)),
-          colors={"+y": _tint(palette.shade(mattress, 1.08))})
-    # Folded grey blanket over the foot half, with a heavier fold at its edge.
-    p.box((0.0, 0.445, 0.34), (size[0] - 0.06, 0.07, 1.18), uv=linen_uv, color=_tint(linen))
-    p.box((0.0, 0.49, -0.21), (size[0] - 0.06, 0.08, 0.10), uv=linen_uv,
-          color=_tint(palette.shade(linen, 1.1)))
-    # One pillow against the headboard, with a shallow puff on top.
-    p.box((0.0, 0.45, -0.76), (0.62, 0.10, 0.34), uv=linen_uv, color=_tint(palette.shade(linen, 1.18)))
-    p.box((0.0, 0.51, -0.76), (0.54, 0.04, 0.28), uv=linen_uv, color=_tint(palette.shade(linen, 1.22)))
-    p.add_note("headboard posts; simple mattress/blanket/pillow blocks")
+    _solid(p, (0.0, (0.28 + mattress_top) * 0.5, -0.02), (size[0] - 0.10, mattress_top - 0.28, 1.76),
+           mattress_uv, _tint(mattress))
+    _solid(p, (0.0, (mattress_top + sheet_top) * 0.5, -0.02), (size[0] - 0.16, 0.03, 1.70),
+           mattress_uv, _tint(palette.shade(mattress, 1.05)),
+           colors={"+y": _tint(palette.shade(mattress, 1.08))})
+    # Blanket over the foot two thirds, hanging over both sides and with a
+    # heavier fold where it is turned back over the sheet.
+    blanket_front, blanket_back = 0.88, -0.34
+    _solid(p, (0.0, sheet_top + 0.03, (blanket_front + blanket_back) * 0.5),
+           (size[0] - 0.02, 0.06, blanket_front - blanket_back), linen_uv, _tint(linen))
+    for sx in (-1.0, 1.0):
+        _solid(p, (sx * 0.635, 0.40, (blanket_front + blanket_back) * 0.5),
+               (0.05, 0.13, blanket_front - blanket_back), linen_uv,
+               _tint(palette.shade(linen, 0.94)))
+    _solid(p, (0.0, 0.495, blanket_back), (size[0] - 0.02, 0.05, 0.11), linen_uv,
+           _tint(palette.shade(linen, 1.1)), hidden=("-y",))
+    # Two pillows against the headboard, each with a shallow puff on top.
+    for sx in (-1.0, 1.0):
+        _solid(p, (sx * 0.30, (sheet_top + pillow_top) * 0.5, -0.70), (0.56, 0.08, 0.32),
+               linen_uv, _tint(palette.shade(linen, 1.18)))
+        _solid(p, (sx * 0.30, pillow_top + 0.008, -0.70), (0.48, 0.016, 0.26), linen_uv,
+               _tint(palette.shade(linen, 1.24)), hidden=("-y",))
+    p.add_note("raised headboard, draped blanket with side drops, two pillows")
 
 
 PROPS = {
