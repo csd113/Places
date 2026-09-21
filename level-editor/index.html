@@ -13,30 +13,30 @@
       <div class="toolbar-group">
         <div class="app-title-group">
           <span class="app-logo">LIMINAL</span>
-          <span class="app-name">2D Level Editor</span>
+          <span class="app-name">Level Editor</span>
         </div>
 
         <div class="toolbar-divider"></div>
 
-        <button class="btn btn-secondary btn-sm" id="btn-new" title="Create New Level">
-          New
+        <button class="btn btn-secondary btn-sm" id="btn-new" title="New Level">
+          <span class="btn-icon">📄</span> New
         </button>
 
         <input type="file" id="file-import-input" accept=".json,.zip" style="display: none;">
-        <button class="btn btn-secondary btn-sm" id="btn-open" title="Open .json or .zip Level Pack">
-          Open / Import...
+        <button class="btn btn-secondary btn-sm" id="btn-open" title="Open / Import .json or .zip Level Pack">
+          <span class="btn-icon">📁</span> Open...
         </button>
 
-        <button class="btn btn-primary btn-sm" id="btn-export-json" title="Export standalone JSON level (Ctrl+S)">
-          Export JSON
+        <button class="btn btn-secondary btn-sm" id="btn-export-json" title="Export standalone JSON level (Ctrl+S)">
+          <span class="btn-icon">💾</span> Save JSON
         </button>
 
         <button class="btn btn-primary btn-sm" id="btn-export-zip" title="Export complete .zip Level Pack with textures">
-          Export Level Pack ZIP
+          <span class="btn-icon">📦</span> Export Pack
         </button>
 
         <button class="btn btn-secondary btn-sm" id="btn-validate" title="Validate level compatibility with liminal-rust">
-          ✓ Validate
+          <span class="btn-icon">✓</span> Validate
         </button>
 
         <div class="toolbar-divider"></div>
@@ -61,7 +61,7 @@
             <input type="checkbox" id="chk-snap" checked>
             <span>Snap</span>
           </label>
-          <select id="select-snap-step" title="Grid Snap Step" style="width: auto; padding: 2px 4px; font-size: 11px;">
+          <select id="select-snap-step" title="Grid Snap Step" class="toolbar-select">
             <option value="0.05">0.05m</option>
             <option value="0.10">0.10m</option>
             <option value="0.25">0.25m</option>
@@ -76,7 +76,7 @@
         <span class="zoom-badge" id="zoom-display">100%</span>
         <button class="btn btn-secondary btn-icon-only" id="btn-zoom-in" title="Zoom In (+)">+</button>
         <button class="btn btn-secondary btn-sm" id="btn-zoom-reset" title="Reset Zoom to 100%">1:1</button>
-        <button class="btn btn-secondary btn-sm" id="btn-fit-view" title="Fit Camera to Level Geometry">Fit View</button>
+        <button class="btn btn-secondary btn-sm" id="btn-fit-view" title="Fit Camera to Level Geometry">Fit Level</button>
 
         <div class="toolbar-divider"></div>
 
@@ -86,28 +86,55 @@
 
     <!-- LEFT TOOL PALETTE -->
     <aside class="app-tools">
+      <div class="tool-section-label">SELECT</div>
       <button class="tool-btn active" data-tool="select" title="Select / Move / Resize Geometry (V)">
         <span class="tool-icon">⬚</span>
+        <span class="tool-name">Select</span>
         <span class="tool-key">V</span>
       </button>
 
+      <div class="tool-divider"></div>
+      <div class="tool-section-label">ROOM</div>
+
+      <button class="tool-btn" data-tool="floor" title="Floor Tool - Click & Drag to create floor slab (F)">
+        <span class="tool-icon">▤</span>
+        <span class="tool-name">Floor</span>
+        <span class="tool-key">F</span>
+      </button>
+
+      <button class="tool-btn" data-tool="ceiling" title="Ceiling Tool - Click & Drag to create ceiling section (U)">
+        <span class="tool-icon">▦</span>
+        <span class="tool-name">Ceiling</span>
+        <span class="tool-key">U</span>
+      </button>
+
+      <div class="tool-divider"></div>
+      <div class="tool-section-label">WALLS</div>
+
       <button class="tool-btn" data-tool="wall" title="Wall Tool - Click & Drag to create walls (W)">
         <span class="tool-icon">■</span>
+        <span class="tool-name">Wall</span>
         <span class="tool-key">W</span>
       </button>
 
       <button class="tool-btn" data-tool="column" title="Column / Block Tool - Place pillars & blocks (C)">
         <span class="tool-icon">▮</span>
+        <span class="tool-name">Column</span>
         <span class="tool-key">C</span>
       </button>
 
+      <div class="tool-divider"></div>
+      <div class="tool-section-label">ENTITIES</div>
+
       <button class="tool-btn" data-tool="light" title="Ceiling Light Tool - Click to place fluorescent light (L)">
         <span class="tool-icon">☼</span>
+        <span class="tool-name">Light</span>
         <span class="tool-key">L</span>
       </button>
 
       <button class="tool-btn" data-tool="spawn" title="Player Spawn Tool - Place or move spawn point (P)">
         <span class="tool-icon">●</span>
+        <span class="tool-name">Spawn</span>
         <span class="tool-key">P</span>
       </button>
     </aside>
@@ -174,10 +201,12 @@
       </div>
       <div class="modal-body">
         <table class="shortcuts-table">
-          <tr><td><kbd>V</kbd></td><td>Select Tool</td></tr>
+          <tr><td><kbd>V</kbd></td><td>Select Tool (Click to select, drag to move/resize)</td></tr>
+          <tr><td><kbd>F</kbd></td><td>Floor Tool (Click & drag to create floor slab)</td></tr>
+          <tr><td><kbd>U</kbd></td><td>Ceiling Tool (Click & drag to create ceiling section)</td></tr>
           <tr><td><kbd>W</kbd></td><td>Wall Tool (Click & drag to draw wall rectangle)</td></tr>
-          <tr><td><kbd>C</kbd> / <kbd>B</kbd></td><td>Column / Block Tool (Click to place pillar)</td></tr>
-          <tr><td><kbd>L</kbd></td><td>Ceiling Light Tool (Click to place fixture)</td></tr>
+          <tr><td><kbd>C</kbd> / <kbd>B</kbd></td><td>Column / Block Tool (Click or drag to place pillar)</td></tr>
+          <tr><td><kbd>L</kbd></td><td>Ceiling Light Tool (Click to place fluorescent light)</td></tr>
           <tr><td><kbd>P</kbd></td><td>Player Spawn Tool (Click to place spawn point)</td></tr>
           <tr><td><kbd>Middle Click Drag</kbd> / <kbd>Space + Drag</kbd> / <kbd>Right Click Drag</kbd></td><td>Pan Camera View</td></tr>
           <tr><td><kbd>Mouse Wheel</kbd></td><td>Zoom in / out centered at cursor</td></tr>

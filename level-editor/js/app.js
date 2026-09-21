@@ -170,6 +170,15 @@ class App {
             dup.z += offset;
             this.level.ceiling_lights.push(dup);
             newSelectedIds.add(dup.id);
+          } else {
+            const room = this.level.rooms.find(r => r.id === id);
+            if (room) {
+              const dup = room.clone();
+              dup.x += offset;
+              dup.z += offset;
+              this.level.rooms.push(dup);
+              newSelectedIds.add(dup.id);
+            }
           }
         }
       }
@@ -190,6 +199,15 @@ class App {
 
     this.level.walls = this.level.walls.filter(w => !selectedIds.has(w.id));
     this.level.ceiling_lights = this.level.ceiling_lights.filter(l => !selectedIds.has(l.id));
+
+    // Handle room deletion: keep at least 1 room for valid level
+    const remainingRooms = this.level.rooms.filter(r => !selectedIds.has(r.id));
+    if (remainingRooms.length > 0) {
+      this.level.rooms = remainingRooms;
+    } else if (this.level.rooms.some(r => selectedIds.has(r.id))) {
+      // If deleting the last room, reset it to default rather than 0 rooms
+      this.level.rooms = [new Room({ x: -10, z: -10, width: 20, depth: 20, height: 3.5 })];
+    }
 
     // Notice: Player spawn is required by liminal-rust, do not delete it, reset to (0,0) if deleted
     if (selectedIds.has('spawn')) {
@@ -512,6 +530,12 @@ class App {
       switch (e.key.toLowerCase()) {
         case 'v':
           document.querySelector('.tool-btn[data-tool="select"]')?.click();
+          break;
+        case 'f':
+          document.querySelector('.tool-btn[data-tool="floor"]')?.click();
+          break;
+        case 'u':
+          document.querySelector('.tool-btn[data-tool="ceiling"]')?.click();
           break;
         case 'w':
           document.querySelector('.tool-btn[data-tool="wall"]')?.click();

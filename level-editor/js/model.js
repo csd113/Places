@@ -265,6 +265,9 @@ class Room {
     this.width = Number(data.width ?? 20);
     this.depth = Number(data.depth ?? 20);
     this.height = Number(data.height ?? 3.5);
+    // Optional per-room surface material overrides if specified
+    this.material = data.material || null;
+    this.ceiling_material = data.ceiling_material || null;
   }
 
   clone() {
@@ -274,18 +277,23 @@ class Room {
       z: this.z,
       width: this.width,
       depth: this.depth,
-      height: this.height
+      height: this.height,
+      material: this.material,
+      ceiling_material: this.ceiling_material
     });
   }
 
   toJSON() {
-    return {
+    const obj = {
       x: Number(this.x.toFixed(3)),
       z: Number(this.z.toFixed(3)),
       width: Number(this.width.toFixed(3)),
       depth: Number(this.depth.toFixed(3)),
       height: Number(this.height.toFixed(3))
     };
+    if (this.material) obj.material = this.material;
+    if (this.ceiling_material) obj.ceiling_material = this.ceiling_material;
+    return obj;
   }
 }
 

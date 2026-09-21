@@ -137,7 +137,7 @@ class Renderer {
 
     // 3. Render Room floor slabs
     if (this.showRoomBounds) {
-      this.renderRooms(level);
+      this.renderRooms(level, editorState);
     }
 
     // 4. Render Floor Patches (e.g. damp carpet)
@@ -277,31 +277,48 @@ class Renderer {
     }
   }
 
-  renderRooms(level) {
+  renderRooms(level, editorState) {
     const ctx = this.ctx;
     level.rooms.forEach((r, idx) => {
+      const isSelected = editorState && editorState.selectedIds && editorState.selectedIds.has(r.id);
       const s = this.worldToScreen(r.x, r.z);
       const w = this.worldDistToScreen(r.width);
       const h = this.worldDistToScreen(r.depth);
 
-      // Room floor tone (warm liminal carpet background)
-      ctx.fillStyle = 'rgba(45, 41, 34, 0.7)';
+      // Floor slab tone (deep warm beige carpet floor)
+      ctx.fillStyle = isSelected ? 'rgba(65, 55, 42, 0.85)' : 'rgba(42, 38, 32, 0.75)';
       ctx.fillRect(s.x, s.y, w, h);
 
-      // Room boundary border
+      // Ceiling boundary / perimeter indicator (light neutral dashed tint)
       ctx.lineWidth = 1;
-      ctx.setLineDash([4, 4]);
-      ctx.strokeStyle = '#594f3b';
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = isSelected ? '#38bdf8' : '#6b5e4a';
       ctx.strokeRect(s.x, s.y, w, h);
       ctx.setLineDash([]);
 
-      // Room tag
-      if (this.zoom >= 18) {
-        ctx.font = '11px sans-serif';
-        ctx.fillStyle = '#8c7d61';
+      // Subtle corner accents to indicate ceiling slab corners
+      const cLen = Math.min(12, Math.min(w, h) * 0.2);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = isSelected ? '#38bdf8' : 'rgba(213, 213, 206, 0.4)';
+      // NW corner
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y + cLen); ctx.lineTo(s.x, s.y); ctx.lineTo(s.x + cLen, s.y);
+      // NE corner
+      ctx.moveTo(s.x + w - cLen, s.y); ctx.lineTo(s.x + w, s.y); ctx.lineTo(s.x + w, s.y + cLen);
+      // SE corner
+      ctx.moveTo(s.x + w, s.y + h - cLen); ctx.lineTo(s.x + w, s.y + h); ctx.lineTo(s.x + w - cLen, s.y + h);
+      // SW corner
+      ctx.moveTo(s.x + cLen, s.y + h); ctx.lineTo(s.x, s.y + h); ctx.lineTo(s.x, s.y + h - cLen);
+      ctx.stroke();
+
+      // Room information badge
+      if (this.zoom >= 16) {
+        ctx.font = '10px monospace';
+        ctx.fillStyle = isSelected ? '#38bdf8' : '#9c8e76';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
-        ctx.fillText(`Room ${idx + 1} (${r.width}m × ${r.depth}m, H: ${r.height}m)`, s.x + 8, s.y + 8);
+        const label = `Floor/Ceiling ${idx + 1} [${r.width.toFixed(1)}m × ${r.depth.toFixed(1)}m | H:${r.height.toFixed(1)}m]`;
+        ctx.fillText(label, s.x + 8, s.y + 8);
       }
     });
   }
@@ -560,6 +577,12 @@ class Renderer {
               w: this.worldDistToScreen(hw * 2),
               h: this.worldDistToScreen(hd * 2)
             };
+          } else {
+            const room = level.rooms.find(r => r.id === id);
+            if (room) {
+              const s = this.worldToScreen(room.x, room.z);
+              rect = { x: s.x, y: s.y, w: this.worldDistToScreen(room.width), h: this.worldDistToScreen(room.depth) };
+            }
           }
         }
       }
@@ -625,31 +648,48 @@ class Renderer {
     const sw = this.worldDistToScreen(widthM);
     const sd = this.worldDistToScreen(depthM);
 
+    const tool = editorState.currentTool;
+    let toolLabel = 'Wall';
+    let fillColor = 'rgba(56, 189, 248, 0.15)';
+    let strokeColor = '#38bdf8';
+
+    if (tool === 'floor') {
+      toolLabel = 'Floor Slab';
+      fillColor = 'rgba(234, 179, 8, 0.20)';
+      strokeColor = '#facc15';
+    } else if (tool === 'ceiling') {
+      toolLabel = 'Ceiling Section';
+      fillColor = 'rgba(148, 163, 184, 0.22)';
+      strokeColor = '#cbd5e1';
+    } else if (tool === 'column') {
+      toolLabel = 'Column';
+    }
+
     // Fill with dashed accent
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.15)';
+    ctx.fillStyle = fillColor;
     ctx.fillRect(s.x, s.y, sw, sd);
 
     ctx.lineWidth = 2;
     ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = '#38bdf8';
+    ctx.strokeStyle = strokeColor;
     ctx.strokeRect(s.x, s.y, sw, sd);
     ctx.setLineDash([]);
 
     // Measurement badge
-    const badge = `${widthM.toFixed(2)}m × ${depthM.toFixed(2)}m`;
+    const badge = `${toolLabel}: ${widthM.toFixed(2)}m × ${depthM.toFixed(2)}m`;
     ctx.font = 'bold 11px monospace';
     const textW = ctx.measureText(badge).width;
 
     ctx.fillStyle = '#0f172a';
-    ctx.fillRect(s.x + sw / 2 - textW / 2 - 4, s.y + sd + 6, textW + 8, 18);
-    ctx.strokeStyle = '#38bdf8';
+    ctx.fillRect(s.x + sw / 2 - textW / 2 - 6, s.y + sd + 6, textW + 12, 20);
+    ctx.strokeStyle = strokeColor;
     ctx.lineWidth = 1;
-    ctx.strokeRect(s.x + sw / 2 - textW / 2 - 4, s.y + sd + 6, textW + 8, 18);
+    ctx.strokeRect(s.x + sw / 2 - textW / 2 - 6, s.y + sd + 6, textW + 12, 20);
 
-    ctx.fillStyle = '#38bdf8';
+    ctx.fillStyle = strokeColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(badge, s.x + sw / 2, s.y + sd + 15);
+    ctx.fillText(badge, s.x + sw / 2, s.y + sd + 16);
   }
 
   renderMarquee(box) {

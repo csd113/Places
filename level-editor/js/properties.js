@@ -82,6 +82,8 @@ class PropertiesPanel {
             <span class="type-badge spawn-badge">● Player Spawn</span>
           </div>
 
+          <div class="section-subtitle">Transform</div>
+
           <div class="form-group-row">
             <div class="form-group">
               <label>Position X (m)</label>
@@ -122,6 +124,8 @@ class PropertiesPanel {
             <span class="type-badge wall-badge">■ Wall</span>
             <span class="prop-id">#${wall.id.slice(0, 10)}</span>
           </div>
+
+          <div class="section-subtitle">Transform</div>
 
           <div class="form-group-row">
             <div class="form-group">
@@ -213,6 +217,75 @@ class PropertiesPanel {
       `;
     }
 
+    const room = level.rooms.find(r => r.id === id);
+    if (room) {
+      const roomIdx = level.rooms.indexOf(room) + 1;
+      return `
+        <div class="prop-section">
+          <div class="section-title">
+            <span class="type-badge floor-badge">▤ Floor / Ceiling</span>
+            <span class="prop-id">#${room.id.slice(0, 10)}</span>
+          </div>
+
+          <div class="section-subtitle">Transform</div>
+
+          <div class="form-group-row">
+            <div class="form-group">
+              <label>X Position (m)</label>
+              <input type="number" step="0.5" class="prop-input" data-obj="room" data-id="${room.id}" data-prop="x" value="${room.x.toFixed(2)}">
+            </div>
+            <div class="form-group">
+              <label>Z Position (m)</label>
+              <input type="number" step="0.5" class="prop-input" data-obj="room" data-id="${room.id}" data-prop="z" value="${room.z.toFixed(2)}">
+            </div>
+          </div>
+
+          <div class="form-group-row">
+            <div class="form-group">
+              <label>Width (m)</label>
+              <input type="number" step="0.5" min="0.5" max="2000" class="prop-input" data-obj="room" data-id="${room.id}" data-prop="width" value="${room.width.toFixed(2)}">
+            </div>
+            <div class="form-group">
+              <label>Depth (m)</label>
+              <input type="number" step="0.5" min="0.5" max="2000" class="prop-input" data-obj="room" data-id="${room.id}" data-prop="depth" value="${room.depth.toFixed(2)}">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Ceiling Elevation / Height (m)</label>
+            <input type="number" step="0.1" min="1.0" max="50.0" class="prop-input" data-obj="room" data-id="${room.id}" data-prop="height" value="${room.height.toFixed(2)}">
+            <div class="helper-text">Defines floor-to-ceiling clearance for this section (3.5m standard).</div>
+          </div>
+
+          <div class="quick-presets-row">
+            <span class="preset-label">Height:</span>
+            <button class="btn btn-xs btn-preset" data-preset="room-h:${room.id}:2.8">Low (2.8m)</button>
+            <button class="btn btn-xs btn-preset" data-preset="room-h:${room.id}:3.5">Standard (3.5m)</button>
+            <button class="btn btn-xs btn-preset" data-preset="room-h:${room.id}:4.5">High (4.5m)</button>
+            <button class="btn btn-xs btn-preset" data-preset="room-h:${room.id}:6.0">Hall (6.0m)</button>
+          </div>
+
+          <div class="section-divider"></div>
+          <div class="section-subtitle">Appearance</div>
+
+          <div class="form-group">
+            <label>Floor Material</label>
+            ${this.renderMaterialDropdown('floor', room.material || level.defaults.floor, `room-floor:${room.id}`)}
+          </div>
+
+          <div class="form-group">
+            <label>Ceiling Material</label>
+            ${this.renderMaterialDropdown('ceiling', room.ceiling_material || level.defaults.ceiling, `room-ceiling:${room.id}`)}
+          </div>
+
+          <div class="action-btn-row">
+            <button class="btn btn-secondary btn-sm" id="btn-prop-duplicate" title="Duplicate (Ctrl+D)">Duplicate</button>
+            <button class="btn btn-danger btn-sm" id="btn-prop-delete" title="Delete (Del)">Delete</button>
+          </div>
+        </div>
+      `;
+    }
+
     const light = level.ceiling_lights.find(l => l.id === id);
     if (light) {
       return `
@@ -221,6 +294,8 @@ class PropertiesPanel {
             <span class="type-badge light-badge">☼ Ceiling Light</span>
             <span class="prop-id">#${light.id.slice(0, 10)}</span>
           </div>
+
+          <div class="section-subtitle">Transform</div>
 
           <div class="form-group-row">
             <div class="form-group">
@@ -247,6 +322,9 @@ class PropertiesPanel {
             <button class="btn btn-xs btn-preset" data-preset="light-rot:${light.id}:180">180°</button>
             <button class="btn btn-xs btn-preset" data-preset="light-rot:${light.id}:270">270°</button>
           </div>
+
+          <div class="section-divider"></div>
+          <div class="section-subtitle">Appearance</div>
 
           <div class="form-group">
             <label>Brightness</label>
@@ -385,7 +463,7 @@ class PropertiesPanel {
         </div>
 
         <div class="section-divider"></div>
-        <div class="section-subtitle">Default Materials</div>
+        <div class="section-subtitle">Level Default Materials</div>
 
         <div class="form-group">
           <label>Default Wall Material</label>
@@ -401,6 +479,21 @@ class PropertiesPanel {
           <label>Default Ceiling Material</label>
           ${this.renderMaterialDropdown('ceiling', level.defaults.ceiling, 'level-default:ceiling')}
         </div>
+
+        <div class="section-divider"></div>
+        <div class="section-subtitle">Room Sections (${level.rooms.length})</div>
+        <div class="rooms-overview-list">
+          ${level.rooms.map((r, idx) => `
+            <div class="room-overview-item ${this.app.editor.selectedIds.has(r.id) ? 'selected' : ''}">
+              <div class="room-overview-info">
+                <strong>Room ${idx + 1}</strong>
+                <span>(${r.width.toFixed(1)}m × ${r.depth.toFixed(1)}m, H: ${r.height.toFixed(1)}m)</span>
+              </div>
+              <button class="btn btn-xs btn-secondary btn-select-room" data-room-id="${r.id}">Select</button>
+            </div>
+          `).join('')}
+        </div>
+        <button class="btn btn-secondary btn-sm btn-block mt-2" id="btn-add-room-section">+ Add Room Section</button>
       </div>
     `;
   }
@@ -541,6 +634,40 @@ class PropertiesPanel {
     const gotoLevelBtn = this.container.querySelector('#btn-goto-level-settings');
     if (gotoLevelBtn) {
       gotoLevelBtn.addEventListener('click', () => this.setTab('level'));
+    }
+
+    // Room select buttons from Level Settings
+    this.container.querySelectorAll('.btn-select-room').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const roomId = btn.dataset.roomId;
+        this.app.editor.select(roomId, false);
+        this.setTab('selection');
+      });
+    });
+
+    // Add room section button from Level Settings
+    const btnAddRoom = this.container.querySelector('#btn-add-room-section');
+    if (btnAddRoom) {
+      btnAddRoom.addEventListener('click', () => {
+        this.app.history.pushState(this.app.level, 'Add Room Section');
+        const defaultHeight = this.app.level.rooms[0]?.height || 3.5;
+        // Position adjacent to existing rooms
+        const lastRoom = this.app.level.rooms[this.app.level.rooms.length - 1];
+        const newX = lastRoom ? lastRoom.x + lastRoom.width : 0;
+        const newZ = lastRoom ? lastRoom.z : 0;
+        const newRoom = new Room({
+          x: newX,
+          z: newZ,
+          width: 10.0,
+          depth: 10.0,
+          height: defaultHeight
+        });
+        this.app.level.rooms.push(newRoom);
+        this.app.editor.select(newRoom.id, false);
+        this.setTab('selection');
+        this.app.updateStatus(`Added Room ${this.app.level.rooms.length}`);
+        this.app.requestRender();
+      });
     }
 
     // Material dropdown change
@@ -703,6 +830,19 @@ class PropertiesPanel {
         }
         this.app.requestRender();
       }
+    } else if (input.dataset.obj === 'room') {
+      const room = this.app.level.rooms.find(r => r.id === input.dataset.id) || this.app.level.rooms[0];
+      if (room) {
+        const prop = input.dataset.prop;
+        if (prop === 'width' || prop === 'depth') {
+          room[prop] = isNaN(num) ? 1.0 : Math.max(0.5, num);
+        } else if (prop === 'height') {
+          room.height = isNaN(num) ? 3.5 : Math.max(1.0, num);
+        } else if (prop === 'x' || prop === 'z') {
+          room[prop] = isNaN(num) ? 0 : num;
+        }
+        this.app.requestRender();
+      }
     } else if (input.dataset.level) {
       const prop = input.dataset.level;
       this.app.level[prop] = val;
@@ -728,6 +868,14 @@ class PropertiesPanel {
       const wallId = target.split(':')[1];
       const wall = this.app.level.walls.find(w => w.id === wallId);
       if (wall) wall.material = val;
+    } else if (target.startsWith('room-floor:')) {
+      const roomId = target.split(':')[1];
+      const room = this.app.level.rooms.find(r => r.id === roomId);
+      if (room) room.material = val;
+    } else if (target.startsWith('room-ceiling:')) {
+      const roomId = target.split(':')[1];
+      const room = this.app.level.rooms.find(r => r.id === roomId);
+      if (room) room.ceiling_material = val;
     } else if (target.startsWith('face-')) {
       const [faceType, wallId] = target.split(':');
       const face = faceType.replace('face-', '');
@@ -758,6 +906,10 @@ class PropertiesPanel {
     if (preset.startsWith('yaw:')) {
       const deg = parseFloat(preset.split(':')[1]);
       this.app.level.spawn.yaw_degrees = deg;
+    } else if (preset.startsWith('room-h:')) {
+      const [, id, h] = preset.split(':');
+      const room = this.app.level.rooms.find(r => r.id === id);
+      if (room) room.height = parseFloat(h);
     } else if (preset.startsWith('wall-full:')) {
       const id = preset.split(':')[1];
       const wall = this.app.level.walls.find(w => w.id === id);

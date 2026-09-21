@@ -1,27 +1,28 @@
 /* editor.css - Styling for Liminal 2D Level Editor */
 
 :root {
-  --bg-app: #121215;
-  --bg-toolbar: #1a1a1e;
-  --bg-panel: #18181c;
-  --bg-card: #202025;
-  --bg-input: #141417;
-  --border-color: #2b2b32;
+  --bg-app: #101114;
+  --bg-toolbar: #17181c;
+  --bg-panel: #16171b;
+  --bg-card: #1e1f25;
+  --bg-input: #121316;
+  --border-color: #272830;
+  --border-subtle: #1f2026;
   --border-focus: #38bdf8;
   
-  --text-main: #f4f4f5;
-  --text-muted: #9ca3af;
-  --text-subtle: #6b7280;
+  --text-main: #ececf1;
+  --text-muted: #9ba1ad;
+  --text-subtle: #676d7a;
 
   --accent-cyan: #38bdf8;
   --accent-amber: #eab308;
   --accent-green: #22c55e;
   --accent-red: #ef4444;
 
-  --header-height: 44px;
+  --header-height: 42px;
   --status-height: 28px;
-  --tools-width: 54px;
-  --props-width: 320px;
+  --tools-width: 58px;
+  --props-width: 330px;
 }
 
 * {
@@ -109,61 +110,66 @@ body {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  background-color: #27272e;
+  background-color: #202127;
   color: var(--text-main);
-  border: 1px solid var(--border-color);
+  border: 1px solid #30313b;
   border-radius: 4px;
-  padding: 5px 10px;
-  font-size: 12px;
+  padding: 4px 9px;
+  font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
   white-space: nowrap;
 }
 
 .btn:hover:not(:disabled) {
-  background-color: #33333d;
-  border-color: #3f3f4d;
+  background-color: #2b2c35;
+  border-color: #40424f;
+  color: #ffffff;
 }
 
 .btn:active:not(:disabled) {
-  background-color: #1e1e24;
+  background-color: #17181c;
+  border-color: #25262e;
 }
 
 .btn:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
 .btn-primary {
-  background-color: #0284c7;
-  border-color: #0369a1;
+  background-color: #0369a1;
+  border-color: #0284c7;
   color: #ffffff;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: #0ea5e9;
-  border-color: #0284c7;
+  background-color: #0284c7;
+  border-color: #38bdf8;
 }
 
 .btn-secondary {
-  background-color: #2c2d35;
-  border-color: #3a3b45;
+  background-color: #22232a;
+  border-color: #31333e;
 }
 
 .btn-danger {
-  background-color: #7f1d1d;
-  border-color: #991b1b;
+  background-color: #5c1818;
+  border-color: #7f1d1d;
   color: #fca5a5;
 }
 
 .btn-danger:hover:not(:disabled) {
-  background-color: #991b1b;
+  background-color: #7f1d1d;
+  border-color: #991b1b;
+  color: #ffffff;
 }
 
 .btn-sm {
   padding: 3px 8px;
   font-size: 11px;
+  height: 25px;
 }
 
 .btn-xs {
@@ -191,18 +197,36 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #202026;
-  border: 1px solid var(--border-color);
-  padding: 2px 6px;
+  background: #191a20;
+  border: 1px solid #2d2f38;
+  padding: 1px 6px;
   border-radius: 4px;
+  height: 25px;
+}
+
+.toolbar-select {
+  background-color: transparent !important;
+  border: none !important;
+  color: var(--text-main) !important;
+  padding: 0 4px !important;
+  font-size: 11px !important;
+  font-family: monospace !important;
+  cursor: pointer;
+  outline: none !important;
+  box-shadow: none !important;
+  width: auto !important;
 }
 
 .zoom-badge {
   font-family: monospace;
   font-size: 11px;
   color: var(--text-muted);
-  min-width: 40px;
+  min-width: 44px;
   text-align: center;
+  background: #191a20;
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: 1px solid #2d2f38;
 }
 
 /* LEFT TOOL PALETTE */
@@ -213,15 +237,33 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px 0;
-  gap: 6px;
+  padding: 6px 0;
+  gap: 3px;
   z-index: 10;
+  overflow-y: auto;
+}
+
+.tool-section-label {
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--text-subtle);
+  letter-spacing: 0.8px;
+  margin-top: 4px;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+}
+
+.tool-divider {
+  width: 32px;
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 3px 0;
 }
 
 .tool-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 6px;
+  width: 46px;
+  height: 44px;
+  border-radius: 4px;
   background: transparent;
   border: 1px solid transparent;
   color: var(--text-muted);
@@ -230,33 +272,43 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.12s ease;
   position: relative;
+  padding: 2px 0;
 }
 
 .tool-btn:hover {
-  background-color: #272730;
+  background-color: #23232b;
   color: var(--text-main);
-  border-color: var(--border-color);
+  border-color: #353540;
 }
 
 .tool-btn.active {
-  background-color: #0284c7;
-  color: #ffffff;
-  border-color: #38bdf8;
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+  background-color: #1a2c3d;
+  color: #38bdf8;
+  border-color: #0284c7;
+  box-shadow: inset 0 0 0 1px #38bdf8;
 }
 
 .tool-icon {
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1;
 }
 
+.tool-name {
+  font-size: 9px;
+  font-weight: 600;
+  margin-top: 1px;
+  letter-spacing: 0.2px;
+}
+
 .tool-key {
+  position: absolute;
+  top: 2px;
+  right: 3px;
   font-size: 8px;
   font-weight: 700;
-  opacity: 0.75;
-  margin-top: 2px;
+  opacity: 0.55;
   font-family: monospace;
 }
 
@@ -379,6 +431,18 @@ body {
   background: rgba(234, 179, 8, 0.15);
   color: #facc15;
   border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.floor-badge {
+  background: rgba(180, 140, 80, 0.18);
+  color: #e2c08d;
+  border: 1px solid rgba(180, 140, 80, 0.35);
+}
+
+.ceiling-badge {
+  background: rgba(148, 163, 184, 0.18);
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.35);
 }
 
 .light-badge {
@@ -572,6 +636,44 @@ select:focus {
   gap: 8px;
   margin-top: 8px;
 }
+
+.rooms-overview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.room-overview-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.room-overview-item.selected {
+  border-color: var(--accent-cyan);
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.room-overview-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.room-overview-info span {
+  font-size: 10px;
+  color: var(--text-subtle);
+  font-family: monospace;
+}
+
+.mt-1 { margin-top: 4px; }
+.mt-2 { margin-top: 8px; }
 
 /* EMPTY STATE */
 .empty-state {

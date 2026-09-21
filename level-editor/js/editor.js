@@ -49,7 +49,17 @@ class Editor {
     this.dragMode = null;
     this.marqueeBox = null;
     this.updateCursor();
-    this.app.updateStatus(`Tool: ${tool.toUpperCase()}`);
+
+    const toolNames = {
+      select: 'SELECT (V) - Click to select, drag to move / resize handles',
+      floor: 'FLOOR TOOL (F) - Click & drag rectangular area to create floor slab',
+      ceiling: 'CEILING TOOL (U) - Click & drag rectangular area to create ceiling section',
+      wall: 'WALL TOOL (W) - Click & drag to draw wall section',
+      column: 'COLUMN TOOL (C) - Click or drag to place pillar',
+      light: 'LIGHT TOOL (L) - Click to place fluorescent fixture',
+      spawn: 'SPAWN TOOL (P) - Click to place player spawn'
+    };
+    this.app.updateStatus(toolNames[tool] || `Tool: ${tool.toUpperCase()}`);
     this.app.requestRender();
   }
 
@@ -93,6 +103,7 @@ class Editor {
     const level = this.app.level;
     level.walls.forEach(w => this.selectedIds.add(w.id));
     level.ceiling_lights.forEach(l => this.selectedIds.add(l.id));
+    level.rooms.forEach(r => this.selectedIds.add(r.id));
     if (level.spawn) this.selectedIds.add('spawn');
     this.app.onSelectionChanged();
     this.app.requestRender();
@@ -157,6 +168,8 @@ class Editor {
       case 'select':
         this.canvas.style.cursor = 'default';
         break;
+      case 'floor':
+      case 'ceiling':
       case 'wall':
       case 'column':
         this.canvas.style.cursor = 'crosshair';
@@ -221,11 +234,13 @@ class Editor {
         if (handle) {
           const id = Array.from(this.selectedIds)[0];
           const wall = this.app.level.walls.find(w => w.id === id);
-          if (wall) {
+          const room = this.app.level.rooms.find(r => r.id === id);
+          const target = wall || room;
+          if (target) {
             this.dragMode = 'resize';
             this.activeHandle = handle;
-            this.resizeTarget = wall;
-            this.resizeInitialBounds = { x: wall.x, z: wall.z, width: wall.width, depth: wall.depth };
+            this.resizeTarget = target;
+            this.resizeInitialBounds = { x: target.x, z: target.z, width: target.width, depth: target.depth };
             this.dragWorldStart = snapped;
             return;
           }
@@ -257,6 +272,8 @@ class Editor {
             if (w) this.dragInitialPositions.set(id, { x: w.x, z: w.z });
             const l = this.app.level.ceiling_lights.find(x => x.id === id);
             if (l) this.dragInitialPositions.set(id, { x: l.x, z: l.z });
+            const r = this.app.level.rooms.find(x => x.id === id);
+            if (r) this.dragInitialPositions.set(id, { x: r.x, z: r.z });
           }
         });
       } else {
@@ -272,7 +289,17 @@ class Editor {
       return;
     }
 
-    // 2. WALL TOOL
+    // 2. FLOOR OR CEILING TOOL (Click & Drag rectangular area)
+    if (this.currentTool === 'floor' || this.currentTool === 'ceiling') {
+      this.dragMode = 'draw';
+      this.isDrawing = true;
+      this.drawingStart = snapped;
+      this.drawingCurrent = snapped;
+      this.app.requestRender();
+      return;
+    }
+
+    // 3. WALL TOOL
     if (this.currentTool === 'wall') {
       this.dragMode = 'draw';
       this.isDrawing = true;
@@ -282,7 +309,7 @@ class Editor {
       return;
     }
 
-    // 3. COLUMN / BLOCK TOOL
+    // 4. COLUMN / BLOCK TOOL
     if (this.currentTool === 'column') {
       this.dragMode = 'draw';
       this.isDrawing = true;
@@ -292,7 +319,7 @@ class Editor {
       return;
     }
 
-    // 4. LIGHT TOOL
+    // 5. LIGHT TOOL
     if (this.currentTool === 'light') {
       this.app.history.pushState(this.app.level, 'Add Light');
       const light = new CeilingLight({
@@ -309,7 +336,7 @@ class Editor {
       return;
     }
 
-    // 5. PLAYER SPAWN TOOL
+    // 6. PLAYER SPAWN TOOL
     if (this.currentTool === 'spawn') {
       this.app.history.pushState(this.app.level, 'Move Spawn');
       this.app.level.spawn.x = snapped.x;
@@ -371,6 +398,11 @@ class Editor {
             l.x = Number((initPos.x + dx).toFixed(3));
             l.z = Number((initPos.z + dz).toFixed(3));
           }
+          const r = this.app.level.rooms.find(x => x.id === id);
+          if (r) {
+            r.x = Number((initPos.x + dx).toFixed(3));
+            r.z = Number((initPos.z + dz).toFixed(3));
+          }
         }
       });
 
@@ -418,7 +450,7 @@ class Editor {
       return;
     }
 
-    // 6. Draw wall / column preview
+    // 6. Draw wall / column / floor / ceiling preview
     if (this.dragMode === 'draw' && this.isDrawing) {
       this.drawingCurrent = snapped;
       this.app.requestRender();
@@ -452,12 +484,12 @@ class Editor {
 
     // 2. Finish Resize
     if (this.dragMode === 'resize') {
-      this.app.history.pushState(this.app.level, 'Resize Wall');
+      this.app.history.pushState(this.app.level, 'Resize Geometry');
       this.dragMode = null;
       this.activeHandle = null;
       this.resizeTarget = null;
       this.resizeInitialBounds = null;
-      this.app.updateStatus('Resized wall geometry');
+      this.app.updateStatus('Resized geometry');
       this.app.requestRender();
       return;
     }
@@ -492,6 +524,12 @@ class Editor {
           }
         });
 
+        level.rooms.forEach(r => {
+          if (r.x + r.width >= minX && r.x <= maxX && r.z + r.depth >= minZ && r.z <= maxZ) {
+            this.selectedIds.add(r.id);
+          }
+        });
+
         if (level.spawn && level.spawn.x >= minX && level.spawn.x <= maxX && level.spawn.z >= minZ && level.spawn.z <= maxZ) {
           this.selectedIds.add('spawn');
         }
@@ -506,7 +544,7 @@ class Editor {
       return;
     }
 
-    // 4. Finish Drawing Wall or Column
+    // 4. Finish Drawing (Floor, Ceiling, Wall, Column)
     if (this.dragMode === 'draw' && this.isDrawing) {
       const p1 = this.drawingStart;
       const p2 = this.drawingCurrent;
@@ -519,36 +557,60 @@ class Editor {
       let w = maxX - minX;
       let d = maxZ - minZ;
 
-      // If clicked without dragging: create default dimensions
-      if (w < 0.05 && d < 0.05) {
-        if (this.currentTool === 'column') {
-          minX = p1.x - 0.5;
-          minZ = p1.z - 0.5;
-          w = 1.0;
-          d = 1.0;
-        } else {
-          // Default wall section: 2.0m x 0.35m
-          w = 2.0;
-          d = 0.35;
+      if (this.currentTool === 'floor' || this.currentTool === 'ceiling') {
+        // If clicked without dragging: create sensible default room section (10m x 10m)
+        if (w < 0.1 && d < 0.1) {
+          minX = p1.x - 5.0;
+          minZ = p1.z - 5.0;
+          w = 10.0;
+          d = 10.0;
         }
-      }
 
-      if (w >= 0.05 && d >= 0.05) {
-        this.app.history.pushState(this.app.level, `Add ${this.currentTool === 'column' ? 'Column' : 'Wall'}`);
-        const defaultCeiling = this.app.level.getCeilingHeight(minX, minZ);
+        if (w >= 0.5 && d >= 0.5) {
+          this.app.history.pushState(this.app.level, `Add ${this.currentTool === 'floor' ? 'Floor' : 'Ceiling'}`);
+          const defaultHeight = this.app.level.rooms[0]?.height || 3.5;
+          const newRoom = new Room({
+            x: Number(minX.toFixed(3)),
+            z: Number(minZ.toFixed(3)),
+            width: Number(w.toFixed(3)),
+            depth: Number(d.toFixed(3)),
+            height: defaultHeight
+          });
 
-        const newWall = new Wall({
-          x: Number(minX.toFixed(3)),
-          z: Number(minZ.toFixed(3)),
-          width: Number(w.toFixed(3)),
-          depth: Number(d.toFixed(3)),
-          y: 0.0,
-          height: null // Defaults to full ceiling height
-        });
+          this.app.level.rooms.push(newRoom);
+          this.select(newRoom.id);
+          this.app.updateStatus(`Created ${this.currentTool === 'floor' ? 'floor' : 'ceiling'} section: ${w.toFixed(1)}m × ${d.toFixed(1)}m`);
+        }
+      } else {
+        // Wall or Column
+        if (w < 0.05 && d < 0.05) {
+          if (this.currentTool === 'column') {
+            minX = p1.x - 0.5;
+            minZ = p1.z - 0.5;
+            w = 1.0;
+            d = 1.0;
+          } else {
+            // Default wall section: 2.0m x 0.35m
+            w = 2.0;
+            d = 0.35;
+          }
+        }
 
-        this.app.level.walls.push(newWall);
-        this.select(newWall.id);
-        this.app.updateStatus(`Created wall: ${w.toFixed(2)}m × ${d.toFixed(2)}m`);
+        if (w >= 0.05 && d >= 0.05) {
+          this.app.history.pushState(this.app.level, `Add ${this.currentTool === 'column' ? 'Column' : 'Wall'}`);
+          const newWall = new Wall({
+            x: Number(minX.toFixed(3)),
+            z: Number(minZ.toFixed(3)),
+            width: Number(w.toFixed(3)),
+            depth: Number(d.toFixed(3)),
+            y: 0.0,
+            height: null
+          });
+
+          this.app.level.walls.push(newWall);
+          this.select(newWall.id);
+          this.app.updateStatus(`Created wall: ${w.toFixed(2)}m × ${d.toFixed(2)}m`);
+        }
       }
 
       this.dragMode = null;
@@ -596,6 +658,30 @@ class Editor {
       }
     }
 
+    // 4. Rooms hit test (check edges first with high priority, then interior)
+    for (let i = level.rooms.length - 1; i >= 0; i--) {
+      const r = level.rooms[i];
+      const edgePad = this.renderer.screenDistToWorld(6);
+      const inX = world.x >= r.x && world.x <= r.x + r.width;
+      const inZ = world.z >= r.z && world.z <= r.z + r.depth;
+      const nearLeft = Math.abs(world.x - r.x) <= edgePad && inZ;
+      const nearRight = Math.abs(world.x - (r.x + r.width)) <= edgePad && inZ;
+      const nearTop = Math.abs(world.z - r.z) <= edgePad && inX;
+      const nearBottom = Math.abs(world.z - (r.z + r.depth)) <= edgePad && inX;
+
+      if (nearLeft || nearRight || nearTop || nearBottom) {
+        return { type: 'room', id: r.id, object: r };
+      }
+    }
+
+    // Interior room hit test (lowest priority so walls/lights inside can be clicked)
+    for (let i = level.rooms.length - 1; i >= 0; i--) {
+      const r = level.rooms[i];
+      if (world.x >= r.x && world.x <= r.x + r.width && world.z >= r.z && world.z <= r.z + r.depth) {
+        return { type: 'room', id: r.id, object: r };
+      }
+    }
+
     return null;
   }
 
@@ -603,11 +689,13 @@ class Editor {
     if (this.selectedIds.size !== 1) return null;
     const id = Array.from(this.selectedIds)[0];
     const wall = this.app.level.walls.find(w => w.id === id);
-    if (!wall) return null;
+    const room = this.app.level.rooms.find(r => r.id === id);
+    const target = wall || room;
+    if (!target) return null;
 
-    const s = this.renderer.worldToScreen(wall.x, wall.z);
-    const sw = this.renderer.worldDistToScreen(wall.width);
-    const sd = this.renderer.worldDistToScreen(wall.depth);
+    const s = this.renderer.worldToScreen(target.x, target.z);
+    const sw = this.renderer.worldDistToScreen(target.width);
+    const sd = this.renderer.worldDistToScreen(target.depth);
 
     const handleTol = 6;
     const handles = {
