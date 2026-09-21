@@ -128,6 +128,73 @@ function generateUniqueId(prefix) {
   return `${prefix}_${Date.now().toString(36)}_${(nextIdCounter++).toString(36)}`;
 }
 
+/** Most frequent value in a list (first value wins ties), or null when empty. */
+function majorityValue(values) {
+  const counts = new Map();
+  let best = null;
+  let bestCount = 0;
+  for (const value of values) {
+    const count = (counts.get(value) || 0) + 1;
+    counts.set(value, count);
+    if (count > bestCount) {
+      best = value;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+/**
+ * A rectangular cutout through a wall's thickness: a doorway, window, passage or vent.
+ * Mirrors `WallOpeningDef` in src/level.rs. `offset` is measured in metres along the
+ * wall's length axis from the wall's minimum corner; `sill` is the bottom edge height
+ * above the wall base (0 for a walk-through doorway).
+ */
+class WallOpening {
+  constructor(data = {}) {
+    this.id = data.id || generateUniqueId('opening');
+    this.kind = data.kind || 'door';
+    this.offset = Number(data.offset ?? 0);
+    this.width = Number(data.width ?? 1.0);
+    this.height = Number(data.height ?? 2.1);
+    this.sill = Number(data.sill ?? 0);
+  }
+
+  get end() {
+    return this.offset + this.width;
+  }
+
+  /** Deep copy for history snapshots - keeps the id so selection stays stable. */
+  clone() {
+    return new WallOpening({
+      id: this.id,
+      kind: this.kind,
+      offset: this.offset,
+      width: this.width,
+      height: this.height,
+      sill: this.sill
+    });
+  }
+
+  /** Copy with a fresh id, for duplicating objects in the level. */
+  duplicate() {
+    const copy = this.clone();
+    copy.id = generateUniqueId('opening');
+    return copy;
+  }
+
+  toJSON() {
+    const obj = {
+      kind: this.kind,
+      offset: Number(this.offset.toFixed(3)),
+      width: Number(this.width.toFixed(3)),
+      height: Number(this.height.toFixed(3))
+    };
+    if (this.sill) obj.sill = Number(this.sill.toFixed(3));
+    return obj;
+  }
+}
+
 class Wall {
   constructor(data = {}) {
     this.id = data.id || generateUniqueId('wall');
@@ -139,7 +206,13 @@ class Wall {
     // height: null/undefined represents default room ceiling height
     this.height = data.height !== undefined && data.height !== null ? Number(data.height) : null;
     this.faces = data.faces ? { ...data.faces } : {};
-    this.material = data.material || null; // optional primary wall material shorthand
+    // A single material applied to most faces is stored in the format's `faces`
+    // map (the game's serialized field) and surfaced as one simple dropdown.
+    const faceValues = Object.entries(this.faces)
+      .filter(([key, value]) => value && ['north', 'south', 'east', 'west'].includes(key))
+      .map(([, value]) => value);
+    this.material = data.material || majorityValue(faceValues) || null;
+    this.openings = (data.openings || []).map(o => new WallOpening(o));
   }
 
   isFullHeight(ceilingHeight = 3.5) {
@@ -160,7 +233,7 @@ class Wall {
 
   clone() {
     return new Wall({
-      id: generateUniqueId('wall'),
+      id: this.id,
       x: this.x,
       y: this.y,
       z: this.z,
@@ -168,8 +241,16 @@ class Wall {
       depth: this.depth,
       height: this.height,
       faces: { ...this.faces },
-      material: this.material
+      material: this.material,
+      openings: this.openings.map(o => o.clone())
     });
+  }
+
+  duplicate() {
+    const copy = this.clone();
+    copy.id = generateUniqueId('wall');
+    for (const opening of copy.openings) opening.id = generateUniqueId('opening');
+    return copy;
   }
 
   toJSON() {
@@ -191,9 +272,75 @@ class Wall {
         if (v && v.trim()) faces[k] = v.trim();
       }
     }
+    // The simple "wall material" control is serialized through the format's
+    // per-face material map so the choice is never silently discarded.
+    if (this.material) {
+      for (const face of ['north', 'south', 'east', 'west']) {
+        if (!faces[face]) faces[face] = this.material;
+      }
+    }
     if (Object.keys(faces).length > 0) {
       obj.faces = faces;
     }
+    if (this.openings.length > 0) {
+      obj.openings = this.openings.map(o => o.toJSON());
+    }
+    return obj;
+  }
+}
+
+/**
+ * A placed prop / furniture / appliance instance. Mirrors `PropDef` in src/level.rs:
+ * the catalog registry supplies the model's box extents, colour and future mesh path;
+ * `y` may be negative so props can be deliberately sunk into the floor, and `size`
+ * overrides the catalog entry when a one-off box is wanted.
+ */
+class Prop {
+  constructor(data = {}) {
+    this.id = data.id || generateUniqueId('prop');
+    // An explicitly empty model is preserved so validation can flag it instead of
+    // silently repairing broken level data.
+    this.model = data.model === undefined || data.model === null ? 'core:crate' : String(data.model);
+    this.x = Number(data.x ?? 0);
+    this.y = Number(data.y ?? 0);
+    this.z = Number(data.z ?? 0);
+    this.rotation_degrees = Number(data.rotation_degrees ?? 0);
+    this.scale = Number(data.scale ?? 1);
+    this.size = Array.isArray(data.size) && data.size.length === 3 ? data.size.map(Number) : null;
+    this.solid = data.solid === true;
+  }
+
+  clone() {
+    return new Prop({
+      id: this.id,
+      model: this.model,
+      x: this.x,
+      y: this.y,
+      z: this.z,
+      rotation_degrees: this.rotation_degrees,
+      scale: this.scale,
+      size: this.size ? this.size.slice() : null,
+      solid: this.solid
+    });
+  }
+
+  duplicate() {
+    const copy = this.clone();
+    copy.id = generateUniqueId('prop');
+    return copy;
+  }
+
+  toJSON() {
+    const obj = {
+      model: this.model,
+      x: Number(this.x.toFixed(3)),
+      z: Number(this.z.toFixed(3)),
+      rotation_degrees: Number(this.rotation_degrees.toFixed(1))
+    };
+    if (this.y !== 0) obj.y = Number(this.y.toFixed(3));
+    if (this.scale !== 1) obj.scale = Number(this.scale.toFixed(3));
+    if (this.size) obj.size = this.size.map(v => Number(v.toFixed(3)));
+    if (this.solid) obj.solid = true;
     return obj;
   }
 }
@@ -210,13 +357,19 @@ class CeilingLight {
 
   clone() {
     return new CeilingLight({
-      id: generateUniqueId('light'),
+      id: this.id,
       fixture: this.fixture,
       x: this.x,
       z: this.z,
       rotation_degrees: this.rotation_degrees,
       brightness: this.brightness
     });
+  }
+
+  duplicate() {
+    const copy = this.clone();
+    copy.id = generateUniqueId('light');
+    return copy;
   }
 
   toJSON() {
@@ -272,7 +425,7 @@ class Room {
 
   clone() {
     return new Room({
-      id: generateUniqueId('room'),
+      id: this.id,
       x: this.x,
       z: this.z,
       width: this.width,
@@ -281,6 +434,12 @@ class Room {
       material: this.material,
       ceiling_material: this.ceiling_material
     });
+  }
+
+  duplicate() {
+    const copy = this.clone();
+    copy.id = generateUniqueId('room');
+    return copy;
   }
 
   toJSON() {
@@ -309,13 +468,19 @@ class FloorPatch {
 
   clone() {
     return new FloorPatch({
-      id: generateUniqueId('patch'),
+      id: this.id,
       x: this.x,
       z: this.z,
       width: this.width,
       depth: this.depth,
       material: this.material
     });
+  }
+
+  duplicate() {
+    const copy = this.clone();
+    copy.id = generateUniqueId('patch');
+    return copy;
   }
 
   toJSON() {
@@ -371,6 +536,7 @@ class Level {
     this.walls = (data.walls || []).map(w => new Wall(w));
     this.ceiling_lights = (data.ceiling_lights || []).map(l => new CeilingLight(l));
     this.floor_patches = (data.floor_patches || []).map(p => new FloorPatch(p));
+    this.props = (data.props || []).map(p => new Prop(p));
 
     // Custom textures map: material_id -> { filename, dataUrl, width, height, bytes }
     this.custom_textures = {};
@@ -406,6 +572,7 @@ class Level {
       walls: this.walls.map(w => w.clone()),
       ceiling_lights: this.ceiling_lights.map(l => l.clone()),
       floor_patches: this.floor_patches.map(p => p.clone()),
+      props: this.props.map(p => p.clone()),
       custom_textures: JSON.parse(JSON.stringify(this.custom_textures))
     });
   }
@@ -434,11 +601,24 @@ class Level {
 
     result.ceiling_lights = this.ceiling_lights.map(l => l.toJSON());
 
+    if (this.props.length > 0) {
+      result.props = this.props.map(p => p.toJSON());
+    }
+
     return result;
   }
 }
 
 // Level Validation logic mirroring liminal-rust loader.rs validate_level
+function openingLabel(kind) {
+  switch (kind) {
+    case 'window': return 'Window';
+    case 'passage': return 'Passage';
+    case 'vent': return 'Vent';
+    default: return 'Door';
+  }
+}
+
 function validateLevel(level) {
   const errors = [];
   const warnings = [];
@@ -528,6 +708,49 @@ function validateLevel(level) {
         }
       }
     }
+
+    // Wall openings (doors, windows, passages, vents). Messages mirror the game
+    // loader so a level the editor accepts is accepted by liminal-rust.
+    const wallLength = Math.max(Math.abs(w.width), Math.abs(w.depth));
+    (w.openings || []).forEach((o, j) => {
+      const label = openingLabel(o.kind);
+      if (![o.offset, o.width, o.height, o.sill].every(Number.isFinite)) {
+        errors.push(`Wall ${i} ${label} opening contains non-finite numbers`);
+        return;
+      }
+      if (o.width <= 0 || o.height <= 0) {
+        errors.push(`Wall ${i} ${label} opening must have a positive width and height`);
+      }
+      if (o.sill < 0) {
+        errors.push(`Wall ${i} ${label} opening cannot have a negative sill height`);
+      }
+      if (o.offset < 0) {
+        errors.push(`Wall ${i} ${label} opening starts before the wall`);
+      }
+      if (o.offset + o.width > wallLength + 0.001) {
+        errors.push(`${label} opening extends beyond this wall (wall ${i}: opening ends at ${(o.offset + o.width).toFixed(2)} m, wall is ${wallLength.toFixed(2)} m long)`);
+      }
+    });
+  });
+
+  // Props: registry-driven placement. Intentional clipping (props inside walls or
+  // sunk below the floor) is allowed; only malformed data is rejected.
+  const props = level.props || [];
+  if (props.length > 5000) {
+    errors.push(`Level contains too many props: ${props.length} (limit: 5000)`);
+  }
+  props.forEach((p, i) => {
+    if (!p.model || !String(p.model).trim()) {
+      errors.push(`Prop ${i} must reference a non-empty model id`);
+    }
+    if (![p.x, p.y, p.z, p.rotation_degrees, p.scale].every(Number.isFinite)) {
+      errors.push(`Prop ${i} position, rotation, and scale must be finite numbers`);
+    } else if (p.scale <= 0) {
+      errors.push(`Prop ${i} scale must be positive`);
+    }
+    if (p.size && !p.size.every(v => Number.isFinite(v) && v > 0)) {
+      errors.push(`Prop ${i} size must contain positive finite numbers`);
+    }
   });
 
   // 5. Materials validation
@@ -589,16 +812,41 @@ if (typeof window !== 'undefined') {
   initCoreThumbnails();
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
+// Class and const declarations are lexically scoped in the browser, so other
+// scripts can reference them by name but they are not window properties. ops.js
+// resolves its dependencies through the global object, so publish them explicitly.
+if (typeof window !== 'undefined') {
+  Object.assign(window, {
     CORE_MATERIALS,
+    CORE_THUMBNAILS,
+    WallOpening,
     Wall,
     CeilingLight,
     Spawn,
     Room,
     FloorPatch,
+    Prop,
     LevelDefaults,
     Level,
+    openingLabel,
+    validateLevel,
+    generateUniqueId
+  });
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    CORE_MATERIALS,
+    WallOpening,
+    Wall,
+    CeilingLight,
+    Spawn,
+    Room,
+    FloorPatch,
+    Prop,
+    LevelDefaults,
+    Level,
+    openingLabel,
     validateLevel
   };
 }

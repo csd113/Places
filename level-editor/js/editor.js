@@ -1,4 +1,11 @@
-// editor.js - Canvas Interaction State Machine (Pan, Zoom, Select, Move, Resize, Draw)
+// editor.js - Canvas interaction for the 2D plan view.
+//
+// This module only translates input into `LiminalOps` calls and preview state; all
+// level mutations, geometry and validation live in ops.js / model.js / geometry.js so
+// the 3D viewport, the inspector and the tests share exactly one implementation.
+//
+// One user-visible action becomes exactly one history entry: nothing is recorded
+// while a drag is in flight, and `app.commit(label)` runs once on release.
 
 class Editor {
   constructor(canvas, app) {
@@ -6,126 +13,113 @@ class Editor {
     this.app = app;
     this.renderer = app.renderer;
 
-    // Tools
-    this.currentTool = 'select'; // 'select', 'wall', 'column', 'light', 'spawn'
+    this.currentTool = 'select';
     this.selectedIds = new Set();
 
-    // Grid snapping
     this.snapEnabled = true;
-    this.snapStep = 0.5; // meters (0.05, 0.1, 0.25, 0.5, 1.0)
+    this.snapStep = 0.5;
 
-    // Interaction states
+    // Interaction state
     this.isPanning = false;
     this.panStart = { x: 0, y: 0 };
     this.cameraStart = { x: 0, z: 0 };
     this.spacePressed = false;
 
-    this.dragMode = null; // null, 'move', 'resize', 'marquee', 'draw'
-    this.dragStart = { x: 0, y: 0 }; // screen
-    this.dragWorldStart = { x: 0, z: 0 }; // snapped world
-    this.dragInitialPositions = new Map(); // id -> { x, z, width, depth }
-
-    // Resize state
-    this.activeHandle = null; // 'nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'
+    this.dragMode = null;         // pan | move | resize | marquee | draw | opening | place
+    this.dragStart = { x: 0, y: 0 };
+    this.dragWorldStart = { x: 0, z: 0 };
+    this.dragInitial = new Map(); // id -> {x, z, offset}
+    this.activeHandle = null;
     this.resizeTarget = null;
-    this.resizeInitialBounds = null;
+    this.resizeInitial = null;
 
-    // Drawing state
-    this.isDrawing = false;
-    this.drawingStart = null;
-    this.drawingCurrent = null;
-
-    // Marquee state
-    this.marqueeBox = null; // { x1, y1, x2, y2 }
+    this.preview = null;          // {type:'rect'|'opening', ...}
+    this.marqueeBox = null;
+    this.hoverOpeningId = null;
+    this.activeOpening = null;    // {wall, kind, startOffset}
+    this.placedId = null;
+    this.wasDragged = false;
 
     this.bindEvents();
   }
 
+  // ------------------------------------------------------------------ tools
+
   setTool(tool) {
     this.currentTool = tool;
-    this.isDrawing = false;
-    this.drawingStart = null;
-    this.drawingCurrent = null;
     this.dragMode = null;
+    this.preview = null;
     this.marqueeBox = null;
+    this.hoverOpeningId = null;
+    this.activeOpening = null;
     this.updateCursor();
-
-    const toolNames = {
-      select: 'SELECT (V) - Click to select, drag to move / resize handles',
-      floor: 'FLOOR TOOL (F) - Click & drag rectangular area to create floor slab',
-      ceiling: 'CEILING TOOL (U) - Click & drag rectangular area to create ceiling section',
-      wall: 'WALL TOOL (W) - Click & drag to draw wall section',
-      column: 'COLUMN TOOL (C) - Click or drag to place pillar',
-      light: 'LIGHT TOOL (L) - Click to place fluorescent fixture',
-      spawn: 'SPAWN TOOL (P) - Click to place player spawn'
-    };
-    this.app.updateStatus(toolNames[tool] || `Tool: ${tool.toUpperCase()}`);
+    this.app.onToolChanged(tool);
     this.app.requestRender();
   }
 
-  snap(val) {
-    if (!this.snapEnabled || this.snapStep <= 0) return val;
-    return Math.round(val / this.snapStep) * this.snapStep;
+  snap(value) {
+    if (!this.snapEnabled || this.snapStep <= 0) return value;
+    return Math.round(value / this.snapStep) * this.snapStep;
   }
 
-  snapCoord(coord) {
-    return {
-      x: this.snap(coord.x),
-      z: this.snap(coord.z)
-    };
+  snapPoint(point) {
+    return { x: this.snap(point.x), z: this.snap(point.z) };
   }
 
-  select(id, multi = false) {
-    if (!multi) {
-      this.selectedIds.clear();
-    }
+  // -------------------------------------------------------------- selection
+
+  select(id, additive = false) {
+    if (!additive) this.selectedIds.clear();
     if (id) {
-      if (multi && this.selectedIds.has(id)) {
-        this.selectedIds.delete(id);
-      } else {
-        this.selectedIds.add(id);
-      }
+      if (additive && this.selectedIds.has(id)) this.selectedIds.delete(id);
+      else this.selectedIds.add(id);
     }
+    this.app.onSelectionChanged();
+    this.app.requestRender();
+  }
+
+  selectMany(ids, additive = false) {
+    if (!additive) this.selectedIds.clear();
+    for (const id of ids) this.selectedIds.add(id);
     this.app.onSelectionChanged();
     this.app.requestRender();
   }
 
   clearSelection() {
-    if (this.selectedIds.size > 0) {
-      this.selectedIds.clear();
-      this.app.onSelectionChanged();
-      this.app.requestRender();
-    }
+    if (this.selectedIds.size === 0) return;
+    this.selectedIds.clear();
+    this.app.onSelectionChanged();
+    this.app.requestRender();
   }
 
   selectAll() {
-    this.selectedIds.clear();
     const level = this.app.level;
-    level.walls.forEach(w => this.selectedIds.add(w.id));
-    level.ceiling_lights.forEach(l => this.selectedIds.add(l.id));
-    level.rooms.forEach(r => this.selectedIds.add(r.id));
-    if (level.spawn) this.selectedIds.add('spawn');
-    this.app.onSelectionChanged();
-    this.app.requestRender();
-    this.app.updateStatus(`Selected all ${this.selectedIds.size} object(s)`);
+    const ids = [];
+    for (const r of level.rooms) ids.push(r.id);
+    for (const w of level.walls) ids.push(w.id);
+    for (const l of level.ceiling_lights) ids.push(l.id);
+    for (const p of level.props) ids.push(p.id);
+    if (level.spawn) ids.push('spawn');
+    this.selectMany(ids);
+    this.app.updateStatus(`Selected ${ids.length} object${ids.length === 1 ? '' : 's'}`);
   }
+
+  // ------------------------------------------------------------------ input
 
   bindEvents() {
     const c = this.canvas;
-
     c.addEventListener('mousedown', (e) => this.onMouseDown(e));
     window.addEventListener('mousemove', (e) => this.onMouseMove(e));
     window.addEventListener('mouseup', (e) => this.onMouseUp(e));
     c.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
     c.addEventListener('contextmenu', (e) => e.preventDefault());
-
-    // Window resize
-    window.addEventListener('resize', () => {
-      this.renderer.resize();
-      this.app.requestRender();
+    c.addEventListener('mouseleave', () => {
+      if (this.preview && (this.currentTool === 'door' || this.currentTool === 'window')) {
+        this.preview = null;
+        this.app.requestRender();
+      }
     });
 
-    // Space key for panning
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Space' && !this.spacePressed && !this.isEditingInput(e)) {
         this.spacePressed = true;
@@ -133,7 +127,6 @@ class Editor {
         e.preventDefault();
       }
     });
-
     window.addEventListener('keyup', (e) => {
       if (e.code === 'Space') {
         this.spacePressed = false;
@@ -152,224 +145,270 @@ class Editor {
       this.canvas.style.cursor = 'grab';
       return;
     }
-
     if (handle) {
       const map = {
-        nw: 'nwse-resize', se: 'nwse-resize',
-        ne: 'nesw-resize', sw: 'nesw-resize',
-        n: 'ns-resize', s: 'ns-resize',
-        e: 'ew-resize', w: 'ew-resize'
+        nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize',
+        n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize'
       };
       this.canvas.style.cursor = map[handle] || 'default';
       return;
     }
-
     switch (this.currentTool) {
       case 'select':
         this.canvas.style.cursor = 'default';
         break;
-      case 'floor':
-      case 'ceiling':
+      case 'room':
       case 'wall':
-      case 'column':
+      case 'patch':
         this.canvas.style.cursor = 'crosshair';
         break;
-      case 'light':
-      case 'spawn':
+      case 'door':
+      case 'window':
         this.canvas.style.cursor = 'pointer';
         break;
       default:
-        this.canvas.style.cursor = 'default';
+        this.canvas.style.cursor = 'copy';
     }
   }
 
   getCanvasPoint(e) {
     const rect = this.canvas.getBoundingClientRect();
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }
 
   onWheel(e) {
     e.preventDefault();
     const pt = this.getCanvasPoint(e);
-    const worldBefore = this.renderer.screenToWorld(pt.x, pt.y);
-
-    const zoomFactor = e.deltaY < 0 ? 1.15 : 0.87;
-    const newZoom = Math.max(this.renderer.minZoom, Math.min(this.renderer.maxZoom, this.renderer.zoom * zoomFactor));
-
-    if (newZoom !== this.renderer.zoom) {
-      this.renderer.zoom = newZoom;
-      // Adjust camera so mouse position stays at the same world coordinates
-      const worldAfter = this.renderer.screenToWorld(pt.x, pt.y);
-      this.renderer.cameraX += (worldBefore.x - worldAfter.x);
-      this.renderer.cameraZ += (worldBefore.z - worldAfter.z);
-      this.app.updateZoomLabel();
-      this.app.requestRender();
-    }
+    const before = this.renderer.screenToWorld(pt.x, pt.y);
+    const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    const zoom = Math.max(this.renderer.minZoom, Math.min(this.renderer.maxZoom, this.renderer.zoom * factor));
+    if (zoom === this.renderer.zoom) return;
+    this.renderer.zoom = zoom;
+    const after = this.renderer.screenToWorld(pt.x, pt.y);
+    this.renderer.cameraX += before.x - after.x;
+    this.renderer.cameraZ += before.z - after.z;
+    this.app.updateZoomReadout();
+    this.app.requestRender();
   }
 
   onMouseDown(e) {
     const pt = this.getCanvasPoint(e);
     const world = this.renderer.screenToWorld(pt.x, pt.y);
-    const snapped = this.snapCoord(world);
+    const snapped = this.snapPoint(world);
 
-    // Pan with Middle Click, Right Click, or Space + Left Click
     if (e.button === 1 || e.button === 2 || (e.button === 0 && this.spacePressed)) {
       this.isPanning = true;
       this.panStart = { x: e.clientX, y: e.clientY };
       this.cameraStart = { x: this.renderer.cameraX, z: this.renderer.cameraZ };
-      this.canvas.style.cursor = 'grabbing';
+      this.updateCursor();
       return;
     }
+    if (e.button !== 0) return;
 
-    if (e.button !== 0) return; // Only left click for editing tools
+    this.wasDragged = false;
+    this.dragStart = { x: pt.x, y: pt.y };
 
-    // 1. SELECT TOOL
-    if (this.currentTool === 'select') {
-      // Check resize handle first if single rectangular object selected
-      if (this.selectedIds.size === 1) {
-        const handle = this.hitTestResizeHandle(pt);
-        if (handle) {
-          const id = Array.from(this.selectedIds)[0];
-          const wall = this.app.level.walls.find(w => w.id === id);
-          const room = this.app.level.rooms.find(r => r.id === id);
-          const target = wall || room;
-          if (target) {
-            this.dragMode = 'resize';
-            this.activeHandle = handle;
-            this.resizeTarget = target;
-            this.resizeInitialBounds = { x: target.x, z: target.z, width: target.width, depth: target.depth };
-            this.dragWorldStart = snapped;
-            return;
-          }
-        }
-      }
-
-      // Hit test geometry
-      const hit = this.hitTest(pt.x, pt.y);
-      const isShift = e.shiftKey;
-
-      if (hit) {
-        if (isShift) {
-          this.select(hit.id, true);
-        } else if (!this.selectedIds.has(hit.id)) {
-          this.select(hit.id, false);
-        }
-
-        // Prepare move drag
-        this.dragMode = 'move';
-        this.dragStart = { x: pt.x, y: pt.y };
-        this.dragWorldStart = snapped;
-        this.dragInitialPositions.clear();
-
-        this.selectedIds.forEach(id => {
-          if (id === 'spawn') {
-            this.dragInitialPositions.set('spawn', { x: this.app.level.spawn.x, z: this.app.level.spawn.z });
-          } else {
-            const w = this.app.level.walls.find(x => x.id === id);
-            if (w) this.dragInitialPositions.set(id, { x: w.x, z: w.z });
-            const l = this.app.level.ceiling_lights.find(x => x.id === id);
-            if (l) this.dragInitialPositions.set(id, { x: l.x, z: l.z });
-            const r = this.app.level.rooms.find(x => x.id === id);
-            if (r) this.dragInitialPositions.set(id, { x: r.x, z: r.z });
-          }
-        });
-      } else {
-        // Clicked empty space
-        if (!isShift) {
-          this.clearSelection();
-        }
-        // Start marquee selection
-        this.dragMode = 'marquee';
-        this.marqueeBox = { x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y };
+    switch (this.currentTool) {
+      case 'select': return this.beginSelectDrag(pt, snapped, e.shiftKey);
+      case 'room':
+      case 'wall':
+      case 'patch':
+        this.dragMode = 'draw';
+        this.preview = { type: 'rect', tool: this.currentTool, start: snapped, current: snapped };
         this.app.requestRender();
+        return;
+      case 'door':
+      case 'window':
+        return this.beginOpeningDrag(snapped);
+      case 'light':
+        return this.placeAndDrag(() => {
+          const options = this.app.toolOptions;
+          const light = LiminalOps.addLight(this.app.level, {
+            x: snapped.x,
+            z: snapped.z,
+            fixture: options.lightFixture,
+            brightness: options.lightBrightness
+          });
+          return light.id;
+        }, 'Add light');
+      case 'prop':
+        return this.placeAndDrag(() => {
+          const model = this.app.activePropModel;
+          if (!model) {
+            this.app.updateStatus('Pick a prop in the Prop panel first');
+            this.app.showPropBrowser(true);
+            return null;
+          }
+          const prop = LiminalOps.addProp(this.app.level, {
+            model,
+            x: snapped.x,
+            z: snapped.z,
+            rotation_degrees: Number(this.app.toolOptions.propRotation) || 0
+          }, this.app.propCatalog);
+          return prop ? prop.id : null;
+        }, 'Add prop');
+      case 'spawn':
+        return this.placeAndDrag(() => {
+          LiminalOps.setSpawn(this.app.level, {
+            x: snapped.x,
+            z: snapped.z,
+            yaw_degrees: Number(this.app.toolOptions.spawnFacing) || this.app.level.spawn.yaw_degrees
+          });
+          return 'spawn';
+        }, 'Move spawn');
+      default:
+        return;
+    }
+  }
+
+  /** Light/prop/spawn: place on press, then let the same drag fine-tune the position. */
+  placeAndDrag(create, label) {
+    const id = create();
+    if (!id) return;
+    this.dragMode = 'place';
+    this.placedId = id;
+    this.dragActionLabel = label;
+    this.dragInitial.clear();
+    const found = LiminalOps.findObject(this.app.level, id);
+    if (found) this.dragInitial.set(id, { x: found.object.x, z: found.object.z });
+    this.select(id);
+    this.app.levelChanged();
+    this.app.requestRender();
+  }
+
+  beginSelectDrag(pt, snapped, additive) {
+    if (this.selectedIds.size === 1) {
+      const id = [...this.selectedIds][0];
+      const handle = this.hitTestHandle(id, pt);
+      if (handle) {
+        this.dragMode = 'resize';
+        this.activeHandle = handle;
+        this.resizeTarget = id;
+        this.resizeInitial = this.captureResizeInitial(id);
+        this.app.requestRender();
+        return;
       }
-      return;
     }
 
-    // 2. FLOOR OR CEILING TOOL (Click & Drag rectangular area)
-    if (this.currentTool === 'floor' || this.currentTool === 'ceiling') {
-      this.dragMode = 'draw';
-      this.isDrawing = true;
-      this.drawingStart = snapped;
-      this.drawingCurrent = snapped;
+    const hit = LiminalOps.hitTest2D(this.app.level, this.snapPoint(this.renderer.screenToWorld(pt.x, pt.y)), this.hitTolerance(), this.app.propCatalog);
+    if (hit) {
+      if (additive) this.select(hit.id, true);
+      else if (!this.selectedIds.has(hit.id)) this.select(hit.id);
+
+      this.dragMode = 'move';
+      this.dragWorldStart = snapped;
+      this.dragInitial.clear();
+      for (const id of this.selectedIds) this.captureMoveInitial(id);
       this.app.requestRender();
       return;
     }
 
-    // 3. WALL TOOL
-    if (this.currentTool === 'wall') {
-      this.dragMode = 'draw';
-      this.isDrawing = true;
-      this.drawingStart = snapped;
-      this.drawingCurrent = snapped;
-      this.app.requestRender();
-      return;
-    }
+    if (!additive) this.clearSelection();
+    this.dragMode = 'marquee';
+    this.marqueeBox = { x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y };
+    this.app.requestRender();
+  }
 
-    // 4. COLUMN / BLOCK TOOL
-    if (this.currentTool === 'column') {
-      this.dragMode = 'draw';
-      this.isDrawing = true;
-      this.drawingStart = snapped;
-      this.drawingCurrent = snapped;
-      this.app.requestRender();
+  captureMoveInitial(id) {
+    const opening = LiminalOps.findOpening(this.app.level, id);
+    if (opening) {
+      this.dragInitial.set(id, { offset: opening.opening.offset });
       return;
     }
+    const found = LiminalOps.findObject(this.app.level, id);
+    if (found) this.dragInitial.set(id, { x: found.object.x, z: found.object.z });
+  }
 
-    // 5. LIGHT TOOL
-    if (this.currentTool === 'light') {
-      this.app.history.pushState(this.app.level, 'Add Light');
-      const light = new CeilingLight({
-        x: snapped.x,
-        z: snapped.z,
-        fixture: 'core:fluorescent_panel_01',
-        rotation_degrees: 0,
-        brightness: 1.0
-      });
-      this.app.level.ceiling_lights.push(light);
-      this.select(light.id);
-      this.app.updateStatus(`Placed ceiling light at (${snapped.x}m, ${snapped.z}m)`);
-      this.app.requestRender();
-      return;
+  captureResizeInitial(id) {
+    const opening = LiminalOps.findOpening(this.app.level, id);
+    if (opening) {
+      return { offset: opening.opening.offset, width: opening.opening.width, sill: opening.opening.sill, height: opening.opening.height };
     }
+    const bounds = LiminalOps.objectBounds2D(this.app.level, id, this.app.propCatalog);
+    return bounds ? { x: bounds.x, z: bounds.z, width: bounds.width, depth: bounds.depth } : null;
+  }
 
-    // 6. PLAYER SPAWN TOOL
-    if (this.currentTool === 'spawn') {
-      this.app.history.pushState(this.app.level, 'Move Spawn');
-      this.app.level.spawn.x = snapped.x;
-      this.app.level.spawn.z = snapped.z;
-      this.select('spawn');
-      this.app.updateStatus(`Placed player spawn at (${snapped.x}m, ${snapped.z}m)`);
-      this.app.requestRender();
+  /** Size preset for a new opening, honouring the tool option bar. */
+  placementSize(kind) {
+    const preset = LiminalOps.defaultOpening(kind);
+    const options = this.app.toolOptions || {};
+    if (kind === 'window') {
+      return {
+        width: Number(options.windowWidth) || preset.width,
+        height: Number(options.windowHeight) || preset.height,
+        sill: options.windowSill === undefined ? preset.sill : Number(options.windowSill)
+      };
+    }
+    if (kind === 'door') {
+      return {
+        width: Number(options.doorWidth) || preset.width,
+        height: Number(options.doorHeight) || preset.height,
+        sill: 0
+      };
+    }
+    return preset;
+  }
+
+  /** Door/window: press on a wall, drag along it to set position and width. */
+  beginOpeningDrag(snapped) {
+    const wall = LiminalOps.wallAtPoint(this.app.level, snapped, this.hitTolerance(0.35));
+    if (!wall) {
+      this.app.updateStatus(`Click on a wall to place a ${this.currentTool}`);
       return;
     }
+    // The anchor matches the hover ghost (centred on the click), so a click places
+    // the opening exactly where the preview showed it.
+    const preset = this.placementSize(this.currentTool);
+    const clicked = this.snap(LiminalGeometry.wallProjectOffset(wall, snapped));
+    const anchor = Math.max(0, Math.min(LiminalGeometry.wallLength(wall) - preset.width, clicked - preset.width / 2));
+    this.activeOpening = { wall, kind: this.currentTool, startOffset: anchor };
+    this.dragMode = 'opening';
+    this.dragInitial.clear();
+    this.updateOpeningPreview(anchor);
+    this.app.requestRender();
+  }
+
+  /** Builds the ghost opening: default size on a click, dragged span on a drag. */
+  updateOpeningPreview(currentOffset) {
+    if (!this.activeOpening) return;
+    const { wall, kind, startOffset } = this.activeOpening;
+    const preset = this.placementSize(kind);
+    const length = LiminalGeometry.wallLength(wall);
+    const start = Math.max(0, Math.min(startOffset, currentOffset));
+    const end = Math.min(length, Math.max(startOffset, currentOffset));
+    const width = Math.min(length, Math.max(preset.width, end - start));
+    const offset = Math.max(0, Math.min(length - width, start));
+    this.preview = {
+      type: 'opening',
+      kind,
+      width,
+      offset,
+      rect: LiminalOps.openingBounds2D(wall, { offset, width })
+    };
   }
 
   onMouseMove(e) {
     const pt = this.getCanvasPoint(e);
+    if (pt.x < -1000 || pt.y < -1000) return; // synthetic events
     const world = this.renderer.screenToWorld(pt.x, pt.y);
-    const snapped = this.snapCoord(world);
+    const snapped = this.snapPoint(world);
+    this.app.updateCoords(snapped.x, snapped.z);
 
-    // Update status bar coordinates
-    this.app.updateCursorCoords(snapped.x, snapped.z);
+    if (Math.abs(pt.x - this.dragStart.x) > 3 || Math.abs(pt.y - this.dragStart.y) > 3) this.wasDragged = true;
 
-    // 1. Pan move
     if (this.isPanning) {
       const dx = (e.clientX - this.panStart.x) / this.renderer.zoom;
-      const dy = (e.clientY - this.panStart.y) / this.renderer.zoom;
+      const dz = (e.clientY - this.panStart.y) / this.renderer.zoom;
       this.renderer.cameraX = this.cameraStart.x - dx;
-      this.renderer.cameraZ = this.cameraStart.z - dy;
+      this.renderer.cameraZ = this.cameraStart.z - dz;
       this.app.requestRender();
       return;
     }
 
-    // 2. Hover cursor check in select mode
+    // Hover feedback for the select tool.
     if (this.currentTool === 'select' && !this.dragMode) {
       if (this.selectedIds.size === 1) {
-        const handle = this.hitTestResizeHandle(pt);
+        const handle = this.hitTestHandle([...this.selectedIds][0], pt);
         if (handle) {
           this.updateCursor(handle);
           return;
@@ -378,71 +417,54 @@ class Editor {
       this.updateCursor();
     }
 
-    // 3. Move selected objects
+    // Hover feedback for the door/window tools: show the opening before clicking.
+    if ((this.currentTool === 'door' || this.currentTool === 'window') && !this.dragMode) {
+      const wall = LiminalOps.wallAtPoint(this.app.level, snapped, this.hitTolerance(0.35));
+      if (!wall) {
+        if (this.preview) {
+          this.preview = null;
+          this.app.requestRender();
+        }
+      } else {
+        const preset = LiminalOps.defaultOpening(this.currentTool);
+        const offset = this.snap(LiminalGeometry.wallProjectOffset(wall, snapped) - preset.width / 2);
+        const width = Math.min(preset.width, LiminalGeometry.wallLength(wall));
+        const clamped = Math.max(0, Math.min(LiminalGeometry.wallLength(wall) - width, offset));
+        this.preview = {
+          type: 'opening',
+          kind: this.currentTool,
+          width,
+          rect: LiminalOps.openingBounds2D(wall, { offset: clamped, width })
+        };
+        this.app.requestRender();
+      }
+    }
+
     if (this.dragMode === 'move') {
       const dx = snapped.x - this.dragWorldStart.x;
       const dz = snapped.z - this.dragWorldStart.z;
-
-      this.dragInitialPositions.forEach((initPos, id) => {
-        if (id === 'spawn') {
-          this.app.level.spawn.x = Number((initPos.x + dx).toFixed(3));
-          this.app.level.spawn.z = Number((initPos.z + dz).toFixed(3));
+      const level = this.app.level;
+      for (const [id, initial] of this.dragInitial) {
+        if (initial.offset !== undefined) {
+          const opening = LiminalOps.findOpening(level, id);
+          if (opening) {
+            const length = LiminalGeometry.wallLength(opening.wall);
+            opening.opening.offset = Number(Math.max(0, Math.min(length - opening.opening.width, initial.offset + dx)).toFixed(4));
+          }
         } else {
-          const w = this.app.level.walls.find(x => x.id === id);
-          if (w) {
-            w.x = Number((initPos.x + dx).toFixed(3));
-            w.z = Number((initPos.z + dz).toFixed(3));
-          }
-          const l = this.app.level.ceiling_lights.find(x => x.id === id);
-          if (l) {
-            l.x = Number((initPos.x + dx).toFixed(3));
-            l.z = Number((initPos.z + dz).toFixed(3));
-          }
-          const r = this.app.level.rooms.find(x => x.id === id);
-          if (r) {
-            r.x = Number((initPos.x + dx).toFixed(3));
-            r.z = Number((initPos.z + dz).toFixed(3));
-          }
+          LiminalOps.moveObjectTo(level, id, Number((initial.x + dx).toFixed(4)), Number((initial.z + dz).toFixed(4)));
         }
-      });
-
-      this.app.propertiesPanel.render();
-      this.app.requestRender();
+      }
+      this.app.levelChanged();
       return;
     }
 
-    // 4. Resize object
     if (this.dragMode === 'resize' && this.resizeTarget) {
-      const init = this.resizeInitialBounds;
-      const h = this.activeHandle;
-      const target = this.resizeTarget;
-
-      let x1 = init.x;
-      let x2 = init.x + init.width;
-      let z1 = init.z;
-      let z2 = init.z + init.depth;
-
-      if (h.includes('w')) x1 = snapped.x;
-      if (h.includes('e')) x2 = snapped.x;
-      if (h.includes('n')) z1 = snapped.z;
-      if (h.includes('s')) z2 = snapped.z;
-
-      const newMinX = Math.min(x1, x2);
-      const newMaxX = Math.max(x1, x2);
-      const newMinZ = Math.min(z1, z2);
-      const newMaxZ = Math.max(z1, z2);
-
-      target.x = Number(newMinX.toFixed(3));
-      target.z = Number(newMinZ.toFixed(3));
-      target.width = Number(Math.max(0.05, newMaxX - newMinX).toFixed(3));
-      target.depth = Number(Math.max(0.05, newMaxZ - newMinZ).toFixed(3));
-
-      this.app.propertiesPanel.render();
-      this.app.requestRender();
+      LiminalOps.resizeObject(this.app.level, this.resizeTarget, this.activeHandle, snapped, this.resizeInitial);
+      this.app.levelChanged();
       return;
     }
 
-    // 5. Marquee drag
     if (this.dragMode === 'marquee' && this.marqueeBox) {
       this.marqueeBox.x2 = pt.x;
       this.marqueeBox.y2 = pt.y;
@@ -450,10 +472,22 @@ class Editor {
       return;
     }
 
-    // 6. Draw wall / column / floor / ceiling preview
-    if (this.dragMode === 'draw' && this.isDrawing) {
-      this.drawingCurrent = snapped;
+    if (this.dragMode === 'draw' && this.preview && this.preview.type === 'rect') {
+      this.preview.current = snapped;
       this.app.requestRender();
+      return;
+    }
+
+    if (this.dragMode === 'opening' && this.activeOpening) {
+      const offset = this.snap(LiminalGeometry.wallProjectOffset(this.activeOpening.wall, snapped));
+      this.updateOpeningPreview(offset);
+      this.app.requestRender();
+      return;
+    }
+
+    if (this.dragMode === 'place' && this.placedId) {
+      LiminalOps.moveObjectTo(this.app.level, this.placedId, snapped.x, snapped.z);
+      this.app.levelChanged();
       return;
     }
   }
@@ -465,256 +499,217 @@ class Editor {
       return;
     }
 
-    // 1. Finish Move
-    if (this.dragMode === 'move') {
-      const pt = this.getCanvasPoint(e);
-      const world = this.renderer.screenToWorld(pt.x, pt.y);
-      const snapped = this.snapCoord(world);
-      const dx = snapped.x - this.dragWorldStart.x;
-      const dz = snapped.z - this.dragWorldStart.z;
+    const pt = this.getCanvasPoint(e);
+    const snapped = this.snapPoint(this.renderer.screenToWorld(pt.x, pt.y));
 
-      if (Math.abs(dx) > 0.001 || Math.abs(dz) > 0.001) {
-        this.app.history.pushState(this.app.level, 'Move Geometry');
-        this.app.updateStatus(`Moved ${this.selectedIds.size} object(s)`);
-      }
+    if (this.dragMode === 'move') {
+      if (this.wasDragged) this.app.commit('Move');
       this.dragMode = null;
-      this.dragInitialPositions.clear();
+      this.dragInitial.clear();
       return;
     }
 
-    // 2. Finish Resize
     if (this.dragMode === 'resize') {
-      this.app.history.pushState(this.app.level, 'Resize Geometry');
+      if (this.wasDragged) this.app.commit('Resize');
       this.dragMode = null;
       this.activeHandle = null;
       this.resizeTarget = null;
-      this.resizeInitialBounds = null;
-      this.app.updateStatus('Resized geometry');
-      this.app.requestRender();
+      this.resizeInitial = null;
       return;
     }
 
-    // 3. Finish Marquee Selection
-    if (this.dragMode === 'marquee' && this.marqueeBox) {
-      const box = this.marqueeBox;
-      const sMinX = Math.min(box.x1, box.x2);
-      const sMaxX = Math.max(box.x1, box.x2);
-      const sMinY = Math.min(box.y1, box.y2);
-      const sMaxY = Math.max(box.y1, box.y2);
+    if (this.dragMode === 'place') {
+      // The object was created on mouse-down, so this is always a real action.
+      this.app.commit(this.dragActionLabel || 'Place');
+      this.dragMode = null;
+      this.placedId = null;
+      return;
+    }
 
-      // Only perform marquee if dragged more than 4px
-      if (sMaxX - sMinX > 4 || sMaxY - sMinY > 4) {
-        const w1 = this.renderer.screenToWorld(sMinX, sMinY);
-        const w2 = this.renderer.screenToWorld(sMaxX, sMaxY);
-        const minX = Math.min(w1.x, w2.x);
-        const maxX = Math.max(w1.x, w2.x);
-        const minZ = Math.min(w1.z, w2.z);
-        const maxZ = Math.max(w1.z, w2.z);
-
-        const level = this.app.level;
-        level.walls.forEach(w => {
-          if (w.x + w.width >= minX && w.x <= maxX && w.z + w.depth >= minZ && w.z <= maxZ) {
-            this.selectedIds.add(w.id);
-          }
-        });
-
-        level.ceiling_lights.forEach(l => {
-          if (l.x >= minX && l.x <= maxX && l.z >= minZ && l.z <= maxZ) {
-            this.selectedIds.add(l.id);
-          }
-        });
-
-        level.rooms.forEach(r => {
-          if (r.x + r.width >= minX && r.x <= maxX && r.z + r.depth >= minZ && r.z <= maxZ) {
-            this.selectedIds.add(r.id);
-          }
-        });
-
-        if (level.spawn && level.spawn.x >= minX && level.spawn.x <= maxX && level.spawn.z >= minZ && level.spawn.z <= maxZ) {
-          this.selectedIds.add('spawn');
-        }
-
-        this.app.onSelectionChanged();
-        this.app.updateStatus(`Selected ${this.selectedIds.size} object(s)`);
+    if (this.dragMode === 'marquee') {
+      if (this.marqueeBox && (Math.abs(this.marqueeBox.x2 - this.marqueeBox.x1) > 3 || Math.abs(this.marqueeBox.y2 - this.marqueeBox.y1) > 3)) {
+        const w1 = this.renderer.screenToWorld(Math.min(this.marqueeBox.x1, this.marqueeBox.x2), Math.min(this.marqueeBox.y1, this.marqueeBox.y2));
+        const w2 = this.renderer.screenToWorld(Math.max(this.marqueeBox.x1, this.marqueeBox.x2), Math.max(this.marqueeBox.y1, this.marqueeBox.y2));
+        const ids = LiminalOps.objectsInRect(this.app.level, {
+          x: Math.min(w1.x, w2.x), z: Math.min(w1.z, w2.z),
+          width: Math.abs(w2.x - w1.x), depth: Math.abs(w2.z - w1.z)
+        }, this.app.propCatalog);
+        this.selectMany(ids, e.shiftKey);
+        if (ids.length > 0) this.app.updateStatus(`Selected ${ids.length} object${ids.length === 1 ? '' : 's'}`);
       }
-
       this.dragMode = null;
       this.marqueeBox = null;
       this.app.requestRender();
       return;
     }
 
-    // 4. Finish Drawing (Floor, Ceiling, Wall, Column)
-    if (this.dragMode === 'draw' && this.isDrawing) {
-      const p1 = this.drawingStart;
-      const p2 = this.drawingCurrent;
+    if (this.dragMode === 'draw') {
+      this.finishDraw(snapped, pt);
+      return;
+    }
 
-      let minX = Math.min(p1.x, p2.x);
-      let maxX = Math.max(p1.x, p2.x);
-      let minZ = Math.min(p1.z, p2.z);
-      let maxZ = Math.max(p1.z, p2.z);
-
-      let w = maxX - minX;
-      let d = maxZ - minZ;
-
-      if (this.currentTool === 'floor' || this.currentTool === 'ceiling') {
-        // If clicked without dragging: create sensible default room section (10m x 10m)
-        if (w < 0.1 && d < 0.1) {
-          minX = p1.x - 5.0;
-          minZ = p1.z - 5.0;
-          w = 10.0;
-          d = 10.0;
-        }
-
-        if (w >= 0.5 && d >= 0.5) {
-          this.app.history.pushState(this.app.level, `Add ${this.currentTool === 'floor' ? 'Floor' : 'Ceiling'}`);
-          const defaultHeight = this.app.level.rooms[0]?.height || 3.5;
-          const newRoom = new Room({
-            x: Number(minX.toFixed(3)),
-            z: Number(minZ.toFixed(3)),
-            width: Number(w.toFixed(3)),
-            depth: Number(d.toFixed(3)),
-            height: defaultHeight
-          });
-
-          this.app.level.rooms.push(newRoom);
-          this.select(newRoom.id);
-          this.app.updateStatus(`Created ${this.currentTool === 'floor' ? 'floor' : 'ceiling'} section: ${w.toFixed(1)}m × ${d.toFixed(1)}m`);
-        }
-      } else {
-        // Wall or Column
-        if (w < 0.05 && d < 0.05) {
-          if (this.currentTool === 'column') {
-            minX = p1.x - 0.5;
-            minZ = p1.z - 0.5;
-            w = 1.0;
-            d = 1.0;
-          } else {
-            // Default wall section: 2.0m x 0.35m
-            w = 2.0;
-            d = 0.35;
-          }
-        }
-
-        if (w >= 0.05 && d >= 0.05) {
-          this.app.history.pushState(this.app.level, `Add ${this.currentTool === 'column' ? 'Column' : 'Wall'}`);
-          const newWall = new Wall({
-            x: Number(minX.toFixed(3)),
-            z: Number(minZ.toFixed(3)),
-            width: Number(w.toFixed(3)),
-            depth: Number(d.toFixed(3)),
-            y: 0.0,
-            height: null
-          });
-
-          this.app.level.walls.push(newWall);
-          this.select(newWall.id);
-          this.app.updateStatus(`Created wall: ${w.toFixed(2)}m × ${d.toFixed(2)}m`);
-        }
-      }
-
-      this.dragMode = null;
-      this.isDrawing = false;
-      this.drawingStart = null;
-      this.drawingCurrent = null;
-      this.app.requestRender();
+    if (this.dragMode === 'opening') {
+      this.finishOpening();
       return;
     }
   }
 
-  hitTest(screenX, screenY) {
-    const world = this.renderer.screenToWorld(screenX, screenY);
+  finishDraw(snapped, pt) {
+    const preview = this.preview;
+    this.dragMode = null;
+    this.preview = null;
+    if (!preview) return;
+
+    const start = preview.start;
+    const moved = Math.abs(snapped.x - start.x) > 0.2 || Math.abs(snapped.z - start.z) > 0.2;
+    const isClick = !this.wasDragged || !moved;
+
+    if (this.currentTool === 'room') {
+      const rect = isClick
+        ? { x: snapped.x - 3, z: snapped.z - 3, width: 6, depth: 6 }
+        : { x: Math.min(start.x, snapped.x), z: Math.min(start.z, snapped.z), width: Math.abs(snapped.x - start.x), depth: Math.abs(snapped.z - start.z) };
+      if (rect.width < 0.5 || rect.depth < 0.5) return;
+      const room = LiminalOps.createRoom(this.app.level, { ...rect, height: this.app.level.getCeilingHeight() });
+      if (this.app.toolOptions.roomWalls) this.addWallsAround(rect);
+      this.select(room.id);
+      this.app.commit('Add room');
+      this.app.updateStatus(`Room ${rect.width.toFixed(1)} × ${rect.depth.toFixed(1)} m added`);
+      return;
+    }
+
+    if (this.currentTool === 'wall') {
+      const thickness = Math.max(0.05, this.app.toolOptions.wallThickness || 0.35);
+      const height = this.app.toolOptions.wallHeight; // null = full height
+      let wall = null;
+      if (isClick) {
+        wall = LiminalOps.createWall(this.app.level, {
+          x: snapped.x - 1, z: snapped.z - thickness / 2, width: 2, depth: thickness, height
+        });
+      } else {
+        const dx = Math.abs(snapped.x - start.x);
+        const dz = Math.abs(snapped.z - start.z);
+        if (dx >= dz) {
+          wall = LiminalOps.createWall(this.app.level, {
+            x: Math.min(start.x, snapped.x), z: Math.min(start.z, snapped.z) - thickness / 2 + (snapped.z - start.z) / 2,
+            width: dx, depth: thickness, height
+          });
+        } else {
+          wall = LiminalOps.createWall(this.app.level, {
+            x: Math.min(start.x, snapped.x) - thickness / 2 + (snapped.x - start.x) / 2, z: Math.min(start.z, snapped.z),
+            width: thickness, depth: dz, height
+          });
+        }
+      }
+      if (!wall) return;
+      this.select(wall.id);
+      this.app.commit('Add wall');
+      this.app.updateStatus(`Wall ${LiminalGeometry.wallLength(wall).toFixed(2)} m added`);
+      return;
+    }
+
+    if (this.currentTool === 'patch') {
+      if (isClick) return;
+      const rect = {
+        x: Math.min(start.x, snapped.x), z: Math.min(start.z, snapped.z),
+        width: Math.abs(snapped.x - start.x), depth: Math.abs(snapped.z - start.z)
+      };
+      if (rect.width < 0.25 || rect.depth < 0.25) return;
+      const patch = LiminalOps.addFloorPatch(this.app.level, { ...rect, material: this.app.toolOptions.patchMaterial });
+      this.select(patch.id);
+      this.app.commit('Add floor patch');
+      return;
+    }
+    void pt;
+  }
+
+  /** Creates the four perimeter walls of a room rectangle, skipping duplicates. */
+  addWallsAround(rect) {
+    LiminalOps.addWallsAroundRect(this.app.level, rect, {
+      thickness: this.app.toolOptions.wallThickness || 0.35,
+      height: this.app.level.getCeilingHeight()
+    });
+  }
+
+  finishOpening() {
+    const active = this.activeOpening;
+    const preview = this.preview;
+    this.dragMode = null;
+    this.activeOpening = null;
+    this.preview = null;
+    if (!active) return;
+
+    const preset = this.placementSize(active.kind);
+    const opening = LiminalOps.addOpening(active.wall, {
+      kind: active.kind,
+      offset: preview ? preview.offset : this.snap(active.startOffset - preset.width / 2),
+      width: preview ? preview.width : preset.width,
+      height: preset.height,
+      sill: preset.sill
+    });
+    if (!opening) return;
+    this.select(opening.id);
+    this.app.commit(active.kind === 'door' ? 'Add doorway' : 'Add window');
+    this.app.updateStatus(`${active.kind === 'door' ? 'Doorway' : 'Window'} ${opening.width.toFixed(2)} m placed — adjust it in the inspector`);
+  }
+
+  hitTolerance(fallback = 0.2) {
+    return Math.max(fallback, this.renderer.screenDistToWorld(6));
+  }
+
+  /** Resize handles for the current selection (rectangle objects or opening jambs). */
+  hitTestHandle(id, pt) {
     const level = this.app.level;
+    const opening = LiminalOps.findOpening(level, id);
+    const tolerance = 7;
 
-    // 1. Spawn hit test (radius ~ 0.5m)
-    if (level.spawn) {
-      const dx = world.x - level.spawn.x;
-      const dz = world.z - level.spawn.z;
-      const dist = Math.sqrt(dx * dx + dz * dz);
-      const radWorld = Math.max(0.4, this.renderer.screenDistToWorld(14));
-      if (dist <= radWorld) {
-        return { type: 'spawn', id: 'spawn', object: level.spawn };
+    if (opening) {
+      const { wall, opening: value } = opening;
+      const axis = LiminalGeometry.wallAxis(wall);
+      const thickness = LiminalGeometry.wallThickness(wall);
+      const mid = thickness / 2;
+      const a = LiminalGeometry.wallLocalToWorld(wall, value.offset, mid);
+      const b = LiminalGeometry.wallLocalToWorld(wall, value.offset + value.width, mid);
+      const sa = this.renderer.worldToScreen(a.x, a.z);
+      const sb = this.renderer.worldToScreen(b.x, b.z);
+      const candidates = axis === 'x'
+        ? [['w', sa], ['e', sb]]
+        : [['n', sa], ['s', sb]];
+      for (const [name, point] of candidates) {
+        if (Math.abs(pt.x - point.x) <= tolerance && Math.abs(pt.y - point.y) <= tolerance) return name;
       }
+      return null;
     }
 
-    // 2. Ceiling lights hit test
-    for (let i = level.ceiling_lights.length - 1; i >= 0; i--) {
-      const l = level.ceiling_lights[i];
-      const isRot = (Math.round(l.rotation_degrees) % 180 !== 0);
-      const hw = isRot ? 0.35 : 0.65;
-      const hd = isRot ? 0.65 : 0.35;
-      if (world.x >= l.x - hw && world.x <= l.x + hw && world.z >= l.z - hd && world.z <= l.z + hd) {
-        return { type: 'light', id: l.id, object: l };
-      }
+    const bounds = LiminalOps.objectBounds2D(level, id, this.app.propCatalog);
+    if (!bounds) return null;
+    const s = this.renderer.worldToScreen(bounds.x, bounds.z);
+    const w = this.renderer.worldDistToScreen(bounds.width);
+    const h = this.renderer.worldDistToScreen(bounds.depth);
+    const handles = {
+      nw: { x: s.x, y: s.y },
+      n: { x: s.x + w / 2, y: s.y },
+      ne: { x: s.x + w, y: s.y },
+      e: { x: s.x + w, y: s.y + h / 2 },
+      se: { x: s.x + w, y: s.y + h },
+      s: { x: s.x + w / 2, y: s.y + h },
+      sw: { x: s.x, y: s.y + h },
+      w: { x: s.x, y: s.y + h / 2 }
+    };
+    for (const [name, point] of Object.entries(handles)) {
+      if (Math.abs(pt.x - point.x) <= tolerance && Math.abs(pt.y - point.y) <= tolerance) return name;
     }
-
-    // 3. Walls hit test (check in reverse so topmost wall is selected first)
-    for (let i = level.walls.length - 1; i >= 0; i--) {
-      const w = level.walls[i];
-      const pad = this.renderer.screenDistToWorld(3); // 3px tolerance
-      if (world.x >= w.x - pad && world.x <= w.x + w.width + pad &&
-          world.z >= w.z - pad && world.z <= w.z + w.depth + pad) {
-        return { type: 'wall', id: w.id, object: w };
-      }
-    }
-
-    // 4. Rooms hit test (check edges first with high priority, then interior)
-    for (let i = level.rooms.length - 1; i >= 0; i--) {
-      const r = level.rooms[i];
-      const edgePad = this.renderer.screenDistToWorld(6);
-      const inX = world.x >= r.x && world.x <= r.x + r.width;
-      const inZ = world.z >= r.z && world.z <= r.z + r.depth;
-      const nearLeft = Math.abs(world.x - r.x) <= edgePad && inZ;
-      const nearRight = Math.abs(world.x - (r.x + r.width)) <= edgePad && inZ;
-      const nearTop = Math.abs(world.z - r.z) <= edgePad && inX;
-      const nearBottom = Math.abs(world.z - (r.z + r.depth)) <= edgePad && inX;
-
-      if (nearLeft || nearRight || nearTop || nearBottom) {
-        return { type: 'room', id: r.id, object: r };
-      }
-    }
-
-    // Interior room hit test (lowest priority so walls/lights inside can be clicked)
-    for (let i = level.rooms.length - 1; i >= 0; i--) {
-      const r = level.rooms[i];
-      if (world.x >= r.x && world.x <= r.x + r.width && world.z >= r.z && world.z <= r.z + r.depth) {
-        return { type: 'room', id: r.id, object: r };
-      }
-    }
-
     return null;
   }
 
-  hitTestResizeHandle(pt) {
-    if (this.selectedIds.size !== 1) return null;
-    const id = Array.from(this.selectedIds)[0];
-    const wall = this.app.level.walls.find(w => w.id === id);
-    const room = this.app.level.rooms.find(r => r.id === id);
-    const target = wall || room;
-    if (!target) return null;
-
-    const s = this.renderer.worldToScreen(target.x, target.z);
-    const sw = this.renderer.worldDistToScreen(target.width);
-    const sd = this.renderer.worldDistToScreen(target.depth);
-
-    const handleTol = 6;
-    const handles = {
-      nw: { x: s.x, y: s.y },
-      n:  { x: s.x + sw / 2, y: s.y },
-      ne: { x: s.x + sw, y: s.y },
-      e:  { x: s.x + sw, y: s.y + sd / 2 },
-      se: { x: s.x + sw, y: s.y + sd },
-      s:  { x: s.x + sw / 2, y: s.y + sd },
-      sw: { x: s.x, y: s.y + sd },
-      w:  { x: s.x, y: s.y + sd / 2 }
-    };
-
-    for (const [name, pos] of Object.entries(handles)) {
-      if (Math.abs(pt.x - pos.x) <= handleTol && Math.abs(pt.y - pos.y) <= handleTol) {
-        return name;
-      }
-    }
-
-    return null;
+  cancelOperation() {
+    this.dragMode = null;
+    this.preview = null;
+    this.marqueeBox = null;
+    this.activeOpening = null;
+    this.dragInitial.clear();
+    this.resizeTarget = null;
+    this.resizeInitial = null;
+    this.activeHandle = null;
+    this.app.requestRender();
   }
 }

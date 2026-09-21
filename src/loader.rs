@@ -493,6 +493,11 @@ impl PropCatalog {
         self.entries.len()
     }
 
+    /// True when the catalog defines this exact model id.
+    pub fn contains(&self, model: &str) -> bool {
+        self.entries.contains_key(model)
+    }
+
     /// True when the catalog has no entries.
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
@@ -1706,5 +1711,66 @@ mod tests {
         assert_eq!(couch.name, "Couch");
         assert!(couch.size.iter().all(|v| *v > 0.0));
         assert!(couch.solid);
+    }
+
+    #[test]
+    fn test_shipped_test_room_demonstrates_openings_and_props() {
+        let json = include_str!("../assets/levels/test_room.json");
+        let level = LevelDef::from_json(json).expect("valid test_room json");
+        validate_level(&level).expect("the shipped sample level validates");
+
+        let kinds: Vec<&str> = level
+            .walls
+            .iter()
+            .flat_map(|wall| wall.openings.iter().map(|opening| opening.kind.as_str()))
+            .collect();
+        assert!(kinds.contains(&"door"), "the sample level shows a doorway");
+        assert!(kinds.contains(&"window"), "the sample level shows a window");
+        assert!(
+            !level.props.is_empty(),
+            "the sample level shows at least one prop"
+        );
+
+        // The sample is also a real geometry exercise: openings and props must
+        // produce drawable batches.
+        let mesh = crate::render::build_level_geometry(&level);
+        assert!(mesh.batches.wall_batch.count > 0);
+        assert!(mesh.batches.prop_batch.count > 0);
+    }
+
+    #[test]
+    fn test_shipped_prop_catalog_covers_shipped_levels() {
+        let catalog = PropCatalog::load_from_path(Path::new("assets/props/props.json"))
+            .expect("assets/props/props.json must load");
+        assert!(!catalog.is_empty());
+
+        let mut levels_checked = 0;
+        let mut props_checked = 0;
+        for entry in fs::read_dir("assets/levels")
+            .expect("assets/levels exists")
+            .flatten()
+        {
+            let path = entry.path();
+            if path.extension().map(|ext| ext != "json").unwrap_or(true) {
+                continue;
+            }
+            let content = fs::read_to_string(&path).expect("level file is readable");
+            let level = LevelDef::from_json(&content)
+                .unwrap_or_else(|e| panic!("{} is not a valid level: {e}", path.display()));
+            validate_level(&level)
+                .unwrap_or_else(|e| panic!("{} failed validation: {e}", path.display()));
+            levels_checked += 1;
+            for prop in &level.props {
+                assert!(
+                    catalog.contains(&prop.model),
+                    "{} uses prop '{}' which is missing from assets/props/props.json",
+                    path.display(),
+                    prop.model
+                );
+                props_checked += 1;
+            }
+        }
+        assert!(levels_checked >= 2, "expected the shipped level files");
+        assert!(props_checked >= 1, "expected at least one placed prop");
     }
 }

@@ -26,7 +26,15 @@
       "z": -12.4,
       "width": 12.0,
       "depth": 0.4,
-      "height": 3.5
+      "height": 3.5,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 4.0,
+          "width": 1.2,
+          "height": 2.1
+        }
+      ]
     },
     {
       "x": -6.0,
@@ -47,7 +55,16 @@
       "z": -12.0,
       "width": 0.4,
       "depth": 16.0,
-      "height": 3.5
+      "height": 3.5,
+      "openings": [
+        {
+          "kind": "window",
+          "offset": 5.0,
+          "width": 2.0,
+          "height": 1.2,
+          "sill": 1.0
+        }
+      ]
     }
   ],
   "ceiling_lights": [
@@ -56,6 +73,22 @@
       "x": 0.0,
       "z": -4.0,
       "rotation_degrees": 0.0
+    }
+  ],
+  "props": [
+    {
+      "model": "core:crate",
+      "x": -4.0,
+      "z": 2.0,
+      "rotation_degrees": 15.0
+    },
+    {
+      "model": "core:couch",
+      "x": 3.0,
+      "y": -0.15,
+      "z": 3.4,
+      "rotation_degrees": 180.0,
+      "solid": true
     }
   ]
 }

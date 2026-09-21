@@ -1,943 +1,810 @@
-// properties.js - Inspector panel UI management for Liminal Level Editor
+// properties.js - Contextual inspector.
+//
+// Shows only what the current selection needs. Simple fields first; the rest lives
+// inside an Advanced <details> section (which the app hides entirely in simple mode).
+// Nothing here mutates the level directly except through small, explicit helpers.
 
 class PropertiesPanel {
   constructor(container, app) {
     this.container = container;
     this.app = app;
-    this.activeTab = 'selection'; // 'selection', 'level', 'textures'
-    this.init();
-  }
-
-  init() {
+    this.renderedKey = null;
+    this.inputs = new Map();
+    this.bindEvents();
     this.render();
   }
 
-  setTab(tab) {
-    this.activeTab = tab;
-    this.render();
+  // ---------------------------------------------------------------- helpers
+
+  esc(value) {
+    return String(value === undefined || value === null ? '' : value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
+
+  num(value, digits = 2) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n.toFixed(digits) : '0';
+  }
+
+  input(obj, field, value, opts = {}) {
+    const step = opts.step === undefined ? 0.1 : opts.step;
+    return `<input type="number" step="${step}" ${opts.min !== undefined ? `min="${opts.min}"` : ''}
+      ${opts.max !== undefined ? `max="${opts.max}"` : ''}
+      data-obj="${obj}" data-field="${field}" data-label="${this.esc(opts.label || field)}"
+      ${opts.id ? `data-id="${opts.id}"` : ''}
+      value="${this.num(value, opts.digits === undefined ? 2 : opts.digits)}">`;
+  }
+
+  text(obj, field, value, label) {
+    return `<input type="text" data-obj="${obj}" data-field="${field}" data-label="${this.esc(label || field)}" value="${this.esc(value)}">`;
+  }
+
+  field(label, inner, note) {
+    return `<div class="field"><label>${this.esc(label)}</label>${inner}${note ? `<div class="field-note">${note}</div>` : ''}</div>`;
+  }
+
+  fieldRow(label, inner) {
+    return `<div class="field"><label>${this.esc(label)}</label><div class="field-row">${inner}</div></div>`;
+  }
+
+  section(title) {
+    return `<h5>${this.esc(title)}</h5>`;
+  }
+
+  advanced(content) {
+    if (!content) return '';
+    return `<details class="advanced"><summary>Advanced</summary>${content}</details>`;
+  }
+
+  actionRow(buttons) {
+    return `<div class="action-row">${buttons.join('')}</div>`;
+  }
+
+  button(label, action, args = {}, cls = 'btn') {
+    const attrs = Object.entries(args).map(([k, v]) => `data-${k}="${this.esc(v)}"`).join(' ');
+    return `<button class="${cls}" data-action="${action}" ${attrs}>${this.esc(label)}</button>`;
+  }
+
+  pills(entries, activeValue, action) {
+    return `<div class="pill-row">${entries.map(([label, value]) =>
+      `<button class="pill ${String(value) === String(activeValue) ? 'active' : ''}" data-action="${action}" data-value="${value}">${this.esc(label)}</button>`
+    ).join('')}</div>`;
+  }
+
+  materialOptions(category, selected, includeDefault) {
+    const level = this.app.level;
+    const rows = [];
+    if (includeDefault) rows.push(`<option value=""${!selected ? ' selected' : ''}>Level default</option>`);
+    for (const material of Object.values(CORE_MATERIALS)) {
+      if (category && material.category !== category) continue;
+      rows.push(`<option value="${material.id}"${selected === material.id ? ' selected' : ''}>${this.esc(material.name)}</option>`);
+    }
+    const packs = Object.keys(level.custom_textures || {});
+    if (packs.length > 0) {
+      rows.push('<optgroup label="Imported textures">');
+      for (const id of packs) {
+        rows.push(`<option value="${id}"${selected === id ? ' selected' : ''}>${this.esc(id)}</option>`);
+      }
+      rows.push('</optgroup>');
+    }
+    const known = Object.values(CORE_MATERIALS).some(m => m.id === selected) || packs.includes(selected);
+    if (selected && !known) {
+      rows.push(`<option value="${this.esc(selected)}" selected>${this.esc(selected)}</option>`);
+    }
+    return rows.join('');
+  }
+
+  materialField(label, obj, field, category, selected, includeDefault) {
+    const swatch = this.materialColor(selected);
+    return `<div class="field">
+      <label>${this.esc(label)}</label>
+      <div class="field-row">
+        <select data-obj="${obj}" data-field="${field}" data-label="${this.esc(label)}">${this.materialOptions(category, selected, includeDefault)}</select>
+        <span class="swatch" style="background:${swatch}"></span>
+      </div>
+    </div>`;
+  }
+
+  materialColor(id) {
+    const material = CORE_MATERIALS[id];
+    if (material) return material.color;
+    if (id && this.app.level.custom_textures && this.app.level.custom_textures[id]) return '#7f8c8d';
+    return '#4a4f55';
+  }
+
+  // ----------------------------------------------------------------- render
 
   render() {
-    const selectedIds = this.app.editor.selectedIds;
-    const level = this.app.level;
+    const selection = this.app.editor.selectedIds;
+    const key = selection.size === 0 ? 'level' : selection.size === 1 ? [...selection][0] : `multi:${[...selection].sort().join(',')}`;
+    this.renderedKey = key;
+    this.inputs.clear();
 
-    // Header tabs
-    let html = `
-      <div class="panel-tabs">
-        <button class="tab-btn ${this.activeTab === 'selection' ? 'active' : ''}" data-tab="selection">
-          Selection ${selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
-        </button>
-        <button class="tab-btn ${this.activeTab === 'level' ? 'active' : ''}" data-tab="level">
-          Level Settings
-        </button>
-        <button class="tab-btn ${this.activeTab === 'textures' ? 'active' : ''}" data-tab="textures">
-          Textures
-        </button>
-      </div>
-      <div class="panel-content">
-    `;
+    let html;
+    if (selection.size === 0) html = this.renderLevel();
+    else if (selection.size === 1) html = this.renderObject([...selection][0]) || this.renderLevel();
+    else html = this.renderMulti([...selection]);
 
-    if (this.activeTab === 'selection') {
-      if (selectedIds.size === 0) {
-        html += this.renderEmptySelection();
-      } else if (selectedIds.size === 1) {
-        const id = Array.from(selectedIds)[0];
-        html += this.renderSingleSelection(id);
-      } else {
-        html += this.renderMultiSelection(selectedIds);
-      }
-    } else if (this.activeTab === 'level') {
-      html += this.renderLevelSettings(level);
-    } else if (this.activeTab === 'textures') {
-      html += this.renderTextureManager(level);
-    }
-
-    html += `</div>`;
     this.container.innerHTML = html;
-    this.bindEvents();
   }
 
-  renderEmptySelection() {
+  /**
+   * Updates displayed values without rebuilding the DOM, so dragging in the views
+   * does not destroy focus or flash the panel.
+   */
+  syncValues() {
+    const selection = this.app.editor.selectedIds;
+    const key = selection.size === 0 ? 'level' : selection.size === 1 ? [...selection][0] : `multi:${[...selection].sort().join(',')}`;
+    if (key !== this.renderedKey) {
+      this.render();
+      return;
+    }
+    for (const el of this.container.querySelectorAll('[data-obj][data-field]')) {
+      if (el === document.activeElement) continue;
+      const value = this.readField(el.dataset.obj, el.dataset.field, el.dataset.id);
+      if (value === null || value === undefined) continue;
+      if (el.type === 'checkbox') el.checked = !!value;
+      else if (Number.isFinite(Number(value)) && el.type === 'number') el.value = Number(value).toFixed(el.dataset.digits === undefined ? 2 : Number(el.dataset.digits));
+      else if (el.tagName === 'SELECT' || el.type === 'text' || el.type === 'number') el.value = value;
+      const swatch = el.parentElement && el.parentElement.querySelector('.swatch');
+      if (swatch && el.tagName === 'SELECT') swatch.style.background = this.materialColor(el.value);
+    }
+  }
+
+  // ------------------------------------------------------------ level panel
+
+  renderLevel() {
+    const level = this.app.level;
+    const stats = LiminalGeometry.levelStats(level);
+    const validation = validateLevel(level);
+    const problemCount = validation.errors.length + validation.warnings.length;
+
     return `
-      <div class="empty-state">
-        <div class="empty-icon">⬚</div>
-        <p>No object selected</p>
-        <p class="subtext">Click on geometry to inspect properties, or switch to tools to draw new walls, columns, lights, and spawn.</p>
-        <div class="quick-nav-box">
-          <button class="btn btn-secondary btn-block" id="btn-goto-level-settings">Edit Level Settings</button>
+      <h4>Level</h4>
+      <div class="fields">
+        ${this.field('Name', this.text('level', 'name', level.name, 'Name'))}
+      </div>
+
+      <h5>Level surfaces</h5>
+      <div class="fields">
+        ${this.materialField('Floor material', 'defaults', 'floor', 'floor', level.defaults.floor, false)}
+        ${this.materialField('Wall material', 'defaults', 'wall', 'wall', level.defaults.wall, false)}
+        ${this.materialField('Ceiling material', 'defaults', 'ceiling', 'ceiling', level.defaults.ceiling, false)}
+      </div>
+
+      <h5>In this level</h5>
+      <div class="stat-grid">
+        <span>Rooms</span><strong>${stats.rooms}</strong>
+        <span>Walls</span><strong>${stats.walls}</strong>
+        <span>Doors / windows</span><strong>${stats.openings}</strong>
+        <span>Lights</span><strong>${stats.lights}</strong>
+        <span>Props</span><strong>${stats.props}</strong>
+      </div>
+
+      <div class="action-row">
+        ${this.button('+ Add room', 'add-room')}
+        ${this.button('+ Add light', 'add-light')}
+      </div>
+      <div class="action-row">
+        ${this.button('Add walls around all rooms', 'walls-for-rooms', {}, 'btn btn-block')}
+      </div>
+
+      <p class="hint">Nothing selected. Click an object to edit it, or pick a tool on the left to build.</p>
+
+      ${this.advanced(`
+        <div class="fields">
+          ${this.field('Level ID', this.text('level', 'id', level.id, 'Level ID'))}
+          ${this.field('Author', this.text('level', 'author', level.author, 'Author'))}
+          ${this.field('Format version', `<input type="text" value="${level.format_version}" disabled>`)}
         </div>
+
+        ${this.section(`Room sections (${level.rooms.length})`)}
+        <div class="list">
+          ${level.rooms.map((room, index) => `
+            <div class="list-item">
+              <span class="grow">Room ${index + 1} · ${this.num(room.width, 1)}×${this.num(room.depth, 1)} m</span>
+              ${this.button('Select', 'select-id', { id: room.id }, 'btn btn-sm')}
+            </div>`).join('')}
+        </div>
+
+        ${level.floor_patches.length > 0 ? `
+          ${this.section(`Floor patches (${level.floor_patches.length})`)}
+          <div class="list">
+            ${level.floor_patches.map((patch, index) => `
+              <div class="list-item">
+                <span class="grow">Patch ${index + 1} · ${this.num(patch.width, 1)}×${this.num(patch.depth, 1)} m</span>
+                ${this.button('Select', 'select-id', { id: patch.id }, 'btn btn-sm')}
+              </div>`).join('')}
+          </div>` : ''}
+
+        ${this.section(`Imported textures (${Object.keys(level.custom_textures || {}).length})`)}
+        <input type="file" id="texture-input" accept="image/png,image/jpeg,image/webp" hidden>
+        ${this.button('+ Import texture…', 'import-texture', {}, 'btn btn-block')}
+        <div class="list" style="margin-top:6px">
+          ${Object.keys(level.custom_textures || {}).map(id => `
+            <div class="list-item">
+              <span class="grow">${this.esc(id)}</span>
+              ${this.button('Remove', 'remove-texture', { id }, 'btn btn-sm btn-danger')}
+            </div>`).join('') || '<p class="hint">No imported textures.</p>'}
+        </div>
+      `)}
+
+      <div class="action-row">
+        ${this.button(problemCount === 0 ? '✓ Level looks valid' : `Check level (${problemCount} issue${problemCount === 1 ? '' : 's'})`, 'validate',
+          {}, problemCount === 0 ? 'btn btn-block' : 'btn btn-block btn-primary')}
       </div>
     `;
   }
 
-  renderSingleSelection(id) {
+  // ----------------------------------------------------------- object panels
+
+  renderObject(id) {
     const level = this.app.level;
-    const defaultCeiling = level.getCeilingHeight();
-
-    if (id === 'spawn') {
-      const s = level.spawn;
-      return `
-        <div class="prop-section">
-          <div class="section-title">
-            <span class="type-badge spawn-badge">● Player Spawn</span>
-          </div>
-
-          <div class="section-subtitle">Transform</div>
-
-          <div class="form-group-row">
-            <div class="form-group">
-              <label>Position X (m)</label>
-              <input type="number" step="0.1" class="prop-input" data-obj="spawn" data-prop="x" value="${s.x.toFixed(2)}">
-            </div>
-            <div class="form-group">
-              <label>Position Z (m)</label>
-              <input type="number" step="0.1" class="prop-input" data-obj="spawn" data-prop="z" value="${s.z.toFixed(2)}">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Yaw Orientation (Degrees)</label>
-            <div class="input-with-addons">
-              <input type="number" step="5" min="0" max="360" class="prop-input" data-obj="spawn" data-prop="yaw_degrees" value="${s.yaw_degrees.toFixed(1)}">
-              <span class="unit-addon">°</span>
-            </div>
-          </div>
-
-          <div class="quick-presets-row">
-            <button class="btn btn-xs btn-preset" data-preset="yaw:0">N (0°)</button>
-            <button class="btn btn-xs btn-preset" data-preset="yaw:90">E (90°)</button>
-            <button class="btn btn-xs btn-preset" data-preset="yaw:180">S (180°)</button>
-            <button class="btn btn-xs btn-preset" data-preset="yaw:270">W (270°)</button>
-          </div>
-        </div>
-      `;
-    }
-
+    if (id === 'spawn') return this.renderSpawn();
     const wall = level.walls.find(w => w.id === id);
-    if (wall) {
-      const isFull = wall.height === null || wall.height === undefined;
-      const curH = wall.getResolvedHeight(defaultCeiling);
-
-      return `
-        <div class="prop-section">
-          <div class="section-title">
-            <span class="type-badge wall-badge">■ Wall</span>
-            <span class="prop-id">#${wall.id.slice(0, 10)}</span>
-          </div>
-
-          <div class="section-subtitle">Transform</div>
-
-          <div class="form-group-row">
-            <div class="form-group">
-              <label>X Position (m)</label>
-              <input type="number" step="0.05" class="prop-input" data-obj="wall" data-id="${wall.id}" data-prop="x" value="${wall.x.toFixed(2)}">
-            </div>
-            <div class="form-group">
-              <label>Z Position (m)</label>
-              <input type="number" step="0.05" class="prop-input" data-obj="wall" data-id="${wall.id}" data-prop="z" value="${wall.z.toFixed(2)}">
-            </div>
-          </div>
-
-          <div class="form-group-row">
-            <div class="form-group">
-              <label>Width (m)</label>
-              <input type="number" step="0.05" min="0.05" class="prop-input" data-obj="wall" data-id="${wall.id}" data-prop="width" value="${wall.width.toFixed(2)}">
-            </div>
-            <div class="form-group">
-              <label>Depth (m)</label>
-              <input type="number" step="0.05" min="0.05" class="prop-input" data-obj="wall" data-id="${wall.id}" data-prop="depth" value="${wall.depth.toFixed(2)}">
-            </div>
-          </div>
-
-          <div class="section-divider"></div>
-          <div class="section-subtitle">Elevation & Height</div>
-
-          <div class="form-group">
-            <label>Base Elevation Y (Floor = 0.0m)</label>
-            <input type="number" step="0.1" min="0" class="prop-input" data-obj="wall" data-id="${wall.id}" data-prop="y" value="${wall.y.toFixed(2)}">
-            <div class="helper-text">${wall.y > 0 ? 'Raised wall segment (e.g. door header / high window)' : 'Floor-level wall segment'}</div>
-          </div>
-
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input type="checkbox" id="chk-wall-full-height" data-id="${wall.id}" ${isFull ? 'checked' : ''}>
-              <span>Full Ceiling Height (${defaultCeiling.toFixed(1)}m)</span>
-            </label>
-          </div>
-
-          ${!isFull ? `
-            <div class="form-group">
-              <label>Explicit Wall Height (m)</label>
-              <input type="number" step="0.1" min="0.1" class="prop-input" data-obj="wall" data-id="${wall.id}" data-prop="height" value="${curH.toFixed(2)}">
-            </div>
-          ` : ''}
-
-          <div class="quick-presets-row">
-            <span class="preset-label">Presets:</span>
-            <button class="btn btn-xs btn-preset" data-preset="wall-full:${wall.id}">Full Height</button>
-            <button class="btn btn-xs btn-preset" data-preset="wall-header:${wall.id}">Door Header (Y:2.2, H:1.3)</button>
-            <button class="btn btn-xs btn-preset" data-preset="wall-sill:${wall.id}">Window Sill (Y:0, H:1.0)</button>
-          </div>
-
-          <div class="section-divider"></div>
-          <div class="section-subtitle">Materials</div>
-
-          <div class="form-group">
-            <label>Wall Material</label>
-            ${this.renderMaterialDropdown('wall', wall.material || level.defaults.wall, `wall-mat:${wall.id}`)}
-          </div>
-
-          <details class="advanced-faces-details">
-            <summary>Per-Face Materials (Optional)</summary>
-            <div class="faces-grid">
-              <div class="form-group">
-                <label>North Face</label>
-                ${this.renderMaterialDropdown('wall', wall.faces.north || '', `face-north:${wall.id}`, true)}
-              </div>
-              <div class="form-group">
-                <label>South Face</label>
-                ${this.renderMaterialDropdown('wall', wall.faces.south || '', `face-south:${wall.id}`, true)}
-              </div>
-              <div class="form-group">
-                <label>East Face</label>
-                ${this.renderMaterialDropdown('wall', wall.faces.east || '', `face-east:${wall.id}`, true)}
-              </div>
-              <div class="form-group">
-                <label>West Face</label>
-                ${this.renderMaterialDropdown('wall', wall.faces.west || '', `face-west:${wall.id}`, true)}
-              </div>
-            </div>
-          </details>
-
-          <div class="action-btn-row">
-            <button class="btn btn-secondary btn-sm" id="btn-prop-duplicate" title="Duplicate (Ctrl+D)">Duplicate</button>
-            <button class="btn btn-danger btn-sm" id="btn-prop-delete" title="Delete (Del)">Delete</button>
-          </div>
-        </div>
-      `;
-    }
-
+    if (wall) return this.renderWall(wall);
     const room = level.rooms.find(r => r.id === id);
-    if (room) {
-      const roomIdx = level.rooms.indexOf(room) + 1;
-      return `
-        <div class="prop-section">
-          <div class="section-title">
-            <span class="type-badge floor-badge">▤ Floor / Ceiling</span>
-            <span class="prop-id">#${room.id.slice(0, 10)}</span>
-          </div>
-
-          <div class="section-subtitle">Transform</div>
-
-          <div class="form-group-row">
-            <div class="form-group">
-              <label>X Position (m)</label>
-              <input type="number" step="0.5" class="prop-input" data-obj="room" data-id="${room.id}" data-prop="x" value="${room.x.toFixed(2)}">
-            </div>
-            <div class="form-group">
-              <label>Z Position (m)</label>
-              <input type="number" step="0.5" class="prop-input" data-obj="room" data-id="${room.id}" data-prop="z" value="${room.z.toFixed(2)}">
-            </div>
-          </div>
-
-          <div class="form-group-row">
-            <div class="form-group">
-              <label>Width (m)</label>
-              <input type="number" step="0.5" min="0.5" max="2000" class="prop-input" data-obj="room" data-id="${room.id}" data-prop="width" value="${room.width.toFixed(2)}">
-            </div>
-            <div class="form-group">
-              <label>Depth (m)</label>
-              <input type="number" step="0.5" min="0.5" max="2000" class="prop-input" data-obj="room" data-id="${room.id}" data-prop="depth" value="${room.depth.toFixed(2)}">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Ceiling Elevation / Height (m)</label>
-            <input type="number" step="0.1" min="1.0" max="50.0" class="prop-input" data-obj="room" data-id="${room.id}" data-prop="height" value="${room.height.toFixed(2)}">
-            <div class="helper-text">Defines floor-to-ceiling clearance for this section (3.5m standard).</div>
-          </div>
-
-          <div class="quick-presets-row">
-            <span class="preset-label">Height:</span>
-            <button class="btn btn-xs btn-preset" data-preset="room-h:${room.id}:2.8">Low (2.8m)</button>
-            <button class="btn btn-xs btn-preset" data-preset="room-h:${room.id}:3.5">Standard (3.5m)</button>
-            <button class="btn btn-xs btn-preset" data-preset="room-h:${room.id}:4.5">High (4.5m)</button>
-            <button class="btn btn-xs btn-preset" data-preset="room-h:${room.id}:6.0">Hall (6.0m)</button>
-          </div>
-
-          <div class="section-divider"></div>
-          <div class="section-subtitle">Appearance</div>
-
-          <div class="form-group">
-            <label>Floor Material</label>
-            ${this.renderMaterialDropdown('floor', room.material || level.defaults.floor, `room-floor:${room.id}`)}
-          </div>
-
-          <div class="form-group">
-            <label>Ceiling Material</label>
-            ${this.renderMaterialDropdown('ceiling', room.ceiling_material || level.defaults.ceiling, `room-ceiling:${room.id}`)}
-          </div>
-
-          <div class="action-btn-row">
-            <button class="btn btn-secondary btn-sm" id="btn-prop-duplicate" title="Duplicate (Ctrl+D)">Duplicate</button>
-            <button class="btn btn-danger btn-sm" id="btn-prop-delete" title="Delete (Del)">Delete</button>
-          </div>
-        </div>
-      `;
-    }
-
+    if (room) return this.renderRoom(room);
     const light = level.ceiling_lights.find(l => l.id === id);
-    if (light) {
-      return `
-        <div class="prop-section">
-          <div class="section-title">
-            <span class="type-badge light-badge">☼ Ceiling Light</span>
-            <span class="prop-id">#${light.id.slice(0, 10)}</span>
-          </div>
+    if (light) return this.renderLight(light);
+    const prop = level.props.find(p => p.id === id);
+    if (prop) return this.renderProp(prop);
+    const patch = level.floor_patches.find(p => p.id === id);
+    if (patch) return this.renderPatch(patch);
+    const openingRef = LiminalOps.findOpening(level, id);
+    if (openingRef) return this.renderOpening(openingRef.wall, openingRef.opening);
+    return null;
+  }
 
-          <div class="section-subtitle">Transform</div>
+  header(label, cls, id) {
+    return `<div class="type"><span class="type-badge ${cls}">${this.esc(label)}</span>
+      <span class="type-id">${this.esc((id || '').slice(0, 12))}</span></div>`;
+  }
 
-          <div class="form-group-row">
-            <div class="form-group">
-              <label>X Position (m)</label>
-              <input type="number" step="0.1" class="prop-input" data-obj="light" data-id="${light.id}" data-prop="x" value="${light.x.toFixed(2)}">
-            </div>
-            <div class="form-group">
-              <label>Z Position (m)</label>
-              <input type="number" step="0.1" class="prop-input" data-obj="light" data-id="${light.id}" data-prop="z" value="${light.z.toFixed(2)}">
-            </div>
-          </div>
+  actions(id, extra = []) {
+    return this.actionRow([
+      ...extra,
+      this.button('Duplicate', 'duplicate', {}, 'btn'),
+      this.button('Delete', 'delete', {}, 'btn btn-danger')
+    ]);
+  }
 
-          <div class="form-group">
-            <label>Rotation (Degrees)</label>
-            <div class="input-with-addons">
-              <input type="number" step="90" min="0" max="360" class="prop-input" data-obj="light" data-id="${light.id}" data-prop="rotation_degrees" value="${light.rotation_degrees.toFixed(0)}">
-              <span class="unit-addon">°</span>
-            </div>
-          </div>
-
-          <div class="quick-presets-row">
-            <button class="btn btn-xs btn-preset" data-preset="light-rot:${light.id}:0">0° (Horiz)</button>
-            <button class="btn btn-xs btn-preset" data-preset="light-rot:${light.id}:90">90° (Vert)</button>
-            <button class="btn btn-xs btn-preset" data-preset="light-rot:${light.id}:180">180°</button>
-            <button class="btn btn-xs btn-preset" data-preset="light-rot:${light.id}:270">270°</button>
-          </div>
-
-          <div class="section-divider"></div>
-          <div class="section-subtitle">Appearance</div>
-
-          <div class="form-group">
-            <label>Brightness</label>
-            <input type="number" step="0.1" min="0.1" max="5.0" class="prop-input" data-obj="light" data-id="${light.id}" data-prop="brightness" value="${(light.brightness || 1.0).toFixed(1)}">
-          </div>
-
-          <div class="form-group">
-            <label>Fixture Material</label>
-            ${this.renderMaterialDropdown('fixture', light.fixture, `light-fixture:${light.id}`)}
-          </div>
-
-          <div class="action-btn-row">
-            <button class="btn btn-secondary btn-sm" id="btn-prop-duplicate" title="Duplicate (Ctrl+D)">Duplicate</button>
-            <button class="btn btn-danger btn-sm" id="btn-prop-delete" title="Delete (Del)">Delete</button>
-          </div>
+  renderRoom(room) {
+    const level = this.app.level;
+    return `
+      <h4>Room</h4>
+      ${this.header(`Room · ${this.num(room.width, 1)}×${this.num(room.depth, 1)} m`, 'room', room.id)}
+      <div class="fields two">
+        ${this.field('Width (m)', this.input('room', 'width', room.width, { min: 0.5, step: 0.5 }))}
+        ${this.field('Length (m)', this.input('room', 'depth', room.depth, { min: 0.5, step: 0.5 }))}
+      </div>
+      <div class="fields">
+        ${this.field('Ceiling height (m)', this.input('room', 'height', room.height, { min: 1, max: 50, step: 0.1 }),
+          'Walls at full height follow this value.')}
+        ${this.materialField('Floor material', 'room', 'material', 'floor', room.material || '', true)}
+        ${this.materialField('Ceiling material', 'room', 'ceiling_material', 'ceiling', room.ceiling_material || '', true)}
+      </div>
+      ${this.pills([['2.8 m', 2.8], ['3.5 m', 3.5], ['4.5 m', 4.5], ['6 m', 6]], room.height, 'set-height')}
+      ${this.actions(room.id, [this.button('Add walls around', 'walls-for-room')])}
+      ${this.advanced(`
+        <div class="fields two">
+          ${this.field('Position X (m)', this.input('room', 'x', room.x, { step: 0.1 }))}
+          ${this.field('Position Z (m)', this.input('room', 'z', room.z, { step: 0.1 }))}
         </div>
-      `;
+        <div class="fields two">
+          ${this.field('Floor material ID', this.text('room', 'material', room.material || '', 'Floor material ID'))}
+          ${this.field('Ceiling material ID', this.text('room', 'ceiling_material', room.ceiling_material || '', 'Ceiling material ID'))}
+        </div>
+        <p class="field-note">Per-room materials are stored in level.json for tooling; the game currently renders floors and ceilings from the level defaults.</p>
+        <div class="fields">${this.field('Object ID', `<input type="text" value="${this.esc(room.id)}" disabled>`)}</div>
+      `)}
+    `;
+  }
+
+  renderWall(wall) {
+    const axis = LiminalGeometry.wallAxis(wall);
+    const length = LiminalGeometry.wallLength(wall);
+    const thickness = LiminalGeometry.wallThickness(wall);
+    const level = this.app.level;
+    const fullHeight = wall.height === null || wall.height === undefined;
+    const resolved = LiminalGeometry.wallResolvedHeight(wall, level.getCeilingHeight());
+
+    return `
+      <h4>Wall</h4>
+      ${this.header(`Wall · ${this.num(length, 2)} m`, 'wall', wall.id)}
+      <div class="fields two">
+        ${this.field('Length (m)', `<input type="number" step="0.1" min="0.05" data-obj="wall" data-field="length" value="${this.num(length, 2)}">`)}
+        ${this.field('Thickness (m)', `<input type="number" step="0.05" min="0.05" data-obj="wall" data-field="thickness" value="${this.num(thickness, 2)}">`)}
+      </div>
+      <div class="fields">
+        <label class="switch"><input type="checkbox" data-obj="wall" data-field="fullHeight" ${fullHeight ? 'checked' : ''}><span>Full ceiling height (${this.num(level.getCeilingHeight(), 1)} m)</span></label>
+        ${fullHeight ? '' : this.field('Height (m)', this.input('wall', 'height', resolved, { min: 0.1, step: 0.1 }))}
+        ${this.materialField('Material', 'wall', 'material', 'wall', wall.material || '', true)}
+      </div>
+
+      ${this.section(`Openings (${wall.openings.length})`)}
+      <div class="list">
+        ${wall.openings.map(opening => `
+          <div class="list-item">
+            <span class="grow">${this.esc(LiminalGeometry.OPENING_KINDS[opening.kind] ? LiminalGeometry.OPENING_KINDS[opening.kind].label : opening.kind)} · ${this.num(opening.width, 2)} m</span>
+            ${this.button('Edit', 'select-id', { id: opening.id }, 'btn btn-sm')}
+            ${this.button('✕', 'remove-opening', { id: opening.id }, 'btn btn-sm')}
+          </div>`).join('') || '<p class="hint">No openings yet. With the Door or Window tool, click this wall.</p>'}
+      </div>
+      ${this.actions(wall.id, [
+        this.button('+ Door', 'add-opening', { kind: 'door' }, 'btn btn-sm'),
+        this.button('+ Window', 'add-opening', { kind: 'window' }, 'btn btn-sm')
+      ])}
+
+      ${this.advanced(`
+        <div class="fields two">
+          ${this.field('Position X (m)', this.input('wall', 'x', wall.x, { step: 0.05 }))}
+          ${this.field('Position Z (m)', this.input('wall', 'z', wall.z, { step: 0.05 }))}
+        </div>
+        <div class="fields two">
+          ${this.field('Exact width (m)', this.input('wall', 'width', wall.width, { min: 0.05, step: 0.05 }))}
+          ${this.field('Exact depth (m)', this.input('wall', 'depth', wall.depth, { min: 0.05, step: 0.05 }))}
+        </div>
+        <div class="fields two">
+          ${this.field('Base elevation Y (m)', this.input('wall', 'y', wall.y, { step: 0.05 }), 'Raise for headers, drop for sunken ledges.')}
+          ${this.field('Exact height (m)', this.input('wall', 'height', resolved, { min: 0.1, step: 0.05 }))}
+        </div>
+        ${this.section('Per-face materials')}
+        <div class="fields two">
+          ${['north', 'south', 'east', 'west'].map(face => this.field(face[0].toUpperCase() + face.slice(1), `
+            <input type="text" data-obj="wall" data-field="face-${face}" data-label="${face} face" value="${this.esc(wall.faces[face] || '')}" placeholder="inherit">`)).join('')}
+        </div>
+        <div class="fields">${this.field('Object ID', `<input type="text" value="${this.esc(wall.id)}" disabled>`)}</div>
+      `)}
+    `;
+  }
+
+  renderOpening(wall, opening) {
+    const length = LiminalGeometry.wallLength(wall);
+    const isWindow = opening.kind === 'window' || opening.kind === 'vent';
+    const preset = LiminalGeometry.OPENING_KINDS[opening.kind] || LiminalGeometry.OPENING_KINDS.door;
+    const maxWidth = Math.max(0.2, length - opening.offset);
+    return `
+      <h4>${this.esc(preset.label)}</h4>
+      ${this.header(`${preset.label} in wall · ${this.num(opening.width, 2)} m`, opening.kind, opening.id)}
+      <div class="fields">
+        ${this.field('Type', `<select data-obj="opening" data-field="kind">
+          ${Object.entries(LiminalGeometry.OPENING_KINDS).map(([kind, def]) =>
+            `<option value="${kind}"${opening.kind === kind ? ' selected' : ''}>${def.label}</option>`).join('')}
+        </select>`)}
+      </div>
+      <div class="fields two">
+        ${this.field('Width (m)', this.input('opening', 'width', opening.width, { min: 0.2, max: maxWidth, step: 0.05 }))}
+        ${this.field('Height (m)', this.input('opening', 'height', opening.height, { min: 0.2, step: 0.05 }))}
+      </div>
+      ${this.fieldRow('Position along wall (m)', `
+        <input type="range" min="0" max="${Math.max(0, length - opening.width).toFixed(2)}" step="0.05"
+          data-obj="opening" data-field="offset" data-label="Position" value="${this.num(opening.offset, 2)}">
+        <input type="number" min="0" max="${Math.max(0, length - opening.width).toFixed(2)}" step="0.05"
+          data-obj="opening" data-field="offset" value="${this.num(opening.offset, 2)}">`)}
+      ${isWindow ? this.field('Sill height (m)', this.input('opening', 'sill', opening.sill, { min: 0, step: 0.05 })) : ''}
+      ${this.actions(opening.id, [this.button('Select wall', 'select-wall')])}
+      ${this.advanced(`
+        <div class="fields two">
+          ${this.field('Exact offset (m)', this.input('opening', 'offset', opening.offset, { min: 0, step: 0.01 }))}
+          ${this.field('Exact width (m)', this.input('opening', 'width', opening.width, { min: 0.2, step: 0.01 }))}
+        </div>
+        <div class="fields two">
+          ${this.field('Exact height (m)', this.input('opening', 'height', opening.height, { min: 0.2, step: 0.01 }))}
+          ${this.field('Sill height (m)', this.input('opening', 'sill', opening.sill, { min: 0, step: 0.01 }))}
+        </div>
+        <p class="field-note">Wall length ${this.num(length, 2)} m · kind "${this.esc(opening.kind)}".
+          The opening always cuts through the full wall thickness.</p>
+        <div class="fields">${this.field('Object ID', `<input type="text" value="${this.esc(opening.id)}" disabled>`)}</div>
+      `)}
+    `;
+  }
+
+  renderLight(light) {
+    const level = this.app.level;
+    return `
+      <h4>Ceiling light</h4>
+      ${this.header('Ceiling light', 'light', light.id)}
+      <div class="fields two">
+        ${this.field('Position X (m)', this.input('light', 'x', light.x, { step: 0.1 }))}
+        ${this.field('Position Z (m)', this.input('light', 'z', light.z, { step: 0.1 }))}
+      </div>
+      <div class="fields">
+        ${this.field('Brightness', this.input('light', 'brightness', light.brightness, { min: 0.1, max: 5, step: 0.1 }))}
+        <label class="switch"><input type="checkbox" data-obj="light" data-field="turned" ${Math.round(light.rotation_degrees / 90) % 2 !== 0 ? 'checked' : ''}><span>Turned 90°</span></label>
+      </div>
+      <p class="hint">Fits the ceiling at ${this.num(level.getCeilingHeight(light.x, light.z), 1)} m.</p>
+      ${this.actions(light.id)}
+      ${this.advanced(`
+        <div class="fields two">
+          ${this.field('Rotation (degrees)', this.input('light', 'rotation_degrees', light.rotation_degrees, { step: 15 }))}
+          ${this.field('Fixture ID', this.text('light', 'fixture', light.fixture, 'Fixture ID'))}
+        </div>
+        <div class="fields">${this.field('Object ID', `<input type="text" value="${this.esc(light.id)}" disabled>`)}</div>
+      `)}
+    `;
+  }
+
+  renderProp(prop) {
+    const catalog = this.app.propCatalog;
+    const entry = catalog.get(prop.model);
+    const groups = catalog.categories();
+    return `
+      <h4>Prop</h4>
+      ${this.header(`Prop · ${this.esc(entry.name)}`, 'prop', prop.id)}
+      <div class="fields">
+        ${this.field('Model', `<select data-obj="prop" data-field="model">
+          ${groups.map(category => `<optgroup label="${this.esc(category)}">${catalog.search('', category).map(item =>
+            `<option value="${item.id}"${prop.model === item.id ? ' selected' : ''}>${this.esc(item.name)}</option>`).join('')}</optgroup>`).join('')}
+          ${entry.missing ? `<option value="${this.esc(prop.model)}" selected>${this.esc(prop.model)} (missing)</option>` : ''}
+        </select>`)}
+        ${entry.model ? `<p class="field-note">Mesh asset reserved: <code>${this.esc(entry.model)}</code></p>` : ''}
+      </div>
+      <div class="fields two">
+        ${this.field('Position X (m)', this.input('prop', 'x', prop.x, { step: 0.1 }))}
+        ${this.field('Position Z (m)', this.input('prop', 'z', prop.z, { step: 0.1 }))}
+      </div>
+      <div class="fields">
+        ${this.field('Rotation (degrees)', this.input('prop', 'rotation_degrees', prop.rotation_degrees, { step: 15 }))}
+      </div>
+      ${this.pills([['0°', 0], ['90°', 90], ['180°', 180], ['270°', 270]], Math.round(prop.rotation_degrees) % 360, 'set-rotation')}
+      ${this.actions(prop.id)}
+      ${this.advanced(`
+        <div class="fields two">
+          ${this.field('Vertical offset Y (m)', this.input('prop', 'y', prop.y, { step: 0.05 }), 'Negative sinks the prop into the floor.')}
+          ${this.field('Scale', this.input('prop', 'scale', prop.scale, { min: 0.05, step: 0.05 }))}
+        </div>
+        <div class="fields two">
+          <label class="switch"><input type="checkbox" data-obj="prop" data-field="solid" ${prop.solid ? 'checked' : ''}><span>Blocks the player</span></label>
+        </div>
+        <div class="fields two">
+          ${[0, 1, 2].map(i => this.field(['Size width (m)', 'Size height (m)', 'Size depth (m)'][i],
+            `<input type="number" step="0.05" min="0.01" data-obj="prop" data-field="size${i}" value="${this.num((prop.size || entry.size)[i], 2)}">`)).join('')}
+        </div>
+        <p class="field-note">Catalog size: ${entry.size.map(v => this.num(v, 2)).join(' × ')} m${entry.missing ? ' (unknown model, placeholder box)' : ''}</p>
+        <div class="fields">${this.field('Object ID', `<input type="text" value="${this.esc(prop.id)}" disabled>`)}</div>
+      `)}
+    `;
+  }
+
+  renderSpawn() {
+    const spawn = this.app.level.spawn;
+    return `
+      <h4>Player spawn</h4>
+      ${this.header('Player spawn', 'spawn', 'spawn')}
+      <div class="fields two">
+        ${this.field('Position X (m)', this.input('spawn', 'x', spawn.x, { step: 0.1 }))}
+        ${this.field('Position Z (m)', this.input('spawn', 'z', spawn.z, { step: 0.1 }))}
+      </div>
+      <div class="fields">
+        ${this.field('Facing (degrees)', this.input('spawn', 'yaw_degrees', spawn.yaw_degrees, { step: 15 }))}
+      </div>
+      ${this.pills([['North', 0], ['East', 90], ['South', 180], ['West', 270]], Math.round(spawn.yaw_degrees) % 360, 'set-yaw')}
+      <p class="hint">The player always starts here. Only one spawn exists per level.</p>
+    `;
+  }
+
+  renderPatch(patch) {
+    return `
+      <h4>Floor patch</h4>
+      ${this.header('Floor patch', 'room', patch.id)}
+      <div class="fields two">
+        ${this.field('Width (m)', this.input('patch', 'width', patch.width, { min: 0.25, step: 0.25 }))}
+        ${this.field('Length (m)', this.input('patch', 'depth', patch.depth, { min: 0.25, step: 0.25 }))}
+      </div>
+      ${this.materialField('Material', 'patch', 'material', 'floor', patch.material, false)}
+      ${this.actions(patch.id)}
+      ${this.advanced(`
+        <div class="fields two">
+          ${this.field('Position X (m)', this.input('patch', 'x', patch.x, { step: 0.1 }))}
+          ${this.field('Position Z (m)', this.input('patch', 'z', patch.z, { step: 0.1 }))}
+        </div>
+      `)}
+    `;
+  }
+
+  renderMulti(ids) {
+    const level = this.app.level;
+    const counts = { room: 0, wall: 0, light: 0, prop: 0, opening: 0, spawn: 0 };
+    for (const id of ids) {
+      if (id === 'spawn') counts.spawn++;
+      else if (level.rooms.some(r => r.id === id)) counts.room++;
+      else if (level.walls.some(w => w.id === id)) counts.wall++;
+      else if (level.ceiling_lights.some(l => l.id === id)) counts.light++;
+      else if (level.props.some(p => p.id === id)) counts.prop++;
+      else if (LiminalOps.findOpening(level, id)) counts.opening++;
+    }
+    const summary = Object.entries(counts).filter(([, n]) => n > 0)
+      .map(([kind, n]) => `${n} ${kind}${n === 1 ? '' : 's'}`).join(' · ');
+
+    return `
+      <h4>${ids.length} objects selected</h4>
+      <p class="hint">${this.esc(summary)}</p>
+      <div class="fields">
+        ${this.fieldRow('Move by (m)', `
+          <input type="number" id="multi-dx" step="0.5" value="0.5" title="X">
+          <input type="number" id="multi-dz" step="0.5" value="0" title="Z">
+          ${this.button('Move', 'multi-move', {}, 'btn btn-sm')}`)}
+      </div>
+      ${this.pills([['0°', 0], ['90°', 90], ['180°', 180], ['270°', 270]], null, 'set-rotation')}
+      <div class="fields">
+        ${this.materialField('Set wall material', 'multi', 'material', 'wall', '', false)}
+      </div>
+      <div class="action-row">
+        ${this.button(`Duplicate ${ids.length}`, 'duplicate')}
+        ${this.button(`Delete ${ids.length}`, 'delete', {}, 'btn btn-danger')}
+      </div>
+      <p class="hint">Hold Shift and drag in the view to marquee-select.</p>
+    `;
+  }
+
+  // ------------------------------------------------------------- field access
+
+  /** Resolves the object a `data-obj` field belongs to. */
+  targetFor(obj) {
+    const level = this.app.level;
+    if (obj === 'level') return level;
+    if (obj === 'defaults') return level.defaults;
+    if (obj === 'spawn') return level.spawn;
+    const id = [...this.app.editor.selectedIds][0];
+    if (obj === 'opening') {
+      const ref = LiminalOps.findOpening(level, id);
+      return ref ? ref.opening : null;
+    }
+    if (obj === 'wall') return level.walls.find(w => w.id === id);
+    if (obj === 'room') return level.rooms.find(r => r.id === id);
+    if (obj === 'light') return level.ceiling_lights.find(l => l.id === id);
+    if (obj === 'prop') return level.props.find(p => p.id === id);
+    if (obj === 'patch') return level.floor_patches.find(p => p.id === id);
+    if (obj === 'multi') return { ids: [...this.app.editor.selectedIds] };
+    return null;
+  }
+
+  readField(obj, field) {
+    const target = this.targetFor(obj);
+    if (!target) return null;
+    const wall = obj === 'wall' ? target : null;
+    if (field === 'length' && wall) return LiminalGeometry.wallLength(wall);
+    if (field === 'thickness' && wall) return LiminalGeometry.wallThickness(wall);
+    if (field === 'fullHeight' && wall) return wall.height === null || wall.height === undefined;
+    if (field === 'turned') return Math.round(target.rotation_degrees / 90) % 2 !== 0 ? 1 : 0;
+    if (field.startsWith('face-') && wall) return wall.faces[field.slice(5)] || '';
+    if (field.startsWith('size')) {
+      const index = Number(field.slice(4));
+      const size = target.size || this.app.propCatalog.get(target.model).size;
+      return size[index];
+    }
+    return target[field];
+  }
+
+  /** Applies a field edit. `commit` decides whether it becomes an undo entry. */
+  applyField(obj, field, value, commit, label) {
+    const target = this.targetFor(obj);
+    if (!target) return;
+
+    if (obj === 'multi') {
+      if (field === 'material') {
+        for (const id of target.ids) {
+          const wall = this.app.level.walls.find(w => w.id === id);
+          if (wall) {
+            wall.material = value || null;
+            wall.faces = {};
+          }
+        }
+        this.app.levelChanged();
+        if (commit) this.app.commit('Set wall material');
+      }
+      return;
     }
 
-    return this.renderEmptySelection();
-  }
-
-  renderMultiSelection(selectedIds) {
-    const level = this.app.level;
-    const walls = level.walls.filter(w => selectedIds.has(w.id));
-    const lights = level.ceiling_lights.filter(l => selectedIds.has(l.id));
-    const hasSpawn = selectedIds.has('spawn');
-
-    return `
-      <div class="prop-section">
-        <div class="section-title">
-          <span class="type-badge multi-badge">❖ Multi-Selection</span>
-        </div>
-        <p class="multi-summary">
-          <strong>${selectedIds.size} objects selected:</strong><br>
-          ${walls.length > 0 ? `• ${walls.length} Wall(s)<br>` : ''}
-          ${lights.length > 0 ? `• ${lights.length} Ceiling Light(s)<br>` : ''}
-          ${hasSpawn ? `• Player Spawn<br>` : ''}
-        </p>
-
-        ${walls.length > 0 ? `
-          <div class="section-divider"></div>
-          <div class="section-subtitle">Batch Wall Edits (${walls.length} walls)</div>
-
-          <div class="form-group">
-            <label>Set Elevation Y for all selected walls (m)</label>
-            <div class="input-with-action">
-              <input type="number" step="0.1" id="batch-wall-y" value="0.0">
-              <button class="btn btn-xs btn-primary" id="btn-apply-batch-y">Apply</button>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Set Height for all selected walls (m)</label>
-            <div class="input-with-action">
-              <input type="number" step="0.1" id="batch-wall-h" value="3.5">
-              <button class="btn btn-xs btn-primary" id="btn-apply-batch-h">Apply</button>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Set Material for all selected walls</label>
-            ${this.renderMaterialDropdown('wall', level.defaults.wall, 'batch-wall-mat')}
-            <button class="btn btn-xs btn-primary btn-block mt-1" id="btn-apply-batch-mat">Apply Material to Selected</button>
-          </div>
-        ` : ''}
-
-        <div class="action-btn-row">
-          <button class="btn btn-secondary btn-sm" id="btn-prop-duplicate">Duplicate All (${selectedIds.size})</button>
-          <button class="btn btn-danger btn-sm" id="btn-prop-delete">Delete All (${selectedIds.size})</button>
-        </div>
-      </div>
-    `;
-  }
-
-  renderLevelSettings(level) {
-    const room = level.rooms[0] || { x: -10, z: -10, width: 20, depth: 20, height: 3.5 };
-
-    return `
-      <div class="prop-section">
-        <div class="section-title">
-          <span class="type-badge level-badge">⚙ Level Settings</span>
-        </div>
-
-        <div class="form-group">
-          <label>Level Name</label>
-          <input type="text" class="prop-input" data-level="name" value="${level.name}">
-        </div>
-
-        <div class="form-group">
-          <label>Level ID</label>
-          <input type="text" class="prop-input" data-level="id" value="${level.id}" placeholder="e.g. level_1">
-          <div class="helper-text">Unique alphanumeric identifier used by the game loader.</div>
-        </div>
-
-        <div class="form-group">
-          <label>Author</label>
-          <input type="text" class="prop-input" data-level="author" value="${level.author}">
-        </div>
-
-        <div class="form-group">
-          <label>Format Version</label>
-          <input type="number" class="prop-input" value="${level.format_version}" disabled>
-          <div class="helper-text">Format version 1 required by liminal-rust.</div>
-        </div>
-
-        <div class="section-divider"></div>
-        <div class="section-subtitle">Room Bounds & Ceiling</div>
-
-        <div class="form-group">
-          <label>Ceiling Height (m)</label>
-          <input type="number" step="0.1" min="1.0" max="20.0" class="prop-input" data-room="height" value="${room.height.toFixed(1)}">
-          <div class="helper-text">Default ceiling height for room and full-height walls (3.5m standard).</div>
-        </div>
-
-        <div class="form-group-row">
-          <div class="form-group">
-            <label>Room X (m)</label>
-            <input type="number" step="1" class="prop-input" data-room="x" value="${room.x.toFixed(1)}">
-          </div>
-          <div class="form-group">
-            <label>Room Z (m)</label>
-            <input type="number" step="1" class="prop-input" data-room="z" value="${room.z.toFixed(1)}">
-          </div>
-        </div>
-
-        <div class="form-group-row">
-          <div class="form-group">
-            <label>Room Width (m)</label>
-            <input type="number" step="1" min="1" class="prop-input" data-room="width" value="${room.width.toFixed(1)}">
-          </div>
-          <div class="form-group">
-            <label>Room Depth (m)</label>
-            <input type="number" step="1" min="1" class="prop-input" data-room="depth" value="${room.depth.toFixed(1)}">
-          </div>
-        </div>
-
-        <div class="section-divider"></div>
-        <div class="section-subtitle">Level Default Materials</div>
-
-        <div class="form-group">
-          <label>Default Wall Material</label>
-          ${this.renderMaterialDropdown('wall', level.defaults.wall, 'level-default:wall')}
-        </div>
-
-        <div class="form-group">
-          <label>Default Floor Material</label>
-          ${this.renderMaterialDropdown('floor', level.defaults.floor, 'level-default:floor')}
-        </div>
-
-        <div class="form-group">
-          <label>Default Ceiling Material</label>
-          ${this.renderMaterialDropdown('ceiling', level.defaults.ceiling, 'level-default:ceiling')}
-        </div>
-
-        <div class="section-divider"></div>
-        <div class="section-subtitle">Room Sections (${level.rooms.length})</div>
-        <div class="rooms-overview-list">
-          ${level.rooms.map((r, idx) => `
-            <div class="room-overview-item ${this.app.editor.selectedIds.has(r.id) ? 'selected' : ''}">
-              <div class="room-overview-info">
-                <strong>Room ${idx + 1}</strong>
-                <span>(${r.width.toFixed(1)}m × ${r.depth.toFixed(1)}m, H: ${r.height.toFixed(1)}m)</span>
-              </div>
-              <button class="btn btn-xs btn-secondary btn-select-room" data-room-id="${r.id}">Select</button>
-            </div>
-          `).join('')}
-        </div>
-        <button class="btn btn-secondary btn-sm btn-block mt-2" id="btn-add-room-section">+ Add Room Section</button>
-      </div>
-    `;
-  }
-
-  renderTextureManager(level) {
-    const customList = Object.entries(level.custom_textures || {});
-
-    let html = `
-      <div class="prop-section">
-        <div class="section-title">
-          <span class="type-badge tex-badge">🎨 Texture Pack Manager</span>
-        </div>
-        <p class="subtext">
-          Import PNG textures to package with this level. Uses the <code>pack:*</code> namespace.
-        </p>
-
-        <div class="upload-box">
-          <input type="file" id="tex-file-input" accept="image/png,image/jpeg,image/webp" style="display:none">
-          <button class="btn btn-primary btn-block" id="btn-import-texture">
-            + Import Custom Texture PNG
-          </button>
-        </div>
-
-        <div class="section-divider"></div>
-        <div class="section-subtitle">Pack Textures (${customList.length})</div>
-    `;
-
-    if (customList.length === 0) {
-      html += `
-        <div class="empty-state-sm">
-          <p>No custom textures imported.</p>
-          <p class="subtext">Level currently uses built-in core textures.</p>
-        </div>
-      `;
+    if (field === 'fullHeight') {
+      target.height = value ? null : Math.max(0.1, LiminalGeometry.wallResolvedHeight(target, this.app.level.getCeilingHeight()));
+    } else if (field === 'length') {
+      const length = Math.max(0.05, Number(value) || 0.05);
+      const axis = LiminalGeometry.wallAxis(target);
+      if (axis === 'x') target.width = length; else target.depth = length;
+      LiminalOps.clampWallOpenings(target);
+    } else if (field === 'thickness') {
+      const thickness = Math.max(0.05, Number(value) || 0.05);
+      const axis = LiminalGeometry.wallAxis(target);
+      if (axis === 'x') target.depth = thickness; else target.width = thickness;
+    } else if (field === 'x' || field === 'z' || field === 'width' || field === 'depth') {
+      target[field] = Number(value);
+      if (target.openings) LiminalOps.clampWallOpenings(target);
+    } else if (field === 'turned') {
+      target.rotation_degrees = value ? 90 : 0;
+    } else if (field.startsWith('face-')) {
+      const face = field.slice(5);
+      if (value && String(value).trim()) target.faces[face] = String(value).trim();
+      else delete target.faces[face];
+    } else if (field.startsWith('size')) {
+      const index = Number(field.slice(4));
+      const current = target.size || this.app.propCatalog.get(target.model).size.slice();
+      const size = current.slice();
+      size[index] = Math.max(0.01, Number(value) || 0.01);
+      target.size = size;
+    } else if (field === 'kind') {
+      target.kind = value;
+      const preset = LiminalGeometry.OPENING_KINDS[value];
+      if (preset) {
+        target.sill = preset.sill;
+        target.height = preset.height;
+        target.width = Math.min(preset.width, Math.max(0.2, Number(target.width) || preset.width));
+      }
+      this.app.editor.selectedIds = new Set([target.id]);
+    } else if (field === 'material' && obj === 'wall') {
+      target.material = value || null;
+      target.faces = {};
+    } else if ((field === 'material' || field === 'ceiling_material') && obj === 'room') {
+      target[field] = value || null;
     } else {
-      html += `<div class="tex-list">`;
-      customList.forEach(([id, tex]) => {
-        const isOversized = tex.width > 1024 || tex.height > 1024;
-        html += `
-          <div class="tex-card ${isOversized ? 'tex-oversized' : ''}">
-            <img src="${tex.dataUrl}" class="tex-thumb" alt="${id}">
-            <div class="tex-meta">
-              <div class="tex-id">${id}</div>
-              <div class="tex-dims">${tex.width}×${tex.height}px • ${tex.filename}</div>
-              ${isOversized ? '<div class="tex-warning">⚠ Exceeds 1024x1024 limit</div>' : ''}
-            </div>
-            <button class="btn btn-xs btn-danger btn-delete-tex" data-tex-id="${id}" title="Delete Texture">✕</button>
-          </div>
-        `;
-      });
-      html += `</div>`;
+      const numeric = typeof value === 'number' || (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value)) && typeof target[field] === 'number');
+      target[field] = numeric ? Number(value) : value;
     }
 
-    html += `
-        <div class="section-divider"></div>
-        <div class="section-subtitle">Core Built-in Materials</div>
-        <div class="tex-list">
-    `;
-
-    for (const [id, mat] of Object.entries(CORE_MATERIALS)) {
-      const thumb = CORE_THUMBNAILS[id] || '';
-      html += `
-        <div class="tex-card core-card">
-          <img src="${thumb}" class="tex-thumb" alt="${mat.name}">
-          <div class="tex-meta">
-            <div class="tex-name">${mat.name}</div>
-            <div class="tex-id"><code>${id}</code></div>
-          </div>
-        </div>
-      `;
-    }
-
-    html += `
-        </div>
-      </div>
-    `;
-
-    return html;
+    this.validateLive(target, obj);
+    this.app.levelChanged();
+    if (commit) this.app.commit(label || `Edit ${field}`);
   }
 
-  renderMaterialDropdown(category, currentVal, elementId, allowDefault = false) {
-    const level = this.app.level;
-    const thumb = this.getThumbnailForMaterial(currentVal);
-
-    let html = `
-      <div class="mat-picker-row">
-        <img src="${thumb}" class="mat-preview-thumb" id="thumb-${elementId}" alt="Preview">
-        <select class="mat-select" data-mat-target="${elementId}">
-    `;
-
-    if (allowDefault) {
-      html += `<option value="" ${!currentVal ? 'selected' : ''}>[Inherit Default]</option>`;
-    }
-
-    html += `<optgroup label="Core Built-in Materials">`;
-    for (const [id, mat] of Object.entries(CORE_MATERIALS)) {
-      if (!category || mat.category === category || (category === 'wall' && mat.category === 'wall')) {
-        const sel = currentVal === id ? 'selected' : '';
-        html += `<option value="${id}" ${sel}>${mat.name} (${id})</option>`;
-      }
-    }
-    html += `</optgroup>`;
-
-    if (level.custom_textures && Object.keys(level.custom_textures).length > 0) {
-      html += `<optgroup label="Custom Pack Materials">`;
-      for (const [id, tex] of Object.entries(level.custom_textures)) {
-        const sel = currentVal === id ? 'selected' : '';
-        html += `<option value="${id}" ${sel}>${id} (${tex.filename})</option>`;
-      }
-      html += `</optgroup>`;
-    }
-
-    html += `
-        </select>
-      </div>
-    `;
-    return html;
+  /** Keeps openings inside their wall as the user types. */
+  validateLive(target, obj) {
+    if (obj !== 'opening') return;
+    const ref = LiminalOps.findOpening(this.app.level, target.id);
+    if (!ref) return;
+    const length = LiminalGeometry.wallLength(ref.wall);
+    const height = LiminalGeometry.wallResolvedHeight(ref.wall, this.app.level.getCeilingHeight());
+    target.width = Math.max(0.2, Math.min(length, target.width));
+    target.offset = Math.max(0, Math.min(length - target.width, target.offset));
+    target.sill = Math.max(0, Math.min(Math.max(0, height - 0.2), target.sill));
+    target.height = Math.max(0.2, Math.min(height - target.sill, target.height));
   }
 
-  getThumbnailForMaterial(matId) {
-    if (!matId) return CORE_THUMBNAILS['core:wallpaper_yellow_01'];
-    if (CORE_THUMBNAILS[matId]) return CORE_THUMBNAILS[matId];
-    if (this.app.level.custom_textures && this.app.level.custom_textures[matId]) {
-      return this.app.level.custom_textures[matId].dataUrl;
-    }
-    return CORE_THUMBNAILS['core:wallpaper_yellow_01'];
-  }
+  // ----------------------------------------------------------------- events
 
   bindEvents() {
-    // Tabs click
-    this.container.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.setTab(btn.dataset.tab);
-      });
-    });
-
-    // Quick nav button
-    const gotoLevelBtn = this.container.querySelector('#btn-goto-level-settings');
-    if (gotoLevelBtn) {
-      gotoLevelBtn.addEventListener('click', () => this.setTab('level'));
-    }
-
-    // Room select buttons from Level Settings
-    this.container.querySelectorAll('.btn-select-room').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const roomId = btn.dataset.roomId;
-        this.app.editor.select(roomId, false);
-        this.setTab('selection');
-      });
-    });
-
-    // Add room section button from Level Settings
-    const btnAddRoom = this.container.querySelector('#btn-add-room-section');
-    if (btnAddRoom) {
-      btnAddRoom.addEventListener('click', () => {
-        this.app.history.pushState(this.app.level, 'Add Room Section');
-        const defaultHeight = this.app.level.rooms[0]?.height || 3.5;
-        // Position adjacent to existing rooms
-        const lastRoom = this.app.level.rooms[this.app.level.rooms.length - 1];
-        const newX = lastRoom ? lastRoom.x + lastRoom.width : 0;
-        const newZ = lastRoom ? lastRoom.z : 0;
-        const newRoom = new Room({
-          x: newX,
-          z: newZ,
-          width: 10.0,
-          depth: 10.0,
-          height: defaultHeight
-        });
-        this.app.level.rooms.push(newRoom);
-        this.app.editor.select(newRoom.id, false);
-        this.setTab('selection');
-        this.app.updateStatus(`Added Room ${this.app.level.rooms.length}`);
-        this.app.requestRender();
-      });
-    }
-
-    // Material dropdown change
-    this.container.querySelectorAll('.mat-select').forEach(sel => {
-      sel.addEventListener('change', (e) => {
-        const target = sel.dataset.matTarget;
-        const val = sel.value;
-        this.handleMaterialChange(target, val);
-      });
-    });
-
-    // Generic property input change
-    this.container.querySelectorAll('.prop-input').forEach(input => {
-      input.addEventListener('input', (e) => {
-        this.handlePropChange(input);
-      });
-      input.addEventListener('change', (e) => {
-        this.handlePropCommit(input);
-      });
-    });
-
-    // Wall Full Height toggle
-    const chkFull = this.container.querySelector('#chk-wall-full-height');
-    if (chkFull) {
-      chkFull.addEventListener('change', (e) => {
-        const wallId = chkFull.dataset.id;
-        const wall = this.app.level.walls.find(w => w.id === wallId);
-        if (wall) {
-          this.app.history.pushState(this.app.level, 'Toggle Full Height');
-          wall.height = chkFull.checked ? null : 3.5;
-          this.render();
-          this.app.requestRender();
+    this.container.addEventListener('input', (e) => {
+      const el = e.target;
+      if (!el.dataset || !el.dataset.obj || !el.dataset.field) return;
+      if (el.type === 'file') return;
+      const value = el.type === 'checkbox' ? el.checked : el.type === 'number' || el.type === 'range' ? Number(el.value) : el.value;
+      this.applyField(el.dataset.obj, el.dataset.field, value, false, el.dataset.label);
+      if (el.dataset.obj === 'opening' && el.dataset.field === 'offset') {
+        // Keep the slider and the number box in sync while dragging.
+        for (const sibling of this.container.querySelectorAll(`[data-obj="opening"][data-field="offset"]`)) {
+          if (sibling !== el && sibling !== document.activeElement) sibling.value = el.value;
         }
-      });
-    }
-
-    // Presets buttons
-    this.container.querySelectorAll('.btn-preset').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.handlePresetClick(btn.dataset.preset);
-      });
+      }
     });
 
-    // Actions: Duplicate, Delete
-    const btnDup = this.container.querySelector('#btn-prop-duplicate');
-    if (btnDup) {
-      btnDup.addEventListener('click', () => this.app.duplicateSelection());
-    }
+    this.container.addEventListener('change', (e) => {
+      const el = e.target;
+      if (el.dataset && el.dataset.obj && el.dataset.field) {
+        const value = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
+        this.applyField(el.dataset.obj, el.dataset.field, value, true, el.dataset.label);
+      }
+    });
 
-    const btnDel = this.container.querySelector('#btn-prop-delete');
-    if (btnDel) {
-      btnDel.addEventListener('click', () => this.app.deleteSelection());
-    }
+    this.container.addEventListener('click', (e) => {
+      const button = e.target.closest('[data-action]');
+      if (!button) return;
+      this.handleAction(button.dataset.action, button.dataset);
+    });
+  }
 
-    // Batch wall buttons
-    const btnBatchY = this.container.querySelector('#btn-apply-batch-y');
-    if (btnBatchY) {
-      btnBatchY.addEventListener('click', () => {
-        const val = parseFloat(this.container.querySelector('#batch-wall-y').value) || 0;
-        this.app.history.pushState(this.app.level, 'Batch Set Wall Y');
-        this.app.editor.selectedIds.forEach(id => {
-          const w = this.app.level.walls.find(x => x.id === id);
-          if (w) w.y = val;
+  handleAction(action, data) {
+    const app = this.app;
+    const id = [...app.editor.selectedIds][0];
+
+    switch (action) {
+      case 'validate':
+        app.showValidation();
+        return;
+      case 'duplicate':
+        app.duplicateSelection();
+        return;
+      case 'delete':
+        app.deleteSelection();
+        return;
+      case 'select-id':
+        app.editor.select(data.id);
+        return;
+      case 'select-wall': {
+        const ref = LiminalOps.findOpening(app.level, id);
+        if (ref) app.editor.select(ref.wall.id);
+        return;
+      }
+      case 'zoom-to': {
+        const target = this.targetFor(data.obj);
+        if (target) app.focusObject(target.id || data.id);
+        return;
+      }
+      case 'set-height': {
+        const room = this.targetFor('room');
+        if (room) {
+          room.height = Number(data.value);
+          app.levelChanged();
+          app.commit('Set ceiling height');
+        }
+        return;
+      }
+      case 'set-rotation': {
+        for (const selectedId of app.editor.selectedIds) {
+          const prop = app.level.props.find(p => p.id === selectedId);
+          if (prop) prop.rotation_degrees = Number(data.value);
+          const light = app.level.ceiling_lights.find(l => l.id === selectedId);
+          if (light) light.rotation_degrees = Number(data.value);
+        }
+        app.levelChanged();
+        app.commit('Rotate');
+        return;
+      }
+      case 'set-yaw':
+        app.level.spawn.yaw_degrees = Number(data.value);
+        app.levelChanged();
+        app.commit('Set spawn facing');
+        return;
+      case 'remove-opening':
+        LiminalOps.removeOpening(app.level, data.id);
+        app.editor.clearSelection();
+        app.levelChanged();
+        app.commit('Remove opening');
+        return;
+      case 'add-opening': {
+        const wall = app.level.walls.find(w => w.id === id);
+        if (!wall) return;
+        const preset = LiminalOps.defaultOpening(data.kind);
+        const opening = LiminalOps.addOpening(wall, {
+          kind: data.kind,
+          offset: Math.max(0, (LiminalGeometry.wallLength(wall) - preset.width) / 2),
+          width: preset.width,
+          height: preset.height,
+          sill: preset.sill
         });
-        this.render();
-        this.app.requestRender();
-      });
-    }
-
-    const btnBatchH = this.container.querySelector('#btn-apply-batch-h');
-    if (btnBatchH) {
-      btnBatchH.addEventListener('click', () => {
-        const val = parseFloat(this.container.querySelector('#batch-wall-h').value) || 3.5;
-        this.app.history.pushState(this.app.level, 'Batch Set Wall Height');
-        this.app.editor.selectedIds.forEach(id => {
-          const w = this.app.level.walls.find(x => x.id === id);
-          if (w) w.height = val;
-        });
-        this.render();
-        this.app.requestRender();
-      });
-    }
-
-    const btnBatchMat = this.container.querySelector('#btn-apply-batch-mat');
-    if (btnBatchMat) {
-      btnBatchMat.addEventListener('click', () => {
-        const sel = this.container.querySelector('[data-mat-target="batch-wall-mat"]');
-        if (sel) {
-          const mat = sel.value;
-          this.app.history.pushState(this.app.level, 'Batch Set Wall Material');
-          this.app.editor.selectedIds.forEach(id => {
-            const w = this.app.level.walls.find(x => x.id === id);
-            if (w) w.material = mat;
+        if (opening) {
+          app.editor.select(opening.id);
+          app.commit(data.kind === 'door' ? 'Add doorway' : 'Add window');
+        }
+        return;
+      }
+      case 'walls-for-room': {
+        const room = this.targetFor('room');
+        if (room) app.addWallsAroundRoom(room);
+        return;
+      }
+      case 'walls-for-rooms':
+        app.addWallsAroundAllRooms();
+        return;
+      case 'add-room':
+        app.addRoomAtCenter();
+        return;
+      case 'add-light':
+        app.addLightAtCenter();
+        return;
+      case 'multi-move': {
+        const dx = Number(this.container.querySelector('#multi-dx').value) || 0;
+        const dz = Number(this.container.querySelector('#multi-dz').value) || 0;
+        LiminalOps.moveObjects(app.level, [...app.editor.selectedIds], dx, dz);
+        app.levelChanged();
+        app.commit('Move selection');
+        return;
+      }
+      case 'import-texture': {
+        const input = this.container.querySelector('#texture-input');
+        if (input) input.click();
+        if (input && !input.dataset.bound) {
+          input.dataset.bound = '1';
+          input.addEventListener('change', () => {
+            if (input.files && input.files[0]) app.importTexture(input.files[0]);
           });
-          this.render();
-          this.app.requestRender();
         }
-      });
+        return;
+      }
+      case 'remove-texture':
+        app.removeTexture(data.id);
+        return;
+      default:
+        return;
     }
-
-    // Texture upload button
-    const btnImportTex = this.container.querySelector('#btn-import-texture');
-    const fileInput = this.container.querySelector('#tex-file-input');
-    if (btnImportTex && fileInput) {
-      btnImportTex.addEventListener('click', () => fileInput.click());
-      fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-          this.app.importCustomTextureFile(e.target.files[0]);
-          fileInput.value = '';
-        }
-      });
-    }
-
-    // Delete texture button
-    this.container.querySelectorAll('.btn-delete-tex').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.texId;
-        if (confirm(`Remove texture "${id}"?`)) {
-          this.app.deleteCustomTexture(id);
-        }
-      });
-    });
-  }
-
-  handlePropChange(input) {
-    const val = input.value;
-    const num = parseFloat(val);
-
-    if (input.dataset.obj === 'wall') {
-      const wall = this.app.level.walls.find(w => w.id === input.dataset.id);
-      if (wall) {
-        const prop = input.dataset.prop;
-        if (prop === 'height') {
-          wall.height = isNaN(num) ? 3.5 : Math.max(0.05, num);
-        } else if (prop === 'width' || prop === 'depth') {
-          wall[prop] = isNaN(num) ? 0.1 : Math.max(0.05, num);
-        } else if (prop === 'x' || prop === 'z' || prop === 'y') {
-          wall[prop] = isNaN(num) ? 0 : num;
-        }
-        this.app.requestRender();
-      }
-    } else if (input.dataset.obj === 'spawn') {
-      const prop = input.dataset.prop;
-      if (prop === 'x' || prop === 'z') {
-        this.app.level.spawn[prop] = isNaN(num) ? 0 : num;
-      } else if (prop === 'yaw_degrees') {
-        this.app.level.spawn.yaw_degrees = isNaN(num) ? 0 : (num % 360 + 360) % 360;
-      }
-      this.app.requestRender();
-    } else if (input.dataset.obj === 'light') {
-      const light = this.app.level.ceiling_lights.find(l => l.id === input.dataset.id);
-      if (light) {
-        const prop = input.dataset.prop;
-        if (prop === 'x' || prop === 'z') {
-          light[prop] = isNaN(num) ? 0 : num;
-        } else if (prop === 'rotation_degrees') {
-          light.rotation_degrees = isNaN(num) ? 0 : num;
-        } else if (prop === 'brightness') {
-          light.brightness = isNaN(num) ? 1.0 : Math.max(0.1, num);
-        }
-        this.app.requestRender();
-      }
-    } else if (input.dataset.obj === 'room') {
-      const room = this.app.level.rooms.find(r => r.id === input.dataset.id) || this.app.level.rooms[0];
-      if (room) {
-        const prop = input.dataset.prop;
-        if (prop === 'width' || prop === 'depth') {
-          room[prop] = isNaN(num) ? 1.0 : Math.max(0.5, num);
-        } else if (prop === 'height') {
-          room.height = isNaN(num) ? 3.5 : Math.max(1.0, num);
-        } else if (prop === 'x' || prop === 'z') {
-          room[prop] = isNaN(num) ? 0 : num;
-        }
-        this.app.requestRender();
-      }
-    } else if (input.dataset.level) {
-      const prop = input.dataset.level;
-      this.app.level[prop] = val;
-    } else if (input.dataset.room) {
-      const prop = input.dataset.room;
-      const room = this.app.level.rooms[0];
-      if (room) {
-        room[prop] = isNaN(num) ? 1.0 : num;
-        this.app.requestRender();
-      }
-    }
-  }
-
-  handlePropCommit(input) {
-    this.app.history.pushState(this.app.level, 'Edit Property');
-    this.app.updateStatus(`Updated ${input.dataset.prop || input.dataset.level || 'property'}`);
-  }
-
-  handleMaterialChange(target, val) {
-    this.app.history.pushState(this.app.level, 'Change Material');
-
-    if (target.startsWith('wall-mat:')) {
-      const wallId = target.split(':')[1];
-      const wall = this.app.level.walls.find(w => w.id === wallId);
-      if (wall) wall.material = val;
-    } else if (target.startsWith('room-floor:')) {
-      const roomId = target.split(':')[1];
-      const room = this.app.level.rooms.find(r => r.id === roomId);
-      if (room) room.material = val;
-    } else if (target.startsWith('room-ceiling:')) {
-      const roomId = target.split(':')[1];
-      const room = this.app.level.rooms.find(r => r.id === roomId);
-      if (room) room.ceiling_material = val;
-    } else if (target.startsWith('face-')) {
-      const [faceType, wallId] = target.split(':');
-      const face = faceType.replace('face-', '');
-      const wall = this.app.level.walls.find(w => w.id === wallId);
-      if (wall) {
-        if (!val) {
-          delete wall.faces[face];
-        } else {
-          wall.faces[face] = val;
-        }
-      }
-    } else if (target.startsWith('light-fixture:')) {
-      const lightId = target.split(':')[1];
-      const light = this.app.level.ceiling_lights.find(l => l.id === lightId);
-      if (light) light.fixture = val;
-    } else if (target.startsWith('level-default:')) {
-      const defProp = target.split(':')[1];
-      this.app.level.defaults[defProp] = val;
-    }
-
-    this.render();
-    this.app.requestRender();
-  }
-
-  handlePresetClick(preset) {
-    this.app.history.pushState(this.app.level, 'Apply Preset');
-
-    if (preset.startsWith('yaw:')) {
-      const deg = parseFloat(preset.split(':')[1]);
-      this.app.level.spawn.yaw_degrees = deg;
-    } else if (preset.startsWith('room-h:')) {
-      const [, id, h] = preset.split(':');
-      const room = this.app.level.rooms.find(r => r.id === id);
-      if (room) room.height = parseFloat(h);
-    } else if (preset.startsWith('wall-full:')) {
-      const id = preset.split(':')[1];
-      const wall = this.app.level.walls.find(w => w.id === id);
-      if (wall) {
-        wall.y = 0.0;
-        wall.height = null;
-      }
-    } else if (preset.startsWith('wall-header:')) {
-      const id = preset.split(':')[1];
-      const wall = this.app.level.walls.find(w => w.id === id);
-      if (wall) {
-        wall.y = 2.2;
-        wall.height = 1.3;
-      }
-    } else if (preset.startsWith('wall-sill:')) {
-      const id = preset.split(':')[1];
-      const wall = this.app.level.walls.find(w => w.id === id);
-      if (wall) {
-        wall.y = 0.0;
-        wall.height = 1.0;
-      }
-    } else if (preset.startsWith('light-rot:')) {
-      const [, id, deg] = preset.split(':');
-      const light = this.app.level.ceiling_lights.find(l => l.id === id);
-      if (light) light.rotation_degrees = parseFloat(deg);
-    }
-
-    this.render();
-    this.app.requestRender();
   }
 }
