@@ -108,7 +108,7 @@ pub fn decode_png(bytes: &[u8]) -> Result<RawImage, String> {
         png::ColorType::Rgba => buf,
         png::ColorType::Rgb => {
             let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-            for chunk in buf.chunks_exact(3) {
+            for chunk in buf.as_chunks::<3>().0 {
                 rgba.extend_from_slice(&[chunk[0], chunk[1], chunk[2], 255]);
             }
             rgba
@@ -122,7 +122,7 @@ pub fn decode_png(bytes: &[u8]) -> Result<RawImage, String> {
         }
         png::ColorType::GrayscaleAlpha => {
             let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-            for chunk in buf.chunks_exact(2) {
+            for chunk in buf.as_chunks::<2>().0 {
                 rgba.extend_from_slice(&[chunk[0], chunk[0], chunk[0], chunk[1]]);
             }
             rgba
@@ -412,11 +412,9 @@ pub fn resolve_textures(
             if let Some(bytes) = texture_blobs
                 .get(&normalized)
                 .or_else(|| texture_blobs.get(file_name))
-            {
-                if let Ok(img) = decode_png(bytes) {
+                && let Ok(img) = decode_png(bytes) {
                     return Some(img);
                 }
-            }
         }
         // 2. Direct lookup by material name
         let name = mat_id.strip_prefix("pack:").unwrap_or(mat_id);
@@ -427,11 +425,10 @@ pub fn resolve_textures(
             name.to_string(),
         ];
         for cand in &candidates {
-            if let Some(bytes) = texture_blobs.get(cand) {
-                if let Ok(img) = decode_png(bytes) {
+            if let Some(bytes) = texture_blobs.get(cand)
+                && let Ok(img) = decode_png(bytes) {
                     return Some(img);
                 }
-            }
         }
         None
     };
@@ -519,11 +516,10 @@ impl LevelManager {
         if let Ok(dir) = fs::read_dir(&self.assets_dir) {
             for entry in dir.flatten() {
                 let p = entry.path();
-                if p.extension().is_some_and(|ext| ext == "json") {
-                    if let Ok(meta) = self.probe_level_file(&p, LevelSourceType::Official) {
+                if p.extension().is_some_and(|ext| ext == "json")
+                    && let Ok(meta) = self.probe_level_file(&p, LevelSourceType::Official) {
                         discovered.push(meta);
                     }
-                }
             }
         }
 
@@ -535,11 +531,10 @@ impl LevelManager {
                     if let Ok(meta) = self.probe_level_file(&p, LevelSourceType::CustomJson) {
                         discovered.push(meta);
                     }
-                } else if p.extension().is_some_and(|ext| ext == "zip") {
-                    if let Ok(meta) = self.probe_zip_file(&p) {
+                } else if p.extension().is_some_and(|ext| ext == "zip")
+                    && let Ok(meta) = self.probe_zip_file(&p) {
                         discovered.push(meta);
                     }
-                }
             }
         }
 
@@ -557,12 +552,11 @@ impl LevelManager {
             );
         } else {
             // Ensure level_1 is first in the list for immediate access
-            if let Some(pos) = discovered.iter().position(|e| e.id == "level_1") {
-                if pos != 0 {
+            if let Some(pos) = discovered.iter().position(|e| e.id == "level_1")
+                && pos != 0 {
                     let e = discovered.remove(pos);
                     discovered.insert(0, e);
                 }
-            }
         }
 
         self.entries = discovered;
@@ -746,11 +740,10 @@ impl LevelManager {
                         .and_then(|e| e.to_str())
                         .unwrap_or("")
                         .to_lowercase();
-                    if ext == "json" || ext == "zip" {
-                        if self.import_file(&path).is_ok() {
+                    if (ext == "json" || ext == "zip")
+                        && self.import_file(&path).is_ok() {
                             imported_count += 1;
                         }
-                    }
                 }
             }
         }

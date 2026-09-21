@@ -248,9 +248,14 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let test_path = temp_dir.join("test_liminal_settings.json");
 
-        let mut settings = Settings::default();
-        settings.look_speed_h = 120.0;
-        settings.bindings.forward = "UP".to_string();
+        let settings = Settings {
+            look_speed_h: 120.0,
+            bindings: KeyBindings {
+                forward: "UP".to_string(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
 
         settings.save_to_path(&test_path).expect("save settings");
         let loaded = Settings::load_or_default_from_path(&test_path);

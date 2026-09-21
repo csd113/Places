@@ -3,8 +3,116 @@ use glow::HasContext;
 use crate::font::generate_font_atlas;
 use crate::level::LevelDef;
 
+/// PocketCHIP reference resolution. The game logic and UI layout are authored
+/// against this 480x272 space; it is also the default window size. It is *not*
+/// an assumption about the actual drawable/framebuffer size at runtime.
 pub const WINDOW_WIDTH: u32 = 480;
 pub const WINDOW_HEIGHT: u32 = 272;
+
+/// Reference space that 2D UI geometry is authored in (PocketCHIP baseline).
+pub const UI_REFERENCE_WIDTH: u32 = WINDOW_WIDTH;
+pub const UI_REFERENCE_HEIGHT: u32 = WINDOW_HEIGHT;
+
+/// Physical size (in pixels) of the current drawable/framebuffer.
+///
+/// This is deliberately distinct from the window's logical size: on HiDPI
+/// displays such as macOS Retina the drawable is larger than the window size.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DrawableSize {
+    pub width: u32,
+    pub height: u32,
+}
+
+impl DrawableSize {
+    pub const fn new(width: u32, height: u32) -> Self {
+        Self { width, height }
+    }
+
+    /// True when the surface cannot be rendered to (minimized/hidden windows).
+    pub const fn is_empty(self) -> bool {
+        self.width == 0 || self.height == 0
+    }
+
+    /// Aspect ratio derived from the real framebuffer, safe against zero height.
+    pub fn aspect_ratio(self) -> f32 {
+        if self.height == 0 {
+            1.0
+        } else {
+            self.width as f32 / self.height as f32
+        }
+    }
+
+    /// Pixel size of the integer-scaled UI region that fits this drawable while
+    /// preserving the 480x272 reference aspect ratio, plus its bottom-left origin.
+    pub fn ui_viewport(self) -> UiViewport {
+        if self.is_empty() {
+            return UiViewport {
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+                scale: 1.0,
+            };
+        }
+
+        let scale = (self.width as f32 / UI_REFERENCE_WIDTH as f32)
+            .min(self.height as f32 / UI_REFERENCE_HEIGHT as f32)
+            .max(0.0);
+        let width = ((UI_REFERENCE_WIDTH as f32 * scale).round() as i32).clamp(1, self.width as i32);
+        let height =
+            ((UI_REFERENCE_HEIGHT as f32 * scale).round() as i32).clamp(1, self.height as i32);
+
+        UiViewport {
+            x: (self.width as i32 - width) / 2,
+            y: (self.height as i32 - height) / 2,
+            width,
+            height,
+            scale,
+        }
+    }
+}
+
+/// Placement of the 480x272 UI reference space inside the physical drawable.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct UiViewport {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+    pub scale: f32,
+}
+
+/// Aspect ratio of the authored PocketCHIP reference resolution (480x272).
+pub fn reference_aspect_ratio() -> f32 {
+    UI_REFERENCE_WIDTH as f32 / UI_REFERENCE_HEIGHT as f32
+}
+
+/// Maps the configured (baseline) vertical field of view onto a drawable with
+/// the given aspect ratio.
+///
+/// * Wider than the PocketCHIP baseline: the vertical FOV is unchanged, so the
+///   horizontal view expands naturally ("Hor+").
+/// * Narrower/taller than the baseline: the horizontal FOV is preserved instead
+///   so the level is not cropped left/right; only the vertical FOV grows.
+///
+/// At the baseline aspect this is the identity, so PocketCHIP is unchanged.
+pub fn vertical_fov_for_aspect(configured_vertical_fov_degrees: f32, aspect: f32) -> f32 {
+    // Guards against a near-singular projection on very tall/portrait windows.
+    const MAX_VERTICAL_FOV_DEGREES: f32 = 150.0;
+
+    let reference = reference_aspect_ratio();
+    if !aspect.is_finite() || aspect <= 0.0 || aspect >= reference {
+        return configured_vertical_fov_degrees;
+    }
+
+    let half_vertical_tan = (configured_vertical_fov_degrees.to_radians() * 0.5).tan();
+    let half_horizontal_tan = half_vertical_tan * reference;
+    let adjusted = 2.0 * (half_horizontal_tan / aspect).atan();
+    adjusted.to_degrees().clamp(
+        configured_vertical_fov_degrees,
+        MAX_VERTICAL_FOV_DEGREES,
+    )
+}
 
 const VERTEX_SHADER_SRC: &str = r#"
 #ifdef GL_ES
@@ -65,6 +173,7 @@ pub struct LevelMesh {
     pub batches: LevelMeshBatches,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn add_quad(
     vertices: &mut Vec<Vertex>,
     p0: [f32; 3],
@@ -116,6 +225,7 @@ fn add_quad(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn add_quad_flat(
     vertices: &mut Vec<Vertex>,
     p0: [f32; 3],
@@ -625,6 +735,9 @@ pub struct Renderer {
     a_pos_loc: u32,
     a_color_loc: u32,
     a_uv_loc: u32,
+    /// Physical framebuffer size currently being rendered to. Updated on resize
+    /// and HiDPI/backing-scale changes via [`Renderer::set_drawable_size`].
+    drawable_size: DrawableSize,
 }
 
 impl Renderer {
@@ -734,6 +847,8 @@ impl Renderer {
             )
         };
 
+        let (initial_width, initial_height) = window.drawable_size();
+
         Ok(Self {
             _gl_context: gl_context,
             gl,
@@ -751,7 +866,22 @@ impl Renderer {
             a_pos_loc,
             a_color_loc,
             a_uv_loc,
+            drawable_size: DrawableSize::new(initial_width, initial_height),
         })
+    }
+
+    /// Records the current physical framebuffer size.
+    ///
+    /// This renderer draws directly into the default framebuffer, so no offscreen
+    /// colour/depth attachments exist to recreate; the viewport and projection are
+    /// derived from this size each frame. Returns `true` when the size changed,
+    /// which is where any future size-dependent GPU resource would be rebuilt.
+    pub fn set_drawable_size(&mut self, size: DrawableSize) -> bool {
+        if self.drawable_size == size {
+            return false;
+        }
+        self.drawable_size = size;
+        true
     }
 
     unsafe fn upload_texture(
@@ -847,22 +977,32 @@ impl Renderer {
     /// Renders the 3D level combining yaw and pitch into the view matrix.
     pub fn render_scene(
         &self,
-        width: u32,
-        height: u32,
         camera_pos: glam::Vec3,
         camera_yaw: f32,
         camera_pitch: f32,
         fov_degrees: f32,
     ) {
+        let drawable = self.drawable_size;
+        if drawable.is_empty() {
+            return;
+        }
+
         unsafe {
-            self.gl.viewport(0, 0, width as i32, height as i32);
+            // Render at the real drawable resolution; no fixed 480x272 target.
+            self.gl
+                .viewport(0, 0, drawable.width as i32, drawable.height as i32);
             self.gl
                 .clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
 
             self.gl.use_program(Some(self.program));
 
-            let aspect = width as f32 / height.max(1) as f32;
-            let proj = glam::Mat4::perspective_rh(fov_degrees.to_radians(), aspect, 0.1, 100.0);
+            // Derive the projection from the real framebuffer aspect ratio. The
+            // configured FOV is the PocketCHIP baseline; wider displays gain
+            // horizontal view, taller displays keep the horizontal view instead
+            // of cropping it.
+            let aspect = drawable.aspect_ratio();
+            let effective_fov = vertical_fov_for_aspect(fov_degrees, aspect);
+            let proj = glam::Mat4::perspective_rh(effective_fov.to_radians(), aspect, 0.1, 100.0);
 
             // Correctly combine yaw and pitch in the camera forward vector
             let cos_pitch = camera_pitch.cos();
@@ -970,10 +1110,17 @@ impl Renderer {
     }
 
     /// Renders a 2D UI overlay on top of the scene using an orthographic projection and the font atlas.
-    pub fn render_ui(&self, width: u32, height: u32, ui_vertices: &[Vertex]) {
-        if ui_vertices.is_empty() {
+    ///
+    /// UI geometry is authored in the 480x272 reference space; the projection
+    /// below stays in that space while the viewport is scaled/centred to the
+    /// drawable, so the HUD keeps its proportions at any resolution.
+    pub fn render_ui(&self, ui_vertices: &[Vertex]) {
+        let drawable = self.drawable_size;
+        if ui_vertices.is_empty() || drawable.is_empty() {
             return;
         }
+
+        let viewport = drawable.ui_viewport();
 
         unsafe {
             self.gl.disable(glow::DEPTH_TEST);
@@ -983,8 +1130,17 @@ impl Renderer {
 
             self.gl.use_program(Some(self.program));
 
-            let ortho =
-                glam::Mat4::orthographic_rh(0.0, width as f32, height as f32, 0.0, -1.0, 1.0);
+            self.gl
+                .viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+
+            let ortho = glam::Mat4::orthographic_rh(
+                0.0,
+                UI_REFERENCE_WIDTH as f32,
+                UI_REFERENCE_HEIGHT as f32,
+                0.0,
+                -1.0,
+                1.0,
+            );
 
             if let Some(ref loc) = self.u_mvp_loc {
                 self.gl
@@ -1001,7 +1157,7 @@ impl Renderer {
             self.gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.ui_vbo));
             let byte_slice = std::slice::from_raw_parts(
                 ui_vertices.as_ptr() as *const u8,
-                ui_vertices.len() * std::mem::size_of::<Vertex>(),
+                std::mem::size_of_val(ui_vertices),
             );
             self.gl
                 .buffer_data_u8_slice(glow::ARRAY_BUFFER, byte_slice, glow::DYNAMIC_DRAW);
@@ -1085,6 +1241,163 @@ mod tests {
         assert!(mesh.batches.floor_batch.count > 0);
         assert!(mesh.batches.ceiling_batch.count > 0);
         assert!(mesh.batches.wall_batch.count > 0);
+    }
+
+    #[test]
+    fn test_drawable_aspect_ratio() {
+        let cases: [(u32, u32, f32); 7] = [
+            (480, 272, 480.0 / 272.0),
+            (1280, 720, 16.0 / 9.0),
+            (1920, 1080, 16.0 / 9.0),
+            (2560, 1440, 16.0 / 9.0),
+            (3840, 2160, 16.0 / 9.0),
+            (1600, 1200, 4.0 / 3.0),
+            (960, 544, 480.0 / 272.0), // Retina 2x of the PocketCHIP baseline
+        ];
+        for (w, h, expected) in cases {
+            let size = DrawableSize::new(w, h);
+            assert!(
+                (size.aspect_ratio() - expected).abs() < 1e-5,
+                "{w}x{h} aspect mismatch"
+            );
+            assert!(!size.is_empty());
+        }
+    }
+
+    fn horizontal_fov_degrees(vertical_fov_degrees: f32, aspect: f32) -> f32 {
+        let half = (vertical_fov_degrees.to_radians() * 0.5).tan() * aspect;
+        (2.0 * half.atan()).to_degrees()
+    }
+
+    #[test]
+    fn test_vertical_fov_baseline_is_identity() {
+        let baseline = reference_aspect_ratio();
+        for fov in [45.0, 60.0, 90.0, 110.0] {
+            assert!((vertical_fov_for_aspect(fov, baseline) - fov).abs() < 1e-4);
+        }
+    }
+
+    #[test]
+    fn test_wider_displays_expand_horizontally() {
+        // 16:9 and 21:9 are wider than the 480x272 baseline, so the vertical FOV
+        // is unchanged and the horizontal view simply grows.
+        let baseline = reference_aspect_ratio();
+        for aspect in [16.0 / 9.0, 21.0 / 9.0, 32.0 / 9.0] {
+            assert!(aspect > baseline);
+            let vfov = vertical_fov_for_aspect(60.0, aspect);
+            assert_eq!(vfov, 60.0, "wider aspect must keep vertical FOV");
+            assert!(
+                horizontal_fov_degrees(vfov, aspect) > horizontal_fov_degrees(60.0, baseline)
+            );
+        }
+    }
+
+    #[test]
+    fn test_taller_displays_preserve_horizontal_view() {
+        let baseline = reference_aspect_ratio();
+        let baseline_hfov = horizontal_fov_degrees(60.0, baseline);
+        // 16:10, 4:3, 3:2 and 1:1 are all narrower than PocketCHIP.
+        for aspect in [16.0 / 10.0, 4.0 / 3.0, 3.0 / 2.0, 1.0] {
+            assert!(aspect < baseline);
+            let vfov = vertical_fov_for_aspect(60.0, aspect);
+            assert!(vfov > 60.0, "taller aspect must widen vertical FOV");
+            let hfov = horizontal_fov_degrees(vfov, aspect);
+            assert!(
+                (hfov - baseline_hfov).abs() < 1e-3,
+                "horizontal FOV cropped: {hfov} vs {baseline_hfov}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_vertical_fov_handles_degenerate_aspects() {
+        assert_eq!(vertical_fov_for_aspect(60.0, 0.0), 60.0);
+        assert_eq!(vertical_fov_for_aspect(60.0, -1.0), 60.0);
+        assert_eq!(vertical_fov_for_aspect(60.0, f32::NAN), 60.0);
+        // Extremely tall windows are capped to keep the projection invertible.
+        assert!(vertical_fov_for_aspect(60.0, 0.1) <= 150.0);
+    }
+
+    #[test]
+    fn test_zero_sized_drawable_is_empty_and_safe() {
+        for size in [
+            DrawableSize::new(0, 0),
+            DrawableSize::new(0, 272),
+            DrawableSize::new(480, 0),
+        ] {
+            assert!(size.is_empty());
+            // Must not divide by zero or panic when a window is minimized.
+            assert!(size.aspect_ratio().is_finite());
+            let viewport = size.ui_viewport();
+            assert_eq!(viewport.width, 0);
+            assert_eq!(viewport.height, 0);
+        }
+    }
+
+    #[test]
+    fn test_ui_viewport_is_uniform_and_centred() {
+        let cases = [
+            (480, 272),
+            (1280, 720),
+            (1920, 1080),
+            (2560, 1440),
+            (3840, 2160),
+            (1600, 1200),
+            (960, 544),
+        ];
+        for (w, h) in cases {
+            let size = DrawableSize::new(w, h);
+            let vp = size.ui_viewport();
+
+            // Fits inside the drawable and stays centred.
+            assert!(vp.width <= w as i32 && vp.height <= h as i32);
+            assert!(vp.x >= 0 && vp.y >= 0);
+            assert!((size.width as i32 - vp.width - 2 * vp.x).abs() <= 1);
+            assert!((size.height as i32 - vp.height - 2 * vp.y).abs() <= 1);
+
+            // Reference aspect preserved (within one pixel of rounding).
+            let vp_aspect = vp.width as f32 / vp.height as f32;
+            let ref_aspect = UI_REFERENCE_WIDTH as f32 / UI_REFERENCE_HEIGHT as f32;
+            assert!(
+                (vp_aspect - ref_aspect).abs() < 0.01,
+                "{w}x{h} UI aspect distorted: {vp_aspect} vs {ref_aspect}"
+            );
+
+            // HUD never becomes microscopic at large resolutions.
+            assert!(vp.scale >= 1.0, "{w}x{h} UI scale shrank: {}", vp.scale);
+        }
+    }
+
+    #[test]
+    fn test_ui_viewport_baseline_is_identity() {
+        let vp = DrawableSize::new(480, 272).ui_viewport();
+        assert_eq!(
+            (vp.x, vp.y, vp.width, vp.height),
+            (0, 0, 480, 272),
+            "PocketCHIP UI layout must be pixel-identical to the original"
+        );
+        assert_eq!(vp.scale, 1.0);
+    }
+
+    #[test]
+    fn test_hidpi_uses_physical_pixels_not_logical_size() {
+        // A 480x272 logical window on a 2x Retina display has a 960x544 drawable.
+        let logical = DrawableSize::new(480, 272);
+        let physical = DrawableSize::new(960, 544);
+
+        assert_eq!(physical.ui_viewport().scale, 2.0);
+        assert_eq!(physical.ui_viewport().width, 960);
+        assert_eq!(physical.ui_viewport().height, 544);
+        assert!((physical.aspect_ratio() - logical.aspect_ratio()).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_framebuffer_size_changes_update_scale() {
+        let small = DrawableSize::new(480, 272);
+        let large = DrawableSize::new(1920, 1080);
+        assert_ne!(small, large);
+        assert!(large.ui_viewport().scale > small.ui_viewport().scale);
+        assert_eq!(large.ui_viewport().scale, 1080.0 / 272.0);
     }
 
     #[test]

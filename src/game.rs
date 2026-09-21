@@ -120,6 +120,14 @@ impl Game {
         self.delta_seconds
     }
 
+    /// Discards the accumulated frame time without advancing the simulation.
+    /// Used when frames are skipped (e.g. a minimized window) so that resuming
+    /// does not apply a huge delta-time step to movement or looking.
+    pub fn reset_timing(&mut self) {
+        self.last_frame_time = Instant::now();
+        self.delta_seconds = 0.0;
+    }
+
     pub fn frame_count(&self) -> u64 {
         self.frame_count
     }

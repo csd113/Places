@@ -16,7 +16,7 @@ use sdl2::keyboard::Keycode;
 use game::{AppState, Game};
 use input::{InputHandler, MenuNavEvent, keycode_to_str};
 use perf::PerfOverlay;
-use render::{Renderer, WINDOW_HEIGHT, WINDOW_WIDTH};
+use render::{DrawableSize, Renderer, WINDOW_HEIGHT, WINDOW_WIDTH};
 use settings::Settings;
 use ui::{SETTINGS_ITEM_COUNT, UiState, activate_settings_item, build_ui_geometry};
 
@@ -28,13 +28,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .video()
         .map_err(|e| format!("Failed to init video subsystem: {e}"))?;
 
+    // SDL enables Unicode text input (and therefore the platform IME) implicitly
+    // as soon as the video subsystem starts. This game only consumes raw key
+    // events, never composed text, so disable it: on macOS this is the code path
+    // that engages InputMethodKit (`interpretKeyEvents` on SDL's text responder).
+    video_subsystem.text_input().stop();
+
     // Load persisted settings or fallback safely to PocketCHIP defaults
     let mut settings = Settings::load_or_default();
 
-    // Open a 480x272 game window suitable for the PocketCHIP target
+    // Open a game window sized to the PocketCHIP baseline; it is resizable so it
+    // can use the full drawable on desktop and HiDPI displays.
     let window = video_subsystem
         .window("Liminal", WINDOW_WIDTH, WINDOW_HEIGHT)
         .position_centered()
+        .resizable()
+        .allow_highdpi()
         .opengl()
         .build()
         .map_err(|e| format!("Failed to create window: {e}"))?;
@@ -283,16 +292,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     game.set_app_state(AppState::MainMenu);
                                 }
                             }
-                            AppState::PauseSettings => {
+                            AppState::PauseSettings
                                 if activate_settings_item(
                                     ui_state.settings_idx,
                                     &mut ui_state,
                                     &mut settings,
                                     1,
-                                ) {
+                                ) => {
                                     game.set_app_state(AppState::Paused);
                                 }
-                            }
                             _ => {}
                         },
                         MenuNavEvent::Back => {
@@ -323,6 +331,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Update player movement (only active during AppState::Playing)
         game.update_player_movement(input_handler.state(), &settings);
 
+        // Use the physical drawable size, not the logical window size, so HiDPI
+        // (Retina) backing scale and monitor changes are handled automatically.
+        let (drawable_width, drawable_height) = window.drawable_size();
+        let drawable = DrawableSize::new(drawable_width, drawable_height);
+
+        // Minimized/hidden windows report a zero-sized drawable. Skip rendering to
+        // avoid invalid GL state and keep timing fresh so restoring does not jump.
+        if drawable.is_empty() {
+            game.reset_timing();
+            std::thread::sleep(std::time::Duration::from_millis(16));
+            continue;
+        }
+
+        renderer.set_drawable_size(drawable);
+
         // Render scene
         let (cam_pos, cam_yaw, cam_pitch) = match game.app_state() {
             AppState::Playing | AppState::Paused | AppState::PauseSettings => {
@@ -334,14 +357,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
-        renderer.render_scene(
-            WINDOW_WIDTH,
-            WINDOW_HEIGHT,
-            cam_pos,
-            cam_yaw,
-            cam_pitch,
-            settings.fov_degrees,
-        );
+        renderer.render_scene(cam_pos, cam_yaw, cam_pitch, settings.fov_degrees);
 
         // Render UI overlay on top if in a menu or pause state, plus performance overlay if visible
         let mut ui_vertices =
@@ -349,7 +365,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if perf_overlay.is_visible() {
             ui_vertices.extend_from_slice(perf_overlay.cached_vertices());
         }
-        renderer.render_ui(WINDOW_WIDTH, WINDOW_HEIGHT, &ui_vertices);
+        renderer.render_ui(&ui_vertices);
 
         // Swap window buffer (double buffered, VSync synchronized)
         window.gl_swap_window();

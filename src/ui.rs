@@ -4,7 +4,7 @@ use crate::render::Vertex;
 use crate::settings::{KeyBindings, Settings};
 
 /// Menu selection state across screens.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct UiState {
     pub main_menu_idx: usize,
     pub level_select_idx: usize,
@@ -13,20 +13,6 @@ pub struct UiState {
     pub rebinding_action: Option<&'static str>,
     pub status_message: Option<String>,
     pub level_entries: Vec<String>,
-}
-
-impl Default for UiState {
-    fn default() -> Self {
-        Self {
-            main_menu_idx: 0,
-            level_select_idx: 0,
-            pause_menu_idx: 0,
-            settings_idx: 0,
-            rebinding_action: None,
-            status_message: None,
-            level_entries: Vec::new(),
-        }
-    }
 }
 
 impl UiState {
@@ -118,8 +104,8 @@ pub fn draw_text(
     let char_h = 8.0 * scale;
 
     for ch in text.chars() {
-        if let Some(uv) = get_char_uv(ch) {
-            if ch != ' ' {
+        if let Some(uv) = get_char_uv(ch)
+            && ch != ' ' {
                 add_ui_quad(
                     vertices,
                     x,
@@ -130,12 +116,12 @@ pub fn draw_text(
                     uv,
                 );
             }
-        }
         x += char_w;
     }
 }
 
-/// Generates 2D UI overlay vertices in 480x272 pixel space for the active AppState.
+/// Generates 2D UI overlay vertices in the 480x272 reference space for the
+/// active AppState. `Renderer::render_ui` scales this space to the drawable.
 pub fn build_ui_geometry(
     app_state: AppState,
     ui_state: &UiState,
@@ -245,9 +231,7 @@ pub fn build_ui_geometry(
             // Show at most 6 items per page with scrolling
             let max_visible = 6;
             let total = items.len();
-            let scroll_offset = if total <= max_visible {
-                0
-            } else if ui_state.level_select_idx < max_visible {
+            let scroll_offset = if total <= max_visible || ui_state.level_select_idx < max_visible {
                 0
             } else if ui_state.level_select_idx >= total - max_visible {
                 total - max_visible
