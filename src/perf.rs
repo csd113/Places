@@ -89,15 +89,16 @@ impl CpuSampler {
     pub fn sample(&mut self) -> Option<f32> {
         // 1. First attempt reading Linux /proc/stat (PocketCHIP target platform)
         if let Ok(content) = fs::read_to_string(self.stat_path)
-            && let Some(curr) = parse_proc_stat(&content) {
-                let pct = if let Some(prev) = self.last_sample {
-                    calculate_cpu_percentage(&prev, &curr)
-                } else {
-                    None
-                };
-                self.last_sample = Some(curr);
-                return pct;
-            }
+            && let Some(curr) = parse_proc_stat(&content)
+        {
+            let pct = if let Some(prev) = self.last_sample {
+                calculate_cpu_percentage(&prev, &curr)
+            } else {
+                None
+            };
+            self.last_sample = Some(curr);
+            return pct;
+        }
 
         // 2. macOS fallback via Mach kernel host_statistics64 (for local dev/testing)
         #[cfg(target_os = "macos")]
@@ -165,9 +166,10 @@ pub fn parse_devfreq_load(content: &str) -> Option<f32> {
 
     // Format: "45@500000000"
     if let Some((load_part, _)) = trimmed.split_once('@')
-        && let Ok(pct) = load_part.trim().trim_end_matches('%').parse::<f32>() {
-            return Some(pct.clamp(0.0, 100.0));
-        }
+        && let Ok(pct) = load_part.trim().trim_end_matches('%').parse::<f32>()
+    {
+        return Some(pct.clamp(0.0, 100.0));
+    }
 
     // Format: "busy_time total_time" or "busy_time / total_time"
     let parts: Vec<&str> = trimmed
@@ -176,10 +178,11 @@ pub fn parse_devfreq_load(content: &str) -> Option<f32> {
         .collect();
     if parts.len() >= 2
         && let (Ok(busy), Ok(total)) = (parts[0].parse::<f64>(), parts[1].parse::<f64>())
-            && total > 0.0 {
-                let pct = (busy / total * 100.0) as f32;
-                return Some(pct.clamp(0.0, 100.0));
-            }
+        && total > 0.0
+    {
+        let pct = (busy / total * 100.0) as f32;
+        return Some(pct.clamp(0.0, 100.0));
+    }
 
     // Format: "45" or "45%" or "45.0"
     if let Ok(pct) = trimmed.trim_end_matches('%').trim().parse::<f32>() {
@@ -196,9 +199,10 @@ pub fn parse_mali_utilization(content: &str) -> Option<f32> {
         let trimmed = line.trim();
         if let Some((k, v)) = trimmed.split_once('=')
             && k.trim().eq_ignore_ascii_case("utilization")
-                && let Ok(num) = v.trim().trim_end_matches('%').parse::<f32>() {
-                    return Some(num.clamp(0.0, 100.0));
-                }
+            && let Ok(num) = v.trim().trim_end_matches('%').parse::<f32>()
+        {
+            return Some(num.clamp(0.0, 100.0));
+        }
         if let Ok(num) = trimmed.trim_end_matches('%').parse::<f32>() {
             return Some(num.clamp(0.0, 100.0));
         }
@@ -247,9 +251,10 @@ pub fn sample_gpu_from_paths(
             {
                 let load_path = entry.path().join("load");
                 if let Ok(content) = fs::read_to_string(&load_path)
-                    && let Some(pct) = parse_devfreq_load(&content) {
-                        return Some(pct);
-                    }
+                    && let Some(pct) = parse_devfreq_load(&content)
+                {
+                    return Some(pct);
+                }
             }
         }
     }
@@ -261,9 +266,10 @@ pub fn sample_gpu_from_paths(
     ];
     for path in &mali_paths {
         if let Ok(content) = fs::read_to_string(path)
-            && let Some(pct) = parse_mali_utilization(&content) {
-                return Some(pct);
-            }
+            && let Some(pct) = parse_mali_utilization(&content)
+        {
+            return Some(pct);
+        }
     }
 
     // 3. Check DRM busy percent paths
@@ -273,9 +279,10 @@ pub fn sample_gpu_from_paths(
     ];
     for path in &drm_paths {
         if let Ok(content) = fs::read_to_string(path)
-            && let Some(pct) = parse_drm_busy_percent(&content) {
-                return Some(pct);
-            }
+            && let Some(pct) = parse_drm_busy_percent(&content)
+        {
+            return Some(pct);
+        }
     }
 
     // 4. Check debugfs utilization paths
@@ -286,9 +293,10 @@ pub fn sample_gpu_from_paths(
     ];
     for path in &debug_paths {
         if let Ok(content) = fs::read_to_string(path)
-            && let Some(pct) = parse_mali_utilization(&content) {
-                return Some(pct);
-            }
+            && let Some(pct) = parse_mali_utilization(&content)
+        {
+            return Some(pct);
+        }
     }
 
     // Never substitute clock frequency as utilization!

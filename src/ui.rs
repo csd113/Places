@@ -1,3 +1,6 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 use crate::font::{get_char_uv, get_white_uv};
 use crate::game::AppState;
 use crate::render::Vertex;
@@ -23,6 +26,78 @@ impl UiState {
     pub fn cancel_rebinding(&mut self) {
         self.rebinding_action = None;
         self.status_message = None;
+    }
+}
+
+/// Hashes every input that can change the generated menu/settings geometry, so
+/// an unchanged screen can be reused instead of rebuilt each frame.
+fn ui_signature(
+    app_state: AppState,
+    ui_state: &UiState,
+    settings: &Settings,
+    version: &str,
+) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    (app_state as u8).hash(&mut hasher);
+    ui_state.main_menu_idx.hash(&mut hasher);
+    ui_state.level_select_idx.hash(&mut hasher);
+    ui_state.pause_menu_idx.hash(&mut hasher);
+    ui_state.settings_idx.hash(&mut hasher);
+    ui_state.rebinding_action.hash(&mut hasher);
+    ui_state.status_message.as_deref().hash(&mut hasher);
+    ui_state.level_entries.hash(&mut hasher);
+    version.hash(&mut hasher);
+
+    let b = &settings.bindings;
+    b.forward.hash(&mut hasher);
+    b.backward.hash(&mut hasher);
+    b.strafe_left.hash(&mut hasher);
+    b.strafe_right.hash(&mut hasher);
+    b.look_up.hash(&mut hasher);
+    b.look_down.hash(&mut hasher);
+    b.look_left.hash(&mut hasher);
+    b.look_right.hash(&mut hasher);
+    settings.look_speed_h.to_bits().hash(&mut hasher);
+    settings.look_speed_v.to_bits().hash(&mut hasher);
+    settings.walk_speed.to_bits().hash(&mut hasher);
+    settings.fov_degrees.to_bits().hash(&mut hasher);
+    settings.vsync.hash(&mut hasher);
+    settings.texture_filtering.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// Caches 2D menu/settings UI geometry.
+///
+/// A simple signature comparison avoids rebuilding (and re-uploading) identical
+/// vertices every frame while a menu is open, without a retained-mode GUI.
+#[derive(Default)]
+pub struct UiGeometryCache {
+    vertices: Vec<Vertex>,
+    signature: u64,
+    initialized: bool,
+}
+
+impl UiGeometryCache {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Returns the UI vertices for the current state, rebuilding only when a
+    /// relevant input changed.
+    pub fn get(
+        &mut self,
+        app_state: AppState,
+        ui_state: &UiState,
+        settings: &Settings,
+        version: &str,
+    ) -> &[Vertex] {
+        let signature = ui_signature(app_state, ui_state, settings, version);
+        if !self.initialized || signature != self.signature {
+            self.vertices = build_ui_geometry(app_state, ui_state, settings, version);
+            self.signature = signature;
+            self.initialized = true;
+        }
+        &self.vertices
     }
 }
 
@@ -89,7 +164,14 @@ pub fn add_rect_rgba(
 }
 
 pub fn add_rect(vertices: &mut Vec<Vertex>, x0: f32, y0: f32, x1: f32, y1: f32, color: [f32; 3]) {
-    add_rect_rgba(vertices, x0, y0, x1, y1, [color[0], color[1], color[2], 1.0]);
+    add_rect_rgba(
+        vertices,
+        x0,
+        y0,
+        x1,
+        y1,
+        [color[0], color[1], color[2], 1.0],
+    );
 }
 
 pub fn draw_text(
@@ -105,17 +187,18 @@ pub fn draw_text(
 
     for ch in text.chars() {
         if let Some(uv) = get_char_uv(ch)
-            && ch != ' ' {
-                add_ui_quad(
-                    vertices,
-                    x,
-                    y,
-                    x + char_w,
-                    y + char_h,
-                    [color[0], color[1], color[2], 1.0],
-                    uv,
-                );
-            }
+            && ch != ' '
+        {
+            add_ui_quad(
+                vertices,
+                x,
+                y,
+                x + char_w,
+                y + char_h,
+                [color[0], color[1], color[2], 1.0],
+                uv,
+            );
+        }
         x += char_w;
     }
 }
@@ -138,12 +221,47 @@ pub fn build_ui_geometry(
             // Partially transparent dark scrim background panel (70% opacity)
             let opacity = 0.70;
             // Border outline strips (non-overlapping with inner panel)
-            add_rect_rgba(&mut vertices, 20.0, 20.0, 460.0, 22.0, [0.08, 0.08, 0.07, opacity]);
-            add_rect_rgba(&mut vertices, 20.0, 250.0, 460.0, 252.0, [0.08, 0.08, 0.07, opacity]);
-            add_rect_rgba(&mut vertices, 20.0, 22.0, 22.0, 250.0, [0.08, 0.08, 0.07, opacity]);
-            add_rect_rgba(&mut vertices, 458.0, 22.0, 460.0, 250.0, [0.08, 0.08, 0.07, opacity]);
+            add_rect_rgba(
+                &mut vertices,
+                20.0,
+                20.0,
+                460.0,
+                22.0,
+                [0.08, 0.08, 0.07, opacity],
+            );
+            add_rect_rgba(
+                &mut vertices,
+                20.0,
+                250.0,
+                460.0,
+                252.0,
+                [0.08, 0.08, 0.07, opacity],
+            );
+            add_rect_rgba(
+                &mut vertices,
+                20.0,
+                22.0,
+                22.0,
+                250.0,
+                [0.08, 0.08, 0.07, opacity],
+            );
+            add_rect_rgba(
+                &mut vertices,
+                458.0,
+                22.0,
+                460.0,
+                250.0,
+                [0.08, 0.08, 0.07, opacity],
+            );
             // Inner panel
-            add_rect_rgba(&mut vertices, 22.0, 22.0, 458.0, 250.0, [0.12, 0.11, 0.10, opacity]);
+            add_rect_rgba(
+                &mut vertices,
+                22.0,
+                22.0,
+                458.0,
+                250.0,
+                [0.12, 0.11, 0.10, opacity],
+            );
 
             // Title
             draw_text(

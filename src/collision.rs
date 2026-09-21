@@ -114,6 +114,7 @@ pub fn resolve_player_collision(mut pos: Vec2, radius: f32, walls: &[WallAabb]) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::level::LevelDef;
 
     #[test]
     fn test_wall_aabb_creation() {
@@ -187,5 +188,107 @@ mod tests {
         let walls = vec![half_wall];
         let resolved = resolve_player_collision(candidate, PLAYER_RADIUS, &walls);
         assert_ne!(resolved, candidate);
+    }
+
+    /// One 10x10 m room with a single 10 x 0.4 m wall at z = 4.8..5.2 and the
+    /// supplied `openings`/`props` JSON.
+    fn level_with_wall(openings_json: &str, props_json: &str) -> LevelDef {
+        let json = format!(
+            r#"{{
+                "format_version": 1,
+                "id": "collision_test",
+                "name": "Collision Test",
+                "spawn": {{ "x": 5.0, "z": 5.0 }},
+                "room": {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 }},
+                "walls": [{{
+                    "x": 0.0, "z": 4.8, "width": 10.0, "depth": 0.4, "height": 3.5,
+                    "openings": {openings_json}
+                }}],
+                "props": {props_json}
+            }}"#
+        );
+        LevelDef::from_json(&json).expect("valid json")
+    }
+
+    #[test]
+    fn test_doorway_wall_lets_the_player_pass_through() {
+        let level = level_with_wall(
+            r#"[{ "kind": "door", "offset": 4.0, "width": 2.0, "height": 2.1 }]"#,
+            "[]",
+        );
+        let walls = level.collision_aabbs();
+
+        // Walking straight through the doorway is unobstructed.
+        let in_doorway = Vec2::new(5.0, 5.0);
+        assert_eq!(
+            resolve_player_collision(in_doorway, PLAYER_RADIUS, &walls),
+            in_doorway
+        );
+
+        // The solid wall either side of the door still blocks.
+        let into_wall = Vec2::new(1.0, 4.9);
+        let resolved = resolve_player_collision(into_wall, PLAYER_RADIUS, &walls);
+        assert_ne!(resolved, into_wall);
+        assert!(resolved.y <= 4.8 - PLAYER_RADIUS + 1e-3);
+    }
+
+    #[test]
+    fn test_doorway_header_never_blocks_the_player() {
+        let level = level_with_wall(
+            r#"[{ "kind": "door", "offset": 4.0, "width": 2.0, "height": 2.1 }]"#,
+            "[]",
+        );
+        let walls = level.collision_aabbs();
+        // The header slice starts at 2.1 m, above the 1.8 m player.
+        let header = walls
+            .iter()
+            .find(|w| w.min_y > 2.0 && w.max_y > 3.0)
+            .expect("door header slice");
+        assert!(!header.intersects_player_y());
+    }
+
+    #[test]
+    fn test_window_with_sill_blocks_the_player() {
+        let level = level_with_wall(
+            r#"[{ "kind": "window", "offset": 4.0, "width": 2.0, "height": 1.0, "sill": 1.0 }]"#,
+            "[]",
+        );
+        let walls = level.collision_aabbs();
+        // The sill wall spans y = 0..1.0, so the window is not walk-through.
+        let sill = walls
+            .iter()
+            .find(|w| w.min_y == 0.0 && w.max_y <= 1.0 + 1e-3 && w.min_x >= 3.9 && w.max_x <= 6.1)
+            .expect("window sill slice");
+        assert!(sill.intersects_player_y());
+
+        let in_window = Vec2::new(5.0, 5.0);
+        let resolved = resolve_player_collision(in_window, PLAYER_RADIUS, &walls);
+        assert_ne!(resolved, in_window);
+    }
+
+    #[test]
+    fn test_solid_prop_blocks_the_player() {
+        let solid_level = level_with_wall(
+            "[]",
+            r#"[{ "model": "core:crate", "x": 5.0, "z": 2.0, "size": [1.0, 1.0, 1.0], "solid": true }]"#,
+        );
+        let solid_aabbs = solid_level.collision_aabbs();
+        let into_prop = Vec2::new(5.0, 2.0);
+        assert_ne!(
+            resolve_player_collision(into_prop, PLAYER_RADIUS, &solid_aabbs),
+            into_prop
+        );
+
+        // A non-solid prop is ignored entirely by collision.
+        let decorative_level = level_with_wall(
+            "[]",
+            r#"[{ "model": "core:plant", "x": 5.0, "z": 2.0, "size": [1.0, 1.0, 1.0] }]"#,
+        );
+        let decorative_aabbs = decorative_level.collision_aabbs();
+        assert_eq!(decorative_aabbs.len(), solid_aabbs.len() - 1);
+        assert_eq!(
+            resolve_player_collision(into_prop, PLAYER_RADIUS, &decorative_aabbs),
+            into_prop
+        );
     }
 }

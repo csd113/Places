@@ -16,11 +16,32 @@ use sdl2::keyboard::Keycode;
 use game::{AppState, Game};
 use input::{InputHandler, MenuNavEvent, keycode_to_str};
 use perf::PerfOverlay;
-use render::{DrawableSize, Renderer, WINDOW_HEIGHT, WINDOW_WIDTH};
+use render::{DrawableSize, Renderer, Vertex, WINDOW_HEIGHT, WINDOW_WIDTH};
 use settings::Settings;
-use ui::{SETTINGS_ITEM_COUNT, UiState, activate_settings_item, build_ui_geometry};
+use ui::{SETTINGS_ITEM_COUNT, UiGeometryCache, UiState, activate_settings_item};
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Configures SDL OpenGL attributes before the window/context is created.
+///
+/// When `gles` is true, requests an OpenGL ES 2.0 context (PocketCHIP baseline);
+/// otherwise the platform default profile is used so desktop development still
+/// works. Double buffering is always requested.
+fn configure_gl_attributes(video: &sdl2::VideoSubsystem, gles: bool) {
+    let attr = video.gl_attr();
+    attr.set_double_buffer(true);
+    attr.set_depth_size(24);
+    if gles {
+        attr.set_context_profile(sdl2::video::GLProfile::GLES);
+        attr.set_context_version(2, 0);
+    } else {
+        // Reset the profile for the fallback path: SDL GL attributes are sticky,
+        // so the ES request must be explicitly overridden or the retry would
+        // fail identically.
+        attr.set_context_profile(sdl2::video::GLProfile::Compatibility);
+        attr.set_context_version(2, 1);
+    }
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sdl_context = sdl2::init().map_err(|e| format!("Failed to init SDL2: {e}"))?;
@@ -37,16 +58,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load persisted settings or fallback safely to PocketCHIP defaults
     let mut settings = Settings::load_or_default();
 
+    // Configure the framebuffer/context attributes *before* the OpenGL window
+    // is created. On Linux/EGL (PocketCHIP) the visual (depth buffer, double
+    // buffering) is chosen at window creation, so setting these afterwards
+    // would have no effect.
+    configure_gl_attributes(&video_subsystem, true);
+
     // Open a game window sized to the PocketCHIP baseline; it is resizable so it
-    // can use the full drawable on desktop and HiDPI displays.
-    let window = video_subsystem
-        .window("Liminal", WINDOW_WIDTH, WINDOW_HEIGHT)
-        .position_centered()
-        .resizable()
-        .allow_highdpi()
-        .opengl()
-        .build()
-        .map_err(|e| format!("Failed to create window: {e}"))?;
+    // can use the full drawable on desktop and HiDPI displays. If an OpenGL ES
+    // window cannot be created (e.g. desktop macOS), fall back to the platform
+    // default profile so development builds still run.
+    let build_window = || {
+        video_subsystem
+            .window("Liminal", WINDOW_WIDTH, WINDOW_HEIGHT)
+            .position_centered()
+            .resizable()
+            .allow_highdpi()
+            .opengl()
+            .build()
+    };
+    let window = match build_window() {
+        Ok(window) => window,
+        Err(_) => {
+            configure_gl_attributes(&video_subsystem, false);
+            build_window().map_err(|e| format!("Failed to create window: {e}"))?
+        }
+    };
 
     // Apply VSync from settings
     let _ = video_subsystem.gl_set_swap_interval(if settings.vsync {
@@ -63,15 +100,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut renderer = Renderer::new(&window, &video_subsystem, &initial_level.level)
         .map_err(|e| format!("Failed to initialize renderer: {e}"))?;
     renderer.set_level(&initial_level);
+    renderer.set_texture_filtering(&settings.texture_filtering);
 
     let mut event_pump = sdl_context
         .event_pump()
         .map_err(|e| format!("Failed to init event pump: {e}"))?;
 
     let mut input_handler = InputHandler::new();
-    let mut spawn_pos = Vec3::new(initial_level.level.spawn.x, 1.6, initial_level.level.spawn.z);
+    let mut spawn_pos = Vec3::new(
+        initial_level.level.spawn.x,
+        1.6,
+        initial_level.level.spawn.z,
+    );
     let mut spawn_yaw = initial_level.level.spawn.yaw_degrees.to_radians();
     let mut game = Game::new(spawn_pos, spawn_yaw, initial_level.level.collision_aabbs());
+    // All required level state has been extracted (spawn, collision walls,
+    // renderer uploads), so release the CPU-side textures and level definition.
+    drop(initial_level);
     let mut ui_state = UiState::new();
     ui_state.level_entries = level_manager
         .entries()
@@ -79,6 +124,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|e| e.name.clone())
         .collect();
     let mut perf_overlay = PerfOverlay::new();
+    let mut ui_cache = UiGeometryCache::new();
+    let mut ui_scratch: Vec<Vertex> = Vec::new();
+    let mut applied_filtering = settings.texture_filtering.clone();
 
     // Clean main loop
     while game.is_running() {
@@ -199,7 +247,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         MenuNavEvent::Activate => match app_state {
                             AppState::MainMenu => match ui_state.main_menu_idx {
                                 0 => {
-                                    level_manager.refresh();
+                                    // Discovery metadata is cached at startup and
+                                    // refreshed after imports; opening the level
+                                    // list must not re-scan/re-extract packs.
                                     ui_state.level_entries = level_manager
                                         .entries()
                                         .iter()
@@ -246,7 +296,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     // Load/Import Level
                                     match level_manager.import_available() {
                                         Ok(count) => {
-                                            level_manager.refresh();
+                                            // `import_available` rescans after importing.
                                             ui_state.level_entries = level_manager
                                                 .entries()
                                                 .iter()
@@ -298,9 +348,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     &mut ui_state,
                                     &mut settings,
                                     1,
-                                ) => {
-                                    game.set_app_state(AppState::Paused);
-                                }
+                                ) =>
+                            {
+                                game.set_app_state(AppState::Paused);
+                            }
                             _ => {}
                         },
                         MenuNavEvent::Back => {
@@ -359,13 +410,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         renderer.render_scene(cam_pos, cam_yaw, cam_pitch, settings.fov_degrees);
 
-        // Render UI overlay on top if in a menu or pause state, plus performance overlay if visible
-        let mut ui_vertices =
-            build_ui_geometry(game.app_state(), &ui_state, &settings, APP_VERSION);
-        if perf_overlay.is_visible() {
-            ui_vertices.extend_from_slice(perf_overlay.cached_vertices());
+        // Apply a changed texture filtering setting to existing GL textures
+        // without re-uploading their pixel data.
+        if settings.texture_filtering != applied_filtering {
+            renderer.set_texture_filtering(&settings.texture_filtering);
+            applied_filtering.clone_from(&settings.texture_filtering);
         }
-        renderer.render_ui(&ui_vertices);
+
+        // Menu/settings UI geometry is cached and only rebuilt when its inputs
+        // change. The (debug) performance overlay is appended on demand.
+        let ui_vertices = ui_cache.get(game.app_state(), &ui_state, &settings, APP_VERSION);
+        if perf_overlay.is_visible() {
+            ui_scratch.clear();
+            ui_scratch.extend_from_slice(ui_vertices);
+            ui_scratch.extend_from_slice(perf_overlay.cached_vertices());
+            renderer.render_ui(&ui_scratch);
+        } else {
+            renderer.render_ui(ui_vertices);
+        }
 
         // Swap window buffer (double buffered, VSync synchronized)
         window.gl_swap_window();

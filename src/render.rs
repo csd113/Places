@@ -1,7 +1,7 @@
 use glow::HasContext;
 
 use crate::font::generate_font_atlas;
-use crate::level::LevelDef;
+use crate::level::{LevelDef, PropDef, WallAxis, ceiling_height_at, wall_solid_slices};
 
 /// PocketCHIP reference resolution. The game logic and UI layout are authored
 /// against this 480x272 space; it is also the default window size. It is *not*
@@ -58,7 +58,8 @@ impl DrawableSize {
         let scale = (self.width as f32 / UI_REFERENCE_WIDTH as f32)
             .min(self.height as f32 / UI_REFERENCE_HEIGHT as f32)
             .max(0.0);
-        let width = ((UI_REFERENCE_WIDTH as f32 * scale).round() as i32).clamp(1, self.width as i32);
+        let width =
+            ((UI_REFERENCE_WIDTH as f32 * scale).round() as i32).clamp(1, self.width as i32);
         let height =
             ((UI_REFERENCE_HEIGHT as f32 * scale).round() as i32).clamp(1, self.height as i32);
 
@@ -108,10 +109,9 @@ pub fn vertical_fov_for_aspect(configured_vertical_fov_degrees: f32, aspect: f32
     let half_vertical_tan = (configured_vertical_fov_degrees.to_radians() * 0.5).tan();
     let half_horizontal_tan = half_vertical_tan * reference;
     let adjusted = 2.0 * (half_horizontal_tan / aspect).atan();
-    adjusted.to_degrees().clamp(
-        configured_vertical_fov_degrees,
-        MAX_VERTICAL_FOV_DEGREES,
-    )
+    adjusted
+        .to_degrees()
+        .clamp(configured_vertical_fov_degrees, MAX_VERTICAL_FOV_DEGREES)
 }
 
 const VERTEX_SHADER_SRC: &str = r#"
@@ -166,6 +166,7 @@ pub struct LevelMeshBatches {
     pub ceiling_batch: BatchRange,
     pub wall_batch: BatchRange,
     pub light_batch: BatchRange,
+    pub prop_batch: BatchRange,
 }
 
 pub struct LevelMesh {
@@ -323,48 +324,316 @@ pub(crate) fn generate_white_texture() -> [u8; 2 * 2 * 4] {
     [255u8; 2 * 2 * 4]
 }
 
-pub fn build_level_geometry(level: &LevelDef) -> LevelMesh {
-    let mut vertices = Vec::new();
+/// Texels per metre in the derived repeating floor texture. The authored carpet
+/// texture is 64x64 and is displayed once per metre, so 64 keeps the default
+/// floor pixel-identical while custom textures are resampled to a sane size.
+const FLOOR_TEXELS_PER_METRE: u32 = 64;
+/// Number of metres covered by one repeat of the derived floor texture. Two
+/// metres covers the 1 m checker tint period.
+const FLOOR_TILE_METRES: f32 = 2.0;
+const FLOOR_TILE_TEXELS: u32 = FLOOR_TEXELS_PER_METRE * 2;
+
+/// Bilinearly samples an RGBA image at normalized coordinates in `[0, 1)`,
+/// wrapping at the edges to mirror `GL_REPEAT`.
+fn sample_bilinear(src: &crate::loader::RawImage, u: f32, v: f32) -> [u8; 4] {
+    let w = src.width.max(1) as i32;
+    let h = src.height.max(1) as i32;
+    let x = u * w as f32 - 0.5;
+    let y = v * h as f32 - 0.5;
+    let x0 = x.floor() as i32;
+    let y0 = y.floor() as i32;
+    let fx = x - x0 as f32;
+    let fy = y - y0 as f32;
+
+    let texel = |xx: i32, yy: i32| -> [f32; 4] {
+        let cx = xx.rem_euclid(w) as u32;
+        let cy = yy.rem_euclid(h) as u32;
+        let idx = ((cy * src.width + cx) * 4) as usize;
+        [
+            src.rgba[idx] as f32,
+            src.rgba[idx + 1] as f32,
+            src.rgba[idx + 2] as f32,
+            src.rgba[idx + 3] as f32,
+        ]
+    };
+
+    let c00 = texel(x0, y0);
+    let c10 = texel(x0 + 1, y0);
+    let c01 = texel(x0, y0 + 1);
+    let c11 = texel(x0 + 1, y0 + 1);
+
+    let mut out = [0u8; 4];
+    for k in 0..4 {
+        let top = c00[k] * (1.0 - fx) + c10[k] * fx;
+        let bottom = c01[k] * (1.0 - fx) + c11[k] * fx;
+        out[k] = (top * (1.0 - fy) + bottom * fy).round().clamp(0.0, 255.0) as u8;
+    }
+    out
+}
+
+/// Builds a repeating 2x2 m floor texture that bakes the 1 m alternating
+/// checker tint into the source texture, so each room floor can be a single
+/// quad without per-metre geometry.
+pub(crate) fn generate_floor_checker_texture(
+    src: &crate::loader::RawImage,
+) -> crate::loader::RawImage {
+    let tile = FLOOR_TILE_TEXELS;
+    let mut rgba = vec![0u8; (tile * tile * 4) as usize];
+
+    for ty in 0..tile {
+        for tx in 0..tile {
+            let cell_x = tx / FLOOR_TEXELS_PER_METRE;
+            let cell_y = ty / FLOOR_TEXELS_PER_METRE;
+            // Matches the original per-tile vertex colours `(ix + iz) % 2 == 0`.
+            let tint = if (cell_x + cell_y) % 2 == 0 {
+                [0.56f32, 0.51, 0.39]
+            } else {
+                [0.50, 0.45, 0.34]
+            };
+            let u = ((tx % FLOOR_TEXELS_PER_METRE) as f32 + 0.5) / FLOOR_TEXELS_PER_METRE as f32;
+            let v = ((ty % FLOOR_TEXELS_PER_METRE) as f32 + 0.5) / FLOOR_TEXELS_PER_METRE as f32;
+            let s = sample_bilinear(src, u, v);
+
+            let idx = ((ty * tile + tx) * 4) as usize;
+            rgba[idx] = (s[0] as f32 * tint[0]).round().clamp(0.0, 255.0) as u8;
+            rgba[idx + 1] = (s[1] as f32 * tint[1]).round().clamp(0.0, 255.0) as u8;
+            rgba[idx + 2] = (s[2] as f32 * tint[2]).round().clamp(0.0, 255.0) as u8;
+            rgba[idx + 3] = s[3];
+        }
+    }
+
+    crate::loader::RawImage::new(tile, tile, rgba)
+}
+
+/// Merges overlapping/adjacent Y intervals into a sorted, disjoint list.
+fn merge_intervals(mut intervals: Vec<(f32, f32)>) -> Vec<(f32, f32)> {
+    intervals.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+    let mut merged: Vec<(f32, f32)> = Vec::with_capacity(intervals.len());
+    for (bottom, top) in intervals {
+        if let Some(last) = merged.last_mut()
+            && bottom <= last.1 + 1e-3
+        {
+            last.1 = last.1.max(top);
+            continue;
+        }
+        merged.push((bottom, top));
+    }
+    merged
+}
+
+/// Y ranges that are solid on exactly one of the two sides of a wall cross
+/// section: the faces exposed by an opening or by the wall's end.
+fn interval_symmetric_difference(left: &[(f32, f32)], right: &[(f32, f32)]) -> Vec<(f32, f32)> {
+    let left = merge_intervals(left.to_vec());
+    let right = merge_intervals(right.to_vec());
+
+    let mut cuts: Vec<f32> = Vec::with_capacity((left.len() + right.len()) * 2);
+    for (bottom, top) in left.iter().chain(right.iter()) {
+        cuts.push(*bottom);
+        cuts.push(*top);
+    }
+    cuts.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    cuts.dedup_by(|a, b| (*a - *b).abs() <= 1e-3);
+
+    let covers = |intervals: &[(f32, f32)], y: f32| {
+        intervals
+            .iter()
+            .any(|(bottom, top)| *bottom <= y && y <= *top)
+    };
+
+    let mut difference = Vec::new();
+    for bounds in cuts.windows(2) {
+        let (bottom, top) = (bounds[0], bounds[1]);
+        if top <= bottom + 1e-3 {
+            continue;
+        }
+        let middle = (bottom + top) * 0.5;
+        if covers(&left, middle) != covers(&right, middle) {
+            difference.push((bottom, top));
+        }
+    }
+    merge_intervals(difference)
+}
+
+/// Emits a vertical quad spanning a wall's thickness at a fixed offset along
+/// the wall's length axis: a wall end cap or an opening reveal.
+///
+/// `at` is the world coordinate along the length axis and `thickness` the
+/// world span of the wall across it. UVs follow the wall face convention
+/// (horizontal world coordinate, then Y).
+#[allow(clippy::too_many_arguments)]
+fn add_wall_cross_quad(
+    vertices: &mut Vec<Vertex>,
+    axis: WallAxis,
+    at: f32,
+    thickness: (f32, f32),
+    bottom: f32,
+    top: f32,
+    bottom_color: [f32; 3],
+    top_color: [f32; 3],
+) {
+    let (t0, t1) = thickness;
+    match axis {
+        // Length runs along X, so the cross section lies in the Z/Y plane.
+        WallAxis::X => add_quad(
+            vertices,
+            [at, bottom, t1],
+            bottom_color,
+            [t1, bottom],
+            [at, bottom, t0],
+            bottom_color,
+            [t0, bottom],
+            [at, top, t0],
+            top_color,
+            [t0, top],
+            [at, top, t1],
+            top_color,
+            [t1, top],
+        ),
+        // Length runs along Z, so the cross section lies in the X/Y plane.
+        WallAxis::Z => add_quad(
+            vertices,
+            [t0, bottom, at],
+            bottom_color,
+            [t0, bottom],
+            [t1, bottom, at],
+            bottom_color,
+            [t1, bottom],
+            [t1, top, at],
+            top_color,
+            [t1, top],
+            [t0, top, at],
+            top_color,
+            [t0, top],
+        ),
+    }
+}
+
+/// Per-face shading multipliers for a prop box, in the prop's local space.
+/// The top face is brightest and the bottom darkest, so unlit props still read
+/// as solid boxes.
+const PROP_FACE_SHADES: [f32; 6] = [1.00, 0.62, 0.90, 0.80, 0.74, 0.86];
+
+/// Emits one Y-rotated box for a prop: six quads tinted with the catalog
+/// colour, ready to be drawn with the unshaded white texture.
+fn add_prop_box(vertices: &mut Vec<Vertex>, prop: &PropDef, size: [f32; 3], color: [f32; 3]) {
+    let half_w = size[0] * 0.5;
+    let half_h = size[1] * 0.5;
+    let half_d = size[2] * 0.5;
+    let center_y = prop.y + half_h;
+
+    let (sin_yaw, cos_yaw) = prop.rotation_degrees.to_radians().sin_cos();
+    let rotate = |lx: f32, lz: f32| -> (f32, f32) {
+        (
+            prop.x + lx * cos_yaw + lz * sin_yaw,
+            prop.z - lx * sin_yaw + lz * cos_yaw,
+        )
+    };
+    let corner = |sx: f32, sy: f32, sz: f32| -> [f32; 3] {
+        let (world_x, world_z) = rotate(sx * half_w, sz * half_d);
+        [world_x, center_y + sy * half_h, world_z]
+    };
+    let shaded = |mult: f32| -> [f32; 3] {
+        [
+            (color[0] * mult).min(1.0),
+            (color[1] * mult).min(1.0),
+            (color[2] * mult).min(1.0),
+        ]
+    };
+
+    // Corner signs per face: top, bottom, south (+Z), north (-Z), west (-X), east (+X).
+    let faces: [[(f32, f32, f32); 4]; 6] = [
+        [
+            (-1.0, 1.0, -1.0),
+            (-1.0, 1.0, 1.0),
+            (1.0, 1.0, 1.0),
+            (1.0, 1.0, -1.0),
+        ],
+        [
+            (-1.0, -1.0, -1.0),
+            (1.0, -1.0, -1.0),
+            (1.0, -1.0, 1.0),
+            (-1.0, -1.0, 1.0),
+        ],
+        [
+            (-1.0, -1.0, 1.0),
+            (1.0, -1.0, 1.0),
+            (1.0, 1.0, 1.0),
+            (-1.0, 1.0, 1.0),
+        ],
+        [
+            (1.0, -1.0, -1.0),
+            (-1.0, -1.0, -1.0),
+            (-1.0, 1.0, -1.0),
+            (1.0, 1.0, -1.0),
+        ],
+        [
+            (-1.0, -1.0, -1.0),
+            (-1.0, -1.0, 1.0),
+            (-1.0, 1.0, 1.0),
+            (-1.0, 1.0, -1.0),
+        ],
+        [
+            (1.0, -1.0, 1.0),
+            (1.0, -1.0, -1.0),
+            (1.0, 1.0, -1.0),
+            (1.0, 1.0, 1.0),
+        ],
+    ];
+    let uvs = [[0.0, 1.0], [1.0, 1.0], [1.0, 0.0], [0.0, 0.0]];
+
+    for (face, shade) in faces.iter().zip(PROP_FACE_SHADES) {
+        let face_color = shaded(shade);
+        let points = [
+            corner(face[0].0, face[0].1, face[0].2),
+            corner(face[1].0, face[1].1, face[1].2),
+            corner(face[2].0, face[2].1, face[2].2),
+            corner(face[3].0, face[3].1, face[3].2),
+        ];
+        add_quad_flat(
+            vertices, points[0], points[1], points[2], points[3], face_color, uvs[0], uvs[1],
+            uvs[2], uvs[3],
+        );
+    }
+}
+
+pub fn build_level_geometry_with_catalog(
+    level: &LevelDef,
+    catalog: &crate::loader::PropCatalog,
+) -> LevelMesh {
+    // Collect the merged room list once; geometry and ceiling lookups then
+    // borrow it instead of cloning the room vector repeatedly.
+    let rooms: Vec<_> = level.room_iter().collect();
+    let estimate = level.estimate_geometry();
+    let mut vertices = Vec::with_capacity(estimate.total_vertices as usize);
     let mut batches = LevelMeshBatches::default();
 
-    // 1. Floor batch
+    // 1. Floor batch: one quad per rectangular room. The metre-scale checker
+    //    tint is baked into the derived floor texture (see
+    //    `generate_floor_checker_texture`), so no per-cell tessellation is needed.
     let floor_start = vertices.len() as i32;
-    for room in level.all_rooms() {
-        let x_start = room.x.floor() as i32;
-        let x_end = (room.x + room.width).ceil() as i32;
-        let z_start = room.z.floor() as i32;
-        let z_end = (room.z + room.depth).ceil() as i32;
-
-        for ix in x_start..x_end {
-            for iz in z_start..z_end {
-                let x0 = (ix as f32).max(room.x);
-                let x1 = ((ix + 1) as f32).min(room.x + room.width);
-                let z0 = (iz as f32).max(room.z);
-                let z1 = ((iz + 1) as f32).min(room.z + room.depth);
-                if x1 <= x0 || z1 <= z0 {
-                    continue;
-                }
-                let is_alt = (ix + iz) % 2 == 0;
-                let color = if is_alt {
-                    [0.56, 0.51, 0.39]
-                } else {
-                    [0.50, 0.45, 0.34]
-                };
-
-                add_quad_flat(
-                    &mut vertices,
-                    [x0, 0.0, z0],
-                    [x1, 0.0, z0],
-                    [x1, 0.0, z1],
-                    [x0, 0.0, z1],
-                    color,
-                    [x0, z0],
-                    [x1, z0],
-                    [x1, z1],
-                    [x0, z1],
-                );
-            }
+    let floor_color = [1.0, 1.0, 1.0];
+    for room in &rooms {
+        if room.width <= 0.0 || room.depth <= 0.0 {
+            continue;
         }
+        let x0 = room.x;
+        let x1 = room.x + room.width;
+        let z0 = room.z;
+        let z1 = room.z + room.depth;
+        let uv = |x: f32, z: f32| [x / FLOOR_TILE_METRES, z / FLOOR_TILE_METRES];
+        add_quad_flat(
+            &mut vertices,
+            [x0, 0.0, z0],
+            [x1, 0.0, z0],
+            [x1, 0.0, z1],
+            [x0, 0.0, z1],
+            floor_color,
+            uv(x0, z0),
+            uv(x1, z0),
+            uv(x1, z1),
+            uv(x0, z1),
+        );
     }
     batches.floor_batch = BatchRange {
         start: floor_start,
@@ -373,7 +642,7 @@ pub fn build_level_geometry(level: &LevelDef) -> LevelMesh {
 
     // 2. Ceiling batch
     let ceiling_start = vertices.len() as i32;
-    for room in level.all_rooms() {
+    for room in &rooms {
         let h = room.height;
         let ceiling_color = [0.72, 0.72, 0.70];
         add_quad_flat(
@@ -404,10 +673,9 @@ pub fn build_level_geometry(level: &LevelDef) -> LevelMesh {
         let z0 = wall.z.min(wall.z + wall.depth);
         let z1 = wall.z.max(wall.z + wall.depth);
         let ceiling_h =
-            level.ceiling_height_at(wall.x + wall.width * 0.5, wall.z + wall.depth * 0.5);
+            ceiling_height_at(&rooms, wall.x + wall.width * 0.5, wall.z + wall.depth * 0.5);
         let h = wall.resolved_height(ceiling_h);
-        let y0 = wall.y.min(wall.y + h);
-        let y1 = wall.y.max(wall.y + h);
+        let wall_base = wall.y.min(wall.y + h);
 
         let north_mult = 1.00;
         let south_mult = 0.88;
@@ -416,6 +684,10 @@ pub fn build_level_geometry(level: &LevelDef) -> LevelMesh {
 
         let top_grad = 1.05;
         let bot_grad = 0.92;
+        // Reveal faces are deliberately darker than the wall faces they
+        // interrupt, so doorways and windows read clearly.
+        let jamb_mult = 0.78;
+        let head_mult = 0.92;
 
         let scale_color = |mult: f32, grad: f32| -> [f32; 3] {
             [
@@ -425,120 +697,248 @@ pub fn build_level_geometry(level: &LevelDef) -> LevelMesh {
             ]
         };
 
-        // North face (z = z0, normal -Z)
-        let n_top = scale_color(north_mult, top_grad);
-        let n_bot = scale_color(north_mult, bot_grad);
-        add_quad(
-            &mut vertices,
-            [x0, y0, z0],
-            n_bot,
-            [x0, y0],
-            [x1, y0, z0],
-            n_bot,
-            [x1, y0],
-            [x1, y1, z0],
-            n_top,
-            [x1, y1],
-            [x0, y1, z0],
-            n_top,
-            [x0, y1],
-        );
+        // The axis the wall's length runs along and the world span across its
+        // thickness. Local slice offsets start at the wall's min corner.
+        let axis = wall.axis();
+        let (origin_x, origin_z) = wall.length_origin();
+        let (t0, t1) = match axis {
+            WallAxis::X => (z0, z1),
+            WallAxis::Z => (x0, x1),
+        };
+        let slices = wall_solid_slices(wall, ceiling_h);
 
-        // South face (z = z1, normal +Z)
-        let s_top = scale_color(south_mult, top_grad);
-        let s_bot = scale_color(south_mult, bot_grad);
-        add_quad(
-            &mut vertices,
-            [x1, y0, z1],
-            s_bot,
-            [x1, y0],
-            [x0, y0, z1],
-            s_bot,
-            [x0, y0],
-            [x0, y1, z1],
-            s_top,
-            [x0, y1],
-            [x1, y1, z1],
-            s_top,
-            [x1, y1],
-        );
+        // Each solid slice emits the two wall faces parallel to its length
+        // axis, plus a top/bottom face where the slice does not reach the
+        // ceiling or the wall base (window sills, door headers).
+        for slice in &slices {
+            let (l0, l1) = match axis {
+                WallAxis::X => (origin_x + slice.start, origin_x + slice.end),
+                WallAxis::Z => (origin_z + slice.start, origin_z + slice.end),
+            };
+            let (slice_bottom, slice_top) = (slice.bottom, slice.top);
 
-        // West face (x = x0, normal -X)
-        let w_top = scale_color(west_mult, top_grad);
-        let w_bot = scale_color(west_mult, bot_grad);
-        add_quad(
-            &mut vertices,
-            [x0, y0, z1],
-            w_bot,
-            [z1, y0],
-            [x0, y0, z0],
-            w_bot,
-            [z0, y0],
-            [x0, y1, z0],
-            w_top,
-            [z0, y1],
-            [x0, y1, z1],
-            w_top,
-            [z1, y1],
-        );
+            // Faces parallel to the length axis: north/south for X-axis
+            // walls, west/east for Z-axis walls.
+            let n_top = scale_color(north_mult, top_grad);
+            let n_bot = scale_color(north_mult, bot_grad);
+            let s_top = scale_color(south_mult, top_grad);
+            let s_bot = scale_color(south_mult, bot_grad);
+            let w_top = scale_color(west_mult, top_grad);
+            let w_bot = scale_color(west_mult, bot_grad);
+            let e_top = scale_color(east_mult, top_grad);
+            let e_bot = scale_color(east_mult, bot_grad);
 
-        // East face (x = x1, normal +X)
-        let e_top = scale_color(east_mult, top_grad);
-        let e_bot = scale_color(east_mult, bot_grad);
-        add_quad(
-            &mut vertices,
-            [x1, y0, z0],
-            e_bot,
-            [z0, y0],
-            [x1, y0, z1],
-            e_bot,
-            [z1, y0],
-            [x1, y1, z1],
-            e_top,
-            [z1, y1],
-            [x1, y1, z0],
-            e_top,
-            [z0, y1],
-        );
+            match axis {
+                WallAxis::X => {
+                    // North face (z = z0, normal -Z)
+                    add_quad(
+                        &mut vertices,
+                        [l0, slice_bottom, z0],
+                        n_bot,
+                        [l0, slice_bottom],
+                        [l1, slice_bottom, z0],
+                        n_bot,
+                        [l1, slice_bottom],
+                        [l1, slice_top, z0],
+                        n_top,
+                        [l1, slice_top],
+                        [l0, slice_top, z0],
+                        n_top,
+                        [l0, slice_top],
+                    );
 
-        // Top face (y = y1, normal +Y) - visible on half-height walls or window sills
-        if y1 < ceiling_h - 1e-3 {
-            let top_col = scale_color(1.00, top_grad);
-            add_quad(
-                &mut vertices,
-                [x0, y1, z1],
-                top_col,
-                [x0, z1],
-                [x1, y1, z1],
-                top_col,
-                [x1, z1],
-                [x1, y1, z0],
-                top_col,
-                [x1, z0],
-                [x0, y1, z0],
-                top_col,
-                [x0, z0],
-            );
+                    // South face (z = z1, normal +Z)
+                    add_quad(
+                        &mut vertices,
+                        [l1, slice_bottom, z1],
+                        s_bot,
+                        [l1, slice_bottom],
+                        [l0, slice_bottom, z1],
+                        s_bot,
+                        [l0, slice_bottom],
+                        [l0, slice_top, z1],
+                        s_top,
+                        [l0, slice_top],
+                        [l1, slice_top, z1],
+                        s_top,
+                        [l1, slice_top],
+                    );
+                }
+                WallAxis::Z => {
+                    // West face (x = x0, normal -X)
+                    add_quad(
+                        &mut vertices,
+                        [x0, slice_bottom, l1],
+                        w_bot,
+                        [l1, slice_bottom],
+                        [x0, slice_bottom, l0],
+                        w_bot,
+                        [l0, slice_bottom],
+                        [x0, slice_top, l0],
+                        w_top,
+                        [l0, slice_top],
+                        [x0, slice_top, l1],
+                        w_top,
+                        [l1, slice_top],
+                    );
+
+                    // East face (x = x1, normal +X)
+                    add_quad(
+                        &mut vertices,
+                        [x1, slice_bottom, l0],
+                        e_bot,
+                        [l0, slice_bottom],
+                        [x1, slice_bottom, l1],
+                        e_bot,
+                        [l1, slice_bottom],
+                        [x1, slice_top, l1],
+                        e_top,
+                        [l1, slice_top],
+                        [x1, slice_top, l0],
+                        e_top,
+                        [l0, slice_top],
+                    );
+                }
+            }
+
+            // Top face (normal +Y): half-height walls and window sills.
+            if slice_top < ceiling_h - 1e-3 {
+                let top_col = scale_color(1.00, top_grad);
+                match axis {
+                    WallAxis::X => add_quad(
+                        &mut vertices,
+                        [l0, slice_top, t1],
+                        top_col,
+                        [l0, t1],
+                        [l1, slice_top, t1],
+                        top_col,
+                        [l1, t1],
+                        [l1, slice_top, t0],
+                        top_col,
+                        [l1, t0],
+                        [l0, slice_top, t0],
+                        top_col,
+                        [l0, t0],
+                    ),
+                    WallAxis::Z => add_quad(
+                        &mut vertices,
+                        [t1, slice_top, l0],
+                        top_col,
+                        [l0, t1],
+                        [t1, slice_top, l1],
+                        top_col,
+                        [l1, t1],
+                        [t0, slice_top, l1],
+                        top_col,
+                        [l1, t0],
+                        [t0, slice_top, l0],
+                        top_col,
+                        [l0, t0],
+                    ),
+                }
+            }
+
+            // Bottom face (normal -Y): visible on raised walls and on door or
+            // window headers. Testing against the floor plane reproduces the
+            // previous whole-wall behaviour for raised walls.
+            if slice_bottom > 1e-3 {
+                let bot_col = scale_color(0.85, bot_grad);
+                match axis {
+                    WallAxis::X => add_quad(
+                        &mut vertices,
+                        [l0, slice_bottom, t0],
+                        bot_col,
+                        [l0, t0],
+                        [l1, slice_bottom, t0],
+                        bot_col,
+                        [l1, t0],
+                        [l1, slice_bottom, t1],
+                        bot_col,
+                        [l1, t1],
+                        [l0, slice_bottom, t1],
+                        bot_col,
+                        [l0, t1],
+                    ),
+                    WallAxis::Z => add_quad(
+                        &mut vertices,
+                        [t0, slice_bottom, l0],
+                        bot_col,
+                        [l0, t0],
+                        [t0, slice_bottom, l1],
+                        bot_col,
+                        [l1, t0],
+                        [t1, slice_bottom, l1],
+                        bot_col,
+                        [l1, t1],
+                        [t1, slice_bottom, l0],
+                        bot_col,
+                        [l0, t1],
+                    ),
+                }
+            }
         }
 
-        // Bottom face (y = y0, normal -Y) - visible on raised walls or window headers
-        if y0 > 1e-3 {
-            let bot_col = scale_color(0.85, bot_grad);
-            add_quad(
-                &mut vertices,
-                [x0, y0, z0],
-                bot_col,
-                [x0, z0],
-                [x1, y0, z0],
-                bot_col,
-                [x1, z0],
-                [x1, y0, z1],
-                bot_col,
-                [x1, z1],
-                [x0, y0, z1],
-                bot_col,
-                [x0, z1],
-            );
+        // Cross-section faces: the wall's two ends (nothing is solid outside
+        // the wall) and the reveals where the solid Y profile changes at a
+        // slice boundary. The exposed range is the symmetric difference
+        // between the solid intervals on the left and right of the boundary.
+        let mut boundaries: Vec<f32> = Vec::with_capacity(slices.len() * 2 + 2);
+        boundaries.push(0.0);
+        boundaries.push(wall.length());
+        for slice in &slices {
+            boundaries.push(slice.start);
+            boundaries.push(slice.end);
+        }
+        boundaries.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        boundaries.dedup_by(|a, b| (*a - *b).abs() <= 1e-3);
+
+        for position in boundaries {
+            let left: Vec<(f32, f32)> = slices
+                .iter()
+                .filter(|s| (s.end - position).abs() <= 1e-3)
+                .map(|s| (s.bottom, s.top))
+                .collect();
+            let right: Vec<(f32, f32)> = slices
+                .iter()
+                .filter(|s| (s.start - position).abs() <= 1e-3)
+                .map(|s| (s.bottom, s.top))
+                .collect();
+
+            let at_start = position <= 1e-3;
+            let at_end = (position - wall.length()).abs() <= 1e-3;
+            for (bottom, top) in interval_symmetric_difference(&left, &right) {
+                // Wall ends keep the directional face shading; internal
+                // reveals use the darker jamb/head colours.
+                let mult = if at_start {
+                    match axis {
+                        WallAxis::X => west_mult,
+                        WallAxis::Z => north_mult,
+                    }
+                } else if at_end {
+                    match axis {
+                        WallAxis::X => east_mult,
+                        WallAxis::Z => south_mult,
+                    }
+                } else if bottom <= wall_base + 1e-3 {
+                    jamb_mult
+                } else {
+                    head_mult
+                };
+                let at = match axis {
+                    WallAxis::X => origin_x + position,
+                    WallAxis::Z => origin_z + position,
+                };
+                add_wall_cross_quad(
+                    &mut vertices,
+                    axis,
+                    at,
+                    (t0, t1),
+                    bottom,
+                    top,
+                    scale_color(mult, bot_grad),
+                    scale_color(mult, top_grad),
+                );
+            }
         }
     }
     batches.wall_batch = BatchRange {
@@ -607,7 +1007,61 @@ pub fn build_level_geometry(level: &LevelDef) -> LevelMesh {
         count: vertices.len() as i32 - light_start,
     };
 
+    // 5. Props batch: one Y-rotated box per prop, tinted with the catalog
+    //    colour and drawn with the unshaded white texture.
+    let prop_start = vertices.len() as i32;
+    for prop in &level.props {
+        let entry = catalog.get(&prop.model);
+        let size = prop.resolved_size(entry.size);
+        if !prop.x.is_finite()
+            || !prop.y.is_finite()
+            || !prop.z.is_finite()
+            || !prop.rotation_degrees.is_finite()
+            || !size.iter().all(|v| v.is_finite() && *v > 0.0)
+            || !entry.color.iter().all(|c| c.is_finite())
+        {
+            continue;
+        }
+        add_prop_box(&mut vertices, prop, size, entry.color);
+    }
+    batches.prop_batch = BatchRange {
+        start: prop_start,
+        count: vertices.len() as i32 - prop_start,
+    };
+
     LevelMesh { vertices, batches }
+}
+
+/// Builds level geometry using only built-in prop fallbacks.
+///
+/// Callers that can resolve the prop catalog should prefer
+/// [`build_level_geometry_with_catalog`].
+pub fn build_level_geometry(level: &LevelDef) -> LevelMesh {
+    build_level_geometry_with_catalog(level, &crate::loader::PropCatalog::builtin())
+}
+
+/// Applies min/mag filtering for a repeating, mipmapped texture.
+///
+/// Nearest filtering keeps mipmaps (`NEAREST_MIPMAP_NEAREST`) so distant
+/// minification still anti-aliases instead of shimmering.
+unsafe fn set_repeat_filter(gl: &glow::Context, linear: bool) {
+    let (min_filter, mag_filter) = if linear {
+        (glow::LINEAR_MIPMAP_LINEAR, glow::LINEAR)
+    } else {
+        (glow::NEAREST_MIPMAP_NEAREST, glow::NEAREST)
+    };
+    unsafe {
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_MIN_FILTER,
+            min_filter as i32,
+        );
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_MAG_FILTER,
+            mag_filter as i32,
+        );
+    }
 }
 
 unsafe fn create_texture_2d(
@@ -616,6 +1070,7 @@ unsafe fn create_texture_2d(
     height: i32,
     pixels: &[u8],
     repeat: bool,
+    linear: bool,
 ) -> Result<glow::Texture, String> {
     unsafe {
         let texture = gl.create_texture()?;
@@ -642,16 +1097,7 @@ unsafe fn create_texture_2d(
         gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, wrap_mode);
 
         if repeat {
-            gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_MIN_FILTER,
-                glow::LINEAR_MIPMAP_LINEAR as i32,
-            );
-            gl.tex_parameter_i32(
-                glow::TEXTURE_2D,
-                glow::TEXTURE_MAG_FILTER,
-                glow::LINEAR as i32,
-            );
+            set_repeat_filter(gl, linear);
             gl.generate_mipmap(glow::TEXTURE_2D);
         } else {
             gl.tex_parameter_i32(
@@ -725,6 +1171,8 @@ pub struct Renderer {
     level_vbo: glow::Buffer,
     ui_vbo: glow::Buffer,
     batches: LevelMeshBatches,
+    /// Catalog used to size and colour placed props. Loaded once at startup.
+    prop_catalog: crate::loader::PropCatalog,
     wall_texture: glow::Texture,
     floor_texture: glow::Texture,
     ceiling_texture: glow::Texture,
@@ -735,6 +1183,9 @@ pub struct Renderer {
     a_pos_loc: u32,
     a_color_loc: u32,
     a_uv_loc: u32,
+    /// Whether repeating 3D textures use linear (vs nearest) filtering. Wired
+    /// to the user-facing `texture_filtering` setting.
+    linear_filtering: bool,
     /// Physical framebuffer size currently being rendered to. Updated on resize
     /// and HiDPI/backing-scale changes via [`Renderer::set_drawable_size`].
     drawable_size: DrawableSize,
@@ -773,6 +1224,8 @@ impl Renderer {
             })
         };
 
+        let prop_catalog = crate::loader::PropCatalog::load_default();
+
         let (
             program,
             level_vbo,
@@ -808,15 +1261,19 @@ impl Renderer {
             let u_texture_loc = gl.get_uniform_location(program, "u_texture");
 
             // Create textures
-            let wall_texture = create_texture_2d(&gl, 64, 64, &generate_wall_texture(), true)?;
-            let floor_texture = create_texture_2d(&gl, 64, 64, &generate_carpet_texture(), true)?;
+            let wall_texture =
+                create_texture_2d(&gl, 64, 64, &generate_wall_texture(), true, true)?;
+            let floor_texture =
+                create_texture_2d(&gl, 64, 64, &generate_carpet_texture(), true, true)?;
             let ceiling_texture =
-                create_texture_2d(&gl, 64, 64, &generate_ceiling_texture(), true)?;
-            let white_texture = create_texture_2d(&gl, 2, 2, &generate_white_texture(), false)?;
-            let font_texture = create_texture_2d(&gl, 128, 64, &generate_font_atlas(), false)?;
+                create_texture_2d(&gl, 64, 64, &generate_ceiling_texture(), true, true)?;
+            let white_texture =
+                create_texture_2d(&gl, 2, 2, &generate_white_texture(), false, false)?;
+            let font_texture =
+                create_texture_2d(&gl, 128, 64, &generate_font_atlas(), false, false)?;
 
             // Upload initial 3D level geometry
-            let mesh = build_level_geometry(level);
+            let mesh = build_level_geometry_with_catalog(level, &prop_catalog);
             let level_vbo = gl.create_buffer()?;
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(level_vbo));
             let byte_slice = std::slice::from_raw_parts(
@@ -856,6 +1313,7 @@ impl Renderer {
             level_vbo,
             ui_vbo,
             batches,
+            prop_catalog,
             wall_texture,
             floor_texture,
             ceiling_texture,
@@ -866,6 +1324,7 @@ impl Renderer {
             a_pos_loc,
             a_color_loc,
             a_uv_loc,
+            linear_filtering: true,
             drawable_size: DrawableSize::new(initial_width, initial_height),
         })
     }
@@ -884,11 +1343,29 @@ impl Renderer {
         true
     }
 
+    /// Applies the user-facing texture filtering mode to the repeating 3D
+    /// textures. UI/atlas textures stay nearest-filtered to preserve crisp text.
+    pub fn set_texture_filtering(&mut self, mode: &str) {
+        let linear = mode != "nearest";
+        if self.linear_filtering == linear {
+            return;
+        }
+        self.linear_filtering = linear;
+        unsafe {
+            for texture in [self.wall_texture, self.floor_texture, self.ceiling_texture] {
+                self.gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+                set_repeat_filter(&self.gl, linear);
+            }
+            self.gl.bind_texture(glow::TEXTURE_2D, None);
+        }
+    }
+
     unsafe fn upload_texture(
         gl: &glow::Context,
         texture: glow::Texture,
         raw_image: &crate::loader::RawImage,
         repeat: bool,
+        linear: bool,
     ) {
         unsafe {
             gl.bind_texture(glow::TEXTURE_2D, Some(texture));
@@ -913,16 +1390,7 @@ impl Renderer {
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, wrap_mode);
 
             if repeat {
-                gl.tex_parameter_i32(
-                    glow::TEXTURE_2D,
-                    glow::TEXTURE_MIN_FILTER,
-                    glow::LINEAR_MIPMAP_LINEAR as i32,
-                );
-                gl.tex_parameter_i32(
-                    glow::TEXTURE_2D,
-                    glow::TEXTURE_MAG_FILTER,
-                    glow::LINEAR as i32,
-                );
+                set_repeat_filter(gl, linear);
                 gl.generate_mipmap(glow::TEXTURE_2D);
             } else {
                 gl.tex_parameter_i32(
@@ -943,8 +1411,12 @@ impl Renderer {
 
     /// Re-uploads new level geometry and textures dynamically into OpenGL without recompilation.
     pub fn set_level(&mut self, loaded: &crate::loader::LoadedLevel) {
-        let mesh = build_level_geometry(&loaded.level);
+        let mesh = build_level_geometry_with_catalog(&loaded.level, &self.prop_catalog);
         self.batches = mesh.batches;
+        // Bake the metre checkerboard tint into the floor texture so a room
+        // floor is a single quad (see `generate_floor_checker_texture`).
+        let floor_texture = generate_floor_checker_texture(&loaded.textures.floor);
+        let linear = self.linear_filtering;
 
         unsafe {
             self.gl
@@ -957,19 +1429,27 @@ impl Renderer {
                 .buffer_data_u8_slice(glow::ARRAY_BUFFER, byte_slice, glow::STATIC_DRAW);
             self.gl.bind_buffer(glow::ARRAY_BUFFER, None);
 
-            Self::upload_texture(&self.gl, self.wall_texture, &loaded.textures.wall, true);
-            Self::upload_texture(&self.gl, self.floor_texture, &loaded.textures.floor, true);
+            Self::upload_texture(
+                &self.gl,
+                self.wall_texture,
+                &loaded.textures.wall,
+                true,
+                linear,
+            );
+            Self::upload_texture(&self.gl, self.floor_texture, &floor_texture, true, linear);
             Self::upload_texture(
                 &self.gl,
                 self.ceiling_texture,
                 &loaded.textures.ceiling,
                 true,
+                linear,
             );
             Self::upload_texture(
                 &self.gl,
                 self.white_texture,
                 &loaded.textures.fixture,
                 false,
+                linear,
             );
         }
     }
@@ -1097,6 +1577,18 @@ impl Renderer {
                     glow::TRIANGLES,
                     self.batches.light_batch.start,
                     self.batches.light_batch.count,
+                );
+            }
+
+            // 5. Draw props using the unshaded white texture and their
+            //    per-vertex catalog colours
+            if self.batches.prop_batch.count > 0 {
+                self.gl
+                    .bind_texture(glow::TEXTURE_2D, Some(self.white_texture));
+                self.gl.draw_arrays(
+                    glow::TRIANGLES,
+                    self.batches.prop_batch.start,
+                    self.batches.prop_batch.count,
                 );
             }
 
@@ -1244,6 +1736,47 @@ mod tests {
     }
 
     #[test]
+    fn test_floor_geometry_does_not_scale_with_room_area() {
+        let json = r#"{
+            "format_version": 1,
+            "id": "big",
+            "name": "Big",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 100.0, "depth": 100.0, "height": 3.5 }]
+        }"#;
+        let level = LevelDef::from_json(json).expect("valid json");
+        let mesh = build_level_geometry(&level);
+        // A 100x100 m room must be a single quad (6 vertices), not 10,000 quads.
+        assert_eq!(mesh.batches.floor_batch.count, 6);
+        assert_eq!(mesh.batches.ceiling_batch.count, 6);
+    }
+
+    #[test]
+    fn test_floor_checker_texture_bakes_tint_and_tiles() {
+        let src = crate::loader::RawImage::new(64, 64, generate_carpet_texture().to_vec());
+        let baked = generate_floor_checker_texture(&src);
+        assert_eq!(baked.width, 128);
+        assert_eq!(baked.height, 128);
+        assert_eq!(baked.rgba.len(), 128 * 128 * 4);
+
+        // Cell (0,0) uses the brighter tint, cell (1,0) the darker tint, so the
+        // same source texel must differ between adjacent metre cells.
+        let at = |x: usize, y: usize| -> [u8; 4] {
+            let i = (y * 128 + x) * 4;
+            [
+                baked.rgba[i],
+                baked.rgba[i + 1],
+                baked.rgba[i + 2],
+                baked.rgba[i + 3],
+            ]
+        };
+        assert_ne!(at(0, 0), at(64, 0));
+        assert_ne!(at(0, 0), at(0, 64));
+        assert_eq!(at(0, 0), at(64, 64));
+        assert_eq!(at(0, 0)[3], 255);
+    }
+
+    #[test]
     fn test_drawable_aspect_ratio() {
         let cases: [(u32, u32, f32); 7] = [
             (480, 272, 480.0 / 272.0),
@@ -1286,9 +1819,7 @@ mod tests {
             assert!(aspect > baseline);
             let vfov = vertical_fov_for_aspect(60.0, aspect);
             assert_eq!(vfov, 60.0, "wider aspect must keep vertical FOV");
-            assert!(
-                horizontal_fov_degrees(vfov, aspect) > horizontal_fov_degrees(60.0, baseline)
-            );
+            assert!(horizontal_fov_degrees(vfov, aspect) > horizontal_fov_degrees(60.0, baseline));
         }
     }
 
@@ -1411,5 +1942,169 @@ mod tests {
         assert!(mesh.batches.ceiling_batch.count > 0);
         assert!(mesh.batches.wall_batch.count > 0);
         assert!(mesh.batches.light_batch.count > 0);
+
+        // Floor geometry must be one quad per room, independent of room area.
+        let room_count = level.room_iter().count() as i32;
+        assert_eq!(mesh.batches.floor_batch.count, room_count * 6);
+        assert_eq!(mesh.batches.ceiling_batch.count, room_count * 6);
+        // The whole shipped level should now be a few thousand vertices, not
+        // the ~424,000 it used to be when the floor was tessellated per metre.
+        assert!(
+            mesh.vertices.len() < 20_000,
+            "level1 unexpectedly large: {} vertices",
+            mesh.vertices.len()
+        );
+    }
+
+    /// Builds a compact test level: one 10x10 m room, one 10 x 0.4 m wall
+    /// spanning the full ceiling height, plus the supplied openings/props.
+    fn level_with_wall(openings_json: &str, props_json: &str) -> LevelDef {
+        let json = format!(
+            r#"{{
+                "format_version": 1,
+                "id": "geometry_test",
+                "name": "Geometry Test",
+                "spawn": {{ "x": 0.0, "z": 0.0 }},
+                "room": {{ "x": -5.0, "z": -5.0, "width": 10.0, "depth": 10.0, "height": 3.5 }},
+                "walls": [{{
+                    "x": -5.0, "z": 0.0, "width": 10.0, "depth": 0.4, "height": 3.5,
+                    "openings": {openings_json}
+                }}],
+                "props": {props_json}
+            }}"#
+        );
+        LevelDef::from_json(&json).expect("valid json")
+    }
+
+    #[test]
+    fn test_wall_without_openings_emits_four_faces() {
+        let level = level_with_wall("[]", "[]");
+        let mesh = build_level_geometry(&level);
+        // Two faces parallel to the wall's length plus two end caps. The wall
+        // reaches the ceiling height, so there is no top or bottom face.
+        assert_eq!(mesh.batches.wall_batch.count, 4 * 6);
+        assert_eq!(mesh.batches.prop_batch.count, 0);
+    }
+
+    #[test]
+    fn test_wall_with_doorway_emits_more_wall_quads() {
+        let plain = build_level_geometry(&level_with_wall("[]", "[]"));
+        let level = level_with_wall(
+            r#"[{ "kind": "door", "offset": 4.0, "width": 2.0, "height": 2.1 }]"#,
+            "[]",
+        );
+        let door = build_level_geometry(&level);
+        assert!(
+            door.batches.wall_batch.count > plain.batches.wall_batch.count,
+            "doorway must add jamb and header geometry"
+        );
+        // Three slices (2 length faces each) + door head underside + 4 cross
+        // section caps (2 wall ends, 2 door jambs).
+        assert_eq!(door.batches.wall_batch.count, 11 * 6);
+    }
+
+    #[test]
+    fn test_wall_with_window_emits_sill_and_header_faces() {
+        let level = level_with_wall(
+            r#"[{ "kind": "window", "offset": 4.0, "width": 2.0, "height": 1.0, "sill": 1.0 }]"#,
+            "[]",
+        );
+        let mesh = build_level_geometry(&level);
+        // Four slices (2 length faces each): the full-height wall either side
+        // of the window plus the sill and header slices, which add a sill top
+        // and a head underside, plus 4 cross section caps.
+        assert_eq!(mesh.batches.wall_batch.count, 14 * 6);
+    }
+
+    #[test]
+    fn test_geometry_without_openings_contains_floor_ceiling_and_wall_batches() {
+        let level = level_with_wall("[]", "[]");
+        let mesh = build_level_geometry(&level);
+        assert!(mesh.batches.floor_batch.count > 0);
+        assert!(mesh.batches.ceiling_batch.count > 0);
+        assert!(mesh.batches.wall_batch.count > 0);
+        assert_eq!(mesh.vertices.len() % 6, 0);
+    }
+
+    #[test]
+    fn test_z_axis_wall_geometry_runs_along_z() {
+        let json = r#"{
+            "format_version": 1,
+            "id": "z_wall",
+            "name": "Z Wall",
+            "spawn": { "x": 5.0, "z": 5.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 },
+            "walls": [{
+                "x": 4.8, "z": 0.0, "width": 0.4, "depth": 10.0, "height": 3.5,
+                "openings": [{ "kind": "door", "offset": 4.0, "width": 2.0, "height": 2.1 }]
+            }]
+        }"#;
+        let level = LevelDef::from_json(json).expect("valid json");
+        let mesh = build_level_geometry(&level);
+
+        // Same decomposition as the equivalent X-axis wall: 3 slices x 2
+        // length faces + door head underside + 4 cross section caps.
+        assert_eq!(mesh.batches.wall_batch.count, 11 * 6);
+
+        let start = mesh.batches.wall_batch.start as usize;
+        let end = start + mesh.batches.wall_batch.count as usize;
+        let wall_vertices = &mesh.vertices[start..end];
+        let (min_x, max_x) = wall_vertices.iter().fold((f32::MAX, f32::MIN), |acc, v| {
+            (acc.0.min(v.pos[0]), acc.1.max(v.pos[0]))
+        });
+        let (min_z, max_z) = wall_vertices.iter().fold((f32::MAX, f32::MIN), |acc, v| {
+            (acc.0.min(v.pos[2]), acc.1.max(v.pos[2]))
+        });
+        // The wall spans the room in Z and only its thickness in X.
+        assert!(
+            min_z <= 1e-3 && max_z >= 10.0 - 1e-3,
+            "z span {min_z}..{max_z}"
+        );
+        assert!(min_x >= 4.79 && max_x <= 5.21, "x span {min_x}..{max_x}");
+    }
+
+    #[test]
+    fn test_prop_batch_is_populated_for_one_prop() {
+        let level = level_with_wall(
+            "[]",
+            r#"[{ "model": "core:crate", "x": 1.0, "z": 1.0, "size": [1.0, 1.0, 1.0] }]"#,
+        );
+        let mesh = build_level_geometry(&level);
+        // One Y-rotated box = 6 quads = 36 vertices, drawn after the lights.
+        assert_eq!(mesh.batches.prop_batch.count, 36);
+        assert_eq!(
+            mesh.batches.prop_batch.start,
+            mesh.batches.light_batch.start + mesh.batches.light_batch.count
+        );
+    }
+
+    #[test]
+    fn test_props_with_invalid_extents_are_skipped() {
+        let level = level_with_wall(
+            "[]",
+            r#"[{ "model": "core:crate", "x": 1.0, "z": 1.0, "size": [0.0, 1.0, 1.0] }]"#,
+        );
+        let mesh = build_level_geometry(&level);
+        assert_eq!(mesh.batches.prop_batch.count, 0);
+    }
+
+    #[test]
+    fn test_prop_catalog_supplies_size_and_colour() {
+        let catalog = crate::loader::PropCatalog::from_json_str(
+            r##"{
+                "format_version": 1,
+                "props": [{
+                    "id": "core:test_prop", "name": "Test Prop", "category": "Decorative",
+                    "size": [1.0, 2.0, 0.5], "color": "#804020", "solid": false
+                }]
+            }"##,
+        )
+        .expect("valid catalog");
+        let level = level_with_wall(
+            "[]",
+            r#"[{ "model": "core:test_prop", "x": 0.5, "z": 0.5, "rotation_degrees": 45.0 }]"#,
+        );
+        let mesh = build_level_geometry_with_catalog(&level, &catalog);
+        assert_eq!(mesh.batches.prop_batch.count, 36);
     }
 }

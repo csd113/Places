@@ -10,6 +10,22 @@ pub const TWO_PI: f32 = std::f32::consts::TAU;
 pub const EYE_HEIGHT: f32 = 1.6;
 pub const MAX_PITCH: f32 = 1.4835; // ~85 degrees in radians
 
+/// Upper bound applied to the delta time used for gameplay simulation.
+///
+/// Protects movement and collision from exploding into excessive subdivision
+/// after a temporary stall (level load, pack import, OS hiccup). Real elapsed
+/// time is still tracked separately for the FPS/performance overlay.
+pub const MAX_SIM_DELTA: f32 = 0.1;
+
+/// Clamps a frame delta for simulation use, tolerating non-finite input.
+fn clamp_sim_delta(delta: f32) -> f32 {
+    if delta.is_nan() {
+        0.0
+    } else {
+        delta.clamp(0.0, MAX_SIM_DELTA)
+    }
+}
+
 /// High-level application/menu lifecycle states.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppState {
@@ -26,7 +42,10 @@ pub struct Game {
     running: bool,
     app_state: AppState,
     last_frame_time: Instant,
+    /// Real elapsed time since the previous frame (used for FPS measurement).
     delta_seconds: f32,
+    /// Clamped delta used for gameplay simulation (see [`MAX_SIM_DELTA`]).
+    sim_delta_seconds: f32,
     frame_count: u64,
     pub player_position: Vec3,
     pub player_yaw: f32,
@@ -47,6 +66,7 @@ impl Game {
             app_state: AppState::MainMenu,
             last_frame_time: Instant::now(),
             delta_seconds: 0.0,
+            sim_delta_seconds: 0.0,
             frame_count: 0,
             player_position: spawn_pos,
             player_yaw: spawn_yaw.rem_euclid(TWO_PI),
@@ -72,6 +92,7 @@ impl Game {
         if new_state == AppState::Playing && self.app_state != AppState::Playing {
             self.last_frame_time = Instant::now();
             self.delta_seconds = 0.0;
+            self.sim_delta_seconds = 0.0;
         }
         self.app_state = new_state;
     }
@@ -84,6 +105,7 @@ impl Game {
         self.walls = walls;
         self.last_frame_time = Instant::now();
         self.delta_seconds = 0.0;
+        self.sim_delta_seconds = 0.0;
     }
 
     /// Handles Escape key in gameplay / pause states.
@@ -109,9 +131,13 @@ impl Game {
     }
 
     /// Updates loop timing and calculates delta time between frames.
+    ///
+    /// `delta_seconds` keeps the real elapsed time for FPS measurement, while
+    /// `sim_delta_seconds` is clamped for gameplay simulation.
     pub fn update_timing(&mut self) {
         let now = Instant::now();
         self.delta_seconds = (now - self.last_frame_time).as_secs_f32();
+        self.sim_delta_seconds = clamp_sim_delta(self.delta_seconds);
         self.last_frame_time = now;
         self.frame_count = self.frame_count.saturating_add(1);
     }
@@ -120,12 +146,18 @@ impl Game {
         self.delta_seconds
     }
 
+    /// Gameplay delta after clamping (see [`MAX_SIM_DELTA`]).
+    pub fn sim_delta_seconds(&self) -> f32 {
+        self.sim_delta_seconds
+    }
+
     /// Discards the accumulated frame time without advancing the simulation.
     /// Used when frames are skipped (e.g. a minimized window) so that resuming
     /// does not apply a huge delta-time step to movement or looking.
     pub fn reset_timing(&mut self) {
         self.last_frame_time = Instant::now();
         self.delta_seconds = 0.0;
+        self.sim_delta_seconds = 0.0;
     }
 
     pub fn frame_count(&self) -> u64 {
@@ -144,24 +176,25 @@ impl Game {
             return;
         }
 
+        let delta = self.sim_delta_seconds;
         let look_speed_h = settings.look_speed_h.to_radians();
         let look_speed_v = settings.look_speed_v.to_radians();
 
         // Horizontal camera turn (yaw)
         if input.look_left {
-            self.player_yaw -= look_speed_h * self.delta_seconds;
+            self.player_yaw -= look_speed_h * delta;
         }
         if input.look_right {
-            self.player_yaw += look_speed_h * self.delta_seconds;
+            self.player_yaw += look_speed_h * delta;
         }
         self.player_yaw = self.player_yaw.rem_euclid(TWO_PI);
 
         // Vertical camera look (pitch) with clamping to prevent camera flipping
         if input.look_up {
-            self.player_pitch += look_speed_v * self.delta_seconds;
+            self.player_pitch += look_speed_v * delta;
         }
         if input.look_down {
-            self.player_pitch -= look_speed_v * self.delta_seconds;
+            self.player_pitch -= look_speed_v * delta;
         }
         self.player_pitch = self.player_pitch.clamp(-MAX_PITCH, MAX_PITCH);
 
@@ -184,7 +217,7 @@ impl Game {
         }
 
         if move_dir.length_squared() > 0.0 {
-            let total_delta = move_dir.normalize() * settings.walk_speed * self.delta_seconds;
+            let total_delta = move_dir.normalize() * settings.walk_speed * delta;
             let total_dist = total_delta.length();
             let max_step = PLAYER_RADIUS * 0.5;
             let steps = ((total_dist / max_step).ceil() as usize).max(1);
@@ -211,7 +244,7 @@ mod tests {
     fn test_pitch_movement_and_clamping() {
         let mut game = Game::new(Vec3::new(0.0, EYE_HEIGHT, 0.0), 0.0, Vec::new());
         game.set_app_state(AppState::Playing);
-        game.delta_seconds = 10.0; // Large step to test clamp
+        game.sim_delta_seconds = 10.0; // Large step to test pitch clamp
         let settings = Settings::default();
 
         let input_up = InputState {
@@ -227,6 +260,15 @@ mod tests {
         };
         game.update_player_movement(&input_down, &settings);
         assert!((game.player_pitch - (-MAX_PITCH)).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_sim_delta_is_clamped() {
+        assert_eq!(clamp_sim_delta(0.016), 0.016);
+        assert_eq!(clamp_sim_delta(5.0), MAX_SIM_DELTA);
+        assert_eq!(clamp_sim_delta(-1.0), 0.0);
+        assert_eq!(clamp_sim_delta(f32::NAN), 0.0);
+        assert_eq!(clamp_sim_delta(f32::INFINITY), MAX_SIM_DELTA);
     }
 
     #[test]

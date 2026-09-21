@@ -2,11 +2,13 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use zip::ZipArchive;
 
-use crate::level::LevelDef;
+use crate::level::{LevelDef, MAX_LEVEL_FLOOR_AREA_M2, MAX_LEVEL_VERTICES};
 use crate::render::{
-    generate_carpet_texture, generate_ceiling_texture, generate_wall_texture, generate_white_texture,
+    generate_carpet_texture, generate_ceiling_texture, generate_wall_texture,
+    generate_white_texture,
 };
 
 const FALLBACK_LEVEL1_JSON: &str = include_str!("../assets/levels/level1.json");
@@ -25,7 +27,11 @@ pub struct RawImage {
 
 impl RawImage {
     pub fn new(width: u32, height: u32, rgba: Vec<u8>) -> Self {
-        Self { width, height, rgba }
+        Self {
+            width,
+            height,
+            rgba,
+        }
     }
 }
 
@@ -138,17 +144,65 @@ pub fn decode_png(bytes: &[u8]) -> Result<RawImage, String> {
 }
 
 /// Raw contents extracted safely from a ZIP level pack.
+///
+/// Texture bytes are reference-counted so that the several alias keys a pack
+/// may use (`textures/x.png`, `x.png`, ...) share a single physical buffer
+/// instead of duplicating it.
 #[derive(Default, Debug)]
 pub struct RawPackContents {
     pub level_json: String,
     pub materials_json: Option<String>,
-    pub textures: HashMap<String, Vec<u8>>,
+    pub textures: HashMap<String, Rc<[u8]>>,
+}
+
+/// Reads and parses only the `level.json` entry from a ZIP pack without
+/// decompressing any textures or other assets.
+///
+/// Used for cheap level discovery: probing a pack must not extract its full
+/// contents just to learn its id/name/author.
+pub fn read_zip_level_json<R: Read + Seek>(reader: R) -> Result<String, String> {
+    let mut archive = ZipArchive::new(reader).map_err(|e| format!("Invalid ZIP archive: {e}"))?;
+
+    if archive.len() > MAX_ZIP_ENTRIES {
+        return Err(format!(
+            "ZIP archive exceeds maximum entry count of {MAX_ZIP_ENTRIES}"
+        ));
+    }
+
+    // Match `extract_zip` semantics: normalize separators and let the last
+    // level.json entry win if a pack contains more than one.
+    let mut target: Option<usize> = None;
+    for i in 0..archive.len() {
+        let entry = archive
+            .by_index(i)
+            .map_err(|e| format!("Corrupt ZIP entry {i}: {e}"))?;
+        if entry.is_dir() {
+            continue;
+        }
+        let name = entry.name().replace('\\', "/");
+        let file_name = name.rsplit('/').next().unwrap_or(&name);
+        if file_name.eq_ignore_ascii_case("level.json") {
+            target = Some(i);
+        }
+    }
+
+    let index = target.ok_or_else(|| "ZIP level pack missing required 'level.json'".to_string())?;
+    let mut entry = archive
+        .by_index(index)
+        .map_err(|e| format!("Corrupt ZIP entry {index}: {e}"))?;
+    if entry.size() > MAX_ZIP_ENTRY_SIZE {
+        return Err("level.json exceeds the maximum decompression limit".into());
+    }
+    let mut bytes = Vec::with_capacity(entry.size() as usize);
+    entry
+        .read_to_end(&mut bytes)
+        .map_err(|e| format!("Failed to read level.json: {e}"))?;
+    String::from_utf8(bytes).map_err(|e| format!("level.json is not valid UTF-8: {e}"))
 }
 
 /// Safely extracts a ZIP level pack with path traversal and size limits enforcement.
 pub fn extract_zip<R: Read + Seek>(reader: R) -> Result<RawPackContents, String> {
-    let mut archive =
-        ZipArchive::new(reader).map_err(|e| format!("Invalid ZIP archive: {e}"))?;
+    let mut archive = ZipArchive::new(reader).map_err(|e| format!("Invalid ZIP archive: {e}"))?;
 
     if archive.len() > MAX_ZIP_ENTRIES {
         return Err(format!(
@@ -221,12 +275,15 @@ pub fn extract_zip<R: Read + Seek>(reader: R) -> Result<RawPackContents, String>
                     .map_err(|e| format!("materials.json is not valid UTF-8: {e}"))?,
             );
         } else if normalized.contains("textures/") || normalized.ends_with(".png") {
-            pack.textures.insert(normalized.clone(), bytes.clone());
+            // Share one physical buffer across every alias key.
+            let blob: Rc<[u8]> = Rc::from(bytes);
+            pack.textures.insert(normalized.clone(), Rc::clone(&blob));
             if let Some(tex_sub) = normalized.split("textures/").nth(1) {
-                pack.textures.insert(format!("textures/{tex_sub}"), bytes.clone());
-                pack.textures.insert(tex_sub.to_string(), bytes.clone());
+                pack.textures
+                    .insert(format!("textures/{tex_sub}"), Rc::clone(&blob));
+                pack.textures.insert(tex_sub.to_string(), Rc::clone(&blob));
             }
-            pack.textures.insert(file_name.to_string(), bytes);
+            pack.textures.insert(file_name.to_string(), blob);
         }
     }
 
@@ -275,6 +332,173 @@ pub fn parse_materials_json(json_str: &str) -> HashMap<String, String> {
     result
 }
 
+/// Neutral fallback colour used for unknown prop models, `#8a8a8a`.
+const PROP_FALLBACK_COLOR_HEX: &str = "#8a8a8a";
+
+/// Neutral grey used for unknown prop models.
+fn prop_fallback_color() -> [f32; 3] {
+    parse_hex_color(PROP_FALLBACK_COLOR_HEX).unwrap_or([0.541, 0.541, 0.541])
+}
+
+/// Parses `#rrggbb` (or bare `rrggbb`) into 0..1 RGB components.
+pub fn parse_hex_color(value: &str) -> Option<[f32; 3]> {
+    let hex = value.trim().trim_start_matches('#');
+    if hex.len() != 6 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+    let component = |start: usize| -> f32 {
+        u8::from_str_radix(&hex[start..start + 2], 16).unwrap_or(0) as f32 / 255.0
+    };
+    Some([component(0), component(2), component(4)])
+}
+
+/// One catalog entry describing a placeable prop.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PropCatalogEntry {
+    pub id: String,
+    pub name: String,
+    pub category: String,
+    pub size: [f32; 3],
+    pub color: [f32; 3],
+    pub model: Option<String>,
+    pub solid: bool,
+}
+
+#[derive(serde::Deserialize)]
+struct PropCatalogFile {
+    /// Part of the stable `props.json` shape, reserved for future revisions.
+    #[serde(default)]
+    #[allow(dead_code)]
+    format_version: u32,
+    #[serde(default)]
+    props: Vec<PropCatalogFileEntry>,
+}
+
+#[derive(serde::Deserialize)]
+struct PropCatalogFileEntry {
+    #[serde(default)]
+    id: String,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    category: Option<String>,
+    #[serde(default)]
+    size: Option<[f32; 3]>,
+    #[serde(default)]
+    color: Option<String>,
+    #[serde(default)]
+    model: Option<String>,
+    #[serde(default)]
+    solid: bool,
+}
+
+/// Catalog of prop models available to levels.
+///
+/// Lookups always succeed: unknown models resolve to a generated fallback entry
+/// using [`crate::level::PROP_FALLBACK_SIZE`] and a neutral colour, so a level
+/// referencing a missing prop still loads with an obvious placeholder.
+#[derive(Debug, Clone, Default)]
+pub struct PropCatalog {
+    entries: HashMap<String, PropCatalogEntry>,
+}
+
+impl PropCatalog {
+    /// Empty catalog; every lookup falls back.
+    pub fn builtin() -> Self {
+        Self::default()
+    }
+
+    /// Parses a `props.json` document into a catalog.
+    ///
+    /// Entries without an `id` are skipped; missing fields default to the
+    /// neutral fallback values.
+    pub fn from_json_str(json: &str) -> Result<Self, String> {
+        let file: PropCatalogFile =
+            serde_json::from_str(json).map_err(|e| format!("Invalid prop catalog JSON: {e}"))?;
+
+        let mut catalog = Self::default();
+        for entry in file.props {
+            if entry.id.trim().is_empty() {
+                continue;
+            }
+            let size = entry
+                .size
+                .filter(|s| s.iter().all(|v| v.is_finite() && *v > 0.0))
+                .unwrap_or(crate::level::PROP_FALLBACK_SIZE);
+            let color = entry
+                .color
+                .as_deref()
+                .and_then(parse_hex_color)
+                .unwrap_or_else(prop_fallback_color);
+            let name = if entry.name.trim().is_empty() {
+                entry.id.clone()
+            } else {
+                entry.name
+            };
+            catalog.entries.insert(
+                entry.id.clone(),
+                PropCatalogEntry {
+                    id: entry.id,
+                    name,
+                    category: entry.category.unwrap_or_else(|| "Other".into()),
+                    size,
+                    color,
+                    model: entry.model.filter(|m| !m.trim().is_empty()),
+                    solid: entry.solid,
+                },
+            );
+        }
+        Ok(catalog)
+    }
+
+    /// Loads a catalog from `path`, returning `None` when the file is missing
+    /// or invalid. Never panics.
+    pub fn load_from_path(path: &Path) -> Option<Self> {
+        let content = fs::read_to_string(path).ok()?;
+        Self::from_json_str(&content).ok()
+    }
+
+    /// Loads the shipped prop catalog, falling back to an empty catalog when
+    /// no `props.json` can be found.
+    pub fn load_default() -> Self {
+        for candidate in [
+            Path::new("assets/props/props.json"),
+            Path::new("./assets/props/props.json"),
+        ] {
+            if let Some(catalog) = Self::load_from_path(candidate) {
+                return catalog;
+            }
+        }
+        Self::builtin()
+    }
+
+    /// Resolves a model id, or a generated fallback entry for unknown models.
+    pub fn get(&self, model: &str) -> PropCatalogEntry {
+        if let Some(entry) = self.entries.get(model) {
+            return entry.clone();
+        }
+        PropCatalogEntry {
+            id: model.to_string(),
+            name: model.to_string(),
+            category: "Other".into(),
+            size: crate::level::PROP_FALLBACK_SIZE,
+            color: prop_fallback_color(),
+            model: None,
+            solid: false,
+        }
+    }
+
+    /// Number of catalog entries.
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// True when the catalog has no entries.
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+}
+
 /// Validates level schema, format version, and physical dimensions.
 /// Preserves intentional overlapping/intersecting geometry without snapping or rejecting.
 pub fn validate_level(level: &LevelDef) -> Result<(), String> {
@@ -303,11 +527,10 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     }
 
     // 4. Geometry limits
-    let rooms = level.all_rooms();
-    if rooms.len() > 500 {
+    let room_count = level.room_iter().count();
+    if room_count > 500 {
         return Err(format!(
-            "Level contains too many rooms: {} (limit: 500)",
-            rooms.len()
+            "Level contains too many rooms: {room_count} (limit: 500)"
         ));
     }
     if level.walls.len() > 5000 {
@@ -322,13 +545,21 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
             level.ceiling_lights.len()
         ));
     }
+    if level.props.len() > 5000 {
+        return Err(format!(
+            "Level contains too many props: {} (limit: 5000)",
+            level.props.len()
+        ));
+    }
 
-    for (i, r) in rooms.iter().enumerate() {
+    for (i, r) in level.room_iter().enumerate() {
         if !r.width.is_finite() || !r.depth.is_finite() || !r.height.is_finite() {
             return Err(format!("Room {i} dimensions must be finite numbers"));
         }
         if r.width <= 0.0 || r.depth <= 0.0 || r.height <= 0.0 {
-            return Err(format!("Room {i} width, depth, and height must be positive"));
+            return Err(format!(
+                "Room {i} width, depth, and height must be positive"
+            ));
         }
         if r.width > 2000.0 || r.depth > 2000.0 || r.height > 50.0 {
             return Err(format!(
@@ -351,12 +582,102 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
                 return Err(format!("Wall {i} dimensions must be finite numbers"));
             }
             if h <= 0.0 {
-                return Err(format!("Wall {i} width, depth, and height must be positive"));
+                return Err(format!(
+                    "Wall {i} width, depth, and height must be positive"
+                ));
             }
         }
         if w.width <= 0.0 || w.depth <= 0.0 {
-            return Err(format!("Wall {i} width, depth, and height must be positive"));
+            return Err(format!(
+                "Wall {i} width, depth, and height must be positive"
+            ));
         }
+
+        // Openings are optional cutouts; openings that do not overlap the
+        // wall's vertical range are allowed (they simply produce no cut).
+        for (j, opening) in w.openings.iter().enumerate() {
+            if !opening.offset.is_finite()
+                || !opening.width.is_finite()
+                || !opening.height.is_finite()
+                || !opening.sill.is_finite()
+            {
+                return Err(format!("Wall {i} opening {j} contains non-finite numbers"));
+            }
+            if opening.width <= 0.0 || opening.height <= 0.0 {
+                return Err(format!(
+                    "Wall {i} opening {j} must have a positive width and height"
+                ));
+            }
+            if opening.sill < 0.0 {
+                return Err(format!(
+                    "Wall {i} opening {j} cannot have a negative sill height"
+                ));
+            }
+            if opening.offset < 0.0 {
+                return Err(format!("Wall {i} opening {j} starts before the wall"));
+            }
+            if opening.end() > w.length() + 1e-3 {
+                let prefix = if opening.is_door() {
+                    "Door opening"
+                } else if opening.kind == "window" {
+                    "Window opening"
+                } else {
+                    "Opening"
+                };
+                return Err(format!(
+                    "{prefix} extends beyond this wall (wall {i}: opening ends at {:.2} m, wall is {:.2} m long)",
+                    opening.end(),
+                    w.length()
+                ));
+            }
+        }
+    }
+
+    for (i, prop) in level.props.iter().enumerate() {
+        if prop.model.trim().is_empty() {
+            return Err(format!("Prop {i} must reference a non-empty model id"));
+        }
+        if !prop.x.is_finite()
+            || !prop.y.is_finite()
+            || !prop.z.is_finite()
+            || !prop.rotation_degrees.is_finite()
+            || !prop.scale.is_finite()
+        {
+            return Err(format!(
+                "Prop {i} position, rotation, and scale must be finite numbers"
+            ));
+        }
+        if prop.scale <= 0.0 {
+            return Err(format!("Prop {i} scale must be positive"));
+        }
+        if let Some(size) = prop.size
+            && !size.iter().all(|v| v.is_finite() && *v > 0.0)
+        {
+            return Err(format!(
+                "Prop {i} size must contain positive finite numbers"
+            ));
+        }
+    }
+
+    // 5. Generated-geometry complexity budget, checked after per-element
+    //    validation so dimension errors take precedence. This bounds the vertex
+    //    buffer built at load time, protecting the ~512 MB PocketCHIP from
+    //    levels that would otherwise exhaust memory. Overlapping/intersecting
+    //    geometry is explicitly allowed and is not validated here.
+    let estimate = level.estimate_geometry();
+    if estimate.floor_area_m2 > MAX_LEVEL_FLOOR_AREA_M2 {
+        return Err(format!(
+            "Level floor area is too large: {} m^2 (limit: {MAX_LEVEL_FLOOR_AREA_M2} m^2). \
+             Use smaller or fewer room sections.",
+            estimate.floor_area_m2
+        ));
+    }
+    if estimate.total_vertices > MAX_LEVEL_VERTICES {
+        return Err(format!(
+            "Level geometry is too complex: ~{} vertices (limit: {MAX_LEVEL_VERTICES}). \
+             Reduce rooms, walls or ceiling lights.",
+            estimate.total_vertices
+        ));
     }
 
     Ok(())
@@ -397,7 +718,7 @@ fn generate_damp_carpet_texture() -> [u8; 64 * 64 * 4] {
 pub fn resolve_textures(
     level: &LevelDef,
     material_map: &HashMap<String, String>,
-    texture_blobs: &HashMap<String, Vec<u8>>,
+    texture_blobs: &HashMap<String, Rc<[u8]>>,
 ) -> LoadedTextures {
     let mut loaded = LoadedTextures::default();
 
@@ -412,9 +733,10 @@ pub fn resolve_textures(
             if let Some(bytes) = texture_blobs
                 .get(&normalized)
                 .or_else(|| texture_blobs.get(file_name))
-                && let Ok(img) = decode_png(bytes) {
-                    return Some(img);
-                }
+                && let Ok(img) = decode_png(bytes)
+            {
+                return Some(img);
+            }
         }
         // 2. Direct lookup by material name
         let name = mat_id.strip_prefix("pack:").unwrap_or(mat_id);
@@ -426,9 +748,10 @@ pub fn resolve_textures(
         ];
         for cand in &candidates {
             if let Some(bytes) = texture_blobs.get(cand)
-                && let Ok(img) = decode_png(bytes) {
-                    return Some(img);
-                }
+                && let Ok(img) = decode_png(bytes)
+            {
+                return Some(img);
+            }
         }
         None
     };
@@ -469,6 +792,7 @@ pub struct LevelManager {
     levels_dir: PathBuf,
     import_dir: PathBuf,
     entries: Vec<LevelEntry>,
+    prop_catalog: PropCatalog,
 }
 
 impl Default for LevelManager {
@@ -484,6 +808,7 @@ impl LevelManager {
             levels_dir: PathBuf::from("levels"),
             import_dir: PathBuf::from("import"),
             entries: Vec::new(),
+            prop_catalog: PropCatalog::load_default(),
         };
         manager.refresh();
         manager
@@ -495,6 +820,7 @@ impl LevelManager {
             levels_dir,
             import_dir,
             entries: Vec::new(),
+            prop_catalog: PropCatalog::load_default(),
         };
         manager.refresh();
         manager
@@ -502,6 +828,11 @@ impl LevelManager {
 
     pub fn entries(&self) -> &[LevelEntry] {
         &self.entries
+    }
+
+    /// Prop catalog used to resolve placed props.
+    pub fn prop_catalog(&self) -> &PropCatalog {
+        &self.prop_catalog
     }
 
     pub fn get_entry(&self, idx: usize) -> Option<&LevelEntry> {
@@ -517,9 +848,10 @@ impl LevelManager {
             for entry in dir.flatten() {
                 let p = entry.path();
                 if p.extension().is_some_and(|ext| ext == "json")
-                    && let Ok(meta) = self.probe_level_file(&p, LevelSourceType::Official) {
-                        discovered.push(meta);
-                    }
+                    && let Ok(meta) = self.probe_level_file(&p, LevelSourceType::Official)
+                {
+                    discovered.push(meta);
+                }
             }
         }
 
@@ -532,9 +864,10 @@ impl LevelManager {
                         discovered.push(meta);
                     }
                 } else if p.extension().is_some_and(|ext| ext == "zip")
-                    && let Ok(meta) = self.probe_zip_file(&p) {
-                        discovered.push(meta);
-                    }
+                    && let Ok(meta) = self.probe_zip_file(&p)
+                {
+                    discovered.push(meta);
+                }
             }
         }
 
@@ -553,10 +886,11 @@ impl LevelManager {
         } else {
             // Ensure level_1 is first in the list for immediate access
             if let Some(pos) = discovered.iter().position(|e| e.id == "level_1")
-                && pos != 0 {
-                    let e = discovered.remove(pos);
-                    discovered.insert(0, e);
-                }
+                && pos != 0
+            {
+                let e = discovered.remove(pos);
+                discovered.insert(0, e);
+            }
         }
 
         self.entries = discovered;
@@ -580,9 +914,10 @@ impl LevelManager {
     }
 
     fn probe_zip_file(&self, path: &Path) -> Result<LevelEntry, String> {
+        // Lightweight probe: read only level.json, no texture extraction.
         let file = fs::File::open(path).map_err(|e| e.to_string())?;
-        let pack = extract_zip(file)?;
-        let level = LevelDef::from_json(&pack.level_json).map_err(|e| e.to_string())?;
+        let level_json = read_zip_level_json(file)?;
+        let level = LevelDef::from_json(&level_json).map_err(|e| e.to_string())?;
         validate_level(&level)?;
         Ok(LevelEntry {
             id: level.id,
@@ -668,7 +1003,10 @@ impl LevelManager {
     /// Imports an external .json or .zip file into the installed levels directory.
     pub fn import_file(&mut self, source_path: &Path) -> Result<LevelEntry, String> {
         if !source_path.exists() {
-            return Err(format!("Source file does not exist: {}", source_path.display()));
+            return Err(format!(
+                "Source file does not exist: {}",
+                source_path.display()
+            ));
         }
 
         let ext = source_path
@@ -685,15 +1023,22 @@ impl LevelManager {
         let (level_id, level_name, author, source_type) = if ext == "json" {
             let content = fs::read_to_string(source_path)
                 .map_err(|e| format!("Failed to read {}: {e}", source_path.display()))?;
-            let level = LevelDef::from_json(&content)
-                .map_err(|e| format!("Invalid level JSON: {e}"))?;
+            let level =
+                LevelDef::from_json(&content).map_err(|e| format!("Invalid level JSON: {e}"))?;
             validate_level(&level)?;
-            (level.id, level.name, level.author, LevelSourceType::CustomJson)
+            (
+                level.id,
+                level.name,
+                level.author,
+                LevelSourceType::CustomJson,
+            )
         } else if ext == "zip" {
+            // Validate cheaply from level.json only; textures are not needed to
+            // decide whether the pack is acceptable.
             let file = fs::File::open(source_path)
                 .map_err(|e| format!("Failed to open {}: {e}", source_path.display()))?;
-            let pack = extract_zip(file)?;
-            let level = LevelDef::from_json(&pack.level_json)
+            let level_json = read_zip_level_json(file)?;
+            let level = LevelDef::from_json(&level_json)
                 .map_err(|e| format!("Invalid level.json in ZIP: {e}"))?;
             validate_level(&level)?;
             (level.id, level.name, level.author, LevelSourceType::PackZip)
@@ -740,10 +1085,9 @@ impl LevelManager {
                         .and_then(|e| e.to_str())
                         .unwrap_or("")
                         .to_lowercase();
-                    if (ext == "json" || ext == "zip")
-                        && self.import_file(&path).is_ok() {
-                            imported_count += 1;
-                        }
+                    if (ext == "json" || ext == "zip") && self.import_file(&path).is_ok() {
+                        imported_count += 1;
+                    }
                 }
             }
         }
@@ -786,9 +1130,11 @@ mod tests {
                 depth: 1.0,
                 height: Some(3.5),
                 faces: HashMap::new(),
+                openings: Vec::new(),
             }],
             floor_patches: vec![],
             ceiling_lights: vec![],
+            props: vec![],
         };
         assert!(validate_level(&level).is_ok());
     }
@@ -811,6 +1157,7 @@ mod tests {
             walls: vec![],
             floor_patches: vec![],
             ceiling_lights: vec![],
+            props: vec![],
         };
         assert!(validate_level(&level).is_err());
     }
@@ -855,6 +1202,7 @@ mod tests {
                     depth: 4.0,
                     height: Some(3.5),
                     faces: HashMap::new(),
+                    openings: Vec::new(),
                 },
                 WallDef {
                     x: 3.0,
@@ -864,10 +1212,12 @@ mod tests {
                     depth: 4.0,
                     height: Some(3.5),
                     faces: HashMap::new(),
+                    openings: Vec::new(),
                 },
             ],
             floor_patches: vec![],
             ceiling_lights: vec![],
+            props: vec![],
         };
         assert!(validate_level(&level).is_ok());
     }
@@ -900,8 +1250,8 @@ mod tests {
         let mut buffer = Vec::new();
         {
             let mut writer = zip::ZipWriter::new(Cursor::new(&mut buffer));
-            let options = SimpleFileOptions::default()
-                .compression_method(zip::CompressionMethod::Stored);
+            let options =
+                SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
             writer.start_file("../evil.txt", options).unwrap();
             std::io::Write::write_all(&mut writer, b"evil").unwrap();
@@ -920,8 +1270,8 @@ mod tests {
         let mut buffer = Vec::new();
         {
             let mut writer = zip::ZipWriter::new(Cursor::new(&mut buffer));
-            let options = SimpleFileOptions::default()
-                .compression_method(zip::CompressionMethod::Stored);
+            let options =
+                SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
             let level_json = r#"{
                 "format_version": 1,
@@ -974,6 +1324,7 @@ mod tests {
             walls: vec![],
             floor_patches: vec![],
             ceiling_lights: vec![],
+            props: vec![],
         };
 
         // No custom textures supplied -> should gracefully fallback
@@ -981,5 +1332,379 @@ mod tests {
         assert_eq!(textures.wall.width, 64);
         assert_eq!(textures.floor.width, 64);
         assert_eq!(textures.ceiling.width, 64);
+    }
+
+    fn level_from_rooms_json(rooms_json: &str) -> LevelDef {
+        let json = format!(
+            r#"{{
+                "format_version": 1,
+                "id": "budget_test",
+                "name": "Budget Test",
+                "spawn": {{ "x": 0.0, "z": 0.0 }},
+                "rooms": {rooms_json}
+            }}"#
+        );
+        LevelDef::from_json(&json).expect("valid json")
+    }
+
+    #[test]
+    fn test_validate_accepts_shipped_level1() {
+        let level = LevelDef::from_json(include_str!("../assets/levels/level1.json"))
+            .expect("valid level1");
+        assert!(validate_level(&level).is_ok());
+    }
+
+    #[test]
+    fn test_validate_accepts_moderately_large_level() {
+        // 10 rooms of 100x100 m = 100,000 m^2, comfortably under the budget.
+        let rooms: Vec<String> = (0..10)
+            .map(|i| {
+                format!(
+                    r#"{{ "x": {}, "z": 0.0, "width": 100.0, "depth": 100.0, "height": 3.5 }}"#,
+                    i as f32 * 100.0
+                )
+            })
+            .collect();
+        let level = level_from_rooms_json(&format!("[{}]", rooms.join(",")));
+        assert!(validate_level(&level).is_ok());
+    }
+
+    #[test]
+    fn test_validate_rejects_pathological_huge_room() {
+        let level = level_from_rooms_json(
+            r#"[{ "x": 0.0, "z": 0.0, "width": 2000.0, "depth": 2000.0, "height": 3.5 }]"#,
+        );
+        let err = validate_level(&level).expect_err("huge room must be rejected");
+        assert!(
+            err.contains("floor area") || err.contains("complex"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn test_validate_permits_overlapping_rooms_within_budget() {
+        // 50 fully-overlapping 100x100 m rooms = 500,000 m^2: overlapping is
+        // intentional and allowed, and the total is within budget.
+        let rooms: Vec<String> = (0..50)
+            .map(|_| {
+                r#"{ "x": 0.0, "z": 0.0, "width": 100.0, "depth": 100.0, "height": 3.5 }"#
+                    .to_string()
+            })
+            .collect();
+        let level = level_from_rooms_json(&format!("[{}]", rooms.join(",")));
+        assert!(validate_level(&level).is_ok());
+    }
+
+    #[test]
+    fn test_validate_rejects_huge_geometry_without_overflowing() {
+        // Finite but absurd dimensions must be handled by saturating arithmetic
+        // (no panic/overflow) and rejected.
+        let level = level_from_rooms_json(&format!(
+            r#"[{{ "x": 0.0, "z": 0.0, "width": {}, "depth": {}, "height": 3.5 }}]"#,
+            f32::MAX,
+            f32::MAX
+        ));
+        assert!(validate_level(&level).is_err());
+    }
+
+    #[test]
+    fn test_read_zip_level_json_only_reads_level_json() {
+        use zip::write::SimpleFileOptions;
+
+        let mut buffer = Vec::new();
+        {
+            let mut writer = zip::ZipWriter::new(Cursor::new(&mut buffer));
+            let options =
+                SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+
+            let level_json = r#"{ "format_version": 1, "id": "probe", "name": "Probe",
+                "spawn": { "x": 0.0, "z": 0.0 },
+                "rooms": [{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 }] }"#;
+            writer.start_file("level.json", options).unwrap();
+            std::io::Write::write_all(&mut writer, level_json.as_bytes()).unwrap();
+
+            // A large texture that probing must not read/decompress.
+            writer.start_file("textures/huge.png", options).unwrap();
+            std::io::Write::write_all(&mut writer, &vec![0u8; 4096]).unwrap();
+            writer.finish().unwrap();
+        }
+
+        let json = read_zip_level_json(Cursor::new(&buffer)).expect("reads level.json");
+        assert!(json.contains("\"probe\""));
+    }
+
+    #[test]
+    fn test_read_zip_level_json_missing_entry_errors() {
+        use zip::write::SimpleFileOptions;
+
+        let mut buffer = Vec::new();
+        {
+            let mut writer = zip::ZipWriter::new(Cursor::new(&mut buffer));
+            let options =
+                SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+            writer.start_file("readme.txt", options).unwrap();
+            std::io::Write::write_all(&mut writer, b"no level here").unwrap();
+            writer.finish().unwrap();
+        }
+
+        assert!(read_zip_level_json(Cursor::new(&buffer)).is_err());
+    }
+
+    #[test]
+    fn test_extract_zip_shares_texture_blobs_between_aliases() {
+        use zip::write::SimpleFileOptions;
+
+        let mut buffer = Vec::new();
+        {
+            let mut writer = zip::ZipWriter::new(Cursor::new(&mut buffer));
+            let options =
+                SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+            writer.start_file("level.json", options).unwrap();
+            std::io::Write::write_all(&mut writer, b"{}").unwrap();
+            writer.start_file("textures/wall.png", options).unwrap();
+            std::io::Write::write_all(&mut writer, b"PAYLOAD").unwrap();
+            writer.finish().unwrap();
+        }
+
+        let pack = extract_zip(Cursor::new(&buffer)).expect("valid zip");
+        let full = pack
+            .textures
+            .get("textures/wall.png")
+            .expect("full path alias");
+        let bare = pack.textures.get("wall.png").expect("bare name alias");
+        assert_eq!(&**full, b"PAYLOAD");
+        // Aliases must reference the same physical allocation.
+        assert!(Rc::ptr_eq(full, bare));
+    }
+
+    fn level_with_opening_json(opening_json: &str) -> LevelDef {
+        let json = format!(
+            r#"{{
+                "format_version": 1,
+                "id": "opening_test",
+                "name": "Opening Test",
+                "spawn": {{ "x": 0.0, "z": 0.0 }},
+                "room": {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 }},
+                "walls": [{{
+                    "x": 0.0, "z": 4.8, "width": 10.0, "depth": 0.4, "height": 3.5,
+                    "openings": [{opening_json}]
+                }}]
+            }}"#
+        );
+        LevelDef::from_json(&json).expect("valid json")
+    }
+
+    fn level_with_props_json(props_json: &str) -> LevelDef {
+        let json = format!(
+            r#"{{
+                "format_version": 1,
+                "id": "props_test",
+                "name": "Props Test",
+                "spawn": {{ "x": 0.0, "z": 0.0 }},
+                "room": {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 }},
+                "props": {props_json}
+            }}"#
+        );
+        LevelDef::from_json(&json).expect("valid json")
+    }
+
+    #[test]
+    fn test_validate_accepts_valid_door_and_window() {
+        let door = level_with_opening_json(
+            r#"{ "kind": "door", "offset": 4.0, "width": 1.0, "height": 2.1 }"#,
+        );
+        assert!(validate_level(&door).is_ok());
+
+        let window = level_with_opening_json(
+            r#"{ "kind": "window", "offset": 2.0, "width": 2.0, "height": 1.0, "sill": 1.2 }"#,
+        );
+        assert!(validate_level(&window).is_ok());
+    }
+
+    #[test]
+    fn test_validate_rejects_door_beyond_wall() {
+        let level = level_with_opening_json(
+            r#"{ "kind": "door", "offset": 9.5, "width": 1.0, "height": 2.1 }"#,
+        );
+        let err = validate_level(&level).expect_err("door must not extend past the wall");
+        assert!(
+            err.starts_with("Door opening extends beyond this wall"),
+            "unexpected error: {err}"
+        );
+        assert!(err.contains("wall 0"), "missing wall index: {err}");
+    }
+
+    #[test]
+    fn test_validate_rejects_window_and_unknown_opening_beyond_wall() {
+        let window = level_with_opening_json(
+            r#"{ "kind": "window", "offset": 9.0, "width": 1.5, "height": 1.0, "sill": 1.0 }"#,
+        );
+        let err = validate_level(&window).expect_err("window must not extend past the wall");
+        assert!(
+            err.starts_with("Window opening extends beyond this wall"),
+            "unexpected error: {err}"
+        );
+
+        let vent = level_with_opening_json(
+            r#"{ "kind": "vent", "offset": 9.0, "width": 2.0, "height": 0.4 }"#,
+        );
+        let err = validate_level(&vent).expect_err("vent must not extend past the wall");
+        assert!(
+            err.starts_with("Opening extends beyond this wall"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn test_validate_rejects_invalid_opening_numbers() {
+        let negative_sill = level_with_opening_json(
+            r#"{ "kind": "window", "offset": 1.0, "width": 1.0, "height": 1.0, "sill": -0.5 }"#,
+        );
+        let err = validate_level(&negative_sill).expect_err("negative sill is invalid");
+        assert!(
+            err.contains("cannot have a negative sill height"),
+            "unexpected error: {err}"
+        );
+
+        let negative_offset = level_with_opening_json(
+            r#"{ "kind": "door", "offset": -1.0, "width": 1.0, "height": 2.1 }"#,
+        );
+        let err = validate_level(&negative_offset).expect_err("negative offset is invalid");
+        assert!(
+            err.contains("starts before the wall"),
+            "unexpected error: {err}"
+        );
+
+        let zero_width = level_with_opening_json(
+            r#"{ "kind": "door", "offset": 1.0, "width": 0.0, "height": 2.1 }"#,
+        );
+        let err = validate_level(&zero_width).expect_err("zero width is invalid");
+        assert!(
+            err.contains("must have a positive width and height"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn test_validate_accepts_sunk_and_intersecting_props() {
+        // A prop sunk into the floor and a prop embedded in a wall are both
+        // intentional and must not be rejected.
+        let level = level_with_props_json(
+            r#"[
+                { "model": "core:rug", "x": 2.0, "y": -0.02, "z": 2.0 },
+                { "model": "core:bookshelf", "x": 0.0, "y": 0.0, "z": 4.8, "scale": 1.2, "solid": true }
+            ]"#,
+        );
+        assert!(validate_level(&level).is_ok());
+    }
+
+    #[test]
+    fn test_validate_rejects_invalid_props() {
+        let empty_model = level_with_props_json(r#"[{ "model": "  ", "x": 0.0, "z": 0.0 }]"#);
+        assert!(
+            validate_level(&empty_model)
+                .expect_err("empty model id is invalid")
+                .contains("model id")
+        );
+
+        let non_finite =
+            level_with_props_json(r#"[{ "model": "core:crate", "x": 1.0, "z": 0.0 }]"#);
+        let mut non_finite = non_finite;
+        non_finite.props[0].x = f32::INFINITY;
+        assert!(
+            validate_level(&non_finite)
+                .expect_err("infinite x is invalid")
+                .contains("finite")
+        );
+
+        let bad_scale = level_with_props_json(
+            r#"[{ "model": "core:crate", "scale": 0.0, "x": 0.0, "z": 0.0 }]"#,
+        );
+        assert!(
+            validate_level(&bad_scale)
+                .expect_err("zero scale is invalid")
+                .contains("scale must be positive")
+        );
+
+        let bad_size = level_with_props_json(
+            r#"[{ "model": "core:crate", "x": 0.0, "z": 0.0, "size": [1.0, -1.0, 1.0] }]"#,
+        );
+        assert!(
+            validate_level(&bad_size)
+                .expect_err("negative size is invalid")
+                .contains("size must contain positive finite numbers")
+        );
+    }
+
+    #[test]
+    fn test_parse_hex_color() {
+        assert_eq!(
+            parse_hex_color("#6b5f4a"),
+            Some([
+                0x6b as f32 / 255.0,
+                0x5f as f32 / 255.0,
+                0x4a as f32 / 255.0
+            ])
+        );
+        // The leading '#' is optional and plain greys parse too.
+        assert_eq!(parse_hex_color("8a8a8a"), parse_hex_color("#8A8A8A"));
+        assert_eq!(parse_hex_color("#fff"), None);
+        assert_eq!(parse_hex_color("not-a-colour"), None);
+    }
+
+    #[test]
+    fn test_prop_catalog_from_json_str() {
+        let json = r##"{
+            "format_version": 1,
+            "props": [
+                { "id": "core:couch", "name": "Couch", "category": "Furniture",
+                  "size": [2.0, 0.9, 0.9], "color": "#6b5f4a", "model": null, "solid": true },
+                { "id": "core:lamp" }
+            ]
+        }"##;
+        let catalog = PropCatalog::from_json_str(json).expect("valid catalog");
+        assert_eq!(catalog.len(), 2);
+        assert!(!catalog.is_empty());
+
+        let couch = catalog.get("core:couch");
+        assert_eq!(couch.name, "Couch");
+        assert_eq!(couch.category, "Furniture");
+        assert_eq!(couch.size, [2.0, 0.9, 0.9]);
+        assert_eq!(couch.color, parse_hex_color("#6b5f4a").unwrap());
+        assert_eq!(couch.model, None);
+        assert!(couch.solid);
+
+        // Missing fields default to the neutral values.
+        let lamp = catalog.get("core:lamp");
+        assert_eq!(lamp.name, "core:lamp");
+        assert_eq!(lamp.category, "Other");
+        assert_eq!(lamp.size, crate::level::PROP_FALLBACK_SIZE);
+        assert_eq!(lamp.color, parse_hex_color("#8a8a8a").unwrap());
+        assert!(!lamp.solid);
+
+        assert!(PropCatalog::from_json_str("not json").is_err());
+    }
+
+    #[test]
+    fn test_prop_catalog_falls_back_for_unknown_model() {
+        let catalog = PropCatalog::builtin();
+        assert!(catalog.is_empty());
+        let fallback = catalog.get("core:does_not_exist");
+        assert_eq!(fallback.name, "core:does_not_exist");
+        assert_eq!(fallback.category, "Other");
+        assert_eq!(fallback.size, crate::level::PROP_FALLBACK_SIZE);
+        assert_eq!(fallback.color, parse_hex_color("#8a8a8a").unwrap());
+        assert!(!fallback.solid);
+    }
+
+    #[test]
+    fn test_shipped_prop_catalog_parses() {
+        let catalog = PropCatalog::from_json_str(include_str!("../assets/props/props.json"))
+            .expect("shipped props.json must parse");
+        assert!(catalog.len() >= 16, "expected at least 16 props");
+        let couch = catalog.get("core:couch");
+        assert_eq!(couch.name, "Couch");
+        assert!(couch.size.iter().all(|v| *v > 0.0));
+        assert!(couch.solid);
     }
 }
