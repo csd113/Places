@@ -16,12 +16,14 @@ pub struct CpuSample {
 }
 
 impl CpuSample {
-    pub fn new(total: u64, idle: u64) -> Self {
+    #[must_use]
+    pub const fn new(total: u64, idle: u64) -> Self {
         Self { total, idle }
     }
 }
 
 /// Parses total and idle ticks from the first line of Linux /proc/stat.
+#[must_use]
 pub fn parse_proc_stat(stat_str: &str) -> Option<CpuSample> {
     for line in stat_str.lines() {
         if line.starts_with("cpu ") {
@@ -47,6 +49,7 @@ pub fn parse_proc_stat(stat_str: &str) -> Option<CpuSample> {
 }
 
 /// Computes CPU utilization percentage between two samples.
+#[must_use]
 pub fn calculate_cpu_percentage(prev: &CpuSample, curr: &CpuSample) -> Option<f32> {
     let delta_total = curr.total.saturating_sub(prev.total);
     let delta_idle = curr.idle.saturating_sub(prev.idle);
@@ -72,14 +75,16 @@ impl Default for CpuSampler {
 }
 
 impl CpuSampler {
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             last_sample: None,
             stat_path: "/proc/stat",
         }
     }
 
-    pub fn with_path(path: &'static str) -> Self {
+    #[must_use]
+    pub const fn with_path(path: &'static str) -> Self {
         Self {
             last_sample: None,
             stat_path: path,
@@ -91,11 +96,9 @@ impl CpuSampler {
         if let Ok(content) = fs::read_to_string(self.stat_path)
             && let Some(curr) = parse_proc_stat(&content)
         {
-            let pct = if let Some(prev) = self.last_sample {
-                calculate_cpu_percentage(&prev, &curr)
-            } else {
-                None
-            };
+            let pct = self
+                .last_sample
+                .and_then(|prev| calculate_cpu_percentage(&prev, &curr));
             self.last_sample = Some(curr);
             return pct;
         }
@@ -104,11 +107,9 @@ impl CpuSampler {
         #[cfg(target_os = "macos")]
         {
             if let Some(curr) = sample_macos_cpu() {
-                let pct = if let Some(prev) = self.last_sample {
-                    calculate_cpu_percentage(&prev, &curr)
-                } else {
-                    None
-                };
+                let pct = self
+                    .last_sample
+                    .and_then(|prev| calculate_cpu_percentage(&prev, &curr));
                 self.last_sample = Some(curr);
                 return pct;
             }
@@ -138,13 +139,14 @@ fn sample_macos_cpu() -> Option<CpuSample> {
     unsafe {
         let mut info = HostCpuLoadInfo { cpu_ticks: [0; 4] };
         let mut count =
-            (std::mem::size_of::<HostCpuLoadInfo>() / std::mem::size_of::<i32>()) as u32;
+            u32::try_from(std::mem::size_of::<HostCpuLoadInfo>() / std::mem::size_of::<i32>())
+                .unwrap_or(u32::MAX);
         let host = mach_host_self();
-        if host_statistics64(host, HOST_CPU_LOAD_INFO, &mut info, &mut count) == 0 {
-            let user = info.cpu_ticks[0] as u64;
-            let system = info.cpu_ticks[1] as u64;
-            let idle = info.cpu_ticks[2] as u64;
-            let nice = info.cpu_ticks[3] as u64;
+        if host_statistics64(host, HOST_CPU_LOAD_INFO, &raw mut info, &raw mut count) == 0 {
+            let user = u64::from(info.cpu_ticks[0]);
+            let system = u64::from(info.cpu_ticks[1]);
+            let idle = u64::from(info.cpu_ticks[2]);
+            let nice = u64::from(info.cpu_ticks[3]);
             let total = user + system + idle + nice;
             Some(CpuSample { total, idle })
         } else {
@@ -157,7 +159,8 @@ fn sample_macos_cpu() -> Option<CpuSample> {
 /// Supports standard formats:
 /// - "45" or "45%"
 /// - "45@500000000" (load%@frequency from vendor kernels)
-/// - "busy_time total_time" or "busy_time / total_time"
+/// - "`busy_time` `total_time`" or "`busy_time` / `total_time`"
+#[must_use]
 pub fn parse_devfreq_load(content: &str) -> Option<f32> {
     let trimmed = content.trim();
     if trimmed.is_empty() {
@@ -194,6 +197,7 @@ pub fn parse_devfreq_load(content: &str) -> Option<f32> {
 
 /// Parses Mali driver utilization from /sys/class/misc/mali0/device/utilization or debugfs.
 /// Supports "42" or "utilization=42".
+#[must_use]
 pub fn parse_mali_utilization(content: &str) -> Option<f32> {
     for line in content.lines() {
         let trimmed = line.trim();
@@ -210,7 +214,8 @@ pub fn parse_mali_utilization(content: &str) -> Option<f32> {
     None
 }
 
-/// Parses DRM GPU busy percentage from /sys/class/drm/card*/device/gpu_busy_percent.
+/// Parses DRM GPU busy percentage from /sys/class/drm/card*/`device/gpu_busy_percent`.
+#[must_use]
 pub fn parse_drm_busy_percent(content: &str) -> Option<f32> {
     content
         .trim()
@@ -223,6 +228,7 @@ pub fn parse_drm_busy_percent(content: &str) -> Option<f32> {
 /// Discovers and reads real GPU utilization from system interfaces.
 /// Never substitutes clock frequency as utilization.
 /// Returns None if meaningful utilization is unavailable.
+#[must_use]
 pub fn sample_gpu_utilization() -> Option<f32> {
     sample_gpu_from_paths(
         Path::new("/sys/class/devfreq"),
@@ -233,6 +239,7 @@ pub fn sample_gpu_utilization() -> Option<f32> {
 }
 
 /// Internal path-parameterized GPU utilization sampler for testability.
+#[must_use]
 pub fn sample_gpu_from_paths(
     devfreq_root: &Path,
     misc_root: &Path,
@@ -321,6 +328,7 @@ impl Default for PerfOverlay {
 }
 
 impl PerfOverlay {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             visible: false, // Hidden by default
@@ -348,14 +356,17 @@ impl PerfOverlay {
         }
     }
 
-    pub fn is_visible(&self) -> bool {
+    #[must_use]
+    pub const fn is_visible(&self) -> bool {
         self.visible
     }
 
+    #[must_use]
     pub fn cached_vertices(&self) -> &[Vertex] {
         &self.cached_vertices
     }
 
+    #[must_use]
     pub fn cached_text(&self) -> &str {
         &self.cached_text
     }
@@ -392,14 +403,8 @@ impl PerfOverlay {
         let cpu_pct = self.cpu_sampler.sample();
         let gpu_pct = sample_gpu_utilization();
 
-        let cpu_str = match cpu_pct {
-            Some(pct) => format!("CPU {:.0}%", pct),
-            None => "CPU N/A".to_string(),
-        };
-        let gpu_str = match gpu_pct {
-            Some(pct) => format!("GPU {:.0}%", pct),
-            None => "GPU N/A".to_string(),
-        };
+        let cpu_str = cpu_pct.map_or_else(|| "CPU N/A".to_string(), |pct| format!("CPU {pct:.0}%"));
+        let gpu_str = gpu_pct.map_or_else(|| "GPU N/A".to_string(), |pct| format!("GPU {pct:.0}%"));
 
         // Example presentation: CPU 42%   GPU 61%   FPS 30
         self.cached_text = format!("{cpu_str}   {gpu_str}   FPS {fps}");
@@ -463,8 +468,8 @@ cpu0 1132 17 1145 11312781 3145 63 228 0 0 0
 intr 114930548 10 11 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 ";
         let sample = parse_proc_stat(stat_content).expect("Failed to parse /proc/stat");
-        assert_eq!(sample.idle, 22625563 + 6290);
-        let expected_total: u64 = 2255 + 34 + 2290 + 22625563 + 6290 + 127 + 456;
+        assert_eq!(sample.idle, 22_625_563 + 6_290);
+        let expected_total: u64 = 2_255 + 34 + 2_290 + 22_625_563 + 6_290 + 127 + 456;
         assert_eq!(sample.total, expected_total);
     }
 

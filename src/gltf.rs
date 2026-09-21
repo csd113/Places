@@ -71,6 +71,7 @@ pub struct PropModel {
 
 impl PropModel {
     /// Axis-aligned model-space bounds, or `None` for an empty mesh.
+    #[must_use]
     pub fn bounds(&self) -> Option<([f32; 3], [f32; 3])> {
         let first = self.vertices.first()?;
         let mut min = first.pos;
@@ -88,9 +89,47 @@ impl PropModel {
 // ------------------------------------------------------------------- parsing
 
 /// Parses a self-contained GLB prop asset.
+///
+/// # Errors
+///
+/// Returns a [`GltfError`] naming the first problem found: a container that is
+/// not a self-contained glTF 2.0 GLB, a feature the GLES2 prop renderer cannot
+/// draw (extensions, skins, animations or node transforms), a mesh that is not
+/// a single triangle list inside the prop budgets, or vertex data that is
+/// non-finite or outside the documented UV range.
 pub fn parse_glb(bytes: &[u8]) -> Result<PropModel, GltfError> {
     let (json, binary) = parse_container(bytes)?;
+    validate_document_root(&json)?;
+    let primitives = mesh_primitives(&json)?;
 
+    let mut vertices: Vec<PropVertex> = Vec::new();
+    let mut indices: Vec<u16> = Vec::new();
+    for primitive in primitives {
+        read_primitive(&json, &binary, primitive, &mut vertices, &mut indices)?;
+    }
+
+    let triangles = validate_mesh(&vertices, &indices)?;
+    let texture = read_texture(&json, &binary)?;
+    let materials = json
+        .get("materials")
+        .and_then(|value| value.as_array())
+        .map_or(0, std::vec::Vec::len);
+    if materials != 1 {
+        return Err(GltfError::new(format!(
+            "prop model declares {materials} materials; every prop uses exactly one diffuse material"
+        )));
+    }
+    Ok(PropModel {
+        vertices,
+        indices,
+        texture,
+        triangles,
+        materials,
+    })
+}
+
+/// Rejects document features the GLES2 prop renderer cannot draw.
+fn validate_document_root(json: &serde_json::Value) -> Result<(), GltfError> {
     if let Some(list) = json
         .get("extensionsUsed")
         .and_then(|value| value.as_array())
@@ -128,7 +167,11 @@ pub fn parse_glb(bytes: &[u8]) -> Result<PropModel, GltfError> {
             }
         }
     }
+    Ok(())
+}
 
+/// The single mesh's primitive list.
+fn mesh_primitives(json: &serde_json::Value) -> Result<&[serde_json::Value], GltfError> {
     let meshes = json
         .get("meshes")
         .and_then(|value| value.as_array())
@@ -139,97 +182,107 @@ pub fn parse_glb(bytes: &[u8]) -> Result<PropModel, GltfError> {
             meshes.len()
         )));
     }
-    let primitives = meshes[0]
+    meshes[0]
         .get("primitives")
         .and_then(|value| value.as_array())
-        .ok_or_else(|| GltfError::new("mesh has no primitives"))?;
+        .map(std::vec::Vec::as_slice)
+        .ok_or_else(|| GltfError::new("mesh has no primitives"))
+}
 
-    let mut vertices: Vec<PropVertex> = Vec::new();
-    let mut indices: Vec<u16> = Vec::new();
-    for primitive in primitives {
-        let mode = primitive
-            .get("mode")
-            .and_then(|value| value.as_u64())
-            .unwrap_or(4) as u32;
-        if mode != MODE_TRIANGLES {
-            return Err(GltfError::new(format!(
-                "primitive mode {mode} is not TRIANGLES (4)"
-            )));
-        }
-        let attributes = primitive
-            .get("attributes")
-            .and_then(|value| value.as_object())
-            .ok_or_else(|| GltfError::new("primitive has no attributes"))?;
+/// Reads one primitive's vertices and triangle indices into the model.
+fn read_primitive(
+    json: &serde_json::Value,
+    binary: &[u8],
+    primitive: &serde_json::Value,
+    vertices: &mut Vec<PropVertex>,
+    indices: &mut Vec<u16>,
+) -> Result<(), GltfError> {
+    let mode = primitive
+        .get("mode")
+        .and_then(json_u32)
+        .unwrap_or(MODE_TRIANGLES);
+    if mode != MODE_TRIANGLES {
+        return Err(GltfError::new(format!(
+            "primitive mode {mode} is not TRIANGLES (4)"
+        )));
+    }
+    let attributes = primitive
+        .get("attributes")
+        .and_then(|value| value.as_object())
+        .ok_or_else(|| GltfError::new("primitive has no attributes"))?;
 
-        let positions = read_vec(&json, &binary, attribute(attributes, "POSITION")?, 3)?;
-        let Some(uv_accessor) = attributes.get("TEXCOORD_0") else {
-            return Err(GltfError::new(
-                "primitive has no TEXCOORD_0; every prop must be UV mapped",
-            ));
-        };
-        let uvs = read_vec(
-            &json,
-            &binary,
-            accessor_index(uv_accessor, "TEXCOORD_0")?,
-            2,
-        )?;
-        let colors = match attributes.get("COLOR_0") {
-            Some(value) => read_vec(&json, &binary, accessor_index(value, "COLOR_0")?, 4)?,
-            None => vec![vec![1.0, 1.0, 1.0, 1.0]; positions.len()],
-        };
-        if positions.len() != uvs.len() || positions.len() != colors.len() {
-            return Err(GltfError::new(
-                "POSITION, TEXCOORD_0 and COLOR_0 attribute counts differ",
-            ));
-        }
-
-        let base = vertices.len();
-        for index in 0..positions.len() {
-            vertices.push(PropVertex {
-                pos: [
-                    positions[index][0],
-                    positions[index][1],
-                    positions[index][2],
-                ],
-                uv: [uvs[index][0], uvs[index][1]],
-                color: [
-                    colors[index][0],
-                    colors[index][1],
-                    colors[index][2],
-                    if colors[index].len() == 4 {
-                        colors[index][3]
-                    } else {
-                        1.0
-                    },
-                ],
-            });
-        }
-
-        let local_indices = match primitive.get("indices") {
-            Some(value) => read_indices(&json, &binary, accessor_index(value, "indices")?)?,
-            None => (0..positions.len() as u32).collect(),
-        };
-        if local_indices.len() % 3 != 0 {
-            return Err(GltfError::new(
-                "index count is not a multiple of three; props must be triangle lists",
-            ));
-        }
-        for value in local_indices {
-            let absolute = base + value as usize;
-            if absolute >= base + positions.len() {
-                return Err(GltfError::new(format!(
-                    "index {value} points outside the primitive's vertices"
-                )));
-            }
-            if absolute > u16::MAX as usize {
-                return Err(GltfError::new(format!(
-                    "mesh needs more than {MAX_PROP_VERTICES} vertices; lower the prop's detail"
-                )));
-            }
-            indices.push(absolute as u16);
-        }
+    let positions = read_vec(json, binary, attribute(attributes, "POSITION")?, 3)?;
+    let Some(uv_accessor) = attributes.get("TEXCOORD_0") else {
+        return Err(GltfError::new(
+            "primitive has no TEXCOORD_0; every prop must be UV mapped",
+        ));
+    };
+    let uvs = read_vec(json, binary, accessor_index(uv_accessor, "TEXCOORD_0")?, 2)?;
+    let colors = match attributes.get("COLOR_0") {
+        Some(value) => read_vec(json, binary, accessor_index(value, "COLOR_0")?, 4)?,
+        None => vec![vec![1.0, 1.0, 1.0, 1.0]; positions.len()],
+    };
+    if positions.len() != uvs.len() || positions.len() != colors.len() {
+        return Err(GltfError::new(
+            "POSITION, TEXCOORD_0 and COLOR_0 attribute counts differ",
+        ));
     }
 
+    let base = vertices.len();
+    for index in 0..positions.len() {
+        vertices.push(PropVertex {
+            pos: [
+                positions[index][0],
+                positions[index][1],
+                positions[index][2],
+            ],
+            uv: [uvs[index][0], uvs[index][1]],
+            color: [
+                colors[index][0],
+                colors[index][1],
+                colors[index][2],
+                if colors[index].len() == 4 {
+                    colors[index][3]
+                } else {
+                    1.0
+                },
+            ],
+        });
+    }
+
+    let local_indices = match primitive.get("indices") {
+        Some(value) => read_indices(json, binary, accessor_index(value, "indices")?)?,
+        None => (0..positions.len())
+            .map(|value| u32::try_from(value).unwrap_or(u32::MAX))
+            .collect(),
+    };
+    if local_indices.len() % 3 != 0 {
+        return Err(GltfError::new(
+            "index count is not a multiple of three; props must be triangle lists",
+        ));
+    }
+    for value in local_indices {
+        let absolute = base + usize::try_from(value).unwrap_or(usize::MAX);
+        if absolute >= base + positions.len() {
+            return Err(GltfError::new(format!(
+                "index {value} points outside the primitive's vertices"
+            )));
+        }
+        if absolute > usize::from(u16::MAX) {
+            return Err(GltfError::new(format!(
+                "mesh needs more than {MAX_PROP_VERTICES} vertices; lower the prop's detail"
+            )));
+        }
+        indices.push(u16::try_from(absolute).unwrap_or(u16::MAX));
+    }
+    Ok(())
+}
+
+/// Checks the assembled mesh against the prop budgets and data invariants.
+///
+/// Returns the triangle count on success, so the caller can store it without
+/// recomputing it from the index list.
+fn validate_mesh(vertices: &[PropVertex], indices: &[u16]) -> Result<usize, GltfError> {
     if vertices.is_empty() || indices.is_empty() {
         return Err(GltfError::new("mesh contains no triangles"));
     }
@@ -245,7 +298,7 @@ pub fn parse_glb(bytes: &[u8]) -> Result<PropModel, GltfError> {
             "mesh has {triangles} triangles; the PocketCHIP prop ceiling is {MAX_PROP_TRIANGLES}"
         )));
     }
-    for vertex in &vertices {
+    for vertex in vertices {
         for value in vertex
             .pos
             .iter()
@@ -269,25 +322,7 @@ pub fn parse_glb(bytes: &[u8]) -> Result<PropModel, GltfError> {
             )));
         }
     }
-
-    let texture = read_texture(&json, &binary)?;
-    let materials = json
-        .get("materials")
-        .and_then(|value| value.as_array())
-        .map(|list| list.len())
-        .unwrap_or(0);
-    if materials != 1 {
-        return Err(GltfError::new(format!(
-            "prop model declares {materials} materials; every prop uses exactly one diffuse material"
-        )));
-    }
-    Ok(PropModel {
-        vertices,
-        indices,
-        texture,
-        triangles,
-        materials,
-    })
+    Ok(triangles)
 }
 
 fn parse_container(bytes: &[u8]) -> Result<(serde_json::Value, Vec<u8>), GltfError> {
@@ -353,6 +388,18 @@ struct AccessorView<'a> {
     components: usize,
 }
 
+/// `usize` value of a non-negative JSON integer, or `None` when the field is
+/// absent, is not a number, or does not fit in this target's pointer width.
+fn json_usize(value: &serde_json::Value) -> Option<usize> {
+    usize::try_from(value.as_u64()?).ok()
+}
+
+/// `u32` value of a non-negative JSON integer, or `None` when the field is
+/// absent, is not a number, or does not fit in 32 bits.
+fn json_u32(value: &serde_json::Value) -> Option<u32> {
+    u32::try_from(value.as_u64()?).ok()
+}
+
 fn accessor_view<'a>(
     json: &serde_json::Value,
     binary: &'a [u8],
@@ -367,51 +414,76 @@ fn accessor_view<'a>(
         .get(index)
         .ok_or_else(|| GltfError::new(format!("accessor {index} does not exist")))?;
 
-    let declared_components = match accessor.get("type").and_then(|value| value.as_str()) {
-        Some("SCALAR") => 1,
-        Some("VEC2") => 2,
-        Some("VEC3") => 3,
-        Some("VEC4") => 4,
-        other => {
-            return Err(GltfError::new(format!(
-                "unsupported accessor type {:?}",
-                other.unwrap_or("(missing)")
-            )));
-        }
-    };
+    let declared_components = accessor_components(accessor);
     if declared_components != components {
         return Err(GltfError::new(format!(
             "accessor {index} has {declared_components} components; expected {components}"
         )));
     }
-
     let component_type = accessor
         .get("componentType")
-        .and_then(|value| value.as_u64())
-        .ok_or_else(|| GltfError::new(format!("accessor {index} has no componentType")))?
-        as u32;
-    let component_size = match component_type {
-        COMPONENT_FLOAT => 4,
-        COMPONENT_UBYTE => 1,
-        COMPONENT_USHORT => 2,
-        COMPONENT_UINT => 4,
-        other => {
-            return Err(GltfError::new(format!(
-                "unsupported accessor componentType {other}"
-            )));
-        }
-    };
+        .and_then(json_u32)
+        .ok_or_else(|| GltfError::new(format!("accessor {index} has no componentType")))?;
+    let component_size = component_size(component_type)?;
     let count = accessor
         .get("count")
-        .and_then(|value| value.as_u64())
-        .ok_or_else(|| GltfError::new(format!("accessor {index} has no count")))?
-        as usize;
+        .and_then(json_usize)
+        .ok_or_else(|| GltfError::new(format!("accessor {index} has no count")))?;
+    let element_size = component_size * components;
+    let (data, stride) = accessor_data(json, binary, accessor, index, element_size, count)?;
 
+    Ok(AccessorView {
+        data,
+        stride,
+        element_size,
+        count,
+        component_type,
+        normalized: accessor
+            .get("normalized")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false),
+        components,
+    })
+}
+
+/// Number of components an accessor's `type` string declares.
+fn accessor_components(accessor: &serde_json::Value) -> usize {
+    match accessor.get("type").and_then(|value| value.as_str()) {
+        Some("VEC2") => 2,
+        Some("VEC3") => 3,
+        Some("VEC4") => 4,
+        Some("SCALAR") => 1,
+        // A missing or unknown type is reported by the caller's size check as
+        // zero components, which no accessor request can match.
+        _ => 0,
+    }
+}
+
+/// Bytes per element of an accessor component type.
+fn component_size(component_type: u32) -> Result<usize, GltfError> {
+    match component_type {
+        COMPONENT_FLOAT | COMPONENT_UINT => Ok(4),
+        COMPONENT_UBYTE => Ok(1),
+        COMPONENT_USHORT => Ok(2),
+        other => Err(GltfError::new(format!(
+            "unsupported accessor componentType {other}"
+        ))),
+    }
+}
+
+/// The binary slice an accessor addresses, plus its element stride in bytes.
+fn accessor_data<'a>(
+    json: &serde_json::Value,
+    binary: &'a [u8],
+    accessor: &serde_json::Value,
+    index: usize,
+    element_size: usize,
+    count: usize,
+) -> Result<(&'a [u8], usize), GltfError> {
     let view_index = accessor
         .get("bufferView")
-        .and_then(|value| value.as_u64())
-        .ok_or_else(|| GltfError::new(format!("accessor {index} has no bufferView")))?
-        as usize;
+        .and_then(json_usize)
+        .ok_or_else(|| GltfError::new(format!("accessor {index} has no bufferView")))?;
     let views = json
         .get("bufferViews")
         .and_then(|value| value.as_array())
@@ -420,18 +492,12 @@ fn accessor_view<'a>(
         .get(view_index)
         .ok_or_else(|| GltfError::new(format!("bufferView {view_index} does not exist")))?;
 
-    let view_offset = view
-        .get("byteOffset")
-        .and_then(|value| value.as_u64())
-        .unwrap_or(0) as usize;
-    let view_length =
-        view.get("byteLength")
-            .and_then(|value| value.as_u64())
-            .ok_or_else(|| GltfError::new("bufferView has no byteLength"))? as usize;
-    let accessor_offset = accessor
-        .get("byteOffset")
-        .and_then(|value| value.as_u64())
-        .unwrap_or(0) as usize;
+    let view_offset = view.get("byteOffset").and_then(json_usize).unwrap_or(0);
+    let view_length = view
+        .get("byteLength")
+        .and_then(json_usize)
+        .ok_or_else(|| GltfError::new("bufferView has no byteLength"))?;
+    let accessor_offset = accessor.get("byteOffset").and_then(json_usize).unwrap_or(0);
     let start = view_offset
         .checked_add(accessor_offset)
         .ok_or_else(|| GltfError::new("accessor byte offset overflows"))?;
@@ -444,11 +510,9 @@ fn accessor_view<'a>(
         ));
     }
 
-    let element_size = component_size * components;
     let stride = view
         .get("byteStride")
-        .and_then(|value| value.as_u64())
-        .map(|value| value as usize)
+        .and_then(json_usize)
         .unwrap_or(element_size);
     let required = if count == 0 {
         0
@@ -460,19 +524,7 @@ fn accessor_view<'a>(
             "accessor {index} declares {count} elements but its bufferView is too small"
         )));
     }
-
-    Ok(AccessorView {
-        data: &binary[start..end],
-        stride,
-        element_size,
-        count,
-        component_type,
-        normalized: accessor
-            .get("normalized")
-            .and_then(|value| value.as_bool())
-            .unwrap_or(false),
-        components,
-    })
+    Ok((&binary[start..end], stride))
 }
 
 fn read_vec(
@@ -496,20 +548,24 @@ fn read_vec(
                 COMPONENT_UBYTE => {
                     let raw = view.data[offset];
                     if view.normalized {
-                        raw as f32 / 255.0
+                        f32::from(raw) / 255.0
                     } else {
-                        raw as f32
+                        f32::from(raw)
                     }
                 }
                 COMPONENT_USHORT => {
                     let raw = u16::from_le_bytes(view.data[offset..offset + 2].try_into().unwrap());
                     if view.normalized {
-                        raw as f32 / 65_535.0
+                        f32::from(raw) / 65_535.0
                     } else {
-                        raw as f32
+                        f32::from(raw)
                     }
                 }
-                _ => u32::from_le_bytes(view.data[offset..offset + 4].try_into().unwrap()) as f32,
+                other => {
+                    return Err(GltfError::new(format!(
+                        "componentType {other} cannot be used for vertex attributes"
+                    )));
+                }
             };
             values.push(value);
         }
@@ -529,10 +585,10 @@ fn read_indices(
     for element in 0..view.count {
         let offset = element * view.stride;
         out.push(match view.component_type {
-            COMPONENT_UBYTE => view.data[offset] as u32,
-            COMPONENT_USHORT => {
-                u16::from_le_bytes(view.data[offset..offset + 2].try_into().unwrap()) as u32
-            }
+            COMPONENT_UBYTE => u32::from(view.data[offset]),
+            COMPONENT_USHORT => u32::from(u16::from_le_bytes(
+                view.data[offset..offset + 2].try_into().unwrap(),
+            )),
             COMPONENT_UINT => u32::from_le_bytes(view.data[offset..offset + 4].try_into().unwrap()),
             other => {
                 return Err(GltfError::new(format!(
@@ -555,10 +611,7 @@ fn attribute(
 }
 
 fn accessor_index(value: &serde_json::Value, key: &str) -> Result<usize, GltfError> {
-    value
-        .as_u64()
-        .map(|index| index as usize)
-        .ok_or_else(|| GltfError::new(format!("{key} is not an accessor index")))
+    json_usize(value).ok_or_else(|| GltfError::new(format!("{key} is not an accessor index")))
 }
 
 fn read_texture(json: &serde_json::Value, binary: &[u8]) -> Result<RawImage, GltfError> {
@@ -573,8 +626,8 @@ fn read_texture(json: &serde_json::Value, binary: &[u8]) -> Result<RawImage, Glt
         .ok_or_else(|| GltfError::new("file has no images"))?;
     let source = textures[0]
         .get("source")
-        .and_then(|value| value.as_u64())
-        .ok_or_else(|| GltfError::new("texture has no image source"))? as usize;
+        .and_then(json_usize)
+        .ok_or_else(|| GltfError::new("texture has no image source"))?;
     let image = images
         .get(source)
         .ok_or_else(|| GltfError::new(format!("image {source} does not exist")))?;
@@ -594,8 +647,8 @@ fn read_texture(json: &serde_json::Value, binary: &[u8]) -> Result<RawImage, Glt
     }
     let view_index = image
         .get("bufferView")
-        .and_then(|value| value.as_u64())
-        .ok_or_else(|| GltfError::new("image has no bufferView"))? as usize;
+        .and_then(json_usize)
+        .ok_or_else(|| GltfError::new("image has no bufferView"))?;
     let views = json
         .get("bufferViews")
         .and_then(|value| value.as_array())
@@ -603,14 +656,11 @@ fn read_texture(json: &serde_json::Value, binary: &[u8]) -> Result<RawImage, Glt
     let view = views
         .get(view_index)
         .ok_or_else(|| GltfError::new(format!("bufferView {view_index} does not exist")))?;
-    let offset = view
-        .get("byteOffset")
-        .and_then(|value| value.as_u64())
-        .unwrap_or(0) as usize;
-    let length =
-        view.get("byteLength")
-            .and_then(|value| value.as_u64())
-            .ok_or_else(|| GltfError::new("image bufferView has no byteLength"))? as usize;
+    let offset = view.get("byteOffset").and_then(json_usize).unwrap_or(0);
+    let length = view
+        .get("byteLength")
+        .and_then(json_usize)
+        .ok_or_else(|| GltfError::new("image bufferView has no byteLength"))?;
     let Some(end) = offset.checked_add(length) else {
         return Err(GltfError::new("image bufferView length overflows"));
     };
@@ -657,11 +707,19 @@ mod tests {
         let mut out = Vec::with_capacity(total);
         out.extend_from_slice(&GLB_MAGIC.to_le_bytes());
         out.extend_from_slice(&2u32.to_le_bytes());
-        out.extend_from_slice(&(total as u32).to_le_bytes());
-        out.extend_from_slice(&(json_chunk.len() as u32).to_le_bytes());
+        out.extend_from_slice(&u32::try_from(total).unwrap_or(u32::MAX).to_le_bytes());
+        out.extend_from_slice(
+            &u32::try_from(json_chunk.len())
+                .unwrap_or(u32::MAX)
+                .to_le_bytes(),
+        );
         out.extend_from_slice(&CHUNK_JSON.to_le_bytes());
         out.extend_from_slice(&json_chunk);
-        out.extend_from_slice(&(bin_chunk.len() as u32).to_le_bytes());
+        out.extend_from_slice(
+            &u32::try_from(bin_chunk.len())
+                .unwrap_or(u32::MAX)
+                .to_le_bytes(),
+        );
         out.extend_from_slice(&CHUNK_BIN.to_le_bytes());
         out.extend_from_slice(&bin_chunk);
         out
@@ -751,8 +809,8 @@ mod tests {
         // Origin convention: base on y = 0, horizontally centred, metres.
         let (low, high) = model.bounds().expect("chair has vertices");
         assert!(low[1].abs() < 0.012, "chair base sits at {}", low[1]);
-        assert!(((low[0] + high[0]) * 0.5).abs() < 0.02);
-        assert!(((low[2] + high[2]) * 0.5).abs() < 0.02);
+        assert!(f32::midpoint(low[0], high[0]).abs() < 0.02);
+        assert!(f32::midpoint(low[2], high[2]).abs() < 0.02);
         assert!((high[0] - low[0] - 0.5).abs() < 0.05);
         assert!((high[1] - low[1] - 0.9).abs() < 0.05);
     }

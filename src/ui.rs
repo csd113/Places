@@ -19,6 +19,7 @@ pub struct UiState {
 }
 
 impl UiState {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -78,6 +79,7 @@ pub struct UiGeometryCache {
 }
 
 impl UiGeometryCache {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -204,7 +206,8 @@ pub fn draw_text(
 }
 
 /// Generates 2D UI overlay vertices in the 480x272 reference space for the
-/// active AppState. `Renderer::render_ui` scales this space to the drawable.
+/// active `AppState`. `Renderer::render_ui` scales this space to the drawable.
+#[must_use]
 pub fn build_ui_geometry(
     app_state: AppState,
     ui_state: &UiState,
@@ -287,7 +290,7 @@ pub fn build_ui_geometry(
             let line_h = 24.0;
 
             for (i, &item) in items.iter().enumerate() {
-                let y = start_y + (i as f32) * line_h;
+                let y = (i as f32).mul_add(line_h, start_y);
                 let is_sel = i == ui_state.main_menu_idx;
 
                 if is_sel {
@@ -367,7 +370,7 @@ pub fn build_ui_geometry(
                 .take(max_visible)
                 .enumerate()
             {
-                let y = start_y + (vi as f32) * line_h;
+                let y = (vi as f32).mul_add(line_h, start_y);
                 let is_sel = i == ui_state.level_select_idx;
 
                 if is_sel {
@@ -434,7 +437,7 @@ pub fn build_ui_geometry(
             let line_h = 24.0;
 
             for (i, &item) in items.iter().enumerate() {
-                let y = start_y + (i as f32) * line_h;
+                let y = (i as f32).mul_add(line_h, start_y);
                 let is_sel = i == ui_state.pause_menu_idx;
 
                 if is_sel {
@@ -520,7 +523,7 @@ pub fn build_ui_geometry(
             let line_h = 13.0;
 
             for (i, label) in items.iter().enumerate() {
-                let y = start_y + (i as f32) * line_h;
+                let y = (i as f32).mul_add(line_h, start_y);
                 let is_sel = i == ui_state.settings_idx;
 
                 if is_sel {

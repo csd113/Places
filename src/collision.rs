@@ -15,10 +15,12 @@ pub struct WallAabb {
 }
 
 impl WallAabb {
+    #[must_use]
     pub fn new(x: f32, z: f32, width: f32, depth: f32) -> Self {
         Self::with_y(x, 0.0, z, width, 3.5, depth)
     }
 
+    #[must_use]
     pub fn with_y(x: f32, y: f32, z: f32, width: f32, height: f32, depth: f32) -> Self {
         let (min_x, max_x) = if width >= 0.0 {
             (x, x + width)
@@ -46,11 +48,13 @@ impl WallAabb {
     }
 
     /// Checks if this wall intersects the player vertically.
+    #[must_use]
     pub fn intersects_player_y(&self) -> bool {
         self.max_y > 0.0 && self.min_y < PLAYER_HEIGHT
     }
 
     /// Checks if a 2D circle intersects this wall AABB.
+    #[must_use]
     pub fn intersects_circle(&self, center: Vec2, radius: f32) -> bool {
         if !self.intersects_player_y() {
             return false;
@@ -59,12 +63,13 @@ impl WallAabb {
         let closest_z = center.y.clamp(self.min_z, self.max_z);
         let diff_x = center.x - closest_x;
         let diff_z = center.y - closest_z;
-        (diff_x * diff_x + diff_z * diff_z) < (radius * radius)
+        diff_z.mul_add(diff_z, diff_x * diff_x) < (radius * radius)
     }
 }
 
 /// Resolves collision between player horizontal position and wall bounding boxes.
 /// Allows smooth sliding along walls and resolves corner collisions.
+#[must_use]
 pub fn resolve_player_collision(mut pos: Vec2, radius: f32, walls: &[WallAabb]) -> Vec2 {
     for _ in 0..4 {
         let mut collided = false;
@@ -115,6 +120,7 @@ pub fn resolve_player_collision(mut pos: Vec2, radius: f32, walls: &[WallAabb]) 
 mod tests {
     use super::*;
     use crate::level::LevelDef;
+    use crate::test_support::assert_exact;
 
     /// Solid props block with their catalogue-sized box; non-solid props
     /// (rugs, plants, lamps, TVs, cardboard boxes) never affect collision.
@@ -168,10 +174,10 @@ mod tests {
     #[test]
     fn test_wall_aabb_creation() {
         let wall = WallAabb::new(2.0, -5.0, 4.0, 1.0);
-        assert_eq!(wall.min_x, 2.0);
-        assert_eq!(wall.max_x, 6.0);
-        assert_eq!(wall.min_z, -5.0);
-        assert_eq!(wall.max_z, -4.0);
+        assert_exact(wall.min_x, 2.0);
+        assert_exact(wall.max_x, 6.0);
+        assert_exact(wall.min_z, -5.0);
+        assert_exact(wall.max_z, -4.0);
     }
 
     #[test]

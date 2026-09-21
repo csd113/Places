@@ -2,7 +2,7 @@
 //!
 //! Everything in this module is inert unless `LIMINAL_BENCH=1` is set in the
 //! environment, so a normal release build keeps printing nothing and allocates
-//! nothing per frame. It exists because the PocketCHIP can only be driven over
+//! nothing per frame. It exists because the `PocketCHIP` can only be driven over
 //! SSH: the on-screen `-` performance overlay cannot be read back, so the
 //! measurements have to come out on stdout and in a CSV file.
 //!
@@ -40,7 +40,7 @@ const BENCH_WARMUP_ENV: &str = "LIMINAL_BENCH_WARMUP";
 const BENCH_FRAMES_ENV: &str = "LIMINAL_BENCH_FRAMES";
 /// Freeze the camera at `yaw_degrees[,pitch_degrees]` for a repeatable shot.
 const BENCH_CAMERA_ENV: &str = "LIMINAL_CAMERA";
-/// `on`/`off` override for the swap interval, used only to characterise VSync.
+/// `on`/`off` override for the swap interval, used only to characterise `VSync`.
 const BENCH_VSYNC_ENV: &str = "LIMINAL_VSYNC";
 /// `1` inserts `glFinish` before the swap, splitting renderer time from
 /// presentation time unambiguously (diagnostic only).
@@ -69,6 +69,41 @@ pub struct FrameTimings {
     pub loop_ms: f32,
 }
 
+/// Diagnostic submission switches parsed from the `LIMINAL_BENCH*` environment.
+///
+/// Each one changes exactly one renderer decision, so one release build measures
+/// what culling, indexing, exact-vertex packing, finishing and skipping are each
+/// worth while everything else (level build, batching, draw order, shaders) is
+/// held fixed.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct BenchSwitches(u8);
+
+impl BenchSwitches {
+    /// Call `glFinish` immediately before the swap (diagnostic).
+    pub const FINISH_BEFORE_SWAP: Self = Self(1 << 0);
+    /// Skip scene/UI submission entirely (diagnostic).
+    pub const SKIP_RENDER: Self = Self(1 << 1);
+    /// Skip `SDL_GL_SwapWindow` entirely (diagnostic).
+    pub const SKIP_SWAP: Self = Self(1 << 2);
+    /// Submit every batch regardless of the frustum, to measure culling's worth.
+    pub const NO_CULL: Self = Self(1 << 3);
+    /// Submit flat triangle lists, to measure indexing's worth.
+    pub const NO_INDEX: Self = Self(1 << 4);
+    /// Upload the 36-byte exact vertex layout, to measure packing's worth.
+    pub const EXACT_VERTEX: Self = Self(1 << 5);
+
+    /// True when every switch in `other` is set.
+    #[must_use]
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+
+    /// Adds `other` to the set.
+    pub const fn insert(&mut self, other: Self) {
+        self.0 |= other.0;
+    }
+}
+
 /// Parsed `LIMINAL_BENCH*` environment configuration.
 #[derive(Clone, Debug, Default)]
 pub struct BenchConfig {
@@ -78,18 +113,8 @@ pub struct BenchConfig {
     pub limit_frames: Option<u64>,
     pub camera: Option<(f32, f32)>,
     pub vsync_override: Option<bool>,
-    /// Call `glFinish` immediately before the swap (diagnostic).
-    pub finish_before_swap: bool,
-    /// Skip scene/UI submission entirely (diagnostic).
-    pub skip_render: bool,
-    /// Skip `SDL_GL_SwapWindow` entirely (diagnostic).
-    pub skip_swap: bool,
-    /// Submit every batch regardless of the frustum, to measure culling's worth.
-    pub no_cull: bool,
-    /// Submit flat triangle lists, to measure indexing's worth.
-    pub no_index: bool,
-    /// Upload the 36-byte exact vertex layout, to measure packing's worth.
-    pub exact_vertex: bool,
+    /// Diagnostic switches that each change one submission decision.
+    pub switches: BenchSwitches,
 }
 
 impl BenchConfig {
@@ -110,6 +135,19 @@ impl BenchConfig {
         let camera = non_empty_var(BENCH_CAMERA_ENV).and_then(|value| parse_camera(&value));
         let vsync_override =
             non_empty_var(BENCH_VSYNC_ENV).and_then(|value| parse_vsync_override(&value));
+        let mut switches = BenchSwitches::default();
+        for (name, switch) in [
+            (BENCH_FINISH_ENV, BenchSwitches::FINISH_BEFORE_SWAP),
+            (BENCH_NORENDER_ENV, BenchSwitches::SKIP_RENDER),
+            (BENCH_NOSWAP_ENV, BenchSwitches::SKIP_SWAP),
+            (BENCH_NOCULL_ENV, BenchSwitches::NO_CULL),
+            (BENCH_NOINDEX_ENV, BenchSwitches::NO_INDEX),
+            (BENCH_EXACT_VERTEX_ENV, BenchSwitches::EXACT_VERTEX),
+        ] {
+            if env_flag(name) {
+                switches.insert(switch);
+            }
+        }
         Self {
             enabled,
             out_path,
@@ -117,12 +155,7 @@ impl BenchConfig {
             limit_frames,
             camera,
             vsync_override,
-            finish_before_swap: env_flag(BENCH_FINISH_ENV),
-            skip_render: env_flag(BENCH_NORENDER_ENV),
-            skip_swap: env_flag(BENCH_NOSWAP_ENV),
-            no_cull: env_flag(BENCH_NOCULL_ENV),
-            no_index: env_flag(BENCH_NOINDEX_ENV),
-            exact_vertex: env_flag(BENCH_EXACT_VERTEX_ENV),
+            switches,
         }
     }
 }
@@ -137,18 +170,16 @@ fn non_empty_var(name: &str) -> Option<String> {
 
 /// True when the value is a non-empty, non-`0`/`false`/`off` string.
 fn env_flag(name: &str) -> bool {
-    match std::env::var(name) {
-        Ok(value) => {
-            let value = value.trim().to_ascii_lowercase();
-            !matches!(value.as_str(), "" | "0" | "false" | "no" | "off")
-        }
-        Err(_) => false,
-    }
+    std::env::var(name).is_ok_and(|value| {
+        let value = value.trim().to_ascii_lowercase();
+        !matches!(value.as_str(), "" | "0" | "false" | "no" | "off")
+    })
 }
 
 /// Parses `yaw_degrees` or `yaw_degrees,pitch_degrees`.
+#[must_use]
 pub fn parse_camera(value: &str) -> Option<(f32, f32)> {
-    let mut parts = value.split(',').map(|part| part.trim());
+    let mut parts = value.split(',').map(str::trim);
     let yaw = parts.next()?.parse::<f32>().ok()?;
     let pitch = match parts.next() {
         Some(text) => text.parse::<f32>().ok()?,
@@ -162,6 +193,7 @@ pub fn parse_camera(value: &str) -> Option<(f32, f32)> {
 }
 
 /// Parses an explicit swap-interval override: `on`/`off`/`1`/`0`.
+#[must_use]
 pub fn parse_vsync_override(value: &str) -> Option<bool> {
     match value.trim().to_ascii_lowercase().as_str() {
         "1" | "on" | "true" | "yes" | "vsync" => Some(true),
@@ -202,6 +234,7 @@ impl TimingSummary {
     }
 
     /// Frames per second implied by a millisecond frame time.
+    #[must_use]
     pub fn fps_from_ms(ms: f32) -> f32 {
         if ms > 0.0 { 1000.0 / ms } else { 0.0 }
     }
@@ -237,6 +270,7 @@ pub struct Bench {
 impl Bench {
     /// Builds the harness from the environment. When benchmarking is disabled
     /// the returned value is a no-op and holds no file handle or buffers.
+    #[must_use]
     pub fn new() -> Self {
         let config = BenchConfig::from_env();
         let mut csv = config
@@ -263,57 +297,69 @@ impl Bench {
     }
 
     /// True when `LIMINAL_BENCH=1` was set, i.e. the harness should be driven.
-    pub fn enabled(&self) -> bool {
+    #[must_use]
+    pub const fn enabled(&self) -> bool {
         self.config.enabled
     }
 
     /// Camera override (`yaw_degrees`, `pitch_degrees`) for repeatable shots.
-    pub fn camera_override(&self) -> Option<(f32, f32)> {
+    #[must_use]
+    pub const fn camera_override(&self) -> Option<(f32, f32)> {
         self.config.camera
     }
 
     /// Explicit swap-interval request, when `LIMINAL_VSYNC` was set.
-    pub fn vsync_override(&self) -> Option<bool> {
+    #[must_use]
+    pub const fn vsync_override(&self) -> Option<bool> {
         self.config.vsync_override
     }
 
     /// Whether to sync the GL pipeline (via `glFinish`) before measuring the swap.
-    pub fn finish_before_swap(&self) -> bool {
-        self.config.finish_before_swap
+    #[must_use]
+    pub const fn finish_before_swap(&self) -> bool {
+        self.config
+            .switches
+            .contains(BenchSwitches::FINISH_BEFORE_SWAP)
     }
 
     /// Whether scene/UI submission should be skipped for this run.
-    pub fn skip_render(&self) -> bool {
-        self.config.skip_render
+    #[must_use]
+    pub const fn skip_render(&self) -> bool {
+        self.config.switches.contains(BenchSwitches::SKIP_RENDER)
     }
 
     /// Whether `SDL_GL_SwapWindow` should be skipped for this run.
-    pub fn skip_swap(&self) -> bool {
-        self.config.skip_swap
+    #[must_use]
+    pub const fn skip_swap(&self) -> bool {
+        self.config.switches.contains(BenchSwitches::SKIP_SWAP)
     }
 
     /// Whether frustum culling should be disabled for this run.
-    pub fn no_cull(&self) -> bool {
-        self.config.no_cull
+    #[must_use]
+    pub const fn no_cull(&self) -> bool {
+        self.config.switches.contains(BenchSwitches::NO_CULL)
     }
 
     /// Whether indexed submission should be replaced by flat triangle lists.
-    pub fn no_index(&self) -> bool {
-        self.config.no_index
+    #[must_use]
+    pub const fn no_index(&self) -> bool {
+        self.config.switches.contains(BenchSwitches::NO_INDEX)
     }
 
     /// Whether the 36-byte exact vertex layout should be used instead of packing.
-    pub fn exact_vertex(&self) -> bool {
-        self.config.exact_vertex
+    #[must_use]
+    pub const fn exact_vertex(&self) -> bool {
+        self.config.switches.contains(BenchSwitches::EXACT_VERTEX)
     }
 
     /// Records the swap interval the platform reports after configuration.
-    pub fn set_reported_swap_interval(&mut self, interval: i32) {
+    pub const fn set_reported_swap_interval(&mut self, interval: i32) {
         self.reported_swap_interval = Some(interval);
     }
 
     /// Number of frames still to record, or `None` for an unbounded run.
-    pub fn frames_remaining(&self) -> Option<u64> {
+    #[must_use]
+    pub const fn frames_remaining(&self) -> Option<u64> {
         self.limit_remaining
     }
 
@@ -334,10 +380,9 @@ impl Bench {
         // The gap between consecutive frame starts is the real presentation
         // cadence: the only honest source for an FPS number when a swap may or
         // may not block.
-        let loop_ms = self
-            .last_begin
-            .map(|previous| millis(begin.saturating_duration_since(previous)))
-            .unwrap_or(0.0);
+        let loop_ms = self.last_begin.map_or(0.0, |previous| {
+            millis(begin.saturating_duration_since(previous))
+        });
         self.last_begin = Some(begin);
 
         if self.warmup_remaining > 0 {
@@ -390,6 +435,7 @@ impl Bench {
     }
 
     /// True once `LIMINAL_BENCH_FRAMES` frames have been recorded.
+    #[must_use]
     pub fn is_complete(&self) -> bool {
         self.config.enabled && self.limit_remaining == Some(0)
     }
@@ -418,8 +464,7 @@ impl Bench {
             "BENCH_SUMMARY {{\"level\":\"{level}\",\"frames\":{},\"swap_interval\":{},\"update_mean_ms\":{:.3},\"render_mean_ms\":{:.3},\"swap_mean_ms\":{:.3},\"frame_mean_ms\":{:.3},\"loop_mean_ms\":{:.3},\"frame_median_ms\":{:.3},\"loop_median_ms\":{:.3},\"frame_p95_ms\":{:.3},\"frame_p99_ms\":{:.3},\"loop_p95_ms\":{:.3},\"loop_p99_ms\":{:.3},\"frame_min_ms\":{:.3},\"frame_max_ms\":{:.3},\"loop_min_ms\":{:.3},\"loop_max_ms\":{:.3},\"fps_median\":{:.2},\"fps_p95\":{:.2},\"fps_p99\":{:.2},\"fps_1pct_low\":{:.2},\"fps_mean\":{:.2},\"measured_fps_mean\":{:.2},\"worst_fps\":{:.2},\"total_vertices\":{},\"visible_vertices\":{},\"culled_vertices\":{},\"total_batches\":{},\"visible_batches\":{},\"draw_calls\":{},\"vbo_bytes\":{},\"index_bytes\":{}}}",
             self.frames.len(),
             self.reported_swap_interval
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "null".to_string()),
+                .map_or_else(|| "null".to_string(), |value| value.to_string()),
             update.mean_ms,
             render.mean_ms,
             swap.mean_ms,
@@ -471,6 +516,7 @@ fn millis(duration: std::time::Duration) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::assert_exact;
 
     #[test]
     fn parse_camera_accepts_yaw_and_optional_pitch() {
@@ -493,14 +539,14 @@ mod tests {
     #[test]
     fn timing_summary_handles_empty_and_single_samples() {
         let empty = TimingSummary::from_samples(&mut []);
-        assert_eq!(empty.median_ms, 0.0);
-        assert_eq!(TimingSummary::fps_from_ms(0.0), 0.0);
+        assert_exact(empty.median_ms, 0.0);
+        assert_exact(TimingSummary::fps_from_ms(0.0), 0.0);
 
         let single = TimingSummary::from_samples(&mut [16.0]);
-        assert_eq!(single.median_ms, 16.0);
-        assert_eq!(single.p95_ms, 16.0);
-        assert_eq!(single.min_ms, 16.0);
-        assert_eq!(single.max_ms, 16.0);
+        assert_exact(single.median_ms, 16.0);
+        assert_exact(single.p95_ms, 16.0);
+        assert_exact(single.min_ms, 16.0);
+        assert_exact(single.max_ms, 16.0);
     }
 
     #[test]
@@ -510,8 +556,8 @@ mod tests {
         assert!((summary.median_ms - 51.0).abs() < 0.01);
         assert!((summary.p95_ms - 95.0).abs() < 0.01);
         assert!((summary.p99_ms - 99.0).abs() < 0.01);
-        assert_eq!(summary.min_ms, 1.0);
-        assert_eq!(summary.max_ms, 100.0);
+        assert_exact(summary.min_ms, 1.0);
+        assert_exact(summary.max_ms, 100.0);
     }
 
     #[test]

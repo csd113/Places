@@ -34,7 +34,8 @@ pub struct LoadedPropAsset {
 }
 
 /// Decoded texture memory held by the cache, in bytes (RGBA, uncompressed).
-pub fn texture_bytes(model: &PropModel) -> usize {
+#[must_use]
+pub const fn texture_bytes(model: &PropModel) -> usize {
     model.texture.rgba.len()
 }
 
@@ -58,6 +59,7 @@ pub struct PropAssets {
 
 impl PropAssets {
     /// Creates a cache using the standard asset search order.
+    #[must_use]
     pub fn load_default() -> Self {
         Self {
             root: resolve_prop_root(),
@@ -76,11 +78,16 @@ impl PropAssets {
     }
 
     /// Resolved asset root, if one exists on disk.
+    #[must_use]
     pub fn root(&self) -> Option<&Path> {
         self.root.as_deref()
     }
 
     /// Loads (or returns the cached) model for a catalogue `model` path.
+    /// # Errors
+    ///
+    /// Returns a message when the model file is missing, is not a valid GLB, or
+    /// exceeds the prop budgets.
     pub fn resolve(&mut self, model_path: &str) -> Result<Rc<LoadedPropAsset>, String> {
         if let Some(cached) = self.models.get(model_path) {
             return cached.clone();
@@ -116,6 +123,7 @@ impl PropAssets {
     }
 
     /// Cache statistics, used by the performance overlay and tests.
+    #[must_use]
     pub fn stats(&self) -> PropAssetStats {
         let mut stats = PropAssetStats::default();
         for entry in self.models.values() {
@@ -252,8 +260,8 @@ mod tests {
                 entry.id,
                 low[1]
             );
-            let center_x = (low[0] + high[0]) * 0.5;
-            let center_z = (low[2] + high[2]) * 0.5;
+            let center_x = f32::midpoint(low[0], high[0]);
+            let center_z = f32::midpoint(low[2], high[2]);
             assert!(
                 center_x.abs() <= 0.02 && center_z.abs() <= 0.02,
                 "{}: model is not horizontally centred (x={center_x:.3}, z={center_z:.3})",

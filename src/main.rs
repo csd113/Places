@@ -18,7 +18,11 @@ pub mod props;
 pub mod render;
 pub mod settings;
 pub mod spatial;
+#[cfg(test)]
+mod test_support;
 pub mod ui;
+
+use std::cmp::Ordering;
 
 use glam::Vec3;
 use sdl2::event::Event;
@@ -35,7 +39,7 @@ use ui::{SETTINGS_ITEM_COUNT, UiGeometryCache, UiState, activate_settings_item};
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Prints what the level's props and baked lighting cost, so hardware runs
-/// (PocketCHIP over SSH) can be checked without a debugger: decoded models,
+/// (`PocketCHIP` over SSH) can be checked without a debugger: decoded models,
 /// texture memory, draw calls, level-build time and the baked room baselines.
 fn log_prop_usage(renderer: &Renderer) {
     let stats = renderer.prop_asset_stats();
@@ -102,7 +106,7 @@ fn parse_spawn_override(value: &str) -> Option<[f32; 4]> {
 
 /// Configures SDL OpenGL attributes before the window/context is created.
 ///
-/// When `gles` is true, requests an OpenGL ES 2.0 context (PocketCHIP baseline);
+/// When `gles` is true, requests an OpenGL ES 2.0 context (`PocketCHIP` baseline);
 /// otherwise the platform default profile is used so desktop development still
 /// works. Double buffering is always requested.
 fn configure_gl_attributes(video: &sdl2::VideoSubsystem, gles: bool) {
@@ -124,7 +128,7 @@ fn configure_gl_attributes(video: &sdl2::VideoSubsystem, gles: bool) {
 /// Requests a swap interval and reports what the platform actually accepted.
 ///
 /// This used to discard the result of `SDL_GL_SetSwapInterval`, which made a
-/// silently ignored VSync request indistinguishable from a working one. The
+/// silently ignored `VSync` request indistinguishable from a working one. The
 /// requested interval, the call's return status and `SDL_GL_GetSwapInterval`
 /// (a fresh query of the platform, not an echo of the request) are all logged
 /// once at startup, and the interval in force is returned for the caller.
@@ -245,12 +249,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .opengl()
             .build()
     };
-    let window = match build_window() {
-        Ok(window) => window,
-        Err(_) => {
-            configure_gl_attributes(&video_subsystem, false);
-            build_window().map_err(|e| format!("Failed to create window: {e}"))?
-        }
+    let window = if let Ok(window) = build_window() {
+        window
+    } else {
+        configure_gl_attributes(&video_subsystem, false);
+        build_window().map_err(|e| format!("Failed to create window: {e}"))?
     };
 
     // Debug-only frame telemetry. Inert unless `LIMINAL_BENCH=1` is set.
@@ -431,90 +434,100 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             // 2. Menu navigation for non-playing states (independent of gameplay bindings)
-            if app_state != AppState::Playing {
-                if let Some(nav) = InputHandler::poll_menu_nav_event(&event) {
-                    let level_items_count = ui_state.level_entries.len() + 2; // levels + Load/Import + Back
-                    match nav {
-                        MenuNavEvent::Up => match app_state {
-                            AppState::MainMenu => {
-                                ui_state.main_menu_idx = (ui_state.main_menu_idx + 3 - 1) % 3;
+            if app_state == AppState::Playing {
+                // 3. Gameplay active (AppState::Playing)
+                if let Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    repeat: false,
+                    ..
+                } = event
+                {
+                    input_handler.clear_gameplay_inputs();
+                    game.handle_escape(); // Opens Pause menu
+                } else {
+                    input_handler.handle_gameplay_event(&event, &settings.bindings);
+                }
+            } else if let Some(nav) = InputHandler::poll_menu_nav_event(&event) {
+                let level_items_count = ui_state.level_entries.len() + 2; // levels + Load/Import + Back
+                match nav {
+                    MenuNavEvent::Up => match app_state {
+                        AppState::MainMenu => {
+                            ui_state.main_menu_idx = (ui_state.main_menu_idx + 3 - 1) % 3;
+                        }
+                        AppState::LevelSelect => {
+                            ui_state.level_select_idx =
+                                (ui_state.level_select_idx + level_items_count - 1)
+                                    % level_items_count;
+                        }
+                        AppState::Paused => {
+                            ui_state.pause_menu_idx = (ui_state.pause_menu_idx + 3 - 1) % 3;
+                        }
+                        AppState::Settings | AppState::PauseSettings => {
+                            ui_state.settings_idx = (ui_state.settings_idx + SETTINGS_ITEM_COUNT
+                                - 1)
+                                % SETTINGS_ITEM_COUNT;
+                        }
+                        AppState::Playing => {}
+                    },
+                    MenuNavEvent::Down => match app_state {
+                        AppState::MainMenu => {
+                            ui_state.main_menu_idx = (ui_state.main_menu_idx + 1) % 3;
+                        }
+                        AppState::LevelSelect => {
+                            ui_state.level_select_idx =
+                                (ui_state.level_select_idx + 1) % level_items_count;
+                        }
+                        AppState::Paused => {
+                            ui_state.pause_menu_idx = (ui_state.pause_menu_idx + 1) % 3;
+                        }
+                        AppState::Settings | AppState::PauseSettings => {
+                            ui_state.settings_idx =
+                                (ui_state.settings_idx + 1) % SETTINGS_ITEM_COUNT;
+                        }
+                        AppState::Playing => {}
+                    },
+                    MenuNavEvent::Left => {
+                        if app_state == AppState::Settings || app_state == AppState::PauseSettings {
+                            activate_settings_item(
+                                ui_state.settings_idx,
+                                &mut ui_state,
+                                &mut settings,
+                                -1,
+                            );
+                        }
+                    }
+                    MenuNavEvent::Right => {
+                        if app_state == AppState::Settings || app_state == AppState::PauseSettings {
+                            activate_settings_item(
+                                ui_state.settings_idx,
+                                &mut ui_state,
+                                &mut settings,
+                                1,
+                            );
+                        }
+                    }
+                    MenuNavEvent::Activate => match app_state {
+                        AppState::MainMenu => match ui_state.main_menu_idx {
+                            0 => {
+                                // Discovery metadata is cached at startup and
+                                // refreshed after imports; opening the level
+                                // list must not re-scan/re-extract packs.
+                                ui_state.level_entries = level_manager
+                                    .entries()
+                                    .iter()
+                                    .map(|e| e.name.clone())
+                                    .collect();
+                                game.set_app_state(AppState::LevelSelect);
                             }
-                            AppState::LevelSelect => {
-                                ui_state.level_select_idx =
-                                    (ui_state.level_select_idx + level_items_count - 1)
-                                        % level_items_count;
-                            }
-                            AppState::Paused => {
-                                ui_state.pause_menu_idx = (ui_state.pause_menu_idx + 3 - 1) % 3;
-                            }
-                            AppState::Settings | AppState::PauseSettings => {
-                                ui_state.settings_idx =
-                                    (ui_state.settings_idx + SETTINGS_ITEM_COUNT - 1)
-                                        % SETTINGS_ITEM_COUNT;
-                            }
+                            1 => game.set_app_state(AppState::Settings),
+                            2 => game.stop(),
                             _ => {}
                         },
-                        MenuNavEvent::Down => match app_state {
-                            AppState::MainMenu => {
-                                ui_state.main_menu_idx = (ui_state.main_menu_idx + 1) % 3;
-                            }
-                            AppState::LevelSelect => {
-                                ui_state.level_select_idx =
-                                    (ui_state.level_select_idx + 1) % level_items_count;
-                            }
-                            AppState::Paused => {
-                                ui_state.pause_menu_idx = (ui_state.pause_menu_idx + 1) % 3;
-                            }
-                            AppState::Settings | AppState::PauseSettings => {
-                                ui_state.settings_idx =
-                                    (ui_state.settings_idx + 1) % SETTINGS_ITEM_COUNT;
-                            }
-                            _ => {}
-                        },
-                        MenuNavEvent::Left => {
-                            if app_state == AppState::Settings
-                                || app_state == AppState::PauseSettings
-                            {
-                                activate_settings_item(
-                                    ui_state.settings_idx,
-                                    &mut ui_state,
-                                    &mut settings,
-                                    -1,
-                                );
-                            }
-                        }
-                        MenuNavEvent::Right => {
-                            if app_state == AppState::Settings
-                                || app_state == AppState::PauseSettings
-                            {
-                                activate_settings_item(
-                                    ui_state.settings_idx,
-                                    &mut ui_state,
-                                    &mut settings,
-                                    1,
-                                );
-                            }
-                        }
-                        MenuNavEvent::Activate => match app_state {
-                            AppState::MainMenu => match ui_state.main_menu_idx {
-                                0 => {
-                                    // Discovery metadata is cached at startup and
-                                    // refreshed after imports; opening the level
-                                    // list must not re-scan/re-extract packs.
-                                    ui_state.level_entries = level_manager
-                                        .entries()
-                                        .iter()
-                                        .map(|e| e.name.clone())
-                                        .collect();
-                                    game.set_app_state(AppState::LevelSelect);
-                                }
-                                1 => game.set_app_state(AppState::Settings),
-                                2 => game.stop(),
-                                _ => {}
-                            },
-                            AppState::LevelSelect => {
-                                let num_levels = level_manager.entries().len();
-                                if ui_state.level_select_idx < num_levels {
+                        AppState::LevelSelect => {
+                            let num_levels = level_manager.entries().len();
+                            match ui_state.level_select_idx.cmp(&num_levels) {
+                                // One of the installed levels: load it.
+                                Ordering::Less => {
                                     if let Some(entry) =
                                         level_manager.get_entry(ui_state.level_select_idx)
                                     {
@@ -543,85 +556,72 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             }
                                         }
                                     }
-                                } else if ui_state.level_select_idx == num_levels {
-                                    // Load/Import Level
-                                    match level_manager.import_available() {
-                                        Ok(count) => {
-                                            // `import_available` rescans after importing.
-                                            ui_state.level_entries = level_manager
-                                                .entries()
-                                                .iter()
-                                                .map(|e| e.name.clone())
-                                                .collect();
-                                            if count > 0 {
-                                                ui_state.status_message = Some(format!(
-                                                    "Imported {count} level(s) from import/"
-                                                ));
-                                            } else {
-                                                ui_state.status_message = Some(
-                                                    "No new .json/.zip in import/ or levels/import/"
-                                                        .to_string(),
-                                                );
-                                            }
-                                        }
-                                        Err(err) => {
-                                            ui_state.status_message =
-                                                Some(format!("Import error: {err}"));
+                                }
+                                // `Load/Import Level`.
+                                Ordering::Equal => match level_manager.import_available() {
+                                    Ok(count) => {
+                                        // `import_available` rescans after importing.
+                                        ui_state.level_entries = level_manager
+                                            .entries()
+                                            .iter()
+                                            .map(|e| e.name.clone())
+                                            .collect();
+                                        if count > 0 {
+                                            ui_state.status_message = Some(format!(
+                                                "Imported {count} level(s) from import/"
+                                            ));
+                                        } else {
+                                            ui_state.status_message = Some(
+                                                "No new .json/.zip in import/ or levels/import/"
+                                                    .to_string(),
+                                            );
                                         }
                                     }
-                                } else {
-                                    // Back
+                                    Err(err) => {
+                                        ui_state.status_message =
+                                            Some(format!("Import error: {err}"));
+                                    }
+                                },
+                                // `Back`.
+                                Ordering::Greater => {
                                     game.set_app_state(AppState::MainMenu);
                                 }
                             }
-                            AppState::Paused => match ui_state.pause_menu_idx {
-                                0 => {
-                                    input_handler.clear_gameplay_inputs();
-                                    game.set_app_state(AppState::Playing);
-                                }
-                                1 => game.set_app_state(AppState::PauseSettings),
-                                2 => game.set_app_state(AppState::MainMenu),
-                                _ => {}
-                            },
-                            AppState::Settings => {
-                                if activate_settings_item(
-                                    ui_state.settings_idx,
-                                    &mut ui_state,
-                                    &mut settings,
-                                    1,
-                                ) {
-                                    game.set_app_state(AppState::MainMenu);
-                                }
+                        }
+                        AppState::Paused => match ui_state.pause_menu_idx {
+                            0 => {
+                                input_handler.clear_gameplay_inputs();
+                                game.set_app_state(AppState::Playing);
                             }
-                            AppState::PauseSettings
-                                if activate_settings_item(
-                                    ui_state.settings_idx,
-                                    &mut ui_state,
-                                    &mut settings,
-                                    1,
-                                ) =>
-                            {
-                                game.set_app_state(AppState::Paused);
-                            }
+                            1 => game.set_app_state(AppState::PauseSettings),
+                            2 => game.set_app_state(AppState::MainMenu),
                             _ => {}
                         },
-                        MenuNavEvent::Back => {
-                            game.handle_escape();
+                        AppState::Settings => {
+                            if activate_settings_item(
+                                ui_state.settings_idx,
+                                &mut ui_state,
+                                &mut settings,
+                                1,
+                            ) {
+                                game.set_app_state(AppState::MainMenu);
+                            }
                         }
+                        AppState::PauseSettings
+                            if activate_settings_item(
+                                ui_state.settings_idx,
+                                &mut ui_state,
+                                &mut settings,
+                                1,
+                            ) =>
+                        {
+                            game.set_app_state(AppState::Paused);
+                        }
+                        _ => {}
+                    },
+                    MenuNavEvent::Back => {
+                        game.handle_escape();
                     }
-                }
-            } else {
-                // 3. Gameplay active (AppState::Playing)
-                if let Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    repeat: false,
-                    ..
-                } = event
-                {
-                    input_handler.clear_gameplay_inputs();
-                    game.handle_escape(); // Opens Pause menu
-                } else {
-                    input_handler.handle_gameplay_event(&event, &settings.bindings);
                 }
             }
         }
@@ -708,7 +708,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Ok(image) => match loader::encode_png(&image) {
                     Ok(bytes) => match std::fs::write(path, bytes) {
                         Ok(()) => println!("LIMINAL_CAPTURE: wrote {}", path.display()),
-                        Err(error) => eprintln!("LIMINAL_CAPTURE: cannot write {path:?}: {error}"),
+                        Err(error) => {
+                            eprintln!("LIMINAL_CAPTURE: cannot write {}: {error}", path.display());
+                        }
                     },
                     Err(error) => eprintln!("LIMINAL_CAPTURE: {error}"),
                 },

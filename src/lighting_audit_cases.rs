@@ -20,6 +20,7 @@ use super::lighting_audit::{
     assert_vertex_colors_safe, level_json, light, parse, room, square_room_level,
 };
 use crate::render::SurfaceKind;
+use crate::test_support::{assert_exact, assert_exact_named, scan, scan_below};
 
 fn bake(level: &LevelDef) -> LevelLighting {
     LevelLighting::bake(level)
@@ -36,7 +37,7 @@ fn color_range(mesh: &crate::render::LevelMesh) -> (f32, f32) {
     let mut min = f32::MAX;
     let mut max = f32::MIN;
     for vertex in &mesh.all_vertices() {
-        for value in vertex.color[..3].iter() {
+        for value in &vertex.color[..3] {
             min = min.min(*value);
             max = max.max(*value);
         }
@@ -78,8 +79,7 @@ fn group_a_larger_area_lowers_the_baseline_and_stays_continuous() {
     // Continuity: the baseline is a smooth function of area, with no jump where
     // surfaces would switch tessellation density.
     let mut previous = f32::INFINITY;
-    let mut area = 1.0_f32;
-    while area <= 40.0 {
+    for area in scan(1.0, 0.25, 40.0) {
         let level = square_room_level(area.sqrt(), 3.5, 1, None);
         let baseline = bake(&level).rooms()[0].baseline;
         if previous.is_finite() {
@@ -89,7 +89,6 @@ fn group_a_larger_area_lowers_the_baseline_and_stays_continuous() {
             );
         }
         previous = baseline;
-        area += 0.25;
     }
 }
 
@@ -127,15 +126,15 @@ fn group_b_zero_light_rooms_stay_at_minimum_ambient_and_render() {
         let lighting = bake(&level);
         let info = &lighting.rooms()[0];
         assert_eq!(info.fixture_count, 0);
-        assert_eq!(info.effective_power, 0.0);
-        assert_eq!(info.baseline, MIN_AMBIENT);
+        assert_exact(info.effective_power, 0.0);
+        assert_exact(info.baseline, MIN_AMBIENT);
         for point in [
             [0.0, 0.0, 0.0],
             [width * 0.5, 0.0, depth * 0.5],
             [width, 0.0, depth],
             [width * 0.5, 3.0, depth * 0.5],
         ] {
-            assert_eq!(lighting.sample(point[0], point[1], point[2]), MIN_AMBIENT);
+            assert_exact(lighting.sample(point[0], point[1], point[2]), MIN_AMBIENT);
         }
 
         let mesh = build_checked(&level);
@@ -145,11 +144,11 @@ fn group_b_zero_light_rooms_stay_at_minimum_ambient_and_render() {
         // Everything stays inside the renderer range and nothing is black.
         let (min, max) = color_range(&mesh);
         assert!(min > 0.0 && max <= MAX_BRIGHTNESS + 1e-6);
-        assert!(min >= MIN_AMBIENT * 0.7 - 1e-6);
+        assert!(min >= MIN_AMBIENT.mul_add(0.7, -1e-6));
         let floor = mesh.triangles_for(SurfaceKind::Floor);
         assert!((floor[0].color[0] - MIN_AMBIENT).abs() < 1e-6);
         let ceiling = mesh.triangles_for(SurfaceKind::Ceiling);
-        assert!((ceiling[0].color[2] - MIN_AMBIENT * 0.70).abs() < 1e-6);
+        assert!(MIN_AMBIENT.mul_add(-0.70, ceiling[0].color[2]).abs() < 1e-6);
         // The tone is flat across the room: no accidental pools in the dark.
         assert!((max - min).abs() < 0.25);
     }
@@ -163,11 +162,11 @@ fn group_b_a_zero_intensity_fixture_behaves_like_no_fixture() {
     ));
     let lighting = bake(&level);
     assert_eq!(lighting.rooms()[0].fixture_count, 1);
-    assert_eq!(lighting.rooms()[0].effective_power, 0.0);
-    assert_eq!(lighting.rooms()[0].baseline, MIN_AMBIENT);
+    assert_exact(lighting.rooms()[0].effective_power, 0.0);
+    assert_exact(lighting.rooms()[0].baseline, MIN_AMBIENT);
     // No local pool either: a zero-output fixture is physically dark.
-    assert_eq!(lighting.sample(5.0, 0.0, 5.0), MIN_AMBIENT);
-    assert_eq!(lighting.lights()[0].intensity, 0.0);
+    assert_exact(lighting.sample(5.0, 0.0, 5.0), MIN_AMBIENT);
+    assert_exact(lighting.lights()[0].intensity, 0.0);
 }
 
 // ===========================================================================
@@ -193,24 +192,23 @@ fn group_c_dense_fixture_grids_saturate_without_overflow_or_geometry_explosion()
 
         // Walk the room at 1 m steps and a few heights: every sample is finite
         // and capped.
-        let mut x = 0.5;
-        while x < 40.0 {
-            let mut z = 0.5;
-            while z < 40.0 {
+        for x in scan_below(0.5, 3.7, 40.0) {
+            for z in scan_below(0.5, 3.7, 40.0) {
                 for y in [0.0, 1.5, 3.4] {
                     let value = lighting.sample(x, y, z);
                     assert!(value.is_finite(), "NaN at ({x}, {y}, {z})");
                     assert!((MIN_AMBIENT..=MAX_BRIGHTNESS).contains(&value));
                 }
-                z += 3.7;
             }
-            x += 3.7;
         }
 
         // Bounded geometry: only the fixture panel batch grows with light count,
         // and flat floor cells merge below the cell-grid bound.
         let mesh = build_checked(&level);
-        assert_eq!(mesh.batches.light_batch.count, count as i32 * 18);
+        assert_eq!(
+            mesh.batches.light_batch.count,
+            i32::try_from(count).unwrap_or(i32::MAX) * 18
+        );
         assert!(mesh.batches.floor_batch.count <= 12 * 12 * 6);
         assert!(mesh.batches.floor_batch.count > 0);
         assert!(mesh.batches.ceiling_batch.count <= 12 * 12 * 6);
@@ -238,19 +236,19 @@ fn group_c_dense_fixture_grids_saturate_without_overflow_or_geometry_explosion()
 #[test]
 fn group_d_intensity_boundaries_are_sanitized_deterministically() {
     use crate::lighting::sanitize_intensity;
-    assert_eq!(sanitize_intensity(0.0), 0.0);
-    assert_eq!(sanitize_intensity(1e-9), 1e-9);
-    assert_eq!(sanitize_intensity(0.5), 0.5);
-    assert_eq!(sanitize_intensity(1.0), 1.0);
-    assert_eq!(sanitize_intensity(1.4), 1.4);
-    assert_eq!(sanitize_intensity(2.0), 2.0);
-    assert_eq!(sanitize_intensity(8.0), MAX_LIGHT_INTENSITY);
-    assert_eq!(sanitize_intensity(1.0e30), MAX_LIGHT_INTENSITY);
-    assert_eq!(sanitize_intensity(f32::INFINITY), MAX_LIGHT_INTENSITY);
-    assert_eq!(sanitize_intensity(f32::NEG_INFINITY), 0.0);
-    assert_eq!(sanitize_intensity(-0.5), 0.0);
-    assert_eq!(sanitize_intensity(-1.0e30), 0.0);
-    assert_eq!(sanitize_intensity(f32::NAN), 1.0);
+    assert_exact(sanitize_intensity(0.0), 0.0);
+    assert_exact(sanitize_intensity(1e-9), 1e-9);
+    assert_exact(sanitize_intensity(0.5), 0.5);
+    assert_exact(sanitize_intensity(1.0), 1.0);
+    assert_exact(sanitize_intensity(1.4), 1.4);
+    assert_exact(sanitize_intensity(2.0), 2.0);
+    assert_exact(sanitize_intensity(8.0), MAX_LIGHT_INTENSITY);
+    assert_exact(sanitize_intensity(1.0e30), MAX_LIGHT_INTENSITY);
+    assert_exact(sanitize_intensity(f32::INFINITY), MAX_LIGHT_INTENSITY);
+    assert_exact(sanitize_intensity(f32::NEG_INFINITY), 0.0);
+    assert_exact(sanitize_intensity(-0.5), 0.0);
+    assert_exact(sanitize_intensity(-1.0e30), 0.0);
+    assert_exact(sanitize_intensity(f32::NAN), 1.0);
     for value in [
         0.0_f32,
         1e-9,
@@ -294,8 +292,8 @@ fn group_d_intensity_inputs_brighten_monotonically_up_to_the_clamp() {
         .rooms()[0]
             .baseline
     };
-    assert_eq!(clamp(8.0), clamp(100.0));
-    assert_eq!(clamp(8.0), clamp(1.0e30));
+    assert_exact(clamp(8.0), clamp(100.0));
+    assert_exact(clamp(8.0), clamp(1.0e30));
 }
 
 #[test]
@@ -317,15 +315,15 @@ fn group_d_loader_rejects_invalid_intensities_and_accepts_both_spellings() {
     // `brightness` (canonical) and `intensity` (alias) parse to the same value.
     let canonical = parse(&with_field(r#""brightness": 1.4"#));
     let alias = parse(&with_field(r#""intensity": 1.4"#));
-    assert_eq!(canonical.ceiling_lights[0].intensity(), 1.4);
-    assert_eq!(alias.ceiling_lights[0].intensity(), 1.4);
-    assert_eq!(
+    assert_exact(canonical.ceiling_lights[0].intensity(), 1.4);
+    assert_exact(alias.ceiling_lights[0].intensity(), 1.4);
+    assert_exact(
         bake(&canonical).rooms()[0].baseline,
-        bake(&alias).rooms()[0].baseline
+        bake(&alias).rooms()[0].baseline,
     );
 
     // Omitting both means the standard fixture.
-    assert_eq!(parse(&with_field("")).ceiling_lights[0].intensity(), 1.0);
+    assert_exact(parse(&with_field("")).ceiling_lights[0].intensity(), 1.0);
 
     // Negative and non-finite values are rejected by the loader with a message.
     for field in [
@@ -335,7 +333,7 @@ fn group_d_loader_rejects_invalid_intensities_and_accepts_both_spellings() {
     ] {
         let level = parse(&with_field(field));
         if field.contains("null") {
-            assert_eq!(level.ceiling_lights[0].intensity(), 1.0);
+            assert_exact(level.ceiling_lights[0].intensity(), 1.0);
             continue;
         }
         let error = crate::loader::validate_level(&level).expect_err("negative must reject");
@@ -386,10 +384,10 @@ fn group_e_ceiling_height_correction_is_monotonic_bounded_and_safe() {
 
     // Invalid heights fall back to neutral; absurd heights clamp instead of
     // dividing by zero or overflowing.
-    assert_eq!(ceiling_height_factor(0.0), 1.0);
-    assert_eq!(ceiling_height_factor(-3.0), 1.0);
-    assert_eq!(ceiling_height_factor(f32::NAN), 1.0);
-    assert_eq!(ceiling_height_factor(f32::INFINITY), 1.0);
+    assert_exact(ceiling_height_factor(0.0), 1.0);
+    assert_exact(ceiling_height_factor(-3.0), 1.0);
+    assert_exact(ceiling_height_factor(f32::NAN), 1.0);
+    assert_exact(ceiling_height_factor(f32::INFINITY), 1.0);
     assert!(ceiling_height_factor(1.0e30).is_finite());
 }
 
@@ -623,9 +621,9 @@ fn group_g_smallest_containing_room_wins_for_every_lookup() {
     assert!(lighting.sample(6.0, 0.0, 6.0) >= small_baseline - 1e-6);
     // A prop's vertices are sampled with `sample`, so the same point sees the
     // small room's baseline; the small room's own surface sampling agrees.
-    assert_eq!(
+    assert_exact(
         lighting.sample_in_room(1, 6.0, 0.0, 6.0),
-        lighting.sample(6.0, 0.0, 6.0)
+        lighting.sample(6.0, 0.0, 6.0),
     );
 }
 
@@ -641,7 +639,7 @@ fn group_g_equal_area_overlaps_resolve_by_level_order() {
     );
     let lighting = bake(&level);
     // Both rooms have equal area, so the earlier room keeps the tie.
-    assert_eq!(lighting.rooms()[0].area_m2, lighting.rooms()[1].area_m2);
+    assert_exact(lighting.rooms()[0].area_m2, lighting.rooms()[1].area_m2);
     assert_eq!(lighting.room_index_at(7.5, 7.5), Some(0));
     assert_eq!(lighting.rooms()[0].fixture_count, 1);
     assert_eq!(lighting.rooms()[1].fixture_count, 0);
@@ -683,9 +681,9 @@ fn group_g_three_overlapping_rooms_order_by_area_strictly() {
     assert_eq!(a.rooms(), b.rooms());
     assert_eq!(a.lights(), b.lights());
     for point in [[5.0, 0.0, 5.0], [20.0, 1.2, 20.0], [28.0, 2.5, 28.0]] {
-        assert_eq!(
+        assert_exact(
             a.sample(point[0], point[1], point[2]),
-            b.sample(point[0], point[1], point[2])
+            b.sample(point[0], point[1], point[2]),
         );
     }
 }
@@ -780,26 +778,22 @@ fn group_h_doorway_transition_is_smooth_and_symmetric() {
     // the doorway exchange. It must be smooth on both sides.
     let blend = |x: f32, y: f32| a.sample(x, y, 5.0) - without.sample(x, y, 5.0);
     let mut previous = blend(0.5, 0.0);
-    let mut x = 0.5;
-    while x <= 9.95 {
+    for x in scan(0.5, 0.05, 9.95) {
         let value = blend(x, 0.0);
         assert!(
             (value - previous).abs() < 0.02,
             "blend stepped inside the bright room at x = {x}: {previous} -> {value}"
         );
         previous = value;
-        x += 0.05;
     }
     let mut previous = blend(10.45, 0.0);
-    let mut x = 10.45;
-    while x <= 20.0 {
+    for x in scan(10.45, 0.05, 20.0) {
         let value = blend(x, 0.0);
         assert!(
             (value - previous).abs() < 0.02,
             "blend stepped inside the dim room at x = {x}: {previous} -> {value}"
         );
         previous = value;
-        x += 0.05;
     }
 
     // The threshold itself: each face of the 0.4 m wall is the same distance
@@ -896,26 +890,22 @@ fn group_h_opening_variants_blend_or_do_not_without_artifacts() {
         // wall thickness itself carries no geometry or player.
         let blend = |x: f32| lighting.sample(x, 0.0, 5.0) - without.sample(x, 0.0, 5.0);
         let mut previous = blend(0.5);
-        let mut x = 0.5;
-        while x <= 9.95 {
+        for x in scan(0.5, 0.2, 9.95) {
             let value = blend(x);
             assert!(
                 (value - previous).abs() < 0.05,
                 "{label}: blend step at x = {x}: {previous} -> {value}"
             );
             previous = value;
-            x += 0.2;
         }
         let mut previous = blend(10.45);
-        let mut x = 10.45;
-        while x <= 20.0 {
+        for x in scan(10.45, 0.2, 20.0) {
             let value = blend(x);
             assert!(
                 (value - previous).abs() < 0.05,
                 "{label}: blend step at x = {x}: {previous} -> {value}"
             );
             previous = value;
-            x += 0.2;
         }
         for point in [0.5_f32, 5.0, 9.95, 10.45, 15.0, 20.0] {
             let value = lighting.sample(point, 0.0, 5.0);
@@ -950,12 +940,10 @@ fn group_h_vertical_fade_above_the_header_and_non_connecting_openings() {
     );
     // The blend above the header is monotone on the way out.
     let mut previous = below;
-    let mut y = 1.9;
-    while y <= 3.2 {
+    for y in scan(1.9, 0.1, 3.2) {
         let value = blend(y);
         assert!(value <= previous + 1e-6, "blend rose at y = {y}");
         previous = value;
-        y += 0.1;
     }
 
     // An opening in a wall that does not join two rooms must not blend.
@@ -986,10 +974,10 @@ fn group_h_vertical_fade_above_the_header_and_non_connecting_openings() {
         &room(0.0, 0.0, 10.0, 10.0, 3.0),
         &light(2.0, 2.0, None),
     )));
-    assert_eq!(unconnected.rooms()[0].baseline, plain.rooms()[0].baseline);
-    assert_eq!(
+    assert_exact(unconnected.rooms()[0].baseline, plain.rooms()[0].baseline);
+    assert_exact(
         unconnected.sample(5.0, 0.0, 5.0),
-        plain.sample(5.0, 0.0, 5.0)
+        plain.sample(5.0, 0.0, 5.0),
     );
 }
 
@@ -1495,7 +1483,7 @@ fn empty_level() -> LevelDef {
             z: 0.0,
             yaw_degrees: 0.0,
         },
-        defaults: Default::default(),
+        defaults: crate::level::LevelDefaults::default(),
         walls: Vec::new(),
         floor_patches: Vec::new(),
         ceiling_lights: Vec::new(),
@@ -1510,14 +1498,14 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     let lighting = bake(&empty);
     assert!(lighting.rooms().is_empty());
     assert!(lighting.lights().is_empty());
-    assert_eq!(lighting.sample(0.0, 0.0, 0.0), MIN_AMBIENT);
+    assert_exact(lighting.sample(0.0, 0.0, 0.0), MIN_AMBIENT);
     assert_eq!(lighting.summary().rooms, 0);
-    assert_eq!(
+    assert_exact(
         lighting.fixture_y(0.0, 0.0),
-        REFERENCE_CEILING_HEIGHT_M - 0.01
+        REFERENCE_CEILING_HEIGHT_M - 0.01,
     );
     let mesh = build_checked(&empty);
-    assert!(mesh.vertex_count == 0);
+    assert_eq!(mesh.vertex_count, 0);
 
     // Zero-area rooms (only constructible programmatically).
     let mut zero_room = empty.clone();
@@ -1623,12 +1611,12 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     });
     let lighting = bake(&lights_only);
     assert_eq!(lighting.lights().len(), 1);
-    assert_eq!(lighting.lights()[0].intensity, 1.0, "NaN falls back to 1.0");
+    assert_exact_named(lighting.lights()[0].intensity, 1.0, "NaN falls back to 1.0");
     assert!(lighting.sample(0.0, 0.0, 0.0).is_finite());
     build_checked(&lights_only);
 
     // Non-finite fixtures are dropped, not propagated.
-    let mut broken = empty.clone();
+    let mut broken = empty;
     broken.ceiling_lights.push(CeilingLightDef {
         fixture: "core:fluorescent_panel_01".into(),
         x: f32::INFINITY,
@@ -1639,5 +1627,8 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     let lighting = bake(&broken);
     assert!(lighting.lights().is_empty());
     assert!(lighting.sample(0.0, 0.0, 0.0).is_finite());
-    assert!(lighting.sample(f32::NAN, f32::INFINITY, f32::NEG_INFINITY) == MIN_AMBIENT);
+    assert_exact(
+        lighting.sample(f32::NAN, f32::INFINITY, f32::NEG_INFINITY),
+        MIN_AMBIENT,
+    );
 }

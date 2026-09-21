@@ -4,19 +4,21 @@ use crate::font::generate_font_atlas;
 use crate::level::{LevelDef, PropDef, WallAxis, ceiling_height_at, wall_solid_slices};
 use crate::lighting::{LevelLighting, fixture_half_extents, light_grid_cells, wall_light_segments};
 
-/// PocketCHIP reference resolution. The game logic and UI layout are authored
-/// against this 480x272 space; it is also the default window size. It is *not*
-/// an assumption about the actual drawable/framebuffer size at runtime.
+/// `PocketCHIP` reference resolution.
+///
+/// The game logic and UI layout are authored against this 480x272 space; it is
+/// also the default window size. It is *not* an assumption about the actual
+/// drawable/framebuffer size at runtime.
 pub const WINDOW_WIDTH: u32 = 480;
 pub const WINDOW_HEIGHT: u32 = 272;
 
-/// Reference space that 2D UI geometry is authored in (PocketCHIP baseline).
+/// Reference space that 2D UI geometry is authored in (`PocketCHIP` baseline).
 pub const UI_REFERENCE_WIDTH: u32 = WINDOW_WIDTH;
 pub const UI_REFERENCE_HEIGHT: u32 = WINDOW_HEIGHT;
 
 /// Physical size (in pixels) of the current drawable/framebuffer.
 ///
-/// This is deliberately distinct from the window's logical size: on HiDPI
+/// This is deliberately distinct from the window's logical size: on `HiDPI`
 /// displays such as macOS Retina the drawable is larger than the window size.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DrawableSize {
@@ -25,16 +27,19 @@ pub struct DrawableSize {
 }
 
 impl DrawableSize {
+    #[must_use]
     pub const fn new(width: u32, height: u32) -> Self {
         Self { width, height }
     }
 
     /// True when the surface cannot be rendered to (minimized/hidden windows).
+    #[must_use]
     pub const fn is_empty(self) -> bool {
         self.width == 0 || self.height == 0
     }
 
     /// Aspect ratio derived from the real framebuffer, safe against zero height.
+    #[must_use]
     pub fn aspect_ratio(self) -> f32 {
         if self.height == 0 {
             1.0
@@ -45,6 +50,7 @@ impl DrawableSize {
 
     /// Pixel size of the integer-scaled UI region that fits this drawable while
     /// preserving the 480x272 reference aspect ratio, plus its bottom-left origin.
+    #[must_use]
     pub fn ui_viewport(self) -> UiViewport {
         if self.is_empty() {
             return UiViewport {
@@ -59,14 +65,15 @@ impl DrawableSize {
         let scale = (self.width as f32 / UI_REFERENCE_WIDTH as f32)
             .min(self.height as f32 / UI_REFERENCE_HEIGHT as f32)
             .max(0.0);
-        let width =
-            ((UI_REFERENCE_WIDTH as f32 * scale).round() as i32).clamp(1, self.width as i32);
+        let drawable_width = i32::try_from(self.width).unwrap_or(i32::MAX);
+        let drawable_height = i32::try_from(self.height).unwrap_or(i32::MAX);
+        let width = ((UI_REFERENCE_WIDTH as f32 * scale).round() as i32).clamp(1, drawable_width);
         let height =
-            ((UI_REFERENCE_HEIGHT as f32 * scale).round() as i32).clamp(1, self.height as i32);
+            ((UI_REFERENCE_HEIGHT as f32 * scale).round() as i32).clamp(1, drawable_height);
 
         UiViewport {
-            x: (self.width as i32 - width) / 2,
-            y: (self.height as i32 - height) / 2,
+            x: (drawable_width - width) / 2,
+            y: (drawable_height - height) / 2,
             width,
             height,
             scale,
@@ -84,7 +91,8 @@ pub struct UiViewport {
     pub scale: f32,
 }
 
-/// Aspect ratio of the authored PocketCHIP reference resolution (480x272).
+/// Aspect ratio of the authored `PocketCHIP` reference resolution (480x272).
+#[must_use]
 pub fn reference_aspect_ratio() -> f32 {
     UI_REFERENCE_WIDTH as f32 / UI_REFERENCE_HEIGHT as f32
 }
@@ -92,12 +100,13 @@ pub fn reference_aspect_ratio() -> f32 {
 /// Maps the configured (baseline) vertical field of view onto a drawable with
 /// the given aspect ratio.
 ///
-/// * Wider than the PocketCHIP baseline: the vertical FOV is unchanged, so the
+/// * Wider than the `PocketCHIP` baseline: the vertical FOV is unchanged, so the
 ///   horizontal view expands naturally ("Hor+").
 /// * Narrower/taller than the baseline: the horizontal FOV is preserved instead
 ///   so the level is not cropped left/right; only the vertical FOV grows.
 ///
-/// At the baseline aspect this is the identity, so PocketCHIP is unchanged.
+/// At the baseline aspect this is the identity, so `PocketCHIP` is unchanged.
+#[must_use]
 pub fn vertical_fov_for_aspect(configured_vertical_fov_degrees: f32, aspect: f32) -> f32 {
     // Guards against a near-singular projection on very tall/portrait windows.
     const MAX_VERTICAL_FOV_DEGREES: f32 = 150.0;
@@ -115,7 +124,7 @@ pub fn vertical_fov_for_aspect(configured_vertical_fov_degrees: f32, aspect: f32
         .clamp(configured_vertical_fov_degrees, MAX_VERTICAL_FOV_DEGREES)
 }
 
-const VERTEX_SHADER_SRC: &str = r#"
+const VERTEX_SHADER_SRC: &str = r"
 #ifdef GL_ES
 precision mediump float;
 #endif
@@ -131,9 +140,9 @@ void main() {
     v_uv = a_uv;
     gl_Position = u_mvp * vec4(a_pos, 1.0);
 }
-"#;
+";
 
-const FRAGMENT_SHADER_SRC: &str = r#"
+const FRAGMENT_SHADER_SRC: &str = r"
 #ifdef GL_ES
 precision mediump float;
 #endif
@@ -145,7 +154,7 @@ void main() {
     vec4 tex_color = texture2D(u_texture, v_uv);
     gl_FragColor = tex_color * v_color;
 }
-"#;
+";
 
 /// Authoring/build-time vertex: exact floats, easy to reason about and to audit.
 ///
@@ -184,6 +193,14 @@ pub struct PackedVertex {
 }
 
 /// Byte offset of each packed attribute, and the stride between vertices.
+/// Bytes one vertex occupies in the exact (unpacked) layout, as the GL stride
+/// API takes it.
+///
+/// Written out rather than derived from `size_of::<Vertex>()` so that
+/// [`VertexLayout::stride`] can stay a `const fn`; the packed-layout test keeps
+/// it equal to the struct's real size.
+pub const EXACT_VERTEX_STRIDE: i32 = 36;
+
 pub mod packed_layout {
     /// Offset of `a_pos`, in bytes.
     pub const POS_OFFSET: i32 = 0;
@@ -227,15 +244,16 @@ fn quantize_unit(value: f32) -> u8 {
         return 0;
     }
     // `clamp` handles the infinities by saturation, which is what "clamp" means.
-    (value.clamp(0.0, 1.0) * 255.0 + 0.5) as u8
+    value.clamp(0.0, 1.0).mul_add(255.0, 0.5) as u8
 }
 
 /// The exact value a normalised byte decodes to, for tests and audits.
+#[must_use]
 pub fn dequantize_unit(byte: u8) -> f32 {
-    byte as f32 / 255.0
+    f32::from(byte) / 255.0
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct BatchRange {
     pub start: i32,
     pub count: i32,
@@ -246,7 +264,7 @@ pub struct BatchRange {
 /// The spans are measured in **indices**, not vertices: each quad is six
 /// indices whether or not indexing collapsed its corners, so "how much floor did
 /// this level generate" stays comparable with the pre-indexing builds.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct LevelMeshBatches {
     pub floor_batch: BatchRange,
     pub ceiling_batch: BatchRange,
@@ -271,25 +289,26 @@ pub enum SurfaceFamily {
 
 impl SurfaceKind {
     /// The family this kind belongs to.
-    pub fn family(self) -> SurfaceFamily {
+    #[must_use]
+    pub const fn family(self) -> SurfaceFamily {
         match self {
-            SurfaceKind::Floor | SurfaceKind::FloorDamp => SurfaceFamily::Floor,
-            SurfaceKind::Ceiling | SurfaceKind::CeilingStained => SurfaceFamily::Ceiling,
-            SurfaceKind::Wall | SurfaceKind::WallStained => SurfaceFamily::Wall,
-            SurfaceKind::Light => SurfaceFamily::Light,
-            SurfaceKind::PropFallback => SurfaceFamily::PropFallback,
+            Self::Floor | Self::FloorDamp => SurfaceFamily::Floor,
+            Self::Ceiling | Self::CeilingStained => SurfaceFamily::Ceiling,
+            Self::Wall | Self::WallStained => SurfaceFamily::Wall,
+            Self::Light => SurfaceFamily::Light,
+            Self::PropFallback => SurfaceFamily::PropFallback,
         }
     }
 }
 
 impl SurfaceFamily {
     /// Every family, in draw order.
-    pub const ALL: [SurfaceFamily; 5] = [
-        SurfaceFamily::Floor,
-        SurfaceFamily::Ceiling,
-        SurfaceFamily::Wall,
-        SurfaceFamily::Light,
-        SurfaceFamily::PropFallback,
+    pub const ALL: [Self; 5] = [
+        Self::Floor,
+        Self::Ceiling,
+        Self::Wall,
+        Self::Light,
+        Self::PropFallback,
     ];
 }
 
@@ -324,9 +343,11 @@ pub enum MaterialSlot {
     Ceiling,
 }
 
-/// Built-in water-damaged material ids (design section 21). These are the only
-/// material ids that have their own texture sheet; every other id renders with
-/// the surface family's level-default sheet, exactly as before.
+/// Built-in water-damaged material ids (design section 21).
+///
+/// These are the only material ids that have their own texture sheet; every
+/// other id renders with the surface family's level-default sheet, exactly as
+/// before.
 pub const DAMAGED_WALL_MATERIAL: &str = "core:wallpaper_stained_01";
 pub const DAMAGED_FLOOR_MATERIAL: &str = "core:carpet_damp_01";
 pub const DAMAGED_CEILING_MATERIAL: &str = "core:ceiling_stained_01";
@@ -335,6 +356,7 @@ pub const DAMAGED_CEILING_MATERIAL: &str = "core:ceiling_stained_01";
 ///
 /// Callers pass the effective id for a surface: the object-level override when
 /// one exists, otherwise the level default (design section 21).
+#[must_use]
 pub fn material_surface(slot: MaterialSlot, material: &str) -> SurfaceKind {
     let damaged = match slot {
         MaterialSlot::Wall => material == DAMAGED_WALL_MATERIAL,
@@ -357,6 +379,7 @@ pub fn material_surface(slot: MaterialSlot, material: &str) -> SurfaceKind {
 /// `core:` materials are the only ones with a distinct damaged sheet, so a
 /// level that only mentions `pack:` or maintained ids keeps using the
 /// level-default sheets it always used.
+#[must_use]
 pub fn damaged_variants_used(level: &LevelDef) -> (bool, bool, bool) {
     let wall = level.defaults.wall == DAMAGED_WALL_MATERIAL
         || level.walls.iter().any(|wall| {
@@ -383,15 +406,15 @@ pub fn damaged_variants_used(level: &LevelDef) -> (bool, bool, bool) {
 
 impl SurfaceKind {
     /// Every kind, in draw order.
-    pub const ALL: [SurfaceKind; 8] = [
-        SurfaceKind::Floor,
-        SurfaceKind::FloorDamp,
-        SurfaceKind::Ceiling,
-        SurfaceKind::CeilingStained,
-        SurfaceKind::Wall,
-        SurfaceKind::WallStained,
-        SurfaceKind::Light,
-        SurfaceKind::PropFallback,
+    pub const ALL: [Self; 8] = [
+        Self::Floor,
+        Self::FloorDamp,
+        Self::Ceiling,
+        Self::CeilingStained,
+        Self::Wall,
+        Self::WallStained,
+        Self::Light,
+        Self::PropFallback,
     ];
 }
 
@@ -424,6 +447,7 @@ pub struct StaticBatch {
 /// level's extent so the cell count, and therefore the number of draw batches,
 /// stays bounded for any level a creator ships. `LIMINAL_CELL_METRES` overrides
 /// it for the debug benchmark sweep; the shipping default is the adaptive grid.
+#[must_use]
 pub fn spatial_cell_grid(level: &LevelDef) -> crate::spatial::CellGrid {
     let override_size = std::env::var("LIMINAL_CELL_METRES")
         .ok()
@@ -513,6 +537,7 @@ impl LevelMesh {
     /// The renderer never does this — it hands indices straight to the GPU — but
     /// tests and the lighting audit inspect geometry in the order it is drawn,
     /// which is what the pre-indexing vertex buffer held.
+    #[must_use]
     pub fn triangles_for(&self, kind: SurfaceKind) -> Vec<Vertex> {
         let mut out = Vec::new();
         for range in self.ranges.iter().filter(|range| range.kind == kind) {
@@ -530,6 +555,7 @@ impl LevelMesh {
     ///
     /// Only for tests and the lighting audit, which check that no baked colour or
     /// position is out of range anywhere in the level.
+    #[must_use]
     pub fn all_vertices(&self) -> Vec<Vertex> {
         let mut out = Vec::with_capacity(self.vertex_count);
         for range in &self.ranges {
@@ -544,6 +570,7 @@ impl LevelMesh {
     /// The lighting audit reasons about "the floors of this level" rather than
     /// about which texture sheet they use, so a level with damp rooms is checked
     /// exactly like a level without them.
+    #[must_use]
     pub fn triangles_for_family(&self, family: SurfaceFamily) -> Vec<Vertex> {
         let mut out = Vec::new();
         for range in self
@@ -563,6 +590,7 @@ impl LevelMesh {
 
     /// Indices generated for one surface family, in the units of
     /// [`LevelMeshBatches`].
+    #[must_use]
     pub fn index_count_for_family(&self, family: SurfaceFamily) -> usize {
         self.ranges
             .iter()
@@ -573,6 +601,7 @@ impl LevelMesh {
 
     /// Indices generated for one material, in the same units as
     /// [`LevelMeshBatches`].
+    #[must_use]
     pub fn index_count_for(&self, kind: SurfaceKind) -> usize {
         self.ranges
             .iter()
@@ -722,8 +751,8 @@ fn add_wall_length_face(
     // side of the wall even when the surface sits exactly on a room boundary.
     let color = |at: f32, y: f32, base: [f32; 3]| -> [f32; 3] {
         let probe = match axis {
-            WallAxis::X => [at, y, face + normal * LIGHT_FACE_PROBE_M],
-            WallAxis::Z => [face + normal * LIGHT_FACE_PROBE_M, y, at],
+            WallAxis::X => [at, y, normal.mul_add(LIGHT_FACE_PROBE_M, face)],
+            WallAxis::Z => [normal.mul_add(LIGHT_FACE_PROBE_M, face), y, at],
         };
         shade(base, lighting.sample(probe[0], probe[1], probe[2]))
     };
@@ -762,35 +791,42 @@ fn add_wall_length_face(
         }
         let (at_start, bottom_start, top_start) = boundaries[start];
         let (at_end, bottom_end, top_end) = boundaries[end];
-        let (a, b) = if reversed {
-            (at_end, at_start)
+        // Walk the strip from `start` to `end`, or the other way round when the
+        // wall is reversed, so the quad keeps one consistent winding.
+        let (first_at, first_bottom, first_top, second_at, second_bottom, second_top) = if reversed
+        {
+            (
+                at_end,
+                bottom_end,
+                top_end,
+                at_start,
+                bottom_start,
+                top_start,
+            )
         } else {
-            (at_start, at_end)
-        };
-        let (color_a_bottom, color_a_top) = if reversed {
-            (bottom_end, top_end)
-        } else {
-            (bottom_start, top_start)
-        };
-        let (color_b_bottom, color_b_top) = if reversed {
-            (bottom_start, top_start)
-        } else {
-            (bottom_end, top_end)
+            (
+                at_start,
+                bottom_start,
+                top_start,
+                at_end,
+                bottom_end,
+                top_end,
+            )
         };
         add_quad(
             vertices,
-            point(a, bottom),
-            color_a_bottom,
-            wall_uv(a, bottom),
-            point(b, bottom),
-            color_b_bottom,
-            wall_uv(b, bottom),
-            point(b, top),
-            color_b_top,
-            wall_uv(b, top),
-            point(a, top),
-            color_a_top,
-            wall_uv(a, top),
+            point(first_at, bottom),
+            first_bottom,
+            wall_uv(first_at, bottom),
+            point(second_at, bottom),
+            second_bottom,
+            wall_uv(second_at, bottom),
+            point(second_at, top),
+            second_top,
+            wall_uv(second_at, top),
+            point(first_at, top),
+            first_top,
+            wall_uv(first_at, top),
         );
         start = end;
     }
@@ -806,8 +842,8 @@ fn add_wall_length_face(
 /// Deterministic per-texel hash in `[0, 1)` (the same integer mix on every
 /// platform, so the baked textures are reproducible).
 fn hash01(x: i32, y: i32, seed: u32) -> f32 {
-    let mut h = (x as u32).wrapping_mul(0x9E37_79B9)
-        ^ (y as u32).wrapping_mul(0x85EB_CA6B)
+    let mut h = x.cast_unsigned().wrapping_mul(0x9E37_79B9)
+        ^ y.cast_unsigned().wrapping_mul(0x85EB_CA6B)
         ^ seed.wrapping_mul(0xC2B2_AE35);
     h ^= h >> 15;
     h = h.wrapping_mul(0x2545_F491);
@@ -829,22 +865,25 @@ fn tile_noise(x: i32, y: i32, size: i32, period: i32, seed: u32) -> f32 {
     let y0 = fy.floor() as i32;
     let tx = fx - x0 as f32;
     let ty = fy - y0 as f32;
-    let sx = tx * tx * (3.0 - 2.0 * tx);
-    let sy = ty * ty * (3.0 - 2.0 * ty);
+    let sx = tx * tx * 2.0f32.mul_add(-tx, 3.0);
+    let sy = ty * ty * 2.0f32.mul_add(-ty, 3.0);
     let wrap = |value: i32| value.rem_euclid(period);
     let v00 = hash01(wrap(x0), wrap(y0), seed);
     let v10 = hash01(wrap(x0 + 1), wrap(y0), seed);
     let v01 = hash01(wrap(x0), wrap(y0 + 1), seed);
     let v11 = hash01(wrap(x0 + 1), wrap(y0 + 1), seed);
-    let top = v00 + (v10 - v00) * sx;
-    let bottom = v01 + (v11 - v01) * sx;
-    top + (bottom - top) * sy
+    let top = (v10 - v00).mul_add(sx, v00);
+    let bottom = (v11 - v01).mul_add(sx, v01);
+    (bottom - top).mul_add(sy, top)
 }
 
 /// Two octaves of tileable noise, the shape most of the surface ageing uses.
 fn tile_noise2(x: i32, y: i32, size: i32, coarse: i32, fine: i32, seed: u32) -> f32 {
-    (tile_noise(x, y, size, coarse, seed) * 0.65
-        + tile_noise(x, y, size, fine, seed.wrapping_add(7)) * 0.35)
+    tile_noise(x, y, size, coarse, seed)
+        .mul_add(
+            0.65,
+            tile_noise(x, y, size, fine, seed.wrapping_add(7)) * 0.35,
+        )
         .clamp(0.0, 1.0)
 }
 
@@ -861,12 +900,14 @@ fn write_texel(data: &mut [u8], index: usize, rgb: [f32; 3]) {
 /// a fine paper grain, and a faint wrapped age mottle.  The renderer tints
 /// walls gold (0.85, 0.80, 0.42), so the texture itself stays pale and nearly
 /// neutral: painting it yellow here would multiply into orange mud.
-pub(crate) fn generate_wall_texture() -> [u8; 128 * 128 * 4] {
-    let mut data = [0u8; 128 * 128 * 4];
+pub(crate) fn generate_wall_texture() -> Vec<u8> {
+    // A 128x128 sheet is 64 KiB: too large for a stack frame, so the texels are
+    // painted into a heap buffer.
     const PAPER: [f32; 3] = [243.0, 237.0, 220.0];
+    let mut data = vec![0u8; 128 * 128 * 4];
     for y in 0..128i32 {
         for x in 0..128i32 {
-            let index = ((y * 128 + x) * 4) as usize;
+            let index = usize::try_from((y * 128 + x) * 4).unwrap_or(0);
             // Printed stripe: a wide light band, a narrow darker band, a dark
             // groove between them and a hairline highlight inside the light one.
             let phase = x % 16;
@@ -879,7 +920,7 @@ pub(crate) fn generate_wall_texture() -> [u8; 128 * 128 * 4] {
             // Paper: a 1 px fibre grain and two octaves of age mottle.
             let fibre = (hash01(x, y, 11) - 0.5) * 0.030;
             let age = tile_noise2(x, y, 128, 6, 17, 23) - 0.5;
-            let tone = tone * (1.0 + fibre + 0.075 * age);
+            let tone = tone * 0.075f32.mul_add(age, 1.0 + fibre);
             // Aged areas warm very slightly: the paper yellows where it has
             // been exposed, instead of just getting darker.
             write_texel(
@@ -887,8 +928,8 @@ pub(crate) fn generate_wall_texture() -> [u8; 128 * 128 * 4] {
                 index,
                 [
                     PAPER[0] * tone,
-                    PAPER[1] * tone * (1.0 - 0.008 * age),
-                    PAPER[2] * tone * (1.0 - 0.022 * age),
+                    PAPER[1] * tone * 0.008f32.mul_add(-age, 1.0),
+                    PAPER[2] * tone * 0.022f32.mul_add(-age, 1.0),
                 ],
             );
         }
@@ -903,12 +944,12 @@ pub(crate) fn generate_wall_texture() -> [u8; 128 * 128 * 4] {
 /// directional tone), a 5-12 cm mottle (the traffic and vacuum marks that
 /// survive at distance), and a very slight warm/cool drift so one square metre
 /// never looks like a flat swatch.
-pub(crate) fn generate_carpet_texture() -> [u8; 64 * 64 * 4] {
-    let mut data = [0u8; 64 * 64 * 4];
+pub(crate) fn generate_carpet_texture() -> Vec<u8> {
     const PILE: [f32; 3] = [231.0, 223.0, 210.0];
+    let mut data = vec![0u8; 64 * 64 * 4];
     for y in 0..64i32 {
         for x in 0..64i32 {
-            let index = ((y * 64 + x) * 4) as usize;
+            let index = usize::try_from((y * 64 + x) * 4).unwrap_or(0);
             let speckle = hash01(x, y, 31) - 0.5;
             // Pile lies in one direction: short dashes, two texels long.
             let dash_v = hash01(x, y >> 1, 37) - 0.5;
@@ -917,20 +958,26 @@ pub(crate) fn generate_carpet_texture() -> [u8; 64 * 64 * 4] {
             let mottle = tile_noise(x, y, 64, 5, 43) - 0.5;
             let broad = tile_noise(x, y, 64, 13, 47) - 0.5;
             let warm = tile_noise(x, y, 64, 3, 53) - 0.5;
-            let tone = 1.0
-                + 0.070 * speckle
-                + 0.050 * dash_v
-                + 0.035 * dash_h
-                + 0.035 * tuft
-                + 0.060 * mottle
-                + 0.040 * broad;
+            let tone = 0.040f32.mul_add(
+                broad,
+                0.060f32.mul_add(
+                    mottle,
+                    0.035f32.mul_add(
+                        tuft,
+                        0.035f32.mul_add(
+                            dash_h,
+                            0.050f32.mul_add(dash_v, 0.070f32.mul_add(speckle, 1.0)),
+                        ),
+                    ),
+                ),
+            );
             write_texel(
                 &mut data,
                 index,
                 [
-                    PILE[0] * tone * (1.0 + 0.020 * warm),
+                    PILE[0] * tone * 0.020f32.mul_add(warm, 1.0),
                     PILE[1] * tone,
-                    PILE[2] * tone * (1.0 - 0.028 * warm),
+                    PILE[2] * tone * 0.028f32.mul_add(-warm, 1.0),
                 ],
             );
         }
@@ -943,22 +990,22 @@ pub(crate) fn generate_carpet_texture() -> [u8; 64 * 64 * 4] {
 /// Four 1 m tiles share a 3 cm T-bar grid, and the four differ slightly in
 /// tone, speckle and scuffing, so a large ceiling is not one tile stamped
 /// forever.  The repeat is two metres rather than one for the same reason.
-pub(crate) fn generate_ceiling_texture() -> [u8; 128 * 128 * 4] {
-    let mut data = [0u8; 128 * 128 * 4];
+pub(crate) fn generate_ceiling_texture() -> Vec<u8> {
     const TILE: [f32; 3] = [247.0, 247.0, 242.0];
     const BAR: [f32; 3] = [168.0, 168.0, 162.0];
     // How the tile dips towards the T-bar: the gap, the bar's shading, the
     // tile's edge shadow and the first clean row of the tile.
     const DIP: [f32; 4] = [0.52, 0.66, 0.84, 0.95];
+    let mut data = vec![0u8; 128 * 128 * 4];
     for y in 0..128i32 {
         for x in 0..128i32 {
-            let index = ((y * 128 + x) * 4) as usize;
+            let index = usize::try_from((y * 128 + x) * 4).unwrap_or(0);
             let tx = x % 64;
             let ty = y % 64;
             let edge = tx.min(63 - tx).min(ty.min(63 - ty));
             // Each of the four tiles gets its own tone and scuffing.
             let tile = (x / 64) + 2 * (y / 64);
-            let tile_tone = 1.0 + (hash01(tile, tile * 7, 61) - 0.5) * 0.024;
+            let tile_tone = (hash01(tile, tile * 7, 61) - 0.5).mul_add(0.024, 1.0);
             let fibre = (hash01(x, y, 67) - 0.5) * 0.045;
             let pores = if hash01(x, y, 71) > 0.945 {
                 -0.075
@@ -966,19 +1013,23 @@ pub(crate) fn generate_ceiling_texture() -> [u8; 128 * 128 * 4] {
                 0.0
             };
             let blotch = tile_noise(x, y, 128, 9, 73) - 0.5;
-            let field = tile_tone * (1.0 + fibre + pores + 0.035 * blotch);
-            let dip = if edge < 4 { DIP[edge as usize] } else { 1.0 };
+            let field = tile_tone * 0.035f32.mul_add(blotch, 1.0 + fibre + pores);
+            let dip = if edge < 4 {
+                DIP[usize::try_from(edge).unwrap_or(0)]
+            } else {
+                1.0
+            };
             // The T-bar itself keeps a hair of its own grain, so the grid does
             // not read as a flat drawn line up close.
             let bar_mix = if edge < 2 {
-                1.0 - (edge as f32) * 0.35
+                (edge as f32).mul_add(-0.35, 1.0)
             } else {
                 0.0
             };
             let base = [
-                TILE[0] * field * dip * (1.0 - bar_mix) + BAR[0] * bar_mix * field,
-                TILE[1] * field * dip * (1.0 - bar_mix) + BAR[1] * bar_mix * field,
-                TILE[2] * field * dip * (1.0 - bar_mix) + BAR[2] * bar_mix * field,
+                (BAR[0] * bar_mix).mul_add(field, TILE[0] * field * dip * (1.0 - bar_mix)),
+                (BAR[1] * bar_mix).mul_add(field, TILE[1] * field * dip * (1.0 - bar_mix)),
+                (BAR[2] * bar_mix).mul_add(field, TILE[2] * field * dip * (1.0 - bar_mix)),
             ];
             write_texel(&mut data, index, base);
         }
@@ -995,11 +1046,11 @@ pub(crate) fn generate_ceiling_texture() -> [u8; 128 * 128 * 4] {
 /// fields sit underneath them -- their shoulder gets the tide mark, their
 /// middle is just wet paper -- and the wet areas warm towards a rusty brown
 /// instead of only darkening.
-pub(crate) fn generate_stained_wall_texture() -> [u8; 128 * 128 * 4] {
+pub(crate) fn generate_stained_wall_texture() -> Vec<u8> {
     let mut data = generate_wall_texture();
     for y in 0..128i32 {
         for x in 0..128i32 {
-            let index = ((y * 128 + x) * 4) as usize;
+            let index = usize::try_from((y * 128 + x) * 4).unwrap_or(0);
             // Broad damp fields: two octaves at a 25-60 cm scale.
             let field = tile_noise2(x, y, 128, 3, 8, 101);
             let wet = ((field - 0.62) / 0.24).clamp(0.0, 1.0);
@@ -1010,20 +1061,23 @@ pub(crate) fn generate_stained_wall_texture() -> [u8; 128 * 128 * 4] {
             let column = tile_noise(x, 0, 128, 9, 103);
             let feather = tile_noise(x, 0, 128, 21, 105);
             let length = tile_noise(0, y, 128, 5, 107);
-            let run = ((column + 0.35 * feather - 0.62) / 0.20).clamp(0.0, 1.0)
+            let run = ((0.35f32.mul_add(feather, column) - 0.62) / 0.20).clamp(0.0, 1.0)
                 * ((length - 0.28) / 0.44).clamp(0.0, 1.0);
             let fibre = (hash01(x, y, 109) - 0.5) * 0.05;
             // The run weight is kept low on purpose: the sheet repeats every
             // two metres, and a strong run would turn that repeat into a
             // visible rhythm of stripes down the wall.
-            let darken = 1.0 - 0.06 * shoulder - 0.05 * wet - 0.11 * run - 0.03 * fibre;
+            let darken = 0.03f32.mul_add(
+                -fibre,
+                0.11f32.mul_add(-run, 0.05f32.mul_add(-wet, 0.06f32.mul_add(-shoulder, 1.0))),
+            );
             // Brown the damp paper as well as darkening it: soaked paper loses
             // its yellow and picks up a rusty grey-brown.
-            let warmth = 0.14 * shoulder + 0.12 * run;
+            let warmth = 0.12f32.mul_add(run, 0.14 * shoulder);
             let aged = [
-                data[index] as f32 * darken * (1.0 + warmth * 0.30),
-                data[index + 1] as f32 * darken * (1.0 + warmth * 0.02),
-                data[index + 2] as f32 * darken * (1.0 - warmth * 0.55),
+                f32::from(data[index]) * darken * (1.0 + warmth * 0.30),
+                f32::from(data[index + 1]) * darken * (1.0 + warmth * 0.02),
+                f32::from(data[index + 2]) * darken * (1.0 - warmth * 0.55),
             ];
             write_texel(&mut data, index, aged);
         }
@@ -1036,11 +1090,11 @@ pub(crate) fn generate_stained_wall_texture() -> [u8; 128 * 128 * 4] {
 /// The same short pile pushed darker, flatter and greyer over large irregular
 /// regions rather than across the whole tile: a damp patch has a boundary and
 /// the dry carpet around it still looks like carpet.
-pub(crate) fn generate_damp_carpet_texture() -> [u8; 64 * 64 * 4] {
+pub(crate) fn generate_damp_carpet_texture() -> Vec<u8> {
     let mut data = generate_carpet_texture();
     for y in 0..64i32 {
         for x in 0..64i32 {
-            let index = ((y * 64 + x) * 4) as usize;
+            let index = usize::try_from((y * 64 + x) * 4).unwrap_or(0);
             let field = tile_noise2(x, y, 64, 3, 6, 201);
             // Large, clearly bounded damp regions: roughly half of the tile
             // stays dry, so the wet part still reads as a patch of the same
@@ -1048,14 +1102,17 @@ pub(crate) fn generate_damp_carpet_texture() -> [u8; 64 * 64 * 4] {
             let wet = ((field - 0.52) / 0.24).clamp(0.0, 1.0);
             let margin = ((field - 0.40) / 0.24).clamp(0.0, 1.0) - wet;
             let flatten = ((tile_noise(x, y, 64, 11, 203) - 0.60) / 0.30).clamp(0.0, 1.0) * wet;
-            let darken = 1.0 - 0.30 * wet - 0.08 * flatten - 0.07 * margin;
+            let darken = 0.07f32.mul_add(
+                -margin,
+                0.08f32.mul_add(-flatten, 0.30f32.mul_add(-wet, 1.0)),
+            );
             // Damp pile reads grey-brown: pull the red and green down less than
             // the blue so the hue shifts instead of just the brightness.
             let warmth = 0.55 * wet;
             let damp = [
-                data[index] as f32 * (darken + 0.03 * warmth),
-                data[index + 1] as f32 * darken,
-                data[index + 2] as f32 * (darken - 0.06 * warmth),
+                f32::from(data[index]) * 0.03f32.mul_add(warmth, darken),
+                f32::from(data[index + 1]) * darken,
+                f32::from(data[index + 2]) * 0.06f32.mul_add(-warmth, darken),
             ];
             write_texel(&mut data, index, damp);
         }
@@ -1070,12 +1127,12 @@ pub(crate) fn generate_damp_carpet_texture() -> [u8; 64 * 64 * 4] {
 /// one edge and a darker corner where the water collected.  A ceiling where
 /// every panel is ruined reads as decoration; one bad panel reads as a
 /// building.
-pub(crate) fn generate_stained_ceiling_texture() -> [u8; 128 * 128 * 4] {
-    let mut data = generate_ceiling_texture();
+pub(crate) fn generate_stained_ceiling_texture() -> Vec<u8> {
     const STAIN: [f32; 3] = [128.0, 98.0, 62.0];
+    let mut data = generate_ceiling_texture();
     for y in 0..128i32 {
         for x in 0..128i32 {
-            let index = ((y * 128 + x) * 4) as usize;
+            let index = usize::try_from((y * 128 + x) * 4).unwrap_or(0);
             let tx = x % 64;
             let ty = y % 64;
             let tile = (x / 64) + 2 * (y / 64);
@@ -1106,17 +1163,18 @@ pub(crate) fn generate_stained_ceiling_texture() -> [u8; 128 * 128 * 4] {
             // Water collects against the grid and the metal T-bar interrupts
             // it, which also keeps the stain seamless where the sheet wraps.
             let grid_fade = (edge / 6.0).clamp(0.0, 1.0);
-            let stain =
-                ((0.62 * spread + 0.30 * shoulder + trail) * severity).clamp(0.0, 1.0) * grid_fade;
+            let stain = ((0.30f32.mul_add(shoulder, 0.62 * spread) + trail) * severity)
+                .clamp(0.0, 1.0)
+                * grid_fade;
             // The paper yellows before it browns: mixing towards the stain
             // colour keeps a pale panel pale instead of multiplying it away.
             // The ceiling sheet repeats every two metres, so the stain is kept
             // light enough that its repeat reads as ageing, not as a pattern.
             let mix = 0.40 * stain;
             let soaked = [
-                data[index] as f32 * (1.0 - mix) + STAIN[0] * mix,
-                data[index + 1] as f32 * (1.0 - mix) + STAIN[1] * mix,
-                data[index + 2] as f32 * (1.0 - mix) + STAIN[2] * mix,
+                STAIN[0].mul_add(mix, f32::from(data[index]) * (1.0 - mix)),
+                STAIN[1].mul_add(mix, f32::from(data[index + 1]) * (1.0 - mix)),
+                STAIN[2].mul_add(mix, f32::from(data[index + 2]) * (1.0 - mix)),
             ];
             write_texel(&mut data, index, soaked);
         }
@@ -1124,7 +1182,7 @@ pub(crate) fn generate_stained_ceiling_texture() -> [u8; 128 * 128 * 4] {
     data
 }
 
-pub(crate) fn generate_white_texture() -> [u8; 2 * 2 * 4] {
+pub(crate) const fn generate_white_texture() -> [u8; 2 * 2 * 4] {
     [255u8; 2 * 2 * 4]
 }
 
@@ -1145,37 +1203,39 @@ const FLOOR_TILE_TEXELS: u32 = FLOOR_TEXELS_PER_METRE * 2;
 /// Bilinearly samples an RGBA image at normalized coordinates in `[0, 1)`,
 /// wrapping at the edges to mirror `GL_REPEAT`.
 fn sample_bilinear(src: &crate::loader::RawImage, u: f32, v: f32) -> [u8; 4] {
-    let w = src.width.max(1) as i32;
-    let h = src.height.max(1) as i32;
-    let x = u * w as f32 - 0.5;
-    let y = v * h as f32 - 0.5;
-    let x0 = x.floor() as i32;
-    let y0 = y.floor() as i32;
-    let fx = x - x0 as f32;
-    let fy = y - y0 as f32;
+    let width = i32::try_from(src.width.max(1)).unwrap_or(i32::MAX);
+    let height = i32::try_from(src.height.max(1)).unwrap_or(i32::MAX);
+    let sample_x = u.mul_add(width as f32, -0.5);
+    let sample_y = v.mul_add(height as f32, -0.5);
+    let texel_x = sample_x.floor() as i32;
+    let texel_y = sample_y.floor() as i32;
+    let frac_x = sample_x - texel_x as f32;
+    let frac_y = sample_y - texel_y as f32;
 
-    let texel = |xx: i32, yy: i32| -> [f32; 4] {
-        let cx = xx.rem_euclid(w) as u32;
-        let cy = yy.rem_euclid(h) as u32;
-        let idx = ((cy * src.width + cx) * 4) as usize;
+    let texel = |wrap_x: i32, wrap_y: i32| -> [f32; 4] {
+        let column = wrap_x.rem_euclid(width) as u32;
+        let row = wrap_y.rem_euclid(height) as u32;
+        let offset = ((row * src.width + column) * 4) as usize;
         [
-            src.rgba[idx] as f32,
-            src.rgba[idx + 1] as f32,
-            src.rgba[idx + 2] as f32,
-            src.rgba[idx + 3] as f32,
+            f32::from(src.rgba[offset]),
+            f32::from(src.rgba[offset + 1]),
+            f32::from(src.rgba[offset + 2]),
+            f32::from(src.rgba[offset + 3]),
         ]
     };
 
-    let c00 = texel(x0, y0);
-    let c10 = texel(x0 + 1, y0);
-    let c01 = texel(x0, y0 + 1);
-    let c11 = texel(x0 + 1, y0 + 1);
+    let c00 = texel(texel_x, texel_y);
+    let c10 = texel(texel_x + 1, texel_y);
+    let c01 = texel(texel_x, texel_y + 1);
+    let c11 = texel(texel_x + 1, texel_y + 1);
 
     let mut out = [0u8; 4];
-    for k in 0..4 {
-        let top = c00[k] * (1.0 - fx) + c10[k] * fx;
-        let bottom = c01[k] * (1.0 - fx) + c11[k] * fx;
-        out[k] = (top * (1.0 - fy) + bottom * fy).round().clamp(0.0, 255.0) as u8;
+    for channel in 0..4 {
+        let top = c10[channel].mul_add(frac_x, c00[channel] * (1.0 - frac_x));
+        let bottom = c11[channel].mul_add(frac_x, c01[channel] * (1.0 - frac_x));
+        out[channel] = (top * (1.0 - frac_y) + bottom * frac_y)
+            .round()
+            .clamp(0.0, 255.0) as u8;
     }
     out
 }
@@ -1206,9 +1266,9 @@ pub(crate) fn generate_floor_checker_texture(
             let s = sample_bilinear(src, u, v);
 
             let idx = ((ty * tile + tx) * 4) as usize;
-            rgba[idx] = (s[0] as f32 * tint[0]).round().clamp(0.0, 255.0) as u8;
-            rgba[idx + 1] = (s[1] as f32 * tint[1]).round().clamp(0.0, 255.0) as u8;
-            rgba[idx + 2] = (s[2] as f32 * tint[2]).round().clamp(0.0, 255.0) as u8;
+            rgba[idx] = (f32::from(s[0]) * tint[0]).round().clamp(0.0, 255.0) as u8;
+            rgba[idx + 1] = (f32::from(s[1]) * tint[1]).round().clamp(0.0, 255.0) as u8;
+            rgba[idx + 2] = (f32::from(s[2]) * tint[2]).round().clamp(0.0, 255.0) as u8;
             rgba[idx + 3] = s[3];
         }
     }
@@ -1258,7 +1318,7 @@ fn interval_symmetric_difference(left: &[(f32, f32)], right: &[(f32, f32)]) -> V
         if top <= bottom + 1e-3 {
             continue;
         }
-        let middle = (bottom + top) * 0.5;
+        let middle = f32::midpoint(bottom, top);
         if covers(&left, middle) != covers(&right, middle) {
             difference.push((bottom, top));
         }
@@ -1345,13 +1405,13 @@ fn add_prop_box(
     let (sin_yaw, cos_yaw) = prop.rotation_degrees.to_radians().sin_cos();
     let rotate = |lx: f32, lz: f32| -> (f32, f32) {
         (
-            prop.x + lx * cos_yaw + lz * sin_yaw,
-            prop.z - lx * sin_yaw + lz * cos_yaw,
+            lz.mul_add(sin_yaw, lx.mul_add(cos_yaw, prop.x)),
+            lz.mul_add(cos_yaw, lx.mul_add(-sin_yaw, prop.z)),
         )
     };
     let corner = |sx: f32, sy: f32, sz: f32| -> [f32; 3] {
         let (world_x, world_z) = rotate(sx * half_w, sz * half_d);
-        [world_x, center_y + sy * half_h, world_z]
+        [world_x, sy.mul_add(half_h, center_y), world_z]
     };
     let shaded = |mult: f32, point: [f32; 3]| -> [f32; 3] {
         let light = lighting.sample(point[0], point[1], point[2]);
@@ -1591,10 +1651,9 @@ fn lit_surface_grid(
     for z in zs {
         for x in xs {
             let light = lighting.sample_in_room(room_index, *x, y, *z);
-            colors.push(match tint {
-                Some(tint) => [tint[0] * light, tint[1] * light, tint[2] * light],
-                None => [light, light, light],
-            });
+            colors.push(tint.map_or([light, light, light], |tint| {
+                [tint[0] * light, tint[1] * light, tint[2] * light]
+            }));
         }
     }
     colors
@@ -1673,9 +1732,9 @@ fn floor_regions(
     let mut patch_kinds: Vec<SurfaceKind> = Vec::new();
     let mut any = false;
     for iz in 0..cells_z {
-        let z = (zs[iz] + zs[iz + 1]) * 0.5;
+        let z = f32::midpoint(zs[iz], zs[iz + 1]);
         for ix in 0..cells_x {
-            let x = (xs[ix] + xs[ix + 1]) * 0.5;
+            let x = f32::midpoint(xs[ix], xs[ix + 1]);
             let Some(patch) = patches.iter().rev().find(|patch| {
                 let x0 = patch.x.min(patch.x + patch.width);
                 let x1 = patch.x.max(patch.x + patch.width);
@@ -1686,13 +1745,16 @@ fn floor_regions(
                 continue;
             };
             let kind = material_surface(MaterialSlot::Floor, &patch.material);
-            let label = match patch_kinds.iter().position(|existing| *existing == kind) {
-                Some(index) => index as u32 + 1,
-                None => {
-                    patch_kinds.push(kind);
-                    patch_kinds.len() as u32
-                }
-            };
+            let label = patch_kinds
+                .iter()
+                .position(|existing| *existing == kind)
+                .map_or_else(
+                    || {
+                        patch_kinds.push(kind);
+                        u32::try_from(patch_kinds.len()).unwrap_or(u32::MAX)
+                    },
+                    |index| u32::try_from(index).unwrap_or(u32::MAX) + 1,
+                );
             cells[iz * cells_x + ix] = label;
             any = true;
         }
@@ -1808,7 +1870,10 @@ fn build_level_geometry_mesh(
                         LitSurface {
                             y: 0.0,
                             ceiling: false,
-                            region: Some((label as u32, &regions.cells)),
+                            region: Some((
+                                u32::try_from(label).unwrap_or(u32::MAX),
+                                &regions.cells,
+                            )),
                         },
                         |x, z| [x / FLOOR_TILE_METRES, z / FLOOR_TILE_METRES],
                     );
@@ -1868,19 +1933,18 @@ fn build_level_geometry_mesh(
             .unwrap_or(level.defaults.wall.as_str());
         let wall_kind = material_surface(MaterialSlot::Wall, wall_material);
         let face_kind = |name: &str| {
-            let material = wall
-                .faces
-                .get(name)
-                .map(String::as_str)
-                .unwrap_or(wall_material);
+            let material = wall.faces.get(name).map_or(wall_material, String::as_str);
             material_surface(MaterialSlot::Wall, material)
         };
         let x0 = wall.x.min(wall.x + wall.width);
         let x1 = wall.x.max(wall.x + wall.width);
         let z0 = wall.z.min(wall.z + wall.depth);
         let z1 = wall.z.max(wall.z + wall.depth);
-        let ceiling_h =
-            ceiling_height_at(&rooms, wall.x + wall.width * 0.5, wall.z + wall.depth * 0.5);
+        let ceiling_h = ceiling_height_at(
+            &rooms,
+            wall.width.mul_add(0.5, wall.x),
+            wall.depth.mul_add(0.5, wall.z),
+        );
         let h = wall.resolved_height(ceiling_h);
         let wall_base = wall.y.min(wall.y + h);
 
@@ -2192,7 +2256,9 @@ fn build_level_geometry_mesh(
         let z1 = light.z + half_d;
 
         let intensity = light.intensity();
-        let output = (0.60 + 0.40 * intensity.clamp(0.0, 2.0)).clamp(0.0, 1.0);
+        let output = 0.40f32
+            .mul_add(intensity.clamp(0.0, 2.0), 0.60)
+            .clamp(0.0, 1.0);
         let fixture_glow = [1.00 * output, 0.98 * output, 0.92 * output];
         add_quad_flat(
             &mut scratch,
@@ -2287,7 +2353,7 @@ fn finish_indexed_mesh(mut buckets: crate::spatial::SpatialBuckets<SurfaceKind>)
         if range.indices.is_empty() {
             continue;
         }
-        let index_len = range.indices.len() as i32;
+        let index_len = i32::try_from(range.indices.len()).unwrap_or(i32::MAX);
         let slot = &mut spans[kind as usize];
         *slot = Some(match *slot {
             None => (virtual_index, virtual_index + index_len),
@@ -2364,18 +2430,20 @@ pub enum VertexLayout {
 
 impl VertexLayout {
     /// Bytes one vertex occupies in this layout.
-    pub fn stride(self) -> i32 {
+    #[must_use]
+    pub const fn stride(self) -> i32 {
         match self {
-            VertexLayout::Packed => packed_layout::STRIDE,
-            VertexLayout::Exact => std::mem::size_of::<Vertex>() as i32,
+            Self::Packed => packed_layout::STRIDE,
+            Self::Exact => EXACT_VERTEX_STRIDE,
         }
     }
 
     /// Bytes one vertex occupies on the GPU in this layout.
-    pub fn vertex_bytes(self) -> usize {
+    #[must_use]
+    pub const fn vertex_bytes(self) -> usize {
         match self {
-            VertexLayout::Packed => std::mem::size_of::<PackedVertex>(),
-            VertexLayout::Exact => std::mem::size_of::<Vertex>(),
+            Self::Packed => std::mem::size_of::<PackedVertex>(),
+            Self::Exact => std::mem::size_of::<Vertex>(),
         }
     }
 }
@@ -2421,8 +2489,8 @@ impl MeshPacker {
             }
             let chunk_index = self.chunks.len() - 1;
             let chunk = &mut self.chunks[chunk_index];
-            let index_start = chunk.indices.len() as i32;
-            let vertex_start = chunk.vertices.len() as i32;
+            let index_start = i32::try_from(chunk.indices.len()).unwrap_or(i32::MAX);
+            let vertex_start = i32::try_from(chunk.vertices.len()).unwrap_or(i32::MAX);
 
             while cursor < indices.len() {
                 let source = indices[cursor] as usize;
@@ -2435,21 +2503,22 @@ impl MeshPacker {
                     if chunk.vertices.len() >= limit {
                         break;
                     }
-                    remap[source] = chunk.vertices.len() as u16;
+                    remap[source] = u16::try_from(chunk.vertices.len()).unwrap_or(u16::MAX);
                     chunk.vertices.push(*vertex);
                 }
                 chunk.indices.push(remap[source]);
                 cursor += 1;
             }
 
-            let index_count = chunk.indices.len() as i32 - index_start;
+            let index_count = i32::try_from(chunk.indices.len()).unwrap_or(i32::MAX) - index_start;
             if index_count > 0 {
                 placements.push(PackedRange {
                     chunk: chunk_index,
                     index_start,
                     index_count,
                     vertex_start,
-                    vertex_count: chunk.vertices.len() as i32 - vertex_start,
+                    vertex_count: i32::try_from(chunk.vertices.len()).unwrap_or(i32::MAX)
+                        - vertex_start,
                 });
             }
         }
@@ -2471,7 +2540,7 @@ impl MeshPacker {
             if flat.len() >= crate::spatial::MAX_INDEX_VERTICES {
                 break;
             }
-            flat_indices.push(flat.len() as u16);
+            flat_indices.push(u16::try_from(flat.len()).unwrap_or(u16::MAX));
             flat.push(*vertex);
         }
         self.push(&flat, &flat_indices)
@@ -2597,12 +2666,14 @@ pub fn build_level_geometry_timed(
 ///
 /// Callers that can resolve the prop catalog should prefer
 /// [`build_level_geometry_with_catalog`].
+#[must_use]
 pub fn build_level_geometry(level: &LevelDef) -> LevelMesh {
     build_level_geometry_with_catalog(level, &crate::loader::PropCatalog::builtin())
 }
 
 /// Builds level geometry, drawing every prop as its catalogue placeholder box
 /// (no GLB assets are read). Used by tests and by the asset-less fallback path.
+#[must_use]
 pub fn build_level_geometry_with_catalog(
     level: &LevelDef,
     catalog: &crate::loader::PropCatalog,
@@ -2680,13 +2751,10 @@ fn resolve_prop_instances<'a>(
         // are `GL_UNSIGNED_SHORT` offsets into the batch's own vertex list, so a
         // cell holding hundreds of instances has to become several batches.
         let key = (model_path.clone(), cell);
-        let needs_new_batch = match index_by_batch.get(&key) {
-            Some(index) => {
-                batches[*index].vertices.len() + asset.model.vertices.len()
-                    > crate::spatial::MAX_INDEX_VERTICES
-            }
-            None => true,
-        };
+        let needs_new_batch = index_by_batch.get(&key).is_none_or(|index| {
+            batches[*index].vertices.len() + asset.model.vertices.len()
+                > crate::spatial::MAX_INDEX_VERTICES
+        });
         if needs_new_batch {
             models_seen.insert(model_path.clone());
             batches.push(PropMeshBatch {
@@ -2728,7 +2796,9 @@ fn resolve_prop_instances<'a>(
             });
         }
         for index in &asset.model.indices {
-            batch.indices.push(base as u16 + *index);
+            batch
+                .indices
+                .push(u16::try_from(base).unwrap_or(u16::MAX) + *index);
         }
         busy_vertices += asset.model.vertices.len();
     }
@@ -2760,6 +2830,7 @@ fn transform_bounds(local: &crate::spatial::Aabb, transform: &glam::Mat4) -> cra
 /// [`add_prop_box`]), so a prop keeps its position, orientation and vertical
 /// offset when its real model replaces the box. Model space is metres with the
 /// origin at the floor-contact centre (see `assets/props/README.md`).
+#[must_use]
 pub fn prop_instance_matrix(prop: &PropDef) -> glam::Mat4 {
     let rotation = glam::Mat4::from_rotation_y(prop.rotation_degrees.to_radians());
     let scale = glam::Mat4::from_scale(glam::Vec3::splat(prop.scale));
@@ -2780,12 +2851,12 @@ unsafe fn set_repeat_filter(gl: &glow::Context, linear: bool) {
         gl.tex_parameter_i32(
             glow::TEXTURE_2D,
             glow::TEXTURE_MIN_FILTER,
-            min_filter as i32,
+            min_filter.cast_signed(),
         );
         gl.tex_parameter_i32(
             glow::TEXTURE_2D,
             glow::TEXTURE_MAG_FILTER,
-            mag_filter as i32,
+            mag_filter.cast_signed(),
         );
     }
 }
@@ -2805,7 +2876,7 @@ unsafe fn create_texture_2d(
         gl.tex_image_2d(
             glow::TEXTURE_2D,
             0,
-            glow::RGBA as i32,
+            glow::RGBA.cast_signed(),
             width,
             height,
             0,
@@ -2815,9 +2886,9 @@ unsafe fn create_texture_2d(
         );
 
         let wrap_mode = if repeat {
-            glow::REPEAT as i32
+            glow::REPEAT.cast_signed()
         } else {
-            glow::CLAMP_TO_EDGE as i32
+            glow::CLAMP_TO_EDGE.cast_signed()
         };
         gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, wrap_mode);
         gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, wrap_mode);
@@ -2829,12 +2900,12 @@ unsafe fn create_texture_2d(
             gl.tex_parameter_i32(
                 glow::TEXTURE_2D,
                 glow::TEXTURE_MIN_FILTER,
-                glow::NEAREST as i32,
+                glow::NEAREST.cast_signed(),
             );
             gl.tex_parameter_i32(
                 glow::TEXTURE_2D,
                 glow::TEXTURE_MAG_FILTER,
-                glow::NEAREST as i32,
+                glow::NEAREST.cast_signed(),
             );
         }
 
@@ -3032,13 +3103,17 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    /// Initializes an accelerated OpenGL context with VSync, textures and an
+    /// Initializes an accelerated OpenGL context with `VSync`, textures and an
     /// empty level buffer.
     ///
     /// The caller uploads the first level with [`Renderer::set_level`] (or
     /// [`Renderer::rebuild_level_geometry`]); building here as well would bake
     /// and upload the same level twice before the first frame, which is real
-    /// cost on the PocketCHIP.
+    /// cost on the `PocketCHIP`.
+    /// # Errors
+    ///
+    /// Returns a message when the GL context is missing, the shader program does
+    /// not link, or a texture, buffer or attribute lookup fails.
     pub fn new(window: &sdl2::video::Window, video: &sdl2::VideoSubsystem) -> Result<Self, String> {
         let gl_attr = video.gl_attr();
         gl_attr.set_double_buffer(true);
@@ -3047,13 +3122,12 @@ impl Renderer {
         gl_attr.set_context_profile(sdl2::video::GLProfile::GLES);
         gl_attr.set_context_version(2, 0);
 
-        let gl_context = match window.gl_create_context() {
-            Ok(ctx) => ctx,
-            Err(_) => {
-                gl_attr.set_context_profile(sdl2::video::GLProfile::Compatibility);
-                gl_attr.set_context_version(2, 1);
-                window.gl_create_context()?
-            }
+        let gl_context = if let Ok(ctx) = window.gl_create_context() {
+            ctx
+        } else {
+            gl_attr.set_context_profile(sdl2::video::GLProfile::Compatibility);
+            gl_attr.set_context_version(2, 1);
+            window.gl_create_context()?
         };
 
         window.gl_make_current(&gl_context)?;
@@ -3064,7 +3138,7 @@ impl Renderer {
 
         let gl = unsafe {
             glow::Context::from_loader_function(|proc_name| {
-                video.gl_get_proc_address(proc_name) as *const _
+                video.gl_get_proc_address(proc_name).cast()
             })
         };
 
@@ -3118,12 +3192,12 @@ impl Renderer {
             let wall_stained_texture =
                 create_texture_2d(&gl, 128, 128, &generate_stained_wall_texture(), true, true)?;
             let floor_damp_sheet =
-                crate::loader::RawImage::new(64, 64, generate_damp_carpet_texture().to_vec());
+                crate::loader::RawImage::new(64, 64, generate_damp_carpet_texture());
             let floor_damp = generate_floor_checker_texture(&floor_damp_sheet);
             let floor_damp_texture = create_texture_2d(
                 &gl,
-                floor_damp.width as i32,
-                floor_damp.height as i32,
+                i32::try_from(floor_damp.width).unwrap_or(i32::MAX),
+                i32::try_from(floor_damp.height).unwrap_or(i32::MAX),
                 &floor_damp.rgba,
                 true,
                 true,
@@ -3253,21 +3327,25 @@ impl Renderer {
 
     /// Number of draw calls the current level's props need (one per distinct
     /// model), exposed for the performance overlay and tests.
-    pub fn prop_draw_count(&self) -> usize {
+    pub const fn prop_draw_count(&self) -> usize {
         self.prop_draws.len()
     }
 
     /// Static-geometry and baked-lighting statistics for the current level.
-    pub fn level_stats(&self) -> LevelBuildStats {
+    pub const fn level_stats(&self) -> LevelBuildStats {
         self.level_stats
     }
 
     /// Reads back the default framebuffer as a top-down RGBA image.
     ///
     /// Used by the `LIMINAL_CAPTURE` developer/hardware path: it is the only way
-    /// to inspect real prop rendering on the PocketCHIP (no screenshots over
+    /// to inspect real prop rendering on the `PocketCHIP` (no screenshots over
     /// SSH) and on desktops where the window cannot be captured. Call it after
     /// drawing and before swapping buffers.
+    /// # Errors
+    ///
+    /// Returns a message when the drawable is empty or the GL readback returns a
+    /// non-finite or truncated buffer.
     pub fn capture_default_framebuffer(&self) -> Result<crate::loader::RawImage, String> {
         let drawable = self.drawable_size;
         if drawable.is_empty() {
@@ -3280,8 +3358,8 @@ impl Renderer {
             self.gl.read_pixels(
                 0,
                 0,
-                width as i32,
-                height as i32,
+                i32::try_from(width).unwrap_or(i32::MAX),
+                i32::try_from(height).unwrap_or(i32::MAX),
                 glow::RGBA,
                 glow::UNSIGNED_BYTE,
                 glow::PixelPackData::Slice(Some(&mut pixels)),
@@ -3319,9 +3397,9 @@ impl Renderer {
             gl.tex_image_2d(
                 glow::TEXTURE_2D,
                 0,
-                glow::RGBA as i32,
-                raw_image.width as i32,
-                raw_image.height as i32,
+                glow::RGBA.cast_signed(),
+                i32::try_from(raw_image.width).unwrap_or(i32::MAX),
+                i32::try_from(raw_image.height).unwrap_or(i32::MAX),
                 0,
                 glow::RGBA,
                 glow::UNSIGNED_BYTE,
@@ -3329,9 +3407,9 @@ impl Renderer {
             );
 
             let wrap_mode = if repeat {
-                glow::REPEAT as i32
+                glow::REPEAT.cast_signed()
             } else {
-                glow::CLAMP_TO_EDGE as i32
+                glow::CLAMP_TO_EDGE.cast_signed()
             };
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, wrap_mode);
             gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, wrap_mode);
@@ -3343,12 +3421,12 @@ impl Renderer {
                 gl.tex_parameter_i32(
                     glow::TEXTURE_2D,
                     glow::TEXTURE_MIN_FILTER,
-                    glow::NEAREST as i32,
+                    glow::NEAREST.cast_signed(),
                 );
                 gl.tex_parameter_i32(
                     glow::TEXTURE_2D,
                     glow::TEXTURE_MAG_FILTER,
-                    glow::NEAREST as i32,
+                    glow::NEAREST.cast_signed(),
                 );
             }
 
@@ -3465,7 +3543,7 @@ impl Renderer {
                             let packed: Vec<PackedVertex> =
                                 chunk.vertices.iter().map(PackedVertex::from).collect();
                             let vertex_bytes = std::slice::from_raw_parts(
-                                packed.as_ptr() as *const u8,
+                                packed.as_ptr().cast::<u8>(),
                                 packed.len() * std::mem::size_of::<PackedVertex>(),
                             );
                             gl.buffer_data_u8_slice(
@@ -3476,7 +3554,7 @@ impl Renderer {
                         }
                         VertexLayout::Exact => {
                             let vertex_bytes = std::slice::from_raw_parts(
-                                chunk.vertices.as_ptr() as *const u8,
+                                chunk.vertices.as_ptr().cast::<u8>(),
                                 chunk.vertices.len() * std::mem::size_of::<Vertex>(),
                             );
                             gl.buffer_data_u8_slice(
@@ -3489,7 +3567,7 @@ impl Renderer {
 
                     gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ibo));
                     let index_bytes = std::slice::from_raw_parts(
-                        chunk.indices.as_ptr() as *const u8,
+                        chunk.indices.as_ptr().cast::<u8>(),
                         chunk.indices.len() * std::mem::size_of::<u16>(),
                     );
                     gl.buffer_data_u8_slice(
@@ -3534,7 +3612,7 @@ impl Renderer {
         self.prop_draws = draws;
     }
 
-    /// Uploads one prop model's diffuse texture with mipmaps and CLAMP_TO_EDGE
+    /// Uploads one prop model's diffuse texture with mipmaps and `CLAMP_TO_EDGE`
     /// wrapping (prop UVs never tile), matching the game's filtering setting.
     unsafe fn upload_prop_texture(
         &self,
@@ -3546,9 +3624,9 @@ impl Renderer {
             self.gl.tex_image_2d(
                 glow::TEXTURE_2D,
                 0,
-                glow::RGBA as i32,
-                image.width as i32,
-                image.height as i32,
+                glow::RGBA.cast_signed(),
+                i32::try_from(image.width).unwrap_or(i32::MAX),
+                i32::try_from(image.height).unwrap_or(i32::MAX),
                 0,
                 glow::RGBA,
                 glow::UNSIGNED_BYTE,
@@ -3557,12 +3635,12 @@ impl Renderer {
             self.gl.tex_parameter_i32(
                 glow::TEXTURE_2D,
                 glow::TEXTURE_WRAP_S,
-                glow::CLAMP_TO_EDGE as i32,
+                glow::CLAMP_TO_EDGE.cast_signed(),
             );
             self.gl.tex_parameter_i32(
                 glow::TEXTURE_2D,
                 glow::TEXTURE_WRAP_T,
-                glow::CLAMP_TO_EDGE as i32,
+                glow::CLAMP_TO_EDGE.cast_signed(),
             );
             set_repeat_filter(&self.gl, self.linear_filtering);
             self.gl.generate_mipmap(glow::TEXTURE_2D);
@@ -3623,8 +3701,12 @@ impl Renderer {
 
         unsafe {
             // Render at the real drawable resolution; no fixed 480x272 target.
-            self.gl
-                .viewport(0, 0, drawable.width as i32, drawable.height as i32);
+            self.gl.viewport(
+                0,
+                0,
+                i32::try_from(drawable.width).unwrap_or(i32::MAX),
+                i32::try_from(drawable.height).unwrap_or(i32::MAX),
+            );
             self.gl
                 .clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
 
@@ -3709,7 +3791,7 @@ impl Renderer {
                     glow::UNSIGNED_SHORT,
                     batch.index_range.start * 2,
                 );
-                visible_vertices += batch.vertex_count.max(0) as usize;
+                visible_vertices += usize::try_from(batch.vertex_count.max(0)).unwrap_or(0);
                 visible_batches += 1;
                 draw_calls += 1;
             }
@@ -3743,7 +3825,7 @@ impl Renderer {
                         glow::UNSIGNED_SHORT,
                         draw.index_start * 2,
                     );
-                    visible_vertices += draw.vertex_count.max(0) as usize;
+                    visible_vertices += usize::try_from(draw.vertex_count.max(0)).unwrap_or(0);
                     visible_batches += 1;
                     draw_calls += 1;
                 }
@@ -3775,13 +3857,13 @@ impl Renderer {
     /// Selects the GPU vertex layout. Packed is the shipping default; the
     /// debug benchmark selects `Exact` to measure the packing win on the same
     /// build with everything else held constant.
-    pub fn set_vertex_layout(&mut self, layout: VertexLayout) {
+    pub const fn set_vertex_layout(&mut self, layout: VertexLayout) {
         self.vertex_layout = layout;
     }
 
     /// Enables or disables indexed submission. Only the debug benchmark turns
     /// this off, to measure what indexing is worth on real hardware.
-    pub fn set_indexing(&mut self, enabled: bool) {
+    pub const fn set_indexing(&mut self, enabled: bool) {
         self.indexing_enabled = enabled;
     }
 
@@ -3789,17 +3871,17 @@ impl Renderer {
     ///
     /// Culling is always on in normal play; the debug benchmark harness turns it
     /// off so the same build can measure what it is worth on real hardware.
-    pub fn set_culling(&mut self, enabled: bool) {
+    pub const fn set_culling(&mut self, enabled: bool) {
         self.culling_enabled = enabled;
     }
 
     /// Spatial grid the current level was partitioned with, for developer logs.
-    pub fn spatial_grid(&self) -> crate::spatial::CellGrid {
+    pub const fn spatial_grid(&self) -> crate::spatial::CellGrid {
         self.spatial_grid
     }
 
     /// Number of cullable static ranges the current level is split into.
-    pub fn static_batch_count(&self) -> usize {
+    pub const fn static_batch_count(&self) -> usize {
         self.static_batches.len()
     }
 
@@ -3828,7 +3910,7 @@ impl Renderer {
     }
 
     /// Counters for the most recently submitted scene (see [`RenderStats`]).
-    pub fn render_stats(&self) -> RenderStats {
+    pub const fn render_stats(&self) -> RenderStats {
         self.render_stats
     }
 
@@ -3957,14 +4039,14 @@ impl Renderer {
                         .extend(ui_vertices.iter().map(PackedVertex::from));
                     self.ui_packed_len = self.ui_scratch.len();
                     std::slice::from_raw_parts(
-                        self.ui_scratch.as_ptr() as *const u8,
+                        self.ui_scratch.as_ptr().cast::<u8>(),
                         std::mem::size_of_val(self.ui_scratch.as_slice()),
                     )
                 }
                 VertexLayout::Exact => {
                     self.ui_packed_len = ui_vertices.len();
                     std::slice::from_raw_parts(
-                        ui_vertices.as_ptr() as *const u8,
+                        ui_vertices.as_ptr().cast::<u8>(),
                         std::mem::size_of_val(ui_vertices),
                     )
                 }
@@ -3974,8 +4056,11 @@ impl Renderer {
 
             self.set_vertex_attributes();
 
-            self.gl
-                .draw_arrays(glow::TRIANGLES, 0, self.ui_packed_len as i32);
+            self.gl.draw_arrays(
+                glow::TRIANGLES,
+                0,
+                i32::try_from(self.ui_packed_len).unwrap_or(i32::MAX),
+            );
 
             self.gl.disable_vertex_attrib_array(self.a_pos_loc);
             self.gl.disable_vertex_attrib_array(self.a_color_loc);
@@ -3994,6 +4079,7 @@ impl Renderer {
 mod tests {
     use super::*;
     use crate::spatial::{DepthRange, Frustum};
+    use crate::test_support::{assert_exact, assert_exact_array, assert_exact_named};
 
     // ------------------------------------------------------- vertex packing
 
@@ -4006,6 +4092,11 @@ mod tests {
         );
         assert_eq!(std::mem::align_of::<PackedVertex>(), 4);
         assert_eq!(packed_layout::STRIDE, 24, "stride must match the struct");
+        assert_eq!(
+            VertexLayout::Exact.stride(),
+            i32::try_from(std::mem::size_of::<Vertex>()).unwrap_or(i32::MAX),
+            "the exact layout's stride must match the struct"
+        );
         // The offsets are what `set_packed_vertex_attributes` hands to
         // `glVertexAttribPointer`; a struct change must move them too.
         assert_eq!(
@@ -4162,8 +4253,8 @@ mod tests {
         for range in &mesh.ranges {
             for vertex in &range.vertices {
                 let packed = PackedVertex::from(vertex);
-                assert_eq!(packed.pos, vertex.pos);
-                assert_eq!(packed.uv, vertex.uv);
+                assert_exact_array(packed.pos, vertex.pos);
+                assert_exact_array(packed.uv, vertex.uv);
                 for channel in 0..4 {
                     assert!(
                         (dequantize_unit(packed.color[channel]) - vertex.color[channel]).abs()
@@ -4205,12 +4296,12 @@ mod tests {
         assert_eq!(white.len(), 2 * 2 * 4);
 
         for image in [
-            generate_wall_texture().to_vec(),
-            generate_carpet_texture().to_vec(),
-            generate_ceiling_texture().to_vec(),
-            generate_stained_wall_texture().to_vec(),
-            generate_damp_carpet_texture().to_vec(),
-            generate_stained_ceiling_texture().to_vec(),
+            generate_wall_texture(),
+            generate_carpet_texture(),
+            generate_ceiling_texture(),
+            generate_stained_wall_texture(),
+            generate_damp_carpet_texture(),
+            generate_stained_ceiling_texture(),
         ] {
             assert_eq!(image.len() % 4, 0);
             for texel in image.as_chunks::<4>().0 {
@@ -4224,28 +4315,20 @@ mod tests {
     #[test]
     fn test_surface_textures_tile() {
         let cases: [(&str, Vec<u8>, u32); 6] = [
-            ("wall", generate_wall_texture().to_vec(), 128),
-            (
-                "wall_stained",
-                generate_stained_wall_texture().to_vec(),
-                128,
-            ),
-            ("carpet", generate_carpet_texture().to_vec(), 64),
-            ("carpet_damp", generate_damp_carpet_texture().to_vec(), 64),
-            ("ceiling", generate_ceiling_texture().to_vec(), 128),
-            (
-                "ceiling_stained",
-                generate_stained_ceiling_texture().to_vec(),
-                128,
-            ),
+            ("wall", generate_wall_texture(), 128),
+            ("wall_stained", generate_stained_wall_texture(), 128),
+            ("carpet", generate_carpet_texture(), 64),
+            ("carpet_damp", generate_damp_carpet_texture(), 64),
+            ("ceiling", generate_ceiling_texture(), 128),
+            ("ceiling_stained", generate_stained_ceiling_texture(), 128),
         ];
         for (name, data, size) in cases {
             let texel = |x: u32, y: u32| -> [i32; 3] {
                 let index = ((y * size + x) * 4) as usize;
                 [
-                    data[index] as i32,
-                    data[index + 1] as i32,
-                    data[index + 2] as i32,
+                    i32::from(data[index]),
+                    i32::from(data[index + 1]),
+                    i32::from(data[index + 2]),
                 ]
             };
             for i in 0..size {
@@ -4301,8 +4384,10 @@ mod tests {
         // 100x100 m one, and with no fixtures both collapse to a single quad.
         let hundred = build_level_geometry(&level(100.0));
         let four_hundred = build_level_geometry(&level(400.0));
-        let cap = (crate::lighting::MAX_LIGHT_GRID_CELLS * crate::lighting::MAX_LIGHT_GRID_CELLS)
-            as i32
+        let cap = i32::try_from(
+            crate::lighting::MAX_LIGHT_GRID_CELLS * crate::lighting::MAX_LIGHT_GRID_CELLS,
+        )
+        .unwrap_or(i32::MAX)
             * 6;
         for mesh in [&hundred, &four_hundred] {
             assert!(mesh.batches.floor_batch.count > 0);
@@ -4339,7 +4424,7 @@ mod tests {
 
     #[test]
     fn test_floor_checker_texture_bakes_tint_and_tiles() {
-        let src = crate::loader::RawImage::new(64, 64, generate_carpet_texture().to_vec());
+        let src = crate::loader::RawImage::new(64, 64, generate_carpet_texture());
         let baked = generate_floor_checker_texture(&src);
         assert_eq!(baked.width, 128);
         assert_eq!(baked.height, 128);
@@ -4404,7 +4489,7 @@ mod tests {
         for aspect in [16.0 / 9.0, 21.0 / 9.0, 32.0 / 9.0] {
             assert!(aspect > baseline);
             let vfov = vertical_fov_for_aspect(60.0, aspect);
-            assert_eq!(vfov, 60.0, "wider aspect must keep vertical FOV");
+            assert_exact_named(vfov, 60.0, "wider aspect must keep vertical FOV");
             assert!(horizontal_fov_degrees(vfov, aspect) > horizontal_fov_degrees(60.0, baseline));
         }
     }
@@ -4428,9 +4513,9 @@ mod tests {
 
     #[test]
     fn test_vertical_fov_handles_degenerate_aspects() {
-        assert_eq!(vertical_fov_for_aspect(60.0, 0.0), 60.0);
-        assert_eq!(vertical_fov_for_aspect(60.0, -1.0), 60.0);
-        assert_eq!(vertical_fov_for_aspect(60.0, f32::NAN), 60.0);
+        assert_exact(vertical_fov_for_aspect(60.0, 0.0), 60.0);
+        assert_exact(vertical_fov_for_aspect(60.0, -1.0), 60.0);
+        assert_exact(vertical_fov_for_aspect(60.0, f32::NAN), 60.0);
         // Extremely tall windows are capped to keep the projection invertible.
         assert!(vertical_fov_for_aspect(60.0, 0.1) <= 150.0);
     }
@@ -4467,10 +4552,17 @@ mod tests {
             let vp = size.ui_viewport();
 
             // Fits inside the drawable and stays centred.
-            assert!(vp.width <= w as i32 && vp.height <= h as i32);
+            assert!(
+                vp.width <= i32::try_from(w).unwrap_or(i32::MAX)
+                    && vp.height <= i32::try_from(h).unwrap_or(i32::MAX)
+            );
             assert!(vp.x >= 0 && vp.y >= 0);
-            assert!((size.width as i32 - vp.width - 2 * vp.x).abs() <= 1);
-            assert!((size.height as i32 - vp.height - 2 * vp.y).abs() <= 1);
+            assert!(
+                (i32::try_from(size.width).unwrap_or(i32::MAX) - vp.width - 2 * vp.x).abs() <= 1
+            );
+            assert!(
+                (i32::try_from(size.height).unwrap_or(i32::MAX) - vp.height - 2 * vp.y).abs() <= 1
+            );
 
             // Reference aspect preserved (within one pixel of rounding).
             let vp_aspect = vp.width as f32 / vp.height as f32;
@@ -4493,7 +4585,7 @@ mod tests {
             (0, 0, 480, 272),
             "PocketCHIP UI layout must be pixel-identical to the original"
         );
-        assert_eq!(vp.scale, 1.0);
+        assert_exact(vp.scale, 1.0);
     }
 
     #[test]
@@ -4502,7 +4594,7 @@ mod tests {
         let logical = DrawableSize::new(480, 272);
         let physical = DrawableSize::new(960, 544);
 
-        assert_eq!(physical.ui_viewport().scale, 2.0);
+        assert_exact(physical.ui_viewport().scale, 2.0);
         assert_eq!(physical.ui_viewport().width, 960);
         assert_eq!(physical.ui_viewport().height, 544);
         assert!((physical.aspect_ratio() - logical.aspect_ratio()).abs() < 1e-6);
@@ -4514,7 +4606,7 @@ mod tests {
         let large = DrawableSize::new(1920, 1080);
         assert_ne!(small, large);
         assert!(large.ui_viewport().scale > small.ui_viewport().scale);
-        assert_eq!(large.ui_viewport().scale, 1080.0 / 272.0);
+        assert_exact(large.ui_viewport().scale, 1080.0 / 272.0);
     }
 
     #[test]
@@ -4539,8 +4631,11 @@ mod tests {
         let expected_cells: i32 = level
             .room_iter()
             .map(|room| {
-                (crate::lighting::light_grid_cells(room.width)
-                    * crate::lighting::light_grid_cells(room.depth)) as i32
+                i32::try_from(
+                    crate::lighting::light_grid_cells(room.width)
+                        * crate::lighting::light_grid_cells(room.depth),
+                )
+                .unwrap_or(i32::MAX)
             })
             .sum();
         assert!(mesh.batches.floor_batch.count <= expected_cells * 6);
@@ -4791,7 +4886,7 @@ mod tests {
         let maintained = batch_slice(&mesh, SurfaceKind::Wall);
         assert!(!stained.is_empty() && !maintained.is_empty());
         let stained_bounds = xz_bounds(&stained);
-        assert_eq!(stained_bounds.0, 0.0);
+        assert_exact(stained_bounds.0, 0.0);
         assert!(stained_bounds.1 >= 8.0);
         // The maintained faces belong to the second wall's north side, which
         // faces the room interior.
@@ -4984,12 +5079,12 @@ mod tests {
         for (index, placement) in placements.iter().enumerate() {
             let chunk = &packer.chunks[placement.chunk];
             assert!(chunk.vertices.len() <= crate::spatial::MAX_INDEX_VERTICES);
-            let start = placement.index_start as usize;
-            let end = start + placement.index_count as usize;
+            let start = usize::try_from(placement.index_start).unwrap_or(0);
+            let end = start + usize::try_from(placement.index_count).unwrap_or(0);
             for (offset, value) in chunk.indices[start..end].iter().enumerate() {
                 assert_eq!(
                     *value as usize,
-                    placement.vertex_start as usize + offset,
+                    usize::try_from(placement.vertex_start).unwrap_or(0) + offset,
                     "range {index} indices must be re-based into their chunk"
                 );
             }
@@ -5013,13 +5108,13 @@ mod tests {
         let vertices: Vec<Vertex> = (0..count).map(|i| vertex(i as f32)).collect();
         let mut indices: Vec<u16> = Vec::with_capacity(count * 2);
         for index in 0..count {
-            indices.push((index % count) as u16);
-            indices.push(((index + 1) % count) as u16);
+            indices.push(u16::try_from(index % count).unwrap_or(u16::MAX));
+            indices.push(u16::try_from((index + 1) % count).unwrap_or(u16::MAX));
         }
         // A second range of the same size cannot share the first chunk.
         let mut second: Vec<u16> = Vec::with_capacity(count);
         for index in 0..count {
-            second.push((index % count) as u16);
+            second.push(u16::try_from(index % count).unwrap_or(u16::MAX));
         }
 
         let mut packer = MeshPacker::default();
@@ -5033,8 +5128,8 @@ mod tests {
         for placement in &placements {
             let chunk = &packer.chunks[placement.chunk];
             assert!(chunk.vertices.len() <= crate::spatial::MAX_INDEX_VERTICES);
-            let start = placement.index_start as usize;
-            let end = start + placement.index_count as usize;
+            let start = usize::try_from(placement.index_start).unwrap_or(0);
+            let end = start + usize::try_from(placement.index_count).unwrap_or(0);
             for index in &chunk.indices[start..end] {
                 assert!(
                     (*index as usize) < chunk.vertices.len(),
@@ -5042,7 +5137,7 @@ mod tests {
                     placement.chunk
                 );
             }
-            total_indices += placement.index_count as usize;
+            total_indices += usize::try_from(placement.index_count).unwrap_or(0);
         }
         assert_eq!(
             total_indices,
@@ -5134,6 +5229,7 @@ mod tests {
     fn a_camera_inside_a_batch_never_culls_it() {
         // Stand inside a deliberately oversized prop box: whatever the camera
         // looks at, the range it is standing in must survive every plane test.
+        const EPS: f32 = 1e-3;
         let level = level_with_wall(
             "[]",
             r#"[{ "model": "core:crate", "x": 0.0, "z": 0.0, "size": [4.0, 4.0, 4.0] }]"#,
@@ -5143,7 +5239,6 @@ mod tests {
         // Strictly inside, not merely touching: a wall face passing exactly
         // through the eye is still legitimately behind a camera looking away
         // from it.
-        const EPS: f32 = 1e-3;
         let contains_eye = |batch: &LevelMeshRange| {
             (0..3).all(|axis| {
                 batch.bounds.min[axis] + EPS <= eye[axis]
@@ -5290,9 +5385,9 @@ mod tests {
             .iter()
             .zip(second.all_vertices().iter())
         {
-            assert_eq!(a.pos, b.pos);
-            assert_eq!(a.color, b.color);
-            assert_eq!(a.uv, b.uv);
+            assert_exact_array(a.pos, b.pos);
+            assert_exact_array(a.color, b.color);
+            assert_exact_array(a.uv, b.uv);
         }
     }
 
@@ -5622,13 +5717,13 @@ mod tests {
             let source = model.vertices[vertex_index % model.vertices.len()];
             let light = lighting.sample(vertex.pos[0], vertex.pos[1], vertex.pos[2]);
             assert!(
-                (vertex.color[0] - source.color[0] * light).abs() < 1e-4,
+                source.color[0].mul_add(-light, vertex.color[0]).abs() < 1e-4,
                 "vertex {vertex_index}: baked colour {} does not match {} * {light}",
                 vertex.color[0],
                 source.color[0]
             );
         }
-        assert!(assets.stats().models_failed == 0);
+        assert_eq!(assets.stats().models_failed, 0);
     }
 
     #[test]
@@ -5669,7 +5764,7 @@ mod tests {
             width: 12.0,
             depth: 0.4,
             height: None,
-            faces: Default::default(),
+            faces: std::collections::HashMap::default(),
             openings: Vec::new(),
             material: None,
         }];
@@ -5689,7 +5784,7 @@ mod tests {
         }
         // The floor uses an untinted base colour, so minimum ambient shows up
         // directly; wall and ceiling tints are darker by design but stay visible.
-        assert_eq!(floor[0].color[0], crate::lighting::MIN_AMBIENT);
+        assert_exact(floor[0].color[0], crate::lighting::MIN_AMBIENT);
         assert!(ceiling[0].color[0] > 0.3);
         assert!(walls[0].color[0] > 0.3);
     }
@@ -5703,7 +5798,8 @@ mod tests {
         // there is no top or bottom face. This test room has no fixtures, so the
         // lighting along each face is flat and the segments merge back into one
         // quad per face.
-        let segments = crate::lighting::wall_light_segments(10.0) as i32;
+        let segments =
+            i32::try_from(crate::lighting::wall_light_segments(10.0)).unwrap_or(i32::MAX);
         assert_eq!(mesh.batches.wall_batch.count, 4 * 6);
         assert!(4 * 6 <= (2 * segments + 2) * 6);
         assert_eq!(mesh.batches.prop_batch.count, 0);
@@ -5726,7 +5822,8 @@ mod tests {
         // 2 door jambs). Flat segments merge, so the bound is an upper limit.
         let mut expected = 0;
         for length in [4.0f32, 2.0, 4.0] {
-            expected += 2 * crate::lighting::wall_light_segments(length) as i32;
+            expected +=
+                2 * i32::try_from(crate::lighting::wall_light_segments(length)).unwrap_or(i32::MAX);
         }
         assert!(door.batches.wall_batch.count <= (expected + 1 + 4) * 6);
         assert!(door.batches.wall_batch.count > 0);
@@ -5744,7 +5841,8 @@ mod tests {
         // plus 4 cross-section caps. Flat segments merge, so this is a bound.
         let mut expected = 0;
         for length in [4.0f32, 2.0, 2.0, 4.0] {
-            expected += 2 * crate::lighting::wall_light_segments(length) as i32;
+            expected +=
+                2 * i32::try_from(crate::lighting::wall_light_segments(length)).unwrap_or(i32::MAX);
         }
         assert!(mesh.batches.wall_batch.count <= (expected + 2 + 4) * 6);
         assert!(mesh.batches.wall_batch.count > 0);
@@ -5782,7 +5880,8 @@ mod tests {
         // is an upper limit.
         let mut expected = 0;
         for length in [4.0f32, 2.0, 4.0] {
-            expected += 2 * crate::lighting::wall_light_segments(length) as i32;
+            expected +=
+                2 * i32::try_from(crate::lighting::wall_light_segments(length)).unwrap_or(i32::MAX);
         }
         assert!(mesh.batches.wall_batch.count <= (expected + 1 + 4) * 6);
         assert!(mesh.batches.wall_batch.count > 0);
@@ -5823,7 +5922,7 @@ mod tests {
         );
         assert_eq!(
             mesh.index_count_for(SurfaceKind::PropFallback),
-            mesh.batches.prop_batch.count.max(0) as usize,
+            usize::try_from(mesh.batches.prop_batch.count.max(0)).unwrap_or(0),
             "the prop aggregate span must match the prop ranges"
         );
     }
@@ -5885,7 +5984,7 @@ mod tests {
 
         let mut total_unique = 0usize;
         let mut total_submitted = 0usize;
-        for entry in catalog.entries().to_vec() {
+        for entry in catalog.entries() {
             let Some(model_path) = entry.model.as_deref() else {
                 continue;
             };
@@ -6167,8 +6266,7 @@ mod tests {
         );
         assert!(
             total_vertices <= crate::level::MAX_LEVEL_PROP_VERTICES,
-            "the stress level must stay inside the prop vertex budget ({} vertices)",
-            total_vertices
+            "the stress level must stay inside the prop vertex budget ({total_vertices} vertices)"
         );
 
         // Sixty-plus instances of one model share the decoded mesh; they are

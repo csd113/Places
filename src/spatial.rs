@@ -2,7 +2,7 @@
 //!
 //! The renderer used to submit one draw per material for the whole level, so a
 //! camera pointed away from a prop field still paid almost the full vertex cost
-//! (measured on the PocketCHIP: 400 chairs behind the camera cost ~28 ms against
+//! (measured on the `PocketCHIP`: 400 chairs behind the camera cost ~28 ms against
 //! ~36 ms in front of it). This module provides the two pieces needed to stop
 //! that: a world-space axis-aligned bounding box per render batch, and a
 //! conservative box/frustum intersection test.
@@ -38,14 +38,15 @@ impl Default for Aabb {
 
 impl Aabb {
     /// The empty box: min above max, so any point expands it to a real box.
-    pub const EMPTY: Aabb = Aabb {
+    pub const EMPTY: Self = Self {
         min: [f32::INFINITY; 3],
         max: [f32::NEG_INFINITY; 3],
     };
 
     /// A box containing exactly one point (non-finite input is ignored).
+    #[must_use]
     pub fn from_point(point: [f32; 3]) -> Self {
-        Aabb::EMPTY.expanded(point)
+        Self::EMPTY.expanded(point)
     }
 
     /// Grows the box (in place) to contain `point`. Non-finite coordinates are
@@ -69,7 +70,7 @@ impl Aabb {
 
     /// Smallest box containing both inputs.
     #[must_use]
-    pub fn union(&self, other: &Aabb) -> Aabb {
+    pub fn union(&self, other: &Self) -> Self {
         let mut result = *self;
         result.expand(other.min);
         result.expand(other.max);
@@ -77,15 +78,17 @@ impl Aabb {
     }
 
     /// True when no finite point was ever added.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         (0..3).any(|axis| self.min[axis] > self.max[axis])
     }
 
-    pub fn centre(&self) -> [f32; 3] {
+    #[must_use]
+    pub const fn centre(&self) -> [f32; 3] {
         [
-            (self.min[0] + self.max[0]) * 0.5,
-            (self.min[1] + self.max[1]) * 0.5,
-            (self.min[2] + self.max[2]) * 0.5,
+            f32::midpoint(self.min[0], self.max[0]),
+            f32::midpoint(self.min[1], self.max[1]),
+            f32::midpoint(self.min[2], self.max[2]),
         ]
     }
 }
@@ -138,6 +141,7 @@ impl CellGrid {
     /// Used by the `LIMINAL_CELL_METRES` tuning override, which must be able to
     /// sweep *outside* the adaptive range: the clamp below is only a guard
     /// against nonsense values, not a policy.
+    #[must_use]
     pub fn uniform(cell_metres: f32) -> Self {
         let size = if cell_metres.is_finite() && cell_metres >= 0.5 {
             cell_metres.min(4096.0)
@@ -152,6 +156,7 @@ impl CellGrid {
     /// The cell size is the level's extent over
     /// [`SPATIAL_CELL_TARGET_PER_AXIS`], clamped so a small level keeps a useful
     /// culling granularity and a huge one does not become one giant batch.
+    #[must_use]
     pub fn for_extent(extent_x: f32, extent_z: f32) -> Self {
         Self {
             x: adaptive_cell(extent_x),
@@ -161,6 +166,7 @@ impl CellGrid {
 
     /// The cell containing `point`. Non-finite coordinates fall back to cell
     /// (0, 0) rather than producing an unusable key.
+    #[must_use]
     pub fn cell_of(&self, point: [f32; 3]) -> CellKey {
         CellKey {
             x: cell_axis(point[0], self.x),
@@ -169,6 +175,7 @@ impl CellGrid {
     }
 
     /// Cell size to report to the developer log.
+    #[must_use]
     pub fn describe(&self) -> String {
         if (self.x - self.z).abs() < 1e-3 {
             format!("{:.0} m", self.x)
@@ -193,6 +200,7 @@ fn adaptive_cell(extent: f32) -> f32 {
 }
 
 /// Convenience wrapper for a square grid, used by tests and simple callers.
+#[must_use]
 pub fn cell_of(point: [f32; 3], cell_metres: f32) -> CellKey {
     CellGrid::uniform(cell_metres).cell_of(point)
 }
@@ -239,6 +247,7 @@ impl Frustum {
     /// `mvp` is the same matrix uploaded to `u_mvp`, so the frustum always
     /// matches what the GPU is about to clip against — including pitch, roll,
     /// an odd aspect ratio or a resized drawable.
+    #[must_use]
     pub fn from_view_projection(mvp: &glam::Mat4, depth: DepthRange) -> Self {
         // glam stores matrices column-major; rows are the transposed axes.
         let row = |index: usize| -> [f32; 4] {
@@ -276,11 +285,13 @@ impl Frustum {
 
     /// Builds a frustum from explicit planes (tests and callers that already
     /// have them).
-    pub fn from_planes(planes: [[f32; 4]; 6]) -> Self {
+    #[must_use]
+    pub const fn from_planes(planes: [[f32; 4]; 6]) -> Self {
         Self { planes }
     }
 
-    pub fn planes(&self) -> &[[f32; 4]; 6] {
+    #[must_use]
+    pub const fn planes(&self) -> &[[f32; 4]; 6] {
         &self.planes
     }
 
@@ -289,6 +300,7 @@ impl Frustum {
     /// Returns `false` only when the box is *definitely* fully outside at least
     /// one plane. A box that straddles a plane, or that contains the camera,
     /// always returns `true`, so this can never cull visible geometry.
+    #[must_use]
     pub fn intersects_aabb(&self, bounds: &Aabb) -> bool {
         if bounds.is_empty() {
             // Nothing to draw; treat as "not visible" so it costs no draw call.
@@ -314,8 +326,10 @@ impl Frustum {
                     bounds.min[2]
                 },
             ];
-            let distance =
-                plane[0] * furthest[0] + plane[1] * furthest[1] + plane[2] * furthest[2] + plane[3];
+            let distance = plane[2].mul_add(
+                furthest[2],
+                plane[1].mul_add(furthest[1], plane[0] * furthest[0]),
+            ) + plane[3];
             if distance < 0.0 {
                 return false;
             }
@@ -354,11 +368,13 @@ pub struct SpatialBuckets<G = ()> {
 
 impl<G: Copy + Ord + Hash> SpatialBuckets<G> {
     /// Creates buckets for the given grid resolution.
+    #[must_use]
     pub fn new(cell_metres: f32) -> Self {
         Self::with_grid(CellGrid::uniform(cell_metres))
     }
 
     /// Creates buckets for an explicit per-axis grid.
+    #[must_use]
     pub fn with_grid(grid: CellGrid) -> Self {
         Self {
             grid,
@@ -405,6 +421,7 @@ impl<G: Copy + Ord + Hash> SpatialBuckets<G> {
     }
 
     /// Number of occupied cells (diagnostics and tests).
+    #[must_use]
     pub fn cell_count(&self) -> usize {
         self.buckets.len()
     }
@@ -511,15 +528,14 @@ fn index_run(run: &[crate::render::Vertex]) -> Vec<IndexedRange> {
             };
             let vertex = &quad[source];
             let key = vertex_key(vertex);
-            *corner = match seen.get(&key) {
-                Some(index) => *index,
-                None => {
-                    let index = current.vertices.len() as u16;
-                    current.vertices.push(*vertex);
-                    current.bounds.expand(vertex.pos);
-                    seen.insert(key, index);
-                    index
-                }
+            *corner = if let Some(index) = seen.get(&key) {
+                *index
+            } else {
+                let index = u16::try_from(current.vertices.len()).unwrap_or(u16::MAX);
+                current.vertices.push(*vertex);
+                current.bounds.expand(vertex.pos);
+                seen.insert(key, index);
+                index
             };
         }
         if corner_count >= 3 {
@@ -541,7 +557,7 @@ fn index_run(run: &[crate::render::Vertex]) -> Vec<IndexedRange> {
 }
 
 /// Exact bit-pattern key for a vertex, used only for equality.
-fn vertex_key(vertex: &crate::render::Vertex) -> [u32; 9] {
+const fn vertex_key(vertex: &crate::render::Vertex) -> [u32; 9] {
     [
         vertex.pos[0].to_bits(),
         vertex.pos[1].to_bits(),
@@ -558,6 +574,7 @@ fn vertex_key(vertex: &crate::render::Vertex) -> [u32; 9] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::{assert_exact, assert_exact_array};
     use glam::{Mat4, Vec3};
 
     fn bounds(min: [f32; 3], max: [f32; 3]) -> Aabb {
@@ -591,11 +608,11 @@ mod tests {
         partial.expand([f32::NAN, 5.0, f32::INFINITY]);
         partial.expand([2.0, f32::NAN, 3.0]);
         assert!(!partial.is_empty());
-        assert_eq!(partial.min[0], 2.0);
-        assert_eq!(partial.min[1], 5.0);
-        assert_eq!(partial.min[2], 3.0);
-        assert_eq!(partial.max[1], 5.0);
-        assert_eq!(partial.max[2], 3.0);
+        assert_exact(partial.min[0], 2.0);
+        assert_exact(partial.min[1], 5.0);
+        assert_exact(partial.min[2], 3.0);
+        assert_exact(partial.max[1], 5.0);
+        assert_exact(partial.max[2], 3.0);
 
         // An all-NaN box stays useless rather than becoming infinite.
         let mut poisoned = Aabb::EMPTY;
@@ -608,9 +625,9 @@ mod tests {
         let a = Aabb::from_point([0.0, 0.0, 0.0]);
         let b = Aabb::from_point([2.0, 4.0, 6.0]);
         let union = a.union(&b);
-        assert_eq!(union.min, [0.0, 0.0, 0.0]);
-        assert_eq!(union.max, [2.0, 4.0, 6.0]);
-        assert_eq!(union.centre(), [1.0, 2.0, 3.0]);
+        assert_exact_array(union.min, [0.0, 0.0, 0.0]);
+        assert_exact_array(union.max, [2.0, 4.0, 6.0]);
+        assert_exact_array(union.centre(), [1.0, 2.0, 3.0]);
     }
 
     #[test]
@@ -821,12 +838,12 @@ mod tests {
         let drained = buckets.drain_indexed();
         let range = &drained[0].1;
         let pos = |index: u16| range.vertices[index as usize].pos;
-        assert_eq!(pos(range.indices[0]), [0.0, 0.0, 0.0]);
-        assert_eq!(pos(range.indices[1]), [1.0, 0.0, 0.0]);
-        assert_eq!(pos(range.indices[2]), [1.0, 0.0, 1.0]);
-        assert_eq!(pos(range.indices[3]), [0.0, 0.0, 0.0]);
-        assert_eq!(pos(range.indices[4]), [1.0, 0.0, 1.0]);
-        assert_eq!(pos(range.indices[5]), [0.0, 0.0, 1.0]);
+        assert_exact_array(pos(range.indices[0]), [0.0, 0.0, 0.0]);
+        assert_exact_array(pos(range.indices[1]), [1.0, 0.0, 0.0]);
+        assert_exact_array(pos(range.indices[2]), [1.0, 0.0, 1.0]);
+        assert_exact_array(pos(range.indices[3]), [0.0, 0.0, 0.0]);
+        assert_exact_array(pos(range.indices[4]), [1.0, 0.0, 1.0]);
+        assert_exact_array(pos(range.indices[5]), [0.0, 0.0, 1.0]);
     }
 
     #[test]
@@ -1018,8 +1035,8 @@ mod tests {
     fn the_adaptive_grid_keeps_the_cell_count_bounded() {
         // Small levels keep the finest granularity...
         let small = CellGrid::for_extent(20.0, 20.0);
-        assert_eq!(small.x, SPATIAL_CELL_MIN_METRES);
-        assert_eq!(small.z, SPATIAL_CELL_MIN_METRES);
+        assert_exact(small.x, SPATIAL_CELL_MIN_METRES);
+        assert_exact(small.z, SPATIAL_CELL_MIN_METRES);
 
         // ...the grid grows with the level so the cell count stays near the
         // target, and never exceeds the maximum cell size...
@@ -1031,17 +1048,17 @@ mod tests {
 
         // ...and an absurd extent is capped rather than becoming one cell.
         let huge = CellGrid::for_extent(1.0e9, 1.0e9);
-        assert_eq!(huge.x, SPATIAL_CELL_MAX_METRES);
+        assert_exact(huge.x, SPATIAL_CELL_MAX_METRES);
 
         // A long, thin corridor gets per-axis sizing.
         let corridor = CellGrid::for_extent(200.0, 20.0);
         assert!(corridor.x > corridor.z, "{corridor:?}");
-        assert_eq!(corridor.z, SPATIAL_CELL_MIN_METRES);
+        assert_exact(corridor.z, SPATIAL_CELL_MIN_METRES);
 
         // Degenerate extents are treated as small.
-        assert_eq!(
+        assert_exact(
             CellGrid::for_extent(0.0, f32::NAN).x,
-            SPATIAL_CELL_MIN_METRES
+            SPATIAL_CELL_MIN_METRES,
         );
     }
 
@@ -1049,12 +1066,12 @@ mod tests {
     fn the_explicit_override_is_not_clamped_to_the_adaptive_range() {
         // The sweep must be able to go below the adaptive minimum and above the
         // adaptive maximum; `uniform` is a guard, not a policy.
-        assert_eq!(CellGrid::uniform(4.0).x, 4.0);
-        assert_eq!(CellGrid::uniform(96.0).x, 96.0);
+        assert_exact(CellGrid::uniform(4.0).x, 4.0);
+        assert_exact(CellGrid::uniform(96.0).x, 96.0);
         // Only genuinely unusable values fall back.
-        assert_eq!(CellGrid::uniform(0.0).x, SPATIAL_CELL_MIN_METRES);
-        assert_eq!(CellGrid::uniform(-3.0).x, SPATIAL_CELL_MIN_METRES);
-        assert_eq!(CellGrid::uniform(f32::NAN).x, SPATIAL_CELL_MIN_METRES);
+        assert_exact(CellGrid::uniform(0.0).x, SPATIAL_CELL_MIN_METRES);
+        assert_exact(CellGrid::uniform(-3.0).x, SPATIAL_CELL_MIN_METRES);
+        assert_exact(CellGrid::uniform(f32::NAN).x, SPATIAL_CELL_MIN_METRES);
     }
 
     #[test]
@@ -1109,8 +1126,8 @@ mod tests {
 
         let a = forward.drain_indexed();
         let b = reverse.drain_indexed();
-        let keys_a: Vec<CellKey> = a.iter().map(|((_, cell), _)| *cell).collect();
-        let keys_b: Vec<CellKey> = b.iter().map(|((_, cell), _)| *cell).collect();
+        let keys_a: Vec<CellKey> = a.iter().map(|(((), cell), _)| *cell).collect();
+        let keys_b: Vec<CellKey> = b.iter().map(|(((), cell), _)| *cell).collect();
         assert_eq!(
             keys_a, keys_b,
             "cell order must be sorted, not insertion order"

@@ -199,8 +199,11 @@ pub const FONT_DATA: [[u8; 8]; FONT_CHARS_COUNT] = [
 
 /// Generates a 128x64 RGBA font texture atlas containing the 95 ASCII characters (16 cols x 6 rows).
 /// Top-left 8x8 cell at (0, 0) is reserved as solid white [255, 255, 255, 255] for UI box rendering.
-pub fn generate_font_atlas() -> [u8; 128 * 64 * 4] {
-    let mut data = [0u8; 128 * 64 * 4];
+#[must_use]
+pub fn generate_font_atlas() -> Vec<u8> {
+    // The atlas is 32 KiB, too large for a stack frame; build it in a heap
+    // buffer instead.
+    let mut data = vec![0u8; 128 * 64 * 4];
 
     // Slot 0 (character 32 is space, but let's make pixel (0,0) to (7,7) solid white for solid quads)
     for y in 0..8 {
@@ -234,17 +237,11 @@ pub fn generate_font_atlas() -> [u8; 128 * 64 * 4] {
                 let px = start_x + gx;
                 let py = start_y + gy;
                 let idx = (py * 128 + px) * 4;
-                if bit_set {
-                    data[idx] = 255;
-                    data[idx + 1] = 255;
-                    data[idx + 2] = 255;
-                    data[idx + 3] = 255;
-                } else {
-                    data[idx] = 255;
-                    data[idx + 1] = 255;
-                    data[idx + 2] = 255;
-                    data[idx + 3] = 0; // Transparent
-                }
+                data[idx] = 255;
+                data[idx + 1] = 255;
+                data[idx + 2] = 255;
+                // Glyph pixels are opaque white; everything else is transparent.
+                data[idx + 3] = if bit_set { 255 } else { 0 };
             }
         }
     }
@@ -253,6 +250,7 @@ pub fn generate_font_atlas() -> [u8; 128 * 64 * 4] {
 }
 
 /// Returns the UV bounds `[u0, v0, u1, v1]` in the 128x64 font atlas for the given ASCII character.
+#[must_use]
 pub fn get_char_uv(ch: char) -> Option<[f32; 4]> {
     let ascii = ch as u32;
     if !(32..=126).contains(&ascii) {
@@ -271,6 +269,7 @@ pub fn get_char_uv(ch: char) -> Option<[f32; 4]> {
 }
 
 /// UV bounds for a solid white pixel in the font atlas (for drawing UI boxes / frames).
+#[must_use]
 pub fn get_white_uv() -> [f32; 4] {
     [1.0 / 128.0, 1.0 / 64.0, 7.0 / 128.0, 7.0 / 64.0]
 }
@@ -278,6 +277,7 @@ pub fn get_white_uv() -> [f32; 4] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::assert_exact;
 
     #[test]
     fn test_font_atlas_generation() {
@@ -291,8 +291,8 @@ mod tests {
     #[test]
     fn test_char_uv_bounds() {
         let uv_space = get_char_uv(' ').expect("space uv");
-        assert_eq!(uv_space[0], 0.0);
-        assert_eq!(uv_space[1], 0.0);
+        assert_exact(uv_space[0], 0.0);
+        assert_exact(uv_space[1], 0.0);
 
         let uv_a = get_char_uv('A').expect("A uv");
         assert!(uv_a[0] >= 0.0 && uv_a[2] <= 1.0);

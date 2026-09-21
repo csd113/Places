@@ -3,7 +3,7 @@ use std::time::Instant;
 use glam::{Vec2, Vec3};
 
 use crate::collision::{PLAYER_RADIUS, WallAabb, resolve_player_collision};
-use crate::input::InputState;
+use crate::input::{Control, InputState};
 use crate::settings::Settings;
 
 pub const TWO_PI: f32 = std::f32::consts::TAU;
@@ -18,7 +18,7 @@ pub const MAX_PITCH: f32 = 1.4835; // ~85 degrees in radians
 pub const MAX_SIM_DELTA: f32 = 0.1;
 
 /// Clamps a frame delta for simulation use, tolerating non-finite input.
-fn clamp_sim_delta(delta: f32) -> f32 {
+const fn clamp_sim_delta(delta: f32) -> f32 {
     if delta.is_nan() {
         0.0
     } else {
@@ -60,6 +60,7 @@ impl Default for Game {
 }
 
 impl Game {
+    #[must_use]
     pub fn new(spawn_pos: Vec3, spawn_yaw: f32, walls: Vec<WallAabb>) -> Self {
         Self {
             running: true,
@@ -75,15 +76,17 @@ impl Game {
         }
     }
 
-    pub fn is_running(&self) -> bool {
+    #[must_use]
+    pub const fn is_running(&self) -> bool {
         self.running
     }
 
-    pub fn stop(&mut self) {
+    pub const fn stop(&mut self) {
         self.running = false;
     }
 
-    pub fn app_state(&self) -> AppState {
+    #[must_use]
+    pub const fn app_state(&self) -> AppState {
         self.app_state
     }
 
@@ -111,20 +114,14 @@ impl Game {
     /// Handles Escape key in gameplay / pause states.
     pub fn handle_escape(&mut self) {
         match self.app_state {
-            AppState::Playing => {
+            AppState::Playing | AppState::PauseSettings => {
                 self.set_app_state(AppState::Paused);
             }
             AppState::Paused => {
                 self.set_app_state(AppState::Playing);
             }
-            AppState::LevelSelect => {
+            AppState::LevelSelect | AppState::Settings => {
                 self.set_app_state(AppState::MainMenu);
-            }
-            AppState::Settings => {
-                self.set_app_state(AppState::MainMenu);
-            }
-            AppState::PauseSettings => {
-                self.set_app_state(AppState::Paused);
             }
             AppState::MainMenu => {}
         }
@@ -142,12 +139,14 @@ impl Game {
         self.frame_count = self.frame_count.saturating_add(1);
     }
 
-    pub fn delta_seconds(&self) -> f32 {
+    #[must_use]
+    pub const fn delta_seconds(&self) -> f32 {
         self.delta_seconds
     }
 
     /// Gameplay delta after clamping (see [`MAX_SIM_DELTA`]).
-    pub fn sim_delta_seconds(&self) -> f32 {
+    #[must_use]
+    pub const fn sim_delta_seconds(&self) -> f32 {
         self.sim_delta_seconds
     }
 
@@ -160,7 +159,8 @@ impl Game {
         self.sim_delta_seconds = 0.0;
     }
 
-    pub fn frame_count(&self) -> u64 {
+    #[must_use]
+    pub const fn frame_count(&self) -> u64 {
         self.frame_count
     }
 
@@ -181,20 +181,20 @@ impl Game {
         let look_speed_v = settings.look_speed_v.to_radians();
 
         // Horizontal camera turn (yaw)
-        if input.look_left {
-            self.player_yaw -= look_speed_h * delta;
+        if input.is_held(Control::LookLeft) {
+            self.player_yaw = look_speed_h.mul_add(-delta, self.player_yaw);
         }
-        if input.look_right {
-            self.player_yaw += look_speed_h * delta;
+        if input.is_held(Control::LookRight) {
+            self.player_yaw = look_speed_h.mul_add(delta, self.player_yaw);
         }
         self.player_yaw = self.player_yaw.rem_euclid(TWO_PI);
 
         // Vertical camera look (pitch) with clamping to prevent camera flipping
-        if input.look_up {
-            self.player_pitch += look_speed_v * delta;
+        if input.is_held(Control::LookUp) {
+            self.player_pitch = look_speed_v.mul_add(delta, self.player_pitch);
         }
-        if input.look_down {
-            self.player_pitch -= look_speed_v * delta;
+        if input.is_held(Control::LookDown) {
+            self.player_pitch = look_speed_v.mul_add(-delta, self.player_pitch);
         }
         self.player_pitch = self.player_pitch.clamp(-MAX_PITCH, MAX_PITCH);
 
@@ -203,16 +203,16 @@ impl Game {
         let right = Vec3::new(self.player_yaw.cos(), 0.0, self.player_yaw.sin());
 
         let mut move_dir = Vec3::ZERO;
-        if input.move_forward {
+        if input.is_held(Control::MoveForward) {
             move_dir += forward;
         }
-        if input.move_backward {
+        if input.is_held(Control::MoveBackward) {
             move_dir -= forward;
         }
-        if input.strafe_left {
+        if input.is_held(Control::StrafeLeft) {
             move_dir -= right;
         }
-        if input.strafe_right {
+        if input.is_held(Control::StrafeRight) {
             move_dir += right;
         }
 
@@ -239,6 +239,7 @@ impl Game {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::assert_exact;
 
     #[test]
     fn test_pitch_movement_and_clamping() {
@@ -247,28 +248,22 @@ mod tests {
         game.sim_delta_seconds = 10.0; // Large step to test pitch clamp
         let settings = Settings::default();
 
-        let input_up = InputState {
-            look_up: true,
-            ..Default::default()
-        };
+        let input_up = InputState::holding(&[Control::LookUp]);
         game.update_player_movement(&input_up, &settings);
         assert!((game.player_pitch - MAX_PITCH).abs() < 1e-4);
 
-        let input_down = InputState {
-            look_down: true,
-            ..Default::default()
-        };
+        let input_down = InputState::holding(&[Control::LookDown]);
         game.update_player_movement(&input_down, &settings);
         assert!((game.player_pitch - (-MAX_PITCH)).abs() < 1e-4);
     }
 
     #[test]
     fn test_sim_delta_is_clamped() {
-        assert_eq!(clamp_sim_delta(0.016), 0.016);
-        assert_eq!(clamp_sim_delta(5.0), MAX_SIM_DELTA);
-        assert_eq!(clamp_sim_delta(-1.0), 0.0);
-        assert_eq!(clamp_sim_delta(f32::NAN), 0.0);
-        assert_eq!(clamp_sim_delta(f32::INFINITY), MAX_SIM_DELTA);
+        assert_exact(clamp_sim_delta(0.016), 0.016);
+        assert_exact(clamp_sim_delta(5.0), MAX_SIM_DELTA);
+        assert_exact(clamp_sim_delta(-1.0), 0.0);
+        assert_exact(clamp_sim_delta(f32::NAN), 0.0);
+        assert_exact(clamp_sim_delta(f32::INFINITY), MAX_SIM_DELTA);
     }
 
     #[test]
@@ -293,17 +288,13 @@ mod tests {
         game.delta_seconds = 1.0;
         let settings = Settings::default();
 
-        let input = InputState {
-            move_forward: true,
-            look_left: true,
-            look_up: true,
-            ..Default::default()
-        };
+        let input =
+            InputState::holding(&[Control::MoveForward, Control::LookLeft, Control::LookUp]);
         game.update_player_movement(&input, &settings);
 
         assert_eq!(game.player_position, Vec3::new(0.0, EYE_HEIGHT, 0.0));
-        assert_eq!(game.player_yaw, 0.0);
-        assert_eq!(game.player_pitch, 0.0);
+        assert_exact(game.player_yaw, 0.0);
+        assert_exact(game.player_pitch, 0.0);
     }
 
     #[test]

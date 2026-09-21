@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
+use std::hash::BuildHasher;
 use std::io::{Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -19,7 +20,7 @@ const MAX_ZIP_ENTRY_SIZE: u64 = 10 * 1024 * 1024; // 10 MB per file
 const MAX_ZIP_TOTAL_SIZE: u64 = 50 * 1024 * 1024; // 50 MB total uncompressed
 
 /// Decoded 8-bit RGBA image buffer.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RawImage {
     pub width: u32,
     pub height: u32,
@@ -27,7 +28,8 @@ pub struct RawImage {
 }
 
 impl RawImage {
-    pub fn new(width: u32, height: u32, rgba: Vec<u8>) -> Self {
+    #[must_use]
+    pub const fn new(width: u32, height: u32, rgba: Vec<u8>) -> Self {
         Self {
             width,
             height,
@@ -48,9 +50,9 @@ pub struct LoadedTextures {
 impl Default for LoadedTextures {
     fn default() -> Self {
         Self {
-            wall: RawImage::new(128, 128, generate_wall_texture().to_vec()),
-            floor: RawImage::new(64, 64, generate_carpet_texture().to_vec()),
-            ceiling: RawImage::new(128, 128, generate_ceiling_texture().to_vec()),
+            wall: RawImage::new(128, 128, generate_wall_texture()),
+            floor: RawImage::new(64, 64, generate_carpet_texture()),
+            ceiling: RawImage::new(128, 128, generate_ceiling_texture()),
             fixture: RawImage::new(2, 2, generate_white_texture().to_vec()),
         }
     }
@@ -86,6 +88,10 @@ pub struct LoadedLevel {
 ///
 /// Mirror of [`decode_png`], used by the `LIMINAL_CAPTURE` developer path so a
 /// rendered frame can be inspected on hardware without a screenshot tool.
+/// # Errors
+///
+/// Returns a message when the image has a zero dimension or the PNG encoder
+/// rejects the buffer.
 pub fn encode_png(image: &RawImage) -> Result<Vec<u8>, String> {
     if image.width == 0 || image.height == 0 {
         return Err("cannot encode a zero-sized image".into());
@@ -109,6 +115,10 @@ pub fn encode_png(image: &RawImage) -> Result<Vec<u8>, String> {
 }
 
 /// Decodes PNG bytes into 8-bit RGBA raw image buffer with dimensions validation.
+/// # Errors
+///
+/// Returns a message when the bytes are not a PNG, the image is empty or larger
+/// than 1024x1024, or the decoded buffer does not match its declared size.
 pub fn decode_png(bytes: &[u8]) -> Result<RawImage, String> {
     let decoder = png::Decoder::new(Cursor::new(bytes));
     let mut reader = decoder
@@ -160,7 +170,7 @@ pub fn decode_png(bytes: &[u8]) -> Result<RawImage, String> {
             }
             rgba
         }
-        other => return Err(format!("Unsupported PNG color type: {:?}", other)),
+        png::ColorType::Indexed => return Err("Unsupported PNG color type: Indexed".into()),
     };
 
     if rgba.len() != (width * height * 4) as usize {
@@ -187,6 +197,10 @@ pub struct RawPackContents {
 ///
 /// Used for cheap level discovery: probing a pack must not extract its full
 /// contents just to learn its id/name/author.
+/// # Errors
+///
+/// Returns a message when the archive is not a readable ZIP, has no
+/// `level.json`, or its `level.json` is oversized or not valid UTF-8.
 pub fn read_zip_level_json<R: Read + Seek>(reader: R) -> Result<String, String> {
     let mut archive = ZipArchive::new(reader).map_err(|e| format!("Invalid ZIP archive: {e}"))?;
 
@@ -220,7 +234,7 @@ pub fn read_zip_level_json<R: Read + Seek>(reader: R) -> Result<String, String> 
     if entry.size() > MAX_ZIP_ENTRY_SIZE {
         return Err("level.json exceeds the maximum decompression limit".into());
     }
-    let mut bytes = Vec::with_capacity(entry.size() as usize);
+    let mut bytes = Vec::with_capacity(usize::try_from(entry.size()).unwrap_or(0));
     entry
         .read_to_end(&mut bytes)
         .map_err(|e| format!("Failed to read level.json: {e}"))?;
@@ -228,6 +242,11 @@ pub fn read_zip_level_json<R: Read + Seek>(reader: R) -> Result<String, String> 
 }
 
 /// Safely extracts a ZIP level pack with path traversal and size limits enforcement.
+/// # Errors
+///
+/// Returns a message when the archive is not a readable ZIP, an entry escapes
+/// the extraction boundary, an entry or the pack exceeds the size limits, or the
+/// pack has no `level.json`.
 pub fn extract_zip<R: Read + Seek>(reader: R) -> Result<RawPackContents, String> {
     let mut archive = ZipArchive::new(reader).map_err(|e| format!("Invalid ZIP archive: {e}"))?;
 
@@ -261,17 +280,13 @@ pub fn extract_zip<R: Read + Seek>(reader: R) -> Result<RawPackContents, String>
             ));
         }
 
-        // Security: Exclude executable or script extensions
-        let lower = raw_name.to_lowercase();
-        if lower.ends_with(".exe")
-            || lower.ends_with(".sh")
-            || lower.ends_with(".bat")
-            || lower.ends_with(".so")
-            || lower.ends_with(".dylib")
-            || lower.ends_with(".dll")
-            || lower.ends_with(".bin")
-            || lower.ends_with(".wasm")
-        {
+        // Security: exclude executable or script extensions. File extensions
+        // are compared case-insensitively, so `PATCH.EXE` is rejected too.
+        if Path::new(&raw_name).extension().is_some_and(|extension| {
+            ["exe", "sh", "bat", "so", "dylib", "dll", "bin", "wasm"]
+                .iter()
+                .any(|blocked| extension.eq_ignore_ascii_case(blocked))
+        }) {
             continue;
         }
 
@@ -286,7 +301,7 @@ pub fn extract_zip<R: Read + Seek>(reader: R) -> Result<RawPackContents, String>
             return Err("Total uncompressed size of ZIP exceeds 50MB limit".into());
         }
 
-        let mut bytes = Vec::with_capacity(size as usize);
+        let mut bytes = Vec::with_capacity(usize::try_from(size).unwrap_or(0));
         file.read_to_end(&mut bytes)
             .map_err(|e| format!("Failed to read {raw_name}: {e}"))?;
 
@@ -301,7 +316,11 @@ pub fn extract_zip<R: Read + Seek>(reader: R) -> Result<RawPackContents, String>
                 String::from_utf8(bytes)
                     .map_err(|e| format!("materials.json is not valid UTF-8: {e}"))?,
             );
-        } else if normalized.contains("textures/") || normalized.ends_with(".png") {
+        } else if normalized.contains("textures/")
+            || Path::new(&normalized)
+                .extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("png"))
+        {
             // Share one physical buffer across every alias key.
             let blob: Rc<[u8]> = Rc::from(bytes);
             pack.textures.insert(normalized.clone(), Rc::clone(&blob));
@@ -321,7 +340,8 @@ pub fn extract_zip<R: Read + Seek>(reader: R) -> Result<RawPackContents, String>
     Ok(pack)
 }
 
-/// Parses optional materials.json mapping into material_id -> texture_path.
+/// Parses optional materials.json mapping into `material_id` -> `texture_path`.
+#[must_use]
 pub fn parse_materials_json(json_str: &str) -> HashMap<String, String> {
     let mut result = HashMap::new();
     if let Ok(val) = serde_json::from_str::<serde_json::Value>(json_str) {
@@ -368,13 +388,14 @@ fn prop_fallback_color() -> [f32; 3] {
 }
 
 /// Parses `#rrggbb` (or bare `rrggbb`) into 0..1 RGB components.
+#[must_use]
 pub fn parse_hex_color(value: &str) -> Option<[f32; 3]> {
     let hex = value.trim().trim_start_matches('#');
     if hex.len() != 6 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
         return None;
     }
     let component = |start: usize| -> f32 {
-        u8::from_str_radix(&hex[start..start + 2], 16).unwrap_or(0) as f32 / 255.0
+        f32::from(u8::from_str_radix(&hex[start..start + 2], 16).unwrap_or(0)) / 255.0
     };
     Some([component(0), component(2), component(4)])
 }
@@ -431,6 +452,7 @@ pub struct PropCatalog {
 
 impl PropCatalog {
     /// Empty catalog; every lookup falls back.
+    #[must_use]
     pub fn builtin() -> Self {
         Self::default()
     }
@@ -439,6 +461,10 @@ impl PropCatalog {
     ///
     /// Entries without an `id` are skipped; missing fields default to the
     /// neutral fallback values.
+    /// # Errors
+    ///
+    /// Returns a message when the document is not valid JSON or an entry is not
+    /// a catalogue object.
     pub fn from_json_str(json: &str) -> Result<Self, String> {
         let file: PropCatalogFile =
             serde_json::from_str(json).map_err(|e| format!("Invalid prop catalog JSON: {e}"))?;
@@ -480,6 +506,7 @@ impl PropCatalog {
 
     /// Loads a catalog from `path`, returning `None` when the file is missing
     /// or invalid. Never panics.
+    #[must_use]
     pub fn load_from_path(path: &Path) -> Option<Self> {
         let content = fs::read_to_string(path).ok()?;
         Self::from_json_str(&content).ok()
@@ -487,6 +514,7 @@ impl PropCatalog {
 
     /// Loads the shipped prop catalog, falling back to an empty catalog when
     /// no `props.json` can be found.
+    #[must_use]
     pub fn load_default() -> Self {
         for candidate in [
             Path::new("assets/props/props.json"),
@@ -500,6 +528,7 @@ impl PropCatalog {
     }
 
     /// Resolves a model id, or a generated fallback entry for unknown models.
+    #[must_use]
     pub fn get(&self, model: &str) -> PropCatalogEntry {
         if let Some(entry) = self.entries.get(model) {
             return entry.clone();
@@ -516,11 +545,13 @@ impl PropCatalog {
     }
 
     /// Number of catalog entries.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.entries.len()
     }
 
     /// Every catalogue entry, ordered by id so validation and reports are stable.
+    #[must_use]
     pub fn entries(&self) -> Vec<PropCatalogEntry> {
         let mut entries: Vec<PropCatalogEntry> = self.entries.values().cloned().collect();
         entries.sort_by(|a, b| a.id.cmp(&b.id));
@@ -528,11 +559,13 @@ impl PropCatalog {
     }
 
     /// True when the catalog defines this exact model id.
+    #[must_use]
     pub fn contains(&self, model: &str) -> bool {
         self.entries.contains_key(model)
     }
 
     /// True when the catalog has no entries.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
@@ -540,6 +573,11 @@ impl PropCatalog {
 
 /// Validates level schema, format version, and physical dimensions.
 /// Preserves intentional overlapping/intersecting geometry without snapping or rejecting.
+/// # Errors
+///
+/// Returns the first problem found: an unsupported format version, a missing or
+/// duplicate id, non-finite or out-of-range dimensions, a prop outside its
+/// budgets, or malformed openings and patches.
 pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     // 1. Format version
     if level.format_version != 1 {
@@ -745,10 +783,11 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
 
 /// Resolves materials and textures for a level.
 /// Missing custom resources fail gracefully with an obvious fallback rather than crashing.
-pub fn resolve_textures(
+#[must_use]
+pub fn resolve_textures<S: BuildHasher>(
     level: &LevelDef,
-    material_map: &HashMap<String, String>,
-    texture_blobs: &HashMap<String, Rc<[u8]>>,
+    material_map: &HashMap<String, String, S>,
+    texture_blobs: &HashMap<String, Rc<[u8]>, S>,
 ) -> LoadedTextures {
     let mut loaded = LoadedTextures::default();
 
@@ -790,21 +829,21 @@ pub fn resolve_textures(
     if let Some(img) = try_decode_material(&level.defaults.wall) {
         loaded.wall = img;
     } else if level.defaults.wall == "core:wallpaper_stained_01" {
-        loaded.wall = RawImage::new(128, 128, generate_stained_wall_texture().to_vec());
+        loaded.wall = RawImage::new(128, 128, generate_stained_wall_texture());
     }
 
     // Floor texture
     if let Some(img) = try_decode_material(&level.defaults.floor) {
         loaded.floor = img;
     } else if level.defaults.floor == "core:carpet_damp_01" {
-        loaded.floor = RawImage::new(64, 64, generate_damp_carpet_texture().to_vec());
+        loaded.floor = RawImage::new(64, 64, generate_damp_carpet_texture());
     }
 
     // Ceiling texture
     if let Some(img) = try_decode_material(&level.defaults.ceiling) {
         loaded.ceiling = img;
     } else if level.defaults.ceiling == "core:ceiling_stained_01" {
-        loaded.ceiling = RawImage::new(128, 128, generate_stained_ceiling_texture().to_vec());
+        loaded.ceiling = RawImage::new(128, 128, generate_stained_ceiling_texture());
     }
 
     // Fixture texture
@@ -834,6 +873,7 @@ impl Default for LevelManager {
 }
 
 impl LevelManager {
+    #[must_use]
     pub fn new() -> Self {
         let mut manager = Self {
             assets_dir: PathBuf::from("assets/levels"),
@@ -846,6 +886,7 @@ impl LevelManager {
         manager
     }
 
+    #[must_use]
     pub fn with_paths(assets_dir: PathBuf, levels_dir: PathBuf, import_dir: PathBuf) -> Self {
         let mut manager = Self {
             assets_dir,
@@ -858,15 +899,18 @@ impl LevelManager {
         manager
     }
 
+    #[must_use]
     pub fn entries(&self) -> &[LevelEntry] {
         &self.entries
     }
 
     /// Prop catalog used to resolve placed props.
-    pub fn prop_catalog(&self) -> &PropCatalog {
+    #[must_use]
+    pub const fn prop_catalog(&self) -> &PropCatalog {
         &self.prop_catalog
     }
 
+    #[must_use]
     pub fn get_entry(&self, idx: usize) -> Option<&LevelEntry> {
         self.entries.get(idx)
     }
@@ -880,7 +924,7 @@ impl LevelManager {
             for entry in dir.flatten() {
                 let p = entry.path();
                 if p.extension().is_some_and(|ext| ext == "json")
-                    && let Ok(meta) = self.probe_level_file(&p, LevelSourceType::Official)
+                    && let Ok(meta) = Self::probe_level_file(&p, LevelSourceType::Official)
                 {
                     discovered.push(meta);
                 }
@@ -892,11 +936,11 @@ impl LevelManager {
             for entry in dir.flatten() {
                 let p = entry.path();
                 if p.extension().is_some_and(|ext| ext == "json") {
-                    if let Ok(meta) = self.probe_level_file(&p, LevelSourceType::CustomJson) {
+                    if let Ok(meta) = Self::probe_level_file(&p, LevelSourceType::CustomJson) {
                         discovered.push(meta);
                     }
                 } else if p.extension().is_some_and(|ext| ext == "zip")
-                    && let Ok(meta) = self.probe_zip_file(&p)
+                    && let Ok(meta) = Self::probe_zip_file(&p)
                 {
                     discovered.push(meta);
                 }
@@ -904,7 +948,15 @@ impl LevelManager {
         }
 
         // If level_1 was not found on disk, insert fallback official entry
-        if !discovered.iter().any(|e| e.id == "level_1") {
+        if discovered.iter().any(|e| e.id == "level_1") {
+            // Ensure level_1 is first in the list for immediate access
+            if let Some(pos) = discovered.iter().position(|e| e.id == "level_1")
+                && pos != 0
+            {
+                let e = discovered.remove(pos);
+                discovered.insert(0, e);
+            }
+        } else {
             discovered.insert(
                 0,
                 LevelEntry {
@@ -915,24 +967,12 @@ impl LevelManager {
                     path: self.assets_dir.join("level1.json"),
                 },
             );
-        } else {
-            // Ensure level_1 is first in the list for immediate access
-            if let Some(pos) = discovered.iter().position(|e| e.id == "level_1")
-                && pos != 0
-            {
-                let e = discovered.remove(pos);
-                discovered.insert(0, e);
-            }
         }
 
         self.entries = discovered;
     }
 
-    fn probe_level_file(
-        &self,
-        path: &Path,
-        source_type: LevelSourceType,
-    ) -> Result<LevelEntry, String> {
+    fn probe_level_file(path: &Path, source_type: LevelSourceType) -> Result<LevelEntry, String> {
         let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
         let level = LevelDef::from_json(&content).map_err(|e| e.to_string())?;
         validate_level(&level)?;
@@ -945,7 +985,7 @@ impl LevelManager {
         })
     }
 
-    fn probe_zip_file(&self, path: &Path) -> Result<LevelEntry, String> {
+    fn probe_zip_file(path: &Path) -> Result<LevelEntry, String> {
         // Lightweight probe: read only level.json, no texture extraction.
         let file = fs::File::open(path).map_err(|e| e.to_string())?;
         let level_json = read_zip_level_json(file)?;
@@ -961,6 +1001,11 @@ impl LevelManager {
     }
 
     /// Loads the default or initial Level 1 level through the unified loader.
+    /// # Errors
+    ///
+    /// Returns a message when no `level_1` is installed and the embedded
+    /// fallback level fails to parse or validate, or when the found entry cannot
+    /// be loaded.
     pub fn load_default_or_level1(&self) -> Result<LoadedLevel, String> {
         if let Some(entry) = self.entries.iter().find(|e| e.id == "level_1") {
             self.load_level(entry)
@@ -985,6 +1030,10 @@ impl LevelManager {
     }
 
     /// Unified level loader loading any standalone JSON or packaged ZIP level.
+    /// # Errors
+    ///
+    /// Returns a message when the level file or pack cannot be read or
+    /// validated, or a referenced material or texture is missing.
     pub fn load_level(&self, entry: &LevelEntry) -> Result<LoadedLevel, String> {
         match entry.source_type {
             LevelSourceType::Official | LevelSourceType::CustomJson => {
@@ -1033,6 +1082,11 @@ impl LevelManager {
     }
 
     /// Imports an external .json or .zip file into the installed levels directory.
+    /// # Errors
+    ///
+    /// Returns a message when the source file does not exist, is neither a
+    /// `.json` level nor a `.zip` pack, or cannot be validated and copied into
+    /// the installed levels directory.
     pub fn import_file(&mut self, source_path: &Path) -> Result<LevelEntry, String> {
         if !source_path.exists() {
             return Err(format!(
@@ -1100,7 +1154,11 @@ impl LevelManager {
         })
     }
 
-    /// Scans import_dir and candidate locations for unimported .json or .zip files and imports them.
+    /// Scans `import_dir` and candidate locations for unimported .json or .zip files and imports them.
+    /// # Errors
+    ///
+    /// Returns a message when a candidate file in `import/` is invalid; files
+    /// that import cleanly are reported through the returned count.
     pub fn import_available(&mut self) -> Result<usize, String> {
         let _ = fs::create_dir_all(&self.import_dir);
         let _ = fs::create_dir_all(&self.levels_dir);
@@ -1132,6 +1190,7 @@ impl LevelManager {
 mod tests {
     use super::*;
     use crate::level::{RoomDef, WallAxis, WallDef};
+    use crate::test_support::{assert_exact, assert_exact_array};
 
     #[test]
     fn test_validate_level_success() {
@@ -1155,7 +1214,7 @@ mod tests {
                 z: 5.0,
                 yaw_degrees: 0.0,
             },
-            defaults: Default::default(),
+            defaults: crate::level::LevelDefaults::default(),
             walls: vec![WallDef {
                 x: 10.0,
                 y: 0.0,
@@ -1180,7 +1239,7 @@ mod tests {
             format_version: 2,
             id: "test".into(),
             name: "Test".into(),
-            author: "".into(),
+            author: String::new(),
             room: None,
             rooms: vec![],
             spawn: crate::level::SpawnDef {
@@ -1188,7 +1247,7 @@ mod tests {
                 z: 0.0,
                 yaw_degrees: 0.0,
             },
-            defaults: Default::default(),
+            defaults: crate::level::LevelDefaults::default(),
             walls: vec![],
             floor_patches: vec![],
             ceiling_lights: vec![],
@@ -1204,7 +1263,7 @@ mod tests {
             format_version: 1,
             id: "overlap".into(),
             name: "Overlap".into(),
-            author: "".into(),
+            author: String::new(),
             room: None,
             rooms: vec![
                 RoomDef {
@@ -1231,7 +1290,7 @@ mod tests {
                 z: 1.0,
                 yaw_degrees: 0.0,
             },
-            defaults: Default::default(),
+            defaults: crate::level::LevelDefaults::default(),
             walls: vec![
                 WallDef {
                     x: 2.0,
@@ -1349,7 +1408,7 @@ mod tests {
             format_version: 1,
             id: "fallback_test".into(),
             name: "Fallback Test".into(),
-            author: "".into(),
+            author: String::new(),
             room: None,
             rooms: vec![],
             spawn: crate::level::SpawnDef {
@@ -1395,7 +1454,7 @@ mod tests {
                 .iter()
                 .enumerate()
                 .fold(0x811c_9dc5u64, |hash, (index, byte)| {
-                    (hash ^ (*byte as u64 + index as u64)).wrapping_mul(0x0100_0000_01b3)
+                    (hash ^ (u64::from(*byte) + index as u64)).wrapping_mul(0x0100_0000_01b3)
                 })
         };
         // (field, maintained id, damaged id)
@@ -1771,8 +1830,8 @@ mod tests {
         let couch = catalog.get("core:couch");
         assert_eq!(couch.name, "Couch");
         assert_eq!(couch.category, "Furniture");
-        assert_eq!(couch.size, [2.0, 0.9, 0.9]);
-        assert_eq!(couch.color, parse_hex_color("#6b5f4a").unwrap());
+        assert_exact_array(couch.size, [2.0, 0.9, 0.9]);
+        assert_exact_array(couch.color, parse_hex_color("#6b5f4a").unwrap());
         assert_eq!(couch.model, None);
         assert!(couch.solid);
 
@@ -1780,8 +1839,8 @@ mod tests {
         let lamp = catalog.get("core:lamp");
         assert_eq!(lamp.name, "core:lamp");
         assert_eq!(lamp.category, "Other");
-        assert_eq!(lamp.size, crate::level::PROP_FALLBACK_SIZE);
-        assert_eq!(lamp.color, parse_hex_color("#8a8a8a").unwrap());
+        assert_exact_array(lamp.size, crate::level::PROP_FALLBACK_SIZE);
+        assert_exact_array(lamp.color, parse_hex_color("#8a8a8a").unwrap());
         assert!(!lamp.solid);
 
         assert!(PropCatalog::from_json_str("not json").is_err());
@@ -1794,8 +1853,8 @@ mod tests {
         let fallback = catalog.get("core:does_not_exist");
         assert_eq!(fallback.name, "core:does_not_exist");
         assert_eq!(fallback.category, "Other");
-        assert_eq!(fallback.size, crate::level::PROP_FALLBACK_SIZE);
-        assert_eq!(fallback.color, parse_hex_color("#8a8a8a").unwrap());
+        assert_exact_array(fallback.size, crate::level::PROP_FALLBACK_SIZE);
+        assert_exact_array(fallback.color, parse_hex_color("#8a8a8a").unwrap());
         assert!(!fallback.solid);
     }
 
@@ -2067,9 +2126,9 @@ mod tests {
         let bright_room = room_at(40.8, 4.0);
         let dark_room = room_at(40.8, -2.0);
         assert_eq!(lighting.rooms()[dark_room].fixture_count, 0);
-        assert_eq!(
+        assert_exact(
             lighting.rooms()[dark_room].baseline,
-            crate::lighting::MIN_AMBIENT
+            crate::lighting::MIN_AMBIENT,
         );
         let at_door = lighting.sample_in_room(dark_room, 43.8, 0.0, 3.6);
         let corner = lighting.sample_in_room(dark_room, 41.4, 0.0, -1.4);
@@ -2136,8 +2195,8 @@ mod tests {
                 let distance = ((bx - ax).hypot(bz - az) * 10.0).ceil() as i32;
                 for step in 0..=distance {
                     let t = step as f32 / distance.max(1) as f32;
-                    let x = ax + (bx - ax) * t;
-                    let z = az + (bz - az) * t;
+                    let x = (bx - ax).mul_add(t, ax);
+                    let z = (bz - az).mul_add(t, az);
                     for wall in &walls {
                         assert!(
                             !wall.intersects_circle(glam::Vec2::new(x, z), 0.3),
@@ -2179,11 +2238,9 @@ mod tests {
         ]);
         assert_walkable(&waypoints);
 
-        use crate::render::SurfaceFamily;
-
         // Baked colours stay in range, and floors genuinely vary across the demo
         // (the corridor has fixture pools, the rooms have their own).
-        let floor = mesh.triangles_for_family(SurfaceFamily::Floor);
+        let floor = mesh.triangles_for_family(crate::render::SurfaceFamily::Floor);
         let floor_min = floor.iter().map(|v| v.color[0]).fold(f32::MAX, f32::min);
         let floor_max = floor.iter().map(|v| v.color[0]).fold(f32::MIN, f32::max);
         assert!(floor_max - floor_min > 0.05, "floors must not be flat-lit");
@@ -2230,7 +2287,7 @@ mod tests {
         .expect("omitted intensity parses");
         validate_level(&omitted).expect("an omitted intensity validates");
         assert_eq!(omitted.ceiling_lights[0].brightness, None);
-        assert_eq!(omitted.ceiling_lights[0].intensity(), 1.0);
+        assert_exact(omitted.ceiling_lights[0].intensity(), 1.0);
 
         // The editor's `brightness` key and the `intensity` alias both load.
         let both = LevelDef::from_json(&base(
@@ -2240,8 +2297,8 @@ mod tests {
             ]"#,
         ))
         .expect("both spellings parse");
-        assert_eq!(both.ceiling_lights[0].intensity(), 0.8);
-        assert_eq!(both.ceiling_lights[1].intensity(), 1.4);
+        assert_exact(both.ceiling_lights[0].intensity(), 0.8);
+        assert_exact(both.ceiling_lights[1].intensity(), 1.4);
         validate_level(&both).expect("authored intensities validate");
 
         // A negative intensity is malformed data; the loader says so instead of
@@ -2254,7 +2311,7 @@ mod tests {
         assert!(error.contains("intensity"), "unexpected error: {error}");
 
         // Non-finite light coordinates are rejected like every other element.
-        let mut non_finite = both.clone();
+        let mut non_finite = both;
         non_finite.ceiling_lights[0].x = f32::NAN;
         assert!(validate_level(&non_finite).is_err());
 
@@ -2265,9 +2322,9 @@ mod tests {
         ))
         .expect("high intensity parses");
         validate_level(&high).expect("high intensity still loads");
-        assert_eq!(
+        assert_exact(
             high.ceiling_lights[0].intensity(),
-            crate::lighting::MAX_LIGHT_INTENSITY
+            crate::lighting::MAX_LIGHT_INTENSITY,
         );
     }
 
@@ -2284,7 +2341,7 @@ mod tests {
             .flatten()
         {
             let path = entry.path();
-            if path.extension().map(|ext| ext != "json").unwrap_or(true) {
+            if path.extension().is_none_or(|ext| ext != "json") {
                 continue;
             }
             let content = fs::read_to_string(&path).expect("level file is readable");
@@ -2331,7 +2388,12 @@ mod tests {
     /// walk-through openings the player can actually use.
     fn walking_distances(level: &LevelDef) -> Vec<f32> {
         let rooms: Vec<&RoomDef> = level.room_iter().collect();
-        let centre = |room: &RoomDef| (room.x + room.width * 0.5, room.z + room.depth * 0.5);
+        let centre = |room: &RoomDef| {
+            (
+                room.width.mul_add(0.5, room.x),
+                room.depth.mul_add(0.5, room.z),
+            )
+        };
         let room_at = |x: f32, z: f32| {
             rooms.iter().position(|room| {
                 x >= room.x.min(room.x + room.width) - 0.01
@@ -2346,8 +2408,8 @@ mod tests {
             let axis = wall.axis();
             let (origin_x, origin_z) = wall.length_origin();
             let crossing = match axis {
-                WallAxis::X => wall.z + wall.depth * 0.5,
-                WallAxis::Z => wall.x + wall.width * 0.5,
+                WallAxis::X => wall.depth.mul_add(0.5, wall.z),
+                WallAxis::Z => wall.width.mul_add(0.5, wall.x),
             };
             for opening in &wall.openings {
                 if !opening.is_door() || !opening.reaches_floor() || opening.height < 1.9 {
@@ -2433,8 +2495,7 @@ mod tests {
                     continue;
                 }
                 let (nx, nz) = centre(rooms[neighbour]);
-                distance[neighbour] =
-                    distance[current] + ((nx - cx).powi(2) + (nz - cz).powi(2)).sqrt();
+                distance[neighbour] = distance[current] + (nx - cx).hypot(nz - cz);
                 queue.push_back(neighbour);
             }
         }

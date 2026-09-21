@@ -34,6 +34,7 @@ impl Default for KeyBindings {
 
 impl KeyBindings {
     /// Returns the assigned key for a given action name.
+    #[must_use]
     pub fn get_key(&self, action: &str) -> Option<&str> {
         match action {
             "forward" => Some(&self.forward),
@@ -50,6 +51,7 @@ impl KeyBindings {
 
     /// Checks if a proposed key is already bound to another action.
     /// Returns `Some(conflicting_action_name)` if a conflict is detected.
+    #[must_use]
     pub fn check_conflict(&self, target_action: &str, new_key: &str) -> Option<&'static str> {
         let normalized = new_key.trim().to_uppercase();
         let actions = [
@@ -72,6 +74,10 @@ impl KeyBindings {
     }
 
     /// Rebinds an action to a new key if there is no conflict.
+    /// # Errors
+    ///
+    /// Returns a message when `action` is not a known binding name or `new_key`
+    /// is already bound to another action.
     pub fn set_key(&mut self, action: &str, new_key: &str) -> Result<(), String> {
         if let Some(conflicting) = self.check_conflict(action, new_key) {
             return Err(format!(
@@ -112,19 +118,19 @@ pub struct Settings {
     pub texture_filtering: String,
 }
 
-fn default_look_speed_h() -> f32 {
+const fn default_look_speed_h() -> f32 {
     90.0
 }
-fn default_look_speed_v() -> f32 {
+const fn default_look_speed_v() -> f32 {
     60.0
 }
-fn default_walk_speed() -> f32 {
+const fn default_walk_speed() -> f32 {
     3.0
 }
-fn default_fov() -> f32 {
+const fn default_fov() -> f32 {
     60.0
 }
-fn default_vsync() -> bool {
+const fn default_vsync() -> bool {
     true
 }
 fn default_filtering() -> String {
@@ -158,6 +164,9 @@ impl Settings {
     }
 
     /// Saves settings to a JSON file.
+    /// # Errors
+    ///
+    /// Returns the serialization error or the I/O error from writing the file.
     pub fn save_to_path<P: AsRef<Path>>(&self, path: P) -> Result<(), std::io::Error> {
         let json = serde_json::to_string_pretty(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
@@ -171,24 +180,31 @@ impl Settings {
             return Self::default();
         }
 
-        match fs::read_to_string(path) {
-            Ok(content) => match serde_json::from_str::<Self>(&content) {
-                Ok(mut settings) => {
-                    settings.sanitize();
-                    settings
-                }
-                Err(_) => Self::default(),
+        fs::read_to_string(path).map_or_else(
+            |_| Self::default(),
+            |content| {
+                serde_json::from_str::<Self>(&content).map_or_else(
+                    |_| Self::default(),
+                    |mut settings| {
+                        settings.sanitize();
+                        settings
+                    },
+                )
             },
-            Err(_) => Self::default(),
-        }
+        )
     }
 
     /// Loads settings from default path ("settings.json") or creates default.
+    #[must_use]
     pub fn load_or_default() -> Self {
         Self::load_or_default_from_path(DEFAULT_SETTINGS_PATH)
     }
 
     /// Saves current settings to the default path.
+    /// # Errors
+    ///
+    /// Returns the serialization error or the I/O error from writing
+    /// [`DEFAULT_SETTINGS_PATH`].
     pub fn save(&self) -> Result<(), std::io::Error> {
         self.save_to_path(DEFAULT_SETTINGS_PATH)
     }
@@ -197,6 +213,7 @@ impl Settings {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::assert_exact;
 
     #[test]
     fn test_default_pocketchip_bindings() {
@@ -236,10 +253,10 @@ mod tests {
         };
         settings.sanitize();
 
-        assert_eq!(settings.look_speed_h, 360.0);
-        assert_eq!(settings.look_speed_v, 20.0);
-        assert_eq!(settings.walk_speed, 10.0);
-        assert_eq!(settings.fov_degrees, 110.0);
+        assert_exact(settings.look_speed_h, 360.0);
+        assert_exact(settings.look_speed_v, 20.0);
+        assert_exact(settings.walk_speed, 10.0);
+        assert_exact(settings.fov_degrees, 110.0);
         assert_eq!(settings.texture_filtering, "linear");
     }
 
@@ -260,7 +277,7 @@ mod tests {
         settings.save_to_path(&test_path).expect("save settings");
         let loaded = Settings::load_or_default_from_path(&test_path);
 
-        assert_eq!(loaded.look_speed_h, 120.0);
+        assert_exact(loaded.look_speed_h, 120.0);
         assert_eq!(loaded.bindings.forward, "UP");
 
         let _ = fs::remove_file(test_path);

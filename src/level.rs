@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use crate::collision::WallAabb;
 
-fn default_ceiling_height() -> f32 {
+const fn default_ceiling_height() -> f32 {
     3.5
 }
 
@@ -74,12 +74,9 @@ impl WallAxis {
     /// Picks the axis a wall of the given dimensions runs along.
     ///
     /// The wall's length is the larger of `width`/`depth`; ties resolve to `X`.
-    pub fn of(width: f32, depth: f32) -> WallAxis {
-        if width >= depth {
-            WallAxis::X
-        } else {
-            WallAxis::Z
-        }
+    #[must_use]
+    pub fn of(width: f32, depth: f32) -> Self {
+        if width >= depth { Self::X } else { Self::Z }
     }
 }
 
@@ -108,16 +105,19 @@ pub struct WallDef {
 }
 
 impl WallDef {
+    #[must_use]
     pub fn resolved_height(&self, default_ceiling: f32) -> f32 {
         self.height.unwrap_or(default_ceiling)
     }
 
     /// The axis this wall's length runs along (the larger of width/depth).
+    #[must_use]
     pub fn axis(&self) -> WallAxis {
         WallAxis::of(self.width.abs(), self.depth.abs())
     }
 
     /// Length of the wall's footprint along its length axis, in metres.
+    #[must_use]
     pub fn length(&self) -> f32 {
         match self.axis() {
             WallAxis::X => self.width.abs(),
@@ -126,6 +126,7 @@ impl WallDef {
     }
 
     /// Thickness of the wall across its length axis, in metres.
+    #[must_use]
     pub fn thickness(&self) -> f32 {
         match self.axis() {
             WallAxis::X => self.depth.abs(),
@@ -134,6 +135,7 @@ impl WallDef {
     }
 
     /// Minimum (x, z) corner of the wall footprint.
+    #[must_use]
     pub fn min_corner(&self) -> (f32, f32) {
         (
             self.x.min(self.x + self.width),
@@ -146,15 +148,18 @@ impl WallDef {
     /// Offsets increase along +X or +Z from the min corner, and the thickness
     /// axis starts at its min coordinate too, so this is the min corner for
     /// both axes and matches the current face layout.
+    #[must_use]
     pub fn length_origin(&self) -> (f32, f32) {
         self.min_corner()
     }
 
+    #[must_use]
     pub fn to_aabb(&self) -> WallAabb {
         let h = self.resolved_height(3.5);
         WallAabb::with_y(self.x, self.y, self.z, self.width, h, self.depth)
     }
 
+    #[must_use]
     pub fn to_aabb_with_ceiling(&self, default_ceiling: f32) -> WallAabb {
         let h = self.resolved_height(default_ceiling);
         WallAabb::with_y(self.x, self.y, self.z, self.width, h, self.depth)
@@ -182,26 +187,31 @@ fn default_opening_kind() -> String {
 
 impl WallOpeningDef {
     /// Absolute Y of the opening's bottom edge for a wall based at `base_y`.
+    #[must_use]
     pub fn bottom(&self, base_y: f32) -> f32 {
         base_y + self.sill
     }
 
     /// Absolute Y of the opening's top edge for a wall based at `base_y`.
+    #[must_use]
     pub fn top(&self, base_y: f32) -> f32 {
         base_y + self.sill + self.height
     }
 
     /// Offset of the opening's far edge along the wall's length axis.
+    #[must_use]
     pub fn end(&self) -> f32 {
         self.offset + self.width
     }
 
     /// True when the opening reaches the wall base (walk-through doorway).
+    #[must_use]
     pub fn reaches_floor(&self) -> bool {
         self.sill <= 1e-3
     }
 
     /// True for walk-through openings ("door" and "passage").
+    #[must_use]
     pub fn is_door(&self) -> bool {
         self.kind == "door" || self.kind == "passage"
     }
@@ -225,6 +235,7 @@ const WALL_SLICE_EPS: f32 = 1e-4;
 /// The returned slices are ordered by `start` and are suitable for building
 /// geometry and collision. Openings that fall outside the wall or that do not
 /// overlap the wall's vertical range are ignored defensively.
+#[must_use]
 pub fn wall_solid_slices(wall: &WallDef, ceiling_height: f32) -> Vec<WallSlice> {
     let length = wall.length();
     if !length.is_finite() || length <= WALL_SLICE_EPS {
@@ -357,11 +368,10 @@ impl CeilingLightDef {
     ///
     /// The value is therefore always finite and never negative; baking clamps it
     /// to [`crate::lighting::MAX_LIGHT_INTENSITY`] as well.
+    #[must_use]
     pub fn intensity(&self) -> f32 {
-        match self.brightness {
-            None => 1.0,
-            Some(value) => crate::lighting::sanitize_intensity(value),
-        }
+        self.brightness
+            .map_or(1.0, crate::lighting::sanitize_intensity)
     }
 }
 
@@ -369,7 +379,7 @@ impl CeilingLightDef {
 /// neither the placed prop nor the prop catalog provides explicit sizes.
 pub const PROP_FALLBACK_SIZE: [f32; 3] = [0.6, 0.9, 0.6];
 
-fn default_prop_scale() -> f32 {
+const fn default_prop_scale() -> f32 {
     1.0
 }
 
@@ -400,6 +410,7 @@ pub struct PropDef {
 impl PropDef {
     /// Box extents in metres, applying `scale` to the explicit `size` when
     /// present or to `fallback` otherwise.
+    #[must_use]
     pub fn resolved_size(&self, fallback: [f32; 3]) -> [f32; 3] {
         let base = self.size.unwrap_or(fallback);
         [
@@ -448,7 +459,7 @@ pub const PROP_TRIANGLE_TARGET: usize = 500;
 pub const PROP_TRIANGLE_REVIEW: usize = 800;
 /// Hard ceiling on one prop model's triangle count, enforced by the loader.
 pub const MAX_PROP_TRIANGLES: usize = 1_500;
-/// Hard ceiling on one prop model's vertex count (16-bit indices, PocketCHIP RAM).
+/// Hard ceiling on one prop model's vertex count (16-bit indices, `PocketCHIP` RAM).
 pub const MAX_PROP_VERTICES: usize = 65_535;
 /// Hard ceiling on prop texture dimensions; 64x64/128x128 are the preferred sizes.
 pub const MAX_PROP_TEXTURE_SIZE: u32 = 256;
@@ -480,6 +491,10 @@ pub struct GeometryEstimate {
 }
 
 impl LevelDef {
+    /// # Errors
+    ///
+    /// Returns the `serde_json` error when the document is not valid JSON or
+    /// does not match the level schema.
     pub fn from_json(json_str: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(json_str)
     }
@@ -520,6 +535,7 @@ impl LevelDef {
 
     /// Estimates the generated geometry for this level using saturating
     /// arithmetic, so malformed input cannot overflow the calculation.
+    #[must_use]
     pub fn estimate_geometry(&self) -> GeometryEstimate {
         let mut floor_area_m2: u64 = 0;
         let mut floor_quads: u64 = 0;
@@ -535,8 +551,8 @@ impl LevelDef {
             // how large a room is. A floor patch adds two cut lines per axis to
             // the floor grid (its edges), which is what keeps a patch's boundary
             // exact, so those are counted here too.
-            let cells_x = crate::lighting::light_grid_cells(room.width.abs()) as u64;
-            let cells_z = crate::lighting::light_grid_cells(room.depth.abs()) as u64;
+            let cells_x = u64::from(crate::lighting::light_grid_cells(room.width.abs()));
+            let cells_z = u64::from(crate::lighting::light_grid_cells(room.depth.abs()));
             let (patch_x, patch_z) = self.room_patch_cut_counts(room);
             let floor_cells = cells_x
                 .saturating_add(patch_x)
@@ -555,12 +571,14 @@ impl LevelDef {
         for wall in &self.walls {
             let default_height = ceiling_height_at(
                 &room_refs,
-                wall.x + wall.width * 0.5,
-                wall.z + wall.depth * 0.5,
+                wall.width.mul_add(0.5, wall.x),
+                wall.depth.mul_add(0.5, wall.z),
             );
             let slices = wall_solid_slices(wall, default_height);
             for slice in &slices {
-                let segments = crate::lighting::wall_light_segments(slice.end - slice.start) as u64;
+                let segments = u64::from(crate::lighting::wall_light_segments(
+                    slice.end - slice.start,
+                ));
                 wall_quads =
                     wall_quads.saturating_add(segments.saturating_mul(2).saturating_add(2));
             }
@@ -613,13 +631,17 @@ impl LevelDef {
     ///
     /// Walls contribute one box per solid slice, so doorways and other openings
     /// are genuinely passable; `solid` props contribute their axis-aligned box.
+    #[must_use]
     pub fn collision_aabbs(&self) -> Vec<WallAabb> {
         let rooms: Vec<&RoomDef> = self.room_iter().collect();
         let mut aabbs = Vec::new();
 
         for wall in &self.walls {
-            let default_h =
-                ceiling_height_at(&rooms, wall.x + wall.width * 0.5, wall.z + wall.depth * 0.5);
+            let default_h = ceiling_height_at(
+                &rooms,
+                wall.width.mul_add(0.5, wall.x),
+                wall.depth.mul_add(0.5, wall.z),
+            );
             let (origin_x, origin_z) = wall.length_origin();
             let (min_x, max_x) = (
                 wall.x.min(wall.x + wall.width),
@@ -663,9 +685,9 @@ impl LevelDef {
                 continue;
             }
             aabbs.push(WallAabb::with_y(
-                prop.x - size[0] * 0.5,
+                size[0].mul_add(-0.5, prop.x),
                 prop.y,
-                prop.z - size[2] * 0.5,
+                size[2].mul_add(-0.5, prop.z),
                 size[0],
                 size[1],
                 size[2],
@@ -692,13 +714,13 @@ pub fn ceiling_height_at(rooms: &[&RoomDef], x: f32, z: f32) -> f32 {
     }
     rooms
         .first()
-        .map(|r| r.height)
-        .unwrap_or_else(default_ceiling_height)
+        .map_or_else(default_ceiling_height, |r| r.height)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::assert_exact;
 
     #[test]
     fn test_parse_single_room_level() {
@@ -712,8 +734,8 @@ mod tests {
         let level = LevelDef::from_json(json).expect("valid json");
         let rooms: Vec<&RoomDef> = level.room_iter().collect();
         assert_eq!(rooms.len(), 1);
-        assert_eq!(rooms[0].width, 12.0);
-        assert_eq!(rooms[0].height, 3.5);
+        assert_exact(rooms[0].width, 12.0);
+        assert_exact(rooms[0].height, 3.5);
     }
 
     #[test]
@@ -736,7 +758,7 @@ mod tests {
         assert_eq!(level.walls.len(), 1);
         let aabbs = level.collision_aabbs();
         assert_eq!(aabbs.len(), 1);
-        assert_eq!(aabbs[0].max_x, 10.0);
+        assert_exact(aabbs[0].max_x, 10.0);
     }
 
     #[test]
@@ -757,26 +779,26 @@ mod tests {
         assert_eq!(level.walls.len(), 3);
 
         // Wall 0: y omitted (defaults to 0.0), height omitted (defaults to room height 4.0)
-        assert_eq!(level.walls[0].y, 0.0);
+        assert_exact(level.walls[0].y, 0.0);
         assert_eq!(level.walls[0].height, None);
-        assert_eq!(level.walls[0].resolved_height(4.0), 4.0);
+        assert_exact(level.walls[0].resolved_height(4.0), 4.0);
 
         // Wall 1: window sill (half-height)
-        assert_eq!(level.walls[1].y, 0.0);
+        assert_exact(level.walls[1].y, 0.0);
         assert_eq!(level.walls[1].height, Some(1.5));
 
         // Wall 2: window header (raised)
-        assert_eq!(level.walls[2].y, 2.5);
+        assert_exact(level.walls[2].y, 2.5);
         assert_eq!(level.walls[2].height, Some(1.5));
 
         let aabbs = level.collision_aabbs();
         assert_eq!(aabbs.len(), 3);
-        assert_eq!(aabbs[0].min_y, 0.0);
-        assert_eq!(aabbs[0].max_y, 4.0);
-        assert_eq!(aabbs[1].min_y, 0.0);
-        assert_eq!(aabbs[1].max_y, 1.5);
-        assert_eq!(aabbs[2].min_y, 2.5);
-        assert_eq!(aabbs[2].max_y, 4.0);
+        assert_exact(aabbs[0].min_y, 0.0);
+        assert_exact(aabbs[0].max_y, 4.0);
+        assert_exact(aabbs[1].min_y, 0.0);
+        assert_exact(aabbs[1].max_y, 1.5);
+        assert_exact(aabbs[2].min_y, 2.5);
+        assert_exact(aabbs[2].max_y, 4.0);
     }
 
     #[test]
@@ -793,8 +815,9 @@ mod tests {
         }"#;
         let level = LevelDef::from_json(json).expect("valid json");
         let estimate = level.estimate_geometry();
-        let cap =
-            (crate::lighting::MAX_LIGHT_GRID_CELLS * crate::lighting::MAX_LIGHT_GRID_CELLS) as u64;
+        let cap = u64::from(
+            crate::lighting::MAX_LIGHT_GRID_CELLS * crate::lighting::MAX_LIGHT_GRID_CELLS,
+        );
         assert!(
             estimate.floor_quads <= cap,
             "floor geometry must stay bounded, got {} quads",
@@ -885,21 +908,21 @@ mod tests {
         let door = &wall.openings[0];
         // `kind` defaults to "door" and `sill` to a walk-through doorway.
         assert_eq!(door.kind, "door");
-        assert_eq!(door.sill, 0.0);
+        assert_exact(door.sill, 0.0);
         assert!(door.is_door());
         assert!(door.reaches_floor());
-        assert_eq!(door.end(), 2.0);
-        assert_eq!(door.bottom(0.0), 0.0);
-        assert_eq!(door.top(0.0), 2.1);
-        assert_eq!(door.bottom(1.0), 1.0);
+        assert_exact(door.end(), 2.0);
+        assert_exact(door.bottom(0.0), 0.0);
+        assert_exact(door.top(0.0), 2.1);
+        assert_exact(door.bottom(1.0), 1.0);
     }
 
     #[test]
     fn test_wall_axis_and_length_helpers() {
         let x_wall = wall_with_openings("[]");
         assert_eq!(x_wall.axis(), WallAxis::X);
-        assert_eq!(x_wall.length(), 4.0);
-        assert_eq!(x_wall.thickness(), 0.4);
+        assert_exact(x_wall.length(), 4.0);
+        assert_exact(x_wall.thickness(), 0.4);
         assert_eq!(x_wall.min_corner(), (0.0, 0.0));
         assert_eq!(x_wall.length_origin(), (0.0, 0.0));
 
@@ -908,8 +931,8 @@ mod tests {
         }"#;
         let z_wall: WallDef = serde_json::from_str(json).expect("valid z wall");
         assert_eq!(z_wall.axis(), WallAxis::Z);
-        assert_eq!(z_wall.length(), 6.0);
-        assert_eq!(z_wall.thickness(), 0.4);
+        assert_exact(z_wall.length(), 6.0);
+        assert_exact(z_wall.thickness(), 0.4);
         assert_eq!(z_wall.length_origin(), (5.0, -3.0));
 
         // Negative dimensions still expose a positive length from the min corner.
@@ -917,7 +940,7 @@ mod tests {
             serde_json::from_str(r#"{ "x": 4.0, "z": 1.0, "width": -4.0, "depth": -0.4 }"#)
                 .expect("valid negative wall");
         assert_eq!(negative.axis(), WallAxis::X);
-        assert_eq!(negative.length(), 4.0);
+        assert_exact(negative.length(), 4.0);
         assert_eq!(negative.min_corner(), (0.0, 0.6));
     }
 
@@ -944,14 +967,14 @@ mod tests {
         let slices = wall_solid_slices(&wall, 3.5);
         assert_eq!(slices.len(), 3);
         // Left jamb, door header, right jamb.
-        assert_eq!(slices[0].start, 0.0);
-        assert_eq!(slices[0].end, 1.0);
+        assert_exact(slices[0].start, 0.0);
+        assert_exact(slices[0].end, 1.0);
         assert_eq!((slices[0].bottom, slices[0].top), (0.0, 3.5));
-        assert_eq!(slices[1].start, 1.0);
-        assert_eq!(slices[1].end, 2.0);
+        assert_exact(slices[1].start, 1.0);
+        assert_exact(slices[1].end, 2.0);
         assert_eq!((slices[1].bottom, slices[1].top), (2.1, 3.5));
-        assert_eq!(slices[2].start, 2.0);
-        assert_eq!(slices[2].end, 4.0);
+        assert_exact(slices[2].start, 2.0);
+        assert_exact(slices[2].end, 4.0);
         assert_eq!((slices[2].bottom, slices[2].top), (0.0, 3.5));
     }
 
@@ -1097,7 +1120,10 @@ mod tests {
         assert!(estimate.wall_quads <= 64, "estimate unexpectedly loose");
         // The estimate must bound the geometry that is actually generated.
         let mesh = crate::render::build_level_geometry(&level);
-        assert!(mesh.batches.wall_batch.count as u64 <= estimate.wall_quads * 6);
+        assert!(
+            u64::try_from(mesh.batches.wall_batch.count.max(0)).unwrap_or(0)
+                <= estimate.wall_quads * 6
+        );
         let expected_quads = estimate.floor_quads
             + estimate.ceiling_quads
             + estimate.wall_quads
@@ -1151,11 +1177,11 @@ mod tests {
         let level = LevelDef::from_json(json).expect("valid json");
         let aabbs = level.collision_aabbs();
         assert_eq!(aabbs.len(), 1);
-        assert_eq!(aabbs[0].min_x, 1.5);
-        assert_eq!(aabbs[0].max_x, 2.5);
-        assert_eq!(aabbs[0].min_y, 0.0);
-        assert_eq!(aabbs[0].max_y, 1.0);
-        assert_eq!(aabbs[0].min_z, 2.5);
-        assert_eq!(aabbs[0].max_z, 3.5);
+        assert_exact(aabbs[0].min_x, 1.5);
+        assert_exact(aabbs[0].max_x, 2.5);
+        assert_exact(aabbs[0].min_y, 0.0);
+        assert_exact(aabbs[0].max_y, 1.0);
+        assert_exact(aabbs[0].min_z, 2.5);
+        assert_exact(aabbs[0].max_z, 3.5);
     }
 }

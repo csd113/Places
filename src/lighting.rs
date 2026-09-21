@@ -1,6 +1,6 @@
 //! Static baked interior lighting.
 //!
-//! The game targets a PocketCHIP (Mali-400/Lima, OpenGL ES 2.0, 480x272), so
+//! The game targets a `PocketCHIP` (Mali-400/Lima, OpenGL ES 2.0, 480x272), so
 //! there is no dynamic lighting anywhere in the render loop. Everything in this
 //! module runs once per level load, producing a single brightness scalar per
 //! sampled point that the geometry builder bakes into ordinary vertex colours:
@@ -118,8 +118,10 @@ pub const FIXTURE_HALF_DEPTH_M: f32 = 0.3;
 pub const FIXTURE_DROP_M: f32 = 0.01;
 
 /// Cell size of the baked lighting grid used to tessellate floors, ceilings and
-/// wall faces. Smaller cells sample the pools more smoothly; the cell count is
-/// capped per surface so the generated geometry stays bounded.
+/// wall faces.
+///
+/// Smaller cells sample the pools more smoothly; the cell count is capped per
+/// surface so the generated geometry stays bounded.
 pub const LIGHT_GRID_CELL_M: f32 = 2.5;
 
 /// Maximum subdivisions per axis of one floor or ceiling.
@@ -153,6 +155,7 @@ const OPENING_PROBE_M: f32 = 0.05;
 /// Non-finite values fall back to the standard fixture, negatives clamp to
 /// zero output and absurd values clamp to [`MAX_LIGHT_INTENSITY`]; the result is
 /// always finite and non-negative.
+#[must_use]
 pub fn sanitize_intensity(intensity: f32) -> f32 {
     if intensity.is_nan() {
         return 1.0;
@@ -171,15 +174,17 @@ pub fn sanitize_intensity(intensity: f32) -> f32 {
 ///
 /// A lower ceiling makes the same fixture more effective, a taller one less;
 /// the correction is a bounded power law, never an inverse square.
+#[must_use]
 pub fn ceiling_height_factor(height_m: f32) -> f32 {
     if !height_m.is_finite() || height_m <= 0.0 {
         return 1.0;
     }
     let height = height_m.clamp(0.5, 100.0);
-    (REFERENCE_CEILING_HEIGHT_M / height).powf(HEIGHT_FALLOFF)
+    (REFERENCE_CEILING_HEIGHT_M / height).sqrt()
 }
 
 /// Effective fixture power: authored intensity times the height correction.
+#[must_use]
 pub fn effective_power(intensity: f32, ceiling_height_m: f32) -> f32 {
     sanitize_intensity(intensity) * ceiling_height_factor(ceiling_height_m)
 }
@@ -190,6 +195,7 @@ pub fn effective_power(intensity: f32, ceiling_height_m: f32) -> f32 {
 /// the authored rotation to the nearest whole degree and testing it against
 /// 180 keeps a `90` panel turned, a `180` panel back to default, and fractional
 /// rotations identical in both places. The level editor mirrors this rule.
+#[must_use]
 pub fn fixture_is_turned(rotation_degrees: f32) -> bool {
     if !rotation_degrees.is_finite() {
         return false;
@@ -201,6 +207,7 @@ pub fn fixture_is_turned(rotation_degrees: f32) -> bool {
 ///
 /// Mirrors the panel geometry emitted by `crate::render`: the default 1.2 x 0.6
 /// panel runs along X, and a turned fixture swaps its axes.
+#[must_use]
 pub fn fixture_half_extents(rotation_degrees: f32) -> (f32, f32) {
     if fixture_is_turned(rotation_degrees) {
         (FIXTURE_HALF_DEPTH_M, FIXTURE_HALF_WIDTH_M)
@@ -214,6 +221,7 @@ pub fn fixture_half_extents(rotation_degrees: f32) -> (f32, f32) {
 /// `n / (1 + n)`: continuous, monotonic, zero at zero, asymptotically 1 as the
 /// density grows, and numerically safe for every input (NaN maps to 0,
 /// infinities map to 0 or 1).
+#[must_use]
 pub fn saturating_brightness(normalized_density: f32) -> f32 {
     if normalized_density.is_nan() {
         return 0.0;
@@ -230,17 +238,19 @@ pub fn saturating_brightness(normalized_density: f32) -> f32 {
 /// `(1 - t)^2 * (1 + 2t)` is `1 - smoothstep(t)`: it equals 1 at `t = 0`,
 /// reaches 0 at `t = 1` and has a zero derivative at both ends, so lit regions
 /// fade in and out without visible rings.
+#[must_use]
 pub fn smooth_falloff(t: f32) -> f32 {
     if t.is_nan() {
         return 0.0;
     }
     let t = t.clamp(0.0, 1.0);
     let u = 1.0 - t;
-    u * u * (1.0 + 2.0 * t)
+    u * u * 2.0f32.mul_add(t, 1.0)
 }
 
 /// Baseline brightness of a room from its floor area and effective fixture
 /// power. The result is always inside `[MIN_AMBIENT, MAX_BRIGHTNESS]`.
+#[must_use]
 pub fn room_baseline(area_m2: f32, effective_power_sum: f32) -> f32 {
     let area = if area_m2.is_finite() {
         area_m2.max(MIN_ROOM_AREA_M2)
@@ -257,13 +267,16 @@ pub fn room_baseline(area_m2: f32, effective_power_sum: f32) -> f32 {
     let density = power / area;
     let normalized = density * REFERENCE_LIGHT_AREA_M2;
     let component = saturating_brightness(normalized);
-    (MIN_AMBIENT + (MAX_BRIGHTNESS - MIN_AMBIENT) * component).clamp(MIN_AMBIENT, MAX_BRIGHTNESS)
+    (MAX_BRIGHTNESS - MIN_AMBIENT)
+        .mul_add(component, MIN_AMBIENT)
+        .clamp(MIN_AMBIENT, MAX_BRIGHTNESS)
 }
 
 /// Number of baked-lighting grid cells along one surface axis of `extent_m`.
 ///
 /// Always at least 1 and never more than [`MAX_LIGHT_GRID_CELLS`], so floor and
 /// ceiling geometry is bounded no matter how large a room is.
+#[must_use]
 pub fn light_grid_cells(extent_m: f32) -> u32 {
     if !extent_m.is_finite() || extent_m <= 0.0 {
         return 1;
@@ -273,6 +286,7 @@ pub fn light_grid_cells(extent_m: f32) -> u32 {
 
 /// Number of segments one wall face is split into along its length, so baked
 /// lighting can vary along long walls without unbounded geometry.
+#[must_use]
 pub fn wall_light_segments(length_m: f32) -> u32 {
     if !length_m.is_finite() || length_m <= 0.0 {
         return 1;
@@ -364,12 +378,23 @@ pub struct LevelLighting {
     default_ceiling_height_m: f32,
 }
 
+/// A closed interval on the floor plane: `(min, max)`.
+type Span = (f32, f32);
+
+/// How far apart two spans are on one axis, or zero when they touch or overlap.
+fn interval_gap(room_span: Span, panel_span: Span) -> f32 {
+    (room_span.0 - panel_span.1)
+        .max(panel_span.0 - room_span.1)
+        .max(0.0)
+}
+
 impl LevelLighting {
     /// Bakes room baselines, fixture pools and opening blends from a level.
     ///
     /// Malformed data never panics and never yields NaN: non-finite fixtures are
     /// skipped, non-finite dimensions fall back to safe values and every result
     /// is clamped.
+    #[must_use]
     pub fn bake(level: &LevelDef) -> Self {
         let room_refs: Vec<_> = level.room_iter().collect();
         let mut rooms: Vec<RoomLighting> = Vec::with_capacity(room_refs.len());
@@ -420,10 +445,10 @@ impl LevelLighting {
                 continue;
             }
             let room = Self::room_index_of(&rooms, light.x, light.z);
-            let height_m = match room {
-                Some(index) => rooms[index].height_m,
-                None => ceiling_height_at(&room_refs, light.x, light.z),
-            };
+            let height_m = room.map_or_else(
+                || ceiling_height_at(&room_refs, light.x, light.z),
+                |index| rooms[index].height_m,
+            );
             let height_m = if height_m.is_finite() && height_m > 0.0 {
                 height_m
             } else {
@@ -463,11 +488,11 @@ impl LevelLighting {
         for (index, light) in lights.iter().enumerate() {
             for (room_index, room) in rooms.iter().enumerate() {
                 if light.room == Some(room_index) || Self::light_reaches_room(light, room) {
-                    room_lights[room_index].push(index as u32);
+                    room_lights[room_index].push(u32::try_from(index).unwrap_or(u32::MAX));
                 }
             }
         }
-        let all_lights: Vec<u32> = (0..lights.len() as u32).collect();
+        let all_lights: Vec<u32> = (0..u32::try_from(lights.len()).unwrap_or(u32::MAX)).collect();
 
         // Link the rooms on either side of every walk-through opening.
         let mut blends: Vec<Vec<OpeningBlend>> = vec![Vec::new(); rooms.len()];
@@ -511,8 +536,11 @@ impl LevelLighting {
                 if wall.y + opening.sill.max(0.0) > 1e-3 {
                     continue;
                 }
-                let center = (opening.offset + opening.width * 0.5).clamp(0.0, length);
-                let across = (t0 + t1) * 0.5;
+                let center = opening
+                    .width
+                    .mul_add(0.5, opening.offset)
+                    .clamp(0.0, length);
+                let across = f32::midpoint(t0, t1);
                 let probe = half_thickness + OPENING_PROBE_M;
                 let (center_x, center_z) = match axis {
                     WallAxis::X => (origin_x + center, across),
@@ -557,11 +585,13 @@ impl LevelLighting {
     }
 
     /// Baked rooms, in the level's room order.
+    #[must_use]
     pub fn rooms(&self) -> &[RoomLighting] {
         &self.rooms
     }
 
     /// Baked fixtures, in the level's ceiling-light order (minus non-finite ones).
+    #[must_use]
     pub fn lights(&self) -> &[BakedLight] {
         &self.lights
     }
@@ -572,6 +602,7 @@ impl LevelLighting {
     /// engine allows: the *smallest-area* containing room wins, and equal areas
     /// keep the level's own room order. This is the single shared containment
     /// helper used for lighting, so fixtures are never double counted.
+    #[must_use]
     pub fn room_index_at(&self, x: f32, z: f32) -> Option<usize> {
         Self::room_index_of(&self.rooms, x, z)
     }
@@ -602,11 +633,12 @@ impl LevelLighting {
     ///
     /// Fixtures hang just below their room's ceiling, so the same panel sits at
     /// 2.59 m in a 2.6 m corridor and at 2.99 m in a 3 m room.
+    #[must_use]
     pub fn fixture_y(&self, x: f32, z: f32) -> f32 {
-        match self.room_index_at(x, z) {
-            Some(index) => self.rooms[index].height_m - FIXTURE_DROP_M,
-            None => self.default_ceiling_height_m - FIXTURE_DROP_M,
-        }
+        self.room_index_at(x, z)
+            .map_or(self.default_ceiling_height_m - FIXTURE_DROP_M, |index| {
+                self.rooms[index].height_m - FIXTURE_DROP_M
+            })
     }
 
     /// Baked brightness at a world position, resolving the room by containment.
@@ -614,12 +646,15 @@ impl LevelLighting {
     /// Used for props and for geometry that does not know its room. Points
     /// outside every room still receive the minimum ambient and any local
     /// fixture pools they are inside.
+    #[must_use]
     pub fn sample(&self, x: f32, y: f32, z: f32) -> f32 {
-        match self.room_index_at(x, z) {
-            Some(index) => self.sample_in_room(index, x, y, z),
-            None => (MIN_AMBIENT + self.local_light(&self.all_lights, x, y, z))
-                .clamp(MIN_AMBIENT, MAX_BRIGHTNESS),
-        }
+        self.room_index_at(x, z).map_or_else(
+            || {
+                (MIN_AMBIENT + self.local_light(&self.all_lights, x, y, z))
+                    .clamp(MIN_AMBIENT, MAX_BRIGHTNESS)
+            },
+            |index| self.sample_in_room(index, x, y, z),
+        )
     }
 
     /// Baked brightness for a point already known to belong to `room`.
@@ -627,6 +662,7 @@ impl LevelLighting {
     /// Floors, ceilings and wall faces use this so a vertex sitting exactly on a
     /// room boundary is lit by the surface's own room, not by whichever room the
     /// containment rule happens to prefer.
+    #[must_use]
     pub fn sample_in_room(&self, room: usize, x: f32, y: f32, z: f32) -> f32 {
         let Some(info) = self.rooms.get(room) else {
             return self.sample(x, y, z);
@@ -644,7 +680,7 @@ impl LevelLighting {
         for blend in &self.blends[room] {
             let dx = x - blend.x;
             let dz = z - blend.z;
-            let distance = (dx * dx + dz * dz).sqrt();
+            let distance = dx.hypot(dz);
             if !distance.is_finite() || distance >= OPENING_BLEND_RADIUS_M {
                 continue;
             }
@@ -653,7 +689,7 @@ impl LevelLighting {
             if y > blend.top_y {
                 influence *= smooth_falloff((y - blend.top_y) / OPENING_VERTICAL_FADE_M);
             }
-            value += (blend.neighbor_baseline - info.baseline) * influence;
+            value = (blend.neighbor_baseline - info.baseline).mul_add(influence, value);
         }
 
         if value.is_finite() {
@@ -692,12 +728,13 @@ impl LevelLighting {
             // Full 3D distance to the panel, so a wall at fixture height reads
             // brighter than the floor below it.
             let vertical = y - light.y;
-            let distance_squared = horizontal_squared + vertical * vertical;
+            let distance_squared = vertical.mul_add(vertical, horizontal_squared);
             if !distance_squared.is_finite() || distance_squared >= radius_squared {
                 continue;
             }
             let falloff = smooth_falloff(distance_squared.sqrt() * inv_radius);
-            sum += LOCAL_LIGHT_STRENGTH * light.intensity * light.height_factor * falloff;
+            sum = (LOCAL_LIGHT_STRENGTH * light.intensity * light.height_factor)
+                .mul_add(falloff, sum);
             if sum >= LOCAL_LIGHT_MAX {
                 return LOCAL_LIGHT_MAX;
             }
@@ -712,20 +749,17 @@ impl LevelLighting {
     /// contributes exactly zero everywhere in the room, so pruning is lossless.
     /// The test ignores vertical distance, which only makes it more permissive.
     fn light_reaches_room(light: &BakedLight, room: &RoomLighting) -> bool {
-        let panel_x0 = light.x - light.half_w;
-        let panel_x1 = light.x + light.half_w;
-        let panel_z0 = light.z - light.half_d;
-        let panel_z1 = light.z + light.half_d;
-        let room_x0 = room.x0 - ROOM_EDGE_EPS_M;
-        let room_x1 = room.x1 + ROOM_EDGE_EPS_M;
-        let room_z0 = room.z0 - ROOM_EDGE_EPS_M;
-        let room_z1 = room.z1 + ROOM_EDGE_EPS_M;
-        let gap_x = (room_x0 - panel_x1).max(panel_x0 - room_x1).max(0.0);
-        let gap_z = (room_z0 - panel_z1).max(panel_z0 - room_z1).max(0.0);
-        gap_x * gap_x + gap_z * gap_z < LOCAL_LIGHT_RADIUS_M * LOCAL_LIGHT_RADIUS_M
+        let panel_span_x = (light.x - light.half_w, light.x + light.half_w);
+        let panel_span_z = (light.z - light.half_d, light.z + light.half_d);
+        let room_span_x = (room.x0 - ROOM_EDGE_EPS_M, room.x1 + ROOM_EDGE_EPS_M);
+        let room_span_z = (room.z0 - ROOM_EDGE_EPS_M, room.z1 + ROOM_EDGE_EPS_M);
+        let gap_x = interval_gap(room_span_x, panel_span_x);
+        let gap_z = interval_gap(room_span_z, panel_span_z);
+        gap_x.mul_add(gap_x, gap_z * gap_z) < LOCAL_LIGHT_RADIUS_M * LOCAL_LIGHT_RADIUS_M
     }
 
     /// Aggregate statistics for developer logging.
+    #[must_use]
     pub fn summary(&self) -> LightingSummary {
         if self.rooms.is_empty() {
             return LightingSummary {
@@ -758,6 +792,7 @@ impl LevelLighting {
 mod tests {
     use super::*;
     use crate::level::LevelDef;
+    use crate::test_support::{assert_exact, scan};
 
     /// One rectangular room with `lights` fixtures evenly spread across it.
     fn level_with_room(width: f32, depth: f32, height: f32, intensities: &[f32]) -> LevelDef {
@@ -835,11 +870,11 @@ mod tests {
             "ceiling_lights": [{ "fixture": "core:fluorescent_panel_01", "x": 8.0, "z": 8.0 }]
         }"#;
         let level = LevelDef::from_json(json).expect("valid json");
-        assert_eq!(level.ceiling_lights[0].intensity(), 1.0);
+        assert_exact(level.ceiling_lights[0].intensity(), 1.0);
         let omitted = LevelLighting::bake(&level);
         let explicit = LevelLighting::bake(&level_with_room(16.0, 16.0, 3.5, &[1.0]));
-        assert_eq!(omitted.rooms()[0].baseline, explicit.rooms()[0].baseline);
-        assert_eq!(omitted.lights()[0].intensity, 1.0);
+        assert_exact(omitted.rooms()[0].baseline, explicit.rooms()[0].baseline);
+        assert_exact(omitted.lights()[0].intensity, 1.0);
     }
 
     #[test]
@@ -856,8 +891,8 @@ mod tests {
             ]
         }"#;
         let level = LevelDef::from_json(json).expect("valid json");
-        assert_eq!(level.ceiling_lights[0].intensity(), 1.4);
-        assert_eq!(level.ceiling_lights[1].intensity(), 0.0);
+        assert_exact(level.ceiling_lights[0].intensity(), 1.4);
+        assert_exact(level.ceiling_lights[1].intensity(), 0.0);
 
         let lighting = LevelLighting::bake(&level);
         assert_eq!(lighting.lights().len(), 2);
@@ -921,10 +956,10 @@ mod tests {
     #[test]
     fn a_room_without_fixtures_is_dim_but_never_black() {
         let lighting = LevelLighting::bake(&level_with_room(20.0, 20.0, 3.5, &[]));
-        assert_eq!(lighting.rooms()[0].baseline, MIN_AMBIENT);
+        assert_exact(lighting.rooms()[0].baseline, MIN_AMBIENT);
         const { assert!(MIN_AMBIENT > 0.0) };
         let sample = lighting.sample(10.0, 0.0, 10.0);
-        assert_eq!(sample, MIN_AMBIENT);
+        assert_exact(sample, MIN_AMBIENT);
     }
 
     #[test]
@@ -1131,9 +1166,9 @@ mod tests {
         assert_eq!(lighting.room_index_at(30.0, 30.0), Some(0));
         assert_eq!(lighting.room_index_at(-1.0, -1.0), None);
         // The light is counted once, in the small room.
-        assert_eq!(
+        assert_exact(
             lighting.rooms()[0].effective_power + lighting.rooms()[1].effective_power,
-            lighting.lights()[0].intensity * lighting.lights()[0].height_factor
+            lighting.lights()[0].intensity * lighting.lights()[0].height_factor,
         );
     }
 
@@ -1164,11 +1199,11 @@ mod tests {
 
     #[test]
     fn helper_curves_are_monotonic_and_numerically_safe() {
-        assert_eq!(saturating_brightness(0.0), 0.0);
-        assert_eq!(saturating_brightness(-1.0), 0.0);
-        assert_eq!(saturating_brightness(f32::NAN), 0.0);
-        assert_eq!(saturating_brightness(f32::INFINITY), 1.0);
-        assert_eq!(saturating_brightness(f32::NEG_INFINITY), 0.0);
+        assert_exact(saturating_brightness(0.0), 0.0);
+        assert_exact(saturating_brightness(-1.0), 0.0);
+        assert_exact(saturating_brightness(f32::NAN), 0.0);
+        assert_exact(saturating_brightness(f32::INFINITY), 1.0);
+        assert_exact(saturating_brightness(f32::NEG_INFINITY), 0.0);
         let mut previous = 0.0;
         for step in 0..40 {
             let value = saturating_brightness(step as f32 * 0.25);
@@ -1181,19 +1216,19 @@ mod tests {
         let later = saturating_brightness(4.5) - saturating_brightness(4.0);
         assert!(first > later && later > 0.0);
 
-        assert_eq!(smooth_falloff(0.0), 1.0);
-        assert_eq!(smooth_falloff(1.0), 0.0);
-        assert_eq!(smooth_falloff(f32::NAN), 0.0);
+        assert_exact(smooth_falloff(0.0), 1.0);
+        assert_exact(smooth_falloff(1.0), 0.0);
+        assert_exact(smooth_falloff(f32::NAN), 0.0);
         assert!(smooth_falloff(0.5) > 0.0 && smooth_falloff(0.5) < 1.0);
 
-        assert_eq!(sanitize_intensity(f32::NAN), 1.0);
-        assert_eq!(sanitize_intensity(-3.0), 0.0);
-        assert_eq!(sanitize_intensity(1.0e30), MAX_LIGHT_INTENSITY);
-        assert_eq!(sanitize_intensity(1.4), 1.4);
+        assert_exact(sanitize_intensity(f32::NAN), 1.0);
+        assert_exact(sanitize_intensity(-3.0), 0.0);
+        assert_exact(sanitize_intensity(1.0e30), MAX_LIGHT_INTENSITY);
+        assert_exact(sanitize_intensity(1.4), 1.4);
 
-        assert_eq!(ceiling_height_factor(f32::NAN), 1.0);
-        assert_eq!(ceiling_height_factor(0.0), 1.0);
-        assert!(ceiling_height_factor(REFERENCE_CEILING_HEIGHT_M) == 1.0);
+        assert_exact(ceiling_height_factor(f32::NAN), 1.0);
+        assert_exact(ceiling_height_factor(0.0), 1.0);
+        assert_exact(ceiling_height_factor(REFERENCE_CEILING_HEIGHT_M), 1.0);
         assert!(ceiling_height_factor(2.6) > 1.0 && ceiling_height_factor(2.6) < 1.3);
         assert!(ceiling_height_factor(6.0) > 0.6 && ceiling_height_factor(6.0) < 1.0);
 
@@ -1213,15 +1248,13 @@ mod tests {
         let level = level_with_room(20.0, 20.0, 3.0, &[1.0]);
         let lighting = LevelLighting::bake(&level);
         let mut previous = lighting.sample(0.0, 0.0, 10.0);
-        let mut x = 0.0;
-        while x <= 20.0 {
+        for x in scan(0.0, 0.05, 20.0) {
             let current = lighting.sample(x, 0.0, 10.0);
             assert!(
                 (current - previous).abs() < 0.02,
                 "brightness jumped at x = {x}: {previous} -> {current}"
             );
             previous = current;
-            x += 0.05;
         }
         // And it genuinely varies across the room.
         assert!(lighting.sample(10.0, 0.0, 10.0) - lighting.sample(0.0, 0.0, 10.0) > 0.05);
@@ -1234,7 +1267,7 @@ mod tests {
         let summary = lighting.summary();
         assert_eq!(summary.rooms, 1);
         assert_eq!(summary.lights, 4);
-        assert!(summary.min_baseline == summary.max_baseline);
+        assert_exact(summary.min_baseline, summary.max_baseline);
         assert!(summary.average_baseline >= MIN_AMBIENT);
         assert!(summary.average_baseline <= MAX_BRIGHTNESS);
     }
