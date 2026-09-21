@@ -1,3 +1,4 @@
+pub mod bench;
 pub mod collision;
 pub mod font;
 pub mod game;
@@ -15,6 +16,7 @@ pub mod loader;
 pub mod perf;
 pub mod props;
 pub mod render;
+pub mod spatial;
 pub mod settings;
 pub mod ui;
 
@@ -22,6 +24,7 @@ use glam::Vec3;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
+use bench::Bench;
 use game::{AppState, Game};
 use input::{InputHandler, MenuNavEvent, keycode_to_str};
 use perf::PerfOverlay;
@@ -45,9 +48,28 @@ fn log_prop_usage(renderer: &Renderer) {
         renderer.prop_draw_count()
     );
     let level = renderer.level_stats();
+    let batches = renderer.static_batch_family_breakdown();
     println!(
-        "[level] {} static vertices, {} prop vertices, {} prop draw call(s), built in {:.1} ms",
-        level.static_vertices, level.prop_vertices, level.prop_draws, level.build_millis
+        "[level] {} static vertices, {} prop vertices, {} prop draw call(s), built in {:.1} ms \
+         (lighting {:.1} + props {:.1} + surfaces {:.1})",
+        level.static_vertices,
+        level.prop_vertices,
+        level.prop_draws,
+        level.build_millis,
+        level.lighting_millis,
+        level.props_millis,
+        level.surfaces_millis
+    );
+    println!(
+        "[spatial] {} cells: {} static batch(es) (floor {} / ceiling {} / wall {} / light {} / prop box {}), {} prop batch(es)",
+        renderer.spatial_grid().describe(),
+        renderer.static_batch_count(),
+        batches[0],
+        batches[1],
+        batches[2],
+        batches[3],
+        batches[4],
+        level.prop_draws
     );
     println!(
         "[lighting] baked {} room(s) from {} fixture(s): baselines {:.2}..{:.2} (avg {:.2})",
@@ -99,7 +121,97 @@ fn configure_gl_attributes(video: &sdl2::VideoSubsystem, gles: bool) {
     }
 }
 
+/// Requests a swap interval and reports what the platform actually accepted.
+///
+/// This used to discard the result of `SDL_GL_SetSwapInterval`, which made a
+/// silently ignored VSync request indistinguishable from a working one. The
+/// requested interval, the call's return status and `SDL_GL_GetSwapInterval`
+/// (a fresh query of the platform, not an echo of the request) are all logged
+/// once at startup, and the interval in force is returned for the caller.
+fn apply_swap_interval(video: &sdl2::VideoSubsystem, want_vsync: bool) -> i32 {
+    let requested = if want_vsync {
+        sdl2::video::SwapInterval::VSync
+    } else {
+        sdl2::video::SwapInterval::Immediate
+    };
+    match video.gl_set_swap_interval(requested) {
+        Ok(()) => {
+            let reported = video.gl_get_swap_interval();
+            println!(
+                "[vsync] requested {requested:?}, SDL_GL_SetSwapInterval -> Ok, SDL_GL_GetSwapInterval -> {reported:?}",
+            );
+            reported as i32
+        }
+        Err(error) => {
+            let reported = video.gl_get_swap_interval();
+            println!(
+                "[vsync] requested {requested:?}, SDL_GL_SetSwapInterval -> Err({error}), SDL_GL_GetSwapInterval -> {reported:?}",
+            );
+            reported as i32
+        }
+    }
+}
+
+/// Root of the installed package.
+///
+/// App Center installs a native package and launcher-executes the mapped
+/// payload at `bin/<target-triple>/app`, which is three levels below the
+/// package root — the same convention the other native Vitrallis app uses. A
+/// development build (run from the crate directory) falls back to the crate
+/// path so tests and `cargo run` keep working unchanged.
+fn package_root() -> std::path::PathBuf {
+    let fallback = || std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let Ok(executable) = std::env::current_exe() else {
+        return fallback();
+    };
+    let installed = executable
+        .file_name()
+        .is_some_and(|name| name == "app")
+        .then(|| {
+            executable
+                .ancestors()
+                .nth(3)
+                .map(std::path::Path::to_path_buf)
+        })
+        .flatten();
+    match installed {
+        Some(root) if root.join("assets/levels").is_dir() => root,
+        _ => fallback(),
+    }
+}
+
+/// Points every relative asset path at the installed package.
+///
+/// The level loader, the prop catalogue, imported level packs and the settings
+/// file are all resolved relative to the working directory, so an installed
+/// package has to run from its own root. A development build already satisfies
+/// this and is left alone.
+fn use_package_assets() -> std::path::PathBuf {
+    let package = package_root();
+    let current = std::env::current_dir().ok();
+    if current.as_deref() != Some(package.as_path())
+        && let Err(error) = std::env::set_current_dir(&package)
+    {
+        eprintln!(
+            "could not use the installed package directory {}: {error}",
+            package.display()
+        );
+    }
+    package
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let package = use_package_assets();
+    println!(
+        "[package] {} (assets: {})",
+        package.display(),
+        package.join("assets/levels").display()
+    );
+    // X11 process identity, required for the App Center launcher and window
+    // managers to associate the window with this app.
+    sdl2::hint::set("SDL_VIDEO_X11_WMCLASS", "io.vitrallis.liminalrust");
+    sdl2::hint::set("SDL_APP_NAME", "Liminal");
+
     let sdl_context = sdl2::init().map_err(|e| format!("Failed to init SDL2: {e}"))?;
     let video_subsystem = sdl_context
         .video()
@@ -141,12 +253,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    // Apply VSync from settings
-    let _ = video_subsystem.gl_set_swap_interval(if settings.vsync {
-        sdl2::video::SwapInterval::VSync
-    } else {
-        sdl2::video::SwapInterval::Immediate
-    });
+    // Debug-only frame telemetry. Inert unless `LIMINAL_BENCH=1` is set.
+    let mut bench = Bench::new();
 
     let mut level_manager = loader::LevelManager::new();
     let initial_level = level_manager
@@ -157,6 +265,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|e| format!("Failed to initialize renderer: {e}"))?;
     renderer.set_level(&initial_level);
     renderer.set_texture_filtering(&settings.texture_filtering);
+    // The three benchmark switches below keep the level build, the batching, the
+    // draw order and the shader identical and change exactly one submission
+    // decision each, which is how a single build measures what culling, indexing
+    // and vertex packing are each worth on real hardware.
+    renderer.set_culling(!bench.no_cull());
+    renderer.set_indexing(!bench.no_index());
+    renderer.set_vertex_layout(if bench.exact_vertex() {
+        render::VertexLayout::Exact
+    } else {
+        render::VertexLayout::Packed
+    });
+
+    // Apply VSync from settings *after* the GL context exists and is current.
+    // `SDL_GL_SetSwapInterval` fails outright without a current context, which is
+    // why the request used to be dropped and the renderer's own unconditional
+    // VSync-on call won instead. `LIMINAL_VSYNC=on|off` overrides this for VSync
+    // characterisation runs only; the shipping default stays VSync-on.
+    let want_vsync = bench.vsync_override().unwrap_or(settings.vsync);
+    let swap_interval = apply_swap_interval(&video_subsystem, want_vsync);
+    bench.set_reported_swap_interval(swap_interval);
 
     let mut event_pump = sdl_context
         .event_pump()
@@ -198,6 +326,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         loaded.level.props.len()
                     );
                     renderer.set_level(&loaded);
+                    renderer.set_culling(!bench.no_cull());
+                    renderer.set_indexing(!bench.no_index());
                     log_prop_usage(&renderer);
                     spawn_pos = Vec3::new(loaded.level.spawn.x, 1.6, loaded.level.spawn.z);
                     spawn_yaw = loaded.level.spawn.yaw_degrees.to_radians();
@@ -248,6 +378,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Clean main loop
     while game.is_running() {
+        // Frame boundary for the benchmark harness: everything from here to the
+        // end of `gl_swap_window` is one complete frame, swap included.
+        let frame_begin = std::time::Instant::now();
         game.update_timing();
         perf_overlay.update(game.delta_seconds());
 
@@ -499,6 +632,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Update player movement (only active during AppState::Playing)
         game.update_player_movement(input_handler.state(), &settings);
+        let frame_update_done = std::time::Instant::now();
 
         // Use the physical drawable size, not the logical window size, so HiDPI
         // (Retina) backing scale and monitor changes are handled automatically.
@@ -525,9 +659,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 (spawn_pos, spawn_yaw, 0.0)
             }
         };
+        // `LIMINAL_CAMERA=yaw[,pitch]` pins the camera so a hardware benchmark
+        // measures the same view twice; it never changes gameplay.
+        let (cam_yaw, cam_pitch) = match bench.camera_override() {
+            Some((yaw, pitch)) => (yaw.to_radians(), pitch.to_radians()),
+            None => (cam_yaw, cam_pitch),
+        };
 
-        renderer.render_scene(cam_pos, cam_yaw, cam_pitch, settings.fov_degrees);
-
+        let skip_render = bench.skip_render();
+        if !skip_render {
+            renderer.render_scene(cam_pos, cam_yaw, cam_pitch, settings.fov_degrees);
+        }
+        let frame_render_done = std::time::Instant::now();
         // Apply a changed texture filtering setting to existing GL textures
         // without re-uploading their pixel data.
         if settings.texture_filtering != applied_filtering {
@@ -538,7 +681,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Menu/settings UI geometry is cached and only rebuilt when its inputs
         // change. The (debug) performance overlay is appended on demand.
         let ui_vertices = ui_cache.get(game.app_state(), &ui_state, &settings, APP_VERSION);
-        if perf_overlay.is_visible() {
+        if skip_render {
+            // `LIMINAL_BENCH_NORENDER=1`: measure the presentation path alone.
+        } else if perf_overlay.is_visible() {
             ui_scratch.clear();
             ui_scratch.extend_from_slice(ui_vertices);
             ui_scratch.extend_from_slice(perf_overlay.cached_vertices());
@@ -546,6 +691,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             renderer.render_ui(ui_vertices);
         }
+        // `LIMINAL_BENCH_FINISH=1`: force the GL pipeline to drain before the
+        // swap timing point, so `render_ms` is renderer completion time rather
+        // than "how much of the frame the driver happened to absorb".
+        if bench.finish_before_swap() {
+            renderer.finish();
+        }
+        let frame_ui_done = std::time::Instant::now();
 
         // Developer / hardware capture: `LIMINAL_CAPTURE=frame.png` renders one
         // frame of the running level and writes it out, which is how prop
@@ -567,7 +719,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // Swap window buffer (double buffered, VSync synchronized)
-        window.gl_swap_window();
+        if !bench.skip_swap() {
+            window.gl_swap_window();
+        }
+        let frame_swap_done = std::time::Instant::now();
+
+        if bench.enabled() {
+            bench.record_frame(
+                frame_begin,
+                frame_update_done,
+                frame_render_done,
+                frame_ui_done,
+                frame_swap_done,
+                renderer.render_stats(),
+            );
+            if bench.is_complete() {
+                bench.finish();
+                game.stop();
+            }
+        }
+    }
+
+    if bench.enabled() {
+        bench.finish();
     }
 
     Ok(())

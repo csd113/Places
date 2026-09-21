@@ -1,6 +1,157 @@
 # Changelog
 
-## 0.7.0 — 2026-09-20
+## 0.1.0 — 2026-09-21
+
+First App Manager-ready release: a native ARM payload published through the
+Vitrallis catalog, three large hand-authored residential levels, the material
+and lighting support those levels need, and the packaging metadata the runtime
+expects.
+
+### Added
+
+- Add three large residential levels, each authored from rectangular rooms,
+  hallways and the existing prop library: `the_residence` (a sprawling house of
+  44 rooms across four wings), `quiet_apartments` (48 rooms of apartments that
+  open into one another) and `after_the_leak` (45 rooms around a service core
+  that has been leaking for years).
+- Add progressive environmental decay to those levels with walking distance
+  from the spawn: water staining spreads from ceilings to walls to the carpet
+  below, fixtures thin out and dim, furniture drifts out of alignment, and the
+  final regions are dark but still readable. Damage is placed deliberately (the
+  same leak marks the ceiling, the wall under it and the floor patch below),
+  never procedurally.
+- Add per-room and per-wall material overrides (`room.material`,
+  `room.ceiling_material`, `wall.material`, `wall.faces`) and render the
+  documented `floor_patches` regions, using the level editor's existing keys and
+  the core material ids. A level that names none of them renders exactly as
+  before, from `defaults.wall`/`floor`/`ceiling`.
+- Add `app.toml`, `icon.png`, `README.md`, an app-local `tests/` suite and the
+  version 0.1.0 changelog entry that the catalog manifest expects.
+
+### Changed
+
+- Resolve the package root from the installed executable
+  (`bin/<target-triple>/app`), so levels, props, imported level packs and
+  `settings.json` are found when App Center launches the app from its own
+  directory instead of the build tree.
+- Set the X11 window class and SDL app name to `io.vitrallis.liminalrust` /
+  `Liminal` before creating the window, as required for native apps.
+- Split the static mesh by surface material, so a stained wall, damp carpet or
+  stained ceiling binds its own small texture sheet; the maintained sheets stay
+  the level defaults.
+- Report static batch counts per surface family in the developer log and check
+  the three new levels' geometry, prop and lighting budgets in the lighting
+  audit.
+
+### Fixed
+
+- Merge wall runs only while they share a wall material, so one damaged section
+  stays its own wall instead of staining a whole facade.
+- Keep the room floor's tessellation exact around a floor patch, so a damp
+  carpet region has crisp edges without a second overlapping floor slab.
+
+## Development history (pre-release)
+
+The releases below predate the first published App Manager release. They were
+development iterations of the renderer, the level format, the editor and the
+input handling, and they are kept for reference.
+
+### 0.8.0 — 2026-09-21
+
+Renderer performance pass for the PocketCHIP, driven by measurements on the
+physical device. The level format, the shaders' visual result, the assets and
+the gameplay are unchanged; this release changes how static geometry is
+partitioned, submitted and laid out for the GPU.
+
+### Added
+
+- Add a debug-only frame-telemetry and hardware-benchmark harness (`src/bench.rs`,
+  `LIMINAL_BENCH=1`). It times the loop in stages around `SDL_GL_SwapWindow`
+  (`update_ms`, `render_ms`, `swap_ms`, `frame_ms`, `loop_ms`), writes one CSV
+  row per frame, prints a single `BENCH_SUMMARY` JSON line per run, and is
+  completely inert — no file handle, no allocation, no output — unless
+  `LIMINAL_BENCH` is set. `LIMINAL_BENCH_OUT`, `LIMINAL_BENCH_WARMUP`,
+  `LIMINAL_BENCH_FRAMES` and `LIMINAL_CAMERA` bound and repeat a run.
+- Add benchmark-only switches that each change exactly one submission decision,
+  so a single release build measures each optimisation's contribution on real
+  hardware with batching, draw order and shaders held fixed:
+  `LIMINAL_BENCH_NOCULL`, `LIMINAL_BENCH_NOINDEX`, `LIMINAL_BENCH_EXACT_VERTEX`,
+  plus `LIMINAL_BENCH_FINISH`, `LIMINAL_BENCH_NORENDER`, `LIMINAL_BENCH_NOSWAP`
+  and `LIMINAL_VSYNC` for separating renderer cost from presentation cost.
+- Add coarse spatial partitioning and view-frustum culling for static geometry
+  (`src/spatial.rs`): an adaptive per-axis X/Z cell grid, a world-space AABB per
+  render range, and a conservative box/plane test extracted from the same
+  view-projection matrix the GPU clips against, so it cannot disagree with the
+  screen at any pitch, aspect ratio or drawable size. Geometry outside the
+  frustum is no longer submitted at all.
+- Add indexed static and prop geometry. Static quads are reduced from six
+  submitted vertices to four distinct corners plus six 16-bit indices, and share
+  edges with neighbours where every attribute is bit-identical; prop instances
+  keep their model's own index list instead of being expanded into a flat
+  triangle list. `glDrawElements` with `GL_UNSIGNED_SHORT` is core OpenGL ES 2.0,
+  so no extension or newer context is required.
+- Add a 24-byte packed GPU vertex layout (`PackedVertex`): world position and
+  texture coordinates stay `f32`, the baked shade becomes normalised `RGBA8`
+  expanded by the fixed-function pipeline, reducing the static vertex format from
+  36 to 24 bytes. Both the scene and the HUD use it, so there is still one shader.
+- Add per-stage level-build timings to the developer log
+  (`[level] ... built in X ms (lighting A + props B + surfaces C)`), and a
+  `[spatial]` line reporting the grid resolution, the static batch count per
+  material and the prop batch count.
+- Add `tools/bench/` — a PocketCHIP benchmark suite that cross-compiles, stages
+  the payload into `/tmp/liminal-benchmark`, runs a whole scene list in one SSH
+  session, downloads the per-frame CSVs and prints a comparison table
+  (`run_bench.py`, `gen_levels.py`, `analyze.py`, `runone.sh`), plus a
+  pixel-comparison harness for renderer changes (`visual_check.py`) and a design
+  note on level-build caching (`notes/level-build-cache.md`).
+
+### Changed
+
+- Partition every static surface and every prop instance by spatial cell before
+  upload, so each material is drawn as a handful of cullable ranges instead of
+  one range covering the whole level. Ranges stay grouped by material, so the
+  draw loop still binds each texture once. The grid resolution adapts to the
+  level's extent (`12`–`40` m, eight cells across the longer axis) so the batch
+  count stays bounded for any level a creator ships.
+- Report what each frame actually submitted, straight from the draw path:
+  total/visible/culled vertices, total/visible batches, draw calls, VBO bytes and
+  index bytes.
+- Keep prop batches whole rather than splitting a single prop across a cell
+  boundary, so a prop is never drawn as two ranges.
+- Reduce the per-prop level-build cost by roughly 30 %: instancing now
+  transforms and lit-shades each distinct model vertex once per placement instead
+  of once per flat triangle-list entry.
+
+### Fixed
+
+- Fix the VSync setting being silently ignored. `SDL_GL_SetSwapInterval` was
+  called before the GL context existed (which always fails), its result was
+  discarded, and `Renderer::new` then requested VSync again unconditionally
+  after making the context current — so the setting could only ever be on, and a
+  failure looked identical to success. The request now happens once, after the
+  context is current, honours the user's setting, is reported together with the
+  platform's answer from `SDL_GL_GetSwapInterval`, and an error is printed rather
+  than swallowed.
+- Fix `Aabb`'s neutral value: a derived `Default` produced a degenerate box at
+  the world origin instead of the empty box, which would have made every bounds
+  computation include the origin and quietly weakened culling.
+
+### Notes
+
+- Vertex data for the same scene falls from 36 to 24 bytes per vertex (−33 %),
+  and indexing removes about 29 % of static and prop vertices, so the combined
+  static/prop vertex buffer for the 400-chair stress scene drops from 7.46 MB to
+  3.54 MB (−52 %) with an unchanged image.
+- The 24-byte layout is pixel-identical to the exact 36-byte one on Level 1, the
+  Asset Demo, the prop showcase, the prop stress test and the chair stress
+  levels: the smallest unit of change in the final image is below one 8-bit code
+  value, because the bake never leaves `[MIN_AMBIENT, MAX_BRIGHTNESS]`.
+- Prop batching is intentionally no longer one draw per model; it is one draw per
+  (model, spatial cell). A single-model prop field therefore costs a few more
+  draw calls in exchange for being able to reject most of it when the camera
+  turns away, which is the trade the measurements were taken to evaluate.
+
+### 0.7.0 — 2026-09-20
 
 ### Added
 
@@ -60,7 +211,7 @@
 - Surface texture memory grows from 16 KiB each to 64 KiB for the wall and
   ceiling sheets (about 96 KiB more for a level), and no prop's texture grew.
 
-## 0.6.0 — 2026-09-20
+### 0.6.0 — 2026-09-20
 
 ### Added
 
@@ -84,7 +235,7 @@
 - The fixture rotation rule is now one shared helper (`fixture_is_turned`) used by both the baked pools and the drawn panels, and the editor's preview uses the same rule; previously a fractional rotation such as 179.6° could make the two disagree.
 - The editor's preview and its lighting mirror now agree on turned fixtures (previously a 135° fixture drew in one orientation and pooled in the other).
 
-## 0.5.0 — 2026-09-20
+### 0.5.0 — 2026-09-20
 
 ### Added
 
@@ -113,7 +264,7 @@
 
 - `tools/levels/build_demo_levels.py` now emits ceiling lights through a helper that can declare an intensity. `levels/asset_demo.json` deliberately keeps all twelve fixtures at the default so it also proves that levels without the field behave as `1.0`; `assets/levels/prop_showcase.json` mixes `0.8` and `1.4` fixtures to exercise the field.
 
-## 0.4.0 — 2026-09-20
+### 0.4.0 — 2026-09-20
 
 ### Added
 
@@ -126,12 +277,12 @@
 
 - `tools/levels/build_demo_levels.py` now also generates the demo map (`levels/asset_demo.json`) alongside the two development fixtures, so the map is reproducible rather than hand-edited.
 
-## 0.3.1 — 2026-09-20
+### 0.3.1 — 2026-09-20
 
 - Match Spooner Man’s reference coat: black back, narrow nose blaze, broad black chin patch, and a single right hind-leg white ring connected to the belly.
 - Correct the lathe UV seam and map facial features continuously instead of repeating them across cap triangles; retain the existing 880-triangle mesh and 256x256 texture budget.
 
-## 0.3.0 — 2026-09-20
+### 0.3.0 — 2026-09-20
 
 ### Added
 
@@ -146,7 +297,7 @@
 - Place `spooner-man` in the `prop_showcase` development level, which now covers every catalogue prop.
 - Update the asset validation tests, the editor catalogue mirror and the documentation for a pack of twenty-one props.
 
-## 0.2.0 — 2026-09-20
+### 0.2.0 — 2026-09-20
 
 ### Added
 
@@ -171,7 +322,7 @@
 
 - Fix prop models being reported as unsupported on desktop only: the loader resolves asset paths relative to the catalogue directory (`assets/props/`), matching how levels and the editor address `models/*.glb`.
 
-## 0.1.0 — 2026-09-20
+### 0.1.0 — 2026-09-20
 
 ### Added
 

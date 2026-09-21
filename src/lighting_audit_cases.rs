@@ -19,6 +19,7 @@ use crate::render::{build_level_geometry, build_level_geometry_with_assets};
 use super::lighting_audit::{
     assert_vertex_colors_safe, level_json, light, parse, room, square_room_level,
 };
+use crate::render::SurfaceKind;
 
 fn bake(level: &LevelDef) -> LevelLighting {
     LevelLighting::bake(level)
@@ -27,14 +28,14 @@ fn bake(level: &LevelDef) -> LevelLighting {
 /// Builds geometry, asserting every generated vertex is safe.
 fn build_checked(level: &LevelDef) -> crate::render::LevelMesh {
     let mesh = build_level_geometry(level);
-    assert_vertex_colors_safe(&mesh.vertices);
+    assert_vertex_colors_safe(&mesh.all_vertices());
     mesh
 }
 
 fn color_range(mesh: &crate::render::LevelMesh) -> (f32, f32) {
     let mut min = f32::MAX;
     let mut max = f32::MIN;
-    for vertex in &mesh.vertices {
+    for vertex in &mesh.all_vertices() {
         for value in vertex.color[..3].iter() {
             min = min.min(*value);
             max = max.max(*value);
@@ -145,10 +146,10 @@ fn group_b_zero_light_rooms_stay_at_minimum_ambient_and_render() {
         let (min, max) = color_range(&mesh);
         assert!(min > 0.0 && max <= MAX_BRIGHTNESS + 1e-6);
         assert!(min >= MIN_AMBIENT * 0.7 - 1e-6);
-        let floor = &mesh.vertices[mesh.batches.floor_batch.start as usize];
-        assert!((floor.color[0] - MIN_AMBIENT).abs() < 1e-6);
-        let ceiling = &mesh.vertices[mesh.batches.ceiling_batch.start as usize];
-        assert!((ceiling.color[2] - MIN_AMBIENT * 0.70).abs() < 1e-6);
+        let floor = mesh.triangles_for(SurfaceKind::Floor);
+        assert!((floor[0].color[0] - MIN_AMBIENT).abs() < 1e-6);
+        let ceiling = mesh.triangles_for(SurfaceKind::Ceiling);
+        assert!((ceiling[0].color[2] - MIN_AMBIENT * 0.70).abs() < 1e-6);
         // The tone is flat across the room: no accidental pools in the dark.
         assert!((max - min).abs() < 0.25);
     }
@@ -1223,8 +1224,7 @@ fn group_l_lighting_multiplies_materials_instead_of_replacing_them() {
         light(0.0, -3.0, None),
     ));
     let mesh = build_checked(&level);
-    let wall = &mesh.vertices[mesh.batches.wall_batch.start as usize
-        ..(mesh.batches.wall_batch.start + mesh.batches.wall_batch.count) as usize];
+    let wall = mesh.triangles_for(SurfaceKind::Wall);
     assert!(!wall.is_empty());
 
     // Two wall vertices with different base tints at the same world position
@@ -1517,7 +1517,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         REFERENCE_CEILING_HEIGHT_M - 0.01
     );
     let mesh = build_checked(&empty);
-    assert!(mesh.vertices.is_empty());
+    assert!(mesh.vertex_count == 0);
 
     // Zero-area rooms (only constructible programmatically).
     let mut zero_room = empty.clone();
@@ -1527,6 +1527,8 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         width: 0.0,
         depth: 0.0,
         height: 3.0,
+        material: None,
+        ceiling_material: None,
     });
     zero_room.ceiling_lights.push(CeilingLightDef {
         fixture: "core:fluorescent_panel_01".into(),
@@ -1569,6 +1571,8 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         width: 10.0,
         depth: 10.0,
         height: 3.0,
+        material: None,
+        ceiling_material: None,
     };
     duplicate.ceiling_lights[0].x = 1.0e30 + 5.0;
     duplicate.ceiling_lights[0].z = -1.0e30 + 5.0;
@@ -1606,7 +1610,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
 
     // A level with a room but no openings, no lights, no props.
     let bare = parse(&level_json(&room(0.0, 0.0, 4.0, 4.0, 3.0), ""));
-    assert_vertex_colors_safe(&build_checked(&bare).vertices);
+    assert_vertex_colors_safe(&build_checked(&bare).all_vertices());
 
     // A level with nothing but a ceiling fixture list.
     let mut lights_only = empty.clone();

@@ -8,6 +8,13 @@ fn default_ceiling_height() -> f32 {
 }
 
 /// Rectangular room section defining floor and ceiling boundaries.
+///
+/// `material` and `ceiling_material` are the object-level material overrides of
+/// design section 21 (individual surface override -> object-level material ->
+/// level default material). Both are optional: an omitted value keeps the
+/// level's `defaults.floor` / `defaults.ceiling`. The level editor authors these
+/// exact keys, so a single room's floor or ceiling can be damp or stained
+/// without changing the whole level.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoomDef {
     #[serde(default)]
@@ -18,6 +25,12 @@ pub struct RoomDef {
     pub depth: f32,
     #[serde(default = "default_ceiling_height")]
     pub height: f32,
+    /// Floor material id for this room. Falls back to `defaults.floor`.
+    #[serde(default)]
+    pub material: Option<String>,
+    /// Ceiling material id for this room. Falls back to `defaults.ceiling`.
+    #[serde(default)]
+    pub ceiling_material: Option<String>,
 }
 
 /// Player initial spawn position and orientation.
@@ -83,6 +96,12 @@ pub struct WallDef {
     pub height: Option<f32>,
     #[serde(default)]
     pub faces: HashMap<String, String>,
+    /// Object-level material for this wall's length faces (design section 21).
+    /// `faces` overrides it per face; an omitted value keeps `defaults.wall`.
+    /// Faces are named `north`/`south` on an X-axis wall and `west`/`east` on a
+    /// Z-axis wall, matching the design document's example.
+    #[serde(default)]
+    pub material: Option<String>,
     /// Rectangular cutouts (doors, windows, passages, vents) through this wall.
     #[serde(default)]
     pub openings: Vec<WallOpeningDef>,
@@ -471,6 +490,34 @@ impl LevelDef {
         self.rooms.iter().chain(self.room.iter())
     }
 
+    /// Upper bound on the extra floor-grid cut lines the floor patches
+    /// overlapping `room` add, as an `(x, z)` count pair.
+    ///
+    /// Every patch edge inside the room becomes a cut line (see
+    /// `render::floor_cut_positions`), so the floor's cell count grows by at
+    /// most two per axis and intersecting patch. Including them keeps
+    /// [`Self::estimate_geometry`] an upper bound on what the builder emits.
+    fn room_patch_cut_counts(&self, room: &RoomDef) -> (u64, u64) {
+        let x0 = room.x.min(room.x + room.width);
+        let x1 = room.x.max(room.x + room.width);
+        let z0 = room.z.min(room.z + room.depth);
+        let z1 = room.z.max(room.z + room.depth);
+        let mut x_cuts = 0u64;
+        let mut z_cuts = 0u64;
+        for patch in &self.floor_patches {
+            let px0 = patch.x.min(patch.x + patch.width);
+            let px1 = patch.x.max(patch.x + patch.width);
+            let pz0 = patch.z.min(patch.z + patch.depth);
+            let pz1 = patch.z.max(patch.z + patch.depth);
+            if px1 <= x0 || px0 >= x1 || pz1 <= z0 || pz0 >= z1 {
+                continue;
+            }
+            x_cuts = x_cuts.saturating_add(2);
+            z_cuts = z_cuts.saturating_add(2);
+        }
+        (x_cuts, z_cuts)
+    }
+
     /// Estimates the generated geometry for this level using saturating
     /// arithmetic, so malformed input cannot overflow the calculation.
     pub fn estimate_geometry(&self) -> GeometryEstimate {
@@ -485,11 +532,17 @@ impl LevelDef {
             // Floors and ceilings are tessellated on the baked-lighting grid so
             // fixture pools can vary across them. The cell count is capped by
             // `lighting::MAX_LIGHT_GRID_CELLS`, so this stays bounded no matter
-            // how large a room is.
-            let cells = crate::lighting::light_grid_cells(room.width.abs()) as u64
-                * crate::lighting::light_grid_cells(room.depth.abs()) as u64;
-            floor_quads = floor_quads.saturating_add(cells);
-            ceiling_quads = ceiling_quads.saturating_add(cells);
+            // how large a room is. A floor patch adds two cut lines per axis to
+            // the floor grid (its edges), which is what keeps a patch's boundary
+            // exact, so those are counted here too.
+            let cells_x = crate::lighting::light_grid_cells(room.width.abs()) as u64;
+            let cells_z = crate::lighting::light_grid_cells(room.depth.abs()) as u64;
+            let (patch_x, patch_z) = self.room_patch_cut_counts(room);
+            let floor_cells = cells_x
+                .saturating_add(patch_x)
+                .saturating_mul(cells_z.saturating_add(patch_z));
+            floor_quads = floor_quads.saturating_add(floor_cells);
+            ceiling_quads = ceiling_quads.saturating_add(cells_x.saturating_mul(cells_z));
         }
 
         // Walls are bounded by replaying the same solid-slice decomposition the
@@ -792,6 +845,8 @@ mod tests {
                 width: 1.0e30,
                 depth: 1.0e30,
                 height: 3.5,
+                material: None,
+                ceiling_material: None,
             }],
             spawn: SpawnDef {
                 x: 0.0,

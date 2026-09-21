@@ -1,7 +1,7 @@
-# Geometry Continuum — Resolved Design Decisions
+# Places — Resolved Design Decisions
 
 **Status:** Design decisions captured for future implementation  
-**Project:** Geometry Continuum  
+**Project:** Places  
 **Purpose:** Consolidate decisions resolved from the open-questions section of the design draft.
 
 ---

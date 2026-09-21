@@ -1,0 +1,13 @@
+manifest_version = 1
+name = "Liminal"
+id = "io.vitrallis.liminalrust"
+version = "0.1.0"
+runtime = "rust"
+
+[binaries]
+armv7-unknown-linux-gnueabihf = "bin/armv7-unknown-linux-gnueabihf/app"
+
+[permissions]
+network = false
+audio = false
+storage = true

@@ -1131,7 +1131,7 @@ impl LevelManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::level::{RoomDef, WallDef};
+    use crate::level::{RoomDef, WallAxis, WallDef};
 
     #[test]
     fn test_validate_level_success() {
@@ -1147,6 +1147,8 @@ mod tests {
                 width: 20.0,
                 depth: 20.0,
                 height: 3.5,
+                material: None,
+                ceiling_material: None,
             }],
             spawn: crate::level::SpawnDef {
                 x: 5.0,
@@ -1163,6 +1165,7 @@ mod tests {
                 height: Some(3.5),
                 faces: HashMap::new(),
                 openings: Vec::new(),
+                material: None,
             }],
             floor_patches: vec![],
             ceiling_lights: vec![],
@@ -1210,6 +1213,8 @@ mod tests {
                     width: 10.0,
                     depth: 10.0,
                     height: 3.5,
+                    material: None,
+                    ceiling_material: None,
                 },
                 RoomDef {
                     x: 5.0,
@@ -1217,6 +1222,8 @@ mod tests {
                     width: 10.0,
                     depth: 10.0,
                     height: 3.5,
+                    material: None,
+                    ceiling_material: None,
                 },
             ],
             spawn: crate::level::SpawnDef {
@@ -1235,6 +1242,7 @@ mod tests {
                     height: Some(3.5),
                     faces: HashMap::new(),
                     openings: Vec::new(),
+                    material: None,
                 },
                 WallDef {
                     x: 3.0,
@@ -1245,6 +1253,7 @@ mod tests {
                     height: Some(3.5),
                     faces: HashMap::new(),
                     openings: Vec::new(),
+                    material: None,
                 },
             ],
             floor_patches: vec![],
@@ -2170,14 +2179,15 @@ mod tests {
         ]);
         assert_walkable(&waypoints);
 
+        use crate::render::SurfaceFamily;
+
         // Baked colours stay in range, and floors genuinely vary across the demo
         // (the corridor has fixture pools, the rooms have their own).
-        let floor = &mesh.vertices[mesh.batches.floor_batch.start as usize
-            ..(mesh.batches.floor_batch.start + mesh.batches.floor_batch.count) as usize];
+        let floor = mesh.triangles_for_family(SurfaceFamily::Floor);
         let floor_min = floor.iter().map(|v| v.color[0]).fold(f32::MAX, f32::min);
         let floor_max = floor.iter().map(|v| v.color[0]).fold(f32::MIN, f32::max);
         assert!(floor_max - floor_min > 0.05, "floors must not be flat-lit");
-        for vertex in mesh.vertices.iter() {
+        for vertex in mesh.all_vertices() {
             assert!(vertex.color.iter().all(|c| c.is_finite()));
             assert!(vertex.color.iter().all(|c| (0.0..=1.0).contains(c)));
         }
@@ -2295,5 +2305,340 @@ mod tests {
         }
         assert!(levels_checked >= 2, "expected the shipped level files");
         assert!(props_checked >= 1, "expected at least one placed prop");
+    }
+
+    /// The three authored residential levels. They share one design idea: the
+    /// building is maintained where the player starts and decays the further
+    /// they walk, so these checks are about that gradient rather than about any
+    /// particular room.
+    const RESIDENTIAL_LEVELS: [&str; 3] = ["the_residence", "quiet_apartments", "after_the_leak"];
+
+    const DAMAGED_FLOOR: &str = "core:carpet_damp_01";
+    const DAMAGED_CEILING: &str = "core:ceiling_stained_01";
+    const DAMAGED_WALL: &str = "core:wallpaper_stained_01";
+
+    fn residential_level(name: &str) -> LevelDef {
+        let path = format!("assets/levels/{name}.json");
+        let content = fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
+        let level = LevelDef::from_json(&content)
+            .unwrap_or_else(|error| panic!("{path} is not a valid level: {error}"));
+        validate_level(&level).unwrap_or_else(|error| panic!("{path} failed validation: {error}"));
+        level
+    }
+
+    /// Walking distance from the spawn to every room, hopping through the
+    /// walk-through openings the player can actually use.
+    fn walking_distances(level: &LevelDef) -> Vec<f32> {
+        let rooms: Vec<&RoomDef> = level.room_iter().collect();
+        let centre = |room: &RoomDef| (room.x + room.width * 0.5, room.z + room.depth * 0.5);
+        let room_at = |x: f32, z: f32| {
+            rooms.iter().position(|room| {
+                x >= room.x.min(room.x + room.width) - 0.01
+                    && x <= room.x.max(room.x + room.width) + 0.01
+                    && z >= room.z.min(room.z + room.depth) - 0.01
+                    && z <= room.z.max(room.z + room.depth) + 0.01
+            })
+        };
+
+        let mut graph: Vec<Vec<usize>> = vec![Vec::new(); rooms.len()];
+        for wall in &level.walls {
+            let axis = wall.axis();
+            let (origin_x, origin_z) = wall.length_origin();
+            let crossing = match axis {
+                WallAxis::X => wall.z + wall.depth * 0.5,
+                WallAxis::Z => wall.x + wall.width * 0.5,
+            };
+            for opening in &wall.openings {
+                if !opening.is_door() || !opening.reaches_floor() || opening.height < 1.9 {
+                    continue;
+                }
+                let start = match axis {
+                    WallAxis::X => origin_x + opening.offset,
+                    WallAxis::Z => origin_z + opening.offset,
+                };
+                let end = start + opening.width;
+
+                // Rooms touching this opening's span on the wall's line.
+                let mut sides: Vec<(usize, f32, f32)> = Vec::new();
+                for (index, room) in rooms.iter().enumerate() {
+                    let (position, span_a, span_b, low, high) = match axis {
+                        WallAxis::X => (
+                            room.z,
+                            room.x,
+                            room.x + room.width,
+                            room.z,
+                            room.z + room.depth,
+                        ),
+                        WallAxis::Z => (
+                            room.x,
+                            room.z,
+                            room.z + room.depth,
+                            room.x,
+                            room.x + room.width,
+                        ),
+                    };
+                    let _ = position;
+                    let (line, side_lo, side_hi) = match axis {
+                        WallAxis::X => {
+                            let line = if (room.z - crossing).abs() < 0.02 {
+                                Some(room.z)
+                            } else if (room.z + room.depth - crossing).abs() < 0.02 {
+                                Some(room.z + room.depth)
+                            } else {
+                                None
+                            };
+                            (line, room.x, room.x + room.width)
+                        }
+                        WallAxis::Z => {
+                            let line = if (room.x - crossing).abs() < 0.02 {
+                                Some(room.x)
+                            } else if (room.x + room.width - crossing).abs() < 0.02 {
+                                Some(room.x + room.width)
+                            } else {
+                                None
+                            };
+                            (line, room.z, room.z + room.depth)
+                        }
+                    };
+                    let _ = (span_a, span_b, low, high);
+                    if line.is_some() && side_hi.min(end) - side_lo.max(start) > 0.1 {
+                        sides.push((index, low, high));
+                    }
+                }
+
+                for (a_index, a_low, a_high) in &sides {
+                    for (b_index, b_low, b_high) in &sides {
+                        if a_index == b_index {
+                            continue;
+                        }
+                        let opposite = (*a_high <= crossing + 0.02 && *b_low >= crossing - 0.02)
+                            || (*b_high <= crossing + 0.02 && *a_low >= crossing - 0.02);
+                        if opposite {
+                            graph[*a_index].push(*b_index);
+                        }
+                    }
+                }
+            }
+        }
+
+        let start = room_at(level.spawn.x, level.spawn.z).expect("the spawn is inside a room");
+        let mut distance = vec![f32::NAN; rooms.len()];
+        distance[start] = 0.0;
+        let mut queue = std::collections::VecDeque::from([start]);
+        while let Some(current) = queue.pop_front() {
+            let (cx, cz) = centre(rooms[current]);
+            for neighbour in std::mem::take(&mut graph[current]) {
+                if distance[neighbour].is_finite() {
+                    continue;
+                }
+                let (nx, nz) = centre(rooms[neighbour]);
+                distance[neighbour] =
+                    distance[current] + ((nx - cx).powi(2) + (nz - cz).powi(2)).sqrt();
+                queue.push_back(neighbour);
+            }
+        }
+        distance
+    }
+
+    /// Fraction of the rooms in one walking-distance band whose floor uses the
+    /// damp carpet.
+    fn damp_floor_fraction(
+        level: &LevelDef,
+        distance: &[f32],
+        reach: f32,
+        low: f32,
+        high: f32,
+    ) -> (usize, f32) {
+        let mut total = 0usize;
+        let mut damp = 0usize;
+        for (index, room) in level.room_iter().enumerate() {
+            if !distance[index].is_finite() {
+                continue;
+            }
+            if distance[index] < reach * low || distance[index] > reach * high {
+                continue;
+            }
+            total += 1;
+            let floor = room.material.as_deref().unwrap_or(&level.defaults.floor);
+            if floor == DAMAGED_FLOOR {
+                damp += 1;
+            }
+        }
+        assert!(total > 0, "band {low}..{high} holds no rooms");
+        (total, damp as f32 / total as f32)
+    }
+
+    /// Fixtures per room multiplied by their average intensity, so both a
+    /// missing fixture and a failing one lower the number.
+    fn fixture_strength(
+        level: &LevelDef,
+        distance: &[f32],
+        reach: f32,
+        low: f32,
+        high: f32,
+    ) -> f32 {
+        let mut rooms_in_band = 0usize;
+        let mut fixtures = 0usize;
+        let mut brightness = 0.0f32;
+        for (index, room) in level.room_iter().enumerate() {
+            if !distance[index].is_finite()
+                || distance[index] < reach * low
+                || distance[index] > reach * high
+            {
+                continue;
+            }
+            rooms_in_band += 1;
+            for light in level.ceiling_lights.iter().filter(|light| {
+                light.x >= room.x - 0.6
+                    && light.x <= room.x + room.width + 0.6
+                    && light.z >= room.z - 0.6
+                    && light.z <= room.z + room.depth + 0.6
+            }) {
+                fixtures += 1;
+                brightness += light.intensity();
+            }
+        }
+        assert!(rooms_in_band > 0, "band {low}..{high} holds no rooms");
+        let average = if fixtures == 0 {
+            0.0
+        } else {
+            brightness / fixtures as f32
+        };
+        fixtures as f32 / rooms_in_band as f32 * average
+    }
+
+    #[test]
+    fn the_residential_levels_degrade_with_walking_distance() {
+        for name in RESIDENTIAL_LEVELS {
+            let level = residential_level(name);
+            let distance = walking_distances(&level);
+            let reach = distance.iter().copied().fold(0.0f32, f32::max);
+            assert!(
+                reach >= 45.0,
+                "{name}: the far end is only {reach:.0} m of walking from the spawn"
+            );
+            let unreachable = distance.iter().filter(|d| !d.is_finite()).count();
+            assert_eq!(
+                unreachable, 0,
+                "{name}: {unreachable} room(s) are sealed off"
+            );
+
+            // Walking away from the spawn, the carpet gets wet and the light
+            // gets worse. Both gradients are what these levels are for.
+            let (near_rooms, near_damp) = damp_floor_fraction(&level, &distance, reach, 0.0, 0.25);
+            let (far_rooms, far_damp) = damp_floor_fraction(&level, &distance, reach, 0.75, 1.01);
+            assert!(
+                near_damp <= 0.25,
+                "{name}: {:.0}% of the first {near_rooms} rooms already have damp carpet",
+                near_damp * 100.0
+            );
+            assert!(
+                far_damp >= 0.75 && far_damp > near_damp,
+                "{name}: damp carpet must dominate the last {far_rooms} rooms, got {:.0}%",
+                far_damp * 100.0
+            );
+
+            let near_light = fixture_strength(&level, &distance, reach, 0.0, 0.25);
+            let far_light = fixture_strength(&level, &distance, reach, 0.75, 1.01);
+            assert!(
+                near_light > far_light,
+                "{name}: fixture strength must fall with distance ({near_light:.2} -> {far_light:.2})"
+            );
+            assert!(
+                far_light > 0.0,
+                "{name}: the last rooms must keep at least one working fixture"
+            );
+
+            // Stained ceilings and soaked walls appear too, and never in a
+            // quantity of one material only: the level is not a single sheet.
+            let stained_ceilings = level
+                .room_iter()
+                .filter(|room| room.ceiling_material.as_deref() == Some(DAMAGED_CEILING))
+                .count();
+            let stained_walls = level
+                .walls
+                .iter()
+                .filter(|wall| {
+                    wall.material.as_deref() == Some(DAMAGED_WALL)
+                        || wall.faces.values().any(|material| material == DAMAGED_WALL)
+                })
+                .count();
+            let damp_rooms = level
+                .room_iter()
+                .filter(|room| {
+                    room.material.as_deref().unwrap_or(&level.defaults.floor) == DAMAGED_FLOOR
+                })
+                .count();
+            let total_rooms = level.room_iter().count();
+            assert!(
+                stained_ceilings > 0,
+                "{name}: no room carries a stained ceiling"
+            );
+            assert!(stained_walls > 0, "{name}: no wall carries water damage");
+            assert!(
+                damp_rooms < total_rooms,
+                "{name}: every room is damp; the level needs maintained surfaces too"
+            );
+        }
+    }
+
+    #[test]
+    fn the_residential_levels_stay_walkable_and_residential() {
+        for name in RESIDENTIAL_LEVELS {
+            let level = residential_level(name);
+            let rooms: Vec<&RoomDef> = level.room_iter().collect();
+
+            // The spawn is inside a room and clear of every collider.
+            let spawn = glam::Vec2::new(level.spawn.x, level.spawn.z);
+            let spawn_room = rooms.iter().find(|room| {
+                level.spawn.x >= room.x.min(room.x + room.width)
+                    && level.spawn.x <= room.x.max(room.x + room.width)
+                    && level.spawn.z >= room.z.min(room.z + room.depth)
+                    && level.spawn.z <= room.z.max(room.z + room.depth)
+            });
+            assert!(
+                spawn_room.is_some(),
+                "{name}: the spawn is outside every room"
+            );
+            for aabb in level.collision_aabbs() {
+                assert!(
+                    !aabb.intersects_circle(spawn, crate::collision::PLAYER_RADIUS),
+                    "{name}: the spawn sits inside level geometry"
+                );
+            }
+
+            // Every walk-through opening is wide enough for the player without
+            // precision movement.
+            for wall in &level.walls {
+                for opening in &wall.openings {
+                    if opening.is_door() {
+                        assert!(
+                            opening.width >= 1.0,
+                            "{name}: a {:.2} m doorway is too narrow to walk through",
+                            opening.width
+                        );
+                    }
+                }
+            }
+
+            // Residential rooms, not halls, and genuine circulation space.
+            let mut corridors = 0;
+            for room in &rooms {
+                let short = room.width.min(room.depth);
+                let long = room.width.max(room.depth);
+                assert!(
+                    long <= 12.0,
+                    "{name}: a {long:.1} by {short:.1} m room is too big for a residence"
+                );
+                if short <= 2.6 {
+                    corridors += 1;
+                }
+            }
+            assert!(
+                corridors >= 8,
+                "{name}: only {corridors} hallway sections; the plan needs real circulation"
+            );
+        }
     }
 }

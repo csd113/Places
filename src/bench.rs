@@ -1,0 +1,575 @@
+//! Debug-only frame telemetry and hardware benchmark harness.
+//!
+//! Everything in this module is inert unless `LIMINAL_BENCH=1` is set in the
+//! environment, so a normal release build keeps printing nothing and allocates
+//! nothing per frame. It exists because the PocketCHIP can only be driven over
+//! SSH: the on-screen `-` performance overlay cannot be read back, so the
+//! measurements have to come out on stdout and in a CSV file.
+//!
+//! Timing is deliberately staged around `SDL_GL_SwapWindow`, because the whole
+//! point of the first phase is to find out whether the swap actually blocks on
+//! the display refresh or returns immediately:
+//!
+//! ```text
+//! t_begin ─ events + game update ─ t_update ─ scene submit ─ t_render
+//!        ─ UI submit ─ t_ui ─ SDL_GL_SwapWindow ─ t_swap ─ (next t_begin)
+//! ```
+//!
+//! * `update_ms` — event pump, menu/gameplay update, movement.
+//! * `render_ms` — `render_scene` + `render_ui`, i.e. the CPU cost of
+//!   submitting the frame (not including the swap).
+//! * `swap_ms` — time spent inside `SDL_GL_SwapWindow`. On a truly VSync-locked
+//!   presentation this is where the frame waits for the display.
+//! * `frame_ms` — `t_begin` to `t_swap`: the complete frame including the swap.
+//! * `loop_ms` — `t_begin` of this frame to `t_begin` of the next: the real
+//!   presentation cadence, which is what an FPS counter should be derived from.
+
+use std::io::Write;
+use std::path::PathBuf;
+use std::time::Instant;
+
+use crate::render::RenderStats;
+
+/// Environment switch that turns every other `LIMINAL_BENCH_*` option on.
+const BENCH_ENV: &str = "LIMINAL_BENCH";
+/// Optional CSV path; one row per recorded frame.
+const BENCH_OUT_ENV: &str = "LIMINAL_BENCH_OUT";
+/// Number of leading frames to discard before recording (pipeline warm-up).
+const BENCH_WARMUP_ENV: &str = "LIMINAL_BENCH_WARMUP";
+/// Stop the process after this many recorded frames (bounds a hardware run).
+const BENCH_FRAMES_ENV: &str = "LIMINAL_BENCH_FRAMES";
+/// Freeze the camera at `yaw_degrees[,pitch_degrees]` for a repeatable shot.
+const BENCH_CAMERA_ENV: &str = "LIMINAL_CAMERA";
+/// `on`/`off` override for the swap interval, used only to characterise VSync.
+const BENCH_VSYNC_ENV: &str = "LIMINAL_VSYNC";
+/// `1` inserts `glFinish` before the swap, splitting renderer time from
+/// presentation time unambiguously (diagnostic only).
+const BENCH_FINISH_ENV: &str = "LIMINAL_BENCH_FINISH";
+/// `1` skips scene/UI submission, leaving only the presentation path
+/// (diagnostic only: the window shows a stale frame).
+const BENCH_NORENDER_ENV: &str = "LIMINAL_BENCH_NORENDER";
+/// `1` skips `SDL_GL_SwapWindow` (diagnostic only: nothing is presented).
+const BENCH_NOSWAP_ENV: &str = "LIMINAL_BENCH_NOSWAP";
+/// `1` submits every batch, so the same build can measure what culling is worth.
+const BENCH_NOCULL_ENV: &str = "LIMINAL_BENCH_NOCULL";
+/// `1` submits flat triangle lists instead of indexed ones, so the same build can
+/// measure what indexing is worth with batching and culling held fixed.
+const BENCH_NOINDEX_ENV: &str = "LIMINAL_BENCH_NOINDEX";
+/// `1` uploads the exact 36-byte vertex layout instead of the packed 24-byte one,
+/// so the same build can measure what packing is worth.
+const BENCH_EXACT_VERTEX_ENV: &str = "LIMINAL_BENCH_EXACT_VERTEX";
+
+/// Per-frame timings, all in milliseconds.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct FrameTimings {
+    pub update_ms: f32,
+    pub render_ms: f32,
+    pub swap_ms: f32,
+    pub frame_ms: f32,
+    pub loop_ms: f32,
+}
+
+/// Parsed `LIMINAL_BENCH*` environment configuration.
+#[derive(Clone, Debug, Default)]
+pub struct BenchConfig {
+    pub enabled: bool,
+    pub out_path: Option<PathBuf>,
+    pub warmup_frames: u64,
+    pub limit_frames: Option<u64>,
+    pub camera: Option<(f32, f32)>,
+    pub vsync_override: Option<bool>,
+    /// Call `glFinish` immediately before the swap (diagnostic).
+    pub finish_before_swap: bool,
+    /// Skip scene/UI submission entirely (diagnostic).
+    pub skip_render: bool,
+    /// Skip `SDL_GL_SwapWindow` entirely (diagnostic).
+    pub skip_swap: bool,
+    /// Submit every batch regardless of the frustum, to measure culling's worth.
+    pub no_cull: bool,
+    /// Submit flat triangle lists, to measure indexing's worth.
+    pub no_index: bool,
+    /// Upload the 36-byte exact vertex layout, to measure packing's worth.
+    pub exact_vertex: bool,
+}
+
+impl BenchConfig {
+    /// Reads the `LIMINAL_BENCH*` environment. Malformed values fall back to the
+    /// documented defaults rather than aborting a hardware run.
+    pub fn from_env() -> Self {
+        let enabled = env_flag(BENCH_ENV);
+        if !enabled {
+            return Self::default();
+        }
+        let out_path = non_empty_var(BENCH_OUT_ENV).map(PathBuf::from);
+        let warmup_frames = non_empty_var(BENCH_WARMUP_ENV)
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(0);
+        let limit_frames = non_empty_var(BENCH_FRAMES_ENV)
+            .and_then(|value| value.parse::<u64>().ok())
+            .filter(|value| *value > 0);
+        let camera = non_empty_var(BENCH_CAMERA_ENV).and_then(|value| parse_camera(&value));
+        let vsync_override =
+            non_empty_var(BENCH_VSYNC_ENV).and_then(|value| parse_vsync_override(&value));
+        Self {
+            enabled,
+            out_path,
+            warmup_frames,
+            limit_frames,
+            camera,
+            vsync_override,
+            finish_before_swap: env_flag(BENCH_FINISH_ENV),
+            skip_render: env_flag(BENCH_NORENDER_ENV),
+            skip_swap: env_flag(BENCH_NOSWAP_ENV),
+            no_cull: env_flag(BENCH_NOCULL_ENV),
+            no_index: env_flag(BENCH_NOINDEX_ENV),
+            exact_vertex: env_flag(BENCH_EXACT_VERTEX_ENV),
+        }
+    }
+}
+
+/// Trimmed, non-empty environment value.
+fn non_empty_var(name: &str) -> Option<String> {
+    std::env::var(name)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+/// True when the value is a non-empty, non-`0`/`false`/`off` string.
+fn env_flag(name: &str) -> bool {
+    match std::env::var(name) {
+        Ok(value) => {
+            let value = value.trim().to_ascii_lowercase();
+            !matches!(value.as_str(), "" | "0" | "false" | "no" | "off")
+        }
+        Err(_) => false,
+    }
+}
+
+/// Parses `yaw_degrees` or `yaw_degrees,pitch_degrees`.
+pub fn parse_camera(value: &str) -> Option<(f32, f32)> {
+    let mut parts = value.split(',').map(|part| part.trim());
+    let yaw = parts.next()?.parse::<f32>().ok()?;
+    let pitch = match parts.next() {
+        Some(text) => text.parse::<f32>().ok()?,
+        None => 0.0,
+    };
+    if yaw.is_finite() && pitch.is_finite() {
+        Some((yaw, pitch))
+    } else {
+        None
+    }
+}
+
+/// Parses an explicit swap-interval override: `on`/`off`/`1`/`0`.
+pub fn parse_vsync_override(value: &str) -> Option<bool> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "1" | "on" | "true" | "yes" | "vsync" => Some(true),
+        "0" | "off" | "false" | "no" | "immediate" => Some(false),
+        _ => None,
+    }
+}
+
+/// Distribution summary for one timing channel, in milliseconds.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TimingSummary {
+    pub mean_ms: f32,
+    pub median_ms: f32,
+    pub p95_ms: f32,
+    pub p99_ms: f32,
+    pub min_ms: f32,
+    pub max_ms: f32,
+}
+
+impl TimingSummary {
+    /// Summarises a slice of millisecond samples. Returns all zeros for an
+    /// empty slice and never divides by a zero count.
+    pub fn from_samples(samples: &mut [f32]) -> Self {
+        if samples.is_empty() {
+            return Self::default();
+        }
+        samples.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let count = samples.len();
+        let sum: f32 = samples.iter().copied().sum();
+        Self {
+            mean_ms: sum / count as f32,
+            median_ms: percentile(samples, 0.50),
+            p95_ms: percentile(samples, 0.95),
+            p99_ms: percentile(samples, 0.99),
+            min_ms: samples[0],
+            max_ms: samples[count - 1],
+        }
+    }
+
+    /// Frames per second implied by a millisecond frame time.
+    pub fn fps_from_ms(ms: f32) -> f32 {
+        if ms > 0.0 { 1000.0 / ms } else { 0.0 }
+    }
+}
+
+/// Nearest-rank percentile over an already sorted, non-empty slice.
+fn percentile(sorted: &[f32], fraction: f32) -> f32 {
+    let last = sorted.len() - 1;
+    let index = ((last as f32) * fraction).round() as usize;
+    sorted[index.min(last)]
+}
+
+/// One recorded frame: timings plus the geometry counters submitted with it.
+#[derive(Clone, Copy, Debug, Default)]
+struct FrameRecord {
+    timings: FrameTimings,
+    stats: RenderStats,
+}
+
+/// Collects per-frame samples and writes the run summary.
+pub struct Bench {
+    config: BenchConfig,
+    csv: Option<std::fs::File>,
+    warmup_remaining: u64,
+    limit_remaining: Option<u64>,
+    recorded: u64,
+    last_begin: Option<Instant>,
+    frames: Vec<FrameRecord>,
+    /// Swap interval actually in force, as reported by `SDL_GL_GetSwapInterval`.
+    reported_swap_interval: Option<i32>,
+}
+
+impl Bench {
+    /// Builds the harness from the environment. When benchmarking is disabled
+    /// the returned value is a no-op and holds no file handle or buffers.
+    pub fn new() -> Self {
+        let config = BenchConfig::from_env();
+        let mut csv = config
+            .out_path
+            .as_ref()
+            .and_then(|path| std::fs::File::create(path).ok());
+        if let Some(file) = csv.as_mut() {
+            // Header row: column order must match `record_frame`.
+            let _ = writeln!(
+                file,
+                "frame,update_ms,render_ms,swap_ms,frame_ms,loop_ms,total_vertices,visible_vertices,culled_vertices,total_batches,visible_batches,draw_calls,vbo_bytes,index_bytes"
+            );
+        }
+        Self {
+            warmup_remaining: config.warmup_frames,
+            limit_remaining: config.limit_frames,
+            config,
+            csv,
+            recorded: 0,
+            last_begin: None,
+            frames: Vec::new(),
+            reported_swap_interval: None,
+        }
+    }
+
+    /// True when `LIMINAL_BENCH=1` was set, i.e. the harness should be driven.
+    pub fn enabled(&self) -> bool {
+        self.config.enabled
+    }
+
+    /// Camera override (`yaw_degrees`, `pitch_degrees`) for repeatable shots.
+    pub fn camera_override(&self) -> Option<(f32, f32)> {
+        self.config.camera
+    }
+
+    /// Explicit swap-interval request, when `LIMINAL_VSYNC` was set.
+    pub fn vsync_override(&self) -> Option<bool> {
+        self.config.vsync_override
+    }
+
+    /// Whether to sync the GL pipeline (via `glFinish`) before measuring the swap.
+    pub fn finish_before_swap(&self) -> bool {
+        self.config.finish_before_swap
+    }
+
+    /// Whether scene/UI submission should be skipped for this run.
+    pub fn skip_render(&self) -> bool {
+        self.config.skip_render
+    }
+
+    /// Whether `SDL_GL_SwapWindow` should be skipped for this run.
+    pub fn skip_swap(&self) -> bool {
+        self.config.skip_swap
+    }
+
+    /// Whether frustum culling should be disabled for this run.
+    pub fn no_cull(&self) -> bool {
+        self.config.no_cull
+    }
+
+    /// Whether indexed submission should be replaced by flat triangle lists.
+    pub fn no_index(&self) -> bool {
+        self.config.no_index
+    }
+
+    /// Whether the 36-byte exact vertex layout should be used instead of packing.
+    pub fn exact_vertex(&self) -> bool {
+        self.config.exact_vertex
+    }
+
+    /// Records the swap interval the platform reports after configuration.
+    pub fn set_reported_swap_interval(&mut self, interval: i32) {
+        self.reported_swap_interval = Some(interval);
+    }
+
+    /// Number of frames still to record, or `None` for an unbounded run.
+    pub fn frames_remaining(&self) -> Option<u64> {
+        self.limit_remaining
+    }
+
+    /// Records one frame. `begin` must be the instant captured at the top of the
+    /// loop iteration and `swap_done` the instant `SDL_GL_SwapWindow` returned.
+    pub fn record_frame(
+        &mut self,
+        begin: Instant,
+        t_update: Instant,
+        t_render: Instant,
+        t_ui: Instant,
+        t_swap: Instant,
+        stats: RenderStats,
+    ) {
+        if !self.config.enabled {
+            return;
+        }
+        // The gap between consecutive frame starts is the real presentation
+        // cadence: the only honest source for an FPS number when a swap may or
+        // may not block.
+        let loop_ms = self
+            .last_begin
+            .map(|previous| millis(begin.saturating_duration_since(previous)))
+            .unwrap_or(0.0);
+        self.last_begin = Some(begin);
+
+        if self.warmup_remaining > 0 {
+            self.warmup_remaining -= 1;
+            return;
+        }
+        if let Some(remaining) = self.limit_remaining.as_mut() {
+            if *remaining == 0 {
+                return;
+            }
+            *remaining -= 1;
+        }
+
+        let frame_ms = millis(t_swap.saturating_duration_since(begin));
+        let timings = FrameTimings {
+            update_ms: millis(t_update.saturating_duration_since(begin)),
+            render_ms: millis(t_ui.saturating_duration_since(t_render))
+                + millis(t_render.saturating_duration_since(t_update)),
+            swap_ms: millis(t_swap.saturating_duration_since(t_ui)),
+            frame_ms,
+            loop_ms: if self.recorded == 0 { frame_ms } else { loop_ms },
+        };
+        self.recorded += 1;
+
+        if let Some(file) = self.csv.as_mut() {
+            let _ = writeln!(
+                file,
+                "{},{:.3},{:.3},{:.3},{:.3},{:.3},{},{},{},{},{},{},{},{}",
+                self.recorded,
+                timings.update_ms,
+                timings.render_ms,
+                timings.swap_ms,
+                timings.frame_ms,
+                timings.loop_ms,
+                stats.total_vertices,
+                stats.visible_vertices,
+                stats.culled_vertices,
+                stats.total_batches,
+                stats.visible_batches,
+                stats.draw_calls,
+                stats.vbo_bytes,
+                stats.index_bytes,
+            );
+        }
+        self.frames.push(FrameRecord { timings, stats });
+    }
+
+    /// True once `LIMINAL_BENCH_FRAMES` frames have been recorded.
+    pub fn is_complete(&self) -> bool {
+        self.config.enabled && self.limit_remaining == Some(0)
+    }
+
+    /// Writes the run summary to stdout as a single `BENCH_SUMMARY {...}` line.
+    /// Called once, when the run ends.
+    pub fn finish(&mut self) {
+        if !self.config.enabled || self.frames.is_empty() {
+            println!("BENCH_SUMMARY {{\"frames\":0}}");
+            return;
+        }
+        let mut update: Vec<f32> = self.frames.iter().map(|f| f.timings.update_ms).collect();
+        let mut render: Vec<f32> = self.frames.iter().map(|f| f.timings.render_ms).collect();
+        let mut swap: Vec<f32> = self.frames.iter().map(|f| f.timings.swap_ms).collect();
+        let mut frame: Vec<f32> = self.frames.iter().map(|f| f.timings.frame_ms).collect();
+        let mut loop_ms: Vec<f32> = self.frames.iter().map(|f| f.timings.loop_ms).collect();
+        let update = TimingSummary::from_samples(&mut update);
+        let render = TimingSummary::from_samples(&mut render);
+        let swap = TimingSummary::from_samples(&mut swap);
+        let frame = TimingSummary::from_samples(&mut frame);
+        let loop_ms = TimingSummary::from_samples(&mut loop_ms);
+
+        let last = self.frames.last().copied().unwrap_or_default();
+        let level = std::env::var("LIMINAL_LEVEL").unwrap_or_default();
+        println!(
+            "BENCH_SUMMARY {{\"level\":\"{level}\",\"frames\":{},\"swap_interval\":{},\"update_mean_ms\":{:.3},\"render_mean_ms\":{:.3},\"swap_mean_ms\":{:.3},\"frame_mean_ms\":{:.3},\"loop_mean_ms\":{:.3},\"frame_median_ms\":{:.3},\"loop_median_ms\":{:.3},\"frame_p95_ms\":{:.3},\"frame_p99_ms\":{:.3},\"loop_p95_ms\":{:.3},\"loop_p99_ms\":{:.3},\"frame_min_ms\":{:.3},\"frame_max_ms\":{:.3},\"loop_min_ms\":{:.3},\"loop_max_ms\":{:.3},\"fps_median\":{:.2},\"fps_p95\":{:.2},\"fps_p99\":{:.2},\"fps_1pct_low\":{:.2},\"fps_mean\":{:.2},\"measured_fps_mean\":{:.2},\"worst_fps\":{:.2},\"total_vertices\":{},\"visible_vertices\":{},\"culled_vertices\":{},\"total_batches\":{},\"visible_batches\":{},\"draw_calls\":{},\"vbo_bytes\":{},\"index_bytes\":{}}}",
+            self.frames.len(),
+            self.reported_swap_interval
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "null".to_string()),
+            update.mean_ms,
+            render.mean_ms,
+            swap.mean_ms,
+            frame.mean_ms,
+            loop_ms.mean_ms,
+            frame.median_ms,
+            loop_ms.median_ms,
+            frame.p95_ms,
+            frame.p99_ms,
+            loop_ms.p95_ms,
+            loop_ms.p99_ms,
+            frame.min_ms,
+            frame.max_ms,
+            loop_ms.min_ms,
+            loop_ms.max_ms,
+            TimingSummary::fps_from_ms(loop_ms.median_ms),
+            TimingSummary::fps_from_ms(loop_ms.p95_ms),
+            TimingSummary::fps_from_ms(loop_ms.p99_ms),
+            TimingSummary::fps_from_ms(loop_ms.p99_ms),
+            TimingSummary::fps_from_ms(loop_ms.mean_ms),
+            TimingSummary::fps_from_ms(frame.mean_ms),
+            TimingSummary::fps_from_ms(loop_ms.max_ms),
+            last.stats.total_vertices,
+            last.stats.visible_vertices,
+            last.stats.culled_vertices,
+            last.stats.total_batches,
+            last.stats.visible_batches,
+            last.stats.draw_calls,
+            last.stats.vbo_bytes,
+            last.stats.index_bytes,
+        );
+        if let Some(file) = self.csv.as_mut() {
+            let _ = file.flush();
+        }
+    }
+}
+
+impl Default for Bench {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Milliseconds as `f32`, saturating rather than wrapping on absurd durations.
+fn millis(duration: std::time::Duration) -> f32 {
+    duration.as_secs_f64() as f32 * 1000.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_camera_accepts_yaw_and_optional_pitch() {
+        assert_eq!(parse_camera("90"), Some((90.0, 0.0)));
+        assert_eq!(parse_camera(" 90 , -15 "), Some((90.0, -15.0)));
+        assert_eq!(parse_camera("abc"), None);
+        assert_eq!(parse_camera("nan"), None);
+        assert_eq!(parse_camera(""), None);
+    }
+
+    #[test]
+    fn parse_vsync_override_maps_human_words() {
+        assert_eq!(parse_vsync_override("on"), Some(true));
+        assert_eq!(parse_vsync_override("1"), Some(true));
+        assert_eq!(parse_vsync_override("off"), Some(false));
+        assert_eq!(parse_vsync_override("0"), Some(false));
+        assert_eq!(parse_vsync_override("maybe"), None);
+    }
+
+    #[test]
+    fn timing_summary_handles_empty_and_single_samples() {
+        let empty = TimingSummary::from_samples(&mut []);
+        assert_eq!(empty.median_ms, 0.0);
+        assert_eq!(TimingSummary::fps_from_ms(0.0), 0.0);
+
+        let single = TimingSummary::from_samples(&mut [16.0]);
+        assert_eq!(single.median_ms, 16.0);
+        assert_eq!(single.p95_ms, 16.0);
+        assert_eq!(single.min_ms, 16.0);
+        assert_eq!(single.max_ms, 16.0);
+    }
+
+    #[test]
+    fn timing_summary_percentiles_use_nearest_rank() {
+        let mut samples: Vec<f32> = (1..=100).map(|value| value as f32).collect();
+        let summary = TimingSummary::from_samples(&mut samples);
+        assert!((summary.median_ms - 51.0).abs() < 0.01);
+        assert!((summary.p95_ms - 95.0).abs() < 0.01);
+        assert!((summary.p99_ms - 99.0).abs() < 0.01);
+        assert_eq!(summary.min_ms, 1.0);
+        assert_eq!(summary.max_ms, 100.0);
+    }
+
+    #[test]
+    fn disabled_bench_records_nothing_and_holds_no_file() {
+        let saved = std::env::var(BENCH_ENV).ok();
+        // SAFETY: no other test in this binary reads LIMINAL_BENCH.
+        unsafe { std::env::remove_var(BENCH_ENV) };
+        let mut bench = Bench::new();
+        assert!(!bench.enabled());
+        let now = Instant::now();
+        bench.record_frame(now, now, now, now, now, RenderStats::default());
+        assert!(bench.frames.is_empty());
+        assert!(bench.csv.is_none());
+        assert!(!bench.is_complete());
+        if let Some(value) = saved {
+            unsafe { std::env::set_var(BENCH_ENV, value) };
+        }
+    }
+
+    #[test]
+    fn a_huge_warmup_counter_never_overflows_or_records() {
+        let mut bench = Bench {
+            config: BenchConfig {
+                enabled: true,
+                ..BenchConfig::default()
+            },
+            csv: None,
+            warmup_remaining: u64::MAX,
+            limit_remaining: None,
+            recorded: 0,
+            last_begin: None,
+            frames: Vec::new(),
+            reported_swap_interval: None,
+        };
+        let now = Instant::now();
+        for _ in 0..3 {
+            bench.record_frame(now, now, now, now, now, RenderStats::default());
+        }
+        assert_eq!(bench.recorded, 0);
+        assert!(bench.frames.is_empty());
+    }
+
+    #[test]
+    fn frame_limits_and_completion_are_exact() {
+        let mut bench = Bench {
+            config: BenchConfig {
+                enabled: true,
+                ..BenchConfig::default()
+            },
+            csv: None,
+            warmup_remaining: 1,
+            limit_remaining: Some(2),
+            recorded: 0,
+            last_begin: None,
+            frames: Vec::new(),
+            reported_swap_interval: None,
+        };
+        let now = Instant::now();
+        for _ in 0..5 {
+            bench.record_frame(now, now, now, now, now, RenderStats::default());
+        }
+        assert_eq!(bench.frames.len(), 2);
+        assert!(bench.is_complete());
+    }
+}

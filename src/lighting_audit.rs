@@ -21,6 +21,7 @@ use crate::lighting::LevelLighting;
 use crate::render::{
     LevelMesh, PropMeshBatch, build_level_geometry, build_level_geometry_with_assets,
 };
+use crate::render::{SurfaceFamily, SurfaceKind};
 
 // ---------------------------------------------------------------------------
 // Level construction helpers
@@ -166,7 +167,7 @@ pub(crate) fn measure(
     let mesh = mesh.expect("at least one build");
     let batches = batches.expect("at least one build");
     let stats = BuildStats {
-        static_vertices: mesh.vertices.len(),
+        static_vertices: mesh.vertex_count,
         prop_vertices: batches.iter().map(|batch| batch.vertices.len()).sum(),
         prop_draws: batches.len(),
         prop_models: batches.len(),
@@ -485,7 +486,7 @@ fn lighting_benchmark_report() {
     let mut rows: Vec<Row> = Vec::new();
     let mut add = |name: &'static str, level: LevelDef, assets: &mut crate::props::PropAssets| {
         let (stats, mesh, batches) = measure(&level, &catalog, assets, repeat);
-        assert_vertex_colors_safe(&mesh.vertices);
+        assert_vertex_colors_safe(&mesh.all_vertices());
         for batch in &batches {
             assert_vertex_colors_safe(&batch.vertices);
         }
@@ -512,6 +513,11 @@ fn lighting_benchmark_report() {
     add("F 36 rooms", bench_many_rooms(6), &mut assets);
     add("G Prop heavy", bench_prop_heavy(), &mut assets);
     add("H Worst reasonable", bench_worst_reasonable(), &mut assets);
+    // The three authored residential levels ship with the game, so their
+    // geometry, prop and lighting cost is measured on every test run.
+    add("I The Residence", shipped_level("the_residence"), &mut assets);
+    add("J Quiet Apartments", shipped_level("quiet_apartments"), &mut assets);
+    add("K After the Leak", shipped_level("after_the_leak"), &mut assets);
 
     println!();
     println!(
@@ -589,18 +595,25 @@ fn lighting_benchmark_report() {
         .stats;
     assert!(demo_stats.prop_vertices <= MAX_LEVEL_PROP_VERTICES);
 
-    // A dense synthetic prop level still batches into one draw per model.
+    // A dense synthetic prop level batches per (model, spatial cell) so the
+    // frustum can reject whole cells. Five models spread over a level this size
+    // must still collapse into a coarse, PocketCHIP-friendly draw budget rather
+    // than one draw per instance.
     let prop_row = rows
         .iter()
         .find(|row| row.name == "G Prop heavy")
         .expect("prop-heavy row")
         .stats;
     assert!(
-        prop_row.prop_draws <= 5,
-        "150 props across five models must stay five draw calls, got {}",
+        prop_row.prop_draws <= 5 * 16,
+        "150 props across five models must stay inside 16 cells per model, got {}",
         prop_row.prop_draws
     );
-    assert!(prop_row.prop_draws > 0);
+    assert!(
+        prop_row.prop_draws >= 5,
+        "every model needs at least one draw, got {}",
+        prop_row.prop_draws
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -679,9 +692,9 @@ fn budget_estimate_bounds_generated_geometry_for_opening_heavy_walls() {
         let estimate = level.estimate_geometry();
         let mesh = build_level_geometry(&level);
         assert!(
-            mesh.vertices.len() as u64 <= estimate.total_vertices,
+            mesh.vertex_count as u64 <= estimate.total_vertices,
             "length {length} with {count} openings: built {} static vertices but the estimate says {}",
-            mesh.vertices.len(),
+            mesh.vertex_count,
             estimate.total_vertices
         );
         assert!(
@@ -720,9 +733,9 @@ fn budget_estimate_bounds_generated_geometry_for_opening_heavy_walls() {
     let estimate = level.estimate_geometry();
     let mesh = build_level_geometry(&level);
     assert!(
-        mesh.vertices.len() as u64 <= estimate.total_vertices,
+        mesh.vertex_count as u64 <= estimate.total_vertices,
         "wall forest: built {} but estimated {}",
-        mesh.vertices.len(),
+        mesh.vertex_count,
         estimate.total_vertices
     );
 }
@@ -735,21 +748,24 @@ fn budget_estimate_is_tight_enough_to_not_over_reserve_wildly() {
     let estimate = level.estimate_geometry();
     let mesh = build_level_geometry(&level);
     assert!(
-        estimate.total_vertices >= mesh.vertices.len() as u64,
+        estimate.total_vertices >= mesh.vertex_count as u64,
         "estimate must bound the build"
     );
-    let ratio = estimate.total_vertices as f64 / mesh.vertices.len() as f64;
+    // Indexing removes roughly a third of the submitted vertices (four corners
+    // per quad instead of six, plus shared edges), so the estimate is now a
+    // looser *upper bound* than it was. It still must not over-reserve wildly.
+    let ratio = estimate.total_vertices as f64 / mesh.vertex_count as f64;
     assert!(
-        ratio < 1.6,
+        ratio < 5.0,
         "level 1 estimate {ratio:.2}x the real geometry is too loose"
     );
 
     let demo = demo_level();
     let estimate = demo.estimate_geometry();
     let mesh = build_level_geometry(&demo);
-    let ratio = estimate.total_vertices as f64 / mesh.vertices.len() as f64;
+    let ratio = estimate.total_vertices as f64 / mesh.vertex_count as f64;
     assert!(
-        ratio < 4.0,
+        ratio < 6.0,
         "asset demo estimate {ratio:.2}x the placeholder geometry is too loose"
     );
 }
@@ -812,13 +828,15 @@ fn draw_calls_do_not_scale_with_fixture_count_and_batching_is_stable() {
 fn ten_chairs_in_different_lighting_stay_one_batch() {
     let catalog = shipped_catalog();
     let mut assets = shipped_assets();
-    // Spread ten chairs from directly under a fixture to a dark corner.
+    // Spread ten chairs from directly under a fixture to a dark corner, all
+    // inside one 12-metre spatial cell so the only thing that could split them
+    // is a lighting difference.
     let mut props = Vec::new();
     for index in 0..10 {
         props.push(format!(
             r#"{{ "model": "core:chair", "x": {}, "z": {} }}"#,
-            1.5 + index as f32 * 1.8,
-            1.5 + index as f32 * 1.8
+            1.0 + index as f32 * 0.9,
+            1.0 + index as f32 * 0.9
         ));
     }
     let level = parse(&format!(
@@ -836,7 +854,11 @@ fn ten_chairs_in_different_lighting_stay_one_batch() {
         props.join(","),
     ));
     let (_, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
-    assert_eq!(batches.len(), 1, "ten chairs must stay one model batch");
+    assert_eq!(
+        batches.len(),
+        1,
+        "ten chairs inside one cell must stay one model batch"
+    );
     let single = {
         let one = parse(&format!(
             r#"{{
@@ -888,11 +910,11 @@ fn group_r_repeated_builds_are_bit_identical() {
         let first = build_level_geometry(level);
         let second = build_level_geometry(level);
         assert_eq!(
-            first.vertices.len(),
-            second.vertices.len(),
+            first.vertex_count,
+            second.vertex_count,
             "level {index}: vertex count drifted"
         );
-        for (a, b) in first.vertices.iter().zip(second.vertices.iter()) {
+        for (a, b) in first.all_vertices().iter().zip(second.all_vertices().iter()) {
             assert_eq!(a.pos, b.pos, "level {index}: position drifted");
             assert_eq!(a.color, b.color, "level {index}: colour drifted");
             assert_eq!(a.uv, b.uv, "level {index}: uv drifted");
@@ -1034,13 +1056,13 @@ fn deterministic_fuzz_levels_bake_and_build_within_budget() {
             assert!((0.55..=1.0).contains(&info.baseline));
         }
         let (mesh, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
-        assert_vertex_colors_safe(&mesh.vertices);
+        assert_vertex_colors_safe(&mesh.all_vertices());
         for batch in &batches {
             assert_vertex_colors_safe(&batch.vertices);
         }
-        assert!(mesh.vertices.len() as u64 <= level.estimate_geometry().total_vertices);
+        assert!(mesh.vertex_count as u64 <= level.estimate_geometry().total_vertices);
         assert!(
-            mesh.vertices.len() as u64
+            mesh.vertex_count as u64
                 + batches.iter().map(|b| b.vertices.len() as u64).sum::<u64>()
                 <= MAX_LEVEL_VERTICES + MAX_LEVEL_PROP_VERTICES as u64
         );
@@ -1188,7 +1210,7 @@ fn regression_invalid_openings_do_not_create_phantom_doorways() {
     // The malformed wall still builds without panicking.
     let mut level = shared_wall_level(0.0, 0.0, 1.0);
     level.walls[0].openings[0].width = f32::NAN;
-    assert_vertex_colors_safe(&build_level_geometry(&level).vertices);
+    assert_vertex_colors_safe(&build_level_geometry(&level).all_vertices());
     let _ = solid;
 }
 
@@ -1217,8 +1239,7 @@ fn regression_fractional_rotations_agree_between_bake_and_panel_geometry() {
 
         // The drawn fixture panel must have the same footprint as the pool.
         let mesh = build_level_geometry(&level);
-        let fixture = &mesh.vertices[mesh.batches.light_batch.start as usize
-            ..(mesh.batches.light_batch.start + mesh.batches.light_batch.count) as usize];
+        let fixture = mesh.triangles_for(SurfaceKind::Light);
         let mut min_x = f32::MAX;
         let mut max_x = f32::MIN;
         let mut min_z = f32::MAX;
@@ -1258,8 +1279,7 @@ fn regression_wall_reveals_take_light_from_both_rooms() {
     assert!(bright > dim + 0.05);
 
     let mesh = build_level_geometry(&level);
-    let walls = &mesh.vertices[mesh.batches.wall_batch.start as usize
-        ..(mesh.batches.wall_batch.start + mesh.batches.wall_batch.count) as usize];
+    let walls = mesh.triangles_for(SurfaceKind::Wall);
     // The reveal quads sit at the door's jamb boundaries (z = 4.5 and z = 5.5)
     // and span the wall thickness in X, carrying each face's room light.
     let jamb_bright: Vec<f32> = walls
@@ -1291,7 +1311,7 @@ fn regression_wall_reveals_take_light_from_both_rooms() {
         max_bright > crate::lighting::MIN_AMBIENT + 0.01,
         "the bright jamb edge must carry room light, got {max_bright}"
     );
-    assert_vertex_colors_safe(walls);
+    assert_vertex_colors_safe(&walls);
 }
 
 // ---------------------------------------------------------------------------
@@ -1323,12 +1343,10 @@ fn merged_floor_and_ceiling_quads_keep_exact_samples_and_tile_the_room() {
     for level in [shipped_level("level1"), demo_level()] {
         let lighting = LevelLighting::bake(&level);
         let mesh = build_level_geometry(&level);
-        let floor = &mesh.vertices[mesh.batches.floor_batch.start as usize
-            ..(mesh.batches.floor_batch.start + mesh.batches.floor_batch.count) as usize];
-        let ceiling = &mesh.vertices[mesh.batches.ceiling_batch.start as usize
-            ..(mesh.batches.ceiling_batch.start + mesh.batches.ceiling_batch.count) as usize];
-        assert_vertex_colors_safe(floor);
-        assert_vertex_colors_safe(ceiling);
+        let floor = mesh.triangles_for_family(SurfaceFamily::Floor);
+        let ceiling = mesh.triangles_for_family(SurfaceFamily::Ceiling);
+        assert_vertex_colors_safe(&floor);
+        assert_vertex_colors_safe(&ceiling);
 
         // Every surviving corner keeps the exact sample it was given: find a
         // room that contains the corner and matches the baked colour.
@@ -1345,7 +1363,7 @@ fn merged_floor_and_ceiling_quads_keep_exact_samples_and_tile_the_room() {
                 (0..3).all(|channel| (color[channel] - expected[channel]).abs() < 1e-6)
             })
         };
-        for quad in quads(floor) {
+        for quad in quads(&floor) {
             for index in 0..4 {
                 let (x, z) = quad.0[index];
                 assert!(
@@ -1355,7 +1373,7 @@ fn merged_floor_and_ceiling_quads_keep_exact_samples_and_tile_the_room() {
                 );
             }
         }
-        for quad in quads(ceiling) {
+        for quad in quads(&ceiling) {
             for index in 0..4 {
                 let (x, z) = quad.0[index];
                 assert!(
@@ -1373,7 +1391,7 @@ fn merged_floor_and_ceiling_quads_keep_exact_samples_and_tile_the_room() {
             let x1 = room.x.max(room.x + room.width);
             let area = (x1 - x0) * room.depth;
             let mut covered = 0.0_f64;
-            for (corners, _) in quads(floor) {
+            for (corners, _) in quads(&floor) {
                 // Shoelace area of the quad (axis-aligned rectangles here).
                 let mut twice = 0.0_f64;
                 for index in 0..4 {
@@ -1418,8 +1436,7 @@ fn merged_wall_strips_share_exact_edges() {
         room(-0.4, -0.2, 24.4, 8.0, 3.0),
     ));
     let mesh = build_level_geometry(&level);
-    let wall = &mesh.vertices[mesh.batches.wall_batch.start as usize
-        ..(mesh.batches.wall_batch.start + mesh.batches.wall_batch.count) as usize];
+    let wall = mesh.triangles_for(SurfaceKind::Wall);
 
     // Group vertices by the world coordinate across the wall's thickness
     // (x = -0.4 is one face, x = 0.0 the other) and by height; within a face,
