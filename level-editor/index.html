@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liminal Level Editor</title>
+  <link rel="stylesheet" href="css/editor.css">
+</head>
+<body>
+  <div class="app">
+    <!-- TOP BAR: file actions on the left, view switching on the right -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">LIMINAL</span>
+        <span class="brand-name">Level Editor</span>
+      </div>
+
+      <div class="topbar-group">
+        <button class="btn" id="btn-new" title="Start a new level">New</button>
+        <input type="file" id="file-import-input" accept=".json,.zip" hidden>
+        <button class="btn" id="btn-open" title="Open a .json level or .zip level pack">Open…</button>
+        <button class="btn btn-primary" id="btn-save" title="Save level JSON (Ctrl/Cmd+S)">Save</button>
+        <button class="btn" id="btn-export-pack" title="Export a .zip level pack with textures">Pack…</button>
+      </div>
+
+      <div class="topbar-group">
+        <button class="btn" id="btn-validate" title="Check the level against the game's rules">Validate</button>
+        <button class="btn btn-accent" id="btn-play" title="Validate and prepare the level for the game">▶ Play / Test</button>
+      </div>
+
+      <div class="topbar-spacer"></div>
+
+      <div class="segmented" id="view-switch" role="group" aria-label="View mode">
+        <button class="seg-btn" data-view="2d" title="2D plan view (1)">2D</button>
+        <button class="seg-btn" data-view="3d" title="3D preview (2)">3D</button>
+        <button class="seg-btn" data-view="split" title="2D and 3D together (3)">Split</button>
+      </div>
+
+      <label class="switch" title="Show advanced numeric controls and internal identifiers">
+        <input type="checkbox" id="chk-advanced">
+        <span>Advanced</span>
+      </label>
+
+      <button class="btn btn-icon" id="btn-help" title="Keyboard shortcuts (?)">?</button>
+    </header>
+
+    <div class="workspace">
+      <!-- LEFT: the tools. Everything the user needs to build a level. -->
+      <nav class="toolrail" aria-label="Tools">
+        <button class="tool" data-tool="select" title="Select, move and resize (V)">
+          <span class="tool-icon">⬚</span><span class="tool-label">Select</span><span class="tool-key">V</span>
+        </button>
+        <button class="tool" data-tool="room" title="Drag out a room (R)">
+          <span class="tool-icon">▤</span><span class="tool-label">Room</span><span class="tool-key">R</span>
+        </button>
+        <button class="tool" data-tool="wall" title="Drag out a wall or divider (W)">
+          <span class="tool-icon">▬</span><span class="tool-label">Wall</span><span class="tool-key">W</span>
+        </button>
+        <button class="tool" data-tool="door" title="Click or drag on a wall to cut a doorway (D)">
+          <span class="tool-icon">🚪</span><span class="tool-label">Door</span><span class="tool-key">D</span>
+        </button>
+        <button class="tool" data-tool="window" title="Click or drag on a wall to cut a window (N)">
+          <span class="tool-icon">▢</span><span class="tool-label">Window</span><span class="tool-key">N</span>
+        </button>
+        <button class="tool" data-tool="light" title="Click to place a ceiling light (L)">
+          <span class="tool-icon">☼</span><span class="tool-label">Light</span><span class="tool-key">L</span>
+        </button>
+        <button class="tool" data-tool="prop" title="Place furniture and appliances (P)">
+          <span class="tool-icon">▣</span><span class="tool-label">Prop</span><span class="tool-key">P</span>
+        </button>
+        <button class="tool" data-tool="spawn" title="Place the player start (M)">
+          <span class="tool-icon">◉</span><span class="tool-label">Spawn</span><span class="tool-key">M</span>
+        </button>
+
+        <div class="rail-sep"></div>
+
+        <button class="tool tool-quiet" data-tool="patch" title="Paint a floor material patch (Advanced)">
+          <span class="tool-icon">▨</span><span class="tool-label">Patch</span><span class="tool-key">T</span>
+        </button>
+
+        <div class="rail-sep"></div>
+
+        <button class="tool tool-quiet" id="btn-undo" title="Undo (Ctrl/Cmd+Z)" disabled>
+          <span class="tool-icon">↺</span><span class="tool-label">Undo</span>
+        </button>
+        <button class="tool tool-quiet" id="btn-redo" title="Redo (Ctrl/Cmd+Shift+Z)" disabled>
+          <span class="tool-icon">↻</span><span class="tool-label">Redo</span>
+        </button>
+        <button class="tool tool-quiet" id="btn-duplicate" title="Duplicate the selection (Ctrl/Cmd+D)">
+          <span class="tool-icon">⧉</span><span class="tool-label">Duplicate</span>
+        </button>
+        <button class="tool tool-quiet" id="btn-delete" title="Delete the selection (Del)">
+          <span class="tool-icon">🗑</span><span class="tool-label">Delete</span>
+        </button>
+      </nav>
+
+      <!-- CENTRE: 2D plan, 3D preview, or both -->
+      <section class="views" id="views">
+        <div class="tool-options" id="tool-options"></div>
+
+        <div class="panes" id="panes">
+          <div class="pane pane-2d" id="pane-2d">
+            <canvas id="canvas-2d"></canvas>
+            <div class="pane-overlay pane-overlay-left">
+              <label class="mini-switch" title="Snap to the grid (G)">
+                <input type="checkbox" id="chk-snap" checked><span>Snap</span>
+              </label>
+              <select id="select-snap" class="mini-select" title="Grid step">
+                <option value="0.05">0.05 m</option>
+                <option value="0.1">0.1 m</option>
+                <option value="0.25">0.25 m</option>
+                <option value="0.5" selected>0.5 m</option>
+                <option value="1">1 m</option>
+              </select>
+              <label class="mini-switch" id="wrap-height-labels" title="Show wall heights in the plan">
+                <input type="checkbox" id="chk-heights"><span>Heights</span>
+              </label>
+            </div>
+            <div class="pane-overlay pane-overlay-right">
+              <button class="mini-btn" id="btn-fit" title="Fit the level in view (F)">Fit</button>
+              <span class="mini-readout" id="zoom-readout">100%</span>
+            </div>
+            <div class="pane-fallback" id="pane-2d-fallback" hidden>
+              <p>2D view unavailable.</p>
+            </div>
+          </div>
+
+          <div class="pane pane-3d" id="pane-3d">
+            <canvas id="canvas-3d" tabindex="0"></canvas>
+            <div class="pane-overlay pane-overlay-right">
+              <button class="mini-btn" id="btn-3d-xray" title="See through walls">X-Ray</button>
+              <button class="mini-btn" id="btn-3d-ceilings" title="Show ceilings">Ceilings</button>
+              <button class="mini-btn" id="btn-3d-focus" title="Focus the selection or the whole level (F)">Focus</button>
+              <button class="mini-btn" id="btn-3d-reset" title="Reset the camera (R)">Reset</button>
+            </div>
+            <div class="pane-fallback" id="pane-3d-fallback" hidden>
+              <p><strong>3D preview unavailable</strong></p>
+              <p class="muted">This browser does not provide WebGL. The 2D editor keeps working normally.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT: prop browser (only with the Prop tool) + contextual inspector -->
+      <aside class="side">
+        <div class="prop-browser" id="prop-browser" hidden>
+          <div class="panel-title">
+            <span>Props</span>
+            <button class="mini-btn" id="btn-prop-browser-close" title="Close">✕</button>
+          </div>
+          <input type="search" id="prop-search" class="text-input" placeholder="Search props…" autocomplete="off">
+          <div class="chip-row" id="prop-categories"></div>
+          <div class="prop-grid" id="prop-grid"></div>
+          <p class="hint" id="prop-hint">Click a prop, then click in the view to place it.</p>
+        </div>
+
+        <div class="inspector" id="inspector"></div>
+      </aside>
+    </div>
+
+    <!-- STATUS BAR -->
+    <footer class="statusbar">
+      <span class="status-hint" id="status-hint"></span>
+      <span class="status-message" id="status-message"></span>
+      <span class="status-spacer"></span>
+      <span class="status-item" id="status-coords">0.00, 0.00</span>
+      <span class="status-item status-selection" id="status-selection">Nothing selected</span>
+    </footer>
+  </div>
+
+  <!-- VALIDATION MODAL -->
+  <div class="modal" id="validation-modal" hidden>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Level check</h3>
+        <button class="btn btn-icon modal-close" title="Close">✕</button>
+      </div>
+      <div class="modal-body" id="validation-results"></div>
+      <div class="modal-footer">
+        <button class="btn modal-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLAY / TEST MODAL -->
+  <div class="modal" id="play-modal" hidden>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Play / Test in liminal-rust</h3>
+        <button class="btn btn-icon modal-close" title="Close">✕</button>
+      </div>
+      <div class="modal-body" id="play-results"></div>
+      <div class="modal-footer">
+        <button class="btn modal-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HELP MODAL -->
+  <div class="modal" id="help-modal" hidden>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Controls</h3>
+        <button class="btn btn-icon modal-close" title="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <h4>Build</h4>
+        <table class="shortcuts">
+          <tr><td><kbd>V</kbd> / <kbd>R</kbd> / <kbd>W</kbd></td><td>Select · Room · Wall</td></tr>
+          <tr><td><kbd>D</kbd> / <kbd>N</kbd></td><td>Door · Window — click or drag directly on a wall</td></tr>
+          <tr><td><kbd>L</kbd> / <kbd>P</kbd> / <kbd>M</kbd></td><td>Light · Prop · Player spawn</td></tr>
+          <tr><td><kbd>T</kbd></td><td>Floor patch (Advanced)</td></tr>
+          <tr><td>Drag</td><td>Move the selection; drag the handles to resize</td></tr>
+          <tr><td><kbd>Shift</kbd>+click / drag</td><td>Add to selection · marquee select</td></tr>
+          <tr><td><kbd>G</kbd></td><td>Toggle grid snapping</td></tr>
+          <tr><td><kbd>Q</kbd> / <kbd>E</kbd></td><td>Rotate the selection by 15°</td></tr>
+          <tr><td><kbd>F</kbd></td><td>Fit the view (2D) or focus the selection (3D)</td></tr>
+          <tr><td><kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd></td><td>2D · 3D · Split view</td></tr>
+          <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>Z</kbd> / <kbd>Shift</kbd>+<kbd>Z</kbd></td><td>Undo · Redo</td></tr>
+          <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>D</kbd> / <kbd>S</kbd></td><td>Duplicate · Save</td></tr>
+          <tr><td><kbd>Del</kbd> / <kbd>Esc</kbd></td><td>Delete selection · cancel the current action</td></tr>
+        </table>
+
+        <h4>2D view</h4>
+        <table class="shortcuts">
+          <tr><td>Wheel</td><td>Zoom at the cursor</td></tr>
+          <tr><td>Middle drag / right drag / <kbd>Space</kbd>+drag</td><td>Pan</td></tr>
+          <tr><td><kbd>F</kbd></td><td>Fit the whole level</td></tr>
+        </table>
+
+        <h4>3D preview</h4>
+        <table class="shortcuts">
+          <tr><td>Right drag</td><td>Look around</td></tr>
+          <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> (+<kbd>Q</kbd>/<kbd>E</kbd>)</td><td>Fly; hold <kbd>Shift</kbd> to go faster</td></tr>
+          <tr><td>Wheel</td><td>Move forward / back</td></tr>
+          <tr><td>Middle drag</td><td>Pan</td></tr>
+          <tr><td>Left click / drag</td><td>Select an object · drag a selected object to move it</td></tr>
+          <tr><td><kbd>F</kbd> / <kbd>R</kbd></td><td>Focus the selection · reset the camera</td></tr>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button class="btn modal-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/jszip.min.js"></script>
+  <script src="js/model.js"></script>
+  <script src="js/lighting.js"></script>
+  <script src="js/geometry.js"></script>
+  <script src="js/props.js"></script>
+  <script src="js/history.js"></script>
+  <script src="js/ops.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/camera3d.js"></script>
+  <script src="js/viewport3d.js"></script>
+  <script src="js/properties.js"></script>
+  <script src="js/io.js"></script>
+  <script src="js/editor.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
