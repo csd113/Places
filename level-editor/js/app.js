@@ -818,7 +818,7 @@ class App {
 
     const entries = catalog.search(this.propQuery, this.propCategory);
     this.dom.propGrid.innerHTML = entries.length === 0
-      ? '<p class="hint">No props match. Add entries to <code>assets/props/props.json</code> — they appear here automatically.</p>'
+      ? '<p class="hint">No props match. Add entries to <code>assets/catalog.json</code> — they appear here automatically.</p>'
       : entries.map(entry => {
         const thumb = this.propThumbUrl(entry);
         const image = thumb

@@ -105,7 +105,7 @@ def build_level(level_id: str, name: str, chairs: int) -> dict:
     # rectangle without letting the lighting bake dominate the benchmark.
     fixture_offsets = (-0.5, 0.0, 0.5)
     ceiling_lights = [
-        {"fixture": "core:panel_01", "x": 0.0, "z": offset * half}
+        {"fixture": "core:fluorescent_panel_01", "x": 0.0, "z": offset * half}
         for offset in fixture_offsets
     ]
 

@@ -22,7 +22,7 @@ BUDGET = 120
 
 
 def build_crate(p: PropBuilder) -> None:
-    size = p.size  # (width, height, depth) from assets/props/props.json
+    size = p.size  # (width, height, depth) from assets/catalog.json
     tex = p.set_texture(64, seed=21)
     tex.auto("wood", "panel")
 

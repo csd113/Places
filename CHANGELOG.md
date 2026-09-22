@@ -1,5 +1,59 @@
 # Changelog
 
+## 0.4.0 — 2026-09-21
+
+Generalized asset architecture. Logical asset identity is separated from
+physical file location, the `office` and `pool` environment themes are
+established, entities become a distinct asset class, and Spooner-Man moves into
+the entity organization while existing levels keep referring to `spooner-man`.
+
+### Added
+
+- `assets/catalog.json`, the authoritative asset registry: every logical asset
+  declares its class (`environment`/`entity`/`core`/`diagnostic`), type
+  (`prop`/`material`/`texture`/`light`/`decal`/`entity`), optional theme, source
+  (`file`/`generated`) and canonical resource path. Themes are data, so future
+  themes need no engine change, and placement is never filtered by theme.
+- Environment categories: `assets/environment/office/` (the office material
+  set, the fluorescent fixture and five office props, catalogued with
+  `theme: office`) and `assets/environment/pool/` (reserved for the upcoming
+  Pool content pack).
+- Entity organization: `assets/entities/spooner-man/model/spooner-man.glb` is
+  the single canonical Spooner-Man resource (`asset_class: entity`,
+  `asset_type: entity`, no theme).
+- `assets/core/props/models/` for generic, theme-less props and
+  `assets/diagnostic/` for development content.
+- `tools/assets/validate.py`, validating the catalog, duplicate ids, resource
+  paths, canonical Spooner-Man, and every asset id referenced by shipped and
+  custom levels. Wired into `tests/test_package.py`.
+- Rust: `src/assets.rs` with the catalog types, duplicate-id rejection,
+  slug-validated class/theme/type identifiers, legacy `props` parsing and
+  regression tests covering classification, themes, entities and shipped-level
+  references.
+- `LIMINAL_STATE_LOG=file.csv`, a developer diagnostic that records the player
+  state while the game runs, so movement and control validation can assert real
+  results from a running build. Inert unless set.
+
+### Changed
+
+- Default desktop controls are WASD movement with arrow-key looking, with
+  rebinding and `Restore Default Bindings` preserved (introduced in 0.3.2).
+- `PropCatalog` is now the placeable (prop/entity) view of the asset catalog;
+  `PropAssets` resolves models below the resolved `assets/` root. Entity assets
+  place through the ordinary prop format, so Spooner-Man, including its
+  lighting, scale, orientation and appearance, is unchanged.
+- Asset and level docs (`README.md`, `assets/README.md`, the category READMEs,
+  `tools/README` files) document asset identity, themes, entities and the
+  resolution flow.
+- The Python prop toolkit and the legacy level editor read the catalog's new
+  paths; the editor ignores the optional class/theme/type metadata.
+
+### Notes
+
+- Existing levels, the lighting diagnostic and the rendering diagnostic load
+  unchanged; Goal 1 RGB lighting and Goal 2 decals/overlays are untouched.
+- No duplicate Spooner-Man GLB remains, and no level stores a physical path.
+
 ## 0.3.2 — 2026-09-21
 
 Conventional desktop default controls: WASD movement with arrow-key looking.

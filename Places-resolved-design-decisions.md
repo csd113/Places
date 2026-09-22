@@ -522,6 +522,25 @@ Official prop assets should remain open source and reusable by creators.
 
 ---
 
+### Resolved Asset Identity Architecture
+
+The asset system keeps five concepts separate:
+
+* **logical asset id** — the stable name a level stores (`core:chair`,
+  `spooner-man`); never a file path;
+* **physical resource location** — where the file actually lives under
+  `assets/`, resolved through the catalog and free to move;
+* **asset class** — `environment`, `entity`, `core` or `diagnostic`;
+* **environment theme** — an organizational collection (`office`, `pool`, and
+  future themes) that never restricts placement;
+* **asset type** — `prop`, `material`, `texture`, `light`, `decal` or `entity`.
+
+The authoritative registry is `assets/catalog.json`; entity assets (starting
+with `spooner-man`, whose logical id is unchanged) belong to the `entity` class
+rather than to any theme.
+
+---
+
 ## 19. Room-Wide Brightness and Tint
 
 Room-wide lighting should use a **hybrid approach**.

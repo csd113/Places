@@ -440,7 +440,7 @@ fn shipped_catalog() -> crate::loader::PropCatalog {
 
 fn shipped_assets() -> crate::props::PropAssets {
     let assets = crate::props::PropAssets::load_default();
-    assert!(assets.root().is_some(), "assets/props must exist");
+    assert!(assets.root().is_some(), "the assets/ directory must exist");
     assets
 }
 

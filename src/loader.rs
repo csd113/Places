@@ -388,17 +388,11 @@ fn prop_fallback_color() -> [f32; 3] {
 }
 
 /// Parses `#rrggbb` (or bare `rrggbb`) into 0..1 RGB components.
-#[must_use]
-pub fn parse_hex_color(value: &str) -> Option<[f32; 3]> {
-    let hex = value.trim().trim_start_matches('#');
-    if hex.len() != 6 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
-        return None;
-    }
-    let component = |start: usize| -> f32 {
-        f32::from(u8::from_str_radix(&hex[start..start + 2], 16).unwrap_or(0)) / 255.0
-    };
-    Some([component(0), component(2), component(4)])
-}
+///
+/// The parser lives with the catalog that stores those colours
+/// ([`crate::assets`]); this re-export keeps the level loader's existing call
+/// sites and tests unchanged.
+pub use crate::assets::parse_hex_color;
 
 /// One catalog entry describing a placeable prop.
 #[derive(Debug, Clone, PartialEq)]
@@ -412,42 +406,22 @@ pub struct PropCatalogEntry {
     pub solid: bool,
 }
 
-#[derive(serde::Deserialize)]
-struct PropCatalogFile {
-    /// Part of the stable `props.json` shape, reserved for future revisions.
-    #[serde(default)]
-    #[allow(dead_code)]
-    format_version: u32,
-    #[serde(default)]
-    props: Vec<PropCatalogFileEntry>,
-}
-
-#[derive(serde::Deserialize)]
-struct PropCatalogFileEntry {
-    #[serde(default)]
-    id: String,
-    #[serde(default)]
-    name: String,
-    #[serde(default)]
-    category: Option<String>,
-    #[serde(default)]
-    size: Option<[f32; 3]>,
-    #[serde(default)]
-    color: Option<String>,
-    #[serde(default)]
-    model: Option<String>,
-    #[serde(default)]
-    solid: bool,
-}
-
-/// Catalog of prop models available to levels.
+/// Catalog of placeable assets (environment props and entities) available to
+/// levels.
 ///
-/// Lookups always succeed: unknown models resolve to a generated fallback entry
-/// using [`crate::level::PROP_FALLBACK_SIZE`] and a neutral colour, so a level
-/// referencing a missing prop still loads with an obvious placeholder.
+/// This is the placement view of the authoritative [`crate::assets::AssetCatalog`]:
+/// levels reference a logical id such as `core:chair` or `spooner-man`, and the
+/// catalog maps it to the canonical model resource under the asset root.
+/// Entities resolve through exactly the same lookup, so `spooner-man` keeps
+/// working unchanged.
+///
+/// Lookups always succeed: unknown or non-placeable ids resolve to a generated
+/// fallback entry using [`crate::level::PROP_FALLBACK_SIZE`] and a neutral
+/// colour, so a level referencing a missing prop still loads with an obvious
+/// placeholder instead of failing or rendering the wrong model.
 #[derive(Debug, Clone, Default)]
 pub struct PropCatalog {
-    entries: HashMap<String, PropCatalogEntry>,
+    assets: crate::assets::AssetCatalog,
 }
 
 impl PropCatalog {
@@ -457,81 +431,58 @@ impl PropCatalog {
         Self::default()
     }
 
-    /// Parses a `props.json` document into a catalog.
+    /// Parses an asset catalog document into the placement view.
     ///
-    /// Entries without an `id` are skipped; missing fields default to the
-    /// neutral fallback values.
+    /// Accepts the generalized `assets` shape and the legacy `props` shape.
+    /// Entries without an `id` are skipped in the legacy shape; duplicate
+    /// logical ids are rejected.
     /// # Errors
     ///
-    /// Returns a message when the document is not valid JSON or an entry is not
-    /// a catalogue object.
+    /// Returns a message when the document is not valid JSON, when an id is
+    /// duplicated or malformed, or when an entry declares a malformed
+    /// class/theme/type/source/resource path.
     pub fn from_json_str(json: &str) -> Result<Self, String> {
-        let file: PropCatalogFile =
-            serde_json::from_str(json).map_err(|e| format!("Invalid prop catalog JSON: {e}"))?;
-
-        let mut catalog = Self::default();
-        for entry in file.props {
-            if entry.id.trim().is_empty() {
-                continue;
-            }
-            let size = entry
-                .size
-                .filter(|s| s.iter().all(|v| v.is_finite() && *v > 0.0))
-                .unwrap_or(crate::level::PROP_FALLBACK_SIZE);
-            let color = entry
-                .color
-                .as_deref()
-                .and_then(parse_hex_color)
-                .unwrap_or_else(prop_fallback_color);
-            let name = if entry.name.trim().is_empty() {
-                entry.id.clone()
-            } else {
-                entry.name
-            };
-            catalog.entries.insert(
-                entry.id.clone(),
-                PropCatalogEntry {
-                    id: entry.id,
-                    name,
-                    category: entry.category.unwrap_or_else(|| "Other".into()),
-                    size,
-                    color,
-                    model: entry.model.filter(|m| !m.trim().is_empty()),
-                    solid: entry.solid,
-                },
-            );
-        }
-        Ok(catalog)
+        Ok(Self {
+            assets: crate::assets::AssetCatalog::from_json_str(json)?,
+        })
     }
 
     /// Loads a catalog from `path`, returning `None` when the file is missing
     /// or invalid. Never panics.
     #[must_use]
     pub fn load_from_path(path: &Path) -> Option<Self> {
-        let content = fs::read_to_string(path).ok()?;
-        Self::from_json_str(&content).ok()
+        Some(Self {
+            assets: crate::assets::AssetCatalog::load_from_path(path)?,
+        })
     }
 
-    /// Loads the shipped prop catalog, falling back to an empty catalog when
-    /// no `props.json` can be found.
+    /// Loads the shipped asset catalog, falling back to an empty catalog when
+    /// no `assets/catalog.json` can be found.
     #[must_use]
     pub fn load_default() -> Self {
-        for candidate in [
-            Path::new("assets/props/props.json"),
-            Path::new("./assets/props/props.json"),
-        ] {
-            if let Some(catalog) = Self::load_from_path(candidate) {
-                return catalog;
-            }
+        Self {
+            assets: crate::assets::AssetCatalog::load_default(),
         }
-        Self::builtin()
     }
 
-    /// Resolves a model id, or a generated fallback entry for unknown models.
+    /// The authoritative catalog behind the placement view.
+    #[must_use]
+    pub const fn assets(&self) -> &crate::assets::AssetCatalog {
+        &self.assets
+    }
+
+    /// The declared environment themes, in catalog order.
+    #[must_use]
+    pub fn themes(&self) -> &[crate::assets::AssetThemeDef] {
+        self.assets.themes()
+    }
+
+    /// Resolves a logical asset id, or a generated fallback entry for unknown
+    /// or non-placeable ids.
     #[must_use]
     pub fn get(&self, model: &str) -> PropCatalogEntry {
-        if let Some(entry) = self.entries.get(model) {
-            return entry.clone();
+        if let Some(entry) = self.assets.placeable(model) {
+            return placeable_entry(entry);
         }
         PropCatalogEntry {
             id: model.to_string(),
@@ -544,30 +495,52 @@ impl PropCatalog {
         }
     }
 
-    /// Number of catalog entries.
+    /// Number of placeable catalog entries.
     #[must_use]
     pub fn len(&self) -> usize {
-        self.entries.len()
+        self.assets.placeable_entries().len()
     }
 
-    /// Every catalogue entry, ordered by id so validation and reports are stable.
+    /// Every placeable entry, ordered by id so validation and reports are stable.
     #[must_use]
     pub fn entries(&self) -> Vec<PropCatalogEntry> {
-        let mut entries: Vec<PropCatalogEntry> = self.entries.values().cloned().collect();
-        entries.sort_by(|a, b| a.id.cmp(&b.id));
-        entries
+        self.assets
+            .placeable_entries()
+            .into_iter()
+            .map(placeable_entry)
+            .collect()
     }
 
-    /// True when the catalog defines this exact model id.
+    /// True when the catalog defines this exact placeable id.
     #[must_use]
     pub fn contains(&self, model: &str) -> bool {
-        self.entries.contains_key(model)
+        self.assets.placeable(model).is_some()
     }
 
-    /// True when the catalog has no entries.
+    /// True when the catalog has no placeable entries.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
+        self.len() == 0
+    }
+}
+
+/// Converts a catalog entry into the runtime's placeable view, applying the
+/// neutral fallbacks for missing optional metadata.
+fn placeable_entry(entry: &crate::assets::AssetEntry) -> PropCatalogEntry {
+    PropCatalogEntry {
+        id: entry.id.clone(),
+        name: entry.display_name.clone(),
+        category: entry
+            .category
+            .clone()
+            .unwrap_or_else(|| "Other".to_string()),
+        size: entry
+            .size
+            .filter(|size| size.iter().all(|value| value.is_finite() && *value > 0.0))
+            .unwrap_or(crate::level::PROP_FALLBACK_SIZE),
+        color: entry.color.unwrap_or_else(prop_fallback_color),
+        model: entry.model.clone(),
+        solid: entry.solid,
     }
 }
 
@@ -1913,7 +1886,7 @@ mod tests {
 
     #[test]
     fn test_shipped_prop_catalog_parses() {
-        let catalog = PropCatalog::from_json_str(include_str!("../assets/props/props.json"))
+        let catalog = PropCatalog::from_json_str(include_str!("../assets/catalog.json"))
             .expect("shipped props.json must parse");
         assert!(catalog.len() >= 16, "expected at least 16 props");
         let couch = catalog.get("core:couch");
@@ -2465,8 +2438,8 @@ mod tests {
 
     #[test]
     fn test_shipped_prop_catalog_covers_shipped_levels() {
-        let catalog = PropCatalog::load_from_path(Path::new("assets/props/props.json"))
-            .expect("assets/props/props.json must load");
+        let catalog = PropCatalog::load_from_path(Path::new("assets/catalog.json"))
+            .expect("assets/catalog.json must load");
         assert!(!catalog.is_empty());
 
         let mut levels_checked = 0;
@@ -2488,7 +2461,7 @@ mod tests {
             for prop in &level.props {
                 assert!(
                     catalog.contains(&prop.model),
-                    "{} uses prop '{}' which is missing from assets/props/props.json",
+                    "{} uses prop '{}' which is missing from assets/catalog.json",
                     path.display(),
                     prop.model
                 );

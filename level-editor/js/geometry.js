@@ -576,7 +576,7 @@
 
   // ------------------------------------------------------------ proxy props
   //
-  // `assets/props/prop_proxies.json` (derived from the shipped GLBs) describes a
+  // `assets/prop_proxies.json` (derived from the shipped GLBs) describes a
   // prop as local-space boxes/cylinders/tubes/planes. Each part is transformed by
   // the instance's position, Y rotation and uniform scale, then flat-shaded with
   // the same multipliers the game bakes into its prop meshes.

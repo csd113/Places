@@ -170,19 +170,22 @@ Props are placed instances of a catalogue entry:
   "rotation_degrees": 90, "scale": 1.0, "solid": true }
 ```
 
-The catalogue lives in `assets/props/props.json` and is shared with the game
-(`PropCatalog` in `src/loader.rs`):
+The catalogue lives in `assets/catalog.json` and is shared with the game
+(`PropCatalog` in `src/loader.rs`); the legacy editor only reads its placeable
+`prop`/`entity` entries:
 
 ```json
-{ "id": "core:stove", "name": "Stove", "category": "Appliances",
-  "size": [0.6, 0.9, 0.6], "color": "#8f8a80", "model": "models/stove.glb", "solid": true }
+{ "id": "core:stove", "display_name": "Stove", "asset_class": "environment",
+  "asset_type": "prop", "source": "file", "category": "Appliances",
+  "size": [0.6, 0.9, 0.6], "color": "#8f8a80",
+  "model": "core/props/models/stove.glb", "solid": true }
 ```
 
 * `size` is the full box extents in metres `[width, height, depth]`, resting on the
   prop's base. It is also the pick/drag box, whatever the 3D preview draws.
-* `model` points at the shipped GLB asset (`models/*.glb`, relative to
-  `assets/props/`). Until an asset exists the game and the editor draw a
-  coloured box, so levels never depend on assets that do not exist yet.
+* `model` points at the shipped GLB asset relative to `assets/` (for example
+  `core/props/models/stove.glb`). Until an asset exists the game and the editor
+  draw a coloured box, so levels never depend on assets that do not exist yet.
 * `solid: true` makes the prop block the player (an axis-aligned box in the game's
   collision list). Decorative props stay walk-through.
 * `y` may be negative on purpose: sinking a chair into the floor is allowed, as is
@@ -191,7 +194,7 @@ The catalogue lives in `assets/props/props.json` and is shared with the game
 
 ### Proxy geometry (what the 3D preview draws)
 
-`assets/props/prop_proxies.json` is written by `python3 tools/props/build.py` and
+`assets/prop_proxies.json` is written by `python3 tools/props/build.py` and
 derived from the shipped GLB meshes — never edit it by hand. The editor loads it
 next to the catalogue (same candidate URLs and `no-store` fetch options) and draws
 each prop from its real parts: boxes, low-segment cylinders,
@@ -218,7 +221,7 @@ where `<short-name>` is the id after `core:` (`core:washing_machine` →
 colour swatch; a missing file (or a missing `assets/thumbs/` folder) simply
 reveals the swatch, so the browser always renders.
 
-**Adding a model later:** add an entry to `assets/props/props.json`, point its
+**Adding a model later:** add an entry to `assets/catalog.json`, point its
 `model` at the asset, run `tools/props/build.py` (which refreshes the proxies and,
 with `--thumbs`, the thumbnails), and it appears in the editor's prop browser
 automatically. No editor or game code changes.
@@ -239,7 +242,7 @@ node --test 'tests/*.test.mjs'
 * `ops.test.mjs` — create/resize/move, doorway and window placement, selection,
   delete/duplicate, one history entry per drag, advanced property persistence.
 * `props.test.mjs` — catalogue parsing, search, fallbacks, a check that the
-  built-in editor catalogue matches `assets/props/props.json`, and proxy
+  built-in editor catalogue matches `assets/catalog.json`, and proxy
   parsing/fallbacks (valid file, missing file, malformed entries, unknown ids).
 * `lighting.test.mjs` — the preview's static lighting: density/area/intensity/
   ceiling-height behaviour, saturation, sanitising, fixture pools, doorway

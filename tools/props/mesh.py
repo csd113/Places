@@ -779,7 +779,7 @@ class PropBuilder:
     """Bundle of the mesh, texture and metadata for a single prop.
 
     ``size`` is always the catalogue ``size`` (the generator reads
-    ``assets/props/props.json``), so a prop cannot silently drift from the
+    ``assets/catalog.json``), so a prop cannot silently drift from the
     registry that levels and the editor resolve against.
     """
 

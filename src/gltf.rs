@@ -2,7 +2,7 @@
 //!
 //! The prop pipeline in `tools/props` only ever emits one narrow, deliberately
 //! boring GLB profile, and this reader accepts exactly that profile plus a few
-//! harmless variations (see `assets/props/README.md` for the asset rules):
+//! harmless variations (see `assets/README.md` for the asset rules):
 //!
 //! * GLB container, glTF 2.0, one scene/node/mesh/primitive;
 //! * `POSITION` (float32), `TEXCOORD_0` (float32 or normalised integer),
@@ -686,7 +686,7 @@ mod tests {
     use super::*;
 
     /// A real, shipped prop asset: the parser must accept what the toolkit writes.
-    const CHAIR_GLB: &[u8] = include_bytes!("../assets/props/models/chair.glb");
+    const CHAIR_GLB: &[u8] = include_bytes!("../assets/environment/office/props/models/chair.glb");
     /// 1x1 opaque PNG used by the synthetic fixtures below.
     const PIXEL_PNG: &[u8] = &[
         137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6,

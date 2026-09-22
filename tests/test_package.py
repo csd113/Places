@@ -1,8 +1,8 @@
 """Repository-level checks for Places.
 
 These run on the source tree without a GPU. They cover the shipped level files,
-the material and prop ids those levels reference, and the crate release
-metadata.
+the asset catalog those levels reference, the Spooner-Man entity migration and
+the crate release metadata.
 """
 
 from __future__ import annotations
@@ -10,24 +10,16 @@ from __future__ import annotations
 import json
 import re
 import struct
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 PACKAGE = Path(__file__).resolve().parent.parent
 
-CORE_MATERIALS = {
-    "core:wallpaper_yellow_01",
-    "core:wallpaper_stained_01",
-    "core:carpet_beige_01",
-    "core:carpet_damp_01",
-    "core:ceiling_panel_01",
-    "core:ceiling_stained_01",
-    "core:fluorescent_panel_01",
-    "core:decal_test_01",
-    "core:decal_no_diving_01",
-    "core:decal_arrow_01",
-    "core:decal_stripes_01",
-}
+# The asset validator is the single source of catalog truth for tooling.
+sys.path.insert(0, str(PACKAGE / "tools" / "assets"))
+import validate  # noqa: E402
 
 DECAL_SURFACES = {"floor", "ceiling", "wall_north", "wall_south", "wall_east", "wall_west"}
 
@@ -37,6 +29,7 @@ RESIDENTIAL_LEVELS = {
     "after_the_leak": "After the Leak",
 }
 
+
 def cargo_version() -> str:
     text = (PACKAGE / "Cargo.toml").read_text(encoding="utf-8")
     match = re.search(r'^version = "([^"]+)"', text, re.MULTILINE)
@@ -44,8 +37,27 @@ def cargo_version() -> str:
     return match.group(1)
 
 
+def catalog() -> dict:
+    return validate.load_catalog(str(PACKAGE / "assets" / "catalog.json"))
+
+
+def catalog_entries(asset_type: str | None = None) -> list[dict]:
+    entries = validate.catalog_entries(catalog())
+    if asset_type is None:
+        return entries
+    return [entry for entry in entries if entry.get("asset_type") == asset_type]
+
+
+def catalog_ids() -> set[str]:
+    return {entry["id"] for entry in catalog_entries()}
+
+
 def level_files() -> list[Path]:
     return sorted((PACKAGE / "assets" / "levels").glob("*.json"))
+
+
+def custom_level_files() -> list[Path]:
+    return sorted((PACKAGE / "levels").glob("*.json"))
 
 
 def load_level(path: Path) -> dict:
@@ -130,6 +142,11 @@ class ShippedLevelTests(unittest.TestCase):
                 self.assertLessEqual(max(room["width"], room["depth"]), 12.0)
 
     def test_materials_are_real_core_ids(self):
+        known_materials = {
+            entry["id"]
+            for entry in catalog_entries()
+            if entry["asset_type"] in ("material", "light")
+        }
         for path in level_files():
             level = load_level(path)
             defaults = level["defaults"]
@@ -144,17 +161,18 @@ class ShippedLevelTests(unittest.TestCase):
                 used.add(patch["material"])
             for light in level["ceiling_lights"]:
                 used.add(light["fixture"])
-            unknown = {mid for mid in used if mid.startswith("core:")} - CORE_MATERIALS
+            unknown = {mid for mid in used if mid.startswith("core:")} - known_materials
             self.assertEqual(unknown, set(), f"{path.name} uses unknown core ids")
 
     def test_decals_use_known_sheets_and_surfaces(self):
+        known_sheets = {entry["id"] for entry in catalog_entries("decal")}
         levels_with_decals = 0
         for path in level_files():
             level = load_level(path)
             for index, decal in enumerate(level.get("decals", [])):
                 self.assertIn(
                     decal["material"],
-                    CORE_MATERIALS,
+                    known_sheets,
                     f"{path.name}: decal {index} uses an unknown sheet",
                 )
                 self.assertIn(
@@ -170,10 +188,7 @@ class ShippedLevelTests(unittest.TestCase):
         self.assertGreaterEqual(levels_with_decals, 1, "no shipped level demonstrates decals")
 
     def test_props_come_from_the_shipped_catalogue(self):
-        catalogue = json.loads(
-            (PACKAGE / "assets" / "props" / "props.json").read_text(encoding="utf-8")
-        )
-        known = {prop["id"] for prop in catalogue["props"]}
+        known = {entry["id"] for entry in validate.placeable_entries(catalog())}
         for path in level_files():
             level = load_level(path)
             for prop in level.get("props", []):
@@ -209,6 +224,139 @@ class ShippedLevelTests(unittest.TestCase):
                     continue
                 self.assertGreaterEqual(brightness, 0.0)
                 self.assertLessEqual(brightness, 8.0, "intensity would be clamped")
+
+
+class AssetCatalogTests(unittest.TestCase):
+    """The asset architecture: identity, classes, themes, entities, resources."""
+
+    def test_the_catalog_and_shipped_levels_validate_cleanly(self):
+        errors, _ = validate.validate_catalog(catalog())
+        self.assertEqual(errors, [], "the shipped catalog does not validate")
+        errors, _ = validate.validate_levels(catalog())
+        self.assertEqual(errors, [], "shipped levels reference unknown assets")
+
+    def test_the_builtin_environment_themes_exist(self):
+        themes = {theme["id"]: theme for theme in catalog().get("themes", [])}
+        for theme_id in ("office", "pool"):
+            self.assertIn(theme_id, themes, f"the {theme_id} theme is missing")
+            self.assertTrue(themes[theme_id].get("display_name"))
+
+    def test_logical_ids_are_separate_from_physical_paths(self):
+        # Levels store logical ids; a physical path never leaks into level JSON.
+        for path in level_files() + custom_level_files():
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn(".glb", text, f"{path.name} stores a model file path")
+            self.assertNotIn("assets/", text, f"{path.name} stores a physical asset path")
+
+    def test_office_content_is_classified_but_generic_content_is_not_forced(self):
+        by_id = {entry["id"]: entry for entry in catalog_entries()}
+        office_props = [
+            "core:desk",
+            "core:chair",
+            "core:cabinet",
+            "core:water_cooler",
+            "core:vending_machine",
+        ]
+        for prop_id in office_props:
+            self.assertEqual(by_id[prop_id].get("theme"), "office", prop_id)
+            self.assertTrue(
+                by_id[prop_id]["model"].startswith("environment/office/"),
+                f"{prop_id} is not organized under the office environment",
+            )
+        # Shared props stay generic rather than being forced into a theme.
+        self.assertNotIn("theme", by_id["core:couch"])
+        self.assertNotIn("theme", by_id["core:bed"])
+        # The office material set and fixture carry the theme.
+        for material_id in (
+            "core:wallpaper_yellow_01",
+            "core:carpet_beige_01",
+            "core:ceiling_panel_01",
+            "core:wallpaper_stained_01",
+            "core:carpet_damp_01",
+            "core:ceiling_stained_01",
+            "core:fluorescent_panel_01",
+        ):
+            self.assertEqual(by_id[material_id].get("theme"), "office", material_id)
+
+    def test_themes_organize_without_restricting_placement(self):
+        # The asset demo mixes office, generic and entity assets in one level;
+        # nothing in the catalog or level format gates placement by theme.
+        demo = load_level(PACKAGE / "levels" / "asset_demo.json")
+        placed = {prop["model"] for prop in demo.get("props", [])}
+        for expected in ("core:desk", "core:couch", "spooner-man"):
+            self.assertIn(expected, placed)
+        self.assertTrue(
+            validate.placeable_entries(catalog()),
+            "every theme's assets resolve through one placeable lookup",
+        )
+
+    def test_spooner_man_is_one_canonical_entity_resource(self):
+        entries = [entry for entry in catalog_entries() if entry["id"] == "spooner-man"]
+        self.assertEqual(len(entries), 1, "Spooner-Man needs exactly one catalog entry")
+        spooner = entries[0]
+        self.assertEqual(spooner["asset_class"], "entity")
+        self.assertEqual(spooner["asset_type"], "entity")
+        self.assertNotIn("theme", spooner, "an entity is a class, not a theme")
+        self.assertIn("entities/spooner-man/", spooner["model"])
+        self.assertTrue((PACKAGE / "assets" / spooner["model"]).is_file())
+        self.assertFalse(
+            (PACKAGE / "assets" / "props" / "models" / "spooner-man.glb").exists(),
+            "the legacy prop copy must not survive the migration",
+        )
+        referencing = [
+            path.name
+            for path in level_files() + custom_level_files()
+            if '"model": "spooner-man"' in path.read_text(encoding="utf-8")
+        ]
+        self.assertTrue(referencing, "no shipped level still references spooner-man")
+
+    def _validate(self, entries, themes=None):
+        base = catalog()
+        return validate.validate_catalog(
+            {"themes": base["themes"] if themes is None else themes, "assets": entries}
+        )
+
+    def test_the_validator_rejects_broken_catalogs(self):
+        placeables = validate.placeable_entries(catalog())
+        spooner = next(entry for entry in catalog_entries() if entry["id"] == "spooner-man")
+        without_spooner = [entry for entry in placeables if entry["id"] != "spooner-man"]
+
+        # Duplicate logical ids are an error, never last-one-wins.
+        errors, _ = self._validate(placeables + [placeables[0]])
+        self.assertTrue(any("duplicate logical asset id" in e for e in errors), errors)
+
+        # Missing file assets and missing canonical resources are errors.
+        missing = dict(placeables[0], model="environment/office/props/models/nope.glb")
+        errors, _ = self._validate([missing])
+        self.assertTrue(any("does not exist below assets/" in e for e in errors), errors)
+        errors, _ = self._validate(without_spooner)
+        self.assertTrue(any("spooner-man" in e for e in errors), errors)
+
+        # Unknown classes and types are rejected; a future theme is a warning.
+        errors, _ = self._validate([dict(placeables[0], asset_class="enviroment")])
+        self.assertTrue(any("unknown asset_class" in e for e in errors), errors)
+        errors, _ = self._validate([dict(placeables[0], asset_type="furniture")])
+        self.assertTrue(any("unknown asset_type" in e for e in errors), errors)
+        _, warnings = self._validate([dict(placeables[0], theme="hotel")])
+        self.assertTrue(any("not declared" in w for w in warnings), warnings)
+
+        # The built-in environment themes cannot silently disappear.
+        errors, _ = self._validate(without_spooner, themes=[])
+        self.assertTrue(any("office" in e for e in errors), errors)
+        self.assertTrue(any("pool" in e for e in errors), errors)
+
+        # Spooner-Man must be an entity, not a themed prop.
+        errors, _ = self._validate(without_spooner + [dict(spooner, theme="office")])
+        self.assertTrue(any("entity must not carry" in e for e in errors), errors)
+
+    def test_a_broken_catalog_surfaces_in_the_validators_exit_code(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = catalog()
+            broken = dict(base)
+            broken["assets"] = base["assets"] + [base["assets"][0]]
+            catalog_path = Path(directory) / "catalog.json"
+            catalog_path.write_text(json.dumps(broken), encoding="utf-8")
+            self.assertEqual(validate.main(["--catalog", str(catalog_path), "--quiet"]), 1)
 
 
 class SourceHygieneTests(unittest.TestCase):

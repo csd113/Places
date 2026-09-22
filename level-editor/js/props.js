@@ -1,21 +1,26 @@
-// props.js - Prop catalog (registry) for the Liminal level editor.
+// props.js - Placeable asset catalog (registry) for the Liminal level editor.
 //
 // The catalog is data, not code: adding a model means adding an entry to
-// `assets/props/props.json` and pointing its `model` field at the GLB asset. The
-// editor never hard-codes stove/sink behaviour.
+// `assets/catalog.json` and pointing its `model` field at the GLB asset. The
+// editor never hard-codes stove/sink behaviour. Only placeable entries (asset
+// type `prop` or `entity`) appear in the prop browser; materials, lights and
+// decals are ignored by this legacy editor.
 //
 // Catalog entry shape (shared with the game's `PropCatalog` in src/loader.rs):
-//   { "id": "core:couch", "name": "Couch", "category": "Furniture",
-//     "size": [2.0, 0.9, 0.9], "color": "#6b5f4a", "model": "models/couch.glb", "solid": true }
+//   { "id": "core:couch", "display_name": "Couch", "asset_class": "environment",
+//     "asset_type": "prop", "source": "file", "category": "Furniture",
+//     "size": [2.0, 0.9, 0.9], "color": "#6b5f4a",
+//     "model": "core/props/models/couch.glb", "solid": true }
 // `size` is the full box extent in metres ([width, height, depth]) with the box
-// resting on the prop's base; `model` is the mesh asset path (null until built).
+// resting on the prop's base; `model` is the canonical resource path relative to
+// `assets/`. The editor treats the optional class/theme/type metadata as opaque.
 //
-// The built-in list below mirrors `assets/props/props.json` so the editor keeps
-// working from file:// where fetch() is unavailable. `tests/props.test.mjs` asserts
-// the two stay in sync.
+// The built-in list below mirrors the placeable entries of `assets/catalog.json`
+// so the editor keeps working from file:// where fetch() is unavailable.
+// `tests/props.test.mjs` asserts the two stay in sync.
 //
 // Modelled props also get derived proxy geometry from
-// `assets/props/prop_proxies.json` (written by tools/props/build.py). Loading it
+// `assets/prop_proxies.json` (written by tools/props/build.py). Loading it
 // is optional in exactly the same way: with no proxy the catalogue box is drawn.
 
 (function (root, factory) {
@@ -38,27 +43,27 @@
   const PROP_FALLBACK_COLOR = [0.54, 0.53, 0.5];
 
   const BUILTIN_PROPS = [
-    { id: 'core:couch', name: 'Couch', category: 'Furniture', size: [2.0, 0.9, 0.9], color: '#6b5f4a', model: 'models/couch.glb', solid: true },
-    { id: 'core:armchair', name: 'Armchair', category: 'Furniture', size: [0.9, 0.9, 0.9], color: '#7a6a55', model: 'models/armchair.glb', solid: true },
-    { id: 'core:chair', name: 'Chair', category: 'Furniture', size: [0.5, 0.9, 0.5], color: '#8a7a63', model: 'models/chair.glb', solid: true },
-    { id: 'core:table', name: 'Table', category: 'Furniture', size: [1.4, 0.75, 0.8], color: '#6f5a41', model: 'models/table.glb', solid: true },
-    { id: 'core:desk', name: 'Desk', category: 'Furniture', size: [1.6, 0.75, 0.7], color: '#5f5142', model: 'models/desk.glb', solid: true },
-    { id: 'core:bookshelf', name: 'Bookshelf', category: 'Furniture', size: [1.0, 1.8, 0.35], color: '#57452f', model: 'models/bookshelf.glb', solid: true },
-    { id: 'core:cabinet', name: 'Cabinet', category: 'Furniture', size: [0.9, 0.85, 0.45], color: '#6a5c4a', model: 'models/cabinet.glb', solid: true },
-    { id: 'core:bed', name: 'Bed', category: 'Furniture', size: [1.4, 0.55, 2.0], color: '#7d7568', model: 'models/bed.glb', solid: true },
-    { id: 'core:stove', name: 'Stove', category: 'Appliances', size: [0.6, 0.9, 0.6], color: '#8f8a80', model: 'models/stove.glb', solid: true },
-    { id: 'core:sink', name: 'Sink', category: 'Appliances', size: [0.6, 0.85, 0.55], color: '#9aa0a0', model: 'models/sink.glb', solid: true },
-    { id: 'core:fridge', name: 'Fridge', category: 'Appliances', size: [0.7, 1.8, 0.7], color: '#b8bcc0', model: 'models/fridge.glb', solid: true },
-    { id: 'core:washing_machine', name: 'Washing Machine', category: 'Appliances', size: [0.6, 0.85, 0.6], color: '#a2a6aa', model: 'models/washing_machine.glb', solid: true },
-    { id: 'core:vending_machine', name: 'Vending Machine', category: 'Appliances', size: [1.0, 1.9, 0.8], color: '#4f5a63', model: 'models/vending_machine.glb', solid: true },
-    { id: 'core:water_cooler', name: 'Water Cooler', category: 'Appliances', size: [0.35, 1.1, 0.35], color: '#8fa4ae', model: 'models/water_cooler.glb', solid: true },
-    { id: 'core:crate', name: 'Crate', category: 'Utility', size: [0.6, 0.6, 0.6], color: '#7a6244', model: 'models/crate.glb', solid: true },
-    { id: 'core:cardboard_box', name: 'Cardboard Box', category: 'Other', size: [0.5, 0.5, 0.5], color: '#a8895f', model: 'models/cardboard_box.glb', solid: false },
-    { id: 'core:plant', name: 'Plant', category: 'Decorative', size: [0.4, 1.0, 0.4], color: '#4f6b43', model: 'models/plant.glb', solid: false },
-    { id: 'core:rug', name: 'Rug', category: 'Decorative', size: [2.0, 0.02, 1.4], color: '#6d5a52', model: 'models/rug.glb', solid: false },
-    { id: 'core:lamp', name: 'Floor Lamp', category: 'Decorative', size: [0.35, 1.5, 0.35], color: '#8a8272', model: 'models/lamp.glb', solid: false },
-    { id: 'core:tv', name: 'Television', category: 'Decorative', size: [1.1, 0.7, 0.1], color: '#33363a', model: 'models/tv.glb', solid: false },
-    { id: 'spooner-man', name: 'Spooner-Man', category: 'Decorative', size: [0.27, 0.39, 1.02], color: '#33343a', model: 'models/spooner-man.glb', solid: false }
+    { id: 'core:couch', name: 'Couch', category: 'Furniture', size: [2.0, 0.9, 0.9], color: '#6b5f4a', model: 'core/props/models/couch.glb', solid: true },
+    { id: 'core:armchair', name: 'Armchair', category: 'Furniture', size: [0.9, 0.9, 0.9], color: '#7a6a55', model: 'core/props/models/armchair.glb', solid: true },
+    { id: 'core:chair', name: 'Chair', category: 'Furniture', size: [0.5, 0.9, 0.5], color: '#8a7a63', model: 'environment/office/props/models/chair.glb', solid: true },
+    { id: 'core:table', name: 'Table', category: 'Furniture', size: [1.4, 0.75, 0.8], color: '#6f5a41', model: 'core/props/models/table.glb', solid: true },
+    { id: 'core:desk', name: 'Desk', category: 'Furniture', size: [1.6, 0.75, 0.7], color: '#5f5142', model: 'environment/office/props/models/desk.glb', solid: true },
+    { id: 'core:bookshelf', name: 'Bookshelf', category: 'Furniture', size: [1.0, 1.8, 0.35], color: '#57452f', model: 'core/props/models/bookshelf.glb', solid: true },
+    { id: 'core:cabinet', name: 'Cabinet', category: 'Furniture', size: [0.9, 0.85, 0.45], color: '#6a5c4a', model: 'environment/office/props/models/cabinet.glb', solid: true },
+    { id: 'core:bed', name: 'Bed', category: 'Furniture', size: [1.4, 0.55, 2.0], color: '#7d7568', model: 'core/props/models/bed.glb', solid: true },
+    { id: 'core:stove', name: 'Stove', category: 'Appliances', size: [0.6, 0.9, 0.6], color: '#8f8a80', model: 'core/props/models/stove.glb', solid: true },
+    { id: 'core:sink', name: 'Sink', category: 'Appliances', size: [0.6, 0.85, 0.55], color: '#9aa0a0', model: 'core/props/models/sink.glb', solid: true },
+    { id: 'core:fridge', name: 'Fridge', category: 'Appliances', size: [0.7, 1.8, 0.7], color: '#b8bcc0', model: 'core/props/models/fridge.glb', solid: true },
+    { id: 'core:washing_machine', name: 'Washing Machine', category: 'Appliances', size: [0.6, 0.85, 0.6], color: '#a2a6aa', model: 'core/props/models/washing_machine.glb', solid: true },
+    { id: 'core:vending_machine', name: 'Vending Machine', category: 'Appliances', size: [1.0, 1.9, 0.8], color: '#4f5a63', model: 'environment/office/props/models/vending_machine.glb', solid: true },
+    { id: 'core:water_cooler', name: 'Water Cooler', category: 'Appliances', size: [0.35, 1.1, 0.35], color: '#8fa4ae', model: 'environment/office/props/models/water_cooler.glb', solid: true },
+    { id: 'core:crate', name: 'Crate', category: 'Utility', size: [0.6, 0.6, 0.6], color: '#7a6244', model: 'core/props/models/crate.glb', solid: true },
+    { id: 'core:cardboard_box', name: 'Cardboard Box', category: 'Other', size: [0.5, 0.5, 0.5], color: '#a8895f', model: 'core/props/models/cardboard_box.glb', solid: false },
+    { id: 'core:plant', name: 'Plant', category: 'Decorative', size: [0.4, 1.0, 0.4], color: '#4f6b43', model: 'core/props/models/plant.glb', solid: false },
+    { id: 'core:rug', name: 'Rug', category: 'Decorative', size: [2.0, 0.02, 1.4], color: '#6d5a52', model: 'core/props/models/rug.glb', solid: false },
+    { id: 'core:lamp', name: 'Floor Lamp', category: 'Decorative', size: [0.35, 1.5, 0.35], color: '#8a8272', model: 'core/props/models/lamp.glb', solid: false },
+    { id: 'core:tv', name: 'Television', category: 'Decorative', size: [1.1, 0.7, 0.1], color: '#33363a', model: 'core/props/models/tv.glb', solid: false },
+    { id: 'spooner-man', name: 'Spooner-Man', category: 'Decorative', size: [0.27, 0.39, 1.02], color: '#33343a', model: 'entities/spooner-man/model/spooner-man.glb', solid: false }
   ];
 
   function parseHexColor(value) {
@@ -80,6 +85,14 @@
     }).join('');
   }
 
+  /** True for the catalog entries the editor can place (props and entities). */
+  function isPlaceableAsset(raw) {
+    if (!raw || typeof raw !== 'object') return false;
+    const type = raw.asset_type;
+    if (type === undefined || type === null || type === '') return true; // legacy `props` entries
+    return type === 'prop' || type === 'entity';
+  }
+
   function normalizeEntry(raw, id) {
     if (!raw || typeof raw !== 'object') return null;
     const entryId = String(raw.id || id || '').trim();
@@ -90,7 +103,7 @@
     const category = PROP_CATEGORIES.includes(raw.category) ? raw.category : 'Other';
     return {
       id: entryId,
-      name: String(raw.name || entryId.split(':').pop() || entryId),
+      name: String(raw.display_name || raw.name || entryId.split(':').pop() || entryId),
       category,
       size,
       color,
@@ -99,11 +112,14 @@
     };
   }
 
-  /** Parses a catalog JSON object ({props:[...]}) or an array of entries. Never throws. */
+  /** Parses a catalog JSON object ({assets:[...]} or legacy {props:[...]}) or an array of entries. Never throws. */
   function parsePropCatalog(data) {
     const list = [];
     const byId = new Map();
-    const raw = Array.isArray(data) ? data : (data && Array.isArray(data.props) ? data.props : []);
+    const source = Array.isArray(data)
+      ? data
+      : (data && (Array.isArray(data.assets) ? data.assets : (Array.isArray(data.props) ? data.props : [])));
+    const raw = source.filter(isPlaceableAsset);
     for (const item of raw) {
       const entry = normalizeEntry(item);
       if (entry && !byId.has(entry.id)) {
@@ -171,9 +187,9 @@
   }
 
   const DEFAULT_CATALOG_URLS = [
-    '../assets/props/props.json',
-    '../../assets/props/props.json',
-    'assets/props/props.json',
+    '../assets/catalog.json',
+    '../../assets/catalog.json',
+    'assets/catalog.json',
     'props.json'
   ];
 
@@ -207,7 +223,7 @@
 
   // ------------------------------------------------------------ proxy geometry
   //
-  // `assets/props/prop_proxies.json` is derived from the shipped GLBs by
+  // `assets/prop_proxies.json` is derived from the shipped GLBs by
   // `tools/props/build.py` (never edited by hand) and gives the editor a compact,
   // flat-shaded stand-in for every modelled prop. Coordinates are metres in
   // prop-local space (origin at the floor contact, +Z front); `parts` mixes
@@ -351,9 +367,9 @@
   }
 
   const DEFAULT_PROXY_URLS = [
-    '../assets/props/prop_proxies.json',
-    '../../assets/props/prop_proxies.json',
-    'assets/props/prop_proxies.json',
+    '../assets/prop_proxies.json',
+    '../../assets/prop_proxies.json',
+    'assets/prop_proxies.json',
     'prop_proxies.json'
   ];
 
@@ -396,6 +412,7 @@
     PropCatalog,
     PropProxies,
     parsePropCatalog,
+    isPlaceableAsset,
     parsePropProxies,
     parseHexColor,
     toHexColor,

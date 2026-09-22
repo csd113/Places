@@ -1,3 +1,4 @@
+pub mod assets;
 pub mod bench;
 pub mod collision;
 pub mod font;
@@ -23,6 +24,7 @@ mod test_support;
 pub mod ui;
 
 use std::cmp::Ordering;
+use std::io::Write;
 
 use glam::Vec3;
 use sdl2::event::Event;
@@ -37,6 +39,9 @@ use settings::Settings;
 use ui::{SETTINGS_ITEM_COUNT, UiGeometryCache, UiState, activate_settings_item};
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// How often `LIMINAL_STATE_LOG` records the player state, in frames.
+const STATE_LOG_INTERVAL: u64 = 5;
 
 /// Prints what the level's props and baked lighting cost, so hardware runs
 /// (`PocketCHIP` over SSH) can be checked without a debugger: decoded models,
@@ -259,6 +264,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut bench = Bench::new();
 
     let mut level_manager = loader::LevelManager::new();
+    // One startup line reports the asset catalog: how many logical assets it
+    // declares and which environment themes organize them. Lookup itself is
+    // resolved once per level load, never per frame.
+    {
+        let catalog = level_manager.prop_catalog();
+        let themes: Vec<&str> = catalog
+            .themes()
+            .iter()
+            .map(|theme| theme.id.as_str())
+            .collect();
+        let themes = if themes.is_empty() {
+            "(none)".to_string()
+        } else {
+            themes.join(", ")
+        };
+        println!(
+            "[assets] {} placeable asset(s) of {} catalog entries; themes: {themes}",
+            catalog.len(),
+            catalog.assets().len()
+        );
+    }
     let initial_level = level_manager
         .load_default_or_level1()
         .map_err(|e| format!("Failed to load initial level: {e}"))?;
@@ -372,6 +398,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let spawn_override: Option<[f32; 4]> = std::env::var("LIMINAL_SPAWN")
         .ok()
         .and_then(|value| parse_spawn_override(&value));
+    // `LIMINAL_STATE_LOG=file.csv` records `frame,x,y,z,yaw,pitch` while the
+    // game runs, so control and movement checks can assert real input results
+    // from a running build instead of inferring them from screenshots.
+    let mut state_log: Option<std::fs::File> = std::env::var("LIMINAL_STATE_LOG")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .and_then(|path| {
+            std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&path)
+                .map_err(|error| eprintln!("LIMINAL_STATE_LOG: cannot open {path}: {error}"))
+                .ok()
+        });
     if let Some([x, y, z, yaw]) = spawn_override {
         spawn_pos = Vec3::new(x, y, z);
         spawn_yaw = yaw.to_radians();
@@ -631,6 +672,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Update player movement (only active during AppState::Playing)
         game.update_player_movement(input_handler.state(), &settings);
+        // `LIMINAL_STATE_LOG=file.csv`: append the player state every few frames.
+        // Development diagnostics for control validation on a real machine; it
+        // never changes gameplay and is inert unless the variable is set.
+        if let Some(log) = state_log.as_mut()
+            && game.frame_count().is_multiple_of(STATE_LOG_INTERVAL)
+        {
+            let _ = writeln!(
+                log,
+                "{},{:.4},{:.4},{:.4},{:.4},{:.4}",
+                game.frame_count(),
+                game.player_position.x,
+                game.player_position.y,
+                game.player_position.z,
+                game.player_yaw,
+                game.player_pitch
+            );
+        }
         let frame_update_done = std::time::Instant::now();
 
         // Use the physical drawable size, not the logical window size, so HiDPI

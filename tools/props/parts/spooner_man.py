@@ -1,6 +1,6 @@
 """spooner-man: a low-poly tuxedo cat, built from the pack's primitives.
 
-The canonical id is ``spooner-man`` (hyphen), matching `assets/props/props.json`
+The canonical id is ``spooner-man`` (hyphen), matching `assets/catalog.json`
 and every level that places him; the underscore spelling is only this Python
 module's name. He is an ordinary static prop: one mesh, one material, one
 256x256 texture, no animation, no special runtime path.

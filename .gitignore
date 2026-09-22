@@ -1,4 +1,6 @@
 /target
+__pycache__/
+*.pyc
 
 # Benchmark artifacts are generated locally, never committed.
 tools/bench/results/

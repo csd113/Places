@@ -1,7 +1,7 @@
 """Appliances props for the core pack: stove, sink, fridge, washing machine,
 vending machine and water cooler.
 
-The pack contract (see ``assets/props/README.md`` and the commented exemplar in
+The pack contract (see ``assets/README.md`` and the commented exemplar in
 ``parts/utility.py``) applies unchanged: metres, origin on the floor-contact
 point, +Z facing the player, one 64x64/128x128 texture and one material per
 prop, no alpha.  Every appliance here is a boxy silhouette plus a handful of

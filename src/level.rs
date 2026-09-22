@@ -576,7 +576,7 @@ pub const MAX_LIGHT_QUADS: u64 = 3;
 /// Number of quads a prop generates in its placeholder-box form. Real prop
 /// geometry is batched separately and bounded by [`MAX_LEVEL_PROP_VERTICES`].
 pub const MAX_PROP_QUADS: u64 = 6;
-/// Preferred triangle count for one prop model (see `assets/props/README.md`).
+/// Preferred triangle count for one prop model (see `assets/README.md`).
 pub const PROP_TRIANGLE_TARGET: usize = 500;
 /// Triangle count above which a prop model needs an explicit justification.
 pub const PROP_TRIANGLE_REVIEW: usize = 800;

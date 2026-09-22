@@ -6,15 +6,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import props from '../js/props.js';
 
-const { PropCatalog, PropProxies, parsePropCatalog, parseHexColor, loadPropCatalog, loadPropProxies } = props;
+const { PropCatalog, PropProxies, parsePropCatalog, isPlaceableAsset, parseHexColor, loadPropCatalog, loadPropProxies } = props;
 const here = path.dirname(fileURLToPath(import.meta.url));
-const catalogPath = path.resolve(here, '../../assets/props/props.json');
+const catalogPath = path.resolve(here, '../../assets/catalog.json');
 
-test('the built-in catalog mirrors assets/props/props.json', () => {
+test('the built-in catalog mirrors the placeable entries of assets/catalog.json', () => {
   const shared = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
-  const expected = shared.props.map(entry => ({
+  const expected = shared.assets.filter(isPlaceableAsset).map(entry => ({
     id: entry.id,
-    name: entry.name,
+    name: entry.display_name || entry.name || entry.id,
     category: entry.category,
     size: entry.size,
     color: entry.color,

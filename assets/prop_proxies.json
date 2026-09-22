@@ -1,7 +1,7 @@
 {
   "format_version": 1,
   "generated_by": "tools/props/build.py",
-  "note": "Derived from the shipped GLB meshes; do not edit by hand.",
+  "note": "Derived from the shipped GLB meshes; do not edit by hand. Model paths are relative to assets/.",
   "props": {
     "core:armchair": {
       "bounds_max": [
@@ -14,7 +14,7 @@
         0.0,
         -0.45
       ],
-      "model": "models/armchair.glb",
+      "model": "core/props/models/armchair.glb",
       "name": "Armchair",
       "parts": [
         {
@@ -301,7 +301,7 @@
         0.0,
         -1.0
       ],
-      "model": "models/bed.glb",
+      "model": "core/props/models/bed.glb",
       "name": "Bed",
       "parts": [
         {
@@ -759,7 +759,7 @@
         0.0,
         -0.175
       ],
-      "model": "models/bookshelf.glb",
+      "model": "core/props/models/bookshelf.glb",
       "name": "Bookshelf",
       "parts": [
         {
@@ -1065,7 +1065,7 @@
         0.0,
         -0.225
       ],
-      "model": "models/cabinet.glb",
+      "model": "environment/office/props/models/cabinet.glb",
       "name": "Cabinet",
       "parts": [
         {
@@ -1294,7 +1294,7 @@
         0.0,
         -0.25
       ],
-      "model": "models/cardboard_box.glb",
+      "model": "core/props/models/cardboard_box.glb",
       "name": "Cardboard Box",
       "parts": [
         {
@@ -1334,7 +1334,7 @@
         0.0,
         -0.265
       ],
-      "model": "models/chair.glb",
+      "model": "environment/office/props/models/chair.glb",
       "name": "Chair",
       "parts": [
         {
@@ -1601,7 +1601,7 @@
         0.0,
         -0.45
       ],
-      "model": "models/couch.glb",
+      "model": "core/props/models/couch.glb",
       "name": "Couch",
       "parts": [
         {
@@ -2059,7 +2059,7 @@
         0.0,
         -0.3
       ],
-      "model": "models/crate.glb",
+      "model": "core/props/models/crate.glb",
       "name": "Crate",
       "parts": [
         {
@@ -2099,7 +2099,7 @@
         0.0,
         -0.35
       ],
-      "model": "models/desk.glb",
+      "model": "environment/office/props/models/desk.glb",
       "name": "Desk",
       "parts": [
         {
@@ -2367,7 +2367,7 @@
         0.0,
         -0.35
       ],
-      "model": "models/fridge.glb",
+      "model": "core/props/models/fridge.glb",
       "name": "Fridge",
       "parts": [
         {
@@ -2483,7 +2483,7 @@
         0.0,
         -0.175
       ],
-      "model": "models/lamp.glb",
+      "model": "core/props/models/lamp.glb",
       "name": "Floor Lamp",
       "parts": [
         {
@@ -2574,7 +2574,7 @@
         0.0,
         -0.192
       ],
-      "model": "models/plant.glb",
+      "model": "core/props/models/plant.glb",
       "name": "Plant",
       "parts": [
         {
@@ -2623,7 +2623,7 @@
         0.0,
         -0.7
       ],
-      "model": "models/rug.glb",
+      "model": "core/props/models/rug.glb",
       "name": "Rug",
       "parts": [
         {
@@ -2663,7 +2663,7 @@
         0.0,
         -0.275
       ],
-      "model": "models/sink.glb",
+      "model": "core/props/models/sink.glb",
       "name": "Sink",
       "parts": [
         {
@@ -2808,7 +2808,7 @@
         0.0,
         -0.3
       ],
-      "model": "models/stove.glb",
+      "model": "core/props/models/stove.glb",
       "name": "Stove",
       "parts": [
         {
@@ -2886,7 +2886,7 @@
         0.0,
         -0.4
       ],
-      "model": "models/table.glb",
+      "model": "core/props/models/table.glb",
       "name": "Table",
       "parts": [
         {
@@ -3077,7 +3077,7 @@
         0.0,
         -0.05
       ],
-      "model": "models/tv.glb",
+      "model": "core/props/models/tv.glb",
       "name": "Television",
       "parts": [
         {
@@ -3212,7 +3212,7 @@
         0.0,
         -0.4
       ],
-      "model": "models/vending_machine.glb",
+      "model": "environment/office/props/models/vending_machine.glb",
       "name": "Vending Machine",
       "parts": [
         {
@@ -3385,7 +3385,7 @@
         0.0,
         -0.3
       ],
-      "model": "models/washing_machine.glb",
+      "model": "core/props/models/washing_machine.glb",
       "name": "Washing Machine",
       "parts": [
         {
@@ -3477,7 +3477,7 @@
         0.0,
         -0.175
       ],
-      "model": "models/water_cooler.glb",
+      "model": "environment/office/props/models/water_cooler.glb",
       "name": "Water Cooler",
       "parts": [
         {
@@ -3564,7 +3564,7 @@
         -0.0,
         -0.511
       ],
-      "model": "models/spooner-man.glb",
+      "model": "entities/spooner-man/model/spooner-man.glb",
       "name": "Spooner-Man",
       "parts": [
         {

@@ -7,7 +7,7 @@ with:
 
     python3 tools/generate_spooner_man.py
 
-It builds `assets/props/models/spooner-man.glb` from the low-poly cat module
+It builds `assets/entities/spooner-man/model/spooner-man.glb` from the low-poly cat module
 (`tools/props/parts/spooner_man.py`), refreshes the derived editor proxy file
 and thumbnails, and prints the asset's budget report. Blender is deliberately
 not part of this: the pack has a Blender-free generator, and nothing here

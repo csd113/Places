@@ -1,10 +1,10 @@
-//! Prop asset loading, caching and budget validation.
+//! Placeable asset loading, caching and budget validation.
 //!
-//! Levels reference props by catalogue id (`core:chair`); the catalogue maps
-//! that id to a model path (`models/chair.glb`). This module resolves those
-//! paths, parses each GLB exactly once, and keeps the decoded model (vertices,
-//! indices, texture) behind an `Rc` so twenty placed chairs share one CPU copy
-//! and one GPU texture upload.
+//! Levels reference assets by logical id (`core:chair`, `spooner-man`); the
+//! asset catalog maps that id to a canonical resource path below the asset root
+//! (`assets/`). This module resolves those paths, parses each GLB exactly once,
+//! and keeps the decoded model (vertices, indices, texture) behind an `Rc` so
+//! twenty placed chairs share one CPU copy and one GPU texture upload.
 //!
 //! Failure is always graceful: a missing or malformed model is remembered as an
 //! error (never retried in a loop) and the renderer falls back to the prop's
@@ -16,15 +16,6 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use crate::gltf::{GltfError, PropModel, parse_glb};
-
-/// Directory candidates for the shipped prop assets, mirroring the catalogue's
-/// own search order so a run from the app dir and from a packaged build both work.
-const PROP_ROOT_CANDIDATES: [&str; 4] = [
-    "assets/props",
-    "./assets/props",
-    "../assets/props",
-    "assets",
-];
 
 /// One model's decoded asset plus the path it came from.
 #[derive(Debug)]
@@ -101,7 +92,7 @@ impl PropAssets {
         let root = self
             .root
             .as_ref()
-            .ok_or_else(|| "no prop asset directory found (expected assets/props)".to_string())?;
+            .ok_or_else(|| "no asset directory found (expected assets/)".to_string())?;
         let full_path = root.join(model_path);
         let bytes = fs::read(&full_path)
             .map_err(|error| format!("cannot read prop model {}: {error}", full_path.display()))?;
@@ -140,12 +131,12 @@ impl PropAssets {
     }
 }
 
-/// Finds the shipped prop asset directory.
+/// Finds the shipped asset root (`assets/`).
+///
+/// The single definition lives in [`crate::assets`], so the catalog and the
+/// model cache can never disagree about where files are stored.
 pub fn resolve_prop_root() -> Option<PathBuf> {
-    PROP_ROOT_CANDIDATES
-        .iter()
-        .map(PathBuf::from)
-        .find(|candidate| candidate.is_dir())
+    crate::assets::resolve_asset_root()
 }
 
 #[cfg(test)]
@@ -158,7 +149,7 @@ mod tests {
     use crate::loader::PropCatalog;
 
     /// Catalogue + shipped GLB validation, the automated half of the asset
-    /// budgets in `assets/props/README.md`. Every failure message names the prop
+    /// budgets in `assets/README.md`. Every failure message names the prop
     /// and the concrete rule so the fix is obvious.
     #[test]
     fn shipped_prop_assets_match_the_catalogue_and_budgets() {
@@ -166,13 +157,13 @@ mod tests {
         let mut assets = PropAssets::load_default();
         assert!(
             assets.root().is_some(),
-            "prop asset directory not found; expected assets/props next to the crate"
+            "asset directory not found; expected assets/ next to the crate"
         );
 
         let entries = catalog.entries();
         assert!(
             !entries.is_empty(),
-            "prop catalogue assets/props/props.json is empty"
+            "the asset catalogue assets/catalog.json is empty"
         );
         assert_eq!(
             entries.len(),
@@ -330,8 +321,8 @@ mod tests {
     #[test]
     fn a_missing_model_is_reported_once_and_never_retried() {
         let mut assets = PropAssets::with_root("target/definitely-not-here");
-        let first = assets.resolve("models/chair.glb");
-        let second = assets.resolve("models/chair.glb");
+        let first = assets.resolve("environment/office/props/models/chair.glb");
+        let second = assets.resolve("environment/office/props/models/chair.glb");
         assert!(first.is_err() && second.is_err());
         assert_eq!(first.unwrap_err(), second.unwrap_err());
         let stats = assets.stats();
@@ -342,8 +333,12 @@ mod tests {
     #[test]
     fn assets_are_shared_between_instances() {
         let mut assets = PropAssets::load_default();
-        let first = assets.resolve("models/chair.glb").expect("chair loads");
-        let second = assets.resolve("models/chair.glb").expect("chair loads");
+        let first = assets
+            .resolve("environment/office/props/models/chair.glb")
+            .expect("chair loads");
+        let second = assets
+            .resolve("environment/office/props/models/chair.glb")
+            .expect("chair loads");
         assert!(
             Rc::ptr_eq(&first, &second),
             "identical models must share one decoded copy"

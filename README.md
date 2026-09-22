@@ -27,6 +27,31 @@ level is dark but never unreadable. Older development levels (Level 1, the
 asset demo, and the prop showcase/stress fixtures) are still installed and can
 be chosen from the same menu.
 
+## Assets
+
+Levels reference assets by **logical id** (`core:desk`, `spooner-man`), never by
+file path. The catalog at `assets/catalog.json` maps each id to its class
+(`environment`, `entity`, `core`, `diagnostic`), its type (`prop`, `material`,
+`light`, `decal`, ...), an optional environment theme and the canonical resource
+under `assets/`.
+
+* The initial environment themes are **`office`** and **`pool`**. Themes group
+  and document content; they never restrict placement, so Office and Pool assets
+  (and entities) can be mixed freely in any level.
+* **Spooner-Man** is an entity asset (`asset_class: entity`), not an Office or
+  Pool prop. Its logical id is still exactly `spooner-man`, and its one
+  canonical resource lives at `assets/entities/spooner-man/model/spooner-man.glb`.
+* Generic props (couch, bed, appliances, ...) carry no theme and stay generic.
+
+`assets/README.md` documents the catalog format, the runtime resolution flow and
+the asset budgets. Validate everything with:
+
+```sh
+python3 tools/assets/validate.py   # catalog, resources, shipped levels
+python3 tools/props/build.py --check
+cargo test
+```
+
 ## Controls
 
 Menus use `W`/`S` or `UP`/`DOWN` to move through items, `A`/`D` or
@@ -67,8 +92,8 @@ Then launch the desktop development build from the repository root:
 cargo run
 ```
 
-The game resolves its levels, props, imported level packs and `settings.json`
-relative to the repository root for development builds.
+The game resolves its levels, asset catalog, imported level packs and
+`settings.json` relative to the repository root for development builds.
 
 ## Level packs
 
@@ -94,6 +119,8 @@ separate adaptation effort.
 ```sh
 cargo build --release                  # development build for this machine
 cargo test                             # level, lighting, renderer and format tests
+python3 tools/assets/validate.py       # asset catalog and shipped-level validation
+python3 tools/props/build.py --check   # prop models exist and fit their budgets
 ```
 
 Run the game and its tests from the repository root. Platform-specific build

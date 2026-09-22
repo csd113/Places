@@ -1358,7 +1358,7 @@ fn prop_level(props_json: &str, lights_json: &str) -> LevelDef {
 fn group_m_n_real_props_are_lit_from_their_transformed_world_position() {
     let catalog = crate::loader::PropCatalog::load_default();
     let mut assets = crate::props::PropAssets::load_default();
-    assert!(assets.root().is_some(), "assets/props must exist");
+    assert!(assets.root().is_some(), "the assets/ directory must exist");
 
     // The same chair at the floor, one metre up and two metres up. The higher
     // copies sit closer to the 2.99 m fixture plane, so they must read brighter.

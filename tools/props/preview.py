@@ -33,8 +33,20 @@ sys.path.insert(0, HERE)
 import glb  # noqa: E402
 from tex import decode_png, write_png  # noqa: E402
 
-CATALOG_PATH = os.path.join(APP_ROOT, "assets", "props", "props.json")
-PROPS_DIR = os.path.join(APP_ROOT, "assets", "props")
+ASSET_ROOT = os.path.join(APP_ROOT, "assets")
+CATALOG_PATH = os.path.join(ASSET_ROOT, "catalog.json")
+PLACEABLE_TYPES = ("prop", "entity")
+
+
+def _placeable_entries(catalog: dict) -> List[dict]:
+    entries = catalog.get("assets")
+    if entries is None:
+        entries = catalog.get("props", [])
+    return [
+        entry
+        for entry in entries
+        if entry.get("asset_type", "prop") in PLACEABLE_TYPES
+    ]
 
 BACKGROUND_TOP = (26, 27, 30)
 BACKGROUND_BOTTOM = (16, 16, 18)
@@ -256,8 +268,8 @@ def catalogue_models() -> Dict[str, str]:
     with open(CATALOG_PATH, "r", encoding="utf-8") as handle:
         catalog = json.load(handle)
     return {
-        entry["id"]: os.path.join(PROPS_DIR, entry["model"])
-        for entry in catalog["props"]
+        entry["id"]: os.path.join(ASSET_ROOT, entry["model"])
+        for entry in _placeable_entries(catalog)
         if entry.get("model")
     }
 
@@ -265,7 +277,7 @@ def catalogue_models() -> Dict[str, str]:
 def catalog_order() -> List[str]:
     with open(CATALOG_PATH, "r", encoding="utf-8") as handle:
         catalog = json.load(handle)
-    return [entry["id"] for entry in catalog["props"]]
+    return [entry["id"] for entry in _placeable_entries(catalog)]
 
 
 def render_thumbnails(ids: Sequence[str], out_dir: str, size: int = 64) -> None:

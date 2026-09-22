@@ -3767,7 +3767,7 @@ fn transform_bounds(local: &crate::spatial::Aabb, transform: &glam::Mat4) -> cra
 /// This is exactly the transform the placeholder boxes use (see
 /// [`add_prop_box`]), so a prop keeps its position, orientation and vertical
 /// offset when its real model replaces the box. Model space is metres with the
-/// origin at the floor-contact centre (see `assets/props/README.md`).
+/// origin at the floor-contact centre (see `assets/README.md`).
 #[must_use]
 pub fn prop_instance_matrix(prop: &PropDef) -> glam::Mat4 {
     let rotation = glam::Mat4::from_rotation_y(prop.rotation_degrees.to_radians());
@@ -6767,7 +6767,9 @@ mod tests {
         // at its own transformed world position. Instances are concatenated in
         // placement order and each contributes the model's whole vertex array,
         // so the model index wraps once per instance.
-        let asset = assets.resolve("models/chair.glb").expect("chair loads");
+        let asset = assets
+            .resolve("environment/office/props/models/chair.glb")
+            .expect("chair loads");
         let model = &asset.model;
         for (vertex_index, vertex) in vertices.iter().enumerate() {
             // Instances contribute the model's own vertex array in order, so the
@@ -7105,7 +7107,7 @@ mod tests {
         let assets = crate::props::PropAssets::load_default();
         assert!(
             assets.root().is_some(),
-            "assets/props must exist for these tests"
+            "the assets/ directory must exist for these tests"
         );
         assets
     }
@@ -7132,7 +7134,10 @@ mod tests {
         // The box placeholder is gone: the chair renders as real geometry.
         assert_eq!(mesh.batches.prop_batch.count, 0);
         assert_eq!(batches.len(), 1, "one draw batch per distinct model");
-        assert_eq!(batches[0].model, "models/chair.glb");
+        assert_eq!(
+            batches[0].model,
+            "environment/office/props/models/chair.glb"
+        );
         assert!(!batches[0].vertices.is_empty());
         assert_eq!(batches[0].texture.width, 64);
 
@@ -7347,7 +7352,7 @@ mod tests {
         // spread across whatever cells they occupy, never duplicated per cell.
         let chair_vertices: usize = batches
             .iter()
-            .filter(|batch| batch.model == "models/chair.glb")
+            .filter(|batch| batch.model == "environment/office/props/models/chair.glb")
             .map(|batch| batch.vertices.len())
             .sum();
         assert!(

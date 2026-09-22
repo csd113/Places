@@ -13,8 +13,8 @@ import geometry from '../js/geometry.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(here, '../..');
-const catalogPath = path.join(appRoot, 'assets/props/props.json');
-const proxyPath = path.join(appRoot, 'assets/props/prop_proxies.json');
+const catalogPath = path.join(appRoot, 'assets/catalog.json');
+const proxyPath = path.join(appRoot, 'assets/prop_proxies.json');
 const thumbsDir = path.join(appRoot, 'level-editor/assets/thumbs');
 
 const catalog = props.PropCatalog.fromJSON(JSON.parse(fs.readFileSync(catalogPath, 'utf8')));

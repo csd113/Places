@@ -8,10 +8,11 @@ Usage (from the Places repository root)::
     python3 tools/props/build.py --check        # validate the shipped GLBs only
     python3 tools/props/build.py --report       # print the budget table only
 
-The catalogue ``assets/props/props.json`` is the authoritative scope: the
-generator builds exactly the entries it lists (no more, no fewer), writes each
-``model`` path it declares, and refuses to ship a prop whose mesh breaks the
-pack's scale, origin, UV or triangle budgets.
+The catalogue ``assets/catalog.json`` is the authoritative scope: the
+generator builds exactly the placeable entries it lists (props and entities, no
+more, no fewer), writes each ``model`` path it declares (relative to
+``assets/``), and refuses to ship a prop whose mesh breaks the pack's scale,
+origin, UV or triangle budgets.
 """
 
 from __future__ import annotations
@@ -24,9 +25,9 @@ from typing import Dict, List
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-CATALOG_PATH = os.path.join(APP_ROOT, "assets", "props", "props.json")
-PROPS_DIR = os.path.join(APP_ROOT, "assets", "props")
-PROXY_PATH = os.path.join(PROPS_DIR, "prop_proxies.json")
+ASSET_ROOT = os.path.join(APP_ROOT, "assets")
+CATALOG_PATH = os.path.join(ASSET_ROOT, "catalog.json")
+PROXY_PATH = os.path.join(ASSET_ROOT, "prop_proxies.json")
 THUMB_DIR = os.path.join(APP_ROOT, "level-editor", "assets", "thumbs")
 
 sys.path.insert(0, HERE)
@@ -43,23 +44,43 @@ TRIANGLE_HARD_MAX = 1500
 TEXTURE_PREFERRED_MAX = 128
 TEXTURE_HARD_MAX = 256
 
+# Asset types the toolkit can build: entities place through the same pipeline.
+PLACEABLE_TYPES = ("prop", "entity")
+
 
 def load_catalog() -> dict:
     with open(CATALOG_PATH, "r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
+def catalog_placeables(catalog: dict) -> List[dict]:
+    """The placeable (prop/entity) entries the toolkit builds and validates."""
+    entries = catalog.get("assets")
+    if entries is None:
+        entries = catalog.get("props", [])
+    return [
+        entry
+        for entry in entries
+        if entry.get("asset_type", "prop") in PLACEABLE_TYPES
+    ]
+
+
+def entry_name(entry: dict) -> str:
+    """The human-readable name, accepting the legacy ``name`` spelling."""
+    return entry.get("display_name") or entry.get("name") or entry["id"]
+
+
 def model_path(entry: dict) -> str:
     model = entry.get("model")
     if not model:
         raise SystemExit(f"{entry['id']}: catalogue entry has no model path")
-    return os.path.join(PROPS_DIR, model)
+    return os.path.join(ASSET_ROOT, model)
 
 
 def build_one(entry: dict, build_fn) -> dict:
     prop_id = entry["id"]
     size = [float(value) for value in entry["size"]]
-    builder = PropBuilder(prop_id, entry["name"], size)
+    builder = PropBuilder(prop_id, entry_name(entry), size)
     build_fn(builder)
     builder.mesh.validate(size)
     degenerate = builder.mesh.degenerate_triangles()
@@ -87,7 +108,7 @@ def build_one(entry: dict, build_fn) -> dict:
     low, high = builder.mesh.bounds()
     return {
         "id": prop_id,
-        "name": entry["name"],
+        "name": entry_name(entry),
         "model": entry["model"],
         "triangles": triangles,
         "vertices": builder.mesh.vertex_count,
@@ -110,7 +131,7 @@ def main(argv: List[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     catalog = load_catalog()
-    entries = catalog["props"]
+    entries = catalog_placeables(catalog)
     registry = parts.collect()
 
     if not args.check and not args.report:
@@ -156,7 +177,7 @@ def main(argv: List[str] | None = None) -> int:
             report.append(
                 {
                     "id": entry["id"],
-                    "name": entry["name"],
+                    "name": entry_name(entry),
                     "model": entry["model"],
                     "triangles": mesh.triangle_count,
                     "vertices": len(mesh.positions),
@@ -213,7 +234,7 @@ def write_proxies(catalog: dict, report: List[dict], only: List[str] | None = No
         with open(PROXY_PATH, "r", encoding="utf-8") as handle:
             existing = json.load(handle).get("props", {})
 
-    names = {entry["id"]: entry["name"] for entry in catalog["props"]}
+    names = {entry["id"]: entry_name(entry) for entry in catalog_placeables(catalog)}
     for item in report:
         existing[item["id"]] = {
             "name": names.get(item["id"], item["name"]),
