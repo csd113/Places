@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1 — 2026-09-21
+
+### Changed
+
+- Move the package to the standalone Places repository while retaining the
+  `io.vitrallis.liminalrust` application ID and catalog package path for
+  Vitrallis App Center compatibility.
+
 ## 0.3.0 — 2026-09-21
 
 Stable surface rendering: water-damage overlays authored as duplicate walls are
