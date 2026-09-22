@@ -1,5 +1,159 @@
 # Changelog
 
+## 0.5.1 — 2026-09-21
+
+External PNG surface textures. Environment artwork is no longer generated in
+Rust: every wall, floor and ceiling material resolves through the asset catalog
+to a real external PNG, and a creator edits or replaces that file and restarts
+the game — no source change, no recompilation. The renderer knows how to draw a
+textured material; it no longer contains the definition of one.
+
+### Added
+
+- `asset_type: texture` entries and `source: definition` materials in
+  `assets/catalog.json`: a material names a logical `texture`, a world tiling
+  period (`tile_metres`, default 2.0) and an optional static `tint`. The six
+  built-in office materials keep their exact legacy ids and now point at
+  external PNGs.
+- `src/materials.rs`: the runtime material pipeline — PNG decode (RGB, RGBA,
+  grayscale, grayscale+alpha, palette, 16-bit, up to 1024×1024, NPOT included),
+  a session `TextureCache` (one decode per logical texture per session), the
+  logical/resolved `MaterialTable` a level's ids resolve into, pack material
+  definitions and the one conspicuous magenta/black diagnostic texture a
+  missing or corrupt PNG falls back to (with the material and texture ids in
+  the error).
+- `tools/textures/build.py`: the deterministic, dependency-free seed-art
+  generator and validator (`--check`) for the surface and diagnostic PNGs, plus
+  `tools/textures/README.md`.
+- Diagnostic texture set (`core:tex_diagnostic_*` and their materials): wall,
+  floor, ceiling, a deliberately 96×64 NPOT sheet and an RGBA alpha sheet, and
+  `assets/levels/texture_diagnostic.json`, which exercises all three surface
+  families, an overlay material run, decals, a gable, a walkable recess, a
+  region staircase into an elevated room and warm/blue/white fixtures.
+- Tests for texture/material registration and duplicates, id resolution, PNG
+  loading (valid colour types, malformed, truncated, missing, oversized),
+  legacy-id compatibility, per-session decode caching, shared textures and
+  material tiling/tint.
+- `tools/bench/notes/texture-material-validation.md`: the capture matrix and
+  the creator replacement test used to validate the phase.
+
+### Changed
+
+- The renderer batches static geometry by `(surface family, material index)`
+  instead of a closed surface-kind list, binds one GPU texture per distinct
+  resolved texture, keeps catalog textures resident across level changes and
+  frees a level's pack textures when the next level replaces them.
+- The metre checker on the office carpet is baked into the carpet PNG's four
+  64 px quadrants; the per-load `generate_floor_checker_texture` bake is gone
+  from the normal surface path.
+- Wall UVs are oriented so an authored PNG reads upright and unmirrored: the
+  image's top row is at the wall top, and each face's `u` runs the way a viewer
+  on that side reads it.
+- `tools/assets/validate.py` and `tests/test_package.py` understand texture
+  assets, material texture references, `tile_metres`/`tint` bounds, PNG
+  existence and floor-region material references.
+- `assets/README.md`, the Office and diagnostic asset READMEs and the root
+  README document the material/texture split and the creator workflows.
+
+### Removed
+
+- The procedural surface generators (`generate_wall_texture`,
+  `generate_carpet_texture`, `generate_ceiling_texture`, their water-damaged
+  variants and the supporting noise painters) and the hard-coded damaged
+  material ids in the renderer.
+
+### Notes
+
+- The shipped PNGs are deliberately plain **seed** artwork that preserves the
+  pre-4.5 appearance and proves the pipeline. Goal 5 owns the finished Office
+  and Pool artwork; replacing these files needs no engine change.
+- Live hot reload is not required or provided: edit a PNG, restart, see it.
+- Power-of-two textures are preferred for the deferred PocketCHIP/Mali-400
+  target (ES 2.0 does not guarantee NPOT + repeat + mipmaps); arbitrary
+  dimensions load on the macOS development renderer and the diagnostic NPOT
+  sheet pins that behaviour.
+
+## 0.5.0 — 2026-09-21
+
+Vertical geometry. A room is no longer a flat floor at world Y `0` under one
+fixed ceiling height: rooms have a base elevation, the floor can carry local
+recessed or raised regions, and the ceiling is a profile (flat or gable). The
+same geometry model answers rendering, collision and baked lighting, so the
+surface the player stands on is by construction the surface that was drawn.
+
+### Added
+
+- `RoomDef.floor_y`: the world Y of a room's floor plane. Floor, walls, ceiling,
+  props and decals are generated relative to it; omitted means `0.0`, so every
+  legacy level is unchanged.
+- `RoomDef.ceiling`: a ceiling profile, `{"kind": "flat"}` (the default) or
+  `{"kind": "gable", "ridge": "x"|"z", "ridge_rise": <m>}`. A gable is real
+  geometry: two sloped ceiling planes meeting at a ridge, gable-end walls whose
+  tops follow the slope, and walls clipped to the local ceiling.
+- `LevelDef.floor_regions`: rectangular local floor areas with an `offset_y`
+  relative to their room's floor (negative recesses, positive raises), an
+  optional floor `material` and an optional transition `edge_material`. Region
+  edges cut the floor grid exactly, the transition faces between heights are real
+  quads, and a region touching a room boundary is closed against the room's floor
+  plane rather than opening into the void.
+- `src/level.rs` centralised vertical queries: `CeilingProfileDef`,
+  `ceiling_y_for_volume`, `LevelSurfaces` (`room_at`, `floor_y_at`,
+  `ceiling_y_at`, `floor_grid`, `ceiling_grid`, `wall_profile_breaks`) and
+  `WalkableFloor`, the owned floor model the player controller samples. Mesh
+  generation, collision, spawn resolution and the bake all read the same model.
+- Room floor elevations in the player controller: the player tracks
+  `player_floor_y`, collision filters against the player's actual vertical body
+  band, spawns resolve against the real floor, and rises/drops within
+  `PLAYER_STEP_HEIGHT` (0.4 m) are walked; larger discontinuities are refused and
+  deep recesses get solid retaining rims. A staircase built only from floor
+  regions is walkable without any stair-specific code.
+- `assets/levels/vertical_diagnostic.json`: a purpose-built level with a normal
+  room, an elevated room reached by a region staircase, walkable and blocked
+  recesses, a gable room with eave and ridge fixtures, RGB lighting examples and
+  decals.
+- Validation and tests: non-finite elevations, impossible gable definitions,
+  zero-sized/out-of-room/above-ceiling floor regions, a region count cap, and
+  ceiling decals on a gable are rejected with clear messages; automated tests
+  cover profiles, regions, rims, step behaviour, elevation rendering and
+  fixtures.
+
+### Changed
+
+- The standard default room ceiling height is now **4.0 m** (was 3.5 m) for
+  rooms that omit `height`. Levels that author `3.5` keep it.
+- Props are placed on the local walkable floor (`prop.y` is an offset above it,
+  which is what the format always documented), and floor/ceiling decals are
+  snapped to the real floor/ceiling under them, so both follow an elevated room
+  or a recessed region.
+- Triangle winding is now one coherent convention: every world face (floor,
+  ceiling, wall, transition face, prop box, fixture) is wound so its normal
+  points out of the solid, matching the decal pass, which always did. Nothing
+  rendered differently — face culling is disabled and the vertex format carries
+  no normals — but the geometry is now correct for a future cull-enabled path
+  and is covered by a winding test.
+
+### Fixed
+
+- Wall faces no longer resolve their ceiling profile at a world coordinate
+  interpreted as a length offset. Walls whose origin is not at X=0/Z=0 (every
+  room after the first in a level) were clipped to the *first* room's ceiling,
+  which left gaps above them; a regression test pins the behaviour.
+
+### Notes
+
+- `REFERENCE_CEILING_HEIGHT_M` (3.5 m) is the lighting calibration reference,
+  not a room default: it is deliberately unchanged, so existing bake output and
+  the editor parity vectors are identical. Legacy levels bake and render
+  bit-identically.
+- The ceiling-height factor still uses a room's eave height: a gable ridge adds
+  shape, not brightness.
+- Known limitations: floor regions are rectangular and flat (no ramps or sloped
+  regions); the controller has no falling physics, so a drop deeper than a step
+  is a wall unless stairs of shallow regions are authored; a ceiling decal is
+  rejected on a sloped ceiling and any horizontal decal that straddles a height
+  change is rejected; overlapping regions resolve last-wins; two stacked rooms
+  share one spatial batch cell; there is no multi-floor traversal yet.
+
 ## 0.4.0 — 2026-09-21
 
 Generalized asset architecture. Logical asset identity is separated from

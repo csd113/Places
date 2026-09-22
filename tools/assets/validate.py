@@ -9,7 +9,8 @@ The checks here are the tooling half of the asset architecture:
   known class (``environment``, ``entity``, ``core``, ``diagnostic``) and type
   (``prop``, ``material``, ``texture``, ``light``, ``decal``, ``entity``);
 * file-backed assets name a relative resource path that exists exactly once
-  below ``assets/``, and generated assets never name a file;
+  below ``assets/``, generated assets never name a file, and definition
+  assets (materials) resolve to a file-backed PNG texture instead;
 * ``spooner-man`` is a single canonical entity resource under
   ``entities/spooner-man/``, never a duplicate prop file;
 * every shipped level in ``assets/levels/`` and every custom level in
@@ -29,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -108,6 +110,7 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
 
     seen_ids: Dict[str, int] = {}
     seen_models: Dict[str, str] = {}
+    material_textures: List[Tuple[str, str]] = []
     for index, entry in enumerate(catalog_entries(catalog)):
         raw_id = str(entry.get("id", "")).strip()
         where = raw_id or f"entry #{index + 1}"
@@ -159,8 +162,10 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
         source = str(entry.get("source", "")).strip()
         model = entry.get("model")
         model = str(model).strip() if isinstance(model, str) else None
-        if source and source not in ("file", "generated"):
-            errors.append(f"{where}: source must be 'file' or 'generated'")
+        texture_id = entry.get("texture")
+        texture_id = texture_id.strip() if isinstance(texture_id, str) else None
+        if source and source not in ("file", "generated", "definition"):
+            errors.append(f"{where}: source must be 'file', 'generated' or 'definition'")
         if model:
             if not is_relative_resource(model):
                 errors.append(f"{where}: model path '{model}' must be relative to assets/")
@@ -172,15 +177,86 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
                 seen_models[model] = raw_id
             if source == "generated":
                 errors.append(f"{where}: a generated asset must not declare a model")
+            if source == "definition":
+                errors.append(f"{where}: a definition asset must not declare a model")
         elif source == "file" or (not source and asset_type in PLACEABLE_TYPES):
             errors.append(f"{where}: a file asset must declare a model")
         elif asset_type in PLACEABLE_TYPES and not model:
             errors.append(f"{where}: placeable assets must ship a model")
 
+        if asset_type == "material" and not texture_id:
+            errors.append(f"{where}: a material must declare a texture")
+        elif source == "definition" and not texture_id:
+            errors.append(f"{where}: a definition asset must declare a texture")
+        if asset_type != "material":
+            for field in ("texture", "tile_metres", "tint"):
+                if field in entry:
+                    errors.append(f"{where}: only a material may declare {field}")
+        if texture_id:
+            if not _ASSET_ID.match(texture_id):
+                errors.append(f"{where}: malformed texture id '{texture_id}'")
+            elif asset_type == "material":
+                material_textures.append((raw_id, texture_id))
+        tile_metres = entry.get("tile_metres")
+        if tile_metres is not None:
+            valid_tile = (
+                isinstance(tile_metres, (int, float))
+                and not isinstance(tile_metres, bool)
+                and math.isfinite(tile_metres)
+                and 0.05 <= tile_metres <= 64.0
+            )
+            if not valid_tile:
+                errors.append(f"{where}: tile_metres must be a number between 0.05 and 64")
+        tint = entry.get("tint")
+        if tint is not None:
+            valid_tint = (
+                isinstance(tint, list)
+                and len(tint) == 3
+                and all(
+                    isinstance(v, (int, float))
+                    and not isinstance(v, bool)
+                    and math.isfinite(v)
+                    and 0.0 <= v <= 1.0
+                    for v in tint
+                )
+            )
+            if not valid_tint:
+                errors.append(f"{where}: tint must be three numbers in 0..1")
+        surface = entry.get("surface")
+        if surface is not None and str(surface).strip() not in ("wall", "floor", "ceiling"):
+            errors.append(f"{where}: surface must be 'wall', 'floor' or 'ceiling'")
+
         if asset_type in PLACEABLE_TYPES:
             size = entry.get("size")
             if not (isinstance(size, list) and len(size) == 3 and all(isinstance(v, (int, float)) and v > 0 for v in size)):
                 errors.append(f"{where}: placeable assets need a positive [width, height, depth] size")
+
+    # Every material resolves to a real, file-backed PNG texture.  The catalog
+    # is the only lookup: a material never carries a physical path itself.
+    entries_by_id: Dict[str, dict] = {}
+    for entry in catalog_entries(catalog):
+        entry_id = str(entry.get("id", "")).strip()
+        if entry_id in seen_ids:
+            entries_by_id[entry_id] = entry
+    for material_id, texture_id in material_textures:
+        target = entries_by_id.get(texture_id)
+        if target is None:
+            errors.append(f"{material_id}: texture '{texture_id}' is not in the catalog")
+            continue
+        if str(target.get("asset_type", "")).strip() != "texture":
+            errors.append(f"{material_id}: texture '{texture_id}' is not a texture asset")
+            continue
+        target_source = str(target.get("source", "")).strip()
+        target_model = target.get("model")
+        target_model = str(target_model).strip() if isinstance(target_model, str) else ""
+        if target_source != "file":
+            errors.append(f"{material_id}: texture '{texture_id}' must be a file asset")
+        elif not target_model.lower().endswith(".png"):
+            errors.append(f"{material_id}: texture '{texture_id}' must name a .png model")
+        elif not os.path.isfile(os.path.join(asset_root, target_model)):
+            errors.append(
+                f"{material_id}: texture '{texture_id}' file '{target_model}' does not exist below assets/"
+            )
 
     # The canonical entity resource: one logical id, one physical file.
     spooner_entries = [entry for entry in catalog_entries(catalog) if str(entry.get("id")) == "spooner-man"]
@@ -223,6 +299,11 @@ def level_ids(level: dict):
             yield str(room["material"]), "room floor material"
         if room.get("ceiling_material"):
             yield str(room["ceiling_material"]), "room ceiling material"
+    for region in level.get("floor_regions") or []:
+        if region.get("material"):
+            yield str(region["material"]), "region floor material"
+        if region.get("edge_material"):
+            yield str(region["edge_material"]), "region edge material"
     for wall in level.get("walls") or []:
         if wall.get("material"):
             yield str(wall["material"]), "wall material"

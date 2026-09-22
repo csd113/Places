@@ -1,62 +1,22 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
-use std::hash::BuildHasher;
-use std::io::{Cursor, Read, Seek};
+use std::io::{Read, Seek};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use zip::ZipArchive;
 
 use crate::level::{LevelDef, MAX_LEVEL_FLOOR_AREA_M2, MAX_LEVEL_VERTICES};
-use crate::render::{
-    generate_carpet_texture, generate_ceiling_texture, generate_damp_carpet_texture,
-    generate_stained_ceiling_texture, generate_stained_wall_texture, generate_wall_texture,
-    generate_white_texture,
-};
+use crate::materials::{MaterialTable, PackMaterials, resolve_materials};
+
+/// Re-exported so the rest of the crate keeps its historical import paths.
+pub use crate::materials::{RawImage, TextureCache, decode_png, encode_png, parse_materials_json};
 
 const FALLBACK_LEVEL1_JSON: &str = include_str!("../assets/levels/level1.json");
 
 const MAX_ZIP_ENTRIES: usize = 500;
 const MAX_ZIP_ENTRY_SIZE: u64 = 10 * 1024 * 1024; // 10 MB per file
 const MAX_ZIP_TOTAL_SIZE: u64 = 50 * 1024 * 1024; // 50 MB total uncompressed
-
-/// Decoded 8-bit RGBA image buffer.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RawImage {
-    pub width: u32,
-    pub height: u32,
-    pub rgba: Vec<u8>,
-}
-
-impl RawImage {
-    #[must_use]
-    pub const fn new(width: u32, height: u32, rgba: Vec<u8>) -> Self {
-        Self {
-            width,
-            height,
-            rgba,
-        }
-    }
-}
-
-/// Resolved level textures ready for OpenGL upload.
-#[derive(Clone, Debug)]
-pub struct LoadedTextures {
-    pub wall: RawImage,
-    pub floor: RawImage,
-    pub ceiling: RawImage,
-    pub fixture: RawImage,
-}
-
-impl Default for LoadedTextures {
-    fn default() -> Self {
-        Self {
-            wall: RawImage::new(128, 128, generate_wall_texture()),
-            floor: RawImage::new(64, 64, generate_carpet_texture()),
-            ceiling: RawImage::new(128, 128, generate_ceiling_texture()),
-            fixture: RawImage::new(2, 2, generate_white_texture().to_vec()),
-        }
-    }
-}
 
 /// Source type of an installed level.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -77,107 +37,17 @@ pub struct LevelEntry {
 }
 
 /// A validated, fully loaded level ready for gameplay.
+///
+/// `materials` is the level's resolved surface material table: every material
+/// id the level references, with its decoded PNG, tiling and tint. `fixture`
+/// is an optional pack-supplied light fixture image; `None` means the built-in
+/// white sheet.
 #[derive(Clone, Debug)]
 pub struct LoadedLevel {
     pub level: LevelDef,
-    pub textures: LoadedTextures,
+    pub materials: MaterialTable,
+    pub fixture: Option<Rc<RawImage>>,
     pub entry: LevelEntry,
-}
-
-/// Encodes an 8-bit RGBA image as PNG bytes.
-///
-/// Mirror of [`decode_png`], used by the `LIMINAL_CAPTURE` developer path so a
-/// rendered frame can be inspected on hardware without a screenshot tool.
-/// # Errors
-///
-/// Returns a message when the image has a zero dimension or the PNG encoder
-/// rejects the buffer.
-pub fn encode_png(image: &RawImage) -> Result<Vec<u8>, String> {
-    if image.width == 0 || image.height == 0 {
-        return Err("cannot encode a zero-sized image".into());
-    }
-    if image.rgba.len() != (image.width * image.height * 4) as usize {
-        return Err("image buffer length does not match its dimensions".into());
-    }
-    let mut out = Vec::new();
-    {
-        let mut encoder = png::Encoder::new(&mut out, image.width, image.height);
-        encoder.set_color(png::ColorType::Rgba);
-        encoder.set_depth(png::BitDepth::Eight);
-        let mut writer = encoder
-            .write_header()
-            .map_err(|error| format!("PNG header error: {error}"))?;
-        writer
-            .write_image_data(&image.rgba)
-            .map_err(|error| format!("PNG encode error: {error}"))?;
-    }
-    Ok(out)
-}
-
-/// Decodes PNG bytes into 8-bit RGBA raw image buffer with dimensions validation.
-/// # Errors
-///
-/// Returns a message when the bytes are not a PNG, the image is empty or larger
-/// than 1024x1024, or the decoded buffer does not match its declared size.
-pub fn decode_png(bytes: &[u8]) -> Result<RawImage, String> {
-    let decoder = png::Decoder::new(Cursor::new(bytes));
-    let mut reader = decoder
-        .read_info()
-        .map_err(|e| format!("Invalid PNG format: {e}"))?;
-    let info = reader.info();
-    let width = info.width;
-    let height = info.height;
-
-    // Security & sanity checks on dimensions
-    if width == 0 || height == 0 {
-        return Err("Texture dimensions cannot be zero".into());
-    }
-    if width > 1024 || height > 1024 {
-        return Err(format!(
-            "Texture dimensions {width}x{height} exceed limit of 1024x1024"
-        ));
-    }
-
-    let buf_size = reader
-        .output_buffer_size()
-        .ok_or_else(|| "Failed to get PNG output buffer size".to_string())?;
-    let mut buf = vec![0; buf_size];
-    let output_info = reader
-        .next_frame(&mut buf)
-        .map_err(|e| format!("PNG decode error: {e}"))?;
-    buf.truncate(output_info.buffer_size());
-
-    let rgba = match output_info.color_type {
-        png::ColorType::Rgba => buf,
-        png::ColorType::Rgb => {
-            let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-            for chunk in buf.as_chunks::<3>().0 {
-                rgba.extend_from_slice(&[chunk[0], chunk[1], chunk[2], 255]);
-            }
-            rgba
-        }
-        png::ColorType::Grayscale => {
-            let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-            for &g in &buf {
-                rgba.extend_from_slice(&[g, g, g, 255]);
-            }
-            rgba
-        }
-        png::ColorType::GrayscaleAlpha => {
-            let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-            for chunk in buf.as_chunks::<2>().0 {
-                rgba.extend_from_slice(&[chunk[0], chunk[0], chunk[0], chunk[1]]);
-            }
-            rgba
-        }
-        png::ColorType::Indexed => return Err("Unsupported PNG color type: Indexed".into()),
-    };
-
-    if rgba.len() != (width * height * 4) as usize {
-        return Err("Decoded image buffer length does not match width * height * 4".into());
-    }
-
-    Ok(RawImage::new(width, height, rgba))
 }
 
 /// Raw contents extracted safely from a ZIP level pack.
@@ -338,45 +208,6 @@ pub fn extract_zip<R: Read + Seek>(reader: R) -> Result<RawPackContents, String>
     }
 
     Ok(pack)
-}
-
-/// Parses optional materials.json mapping into `material_id` -> `texture_path`.
-#[must_use]
-pub fn parse_materials_json(json_str: &str) -> HashMap<String, String> {
-    let mut result = HashMap::new();
-    if let Ok(val) = serde_json::from_str::<serde_json::Value>(json_str) {
-        if let Some(obj) = val.get("materials").and_then(|m| m.as_object()) {
-            for (k, v) in obj {
-                if let Some(s) = v.as_str() {
-                    result.insert(k.clone(), s.to_string());
-                } else if let Some(tex) = v
-                    .get("texture")
-                    .or_else(|| v.get("file"))
-                    .or_else(|| v.get("diffuse"))
-                    .and_then(|t| t.as_str())
-                {
-                    result.insert(k.clone(), tex.to_string());
-                }
-            }
-        } else if let Some(obj) = val.as_object() {
-            for (k, v) in obj {
-                if k == "materials" {
-                    continue;
-                }
-                if let Some(s) = v.as_str() {
-                    result.insert(k.clone(), s.to_string());
-                } else if let Some(tex) = v
-                    .get("texture")
-                    .or_else(|| v.get("file"))
-                    .or_else(|| v.get("diffuse"))
-                    .and_then(|t| t.as_str())
-                {
-                    result.insert(k.clone(), tex.to_string());
-                }
-            }
-        }
-    }
-    result
 }
 
 /// Neutral fallback colour used for unknown prop models, `#8a8a8a`.
@@ -623,6 +454,97 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
                 "Room {i} dimensions exceed maximum limits (max 2000x2000x50m)"
             ));
         }
+        // Vertical geometry: the room's floor elevation and ceiling profile.
+        // A non-finite elevation would push every derived surface out of the
+        // world, and a ridge at or below the eave is not a gable at all.
+        if !r.floor_y.is_finite() || !(r.floor_y + r.height).is_finite() {
+            return Err(format!("Room {i} floor elevation must be a finite number"));
+        }
+        if let crate::level::CeilingProfileDef::Gable { ridge_rise, .. } = r.ceiling {
+            if !ridge_rise.is_finite() {
+                return Err(format!(
+                    "Room {i} ceiling ridge rise must be a finite number"
+                ));
+            }
+            if ridge_rise <= 0.0 {
+                return Err(format!(
+                    "Room {i} ceiling ridge rise must be above the eave (got {ridge_rise} m)"
+                ));
+            }
+            if ridge_rise > 50.0 {
+                return Err(format!(
+                    "Room {i} ceiling ridge rise exceeds the maximum limit (max 50 m)"
+                ));
+            }
+            if !(r.floor_y + r.height + ridge_rise).is_finite() {
+                return Err(format!(
+                    "Room {i} ceiling ridge height must be a finite number"
+                ));
+            }
+        }
+    }
+
+    // Local floor regions: recessed or raised rectangular areas inside a room.
+    if u64::try_from(level.floor_regions.len()).unwrap_or(u64::MAX)
+        > crate::level::MAX_LEVEL_FLOOR_REGIONS
+    {
+        return Err(format!(
+            "Level contains too many floor regions: {} (limit: {})",
+            level.floor_regions.len(),
+            crate::level::MAX_LEVEL_FLOOR_REGIONS
+        ));
+    }
+    for (i, region) in level.floor_regions.iter().enumerate() {
+        if !region.x.is_finite()
+            || !region.z.is_finite()
+            || !region.width.is_finite()
+            || !region.depth.is_finite()
+            || !region.offset_y.is_finite()
+        {
+            return Err(format!(
+                "Floor region {i} position, size, and offset must be finite numbers"
+            ));
+        }
+        if region.width <= 0.0 || region.depth <= 0.0 {
+            return Err(format!("Floor region {i} width and depth must be positive"));
+        }
+        if region
+            .material
+            .as_deref()
+            .is_some_and(|material| material.trim().is_empty())
+            || region
+                .edge_material
+                .as_deref()
+                .is_some_and(|material| material.trim().is_empty())
+        {
+            return Err(format!(
+                "Floor region {i} materials must be non-empty ids when specified"
+            ));
+        }
+
+        // A region has to describe a floor inside a room: one that overlaps
+        // nothing is a typo, and one whose surface is at or above the room's
+        // ceiling has no interior volume to stand in.
+        let (rx0, rx1, rz0, rz1) = region.bounds();
+        let mut overlaps_room = false;
+        for (room_index, room) in level.room_iter().enumerate() {
+            let (x0, x1, z0, z1) = room.bounds();
+            if rx1 <= x0 || rx0 >= x1 || rz1 <= z0 || rz0 >= z1 {
+                continue;
+            }
+            overlaps_room = true;
+            let floor = room.floor_y + region.offset();
+            if !floor.is_finite() || floor >= room.eave_y() {
+                return Err(format!(
+                    "Floor region {i} sits at or above the ceiling of room {room_index} \
+                     ({floor:.2} m vs eave {:.2} m)",
+                    room.eave_y()
+                ));
+            }
+        }
+        if !overlaps_room {
+            return Err(format!("Floor region {i} lies outside every room section"));
+        }
     }
 
     for (i, w) in level.walls.iter().enumerate() {
@@ -779,6 +701,42 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
         }
     }
 
+    // Decals on horizontal surfaces are snapped to the real surface height, so
+    // they follow an elevated room or a recessed region. A gable ceiling is a
+    // sloped surface and cannot carry a single planar decal, and a decal whose
+    // footprint straddles a height change (a recess edge, a room boundary at a
+    // different elevation) cannot be projected onto one plane either: both are
+    // rejected clearly instead of being drawn at a nonsense height.
+    let surfaces = crate::level::LevelSurfaces::new(level);
+    for (i, decal) in level.decals.iter().enumerate() {
+        if decal.surface.is_ceiling() && !surfaces.ceiling_is_flat_at(decal.x, decal.z) {
+            return Err(format!(
+                "Ceiling decal {i} targets a gable ceiling; sloped ceiling decals are not supported"
+            ));
+        }
+        if !decal.surface.is_horizontal() {
+            continue;
+        }
+        let Some(corners) = crate::render::decal_quad_points(decal) else {
+            continue;
+        };
+        let heights = corners.map(|point| match decal.surface {
+            crate::level::DecalSurface::Floor => {
+                surfaces.floor_y_at(point[0], point[2]).unwrap_or(point[1])
+            }
+            _ => surfaces.ceiling_y_at(point[0], point[2]),
+        });
+        let (low, high) = heights.iter().fold((f32::MAX, f32::MIN), |(low, high), y| {
+            (low.min(*y), high.max(*y))
+        });
+        if high - low > 0.05 {
+            return Err(format!(
+                "Decal {i} spans a floor or ceiling height change ({low:.2} m to {high:.2} m); \
+                 place it entirely on one surface"
+            ));
+        }
+    }
+
     // 5. Generated-geometry complexity budget, checked after per-element
     //    validation so dimension errors take precedence. This bounds the vertex
     //    buffer built at load time, protecting the ~512 MB PocketCHIP from
@@ -803,80 +761,30 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     Ok(())
 }
 
-/// Resolves materials and textures for a level.
-/// Missing custom resources fail gracefully with an obvious fallback rather than crashing.
+/// Resolves the optional pack-supplied light fixture image for a level.
+///
+/// Only `pack:` fixture ids can name a texture; built-in fixtures draw with
+/// the renderer's white sheet, exactly as before. The first light whose fixture
+/// decodes wins.
 #[must_use]
-pub fn resolve_textures<S: BuildHasher>(
+pub fn resolve_fixture(
     level: &LevelDef,
-    material_map: &HashMap<String, String, S>,
-    texture_blobs: &HashMap<String, Rc<[u8]>, S>,
-) -> LoadedTextures {
-    let mut loaded = LoadedTextures::default();
-
-    let try_decode_material = |mat_id: &str| -> Option<RawImage> {
-        if !mat_id.starts_with("pack:") {
-            return None;
-        }
-        // 1. Look up mapped path in material_map
-        if let Some(path) = material_map.get(mat_id) {
-            let normalized = path.replace('\\', "/");
-            let file_name = normalized.rsplit('/').next().unwrap_or(&normalized);
-            if let Some(bytes) = texture_blobs
-                .get(&normalized)
-                .or_else(|| texture_blobs.get(file_name))
-                && let Ok(img) = decode_png(bytes)
-            {
-                return Some(img);
-            }
-        }
-        // 2. Direct lookup by material name
-        let name = mat_id.strip_prefix("pack:").unwrap_or(mat_id);
-        let candidates = [
-            format!("textures/{name}.png"),
-            format!("{name}.png"),
-            format!("textures/{name}"),
-            name.to_string(),
-        ];
-        for cand in &candidates {
-            if let Some(bytes) = texture_blobs.get(cand)
-                && let Ok(img) = decode_png(bytes)
-            {
-                return Some(img);
-            }
-        }
-        None
-    };
-
-    // Wall texture
-    if let Some(img) = try_decode_material(&level.defaults.wall) {
-        loaded.wall = img;
-    } else if level.defaults.wall == "core:wallpaper_stained_01" {
-        loaded.wall = RawImage::new(128, 128, generate_stained_wall_texture());
-    }
-
-    // Floor texture
-    if let Some(img) = try_decode_material(&level.defaults.floor) {
-        loaded.floor = img;
-    } else if level.defaults.floor == "core:carpet_damp_01" {
-        loaded.floor = RawImage::new(64, 64, generate_damp_carpet_texture());
-    }
-
-    // Ceiling texture
-    if let Some(img) = try_decode_material(&level.defaults.ceiling) {
-        loaded.ceiling = img;
-    } else if level.defaults.ceiling == "core:ceiling_stained_01" {
-        loaded.ceiling = RawImage::new(128, 128, generate_stained_ceiling_texture());
-    }
-
-    // Fixture texture
+    pack: Option<&PackMaterials>,
+    cache: &mut TextureCache,
+) -> Option<Rc<RawImage>> {
+    let pack = pack?;
     for light in &level.ceiling_lights {
-        if let Some(img) = try_decode_material(&light.fixture) {
-            loaded.fixture = img;
-            break;
+        if !light.fixture.starts_with("pack:") {
+            continue;
+        }
+        let Some(path) = pack.texture_for(&light.fixture) else {
+            continue;
+        };
+        if let Ok(image) = pack.decode_texture(cache, &path) {
+            return Some(image);
         }
     }
-
-    loaded
+    None
 }
 
 /// Unified level loader and package manager.
@@ -886,6 +794,9 @@ pub struct LevelManager {
     import_dir: PathBuf,
     entries: Vec<LevelEntry>,
     prop_catalog: PropCatalog,
+    /// Decoded texture images shared across level loads (one decode per
+    /// logical texture per session).
+    texture_cache: RefCell<TextureCache>,
 }
 
 impl Default for LevelManager {
@@ -903,6 +814,7 @@ impl LevelManager {
             import_dir: PathBuf::from("import"),
             entries: Vec::new(),
             prop_catalog: PropCatalog::load_default(),
+            texture_cache: RefCell::new(TextureCache::new()),
         };
         manager.refresh();
         manager
@@ -916,9 +828,22 @@ impl LevelManager {
             import_dir,
             entries: Vec::new(),
             prop_catalog: PropCatalog::load_default(),
+            texture_cache: RefCell::new(TextureCache::new()),
         };
         manager.refresh();
         manager
+    }
+
+    /// The authoritative asset catalog (materials, textures, props, themes).
+    #[must_use]
+    pub const fn asset_catalog(&self) -> &crate::assets::AssetCatalog {
+        self.prop_catalog.assets()
+    }
+
+    /// The session texture cache, for diagnostics and tests.
+    #[must_use]
+    pub fn texture_cache(&self) -> std::cell::RefMut<'_, TextureCache> {
+        self.texture_cache.borrow_mut()
     }
 
     #[must_use]
@@ -1032,14 +957,17 @@ impl LevelManager {
         if let Some(entry) = self.entries.iter().find(|e| e.id == "level_1") {
             self.load_level(entry)
         } else {
-            // Direct fallback
+            // Direct fallback: the embedded Level 1 JSON still resolves its
+            // materials through the shipped catalog (and degrades loudly to the
+            // diagnostic texture when no assets are installed at all).
             let level = LevelDef::from_json(FALLBACK_LEVEL1_JSON)
                 .map_err(|e| format!("Failed to parse embedded Level 1: {e}"))?;
             validate_level(&level)?;
-            let textures = resolve_textures(&level, &HashMap::new(), &HashMap::new());
+            let materials = self.resolve_level_materials(&level, None);
             Ok(LoadedLevel {
                 level,
-                textures,
+                materials,
+                fixture: None,
                 entry: LevelEntry {
                     id: "level_1".into(),
                     name: "Level 1".into(),
@@ -1051,11 +979,36 @@ impl LevelManager {
         }
     }
 
+    /// Resolves a level's surface materials through the catalog and an optional
+    /// pack, logging every problem once with its level and material context.
+    fn resolve_level_materials(
+        &self,
+        level: &LevelDef,
+        pack: Option<&PackMaterials>,
+    ) -> MaterialTable {
+        let root = crate::assets::resolve_asset_root();
+        let mut cache = self.texture_cache.borrow_mut();
+        let table = resolve_materials(
+            level,
+            self.prop_catalog.assets(),
+            pack,
+            root.as_deref(),
+            &mut cache,
+        );
+        for error in table.errors() {
+            eprintln!("[materials] {}: {error}", level.id);
+        }
+        table
+    }
+
     /// Unified level loader loading any standalone JSON or packaged ZIP level.
+    ///
+    /// Missing or corrupt texture files resolve to the diagnostic material and
+    /// a logged error; a level never fails to load because of one bad PNG.
     /// # Errors
     ///
     /// Returns a message when the level file or pack cannot be read or
-    /// validated, or a referenced material or texture is missing.
+    /// validated.
     pub fn load_level(&self, entry: &LevelEntry) -> Result<LoadedLevel, String> {
         match entry.source_type {
             LevelSourceType::Official | LevelSourceType::CustomJson => {
@@ -1071,11 +1024,12 @@ impl LevelManager {
                 let level = LevelDef::from_json(&content)
                     .map_err(|e| format!("JSON parse error in {}: {e}", entry.path.display()))?;
                 validate_level(&level)?;
-                let textures = resolve_textures(&level, &HashMap::new(), &HashMap::new());
+                let materials = self.resolve_level_materials(&level, None);
 
                 Ok(LoadedLevel {
                     level,
-                    textures,
+                    materials,
+                    fixture: None,
                     entry: entry.clone(),
                 })
             }
@@ -1087,16 +1041,19 @@ impl LevelManager {
                     .map_err(|e| format!("Invalid level.json in {}: {e}", entry.path.display()))?;
                 validate_level(&level)?;
 
-                let material_map = pack
-                    .materials_json
-                    .as_deref()
-                    .map(parse_materials_json)
-                    .unwrap_or_default();
-                let textures = resolve_textures(&level, &material_map, &pack.textures);
+                let pack_materials = PackMaterials::new(
+                    entry.path.to_string_lossy().to_string(),
+                    pack.materials_json.as_deref(),
+                    pack.textures,
+                );
+                let materials = self.resolve_level_materials(&level, Some(&pack_materials));
+                let mut cache = self.texture_cache.borrow_mut();
+                let fixture = resolve_fixture(&level, Some(&pack_materials), &mut cache);
 
                 Ok(LoadedLevel {
                     level,
-                    textures,
+                    materials,
+                    fixture,
                     entry: entry.clone(),
                 })
             }
@@ -1213,6 +1170,7 @@ mod tests {
     use super::*;
     use crate::level::{RoomDef, WallAxis, WallDef};
     use crate::test_support::{assert_exact, assert_exact_array};
+    use std::io::Cursor;
 
     #[test]
     fn test_validate_level_success() {
@@ -1223,6 +1181,8 @@ mod tests {
             author: "Author".into(),
             room: None,
             rooms: vec![RoomDef {
+                ceiling: crate::level::CeilingProfileDef::Flat,
+                floor_y: 0.0,
                 x: 0.0,
                 z: 0.0,
                 width: 20.0,
@@ -1249,6 +1209,7 @@ mod tests {
                 material: None,
             }],
             floor_patches: vec![],
+            floor_regions: vec![],
             ceiling_lights: vec![],
             decals: Vec::new(),
             props: vec![],
@@ -1273,6 +1234,7 @@ mod tests {
             defaults: crate::level::LevelDefaults::default(),
             walls: vec![],
             floor_patches: vec![],
+            floor_regions: vec![],
             ceiling_lights: vec![],
             decals: Vec::new(),
             props: vec![],
@@ -1291,6 +1253,8 @@ mod tests {
             room: None,
             rooms: vec![
                 RoomDef {
+                    ceiling: crate::level::CeilingProfileDef::Flat,
+                    floor_y: 0.0,
                     x: 0.0,
                     z: 0.0,
                     width: 10.0,
@@ -1300,6 +1264,8 @@ mod tests {
                     ceiling_material: None,
                 },
                 RoomDef {
+                    ceiling: crate::level::CeilingProfileDef::Flat,
+                    floor_y: 0.0,
                     x: 5.0,
                     z: 5.0,
                     width: 10.0,
@@ -1340,6 +1306,7 @@ mod tests {
                 },
             ],
             floor_patches: vec![],
+            floor_regions: vec![],
             ceiling_lights: vec![],
             decals: Vec::new(),
             props: vec![],
@@ -1352,20 +1319,24 @@ mod tests {
         let json = r#"{
             "materials": {
                 "pack:custom_wall": {
-                    "texture": "textures/my_wall.png"
+                    "texture": "textures/my_wall.png",
+                    "tile_metres": 3.0,
+                    "tint": [0.5, 0.6, 0.7]
                 },
                 "pack:carpet_gray": "textures/carpet.png"
             }
         }"#;
-        let map = parse_materials_json(json);
-        assert_eq!(
-            map.get("pack:custom_wall"),
-            Some(&"textures/my_wall.png".to_string())
-        );
-        assert_eq!(
-            map.get("pack:carpet_gray"),
-            Some(&"textures/carpet.png".to_string())
-        );
+        let map = parse_materials_json(Some(json));
+        let wall = map.get("pack:custom_wall").expect("object form");
+        assert_eq!(wall.texture, "textures/my_wall.png");
+        assert_eq!(wall.tile_metres, Some(3.0));
+        assert_eq!(wall.tint, Some([0.5, 0.6, 0.7]));
+        let carpet = map.get("pack:carpet_gray").expect("string form");
+        assert_eq!(carpet.texture, "textures/carpet.png");
+        assert_eq!(carpet.tile_metres(), crate::assets::DEFAULT_TILE_METRES);
+        assert_eq!(carpet.tint(), crate::materials::DEFAULT_TINT);
+        assert!(parse_materials_json(None).is_empty());
+        assert!(parse_materials_json(Some("not json")).is_empty());
     }
 
     #[test]
@@ -1428,7 +1399,7 @@ mod tests {
     }
 
     #[test]
-    fn test_resource_fallback_for_missing_custom_texture() {
+    fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
         let level = LevelDef {
             format_version: 1,
             id: "fallback_test".into(),
@@ -1448,26 +1419,39 @@ mod tests {
             },
             walls: vec![],
             floor_patches: vec![],
+            floor_regions: vec![],
             ceiling_lights: vec![],
             decals: Vec::new(),
             props: vec![],
         };
 
-        // No custom textures supplied -> should gracefully fallback to the
-        // built-in sheets (wallpaper and ceiling cover two metres per repeat,
-        // the carpet one, all at 64 texels per metre).
-        let textures = resolve_textures(&level, &HashMap::new(), &HashMap::new());
-        assert_eq!(textures.wall.width, 128);
-        assert_eq!(textures.floor.width, 64);
-        assert_eq!(textures.ceiling.width, 128);
-        assert_eq!(
-            (textures.ceiling.width, textures.ceiling.height),
-            (128, 128)
+        // No custom textures supplied: the two `pack:` materials resolve to the
+        // one diagnostic pattern with a named error, the built-in ceiling still
+        // resolves from the catalog.
+        let pack = crate::materials::PackMaterials::new("fallback_pack", None, HashMap::new());
+        let catalog = crate::assets::AssetCatalog::load_default();
+        let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
+        let mut cache = crate::materials::TextureCache::new();
+        let table = crate::materials::resolve_materials(
+            &level,
+            &catalog,
+            Some(&pack),
+            Some(&root),
+            &mut cache,
         );
-        assert_eq!(
-            textures.ceiling.rgba.len(),
-            (textures.ceiling.width * textures.ceiling.height * 4) as usize
-        );
+
+        let wall = table.entry_of("pack:missing_wall").expect("wall entry");
+        assert_eq!(wall.origin, crate::materials::TextureOrigin::Missing);
+        assert_eq!(wall.texture_key, crate::materials::MISSING_TEXTURE_KEY);
+        let error = wall.error.as_deref().expect("named error");
+        assert!(error.contains("pack:missing_wall"), "error: {error}");
+        let ceiling = table
+            .entry_of("core:ceiling_panel_01")
+            .expect("ceiling entry");
+        assert_eq!(ceiling.origin, crate::materials::TextureOrigin::Catalog);
+        let image = wall.image.as_ref().expect("diagnostic image");
+        assert_eq!((image.width, image.height), (64, 64));
+        assert_eq!(image.rgba.len(), (64 * 64 * 4) as usize);
     }
 
     /// The built-in material variants resolve to distinct images, so a level
@@ -1483,40 +1467,47 @@ mod tests {
                     (hash ^ (u64::from(*byte) + index as u64)).wrapping_mul(0x0100_0000_01b3)
                 })
         };
-        // (field, maintained id, damaged id)
+        // (maintained id, damaged id)
         let variants = [
-            (
-                0usize,
-                "core:wallpaper_yellow_01",
-                "core:wallpaper_stained_01",
-            ),
-            (1, "core:carpet_beige_01", "core:carpet_damp_01"),
-            (2, "core:ceiling_panel_01", "core:ceiling_stained_01"),
+            ("core:wallpaper_yellow_01", "core:wallpaper_stained_01"),
+            ("core:carpet_beige_01", "core:carpet_damp_01"),
+            ("core:ceiling_panel_01", "core:ceiling_stained_01"),
         ];
-        for (field, maintained, damaged) in variants {
+        let catalog = crate::assets::AssetCatalog::load_default();
+        let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
+        for (maintained, damaged) in variants {
             let sample = |material: &str| {
                 let mut level = LevelDef::from_json(
                     r#"{"format_version": 1, "id": "x", "name": "x", "spawn": {"x": 0.0, "z": 0.0}}"#,
                 )
                 .expect("minimal level");
-                match field {
-                    0 => level.defaults.wall = material.into(),
-                    1 => level.defaults.floor = material.into(),
-                    _ => level.defaults.ceiling = material.into(),
-                }
-                let textures = resolve_textures(&level, &HashMap::new(), &HashMap::new());
-                let image = match field {
-                    0 => textures.wall,
-                    1 => textures.floor,
-                    _ => textures.ceiling,
-                };
+                level.defaults.wall = material.into();
+                level.defaults.floor = material.into();
+                level.defaults.ceiling = material.into();
+                let mut cache = crate::materials::TextureCache::new();
+                let table = crate::materials::resolve_materials(
+                    &level,
+                    &catalog,
+                    None,
+                    Some(&root),
+                    &mut cache,
+                );
+                assert!(
+                    table.errors().is_empty(),
+                    "{material} errors: {:?}",
+                    table.errors()
+                );
+                let image = table
+                    .entry_of(material)
+                    .and_then(|entry| entry.image.clone())
+                    .expect("decoded image");
                 (image.width, image.height, checksum(&image))
             };
             let plain = sample(maintained);
             let worn = sample(damaged);
             assert_ne!(
                 plain, worn,
-                "{damaged} must resolve to its own sheet, not {maintained}'s"
+                "{damaged} must resolve to its own PNG, not {maintained}'s"
             );
         }
     }
@@ -1592,6 +1583,223 @@ mod tests {
             f32::MAX
         ));
         assert!(validate_level(&level).is_err());
+    }
+
+    // -------------------------------------------- vertical geometry (goal 4.0)
+
+    /// A level with one room plus whatever extra JSON keys the test supplies.
+    fn vertical_level(room_extra: &str, level_extra: &str) -> LevelDef {
+        LevelDef::from_json(&format!(
+            r#"{{
+                "format_version": 1,
+                "id": "vertical",
+                "name": "Vertical",
+                "spawn": {{ "x": 4.0, "z": 4.0 }},
+                "room": {{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0{room_extra} }}{level_extra}
+            }}"#
+        ))
+        .expect("valid vertical json")
+    }
+
+    #[test]
+    fn test_validate_accepts_legacy_and_vertical_rooms() {
+        // Legacy: no elevation, no profile.
+        assert!(validate_level(&vertical_level("", "")).is_ok());
+        // Elevated with a gable ceiling and a recessed region.
+        let level = vertical_level(
+            r#", "floor_y": 2.0, "ceiling": { "kind": "gable", "ridge": "z", "ridge_rise": 1.5 }"#,
+            r#", "floor_regions": [
+                { "x": 1.0, "z": 1.0, "width": 3.0, "depth": 2.0, "offset_y": -1.0 }
+            ]"#,
+        );
+        assert!(validate_level(&level).is_ok());
+    }
+
+    #[test]
+    fn test_validate_rejects_non_finite_room_elevation() {
+        let level = vertical_level(r#", "floor_y": 1.0e30"#, "");
+        // Finite but absurd is still finite: the elevation itself is accepted,
+        // but an infinite one must not be.
+        assert!(validate_level(&level).is_ok());
+        let level = vertical_level(r#", "floor_y": 1.0e38"#, "");
+        let level = {
+            // serde_json cannot express infinity, so build it programmatically.
+            let mut level = level;
+            level.rooms.push(crate::level::RoomDef {
+                x: 20.0,
+                z: 0.0,
+                width: 4.0,
+                depth: 4.0,
+                height: 3.0,
+                floor_y: f32::INFINITY,
+                ceiling: crate::level::CeilingProfileDef::Flat,
+                material: None,
+                ceiling_material: None,
+            });
+            level
+        };
+        let err = validate_level(&level).expect_err("non-finite elevation must be rejected");
+        assert!(err.contains("floor elevation"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn test_validate_rejects_impossible_gable_definitions() {
+        for (extra, expected) in [
+            (
+                r#", "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 0.0 }"#,
+                "above the eave",
+            ),
+            (
+                r#", "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": -2.0 }"#,
+                "above the eave",
+            ),
+            (
+                r#", "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 51.0 }"#,
+                "maximum limit",
+            ),
+        ] {
+            let level = vertical_level(extra, "");
+            let err = validate_level(&level).expect_err("impossible gable must be rejected");
+            assert!(err.contains(expected), "unexpected error: {err}");
+        }
+        // A non-finite rise cannot come from JSON, so it is built directly.
+        let mut level = vertical_level("", "");
+        level.rooms.push(crate::level::RoomDef {
+            x: 20.0,
+            z: 0.0,
+            width: 4.0,
+            depth: 4.0,
+            height: 3.0,
+            floor_y: 0.0,
+            ceiling: crate::level::CeilingProfileDef::Gable {
+                ridge: crate::level::WallAxis::X,
+                ridge_rise: f32::NAN,
+            },
+            material: None,
+            ceiling_material: None,
+        });
+        let err = validate_level(&level).expect_err("NaN ridge must be rejected");
+        assert!(err.contains("ridge rise"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn test_validate_rejects_malformed_floor_regions() {
+        for (region, expected) in [
+            (
+                r#"{ "x": 1.0, "z": 1.0, "width": 0.0, "depth": 2.0 }"#,
+                "width and depth",
+            ),
+            (
+                r#"{ "x": 20.0, "z": 20.0, "width": 2.0, "depth": 2.0 }"#,
+                "outside every room",
+            ),
+            (
+                r#"{ "x": 1.0, "z": 1.0, "width": 2.0, "depth": 2.0, "offset_y": 3.0 }"#,
+                "at or above the ceiling",
+            ),
+            (
+                r#"{ "x": 1.0, "z": 1.0, "width": 2.0, "depth": 2.0, "material": "" }"#,
+                "non-empty",
+            ),
+        ] {
+            let level = vertical_level("", &format!(r#", "floor_regions": [{region}]"#));
+            let err = validate_level(&level).expect_err("malformed region must be rejected");
+            assert!(err.contains(expected), "unexpected error: {err}");
+        }
+    }
+
+    #[test]
+    fn test_validate_rejects_ceiling_decals_on_a_gable() {
+        let level = vertical_level(
+            r#", "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 1.5 }"#,
+            r#", "decals": [
+                { "x": 4.0, "y": 4.5, "z": 4.0, "width": 1.0, "height": 1.0,
+                  "material": "core:decal_test_01", "surface": "ceiling" }
+            ]"#,
+        );
+        let err = validate_level(&level).expect_err("sloped ceiling decal must be rejected");
+        assert!(err.contains("gable ceiling"), "unexpected error: {err}");
+
+        // The same decal on a flat ceiling (elevated or not) stays valid.
+        let level = vertical_level(
+            r#", "floor_y": 2.0"#,
+            r#", "decals": [
+                { "x": 4.0, "y": 5.0, "z": 4.0, "width": 1.0, "height": 1.0,
+                  "material": "core:decal_test_01", "surface": "ceiling" }
+            ]"#,
+        );
+        assert!(validate_level(&level).is_ok());
+    }
+
+    #[test]
+    fn test_validate_rejects_a_decal_that_straddles_a_height_change() {
+        // The decal is centred beside the recess but its 2 m width reaches over
+        // the edge, so it cannot lie on one plane.
+        let level = vertical_level(
+            "",
+            r#", "floor_regions": [
+                { "x": 4.0, "z": 3.0, "width": 4.0, "depth": 4.0, "offset_y": -1.0 }
+            ],
+            "decals": [
+                { "x": 4.0, "y": 0.0, "z": 5.0, "width": 2.0, "height": 1.0,
+                  "material": "core:decal_test_01", "surface": "floor" }
+            ]"#,
+        );
+        let err = validate_level(&level).expect_err("straddling decal must be rejected");
+        assert!(err.contains("height change"), "unexpected error: {err}");
+
+        // The same decal fully inside the room floor is fine.
+        let level = vertical_level(
+            "",
+            r#", "floor_regions": [
+                { "x": 4.0, "z": 3.0, "width": 4.0, "depth": 4.0, "offset_y": -1.0 }
+            ],
+            "decals": [
+                { "x": 2.0, "y": 0.0, "z": 5.0, "width": 2.0, "height": 1.0,
+                  "material": "core:decal_test_01", "surface": "floor" }
+            ]"#,
+        );
+        assert!(validate_level(&level).is_ok());
+    }
+
+    #[test]
+    fn test_validate_rejects_too_many_floor_regions() {
+        let regions: Vec<String> = (0..=crate::level::MAX_LEVEL_FLOOR_REGIONS)
+            .map(|_| r#"{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0 }"#.to_string())
+            .collect();
+        let level = vertical_level(
+            "",
+            &format!(r#", "floor_regions": [{}]"#, regions.join(",")),
+        );
+        let err = validate_level(&level).expect_err("too many regions must be rejected");
+        assert!(
+            err.contains("too many floor regions"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn test_vertical_room_fields_round_trip() {
+        let level = vertical_level(
+            r#", "floor_y": -1.5, "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 2.0 }"#,
+            r#", "floor_regions": [
+                { "x": 1.0, "z": 1.0, "width": 3.0, "depth": 2.0, "offset_y": -0.75,
+                  "material": "core:carpet_damp_01" }
+            ]"#,
+        );
+        let json = serde_json::to_string(&level).expect("serializes");
+        let reparsed = LevelDef::from_json(&json).expect("round trips");
+        let room = reparsed.room_iter().next().expect("one room");
+        assert_exact(room.floor_y, -1.5);
+        assert_exact(room.ceiling.ridge_rise_m(), 2.0);
+        assert_eq!(room.ceiling.ridge_axis(), Some(crate::level::WallAxis::X));
+        assert_eq!(reparsed.floor_regions.len(), 1);
+        assert_exact(reparsed.floor_regions[0].offset(), -0.75);
+        assert_eq!(
+            reparsed.floor_regions[0].material.as_deref(),
+            Some("core:carpet_damp_01")
+        );
+        assert!(validate_level(&reparsed).is_ok());
     }
 
     #[test]
@@ -2228,7 +2436,7 @@ mod tests {
                     let z = (bz - az).mul_add(t, az);
                     for wall in &walls {
                         assert!(
-                            !wall.intersects_circle(glam::Vec2::new(x, z), 0.3),
+                            !wall.intersects_circle(glam::Vec2::new(x, z), 0.3, 0.0),
                             "player path blocked at ({x:.2}, {z:.2}) by {wall:?}"
                         );
                     }
@@ -2269,7 +2477,7 @@ mod tests {
 
         // Baked colours stay in range, and floors genuinely vary across the demo
         // (the corridor has fixture pools, the rooms have their own).
-        let floor = mesh.triangles_for_family(crate::render::SurfaceFamily::Floor);
+        let floor = mesh.triangles_for_family(crate::render::SurfaceKind::Floor);
         let floor_min = floor.iter().map(|v| v.color[0]).fold(f32::MAX, f32::min);
         let floor_max = floor.iter().map(|v| v.color[0]).fold(f32::MIN, f32::max);
         assert!(floor_max - floor_min > 0.05, "floors must not be flat-lit");
@@ -2772,7 +2980,7 @@ mod tests {
             );
             for aabb in level.collision_aabbs() {
                 assert!(
-                    !aabb.intersects_circle(spawn, crate::collision::PLAYER_RADIUS),
+                    !aabb.intersects_circle(spawn, crate::collision::PLAYER_RADIUS, 0.0),
                     "{name}: the spawn sits inside level geometry"
                 );
             }
@@ -2906,6 +3114,85 @@ mod tests {
             mesh.batches.decal_batch.count,
             i32::try_from(level.decals.len()).unwrap_or(0) * 6,
             "every diagnostic decal must emit one quad"
+        );
+    }
+
+    #[test]
+    fn test_vertical_diagnostic_level_exercises_the_new_geometry() {
+        let level = residential_level("vertical_diagnostic");
+        assert!(
+            validate_level(&level).is_ok(),
+            "the phase 4 level must validate"
+        );
+
+        // Area A keeps the standard default ceiling height.
+        let ordinary = &level.rooms[0];
+        assert_exact(ordinary.floor_y, 0.0);
+        assert_exact(ordinary.height, crate::level::DEFAULT_CEILING_HEIGHT_M);
+        assert!(ordinary.ceiling.is_flat());
+
+        // Area B is a genuinely elevated room.
+        let elevated = &level.rooms[1];
+        assert_exact(elevated.floor_y, 2.0);
+
+        // Area D is a real gable.
+        let gable = &level.rooms[3];
+        assert_eq!(gable.ceiling.ridge_axis(), Some(crate::level::WallAxis::X));
+        assert_exact(gable.ceiling.ridge_rise_m(), 2.0);
+        assert_exact(gable.ridge_y().expect("ridge"), 7.0);
+
+        // Area C carries a walkable recess and a deep one.
+        let surfaces = crate::level::LevelSurfaces::new(&level);
+        assert_eq!(surfaces.floor_y_at(20.0, 5.0), Some(1.65), "shallow recess");
+        assert_eq!(surfaces.floor_y_at(25.0, 5.0), Some(0.5), "deep recess");
+        assert_eq!(
+            surfaces.floor_y_at(30.0, 5.0),
+            Some(2.0),
+            "gable room floor"
+        );
+
+        // The staircase in area A climbs in walkable steps from 0 to 2.
+        let mut previous = 0.0;
+        for x in [6.7_f32, 7.3, 7.9, 8.5, 9.1, 9.7] {
+            let step = surfaces.floor_y_at(x, 5.0).expect("inside room A");
+            assert!(
+                (step - previous).abs() <= crate::collision::PLAYER_STEP_HEIGHT + 1e-3,
+                "staircase step at {x} is {step}, was {previous}"
+            );
+            previous = step;
+        }
+        assert!((previous - 2.0).abs() < 1e-4);
+
+        // Every fixture hangs below its own ceiling, and the gable fixtures use
+        // the local profile rather than one flat plane.
+        let lighting = crate::lighting::LevelLighting::bake(&level);
+        let eave_light = lighting.fixture_y(33.0, 1.0);
+        let ridge_light = lighting.fixture_y(33.0, 5.0);
+        assert!(
+            (5.2..5.5).contains(&eave_light),
+            "eave fixture: {eave_light}"
+        );
+        assert!(
+            (ridge_light - (7.0 - 0.01)).abs() < 0.05,
+            "ridge fixture: {ridge_light}"
+        );
+        assert!(ridge_light - eave_light > 1.4);
+
+        // The collision geometry follows the recesses: a deep one has solid
+        // walls, the shallow one does not.
+        let rims = level
+            .collision_aabbs()
+            .iter()
+            .filter(|aabb| aabb.min_y < 1.0 && aabb.max_y <= 2.0 + 1e-3)
+            .count();
+        assert!(rims > 0, "the deep recess keeps its retaining walls");
+
+        // It still builds, with the decals and props it authors.
+        let mesh = crate::render::build_level_geometry(&level);
+        assert!(mesh.vertex_count > 0);
+        assert_eq!(
+            mesh.batches.decal_batch.count,
+            i32::try_from(level.decals.len()).unwrap_or(0) * 6
         );
     }
 }

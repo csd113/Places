@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import re
 import struct
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -246,6 +247,7 @@ class AssetCatalogTests(unittest.TestCase):
         for path in level_files() + custom_level_files():
             text = path.read_text(encoding="utf-8")
             self.assertNotIn(".glb", text, f"{path.name} stores a model file path")
+            self.assertNotIn(".png", text, f"{path.name} stores a texture file path")
             self.assertNotIn("assets/", text, f"{path.name} stores a physical asset path")
 
     def test_office_content_is_classified_but_generic_content_is_not_forced(self):
@@ -357,6 +359,61 @@ class AssetCatalogTests(unittest.TestCase):
             catalog_path = Path(directory) / "catalog.json"
             catalog_path.write_text(json.dumps(broken), encoding="utf-8")
             self.assertEqual(validate.main(["--catalog", str(catalog_path), "--quiet"]), 1)
+
+
+class EnvironmentTextureTests(unittest.TestCase):
+    """Goal 4.5: environment surfaces ship as file-backed PNG texture assets."""
+
+    LEGACY_MATERIAL_IDS = (
+        "core:wallpaper_yellow_01",
+        "core:carpet_beige_01",
+        "core:ceiling_panel_01",
+        "core:wallpaper_stained_01",
+        "core:carpet_damp_01",
+        "core:ceiling_stained_01",
+    )
+
+    def test_every_material_resolves_to_a_texture_asset(self):
+        by_id = {entry["id"]: entry for entry in catalog_entries()}
+        materials = catalog_entries("material")
+        self.assertTrue(materials, "the catalog declares no materials")
+        for material in materials:
+            texture_id = material.get("texture")
+            self.assertIn(texture_id, by_id, f"{material['id']}: texture {texture_id!r} is missing")
+            texture = by_id[texture_id]
+            self.assertEqual(texture["asset_type"], "texture", texture_id)
+            self.assertEqual(texture["source"], "file", texture_id)
+            self.assertTrue(texture["model"].endswith(".png"), texture_id)
+
+    def test_every_texture_asset_file_exists_and_is_a_png(self):
+        textures = catalog_entries("texture")
+        self.assertGreaterEqual(len(textures), 11, "the seed texture set is incomplete")
+        for texture in textures:
+            path = PACKAGE / "assets" / texture["model"]
+            self.assertTrue(path.is_file(), f"{texture['id']}: {texture['model']} is missing")
+            data = path.read_bytes()
+            self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"), texture["id"])
+            width, height = struct.unpack(">II", data[16:24])
+            self.assertGreater(width, 0, texture["id"])
+            self.assertGreater(height, 0, texture["id"])
+            self.assertLessEqual(width, 1024, texture["id"])
+            self.assertLessEqual(height, 1024, texture["id"])
+
+    def test_the_seed_texture_tool_validates_the_shipped_set(self):
+        result = subprocess.run(
+            [sys.executable, str(PACKAGE / "tools" / "textures" / "build.py"), "--check", "--quiet"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_the_six_legacy_material_ids_still_exist(self):
+        by_id = {entry["id"]: entry for entry in catalog_entries()}
+        for material_id in self.LEGACY_MATERIAL_IDS:
+            self.assertIn(material_id, by_id, f"{material_id} disappeared from the catalog")
+            self.assertEqual(by_id[material_id]["asset_type"], "material", material_id)
+            self.assertEqual(by_id[material_id]["source"], "definition", material_id)
 
 
 class SourceHygieneTests(unittest.TestCase):

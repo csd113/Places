@@ -14,6 +14,7 @@ mod lighting_audit_cases;
 #[cfg(test)]
 mod lighting_parity;
 pub mod loader;
+pub mod materials;
 pub mod perf;
 pub mod props;
 pub mod render;
@@ -33,6 +34,7 @@ use sdl2::keyboard::Keycode;
 use bench::Bench;
 use game::{AppState, Game};
 use input::{InputHandler, MenuNavEvent, keycode_to_str};
+use level::WalkableFloor;
 use perf::PerfOverlay;
 use render::{DrawableSize, Renderer, Vertex, WINDOW_HEIGHT, WINDOW_WIDTH};
 use settings::Settings;
@@ -92,7 +94,11 @@ fn log_prop_usage(renderer: &Renderer) {
 }
 
 /// Parses `LIMINAL_SPAWN` overrides: `x,z,yaw_degrees` keeps the default eye
-/// height, `x,y,z,yaw_degrees` sets it explicitly. Invalid input is ignored.
+/// height above the local floor, `x,y,z,yaw_degrees` sets the eye explicitly.
+/// Invalid input is ignored.
+///
+/// The three-number form returns `NAN` for Y, which the caller resolves against
+/// the level's walkable floor (so the override works in elevated rooms too).
 fn parse_spawn_override(value: &str) -> Option<[f32; 4]> {
     let parts: Vec<f32> = value
         .split(',')
@@ -104,7 +110,7 @@ fn parse_spawn_override(value: &str) -> Option<[f32; 4]> {
         .filter(|number| number.is_finite())
         .collect();
     match numbers.len() {
-        3 => Some([numbers[0], 1.6, numbers[1], numbers[2]]),
+        3 => Some([numbers[0], f32::NAN, numbers[1], numbers[2]]),
         4 => Some([numbers[0], numbers[1], numbers[2], numbers[3]]),
         _ => None,
     }
@@ -319,13 +325,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|e| format!("Failed to init event pump: {e}"))?;
 
     let mut input_handler = InputHandler::new();
-    let mut spawn_pos = Vec3::new(
-        initial_level.level.spawn.x,
-        1.6,
-        initial_level.level.spawn.z,
-    );
+    let mut spawn_pos = game::spawn_position(&initial_level.level);
     let mut spawn_yaw = initial_level.level.spawn.yaw_degrees.to_radians();
-    let mut game = Game::new(spawn_pos, spawn_yaw, initial_level.level.collision_aabbs());
+    let mut game = Game::new(
+        spawn_pos,
+        spawn_yaw,
+        initial_level.level.collision_aabbs(),
+        WalkableFloor::from_level(&initial_level.level),
+    );
     log_prop_usage(&renderer);
     // All required level state has been extracted (spawn, collision walls,
     // renderer uploads), so release the CPU-side textures and level definition.
@@ -357,9 +364,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     renderer.set_culling(!bench.no_cull());
                     renderer.set_indexing(!bench.no_index());
                     log_prop_usage(&renderer);
-                    spawn_pos = Vec3::new(loaded.level.spawn.x, 1.6, loaded.level.spawn.z);
+                    spawn_pos = game::spawn_position(&loaded.level);
                     spawn_yaw = loaded.level.spawn.yaw_degrees.to_radians();
-                    game.reset_level(spawn_pos, spawn_yaw, loaded.level.collision_aabbs());
+                    game.reset_level(
+                        spawn_pos,
+                        spawn_yaw,
+                        loaded.level.collision_aabbs(),
+                        WalkableFloor::from_level(&loaded.level),
+                    );
                     game.set_app_state(AppState::Playing);
                 }
                 Err(error) => {
@@ -414,9 +426,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .ok()
         });
     if let Some([x, y, z, yaw]) = spawn_override {
-        spawn_pos = Vec3::new(x, y, z);
+        // A three-number override keeps the standard eye height above the
+        // local floor; a four-number one sets the eye explicitly for a shot.
+        let eye_y = if y.is_finite() {
+            y
+        } else {
+            game::spawn_eye_y(&game.floor, x, z)
+        };
+        spawn_pos = Vec3::new(x, eye_y, z);
         spawn_yaw = yaw.to_radians();
-        game.reset_level(spawn_pos, spawn_yaw, game.walls.clone());
+        game.reset_level(spawn_pos, spawn_yaw, game.walls.clone(), game.floor.clone());
     }
 
     // Clean main loop
@@ -574,17 +593,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         match level_manager.load_level(entry) {
                                             Ok(loaded) => {
                                                 renderer.set_level(&loaded);
-                                                spawn_pos = Vec3::new(
-                                                    loaded.level.spawn.x,
-                                                    1.6,
-                                                    loaded.level.spawn.z,
-                                                );
+                                                spawn_pos = game::spawn_position(&loaded.level);
                                                 spawn_yaw =
                                                     loaded.level.spawn.yaw_degrees.to_radians();
                                                 game.reset_level(
                                                     spawn_pos,
                                                     spawn_yaw,
                                                     loaded.level.collision_aabbs(),
+                                                    WalkableFloor::from_level(&loaded.level),
                                                 );
                                                 input_handler.clear_gameplay_inputs();
                                                 ui_state.status_message = None;

@@ -1291,7 +1291,10 @@ fn group_l_lighting_multiplies_materials_instead_of_replacing_them() {
     let south = sample(0.4);
     assert!(!north.is_empty() && !south.is_empty());
     // North faces use mult 1.00, south 0.88, so a vertex pair at the same
-    // height and x keeps that ratio in the lit colour.
+    // height and x keeps that ratio in the lit colour. The two faces are 0.9 m
+    // apart once the light probe offset is applied, so the local pool differs
+    // slightly between them; the tolerance only has to be tighter than the
+    // 13.6% material difference the test is proving.
     let pair = north
         .iter()
         .flat_map(|n| {
@@ -1307,7 +1310,7 @@ fn group_l_lighting_multiplies_materials_instead_of_replacing_them() {
             .expect("matching north vertex");
         let ratio = n.color[0] / s.color[0];
         assert!(
-            (ratio - 1.0 / 0.88).abs() < 0.02,
+            (ratio - 1.0 / 0.88).abs() < 0.05,
             "material ratio must survive the bake, got {ratio}"
         );
     }
@@ -1553,6 +1556,7 @@ fn empty_level() -> LevelDef {
         defaults: crate::level::LevelDefaults::default(),
         walls: Vec::new(),
         floor_patches: Vec::new(),
+        floor_regions: Vec::new(),
         decals: Vec::new(),
         ceiling_lights: Vec::new(),
         props: Vec::new(),
@@ -1578,6 +1582,8 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     // Zero-area rooms (only constructible programmatically).
     let mut zero_room = empty.clone();
     zero_room.rooms.push(RoomDef {
+        ceiling: crate::level::CeilingProfileDef::Flat,
+        floor_y: 0.0,
         x: 5.0,
         z: 5.0,
         width: 0.0,
@@ -1623,6 +1629,8 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     assert_eq!(first, second);
     // Huge coordinates: finite geometry, no NaN.
     duplicate.rooms[0] = RoomDef {
+        ceiling: crate::level::CeilingProfileDef::Flat,
+        floor_y: 0.0,
         x: 1.0e30,
         z: -1.0e30,
         width: 10.0,

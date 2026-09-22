@@ -37,6 +37,28 @@ pub const ASSET_ROOT_CANDIDATES: [&str; 3] = ["assets", "./assets", "../assets"]
 /// Catalog file name inside the asset root.
 pub const CATALOG_FILE_NAME: &str = "catalog.json";
 
+/// World metres covered by one repeat of a material's texture when the catalog
+/// does not author `tile_metres`. It matches the historical 2 m authored sheets
+/// (128 px at 64 px/m), so an entry written before tiling was data keeps its
+/// exact appearance.
+pub const DEFAULT_TILE_METRES: f32 = 2.0;
+
+/// Smallest accepted `tile_metres`. Below this a repeat is finer than a
+/// centimetre and a texture reads as noise.
+pub const MIN_TILE_METRES: f32 = 0.05;
+
+/// Largest accepted `tile_metres`. Above this one repeat covers a very large
+/// surface and the material is almost certainly a unit mistake (metres vs
+/// centimetres vs pixels).
+pub const MAX_TILE_METRES: f32 = 64.0;
+
+/// Maximum PNG edge length the runtime decoder accepts.
+pub const MAX_TEXTURE_DIMENSION: u32 = 1024;
+
+/// Preferred PNG edge length for shipped textures (the PocketCHIP/Mali-400
+/// budget of `assets/README.md`). Larger images load, but tooling warns.
+pub const PREFERRED_TEXTURE_DIMENSION: u32 = 256;
+
 /// Finds the shipped asset root (`assets/`).
 #[must_use]
 pub fn resolve_asset_root() -> Option<PathBuf> {
@@ -260,9 +282,13 @@ impl fmt::Display for AssetType {
 pub enum AssetSource {
     /// A physical file below the asset root, named by `model`.
     File,
-    /// A resource the renderer generates in code (material sheets, the decal
-    /// atlas patterns, the built-in fixture).
+    /// A resource the renderer generates in code (the decal atlas patterns, the
+    /// built-in fixture).
     Generated,
+    /// A resource-less definition composed from other catalog assets: a
+    /// surface material names its base `texture` and carries the static
+    /// properties the renderer needs. It has no file of its own.
+    Definition,
 }
 
 impl AssetSource {
@@ -272,6 +298,7 @@ impl AssetSource {
         match self {
             Self::File => "file",
             Self::Generated => "generated",
+            Self::Definition => "definition",
         }
     }
 
@@ -279,7 +306,10 @@ impl AssetSource {
         match raw {
             "file" => Ok(Self::File),
             "generated" => Ok(Self::Generated),
-            other => Err(format!("expected `file` or `generated`, found `{other}`")),
+            "definition" => Ok(Self::Definition),
+            other => Err(format!(
+                "expected `file`, `generated` or `definition`, found `{other}`"
+            )),
         }
     }
 }
@@ -313,6 +343,12 @@ pub struct AssetEntry {
     pub solid: bool,
     /// Surface a material applies to (`wall`, `floor`, `ceiling`).
     pub surface: Option<String>,
+    /// Base texture asset a material draws with (`core:tex_carpet_beige_01`).
+    pub texture: Option<String>,
+    /// World metres covered by one repeat of a material's texture.
+    pub tile_metres: Option<f32>,
+    /// Static multiply tint the renderer applies to a material's texture.
+    pub tint: Option<[f32; 3]>,
     /// Future entity kind (`character`, `npc`, `creature`, ...).
     pub entity_type: Option<String>,
     pub description: Option<String>,
@@ -330,6 +366,18 @@ impl AssetEntry {
             self.asset_type.as_str(),
             AssetType::PROP | AssetType::ENTITY
         )
+    }
+
+    /// True when this asset is a surface material definition.
+    #[must_use]
+    pub fn is_material(&self) -> bool {
+        self.asset_type.as_str() == AssetType::MATERIAL
+    }
+
+    /// True when this asset is a texture image resource.
+    #[must_use]
+    pub fn is_texture(&self) -> bool {
+        self.asset_type.as_str() == AssetType::TEXTURE
     }
 }
 
@@ -396,6 +444,12 @@ struct CatalogEntryFile {
     #[serde(default)]
     surface: Option<String>,
     #[serde(default)]
+    texture: Option<String>,
+    #[serde(default)]
+    tile_metres: Option<f32>,
+    #[serde(default)]
+    tint: Option<[f32; 3]>,
+    #[serde(default)]
     entity_type: Option<String>,
     #[serde(default)]
     description: Option<String>,
@@ -444,6 +498,69 @@ impl CatalogEntryFile {
                 "{id}: model path `{model}` must be a relative path below the asset root"
             ));
         }
+        let texture = self
+            .texture
+            .as_deref()
+            .map(str::trim)
+            .filter(|texture| !texture.is_empty())
+            .map(str::to_string);
+        if let Some(texture) = &texture {
+            if !is_valid_asset_id(texture) {
+                return Err(format!(
+                    "{id}: texture `{texture}` is not a well-formed logical asset id"
+                ));
+            }
+            if asset_type.as_str() != AssetType::MATERIAL {
+                return Err(format!(
+                    "{id}: only a `material` asset may declare a `texture`"
+                ));
+            }
+        }
+        if asset_type.as_str() == AssetType::MATERIAL && texture.is_none() {
+            return Err(format!(
+                "{id}: a material must declare the logical `texture` it draws with"
+            ));
+        }
+        let tile_metres = match self.tile_metres {
+            Some(value) => {
+                if asset_type.as_str() != AssetType::MATERIAL {
+                    return Err(format!(
+                        "{id}: only a `material` asset may declare `tile_metres`"
+                    ));
+                }
+                if !value.is_finite() || !(MIN_TILE_METRES..=MAX_TILE_METRES).contains(&value) {
+                    return Err(format!(
+                        "{id}: tile_metres must be between {MIN_TILE_METRES} and {MAX_TILE_METRES} metres, found {value}"
+                    ));
+                }
+                Some(value)
+            }
+            None => None,
+        };
+        let tint = match self.tint {
+            Some(tint) => {
+                if asset_type.as_str() != AssetType::MATERIAL {
+                    return Err(format!(
+                        "{id}: only a `material` asset may declare a `tint`"
+                    ));
+                }
+                if !tint
+                    .iter()
+                    .all(|channel| channel.is_finite() && (0.0..=1.0).contains(channel))
+                {
+                    return Err(format!(
+                        "{id}: tint must be three channels between 0.0 and 1.0, found {tint:?}"
+                    ));
+                }
+                Some(tint)
+            }
+            None => None,
+        };
+        if asset_type.as_str() != AssetType::MATERIAL && self.tile_metres.is_some() {
+            return Err(format!(
+                "{id}: only a `material` asset may declare `tile_metres`"
+            ));
+        }
         let source = match self.source.as_deref().map(str::trim) {
             Some(raw) if !raw.is_empty() => {
                 let source = AssetSource::parse(raw).map_err(|error| format!("{id}: {error}"))?;
@@ -455,8 +572,31 @@ impl CatalogEntryFile {
                         "{id}: a `generated` asset must not declare a `model`"
                     ));
                 }
+                if source == AssetSource::Definition {
+                    if model.is_some() {
+                        return Err(format!(
+                            "{id}: a `definition` asset must not declare a `model`"
+                        ));
+                    }
+                    if texture.is_none() {
+                        return Err(format!(
+                            "{id}: a `definition` asset must declare a `texture` to draw with"
+                        ));
+                    }
+                }
+                if model.is_some() && texture.is_some() {
+                    return Err(format!(
+                        "{id}: an asset cannot be both a file resource and a texture-backed material"
+                    ));
+                }
+                if source == AssetSource::File && texture.is_some() {
+                    return Err(format!(
+                        "{id}: a `file` asset must not declare a `texture`; use `definition`"
+                    ));
+                }
                 source
             }
+            _ if texture.is_some() => AssetSource::Definition,
             _ if model.is_some() => AssetSource::File,
             _ => AssetSource::Generated,
         };
@@ -499,6 +639,9 @@ impl CatalogEntryFile {
                 .map(str::trim)
                 .filter(|surface| !surface.is_empty())
                 .map(str::to_string),
+            texture,
+            tile_metres,
+            tint,
             entity_type: self
                 .entity_type
                 .as_deref()
@@ -524,6 +667,16 @@ fn is_relative_resource_path(path: &str) -> bool {
         && !path
             .split('/')
             .any(|component| component == ".." || component.is_empty())
+}
+
+/// True when a resource path names a PNG (case-insensitive extension).
+#[must_use]
+pub fn has_png_extension(path: Option<&str>) -> bool {
+    path.is_some_and(|path| {
+        Path::new(path)
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("png"))
+    })
 }
 
 impl AssetCatalog {
@@ -595,6 +748,43 @@ impl AssetCatalog {
             }
             catalog.entries.insert(entry.id.clone(), entry);
         }
+
+        // Second pass: every material must reference a texture this catalog
+        // actually declares, and every texture asset must be a PNG. Doing this
+        // after all entries exist means a material may be declared before the
+        // texture it draws with, but never with a dangling reference.
+        let entries: Vec<&AssetEntry> = catalog.entries.values().collect();
+        for entry in entries {
+            if entry.is_texture() && !has_png_extension(entry.model.as_deref()) {
+                return Err(format!(
+                    "{}: a texture asset must name a `.png` file, found `{}`",
+                    entry.id,
+                    entry.model.as_deref().unwrap_or("(no model)")
+                ));
+            }
+            let Some(texture_id) = entry.texture.as_deref() else {
+                continue;
+            };
+            let Some(texture) = catalog.entries.get(texture_id) else {
+                return Err(format!(
+                    "{}: material texture `{texture_id}` is not declared in the asset catalog",
+                    entry.id
+                ));
+            };
+            if !texture.is_texture() {
+                return Err(format!(
+                    "{}: material texture `{texture_id}` is a `{}` asset, not a texture",
+                    entry.id,
+                    texture.asset_type.as_str()
+                ));
+            }
+            if texture.source != AssetSource::File {
+                return Err(format!(
+                    "{}: material texture `{texture_id}` has no PNG file to load",
+                    entry.id
+                ));
+            }
+        }
         Ok(catalog)
     }
 
@@ -638,6 +828,61 @@ impl AssetCatalog {
     #[must_use]
     pub fn placeable(&self, id: &str) -> Option<&AssetEntry> {
         self.get(id).filter(|entry| entry.is_placeable())
+    }
+
+    /// The entry with this logical id when it is a surface material.
+    #[must_use]
+    pub fn material(&self, id: &str) -> Option<&AssetEntry> {
+        self.get(id).filter(|entry| entry.is_material())
+    }
+
+    /// The logical texture id a material draws with, if it declares one.
+    #[must_use]
+    pub fn material_texture(&self, id: &str) -> Option<&str> {
+        self.material(id)?.texture.as_deref()
+    }
+
+    /// The world metres covered by one repeat of a material's texture.
+    ///
+    /// Falls back to [`DEFAULT_TILE_METRES`] for a material that does not
+    /// author `tile_metres`, and to `None` for a non-material id.
+    #[must_use]
+    pub fn material_tile_metres(&self, id: &str) -> Option<f32> {
+        self.material(id)
+            .map(|entry| entry.tile_metres.unwrap_or(DEFAULT_TILE_METRES))
+    }
+
+    /// The static multiply tint of a material; white when it does not author one.
+    #[must_use]
+    pub fn material_tint(&self, id: &str) -> Option<[f32; 3]> {
+        self.material(id)
+            .map(|entry| entry.tint.unwrap_or([1.0, 1.0, 1.0]))
+    }
+
+    /// The canonical PNG path of a texture asset, relative to the asset root.
+    #[must_use]
+    pub fn texture_path(&self, id: &str) -> Option<&str> {
+        self.get(id)
+            .filter(|entry| entry.is_texture() && entry.source == AssetSource::File)
+            .and_then(|entry| entry.model.as_deref())
+    }
+
+    /// Every material entry, ordered by id.
+    #[must_use]
+    pub fn materials(&self) -> Vec<&AssetEntry> {
+        self.entries()
+            .into_iter()
+            .filter(|entry| entry.is_material())
+            .collect()
+    }
+
+    /// Every texture entry, ordered by id.
+    #[must_use]
+    pub fn textures(&self) -> Vec<&AssetEntry> {
+        self.entries()
+            .into_iter()
+            .filter(|entry| entry.is_texture())
+            .collect()
     }
 
     /// True when the catalog declares this logical id.
@@ -751,6 +996,28 @@ mod tests {
         assert_eq!(decal.asset_class.as_str(), AssetClass::DIAGNOSTIC);
         assert_eq!(decal.asset_type.as_str(), AssetType::DECAL);
 
+        let carpet = catalog
+            .get("core:carpet_beige_01")
+            .expect("the office carpet material");
+        assert_eq!(carpet.asset_type.as_str(), AssetType::MATERIAL);
+        assert_eq!(carpet.source, AssetSource::Definition);
+        assert_eq!(carpet.texture.as_deref(), Some("core:tex_carpet_beige_01"));
+        assert_eq!(carpet.tile_metres, Some(2.0));
+        assert_eq!(
+            catalog.material_texture("core:carpet_beige_01"),
+            Some("core:tex_carpet_beige_01")
+        );
+
+        let texture = catalog
+            .get("core:tex_carpet_beige_01")
+            .expect("the carpet texture");
+        assert_eq!(texture.asset_type.as_str(), AssetType::TEXTURE);
+        assert_eq!(texture.source, AssetSource::File);
+        assert_eq!(
+            catalog.texture_path("core:tex_carpet_beige_01"),
+            Some("environment/office/textures/floors/carpet_beige_01.png")
+        );
+
         let themes: Vec<&str> = catalog
             .themes()
             .iter()
@@ -818,6 +1085,39 @@ mod tests {
             error.contains("duplicate theme id"),
             "unexpected error: {error}"
         );
+
+        // Duplicate texture ids and duplicate material ids are the same
+        // catalog-level error, never last-one-wins.
+        let duplicate_texture = r##"{
+            "assets": [
+                { "id": "core:tex_a", "asset_class": "environment", "asset_type": "texture",
+                  "source": "file", "model": "environment/office/textures/walls/a.png" },
+                { "id": "core:tex_a", "asset_class": "environment", "asset_type": "texture",
+                  "source": "file", "model": "environment/office/textures/walls/b.png" }
+            ]
+        }"##;
+        let error = AssetCatalog::from_json_str(duplicate_texture).expect_err("duplicate texture");
+        assert!(
+            error.contains("duplicate asset id") && error.contains("core:tex_a"),
+            "unexpected error: {error}"
+        );
+
+        let duplicate_material = r##"{
+            "assets": [
+                { "id": "core:tex_a", "asset_class": "environment", "asset_type": "texture",
+                  "source": "file", "model": "environment/office/textures/walls/a.png" },
+                { "id": "core:mat_a", "asset_class": "environment", "asset_type": "material",
+                  "source": "definition", "texture": "core:tex_a" },
+                { "id": "core:mat_a", "asset_class": "environment", "asset_type": "material",
+                  "source": "definition", "texture": "core:tex_a" }
+            ]
+        }"##;
+        let error =
+            AssetCatalog::from_json_str(duplicate_material).expect_err("duplicate material");
+        assert!(
+            error.contains("duplicate asset id") && error.contains("core:mat_a"),
+            "unexpected error: {error}"
+        );
     }
 
     #[test]
@@ -879,7 +1179,7 @@ mod tests {
             (
                 r#"{ "assets": [{ "id": "future:thing", "asset_class": "environment",
                     "asset_type": "prop", "source": "magic", "model": "a.glb" }] }"#,
-                "expected `file` or `generated`",
+                "expected `file`, `generated` or `definition`",
             ),
         ];
         for (json, needle) in cases {
@@ -1036,19 +1336,47 @@ mod tests {
     }
 
     #[test]
-    fn renderer_and_catalog_agree_on_generated_ids() {
+    fn renderer_and_catalog_agree_on_surface_and_decal_ids() {
         let catalog = shipped_catalog();
-        for material in [
-            crate::render::DAMAGED_WALL_MATERIAL,
-            crate::render::DAMAGED_FLOOR_MATERIAL,
-            crate::render::DAMAGED_CEILING_MATERIAL,
-        ] {
-            let entry = catalog
-                .get(material)
-                .unwrap_or_else(|| panic!("{material} must be catalogued"));
-            assert_eq!(entry.asset_type.as_str(), AssetType::MATERIAL);
-            assert_eq!(entry.source, AssetSource::Generated);
+
+        // Every catalogued surface material must resolve through the material
+        // table to a decoded PNG: no material is allowed to depend on a
+        // renderer-known id or a code-generated sheet any more.
+        let level = LevelDef::from_json(include_str!("../assets/levels/level1.json"))
+            .expect("level1 parses");
+        let mut cache = crate::materials::TextureCache::new();
+        let root = resolve_asset_root().expect("assets/ is discoverable");
+        let table =
+            crate::materials::resolve_materials(&level, &catalog, None, Some(&root), &mut cache);
+        assert!(
+            table.errors().is_empty(),
+            "level1 materials must all resolve: {:?}",
+            table.errors()
+        );
+        for material in table.entries() {
+            assert!(
+                material.image.is_some(),
+                "{}: no decoded texture image",
+                material.id
+            );
+            assert_eq!(
+                material.origin,
+                crate::materials::TextureOrigin::Catalog,
+                "{}: expected a catalog PNG",
+                material.id
+            );
         }
+        for legacy in [
+            "core:wallpaper_yellow_01",
+            "core:carpet_beige_01",
+            "core:ceiling_panel_01",
+        ] {
+            assert!(
+                catalog.contains(legacy),
+                "{legacy} must stay a stable catalogued material id"
+            );
+        }
+
         for sheet in crate::render::DECAL_MATERIALS {
             let entry = catalog
                 .get(sheet)
@@ -1069,5 +1397,42 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn level_material_references_cover_floor_regions_too() {
+        let catalog = shipped_catalog();
+        let mut checked = 0usize;
+        for dir in ["assets/levels", "levels"] {
+            let entries = fs::read_dir(dir).unwrap_or_else(|error| panic!("{dir}: {error}"));
+            for file in entries.flatten() {
+                let path = file.path();
+                if path.extension().is_none_or(|ext| ext != "json") {
+                    continue;
+                }
+                let content = fs::read_to_string(&path).expect("level is readable");
+                let level = LevelDef::from_json(&content)
+                    .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+                for region in &level.floor_regions {
+                    for (what, material) in [
+                        ("region floor material", region.material.as_deref()),
+                        ("region edge material", region.edge_material.as_deref()),
+                    ] {
+                        if let Some(material) = material {
+                            checked += 1;
+                            assert!(
+                                catalog.contains(material),
+                                "{}: {what} `{material}` is not in the asset catalog",
+                                path.display()
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        assert!(
+            checked > 0,
+            "at least one shipped level must exercise a region material"
+        );
     }
 }

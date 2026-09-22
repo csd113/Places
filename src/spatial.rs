@@ -9,8 +9,12 @@
 //!
 //! The partitioning is deliberately simple — a uniform X/Z grid, no Y
 //! subdivision, no hierarchy, no occlusion queries, nothing beyond what OpenGL
-//! ES 2.0 needs. Liminal levels are single-storey interiors, so a cell is a
-//! square of floor space that covers the full height of whatever stands in it.
+//! ES 2.0 needs. A cell is a column of space that covers the full height of
+//! whatever stands in it, which stays correct for elevated rooms, gable
+//! ceilings and recessed floors: `LevelSurfaces` supplies the vertical extent,
+//! and batching only needs the X/Z footprint. Rooms stacked at the same X/Z
+//! share a cell, so they share draw ranges; that is a batching granularity
+//! limit, not a correctness one.
 //!
 //! Everything here is `no_std`-friendly pure math plus one `HashMap`-backed
 //! builder; nothing allocates per frame.

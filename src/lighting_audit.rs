@@ -18,10 +18,10 @@ use std::time::Instant;
 
 use crate::level::{LevelDef, MAX_LEVEL_PROP_VERTICES, MAX_LEVEL_VERTICES};
 use crate::lighting::LevelLighting;
+use crate::render::SurfaceKind;
 use crate::render::{
     LevelMesh, PropMeshBatch, build_level_geometry, build_level_geometry_with_assets,
 };
-use crate::render::{SurfaceFamily, SurfaceKind};
 use crate::test_support::assert_exact_named;
 
 // ---------------------------------------------------------------------------
@@ -1403,8 +1403,8 @@ fn merged_floor_and_ceiling_quads_keep_exact_samples_and_tile_the_room() {
     for level in [shipped_level("level1"), demo_level()] {
         let lighting = LevelLighting::bake(&level);
         let mesh = build_level_geometry(&level);
-        let floor = mesh.triangles_for_family(SurfaceFamily::Floor);
-        let ceiling = mesh.triangles_for_family(SurfaceFamily::Ceiling);
+        let floor = mesh.triangles_for_family(SurfaceKind::Floor);
+        let ceiling = mesh.triangles_for_family(SurfaceKind::Ceiling);
         assert_vertex_colors_safe(&floor);
         assert_vertex_colors_safe(&ceiling);
 

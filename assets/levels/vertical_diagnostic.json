@@ -1,0 +1,100 @@
+{
+  "format_version": 1,
+  "id": "vertical_diagnostic",
+  "name": "Vertical Diagnostic",
+  "author": "Places",
+  "spawn": { "x": 1.5, "z": 5.0, "yaw_degrees": 90.0 },
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "rooms": [
+    {
+      "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0,
+      "material": "core:carpet_beige_01"
+    },
+    {
+      "x": 10.0, "z": 0.0, "width": 8.0, "depth": 10.0,
+      "height": 3.0, "floor_y": 2.0
+    },
+    {
+      "x": 18.0, "z": 0.0, "width": 10.0, "depth": 10.0,
+      "height": 2.5, "floor_y": 2.0,
+      "material": "core:carpet_beige_01"
+    },
+    {
+      "x": 28.0, "z": 0.0, "width": 10.0, "depth": 10.0,
+      "height": 3.0, "floor_y": 2.0,
+      "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 2.0 }
+    }
+  ],
+  "floor_regions": [
+    { "x": 6.4, "z": 4.0, "width": 0.6, "depth": 2.0, "offset_y": 0.3333 },
+    { "x": 7.0, "z": 4.0, "width": 0.6, "depth": 2.0, "offset_y": 0.6667 },
+    { "x": 7.6, "z": 4.0, "width": 0.6, "depth": 2.0, "offset_y": 1.0 },
+    { "x": 8.2, "z": 4.0, "width": 0.6, "depth": 2.0, "offset_y": 1.3333 },
+    { "x": 8.8, "z": 4.0, "width": 0.6, "depth": 2.0, "offset_y": 1.6667 },
+    { "x": 9.4, "z": 4.0, "width": 0.6, "depth": 2.0, "offset_y": 2.0 },
+    {
+      "x": 19.0, "z": 3.0, "width": 3.0, "depth": 4.0, "offset_y": -0.35,
+      "material": "core:carpet_damp_01",
+      "edge_material": "core:wallpaper_stained_01"
+    },
+    {
+      "x": 24.0, "z": 3.0, "width": 3.0, "depth": 4.0, "offset_y": -1.5,
+      "edge_material": "core:wallpaper_stained_01"
+    }
+  ],
+  "walls": [
+    { "x": 9.85, "z": 0.0, "width": 0.3, "depth": 10.0, "y": 0.0, "height": 2.0,
+      "openings": [{ "kind": "passage", "offset": 4.0, "width": 2.0, "height": 2.0 }] },
+    { "x": 9.85, "z": 0.0, "width": 0.3, "depth": 10.0, "y": 2.0, "height": 3.0,
+      "openings": [{ "kind": "door", "offset": 4.0, "width": 2.0, "height": 2.1 }] },
+    { "x": 17.85, "z": 0.0, "width": 0.3, "depth": 10.0, "y": 2.0, "height": 3.0,
+      "openings": [{ "kind": "door", "offset": 4.0, "width": 2.0, "height": 2.1 }] },
+    { "x": 28.0, "z": 0.0, "width": 0.3, "depth": 10.0, "y": 2.0,
+      "openings": [{ "kind": "door", "offset": 4.0, "width": 2.0, "height": 2.1 }] },
+
+    { "x": 0.0, "z": 0.0, "width": 9.85, "depth": 0.3, "y": 0.0 },
+    { "x": 10.15, "z": 0.0, "width": 7.7, "depth": 0.3, "y": 2.0 },
+    { "x": 18.15, "z": 0.0, "width": 9.85, "depth": 0.3, "y": 2.0 },
+    { "x": 28.3, "z": 0.0, "width": 9.7, "depth": 0.3, "y": 2.0 },
+
+    { "x": 0.0, "z": 9.7, "width": 9.85, "depth": 0.3, "y": 0.0 },
+    { "x": 10.15, "z": 9.7, "width": 7.7, "depth": 0.3, "y": 2.0 },
+    { "x": 18.15, "z": 9.7, "width": 9.85, "depth": 0.3, "y": 2.0 },
+    { "x": 28.3, "z": 9.7, "width": 9.7, "depth": 0.3, "y": 2.0 },
+
+    { "x": 0.0, "z": 0.0, "width": 0.3, "depth": 10.0, "y": 0.0 },
+    { "x": 37.7, "z": 0.0, "width": 0.3, "depth": 10.0, "y": 2.0 }
+  ],
+  "decals": [
+    { "x": 3.0, "y": 0.0, "z": 3.0, "width": 1.2, "height": 1.2,
+      "material": "core:decal_arrow_01", "surface": "floor", "rotation_degrees": 90.0 },
+    { "x": 5.0, "y": 4.0, "z": 5.0, "width": 1.0, "height": 1.0,
+      "material": "core:decal_test_01", "surface": "ceiling" },
+    { "x": 2.0, "y": 1.4, "z": 0.3, "width": 1.0, "height": 0.6,
+      "material": "core:decal_test_01", "surface": "wall_south" },
+    { "x": 21.0, "y": 1.65, "z": 7.6, "width": 1.4, "height": 0.8,
+      "material": "core:decal_stripes_01", "surface": "floor" },
+    { "x": 33.0, "y": 2.0, "z": 8.0, "width": 1.2, "height": 1.2,
+      "material": "core:decal_no_diving_01", "surface": "floor" }
+  ],
+  "ceiling_lights": [
+    { "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 5.0 },
+    { "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0,
+      "color": [1.0, 0.2, 0.15], "brightness": 1.2 },
+    { "fixture": "core:fluorescent_panel_01", "x": 8.0, "z": 8.0,
+      "color": [0.15, 0.3, 1.0], "brightness": 1.2 },
+    { "fixture": "core:fluorescent_panel_01", "x": 14.0, "z": 5.0 },
+    { "fixture": "core:fluorescent_panel_01", "x": 23.5, "z": 5.0 },
+    { "fixture": "core:fluorescent_panel_01", "x": 33.0, "z": 1.0 },
+    { "fixture": "core:fluorescent_panel_01", "x": 33.0, "z": 5.0, "brightness": 0.8 }
+  ],
+  "props": [
+    { "model": "core:crate", "x": 4.5, "y": 0.0, "z": 7.5, "size": [0.8, 0.8, 0.8], "solid": true },
+    { "model": "core:crate", "x": 13.0, "y": 0.0, "z": 3.0, "size": [0.8, 0.8, 0.8], "solid": true },
+    { "model": "core:crate", "x": 20.0, "y": 0.0, "z": 4.0, "size": [0.8, 0.8, 0.8], "solid": true }
+  ]
+}

@@ -344,8 +344,15 @@
       "asset_class": "environment",
       "theme": "office",
       "asset_type": "material",
-      "source": "generated",
+      "source": "definition",
       "surface": "wall",
+      "texture": "core:tex_wallpaper_yellow_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.85,
+        0.80,
+        0.42
+      ],
       "description": "Maintained liminal office wallpaper."
     },
     {
@@ -354,8 +361,10 @@
       "asset_class": "environment",
       "theme": "office",
       "asset_type": "material",
-      "source": "generated",
+      "source": "definition",
       "surface": "floor",
+      "texture": "core:tex_carpet_beige_01",
+      "tile_metres": 2.0,
       "description": "Maintained liminal office carpet."
     },
     {
@@ -364,8 +373,15 @@
       "asset_class": "environment",
       "theme": "office",
       "asset_type": "material",
-      "source": "generated",
+      "source": "definition",
       "surface": "ceiling",
+      "texture": "core:tex_ceiling_panel_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.72,
+        0.72,
+        0.70
+      ],
       "description": "Maintained suspended office ceiling."
     },
     {
@@ -374,8 +390,15 @@
       "asset_class": "environment",
       "theme": "office",
       "asset_type": "material",
-      "source": "generated",
+      "source": "definition",
       "surface": "wall",
+      "texture": "core:tex_wallpaper_stained_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.85,
+        0.80,
+        0.42
+      ],
       "description": "Water-damaged office wallpaper."
     },
     {
@@ -384,8 +407,10 @@
       "asset_class": "environment",
       "theme": "office",
       "asset_type": "material",
-      "source": "generated",
+      "source": "definition",
       "surface": "floor",
+      "texture": "core:tex_carpet_damp_01",
+      "tile_metres": 2.0,
       "description": "Water-damaged office carpet."
     },
     {
@@ -394,9 +419,187 @@
       "asset_class": "environment",
       "theme": "office",
       "asset_type": "material",
-      "source": "generated",
+      "source": "definition",
       "surface": "ceiling",
+      "texture": "core:tex_ceiling_stained_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.72,
+        0.72,
+        0.70
+      ],
       "description": "Water-damaged office ceiling."
+    },
+    {
+      "id": "core:diagnostic_wall_01",
+      "display_name": "Diagnostic Wall Material",
+      "asset_class": "diagnostic",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_diagnostic_wall_01",
+      "tile_metres": 2.0,
+      "description": "Orientation-revealing wall used by the rendering diagnostic."
+    },
+    {
+      "id": "core:diagnostic_floor_01",
+      "display_name": "Diagnostic Floor Material",
+      "asset_class": "diagnostic",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_diagnostic_floor_01",
+      "tile_metres": 2.0,
+      "description": "Orientation-revealing floor used by the rendering diagnostic."
+    },
+    {
+      "id": "core:diagnostic_ceiling_01",
+      "display_name": "Diagnostic Ceiling Material",
+      "asset_class": "diagnostic",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "core:tex_diagnostic_ceiling_01",
+      "tile_metres": 2.0,
+      "description": "Orientation-revealing ceiling used by the rendering diagnostic."
+    },
+    {
+      "id": "core:diagnostic_alt_01",
+      "display_name": "Diagnostic Alternate Material",
+      "asset_class": "diagnostic",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_diagnostic_alt_01",
+      "tile_metres": 2.0,
+      "description": "Non-power-of-two orange/cyan surface used to prove arbitrary dimensions."
+    },
+    {
+      "id": "core:diagnostic_alpha_01",
+      "display_name": "Diagnostic Alpha Material",
+      "asset_class": "diagnostic",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_diagnostic_alpha_01",
+      "tile_metres": 2.0,
+      "description": "Partly transparent surface used to prove alpha decoding."
+    },
+    {
+      "id": "core:tex_carpet_beige_01",
+      "display_name": "Beige Carpet Texture",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/office/textures/floors/carpet_beige_01.png",
+      "surface": "floor",
+      "description": "Seed texture for the maintained office carpet."
+    },
+    {
+      "id": "core:tex_carpet_damp_01",
+      "display_name": "Damp Carpet Texture",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/office/textures/floors/carpet_damp_01.png",
+      "surface": "floor",
+      "description": "Seed texture for the water-damaged office carpet."
+    },
+    {
+      "id": "core:tex_ceiling_panel_01",
+      "display_name": "Panel Ceiling Texture",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/office/textures/ceilings/ceiling_panel_01.png",
+      "surface": "ceiling",
+      "description": "Seed texture for the maintained suspended office ceiling."
+    },
+    {
+      "id": "core:tex_ceiling_stained_01",
+      "display_name": "Stained Ceiling Texture",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/office/textures/ceilings/ceiling_stained_01.png",
+      "surface": "ceiling",
+      "description": "Seed texture for the water-damaged office ceiling."
+    },
+    {
+      "id": "core:tex_diagnostic_alpha_01",
+      "display_name": "Diagnostic Alpha",
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "diagnostic/textures/diagnostic_alpha_01.png",
+      "surface": "wall",
+      "description": "RGBA diagnostic sheet with a transparent margin and a translucent ring."
+    },
+    {
+      "id": "core:tex_diagnostic_alt_01",
+      "display_name": "Diagnostic Alternate",
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "diagnostic/textures/diagnostic_alt_01.png",
+      "surface": "floor",
+      "description": "Deliberately non-power-of-two, non-square diagnostic sheet (96x64)."
+    },
+    {
+      "id": "core:tex_diagnostic_ceiling_01",
+      "display_name": "Diagnostic Ceiling",
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "diagnostic/textures/diagnostic_ceiling_01.png",
+      "surface": "ceiling",
+      "description": "Concentric-ring diagnostic sheet for ceiling orientation."
+    },
+    {
+      "id": "core:tex_diagnostic_floor_01",
+      "display_name": "Diagnostic Floor",
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "diagnostic/textures/diagnostic_floor_01.png",
+      "surface": "floor",
+      "description": "Checker-and-arrow diagnostic sheet for floor orientation."
+    },
+    {
+      "id": "core:tex_diagnostic_wall_01",
+      "display_name": "Diagnostic Wall",
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "diagnostic/textures/diagnostic_wall_01.png",
+      "surface": "wall",
+      "description": "Stripe-and-arrow diagnostic sheet for wall orientation."
+    },
+    {
+      "id": "core:tex_wallpaper_stained_01",
+      "display_name": "Stained Wallpaper Texture",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/office/textures/walls/wallpaper_stained_01.png",
+      "surface": "wall",
+      "description": "Seed texture for the water-damaged office wallpaper."
+    },
+    {
+      "id": "core:tex_wallpaper_yellow_01",
+      "display_name": "Yellow Wallpaper Texture",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/office/textures/walls/wallpaper_yellow_01.png",
+      "surface": "wall",
+      "description": "Seed texture for the maintained liminal office wallpaper."
     },
     {
       "id": "core:fluorescent_panel_01",

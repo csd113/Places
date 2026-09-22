@@ -65,7 +65,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::level::{LevelDef, WallAxis, ceiling_height_at};
+use crate::level::{LevelDef, WallAxis};
 
 // ---------------------------------------------------------------------------
 // Emitted light colour
@@ -353,7 +353,9 @@ pub const MIN_ROOM_AREA_M2: f32 = 0.01;
 
 /// Distance a sample may sit outside a room's footprint and still count as
 /// inside it. Wall faces, floors and ceilings sit exactly on room boundaries.
-pub const ROOM_EDGE_EPS_M: f32 = 0.01;
+/// The level model owns the value so baked lighting, geometry and collision
+/// share one ownership tolerance.
+const ROOM_EDGE_EPS_M: f32 = crate::level::ROOM_EDGE_EPS_M;
 
 /// Distance inside a room probed when deciding which rooms an opening joins.
 const OPENING_PROBE_M: f32 = 0.05;
@@ -556,8 +558,16 @@ pub struct RoomLighting {
     pub x1: f32,
     pub z0: f32,
     pub z1: f32,
-    /// Ceiling height in metres (always positive).
+    /// World Y of the room's own floor plane.
+    pub floor_y: f32,
+    /// Clear eave height in metres (always positive): floor to `height`.
+    ///
+    /// This is the height the illumination model is calibrated against. A gable
+    /// ridge adds shape, not brightness, so rooms that author the same `height`
+    /// stay equally lit whether or not they have a pitched ceiling.
     pub height_m: f32,
+    /// Ceiling profile of the room, sanitised for lookup.
+    pub profile: crate::level::CeilingProfileDef,
     /// Floor area in square metres.
     pub area_m2: f32,
     /// Number of ceiling fixtures owned by this room.
@@ -575,7 +585,9 @@ pub struct RoomLighting {
 pub struct BakedLight {
     pub x: f32,
     pub z: f32,
-    /// World Y of the fixture panel (its room's ceiling minus [`FIXTURE_DROP_M`]).
+    /// World Y of the fixture panel: the lowest point of its room's ceiling
+    /// over the panel footprint, minus [`FIXTURE_DROP_M`]. Under a gable the
+    /// panel therefore hangs below the slope instead of intersecting it.
     pub y: f32,
     /// Sanitised authored intensity.
     pub intensity: f32,
@@ -598,6 +610,32 @@ pub struct LightingSummary {
     pub min_baseline: f32,
     pub max_baseline: f32,
     pub average_baseline: f32,
+}
+
+/// World Y of the lowest point of a room's ceiling under a horizontal panel of
+/// the given half extents, or `fallback` when no room owns the point.
+///
+/// Taking the minimum over the panel's corners is what keeps a fixture visibly
+/// below a sloping ceiling: a panel near the eave hangs at the eave, a panel
+/// near the ridge hangs at the ridge, and neither ever intersects the slope.
+fn panel_min_ceiling_y(
+    room: Option<&RoomLighting>,
+    fallback: f32,
+    x: f32,
+    z: f32,
+    half_w: f32,
+    half_d: f32,
+) -> f32 {
+    let Some(room) = room else {
+        return fallback;
+    };
+    let mut lowest = f32::INFINITY;
+    for corner_x in [x - half_w, x + half_w] {
+        for corner_z in [z - half_d, z + half_d] {
+            lowest = lowest.min(room.ceiling_y_at(corner_x, corner_z));
+        }
+    }
+    if lowest.is_finite() { lowest } else { fallback }
 }
 
 /// A doorway/passage link between two rooms.
@@ -628,8 +666,25 @@ pub struct LevelLighting {
     room_lights: Vec<Vec<u32>>,
     /// Every fixture index, for samples outside all rooms.
     all_lights: Vec<u32>,
-    /// Ceiling height used for fixtures that no room contains.
-    default_ceiling_height_m: f32,
+    /// Ceiling plane used for fixtures that no room contains.
+    default_ceiling_y: f32,
+    /// Clear height used for the height factor of fixtures outside every room.
+    default_height_m: f32,
+}
+
+impl RoomLighting {
+    /// World Y of this room's ceiling surface at `(x, z)`.
+    #[must_use]
+    pub fn ceiling_y_at(&self, x: f32, z: f32) -> f32 {
+        crate::level::ceiling_y_for_volume(
+            (self.x0, self.x1, self.z0, self.z1),
+            self.floor_y,
+            self.height_m,
+            self.profile,
+            x,
+            z,
+        )
+    }
 }
 
 /// A closed interval on the floor plane: `(min, max)`.
@@ -672,12 +727,28 @@ impl LevelLighting {
             } else {
                 REFERENCE_CEILING_HEIGHT_M
             };
+            // A gable profile with a malformed rise behaves as flat, exactly
+            // like `RoomDef::ceiling_y_at` would resolve it.
+            let profile = match room.ceiling {
+                crate::level::CeilingProfileDef::Gable { ridge_rise, .. }
+                    if !(ridge_rise.is_finite() && ridge_rise > 0.0) =>
+                {
+                    crate::level::CeilingProfileDef::Flat
+                }
+                profile => profile,
+            };
             rooms.push(RoomLighting {
                 x0,
                 x1,
                 z0,
                 z1,
+                floor_y: if room.floor_y.is_finite() {
+                    room.floor_y
+                } else {
+                    0.0
+                },
                 height_m,
+                profile,
                 area_m2: width * depth,
                 fixture_count: 0,
                 effective_power: LightColor::BLACK,
@@ -685,11 +756,21 @@ impl LevelLighting {
             });
         }
 
-        let default_ceiling_height_m = room_refs
+        // Ceiling plane and clear height used for fixtures that no room
+        // contains: the first room's values, or the historical reference height
+        // for an empty level.
+        let default_height_m = room_refs
             .first()
-            .map(|room| room.height)
-            .filter(|height| height.is_finite() && *height > 0.0)
-            .unwrap_or(REFERENCE_CEILING_HEIGHT_M);
+            .map_or(REFERENCE_CEILING_HEIGHT_M, |room| {
+                if room.height.is_finite() && room.height > 0.0 {
+                    room.height
+                } else {
+                    REFERENCE_CEILING_HEIGHT_M
+                }
+            });
+        let default_ceiling_y = room_refs
+            .first()
+            .map_or(REFERENCE_CEILING_HEIGHT_M, |room| room.eave_y());
 
         // Resolve every fixture once: ownership, fixture plane, rotated panel
         // footprint and its contribution to its room's effective power.
@@ -699,15 +780,10 @@ impl LevelLighting {
                 continue;
             }
             let room = Self::room_index_of(&rooms, light.x, light.z);
-            let height_m = room.map_or_else(
-                || ceiling_height_at(&room_refs, light.x, light.z),
-                |index| rooms[index].height_m,
-            );
-            let height_m = if height_m.is_finite() && height_m > 0.0 {
-                height_m
-            } else {
-                default_ceiling_height_m
-            };
+            // The height factor is calibrated against the room's eave, so a
+            // gable ridge changes the ceiling's shape but not the room's
+            // illumination response.
+            let height_m = room.map_or(default_height_m, |index| rooms[index].height_m);
             let height_factor = ceiling_height_factor(height_m);
             let intensity = sanitize_intensity(light.intensity());
             let color = light.emitted_color();
@@ -715,6 +791,14 @@ impl LevelLighting {
             // geometry emitted by `crate::render` (shared helper, so a
             // fractional rotation cannot drift between the two).
             let (half_w, half_d) = fixture_half_extents(light.rotation_degrees);
+            let panel_y = panel_min_ceiling_y(
+                room.map(|index| &rooms[index]),
+                default_ceiling_y,
+                light.x,
+                light.z,
+                half_w,
+                half_d,
+            ) - FIXTURE_DROP_M;
             if let Some(index) = room {
                 rooms[index].fixture_count += 1;
                 let power = effective_power(intensity, height_m);
@@ -725,7 +809,7 @@ impl LevelLighting {
             lights.push(BakedLight {
                 x: light.x,
                 z: light.z,
-                y: height_m - FIXTURE_DROP_M,
+                y: panel_y,
                 intensity,
                 color,
                 height_factor,
@@ -774,7 +858,7 @@ impl LevelLighting {
             };
             let half_thickness = (t1 - t0).abs() * 0.5;
             for opening in &wall.openings {
-                if !opening.is_door() || !opening.reaches_floor() {
+                if !opening.is_door() {
                     continue;
                 }
                 // Only openings the geometry actually cuts count as passages:
@@ -787,12 +871,6 @@ impl LevelLighting {
                     || opening.width <= 0.0
                     || opening.height <= 0.0
                 {
-                    continue;
-                }
-                // A wall raised off the floor (`wall.y`) is a header or lintel,
-                // not a walk-through; its opening is above head height, so it
-                // must not join the rooms for lighting either.
-                if wall.y + opening.sill.max(0.0) > 1e-3 {
                     continue;
                 }
                 let center = opening
@@ -817,6 +895,14 @@ impl LevelLighting {
                 if room_a == room_b {
                     continue;
                 }
+                // A walk-through opening has to reach the floor it connects: a
+                // wall raised off the floor (`wall.y`) is a header or lintel,
+                // not a passage, and an opening that only reaches an upper
+                // room's floor does not join the two rooms for light either.
+                let floor = rooms[room_a].floor_y.min(rooms[room_b].floor_y);
+                if wall.y + opening.sill.max(0.0) > floor + 1e-3 {
+                    continue;
+                }
                 let top_y = opening.top(wall.y);
                 blends[room_a].push(OpeningBlend {
                     x: center_x,
@@ -839,7 +925,8 @@ impl LevelLighting {
             blends,
             room_lights,
             all_lights,
-            default_ceiling_height_m,
+            default_ceiling_y,
+            default_height_m,
         }
     }
 
@@ -888,16 +975,36 @@ impl LevelLighting {
         best
     }
 
-    /// World Y of the fixture panel for a ceiling light placed at `(x, z)`.
+    /// World Y of a ceiling light's horizontal panel at `(x, z)`.
     ///
     /// Fixtures hang just below their room's ceiling, so the same panel sits at
-    /// 2.59 m in a 2.6 m corridor and at 2.99 m in a 3 m room.
+    /// 2.59 m in a 2.6 m corridor and at 2.99 m in a 3 m room. Under a gable the
+    /// panel uses the *lowest* ceiling point it covers, so it never intersects
+    /// the slope; this is the single function the mesh and the bake both use, so
+    /// the drawn panel and the baked light pool can never drift apart.
+    #[must_use]
+    pub fn fixture_panel_y(&self, x: f32, z: f32, half_w: f32, half_d: f32) -> f32 {
+        panel_min_ceiling_y(
+            self.room_index_at(x, z).map(|index| &self.rooms[index]),
+            self.default_ceiling_y,
+            x,
+            z,
+            half_w.max(0.0),
+            half_d.max(0.0),
+        ) - FIXTURE_DROP_M
+    }
+
+    /// World Y of a point fixture panel at `(x, z)`, ignoring panel extents.
     #[must_use]
     pub fn fixture_y(&self, x: f32, z: f32) -> f32 {
+        self.fixture_panel_y(x, z, 0.0, 0.0)
+    }
+
+    /// Clear eave height of the room owning `(x, z)`, for tests and diagnostics.
+    #[must_use]
+    pub fn ceiling_height_at(&self, x: f32, z: f32) -> f32 {
         self.room_index_at(x, z)
-            .map_or(self.default_ceiling_height_m - FIXTURE_DROP_M, |index| {
-                self.rooms[index].height_m - FIXTURE_DROP_M
-            })
+            .map_or(self.default_height_m, |index| self.rooms[index].height_m)
     }
 
     /// Baked illumination at a world position, resolving the room by
@@ -1150,6 +1257,94 @@ mod tests {
     /// overall brightness rather than colour.
     fn lum(lighting: &LevelLighting, x: f32, y: f32, z: f32) -> f32 {
         lighting.sample(x, y, z).luminance()
+    }
+
+    // ------------------------------------------------- vertical geometry (4.0)
+
+    #[test]
+    fn fixture_panel_follows_a_gable_eave_and_ridge() {
+        let level = LevelDef::from_json(
+            r#"{
+                "format_version": 1,
+                "id": "gable_light",
+                "name": "Gable Light",
+                "spawn": { "x": 12.0, "z": 12.0 },
+                "room": { "x": 0.0, "z": 0.0, "width": 24.0, "depth": 24.0, "height": 3.0,
+                          "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 2.0 } },
+                "ceiling_lights": [
+                    { "fixture": "core:fluorescent_panel_01", "x": 12.0, "z": 12.0, "intensity": 0.2 },
+                    { "fixture": "core:fluorescent_panel_01", "x": 12.0, "z": 1.0, "intensity": 0.2 }
+                ]
+            }"#,
+        )
+        .expect("gable light json");
+        let lighting = LevelLighting::bake(&level);
+
+        // The ridge fixture hangs just under the 5.0 m ridge, the eave fixture
+        // under the 3.0 m eave: they must not share one flat plane.
+        let ridge_y = lighting.fixture_y(12.0, 12.0);
+        let eave_y = lighting.fixture_y(12.0, 1.0);
+        assert!((ridge_y - (5.0 - FIXTURE_DROP_M)).abs() < 1e-3, "{ridge_y}");
+        // The eave fixture uses the *lowest* ceiling its panel covers, so it is
+        // a little above the eave plane but nowhere near the ridge.
+        assert!(
+            (3.0..3.4).contains(&eave_y),
+            "eave fixture hangs under the slope: {eave_y}"
+        );
+        assert!(ridge_y - eave_y > 1.5);
+
+        // The baked panel plane is exactly the drawn one, panel extents included.
+        let (half_w, half_d) = fixture_half_extents(0.0);
+        for light in lighting.lights() {
+            let expected = lighting.fixture_panel_y(light.x, light.z, light.half_w, light.half_d);
+            assert!((light.y - expected).abs() < 1e-4);
+            assert!(light.half_w == half_w && light.half_d == half_d);
+            // The panel stays below the ceiling everywhere it hangs.
+            assert!(light.y < 5.0 - FIXTURE_DROP_M + 1e-3);
+        }
+
+        // The ridge fixture's pool is centred on the high ceiling: directly
+        // under the ridge, the air just below the panel is brighter than the
+        // air at eave height in the same column.
+        let under_ridge_high = lighting.sample_in_room_luminance(0, 12.0, 4.8, 12.0);
+        let under_ridge_low = lighting.sample_in_room_luminance(0, 12.0, 3.0, 12.0);
+        assert!(
+            under_ridge_high > under_ridge_low,
+            "{under_ridge_high} vs {under_ridge_low}"
+        );
+        // The mirror case at the eave: the fixture there lights its own height.
+        let at_eave = lighting.sample_in_room_luminance(0, 12.0, 3.0, 1.0);
+        let above_eave = lighting.sample_in_room_luminance(0, 12.0, 4.8, 1.0);
+        assert!(at_eave > above_eave, "{at_eave} vs {above_eave}");
+    }
+
+    #[test]
+    fn elevated_room_fixtures_hang_from_their_own_ceiling() {
+        let level = LevelDef::from_json(
+            r#"{
+                "format_version": 1,
+                "id": "elevated_light",
+                "name": "Elevated Light",
+                "spawn": { "x": 4.0, "z": 4.0 },
+                "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0,
+                          "height": 3.0, "floor_y": 2.0 },
+                "ceiling_lights": [
+                    { "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 4.0 }
+                ]
+            }"#,
+        )
+        .expect("elevated light json");
+        let lighting = LevelLighting::bake(&level);
+        assert!((lighting.fixture_y(4.0, 4.0) - (5.0 - FIXTURE_DROP_M)).abs() < 1e-3);
+        assert_eq!(lighting.rooms()[0].floor_y, 2.0);
+
+        // The pool reaches the raised floor, not the world floor beneath it.
+        let on_elevated_floor = lum(&lighting, 4.0, 2.0, 4.0);
+        let below_the_room = lum(&lighting, 4.0, 0.0, 4.0);
+        assert!(
+            on_elevated_floor > below_the_room,
+            "the elevated floor must be the lit one: {on_elevated_floor} vs {below_the_room}"
+        );
     }
 
     #[test]

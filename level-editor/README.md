@@ -44,6 +44,14 @@ ids, imported texture ids, scale, vertical offsets, clipping) lives behind the
 **Advanced** switch in the top bar. Advanced changes what is *shown*; it never
 changes the level format.
 
+The editor predates the vertical-geometry format (`floor_y`, `ceiling` profiles
+and `floor_regions`); it does not author or preview those keys yet, and a
+replacement editor is planned. A level that uses them still opens (unknown keys
+are ignored on import), but **saving it here drops them**, because the editor
+writes only the fields it knows. Edit vertical-geometry levels in a text editor
+until the replacement lands. See the "Vertical geometry" section of the
+repository README for the format.
+
 ### Keyboard
 
 `Ctrl/Cmd+Z` undo · `Ctrl/Cmd+Shift+Z` redo · `Ctrl/Cmd+D` duplicate ·
