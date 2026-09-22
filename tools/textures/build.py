@@ -159,6 +159,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check", action="store_true", help="validate the shipped PNGs without regenerating them")
     parser.add_argument("--only", nargs="+", metavar="ID", help="regenerate only these logical texture ids")
+    parser.add_argument("--force", action="store_true", help="allow a painter to overwrite a sheet whose shipped dimensions differ from the seed art")
     parser.add_argument("--quiet", action="store_true", help="only print problems")
     args = parser.parse_args(argv)
 
@@ -171,11 +172,29 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         selected = sorted(set(args.only))
 
+    skipped = 0
     if not args.check:
         for texture_id in selected:
             entry = MANIFEST[texture_id]
             path = os.path.join(ASSET_ROOT, entry["model"])
             canvas = entry["build"]()
+            seed_size = (canvas.width, canvas.height)
+            if os.path.isfile(path) and not args.force:
+                try:
+                    shipped_size = read_png_dimensions(path)
+                except (OSError, ValueError):
+                    shipped_size = None
+                if shipped_size is not None and shipped_size != seed_size:
+                    # The upgraded Office/Pool artwork is intentionally larger
+                    # than its legacy painter. Overwriting it here would
+                    # silently downgrade a shipped asset, so refuse unless the
+                    # caller says the seed replacement is deliberate.
+                    skipped += 1
+                    print(
+                        f"SKIP {texture_id}: {entry['model']} ships {shipped_size[0]}x{shipped_size[1]}, "
+                        f"the seed painter makes {seed_size[0]}x{seed_size[1]}; pass --force to replace it"
+                    )
+                    continue
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, "wb") as handle:
                 handle.write(write_png(canvas.width, canvas.height, canvas.rgba()))
@@ -194,7 +213,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n{len(errors)} error(s), {len(warnings)} warning(s)")
         return 1
     if not args.quiet:
-        print(f"OK ({len(report)} texture(s), {len(warnings)} warning(s))")
+        if skipped:
+            print(f"OK ({len(report)} texture(s), {len(warnings)} warning(s), {skipped} skipped)")
+        else:
+            print(f"OK ({len(report)} texture(s), {len(warnings)} warning(s))")
     return 0
 
 

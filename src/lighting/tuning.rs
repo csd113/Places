@@ -241,6 +241,21 @@ pub(super) const ROOM_EDGE_EPS_M: f32 = crate::level::ROOM_EDGE_EPS_M;
 /// Distance inside a room probed when deciding which rooms an opening joins.
 pub(super) const OPENING_PROBE_M: f32 = 0.05;
 
+/// How far below the lower of two adjacent baseline cells' ceilings the
+/// partition-connectivity probe runs, in metres.
+///
+/// The probe has to be high enough to be blocked by the solid header above a
+/// door (which stops light from being shared as if the wall were not there)
+/// while staying clear of a wall that deliberately stops short of the ceiling
+/// (which light passes over). 15 cm below the ceiling separates all real
+/// partitions from all real openings in this engine.
+pub(super) const ZONE_PROBE_DROP_M: f32 = 0.15;
+
+/// Minimum height of a baseline-connectivity probe above the room's base floor,
+/// in metres. Keeps a probe inside a room whose clear height is barely above the
+/// room floor (a raised region can push the ceiling close).
+pub(super) const ZONE_PROBE_MIN_ABOVE_FLOOR_M: f32 = 0.1;
+
 /// Step size, in metres, of the walk that moves a surface sample out of an
 /// opaque wall it happens to lie inside (see [`LevelLighting::clear_sample`]).
 pub(super) const CLEAR_SAMPLE_STEP_M: f32 = 0.05;

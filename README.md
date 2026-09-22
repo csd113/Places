@@ -21,12 +21,21 @@ The engine is deliberately small and the content is deliberately editable:
 
 * **Rooms, walls and openings** are authored as rectangles in a JSON level.
   Walls can be cut with doors, windows, passages and vents.
-* **Baked RGB lighting.** Every fixture bakes a room-wide baseline plus a local
-  pool into the level's vertex colours at load time. Coloured fixtures tint both
-  the visible panel and the illumination.
+* **Baked RGB lighting.** Every fixture bakes a room baseline plus a local pool
+  into the level's vertex colours at load time. Coloured fixtures tint both the
+  visible panel and the illumination.
+* **Partitions split the baseline.** When an opaque internal wall divides a
+  room's footprint, each side gets its own baseline from the fixtures it can
+  reach; a doorway still blends a bounded amount through its aperture, and a
+  wall that stops short of the ceiling is not a partition. An open room bakes
+  exactly as it always did.
 * **Walls are lighting boundaries.** A fixture's light only reaches what its
   panel can see: an opaque wall blocks the pool behind it, and a doorway,
   window, passage or vent transmits light through exactly the hole it cuts.
+* **Floors and ceilings are boundaries too.** Stacked rooms do not light each
+  other through a solid slab, in colour or brightness, while a raised platform,
+  a lowered basin and an intentional vertical opening stay open. A ceiling
+  fixture on a chosen storey authors a world `y`.
 * **Vertical geometry.** A room has its own floor elevation, clear height and
   ceiling profile (flat or gable); `floor_regions` recess or raise rectangular
   parts of a room, which is how the empty pool basin and the region staircases
@@ -290,7 +299,7 @@ src/                 the game crate (`liminal-rust`)
     assets.rs        the catalog: ids, classes, themes, resource paths
     level.rs         the level format, geometry rules and the walkable floor
     loader.rs        level discovery, validation, packs, materials resolution
-    lighting/        the bake: baselines, fixture pools, wall visibility
+    lighting/        the bake: partition areas, baselines, fixture pools, visibility
     render/          mesh building, packing, culling, decals, fixtures, the GL renderer
     materials/       PNG decode, texture cache, material and decal resolution
     game.rs          player state, movement and collision

@@ -586,3 +586,80 @@ fn level_material_references_cover_floor_regions_too() {
         "at least one shipped level must exercise a region material"
     );
 }
+
+#[test]
+fn shipped_texture_policy_accepts_the_upgraded_art_and_rejects_breaches() {
+    // The upgraded Office/Pool surfaces are 1024x1024: square, exactly at the
+    // hard dimension, and exactly the per-sheet decoded byte budget.
+    ShippedTextureKind::Surface
+        .check_dimensions(1024, 1024)
+        .expect("a 1024x1024 surface is the shipped contract");
+    assert_eq!(decoded_rgba_bytes(1024, 1024), MAX_SURFACE_TEXTURE_BYTES);
+    assert!(decoded_rgba_bytes(1024, 1024) <= MAX_SURFACE_TEXTURE_BYTES);
+
+    // Over-preferred is a soft warning, never an error.
+    assert!(ShippedTextureKind::is_over_preferred(1024, 1024));
+    assert!(ShippedTextureKind::is_over_preferred(512, 256));
+    assert!(!ShippedTextureKind::is_over_preferred(256, 256));
+
+    // One pixel over the hard limit is rejected.
+    let error = ShippedTextureKind::Surface
+        .check_dimensions(1025, 1024)
+        .expect_err("dimensions over the hard limit must be rejected");
+    assert!(error.contains("hard limit"), "unexpected error: {error}");
+
+    // Zero-sized sheets are rejected for every class.
+    for kind in [
+        ShippedTextureKind::Surface,
+        ShippedTextureKind::FixtureFace,
+        ShippedTextureKind::DecalSheet,
+    ] {
+        let error = kind
+            .check_dimensions(0, 128)
+            .expect_err("a zero-sized sheet must be rejected");
+        assert!(error.contains("non-zero"), "unexpected error: {error}");
+    }
+
+    // A surface sheet must be square: the renderer samples it as a square
+    // tile_metres cell, so a 2:1 sheet would stretch.
+    let error = ShippedTextureKind::Surface
+        .check_dimensions(256, 128)
+        .expect_err("a non-square surface must be rejected");
+    assert!(error.contains("square"), "unexpected error: {error}");
+
+    // Surfaces are not power-of-two constrained: a square NPOT sheet loads on
+    // the desktop GL path and satisfies the surface contract.
+    ShippedTextureKind::Surface
+        .check_dimensions(96, 96)
+        .expect("a square NPOT surface satisfies the surface contract");
+
+    // Fitted sheets are power-of-two constrained for the ES 2.0 mip chain.
+    for kind in [
+        ShippedTextureKind::FixtureFace,
+        ShippedTextureKind::DecalSheet,
+    ] {
+        let error = kind
+            .check_dimensions(96, 96)
+            .expect_err("a non-power-of-two fitted sheet must be rejected");
+        assert!(error.contains("power-of-two"), "unexpected error: {error}");
+        // The shipped fixture faces and decal sheets satisfy the contract.
+        kind.check_dimensions(256, 128)
+            .expect("the office panel face is a valid fixture sheet");
+        kind.check_dimensions(1024, 1024)
+            .expect("the upgraded pool sign is a valid decal sheet");
+    }
+
+    // The 96x64 diagnostic is the deliberate NPOT exception: the policy
+    // rejects it for every class, and the call site that loads it asserts the
+    // exact dimensions instead of weakening the classes above.
+    for kind in [
+        ShippedTextureKind::Surface,
+        ShippedTextureKind::FixtureFace,
+        ShippedTextureKind::DecalSheet,
+    ] {
+        assert!(
+            kind.check_dimensions(96, 64).is_err(),
+            "{kind:?} must not silently accept the NPOT diagnostic"
+        );
+    }
+}

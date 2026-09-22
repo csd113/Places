@@ -17,6 +17,10 @@ mod lighting_isolation;
 mod lighting_leak_audit;
 #[cfg(test)]
 mod lighting_parity;
+#[cfg(test)]
+mod lighting_partition_audit;
+#[cfg(test)]
+mod lighting_vertical_audit;
 pub mod loader;
 pub mod materials;
 pub mod perf;
@@ -119,9 +123,12 @@ fn log_prop_usage(renderer: &Renderer) {
         level.prop_draws
     );
     println!(
-        "[lighting] baked {} room(s) from {} fixture(s): baselines {:.2}..{:.2} (avg {:.2})",
+        "[lighting] baked {} room(s) / {} baseline area(s) from {} fixture(s): {} wall + {} slab blocker(s), baselines {:.2}..{:.2} (avg {:.2})",
         level.lighting.rooms,
+        level.lighting.zones,
         level.lighting.lights,
+        level.lighting.walls,
+        level.lighting.blockers.saturating_sub(level.lighting.walls),
         level.lighting.min_baseline,
         level.lighting.max_baseline,
         level.lighting.average_baseline

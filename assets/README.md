@@ -173,14 +173,28 @@ Texture assets are just files:
 * `"model"` must be a `.png` path relative to `assets/`; other extensions are a
   catalog error and a missing/undecodable file is a level-load error with the
   material id in the message.
-* PNG dimensions are read from the file, not the catalog. The runtime accepts
-  any non-zero size up to 1024×1024 and normalises RGB, RGBA, grayscale,
-  grayscale+alpha, palette and 16-bit images to RGBA8. `tools/textures/build.py
-  --check` enforces that budget and warns above 256×256 (the PocketCHIP/Mali-400
-  budget) and for non-power-of-two sizes (portability: OpenGL ES 2.0 does not
-  guarantee NPOT + repeat + mipmaps; the desktop GL path used on macOS loads
-  NPOT fine, and `core:tex_diagnostic_alt_01` is deliberately 96×64 to prove
-  it).
+* PNG dimensions are read from the file, not the catalog. The policy lives in
+  `src/assets.rs` (`ShippedTextureKind`, `MAX_TEXTURE_DIMENSION`,
+  `PREFERRED_TEXTURE_DIMENSION`, `MAX_SURFACE_TEXTURE_BYTES`): the hard runtime
+  ceiling is 1024×1024, the soft preference 256×256 (the PocketCHIP/Mali-400
+  budget), and one surface sheet may decode to at most 4 MiB of RGBA8. The
+  runtime accepts any non-zero size up to the ceiling and normalises RGB, RGBA,
+  grayscale, grayscale+alpha, palette and 16-bit images to RGBA8. Exceeding the
+  preferred size is a tooling warning, never an error: the upgraded Office and
+  Pool surface sheets are intentionally 1024×1024.
+* **Surface sheets are square**, because the renderer samples them as square
+  `tile_metres` cells and a non-square wall/floor/ceiling sheet would stretch.
+  They are not power-of-two constrained: the desktop GL path loads NPOT fine
+  and the runtime accepts it, though POT stays preferred for the ES 2.0
+  portability target.
+* **Decal sheets and fixture faces must be power-of-two** on both edges. They
+  are fitted, sampled with mipmaps and never repeat, and OpenGL ES 2.0 does not
+  guarantee NPOT + mipmapping. `tools/textures/build.py --check` reports a
+  non-POT sheet as a warning (the runtime decoder itself accepts it); the
+  shipped-asset policy in `src/assets.rs` and its tests treat it as a
+  violation. The one deliberate exception is the 96×64
+  `core:tex_diagnostic_alt_01` surface, which exists to prove the NPOT load
+  path and is asserted explicitly where it is loaded.
 * Surface textures are uploaded with `REPEAT` wrapping and mipmaps. Alpha is
   decoded and preserved, but base surfaces are opaque and blending is off (only
   the decal pass alpha-tests), so keep surface PNGs opaque unless you are
@@ -339,7 +353,13 @@ Same material id, new pixels:
    image pixels are read at level load and decoded once per session.
 
 This is the same for creators: `tools/textures/build.py` regenerates the seed
-artwork deterministically, but hand-painted PNGs are just as valid.
+artwork deterministically, but hand-painted PNGs are just as valid. The shipped
+Office/Pool surfaces and the NO DIVING sign are upgraded 1024x1024 artwork, an
+order larger than what the legacy seed painters in `office_art.py`,
+`pool_art.py` and `decal_art.py` produce; `build.py` skips a sheet whose
+on-disk dimensions differ from its painter's and only overwrites with
+`--force`, so a plain regeneration can never silently downgrade the shipped
+art.
 
 ### Where the artwork lives
 
@@ -396,7 +416,7 @@ what the runtime reads, so files may move freely as long as the catalog follows.
 | ---------- | ---------------------------------------------------------- |
 | triangles  | 50–500 preferred, ≤800 acceptable, 1500 hard ceiling; props above 800 are allowlisted in `src/props.rs` with a written reason (`spooner-man`, a creature, needs 928) |
 | prop texture | 64×64 or 128×128 preferred, 256×256 hard ceiling         |
-| surface texture | 128×128 preferred, 256×256 soft warning, 1024×1024 hard load ceiling |
+| surface texture | Office/Pool sheets are intentionally 1024×1024 (square, opaque); 256×256 soft preferred, 1024×1024 hard load ceiling, ≤4 MiB decoded per sheet |
 | materials  | exactly one diffuse texture per prop                       |
 | draw calls | one per distinct model per level (instances are baked)     |
 
@@ -471,7 +491,7 @@ PNGs.
 | `[decals] decal `{id}`: {problem}` | an external decal sheet's catalog entry or PNG is broken | fix the entry/path; the decal draws the diagnostic sheet meanwhile |
 | `{id}: a file-backed light fixture must name a `.png` sheet, found ...` | a light entry points at something that is not a PNG | point `model` at the fixture's artwork |
 | `[fixtures] fixture `{id}` sheet `{path}`: {problem}` | a fixture's PNG is missing or corrupt | restore the file; the fixture draws the untextured white sheet meanwhile |
-| `[textures] ...` (from `tools/textures/build.py --check`) | file missing, corrupt, oversized or non-PNG | regenerate with `python3 tools/textures/build.py` |
+| `[textures] ...` (from `tools/textures/build.py --check`) | file missing, corrupt, oversized or non-PNG | restore the file; `python3 tools/textures/build.py` regenerates seed-sized (128x128) artwork, so for an upgraded 1024x1024 sheet prefer restoring it from the repository rather than regenerating (the painter skips a differing sheet unless `--force` is passed) |
 
 Validation fails loudly in tooling and degrades visibly in game: a broken
 texture is never hidden behind unrelated artwork.

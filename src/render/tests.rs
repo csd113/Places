@@ -242,8 +242,10 @@ fn texture_image(texture_id: &str) -> crate::materials::RawImage {
 
 #[test]
 fn test_shipped_texture_assets_are_opaque_and_within_budget() {
-    // The six office surfaces are opaque 128x128 two-metre tiles; the one
-    // NPOT diagnostic proves arbitrary PNG dimensions load.
+    // The six office surfaces are opaque square sheets inside the shipped
+    // texture policy: non-zero, square, within the hard 1024px limit and the
+    // per-sheet decoded byte budget, with an RGBA8 buffer that matches the
+    // dimensions exactly. The upgraded artwork sits exactly at that limit.
     for texture in [
         "core:tex_wallpaper_yellow_01",
         "core:tex_wallpaper_stained_01",
@@ -253,20 +255,155 @@ fn test_shipped_texture_assets_are_opaque_and_within_budget() {
         "core:tex_ceiling_stained_01",
     ] {
         let image = texture_image(texture);
-        assert_eq!((image.width, image.height), (128, 128), "{texture}");
-        assert_eq!(image.rgba.len(), (128 * 128 * 4) as usize);
+        crate::assets::ShippedTextureKind::Surface
+            .check_dimensions(image.width, image.height)
+            .unwrap_or_else(|error| panic!("{texture}: {error}"));
+        assert_eq!(
+            image.width, image.height,
+            "{texture}: a surface sheet is sampled as a square tile"
+        );
+        assert!(
+            image.width > 0 && image.height > 0,
+            "{texture}: the decoded sheet must be non-empty"
+        );
+        assert!(
+            image.width <= crate::assets::MAX_TEXTURE_DIMENSION
+                && image.height <= crate::assets::MAX_TEXTURE_DIMENSION,
+            "{texture}: over the hard texture limit"
+        );
+        assert_eq!(
+            image.rgba.len(),
+            crate::assets::decoded_rgba_bytes(image.width, image.height),
+            "{texture}: the decoded buffer must be width*height RGBA8"
+        );
         for texel in image.rgba.as_chunks::<4>().0 {
             assert_eq!(texel[3], 255, "{texture} must be fully opaque");
         }
     }
 
+    // The one NPOT diagnostic is a deliberate exception to the fitted-sheet
+    // policy: it exists to prove arbitrary PNG dimensions load, so its exact
+    // 96x64 size is asserted here rather than hidden in the policy.
     let npot = texture_image("core:tex_diagnostic_alt_01");
     assert_eq!((npot.width, npot.height), (96, 64));
     assert_eq!(npot.rgba.len(), (96 * 64 * 4) as usize);
 }
 
-/// The surface textures tile: a wrapped edge must join its opposite edge,
-/// or a floor or ceiling shows a grid of seams every repeat.
+/// Mean and nearest-rank p95 of a sample, sorted in place.
+fn seam_distribution(values: &mut [f32]) -> (f32, f32) {
+    if values.is_empty() {
+        return (0.0, 0.0);
+    }
+    let mean = values.iter().sum::<f32>() / values.len() as f32;
+    values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let rank = ((values.len() as f32) * 0.95).ceil() as usize;
+    let p95 = values[rank.saturating_sub(1).min(values.len().saturating_sub(1))];
+    (mean, p95)
+}
+
+/// Asserts one axis of a sheet joins its opposite edge the way any other pair
+/// of adjacent pixels agrees.
+///
+/// The comparison is deliberately distributional: a textured surface has large
+/// adjacent-pixel steps everywhere, so a flat absolute tolerance either passes
+/// a real seam on a noisy sheet or fails a clean one on a fine one. A genuine
+/// seam shows up as a wrapped step far outside the sheet's own interior step
+/// distribution — the damaged stained wallpaper sat at 5x the interior mean,
+/// while a clean tile sits at about 1x. The wrapped step is smoothed across the
+/// wrap (the 3-tap profile is the same operator the mip chain applies), and the
+/// interior is sampled every eighth pixel so the check stays fast.
+fn assert_axis_tiles(name: &str, image: &crate::materials::RawImage, horizontal: bool) {
+    let (size_x, size_y) = (image.width, image.height);
+    let (edge_len, across_len) = if horizontal {
+        (size_y, size_x)
+    } else {
+        (size_x, size_y)
+    };
+    assert!(
+        across_len >= 4,
+        "{name}: a tileable surface needs an interior to compare against"
+    );
+    let texel = |x: u32, y: u32, channel: u32| -> f32 {
+        let index = ((y * size_x + x) * 4 + channel) as usize;
+        f32::from(image.rgba[index])
+    };
+    // Profile of the wrapped first/last texels, and of an interior texel pair:
+    // the 3-tap average of the last column/row continues into the first.
+    let profile = |across: u32, along: u32, channel: u32, wrapped: bool| -> f32 {
+        if horizontal {
+            if wrapped {
+                // Wrapped pair (size_x-1, 0) and (size_x-2, size_x-1, 0).
+                let left = (texel(across_len - 2, along, channel)
+                    + texel(across_len - 1, along, channel)
+                    + texel(0, along, channel))
+                    / 3.0;
+                let right = (texel(across_len - 1, along, channel)
+                    + texel(0, along, channel)
+                    + texel(1, along, channel))
+                    / 3.0;
+                (left - right).abs()
+            } else {
+                // Interior pair: profile(x) - profile(x+1) simplifies to
+                // (C(x-1) - C(x+2)) / 3.
+                ((texel(across.saturating_sub(1), along, channel)
+                    - texel(across + 2, along, channel))
+                    / 3.0)
+                    .abs()
+            }
+        } else if wrapped {
+            let left = (texel(along, across_len - 2, channel)
+                + texel(along, across_len - 1, channel)
+                + texel(along, 0, channel))
+                / 3.0;
+            let right = (texel(along, across_len - 1, channel)
+                + texel(along, 0, channel)
+                + texel(along, 1, channel))
+                / 3.0;
+            (left - right).abs()
+        } else {
+            ((texel(along, across.saturating_sub(1), channel) - texel(along, across + 2, channel))
+                / 3.0)
+                .abs()
+        }
+    };
+    for channel in 0..3 {
+        let mut wrapped: Vec<f32> = (0..edge_len)
+            .map(|along| profile(0, along, channel, true))
+            .collect();
+        let mut interior: Vec<f32> = Vec::new();
+        for along in (0..edge_len).step_by(4) {
+            for across in (1..across_len.saturating_sub(2)).step_by(8) {
+                interior.push(profile(across, along, channel, false));
+            }
+        }
+        let (wrap_mean, wrap_p95) = seam_distribution(&mut wrapped);
+        let (interior_mean, interior_p95) = seam_distribution(&mut interior);
+        let axis = if horizontal {
+            "left-right"
+        } else {
+            "top-bottom"
+        };
+        assert!(
+            wrap_mean <= 1.60f32.mul_add(interior_mean, 1.0),
+            "{name}: {axis} seam on channel {channel}: the wrapped step averages \
+             {wrap_mean:.2} against the sheet's own interior step {interior_mean:.2}"
+        );
+        assert!(
+            wrap_p95 <= 2.20f32.mul_add(interior_p95, 3.0),
+            "{name}: {axis} seam tail on channel {channel}: p95 {wrap_p95:.2} \
+             against the interior p95 {interior_p95:.2}"
+        );
+    }
+}
+
+/// The surface textures tile: a wrapped edge must join its opposite edge the
+/// way any other pair of adjacent pixels does, or a floor, wall or ceiling
+/// shows a grid of seams every repeat.
+///
+/// Every shipped surface sheet is covered on both axes and all three colour
+/// channels. The deliberately non-tiling diagnostic sheets (arrows, checkers
+/// and orientation stripes) are excluded by design: their mismatch is the
+/// point, not a defect.
 #[test]
 fn test_shipped_surface_textures_tile() {
     for (name, texture) in [
@@ -276,29 +413,14 @@ fn test_shipped_surface_textures_tile() {
         ("carpet_damp", "core:tex_carpet_damp_01"),
         ("ceiling", "core:tex_ceiling_panel_01"),
         ("ceiling_stained", "core:tex_ceiling_stained_01"),
+        ("pool_deck", "core:tex_pool_tile_deck_01"),
+        ("pool_basin", "core:tex_pool_tile_basin_01"),
+        ("pool_wall", "core:tex_pool_tile_wall_01"),
+        ("pool_ceiling", "core:tex_pool_ceiling_01"),
     ] {
         let image = texture_image(texture);
-        let (size_x, size_y) = (image.width, image.height);
-        let texel = |x: u32, y: u32| -> [i32; 3] {
-            let index = ((y * size_x + x) * 4) as usize;
-            [
-                i32::from(image.rgba[index]),
-                i32::from(image.rgba[index + 1]),
-                i32::from(image.rgba[index + 2]),
-            ]
-        };
-        for i in 0..size_y.min(size_x) {
-            for channel in 0..3 {
-                assert!(
-                    (texel(size_x - 1, i)[channel] - texel(0, i)[channel]).abs() <= 40,
-                    "{name}: column seam at row {i}"
-                );
-                assert!(
-                    (texel(i, size_y - 1)[channel] - texel(i, 0)[channel]).abs() <= 40,
-                    "{name}: row seam at column {i}"
-                );
-            }
-        }
+        assert_axis_tiles(name, &image, true);
+        assert_axis_tiles(name, &image, false);
     }
 }
 
@@ -377,33 +499,46 @@ fn test_floor_geometry_does_not_scale_with_room_area() {
     assert_eq!(small.batches.ceiling_batch.count, 6);
 }
 
-/// The metre checker lives in the carpet PNG now, not in a bake step: the
-/// bright and dark quadrants of the two-metre tile must actually differ, so
-/// the external asset reproduces the historical floor read.
-#[test]
 /// The final carpet must never read as the old metre checker again.
 ///
 /// The seed art carried a deliberate 1 m bright/dark quadrant tint, which
 /// looked like a debug board on a large floor. The Goal 5 artwork replaces
 /// it with low-frequency pile variation, so the four quadrant means must be
 /// close: the sheet may be mottled, but no quadrant may be a visibly
-/// different flat cell.
+/// different flat cell. The quadrants are derived from the decoded sheet, so
+/// the check holds at whatever resolution the artwork ships.
+#[test]
 fn test_carpet_png_has_no_metre_checker() {
     let carpet = texture_image("core:tex_carpet_beige_01");
-    assert_eq!((carpet.width, carpet.height), (128, 128));
+    let width = carpet.width;
+    let height = carpet.height;
+    assert!(
+        width > 0 && height > 0,
+        "the carpet sheet must be non-empty"
+    );
+    assert_eq!(width, height, "a surface sheet is sampled as a square tile");
+    let half_x = width / 2;
+    let half_y = height / 2;
     let mean = |x0: u32, y0: u32| -> f32 {
         let mut total = 0.0f32;
-        for y in y0..y0 + 64 {
-            for x in x0..x0 + 64 {
-                let index = ((y * 128 + x) * 4) as usize;
+        let mut texels = 0u32;
+        for y in y0..y0 + half_y {
+            for x in x0..x0 + half_x {
+                let index = ((y * width + x) * 4) as usize;
                 total += f32::from(carpet.rgba[index])
                     + f32::from(carpet.rgba[index + 1])
                     + f32::from(carpet.rgba[index + 2]);
+                texels += 1;
             }
         }
-        total / (64.0 * 64.0 * 3.0)
+        total / (texels as f32 * 3.0)
     };
-    let quadrants = [mean(0, 0), mean(64, 0), mean(0, 64), mean(64, 64)];
+    let quadrants = [
+        mean(0, 0),
+        mean(half_x, 0),
+        mean(0, half_y),
+        mean(half_x, half_y),
+    ];
     let low = quadrants.iter().copied().fold(f32::MAX, f32::min);
     let high = quadrants.iter().copied().fold(f32::MIN, f32::max);
     // The historical checker tinted adjacent metre cells roughly 7-10
@@ -417,9 +552,9 @@ fn test_carpet_png_has_no_metre_checker() {
     // pixel-level variation to read as pile under dim warm light.
     let mut min = u8::MAX;
     let mut max = u8::MIN;
-    for y in (0..128).step_by(7) {
-        for x in (0..128).step_by(5) {
-            let value = carpet.rgba[((y * 128 + x) * 4) as usize];
+    for y in (0..height).step_by(7) {
+        for x in (0..width).step_by(5) {
+            let value = carpet.rgba[((y * width + x) * 4) as usize];
             min = min.min(value);
             max = max.max(value);
         }

@@ -16,14 +16,15 @@ catalog entry can move without touching a level.
 | `core:carpet_damp_01` | material (floor, damaged) | `core:tex_carpet_damp_01` | `textures/floors/carpet_damp_01.png` |
 | `core:ceiling_panel_01` | material (ceiling) | `core:tex_ceiling_panel_01` | `textures/ceilings/ceiling_panel_01.png` |
 | `core:ceiling_stained_01` | material (ceiling, damaged) | `core:tex_ceiling_stained_01` | `textures/ceilings/ceiling_stained_01.png` |
-| `core:fluorescent_panel_01` | light | — (untextured fixture) | — |
+| `core:fluorescent_panel_01` | light | `core:fluorescent_panel_01` (256x128 face) | `textures/lights/fluorescent_panel_01.png` |
 | `core:desk`, `core:chair`, `core:cabinet`, `core:water_cooler`, `core:vending_machine` | prop | embedded in each GLB | `props/models/*.glb` |
 
 ## Goal 5 artwork
 
 The six PNGs are the **final Office artwork** (Goal 5), not the Goal 4.5 seed
-set. They are 128x128 8-bit RGBA, opaque, and tileable in both directions
-(every pattern period divides the sheet and every noise field wraps). They stay
+set. They ship as 1024x1024 8-bit RGB sheets, opaque, and tileable in both
+directions (the wrapped edges are gated by `tools/textures/seam_repair.py
+--check`; see [Texture seam repair](#texture-seam-repair) below). They stay
 pale and near-neutral, because the material `tint` and the baked lighting
 multiply into the sampled texel; the carpet is the deliberate exception (its
 material has no tint), so it is painted at the historical warm-brown albedo.
@@ -47,9 +48,10 @@ material has no tint), so it is painted at the historical warm-brown albedo.
   panel and a smaller leak on another, clipped by a grid fade so the T-bar
   still reads through the damage.
 
-`tools/textures/office_art.py` is the deterministic, stdlib-only regeneration
-path; the shipped PNGs are authoritative and hand-painted replacements are
-equally valid. `tools/textures/build.py --check` gates the budget.
+`tools/textures/office_art.py` still carries the deterministic, stdlib-only
+128x128 seed painters, but they are superseded: the shipped 1024x1024 PNGs are
+the authoritative artwork and hand-painted replacements are equally valid.
+`tools/textures/build.py --check` gates the budget without writing a file.
 
 The official demo `../../levels/places_demo.json` exercises the set: a warm
 office reception and workroom on the yellow wallpaper and panel ceiling, the
@@ -58,3 +60,34 @@ and task chairs, cabinets, a water cooler and floor decals.
 
 Generic props (couch, bed, plants, utilities, ...) are deliberately **not**
 listed here: they belong to no theme and live under `../../core/`.
+
+## Texture seam repair
+
+The 1024x1024 sheets are the authoritative upgraded artwork; the 128x128
+generators in `tools/textures/office_art.py` are superseded legacy seeds. The
+unstained yellow paper, the panel ceiling and its stained variant already
+wrapped cleanly; the stained wallpaper and both carpets carried a real
+wrapped-edge step on both axes and were repaired via
+
+```sh
+python3 tools/textures/seam_repair.py --repair <path-to-sheet.png>
+```
+
+`tools/textures/seam_repair.py` is the reproducible source of truth for that
+repair: it keeps the colour type, the exact dimensions and the ancillary
+chunks, and documents the tuned cross-fade band and roll offset for each sheet
+in its docstring. `--report` prints, per axis and channel, the wrapped edge
+step against the sheet's own interior adjacent-pixel step; `--check` gates
+every sheet on
+
+    mean(wrap) <= 1.60 * mean(interior) + 1.0
+    p95(wrap)  <= 2.20 * p95(interior)  + 3.0
+
+for both the raw and the three-tap-smoothed profiles, and exits non-zero on a
+failure.
+
+Do not regenerate these six sheets from the 128px seeds: `python3
+tools/textures/build.py` without `--check` rewrites every manifest sheet from
+its painter and would replace the 1024x1024 artwork with the legacy seeds.
+`python3 tools/textures/build.py --check` only validates the shipped files and
+never writes.

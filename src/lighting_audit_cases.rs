@@ -1024,7 +1024,8 @@ fn group_h_vertical_fade_above_the_header_and_non_connecting_openings() {
         previous = value;
     }
 
-    // An opening in a wall that does not join two rooms must not blend.
+    // An opening in a wall that does not join two room areas must not blend,
+    // and an internal wall must not silently rewrite the room-wide baseline.
     let json = format!(
         r#"{{
             "format_version": 1,
@@ -1056,9 +1057,30 @@ fn group_h_vertical_fade_above_the_header_and_non_connecting_openings() {
         unconnected.rooms()[0].baseline.luminance(),
         plain.rooms()[0].baseline.luminance(),
     );
-    assert_exact(
-        unconnected.sample_luminance(5.0, 0.0, 5.0),
-        plain.sample_luminance(5.0, 0.0, 5.0),
+    // The wall *does* split the room's sampling: a full-height partition with
+    // a doorway is two connected areas, so the far side keeps the ambient
+    // floor plus only what the doorway transmits. It must be clearly dimmer
+    // than the open room — the room-wide average no longer leaks through the
+    // wall — and clearly brighter than ambient, because the doorway is real.
+    let lit = unconnected.sample_luminance(2.0, 0.0, 5.0);
+    let far = unconnected.sample_luminance(5.0, 0.0, 5.0);
+    let plain_lit = plain.sample_luminance(2.0, 0.0, 5.0);
+    let plain_far = plain.sample_luminance(5.0, 0.0, 5.0);
+    assert!(
+        far > AMBIENT_LEVEL + 0.1,
+        "the doorway must transmit light: {far}"
+    );
+    assert!(
+        far < plain_far * 0.75,
+        "the partition must shadow the far side: {far} vs {plain_far}"
+    );
+    assert!(
+        lit > AMBIENT_LEVEL + 0.3,
+        "the fixture's own side must stay lit: {lit}"
+    );
+    assert!(
+        lit < plain_lit,
+        "the bright side gives up a bounded amount at the doorway: {lit} vs {plain_lit}"
     );
 }
 

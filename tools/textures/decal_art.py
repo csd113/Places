@@ -164,7 +164,11 @@ def thick_line(canvas: Canvas, x0: float, y0: float, x1: float, y1: float, width
 
 
 def build_no_diving() -> Canvas:
-    """The final NO DIVING sign, 128x128 with a transparent background."""
+    """The 128x128 legacy seed of the NO DIVING sign.
+
+    The shipped sheet is the upgraded 1024x1024 cut-out; ``build.py`` refuses to
+    overwrite it unless ``--force`` is passed.
+    """
     canvas = Canvas(128, 128, fill=CLEAR)
     # Plate and rim.
     canvas.rect(6, 6, 121, 121, PLATE)

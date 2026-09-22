@@ -247,9 +247,11 @@ fn a_dark_room_stays_dark_and_does_not_darken_its_neighbour() {
 fn an_interior_stub_blocks_a_pool_inside_one_room() {
     let (_, lighting) = isolation();
     // The stub spans z = 0..3 inside the 10 m cell, so a sample at z = 1.5 on
-    // its far side cannot see the fixture. The room baseline is a room-wide
-    // term by design, so the shadow shows up as the missing pool, not as
-    // darkness below the baseline.
+    // its far side cannot see the fixture. The stub stops short of the room's
+    // z extent, so light can still wrap around its free end: the room stays a
+    // single connected baseline area (partition-aware areas only split on walls
+    // that cut the footprint in two) and the shadow shows up as the missing
+    // pool, not as darkness below the baseline.
     let west_of_stub = at(&lighting, cell::STUB_ROOM, 73.0, 1.5, 1.5);
     let east_of_stub = at(&lighting, cell::STUB_ROOM, 77.0, 1.5, 1.5);
     let baseline = lighting.rooms()[cell::STUB_ROOM].baseline;

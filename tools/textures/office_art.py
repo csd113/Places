@@ -8,7 +8,9 @@ each have one painter; ``ART`` maps the logical texture id to its catalog
 The PNGs are the authoritative runtime assets: the game loads them at level
 load and never runs this script.  Editing this file only matters when the
 shipped artwork is meant to change; hand-painted replacements are equally
-valid, and re-running the tool overwrites them.
+valid.  The shipped Office sheets are the upgraded 1024x1024 artwork, while
+this painter is the 128x128 legacy seed: ``build.py`` skips a shipped sheet
+whose dimensions differ from its painter's unless ``--force`` is passed.
 
 Painting rules for this set:
 

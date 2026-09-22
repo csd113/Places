@@ -17,7 +17,9 @@ use std::fs;
 use std::rc::Rc;
 
 use super::*;
-use crate::assets::{AssetCatalog, AssetSource, MAX_TEXTURE_DIMENSION};
+use crate::assets::{
+    AssetCatalog, AssetSource, MAX_TEXTURE_DIMENSION, ShippedTextureKind, decoded_rgba_bytes,
+};
 use crate::level::LevelDef;
 
 fn level_from(json: &str) -> LevelDef {
@@ -204,8 +206,28 @@ fn shipped_materials_resolve_through_the_catalog() {
     assert_eq!(wall.tile_metres, 2.0);
     assert_eq!(wall.tint, [0.85, 0.80, 0.42]);
     let image = wall.image.as_ref().expect("decoded image");
-    assert_eq!(image.width, 128);
-    assert_eq!(image.height, 128);
+    ShippedTextureKind::Surface
+        .check_dimensions(image.width, image.height)
+        .unwrap_or_else(|error| panic!("core:tex_wallpaper_yellow_01: {error}"));
+    assert_eq!(
+        image.width, image.height,
+        "a surface sheet is sampled as a square tile_metres cell"
+    );
+    assert!(
+        image.width > 0 && image.height > 0,
+        "the decoded sheet must be non-empty"
+    );
+    assert!(
+        image.width <= MAX_TEXTURE_DIMENSION && image.height <= MAX_TEXTURE_DIMENSION,
+        "{}x{} is over the hard {MAX_TEXTURE_DIMENSION}px limit",
+        image.width,
+        image.height
+    );
+    assert_eq!(
+        image.rgba.len(),
+        decoded_rgba_bytes(image.width, image.height),
+        "the decoded buffer must be width*height RGBA8"
+    );
 
     let floor = table.entry_of("core:carpet_damp_01").expect("floor");
     assert_eq!(floor.tint, DEFAULT_TINT);

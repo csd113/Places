@@ -1,5 +1,76 @@
 # Changelog
 
+## Unreleased — partition-aware baselines and vertical light isolation
+
+Two lighting-architecture gaps are closed. A room is no longer assumed to be one
+open space, and a floor or ceiling is now a real light boundary rather than a
+pair of decorative planes.
+
+### Changed
+
+- **Internal partitions split the baseline spatially.**
+  `lighting::bake` flood-fills a room's baked-lighting cell grid across the same
+  wall-solid geometry the fixture pools use, probed just below the ceiling, and
+  gives every disconnected area its own baseline
+  (`LevelLighting::baseline_in_room`): a lit half of a partitioned room no
+  longer lends its baseline through the wall to the dark half. A door's header
+  separates as a solid wall does while the doorway keeps its bounded blend
+  between the two areas, a window does not connect baselines at all, and a wall
+  that stops short of the ceiling (or an interior stub) is not a partition.
+  An unpartitioned room keeps its historical uniform baseline bit for bit:
+  every existing level bakes exactly as it did.
+- **Floors and ceilings occlude light.**
+  `lighting::visibility` now builds each room floor as a stair-step of
+  zero-thickness horizontal interfaces at the same heights collision walks, and
+  each ceiling as a body above the ceiling plane (a gable gets a stepped body
+  above the slope). A fixture cannot light through a solid slab — stacked rooms
+  no longer contaminate one another, in colour as well as brightness — while a
+  raised platform, a lowered basin and an intentional vertical opening stay
+  open, because an interface never occupies room air. A sample sitting exactly
+  on its own floor or ceiling is not blocked by that plane, which is what keeps
+  a room's own fixtures lighting its own surfaces.
+- **A ceiling fixture may author a world `y`** to choose its mounting height and
+  therefore its storey, the way a wall fixture already does
+  (`LevelLighting::fixture_y_for`). `sample` and the wall-face lookups resolve
+  whole positions by height as well as footprint
+  (`LevelLighting::room_index_at_height`), so two stacked rooms with the same
+  footprint no longer resolve to whichever the area tie-break preferred.
+- **The lighting summary reports areas and blockers.** The developer log now
+  prints rooms, baseline areas, fixtures, wall boxes and slab/interface boxes;
+  `LightingSummary` gained `zones` and `walls`.
+
+### Fixed
+
+- **The stained wallpaper no longer shows a tiling seam.** The 1024x1024 sheet
+  had a left-to-right wrap step about five times the texture's own
+  interior-pixel variation (a visible vertical seam where the stain ran out at
+  the edge); the two carpets had the same class of defect at about twice the
+  interior variation. `tools/textures/seam_repair.py` measures the wrapped step
+  against the interior step distribution and repairs the low-frequency base of
+  the wrap with a sized cross-fade band, leaving the high-frequency detail
+  untouched, then verifies the result. The shipped office sheets and the pool
+  wall tile are repaired reproducibly by that tool; the 1024x1024 artwork was
+  not regenerated or downscaled.
+- **The surface tiling test compares distributions, not a flat tolerance.**
+  `render::tests::test_shipped_surface_textures_tile` accepted a fixed 40-level
+  per-channel difference, which both missed the noisy carpets' seams and would
+  have failed a legitimate fine-grained surface. It now compares the wrapped
+  edge step's mean and p95 with the sheet's own interior step distribution, on
+  both axes and all three channels, for every shipped surface texture, and is
+  gated independently by `tools/textures/seam_repair.py --check`.
+
+### Assets
+
+- **Texture dimensions are validated by an explicit policy.**
+  `assets::ShippedTextureKind` (`Surface`, `FixtureFace`, `DecalSheet`) and
+  `MAX_SURFACE_TEXTURE_BYTES` replace the stale "everything is 128x128"
+  assertions in `src/materials/tests.rs`, `src/render/tests.rs` and
+  `tests/test_package.py`. Surfaces must be square and within the 1024x1024 hard
+  limit and 4 MiB decoded budget; fixture faces and decal sheets must be
+  power-of-two; the deliberate 96x64 diagnostic stays an explicit exception.
+  The intentionally upgraded 1024x1024 artwork is accepted, and the no-diving
+  sign test now asserts its real cut-out contract.
+
 ## Unreleased — coplanar surfaces and wall-boundary light
 
 Places could emit a wall surface in the same plane as another wall's surface,

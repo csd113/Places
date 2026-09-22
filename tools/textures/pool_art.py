@@ -8,7 +8,10 @@ basin tile that reads at gameplay distance without turning into a grid.
 ``ART`` maps each logical texture id to its catalog ``model`` path and painter;
 ``build.py`` merges it into the manifest.  The PNGs are the authoritative
 runtime assets -- the game never runs this script, and the artwork can be
-replaced by hand.
+replaced by hand.  The shipped Pool sheets are the upgraded 1024x1024
+artwork, while this painter is the 128x128 legacy seed: ``build.py`` skips a
+shipped sheet whose dimensions differ from its painter's unless ``--force``
+is passed.
 
 Painting rules for this set:
 

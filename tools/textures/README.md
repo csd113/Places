@@ -22,7 +22,14 @@ cd /path/to/Places
 python3 tools/textures/build.py                              # (re)write every manifest sheet
 python3 tools/textures/build.py --only core:tex_pool_tile_deck_01
 python3 tools/textures/build.py --check                      # validate the shipped PNGs, no writes
+python3 tools/textures/build.py --force --only core:tex_pool_tile_deck_01
 ```
+
+A plain regeneration never downgrades shipped artwork: the upgraded Office/Pool
+surfaces and the NO DIVING sign ship at 1024x1024 while `office_art.py`,
+`pool_art.py` and `decal_art.py` still paint 128x128 seeds, so `build.py`
+skips any sheet whose on-disk dimensions differ from its painter's output and
+requires `--force` to replace it.
 
 `--check` reads `assets/catalog.json` and, for every file-backed sheet (surface
 textures, decal sheets and fixture faces):
@@ -30,12 +37,40 @@ textures, decal sheets and fixture faces):
 * the file exists below `assets/`;
 * the bytes are a real PNG (signature, IHDR, IEND);
 * the dimensions are non-zero and within the hard 1024x1024 limit;
-* warns above the preferred 256x256 and for non-power-of-two dimensions;
+* warns above the preferred 256x256 (a soft budget only: the upgraded
+  Office/Pool surfaces and the NO DIVING sign are intentionally 1024x1024) and
+  for non-power-of-two dimensions (decal sheets and fixture faces must be POT);
 * prints the parsed dimensions, e.g.
-  `OK core:tex_carpet_beige_01: environment/office/textures/floors/carpet_beige_01.png 128x128`.
+  `OK core:tex_carpet_beige_01: environment/office/textures/floors/carpet_beige_01.png 1024x1024`.
 
 It exits non-zero on any error, never regenerates, and also warns when the
 manifest in the art modules and the catalog's file-backed sheets drift apart.
+
+## Tiling seams
+
+`--check` above validates that a sheet *exists* and is within budget; it does
+not look at its pixels. A repeated surface also has to join its opposite edges,
+or every wall, floor and ceiling shows a grid of seams. `seam_repair.py` owns
+that contract, with the same metric the Rust render test
+(`src/render/tests.rs::test_shipped_surface_textures_tile`) enforces
+independently:
+
+```sh
+python3 tools/textures/seam_repair.py --report assets/environment/office/textures/walls/wallpaper_stained_01.png
+python3 tools/textures/seam_repair.py --check  assets/environment/office/textures/walls/wallpaper_stained_01.png
+python3 tools/textures/seam_repair.py --repair assets/environment/office/textures/walls/wallpaper_stained_01.png
+```
+
+It compares the wrapped edge step with the sheet's own interior adjacent-pixel
+step (raw and 3-tap-smoothed) on both axes and every channel, and accepts only
+when the mean and p95 of the wrapped step stay inside a multiple of the
+interior distribution plus a small absolute floor. A repair splits the sheet
+into a low-frequency base and a high-frequency residual, cross-fades both into
+a copy rolled by a per-sheet offset, and writes the result back with the same
+dimensions, colour type and ancillary chunks. The parameters for each repaired
+shipped sheet are pinned in the tool, so `--repair` reproduces the shipped file
+byte for byte from the pre-repair artwork. `python3 -m unittest tests.test_package`
+runs `--check` over every environment surface as a repository gate.
 
 ## Layout
 
@@ -47,6 +82,7 @@ manifest in the art modules and the catalog's file-backed sheets drift apart.
 | `lights_art.py` | the visible face of every built-in light fixture: the office fluorescent diffuser, the round pool downlight and the pool wall luminaire's lens |
 | `decal_art.py` | the final Pool **NO DIVING** sign sheet (RGBA, transparent background) |
 | `diagnostic_art.py` | the orientation/alpha/NPOT test sheets, never used by shipping levels |
+| `seam_repair.py` | measures and repairs wrapped-edge seams in a shipped surface sheet (see below) |
 | `build.py` | the CLI, the manifest merge and the `--check` gate |
 
 Each art module exposes `ART = { "<logical id>": {"model": <path>, "build": <fn>} }`;
@@ -58,20 +94,20 @@ is validated and regenerated exactly like a surface sheet.
 
 | id (`assets/catalog.json`) | file | dimensions | notes |
 | --- | --- | --- | --- |
-| `core:tex_wallpaper_yellow_01` | `environment/office/textures/walls/wallpaper_yellow_01.png` | 128x128 | printed office wallpaper, 2 m repeat |
-| `core:tex_wallpaper_stained_01` | `environment/office/textures/walls/wallpaper_stained_01.png` | 128x128 | the same paper with water damage |
-| `core:tex_carpet_beige_01` | `environment/office/textures/floors/carpet_beige_01.png` | 128x128 | institutional short-pile carpet, 2 m repeat |
-| `core:tex_carpet_damp_01` | `environment/office/textures/floors/carpet_damp_01.png` | 128x128 | damp carpet |
-| `core:tex_ceiling_panel_01` | `environment/office/textures/ceilings/ceiling_panel_01.png` | 128x128 | 2x2 suspended acoustic panels |
-| `core:tex_ceiling_stained_01` | `environment/office/textures/ceilings/ceiling_stained_01.png` | 128x128 | one panel carries a tide stain |
-| `core:tex_pool_tile_deck_01` | `environment/pool/textures/floors/pool_tile_deck_01.png` | 128x128 | 15 cm deck tile, 1.5 m repeat |
-| `core:tex_pool_tile_basin_01` | `environment/pool/textures/floors/pool_tile_basin_01.png` | 128x128 | 10 cm basin tile, 1 m repeat |
-| `core:tex_pool_tile_wall_01` | `environment/pool/textures/walls/pool_tile_wall_01.png` | 128x128 | 10 cm wall tile, 1 m repeat |
-| `core:tex_pool_ceiling_01` | `environment/pool/textures/ceilings/pool_ceiling_01.png` | 128x128 | sterile painted panels, 2 m repeat |
+| `core:tex_wallpaper_yellow_01` | `environment/office/textures/walls/wallpaper_yellow_01.png` | 1024x1024 | printed office wallpaper, 2 m repeat |
+| `core:tex_wallpaper_stained_01` | `environment/office/textures/walls/wallpaper_stained_01.png` | 1024x1024 | the same paper with water damage |
+| `core:tex_carpet_beige_01` | `environment/office/textures/floors/carpet_beige_01.png` | 1024x1024 | institutional short-pile carpet, 2 m repeat |
+| `core:tex_carpet_damp_01` | `environment/office/textures/floors/carpet_damp_01.png` | 1024x1024 | damp carpet |
+| `core:tex_ceiling_panel_01` | `environment/office/textures/ceilings/ceiling_panel_01.png` | 1024x1024 | 2x2 suspended acoustic panels |
+| `core:tex_ceiling_stained_01` | `environment/office/textures/ceilings/ceiling_stained_01.png` | 1024x1024 | one panel carries a tide stain |
+| `core:tex_pool_tile_deck_01` | `environment/pool/textures/floors/pool_tile_deck_01.png` | 1024x1024 | 15 cm deck tile, 1.5 m repeat |
+| `core:tex_pool_tile_basin_01` | `environment/pool/textures/floors/pool_tile_basin_01.png` | 1024x1024 | 10 cm basin tile, 1 m repeat |
+| `core:tex_pool_tile_wall_01` | `environment/pool/textures/walls/pool_tile_wall_01.png` | 1024x1024 | 10 cm wall tile, 1 m repeat |
+| `core:tex_pool_ceiling_01` | `environment/pool/textures/ceilings/pool_ceiling_01.png` | 1024x1024 | sterile painted panels, 2 m repeat |
 | `core:fluorescent_panel_01` | `environment/office/textures/lights/fluorescent_panel_01.png` | 256x128 | the office panel's twin-tube diffuser face (a fixture, not a tiling surface) |
 | `core:pool_light_round` | `environment/pool/textures/lights/pool_light_round_01.png` | 128x128 | the round downlight's diffuser, seen face-on |
 | `core:pool_light_wall` | `environment/pool/textures/lights/pool_light_wall_01.png` | 128x64 | the wall luminaire's ribbed lens face |
-| `core:decal_no_diving_01` | `environment/pool/decals/no_diving_01.png` | 128x128 | RGBA cut-out safety sign (a decal, not a surface) |
+| `core:decal_no_diving_01` | `environment/pool/decals/no_diving_01.png` | 1024x1024 | RGBA cut-out safety sign (a decal, not a surface) |
 | `core:tex_diagnostic_wall_01` | `diagnostic/textures/diagnostic_wall_01.png` | 128x128 | orientation-revealing, never shipped in a level |
 | `core:tex_diagnostic_floor_01` | `diagnostic/textures/diagnostic_floor_01.png` | 128x128 | orientation-revealing |
 | `core:tex_diagnostic_ceiling_01` | `diagnostic/textures/diagnostic_ceiling_01.png` | 128x128 | orientation-revealing |
@@ -83,20 +119,26 @@ decode (`alpha`) on the real renderer — never for shipping levels.
 
 ## PNG budget guidance
 
+The policy is declared in `src/assets.rs` (`ShippedTextureKind`) and mirrored by
+`--check`; the numbers here and there must stay in step.
+
 | rule                | value                                                       |
 | ------------------- | ----------------------------------------------------------- |
-| preferred           | ≤ 256x256 (the shipped sheets are 128x128)                  |
-| hard ceiling        | 1024x1024                                                   |
+| preferred           | ≤ 256x256, soft: the upgraded Office/Pool surfaces and the NO DIVING sign are deliberately 1024x1024 |
+| hard ceiling        | 1024x1024, enforced by `--check` and by the runtime decoder |
+| decoded budget      | ≤ 4 MiB per surface sheet (one 1024x1024 RGBA8 sheet; `MAX_SURFACE_TEXTURE_BYTES`) |
+| surface sheets      | square (the renderer samples them as square `tile_metres` cells); POT preferred, not required |
+| fitted sheets       | decal sheets and fixture faces must be power-of-two (mipmapped, fitted UVs, ES 2.0) |
 | colour space        | 8-bit RGBA (sRGB-ish); no gamma chunk is written or handled |
 | alpha               | surfaces are opaque (alpha 255); decal sheets use alpha 0 for the cut-out |
-| power of two        | preferred for OpenGL ES 2.0 portability (decal sheets must be POT: they are sampled with mipmaps) |
-| non-power-of-two    | loads on the Mac (e.g. 96x64 diagnostic); avoid on ES 2.0    |
+| non-power-of-two    | surfaces load on the Mac (the 96x64 diagnostic proves it); avoid on ES 2.0 |
 
-A 128x128 RGBA sheet is 64 KiB of pixels; the compressed PNGs here are a few
-KiB each. The renderer only decodes PNG, so there is no separate compression
-step and no gamma/ICC handling: author in the working space and keep values
-near-neutral, because materials multiply the texture by their `tint` and then
-by the baked lighting.
+A 128x128 RGBA sheet is 64 KiB of pixels and a 1024x1024 sheet is the 4 MiB
+budget; the shipped PNGs range from a few KiB to a couple of MiB compressed.
+The renderer only decodes PNG, so there is no separate compression step and no
+gamma/ICC handling: author in the working space and keep values near-neutral,
+because materials multiply the texture by their `tint` and then by the baked
+lighting.
 
 ## Adding a sheet
 

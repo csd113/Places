@@ -701,8 +701,10 @@ fn validate_ceiling_lights(level: &LevelDef) -> Result<(), String> {
                 crate::lighting::MAX_LIGHT_COLOR
             ));
         }
-        // A wall fixture is authored at its own world height; a ceiling
-        // fixture derives its height, so an authored `y` there is ignored.
+        // A wall fixture is authored at its own world height. A ceiling
+        // fixture normally derives its height from the ceiling, but may author
+        // a world `y` to mount at a chosen height (a stacked building uses it
+        // to pick a storey); either way an authored height must be finite.
         if light.mount == crate::level::LightMount::Wall {
             match light.y {
                 Some(y) if y.is_finite() => {}

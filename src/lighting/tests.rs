@@ -1120,8 +1120,9 @@ fn fixture_families_own_their_footprint_and_mount() {
 
 #[test]
 fn a_wall_fixture_needs_a_height_and_validation_says_so() {
-    // The loader rejects a wall fixture without a `y` (it cannot derive
-    // one), accepts a valid one, and ignores `y` on ceiling fixtures.
+    // The loader rejects a wall fixture without a `y` (it cannot derive one)
+    // and accepts a valid one. A ceiling fixture may also author a world `y`,
+    // which mounts its panel at that height (the stacked-building form).
     let level = |lights: &str| {
         format!(
             r#"{{
@@ -1152,7 +1153,15 @@ fn a_wall_fixture_needs_a_height_and_validation_says_so() {
     ))
     .expect("parses");
     crate::loader::validate_level(&ceiling_with_y)
-        .expect("an authored y on a ceiling fixture is ignored, not rejected");
+        .expect("an authored y on a ceiling fixture mounts it there, not rejected");
+    let lighting = LevelLighting::bake(&ceiling_with_y);
+    let panel = lighting.lights().first().expect("the fixture bakes");
+    assert!(
+        (panel.y - 2.4).abs() < 1e-6,
+        "an authored ceiling y is the panel's world height: {}",
+        panel.y
+    );
+    assert_eq!(panel.room, Some(0), "and it still owns its room");
 
     let non_finite = LevelDef::from_json(&level(
         r#"{ "fixture": "core:pool_light_wall", "x": 1.0, "z": 0.2, "mount": "wall",

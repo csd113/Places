@@ -10,8 +10,9 @@
 //! load level
 //!     -> collect rooms + ceiling fixtures            (self::bake)
 //!     -> room area, fixture density, height factor   (self::math)
+//!     -> partition areas + baseline field            (self::bake)
 //!     -> room baseline + local fixture pools         (self::bake)
-//!     -> static wall visibility for every pool       (self::visibility)
+//!     -> walls, floor interfaces, ceiling bodies     (self::visibility)
 //!     -> bounded doorway blending                    (self::bake)
 //!     -> bake into world geometry + prop instances   (crate::render)
 //!     -> upload the same static batches as before    (crate::render)
@@ -35,17 +36,18 @@
 //!    also saturating small, densely lit rooms; see [`compressed_density`]. A
 //!    large room with two panels is dim; a small room with many panels
 //!    approaches full brightness; no channel ever exceeds [`MAX_BRIGHTNESS`].
+//!    The baseline is spatially aware: see *Partitions* below.
 //! 2. **Local fixture pools.** Every fixture adds a broad pool of its own
 //!    colour with a smooth falloff that reaches zero at
 //!    [`LOCAL_LIGHT_RADIUS_M`]. The pool is measured to the fixture's
 //!    rectangular panel rather than to a point, so it reads as a fluorescent
 //!    panel instead of a spotlight. A pool only reaches a surface the fixture
 //!    can actually see: see [`visibility`].
-//! 3. **Opening blending.** Rooms joined by walk-through openings (doors and
-//!    passages that reach the floor) mix a bounded fraction of each other's
+//! 3. **Opening blending.** Room areas joined by walk-through openings (doors
+//!    and passages that reach the floor) mix a bounded fraction of each other's
 //!    baseline near the opening, so light appears to leak through doorways
 //!    instead of stopping at the threshold. The mixture follows the aperture,
-//!    so an opening joins two rooms through the hole it cuts rather than
+//!    so an opening joins two areas through the hole it cuts rather than
 //!    through the wall around it. Windows and vents are deliberately excluded:
 //!    in this engine they usually face the outside, and a raised opening does
 //!    not read as a walk-through connection. Only the openings of single walls
@@ -53,6 +55,32 @@
 //! 4. **Ambient floor.** A room without fixtures stays barely visible: the
 //!    ambient contribution is deliberately small (see [`AMBIENT_LEVEL`]) and
 //!    must never stand in for real fixtures. Unlit rooms are dark by design.
+//!
+//! Partitions
+//! ----------
+//! A room footprint is not assumed to be one open space. When opaque internal
+//! walls split it into disconnected areas, each area gets its own baseline:
+//! fixture power is spread over the area the fixture can actually reach, so a
+//! lit half of a partitioned room cannot lend its baseline to the dark half
+//! through the wall. Connectivity is decided by the same wall-solid geometry
+//! the pools use, probed just below the ceiling, which is what makes a
+//! full-height wall and a door's header separate while a wall that stops short
+//! of the ceiling does not. A room that stays one connected volume keeps its
+//! historical uniform baseline bit for bit; a doorway in an internal partition
+//! still blends the two areas through [`LevelLighting::opening_blend`].
+//! See [`LevelLighting::baseline_in_room`] and [`LevelLighting::zone_count`].
+//!
+//! Storeys and vertical isolation
+//! ------------------------------
+//! Floors and ceilings are lighting boundaries, not just surfaces. Every room
+//! floor contributes zero-thickness horizontal interfaces at the same stair-step
+//! heights collision walks on, and every ceiling contributes a solid body above
+//! its plane, so a fixture cannot light through a floor slab — while a raised
+//! platform, a lowered basin and an intentional vertical opening stay open,
+//! because an interface never occupies room air. A ceiling fixture may author a
+//! world `y` to pick its storey (see [`LevelLighting::fixture_y_for`]), and
+//! whole-position samples resolve their room by height as well as footprint
+//! (see [`LevelLighting::room_index_at_height`]). See [`visibility`].
 //!
 //! Opaque geometry matters
 //! -----------------------
@@ -68,8 +96,10 @@
 //! light ownership must be defined rather than rejected: a point (and therefore
 //! a fixture) belongs to the *smallest-area* room that contains it, with ties
 //! resolved by the level's own room order (`rooms`, then the optional `room`).
-//! Each fixture therefore contributes to exactly one room and is never counted
-//! twice. See [`LevelLighting::room_index_at`].
+//! When rooms share a footprint at different heights, the fixture's own mount
+//! height picks its storey first — see [`LevelLighting::room_index_at_height`].
+//! Each fixture therefore contributes to exactly one room area and is never
+//! counted twice.
 //!
 //! Module layout
 //! -------------

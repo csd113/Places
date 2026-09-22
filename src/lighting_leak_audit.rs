@@ -72,6 +72,65 @@ fn wall_solids(level: &LevelDef) -> Vec<Solid> {
     out
 }
 
+/// One zero-thickness floor interface, as the bake builds it: a stair-step of
+/// horizontal planes, one per floor-grid cell at that cell's own height.
+#[derive(Clone, Copy, Debug)]
+struct FloorInterface {
+    x0: f32,
+    x1: f32,
+    z0: f32,
+    z1: f32,
+    y: f32,
+}
+
+/// Every floor interface of every room, from the same floor grid collision uses.
+fn floor_interfaces(level: &LevelDef) -> Vec<FloorInterface> {
+    let surfaces = LevelSurfaces::new(level);
+    let mut out = Vec::new();
+    for room in surfaces.rooms() {
+        let grid = surfaces.floor_grid(room);
+        for (iz, z_span) in grid.zs.windows(2).enumerate() {
+            let &[z0, z1] = z_span else {
+                continue;
+            };
+            for (ix, x_span) in grid.xs.windows(2).enumerate() {
+                let &[x0, x1] = x_span else {
+                    continue;
+                };
+                out.push(FloorInterface {
+                    x0,
+                    x1,
+                    z0,
+                    z1,
+                    y: grid.y_at(room, ix, iz),
+                });
+            }
+        }
+    }
+    out
+}
+
+/// True when the segment crosses the interface inside its footprint. An
+/// endpoint exactly on the plane does not count, mirroring the bake.
+fn segment_crosses_interface(interface: FloorInterface, from: [f32; 3], to: [f32; 3]) -> bool {
+    let from_side = from[1] - interface.y;
+    let to_side = to[1] - interface.y;
+    if from_side * to_side >= 0.0 {
+        return false;
+    }
+    let denominator = from_side - to_side;
+    if denominator == 0.0 {
+        return false;
+    }
+    let t = from_side / denominator;
+    if !(0.0..=1.0).contains(&t) {
+        return false;
+    }
+    let x = (to[0] - from[0]).mul_add(t, from[0]);
+    let z = (to[2] - from[2]).mul_add(t, from[2]);
+    x >= interface.x0 && x <= interface.x1 && z >= interface.z0 && z <= interface.z1
+}
+
 /// True when the segment `from`-`to` crosses the solid.
 fn segment_hits_solid(solid: Solid, from: [f32; 3], to: [f32; 3]) -> bool {
     let mut enter = 0.0_f32;
@@ -102,7 +161,14 @@ fn segment_hits_solid(solid: Solid, from: [f32; 3], to: [f32; 3]) -> bool {
 
 /// The exact local pool at a point: the smooth falloff of every fixture whose
 /// panel point has an unblocked segment to the point, capped like the bake.
-fn reference_pool(lighting: &LevelLighting, solids: &[Solid], x: f32, y: f32, z: f32) -> [f32; 3] {
+fn reference_pool(
+    lighting: &LevelLighting,
+    solids: &[Solid],
+    interfaces: &[FloorInterface],
+    x: f32,
+    y: f32,
+    z: f32,
+) -> [f32; 3] {
     let mut sum = [0.0f32; 3];
     for light in lighting.lights() {
         let dx = ((x - light.x).abs() - light.half_w).max(0.0);
@@ -138,6 +204,9 @@ fn reference_pool(lighting: &LevelLighting, solids: &[Solid], x: f32, y: f32, z:
         if solids
             .iter()
             .any(|solid| segment_hits_solid(*solid, start, [x, y, z]))
+            || interfaces
+                .iter()
+                .any(|interface| segment_crosses_interface(*interface, start, [x, y, z]))
         {
             continue;
         }
@@ -200,16 +269,18 @@ fn shipped_demo() -> LevelDef {
 fn assert_pool_matches_reference(
     lighting: &LevelLighting,
     solids: &[Solid],
+    interfaces: &[FloorInterface],
     room: usize,
-    x: f32,
-    y: f32,
-    z: f32,
+    point: [f32; 3],
     context: &str,
 ) {
+    let [x, y, z] = point;
     let baked = lighting.sample_in_room(room, x, y, z);
-    let baseline = lighting.rooms()[room].baseline;
+    // The sample's own connected area, not the room-wide average: a
+    // partitioned room must be audited against the baseline it actually got.
+    let baseline = lighting.baseline_in_room(room, x, z);
     let blend = lighting.opening_blend(room, x, y, z);
-    let reference = reference_pool(lighting, solids, x, y, z);
+    let reference = reference_pool(lighting, solids, interfaces, x, y, z);
     for (channel, (baked, reference)) in [
         (baked.r - baseline.r - blend.r, reference[0]),
         (baked.g - baseline.g - blend.g, reference[1]),
@@ -232,6 +303,7 @@ fn the_shipped_demos_fixture_pools_are_occlusion_exact() {
     let level = shipped_demo();
     let lighting = LevelLighting::bake(&level);
     let solids = wall_solids(&level);
+    let interfaces = floor_interfaces(&level);
     let surfaces = LevelSurfaces::new(&level);
     assert!(
         !solids.is_empty() && !lighting.lights().is_empty(),
@@ -249,10 +321,9 @@ fn the_shipped_demos_fixture_pools_are_occlusion_exact() {
                 assert_pool_matches_reference(
                     &lighting,
                     &solids,
+                    &interfaces,
                     room_index,
-                    px,
-                    y,
-                    pz,
+                    [px, y, pz],
                     &format!("floor of room {room_index}"),
                 );
             }
@@ -314,10 +385,9 @@ fn the_shipped_demos_fixture_pools_are_occlusion_exact() {
                         assert_pool_matches_reference(
                             &lighting,
                             &solids,
+                            &interfaces,
                             room,
-                            px,
-                            probe[1],
-                            pz,
+                            [px, probe[1], pz],
                             "wall face",
                         );
                         checked = checked.saturating_add(1);

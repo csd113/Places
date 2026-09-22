@@ -235,6 +235,118 @@ pub const MAX_TEXTURE_DIMENSION: u32 = 1024;
 /// budget of `assets/README.md`). Larger images load, but tooling warns.
 pub const PREFERRED_TEXTURE_DIMENSION: u32 = 256;
 
+/// Largest decoded RGBA8 surface sheet the renderer accepts.
+///
+/// One 1024x1024 sheet is exactly 4 MiB of pixels
+/// (`4 * 1024 * 1024`), so this is the surface class's per-sheet byte budget:
+/// the upgraded Office/Pool artwork sits at it, and nothing may exceed it.
+pub const MAX_SURFACE_TEXTURE_BYTES: usize = 4 * 1024 * 1024;
+
+/// Decoded RGBA8 byte count of a `width` x `height` sheet.
+///
+/// Saturates instead of overflowing, so a malformed dimension can never wrap
+/// into a small byte count that passes a budget check.
+#[must_use]
+pub const fn decoded_rgba_bytes(width: u32, height: u32) -> usize {
+    (width as usize)
+        .saturating_mul(height as usize)
+        .saturating_mul(4)
+}
+
+/// The dimension contract one shipped PNG is held to.
+///
+/// The renderer is the source of truth, so the policy is deliberately
+/// conservative rather than aspirational: it encodes what the runtime and the
+/// ES 2.0 target actually require, and it never special-cases an individual
+/// file. A deliberate exception — the 96x64 diagnostic, a future non-POT
+/// `pack:` sheet — is asserted at the call site that loads it, not hidden
+/// here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShippedTextureKind {
+    /// A tiling surface sheet (wall, floor or ceiling).
+    ///
+    /// Surfaces are sampled as square `tile_metres` cells, so the sheet must
+    /// be square: a non-square sheet would stretch. Surfaces are *not*
+    /// power-of-two constrained; the desktop GL path loads NPOT fine and only
+    /// the ES 2.0 portability budget prefers it.
+    Surface,
+    /// A fitted fixture face (a light's visible artwork).
+    ///
+    /// Fixture UVs never leave the sheet and the face is drawn with mipmaps,
+    /// so both edges must be powers of two for the ES 2.0 target.
+    FixtureFace,
+    /// A decal cut-out sheet drawn by the decal pass.
+    ///
+    /// Decals are sampled with mipmaps exactly like a fixture face, so both
+    /// edges must be powers of two.
+    DecalSheet,
+}
+
+impl ShippedTextureKind {
+    /// True when either edge exceeds the soft [`PREFERRED_TEXTURE_DIMENSION`].
+    ///
+    /// Over-preferred is not an error: the upgraded Office/Pool surfaces are
+    /// intentionally 1024x1024. Tooling warns; the runtime loads.
+    #[must_use]
+    pub const fn is_over_preferred(width: u32, height: u32) -> bool {
+        width > PREFERRED_TEXTURE_DIMENSION || height > PREFERRED_TEXTURE_DIMENSION
+    }
+
+    /// Checks one shipped PNG against this class's contract.
+    ///
+    /// `Ok(())` means the sheet satisfies every hard requirement; every
+    /// violation is accumulated into the error text otherwise. The soft
+    /// [`PREFERRED_TEXTURE_DIMENSION`] budget is never a violation — use
+    /// [`Self::is_over_preferred`] to report it separately.
+    ///
+    /// # Errors
+    ///
+    /// Returns the accumulated violations when a sheet is zero-sized, exceeds
+    /// [`MAX_TEXTURE_DIMENSION`], is a non-square [`Self::Surface`], is a
+    /// surface sheet over [`MAX_SURFACE_TEXTURE_BYTES`] decoded, or is a
+    /// non-power-of-two [`Self::FixtureFace`] / [`Self::DecalSheet`].
+    pub fn check_dimensions(self, width: u32, height: u32) -> Result<(), String> {
+        let mut problems: Vec<String> = Vec::new();
+        if width == 0 || height == 0 {
+            problems.push(format!(
+                "dimensions must be non-zero, found {width}x{height}"
+            ));
+        }
+        if width > MAX_TEXTURE_DIMENSION || height > MAX_TEXTURE_DIMENSION {
+            problems.push(format!(
+                "found {width}x{height}, over the {MAX_TEXTURE_DIMENSION}x{MAX_TEXTURE_DIMENSION} hard limit"
+            ));
+        }
+        match self {
+            Self::Surface => {
+                if width != height {
+                    problems.push(format!(
+                        "a surface sheet must be square, found {width}x{height}"
+                    ));
+                }
+                if decoded_rgba_bytes(width, height) > MAX_SURFACE_TEXTURE_BYTES {
+                    problems.push(format!(
+                        "a surface sheet decodes to {} bytes, over the {MAX_SURFACE_TEXTURE_BYTES}-byte budget",
+                        decoded_rgba_bytes(width, height)
+                    ));
+                }
+            }
+            Self::FixtureFace | Self::DecalSheet => {
+                if !width.is_power_of_two() || !height.is_power_of_two() {
+                    problems.push(format!(
+                        "a fitted sheet (fixture face or decal) must be power-of-two on both edges, found {width}x{height}"
+                    ));
+                }
+            }
+        }
+        if problems.is_empty() {
+            Ok(())
+        } else {
+            Err(problems.join("; "))
+        }
+    }
+}
+
 /// Every catalog path the loader will try, in order.
 ///
 /// Derived from the same precedence as [`resolve_asset_root`], so the catalog

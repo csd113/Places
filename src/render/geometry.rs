@@ -911,15 +911,17 @@ fn emit_fixtures(
         };
         let color = light.emitted_color();
         let fixture_glow = [color.r * output, color.g * output, color.b * output];
+        // The bake and the mesh share one resolver, so the drawn panel can
+        // never sit at a different height from the light plane it casts: a
+        // ceiling fixture without an authored `y` hangs below the lowest
+        // ceiling point it covers (a gable fixture near the eave and one near
+        // the ridge both clear the slope), and a fixture that authors a world
+        // `y` — a wall sconce, or a ceiling fixture on a chosen storey of a
+        // stacked building — mounts exactly there.
+        let y = context.lighting.fixture_y_for(light);
 
         match profile.kind {
             crate::lighting::FixtureKind::FluorescentPanel => {
-                // The panel hangs below the lowest ceiling point it covers, so a
-                // gable fixture near the eave and one near the ridge both clear
-                // the slope.
-                let y = context
-                    .lighting
-                    .fixture_panel_y(light.x, light.z, half_w, half_d);
                 let x0 = light.x - half_w;
                 let x1 = light.x + half_w;
                 let z0 = light.z - half_d;
@@ -927,9 +929,6 @@ fn emit_fixtures(
                 add_panel_fixture(scratch, &mut housing, x0, x1, z0, z1, y, fixture_glow);
             }
             crate::lighting::FixtureKind::RoundRecessed => {
-                let y = context
-                    .lighting
-                    .fixture_panel_y(light.x, light.z, half_w, half_d);
                 add_round_fixture(
                     scratch,
                     &mut housing,
@@ -941,7 +940,6 @@ fn emit_fixtures(
                 );
             }
             crate::lighting::FixtureKind::WallSconce => {
-                let y = context.lighting.wall_fixture_y(light.x, light.z, light.y);
                 add_wall_fixture(
                     scratch,
                     &mut housing,

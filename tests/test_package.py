@@ -24,6 +24,17 @@ import validate  # noqa: E402
 
 DECAL_SURFACES = {"floor", "ceiling", "wall_north", "wall_south", "wall_east", "wall_west"}
 
+# Texture dimension policy, mirrored from `src/assets.rs`: `MAX_TEXTURE_DIMENSION`
+# is the hard runtime limit, `PREFERRED_TEXTURE_DIMENSION` the soft warning
+# budget, and `MAX_SURFACE_TEXTURE_BYTES` the per-sheet decoded budget. Python
+# cannot import the Rust constants, so the shared numbers are named here and the
+# Rust policy unit tests (`assets::tests`) pin the same contract.
+MAX_TEXTURE_DIMENSION = 1024
+PREFERRED_TEXTURE_DIMENSION = 256
+# The upgraded artwork is deliberately high resolution, not seed-size: the
+# Office/Pool surfaces and the NO DIVING sign were raised to the hard budget.
+HIGH_RESOLUTION_TEXTURE_MINIMUM = 512
+
 
 def cargo_version() -> str:
     text = (PACKAGE / "Cargo.toml").read_text(encoding="utf-8")
@@ -404,6 +415,36 @@ class EnvironmentTextureTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_every_shipped_environment_surface_tiles_cleanly(self):
+        """A repeated surface must not show a seam where its edges meet.
+
+        This is the tool-level half of the tiling contract: the Rust render test
+        compares the wrapped edge against the sheet's own interior variation
+        with its own implementation, and `tools/textures/seam_repair.py --check`
+        independently measures the same property from the source tree. Both must
+        agree before a sheet ships.
+        """
+        surfaces = [
+            entry["model"]
+            for entry in catalog_entries("texture")
+            if entry.get("asset_class") == "environment"
+        ]
+        self.assertGreaterEqual(
+            len(surfaces), 10, "the environment surface set is incomplete"
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(PACKAGE / "tools" / "textures" / "seam_repair.py"),
+                "--check",
+                *[str(PACKAGE / "assets" / model) for model in surfaces],
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_the_six_legacy_material_ids_still_exist(self):
         by_id = {entry["id"]: entry for entry in catalog_entries()}
         for material_id in self.LEGACY_MATERIAL_IDS:
@@ -491,7 +532,35 @@ class PoolContentTests(unittest.TestCase):
         colour_type = data[25]
         self.assertEqual(colour_type, 6, "the sign needs an alpha channel")
         width, height = struct.unpack(">II", data[16:24])
-        self.assertEqual((width, height), (128, 128), "the sign is one 128x128 sheet")
+        # The current intentional contract: the upgraded sign is a square
+        # power-of-two sheet authored at the hard 1024x1024 budget, not the old
+        # 128x128 seed. The numbers come from the mirrored policy constants
+        # above (see `src/assets.rs`).
+        self.assertEqual(width, height, "the sign sheet must be square")
+        self.assertTrue(
+            width > 0 and (width & (width - 1)) == 0,
+            f"the sign sheet must be power-of-two, found {width}",
+        )
+        self.assertGreaterEqual(
+            width,
+            HIGH_RESOLUTION_TEXTURE_MINIMUM,
+            "the sign must be high-resolution upgraded artwork",
+        )
+        self.assertGreater(
+            width,
+            PREFERRED_TEXTURE_DIMENSION,
+            "the upgraded sign intentionally exceeds the soft preferred budget",
+        )
+        self.assertLessEqual(
+            width,
+            MAX_TEXTURE_DIMENSION,
+            "the sign must stay within the hard 1024 limit",
+        )
+        self.assertEqual(
+            (width, height),
+            (MAX_TEXTURE_DIMENSION, MAX_TEXTURE_DIMENSION),
+            "the sign is the upgraded 1024x1024 sheet",
+        )
         # The sheet must be a cut-out: some pixel is fully transparent, so the
         # decal pass has a silhouette to discard instead of a floating plate.
         import zlib
