@@ -13,10 +13,10 @@ use super::{
     BatchRange, DECAL_ALPHA_CUTOFF, DECAL_EXTERNAL_BASE, DECAL_FRAGMENT_SHADER_SRC,
     DECAL_POLYGON_OFFSET, DrawableSize, FRAGMENT_SHADER_SRC, HasContext, LevelMesh, MaterialIndex,
     MaterialTable, MeshChunk, MeshPacker, PackedVertex, PropMeshBatch, SCENE_ATTRIB_COLOR,
-    SCENE_ATTRIB_POS, SCENE_ATTRIB_UV, StaticBatch, SurfaceKey, SurfaceKind, UI_REFERENCE_HEIGHT,
-    UI_REFERENCE_WIDTH, VERTEX_SHADER_SRC, Vertex, VertexLayout, decal_external_sheet_ids,
-    generate_font_atlas, generate_white_texture, packed_layout, spatial_cell_grid,
-    vertical_fov_for_aspect,
+    SCENE_ATTRIB_POS, SCENE_ATTRIB_UV, SCENE_FAR_M, SCENE_NEAR_M, StaticBatch, SurfaceKey,
+    SurfaceKind, UI_REFERENCE_HEIGHT, UI_REFERENCE_WIDTH, VERTEX_SHADER_SRC, Vertex, VertexLayout,
+    decal_external_sheet_ids, generate_font_atlas, generate_white_texture, packed_layout,
+    spatial_cell_grid, vertical_fov_for_aspect,
 };
 use crate::spatial::Frustum;
 
@@ -376,6 +376,15 @@ pub struct Renderer {
     /// keeps their GPU copies across level changes, so a level switch never
     /// re-uploads a built-in texture.
     surface_textures: std::collections::HashMap<String, glow::Texture>,
+    /// GPU textures for catalog fixture sheets, keyed by their PNG path and kept
+    /// across level changes like `surface_textures` (fixture PNGs never tile, so
+    /// they upload clamped, exactly like prop textures).
+    fixture_sheet_textures: std::collections::HashMap<String, glow::Texture>,
+    /// The current level's fixture sheets, one entry per
+    /// [`crate::lighting::FixtureKind::ALL`] slot: the decoded visible face a
+    /// light batch binds by its sheet index, or the untextured white sheet for a
+    /// family this level does not place (or whose sheet did not resolve).
+    fixture_sheets: Vec<glow::Texture>,
     /// Decoded decal-sheet PNGs, keyed by their catalog path. Decoded once per
     /// session exactly like surface textures.
     decal_image_cache: crate::materials::TextureCache,
@@ -394,7 +403,8 @@ pub struct Renderer {
     /// `material_textures` is indexed by). Two materials that share one texture
     /// map to the same slot, so the upload is shared.
     material_texture_slots: Vec<u16>,
-    /// The untextured fixture/light sheet (white unless a pack supplies one).
+    /// The untextured sheet every family without its own artwork binds: the
+    /// light housing's flat vertex colour, a prop placeholder box, the UI.
     white_texture: glow::Texture,
     font_texture: glow::Texture,
     /// Decal rendering state (program, shared sheet, uniforms).
@@ -492,6 +502,8 @@ impl Renderer {
             prop_draws: Vec::new(),
             prop_textures: std::collections::HashMap::new(),
             surface_textures: std::collections::HashMap::new(),
+            fixture_sheet_textures: std::collections::HashMap::new(),
+            fixture_sheets: Vec::new(),
             decal_image_cache: crate::materials::TextureCache::new(),
             decal_sheet_textures: std::collections::HashMap::new(),
             level_textures: Vec::new(),
@@ -553,6 +565,10 @@ impl Renderer {
                 set_repeat_filter(&self.gl, linear);
             }
             for texture in self.surface_textures.values() {
+                self.gl.bind_texture(glow::TEXTURE_2D, Some(*texture));
+                set_repeat_filter(&self.gl, linear);
+            }
+            for texture in self.fixture_sheet_textures.values() {
                 self.gl.bind_texture(glow::TEXTURE_2D, Some(*texture));
                 set_repeat_filter(&self.gl, linear);
             }
@@ -629,55 +645,6 @@ impl Renderer {
     /// Cached prop asset statistics (models loaded/failed, triangles, texture bytes).
     pub fn prop_asset_stats(&self) -> crate::props::PropAssetStats {
         self.prop_assets.stats()
-    }
-
-    unsafe fn upload_texture(
-        gl: &glow::Context,
-        texture: glow::Texture,
-        raw_image: &crate::loader::RawImage,
-        repeat: bool,
-        linear: bool,
-    ) {
-        unsafe {
-            gl.bind_texture(glow::TEXTURE_2D, Some(texture));
-            gl.tex_image_2d(
-                glow::TEXTURE_2D,
-                0,
-                glow::RGBA.cast_signed(),
-                i32::try_from(raw_image.width).unwrap_or(i32::MAX),
-                i32::try_from(raw_image.height).unwrap_or(i32::MAX),
-                0,
-                glow::RGBA,
-                glow::UNSIGNED_BYTE,
-                glow::PixelUnpackData::Slice(Some(&raw_image.rgba)),
-            );
-
-            let wrap_mode = if repeat {
-                glow::REPEAT.cast_signed()
-            } else {
-                glow::CLAMP_TO_EDGE.cast_signed()
-            };
-            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, wrap_mode);
-            gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, wrap_mode);
-
-            if repeat {
-                set_repeat_filter(gl, linear);
-                gl.generate_mipmap(glow::TEXTURE_2D);
-            } else {
-                gl.tex_parameter_i32(
-                    glow::TEXTURE_2D,
-                    glow::TEXTURE_MIN_FILTER,
-                    glow::NEAREST.cast_signed(),
-                );
-                gl.tex_parameter_i32(
-                    glow::TEXTURE_2D,
-                    glow::TEXTURE_MAG_FILTER,
-                    glow::NEAREST.cast_signed(),
-                );
-            }
-
-            gl.bind_texture(glow::TEXTURE_2D, None);
-        }
     }
 
     /// Builds and uploads the level's static geometry plus every placed prop.
@@ -772,7 +739,7 @@ impl Renderer {
         for batch in batches {
             let texture = match self.prop_textures.get(&batch.model) {
                 Some(texture) => *texture,
-                None => match unsafe { self.upload_prop_texture(&batch.texture) } {
+                None => match unsafe { self.upload_fitted_texture(&batch.texture) } {
                     Ok(texture) => {
                         self.prop_textures.insert(batch.model.clone(), texture);
                         texture
@@ -805,9 +772,14 @@ impl Renderer {
         (packer, draws)
     }
 
-    /// Uploads one prop model's diffuse texture with mipmaps and `CLAMP_TO_EDGE`
-    /// wrapping (prop UVs never tile), matching the game's filtering setting.
-    unsafe fn upload_prop_texture(
+    /// Uploads one fitted (non-tiling) sheet: a prop's diffuse texture or a
+    /// fixture's visible face.
+    ///
+    /// Fitted artwork is sampled with `CLAMP_TO_EDGE` wrapping and mipmaps: its
+    /// UVs never leave the sheet, so a repeat wrap would only bleed one edge of
+    /// the artwork into the opposite edge. The mip chain and the game's
+    /// filtering setting still apply, exactly as they do to a tiling surface.
+    unsafe fn upload_fitted_texture(
         &self,
         image: &crate::loader::RawImage,
     ) -> Result<glow::Texture, String> {
@@ -983,25 +955,62 @@ impl Renderer {
             .iter()
             .map(|entry| entry.texture_index)
             .collect();
-        self.level_textures = level_textures;
 
-        // The light/fixture sheet: a pack may override it, otherwise the
-        // untextured white sheet is restored so a previous pack's fixture never
-        // leaks into the next level.
-        unsafe {
-            if let Some(fixture) = loaded.fixture.as_deref() {
-                Self::upload_texture(&self.gl, self.white_texture, fixture, false, linear);
-            } else {
-                let white = generate_white_texture();
-                Self::upload_texture(
-                    &self.gl,
-                    self.white_texture,
-                    &crate::loader::RawImage::new(2, 2, white.to_vec()),
-                    false,
-                    linear,
-                );
+        // The fixture sheets: one slot per family, so a light batch binds its
+        // family's PNG by the sheet index it carries. Catalog sheets stay
+        // resident across level changes; a pack's own sheet belongs to this
+        // level and is freed with it. A family with no sheet binds the
+        // untextured white sheet, which draws the flat authored fixture glow
+        // exactly as every fixture did before the sheets existed.
+        self.fixture_sheets = self.upload_fixture_sheets(&loaded.light_sheets, &mut level_textures);
+
+        self.level_textures = level_textures;
+    }
+
+    /// Uploads the level's fixture sheets, one GPU texture per
+    /// [`crate::lighting::FixtureKind`] slot.
+    ///
+    /// Every slot is filled: a family the level does not place (or whose sheet
+    /// could not be uploaded) keeps the shared white sheet, so the draw path
+    /// never has to guess whether a slot is set.
+    // A failed upload is a chatty one-line diagnostic and this renderer has no
+    // logger (the game prints its own diagnostics directly), so the stderr
+    // report is the intended behaviour and stays scoped to this method.
+    #[allow(clippy::print_stderr)]
+    fn upload_fixture_sheets(
+        &mut self,
+        sheets: &[crate::loader::ResolvedFixtureSheet],
+        level_textures: &mut Vec<(String, glow::Texture)>,
+    ) -> Vec<glow::Texture> {
+        let mut slots = vec![self.white_texture; crate::lighting::FixtureKind::ALL.len()];
+        for sheet in sheets {
+            let Some(slot) = slots.get_mut(sheet.kind.index()) else {
+                continue;
+            };
+            let persistent = matches!(sheet.origin, crate::materials::TextureOrigin::Catalog);
+            if persistent && let Some(handle) = self.fixture_sheet_textures.get(&sheet.key) {
+                *slot = *handle;
+                continue;
+            }
+            match unsafe { self.upload_fitted_texture(&sheet.image) } {
+                Ok(texture) => {
+                    if persistent {
+                        self.fixture_sheet_textures
+                            .insert(sheet.key.clone(), texture);
+                    } else {
+                        level_textures.push((sheet.key.clone(), texture));
+                    }
+                    *slot = texture;
+                }
+                Err(error) => {
+                    eprintln!(
+                        "[fixtures] cannot upload sheet `{}`: {error}; drawing the untextured sheet",
+                        sheet.key
+                    );
+                }
             }
         }
+        slots
     }
 
     /// Renders the 3D level combining yaw and pitch into the view matrix.
@@ -1131,7 +1140,8 @@ impl Renderer {
     }
 
     /// The texture one static surface key binds: its resolved material sheet,
-    /// the decal atlas, or the unshaded white sheet.
+    /// the fixture sheet its light batch carries, the decal sheet, or the
+    /// untextured white sheet.
     fn static_texture(&self, key: SurfaceKey) -> glow::Texture {
         match key.kind {
             SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall => {
@@ -1151,7 +1161,19 @@ impl Renderer {
                     self.white_texture
                 }
             }
-            SurfaceKind::Light | SurfaceKind::PropFallback => self.white_texture,
+            SurfaceKind::Light => {
+                // A light batch's key carries its fixture family's sheet slot;
+                // the housing and any unknown family draw the white sheet.
+                if key.has_material() {
+                    self.fixture_sheets
+                        .get(usize::from(key.material))
+                        .copied()
+                        .unwrap_or(self.white_texture)
+                } else {
+                    self.white_texture
+                }
+            }
+            SurfaceKind::PropFallback => self.white_texture,
             SurfaceKind::Decal => self.decal.texture,
         }
     }
@@ -1655,6 +1677,13 @@ fn pack_static_batches(mesh: &LevelMesh, indexed: bool) -> (MeshPacker, Vec<Stat
 /// cropping it. The frustum comes from the very matrix the GPU clips against,
 /// so it can never disagree with what is on screen: pitch, a resized drawable
 /// and an unusual aspect ratio are all included.
+///
+/// The projection uses the *OpenGL* clip-depth convention (`z_ndc` in
+/// `[-1, 1]`), not glam's default `[0, 1]` one. OpenGL maps `[-1, 1]` onto the
+/// depth buffer, so a `[0, 1]` matrix would only ever write the buffer's upper
+/// half and halve the usable depth precision for no reason — precisely the
+/// margin coplanar surfaces need. The frustum is extracted with the matching
+/// depth convention so culling and clipping stay in lockstep.
 fn scene_view_projection(
     camera_pos: glam::Vec3,
     camera_yaw: f32,
@@ -1664,7 +1693,12 @@ fn scene_view_projection(
 ) -> (glam::Mat4, Frustum) {
     let aspect = drawable.aspect_ratio();
     let effective_fov = vertical_fov_for_aspect(fov_degrees, aspect);
-    let proj = glam::Mat4::perspective_rh(effective_fov.to_radians(), aspect, 0.1, 100.0);
+    let proj = glam::Mat4::perspective_rh_gl(
+        effective_fov.to_radians(),
+        aspect,
+        SCENE_NEAR_M,
+        SCENE_FAR_M,
+    );
 
     // Correctly combine yaw and pitch in the camera forward vector.
     let cos_pitch = camera_pitch.cos();
@@ -1680,6 +1714,6 @@ fn scene_view_projection(
     let view = glam::Mat4::look_at_rh(camera_pos, camera_pos + forward, glam::Vec3::Y);
     #[allow(clippy::arithmetic_side_effects)]
     let mvp = proj * view;
-    let frustum = Frustum::from_view_projection(&mvp, crate::spatial::DepthRange::ZeroToOne);
+    let frustum = Frustum::from_view_projection(&mvp, crate::spatial::DepthRange::NegativeOneToOne);
     (mvp, frustum)
 }

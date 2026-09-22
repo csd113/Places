@@ -9,7 +9,8 @@ The checks here are the tooling half of the asset architecture:
   known class (``environment``, ``entity``, ``core``, ``diagnostic``) and type
   (``prop``, ``material``, ``texture``, ``light``, ``decal``, ``entity``);
 * file-backed assets name a relative resource path that exists exactly once
-  below ``assets/``, generated assets never name a file, and definition
+  below ``assets/`` (a GLB for a placeable, a PNG for a texture, a decal sheet
+  or a fixture face), generated assets never name a file, and definition
   assets (materials) resolve to a file-backed PNG texture instead;
 * ``spooner-man`` is a single canonical entity resource under
   ``entities/spooner-man/``, never a duplicate prop file;
@@ -181,6 +182,11 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
                 errors.append(f"{where}: a generated asset must not declare a model")
             if source == "definition":
                 errors.append(f"{where}: a definition asset must not declare a model")
+            # A light's mesh is generated geometry, so its `model` is not a GLB:
+            # it is the PNG sheet of the fixture's visible face, exactly like a
+            # file-backed decal's `model`.
+            if asset_type == "light" and not model.lower().endswith(".png"):
+                errors.append(f"{where}: a light fixture must name a .png sheet, found '{model}'")
         elif source == "file" or (not source and asset_type in PLACEABLE_TYPES):
             errors.append(f"{where}: a file asset must declare a model")
         elif asset_type in PLACEABLE_TYPES and not model:

@@ -3,13 +3,50 @@
 //! The drawn fixture and the baked light pool come from one profile table
 //! (`lighting::fixture_profile`), so what a fixture looks like and where it
 //! pools light cannot drift apart.
+//!
+//! Fixture sheets
+//! --------------
+//! A family's *luminous* faces — the office panel's panel face, the round
+//! downlight's diffuser ring, the wall luminaire's front face — draw the
+//! fixture's own PNG (`assets/catalog.json` names it on the `light` asset). The
+//! sheet is fitted once across the face it belongs to; nothing here tiles, and
+//! the renderer uploads the sheets clamped for exactly that reason.
+//!
+//! * **Panel.** `u` runs along the panel's 1.2 m width axis and `v` across its
+//!   0.6 m depth axis, so a 2:1 sheet shows 4.7 mm per texel in both
+//!   directions at 256x128. A rotated fixture rotates the sheet with it.
+//! * **Round diffuser.** Planar, in the fixture's own plane: the sheet centre
+//!   is the fixture centre and the sheet's inscribed circle is the diffuser's
+//!   outer radius. A 128x128 sheet therefore shows 3.9 mm per texel.
+//! * **Wall luminaire.** `u` is the 0.4 m face width and `v` its 0.2 m height,
+//!   so the sheet's aspect matches the face exactly.
+//!
+//! The *housing* — the panel's two bezel strips, the round can and bezel ring,
+//! the wall fixture's top, bottom and ends — stays untextured geometry: it
+//! draws its flat authored metal colour through the shared white sheet, exactly
+//! as every fixture face did before the sheets existed. Keeping the two apart
+//! means the trim's shade never depends on the artwork, which is where the
+//! luminous face's albedo lives. The lighting never enters into it: a fixture's
+//! visible brightness is the vertex colour the bake and the intensity response
+//! already produced, multiplied into whatever the sheet shows.
 
 use super::{Vertex, add_quad_flat};
 
-/// Emits the office fluorescent panel: a luminous panel with two bezel strips,
-/// all facing down into the room.
+/// Texture rectangle of a whole fitted fixture sheet.
+///
+/// Fixture sheets are not tiles: each face samples the sheet once, so the
+/// rectangle is the complete image. Corner order matches the face windings
+/// below (`[low-v, low-u]` first), and `v = 0` is the image's top row.
+const SHEET_UV: [[f32; 2]; 4] = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
+
+/// Emits the office fluorescent panel's luminous face into `lit` and its two
+/// bezel strips into `housing`, all facing down into the room.
+// A face rectangle, a colour and two sinks: the emitters are inherently wide,
+// exactly like the ring and can helpers below.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn add_panel_fixture(
-    scratch: &mut Vec<Vertex>,
+    lit: &mut Vec<Vertex>,
+    housing: &mut Vec<Vertex>,
     x0: f32,
     x1: f32,
     z0: f32,
@@ -18,22 +55,22 @@ pub(super) fn add_panel_fixture(
     glow: [f32; 3],
 ) {
     add_quad_flat(
-        scratch,
+        lit,
         [x0, y, z0],
         [x1, y, z0],
         [x1, y, z1],
         [x0, y, z1],
         glow,
-        [0.0, 0.0],
-        [1.0, 0.0],
-        [1.0, 1.0],
-        [0.0, 1.0],
+        SHEET_UV[0],
+        SHEET_UV[1],
+        SHEET_UV[2],
+        SHEET_UV[3],
     );
 
     let bezel_color = [0.40, 0.40, 0.40];
     let b = 0.05;
     add_quad_flat(
-        scratch,
+        housing,
         [x0 - b, y, z0 - b],
         [x1 + b, y, z0 - b],
         [x1 + b, y, z0],
@@ -45,7 +82,7 @@ pub(super) fn add_panel_fixture(
         [0.0, 1.0],
     );
     add_quad_flat(
-        scratch,
+        housing,
         [x0 - b, y, z1],
         [x1 + b, y, z1],
         [x1 + b, y, z1 + b],
@@ -72,22 +109,14 @@ pub(super) fn add_ring_quad(
     cos1: f32,
     sin1: f32,
     color: [f32; 3],
+    uv: [[f32; 2]; 4],
 ) {
     let outer0 = [r_out.mul_add(cos0, cx), y, r_out.mul_add(sin0, cz)];
     let outer1 = [r_out.mul_add(cos1, cx), y, r_out.mul_add(sin1, cz)];
     let inner1 = [r_in.mul_add(cos1, cx), y, r_in.mul_add(sin1, cz)];
     let inner0 = [r_in.mul_add(cos0, cx), y, r_in.mul_add(sin0, cz)];
     add_quad_flat(
-        scratch,
-        outer0,
-        outer1,
-        inner1,
-        inner0,
-        color,
-        [0.0, 0.0],
-        [1.0, 0.0],
-        [1.0, 1.0],
-        [0.0, 1.0],
+        scratch, outer0, outer1, inner1, inner0, color, uv[0], uv[1], uv[2], uv[3],
     );
 }
 
@@ -124,14 +153,18 @@ pub(super) fn add_can_quad(
     );
 }
 
-/// Emits a round recessed ceiling downlight: a shallow can, a flat bezel ring
-/// and an emissive diffuser ring, all facing down into the room.
+/// Emits a round recessed ceiling downlight: the emissive diffuser ring into
+/// `lit`, and the flat bezel ring plus shallow can into `housing`, all facing
+/// down into the room.
 ///
 /// The diffuser is a ring rather than a filled disc so the fixture stays
 /// quad-only; the small centre it leaves reads as the lamp recess behind a
-/// nearly-closed diffuser.
+/// nearly-closed diffuser. Its planar UVs make the sheet's centre the fixture
+/// centre, so the artwork's concentric rings and lamp core land where the
+/// geometry expects them whatever the fixture's radius.
 pub(super) fn add_round_fixture(
-    scratch: &mut Vec<Vertex>,
+    lit: &mut Vec<Vertex>,
+    housing: &mut Vec<Vertex>,
     cx: f32,
     cz: f32,
     y: f32,
@@ -144,6 +177,12 @@ pub(super) fn add_round_fixture(
     const CAN_DEPTH: f32 = 0.03;
     let inner = radius * 0.12;
     let bezel_outer = radius + 0.03;
+    // Planar UVs: the sheet's inscribed circle is the diffuser's outer edge, so
+    // one texel covers the same distance along both in-plane axes.
+    let planar_uv = |r: f32, cos: f32, sin: f32| -> [f32; 2] {
+        let unit = r / radius;
+        [unit.mul_add(cos, 1.0) * 0.5, unit.mul_add(sin, 1.0) * 0.5]
+    };
     // `SEGMENTS` is 10, so every segment index fits `u8` and converts to `f32`
     // exactly.
     let segments = u8::try_from(SEGMENTS).unwrap_or(0);
@@ -154,10 +193,26 @@ pub(super) fn add_round_fixture(
         let (sin0, cos0) = a0.sin_cos();
         let (sin1, cos1) = a1.sin_cos();
         add_ring_quad(
-            scratch, cx, cz, y, inner, radius, cos0, sin0, cos1, sin1, glow,
+            lit,
+            cx,
+            cz,
+            y,
+            inner,
+            radius,
+            cos0,
+            sin0,
+            cos1,
+            sin1,
+            glow,
+            [
+                planar_uv(radius, cos0, sin0),
+                planar_uv(radius, cos1, sin1),
+                planar_uv(inner, cos1, sin1),
+                planar_uv(inner, cos0, sin0),
+            ],
         );
         add_ring_quad(
-            scratch,
+            housing,
             cx,
             cz,
             y,
@@ -168,9 +223,10 @@ pub(super) fn add_round_fixture(
             cos1,
             sin1,
             BEZEL_COLOR,
+            SHEET_UV,
         );
         add_can_quad(
-            scratch,
+            housing,
             cx,
             cz,
             y,
@@ -185,10 +241,11 @@ pub(super) fn add_round_fixture(
     }
 }
 
-/// Emits a wall-mounted luminaire at `(x, y, z)` facing `yaw_degrees`:
-/// a shallow housing with one emissive outward face.
+/// Emits a wall-mounted luminaire at `(x, y, z)` facing `yaw_degrees`: its
+/// emissive front face into `lit` and its shallow housing into `housing`.
 pub(super) fn add_wall_fixture(
-    scratch: &mut Vec<Vertex>,
+    lit: &mut Vec<Vertex>,
+    housing: &mut Vec<Vertex>,
     x: f32,
     y: f32,
     z: f32,
@@ -212,9 +269,9 @@ pub(super) fn add_wall_fixture(
         ]
     };
     let uv = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
-    // Emissive front face.
+    // Emissive front face: the whole luminaire face is the sheet.
     add_quad_flat(
-        scratch,
+        lit,
         point(-HALF_WIDTH, -HALF_HEIGHT, DEPTH),
         point(HALF_WIDTH, -HALF_HEIGHT, DEPTH),
         point(HALF_WIDTH, HALF_HEIGHT, DEPTH),
@@ -227,7 +284,7 @@ pub(super) fn add_wall_fixture(
     );
     // Top face (up), bottom face (down) and the two ends.
     add_quad_flat(
-        scratch,
+        housing,
         point(-HALF_WIDTH, HALF_HEIGHT, 0.0),
         point(-HALF_WIDTH, HALF_HEIGHT, DEPTH),
         point(HALF_WIDTH, HALF_HEIGHT, DEPTH),
@@ -239,7 +296,7 @@ pub(super) fn add_wall_fixture(
         uv[3],
     );
     add_quad_flat(
-        scratch,
+        housing,
         point(-HALF_WIDTH, -HALF_HEIGHT, 0.0),
         point(HALF_WIDTH, -HALF_HEIGHT, 0.0),
         point(HALF_WIDTH, -HALF_HEIGHT, DEPTH),
@@ -251,7 +308,7 @@ pub(super) fn add_wall_fixture(
         uv[3],
     );
     add_quad_flat(
-        scratch,
+        housing,
         point(HALF_WIDTH, HALF_HEIGHT, 0.0),
         point(HALF_WIDTH, HALF_HEIGHT, DEPTH),
         point(HALF_WIDTH, -HALF_HEIGHT, DEPTH),
@@ -263,7 +320,7 @@ pub(super) fn add_wall_fixture(
         uv[3],
     );
     add_quad_flat(
-        scratch,
+        housing,
         point(-HALF_WIDTH, -HALF_HEIGHT, 0.0),
         point(-HALF_WIDTH, -HALF_HEIGHT, DEPTH),
         point(-HALF_WIDTH, HALF_HEIGHT, DEPTH),

@@ -7,8 +7,9 @@ and no recompilation.  This tool exists so the built-in artwork can be
 regenerated deterministically from source, and so its dimensions stay inside
 the texture budget.
 
-The painters live in per-theme modules (``office_art.py``, ``pool_art.py``) and
-in ``diagnostic_art.py``; ``build.py`` owns the CLI, the manifest merge and the
+The painters live in per-theme modules (``office_art.py``, ``pool_art.py``), the
+fixture family (``lights_art.py``) and in ``decal_art.py`` /
+``diagnostic_art.py``; ``build.py`` owns the CLI, the manifest merge and the
 ``--check`` gate.
 
 Run it from the repository root::
@@ -17,9 +18,10 @@ Run it from the repository root::
     python3 tools/textures/build.py --check   # validate the shipped PNGs only
     python3 tools/textures/build.py --only core:tex_pool_tile_deck_01
 
-``--check`` never regenerates: it reads the catalog, parses each texture PNG's
-IHDR and fails on missing/corrupt/oversized files (hard limit 1024x1024,
-preferred 256x256, power-of-two dimensions preferred).
+``--check`` never regenerates: it reads the catalog, parses each file-backed
+sheet PNG's IHDR (surface textures, decal sheets and fixture faces) and fails on
+missing/corrupt/oversized files (hard limit 1024x1024, preferred 256x256,
+power-of-two dimensions preferred).
 """
 
 from __future__ import annotations
@@ -40,6 +42,7 @@ if HERE not in sys.path:
 from artkit import PNG_SIGNATURE, write_png  # noqa: E402
 import decal_art  # noqa: E402
 import diagnostic_art  # noqa: E402
+import lights_art  # noqa: E402
 import office_art  # noqa: E402
 import pool_art  # noqa: E402
 
@@ -52,7 +55,7 @@ HARD_DIMENSION = 1024
 # per-theme art modules; mirrors the asset_type "texture" entries in
 # assets/catalog.json and --check warns on drift.
 MANIFEST = {}
-for module in (office_art, pool_art, decal_art, diagnostic_art):
+for module in (office_art, pool_art, lights_art, decal_art, diagnostic_art):
     for texture_id, entry in module.ART.items():
         if texture_id in MANIFEST:
             raise SystemExit(f"texture manifest: {texture_id} is declared in more than one art module")
@@ -99,8 +102,15 @@ def validate_textures(
     catalog_ids: list[str] = []
     for entry in catalog.get("assets", []):
         asset_type = entry.get("asset_type")
-        file_decal = asset_type == "decal" and entry.get("source") == "file"
-        if asset_type != "texture" and not file_decal:
+        # Every catalogued sheet the renderer loads at level load is checked:
+        # surface textures, decal sheets and the visible face of a fixture.
+        # They are all file-backed PNGs below the asset root.
+        file_sheet = entry.get("source") == "file" and asset_type in (
+            "texture",
+            "decal",
+            "light",
+        )
+        if not file_sheet:
             continue
         texture_id = str(entry.get("id", "")).strip() or "texture"
         catalog_ids.append(str(entry.get("id", "")).strip())

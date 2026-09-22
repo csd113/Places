@@ -1,5 +1,119 @@
 # Changelog
 
+## Unreleased — coplanar surfaces and wall-boundary light
+
+Places could emit a wall surface in the same plane as another wall's surface,
+and the static lighting let a fixture's pool slip through the few millimetres
+between two solid pieces. Both showed up as flicker: two faces fighting for the
+same depth value as the camera moved, and light appearing on the wrong side of
+an opaque wall.
+
+### Fixed
+
+- **Coincident wall geometry is resolved once.** `render::wall_layout` groups
+  walls that share a plane and thickness and overlap in length *and* height
+  (previously they also had to share their base and top), and each
+  `(length, height)` cell takes the last covering member's material: the wall a
+  room's boundary continues into the next room no longer emits a second
+  coplanar face over the shared span. A wall's end cap or reveal is no longer
+  emitted under the wall it abuts either — `cross_section_covered` and
+  `subtract_rectangles` remove exactly the part of the face another wall's
+  solid volume covers. `Places Demo` went from 39 coincident wall triangle pairs
+  to none, and emits 316 fewer static vertices.
+- **Fixture pools are tested against exact wall solids.** `lighting::visibility`
+  no longer shrinks every opaque box by 5 mm; that shrink left a slit wherever
+  two solid pieces met (beside every window and door jamb, at every corner),
+  which is how window light crossed a wall it had no opening through. A query
+  that starts exactly on a face is displaced `SEGMENT_START_EPS_M` along its own
+  direction instead, so a sconce still lights the room it faces without opening
+  a seam.
+- **The scene projection uses OpenGL's `[-1, 1]` clip depth**
+  (`perspective_rh_gl`), not glam's `[0, 1]` default: the old matrix only ever
+  wrote the depth buffer's upper half, halving the precision coplanar decals
+  rely on. `SCENE_NEAR_M` / `SCENE_FAR_M` are named constants with a test that
+  pins the near/far mapping and the decal bias's sub-visible size. The same
+  pass documents the doorway-threshold ownership rule in the floor emitter.
+- `level-editor/js/lighting.js` mirrors the exact-box visibility and the
+  start-point displacement, so the editor preview keeps matching the game.
+
+### Added
+
+- `src/surface_audit.rs`: mesh-level regression tests that measure the emitted
+  triangles rather than the level JSON — a doorway threshold covered by exactly
+  one floor surface, adjacent rooms with different floor materials, three
+  openings on one wall, a wall continued at a different base, a wall abutting
+  another, decals exactly coplanar with the surface they mark, intentional room
+  overlap still emitting both floors, and the shipped demo emitting no
+  coincident static surface at all.
+- `src/lighting_leak_audit.rs`: the shipped demo's fixture pools and wall-face
+  room assignments compared against an independent exact-visibility reference.
+- `lighting::tests::{a_window_jamb_does_not_transmit_beside_itself,
+  a_lit_corner_does_not_transmit_diagonally}` and
+  `lighting::visibility::tests::{the_seam_beside_an_opening_is_airtight,
+  abutting_wall_pieces_leave_no_seam,
+  a_surface_mounted_fixture_is_not_blocked_by_its_own_wall}`.
+
+## Unreleased — fixture surfaces are authored artwork
+
+A light fixture's **mesh** is still generated geometry, but what that mesh
+shows is now an ordinary external PNG: the catalog's `asset_type: "light"` entry
+names the file, exactly like a file-backed decal sheet, and the runtime resolves
+it through the same catalog -> PNG -> texture-cache path a surface texture uses.
+Nothing about lighting changed: the bake, its pools, its visibility tests and
+every fixture footprint and intensity are untouched, and the fixture's authored
+colour still multiplies into the sampled sheet through the same vertex colour it
+always used.
+
+### Added
+
+- `assets/environment/office/textures/lights/fluorescent_panel_01.png`
+  (256x128) — the office panel's twin-tube acrylic diffuser face.
+- `assets/environment/pool/textures/lights/pool_light_round_01.png` (128x128) —
+  the round downlight's opal diffuser seen face-on: lamp core, moulded
+  concentric rings, faint radial prisms and a shadowed contact edge.
+- `assets/environment/pool/textures/lights/pool_light_wall_01.png` (128x64) —
+  the wall luminaire's ribbed opal lens.
+- `tools/textures/lights_art.py` — the deterministic painters for the three
+  sheets, merged into the `build.py` manifest and covered by `--check`.
+- `src/assets.rs`: `AssetEntry::is_light` and `AssetCatalog::fixture_sheet_path`
+  (the PNG a file-backed light entry names), plus a catalog rule that a
+  file-backed light must name a `.png`.
+- `src/loader.rs`: `ResolvedFixtureSheet` and `resolve_fixture_sheets`, which
+  resolve at most one sheet per fixture family through the catalog and the
+  session texture cache (a level pack's own sheet still wins for a `pack:`
+  fixture id).
+- `src/lighting/tuning.rs`: `FixtureKind::ALL` and `FixtureKind::index`, the
+  stable sheet slot a light batch carries.
+- Tests: `render::tests::{every_fixture_family_has_a_stable_sheet_slot,
+  fixture_faces_carry_their_own_family_sheet_and_the_housing_stays_bare,
+  fixture_sheets_are_fitted_once_and_keep_their_aspect,
+  the_round_diffuser_ring_has_no_uv_seam}` and three loader tests covering
+  per-family resolution, the sheetless fallback and the demo's fixtures.
+
+### Changed
+
+- The three built-in fixture entries are `"source": "file"` and name their PNG.
+- `LoadedLevel::fixture` (one optional pack sheet) became
+  `LoadedLevel::light_sheets`, one resolved sheet per fixture family.
+- `MaterialIndex` on a `Light` key is now the family's sheet slot rather than
+  always `MATERIAL_NONE`; the flat metal housing keeps the bare key and still
+  draws its authored shade through the shared white sheet.
+- `Renderer::upload_prop_texture` became `upload_fitted_texture`: props and
+  fixture faces are both fitted (non-tiling) sheets uploaded with `CLAMP_TO_EDGE`
+  and mipmaps.
+
+### Removed
+
+- `loader::resolve_fixture`, superseded by `resolve_fixture_sheets`.
+- `Renderer::upload_texture` and the per-level overwrite of the shared white
+  sheet with a pack's fixture image.
+
+### Fixed
+
+- Prop placeholder boxes no longer inherit a pack's fixture sheet: the white
+  sheet is never replaced now, so a pack's artwork only ever lands on the
+  fixture faces it belongs to.
+
 ## 0.6.0 — 2026-09-22
 
 Goal 6: distribution readiness, rendering and material polish, Places branding,

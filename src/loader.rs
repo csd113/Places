@@ -7,7 +7,7 @@ use std::rc::Rc;
 use zip::ZipArchive;
 
 use crate::level::{LevelDef, MAX_LEVEL_FLOOR_AREA_M2, MAX_LEVEL_VERTICES};
-use crate::materials::{MaterialTable, PackMaterials, resolve_materials};
+use crate::materials::{MaterialTable, PackMaterials, load_png_relative, resolve_materials};
 
 /// Re-exported so the rest of the crate keeps its historical import paths.
 pub use crate::materials::{RawImage, TextureCache, decode_png, encode_png, parse_materials_json};
@@ -41,15 +41,36 @@ pub struct LevelEntry {
 /// A validated, fully loaded level ready for gameplay.
 ///
 /// `materials` is the level's resolved surface material table: every material
-/// id the level references, with its decoded PNG, tiling and tint. `fixture`
-/// is an optional pack-supplied light fixture image; `None` means the built-in
-/// white sheet.
+/// id the level references, with its decoded PNG, tiling and tint.
+/// `light_sheets` is the same idea for the fixtures the level places: the
+/// decoded visible-face PNG of each fixture family it uses, indexed by
+/// [`crate::lighting::FixtureKind::index`], with a family missing from the list
+/// drawing the shared untextured white sheet.
 #[derive(Clone, Debug)]
 pub struct LoadedLevel {
     pub level: LevelDef,
     pub materials: MaterialTable,
-    pub fixture: Option<Rc<RawImage>>,
+    pub light_sheets: Vec<ResolvedFixtureSheet>,
     pub entry: LevelEntry,
+}
+
+/// One fixture family's visible face, decoded and ready to upload.
+///
+/// A fixture's mesh is generated in code, but what that mesh shows is ordinary
+/// external artwork: a catalogued fixture names its own PNG sheet, and a level
+/// pack may ship one for a `pack:` fixture id. Attribution is per family, so a
+/// level that mixes an office panel with a pool downlight resolves two sheets.
+#[derive(Clone, Debug)]
+pub struct ResolvedFixtureSheet {
+    /// Family the sheet draws.
+    pub kind: crate::lighting::FixtureKind,
+    /// Session-unique decode/dedupe key: the catalog PNG path, or the pack's own
+    /// `pack:<namespace>:<path>` key.
+    pub key: String,
+    /// Where the sheet came from; decides its GPU lifetime.
+    pub origin: crate::materials::TextureOrigin,
+    /// Decoded pixels, shared with the session cache.
+    pub image: Rc<RawImage>,
 }
 
 /// Raw contents extracted safely from a ZIP level pack.
@@ -843,30 +864,107 @@ fn validate_geometry_budget(level: &LevelDef) -> Result<(), String> {
     Ok(())
 }
 
-/// Resolves the optional pack-supplied light fixture image for a level.
+/// Resolves the visible-face sheets of the fixture families a level places.
 ///
-/// Only `pack:` fixture ids can name a texture; built-in fixtures draw with
-/// the renderer's white sheet, exactly as before. The first light whose fixture
-/// decodes wins.
+/// Built-in fixtures resolve the PNG their catalog entry names, exactly like an
+/// external decal sheet: the catalog owns the file, this decodes it through the
+/// shared session cache and the standard PNG loader. A `pack:` fixture id uses
+/// the pack's own sheet for its family instead, so a level pack can still
+/// restyle a built-in fixture without touching the catalog.
+///
+/// The list is indexed by [`crate::lighting::FixtureKind::index`] and holds at
+/// most one sheet per family: the first light of a family decides. A family with
+/// no resolvable sheet is simply absent, and the fixture draws the shared white
+/// sheet (its flat authored glow, exactly as before); a sheet that was named but
+/// cannot be read or decoded is logged with the fixture id in it and degrades
+/// the same way.
 #[must_use]
-pub fn resolve_fixture(
+// A broken fixture sheet is a chatty one-line diagnostic and the loader has no
+// logger to route through (see `resolve_level_materials`).
+#[allow(clippy::print_stderr)]
+pub fn resolve_fixture_sheets(
     level: &LevelDef,
+    catalog: &crate::assets::AssetCatalog,
     pack: Option<&PackMaterials>,
     cache: &mut TextureCache,
-) -> Option<Rc<RawImage>> {
-    let pack = pack?;
+) -> Vec<ResolvedFixtureSheet> {
+    let root = crate::assets::resolve_asset_root();
+    let mut sheets: Vec<ResolvedFixtureSheet> = Vec::new();
     for light in &level.ceiling_lights {
-        if !light.fixture.starts_with("pack:") {
+        let kind = crate::lighting::fixture_profile(&light.fixture).kind;
+        if sheets.iter().any(|sheet| sheet.kind == kind) {
             continue;
         }
-        let Some(path) = pack.texture_for(&light.fixture) else {
-            continue;
-        };
-        if let Ok(image) = pack.decode_texture(cache, &path) {
-            return Some(image);
+        match resolve_fixture_sheet(&light.fixture, kind, catalog, pack, root.as_deref(), cache) {
+            Ok(Some(sheet)) => sheets.push(sheet),
+            Ok(None) => {}
+            Err(error) => {
+                eprintln!("[fixtures] {error}; drawing the untextured sheet instead");
+            }
         }
     }
-    None
+    sheets
+}
+
+/// One fixture family's sheet: the pack's own artwork for a `pack:` id, else
+/// the catalog PNG the light entry names, else nothing.
+///
+/// `Ok(None)` is "this fixture has no sheet to draw" (an unknown id, a pack
+/// fixture the pack does not carry): a state to degrade from quietly. `Err` is a
+/// sheet that exists but cannot be decoded, which is an authoring mistake and is
+/// reported.
+fn resolve_fixture_sheet(
+    fixture_id: &str,
+    kind: crate::lighting::FixtureKind,
+    catalog: &crate::assets::AssetCatalog,
+    pack: Option<&PackMaterials>,
+    asset_root: Option<&Path>,
+    cache: &mut TextureCache,
+) -> Result<Option<ResolvedFixtureSheet>, String> {
+    if fixture_id.starts_with("pack:") {
+        let Some(pack) = pack else {
+            return Ok(None);
+        };
+        let Some(path) = pack.texture_for(fixture_id) else {
+            return Ok(None);
+        };
+        let key = pack.cache_key(&path);
+        let image = pack
+            .decode_texture(cache, &path)
+            .map_err(|error| format!("fixture `{fixture_id}`: {error}"))?;
+        return Ok(Some(ResolvedFixtureSheet {
+            kind,
+            key,
+            origin: crate::materials::TextureOrigin::Pack,
+            image,
+        }));
+    }
+
+    let Some(path) = catalog.fixture_sheet_path(fixture_id) else {
+        return Ok(None);
+    };
+    if let Some(image) = cache.get(path) {
+        return Ok(Some(ResolvedFixtureSheet {
+            kind,
+            key: path.to_string(),
+            origin: crate::materials::TextureOrigin::Catalog,
+            image,
+        }));
+    }
+    let Some(root) = asset_root else {
+        return Err(format!(
+            "fixture `{fixture_id}` sheet `{path}`: the asset root is missing"
+        ));
+    };
+    let image = load_png_relative(root, path)
+        .map_err(|error| format!("fixture `{fixture_id}` sheet `{path}`: {error}"))?;
+    let image = cache.insert(path.to_string(), image);
+    Ok(Some(ResolvedFixtureSheet {
+        kind,
+        key: path.to_string(),
+        origin: crate::materials::TextureOrigin::Catalog,
+        image,
+    }))
 }
 
 /// Unified level loader and package manager.
@@ -1027,10 +1125,11 @@ impl LevelManager {
                 .map_err(|e| format!("Failed to parse embedded Places Demo: {e}"))?;
             validate_level(&level)?;
             let materials = self.resolve_level_materials(&level, None);
+            let light_sheets = self.resolve_level_fixture_sheets(&level, None);
             Ok(LoadedLevel {
                 level,
                 materials,
-                fixture: None,
+                light_sheets,
                 entry: LevelEntry {
                     id: "places_demo".into(),
                     name: "Places Demo".into(),
@@ -1067,6 +1166,17 @@ impl LevelManager {
         table
     }
 
+    /// Resolves a level's fixture sheets through the catalog and an optional
+    /// pack, logging every problem once with its fixture id in it.
+    fn resolve_level_fixture_sheets(
+        &self,
+        level: &LevelDef,
+        pack: Option<&PackMaterials>,
+    ) -> Vec<ResolvedFixtureSheet> {
+        let mut cache = self.texture_cache.borrow_mut();
+        resolve_fixture_sheets(level, self.prop_catalog.assets(), pack, &mut cache)
+    }
+
     /// Unified level loader loading any standalone JSON or packaged ZIP level.
     ///
     /// Missing or corrupt texture files resolve to the diagnostic material and
@@ -1085,11 +1195,12 @@ impl LevelManager {
                     .map_err(|e| format!("JSON parse error in {}: {e}", entry.path.display()))?;
                 validate_level(&level)?;
                 let materials = self.resolve_level_materials(&level, None);
+                let light_sheets = self.resolve_level_fixture_sheets(&level, None);
 
                 Ok(LoadedLevel {
                     level,
                     materials,
-                    fixture: None,
+                    light_sheets,
                     entry: entry.clone(),
                 })
             }
@@ -1107,13 +1218,12 @@ impl LevelManager {
                     pack.textures,
                 );
                 let materials = self.resolve_level_materials(&level, Some(&pack_materials));
-                let mut cache = self.texture_cache.borrow_mut();
-                let fixture = resolve_fixture(&level, Some(&pack_materials), &mut cache);
+                let light_sheets = self.resolve_level_fixture_sheets(&level, Some(&pack_materials));
 
                 Ok(LoadedLevel {
                     level,
                     materials,
-                    fixture,
+                    light_sheets,
                     entry: entry.clone(),
                 })
             }

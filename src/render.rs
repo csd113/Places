@@ -3,7 +3,7 @@ use glow::HasContext;
 use crate::font::generate_font_atlas;
 use crate::level::{
     FloorPatchDef, LevelDef, LevelSurfaces, PropDef, RoomDef, RoomFloorGrid, WallAxis, WallDef,
-    wall_solid_slices_profiled,
+    WallSlice, wall_solid_slices_profiled,
 };
 use crate::lighting::{LevelLighting, LightColor, wall_light_segments};
 use crate::materials::{MaterialTable, ResolvedMaterial};
@@ -39,6 +39,21 @@ pub use mesh::{
 use mesh::{MeshChunk, MeshPacker, finish_indexed_mesh};
 pub use props::PropMeshBatch;
 pub use renderer::{LevelBuildStats, RenderStats, Renderer};
+
+/// Near and far plane of the scene projection, in metres.
+///
+/// The near plane is the usual first-person 10 cm: the player's collision keeps
+/// the eye about a radius from every wall, so raising it further would buy
+/// precision the game does not need while risking a clip when leaning into a
+/// corner. The far plane covers the largest shipped level several times over.
+///
+/// The two multiply the *depth buffer's* precision: with a 24-bit fixed-point
+/// buffer the eye-space resolution at distance `z` is
+/// `z^2 * (far - near) / (far * near) * 2^-24`, i.e. about 0.6 µm at 1 m,
+/// 60 µm at 10 m and 6 mm at the far plane. A decal's whole depth bias is two
+/// of those steps, so it can never visibly lift a marking off its surface.
+pub(crate) const SCENE_NEAR_M: f32 = 0.1;
+pub(crate) const SCENE_FAR_M: f32 = 100.0;
 pub use view::{
     DECAL_ALPHA_CUTOFF, DECAL_POLYGON_OFFSET, DrawableSize, UI_REFERENCE_HEIGHT,
     UI_REFERENCE_WIDTH, UiViewport, WINDOW_HEIGHT, WINDOW_WIDTH, reference_aspect_ratio,
@@ -422,16 +437,22 @@ pub(crate) const fn generate_white_texture() -> [u8; 2 * 2 * 4] {
 /// also the same wall here.
 const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 
-/// One material run of a coalesced wall group, in local length coordinates.
+/// One material run of a coalesced wall group: a rectangle in the group's own
+/// (length, height) space over which the visible material is constant.
 ///
-/// A run is a sub-span of the group's length over which every covering wall
-/// agrees on the visible material. The faces are ordered like the two length
-/// faces the emitter walks: the low-thickness face first (north on an X-axis
-/// wall, west on a Z-axis wall), the high-thickness face second (south/east).
+/// A run is the intersection of the group's solid volume with one authored
+/// member's solid volume, so a wall that is coincident with another only over
+/// part of its height (a longer wall in the next room, an overlay that stops at
+/// a skirting) still contributes exactly the material the authored surfaces
+/// used to show, once. The faces are ordered like the two length faces the
+/// emitter walks: the low-thickness face first (north on an X-axis wall, west
+/// on a Z-axis wall), the high-thickness face second (south/east).
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct WallMaterialRun {
     start: f32,
     end: f32,
+    bottom: f32,
+    top: f32,
     faces: [SurfaceKey; 2],
     /// Key used by sills, headers and reveals inside this run.
     body: SurfaceKey,
@@ -439,16 +460,25 @@ struct WallMaterialRun {
 
 /// One wall the geometry builder emits.
 ///
-/// A wall on its own is emitted exactly as authored. Several walls that occupy
-/// the same plane (same axis, thickness span, base and height, overlapping
-/// length) are a *material overlay* authored as duplicate geometry: they are
-/// resolved into one synthetic wall carrying the group's combined solid
-/// profile and per-run materials, so the surface is emitted once and there is
-/// no second coplanar mesh to fight for the same depth value.
-enum WallUnit<'a> {
-    Plain(&'a WallDef),
+/// A wall on its own is emitted exactly as authored. Several walls that
+/// overlap in the same plane (same axis and thickness span, overlapping length
+/// and overlapping height) are coincident geometry: a material overlay, a wall
+/// continued into the next room, a second slab sharing a corner. They are
+/// resolved into one synthetic wall whose solid volume is the *union* of the
+/// group's solid patches and whose (length, height) cells carry the last
+/// covering member's material, so every surface is emitted once and there is no
+/// second coplanar mesh to fight for the same depth value.
+pub(in crate::render) enum WallUnit<'a> {
+    Plain {
+        index: usize,
+        wall: &'a WallDef,
+    },
     Coalesced {
+        /// Every authored wall index this unit resolves.
+        members: Vec<usize>,
         wall: WallDef,
+        /// The group's solid profile in the unit wall's local length space.
+        slices: Vec<WallSlice>,
         runs: Vec<WallMaterialRun>,
     },
 }
@@ -456,40 +486,76 @@ enum WallUnit<'a> {
 impl WallUnit<'_> {
     const fn wall(&self) -> &WallDef {
         match self {
-            Self::Plain(wall) => wall,
+            Self::Plain { wall, .. } => wall,
             Self::Coalesced { wall, .. } => wall,
         }
     }
 
-    /// The material run covering a local length position, if this unit was
-    /// coalesced. Plain walls keep their authored per-face materials.
-    fn run_at(&self, position: f32) -> Option<&WallMaterialRun> {
+    /// Every authored wall index whose volume this unit emits.
+    fn members(&self) -> Vec<usize> {
         match self {
-            Self::Plain(_) => None,
+            Self::Plain { index, .. } => vec![*index],
+            Self::Coalesced { members, .. } => members.clone(),
+        }
+    }
+
+    /// The unit's solid profile, in the unit wall's local length space.
+    ///
+    /// A plain wall cuts its own openings; a coalesced group carries the union
+    /// already resolved by [`coalesce_wall_group`].
+    fn slices(&self, surfaces: &LevelSurfaces<'_>) -> Vec<WallSlice> {
+        match self {
+            Self::Plain { wall, .. } => {
+                let breaks = surfaces.wall_profile_breaks(wall);
+                wall_solid_slices_profiled(
+                    wall,
+                    |offset| surfaces.clear_ceiling_height_along(wall, offset),
+                    &breaks,
+                )
+            }
+            Self::Coalesced { slices, .. } => slices.clone(),
+        }
+    }
+
+    /// The material run covering a local length position at a world height, if
+    /// this unit was coalesced. Plain walls keep their authored per-face
+    /// materials.
+    fn run_at(&self, position: f32, y: f32) -> Option<&WallMaterialRun> {
+        match self {
+            Self::Plain { .. } => None,
             Self::Coalesced { runs, .. } => runs.iter().find(|run| {
                 position >= run.start - WALL_COINCIDENCE_EPS
                     && position <= run.end + WALL_COINCIDENCE_EPS
+                    && y >= run.bottom - WALL_COINCIDENCE_EPS
+                    && y <= run.top + WALL_COINCIDENCE_EPS
             }),
         }
     }
 
-    /// Material runs intersecting a local length span, clipped to it.
+    /// Material runs intersecting a local length span and world height span,
+    /// clipped to both.
     ///
     /// Empty for a plain wall, which draws its authored material across the
     /// whole face.
-    fn runs_between(&self, start: f32, end: f32) -> Vec<WallMaterialRun> {
+    fn runs_between(&self, start: f32, end: f32, bottom: f32, top: f32) -> Vec<WallMaterialRun> {
         match self {
-            Self::Plain(_) => Vec::new(),
+            Self::Plain { .. } => Vec::new(),
             Self::Coalesced { runs, .. } => runs
                 .iter()
                 .filter_map(|run| {
                     let low = run.start.max(start);
                     let high = run.end.min(end);
-                    (high - low > WALL_COINCIDENCE_EPS).then_some(WallMaterialRun {
-                        start: low,
-                        end: high,
-                        ..*run
-                    })
+                    let run_bottom = run.bottom.max(bottom);
+                    let run_top = run.top.min(top);
+                    (high - low > WALL_COINCIDENCE_EPS
+                        && run_top - run_bottom > WALL_COINCIDENCE_EPS)
+                        .then_some(WallMaterialRun {
+                            start: low,
+                            end: high,
+                            bottom: run_bottom,
+                            top: run_top,
+                            ..*run
+                        })
                 })
                 .collect(),
         }
@@ -569,62 +635,6 @@ fn wall_slab(wall: &WallDef, surfaces: &LevelSurfaces<'_>) -> Option<WallSlab> {
     })
 }
 
-/// Absolute Y intervals of a wall's openings that cover the world length span
-/// `segment`, clamped the same way [`wall_solid_slices`] clamps them.
-fn wall_opening_intervals(wall: &WallDef, ceiling_h: f32, segment: (f32, f32)) -> Vec<(f32, f32)> {
-    let length = wall.length();
-    let (origin_x, origin_z) = wall.length_origin();
-    let origin = match wall.axis() {
-        WallAxis::X => origin_x,
-        WallAxis::Z => origin_z,
-    };
-    let resolved = wall.resolved_height(ceiling_h);
-    let base = wall.y.min(wall.y + resolved);
-    let ceiling = wall.y.max(wall.y + resolved);
-    let mut intervals = Vec::new();
-    for opening in &wall.openings {
-        if !opening.offset.is_finite()
-            || !opening.width.is_finite()
-            || !opening.height.is_finite()
-            || !opening.sill.is_finite()
-            || opening.width <= 0.0
-            || opening.height <= 0.0
-        {
-            continue;
-        }
-        let start = origin + opening.offset.clamp(0.0, length);
-        let end = origin + opening.end().clamp(0.0, length);
-        if end <= start + WALL_COINCIDENCE_EPS
-            || start > segment.0 + WALL_COINCIDENCE_EPS
-            || end < segment.1 - WALL_COINCIDENCE_EPS
-        {
-            continue;
-        }
-        let bottom = (base + opening.sill.max(0.0)).clamp(base, ceiling);
-        let top = (base + opening.sill.max(0.0) + opening.height).clamp(base, ceiling);
-        if top <= bottom + WALL_COINCIDENCE_EPS {
-            continue;
-        }
-        intervals.push((bottom, top));
-    }
-    merge_intervals(intervals)
-}
-
-/// Intersection of two sorted, disjoint Y interval lists.
-fn intersect_intervals(left: &[(f32, f32)], right: &[(f32, f32)]) -> Vec<(f32, f32)> {
-    let mut out = Vec::new();
-    for (a0, a1) in left {
-        for (b0, b1) in right {
-            let bottom = a0.max(*b0);
-            let top = a1.min(*b1);
-            if top > bottom + WALL_COINCIDENCE_EPS {
-                out.push((bottom, top));
-            }
-        }
-    }
-    merge_intervals(out)
-}
-
 /// The two length-face keys and the body key of one wall.
 fn wall_material_keys(
     wall: &WallDef,
@@ -686,11 +696,42 @@ fn find_root(parent: &mut [usize], index: usize) -> usize {
 /// what the renderer already showed) and the group is emitted once with a
 /// material run per span. Walls that merely overlap without sharing a plane
 /// are untouched; collision keeps using the authored walls.
+/// The coincidence-resolved emission units alone, for tests and audits that do
+/// not need the cross-section coverage set.
+#[cfg(test)]
 fn wall_units<'a>(
     level: &'a LevelDef,
     surfaces: &LevelSurfaces<'_>,
     materials: &MaterialLookup<'_>,
 ) -> Vec<WallUnit<'a>> {
+    wall_layout(level, surfaces, materials).units
+}
+
+/// One authored wall's solid patch, in world length coordinates, for the
+/// group union.
+#[derive(Clone, Copy, Debug)]
+struct MemberSolid {
+    index: usize,
+    start: f32,
+    end: f32,
+    bottom: f32,
+    top: f32,
+}
+
+/// The resolved wall emission plan for one level build.
+pub(in crate::render) struct WallLayout<'a> {
+    /// One emission unit per wall or coincident group, in authored order.
+    pub units: Vec<WallUnit<'a>>,
+    /// Every authored wall's solid volume, for the cross-section coverage test
+    /// that keeps wall faces from being emitted underneath an abutting wall.
+    pub coverages: Vec<WallCoverage>,
+}
+
+pub(in crate::render) fn wall_layout<'a>(
+    level: &'a LevelDef,
+    surfaces: &LevelSurfaces<'_>,
+    materials: &MaterialLookup<'_>,
+) -> WallLayout<'a> {
     let default_wall = level.defaults.wall.as_str();
     let walls = &level.walls;
     let slabs: Vec<Option<WallSlab>> = walls.iter().map(|wall| wall_slab(wall, surfaces)).collect();
@@ -699,8 +740,10 @@ fn wall_units<'a>(
     let mut units: Vec<WallUnit<'a>> = Vec::with_capacity(groups.len());
     for group in groups {
         if group.len() == 1 {
-            if let Some(wall) = group.first().and_then(|index| walls.get(*index)) {
-                units.push(WallUnit::Plain(wall));
+            if let Some(index) = group.first().copied()
+                && let Some(wall) = walls.get(index)
+            {
+                units.push(WallUnit::Plain { index, wall });
             }
             continue;
         }
@@ -710,12 +753,23 @@ fn wall_units<'a>(
             units.push(unit);
         }
     }
-    units
+    let coverages = walls
+        .iter()
+        .enumerate()
+        .map(|(index, wall)| wall_coverage(index, wall, surfaces))
+        .collect();
+    WallLayout { units, coverages }
 }
 
 /// Groups coincident collinear wall slabs transitively (union-find over wall
 /// indices), in first-appearance order so the emitted range order stays
 /// deterministic and follows the authored wall order.
+///
+/// Two walls group when they share a plane and a thickness span and overlap in
+/// *both* their length span and their height span. Requiring the spans to
+/// overlap rather than to be equal is what lets a wall continued into the next
+/// room (a different base or top) resolve into the same single surface as the
+/// wall it continues from.
 fn wall_groups(slabs: &[Option<WallSlab>]) -> Vec<Vec<usize>> {
     let mut parent: Vec<usize> = (0..slabs.len()).collect();
     for (i, slab) in slabs.iter().enumerate() {
@@ -725,16 +779,20 @@ fn wall_groups(slabs: &[Option<WallSlab>]) -> Vec<Vec<usize>> {
             if a.axis != b.axis
                 || (a.thickness.0 - b.thickness.0).abs() > WALL_COINCIDENCE_EPS
                 || (a.thickness.1 - b.thickness.1).abs() > WALL_COINCIDENCE_EPS
-                || (a.base - b.base).abs() > WALL_COINCIDENCE_EPS
-                || (a.top - b.top).abs() > WALL_COINCIDENCE_EPS
             {
                 continue;
             }
+            // The two footprints must overlap for the walls to share a surface.
             let (a_start, a_end) = a.length;
             let (b_start, b_end) = b.length;
             let shared_start = a_start.max(b_start);
             let shared_end = a_end.min(b_end);
             if shared_end - shared_start <= WALL_COINCIDENCE_EPS {
+                continue;
+            }
+            let shared_base = a.base.max(b.base);
+            let shared_top = a.top.min(b.top);
+            if shared_top - shared_base <= WALL_COINCIDENCE_EPS {
                 continue;
             }
             let (root_a, root_b) = (find_root(&mut parent, i), find_root(&mut parent, j));
@@ -782,146 +840,185 @@ fn group_union_span(group: &[usize], slabs: &[Option<WallSlab>]) -> (f32, f32) {
         })
 }
 
-/// Sorted, deduplicated length boundaries of a wall group: every member's ends
-/// and every opening edge, clipped to the group's union span.
-fn group_boundaries(
-    group: &[usize],
-    slabs: &[Option<WallSlab>],
-    walls: &[WallDef],
-    lo: f32,
-    hi: f32,
-) -> Vec<f32> {
-    let mut boundaries: Vec<f32> = vec![lo, hi];
-    for index in group {
-        let Some(wall) = walls.get(*index) else {
+/// One authored wall's solid volume, prepared for the cross-section coverage
+/// test.
+#[derive(Debug)]
+pub(in crate::render) struct WallCoverage {
+    index: usize,
+    axis: WallAxis,
+    /// World span along the wall's length axis.
+    length: (f32, f32),
+    /// World span across the wall's thickness axis.
+    thickness: (f32, f32),
+    /// Solid rectangles as `(world length start, world length end, bottom Y,
+    /// top Y)`.
+    solids: Vec<(f32, f32, f32, f32)>,
+}
+
+/// Resolves one authored wall's solid volume and its solid patches.
+fn wall_coverage(index: usize, wall: &WallDef, surfaces: &LevelSurfaces<'_>) -> WallCoverage {
+    let axis = wall.axis();
+    let (x0, x1) = (
+        wall.x.min(wall.x + wall.width),
+        wall.x.max(wall.x + wall.width),
+    );
+    let (z0, z1) = (
+        wall.z.min(wall.z + wall.depth),
+        wall.z.max(wall.z + wall.depth),
+    );
+    let (thickness, length) = match axis {
+        WallAxis::X => ((z0, z1), (x0, x1)),
+        WallAxis::Z => ((x0, x1), (z0, z1)),
+    };
+    let (origin_x, origin_z) = wall.length_origin();
+    let origin = match axis {
+        WallAxis::X => origin_x,
+        WallAxis::Z => origin_z,
+    };
+    let breaks = surfaces.wall_profile_breaks(wall);
+    let slices = wall_solid_slices_profiled(
+        wall,
+        |offset| surfaces.clear_ceiling_height_along(wall, offset),
+        &breaks,
+    );
+    let mut solids: Vec<(f32, f32, f32, f32)> = slices
+        .iter()
+        .map(|slice| {
+            (
+                origin + slice.start,
+                origin + slice.end,
+                slice.bottom,
+                slice.top,
+            )
+        })
+        .collect();
+    solids.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+    WallCoverage {
+        index,
+        axis,
+        length,
+        thickness,
+        solids,
+    }
+}
+
+/// The rectangles of a cross-section plane that other walls' solid volumes
+/// cover, as `(across low, across high, bottom Y, top Y)`.
+///
+/// A wall end (or a reveal) sits where the wall's solid profile changes, which
+/// is very often exactly the plane of the wall it abuts. The abutting wall's
+/// own surface already draws that plane, so the cross-section must not be
+/// emitted there: two coplanar faces at the same depth are exactly the
+/// z-fighting the coincidence resolution exists to remove. Every wall whose
+/// volume contains the plane contributes its own footprint rectangle, and the
+/// caller subtracts their union from the exposed face.
+pub(in crate::render) fn cross_section_covered(
+    coverages: &[WallCoverage],
+    axis: WallAxis,
+    at: f32,
+    owners: &[usize],
+) -> Vec<(f32, f32, f32, f32)> {
+    let mut covered = Vec::new();
+    for coverage in coverages {
+        if owners.contains(&coverage.index) {
             continue;
+        }
+        // A parallel wall covers the plane when its length span reaches it; a
+        // perpendicular wall covers it when its thickness span does.
+        let on_plane = if coverage.axis == axis {
+            at >= coverage.length.0 - WALL_COINCIDENCE_EPS
+                && at <= coverage.length.1 + WALL_COINCIDENCE_EPS
+        } else {
+            at >= coverage.thickness.0 - WALL_COINCIDENCE_EPS
+                && at <= coverage.thickness.1 + WALL_COINCIDENCE_EPS
         };
-        let (start, end) = slabs
-            .get(*index)
-            .copied()
-            .flatten()
-            .map_or((0.0, 0.0), |slab| slab.length);
-        boundaries.push(start.clamp(lo, hi));
-        boundaries.push(end.clamp(lo, hi));
-        let (origin_x, origin_z) = wall.length_origin();
-        let origin = match wall.axis() {
-            WallAxis::X => origin_x,
-            WallAxis::Z => origin_z,
+        if !on_plane {
+            continue;
+        }
+        let across = if coverage.axis == axis {
+            coverage.thickness
+        } else {
+            coverage.length
         };
-        for opening in &wall.openings {
-            if !opening.offset.is_finite() || !opening.width.is_finite() {
+        for (_, _, bottom, top) in &coverage.solids {
+            covered.push((across.0, across.1, *bottom, *top));
+        }
+    }
+    covered
+}
+
+/// Subtracts covered rectangles from an exposed `(across low, across high,
+/// bottom, top)` rectangle, returning the disjoint remaining rectangles.
+///
+/// Both axes are cut at every covered edge, so the result is an exact
+/// partition: a wall end half-covered by a thinner abutting wall keeps exactly
+/// the half that is still exposed.
+pub(in crate::render) fn subtract_rectangles(
+    exposed: (f32, f32, f32, f32),
+    covered: &[(f32, f32, f32, f32)],
+) -> Vec<(f32, f32, f32, f32)> {
+    let (a0, a1, b0, b1) = exposed;
+    if a1 - a0 <= WALL_COINCIDENCE_EPS || b1 - b0 <= WALL_COINCIDENCE_EPS {
+        return Vec::new();
+    }
+    let mut a_cuts = vec![a0, a1];
+    let mut b_cuts = vec![b0, b1];
+    let mut clipped: Vec<(f32, f32, f32, f32)> = Vec::new();
+    for &(ca0, ca1, cb0, cb1) in covered {
+        let low_a = ca0.max(a0);
+        let high_a = ca1.min(a1);
+        let low_b = cb0.max(b0);
+        let high_b = cb1.min(b1);
+        if high_a - low_a <= WALL_COINCIDENCE_EPS || high_b - low_b <= WALL_COINCIDENCE_EPS {
+            continue;
+        }
+        a_cuts.push(low_a);
+        a_cuts.push(high_a);
+        b_cuts.push(low_b);
+        b_cuts.push(high_b);
+        clipped.push((low_a, high_a, low_b, high_b));
+    }
+    if clipped.is_empty() {
+        return vec![exposed];
+    }
+    a_cuts.sort_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal));
+    a_cuts.dedup_by(|x, y| (*x - *y).abs() <= WALL_COINCIDENCE_EPS);
+    b_cuts.sort_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal));
+    b_cuts.dedup_by(|x, y| (*x - *y).abs() <= WALL_COINCIDENCE_EPS);
+
+    let mut remaining = Vec::new();
+    for a_pair in a_cuts.windows(2) {
+        let &[a_low, a_high] = a_pair else { continue };
+        for b_pair in b_cuts.windows(2) {
+            let &[b_low, b_high] = b_pair else { continue };
+            if a_high - a_low <= WALL_COINCIDENCE_EPS || b_high - b_low <= WALL_COINCIDENCE_EPS {
                 continue;
             }
-            boundaries.push((origin + opening.offset).clamp(lo, hi));
-            boundaries.push((origin + opening.end()).clamp(lo, hi));
+            let a_mid = f32::midpoint(a_low, a_high);
+            let b_mid = f32::midpoint(b_low, b_high);
+            let is_covered = clipped.iter().any(|(ca0, ca1, cb0, cb1)| {
+                a_mid >= *ca0 - WALL_COINCIDENCE_EPS
+                    && a_mid <= *ca1 + WALL_COINCIDENCE_EPS
+                    && b_mid >= *cb0 - WALL_COINCIDENCE_EPS
+                    && b_mid <= *cb1 + WALL_COINCIDENCE_EPS
+            });
+            if !is_covered {
+                remaining.push((a_low, a_high, b_low, b_high));
+            }
         }
     }
-    boundaries.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    boundaries.dedup_by(|a, b| (*a - *b).abs() <= WALL_COINCIDENCE_EPS);
-    boundaries
+    remaining
 }
 
-/// Material runs and combined openings of a wall group, one pair per emitted
-/// span between consecutive boundaries.
-fn group_runs_and_openings(
-    group: &[usize],
-    slabs: &[Option<WallSlab>],
-    walls: &[WallDef],
-    boundaries: &[f32],
-    surfaces: &LevelSurfaces<'_>,
-    materials: &MaterialLookup<'_>,
-    default_wall: &str,
-) -> (Vec<WallMaterialRun>, Vec<crate::level::WallOpeningDef>) {
-    let (lo, _hi) = group_union_span(group, slabs);
-    let mut runs: Vec<WallMaterialRun> = Vec::new();
-    let mut openings: Vec<crate::level::WallOpeningDef> = Vec::new();
-    for pair in boundaries.windows(2) {
-        let [lower, upper] = pair else { continue };
-        let segment = (*lower, *upper);
-        if segment.1 - segment.0 <= WALL_COINCIDENCE_EPS {
-            continue;
-        }
-        let covering: Vec<usize> = group
-            .iter()
-            .copied()
-            .filter(|index| {
-                let (start, end) = slabs
-                    .get(*index)
-                    .copied()
-                    .flatten()
-                    .map_or((0.0, 0.0), |slab| slab.length);
-                start <= segment.0 + WALL_COINCIDENCE_EPS && end >= segment.1 - WALL_COINCIDENCE_EPS
-            })
-            .collect();
-        let Some(first) = covering.first().copied() else {
-            continue;
-        };
-
-        // Solid profile of the group: a span is open only when every
-        // covering wall has an opening there, because any opaque member
-        // covers the others' holes.
-        let base = slabs
-            .get(first)
-            .copied()
-            .flatten()
-            .map_or(0.0, |slab| slab.base);
-        let mut holes: Option<Vec<(f32, f32)>> = None;
-        for index in &covering {
-            let Some(wall) = walls.get(*index) else {
-                continue;
-            };
-            let member_h = surfaces.clear_ceiling_height_at(
-                wall.width.mul_add(0.5, wall.x),
-                wall.depth.mul_add(0.5, wall.z),
-            );
-            let member_holes: Vec<(f32, f32)> = wall_opening_intervals(wall, member_h, segment)
-                .iter()
-                .map(|(bottom, top)| (bottom - base, top - base))
-                .collect();
-            holes = Some(match holes {
-                None => member_holes,
-                Some(existing) => intersect_intervals(&existing, &member_holes),
-            });
-        }
-        for (bottom, top) in holes.unwrap_or_default() {
-            openings.push(crate::level::WallOpeningDef {
-                kind: "passage".into(),
-                offset: segment.0 - lo,
-                width: segment.1 - segment.0,
-                height: top - bottom,
-                sill: bottom,
-            });
-        }
-
-        // Visible material: the last covering member wins, which is
-        // exactly what the duplicate surfaces used to resolve to for the
-        // shipped overlays, because a damage overlay is authored after the
-        // wall it covers. Later levels keep that ordering rule explicit:
-        // the latest authored material in the span is the one drawn.
-        let default_face = materials.key(MaterialSlot::Wall, default_wall);
-        let mut faces = [default_face, default_face];
-        let mut body = default_face;
-        for index in &covering {
-            let Some(wall) = walls.get(*index) else {
-                continue;
-            };
-            let (member_faces, member_body) = wall_material_keys(wall, default_wall, materials);
-            faces = member_faces;
-            body = member_body;
-        }
-        runs.push(WallMaterialRun {
-            start: segment.0 - lo,
-            end: segment.1 - lo,
-            faces,
-            body,
-        });
-    }
-    (runs, openings)
-}
-
-/// Coalesces one group of coincident walls into a single synthetic unit: the
-/// group's union profile, one material run per span, and the group's combined
-/// openings.
+/// Coalesces one group of coincident walls into a single synthetic unit.
+///
+/// The unit's solid volume is the *union* of its members' solid slices (an
+/// opaque member covers another's opening, exactly as the duplicate surfaces
+/// used to show), and each `(length, height)` cell takes the material of the
+/// last member whose solid volume covers it, in authored order: a damage
+/// overlay authored after the wall it covers keeps winning, and two walls that
+/// merely share a plane over part of their height each contribute their own
+/// cell instead of two coplanar faces.
 fn coalesce_wall_group<'a>(
     group: &[usize],
     slabs: &[Option<WallSlab>],
@@ -931,24 +1028,19 @@ fn coalesce_wall_group<'a>(
     default_wall: &str,
 ) -> Option<WallUnit<'a>> {
     let (lo, hi) = group_union_span(group, slabs);
-    let boundaries = group_boundaries(group, slabs, walls, lo, hi);
-
-    let (runs, openings) = group_runs_and_openings(
-        group,
-        slabs,
-        walls,
-        &boundaries,
-        surfaces,
-        materials,
-        default_wall,
-    );
-
-    // The synthetic wall spans the group's whole union, sharing the first
-    // member's thickness and vertical extent; it only carries the group's
-    // combined openings and material runs. Collision keeps using the
-    // authored walls, so this is a rendering-only resolution.
     let host_index = *group.first()?;
     let host = walls.get(host_index)?;
+
+    let solids = group_member_solids(group, walls, surfaces);
+
+    let (mut slices, mut runs) = group_solid_cells(&solids, lo, hi, walls, materials, default_wall);
+    // Folding neighbouring cells is what keeps an ordinary group down to one
+    // quad per face.
+    frames_merge(&mut slices, &mut runs);
+
+    // The synthetic wall spans the group's whole union, sharing the host's
+    // thickness; its solid profile and materials travel separately. Collision
+    // keeps using the authored walls, so this is a rendering-only resolution.
     let host_base = slabs
         .get(host_index)
         .copied()
@@ -959,6 +1051,14 @@ fn coalesce_wall_group<'a>(
         .copied()
         .flatten()
         .map_or_else(|| host.y + host.resolved_height(host_base), |slab| slab.top);
+    let group_base = group
+        .iter()
+        .filter_map(|index| slabs.get(*index).copied().flatten())
+        .fold(host_base, |low, slab| low.min(slab.base));
+    let group_top = group
+        .iter()
+        .filter_map(|index| slabs.get(*index).copied().flatten())
+        .fold(host_top, |high, slab| high.max(slab.top));
     let (t0, t1) = match host.axis() {
         WallAxis::X => (
             host.z.min(host.z + host.depth),
@@ -970,9 +1070,9 @@ fn coalesce_wall_group<'a>(
         ),
     };
     let mut wall = host.clone();
-    wall.openings = openings;
-    wall.y = host_base;
-    wall.height = Some(host_top - host_base);
+    wall.openings = Vec::new();
+    wall.y = group_base;
+    wall.height = Some(group_top - group_base);
     match host.axis() {
         WallAxis::X => {
             wall.x = lo;
@@ -987,7 +1087,193 @@ fn coalesce_wall_group<'a>(
             wall.width = t1 - t0;
         }
     }
-    Some(WallUnit::Coalesced { wall, runs })
+    Some(WallUnit::Coalesced {
+        members: group.to_vec(),
+        wall,
+        slices,
+        runs,
+    })
+}
+
+/// Every member's solid patches, in world length coordinates.
+fn group_member_solids(
+    group: &[usize],
+    walls: &[WallDef],
+    surfaces: &LevelSurfaces<'_>,
+) -> Vec<MemberSolid> {
+    let mut solids: Vec<MemberSolid> = Vec::new();
+    for index in group {
+        let Some(wall) = walls.get(*index) else {
+            continue;
+        };
+        let (origin_x, origin_z) = wall.length_origin();
+        let origin = match wall.axis() {
+            WallAxis::X => origin_x,
+            WallAxis::Z => origin_z,
+        };
+        let breaks = surfaces.wall_profile_breaks(wall);
+        let slices = wall_solid_slices_profiled(
+            wall,
+            |offset| surfaces.clear_ceiling_height_along(wall, offset),
+            &breaks,
+        );
+        for slice in slices {
+            solids.push(MemberSolid {
+                index: *index,
+                start: origin + slice.start,
+                end: origin + slice.end,
+                bottom: slice.bottom,
+                top: slice.top,
+            });
+        }
+    }
+    solids
+}
+
+/// Partitions a group's union into `(length, height)` cells, each carrying the
+/// material of the last member whose solid volume covers it.
+fn group_solid_cells(
+    solids: &[MemberSolid],
+    lo: f32,
+    hi: f32,
+    walls: &[WallDef],
+    materials: &MaterialLookup<'_>,
+    default_wall: &str,
+) -> (Vec<WallSlice>, Vec<WallMaterialRun>) {
+    let mut length_cuts: Vec<f32> = vec![lo, hi];
+    for solid in solids {
+        if solid.end <= lo + WALL_COINCIDENCE_EPS || solid.start >= hi - WALL_COINCIDENCE_EPS {
+            continue;
+        }
+        length_cuts.push(solid.start.clamp(lo, hi));
+        length_cuts.push(solid.end.clamp(lo, hi));
+    }
+    length_cuts.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    length_cuts.dedup_by(|a, b| (*a - *b).abs() <= WALL_COINCIDENCE_EPS);
+
+    let default_face = materials.key(MaterialSlot::Wall, default_wall);
+    let mut slices: Vec<WallSlice> = Vec::new();
+    let mut runs: Vec<WallMaterialRun> = Vec::new();
+    for pair in length_cuts.windows(2) {
+        let &[start, end] = pair else { continue };
+        if end - start <= WALL_COINCIDENCE_EPS {
+            continue;
+        }
+        // Members whose patch spans this length segment completely.
+        let covering: Vec<&MemberSolid> = solids
+            .iter()
+            .filter(|solid| {
+                solid.start <= start + WALL_COINCIDENCE_EPS
+                    && solid.end >= end - WALL_COINCIDENCE_EPS
+            })
+            .collect();
+        if covering.is_empty() {
+            continue;
+        }
+        let mut y_cuts: Vec<f32> = Vec::new();
+        for solid in &covering {
+            y_cuts.push(solid.bottom);
+            y_cuts.push(solid.top);
+        }
+        y_cuts.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        y_cuts.dedup_by(|a, b| (*a - *b).abs() <= WALL_COINCIDENCE_EPS);
+        for y_pair in y_cuts.windows(2) {
+            let &[bottom, top] = y_pair else { continue };
+            if top - bottom <= WALL_COINCIDENCE_EPS {
+                continue;
+            }
+            let middle = f32::midpoint(bottom, top);
+            // The last covering member in authored order owns the cell.
+            let mut visible: Option<usize> = None;
+            for solid in &covering {
+                if solid.bottom <= middle && solid.top >= middle {
+                    visible = Some(solid.index);
+                }
+            }
+            let Some(index) = visible else { continue };
+            let (faces, body) = walls
+                .get(index)
+                .map_or(([default_face, default_face], default_face), |wall| {
+                    wall_material_keys(wall, default_wall, materials)
+                });
+            slices.push(WallSlice {
+                start: start - lo,
+                end: end - lo,
+                bottom,
+                top,
+            });
+            runs.push(WallMaterialRun {
+                start: start - lo,
+                end: end - lo,
+                bottom,
+                top,
+                faces,
+                body,
+            });
+        }
+    }
+    (slices, runs)
+}
+
+/// Folds adjacent cells of one coalesced group whose solid profile and
+/// material are identical into one span, horizontally and vertically.
+///
+/// Merging is what keeps an ordinary group down to one quad per face; it also
+/// removes the interior boundary those cells would otherwise emit a pair of
+/// coincident caps along.
+fn frames_merge(slices: &mut Vec<WallSlice>, runs: &mut Vec<WallMaterialRun>) {
+    // A horizontal merge can expose a vertical one and vice versa, so the two
+    // passes alternate until neither changes anything. Each pass only removes
+    // entries, so the loop is bounded by the input cell count.
+    for _ in 0..slices.len() {
+        let before = slices.len();
+        merge_cells(slices, runs, false);
+        merge_cells(slices, runs, true);
+        if slices.len() == before {
+            break;
+        }
+    }
+}
+
+/// One ordered pass of [`frames_merge`]: `vertical` folds cells that share a
+/// length span, otherwise cells that share a height span.
+fn merge_cells(slices: &mut Vec<WallSlice>, runs: &mut Vec<WallMaterialRun>, vertical: bool) {
+    let mut merged_slices: Vec<WallSlice> = Vec::with_capacity(slices.len());
+    let mut merged_runs: Vec<WallMaterialRun> = Vec::with_capacity(runs.len());
+    for (slice, run) in slices.drain(..).zip(runs.drain(..)) {
+        let flat = |a: f32, b: f32| (a - b).abs() <= WALL_COINCIDENCE_EPS;
+        let adjacent = merged_slices.last().is_some_and(|last| {
+            if vertical {
+                flat(last.start, slice.start)
+                    && flat(last.end, slice.end)
+                    && flat(last.top, slice.bottom)
+            } else {
+                flat(last.end, slice.start)
+                    && flat(last.bottom, slice.bottom)
+                    && flat(last.top, slice.top)
+            }
+        });
+        let same_material = merged_runs
+            .last()
+            .is_some_and(|last| last.faces == run.faces && last.body == run.body);
+        if adjacent && same_material {
+            if let Some(last) = merged_slices.last_mut() {
+                last.end = last.end.max(slice.end);
+                last.top = last.top.max(slice.top);
+                last.bottom = last.bottom.min(slice.bottom);
+            }
+            if let Some(last) = merged_runs.last_mut() {
+                last.end = last.end.max(run.end);
+                last.top = last.top.max(run.top);
+                last.bottom = last.bottom.min(run.bottom);
+            }
+        } else {
+            merged_slices.push(slice);
+            merged_runs.push(run);
+        }
+    }
+    *slices = merged_slices;
+    *runs = merged_runs;
 }
 
 /// Merges overlapping/adjacent Y intervals into a sorted, disjoint list.

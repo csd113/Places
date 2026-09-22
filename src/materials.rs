@@ -28,6 +28,11 @@
 //! a `pack:` material uses the pack's own PNG bytes, and everything else uses
 //! the catalog. Geometry only ever sees table indices.
 //!
+//! Light fixture faces are the one other PNG the renderer loads per level: a
+//! fixture's visible surface resolves through the same catalog, PNG loader and
+//! session cache, but it is keyed by fixture family rather than by a level
+//! material (see [`crate::loader::resolve_fixture_sheets`]).
+//!
 //! Module layout
 //! -------------
 //! ```text

@@ -1162,3 +1162,113 @@ fn a_wall_fixture_needs_a_height_and_validation_says_so() {
     // 1e40 overflows f32 to infinity, which must be rejected, not blessed.
     crate::loader::validate_level(&non_finite).expect_err("non-finite heights are rejected");
 }
+
+// ----------------------------------------- opening seams and corners (5.6)
+
+/// Two 4 x 4 m rooms side by side, separated by a 0.4 m wall at x = 4 on which
+/// the caller authors the openings. The wall runs along Z, so `offset` is a Z
+/// coordinate and the fixture sits flush on its west face.
+fn two_rooms_with_wall(openings_json: &str, fixture_json: &str) -> LevelDef {
+    let json = format!(
+        r#"{{
+            "format_version": 1,
+            "id": "opening_seam",
+            "name": "Opening Seam",
+            "spawn": {{ "x": 2.0, "z": 2.0 }},
+            "rooms": [
+                {{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }},
+                {{ "x": 4.4, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }}
+            ],
+            "walls": [
+                {{ "x": 4.0, "z": 0.0, "width": 0.4, "depth": 4.0, "height": 3.0,
+                   "openings": {openings_json} }}
+            ],
+            "ceiling_lights": [{fixture_json}]
+        }}"#
+    );
+    LevelDef::from_json(&json).expect("opening seam level parses")
+}
+
+#[test]
+fn a_window_jamb_does_not_transmit_beside_itself() {
+    // The window occupies z = 1.0..2.0, y = 1.0..2.0. The fixture sits flush on
+    // the wall's west face at the jamb's own Z, and the sample is three
+    // millimetres on the *solid* side of that jamb in the far room: the joining
+    // segment crosses the wall through solid material, so it must stay at the
+    // unlit room's ambient fill.
+    let level = two_rooms_with_wall(
+        r#"[{ "kind": "window", "offset": 1.0, "width": 1.0, "height": 1.0, "sill": 1.0 }]"#,
+        r#"{ "fixture": "core:pool_light_wall", "x": 4.0, "z": 0.997,
+             "mount": "wall", "y": 1.5, "intensity": 1.0 }"#,
+    );
+    let lighting = LevelLighting::bake(&level);
+    let ambient = ambient_color();
+
+    // Straight through the solid column beside the window: blocked.
+    let beside = lighting.sample_in_room(1, 5.0, 1.5, 0.997);
+    assert!(
+        (beside.luminance() - ambient.luminance()).abs() < 1e-3,
+        "light leaked through the wall beside the window jamb: {beside:?}"
+    );
+
+    // Through the window's own aperture: transmitted.
+    let through = lighting.sample_in_room(1, 5.0, 1.5, 1.5);
+    assert!(
+        through.luminance() > ambient.luminance() + 0.05,
+        "the window must still transmit: {through:?}"
+    );
+
+    // A fixture below the sill, on the window's own span: its light has to
+    // cross the solid wall under the sill, so the far room stays ambient.
+    let below_level = two_rooms_with_wall(
+        r#"[{ "kind": "window", "offset": 1.0, "width": 1.0, "height": 1.0, "sill": 1.0 }]"#,
+        r#"{ "fixture": "core:pool_light_wall", "x": 4.0, "z": 1.5,
+             "mount": "wall", "y": 0.5, "intensity": 1.0 }"#,
+    );
+    let below_lighting = LevelLighting::bake(&below_level);
+    let below = below_lighting.sample_in_room(1, 5.0, 0.5, 1.5);
+    assert!(
+        (below.luminance() - ambient.luminance()).abs() < 1e-3,
+        "light leaked under the window sill: {below:?}"
+    );
+}
+
+#[test]
+fn a_lit_corner_does_not_transmit_diagonally() {
+    // Two rooms meeting at the corner of two solid walls, so the only straight
+    // line between them is through one of the walls. Approaching the corner
+    // diagonally must stay blocked at every offset from the exact corner line.
+    let json = r#"{
+        "format_version": 1,
+        "id": "corner_seam",
+        "name": "Corner Seam",
+        "spawn": { "x": 2.0, "z": 2.0 },
+        "rooms": [
+            { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 },
+            { "x": 4.4, "z": 4.4, "width": 4.0, "depth": 4.0, "height": 3.0 }
+        ],
+        "walls": [
+            { "x": 4.0, "z": 0.0, "width": 0.4, "depth": 4.4, "height": 3.0 },
+            { "x": 0.0, "z": 4.0, "width": 4.4, "depth": 0.4, "height": 3.0 }
+        ],
+        "ceiling_lights": [
+            { "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0, "intensity": 1.0 }
+        ]
+    }"#;
+    let level = LevelDef::from_json(json).expect("corner seam level parses");
+    let lighting = LevelLighting::bake(&level);
+    let ambient = ambient_color();
+    for offset in [0.0, 0.002, 0.01, 0.1, 0.5] {
+        let sample = lighting.sample_in_room(1, 5.0 + offset, 1.5, 5.0 + offset);
+        assert!(
+            (sample.luminance() - ambient.luminance()).abs() < 1e-3,
+            "light leaked around the corner at offset {offset}: {sample:?}"
+        );
+    }
+    // The same corner rooms stay isolated in colour, not just brightness.
+    let sample = lighting.sample_in_room(1, 6.0, 1.5, 6.0);
+    assert!(
+        (sample.r - ambient.r).abs() < 1e-3 && (sample.b - ambient.b).abs() < 1e-3,
+        "the sealed room must keep the ambient colour exactly: {sample:?}"
+    );
+}

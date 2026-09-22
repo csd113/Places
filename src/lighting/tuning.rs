@@ -106,10 +106,11 @@ pub const WALL_FACE_PROBE_M: f32 = 0.25;
 /// Which built-in fixture family a `fixture` id draws as.
 ///
 /// The catalog owns the *identity* of a fixture (`core:pool_light_round`) and
-/// this table owns its *appearance*: the mesh family, the luminous footprint
-/// the bake treats as a light source, and the generated-quad budget the level
-/// estimate reserves. Fixture appearance and emitted light colour stay separate
-/// concepts — a fixture's `color` is authored per placed light.
+/// the PNG that is its visible face; this table owns only the mesh family the
+/// code generates for it: the luminous footprint the bake treats as a light
+/// source, and the generated-quad budget the level estimate reserves. Fixture
+/// appearance and emitted light colour stay separate concepts — a fixture's
+/// `color` is authored per placed light.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FixtureKind {
     /// Recessed twin-tube ceiling panel: the office fluorescent.
@@ -118,6 +119,29 @@ pub enum FixtureKind {
     RoundRecessed,
     /// Wall-mounted luminaire; needs `mount: "wall"` and a `y`.
     WallSconce,
+}
+
+impl FixtureKind {
+    /// Every family, in the order a level's fixture sheets are indexed.
+    ///
+    /// [`FixtureKind::index`] is the slot a level's resolved fixture sheets are
+    /// stored under and the key its light batches carry, so the order is part
+    /// of the mesh format. It is not a draw order or a bake order.
+    pub const ALL: [Self; 3] = [
+        Self::FluorescentPanel,
+        Self::RoundRecessed,
+        Self::WallSconce,
+    ];
+
+    /// Slot of this family in a level's resolved fixture sheets.
+    #[must_use]
+    pub const fn index(self) -> usize {
+        match self {
+            Self::FluorescentPanel => 0,
+            Self::RoundRecessed => 1,
+            Self::WallSconce => 2,
+        }
+    }
 }
 
 /// Appearance, footprint and geometry budget of one fixture family.
@@ -135,9 +159,10 @@ pub struct FixtureProfile {
 
 /// Every fixture id with a built-in appearance, in catalog order.
 ///
-/// The catalog/renderer consistency test keeps this list and the catalog's
-/// `asset_type: "light"` entries in agreement, so a catalogued fixture can
-/// never silently render as some other fixture.
+/// The catalog/renderer consistency test keeps this list, the catalog's
+/// `asset_type: "light"` entries and each entry's visible-face PNG in
+/// agreement, so a catalogued fixture can never silently render as some other
+/// fixture or fall back to an untextured sheet.
 pub const LIGHT_FIXTURE_IDS: [&str; 3] = [
     "core:fluorescent_panel_01",
     "core:pool_light_round",

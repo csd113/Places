@@ -6,14 +6,15 @@
 
 use super::{
     DECAL_EXTERNAL_BASE, LIGHT_FACE_PROBE_M, LevelDef, LevelLighting, LevelMesh, LevelSurfaces,
-    LitSurface, MaterialIndex, MaterialLookup, MaterialSlot, MaterialTable, PropDef, SurfaceKey,
-    SurfaceKind, Vertex, WALL_FACE_EAST_MULT, WALL_FACE_NORTH_MULT, WALL_FACE_SOUTH_MULT,
-    WALL_FACE_WEST_MULT, WallAxis, WallUnit, add_decal_quad, add_panel_fixture, add_prop_box,
-    add_quad, add_round_fixture, add_wall_cross_quad, add_wall_fixture, add_wall_length_face,
-    decal_sheet_index, decal_uv_rect, decal_uv_rect_full, emit_floor_skirts, emit_lit_surface_grid,
+    LitSurface, MATERIAL_NONE, MaterialIndex, MaterialLookup, MaterialSlot, MaterialTable, PropDef,
+    SurfaceKey, SurfaceKind, Vertex, WALL_FACE_EAST_MULT, WALL_FACE_NORTH_MULT,
+    WALL_FACE_SOUTH_MULT, WALL_FACE_WEST_MULT, WallAxis, WallCoverage, WallUnit, add_decal_quad,
+    add_panel_fixture, add_prop_box, add_quad, add_round_fixture, add_wall_cross_quad,
+    add_wall_fixture, add_wall_length_face, cross_section_covered, decal_sheet_index,
+    decal_uv_rect, decal_uv_rect_full, emit_floor_skirts, emit_lit_surface_grid,
     finish_indexed_mesh, floor_surfaces, flush_wall_run, interval_symmetric_difference,
-    lit_corners, lit_surface_grid, room_is_tessellatable, shade, spatial_cell_grid, tiled_uv,
-    wall_solid_slices_profiled, wall_units, wall_vertical_extent,
+    lit_corners, lit_surface_grid, room_is_tessellatable, shade, spatial_cell_grid,
+    subtract_rectangles, tiled_uv, wall_layout, wall_vertical_extent,
 };
 use crate::level::{RoomDef, WallDef, WallSlice};
 use crate::spatial::SpatialBuckets;
@@ -34,6 +35,9 @@ struct EmitContext<'a, 's> {
     surfaces: &'s LevelSurfaces<'a>,
     lighting: &'a LevelLighting,
     materials: &'a MaterialLookup<'a>,
+    /// Every authored wall's solid volume, so a wall face an abutting wall
+    /// already covers is never emitted underneath it.
+    coverages: &'s [WallCoverage],
 }
 
 pub(super) fn build_level_geometry_mesh(
@@ -51,11 +55,16 @@ pub(super) fn build_level_geometry_mesh(
     // queries, so the mesh cannot drift from what the player stands on.
     let surfaces = LevelSurfaces::new(level);
     let lookup = MaterialLookup::new(materials);
+    // The wall emission plan: coincident walls already resolved into single
+    // units, plus every wall's solid volume for the cross-section coverage
+    // test. Built once and shared by the wall emitter.
+    let wall_layout = wall_layout(level, &surfaces, &lookup);
     let context = EmitContext {
         level,
         surfaces: &surfaces,
         lighting,
         materials: &lookup,
+        coverages: &wall_layout.coverages,
     };
     // Emitters still write whole quads into one scratch buffer; the bucket
     // builder splits each run by spatial cell on the way into the mesh. That
@@ -67,7 +76,7 @@ pub(super) fn build_level_geometry_mesh(
     //    6. decals, in the order they are drawn.
     emit_floors(&context, &mut buckets, &mut scratch, &rooms);
     emit_ceilings(&context, &mut buckets, &mut scratch, &rooms);
-    emit_walls(&context, &mut buckets, &mut scratch);
+    emit_walls(&context, &wall_layout.units, &mut buckets, &mut scratch);
     emit_fixtures(&context, &mut buckets, &mut scratch);
     emit_prop_fallbacks(
         &context,
@@ -94,6 +103,18 @@ pub(super) fn build_level_geometry_mesh(
 /// emitted one material/height surface at a time, so a damp patch has an exact
 /// edge and a recess sits at its real elevation without a second overlapping
 /// slab (design section 23).
+///
+/// # Threshold ownership
+///
+/// There is no threshold surface: a doorway is a hole through the wall, and the
+/// floor under it is the two rooms' own floors meeting at their shared
+/// boundary. Each room emits its own floor up to its own footprint edge, so two
+/// rooms whose boundary falls on a wall's centre plane jointly cover the whole
+/// wall footprint — the west half from one room, the east half from the other —
+/// with no overlap and no gap, which is the arrangement the shipped demo and
+/// the fixture levels use. Two rooms that leave a gap *inside* the wall are
+/// authored that way: the floor stops at each room's edge and the unwalkable
+/// gap stays visible, exactly as drawn.
 fn emit_floors(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -219,16 +240,16 @@ fn emit_ceilings(
 /// texture at the material's tiling.
 ///
 /// Coincident collinear walls are first resolved into single emission units
-/// (`wall_units`), so a water-damaged wall segment authored as a duplicate
+/// (`wall_layout`), so a water-damaged wall segment authored as a duplicate
 /// surface becomes a material run on the one physical wall instead of a second
 /// coplanar mesh.
 fn emit_walls(
     context: &EmitContext<'_, '_>,
+    units: &[WallUnit<'_>],
     buckets: &mut SpatialBuckets<SurfaceKey>,
     scratch: &mut Vec<Vertex>,
 ) {
-    let wall_units = wall_units(context.level, context.surfaces, context.materials);
-    for unit in &wall_units {
+    for unit in units {
         emit_wall_unit(context, buckets, scratch, unit);
     }
 }
@@ -237,6 +258,9 @@ fn emit_walls(
 struct WallState<'a> {
     /// The wall unit being emitted (its material runs follow the wall).
     unit: &'a WallUnit<'a>,
+    /// The authored wall indices this unit emits, excluded from the
+    /// cross-section coverage test (a wall never covers its own faces).
+    members: Vec<usize>,
     /// The wall's body geometry.
     wall: &'a WallDef,
     /// The body key: the fallback for slices with no material run.
@@ -274,10 +298,8 @@ fn emit_wall_unit(
     let x1 = wall.x.max(wall.x + wall.width);
     let z0 = wall.z.min(wall.z + wall.depth);
     let z1 = wall.z.max(wall.z + wall.depth);
-    // A wall without an authored height follows the room's ceiling profile:
-    // its top is the ceiling at each length position, so gable-end walls
-    // reach the ridge and eave walls stay flat at the eave.
-    let breaks = context.surfaces.wall_profile_breaks(wall);
+    // The unit's own solid profile: a plain wall cuts its own openings, a
+    // coalesced group carries the union its members resolved to.
     let (wall_base, _) = wall_vertical_extent(wall, context.surfaces);
     // The axis the wall's length runs along and the world span across its
     // thickness. Local slice offsets start at the wall's min corner.
@@ -287,13 +309,10 @@ fn emit_wall_unit(
         WallAxis::X => (z0, z1),
         WallAxis::Z => (x0, x1),
     };
-    let slices = wall_solid_slices_profiled(
-        wall,
-        |offset| context.surfaces.clear_ceiling_height_along(wall, offset),
-        &breaks,
-    );
+    let slices = unit.slices(context.surfaces);
     let state = WallState {
         unit,
+        members: unit.members(),
         wall,
         wall_key,
         axis,
@@ -459,7 +478,9 @@ fn emit_wall_slice(
     for (face_index, face) in faces.into_iter().enumerate() {
         // A coalesced unit splits the face at its material runs; a plain wall
         // emits the whole slice under its authored key.
-        let runs = state.unit.runs_between(slice.start, slice.end);
+        let runs = state
+            .unit
+            .runs_between(slice.start, slice.end, slice.bottom, slice.top);
         if runs.is_empty() {
             let key = wall_face_key(context, state.wall, face.name);
             let strip = WallLengthFace::new(context, key, face, l0, l1, slice_bottom);
@@ -522,9 +543,28 @@ fn emit_wall_caps(
 ) {
     let slice_mid = f32::midpoint(slice.start, slice.end);
     let ceiling_along = |offset: f32| context.surfaces.ceiling_y_along(state.wall, offset);
+    // A cap inside the unit's own solid volume is an interior face: a taller
+    // member of a coalesced group continues the wall above or below this slice,
+    // so the step between them must not grow a horizontal pair at the same
+    // depth. The exposed steps at the group's top and bottom are still capped
+    // by whichever slice actually ends there.
+    let covered_above = |slice: &WallSlice| {
+        state.slices.iter().any(|other| {
+            (other.start - slice.start).abs() <= 1e-3
+                && (other.end - slice.end).abs() <= 1e-3
+                && (other.bottom - slice.top).abs() <= 1e-3
+        })
+    };
+    let covered_below = |slice: &WallSlice| {
+        state.slices.iter().any(|other| {
+            (other.start - slice.start).abs() <= 1e-3
+                && (other.end - slice.end).abs() <= 1e-3
+                && (other.top - slice.bottom).abs() <= 1e-3
+        })
+    };
     // A wall that reaches the ceiling over this span needs no top face, which
     // is what keeps gable-end walls from growing a flat cap above the slope.
-    if slice.top < ceiling_along(slice_mid) - 1e-3 {
+    if slice.top < ceiling_along(slice_mid) - 1e-3 && !covered_above(slice) {
         emit_wall_slice_cap(context, buckets, scratch, state, slice, cursor, true);
     }
 
@@ -538,7 +578,7 @@ fn emit_wall_caps(
             .or_else(|| context.surfaces.room_floor_y_at(x, z))
             .unwrap_or(0.0)
     };
-    if slice.bottom > floor_along(slice_mid) + 1e-3 {
+    if slice.bottom > floor_along(slice_mid) + 1e-3 && !covered_below(slice) {
         emit_wall_slice_cap(context, buckets, scratch, state, slice, cursor, false);
     }
 }
@@ -560,16 +600,16 @@ fn emit_wall_slice_cap(
         WallAxis::X => (state.origin_x + slice.start, state.origin_x + slice.end),
         WallAxis::Z => (state.origin_z + slice.start, state.origin_z + slice.end),
     };
+    let y = if up { slice.top } else { slice.bottom };
     let key = state
         .unit
-        .run_at(f32::midpoint(slice.start, slice.end))
+        .run_at(f32::midpoint(slice.start, slice.end), y)
         .map_or(state.wall_key, |run| run.body);
     let (mult, grad) = if up {
         (1.00, WALL_TOP_GRADIENT)
     } else {
         (0.85, WALL_BOTTOM_GRADIENT)
     };
-    let y = if up { slice.top } else { slice.bottom };
     let (first, second) = if up {
         (state.t1, state.t0)
     } else {
@@ -704,6 +744,12 @@ fn sample_cross_edge(
 /// own position is frequently a room boundary or inside a perpendicular wall.
 /// Light is therefore sampled just *inside* the solid side of the boundary,
 /// where the face is unambiguous, and taken from the room it opens into.
+///
+/// The exposed interval is then reduced to the part no *other* wall's solid
+/// volume covers. A wall end that abuts another wall's plane would otherwise
+/// emit a second coplanar face at the same depth as that wall's own surface,
+/// which is exactly the flicker the coincidence resolution removes inside a
+/// group; the coverage test removes it between walls too.
 fn emit_wall_cross_quad(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -717,29 +763,17 @@ fn emit_wall_cross_quad(
     if top <= bottom + 1e-3 {
         return;
     }
-    let at_start = boundary.position <= 1e-3;
-    let at_end = (boundary.position - state.wall.length()).abs() <= 1e-3;
-    // Wall ends keep the directional face shading; internal reveals use the
-    // darker jamb/head colours.
-    let mult = if at_start {
-        match state.axis {
-            WallAxis::X => WALL_FACE_WEST_MULT,
-            WallAxis::Z => WALL_FACE_NORTH_MULT,
-        }
-    } else if at_end {
-        match state.axis {
-            WallAxis::X => WALL_FACE_EAST_MULT,
-            WallAxis::Z => WALL_FACE_SOUTH_MULT,
-        }
-    } else if bottom <= state.wall_base + 1e-3 {
-        WALL_JAMB_MULT
-    } else {
-        WALL_HEAD_MULT
-    };
     let at = match state.axis {
         WallAxis::X => state.origin_x + boundary.position,
         WallAxis::Z => state.origin_z + boundary.position,
     };
+    let covered = cross_section_covered(context.coverages, state.axis, at, &state.members);
+    let exposed = subtract_rectangles((state.t0, state.t1, bottom, top), &covered);
+    if exposed.is_empty() {
+        return;
+    }
+    let at_start = boundary.position <= 1e-3;
+    let at_end = (boundary.position - state.wall.length()).abs() <= 1e-3;
     // A reveal is exposed to whichever side has no material over this Y range:
     // that is the side it faces. Wall ends follow the same rule (nothing is
     // solid outside the wall).
@@ -751,39 +785,87 @@ fn emit_wall_cross_quad(
     let right_covers = covers(boundary.right);
     let inward = if right_covers { 1.0 } else { -1.0 };
     let inboard = at + inward * LIGHT_FACE_PROBE_M;
-    let (bottom_t0, bottom_t1, top_t0, top_t1) = (
-        sample_cross_edge(context, state, inboard, state.t0, -1.0, bottom),
-        sample_cross_edge(context, state, inboard, state.t1, 1.0, bottom),
-        sample_cross_edge(context, state, inboard, state.t0, -1.0, top),
-        sample_cross_edge(context, state, inboard, state.t1, 1.0, top),
-    );
-    // Corner order: low thickness, high thickness, then the same at the top
-    // (see add_wall_cross_quad).
     let key = state
         .unit
-        .run_at(boundary.position)
+        .run_at(boundary.position, f32::midpoint(bottom, top))
         .map_or(state.wall_key, |run| run.body);
-    let bottom_shade = scaled_wall_color(context.materials, key, mult, WALL_BOTTOM_GRADIENT);
-    let top_shade = scaled_wall_color(context.materials, key, mult, WALL_TOP_GRADIENT);
-    let corners = [
-        shade(bottom_shade, bottom_t0),
-        shade(bottom_shade, bottom_t1),
-        shade(top_shade, top_t1),
-        shade(top_shade, top_t0),
-    ];
-    *cursor = scratch.len();
-    add_wall_cross_quad(
-        scratch,
-        state.axis,
-        at,
-        (state.t0, state.t1),
-        bottom,
-        top,
-        covers(boundary.left),
-        corners,
-        context.materials.tile_metres(key),
-    );
-    flush_wall_run(buckets, scratch, cursor, key);
+    let tile = context.materials.tile_metres(key);
+    for (across_low, across_high, rect_bottom, rect_top) in exposed {
+        // Wall ends keep the directional face shading; internal reveals use
+        // the darker jamb/head colours.
+        let mult = if at_start {
+            match state.axis {
+                WallAxis::X => WALL_FACE_WEST_MULT,
+                WallAxis::Z => WALL_FACE_NORTH_MULT,
+            }
+        } else if at_end {
+            match state.axis {
+                WallAxis::X => WALL_FACE_EAST_MULT,
+                WallAxis::Z => WALL_FACE_SOUTH_MULT,
+            }
+        } else if rect_bottom <= state.wall_base + 1e-3 {
+            WALL_JAMB_MULT
+        } else {
+            WALL_HEAD_MULT
+        };
+        let (low_side, low_normal, high_side, high_normal) =
+            nearest_cross_sides(state, across_low, across_high);
+        let (bottom_low, bottom_high, top_low, top_high) = (
+            sample_cross_edge(context, state, inboard, low_side, low_normal, rect_bottom),
+            sample_cross_edge(context, state, inboard, high_side, high_normal, rect_bottom),
+            sample_cross_edge(context, state, inboard, low_side, low_normal, rect_top),
+            sample_cross_edge(context, state, inboard, high_side, high_normal, rect_top),
+        );
+        // Corner order: low thickness, high thickness, then the same at the top
+        // (see add_wall_cross_quad).
+        let bottom_shade = scaled_wall_color(context.materials, key, mult, WALL_BOTTOM_GRADIENT);
+        let top_shade = scaled_wall_color(context.materials, key, mult, WALL_TOP_GRADIENT);
+        let corners = [
+            shade(bottom_shade, bottom_low),
+            shade(bottom_shade, bottom_high),
+            shade(top_shade, top_high),
+            shade(top_shade, top_low),
+        ];
+        *cursor = scratch.len();
+        add_wall_cross_quad(
+            scratch,
+            state.axis,
+            at,
+            (across_low, across_high),
+            rect_bottom,
+            rect_top,
+            covers(boundary.left),
+            corners,
+            tile,
+        );
+        flush_wall_run(buckets, scratch, cursor, key);
+    }
+}
+
+/// The wall faces a cross-section rectangle's two across edges sit on, as
+/// `(side, outward normal)` pairs for the low and high edge.
+///
+/// A rectangle that still spans the whole wall uses both faces, exactly like an
+/// unsplit cross-section. A rectangle left by subtracting an abutting wall's
+/// footprint is anchored on one face, and its cut edge is sampled from that same
+/// face, which is the surface it actually borders.
+fn nearest_cross_sides(
+    state: &WallState<'_>,
+    across_low: f32,
+    across_high: f32,
+) -> (f32, f32, f32, f32) {
+    let middle = f32::midpoint(state.t0, state.t1);
+    let low = if across_low <= middle {
+        (state.t0, -1.0)
+    } else {
+        (state.t1, 1.0)
+    };
+    let high = if across_high >= middle {
+        (state.t1, 1.0)
+    } else {
+        (state.t0, -1.0)
+    };
+    (low.0, low.1, high.0, high.1)
 }
 
 /// Step 4: the light fixture batch.
@@ -794,16 +876,25 @@ fn emit_wall_cross_quad(
 /// mounts at its authored world height. The fixture's visible glow is the same
 /// authored colour the bake emits into the room, scaled by the intensity
 /// response, so the two can never silently diverge.
+///
+/// A light batch carries the family's fixture-sheet slot
+/// ([`crate::lighting::FixtureKind::index`]) so the renderer binds the PNG that
+/// catalog declares as that fixture's visible face. The flat metal housing
+/// (panel bezels, round bezel and can, the wall housing) keeps the bare key:
+/// it draws its authored shade through the shared white sheet, exactly as every
+/// fixture face did before the sheets existed.
 fn emit_fixtures(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
     scratch: &mut Vec<Vertex>,
 ) {
+    let mut housing: Vec<Vertex> = Vec::new();
     for light in &context.level.ceiling_lights {
         if !light.x.is_finite() || !light.z.is_finite() {
             continue;
         }
         scratch.clear();
+        housing.clear();
         let profile = crate::lighting::fixture_profile(&light.fixture);
         let (half_w, half_d) =
             crate::lighting::fixture_half_extents_for(profile.kind, light.rotation_degrees);
@@ -833,7 +924,7 @@ fn emit_fixtures(
                 let x1 = light.x + half_w;
                 let z0 = light.z - half_d;
                 let z1 = light.z + half_d;
-                add_panel_fixture(scratch, x0, x1, z0, z1, y, fixture_glow);
+                add_panel_fixture(scratch, &mut housing, x0, x1, z0, z1, y, fixture_glow);
             }
             crate::lighting::FixtureKind::RoundRecessed => {
                 let y = context
@@ -841,6 +932,7 @@ fn emit_fixtures(
                     .fixture_panel_y(light.x, light.z, half_w, half_d);
                 add_round_fixture(
                     scratch,
+                    &mut housing,
                     light.x,
                     light.z,
                     y,
@@ -852,6 +944,7 @@ fn emit_fixtures(
                 let y = context.lighting.wall_fixture_y(light.x, light.z, light.y);
                 add_wall_fixture(
                     scratch,
+                    &mut housing,
                     light.x,
                     y,
                     light.z,
@@ -860,7 +953,11 @@ fn emit_fixtures(
                 );
             }
         }
-        buckets.add_quads(SurfaceKey::bare(SurfaceKind::Light), scratch);
+        // The luminous faces bind the family's sheet; the housing binds the
+        // family's own bare key, which draws the untextured white sheet.
+        let sheet = MaterialIndex::try_from(profile.kind.index()).unwrap_or(MATERIAL_NONE);
+        buckets.add_quads(SurfaceKey::new(SurfaceKind::Light, sheet), scratch);
+        buckets.add_quads(SurfaceKey::bare(SurfaceKind::Light), &housing);
     }
 }
 

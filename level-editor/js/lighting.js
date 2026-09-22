@@ -58,7 +58,10 @@
   const OPENING_PROBE_M = 0.05;
 
   // Mirrors the constants in src/lighting/visibility.rs.
-  const SURFACE_EPS_M = 5.0e-3;
+  // Mirrors `SEGMENT_START_EPS_M` in `src/lighting/visibility.rs`: a query that
+  // starts exactly on a wall face is displaced this far along its own
+  // direction, so a fixture mounted flush with a wall is not blocked by it.
+  const SEGMENT_START_EPS_M = 1.0e-3;
   const POINT_GRID_CELL_M = 4.0;
   const CLEAR_SAMPLE_STEP_M = 0.05;
   const CLEAR_SAMPLE_MAX_STEPS = 64;
@@ -287,9 +290,10 @@
    * Builds the editor's opaque-box set and the per-site segment query.
    *
    * Mirrors `Visibility` in `src/lighting/visibility.rs`: one box per solid
-   * patch of wall, shrunk by `SURFACE_EPS_M` so a light or a surfel flush with
-   * a wall face is not blocked by it, plus a per-site range of the boxes whose
-   * footprint reaches that site's radius.
+   * patch of wall at its exact extent (never shrunk, so abutting solid pieces
+   * leave no slit between them), plus a per-site range of the boxes whose
+   * footprint reaches that site's radius. A query starting flush with a face
+   * is handled by nudging its start point along the segment.
    */
   function buildVisibility(level, rooms, lights, blendSites) {
     const blockers = [];
@@ -333,11 +337,11 @@
         const acrossMax = axis === 'x' ? z1 : x1;
         for (const [bottom, top] of column.spans) {
           const min = axis === 'x'
-            ? [lengthMin + SURFACE_EPS_M, bottom + SURFACE_EPS_M, acrossMin + SURFACE_EPS_M]
-            : [acrossMin + SURFACE_EPS_M, bottom + SURFACE_EPS_M, lengthMin + SURFACE_EPS_M];
+            ? [lengthMin, bottom, acrossMin]
+            : [acrossMin, bottom, lengthMin];
           const max = axis === 'x'
-            ? [lengthMax - SURFACE_EPS_M, top - SURFACE_EPS_M, acrossMax - SURFACE_EPS_M]
-            : [acrossMax - SURFACE_EPS_M, top - SURFACE_EPS_M, lengthMax - SURFACE_EPS_M];
+            ? [lengthMax, top, acrossMax]
+            : [acrossMax, top, lengthMax];
           if (min[0] < max[0] && min[1] < max[1] && min[2] < max[2]) blockers.push({ min, max });
         }
       }
@@ -421,12 +425,28 @@
       return true;
     }
 
+    // Moves a segment's start `SEGMENT_START_EPS_M` along its own direction, so
+    // a query that begins exactly on a solid face is tested from just outside
+    // it. A degenerate segment has no direction and is left unchanged.
+    function nudgeStart(from, to) {
+      const delta = [to[0] - from[0], to[1] - from[1], to[2] - from[2]];
+      const length = Math.hypot(delta[0], delta[1], delta[2]);
+      if (!Number.isFinite(length) || !(length > 0)) return from;
+      const scale = SEGMENT_START_EPS_M / length;
+      return [
+        from[0] + delta[0] * scale,
+        from[1] + delta[1] * scale,
+        from[2] + delta[2] * scale
+      ];
+    }
+
     function occludes(site, from, to) {
       if (!from.every(isFiniteNumber) || !to.every(isFiniteNumber)) return true;
       const list = ranges[site];
       if (!list) return false;
+      const start = nudgeStart(from, to);
       for (const index of list) {
-        if (segmentHitsBox(blockers[index], from, to)) return true;
+        if (segmentHitsBox(blockers[index], start, to)) return true;
       }
       return false;
     }

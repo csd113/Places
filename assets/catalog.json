@@ -861,8 +861,9 @@
       "asset_class": "environment",
       "theme": "office",
       "asset_type": "light",
-      "source": "generated",
-      "description": "Recessed twin-tube ceiling fixture used throughout the office interiors."
+      "source": "file",
+      "model": "environment/office/textures/lights/fluorescent_panel_01.png",
+      "description": "Recessed twin-tube ceiling fixture used throughout the office interiors. The named PNG is the fixture's visible diffuser face, drawn once across the panel; the geometry stays generated."
     },
     {
       "id": "core:pool_light_round",
@@ -870,8 +871,9 @@
       "asset_class": "environment",
       "theme": "pool",
       "asset_type": "light",
-      "source": "generated",
-      "description": "Round recessed downlight for the pool room ceiling; mounts like a ceiling fixture."
+      "source": "file",
+      "model": "environment/pool/textures/lights/pool_light_round_01.png",
+      "description": "Round recessed downlight for the pool room ceiling; mounts like a ceiling fixture. The named PNG is the diffuser face seen from below."
     },
     {
       "id": "core:pool_light_wall",
@@ -879,8 +881,9 @@
       "asset_class": "environment",
       "theme": "pool",
       "asset_type": "light",
-      "source": "generated",
-      "description": "Wall-mounted pool luminaire; author `mount: \"wall\"` and a world `y` for each placed fixture."
+      "source": "file",
+      "model": "environment/pool/textures/lights/pool_light_wall_01.png",
+      "description": "Wall-mounted pool luminaire; author `mount: \"wall\"` and a world `y` for each placed fixture. The named PNG is the luminaire's lens face."
     },
     {
       "id": "core:decal_arrow_01",

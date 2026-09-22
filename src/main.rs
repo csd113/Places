@@ -14,6 +14,8 @@ mod lighting_audit_cases;
 #[cfg(test)]
 mod lighting_isolation;
 #[cfg(test)]
+mod lighting_leak_audit;
+#[cfg(test)]
 mod lighting_parity;
 pub mod loader;
 pub mod materials;
@@ -22,6 +24,8 @@ pub mod props;
 pub mod render;
 pub mod settings;
 pub mod spatial;
+#[cfg(test)]
+mod surface_audit;
 #[cfg(test)]
 mod test_support;
 pub mod ui;

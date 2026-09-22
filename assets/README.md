@@ -134,15 +134,16 @@ lights and decals are referenced by id.
 
 * `"source": "file"` assets name a `model` path **relative to this directory**.
   The runtime joins it onto the resolved asset root; one asset has exactly one
-  canonical file. Props, entities and **textures** use this shape.
+  canonical file. Props and entities name a `.glb`, **textures**, file-backed
+  **decals** and **lights** name a `.png` (a surface sheet, a decal cut-out and
+  a fixture's visible face respectively).
 * `"source": "definition"` assets are data definitions composed from other
   catalog assets. A `material` names the logical `texture` it draws with, plus
   any render parameters (`tile_metres`, `tint`); it has no file of its own and
   must not declare `model`.
-* `"source": "generated"` assets (the decal atlas patterns, the built-in
-  light fixture) have no file. The renderer generates them in code; the catalog
-  records their identity and classification so themes and future tools can see
-  them.
+* `"source": "generated"` assets (the diagnostic decal atlas pattern) have no
+  file. The renderer generates them in code; the catalog records their identity
+  and classification so themes and future tools can see them.
 
 ## Surface materials and textures
 
@@ -184,6 +185,11 @@ Texture assets are just files:
   decoded and preserved, but base surfaces are opaque and blending is off (only
   the decal pass alpha-tests), so keep surface PNGs opaque unless you are
   deliberately authoring a decal-style asset.
+* Fixture faces (and decal sheets) are **fitted**, not tiled: their UVs never
+  leave the sheet, so they are uploaded with `CLAMP_TO_EDGE` wrapping and
+  mipmaps. A fixture PNG must therefore be *complete* artwork — no bleeding
+  margin is needed, and a power-of-two size keeps the mip chain exact on the
+  ES 2.0 target.
 
 ### Decal sheets
 
@@ -231,13 +237,35 @@ footprint the bake treats as a light source. The built-in families are:
 | `core:pool_light_round` | round recessed downlight, 0.44 m | ceiling (height derived from the room) |
 | `core:pool_light_wall` | shallow wall luminaire | wall: needs `"mount": "wall"` and a world `"y"` |
 
+A fixture's **mesh** is generated geometry, but its **visible face** is ordinary
+external artwork, exactly like a decal sheet: the light entry's `model` names
+the PNG, the runtime decodes it once per session through the same catalog ->
+PNG -> texture-cache path a surface texture uses, and the face is drawn with the
+sheet fitted once across it (no tiling). Replacing that PNG needs no Rust change
+and no recompilation.
+
+* `core:fluorescent_panel_01` — `environment/office/textures/lights/fluorescent_panel_01.png`
+  (256x128): the panel face, `u` along its 1.2 m width and `v` across its 0.6 m
+  depth, so one texel is 4.7 mm both ways.
+* `core:pool_light_round` — `environment/pool/textures/lights/pool_light_round_01.png`
+  (128x128): the diffuser seen face-on; the sheet centre is the fixture centre
+  and its inscribed circle is the diffuser's outer radius.
+* `core:pool_light_wall` — `environment/pool/textures/lights/pool_light_wall_01.png`
+  (128x64): the lens face, `u` across its 0.4 m width and `v` up its 0.2 m
+  height.
+
 Fixture appearance and emitted light are separate: `color` and `brightness` are
 authored per placed light and drive both the visible panel and the illumination
-the bake applies. An unknown fixture id keeps loading and draws as the office
-panel, because the catalog/renderer consistency test reports the mismatch
-instead of the renderer failing at load. Adding a new appearance is a code
-change (see `src/lighting.rs::fixture_profile` and the fixture batch in
-`src/render.rs`), because a fixture is generated geometry, not artwork.
+the bake applies. The fixture's vertex colour (its authored colour scaled by the
+intensity response) multiplies into the sampled sheet, so a red fixture reddens
+its lamp face and an off fixture darkens it without the artwork knowing
+anything. The flat metal housing around each face is untextured geometry: it
+draws its authored shade through the shared white sheet. An unknown fixture id
+keeps loading and draws as the office panel with the untextured sheet, because
+the catalog/renderer consistency test reports the mismatch instead of the
+renderer failing at load. Adding a new appearance is a three-step asset change:
+the PNG, the catalog texture entry and the light entry naming it — plus the
+mesh family in `src/lighting.rs::fixture_profile`, which is still code.
 
 ### Level packs and custom textures
 A `.zip` level pack can ship its own surface art without touching the catalog.
@@ -405,18 +433,19 @@ image. Attributes: `POSITION` (float32 vec3), `TEXCOORD_0` (float32 vec2),
 Self-contained: no external `.bin`, no external textures, no extensions.
 Anything else is rejected by `src/props.rs` with an actionable message.
 
-Props keep their textures embedded in the GLB: only level surfaces (and future
-decals/fixtures) load external PNGs.
+Props keep their textures embedded in the GLB: only level surfaces, decal
+sheets and fixture faces load external PNGs.
 
 ## Adding a future asset
 
 1. Add the catalog entry (id, class, theme when it belongs to one, type, size,
    colour, category, solid, `model` — or `texture` for a material).
-2. For a generated asset (light fixture, decal sheet), implement or extend the
-   renderer's generator and add the id there too; the catalog/renderer
-   consistency test will catch a mismatch.
+2. For a generated asset (the diagnostic decal atlas pattern), implement or
+   extend the renderer's generator and add the id there too; the
+   catalog/renderer consistency test will catch a mismatch.
 3. For a textured surface, add the PNG and the two catalog entries above; no
-   Rust code is involved.
+   Rust code is involved. A decal sheet or a fixture face is the same two
+   entries plus the `tools/textures/` painter when the artwork is ours.
 4. For a modeled asset, add a build function to `tools/props/parts/*.py` and
    register it in that module's `PROPS` dict (see `parts/utility.py` for the
    commented exemplar).
@@ -440,6 +469,8 @@ PNGs.
 | `[materials] {level}: unknown material `{id}`; add it to the asset catalog ...` | a level names a material the catalog does not declare | add it (or fix the typo); the surface shows the diagnostic pattern |
 | `[materials] {level}: material `{id}` texture `{tex}`: `...png`: PNG decode error ...` | the PNG is truncated or corrupt | re-save it; see the loading tests for the accepted encodings |
 | `[decals] decal `{id}`: {problem}` | an external decal sheet's catalog entry or PNG is broken | fix the entry/path; the decal draws the diagnostic sheet meanwhile |
+| `{id}: a file-backed light fixture must name a `.png` sheet, found ...` | a light entry points at something that is not a PNG | point `model` at the fixture's artwork |
+| `[fixtures] fixture `{id}` sheet `{path}`: {problem}` | a fixture's PNG is missing or corrupt | restore the file; the fixture draws the untextured white sheet meanwhile |
 | `[textures] ...` (from `tools/textures/build.py --check`) | file missing, corrupt, oversized or non-PNG | regenerate with `python3 tools/textures/build.py` |
 
 Validation fails loudly in tooling and degrades visibly in game: a broken

@@ -29,6 +29,12 @@
 //! - a low wall or a raised wall blocks only up to its real top, so light can
 //!   still pass over a sill or under a beam.
 //!
+//! The boxes are the exact solid extents: they are never inflated or shrunk.
+//! Two pieces that meet in the mesh — the wall beside a window, the wall a
+//! corner abuts — therefore meet in the visibility set too, with no slit
+//! between them. A query that starts exactly on a face is handled by pushing
+//! its start point [`SEGMENT_START_EPS_M`] along its own direction instead.
+//!
 //! Boxes are collected per *query site*: one range of box indices per fixture,
 //! holding only the boxes whose horizontal bounds reach the fixture's pool
 //! radius. A segment between two points that are both inside the pool radius
@@ -42,13 +48,22 @@
 
 use crate::level::{LevelDef, LevelSurfaces, WallAxis, wall_solid_slices_profiled};
 
-/// How much every opaque box is shrunk on all six sides before it is tested.
+/// How far a segment's start point is pushed along its own direction before the
+/// slab clip runs, in metres.
 ///
-/// A light mounted flush with a wall face and a surface sample sitting exactly
-/// on a wall face both lie on a box boundary; without this margin the slab clip
-/// counts them as inside the wall and a sconce would light nothing. The margin
-/// is far thinner than any authored wall.
-const SURFACE_EPS_M: f32 = 5.0e-3;
+/// A light mounted flush with a wall face, and the closest point of a ceiling
+/// panel that overlaps a wall in plan, both sit exactly *on* an opaque box's
+/// boundary. Without this nudge the slab clip counts the segment as starting
+/// inside the solid and the fixture lights nothing. Pushing the start a
+/// millimetre along the segment is enough to leave the surface, while the boxes
+/// themselves stay at their exact authored size — which is what keeps a solid
+/// wall air-tight at the seams between its own columns and at every corner.
+///
+/// The alternative (shrinking every box) was the source of the wall-boundary
+/// leak this module now guards against: a shrunken box leaves a gap of twice
+/// this margin wherever two solid pieces meet, and light funnels through the
+/// seam. The boxes below are never shrunk.
+const SEGMENT_START_EPS_M: f32 = 1.0e-3;
 
 /// Cell size of the uniform grid that answers "is this point inside a wall?".
 ///
@@ -85,8 +100,9 @@ impl Blocker {
 
     /// True when the point lies inside the box in plan view.
     ///
-    /// The box has already been shrunk by [`SURFACE_EPS_M`], so a surfel that
-    /// merely touches the wall's plane does not count as buried in it.
+    /// The box is the wall's real solid extent, so a surfel *on* a wall face
+    /// counts as buried: the bake walks such a sample out of the wall before it
+    /// measures light, which is what keeps a wall from shadowing its own base.
     fn contains_xz(&self, x: f32, z: f32) -> bool {
         x >= self.min[0] && x <= self.max[0] && z >= self.min[2] && z <= self.max[2]
     }
@@ -374,6 +390,7 @@ impl Visibility {
         let Some(entries) = self.pool.get(start as usize..end as usize) else {
             return false;
         };
+        let from = nudge_segment_start(from, to);
         for entry in entries {
             if entry.near > reach {
                 break;
@@ -394,10 +411,34 @@ impl Visibility {
         if !from.iter().chain(to.iter()).all(|value| value.is_finite()) {
             return true;
         }
+        let from = nudge_segment_start(from, to);
         self.blockers
             .iter()
             .any(|blocker| segment_hits_box(*blocker, from, to))
     }
+}
+
+/// Moves a segment's start point [`SEGMENT_START_EPS_M`] along the segment, so a
+/// query that begins exactly on a solid's face is tested from just outside it.
+///
+/// A degenerate segment (start == end) is returned unchanged: there is no
+/// direction to nudge along, and a zero-length query inside a solid stays
+/// blocked. The displacement is along the unit direction, so it is always the
+/// same physical distance and never changes with the query's length.
+fn nudge_segment_start(from: [f32; 3], to: [f32; 3]) -> [f32; 3] {
+    let delta = [to[0] - from[0], to[1] - from[1], to[2] - from[2]];
+    let length = delta[0]
+        .mul_add(delta[0], delta[1].mul_add(delta[1], delta[2] * delta[2]))
+        .sqrt();
+    if !length.is_finite() || length <= f32::EPSILON {
+        return from;
+    }
+    let scale = SEGMENT_START_EPS_M / length;
+    [
+        delta[0].mul_add(scale, from[0]),
+        delta[1].mul_add(scale, from[1]),
+        delta[2].mul_add(scale, from[2]),
+    ]
 }
 
 /// One length column of a wall: a contiguous span along the wall's length axis
@@ -471,33 +512,19 @@ fn append_wall_blockers(
             if !bottom.is_finite() || !top.is_finite() || top <= bottom {
                 continue;
             }
-            // Every box is shrunk by `SURFACE_EPS_M` on all six sides, so a
-            // light or a surface sample sitting exactly on a wall plane is
-            // outside the solid rather than on its boundary.
+            // The box is the column's exact solid extent: no shrink, so two
+            // columns that meet (a wall beside a window, a wall abutting
+            // another at a corner) leave no slit for light to funnel through.
+            // Displacing the segment's *start* instead is what keeps a fixture
+            // mounted flush with a face from being blocked by its own wall.
             let blocker = match axis {
                 WallAxis::X => Blocker {
-                    min: [
-                        length_min + SURFACE_EPS_M,
-                        bottom + SURFACE_EPS_M,
-                        across_min + SURFACE_EPS_M,
-                    ],
-                    max: [
-                        length_max - SURFACE_EPS_M,
-                        top - SURFACE_EPS_M,
-                        across_max - SURFACE_EPS_M,
-                    ],
+                    min: [length_min, bottom, across_min],
+                    max: [length_max, top, across_max],
                 },
                 WallAxis::Z => Blocker {
-                    min: [
-                        across_min + SURFACE_EPS_M,
-                        bottom + SURFACE_EPS_M,
-                        length_min + SURFACE_EPS_M,
-                    ],
-                    max: [
-                        across_max - SURFACE_EPS_M,
-                        top - SURFACE_EPS_M,
-                        length_max - SURFACE_EPS_M,
-                    ],
+                    min: [across_min, bottom, length_min],
+                    max: [across_max, top, length_max],
                 },
             };
             if blocker.min[0] < blocker.max[0]
@@ -513,8 +540,9 @@ fn append_wall_blockers(
 /// True when the segment `from`-`to` intersects the box `blocker`.
 ///
 /// The standard slab clip against the segment's own `[0, 1]` parameter range.
-/// Boxes are pre-shrunk by [`SURFACE_EPS_M`], so neither a light nor a surface
-/// mounted flush with a wall is blocked by the wall it sits on.
+/// Boxes are the exact solid extents; the caller displaces a segment's start
+/// by [`SEGMENT_START_EPS_M`] so a surface-mounted query is not blocked by the
+/// wall it starts on.
 fn segment_hits_box(blocker: Blocker, from: [f32; 3], to: [f32; 3]) -> bool {
     let mut enter = 0.0_f32;
     let mut exit = 1.0_f32;
@@ -611,6 +639,92 @@ mod tests {
         assert!(visibility.occludes(0, [0.5, 1.0, 3.5], [3.5, 1.0, 3.5]));
         // Through the header above the doorway.
         assert!(visibility.occludes(0, [0.5, 2.5, 1.5], [3.5, 2.5, 1.5]));
+    }
+
+    /// One 4 x 4 m room split by a Z-axis wall at x = 1.9..2.1 with a single
+    /// window in it, so the wall's solid columns abut the window's own boxes.
+    fn split_room_with_window() -> LevelDef {
+        let mut level = split_room();
+        level.walls[0].openings.push(crate::level::WallOpeningDef {
+            kind: "window".into(),
+            offset: 1.0,
+            width: 1.0,
+            height: 1.0,
+            sill: 1.0,
+        });
+        level
+    }
+
+    #[test]
+    fn the_seam_beside_an_opening_is_airtight() {
+        // The window occupies z = 1.0..2.0, y = 1.0..2.0. A sample three
+        // millimetres on the solid side of the jamb, at the window's own
+        // height, must still be blocked by the solid wall column beside it:
+        // the segment crosses the wall through solid material, not through
+        // the hole. Before the exact-box fix each column was shrunk by 5 mm,
+        // which left a slit at every jamb for light to funnel through.
+        let level = split_room_with_window();
+        let visibility = Visibility::build(&level, &[QuerySite::new(0.5, 2.0, 6.0)]);
+        assert!(
+            visibility.occludes(0, [0.5, 1.5, 0.997], [3.5, 1.5, 0.997]),
+            "the solid column beside the window must block"
+        );
+        // 5 mm on the window side of the jamb is the aperture itself.
+        assert!(
+            !visibility.occludes(0, [0.5, 1.5, 1.005], [3.5, 1.5, 1.005]),
+            "the aperture itself must transmit"
+        );
+        // Below the sill is solid across the whole window span.
+        assert!(
+            visibility.occludes(0, [0.5, 0.8, 1.5], [3.5, 0.8, 1.5]),
+            "below the sill must block"
+        );
+    }
+
+    #[test]
+    fn abutting_wall_pieces_leave_no_seam() {
+        // A wall authored as two collinear pieces that meet exactly at z = 2.0.
+        // A segment that crosses the wall in that plane must be blocked by the
+        // piece on one side or the other; the old shrink left a slit exactly on
+        // the seam.
+        let json = r#"{
+            "format_version": 1,
+            "id": "seam",
+            "name": "Seam",
+            "spawn": { "x": 0.5, "z": 0.5 },
+            "rooms": [
+                { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }
+            ],
+            "walls": [
+                { "x": 1.9, "z": 0.0, "width": 0.2, "depth": 2.0, "height": 3.0 },
+                { "x": 1.9, "z": 2.0, "width": 0.2, "depth": 2.0, "height": 3.0 }
+            ]
+        }"#;
+        let level = level(json);
+        let visibility = Visibility::build(&level, &[QuerySite::new(0.5, 2.0, 6.0)]);
+        assert_eq!(visibility.blocker_count(), 2, "one box per solid piece");
+        assert!(
+            visibility.occludes(0, [0.5, 1.5, 2.0], [3.5, 1.5, 2.0]),
+            "the seam between two abutting pieces must block"
+        );
+    }
+
+    #[test]
+    fn a_surface_mounted_fixture_is_not_blocked_by_its_own_wall() {
+        // A sconce authored exactly on the wall's east face (x = 2.1): its
+        // segment starts on the box boundary. The start-point nudge keeps the
+        // wall from blocking its own fixture, while the same wall still blocks
+        // the segment to the other side.
+        let level = split_room();
+        let visibility = Visibility::build(&level, &[QuerySite::new(2.1, 2.0, 6.0)]);
+        assert!(
+            !visibility.occludes(0, [2.1, 1.9, 2.0], [3.9, 1.9, 2.0]),
+            "a fixture flush on the wall lights the room it faces"
+        );
+        assert!(
+            visibility.occludes(0, [2.1, 1.9, 2.0], [0.1, 1.9, 2.0]),
+            "the same fixture cannot light through its own wall"
+        );
     }
 
     #[test]

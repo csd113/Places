@@ -455,10 +455,11 @@ impl fmt::Display for AssetType {
 /// Where an asset's resource comes from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AssetSource {
-    /// A physical file below the asset root, named by `model`.
+    /// A physical file below the asset root, named by `model`: a GLB for a
+    /// placeable, a PNG for a surface texture, an external decal sheet or a
+    /// fixture's visible face.
     File,
-    /// A resource the renderer generates in code (the decal atlas patterns, the
-    /// built-in fixture).
+    /// A resource the renderer generates in code (the decal atlas patterns).
     Generated,
     /// A resource-less definition composed from other catalog assets: a
     /// surface material names its base `texture` and carries the static
@@ -553,6 +554,12 @@ impl AssetEntry {
     #[must_use]
     pub fn is_texture(&self) -> bool {
         self.asset_type.as_str() == AssetType::TEXTURE
+    }
+
+    /// True when this asset is a light fixture definition.
+    #[must_use]
+    pub fn is_light(&self) -> bool {
+        self.asset_type.as_str() == AssetType::LIGHT
     }
 }
 
@@ -979,7 +986,8 @@ impl AssetCatalog {
         }
 
         // Second pass: every material must reference a texture this catalog
-        // actually declares, and every texture asset must be a PNG. Doing this
+        // actually declares, every texture asset must be a PNG, and every
+        // file-backed fixture must name the PNG face it draws. Doing this
         // after all entries exist means a material may be declared before the
         // texture it draws with, but never with a dangling reference.
         let entries: Vec<&AssetEntry> = catalog.entries.values().collect();
@@ -987,6 +995,16 @@ impl AssetCatalog {
             if entry.is_texture() && !has_png_extension(entry.model.as_deref()) {
                 return Err(format!(
                     "{}: a texture asset must name a `.png` file, found `{}`",
+                    entry.id,
+                    entry.model.as_deref().unwrap_or("(no model)")
+                ));
+            }
+            if entry.is_light()
+                && entry.source == AssetSource::File
+                && !has_png_extension(entry.model.as_deref())
+            {
+                return Err(format!(
+                    "{}: a file-backed light fixture must name a `.png` sheet, found `{}`",
                     entry.id,
                     entry.model.as_deref().unwrap_or("(no model)")
                 ));
@@ -1108,6 +1126,21 @@ impl AssetCatalog {
         self.get(id)
             .filter(|entry| entry.is_texture() && entry.source == AssetSource::File)
             .and_then(|entry| entry.model.as_deref())
+    }
+
+    /// The canonical PNG of a file-backed light fixture's visible face.
+    ///
+    /// A built-in fixture's mesh is generated in code, but what that mesh shows
+    /// is ordinary external artwork: the light entry names its own `.png` sheet
+    /// exactly like a file-backed decal, and the renderer resolves it through
+    /// the same catalog -> PNG -> texture-cache path a surface texture uses.
+    /// `None` for an unknown id, a generated fixture or a non-PNG resource.
+    #[must_use]
+    pub fn fixture_sheet_path(&self, id: &str) -> Option<&str> {
+        self.get(id)
+            .filter(|entry| entry.is_light() && entry.source == AssetSource::File)
+            .and_then(|entry| entry.model.as_deref())
+            .filter(|model| has_png_extension(Some(model)))
     }
 
     /// Every material entry, ordered by id.

@@ -411,6 +411,31 @@ class EnvironmentTextureTests(unittest.TestCase):
             self.assertEqual(by_id[material_id]["asset_type"], "material", material_id)
             self.assertEqual(by_id[material_id]["source"], "definition", material_id)
 
+    def test_every_light_fixture_ships_its_visible_face_as_a_png(self):
+        """A fixture's mesh is generated, but its visible face is real artwork."""
+        fixtures = catalog_entries("light")
+        self.assertGreaterEqual(len(fixtures), 3, "the fixture set is incomplete")
+        seen_sheets = set()
+        for fixture in fixtures:
+            self.assertEqual(fixture["source"], "file", fixture["id"])
+            model = fixture.get("model")
+            self.assertTrue(str(model).endswith(".png"), fixture["id"])
+            self.assertNotIn(model, seen_sheets, f"{fixture['id']}: {model} is reused")
+            seen_sheets.add(model)
+            path = PACKAGE / "assets" / model
+            self.assertTrue(path.is_file(), f"{fixture['id']}: {model} is missing")
+            data = path.read_bytes()
+            self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"), fixture["id"])
+            width, height = struct.unpack(">II", data[16:24])
+            self.assertGreater(width, 0, fixture["id"])
+            self.assertGreater(height, 0, fixture["id"])
+            self.assertLessEqual(width, 1024, fixture["id"])
+            self.assertLessEqual(height, 1024, fixture["id"])
+            # Fixture UVs never leave the sheet, so its dimensions must both be
+            # powers of two for the ES 2.0 target.
+            for dimension in (width, height):
+                self.assertEqual(dimension & (dimension - 1), 0, f"{fixture['id']}: {dimension}")
+
 
 class PoolContentTests(unittest.TestCase):
     """Goal 5: the Pool theme is real content, not a reserved category."""
@@ -449,7 +474,10 @@ class PoolContentTests(unittest.TestCase):
             fixture = by_id[fixture_id]
             self.assertEqual(fixture["theme"], "pool", fixture_id)
             self.assertEqual(fixture["asset_type"], "light", fixture_id)
-            self.assertEqual(fixture["source"], "generated", fixture_id)
+            self.assertEqual(fixture["source"], "file", fixture_id)
+            self.assertTrue(fixture["model"].startswith("environment/pool/"), fixture_id)
+            self.assertTrue(fixture["model"].endswith(".png"), fixture_id)
+            self.assertTrue((PACKAGE / "assets" / fixture["model"]).is_file(), fixture_id)
 
     def test_the_no_diving_sign_is_external_cut_out_artwork(self):
         by_id = {entry["id"]: entry for entry in catalog_entries()}

@@ -31,9 +31,9 @@ The engine is deliberately small and the content is deliberately editable:
   ceiling profile (flat or gable); `floor_regions` recess or raise rectangular
   parts of a room, which is how the empty pool basin and the region staircases
   are built.
-* **External artwork.** Surface materials, decal sheets and (optionally) level
-  pack textures are ordinary PNGs under `assets/`. Replace the file, restart,
-  see the new pixels — no Rust change and no recompilation.
+* **External artwork.** Surface materials, decal sheets, light fixture faces and
+  (optionally) level pack textures are ordinary PNGs under `assets/`. Replace
+  the file, restart, see the new pixels — no Rust change and no recompilation.
 * **A real catalog.** Levels never store a file path. They name a logical id
   (`core:desk`, `core:pool_tile_deck_01`, `spooner-man`) and `assets/catalog.json`
   resolves it to a file, a material definition or a generated resource.
@@ -117,7 +117,7 @@ cargo fmt --check
 cargo clippy --workspace --all-targets --all-features
 cargo test
 python3 tools/assets/validate.py          # catalog, resources, shipped + fixture levels
-python3 tools/textures/build.py --check   # surface and decal PNGs and their budgets
+python3 tools/textures/build.py --check   # surface, decal and fixture PNGs and their budgets
 python3 tools/props/build.py --check      # prop models exist and fit their budgets
 cd level-editor && npm test               # the legacy level editor still parses the catalog
 ```
@@ -197,14 +197,16 @@ a prop, and places through the same system.
 A level names a *material*; the catalog maps that material to a *texture* asset
 that owns the PNG, plus a world-space tiling period and a static tint. Replace
 the PNG under `assets/environment/<theme>/textures/` (or a decal sheet under
-`assets/environment/pool/decals/`, `assets/core/decals/`) and restart the game.
+`assets/environment/pool/decals/`, `assets/core/decals/`, or a light fixture's
+face under `assets/environment/<theme>/textures/lights/`) and restart the game.
 
-Every surface and decal PNG is an ordinary editable file; the ones under
-`tools/` regenerate the shipped set deterministically, but hand-painted artwork
-is just as valid. Add a new surface material without touching Rust: add the PNG,
-add a `texture` entry and a `material` entry to the catalog, then name the
-material from a level. `assets/README.md` documents the catalog format, the
-material/texture split and the asset budgets.
+Every surface, decal and fixture PNG is an ordinary editable file; the ones
+under `tools/` regenerate the shipped set deterministically, but hand-painted
+artwork is just as valid. Add a new surface material without touching Rust: add
+the PNG, add a `texture` entry and a `material` entry to the catalog, then name
+the material from a level. A light fixture's *mesh* is still code, but its face
+is the PNG its catalog entry names. `assets/README.md` documents the catalog
+format, the material/texture split and the asset budgets.
 
 **Colour space.** The renderer has no gamma handling: textures are sampled as
 authored and multiplied by a display-space baked shade. That is deliberate — the

@@ -49,7 +49,11 @@ fn shipped_catalog_classifies_environments_themes_and_entities() {
         fixture.theme.as_ref().map(AssetTheme::as_str),
         Some("office")
     );
-    assert_eq!(fixture.source, AssetSource::Generated);
+    assert_eq!(fixture.source, AssetSource::File);
+    assert_eq!(
+        catalog.fixture_sheet_path("core:fluorescent_panel_01"),
+        Some("environment/office/textures/lights/fluorescent_panel_01.png")
+    );
     assert!(!fixture.is_placeable());
 
     let generic = catalog.get("core:couch").expect("the shared couch");
@@ -394,7 +398,10 @@ fn levels_only_reference_catalog_ids() {
             }
         }
     }
-    assert!(levels >= 5, "expected the shipped level and the regression fixtures");
+    assert!(
+        levels >= 5,
+        "expected the shipped level and the regression fixtures"
+    );
     assert!(props >= 1, "expected placed props");
     assert!(
         spooner_levels >= 1,
@@ -489,9 +496,11 @@ fn renderer_and_catalog_agree_on_surface_and_decal_ids() {
         );
     }
 
-    // Every catalogued light fixture must have a built-in appearance, so a
-    // catalog entry can never silently render as some other fixture.
+    // Every catalogued light fixture must have a built-in appearance *and* a
+    // visible face the renderer can load: a fixture is generated geometry, but
+    // what it shows is external artwork, exactly like a decal sheet.
     let mut fixtures = 0usize;
+    let mut sheets: Vec<&str> = Vec::new();
     for entry in catalog.entries() {
         if entry.asset_type.as_str() != AssetType::LIGHT {
             continue;
@@ -504,8 +513,24 @@ fn renderer_and_catalog_agree_on_surface_and_decal_ids() {
         );
         assert_eq!(
             entry.source,
-            AssetSource::Generated,
-            "{}: the built-in fixtures are generated resources",
+            AssetSource::File,
+            "{}: a built-in fixture names its visible-face PNG",
+            entry.id
+        );
+        let model = catalog
+            .fixture_sheet_path(&entry.id)
+            .unwrap_or_else(|| panic!("{}: a light fixture needs a .png sheet", entry.id));
+        assert!(
+            !sheets.contains(&model),
+            "{}: sheet `{model}` is already claimed by another fixture",
+            entry.id
+        );
+        sheets.push(model);
+        assert!(
+            resolve_asset_root()
+                .map(|root| root.join(model).is_file())
+                .unwrap_or(false),
+            "{}: fixture sheet `{model}` is missing below assets/",
             entry.id
         );
     }
@@ -518,6 +543,10 @@ fn renderer_and_catalog_agree_on_surface_and_decal_ids() {
             .get(id)
             .unwrap_or_else(|| panic!("{id} must be catalogued"));
         assert_eq!(entry.asset_type.as_str(), AssetType::LIGHT, "{id}");
+        assert!(
+            catalog.fixture_sheet_path(id).is_some(),
+            "{id}: every built-in fixture must resolve a sheet"
+        );
     }
 }
 

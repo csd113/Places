@@ -1319,8 +1319,12 @@ fn group_l_lighting_multiplies_materials_instead_of_replacing_them() {
     // apart once the light probe offset is applied, so the local pool differs
     // slightly between them; the tolerance only has to be tighter than the
     // 13.6% material difference the test is proving.
+    // The comparison needs a sample far enough from the wall's own end caps
+    // that both probes see the same pool; the first matching pair can sit in
+    // the corner where the two probe points see measurably different falloff.
     let pair = north
         .iter()
+        .filter(|n| n.pos[0].abs() < 3.0)
         .flat_map(|n| {
             south.iter().filter(move |s| {
                 (s.pos[0] - n.pos[0]).abs() < 1e-3 && (s.pos[1] - n.pos[1]).abs() < 1e-3

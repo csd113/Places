@@ -135,8 +135,9 @@ pub struct LevelMeshBatches {
 ///
 /// The order matters: batches are emitted group-major, so a draw loop walking
 /// [`LevelMesh::static_batches`] in order only rebinds its texture once per
-/// group. `Light` and `PropFallback` share the unshaded light sheet; `Decal` is
-/// its own pass and always drawn last.
+/// group. `Light` and `PropFallback` share the unshaded light sheet — a light
+/// batch with a sheet index binds its fixture's face, a bare one the white
+/// sheet; `Decal` is its own pass and always drawn last.
 ///
 /// There is deliberately no per-material variant here: *which* texture a wall,
 /// floor or ceiling draws is the level's [`SurfaceKey::material`] index into
@@ -153,11 +154,15 @@ pub enum SurfaceKind {
     Decal,
 }
 
-/// One surface's material index in a [`crate::materials::MaterialTable`].
+/// One surface family's slot: a material index or a sheet index.
 ///
-/// [`MATERIAL_NONE`] is the sentinel for families that do not draw a level
-/// material (light panels, prop placeholder boxes, decals), which bind their
-/// own shared textures.
+/// `Floor`, `Ceiling` and `Wall` index the level's
+/// [`crate::materials::MaterialTable`]; `Light` indexes the level's resolved
+/// fixture sheets (one per [`crate::lighting::FixtureKind`]); `Decal` indexes
+/// the level's decal sheets. [`MATERIAL_NONE`] is the sentinel for a family
+/// that binds its own shared fallback sheet instead: the untextured white sheet
+/// for a light's metal housing, a prop placeholder box, or the diagnostic decal
+/// pattern.
 pub type MaterialIndex = u16;
 
 /// Sentinel material index for a key that does not bind a level material.

@@ -1125,10 +1125,8 @@ fn test_the_official_demo_exercises_every_showcased_feature() {
 fn test_custom_levels_are_discovered_and_loaded() {
     use zip::write::SimpleFileOptions;
 
-    let root = std::env::temp_dir().join(format!(
-        "liminal-custom-level-test-{}",
-        std::process::id()
-    ));
+    let root =
+        std::env::temp_dir().join(format!("liminal-custom-level-test-{}", std::process::id()));
     let assets_dir = root.join("assets/levels");
     let levels_dir = root.join("levels");
     let import_dir = root.join("import");
@@ -1144,8 +1142,7 @@ fn test_custom_levels_are_discovered_and_loaded() {
         "rooms": [{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }],
         "ceiling_lights": [{ "fixture": "core:ceiling_panel_01", "x": 2.0, "z": 2.0 }]
     }"#;
-    fs::write(levels_dir.join("community_room.json"), level_json)
-        .expect("write the drop-in level");
+    fs::write(levels_dir.join("community_room.json"), level_json).expect("write the drop-in level");
 
     let manager = LevelManager::with_paths(assets_dir, levels_dir.clone(), import_dir.clone());
     let entry = manager
@@ -1156,9 +1153,7 @@ fn test_custom_levels_are_discovered_and_loaded() {
         .expect("a drop-in level is discovered");
     assert_eq!(entry.source_type, LevelSourceType::CustomJson);
     assert_eq!(entry.name, "Community Room");
-    let loaded = manager
-        .load_level(&entry)
-        .expect("the drop-in level loads");
+    let loaded = manager.load_level(&entry).expect("the drop-in level loads");
     assert_eq!(loaded.level.name, "Community Room");
 
     // A `.zip` pack in the same directory is discovered and loaded as a pack.
@@ -1175,15 +1170,13 @@ fn test_custom_levels_are_discovered_and_loaded() {
             "spawn": { "x": 1.0, "z": 1.0 },
             "rooms": [{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }]
         }"#;
-        writer.start_file("level.json", options).expect("pack level.json");
+        writer
+            .start_file("level.json", options)
+            .expect("pack level.json");
         std::io::Write::write_all(&mut writer, pack_json.as_bytes()).expect("write level.json");
         writer.finish().expect("finish the pack");
     }
-    let manager = LevelManager::with_paths(
-        root.join("assets/levels"),
-        levels_dir,
-        import_dir,
-    );
+    let manager = LevelManager::with_paths(root.join("assets/levels"), levels_dir, import_dir);
     let pack_entry = manager
         .entries()
         .iter()
@@ -1213,7 +1206,10 @@ fn test_the_default_level_is_the_shipped_demo() {
         official.len(),
         1,
         "Places Demo must be the only bundled level, found {:?}",
-        official.iter().map(|entry| entry.id.as_str()).collect::<Vec<_>>()
+        official
+            .iter()
+            .map(|entry| entry.id.as_str())
+            .collect::<Vec<_>>()
     );
     assert_eq!(official[0].id, "places_demo");
 
@@ -1595,4 +1591,151 @@ fn test_vertical_diagnostic_level_exercises_the_new_geometry() {
         mesh.batches.decal_batch.count,
         i32::try_from(level.decals.len()).unwrap_or(0) * 6
     );
+}
+
+// ------------------------------------------------------------- fixture sheets
+
+/// The visible face of a fixture family is ordinary external artwork: the
+/// catalog names its PNG, the loader decodes it once through the shared session
+/// cache, and every further light of that family reuses the same sheet.
+#[test]
+fn test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "fixture_sheets",
+            "name": "Fixture Sheets",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 6.0, "height": 3.0 }],
+            "ceiling_lights": [
+                { "fixture": "core:pool_light_round", "x": 2.0, "z": 2.0 },
+                { "fixture": "core:pool_light_round", "x": 4.0, "z": 2.0 },
+                { "fixture": "core:pool_light_wall", "x": 6.0, "z": 2.0,
+                  "mount": "wall", "y": 1.7, "rotation_degrees": 180.0 },
+                { "fixture": "core:fluorescent_panel_01", "x": 8.0, "z": 2.0 }
+            ]
+        }"#,
+    )
+    .expect("valid level");
+    let catalog = crate::assets::AssetCatalog::load_default();
+    let mut cache = TextureCache::new();
+    let sheets = resolve_fixture_sheets(&level, &catalog, None, &mut cache);
+
+    // One sheet per family, in the level's first-use order; the second round
+    // fixture adds nothing.
+    let kinds: Vec<crate::lighting::FixtureKind> = sheets.iter().map(|sheet| sheet.kind).collect();
+    assert_eq!(
+        kinds,
+        [
+            crate::lighting::FixtureKind::RoundRecessed,
+            crate::lighting::FixtureKind::WallSconce,
+            crate::lighting::FixtureKind::FluorescentPanel,
+        ]
+    );
+
+    let sheet_for = |kind| {
+        sheets
+            .iter()
+            .find(|sheet| sheet.kind == kind)
+            .unwrap_or_else(|| panic!("{kind:?} must resolve a sheet"))
+    };
+    for sheet in &sheets {
+        assert_eq!(
+            sheet.origin,
+            crate::materials::TextureOrigin::Catalog,
+            "{:?} comes from the catalog",
+            sheet.kind
+        );
+        assert!(
+            sheet.key.to_ascii_lowercase().ends_with(".png") && !sheet.key.starts_with("assets/"),
+            "{:?}: the key is the catalog-relative PNG path, found `{}`",
+            sheet.kind,
+            sheet.key
+        );
+        assert!(
+            cache.get(&sheet.key).is_some(),
+            "{:?}: the decoded image is shared with the session cache",
+            sheet.kind
+        );
+        // Fixture faces are opaque surfaces; alpha would only cost sorting.
+        for texel in sheet.image.rgba.as_chunks::<4>().0 {
+            assert_eq!(texel[3], 255, "{:?} must be fully opaque", sheet.kind);
+        }
+    }
+
+    // The shipped sheets keep the aspect each face is mapped with, so nothing
+    // is stretched: the panel and the wall lens are 2:1, the round sheet 1:1.
+    let dimensions = |kind| {
+        let sheet = sheet_for(kind);
+        (sheet.image.width, sheet.image.height)
+    };
+    assert_eq!(
+        dimensions(crate::lighting::FixtureKind::FluorescentPanel),
+        (256, 128)
+    );
+    assert_eq!(
+        dimensions(crate::lighting::FixtureKind::RoundRecessed),
+        (128, 128)
+    );
+    assert_eq!(
+        dimensions(crate::lighting::FixtureKind::WallSconce),
+        (128, 64)
+    );
+}
+
+/// A fixture with no sheet to draw (an unknown id, or a `pack:` id whose pack
+/// carries nothing) resolves to nothing at all: the family draws the shared
+/// white sheet instead of borrowing some other fixture's artwork.
+#[test]
+fn test_fixtures_without_a_sheet_resolve_to_nothing() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "sheetless_fixtures",
+            "name": "Sheetless Fixtures",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 6.0, "height": 3.0 }],
+            "ceiling_lights": [
+                { "fixture": "core:future_panel", "x": 2.0, "z": 2.0 },
+                { "fixture": "pack:my_panel", "x": 4.0, "z": 4.0 }
+            ]
+        }"#,
+    )
+    .expect("valid level");
+    let catalog = crate::assets::AssetCatalog::load_default();
+    let mut cache = TextureCache::new();
+    let sheets = resolve_fixture_sheets(&level, &catalog, None, &mut cache);
+    assert!(
+        sheets.is_empty(),
+        "no sheet was named, so none may be resolved: {sheets:?}"
+    );
+}
+
+/// The shipped demo places all three built-in families, and every one of them
+/// reaches the loaded level with its catalog sheet attached: no fixture can
+/// silently fall back to the untextured sheet on the level the game boots into.
+#[test]
+fn test_the_demo_loads_every_fixture_family_with_its_sheet() {
+    let manager = LevelManager::new();
+    let loaded = manager.load_default().expect("the demo loads");
+
+    let families: Vec<crate::lighting::FixtureKind> = loaded
+        .level
+        .ceiling_lights
+        .iter()
+        .map(|light| crate::lighting::fixture_profile(&light.fixture).kind)
+        .collect();
+    for kind in [
+        crate::lighting::FixtureKind::FluorescentPanel,
+        crate::lighting::FixtureKind::RoundRecessed,
+        crate::lighting::FixtureKind::WallSconce,
+    ] {
+        assert!(families.contains(&kind), "the demo places {kind:?}");
+        let sheet = loaded
+            .light_sheets
+            .iter()
+            .find(|sheet| sheet.kind == kind)
+            .unwrap_or_else(|| panic!("{kind:?} must resolve its sheet"));
+        assert!(!sheet.image.rgba.is_empty(), "{kind:?} sheet is empty");
+    }
 }

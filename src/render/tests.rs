@@ -26,6 +26,7 @@ use crate::test_support::{assert_exact, assert_exact_array, assert_exact_named};
 
 use super::*;
 use crate::render::decals::{DECAL_ATLAS_SIZE, generate_decal_atlas};
+
 use crate::spatial::{DepthRange, Frustum};
 
 // ------------------------------------------------------- vertex packing
@@ -671,7 +672,27 @@ fn material_vertices(mesh: &LevelMesh, level: &LevelDef, material_id: &str) -> V
     let index = table
         .index_of(material_id)
         .unwrap_or_else(|| panic!("{material_id} is not referenced by the level"));
-    mesh.triangles_for_material(index)
+    // Fixture sheets are material-indexed too, so a material query must stay
+    // on the surface families it is about: a wall material and a fixture sheet
+    // can share an index without being the same thing.
+    let mut out = Vec::new();
+    for range in &mesh.ranges {
+        if range.key.material != index
+            || !matches!(
+                range.key.kind,
+                SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall | SurfaceKind::Decal
+            )
+        {
+            continue;
+        }
+        out.extend(
+            range
+                .indices
+                .iter()
+                .filter_map(|i| range.vertices.get(usize::from(*i)).copied()),
+        );
+    }
+    out
 }
 
 // ---------------------------------------------------- material overrides
@@ -871,6 +892,9 @@ fn wall_material_and_face_overrides_apply_only_to_the_faces_they_name() {
     // The maintained faces belong to the second wall's north side, which
     // faces the room interior.
     let maintained_bounds = xz_bounds(&maintained);
+    for v in maintained.iter().take(40) {
+        println!("maintained vertex {:?} color {:?}", v.pos, v.color);
+    }
     assert!(maintained_bounds.2 >= 7.7, "{maintained_bounds:?}");
     assert!(maintained_bounds.3 <= 8.0, "{maintained_bounds:?}");
     assert!(
@@ -921,11 +945,12 @@ fn two_cluster_level(props_per_cluster: usize) -> LevelDef {
 }
 
 /// The view-projection `render_scene` builds, so culling tests exercise the
-/// same camera convention the game uses.
+/// same camera convention the game uses: OpenGL's `[-1, 1]` clip depth against
+/// the same near/far planes.
 fn scene_frustum(eye: glam::Vec3, yaw_degrees: f32, pitch_degrees: f32) -> Frustum {
     let aspect = 480.0 / 272.0;
     let fov = vertical_fov_for_aspect(60.0, aspect);
-    let proj = glam::Mat4::perspective_rh(fov.to_radians(), aspect, 0.1, 100.0);
+    let proj = glam::Mat4::perspective_rh_gl(fov.to_radians(), aspect, SCENE_NEAR_M, SCENE_FAR_M);
     let pitch = pitch_degrees.to_radians();
     let yaw = yaw_degrees.to_radians();
     let forward = glam::Vec3::new(
@@ -934,7 +959,30 @@ fn scene_frustum(eye: glam::Vec3, yaw_degrees: f32, pitch_degrees: f32) -> Frust
         -yaw.cos() * pitch.cos(),
     );
     let view = glam::Mat4::look_at_rh(eye, eye + forward, glam::Vec3::Y);
-    Frustum::from_view_projection(&(proj * view), DepthRange::ZeroToOne)
+    Frustum::from_view_projection(&(proj * view), DepthRange::NegativeOneToOne)
+}
+
+#[test]
+fn the_scene_projection_uses_the_full_depth_buffer() {
+    // A point on the near plane must land on the depth buffer's near edge and
+    // one on the far plane on its far edge. `perspective_rh` (glam's `[0, 1]`
+    // convention) would put them at 0.5 and 1.0, throwing away half the depth
+    // resolution and with it the margin coplanar surfaces need.
+    let aspect = 480.0 / 272.0;
+    let proj =
+        glam::Mat4::perspective_rh_gl(60.0f32.to_radians(), aspect, SCENE_NEAR_M, SCENE_FAR_M);
+    let depth_of = |z: f32| {
+        let clip = proj * glam::Vec4::new(0.0, 0.0, -z, 1.0);
+        clip.z / clip.w
+    };
+    assert!((depth_of(SCENE_NEAR_M) + 1.0).abs() < 1e-5, "near edge");
+    assert!((depth_of(SCENE_FAR_M) - 1.0).abs() < 1e-5, "far edge");
+    // The plane values themselves are gameplay constants: the eye sits about a
+    // collision radius from every wall, and the far plane covers the largest
+    // shipped level several times over. Pinned so a tuning change has to come
+    // with its own precision review.
+    assert_exact(SCENE_NEAR_M, 0.1);
+    assert_exact(SCENE_FAR_M, 100.0);
 }
 
 /// Distinct vertices the frustum would submit for a level's static ranges.
@@ -2825,8 +2873,8 @@ fn coincident_overlay_walls_become_one_surface_with_material_runs() {
     let coalesced: Vec<_> = units
         .iter()
         .filter_map(|unit| match unit {
-            WallUnit::Coalesced { wall, runs } => Some((wall, runs)),
-            WallUnit::Plain(_) => None,
+            WallUnit::Coalesced { wall, runs, .. } => Some((wall, runs)),
+            WallUnit::Plain { .. } => None,
         })
         .collect();
     assert_eq!(coalesced.len(), 1, "the overlay is resolved into the host");
@@ -2886,17 +2934,30 @@ fn an_overlay_only_covers_a_hole_when_it_is_solid_there() {
         &crate::level::LevelSurfaces::new(&covered),
         &covered_lookup,
     );
+    let surfaces = crate::level::LevelSurfaces::new(&covered);
     let synthetic = units
         .iter()
         .find_map(|unit| match unit {
-            WallUnit::Coalesced { wall, .. } => Some(wall),
-            WallUnit::Plain(_) => None,
+            WallUnit::Coalesced { slices, .. } => Some(slices.clone()),
+            WallUnit::Plain { .. } => None,
         })
         .expect("coalesced unit");
+    // The union of an opaque overlay over the host's window is solid: its
+    // slices partition the whole group rectangle, with no window left open.
+    let area: f32 = synthetic
+        .iter()
+        .map(|slice| (slice.end - slice.start) * (slice.top - slice.bottom))
+        .sum();
     assert!(
-        synthetic.openings.is_empty(),
-        "an opening covered by every-overlay solid must stay closed"
+        (area - 30.0).abs() < 1e-2,
+        "an opaque overlay must close the window: union area {area}"
     );
+    assert_exact_named(synthetic[0].start, 0.0, "closed union start");
+    assert!(
+        (synthetic[synthetic.len() - 1].end - 10.0).abs() < 1e-3,
+        "closed union end"
+    );
+    let _ = surfaces;
 
     // When both walls carry the same door, the combined surface keeps it.
     let shared = coincident_wall_level(
@@ -2914,16 +2975,27 @@ fn an_overlay_only_covers_a_hole_when_it_is_solid_there() {
     let synthetic = units
         .iter()
         .find_map(|unit| match unit {
-            WallUnit::Coalesced { wall, .. } => Some(wall),
-            WallUnit::Plain(_) => None,
+            WallUnit::Coalesced { slices, .. } => Some(slices.clone()),
+            WallUnit::Plain { .. } => None,
         })
         .expect("coalesced unit");
-    assert_eq!(
-        synthetic.openings.len(),
-        1,
-        "the shared door survives the merge"
+    // Both walls cut the same door, so the union keeps exactly that hole: the
+    // solid area is the full rectangle minus the door.
+    let solid: f32 = synthetic
+        .iter()
+        .map(|slice| (slice.end - slice.start) * (slice.top - slice.bottom))
+        .sum();
+    let expected = 30.0 - 2.1;
+    assert!(
+        (solid - expected).abs() < 1e-2,
+        "the shared door must survive the merge: solid {solid}, expected {expected}"
     );
-    assert_exact_named(synthetic.openings[0].offset, 2.5, "shared door offset");
+    assert!(
+        synthetic.iter().any(|slice| slice.bottom >= 2.1 - 1e-3
+            && slice.start <= 2.5 + 1e-3
+            && slice.end >= 3.5 - 1e-3),
+        "the header above the shared door must remain solid"
+    );
 }
 
 #[test]
@@ -2988,6 +3060,234 @@ fn test_elevated_room_shifts_floor_and_ceiling_together() {
     // The fixture hangs below the real ceiling, not at the world floor.
     let lights = batch_slice(&mesh, SurfaceKind::Light);
     assert!((y_bounds(&lights).1 - (5.0 - 0.01)).abs() < 1e-4);
+}
+
+// --------------------------------------------------------- fixture sheets
+
+/// One room with one fixture of every built-in family, at authored heights.
+fn fixture_family_level() -> LevelDef {
+    LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "fixture_families",
+            "name": "Fixture Families",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 6.0, "height": 3.0 }],
+            "ceiling_lights": [
+                { "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 3.0 },
+                { "fixture": "core:pool_light_round", "x": 6.0, "z": 3.0 },
+                { "fixture": "core:pool_light_wall", "x": 10.0, "z": 3.0,
+                  "mount": "wall", "y": 1.7 }
+            ]
+        }"#,
+    )
+    .expect("valid fixture family level")
+}
+
+/// The sheet slot of a family, as the mesh format carries it.
+fn sheet_slot(kind: crate::lighting::FixtureKind) -> MaterialIndex {
+    MaterialIndex::try_from(kind.index()).expect("three families fit u16")
+}
+
+/// UV extents of a vertex run, as `(min_u, max_u, min_v, max_v)`.
+fn uv_bounds(vertices: &[Vertex]) -> (f32, f32, f32, f32) {
+    let mut bounds = (f32::MAX, f32::MIN, f32::MAX, f32::MIN);
+    for vertex in vertices {
+        bounds.0 = bounds.0.min(vertex.uv[0]);
+        bounds.1 = bounds.1.max(vertex.uv[0]);
+        bounds.2 = bounds.2.min(vertex.uv[1]);
+        bounds.3 = bounds.3.max(vertex.uv[1]);
+    }
+    bounds
+}
+
+/// Signed area of a quad's corner ring, in the plane its axes span.
+fn quad_area(points: [[f32; 2]; 4]) -> f32 {
+    let mut twice = 0.0;
+    for index in 0..4 {
+        let current = points[index];
+        let next = points[(index + 1) % 4];
+        twice = next[0].mul_add(-current[1], current[0].mul_add(next[1], twice));
+    }
+    twice * 0.5
+}
+
+#[test]
+fn every_fixture_family_has_a_stable_sheet_slot() {
+    assert_eq!(crate::lighting::FixtureKind::ALL.len(), 3);
+    for (slot, kind) in crate::lighting::FixtureKind::ALL.iter().enumerate() {
+        assert_eq!(kind.index(), slot, "{kind:?} drifted to another sheet slot");
+    }
+}
+
+/// A family's luminous faces bind that family's sheet, and only that family's:
+/// a level that mixes an office panel with two pool lights never draws one
+/// fixture with another fixture's artwork.
+#[test]
+fn fixture_faces_carry_their_own_family_sheet_and_the_housing_stays_bare() {
+    use crate::lighting::FixtureKind;
+
+    let level = fixture_family_level();
+    let mesh = build_level_geometry(&level);
+
+    // The panel face is one quad, the wall luminaire's lens one quad, and the
+    // round diffuser the ten segments of its ring.
+    for (kind, quads) in [
+        (FixtureKind::FluorescentPanel, 1),
+        (FixtureKind::RoundRecessed, 10),
+        (FixtureKind::WallSconce, 1),
+    ] {
+        let lit = mesh.triangles_for_key(SurfaceKey::new(SurfaceKind::Light, sheet_slot(kind)));
+        assert_eq!(
+            lit.len(),
+            quads * 6,
+            "{kind:?} must emit its lit face on its own sheet slot"
+        );
+    }
+
+    // The flat metal housing keeps the bare key: two panel bezels, the round
+    // bezel ring plus can, and the wall housing's four sides.
+    let housing = mesh.triangles_for_key(SurfaceKey::bare(SurfaceKind::Light));
+    assert_eq!(housing.len(), (2 + 20 + 4) * 6);
+    let lit_plus_housing = batch_slice(&mesh, SurfaceKind::Light).len();
+    assert_eq!(
+        lit_plus_housing,
+        housing.len() + (1 + 10 + 1) * 6,
+        "every fixture quad is either a lit face or housing"
+    );
+}
+
+/// A sheet is fitted once across the face it draws: UVs stay inside the sheet,
+/// the face aspect matches the sheet's own aspect, and the mapping keeps its
+/// orientation, so nothing stretches, mirrors or tiles.
+#[test]
+fn fixture_sheets_are_fitted_once_and_keep_their_aspect() {
+    use crate::lighting::FixtureKind;
+
+    let level = fixture_family_level();
+    let mesh = build_level_geometry(&level);
+    let sheet =
+        |kind| mesh.triangles_for_key(SurfaceKey::new(SurfaceKind::Light, sheet_slot(kind)));
+
+    // Panel: 1.2 x 0.6 m face on a 2:1 sheet, u along the width axis.
+    let panel = sheet(FixtureKind::FluorescentPanel);
+    assert_eq!(uv_bounds(&panel), (0.0, 1.0, 0.0, 1.0));
+    let (x0, x1, z0, z1) = xz_bounds(&panel);
+    assert!((x1 - x0 - 1.2).abs() < 1e-5 && (z1 - z0 - 0.6).abs() < 1e-5);
+    assert!(
+        ((x1 - x0) / (z1 - z0) - 2.0).abs() < 1e-5,
+        "the panel face is 2:1, so its sheet must be too"
+    );
+    // Orientation: the sheet's top row (v = 0) is the panel edge at -z, and u
+    // runs with +x. A rotation of the fixture rotates this with it.
+    let corner = |x: f32, z: f32| {
+        panel
+            .iter()
+            .find(|vertex| (vertex.pos[0] - x).abs() < 1e-5 && (vertex.pos[2] - z).abs() < 1e-5)
+            .map_or_else(|| panic!("no panel corner at {x},{z}"), |vertex| vertex.uv)
+    };
+    assert_eq!(corner(x0, z0), [0.0, 0.0]);
+    assert_eq!(corner(x1, z0), [1.0, 0.0]);
+    assert_eq!(corner(x0, z1), [0.0, 1.0]);
+
+    // Wall lens: 0.4 x 0.2 m on a 2:1 sheet, fitted once.
+    let wall = sheet(FixtureKind::WallSconce);
+    assert_eq!(uv_bounds(&wall), (0.0, 1.0, 0.0, 1.0));
+    let (wall_x0, wall_x1, _, _) = xz_bounds(&wall);
+    let (lens_bottom, lens_top) = y_bounds(&wall);
+    assert!((wall_x1 - wall_x0 - 0.4).abs() < 1e-5);
+    assert!((lens_top - lens_bottom - 0.2).abs() < 1e-5);
+    assert!(
+        (((wall_x1 - wall_x0) / (lens_top - lens_bottom)) - 2.0).abs() < 1e-5,
+        "the lens is 2:1, so its sheet must be too"
+    );
+
+    // Round diffuser: planar, inside the sheet, and isotropic - a square sheet
+    // covers the 0.44 m disc, so one texel is the same size on both axes.
+    let round = sheet(FixtureKind::RoundRecessed);
+    let (u0, u1, v0, v1) = uv_bounds(&round);
+    assert!(
+        u0 >= 0.0 && u1 <= 1.0 && v0 >= 0.0 && v1 <= 1.0,
+        "the diffuser samples the sheet once"
+    );
+    let radius = 0.22_f32;
+    let (rx0, rx1, rz0, rz1) = xz_bounds(&round);
+    let centre_x = f32::midpoint(rx0, rx1);
+    let centre_z = f32::midpoint(rz0, rz1);
+    let mut outermost = 0.0_f32;
+    for vertex in &round {
+        let dx = vertex.pos[0] - centre_x;
+        let dz = vertex.pos[2] - centre_z;
+        outermost = outermost.max(dx.hypot(dz));
+        // Planar and isotropic: a square sheet covers the 0.44 m disc, so one
+        // texel is the same size on both in-plane axes.
+        let expected = [
+            (dx / radius).mul_add(0.5, 0.5),
+            (dz / radius).mul_add(0.5, 0.5),
+        ];
+        assert!(
+            (vertex.uv[0] - expected[0]).abs() < 1e-5 && (vertex.uv[1] - expected[1]).abs() < 1e-5,
+            "the diffuser's UVs are planar in the fixture plane: {:?} vs {expected:?}",
+            vertex.uv
+        );
+    }
+    assert!(
+        (outermost - radius).abs() < 1e-5,
+        "the diffuser's outer edge is the sheet's inscribed circle, found {outermost}"
+    );
+    // Orientation: every segment's UV ring winds the same way as its world
+    // ring, so no segment is mirrored. A six-vertex quad chunk is
+    // [p0, p1, p2, p0, p2, p3], so its corners are indices 0, 1, 2 and 5.
+    for quad in round.as_chunks::<6>().0 {
+        let corner = |index: usize| -> [f32; 2] { [quad[index].pos[0], quad[index].pos[2]] };
+        let uv_corner = |index: usize| -> [f32; 2] { quad[index].uv };
+        let world_area = quad_area([corner(0), corner(1), corner(2), corner(5)]);
+        let uv_area = quad_area([uv_corner(0), uv_corner(1), uv_corner(2), uv_corner(5)]);
+        assert!(
+            world_area * uv_area > 0.0,
+            "a diffuser segment is mirrored: world {world_area}, uv {uv_area}"
+        );
+    }
+}
+
+/// Adjacent diffuser segments share their edge UVs exactly, and the ring closes
+/// on itself at the sheet's edge: the radiating artwork cannot show a seam.
+#[test]
+fn the_round_diffuser_ring_has_no_uv_seam() {
+    let level = fixture_family_level();
+    let mesh = build_level_geometry(&level);
+    let round = mesh.triangles_for_key(SurfaceKey::new(
+        SurfaceKind::Light,
+        sheet_slot(crate::lighting::FixtureKind::RoundRecessed),
+    ));
+
+    let segments = round.as_chunks::<6>().0;
+    assert_eq!(segments.len(), 10);
+    // Corner order is outer0, outer1, inner1, inner0, i.e. within a chunk
+    // [0, 1, 2, 0, 2, 3]: the high-angle corners (1 and 2) of one segment are
+    // the low-angle corners (0 and 5) of the next.
+    for pair in segments.windows(2) {
+        assert_eq!(pair[0][1].uv, pair[1][0].uv);
+        assert_eq!(pair[0][2].uv, pair[1][5].uv);
+    }
+    let last = segments[9];
+    let first = segments[0];
+    assert!(
+        (last[1].uv[0] - 1.0).abs() < 1e-5,
+        "the ring closes at u = 1"
+    );
+    assert!(
+        (first[0].uv[0] - 1.0).abs() < 1e-5,
+        "and the next segment starts there"
+    );
+    assert!(
+        (last[1].uv[1] - first[0].uv[1]).abs() < 1e-6,
+        "the closed seam shares its v too"
+    );
+    assert!(
+        (last[2].uv[1] - first[5].uv[1]).abs() < 1e-6,
+        "and so does its inner edge"
+    );
 }
 
 #[test]
@@ -3352,7 +3652,7 @@ fn a_wall_with_no_twin_is_emitted_exactly_as_authored() {
     let units = wall_units(&level, &crate::level::LevelSurfaces::new(&level), &lookup);
     assert_eq!(units.len(), 1);
     assert!(
-        matches!(units[0], WallUnit::Plain(_)),
+        matches!(units[0], WallUnit::Plain { .. }),
         "a wall with no coincident twin must not be rewritten"
     );
     let mesh = build_level_geometry(&level);
@@ -3384,20 +3684,39 @@ fn the_shipped_demo_and_the_rendering_fixture_resolve_their_stain_overlays() {
             coalesced >= 1,
             "{name}: expected the authored stain overlays to coalesce, got {coalesced}"
         );
-        // Every coalesced unit must cover its whole span with runs, so no
-        // face can fall back to the host material at a run boundary.
+        // Every coalesced unit's material runs must exactly partition its
+        // solid profile: each slice's length span is covered by runs at the
+        // slice's own height, so no face can fall back to the host material at
+        // a run boundary.
         for unit in &units {
-            if let WallUnit::Coalesced { wall, runs } = unit {
+            if let WallUnit::Coalesced { slices, runs, .. } = unit {
                 assert!(!runs.is_empty());
-                assert_exact_named(runs[0].start, 0.0, "first run starts at the wall origin");
-                assert!(
-                    (runs[runs.len() - 1].end - wall.length()).abs() < 1e-3,
-                    "{name}: the last material run must end with the wall"
-                );
-                for pair in runs.windows(2) {
+                for slice in slices {
+                    let mut band: Vec<&WallMaterialRun> = runs
+                        .iter()
+                        .filter(|run| {
+                            (run.bottom - slice.bottom).abs() < 1e-3
+                                && (run.top - slice.top).abs() < 1e-3
+                                && run.start >= slice.start - 1e-3
+                                && run.end <= slice.end + 1e-3
+                        })
+                        .collect();
+                    band.sort_by(|a, b| {
+                        a.start
+                            .partial_cmp(&b.start)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    });
+                    let mut cursor = slice.start;
+                    for run in band {
+                        assert!(
+                            (run.start - cursor).abs() < 1e-3,
+                            "{name}: a solid slice is not partitioned by its runs"
+                        );
+                        cursor = run.end;
+                    }
                     assert!(
-                        (pair[0].end - pair[1].start).abs() < 1e-3,
-                        "{name}: material runs must be contiguous"
+                        (cursor - slice.end).abs() < 1e-3,
+                        "{name}: the runs must reach the end of their solid slice"
                     );
                 }
             }
