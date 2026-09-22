@@ -2719,7 +2719,7 @@ fn a_catalogued_png_decal_draws_from_its_own_sheet() {
 }
 
 #[test]
-fn a_wall_decal_lies_exactly_on_its_wall_plane_and_faces_the_room() {
+fn a_wall_decal_lies_on_its_wall_plane_lifted_by_the_decal_offset() {
     let level = level_with_decals(
         r#"{ "x": 3.0, "y": 1.5, "z": 0.4, "width": 2.0, "height": 1.0,
              "material": "core:decal_test_01", "surface": "wall_south" }"#,
@@ -2729,10 +2729,14 @@ fn a_wall_decal_lies_exactly_on_its_wall_plane_and_faces_the_room() {
     let mesh = build_level_geometry(&level);
     let quad = batch_slice(&mesh, SurfaceKind::Decal);
     assert_eq!(mesh.batches.decal_batch.count, 6, "one decal is one quad");
-    // Every corner sits exactly on the authored wall plane, not on a
-    // nudged or biased copy of it.
+    // Every corner sits on the authored wall plane, lifted out of the wall by
+    // exactly the shared decal surface offset and no more.
     for vertex in &quad {
-        assert_exact_named(vertex.pos[2], 0.4, "wall decal plane");
+        assert_exact_named(
+            vertex.pos[2],
+            0.4 + DECAL_SURFACE_OFFSET_M,
+            "wall decal plane",
+        );
         assert!(vertex.pos[1] >= 0.99 && vertex.pos[1] <= 2.01);
         assert!(vertex.pos[0] >= 1.99 && vertex.pos[0] <= 4.01);
     }
@@ -2750,7 +2754,7 @@ fn a_floor_decal_stays_flat_and_rotates_in_its_plane() {
     let mesh = build_level_geometry(&level);
     let quad = batch_slice(&mesh, SurfaceKind::Decal);
     for vertex in &quad {
-        assert_exact_named(vertex.pos[1], 0.0, "floor decal plane");
+        assert_exact_named(vertex.pos[1], DECAL_SURFACE_OFFSET_M, "floor decal plane");
         // A quarter turn puts the 2 m width along Z and the 1 m height
         // along X, centred on the anchor.
         assert!(vertex.pos[0] >= 2.49 && vertex.pos[0] <= 3.51);
@@ -2943,16 +2947,238 @@ fn decals_are_lit_by_the_rooms_own_baked_light() {
 #[test]
 fn the_decal_depth_bias_is_deterministic_and_sub_visible() {
     let (factor, units) = DECAL_POLYGON_OFFSET;
-    assert_exact(factor, 0.0);
+    // Both terms pull towards the camera (negative `glPolygonOffset`), and the
+    // slope-scaled term is present so grazing angles and long distances keep
+    // their bias after the constant term is below the buffer's resolution.
+    assert!(
+        factor < 0.0 && units < 0.0,
+        "the bias must pull decals towards the camera, got ({factor}, {units})"
+    );
     assert!(
         (-4.0..0.0).contains(&units),
-        "bias must pull decals slightly towards the camera, got {units}"
+        "the constant bias must stay a couple of depth steps, got {units}"
     );
-    assert!(units == -2.0, "the bias is part of the render contract");
+    assert!(
+        factor == -1.0 && units == -4.0,
+        "the bias is part of the render contract"
+    );
     assert!((0.0..1.0).contains(&DECAL_ALPHA_CUTOFF));
-    // A constant (factor-free) bias is what keeps a grazing-angle decal
-    // stable: the offset does not scale with the depth slope.
-    assert_exact(factor, 0.0);
+
+    // The geometry half of the contract: a strictly positive, sub-millimetre
+    // normal offset that a rasteriser cannot round away in the near field and
+    // no one can see as hover. It must be smaller than the thinnest fixture in
+    // the game, so a decal can never be lifted into a nearby surface.
+    const { assert!(DECAL_SURFACE_OFFSET_M > 0.0) };
+    const { assert!(DECAL_SURFACE_OFFSET_M <= 1.0e-3) };
+}
+
+// ----------------------------------------------- decal depth relationship
+
+/// Surface plane of every emitted decal quad: `(normal, n . p)`.
+///
+/// A quad is six vertices, exactly as every emitter writes it.
+fn decal_planes(vertices: &[Vertex]) -> Vec<([f32; 3], f32)> {
+    vertices
+        .chunks(6)
+        .filter(|quad| quad.len() == 6)
+        .map(|quad| {
+            let normal = quad_normal(quad);
+            (
+                normal,
+                glam::Vec3::from(normal).dot(glam::Vec3::from(quad[0].pos)),
+            )
+        })
+        .collect()
+}
+
+/// A room enclosed by four walls whose interior faces are exactly x = 0, x = 6,
+/// z = 0 and z = 6, so every decal surface has a real parent plane.
+fn six_surface_room(decals_json: &str) -> LevelDef {
+    LevelDef::from_json(&format!(
+        r#"{{
+            "format_version": 1,
+            "id": "six_surface_decals",
+            "name": "Six Surface Decals",
+            "spawn": {{ "x": 3.0, "z": 3.0 }},
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 6.0, "height": 3.0 }}],
+            "walls": [
+                {{ "x": -0.4, "z": -0.4, "width": 6.8, "depth": 0.4, "height": 3.0 }},
+                {{ "x": -0.4, "z": 6.0, "width": 6.8, "depth": 0.4, "height": 3.0 }},
+                {{ "x": -0.4, "z": 0.0, "width": 0.4, "depth": 6.0, "height": 3.0 }},
+                {{ "x": 6.0, "z": 0.0, "width": 0.4, "depth": 6.0, "height": 3.0 }}
+            ],
+            "decals": [{decals_json}],
+            "ceiling_lights": []
+        }}"#
+    ))
+    .expect("six-surface decal json")
+}
+
+/// The renderer invariant this whole task exists for: a decal is *never* on the
+/// same plane as the surface it marks, on any of the six surfaces. Each one sits
+/// exactly [`DECAL_SURFACE_OFFSET_M`] off its parent along the surface normal,
+/// which is what lets the near field resolve without depending on the
+/// rasteriser's plane-fit rounding.
+#[test]
+fn every_decal_surface_lifts_its_marking_by_the_shared_offset() {
+    let level = six_surface_room(
+        r#"{ "x": 3.0, "y": 0.0, "z": 3.0, "width": 1.0, "height": 1.0,
+             "material": "core:decal_test_01", "surface": "floor" },
+           { "x": 2.0, "y": 0.0, "z": 2.0, "width": 1.0, "height": 1.0,
+             "material": "core:decal_test_01", "surface": "ceiling" },
+           { "x": 3.0, "y": 1.5, "z": 0.0, "width": 1.0, "height": 1.0,
+             "material": "core:decal_test_01", "surface": "wall_south" },
+           { "x": 3.0, "y": 1.5, "z": 6.0, "width": 1.0, "height": 1.0,
+             "material": "core:decal_test_01", "surface": "wall_north" },
+           { "x": 0.0, "y": 1.5, "z": 3.0, "width": 1.0, "height": 1.0,
+             "material": "core:decal_test_01", "surface": "wall_east" },
+           { "x": 6.0, "y": 1.5, "z": 3.0, "width": 1.0, "height": 1.0,
+             "material": "core:decal_test_01", "surface": "wall_west" }"#,
+    );
+    let mesh = build_level_geometry(&level);
+    let planes = decal_planes(&batch_slice(&mesh, SurfaceKind::Decal));
+    assert_eq!(planes.len(), 6, "one quad per authored decal");
+
+    // Parent plane and outward normal per surface: floor y = 0, ceiling y = 3,
+    // the wall faces at z = 0 / z = 6 and x = 0 / x = 6. `n . p` of a decal is
+    // the parent's constant plus the normal-relative offset.
+    let offset = DECAL_SURFACE_OFFSET_M;
+    let expected = [
+        ([0.0, 1.0, 0.0], 0.0 + offset),
+        ([0.0, -1.0, 0.0], -3.0 + offset),
+        ([0.0, 0.0, 1.0], 0.0 + offset),
+        ([0.0, 0.0, -1.0], -6.0 + offset),
+        ([1.0, 0.0, 0.0], 0.0 + offset),
+        ([-1.0, 0.0, 0.0], -6.0 + offset),
+    ];
+    for (normal, plane_offset) in expected {
+        assert!(
+            planes.iter().any(|(plane_normal, candidate)| {
+                normal_matches(*plane_normal, normal) && (candidate - plane_offset).abs() < 1e-6
+            }),
+            "no decal at {normal:?} offset {plane_offset}; emitted {planes:?}"
+        );
+    }
+    // And no decal is left sitting on a parent plane.
+    for (normal, plane_offset) in &planes {
+        let parent = if normal_matches(*normal, [0.0, 1.0, 0.0]) {
+            0.0
+        } else if normal_matches(*normal, [0.0, -1.0, 0.0]) {
+            -3.0
+        } else if normal_matches(*normal, [0.0, 0.0, 1.0])
+            || normal_matches(*normal, [1.0, 0.0, 0.0])
+        {
+            0.0
+        } else {
+            -6.0
+        };
+        assert!(
+            (plane_offset - parent).abs() >= offset - 1e-6,
+            "a decal shares its parent's depth plane: {normal:?} at {plane_offset}"
+        );
+    }
+}
+
+/// Rotation spins the marking inside its own plane; it must not change how far
+/// the plane itself is lifted off the surface.
+#[test]
+fn rotated_decals_keep_the_full_normal_offset() {
+    for rotation in [0.0f32, 30.0, 45.0, 90.0, 180.0, 270.0] {
+        // `(surface, normal, axis the plane is constant on, parent plane)`.
+        for (surface, normal, axis, parent) in [
+            ("wall_south", [0.0, 0.0, 1.0], 2, 0.4f32),
+            ("floor", [0.0, 1.0, 0.0], 1, 0.0),
+        ] {
+            let level = level_with_decals(
+                &format!(
+                    r#"{{ "x": 3.0, "y": 0.0, "z": 0.4, "width": 1.0, "height": 1.0,
+                         "rotation_degrees": {rotation},
+                         "material": "core:decal_test_01", "surface": "{surface}" }}"#
+                ),
+                r#"{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 0.4, "height": 3.0 }"#,
+                "[]",
+            );
+            let mesh = build_level_geometry(&level);
+            let quad = batch_slice(&mesh, SurfaceKind::Decal);
+            let planes = decal_planes(&quad);
+            assert_eq!(planes.len(), 1, "one quad at {surface} / {rotation} deg");
+            assert!(
+                normal_matches(planes[0].0, normal),
+                "rotated decal changed its facing at {rotation} deg: {:?}",
+                planes[0].0
+            );
+            let expected_plane = parent + DECAL_SURFACE_OFFSET_M;
+            assert!(
+                (planes[0].1 - expected_plane).abs() < 1e-6,
+                "rotated decal lost its plane offset at {rotation} deg: {}",
+                planes[0].1
+            );
+            // Every corner sits on the lifted plane, not just the first
+            // triangle: a rotation must not fold the quad into the surface.
+            for vertex in &quad {
+                assert!(
+                    (vertex.pos[axis] - expected_plane).abs() < 1e-6,
+                    "corner left the lifted plane at {rotation} deg: {:?}",
+                    vertex.pos
+                );
+            }
+        }
+    }
+}
+
+/// Decals next to a wall/floor intersection keep their own offset and stay out
+/// of each other and out of the surfaces they are tucked against: the lift is
+/// always along the surface normal, never a world-space nudge that could push a
+/// marking into the perpendicular surface.
+#[test]
+fn decals_tucked_into_a_corner_keep_their_offsets() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "corner_decals",
+            "name": "Corner Decals",
+            "spawn": { "x": 2.0, "z": 2.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }],
+            "walls": [
+                { "x": 0.0, "z": 3.0, "width": 4.0, "depth": 0.4, "height": 3.0 }
+            ],
+            "decals": [
+                { "x": 2.0, "y": 0.0, "z": 3.6, "width": 0.7, "height": 0.7,
+                  "material": "core:decal_test_01", "surface": "floor" },
+                { "x": 2.0, "y": 0.30, "z": 3.0, "width": 0.7, "height": 0.5,
+                  "material": "core:decal_test_01", "surface": "wall_north" }
+            ]
+        }"#,
+    )
+    .expect("corner decal json");
+    let mesh = build_level_geometry(&level);
+    let quads = batch_slice(&mesh, SurfaceKind::Decal);
+    assert_eq!(quads.len(), 12, "two decals, two quads");
+
+    // The wall at z = 3.0 has its interior face at z = 3.0 facing -Z (north);
+    // the floor decal stops 0.05 m short of it and the wall decal starts 0.05 m
+    // above the floor. Classify whole quads by their facing, since the wall
+    // decal's lower corners sit below the floor decal's height.
+    let mut floor = Vec::new();
+    let mut wall = Vec::new();
+    for quad in quads.chunks(6) {
+        if normal_matches(quad_normal(quad), [0.0, 1.0, 0.0]) {
+            floor.extend_from_slice(quad);
+        } else {
+            assert!(normal_matches(quad_normal(quad), [0.0, 0.0, -1.0]));
+            wall.extend_from_slice(quad);
+        }
+    }
+    assert_eq!(floor.len(), 6);
+    assert_eq!(wall.len(), 6);
+    for vertex in &floor {
+        assert_exact_named(vertex.pos[1], DECAL_SURFACE_OFFSET_M, "floor decal");
+        assert!(vertex.pos[2] <= 3.96, "a floor decal reached into the wall");
+    }
+    for vertex in &wall {
+        assert_exact_named(vertex.pos[2], 3.0 - DECAL_SURFACE_OFFSET_M, "wall decal");
+        assert!(vertex.pos[1] >= 0.05, "a wall decal reached into the floor");
+    }
 }
 
 #[test]
@@ -3747,8 +3973,12 @@ fn test_horizontal_decals_follow_the_real_surface_height() {
     let decals = batch_slice(&mesh, SurfaceKind::Decal);
     assert!(!decals.is_empty());
     // The floor decal sits on the elevated floor; the ceiling decal sits on
-    // the real ceiling, at 5.0 m, not at the authored 0.0.
-    assert_eq!(y_bounds(&decals), (2.0, 5.0));
+    // the real ceiling, at 5.0 m, not at the authored 0.0. Each is then lifted
+    // off that real surface by the shared offset, along its own normal.
+    assert_eq!(
+        y_bounds(&decals),
+        (2.0 + DECAL_SURFACE_OFFSET_M, 5.0 - DECAL_SURFACE_OFFSET_M)
+    );
 }
 
 #[test]

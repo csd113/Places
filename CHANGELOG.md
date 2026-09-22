@@ -1,5 +1,51 @@
 # Changelog
 
+## Unreleased — decals own their depth plane
+
+Wall and floor decals could flicker in `Places Demo`: the base surface showed
+through the marking, in patches at some camera distances and angles and
+completely at close range, and the patches moved with the camera. The cause was
+the depth relationship, not the artwork: a decal was emitted exactly coplanar
+with its parent surface and the *entire* separation was the decal pass's
+constant `glPolygonOffset(0, -2)` bias. Two different tessellations of the same
+plane do not interpolate to the same depth: the rasteriser fits each triangle's
+plane equation separately, and the disagreement grows with the depth slope and
+the triangle size. Measured on `Places Demo`, the decal needed between four and
+eight depth-buffer steps to win at one normal gameplay camera — the old bias
+was two, so the decal lost the `LEQUAL` test outright; at shallower angles it
+lost only some pixels, which is the flicker as the camera moved.
+
+### Fixed
+
+- **Decals are displaced off their surface instead of relying on the bias
+  alone.** Every decal quad is lifted `DECAL_SURFACE_OFFSET_M` (0.2 mm) along
+  its surface normal in `render::add_decal_quad`, after the horizontal decal
+  has been snapped to the real floor or ceiling. The lift is a real geometric
+  separation: sub-pixel at every practical viewing distance, invisible as
+  hover, but several depth-buffer steps through the interior range, so the base
+  texture cannot win a pixel. It also cannot push a marking into neighbouring
+  geometry: the direction is the surface normal, never a world-space nudge.
+- **The decal pass bias is slope-aware.** `DECAL_POLYGON_OFFSET` is now
+  `(-1.0, -4.0)` instead of `(0.0, -2.0)`. The constant term carries a few
+  depth-buffer steps; the slope-scaled term tracks the interpolation error at
+  grazing angles and long range, where no sub-millimetre physical offset is
+  resolvable. Depth testing and depth writes stay on, so a decal behind a wall
+  is still hidden.
+
+### Added
+
+- `src/render/tests.rs`: decal depth-regression coverage through the standard
+  build path — all six `surface` kinds, rotations of 0–270 degrees, decals
+  tucked against a wall/floor corner, and the emitted planes checked against
+  the shared offset.
+- `src/surface_audit.rs`: `every_shipped_demo_decal_owns_its_depth_plane`
+  checks the acceptance case triangle by triangle, and
+  `decals_are_offset_from_the_surface_they_mark_by_the_shared_bias` asserts the
+  renderer invariant that no decal can share its parent surface's depth plane.
+- `tools/bench/visual_check.py`: decal viewpoints (wall, floor, grazing) in the
+  pixel-comparison shot list, so a future renderer change that reopens the
+  depth conflict shows up as a large component.
+
 ## Unreleased — partition-aware baselines and vertical light isolation
 
 Two lighting-architecture gaps are closed. A room is no longer assumed to be one

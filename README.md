@@ -349,6 +349,23 @@ sampled texel (`texture2D(u_texture, v_uv) * v_color`), with a separate decal
 pass that alpha-tests a cut-out sheet over the surface it belongs to. Lighting
 is computed once per level load, never per frame.
 
+A decal owns its depth plane by construction, in two halves that level authors
+never have to think about:
+
+* `DECAL_SURFACE_OFFSET_M` displaces every decal 0.2 mm along its surface
+  normal. That is a real geometric separation, sub-pixel at any practical
+  viewing distance, so the base texture cannot win a pixel in the near and mid
+  field no matter how the rasteriser fits its plane equations.
+* `DECAL_POLYGON_OFFSET` adds a `glPolygonOffset(-1, -4)` bias in the decal
+  pass, so the far field and grazing angles stay in front of the parent surface
+  after the physical offset is below the depth buffer's resolution. The
+  slope-scaled term tracks the interpolation error, which grows with the depth
+  slope.
+
+Both are defined once, in `src/render/view.rs`, and applied in one place,
+`render::add_decal_quad`, so a decal authored later inherits the fix
+automatically.
+
 There is no sRGB or gamma handling, and adding some is not the small fix it
 looks like:
 

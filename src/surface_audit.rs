@@ -33,7 +33,7 @@ use crate::level::LevelDef;
 use crate::loader::PropCatalog;
 use crate::materials::MaterialTable;
 use crate::render::{
-    DECAL_POLYGON_OFFSET, LevelMesh, MaterialIndex, SurfaceKind,
+    DECAL_POLYGON_OFFSET, DECAL_SURFACE_OFFSET_M, LevelMesh, MaterialIndex, SurfaceKind,
     build_level_geometry_with_catalog_and_materials,
 };
 
@@ -502,11 +502,11 @@ fn a_wall_end_abutting_another_wall_emits_no_hidden_face() {
 }
 
 #[test]
-fn decals_are_exactly_coplanar_with_the_surface_they_mark() {
-    // The decal geometry deliberately lies *on* its surface: the depth
-    // relationship is settled by the decal pass's polygon offset, so the two
-    // must be exactly coplanar rather than separated by an ad-hoc nudge that
-    // would make the marking float.
+fn decals_are_offset_from_the_surface_they_mark_by_the_shared_bias() {
+    // Every decal is displaced along its surface normal by exactly the shared,
+    // named offset: enough to own the depth plane (which is what stops the base
+    // texture from punching through), small enough to still read as printed on
+    // the surface rather than floating above it.
     let json = r#"{
         "format_version": 1,
         "id": "decal_planes",
@@ -531,24 +531,53 @@ fn decals_are_exactly_coplanar_with_the_surface_they_mark() {
     assert_eq!(decals.len(), 4, "two decal quads");
 
     for decal in &decals {
-        let coplanar = all.iter().any(|surface| {
+        // The parent surface is the overlapping base triangle with the same
+        // facing *and the same plane* (within a few centimetres); its plane
+        // constant must be exactly the shared offset behind the decal's, in the
+        // decal's own outward direction.
+        let parent = all.iter().filter(|surface| {
             surface.kind != SurfaceKind::Decal
                 && dot(surface.normal, decal.normal) > 0.999
-                && (surface.offset - decal.offset).abs() < 1e-6
+                && (decal.offset - surface.offset).abs() < 0.05
                 && overlap_area(surface, decal) > 1e-3
         });
+        let mut found = false;
+        for surface in parent {
+            found = true;
+            let separation = decal.offset - surface.offset;
+            assert!(
+                (separation - DECAL_SURFACE_OFFSET_M).abs() < 1e-5,
+                "decal at {:?} is {} m off its surface, expected {}",
+                decal.points[0],
+                separation,
+                DECAL_SURFACE_OFFSET_M
+            );
+        }
         assert!(
-            coplanar,
-            "a decal must lie exactly on a base surface at {:?}",
+            found,
+            "a decal must cover a base surface at {:?}",
+            decal.points[0]
+        );
+        // The invariant the flicker came from: a decal may never occupy the
+        // same effective depth plane as its parent surface.
+        assert!(
+            all.iter().all(|surface| {
+                surface.kind == SurfaceKind::Decal
+                    || dot(surface.normal, decal.normal) < 0.999
+                    || overlap_area(surface, decal) <= 1e-3
+                    || (decal.offset - surface.offset).abs() >= DECAL_SURFACE_OFFSET_M - 1e-5
+            }),
+            "decal at {:?} shares a depth plane with a base surface",
             decal.points[0]
         );
     }
 
-    // The separation is the pass's fixed, sub-visible depth bias.
-    assert_eq!(DECAL_POLYGON_OFFSET.0, 0.0);
+    // The pass's bias is the far-field half of the contract: both terms pull
+    // towards the camera, so a slope-scaled bias covers grazing angles too.
+    assert!(DECAL_POLYGON_OFFSET.0 < 0.0);
     assert!(
-        (-4.0..=0.0).contains(&DECAL_POLYGON_OFFSET.1),
-        "the decal bias must pull towards the camera by a couple of depth steps"
+        (-8.0..0.0).contains(&DECAL_POLYGON_OFFSET.1),
+        "the decal bias must pull towards the camera by a few depth steps"
     );
 }
 
@@ -588,39 +617,58 @@ fn intentionally_overlapping_rooms_still_emit_both_floors() {
 }
 
 #[test]
-fn the_decal_bias_is_sub_visible_at_every_practical_distance() {
-    // A decal lies exactly on its base surface, so the decal pass's fixed
-    // polygon offset is the entire depth separation. With OpenGL's `[-1, 1]`
-    // clip convention a 24-bit window depth resolves 2^-24, and the eye-space
-    // size of two of those steps is
-    //   dz = z^2 * (far - near) / (far * near) * 2^-23
-    // (the matrix maps `z_ndc` linearly onto the window's [0, 1] depth).
+fn the_decal_depth_solution_is_sub_visible_and_resolvable_where_it_matters() {
+    // The solution has two halves, and each is checked for what it is for:
+    //  * the physical, normal-relative offset exceeds the depth buffer's
+    //    resolution over the interior range, so the near and mid field never
+    //    depend on the rasteriser's plane-fit rounding;
+    //  * the pass's polygon offset keeps working at long range and grazing
+    //    angles, where no sub-millimetre physical offset can be resolved.
     let (near, far) = (crate::render::SCENE_NEAR_M, crate::render::SCENE_FAR_M);
-    let steps = DECAL_POLYGON_OFFSET.1.abs();
-    assert!(steps >= 1.0, "the bias must clear at least one depth step");
-    // 2^23: half of a 24-bit depth buffer's 2^24 resolvable steps, because the
-    // bias is applied in depth units but expressed here in eye space.
-    let half_depth_steps = f32::from(1u16 << 15) * 256.0;
-    let eye_space_bias = |z: f32| {
-        let slope = (far - near) / (far * near);
-        (z * z) * slope * (steps / half_depth_steps)
+    // Eye-space size of one step of a 24-bit window depth buffer at distance z:
+    //   dz = z^2 * (far - near) / (far * near) * 2^-24
+    // (the GL matrix maps `z_ndc` linearly onto the window's [0, 1] depth).
+    let slope = (far - near) / (far * near);
+    let depth_step = |z: f32| {
+        let squared = z * z;
+        squared * slope / 16_777_216.0
     };
-    for (distance, limit) in [
-        (1.0f32, 1e-5f32),
-        (3.0, 1e-4),
-        (10.0, 5e-4),
-        (20.0, 2e-3),
-        (50.0, 1e-2),
-    ] {
-        let bias = eye_space_bias(distance);
+
+    // Resolvable: several buffer steps of separation across the room-scale
+    // range, and always at least one step inside 20 m, so the near and mid
+    // field never depend on the rasteriser's plane-fit rounding.
+    for distance in [1.0f32, 3.0, 5.0, 10.0] {
         assert!(
-            bias < limit,
-            "at {distance} m the bias is {bias:.6} m, past the {limit} m visibility limit"
+            DECAL_SURFACE_OFFSET_M >= depth_step(distance) * 2.0,
+            "at {distance} m the {DECAL_SURFACE_OFFSET_M} m offset is under two depth steps"
         );
     }
-    // And it is not lost in the buffer's own quantisation: two steps of a
-    // 24-bit depth buffer are what the hardware resolves at these distances.
-    assert!(eye_space_bias(20.0) > 0.0);
+    for distance in [8.0f32, 12.0, 15.0] {
+        assert!(
+            DECAL_SURFACE_OFFSET_M >= depth_step(distance),
+            "at {distance} m the {DECAL_SURFACE_OFFSET_M} m offset is under one depth step"
+        );
+    }
+
+    // Sub-visible: a fraction of a pixel of parallax, even at arm's length, so
+    // a marking cannot read as hovering. The on-screen scale uses the 480x272
+    // reference height and the baseline 70-degree field of view.
+    let pixels_per_metre =
+        |distance: f32| 272.0 / (2.0 * distance * (70.0f32.to_radians() * 0.5).tan());
+    for distance in [0.5f32, 1.0, 3.0, 10.0] {
+        let parallax_pixels = DECAL_SURFACE_OFFSET_M * pixels_per_metre(distance);
+        assert!(
+            parallax_pixels < 0.5,
+            "at {distance} m the offset shows {parallax_pixels} px of parallax"
+        );
+    }
+
+    // The far-field half: a slope-scaled, camera-wards bias on both terms.
+    let (factor, units) = DECAL_POLYGON_OFFSET;
+    assert!(
+        factor <= -1.0 && units <= -2.0,
+        "the pass bias must include a slope term and a few depth steps, got ({factor}, {units})"
+    );
 }
 
 #[test]
@@ -634,4 +682,55 @@ fn the_shipped_demo_has_no_coincident_static_surfaces() {
         .filter(|triangle| triangle.kind != SurfaceKind::Decal)
         .collect();
     assert_no_coincident_overlaps(&static_only, "places_demo static surfaces");
+}
+
+#[test]
+fn every_shipped_demo_decal_owns_its_depth_plane() {
+    // The acceptance case the flicker was reported on: every wall and floor
+    // decal in Places Demo must cover a real base surface and sit exactly the
+    // shared offset in front of it. A decal that is missing, mis-parented or
+    // left coplanar fails here, before any pixel is drawn.
+    let level = parse(include_str!("../assets/levels/places_demo.json"));
+    let mesh = shipped_mesh(&level);
+    let all = triangles(&mesh);
+    let decals: Vec<&Triangle> = all
+        .iter()
+        .filter(|triangle| triangle.kind == SurfaceKind::Decal)
+        .collect();
+    assert_eq!(
+        decals.len(),
+        level.decals.len() * 2,
+        "every authored decal emits exactly one quad"
+    );
+
+    for decal in &decals {
+        let mut parents = 0usize;
+        for surface in all.iter().filter(|triangle| {
+            triangle.kind != SurfaceKind::Decal
+                && dot(triangle.normal, decal.normal) > 0.999
+                && overlap_area(triangle, decal) > 1e-3
+        }) {
+            let separation = decal.offset - surface.offset;
+            if separation.abs() < 0.05 {
+                parents += 1;
+                assert!(
+                    (separation - DECAL_SURFACE_OFFSET_M).abs() < 1e-5,
+                    "places_demo decal at {:?} is {separation} m off its surface (expected {})",
+                    decal.points[0],
+                    DECAL_SURFACE_OFFSET_M
+                );
+            }
+            // Nothing may overlap the decal while sharing its depth plane.
+            assert!(
+                separation.abs() >= DECAL_SURFACE_OFFSET_M - 1e-5,
+                "places_demo decal at {:?} shares its depth plane with another surface",
+                decal.points[0]
+            );
+        }
+        assert!(
+            parents > 0,
+            "places_demo decal at {:?} covers no base surface",
+            decal.points[0]
+        );
+    }
 }

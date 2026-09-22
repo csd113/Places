@@ -55,9 +55,9 @@ pub use renderer::{LevelBuildStats, RenderStats, Renderer};
 pub(crate) const SCENE_NEAR_M: f32 = 0.1;
 pub(crate) const SCENE_FAR_M: f32 = 100.0;
 pub use view::{
-    DECAL_ALPHA_CUTOFF, DECAL_POLYGON_OFFSET, DrawableSize, UI_REFERENCE_HEIGHT,
-    UI_REFERENCE_WIDTH, UiViewport, WINDOW_HEIGHT, WINDOW_WIDTH, reference_aspect_ratio,
-    vertical_fov_for_aspect,
+    DECAL_ALPHA_CUTOFF, DECAL_POLYGON_OFFSET, DECAL_SURFACE_OFFSET_M, DrawableSize,
+    UI_REFERENCE_HEIGHT, UI_REFERENCE_WIDTH, UiViewport, WINDOW_HEIGHT, WINDOW_WIDTH,
+    reference_aspect_ratio, vertical_fov_for_aspect,
 };
 use view::{
     DECAL_FRAGMENT_SHADER_SRC, FRAGMENT_SHADER_SRC, SCENE_ATTRIB_COLOR, SCENE_ATTRIB_POS,
@@ -1593,12 +1593,18 @@ const fn decal_surface_tint(surface: crate::level::DecalSurface) -> [f32; 3] {
 
 /// Emits one decal as a lit quad carrying the shared decal sheet.
 ///
-/// The quad lies exactly on the authored surface — the depth relationship is
-/// resolved in the decal pass by a fixed polygon offset, not by moving the
-/// geometry — and its vertical placement follows the *actual* floor or ceiling
-/// under it, so a decal in an elevated room or a recessed region stays on the
-/// surface instead of being left behind at the authored world Y. Wall decals
-/// keep their authored height, since a wall is not a horizontal surface.
+/// The quad is placed in two steps, and every decal a level authors goes
+/// through both because they happen here and nowhere else:
+///
+/// 1. Its vertical placement follows the *actual* floor or ceiling under it, so
+///    a decal in an elevated room or a recessed region stays on the surface
+///    instead of being left behind at the authored world Y. Wall decals keep
+///    their authored height, since a wall is not a horizontal surface.
+/// 2. It is displaced [`DECAL_SURFACE_OFFSET_M`] along the surface normal — the
+///    geometry half of the decal depth solution documented on
+///    [`DECAL_POLYGON_OFFSET`] — so it can never occupy exactly the same depth
+///    plane as its parent surface. The displacement is tiny and perpendicular
+///    to the surface, so the marking still reads as printed/painted on it.
 #[allow(clippy::arithmetic_side_effects)] // glam vector math is float-only and cannot overflow or panic
 fn add_decal_quad(
     vertices: &mut Vec<Vertex>,
@@ -1631,6 +1637,13 @@ fn add_decal_quad(
         }
     }
     let normal = glam::Vec3::from(decal.surface.normal());
+    // The single place a decal acquires its depth separation: offset along the
+    // surface normal, after the horizontal snap above so the lift is measured
+    // from the surface the decal actually lies on.
+    for point in &mut points {
+        let lifted = glam::Vec3::from(*point) + normal * DECAL_SURFACE_OFFSET_M;
+        *point = lifted.to_array();
+    }
     let probe = if decal.surface.is_horizontal() {
         DECAL_HORIZONTAL_LIGHT_PROBE_M
     } else {

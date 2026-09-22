@@ -207,14 +207,46 @@ void main() {
 
 /// Depth bias the decal pass applies, as `glPolygonOffset(factor, units)`.
 ///
-/// `units = -2` pulls a decal two depth-buffer resolution steps towards the
-/// camera, which is enough to win against the surface it is printed on even
-/// when the two quad tessellations disagree by a few ULPs, and is far too
-/// small to be visible as physical separation: at a one-metre view distance it
-/// is well under a micrometre. The `factor` is zero because a constant bias is
-/// exactly what a coplanar decoration needs; a slope-dependent bias would push
-/// decals further out at grazing angles for no benefit.
-pub const DECAL_POLYGON_OFFSET: (f32, f32) = (0.0, -2.0);
+/// This is the *depth-buffer* half of the decal depth solution; the geometry
+/// half is [`DECAL_SURFACE_OFFSET_M`]. The bias is negative on both terms so it
+/// pulls a decal towards the camera:
+///
+/// * `units = -4` moves a decal four depth-buffer resolution steps towards the
+///   viewer. A coplanar decal needs only a couple of steps in the ideal case,
+///   but the depth a rasteriser interpolates for two different tessellations of
+///   the *same* plane routinely disagrees by more than that: the plane
+///   coefficients are fitted from different triangles, so the error grows with
+///   the depth slope and the triangle size. Four units keeps the marking in
+///   front of its parent surface in the near and mid field.
+/// * `factor = -1.0` adds one depth-slope of bias, which is what keeps a decal
+///   winning at grazing angles and at long range, where the constant term is
+///   below the buffer's resolution. A slope-scaled term is exactly what a
+///   coplanar decoration needs: the interpolation disagreement is proportional
+///   to the depth slope too, so the bias tracks it instead of being outrun by
+///   it as the camera changes distance and angle.
+///
+/// Both are window-depth offsets, not a physical separation, so they cannot
+/// make a decal hang in the air. [`DECAL_SURFACE_OFFSET_M`] checks the rendered
+/// result's near-field ordering; this bias carries the far field and grazing
+/// angles, where no sub-millimetre physical offset is resolvable.
+pub const DECAL_POLYGON_OFFSET: (f32, f32) = (-1.0, -4.0);
+
+/// Physical distance a decal is displaced along its surface normal, in metres.
+///
+/// This is the *geometry* half of the decal depth solution: it turns the
+/// exactly-coplanar tie between a decal and the surface it is printed on into a
+/// real, rasteriser-independent depth ordering, so the base texture can never
+/// win a pixel. 0.2 mm is chosen to be invisible from every practical distance
+/// (sub-pixel parallax even at the near plane) while still exceeding the
+/// depth-buffer resolution over the whole interior range: at 10 m a 24-bit
+/// buffer resolves about 60 µm, so this is several steps of separation there.
+///
+/// The offset is always along the *surface* normal reported by
+/// [`crate::level::DecalSurface::normal`], so it lifts floor and ceiling decals
+/// vertically and wall decals out of the wall, never into their surface. It is
+/// applied in one place, `render::add_decal_quad`, so every decal a level
+/// authors — current or future — inherits it without any level-side epsilon.
+pub const DECAL_SURFACE_OFFSET_M: f32 = 2.0e-4;
 
 /// Alpha below which the decal pass discards a decal texel.
 pub const DECAL_ALPHA_CUTOFF: f32 = 0.5;

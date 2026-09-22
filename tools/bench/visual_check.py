@@ -47,11 +47,26 @@ REPO = Path(__file__).resolve().parent.parent.parent
 # from the repository. The `prop_*`/`test_room` regression fixtures live under
 # `tests/fixtures/levels/`; stage them in the run's `levels/` directory (as
 # `run_bench.py` does for the device) before including those shots.
-SHOTS: list[tuple[str, str, str]] = [
+SHOTS: list[tuple[str, str, dict[str, str]]] = [
     # (label, level id, extra environment)
     ("places_demo_spawn", "places_demo", {}),
     ("places_demo_side", "places_demo", {"LIMINAL_CAMERA": "90"}),
     ("places_demo_up", "places_demo", {"LIMINAL_CAMERA": "180,20"}),
+    # Decal viewpoints: the wall sign and the floor markings are the surfaces
+    # that z-fight first, so a renderer change that breaks the decal depth
+    # relationship (a base texture punching back through a marking) shows up as
+    # a large component in these shots while the plain room shots stay clean.
+    ("places_demo_decal_wall", "places_demo", {"LIMINAL_SPAWN": "14.5,0.1,15.15,0"}),
+    (
+        "places_demo_decal_floor",
+        "places_demo",
+        {"LIMINAL_SPAWN": "10.5,-0.2,11.2,0", "LIMINAL_CAMERA": "0,-40"},
+    ),
+    (
+        "places_demo_decal_grazing",
+        "places_demo",
+        {"LIMINAL_SPAWN": "10.5,-1.35,15.0,0", "LIMINAL_CAMERA": "0,-2"},
+    ),
     ("prop_stress_spawn", "prop_stress", {}),
     ("prop_stress_side", "prop_stress", {"LIMINAL_CAMERA": "200"}),
     ("prop_showcase_spawn", "prop_showcase", {}),
