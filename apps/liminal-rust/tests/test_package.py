@@ -100,7 +100,7 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(self.manifest["manifest_version"], 1)
         self.assertEqual(self.manifest["runtime"], "rust")
         self.assertEqual(self.manifest["id"], "io.vitrallis.liminalrust")
-        self.assertEqual(self.manifest["name"], "Liminal")
+        self.assertEqual(self.manifest["name"], "Places")
         self.assertNotIn("entry", self.manifest)
 
     def test_version_matches_the_crate_and_the_changelog(self):
