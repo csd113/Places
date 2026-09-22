@@ -59,7 +59,7 @@ impl LightColor {
 
     /// One channel by index (`0 = r`, `1 = g`, `2 = b`).
     #[must_use]
-    pub fn channel(self, index: usize) -> f32 {
+    pub const fn channel(self, index: usize) -> f32 {
         match index {
             0 => self.r,
             1 => self.g,
@@ -76,19 +76,19 @@ impl LightColor {
 
     /// Brightest channel, for diagnostics and bounded-accumulation reasoning.
     #[must_use]
-    pub fn max_channel(self) -> f32 {
+    pub const fn max_channel(self) -> f32 {
         self.r.max(self.g).max(self.b)
     }
 
     /// Dimmest channel.
     #[must_use]
-    pub fn min_channel(self) -> f32 {
+    pub const fn min_channel(self) -> f32 {
         self.r.min(self.g).min(self.b)
     }
 
     /// True when every channel is finite.
     #[must_use]
-    pub fn is_finite(self) -> bool {
+    pub const fn is_finite(self) -> bool {
         self.r.is_finite() && self.g.is_finite() && self.b.is_finite()
     }
 
@@ -144,7 +144,7 @@ impl LightColor {
 
     /// Component-wise clamp to `[low, high]`.
     #[must_use]
-    pub fn clamped(self, low: f32, high: f32) -> Self {
+    pub const fn clamped(self, low: f32, high: f32) -> Self {
         Self {
             r: self.r.clamp(low, high),
             g: self.g.clamp(low, high),

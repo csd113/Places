@@ -172,21 +172,36 @@ impl PointGrid {
         if !min_x.is_finite() || !min_z.is_finite() || !max_x.is_finite() || !max_z.is_finite() {
             return Self::default();
         }
-        let cells_x = (((max_x - min_x) / POINT_GRID_CELL_M).ceil() as i64 + 1).clamp(1, 1024);
-        let cells_z = (((max_z - min_z) / POINT_GRID_CELL_M).ceil() as i64 + 1).clamp(1, 1024);
-        let (cells_x, cells_z) = (cells_x as u32, cells_z as u32);
+        // Both spans are finite and non-negative here, so each ceiling is a
+        // finite integral value; the cast saturates rather than wraps on an
+        // absurd span and the clamp bounds each axis to `1..=1024` cells.
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let (cells_x, cells_z) = (
+            ((max_x - min_x) / POINT_GRID_CELL_M).ceil() as u32,
+            ((max_z - min_z) / POINT_GRID_CELL_M).ceil() as u32,
+        );
+        let cells_x = cells_x.saturating_add(1).clamp(1, 1024);
+        let cells_z = cells_z.saturating_add(1).clamp(1, 1024);
 
         let cell_of = |x: f32, z: f32| -> Option<(u32, u32)> {
             let ix = ((x - min_x) / POINT_GRID_CELL_M).floor();
             let iz = ((z - min_z) / POINT_GRID_CELL_M).floor();
-            if ix < 0.0 || iz < 0.0 || ix >= cells_x as f32 || iz >= cells_z as f32 {
+            if ix < 0.0 || iz < 0.0 {
                 return None;
             }
-            Some((ix as u32, iz as u32))
+            // `floor` leaves non-negative integral values; the saturating cast
+            // and the bounds check reject everything outside the grid.
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let (ix, iz) = (ix as u32, iz as u32);
+            if ix >= cells_x || iz >= cells_z {
+                return None;
+            }
+            Some((ix, iz))
         };
 
         let mut items: Vec<u32> = Vec::new();
-        let mut ranges: Vec<(u32, u32)> = Vec::with_capacity((cells_x * cells_z) as usize);
+        let mut ranges: Vec<(u32, u32)> =
+            Vec::with_capacity(cells_x.saturating_mul(cells_z) as usize);
         for iz in 0..cells_z {
             for ix in 0..cells_x {
                 let start = u32::try_from(items.len()).unwrap_or(u32::MAX);
@@ -222,18 +237,29 @@ impl PointGrid {
         }
         let ix = ((x - self.min_x) / POINT_GRID_CELL_M).floor();
         let iz = ((z - self.min_z) / POINT_GRID_CELL_M).floor();
-        if ix < 0.0 || iz < 0.0 || ix >= self.cells_x as f32 || iz >= self.cells_z as f32 {
+        if ix < 0.0 || iz < 0.0 {
             return false;
         }
-        let index = (iz as u32 * self.cells_x + ix as u32) as usize;
+        // `floor` leaves non-negative integral values; the saturating cast and
+        // the bounds check reject everything outside the grid.
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let (ix, iz) = (ix as u32, iz as u32);
+        if ix >= self.cells_x || iz >= self.cells_z {
+            return false;
+        }
+        let index = iz.saturating_mul(self.cells_x).saturating_add(ix) as usize;
         let Some(&(start, end)) = self.ranges.get(index) else {
             return false;
         };
-        self.items[start as usize..end as usize].iter().any(|item| {
-            blockers
-                .get(*item as usize)
-                .is_some_and(|blocker| blocker.contains_xz(x, z))
-        })
+        self.items
+            .get(start as usize..end as usize)
+            .is_some_and(|items| {
+                items.iter().any(|item| {
+                    blockers
+                        .get(*item as usize)
+                        .is_some_and(|blocker| blocker.contains_xz(x, z))
+                })
+            })
     }
 }
 
@@ -248,7 +274,8 @@ impl Visibility {
             append_wall_blockers(&mut blockers, wall, &surfaces);
         }
 
-        let mut pool: Vec<SiteBlocker> = Vec::with_capacity(blockers.len() * sites.len().min(4));
+        let mut pool: Vec<SiteBlocker> =
+            Vec::with_capacity(blockers.len().saturating_mul(sites.len().min(4)));
         let mut ranges: Vec<(u32, u32)> = Vec::with_capacity(sites.len());
         let mut site_centres: Vec<(f32, f32)> = Vec::with_capacity(sites.len());
         for site in sites {
@@ -268,12 +295,14 @@ impl Visibility {
                 // Nearest first, so a query can stop as soon as the next box is
                 // further away than its own reach. Sorting by a partial order is
                 // safe: every distance is finite and non-negative.
-                pool[start as usize..].sort_by(|a, b| {
-                    a.near
-                        .partial_cmp(&b.near)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                        .then(a.blocker.cmp(&b.blocker))
-                });
+                if let Some(added) = pool.get_mut(start as usize..) {
+                    added.sort_by(|a, b| {
+                        a.near
+                            .partial_cmp(&b.near)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                            .then(a.blocker.cmp(&b.blocker))
+                    });
+                }
             }
             let end = u32::try_from(pool.len()).unwrap_or(u32::MAX);
             ranges.push((start, end));
@@ -293,13 +322,13 @@ impl Visibility {
     /// Number of opaque boxes the level contributes. Reported by the lighting
     /// summary so a level's blocker count is visible in the developer log.
     #[must_use]
-    pub fn blocker_count(&self) -> usize {
+    pub const fn blocker_count(&self) -> usize {
         self.blockers.len()
     }
 
     /// Number of query sites the set was built for.
     #[must_use]
-    pub fn site_count(&self) -> usize {
+    pub const fn site_count(&self) -> usize {
         self.ranges.len()
     }
 
@@ -331,13 +360,22 @@ impl Visibility {
         let Some(&(start, end)) = self.ranges.get(site as usize) else {
             return false;
         };
+        let Some(&(site_x, site_z)) = self.sites.get(site as usize) else {
+            return false;
+        };
         // The segment can only reach as far from the site centre as the sample
         // does, plus the offset from the centre to the panel point the segment
-        // starts at. Boxes past that are skipped without a geometric test.
-        let (site_x, site_z) = self.sites[site as usize];
+        // starts at. Boxes past that are skipped without a geometric test:
+        // every point of the segment lies within `max(distance(from),
+        // distance(to))` of the site centre, and the start point is within
+        // `SITE_REACH_MARGIN_M` of it by construction, so a box whose nearest
+        // footprint point is beyond `reach` cannot be crossed.
         let reach = (to[0] - site_x).hypot(to[2] - site_z) + SITE_REACH_MARGIN_M;
-        for entry in &self.pool[start as usize..end as usize] {
-            if false && entry.near > reach {
+        let Some(entries) = self.pool.get(start as usize..end as usize) else {
+            return false;
+        };
+        for entry in entries {
+            if entry.near > reach {
                 break;
             }
             if let Some(blocker) = self.blockers.get(entry.blocker as usize)
@@ -480,10 +518,12 @@ fn append_wall_blockers(
 fn segment_hits_box(blocker: Blocker, from: [f32; 3], to: [f32; 3]) -> bool {
     let mut enter = 0.0_f32;
     let mut exit = 1.0_f32;
-    for axis in 0..3 {
-        let start = from[axis];
-        let delta = to[axis] - start;
-        let (low, high) = (blocker.min[axis], blocker.max[axis]);
+    for ((&start, &end), (&low, &high)) in from
+        .iter()
+        .zip(to.iter())
+        .zip(blocker.min.iter().zip(blocker.max.iter()))
+    {
+        let delta = end - start;
         if delta.abs() <= f32::EPSILON {
             if start < low || start > high {
                 return false;
@@ -506,6 +546,16 @@ fn segment_hits_box(blocker: Blocker, from: [f32; 3], to: [f32; 3]) -> bool {
 }
 
 #[cfg(test)]
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests.
+#[allow(
+    clippy::arithmetic_side_effects,
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::indexing_slicing,
+    clippy::missing_const_for_fn,
+    clippy::panic
+)]
 mod tests {
     use super::*;
     use crate::level::LevelDef;

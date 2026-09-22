@@ -20,6 +20,18 @@
 //! The level is also playable and is validated by `tools/assets/validate.py`;
 //! the file, not this module, owns the layout.
 
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
+// the production lints stay enforced everywhere else in the crate.
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::redundant_clone,
+    clippy::suboptimal_flops,
+    clippy::while_float
+)]
+
 use crate::level::LevelDef;
 use crate::lighting::{AMBIENT_LEVEL, LevelLighting, LightColor};
 

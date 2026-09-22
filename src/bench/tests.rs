@@ -1,5 +1,9 @@
 //! Unit tests for the benchmark harness.
 
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
+// the production lints stay enforced everywhere else in the crate.
+#![allow(clippy::cast_precision_loss, clippy::float_cmp)]
+
 use super::*;
 use crate::test_support::assert_exact;
 

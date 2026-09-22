@@ -1,5 +1,9 @@
 //! Unit tests for the performance counters and overlay.
 
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
+// the production lints stay enforced everywhere else in the crate.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 use super::*;
 
 #[test]

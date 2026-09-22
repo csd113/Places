@@ -185,7 +185,7 @@ impl Game {
     /// `sim_delta_seconds` is clamped for gameplay simulation.
     pub fn update_timing(&mut self) {
         let now = Instant::now();
-        self.delta_seconds = (now - self.last_frame_time).as_secs_f32();
+        self.delta_seconds = now.duration_since(self.last_frame_time).as_secs_f32();
         self.sim_delta_seconds = clamp_sim_delta(self.delta_seconds);
         self.last_frame_time = now;
         self.frame_count = self.frame_count.saturating_add(1);
@@ -251,36 +251,50 @@ impl Game {
         self.player_pitch = self.player_pitch.clamp(-MAX_PITCH, MAX_PITCH);
 
         // Planar horizontal movement (grounded, independent of pitch)
-        let forward = Vec3::new(self.player_yaw.sin(), 0.0, -self.player_yaw.cos());
-        let right = Vec3::new(self.player_yaw.cos(), 0.0, self.player_yaw.sin());
-
-        let mut move_dir = Vec3::ZERO;
-        if input.is_held(Control::MoveForward) {
-            move_dir += forward;
-        }
-        if input.is_held(Control::MoveBackward) {
-            move_dir -= forward;
-        }
-        if input.is_held(Control::StrafeLeft) {
-            move_dir -= right;
-        }
-        if input.is_held(Control::StrafeRight) {
-            move_dir += right;
-        }
+        let sin_yaw = self.player_yaw.sin();
+        let cos_yaw = self.player_yaw.cos();
+        // Summing the held directions keeps the accumulation order the moving
+        // keys have always had (forward, back, left, right).
+        let held_directions = [
+            (Control::MoveForward, Vec3::new(sin_yaw, 0.0, -cos_yaw)),
+            (Control::MoveBackward, Vec3::new(-sin_yaw, 0.0, cos_yaw)),
+            (Control::StrafeLeft, Vec3::new(-cos_yaw, 0.0, -sin_yaw)),
+            (Control::StrafeRight, Vec3::new(cos_yaw, 0.0, sin_yaw)),
+        ];
+        let move_dir: Vec3 = held_directions
+            .iter()
+            .filter(|(control, _)| input.is_held(*control))
+            .map(|(_, direction)| *direction)
+            .sum();
 
         if move_dir.length_squared() > 0.0 {
-            let total_delta = move_dir.normalize() * settings.walk_speed * delta;
+            // Component-wise, with the original `(n * walk_speed) * delta`
+            // association so the movement stays bit-for-bit identical.
+            let total_delta = Vec3::from_array(
+                move_dir
+                    .normalize()
+                    .to_array()
+                    .map(|component| component * settings.walk_speed * delta),
+            );
             let total_dist = total_delta.length();
             let max_step = PLAYER_RADIUS * 0.5;
-            let steps = ((total_dist / max_step).ceil() as usize).max(1);
-            let step_delta = total_delta / (steps as f32);
-
+            // Clamped up to at least one sub-step (as the historical
+            // `max(1)` did) and down to a million: the ceiling is far above
+            // anything `MAX_SIM_DELTA` can produce, and it keeps the count
+            // exactly representable so the cast below cannot truncate.
+            let step_count = (total_dist / max_step).ceil().clamp(1.0, 1_048_576.0);
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let steps = step_count as usize;
+            let step_delta = Vec3::from_array(
+                total_delta
+                    .to_array()
+                    .map(|component| component / step_count),
+            );
             let previous = Vec2::new(self.player_position.x, self.player_position.z);
             let mut current_pos = previous;
             for _ in 0..steps {
-                current_pos += Vec2::new(step_delta.x, step_delta.z);
                 current_pos = resolve_player_collision(
-                    current_pos,
+                    Vec2::new(current_pos.x + step_delta.x, current_pos.y + step_delta.z),
                     PLAYER_RADIUS,
                     self.player_floor_y,
                     &self.walls,

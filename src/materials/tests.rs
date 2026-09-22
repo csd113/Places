@@ -1,5 +1,17 @@
 //! Unit tests for the material pipeline.
 
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
+// the production lints stay enforced everywhere else in the crate.
+#![allow(
+    clippy::case_sensitive_file_extension_comparisons,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::needless_raw_string_hashes,
+    clippy::panic,
+    clippy::redundant_clone,
+    clippy::float_cmp
+)]
+
 use std::collections::HashMap;
 use std::fs;
 use std::rc::Rc;

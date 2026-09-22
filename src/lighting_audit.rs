@@ -14,6 +14,20 @@
 //! Timings are informational; vertex counts, draw calls and budget arithmetic
 //! are asserted so a regression fails the suite.
 
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
+// the production lints stay enforced everywhere else in the crate.
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::print_stdout,
+    clippy::too_many_lines
+)]
+
 use std::time::Instant;
 
 use crate::level::{LevelDef, MAX_LEVEL_PROP_VERTICES, MAX_LEVEL_VERTICES};

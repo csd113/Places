@@ -44,7 +44,7 @@ impl DrawableSize {
         if self.height == 0 {
             1.0
         } else {
-            self.width as f32 / self.height as f32
+            dimension_f32(self.width) / dimension_f32(self.height)
         }
     }
 
@@ -62,23 +62,45 @@ impl DrawableSize {
             };
         }
 
-        let scale = (self.width as f32 / UI_REFERENCE_WIDTH as f32)
-            .min(self.height as f32 / UI_REFERENCE_HEIGHT as f32)
+        let scale = (dimension_f32(self.width) / dimension_f32(UI_REFERENCE_WIDTH))
+            .min(dimension_f32(self.height) / dimension_f32(UI_REFERENCE_HEIGHT))
             .max(0.0);
         let drawable_width = i32::try_from(self.width).unwrap_or(i32::MAX);
         let drawable_height = i32::try_from(self.height).unwrap_or(i32::MAX);
-        let width = ((UI_REFERENCE_WIDTH as f32 * scale).round() as i32).clamp(1, drawable_width);
+        let width =
+            round_to_i32(dimension_f32(UI_REFERENCE_WIDTH) * scale).clamp(1, drawable_width);
         let height =
-            ((UI_REFERENCE_HEIGHT as f32 * scale).round() as i32).clamp(1, drawable_height);
+            round_to_i32(dimension_f32(UI_REFERENCE_HEIGHT) * scale).clamp(1, drawable_height);
 
         UiViewport {
-            x: (drawable_width - width) / 2,
-            y: (drawable_height - height) / 2,
+            x: drawable_width.saturating_sub(width) / 2,
+            y: drawable_height.saturating_sub(height) / 2,
             width,
             height,
             scale,
         }
     }
+}
+
+/// A drawable or reference dimension as `f32`.
+///
+/// Every dimension a windowing system reports fits a `u16` (65 535 px is far
+/// past any real drawable), so the `u16` round-trip is exact; a value beyond
+/// that bound is clamped rather than rounded, which keeps the viewport maths
+/// inside a range it can represent.
+pub(super) fn dimension_f32(value: u32) -> f32 {
+    f32::from(u16::try_from(value).unwrap_or(u16::MAX))
+}
+
+/// Rounds a viewport dimension to the nearest integer.
+///
+/// The value is `reference × scale`, where both dimensions come from
+/// [`dimension_f32`] (at most 65 535) and the scale is their ratio, so the
+/// result is a whole number in `0..=65 535`: the saturating `as` cast is exact
+/// and the caller clamps it to the drawable anyway.
+#[allow(clippy::cast_possible_truncation)]
+const fn round_to_i32(value: f32) -> i32 {
+    value.round() as i32
 }
 
 /// Placement of the 480x272 UI reference space inside the physical drawable.
@@ -94,7 +116,7 @@ pub struct UiViewport {
 /// Aspect ratio of the authored `PocketCHIP` reference resolution (480x272).
 #[must_use]
 pub fn reference_aspect_ratio() -> f32 {
-    UI_REFERENCE_WIDTH as f32 / UI_REFERENCE_HEIGHT as f32
+    dimension_f32(UI_REFERENCE_WIDTH) / dimension_f32(UI_REFERENCE_HEIGHT)
 }
 
 /// Maps the configured (baseline) vertical field of view onto a drawable with

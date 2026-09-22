@@ -1,5 +1,13 @@
 //! Unit tests for the spatial grid, frustum and mesh buckets.
 
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
+// the production lints stay enforced everywhere else in the crate.
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::cast_precision_loss,
+    clippy::indexing_slicing
+)]
+
 use super::*;
 use crate::test_support::{assert_exact, assert_exact_array};
 use glam::{Mat4, Vec3};

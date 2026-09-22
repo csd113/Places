@@ -57,10 +57,15 @@ impl Aabb {
     /// ignored so a malformed level cannot poison a batch's bounds into NaN and
     /// make it disappear or, worse, always pass the frustum test.
     pub fn expand(&mut self, point: [f32; 3]) {
-        for (axis, value) in point.iter().enumerate() {
+        for ((min, max), value) in self
+            .min
+            .iter_mut()
+            .zip(self.max.iter_mut())
+            .zip(point.iter())
+        {
             if value.is_finite() {
-                self.min[axis] = self.min[axis].min(*value);
-                self.max[axis] = self.max[axis].max(*value);
+                *min = min.min(*value);
+                *max = max.max(*value);
             }
         }
     }
@@ -84,7 +89,10 @@ impl Aabb {
     /// True when no finite point was ever added.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        (0..3).any(|axis| self.min[axis] > self.max[axis])
+        self.min
+            .iter()
+            .zip(self.max.iter())
+            .any(|(min, max)| min > max)
     }
 
     #[must_use]
@@ -109,6 +117,9 @@ pub struct CellKey {
 /// `f32 -> i32` saturates anyway, but clamping explicitly keeps cell keys stable
 /// and comparable for absurd coordinates instead of relying on cast saturation.
 const CELL_LIMIT: i32 = 1 << 20;
+
+/// [`CELL_LIMIT`] as an `f32`. `1 << 20` is a power of two, so this is exact.
+const CELL_LIMIT_F32: f32 = 1_048_576.0;
 
 /// Smallest useful cell size, in metres.
 ///
@@ -214,12 +225,17 @@ fn cell_axis(value: f32, cell_metres: f32) -> i32 {
         return 0;
     }
     let index = (value / cell_metres).floor();
-    if index <= -(CELL_LIMIT as f32) {
+    if index <= -CELL_LIMIT_F32 {
         -CELL_LIMIT
-    } else if index >= CELL_LIMIT as f32 {
+    } else if index >= CELL_LIMIT_F32 {
         CELL_LIMIT
     } else {
-        index as i32
+        // `index` is inside `(-2^20, 2^20)` here, so it is an integral value
+        // that fits `i32` exactly: the cast neither truncates nor saturates.
+        #[allow(clippy::cast_possible_truncation)]
+        {
+            index as i32
+        }
     }
 }
 
@@ -350,7 +366,14 @@ fn centroid(vertices: &[crate::render::Vertex]) -> [f32; 3] {
         centre[1] += vertex.pos[1];
         centre[2] += vertex.pos[2];
     }
-    let count = vertices.len().max(1) as f32;
+    let count = {
+        // Clamped to `[1, 2^24]`, the exact range of consecutive integers in
+        // `f32`, so the cast is lossless for every run a level can build.
+        #[allow(clippy::cast_precision_loss)]
+        {
+            vertices.len().clamp(1, 1 << 24) as f32
+        }
+    };
     [centre[0] / count, centre[1] / count, centre[2] / count]
 }
 
@@ -395,16 +418,9 @@ impl<G: Copy + Ord + Hash> SpatialBuckets<G> {
     /// the last cell so no vertex is ever dropped.
     pub fn add_quads(&mut self, group: G, vertices: &[crate::render::Vertex]) {
         const QUAD: usize = 6;
-        if vertices.is_empty() {
-            return;
-        }
-        let mut start = 0;
-        while start < vertices.len() {
-            let end = (start + QUAD).min(vertices.len());
-            let quad = &vertices[start..end];
+        for quad in vertices.chunks(QUAD) {
             let key = (group, self.grid.cell_of(centroid(quad)));
             self.buckets.entry(key).or_default().extend_from_slice(quad);
-            start = end;
         }
     }
 
@@ -501,14 +517,12 @@ fn index_run(run: &[crate::render::Vertex]) -> Vec<IndexedRange> {
     // differ only in a baked-lighting channel or a UV stay separate.
     let mut seen: HashMap<[u32; 9], u16> = HashMap::new();
 
-    let mut start = 0;
-    while start < run.len() {
-        let end = (start + QUAD).min(run.len());
-        let quad = &run[start..end];
-
+    for quad in run.chunks(QUAD) {
         // A quad needs at most four new vertices; start a new range instead of
-        // overflowing the 16-bit index space.
-        if current.vertices.len() + QUAD > MAX_INDEX_VERTICES {
+        // overflowing the 16-bit index space. The bound is written as
+        // `MAX_INDEX_VERTICES - QUAD` to test `len + QUAD > MAX_INDEX_VERTICES`
+        // without an addition that could overflow.
+        if current.vertices.len() > MAX_INDEX_VERTICES - QUAD {
             ranges.push(std::mem::take(&mut current));
             seen.clear();
         }
@@ -517,20 +531,21 @@ fn index_run(run: &[crate::render::Vertex]) -> Vec<IndexedRange> {
         // with two repeated. Indexing keeps p0..p3 and re-derives the repeat,
         // which is where the six-to-four saving comes from. A short trailing run
         // is treated as a single triangle rather than being discarded.
-        let corner_count = if quad.len() >= QUAD {
-            4
-        } else {
-            quad.len().min(3)
-        };
-        let mut corners = [0u16; 4];
-        for (slot, corner) in corners.iter_mut().enumerate().take(corner_count) {
-            // Slot 3 lives at run position 5 in a full quad.
-            let source = if corner_count == 4 && slot == 3 {
-                5
+        let corner_sources = [
+            quad.first(),
+            quad.get(1),
+            quad.get(2),
+            if quad.len() >= QUAD {
+                quad.last()
             } else {
-                slot
+                None
+            },
+        ];
+        let mut corners = [0u16; 4];
+        for (corner, source) in corners.iter_mut().zip(corner_sources) {
+            let Some(vertex) = source else {
+                break;
             };
-            let vertex = &quad[source];
             let key = vertex_key(vertex);
             *corner = if let Some(index) = seen.get(&key) {
                 *index
@@ -542,17 +557,16 @@ fn index_run(run: &[crate::render::Vertex]) -> Vec<IndexedRange> {
                 index
             };
         }
-        if corner_count >= 3 {
+        if quad.len() >= 3 {
             current
                 .indices
                 .extend_from_slice(&[corners[0], corners[1], corners[2]]);
-            if corner_count == 4 {
+            if quad.len() >= QUAD {
                 current
                     .indices
                     .extend_from_slice(&[corners[0], corners[2], corners[3]]);
             }
         }
-        start = end;
     }
     if !current.vertices.is_empty() {
         ranges.push(current);

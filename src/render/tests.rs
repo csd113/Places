@@ -4,6 +4,24 @@
 //! prop instancing and the view/capture helpers through the same entry points
 //! the game uses.
 
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
+// the production lints stay enforced everywhere else in the crate.
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::collection_is_never_read,
+    clippy::expect_used,
+    clippy::float_cmp,
+    clippy::indexing_slicing,
+    clippy::manual_assert_eq,
+    clippy::panic,
+    clippy::print_stdout,
+    clippy::unwrap_used,
+    clippy::wildcard_enum_match_arm
+)]
+
 use crate::test_support::{assert_exact, assert_exact_array, assert_exact_named};
 
 use super::*;

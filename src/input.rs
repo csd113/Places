@@ -188,32 +188,33 @@ impl InputHandler {
 
     /// Handles gameplay events using active `KeyBindings`.
     pub fn handle_gameplay_event(&mut self, event: &Event, bindings: &KeyBindings) {
-        match event {
-            Event::Quit { .. } => {
-                self.state.quit_requested = true;
+        if let Event::Quit { .. } = event {
+            self.state.quit_requested = true;
+            return;
+        }
+        if let Event::KeyDown {
+            keycode: Some(key),
+            repeat: false,
+            ..
+        } = event
+        {
+            let name = keycode_to_str(*key);
+            if let Some(button) = InputState::binding_control(bindings, &name) {
+                self.state.set_held(button, true);
             }
-            Event::KeyDown {
-                keycode: Some(key),
-                repeat: false,
-                ..
-            } => {
-                let name = keycode_to_str(*key);
-                if let Some(button) = InputState::binding_control(bindings, &name) {
-                    self.state.set_held(button, true);
-                }
-                if *key == Keycode::Minus || *key == Keycode::KpMinus {
-                    self.state.toggle_overlay = !self.state.toggle_overlay;
-                }
+            if *key == Keycode::Minus || *key == Keycode::KpMinus {
+                self.state.toggle_overlay = !self.state.toggle_overlay;
             }
-            Event::KeyUp {
-                keycode: Some(key), ..
-            } => {
-                let name = keycode_to_str(*key);
-                if let Some(button) = InputState::binding_control(bindings, &name) {
-                    self.state.set_held(button, false);
-                }
+            return;
+        }
+        if let Event::KeyUp {
+            keycode: Some(key), ..
+        } = event
+        {
+            let name = keycode_to_str(*key);
+            if let Some(button) = InputState::binding_control(bindings, &name) {
+                self.state.set_held(button, false);
             }
-            _ => {}
         }
     }
 
@@ -222,12 +223,13 @@ impl InputHandler {
     /// adjusting; Enter for activation; Escape for back.
     #[must_use]
     pub const fn poll_menu_nav_event(event: &Event) -> Option<MenuNavEvent> {
-        match event {
-            Event::KeyDown {
-                keycode: Some(key),
-                repeat: false,
-                ..
-            } => match *key {
+        if let Event::KeyDown {
+            keycode: Some(key),
+            repeat: false,
+            ..
+        } = event
+        {
+            match *key {
                 Keycode::W | Keycode::Up => Some(MenuNavEvent::Up),
                 Keycode::S | Keycode::Down => Some(MenuNavEvent::Down),
                 Keycode::A | Keycode::Left => Some(MenuNavEvent::Left),
@@ -235,8 +237,9 @@ impl InputHandler {
                 Keycode::Return => Some(MenuNavEvent::Activate),
                 Keycode::Escape => Some(MenuNavEvent::Back),
                 _ => None,
-            },
-            _ => None,
+            }
+        } else {
+            None
         }
     }
 }

@@ -105,6 +105,11 @@ impl PropAssets {
     }
 
     /// Prints a one-time developer warning for a model that fell back.
+    ///
+    /// Missing assets have no logger to route through, and the message is
+    /// aimed at a developer watching the terminal, so it goes to stderr as it
+    /// always has.
+    #[allow(clippy::print_stderr)]
     pub fn report_failure(&mut self, model_path: &str, message: &str) {
         if self.reported_failures.iter().any(|path| path == model_path) {
             return;
@@ -120,11 +125,13 @@ impl PropAssets {
         for entry in self.models.values() {
             match entry {
                 Ok(asset) => {
-                    stats.models_loaded += 1;
-                    stats.triangles += asset.model.triangles;
-                    stats.texture_bytes += texture_bytes(&asset.model);
+                    stats.models_loaded = stats.models_loaded.saturating_add(1);
+                    stats.triangles = stats.triangles.saturating_add(asset.model.triangles);
+                    stats.texture_bytes = stats
+                        .texture_bytes
+                        .saturating_add(texture_bytes(&asset.model));
                 }
-                Err(_) => stats.models_failed += 1,
+                Err(_) => stats.models_failed = stats.models_failed.saturating_add(1),
             }
         }
         stats
@@ -135,6 +142,7 @@ impl PropAssets {
 ///
 /// The single definition lives in [`crate::assets`], so the catalog and the
 /// model cache can never disagree about where files are stored.
+#[must_use]
 pub fn resolve_prop_root() -> Option<PathBuf> {
     crate::assets::resolve_asset_root()
 }

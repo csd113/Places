@@ -1,5 +1,9 @@
 //! Unit tests for player/wall collision.
 
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
+// the production lints stay enforced everywhere else in the crate.
+#![allow(clippy::expect_used, clippy::needless_collect, clippy::panic)]
+
 use super::*;
 use crate::level::LevelDef;
 use crate::test_support::assert_exact;

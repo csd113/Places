@@ -1,5 +1,9 @@
 //! Unit tests for the input handler.
 
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
+// the production lints stay enforced everywhere else in the crate.
+#![allow(clippy::doc_markdown)]
+
 use super::*;
 use sdl2::keyboard::Mod;
 

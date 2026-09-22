@@ -7,6 +7,19 @@
 //! (M/N), fixtures outside rooms (O) and degenerate data (P). Colour safety (Q)
 //! and determinism (R) are asserted across all of them.
 
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
+// the production lints stay enforced everywhere else in the crate.
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::default_trait_access,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::too_many_lines,
+    clippy::uninlined_format_args,
+    clippy::unwrap_used
+)]
+
 use crate::level::{
     CeilingLightDef, LevelDef, MAX_LEVEL_FLOOR_AREA_M2, PropDef, RoomDef, SpawnDef,
 };

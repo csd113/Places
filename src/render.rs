@@ -202,6 +202,15 @@ fn shade(base: [f32; 3], light: LightColor) -> [f32; 3] {
     ]
 }
 
+/// Converts a renderer count (segment, vertex or pixel index) to `f32`.
+///
+/// Every count in this module is bounded by the level geometry and GPU buffer
+/// sizes, far below 2^24, where an `usize` to `f32` conversion is exact.
+#[allow(clippy::cast_precision_loss)] // counts are < 2^24, where f32 is exact
+const fn count_to_f32(value: usize) -> f32 {
+    value as f32
+}
+
 /// Baked brightness sampled at each of four quad corners.
 fn lit_corners(base: [f32; 3], points: [[f32; 3]; 4], lighting: &LevelLighting) -> [[f32; 3]; 4] {
     points.map(|point| shade(base, lighting.sample(point[0], point[1], point[2])))
@@ -282,9 +291,9 @@ fn add_wall_length_face(
     // corner, so each boundary is sampled exactly once (a 2x saving) and the
     // merged strip keeps a single value at every surviving edge.
     let boundary_count = segments as usize + 1;
-    let mut boundaries: Vec<(f32, f32, [f32; 3], [f32; 3])> = Vec::with_capacity(boundary_count);
+    let mut boundaries: Vec<WallBoundary> = Vec::with_capacity(boundary_count);
     for boundary in 0..boundary_count {
-        let at = l0 + (l1 - l0) * boundary as f32 / segments as f32;
+        let at = l0 + (l1 - l0) * count_to_f32(boundary) / count_to_f32(segments as usize);
         let top = top_at(at);
         boundaries.push((
             at,
@@ -293,25 +302,14 @@ fn add_wall_length_face(
             color(at, top, top_shade),
         ));
     }
-    let matches_run = |reference: &(f32, f32, [f32; 3], [f32; 3]),
-                       candidate: &(f32, f32, [f32; 3], [f32; 3])| {
-        (0..3).all(|channel| {
-            (candidate.2[channel] - reference.2[channel]).abs() <= LIGHT_GRID_MERGE_EPS
-                && (candidate.3[channel] - reference.3[channel]).abs() <= LIGHT_GRID_MERGE_EPS
-        }) && (candidate.1 - reference.1).abs() <= HEIGHT_MERGE_EPS
-    };
-    let mut start = 0;
-    while start < segments as usize {
-        let mut end = start + 1;
-        while end < segments as usize
-            && boundaries[start..=end]
-                .iter()
-                .all(|candidate| matches_run(&boundaries[start], candidate))
-        {
-            end += 1;
-        }
-        let (at_start, top_start, bottom_start, top_color_start) = boundaries[start];
-        let (at_end, top_end, bottom_end, top_color_end) = boundaries[end];
+    for (start, end) in merge_light_runs(&boundaries, segments as usize) {
+        let (
+            Some(&(at_start, top_start, bottom_start, top_color_start)),
+            Some(&(at_end, top_end, bottom_end, top_color_end)),
+        ) = (boundaries.get(start), boundaries.get(end))
+        else {
+            continue;
+        };
         // Walk the strip from `start` to `end`, or the other way round when the
         // wall is reversed, so the quad keeps one consistent winding.
         let (
@@ -363,8 +361,54 @@ fn add_wall_length_face(
             first_bottom,
             uv(first_at, bottom),
         );
+    }
+}
+
+/// One boundary sample of a wall length face: length offset, top edge and the
+/// shaded colours of the bottom and top edge there.
+type WallBoundary = (f32, f32, [f32; 3], [f32; 3]);
+
+/// Merges adjacent boundary samples whose colours and top edge are flat.
+///
+/// Returns the surviving `(start, end)` boundary index pairs, each covering one
+/// emitted quad. Adjacent segments share a corner, so every boundary is sampled
+/// once and a merged strip keeps a single value at each surviving edge.
+fn merge_light_runs(boundaries: &[WallBoundary], segments: usize) -> Vec<(usize, usize)> {
+    let matches_run = |reference: &WallBoundary, candidate: &WallBoundary| {
+        reference
+            .2
+            .iter()
+            .zip(&candidate.2)
+            .all(|(reference, candidate)| (candidate - reference).abs() <= LIGHT_GRID_MERGE_EPS)
+            && reference
+                .3
+                .iter()
+                .zip(&candidate.3)
+                .all(|(reference, candidate)| (candidate - reference).abs() <= LIGHT_GRID_MERGE_EPS)
+            && (candidate.1 - reference.1).abs() <= HEIGHT_MERGE_EPS
+    };
+    let mut runs = Vec::new();
+    let mut start = 0;
+    while start < segments {
+        let Some(reference) = boundaries.get(start) else {
+            break;
+        };
+        let mut end = start.saturating_add(1);
+        while end < segments
+            && boundaries.get(start..=end).is_some_and(|run| {
+                run.iter()
+                    .all(|candidate| matches_run(reference, candidate))
+            })
+        {
+            end = end.saturating_add(1);
+        }
+        if boundaries.get(end).is_none() {
+            break;
+        }
+        runs.push((start, end));
         start = end;
     }
+    runs
 }
 
 pub(crate) const fn generate_white_texture() -> [u8; 2 * 2 * 4] {
@@ -410,7 +454,7 @@ enum WallUnit<'a> {
 }
 
 impl WallUnit<'_> {
-    fn wall(&self) -> &WallDef {
+    const fn wall(&self) -> &WallDef {
         match self {
             Self::Plain(wall) => wall,
             Self::Coalesced { wall, .. } => wall,
@@ -603,6 +647,34 @@ fn wall_material_keys(
     )
 }
 
+/// Root of a union-find set, with path compression.
+///
+/// Indices always come from the wall enumeration, so they stay in range; a
+/// missing entry simply ends the walk instead of panicking.
+fn find_root(parent: &mut [usize], index: usize) -> usize {
+    let mut root = index;
+    loop {
+        let Some(&next) = parent.get(root) else {
+            return root;
+        };
+        if next == root {
+            break;
+        }
+        root = next;
+    }
+    let mut cursor = index;
+    while let Some(&next) = parent.get(cursor) {
+        if next == root {
+            break;
+        }
+        if let Some(slot) = parent.get_mut(cursor) {
+            *slot = root;
+        }
+        cursor = next;
+    }
+    root
+}
+
 /// Resolves coincident collinear walls into single emission units.
 ///
 /// The shipped residential levels paint part of a wall with water damage by
@@ -622,26 +694,34 @@ fn wall_units<'a>(
     let default_wall = level.defaults.wall.as_str();
     let walls = &level.walls;
     let slabs: Vec<Option<WallSlab>> = walls.iter().map(|wall| wall_slab(wall, surfaces)).collect();
+    let groups = wall_groups(&slabs);
 
-    // Transitive grouping of coincident slabs (union-find over wall indices).
-    let mut parent: Vec<usize> = (0..walls.len()).collect();
-    fn find(parent: &mut [usize], index: usize) -> usize {
-        let mut root = index;
-        while parent[root] != root {
-            root = parent[root];
+    let mut units: Vec<WallUnit<'a>> = Vec::with_capacity(groups.len());
+    for group in groups {
+        if group.len() == 1 {
+            if let Some(wall) = group.first().and_then(|index| walls.get(*index)) {
+                units.push(WallUnit::Plain(wall));
+            }
+            continue;
         }
-        let mut cursor = index;
-        while parent[cursor] != root {
-            let next = parent[cursor];
-            parent[cursor] = root;
-            cursor = next;
+        if let Some(unit) =
+            coalesce_wall_group(&group, &slabs, walls, surfaces, materials, default_wall)
+        {
+            units.push(unit);
         }
-        root
     }
+    units
+}
+
+/// Groups coincident collinear wall slabs transitively (union-find over wall
+/// indices), in first-appearance order so the emitted range order stays
+/// deterministic and follows the authored wall order.
+fn wall_groups(slabs: &[Option<WallSlab>]) -> Vec<Vec<usize>> {
+    let mut parent: Vec<usize> = (0..slabs.len()).collect();
     for (i, slab) in slabs.iter().enumerate() {
         let Some(a) = *slab else { continue };
-        for j in i + 1..walls.len() {
-            let Some(b) = slabs[j] else { continue };
+        for (j, other) in slabs.iter().enumerate().skip(i.saturating_add(1)) {
+            let Some(b) = *other else { continue };
             if a.axis != b.axis
                 || (a.thickness.0 - b.thickness.0).abs() > WALL_COINCIDENCE_EPS
                 || (a.thickness.1 - b.thickness.1).abs() > WALL_COINCIDENCE_EPS
@@ -650,185 +730,264 @@ fn wall_units<'a>(
             {
                 continue;
             }
-            let (a_start, a_end) = slabs[i].map_or((0.0, 0.0), |slab| slab.length);
-            let (b_start, b_end) = slabs[j].map_or((0.0, 0.0), |slab| slab.length);
-            let (_, shared_end) = (a_start.max(b_start), a_end.min(b_end));
-            if shared_end - a_start.max(b_start) <= WALL_COINCIDENCE_EPS {
+            let (a_start, a_end) = a.length;
+            let (b_start, b_end) = b.length;
+            let shared_start = a_start.max(b_start);
+            let shared_end = a_end.min(b_end);
+            if shared_end - shared_start <= WALL_COINCIDENCE_EPS {
                 continue;
             }
-            let (root_a, root_b) = (find(&mut parent, i), find(&mut parent, j));
-            if root_a != root_b {
-                parent[root_b] = root_a;
+            let (root_a, root_b) = (find_root(&mut parent, i), find_root(&mut parent, j));
+            if root_a != root_b
+                && let Some(slot) = parent.get_mut(root_b)
+            {
+                *slot = root_a;
             }
         }
     }
 
-    // Collect groups in first-appearance order so the emitted range order stays
-    // deterministic and follows the authored wall order.
-    let mut group_of: Vec<usize> = vec![usize::MAX; walls.len()];
+    let mut group_of: Vec<Option<usize>> = vec![None; slabs.len()];
     let mut groups: Vec<Vec<usize>> = Vec::new();
     for (i, slab) in slabs.iter().enumerate() {
         if slab.is_none() {
             continue;
         }
-        let root = find(&mut parent, i);
-        if group_of[root] == usize::MAX {
-            group_of[root] = groups.len();
+        let root = find_root(&mut parent, i);
+        let group_index = group_of.get(root).copied().flatten().unwrap_or_else(|| {
+            let index = groups.len();
+            if let Some(slot) = group_of.get_mut(root) {
+                *slot = Some(index);
+            }
             groups.push(Vec::new());
+            index
+        });
+        if let Some(group) = groups.get_mut(group_index) {
+            group.push(i);
         }
-        groups[group_of[root]].push(i);
     }
+    groups
+}
 
-    let mut units: Vec<WallUnit<'a>> = Vec::with_capacity(groups.len());
-    for group in groups {
-        if group.len() == 1 {
-            units.push(WallUnit::Plain(&walls[group[0]]));
+/// Union length span of a group of coincident walls.
+fn group_union_span(group: &[usize], slabs: &[Option<WallSlab>]) -> (f32, f32) {
+    group
+        .iter()
+        .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), index| {
+            let (start, end) = slabs
+                .get(*index)
+                .copied()
+                .flatten()
+                .map_or((0.0, 0.0), |slab| slab.length);
+            (lo.min(start), hi.max(end))
+        })
+}
+
+/// Sorted, deduplicated length boundaries of a wall group: every member's ends
+/// and every opening edge, clipped to the group's union span.
+fn group_boundaries(
+    group: &[usize],
+    slabs: &[Option<WallSlab>],
+    walls: &[WallDef],
+    lo: f32,
+    hi: f32,
+) -> Vec<f32> {
+    let mut boundaries: Vec<f32> = vec![lo, hi];
+    for index in group {
+        let Some(wall) = walls.get(*index) else {
+            continue;
+        };
+        let (start, end) = slabs
+            .get(*index)
+            .copied()
+            .flatten()
+            .map_or((0.0, 0.0), |slab| slab.length);
+        boundaries.push(start.clamp(lo, hi));
+        boundaries.push(end.clamp(lo, hi));
+        let (origin_x, origin_z) = wall.length_origin();
+        let origin = match wall.axis() {
+            WallAxis::X => origin_x,
+            WallAxis::Z => origin_z,
+        };
+        for opening in &wall.openings {
+            if !opening.offset.is_finite() || !opening.width.is_finite() {
+                continue;
+            }
+            boundaries.push((origin + opening.offset).clamp(lo, hi));
+            boundaries.push((origin + opening.end()).clamp(lo, hi));
+        }
+    }
+    boundaries.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    boundaries.dedup_by(|a, b| (*a - *b).abs() <= WALL_COINCIDENCE_EPS);
+    boundaries
+}
+
+/// Material runs and combined openings of a wall group, one pair per emitted
+/// span between consecutive boundaries.
+fn group_runs_and_openings(
+    group: &[usize],
+    slabs: &[Option<WallSlab>],
+    walls: &[WallDef],
+    boundaries: &[f32],
+    surfaces: &LevelSurfaces<'_>,
+    materials: &MaterialLookup<'_>,
+    default_wall: &str,
+) -> (Vec<WallMaterialRun>, Vec<crate::level::WallOpeningDef>) {
+    let (lo, _hi) = group_union_span(group, slabs);
+    let mut runs: Vec<WallMaterialRun> = Vec::new();
+    let mut openings: Vec<crate::level::WallOpeningDef> = Vec::new();
+    for pair in boundaries.windows(2) {
+        let [lower, upper] = pair else { continue };
+        let segment = (*lower, *upper);
+        if segment.1 - segment.0 <= WALL_COINCIDENCE_EPS {
             continue;
         }
-
-        // Length boundaries of the group: every member's ends and every
-        // opening edge, clipped to the group's union span.
-        let (lo, hi) = group
+        let covering: Vec<usize> = group
             .iter()
-            .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), index| {
-                let (start, end) = slabs[*index].map_or((0.0, 0.0), |slab| slab.length);
-                (lo.min(start), hi.max(end))
-            });
-        let mut boundaries: Vec<f32> = vec![lo, hi];
-        for index in &group {
-            let wall = &walls[*index];
-            let (start, end) = slabs[*index].map_or((0.0, 0.0), |slab| slab.length);
-            boundaries.push(start.clamp(lo, hi));
-            boundaries.push(end.clamp(lo, hi));
-            let (origin_x, origin_z) = wall.length_origin();
-            let origin = match wall.axis() {
-                WallAxis::X => origin_x,
-                WallAxis::Z => origin_z,
-            };
-            for opening in &wall.openings {
-                if !opening.offset.is_finite() || !opening.width.is_finite() {
-                    continue;
-                }
-                boundaries.push((origin + opening.offset).clamp(lo, hi));
-                boundaries.push((origin + opening.end()).clamp(lo, hi));
-            }
-        }
-        boundaries.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        boundaries.dedup_by(|a, b| (*a - *b).abs() <= WALL_COINCIDENCE_EPS);
-
-        let mut runs: Vec<WallMaterialRun> = Vec::new();
-        let mut openings: Vec<crate::level::WallOpeningDef> = Vec::new();
-        for pair in boundaries.windows(2) {
-            let segment = (pair[0], pair[1]);
-            if segment.1 - segment.0 <= WALL_COINCIDENCE_EPS {
-                continue;
-            }
-            let covering: Vec<usize> = group
-                .iter()
-                .copied()
-                .filter(|index| {
-                    let (start, end) = slabs[*index].map_or((0.0, 0.0), |slab| slab.length);
-                    start <= segment.0 + WALL_COINCIDENCE_EPS
-                        && end >= segment.1 - WALL_COINCIDENCE_EPS
-                })
-                .collect();
-            let Some(first) = covering.first().copied() else {
-                continue;
-            };
-
-            // Solid profile of the group: a span is open only when every
-            // covering wall has an opening there, because any opaque member
-            // covers the others' holes.
-            let base = slabs[first].map_or(0.0, |slab| slab.base);
-            let mut holes: Option<Vec<(f32, f32)>> = None;
-            for index in &covering {
-                let member_h = surfaces.clear_ceiling_height_at(
-                    walls[*index].width.mul_add(0.5, walls[*index].x),
-                    walls[*index].depth.mul_add(0.5, walls[*index].z),
-                );
-                let member_holes: Vec<(f32, f32)> =
-                    wall_opening_intervals(&walls[*index], member_h, segment)
-                        .iter()
-                        .map(|(bottom, top)| (bottom - base, top - base))
-                        .collect();
-                holes = Some(match holes {
-                    None => member_holes,
-                    Some(existing) => intersect_intervals(&existing, &member_holes),
-                });
-            }
-            for (bottom, top) in holes.unwrap_or_default() {
-                openings.push(crate::level::WallOpeningDef {
-                    kind: "passage".into(),
-                    offset: segment.0 - lo,
-                    width: segment.1 - segment.0,
-                    height: top - bottom,
-                    sill: bottom,
-                });
-            }
-
-            // Visible material: the last covering member wins, which is
-            // exactly what the duplicate surfaces used to resolve to for the
-            // shipped overlays, because a damage overlay is authored after the
-            // wall it covers. Later levels keep that ordering rule explicit:
-            // the latest authored material in the span is the one drawn.
-            let mut faces = [
-                materials.key(MaterialSlot::Wall, default_wall),
-                materials.key(MaterialSlot::Wall, default_wall),
-            ];
-            let mut body = faces[0];
-            for index in &covering {
-                let (member_faces, member_body) =
-                    wall_material_keys(&walls[*index], default_wall, materials);
-                faces = member_faces;
-                body = member_body;
-            }
-            runs.push(WallMaterialRun {
-                start: segment.0 - lo,
-                end: segment.1 - lo,
-                faces,
-                body,
-            });
-        }
-
-        // The synthetic wall spans the group's whole union, sharing the first
-        // member's thickness and vertical extent; it only carries the group's
-        // combined openings and material runs. Collision keeps using the
-        // authored walls, so this is a rendering-only resolution.
-        let host = &walls[group[0]];
-        let host_base = slabs[group[0]].map_or(host.y, |slab| slab.base);
-        let host_top =
-            slabs[group[0]].map_or(host.y + host.resolved_height(host_base), |slab| slab.top);
-        let (t0, t1) = match host.axis() {
-            WallAxis::X => (
-                host.z.min(host.z + host.depth),
-                host.z.max(host.z + host.depth),
-            ),
-            WallAxis::Z => (
-                host.x.min(host.x + host.width),
-                host.x.max(host.x + host.width),
-            ),
+            .copied()
+            .filter(|index| {
+                let (start, end) = slabs
+                    .get(*index)
+                    .copied()
+                    .flatten()
+                    .map_or((0.0, 0.0), |slab| slab.length);
+                start <= segment.0 + WALL_COINCIDENCE_EPS && end >= segment.1 - WALL_COINCIDENCE_EPS
+            })
+            .collect();
+        let Some(first) = covering.first().copied() else {
+            continue;
         };
-        let mut wall = host.clone();
-        wall.openings = openings;
-        wall.y = host_base;
-        wall.height = Some(host_top - host_base);
-        match host.axis() {
-            WallAxis::X => {
-                wall.x = lo;
-                wall.width = hi - lo;
-                wall.z = t0;
-                wall.depth = t1 - t0;
-            }
-            WallAxis::Z => {
-                wall.z = lo;
-                wall.depth = hi - lo;
-                wall.x = t0;
-                wall.width = t1 - t0;
-            }
+
+        // Solid profile of the group: a span is open only when every
+        // covering wall has an opening there, because any opaque member
+        // covers the others' holes.
+        let base = slabs
+            .get(first)
+            .copied()
+            .flatten()
+            .map_or(0.0, |slab| slab.base);
+        let mut holes: Option<Vec<(f32, f32)>> = None;
+        for index in &covering {
+            let Some(wall) = walls.get(*index) else {
+                continue;
+            };
+            let member_h = surfaces.clear_ceiling_height_at(
+                wall.width.mul_add(0.5, wall.x),
+                wall.depth.mul_add(0.5, wall.z),
+            );
+            let member_holes: Vec<(f32, f32)> = wall_opening_intervals(wall, member_h, segment)
+                .iter()
+                .map(|(bottom, top)| (bottom - base, top - base))
+                .collect();
+            holes = Some(match holes {
+                None => member_holes,
+                Some(existing) => intersect_intervals(&existing, &member_holes),
+            });
         }
-        units.push(WallUnit::Coalesced { wall, runs });
+        for (bottom, top) in holes.unwrap_or_default() {
+            openings.push(crate::level::WallOpeningDef {
+                kind: "passage".into(),
+                offset: segment.0 - lo,
+                width: segment.1 - segment.0,
+                height: top - bottom,
+                sill: bottom,
+            });
+        }
+
+        // Visible material: the last covering member wins, which is
+        // exactly what the duplicate surfaces used to resolve to for the
+        // shipped overlays, because a damage overlay is authored after the
+        // wall it covers. Later levels keep that ordering rule explicit:
+        // the latest authored material in the span is the one drawn.
+        let default_face = materials.key(MaterialSlot::Wall, default_wall);
+        let mut faces = [default_face, default_face];
+        let mut body = default_face;
+        for index in &covering {
+            let Some(wall) = walls.get(*index) else {
+                continue;
+            };
+            let (member_faces, member_body) = wall_material_keys(wall, default_wall, materials);
+            faces = member_faces;
+            body = member_body;
+        }
+        runs.push(WallMaterialRun {
+            start: segment.0 - lo,
+            end: segment.1 - lo,
+            faces,
+            body,
+        });
     }
-    units
+    (runs, openings)
+}
+
+/// Coalesces one group of coincident walls into a single synthetic unit: the
+/// group's union profile, one material run per span, and the group's combined
+/// openings.
+fn coalesce_wall_group<'a>(
+    group: &[usize],
+    slabs: &[Option<WallSlab>],
+    walls: &'a [WallDef],
+    surfaces: &LevelSurfaces<'_>,
+    materials: &MaterialLookup<'_>,
+    default_wall: &str,
+) -> Option<WallUnit<'a>> {
+    let (lo, hi) = group_union_span(group, slabs);
+    let boundaries = group_boundaries(group, slabs, walls, lo, hi);
+
+    let (runs, openings) = group_runs_and_openings(
+        group,
+        slabs,
+        walls,
+        &boundaries,
+        surfaces,
+        materials,
+        default_wall,
+    );
+
+    // The synthetic wall spans the group's whole union, sharing the first
+    // member's thickness and vertical extent; it only carries the group's
+    // combined openings and material runs. Collision keeps using the
+    // authored walls, so this is a rendering-only resolution.
+    let host_index = *group.first()?;
+    let host = walls.get(host_index)?;
+    let host_base = slabs
+        .get(host_index)
+        .copied()
+        .flatten()
+        .map_or(host.y, |slab| slab.base);
+    let host_top = slabs
+        .get(host_index)
+        .copied()
+        .flatten()
+        .map_or_else(|| host.y + host.resolved_height(host_base), |slab| slab.top);
+    let (t0, t1) = match host.axis() {
+        WallAxis::X => (
+            host.z.min(host.z + host.depth),
+            host.z.max(host.z + host.depth),
+        ),
+        WallAxis::Z => (
+            host.x.min(host.x + host.width),
+            host.x.max(host.x + host.width),
+        ),
+    };
+    let mut wall = host.clone();
+    wall.openings = openings;
+    wall.y = host_base;
+    wall.height = Some(host_top - host_base);
+    match host.axis() {
+        WallAxis::X => {
+            wall.x = lo;
+            wall.width = hi - lo;
+            wall.z = t0;
+            wall.depth = t1 - t0;
+        }
+        WallAxis::Z => {
+            wall.z = lo;
+            wall.depth = hi - lo;
+            wall.x = t0;
+            wall.width = t1 - t0;
+        }
+    }
+    Some(WallUnit::Coalesced { wall, runs })
 }
 
 /// Merges overlapping/adjacent Y intervals into a sorted, disjoint list.
@@ -853,7 +1012,8 @@ fn interval_symmetric_difference(left: &[(f32, f32)], right: &[(f32, f32)]) -> V
     let left = merge_intervals(left.to_vec());
     let right = merge_intervals(right.to_vec());
 
-    let mut cuts: Vec<f32> = Vec::with_capacity((left.len() + right.len()) * 2);
+    let mut cuts: Vec<f32> =
+        Vec::with_capacity(left.len().saturating_add(right.len()).saturating_mul(2));
     for (bottom, top) in left.iter().chain(right.iter()) {
         cuts.push(*bottom);
         cuts.push(*top);
@@ -868,8 +1028,9 @@ fn interval_symmetric_difference(left: &[(f32, f32)], right: &[(f32, f32)]) -> V
     };
 
     let mut difference = Vec::new();
-    for bounds in cuts.windows(2) {
-        let (bottom, top) = (bounds[0], bounds[1]);
+    for pair in cuts.windows(2) {
+        let [lower, upper] = pair else { continue };
+        let (bottom, top) = (*lower, *upper);
         if top <= bottom + 1e-3 {
             continue;
         }
@@ -1080,6 +1241,7 @@ const DECAL_HORIZONTAL_LIGHT_PROBE_M: f32 = 0.05;
 /// placement or size is not finite; the loader rejects those, but the builder
 /// must never emit a NaN vertex.
 #[must_use]
+#[allow(clippy::arithmetic_side_effects)] // glam vector math is float-only and cannot overflow or panic
 pub fn decal_quad_points(decal: &crate::level::DecalDef) -> Option<[[f32; 3]; 4]> {
     if !decal.x.is_finite()
         || !decal.y.is_finite()
@@ -1130,7 +1292,7 @@ pub fn decal_quad_points(decal: &crate::level::DecalDef) -> Option<[[f32; 3]; 4]
 /// Per-decal shading tint: the surface family's face shade, so a decal sits in
 /// the same light as the surface it is printed on.
 #[must_use]
-fn decal_surface_tint(surface: crate::level::DecalSurface) -> [f32; 3] {
+const fn decal_surface_tint(surface: crate::level::DecalSurface) -> [f32; 3] {
     use crate::level::DecalSurface;
     let mult = match surface {
         DecalSurface::Floor => 1.0,
@@ -1151,6 +1313,7 @@ fn decal_surface_tint(surface: crate::level::DecalSurface) -> [f32; 3] {
 /// under it, so a decal in an elevated room or a recessed region stays on the
 /// surface instead of being left behind at the authored world Y. Wall decals
 /// keep their authored height, since a wall is not a horizontal surface.
+#[allow(clippy::arithmetic_side_effects)] // glam vector math is float-only and cannot overflow or panic
 fn add_decal_quad(
     vertices: &mut Vec<Vertex>,
     decal: &crate::level::DecalDef,
@@ -1167,7 +1330,10 @@ fn add_decal_quad(
                 surfaces.floor_y_at(point[0], point[2]).unwrap_or(point[1])
             }
             crate::level::DecalSurface::Ceiling => surfaces.ceiling_y_at(point[0], point[2]),
-            _ => point[1],
+            crate::level::DecalSurface::WallNorth
+            | crate::level::DecalSurface::WallSouth
+            | crate::level::DecalSurface::WallWest
+            | crate::level::DecalSurface::WallEast => point[1],
         }
     };
     if decal.surface.is_horizontal() {
@@ -1193,6 +1359,37 @@ fn add_decal_quad(
         vertices, points[0], colors[0], uv[0], points[1], colors[1], uv[1], points[2], colors[2],
         uv[2], points[3], colors[3], uv[3],
     );
+}
+
+/// True when a cell is still uncovered, so a growing rectangle can never
+/// re-emit an earlier one. Out-of-range cells count as covered.
+fn cell_is_covered(covered: &[bool], cells_x: usize, ix: usize, iz: usize) -> bool {
+    covered
+        .get(iz.saturating_mul(cells_x).saturating_add(ix))
+        .copied()
+        .unwrap_or(true)
+}
+
+/// True when every cell of the inclusive `ix0..=ix1` x `iz0..=iz1` rectangle is
+/// still uncovered.
+fn region_free(
+    covered: &[bool],
+    cells_x: usize,
+    ix0: usize,
+    ix1: usize,
+    iz0: usize,
+    iz1: usize,
+) -> bool {
+    covered
+        .chunks(cells_x)
+        .skip(iz0)
+        .take(iz1.saturating_sub(iz0).saturating_add(1))
+        .all(|row| {
+            row.iter()
+                .skip(ix0)
+                .take(ix1.saturating_sub(ix0).saturating_add(1))
+                .all(|cell| !cell)
+        })
 }
 
 /// True when a room can be tessellated without producing invalid geometry.
@@ -1228,17 +1425,22 @@ fn grid_rect_is_uniform(
     iz1: usize,
     reference: [f32; 3],
 ) -> bool {
-    for iz in iz0..=iz1 + 1 {
-        for ix in ix0..=ix1 + 1 {
-            let color = colors[iz * row_len + ix];
-            for channel in 0..3 {
-                if (color[channel] - reference[channel]).abs() > LIGHT_GRID_MERGE_EPS {
-                    return false;
-                }
-            }
-        }
+    if row_len == 0 {
+        return true;
     }
-    true
+    let width = ix1.saturating_sub(ix0).saturating_add(2);
+    let height = iz1.saturating_sub(iz0).saturating_add(2);
+    colors
+        .chunks(row_len)
+        .skip(iz0)
+        .take(height)
+        .flat_map(|row| row.iter().skip(ix0).take(width))
+        .all(|color| {
+            color
+                .iter()
+                .zip(&reference)
+                .all(|(channel, reference)| (channel - reference).abs() <= LIGHT_GRID_MERGE_EPS)
+        })
 }
 
 /// Height tolerance within which a merged surface counts as planar, in metres.
@@ -1259,15 +1461,25 @@ fn grid_rect_is_planar(
     iz0: usize,
     iz1: usize,
 ) -> bool {
-    let (x0, x1) = (xs[ix0], xs[ix1 + 1]);
-    let (z0, z1) = (zs[iz0], zs[iz1 + 1]);
+    let (Some(&x0), Some(&x1)) = (xs.get(ix0), xs.get(ix1.saturating_add(1))) else {
+        return false;
+    };
+    let (Some(&z0), Some(&z1)) = (zs.get(iz0), zs.get(iz1.saturating_add(1))) else {
+        return false;
+    };
     let (span_x, span_z) = (x1 - x0, z1 - z0);
     if span_x <= 0.0 || span_z <= 0.0 {
         return false;
     }
     let (y00, y10, y01) = (y_at(x0, z0), y_at(x1, z0), y_at(x0, z1));
-    for z in &zs[iz0..=iz1 + 1] {
-        for x in &xs[ix0..=ix1 + 1] {
+    let (Some(columns), Some(rows)) = (
+        xs.get(ix0..=ix1.saturating_add(1)),
+        zs.get(iz0..=iz1.saturating_add(1)),
+    ) else {
+        return false;
+    };
+    for z in rows {
+        for x in columns {
             let expected = y00 + (y10 - y00) * (x - x0) / span_x + (y01 - y00) * (z - z0) / span_z;
             if (y_at(*x, *z) - expected).abs() > HEIGHT_MERGE_EPS {
                 return false;
@@ -1321,51 +1533,79 @@ fn emit_lit_surface_grid(
     let row_len = xs.len();
     // Cells outside the selected region count as covered, so a growing
     // rectangle stops at the label boundary.
-    let mut covered = vec![false; cells_x * cells_z];
+    let mut covered = vec![false; cells_x.saturating_mul(cells_z)];
     if let Some((label, labels)) = region {
         for (index, cell) in covered.iter_mut().enumerate() {
             *cell = labels.get(index).copied() != Some(label);
         }
     }
-    // True when every cell of the `ix0..=ix1` x `iz0..=iz1` block is still
-    // uncovered, so a growing rectangle can never re-emit an earlier one.
-    let region_free = |covered: &[bool], ix0: usize, ix1: usize, iz0: usize, iz1: usize| {
-        (iz0..=iz1).all(|z| (ix0..=ix1).all(|x| !covered[z * cells_x + x]))
-    };
+
     for iz in 0..cells_z {
         for ix in 0..cells_x {
-            if covered[iz * cells_x + ix] {
+            if cell_is_covered(&covered, cells_x, ix, iz) {
                 continue;
             }
-            let reference = colors[iz * row_len + ix];
+            let Some(&reference) = colors.get(iz.saturating_mul(row_len).saturating_add(ix)) else {
+                continue;
+            };
             let mut ix1 = ix;
-            while ix1 + 1 < cells_x
-                && region_free(&covered, ix, ix1 + 1, iz, iz)
-                && grid_rect_is_uniform(colors, row_len, ix, ix1 + 1, iz, iz, reference)
-                && grid_rect_is_planar(xs, zs, &y_at, ix, ix1 + 1, iz, iz)
+            while ix1.saturating_add(1) < cells_x
+                && region_free(&covered, cells_x, ix, ix1.saturating_add(1), iz, iz)
+                && grid_rect_is_uniform(
+                    colors,
+                    row_len,
+                    ix,
+                    ix1.saturating_add(1),
+                    iz,
+                    iz,
+                    reference,
+                )
+                && grid_rect_is_planar(xs, zs, &y_at, ix, ix1.saturating_add(1), iz, iz)
             {
-                ix1 += 1;
+                ix1 = ix1.saturating_add(1);
             }
             let mut iz1 = iz;
-            while iz1 + 1 < cells_z
-                && region_free(&covered, ix, ix1, iz, iz1 + 1)
-                && grid_rect_is_uniform(colors, row_len, ix, ix1, iz, iz1 + 1, reference)
-                && grid_rect_is_planar(xs, zs, &y_at, ix, ix1, iz, iz1 + 1)
+            while iz1.saturating_add(1) < cells_z
+                && region_free(&covered, cells_x, ix, ix1, iz, iz1.saturating_add(1))
+                && grid_rect_is_uniform(
+                    colors,
+                    row_len,
+                    ix,
+                    ix1,
+                    iz,
+                    iz1.saturating_add(1),
+                    reference,
+                )
+                && grid_rect_is_planar(xs, zs, &y_at, ix, ix1, iz, iz1.saturating_add(1))
             {
-                iz1 += 1;
+                iz1 = iz1.saturating_add(1);
             }
             for z in iz..=iz1 {
                 for x in ix..=ix1 {
-                    covered[z * cells_x + x] = true;
+                    if let Some(cell) = covered.get_mut(z.saturating_mul(cells_x).saturating_add(x))
+                    {
+                        *cell = true;
+                    }
                 }
             }
 
-            let (ax, bx) = (xs[ix], xs[ix1 + 1]);
-            let (az, bz) = (zs[iz], zs[iz1 + 1]);
-            let c00 = colors[iz * row_len + ix];
-            let c10 = colors[iz * row_len + ix1 + 1];
-            let c11 = colors[(iz1 + 1) * row_len + ix1 + 1];
-            let c01 = colors[(iz1 + 1) * row_len + ix];
+            let (Some(&ax), Some(&bx)) = (xs.get(ix), xs.get(ix1.saturating_add(1))) else {
+                continue;
+            };
+            let (Some(&az), Some(&bz)) = (zs.get(iz), zs.get(iz1.saturating_add(1))) else {
+                continue;
+            };
+            let row = iz.saturating_mul(row_len);
+            let next_row = iz1.saturating_add(1).saturating_mul(row_len);
+            let column = ix1.saturating_add(1);
+            let (Some(&c00), Some(&c10), Some(&c11), Some(&c01)) = (
+                colors.get(row.saturating_add(ix)),
+                colors.get(row.saturating_add(column)),
+                colors.get(next_row.saturating_add(column)),
+                colors.get(next_row.saturating_add(ix)),
+            ) else {
+                continue;
+            };
             // Winding is the project convention: a face's front side is the
             // side its normal points to (right-hand rule over p0 -> p1 -> p2),
             // and every world face is wound to point *out* of the solid. So a
@@ -1373,44 +1613,47 @@ fn emit_lit_surface_grid(
             // but its vertical component keeps the same sign). Culling is off
             // today, but collision, decals and a future cull-enabled build all
             // read this convention.
-            let (points, corners) = if ceiling {
+            let (xz, corner_colors) = if ceiling {
                 (
-                    [
-                        [ax, y_at(ax, az), az],
-                        [bx, y_at(bx, az), az],
-                        [bx, y_at(bx, bz), bz],
-                        [ax, y_at(ax, bz), bz],
-                    ],
+                    [[ax, az], [bx, az], [bx, bz], [ax, bz]],
                     [c00, c10, c11, c01],
                 )
             } else {
                 (
-                    [
-                        [ax, y_at(ax, bz), bz],
-                        [bx, y_at(bx, bz), bz],
-                        [bx, y_at(bx, az), az],
-                        [ax, y_at(ax, az), az],
-                    ],
+                    [[ax, bz], [bx, bz], [bx, az], [ax, az]],
                     [c01, c11, c10, c00],
                 )
             };
-            add_quad(
-                vertices,
-                points[0],
-                corners[0],
-                uv(points[0][0], points[0][2]),
-                points[1],
-                corners[1],
-                uv(points[1][0], points[1][2]),
-                points[2],
-                corners[2],
-                uv(points[2][0], points[2][2]),
-                points[3],
-                corners[3],
-                uv(points[3][0], points[3][2]),
-            );
+            emit_grid_quad(vertices, xz, corner_colors, &y_at, &uv);
         }
     }
+}
+
+/// Emits one merged grid rectangle: its `(x, z)` corners in winding order and
+/// the four shaded corner colours, with world height and UVs derived here.
+fn emit_grid_quad(
+    vertices: &mut Vec<Vertex>,
+    xz: [[f32; 2]; 4],
+    corner_colors: [[f32; 3]; 4],
+    y_at: &impl Fn(f32, f32) -> f32,
+    uv: &impl Fn(f32, f32) -> [f32; 2],
+) {
+    let points = xz.map(|[x, z]| [x, y_at(x, z), z]);
+    add_quad(
+        vertices,
+        points[0],
+        corner_colors[0],
+        uv(points[0][0], points[0][2]),
+        points[1],
+        corner_colors[1],
+        uv(points[1][0], points[1][2]),
+        points[2],
+        corner_colors[2],
+        uv(points[2][0], points[2][2]),
+        points[3],
+        corner_colors[3],
+        uv(points[3][0], points[3][2]),
+    );
 }
 
 /// Samples a `(cells_x + 1) x (cells_z + 1)` corner grid of baked colours.
@@ -1425,7 +1668,7 @@ fn lit_surface_grid(
     y_at: impl Fn(f32, f32) -> f32,
     tint: Option<[f32; 3]>,
 ) -> Vec<[f32; 3]> {
-    let mut colors = Vec::with_capacity(xs.len() * zs.len());
+    let mut colors = Vec::with_capacity(xs.len().saturating_mul(zs.len()));
     for z in zs {
         for x in xs {
             let light = lighting.sample_in_room(room_index, *x, y_at(*x, *z), *z);
@@ -1470,11 +1713,18 @@ fn floor_surfaces(
 ) -> (Vec<FloorSurface>, Vec<u32>) {
     let (cells_x, cells_z) = (grid.cells_x(), grid.cells_z());
     let mut surfaces: Vec<FloorSurface> = Vec::new();
-    let mut labels = vec![0u32; cells_x * cells_z];
+    let mut labels = vec![0u32; cells_x.saturating_mul(cells_z)];
     for iz in 0..cells_z {
-        let z = f32::midpoint(grid.zs[iz], grid.zs[iz + 1]);
+        let (Some(&z0), Some(&z1)) = (grid.zs.get(iz), grid.zs.get(iz.saturating_add(1))) else {
+            continue;
+        };
+        let z = f32::midpoint(z0, z1);
         for ix in 0..cells_x {
-            let x = f32::midpoint(grid.xs[ix], grid.xs[ix + 1]);
+            let (Some(&x0), Some(&x1)) = (grid.xs.get(ix), grid.xs.get(ix.saturating_add(1)))
+            else {
+                continue;
+            };
+            let x = f32::midpoint(x0, x1);
             // Material precedence: the region's own material, then the latest
             // floor patch, then the room's floor material.
             let key = surfaces_at
@@ -1501,12 +1751,15 @@ fn floor_surfaces(
                 .position(|existing| *existing == resolved)
                 .map_or_else(
                     || {
+                        let index = surfaces.len();
                         surfaces.push(resolved);
-                        u32::try_from(surfaces.len() - 1).unwrap_or(u32::MAX)
+                        u32::try_from(index).unwrap_or(u32::MAX)
                     },
                     |index| u32::try_from(index).unwrap_or(u32::MAX),
                 );
-            labels[iz * cells_x + ix] = label;
+            if let Some(cell) = labels.get_mut(iz.saturating_mul(cells_x).saturating_add(ix)) {
+                *cell = label;
+            }
         }
     }
     (surfaces, labels)
@@ -1514,7 +1767,7 @@ fn floor_surfaces(
 
 /// Corners of a vertical transition face, wound so the quad's normal points
 /// toward the lower floor (out of the higher floor's volume).
-fn skirt_points(
+const fn skirt_points(
     axis: WallAxis,
     positive: bool,
     at: f32,
@@ -1529,6 +1782,127 @@ fn skirt_points(
         (WallAxis::Z, false) => [[s1, low, at], [s0, low, at], [s0, high, at], [s1, high, at]],
         (WallAxis::Z, true) => [[s0, low, at], [s1, low, at], [s1, high, at], [s0, high, at]],
     }
+}
+
+/// One vertical transition face to emit: its side, position, length span,
+/// vertical extent and material.
+#[derive(Clone, Copy)]
+struct SkirtFace {
+    axis: WallAxis,
+    positive: bool,
+    at: f32,
+    span: (f32, f32),
+    low: f32,
+    high: f32,
+    key: SurfaceKey,
+}
+
+/// Corner shades of a transition face: the low corners take the darker shade
+/// and the high corners the brighter one, in the same order the wall emitter
+/// shades sills and headers.
+fn skirt_corner_shades(tint: [f32; 3], mult: f32) -> [[f32; 3]; 4] {
+    let shade_of = |grad: f32| {
+        [
+            (tint[0] * mult * grad).min(1.0),
+            (tint[1] * mult * grad).min(1.0),
+            (tint[2] * mult * grad).min(1.0),
+        ]
+    };
+    let bottom_shade = shade_of(0.92);
+    let top_shade = shade_of(1.05);
+    [bottom_shade, bottom_shade, top_shade, top_shade]
+}
+
+/// Samples the baked illumination at each corner of a transition face.
+fn skirt_corner_colors(
+    base: [[f32; 3]; 4],
+    points: [[f32; 3]; 4],
+    lighting: &LevelLighting,
+) -> [[f32; 3]; 4] {
+    std::array::from_fn(|index| {
+        // `index` is always < 4: both arrays have exactly four corners.
+        let base = base.get(index).copied().unwrap_or_default();
+        let point = points.get(index).copied().unwrap_or_default();
+        shade(base, lighting.sample(point[0], point[1], point[2]))
+    })
+}
+
+/// Emits one transition face as a lit quad carrying `key`'s material.
+fn emit_skirt_face(
+    buckets: &mut crate::spatial::SpatialBuckets<SurfaceKey>,
+    scratch: &mut Vec<Vertex>,
+    materials: &MaterialLookup<'_>,
+    lighting: &LevelLighting,
+    face: SkirtFace,
+) {
+    let SkirtFace {
+        axis,
+        positive,
+        at,
+        span,
+        low,
+        high,
+        key,
+    } = face;
+    if high - low <= HEIGHT_MERGE_EPS {
+        return;
+    }
+    let points = skirt_points(axis, positive, at, span, low, high);
+    let mult = match (axis, positive) {
+        (WallAxis::Z, false) => WALL_FACE_NORTH_MULT,
+        (WallAxis::Z, true) => WALL_FACE_SOUTH_MULT,
+        (WallAxis::X, false) => WALL_FACE_WEST_MULT,
+        (WallAxis::X, true) => WALL_FACE_EAST_MULT,
+    };
+    let base = skirt_corner_shades(materials.tint(key), mult);
+    let colors = skirt_corner_colors(base, points, lighting);
+    let uv = |point: [f32; 3]| match axis {
+        WallAxis::X => materials.uv(key, point[2], high - point[1]),
+        WallAxis::Z => materials.uv(key, point[0], high - point[1]),
+    };
+    scratch.clear();
+    add_quad(
+        scratch,
+        points[0],
+        colors[0],
+        uv(points[0]),
+        points[1],
+        colors[1],
+        uv(points[1]),
+        points[2],
+        colors[2],
+        uv(points[2]),
+        points[3],
+        colors[3],
+        uv(points[3]),
+    );
+    buckets.add_quads(key, scratch);
+}
+
+/// The floor region owning cell `(ix, iz)`, if any: the latest authored region
+/// whose bounds contain the cell centre.
+fn region_at_cell<'a>(
+    level: &'a LevelDef,
+    room: &RoomDef,
+    grid: &RoomFloorGrid,
+    ix: usize,
+    iz: usize,
+) -> Option<&'a crate::level::FloorRegionDef> {
+    let (x0, x1, z0, z1) = room.bounds();
+    let (Some(&x_start), Some(&x_end)) = (grid.xs.get(ix), grid.xs.get(ix.saturating_add(1)))
+    else {
+        return None;
+    };
+    let (Some(&z_start), Some(&z_end)) = (grid.zs.get(iz), grid.zs.get(iz.saturating_add(1)))
+    else {
+        return None;
+    };
+    let x = f32::midpoint(x_start, x_end);
+    let z = f32::midpoint(z_start, z_end);
+    level.floor_regions.iter().rev().find(|region| {
+        let (rx0, rx1, rz0, rz1) = region.bounds();
+        rx1 > x0 && rx0 < x1 && rz1 > z0 && rz0 < z1 && region.contains(x, z)
+    })
 }
 
 /// Emits the vertical transition faces around a room's floor regions.
@@ -1557,74 +1931,9 @@ fn emit_floor_skirts(
     // A region with its own `edge_material` overrides it.
     let default_edge = materials.key(MaterialSlot::Wall, level.defaults.wall.as_str());
 
-    let mut emit = |axis: WallAxis,
-                    positive: bool,
-                    at: f32,
-                    span: (f32, f32),
-                    low: f32,
-                    high: f32,
-                    key: SurfaceKey| {
-        if high - low <= HEIGHT_MERGE_EPS {
-            return;
-        }
-        let points = skirt_points(axis, positive, at, span, low, high);
-        let mult = match (axis, positive) {
-            (WallAxis::Z, false) => WALL_FACE_NORTH_MULT,
-            (WallAxis::Z, true) => WALL_FACE_SOUTH_MULT,
-            (WallAxis::X, false) => WALL_FACE_WEST_MULT,
-            (WallAxis::X, true) => WALL_FACE_EAST_MULT,
-        };
-        let tint = materials.tint(key);
-        let shade_of = |grad: f32| {
-            [
-                (tint[0] * mult * grad).min(1.0),
-                (tint[1] * mult * grad).min(1.0),
-                (tint[2] * mult * grad).min(1.0),
-            ]
-        };
-        let bottom_shade = shade_of(0.92);
-        let top_shade = shade_of(1.05);
-        // Low corners take the darker shade, high corners the brighter one, in
-        // the same order the wall emitter shades sills and headers.
-        let base: [[f32; 3]; 4] = [bottom_shade, bottom_shade, top_shade, top_shade];
-        let colors: [[f32; 3]; 4] = std::array::from_fn(|index| {
-            shade(
-                base[index],
-                lighting.sample(points[index][0], points[index][1], points[index][2]),
-            )
-        });
-        let uv = |point: [f32; 3]| match axis {
-            WallAxis::X => materials.uv(key, point[2], high - point[1]),
-            WallAxis::Z => materials.uv(key, point[0], high - point[1]),
-        };
-        scratch.clear();
-        add_quad(
-            scratch,
-            points[0],
-            colors[0],
-            uv(points[0]),
-            points[1],
-            colors[1],
-            uv(points[1]),
-            points[2],
-            colors[2],
-            uv(points[2]),
-            points[3],
-            colors[3],
-            uv(points[3]),
-        );
-        buckets.add_quads(key, scratch);
-    };
+    let mut emit = |face: SkirtFace| emit_skirt_face(buckets, scratch, materials, lighting, face);
 
-    let region_owner = |ix: usize, iz: usize| -> Option<&crate::level::FloorRegionDef> {
-        let (x0, x1, z0, z1) = room.bounds();
-        let x = f32::midpoint(grid.xs[ix], grid.xs[ix + 1]);
-        let z = f32::midpoint(grid.zs[iz], grid.zs[iz + 1]);
-        level.floor_regions.iter().rev().find(|region| {
-            let (rx0, rx1, rz0, rz1) = region.bounds();
-            rx1 > x0 && rx0 < x1 && rz1 > z0 && rz0 < z1 && region.contains(x, z)
-        })
-    };
+    let region_owner = |ix: usize, iz: usize| region_at_cell(level, room, grid, ix, iz);
 
     // The region owning a cell is the one whose material describes the faces
     // that cell's height difference creates.
@@ -1650,57 +1959,75 @@ fn emit_floor_skirts(
     for iz in 0..cells_z {
         for ix in 0..cells_x {
             let y = grid.y_at(room, ix, iz);
+            let next_x = ix.saturating_add(1);
             // Transition to the next cell along X, or to the room's own floor
             // plane when this is the room's last column.
-            let right = if ix + 1 < cells_x {
-                Some(grid.y_at(room, ix + 1, iz))
+            let right = if next_x < cells_x {
+                Some(grid.y_at(room, next_x, iz))
             } else {
                 Some(room.floor_y)
             };
             if let Some(other) = right
                 && (other - y).abs() > HEIGHT_MERGE_EPS
             {
-                let key = if ix + 1 < cells_x {
-                    face_key((ix + 1, iz), (ix, iz))
+                let key = if next_x < cells_x {
+                    face_key((next_x, iz), (ix, iz))
                 } else {
                     edge_key(region_owner(ix, iz))
                 };
-                emit(
-                    WallAxis::X,
+                let Some(&at) = grid.xs.get(next_x) else {
+                    continue;
+                };
+                let (Some(&span_start), Some(&span_end)) =
+                    (grid.zs.get(iz), grid.zs.get(iz.saturating_add(1)))
+                else {
+                    continue;
+                };
+                emit(SkirtFace {
+                    axis: WallAxis::X,
                     // The face belongs to the lower side's volume, so its
                     // normal points toward it: a recess wall faces into the
                     // recess, a raised platform's rim faces outward.
-                    y > other,
-                    grid.xs[ix + 1],
-                    (grid.zs[iz], grid.zs[iz + 1]),
-                    y.min(other),
-                    y.max(other),
+                    positive: y > other,
+                    at,
+                    span: (span_start, span_end),
+                    low: y.min(other),
+                    high: y.max(other),
                     key,
-                );
+                });
             }
 
-            let back = if iz + 1 < cells_z {
-                Some(grid.y_at(room, ix, iz + 1))
+            let next_z = iz.saturating_add(1);
+            let back = if next_z < cells_z {
+                Some(grid.y_at(room, ix, next_z))
             } else {
                 Some(room.floor_y)
             };
             if let Some(other) = back
                 && (other - y).abs() > HEIGHT_MERGE_EPS
             {
-                let key = if iz + 1 < cells_z {
-                    face_key((ix, iz + 1), (ix, iz))
+                let key = if next_z < cells_z {
+                    face_key((ix, next_z), (ix, iz))
                 } else {
                     edge_key(region_owner(ix, iz))
                 };
-                emit(
-                    WallAxis::Z,
-                    y > other,
-                    grid.zs[iz + 1],
-                    (grid.xs[ix], grid.xs[ix + 1]),
-                    y.min(other),
-                    y.max(other),
+                let Some(&at) = grid.zs.get(next_z) else {
+                    continue;
+                };
+                let (Some(&span_start), Some(&span_end)) =
+                    (grid.xs.get(ix), grid.xs.get(ix.saturating_add(1)))
+                else {
+                    continue;
+                };
+                emit(SkirtFace {
+                    axis: WallAxis::Z,
+                    positive: y > other,
+                    at,
+                    span: (span_start, span_end),
+                    low: y.min(other),
+                    high: y.max(other),
                     key,
-                );
+                });
             }
         }
     }
@@ -1721,7 +2048,7 @@ fn flush_wall_run(
     if *cursor >= scratch.len() {
         return;
     }
-    buckets.add_quads(key, &scratch[*cursor..]);
+    buckets.add_quads(key, scratch.get(*cursor..).unwrap_or_default());
     *cursor = scratch.len();
 }
 

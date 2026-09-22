@@ -5,7 +5,7 @@
 //! buffer and one texture per model and issues one draw call for all of its
 //! instances. A prop with no usable asset falls back to a placeholder box.
 
-use super::*;
+use super::{LevelDef, LevelLighting, LevelSurfaces, PropDef, Vertex, spatial_cell_grid};
 
 /// Instanced prop geometry for one distinct prop model in a level.
 ///
@@ -110,8 +110,13 @@ pub(super) fn resolve_prop_instances<'a>(
         // cell holding hundreds of instances has to become several batches.
         let key = (model_path.clone(), cell);
         let needs_new_batch = index_by_batch.get(&key).is_none_or(|index| {
-            batches[*index].vertices.len() + asset.model.vertices.len()
-                > crate::spatial::MAX_INDEX_VERTICES
+            batches.get(*index).is_none_or(|batch| {
+                batch
+                    .vertices
+                    .len()
+                    .saturating_add(asset.model.vertices.len())
+                    > crate::spatial::MAX_INDEX_VERTICES
+            })
         });
         if needs_new_batch {
             models_seen.insert(model_path.clone());
@@ -122,46 +127,62 @@ pub(super) fn resolve_prop_instances<'a>(
                 indices: Vec::with_capacity(asset.model.indices.len()),
                 bounds: crate::spatial::Aabb::EMPTY,
             });
-            index_by_batch.insert(key, batches.len() - 1);
+            index_by_batch.insert(key.clone(), batches.len().saturating_sub(1));
         }
-        let batch_index = index_by_batch[&(model_path.clone(), cell)];
-        let batch = &mut batches[batch_index];
+        let Some(batch_index) = index_by_batch.get(&key).copied() else {
+            fallbacks.push(prop);
+            continue;
+        };
+        let Some(batch) = batches.get_mut(batch_index) else {
+            fallbacks.push(prop);
+            continue;
+        };
         batch.bounds = batch.bounds.union(&instance_bounds);
         // One instance is the model's own index list shifted by the vertex
-        // offset this instance was appended at. Nothing is expanded into a flat
-        // triangle list, and each distinct model vertex is transformed and
-        // lit exactly once per placement.
+        // offset this instance was appended at; nothing is expanded into a flat
+        // triangle list.
         let base = batch.vertices.len();
-        for vertex in &asset.model.vertices {
-            let position = model.transform_point3(glam::Vec3::new(
-                vertex.pos[0],
-                vertex.pos[1],
-                vertex.pos[2],
-            ));
-            // Bake the environment into the instance's colour: the same model in
-            // a dark corner and under a fixture still shares one batch, but is
-            // no longer uniformly lit.
-            let light = lighting.sample(position.x, position.y, position.z);
-            batch.vertices.push(Vertex {
-                pos: [position.x, position.y, position.z],
-                color: [
-                    vertex.color[0] * light.r,
-                    vertex.color[1] * light.g,
-                    vertex.color[2] * light.b,
-                    vertex.color[3],
-                ],
-                uv: vertex.uv,
-            });
-        }
+        append_instance_vertices(batch, &model, &asset.model.vertices, lighting);
         for index in &asset.model.indices {
-            batch
-                .indices
-                .push(u16::try_from(base).unwrap_or(u16::MAX) + *index);
+            batch.indices.push(
+                u16::try_from(base)
+                    .unwrap_or(u16::MAX)
+                    .saturating_add(*index),
+            );
         }
-        busy_vertices += asset.model.vertices.len();
+        busy_vertices = busy_vertices.saturating_add(asset.model.vertices.len());
     }
 
     (batches, fallbacks)
+}
+
+/// Transforms and lights one instance's model vertices into its batch.
+///
+/// Every distinct model vertex is transformed and lit exactly once per
+/// placement, and the environment is baked into the instance's colour: the same
+/// model in a dark corner and under a fixture still shares one batch, but is no
+/// longer uniformly lit.
+fn append_instance_vertices(
+    batch: &mut PropMeshBatch,
+    model: &glam::Mat4,
+    source: &[crate::gltf::PropVertex],
+    lighting: &LevelLighting,
+) {
+    for vertex in source {
+        let position =
+            model.transform_point3(glam::Vec3::new(vertex.pos[0], vertex.pos[1], vertex.pos[2]));
+        let light = lighting.sample(position.x, position.y, position.z);
+        batch.vertices.push(Vertex {
+            pos: [position.x, position.y, position.z],
+            color: [
+                vertex.color[0] * light.r,
+                vertex.color[1] * light.g,
+                vertex.color[2] * light.b,
+                vertex.color[3],
+            ],
+            uv: vertex.uv,
+        });
+    }
 }
 
 /// World-space bounds of a local-space box placed by `transform`.
@@ -197,7 +218,11 @@ pub(super) fn transform_bounds(
 pub fn prop_instance_matrix(prop: &PropDef, base_y: f32) -> glam::Mat4 {
     let rotation = glam::Mat4::from_rotation_y(prop.rotation_degrees.to_radians());
     let scale = glam::Mat4::from_scale(glam::Vec3::splat(prop.scale));
-    glam::Mat4::from_translation(glam::Vec3::new(prop.x, base_y + prop.y, prop.z))
-        * rotation
-        * scale
+    let translation =
+        glam::Mat4::from_translation(glam::Vec3::new(prop.x, base_y + prop.y, prop.z));
+    // `glam` matrix multiplication is per-element `f32` arithmetic with no
+    // overflow or panic path; clippy cannot see that through the operator impl.
+    #[allow(clippy::arithmetic_side_effects)]
+    let transform = translation * rotation * scale;
+    transform
 }

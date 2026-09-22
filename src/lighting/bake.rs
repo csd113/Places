@@ -11,8 +11,13 @@ use super::math::{
     ceiling_height_factor, effective_power, fixture_half_extents_for, room_baseline,
     sanitize_intensity, smooth_falloff,
 };
-use super::tuning::WALL_LIGHT_DEFAULT_HEIGHT_M;
-use super::tuning::*;
+use super::tuning::{
+    AMBIENT_LEVEL, CLEAR_SAMPLE_MAX_STEPS, CLEAR_SAMPLE_STEP_M, FIXTURE_DROP_M, LOCAL_LIGHT_MAX,
+    LOCAL_LIGHT_RADIUS_M, LOCAL_LIGHT_STRENGTH, MAX_BRIGHTNESS, OPENING_BLEND_RADIUS_M,
+    OPENING_BLEND_STRENGTH, OPENING_PROBE_M, OPENING_VERTICAL_FADE_M, REFERENCE_CEILING_HEIGHT_M,
+    ROOM_EDGE_EPS_M, WALL_FACE_PROBE_M, WALL_LIGHT_DEFAULT_HEIGHT_M, ambient_color,
+    fixture_profile,
+};
 use super::visibility::{QuerySite, Visibility};
 use crate::level::{LevelDef, LightMount, WallAxis};
 
@@ -118,8 +123,9 @@ fn resolve_wall_fixture_y(rooms: &[RoomLighting], x: f32, z: f32, authored: Opti
     {
         return y;
     }
-    let floor_y =
-        LevelLighting::room_index_of(rooms, x, z).map_or(0.0, |index| rooms[index].floor_y);
+    let floor_y = LevelLighting::room_index_of(rooms, x, z)
+        .and_then(|index| rooms.get(index))
+        .map_or(0.0, |room| room.floor_y);
     floor_y + WALL_LIGHT_DEFAULT_HEIGHT_M
 }
 
@@ -142,7 +148,7 @@ struct OpeningBlend {
 impl OpeningBlend {
     /// World point the opening's light is treated as coming from: the middle of
     /// the aperture. Only the visibility test uses it.
-    fn source(&self) -> [f32; 3] {
+    const fn source(&self) -> [f32; 3] {
         [self.x, f32::midpoint(self.base_y, self.top_y), self.z]
     }
 }
@@ -198,6 +204,274 @@ fn interval_gap(room_span: Span, panel_span: Span) -> f32 {
         .max(0.0)
 }
 
+/// Bakes one [`RoomLighting`] per authored room, in level order.
+///
+/// Returns the rooms plus the default clear height and ceiling plane used for
+/// fixtures that no room contains: the first room's values, or the historical
+/// reference height for an empty level.
+fn baked_rooms(level: &LevelDef) -> (Vec<RoomLighting>, f32, f32) {
+    let room_refs: Vec<_> = level.room_iter().collect();
+    let mut rooms: Vec<RoomLighting> = Vec::with_capacity(room_refs.len());
+    for room in &room_refs {
+        let x0 = room.x.min(room.x + room.width);
+        let x1 = room.x.max(room.x + room.width);
+        let z0 = room.z.min(room.z + room.depth);
+        let z1 = room.z.max(room.z + room.depth);
+        let width = if (x1 - x0).is_finite() {
+            (x1 - x0).max(0.0)
+        } else {
+            0.0
+        };
+        let depth = if (z1 - z0).is_finite() {
+            (z1 - z0).max(0.0)
+        } else {
+            0.0
+        };
+        let height_m = if room.height.is_finite() && room.height > 0.0 {
+            room.height
+        } else {
+            REFERENCE_CEILING_HEIGHT_M
+        };
+        // A gable profile with a malformed rise behaves as flat, exactly
+        // like `RoomDef::ceiling_y_at` would resolve it.
+        let profile = match room.ceiling {
+            crate::level::CeilingProfileDef::Gable { ridge_rise, .. }
+                if !(ridge_rise.is_finite() && ridge_rise > 0.0) =>
+            {
+                crate::level::CeilingProfileDef::Flat
+            }
+            profile @ (crate::level::CeilingProfileDef::Flat
+            | crate::level::CeilingProfileDef::Gable { .. }) => profile,
+        };
+        rooms.push(RoomLighting {
+            x0,
+            x1,
+            z0,
+            z1,
+            floor_y: if room.floor_y.is_finite() {
+                room.floor_y
+            } else {
+                0.0
+            },
+            height_m,
+            profile,
+            area_m2: width * depth,
+            fixture_count: 0,
+            effective_power: LightColor::BLACK,
+            baseline: ambient_color(),
+        });
+    }
+
+    // Ceiling plane and clear height used for fixtures that no room
+    // contains: the first room's values, or the historical reference height
+    // for an empty level.
+    let default_height_m = room_refs
+        .first()
+        .map_or(REFERENCE_CEILING_HEIGHT_M, |room| {
+            if room.height.is_finite() && room.height > 0.0 {
+                room.height
+            } else {
+                REFERENCE_CEILING_HEIGHT_M
+            }
+        });
+    let default_ceiling_y = room_refs
+        .first()
+        .map_or(REFERENCE_CEILING_HEIGHT_M, |room| room.eave_y());
+
+    (rooms, default_height_m, default_ceiling_y)
+}
+
+/// Resolves every ceiling light once: ownership, fixture plane, rotated panel
+/// footprint and its contribution to its room's effective power.
+fn baked_lights(
+    level: &LevelDef,
+    rooms: &mut [RoomLighting],
+    default_height_m: f32,
+    default_ceiling_y: f32,
+) -> Vec<BakedLight> {
+    let mut lights: Vec<BakedLight> = Vec::with_capacity(level.ceiling_lights.len());
+    for light in &level.ceiling_lights {
+        if !light.x.is_finite() || !light.z.is_finite() {
+            continue;
+        }
+        let room = LevelLighting::room_index_of(rooms, light.x, light.z);
+        // The height factor is calibrated against the room's eave, so a
+        // gable ridge changes the ceiling's shape but not the room's
+        // illumination response.
+        let height_m = room
+            .and_then(|index| rooms.get(index))
+            .map_or(default_height_m, |info| info.height_m);
+        let height_factor = ceiling_height_factor(height_m);
+        let intensity = sanitize_intensity(light.intensity());
+        let color = light.emitted_color();
+        // Rotation swaps the panel's long axis, exactly like the fixture
+        // geometry emitted by `crate::render` (shared helper, so a
+        // fractional rotation cannot drift between the two). The fixture
+        // family owns the footprint, so a round downlight pools light in a
+        // small disc while the office panel pools it over its rectangle.
+        let profile = fixture_profile(&light.fixture);
+        let (half_w, half_d) = fixture_half_extents_for(profile.kind, light.rotation_degrees);
+        let panel_y = match light.mount {
+            LightMount::Ceiling => {
+                panel_min_ceiling_y(
+                    room.and_then(|index| rooms.get(index)),
+                    default_ceiling_y,
+                    light.x,
+                    light.z,
+                    half_w,
+                    half_d,
+                ) - FIXTURE_DROP_M
+            }
+            // A wall fixture is authored at its own world height; the
+            // fallback only keeps a hand-edited level finite.
+            LightMount::Wall => resolve_wall_fixture_y(rooms, light.x, light.z, light.y),
+        };
+        if let Some(info) = room.and_then(|index| rooms.get_mut(index)) {
+            info.fixture_count = info.fixture_count.saturating_add(1);
+            let power = effective_power(intensity, height_m);
+            info.effective_power.r = power.mul_add(color.r, info.effective_power.r);
+            info.effective_power.g = power.mul_add(color.g, info.effective_power.g);
+            info.effective_power.b = power.mul_add(color.b, info.effective_power.b);
+        }
+        lights.push(BakedLight {
+            x: light.x,
+            z: light.z,
+            y: panel_y,
+            intensity,
+            color,
+            height_factor,
+            half_w,
+            half_d,
+            room,
+        });
+    }
+    lights
+}
+
+/// Per-room fixture candidates: only fixtures whose panel can come within
+/// [`LOCAL_LIGHT_RADIUS_M`] of the room footprint, always including the owning
+/// room. Built in fixture order so the per-vertex sum (and its early
+/// saturation) is bit-identical to checking every fixture.
+fn room_light_candidates(lights: &[BakedLight], rooms: &[RoomLighting]) -> Vec<Vec<u32>> {
+    let mut room_lights: Vec<Vec<u32>> = vec![Vec::new(); rooms.len()];
+    for (index, light) in lights.iter().enumerate() {
+        let slot = u32::try_from(index).unwrap_or(u32::MAX);
+        for (room_index, room) in rooms.iter().enumerate() {
+            if (light.room == Some(room_index) || LevelLighting::light_reaches_room(light, room))
+                && let Some(list) = room_lights.get_mut(room_index)
+            {
+                list.push(slot);
+            }
+        }
+    }
+    room_lights
+}
+
+/// Links the rooms on either side of every walk-through opening.
+///
+/// Returns the per-room blend lists plus the query sites of the openings, in
+/// the order they must be appended after the fixture sites in the visibility
+/// set.
+fn opening_blends(
+    level: &LevelDef,
+    rooms: &[RoomLighting],
+    light_site_count: u32,
+) -> (Vec<Vec<OpeningBlend>>, Vec<QuerySite>) {
+    let mut blends: Vec<Vec<OpeningBlend>> = vec![Vec::new(); rooms.len()];
+    let mut blend_sites: Vec<QuerySite> = Vec::new();
+    for wall in &level.walls {
+        let length = wall.length();
+        if !length.is_finite() || length <= 0.0 {
+            continue;
+        }
+        let axis = wall.axis();
+        let (origin_x, origin_z) = wall.length_origin();
+        let (t0, t1) = match axis {
+            WallAxis::X => (
+                wall.z.min(wall.z + wall.depth),
+                wall.z.max(wall.z + wall.depth),
+            ),
+            WallAxis::Z => (
+                wall.x.min(wall.x + wall.width),
+                wall.x.max(wall.x + wall.width),
+            ),
+        };
+        let half_thickness = (t1 - t0).abs() * 0.5;
+        for opening in &wall.openings {
+            if !opening.is_door() {
+                continue;
+            }
+            // Only openings the geometry actually cuts count as passages:
+            // the same guards `wall_solid_slices` uses, so a zero-width or
+            // non-finite opening cannot blend light through a solid wall.
+            if !opening.offset.is_finite()
+                || !opening.width.is_finite()
+                || !opening.height.is_finite()
+                || !opening.sill.is_finite()
+                || opening.width <= 0.0
+                || opening.height <= 0.0
+            {
+                continue;
+            }
+            let center = opening
+                .width
+                .mul_add(0.5, opening.offset)
+                .clamp(0.0, length);
+            let across = f32::midpoint(t0, t1);
+            let probe = half_thickness + OPENING_PROBE_M;
+            let (center_x, center_z) = match axis {
+                WallAxis::X => (origin_x + center, across),
+                WallAxis::Z => (across, origin_z + center),
+            };
+            let (side_a, side_b) = match axis {
+                WallAxis::X => ((center_x, center_z + probe), (center_x, center_z - probe)),
+                WallAxis::Z => ((center_x + probe, center_z), (center_x - probe, center_z)),
+            };
+            let room_a = LevelLighting::room_index_of(rooms, side_a.0, side_a.1);
+            let room_b = LevelLighting::room_index_of(rooms, side_b.0, side_b.1);
+            let (Some(room_a), Some(room_b)) = (room_a, room_b) else {
+                continue;
+            };
+            if room_a == room_b {
+                continue;
+            }
+            let (Some(info_a), Some(info_b)) = (rooms.get(room_a), rooms.get(room_b)) else {
+                continue;
+            };
+            // A walk-through opening has to reach the floor it connects: a
+            // wall raised off the floor (`wall.y`) is a header or lintel,
+            // not a passage, and an opening that only reaches an upper
+            // room's floor does not join the two rooms for light either.
+            let floor = info_a.floor_y.min(info_b.floor_y);
+            if wall.y + opening.sill.max(0.0) > floor + 1e-3 {
+                continue;
+            }
+            let top_y = opening.top(wall.y);
+            let site = light_site_count
+                .saturating_add(u32::try_from(blend_sites.len()).unwrap_or(u32::MAX));
+            blend_sites.push(QuerySite::new(center_x, center_z, OPENING_BLEND_RADIUS_M));
+            let blend = OpeningBlend {
+                x: center_x,
+                z: center_z,
+                base_y: floor,
+                top_y,
+                site,
+                neighbor_baseline: info_b.baseline,
+            };
+            if let Some(list) = blends.get_mut(room_a) {
+                list.push(blend);
+            }
+            if let Some(list) = blends.get_mut(room_b) {
+                list.push(OpeningBlend {
+                    neighbor_baseline: info_a.baseline,
+                    ..blend
+                });
+            }
+        }
+    }
+    (blends, blend_sites)
+}
+
 impl LevelLighting {
     /// Bakes room baselines, fixture pools and opening blends from a level.
     ///
@@ -206,243 +480,28 @@ impl LevelLighting {
     /// is clamped.
     #[must_use]
     pub fn bake(level: &LevelDef) -> Self {
-        let room_refs: Vec<_> = level.room_iter().collect();
-        let mut rooms: Vec<RoomLighting> = Vec::with_capacity(room_refs.len());
-        for room in &room_refs {
-            let x0 = room.x.min(room.x + room.width);
-            let x1 = room.x.max(room.x + room.width);
-            let z0 = room.z.min(room.z + room.depth);
-            let z1 = room.z.max(room.z + room.depth);
-            let width = if (x1 - x0).is_finite() {
-                (x1 - x0).max(0.0)
-            } else {
-                0.0
-            };
-            let depth = if (z1 - z0).is_finite() {
-                (z1 - z0).max(0.0)
-            } else {
-                0.0
-            };
-            let height_m = if room.height.is_finite() && room.height > 0.0 {
-                room.height
-            } else {
-                REFERENCE_CEILING_HEIGHT_M
-            };
-            // A gable profile with a malformed rise behaves as flat, exactly
-            // like `RoomDef::ceiling_y_at` would resolve it.
-            let profile = match room.ceiling {
-                crate::level::CeilingProfileDef::Gable { ridge_rise, .. }
-                    if !(ridge_rise.is_finite() && ridge_rise > 0.0) =>
-                {
-                    crate::level::CeilingProfileDef::Flat
-                }
-                profile => profile,
-            };
-            rooms.push(RoomLighting {
-                x0,
-                x1,
-                z0,
-                z1,
-                floor_y: if room.floor_y.is_finite() {
-                    room.floor_y
-                } else {
-                    0.0
-                },
-                height_m,
-                profile,
-                area_m2: width * depth,
-                fixture_count: 0,
-                effective_power: LightColor::BLACK,
-                baseline: ambient_color(),
-            });
-        }
-
-        // Ceiling plane and clear height used for fixtures that no room
-        // contains: the first room's values, or the historical reference height
-        // for an empty level.
-        let default_height_m = room_refs
-            .first()
-            .map_or(REFERENCE_CEILING_HEIGHT_M, |room| {
-                if room.height.is_finite() && room.height > 0.0 {
-                    room.height
-                } else {
-                    REFERENCE_CEILING_HEIGHT_M
-                }
-            });
-        let default_ceiling_y = room_refs
-            .first()
-            .map_or(REFERENCE_CEILING_HEIGHT_M, |room| room.eave_y());
+        let (mut rooms, default_height_m, default_ceiling_y) = baked_rooms(level);
 
         // Resolve every fixture once: ownership, fixture plane, rotated panel
         // footprint and its contribution to its room's effective power.
-        let mut lights: Vec<BakedLight> = Vec::with_capacity(level.ceiling_lights.len());
-        for light in &level.ceiling_lights {
-            if !light.x.is_finite() || !light.z.is_finite() {
-                continue;
-            }
-            let room = Self::room_index_of(&rooms, light.x, light.z);
-            // The height factor is calibrated against the room's eave, so a
-            // gable ridge changes the ceiling's shape but not the room's
-            // illumination response.
-            let height_m = room.map_or(default_height_m, |index| rooms[index].height_m);
-            let height_factor = ceiling_height_factor(height_m);
-            let intensity = sanitize_intensity(light.intensity());
-            let color = light.emitted_color();
-            // Rotation swaps the panel's long axis, exactly like the fixture
-            // geometry emitted by `crate::render` (shared helper, so a
-            // fractional rotation cannot drift between the two). The fixture
-            // family owns the footprint, so a round downlight pools light in a
-            // small disc while the office panel pools it over its rectangle.
-            let profile = fixture_profile(&light.fixture);
-            let (half_w, half_d) = fixture_half_extents_for(profile.kind, light.rotation_degrees);
-            let panel_y = match light.mount {
-                LightMount::Ceiling => {
-                    panel_min_ceiling_y(
-                        room.map(|index| &rooms[index]),
-                        default_ceiling_y,
-                        light.x,
-                        light.z,
-                        half_w,
-                        half_d,
-                    ) - FIXTURE_DROP_M
-                }
-                // A wall fixture is authored at its own world height; the
-                // fallback only keeps a hand-edited level finite.
-                LightMount::Wall => resolve_wall_fixture_y(&rooms, light.x, light.z, light.y),
-            };
-            if let Some(index) = room {
-                rooms[index].fixture_count += 1;
-                let power = effective_power(intensity, height_m);
-                rooms[index].effective_power.r += power * color.r;
-                rooms[index].effective_power.g += power * color.g;
-                rooms[index].effective_power.b += power * color.b;
-            }
-            lights.push(BakedLight {
-                x: light.x,
-                z: light.z,
-                y: panel_y,
-                intensity,
-                color,
-                height_factor,
-                half_w,
-                half_d,
-                room,
-            });
-        }
+        let lights = baked_lights(level, &mut rooms, default_height_m, default_ceiling_y);
 
         for room in &mut rooms {
             room.baseline = room_baseline(room.area_m2, room.effective_power);
         }
 
-        // Per-room fixture candidates: only fixtures whose panel can come
-        // within `LOCAL_LIGHT_RADIUS_M` of the room footprint, always including
-        // the owning room. Built in fixture order so the per-vertex sum (and
-        // its early saturation) is bit-identical to checking every fixture.
-        let mut room_lights: Vec<Vec<u32>> = vec![Vec::new(); rooms.len()];
-        for (index, light) in lights.iter().enumerate() {
-            for (room_index, room) in rooms.iter().enumerate() {
-                if light.room == Some(room_index) || Self::light_reaches_room(light, room) {
-                    room_lights[room_index].push(u32::try_from(index).unwrap_or(u32::MAX));
-                }
-            }
-        }
+        let room_lights = room_light_candidates(&lights, &rooms);
         let all_lights: Vec<u32> = (0..u32::try_from(lights.len()).unwrap_or(u32::MAX)).collect();
 
         // Link the rooms on either side of every walk-through opening.
-        let mut blends: Vec<Vec<OpeningBlend>> = vec![Vec::new(); rooms.len()];
-        let mut blend_sites: Vec<QuerySite> = Vec::new();
         let light_site_count = u32::try_from(lights.len()).unwrap_or(u32::MAX);
-        for wall in &level.walls {
-            let length = wall.length();
-            if !length.is_finite() || length <= 0.0 {
-                continue;
-            }
-            let axis = wall.axis();
-            let (origin_x, origin_z) = wall.length_origin();
-            let (t0, t1) = match axis {
-                WallAxis::X => (
-                    wall.z.min(wall.z + wall.depth),
-                    wall.z.max(wall.z + wall.depth),
-                ),
-                WallAxis::Z => (
-                    wall.x.min(wall.x + wall.width),
-                    wall.x.max(wall.x + wall.width),
-                ),
-            };
-            let half_thickness = (t1 - t0).abs() * 0.5;
-            for opening in &wall.openings {
-                if !opening.is_door() {
-                    continue;
-                }
-                // Only openings the geometry actually cuts count as passages:
-                // the same guards `wall_solid_slices` uses, so a zero-width or
-                // non-finite opening cannot blend light through a solid wall.
-                if !opening.offset.is_finite()
-                    || !opening.width.is_finite()
-                    || !opening.height.is_finite()
-                    || !opening.sill.is_finite()
-                    || opening.width <= 0.0
-                    || opening.height <= 0.0
-                {
-                    continue;
-                }
-                let center = opening
-                    .width
-                    .mul_add(0.5, opening.offset)
-                    .clamp(0.0, length);
-                let across = f32::midpoint(t0, t1);
-                let probe = half_thickness + OPENING_PROBE_M;
-                let (center_x, center_z) = match axis {
-                    WallAxis::X => (origin_x + center, across),
-                    WallAxis::Z => (across, origin_z + center),
-                };
-                let (side_a, side_b) = match axis {
-                    WallAxis::X => ((center_x, center_z + probe), (center_x, center_z - probe)),
-                    WallAxis::Z => ((center_x + probe, center_z), (center_x - probe, center_z)),
-                };
-                let room_a = Self::room_index_of(&rooms, side_a.0, side_a.1);
-                let room_b = Self::room_index_of(&rooms, side_b.0, side_b.1);
-                let (Some(room_a), Some(room_b)) = (room_a, room_b) else {
-                    continue;
-                };
-                if room_a == room_b {
-                    continue;
-                }
-                // A walk-through opening has to reach the floor it connects: a
-                // wall raised off the floor (`wall.y`) is a header or lintel,
-                // not a passage, and an opening that only reaches an upper
-                // room's floor does not join the two rooms for light either.
-                let floor = rooms[room_a].floor_y.min(rooms[room_b].floor_y);
-                if wall.y + opening.sill.max(0.0) > floor + 1e-3 {
-                    continue;
-                }
-                let top_y = opening.top(wall.y);
-                let site = light_site_count
-                    .saturating_add(u32::try_from(blend_sites.len()).unwrap_or(u32::MAX));
-                blend_sites.push(QuerySite::new(center_x, center_z, OPENING_BLEND_RADIUS_M));
-                blends[room_a].push(OpeningBlend {
-                    x: center_x,
-                    z: center_z,
-                    base_y: floor,
-                    top_y,
-                    site,
-                    neighbor_baseline: rooms[room_b].baseline,
-                });
-                blends[room_b].push(OpeningBlend {
-                    x: center_x,
-                    z: center_z,
-                    base_y: floor,
-                    top_y,
-                    site,
-                    neighbor_baseline: rooms[room_a].baseline,
-                });
-            }
-        }
+        let (blends, blend_sites) = opening_blends(level, &rooms, light_site_count);
 
         // Opaque wall geometry for the whole bake. Query sites are the fixtures
         // first (one per light, in fixture order) and then the doorway blends,
         // so a fixture's site index is exactly its own index.
-        let mut sites: Vec<QuerySite> = Vec::with_capacity(lights.len() + blend_sites.len());
+        let mut sites: Vec<QuerySite> =
+            Vec::with_capacity(lights.len().saturating_add(blend_sites.len()));
         for light in &lights {
             sites.push(QuerySite::new(
                 light.x,
@@ -503,7 +562,10 @@ impl LevelLighting {
             }
             match best {
                 // Strictly smaller areas only, so ties keep the earlier room.
-                Some(current) if rooms[current].area_m2 <= room.area_m2 => {}
+                Some(current)
+                    if rooms
+                        .get(current)
+                        .is_some_and(|info| info.area_m2 <= room.area_m2) => {}
                 _ => best = Some(index),
             }
         }
@@ -538,7 +600,10 @@ impl LevelLighting {
                 continue;
             }
             match best {
-                Some(current) if rooms[current].area_m2 <= room.area_m2 => {}
+                Some(current)
+                    if rooms
+                        .get(current)
+                        .is_some_and(|info| info.area_m2 <= room.area_m2) => {}
                 _ => best = Some(index),
             }
         }
@@ -599,7 +664,8 @@ impl LevelLighting {
     #[must_use]
     pub fn fixture_panel_y(&self, x: f32, z: f32, half_w: f32, half_d: f32) -> f32 {
         panel_min_ceiling_y(
-            self.room_index_at(x, z).map(|index| &self.rooms[index]),
+            self.room_index_at(x, z)
+                .and_then(|index| self.rooms.get(index)),
             self.default_ceiling_y,
             x,
             z,
@@ -628,7 +694,8 @@ impl LevelLighting {
     #[must_use]
     pub fn ceiling_height_at(&self, x: f32, z: f32) -> f32 {
         self.room_index_at(x, z)
-            .map_or(self.default_height_m, |index| self.rooms[index].height_m)
+            .and_then(|index| self.rooms.get(index))
+            .map_or(self.default_height_m, |info| info.height_m)
     }
 
     /// Moves a room surface sample out of an opaque wall it lies inside.
@@ -655,7 +722,10 @@ impl LevelLighting {
             return (x, z);
         }
         for step in 1..=CLEAR_SAMPLE_MAX_STEPS {
-            let walked = step as f32 * CLEAR_SAMPLE_STEP_M;
+            let Ok(step) = u16::try_from(step) else {
+                break;
+            };
+            let walked = f32::from(step) * CLEAR_SAMPLE_STEP_M;
             if walked > distance {
                 break;
             }
@@ -723,7 +793,9 @@ impl LevelLighting {
         }
         let (x, z) = self.clear_sample(room, x, z);
 
-        let candidates = &self.room_lights[room];
+        let Some(candidates) = self.room_lights.get(room) else {
+            return ambient_color();
+        };
         let mut value = info.baseline.plus(self.local_light(candidates, x, y, z));
         value = value.plus(self.blend_delta(room, x, y, z));
 
@@ -745,7 +817,7 @@ impl LevelLighting {
     /// underneath the measurement.
     #[must_use]
     pub fn opening_blend(&self, room: usize, x: f32, y: f32, z: f32) -> LightColor {
-        if !self.rooms.get(room).is_some() || !x.is_finite() || !y.is_finite() || !z.is_finite() {
+        if self.rooms.get(room).is_none() || !x.is_finite() || !y.is_finite() || !z.is_finite() {
             return LightColor::BLACK;
         }
         let (x, z) = self.clear_sample(room, x, z);
@@ -762,7 +834,10 @@ impl LevelLighting {
             return LightColor::BLACK;
         };
         let mut delta = LightColor::BLACK;
-        for blend in &self.blends[room] {
+        let Some(blends) = self.blends.get(room) else {
+            return LightColor::BLACK;
+        };
+        for blend in blends {
             let dx = x - blend.x;
             let dz = z - blend.z;
             let distance = dx.hypot(dz);
@@ -812,7 +887,9 @@ impl LevelLighting {
         let inv_radius = 1.0 / LOCAL_LIGHT_RADIUS_M;
         let mut sum = LightColor::BLACK;
         for index in candidates {
-            let light = &self.lights[*index as usize];
+            let Some(light) = self.lights.get(*index as usize) else {
+                continue;
+            };
             // Horizontal distance to the rotated panel footprint.
             let dx = ((x - light.x).abs() - light.half_w).max(0.0);
             let dz = ((z - light.z).abs() - light.half_d).max(0.0);
@@ -886,11 +963,13 @@ impl LevelLighting {
         let mut min = f32::MAX;
         let mut max = f32::MIN;
         let mut total = 0.0;
+        let mut count = 0.0;
         for room in &self.rooms {
             let luminance = room.baseline.luminance();
             min = min.min(luminance);
             max = max.max(luminance);
             total += luminance;
+            count += 1.0;
         }
         LightingSummary {
             rooms: self.rooms.len(),
@@ -898,7 +977,7 @@ impl LevelLighting {
             blockers: self.visibility.blocker_count(),
             min_baseline: min,
             max_baseline: max,
-            average_baseline: total / self.rooms.len() as f32,
+            average_baseline: total / count,
         }
     }
 }

@@ -1,5 +1,13 @@
 //! Unit tests for the GLB reader.
 
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
+// the production lints stay enforced everywhere else in the crate.
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::indexing_slicing
+)]
+
 use super::*;
 
 /// A real, shipped prop asset: the parser must accept what the toolkit writes.

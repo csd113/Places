@@ -1,5 +1,21 @@
 //! Unit tests for level packs, validation and the level manager.
 
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
+// the production lints stay enforced everywhere else in the crate.
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::expect_used,
+    clippy::float_cmp,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::redundant_clone,
+    clippy::too_many_lines,
+    clippy::uninlined_format_args,
+    clippy::unwrap_used
+)]
+
 use super::*;
 use crate::level::{RoomDef, WallAxis, WallDef};
 use crate::test_support::{assert_exact, assert_exact_array};

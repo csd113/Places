@@ -197,51 +197,76 @@ pub const FONT_DATA: [[u8; 8]; FONT_CHARS_COUNT] = [
     [0x76, 0xdc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
 ];
 
+/// Atlas width in texels.
+const ATLAS_WIDTH: usize = 128;
+/// Atlas height in texels.
+const ATLAS_HEIGHT: usize = 64;
+/// Bytes per RGBA texel.
+const RGBA: usize = 4;
+/// Glyph edge length in texels.
+const GLYPH: usize = 8;
+/// Glyphs packed into one atlas row.
+const GLYPHS_PER_ROW: u8 = 16;
+/// Bytes in one row of the atlas.
+const ATLAS_ROW_BYTES: usize = ATLAS_WIDTH * RGBA;
+/// Bytes in the whole atlas.
+const ATLAS_BYTES: usize = ATLAS_WIDTH * ATLAS_HEIGHT * RGBA;
+/// Bytes in one glyph row (eight RGBA texels).
+const GLYPH_BYTES: usize = GLYPH * RGBA;
+/// MSB-first masks for the eight pixels of a glyph row.
+const GLYPH_ROW_MASKS: [u8; GLYPH] = [0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01];
+
+/// Last ASCII code carried by the glyph table (`~`).
+const FONT_LAST_CHAR: u8 = b'~';
+
 /// Generates a 128x64 RGBA font texture atlas containing the 95 ASCII characters (16 cols x 6 rows).
 /// Top-left 8x8 cell at (0, 0) is reserved as solid white [255, 255, 255, 255] for UI box rendering.
 #[must_use]
 pub fn generate_font_atlas() -> Vec<u8> {
     // The atlas is 32 KiB, too large for a stack frame; build it in a heap
     // buffer instead.
-    let mut data = vec![0u8; 128 * 64 * 4];
+    let mut data = vec![0u8; ATLAS_BYTES];
 
     // Slot 0 (character 32 is space, but let's make pixel (0,0) to (7,7) solid white for solid quads)
-    for y in 0..8 {
-        for x in 0..8 {
-            let idx = (y * 128 + x) * 4;
-            data[idx] = 255;
-            data[idx + 1] = 255;
-            data[idx + 2] = 255;
-            data[idx + 3] = 255;
+    for row in data
+        .as_chunks_mut::<ATLAS_ROW_BYTES>()
+        .0
+        .iter_mut()
+        .take(GLYPH)
+    {
+        if let Some(white) = row.get_mut(..GLYPH_BYTES) {
+            white.fill(u8::MAX);
         }
     }
 
-    // Now render each character 32..=126 into atlas
-    for (char_idx, glyph) in FONT_DATA.iter().enumerate() {
-        // We offset char_idx by 0 (space is at slot 0, but slot 0 had white box; let's put space at slot 0 except when drawing space we draw nothing).
-        // Let's place characters at grid slot (char_idx):
-        // 16 characters per row. Col = char_idx % 16, Row = char_idx / 16.
-        let col = char_idx % 16;
-        let row = char_idx / 16;
-        let start_x = col * 8;
-        let start_y = row * 8;
-
-        // Space character (char_idx == 0): keep slot (0,0) as white for solid UI rects, but glyph for space is empty anyway.
-        if char_idx == 0 {
-            continue;
-        }
-
-        for (gy, &row_bits) in glyph.iter().enumerate() {
-            for gx in 0..8 {
-                let bit_set = (row_bits & (1 << (7 - gx))) != 0;
-                let px = start_x + gx;
-                let py = start_y + gy;
-                let idx = (py * 128 + px) * 4;
-                data[idx] = 255;
-                data[idx + 1] = 255;
-                data[idx + 2] = 255;
-                // Glyph pixels are opaque white; everything else is transparent.
-                data[idx + 3] = if bit_set { 255 } else { 0 };
+    // Now render each character 32..=126 into atlas: 16 glyphs per atlas row,
+    // each band of glyphs occupying eight atlas rows.
+    let mut atlas_rows = data.as_chunks_mut::<ATLAS_ROW_BYTES>().0.iter_mut();
+    for (band_index, glyphs) in FONT_DATA.chunks(usize::from(GLYPHS_PER_ROW)).enumerate() {
+        let mut band: Vec<&mut [u8; ATLAS_ROW_BYTES]> = atlas_rows.by_ref().take(GLYPH).collect();
+        for (column, glyph) in glyphs.iter().enumerate() {
+            // Space (glyph 0) leaves slot (0, 0) as the solid white UI block
+            // written above; its own glyph is empty anyway.
+            if band_index == 0 && column == 0 {
+                continue;
+            }
+            for (row_index, &row_bits) in glyph.iter().enumerate() {
+                let Some(row) = band.get_mut(row_index) else {
+                    continue;
+                };
+                let Some(cell) = row.as_chunks_mut::<GLYPH_BYTES>().0.get_mut(column) else {
+                    continue;
+                };
+                for (pixel, mask) in cell
+                    .as_chunks_mut::<RGBA>()
+                    .0
+                    .iter_mut()
+                    .zip(GLYPH_ROW_MASKS)
+                {
+                    // Glyph pixels are opaque white; everything else is transparent.
+                    let alpha = if row_bits & mask == 0 { 0 } else { u8::MAX };
+                    pixel.copy_from_slice(&[u8::MAX, u8::MAX, u8::MAX, alpha]);
+                }
             }
         }
     }
@@ -252,13 +277,13 @@ pub fn generate_font_atlas() -> Vec<u8> {
 /// Returns the UV bounds `[u0, v0, u1, v1]` in the 128x64 font atlas for the given ASCII character.
 #[must_use]
 pub fn get_char_uv(ch: char) -> Option<[f32; 4]> {
-    let ascii = ch as u32;
-    if !(32..=126).contains(&ascii) {
+    let ascii = u8::try_from(ch).ok()?;
+    if !(FONT_FIRST_CHAR..=FONT_LAST_CHAR).contains(&ascii) {
         return None;
     }
-    let char_idx = (ascii - 32) as usize;
-    let col = (char_idx % 16) as f32;
-    let row = (char_idx / 16) as f32;
+    let char_idx = ascii.checked_sub(FONT_FIRST_CHAR)?;
+    let col = f32::from(char_idx % GLYPHS_PER_ROW);
+    let row = f32::from(char_idx / GLYPHS_PER_ROW);
 
     let u0 = (col * 8.0) / 128.0;
     let v0 = (row * 8.0) / 64.0;

@@ -77,9 +77,9 @@ impl PropModel {
         let mut min = first.pos;
         let mut max = first.pos;
         for vertex in &self.vertices {
-            for axis in 0..3 {
-                min[axis] = min[axis].min(vertex.pos[axis]);
-                max[axis] = max[axis].max(vertex.pos[axis]);
+            for ((min, max), value) in min.iter_mut().zip(max.iter_mut()).zip(&vertex.pos) {
+                *min = min.min(*value);
+                *max = max.max(*value);
             }
         }
         Some((min, max))
@@ -182,11 +182,26 @@ fn mesh_primitives(json: &serde_json::Value) -> Result<&[serde_json::Value], Glt
             meshes.len()
         )));
     }
-    meshes[0]
-        .get("primitives")
+    meshes
+        .first()
+        .and_then(|mesh| mesh.get("primitives"))
         .and_then(|value| value.as_array())
         .map(std::vec::Vec::as_slice)
         .ok_or_else(|| GltfError::new("mesh has no primitives"))
+}
+
+/// Copies the first `N` values out of a decoded component list.
+///
+/// [`read_vec`] always returns exactly the requested number of components, so
+/// this only fails for a caller that asked for more components than the
+/// accessor declares.
+fn components<const N: usize>(values: &[f32]) -> Result<[f32; N], GltfError> {
+    values
+        .get(..N)
+        .and_then(|slice| <[f32; N]>::try_from(slice).ok())
+        .ok_or_else(|| {
+            GltfError::new("accessor declares fewer components than the attribute needs")
+        })
 }
 
 /// Reads one primitive's vertices and triangle indices into the model.
@@ -229,32 +244,22 @@ fn read_primitive(
     }
 
     let base = vertices.len();
-    for index in 0..positions.len() {
+    for ((position, uv), color) in positions.iter().zip(uvs.iter()).zip(colors.iter()) {
         vertices.push(PropVertex {
-            pos: [
-                positions[index][0],
-                positions[index][1],
-                positions[index][2],
-            ],
-            uv: [uvs[index][0], uvs[index][1]],
-            color: [
-                colors[index][0],
-                colors[index][1],
-                colors[index][2],
-                if colors[index].len() == 4 {
-                    colors[index][3]
-                } else {
-                    1.0
-                },
-            ],
+            pos: components(position)?,
+            uv: components(uv)?,
+            color: components(color)?,
         });
     }
 
     let local_indices = match primitive.get("indices") {
         Some(value) => read_indices(json, binary, accessor_index(value, "indices")?)?,
         None => (0..positions.len())
-            .map(|value| u32::try_from(value).unwrap_or(u32::MAX))
-            .collect(),
+            .map(|value| {
+                u32::try_from(value)
+                    .map_err(|_| GltfError::new("mesh index does not fit in 32 bits"))
+            })
+            .collect::<Result<Vec<u32>, _>>()?,
     };
     if local_indices.len() % 3 != 0 {
         return Err(GltfError::new(
@@ -262,8 +267,11 @@ fn read_primitive(
         ));
     }
     for value in local_indices {
-        let absolute = base + usize::try_from(value).unwrap_or(usize::MAX);
-        if absolute >= base + positions.len() {
+        let absolute = usize::try_from(value)
+            .ok()
+            .and_then(|value| base.checked_add(value))
+            .ok_or_else(|| GltfError::new(format!("index {value} points outside the mesh")))?;
+        if absolute >= base.saturating_add(positions.len()) {
             return Err(GltfError::new(format!(
                 "index {value} points outside the primitive's vertices"
             )));
@@ -273,7 +281,10 @@ fn read_primitive(
                 "mesh needs more than {MAX_PROP_VERTICES} vertices; lower the prop's detail"
             )));
         }
-        indices.push(u16::try_from(absolute).unwrap_or(u16::MAX));
+        indices.push(
+            u16::try_from(absolute)
+                .map_err(|_| GltfError::new(format!("index {value} does not fit in 16 bits")))?,
+        );
     }
     Ok(())
 }
@@ -329,9 +340,10 @@ fn parse_container(bytes: &[u8]) -> Result<(serde_json::Value, Vec<u8>), GltfErr
     if bytes.len() < 12 {
         return Err(GltfError::new("file is too small to be a GLB"));
     }
-    let magic = u32::from_le_bytes(bytes[0..4].try_into().unwrap());
-    let version = u32::from_le_bytes(bytes[4..8].try_into().unwrap());
-    let declared_length = u32::from_le_bytes(bytes[8..12].try_into().unwrap()) as usize;
+    let magic = read_u32_le(bytes, 0)?;
+    let version = read_u32_le(bytes, 4)?;
+    let declared_length = usize::try_from(read_u32_le(bytes, 8)?)
+        .map_err(|_| GltfError::new("GLB declared length does not fit this target"))?;
     if magic != GLB_MAGIC {
         return Err(GltfError::new(
             "not a GLB file; prop models must be self-contained .glb assets",
@@ -346,13 +358,22 @@ fn parse_container(bytes: &[u8]) -> Result<(serde_json::Value, Vec<u8>), GltfErr
         return Err(GltfError::new("GLB header length exceeds the file size"));
     }
 
-    let mut offset = 12;
+    let mut offset: usize = 12;
     let mut json: Option<serde_json::Value> = None;
     let mut binary: Vec<u8> = Vec::new();
-    while offset + 8 <= declared_length {
-        let length = u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
-        let kind = u32::from_le_bytes(bytes[offset + 4..offset + 8].try_into().unwrap());
-        let start = offset + 8;
+    while offset
+        .checked_add(8)
+        .is_some_and(|header_end| header_end <= declared_length)
+    {
+        let length = usize::try_from(read_u32_le(bytes, offset)?)
+            .map_err(|_| GltfError::new("GLB chunk length does not fit this target"))?;
+        let kind_offset = offset
+            .checked_add(4)
+            .ok_or_else(|| GltfError::new("GLB chunk offset overflows"))?;
+        let kind = read_u32_le(bytes, kind_offset)?;
+        let start = offset
+            .checked_add(8)
+            .ok_or_else(|| GltfError::new("GLB chunk offset overflows"))?;
         let Some(end) = start.checked_add(length) else {
             return Err(GltfError::new("GLB chunk length overflows"));
         };
@@ -361,14 +382,23 @@ fn parse_container(bytes: &[u8]) -> Result<(serde_json::Value, Vec<u8>), GltfErr
         }
         match kind {
             CHUNK_JSON => {
-                let text = std::str::from_utf8(&bytes[start..end])
-                    .map_err(|_| GltfError::new("GLB JSON chunk is not valid UTF-8"))?;
+                let text = std::str::from_utf8(
+                    bytes
+                        .get(start..end)
+                        .ok_or_else(|| GltfError::new("GLB chunk is truncated"))?,
+                )
+                .map_err(|_| GltfError::new("GLB JSON chunk is not valid UTF-8"))?;
                 let value: serde_json::Value =
                     serde_json::from_str(text.trim_end_matches(['\0', ' ']))
                         .map_err(|error| GltfError::new(format!("Invalid glTF JSON: {error}")))?;
                 json = Some(value);
             }
-            CHUNK_BIN => binary = bytes[start..end].to_vec(),
+            CHUNK_BIN => {
+                binary = bytes
+                    .get(start..end)
+                    .ok_or_else(|| GltfError::new("GLB chunk is truncated"))?
+                    .to_vec();
+            }
             _ => {}
         }
         offset = end;
@@ -376,6 +406,35 @@ fn parse_container(bytes: &[u8]) -> Result<(serde_json::Value, Vec<u8>), GltfErr
 
     let json = json.ok_or_else(|| GltfError::new("GLB has no JSON chunk"))?;
     Ok((json, binary))
+}
+
+/// Reads `N` bytes at `offset` as a fixed-size array.
+///
+/// Accessor bounds are validated before reading, but a truncated or malformed
+/// asset must surface an error instead of a panic, so every read stays checked.
+fn read_le_bytes<const N: usize>(data: &[u8], offset: usize) -> Result<[u8; N], GltfError> {
+    let end = offset
+        .checked_add(N)
+        .ok_or_else(|| GltfError::new("accessor byte range overflows"))?;
+    let slice = data
+        .get(offset..end)
+        .ok_or_else(|| GltfError::new("accessor data is truncated"))?;
+    <[u8; N]>::try_from(slice).map_err(|_| GltfError::new("accessor data is truncated"))
+}
+
+/// Little-endian `u32` at `offset`, or an error when the data is truncated.
+fn read_u32_le(data: &[u8], offset: usize) -> Result<u32, GltfError> {
+    read_le_bytes::<4>(data, offset).map(u32::from_le_bytes)
+}
+
+/// Little-endian `u16` at `offset`, or an error when the data is truncated.
+fn read_u16_le(data: &[u8], offset: usize) -> Result<u16, GltfError> {
+    read_le_bytes::<2>(data, offset).map(u16::from_le_bytes)
+}
+
+/// Little-endian `f32` at `offset`, or an error when the data is truncated.
+fn read_f32_le(data: &[u8], offset: usize) -> Result<f32, GltfError> {
+    read_le_bytes::<4>(data, offset).map(f32::from_le_bytes)
 }
 
 struct AccessorView<'a> {
@@ -429,7 +488,9 @@ fn accessor_view<'a>(
         .get("count")
         .and_then(json_usize)
         .ok_or_else(|| GltfError::new(format!("accessor {index} has no count")))?;
-    let element_size = component_size * components;
+    let element_size = component_size
+        .checked_mul(components)
+        .ok_or_else(|| GltfError::new("accessor element size overflows"))?;
     let (data, stride) = accessor_data(json, binary, accessor, index, element_size, count)?;
 
     Ok(AccessorView {
@@ -515,16 +576,28 @@ fn accessor_data<'a>(
         .and_then(json_usize)
         .unwrap_or(element_size);
     let required = if count == 0 {
+        // No elements are read, so even an empty bufferView is acceptable.
         0
     } else {
-        (count - 1) * stride + element_size
+        count
+            .saturating_sub(1)
+            .checked_mul(stride)
+            .and_then(|size| size.checked_add(element_size))
+            .ok_or_else(|| GltfError::new("accessor byte length overflows"))?
     };
-    if required > end - start {
+    // `end == start + view_length`, so the view length is the budget the
+    // accessor's elements must fit in.
+    if required > view_length {
         return Err(GltfError::new(format!(
             "accessor {index} declares {count} elements but its bufferView is too small"
         )));
     }
-    Ok((&binary[start..end], stride))
+    Ok((
+        binary
+            .get(start..end)
+            .ok_or_else(|| GltfError::new("accessor data is truncated"))?,
+        stride,
+    ))
 }
 
 fn read_vec(
@@ -534,19 +607,29 @@ fn read_vec(
     components: usize,
 ) -> Result<Vec<Vec<f32>>, GltfError> {
     let view = accessor_view(json, binary, index, components)?;
-    let component_size = view.element_size / view.components;
+    let component_size = view
+        .element_size
+        .checked_div(view.components)
+        .ok_or_else(|| GltfError::new("accessor has no components"))?;
     let mut out = Vec::with_capacity(view.count);
     for element in 0..view.count {
-        let base = element * view.stride;
+        let base = element
+            .checked_mul(view.stride)
+            .ok_or_else(|| GltfError::new("accessor element offset overflows"))?;
         let mut values = Vec::with_capacity(view.components);
         for component in 0..view.components {
-            let offset = base + component * component_size;
+            let offset = component
+                .checked_mul(component_size)
+                .and_then(|skip| base.checked_add(skip))
+                .ok_or_else(|| GltfError::new("accessor component offset overflows"))?;
             let value = match view.component_type {
-                COMPONENT_FLOAT => {
-                    f32::from_le_bytes(view.data[offset..offset + 4].try_into().unwrap())
-                }
+                COMPONENT_FLOAT => read_f32_le(view.data, offset)?,
                 COMPONENT_UBYTE => {
-                    let raw = view.data[offset];
+                    let raw = view
+                        .data
+                        .get(offset)
+                        .copied()
+                        .ok_or_else(|| GltfError::new("accessor data is truncated"))?;
                     if view.normalized {
                         f32::from(raw) / 255.0
                     } else {
@@ -554,7 +637,7 @@ fn read_vec(
                     }
                 }
                 COMPONENT_USHORT => {
-                    let raw = u16::from_le_bytes(view.data[offset..offset + 2].try_into().unwrap());
+                    let raw = read_u16_le(view.data, offset)?;
                     if view.normalized {
                         f32::from(raw) / 65_535.0
                     } else {
@@ -583,13 +666,18 @@ fn read_indices(
     let component_size = view.element_size;
     let mut out = Vec::with_capacity(view.count);
     for element in 0..view.count {
-        let offset = element * view.stride;
+        let offset = element
+            .checked_mul(view.stride)
+            .ok_or_else(|| GltfError::new("accessor element offset overflows"))?;
         out.push(match view.component_type {
-            COMPONENT_UBYTE => u32::from(view.data[offset]),
-            COMPONENT_USHORT => u32::from(u16::from_le_bytes(
-                view.data[offset..offset + 2].try_into().unwrap(),
-            )),
-            COMPONENT_UINT => u32::from_le_bytes(view.data[offset..offset + 4].try_into().unwrap()),
+            COMPONENT_UBYTE => u32::from(
+                view.data
+                    .get(offset)
+                    .copied()
+                    .ok_or_else(|| GltfError::new("accessor data is truncated"))?,
+            ),
+            COMPONENT_USHORT => u32::from(read_u16_le(view.data, offset)?),
+            COMPONENT_UINT => read_u32_le(view.data, offset)?,
             other => {
                 return Err(GltfError::new(format!(
                     "componentType {other} cannot be used for indices (size {component_size})"
@@ -624,8 +712,9 @@ fn read_texture(json: &serde_json::Value, binary: &[u8]) -> Result<RawImage, Glt
         .get("images")
         .and_then(|value| value.as_array())
         .ok_or_else(|| GltfError::new("file has no images"))?;
-    let source = textures[0]
-        .get("source")
+    let source = textures
+        .first()
+        .and_then(|texture| texture.get("source"))
         .and_then(json_usize)
         .ok_or_else(|| GltfError::new("texture has no image source"))?;
     let image = images
@@ -669,7 +758,9 @@ fn read_texture(json: &serde_json::Value, binary: &[u8]) -> Result<RawImage, Glt
             "image bufferView extends past the binary chunk",
         ));
     }
-    let png = &binary[offset..end];
+    let png = binary
+        .get(offset..end)
+        .ok_or_else(|| GltfError::new("image bufferView is out of range"))?;
     let image = crate::loader::decode_png(png)
         .map_err(|error| GltfError::new(format!("embedded texture is not a valid PNG: {error}")))?;
     if image.width > MAX_PROP_TEXTURE_SIZE || image.height > MAX_PROP_TEXTURE_SIZE {

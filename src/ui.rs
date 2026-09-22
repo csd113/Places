@@ -220,334 +220,326 @@ pub fn build_ui_geometry(
         AppState::Playing => {
             // No full-screen menu; optional version or overlay if needed
         }
-        AppState::MainMenu => {
-            // Partially transparent dark scrim background panel (70% opacity)
-            let opacity = 0.70;
-            // Border outline strips (non-overlapping with inner panel)
-            add_rect_rgba(
-                &mut vertices,
-                20.0,
-                20.0,
-                460.0,
-                22.0,
-                [0.08, 0.08, 0.07, opacity],
-            );
-            add_rect_rgba(
-                &mut vertices,
-                20.0,
-                250.0,
-                460.0,
-                252.0,
-                [0.08, 0.08, 0.07, opacity],
-            );
-            add_rect_rgba(
-                &mut vertices,
-                20.0,
-                22.0,
-                22.0,
-                250.0,
-                [0.08, 0.08, 0.07, opacity],
-            );
-            add_rect_rgba(
-                &mut vertices,
-                458.0,
-                22.0,
-                460.0,
-                250.0,
-                [0.08, 0.08, 0.07, opacity],
-            );
-            // Inner panel
-            add_rect_rgba(
-                &mut vertices,
-                22.0,
-                22.0,
-                458.0,
-                250.0,
-                [0.12, 0.11, 0.10, opacity],
-            );
-
-            // Title
-            draw_text(&mut vertices, "Places", 40.0, 36.0, 2.0, [0.92, 0.88, 0.45]);
-            draw_text(
-                &mut vertices,
-                "an experience",
-                42.0,
-                58.0,
-                1.0,
-                [0.65, 0.65, 0.60],
-            );
-
-            // Menu Items
-            let items = ["Level Select", "Settings", "Exit"];
-            let start_y = 95.0;
-            let line_h = 24.0;
-
-            for (i, &item) in items.iter().enumerate() {
-                let y = (i as f32).mul_add(line_h, start_y);
-                let is_sel = i == ui_state.main_menu_idx;
-
-                if is_sel {
-                    add_rect(
-                        &mut vertices,
-                        38.0,
-                        y - 2.0,
-                        260.0,
-                        y + 14.0,
-                        [0.25, 0.23, 0.16],
-                    );
-                    let line = format!("> {item}");
-                    draw_text(&mut vertices, &line, 40.0, y, 1.0, [1.0, 0.95, 0.40]);
-                } else {
-                    let line = format!("  {item}");
-                    draw_text(&mut vertices, &line, 40.0, y, 1.0, [0.85, 0.85, 0.80]);
-                }
-            }
-
-            // Version bottom-left (requirement 3)
-            let ver_text = format!("v{version}");
-            draw_text(&mut vertices, &ver_text, 35.0, 235.0, 1.0, [0.5, 0.5, 0.5]);
-
-            // Controls help bottom
-            draw_text(
-                &mut vertices,
-                "W/S: Move   ENTER: Select",
-                250.0,
-                235.0,
-                1.0,
-                [0.55, 0.55, 0.50],
-            );
-        }
-        AppState::LevelSelect => {
-            add_rect(&mut vertices, 20.0, 20.0, 460.0, 252.0, [0.08, 0.08, 0.07]);
-            add_rect(&mut vertices, 22.0, 22.0, 458.0, 250.0, [0.12, 0.11, 0.10]);
-
-            draw_text(
-                &mut vertices,
-                "LEVEL SELECT",
-                40.0,
-                38.0,
-                2.0,
-                [0.92, 0.88, 0.45],
-            );
-
-            let mut items: Vec<(String, bool)> = if ui_state.level_entries.is_empty() {
-                vec![("Level 1".to_string(), true)]
-            } else {
-                ui_state
-                    .level_entries
-                    .iter()
-                    .map(|name| (name.clone(), true))
-                    .collect()
-            };
-            items.push(("Load/Import Level".to_string(), true));
-            items.push(("Back".to_string(), true));
-
-            // Show at most 6 items per page with scrolling
-            let max_visible = 6;
-            let total = items.len();
-            let scroll_offset = if total <= max_visible || ui_state.level_select_idx < max_visible {
-                0
-            } else if ui_state.level_select_idx >= total - max_visible {
-                total - max_visible
-            } else {
-                ui_state.level_select_idx - (max_visible - 1)
-            };
-
-            let start_y = 75.0;
-            let line_h = 22.0;
-
-            for (vi, (i, (label, enabled))) in items
-                .iter()
-                .enumerate()
-                .skip(scroll_offset)
-                .take(max_visible)
-                .enumerate()
-            {
-                let y = (vi as f32).mul_add(line_h, start_y);
-                let is_sel = i == ui_state.level_select_idx;
-
-                if is_sel {
-                    add_rect(
-                        &mut vertices,
-                        38.0,
-                        y - 2.0,
-                        380.0,
-                        y + 14.0,
-                        [0.25, 0.23, 0.16],
-                    );
-                    let line = format!("> {label}");
-                    let col = if *enabled {
-                        [1.0, 0.95, 0.40]
-                    } else {
-                        [0.55, 0.50, 0.35]
-                    };
-                    draw_text(&mut vertices, &line, 40.0, y, 1.0, col);
-                } else {
-                    let line = format!("  {label}");
-                    let col = if *enabled {
-                        [0.85, 0.85, 0.80]
-                    } else {
-                        [0.45, 0.45, 0.42]
-                    };
-                    draw_text(&mut vertices, &line, 40.0, y, 1.0, col);
-                }
-            }
-
-            if let Some(ref msg) = ui_state.status_message {
-                let col = if msg.starts_with("Error") || msg.starts_with("Failed") {
-                    [1.0, 0.4, 0.3]
-                } else {
-                    [0.4, 0.9, 0.4]
-                };
-                draw_text(&mut vertices, msg, 40.0, 212.0, 1.0, col);
-            }
-
-            draw_text(
-                &mut vertices,
-                "W/S: Move   ENTER: Select   ESC: Back",
-                160.0,
-                235.0,
-                1.0,
-                [0.55, 0.55, 0.50],
-            );
-        }
-        AppState::Paused => {
-            // Semi-transparent pause scrim
-            add_rect(&mut vertices, 80.0, 40.0, 400.0, 230.0, [0.06, 0.06, 0.05]);
-            add_rect(&mut vertices, 82.0, 42.0, 398.0, 228.0, [0.12, 0.11, 0.10]);
-
-            draw_text(
-                &mut vertices,
-                "PAUSED",
-                100.0,
-                58.0,
-                2.0,
-                [0.92, 0.88, 0.45],
-            );
-
-            let items = ["Resume", "Settings", "Return to Main Menu"];
-            let start_y = 105.0;
-            let line_h = 24.0;
-
-            for (i, &item) in items.iter().enumerate() {
-                let y = (i as f32).mul_add(line_h, start_y);
-                let is_sel = i == ui_state.pause_menu_idx;
-
-                if is_sel {
-                    add_rect(
-                        &mut vertices,
-                        98.0,
-                        y - 2.0,
-                        340.0,
-                        y + 14.0,
-                        [0.25, 0.23, 0.16],
-                    );
-                    let line = format!("> {item}");
-                    draw_text(&mut vertices, &line, 100.0, y, 1.0, [1.0, 0.95, 0.40]);
-                } else {
-                    let line = format!("  {item}");
-                    draw_text(&mut vertices, &line, 100.0, y, 1.0, [0.85, 0.85, 0.80]);
-                }
-            }
-
-            draw_text(
-                &mut vertices,
-                "ESC: Resume   ENTER: Select",
-                120.0,
-                205.0,
-                1.0,
-                [0.55, 0.55, 0.50],
-            );
-        }
+        AppState::MainMenu => main_menu_geometry(&mut vertices, ui_state, version),
+        AppState::LevelSelect => level_select_geometry(&mut vertices, ui_state),
+        AppState::Paused => pause_menu_geometry(&mut vertices, ui_state),
         AppState::Settings | AppState::PauseSettings => {
-            add_rect(&mut vertices, 10.0, 10.0, 470.0, 262.0, [0.08, 0.08, 0.07]);
-            add_rect(&mut vertices, 12.0, 12.0, 468.0, 260.0, [0.12, 0.11, 0.10]);
-
-            draw_text(
-                &mut vertices,
-                "SETTINGS",
-                25.0,
-                20.0,
-                2.0,
-                [0.92, 0.88, 0.45],
-            );
-
-            // Rebinding prompt or conflict message
-            if let Some(action) = ui_state.rebinding_action {
-                add_rect(&mut vertices, 160.0, 18.0, 460.0, 36.0, [0.35, 0.15, 0.10]);
-                let prompt = format!("PRESS KEY FOR {action} (ESC: cancel)");
-                draw_text(&mut vertices, &prompt, 165.0, 22.0, 1.0, [1.0, 0.9, 0.3]);
-            } else if let Some(ref msg) = ui_state.status_message {
-                let col = if msg.starts_with("Error") || msg.contains("already") {
-                    [1.0, 0.4, 0.3]
-                } else {
-                    [0.4, 0.9, 0.4]
-                };
-                draw_text(&mut vertices, msg, 160.0, 22.0, 1.0, col);
-            }
-
-            let b = &settings.bindings;
-            let items = [
-                format!("Forward:        [{}]", b.forward),
-                format!("Strafe Left:    [{}]", b.strafe_left),
-                format!("Strafe Right:   [{}]", b.strafe_right),
-                format!("Backward:       [{}]", b.backward),
-                format!("Look Up:        [{}]", b.look_up),
-                format!("Look Down:      [{}]", b.look_down),
-                format!("Look Left:      [{}]", b.look_left),
-                format!("Look Right:     [{}]", b.look_right),
-                format!("Look Speed H:   [{:.0} deg/s]", settings.look_speed_h),
-                format!("Look Speed V:   [{:.0} deg/s]", settings.look_speed_v),
-                format!("Walk Speed:     [{:.1} m/s]", settings.walk_speed),
-                format!("FOV:            [{:.0} deg]", settings.fov_degrees),
-                format!(
-                    "VSync:          [{}]",
-                    if settings.vsync { "ON" } else { "OFF" }
-                ),
-                format!(
-                    "Filtering:      [{}]",
-                    settings.texture_filtering.to_uppercase()
-                ),
-                "Restore Default Bindings".to_string(),
-                "Back".to_string(),
-            ];
-
-            let start_y = 44.0;
-            let line_h = 13.0;
-
-            for (i, label) in items.iter().enumerate() {
-                let y = (i as f32).mul_add(line_h, start_y);
-                let is_sel = i == ui_state.settings_idx;
-
-                if is_sel {
-                    add_rect(
-                        &mut vertices,
-                        23.0,
-                        y - 1.0,
-                        450.0,
-                        y + 10.0,
-                        [0.25, 0.23, 0.16],
-                    );
-                    let line = format!("> {label}");
-                    draw_text(&mut vertices, &line, 25.0, y, 1.0, [1.0, 0.95, 0.40]);
-                } else {
-                    let line = format!("  {label}");
-                    draw_text(&mut vertices, &line, 25.0, y, 1.0, [0.85, 0.85, 0.80]);
-                }
-            }
-
-            draw_text(
-                &mut vertices,
-                "W/S: Nav  ENTER/A/D: Adjust/Rebind  ESC: Back",
-                70.0,
-                250.0,
-                1.0,
-                [0.55, 0.55, 0.50],
-            );
+            settings_geometry(&mut vertices, ui_state, settings);
         }
     }
 
     vertices
+}
+
+/// Y offset of menu row `index` in the 480x272 reference space.
+///
+/// Menus hold at most [`SETTINGS_ITEM_COUNT`] rows, so the `u16` conversion is
+/// exact and the row offset is lossless.
+fn row_y(index: usize, line_h: f32, start_y: f32) -> f32 {
+    f32::from(u16::try_from(index).unwrap_or(u16::MAX)).mul_add(line_h, start_y)
+}
+
+/// Main menu: scrim, title, three items and the control legend.
+fn main_menu_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState, version: &str) {
+    // Partially transparent dark scrim background panel (70% opacity)
+    let opacity = 0.70;
+    // Border outline strips (non-overlapping with inner panel)
+    add_rect_rgba(
+        vertices,
+        20.0,
+        20.0,
+        460.0,
+        22.0,
+        [0.08, 0.08, 0.07, opacity],
+    );
+    add_rect_rgba(
+        vertices,
+        20.0,
+        250.0,
+        460.0,
+        252.0,
+        [0.08, 0.08, 0.07, opacity],
+    );
+    add_rect_rgba(
+        vertices,
+        20.0,
+        22.0,
+        22.0,
+        250.0,
+        [0.08, 0.08, 0.07, opacity],
+    );
+    add_rect_rgba(
+        vertices,
+        458.0,
+        22.0,
+        460.0,
+        250.0,
+        [0.08, 0.08, 0.07, opacity],
+    );
+    // Inner panel
+    add_rect_rgba(
+        vertices,
+        22.0,
+        22.0,
+        458.0,
+        250.0,
+        [0.12, 0.11, 0.10, opacity],
+    );
+
+    // Title
+    draw_text(vertices, "Places", 40.0, 36.0, 2.0, [0.92, 0.88, 0.45]);
+    draw_text(
+        vertices,
+        "an experience",
+        42.0,
+        58.0,
+        1.0,
+        [0.65, 0.65, 0.60],
+    );
+
+    // Menu Items
+    let items = ["Level Select", "Settings", "Exit"];
+    let start_y = 95.0;
+    let line_h = 24.0;
+
+    for (i, &item) in items.iter().enumerate() {
+        let y = row_y(i, line_h, start_y);
+        let is_sel = i == ui_state.main_menu_idx;
+
+        if is_sel {
+            add_rect(vertices, 38.0, y - 2.0, 260.0, y + 14.0, [0.25, 0.23, 0.16]);
+            let line = format!("> {item}");
+            draw_text(vertices, &line, 40.0, y, 1.0, [1.0, 0.95, 0.40]);
+        } else {
+            let line = format!("  {item}");
+            draw_text(vertices, &line, 40.0, y, 1.0, [0.85, 0.85, 0.80]);
+        }
+    }
+
+    // Version bottom-left (requirement 3)
+    let ver_text = format!("v{version}");
+    draw_text(vertices, &ver_text, 35.0, 235.0, 1.0, [0.5, 0.5, 0.5]);
+
+    // Controls help bottom
+    draw_text(
+        vertices,
+        "W/S: Move   ENTER: Select",
+        250.0,
+        235.0,
+        1.0,
+        [0.55, 0.55, 0.50],
+    );
+}
+
+/// Level selection: scrolling list of installed levels, status line and legend.
+fn level_select_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
+    add_rect(vertices, 20.0, 20.0, 460.0, 252.0, [0.08, 0.08, 0.07]);
+    add_rect(vertices, 22.0, 22.0, 458.0, 250.0, [0.12, 0.11, 0.10]);
+
+    draw_text(
+        vertices,
+        "LEVEL SELECT",
+        40.0,
+        38.0,
+        2.0,
+        [0.92, 0.88, 0.45],
+    );
+
+    level_select_items(vertices, ui_state);
+
+    if let Some(ref msg) = ui_state.status_message {
+        let col = if msg.starts_with("Error") || msg.starts_with("Failed") {
+            [1.0, 0.4, 0.3]
+        } else {
+            [0.4, 0.9, 0.4]
+        };
+        draw_text(vertices, msg, 40.0, 212.0, 1.0, col);
+    }
+
+    draw_text(
+        vertices,
+        "W/S: Move   ENTER: Select   ESC: Back",
+        160.0,
+        235.0,
+        1.0,
+        [0.55, 0.55, 0.50],
+    );
+}
+
+/// The scrolling level list body: at most six rows plus the trailing actions.
+fn level_select_items(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
+    let mut items: Vec<(String, bool)> = if ui_state.level_entries.is_empty() {
+        vec![("Level 1".to_string(), true)]
+    } else {
+        ui_state
+            .level_entries
+            .iter()
+            .map(|name| (name.clone(), true))
+            .collect()
+    };
+    items.push(("Load/Import Level".to_string(), true));
+    items.push(("Back".to_string(), true));
+
+    // Show at most 6 items per page with scrolling
+    let max_visible = 6;
+    let total = items.len();
+    let scroll_offset = if total <= max_visible || ui_state.level_select_idx < max_visible {
+        0
+    } else if ui_state.level_select_idx >= total.saturating_sub(max_visible) {
+        total.saturating_sub(max_visible)
+    } else {
+        ui_state
+            .level_select_idx
+            .saturating_sub(max_visible.saturating_sub(1))
+    };
+
+    let start_y = 75.0;
+    let line_h = 22.0;
+
+    for (vi, (i, (label, enabled))) in items
+        .iter()
+        .enumerate()
+        .skip(scroll_offset)
+        .take(max_visible)
+        .enumerate()
+    {
+        let y = row_y(vi, line_h, start_y);
+        let is_sel = i == ui_state.level_select_idx;
+
+        if is_sel {
+            add_rect(vertices, 38.0, y - 2.0, 380.0, y + 14.0, [0.25, 0.23, 0.16]);
+            let line = format!("> {label}");
+            let col = if *enabled {
+                [1.0, 0.95, 0.40]
+            } else {
+                [0.55, 0.50, 0.35]
+            };
+            draw_text(vertices, &line, 40.0, y, 1.0, col);
+        } else {
+            let line = format!("  {label}");
+            let col = if *enabled {
+                [0.85, 0.85, 0.80]
+            } else {
+                [0.45, 0.45, 0.42]
+            };
+            draw_text(vertices, &line, 40.0, y, 1.0, col);
+        }
+    }
+}
+
+/// Pause menu: scrim, title, three items and the legend.
+fn pause_menu_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
+    // Semi-transparent pause scrim
+    add_rect(vertices, 80.0, 40.0, 400.0, 230.0, [0.06, 0.06, 0.05]);
+    add_rect(vertices, 82.0, 42.0, 398.0, 228.0, [0.12, 0.11, 0.10]);
+
+    draw_text(vertices, "PAUSED", 100.0, 58.0, 2.0, [0.92, 0.88, 0.45]);
+
+    let items = ["Resume", "Settings", "Return to Main Menu"];
+    let start_y = 105.0;
+    let line_h = 24.0;
+
+    for (i, &item) in items.iter().enumerate() {
+        let y = row_y(i, line_h, start_y);
+        let is_sel = i == ui_state.pause_menu_idx;
+
+        if is_sel {
+            add_rect(vertices, 98.0, y - 2.0, 340.0, y + 14.0, [0.25, 0.23, 0.16]);
+            let line = format!("> {item}");
+            draw_text(vertices, &line, 100.0, y, 1.0, [1.0, 0.95, 0.40]);
+        } else {
+            let line = format!("  {item}");
+            draw_text(vertices, &line, 100.0, y, 1.0, [0.85, 0.85, 0.80]);
+        }
+    }
+
+    draw_text(
+        vertices,
+        "ESC: Resume   ENTER: Select",
+        120.0,
+        205.0,
+        1.0,
+        [0.55, 0.55, 0.50],
+    );
+}
+
+/// Settings screen: panel, rebinding/status prompt, item list and legend.
+fn settings_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState, settings: &Settings) {
+    add_rect(vertices, 10.0, 10.0, 470.0, 262.0, [0.08, 0.08, 0.07]);
+    add_rect(vertices, 12.0, 12.0, 468.0, 260.0, [0.12, 0.11, 0.10]);
+
+    draw_text(vertices, "SETTINGS", 25.0, 20.0, 2.0, [0.92, 0.88, 0.45]);
+
+    // Rebinding prompt or conflict message
+    if let Some(action) = ui_state.rebinding_action {
+        add_rect(vertices, 160.0, 18.0, 460.0, 36.0, [0.35, 0.15, 0.10]);
+        let prompt = format!("PRESS KEY FOR {action} (ESC: cancel)");
+        draw_text(vertices, &prompt, 165.0, 22.0, 1.0, [1.0, 0.9, 0.3]);
+    } else if let Some(ref msg) = ui_state.status_message {
+        let col = if msg.starts_with("Error") || msg.contains("already") {
+            [1.0, 0.4, 0.3]
+        } else {
+            [0.4, 0.9, 0.4]
+        };
+        draw_text(vertices, msg, 160.0, 22.0, 1.0, col);
+    }
+
+    settings_item_rows(vertices, ui_state, settings);
+
+    draw_text(
+        vertices,
+        "W/S: Nav  ENTER/A/D: Adjust/Rebind  ESC: Back",
+        70.0,
+        250.0,
+        1.0,
+        [0.55, 0.55, 0.50],
+    );
+}
+
+/// One row per settings item, showing the current binding or value.
+fn settings_item_rows(vertices: &mut Vec<Vertex>, ui_state: &UiState, settings: &Settings) {
+    let b = &settings.bindings;
+    let items = [
+        format!("Forward:        [{}]", b.forward),
+        format!("Strafe Left:    [{}]", b.strafe_left),
+        format!("Strafe Right:   [{}]", b.strafe_right),
+        format!("Backward:       [{}]", b.backward),
+        format!("Look Up:        [{}]", b.look_up),
+        format!("Look Down:      [{}]", b.look_down),
+        format!("Look Left:      [{}]", b.look_left),
+        format!("Look Right:     [{}]", b.look_right),
+        format!("Look Speed H:   [{:.0} deg/s]", settings.look_speed_h),
+        format!("Look Speed V:   [{:.0} deg/s]", settings.look_speed_v),
+        format!("Walk Speed:     [{:.1} m/s]", settings.walk_speed),
+        format!("FOV:            [{:.0} deg]", settings.fov_degrees),
+        format!(
+            "VSync:          [{}]",
+            if settings.vsync { "ON" } else { "OFF" }
+        ),
+        format!(
+            "Filtering:      [{}]",
+            settings.texture_filtering.to_uppercase()
+        ),
+        "Restore Default Bindings".to_string(),
+        "Back".to_string(),
+    ];
+
+    let start_y = 44.0;
+    let line_h = 13.0;
+
+    for (i, label) in items.iter().enumerate() {
+        let y = row_y(i, line_h, start_y);
+        let is_sel = i == ui_state.settings_idx;
+
+        if is_sel {
+            add_rect(vertices, 23.0, y - 1.0, 450.0, y + 10.0, [0.25, 0.23, 0.16]);
+            let line = format!("> {label}");
+            draw_text(vertices, &line, 25.0, y, 1.0, [1.0, 0.95, 0.40]);
+        } else {
+            let line = format!("  {label}");
+            draw_text(vertices, &line, 25.0, y, 1.0, [0.85, 0.85, 0.80]);
+        }
+    }
 }
 
 pub const SETTINGS_ITEM_COUNT: usize = 16;
@@ -570,8 +562,8 @@ pub fn activate_settings_item(
     direction: i32,
 ) -> bool {
     // 0..8: Keybindings
-    if idx < 8 {
-        ui_state.rebinding_action = Some(SETTINGS_ACTIONS[idx]);
+    if let Some(action) = SETTINGS_ACTIONS.get(idx) {
+        ui_state.rebinding_action = Some(*action);
         ui_state.status_message = None;
         return false;
     }

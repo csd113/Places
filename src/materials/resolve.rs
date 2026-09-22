@@ -96,13 +96,13 @@ impl MaterialTable {
 
     /// Number of materials.
     #[must_use]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.entries.len()
     }
 
     /// True when the level references no materials at all.
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
 
@@ -161,14 +161,24 @@ impl MaterialTable {
             .iter()
             .find(|entry| entry.origin == TextureOrigin::Missing)
     }
+}
 
-    fn intern_texture(&mut self, key: String, origin: TextureOrigin, image: Rc<RawImage>) -> u16 {
-        if let Some(index) = self.textures.iter().position(|texture| texture.key == key) {
-            return u16::try_from(index).unwrap_or(u16::MAX);
-        }
-        self.textures.push(ResolvedTexture { key, origin, image });
-        u16::try_from(self.textures.len() - 1).unwrap_or(u16::MAX)
+/// Adds a texture to a table's texture list, reusing an existing entry with the
+/// same key, and returns its index.
+fn intern_texture(
+    textures: &mut Vec<ResolvedTexture>,
+    key: String,
+    origin: TextureOrigin,
+    image: Rc<RawImage>,
+) -> u16 {
+    if let Some(index) = textures.iter().position(|texture| texture.key == key) {
+        return u16::try_from(index).unwrap_or(u16::MAX);
     }
+    // The new entry's index is the length before the push, which is also
+    // `len - 1` afterwards — computed without an off-by-one subtraction.
+    let index = u16::try_from(textures.len()).unwrap_or(u16::MAX);
+    textures.push(ResolvedTexture { key, origin, image });
+    index
 }
 
 /// Every material id a level references, in first-reference order.
@@ -222,17 +232,16 @@ pub fn referenced_material_ids(level: &LevelDef) -> Vec<String> {
     ids
 }
 
-/// Logical description of one material before its image is resolved.
-fn describe_material(
+/// Builds a material description before its image is resolved.
+fn material_base(
     id: &str,
-    catalog: &AssetCatalog,
-    pack: Option<&PackMaterials>,
+    texture_key: String,
+    origin: TextureOrigin,
+    tile_metres: f32,
+    tint: [f32; 3],
+    error: Option<String>,
 ) -> ResolvedMaterial {
-    let base = |texture_key: String,
-                origin: TextureOrigin,
-                tile_metres: f32,
-                tint: [f32; 3],
-                error: Option<String>| ResolvedMaterial {
+    ResolvedMaterial {
         id: id.to_string(),
         texture_key,
         texture_index: 0,
@@ -241,39 +250,22 @@ fn describe_material(
         tint,
         image: None,
         error,
-    };
+    }
+}
 
+/// Logical description of one material before its image is resolved.
+fn describe_material(
+    id: &str,
+    catalog: &AssetCatalog,
+    pack: Option<&PackMaterials>,
+) -> ResolvedMaterial {
     if let Some(entry) = catalog.material(id) {
-        let texture_id = entry.texture.clone().unwrap_or_default();
-        if texture_id.is_empty() {
-            return base(
-                MISSING_TEXTURE_KEY.to_string(),
-                TextureOrigin::Missing,
-                DEFAULT_TILE_METRES,
-                DEFAULT_TINT,
-                Some(format!(
-                    "material `{id}` declares no `texture`; using the diagnostic texture"
-                )),
-            );
-        }
-        let tile_metres = entry.tile_metres.unwrap_or(DEFAULT_TILE_METRES);
-        let tint = entry.tint.unwrap_or(DEFAULT_TINT);
-        if catalog.texture_path(&texture_id).is_none() {
-            return base(
-                MISSING_TEXTURE_KEY.to_string(),
-                TextureOrigin::Missing,
-                tile_metres,
-                tint,
-                Some(format!(
-                    "material `{id}` references texture `{texture_id}`, which has no PNG file in the catalog"
-                )),
-            );
-        }
-        return base(texture_id, TextureOrigin::Catalog, tile_metres, tint, None);
+        return describe_catalog_material(id, entry, catalog);
     }
 
     if let Some(entry) = catalog.get(id) {
-        return base(
+        return material_base(
+            id,
             MISSING_TEXTURE_KEY.to_string(),
             TextureOrigin::Missing,
             DEFAULT_TILE_METRES,
@@ -286,68 +278,125 @@ fn describe_material(
     }
 
     if id.starts_with("pack:") {
-        if let Some(definition) = pack.and_then(|pack| pack.definition(id)) {
-            // A pack may reuse a catalog texture by logical id, or ship its own
-            // PNG. A declared-but-missing pack file is a named error, not a
-            // silent fall-through to a same-named file.
-            if definition.texture.contains(':')
-                && catalog.texture_path(&definition.texture).is_some()
-            {
-                return base(
-                    definition.texture.clone(),
-                    TextureOrigin::Catalog,
-                    definition.tile_metres(),
-                    definition.tint(),
-                    None,
-                );
-            }
-            if pack.is_some_and(|pack| pack.lookup(&definition.texture).is_some()) {
-                return base(
-                    definition.texture.clone(),
-                    TextureOrigin::Pack,
-                    definition.tile_metres(),
-                    definition.tint(),
-                    None,
-                );
-            }
-            return base(
-                format!("pack:unresolved:{id}"),
-                TextureOrigin::Pack,
-                definition.tile_metres(),
-                definition.tint(),
-                Some(format!(
-                    "pack material `{id}`: `materials.json` names `{}`, which is not present in the pack",
-                    definition.texture
-                )),
-            );
-        }
-        if let Some(path) = pack.and_then(|pack| pack.texture_for(id)) {
-            return base(
-                path,
-                TextureOrigin::Pack,
-                DEFAULT_TILE_METRES,
-                DEFAULT_TINT,
-                None,
-            );
-        }
-        return base(
-            format!("pack:unresolved:{id}"),
-            TextureOrigin::Pack,
-            DEFAULT_TILE_METRES,
-            DEFAULT_TINT,
-            Some(format!(
-                "pack material `{id}` has no `materials.json` entry and no matching PNG in the pack"
-            )),
-        );
+        return describe_pack_material(id, catalog, pack);
     }
 
-    base(
+    material_base(
+        id,
         MISSING_TEXTURE_KEY.to_string(),
         TextureOrigin::Missing,
         DEFAULT_TILE_METRES,
         DEFAULT_TINT,
         Some(format!(
             "unknown material `{id}`; add it to the asset catalog or use the diagnostic material"
+        )),
+    )
+}
+
+/// Describes a material the catalog declares as a surface material, naming the
+/// problem when its texture cannot be resolved.
+fn describe_catalog_material(
+    id: &str,
+    entry: &crate::assets::AssetEntry,
+    catalog: &AssetCatalog,
+) -> ResolvedMaterial {
+    let texture_id = entry.texture.clone().unwrap_or_default();
+    if texture_id.is_empty() {
+        return material_base(
+            id,
+            MISSING_TEXTURE_KEY.to_string(),
+            TextureOrigin::Missing,
+            DEFAULT_TILE_METRES,
+            DEFAULT_TINT,
+            Some(format!(
+                "material `{id}` declares no `texture`; using the diagnostic texture"
+            )),
+        );
+    }
+    let tile_metres = entry.tile_metres.unwrap_or(DEFAULT_TILE_METRES);
+    let tint = entry.tint.unwrap_or(DEFAULT_TINT);
+    if catalog.texture_path(&texture_id).is_none() {
+        return material_base(
+            id,
+            MISSING_TEXTURE_KEY.to_string(),
+            TextureOrigin::Missing,
+            tile_metres,
+            tint,
+            Some(format!(
+                "material `{id}` references texture `{texture_id}`, which has no PNG file in the catalog"
+            )),
+        );
+    }
+    material_base(
+        id,
+        texture_id,
+        TextureOrigin::Catalog,
+        tile_metres,
+        tint,
+        None,
+    )
+}
+
+/// Describes a `pack:` material through the pack's own definitions.
+fn describe_pack_material(
+    id: &str,
+    catalog: &AssetCatalog,
+    pack: Option<&PackMaterials>,
+) -> ResolvedMaterial {
+    if let Some(definition) = pack.and_then(|pack| pack.definition(id)) {
+        // A pack may reuse a catalog texture by logical id, or ship its own
+        // PNG. A declared-but-missing pack file is a named error, not a
+        // silent fall-through to a same-named file.
+        if definition.texture.contains(':') && catalog.texture_path(&definition.texture).is_some() {
+            return material_base(
+                id,
+                definition.texture.clone(),
+                TextureOrigin::Catalog,
+                definition.tile_metres(),
+                definition.tint(),
+                None,
+            );
+        }
+        if pack.is_some_and(|pack| pack.lookup(&definition.texture).is_some()) {
+            return material_base(
+                id,
+                definition.texture.clone(),
+                TextureOrigin::Pack,
+                definition.tile_metres(),
+                definition.tint(),
+                None,
+            );
+        }
+        return material_base(
+            id,
+            format!("pack:unresolved:{id}"),
+            TextureOrigin::Pack,
+            definition.tile_metres(),
+            definition.tint(),
+            Some(format!(
+                "pack material `{id}`: `materials.json` names `{}`, which is not present in the pack",
+                definition.texture
+            )),
+        );
+    }
+    if let Some(path) = pack.and_then(|pack| pack.texture_for(id)) {
+        return material_base(
+            id,
+            path,
+            TextureOrigin::Pack,
+            DEFAULT_TILE_METRES,
+            DEFAULT_TINT,
+            None,
+        );
+    }
+    material_base(
+        id,
+        format!("pack:unresolved:{id}"),
+        TextureOrigin::Pack,
+        DEFAULT_TILE_METRES,
+        DEFAULT_TINT,
+        Some(format!(
+            "pack material `{id}` has no `materials.json` entry and no matching PNG in the pack"
         )),
     )
 }
@@ -368,68 +417,63 @@ pub fn resolve_materials(
 ) -> MaterialTable {
     let mut table = MaterialTable::logical(level, catalog, pack);
     let missing = Rc::new(missing_texture());
+    // Split the borrow so an entry can be updated while the shared texture list
+    // is interned into.
+    let MaterialTable {
+        entries, textures, ..
+    } = &mut table;
 
-    for index in 0..table.entries.len() {
-        let (origin, key, image_result) = {
-            let entry = &table.entries[index];
-            let origin = entry.origin;
-            let key = entry.texture_key.clone();
-            let result: Result<Rc<RawImage>, String> = match origin {
-                TextureOrigin::Catalog => {
-                    if let Some(cached) = cache.get(&key) {
-                        Ok(cached)
-                    } else {
-                        match (asset_root, catalog.texture_path(&key)) {
-                            (Some(root), Some(path)) => match load_png_relative(root, path) {
-                                Ok(image) => Ok(cache.insert(key.clone(), image)),
-                                Err(error) => {
-                                    Err(format!("material `{}` texture `{key}`: {error}", entry.id))
-                                }
-                            },
-                            (None, _) => Err(format!(
-                                "material `{}` texture `{key}`: the asset root is missing",
-                                entry.id
-                            )),
-                            (_, None) => Err(format!(
-                                "material `{}` texture `{key}`: no PNG path in the catalog",
-                                entry.id
-                            )),
+    for entry in entries.iter_mut() {
+        let origin = entry.origin;
+        let key = entry.texture_key.clone();
+        let image_result: Result<Rc<RawImage>, String> = match origin {
+            TextureOrigin::Catalog => cache.get(&key).map_or_else(
+                || match (asset_root, catalog.texture_path(&key)) {
+                    (Some(root), Some(path)) => match load_png_relative(root, path) {
+                        Ok(image) => Ok(cache.insert(key.clone(), image)),
+                        Err(error) => {
+                            Err(format!("material `{}` texture `{key}`: {error}", entry.id))
                         }
-                    }
+                    },
+                    (None, _) => Err(format!(
+                        "material `{}` texture `{key}`: the asset root is missing",
+                        entry.id
+                    )),
+                    (_, None) => Err(format!(
+                        "material `{}` texture `{key}`: no PNG path in the catalog",
+                        entry.id
+                    )),
+                },
+                Ok,
+            ),
+            TextureOrigin::Pack => {
+                let unresolved = key.starts_with("pack:unresolved:");
+                match pack {
+                    Some(pack) if !unresolved => pack
+                        .decode_cached(cache, &key)
+                        .map(|(image, _key)| image)
+                        .map_err(|error| format!("material `{}`: {error}", entry.id)),
+                    _ => Err(entry.error.clone().unwrap_or_else(|| {
+                        format!("material `{}` has no resolvable pack texture", entry.id)
+                    })),
                 }
-                TextureOrigin::Pack => {
-                    let unresolved = entry.texture_key.starts_with("pack:unresolved:");
-                    match pack {
-                        Some(pack) if !unresolved => {
-                            let path = entry.texture_key.clone();
-                            pack.decode_cached(cache, &path)
-                                .map(|(image, _key)| image)
-                                .map_err(|error| format!("material `{}`: {error}", entry.id))
-                        }
-                        _ => Err(entry.error.clone().unwrap_or_else(|| {
-                            format!("material `{}` has no resolvable pack texture", entry.id)
-                        })),
-                    }
-                }
-                TextureOrigin::Missing => return_error(&entry.error, &entry.id),
-            };
-            (origin, key, result)
+            }
+            TextureOrigin::Missing => return_error(entry.error.as_deref(), &entry.id),
         };
 
         match image_result {
             Ok(image) => {
-                let texture_index = table.intern_texture(key, origin, image.clone());
-                let entry = &mut table.entries[index];
+                let texture_index = intern_texture(textures, key, origin, image.clone());
                 entry.image = Some(image);
                 entry.texture_index = texture_index;
             }
             Err(error) => {
-                let texture_index = table.intern_texture(
+                let texture_index = intern_texture(
+                    textures,
                     MISSING_TEXTURE_KEY.to_string(),
                     TextureOrigin::Missing,
                     Rc::clone(&missing),
                 );
-                let entry = &mut table.entries[index];
                 entry.texture_key = MISSING_TEXTURE_KEY.to_string();
                 entry.origin = TextureOrigin::Missing;
                 entry.image = Some(Rc::clone(&missing));
@@ -443,8 +487,9 @@ pub fn resolve_materials(
 }
 
 /// Builds the error of an entry that was already known to be missing.
-fn return_error(error: &Option<String>, id: &str) -> Result<Rc<RawImage>, String> {
-    Err(error
-        .clone()
-        .unwrap_or_else(|| format!("material `{id}` could not be resolved")))
+fn return_error(error: Option<&str>, id: &str) -> Result<Rc<RawImage>, String> {
+    Err(error.map_or_else(
+        || format!("material `{id}` could not be resolved"),
+        str::to_string,
+    ))
 }

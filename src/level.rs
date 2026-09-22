@@ -16,8 +16,10 @@ const fn default_ceiling_height() -> f32 {
 }
 
 /// Tolerance applied when testing whether a point lies inside a room footprint,
-/// in metres. Shared by every room ownership lookup so walls, floors, ceilings,
-/// fixtures and collision agree on where a room ends.
+/// in metres.
+///
+/// Shared by every room ownership lookup so walls, floors, ceilings, fixtures
+/// and collision agree on where a room ends.
 pub const ROOM_EDGE_EPS_M: f32 = 0.01;
 
 /// The profile of a room's ceiling.
@@ -285,7 +287,7 @@ impl FloorRegionDef {
 
     /// Vertical offset, sanitised to `0.0` for non-finite values.
     #[must_use]
-    pub fn offset(&self) -> f32 {
+    pub const fn offset(&self) -> f32 {
         if self.offset_y.is_finite() {
             self.offset_y
         } else {
@@ -556,6 +558,46 @@ pub fn wall_solid_slices_profiled(
     // Clamp every opening to the wall footprint and the ceiling over its own
     // span. Malformed entries (non-finite, zero-sized, out of range) are
     // ignored.
+    let openings = clamped_wall_openings(wall, length, base, &top_at);
+
+    // Split the wall's length at every opening boundary and profile break.
+    let mut cuts: Vec<f32> = Vec::with_capacity(
+        openings
+            .len()
+            .saturating_mul(2)
+            .saturating_add(breaks.len())
+            .saturating_add(2),
+    );
+    cuts.push(0.0);
+    cuts.push(length);
+    for opening in &openings {
+        cuts.push(opening.start);
+        cuts.push(opening.end);
+    }
+    for at in breaks {
+        if at.is_finite() && *at > WALL_SLICE_EPS && *at < length - WALL_SLICE_EPS {
+            cuts.push(*at);
+        }
+    }
+    cuts.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    cuts.dedup_by(|a, b| (*a - *b).abs() <= WALL_SLICE_EPS);
+
+    // Emit the vertical complement of the openings covering each segment, so
+    // neighbouring solid ranges stay merged.
+    solid_wall_slices(&cuts, &openings, base, &top_at)
+}
+
+/// Clamps a wall's authored openings to its footprint and local ceiling.
+///
+/// Malformed entries (non-finite, zero-sized, outside the wall or the ceiling)
+/// are dropped; every surviving opening is returned with `start`/`end` inside
+/// `[0, length]` and `bottom`/`top` inside the wall's own vertical range.
+fn clamped_wall_openings(
+    wall: &WallDef,
+    length: f32,
+    base: f32,
+    top_at: &impl Fn(f32) -> f32,
+) -> Vec<WallSlice> {
     let mut openings: Vec<WallSlice> = Vec::with_capacity(wall.openings.len());
     for opening in &wall.openings {
         if !opening.offset.is_finite()
@@ -593,28 +635,25 @@ pub fn wall_solid_slices_profiled(
             top,
         });
     }
+    openings
+}
 
-    // Split the wall's length at every opening boundary and profile break.
-    let mut cuts: Vec<f32> = Vec::with_capacity(openings.len() * 2 + breaks.len() + 2);
-    cuts.push(0.0);
-    cuts.push(length);
-    for opening in &openings {
-        cuts.push(opening.start);
-        cuts.push(opening.end);
-    }
-    for at in breaks {
-        if at.is_finite() && *at > WALL_SLICE_EPS && *at < length - WALL_SLICE_EPS {
-            cuts.push(*at);
-        }
-    }
-    cuts.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    cuts.dedup_by(|a, b| (*a - *b).abs() <= WALL_SLICE_EPS);
-
-    // Emit the vertical complement of the openings covering each segment, so
-    // neighbouring solid ranges stay merged.
+/// Emits one solid slice per vertical span left between `openings` over every
+/// length segment between consecutive `cuts`.
+///
+/// `cuts` must be sorted; adjacent segments separated by an opening boundary
+/// produce separate slices exactly as the historical implementation did.
+fn solid_wall_slices(
+    cuts: &[f32],
+    openings: &[WallSlice],
+    base: f32,
+    top_at: &impl Fn(f32) -> f32,
+) -> Vec<WallSlice> {
     let mut slices = Vec::new();
     for bounds in cuts.windows(2) {
-        let (start, end) = (bounds[0], bounds[1]);
+        let &[start, end] = bounds else {
+            continue;
+        };
         if end <= start + WALL_SLICE_EPS {
             continue;
         }
@@ -981,6 +1020,23 @@ pub struct GeometryEstimate {
     pub total_vertices: u64,
 }
 
+/// `value` clamped into `[0, max]` and rounded up, as `u64`.
+///
+/// A non-finite `value` counts as zero, matching what a float-to-integer cast
+/// of a `NaN` has always produced.
+const fn clamped_ceil_u64(value: f32, max: f32) -> u64 {
+    let clamped = value.clamp(0.0, max);
+    if !clamped.is_finite() {
+        return 0;
+    }
+    // The clamp bounds the value to `[0, max]` and every call site passes a
+    // `max` of 1_000_000, so the cast is in range; `ceil` has already removed
+    // the fraction.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let result = clamped.ceil() as u64;
+    result
+}
+
 impl LevelDef {
     /// # Errors
     ///
@@ -1028,7 +1084,7 @@ impl LevelDef {
         let edges = self
             .floor_patches
             .iter()
-            .map(|patch| patch.bounds())
+            .map(FloorPatchDef::bounds)
             .chain(self.floor_regions.iter().map(FloorRegionDef::bounds));
         for (ex0, ex1, ez0, ez1) in edges {
             if ex1 <= x0 || ex0 >= x1 || ez1 <= z0 || ez0 >= z1 {
@@ -1048,8 +1104,8 @@ impl LevelDef {
         let mut floor_quads: u64 = 0;
         let mut ceiling_quads: u64 = 0;
         for room in self.room_iter() {
-            let w = room.width.clamp(0.0, 1_000_000.0).ceil() as u64;
-            let d = room.depth.clamp(0.0, 1_000_000.0).ceil() as u64;
+            let w = clamped_ceil_u64(room.width, 1_000_000.0);
+            let d = clamped_ceil_u64(room.depth, 1_000_000.0);
             floor_area_m2 = floor_area_m2.saturating_add(w.saturating_mul(d));
 
             // Floors and ceilings are tessellated on the baked-lighting grid so
@@ -1116,7 +1172,8 @@ impl LevelDef {
             // symmetric difference of the solid intervals on either side can
             // emit at most one merged interval per interval present, so the
             // number of intervals meeting at a boundary is a safe bound.
-            let mut boundaries: Vec<f32> = Vec::with_capacity(slices.len() * 2 + 2);
+            let mut boundaries: Vec<f32> =
+                Vec::with_capacity(slices.len().saturating_mul(2).saturating_add(2));
             boundaries.push(0.0);
             boundaries.push(wall.length());
             for slice in &slices {
@@ -1261,13 +1318,13 @@ pub struct RoomFloorGrid {
 impl RoomFloorGrid {
     /// Number of cells along X.
     #[must_use]
-    pub fn cells_x(&self) -> usize {
+    pub const fn cells_x(&self) -> usize {
         self.xs.len().saturating_sub(1)
     }
 
     /// Number of cells along Z.
     #[must_use]
-    pub fn cells_z(&self) -> usize {
+    pub const fn cells_z(&self) -> usize {
         self.zs.len().saturating_sub(1)
     }
 
@@ -1275,7 +1332,7 @@ impl RoomFloorGrid {
     #[must_use]
     pub fn offset_at(&self, ix: usize, iz: usize) -> f32 {
         self.offsets
-            .get(iz * self.cells_x() + ix)
+            .get(iz.saturating_mul(self.cells_x()).saturating_add(ix))
             .copied()
             .unwrap_or(0.0)
     }
@@ -1303,46 +1360,50 @@ impl RoomFloorGrid {
         if cells_x == 0 || cells_z == 0 {
             return;
         }
-        for iz in 0..cells_z {
-            for ix in 0..cells_x {
+        for (iz, z_span) in self.zs.windows(2).enumerate() {
+            let &[z0, z1] = z_span else {
+                continue;
+            };
+            for (ix, x_span) in self.xs.windows(2).enumerate() {
+                let &[x0, x1] = x_span else {
+                    continue;
+                };
                 let y = self.y_at(room, ix, iz);
-                if ix + 1 < cells_x {
-                    let right = self.y_at(room, ix + 1, iz);
+                if ix.saturating_add(1) < cells_x {
+                    let right = self.y_at(room, ix.saturating_add(1), iz);
                     if (right - y).abs() > PLAYER_STEP_HEIGHT + 1e-3 {
-                        let at = self.xs[ix + 1];
                         // Extend under the higher side so the blocking face is
                         // the boundary itself.
-                        let (x0, x1) = if y > right {
-                            (at - RIM_BACKING, at)
+                        let (rx0, rx1) = if y > right {
+                            (x1 - RIM_BACKING, x1)
                         } else {
-                            (at, at + RIM_BACKING)
+                            (x1, x1 + RIM_BACKING)
                         };
                         out.push(WallAabb::with_y(
-                            x0,
+                            rx0,
                             y.min(right),
-                            self.zs[iz],
-                            x1 - x0,
+                            z0,
+                            rx1 - rx0,
                             (y - right).abs(),
-                            self.zs[iz + 1] - self.zs[iz],
+                            z1 - z0,
                         ));
                     }
                 }
-                if iz + 1 < cells_z {
-                    let back = self.y_at(room, ix, iz + 1);
+                if iz.saturating_add(1) < cells_z {
+                    let back = self.y_at(room, ix, iz.saturating_add(1));
                     if (back - y).abs() > PLAYER_STEP_HEIGHT + 1e-3 {
-                        let at = self.zs[iz + 1];
-                        let (z0, z1) = if y > back {
-                            (at - RIM_BACKING, at)
+                        let (rz0, rz1) = if y > back {
+                            (z1 - RIM_BACKING, z1)
                         } else {
-                            (at, at + RIM_BACKING)
+                            (z1, z1 + RIM_BACKING)
                         };
                         out.push(WallAabb::with_y(
-                            self.xs[ix],
+                            x0,
                             y.min(back),
-                            z0,
-                            self.xs[ix + 1] - self.xs[ix],
+                            rz0,
+                            x1 - x0,
                             (y - back).abs(),
-                            z1 - z0,
+                            rz1 - rz0,
                         ));
                     }
                 }
@@ -1405,7 +1466,8 @@ impl<'a> LevelSurfaces<'a> {
     /// The room containing `(x, z)`.
     #[must_use]
     pub fn room_at(&self, x: f32, z: f32) -> Option<&'a RoomDef> {
-        self.room_index_at(x, z).map(|index| self.rooms[index])
+        self.room_index_at(x, z)
+            .and_then(|index| self.rooms.get(index).copied())
     }
 
     /// The last (highest-precedence) floor region covering `(x, z)`.
@@ -1518,10 +1580,10 @@ impl<'a> LevelSurfaces<'a> {
         };
         // The ridge only crosses the wall when it runs across the wall's length
         // axis; a wall parallel to the ridge sees a constant ceiling.
-        let crosses = match room.ceiling.ridge_axis() {
-            Some(ridge_axis) => ridge_axis != axis,
-            None => false,
-        };
+        let crosses = room
+            .ceiling
+            .ridge_axis()
+            .is_some_and(|ridge_axis| ridge_axis != axis);
         if !crosses {
             return breaks;
         }
@@ -1581,13 +1643,20 @@ impl<'a> LevelSurfaces<'a> {
         }
         let xs = cut_positions(room.x, room.width, cells_x, &edges_x);
         let zs = cut_positions(room.z, room.depth, cells_z, &edges_z);
-        let mut offsets =
-            Vec::with_capacity(xs.len().saturating_sub(1) * zs.len().saturating_sub(1));
-        for iz in 0..zs.len().saturating_sub(1) {
-            for ix in 0..xs.len().saturating_sub(1) {
-                let x = f32::midpoint(xs[ix], xs[ix + 1]);
-                let z = f32::midpoint(zs[iz], zs[iz + 1]);
-                offsets.push(self.floor_offset_at(x, z));
+        let mut offsets = Vec::with_capacity(
+            xs.len()
+                .saturating_sub(1)
+                .saturating_mul(zs.len().saturating_sub(1)),
+        );
+        for z_span in zs.windows(2) {
+            let &[z0, z1] = z_span else {
+                continue;
+            };
+            for x_span in xs.windows(2) {
+                let &[x0, x1] = x_span else {
+                    continue;
+                };
+                offsets.push(self.floor_offset_at(f32::midpoint(x0, x1), f32::midpoint(z0, z1)));
             }
         }
         RoomFloorGrid { xs, zs, offsets }
@@ -1642,11 +1711,15 @@ pub fn wall_point(wall: &WallDef, offset: f32) -> (f32, f32) {
 }
 
 /// Evenly spaced surface positions, `cells + 1` values.
+///
+/// Every call site passes a baked-lighting cell count, capped at
+/// [`crate::lighting::MAX_LIGHT_GRID_CELLS`], so `index` and `cells` both stay
+/// far below `f32`'s exact-integer limit of 2^24.
 #[must_use]
 pub fn axis_positions(origin: f32, extent: f32, cells: u32) -> Vec<f32> {
-    (0..=cells)
-        .map(|index| origin + extent * index as f32 / cells as f32)
-        .collect()
+    #[allow(clippy::cast_precision_loss)]
+    let position = |index: u32| origin + extent * (index as f32) / (cells as f32);
+    (0..=cells).map(position).collect()
 }
 
 /// Tolerance used when merging floor cut lines and matching patch edges.
@@ -1746,13 +1819,13 @@ impl WalkableFloor {
 
     /// True when the level contains no rooms at all.
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.rooms.is_empty()
     }
 
     /// Number of rooms in the model.
     #[must_use]
-    pub fn room_count(&self) -> usize {
+    pub const fn room_count(&self) -> usize {
         self.rooms.len()
     }
 

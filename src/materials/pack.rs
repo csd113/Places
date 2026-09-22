@@ -77,7 +77,7 @@ impl PackMaterials {
     }
 
     #[must_use]
-    pub fn definitions(&self) -> &HashMap<String, PackMaterialDef> {
+    pub const fn definitions(&self) -> &HashMap<String, PackMaterialDef> {
         &self.definitions
     }
 
@@ -211,10 +211,7 @@ pub fn parse_materials_json(json_str: Option<&str>) -> HashMap<String, PackMater
             };
             PackMaterialDef {
                 texture: path.to_string(),
-                tile_metres: value
-                    .get("tile_metres")
-                    .and_then(serde_json::Value::as_f64)
-                    .map(|value| value as f32),
+                tile_metres: value.get("tile_metres").and_then(parse_tile_metres),
                 tint: value.get("tint").and_then(parse_tint_value),
             }
         };
@@ -225,19 +222,37 @@ pub fn parse_materials_json(json_str: Option<&str>) -> HashMap<String, PackMater
     result
 }
 
+/// Reads an optional `tile_metres` number.
+///
+/// JSON numbers are `f64`; the material model stores `f32`, so the value is
+/// narrowed here exactly as it always has been. Non-finite and non-positive
+/// results are discarded when the field is read
+/// ([`PackMaterialDef::tile_metres`]).
+fn parse_tile_metres(value: &serde_json::Value) -> Option<f32> {
+    // `f64 -> f32` can round (that is the point of the field) and saturates to
+    // an infinity for absurd JSON, which the reader filters out.
+    #[allow(clippy::cast_possible_truncation)]
+    let narrowed = value.as_f64()? as f32;
+    Some(narrowed)
+}
+
 /// Parses a `[r, g, b]` tint array from JSON.
 fn parse_tint_value(value: &serde_json::Value) -> Option<[f32; 3]> {
     let array = value.as_array()?;
-    if array.len() != 3 {
+    let mut tint = [0.0f32; 3];
+    if array.len() != tint.len() {
         return None;
     }
-    let mut tint = [0.0f32; 3];
-    for (index, channel) in array.iter().enumerate() {
+    for (slot, channel) in tint.iter_mut().zip(array) {
+        // `f64 -> f32` rounds to the nearest `f32`; a value whose rounded form
+        // falls outside `[0, 1]` is rejected on the next line, so only
+        // correctly rounded in-range channels are stored.
+        #[allow(clippy::cast_possible_truncation)]
         let value = channel.as_f64()? as f32;
         if !value.is_finite() || !(0.0..=1.0).contains(&value) {
             return None;
         }
-        tint[index] = value;
+        *slot = value;
     }
     Some(tint)
 }

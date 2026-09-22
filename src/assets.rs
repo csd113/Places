@@ -139,7 +139,7 @@ pub fn resolved_package_roots() -> Vec<PathBuf> {
 ///
 /// Resolution is deliberately deterministic and cached: the precedence is
 ///
-/// 1. `$`[`ASSET_ROOT_ENV`] — an explicit override always wins;
+/// 1. the [`ASSET_ROOT_ENV`] override — an explicit override always wins;
 /// 2. the executable's own location — a packaged build resolves its own
 ///    payload no matter what the working directory is;
 /// 3. the working directory — `assets`, `./assets`, `../assets`, so
@@ -212,7 +212,9 @@ pub fn asset_root_search_report() -> Vec<(PathBuf, bool)> {
 }
 
 /// World metres covered by one repeat of a material's texture when the catalog
-/// does not author `tile_metres`. It matches the historical 2 m authored sheets
+/// does not author `tile_metres`.
+///
+/// It matches the historical 2 m authored sheets
 /// (128 px at 64 px/m), so an entry written before tiling was data keeps its
 /// exact appearance.
 pub const DEFAULT_TILE_METRES: f32 = 2.0;
@@ -239,15 +241,13 @@ pub const PREFERRED_TEXTURE_DIMENSION: u32 = 256;
 /// and the textures it names can never resolve against two different trees.
 #[must_use]
 pub fn catalog_path_candidates() -> Vec<PathBuf> {
-    let mut candidates: Vec<PathBuf> = resolved_package_roots()
+    let roots = resolved_package_roots()
         .into_iter()
         .map(|root| root.join("assets"))
-        .collect();
-    candidates.extend(ASSET_ROOT_CANDIDATES.iter().map(PathBuf::from));
+        .chain(ASSET_ROOT_CANDIDATES.iter().map(PathBuf::from));
     #[cfg(debug_assertions)]
-    candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets"));
-    candidates
-        .into_iter()
+    let roots = roots.chain([PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets")]);
+    roots
         .map(|root| Path::new(&root).join(CATALOG_FILE_NAME))
         .collect()
 }
@@ -636,164 +636,23 @@ impl CatalogEntryFile {
     /// Converts one file entry. `legacy` entries come from the `props` array and
     /// default their class/type; `assets` entries must declare them.
     fn convert(&self, legacy: bool) -> Result<Option<AssetEntry>, String> {
-        let id = self.id.trim().to_string();
-        if id.is_empty() {
-            if legacy {
-                return Ok(None);
-            }
-            return Err("asset entry with an empty id".to_string());
-        }
-        if !is_valid_asset_id(&id) {
-            return Err(format!(
-                "asset id `{id}` is malformed; ids are names such as `core:chair` or `spooner-man`"
-            ));
-        }
-
-        let asset_class = match self.asset_class.as_deref().map(str::trim) {
-            Some(class) if !class.is_empty() => AssetClass::parse(class)?,
-            _ if legacy => AssetClass::parse(AssetClass::ENVIRONMENT)?,
-            _ => return Err(format!("{id}: missing `asset_class`")),
+        let Some(id) = self.logical_id(legacy)? else {
+            return Ok(None);
         };
-        let asset_type = match self.asset_type.as_deref().map(str::trim) {
-            Some(asset_type) if !asset_type.is_empty() => AssetType::parse(asset_type)?,
-            _ if legacy => AssetType::parse(AssetType::PROP)?,
-            _ => return Err(format!("{id}: missing `asset_type`")),
-        };
+        let asset_class = self.resolve_class(&id, legacy)?;
+        let asset_type = self.resolve_type(&id, legacy)?;
         let theme = parse_optional_slug(self.theme.as_deref(), "theme", &id, AssetTheme::parse)?;
-        let model = self
-            .model
-            .as_deref()
-            .map(str::trim)
-            .filter(|model| !model.is_empty())
-            .map(str::to_string);
-        if let Some(model) = &model
-            && (!is_relative_resource_path(model))
-        {
-            return Err(format!(
-                "{id}: model path `{model}` must be a relative path below the asset root"
-            ));
-        }
-        let texture = self
-            .texture
-            .as_deref()
-            .map(str::trim)
-            .filter(|texture| !texture.is_empty())
-            .map(str::to_string);
-        if let Some(texture) = &texture {
-            if !is_valid_asset_id(texture) {
-                return Err(format!(
-                    "{id}: texture `{texture}` is not a well-formed logical asset id"
-                ));
-            }
-            if asset_type.as_str() != AssetType::MATERIAL {
-                return Err(format!(
-                    "{id}: only a `material` asset may declare a `texture`"
-                ));
-            }
-        }
-        if asset_type.as_str() == AssetType::MATERIAL && texture.is_none() {
-            return Err(format!(
-                "{id}: a material must declare the logical `texture` it draws with"
-            ));
-        }
-        let tile_metres = match self.tile_metres {
-            Some(value) => {
-                if asset_type.as_str() != AssetType::MATERIAL {
-                    return Err(format!(
-                        "{id}: only a `material` asset may declare `tile_metres`"
-                    ));
-                }
-                if !value.is_finite() || !(MIN_TILE_METRES..=MAX_TILE_METRES).contains(&value) {
-                    return Err(format!(
-                        "{id}: tile_metres must be between {MIN_TILE_METRES} and {MAX_TILE_METRES} metres, found {value}"
-                    ));
-                }
-                Some(value)
-            }
-            None => None,
-        };
-        let tint = match self.tint {
-            Some(tint) => {
-                if asset_type.as_str() != AssetType::MATERIAL {
-                    return Err(format!(
-                        "{id}: only a `material` asset may declare a `tint`"
-                    ));
-                }
-                if !tint
-                    .iter()
-                    .all(|channel| channel.is_finite() && (0.0..=1.0).contains(channel))
-                {
-                    return Err(format!(
-                        "{id}: tint must be three channels between 0.0 and 1.0, found {tint:?}"
-                    ));
-                }
-                Some(tint)
-            }
-            None => None,
-        };
-        if asset_type.as_str() != AssetType::MATERIAL && self.tile_metres.is_some() {
-            return Err(format!(
-                "{id}: only a `material` asset may declare `tile_metres`"
-            ));
-        }
-        let source = match self.source.as_deref().map(str::trim) {
-            Some(raw) if !raw.is_empty() => {
-                let source = AssetSource::parse(raw).map_err(|error| format!("{id}: {error}"))?;
-                if source == AssetSource::File && model.is_none() {
-                    return Err(format!("{id}: a `file` asset must declare a `model` path"));
-                }
-                if source == AssetSource::Generated && model.is_some() {
-                    return Err(format!(
-                        "{id}: a `generated` asset must not declare a `model`"
-                    ));
-                }
-                if source == AssetSource::Definition {
-                    if model.is_some() {
-                        return Err(format!(
-                            "{id}: a `definition` asset must not declare a `model`"
-                        ));
-                    }
-                    if texture.is_none() {
-                        return Err(format!(
-                            "{id}: a `definition` asset must declare a `texture` to draw with"
-                        ));
-                    }
-                }
-                if model.is_some() && texture.is_some() {
-                    return Err(format!(
-                        "{id}: an asset cannot be both a file resource and a texture-backed material"
-                    ));
-                }
-                if source == AssetSource::File && texture.is_some() {
-                    return Err(format!(
-                        "{id}: a `file` asset must not declare a `texture`; use `definition`"
-                    ));
-                }
-                source
-            }
-            _ if texture.is_some() => AssetSource::Definition,
-            _ if model.is_some() => AssetSource::File,
-            _ => AssetSource::Generated,
-        };
-        let display_name = {
-            let display = self.display_name.trim();
-            if display.is_empty() {
-                let legacy_name = self.name.trim();
-                if legacy_name.is_empty() {
-                    id.clone()
-                } else {
-                    legacy_name.to_string()
-                }
-            } else {
-                display.to_string()
-            }
-        };
+        let model = self.resolve_model(&id)?;
+        let texture = self.resolve_texture(&id, &asset_type)?;
+        let tile_metres = self.resolve_tile_metres(&id, &asset_type)?;
+        let tint = self.resolve_tint(&id, &asset_type)?;
+        let source = self.resolve_source(&id, model.as_deref(), texture.as_deref())?;
         let size = self
             .size
             .filter(|size| size.iter().all(|value| value.is_finite() && *value > 0.0));
         Ok(Some(AssetEntry {
+            display_name: self.resolved_display_name(&id),
             id,
-            display_name,
             asset_class,
             theme,
             asset_type,
@@ -831,6 +690,201 @@ impl CatalogEntryFile {
                 .map(str::to_string),
             tags: self.tags.clone(),
         }))
+    }
+
+    /// Trims and validates the logical id; `Ok(None)` for a legacy entry that
+    /// declares none.
+    fn logical_id(&self, legacy: bool) -> Result<Option<String>, String> {
+        let id = self.id.trim().to_string();
+        if id.is_empty() {
+            if legacy {
+                return Ok(None);
+            }
+            return Err("asset entry with an empty id".to_string());
+        }
+        if !is_valid_asset_id(&id) {
+            return Err(format!(
+                "asset id `{id}` is malformed; ids are names such as `core:chair` or `spooner-man`"
+            ));
+        }
+        Ok(Some(id))
+    }
+
+    /// The asset class, defaulting to the legacy environment for `props` data.
+    fn resolve_class(&self, id: &str, legacy: bool) -> Result<AssetClass, String> {
+        match self.asset_class.as_deref().map(str::trim) {
+            Some(class) if !class.is_empty() => AssetClass::parse(class),
+            _ if legacy => AssetClass::parse(AssetClass::ENVIRONMENT),
+            _ => Err(format!("{id}: missing `asset_class`")),
+        }
+    }
+
+    /// The asset type, defaulting to the legacy prop for `props` data.
+    fn resolve_type(&self, id: &str, legacy: bool) -> Result<AssetType, String> {
+        match self.asset_type.as_deref().map(str::trim) {
+            Some(asset_type) if !asset_type.is_empty() => AssetType::parse(asset_type),
+            _ if legacy => AssetType::parse(AssetType::PROP),
+            _ => Err(format!("{id}: missing `asset_type`")),
+        }
+    }
+
+    /// The trimmed model path, rejected when it could escape the asset root.
+    fn resolve_model(&self, id: &str) -> Result<Option<String>, String> {
+        let model = self
+            .model
+            .as_deref()
+            .map(str::trim)
+            .filter(|model| !model.is_empty())
+            .map(str::to_string);
+        if let Some(model) = &model
+            && (!is_relative_resource_path(model))
+        {
+            return Err(format!(
+                "{id}: model path `{model}` must be a relative path below the asset root"
+            ));
+        }
+        Ok(model)
+    }
+
+    /// The trimmed texture id a material draws with.
+    fn resolve_texture(&self, id: &str, asset_type: &AssetType) -> Result<Option<String>, String> {
+        let texture = self
+            .texture
+            .as_deref()
+            .map(str::trim)
+            .filter(|texture| !texture.is_empty())
+            .map(str::to_string);
+        if let Some(texture) = &texture {
+            if !is_valid_asset_id(texture) {
+                return Err(format!(
+                    "{id}: texture `{texture}` is not a well-formed logical asset id"
+                ));
+            }
+            if asset_type.as_str() != AssetType::MATERIAL {
+                return Err(format!(
+                    "{id}: only a `material` asset may declare a `texture`"
+                ));
+            }
+        }
+        if asset_type.as_str() == AssetType::MATERIAL && texture.is_none() {
+            return Err(format!(
+                "{id}: a material must declare the logical `texture` it draws with"
+            ));
+        }
+        Ok(texture)
+    }
+
+    /// The validated `tile_metres` of a material.
+    fn resolve_tile_metres(&self, id: &str, asset_type: &AssetType) -> Result<Option<f32>, String> {
+        let Some(value) = self.tile_metres else {
+            return Ok(None);
+        };
+        if asset_type.as_str() != AssetType::MATERIAL {
+            return Err(format!(
+                "{id}: only a `material` asset may declare `tile_metres`"
+            ));
+        }
+        if !value.is_finite() || !(MIN_TILE_METRES..=MAX_TILE_METRES).contains(&value) {
+            return Err(format!(
+                "{id}: tile_metres must be between {MIN_TILE_METRES} and {MAX_TILE_METRES} metres, found {value}"
+            ));
+        }
+        Ok(Some(value))
+    }
+
+    /// The validated static tint of a material.
+    fn resolve_tint(&self, id: &str, asset_type: &AssetType) -> Result<Option<[f32; 3]>, String> {
+        let Some(tint) = self.tint else {
+            return Ok(None);
+        };
+        if asset_type.as_str() != AssetType::MATERIAL {
+            return Err(format!(
+                "{id}: only a `material` asset may declare a `tint`"
+            ));
+        }
+        if !tint
+            .iter()
+            .all(|channel| channel.is_finite() && (0.0..=1.0).contains(channel))
+        {
+            return Err(format!(
+                "{id}: tint must be three channels between 0.0 and 1.0, found {tint:?}"
+            ));
+        }
+        Ok(Some(tint))
+    }
+
+    /// Where the resource comes from, inferred from the declared model/texture
+    /// when no explicit `source` is given.
+    fn resolve_source(
+        &self,
+        id: &str,
+        model: Option<&str>,
+        texture: Option<&str>,
+    ) -> Result<AssetSource, String> {
+        let Some(raw) = self.source.as_deref().map(str::trim) else {
+            return Ok(inferred_source(model, texture));
+        };
+        if raw.is_empty() {
+            return Ok(inferred_source(model, texture));
+        }
+        let source = AssetSource::parse(raw).map_err(|error| format!("{id}: {error}"))?;
+        if source == AssetSource::File && model.is_none() {
+            return Err(format!("{id}: a `file` asset must declare a `model` path"));
+        }
+        if source == AssetSource::Generated && model.is_some() {
+            return Err(format!(
+                "{id}: a `generated` asset must not declare a `model`"
+            ));
+        }
+        if source == AssetSource::Definition {
+            if model.is_some() {
+                return Err(format!(
+                    "{id}: a `definition` asset must not declare a `model`"
+                ));
+            }
+            if texture.is_none() {
+                return Err(format!(
+                    "{id}: a `definition` asset must declare a `texture` to draw with"
+                ));
+            }
+        }
+        if model.is_some() && texture.is_some() {
+            return Err(format!(
+                "{id}: an asset cannot be both a file resource and a texture-backed material"
+            ));
+        }
+        if source == AssetSource::File && texture.is_some() {
+            return Err(format!(
+                "{id}: a `file` asset must not declare a `texture`; use `definition`"
+            ));
+        }
+        Ok(source)
+    }
+
+    /// The human-readable name: `display_name`, then the legacy `name`, then
+    /// the logical id.
+    fn resolved_display_name(&self, id: &str) -> String {
+        let display = self.display_name.trim();
+        if !display.is_empty() {
+            return display.to_string();
+        }
+        let legacy_name = self.name.trim();
+        if legacy_name.is_empty() {
+            id.to_string()
+        } else {
+            legacy_name.to_string()
+        }
+    }
+}
+
+/// The source implied by the declared model/texture.
+const fn inferred_source(model: Option<&str>, texture: Option<&str>) -> AssetSource {
+    if texture.is_some() {
+        AssetSource::Definition
+    } else if model.is_some() {
+        AssetSource::File
+    } else {
+        AssetSource::Generated
     }
 }
 
@@ -966,6 +1020,9 @@ impl AssetCatalog {
     /// Loads a catalog from `path`, returning `None` when the file is missing
     /// or invalid. Never panics.
     #[must_use]
+    // The catalog loader is the only reporter of a broken installation, and it
+    // has no logger to route through.
+    #[allow(clippy::print_stderr)]
     pub fn load_from_path(path: &Path) -> Option<Self> {
         let content = fs::read_to_string(path).ok()?;
         match Self::from_json_str(&content) {
@@ -980,6 +1037,9 @@ impl AssetCatalog {
     /// Loads the shipped catalog, falling back to an empty catalog with a
     /// developer-facing message when no catalog can be found.
     #[must_use]
+    // A missing asset root is the loudest possible startup failure and has no
+    // logger to route through.
+    #[allow(clippy::print_stderr)]
     pub fn load_default() -> Self {
         for candidate in catalog_path_candidates() {
             if let Some(catalog) = Self::load_from_path(&candidate) {
@@ -1117,10 +1177,14 @@ pub fn parse_hex_color(value: &str) -> Option<[f32; 3]> {
     if hex.len() != 6 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
         return None;
     }
-    let component = |start: usize| -> f32 {
-        f32::from(u8::from_str_radix(&hex[start..start + 2], 16).unwrap_or(0)) / 255.0
-    };
-    Some([component(0), component(2), component(4)])
+    let mut components = [0.0_f32; 3];
+    for (component, pair) in components.iter_mut().zip(hex.as_bytes().as_chunks::<2>().0) {
+        // Every byte was validated as a hex digit above, so both conversions
+        // succeed; `unwrap_or(0)` keeps the historical fallback.
+        let text = std::str::from_utf8(pair).unwrap_or("");
+        *component = f32::from(u8::from_str_radix(text, 16).unwrap_or(0)) / 255.0;
+    }
+    Some(components)
 }
 
 #[cfg(test)]

@@ -5,7 +5,10 @@
 //! a material table, with the lighting baked exactly once per level load.
 
 use super::props::{PropMeshBatch, resolve_prop_instances};
-use super::*;
+use super::{
+    LevelDef, LevelLighting, LevelMesh, LevelSurfaces, MaterialTable, PropDef,
+    build_level_geometry_mesh,
+};
 
 /// Builds the level mesh with real prop geometry where possible, plus one
 /// batched draw per distinct prop model.

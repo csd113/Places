@@ -5,7 +5,11 @@
 //! colour or a division by zero.
 
 use super::color::LightColor;
-use super::tuning::*;
+use super::tuning::{
+    AMBIENT_LEVEL, FixtureKind, LIGHT_GRID_CELL_M, MAX_BRIGHTNESS, MAX_LIGHT_GRID_CELLS,
+    MAX_LIGHT_INTENSITY, MAX_WALL_LIGHT_SEGMENTS, MIN_ROOM_AREA_M2, REFERENCE_CEILING_HEIGHT_M,
+    REFERENCE_LIGHT_AREA_M2, fixture_profile_for_kind,
+};
 
 /// Sanitises an authored fixture intensity for baking.
 ///
@@ -53,11 +57,15 @@ pub fn effective_power(intensity: f32, ceiling_height_m: f32) -> f32 {
 /// 180 keeps a `90` panel turned, a `180` panel back to default, and fractional
 /// rotations identical in both places. The level editor mirrors this rule.
 #[must_use]
-pub fn fixture_is_turned(rotation_degrees: f32) -> bool {
+pub const fn fixture_is_turned(rotation_degrees: f32) -> bool {
     if !rotation_degrees.is_finite() {
         return false;
     }
-    (rotation_degrees.round() as i64).rem_euclid(180) != 0
+    // `round` yields an integral `f32`, so no fractional part can be lost;
+    // magnitudes past `i64::MAX` saturate exactly as this cast always did.
+    #[allow(clippy::cast_possible_truncation)]
+    let whole_degrees = rotation_degrees.round() as i64;
+    whole_degrees.rem_euclid(180) != 0
 }
 
 /// Half-extents of a fixture's luminous panel in world X/Z after rotation.
@@ -65,13 +73,13 @@ pub fn fixture_is_turned(rotation_degrees: f32) -> bool {
 /// Mirrors the panel geometry emitted by `crate::render`: the default 1.2 x 0.6
 /// panel runs along X, and a turned fixture swaps its axes.
 #[must_use]
-pub fn fixture_half_extents(rotation_degrees: f32) -> (f32, f32) {
+pub const fn fixture_half_extents(rotation_degrees: f32) -> (f32, f32) {
     fixture_half_extents_for(FixtureKind::FluorescentPanel, rotation_degrees)
 }
 
 /// [`fixture_half_extents`] for any fixture family.
 #[must_use]
-pub fn fixture_half_extents_for(kind: FixtureKind, rotation_degrees: f32) -> (f32, f32) {
+pub const fn fixture_half_extents_for(kind: FixtureKind, rotation_degrees: f32) -> (f32, f32) {
     let profile = fixture_profile_for_kind(kind);
     if fixture_is_turned(rotation_degrees) {
         (profile.half_depth, profile.half_width)
@@ -183,7 +191,12 @@ pub fn light_grid_cells(extent_m: f32) -> u32 {
     if !extent_m.is_finite() || extent_m <= 0.0 {
         return 1;
     }
-    ((extent_m / LIGHT_GRID_CELL_M).ceil() as u32).clamp(1, MAX_LIGHT_GRID_CELLS)
+    // `extent_m` is finite and positive, so the ceiling is a finite
+    // non-negative integral value; the cast saturates rather than wraps and
+    // the clamp bounds the result to `1..=MAX_LIGHT_GRID_CELLS`.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let cells = ((extent_m / LIGHT_GRID_CELL_M).ceil() as u32).clamp(1, MAX_LIGHT_GRID_CELLS);
+    cells
 }
 
 /// Number of segments one wall face is split into along its length, so baked
@@ -193,5 +206,10 @@ pub fn wall_light_segments(length_m: f32) -> u32 {
     if !length_m.is_finite() || length_m <= 0.0 {
         return 1;
     }
-    ((length_m / LIGHT_GRID_CELL_M).ceil() as u32).clamp(1, MAX_WALL_LIGHT_SEGMENTS)
+    // `length_m` is finite and positive, so the ceiling is a finite
+    // non-negative integral value; the cast saturates rather than wraps and
+    // the clamp bounds the result to `1..=MAX_WALL_LIGHT_SEGMENTS`.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let segments = ((length_m / LIGHT_GRID_CELL_M).ceil() as u32).clamp(1, MAX_WALL_LIGHT_SEGMENTS);
+    segments
 }

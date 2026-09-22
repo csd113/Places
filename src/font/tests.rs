@@ -1,5 +1,9 @@
 //! Unit tests for the bitmap font atlas.
 
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
+// the production lints stay enforced everywhere else in the crate.
+#![allow(clippy::expect_used, clippy::indexing_slicing)]
+
 use super::*;
 use crate::test_support::assert_exact;
 

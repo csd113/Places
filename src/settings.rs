@@ -7,7 +7,7 @@ pub const DEFAULT_SETTINGS_PATH: &str = "settings.json";
 /// Player-rebindable gameplay key bindings.
 ///
 /// The defaults are the conventional desktop layout: `W`/`A`/`S`/`D` for
-/// movement and the arrow keys for looking. The PocketCHIP layout (`Z`/`S`
+/// movement and the arrow keys for looking. The `PocketCHIP` layout (`Z`/`S`
 /// movement with `K`/`L`/`O`/`.` look) remains reachable by rebinding each
 /// action in Settings; only the defaults changed.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

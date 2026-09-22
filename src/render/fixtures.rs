@@ -4,7 +4,7 @@
 //! (`lighting::fixture_profile`), so what a fixture looks like and where it
 //! pools light cannot drift apart.
 
-use super::*;
+use super::{Vertex, add_quad_flat};
 
 /// Emits the office fluorescent panel: a luminous panel with two bezel strips,
 /// all facing down into the room.
@@ -73,10 +73,10 @@ pub(super) fn add_ring_quad(
     sin1: f32,
     color: [f32; 3],
 ) {
-    let outer0 = [cx + r_out * cos0, y, cz + r_out * sin0];
-    let outer1 = [cx + r_out * cos1, y, cz + r_out * sin1];
-    let inner1 = [cx + r_in * cos1, y, cz + r_in * sin1];
-    let inner0 = [cx + r_in * cos0, y, cz + r_in * sin0];
+    let outer0 = [r_out.mul_add(cos0, cx), y, r_out.mul_add(sin0, cz)];
+    let outer1 = [r_out.mul_add(cos1, cx), y, r_out.mul_add(sin1, cz)];
+    let inner1 = [r_in.mul_add(cos1, cx), y, r_in.mul_add(sin1, cz)];
+    let inner0 = [r_in.mul_add(cos0, cx), y, r_in.mul_add(sin0, cz)];
     add_quad_flat(
         scratch,
         outer0,
@@ -106,10 +106,10 @@ pub(super) fn add_can_quad(
     sin1: f32,
     color: [f32; 3],
 ) {
-    let top0 = [cx + radius * cos0, y_top, cz + radius * sin0];
-    let top1 = [cx + radius * cos1, y_top, cz + radius * sin1];
-    let bottom1 = [cx + radius * cos1, y_bottom, cz + radius * sin1];
-    let bottom0 = [cx + radius * cos0, y_bottom, cz + radius * sin0];
+    let top0 = [radius.mul_add(cos0, cx), y_top, radius.mul_add(sin0, cz)];
+    let top1 = [radius.mul_add(cos1, cx), y_top, radius.mul_add(sin1, cz)];
+    let bottom1 = [radius.mul_add(cos1, cx), y_bottom, radius.mul_add(sin1, cz)];
+    let bottom0 = [radius.mul_add(cos0, cx), y_bottom, radius.mul_add(sin0, cz)];
     add_quad_flat(
         scratch,
         top0,
@@ -144,9 +144,13 @@ pub(super) fn add_round_fixture(
     const CAN_DEPTH: f32 = 0.03;
     let inner = radius * 0.12;
     let bezel_outer = radius + 0.03;
+    // `SEGMENTS` is 10, so every segment index fits `u8` and converts to `f32`
+    // exactly.
+    let segments = u8::try_from(SEGMENTS).unwrap_or(0);
     for segment in 0..SEGMENTS {
-        let a0 = segment as f32 / SEGMENTS as f32 * std::f32::consts::TAU;
-        let a1 = (segment + 1) as f32 / SEGMENTS as f32 * std::f32::consts::TAU;
+        let segment = u8::try_from(segment).unwrap_or(0);
+        let a0 = f32::from(segment) / f32::from(segments) * std::f32::consts::TAU;
+        let a1 = f32::from(segment.saturating_add(1)) / f32::from(segments) * std::f32::consts::TAU;
         let (sin0, cos0) = a0.sin_cos();
         let (sin1, cos1) = a1.sin_cos();
         add_ring_quad(
@@ -202,9 +206,9 @@ pub(super) fn add_wall_fixture(
     let right = [cos, 0.0, -sin];
     let point = |u: f32, v: f32, d: f32| {
         [
-            x + right[0] * u + forward[0] * d,
+            forward[0].mul_add(d, right[0].mul_add(u, x)),
             y + v,
-            z + right[2] * u + forward[2] * d,
+            forward[2].mul_add(d, right[2].mul_add(u, z)),
         ]
     };
     let uv = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];

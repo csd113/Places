@@ -7,7 +7,7 @@
 //! sit on a surface instead of a floating rectangle. A decal whose asset is an
 //! external PNG binds its own sheet instead.
 
-use super::*;
+use super::LevelDef;
 
 // ------------------------------------------------------------- decal sheets
 //
@@ -27,7 +27,7 @@ use super::*;
 pub const DECAL_TEST_MATERIAL: &str = "core:decal_test_01";
 
 /// Edge length of the generated decal sheet.
-pub(crate) const DECAL_ATLAS_SIZE: i32 = 256;
+pub const DECAL_ATLAS_SIZE: i32 = 256;
 /// One decal pattern's cell size inside the sheet.
 pub(super) const DECAL_SLOT_SIZE: i32 = 128;
 /// Transparent gutter between cells, so mip-mapping never bleeds one pattern
@@ -51,10 +51,14 @@ pub fn decal_material_slot(material: &str) -> Option<u32> {
     DECAL_MATERIALS
         .iter()
         .position(|id| *id == material)
-        .map(|slot| slot as u32)
+        .and_then(|slot| u32::try_from(slot).ok())
 }
 
 /// Sheet index of the first external (PNG-backed) decal sheet.
+///
+/// `DECAL_MATERIALS` is a fixed one-element table, so its length is 1 and the
+/// `u32` conversion is exact; `as` is used because `TryFrom` is not const.
+#[allow(clippy::cast_possible_truncation)]
 pub const DECAL_EXTERNAL_BASE: u32 = DECAL_MATERIALS.len() as u32;
 
 /// True when the catalog declares `material` as a file-backed decal sheet.
@@ -125,7 +129,8 @@ pub fn decal_sheet_index(
     decal_external_sheet_ids(level, catalog)
         .iter()
         .position(|id| id == material)
-        .map(|position| DECAL_EXTERNAL_BASE + position as u32)
+        .and_then(|position| u32::try_from(position).ok())
+        .and_then(|position| DECAL_EXTERNAL_BASE.checked_add(position))
 }
 
 /// UV rectangle of a whole external decal sheet.
@@ -156,12 +161,30 @@ pub const fn decal_uv_rect_full() -> [[f32; 2]; 4] {
 /// other generated sheet is vertically symmetric, so this is the first texture
 /// where the distinction is visible.
 fn decal_atlas_put(pixels: &mut [u8], x: i32, y: i32, color: [u8; 4]) {
-    if x < 0 || y < 0 || x >= DECAL_ATLAS_SIZE || y >= DECAL_ATLAS_SIZE {
+    let (Ok(x), Ok(y)) = (usize::try_from(x), usize::try_from(y)) else {
+        return;
+    };
+    let Ok(size) = usize::try_from(DECAL_ATLAS_SIZE) else {
+        return;
+    };
+    if x >= size || y >= size {
         return;
     }
-    let row = DECAL_ATLAS_SIZE - 1 - y;
-    let index = ((row * DECAL_ATLAS_SIZE + x) * 4) as usize;
-    pixels[index..index + 4].copy_from_slice(&color);
+    // The sheet is stored bottom-up, so the visual top row is the last one.
+    let Some(row) = size.checked_sub(1).and_then(|top| top.checked_sub(y)) else {
+        return;
+    };
+    let Some(index) = row
+        .checked_mul(size)
+        .and_then(|offset| offset.checked_add(x))
+        .and_then(|offset| offset.checked_mul(4))
+    else {
+        return;
+    };
+    let Some(texel) = pixels.get_mut(index..index.saturating_add(4)) else {
+        return;
+    };
+    texel.copy_from_slice(&color);
 }
 
 /// Plain rectangle fill in visual sheet coordinates.
@@ -183,10 +206,13 @@ fn decal_atlas_frame(
     thickness: i32,
     color: [u8; 4],
 ) {
-    decal_atlas_rect(pixels, x0, y0, x1, y0 + thickness - 1, color);
-    decal_atlas_rect(pixels, x0, y1 - thickness + 1, x1, y1, color);
-    decal_atlas_rect(pixels, x0, y0, x0 + thickness - 1, y1, color);
-    decal_atlas_rect(pixels, x1 - thickness + 1, y0, x1, y1, color);
+    // A frame's bars are `thickness` texels wide, so the inner edge sits
+    // `thickness - 1` texels inside the outer one.
+    let inset = thickness.saturating_sub(1);
+    decal_atlas_rect(pixels, x0, y0, x1, y0.saturating_add(inset), color);
+    decal_atlas_rect(pixels, x0, y1.saturating_sub(inset), x1, y1, color);
+    decal_atlas_rect(pixels, x0, y0, x0.saturating_add(inset), y1, color);
+    decal_atlas_rect(pixels, x1.saturating_sub(inset), y0, x1, y1, color);
 }
 
 /// Stamps one line of the embedded 8x8 font into the sheet at `scale`.
@@ -207,27 +233,31 @@ fn decal_atlas_text(
         if character < crate::font::FONT_FIRST_CHAR {
             continue;
         }
-        let glyph_index = usize::from(character - crate::font::FONT_FIRST_CHAR);
+        let glyph_index = usize::from(character.saturating_sub(crate::font::FONT_FIRST_CHAR));
         if let Some(glyph) = crate::font::FONT_DATA.get(glyph_index) {
             for (row, bits) in glyph.iter().enumerate() {
+                let Ok(row) = i32::try_from(row) else {
+                    continue;
+                };
                 for column in 0..8i32 {
                     if bits & (0x80 >> column) == 0 {
                         continue;
                     }
                     for dy in 0..scale {
                         for dx in 0..scale {
-                            decal_atlas_put(
-                                pixels,
-                                cursor_x + column * scale + dx,
-                                origin_y + row as i32 * scale + dy,
-                                color,
-                            );
+                            let x = cursor_x
+                                .saturating_add(column.saturating_mul(scale))
+                                .saturating_add(dx);
+                            let y = origin_y
+                                .saturating_add(row.saturating_mul(scale))
+                                .saturating_add(dy);
+                            decal_atlas_put(pixels, x, y, color);
                         }
                     }
                 }
             }
         }
-        cursor_x += 8 * scale;
+        cursor_x = cursor_x.saturating_add(8_i32.saturating_mul(scale));
     }
 }
 
@@ -241,13 +271,16 @@ fn decal_atlas_text_centered(
     color: [u8; 4],
 ) {
     let (col, row) = (slot % 2, slot / 2);
-    let cell_x = col * DECAL_SLOT_SIZE;
-    let cell_y = row * DECAL_SLOT_SIZE;
-    let width = i32::try_from(text.len()).unwrap_or(0) * 8 * scale;
+    let cell_x = col.saturating_mul(DECAL_SLOT_SIZE);
+    let cell_y = row.saturating_mul(DECAL_SLOT_SIZE);
+    let width = i32::try_from(text.len())
+        .unwrap_or(0)
+        .saturating_mul(8)
+        .saturating_mul(scale);
     decal_atlas_text(
         pixels,
-        cell_x + (DECAL_SLOT_SIZE - width) / 2,
-        cell_y + y,
+        cell_x.saturating_add(DECAL_SLOT_SIZE.saturating_sub(width) / 2),
+        cell_y.saturating_add(y),
         text,
         scale,
         color,
@@ -256,8 +289,9 @@ fn decal_atlas_text_centered(
 
 /// Generates the shared decal sheet: the internal validation marking, with the
 /// three other cells left transparent.
-pub(crate) fn generate_decal_atlas() -> Vec<u8> {
-    let mut pixels = vec![0u8; (DECAL_ATLAS_SIZE * DECAL_ATLAS_SIZE * 4) as usize];
+pub fn generate_decal_atlas() -> Vec<u8> {
+    let size = usize::try_from(DECAL_ATLAS_SIZE).unwrap_or(0);
+    let mut pixels = vec![0u8; size.saturating_mul(size).saturating_mul(4)];
     let white = [245, 245, 240, 255];
 
     // Slot 0: the validation marking, "DECAL TEST" in a frame on transparency.
@@ -278,11 +312,19 @@ pub fn decal_uv_rect(slot: u32) -> [[f32; 2]; 4] {
     let cell = i32::try_from(slot).unwrap_or(0).clamp(0, 3);
     let (col, row) = (cell % 2, cell / 2);
     let inset = DECAL_SLOT_GUTTER;
-    let x0 = (col * DECAL_SLOT_SIZE + inset) as f32;
-    let x1 = (col * DECAL_SLOT_SIZE + DECAL_SLOT_SIZE - inset) as f32;
-    let y0 = (row * DECAL_SLOT_SIZE + inset) as f32;
-    let y1 = (row * DECAL_SLOT_SIZE + DECAL_SLOT_SIZE - inset) as f32;
-    let size = DECAL_ATLAS_SIZE as f32;
+    let x0 = atlas_pixels_f32(col.saturating_mul(DECAL_SLOT_SIZE).saturating_add(inset));
+    let x1 = atlas_pixels_f32(
+        col.saturating_mul(DECAL_SLOT_SIZE)
+            .saturating_add(DECAL_SLOT_SIZE)
+            .saturating_sub(inset),
+    );
+    let y0 = atlas_pixels_f32(row.saturating_mul(DECAL_SLOT_SIZE).saturating_add(inset));
+    let y1 = atlas_pixels_f32(
+        row.saturating_mul(DECAL_SLOT_SIZE)
+            .saturating_add(DECAL_SLOT_SIZE)
+            .saturating_sub(inset),
+    );
+    let size = atlas_pixels_f32(DECAL_ATLAS_SIZE);
     // The sheet is stored bottom-up, so the visual top row maps to the higher
     // texture coordinate.
     let u0 = x0 / size;
@@ -290,4 +332,12 @@ pub fn decal_uv_rect(slot: u32) -> [[f32; 2]; 4] {
     let v_top = (size - y0) / size;
     let v_bottom = (size - y1) / size;
     [[u0, v_bottom], [u1, v_bottom], [u1, v_top], [u0, v_top]]
+}
+
+/// Exact `f32` value of a non-negative atlas pixel coordinate.
+///
+/// The sheet is 256 px, so every coordinate here fits `u16` and converts to
+/// `f32` without loss.
+fn atlas_pixels_f32(pixels: i32) -> f32 {
+    f32::from(u16::try_from(pixels).unwrap_or(0))
 }

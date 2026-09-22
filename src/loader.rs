@@ -376,13 +376,30 @@ fn placeable_entry(entry: &crate::assets::AssetEntry) -> PropCatalogEntry {
 }
 
 /// Validates level schema, format version, and physical dimensions.
-/// Preserves intentional overlapping/intersecting geometry without snapping or rejecting.
+///
+/// Preserves intentional overlapping/intersecting geometry without snapping or
+/// rejecting. The checks run in their historical order, so the first reported
+/// problem is unchanged.
 /// # Errors
 ///
 /// Returns the first problem found: an unsupported format version, a missing or
 /// duplicate id, non-finite or out-of-range dimensions, a prop outside its
 /// budgets, or malformed openings and patches.
 pub fn validate_level(level: &LevelDef) -> Result<(), String> {
+    validate_header(level)?;
+    validate_element_limits(level)?;
+    validate_rooms(level)?;
+    validate_floor_regions(level)?;
+    validate_walls(level)?;
+    validate_ceiling_lights(level)?;
+    validate_props(level)?;
+    validate_decals(level)?;
+    validate_decal_surfaces(level)?;
+    validate_geometry_budget(level)
+}
+
+/// Format version, identity and spawn point.
+fn validate_header(level: &LevelDef) -> Result<(), String> {
     // 1. Format version
     if level.format_version != 1 {
         return Err(format!(
@@ -407,7 +424,11 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
         return Err("Player spawn coordinates or orientation contain non-finite numbers".into());
     }
 
-    // 4. Geometry limits
+    Ok(())
+}
+
+/// Per-element count budgets.
+fn validate_element_limits(level: &LevelDef) -> Result<(), String> {
     let room_count = level.room_iter().count();
     if room_count > 500 {
         return Err(format!(
@@ -439,7 +460,11 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
             crate::level::MAX_LEVEL_DECALS
         ));
     }
+    Ok(())
+}
 
+/// Per-room dimensions, floor elevation and ceiling profile.
+fn validate_rooms(level: &LevelDef) -> Result<(), String> {
     for (i, r) in level.room_iter().enumerate() {
         if !r.width.is_finite() || !r.depth.is_finite() || !r.height.is_finite() {
             return Err(format!("Room {i} dimensions must be finite numbers"));
@@ -483,8 +508,11 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
             }
         }
     }
+    Ok(())
+}
 
-    // Local floor regions: recessed or raised rectangular areas inside a room.
+/// Local floor regions: position, size, materials and room containment.
+fn validate_floor_regions(level: &LevelDef) -> Result<(), String> {
     if u64::try_from(level.floor_regions.len()).unwrap_or(u64::MAX)
         > crate::level::MAX_LEVEL_FLOOR_REGIONS
     {
@@ -546,7 +574,11 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
             return Err(format!("Floor region {i} lies outside every room section"));
         }
     }
+    Ok(())
+}
 
+/// Wall dimensions and opening cutouts.
+fn validate_walls(level: &LevelDef) -> Result<(), String> {
     for (i, w) in level.walls.iter().enumerate() {
         if !w.x.is_finite()
             || !w.y.is_finite()
@@ -611,7 +643,11 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
             }
         }
     }
+    Ok(())
+}
 
+/// Ceiling/wall fixture position, intensity, colour and mounting height.
+fn validate_ceiling_lights(level: &LevelDef) -> Result<(), String> {
     for (i, light) in level.ceiling_lights.iter().enumerate() {
         if !light.x.is_finite() || !light.z.is_finite() || !light.rotation_degrees.is_finite() {
             return Err(format!(
@@ -668,7 +704,11 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
             ));
         }
     }
+    Ok(())
+}
 
+/// Placed prop ids, transforms and sizes.
+fn validate_props(level: &LevelDef) -> Result<(), String> {
     for (i, prop) in level.props.iter().enumerate() {
         if prop.model.trim().is_empty() {
             return Err(format!("Prop {i} must reference a non-empty model id"));
@@ -694,7 +734,11 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
             ));
         }
     }
+    Ok(())
+}
 
+/// Decal transforms, sizes and material ids.
+fn validate_decals(level: &LevelDef) -> Result<(), String> {
     for (i, decal) in level.decals.iter().enumerate() {
         if !decal.x.is_finite()
             || !decal.y.is_finite()
@@ -725,13 +769,18 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
             return Err(format!("Decal {i} must reference a non-empty material id"));
         }
     }
+    Ok(())
+}
 
-    // Decals on horizontal surfaces are snapped to the real surface height, so
-    // they follow an elevated room or a recessed region. A gable ceiling is a
-    // sloped surface and cannot carry a single planar decal, and a decal whose
-    // footprint straddles a height change (a recess edge, a room boundary at a
-    // different elevation) cannot be projected onto one plane either: both are
-    // rejected clearly instead of being drawn at a nonsense height.
+/// Decals on horizontal surfaces are snapped to the real surface height, so
+/// they follow an elevated room or a recessed region.
+///
+/// A gable ceiling is a sloped surface and cannot carry a single planar decal,
+/// and a decal whose footprint straddles a height change (a recess edge, a room
+/// boundary at a different elevation) cannot be projected onto one plane
+/// either: both are rejected clearly instead of being drawn at a nonsense
+/// height.
+fn validate_decal_surfaces(level: &LevelDef) -> Result<(), String> {
     let surfaces = crate::level::LevelSurfaces::new(level);
     for (i, decal) in level.decals.iter().enumerate() {
         if decal.surface.is_ceiling() && !surfaces.ceiling_is_flat_at(decal.x, decal.z) {
@@ -749,7 +798,11 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
             crate::level::DecalSurface::Floor => {
                 surfaces.floor_y_at(point[0], point[2]).unwrap_or(point[1])
             }
-            _ => surfaces.ceiling_y_at(point[0], point[2]),
+            crate::level::DecalSurface::Ceiling
+            | crate::level::DecalSurface::WallNorth
+            | crate::level::DecalSurface::WallSouth
+            | crate::level::DecalSurface::WallWest
+            | crate::level::DecalSurface::WallEast => surfaces.ceiling_y_at(point[0], point[2]),
         });
         let (low, high) = heights.iter().fold((f32::MAX, f32::MIN), |(low, high), y| {
             (low.min(*y), high.max(*y))
@@ -761,12 +814,15 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
             ));
         }
     }
+    Ok(())
+}
 
-    // 5. Generated-geometry complexity budget, checked after per-element
-    //    validation so dimension errors take precedence. This bounds the vertex
-    //    buffer built at load time, protecting the ~512 MB PocketCHIP from
-    //    levels that would otherwise exhaust memory. Overlapping/intersecting
-    //    geometry is explicitly allowed and is not validated here.
+/// 5. Generated-geometry complexity budget, checked after per-element
+///    validation so dimension errors take precedence. This bounds the vertex
+///    buffer built at load time, protecting the ~512 MB `PocketCHIP` from
+///    levels that would otherwise exhaust memory. Overlapping/intersecting
+///    geometry is explicitly allowed and is not validated here.
+fn validate_geometry_budget(level: &LevelDef) -> Result<(), String> {
     let estimate = level.estimate_geometry();
     if estimate.floor_area_m2 > MAX_LEVEL_FLOOR_AREA_M2 {
         return Err(format!(
@@ -782,7 +838,6 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
             estimate.total_vertices
         ));
     }
-
     Ok(())
 }
 
@@ -1006,6 +1061,9 @@ impl LevelManager {
 
     /// Resolves a level's surface materials through the catalog and an optional
     /// pack, logging every problem once with its level and material context.
+    // A bad material is reported here or nowhere: the loader has no logger to
+    // route the diagnostic through.
+    #[allow(clippy::print_stderr)]
     fn resolve_level_materials(
         &self,
         level: &LevelDef,
@@ -1167,7 +1225,7 @@ impl LevelManager {
         let _ = fs::create_dir_all(&self.import_dir);
         let _ = fs::create_dir_all(&self.levels_dir);
 
-        let mut imported_count = 0;
+        let mut imported_count: usize = 0;
         let candidate_dirs = [self.import_dir.clone(), PathBuf::from("levels/import")];
 
         for dir in &candidate_dirs {
@@ -1180,7 +1238,7 @@ impl LevelManager {
                         .unwrap_or("")
                         .to_lowercase();
                     if (ext == "json" || ext == "zip") && self.import_file(&path).is_ok() {
-                        imported_count += 1;
+                        imported_count = imported_count.saturating_add(1);
                     }
                 }
             }

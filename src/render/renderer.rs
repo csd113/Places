@@ -8,7 +8,17 @@
 
 use super::api::{build_level_geometry_timed, shipped_asset_catalog};
 use super::decals::{DECAL_ATLAS_SIZE, generate_decal_atlas};
-use super::*;
+use super::view::dimension_f32;
+use super::{
+    BatchRange, DECAL_ALPHA_CUTOFF, DECAL_EXTERNAL_BASE, DECAL_FRAGMENT_SHADER_SRC,
+    DECAL_POLYGON_OFFSET, DrawableSize, FRAGMENT_SHADER_SRC, HasContext, LevelMesh, MaterialIndex,
+    MaterialTable, MeshChunk, MeshPacker, PackedVertex, PropMeshBatch, SCENE_ATTRIB_COLOR,
+    SCENE_ATTRIB_POS, SCENE_ATTRIB_UV, StaticBatch, SurfaceKey, SurfaceKind, UI_REFERENCE_HEIGHT,
+    UI_REFERENCE_WIDTH, VERTEX_SHADER_SRC, Vertex, VertexLayout, decal_external_sheet_ids,
+    generate_font_atlas, generate_white_texture, packed_layout, spatial_cell_grid,
+    vertical_fov_for_aspect,
+};
+use crate::spatial::Frustum;
 
 /// Applies min/mag filtering for a repeating, mipmapped texture.
 ///
@@ -231,6 +241,100 @@ pub(super) struct DecalPass {
     u_alpha_cutoff_loc: Option<glow::UniformLocation>,
 }
 
+/// The GL objects every renderer owns from startup: the two scene programs, the
+/// UI vertex buffer, the untextured and font sheets, and the scene attribute and
+/// uniform locations.
+struct StartupResources {
+    program: glow::Program,
+    ui_vbo: glow::Buffer,
+    white_texture: glow::Texture,
+    font_texture: glow::Texture,
+    decal: DecalPass,
+    u_mvp_loc: Option<glow::UniformLocation>,
+    u_texture_loc: Option<glow::UniformLocation>,
+    a_pos_loc: u32,
+    a_color_loc: u32,
+    a_uv_loc: u32,
+}
+
+impl StartupResources {
+    /// Creates the renderer's startup GL objects and applies the base GL state.
+    ///
+    /// # Errors
+    ///
+    /// Returns a message when a shader program does not link or a texture,
+    /// buffer or attribute lookup fails.
+    unsafe fn create(gl: &glow::Context) -> Result<Self, String> {
+        unsafe {
+            gl.enable(glow::DEPTH_TEST);
+            gl.depth_func(glow::LEQUAL);
+            gl.clear_color(0.08, 0.08, 0.09, 1.0);
+
+            let program = create_program(gl, VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC)?;
+            let a_pos_loc = gl
+                .get_attrib_location(program, "a_pos")
+                .ok_or_else(|| "Missing a_pos attribute".to_string())?;
+            let a_color_loc = gl
+                .get_attrib_location(program, "a_color")
+                .ok_or_else(|| "Missing a_color attribute".to_string())?;
+            let a_uv_loc = gl
+                .get_attrib_location(program, "a_uv")
+                .ok_or_else(|| "Missing a_uv attribute".to_string())?;
+
+            let u_mvp_loc = gl.get_uniform_location(program, "u_mvp");
+            let u_texture_loc = gl.get_uniform_location(program, "u_texture");
+
+            // The untextured fixture sheet and the UI/decal resources are the
+            // only textures this renderer owns up front. Every surface texture
+            // is uploaded by `set_level`, once per distinct resolved texture.
+            let white_texture =
+                create_texture_2d(gl, 2, 2, &generate_white_texture(), false, false)?;
+            let font_texture =
+                create_texture_2d(gl, 128, 64, &generate_font_atlas(), false, false)?;
+
+            // The decal pass: the same vertex stage with an alpha cut-out
+            // fragment stage, and the one shared generated decal sheet. The
+            // sheet uses repeat mip-mapping (as the world sheets do) so the
+            // user's texture filtering applies; its UVs never leave the sheet,
+            // so the wrap mode itself cannot show.
+            let decal_program = create_program(gl, VERTEX_SHADER_SRC, DECAL_FRAGMENT_SHADER_SRC)?;
+            let decal = DecalPass {
+                program: decal_program,
+                texture: create_texture_2d(
+                    gl,
+                    DECAL_ATLAS_SIZE,
+                    DECAL_ATLAS_SIZE,
+                    &generate_decal_atlas(),
+                    true,
+                    true,
+                )?,
+                external: Vec::new(),
+                u_mvp_loc: gl.get_uniform_location(decal_program, "u_mvp"),
+                u_texture_loc: gl.get_uniform_location(decal_program, "u_texture"),
+                u_alpha_cutoff_loc: gl.get_uniform_location(decal_program, "u_alpha_cutoff"),
+            };
+
+            // Level geometry is uploaded by `rebuild_level_geometry` once the
+            // renderer (and its prop asset cache) exists.
+            let ui_vbo = gl.create_buffer()?;
+            gl.bind_buffer(glow::ARRAY_BUFFER, None);
+
+            Ok(Self {
+                program,
+                ui_vbo,
+                white_texture,
+                font_texture,
+                decal,
+                u_mvp_loc,
+                u_texture_loc,
+                a_pos_loc,
+                a_color_loc,
+                a_uv_loc,
+            })
+        }
+    }
+}
+
 /// Manages OpenGL ES 2.0-compatible accelerated rendering context, textures, and scene/UI drawing.
 pub struct Renderer {
     _gl_context: sdl2::video::GLContext,
@@ -354,7 +458,7 @@ impl Renderer {
 
         let prop_catalog = crate::loader::PropCatalog::load_default();
 
-        let (
+        let StartupResources {
             program,
             ui_vbo,
             white_texture,
@@ -365,73 +469,7 @@ impl Renderer {
             a_pos_loc,
             a_color_loc,
             a_uv_loc,
-        ) = unsafe {
-            gl.enable(glow::DEPTH_TEST);
-            gl.depth_func(glow::LEQUAL);
-            gl.clear_color(0.08, 0.08, 0.09, 1.0);
-
-            let program = create_program(&gl, VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC)?;
-            let a_pos_loc = gl
-                .get_attrib_location(program, "a_pos")
-                .ok_or_else(|| "Missing a_pos attribute".to_string())?;
-            let a_color_loc = gl
-                .get_attrib_location(program, "a_color")
-                .ok_or_else(|| "Missing a_color attribute".to_string())?;
-            let a_uv_loc = gl
-                .get_attrib_location(program, "a_uv")
-                .ok_or_else(|| "Missing a_uv attribute".to_string())?;
-
-            let u_mvp_loc = gl.get_uniform_location(program, "u_mvp");
-            let u_texture_loc = gl.get_uniform_location(program, "u_texture");
-
-            // The untextured fixture sheet and the UI/decal resources are the
-            // only textures this renderer owns up front. Every surface texture
-            // is uploaded by `set_level`, once per distinct resolved texture.
-            let white_texture =
-                create_texture_2d(&gl, 2, 2, &generate_white_texture(), false, false)?;
-            let font_texture =
-                create_texture_2d(&gl, 128, 64, &generate_font_atlas(), false, false)?;
-
-            // The decal pass: the same vertex stage with an alpha cut-out
-            // fragment stage, and the one shared generated decal sheet. The
-            // sheet uses repeat mip-mapping (as the world sheets do) so the
-            // user's texture filtering applies; its UVs never leave the sheet,
-            // so the wrap mode itself cannot show.
-            let decal_program = create_program(&gl, VERTEX_SHADER_SRC, DECAL_FRAGMENT_SHADER_SRC)?;
-            let decal = DecalPass {
-                program: decal_program,
-                texture: create_texture_2d(
-                    &gl,
-                    DECAL_ATLAS_SIZE,
-                    DECAL_ATLAS_SIZE,
-                    &generate_decal_atlas(),
-                    true,
-                    true,
-                )?,
-                external: Vec::new(),
-                u_mvp_loc: gl.get_uniform_location(decal_program, "u_mvp"),
-                u_texture_loc: gl.get_uniform_location(decal_program, "u_texture"),
-                u_alpha_cutoff_loc: gl.get_uniform_location(decal_program, "u_alpha_cutoff"),
-            };
-
-            // Level geometry is uploaded by `rebuild_level_geometry` once the
-            // renderer (and its prop asset cache) exists.
-            let ui_vbo = gl.create_buffer()?;
-            gl.bind_buffer(glow::ARRAY_BUFFER, None);
-
-            (
-                program,
-                ui_vbo,
-                white_texture,
-                font_texture,
-                decal,
-                u_mvp_loc,
-                u_texture_loc,
-                a_pos_loc,
-                a_color_loc,
-                a_uv_loc,
-            )
-        };
+        } = unsafe { StartupResources::create(&gl)? };
 
         let (initial_width, initial_height) = window.drawable_size();
 
@@ -558,7 +596,8 @@ impl Renderer {
         }
         let width = drawable.width as usize;
         let height = drawable.height as usize;
-        let mut pixels = vec![0u8; width * height * 4];
+        let stride = width.saturating_mul(4);
+        let mut pixels = vec![0u8; stride.saturating_mul(height)];
         unsafe {
             self.gl.read_pixels(
                 0,
@@ -571,12 +610,14 @@ impl Renderer {
             );
         }
         // OpenGL returns bottom-up rows; flip into top-down image order.
-        let stride = width * 4;
         let mut flipped = vec![0u8; pixels.len()];
-        for row in 0..height {
-            let source = (height - 1 - row) * stride;
-            flipped[row * stride..(row + 1) * stride]
-                .copy_from_slice(&pixels[source..source + stride]);
+        for (row, target) in flipped.chunks_exact_mut(stride).enumerate() {
+            let source_row = height.saturating_sub(1).saturating_sub(row);
+            let source_start = source_row.saturating_mul(stride);
+            let Some(source) = pixels.get(source_start..source_start.saturating_add(stride)) else {
+                break;
+            };
+            target.copy_from_slice(source);
         }
         Ok(crate::loader::RawImage::new(
             drawable.width,
@@ -645,6 +686,14 @@ impl Renderer {
     /// parsed once, every instance transform is baked into one shared vertex
     /// buffer, and each model's texture is uploaded once and then reused for the
     /// rest of the session.
+    ///
+    /// A failed texture or buffer upload is reported and skipped rather than
+    /// fatal, so a broken asset degrades visibly instead of taking the level
+    /// down.
+    // A failed GPU upload is a chatty one-line diagnostic and this renderer has
+    // no logger (the game prints its own diagnostics directly), so the stderr
+    // report is the intended behaviour and stays scoped to this function.
+    #[allow(clippy::print_stderr)]
     pub fn rebuild_level_geometry(
         &mut self,
         level: &crate::level::LevelDef,
@@ -655,42 +704,72 @@ impl Renderer {
             build_level_geometry_timed(level, &self.prop_catalog, &mut self.prop_assets, materials);
         self.spatial_grid = spatial_cell_grid(level);
 
-        // Pack the static ranges into 16-bit-indexable buffer pairs. Each range
-        // keeps its own vertex block and its indices are re-based as it is
-        // packed, so a draw never needs a base-vertex offset (which core
-        // OpenGL ES 2.0 does not have).
-        // `LIMINAL_BENCH_NOINDEX` expands every range into a flat triangle list
-        // before it is packed, so one build can measure indexed submission
-        // against non-indexed submission with the same batching, culling and
-        // vertex layout.
         let index_ranges = self.indexing_enabled;
-        let mut static_packer = MeshPacker::default();
-        let mut static_batches: Vec<StaticBatch> = Vec::with_capacity(mesh.ranges.len());
-        for range in &mesh.ranges {
-            let placements = if index_ranges {
-                static_packer.push(&range.vertices, &range.indices)
-            } else {
-                static_packer.push_unindexed(&range.vertices, &range.indices)
-            };
-            for packed in placements {
-                static_batches.push(StaticBatch {
-                    key: range.key,
-                    chunk: packed.chunk,
-                    index_range: BatchRange {
-                        start: packed.index_start,
-                        count: packed.index_count,
-                    },
-                    vertex_count: packed.vertex_count,
-                    bounds: range.bounds,
-                });
-            }
-        }
+        let (static_packer, static_batches) = pack_static_batches(&mesh, index_ranges);
         self.static_batches = static_batches;
-
         // Props go through the same packer, one range per (model, cell).
-        let mut prop_packer = MeshPacker::default();
+        let (prop_packer, draws) = self.pack_prop_batches(&batches, index_ranges);
+
+        if let Err(error) = upload_chunks(
+            &self.gl,
+            self.vertex_layout,
+            &mut self.level_buffers,
+            &static_packer.chunks,
+        ) {
+            eprintln!("[level] cannot upload static geometry: {error}");
+        }
+        if let Err(error) = upload_chunks(
+            &self.gl,
+            self.vertex_layout,
+            &mut self.prop_buffers,
+            &prop_packer.chunks,
+        ) {
+            eprintln!("[level] cannot upload prop geometry: {error}");
+        }
+
+        let static_vertices = mesh.vertex_count;
+        let static_indices = mesh.index_count;
+        let prop_vertices = prop_packer.vertex_total();
+        let prop_indices = prop_packer.index_total();
+        self.level_stats = LevelBuildStats {
+            static_vertices,
+            static_indices,
+            prop_vertices,
+            prop_indices,
+            prop_draws: draws.len(),
+            static_batches: self.static_batches.len(),
+            static_chunks: self.level_buffers.len(),
+            prop_chunks: self.prop_buffers.len(),
+            vbo_bytes: static_vertices
+                .saturating_add(prop_vertices)
+                .saturating_mul(self.vertex_layout.vertex_bytes()),
+            index_bytes: static_indices
+                .saturating_add(prop_indices)
+                .saturating_mul(std::mem::size_of::<u16>()),
+            build_millis: started.elapsed().as_secs_f64() * 1000.0,
+            lighting_millis: timings.lighting_millis,
+            props_millis: timings.props_millis,
+            surfaces_millis: timings.surfaces_millis,
+            lighting: lighting.summary(),
+        };
+        self.prop_draws = draws;
+    }
+
+    /// Packs every prop batch and uploads one texture per distinct model.
+    ///
+    /// A model whose texture cannot be uploaded is reported and skipped.
+    // The upload failure is a chatty one-line diagnostic and this renderer has
+    // no logger (the game prints its own diagnostics directly), so the stderr
+    // report is the intended behaviour and stays scoped to this method.
+    #[allow(clippy::print_stderr)]
+    fn pack_prop_batches(
+        &mut self,
+        batches: &[PropMeshBatch],
+        indexed: bool,
+    ) -> (MeshPacker, Vec<PropDraw>) {
+        let mut packer = MeshPacker::default();
         let mut draws: Vec<PropDraw> = Vec::with_capacity(batches.len());
-        for batch in &batches {
+        for batch in batches {
             let texture = match self.prop_textures.get(&batch.model) {
                 Some(texture) => *texture,
                 None => match unsafe { self.upload_prop_texture(&batch.texture) } {
@@ -707,10 +786,10 @@ impl Renderer {
                     }
                 },
             };
-            let placements = if index_ranges {
-                prop_packer.push(&batch.vertices, &batch.indices)
+            let placements = if indexed {
+                packer.push(&batch.vertices, &batch.indices)
             } else {
-                prop_packer.push_unindexed(&batch.vertices, &batch.indices)
+                packer.push_unindexed(&batch.vertices, &batch.indices)
             };
             for packed in placements {
                 draws.push(PropDraw {
@@ -723,102 +802,7 @@ impl Renderer {
                 });
             }
         }
-
-        let layout = self.vertex_layout;
-        let upload_chunks = |gl: &glow::Context,
-                             buffers: &mut Vec<(glow::Buffer, glow::Buffer)>,
-                             chunks: &[MeshChunk]|
-         -> Result<(), String> {
-            unsafe {
-                // Drop any buffers left over from a larger previous level.
-                while buffers.len() > chunks.len() {
-                    if let Some((vbo, ibo)) = buffers.pop() {
-                        gl.delete_buffer(vbo);
-                        gl.delete_buffer(ibo);
-                    }
-                }
-                for (index, chunk) in chunks.iter().enumerate() {
-                    if index == buffers.len() {
-                        let vbo = gl.create_buffer()?;
-                        let ibo = gl.create_buffer()?;
-                        buffers.push((vbo, ibo));
-                    }
-                    let (vbo, ibo) = buffers[index];
-                    gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
-                    match layout {
-                        VertexLayout::Packed => {
-                            // The one and only place the exact build vertices
-                            // become the packed GPU representation.
-                            let packed: Vec<PackedVertex> =
-                                chunk.vertices.iter().map(PackedVertex::from).collect();
-                            let vertex_bytes = std::slice::from_raw_parts(
-                                packed.as_ptr().cast::<u8>(),
-                                packed.len() * std::mem::size_of::<PackedVertex>(),
-                            );
-                            gl.buffer_data_u8_slice(
-                                glow::ARRAY_BUFFER,
-                                vertex_bytes,
-                                glow::STATIC_DRAW,
-                            );
-                        }
-                        VertexLayout::Exact => {
-                            let vertex_bytes = std::slice::from_raw_parts(
-                                chunk.vertices.as_ptr().cast::<u8>(),
-                                chunk.vertices.len() * std::mem::size_of::<Vertex>(),
-                            );
-                            gl.buffer_data_u8_slice(
-                                glow::ARRAY_BUFFER,
-                                vertex_bytes,
-                                glow::STATIC_DRAW,
-                            );
-                        }
-                    }
-
-                    gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ibo));
-                    let index_bytes = std::slice::from_raw_parts(
-                        chunk.indices.as_ptr().cast::<u8>(),
-                        chunk.indices.len() * std::mem::size_of::<u16>(),
-                    );
-                    gl.buffer_data_u8_slice(
-                        glow::ELEMENT_ARRAY_BUFFER,
-                        index_bytes,
-                        glow::STATIC_DRAW,
-                    );
-                }
-                gl.bind_buffer(glow::ARRAY_BUFFER, None);
-                gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, None);
-            }
-            Ok(())
-        };
-
-        if let Err(error) = upload_chunks(&self.gl, &mut self.level_buffers, &static_packer.chunks)
-        {
-            eprintln!("[level] cannot upload static geometry: {error}");
-        }
-        if let Err(error) = upload_chunks(&self.gl, &mut self.prop_buffers, &prop_packer.chunks) {
-            eprintln!("[level] cannot upload prop geometry: {error}");
-        }
-
-        self.level_stats = LevelBuildStats {
-            static_vertices: mesh.vertex_count,
-            static_indices: mesh.index_count,
-            prop_vertices: prop_packer.vertex_total(),
-            prop_indices: prop_packer.index_total(),
-            prop_draws: draws.len(),
-            static_batches: self.static_batches.len(),
-            static_chunks: self.level_buffers.len(),
-            prop_chunks: self.prop_buffers.len(),
-            vbo_bytes: (mesh.vertex_count + prop_packer.vertex_total())
-                * self.vertex_layout.vertex_bytes(),
-            index_bytes: (mesh.index_count + prop_packer.index_total())
-                * std::mem::size_of::<u16>(),
-            build_millis: started.elapsed().as_secs_f64() * 1000.0,
-            lighting_millis: timings.lighting_millis,
-            props_millis: timings.props_millis,
-            surfaces_millis: timings.surfaces_millis,
-            lighting: lighting.summary(),
-        };
-        self.prop_draws = draws;
+        (packer, draws)
     }
 
     /// Uploads one prop model's diffuse texture with mipmaps and `CLAMP_TO_EDGE`
@@ -874,6 +858,10 @@ impl Renderer {
     /// surface texture, so a creator edits the PNG and restarts. A sheet that
     /// cannot be resolved draws the same magenta/black diagnostic the surface
     /// pipeline uses, so the mistake is visible in game instead of silent.
+    // A broken decal sheet is a chatty one-line diagnostic and this renderer has
+    // no logger (the game prints its own diagnostics directly), so the stderr
+    // report is the intended behaviour and stays scoped to this function.
+    #[allow(clippy::print_stderr)]
     fn load_decal_sheets(&mut self, level: &crate::level::LevelDef) {
         self.decal.external.clear();
         let root = crate::assets::resolve_asset_root();
@@ -922,6 +910,10 @@ impl Renderer {
         }
     }
 
+    // A failed texture upload is a chatty one-line diagnostic and this renderer
+    // has no logger (the game prints its own diagnostics directly), so the
+    // stderr report is the intended behaviour and stays scoped to this function.
+    #[allow(clippy::print_stderr)]
     pub fn set_level(&mut self, loaded: &crate::loader::LoadedLevel) {
         self.rebuild_level_geometry(&loaded.level, &loaded.materials);
         self.load_decal_sheets(&loaded.level);
@@ -997,20 +989,17 @@ impl Renderer {
         // untextured white sheet is restored so a previous pack's fixture never
         // leaks into the next level.
         unsafe {
-            match loaded.fixture.as_deref() {
-                Some(fixture) => {
-                    Self::upload_texture(&self.gl, self.white_texture, fixture, false, linear)
-                }
-                None => {
-                    let white = generate_white_texture();
-                    Self::upload_texture(
-                        &self.gl,
-                        self.white_texture,
-                        &crate::loader::RawImage::new(2, 2, white.to_vec()),
-                        false,
-                        linear,
-                    );
-                }
+            if let Some(fixture) = loaded.fixture.as_deref() {
+                Self::upload_texture(&self.gl, self.white_texture, fixture, false, linear);
+            } else {
+                let white = generate_white_texture();
+                Self::upload_texture(
+                    &self.gl,
+                    self.white_texture,
+                    &crate::loader::RawImage::new(2, 2, white.to_vec()),
+                    false,
+                    linear,
+                );
             }
         }
     }
@@ -1031,6 +1020,10 @@ impl Renderer {
             return;
         }
 
+        let (mvp, frustum) =
+            scene_view_projection(camera_pos, camera_yaw, camera_pitch, fov_degrees, drawable);
+        let cull = self.culling_enabled;
+
         unsafe {
             // Render at the real drawable resolution; no fixed 480x272 target.
             self.gl.viewport(
@@ -1041,164 +1034,187 @@ impl Renderer {
             );
             self.gl
                 .clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
-
             self.gl.use_program(Some(self.program));
+        }
 
-            // Derive the projection from the real framebuffer aspect ratio. The
-            // configured FOV is the PocketCHIP baseline; wider displays gain
-            // horizontal view, taller displays keep the horizontal view instead
-            // of cropping it.
-            let aspect = drawable.aspect_ratio();
-            let effective_fov = vertical_fov_for_aspect(fov_degrees, aspect);
-            let proj = glam::Mat4::perspective_rh(effective_fov.to_radians(), aspect, 0.1, 100.0);
-
-            // Correctly combine yaw and pitch in the camera forward vector
-            let cos_pitch = camera_pitch.cos();
-            let forward = glam::Vec3::new(
-                camera_yaw.sin() * cos_pitch,
-                camera_pitch.sin(),
-                -camera_yaw.cos() * cos_pitch,
-            );
-            let view = glam::Mat4::look_at_rh(camera_pos, camera_pos + forward, glam::Vec3::Y);
-            let mvp = proj * view;
-
-            // The frustum is extracted from the very matrix the GPU clips
-            // against, so it can never disagree with what is on screen: pitch,
-            // a resized drawable and an unusual aspect ratio are all included.
-            let frustum = crate::spatial::Frustum::from_view_projection(
-                &mvp,
-                crate::spatial::DepthRange::ZeroToOne,
-            );
-            let cull = self.culling_enabled;
-
-            if let Some(ref loc) = self.u_mvp_loc {
+        if let Some(ref loc) = self.u_mvp_loc {
+            unsafe {
                 self.gl
                     .uniform_matrix_4_f32_slice(Some(loc), false, &mvp.to_cols_array());
             }
+        }
+        if let Some(ref loc) = self.u_texture_loc {
+            unsafe { self.gl.uniform_1_i32(Some(loc), 0) };
+        }
+        unsafe { self.gl.active_texture(glow::TEXTURE0) };
 
-            if let Some(ref loc) = self.u_texture_loc {
-                self.gl.uniform_1_i32(Some(loc), 0);
+        // Static level geometry, then the batched props, then the decal pass:
+        // one draw loop each, in the order their state depends on.
+        let totals = self
+            .draw_static_batches(&frustum, cull)
+            .plus(self.draw_prop_batches(&frustum, cull))
+            .plus(self.draw_decal_batches(&frustum, cull, &mvp));
+
+        unsafe {
+            self.gl.disable_vertex_attrib_array(self.a_pos_loc);
+            self.gl.disable_vertex_attrib_array(self.a_color_loc);
+            self.gl.disable_vertex_attrib_array(self.a_uv_loc);
+            self.gl.bind_texture(glow::TEXTURE_2D, None);
+            self.gl.bind_buffer(glow::ARRAY_BUFFER, None);
+            self.gl.use_program(None);
+        }
+
+        // Report what this frame actually submitted, straight from the draw
+        // path rather than reconstructed from the level.
+        let total_vertices = self
+            .level_stats
+            .static_vertices
+            .saturating_add(self.level_stats.prop_vertices);
+        self.render_stats = RenderStats {
+            total_vertices,
+            visible_vertices: totals.vertices,
+            culled_vertices: total_vertices.saturating_sub(totals.vertices),
+            total_batches: self
+                .static_batches
+                .len()
+                .saturating_add(self.prop_draws.len()),
+            visible_batches: totals.batches,
+            draw_calls: totals.calls,
+            vbo_bytes: self.level_stats.vbo_bytes,
+            index_bytes: self.level_stats.index_bytes,
+        };
+    }
+
+    /// Submits every opaque static batch the frustum keeps, binding each
+    /// texture and buffer pair once per run.
+    ///
+    /// Decals are skipped here: they are submitted by their own pass, with the
+    /// decal program and depth bias, which keeps the world program's early
+    /// depth testing intact.
+    fn draw_static_batches(&self, frustum: &Frustum, cull: bool) -> DrawTotals {
+        let mut totals = DrawTotals::default();
+        let mut bound_key: Option<SurfaceKey> = None;
+        let mut bound_chunk: Option<usize> = None;
+        for batch in &self.static_batches {
+            if batch.index_range.count <= 0 {
+                continue;
             }
-            self.gl.active_texture(glow::TEXTURE0);
-
-            // Static level geometry: one range per (material, spatial cell).
-            // The ranges are stored group-major and chunk-major, so walking them
-            // in order binds each texture and each buffer pair as few times as
-            // the partition allows while still dropping off-screen cells.
-            let mut visible_vertices = 0usize;
-            let mut visible_batches = 0usize;
-            let mut draw_calls = 0usize;
-            let mut bound_key: Option<SurfaceKey> = None;
-            let mut bound_chunk: Option<usize> = None;
-            for batch in &self.static_batches {
-                if batch.index_range.count <= 0 {
+            if batch.key.kind == SurfaceKind::Decal {
+                continue;
+            }
+            if cull && !frustum.intersects_aabb(&batch.bounds) {
+                continue;
+            }
+            if bound_chunk != Some(batch.chunk) {
+                if self.bind_chunk(&self.level_buffers, batch.chunk) {
+                    bound_chunk = Some(batch.chunk);
+                } else {
                     continue;
                 }
-                // Decals are submitted by their own pass below, with the decal
-                // program and depth bias. Skipping them here keeps the world
-                // program's early depth testing intact.
-                if batch.key.kind == SurfaceKind::Decal {
-                    continue;
-                }
-                if cull && !frustum.intersects_aabb(&batch.bounds) {
-                    continue;
-                }
-                if bound_chunk != Some(batch.chunk) {
-                    if self.bind_chunk(&self.level_buffers, batch.chunk) {
-                        bound_chunk = Some(batch.chunk);
-                    } else {
-                        continue;
-                    }
-                }
-                if bound_key != Some(batch.key) {
-                    let texture = match batch.key.kind {
-                        SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall => {
-                            if batch.key.has_material() {
-                                let slot = self
-                                    .material_texture_slots
-                                    .get(batch.key.material as usize)
-                                    .copied()
-                                    .unwrap_or(0);
-                                self.material_textures
-                                    .get(slot as usize)
-                                    .copied()
-                                    .unwrap_or(self.white_texture)
-                            } else {
-                                // No resolved material (an empty authored id):
-                                // the unshaded sheet is the honest fallback.
-                                self.white_texture
-                            }
-                        }
-                        SurfaceKind::Light | SurfaceKind::PropFallback => self.white_texture,
-                        SurfaceKind::Decal => self.decal.texture,
-                    };
-                    self.gl.bind_texture(glow::TEXTURE_2D, Some(texture));
-                    bound_key = Some(batch.key);
-                }
+            }
+            if bound_key != Some(batch.key) {
+                let texture = self.static_texture(batch.key);
+                unsafe { self.gl.bind_texture(glow::TEXTURE_2D, Some(texture)) };
+                bound_key = Some(batch.key);
+            }
+            unsafe {
                 self.gl.draw_elements(
                     glow::TRIANGLES,
                     batch.index_range.count,
                     glow::UNSIGNED_SHORT,
-                    batch.index_range.start * 2,
+                    batch.index_range.start.saturating_mul(2),
                 );
-                visible_vertices += usize::try_from(batch.vertex_count.max(0)).unwrap_or(0);
-                visible_batches += 1;
-                draw_calls += 1;
             }
+            totals.add(batch.vertex_count);
+        }
+        totals
+    }
 
-            // 5. Draw the batched real prop geometry: one buffer and one draw
-            //    call per (model, spatial cell), with one texture bind per model.
-            if !self.prop_draws.is_empty() {
-                let mut bound_texture: Option<glow::Texture> = None;
-                let mut bound_chunk: Option<usize> = None;
-                for draw in &self.prop_draws {
-                    if draw.index_count <= 0 {
-                        continue;
-                    }
-                    if cull && !frustum.intersects_aabb(&draw.bounds) {
-                        continue;
-                    }
-                    if bound_chunk != Some(draw.chunk) {
-                        if self.bind_chunk(&self.prop_buffers, draw.chunk) {
-                            bound_chunk = Some(draw.chunk);
-                        } else {
-                            continue;
-                        }
-                    }
-                    if bound_texture != Some(draw.texture) {
-                        self.gl.bind_texture(glow::TEXTURE_2D, Some(draw.texture));
-                        bound_texture = Some(draw.texture);
-                    }
-                    self.gl.draw_elements(
-                        glow::TRIANGLES,
-                        draw.index_count,
-                        glow::UNSIGNED_SHORT,
-                        draw.index_start * 2,
-                    );
-                    visible_vertices += usize::try_from(draw.vertex_count.max(0)).unwrap_or(0);
-                    visible_batches += 1;
-                    draw_calls += 1;
+    /// The texture one static surface key binds: its resolved material sheet,
+    /// the decal atlas, or the unshaded white sheet.
+    fn static_texture(&self, key: SurfaceKey) -> glow::Texture {
+        match key.kind {
+            SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall => {
+                if key.has_material() {
+                    let slot = self
+                        .material_texture_slots
+                        .get(usize::from(key.material))
+                        .copied()
+                        .unwrap_or(0);
+                    self.material_textures
+                        .get(usize::from(slot))
+                        .copied()
+                        .unwrap_or(self.white_texture)
+                } else {
+                    // No resolved material (an empty authored id): the unshaded
+                    // sheet is the honest fallback.
+                    self.white_texture
                 }
             }
+            SurfaceKind::Light | SurfaceKind::PropFallback => self.white_texture,
+            SurfaceKind::Decal => self.decal.texture,
+        }
+    }
 
-            // 6. Decal pass: local surface markings drawn after the opaque world
-            //    and the props. Depth testing stays on and depth writes stay on,
-            //    so a decal is still hidden by anything in front of it; the pass
-            //    adds a fixed polygon offset that pulls each decal two depth
-            //    steps towards the camera, which is what makes it win the
-            //    coincident-depth test against the surface it lies on. The state
-            //    is restored before the pass returns.
-            let mut decal_active = false;
-            let mut decal_chunk: Option<usize> = None;
-            let mut bound_decal_texture: Option<glow::Texture> = None;
-            for batch in &self.static_batches {
-                if batch.key.kind != SurfaceKind::Decal || batch.index_range.count <= 0 {
+    /// Submits the batched real prop geometry: one buffer and one draw call per
+    /// (model, spatial cell), with one texture bind per model.
+    fn draw_prop_batches(&self, frustum: &Frustum, cull: bool) -> DrawTotals {
+        let mut totals = DrawTotals::default();
+        let mut bound_texture: Option<glow::Texture> = None;
+        let mut bound_chunk: Option<usize> = None;
+        for draw in &self.prop_draws {
+            if draw.index_count <= 0 {
+                continue;
+            }
+            if cull && !frustum.intersects_aabb(&draw.bounds) {
+                continue;
+            }
+            if bound_chunk != Some(draw.chunk) {
+                if self.bind_chunk(&self.prop_buffers, draw.chunk) {
+                    bound_chunk = Some(draw.chunk);
+                } else {
                     continue;
                 }
-                if cull && !frustum.intersects_aabb(&batch.bounds) {
-                    continue;
-                }
-                if !decal_active {
+            }
+            if bound_texture != Some(draw.texture) {
+                unsafe { self.gl.bind_texture(glow::TEXTURE_2D, Some(draw.texture)) };
+                bound_texture = Some(draw.texture);
+            }
+            unsafe {
+                self.gl.draw_elements(
+                    glow::TRIANGLES,
+                    draw.index_count,
+                    glow::UNSIGNED_SHORT,
+                    draw.index_start.saturating_mul(2),
+                );
+            }
+            totals.add(draw.vertex_count);
+        }
+        totals
+    }
+
+    /// Submits the decal pass: local surface markings drawn after the opaque
+    /// world and the props.
+    ///
+    /// Depth testing stays on and depth writes stay on, so a decal is still
+    /// hidden by anything in front of it; the pass adds a fixed polygon offset
+    /// that pulls each decal two depth steps towards the camera, which is what
+    /// makes it win the coincident-depth test against the surface it lies on.
+    /// The world program and offset state are restored before returning.
+    fn draw_decal_batches(&self, frustum: &Frustum, cull: bool, mvp: &glam::Mat4) -> DrawTotals {
+        let mut totals = DrawTotals::default();
+        let mut decal_active = false;
+        let mut decal_chunk: Option<usize> = None;
+        let mut bound_decal_texture: Option<glow::Texture> = None;
+        for batch in &self.static_batches {
+            if batch.key.kind != SurfaceKind::Decal || batch.index_range.count <= 0 {
+                continue;
+            }
+            if cull && !frustum.intersects_aabb(&batch.bounds) {
+                continue;
+            }
+            if !decal_active {
+                unsafe {
                     self.gl.use_program(Some(self.decal.program));
                     if let Some(ref loc) = self.decal.u_mvp_loc {
                         self.gl
@@ -1215,72 +1231,63 @@ impl Renderer {
                     self.gl.polygon_offset(factor, units);
                     self.gl
                         .bind_texture(glow::TEXTURE_2D, Some(self.decal.texture));
-                    decal_active = true;
-                    // Both programs share attribute locations, but rebind from
-                    // scratch so the pass cannot depend on what the world loop
-                    // left bound.
-                    decal_chunk = None;
                 }
-                if decal_chunk != Some(batch.chunk) {
-                    if self.bind_chunk(&self.level_buffers, batch.chunk) {
-                        decal_chunk = Some(batch.chunk);
-                    } else {
-                        continue;
-                    }
-                }
-                let sheet = if batch.key.material < DECAL_EXTERNAL_BASE as MaterialIndex {
-                    self.decal.texture
+                decal_active = true;
+                // Both programs share attribute locations, but rebind from
+                // scratch so the pass cannot depend on what the world loop left
+                // bound.
+                decal_chunk = None;
+            }
+            if decal_chunk != Some(batch.chunk) {
+                if self.bind_chunk(&self.level_buffers, batch.chunk) {
+                    decal_chunk = Some(batch.chunk);
                 } else {
-                    self.decal
-                        .external
-                        .get((batch.key.material - DECAL_EXTERNAL_BASE as MaterialIndex) as usize)
-                        .copied()
-                        .unwrap_or(self.decal.texture)
-                };
-                if bound_decal_texture != Some(sheet) {
-                    self.gl.bind_texture(glow::TEXTURE_2D, Some(sheet));
-                    bound_decal_texture = Some(sheet);
+                    continue;
                 }
+            }
+            let sheet = self.decal_sheet_texture(batch.key.material);
+            if bound_decal_texture != Some(sheet) {
+                unsafe { self.gl.bind_texture(glow::TEXTURE_2D, Some(sheet)) };
+                bound_decal_texture = Some(sheet);
+            }
+            unsafe {
                 self.gl.draw_elements(
                     glow::TRIANGLES,
                     batch.index_range.count,
                     glow::UNSIGNED_SHORT,
-                    batch.index_range.start * 2,
+                    batch.index_range.start.saturating_mul(2),
                 );
-                visible_vertices += usize::try_from(batch.vertex_count.max(0)).unwrap_or(0);
-                visible_batches += 1;
-                draw_calls += 1;
             }
-            if decal_active {
-                // Restore the exact scene state: no polygon offset, and the
-                // world program (whose uniforms are per-program and still
-                // valid), so nothing after the pass can inherit decal state.
+            totals.add(batch.vertex_count);
+        }
+        if decal_active {
+            // Restore the exact scene state: no polygon offset, and the world
+            // program (whose uniforms are per-program and still valid), so
+            // nothing after the pass can inherit decal state.
+            unsafe {
                 self.gl.polygon_offset(0.0, 0.0);
                 self.gl.disable(glow::POLYGON_OFFSET_FILL);
                 self.gl.use_program(Some(self.program));
             }
-
-            self.gl.disable_vertex_attrib_array(self.a_pos_loc);
-            self.gl.disable_vertex_attrib_array(self.a_color_loc);
-            self.gl.disable_vertex_attrib_array(self.a_uv_loc);
-            self.gl.bind_texture(glow::TEXTURE_2D, None);
-            self.gl.bind_buffer(glow::ARRAY_BUFFER, None);
-            self.gl.use_program(None);
-
-            // Report what this frame actually submitted, straight from the draw
-            // path rather than reconstructed from the level.
-            let total_vertices = self.level_stats.static_vertices + self.level_stats.prop_vertices;
-            self.render_stats = RenderStats {
-                total_vertices,
-                visible_vertices,
-                culled_vertices: total_vertices.saturating_sub(visible_vertices),
-                total_batches: self.static_batches.len() + self.prop_draws.len(),
-                visible_batches,
-                draw_calls,
-                vbo_bytes: self.level_stats.vbo_bytes,
-                index_bytes: self.level_stats.index_bytes,
-            };
         }
+        totals
+    }
+
+    /// The texture one decal material index binds.
+    ///
+    /// Indices below [`DECAL_EXTERNAL_BASE`] address the generated atlas;
+    /// higher ones index the level's external sheets, falling back to the
+    /// atlas when a sheet is missing.
+    fn decal_sheet_texture(&self, material: MaterialIndex) -> glow::Texture {
+        u32::from(material)
+            .checked_sub(DECAL_EXTERNAL_BASE)
+            .map_or(self.decal.texture, |offset| {
+                self.decal
+                    .external
+                    .get(usize::try_from(offset).unwrap_or(usize::MAX))
+                    .copied()
+                    .unwrap_or(self.decal.texture)
+            })
     }
 
     /// Selects the GPU vertex layout. Packed is the shipping default; the
@@ -1321,7 +1328,9 @@ impl Renderer {
     pub fn static_batch_breakdown(&self) -> [usize; SurfaceKind::ALL.len()] {
         let mut counts = [0usize; SurfaceKind::ALL.len()];
         for batch in &self.static_batches {
-            counts[batch.key.kind as usize] += 1;
+            if let Some(count) = counts.get_mut(batch.key.kind as usize) {
+                *count = count.saturating_add(1);
+            }
         }
         counts
     }
@@ -1333,7 +1342,9 @@ impl Renderer {
     pub fn static_batch_family_breakdown(&self) -> [usize; SurfaceKind::ALL.len()] {
         let mut counts = [0usize; SurfaceKind::ALL.len()];
         for batch in &self.static_batches {
-            counts[batch.key.kind as usize] += 1;
+            if let Some(count) = counts.get_mut(batch.key.kind as usize) {
+                *count = count.saturating_add(1);
+            }
         }
         counts
     }
@@ -1438,8 +1449,8 @@ impl Renderer {
 
             let ortho = glam::Mat4::orthographic_rh(
                 0.0,
-                UI_REFERENCE_WIDTH as f32,
-                UI_REFERENCE_HEIGHT as f32,
+                dimension_f32(UI_REFERENCE_WIDTH),
+                dimension_f32(UI_REFERENCE_HEIGHT),
                 0.0,
                 -1.0,
                 1.0,
@@ -1502,4 +1513,173 @@ impl Renderer {
             self.gl.enable(glow::DEPTH_TEST);
         }
     }
+}
+
+/// What one draw loop submitted, so the frame counters can be summed.
+#[derive(Clone, Copy, Debug, Default)]
+struct DrawTotals {
+    vertices: usize,
+    batches: usize,
+    calls: usize,
+}
+
+impl DrawTotals {
+    /// Records one submitted batch: its live vertices, one batch, one draw call.
+    fn add(&mut self, vertex_count: i32) {
+        self.vertices = self
+            .vertices
+            .saturating_add(usize::try_from(vertex_count.max(0)).unwrap_or(0));
+        self.batches = self.batches.saturating_add(1);
+        self.calls = self.calls.saturating_add(1);
+    }
+
+    /// The sum of two loops' totals.
+    const fn plus(self, other: Self) -> Self {
+        Self {
+            vertices: self.vertices.saturating_add(other.vertices),
+            batches: self.batches.saturating_add(other.batches),
+            calls: self.calls.saturating_add(other.calls),
+        }
+    }
+}
+
+/// Uploads packed chunks into `buffers`, reusing the buffer pairs and dropping
+/// any left over from a larger previous level.
+///
+/// # Errors
+///
+/// Returns a message when a GL buffer cannot be created.
+fn upload_chunks(
+    gl: &glow::Context,
+    layout: VertexLayout,
+    buffers: &mut Vec<(glow::Buffer, glow::Buffer)>,
+    chunks: &[MeshChunk],
+) -> Result<(), String> {
+    unsafe {
+        // Drop any buffers left over from a larger previous level.
+        while buffers.len() > chunks.len() {
+            if let Some((vbo, ibo)) = buffers.pop() {
+                gl.delete_buffer(vbo);
+                gl.delete_buffer(ibo);
+            }
+        }
+        for (index, chunk) in chunks.iter().enumerate() {
+            if index == buffers.len() {
+                let vbo = gl.create_buffer()?;
+                let ibo = gl.create_buffer()?;
+                buffers.push((vbo, ibo));
+            }
+            let Some(&(vbo, ibo)) = buffers.get(index) else {
+                continue;
+            };
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
+            match layout {
+                VertexLayout::Packed => {
+                    // The one and only place the exact build vertices
+                    // become the packed GPU representation.
+                    let packed: Vec<PackedVertex> =
+                        chunk.vertices.iter().map(PackedVertex::from).collect();
+                    let vertex_bytes = std::slice::from_raw_parts(
+                        packed.as_ptr().cast::<u8>(),
+                        packed
+                            .len()
+                            .saturating_mul(std::mem::size_of::<PackedVertex>()),
+                    );
+                    gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, vertex_bytes, glow::STATIC_DRAW);
+                }
+                VertexLayout::Exact => {
+                    let vertex_bytes = std::slice::from_raw_parts(
+                        chunk.vertices.as_ptr().cast::<u8>(),
+                        chunk
+                            .vertices
+                            .len()
+                            .saturating_mul(std::mem::size_of::<Vertex>()),
+                    );
+                    gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, vertex_bytes, glow::STATIC_DRAW);
+                }
+            }
+
+            gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ibo));
+            let index_bytes = std::slice::from_raw_parts(
+                chunk.indices.as_ptr().cast::<u8>(),
+                chunk
+                    .indices
+                    .len()
+                    .saturating_mul(std::mem::size_of::<u16>()),
+            );
+            gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, index_bytes, glow::STATIC_DRAW);
+        }
+        gl.bind_buffer(glow::ARRAY_BUFFER, None);
+        gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, None);
+    }
+    Ok(())
+}
+
+/// Packs every static range into 16-bit-indexable buffer pairs.
+///
+/// Each range keeps its own vertex block and its indices are re-based as it is
+/// packed, so a draw never needs a base-vertex offset (which core OpenGL ES 2.0
+/// does not have). With `indexed` false (`LIMINAL_BENCH_NOINDEX`) every range is
+/// expanded into a flat triangle list first, so one build can measure indexed
+/// submission against non-indexed submission with the same batching, culling
+/// and vertex layout.
+fn pack_static_batches(mesh: &LevelMesh, indexed: bool) -> (MeshPacker, Vec<StaticBatch>) {
+    let mut packer = MeshPacker::default();
+    let mut batches: Vec<StaticBatch> = Vec::with_capacity(mesh.ranges.len());
+    for range in &mesh.ranges {
+        let placements = if indexed {
+            packer.push(&range.vertices, &range.indices)
+        } else {
+            packer.push_unindexed(&range.vertices, &range.indices)
+        };
+        for packed in placements {
+            batches.push(StaticBatch {
+                key: range.key,
+                chunk: packed.chunk,
+                index_range: BatchRange {
+                    start: packed.index_start,
+                    count: packed.index_count,
+                },
+                vertex_count: packed.vertex_count,
+                bounds: range.bounds,
+            });
+        }
+    }
+    (packer, batches)
+}
+
+/// Builds the frame's view-projection matrix and the frustum extracted from it.
+///
+/// The configured FOV is the `PocketCHIP` baseline; wider displays gain
+/// horizontal view, taller displays keep the horizontal view instead of
+/// cropping it. The frustum comes from the very matrix the GPU clips against,
+/// so it can never disagree with what is on screen: pitch, a resized drawable
+/// and an unusual aspect ratio are all included.
+fn scene_view_projection(
+    camera_pos: glam::Vec3,
+    camera_yaw: f32,
+    camera_pitch: f32,
+    fov_degrees: f32,
+    drawable: DrawableSize,
+) -> (glam::Mat4, Frustum) {
+    let aspect = drawable.aspect_ratio();
+    let effective_fov = vertical_fov_for_aspect(fov_degrees, aspect);
+    let proj = glam::Mat4::perspective_rh(effective_fov.to_radians(), aspect, 0.1, 100.0);
+
+    // Correctly combine yaw and pitch in the camera forward vector.
+    let cos_pitch = camera_pitch.cos();
+    let forward = glam::Vec3::new(
+        camera_yaw.sin() * cos_pitch,
+        camera_pitch.sin(),
+        -camera_yaw.cos() * cos_pitch,
+    );
+    // `glam`'s vector and matrix operators are per-component `f32` arithmetic
+    // with no overflow or panic path; clippy cannot see that through the
+    // operator impls, so the two operations below carry a documented allow.
+    #[allow(clippy::arithmetic_side_effects)]
+    let view = glam::Mat4::look_at_rh(camera_pos, camera_pos + forward, glam::Vec3::Y);
+    #[allow(clippy::arithmetic_side_effects)]
+    let mvp = proj * view;
+    let frustum = Frustum::from_view_projection(&mvp, crate::spatial::DepthRange::ZeroToOne);
+    (mvp, frustum)
 }

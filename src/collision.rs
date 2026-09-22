@@ -117,16 +117,20 @@ pub fn resolve_player_collision(
             }
             let closest_x = pos.x.clamp(wall.min_x, wall.max_x);
             let closest_z = pos.y.clamp(wall.min_z, wall.max_z);
-            let diff = pos - Vec2::new(closest_x, closest_z);
+            // Component-wise subtraction rather than the glam operator: the
+            // scalar operations cannot overflow and are exactly what the
+            // operator would do.
+            let diff = Vec2::new(pos.x - closest_x, pos.y - closest_z);
             let dist_sq = diff.length_squared();
 
             if dist_sq < radius * radius {
                 collided = true;
                 if dist_sq > 1e-6 {
                     let dist = dist_sq.sqrt();
-                    let normal = diff / dist;
+                    let normal = Vec2::new(diff.x / dist, diff.y / dist);
                     let penetration = radius - dist;
-                    pos += normal * penetration;
+                    pos.x = normal.x.mul_add(penetration, pos.x);
+                    pos.y = normal.y.mul_add(penetration, pos.y);
                 } else {
                     // Center is inside or exactly on the bounding box boundary.
                     let d_left = (pos.x - wall.min_x).abs();

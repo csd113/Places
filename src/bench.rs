@@ -221,15 +221,14 @@ impl TimingSummary {
             return Self::default();
         }
         samples.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        let count = samples.len();
         let sum: f32 = samples.iter().copied().sum();
         Self {
-            mean_ms: sum / count as f32,
+            mean_ms: sum / sample_count_f32(samples.len()),
             median_ms: percentile(samples, 0.50),
             p95_ms: percentile(samples, 0.95),
             p99_ms: percentile(samples, 0.99),
-            min_ms: samples[0],
-            max_ms: samples[count - 1],
+            min_ms: samples.first().copied().unwrap_or_default(),
+            max_ms: samples.last().copied().unwrap_or_default(),
         }
     }
 
@@ -240,11 +239,28 @@ impl TimingSummary {
     }
 }
 
+/// `count` samples as `f32`.
+///
+/// One sample is recorded per frame, so a run long enough to round the count
+/// (2^24 frames is six days at 30 fps) would need a gigabyte of records; the
+/// cast is exact for every run this harness can produce.
+#[allow(clippy::cast_precision_loss)]
+const fn sample_count_f32(count: usize) -> f32 {
+    count as f32
+}
+
 /// Nearest-rank percentile over an already sorted, non-empty slice.
 fn percentile(sorted: &[f32], fraction: f32) -> f32 {
-    let last = sorted.len() - 1;
-    let index = ((last as f32) * fraction).round() as usize;
-    sorted[index.min(last)]
+    let Some(last) = sorted.len().checked_sub(1) else {
+        return 0.0;
+    };
+    let index = (sample_count_f32(last) * fraction).round();
+    // `usize::try_from(f32)` is unstable (`convert_float_to_int`), so the
+    // rounded index narrows with `as`; `min(last)` below keeps it in bounds
+    // and the cast's saturation matches the historical behaviour.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let index = index as usize;
+    sorted.get(index.min(last)).copied().unwrap_or(0.0)
 }
 
 /// One recorded frame: timings plus the geometry counters submitted with it.
@@ -386,14 +402,14 @@ impl Bench {
         self.last_begin = Some(begin);
 
         if self.warmup_remaining > 0 {
-            self.warmup_remaining -= 1;
+            self.warmup_remaining = self.warmup_remaining.saturating_sub(1);
             return;
         }
         if let Some(remaining) = self.limit_remaining.as_mut() {
             if *remaining == 0 {
                 return;
             }
-            *remaining -= 1;
+            *remaining = remaining.saturating_sub(1);
         }
 
         let frame_ms = millis(t_swap.saturating_duration_since(begin));
@@ -409,7 +425,7 @@ impl Bench {
                 loop_ms
             },
         };
-        self.recorded += 1;
+        self.recorded = self.recorded.saturating_add(1);
 
         if let Some(file) = self.csv.as_mut() {
             let _ = writeln!(
@@ -442,6 +458,10 @@ impl Bench {
 
     /// Writes the run summary to stdout as a single `BENCH_SUMMARY {...}` line.
     /// Called once, when the run ends.
+    // The benchmark report is the harness's entire purpose on a headless
+    // device (the on-screen overlay cannot be read over SSH) and has no logger
+    // to route through.
+    #[allow(clippy::print_stdout)]
     pub fn finish(&mut self) {
         if !self.config.enabled || self.frames.is_empty() {
             println!("BENCH_SUMMARY {{\"frames\":0}}");
@@ -510,7 +530,11 @@ impl Default for Bench {
 
 /// Milliseconds as `f32`, saturating rather than wrapping on absurd durations.
 fn millis(duration: std::time::Duration) -> f32 {
-    duration.as_secs_f64() as f32 * 1000.0
+    // Frame timings are milliseconds-scale; the cast narrows a diagnostic
+    // value and rounds rather than truncating.
+    #[allow(clippy::cast_possible_truncation)]
+    let millis = duration.as_secs_f64() as f32 * 1000.0;
+    millis
 }
 
 #[cfg(test)]

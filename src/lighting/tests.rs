@@ -3,6 +3,16 @@
 //! They exercise the module through its public surface plus the pure helpers,
 //! which is exactly what the geometry emitter and the editor mirror use.
 
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
+// the production lints stay enforced everywhere else in the crate.
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::expect_used,
+    clippy::float_cmp,
+    clippy::indexing_slicing,
+    clippy::suboptimal_flops
+)]
+
 use super::*;
 use crate::level::LevelDef;
 use crate::test_support::{assert_exact, scan};

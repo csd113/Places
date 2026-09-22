@@ -1,5 +1,16 @@
 //! Unit tests for the asset catalog.
 
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
+// the production lints stay enforced everywhere else in the crate.
+#![allow(
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::map_unwrap_or,
+    clippy::needless_raw_string_hashes,
+    clippy::panic,
+    clippy::too_many_lines
+)]
+
 use super::*;
 use crate::level::LevelDef;
 

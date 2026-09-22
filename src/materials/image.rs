@@ -15,6 +15,30 @@ use crate::assets::MAX_TEXTURE_DIMENSION;
 /// Edge length of the generated missing-texture pattern, in texels.
 const MISSING_TEXTURE_SIZE: u32 = 64;
 
+/// Bytes per RGBA texel.
+const RGBA_CHANNELS: usize = 4;
+
+/// Bytes in one row of the generated missing-texture pattern.
+const MISSING_TEXTURE_ROW_BYTES: usize = (MISSING_TEXTURE_SIZE as usize) * RGBA_CHANNELS;
+
+/// Bytes of the generated missing-texture pattern (`MISSING_TEXTURE_SIZE`
+/// squared, RGBA8).
+const MISSING_TEXTURE_BYTES: usize = {
+    let size = MISSING_TEXTURE_SIZE as usize;
+    size * size * RGBA_CHANNELS
+};
+
+/// Expected byte length of an RGBA8 buffer of these dimensions.
+///
+/// `None` when the dimensions cannot describe a buffer this platform can
+/// address (a 16-bit `usize` cannot hold the largest 8-bit PNG).
+fn rgba_byte_len(width: u32, height: u32) -> Option<usize> {
+    usize::try_from(width)
+        .ok()?
+        .checked_mul(usize::try_from(height).ok()?)?
+        .checked_mul(RGBA_CHANNELS)
+}
+
 /// Decoded 8-bit RGBA image buffer.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RawImage {
@@ -46,7 +70,7 @@ pub fn encode_png(image: &RawImage) -> Result<Vec<u8>, String> {
     if image.width == 0 || image.height == 0 {
         return Err("cannot encode a zero-sized image".into());
     }
-    if image.rgba.len() != (image.width * image.height * 4) as usize {
+    if rgba_byte_len(image.width, image.height) != Some(image.rgba.len()) {
         return Err("image buffer length does not match its dimensions".into());
     }
     let mut out = Vec::new();
@@ -106,24 +130,25 @@ pub fn decode_png(bytes: &[u8]) -> Result<RawImage, String> {
         .map_err(|e| format!("PNG decode error: {e}"))?;
     buf.truncate(output_info.buffer_size());
 
+    let expected_len = rgba_byte_len(width, height);
     let rgba = match output_info.color_type {
         png::ColorType::Rgba => buf,
         png::ColorType::Rgb => {
-            let mut rgba = Vec::with_capacity((width * height * 4) as usize);
+            let mut rgba = Vec::with_capacity(expected_len.unwrap_or_default());
             for chunk in buf.as_chunks::<3>().0 {
                 rgba.extend_from_slice(&[chunk[0], chunk[1], chunk[2], 255]);
             }
             rgba
         }
         png::ColorType::Grayscale => {
-            let mut rgba = Vec::with_capacity((width * height * 4) as usize);
+            let mut rgba = Vec::with_capacity(expected_len.unwrap_or_default());
             for &g in &buf {
                 rgba.extend_from_slice(&[g, g, g, 255]);
             }
             rgba
         }
         png::ColorType::GrayscaleAlpha => {
-            let mut rgba = Vec::with_capacity((width * height * 4) as usize);
+            let mut rgba = Vec::with_capacity(expected_len.unwrap_or_default());
             for chunk in buf.as_chunks::<2>().0 {
                 rgba.extend_from_slice(&[chunk[0], chunk[0], chunk[0], chunk[1]]);
             }
@@ -134,7 +159,7 @@ pub fn decode_png(bytes: &[u8]) -> Result<RawImage, String> {
         }
     };
 
-    if rgba.len() != (width * height * 4) as usize {
+    if Some(rgba.len()) != expected_len {
         return Err("decoded image buffer length does not match width * height * 4".into());
     }
 
@@ -160,13 +185,28 @@ pub fn load_png_relative(root: &Path, relative: &str) -> Result<RawImage, String
 #[must_use]
 pub fn missing_texture() -> RawImage {
     let size = MISSING_TEXTURE_SIZE;
-    let mut rgba = vec![0u8; (size * size * 4) as usize];
-    for y in 0..size {
-        for x in 0..size {
-            let checker = ((x / 8) + (y / 8)).is_multiple_of(2);
-            let colour: [u8; 3] = if checker { [255, 0, 255] } else { [24, 24, 24] };
-            let index = ((y * size + x) * 4) as usize;
-            rgba[index..index + 4].copy_from_slice(&[colour[0], colour[1], colour[2], 255]);
+    let mut rgba = vec![0u8; MISSING_TEXTURE_BYTES];
+    for (row_index, row) in rgba
+        .as_chunks_mut::<MISSING_TEXTURE_ROW_BYTES>()
+        .0
+        .iter_mut()
+        .enumerate()
+    {
+        for (column_index, texel) in row
+            .as_chunks_mut::<RGBA_CHANNELS>()
+            .0
+            .iter_mut()
+            .enumerate()
+        {
+            // Two 8-texel checker cells; a cell is magenta when its row and
+            // column parities agree, matching the old `(x / 8 + y / 8) % 2`.
+            let checker = (column_index / 8) % 2 == (row_index / 8) % 2;
+            let colour: [u8; 4] = if checker {
+                [255, 0, 255, 255]
+            } else {
+                [24, 24, 24, 255]
+            };
+            texel.copy_from_slice(&colour);
         }
     }
     RawImage::new(size, size, rgba)
@@ -194,7 +234,7 @@ impl TextureCache {
     pub fn insert(&mut self, key: impl Into<String>, image: RawImage) -> Rc<RawImage> {
         let image = Rc::new(image);
         self.images.insert(key.into(), Rc::clone(&image));
-        self.decodes += 1;
+        self.decodes = self.decodes.saturating_add(1);
         image
     }
 
@@ -206,7 +246,7 @@ impl TextureCache {
 
     /// Number of successful decodes this session (tests and diagnostics).
     #[must_use]
-    pub fn decoded_count(&self) -> usize {
+    pub const fn decoded_count(&self) -> usize {
         self.decodes
     }
 

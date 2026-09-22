@@ -88,8 +88,10 @@ pub const FIXTURE_HALF_DEPTH_M: f32 = 0.3;
 pub const FIXTURE_DROP_M: f32 = 0.01;
 
 /// Fallback height of a wall-mounted fixture with no authored `y`, as a
-/// distance above its room's floor. Validation requires a `y` for new content;
-/// this only keeps a hand-edited level finite instead of panicking.
+/// distance above its room's floor.
+///
+/// Validation requires a `y` for new content; this only keeps a hand-edited
+/// level finite instead of panicking.
 pub const WALL_LIGHT_DEFAULT_HEIGHT_M: f32 = 1.7;
 
 /// Distance a wall face is probed away from itself when the bake resolves which

@@ -55,6 +55,10 @@ pub fn calculate_cpu_percentage(prev: &CpuSample, curr: &CpuSample) -> Option<f3
     let delta_idle = curr.idle.saturating_sub(prev.idle);
     if delta_total > 0 {
         let delta_busy = delta_total.saturating_sub(delta_idle);
+        // Only the ratio of the two 500 ms tick deltas matters, and the result
+        // is a diagnostic percentage clamped to `0..=100`; `f32`'s 24-bit
+        // mantissa is ample and `as` rounds rather than truncating.
+        #[allow(clippy::cast_precision_loss)]
         let pct = (delta_busy as f32 / delta_total as f32) * 100.0;
         Some(pct.clamp(0.0, 100.0))
     } else {
@@ -138,16 +142,22 @@ fn sample_macos_cpu() -> Option<CpuSample> {
 
     unsafe {
         let mut info = HostCpuLoadInfo { cpu_ticks: [0; 4] };
-        let mut count =
-            u32::try_from(std::mem::size_of::<HostCpuLoadInfo>() / std::mem::size_of::<i32>())
-                .unwrap_or(u32::MAX);
+        let mut count = u32::try_from(
+            std::mem::size_of::<HostCpuLoadInfo>()
+                .checked_div(std::mem::size_of::<i32>())
+                .unwrap_or(0),
+        )
+        .unwrap_or(u32::MAX);
         let host = mach_host_self();
         if host_statistics64(host, HOST_CPU_LOAD_INFO, &raw mut info, &raw mut count) == 0 {
             let user = u64::from(info.cpu_ticks[0]);
             let system = u64::from(info.cpu_ticks[1]);
             let idle = u64::from(info.cpu_ticks[2]);
             let nice = u64::from(info.cpu_ticks[3]);
-            let total = user + system + idle + nice;
+            let total = user
+                .saturating_add(system)
+                .saturating_add(idle)
+                .saturating_add(nice);
             Some(CpuSample { total, idle })
         } else {
             None
@@ -179,10 +189,13 @@ pub fn parse_devfreq_load(content: &str) -> Option<f32> {
         .split(|c: char| c.is_whitespace() || c == '/')
         .filter(|s| !s.is_empty())
         .collect();
-    if parts.len() >= 2
-        && let (Ok(busy), Ok(total)) = (parts[0].parse::<f64>(), parts[1].parse::<f64>())
+    if let [busy_text, total_text, ..] = parts.as_slice()
+        && let (Ok(busy), Ok(total)) = (busy_text.parse::<f64>(), total_text.parse::<f64>())
         && total > 0.0
     {
+        // The percentage is clamped to `0..=100` below, well inside `f32`'s
+        // range; only the diagnostic precision narrows, never the value.
+        #[allow(clippy::cast_possible_truncation)]
         let pct = (busy / total * 100.0) as f32;
         return Some(pct.clamp(0.0, 100.0));
     }
@@ -310,6 +323,29 @@ pub fn sample_gpu_from_paths(
     None
 }
 
+/// Frames per second over `seconds`, rounded to the nearest whole frame.
+fn frames_per_second(frames: u32, seconds: f32) -> u32 {
+    // `frames` counts the `update` calls since the last half-second metrics
+    // refresh, so the widening cast is exact on any display (a few hundred
+    // frames at most) and the narrowing `as` saturates exactly like the
+    // historical cast did.
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
+    let fps = (frames as f32 / seconds).round() as u32;
+    fps
+}
+
+/// Character count of `text` as `f32`.
+///
+/// The overlay line is a fixed-format diagnostic of a few dozen characters, so
+/// the `u16` conversion is exact and the count is lossless in `f32`.
+fn char_count(text: &str) -> f32 {
+    f32::from(u16::try_from(text.chars().count()).unwrap_or(u16::MAX))
+}
+
 /// Performance statistics overlay (toggled with '-').
 pub struct PerfOverlay {
     visible: bool,
@@ -393,9 +429,9 @@ impl PerfOverlay {
     pub fn refresh_metrics(&mut self) {
         let elapsed = self.last_update.elapsed().as_secs_f32();
         let fps = if self.accumulated_time > 0.0 {
-            (self.accumulated_frames as f32 / self.accumulated_time).round() as u32
+            frames_per_second(self.accumulated_frames, self.accumulated_time)
         } else if elapsed > 0.0 {
-            (self.accumulated_frames as f32 / elapsed).round() as u32
+            frames_per_second(self.accumulated_frames, elapsed)
         } else {
             0
         };
@@ -423,7 +459,7 @@ impl PerfOverlay {
             return;
         }
 
-        let char_count = self.cached_text.chars().count() as f32;
+        let char_count = char_count(&self.cached_text);
         let pad_x = 4.0;
         let pad_y = 3.0;
         let text_w = char_count * 8.0;

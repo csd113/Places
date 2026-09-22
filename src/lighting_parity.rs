@@ -20,6 +20,16 @@
 //! then run both suites. The Rust test below fails if the file no longer
 //! matches the code, which is the point: the numbers cannot drift silently.
 
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
+// the production lints stay enforced everywhere else in the crate.
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::print_stdout
+)]
 #![cfg(test)]
 
 use crate::level::LevelDef;

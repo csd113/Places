@@ -1,5 +1,16 @@
 //! Unit tests for the prop asset pipeline.
 
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
+// the production lints stay enforced everywhere else in the crate.
+#![allow(
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::print_stdout,
+    clippy::too_many_lines,
+    clippy::unwrap_used
+)]
+
 use super::*;
 use crate::level::{
     MAX_PROP_TEXTURE_SIZE, MAX_PROP_TRIANGLES, MAX_PROP_VERTICES, PROP_TRIANGLE_REVIEW,

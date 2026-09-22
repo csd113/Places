@@ -5,7 +5,7 @@
 //! texture a batch binds, the cullable mesh, and the packer that turns it into
 //! 16-bit-indexable buffers.
 
-use super::*;
+use super::LevelDef;
 
 /// Authoring/build-time vertex: exact floats, easy to reason about and to audit.
 ///
@@ -95,7 +95,13 @@ fn quantize_unit(value: f32) -> u8 {
         return 0;
     }
     // `clamp` handles the infinities by saturation, which is what "clamp" means.
-    value.clamp(0.0, 1.0).mul_add(255.0, 0.5) as u8
+    let clamped = value.clamp(0.0, 1.0);
+    // `clamped` is in [0, 1], so `clamped * 255 + 0.5` is in [0.5, 255.5]: the
+    // truncating cast only drops the fraction and can never leave the byte
+    // range, and the value is non-negative.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let byte = clamped.mul_add(255.0, 0.5) as u8;
+    byte
 }
 
 /// The exact value a normalised byte decodes to, for tests and audits.
@@ -486,14 +492,16 @@ pub(super) fn finish_indexed_mesh(
             continue;
         }
         let index_len = i32::try_from(range.indices.len()).unwrap_or(i32::MAX);
-        let slot = &mut spans[key.kind as usize];
-        *slot = Some(match *slot {
-            None => (virtual_index, virtual_index + index_len),
-            Some((low, high)) => (low.min(virtual_index), high.max(virtual_index + index_len)),
-        });
-        virtual_index += index_len;
-        vertex_count += range.vertices.len();
-        index_count += range.indices.len();
+        let span_end = virtual_index.saturating_add(index_len);
+        if let Some(slot) = spans.get_mut(key.kind as usize) {
+            *slot = Some(match *slot {
+                None => (virtual_index, span_end),
+                Some((low, high)) => (low.min(virtual_index), high.max(span_end)),
+            });
+        }
+        virtual_index = span_end;
+        vertex_count = vertex_count.saturating_add(range.vertices.len());
+        index_count = index_count.saturating_add(range.indices.len());
         ranges.push(LevelMeshRange {
             key,
             vertices: range.vertices,
@@ -503,25 +511,30 @@ pub(super) fn finish_indexed_mesh(
     }
     drop(buckets);
 
-    let span = |slot: Option<(i32, i32)>| match slot {
-        Some((start, end)) => BatchRange {
-            start,
-            count: end - start,
-        },
-        None => BatchRange::default(),
-    };
-    batches.floor_batch = span(spans[SurfaceKind::Floor as usize]);
-    batches.ceiling_batch = span(spans[SurfaceKind::Ceiling as usize]);
-    batches.wall_batch = span(spans[SurfaceKind::Wall as usize]);
-    batches.light_batch = span(spans[SurfaceKind::Light as usize]);
-    batches.prop_batch = span(spans[SurfaceKind::PropFallback as usize]);
-    batches.decal_batch = span(spans[SurfaceKind::Decal as usize]);
+    batches.floor_batch = span_for(&spans, SurfaceKind::Floor);
+    batches.ceiling_batch = span_for(&spans, SurfaceKind::Ceiling);
+    batches.wall_batch = span_for(&spans, SurfaceKind::Wall);
+    batches.light_batch = span_for(&spans, SurfaceKind::Light);
+    batches.prop_batch = span_for(&spans, SurfaceKind::PropFallback);
+    batches.decal_batch = span_for(&spans, SurfaceKind::Decal);
 
     LevelMesh {
         ranges,
         batches,
         vertex_count,
         index_count,
+    }
+}
+
+/// One surface family's aggregate index span, or an empty range when the
+/// family emitted nothing.
+fn span_for(spans: &[Option<(i32, i32)>], kind: SurfaceKind) -> BatchRange {
+    match spans.get(kind as usize).copied().flatten() {
+        Some((start, end)) => BatchRange {
+            start,
+            count: end.saturating_sub(start),
+        },
+        None => BatchRange::default(),
     }
 }
 
@@ -620,38 +633,51 @@ impl MeshPacker {
                 self.chunks.push(MeshChunk::default());
                 remap.fill(u16::MAX);
             }
-            let chunk_index = self.chunks.len() - 1;
-            let chunk = &mut self.chunks[chunk_index];
+            let Some(chunk_index) = self.chunks.len().checked_sub(1) else {
+                break;
+            };
+            let Some(chunk) = self.chunks.get_mut(chunk_index) else {
+                break;
+            };
             let index_start = i32::try_from(chunk.indices.len()).unwrap_or(i32::MAX);
             let vertex_start = i32::try_from(chunk.vertices.len()).unwrap_or(i32::MAX);
 
-            while cursor < indices.len() {
-                let source = indices[cursor] as usize;
+            while let Some(&index) = indices.get(cursor) {
+                let source = usize::from(index);
                 let Some(vertex) = vertices.get(source) else {
                     // Malformed index: skip it rather than fabricating geometry.
-                    cursor += 1;
+                    cursor = cursor.saturating_add(1);
                     continue;
                 };
-                if remap[source] == u16::MAX {
+                let Some(remapped) = remap.get_mut(source) else {
+                    cursor = cursor.saturating_add(1);
+                    continue;
+                };
+                if *remapped == u16::MAX {
                     if chunk.vertices.len() >= limit {
                         break;
                     }
-                    remap[source] = u16::try_from(chunk.vertices.len()).unwrap_or(u16::MAX);
+                    *remapped = u16::try_from(chunk.vertices.len()).unwrap_or(u16::MAX);
                     chunk.vertices.push(*vertex);
                 }
-                chunk.indices.push(remap[source]);
-                cursor += 1;
+                chunk.indices.push(*remapped);
+                cursor = cursor.saturating_add(1);
             }
 
-            let index_count = i32::try_from(chunk.indices.len()).unwrap_or(i32::MAX) - index_start;
+            let Some(chunk) = self.chunks.get(chunk_index) else {
+                break;
+            };
+            let index_end = i32::try_from(chunk.indices.len()).unwrap_or(i32::MAX);
+            let index_count = index_end.saturating_sub(index_start);
             if index_count > 0 {
                 placements.push(PackedRange {
                     chunk: chunk_index,
                     index_start,
                     index_count,
                     vertex_start,
-                    vertex_count: i32::try_from(chunk.vertices.len()).unwrap_or(i32::MAX)
-                        - vertex_start,
+                    vertex_count: i32::try_from(chunk.vertices.len())
+                        .unwrap_or(i32::MAX)
+                        .saturating_sub(vertex_start),
                 });
             }
         }
