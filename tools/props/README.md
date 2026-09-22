@@ -22,6 +22,7 @@ convention, triangle and texture budgets, GLB profile — are documented once in
 | `parts/appliances.py` | stove, sink, fridge, washing machine, vending machine, water cooler |
 | `parts/utility.py`    | crate (the commented exemplar), cardboard box                       |
 | `parts/decor.py`      | plant, rug, lamp, TV                                                |
+| `parts/pool.py`       | pool table and chair, curtain modules, ladder, guardrail modules    |
 
 ## Commands
 

@@ -1,0 +1,508 @@
+{
+  "format_version": 1,
+  "id": "pool_showcase",
+  "name": "Pool Showcase",
+  "author": "Places",
+  "spawn": {
+    "x": 8.0,
+    "z": 10.2,
+    "yaw_degrees": 0.0
+  },
+  "defaults": {
+    "wall": "core:pool_tile_wall_01",
+    "floor": "core:pool_tile_deck_01",
+    "ceiling": "core:pool_ceiling_01"
+  },
+  "rooms": [
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 16.0,
+      "depth": 11.0
+    },
+    {
+      "x": 16.0,
+      "z": 4.0,
+      "width": 3.5,
+      "depth": 2.4,
+      "height": 3.0
+    },
+    {
+      "x": 19.5,
+      "z": 2.4,
+      "width": 5.5,
+      "depth": 5.0,
+      "height": 3.2,
+      "material": "core:pool_tile_basin_01"
+    }
+  ],
+  "floor_regions": [
+    {
+      "x": 4.0,
+      "z": 3.0,
+      "width": 9.0,
+      "depth": 4.5,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 9.0,
+      "z": 7.5,
+      "width": 4.0,
+      "depth": 0.9,
+      "offset_y": -0.35,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.15,
+      "z": -0.15,
+      "width": 16.3,
+      "depth": 0.3,
+      "height": 4.0
+    },
+    {
+      "x": -0.15,
+      "z": 10.85,
+      "width": 16.3,
+      "depth": 0.3,
+      "height": 4.0
+    },
+    {
+      "x": -0.15,
+      "z": -0.15,
+      "width": 0.3,
+      "depth": 11.3,
+      "height": 4.0
+    },
+    {
+      "x": 15.85,
+      "z": -0.15,
+      "width": 0.3,
+      "depth": 11.3,
+      "height": 4.0,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 4.75,
+          "width": 1.2,
+          "height": 2.1
+        }
+      ]
+    },
+    {
+      "x": 15.85,
+      "z": 3.85,
+      "width": 3.8,
+      "depth": 0.3,
+      "height": 3.0
+    },
+    {
+      "x": 15.85,
+      "z": 6.25,
+      "width": 3.8,
+      "depth": 0.3,
+      "height": 3.0
+    },
+    {
+      "x": 19.35,
+      "z": 2.25,
+      "width": 0.3,
+      "depth": 5.3,
+      "height": 3.2,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.35,
+          "width": 1.2,
+          "height": 2.1
+        }
+      ]
+    },
+    {
+      "x": 19.35,
+      "z": 2.25,
+      "width": 5.8,
+      "depth": 0.3,
+      "height": 3.2
+    },
+    {
+      "x": 19.35,
+      "z": 7.25,
+      "width": 5.8,
+      "depth": 0.3,
+      "height": 3.2
+    },
+    {
+      "x": 24.85,
+      "z": 2.25,
+      "width": 0.3,
+      "depth": 5.3,
+      "height": 3.2
+    }
+  ],
+  "decals": [
+    {
+      "x": 4.5,
+      "y": 0.0,
+      "z": 8.2,
+      "width": 0.9,
+      "height": 0.9,
+      "rotation_degrees": 0.0,
+      "material": "core:decal_no_diving_01",
+      "surface": "floor"
+    },
+    {
+      "x": 7.5,
+      "y": 1.6,
+      "z": 0.15,
+      "width": 0.9,
+      "height": 0.9,
+      "material": "core:decal_no_diving_01",
+      "surface": "wall_south"
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "core:pool_light_round",
+      "x": 4.0,
+      "z": 2.8,
+      "brightness": 0.9,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 8.0,
+      "z": 2.8,
+      "brightness": 0.9,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 12.0,
+      "z": 2.8,
+      "brightness": 0.9,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 4.0,
+      "z": 8.4,
+      "brightness": 0.9,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 8.0,
+      "z": 8.4,
+      "brightness": 0.9,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 12.0,
+      "z": 8.4,
+      "brightness": 0.6,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 17.75,
+      "z": 5.2,
+      "brightness": 0.7,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 20.9,
+      "z": 3.6,
+      "brightness": 0.7,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 23.6,
+      "z": 5.8,
+      "brightness": 0.7,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_wall",
+      "x": 4.0,
+      "y": 2.1,
+      "z": 0.15,
+      "rotation_degrees": 0.0,
+      "mount": "wall",
+      "brightness": 0.8,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_wall",
+      "x": 9.0,
+      "y": 2.1,
+      "z": 10.85,
+      "rotation_degrees": 180.0,
+      "mount": "wall",
+      "brightness": 0.8,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_wall",
+      "x": 15.85,
+      "y": 2.1,
+      "z": 3.0,
+      "rotation_degrees": 270.0,
+      "mount": "wall",
+      "brightness": 0.7,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_wall",
+      "x": 15.85,
+      "y": 2.1,
+      "z": 8.8,
+      "rotation_degrees": 270.0,
+      "mount": "wall",
+      "brightness": 0.7,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    }
+  ],
+  "props": [
+    {
+      "model": "core:pool_ladder",
+      "x": 12.72,
+      "z": 5.25,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.45,
+        2.2,
+        0.55
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:pool_table",
+      "x": 6.0,
+      "z": 9.6,
+      "size": [
+        0.8,
+        0.74,
+        0.8
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:pool_chair",
+      "x": 6.0,
+      "z": 8.72,
+      "size": [
+        0.52,
+        0.85,
+        0.55
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:pool_chair",
+      "x": 6.0,
+      "z": 10.5,
+      "size": [
+        0.52,
+        0.85,
+        0.55
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:pool_curtain_corner",
+      "x": 24.4875,
+      "z": 3.0125,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.6,
+        2.6,
+        0.6
+      ]
+    },
+    {
+      "model": "core:pool_curtain_straight",
+      "x": 24.2,
+      "z": 3.94,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.22,
+        2.6,
+        1.2
+      ]
+    },
+    {
+      "model": "core:pool_curtain_end",
+      "x": 24.2,
+      "z": 4.855,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.22,
+        2.6,
+        0.6
+      ]
+    },
+    {
+      "model": "core:pool_guardrail_end",
+      "x": 5.7,
+      "z": 2.9,
+      "size": [
+        0.6,
+        1.05,
+        0.08
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:pool_guardrail_straight",
+      "x": 7.0,
+      "z": 2.9,
+      "size": [
+        2.0,
+        1.05,
+        0.08
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:pool_guardrail_straight",
+      "x": 9.0,
+      "z": 2.9,
+      "size": [
+        2.0,
+        1.05,
+        0.08
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:pool_guardrail_straight",
+      "x": 11.0,
+      "z": 2.9,
+      "size": [
+        2.0,
+        1.05,
+        0.08
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:pool_guardrail_corner",
+      "x": 12.29,
+      "z": 2.6125,
+      "rotation_degrees": 180.0,
+      "size": [
+        0.6,
+        1.05,
+        0.6
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:pool_guardrail_straight",
+      "x": 3.9,
+      "z": 5.5,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.08,
+        1.05,
+        2.0
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:pool_guardrail_end",
+      "x": 3.9,
+      "z": 6.79,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.08,
+        1.05,
+        0.6
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:crate",
+      "x": 0.8,
+      "z": 0.9,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:cardboard_box",
+      "x": 1.5,
+      "z": 0.65,
+      "rotation_degrees": 30.0,
+      "size": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "solid": true
+    }
+  ]
+}

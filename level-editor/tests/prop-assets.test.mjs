@@ -23,7 +23,8 @@ const proxies = props.PropProxies.fromJSON(JSON.parse(fs.readFileSync(proxyPath,
 const MODEL_KEYS = ['+x', '-x', '+y', '-y', '+z', '-z'];
 
 test('every catalogue prop ships a derived proxy with real parts', () => {
-  assert.equal(catalog.size, 21, 'the pack is the twenty core props plus spooner-man');
+  assert.equal(catalog.size, catalog.list.length, 'the catalogue lists every prop once');
+  assert.ok(catalog.size >= 30, 'the pack is the core/office set plus the Pool family');
   assert.equal(proxies.size, catalog.size, 'one proxy per catalogue entry');
   assert.ok(catalog.has('spooner-man'), 'the spooner-man prop id is exactly "spooner-man"');
   for (const entry of catalog.list) {
@@ -96,9 +97,15 @@ test('every prop has a thumbnail for the browser', () => {
 
 test('the demo levels place every core prop', () => {
   const showcase = JSON.parse(fs.readFileSync(path.join(appRoot, 'assets/levels/prop_showcase.json'), 'utf8'));
+  const poolShowcase = JSON.parse(fs.readFileSync(path.join(appRoot, 'assets/levels/pool_showcase.json'), 'utf8'));
   const placed = new Set(showcase.props.map(prop => prop.model));
+  for (const prop of poolShowcase.props) {
+    placed.add(prop.model);
+  }
+  // The Pool family is placed in the Pool showcase; every other placeable stays
+  // in the domestic/office showcase.
   for (const entry of catalog.list) {
-    assert.ok(placed.has(entry.id), `prop_showcase.json must place ${entry.id}`);
+    assert.ok(placed.has(entry.id), `the showcase levels must place ${entry.id}`);
   }
 
   const stress = JSON.parse(fs.readFileSync(path.join(appRoot, 'assets/levels/prop_stress.json'), 'utf8'));

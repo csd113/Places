@@ -48,9 +48,45 @@ under `assets/`.
   Pool prop. Its logical id is still exactly `spooner-man`, and its one
   canonical resource lives at `assets/entities/spooner-man/model/spooner-man.glb`.
 * Generic props (couch, bed, appliances, ...) carry no theme and stay generic.
-* The shipped surface PNGs are deliberately plain seed art that preserves the
-  pre-4.5 look; the Goal 5 content pass replaces them with the real Office and
-  Pool artwork.
+* The shipped surface PNGs are the finished Office and Pool artwork: carpet,
+  wallpaper, panel ceiling and their damaged variants, plus the Pool deck,
+  basin and wall tile, the sterile Pool ceiling and the `NO DIVING` sign sheet.
+  Every one is an ordinary editable file; see `assets/README.md` for the
+  catalog format and `tools/textures/README.md` for the authoring workflow.
+* `assets/levels/office_showcase.json` and `assets/levels/pool_showcase.json`
+  are the two Goal 5 showcase levels: the Office suite and the empty Pool
+  complex. Boot them directly with `LIMINAL_LEVEL=office_showcase` or
+  `LIMINAL_LEVEL=pool_showcase`.
+
+### Built-in theme content
+
+Themes group and document content; they never restrict placement. Reference any
+of these by logical id from any level.
+
+| Office | id | kind |
+| --- | --- | --- |
+| Wallpaper (maintained / damaged) | `core:wallpaper_yellow_01` / `core:wallpaper_stained_01` | material |
+| Carpet (maintained / damp) | `core:carpet_beige_01` / `core:carpet_damp_01` | material |
+| Suspended ceiling (maintained / stained) | `core:ceiling_panel_01` / `core:ceiling_stained_01` | material |
+| Fluorescent ceiling panel | `core:fluorescent_panel_01` | light fixture |
+| Desk / chair | `core:desk` / `core:chair` | prop (solid) |
+| Cabinet / water cooler / vending machine | `core:cabinet` / `core:water_cooler` / `core:vending_machine` | prop (solid) |
+
+| Pool | id | kind |
+| --- | --- | --- |
+| Deck tile / basin tile / wall tile / ceiling | `core:pool_tile_deck_01` / `core:pool_tile_basin_01` / `core:pool_tile_wall_01` / `core:pool_ceiling_01` | material |
+| Patio table / chair | `core:pool_table` / `core:pool_chair` | prop (solid) |
+| Privacy curtain, straight / end / corner | `core:pool_curtain_straight` / `core:pool_curtain_end` / `core:pool_curtain_corner` | prop (walk-through) |
+| Ladder | `core:pool_ladder` | prop (solid; stands on the basin floor) |
+| Guardrail, straight / end / corner | `core:pool_guardrail_straight` / `core:pool_guardrail_end` / `core:pool_guardrail_corner` | prop (solid) |
+| Round ceiling downlight / wall luminaire | `core:pool_light_round` / `core:pool_light_wall` | light fixture (`wall` takes `mount` + `y`) |
+| NO DIVING sign | `core:decal_no_diving_01` | decal (external PNG cut-out) |
+
+Themes may be mixed freely: an Office level can use Pool assets and vice versa,
+and entity assets such as `spooner-man` place anywhere. Every surface and decal
+sheet above is an editable PNG under `assets/environment/<theme>/textures/` and
+`assets/environment/pool/decals/` — replace the file, restart, see the new
+pixels. `python3 tools/textures/build.py --check` validates the shipped set.
 
 `assets/README.md` documents the catalog format, the runtime resolution flow,
 the material/texture split and the asset budgets. Validate everything with:
@@ -143,6 +179,35 @@ The shipped JSON examples in `assets/levels/` demonstrate rooms, walls with door
 and window openings, per-room and per-wall material overrides, floor patches,
 ceiling lights and placed props. The bundled level editor writes the same format.
 
+### Lights
+
+`ceiling_lights` holds every light fixture, ceiling-mounted by default:
+
+```json
+{
+  "fixture": "core:fluorescent_panel_01",
+  "x": 5.0, "z": 5.0,
+  "rotation_degrees": 0.0,
+  "color": [1.0, 0.96, 0.88],   // emitted RGB, 0..1 per channel
+  "brightness": 1.0             // also accepted as "intensity"
+}
+```
+
+* `color` and `brightness` are optional; omitted means the restrained warm
+  fluorescent default. They drive both the visible fixture's tint and the
+  coloured illumination the baked lighting applies, so a blue fixture shows a
+  blue panel *and* lights the floor blue.
+* `fixture` selects the catalog `light` asset: the office panel
+  (`core:fluorescent_panel_01`), the round Pool downlight
+  (`core:pool_light_round`) or the wall luminaire (`core:pool_light_wall`).
+* A **wall fixture** adds `"mount": "wall"` and a world-space `"y"`; it faces
+  `rotation_degrees` (`0` faces `+Z`, like a prop) and does not derive a height
+  from the ceiling.
+* There is no authored radius or height: a ceiling fixture hangs just below the
+  lowest ceiling point it covers, and the ambient baseline is a deliberate
+  `0.10`, so an unlit room stays dark rather than being filled with global
+  light.
+
 ### Vertical geometry
 
 A room is a rectangular volume with a floor plane, a ceiling profile and its own
@@ -169,6 +234,35 @@ the historical room exactly.
   linearly across the other axis, from the eave at both edges up to the ridge at
   the centre; ridge world Y is `floor_y + height + ridge_rise`. Gable-end walls
   follow the slope automatically when they do not author a height.
+
+### Walls
+
+A wall is authored by its **minimum corner**, exactly like a room: `x`/`z` is
+the corner with the smallest coordinates, and `width`/`depth` extend from
+there. A wall whose longer side runs along `x` is an `x`-axis wall (its faces
+look along `z`), and vice versa.
+
+```json
+{ "x": 0.0, "z": -0.3, "width": 16.0, "depth": 0.3, "height": 4.0,
+  "material": "core:pool_tile_wall_01",
+  "faces": { "south": "core:decal_stripes_01" },
+  "openings": [ { "kind": "door", "offset": 4.0, "width": 1.2, "height": 2.1 } ] }
+```
+
+* `y` is absolute world Y (default `0.0`), not relative to a room floor.
+* `height` omitted means the wall follows the local ceiling, including a gable
+  slope; authored, it is its own height above `y`.
+* `openings` are cut from the min corner along the wall's length axis:
+  `offset` is metres from that corner, `width` along the wall, `height` above
+  `sill` (default `0`). `kind` is `door`, `window`, `passage` or `vent`;
+  doors and passages reach the floor and let the player through, windows keep
+  their sill and header solid.
+* `faces` overrides one face's material by name (`north`, `south`, `east`,
+  `west`); the wall-level `material` overrides every face.
+* Walls are not generated from rooms: an unenclosed room shows the void through
+  the gap, so shell every room you want to walk inside of. Coincident duplicate
+  walls are coalesced into one surface with material runs (that is how overlays
+  are authored), so an overlapping copy is not a hole.
 
 ### Local floor regions
 

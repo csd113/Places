@@ -802,9 +802,13 @@ mod tests {
         let model = parse_glb(CHAIR_GLB).expect("shipped chair.glb must parse");
         assert!(model.triangles > 0);
         assert_eq!(model.indices.len(), model.triangles * 3);
-        assert_eq!(model.texture.width, 64);
-        assert_eq!(model.texture.height, 64);
-        assert_eq!(model.texture.rgba.len(), 64 * 64 * 4);
+        assert!(model.texture.width.is_power_of_two());
+        assert_eq!(model.texture.width, model.texture.height);
+        assert!(model.texture.width <= crate::level::MAX_PROP_TEXTURE_SIZE);
+        assert_eq!(
+            model.texture.rgba.len(),
+            (model.texture.width as usize) * (model.texture.height as usize) * 4
+        );
 
         // Origin convention: base on y = 0, horizontally centred, metres.
         let (low, high) = model.bounds().expect("chair has vertices");

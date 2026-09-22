@@ -1,0 +1,434 @@
+{
+  "format_version": 1,
+  "id": "office_showcase",
+  "name": "Office Showcase",
+  "author": "Places",
+  "spawn": {
+    "x": 3.1,
+    "z": 7.9,
+    "yaw_degrees": 0.0
+  },
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "rooms": [
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 6.4,
+      "depth": 5.0,
+      "height": 2.7
+    },
+    {
+      "x": 8.4,
+      "z": 0.0,
+      "width": 6.6,
+      "depth": 5.0,
+      "height": 2.7
+    },
+    {
+      "x": 6.4,
+      "z": 0.0,
+      "width": 2.0,
+      "depth": 8.6,
+      "height": 2.4,
+      "material": "core:carpet_damp_01",
+      "ceiling_material": "core:ceiling_stained_01"
+    },
+    {
+      "x": 0.0,
+      "z": 5.0,
+      "width": 6.4,
+      "depth": 3.6,
+      "height": 2.7
+    },
+    {
+      "x": 8.4,
+      "z": 5.0,
+      "width": 6.6,
+      "depth": 3.6,
+      "height": 2.7
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.15,
+      "z": -0.15,
+      "width": 6.55,
+      "depth": 0.3,
+      "height": 2.7
+    },
+    {
+      "x": 6.4,
+      "z": -0.15,
+      "width": 2.0,
+      "depth": 0.3,
+      "height": 2.7,
+      "material": "core:wallpaper_stained_01"
+    },
+    {
+      "x": 8.4,
+      "z": -0.15,
+      "width": 6.75,
+      "depth": 0.3,
+      "height": 2.7
+    },
+    {
+      "x": -0.15,
+      "z": 8.45,
+      "width": 6.55,
+      "depth": 0.3,
+      "height": 2.7
+    },
+    {
+      "x": 6.4,
+      "z": 8.45,
+      "width": 2.0,
+      "depth": 0.3,
+      "height": 2.7,
+      "material": "core:wallpaper_stained_01"
+    },
+    {
+      "x": 8.4,
+      "z": 8.45,
+      "width": 6.75,
+      "depth": 0.3,
+      "height": 2.7
+    },
+    {
+      "x": -0.15,
+      "z": -0.15,
+      "width": 0.3,
+      "depth": 5.3,
+      "height": 2.7
+    },
+    {
+      "x": -0.15,
+      "z": 5.0,
+      "width": 0.3,
+      "depth": 3.75,
+      "height": 2.7
+    },
+    {
+      "x": 14.85,
+      "z": -0.15,
+      "width": 0.3,
+      "depth": 5.3,
+      "height": 2.7
+    },
+    {
+      "x": 14.85,
+      "z": 5.0,
+      "width": 0.3,
+      "depth": 3.75,
+      "height": 2.7
+    },
+    {
+      "x": 6.25,
+      "z": -0.15,
+      "width": 0.3,
+      "depth": 5.3,
+      "height": 2.7,
+      "material": "core:wallpaper_stained_01",
+      "faces": {
+        "west": "core:wallpaper_yellow_01"
+      },
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1.85,
+          "width": 1.0,
+          "height": 2.1,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 6.25,
+      "z": 5.0,
+      "width": 0.3,
+      "depth": 3.75,
+      "height": 2.7,
+      "material": "core:wallpaper_stained_01",
+      "faces": {
+        "west": "core:wallpaper_yellow_01"
+      },
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1.1,
+          "width": 1.4,
+          "height": 2.1,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 8.25,
+      "z": -0.15,
+      "width": 0.3,
+      "depth": 5.3,
+      "height": 2.7,
+      "material": "core:wallpaper_stained_01",
+      "faces": {
+        "east": "core:wallpaper_yellow_01"
+      },
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1.85,
+          "width": 1.0,
+          "height": 2.1,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 8.25,
+      "z": 5.0,
+      "width": 0.3,
+      "depth": 3.75,
+      "height": 2.7,
+      "material": "core:wallpaper_stained_01",
+      "faces": {
+        "east": "core:wallpaper_yellow_01"
+      },
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1.1,
+          "width": 1.4,
+          "height": 2.1,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 0.0,
+      "z": 4.85,
+      "width": 6.4,
+      "depth": 0.3,
+      "height": 2.7,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.6,
+          "width": 1.0,
+          "height": 2.1,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 8.4,
+      "z": 4.85,
+      "width": 6.6,
+      "depth": 0.3,
+      "height": 2.7,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.8,
+          "width": 1.0,
+          "height": 2.1,
+          "sill": 0.0
+        }
+      ]
+    }
+  ],
+  "decals": [
+    {
+      "x": 7.4,
+      "y": 0.0,
+      "z": 7.3,
+      "width": 1.2,
+      "height": 1.2,
+      "material": "core:decal_arrow_01",
+      "surface": "floor",
+      "rotation_degrees": 0.0
+    },
+    {
+      "x": 9.6,
+      "y": 0.0,
+      "z": 2.2,
+      "width": 1.6,
+      "height": 0.8,
+      "material": "core:decal_stripes_01",
+      "surface": "floor",
+      "rotation_degrees": 0.0
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 2.0,
+      "z": 2.5,
+      "brightness": 0.62
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 5.0,
+      "z": 2.5,
+      "brightness": 0.58
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 10.0,
+      "z": 2.5,
+      "brightness": 0.62
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 13.0,
+      "z": 2.5,
+      "brightness": 0.58
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 7.4,
+      "z": 2.0,
+      "rotation_degrees": 90.0,
+      "brightness": 0.5
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 7.4,
+      "z": 6.0,
+      "rotation_degrees": 90.0,
+      "brightness": 0.38
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 2.0,
+      "z": 6.5,
+      "brightness": 0.68
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 11.0,
+      "z": 6.5,
+      "brightness": 0.58
+    }
+  ],
+  "props": [
+    {
+      "model": "core:desk",
+      "x": 1.6,
+      "y": 0.0,
+      "z": 3.4,
+      "rotation_degrees": 90.0,
+      "solid": true,
+      "size": [
+        0.7,
+        0.75,
+        1.6
+      ]
+    },
+    {
+      "model": "core:desk",
+      "x": 4.6,
+      "y": 0.0,
+      "z": 3.4,
+      "rotation_degrees": 180.0,
+      "solid": true,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ]
+    },
+    {
+      "model": "core:chair",
+      "x": 4.6,
+      "y": 0.0,
+      "z": 2.5,
+      "rotation_degrees": 180.0,
+      "solid": true,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ]
+    },
+    {
+      "model": "core:desk",
+      "x": 11.2,
+      "y": 0.0,
+      "z": 3.4,
+      "rotation_degrees": 180.0,
+      "solid": true,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ]
+    },
+    {
+      "model": "core:chair",
+      "x": 11.2,
+      "y": 0.0,
+      "z": 2.55,
+      "rotation_degrees": 0.0,
+      "solid": true,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ]
+    },
+    {
+      "model": "core:desk",
+      "x": 12.8,
+      "y": 0.0,
+      "z": 6.7,
+      "rotation_degrees": 0.0,
+      "solid": true,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ]
+    },
+    {
+      "model": "core:cabinet",
+      "x": 5.95,
+      "y": 0.0,
+      "z": 3.8,
+      "rotation_degrees": 270.0,
+      "solid": true,
+      "size": [
+        0.45,
+        0.85,
+        0.9
+      ]
+    },
+    {
+      "model": "core:cabinet",
+      "x": 8.85,
+      "y": 0.0,
+      "z": 3.8,
+      "rotation_degrees": 90.0,
+      "solid": true,
+      "size": [
+        0.45,
+        0.85,
+        0.9
+      ]
+    },
+    {
+      "model": "core:water_cooler",
+      "x": 6.0,
+      "y": 0.0,
+      "z": 7.9,
+      "rotation_degrees": 270.0,
+      "solid": true,
+      "size": [
+        0.35,
+        1.1,
+        0.35
+      ]
+    }
+  ]
+}

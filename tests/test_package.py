@@ -387,7 +387,7 @@ class EnvironmentTextureTests(unittest.TestCase):
 
     def test_every_texture_asset_file_exists_and_is_a_png(self):
         textures = catalog_entries("texture")
-        self.assertGreaterEqual(len(textures), 11, "the seed texture set is incomplete")
+        self.assertGreaterEqual(len(textures), 15, "the texture set is incomplete")
         for texture in textures:
             path = PACKAGE / "assets" / texture["model"]
             self.assertTrue(path.is_file(), f"{texture['id']}: {texture['model']} is missing")
@@ -414,6 +414,145 @@ class EnvironmentTextureTests(unittest.TestCase):
             self.assertIn(material_id, by_id, f"{material_id} disappeared from the catalog")
             self.assertEqual(by_id[material_id]["asset_type"], "material", material_id)
             self.assertEqual(by_id[material_id]["source"], "definition", material_id)
+
+
+class PoolContentTests(unittest.TestCase):
+    """Goal 5: the Pool theme is real content, not a reserved category."""
+
+    POOL_MATERIALS = (
+        "core:pool_tile_deck_01",
+        "core:pool_tile_basin_01",
+        "core:pool_tile_wall_01",
+        "core:pool_ceiling_01",
+    )
+    POOL_PROPS = (
+        "core:pool_table",
+        "core:pool_chair",
+        "core:pool_ladder",
+        "core:pool_curtain_straight",
+        "core:pool_curtain_end",
+        "core:pool_curtain_corner",
+        "core:pool_guardrail_straight",
+        "core:pool_guardrail_end",
+        "core:pool_guardrail_corner",
+    )
+    POOL_FIXTURES = ("core:pool_light_round", "core:pool_light_wall")
+
+    def test_pool_content_is_classified_and_organized(self):
+        by_id = {entry["id"]: entry for entry in catalog_entries()}
+        for material_id in self.POOL_MATERIALS:
+            material = by_id[material_id]
+            self.assertEqual(material["theme"], "pool", material_id)
+            self.assertTrue(by_id[material["texture"]]["model"].startswith("environment/pool/"), material_id)
+        for prop_id in self.POOL_PROPS:
+            prop = by_id[prop_id]
+            self.assertEqual(prop["theme"], "pool", prop_id)
+            self.assertTrue(prop["model"].startswith("environment/pool/"), prop_id)
+            self.assertTrue((PACKAGE / "assets" / prop["model"]).is_file(), prop_id)
+        for fixture_id in self.POOL_FIXTURES:
+            fixture = by_id[fixture_id]
+            self.assertEqual(fixture["theme"], "pool", fixture_id)
+            self.assertEqual(fixture["asset_type"], "light", fixture_id)
+            self.assertEqual(fixture["source"], "generated", fixture_id)
+
+    def test_the_no_diving_sign_is_external_cut_out_artwork(self):
+        by_id = {entry["id"]: entry for entry in catalog_entries()}
+        sign = by_id["core:decal_no_diving_01"]
+        self.assertEqual(sign["asset_type"], "decal", "the sign is a decal")
+        self.assertEqual(sign["source"], "file", "the sign must be external PNG artwork")
+        path = PACKAGE / "assets" / sign["model"]
+        self.assertTrue(path.is_file(), sign["model"])
+        data = path.read_bytes()
+        self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"), "the sign is not a PNG")
+        colour_type = data[25]
+        self.assertEqual(colour_type, 6, "the sign needs an alpha channel")
+        width, height = struct.unpack(">II", data[16:24])
+        self.assertEqual((width, height), (128, 128), "the sign is one 128x128 sheet")
+        # The sheet must be a cut-out: some pixel is fully transparent, so the
+        # decal pass has a silhouette to discard instead of a floating plate.
+        import zlib
+
+        offset = 8
+        idat = b""
+        while offset < len(data):
+            length = struct.unpack(">I", data[offset : offset + 4])[0]
+            tag = data[offset + 4 : offset + 8]
+            if tag == b"IDAT":
+                idat += data[offset + 8 : offset + 8 + length]
+            offset += 12 + length
+        raw = zlib.decompress(idat)
+        stride = width * 4
+        transparent = any(
+            raw[row * (stride + 1) + 1 + column * 4 + 3] == 0
+            for row in range(height)
+            for column in range(width)
+        )
+        self.assertTrue(transparent, "the sign sheet has no transparent pixels")
+
+    def test_the_pool_showcase_is_real_lowered_floor_geometry(self):
+        level = load_level(PACKAGE / "assets" / "levels" / "pool_showcase.json")
+        regions = level.get("floor_regions", [])
+        self.assertTrue(regions, "the pool basin must be a floor region, not a prop")
+        offsets = [float(region.get("offset_y", 0.0)) for region in regions]
+        self.assertTrue(any(offset <= -1.0 for offset in offsets), "no recessed basin")
+        self.assertTrue(any(-0.4 < offset < 0 for offset in offsets), "no walkable entry step")
+        # Every region is tiled, not left on the Office default.
+        for region in regions:
+            self.assertEqual(region.get("material"), "core:pool_tile_basin_01", region)
+            self.assertEqual(region.get("edge_material"), "core:pool_tile_wall_01", region)
+        # The walls put the sign on the deck and the fixtures in the room.
+        materials = {decal.get("material") for decal in level.get("decals", [])}
+        self.assertIn("core:decal_no_diving_01", materials)
+        fixtures = {light.get("fixture") for light in level.get("ceiling_lights", [])}
+        self.assertIn("core:pool_light_round", fixtures)
+        self.assertIn("core:pool_light_wall", fixtures)
+        # Wall fixtures carry a mount and a world height.
+        for light in level.get("ceiling_lights", []):
+            if light.get("fixture") == "core:pool_light_wall":
+                self.assertEqual(light.get("mount"), "wall", light)
+                self.assertIn("y", light, light)
+
+    def test_the_pool_showcase_places_every_pool_prop(self):
+        level = load_level(PACKAGE / "assets" / "levels" / "pool_showcase.json")
+        placed = {prop["model"] for prop in level.get("props", [])}
+        for prop_id in self.POOL_PROPS:
+            self.assertIn(prop_id, placed, f"pool_showcase.json must place {prop_id}")
+
+    def test_the_office_case_goods_have_real_collision_boxes(self):
+        # A solid prop blocks with the level's own `size`; without one it falls
+        # back to a neutral 0.6 x 0.9 x 0.6 box, which lets a player walk
+        # through most of a desk. The Goal 5 showcase authors every solid box.
+        level = load_level(PACKAGE / "assets" / "levels" / "office_showcase.json")
+        solids = [prop for prop in level.get("props", []) if prop.get("solid") is True]
+        self.assertTrue(solids, "the office showcase must place solid furniture")
+        for prop in solids:
+            self.assertIn("size", prop, f"{prop['model']} at ({prop['x']}, {prop['z']}) needs a collision size")
+            size = prop["size"]
+            self.assertEqual(len(size), 3, prop)
+            self.assertTrue(all(value > 0 for value in size), prop)
+
+    def test_every_pool_solid_prop_authors_its_collision_box(self):
+        level = load_level(PACKAGE / "assets" / "levels" / "pool_showcase.json")
+        for prop in level.get("props", []):
+            if prop.get("solid") is True:
+                self.assertIn("size", prop, f"{prop['model']} needs an explicit collision size")
+                self.assertTrue(all(value > 0 for value in prop["size"]), prop)
+
+    def test_guardrails_and_the_ladder_have_collision(self):
+        level = load_level(PACKAGE / "assets" / "levels" / "pool_showcase.json")
+        solid = {
+            prop["model"]: prop
+            for prop in level.get("props", [])
+            if prop.get("solid") is True
+        }
+        for guardrail in (
+            "core:pool_guardrail_straight",
+            "core:pool_guardrail_end",
+            "core:pool_guardrail_corner",
+        ):
+            self.assertIn(guardrail, solid, f"{guardrail} must block the player")
+            self.assertIn("size", solid[guardrail], f"{guardrail} needs an explicit collision box")
+        self.assertIn("core:pool_ladder", solid)
 
 
 class SourceHygieneTests(unittest.TestCase):

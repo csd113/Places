@@ -1,7 +1,7 @@
 {
   "format_version": 1,
   "generated_by": "tools/props/build.py",
-  "note": "Derived from the shipped GLB meshes; do not edit by hand. Model paths are relative to assets/.",
+  "note": "Derived from the shipped GLB meshes; do not edit by hand.",
   "props": {
     "core:armchair": {
       "bounds_max": [
@@ -1325,14 +1325,14 @@
     },
     "core:chair": {
       "bounds_max": [
-        0.24,
-        0.901,
-        0.245
+        0.245,
+        0.902,
+        0.256
       ],
       "bounds_min": [
-        -0.24,
+        -0.245,
         0.0,
-        -0.265
+        -0.251
       ],
       "model": "environment/office/props/models/chair.glb",
       "name": "Chair",
@@ -1340,255 +1340,330 @@
         {
           "center": [
             0.0,
-            0.425,
-            0.015
+            0.04,
+            0.122
           ],
-          "color": "#c9bda8",
+          "color": "#a0a09c",
           "rotation": [
             0.0,
-            0.0,
+            -90.0,
             0.0
           ],
           "shape": "box",
           "size": [
-            0.48,
-            0.05,
-            0.46
+            0.188,
+            0.026,
+            0.036
           ]
         },
         {
           "axis": "y",
           "base": [
-            -0.2,
             0.0,
-            -0.175
-          ],
-          "color": "#c1b39e",
-          "height": 0.43,
-          "radius": 0.021,
-          "segments": 6,
-          "shape": "cylinder",
-          "taper": 0.82
-        },
-        {
-          "axis": "y",
-          "base": [
-            -0.2,
             0.0,
-            0.205
+            0.216
           ],
-          "color": "#c1b39e",
-          "height": 0.43,
-          "radius": 0.021,
-          "segments": 6,
+          "color": "#7a7976",
+          "height": 0.038,
+          "radius": 0.04,
+          "segments": 8,
           "shape": "cylinder",
-          "taper": 0.82
-        },
-        {
-          "axis": "y",
-          "base": [
-            0.2,
-            0.0,
-            -0.175
-          ],
-          "color": "#c1b39e",
-          "height": 0.43,
-          "radius": 0.021,
-          "segments": 6,
-          "shape": "cylinder",
-          "taper": 0.82
-        },
-        {
-          "axis": "y",
-          "base": [
-            0.2,
-            0.0,
-            0.205
-          ],
-          "color": "#c1b39e",
-          "height": 0.43,
-          "radius": 0.021,
-          "segments": 6,
-          "shape": "cylinder",
-          "taper": 0.82
+          "taper": 1.0
         },
         {
           "center": [
-            -0.2,
-            0.66,
-            -0.2288
+            -0.116,
+            0.04,
+            0.0377
           ],
-          "color": "#b7ab98",
+          "color": "#a0a09c",
           "rotation": [
-            -4.0,
+            0.0,
+            -162.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.188,
+            0.026,
+            0.036
+          ]
+        },
+        {
+          "axis": "y",
+          "base": [
+            -0.2054,
+            0.0,
+            0.0667
+          ],
+          "color": "#7a7976",
+          "height": 0.038,
+          "radius": 0.04,
+          "segments": 8,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "center": [
+            -0.0717,
+            0.04,
+            -0.0987
+          ],
+          "color": "#a0a09c",
+          "rotation": [
+            0.0,
+            -234.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.188,
+            0.026,
+            0.036
+          ]
+        },
+        {
+          "axis": "y",
+          "base": [
+            -0.127,
+            0.0,
+            -0.1747
+          ],
+          "color": "#7a7976",
+          "height": 0.038,
+          "radius": 0.04,
+          "segments": 8,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "center": [
+            0.0717,
+            0.04,
+            -0.0987
+          ],
+          "color": "#a0a09c",
+          "rotation": [
+            0.0,
+            -306.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.188,
+            0.026,
+            0.036
+          ]
+        },
+        {
+          "axis": "y",
+          "base": [
+            0.127,
+            0.0,
+            -0.1747
+          ],
+          "color": "#7a7976",
+          "height": 0.038,
+          "radius": 0.04,
+          "segments": 8,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "center": [
+            0.116,
+            0.04,
+            0.0377
+          ],
+          "color": "#a0a09c",
+          "rotation": [
+            0.0,
+            -378.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.188,
+            0.026,
+            0.036
+          ]
+        },
+        {
+          "axis": "y",
+          "base": [
+            0.2054,
+            0.0,
+            0.0667
+          ],
+          "color": "#7a7976",
+          "height": 0.038,
+          "radius": 0.04,
+          "segments": 8,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "y",
+          "base": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "color": "#a7a7a1",
+          "height": 0.05,
+          "radius": 0.045,
+          "segments": 8,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "y",
+          "base": [
+            0.0,
+            0.04,
+            0.0
+          ],
+          "color": "#a7a7a1",
+          "height": 0.24,
+          "radius": 0.03,
+          "segments": 8,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "y",
+          "base": [
+            0.0,
+            0.28,
+            0.0
+          ],
+          "color": "#aeada6",
+          "height": 0.12,
+          "radius": 0.02,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "center": [
+            0.0,
+            0.4075,
+            0.01
+          ],
+          "color": "#9e9e9a",
+          "rotation": [
+            0.0,
             0.0,
             0.0
           ],
           "shape": "box",
           "size": [
-            0.04,
-            0.48,
-            0.04
+            0.24,
+            0.025,
+            0.24
           ]
         },
         {
           "center": [
-            0.2,
-            0.66,
-            -0.2288
+            0.0,
+            0.4175,
+            0.01
           ],
-          "color": "#b7ab98",
+          "color": "#b9b6ac",
           "rotation": [
-            -4.0,
+            0.0,
             0.0,
             0.0
           ],
           "shape": "box",
           "size": [
-            0.04,
-            0.48,
-            0.04
+            0.45,
+            0.035,
+            0.45
+          ]
+        },
+        {
+          "center": [
+            0.0,
+            0.45,
+            0.01
+          ],
+          "color": "#beb9af",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.42,
+            0.03,
+            0.42
           ]
         },
         {
           "center": [
             0.0,
             0.545,
-            -0.2207
+            -0.1798
           ],
-          "color": "#c9bda8",
+          "color": "#b6b3aa",
           "rotation": [
-            -4.0,
+            -7.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.07,
+            0.23,
+            0.045
+          ]
+        },
+        {
+          "center": [
+            0.0,
+            0.75,
+            -0.205
+          ],
+          "color": "#b9b6ac",
+          "rotation": [
+            -7.0,
             0.0,
             0.0
           ],
           "shape": "box",
           "size": [
             0.43,
-            0.06,
-            0.03
+            0.3,
+            0.055
           ]
         },
         {
           "center": [
             0.0,
-            0.7,
-            -0.2316
+            0.75,
+            -0.168
           ],
-          "color": "#c9bda8",
+          "color": "#beb9af",
           "rotation": [
-            -4.0,
+            -7.0,
             0.0,
             0.0
           ],
           "shape": "box",
           "size": [
-            0.43,
-            0.06,
-            0.03
-          ]
-        },
-        {
-          "center": [
-            0.0,
-            0.855,
-            -0.2424
-          ],
-          "color": "#c9bda8",
-          "rotation": [
-            -4.0,
-            0.0,
-            0.0
-          ],
-          "shape": "box",
-          "size": [
-            0.44,
-            0.09,
-            0.03
-          ]
-        },
-        {
-          "center": [
-            0.0,
-            0.3775,
-            -0.175
-          ],
-          "color": "#b7ab98",
-          "rotation": [
-            0.0,
-            0.0,
-            0.0
-          ],
-          "shape": "box",
-          "size": [
-            0.38,
-            0.045,
-            0.03
-          ]
-        },
-        {
-          "center": [
-            0.0,
-            0.3775,
-            0.205
-          ],
-          "color": "#b7ab98",
-          "rotation": [
-            0.0,
-            0.0,
-            0.0
-          ],
-          "shape": "box",
-          "size": [
-            0.38,
-            0.045,
-            0.03
-          ]
-        },
-        {
-          "center": [
-            -0.2,
-            0.3775,
-            0.015
-          ],
-          "color": "#b7ab98",
-          "rotation": [
-            0.0,
-            0.0,
-            0.0
-          ],
-          "shape": "box",
-          "size": [
-            0.03,
-            0.045,
-            0.34
-          ]
-        },
-        {
-          "center": [
+            0.35,
             0.2,
-            0.3775,
-            0.015
-          ],
-          "color": "#b7ab98",
-          "rotation": [
-            0.0,
-            0.0,
-            0.0
-          ],
-          "shape": "box",
-          "size": [
-            0.03,
-            0.045,
-            0.34
+            0.022
           ]
         }
       ],
       "texture": [
-        64,
-        64
+        128,
+        128
       ],
-      "triangles": 172
+      "triangles": 306
     },
     "core:couch": {
       "bounds_max": [
@@ -2105,10 +2180,10 @@
         {
           "center": [
             0.0,
-            0.729,
+            0.73,
             0.0
           ],
-          "color": "#c2b5a0",
+          "color": "#bfbcb3",
           "rotation": [
             0.0,
             0.0,
@@ -2117,17 +2192,17 @@
           "shape": "box",
           "size": [
             1.6,
-            0.042,
+            0.04,
             0.7
           ]
         },
         {
           "center": [
             -0.7775,
-            0.36,
+            0.355,
             0.0
           ],
-          "color": "#afa493",
+          "color": "#bdbab0",
           "rotation": [
             0.0,
             0.0,
@@ -2136,17 +2211,17 @@
           "shape": "box",
           "size": [
             0.045,
-            0.72,
-            0.66
+            0.71,
+            0.64
           ]
         },
         {
           "center": [
             0.7775,
-            0.36,
+            0.355,
             0.0
           ],
-          "color": "#afa493",
+          "color": "#bdbab0",
           "rotation": [
             0.0,
             0.0,
@@ -2155,17 +2230,17 @@
           "shape": "box",
           "size": [
             0.045,
-            0.72,
-            0.66
+            0.71,
+            0.64
           ]
         },
         {
           "center": [
             0.0,
-            0.5,
-            -0.32
+            0.42,
+            -0.3
           ],
-          "color": "#aca292",
+          "color": "#bcb9af",
           "rotation": [
             0.0,
             0.0,
@@ -2173,75 +2248,18 @@
           ],
           "shape": "box",
           "size": [
-            1.52,
-            0.36,
-            0.03
-          ]
-        },
-        {
-          "center": [
-            -0.52,
-            0.355,
-            0.0
-          ],
-          "color": "#afa493",
-          "rotation": [
-            0.0,
-            0.0,
-            0.0
-          ],
-          "shape": "box",
-          "size": [
-            0.46,
-            0.61,
-            0.6
-          ]
-        },
-        {
-          "center": [
-            -0.52,
-            0.5,
-            0.295
-          ],
-          "color": "#b4a896",
-          "rotation": [
-            0.0,
-            0.0,
-            0.0
-          ],
-          "shape": "box",
-          "size": [
-            0.4,
-            0.16,
-            0.03
-          ]
-        },
-        {
-          "center": [
-            -0.52,
-            0.5,
-            0.315
-          ],
-          "color": "#9a9a97",
-          "rotation": [
-            0.0,
-            0.0,
-            0.0
-          ],
-          "shape": "box",
-          "size": [
-            0.12,
-            0.025,
+            1.53,
+            0.44,
             0.02
           ]
         },
         {
           "center": [
-            -0.52,
-            0.27,
-            0.295
+            0.0,
+            0.635,
+            0.27
           ],
-          "color": "#b4a896",
+          "color": "#bbb8af",
           "rotation": [
             0.0,
             0.0,
@@ -2249,18 +2267,18 @@
           ],
           "shape": "box",
           "size": [
-            0.4,
-            0.16,
-            0.03
+            1.53,
+            0.15,
+            0.06
           ]
         },
         {
           "center": [
-            -0.52,
-            0.27,
-            0.315
+            0.0,
+            0.635,
+            0.313
           ],
-          "color": "#9a9a97",
+          "color": "#bebbb2",
           "rotation": [
             0.0,
             0.0,
@@ -2268,37 +2286,18 @@
           ],
           "shape": "box",
           "size": [
-            0.12,
-            0.025,
+            1.42,
+            0.115,
             0.02
           ]
         },
         {
           "center": [
-            0.3,
-            0.14,
-            0.0
-          ],
-          "color": "#ada392",
-          "rotation": [
-            0.0,
-            0.0,
-            0.0
-          ],
-          "shape": "box",
-          "size": [
             0.6,
-            0.035,
-            0.6
-          ]
-        },
-        {
-          "center": [
-            0.25,
-            0.645,
-            0.0
+            0.662,
+            0.324
           ],
-          "color": "#afa493",
+          "color": "#a0a09c",
           "rotation": [
             0.0,
             0.0,
@@ -2306,55 +2305,17 @@
           ],
           "shape": "box",
           "size": [
-            1.0,
-            0.13,
-            0.58
-          ]
-        },
-        {
-          "center": [
-            0.25,
-            0.645,
-            0.29
-          ],
-          "color": "#b4a896",
-          "rotation": [
-            0.0,
-            0.0,
-            0.0
-          ],
-          "shape": "box",
-          "size": [
-            0.46,
-            0.1,
-            0.03
-          ]
-        },
-        {
-          "center": [
-            0.25,
-            0.645,
-            0.31
-          ],
-          "color": "#9a9a97",
-          "rotation": [
-            0.0,
-            0.0,
-            0.0
-          ],
-          "shape": "box",
-          "size": [
-            0.12,
-            0.025,
-            0.02
+            0.05,
+            0.045,
+            0.008
           ]
         }
       ],
       "texture": [
-        64,
-        64
+        128,
+        128
       ],
-      "triangles": 190
+      "triangles": 72
     },
     "core:fridge": {
       "bounds_max": [
@@ -2611,6 +2572,1289 @@
         128
       ],
       "triangles": 246
+    },
+    "core:pool_chair": {
+      "bounds_max": [
+        0.26,
+        0.852,
+        0.27
+      ],
+      "bounds_min": [
+        -0.26,
+        0.0,
+        -0.283
+      ],
+      "model": "environment/pool/props/models/pool_chair.glb",
+      "name": "Pool Patio Chair",
+      "parts": [
+        {
+          "center": [
+            0.0,
+            0.3975,
+            0.02
+          ],
+          "color": "#e2ddd0",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.48,
+            0.045,
+            0.5
+          ]
+        },
+        {
+          "axis": "y",
+          "base": [
+            -0.19,
+            0.0,
+            -0.17
+          ],
+          "color": "#dbd6ca",
+          "height": 0.4,
+          "radius": 0.026,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 0.8
+        },
+        {
+          "axis": "y",
+          "base": [
+            -0.19,
+            0.0,
+            0.21
+          ],
+          "color": "#dbd6ca",
+          "height": 0.4,
+          "radius": 0.026,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 0.8
+        },
+        {
+          "axis": "y",
+          "base": [
+            0.19,
+            0.0,
+            -0.17
+          ],
+          "color": "#dbd6ca",
+          "height": 0.4,
+          "radius": 0.026,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 0.8
+        },
+        {
+          "axis": "y",
+          "base": [
+            0.19,
+            0.0,
+            0.21
+          ],
+          "color": "#dbd6ca",
+          "height": 0.4,
+          "radius": 0.026,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 0.8
+        },
+        {
+          "center": [
+            -0.19,
+            0.365,
+            0.02
+          ],
+          "color": "#d7d2c6",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.03,
+            0.045,
+            0.4
+          ]
+        },
+        {
+          "center": [
+            0.19,
+            0.365,
+            0.02
+          ],
+          "color": "#d7d2c6",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.03,
+            0.045,
+            0.4
+          ]
+        },
+        {
+          "center": [
+            -0.245,
+            0.635,
+            -0.2341
+          ],
+          "color": "#dbd6ca",
+          "rotation": [
+            -9.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.03,
+            0.43,
+            0.026
+          ]
+        },
+        {
+          "center": [
+            0.245,
+            0.635,
+            -0.2341
+          ],
+          "color": "#dbd6ca",
+          "rotation": [
+            -9.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.03,
+            0.43,
+            0.026
+          ]
+        },
+        {
+          "center": [
+            0.0,
+            0.5,
+            -0.2127
+          ],
+          "color": "#e4dfd2",
+          "rotation": [
+            -9.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.4,
+            0.05,
+            0.022
+          ]
+        },
+        {
+          "center": [
+            0.0,
+            0.615,
+            -0.2309
+          ],
+          "color": "#e4dfd2",
+          "rotation": [
+            -9.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.4,
+            0.05,
+            0.022
+          ]
+        },
+        {
+          "center": [
+            0.0,
+            0.73,
+            -0.2491
+          ],
+          "color": "#e4dfd2",
+          "rotation": [
+            -9.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.4,
+            0.05,
+            0.022
+          ]
+        },
+        {
+          "center": [
+            0.0,
+            0.822,
+            -0.2637
+          ],
+          "color": "#e7e1d4",
+          "rotation": [
+            -9.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.5,
+            0.055,
+            0.03
+          ]
+        }
+      ],
+      "texture": [
+        64,
+        64
+      ],
+      "triangles": 162
+    },
+    "core:pool_curtain_corner": {
+      "bounds_max": [
+        0.3,
+        2.6,
+        0.3
+      ],
+      "bounds_min": [
+        -0.301,
+        0.0,
+        -0.301
+      ],
+      "model": "environment/pool/props/models/pool_curtain_corner.glb",
+      "name": "Pool Curtain, Corner",
+      "parts": [
+        {
+          "axis": "y",
+          "base": [
+            -0.2875,
+            0.0,
+            -0.2875
+          ],
+          "color": "#d4d3c7",
+          "height": 2.6,
+          "radius": 0.0125,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "x",
+          "base": [
+            -0.2875,
+            2.55,
+            -0.2875
+          ],
+          "color": "#c9cac5",
+          "height": 0.5875,
+          "radius": 0.014,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "z",
+          "base": [
+            -0.2875,
+            2.55,
+            -0.2875
+          ],
+          "color": "#c9cac5",
+          "height": 0.5875,
+          "radius": 0.014,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        }
+      ],
+      "texture": [
+        128,
+        128
+      ],
+      "triangles": 90
+    },
+    "core:pool_curtain_end": {
+      "bounds_max": [
+        0.3,
+        2.6,
+        0.11
+      ],
+      "bounds_min": [
+        -0.3,
+        0.0,
+        -0.11
+      ],
+      "model": "environment/pool/props/models/pool_curtain_end.glb",
+      "name": "Pool Curtain, End",
+      "parts": [
+        {
+          "axis": "y",
+          "base": [
+            0.2875,
+            0.0,
+            0.0
+          ],
+          "color": "#d4d3c7",
+          "height": 2.6,
+          "radius": 0.0125,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "x",
+          "base": [
+            -0.2875,
+            2.55,
+            0.0
+          ],
+          "color": "#c9cac5",
+          "height": 0.575,
+          "radius": 0.014,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        }
+      ],
+      "texture": [
+        128,
+        128
+      ],
+      "triangles": 54
+    },
+    "core:pool_curtain_straight": {
+      "bounds_max": [
+        0.6,
+        2.6,
+        0.11
+      ],
+      "bounds_min": [
+        -0.6,
+        0.0,
+        -0.11
+      ],
+      "model": "environment/pool/props/models/pool_curtain_straight.glb",
+      "name": "Pool Curtain, Straight",
+      "parts": [
+        {
+          "axis": "y",
+          "base": [
+            -0.5875,
+            0.0,
+            0.0
+          ],
+          "color": "#d4d3c7",
+          "height": 2.6,
+          "radius": 0.0125,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "y",
+          "base": [
+            0.5875,
+            0.0,
+            0.0
+          ],
+          "color": "#d4d3c7",
+          "height": 2.6,
+          "radius": 0.0125,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "x",
+          "base": [
+            -0.5875,
+            2.55,
+            0.0
+          ],
+          "color": "#c9cac5",
+          "height": 1.175,
+          "radius": 0.014,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        }
+      ],
+      "texture": [
+        128,
+        128
+      ],
+      "triangles": 80
+    },
+    "core:pool_guardrail_corner": {
+      "bounds_max": [
+        0.3,
+        1.05,
+        0.3
+      ],
+      "bounds_min": [
+        -0.301,
+        0.0,
+        -0.301
+      ],
+      "model": "environment/pool/props/models/pool_guardrail_corner.glb",
+      "name": "Pool Guardrail, Corner",
+      "parts": [
+        {
+          "axis": "y",
+          "base": [
+            -0.28,
+            0.01,
+            -0.28
+          ],
+          "color": "#bebfbb",
+          "height": 1.04,
+          "radius": 0.02,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "y",
+          "base": [
+            0.28,
+            0.01,
+            -0.28
+          ],
+          "color": "#bebfbb",
+          "height": 1.04,
+          "radius": 0.02,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "y",
+          "base": [
+            -0.28,
+            0.01,
+            0.28
+          ],
+          "color": "#bebfbb",
+          "height": 1.04,
+          "radius": 0.02,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "x",
+          "base": [
+            -0.28,
+            0.98,
+            -0.28
+          ],
+          "color": "#c2c3bf",
+          "height": 0.58,
+          "radius": 0.021,
+          "segments": 8,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "x",
+          "base": [
+            -0.28,
+            0.53,
+            -0.28
+          ],
+          "color": "#bebfbb",
+          "height": 0.58,
+          "radius": 0.017,
+          "segments": 8,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "z",
+          "base": [
+            -0.28,
+            0.98,
+            -0.28
+          ],
+          "color": "#c2c3bf",
+          "height": 0.58,
+          "radius": 0.021,
+          "segments": 8,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "z",
+          "base": [
+            -0.28,
+            0.53,
+            -0.28
+          ],
+          "color": "#bebfbb",
+          "height": 0.58,
+          "radius": 0.017,
+          "segments": 8,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "center": [
+            -0.255,
+            0.008,
+            -0.255
+          ],
+          "color": "#b3b4b0",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.09,
+            0.016,
+            0.08
+          ]
+        },
+        {
+          "center": [
+            0.255,
+            0.008,
+            -0.255
+          ],
+          "color": "#b3b4b0",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.09,
+            0.016,
+            0.08
+          ]
+        },
+        {
+          "center": [
+            -0.255,
+            0.008,
+            0.255
+          ],
+          "color": "#b3b4b0",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.09,
+            0.016,
+            0.08
+          ]
+        }
+      ],
+      "texture": [
+        64,
+        64
+      ],
+      "triangles": 212
+    },
+    "core:pool_guardrail_end": {
+      "bounds_max": [
+        0.3,
+        1.05,
+        0.04
+      ],
+      "bounds_min": [
+        -0.3,
+        0.0,
+        -0.04
+      ],
+      "model": "environment/pool/props/models/pool_guardrail_end.glb",
+      "name": "Pool Guardrail, End",
+      "parts": [
+        {
+          "axis": "y",
+          "base": [
+            -0.28,
+            0.01,
+            0.0
+          ],
+          "color": "#bebfbb",
+          "height": 1.04,
+          "radius": 0.02,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "y",
+          "base": [
+            0.28,
+            0.01,
+            0.0
+          ],
+          "color": "#bebfbb",
+          "height": 1.04,
+          "radius": 0.02,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "x",
+          "base": [
+            -0.3,
+            0.98,
+            0.0
+          ],
+          "color": "#c2c3bf",
+          "height": 0.6,
+          "radius": 0.021,
+          "segments": 8,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "x",
+          "base": [
+            -0.3,
+            0.53,
+            0.0
+          ],
+          "color": "#bebfbb",
+          "height": 0.6,
+          "radius": 0.017,
+          "segments": 8,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "center": [
+            -0.255,
+            0.008,
+            0.0
+          ],
+          "color": "#b3b4b0",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.09,
+            0.016,
+            0.08
+          ]
+        },
+        {
+          "center": [
+            0.255,
+            0.008,
+            0.0
+          ],
+          "color": "#b3b4b0",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.09,
+            0.016,
+            0.08
+          ]
+        }
+      ],
+      "texture": [
+        64,
+        64
+      ],
+      "triangles": 120
+    },
+    "core:pool_guardrail_straight": {
+      "bounds_max": [
+        1.0,
+        1.05,
+        0.04
+      ],
+      "bounds_min": [
+        -1.0,
+        0.0,
+        -0.04
+      ],
+      "model": "environment/pool/props/models/pool_guardrail_straight.glb",
+      "name": "Pool Guardrail, Straight",
+      "parts": [
+        {
+          "axis": "y",
+          "base": [
+            -0.98,
+            0.01,
+            0.0
+          ],
+          "color": "#bebfbb",
+          "height": 1.04,
+          "radius": 0.02,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "y",
+          "base": [
+            0.0,
+            0.01,
+            0.0
+          ],
+          "color": "#bebfbb",
+          "height": 1.04,
+          "radius": 0.02,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "y",
+          "base": [
+            0.98,
+            0.01,
+            0.0
+          ],
+          "color": "#bebfbb",
+          "height": 1.04,
+          "radius": 0.02,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "x",
+          "base": [
+            -1.0,
+            0.98,
+            0.0
+          ],
+          "color": "#c2c3bf",
+          "height": 2.0,
+          "radius": 0.021,
+          "segments": 8,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "x",
+          "base": [
+            -1.0,
+            0.53,
+            0.0
+          ],
+          "color": "#bebfbb",
+          "height": 2.0,
+          "radius": 0.017,
+          "segments": 8,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "center": [
+            -0.955,
+            0.008,
+            0.0
+          ],
+          "color": "#b3b4b0",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.09,
+            0.016,
+            0.08
+          ]
+        },
+        {
+          "center": [
+            0.0,
+            0.008,
+            0.0
+          ],
+          "color": "#b3b4b0",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.09,
+            0.016,
+            0.08
+          ]
+        },
+        {
+          "center": [
+            0.955,
+            0.008,
+            0.0
+          ],
+          "color": "#b3b4b0",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.09,
+            0.016,
+            0.08
+          ]
+        }
+      ],
+      "texture": [
+        64,
+        64
+      ],
+      "triangles": 148
+    },
+    "core:pool_ladder": {
+      "bounds_max": [
+        0.275,
+        2.211,
+        0.213
+      ],
+      "bounds_min": [
+        -0.275,
+        0.0,
+        -0.225
+      ],
+      "model": "environment/pool/props/models/pool_ladder.glb",
+      "name": "Pool Ladder",
+      "parts": [
+        {
+          "color": "#c9cac5",
+          "end": [
+            -0.25,
+            1.5,
+            -0.2
+          ],
+          "radius": 0.025,
+          "shape": "tube",
+          "start": [
+            -0.25,
+            0.0,
+            -0.2
+          ]
+        },
+        {
+          "color": "#c9cac5",
+          "end": [
+            -0.25,
+            1.88,
+            -0.14
+          ],
+          "radius": 0.025,
+          "shape": "tube",
+          "start": [
+            -0.25,
+            1.5,
+            -0.2
+          ]
+        },
+        {
+          "color": "#c9cac5",
+          "end": [
+            -0.25,
+            2.07,
+            0.0
+          ],
+          "radius": 0.025,
+          "shape": "tube",
+          "start": [
+            -0.25,
+            1.88,
+            -0.14
+          ]
+        },
+        {
+          "color": "#c9cac5",
+          "end": [
+            -0.25,
+            2.19,
+            0.2
+          ],
+          "radius": 0.025,
+          "shape": "tube",
+          "start": [
+            -0.25,
+            2.07,
+            0.0
+          ]
+        },
+        {
+          "color": "#c9cac5",
+          "end": [
+            0.25,
+            1.5,
+            -0.2
+          ],
+          "radius": 0.025,
+          "shape": "tube",
+          "start": [
+            0.25,
+            0.0,
+            -0.2
+          ]
+        },
+        {
+          "color": "#c9cac5",
+          "end": [
+            0.25,
+            1.88,
+            -0.14
+          ],
+          "radius": 0.025,
+          "shape": "tube",
+          "start": [
+            0.25,
+            1.5,
+            -0.2
+          ]
+        },
+        {
+          "color": "#c9cac5",
+          "end": [
+            0.25,
+            2.07,
+            0.0
+          ],
+          "radius": 0.025,
+          "shape": "tube",
+          "start": [
+            0.25,
+            1.88,
+            -0.14
+          ]
+        },
+        {
+          "color": "#c9cac5",
+          "end": [
+            0.25,
+            2.19,
+            0.2
+          ],
+          "radius": 0.025,
+          "shape": "tube",
+          "start": [
+            0.25,
+            2.07,
+            0.0
+          ]
+        },
+        {
+          "axis": "x",
+          "base": [
+            -0.25,
+            0.25,
+            -0.2
+          ],
+          "color": "#c5c6c1",
+          "height": 0.5,
+          "radius": 0.017,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "x",
+          "base": [
+            -0.25,
+            0.55,
+            -0.2
+          ],
+          "color": "#c5c6c1",
+          "height": 0.5,
+          "radius": 0.017,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "x",
+          "base": [
+            -0.25,
+            0.85,
+            -0.2
+          ],
+          "color": "#c5c6c1",
+          "height": 0.5,
+          "radius": 0.017,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "x",
+          "base": [
+            -0.25,
+            1.15,
+            -0.2
+          ],
+          "color": "#c5c6c1",
+          "height": 0.5,
+          "radius": 0.017,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        },
+        {
+          "axis": "x",
+          "base": [
+            -0.25,
+            1.45,
+            -0.2
+          ],
+          "color": "#c5c6c1",
+          "height": 0.5,
+          "radius": 0.017,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 1.0
+        }
+      ],
+      "texture": [
+        64,
+        64
+      ],
+      "triangles": 234
+    },
+    "core:pool_table": {
+      "bounds_max": [
+        0.4,
+        0.74,
+        0.4
+      ],
+      "bounds_min": [
+        -0.4,
+        0.0,
+        -0.4
+      ],
+      "model": "environment/pool/props/models/pool_table.glb",
+      "name": "Pool Patio Table",
+      "parts": [
+        {
+          "center": [
+            0.0,
+            0.698,
+            0.0
+          ],
+          "color": "#e2ddd0",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.8,
+            0.036,
+            0.8
+          ]
+        },
+        {
+          "center": [
+            0.0,
+            0.728,
+            -0.375
+          ],
+          "color": "#e7e1d4",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.8,
+            0.024,
+            0.05
+          ]
+        },
+        {
+          "center": [
+            0.0,
+            0.728,
+            0.375
+          ],
+          "color": "#e7e1d4",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.8,
+            0.024,
+            0.05
+          ]
+        },
+        {
+          "center": [
+            -0.375,
+            0.728,
+            0.0
+          ],
+          "color": "#e7e1d4",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.05,
+            0.024,
+            0.7
+          ]
+        },
+        {
+          "center": [
+            0.375,
+            0.728,
+            0.0
+          ],
+          "color": "#e7e1d4",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.05,
+            0.024,
+            0.7
+          ]
+        },
+        {
+          "axis": "y",
+          "base": [
+            -0.33,
+            0.0,
+            -0.33
+          ],
+          "color": "#dbd6ca",
+          "height": 0.69,
+          "radius": 0.032,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 0.78
+        },
+        {
+          "axis": "y",
+          "base": [
+            -0.33,
+            0.0,
+            0.33
+          ],
+          "color": "#dbd6ca",
+          "height": 0.69,
+          "radius": 0.032,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 0.78
+        },
+        {
+          "axis": "y",
+          "base": [
+            0.33,
+            0.0,
+            -0.33
+          ],
+          "color": "#dbd6ca",
+          "height": 0.69,
+          "radius": 0.032,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 0.78
+        },
+        {
+          "axis": "y",
+          "base": [
+            0.33,
+            0.0,
+            0.33
+          ],
+          "color": "#dbd6ca",
+          "height": 0.69,
+          "radius": 0.032,
+          "segments": 6,
+          "shape": "cylinder",
+          "taper": 0.78
+        },
+        {
+          "center": [
+            0.0,
+            0.15,
+            0.0
+          ],
+          "color": "#d7d2c6",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.66,
+            0.045,
+            0.03
+          ]
+        },
+        {
+          "center": [
+            0.0,
+            0.15,
+            0.0
+          ],
+          "color": "#d7d2c6",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.03,
+            0.045,
+            0.66
+          ]
+        }
+      ],
+      "texture": [
+        64,
+        64
+      ],
+      "triangles": 142
     },
     "core:rug": {
       "bounds_max": [

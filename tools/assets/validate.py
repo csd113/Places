@@ -323,6 +323,41 @@ def level_ids(level: dict):
             yield str(prop["model"]), "prop"
 
 
+def wall_touches_any_room(level: dict, wall: dict, epsilon: float = 0.05) -> bool:
+    """True when a wall's footprint meets at least one room's footprint.
+
+    Walls are placed by their **minimum corner** (like rooms), so a wall
+    authored by its centre usually sits entirely outside its room and leaves
+    the shell open — the void then renders as a black hole in game. This is a
+    warning, not an error: freestanding walls are legal level content.
+    """
+    try:
+        wx = float(wall.get("x", 0.0))
+        wz = float(wall.get("z", 0.0))
+        ww = float(wall.get("width", 0.0))
+        wd = float(wall.get("depth", 0.0))
+    except (TypeError, ValueError):
+        return True
+    if ww <= 0.0 or wd <= 0.0:
+        return True
+    x0, x1 = wx - epsilon, wx + ww + epsilon
+    z0, z1 = wz - epsilon, wz + wd + epsilon
+    rooms = list(level.get("rooms") or [])
+    if level.get("room"):
+        rooms.append(level["room"])
+    for room in rooms:
+        try:
+            rx = float(room.get("x", 0.0))
+            rz = float(room.get("z", 0.0))
+            rw = float(room.get("width", 0.0))
+            rd = float(room.get("depth", 0.0))
+        except (TypeError, ValueError):
+            continue
+        if x0 <= rx + rw and rx <= x1 and z0 <= rz + rd and rz <= z1:
+            return True
+    return False
+
+
 def validate_levels(catalog: dict) -> Tuple[List[str], List[str]]:
     """Returns ``(errors, warnings)`` for every shipped and custom level."""
     errors: List[str] = []
@@ -346,6 +381,19 @@ def validate_levels(catalog: dict) -> Tuple[List[str], List[str]]:
                     errors.append(f"{os.path.relpath(path, PACKAGE_ROOT)}: {what} '{asset_id}' is not in the catalog")
                 elif what == "prop" and asset_id not in placeable:
                     errors.append(f"{os.path.relpath(path, PACKAGE_ROOT)}: prop '{asset_id}' is not a placeable asset")
+            relative = os.path.relpath(path, PACKAGE_ROOT)
+            rooms = list(level.get("rooms") or [])
+            if level.get("room"):
+                rooms.append(level["room"])
+            if rooms:
+                for index, wall in enumerate(level.get("walls") or []):
+                    if wall_touches_any_room(level, wall):
+                        continue
+                    warnings.append(
+                        f"{relative}: wall {index} at ({wall.get('x')}, {wall.get('z')}) "
+                        f"{wall.get('width')}x{wall.get('depth')} touches no room; walls are placed by their "
+                        "minimum corner, so a centre-authored wall usually leaves the shell open"
+                    )
     if not levels:
         errors.append("levels: no level JSON files were found to validate")
     return errors, warnings

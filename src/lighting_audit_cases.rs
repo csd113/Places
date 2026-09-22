@@ -1599,6 +1599,8 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         rotation_degrees: 0.0,
         brightness: None,
         color: None,
+        mount: Default::default(),
+        y: None,
     });
     let lighting = bake(&zero_room);
     let baseline = lighting.rooms()[0].baseline.luminance();
@@ -1686,6 +1688,8 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         rotation_degrees: 0.0,
         brightness: Some(f32::NAN),
         color: None,
+        mount: Default::default(),
+        y: None,
     });
     let lighting = bake(&lights_only);
     assert_eq!(lighting.lights().len(), 1);
@@ -1702,6 +1706,8 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         rotation_degrees: 0.0,
         brightness: Some(1.0),
         color: None,
+        mount: Default::default(),
+        y: None,
     });
     let lighting = bake(&broken);
     assert!(lighting.lights().is_empty());

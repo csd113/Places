@@ -1387,15 +1387,70 @@ mod tests {
                 "{sheet} must resolve to a decal sheet slot"
             );
         }
-        // Every catalogued decal must be one the renderer can actually draw.
+        // Every catalogued decal must be one the renderer can actually draw:
+        // either a generated atlas pattern or a file-backed PNG sheet that
+        // resolves through the catalog like a surface texture.
         for entry in catalog.entries() {
-            if entry.asset_type.as_str() == AssetType::DECAL {
-                assert!(
-                    crate::render::decal_material_slot(&entry.id).is_some(),
-                    "{}: the decal pass does not know this sheet",
-                    entry.id
-                );
+            if entry.asset_type.as_str() != AssetType::DECAL {
+                continue;
             }
+            let generated = crate::render::decal_material_slot(&entry.id).is_some();
+            if generated {
+                continue;
+            }
+            assert_eq!(
+                entry.source,
+                AssetSource::File,
+                "{}: a decal must be a generated pattern or a file-backed PNG sheet",
+                entry.id
+            );
+            let model = entry
+                .model
+                .as_deref()
+                .unwrap_or_else(|| panic!("{}: a file decal needs a PNG model", entry.id));
+            assert!(
+                model.to_ascii_lowercase().ends_with(".png"),
+                "{}: decal sheet `{model}` must be a PNG",
+                entry.id
+            );
+            assert!(
+                resolve_asset_root()
+                    .map(|root| root.join(model).is_file())
+                    .unwrap_or(false),
+                "{}: decal sheet `{model}` is missing below assets/",
+                entry.id
+            );
+        }
+
+        // Every catalogued light fixture must have a built-in appearance, so a
+        // catalog entry can never silently render as some other fixture.
+        let mut fixtures = 0usize;
+        for entry in catalog.entries() {
+            if entry.asset_type.as_str() != AssetType::LIGHT {
+                continue;
+            }
+            fixtures += 1;
+            assert!(
+                crate::lighting::LIGHT_FIXTURE_IDS.contains(&entry.id.as_str()),
+                "{}: the renderer has no fixture appearance for this light",
+                entry.id
+            );
+            assert_eq!(
+                entry.source,
+                AssetSource::Generated,
+                "{}: the built-in fixtures are generated resources",
+                entry.id
+            );
+        }
+        assert!(
+            fixtures >= crate::lighting::LIGHT_FIXTURE_IDS.len(),
+            "the catalog must declare every built-in fixture"
+        );
+        for id in crate::lighting::LIGHT_FIXTURE_IDS {
+            let entry = catalog
+                .get(id)
+                .unwrap_or_else(|| panic!("{id} must be catalogued"));
+            assert_eq!(entry.asset_type.as_str(), AssetType::LIGHT, "{id}");
         }
     }
 

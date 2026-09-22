@@ -642,6 +642,31 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
                 crate::lighting::MAX_LIGHT_COLOR
             ));
         }
+        // A wall fixture is authored at its own world height; a ceiling
+        // fixture derives its height, so an authored `y` there is ignored.
+        if light.mount == crate::level::LightMount::Wall {
+            match light.y {
+                Some(y) if y.is_finite() => {}
+                Some(_) => {
+                    return Err(format!(
+                        "Wall light {i} height (`y`) must be a finite number"
+                    ));
+                }
+                None => {
+                    return Err(format!(
+                        "Wall light {i} needs a world height (`y`); a wall fixture cannot \
+                         derive one from the ceiling"
+                    ));
+                }
+            }
+        }
+        if let Some(y) = light.y
+            && !y.is_finite()
+        {
+            return Err(format!(
+                "Ceiling light {i} height (`y`) must be a finite number when authored"
+            ));
+        }
     }
 
     for (i, prop) in level.props.iter().enumerate() {
@@ -2153,11 +2178,22 @@ mod tests {
             .expect("the asset demo level loads");
         let level = &loaded.level;
 
-        // Every catalogue prop (including spooner-man) appears at least once.
+        // Every generic and Office catalogue prop (including spooner-man)
+        // appears at least once; the Pool family is exercised by the Pool
+        // showcase instead, so a residential demo map never has to hold a pool
+        // ladder.
         let catalog = PropCatalog::load_default();
+        let asset_catalog = crate::assets::AssetCatalog::load_default();
         let placed: std::collections::HashSet<&str> =
             level.props.iter().map(|prop| prop.model.as_str()).collect();
         for asset in catalog.entries() {
+            let themed_pool = asset_catalog
+                .get(&asset.id)
+                .and_then(|entry| entry.theme.as_ref())
+                .is_some_and(|theme| theme.as_str() == "pool");
+            if themed_pool {
+                continue;
+            }
             assert!(
                 placed.contains(asset.id.as_str()),
                 "levels/asset_demo.json must place {}",
@@ -3102,14 +3138,18 @@ mod tests {
     fn test_rendering_diagnostic_level_shows_every_decal_sheet() {
         let level = residential_level("rendering_diagnostic");
         assert_eq!(level.decals.len(), 8);
+        let catalog = crate::assets::AssetCatalog::load_default();
         for decal in &level.decals {
             assert!(
-                crate::render::decal_material_slot(&decal.material).is_some(),
+                crate::render::decal_sheet_index(&level, &catalog, &decal.material).is_some(),
                 "{} references an unknown decal sheet",
                 decal.material
             );
         }
-        let mesh = crate::render::build_level_geometry(&level);
+        let mesh = crate::render::build_level_geometry_with_catalog(
+            &level,
+            &crate::loader::PropCatalog::load_default(),
+        );
         assert_eq!(
             mesh.batches.decal_batch.count,
             i32::try_from(level.decals.len()).unwrap_or(0) * 6,
@@ -3187,8 +3227,11 @@ mod tests {
             .count();
         assert!(rims > 0, "the deep recess keeps its retaining walls");
 
-        // It still builds, with the decals and props it authors.
-        let mesh = crate::render::build_level_geometry(&level);
+        // It still builds, with the decals and props it authors. The shipped
+        // catalog is used so the level's external (PNG) decal sheet resolves
+        // exactly as it does in game.
+        let mesh =
+            crate::render::build_level_geometry_with_catalog(&level, &PropCatalog::load_default());
         assert!(mesh.vertex_count > 0);
         assert_eq!(
             mesh.batches.decal_batch.count,

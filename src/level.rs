@@ -786,6 +786,22 @@ impl DecalDef {
 /// the coloured illumination the bake applies to surrounding geometry. Levels
 /// that omit it keep loading: they emit [`DEFAULT_LIGHT_COLOR`], the restrained
 /// warm fluorescent the game has always implied.
+/// Where a light fixture is mounted inside its room.
+///
+/// The level key is `ceiling_lights` for compatibility with existing levels;
+/// it holds every fixture, including wall-mounted ones, which author
+/// `"mount": "wall"` plus a world-space `y`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum LightMount {
+    /// Ceiling-mounted; the fixture hangs just below the room's ceiling and
+    /// `y` is derived, not authored.
+    #[default]
+    Ceiling,
+    /// Wall-mounted at the authored world `y`, facing `rotation_degrees`.
+    Wall,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CeilingLightDef {
     pub fixture: String,
@@ -798,6 +814,13 @@ pub struct CeilingLightDef {
     /// Emitted light colour; omitted means [`DEFAULT_LIGHT_COLOR`].
     #[serde(default)]
     pub color: Option<LightColor>,
+    /// Ceiling (default) or wall mounting.
+    #[serde(default)]
+    pub mount: LightMount,
+    /// World Y of a wall fixture's centre. Ignored for ceiling fixtures, whose
+    /// height is derived from the room's ceiling.
+    #[serde(default)]
+    pub y: Option<f32>,
 }
 
 impl CeilingLightDef {
@@ -911,7 +934,9 @@ pub struct LevelDef {
     pub props: Vec<PropDef>,
 }
 
-/// Number of quads each ceiling light fixture generates (panel plus two bezels).
+/// Number of quads the office fluorescent panel generates (panel plus two
+/// bezels). Other fixture families declare their own budget on
+/// [`crate::lighting::FixtureProfile::quads`].
 pub const MAX_LIGHT_QUADS: u64 = 3;
 /// Number of quads a prop generates in its placeholder-box form. Real prop
 /// geometry is batched separately and bounded by [`MAX_LEVEL_PROP_VERTICES`].
@@ -1112,7 +1137,9 @@ impl LevelDef {
                 wall_quads = wall_quads.saturating_add(ending.saturating_add(starting));
             }
         }
-        let light_quads = (self.ceiling_lights.len() as u64).saturating_mul(MAX_LIGHT_QUADS);
+        let light_quads = self.ceiling_lights.iter().fold(0u64, |total, light| {
+            total.saturating_add(crate::lighting::fixture_profile(&light.fixture).quads)
+        });
         let prop_quads = (self.props.len() as u64).saturating_mul(MAX_PROP_QUADS);
         let decal_quads = (self.decals.len() as u64).saturating_mul(MAX_DECAL_QUADS);
         let total_quads = floor_quads

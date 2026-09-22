@@ -165,10 +165,13 @@ mod tests {
             !entries.is_empty(),
             "the asset catalogue assets/catalog.json is empty"
         );
-        assert_eq!(
-            entries.len(),
-            21,
-            "the pack is twenty core props plus spooner-man; the catalogue now lists {}",
+        // The pack scope is the catalogue itself, so adding a themed prop
+        // family never needs this test edited; the lower bound keeps a
+        // truncated catalogue from passing silently.
+        assert!(
+            entries.len() >= 30,
+            "the pack is the core/office set plus the Pool family (at least 30 props); \
+             the catalogue now lists {}",
             entries.len()
         );
 
@@ -287,20 +290,29 @@ mod tests {
         }
 
         // Whole-pack budget: the pack must stay small enough for one handheld.
+        let review_budget = entries.len() * PROP_TRIANGLE_REVIEW;
         assert!(
-            total_triangles <= 21 * PROP_TRIANGLE_REVIEW,
-            "the pack totals {total_triangles} triangles across 21 props; investigate the outliers"
+            total_triangles <= review_budget,
+            "the pack totals {total_triangles} triangles across {} props; investigate the outliers",
+            entries.len()
         );
+        // Every prop may ship a preferred-size 128x128 texture (64 KiB decoded);
+        // the pack-wide budget is that cap for the whole catalogue, so the
+        // number scales with the content set instead of being a magic constant.
+        let texture_budget = entries.len() * 128 * 128 * 4;
         assert!(
-            total_texture_bytes <= 1_200_000,
-            "decoded prop textures total {total_texture_bytes} bytes; keep the pack under ~1.2 MiB"
+            total_texture_bytes <= texture_budget,
+            "decoded prop textures total {total_texture_bytes} bytes; the pack budget for {} \
+             props at 128x128 is {texture_budget} bytes",
+            entries.len()
         );
 
         let stats = assets.stats();
         assert_eq!(stats.models_failed, 0, "some models failed to load");
         assert_eq!(
-            stats.models_loaded, 21,
-            "expected twenty loaded prop models"
+            stats.models_loaded,
+            entries.len(),
+            "expected every catalogued prop model to load"
         );
 
         // Report the pack's cost so `cargo test -- --nocapture` doubles as the

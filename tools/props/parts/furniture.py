@@ -316,62 +316,94 @@ def build_armchair(p: PropBuilder) -> None:
 
 
 def build_chair(p: PropBuilder) -> None:
-    """Chair: wooden seat on four turned legs, two raked stiles, two slats and
-    a top rail, with four aprons under the seat."""
+    """Chair: an inexpensive five-star task chair.
+
+    A moulded plastic seat and backrest on one centre column over a five-spoke
+    base.  The proportions are the graded part: a 0.45 m seat at roughly
+    0.45 m sitting height, a 0.43 m backrest rising to the 0.90 m catalogue
+    height with a slight recline, and castors that carry the 0.5 m footprint.
+    """
     size = p.size  # [0.5, 0.9, 0.5]
-    tex = p.set_texture(64, seed=67)
-    tex.auto("seat", "wood", "back", "worn")
+    tex = p.set_texture(128, seed=67)
+    tex.auto("shell", "pad", "metal", "dark")
 
-    wood = palette.hex_to_rgb(palette.WOOD_WARM)
-    pale = palette.hex_to_rgb(palette.WOOD_PALE)
-    dark = palette.mix(wood, palette.hex_to_rgb(palette.WOOD_DARK), 0.55)
+    shell = palette.mix(
+        palette.hex_to_rgb(palette.PLASTIC_DARK),
+        palette.hex_to_rgb(palette.METAL_SHADOW),
+        0.45,
+    )
+    pad = palette.mix(
+        palette.hex_to_rgb(palette.FABRIC_GREY),
+        palette.hex_to_rgb(palette.PLASTIC_DARK),
+        0.35,
+    )
+    metal = palette.hex_to_rgb(palette.METAL_DARK)
+    dark = palette.hex_to_rgb(palette.ELECTRONICS_BLACK)
 
-    _paint_wood(tex, "seat", pale, seed=301, wear=1.6)
-    _paint_wood(tex, "wood", wood, seed=307)
-    _paint_wood(tex, "back", pale, seed=311)
-    _paint_wood(tex, "worn", dark, seed=317, wear=1.4)
+    def paint_shell(region: str, base, seed: int) -> None:
+        """Dull moulded plastic: flat, faint mould texture, a scuff or two."""
+        tex.fill(region, base, jitter=6, seed=seed)
+        tex.noise(region, amount=3, freq=7, seed=seed + 1)
+        tex.grain(region, palette.shade(base, 0.82), density=0.22, alpha=18, seed=seed + 2)
+        tex.grain(region, palette.shade(base, 1.14), density=0.18, alpha=14, seed=seed + 3)
+        tex.spots(region, palette.hex_to_rgb(palette.GRIME), count=4, radius=3, alpha=13,
+                  seed=seed + 4)
+        tex.border(region, palette.shade(base, 1.10), width=1, alpha=32)
 
-    seat_uv = tex.uv("seat")
-    wood_uv = tex.uv("wood")
-    back_uv = tex.uv("back")
-    worn_uv = tex.uv("worn")
+    paint_shell("shell", shell, seed=601)
+    _paint_fabric(tex, "pad", pad, seed=607)
+    _paint_metal(tex, "metal", metal, seed=613)
+    paint_shell("dark", dark, seed=619)
 
-    seat_top = 0.45
-    seat_w, seat_d = 0.48, 0.46
-    # The back leans 4 degrees: stiles, slats and rail all sit on one raked
-    # line, so the chair reads as a single object instead of a stool with a
-    # ladder bolted on.
-    rake = 4.0
-    back_ref_y = 0.42
-    back_ref_z = -0.212
+    shell_uv = tex.uv("shell")
+    pad_uv = tex.uv("pad")
+    metal_uv = tex.uv("metal")
+    dark_uv = tex.uv("dark")
 
-    def back_z(y: float) -> float:
-        return back_ref_z - (y - back_ref_y) * math.tan(math.radians(rake))
+    # Base: hub, five radial spokes and five hard-plastic castor pucks.
+    hub_r, hub_h = 0.045, 0.05
+    spoke_y, spoke_h, spoke_w = 0.040, 0.026, 0.036
+    spoke_inner, castor_r0 = 0.028, 0.216
+    castor_r, castor_h = 0.040, 0.038
+    spoke_length = castor_r0 - spoke_inner
+    spoke_mid = (spoke_inner + castor_r0) * 0.5
+    for index in range(5):
+        angle = math.radians(90.0 + 72.0 * index)
+        cx, cz = math.cos(angle), math.sin(angle)
+        p.box((cx * spoke_mid, spoke_y, cz * spoke_mid), (spoke_length, spoke_h, spoke_w),
+              uv=metal_uv, color=_tint(metal, 0.50),
+              rotation=(0.0, -math.degrees(angle), 0.0))
+        p.cylinder((cx * castor_r0, 0.0, cz * castor_r0), castor_r, castor_h, segments=8,
+                   uv=dark_uv, color=_tint(dark, 0.45))
+    p.cylinder((0.0, 0.0, 0.0), hub_r, hub_h, segments=8, uv=metal_uv, color=_tint(metal, 0.55))
+    # One centre column: a wide hub shoulder, a slimmer gas lift, a seat plate.
+    p.cylinder((0.0, 0.04, 0.0), 0.030, 0.24, segments=8, uv=metal_uv, color=_tint(metal, 0.55))
+    p.cylinder((0.0, 0.28, 0.0), 0.020, 0.12, segments=6, uv=metal_uv, color=_tint(metal, 0.60))
+    _solid(p, (0.0, 0.4075, 0.01), (0.24, 0.025, 0.24), metal_uv, _tint(metal, 0.48))
 
-    # Seat slab: the catalogue width, 0.45 m sitting height.
-    _solid(p, (0.0, seat_top - 0.025, 0.015), (seat_w, 0.05, seat_d), seat_uv, _tint(pale),
-           hidden=("-y",), colors={"+y": _tint(palette.shade(pale, 1.08))})
-    # Four turned legs; their tops sink into the seat slab.
-    for sx in (-1.0, 1.0):
-        for sz in (-1.0, 1.0):
-            p.cylinder((sx * 0.20, 0.0, sz * 0.19 + 0.015), 0.021, seat_top - 0.02, segments=6,
-                       taper=0.82, uv=wood_uv, color=_tint(wood))
-    # Rear stiles and the back's slats.
-    for sx in (-1.0, 1.0):
-        _solid(p, (sx * 0.20, (back_ref_y + size[1]) * 0.5, back_z((back_ref_y + size[1]) * 0.5)),
-               (0.04, size[1] - back_ref_y, 0.04), worn_uv, _tint(dark), hidden=("-y",),
-               rotation=(-rake, 0.0, 0.0))
-    for y, height, width in ((0.545, 0.06, 0.43), (0.70, 0.06, 0.43), (0.855, 0.09, 0.44)):
-        _solid(p, (0.0, y, back_z(y)), (width, height, 0.03), back_uv, _tint(pale), hidden=("-y",),
-               rotation=(-rake, 0.0, 0.0))
-    # Four aprons tie the legs together just under the seat.
-    for sz in (-1.0, 1.0):
-        _solid(p, (0.0, 0.3775, sz * 0.19 + 0.015), (0.38, 0.045, 0.03), worn_uv, _tint(dark),
-               hidden=("-y",))
-    for sx in (-1.0, 1.0):
-        _solid(p, (sx * 0.20, 0.3775, 0.015), (0.03, 0.045, 0.34), worn_uv, _tint(dark),
-               hidden=("-y",))
-    p.add_note("raked back (4 deg) with two slats and a top rail; four turned legs, four aprons")
+    # Seat: the moulded pan carries the catalogue width, the pad sits on it.
+    seat_w, seat_d = 0.45, 0.45
+    seat_z = 0.01
+    _solid(p, (0.0, 0.4175, seat_z), (seat_w, 0.035, seat_d), shell_uv, _tint(shell, 0.70))
+    _solid(p, (0.0, 0.45, seat_z), (0.42, 0.03, 0.42), pad_uv, _tint(pad, 0.62),
+           hidden=("-y",), colors={"+y": _tint(palette.shade(pad, 1.06), 0.62)})
+
+    # Back: the whole rake line is one angle, so the stalk, the panel and its
+    # front pad lean together instead of reading as a ladder bolted on.
+    rake = 7.0
+    back_y = 0.75          # panel centre
+    back_z = -0.205        # panel centre at that height
+
+    def back_z_at(y: float) -> float:
+        return back_z + (back_y - y) * math.tan(math.radians(rake))
+
+    _solid(p, (0.0, 0.545, back_z_at(0.545)), (0.07, 0.23, 0.045), shell_uv, _tint(shell, 0.68),
+           hidden=("-y",), rotation=(-rake, 0.0, 0.0))
+    _solid(p, (0.0, back_y, back_z), (0.43, 0.30, 0.055), shell_uv, _tint(shell, 0.70),
+           hidden=("-y",), rotation=(-rake, 0.0, 0.0))
+    _solid(p, (0.0, back_y, back_z + 0.037), (0.35, 0.20, 0.022), pad_uv, _tint(pad, 0.62),
+           hidden=("-y",), rotation=(-rake, 0.0, 0.0))
+    p.add_note("task chair: 0.43 m raked back to 0.90 m, 0.45 m seat, five-star base with castors")
 
 
 def build_table(p: PropBuilder) -> None:
@@ -417,55 +449,85 @@ def build_table(p: PropBuilder) -> None:
 
 
 def build_desk(p: PropBuilder) -> None:
-    """Desk: dark-veneer top on two slab ends, modesty panel, drawer pedestal
-    and a shallow knee-hole drawer."""
+    """Desk: a near-black laminate office desk.
+
+    Construction is deliberately plain panel goods: a 4 cm top over two slab
+    ends, a modesty panel across the back, and a shallow full-width drawer
+    band under the top with a shadow gap and a finger pull.  Every slab meets
+    its neighbour with a real overlap, so no box floats unconnected.
+
+    The texture spends its pixels on the laminate grain, the drawer line and
+    the lock plate, never on tiny detail that vanishes at 480x272.
+    """
     size = p.size  # [1.6, 0.75, 0.7]
-    tex = p.set_texture(64, seed=79)
+    tex = p.set_texture(128, seed=79)
     tex.auto("top", "body", "drawer", "metal")
 
-    body = palette.hex_to_rgb(palette.WOOD_DARK)
-    top = palette.hex_to_rgb(palette.WOOD_VENEER)
-    drawer = palette.shade(body, 1.14)
+    # Dark charcoal laminate: near-black, sheen-free.  The exposed panel edges
+    # sit a shade lighter, the way a laminate edge band does.
+    charcoal = palette.mix(
+        palette.hex_to_rgb(palette.ELECTRONICS_DARK),
+        palette.hex_to_rgb(palette.METAL_SHADOW),
+        0.35,
+    )
+    top = palette.mix(charcoal, palette.hex_to_rgb(palette.METAL_DARK), 0.30)
+    drawer = palette.shade(charcoal, 1.10)
     metal = palette.hex_to_rgb(palette.METAL_DARK)
 
-    _paint_wood(tex, "top", top, seed=501, wear=1.6)
-    _paint_wood(tex, "body", body, seed=507, wear=1.4)
-    _paint_wood(tex, "drawer", drawer, seed=511)
-    _paint_metal(tex, "metal", metal, seed=517)
+    def paint_panel(region: str, base, seed: int, grain: float = 0.22, wear: float = 1.0) -> None:
+        """Dull laminate: flat base, faint grain, a little hand wear."""
+        tex.fill(region, base, jitter=5, seed=seed)
+        tex.noise(region, amount=3, freq=6, seed=seed + 1)
+        tex.grain(region, palette.shade(base, 0.74), density=grain, alpha=22, seed=seed + 2)
+        tex.grain(region, palette.shade(base, 1.18), density=0.16, alpha=16, seed=seed + 3)
+        tex.spots(region, palette.hex_to_rgb(palette.GRIME), count=max(2, int(3 * wear)),
+                  radius=3, alpha=13, seed=seed + 4)
+        tex.border(region, palette.shade(base, 1.12), width=1, alpha=38)
+
+    paint_panel("top", top, seed=501, grain=0.18, wear=1.4)
+    paint_panel("body", charcoal, seed=511, wear=1.2)
+    paint_panel("drawer", drawer, seed=521, wear=1.6)
+    _paint_metal(tex, "metal", metal, seed=531)
+    # The routed finger pull lives at the top of the drawer face (the box UVs
+    # put the region's small-V end at the top of each face).
+    tex.band("drawer", palette.shade(drawer, 0.42), 0.05, 0.15, alpha=120)
+    tex.band("drawer", palette.shade(drawer, 0.72), 0.88, 0.96, alpha=70)
+    tex.dots("metal", palette.shade(metal, 0.35), [(0.5, 0.55)], radius=1)
 
     top_uv = tex.uv("top")
     body_uv = tex.uv("body")
     drawer_uv = tex.uv("drawer")
     metal_uv = tex.uv("metal")
 
-    p.box((0.0, 0.729, 0.0), (size[0], 0.042, size[2]),
-          uv={"+y": top_uv, "-y": None, "+x": body_uv, "-x": body_uv, "+z": body_uv, "-z": body_uv},
-          color=_tint(top), colors={"+y": _tint(palette.shade(top, 1.05))})
-    # Slab ends instead of legs: the desk's institutional read.
+    top_t = 0.04
+    body_top = size[1] - top_t           # 0.71
+    side_t = 0.045
+    side_cx = size[0] * 0.5 - side_t * 0.5
+    side_depth = size[2] - 0.06          # 0.64, inset under the top's overhang
+
+    # The top owns the full catalogue footprint; its edges are the only place
+    # the 4 cm slab is seen, so they share the top's laminate.
+    _solid(p, (0.0, size[1] - top_t * 0.5, 0.0), (size[0], top_t, size[2]), top_uv,
+           _tint(top, 0.78), hidden=("-y",),
+           colors={"+y": _tint(top, 0.82)})
+    # Two slab ends, floor to the underside of the top.
     for sx in (-1.0, 1.0):
-        p.box((sx * (size[0] * 0.5 - 0.0225), 0.36, 0.0), (0.045, 0.72, size[2] - 0.04), uv=body_uv,
-              color=_tint(body))
-    # Modesty panel across the back, clear of the floor.
-    p.box((0.0, 0.50, -(size[2] * 0.5 - 0.03)), (size[0] - 0.08, 0.36, 0.03), uv=body_uv,
-          color=_tint(palette.shade(body, 0.92)))
-    # Pedestal with two drawers and bar handles, lifted on a recessed plinth.
-    p.box((-0.52, 0.025, 0.01), (0.40, 0.05, 0.52), uv=body_uv,
-          color=_tint(palette.shade(body, 0.86)), proxy=False)
-    p.box((-0.52, 0.355, 0.0), (0.46, 0.61, 0.60), uv=body_uv, color=_tint(body))
-    for cy in (0.50, 0.27):
-        p.box((-0.52, cy, 0.295), (0.40, 0.16, 0.03), uv=drawer_uv, color=_tint(drawer))
-        p.box((-0.52, cy, 0.315), (0.12, 0.025, 0.02), uv=metal_uv, color=_tint(metal, 0.45))
-    # Knee-hole shelf, lifted on two stub supports, and the shallow centre
-    # drawer under the top.
-    p.box((0.30, 0.14, 0.0), (0.60, 0.035, 0.60), uv=body_uv, color=_tint(palette.shade(body, 0.95)))
-    for sz in (-1.0, 1.0):
-        p.box((0.30, 0.07, sz * 0.27), (0.56, 0.14, 0.04), uv=body_uv,
-              color=_tint(palette.shade(body, 0.9)), proxy=False)
-    p.box((0.25, 0.645, 0.0), (size[0] - 0.60, 0.13, size[2] - 0.12), uv=body_uv, color=_tint(body))
-    p.box((0.25, 0.645, size[2] * 0.5 - 0.06), (0.46, 0.10, 0.03), uv=drawer_uv, color=_tint(drawer))
-    p.box((0.25, 0.645, size[2] * 0.5 - 0.04), (0.12, 0.025, 0.02), uv=metal_uv,
-          color=_tint(metal, 0.45))
-    p.add_note("darker veneer than the table; slab ends, modesty panel, pedestal")
+        _solid(p, (sx * side_cx, body_top * 0.5, 0.0), (side_t, body_top, side_depth), body_uv,
+               _tint(charcoal, 0.78), hidden=("-y",))
+    # Modesty panel across the back, clear of the floor, sunk into both ends.
+    _solid(p, (0.0, 0.42, -(side_depth * 0.5 - 0.02)), (1.53, 0.44, 0.02), body_uv,
+           _tint(palette.shade(charcoal, 0.94), 0.78), hidden=("-y",))
+    # Drawer housing: a rail between the ends, recessed behind their front
+    # edge, that the drawer face closes off.
+    _solid(p, (0.0, 0.635, 0.27), (1.53, 0.15, 0.06), body_uv,
+           _tint(palette.shade(charcoal, 0.90), 0.78), hidden=("-y",))
+    # The drawer face: near-flush with the slab ends, with a 1.8 cm shadow gap
+    # left above and below it.
+    _solid(p, (0.0, 0.635, 0.313), (1.42, 0.115, 0.02), drawer_uv,
+           _tint(drawer, 0.78), hidden=("-y",))
+    # A small metal lock plate, sunk into the drawer face.
+    p.box((0.60, 0.662, 0.324), (0.05, 0.045, 0.008), uv=metal_uv, color=_tint(metal, 0.5))
+    p.add_note("charcoal laminate: 4 cm top, slab ends, modesty panel, shallow drawer band")
 
 
 def build_bookshelf(p: PropBuilder) -> None:

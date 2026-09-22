@@ -1,5 +1,101 @@
 # Changelog
 
+## 0.5.2 — 2026-09-21
+
+The first complete content release: the **Office** and **Pool** themes ship as
+real environment families built on the Goals 1-4.5 architecture. Every surface
+is an editable external PNG, every prop is an ordinary catalogued GLB, and the
+Pool demonstrates the vertical-geometry system with a genuinely recessed, empty
+basin. No water, no swimming and no new engine architecture.
+
+### Added
+
+- The final Office surface artwork: a commercial short-pile beige carpet with no
+  metre checker, warm institutional printed wallpaper and an aged suspended
+  panel ceiling, plus the maintained/stained water-damage variants. Same
+  logical ids, same materials, new pixels under
+  `assets/environment/office/textures/`.
+- The complete Pool content family: pale commercial deck, basin and wall tile
+  and a sterile painted ceiling under `assets/environment/pool/textures/`, and
+  the `core:pool_*` materials that name them.
+- Pool props: the white resin patio table and matching chair
+  (`core:pool_table`, `core:pool_chair`), the modular privacy curtains
+  (`core:pool_curtain_straight` / `_end` / `_corner`), the chrome pool ladder
+  (`core:pool_ladder`) and the modular silver guardrails
+  (`core:pool_guardrail_straight` / `_end` / `_corner`).
+- Pool light fixtures: `core:pool_light_round` (a round recessed ceiling
+  downlight) and `core:pool_light_wall` (a wall-mounted luminaire). A light's
+  catalog id now selects a fixture family, so the built-in appearances are
+  `fluorescent_panel`, `round_recessed` and `wall_sconce`; a wall fixture is
+  authored with `"mount": "wall"` and a world `"y"` and is validated on load.
+  Fixture family, luminous footprint and geometry budget all come from one
+  table (`lighting::fixture_profile`), so the drawn fixture and its baked light
+  pool cannot drift apart.
+- External PNG decal sheets: a decal asset may now be `source: "file"` with a
+  `.png` model and is decoded, cached and uploaded exactly like a surface
+  texture, with its own GPU sheet and the same diagnostic fallback. The
+  generated atlas keeps the architecture-test patterns.
+- The final `NO DIVING` sign artwork
+  (`assets/environment/pool/decals/no_diving_01.png`): an RGBA cut-out plate
+  with the prohibition pictogram and lettering, replacing the generated
+  placeholder. Authors can replace the PNG without touching Rust.
+- `assets/levels/pool_showcase.json`: a composed, sparse indoor Pool complex —
+  deck at room level, a real recessed basin built from `floor_regions`, a
+  walkable `-0.35 m` entry step, tiled transition faces, the ladder standing on
+  the basin floor, patio furniture, a curtain dressing run, guardrailed deck
+  edges, both Pool fixtures, the final sign and a cool, restrained light set.
+- `assets/levels/office_showcase.json`: a small, sparse institutional office
+  suite on the final artwork with warm fluorescent fixtures, genuinely dim
+  corners, scattered desks and chairs, one room on the damaged material set and
+  floor decals.
+- Tests for the new content and mechanisms: fixture families and mounts, wall
+  fixtures rejected without a height, external decal sheets resolving through
+  the catalog, catalogued fixtures and decals agreeing with the renderer, the
+  carpet carrying no metre checker, and the Python checks for the Pool theme,
+  the external sign's cut-out alpha and the guardrail collision boxes.
+
+### Changed
+
+- `core:desk` and `core:chair` were rebuilt as a near-black laminate desk and a
+  proportionally corrected office chair, at the same logical ids and sizes, and
+  their catalog swatch colours now match the new finishes.
+- The generated decal atlas no longer contains the NO DIVING placeholder; the
+  atlas holds the validation marking, the floor arrow and hazard stripes.
+- Wall authoring is documented: a wall is placed by its **minimum corner**, like
+  a room, with its `openings` measured from that corner (the level format
+  section of `README.md` now covers walls, lights, openings and faces).
+  `tools/assets/validate.py` warns when a wall touches no room, which is what a
+  centre-authored wall usually does.
+- Prop texture budget is expressed per catalogue entry (128x128 preferred each)
+  instead of a fixed total, and the demo/showcase levels now split the generic
+  and Office props from the Pool family.
+- Solid props in the Goal 5 showcase levels author explicit collision `size`
+  boxes (rotation-aware): a solid prop without one falls back to the neutral
+  0.6 x 0.9 x 0.6 m box rather than its catalog size, so a large desk would not
+  block like a desk.
+
+### Fixed
+
+- External decal sheets render upright and unmirrored on floors, ceilings and
+  walls; the in-plane mapping is pinned by a unit test and was verified by
+  ink-mask comparison of captures against the source PNG.
+- The generated decal atlas drew its patterns in transposed cells, so
+  `core:decal_arrow_01` sampled an empty cell and `core:decal_stripes_01`
+  sampled the arrow; the art and the sheet-slot mapping now agree, checked by a
+  test.
+- The round Pool downlight's diffuser centre read as a hole; it is now a small
+  lamp recess.
+
+### Notes
+
+- The Pool is intentionally **empty**: there is no water, no swimming, no water
+  shader and no climbing. The basin is a 1.5 m recess in real level geometry,
+  and the 0.4 m walkable-step rule makes the entry step usable and the deep
+  basin edge a solid rim, so the player cannot fall in.
+- Surface and decal PNGs are the authoritative runtime assets; the
+  `tools/textures/` painters exist only to regenerate the shipped sheets and to
+  validate their budget.
+
 ## 0.5.1 — 2026-09-21
 
 External PNG surface textures. Environment artwork is no longer generated in

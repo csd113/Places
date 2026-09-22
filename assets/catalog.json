@@ -9,7 +9,7 @@
     {
       "id": "pool",
       "display_name": "Pool",
-      "description": "Public swimming pool interiors. The category exists for the upcoming Pool content pack; themes are organizational and never restrict where an asset may be placed."
+      "description": "Public swimming pool interiors: pale commercial tile, a sterile ceiling, white resin furniture, privacy curtains, chrome and silver metalwork, cool light and the NO DIVING sign."
     }
   ],
   "assets": [
@@ -58,7 +58,7 @@
         0.9,
         0.5
       ],
-      "color": "#8a7a63",
+      "color": "#6d6a63",
       "category": "Furniture",
       "solid": true
     },
@@ -91,7 +91,7 @@
         0.75,
         0.7
       ],
-      "color": "#5f5142",
+      "color": "#3a3d42",
       "category": "Furniture",
       "solid": true
     },
@@ -243,6 +243,168 @@
       "solid": true
     },
     {
+      "id": "core:pool_table",
+      "display_name": "Pool Patio Table",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_table.glb",
+      "size": [
+        0.8,
+        0.74,
+        0.8
+      ],
+      "color": "#e8e6e0",
+      "category": "Furniture",
+      "solid": true,
+      "description": "White resin patio table for the pool deck."
+    },
+    {
+      "id": "core:pool_chair",
+      "display_name": "Pool Patio Chair",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_chair.glb",
+      "size": [
+        0.52,
+        0.85,
+        0.55
+      ],
+      "color": "#e8e6e0",
+      "category": "Furniture",
+      "solid": true,
+      "description": "White resin patio chair matching the pool table."
+    },
+    {
+      "id": "core:pool_ladder",
+      "display_name": "Pool Ladder",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_ladder.glb",
+      "size": [
+        0.55,
+        2.2,
+        0.45
+      ],
+      "color": "#b9bec2",
+      "category": "Utility",
+      "solid": true,
+      "description": "Chrome pool ladder: handrails and rungs standing on the basin floor, rising 0.7 m above the deck."
+    },
+    {
+      "id": "core:pool_curtain_straight",
+      "display_name": "Pool Curtain, Straight",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_curtain_straight.glb",
+      "size": [
+        1.2,
+        2.6,
+        0.22
+      ],
+      "color": "#dfe4e2",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Freestanding commercial privacy curtain module: two posts, a top rail and a simple folded panel."
+    },
+    {
+      "id": "core:pool_curtain_end",
+      "display_name": "Pool Curtain, End",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_curtain_end.glb",
+      "size": [
+        0.6,
+        2.6,
+        0.22
+      ],
+      "color": "#dfe4e2",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Half-width end module that closes a curtain run."
+    },
+    {
+      "id": "core:pool_curtain_corner",
+      "display_name": "Pool Curtain, Corner",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_curtain_corner.glb",
+      "size": [
+        0.6,
+        2.6,
+        0.6
+      ],
+      "color": "#dfe4e2",
+      "category": "Decorative",
+      "solid": false,
+      "description": "L-shaped curtain module that turns a run through 90 degrees."
+    },
+    {
+      "id": "core:pool_guardrail_straight",
+      "display_name": "Pool Guardrail, Straight",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_guardrail_straight.glb",
+      "size": [
+        2.0,
+        1.05,
+        0.08
+      ],
+      "color": "#b9bec2",
+      "category": "Utility",
+      "solid": true,
+      "description": "Two metre silver guardrail section: two rails on three posts."
+    },
+    {
+      "id": "core:pool_guardrail_end",
+      "display_name": "Pool Guardrail, End",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_guardrail_end.glb",
+      "size": [
+        0.6,
+        1.05,
+        0.08
+      ],
+      "color": "#b9bec2",
+      "category": "Utility",
+      "solid": true,
+      "description": "Short guardrail return that terminates a run."
+    },
+    {
+      "id": "core:pool_guardrail_corner",
+      "display_name": "Pool Guardrail, Corner",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_guardrail_corner.glb",
+      "size": [
+        0.6,
+        1.05,
+        0.6
+      ],
+      "color": "#b9bec2",
+      "category": "Utility",
+      "solid": true,
+      "description": "L-shaped guardrail module that turns a run through 90 degrees."
+    },
+    {
       "id": "core:crate",
       "display_name": "Crate",
       "asset_class": "environment",
@@ -350,7 +512,7 @@
       "tile_metres": 2.0,
       "tint": [
         0.85,
-        0.80,
+        0.8,
         0.42
       ],
       "description": "Maintained liminal office wallpaper."
@@ -380,7 +542,7 @@
       "tint": [
         0.72,
         0.72,
-        0.70
+        0.7
       ],
       "description": "Maintained suspended office ceiling."
     },
@@ -396,7 +558,7 @@
       "tile_metres": 2.0,
       "tint": [
         0.85,
-        0.80,
+        0.8,
         0.42
       ],
       "description": "Water-damaged office wallpaper."
@@ -426,9 +588,57 @@
       "tint": [
         0.72,
         0.72,
-        0.70
+        0.7
       ],
       "description": "Water-damaged office ceiling."
+    },
+    {
+      "id": "core:pool_tile_deck_01",
+      "display_name": "Pool Deck Tile",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_pool_tile_deck_01",
+      "tile_metres": 1.5,
+      "description": "Pale commercial tile for the pool deck."
+    },
+    {
+      "id": "core:pool_tile_basin_01",
+      "display_name": "Pool Basin Tile",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_pool_tile_basin_01",
+      "tile_metres": 1.0,
+      "description": "Smaller-format pale tile for the empty basin floor and steps."
+    },
+    {
+      "id": "core:pool_tile_wall_01",
+      "display_name": "Pool Wall Tile",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_pool_tile_wall_01",
+      "tile_metres": 1.0,
+      "description": "Commercial wall tile for the pool room and basin walls."
+    },
+    {
+      "id": "core:pool_ceiling_01",
+      "display_name": "Pool Ceiling",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "core:tex_pool_ceiling_01",
+      "tile_metres": 2.0,
+      "description": "Sterile painted ceiling panel for the pool room."
     },
     {
       "id": "core:diagnostic_wall_01",
@@ -494,7 +704,7 @@
       "source": "file",
       "model": "environment/office/textures/floors/carpet_beige_01.png",
       "surface": "floor",
-      "description": "Seed texture for the maintained office carpet."
+      "description": "Final artwork: maintained office carpet."
     },
     {
       "id": "core:tex_carpet_damp_01",
@@ -505,7 +715,7 @@
       "source": "file",
       "model": "environment/office/textures/floors/carpet_damp_01.png",
       "surface": "floor",
-      "description": "Seed texture for the water-damaged office carpet."
+      "description": "Final artwork: water-damaged office carpet."
     },
     {
       "id": "core:tex_ceiling_panel_01",
@@ -516,7 +726,7 @@
       "source": "file",
       "model": "environment/office/textures/ceilings/ceiling_panel_01.png",
       "surface": "ceiling",
-      "description": "Seed texture for the maintained suspended office ceiling."
+      "description": "Final artwork: maintained suspended office ceiling."
     },
     {
       "id": "core:tex_ceiling_stained_01",
@@ -527,7 +737,7 @@
       "source": "file",
       "model": "environment/office/textures/ceilings/ceiling_stained_01.png",
       "surface": "ceiling",
-      "description": "Seed texture for the water-damaged office ceiling."
+      "description": "Final artwork: water-damaged office ceiling."
     },
     {
       "id": "core:tex_diagnostic_alpha_01",
@@ -588,7 +798,7 @@
       "source": "file",
       "model": "environment/office/textures/walls/wallpaper_stained_01.png",
       "surface": "wall",
-      "description": "Seed texture for the water-damaged office wallpaper."
+      "description": "Final artwork: water-damaged office wallpaper."
     },
     {
       "id": "core:tex_wallpaper_yellow_01",
@@ -599,7 +809,51 @@
       "source": "file",
       "model": "environment/office/textures/walls/wallpaper_yellow_01.png",
       "surface": "wall",
-      "description": "Seed texture for the maintained liminal office wallpaper."
+      "description": "Final artwork: maintained liminal office wallpaper."
+    },
+    {
+      "id": "core:tex_pool_tile_deck_01",
+      "display_name": "Pool Deck Tile Texture",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/pool/textures/floors/pool_tile_deck_01.png",
+      "surface": "floor",
+      "description": "Commercial 15 cm deck tile at a 1.5 m repeat."
+    },
+    {
+      "id": "core:tex_pool_tile_basin_01",
+      "display_name": "Pool Basin Tile Texture",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/pool/textures/floors/pool_tile_basin_01.png",
+      "surface": "floor",
+      "description": "Small-format 10 cm basin tile at a 1 m repeat."
+    },
+    {
+      "id": "core:tex_pool_tile_wall_01",
+      "display_name": "Pool Wall Tile Texture",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/pool/textures/walls/pool_tile_wall_01.png",
+      "surface": "wall",
+      "description": "Commercial 10 cm wall tile at a 1 m repeat."
+    },
+    {
+      "id": "core:tex_pool_ceiling_01",
+      "display_name": "Pool Ceiling Texture",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/pool/textures/ceilings/pool_ceiling_01.png",
+      "surface": "ceiling",
+      "description": "Sterile painted ceiling panel at a 2 m repeat."
     },
     {
       "id": "core:fluorescent_panel_01",
@@ -609,6 +863,24 @@
       "asset_type": "light",
       "source": "generated",
       "description": "Recessed twin-tube ceiling fixture used throughout the office interiors."
+    },
+    {
+      "id": "core:pool_light_round",
+      "display_name": "Pool Round Light",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "light",
+      "source": "generated",
+      "description": "Round recessed downlight for the pool room ceiling; mounts like a ceiling fixture."
+    },
+    {
+      "id": "core:pool_light_wall",
+      "display_name": "Pool Wall Light",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "light",
+      "source": "generated",
+      "description": "Wall-mounted pool luminaire; author `mount: \"wall\"` and a world `y` for each placed fixture."
     },
     {
       "id": "core:decal_arrow_01",
@@ -632,8 +904,9 @@
       "asset_class": "environment",
       "theme": "pool",
       "asset_type": "decal",
-      "source": "generated",
-      "description": "Existing no-diving sign sheet; final Pool artwork comes later."
+      "source": "file",
+      "model": "environment/pool/decals/no_diving_01.png",
+      "description": "Final pool safety sign sheet: the authoritative PNG lives under assets/ and can be replaced without a Rust change."
     },
     {
       "id": "core:decal_test_01",

@@ -5,7 +5,7 @@ use crate::level::{
     FloorPatchDef, LevelDef, LevelSurfaces, PropDef, RoomDef, RoomFloorGrid, WallAxis, WallDef,
     wall_solid_slices_profiled,
 };
-use crate::lighting::{LevelLighting, LightColor, fixture_half_extents, wall_light_segments};
+use crate::lighting::{LevelLighting, LightColor, wall_light_segments};
 use crate::materials::{MaterialTable, ResolvedMaterial};
 
 /// Resolves level material ids into surface keys and render parameters.
@@ -978,8 +978,6 @@ pub(crate) const fn generate_white_texture() -> [u8; 2 * 2 * 4] {
 
 /// Generated decal sheet id for the internal validation marking.
 pub const DECAL_TEST_MATERIAL: &str = "core:decal_test_01";
-/// Generated decal sheet id for a NO DIVING-style sign placeholder.
-pub const DECAL_NO_DIVING_MATERIAL: &str = "core:decal_no_diving_01";
 /// Generated decal sheet id for a floor-direction arrow.
 pub const DECAL_ARROW_MATERIAL: &str = "core:decal_arrow_01";
 /// Generated decal sheet id for hazard stripes.
@@ -992,10 +990,13 @@ const DECAL_SLOT_SIZE: i32 = 128;
 /// Transparent gutter between cells, so mip-mapping never bleeds one pattern
 /// into its neighbour.
 const DECAL_SLOT_GUTTER: i32 = 8;
-/// Every decal sheet id the renderer can draw, in slot order.
-pub const DECAL_MATERIALS: [&str; 4] = [
+/// Every generated decal sheet id the renderer can draw, in slot order.
+///
+/// The final Pool safety sign is no longer one of these: it is external PNG
+/// artwork (`core:decal_no_diving_01` is a catalog `file` decal) drawn from its
+/// own sheet. The atlas keeps one spare cell for a future generated pattern.
+pub const DECAL_MATERIALS: [&str; 3] = [
     DECAL_TEST_MATERIAL,
-    DECAL_NO_DIVING_MATERIAL,
     DECAL_ARROW_MATERIAL,
     DECAL_STRIPES_MATERIAL,
 ];
@@ -1011,6 +1012,101 @@ pub fn decal_material_slot(material: &str) -> Option<u32> {
         .iter()
         .position(|id| *id == material)
         .map(|slot| slot as u32)
+}
+
+/// Sheet index of the first external (PNG-backed) decal sheet.
+pub const DECAL_EXTERNAL_BASE: u32 = DECAL_MATERIALS.len() as u32;
+
+/// True when the catalog declares `material` as a file-backed decal sheet.
+///
+/// Only these resolve to external PNG artwork; the generated patterns and
+/// unknown ids are handled by [`decal_material_slot`].
+fn catalog_decal_sheet<'a>(
+    catalog: &'a crate::assets::AssetCatalog,
+    material: &str,
+) -> Option<&'a str> {
+    let entry = catalog.get(material)?;
+    if entry.asset_type.as_str() != crate::assets::AssetType::DECAL {
+        return None;
+    }
+    if !matches!(entry.source, crate::assets::AssetSource::File) {
+        return None;
+    }
+    entry
+        .model
+        .as_deref()
+        .filter(|model| model.to_ascii_lowercase().ends_with(".png"))
+}
+
+/// External decal sheets a level places, in first-use order.
+///
+/// A decal asset that is not one of the generated patterns and is declared in
+/// the catalog as a file-backed PNG resolves as external artwork, exactly like
+/// a surface texture. Both the mesh builder and the GPU uploader derive the
+/// mapping from the level and the catalog alone, so a decal's sheet index never
+/// needs extra renderer state: `0..4` are the generated atlas patterns, then
+/// one index per external sheet in the order the level first places it. The
+/// mapping is stable and independent of whether a sheet's PNG could actually be
+/// decoded; the renderer draws the diagnostic sheet for a broken file.
+///
+/// An id that is neither generated nor a catalogued file sheet is skipped, the
+/// same graceful degradation unknown materials use.
+#[must_use]
+pub fn decal_external_sheet_ids(
+    level: &LevelDef,
+    catalog: &crate::assets::AssetCatalog,
+) -> Vec<String> {
+    let mut ids: Vec<String> = Vec::new();
+    for decal in &level.decals {
+        if decal_material_slot(&decal.material).is_some() {
+            continue;
+        }
+        if catalog_decal_sheet(catalog, &decal.material).is_none() {
+            continue;
+        }
+        if !ids.contains(&decal.material) {
+            ids.push(decal.material.clone());
+        }
+    }
+    ids
+}
+
+/// Sheet index a decal material draws from, or `None` when a level references
+/// an unknown decal (no geometry is emitted for it, as before).
+#[must_use]
+pub fn decal_sheet_index(
+    level: &LevelDef,
+    catalog: &crate::assets::AssetCatalog,
+    material: &str,
+) -> Option<u32> {
+    if let Some(slot) = decal_material_slot(material) {
+        return Some(slot);
+    }
+    decal_external_sheet_ids(level, catalog)
+        .iter()
+        .position(|id| id == material)
+        .map(|position| DECAL_EXTERNAL_BASE + position as u32)
+}
+
+/// UV rectangle of a whole external decal sheet.
+///
+/// An external sheet is uploaded as one image, so its decal quad samples the
+/// full texture. The decal quad's corners arrive as
+/// `[bottom-left, bottom-right, top-right, top-left]` of the decal's own
+/// in-plane frame, and the uploaded image's row order runs opposite to that
+/// frame's V axis, so both in-plane axes are swapped here. The same rect serves
+/// floors, ceilings and walls: each family's frame is built from its own
+/// out-of-plane axis, but the correction is the same. A marking then reads
+/// upright and unmirrored in the world exactly as it does in an image viewer,
+/// with the authored `rotation_degrees` applied as a real in-plane rotation.
+///
+/// Verified by scoring ink masks of the Pool showcase's external sign on the
+/// deck and on a wall against the PNG under all four square symmetries (both
+/// matched `identity`), and pinned by
+/// `external_decal_sheets_pin_their_world_orientation`.
+#[must_use]
+pub const fn decal_uv_rect_full() -> [[f32; 2]; 4] {
+    [[0.0, 1.0], [1.0, 1.0], [1.0, 0.0], [0.0, 0.0]]
 }
 
 /// Writes one texel into the decal sheet, in visual (top-down) coordinates.
@@ -1118,13 +1214,11 @@ fn decal_atlas_text_centered(
     );
 }
 
-/// Generates the shared decal sheet: a validation marking, a NO DIVING-style
-/// sign placeholder, a floor arrow and hazard stripes.
+/// Generates the shared decal sheet: a validation marking, a floor arrow and
+/// hazard stripes, with one spare cell left transparent.
 pub(crate) fn generate_decal_atlas() -> Vec<u8> {
     let mut pixels = vec![0u8; (DECAL_ATLAS_SIZE * DECAL_ATLAS_SIZE * 4) as usize];
     let white = [245, 245, 240, 255];
-    let dark = [28, 30, 34, 255];
-    let red = [196, 44, 40, 255];
     let green = [64, 176, 96, 255];
     let yellow = [232, 196, 40, 255];
 
@@ -1133,25 +1227,22 @@ pub(crate) fn generate_decal_atlas() -> Vec<u8> {
     decal_atlas_text_centered(&mut pixels, 0, "DECAL", 40, 2, white);
     decal_atlas_text_centered(&mut pixels, 0, "TEST", 72, 2, white);
 
-    // Slot 1: a NO DIVING-style sign placeholder: a white plate with a red
-    // frame and dark text, deliberately opaque so the decal pass can also
-    // carry a real sign face rather than only a cut-out mark.
-    decal_atlas_rect(&mut pixels, 128, 0, 255, 127, [242, 240, 232, 255]);
-    decal_atlas_frame(&mut pixels, 136, 8, 247, 119, 5, red);
-    decal_atlas_text_centered(&mut pixels, 1, "NO", 34, 2, dark);
-    decal_atlas_text_centered(&mut pixels, 1, "DIVING", 70, 2, dark);
-
-    // Slot 2: a floor arrow pointing up the decal's own vertical axis, so an
-    // accidental 90/180 degree rotation is obvious on sight.
-    let arrow_x = 64;
-    let arrow_bottom = 112;
-    let arrow_stem_top = 64;
+    // Slot 1: a floor arrow pointing up the decal's own vertical axis, so an
+    // accidental 90/180 degree rotation is obvious on sight. It is drawn in
+    // cell `(col, row) = (1, 0)`, exactly the cell `decal_uv_rect(1)` samples:
+    // the drawn art and the sampled rect must agree, or a level silently shows
+    // the wrong pattern.
+    let cell_x = DECAL_SLOT_SIZE;
+    let cell_y = 0;
+    let arrow_x = cell_x + 64;
+    let arrow_bottom = cell_y + 112;
+    let arrow_stem_top = cell_y + 64;
     decal_atlas_rect(
         &mut pixels,
         arrow_x - 6,
-        128 + arrow_stem_top,
+        arrow_stem_top,
         arrow_x + 5,
-        128 + arrow_bottom,
+        arrow_bottom,
         green,
     );
     for row in 0..=44 {
@@ -1159,18 +1250,18 @@ pub(crate) fn generate_decal_atlas() -> Vec<u8> {
         decal_atlas_rect(
             &mut pixels,
             arrow_x - half,
-            128 + 20 + row,
+            cell_y + 20 + row,
             arrow_x + half - 1,
-            128 + 20 + row,
+            cell_y + 20 + row,
             green,
         );
     }
 
-    // Slot 3: hazard stripes for grazing-angle tests.
+    // Slot 2: hazard stripes for grazing-angle tests, in cell `(0, 1)`.
     for y in 0..DECAL_SLOT_SIZE {
         for x in 0..DECAL_SLOT_SIZE {
             if (x + y).rem_euclid(32) < 16 {
-                decal_atlas_put(&mut pixels, 128 + x, 128 + y, yellow);
+                decal_atlas_put(&mut pixels, x, 128 + y, yellow);
             }
         }
     }
@@ -2546,6 +2637,272 @@ fn flush_wall_run(
     *cursor = scratch.len();
 }
 
+/// Emits the office fluorescent panel: a luminous panel with two bezel strips,
+/// all facing down into the room.
+fn add_panel_fixture(
+    scratch: &mut Vec<Vertex>,
+    x0: f32,
+    x1: f32,
+    z0: f32,
+    z1: f32,
+    y: f32,
+    glow: [f32; 3],
+) {
+    add_quad_flat(
+        scratch,
+        [x0, y, z0],
+        [x1, y, z0],
+        [x1, y, z1],
+        [x0, y, z1],
+        glow,
+        [0.0, 0.0],
+        [1.0, 0.0],
+        [1.0, 1.0],
+        [0.0, 1.0],
+    );
+
+    let bezel_color = [0.40, 0.40, 0.40];
+    let b = 0.05;
+    add_quad_flat(
+        scratch,
+        [x0 - b, y, z0 - b],
+        [x1 + b, y, z0 - b],
+        [x1 + b, y, z0],
+        [x0 - b, y, z0],
+        bezel_color,
+        [0.0, 0.0],
+        [1.0, 0.0],
+        [1.0, 1.0],
+        [0.0, 1.0],
+    );
+    add_quad_flat(
+        scratch,
+        [x0 - b, y, z1],
+        [x1 + b, y, z1],
+        [x1 + b, y, z1 + b],
+        [x0 - b, y, z1 + b],
+        bezel_color,
+        [0.0, 0.0],
+        [1.0, 0.0],
+        [1.0, 1.0],
+        [0.0, 1.0],
+    );
+}
+
+/// One flat ring quad of a round fixture, facing down.
+#[allow(clippy::too_many_arguments)]
+fn add_ring_quad(
+    scratch: &mut Vec<Vertex>,
+    cx: f32,
+    cz: f32,
+    y: f32,
+    r_in: f32,
+    r_out: f32,
+    cos0: f32,
+    sin0: f32,
+    cos1: f32,
+    sin1: f32,
+    color: [f32; 3],
+) {
+    let outer0 = [cx + r_out * cos0, y, cz + r_out * sin0];
+    let outer1 = [cx + r_out * cos1, y, cz + r_out * sin1];
+    let inner1 = [cx + r_in * cos1, y, cz + r_in * sin1];
+    let inner0 = [cx + r_in * cos0, y, cz + r_in * sin0];
+    add_quad_flat(
+        scratch,
+        outer0,
+        outer1,
+        inner1,
+        inner0,
+        color,
+        [0.0, 0.0],
+        [1.0, 0.0],
+        [1.0, 1.0],
+        [0.0, 1.0],
+    );
+}
+
+/// One outward-facing side quad of a round fixture's shallow can.
+#[allow(clippy::too_many_arguments)]
+fn add_can_quad(
+    scratch: &mut Vec<Vertex>,
+    cx: f32,
+    cz: f32,
+    y_top: f32,
+    y_bottom: f32,
+    radius: f32,
+    cos0: f32,
+    sin0: f32,
+    cos1: f32,
+    sin1: f32,
+    color: [f32; 3],
+) {
+    let top0 = [cx + radius * cos0, y_top, cz + radius * sin0];
+    let top1 = [cx + radius * cos1, y_top, cz + radius * sin1];
+    let bottom1 = [cx + radius * cos1, y_bottom, cz + radius * sin1];
+    let bottom0 = [cx + radius * cos0, y_bottom, cz + radius * sin0];
+    add_quad_flat(
+        scratch,
+        top0,
+        top1,
+        bottom1,
+        bottom0,
+        color,
+        [0.0, 0.0],
+        [1.0, 0.0],
+        [1.0, 1.0],
+        [0.0, 1.0],
+    );
+}
+
+/// Emits a round recessed ceiling downlight: a shallow can, a flat bezel ring
+/// and an emissive diffuser ring, all facing down into the room.
+///
+/// The diffuser is a ring rather than a filled disc so the fixture stays
+/// quad-only; the small centre it leaves reads as the lamp recess behind a
+/// nearly-closed diffuser.
+fn add_round_fixture(
+    scratch: &mut Vec<Vertex>,
+    cx: f32,
+    cz: f32,
+    y: f32,
+    radius: f32,
+    glow: [f32; 3],
+) {
+    const SEGMENTS: usize = 10;
+    const BEZEL_COLOR: [f32; 3] = [0.40, 0.40, 0.40];
+    /// Depth of the visible can below the ceiling plane, in metres.
+    const CAN_DEPTH: f32 = 0.03;
+    let inner = radius * 0.12;
+    let bezel_outer = radius + 0.03;
+    for segment in 0..SEGMENTS {
+        let a0 = segment as f32 / SEGMENTS as f32 * std::f32::consts::TAU;
+        let a1 = (segment + 1) as f32 / SEGMENTS as f32 * std::f32::consts::TAU;
+        let (sin0, cos0) = a0.sin_cos();
+        let (sin1, cos1) = a1.sin_cos();
+        add_ring_quad(
+            scratch, cx, cz, y, inner, radius, cos0, sin0, cos1, sin1, glow,
+        );
+        add_ring_quad(
+            scratch,
+            cx,
+            cz,
+            y,
+            radius,
+            bezel_outer,
+            cos0,
+            sin0,
+            cos1,
+            sin1,
+            BEZEL_COLOR,
+        );
+        add_can_quad(
+            scratch,
+            cx,
+            cz,
+            y,
+            y - CAN_DEPTH,
+            bezel_outer,
+            cos0,
+            sin0,
+            cos1,
+            sin1,
+            BEZEL_COLOR,
+        );
+    }
+}
+
+/// Emits a wall-mounted luminaire at `(x, y, z)` facing `yaw_degrees`:
+/// a shallow housing with one emissive outward face.
+fn add_wall_fixture(
+    scratch: &mut Vec<Vertex>,
+    x: f32,
+    y: f32,
+    z: f32,
+    yaw_degrees: f32,
+    glow: [f32; 3],
+) {
+    const HALF_WIDTH: f32 = 0.20;
+    const HALF_HEIGHT: f32 = 0.10;
+    const DEPTH: f32 = 0.11;
+    const BEZEL_COLOR: [f32; 3] = [0.40, 0.40, 0.40];
+    let yaw = yaw_degrees.to_radians();
+    let (sin, cos) = yaw.sin_cos();
+    // `+Z` is the fixture's front, exactly like a prop at rotation 0.
+    let forward = [sin, 0.0, cos];
+    let right = [cos, 0.0, -sin];
+    let point = |u: f32, v: f32, d: f32| {
+        [
+            x + right[0] * u + forward[0] * d,
+            y + v,
+            z + right[2] * u + forward[2] * d,
+        ]
+    };
+    let uv = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
+    // Emissive front face.
+    add_quad_flat(
+        scratch,
+        point(-HALF_WIDTH, -HALF_HEIGHT, DEPTH),
+        point(HALF_WIDTH, -HALF_HEIGHT, DEPTH),
+        point(HALF_WIDTH, HALF_HEIGHT, DEPTH),
+        point(-HALF_WIDTH, HALF_HEIGHT, DEPTH),
+        glow,
+        uv[0],
+        uv[1],
+        uv[2],
+        uv[3],
+    );
+    // Top face (up), bottom face (down) and the two ends.
+    add_quad_flat(
+        scratch,
+        point(-HALF_WIDTH, HALF_HEIGHT, 0.0),
+        point(-HALF_WIDTH, HALF_HEIGHT, DEPTH),
+        point(HALF_WIDTH, HALF_HEIGHT, DEPTH),
+        point(HALF_WIDTH, HALF_HEIGHT, 0.0),
+        BEZEL_COLOR,
+        uv[0],
+        uv[1],
+        uv[2],
+        uv[3],
+    );
+    add_quad_flat(
+        scratch,
+        point(-HALF_WIDTH, -HALF_HEIGHT, 0.0),
+        point(HALF_WIDTH, -HALF_HEIGHT, 0.0),
+        point(HALF_WIDTH, -HALF_HEIGHT, DEPTH),
+        point(-HALF_WIDTH, -HALF_HEIGHT, DEPTH),
+        BEZEL_COLOR,
+        uv[0],
+        uv[1],
+        uv[2],
+        uv[3],
+    );
+    add_quad_flat(
+        scratch,
+        point(HALF_WIDTH, HALF_HEIGHT, 0.0),
+        point(HALF_WIDTH, HALF_HEIGHT, DEPTH),
+        point(HALF_WIDTH, -HALF_HEIGHT, DEPTH),
+        point(HALF_WIDTH, -HALF_HEIGHT, 0.0),
+        BEZEL_COLOR,
+        uv[0],
+        uv[1],
+        uv[2],
+        uv[3],
+    );
+    add_quad_flat(
+        scratch,
+        point(-HALF_WIDTH, -HALF_HEIGHT, 0.0),
+        point(-HALF_WIDTH, -HALF_HEIGHT, DEPTH),
+        point(-HALF_WIDTH, HALF_HEIGHT, DEPTH),
+        point(-HALF_WIDTH, HALF_HEIGHT, 0.0),
+        BEZEL_COLOR,
+        uv[0],
+        uv[1],
+        uv[2],
+        uv[3],
+    );
+}
+
 fn build_level_geometry_mesh(
     level: &LevelDef,
     catalog: &crate::loader::PropCatalog,
@@ -3089,23 +3446,21 @@ fn build_level_geometry_mesh(
         flush_wall_run(&mut buckets, &scratch, &mut wall_cursor, wall_key);
     }
 
-    // 4. Ceiling lights batch. Panels hang just below their room's ceiling
-    //    (a 2.6 m corridor and a 3 m room therefore get different fixture
-    //    heights) and glow slightly more or less with their authored intensity.
+    // 4. Light fixtures batch. A fixture's family comes from its catalog id
+    //    (see `lighting::fixture_profile`): the office panel hangs just below
+    //    its room's ceiling, a round downlight sits in the same plane, and a
+    //    wall luminaire mounts at its authored world height. The fixture's
+    //    visible glow is the same authored colour the bake emits into the room,
+    //    scaled by the intensity response, so the two can never silently
+    //    diverge.
     for light in &level.ceiling_lights {
         if !light.x.is_finite() || !light.z.is_finite() {
             continue;
         }
         scratch.clear();
-        let (half_w, half_d) = fixture_half_extents(light.rotation_degrees);
-
-        // The panel hangs below the lowest ceiling point it covers, so a gable
-        // fixture near the eave and one near the ridge both clear the slope.
-        let y = lighting.fixture_panel_y(light.x, light.z, half_w, half_d);
-        let x0 = light.x - half_w;
-        let x1 = light.x + half_w;
-        let z0 = light.z - half_d;
-        let z1 = light.z + half_d;
+        let profile = crate::lighting::fixture_profile(&light.fixture);
+        let (half_w, half_d) =
+            crate::lighting::fixture_half_extents_for(profile.kind, light.rotation_degrees);
 
         let intensity = light.intensity();
         // An explicitly zero-output fixture is off: its panel must not glow
@@ -3117,53 +3472,44 @@ fn build_level_geometry_mesh(
                 .mul_add(intensity.clamp(0.0, 2.0), 0.60)
                 .clamp(0.0, 1.0)
         };
-        // The panel's visible colour is the same authored colour that the bake
-        // emits into the room, scaled by the intensity response: a blue fixture
-        // shows a blue panel *and* lights the floor blue. The two concepts stay
-        // distinct but can never silently diverge.
         let color = light.emitted_color();
         let fixture_glow = [color.r * output, color.g * output, color.b * output];
-        // The panel and its bezels hang below the ceiling, so they are wound to
-        // face down, the side the player sees them from.
-        add_quad_flat(
-            &mut scratch,
-            [x0, y, z0],
-            [x1, y, z0],
-            [x1, y, z1],
-            [x0, y, z1],
-            fixture_glow,
-            [0.0, 0.0],
-            [1.0, 0.0],
-            [1.0, 1.0],
-            [0.0, 1.0],
-        );
 
-        let bezel_color = [0.40, 0.40, 0.40];
-        let b = 0.05;
-        add_quad_flat(
-            &mut scratch,
-            [x0 - b, y, z0 - b],
-            [x1 + b, y, z0 - b],
-            [x1 + b, y, z0],
-            [x0 - b, y, z0],
-            bezel_color,
-            [0.0, 0.0],
-            [1.0, 0.0],
-            [1.0, 1.0],
-            [0.0, 1.0],
-        );
-        add_quad_flat(
-            &mut scratch,
-            [x0 - b, y, z1],
-            [x1 + b, y, z1],
-            [x1 + b, y, z1 + b],
-            [x0 - b, y, z1 + b],
-            bezel_color,
-            [0.0, 0.0],
-            [1.0, 0.0],
-            [1.0, 1.0],
-            [0.0, 1.0],
-        );
+        match profile.kind {
+            crate::lighting::FixtureKind::FluorescentPanel => {
+                // The panel hangs below the lowest ceiling point it covers, so a
+                // gable fixture near the eave and one near the ridge both clear
+                // the slope.
+                let y = lighting.fixture_panel_y(light.x, light.z, half_w, half_d);
+                let x0 = light.x - half_w;
+                let x1 = light.x + half_w;
+                let z0 = light.z - half_d;
+                let z1 = light.z + half_d;
+                add_panel_fixture(&mut scratch, x0, x1, z0, z1, y, fixture_glow);
+            }
+            crate::lighting::FixtureKind::RoundRecessed => {
+                let y = lighting.fixture_panel_y(light.x, light.z, half_w, half_d);
+                add_round_fixture(
+                    &mut scratch,
+                    light.x,
+                    light.z,
+                    y,
+                    profile.half_width,
+                    fixture_glow,
+                );
+            }
+            crate::lighting::FixtureKind::WallSconce => {
+                let y = lighting.wall_fixture_y(light.x, light.z, light.y);
+                add_wall_fixture(
+                    &mut scratch,
+                    light.x,
+                    y,
+                    light.z,
+                    light.rotation_degrees,
+                    fixture_glow,
+                );
+            }
+        }
         buckets.add_quads(SurfaceKey::bare(SurfaceKind::Light), &scratch);
     }
 
@@ -3196,21 +3542,24 @@ fn build_level_geometry_mesh(
     //    marks). They are static geometry like everything else, bucketed per
     //    cell, but drawn in their own pass so the depth bias is explicit. An
     //    unknown material is skipped, which is how a level referencing a decal
-    //    sheet from a newer build still loads.
+    //    sheet from a newer build still loads. The key's material index is the
+    //    decal's sheet: a generated atlas slot or an external PNG sheet.
     for decal in &level.decals {
-        let Some(slot) = decal_material_slot(&decal.material) else {
+        let Some(sheet) = decal_sheet_index(level, catalog.assets(), &decal.material) else {
             continue;
         };
+        let uv = if sheet < DECAL_EXTERNAL_BASE {
+            decal_uv_rect(sheet)
+        } else {
+            decal_uv_rect_full()
+        };
         scratch.clear();
-        add_decal_quad(
-            &mut scratch,
-            decal,
-            &surfaces,
-            lighting,
-            decal_uv_rect(slot),
-        );
+        add_decal_quad(&mut scratch, decal, &surfaces, lighting, uv);
         if !scratch.is_empty() {
-            buckets.add_run(SurfaceKey::bare(SurfaceKind::Decal), &scratch);
+            buckets.add_run(
+                SurfaceKey::new(SurfaceKind::Decal, sheet as MaterialIndex),
+                &scratch,
+            );
         }
     }
 
@@ -4009,6 +4358,10 @@ pub struct RenderStats {
 struct DecalPass {
     program: glow::Program,
     texture: glow::Texture,
+    /// External (PNG-backed) decal sheets for the current level, in the order
+    /// [`decal_external_sheet_ids`] reports them. The generated atlas keeps
+    /// slot 0 and the external sheets take [`DECAL_EXTERNAL_BASE`] onwards.
+    external: Vec<glow::Texture>,
     u_mvp_loc: Option<glow::UniformLocation>,
     u_texture_loc: Option<glow::UniformLocation>,
     u_alpha_cutoff_loc: Option<glow::UniformLocation>,
@@ -4055,6 +4408,12 @@ pub struct Renderer {
     /// keeps their GPU copies across level changes, so a level switch never
     /// re-uploads a built-in texture.
     surface_textures: std::collections::HashMap<String, glow::Texture>,
+    /// Decoded decal-sheet PNGs, keyed by their catalog path. Decoded once per
+    /// session exactly like surface textures.
+    decal_image_cache: crate::materials::TextureCache,
+    /// GPU textures for external decal sheets, keyed by their catalog path and
+    /// kept across level changes like `surface_textures`.
+    decal_sheet_textures: std::collections::HashMap<String, glow::Texture>,
     /// Per-level GPU textures (pack-supplied and diagnostic fallbacks), freed
     /// when the next level is uploaded. `(key, texture)` pairs so a texture
     /// shared by several materials is still deleted exactly once.
@@ -4185,6 +4544,7 @@ impl Renderer {
                     true,
                     true,
                 )?,
+                external: Vec::new(),
                 u_mvp_loc: gl.get_uniform_location(decal_program, "u_mvp"),
                 u_texture_loc: gl.get_uniform_location(decal_program, "u_texture"),
                 u_alpha_cutoff_loc: gl.get_uniform_location(decal_program, "u_alpha_cutoff"),
@@ -4230,6 +4590,8 @@ impl Renderer {
             prop_draws: Vec::new(),
             prop_textures: std::collections::HashMap::new(),
             surface_textures: std::collections::HashMap::new(),
+            decal_image_cache: crate::materials::TextureCache::new(),
+            decal_sheet_textures: std::collections::HashMap::new(),
             level_textures: Vec::new(),
             material_textures: Vec::new(),
             material_texture_slots: Vec::new(),
@@ -4276,6 +4638,18 @@ impl Renderer {
             self.gl
                 .bind_texture(glow::TEXTURE_2D, Some(self.decal.texture));
             set_repeat_filter(&self.gl, linear);
+            for texture in self
+                .decal
+                .external
+                .iter()
+                .chain(self.decal_sheet_textures.values())
+            {
+                if *texture == self.decal.texture {
+                    continue;
+                }
+                self.gl.bind_texture(glow::TEXTURE_2D, Some(*texture));
+                set_repeat_filter(&self.gl, linear);
+            }
             for texture in self.surface_textures.values() {
                 self.gl.bind_texture(glow::TEXTURE_2D, Some(*texture));
                 set_repeat_filter(&self.gl, linear);
@@ -4628,8 +5002,65 @@ impl Renderer {
     /// next level replaces them. The decoded images are already cached per
     /// session by [`crate::materials::TextureCache`], so a level switch never
     /// re-reads or re-decodes a PNG.
+    /// Resolves and uploads the current level's external decal sheets.
+    ///
+    /// The four built-in patterns come from the generated atlas; a decal asset
+    /// with `source: "file"` and a `.png` model is ordinary external artwork,
+    /// decoded once per session and uploaded once per level exactly like a
+    /// surface texture, so a creator edits the PNG and restarts. A sheet that
+    /// cannot be resolved draws the same magenta/black diagnostic the surface
+    /// pipeline uses, so the mistake is visible in game instead of silent.
+    fn load_decal_sheets(&mut self, level: &crate::level::LevelDef) {
+        self.decal.external.clear();
+        let root = crate::assets::resolve_asset_root();
+        let catalog = shipped_asset_catalog();
+        for id in decal_external_sheet_ids(level, catalog) {
+            let resolved = crate::materials::resolve_decal_sheet(
+                catalog,
+                root.as_deref(),
+                &mut self.decal_image_cache,
+                &id,
+            );
+            let (key, image) = match resolved {
+                Ok(sheet) => (sheet.key, sheet.image),
+                Err(error) => {
+                    eprintln!("[decals] {error}; drawing the diagnostic sheet instead");
+                    (
+                        crate::materials::MISSING_TEXTURE_KEY.to_string(),
+                        std::rc::Rc::new(crate::materials::missing_texture()),
+                    )
+                }
+            };
+            if let Some(handle) = self.decal_sheet_textures.get(&key) {
+                self.decal.external.push(*handle);
+                continue;
+            }
+            let uploaded = unsafe {
+                create_texture_2d(
+                    &self.gl,
+                    i32::try_from(image.width).unwrap_or(i32::MAX),
+                    i32::try_from(image.height).unwrap_or(i32::MAX),
+                    &image.rgba,
+                    true,
+                    self.linear_filtering,
+                )
+            };
+            match uploaded {
+                Ok(texture) => {
+                    self.decal_sheet_textures.insert(key, texture);
+                    self.decal.external.push(texture);
+                }
+                Err(error) => {
+                    eprintln!("[decals] decal `{id}`: {error}; drawing the built-in sheet instead");
+                    self.decal.external.push(self.decal.texture);
+                }
+            }
+        }
+    }
+
     pub fn set_level(&mut self, loaded: &crate::loader::LoadedLevel) {
         self.rebuild_level_geometry(&loaded.level, &loaded.materials);
+        self.load_decal_sheets(&loaded.level);
         let linear = self.linear_filtering;
 
         // Free the previous level's pack/missing uploads.
@@ -4895,6 +5326,7 @@ impl Renderer {
             //    is restored before the pass returns.
             let mut decal_active = false;
             let mut decal_chunk: Option<usize> = None;
+            let mut bound_decal_texture: Option<glow::Texture> = None;
             for batch in &self.static_batches {
                 if batch.key.kind != SurfaceKind::Decal || batch.index_range.count <= 0 {
                     continue;
@@ -4931,6 +5363,19 @@ impl Renderer {
                     } else {
                         continue;
                     }
+                }
+                let sheet = if batch.key.material < DECAL_EXTERNAL_BASE as MaterialIndex {
+                    self.decal.texture
+                } else {
+                    self.decal
+                        .external
+                        .get((batch.key.material - DECAL_EXTERNAL_BASE as MaterialIndex) as usize)
+                        .copied()
+                        .unwrap_or(self.decal.texture)
+                };
+                if bound_decal_texture != Some(sheet) {
+                    self.gl.bind_texture(glow::TEXTURE_2D, Some(sheet));
+                    bound_decal_texture = Some(sheet);
                 }
                 self.gl.draw_elements(
                     glow::TRIANGLES,
@@ -5553,7 +5998,14 @@ mod tests {
     /// bright and dark quadrants of the two-metre tile must actually differ, so
     /// the external asset reproduces the historical floor read.
     #[test]
-    fn test_carpet_png_carries_the_metre_checker() {
+    /// The final carpet must never read as the old metre checker again.
+    ///
+    /// The seed art carried a deliberate 1 m bright/dark quadrant tint, which
+    /// looked like a debug board on a large floor. The Goal 5 artwork replaces
+    /// it with low-frequency pile variation, so the four quadrant means must be
+    /// close: the sheet may be mottled, but no quadrant may be a visibly
+    /// different flat cell.
+    fn test_carpet_png_has_no_metre_checker() {
         let carpet = texture_image("core:tex_carpet_beige_01");
         assert_eq!((carpet.width, carpet.height), (128, 128));
         let mean = |x0: u32, y0: u32| -> f32 {
@@ -5568,20 +6020,30 @@ mod tests {
             }
             total / (64.0 * 64.0 * 3.0)
         };
-        let bright = mean(0, 0);
-        let dark_x = mean(64, 0);
-        let dark_y = mean(0, 64);
+        let quadrants = [mean(0, 0), mean(64, 0), mean(0, 64), mean(64, 64)];
+        let low = quadrants.iter().copied().fold(f32::MAX, f32::min);
+        let high = quadrants.iter().copied().fold(f32::MIN, f32::max);
+        // The historical checker tinted adjacent metre cells roughly 7-10
+        // levels apart; gentle low-frequency pile mottle stays well under that,
+        // so a 4-level spread separates the two cases.
         assert!(
-            bright - dark_x > 1.0,
-            "adjacent metre cells must differ: {bright} vs {dark_x}"
+            high - low <= 4.0,
+            "the carpet reads as a 1 m checker again: quadrant means {quadrants:?}"
         );
+        // It must still be carpet, not a flat colour: the sheet needs some
+        // pixel-level variation to read as pile under dim warm light.
+        let mut min = u8::MAX;
+        let mut max = u8::MIN;
+        for y in (0..128).step_by(7) {
+            for x in (0..128).step_by(5) {
+                let value = carpet.rgba[((y * 128 + x) * 4) as usize];
+                min = min.min(value);
+                max = max.max(value);
+            }
+        }
         assert!(
-            bright - dark_y > 1.0,
-            "adjacent metre cells must differ: {bright} vs {dark_y}"
-        );
-        assert!(
-            (mean(64, 64) - bright).abs() < (dark_x - bright).abs(),
-            "the diagonal cell shares the bright tint"
+            u16::from(max) - u16::from(min) >= 4,
+            "the carpet has no visible pile variation ({min}..{max})"
         );
     }
 
@@ -7249,7 +7711,9 @@ mod tests {
             "environment/office/props/models/chair.glb"
         );
         assert!(!batches[0].vertices.is_empty());
-        assert_eq!(batches[0].texture.width, 64);
+        assert!(batches[0].texture.width > 0);
+        assert_eq!(batches[0].texture.width, batches[0].texture.height);
+        assert!(batches[0].texture.width <= crate::level::MAX_PROP_TEXTURE_SIZE);
 
         // Placed at (3, 0, -2), resting on the floor: a 0.5 x 0.9 x 0.5 chair.
         let (low, high) = bounds_of(&batches[0].vertices);
@@ -7361,26 +7825,36 @@ mod tests {
             mesh.batches.prop_batch.count, 0,
             "no placeholder boxes expected"
         );
-        assert_eq!(
-            batches.len(),
-            21,
-            "the showcase places every catalogue prop"
-        );
-        let mut models: Vec<&str> = batches.iter().map(|batch| batch.model.as_str()).collect();
-        models.sort_unstable();
-        models.dedup();
-        assert_eq!(models.len(), 21, "each prop model appears exactly once");
 
-        // Every catalogue prop id is exercised by this fixture.
-        let used: std::collections::HashSet<&str> =
-            level.props.iter().map(|prop| prop.model.as_str()).collect();
+        // The shared showcase fixtures place every catalogue placeable exactly
+        // once: the domestic/office map covers the generic and Office props, and
+        // the Pool showcase covers the Pool family. Themes organize content;
+        // this is the one place a "placed somewhere" check is legitimate.
+        let pool_showcase = shipped_level("pool_showcase");
+        let mut used: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        used.extend(level.props.iter().map(|prop| prop.model.as_str()));
+        used.extend(pool_showcase.props.iter().map(|prop| prop.model.as_str()));
         for entry in catalog.entries() {
             assert!(
                 used.contains(entry.id.as_str()),
-                "the showcase must place {}",
+                "the showcase levels must place {}",
                 entry.id
             );
         }
+
+        // Every prop this level places renders with real geometry, never a
+        // placeholder box, and each model appears exactly once.
+        let mut models: Vec<&str> = batches.iter().map(|batch| batch.model.as_str()).collect();
+        models.sort_unstable();
+        models.dedup();
+        let placed: std::collections::HashSet<&str> =
+            level.props.iter().map(|prop| prop.model.as_str()).collect();
+        assert_eq!(
+            models.len(),
+            placed.len(),
+            "each prop model placed here appears exactly once as real geometry"
+        );
+        assert_eq!(batches.len(), placed.len());
         assert_eq!(assets.stats().models_failed, 0);
 
         // The intentional clipping is present in the data, not corrected.
@@ -7527,6 +8001,79 @@ mod tests {
         (0..3).all(|axis| (actual[axis] - expected[axis]).abs() < 1e-4)
     }
 
+    /// Samples one texel of the generated atlas through the same coordinate
+    /// convention `decal_uv_rect` hands to the shader (the sheet is stored
+    /// bottom-up, so the visual top row maps to the higher `v`).
+    fn atlas_texel(pixels: &[u8], u: f32, v: f32) -> [u8; 4] {
+        let size = DECAL_ATLAS_SIZE;
+        let x = ((u * size as f32) as i32).clamp(0, size - 1);
+        let visual_y = (((1.0 - v) * size as f32) as i32).clamp(0, size - 1);
+        let row = size - 1 - visual_y;
+        let index = ((row * size + x) * 4) as usize;
+        [
+            pixels[index],
+            pixels[index + 1],
+            pixels[index + 2],
+            pixels[index + 3],
+        ]
+    }
+
+    /// The generated patterns must be drawn in the cell their sheet slot
+    /// samples: if the art and `decal_uv_rect` disagree, a level silently shows
+    /// a different pattern (hazard stripes rendering as an arrow, or nothing).
+    #[test]
+    fn generated_decal_atlas_cells_match_their_sheet_slots() {
+        let atlas = generate_decal_atlas();
+        let size = DECAL_ATLAS_SIZE as usize;
+        let cell = |slot: u32| -> Vec<[u8; 4]> {
+            let rect = decal_uv_rect(slot);
+            let u0 = rect[0][0].min(rect[2][0]);
+            let u1 = rect[0][0].max(rect[2][0]);
+            let v0 = rect[0][1].min(rect[2][1]);
+            let v1 = rect[0][1].max(rect[2][1]);
+            let mut out = Vec::with_capacity(size * size);
+            for row in 0..size {
+                for column in 0..size {
+                    let u = u0 + (u1 - u0) * (column as f32 + 0.5) / size as f32;
+                    let v = v0 + (v1 - v0) * (row as f32 + 0.5) / size as f32;
+                    out.push(atlas_texel(&atlas, u, v));
+                }
+            }
+            out
+        };
+        let count = |pixels: &[[u8; 4]], predicate: fn(&[u8; 4]) -> bool| -> usize {
+            pixels.iter().filter(|texel| predicate(texel)).count()
+        };
+
+        let test = cell(decal_material_slot(DECAL_TEST_MATERIAL).expect("slot"));
+        assert!(
+            count(&test, |texel| texel[3] > 128
+                && texel[0] > 180
+                && texel[1] > 180
+                && texel[2] > 180)
+                > 100,
+            "the validation marking's own cell must hold its white frame"
+        );
+
+        let arrow = cell(decal_material_slot(DECAL_ARROW_MATERIAL).expect("slot"));
+        assert!(
+            count(&arrow, |texel| texel[1] > 120
+                && texel[1] > texel[0] + 30
+                && texel[1] > texel[2] + 30)
+                > 200,
+            "the floor arrow's own cell must hold the green arrow"
+        );
+
+        let stripes = cell(decal_material_slot(DECAL_STRIPES_MATERIAL).expect("slot"));
+        assert!(
+            count(&stripes, |texel| texel[0] > 180
+                && texel[1] > 150
+                && texel[2] < 100)
+                > 1000,
+            "the hazard-stripe cell must hold the yellow stripes"
+        );
+    }
+
     #[test]
     fn every_decal_material_resolves_to_one_sheet_slot() {
         let mut seen = std::collections::HashSet::new();
@@ -7544,6 +8091,68 @@ mod tests {
             rects.push(rect);
         }
         assert_eq!(decal_material_slot("core:not_a_decal"), None);
+    }
+
+    #[test]
+    fn a_catalogued_png_decal_draws_from_its_own_sheet() {
+        // The final Pool sign is external artwork: the catalog declares it as a
+        // file-backed PNG, the mesh builder gives it a sheet past the generated
+        // atlas slots, and the quad samples the whole sheet.
+        let catalog = shipped_catalog();
+        let level = level_with_decals(
+            r#"{ "x": 3.0, "y": 0.0, "z": 3.0, "width": 0.9, "height": 0.9,
+                 "material": "core:decal_no_diving_01", "surface": "floor" }"#,
+            r#"{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 0.4, "height": 3.0 }"#,
+            "[]",
+        );
+        assert_eq!(
+            decal_external_sheet_ids(&level, catalog.assets()),
+            vec!["core:decal_no_diving_01".to_string()],
+            "the sign is the level's only external sheet"
+        );
+        let sheet = decal_sheet_index(&level, catalog.assets(), "core:decal_no_diving_01")
+            .expect("the catalogued sign resolves");
+        assert_eq!(sheet, DECAL_EXTERNAL_BASE);
+        let mesh = build_level_geometry_with_catalog(&level, &catalog);
+        assert_eq!(mesh.batches.decal_batch.count, 6, "one decal is one quad");
+        let quad = batch_slice(&mesh, SurfaceKind::Decal);
+        // Full-sheet UVs: the decal samples the whole PNG (the packed slice does
+        // not promise a corner order, so compare the set).
+        let mut uvs: Vec<[f32; 2]> = quad.iter().map(|vertex| vertex.uv).collect();
+        uvs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        uvs.dedup();
+        assert_eq!(
+            uvs,
+            vec![[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]],
+            "an external decal samples its whole sheet"
+        );
+
+        // The sheet index must be stable when the same level also uses a
+        // generated pattern, and generated sheets keep the atlas rect.
+        let mixed = level_with_decals(
+            r#"{ "x": 1.0, "y": 0.0, "z": 1.0, "width": 1.0, "height": 1.0,
+                 "material": "core:decal_arrow_01", "surface": "floor" },
+               { "x": 3.0, "y": 0.0, "z": 3.0, "width": 0.9, "height": 0.9,
+                 "material": "core:decal_no_diving_01", "surface": "floor" }"#,
+            r#"{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 0.4, "height": 3.0 }"#,
+            "[]",
+        );
+        assert_eq!(
+            decal_sheet_index(&mixed, catalog.assets(), "core:decal_arrow_01"),
+            decal_material_slot("core:decal_arrow_01")
+        );
+        assert_eq!(
+            decal_sheet_index(&mixed, catalog.assets(), "core:decal_no_diving_01"),
+            Some(DECAL_EXTERNAL_BASE)
+        );
+        let mesh = build_level_geometry_with_catalog(&mixed, &catalog);
+        assert_eq!(mesh.batches.decal_batch.count, 12, "two decals, two quads");
+        // A generated decal that is not catalogued draws nothing, exactly like
+        // an unknown material.
+        assert_eq!(
+            decal_sheet_index(&level, catalog.assets(), "core:not_a_decal"),
+            None
+        );
     }
 
     #[test]
@@ -7689,6 +8298,22 @@ mod tests {
             },
         ] {
             assert!(decal_quad_points(&decal).is_none());
+        }
+    }
+
+    /// The external-sheet UV convention is empirical (see
+    /// [`decal_uv_rect_full`]); this pins the verified mapping so a future
+    /// change cannot silently flip a sign upside down or mirror it.
+    #[test]
+    fn external_decal_sheets_pin_their_world_orientation() {
+        let rect = decal_uv_rect_full();
+        assert_eq!(
+            rect,
+            [[0.0, 1.0], [1.0, 1.0], [1.0, 0.0], [0.0, 0.0]],
+            "the full-sheet rect that reads upright on a floor and on a wall"
+        );
+        for uv in rect {
+            assert!((0.0..=1.0).contains(&uv[0]) && (0.0..=1.0).contains(&uv[1]));
         }
     }
 

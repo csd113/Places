@@ -1,16 +1,94 @@
 # Pool environment
 
-The architectural home for the upcoming Pool content pack: pool shells, pool
-tables and chairs, curtains, ladders, guardrails and the final NO DIVING
-artwork. None of that content exists yet — this goal only established the
-category, and no placeholder models were generated to fill it.
+The Pool content pack: a clean, relatively new, sterile institutional pool.
+Everything is pale and cool — off-white tile, a neutral painted ceiling, white
+resin furniture, chrome and dull-silver metalwork and pale privacy curtains —
+with only light wear, because the Pool is empty and quiet, not abandoned.
 
-Already catalogued under the pool theme:
+The pack is an ordinary set of catalog entries; nothing about the Office/Pool
+split restricts where an asset may be placed (see
+[`../../README.md`](../../README.md)).
 
-| asset | type | resource |
+## Surface textures
+
+| texture id | file | dimensions | tile_metres | what it is |
+| --- | --- | --- | --- | --- |
+| `core:tex_pool_tile_deck_01` | `textures/floors/pool_tile_deck_01.png` | 128x128 | 1.5 | 10x10 grid of 15 cm commercial deck tiles (12.8 px per tile) |
+| `core:tex_pool_tile_basin_01` | `textures/floors/pool_tile_basin_01.png` | 128x128 | 1.0 | 10x10 grid of 10 cm basin tiles, a shade cooler |
+| `core:tex_pool_tile_wall_01` | `textures/walls/pool_tile_wall_01.png` | 128x128 | 1.0 | 10x10 grid of 10 cm wall tiles, the palest of the family |
+| `core:tex_pool_ceiling_01` | `textures/ceilings/pool_ceiling_01.png` | 128x128 | 2.0 | 2x2 painted panels (64 px = 1 m), fine joints, screw dimples |
+
+All four are opaque 8-bit RGBA, tileable in both directions, and deterministic:
+`tools/textures/build.py --only <id>` regenerates them from
+[`pool_art.py`](../../../tools/textures/pool_art.py). The grout/panel joints are
+one pixel, close in value to the field (12.5 % darker for the tile joints,
+10 % for the ceiling seams) with a 1 px bevel, so they read as joints and never
+as a debug grid. Tone comes from per-tile jitter (one tile in seven slightly
+darker), a gentle low-frequency field and a barely-visible speckle.
+
+The generated light fixtures need no artwork: `core:pool_light_round` is a
+recessed round downlight and `core:pool_light_wall` a shallow wall luminaire
+(author `"mount": "wall"` and a world `"y"`).
+
+## Materials
+
+| material id | texture | tile_metres |
 | --- | --- | --- |
-| `core:decal_no_diving_01` | decal | generated (existing placeholder sheet) |
+| `core:pool_tile_deck_01` | deck tile | 1.5 |
+| `core:pool_tile_basin_01` | basin tile | 1.0 |
+| `core:pool_tile_wall_01` | wall tile | 1.0 |
+| `core:pool_ceiling_01` | ceiling panel | 2.0 |
 
-Any Pool asset added later is an ordinary catalog entry; nothing about the
-Office/Pool split restricts where it may be placed. See
-[`../README.md`](../README.md).
+## Props
+
+All nine are modelled in [`tools/props/parts/pool.py`](../../../tools/props/parts/pool.py):
+1 unit = 1 m, origin on the floor-contact centre, `+Z` front, one embedded
+64x64 or 128x128 texture each, well inside the triangle budget.
+
+| prop id | size [w, h, d] | notes |
+| --- | --- | --- |
+| `core:pool_table` | 0.80 x 0.74 x 0.80 | white resin tray top with a lip, four tapered legs, one low cross-brace |
+| `core:pool_chair` | 0.52 x 0.85 x 0.55 | the table's sibling: 42 cm seat, raked slatted back, four tapered legs |
+| `core:pool_ladder` | 0.55 x 2.20 x 0.45 | chrome rails curving 0.4 m out over the deck edge, five rungs at 0.30 m |
+| `core:pool_curtain_straight` | 1.20 x 2.60 x 0.22 | two 25 mm posts, a top rail and a five-fold hanging panel |
+| `core:pool_curtain_end` | 0.60 x 2.60 x 0.22 | one post and a three-fold panel closing a run |
+| `core:pool_curtain_corner` | 0.60 x 2.60 x 0.60 | shared corner post, two half panels, legs along +X and +Z |
+| `core:pool_guardrail_straight` | 2.00 x 1.05 x 0.08 | two rails (1.0 m / 0.55 m) on three 40 mm posts, bolted base plates |
+| `core:pool_guardrail_end` | 0.60 x 1.05 x 0.08 | short return terminating a run |
+| `core:pool_guardrail_corner` | 0.60 x 1.05 x 0.60 | L section, legs along +X and +Z from the shared corner post |
+
+Curtain and guardrail modules compose on a 0.6 m bay grid: a straight section's
+posts sit at the module edges, an end module hangs its panel to one open side
+and a corner module turns a run through 90 degrees. The guardrail's base plates
+are what fill the catalogue's 8 cm depth; a section rotated 90 degrees needs its
+level `"size"` written with x/z swapped.
+
+## The showcase level
+
+`assets/levels/pool_showcase.json` is the composed demonstration complex: a
+16 x 11 m pool room with a 9 x 4.5 m empty basin (deck at 0, a -0.35 m walk-in
+step, the basin floor at -1.5 m), a corridor and a changing bay, cool round
+ceiling lights plus four wall luminaires, a curtain cubicle line, guardrail
+runs along part of the pool edge, the patio table and two chairs, and the final
+NO DIVING decal on the deck and on the north wall. Run it with
+`LIMINAL_LEVEL=pool_showcase`.
+
+## Decal artwork
+
+`core:decal_no_diving_01` is an external PNG cut-out
+(`decals/no_diving_01.png`, 128x128 RGBA, generated by
+[`decal_art.py`](../../../tools/textures/decal_art.py)): a white plate with a
+red rim, the prohibition pictogram and bold lettering, with alpha 0 around the
+plate so the decal pass can discard it. Replace the PNG and restart to change
+the sign; no Rust change and no recompilation. The sheet is uploaded as its own
+decal texture, and the renderer corrects the in-plane orientation so the
+artwork reads exactly as it does in an image viewer (verified for a floor and a
+wall placement; `render::decal_uv_rect_full` is pinned by a unit test).
+
+## Known renderer behaviour observed while verifying this pack
+
+Two defects found while placing this content were fixed during integration and
+are now covered by tests: wall-mounted decals were mirrored (`render::tests::external_decal_sheets_pin_their_world_orientation`)
+and the generated decal atlas drew its patterns in transposed cells, so
+`core:decal_arrow_01` sampled an empty cell and `core:decal_stripes_01` sampled
+the arrow (`render::tests::generated_decal_atlas_cells_match_their_sheet_slots`).

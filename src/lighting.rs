@@ -65,7 +65,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::level::{LevelDef, WallAxis};
+use crate::level::{LevelDef, LightMount, WallAxis};
 
 // ---------------------------------------------------------------------------
 // Emitted light colour
@@ -329,6 +329,93 @@ pub const FIXTURE_HALF_DEPTH_M: f32 = 0.3;
 /// Distance a fixture hangs below its room's ceiling, in metres.
 pub const FIXTURE_DROP_M: f32 = 0.01;
 
+/// Fallback height of a wall-mounted fixture with no authored `y`, as a
+/// distance above its room's floor. Validation requires a `y` for new content;
+/// this only keeps a hand-edited level finite instead of panicking.
+pub const WALL_LIGHT_DEFAULT_HEIGHT_M: f32 = 1.7;
+
+/// Which built-in fixture family a `fixture` id draws as.
+///
+/// The catalog owns the *identity* of a fixture (`core:pool_light_round`) and
+/// this table owns its *appearance*: the mesh family, the luminous footprint
+/// the bake treats as a light source, and the generated-quad budget the level
+/// estimate reserves. Fixture appearance and emitted light colour stay separate
+/// concepts — a fixture's `color` is authored per placed light.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FixtureKind {
+    /// Recessed twin-tube ceiling panel: the office fluorescent.
+    FluorescentPanel,
+    /// Round recessed ceiling downlight.
+    RoundRecessed,
+    /// Wall-mounted luminaire; needs `mount: "wall"` and a `y`.
+    WallSconce,
+}
+
+/// Appearance, footprint and geometry budget of one fixture family.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FixtureProfile {
+    pub kind: FixtureKind,
+    /// Half-extent along the fixture's own width axis, in metres.
+    pub half_width: f32,
+    /// Half-extent along the fixture's own depth axis, in metres.
+    pub half_depth: f32,
+    /// Upper bound on the quads the renderer emits for one fixture, used by
+    /// the level geometry estimate.
+    pub quads: u64,
+}
+
+/// Every fixture id with a built-in appearance, in catalog order.
+///
+/// The catalog/renderer consistency test keeps this list and the catalog's
+/// `asset_type: "light"` entries in agreement, so a catalogued fixture can
+/// never silently render as some other fixture.
+pub const LIGHT_FIXTURE_IDS: [&str; 3] = [
+    "core:fluorescent_panel_01",
+    "core:pool_light_round",
+    "core:pool_light_wall",
+];
+
+/// The profile of a fixture family.
+#[must_use]
+pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
+    match kind {
+        FixtureKind::FluorescentPanel => FixtureProfile {
+            kind,
+            half_width: FIXTURE_HALF_WIDTH_M,
+            half_depth: FIXTURE_HALF_DEPTH_M,
+            quads: 3,
+        },
+        FixtureKind::RoundRecessed => FixtureProfile {
+            kind,
+            half_width: 0.22,
+            half_depth: 0.22,
+            quads: 18,
+        },
+        FixtureKind::WallSconce => FixtureProfile {
+            kind,
+            half_width: 0.20,
+            half_depth: 0.09,
+            quads: 6,
+        },
+    }
+}
+
+/// The profile a fixture id draws with.
+///
+/// Unknown ids deliberately resolve to the office fluorescent panel: levels
+/// written before the fixture table existed, or against a future catalog, keep
+/// loading and keep lighting the room. The catalog consistency test reports the
+/// mismatch instead of the renderer failing at load.
+#[must_use]
+pub fn fixture_profile(fixture_id: &str) -> FixtureProfile {
+    let kind = match fixture_id {
+        "core:pool_light_round" => FixtureKind::RoundRecessed,
+        "core:pool_light_wall" => FixtureKind::WallSconce,
+        _ => FixtureKind::FluorescentPanel,
+    };
+    fixture_profile_for_kind(kind)
+}
+
 /// Cell size of the baked lighting grid used to tessellate floors, ceilings and
 /// wall faces.
 ///
@@ -423,11 +510,35 @@ pub fn fixture_is_turned(rotation_degrees: f32) -> bool {
 /// panel runs along X, and a turned fixture swaps its axes.
 #[must_use]
 pub fn fixture_half_extents(rotation_degrees: f32) -> (f32, f32) {
+    fixture_half_extents_for(FixtureKind::FluorescentPanel, rotation_degrees)
+}
+
+/// [`fixture_half_extents`] for any fixture family.
+#[must_use]
+pub fn fixture_half_extents_for(kind: FixtureKind, rotation_degrees: f32) -> (f32, f32) {
+    let profile = fixture_profile_for_kind(kind);
     if fixture_is_turned(rotation_degrees) {
-        (FIXTURE_HALF_DEPTH_M, FIXTURE_HALF_WIDTH_M)
+        (profile.half_depth, profile.half_width)
     } else {
-        (FIXTURE_HALF_WIDTH_M, FIXTURE_HALF_DEPTH_M)
+        (profile.half_width, profile.half_depth)
     }
+}
+
+/// World Y of a wall-mounted fixture: the authored height when it is finite,
+/// otherwise a safe height above the owning room's floor.
+///
+/// Both the bake and the fixture mesh call this, so the drawn luminaire and the
+/// light pool it casts can never sit at different heights.
+#[must_use]
+fn resolve_wall_fixture_y(rooms: &[RoomLighting], x: f32, z: f32, authored: Option<f32>) -> f32 {
+    if let Some(y) = authored
+        && y.is_finite()
+    {
+        return y;
+    }
+    let floor_y =
+        LevelLighting::room_index_of(rooms, x, z).map_or(0.0, |index| rooms[index].floor_y);
+    floor_y + WALL_LIGHT_DEFAULT_HEIGHT_M
 }
 
 /// Smoothly saturating brightness component of a normalised light density.
@@ -789,16 +900,26 @@ impl LevelLighting {
             let color = light.emitted_color();
             // Rotation swaps the panel's long axis, exactly like the fixture
             // geometry emitted by `crate::render` (shared helper, so a
-            // fractional rotation cannot drift between the two).
-            let (half_w, half_d) = fixture_half_extents(light.rotation_degrees);
-            let panel_y = panel_min_ceiling_y(
-                room.map(|index| &rooms[index]),
-                default_ceiling_y,
-                light.x,
-                light.z,
-                half_w,
-                half_d,
-            ) - FIXTURE_DROP_M;
+            // fractional rotation cannot drift between the two). The fixture
+            // family owns the footprint, so a round downlight pools light in a
+            // small disc while the office panel pools it over its rectangle.
+            let profile = fixture_profile(&light.fixture);
+            let (half_w, half_d) = fixture_half_extents_for(profile.kind, light.rotation_degrees);
+            let panel_y = match light.mount {
+                LightMount::Ceiling => {
+                    panel_min_ceiling_y(
+                        room.map(|index| &rooms[index]),
+                        default_ceiling_y,
+                        light.x,
+                        light.z,
+                        half_w,
+                        half_d,
+                    ) - FIXTURE_DROP_M
+                }
+                // A wall fixture is authored at its own world height; the
+                // fallback only keeps a hand-edited level finite.
+                LightMount::Wall => resolve_wall_fixture_y(&rooms, light.x, light.z, light.y),
+            };
             if let Some(index) = room {
                 rooms[index].fixture_count += 1;
                 let power = effective_power(intensity, height_m);
@@ -998,6 +1119,16 @@ impl LevelLighting {
     #[must_use]
     pub fn fixture_y(&self, x: f32, z: f32) -> f32 {
         self.fixture_panel_y(x, z, 0.0, 0.0)
+    }
+
+    /// World Y of a wall-mounted fixture at `(x, z)`.
+    ///
+    /// The authored height wins; a hand-edited level without one falls back to
+    /// [`WALL_LIGHT_DEFAULT_HEIGHT_M`] above the owning room's floor. Shared by
+    /// the bake and the fixture geometry.
+    #[must_use]
+    pub fn wall_fixture_y(&self, x: f32, z: f32, authored: Option<f32>) -> f32 {
+        resolve_wall_fixture_y(&self.rooms, x, z, authored)
     }
 
     /// Clear eave height of the room owning `(x, z)`, for tests and diagnostics.
@@ -2174,5 +2305,151 @@ mod tests {
         );
         let sample = lighting.sample(3.0, 0.0, 3.0);
         assert!(sample.r > sample.b);
+    }
+
+    /// One room carrying the three shipped fixture families.
+    fn level_with_fixture_families() -> LevelDef {
+        let json = r#"{
+            "format_version": 1,
+            "id": "fixtures",
+            "name": "Fixture Families",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 14.0, "depth": 10.0, "height": 4.0 }],
+            "ceiling_lights": [
+                { "fixture": "core:pool_light_round", "x": 3.0, "z": 3.0,
+                  "color": [0.7, 0.85, 1.0], "brightness": 1.0 },
+                { "fixture": "core:pool_light_wall", "x": 10.0, "z": 0.2,
+                  "mount": "wall", "y": 2.2, "color": [0.7, 0.85, 1.0], "brightness": 0.8 },
+                { "fixture": "core:does_not_exist", "x": 7.0, "z": 8.0 }
+            ]
+        }"#;
+        LevelDef::from_json(json).expect("fixture level parses")
+    }
+
+    #[test]
+    fn fixture_families_own_their_footprint_and_mount() {
+        // The catalog id selects the fixture family: the office panel keeps its
+        // 1.2 x 0.6 m footprint, the round downlight is a 0.44 m disc, and the
+        // wall luminaire is a thin strip on the wall.
+        let panel = fixture_profile("core:fluorescent_panel_01");
+        assert_eq!(panel.kind, FixtureKind::FluorescentPanel);
+        assert_eq!((panel.half_width, panel.half_depth), (0.6, 0.3));
+        let round = fixture_profile("core:pool_light_round");
+        assert_eq!(round.kind, FixtureKind::RoundRecessed);
+        assert_eq!((round.half_width, round.half_depth), (0.22, 0.22));
+        let wall = fixture_profile("core:pool_light_wall");
+        assert_eq!(wall.kind, FixtureKind::WallSconce);
+        assert!(wall.half_width > wall.half_depth);
+        // An unknown or future fixture id falls back to the office panel rather
+        // than failing to light the room.
+        assert_eq!(
+            fixture_profile("core:does_not_exist").kind,
+            FixtureKind::FluorescentPanel
+        );
+        assert_eq!(
+            fixture_half_extents_for(FixtureKind::RoundRecessed, 90.0),
+            (0.22, 0.22),
+            "a round fixture is rotation-invariant"
+        );
+
+        let level = level_with_fixture_families();
+        let lighting = LevelLighting::bake(&level);
+        assert_eq!(lighting.lights().len(), 3);
+
+        // A ceiling fixture hangs just below the room ceiling; a wall fixture
+        // stays at its authored height.
+        let round = lighting.lights()[0];
+        assert!((round.y - (4.0 - FIXTURE_DROP_M)).abs() < 1e-4, "{round:?}");
+        let wall = lighting.lights()[1];
+        assert!((wall.y - 2.2).abs() < 1e-4, "{wall:?}");
+        assert!((wall.half_w - 0.20).abs() < 1e-4);
+        // The unknown id is baked with the panel footprint, not skipped.
+        let unknown = lighting.lights()[2];
+        assert!((unknown.half_w - 0.6).abs() < 1e-4);
+        assert!((unknown.y - (4.0 - FIXTURE_DROP_M)).abs() < 1e-4);
+
+        // A hand-edited wall fixture without a height stays finite.
+        let json = r#"{
+            "format_version": 1,
+            "id": "wallless",
+            "name": "Wallless",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 6.0, "height": 3.5 }],
+            "ceiling_lights": [
+                { "fixture": "core:pool_light_wall", "x": 3.0, "z": 0.2, "mount": "wall" }
+            ]
+        }"#;
+        let level = LevelDef::from_json(json).expect("wall fixture parses");
+        let lighting = LevelLighting::bake(&level);
+        let y = lighting.lights()[0].y;
+        assert!(y.is_finite());
+        assert!((y - WALL_LIGHT_DEFAULT_HEIGHT_M).abs() < 1e-4, "{y}");
+
+        // A room lit only by the cool round fixture must read cool; mixing a
+        // warm fixture in stays a blend, which the Goal 1 RGB tests cover.
+        let cool_only = r#"{
+            "format_version": 1,
+            "id": "cool_only",
+            "name": "Cool Only",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.5 }],
+            "ceiling_lights": [
+                { "fixture": "core:pool_light_round", "x": 4.0, "z": 4.0,
+                  "color": [0.7, 0.85, 1.0], "brightness": 1.0 }
+            ]
+        }"#;
+        let level = LevelDef::from_json(cool_only).expect("cool level parses");
+        let lighting = LevelLighting::bake(&level);
+        let sample = lighting.sample(4.0, 0.0, 4.0);
+        assert!(sample.b > sample.r, "cool light must stay cool: {sample:?}");
+        assert!(sample.b >= AMBIENT_LEVEL && sample.b <= MAX_BRIGHTNESS);
+        for light in lighting.lights() {
+            assert!(light.intensity.is_finite() && light.intensity >= 0.0);
+        }
+    }
+
+    #[test]
+    fn a_wall_fixture_needs_a_height_and_validation_says_so() {
+        // The loader rejects a wall fixture without a `y` (it cannot derive
+        // one), accepts a valid one, and ignores `y` on ceiling fixtures.
+        let level = |lights: &str| {
+            format!(
+                r#"{{
+                    "format_version": 1,
+                    "id": "wall_validation",
+                    "name": "Wall Validation",
+                    "spawn": {{ "x": 0.0, "z": 0.0 }},
+                    "rooms": [{{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 6.0, "height": 3.5 }}],
+                    "ceiling_lights": [{lights}]
+                }}"#
+            )
+        };
+        let missing = LevelDef::from_json(&level(
+            r#"{ "fixture": "core:pool_light_wall", "x": 1.0, "z": 0.2, "mount": "wall" }"#,
+        ))
+        .expect("parses");
+        let error = crate::loader::validate_level(&missing).expect_err("a wall fixture needs y");
+        assert!(error.contains("Wall light 0"), "{error}");
+
+        let valid = LevelDef::from_json(&level(
+            r#"{ "fixture": "core:pool_light_wall", "x": 1.0, "z": 0.2, "mount": "wall", "y": 2.1 }"#,
+        ))
+        .expect("parses");
+        crate::loader::validate_level(&valid).expect("a wall fixture with its height validates");
+
+        let ceiling_with_y = LevelDef::from_json(&level(
+            r#"{ "fixture": "core:fluorescent_panel_01", "x": 1.0, "z": 1.0, "y": 2.4 }"#,
+        ))
+        .expect("parses");
+        crate::loader::validate_level(&ceiling_with_y)
+            .expect("an authored y on a ceiling fixture is ignored, not rejected");
+
+        let non_finite = LevelDef::from_json(&level(
+            r#"{ "fixture": "core:pool_light_wall", "x": 1.0, "z": 0.2, "mount": "wall",
+                 "y": 1e40 }"#,
+        ))
+        .expect("parses");
+        // 1e40 overflows f32 to infinity, which must be rejected, not blessed.
+        crate::loader::validate_level(&non_finite).expect_err("non-finite heights are rejected");
     }
 }

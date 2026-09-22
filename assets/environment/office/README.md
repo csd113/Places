@@ -19,14 +19,43 @@ catalog entry can move without touching a level.
 | `core:fluorescent_panel_01` | light | — (untextured fixture) | — |
 | `core:desk`, `core:chair`, `core:cabinet`, `core:water_cooler`, `core:vending_machine` | prop | embedded in each GLB | `props/models/*.glb` |
 
-The six PNGs are deliberately **seed** art: they preserve the pre-4.5 look and
-prove the pipeline. Goal 5 replaces them with the real office artwork. Replace
-or edit any of them and the next launch shows the new pixels; see
-`../../README.md` for the texture tooling and the workflow.
+## Goal 5 artwork
 
-The office carpet carries the metre checker **in the PNG** (four 64 px
-quadrants of a 128 px two-metre tile). There is no renderer-side checker bake
-any more.
+The six PNGs are the **final Office artwork** (Goal 5), not the Goal 4.5 seed
+set. They are 128x128 8-bit RGBA, opaque, and tileable in both directions
+(every pattern period divides the sheet and every noise field wraps). They stay
+pale and near-neutral, because the material `tint` and the baked lighting
+multiply into the sampled texel; the carpet is the deliberate exception (its
+material has no tint), so it is painted at the historical warm-brown albedo.
+
+* `wallpaper_yellow_01` — pale-printed stock: fine vertical striation, a
+  pinstripe pair and a half-drop dot motif on a 25 cm cell, plus a low-frequency
+  patina. Repetitive and commercial rather than ornate.
+* `wallpaper_stained_01` — the same paper with restrained water damage: soft
+  damp fields and a few vertical runs. No dark outlines, so the damage does not
+  turn into a repeating pattern.
+* `carpet_beige_01` — short-pile carpet: low-frequency mottle, fine directional
+  fibre and 2 px pile loops. **There is no metre checker anywhere**: the
+  historical 1 m bright/dark quadrants were removed in Goal 5, and the sheet is
+  painted so Level 1's floor keeps its previous brightness and warmth.
+* `carpet_damp_01` — the same pile, darker, cooler and slightly flattened in
+  soft damp patches.
+* `ceiling_panel_01` — a 2x2 grid of 1 m suspended acoustic panels (2 px T-bar
+  plus a 1 px shadow groove), slightly yellowed, with per-panel tone variation
+  and pinhole speckle.
+* `ceiling_stained_01` — the same grid with a believable water tide mark on one
+  panel and a smaller leak on another, clipped by a grid fade so the T-bar
+  still reads through the damage.
+
+`tools/textures/office_art.py` is the deterministic, stdlib-only regeneration
+path; the shipped PNGs are authoritative and hand-painted replacements are
+equally valid. `tools/textures/build.py --check` gates the budget.
+
+The Goal 5 demo level `../../levels/office_showcase.json` exercises the set:
+five connected rooms (two open-plan offices, a damaged corridor, a reception
+and a side office), warm fluorescent fixtures with dimmer and unlit corners,
+sparse charcoal desks and task chairs, cabinets, a water cooler and floor
+decals.
 
 Generic props (couch, bed, plants, utilities, ...) are deliberately **not**
 listed here: they belong to no theme and live under `../../core/`.

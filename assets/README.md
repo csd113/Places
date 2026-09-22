@@ -185,8 +185,53 @@ Texture assets are just files:
   the decal pass alpha-tests), so keep surface PNGs opaque unless you are
   deliberately authoring a decal-style asset.
 
-### Level packs and custom textures
+### Decal sheets
 
+Decals are small local surface markings (signs, floor arrows, warning marks)
+placed on an existing surface. A level names them the same way it names a
+material — by logical id in its `decals` array — and the catalog decides where
+the pixels come from:
+
+* `"source": "generated"` decal assets are the built-in patterns the renderer
+  draws into one shared atlas (`core:decal_test_01`, `core:decal_arrow_01`,
+  `core:decal_stripes_01`). They are architecture-test artwork.
+* `"source": "file"` decal assets are **external PNG sheets**, exactly like a
+  surface texture: the entry names the `.png` file under `assets/`, the runtime
+  decodes it once per session and uploads it as its own decal sheet, and a
+  creator replaces the PNG and restarts. `core:decal_no_diving_01` (the Pool
+  safety sign) is the built-in example.
+
+Decal sheets need **power-of-two** dimensions (they are sampled with mipmaps
+and `REPEAT` wrapping) and an alpha cut-out: the decal pass discards every texel
+below alpha 0.5, so the background is alpha 0 and the artwork is the silhouette
+plus its plate. The sheet is drawn in the decal pass with a fixed polygon
+offset, so it wins the coincident-depth test against the surface it lies on and
+still receives the baked lighting of the room it is in. An authoring workflow
+lives in `tools/textures/README.md`; a missing or undecodable sheet draws the
+same magenta/black diagnostic a broken surface texture does, with the decal id
+in the console message.
+
+### Light fixtures
+
+A placed light names a `fixture` id from the catalog's `asset_type: "light"`
+entries, and that id selects both the fixture appearance and the luminous
+footprint the bake treats as a light source. The built-in families are:
+
+| fixture id | appearance | mounting |
+| --- | --- | --- |
+| `core:fluorescent_panel_01` | recessed 1.2 x 0.6 m twin-tube office panel | ceiling (height derived from the room) |
+| `core:pool_light_round` | round recessed downlight, 0.44 m | ceiling (height derived from the room) |
+| `core:pool_light_wall` | shallow wall luminaire | wall: needs `"mount": "wall"` and a world `"y"` |
+
+Fixture appearance and emitted light are separate: `color` and `brightness` are
+authored per placed light and drive both the visible panel and the illumination
+the bake applies. An unknown fixture id keeps loading and draws as the office
+panel, because the catalog/renderer consistency test reports the mismatch
+instead of the renderer failing at load. Adding a new appearance is a code
+change (see `src/lighting.rs::fixture_profile` and the fixture batch in
+`src/render.rs`), because a fixture is generated geometry, not artwork.
+
+### Level packs and custom textures
 A `.zip` level pack can ship its own surface art without touching the catalog.
 Put the PNGs under `textures/` next to `level.json` and map material ids in
 `materials.json`:
@@ -272,9 +317,14 @@ assets/
     office/
       props/models/*.glb           office furniture
       textures/walls/*.png         wallpaper (maintained, stained)
-      textures/floors/*.png        carpet (maintained, damp), checker baked in
+      textures/floors/*.png        carpet (maintained, damp)
       textures/ceilings/*.png      panel ceiling (maintained, stained)
-    pool/                          reserved for the upcoming Pool content pack
+    pool/
+      props/models/*.glb           patio table and chair, curtains, ladder, guardrails
+      textures/walls/*.png         wall tile
+      textures/floors/*.png        deck and basin tile
+      textures/ceilings/*.png      sterile ceiling
+      decals/no_diving_01.png      the final safety sign (RGBA cut-out)
   core/props/models/*.glb          shared/generic props
   entities/spooner-man/model/spooner-man.glb
   diagnostic/
@@ -293,9 +343,14 @@ what the runtime reads, so files may move freely as long as the catalog follows.
   the couch seat all face `+Z` at `rotation_degrees = 0`.
 * A model's bounding box must match the catalog `size` within
   `max(2 cm, 6 % of the axis)`; `tools/props/build.py` fails otherwise.
-* `size` is also the collision box: props are never collision-tested against
-  their render mesh. Intentional clipping (props sunk into floors, overlapping
-  walls or objects) is allowed and never corrected.
+* `size` is the catalog's rendering/editor box. A level's **collision** box is
+  the prop's own `size` (plus its `scale`) when authored, and the neutral
+  `PROP_FALLBACK_SIZE` (0.6 x 0.9 x 0.6 m) when it is not — the catalog size is
+  never collision-tested, and props are never tested against their render mesh.
+  A solid prop that should block like its picture therefore authors `size` in
+  the level, with the footprint's x/z swapped for a 90/270 degree rotation
+  (collision boxes are axis-aligned). Intentional clipping (props sunk into
+  floors, overlapping walls or objects) is allowed and never corrected.
 * Levels place props with `x`, `y` (vertical offset, may be negative), `z`,
   `rotation_degrees` (Y), `scale` and an optional `size` override.
 
@@ -371,12 +426,12 @@ PNGs.
 
 | message | meaning | fix |
 | --- | --- | --- |
-| `{id}: material texture `{tex}` is not declared in the asset catalog` | a material points at a texture id that does not exist | add the texture entry or correct the id |
-| `{id}: a material must declare the logical `texture` it draws with` | a material entry has no `texture` | add one (or make it a `generated` asset of another type) |
+| `{id}: material texture `{tex}` is not declared in the asset catalog` | a material points at a texture id that does not exist | add the texture entry or correct the id || `{id}: a material must declare the logical `texture` it draws with` | a material entry has no `texture` | add one (or make it a `generated` asset of another type) |
 | `{id}: a texture asset must name a `.png` file, found `...`` | texture `model` is not a PNG | convert the file and update the path |
 | `[materials] {level}: material `{id}` texture `{tex}`: cannot read ...` | the PNG is missing at load time | restore the file; the surface shows the magenta/black diagnostic pattern meanwhile |
 | `[materials] {level}: unknown material `{id}`; add it to the asset catalog ...` | a level names a material the catalog does not declare | add it (or fix the typo); the surface shows the diagnostic pattern |
 | `[materials] {level}: material `{id}` texture `{tex}`: `...png`: PNG decode error ...` | the PNG is truncated or corrupt | re-save it; see the loading tests for the accepted encodings |
+| `[decals] decal `{id}`: {problem}` | an external decal sheet's catalog entry or PNG is broken | fix the entry/path; the decal draws the diagnostic sheet meanwhile |
 | `[textures] ...` (from `tools/textures/build.py --check`) | file missing, corrupt, oversized or non-PNG | regenerate with `python3 tools/textures/build.py` |
 
 Validation fails loudly in tooling and degrades visibly in game: a broken
@@ -384,24 +439,24 @@ texture is never hidden behind unrelated artwork.
 
 ## Development fixtures and checks
 
-Six demo levels exercise the pack (none of them touch `level1`):
+Eight demo levels exercise the pack (none of them touch `level1`):
 
 * `levels/asset_demo.json` — **the walkable demo map**, discovered in the game's
   custom-level folder and shown in the level select menu. Four rooms around a
-  corridor place every placeable catalogue asset (all twenty core props plus
+  corridor place every generic and Office placeable asset (the core props plus
   `spooner-man`), and it exercises the whole level format: doorways, a wide
   passage, windows, a vent, twelve ceiling lights, several props standing on
   other props, and the worn material set (stained wallpaper, damp carpet,
-  stained ceiling) that Level 1 does not use.
+  stained ceiling) that Level 1 does not use. The Pool family lives in the Pool
+  showcase instead, so a residential demo never has to hold a pool ladder.
 * `levels/asset_maintained.json` — the same building on the maintained material
   set (yellow wallpaper, beige carpet, panel ceiling). A level carries one wall,
   one floor and one ceiling material, so the two demos are how the maintained
   and water-damaged sets are compared in game.
   Regenerate both with `python3 tools/levels/build_demo_levels.py`.
-* `assets/levels/prop_showcase.json` — every placeable asset placed once
-  (the twenty core props plus `spooner-man`), arranged as a domestic room plus a
-  utility room, including one crate deliberately sunk into the floor and a box
-  overlapping it.
+* `assets/levels/prop_showcase.json` — every generic and Office placeable asset
+  placed once, arranged as a domestic room plus a utility room, including one
+  crate deliberately sunk into the floor and a box overlapping it.
 * `assets/levels/prop_stress.json` — ~150 repeated placements across nine
   models, used to prove that instances share one decoded model, one texture and
   one draw call per model.
@@ -416,6 +471,16 @@ Six demo levels exercise the pack (none of them touch `level1`):
   and warm/blue/white fixtures. Run it with
   `LIMINAL_LEVEL=texture_diagnostic`; see
   `tools/bench/notes/texture-material-validation.md` for the capture spots.
+* `assets/levels/office_showcase.json` — the Goal 5 Office showcase: a small,
+  mostly empty institutional suite on the final wallpaper/carpet/ceiling, with
+  warm fluorescent fixtures, sparse desks and chairs, one room on the damaged
+  material set and floor decals. Run it with `LIMINAL_LEVEL=office_showcase`.
+* `assets/levels/pool_showcase.json` — the Goal 5 Pool showcase: the clean
+  sterile Pool family, a real recessed empty basin (`floor_regions`), the
+  walk-in step, the ladder standing on the basin floor, the patio table and
+  chair, modular curtains and guardrails (with collision), both Pool light
+  fixtures and the final external `NO DIVING` sign. Run it with
+  `LIMINAL_LEVEL=pool_showcase`.
 
 Checks to run before shipping an asset change:
 
