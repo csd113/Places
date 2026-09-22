@@ -953,6 +953,162 @@ fn test_shipped_test_room_demonstrates_openings_and_props() {
     assert!(mesh.batches.prop_batch.count > 0);
 }
 
+/// The official showcase is the level the README sends a new visitor to, so its
+/// promises are pinned here: one continuous route that exercises the office
+/// family, the openings, a coloured transition, a real elevation change, the
+/// recessed pool and an external decal sheet.
+#[test]
+fn test_the_official_demo_exercises_every_showcased_feature() {
+    let json = include_str!("../../assets/levels/places_demo.json");
+    let level = LevelDef::from_json(json).expect("valid places_demo json");
+    validate_level(&level).expect("the official demo validates");
+
+    // Openings: doorways are the route, a window looks between lighting
+    // families, and a passage joins the stair hall to the pool deck.
+    let kinds: std::collections::HashSet<&str> = level
+        .walls
+        .iter()
+        .flat_map(|wall| wall.openings.iter().map(|opening| opening.kind.as_str()))
+        .collect();
+    for kind in ["door", "window", "passage"] {
+        assert!(kinds.contains(kind), "the demo must cut a {kind}");
+    }
+    // Every opening the player walks through is wide enough to walk through.
+    for wall in &level.walls {
+        for opening in &wall.openings {
+            if opening.sill <= f32::EPSILON && opening.reaches_floor() {
+                assert!(
+                    opening.width >= 1.0,
+                    "a walk-through opening is {} m wide",
+                    opening.width
+                );
+            }
+        }
+    }
+
+    // Vertical: two floor elevations one walkable staircase apart, a recessed
+    // basin and a raised landing, all built from floor regions.
+    let elevations: std::collections::BTreeSet<String> = level
+        .room_iter()
+        .map(|room| format!("{:.3}", room.floor_y))
+        .collect();
+    assert_eq!(
+        elevations.len(),
+        3,
+        "the demo steps between three floor elevations, found {elevations:?}"
+    );
+    let recessed = level
+        .floor_regions
+        .iter()
+        .filter(|region| region.offset() <= -1.0)
+        .count();
+    assert!(recessed >= 1, "the empty pool basin is a real recess");
+    let raised = level
+        .floor_regions
+        .iter()
+        .filter(|region| region.offset() > 0.0)
+        .count();
+    assert!(
+        raised >= 5,
+        "the stair and the landing platform are raised regions"
+    );
+    for region in &level.floor_regions {
+        assert!(
+            region.edge_material.is_some(),
+            "a region in the demo must name its transition material"
+        );
+    }
+
+    // Lighting: warm office, one strongly coloured transition and a cool pool,
+    // so the demo can never silently collapse to a single colour temperature.
+    let colours: std::collections::BTreeSet<String> = level
+        .ceiling_lights
+        .iter()
+        .map(|light| {
+            light.color.map_or_else(
+                || "default".to_string(),
+                |color| {
+                    let (r, g, b) = (color.r, color.g, color.b);
+                    format!("{:.2},{:.2},{:.2}", r, g, b)
+                },
+            )
+        })
+        .collect();
+    assert!(
+        colours.len() >= 4,
+        "the demo shows several lighting conditions, found {colours:?}"
+    );
+
+    // The pool family, the office family and the external decal sheets are all
+    // real placements, and every solid prop authors the box it collides with.
+    let placed: std::collections::HashSet<&str> =
+        level.props.iter().map(|prop| prop.model.as_str()).collect();
+    for id in [
+        "core:desk",
+        "core:chair",
+        "core:pool_ladder",
+        "core:pool_guardrail_straight",
+        "core:pool_curtain_straight",
+        "core:pool_table",
+    ] {
+        assert!(placed.contains(id), "the demo must place {id}");
+    }
+    for prop in &level.props {
+        if prop.solid {
+            assert!(
+                prop.size.is_some(),
+                "solid prop {} must author its collision size",
+                prop.model
+            );
+        }
+    }
+    let decals: Vec<&str> = level
+        .decals
+        .iter()
+        .map(|decal| decal.material.as_str())
+        .collect();
+    assert!(
+        decals.contains(&"core:decal_no_diving_01"),
+        "the demo ends the pool with the external NO DIVING sign"
+    );
+    assert!(
+        decals.contains(&"core:decal_stripes_01"),
+        "the demo marks the step up with the external hazard sheet"
+    );
+
+    // The spawn is inside a room, so the first frame is never the void.
+    let spawn = &level.spawn;
+    assert!(
+        level
+            .room_iter()
+            .any(|room| room.contains(spawn.x, spawn.z)),
+        "the demo spawn must be inside a room"
+    );
+
+    // And it all builds. The decals are external PNG sheets, so the geometry
+    // needs the shipped catalogue rather than the built-in fallback.
+    let props = PropCatalog::load_default();
+    let assets = crate::assets::AssetCatalog::load_default();
+    let mesh = crate::render::build_level_geometry_with_catalog(&level, &props);
+    assert!(mesh.batches.wall_batch.count > 0);
+    assert!(mesh.batches.floor_batch.count > 0);
+    assert!(mesh.batches.light_batch.count > 0);
+    assert_eq!(
+        mesh.batches.decal_batch.count,
+        i32::try_from(level.decals.len() * 6).expect("decal quad count fits"),
+        "one quad per placed decal"
+    );
+    let sheets = crate::render::decal_external_sheet_ids(&level, &assets);
+    assert_eq!(
+        sheets,
+        vec![
+            "core:decal_no_diving_01".to_string(),
+            "core:decal_stripes_01".to_string()
+        ],
+        "both decal sheets the demo places resolve as external PNG artwork"
+    );
+}
+
 /// The playable demo map lives in the custom `levels/` folder, so this also
 /// proves it is discovered and loaded through the ordinary level path.
 #[test]

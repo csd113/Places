@@ -1,4 +1,4 @@
-// model.js - Data structures, core materials, and validation for Liminal 2D Level Editor
+// model.js - Data structures, core materials, and validation for the Places 2D Level Editor
 
 // Highest ceiling-light intensity the game uses before clamping (mirrors
 // src/lighting.rs::MAX_LIGHT_INTENSITY). Higher values still load; the game

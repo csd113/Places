@@ -2412,23 +2412,17 @@ fn generated_decal_atlas_cells_match_their_sheet_slots() {
         "the validation marking's own cell must hold its white frame"
     );
 
-    let arrow = cell(decal_material_slot(DECAL_ARROW_MATERIAL).expect("slot"));
-    assert!(
-        count(&arrow, |texel| texel[1] > 120
-            && texel[1] > texel[0] + 30
-            && texel[1] > texel[2] + 30)
-            > 200,
-        "the floor arrow's own cell must hold the green arrow"
-    );
-
-    let stripes = cell(decal_material_slot(DECAL_STRIPES_MATERIAL).expect("slot"));
-    assert!(
-        count(&stripes, |texel| texel[0] > 180
-            && texel[1] > 150
-            && texel[2] < 100)
-            > 1000,
-        "the hazard-stripe cell must hold the yellow stripes"
-    );
+    // The other three cells hold no ink: the floor arrow, the hazard stripes
+    // and the Pool sign are external PNG sheets now, so nothing may be drawn
+    // in them. A stray pattern here would show a level the wrong artwork.
+    for slot in 1..4u32 {
+        let spare = cell(slot);
+        assert_eq!(
+            count(&spare, |texel| texel[3] > 128),
+            0,
+            "generated atlas cell {slot} must stay transparent"
+        );
+    }
 }
 
 #[test]
@@ -2488,19 +2482,50 @@ fn a_catalogued_png_decal_draws_from_its_own_sheet() {
     // generated pattern, and generated sheets keep the atlas rect.
     let mixed = level_with_decals(
         r#"{ "x": 1.0, "y": 0.0, "z": 1.0, "width": 1.0, "height": 1.0,
-             "material": "core:decal_arrow_01", "surface": "floor" },
+             "material": "core:decal_test_01", "surface": "floor" },
            { "x": 3.0, "y": 0.0, "z": 3.0, "width": 0.9, "height": 0.9,
              "material": "core:decal_no_diving_01", "surface": "floor" }"#,
         r#"{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 0.4, "height": 3.0 }"#,
         "[]",
     );
     assert_eq!(
-        decal_sheet_index(&mixed, catalog.assets(), "core:decal_arrow_01"),
-        decal_material_slot("core:decal_arrow_01")
+        decal_sheet_index(&mixed, catalog.assets(), "core:decal_test_01"),
+        decal_material_slot("core:decal_test_01")
     );
     assert_eq!(
         decal_sheet_index(&mixed, catalog.assets(), "core:decal_no_diving_01"),
         Some(DECAL_EXTERNAL_BASE)
+    );
+    // The two remaining former patterns are external sheets as well, and the
+    // first one the level places takes the slot directly after the generated
+    // atlas, so their indices are the level's placement order.
+    assert_eq!(
+        decal_external_sheet_ids(&mixed, catalog.assets()),
+        vec!["core:decal_no_diving_01".to_string()]
+    );
+    let with_patterns = level_with_decals(
+        r#"{ "x": 1.0, "y": 0.0, "z": 1.0, "width": 1.0, "height": 1.0,
+             "material": "core:decal_arrow_01", "surface": "floor" },
+           { "x": 3.0, "y": 0.0, "z": 3.0, "width": 1.0, "height": 1.0,
+             "material": "core:decal_stripes_01", "surface": "floor" }"#,
+        r#"{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 0.4, "height": 3.0 }"#,
+        "[]",
+    );
+    assert_eq!(
+        decal_external_sheet_ids(&with_patterns, catalog.assets()),
+        vec![
+            "core:decal_arrow_01".to_string(),
+            "core:decal_stripes_01".to_string()
+        ],
+        "the arrow and the stripes are external sheets, in placement order"
+    );
+    assert_eq!(
+        decal_sheet_index(&with_patterns, catalog.assets(), "core:decal_arrow_01"),
+        Some(DECAL_EXTERNAL_BASE)
+    );
+    assert_eq!(
+        decal_sheet_index(&with_patterns, catalog.assets(), "core:decal_stripes_01"),
+        Some(DECAL_EXTERNAL_BASE + 1)
     );
     let mesh = build_level_geometry_with_catalog(&mixed, &catalog);
     assert_eq!(mesh.batches.decal_batch.count, 12, "two decals, two quads");
@@ -2537,7 +2562,7 @@ fn a_wall_decal_lies_exactly_on_its_wall_plane_and_faces_the_room() {
 fn a_floor_decal_stays_flat_and_rotates_in_its_plane() {
     let level = level_with_decals(
         r#"{ "x": 3.0, "y": 0.0, "z": 3.0, "width": 2.0, "height": 1.0,
-             "material": "core:decal_arrow_01", "surface": "floor", "rotation_degrees": 90.0 }"#,
+             "material": "core:decal_test_01", "surface": "floor", "rotation_degrees": 90.0 }"#,
         r#"{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 0.4, "height": 3.0 }"#,
         "[]",
     );
@@ -2693,14 +2718,14 @@ fn unknown_decal_materials_are_skipped_without_failing_the_build() {
 fn decals_are_lit_by_the_rooms_own_baked_light() {
     let warm = level_with_decals(
         r#"{ "x": 3.0, "y": 0.0, "z": 3.0, "width": 2.0, "height": 2.0,
-             "material": "core:decal_arrow_01", "surface": "floor" }"#,
+             "material": "core:decal_test_01", "surface": "floor" }"#,
         r#"{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 0.4, "height": 3.0 }"#,
         r#"[{ "fixture": "core:fluorescent_panel_01", "x": 3.0, "z": 3.0, "brightness": 1.0,
                "color": [1.0, 0.5, 0.2] }]"#,
     );
     let blue = level_with_decals(
         r#"{ "x": 3.0, "y": 0.0, "z": 3.0, "width": 2.0, "height": 2.0,
-             "material": "core:decal_arrow_01", "surface": "floor" }"#,
+             "material": "core:decal_test_01", "surface": "floor" }"#,
         r#"{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 0.4, "height": 3.0 }"#,
         r#"[{ "fixture": "core:fluorescent_panel_01", "x": 3.0, "z": 3.0, "brightness": 1.0,
                "color": [0.2, 0.5, 1.0] }]"#,

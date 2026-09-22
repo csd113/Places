@@ -1,109 +1,82 @@
 # Places
 
-Places is the standalone home for Liminal, the game described below. Its Rust
-crate, game assets, editor, tests and development tooling live at the repository
-root so the project can evolve as a normal desktop game.
+### an experience
 
-A slow first-person walking game: quiet residential interiors that keep going,
-built from rectangular rooms, hallways and a baked static lighting system.
+A slow first-person exploration game. You walk through quiet, over-lit
+institutional interiors — an office that keeps going, a swimming pool that is
+closed and empty — and the building stops being finished around you. There is
+nothing to collect, fight or solve.
 
-There is nothing to collect, fight or solve. You walk, and the building
-changes around you.
+Places is a desktop game written in Rust: `sdl2` for the window and input,
+OpenGL through `glow`, and a baked vertex-lit renderer with no dynamic lights,
+no shadow maps and no shaders beyond one texture-multiplied-by-vertex-colour
+pass. Its content is data: levels are JSON, surfaces are PNGs, props are GLBs,
+and a catalog maps stable logical ids onto all of it.
 
-## Levels
+![An office interior](docs/screenshots/01-office.png)
 
-Three large, hand-authored residential levels ship with the app:
+## Overview
 
-| Level | ID | Setting |
-| --- | --- | --- |
-| The Residence | `the_residence` | One very large house: entrance hall, living rooms, kitchen wing, bedroom corridors, service rooms and a back wing that has been leaking for years. |
-| Quiet Apartments | `quiet_apartments` | An apartment building whose corridors and apartment interiors run into one another; the far apartments are only reachable through their neighbours. |
-| After the Leak | `after_the_leak` | A house with a long-standing water problem spreading out of its service core; the last rooms are soaked and lit by two surviving fixtures. |
+The engine is deliberately small and the content is deliberately editable:
 
-Each level is maintained near the spawn and decays as you walk: water staining
-creeps along walls and ceilings, carpets turn damp, fixtures fail one by one and
-furniture drifts out of place. The change is gradual, and the far end of each
-level is dark but never unreadable. Older development levels (Level 1, the
-asset demo, and the prop showcase/stress fixtures) are still installed and can
-be chosen from the same menu.
+* **Rooms, walls and openings** are authored as rectangles in a JSON level.
+  Walls can be cut with doors, windows, passages and vents.
+* **Baked RGB lighting.** Every fixture bakes a room-wide baseline plus a local
+  pool into the level's vertex colours at load time. Coloured fixtures tint both
+  the visible panel and the illumination.
+* **Walls are lighting boundaries.** A fixture's light only reaches what its
+  panel can see: an opaque wall blocks the pool behind it, and a doorway,
+  window, passage or vent transmits light through exactly the hole it cuts.
+* **Vertical geometry.** A room has its own floor elevation, clear height and
+  ceiling profile (flat or gable); `floor_regions` recess or raise rectangular
+  parts of a room, which is how the empty pool basin and the region staircases
+  are built.
+* **External artwork.** Surface materials, decal sheets and (optionally) level
+  pack textures are ordinary PNGs under `assets/`. Replace the file, restart,
+  see the new pixels — no Rust change and no recompilation.
+* **A real catalog.** Levels never store a file path. They name a logical id
+  (`core:desk`, `core:pool_tile_deck_01`, `spooner-man`) and `assets/catalog.json`
+  resolves it to a file, a material definition or a generated resource.
 
-## Assets
+## Screenshots
 
-Levels reference assets by **logical id** (`core:desk`, `spooner-man`), never by
-file path. The catalog at `assets/catalog.json` maps each id to its class
-(`environment`, `entity`, `core`, `diagnostic`), its type (`prop`, `material`,
-`texture`, `light`, `decal`, ...), an optional environment theme and the canonical resource
-under `assets/`.
+| | |
+| --- | --- |
+| ![Office](docs/screenshots/01-office.png) Office: warm fluorescent panels over carpet and printed wallpaper, with the pool windows on the right. | ![Office window](docs/screenshots/02-office-window.png) The office looks one storey down into the pool through a window aperture. |
+| ![Stair transition](docs/screenshots/03-stair-transition.png) The stair hall turns red; the pool is visible through both a passage and a window beside it. | ![Pool](docs/screenshots/04-pool.png) The empty pool: recessed basin, ladder, guardrails, patio set, NO DIVING sign, cool light. |
+| ![Final doorway](docs/screenshots/05-final-doorway.png) The last doorway frames the unmade world. | ![Unmade world](docs/screenshots/06-unmade-world.png) Beyond it: a floor, a ceiling, a few fixtures, and nothing. |
 
-* The initial environment themes are **`office`** and **`pool`**. Themes group
-  and document content; they never restrict placement, so Office and Pool assets
-  (and entities) can be mixed freely in any level.
-* **Environment surface artwork is external PNG.** A level names a *material*
-  (`core:carpet_beige_01`); the catalog maps that material to a *texture* asset
-  (`core:tex_carpet_beige_01`), which owns the PNG under
-  `assets/environment/<theme>/textures/`. Editing the PNG and restarting shows
-  the new pixels — no Rust change and no recompilation. See
-  `assets/README.md` for the authoring workflow.
-* **Spooner-Man** is an entity asset (`asset_class: entity`), not an Office or
-  Pool prop. Its logical id is still exactly `spooner-man`, and its one
-  canonical resource lives at `assets/entities/spooner-man/model/spooner-man.glb`.
-* Generic props (couch, bed, appliances, ...) carry no theme and stay generic.
-* The shipped surface PNGs are the finished Office and Pool artwork: carpet,
-  wallpaper, panel ceiling and their damaged variants, plus the Pool deck,
-  basin and wall tile, the sterile Pool ceiling and the `NO DIVING` sign sheet.
-  Every one is an ordinary editable file; see `assets/README.md` for the
-  catalog format and `tools/textures/README.md` for the authoring workflow.
-* `assets/levels/office_showcase.json` and `assets/levels/pool_showcase.json`
-  are the two Goal 5 showcase levels: the Office suite and the empty Pool
-  complex. Boot them directly with `LIMINAL_LEVEL=office_showcase` or
-  `LIMINAL_LEVEL=pool_showcase`.
+## The demo
 
-### Built-in theme content
+`assets/levels/places_demo.json` is the official showcase. It is one continuous
+route through everything the project currently does:
 
-Themes group and document content; they never restrict placement. Reference any
-of these by logical id from any level.
+```text
+office reception  →  workroom  →  doorways and windows
+      →  red stair hall (1.5 m down)  →  pool hall (recessed basin)
+      →  two steps up  →  quiet corridor  →  final doorway  →  the unmade world
+```
 
-| Office | id | kind |
-| --- | --- | --- |
-| Wallpaper (maintained / damaged) | `core:wallpaper_yellow_01` / `core:wallpaper_stained_01` | material |
-| Carpet (maintained / damp) | `core:carpet_beige_01` / `core:carpet_damp_01` | material |
-| Suspended ceiling (maintained / stained) | `core:ceiling_panel_01` / `core:ceiling_stained_01` | material |
-| Fluorescent ceiling panel | `core:fluorescent_panel_01` | light fixture |
-| Desk / chair | `core:desk` / `core:chair` | prop (solid) |
-| Cabinet / water cooler / vending machine | `core:cabinet` / `core:water_cooler` / `core:vending_machine` | prop (solid) |
-
-| Pool | id | kind |
-| --- | --- | --- |
-| Deck tile / basin tile / wall tile / ceiling | `core:pool_tile_deck_01` / `core:pool_tile_basin_01` / `core:pool_tile_wall_01` / `core:pool_ceiling_01` | material |
-| Patio table / chair | `core:pool_table` / `core:pool_chair` | prop (solid) |
-| Privacy curtain, straight / end / corner | `core:pool_curtain_straight` / `core:pool_curtain_end` / `core:pool_curtain_corner` | prop (walk-through) |
-| Ladder | `core:pool_ladder` | prop (solid; stands on the basin floor) |
-| Guardrail, straight / end / corner | `core:pool_guardrail_straight` / `core:pool_guardrail_end` / `core:pool_guardrail_corner` | prop (solid) |
-| Round ceiling downlight / wall luminaire | `core:pool_light_round` / `core:pool_light_wall` | light fixture (`wall` takes `mount` + `y`) |
-| NO DIVING sign | `core:decal_no_diving_01` | decal (external PNG cut-out) |
-
-Themes may be mixed freely: an Office level can use Pool assets and vice versa,
-and entity assets such as `spooner-man` place anywhere. Every surface and decal
-sheet above is an editable PNG under `assets/environment/<theme>/textures/` and
-`assets/environment/pool/decals/` — replace the file, restart, see the new
-pixels. `python3 tools/textures/build.py --check` validates the shipped set.
-
-`assets/README.md` documents the catalog format, the runtime resolution flow,
-the material/texture split and the asset budgets. Validate everything with:
+Walk it from the main menu, or boot straight into it:
 
 ```sh
-python3 tools/assets/validate.py        # catalog, resources, shipped levels
-python3 tools/textures/build.py --check # surface PNGs and their budgets
-python3 tools/props/build.py --check
-cargo test
+cargo run                                   # then: Level Select → Places Demo
+LIMINAL_LEVEL=places_demo cargo run         # straight into the demo
+LIMINAL_LEVEL=places_demo ./Places/places    # from a packaged build
 ```
+
+Route, if you want it: from the spawn, walk forward through the doorway into the
+workroom, keep straight through the second doorway and down the stairs, follow
+the passage into the pool hall, cross the deck to the far side, and take the two
+steps up into the dim corridor. The doorway at its end is the last one.
 
 ## Controls
 
-Menus use `W`/`S` or `UP`/`DOWN` to move through items, `A`/`D` or
-`LEFT`/`RIGHT` to adjust values, `ENTER` to activate and `ESC` to go back.
+Menus use `W`/`S` to move through items, `ENTER` to activate and `ESC` to go
+back; Settings additionally uses `A`/`D` to adjust a value.
 
-Gameplay uses these bindings (all of them can be changed in Settings):
+Gameplay defaults (all eight movement bindings can be changed in Settings →
+`Restore Default Bindings` puts them back):
 
 | Action | Key |
 | --- | --- |
@@ -115,198 +88,280 @@ Gameplay uses these bindings (all of them can be changed in Settings):
 | Look down | `DOWN` |
 | Look left | `LEFT` |
 | Look right | `RIGHT` |
-| Pause menu | `ESC` |
-| Performance overlay | `-` |
+| Pause menu | `ESC` (fixed) |
+| Performance overlay | `-` (fixed, hidden by default) |
 
-`Restore Default Bindings` in Settings puts this layout back after a rebind.
-Custom bindings are saved to `settings.json` and are kept across launches.
+Custom bindings, look speed, walk speed, field of view, VSync and texture
+filtering are saved to `settings.json` in the package root and kept across
+launches.
 
-The overlay prints frame timing, CPU/GPU load, submitted draw calls and the
-baked-lighting summary; it is hidden by default.
+## Build and run
 
-## Running it
+### Desktop prerequisites
 
-On macOS, install SDL2 and `pkg-config` if they are not already available:
+macOS is the development platform. You need SDL2 and `pkg-config`:
 
 ```sh
 brew install sdl2 pkg-config
-```
-
-Then launch the desktop development build from the repository root:
-
-```sh
 cargo run
 ```
 
-The game resolves its levels, asset catalog, imported level packs and
-`settings.json` relative to the repository root for development builds.
+`cargo run` resolves `assets/`, `levels/` and `settings.json` from the
+repository root, and also from the executable's own directory, so running the
+game from a subdirectory works too.
 
-## Level packs
-
-`levels/*.json` (and `levels/*.zip` level packs) are installed by copying them
-into the `levels/` directory inside the package. Levels are validated on load;
-a level that fails validation is skipped and reported on the console rather
-than crashing the game.
-
-## Desktop prerequisites
-
-- macOS with SDL2 2.26.5 or newer and an OpenGL-capable driver.
-- `pkg-config` so `sdl2-sys` can find the installed SDL2 library.
-
-## Platform packaging
-
-The game itself is platform-neutral. Historical PocketCHIP/Vitrallis packaging
-artifacts are isolated in `platforms/pocketchip/vitrallis/`; they are not part
-of the macOS development workflow. PocketCHIP packaging will be revisited as a
-separate adaptation effort.
-
-## Building
+Validate the project:
 
 ```sh
-cargo build --release                  # development build for this machine
-cargo test                             # level, lighting, renderer and format tests
-python3 tools/assets/validate.py       # asset catalog and shipped-level validation
-python3 tools/textures/build.py --check # surface texture PNGs and their budgets
-python3 tools/props/build.py --check   # prop models exist and fit their budgets
+cargo fmt --check
+cargo clippy --workspace --all-targets --all-features
+cargo test
+python3 tools/assets/validate.py          # catalog, resources, every shipped level
+python3 tools/textures/build.py --check   # surface and decal PNGs and their budgets
+python3 tools/props/build.py --check      # prop models exist and fit their budgets
+cd level-editor && npm test               # the legacy level editor still parses the catalog
 ```
 
-Run the game and its tests from the repository root. Platform-specific build
-and release steps belong under `platforms/` rather than in the game crate.
+## Distribution layout
 
-## Level format
+A packaged build is a directory with the executable and its payload:
 
-The shipped JSON examples in `assets/levels/` demonstrate rooms, walls with door
-and window openings, per-room and per-wall material overrides, floor patches,
-ceiling lights and placed props. The bundled level editor writes the same format.
+```text
+Places/
+    places                  the executable
+    assets/                 catalog.json, levels/, models, textures, decals
+        catalog.json
+        levels/*.json
+        core/ environment/ entities/ diagnostic/
+    levels/                 drop-in level packs (*.json and *.zip)
+    settings.json           written on first run
+```
 
-### Lights
+Build one with:
 
-`ceiling_lights` holds every light fixture, ceiling-mounted by default:
+```sh
+cargo build --release
+tools/package.sh                  # -> target/package/Places and target/package/Places.app
+```
 
-```json
+`tools/package.sh` also writes the macOS bundle form,
+`Places.app/Contents/MacOS/places` with the same payload under
+`Contents/Resources/`. Both forms run from any working directory. The asset root
+is resolved in this order and the result is printed at startup:
+
+```text
+$LIMINAL_ASSET_ROOT                    explicit override (the directory containing assets/)
+exe_dir, exe_dir/.. .. exe_dir/../../..   a flat install, and the legacy bin/<triple>/app layout
+exe_dir/../Resources                   a macOS .app bundle
+assets, ./assets, ../assets            the working directory (development)
+$CARGO_MANIFEST_DIR/assets             development builds only, never a release binary
+```
+
+A release binary therefore cannot read the source tree it was built from, and a
+missing asset root is reported loudly with the full list of locations checked
+rather than silently degrading. `assets/levels/` is scanned for shipped levels
+and `levels/` for drop-in ones; both appear in the same Level Select menu.
+
+## Assets, themes and ids
+
+`assets/catalog.json` is the authoritative registry. Levels reference **logical
+ids**, never paths, so a file can move without editing a level. There are two
+environment themes, `office` and `pool`; themes document and group content and
+never restrict placement — an Office fixture may light a Pool room and an entity
+may stand anywhere.
+
+| Office | id |
+| --- | --- |
+| Wallpaper (maintained / damaged) | `core:wallpaper_yellow_01` / `core:wallpaper_stained_01` |
+| Carpet (maintained / damp) | `core:carpet_beige_01` / `core:carpet_damp_01` |
+| Suspended ceiling (maintained / stained) | `core:ceiling_panel_01` / `core:ceiling_stained_01` |
+| Fluorescent ceiling panel | `core:fluorescent_panel_01` |
+| Desk, chair, cabinet, water cooler, vending machine | `core:desk`, `core:chair`, `core:cabinet`, `core:water_cooler`, `core:vending_machine` |
+
+| Pool | id |
+| --- | --- |
+| Deck, basin, wall tile, ceiling | `core:pool_tile_deck_01`, `core:pool_tile_basin_01`, `core:pool_tile_wall_01`, `core:pool_ceiling_01` |
+| Patio table / chair | `core:pool_table`, `core:pool_chair` |
+| Curtain (straight / end / corner) | `core:pool_curtain_straight`, `core:pool_curtain_end`, `core:pool_curtain_corner` |
+| Ladder | `core:pool_ladder` |
+| Guardrail (straight / end / corner) | `core:pool_guardrail_straight`, `core:pool_guardrail_end`, `core:pool_guardrail_corner` |
+| Round downlight / wall luminaire | `core:pool_light_round`, `core:pool_light_wall` |
+| NO DIVING sign | `core:decal_no_diving_01` |
+
+Generic props (`core:couch`, `core:bed`, `core:table`, appliances, …) carry no
+theme and are used by the residential levels. `spooner-man` is an `entity`, not
+a prop, and places through the same system.
+
+### Textures and materials
+
+A level names a *material*; the catalog maps that material to a *texture* asset
+that owns the PNG, plus a world-space tiling period and a static tint. Replace
+the PNG under `assets/environment/<theme>/textures/` (or a decal sheet under
+`assets/environment/pool/decals/`, `assets/core/decals/`) and restart the game.
+
+Every surface and decal PNG is an ordinary editable file; the ones under
+`tools/` regenerate the shipped set deterministically, but hand-painted artwork
+is just as valid. Add a new surface material without touching Rust: add the PNG,
+add a `texture` entry and a `material` entry to the catalog, then name the
+material from a level. `assets/README.md` documents the catalog format, the
+material/texture split and the asset budgets.
+
+**Colour space.** The renderer has no gamma handling: textures are sampled as
+authored and multiplied by a display-space baked shade. That is deliberate — the
+shipped artwork, the material tints and every lighting constant were calibrated
+together in that space. See "Rendering notes" below.
+
+## Levels and creator content
+
+A level is a JSON document. Rooms are rectangles with an optional numeric floor
+elevation, a clear height and a ceiling profile; walls are rectangles with
+optional per-face materials and openings cut out of them.
+
+```jsonc
 {
-  "fixture": "core:fluorescent_panel_01",
-  "x": 5.0, "z": 5.0,
-  "rotation_degrees": 0.0,
-  "color": [1.0, 0.96, 0.88],   // emitted RGB, 0..1 per channel
-  "brightness": 1.0             // also accepted as "intensity"
+  "format_version": 1,
+  "id": "my_level",
+  "name": "My Level",
+  "spawn": { "x": 2.0, "z": 5.0, "yaw_degrees": 0.0 },
+  "defaults": { "wall": "core:wallpaper_yellow_01",
+                "floor": "core:carpet_beige_01",
+                "ceiling": "core:ceiling_panel_01" },
+  "rooms": [
+    { "x": 0.0, "z": 0.0, "width": 9.0, "depth": 7.0,
+      "height": 2.7, "floor_y": 0.0 }
+  ],
+  "walls": [
+    { "x": 0.0, "z": 0.0, "width": 9.0, "depth": 0.3,
+      "openings": [ { "kind": "window", "offset": 2.0, "width": 2.0,
+                      "height": 1.3, "sill": 1.7 } ] }
+  ],
+  "floor_regions": [
+    { "x": 2.0, "z": 2.0, "width": 4.0, "depth": 3.0, "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01" }
+  ],
+  "ceiling_lights": [
+    { "fixture": "core:fluorescent_panel_01", "x": 4.5, "z": 3.5,
+      "brightness": 0.7, "color": [1.0, 0.94, 0.82] }
+  ],
+  "props": [
+    { "model": "core:desk", "x": 2.0, "z": 5.0, "rotation_degrees": 0.0,
+      "solid": true, "size": [1.6, 0.75, 0.7] }
+  ],
+  "decals": [
+    { "x": 4.5, "z": 2.0, "width": 0.9, "height": 0.9,
+      "material": "core:decal_no_diving_01", "surface": "floor" }
+  ]
 }
 ```
 
-* `color` and `brightness` are optional; omitted means the restrained warm
-  fluorescent default. They drive both the visible fixture's tint and the
-  coloured illumination the baked lighting applies, so a blue fixture shows a
-  blue panel *and* lights the floor blue.
-* `fixture` selects the catalog `light` asset: the office panel
-  (`core:fluorescent_panel_01`), the round Pool downlight
-  (`core:pool_light_round`) or the wall luminaire (`core:pool_light_wall`).
-* A **wall fixture** adds `"mount": "wall"` and a world-space `"y"`; it faces
-  `rotation_degrees` (`0` faces `+Z`, like a prop) and does not derive a height
-  from the ceiling.
-* There is no authored radius or height: a ceiling fixture hangs just below the
-  lowest ceiling point it covers, and the ambient baseline is a deliberate
-  `0.10`, so an unlit room stays dark rather than being filled with global
-  light.
+Drop a level into `levels/` (optionally in a `.zip` pack with its own textures,
+see `assets/README.md`) or `assets/levels/`, and it appears in the Level Select
+menu. A level that fails validation is skipped and reported on the console
+rather than crashing the game. `assets/levels/README.md` indexes every shipped
+level and says which ones are regression fixtures.
 
-### Vertical geometry
+Notable supported details:
 
-A room is a rectangular volume with a floor plane, a ceiling profile and its own
-base elevation. All three are optional in the JSON, and omitting them reproduces
-the historical room exactly.
+* **Openings** are cut from the wall's minimum corner: `offset` along the wall's
+  length, `width` along the wall, `height` above `sill`. `kind` is `door`,
+  `window`, `passage` or `vent`; collision follows the geometry, so `sill: 0`
+  is walk-through whatever the kind is.
+* **Walls are not generated from rooms.** An unenclosed room shows the void
+  through the gap, so shell every room you want to walk inside of.
+* **A walkable step is 0.4 m.** A larger height difference is solid from the
+  lower side and cannot be walked off from the upper side, which is what makes
+  region staircases and pool basins safe without any falling physics.
+* **Ceilings** are flat by default; `{"kind": "gable", "ridge": "x",
+  "ridge_rise": 2.0}` adds a pitched ceiling, and gable-end walls follow the
+  slope unless they author their own height.
 
-```json
-{
-  "x": 0.0, "z": 0.0, "width": 10.0, "depth": 8.0,
-  "height": 3.0,          // clear height from the floor to the eave
-  "floor_y": 2.0,         // world Y of the floor plane (default 0.0)
-  "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 2.0 }
-}
+The bundled editor under `level-editor/` is a browser tool that writes the same
+format. It predates the vertical-geometry keys and does not author, preview or
+preserve `floor_y`, `floor_regions`, `ceiling` or wall `y`/`mount`; saving such
+a level through it drops them, so edit those as JSON.
+
+## Project structure
+
+```text
+src/                 the game crate (`liminal-rust`)
+    assets.rs        the catalog: ids, classes, themes, resource paths
+    level.rs         the level format, geometry rules and the walkable floor
+    loader.rs        level discovery, validation, packs, materials resolution
+    lighting/        the bake: baselines, fixture pools, wall visibility
+    render/          mesh building, packing, culling, decals, fixtures, the GL renderer
+    materials/       PNG decode, texture cache, material and decal resolution
+    game.rs          player state, movement and collision
+    ui.rs            the menu, level select and settings screens
+assets/              the shipped content (catalog, levels, models, textures, decals)
+levels/              drop-in custom levels and level packs
+tools/               asset, texture, prop and level generators and validators
+level-editor/        the legacy browser level editor
+docs/screenshots/    the images in this README
+platforms/           historical PocketCHIP/Vitrallis packaging, not part of the desktop workflow
 ```
 
-* `floor_y` is world-space metres. A room at `2.0` sits two metres above a room
-  at `0.0`; negative values are allowed. Floor, walls, ceiling, decals and props
-  all resolve against it.
-* `height` is the room-local clear height. Omitted, it is the standard default
-  of **4.0 m**; legacy levels that write `3.5` keep 3.5.
-* `ceiling.kind` is `flat` (default; one plane at `floor_y + height`) or
-  `gable`. A gable needs `ridge` (`x` or `z`, the axis the ridge runs along) and
-  `ridge_rise` (metres above the eave, strictly positive). The ceiling slopes
-  linearly across the other axis, from the eave at both edges up to the ridge at
-  the centre; ridge world Y is `floor_y + height + ridge_rise`. Gable-end walls
-  follow the slope automatically when they do not author a height.
+## Current development status
 
-### Walls
+Working and shipped:
 
-A wall is authored by its **minimum corner**, exactly like a room: `x`/`z` is
-the corner with the smallest coordinates, and `width`/`depth` extend from
-there. A wall whose longer side runs along `x` is an `x`-axis wall (its faces
-look along `z`), and vice versa.
+* first-person exploration with collision and floor-elevation traversal;
+* two environment themes with external PNG surfaces and eight external or
+  generated decal sheets;
+* baked RGB lighting with per-fixture colour, brightness and pooling;
+* wall-boundary lighting isolation, including light through openings;
+* rooms with per-room floor elevation, clear height, flat and gable ceilings;
+* recessed and raised floor regions with real transition geometry;
+* props and entities placed by logical id, with authored collision boxes;
+* three large residential levels, two environment showcases, the official demo,
+  and compact diagnostic levels that back the automated tests;
+* a clean packaged distribution and a catalog-driven content pipeline.
 
-```json
-{ "x": 0.0, "z": -0.3, "width": 16.0, "depth": 0.3, "height": 4.0,
-  "material": "core:pool_tile_wall_01",
-  "faces": { "south": "core:decal_stripes_01" },
-  "openings": [ { "kind": "door", "offset": 4.0, "width": 1.2, "height": 2.1 } ] }
-```
+Known limitations, all deliberate:
 
-* `y` is absolute world Y (default `0.0`), not relative to a room floor.
-* `height` omitted means the wall follows the local ceiling, including a gable
-  slope; authored, it is its own height above `y`.
-* `openings` are cut from the min corner along the wall's length axis:
-  `offset` is metres from that corner, `width` along the wall, `height` above
-  `sill` (default `0`). `kind` is `door`, `window`, `passage` or `vent`;
-  doors and passages reach the floor and let the player through, windows keep
-  their sill and header solid.
-* `faces` overrides one face's material by name (`north`, `south`, `east`,
-  `west`); the wall-level `material` overrides every face.
-* Walls are not generated from rooms: an unenclosed room shows the void through
-  the gap, so shell every room you want to walk inside of. Coincident duplicate
-  walls are coalesced into one surface with material runs (that is how overlays
-  are authored), so an overlapping copy is not a hole.
-* **Walls are lighting boundaries.** A fixture's light only reaches what its
-  panel can see: an opaque wall blocks the pool behind it, and a doorway,
-  window, passage or vent transmits light through exactly the hole it cuts. A
-  window therefore passes light over its sill and under its header, and a wall
-  whose opening stops short of the floor is a header, not a passage. Author
-  walls wherever two spaces should be lit independently — a partition inside one
-  room shadows a fixture's pool but not the room's own baseline.
+* no gameplay systems — no objectives, inventory, enemies or scripting;
+* no dynamic lights, shadows, normal maps, specular maps or PBR;
+* no animation, no skinning, no water and no swimming; the pool is empty on
+  purpose;
+* no glass or transparent surfaces — openings are bare architectural holes;
+* floor regions are rectangular and flat: no ramps or sloped regions;
+* no traversal between stacked rooms, and no ceiling or floor openings;
+* decals cannot cross a floor or ceiling height change, and a gable ceiling
+  takes no decals;
+* rooms and walls are axis-aligned rectangles only;
+* the legacy level editor does not preserve the vertical-geometry keys.
 
-### Local floor regions
+## Rendering notes
 
-`floor_regions` add rectangular floor areas inside a room with their own
-vertical offset. They are the general mechanism behind recessed pools, trenches,
-sunken areas and raised platforms:
+The renderer draws the world in one pass: a baked vertex colour multiplied by a
+sampled texel (`texture2D(u_texture, v_uv) * v_color`), with a separate decal
+pass that alpha-tests a cut-out sheet over the surface it belongs to. Lighting
+is computed once per level load, never per frame.
 
-```json
-"floor_regions": [
-  { "x": 4.0, "z": 3.0, "width": 4.0, "depth": 3.0, "offset_y": -1.5,
-    "material": "core:carpet_damp_01",
-    "edge_material": "core:wallpaper_stained_01" }
-]
-```
+There is no sRGB or gamma handling, and adding some is not the small fix it
+looks like:
 
-* `offset_y` is relative to the containing room's `floor_y`; negative recesses,
-  positive raises. A region's floor must stay below the room's eave.
-* `material` overrides the region's floor (otherwise the room's floor material,
-  or a floor patch covering the cell, applies); `edge_material` overrides the
-  vertical transition faces (otherwise the room's wall material).
-* Region edges are cut lines in the floor grid, so the boundary is exact and the
-  region is never a second overlapping slab. Every height change gets real
-  transition geometry, and a region touching a room boundary is closed against
-  the room's floor plane.
-* Collision agrees with the mesh: a height difference larger than a walkable
-  step (0.4 m) is solid from the lower side and cannot be walked off from the
-  upper side. Differing by less than a step, it is simply walked up or down.
-* When regions overlap, the later entry wins, exactly like overlapping
-  `floor_patches`. A region that lies outside every room, has a zero width or
-  depth, or sits at or above the room's ceiling is rejected on load.
+* A shader-only "decode both factors, multiply, re-encode" pair is
+  **algebraically an identity** — `encode(decode(a) · decode(b)) = a · b` — so it
+  cannot change a single multiply. (Verified: patching both fragment shaders to
+  do exactly that produced a byte-identical frame.)
+* The place a linear pipeline genuinely differs is where the bake **adds**
+  terms on the CPU: room baseline + fixture pool + doorway blend. Summing those
+  in linear space would darken every fixture pool by roughly 17–28 % on the
+  shipped constants and would compress the channel ratios that make the coloured
+  rooms read as coloured, so it is a re-calibration of the whole lighting and
+  art set, not a correctness toggle.
 
-Unsupported today (documented, not silently accepted): non-rectangular regions,
-ramps or slopes in a region, ceiling decals on a gable ceiling, decals whose
-footprint straddles a floor or ceiling height change, and traversal between
-stacked rooms. `assets/levels/vertical_diagnostic.json` demonstrates
-every supported case and is the level to boot for visual checks.
+The investigation, the numbers and the reasoning are recorded in
+`tools/bench/notes/`-style detail in the goal changelog; the current pipeline is
+kept because it is internally consistent and calibrated as a whole.
 
-The legacy level editor (still installed under `level-editor/`) does not author,
-preview or preserve these keys: it opens such a level but its save drops them. A
-replacement editor is planned; edit vertical-geometry levels as JSON until then.
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the full history, including the Goal 6
+distribution, branding, documentation and demo work.
+
+## License
+
+MIT. See [LICENSE](LICENSE). Third-party notices are in
+[THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt).

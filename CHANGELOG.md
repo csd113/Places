@@ -1,5 +1,116 @@
 # Changelog
 
+## 0.6.0 — 2026-09-22
+
+Goal 6: distribution readiness, rendering and material polish, Places branding,
+a project-facing README, an audited set of shipped levels and one official
+showcase level. No new gameplay, no renderer rewrite and no source refactor:
+this release makes what already existed installable, presentable and
+demonstrable.
+
+### Added
+
+- `assets/levels/places_demo.json` — **the official demo**, and the level the
+  README sends a new visitor to. One continuous route: a warm office reception
+  and workroom, doorways and a window that looks one storey down into the pool,
+  a red-lit stair hall reached by descending five 0.30 m risers, a passage onto
+  the pool deck, the recessed empty basin with the ladder, guardrails, patio set
+  and curtain screen, two steps up into a dim corridor, and a final doorway onto
+  an unfinished world: a floor, a ceiling, three fixtures spaced into the dark
+  and the end of the world's geometry. It exercises a window-only lighting
+  boundary, two opaque boundaries that carry different colours on each side, and
+  two real floor elevations.
+- `tools/package.sh` — builds a self-contained distribution from a release
+  binary: a flat `Places/` (executable, `assets/`, `levels/`, `settings.json`)
+  and, on macOS, the same payload as a `Places.app` bundle.
+- `docs/screenshots/` — the six images used by the README.
+- `assets/levels/README.md` — an index of every shipped level: what each one is,
+  which automated test or manual check depends on it, and which files are
+  generated rather than hand-authored.
+- `src/assets.rs`: `ASSET_ROOT_ENV`, `package_root_candidates`,
+  `resolved_package_roots`, `asset_root_search_report` and a cached
+  `resolve_asset_root`, so one deterministic search resolves the asset root for
+  the whole process.
+- `src/loader/tests.rs::test_the_official_demo_exercises_every_showcased_feature`
+  pins the demo's promises: the opening kinds, three floor elevations, a real
+  recess and five raised regions, several lighting conditions, the pool props,
+  authored collision boxes for every solid prop, both external decal sheets, a
+  spawn inside a room, and that the whole thing builds.
+- `assets/core/decals/arrow_01.png` and `assets/core/decals/stripes_01.png` —
+  the floor arrow and the hazard stripes as ordinary editable PNG cut-outs, with
+  painters in `tools/textures/decal_art.py`.
+
+### Changed
+
+- **Runtime asset root.** `resolve_asset_root` and `catalog_path_candidates` now
+  search, in order: `$LIMINAL_ASSET_ROOT`; the executable's own directory, its
+  ancestors up to the legacy `bin/<target-triple>/app` depth, and a macOS
+  bundle's `Contents/Resources`; the working directory (`assets`, `./assets`,
+  `../assets`); and the compile-time crate directory **on development builds
+  only**. A release binary can no longer read the source tree it was built from,
+  and the startup log names the resolved root. The old
+  `package_root()` — which only recognised `bin/<triple>/app` and otherwise fell
+  back to `CARGO_MANIFEST_DIR` — is gone.
+- **Missing-asset-root errors are actionable.** The diagnostic now names what
+  was expected, lists every location searched and whether each one exists, and
+  says how to override the search, instead of printing a single relative path.
+- **In-game branding.** The main menu reads `Places` over `an experience`
+  (previously `LIMINAL` over `PocketCHIP Walking Experience`); the window title
+  and `SDL_APP_NAME` are `Places`, and the level editor's titles follow. The
+  `SDL_VIDEO_X11_WMCLASS` value `io.vitrallis.liminalrust` and every `LIMINAL_*`
+  environment variable are deliberately unchanged: they are launcher and
+  developer API keys, not display strings.
+- **Decal sheets are content.** `core:decal_arrow_01` and
+  `core:decal_stripes_01` moved from renderer-generated atlas patterns to
+  external PNG sheets with catalog `model` paths, leaving only
+  `core:decal_test_01` generated (it exists to exercise the atlas). Levels and
+  decal ids are unchanged, and the atlas's spare cells are asserted transparent.
+- **README** rewritten as a project-facing document: what Places is today, the
+  screenshots, the current features, how to launch the demo, the real control
+  bindings read from the settings defaults, build and validation commands, the
+  packaged distribution layout and the asset-root precedence, the asset/theme
+  and level formats, the project layout, and an honest list of limitations.
+- `assets/README.md` and `assets/environment/*/README.md` follow the decal
+  change and the new level index.
+
+### Fixed
+
+- **A recess's transition faces no longer fall back to the room's wall
+  material.** Only the lower-indexed cell of an adjacent pair emits the face
+  between them, so a recess on that cell's side was keyed by the cell *outside*
+  the region and rendered with the level's default wall material instead of the
+  region's `edge_material`. The pool basin's far wall rendered as office
+  wallpaper in any level whose default wall material differed from the basin's
+  edge material — which is exactly what the demo exposed. Both shipped showcase
+  levels hid the defect because their defaults happened to match.
+- `Cargo.toml`'s description now describes Places rather than the historical
+  Liminal walking game (`tests/test_package.py` updated in step).
+
+### Investigated, not changed
+
+- **sRGB/gamma.** The pipeline is gamma-naive by design and stays that way. A
+  shader-only "decode both factors, multiply, re-encode" pair is algebraically
+  an identity — `encode(decode(a) · decode(b)) = a · b` — and was verified to
+  produce a byte-identical frame. The place a linear pipeline genuinely differs
+  is the *additive* bake (room baseline + fixture pool + doorway blend): summing
+  those in linear space would darken fixture pools by roughly 17–28 % on the
+  shipped constants and compress the channel ratios that make a coloured room
+  read as coloured. That is a recalibration of the whole lighting and art set,
+  not a correctness toggle, so it is recorded here rather than half-implemented.
+- **Light-fixture artwork.** The fixtures are generated geometry with flat
+  vertex colours, not generated pixels; there is no fixture texture to
+  externalise. Pack-supplied fixture images already load from `.png`.
+
+### Validation
+
+`cargo fmt --check`, `cargo clippy --workspace --all-targets --all-features`,
+`cargo build --workspace --all-targets --all-features` and
+`cargo test --workspace --all-targets --all-features` (376 tests, one ignored),
+`python3 tools/assets/validate.py`, `python3 tools/textures/build.py --check`,
+`python3 tools/props/build.py --check`, `cd level-editor && npm test`, and a
+clean-package launch of both `Places/` and `Places.app` from outside the
+repository tree.
+
 ## 0.5.3 — Goal 5.5: wall-boundary lighting isolation and source refactor
 
 An engine-quality phase rather than a content phase: the baked lighting now

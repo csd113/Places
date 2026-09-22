@@ -28,14 +28,188 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Environment variable that overrides every other asset-root candidate.
+///
+/// An absolute or relative path to the directory that *contains* `assets/`,
+/// i.e. the package root. Set it to pin a specific installation, to run a
+/// packaged build from an unusual directory, or to test a build against an
+/// asset tree other than the one next to the executable.
+pub const ASSET_ROOT_ENV: &str = "LIMINAL_ASSET_ROOT";
+
 /// Directory candidates for the shipped asset root, in search order.
 ///
-/// The runtime resolves every file-backed resource below this root, so a run
-/// from the repository root and a run from a packaged build both work.
+/// These are the working-directory-relative names kept for development: a run
+/// from the repository root and a `cargo run` from a subdirectory both find
+/// `assets/`. A packaged build is located through
+/// [`package_root_candidates`] instead, so it never depends on the working
+/// directory.
 pub const ASSET_ROOT_CANDIDATES: [&str; 3] = ["assets", "./assets", "../assets"];
 
 /// Catalog file name inside the asset root.
 pub const CATALOG_FILE_NAME: &str = "catalog.json";
+
+/// First line of the missing-asset-root diagnostic.
+///
+/// Deliberately loud and self-describing: a distribution that cannot find its
+/// payload must not look like a successful launch, and the reader needs to know
+/// what was expected before the candidate list that follows.
+pub const NO_ASSET_ROOT_MESSAGE: &str = "\
+[assets] no asset root found: the game could not locate a directory containing \
+`assets/catalog.json`, so every texture, model, decal and level request will \
+fall back to placeholder or diagnostic content.
+
+[assets] searched, in order:";
+
+/// How many parent directories of the executable are searched for a package.
+///
+/// `bin/<target-triple>/app` (the legacy installed payload) needs three;
+/// `target/release/liminal-rust` and `target/debug/deps/<test>` need two and
+/// three. A macOS `Places.app/Contents/MacOS/places` bundle is reached through
+/// its `Resources` directory instead, which is only one level up.
+const EXECUTABLE_ANCESTOR_DEPTH: usize = 3;
+
+/// Where a packaged runtime looks for its `assets/` directory, in order.
+///
+/// A candidate is accepted only when it is a *complete* asset root — the
+/// directory exists and carries a `catalog.json` — so a stray `assets/`
+/// directory above an installation cannot hijack it.
+#[must_use]
+pub fn package_root_candidates() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Some(override_path) = asset_root_override() {
+        candidates.push(override_path);
+    }
+    if let Ok(executable) = std::env::current_exe()
+        && let Some(directory) = executable.parent()
+    {
+        // macOS application bundle: `Contents/MacOS/<exe>` with the payload in
+        // `Contents/Resources/`. Checked before the ancestor walk because the
+        // bundle's own parent directory is not part of its payload.
+        candidates.push(directory.join("../Resources"));
+        let mut ancestor = Some(directory);
+        for _ in 0..=EXECUTABLE_ANCESTOR_DEPTH {
+            let Some(current) = ancestor else { break };
+            candidates.push(current.to_path_buf());
+            ancestor = current.parent();
+        }
+    }
+    candidates
+}
+
+/// Reads and normalises [`ASSET_ROOT_ENV`].
+///
+/// A relative override is made absolute against the working directory at the
+/// moment it is read, so a later `set_current_dir` cannot silently retarget it.
+fn asset_root_override() -> Option<PathBuf> {
+    let raw = std::env::var(ASSET_ROOT_ENV).ok()?;
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let path = PathBuf::from(trimmed);
+    Some(if path.is_absolute() {
+        path
+    } else {
+        std::env::current_dir()
+            .map(|cwd| cwd.join(&path))
+            .unwrap_or(path)
+    })
+}
+
+/// True when `root` is a complete asset root: a directory with a catalog.
+fn is_complete_asset_root(root: &Path) -> bool {
+    root.is_dir() && root.join(CATALOG_FILE_NAME).is_file()
+}
+
+/// The package directories that hold a complete [`CATALOG_FILE_NAME`] asset
+/// tree, in precedence order.
+///
+/// This is the authoritative lookup for a packaged build: the executable's own
+/// directory, its ancestors up to the legacy `bin/<target-triple>/app` depth,
+/// and a macOS bundle's `Contents/Resources`.
+#[must_use]
+pub fn resolved_package_roots() -> Vec<PathBuf> {
+    package_root_candidates()
+        .into_iter()
+        .filter(|root| is_complete_asset_root(&root.join("assets")))
+        .collect()
+}
+
+/// The asset root resolved once for this process.
+///
+/// Resolution is deliberately deterministic and cached: the precedence is
+///
+/// 1. `$`[`ASSET_ROOT_ENV`] — an explicit override always wins;
+/// 2. the executable's own location — a packaged build resolves its own
+///    payload no matter what the working directory is;
+/// 3. the working directory — `assets`, `./assets`, `../assets`, so
+///    development from the repository root keeps working;
+/// 4. the compile-time crate directory, **development builds only**
+///    (`debug_assertions`), so a release binary can never quietly read the
+///    source tree it was built from.
+///
+/// [`None`] means no asset root was found at all, which
+/// [`AssetCatalog::load_default`] reports with the full candidate list.
+#[must_use]
+pub fn resolve_asset_root() -> Option<PathBuf> {
+    static RESOLVED: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
+    RESOLVED.get_or_init(asset_root_search).clone()
+}
+
+/// Performs the [`resolve_asset_root`] search. Called at most once per process.
+fn asset_root_search() -> Option<PathBuf> {
+    let packaged = resolved_package_roots()
+        .into_iter()
+        .map(|root| root.join("assets"))
+        .find(|assets| assets.is_dir());
+    if packaged.is_some() {
+        return packaged;
+    }
+    let development = ASSET_ROOT_CANDIDATES
+        .iter()
+        .map(PathBuf::from)
+        .find(|candidate| candidate.is_dir());
+    if development.is_some() {
+        return development;
+    }
+    #[cfg(debug_assertions)]
+    {
+        let crate_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
+        if crate_root.is_dir() {
+            return Some(crate_root);
+        }
+    }
+    None
+}
+
+/// Every location [`resolve_asset_root`] would consider, in precedence order,
+/// paired with whether it currently holds a usable asset root.
+///
+/// Used by the startup diagnostic so a missing installation says what was
+/// expected and what was actually checked instead of failing opaquely.
+#[must_use]
+pub fn asset_root_search_report() -> Vec<(PathBuf, bool)> {
+    let mut report: Vec<(PathBuf, bool)> = Vec::new();
+    let push = |path: PathBuf, report: &mut Vec<(PathBuf, bool)>| {
+        if report.iter().any(|(seen, _)| *seen == path) {
+            return;
+        }
+        let ok = path.is_dir();
+        report.push((path, ok));
+    };
+    for root in resolved_package_roots() {
+        push(root.join("assets"), &mut report);
+    }
+    for candidate in ASSET_ROOT_CANDIDATES {
+        push(PathBuf::from(candidate), &mut report);
+    }
+    #[cfg(debug_assertions)]
+    push(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets"),
+        &mut report,
+    );
+    report
+}
 
 /// World metres covered by one repeat of a material's texture when the catalog
 /// does not author `tile_metres`. It matches the historical 2 m authored sheets
@@ -59,21 +233,22 @@ pub const MAX_TEXTURE_DIMENSION: u32 = 1024;
 /// budget of `assets/README.md`). Larger images load, but tooling warns.
 pub const PREFERRED_TEXTURE_DIMENSION: u32 = 256;
 
-/// Finds the shipped asset root (`assets/`).
-#[must_use]
-pub fn resolve_asset_root() -> Option<PathBuf> {
-    ASSET_ROOT_CANDIDATES
-        .iter()
-        .map(PathBuf::from)
-        .find(|candidate| candidate.is_dir())
-}
-
 /// Every catalog path the loader will try, in order.
+///
+/// Derived from the same precedence as [`resolve_asset_root`], so the catalog
+/// and the textures it names can never resolve against two different trees.
 #[must_use]
 pub fn catalog_path_candidates() -> Vec<PathBuf> {
-    ASSET_ROOT_CANDIDATES
-        .iter()
-        .map(|root| Path::new(root).join(CATALOG_FILE_NAME))
+    let mut candidates: Vec<PathBuf> = resolved_package_roots()
+        .into_iter()
+        .map(|root| root.join("assets"))
+        .collect();
+    candidates.extend(ASSET_ROOT_CANDIDATES.iter().map(PathBuf::from));
+    #[cfg(debug_assertions)]
+    candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets"));
+    candidates
+        .into_iter()
+        .map(|root| Path::new(&root).join(CATALOG_FILE_NAME))
         .collect()
 }
 
@@ -811,9 +986,17 @@ impl AssetCatalog {
                 return catalog;
             }
         }
+        eprintln!("{NO_ASSET_ROOT_MESSAGE}");
+        for (path, exists) in asset_root_search_report() {
+            eprintln!(
+                "  {} {}",
+                if exists { "found   " } else { "missing " },
+                path.display()
+            );
+        }
         eprintln!(
-            "[assets] no asset catalog found; expected {}/{CATALOG_FILE_NAME}",
-            ASSET_ROOT_CANDIDATES[0]
+            "  set {ASSET_ROOT_ENV}=<directory containing assets/> to override, \
+             or run from a directory that contains assets/."
         );
         Self::builtin()
     }

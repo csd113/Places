@@ -1,4 +1,4 @@
-# Liminal Level Editor
+# Places Level Editor
 
 A small browser level editor for `liminal-rust`. It builds the same JSON the game
 loads, previews the result in 2D and 3D, and keeps everything a level needs —

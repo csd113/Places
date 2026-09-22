@@ -35,7 +35,7 @@ class LevelIO {
       try {
         const handle = await window.showSaveFilePicker({
           suggestedName: filename,
-          types: [{ description: 'Liminal level', accept: { 'application/json': ['.json'] } }]
+          types: [{ description: 'Places level', accept: { 'application/json': ['.json'] } }]
         });
         const writable = await handle.createWritable();
         await writable.write(json);

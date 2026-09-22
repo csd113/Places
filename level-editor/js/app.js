@@ -1,4 +1,4 @@
-// app.js - Application shell for the Liminal level editor.
+// app.js - Application shell for the Places level editor.
 //
 // Owns: the level instance, view modes (2D / 3D / Split), simple vs advanced
 // complexity, the tool option bar, the prop browser, undo/redo and the status bar.
@@ -217,7 +217,7 @@ class App {
   }
 
   updateDirtyIndicator() {
-    document.title = `${this.dirty ? '• ' : ''}Liminal Level Editor — ${this.level.name || this.level.id}`;
+    document.title = `${this.dirty ? '• ' : ''}Places Level Editor — ${this.level.name || this.level.id}`;
   }
 
   requestRender() {

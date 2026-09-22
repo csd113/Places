@@ -1,9 +1,9 @@
 [package]
 name = "liminal-rust"
-version = "0.5.2"
+version = "0.6.0"
 edition = "2024"
 rust-version = "1.91"
-description = "First-person liminal walking game"
+description = "Places: a slow first-person exploration experience"
 license = "MIT"
 repository = "https://github.com/csd113/Places"
 publish = false

@@ -267,18 +267,11 @@ pub fn build_ui_geometry(
             );
 
             // Title
+            draw_text(&mut vertices, "Places", 40.0, 36.0, 2.0, [0.92, 0.88, 0.45]);
             draw_text(
                 &mut vertices,
-                "LIMINAL",
-                40.0,
-                38.0,
-                2.0,
-                [0.92, 0.88, 0.45],
-            );
-            draw_text(
-                &mut vertices,
-                "PocketCHIP Walking Experience",
-                40.0,
+                "an experience",
+                42.0,
                 58.0,
                 1.0,
                 [0.65, 0.65, 0.60],

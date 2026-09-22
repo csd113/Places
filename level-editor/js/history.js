@@ -1,4 +1,4 @@
-// history.js - Undo / Redo history manager for Liminal Level Editor
+// history.js - Undo / Redo history manager for the Places Level Editor
 //
 // Convention: `pushState(level, action)` records the state *after* a change, so one
 // user-visible action - including an entire drag - produces exactly one entry and a

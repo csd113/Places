@@ -1,4 +1,4 @@
-// props.js - Placeable asset catalog (registry) for the Liminal level editor.
+// props.js - Placeable asset catalog (registry) for the Places level editor.
 //
 // The catalog is data, not code: adding a model means adding an entry to
 // `assets/catalog.json` and pointing its `model` field at the GLB asset. The

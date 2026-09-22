@@ -18,11 +18,13 @@ use super::*;
 // a cut-out silhouette instead of a floating rectangle.
 
 /// Generated decal sheet id for the internal validation marking.
+///
+/// This is the only pattern the renderer still draws: it exists to exercise the
+/// atlas machinery (a filled frame, embedded-font text, an unused spare cell),
+/// not to be edited. The floor arrow, the hazard stripes and the Pool safety
+/// sign are all external PNG sheets under `assets/`, so a creator can replace
+/// them without a Rust change.
 pub const DECAL_TEST_MATERIAL: &str = "core:decal_test_01";
-/// Generated decal sheet id for a floor-direction arrow.
-pub const DECAL_ARROW_MATERIAL: &str = "core:decal_arrow_01";
-/// Generated decal sheet id for hazard stripes.
-pub const DECAL_STRIPES_MATERIAL: &str = "core:decal_stripes_01";
 
 /// Edge length of the generated decal sheet.
 pub(crate) const DECAL_ATLAS_SIZE: i32 = 256;
@@ -33,14 +35,11 @@ pub(super) const DECAL_SLOT_SIZE: i32 = 128;
 const DECAL_SLOT_GUTTER: i32 = 8;
 /// Every generated decal sheet id the renderer can draw, in slot order.
 ///
-/// The final Pool safety sign is no longer one of these: it is external PNG
-/// artwork (`core:decal_no_diving_01` is a catalog `file` decal) drawn from its
-/// own sheet. The atlas keeps one spare cell for a future generated pattern.
-pub const DECAL_MATERIALS: [&str; 3] = [
-    DECAL_TEST_MATERIAL,
-    DECAL_ARROW_MATERIAL,
-    DECAL_STRIPES_MATERIAL,
-];
+/// The floor arrow, the hazard stripes and the Pool safety sign are no longer
+/// among these: they are external PNG artwork (`source: "file"` catalog decals)
+/// drawn from their own sheets. Three of the atlas cells are therefore unused
+/// and stay transparent.
+pub const DECAL_MATERIALS: [&str; 1] = [DECAL_TEST_MATERIAL];
 
 /// Resolves a decal material id to its slot in the generated sheet.
 ///
@@ -255,57 +254,18 @@ fn decal_atlas_text_centered(
     );
 }
 
-/// Generates the shared decal sheet: a validation marking, a floor arrow and
-/// hazard stripes, with one spare cell left transparent.
+/// Generates the shared decal sheet: the internal validation marking, with the
+/// three other cells left transparent.
 pub(crate) fn generate_decal_atlas() -> Vec<u8> {
     let mut pixels = vec![0u8; (DECAL_ATLAS_SIZE * DECAL_ATLAS_SIZE * 4) as usize];
     let white = [245, 245, 240, 255];
-    let green = [64, 176, 96, 255];
-    let yellow = [232, 196, 40, 255];
 
     // Slot 0: the validation marking, "DECAL TEST" in a frame on transparency.
+    // The other three cells stay empty: the arrow, the stripes and the sign are
+    // external PNG sheets now, so nothing else is drawn here.
     decal_atlas_frame(&mut pixels, 14, 14, 113, 113, 4, white);
     decal_atlas_text_centered(&mut pixels, 0, "DECAL", 40, 2, white);
     decal_atlas_text_centered(&mut pixels, 0, "TEST", 72, 2, white);
-
-    // Slot 1: a floor arrow pointing up the decal's own vertical axis, so an
-    // accidental 90/180 degree rotation is obvious on sight. It is drawn in
-    // cell `(col, row) = (1, 0)`, exactly the cell `decal_uv_rect(1)` samples:
-    // the drawn art and the sampled rect must agree, or a level silently shows
-    // the wrong pattern.
-    let cell_x = DECAL_SLOT_SIZE;
-    let cell_y = 0;
-    let arrow_x = cell_x + 64;
-    let arrow_bottom = cell_y + 112;
-    let arrow_stem_top = cell_y + 64;
-    decal_atlas_rect(
-        &mut pixels,
-        arrow_x - 6,
-        arrow_stem_top,
-        arrow_x + 5,
-        arrow_bottom,
-        green,
-    );
-    for row in 0..=44 {
-        let half = row * 3 / 4;
-        decal_atlas_rect(
-            &mut pixels,
-            arrow_x - half,
-            cell_y + 20 + row,
-            arrow_x + half - 1,
-            cell_y + 20 + row,
-            green,
-        );
-    }
-
-    // Slot 2: hazard stripes for grazing-angle tests, in cell `(0, 1)`.
-    for y in 0..DECAL_SLOT_SIZE {
-        for x in 0..DECAL_SLOT_SIZE {
-            if (x + y).rem_euclid(32) < 16 {
-                decal_atlas_put(&mut pixels, x, 128 + y, yellow);
-            }
-        }
-    }
 
     pixels
 }

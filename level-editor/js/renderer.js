@@ -1,4 +1,4 @@
-// renderer.js - 2D plan renderer for the Liminal Level Editor.
+// renderer.js - 2D plan renderer for the Places Level Editor.
 //
 // Deliberately quiet: floors, walls (with their openings), lights, props and the
 // player spawn, plus selection feedback. Heavy debug decoration (coordinate labels,

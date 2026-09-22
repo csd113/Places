@@ -170,38 +170,32 @@ fn apply_swap_interval(video: &sdl2::VideoSubsystem, want_vsync: bool) -> i32 {
     }
 }
 
-/// Root of an installed legacy package.
+/// Root of the running installation.
 ///
-/// A deployed native payload is launched from `bin/<target-triple>/app`, three
-/// levels below its package root. A development build falls back to the crate
-/// path so tests and `cargo run` use the repository root.
+/// The package root is the directory that owns `assets/`. It is found through
+/// [`crate::assets::resolved_package_roots`], which searches `$LIMINAL_ASSET_ROOT`,
+/// the executable's own directory (and its ancestors, covering both the flat
+/// `Places/<executable>` layout and a macOS `.app` bundle's `Resources`), and
+/// then the working directory. The compile-time crate path is a development-only
+/// last resort, so a copied release build can never read the source tree it was
+/// compiled from and report a false pass.
 fn package_root() -> std::path::PathBuf {
-    let fallback = || std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let Ok(executable) = std::env::current_exe() else {
-        return fallback();
-    };
-    let installed = executable
-        .file_name()
-        .is_some_and(|name| name == "app")
-        .then(|| {
-            executable
-                .ancestors()
-                .nth(3)
-                .map(std::path::Path::to_path_buf)
-        })
-        .flatten();
-    match installed {
-        Some(root) if root.join("assets/levels").is_dir() => root,
-        _ => fallback(),
+    if let Some(assets) = crate::assets::resolve_asset_root()
+        && let Some(root) = assets.parent()
+    {
+        // Canonicalise for display and for the working directory: a bundle's
+        // `Contents/Resources` is reached through `Contents/MacOS/..`.
+        return std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
     }
+    std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
 }
 
-/// Points every relative asset path at the installed package.
+/// Points every relative asset path at the running installation.
 ///
 /// The level loader, the prop catalogue, imported level packs and the settings
 /// file are all resolved relative to the working directory, so an installed
-/// package has to run from its own root. A development build already satisfies
-/// this and is left alone.
+/// package has to run from its own root. A development build already does this
+/// and is left alone.
 fn use_package_assets() -> std::path::PathBuf {
     let package = package_root();
     let current = std::env::current_dir().ok();
@@ -209,8 +203,14 @@ fn use_package_assets() -> std::path::PathBuf {
         && let Err(error) = std::env::set_current_dir(&package)
     {
         eprintln!(
-            "could not use the installed package directory {}: {error}",
+            "could not use the package directory {}: {error}",
             package.display()
+        );
+        eprintln!(
+            "relative assets, levels and settings will resolve against {} instead",
+            current
+                .as_deref()
+                .map_or_else(|| "<unknown>".to_string(), |dir| dir.display().to_string())
         );
     }
     package
@@ -223,10 +223,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         package.display(),
         package.join("assets/levels").display()
     );
+    match crate::assets::resolve_asset_root() {
+        Some(assets) => {
+            let shown = std::fs::canonicalize(&assets).unwrap_or(assets);
+            println!("[package] asset root: {}", shown.display());
+        }
+        None => println!("[package] asset root: NONE"),
+    }
     // X11 process identity, required for the App Center launcher and window
-    // managers to associate the window with this app.
+    // managers to associate the window with this app. Kept as the historical
+    // `io.vitrallis.liminalrust` package id on purpose: it is a launcher/session
+    // key, not a display name, and changing it would orphan existing installs.
     sdl2::hint::set("SDL_VIDEO_X11_WMCLASS", "io.vitrallis.liminalrust");
-    sdl2::hint::set("SDL_APP_NAME", "Liminal");
+    sdl2::hint::set("SDL_APP_NAME", "Places");
 
     let sdl_context = sdl2::init().map_err(|e| format!("Failed to init SDL2: {e}"))?;
     let video_subsystem = sdl_context
@@ -254,7 +263,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // default profile so development builds still run.
     let build_window = || {
         video_subsystem
-            .window("Liminal", WINDOW_WIDTH, WINDOW_HEIGHT)
+            .window("Places", WINDOW_WIDTH, WINDOW_HEIGHT)
             .position_centered()
             .resizable()
             .allow_highdpi()

@@ -2,7 +2,7 @@
   "name": "liminal-level-editor",
   "private": true,
   "version": "1.0.0",
-  "description": "Browser level editor for liminal-rust: 2D building, 3D preview, wall openings and props.",
+  "description": "Browser level editor for Places (crate liminal-rust): 2D building, 3D preview, wall openings and props.",
   "type": "commonjs",
   "scripts": {
     "test": "node --test 'tests/*.test.mjs'"

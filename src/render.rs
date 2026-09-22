@@ -25,9 +25,8 @@ pub use api::{
     logical_materials,
 };
 pub use decals::{
-    DECAL_ARROW_MATERIAL, DECAL_EXTERNAL_BASE, DECAL_MATERIALS, DECAL_STRIPES_MATERIAL,
-    DECAL_TEST_MATERIAL, decal_external_sheet_ids, decal_material_slot, decal_sheet_index,
-    decal_uv_rect, decal_uv_rect_full,
+    DECAL_EXTERNAL_BASE, DECAL_MATERIALS, DECAL_TEST_MATERIAL, decal_external_sheet_ids,
+    decal_material_slot, decal_sheet_index, decal_uv_rect, decal_uv_rect_full,
 };
 use fixtures::{add_panel_fixture, add_round_fixture, add_wall_fixture};
 use geometry::build_level_geometry_mesh;
@@ -1617,28 +1616,35 @@ fn emit_floor_skirts(
         buckets.add_quads(key, scratch);
     };
 
-    let edge_key = |x: f32, z: f32| -> SurfaceKey {
+    let region_owner = |ix: usize, iz: usize| -> Option<&crate::level::FloorRegionDef> {
         let (x0, x1, z0, z1) = room.bounds();
-        level
-            .floor_regions
-            .iter()
-            .rev()
-            .find(|region| {
-                let (rx0, rx1, rz0, rz1) = region.bounds();
-                rx1 > x0 && rx0 < x1 && rz1 > z0 && rz0 < z1 && region.contains(x, z)
-            })
+        let x = f32::midpoint(grid.xs[ix], grid.xs[ix + 1]);
+        let z = f32::midpoint(grid.zs[iz], grid.zs[iz + 1]);
+        level.floor_regions.iter().rev().find(|region| {
+            let (rx0, rx1, rz0, rz1) = region.bounds();
+            rx1 > x0 && rx0 < x1 && rz1 > z0 && rz0 < z1 && region.contains(x, z)
+        })
+    };
+
+    // The region owning a cell is the one whose material describes the faces
+    // that cell's height difference creates.
+    let edge_key = |region: Option<&crate::level::FloorRegionDef>| -> SurfaceKey {
+        region
             .and_then(|region| region.edge_material.as_deref())
             .map_or(default_edge, |material| {
                 materials.key(MaterialSlot::Wall, material)
             })
     };
 
-    // The region owning a cell is the one whose material describes the faces
-    // that cell's height difference creates.
-    let cell_key = |ix: usize, iz: usize| -> SurfaceKey {
-        let x = f32::midpoint(grid.xs[ix], grid.xs[ix + 1]);
-        let z = f32::midpoint(grid.zs[iz], grid.zs[iz + 1]);
-        edge_key(x, z)
+    // A transition face belongs to the region that owns the height change, and
+    // that region can be on either side of it. Only the lower-indexed cell of an
+    // adjacent pair emits their shared face, so a recess on that cell's side
+    // would otherwise be keyed by the cell outside the recess and fall back to
+    // the room's wall material instead of the region's `edge_material`.
+    let face_key = |inside: (usize, usize), outside: (usize, usize)| -> SurfaceKey {
+        let (ix, iz) = inside;
+        let (ox, oz) = outside;
+        edge_key(region_owner(ix, iz).or_else(|| region_owner(ox, oz)))
     };
 
     for iz in 0..cells_z {
@@ -1655,9 +1661,9 @@ fn emit_floor_skirts(
                 && (other - y).abs() > HEIGHT_MERGE_EPS
             {
                 let key = if ix + 1 < cells_x {
-                    cell_key(ix + 1, iz)
+                    face_key((ix + 1, iz), (ix, iz))
                 } else {
-                    cell_key(ix, iz)
+                    edge_key(region_owner(ix, iz))
                 };
                 emit(
                     WallAxis::X,
@@ -1682,9 +1688,9 @@ fn emit_floor_skirts(
                 && (other - y).abs() > HEIGHT_MERGE_EPS
             {
                 let key = if iz + 1 < cells_z {
-                    cell_key(ix, iz + 1)
+                    face_key((ix, iz + 1), (ix, iz))
                 } else {
-                    cell_key(ix, iz)
+                    edge_key(region_owner(ix, iz))
                 };
                 emit(
                     WallAxis::Z,

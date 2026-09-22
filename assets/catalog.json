@@ -887,16 +887,18 @@
       "display_name": "Floor Arrow",
       "asset_class": "environment",
       "asset_type": "decal",
-      "source": "generated",
-      "description": "Generic floor-direction arrow."
+      "source": "file",
+      "model": "core/decals/arrow_01.png",
+      "description": "Floor-direction wayfinding arrow, an external PNG cut-out that can be replaced without a Rust change."
     },
     {
       "id": "core:decal_stripes_01",
       "display_name": "Hazard Stripes",
       "asset_class": "environment",
       "asset_type": "decal",
-      "source": "generated",
-      "description": "Generic hazard striping."
+      "source": "file",
+      "model": "core/decals/stripes_01.png",
+      "description": "Diagonal hazard striping, an external PNG cut-out that can be replaced without a Rust change."
     },
     {
       "id": "core:decal_no_diving_01",

@@ -347,7 +347,7 @@
         this.supported = false;
         // Diagnostics only: the editor keeps working in 2D when 3D is unavailable.
         if (typeof console !== 'undefined' && console.warn) {
-          console.warn('Liminal 3D preview unavailable:', err && err.message ? err.message : err);
+          console.warn('Places 3D preview unavailable:', err && err.message ? err.message : err);
         }
       }
 

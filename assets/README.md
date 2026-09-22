@@ -192,14 +192,22 @@ placed on an existing surface. A level names them the same way it names a
 material — by logical id in its `decals` array — and the catalog decides where
 the pixels come from:
 
-* `"source": "generated"` decal assets are the built-in patterns the renderer
-  draws into one shared atlas (`core:decal_test_01`, `core:decal_arrow_01`,
-  `core:decal_stripes_01`). They are architecture-test artwork.
 * `"source": "file"` decal assets are **external PNG sheets**, exactly like a
   surface texture: the entry names the `.png` file under `assets/`, the runtime
   decodes it once per session and uploads it as its own decal sheet, and a
-  creator replaces the PNG and restarts. `core:decal_no_diving_01` (the Pool
-  safety sign) is the built-in example.
+  creator replaces the PNG and restarts. Three ship:
+  `core:decal_no_diving_01` (the Pool safety sign),
+  `core:decal_arrow_01` (a floor-direction arrow) and
+  `core:decal_stripes_01` (diagonal hazard bands).
+* `"source": "generated"` decals are drawn into one shared atlas by the
+  renderer. Only `core:decal_test_01` — the internal validation marking — is
+  still generated, because it exists to exercise the atlas machinery rather
+  than to be edited. The atlas's other three cells stay transparent.
+
+Adding an editable decal of your own is the same two steps as a surface
+material: add the PNG, then add a `decal` entry naming it. `tools/textures/`
+regenerates the three shipped sheets deterministically if you want a starting
+point.
 
 Decal sheets need **power-of-two** dimensions (they are sampled with mipmaps
 and `REPEAT` wrapping) and an alpha cut-out: the decal pass discards every texel
@@ -439,16 +447,22 @@ texture is never hidden behind unrelated artwork.
 
 ## Development fixtures and checks
 
-Eight demo levels exercise the pack (none of them touch `level1`):
+`assets/levels/` carries the showable content and the regression fixtures;
+`assets/levels/README.md` indexes every shipped level and says what depends on
+it. The short version:
 
-* `levels/asset_demo.json` — **the walkable demo map**, discovered in the game's
-  custom-level folder and shown in the level select menu. Four rooms around a
-  corridor place every generic and Office placeable asset (the core props plus
-  `spooner-man`), and it exercises the whole level format: doorways, a wide
-  passage, windows, a vent, twelve ceiling lights, several props standing on
-  other props, and the worn material set (stained wallpaper, damp carpet,
-  stained ceiling) that Level 1 does not use. The Pool family lives in the Pool
-  showcase instead, so a residential demo never has to hold a pool ladder.
+* `assets/levels/places_demo.json` — **the official demo**, and the level to
+  show someone. One continuous route: office → doorways and windows → red stair
+  hall → empty pool → steps up → quiet corridor → the unmade world. Run it with
+  `LIMINAL_LEVEL=places_demo`.
+* `levels/asset_demo.json` — **the walkable asset map**, in the game's
+  custom-level folder. Four rooms around a corridor place every generic and
+  Office placeable asset (the core props plus `spooner-man`), and it exercises
+  the whole level format: doorways, a wide passage, windows, a vent, twelve
+  ceiling lights, several props standing on other props, and the worn material
+  set (stained wallpaper, damp carpet, stained ceiling) that Level 1 does not
+  use. The Pool family lives in the Pool showcase instead, so a residential
+  demo never has to hold a pool ladder.
 * `levels/asset_maintained.json` — the same building on the maintained material
   set (yellow wallpaper, beige carpet, panel ceiling). A level carries one wall,
   one floor and one ceiling material, so the two demos are how the maintained
@@ -481,6 +495,9 @@ Eight demo levels exercise the pack (none of them touch `level1`):
   chair, modular curtains and guardrails (with collision), both Pool light
   fixtures and the final external `NO DIVING` sign. Run it with
   `LIMINAL_LEVEL=pool_showcase`.
+* `assets/levels/lighting_isolation.json` and
+  `assets/levels/lighting_diagnostic.json` — the wall-boundary lighting
+  acceptance fixtures behind `src/lighting_isolation.rs`.
 
 Checks to run before shipping an asset change:
 

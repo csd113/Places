@@ -87,7 +87,7 @@ class RepositoryTests(unittest.TestCase):
     def test_crate_metadata_describes_places(self):
         cargo = (PACKAGE / "Cargo.toml").read_text(encoding="utf-8")
         self.assertIn('name = "liminal-rust"', cargo)
-        self.assertIn('description = "First-person liminal walking game"', cargo)
+        self.assertIn('description = "Places: a slow first-person exploration experience"', cargo)
         self.assertIn('repository = "https://github.com/csd113/Places"', cargo)
 
     def test_icon_is_a_small_non_interlaced_png(self):
