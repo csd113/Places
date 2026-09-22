@@ -34,9 +34,12 @@ Construction conventions
   four-sided tapered blocks (a 4-segment lathe rotated 45 degrees) rather than
   round tubes; metal work is eight-sided tube or round stock with painted
   lengthwise highlights, so the two material families never read alike.
-* **Cloth is gathered.**  Curtain pleats are a double-sided zigzag ribbon that
-  is nearly flat where it meets the track and opens to the full 0.22 m pleat
-  depth at the hem, and small roller carriers sit over the pleat crests.
+* **Cloth is gathered.**  A curtain panel is a double-sided folded ribbon built
+  in two bands: the top 0.26 m fans out from the track (pleats almost closed
+  where they hang) and the body below hangs with vertical fold faces at the
+  full depth, which is what real gathered cloth does and what keeps the painted
+  header tape and hem square on the model.  Small roller carriers sit over the
+  gathered pleat crests.
 * **+Z is each module's front**: the ladder's handrails curve towards +Z (over
   the deck edge), the curtain pleats open towards +Z, and the guardrail and
   curtain faces are symmetric about it.
@@ -59,8 +62,8 @@ from mesh import FACE_KEYS, PropBuilder
 TARGETS = {
     "core:pool_table": 190,
     "core:pool_chair": 260,
-    "core:pool_ladder": 380,
-    "core:pool_curtain_straight": 240,
+    "core:pool_ladder": 440,
+    "core:pool_curtain_straight": 280,
     "core:pool_curtain_end": 150,
     "core:pool_curtain_corner": 240,
     "core:pool_guardrail_straight": 220,
@@ -113,8 +116,11 @@ TRACK_H = 0.02
 TRACK_Y = 2.50                   # track centre; the post rises 0.10 m above it
 PANEL_TOP = 2.49                 # the cloth hangs from the track's underside
 PANEL_BOTTOM = 0.06              # a short, believable gap above the floor
+PANEL_FAN = 0.26                 # how much of the top is still gathered/still opening
 PLEAT_GATHER = 0.014             # pleat depth at the gathered top
+CORNER_DEPTH = 0.12              # the tighter pleat a corner panel packs into
 CARRIER = (0.026, 0.05, 0.016)   # roller carrier under the track
+CORNER_STACK = 0.03              # second corner panel's offset from the post face
 
 
 # ------------------------------------------------------------------ helpers
@@ -148,9 +154,22 @@ def _post(p: PropBuilder, x: float, z: float, radius: float, top: float, cap_h: 
     _turn(p, (x, shaft_top, z), radius, cap_h, cap_uv, cap_color, taper=cap_taper)
 
 
-def _flange(p: PropBuilder, x: float, z: float, plate_uv, color) -> None:
-    """A bolted rectangular base flange; its depth fills the catalogue axis."""
-    _box(p, (x, PLATE_H * 0.5, z), (PLATE_L, PLATE_H, PLATE_D), plate_uv, color)
+def _flange(p: PropBuilder, x: float, z: float, long_axis: str, plate_uv, color) -> None:
+    """A bolted base flange under a post.
+
+    ``long_axis`` is the axis the flange's 80 mm side runs along: across the
+    rail it supports (``z`` for an x-running rail), and ``both`` for the corner
+    post that carries two rails.  Keeping the long side across the rail is what
+    fills the catalogue's 8 cm depth, and the short side is what keeps the
+    flange flush with the module edge.
+    """
+    if long_axis == "z":
+        size = (PLATE_L, PLATE_H, PLATE_D)
+    elif long_axis == "x":
+        size = (PLATE_D, PLATE_H, PLATE_L)
+    else:
+        size = (PLATE_D, PLATE_H, PLATE_D)
+    _box(p, (x, PLATE_H * 0.5, z), size, plate_uv, color)
 
 
 def _rail_x(p: PropBuilder, x0: float, x1: float, z: float, y: float, radius: float,
@@ -179,14 +198,14 @@ def _rake(p: PropBuilder, first_vertex: int, pivot, degrees: float) -> None:
 
 
 def _taper_block(p: PropBuilder, base, widths, height: float, uv, color, *,
-                 rake: float = 0.0, proxy: bool = True) -> int:
+                 rake: float = 0.0, proxy: bool = True) -> None:
     """A tapered four-sided block: the moulded-resin leg / stile primitive.
 
     ``widths`` is ``(bottom, top)`` measured across the flats; the 4-segment
     lathe is rotated 45 degrees so the flats face the axes and the corners
     carry the silhouette, which is what makes moulded furniture read as moulded
     rather than as extruded tube.  ``rake`` leans the block about its top
-    towards -Z.  Returns the index of the block's first vertex.
+    towards -Z.
     """
     bottom, top = widths
     first = len(p.mesh.positions)
@@ -198,23 +217,34 @@ def _taper_block(p: PropBuilder, base, widths, height: float, uv, color, *,
         uv=uv,
         cap_uv=uv,
         color=color,
-        proxy=False,
+        proxy=not rake,
     )
     if rake:
+        # A raked leg is cut square at the floor: without this the tilted foot
+        # would dip below y = 0 and the prop's origin shift would lift its
+        # upright siblings off the ground.
+        foot = [
+            index
+            for index in range(first, len(p.mesh.positions))
+            if abs(p.mesh.positions[index][1] - base[1]) < 1e-6
+        ]
         _rake(p, first, (base[0], base[1] + height, base[2]), rake)
-    if proxy:
-        # The lathe's own proxy cannot express the rake, so emit a tube proxy
-        # (the editor supports arbitrary orientation) covering the block.
-        dx = math.sin(math.radians(rake)) * height
-        p.mesh.parts.append({
-            "shape": "tube",
-            "start": [round(base[0], 4), round(base[1], 4), round(base[2] + dx, 4)],
-            "end": [round(base[0], 4), round(base[1] + height * math.cos(math.radians(rake)), 4),
-                    round(base[2], 4)],
-            "radius": round((bottom + top) * 0.25, 4),
-            "color": _hex(color),
-        })
-    return first
+        for index in foot:
+            x, _, z = p.mesh.positions[index]
+            p.mesh.positions[index] = (x, 0.0, z)
+        if proxy:
+            # The lathe's own cylinder proxy cannot express the rake, so emit a
+            # tube proxy (the editor supports arbitrary orientation) instead.
+            radians = math.radians(rake)
+            lean = math.sin(radians) * height
+            p.mesh.parts.append({
+                "shape": "tube",
+                "start": [round(base[0], 4), round(base[1], 4), round(base[2] - lean, 4)],
+                "end": [round(base[0], 4), round(base[1] + height * math.cos(radians), 4),
+                        round(base[2], 4)],
+                "radius": round((bottom + top) * 0.25, 4),
+                "color": _hex(color),
+            })
 
 
 def _hex(color) -> str:
@@ -255,21 +285,18 @@ def _paint_cloth(tex, region: str, base, seed: int) -> None:
     """Pale commercial curtain cloth: a faint weave, a header and a hem.
 
     The quad mapping puts the region's small-V end at the panel top, so the
-    header band (with its grommet dots) is painted at v 0..0.055 and the double
-    hem at v 0.88..1.0.
+    header band (with its grommet eyelets) is painted at v 0..0.06 and the hem
+    bands at v 0.88..1.0.
     """
     tex.fill(region, base, jitter=5, seed=seed)
     tex.noise(region, amount=4, freq=4, seed=seed + 1)
     tex.grain(region, palette.shade(base, 0.90), seed=seed + 2, density=0.22, alpha=22)
     tex.grain(region, palette.shade(base, 1.06), seed=seed + 3, density=0.16, alpha=16)
-    tex.band(region, palette.shade(base, 0.87), 0.0, 0.05, alpha=85)
-    tex.dots(
-        region,
-        palette.shade(base, 0.72),
-        [(0.06 + index * 0.22, 0.024) for index in range(5)],
-        radius=1,
-        alpha=230,
-    )
+    tex.band(region, palette.shade(base, 0.87), 0.0, 0.055, alpha=85)
+    for index in range(7):
+        fx = 0.05 + index * 0.15
+        tex.bar(region, palette.shade(base, 0.70), (fx - 0.012, 0.030, fx + 0.012, 0.062),
+                alpha=235)
     tex.band(region, palette.shade(base, 0.90), 0.885, 0.945, alpha=70)
     tex.band(region, palette.shade(base, 0.78), 0.945, 1.0, alpha=85)
     tex.border(region, palette.shade(base, 0.86), width=1, alpha=30)
@@ -322,49 +349,55 @@ def _panel(p: PropBuilder, axis: str, span, hang: float, depth: float, folds: in
 
     ``axis`` is the direction the panel spans (``x`` or ``z``); ``hang`` is the
     fold line it is gathered against and ``depth`` how far the pleats open away
-    from it.  At the track the folds are almost closed (``PLEAT_GATHER``), and
-    they open to ``depth`` at the hem, so the panel hangs off the track and fans
-    towards the floor the way gathered cloth does.  Adjacent folds bake slightly
-    different shade multipliers exactly the way a real pleat catches the light,
-    and every quad is emitted twice (reversed winding) so the panel is solid
-    from both sides without paying for a closed shell.
+    from it.  The panel is built in two bands: the top ``PANEL_FAN`` metres fan
+    out from ``PLEAT_GATHER`` at the track to the full depth, and the body below
+    that hangs straight with vertical fold faces.  Real gathered cloth works
+    that way, and it keeps every horizontal texture line (the header, the hems)
+    horizontal on the model instead of smearing it down a skewed fold.
+
+    Adjacent folds bake slightly different shade multipliers exactly the way a
+    real pleat catches the light, and every quad is emitted twice (reversed
+    winding) so the panel is solid from both sides without paying for a closed
+    shell.
     """
     start, end = span
     distance = end - start
     length = abs(distance)
     closed = [start + distance * (index / folds) for index in range(folds + 1)]
-    gathered = [PLEAT_GATHER if index % 2 else 0.0 for index in range(folds + 1)]
-    opened = [depth if index % 2 else 0.0 for index in range(folds + 1)]
-    top = PANEL_TOP
-    bottom = PANEL_BOTTOM
+    fan_height = min(PANEL_FAN, (PANEL_TOP - PANEL_BOTTOM) * 0.5)
+    body_top = PANEL_TOP - fan_height
+    split = (body_top - PANEL_BOTTOM) / (PANEL_TOP - PANEL_BOTTOM)
 
     for index in range(folds):
         u0 = uv[0] + (uv[2] - uv[0]) * (index / folds)
         u1 = uv[0] + (uv[2] - uv[0]) * ((index + 1) / folds)
-        rect = (u0, uv[1], u1, uv[3])
         mult = 1.0 if index % 2 == 0 else 0.83
         a, b = closed[index], closed[index + 1]
-        gathered_a, gathered_b = hang + gathered[index], hang + gathered[index + 1]
-        opened_a, opened_b = hang + opened[index], hang + opened[index + 1]
-        if axis == "x":
-            front = ((a, bottom, opened_a), (b, bottom, opened_b),
-                     (b, top, gathered_b), (a, top, gathered_a))
-        else:
-            front = ((opened_a, bottom, a), (opened_b, bottom, b),
-                     (gathered_b, top, b), (gathered_a, top, a))
-        back = (front[1], front[0], front[3], front[2])
-        for corners in (front, back):
-            p.mesh.quad(*corners, uv=rect, color=color, shade_mult=mult, ao=1.0)
+        opened_a = hang + (depth if index % 2 else 0.0)
+        opened_b = hang + (depth if (index + 1) % 2 else 0.0)
+        gathered_a = hang + (PLEAT_GATHER if index % 2 else 0.0)
+        gathered_b = hang + (PLEAT_GATHER if (index + 1) % 2 else 0.0)
+
+        # Body: vertical fold faces, so the hem band and the weave stay square.
+        body = _band(axis, a, b, PANEL_BOTTOM, body_top, opened_a, opened_b,
+                     opened_a, opened_b)
+        # Fan: the same folds, gathered back towards the track.
+        fan = _band(axis, a, b, body_top, PANEL_TOP, opened_a, opened_b,
+                    gathered_a, gathered_b)
+        for corners, rect in ((body, (u0, split, u1, 1.0)), (fan, (u0, uv[1], u1, split))):
+            back = (corners[1], corners[0], corners[3], corners[2])
+            for face in (corners, back):
+                p.mesh.quad(*face, uv=rect, color=color, shade_mult=mult, ao=1.0)
 
     # One coarse proxy for the whole panel: the editor needs the mass, not the
     # pleats.
     middle = start + distance * 0.5
-    height = top - bottom
+    height = PANEL_TOP - PANEL_BOTTOM
     if axis == "x":
-        center = (middle, (top + bottom) * 0.5, hang + depth * 0.5)
+        center = (middle, (PANEL_TOP + PANEL_BOTTOM) * 0.5, hang + depth * 0.5)
         size = (length, height, depth)
     else:
-        center = (hang + depth * 0.5, (top + bottom) * 0.5, middle)
+        center = (hang + depth * 0.5, (PANEL_TOP + PANEL_BOTTOM) * 0.5, middle)
         size = (depth, height, length)
     p.mesh.parts.append({
         "shape": "box",
@@ -375,11 +408,28 @@ def _panel(p: PropBuilder, axis: str, span, hang: float, depth: float, folds: in
     })
 
 
+def _band(axis: str, a: float, b: float, low: float, high: float,
+          low_a: float, low_b: float, high_a: float, high_b: float):
+    """One fold spanning ``a``..``b`` between two heights, with per-end offsets.
+
+    ``axis`` selects whether the offsets run in Z (a panel spanning X) or in X
+    (a panel spanning Z).  Returns the quad in counter-clockwise order.
+    """
+    if axis == "x":
+        return ((a, low, low_a), (b, low, low_b), (b, high, high_b), (a, high, high_a))
+    return ((low_a, low, a), (low_b, low, b), (high_b, high, b), (high_a, high, a))
+
+
 def _carriers(p: PropBuilder, axis: str, span, hang: float, folds: int, uv, color) -> None:
-    """Roller carriers over the gathered pleat crests, tucked under the track."""
+    """Roller carriers over the gathered pleat crests, tucked under the track.
+
+    Carriers go on every second fold line, never on the last one: a carrier at
+    the module's edge would poke past the catalogue box that the modules join
+    within.
+    """
     start, end = span
     distance = end - start
-    for index in range(1, folds + 1, 2):
+    for index in range(1, folds, 2):
         crest = start + distance * (index / folds)
         y = TRACK_Y - TRACK_H * 0.5 - CARRIER[1] * 0.5
         if axis == "x":
@@ -422,8 +472,10 @@ def build_pool_table(p: PropBuilder) -> None:
          RESIN_TINT, hidden=("-y", "-x", "+x", "-z", "+z"),
          colors={"+y": palette.shade(RESIN_TINT, 1.03)})
 
-    # The rim: two full-width bars, then two returning between them.
-    rim_length = size[2] - 2.0 * lip_w
+    # The rim: two full-width bars, then two returning between them.  The
+    # returns run past the full-width bars' inner faces so no two faces end up
+    # coplanar.
+    rim_length = size[2] - lip_w
     for sz in (-1.0, 1.0):
         _box(p, (0.0, slab_y + lip_h * 0.5, sz * (size[2] * 0.5 - lip_w * 0.5)),
              (size[0], lip_h, lip_w), trim_uv, palette.shade(RESIN_TINT, 1.02),
@@ -449,7 +501,7 @@ def build_pool_table(p: PropBuilder) -> None:
                          leg_uv, palette.shade(RESIN_TINT, 0.96))
 
     # A low perimeter stretcher ring, mitred into the legs: four rails that
-    # stop inside the leg blocks, so nothing crosses in mid-air.
+    # run through the leg blocks, so every joint is closed.
     brace_y = 0.14
     brace = (0.032, 0.022)
     span = 2.0 * leg_station
@@ -457,8 +509,8 @@ def build_pool_table(p: PropBuilder) -> None:
         _box(p, (0.0, brace_y, sz * leg_station), (span, brace[1], brace[0]), brace_uv,
              palette.shade(RESIN_TINT, 0.94))
     for sx in (-1.0, 1.0):
-        _box(p, (sx * leg_station, brace_y, 0.0), (brace[0], brace[1], span - 2.0 * brace[0]),
-             brace_uv, palette.shade(RESIN_TINT, 0.94))
+        _box(p, (sx * leg_station, brace_y, 0.0), (brace[0], brace[1], span), brace_uv,
+             palette.shade(RESIN_TINT, 0.94))
     p.add_note("lipped resin tray on a moulded skirt; four tapered legs; perimeter stretcher")
 
 
@@ -484,7 +536,7 @@ def build_pool_chair(p: PropBuilder) -> None:
 
     seat_top = 0.45
     seat_h = 0.038
-    seat_w, seat_d = 0.46, 0.45
+    seat_w, seat_d = 0.52, 0.45
     seat_z = 0.02
     seat_front = seat_z + seat_d * 0.5
 
@@ -499,7 +551,7 @@ def build_pool_chair(p: PropBuilder) -> None:
     # Seat frame: an apron under the seat on all four sides, tied by the legs.
     apron_y = seat_top - seat_h - 0.022
     apron_h = 0.044
-    leg_x = 0.185
+    leg_x = 0.205
     front_z, rear_z = 0.20, -0.19
     for sx in (-1.0, 1.0):
         _box(p, (sx * leg_x, apron_y, (front_z + rear_z) * 0.5),
@@ -510,13 +562,16 @@ def build_pool_chair(p: PropBuilder) -> None:
              (2.0 * leg_x, apron_h, 0.028), frame_uv, palette.shade(RESIN_TINT, 0.96))
 
     # Legs: tapered blocks; the rear pair leans back 8 degrees about its top so
-    # the seat overhangs the feet, the way a real stacker chair does.
+    # the seat overhangs the feet, the way a real stacker chair does.  The
+    # raked pair is grown by the foot's rise so all four feet still touch y = 0.
     leg_h = apron_y - 0.01
+    lean = 8.0
+    foot_rise = leg_h * (1.0 - math.cos(math.radians(lean)))
     for sx in (-1.0, 1.0):
         _taper_block(p, (sx * leg_x, 0.0, front_z), (0.042, 0.030), leg_h, leg_uv,
                      palette.shade(RESIN_TINT, 0.97))
-        _taper_block(p, (sx * leg_x, 0.0, rear_z), (0.042, 0.030), leg_h, leg_uv,
-                     palette.shade(RESIN_TINT, 0.97), rake=-8.0)
+        _taper_block(p, (sx * leg_x, -foot_rise, rear_z), (0.042, 0.030), leg_h + foot_rise,
+                     leg_uv, palette.shade(RESIN_TINT, 0.97), rake=-lean)
 
     # Back: two raked stiles carrying three slats and a top rail, all on the
     # one 13 degree line so the back reads as a single moulding.
@@ -533,10 +588,10 @@ def build_pool_chair(p: PropBuilder) -> None:
         _box(p, (sx * leg_x, centre_y, back_z(centre_y)),
              (0.034, top_y - hinge_y + 0.03, 0.024), frame_uv, palette.shade(RESIN_TINT, 0.98),
              rotation=(-rake, 0.0, 0.0))
-    for y in (0.545, 0.645, 0.745):
+    for y in (0.52, 0.62, 0.72):
         _box(p, (0.0, y, back_z(y)), (0.40, 0.048, 0.016), slat_uv,
              palette.shade(RESIN_TINT, 1.01), rotation=(-rake, 0.0, 0.0))
-    _box(p, (0.0, top_y, back_z(top_y)), (0.50, 0.06, 0.022), slat_uv,
+    _box(p, (0.0, top_y, back_z(top_y)), (0.46, 0.06, 0.022), slat_uv,
          palette.shade(RESIN_TINT, 1.02), rotation=(-rake, 0.0, 0.0))
     p.add_note("45 cm seat with a rolled front, rear legs raked 8 degrees, slatted back")
     p.mesh.normalize_origin()
@@ -578,8 +633,8 @@ def build_pool_ladder(p: PropBuilder) -> None:
     for sx in (-1.0, 1.0):
         x = sx * rail_x
         points = [(x, 0.02, rail_z), (x, bend_y, rail_z)]
-        for step in range(1, 5):
-            angle = math.radians(90.0 * (step / 4.0))
+        for step in range(1, 7):
+            angle = math.radians(90.0 * (step / 6.0))
             points.append((
                 x,
                 bend_y + bend_r * math.sin(angle),
@@ -592,17 +647,19 @@ def build_pool_ladder(p: PropBuilder) -> None:
                     color=CHROME_TINT, cap_start=False, cap_end=True)
 
         # A vinyl foot boot closes the rail where it meets the basin floor.
-        _turn(p, (x, 0.0, rail_z), 0.032, 0.05, boot_uv,
+        _turn(p, (x, 0.0, rail_z), 0.028, 0.05, boot_uv,
               palette.shade(CHROME_TINT, 0.92), taper=0.86)
 
     # Four non-skid treads: a stainless pan with a dark insert, on the 0.305 m
-    # code pitch and stopping short of the deck above.
+    # code pitch and stopping short of the deck above.  The pan sits on the
+    # rails' front face (z + 12 mm) the way a real tread mounts, which also
+    # keeps it inside the module's 0.45 m depth.
     tread_w = 2.0 * (rail_x - rail_r)
     for index in range(4):
         y = 0.35 + index * 0.305
-        _box(p, (0.0, y, rail_z), (tread_w, 0.02, 0.075), tread_uv, CHROME_TINT,
+        _box(p, (0.0, y, rail_z + 0.012), (tread_w, 0.02, 0.075), tread_uv, CHROME_TINT,
              colors={"+y": palette.shade(CHROME_TINT, 1.02)})
-        _box(p, (0.0, y + 0.012, rail_z), (tread_w - 0.07, 0.004, 0.048), grip_uv,
+        _box(p, (0.0, y + 0.012, rail_z + 0.012), (tread_w - 0.07, 0.004, 0.048), grip_uv,
              palette.shade(CHROME_TINT, 0.78))
     p.add_note("handrails bend on a 0.10 m radius 0.7 m over the deck; four treads at 0.305 m")
 
@@ -625,9 +682,11 @@ def _curtain_track(p: PropBuilder, axis: str, start: float, end: float, station:
     length = abs(end - start)
     middle = (start + end) * 0.5
     if axis == "x":
-        _box(p, (middle, TRACK_Y, station), (length, TRACK_H, TRACK_W), track_uv, color)
+        _box(p, (middle, TRACK_Y, station), (length, TRACK_H, TRACK_W), track_uv, color,
+             hidden=())
     else:
-        _box(p, (station, TRACK_Y, middle), (TRACK_W, TRACK_H, length), track_uv, color)
+        _box(p, (station, TRACK_Y, middle), (TRACK_W, TRACK_H, length), track_uv, color,
+             hidden=())
 
 
 def build_pool_curtain_straight(p: PropBuilder) -> None:
@@ -682,8 +741,13 @@ def build_pool_curtain_end(p: PropBuilder) -> None:
 
 def build_pool_curtain_corner(p: PropBuilder) -> None:
     """L module turning a run 90 degrees: a shared corner post at (-0.27,
-    -0.27), a track along each leg and one five-pleat panel per leg, folded
-    inwards so the pleats never cross the module's outer faces."""
+    -0.27), a track along each leg and one gathered panel per leg.
+
+    The two panels pack into the same corner, so the leg that runs along Z is
+    hung a few centimetres further from the post than the X leg's: the pleats
+    interleave instead of meeting face to face, and each panel uses the tighter
+    ``CORNER_DEPTH`` fan so the overlap stays inside the corner.
+    """
     size = p.size  # [0.6, 2.6, 0.6]
     tex = p.set_texture(128, seed=257)
     tex.auto("cloth", "post", "plate", "track")
@@ -700,17 +764,19 @@ def build_pool_curtain_corner(p: PropBuilder) -> None:
     _curtain_track(p, "x", -limit, limit, corner, track_uv, palette.shade(CLOTH_TINT, 0.94))
     _curtain_track(p, "z", -limit, limit, corner, track_uv, palette.shade(CLOTH_TINT, 0.94))
 
-    # The panel is gathered against the post's surface and opens inwards, so it
-    # stays inside the module's 0.6 x 0.6 m box on both legs.
-    gather = corner + CURTAIN_POST_R
-    panel = (gather, limit - 0.01)
-    depth = 0.20
+    # The panel hangs off the post's surface and the pleats open inwards, so the
+    # cloth always stays inside the module's 0.6 x 0.6 m box.
     folds = 5
-    _panel(p, "x", panel, gather, depth, folds, cloth_uv, CLOTH_TINT)
-    _carriers(p, "x", panel, gather, folds, post_uv, palette.shade(CLOTH_TINT, 0.92))
-    _panel(p, "z", panel, gather, depth, folds, cloth_uv, CLOTH_TINT)
-    _carriers(p, "z", panel, gather, folds, post_uv, palette.shade(CLOTH_TINT, 0.92))
-    p.add_note("shared corner post; one gathered panel per leg, folded inwards")
+    span_x = (corner + CURTAIN_POST_R, limit - 0.01)
+    _panel(p, "x", span_x, corner + CURTAIN_POST_R, CORNER_DEPTH, folds, cloth_uv, CLOTH_TINT)
+    _carriers(p, "x", span_x, corner + CURTAIN_POST_R, folds, post_uv,
+              palette.shade(CLOTH_TINT, 0.92))
+    span_z = (corner + CURTAIN_POST_R + CORNER_STACK, limit - 0.01)
+    _panel(p, "z", span_z, corner + CURTAIN_POST_R + CORNER_STACK, CORNER_DEPTH, folds,
+           cloth_uv, CLOTH_TINT)
+    _carriers(p, "z", span_z, corner + CURTAIN_POST_R + CORNER_STACK, folds, post_uv,
+              palette.shade(CLOTH_TINT, 0.92))
+    p.add_note("shared corner post; one gathered panel per leg, packed into the corner")
 
 
 # --------------------------------------------------------------- guardrails
@@ -720,6 +786,8 @@ def _guardrail_sheet(tex) -> tuple:
     _paint_tube(tex, "post", SILVER, 601)
     _paint_tube(tex, "rail", palette.shade(SILVER, 1.02), 607)
     _paint_flange(tex, "plate", palette.shade(SILVER, 0.90), 613, bolts=4)
+    # The fourth atlas cell keeps the sheet fully painted (nothing samples it).
+    _paint_tube(tex, "spare", palette.shade(SILVER, 0.98), 617)
     return tex.uv("post"), tex.uv("rail"), tex.uv("plate")
 
 
@@ -728,9 +796,10 @@ def _guardrail_bay(p: PropBuilder, posts, rail_span, post_uv, rail_uv, plate_uv)
 
     Every guardrail module is built from this, so the post stock, the rail
     height and the flange size cannot drift between straight, end and corner.
+    A station is ``(x, z, plate_long_axis)``.
     """
-    for x, z in posts:
-        _flange(p, x, z, plate_uv, palette.shade(SILVER_TINT, 0.92))
+    for x, z, long_axis in posts:
+        _flange(p, x, z, long_axis, plate_uv, palette.shade(SILVER_TINT, 0.92))
         _post(p, x, z, POST_R, POST_TOP, POST_CAP_H, POST_CAP_TAPER, PLATE_H * 0.5,
               post_uv, post_uv, SILVER_TINT, palette.shade(SILVER_TINT, 1.06))
     (x0, z0), (x1, z1) = rail_span
@@ -747,12 +816,12 @@ def build_pool_guardrail_straight(p: PropBuilder) -> None:
     posts with bolted flanges.  One rail, not a fence."""
     size = p.size  # [2.0, 1.05, 0.08]
     tex = p.set_texture(128, seed=261)
-    tex.auto("post", "rail", "plate")
+    tex.auto("post", "rail", "plate", "spare")
     post_uv, rail_uv, plate_uv = _guardrail_sheet(tex)
 
     limit = size[0] * 0.5                    # 1.0
     inset = POST_R                           # the post surface is flush at the edge
-    posts = ((-(limit - inset), 0.0), (0.0, 0.0), (limit - inset, 0.0))
+    posts = ((-(limit - inset), 0.0, "z"), (0.0, 0.0, "z"), (limit - inset, 0.0, "z"))
     _guardrail_bay(p, posts, ((-limit, 0.0), (limit, 0.0)), post_uv, rail_uv, plate_uv)
     p.add_note("single waist-high rail on three posts; flanges flush at the module ends")
 
@@ -762,27 +831,38 @@ def build_pool_guardrail_end(p: PropBuilder) -> None:
     terminates a run without introducing a second rail line."""
     size = p.size  # [0.6, 1.05, 0.08]
     tex = p.set_texture(128, seed=263)
-    tex.auto("post", "rail", "plate")
+    tex.auto("post", "rail", "plate", "spare")
     post_uv, rail_uv, plate_uv = _guardrail_sheet(tex)
 
     limit = size[0] * 0.5
     inset = POST_R
-    posts = ((-(limit - inset), 0.0), (limit - inset, 0.0))
+    posts = ((-(limit - inset), 0.0, "z"), (limit - inset, 0.0, "z"))
     _guardrail_bay(p, posts, ((-limit, 0.0), (limit, 0.0)), post_uv, rail_uv, plate_uv)
     p.add_note("short single-rail return: two posts, flanges flush at both ends")
 
 
 def build_pool_guardrail_corner(p: PropBuilder) -> None:
     """L guardrail module: one rail per leg at the same waist height, turning
-    through the shared corner post."""
+    through the shared corner post.
+
+    The arm posts sit on their rail's line with the usual inset, so their
+    flanges finish flush with the module edge in the running direction; the
+    corner post carries both rails, so it takes a square flange and steps one
+    flange-half inboard, which keeps every plate inside the 0.6 x 0.6 m box.
+    """
     size = p.size  # [0.6, 1.05, 0.6]
     tex = p.set_texture(128, seed=267)
-    tex.auto("post", "rail", "plate")
+    tex.auto("post", "rail", "plate", "spare")
     post_uv, rail_uv, plate_uv = _guardrail_sheet(tex)
 
-    limit = size[0] * 0.5
-    corner = -(limit - POST_R)
-    posts = ((corner, corner), (limit - POST_R, corner), (corner, limit - POST_R))
+    limit = size[0] * 0.5                     # 0.3
+    arm = limit - POST_R                      # 0.276: the arm post's rail station
+    corner = -(limit - PLATE_D * 0.5)         # -0.26: the square flange is flush
+    posts = (
+        (arm, corner, "z"),
+        (corner, arm, "x"),
+        (corner, corner, "both"),
+    )
     _guardrail_bay(p, posts, ((-limit, corner), (limit, corner)), post_uv, rail_uv, plate_uv)
     p.cylinder((corner, RAIL_Y, -limit), RAIL_R, 2.0 * limit, axis="z",
                segments=METAL_SEGMENTS, side_uv=rail_uv, cap_uv=rail_uv,

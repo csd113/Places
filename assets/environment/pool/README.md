@@ -43,25 +43,33 @@ recessed round downlight and `core:pool_light_wall` a shallow wall luminaire
 
 All nine are modelled in [`tools/props/parts/pool.py`](../../../tools/props/parts/pool.py):
 1 unit = 1 m, origin on the floor-contact centre, `+Z` front, one embedded
-64x64 or 128x128 texture each, well inside the triangle budget.
+128x128 texture each, well inside the triangle budget. Moulded resin parts are
+built from four-sided tapered blocks, metal work from eight-sided stock, and
+cloth from a double-sided folded ribbon, so the three material families never
+read alike.
 
 | prop id | size [w, h, d] | notes |
 | --- | --- | --- |
-| `core:pool_table` | 0.80 x 0.74 x 0.80 | white resin tray top with a lip, four tapered legs, one low cross-brace |
-| `core:pool_chair` | 0.52 x 0.85 x 0.55 | the table's sibling: 42 cm seat, raked slatted back, four tapered legs |
-| `core:pool_ladder` | 0.55 x 2.20 x 0.45 | chrome rails curving 0.4 m out over the deck edge, five rungs at 0.30 m |
-| `core:pool_curtain_straight` | 1.20 x 2.60 x 0.22 | two 25 mm posts, a top rail and a five-fold hanging panel |
-| `core:pool_curtain_end` | 0.60 x 2.60 x 0.22 | one post and a three-fold panel closing a run |
-| `core:pool_curtain_corner` | 0.60 x 2.60 x 0.60 | shared corner post, two half panels, legs along +X and +Z |
-| `core:pool_guardrail_straight` | 2.00 x 1.05 x 0.08 | two rails (1.0 m / 0.55 m) on three 40 mm posts, bolted base plates |
-| `core:pool_guardrail_end` | 0.60 x 1.05 x 0.08 | short return terminating a run |
-| `core:pool_guardrail_corner` | 0.60 x 1.05 x 0.60 | L section, legs along +X and +Z from the shared corner post |
+| `core:pool_table` | 0.80 x 0.74 x 0.80 | white resin tray top with a 4 cm rim over a 12 mm tray floor, a moulded apron, four tapered square legs and a low perimeter stretcher ring |
+| `core:pool_chair` | 0.52 x 0.85 x 0.55 | the table's sibling: 45 cm seat with a rolled front edge, apron, tapered front legs, rear legs raked 8 degrees and a 13 degree slatted back |
+| `core:pool_ladder` | 0.55 x 2.20 x 0.45 | chrome rails curving 0.33 m out over the deck edge on a 0.10 m radius, four non-skid treads on a 0.305 m pitch and vinyl foot boots |
+| `core:pool_curtain_straight` | 1.20 x 2.60 x 0.22 | two 48 mm posts on square foot plates, an extruded top track and a ten-pleat gathered panel |
+| `core:pool_curtain_end` | 0.60 x 2.60 x 0.22 | one post and a five-pleat panel closing a run |
+| `core:pool_curtain_corner` | 0.60 x 2.60 x 0.60 | shared corner post, one tighter-packed panel per leg |
+| `core:pool_guardrail_straight` | 2.00 x 1.05 x 0.08 | **one** waist-high Ø42 rail at 0.98 m on three Ø48 posts with turned caps and bolted flanges |
+| `core:pool_guardrail_end` | 0.60 x 1.05 x 0.08 | short single-rail return terminating a run |
+| `core:pool_guardrail_corner` | 0.60 x 1.05 x 0.60 | L section, one rail per leg turning through the shared corner post |
+
+The guardrail is deliberately a *guard rail* and not a fence: a single rail on
+posts, no second rail line and no infill. Its 8 cm catalogue depth is the
+flange, which is sized across the rail it carries.
 
 Curtain and guardrail modules compose on a 0.6 m bay grid: a straight section's
-posts sit at the module edges, an end module hangs its panel to one open side
-and a corner module turns a run through 90 degrees. The guardrail's base plates
-are what fill the catalogue's 8 cm depth; a section rotated 90 degrees needs its
-level `"size"` written with x/z swapped.
+posts sit inboard by exactly their own radius (curtains: by the foot plate's
+half-width), so a module's post surface, and a guardrail's flange, are flush
+with the module's catalogue edge and two modules placed edge to edge meet
+piece to piece. A section rotated 90 degrees needs its level `"size"` written
+with x/z swapped.
 
 ## The Pool content
 

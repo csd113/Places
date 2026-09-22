@@ -294,7 +294,7 @@
       "color": "#b9bec2",
       "category": "Utility",
       "solid": true,
-      "description": "Chrome pool ladder: handrails and rungs standing on the basin floor, rising 0.7 m above the deck."
+      "description": "Chrome pool ladder: two handrails standing on the basin floor, curving out over the deck edge, with four non-skid treads."
     },
     {
       "id": "core:pool_curtain_straight",
@@ -312,7 +312,7 @@
       "color": "#dfe4e2",
       "category": "Decorative",
       "solid": false,
-      "description": "Freestanding commercial privacy curtain module: two posts, a top rail and a simple folded panel."
+      "description": "Freestanding commercial privacy curtain module: two posts on foot plates, an extruded top track and a gathered ten-pleat panel."
     },
     {
       "id": "core:pool_curtain_end",
@@ -366,7 +366,7 @@
       "color": "#b9bec2",
       "category": "Utility",
       "solid": true,
-      "description": "Two metre silver guardrail section: two rails on three posts."
+      "description": "Two metre waist-high guardrail section: one silver top rail on three flanged posts."
     },
     {
       "id": "core:pool_guardrail_end",
@@ -384,7 +384,7 @@
       "color": "#b9bec2",
       "category": "Utility",
       "solid": true,
-      "description": "Short guardrail return that terminates a run."
+      "description": "Short single-rail guardrail return that terminates a run."
     },
     {
       "id": "core:pool_guardrail_corner",
@@ -402,7 +402,7 @@
       "color": "#b9bec2",
       "category": "Utility",
       "solid": true,
-      "description": "L-shaped guardrail module that turns a run through 90 degrees."
+      "description": "L-shaped single-rail guardrail module that turns a run through 90 degrees."
     },
     {
       "id": "core:crate",
