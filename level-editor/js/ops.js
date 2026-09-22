@@ -205,7 +205,7 @@
 
   // ---------------------------------------------------------------- move
 
-  const MOVABLE = ['rooms', 'walls', 'ceiling_lights', 'props', 'floor_patches'];
+  const MOVABLE = ['rooms', 'walls', 'ceiling_lights', 'props', 'floor_patches', 'decals'];
 
   function findObject(level, id) {
     for (const key of MOVABLE) {
@@ -268,6 +268,13 @@
     const patch = level.floor_patches.find(p => p.id === id);
     if (patch) {
       return { x: patch.x, z: patch.z, width: Math.abs(patch.width), depth: Math.abs(patch.depth), kind: 'patch' };
+    }
+    const decal = (level.decals || []).find(d => d.id === id);
+    if (decal) {
+      // The plan view shows a decal's footprint as the square that bounds its
+      // (possibly rotated) in-plane rectangle.
+      const reach = Math.max(Math.abs(decal.width), Math.abs(decal.height)) / 2;
+      return { x: decal.x - reach, z: decal.z - reach, width: reach * 2, depth: reach * 2, kind: 'decal' };
     }
     const prop = level.props.find(p => p.id === id);
     if (prop) return propRect2D(prop, catalog);
@@ -505,6 +512,10 @@
       if (set.has(p.id)) { deleted++; return false; }
       return true;
     });
+    level.decals = (level.decals || []).filter((d) => {
+      if (set.has(d.id)) { deleted++; return false; }
+      return true;
+    });
     for (const wall of level.walls) {
       wall.openings = wall.openings.filter((o) => {
         if (set.has(o.id)) { deleted++; return false; }
@@ -571,6 +582,14 @@
         const copy = patch.duplicate();
         copy.x += dx; copy.z += dz;
         level.floor_patches.push(copy);
+        newIds.push(copy.id);
+        continue;
+      }
+      const decal = (level.decals || []).find(d => d.id === id);
+      if (decal) {
+        const copy = decal.duplicate();
+        copy.x += dx; copy.z += dz;
+        level.decals.push(copy);
         newIds.push(copy.id);
         continue;
       }

@@ -24,7 +24,13 @@ CORE_MATERIALS = {
     "core:ceiling_panel_01",
     "core:ceiling_stained_01",
     "core:fluorescent_panel_01",
+    "core:decal_test_01",
+    "core:decal_no_diving_01",
+    "core:decal_arrow_01",
+    "core:decal_stripes_01",
 }
+
+DECAL_SURFACES = {"floor", "ceiling", "wall_north", "wall_south", "wall_east", "wall_west"}
 
 RESIDENTIAL_LEVELS = {
     "the_residence": "The Residence",
@@ -188,6 +194,28 @@ class ShippedLevelTests(unittest.TestCase):
                 used.add(light["fixture"])
             unknown = {mid for mid in used if mid.startswith("core:")} - CORE_MATERIALS
             self.assertEqual(unknown, set(), f"{path.name} uses unknown core ids")
+
+    def test_decals_use_known_sheets_and_surfaces(self):
+        levels_with_decals = 0
+        for path in level_files():
+            level = load_level(path)
+            for index, decal in enumerate(level.get("decals", [])):
+                self.assertIn(
+                    decal["material"],
+                    CORE_MATERIALS,
+                    f"{path.name}: decal {index} uses an unknown sheet",
+                )
+                self.assertIn(
+                    decal["surface"],
+                    DECAL_SURFACES,
+                    f"{path.name}: decal {index} targets an unknown surface",
+                )
+                for axis in ("width", "height"):
+                    self.assertGreater(decal[axis], 0.0, f"{path.name}: decal {index} {axis}")
+                    self.assertLessEqual(decal[axis], 10.0, f"{path.name}: decal {index} {axis}")
+            if level.get("decals"):
+                levels_with_decals += 1
+        self.assertGreaterEqual(levels_with_decals, 1, "no shipped level demonstrates decals")
 
     def test_props_come_from_the_shipped_catalogue(self):
         catalogue = json.loads(

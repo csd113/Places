@@ -1,5 +1,94 @@
 # Changelog
 
+## 0.3.0 — 2026-09-21
+
+Stable surface rendering: water-damage overlays authored as duplicate walls are
+resolved into material runs on one physical surface, a first-class decal system
+draws local surface markings through a dedicated depth-biased pass, and the
+rendering diagnostic level exercises both. Coloured lighting is unchanged.
+
+### Added
+
+- Add a level `decals` array: rectangular surface markings (signs, floor
+  arrows, hazard stripes) placed with `x`/`y`/`z`, `width`/`height`,
+  `rotation_degrees`, a sheet `material` and a `surface` (`floor`, `ceiling`,
+  `wall_north`, `wall_south`, `wall_east`, `wall_west`). Decals are lit by the
+  room's baked illumination and shaded like the surface they lie on, so they are
+  not full-bright stickers in a dark room.
+- Add a dedicated decal render pass: decals are batched with the rest of the
+  static level geometry, drawn after the opaque world and props with a constant
+  `glPolygonOffset(0.0, -2.0)` bias, and cut out with an alpha-discard fragment
+  program. Depth testing and depth writes stay enabled, so a decal behind a wall
+  stays hidden. The shared generated decal sheet carries four markings (`decal
+  test`, a NO DIVING-style sign placeholder, a floor arrow and hazard stripes).
+- Add the `rendering_diagnostic` level: a warm-lit room, a blue-lit room and an
+  unlit room with wall and floor decals, a partially occluded floor decal, a
+  stained wall section, a damp floor patch, a floor-standing crate and rug, a
+  fixture near the ceiling and a wall T-junction.
+- Add Rust, package and editor tests for decal parsing and validation, decal
+  quad placement and rotation, decal lighting, the depth-bias contract, decal
+  draw order, and coincident-overlay wall resolution.
+- Add level editor support for decals: model class and round trip, plan-view
+  markers, selection and dragging, an inspector for sheet/surface/size/rotation,
+  and validation matching the game loader, so imported decals survive an
+  edit-and-save cycle.
+
+### Changed
+
+- Resolve coincident collinear walls into a single emitted surface: the
+  residential levels paint part of a wall with water damage by placing a second
+  wall in exactly the same plane, which made two identical surfaces compete for
+  the same depth value. The renderer now merges such walls, unions their solid
+  profiles (an opaque coincident face covers a hole in the other surface, which
+  is what was already displayed) and emits one set of faces with a material run
+  per span. Collision keeps using the authored walls.
+- Keep wall face shading and the ceiling tint as shared constants so decals use
+  the same values as the surfaces they are printed on.
+
+## 0.2.0 — 2026-09-21
+
+Coloured static lighting: every ceiling fixture can emit an arbitrary RGB
+colour that lights the room around it, unlit rooms are genuinely dark, and
+Level 1 keeps its brightness from its own fixtures instead of a global ambient
+floor.
+
+### Added
+
+- Add an optional `color` field (`[r, g, b]`, 0..1 per channel) to ceiling
+  light definitions. The baked environmental illumination and the fixture panel
+  both use it, so a blue fixture lights nearby floor, ceiling and wall geometry
+  blue instead of only tinting its own panel; an omitted colour emits the
+  restrained warm fluorescent default (`[1.0, 0.96, 0.88]`), so every legacy
+  level loads unchanged.
+- Add the `lighting_diagnostic` level: nine connected rooms demonstrating an
+  unlit dark room, one warm light, several warm lights, a blue light, a red
+  light, a warm/cool overlap, a red/green/blue overlap, a regular nine-fixture
+  grid and an eight-metre room.
+- Add RGB lighting tests in Rust, in the editor mirror and in the shared
+  Rust/JavaScript parity vectors: single-colour channel dominance, mixed-colour
+  accumulation, bounded dense grids, ceiling-height response and legacy default
+  colours.
+- Add an emitted-colour field to the level editor's light inspector (`r, g, b`
+  or `#rrggbb`, empty for the default) with validation matching the game loader.
+
+### Changed
+
+- Replace the scalar lighting bake with a three-channel RGB bake: fixtures
+  accumulate per channel, opening blending and the ceiling-height correction
+  still apply, and the room-baseline density curve is logarithmically
+  compressed so a sparse 13.5 m fixture grid (Level 1) is broadly lit without
+  also saturating small, densely lit rooms.
+- Lower the unlit-room ambient floor from `0.55` to `0.10` per channel and
+  remove every later clamp that restored the old floor, so rooms without
+  fixtures are genuinely dark while geometry stays barely visible. Level 1's
+  large sparse rooms measure within about 3% of their previous bake because
+  their brightness now comes from the nine fixtures per room; the denser
+  shipped residential levels read roughly 0.1 brighter in lit rooms, and their
+  unlit rooms drop to the new ambient floor.
+- Drive the fixture panel's visible colour and its emitted environmental colour
+  from the same authored value so the two cannot silently diverge, and mirror
+  the RGB model in the level editor's 3D preview.
+
 ## 0.1.0 — 2026-09-21
 
 First App Manager-ready release: a native ARM payload published through the

@@ -37,6 +37,7 @@ python3 -m http.server 8765      # then open http://127.0.0.1:8765/level-editor/
 | Prop | `P` | Opens the prop browser: search, filter by category, click, then click in a view. |
 | Spawn | `M` | The player start; drag to fine-tune, `Q`/`E` to rotate. |
 | Floor patch | `T` | Advanced only: damp carpet / stain patches. |
+| Decal | — | Imported decals appear in the plan view (dashed square) and the inspector, and are preserved on save. Creating new decals from the toolbar is not implemented yet. |
 
 Everything above the "usual" set (exact coordinates, per-face materials, object
 ids, imported texture ids, scale, vertical offsets, clipping) lives behind the
@@ -118,7 +119,8 @@ still work; the editor keeps editing them as plain walls.
 ## Ceiling lights
 
 ```json
-{ "fixture": "core:fluorescent_panel_01", "x": 8.0, "z": 5.0, "rotation_degrees": 0, "brightness": 1.0 }
+{ "fixture": "core:fluorescent_panel_01", "x": 8.0, "z": 5.0, "rotation_degrees": 0,
+  "brightness": 1.0, "color": [1.0, 0.85, 0.60] }
 ```
 
 * `brightness` is the fixture's **intensity** (output). Omitted means `1.0`, the
@@ -128,17 +130,31 @@ still work; the editor keeps editing them as plain walls.
 * `intensity` is accepted as a **spelling alias** when importing (the game's
   loader reads both) and is normalised to `brightness` on export. Generated
   development levels use `intensity`; both produce identical levels.
-* The game bakes the value into the room's baseline brightness and into the pool
-  of light under the panel at level load (`src/lighting.rs`). The editor's
+* `color` is the fixture's **emitted light colour**, an `[r, g, b]` array of
+  `0..1` fractions. The game multiplies it into both the baked environmental
+  illumination and the visible panel, so a blue fixture lights nearby geometry
+  blue instead of only tinting its own panel. Omitted means the restrained warm
+  fluorescent (`[1.0, 0.96, 0.88]`), so legacy levels are unchanged. The
+  inspector offers a `r, g, b` / `#rrggbb` field; leave it empty for the default.
+  Because ordinary illumination still multiplies the surface's own colour, a
+  strongly tinted fixture reads most clearly on light surfaces — coloured light
+  on the yellow Backrooms wallpaper still mixes towards olive.
+* The game bakes the value into the room's baseline illumination and into the
+  pool of light under the panel at level load (`src/lighting.rs`). The editor's
   inspector shows and edits it, and validates it exactly like the game loader:
-  non-finite or negative values are errors, values above the clamp are warnings.
+  non-finite or negative intensities and non-finite or out-of-range colour
+  channels are errors, intensities above the game's clamp are warnings, and a
+  malformed colour array is normalised back to "no colour" (the warm default)
+  on import rather than being written out with invalid channels.
 
 ### Lighting in the 3D preview
 
 The preview applies an *approximation* of the game's static lighting to its mesh,
 using the same tuned constants (`js/lighting.js` mirrors `src/lighting.rs`):
-room baselines from floor area, fixture count/intensity and ceiling height; broad
-local pools under fixtures; and bounded blending through doorways.
+room baselines from floor area, fixture count/intensity, emitted colour and
+ceiling height; broad local pools under fixtures; and bounded blending through
+doorways. Colour is accumulated per channel, exactly like the game, so the
+preview shows the same warm/blue/red mixes.
 
 It is a preview, not a second renderer. The editor's floors and ceilings are
 single quads, so a room reads at its baseline brightness and only walls and props

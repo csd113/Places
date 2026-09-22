@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::collision::WallAabb;
+use crate::lighting::{DEFAULT_LIGHT_COLOR, LightColor};
 
 const fn default_ceiling_height() -> f32 {
     3.5
@@ -342,12 +343,116 @@ pub struct FloorPatchDef {
     pub material: String,
 }
 
+/// Which surface a decal lies on, and therefore which way its outward normal
+/// points.
+///
+/// The wall names match the wall face names of the level format (and design
+/// section 21): `north` faces -Z, `south` +Z, `west` -X and `east` +X. Floors
+/// face +Y and ceilings -Y. A decal is a small, intentionally decorative
+/// surface marking (a sign, a floor line, a warning), so unlike a material
+/// overlay it is a separate piece of geometry and never part of the wall it is
+/// applied to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DecalSurface {
+    /// Horizontal, normal +Y.
+    Floor,
+    /// Horizontal, normal -Y.
+    Ceiling,
+    /// Vertical, normal -Z.
+    WallNorth,
+    /// Vertical, normal +Z.
+    WallSouth,
+    /// Vertical, normal -X.
+    WallWest,
+    /// Vertical, normal +X.
+    WallEast,
+}
+
+impl DecalSurface {
+    /// Outward unit normal of the surface the decal lies on.
+    #[must_use]
+    pub const fn normal(self) -> [f32; 3] {
+        match self {
+            Self::Floor => [0.0, 1.0, 0.0],
+            Self::Ceiling => [0.0, -1.0, 0.0],
+            Self::WallNorth => [0.0, 0.0, -1.0],
+            Self::WallSouth => [0.0, 0.0, 1.0],
+            Self::WallWest => [-1.0, 0.0, 0.0],
+            Self::WallEast => [1.0, 0.0, 0.0],
+        }
+    }
+
+    /// True for floors and ceilings.
+    #[must_use]
+    pub const fn is_horizontal(self) -> bool {
+        matches!(self, Self::Floor | Self::Ceiling)
+    }
+
+    /// True for ceiling decals, whose surface carries the ceiling shade.
+    #[must_use]
+    pub const fn is_ceiling(self) -> bool {
+        matches!(self, Self::Ceiling)
+    }
+}
+
+/// Largest decal edge the loader accepts, in metres.
+///
+/// Decals are surface decoration, not architecture; anything larger than a
+/// normal sign or floor marking is almost certainly a malformed level rather
+/// than an intentional overlay.
+pub const MAX_DECAL_SIZE_M: f32 = 10.0;
+/// Hard ceiling on the number of decals a level may place.
+pub const MAX_LEVEL_DECALS: u64 = 5000;
+/// Number of quads one decal generates.
+pub const MAX_DECAL_QUADS: u64 = 1;
+
+/// One local surface decal: a rectangular marking placed flat on an existing
+/// wall, floor or ceiling.
+///
+/// `x`, `y` and `z` are the world-space centre of the decal and must lie on
+/// the surface it targets (`surface` then fixes the normal and the default
+/// in-plane axes). `width`/`height` are the decal's size in metres along its
+/// own horizontal and vertical axes before `rotation_degrees` spins it in the
+/// surface plane. `material` is a decal sheet id resolved by the renderer.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DecalDef {
+    pub x: f32,
+    /// Vertical centre of the decal. Floors and ceilings use their plane's
+    /// height, walls the height on the wall.
+    #[serde(default)]
+    pub y: f32,
+    pub z: f32,
+    pub width: f32,
+    pub height: f32,
+    /// In-plane rotation about the surface normal, in degrees.
+    #[serde(default)]
+    pub rotation_degrees: f32,
+    /// Decal sheet id, e.g. `core:decal_test_01`.
+    pub material: String,
+    pub surface: DecalSurface,
+}
+
+impl DecalDef {
+    /// Half-size along the decal's own horizontal and vertical axes, in metres.
+    #[must_use]
+    pub const fn half_extents(&self) -> [f32; 2] {
+        [self.width * 0.5, self.height * 0.5]
+    }
+}
+
 /// Ceiling light fixture placement.
 ///
 /// `brightness` is the optional fixture intensity/power. It is the field the
 /// level editor already authors and writes, so it stays the canonical key; the
 /// more descriptive `intensity` spelling is accepted as an alias so levels
 /// written from the design notes load unchanged. Omitted means `1.0`.
+///
+/// `color` is the optional emitted light colour as an `[r, g, b]` array of
+/// `0.0..=1.0` fractions. It drives both the fixture panel's visible tint and
+/// the coloured illumination the bake applies to surrounding geometry. Levels
+/// that omit it keep loading: they emit [`DEFAULT_LIGHT_COLOR`], the restrained
+/// warm fluorescent the game has always implied.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CeilingLightDef {
     pub fixture: String,
@@ -357,6 +462,9 @@ pub struct CeilingLightDef {
     pub rotation_degrees: f32,
     #[serde(default, alias = "intensity")]
     pub brightness: Option<f32>,
+    /// Emitted light colour; omitted means [`DEFAULT_LIGHT_COLOR`].
+    #[serde(default)]
+    pub color: Option<LightColor>,
 }
 
 impl CeilingLightDef {
@@ -372,6 +480,18 @@ impl CeilingLightDef {
     pub fn intensity(&self) -> f32 {
         self.brightness
             .map_or(1.0, crate::lighting::sanitize_intensity)
+    }
+
+    /// Emitted light colour, sanitised for baking.
+    ///
+    /// Omitted means [`DEFAULT_LIGHT_COLOR`]; authored channels are clamped
+    /// into `[0, 1]` and non-finite channels emit nothing (see
+    /// [`LightColor::sanitized`]). This is the single source of truth for both
+    /// the fixture panel appearance and the coloured environmental illumination;
+    /// the two must never diverge.
+    #[must_use]
+    pub fn emitted_color(&self) -> LightColor {
+        self.color.unwrap_or(DEFAULT_LIGHT_COLOR).sanitized()
     }
 }
 
@@ -441,6 +561,9 @@ pub struct LevelDef {
     pub walls: Vec<WallDef>,
     #[serde(default)]
     pub floor_patches: Vec<FloorPatchDef>,
+    /// Local surface decals (signs, floor markings, warnings).
+    #[serde(default)]
+    pub decals: Vec<DecalDef>,
     #[serde(default)]
     pub ceiling_lights: Vec<CeilingLightDef>,
     /// Placed props / furniture / appliances.
@@ -487,6 +610,7 @@ pub struct GeometryEstimate {
     pub wall_quads: u64,
     pub light_quads: u64,
     pub prop_quads: u64,
+    pub decal_quads: u64,
     pub total_vertices: u64,
 }
 
@@ -610,11 +734,13 @@ impl LevelDef {
         }
         let light_quads = (self.ceiling_lights.len() as u64).saturating_mul(MAX_LIGHT_QUADS);
         let prop_quads = (self.props.len() as u64).saturating_mul(MAX_PROP_QUADS);
+        let decal_quads = (self.decals.len() as u64).saturating_mul(MAX_DECAL_QUADS);
         let total_quads = floor_quads
             .saturating_add(ceiling_quads)
             .saturating_add(wall_quads)
             .saturating_add(light_quads)
-            .saturating_add(prop_quads);
+            .saturating_add(prop_quads)
+            .saturating_add(decal_quads);
 
         GeometryEstimate {
             floor_area_m2,
@@ -623,6 +749,7 @@ impl LevelDef {
             wall_quads,
             light_quads,
             prop_quads,
+            decal_quads,
             total_vertices: total_quads.saturating_mul(6),
         }
     }
@@ -879,6 +1006,7 @@ mod tests {
             defaults: LevelDefaults::default(),
             walls: Vec::new(),
             floor_patches: Vec::new(),
+            decals: Vec::new(),
             ceiling_lights: Vec::new(),
             props: Vec::new(),
         };
@@ -1128,7 +1256,8 @@ mod tests {
             + estimate.ceiling_quads
             + estimate.wall_quads
             + estimate.light_quads
-            + estimate.prop_quads;
+            + estimate.prop_quads
+            + estimate.decal_quads;
         assert_eq!(estimate.total_vertices, expected_quads * 6);
     }
 

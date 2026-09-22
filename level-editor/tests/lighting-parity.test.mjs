@@ -5,6 +5,10 @@
 // file (`tests/support/lighting_vectors.json`), generated from the Rust
 // implementation. The Rust test asserts exact values; this one allows a
 // tolerance because the editor preview is an approximation of the same model.
+//
+// Baked illumination is three-channel RGB, so every vector is an `[r, g, b]`
+// array and every channel is compared: a preview that silently dropped the
+// colour would fail here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -22,14 +26,36 @@ const document = JSON.parse(readFileSync(vectorsPath, 'utf8'));
 // viewer would notice but far above float noise.
 const TOLERANCE = 0.02;
 
+function assertChannels(actual, expected, context) {
+  assert.ok(Array.isArray(actual) && actual.length === 3, `${context}: expected an [r, g, b] triple`);
+  assert.ok(Array.isArray(expected) && expected.length === 3, `${context}: vector is not a triple`);
+  for (let channel = 0; channel < 3; channel++) {
+    assert.ok(
+      Number.isFinite(actual[channel]),
+      `${context}[${channel}] must be finite, got ${actual[channel]}`
+    );
+    assert.ok(
+      Math.abs(actual[channel] - expected[channel]) < TOLERANCE,
+      `${context}[${channel}]: ${actual[channel]} vs Rust ${expected[channel]}`
+    );
+  }
+}
+
 test('the shared parity vector file is present and complete', () => {
   assert.ok(Array.isArray(document.scenarios));
-  assert.equal(document.scenarios.length, 8);
+  assert.equal(document.scenarios.length, 12);
   for (const scenario of document.scenarios) {
     assert.equal(typeof scenario.name, 'string');
     assert.ok(scenario.level && Array.isArray(scenario.level.rooms));
     assert.ok(scenario.expect && Array.isArray(scenario.expect.rooms));
     assert.ok(Array.isArray(scenario.expect.samples));
+    for (const room of scenario.expect.rooms) {
+      assert.ok(Array.isArray(room.baseline) && room.baseline.length === 3);
+      assert.ok(Array.isArray(room.effective_power) && room.effective_power.length === 3);
+    }
+    for (const sample of scenario.expect.samples) {
+      assert.ok(Array.isArray(sample.value) && sample.value.length === 3);
+    }
   }
 });
 
@@ -53,26 +79,13 @@ for (const scenario of document.scenarios) {
         expected.fixture_count,
         `room ${index} fixture ownership must match`
       );
-      assert.ok(
-        Math.abs(room.effectivePower - expected.effective_power) < TOLERANCE,
-        `room ${index} effective power: ${room.effectivePower} vs ${expected.effective_power}`
-      );
-      assert.ok(
-        Math.abs(room.baseline - expected.baseline) < TOLERANCE,
-        `room ${index} baseline: ${room.baseline} vs ${expected.baseline}`
-      );
+      assertChannels(room.effectivePower, expected.effective_power, `room ${index} effective power`);
+      assertChannels(room.baseline, expected.baseline, `room ${index} baseline`);
     });
 
     for (const sample of scenario.expect.samples) {
       const value = baked.sampleInRoom(sample.room, sample.x, sample.y, sample.z);
-      assert.ok(
-        Number.isFinite(value),
-        `sample (${sample.x}, ${sample.y}, ${sample.z}) must be finite`
-      );
-      assert.ok(
-        Math.abs(value - sample.value) < TOLERANCE,
-        `sample (${sample.x}, ${sample.y}, ${sample.z}): ${value} vs Rust ${sample.value}`
-      );
+      assertChannels(value, sample.value, `sample (${sample.x}, ${sample.y}, ${sample.z})`);
     }
   });
 }

@@ -1,8 +1,10 @@
 use glow::HasContext;
 
 use crate::font::generate_font_atlas;
-use crate::level::{LevelDef, PropDef, WallAxis, ceiling_height_at, wall_solid_slices};
-use crate::lighting::{LevelLighting, fixture_half_extents, light_grid_cells, wall_light_segments};
+use crate::level::{LevelDef, PropDef, WallAxis, WallDef, ceiling_height_at, wall_solid_slices};
+use crate::lighting::{
+    LevelLighting, LightColor, fixture_half_extents, light_grid_cells, wall_light_segments,
+};
 
 /// `PocketCHIP` reference resolution.
 ///
@@ -156,6 +158,53 @@ void main() {
 }
 ";
 
+/// Fragment stage for the decal pass: the same lit, textured look as the world
+/// shader, plus an alpha cut-out so a decal can have a silhouette instead of
+/// being a floating rectangle.
+///
+/// Decals keep the world program's vertex stage, so the two programs share
+/// attribute locations ([`create_program`] binds them explicitly). This is a
+/// second program rather than a branch in the world shader because `discard`
+/// can disable early depth testing for every draw that uses the program, and
+/// the opaque world must keep it.
+const DECAL_FRAGMENT_SHADER_SRC: &str = r"
+#ifdef GL_ES
+precision mediump float;
+#endif
+uniform sampler2D u_texture;
+uniform float u_alpha_cutoff;
+varying vec4 v_color;
+varying vec2 v_uv;
+
+void main() {
+    vec4 tex_color = texture2D(u_texture, v_uv);
+    if (tex_color.a < u_alpha_cutoff) {
+        discard;
+    }
+    gl_FragColor = tex_color * v_color;
+}
+";
+
+/// Depth bias the decal pass applies, as `glPolygonOffset(factor, units)`.
+///
+/// `units = -2` pulls a decal two depth-buffer resolution steps towards the
+/// camera, which is enough to win against the surface it is printed on even
+/// when the two quad tessellations disagree by a few ULPs, and is far too
+/// small to be visible as physical separation: at a one-metre view distance it
+/// is well under a micrometre. The `factor` is zero because a constant bias is
+/// exactly what a coplanar decoration needs; a slope-dependent bias would push
+/// decals further out at grazing angles for no benefit.
+pub const DECAL_POLYGON_OFFSET: (f32, f32) = (0.0, -2.0);
+
+/// Alpha below which the decal pass discards a decal texel.
+pub const DECAL_ALPHA_CUTOFF: f32 = 0.5;
+
+/// Attribute indices both scene programs bind before linking, so switching
+/// between the world and decal programs never re-points vertex attributes.
+const SCENE_ATTRIB_POS: u32 = 0;
+const SCENE_ATTRIB_COLOR: u32 = 1;
+const SCENE_ATTRIB_UV: u32 = 2;
+
 /// Authoring/build-time vertex: exact floats, easy to reason about and to audit.
 ///
 /// This is what the level builder, the lighting audit and every test work with.
@@ -177,8 +226,8 @@ pub struct Vertex {
 ///   tiling surfaces carry world-space coordinates that reach ±130 on the
 ///   largest shipped level.
 /// * `color` becomes normalised `RGBA8`. It is a *shade* folded into the vertex
-///   by the lighting bake, and that bake is bounded: `lighting::MIN_AMBIENT` is
-///   0.55 and `MAX_BRIGHTNESS` is 1.0, so a vertex channel only ever spans
+///   by the lighting bake, and that bake is bounded: `lighting::AMBIENT_LEVEL`
+///   is 0.10 and `MAX_BRIGHTNESS` is 1.0, so a vertex channel only ever spans
 ///   [0, 1] and the smallest step is 1/255 ≈ 0.9% of the range actually used.
 ///   Alpha is kept because prop models carry it from their glTF `COLOR_0`.
 ///
@@ -271,6 +320,7 @@ pub struct LevelMeshBatches {
     pub wall_batch: BatchRange,
     pub light_batch: BatchRange,
     pub prop_batch: BatchRange,
+    pub decal_batch: BatchRange,
 }
 
 /// Surface family a [`SurfaceKind`] belongs to.
@@ -285,6 +335,7 @@ pub enum SurfaceFamily {
     Wall,
     Light,
     PropFallback,
+    Decal,
 }
 
 impl SurfaceKind {
@@ -297,18 +348,20 @@ impl SurfaceKind {
             Self::Wall | Self::WallStained => SurfaceFamily::Wall,
             Self::Light => SurfaceFamily::Light,
             Self::PropFallback => SurfaceFamily::PropFallback,
+            Self::Decal => SurfaceFamily::Decal,
         }
     }
 }
 
 impl SurfaceFamily {
     /// Every family, in draw order.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Floor,
         Self::Ceiling,
         Self::Wall,
         Self::Light,
         Self::PropFallback,
+        Self::Decal,
     ];
 }
 
@@ -333,6 +386,9 @@ pub enum SurfaceKind {
     WallStained,
     Light,
     PropFallback,
+    /// Local surface decals. Drawn last, in their own pass with a depth bias,
+    /// so a decal always resolves in front of the surface it lies on.
+    Decal,
 }
 
 /// Which level-default surface a material id resolves against.
@@ -406,7 +462,11 @@ pub fn damaged_variants_used(level: &LevelDef) -> (bool, bool, bool) {
 
 impl SurfaceKind {
     /// Every kind, in draw order.
-    pub const ALL: [Self; 8] = [
+    ///
+    /// `Decal` sorts last: decals are a separate pass with their own depth
+    /// bias, and keeping them at the end of the static range order means the
+    /// opaque world is already in the depth buffer when they are submitted.
+    pub const ALL: [Self; 9] = [
         Self::Floor,
         Self::FloorDamp,
         Self::Ceiling,
@@ -415,6 +475,7 @@ impl SurfaceKind {
         Self::WallStained,
         Self::Light,
         Self::PropFallback,
+        Self::Decal,
     ];
 }
 
@@ -495,6 +556,11 @@ fn level_extent(level: &LevelDef) -> (f32, f32) {
         // its origin covers it.
         reach(prop.x - 1.0, prop.z - 1.0);
         reach(prop.x + 1.0, prop.z + 1.0);
+    }
+    for decal in &level.decals {
+        let margin = decal.width.abs().max(decal.height.abs()).mul_add(0.5, 0.0);
+        reach(decal.x - margin, decal.z - margin);
+        reach(decal.x + margin, decal.z + margin);
     }
     if !min_x.is_finite() || !min_z.is_finite() {
         return (0.0, 0.0);
@@ -699,12 +765,12 @@ fn add_quad_flat(
 /// whichever room the boundary point happens to fall in.
 const LIGHT_FACE_PROBE_M: f32 = 0.25;
 
-/// Multiplies one shaded colour by a baked brightness.
-fn shade(base: [f32; 3], light: f32) -> [f32; 3] {
+/// Multiplies one shaded colour by the baked illumination colour, per channel.
+fn shade(base: [f32; 3], light: LightColor) -> [f32; 3] {
     [
-        (base[0] * light).clamp(0.0, 1.0),
-        (base[1] * light).clamp(0.0, 1.0),
-        (base[2] * light).clamp(0.0, 1.0),
+        (base[0] * light.r).clamp(0.0, 1.0),
+        (base[1] * light.g).clamp(0.0, 1.0),
+        (base[2] * light.b).clamp(0.0, 1.0),
     ]
 }
 
@@ -1276,6 +1342,671 @@ pub(crate) fn generate_floor_checker_texture(
     crate::loader::RawImage::new(tile, tile, rgba)
 }
 
+// ------------------------------------------------------------- decal sheets
+//
+// Decals are small local surface markings. They all share one generated RGBA
+// sheet so the whole level draws them with a single texture bind, and they are
+// authored without a plate: the background is alpha 0 and the decal pass
+// discards it, which is what lets a future NO DIVING sign or floor arrow have
+// a cut-out silhouette instead of a floating rectangle.
+
+/// Generated decal sheet id for the internal validation marking.
+pub const DECAL_TEST_MATERIAL: &str = "core:decal_test_01";
+/// Generated decal sheet id for a NO DIVING-style sign placeholder.
+pub const DECAL_NO_DIVING_MATERIAL: &str = "core:decal_no_diving_01";
+/// Generated decal sheet id for a floor-direction arrow.
+pub const DECAL_ARROW_MATERIAL: &str = "core:decal_arrow_01";
+/// Generated decal sheet id for hazard stripes.
+pub const DECAL_STRIPES_MATERIAL: &str = "core:decal_stripes_01";
+
+/// Edge length of the generated decal sheet.
+const DECAL_ATLAS_SIZE: i32 = 256;
+/// One decal pattern's cell size inside the sheet.
+const DECAL_SLOT_SIZE: i32 = 128;
+/// Transparent gutter between cells, so mip-mapping never bleeds one pattern
+/// into its neighbour.
+const DECAL_SLOT_GUTTER: i32 = 8;
+/// Every decal sheet id the renderer can draw, in slot order.
+pub const DECAL_MATERIALS: [&str; 4] = [
+    DECAL_TEST_MATERIAL,
+    DECAL_NO_DIVING_MATERIAL,
+    DECAL_ARROW_MATERIAL,
+    DECAL_STRIPES_MATERIAL,
+];
+
+/// Resolves a decal material id to its slot in the generated sheet.
+///
+/// Unknown ids are not an error: a level may reference a decal sheet a future
+/// build knows about, and simply drawing nothing is the graceful degradation
+/// the loader wants for unsupported content.
+#[must_use]
+pub fn decal_material_slot(material: &str) -> Option<u32> {
+    DECAL_MATERIALS
+        .iter()
+        .position(|id| *id == material)
+        .map(|slot| slot as u32)
+}
+
+/// Writes one texel into the decal sheet, in visual (top-down) coordinates.
+///
+/// The sheet is stored bottom-up so the generated text reads upright under the
+/// game's `v` convention (v = 0 is the bottom of the image as displayed); every
+/// other generated sheet is vertically symmetric, so this is the first texture
+/// where the distinction is visible.
+fn decal_atlas_put(pixels: &mut [u8], x: i32, y: i32, color: [u8; 4]) {
+    if x < 0 || y < 0 || x >= DECAL_ATLAS_SIZE || y >= DECAL_ATLAS_SIZE {
+        return;
+    }
+    let row = DECAL_ATLAS_SIZE - 1 - y;
+    let index = ((row * DECAL_ATLAS_SIZE + x) * 4) as usize;
+    pixels[index..index + 4].copy_from_slice(&color);
+}
+
+/// Plain rectangle fill in visual sheet coordinates.
+fn decal_atlas_rect(pixels: &mut [u8], x0: i32, y0: i32, x1: i32, y1: i32, color: [u8; 4]) {
+    for y in y0..=y1 {
+        for x in x0..=x1 {
+            decal_atlas_put(pixels, x, y, color);
+        }
+    }
+}
+
+/// Rectangle outline in visual sheet coordinates.
+fn decal_atlas_frame(
+    pixels: &mut [u8],
+    x0: i32,
+    y0: i32,
+    x1: i32,
+    y1: i32,
+    thickness: i32,
+    color: [u8; 4],
+) {
+    decal_atlas_rect(pixels, x0, y0, x1, y0 + thickness - 1, color);
+    decal_atlas_rect(pixels, x0, y1 - thickness + 1, x1, y1, color);
+    decal_atlas_rect(pixels, x0, y0, x0 + thickness - 1, y1, color);
+    decal_atlas_rect(pixels, x1 - thickness + 1, y0, x1, y1, color);
+}
+
+/// Stamps one line of the embedded 8x8 font into the sheet at `scale`.
+///
+/// The font table is already the project's own bitmap resource (the HUD uses
+/// it), so diagnostic decal text stays project-created data with no new asset
+/// pipeline.
+fn decal_atlas_text(
+    pixels: &mut [u8],
+    origin_x: i32,
+    origin_y: i32,
+    text: &str,
+    scale: i32,
+    color: [u8; 4],
+) {
+    let mut cursor_x = origin_x;
+    for character in text.bytes() {
+        if character < crate::font::FONT_FIRST_CHAR {
+            continue;
+        }
+        let glyph_index = usize::from(character - crate::font::FONT_FIRST_CHAR);
+        if let Some(glyph) = crate::font::FONT_DATA.get(glyph_index) {
+            for (row, bits) in glyph.iter().enumerate() {
+                for column in 0..8i32 {
+                    if bits & (0x80 >> column) == 0 {
+                        continue;
+                    }
+                    for dy in 0..scale {
+                        for dx in 0..scale {
+                            decal_atlas_put(
+                                pixels,
+                                cursor_x + column * scale + dx,
+                                origin_y + row as i32 * scale + dy,
+                                color,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        cursor_x += 8 * scale;
+    }
+}
+
+/// Draws one line of text horizontally centred in a decal cell.
+fn decal_atlas_text_centered(
+    pixels: &mut [u8],
+    slot: i32,
+    text: &str,
+    y: i32,
+    scale: i32,
+    color: [u8; 4],
+) {
+    let (col, row) = (slot % 2, slot / 2);
+    let cell_x = col * DECAL_SLOT_SIZE;
+    let cell_y = row * DECAL_SLOT_SIZE;
+    let width = i32::try_from(text.len()).unwrap_or(0) * 8 * scale;
+    decal_atlas_text(
+        pixels,
+        cell_x + (DECAL_SLOT_SIZE - width) / 2,
+        cell_y + y,
+        text,
+        scale,
+        color,
+    );
+}
+
+/// Generates the shared decal sheet: a validation marking, a NO DIVING-style
+/// sign placeholder, a floor arrow and hazard stripes.
+pub(crate) fn generate_decal_atlas() -> Vec<u8> {
+    let mut pixels = vec![0u8; (DECAL_ATLAS_SIZE * DECAL_ATLAS_SIZE * 4) as usize];
+    let white = [245, 245, 240, 255];
+    let dark = [28, 30, 34, 255];
+    let red = [196, 44, 40, 255];
+    let green = [64, 176, 96, 255];
+    let yellow = [232, 196, 40, 255];
+
+    // Slot 0: the validation marking, "DECAL TEST" in a frame on transparency.
+    decal_atlas_frame(&mut pixels, 14, 14, 113, 113, 4, white);
+    decal_atlas_text_centered(&mut pixels, 0, "DECAL", 40, 2, white);
+    decal_atlas_text_centered(&mut pixels, 0, "TEST", 72, 2, white);
+
+    // Slot 1: a NO DIVING-style sign placeholder: a white plate with a red
+    // frame and dark text, deliberately opaque so the decal pass can also
+    // carry a real sign face rather than only a cut-out mark.
+    decal_atlas_rect(&mut pixels, 128, 0, 255, 127, [242, 240, 232, 255]);
+    decal_atlas_frame(&mut pixels, 136, 8, 247, 119, 5, red);
+    decal_atlas_text_centered(&mut pixels, 1, "NO", 34, 2, dark);
+    decal_atlas_text_centered(&mut pixels, 1, "DIVING", 70, 2, dark);
+
+    // Slot 2: a floor arrow pointing up the decal's own vertical axis, so an
+    // accidental 90/180 degree rotation is obvious on sight.
+    let arrow_x = 64;
+    let arrow_bottom = 112;
+    let arrow_stem_top = 64;
+    decal_atlas_rect(
+        &mut pixels,
+        arrow_x - 6,
+        128 + arrow_stem_top,
+        arrow_x + 5,
+        128 + arrow_bottom,
+        green,
+    );
+    for row in 0..=44 {
+        let half = row * 3 / 4;
+        decal_atlas_rect(
+            &mut pixels,
+            arrow_x - half,
+            128 + 20 + row,
+            arrow_x + half - 1,
+            128 + 20 + row,
+            green,
+        );
+    }
+
+    // Slot 3: hazard stripes for grazing-angle tests.
+    for y in 0..DECAL_SLOT_SIZE {
+        for x in 0..DECAL_SLOT_SIZE {
+            if (x + y).rem_euclid(32) < 16 {
+                decal_atlas_put(&mut pixels, 128 + x, 128 + y, yellow);
+            }
+        }
+    }
+
+    pixels
+}
+
+/// Texture-coordinate rectangle of one decal slot, as
+/// `[bottom-left, bottom-right, top-right, top-left]` matching the decal quad
+/// winding (`add_decal_quad`).
+#[must_use]
+pub fn decal_uv_rect(slot: u32) -> [[f32; 2]; 4] {
+    let cell = i32::try_from(slot).unwrap_or(0).clamp(0, 3);
+    let (col, row) = (cell % 2, cell / 2);
+    let inset = DECAL_SLOT_GUTTER;
+    let x0 = (col * DECAL_SLOT_SIZE + inset) as f32;
+    let x1 = (col * DECAL_SLOT_SIZE + DECAL_SLOT_SIZE - inset) as f32;
+    let y0 = (row * DECAL_SLOT_SIZE + inset) as f32;
+    let y1 = (row * DECAL_SLOT_SIZE + DECAL_SLOT_SIZE - inset) as f32;
+    let size = DECAL_ATLAS_SIZE as f32;
+    // The sheet is stored bottom-up, so the visual top row maps to the higher
+    // texture coordinate.
+    let u0 = x0 / size;
+    let u1 = x1 / size;
+    let v_top = (size - y0) / size;
+    let v_bottom = (size - y1) / size;
+    [[u0, v_bottom], [u1, v_bottom], [u1, v_top], [u0, v_top]]
+}
+
+/// Tolerance for treating two walls as occupying the same plane, in metres.
+/// It is the same 1 mm tolerance the floor cut lines and wall cross-section
+/// merging already use, so a wall that is "the same wall" to those steps is
+/// also the same wall here.
+const WALL_COINCIDENCE_EPS: f32 = 1e-3;
+
+/// One material run of a coalesced wall group, in local length coordinates.
+///
+/// A run is a sub-span of the group's length over which every covering wall
+/// agrees on the visible material. The faces are ordered like the two length
+/// faces the emitter walks: the low-thickness face first (north on an X-axis
+/// wall, west on a Z-axis wall), the high-thickness face second (south/east).
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct WallMaterialRun {
+    start: f32,
+    end: f32,
+    faces: [SurfaceKind; 2],
+    /// Kind used by sills, headers and reveals inside this run.
+    body: SurfaceKind,
+}
+
+/// One wall the geometry builder emits.
+///
+/// A wall on its own is emitted exactly as authored. Several walls that occupy
+/// the same plane (same axis, thickness span, base and height, overlapping
+/// length) are a *material overlay* authored as duplicate geometry: they are
+/// resolved into one synthetic wall carrying the group's combined solid
+/// profile and per-run materials, so the surface is emitted once and there is
+/// no second coplanar mesh to fight for the same depth value.
+enum WallUnit<'a> {
+    Plain(&'a WallDef),
+    Coalesced {
+        wall: WallDef,
+        runs: Vec<WallMaterialRun>,
+    },
+}
+
+impl WallUnit<'_> {
+    fn wall(&self) -> &WallDef {
+        match self {
+            Self::Plain(wall) => wall,
+            Self::Coalesced { wall, .. } => wall,
+        }
+    }
+
+    /// The material run covering a local length position, if this unit was
+    /// coalesced. Plain walls keep their authored per-face materials.
+    fn run_at(&self, position: f32) -> Option<&WallMaterialRun> {
+        match self {
+            Self::Plain(_) => None,
+            Self::Coalesced { runs, .. } => runs.iter().find(|run| {
+                position >= run.start - WALL_COINCIDENCE_EPS
+                    && position <= run.end + WALL_COINCIDENCE_EPS
+            }),
+        }
+    }
+
+    /// Material runs intersecting a local length span, clipped to it.
+    ///
+    /// Empty for a plain wall, which draws its authored material across the
+    /// whole face.
+    fn runs_between(&self, start: f32, end: f32) -> Vec<WallMaterialRun> {
+        match self {
+            Self::Plain(_) => Vec::new(),
+            Self::Coalesced { runs, .. } => runs
+                .iter()
+                .filter_map(|run| {
+                    let low = run.start.max(start);
+                    let high = run.end.min(end);
+                    (high - low > WALL_COINCIDENCE_EPS).then_some(WallMaterialRun {
+                        start: low,
+                        end: high,
+                        ..*run
+                    })
+                })
+                .collect(),
+        }
+    }
+}
+
+/// Wall facts the coincidence grouping compares.
+#[derive(Clone, Copy)]
+struct WallSlab {
+    axis: WallAxis,
+    /// Thickness span across the length axis (min, max).
+    thickness: (f32, f32),
+    /// World base and top of the wall.
+    base: f32,
+    top: f32,
+    /// World span along the length axis (start, end).
+    length: (f32, f32),
+}
+
+fn wall_slab(wall: &WallDef, rooms: &[&crate::level::RoomDef]) -> Option<WallSlab> {
+    let axis = wall.axis();
+    let (x0, x1) = (
+        wall.x.min(wall.x + wall.width),
+        wall.x.max(wall.x + wall.width),
+    );
+    let (z0, z1) = (
+        wall.z.min(wall.z + wall.depth),
+        wall.z.max(wall.z + wall.depth),
+    );
+    let thickness = match axis {
+        WallAxis::X => (z0, z1),
+        WallAxis::Z => (x0, x1),
+    };
+    let length_span = match axis {
+        WallAxis::X => (x0, x1),
+        WallAxis::Z => (z0, z1),
+    };
+    let length = wall.length();
+    if !length.is_finite() || length <= WALL_COINCIDENCE_EPS {
+        return None;
+    }
+    let ceiling_h = ceiling_height_at(
+        rooms,
+        wall.width.mul_add(0.5, wall.x),
+        wall.depth.mul_add(0.5, wall.z),
+    );
+    let resolved = wall.resolved_height(ceiling_h);
+    let base = wall.y.min(wall.y + resolved);
+    let top = wall.y.max(wall.y + resolved);
+    if !base.is_finite() || !top.is_finite() || top <= base + WALL_COINCIDENCE_EPS {
+        return None;
+    }
+    Some(WallSlab {
+        axis,
+        thickness,
+        base,
+        top,
+        length: length_span,
+    })
+}
+
+/// Absolute Y intervals of a wall's openings that cover the world length span
+/// `segment`, clamped the same way [`wall_solid_slices`] clamps them.
+fn wall_opening_intervals(wall: &WallDef, ceiling_h: f32, segment: (f32, f32)) -> Vec<(f32, f32)> {
+    let length = wall.length();
+    let (origin_x, origin_z) = wall.length_origin();
+    let origin = match wall.axis() {
+        WallAxis::X => origin_x,
+        WallAxis::Z => origin_z,
+    };
+    let resolved = wall.resolved_height(ceiling_h);
+    let base = wall.y.min(wall.y + resolved);
+    let ceiling = wall.y.max(wall.y + resolved);
+    let mut intervals = Vec::new();
+    for opening in &wall.openings {
+        if !opening.offset.is_finite()
+            || !opening.width.is_finite()
+            || !opening.height.is_finite()
+            || !opening.sill.is_finite()
+            || opening.width <= 0.0
+            || opening.height <= 0.0
+        {
+            continue;
+        }
+        let start = origin + opening.offset.clamp(0.0, length);
+        let end = origin + opening.end().clamp(0.0, length);
+        if end <= start + WALL_COINCIDENCE_EPS
+            || start > segment.0 + WALL_COINCIDENCE_EPS
+            || end < segment.1 - WALL_COINCIDENCE_EPS
+        {
+            continue;
+        }
+        let bottom = (base + opening.sill.max(0.0)).clamp(base, ceiling);
+        let top = (base + opening.sill.max(0.0) + opening.height).clamp(base, ceiling);
+        if top <= bottom + WALL_COINCIDENCE_EPS {
+            continue;
+        }
+        intervals.push((bottom, top));
+    }
+    merge_intervals(intervals)
+}
+
+/// Intersection of two sorted, disjoint Y interval lists.
+fn intersect_intervals(left: &[(f32, f32)], right: &[(f32, f32)]) -> Vec<(f32, f32)> {
+    let mut out = Vec::new();
+    for (a0, a1) in left {
+        for (b0, b1) in right {
+            let bottom = a0.max(*b0);
+            let top = a1.min(*b1);
+            if top > bottom + WALL_COINCIDENCE_EPS {
+                out.push((bottom, top));
+            }
+        }
+    }
+    merge_intervals(out)
+}
+
+/// The two length-face kinds and the body kind of one wall.
+fn wall_material_kinds(wall: &WallDef, default_wall: &str) -> ([SurfaceKind; 2], SurfaceKind) {
+    let wall_material = wall.material.as_deref().unwrap_or(default_wall);
+    let axis = wall.axis();
+    let (low_name, high_name) = match axis {
+        WallAxis::X => ("north", "south"),
+        WallAxis::Z => ("west", "east"),
+    };
+    let face = |name: &str| {
+        let material = wall.faces.get(name).map_or(wall_material, String::as_str);
+        material_surface(MaterialSlot::Wall, material)
+    };
+    (
+        [face(low_name), face(high_name)],
+        material_surface(MaterialSlot::Wall, wall_material),
+    )
+}
+
+/// Resolves coincident collinear walls into single emission units.
+///
+/// The shipped residential levels paint part of a wall with water damage by
+/// placing a second wall in exactly the same plane with a stained material.
+/// That is a material overlay represented as duplicate geometry, and depending
+/// on submission order the two identical surfaces fight for the same depth
+/// value. Here such walls are grouped, the group's solid profile is unioned
+/// (an opaque coincident face covers a hole in the other surface, which is
+/// what the renderer already showed) and the group is emitted once with a
+/// material run per span. Walls that merely overlap without sharing a plane
+/// are untouched; collision keeps using the authored walls.
+fn wall_units<'a>(level: &'a LevelDef, rooms: &[&crate::level::RoomDef]) -> Vec<WallUnit<'a>> {
+    let default_wall = level.defaults.wall.as_str();
+    let walls = &level.walls;
+    let slabs: Vec<Option<WallSlab>> = walls.iter().map(|wall| wall_slab(wall, rooms)).collect();
+
+    // Transitive grouping of coincident slabs (union-find over wall indices).
+    let mut parent: Vec<usize> = (0..walls.len()).collect();
+    fn find(parent: &mut [usize], index: usize) -> usize {
+        let mut root = index;
+        while parent[root] != root {
+            root = parent[root];
+        }
+        let mut cursor = index;
+        while parent[cursor] != root {
+            let next = parent[cursor];
+            parent[cursor] = root;
+            cursor = next;
+        }
+        root
+    }
+    for (i, slab) in slabs.iter().enumerate() {
+        let Some(a) = *slab else { continue };
+        for j in i + 1..walls.len() {
+            let Some(b) = slabs[j] else { continue };
+            if a.axis != b.axis
+                || (a.thickness.0 - b.thickness.0).abs() > WALL_COINCIDENCE_EPS
+                || (a.thickness.1 - b.thickness.1).abs() > WALL_COINCIDENCE_EPS
+                || (a.base - b.base).abs() > WALL_COINCIDENCE_EPS
+                || (a.top - b.top).abs() > WALL_COINCIDENCE_EPS
+            {
+                continue;
+            }
+            let (a_start, a_end) = slabs[i].map_or((0.0, 0.0), |slab| slab.length);
+            let (b_start, b_end) = slabs[j].map_or((0.0, 0.0), |slab| slab.length);
+            let (_, shared_end) = (a_start.max(b_start), a_end.min(b_end));
+            if shared_end - a_start.max(b_start) <= WALL_COINCIDENCE_EPS {
+                continue;
+            }
+            let (root_a, root_b) = (find(&mut parent, i), find(&mut parent, j));
+            if root_a != root_b {
+                parent[root_b] = root_a;
+            }
+        }
+    }
+
+    // Collect groups in first-appearance order so the emitted range order stays
+    // deterministic and follows the authored wall order.
+    let mut group_of: Vec<usize> = vec![usize::MAX; walls.len()];
+    let mut groups: Vec<Vec<usize>> = Vec::new();
+    for (i, slab) in slabs.iter().enumerate() {
+        if slab.is_none() {
+            continue;
+        }
+        let root = find(&mut parent, i);
+        if group_of[root] == usize::MAX {
+            group_of[root] = groups.len();
+            groups.push(Vec::new());
+        }
+        groups[group_of[root]].push(i);
+    }
+
+    let mut units: Vec<WallUnit<'a>> = Vec::with_capacity(groups.len());
+    for group in groups {
+        if group.len() == 1 {
+            units.push(WallUnit::Plain(&walls[group[0]]));
+            continue;
+        }
+
+        // Length boundaries of the group: every member's ends and every
+        // opening edge, clipped to the group's union span.
+        let (lo, hi) = group
+            .iter()
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), index| {
+                let (start, end) = slabs[*index].map_or((0.0, 0.0), |slab| slab.length);
+                (lo.min(start), hi.max(end))
+            });
+        let mut boundaries: Vec<f32> = vec![lo, hi];
+        for index in &group {
+            let wall = &walls[*index];
+            let (start, end) = slabs[*index].map_or((0.0, 0.0), |slab| slab.length);
+            boundaries.push(start.clamp(lo, hi));
+            boundaries.push(end.clamp(lo, hi));
+            let (origin_x, origin_z) = wall.length_origin();
+            let origin = match wall.axis() {
+                WallAxis::X => origin_x,
+                WallAxis::Z => origin_z,
+            };
+            for opening in &wall.openings {
+                if !opening.offset.is_finite() || !opening.width.is_finite() {
+                    continue;
+                }
+                boundaries.push((origin + opening.offset).clamp(lo, hi));
+                boundaries.push((origin + opening.end()).clamp(lo, hi));
+            }
+        }
+        boundaries.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        boundaries.dedup_by(|a, b| (*a - *b).abs() <= WALL_COINCIDENCE_EPS);
+
+        let mut runs: Vec<WallMaterialRun> = Vec::new();
+        let mut openings: Vec<crate::level::WallOpeningDef> = Vec::new();
+        for pair in boundaries.windows(2) {
+            let segment = (pair[0], pair[1]);
+            if segment.1 - segment.0 <= WALL_COINCIDENCE_EPS {
+                continue;
+            }
+            let covering: Vec<usize> = group
+                .iter()
+                .copied()
+                .filter(|index| {
+                    let (start, end) = slabs[*index].map_or((0.0, 0.0), |slab| slab.length);
+                    start <= segment.0 + WALL_COINCIDENCE_EPS
+                        && end >= segment.1 - WALL_COINCIDENCE_EPS
+                })
+                .collect();
+            let Some(first) = covering.first().copied() else {
+                continue;
+            };
+
+            // Solid profile of the group: a span is open only when every
+            // covering wall has an opening there, because any opaque member
+            // covers the others' holes.
+            let base = slabs[first].map_or(0.0, |slab| slab.base);
+            let mut holes: Option<Vec<(f32, f32)>> = None;
+            for index in &covering {
+                let member_h = ceiling_height_at(
+                    rooms,
+                    walls[*index].width.mul_add(0.5, walls[*index].x),
+                    walls[*index].depth.mul_add(0.5, walls[*index].z),
+                );
+                let member_holes: Vec<(f32, f32)> =
+                    wall_opening_intervals(&walls[*index], member_h, segment)
+                        .iter()
+                        .map(|(bottom, top)| (bottom - base, top - base))
+                        .collect();
+                holes = Some(match holes {
+                    None => member_holes,
+                    Some(existing) => intersect_intervals(&existing, &member_holes),
+                });
+            }
+            for (bottom, top) in holes.unwrap_or_default() {
+                openings.push(crate::level::WallOpeningDef {
+                    kind: "passage".into(),
+                    offset: segment.0 - lo,
+                    width: segment.1 - segment.0,
+                    height: top - bottom,
+                    sill: bottom,
+                });
+            }
+
+            // Visible material: the latest-drawn covering kind wins, which is
+            // exactly what the duplicate surfaces used to resolve to, because
+            // damaged kinds are emitted after their maintained siblings.
+            let mut faces = [
+                material_surface(MaterialSlot::Wall, default_wall),
+                material_surface(MaterialSlot::Wall, default_wall),
+            ];
+            let mut body = faces[0];
+            for index in &covering {
+                let (member_faces, member_body) = wall_material_kinds(&walls[*index], default_wall);
+                for face in 0..2 {
+                    faces[face] = faces[face].max(member_faces[face]);
+                }
+                body = body.max(member_body);
+            }
+            runs.push(WallMaterialRun {
+                start: segment.0 - lo,
+                end: segment.1 - lo,
+                faces,
+                body,
+            });
+        }
+
+        // The synthetic wall spans the group's whole union, sharing the first
+        // member's thickness and vertical extent; it only carries the group's
+        // combined openings and material runs. Collision keeps using the
+        // authored walls, so this is a rendering-only resolution.
+        let host = &walls[group[0]];
+        let host_base = slabs[group[0]].map_or(host.y, |slab| slab.base);
+        let host_top =
+            slabs[group[0]].map_or(host.y + host.resolved_height(host_base), |slab| slab.top);
+        let (t0, t1) = match host.axis() {
+            WallAxis::X => (
+                host.z.min(host.z + host.depth),
+                host.z.max(host.z + host.depth),
+            ),
+            WallAxis::Z => (
+                host.x.min(host.x + host.width),
+                host.x.max(host.x + host.width),
+            ),
+        };
+        let mut wall = host.clone();
+        wall.openings = openings;
+        wall.y = host_base;
+        wall.height = Some(host_top - host_base);
+        match host.axis() {
+            WallAxis::X => {
+                wall.x = lo;
+                wall.width = hi - lo;
+                wall.z = t0;
+                wall.depth = t1 - t0;
+            }
+            WallAxis::Z => {
+                wall.z = lo;
+                wall.depth = hi - lo;
+                wall.x = t0;
+                wall.width = t1 - t0;
+            }
+        }
+        units.push(WallUnit::Coalesced { wall, runs });
+    }
+    units
+}
+
 /// Merges overlapping/adjacent Y intervals into a sorted, disjoint list.
 fn merge_intervals(mut intervals: Vec<(f32, f32)>) -> Vec<(f32, f32)> {
     intervals.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
@@ -1416,9 +2147,9 @@ fn add_prop_box(
     let shaded = |mult: f32, point: [f32; 3]| -> [f32; 3] {
         let light = lighting.sample(point[0], point[1], point[2]);
         [
-            (color[0] * mult * light).min(1.0),
-            (color[1] * mult * light).min(1.0),
-            (color[2] * mult * light).min(1.0),
+            (color[0] * mult * light.r).min(1.0),
+            (color[1] * mult * light.g).min(1.0),
+            (color[2] * mult * light.b).min(1.0),
         ]
     };
 
@@ -1476,6 +2207,131 @@ fn add_prop_box(
             colors[2], uvs[2], points[3], colors[3], uvs[3],
         );
     }
+}
+
+/// Wall face shading multipliers, shared by the wall builder and by decals so
+/// a decal printed on a wall is shaded like the wall around it. Faces are the
+/// ones the `WallDef::faces` names select: north/east are the low/high
+/// thickness faces of an X/Z wall.
+const WALL_FACE_NORTH_MULT: f32 = 1.00;
+const WALL_FACE_SOUTH_MULT: f32 = 0.88;
+const WALL_FACE_WEST_MULT: f32 = 0.84;
+const WALL_FACE_EAST_MULT: f32 = 0.94;
+
+/// Ceiling surfaces carry this tint so a ceiling panel is dimmer than the
+/// fixture it hangs from. Decals on a ceiling use it too, for the same reason.
+const CEILING_TINT: [f32; 3] = [0.72, 0.72, 0.70];
+
+/// Distance a wall decal is probed away from its wall when sampling baked
+/// lighting. Matching [`LIGHT_FACE_PROBE_M`] means a decal reads with exactly
+/// the illumination of the wall face it is printed on.
+const DECAL_WALL_LIGHT_PROBE_M: f32 = LIGHT_FACE_PROBE_M;
+/// Distance a floor or ceiling decal is probed away from its plane. The floor
+/// and ceiling grids sample on the plane itself, so this only needs to clear
+/// the boundary the plane sits on, not a whole wall thickness.
+const DECAL_HORIZONTAL_LIGHT_PROBE_M: f32 = 0.05;
+
+/// The four world-space corners of a decal quad, in winding order.
+///
+/// The corners are `bottom-left, bottom-right, top-right, top-left` as seen
+/// from the decal's normal side, so the triangle winding faces the normal and
+/// the shared V axis points up the decal. Returns `None` for a decal whose
+/// placement or size is not finite; the loader rejects those, but the builder
+/// must never emit a NaN vertex.
+#[must_use]
+pub fn decal_quad_points(decal: &crate::level::DecalDef) -> Option<[[f32; 3]; 4]> {
+    if !decal.x.is_finite()
+        || !decal.y.is_finite()
+        || !decal.z.is_finite()
+        || !decal.width.is_finite()
+        || !decal.height.is_finite()
+        || !decal.rotation_degrees.is_finite()
+        || decal.width <= 0.0
+        || decal.height <= 0.0
+    {
+        return None;
+    }
+
+    let normal = glam::Vec3::from(decal.surface.normal());
+    // `cross(up, normal)` gives the in-plane axis that reads left-to-right for
+    // a viewer standing in front of a wall decal; horizontal surfaces have no
+    // single such axis, so they start from world +X.
+    let tangent = if decal.surface.is_horizontal() {
+        glam::Vec3::X
+    } else {
+        glam::Vec3::Y.cross(normal).normalize_or_zero()
+    };
+    let bitangent = normal.cross(tangent);
+    if tangent.length_squared() < 0.5 || bitangent.length_squared() < 0.5 {
+        return None;
+    }
+
+    let (sin, cos) = decal.rotation_degrees.to_radians().sin_cos();
+    let u_axis = tangent * cos + bitangent * sin;
+    let v_axis = -tangent * sin + bitangent * cos;
+
+    let center = glam::Vec3::new(decal.x, decal.y, decal.z);
+    let [half_u, half_v] = decal.half_extents();
+    let u = u_axis * half_u;
+    let v = v_axis * half_v;
+    let points = [
+        center - u - v,
+        center + u - v,
+        center + u + v,
+        center - u + v,
+    ];
+    points
+        .iter()
+        .all(|point| point.is_finite())
+        .then(|| points.map(|point| point.to_array()))
+}
+
+/// Per-decal shading tint: the surface family's face shade, so a decal sits in
+/// the same light as the surface it is printed on.
+#[must_use]
+fn decal_surface_tint(surface: crate::level::DecalSurface) -> [f32; 3] {
+    use crate::level::DecalSurface;
+    let mult = match surface {
+        DecalSurface::Floor => 1.0,
+        DecalSurface::Ceiling => return CEILING_TINT,
+        DecalSurface::WallNorth => WALL_FACE_NORTH_MULT,
+        DecalSurface::WallSouth => WALL_FACE_SOUTH_MULT,
+        DecalSurface::WallWest => WALL_FACE_WEST_MULT,
+        DecalSurface::WallEast => WALL_FACE_EAST_MULT,
+    };
+    [mult, mult, mult]
+}
+
+/// Emits one decal as a lit quad carrying the shared decal sheet.
+///
+/// The quad lies exactly on the authored surface — the depth relationship is
+/// resolved in the decal pass by a fixed polygon offset, not by moving the
+/// geometry, so `decal_quad_points` stays the single source of truth for where
+/// a decal is.
+fn add_decal_quad(
+    vertices: &mut Vec<Vertex>,
+    decal: &crate::level::DecalDef,
+    lighting: &LevelLighting,
+    uv: [[f32; 2]; 4],
+) {
+    let Some(points) = decal_quad_points(decal) else {
+        return;
+    };
+    let normal = glam::Vec3::from(decal.surface.normal());
+    let probe = if decal.surface.is_horizontal() {
+        DECAL_HORIZONTAL_LIGHT_PROBE_M
+    } else {
+        DECAL_WALL_LIGHT_PROBE_M
+    };
+    let tint = decal_surface_tint(decal.surface);
+    let colors = points.map(|point| {
+        let sample = glam::Vec3::from(point) + normal * probe;
+        shade(tint, lighting.sample(sample.x, sample.y, sample.z))
+    });
+    add_quad(
+        vertices, points[0], colors[0], uv[0], points[1], colors[1], uv[1], points[2], colors[2],
+        uv[2], points[3], colors[3], uv[3],
+    );
 }
 
 /// True when a room can be tessellated without producing invalid geometry.
@@ -1651,8 +2507,8 @@ fn lit_surface_grid(
     for z in zs {
         for x in xs {
             let light = lighting.sample_in_room(room_index, *x, y, *z);
-            colors.push(tint.map_or([light, light, light], |tint| {
-                [tint[0] * light, tint[1] * light, tint[2] * light]
+            colors.push(tint.map_or([light.r, light.g, light.b], |tint| {
+                [tint[0] * light.r, tint[1] * light.g, tint[2] * light.b]
             }));
         }
     }
@@ -1923,9 +2779,16 @@ fn build_level_geometry_mesh(
     //    section 21): the `faces` override for its direction, else the wall's
     //    own `material`, else the level default. Sills, headers and reveal
     //    jambs follow the wall's material.
+    //
+    //    Coincident collinear walls are first resolved into single emission
+    //    units (`wall_units`), so a water-damaged wall segment authored as a
+    //    duplicate surface becomes a material run on the one physical wall
+    //    instead of a second coplanar mesh.
     let base_wall = [0.85, 0.80, 0.42];
+    let wall_units = wall_units(level, &rooms);
 
-    for wall in &level.walls {
+    for unit in &wall_units {
+        let wall = unit.wall();
         scratch.clear();
         let wall_material = wall
             .material
@@ -1947,11 +2810,6 @@ fn build_level_geometry_mesh(
         );
         let h = wall.resolved_height(ceiling_h);
         let wall_base = wall.y.min(wall.y + h);
-
-        let north_mult = 1.00;
-        let south_mult = 0.88;
-        let west_mult = 0.84;
-        let east_mult = 0.94;
 
         let top_grad = 1.05;
         let bot_grad = 0.92;
@@ -1994,14 +2852,14 @@ fn build_level_geometry_mesh(
             // Faces parallel to the length axis: north/south for X-axis
             // walls, west/east for Z-axis walls. Each face is a strip of quads
             // so the baked lighting varies along the wall.
-            let n_top = scale_color(north_mult, top_grad);
-            let n_bot = scale_color(north_mult, bot_grad);
-            let s_top = scale_color(south_mult, top_grad);
-            let s_bot = scale_color(south_mult, bot_grad);
-            let w_top = scale_color(west_mult, top_grad);
-            let w_bot = scale_color(west_mult, bot_grad);
-            let e_top = scale_color(east_mult, top_grad);
-            let e_bot = scale_color(east_mult, bot_grad);
+            let n_top = scale_color(WALL_FACE_NORTH_MULT, top_grad);
+            let n_bot = scale_color(WALL_FACE_NORTH_MULT, bot_grad);
+            let s_top = scale_color(WALL_FACE_SOUTH_MULT, top_grad);
+            let s_bot = scale_color(WALL_FACE_SOUTH_MULT, bot_grad);
+            let w_top = scale_color(WALL_FACE_WEST_MULT, top_grad);
+            let w_bot = scale_color(WALL_FACE_WEST_MULT, bot_grad);
+            let e_top = scale_color(WALL_FACE_EAST_MULT, top_grad);
+            let e_bot = scale_color(WALL_FACE_EAST_MULT, bot_grad);
 
             // (face coordinate across the thickness, outward normal, bottom/top
             // colour, whether the winding runs against the length axis, the
@@ -2017,21 +2875,54 @@ fn build_level_geometry_mesh(
                 ],
             };
             for (face, normal, bottom_shade, top_shade, reversed, name) in faces {
-                add_wall_length_face(
-                    &mut scratch,
-                    axis,
-                    l0,
-                    l1,
-                    face,
-                    normal,
-                    slice_bottom,
-                    slice_top,
-                    bottom_shade,
-                    top_shade,
-                    reversed,
-                    lighting,
-                );
-                flush_wall_run(&mut buckets, &scratch, &mut wall_cursor, face_kind(name));
+                let face_index = usize::from(name == "south" || name == "east");
+                // A coalesced unit splits the face at its material runs; a
+                // plain wall emits the whole slice under its authored kind.
+                let runs = unit.runs_between(slice.start, slice.end);
+                if runs.is_empty() {
+                    add_wall_length_face(
+                        &mut scratch,
+                        axis,
+                        l0,
+                        l1,
+                        face,
+                        normal,
+                        slice_bottom,
+                        slice_top,
+                        bottom_shade,
+                        top_shade,
+                        reversed,
+                        lighting,
+                    );
+                    flush_wall_run(&mut buckets, &scratch, &mut wall_cursor, face_kind(name));
+                } else {
+                    for run in runs {
+                        let (run_start, run_end) = match axis {
+                            WallAxis::X => (origin_x + run.start, origin_x + run.end),
+                            WallAxis::Z => (origin_z + run.start, origin_z + run.end),
+                        };
+                        add_wall_length_face(
+                            &mut scratch,
+                            axis,
+                            run_start,
+                            run_end,
+                            face,
+                            normal,
+                            slice_bottom,
+                            slice_top,
+                            bottom_shade,
+                            top_shade,
+                            reversed,
+                            lighting,
+                        );
+                        flush_wall_run(
+                            &mut buckets,
+                            &scratch,
+                            &mut wall_cursor,
+                            run.faces[face_index],
+                        );
+                    }
+                }
             }
 
             // Top face (normal +Y): half-height walls and window sills.
@@ -2087,7 +2978,13 @@ fn build_level_geometry_mesh(
                         );
                     }
                 }
-                flush_wall_run(&mut buckets, &scratch, &mut wall_cursor, wall_kind);
+                flush_wall_run(
+                    &mut buckets,
+                    &scratch,
+                    &mut wall_cursor,
+                    unit.run_at(f32::midpoint(slice.start, slice.end))
+                        .map_or(wall_kind, |run| run.body),
+                );
             }
 
             // Bottom face (normal -Y): visible on raised walls and on door or
@@ -2145,7 +3042,13 @@ fn build_level_geometry_mesh(
                         );
                     }
                 }
-                flush_wall_run(&mut buckets, &scratch, &mut wall_cursor, wall_kind);
+                flush_wall_run(
+                    &mut buckets,
+                    &scratch,
+                    &mut wall_cursor,
+                    unit.run_at(f32::midpoint(slice.start, slice.end))
+                        .map_or(wall_kind, |run| run.body),
+                );
             }
         }
 
@@ -2182,13 +3085,13 @@ fn build_level_geometry_mesh(
                 // reveals use the darker jamb/head colours.
                 let mult = if at_start {
                     match axis {
-                        WallAxis::X => west_mult,
-                        WallAxis::Z => north_mult,
+                        WallAxis::X => WALL_FACE_WEST_MULT,
+                        WallAxis::Z => WALL_FACE_NORTH_MULT,
                     }
                 } else if at_end {
                     match axis {
-                        WallAxis::X => east_mult,
-                        WallAxis::Z => south_mult,
+                        WallAxis::X => WALL_FACE_EAST_MULT,
+                        WallAxis::Z => WALL_FACE_SOUTH_MULT,
                     }
                 } else if bottom <= wall_base + 1e-3 {
                     jamb_mult
@@ -2233,7 +3136,14 @@ fn build_level_geometry_mesh(
                         shade(scale_color(mult, top_grad), top_t0),
                     ],
                 };
+                wall_cursor = scratch.len();
                 add_wall_cross_quad(&mut scratch, axis, at, (t0, t1), bottom, top, corners);
+                flush_wall_run(
+                    &mut buckets,
+                    &scratch,
+                    &mut wall_cursor,
+                    unit.run_at(position).map_or(wall_kind, |run| run.body),
+                );
             }
         }
         flush_wall_run(&mut buckets, &scratch, &mut wall_cursor, wall_kind);
@@ -2256,10 +3166,21 @@ fn build_level_geometry_mesh(
         let z1 = light.z + half_d;
 
         let intensity = light.intensity();
-        let output = 0.40f32
-            .mul_add(intensity.clamp(0.0, 2.0), 0.60)
-            .clamp(0.0, 1.0);
-        let fixture_glow = [1.00 * output, 0.98 * output, 0.92 * output];
+        // An explicitly zero-output fixture is off: its panel must not glow
+        // with the authored colour while emitting no illumination.
+        let output = if intensity <= 0.0 {
+            0.0
+        } else {
+            0.40f32
+                .mul_add(intensity.clamp(0.0, 2.0), 0.60)
+                .clamp(0.0, 1.0)
+        };
+        // The panel's visible colour is the same authored colour that the bake
+        // emits into the room, scaled by the intensity response: a blue fixture
+        // shows a blue panel *and* lights the floor blue. The two concepts stay
+        // distinct but can never silently diverge.
+        let color = light.emitted_color();
+        let fixture_glow = [color.r * output, color.g * output, color.b * output];
         add_quad_flat(
             &mut scratch,
             [x0, y, z1],
@@ -2326,6 +3247,22 @@ fn build_level_geometry_mesh(
         buckets.add_run(SurfaceKind::PropFallback, &scratch);
     }
 
+    // 6. Decals batch: local surface markings (signs, floor arrows, warning
+    //    marks). They are static geometry like everything else, bucketed per
+    //    cell, but drawn in their own pass so the depth bias is explicit. An
+    //    unknown material is skipped, which is how a level referencing a decal
+    //    sheet from a newer build still loads.
+    for decal in &level.decals {
+        let Some(slot) = decal_material_slot(&decal.material) else {
+            continue;
+        };
+        scratch.clear();
+        add_decal_quad(&mut scratch, decal, lighting, decal_uv_rect(slot));
+        if !scratch.is_empty() {
+            buckets.add_run(SurfaceKind::Decal, &scratch);
+        }
+    }
+
     finish_indexed_mesh(buckets)
 }
 
@@ -2383,6 +3320,7 @@ fn finish_indexed_mesh(mut buckets: crate::spatial::SpatialBuckets<SurfaceKind>)
     batches.wall_batch = span(spans[SurfaceKind::Wall as usize]);
     batches.light_batch = span(spans[SurfaceKind::Light as usize]);
     batches.prop_batch = span(spans[SurfaceKind::PropFallback as usize]);
+    batches.decal_batch = span(spans[SurfaceKind::Decal as usize]);
 
     LevelMesh {
         ranges,
@@ -2787,9 +3725,9 @@ fn resolve_prop_instances<'a>(
             batch.vertices.push(Vertex {
                 pos: [position.x, position.y, position.z],
                 color: [
-                    vertex.color[0] * light,
-                    vertex.color[1] * light,
-                    vertex.color[2] * light,
+                    vertex.color[0] * light.r,
+                    vertex.color[1] * light.g,
+                    vertex.color[2] * light.b,
                     vertex.color[3],
                 ],
                 uv: vertex.uv,
@@ -2942,6 +3880,12 @@ unsafe fn create_program(
         let fs = create_shader(gl, glow::FRAGMENT_SHADER, frag_src)?;
 
         let program = gl.create_program()?;
+        // Both programs share the scene attribute layout, so bind the indices
+        // explicitly before linking: the decal pass switches programs mid-frame
+        // and must not need to re-point the vertex attributes.
+        gl.bind_attrib_location(program, SCENE_ATTRIB_POS, "a_pos");
+        gl.bind_attrib_location(program, SCENE_ATTRIB_COLOR, "a_color");
+        gl.bind_attrib_location(program, SCENE_ATTRIB_UV, "a_uv");
         gl.attach_shader(program, vs);
         gl.attach_shader(program, fs);
         gl.link_program(program);
@@ -3037,6 +3981,17 @@ pub struct RenderStats {
     pub index_bytes: usize,
 }
 
+/// GPU state for the decal pass: a second program (the world shader plus an
+/// alpha cut-out), the shared generated decal sheet, and the uniforms the pass
+/// has to set when it starts.
+struct DecalPass {
+    program: glow::Program,
+    texture: glow::Texture,
+    u_mvp_loc: Option<glow::UniformLocation>,
+    u_texture_loc: Option<glow::UniformLocation>,
+    u_alpha_cutoff_loc: Option<glow::UniformLocation>,
+}
+
 /// Manages OpenGL ES 2.0-compatible accelerated rendering context, textures, and scene/UI drawing.
 pub struct Renderer {
     _gl_context: sdl2::video::GLContext,
@@ -3085,6 +4040,8 @@ pub struct Renderer {
     ceiling_stained_texture: glow::Texture,
     white_texture: glow::Texture,
     font_texture: glow::Texture,
+    /// Decal rendering state (program, shared sheet, uniforms).
+    decal: DecalPass,
     u_mvp_loc: Option<glow::UniformLocation>,
     u_texture_loc: Option<glow::UniformLocation>,
     a_pos_loc: u32,
@@ -3155,6 +4112,7 @@ impl Renderer {
             ceiling_stained_texture,
             white_texture,
             font_texture,
+            decal,
             u_mvp_loc,
             u_texture_loc,
             a_pos_loc,
@@ -3215,8 +4173,27 @@ impl Renderer {
             let font_texture =
                 create_texture_2d(&gl, 128, 64, &generate_font_atlas(), false, false)?;
 
-            // Level geometry is uploaded by `rebuild_level_geometry` once the
-            // renderer (and its prop asset cache) exists.
+            // The decal pass: the same vertex stage with an alpha cut-out
+            // fragment stage, and the one shared generated decal sheet. The
+            // sheet uses repeat mip-mapping (as the world sheets do) so the
+            // user's texture filtering applies; its UVs never leave the sheet,
+            // so the wrap mode itself cannot show.
+            let decal_program = create_program(&gl, VERTEX_SHADER_SRC, DECAL_FRAGMENT_SHADER_SRC)?;
+            let decal = DecalPass {
+                program: decal_program,
+                texture: create_texture_2d(
+                    &gl,
+                    DECAL_ATLAS_SIZE,
+                    DECAL_ATLAS_SIZE,
+                    &generate_decal_atlas(),
+                    true,
+                    true,
+                )?,
+                u_mvp_loc: gl.get_uniform_location(decal_program, "u_mvp"),
+                u_texture_loc: gl.get_uniform_location(decal_program, "u_texture"),
+                u_alpha_cutoff_loc: gl.get_uniform_location(decal_program, "u_alpha_cutoff"),
+            };
+
             // Level geometry is uploaded by `rebuild_level_geometry` once the
             // renderer (and its prop asset cache) exists.
             let ui_vbo = gl.create_buffer()?;
@@ -3233,6 +4210,7 @@ impl Renderer {
                 ceiling_stained_texture,
                 white_texture,
                 font_texture,
+                decal,
                 u_mvp_loc,
                 u_texture_loc,
                 a_pos_loc,
@@ -3269,6 +4247,7 @@ impl Renderer {
             ceiling_stained_texture,
             white_texture,
             font_texture,
+            decal,
             u_mvp_loc,
             u_texture_loc,
             a_pos_loc,
@@ -3313,6 +4292,7 @@ impl Renderer {
                 self.wall_stained_texture,
                 self.floor_damp_texture,
                 self.ceiling_stained_texture,
+                self.decal.texture,
             ] {
                 self.gl.bind_texture(glow::TEXTURE_2D, Some(texture));
                 set_repeat_filter(&self.gl, linear);
@@ -3762,6 +4742,12 @@ impl Renderer {
                 if batch.index_range.count <= 0 {
                     continue;
                 }
+                // Decals are submitted by their own pass below, with the decal
+                // program and depth bias. Skipping them here keeps the world
+                // program's early depth testing intact.
+                if batch.kind == SurfaceKind::Decal {
+                    continue;
+                }
                 if cull && !frustum.intersects_aabb(&batch.bounds) {
                     continue;
                 }
@@ -3781,6 +4767,7 @@ impl Renderer {
                         SurfaceKind::Wall => self.wall_texture,
                         SurfaceKind::WallStained => self.wall_stained_texture,
                         SurfaceKind::Light | SurfaceKind::PropFallback => self.white_texture,
+                        SurfaceKind::Decal => self.decal.texture,
                     };
                     self.gl.bind_texture(glow::TEXTURE_2D, Some(texture));
                     bound_kind = Some(batch.kind);
@@ -3829,6 +4816,71 @@ impl Renderer {
                     visible_batches += 1;
                     draw_calls += 1;
                 }
+            }
+
+            // 6. Decal pass: local surface markings drawn after the opaque world
+            //    and the props. Depth testing stays on and depth writes stay on,
+            //    so a decal is still hidden by anything in front of it; the pass
+            //    adds a fixed polygon offset that pulls each decal two depth
+            //    steps towards the camera, which is what makes it win the
+            //    coincident-depth test against the surface it lies on. The state
+            //    is restored before the pass returns.
+            let mut decal_active = false;
+            let mut decal_chunk: Option<usize> = None;
+            for batch in &self.static_batches {
+                if batch.kind != SurfaceKind::Decal || batch.index_range.count <= 0 {
+                    continue;
+                }
+                if cull && !frustum.intersects_aabb(&batch.bounds) {
+                    continue;
+                }
+                if !decal_active {
+                    self.gl.use_program(Some(self.decal.program));
+                    if let Some(ref loc) = self.decal.u_mvp_loc {
+                        self.gl
+                            .uniform_matrix_4_f32_slice(Some(loc), false, &mvp.to_cols_array());
+                    }
+                    if let Some(ref loc) = self.decal.u_texture_loc {
+                        self.gl.uniform_1_i32(Some(loc), 0);
+                    }
+                    if let Some(ref loc) = self.decal.u_alpha_cutoff_loc {
+                        self.gl.uniform_1_f32(Some(loc), DECAL_ALPHA_CUTOFF);
+                    }
+                    let (factor, units) = DECAL_POLYGON_OFFSET;
+                    self.gl.enable(glow::POLYGON_OFFSET_FILL);
+                    self.gl.polygon_offset(factor, units);
+                    self.gl
+                        .bind_texture(glow::TEXTURE_2D, Some(self.decal.texture));
+                    decal_active = true;
+                    // Both programs share attribute locations, but rebind from
+                    // scratch so the pass cannot depend on what the world loop
+                    // left bound.
+                    decal_chunk = None;
+                }
+                if decal_chunk != Some(batch.chunk) {
+                    if self.bind_chunk(&self.level_buffers, batch.chunk) {
+                        decal_chunk = Some(batch.chunk);
+                    } else {
+                        continue;
+                    }
+                }
+                self.gl.draw_elements(
+                    glow::TRIANGLES,
+                    batch.index_range.count,
+                    glow::UNSIGNED_SHORT,
+                    batch.index_range.start * 2,
+                );
+                visible_vertices += usize::try_from(batch.vertex_count.max(0)).unwrap_or(0);
+                visible_batches += 1;
+                draw_calls += 1;
+            }
+            if decal_active {
+                // Restore the exact scene state: no polygon offset, and the
+                // world program (whose uniforms are per-program and still
+                // valid), so nothing after the pass can inherit decal state.
+                self.gl.polygon_offset(0.0, 0.0);
+                self.gl.disable(glow::POLYGON_OFFSET_FILL);
+                self.gl.use_program(Some(self.program));
             }
 
             self.gl.disable_vertex_attrib_array(self.a_pos_loc);
@@ -4140,7 +5192,7 @@ mod tests {
     #[test]
     fn packed_colour_is_accurate_at_the_lighting_extremes_and_in_between() {
         // Minimum baked lighting: the darkest a vertex can get.
-        assert!(packed_channel_error(crate::lighting::MIN_AMBIENT) < 0.5 / 255.0);
+        assert!(packed_channel_error(crate::lighting::AMBIENT_LEVEL) < 0.5 / 255.0);
         // Maximum brightness.
         assert!(packed_channel_error(crate::lighting::MAX_BRIGHTNESS) < 0.5 / 255.0);
         // Darkest and brightest possible shades of a wall/floor tint.
@@ -4157,8 +5209,8 @@ mod tests {
         // The whole usable lighting range, swept at 1/1000.
         let mut worst = 0.0f32;
         for step in 0..=1000 {
-            let value = crate::lighting::MIN_AMBIENT
-                + (crate::lighting::MAX_BRIGHTNESS - crate::lighting::MIN_AMBIENT) * step as f32
+            let value = crate::lighting::AMBIENT_LEVEL
+                + (crate::lighting::MAX_BRIGHTNESS - crate::lighting::AMBIENT_LEVEL) * step as f32
                     / 1000.0;
             worst = worst.max(packed_channel_error(value));
         }
@@ -5501,7 +6553,7 @@ mod tests {
             dim.color[0]
         );
         assert!(
-            dim.color[0] >= crate::lighting::MIN_AMBIENT - 1e-4,
+            dim.color[0] >= crate::lighting::AMBIENT_LEVEL - 1e-4,
             "no floor vertex may fall below the minimum ambient, got {}",
             dim.color[0]
         );
@@ -5603,7 +6655,7 @@ mod tests {
         );
         // No prop may be lit as if it were outside the level: even the darkest
         // face of a mid-grey box at minimum ambient stays clearly visible.
-        let darkest_possible = crate::lighting::MIN_AMBIENT * 0.541 * 0.62;
+        let darkest_possible = crate::lighting::AMBIENT_LEVEL * 0.541 * 0.62;
         for vertex in props {
             assert!(
                 vertex.color[0] >= darkest_possible - 1e-4,
@@ -5662,13 +6714,20 @@ mod tests {
                 raised_box[index].pos[1],
                 raised_box[index].pos[2],
             );
-            assert!(low_light > 0.0 && high_light > 0.0);
-            let expected_ratio = high_light / low_light;
-            assert!(
-                (high / low - expected_ratio).abs() < 1e-3,
-                "vertex {index} ratio {} does not match the world-space samples {expected_ratio}",
-                high / low
-            );
+            for channel in 0..3 {
+                let low_channel = floor_box[index].color[channel];
+                let high_channel = raised_box[index].color[channel];
+                let low_sample = low_light.channel(channel);
+                let high_sample = high_light.channel(channel);
+                assert!(low_sample > 0.0 && high_sample > 0.0);
+                let expected_ratio = high_sample / low_sample;
+                assert!(
+                    (high_channel / low_channel - expected_ratio).abs() < 1e-3,
+                    "vertex {index} channel {channel} ratio {} does not match the \
+                     world-space samples {expected_ratio}",
+                    high_channel / low_channel
+                );
+            }
         }
         assert!(
             brighter_vertices > 0,
@@ -5716,12 +6775,16 @@ mod tests {
             // with the vertex it came from.
             let source = model.vertices[vertex_index % model.vertices.len()];
             let light = lighting.sample(vertex.pos[0], vertex.pos[1], vertex.pos[2]);
-            assert!(
-                source.color[0].mul_add(-light, vertex.color[0]).abs() < 1e-4,
-                "vertex {vertex_index}: baked colour {} does not match {} * {light}",
-                vertex.color[0],
-                source.color[0]
-            );
+            for channel in 0..3 {
+                let expected = source.color[channel] * light.channel(channel);
+                assert!(
+                    (vertex.color[channel] - expected).abs() < 1e-4,
+                    "vertex {vertex_index}: channel {channel} baked as {} but expected {} * {}",
+                    vertex.color[channel],
+                    source.color[channel],
+                    light.channel(channel)
+                );
+            }
         }
         assert_eq!(assets.stats().models_failed, 0);
     }
@@ -5782,11 +6845,22 @@ mod tests {
             );
             assert!(vertex.color.iter().all(|c| (0.0..=1.0).contains(c)));
         }
-        // The floor uses an untinted base colour, so minimum ambient shows up
-        // directly; wall and ceiling tints are darker by design but stay visible.
-        assert_exact(floor[0].color[0], crate::lighting::MIN_AMBIENT);
-        assert!(ceiling[0].color[0] > 0.3);
-        assert!(walls[0].color[0] > 0.3);
+        // The floor uses an untinted base colour, so the ambient fill shows up
+        // directly; wall and ceiling tints are darker by design but stay
+        // visible rather than collapsing to pure black.
+        assert_exact(floor[0].color[0], crate::lighting::AMBIENT_LEVEL);
+        assert!(ceiling[0].color[0] > 0.05);
+        assert!(walls[0].color[0] > 0.05);
+        // And the unlit room is genuinely dark: no channel may approach the
+        // historical 0.55 ambient floor.
+        for vertex in mesh.all_vertices() {
+            assert!(
+                vertex.color[0] < 0.2,
+                "an unlit room must stay dark, got {:?} at {:?}",
+                vertex.color,
+                vertex.pos
+            );
+        }
     }
 
     #[test]
@@ -6305,5 +7379,486 @@ mod tests {
             "a missing model must draw its placeholder box"
         );
         assert_eq!(assets.stats().models_failed, 1);
+    }
+
+    // ------------------------------------------------------------- decals
+
+    /// A 6x6 room with the given decal JSON and optional extra walls.
+    fn level_with_decals(decals_json: &str, walls_json: &str, lights_json: &str) -> LevelDef {
+        let json = format!(
+            r#"{{
+                "format_version": 1,
+                "id": "decal_test",
+                "name": "Decal Test",
+                "spawn": {{ "x": 0.0, "z": 0.0 }},
+                "rooms": [{{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 6.0, "height": 3.0 }}],
+                "walls": [{walls_json}],
+                "decals": [{decals_json}],
+                "ceiling_lights": {lights_json}
+            }}"#
+        );
+        LevelDef::from_json(&json).expect("valid decal level json")
+    }
+
+    /// Diagonal of one decal quad's first triangle, as the emitted normal.
+    fn quad_normal(vertices: &[Vertex]) -> [f32; 3] {
+        let a = glam::Vec3::from(vertices[0].pos);
+        let b = glam::Vec3::from(vertices[1].pos);
+        let c = glam::Vec3::from(vertices[2].pos);
+        (b - a).cross(c - a).normalize().to_array()
+    }
+
+    fn normal_matches(actual: [f32; 3], expected: [f32; 3]) -> bool {
+        (0..3).all(|axis| (actual[axis] - expected[axis]).abs() < 1e-4)
+    }
+
+    #[test]
+    fn every_decal_material_resolves_to_one_sheet_slot() {
+        let mut seen = std::collections::HashSet::new();
+        let mut rects = Vec::new();
+        for material in DECAL_MATERIALS {
+            let slot = decal_material_slot(material).expect("known decal material");
+            assert!(seen.insert(slot), "{material} shares slot {slot}");
+            let rect = decal_uv_rect(slot);
+            for uv in rect {
+                assert!(
+                    (0.0..=1.0).contains(&uv[0]) && (0.0..=1.0).contains(&uv[1]),
+                    "{material} samples outside the sheet: {uv:?}"
+                );
+            }
+            rects.push(rect);
+        }
+        assert_eq!(decal_material_slot("core:not_a_decal"), None);
+    }
+
+    #[test]
+    fn a_wall_decal_lies_exactly_on_its_wall_plane_and_faces_the_room() {
+        let level = level_with_decals(
+            r#"{ "x": 3.0, "y": 1.5, "z": 0.4, "width": 2.0, "height": 1.0,
+                 "material": "core:decal_test_01", "surface": "wall_south" }"#,
+            r#"{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 0.4, "height": 3.0 }"#,
+            "[]",
+        );
+        let mesh = build_level_geometry(&level);
+        let quad = batch_slice(&mesh, SurfaceKind::Decal);
+        assert_eq!(mesh.batches.decal_batch.count, 6, "one decal is one quad");
+        // Every corner sits exactly on the authored wall plane, not on a
+        // nudged or biased copy of it.
+        for vertex in &quad {
+            assert_exact_named(vertex.pos[2], 0.4, "wall decal plane");
+            assert!(vertex.pos[1] >= 0.99 && vertex.pos[1] <= 2.01);
+            assert!(vertex.pos[0] >= 1.99 && vertex.pos[0] <= 4.01);
+        }
+        assert!(normal_matches(quad_normal(&quad), [0.0, 0.0, 1.0]));
+    }
+
+    #[test]
+    fn a_floor_decal_stays_flat_and_rotates_in_its_plane() {
+        let level = level_with_decals(
+            r#"{ "x": 3.0, "y": 0.0, "z": 3.0, "width": 2.0, "height": 1.0,
+                 "material": "core:decal_arrow_01", "surface": "floor", "rotation_degrees": 90.0 }"#,
+            r#"{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 0.4, "height": 3.0 }"#,
+            "[]",
+        );
+        let mesh = build_level_geometry(&level);
+        let quad = batch_slice(&mesh, SurfaceKind::Decal);
+        for vertex in &quad {
+            assert_exact_named(vertex.pos[1], 0.0, "floor decal plane");
+            // A quarter turn puts the 2 m width along Z and the 1 m height
+            // along X, centred on the anchor.
+            assert!(vertex.pos[0] >= 2.49 && vertex.pos[0] <= 3.51);
+            assert!(vertex.pos[2] >= 1.99 && vertex.pos[2] <= 4.01);
+        }
+        assert!(normal_matches(quad_normal(&quad), [0.0, 1.0, 0.0]));
+    }
+
+    #[test]
+    fn decal_rotation_is_a_pure_in_plane_spin() {
+        let base = crate::level::DecalDef {
+            x: 1.0,
+            y: 2.0,
+            z: 3.0,
+            width: 2.0,
+            height: 1.0,
+            rotation_degrees: 0.0,
+            material: "core:decal_test_01".into(),
+            surface: crate::level::DecalSurface::WallSouth,
+        };
+        let quarter = crate::level::DecalDef {
+            rotation_degrees: 90.0,
+            ..base.clone()
+        };
+        let half = crate::level::DecalDef {
+            rotation_degrees: 180.0,
+            ..base.clone()
+        };
+        let a = decal_quad_points(&base).expect("finite decal");
+        let b = decal_quad_points(&quarter).expect("finite decal");
+        let c = decal_quad_points(&half).expect("finite decal");
+        // All three keep the centre and the surface plane.
+        for corners in [a, b, c] {
+            let centre: [f32; 3] = std::array::from_fn(|axis| {
+                corners.iter().map(|point| point[axis]).sum::<f32>() / 4.0
+            });
+            assert_exact_array(centre, [1.0, 2.0, 3.0]);
+        }
+        // The quarter turn swaps the in-plane extents; the half turn restores
+        // them, so the decal stays in its plane and keeps a valid winding.
+        let xs = |corners: [[f32; 3]; 4]| {
+            corners
+                .iter()
+                .map(|point| point[0])
+                .fold((f32::MAX, f32::MIN), |(lo, hi), x| (lo.min(x), hi.max(x)))
+        };
+        assert!((xs(a).1 - xs(a).0 - 2.0).abs() < 1e-4);
+        assert!((xs(b).1 - xs(b).0 - 1.0).abs() < 1e-4);
+        assert!((xs(c).1 - xs(c).0 - 2.0).abs() < 1e-4);
+        for corners in [a, b, c] {
+            let normal = corners_normal(&corners);
+            assert!(
+                normal_matches(normal, [0.0, 0.0, 1.0]),
+                "rotated decal lost its facing: {normal:?}"
+            );
+        }
+    }
+
+    /// The emitted winding normal of four decal corners.
+    fn corners_normal(corners: &[[f32; 3]; 4]) -> [f32; 3] {
+        let a = glam::Vec3::from(corners[0]);
+        let b = glam::Vec3::from(corners[1]);
+        let c = glam::Vec3::from(corners[2]);
+        (b - a).cross(c - a).normalize().to_array()
+    }
+
+    #[test]
+    fn malformed_decals_never_emit_geometry() {
+        for decal in [
+            crate::level::DecalDef {
+                width: f32::NAN,
+                ..crate::level::DecalDef {
+                    x: 0.0,
+                    y: 1.0,
+                    z: 0.0,
+                    width: 1.0,
+                    height: 1.0,
+                    rotation_degrees: 0.0,
+                    material: DECAL_TEST_MATERIAL.into(),
+                    surface: crate::level::DecalSurface::WallSouth,
+                }
+            },
+            crate::level::DecalDef {
+                height: 0.0,
+                ..crate::level::DecalDef {
+                    x: 0.0,
+                    y: 1.0,
+                    z: 0.0,
+                    width: 1.0,
+                    height: 0.0,
+                    rotation_degrees: 0.0,
+                    material: DECAL_TEST_MATERIAL.into(),
+                    surface: crate::level::DecalSurface::Floor,
+                }
+            },
+            crate::level::DecalDef {
+                rotation_degrees: f32::INFINITY,
+                ..crate::level::DecalDef {
+                    x: 0.0,
+                    y: 1.0,
+                    z: 0.0,
+                    width: 1.0,
+                    height: 1.0,
+                    rotation_degrees: f32::INFINITY,
+                    material: DECAL_TEST_MATERIAL.into(),
+                    surface: crate::level::DecalSurface::Floor,
+                }
+            },
+        ] {
+            assert!(decal_quad_points(&decal).is_none());
+        }
+    }
+
+    #[test]
+    fn unknown_decal_materials_are_skipped_without_failing_the_build() {
+        let level = level_with_decals(
+            r#"{ "x": 3.0, "y": 1.5, "z": 0.0, "width": 1.0, "height": 1.0,
+                 "material": "core:decal_from_a_newer_build", "surface": "wall_south" }"#,
+            r#"{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 0.4, "height": 3.0 }"#,
+            "[]",
+        );
+        let mesh = build_level_geometry(&level);
+        assert_eq!(
+            mesh.batches.decal_batch.count, 0,
+            "an unresolved decal sheet must draw nothing"
+        );
+        assert!(mesh.batches.wall_batch.count > 0, "the level still builds");
+    }
+
+    #[test]
+    fn decals_are_lit_by_the_rooms_own_baked_light() {
+        let warm = level_with_decals(
+            r#"{ "x": 3.0, "y": 0.0, "z": 3.0, "width": 2.0, "height": 2.0,
+                 "material": "core:decal_arrow_01", "surface": "floor" }"#,
+            r#"{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 0.4, "height": 3.0 }"#,
+            r#"[{ "fixture": "core:fluorescent_panel_01", "x": 3.0, "z": 3.0, "brightness": 1.0,
+                   "color": [1.0, 0.5, 0.2] }]"#,
+        );
+        let blue = level_with_decals(
+            r#"{ "x": 3.0, "y": 0.0, "z": 3.0, "width": 2.0, "height": 2.0,
+                 "material": "core:decal_arrow_01", "surface": "floor" }"#,
+            r#"{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 0.4, "height": 3.0 }"#,
+            r#"[{ "fixture": "core:fluorescent_panel_01", "x": 3.0, "z": 3.0, "brightness": 1.0,
+                   "color": [0.2, 0.5, 1.0] }]"#,
+        );
+        let sample = |level: &LevelDef| {
+            let mesh = build_level_geometry(level);
+            let quad = batch_slice(&mesh, SurfaceKind::Decal);
+            assert_eq!(quad.len(), 6, "one decal quad");
+            quad.iter()
+                .map(|vertex| vertex.color)
+                .fold([0.0f32; 3], |mut acc, color| {
+                    for channel in 0..3 {
+                        acc[channel] += color[channel] / 6.0;
+                    }
+                    acc
+                })
+        };
+        let warm_color = sample(&warm);
+        let blue_color = sample(&blue);
+        assert!(
+            warm_color[0] > warm_color[2] + 0.1,
+            "a warm fixture must warm the decal: {warm_color:?}"
+        );
+        assert!(
+            blue_color[2] > blue_color[0] + 0.1,
+            "a blue fixture must cool the decal: {blue_color:?}"
+        );
+        // The room's ambient floor still applies: a decal is never black.
+        for channel in blue_color {
+            assert!(channel >= crate::lighting::AMBIENT_LEVEL * 0.5);
+        }
+    }
+
+    #[test]
+    fn the_decal_depth_bias_is_deterministic_and_sub_visible() {
+        let (factor, units) = DECAL_POLYGON_OFFSET;
+        assert_exact(factor, 0.0);
+        assert!(
+            (-4.0..0.0).contains(&units),
+            "bias must pull decals slightly towards the camera, got {units}"
+        );
+        assert!(units == -2.0, "the bias is part of the render contract");
+        assert!((0.0..1.0).contains(&DECAL_ALPHA_CUTOFF));
+        // A constant (factor-free) bias is what keeps a grazing-angle decal
+        // stable: the offset does not scale with the depth slope.
+        assert_exact(factor, 0.0);
+    }
+
+    #[test]
+    fn decals_are_the_last_static_kind_and_keep_the_world_families() {
+        assert_eq!(SurfaceKind::ALL.last(), Some(&SurfaceKind::Decal));
+        assert_eq!(SurfaceKind::Decal.family(), SurfaceFamily::Decal);
+        for kind in [
+            SurfaceKind::Floor,
+            SurfaceKind::FloorDamp,
+            SurfaceKind::Ceiling,
+            SurfaceKind::CeilingStained,
+            SurfaceKind::Wall,
+            SurfaceKind::WallStained,
+        ] {
+            assert_ne!(kind.family(), SurfaceFamily::Decal);
+        }
+    }
+
+    // ------------------------------------------------- coincident wall overlays
+
+    /// Two coincident walls: a host with the given openings and a shorter
+    /// overlay with the given material and openings.
+    fn coincident_wall_level(
+        host_openings: &str,
+        overlay_openings: &str,
+        overlay_material: &str,
+    ) -> LevelDef {
+        let material = if overlay_material.is_empty() {
+            String::new()
+        } else {
+            format!(r#", "material": "{overlay_material}""#)
+        };
+        let json = format!(
+            r#"{{
+                "format_version": 1,
+                "id": "coincident",
+                "name": "Coincident",
+                "spawn": {{ "x": 0.0, "z": 0.0 }},
+                "rooms": [{{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 }}],
+                "walls": [
+                    {{ "x": 0.0, "z": 3.0, "width": 10.0, "depth": 0.4, "height": 3.0,
+                       "openings": {host_openings} }},
+                    {{ "x": 2.0, "z": 3.0, "width": 4.0, "depth": 0.4, "height": 3.0,
+                       "openings": {overlay_openings}{material} }}
+                ],
+                "ceiling_lights": []
+            }}"#
+        );
+        LevelDef::from_json(&json).expect("valid coincident wall json")
+    }
+
+    #[test]
+    fn coincident_overlay_walls_become_one_surface_with_material_runs() {
+        let level = coincident_wall_level("[]", "[]", DAMAGED_WALL_MATERIAL);
+        let rooms: Vec<&crate::level::RoomDef> = level.room_iter().collect();
+        let units = wall_units(&level, &rooms);
+        let coalesced: Vec<_> = units
+            .iter()
+            .filter_map(|unit| match unit {
+                WallUnit::Coalesced { wall, runs } => Some((wall, runs)),
+                WallUnit::Plain(_) => None,
+            })
+            .collect();
+        assert_eq!(coalesced.len(), 1, "the overlay is resolved into the host");
+        let (wall, runs) = coalesced[0];
+        assert_exact_named(wall.x, 0.0, "coalesced wall start");
+        assert_exact_named(wall.width, 10.0, "coalesced wall length");
+        assert_eq!(runs.len(), 3, "host/overlay/host material runs");
+        assert_eq!(runs[0].body, SurfaceKind::Wall);
+        assert_eq!(runs[1].body, SurfaceKind::WallStained);
+        assert_exact_named(runs[1].start, 2.0, "stain run start");
+        assert_exact_named(runs[1].end, 6.0, "stain run end");
+
+        // The emitted mesh carries the overlay exactly once: a plain host is
+        // two quads, and the stained run adds two more, with no duplicate of
+        // the host's own faces underneath.
+        let mesh = build_level_geometry(&level);
+        let maintained = batch_slice(&mesh, SurfaceKind::Wall);
+        let stained = batch_slice(&mesh, SurfaceKind::WallStained);
+        let quads = |vertices: &[Vertex]| vertices.len() / 6;
+        // The maintained runs (0..2 and 6..10) plus the two end caps; the
+        // stained run is emitted once, and no maintained face survives under
+        // it.
+        assert_eq!(quads(&maintained), 6, "the maintained runs, once each");
+        assert_eq!(quads(&stained), 2, "the overlay run, once");
+        for vertex in &stained {
+            assert!(vertex.pos[0] >= 1.99 && vertex.pos[0] <= 6.01);
+        }
+        for vertex in &maintained {
+            assert!(
+                vertex.pos[0] <= 2.001 || vertex.pos[0] >= 5.999,
+                "no maintained face may be emitted under the stained run at x={}",
+                vertex.pos[0]
+            );
+        }
+    }
+
+    #[test]
+    fn an_overlay_only_covers_a_hole_when_it_is_solid_there() {
+        // The host has a window inside the overlay's span. The overlay is
+        // solid there, so the combined surface has no hole: that is what the
+        // duplicate surfaces showed (the opaque overlay covered the window).
+        let covered = coincident_wall_level(
+            r#"[{ "kind": "window", "offset": 2.5, "width": 1.0, "height": 1.0, "sill": 1.0 }]"#,
+            "[]",
+            DAMAGED_WALL_MATERIAL,
+        );
+        let rooms: Vec<&crate::level::RoomDef> = covered.room_iter().collect();
+        let units = wall_units(&covered, &rooms);
+        let synthetic = units
+            .iter()
+            .find_map(|unit| match unit {
+                WallUnit::Coalesced { wall, .. } => Some(wall),
+                WallUnit::Plain(_) => None,
+            })
+            .expect("coalesced unit");
+        assert!(
+            synthetic.openings.is_empty(),
+            "an opening covered by every-overlay solid must stay closed"
+        );
+
+        // When both walls carry the same door, the combined surface keeps it.
+        let shared = coincident_wall_level(
+            r#"[{ "kind": "door", "offset": 2.5, "width": 1.0, "height": 2.1, "sill": 0.0 }]"#,
+            r#"[{ "kind": "door", "offset": 0.5, "width": 1.0, "height": 2.1, "sill": 0.0 }]"#,
+            DAMAGED_WALL_MATERIAL,
+        );
+        let rooms: Vec<&crate::level::RoomDef> = shared.room_iter().collect();
+        let units = wall_units(&shared, &rooms);
+        let synthetic = units
+            .iter()
+            .find_map(|unit| match unit {
+                WallUnit::Coalesced { wall, .. } => Some(wall),
+                WallUnit::Plain(_) => None,
+            })
+            .expect("coalesced unit");
+        assert_eq!(
+            synthetic.openings.len(),
+            1,
+            "the shared door survives the merge"
+        );
+        assert_exact_named(synthetic.openings[0].offset, 2.5, "shared door offset");
+    }
+
+    #[test]
+    fn a_wall_with_no_twin_is_emitted_exactly_as_authored() {
+        let level = level_with_wall("[]", "[]");
+        let rooms: Vec<&crate::level::RoomDef> = level.room_iter().collect();
+        let units = wall_units(&level, &rooms);
+        assert_eq!(units.len(), 1);
+        assert!(
+            matches!(units[0], WallUnit::Plain(_)),
+            "a wall with no coincident twin must not be rewritten"
+        );
+        let mesh = build_level_geometry(&level);
+        assert_eq!(
+            batch_slice(&mesh, SurfaceKind::Wall).len() / 6,
+            4,
+            "two length faces plus two end caps"
+        );
+    }
+
+    #[test]
+    fn the_residential_levels_resolve_their_stain_overlays() {
+        for name in [
+            "the_residence",
+            "quiet_apartments",
+            "after_the_leak",
+            "rendering_diagnostic",
+        ] {
+            let level = shipped_level(name);
+            let rooms: Vec<&crate::level::RoomDef> = level.room_iter().collect();
+            let units = wall_units(&level, &rooms);
+            let coalesced = units
+                .iter()
+                .filter(|unit| matches!(unit, WallUnit::Coalesced { .. }))
+                .count();
+            assert!(
+                coalesced >= 1,
+                "{name}: expected the authored stain overlays to coalesce, got {coalesced}"
+            );
+            if name != "rendering_diagnostic" {
+                assert!(
+                    coalesced >= 5,
+                    "{name}: expected the authored stain overlays to coalesce, got {coalesced}"
+                );
+            }
+            // Every coalesced unit must cover its whole span with runs, so no
+            // face can fall back to the host material at a run boundary.
+            for unit in &units {
+                if let WallUnit::Coalesced { wall, runs } = unit {
+                    assert!(!runs.is_empty());
+                    assert_exact_named(runs[0].start, 0.0, "first run starts at the wall origin");
+                    assert!(
+                        (runs[runs.len() - 1].end - wall.length()).abs() < 1e-3,
+                        "{name}: the last material run must end with the wall"
+                    );
+                    for pair in runs.windows(2) {
+                        assert!(
+                            (pair[0].end - pair[1].start).abs() < 1e-3,
+                            "{name}: material runs must be contiguous"
+                        );
+                    }
+                }
+            }
+            // And the normal build still succeeds with them.
+            let mesh = build_level_geometry(&level);
+            assert!(mesh.batches.wall_batch.count > 0);
+        }
     }
 }

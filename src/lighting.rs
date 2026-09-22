@@ -2,8 +2,9 @@
 //!
 //! The game targets a `PocketCHIP` (Mali-400/Lima, OpenGL ES 2.0, 480x272), so
 //! there is no dynamic lighting anywhere in the render loop. Everything in this
-//! module runs once per level load, producing a single brightness scalar per
-//! sampled point that the geometry builder bakes into ordinary vertex colours:
+//! module runs once per level load, producing one [`LightColor`] per sampled
+//! point that the geometry builder bakes into ordinary vertex colours, one
+//! channel at a time:
 //!
 //! ```text
 //! load level
@@ -21,15 +22,23 @@
 //!
 //! Lighting model
 //! --------------
-//! 1. **Room baseline.** Every room sums the effective power of the ceiling
-//!    fixtures it owns (`intensity x ceiling-height factor`), divides by its
-//!    floor area and feeds that through a smoothly saturating curve. A large
-//!    room with two panels is dim; a small room with many panels approaches
-//!    full brightness; the result never exceeds [`MAX_BRIGHTNESS`].
-//! 2. **Local fixture pools.** Every fixture adds a broad pool of light with a
-//!    smooth falloff that reaches zero at [`LOCAL_LIGHT_RADIUS_M`]. The pool is
-//!    measured to the fixture's rectangular panel rather than to a point, so it
-//!    reads as a fluorescent panel instead of a spotlight.
+//! Every value below is a three-channel [`LightColor`], accumulated per channel;
+//! a fixture emits the colour it authors, not one global tint.
+//!
+//! 1. **Room baseline.** Every room sums the emitted colour of the ceiling
+//!    fixtures it owns (`colour x intensity x ceiling-height factor`), divides
+//!    each channel by its floor area and feeds that through a logarithmic
+//!    compression and a smoothly saturating curve. The compression is what
+//!    keeps the game's deliberately sparse large rooms (Level 1 places nine
+//!    panels in a 52 x 54 m room) broadly illuminated without also saturating
+//!    small, densely lit rooms; see [`compressed_density`]. A large room with
+//!    two panels is dim; a small room with many panels approaches full
+//!    brightness; no channel ever exceeds [`MAX_BRIGHTNESS`].
+//! 2. **Local fixture pools.** Every fixture adds a broad pool of its own
+//!    colour with a smooth falloff that reaches zero at
+//!    [`LOCAL_LIGHT_RADIUS_M`]. The pool is measured to the fixture's
+//!    rectangular panel rather than to a point, so it reads as a fluorescent
+//!    panel instead of a spotlight.
 //! 3. **Opening blending.** Rooms joined by walk-through openings (doors and
 //!    passages that reach the floor) mix a bounded fraction of each other's
 //!    baseline near the opening, so light appears to leak through doorways
@@ -38,8 +47,9 @@
 //!    opening does not read as a walk-through connection. Only the openings of
 //!    single walls are considered; there is no recursive propagation and no
 //!    global solver.
-//! 4. **Minimum ambient.** A room without fixtures stays visible: this game
-//!    uses empty space, not darkness, for atmosphere.
+//! 4. **Ambient floor.** A room without fixtures stays barely visible: the
+//!    ambient contribution is deliberately small (see [`AMBIENT_LEVEL`]) and
+//!    must never stand in for real fixtures. Unlit rooms are dark by design.
 //!
 //! Determinism and ownership
 //! -------------------------
@@ -53,7 +63,183 @@
 //! All tuning values below are deliberately centralised and documented; the
 //! visual verification captures in the app changelog were produced with them.
 
+use serde::{Deserialize, Serialize};
+
 use crate::level::{LevelDef, WallAxis, ceiling_height_at};
+
+// ---------------------------------------------------------------------------
+// Emitted light colour
+// ---------------------------------------------------------------------------
+
+/// Emitted colour of one ceiling fixture, or of the ambient fill.
+///
+/// Channels are linear fractions in `[0, 1]`: `[1, 0, 0]` is pure red,
+/// `[1, 1, 1]` is neutral white and `[0, 0, 0]` emits nothing. The type is
+/// serialised as a plain three-element JSON array so level files stay terse and
+/// editable:
+///
+/// ```json
+/// { "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 4.0, "color": [1.0, 0.55, 0.2] }
+/// ```
+///
+/// Values are sanitised, never trusted: see [`LightColor::sanitized`] and
+/// [`crate::loader::validate_level`].
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(from = "[f32; 3]", into = "[f32; 3]")]
+pub struct LightColor {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+}
+
+impl LightColor {
+    /// No output.
+    pub const BLACK: Self = Self::rgb(0.0, 0.0, 0.0);
+
+    /// Neutral channel maximum, used for greyscale helpers in tests.
+    pub const WHITE: Self = Self::rgb(1.0, 1.0, 1.0);
+
+    /// Builds a colour from three channel values (no sanitising).
+    #[must_use]
+    pub const fn rgb(r: f32, g: f32, b: f32) -> Self {
+        Self { r, g, b }
+    }
+
+    /// The same colour on all three channels.
+    #[must_use]
+    pub const fn grey(value: f32) -> Self {
+        Self::rgb(value, value, value)
+    }
+
+    /// The three channels as an array, in RGB order.
+    #[must_use]
+    pub const fn to_array(self) -> [f32; 3] {
+        [self.r, self.g, self.b]
+    }
+
+    /// One channel by index (`0 = r`, `1 = g`, `2 = b`).
+    #[must_use]
+    pub fn channel(self, index: usize) -> f32 {
+        match index {
+            0 => self.r,
+            1 => self.g,
+            _ => self.b,
+        }
+    }
+
+    /// Perceptual luminance (Rec. 709 weights) used for logging and for tests
+    /// that reason about overall brightness rather than colour.
+    #[must_use]
+    pub fn luminance(self) -> f32 {
+        0.2126f32.mul_add(self.r, 0.7152f32.mul_add(self.g, 0.0722 * self.b))
+    }
+
+    /// Brightest channel, for diagnostics and bounded-accumulation reasoning.
+    #[must_use]
+    pub fn max_channel(self) -> f32 {
+        self.r.max(self.g).max(self.b)
+    }
+
+    /// Dimmest channel.
+    #[must_use]
+    pub fn min_channel(self) -> f32 {
+        self.r.min(self.g).min(self.b)
+    }
+
+    /// True when every channel is finite.
+    #[must_use]
+    pub fn is_finite(self) -> bool {
+        self.r.is_finite() && self.g.is_finite() && self.b.is_finite()
+    }
+
+    /// True when every channel is finite and inside `[0, MAX_LIGHT_COLOR]`.
+    #[must_use]
+    pub fn is_valid(self) -> bool {
+        self.is_finite()
+            && (0.0..=MAX_LIGHT_COLOR).contains(&self.r)
+            && (0.0..=MAX_LIGHT_COLOR).contains(&self.g)
+            && (0.0..=MAX_LIGHT_COLOR).contains(&self.b)
+    }
+
+    /// Clamps every channel into `[0, MAX_LIGHT_COLOR]`.
+    ///
+    /// `NaN` becomes zero (an undefined colour must not become a bright one),
+    /// `+inf` saturates at the legal maximum and `-inf` emits nothing; finite
+    /// out-of-range channels clamp at the legal bound rather than wrapping,
+    /// exactly like [`sanitize_intensity`].
+    #[must_use]
+    pub fn sanitized(self) -> Self {
+        Self {
+            r: sanitize_channel(self.r),
+            g: sanitize_channel(self.g),
+            b: sanitize_channel(self.b),
+        }
+    }
+
+    /// Component-wise sum. The caller is responsible for clamping the result;
+    /// this deliberately does not saturate, so callers can decide the bound.
+    #[must_use]
+    pub fn plus(self, other: Self) -> Self {
+        Self {
+            r: self.r + other.r,
+            g: self.g + other.g,
+            b: self.b + other.b,
+        }
+    }
+
+    /// Linear mix towards `other`; `t = 0` keeps `self`, `t = 1` returns
+    /// `other`. Non-finite `t` keeps `self`.
+    #[must_use]
+    pub fn mix(self, other: Self, t: f32) -> Self {
+        if !t.is_finite() {
+            return self;
+        }
+        let t = t.clamp(0.0, 1.0);
+        Self {
+            r: (other.r - self.r).mul_add(t, self.r),
+            g: (other.g - self.g).mul_add(t, self.g),
+            b: (other.b - self.b).mul_add(t, self.b),
+        }
+    }
+
+    /// Component-wise clamp to `[low, high]`.
+    #[must_use]
+    pub fn clamped(self, low: f32, high: f32) -> Self {
+        Self {
+            r: self.r.clamp(low, high),
+            g: self.g.clamp(low, high),
+            b: self.b.clamp(low, high),
+        }
+    }
+}
+
+/// One sanitised light-colour channel: finite values clamp into
+/// `[0, MAX_LIGHT_COLOR]`, non-finite values become zero.
+fn sanitize_channel(value: f32) -> f32 {
+    if value.is_nan() {
+        return 0.0;
+    }
+    if value.is_infinite() {
+        return if value > 0.0 { MAX_LIGHT_COLOR } else { 0.0 };
+    }
+    value.clamp(0.0, MAX_LIGHT_COLOR)
+}
+
+impl From<[f32; 3]> for LightColor {
+    fn from(value: [f32; 3]) -> Self {
+        Self {
+            r: value[0],
+            g: value[1],
+            b: value[2],
+        }
+    }
+}
+
+impl From<LightColor> for [f32; 3] {
+    fn from(value: LightColor) -> Self {
+        value.to_array()
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Tuning
@@ -61,11 +247,17 @@ use crate::level::{LevelDef, WallAxis, ceiling_height_at};
 
 /// Floor area one standard fixture is expected to illuminate, in square metres.
 ///
-/// This is the reference point of the density curve: a room with
-/// `1 / REFERENCE_LIGHT_AREA_M2` fixtures per square metre is "reasonably
-/// illuminated" and lands halfway between [`MIN_AMBIENT`] and
-/// [`MAX_BRIGHTNESS`].
-pub const REFERENCE_LIGHT_AREA_M2: f32 = 8.0;
+/// This is the reference point of the density curve used by [`room_baseline`].
+/// It is calibrated to the sparsest fixture grid the game ships: Level 1 places
+/// nine panels in a 52 x 54 m room (about 300 m^2 per fixture), and those rooms
+/// must still read as lit commercial spaces rather than dark halls.
+///
+/// Because rooms sit somewhere between "one panel in a huge hall" and "a dense
+/// grid in a small room", the raw area ratio spans more than two orders of
+/// magnitude. [`compressed_density`] compresses that range logarithmically so a
+/// regular grid lights the whole floor at roughly half brightness while small
+/// rooms saturate slowly instead of clipping to white.
+pub const REFERENCE_LIGHT_AREA_M2: f32 = 500.0;
 
 /// Ceiling height at which a fixture delivers its nominal output, in metres.
 pub const REFERENCE_CEILING_HEIGHT_M: f32 = 3.5;
@@ -77,14 +269,34 @@ pub const REFERENCE_CEILING_HEIGHT_M: f32 = 3.5;
 /// inverse square would make tall spaces unusably dark.
 pub const HEIGHT_FALLOFF: f32 = 0.5;
 
-/// Brightness of a room with no effective fixtures at all.
+/// Brightness of a room with no effective fixtures at all, per channel.
 ///
-/// Never zero: unlit rooms stay navigable instead of turning pitch black.
-pub const MIN_AMBIENT: f32 = 0.55;
+/// Deliberately small: ambient may provide just enough visibility to keep
+/// unlit geometry readable, but it must never substitute for fixtures. A room
+/// without lights is dark by design; see [`ambient_color`].
+pub const AMBIENT_LEVEL: f32 = 0.10;
 
-/// Hard upper bound on baked brightness. Values above 1.0 would clip textured
-/// surfaces to flat white and wash the level out.
+/// Hard upper bound on baked brightness, per channel. Values above 1.0 would
+/// clip textured surfaces to flat white and wash the level out.
 pub const MAX_BRIGHTNESS: f32 = 1.0;
+
+/// Highest legal value of one authored light-colour channel. Channels are
+/// fractions of full output, so 1.0 is the natural ceiling.
+pub const MAX_LIGHT_COLOR: f32 = 1.0;
+
+/// Emitted colour used by fixtures that do not author one.
+///
+/// A restrained, slightly aged institutional fluorescent: warm enough to read
+/// as artificial light, far from a saturated yellow. Centralised here so the
+/// level schema, the bake and the fixture panel appearance cannot drift apart;
+/// `level-editor/js/lighting.js` mirrors this constant for the preview.
+pub const DEFAULT_LIGHT_COLOR: LightColor = LightColor::rgb(1.0, 0.96, 0.88);
+
+/// Ambient fill colour per channel: neutral, small and fixed.
+#[must_use]
+pub const fn ambient_color() -> LightColor {
+    LightColor::grey(AMBIENT_LEVEL)
+}
 
 /// Radius in metres over which one fixture's local pool fades to nothing.
 pub const LOCAL_LIGHT_RADIUS_M: f32 = 6.0;
@@ -248,28 +460,66 @@ pub fn smooth_falloff(t: f32) -> f32 {
     u * u * 2.0f32.mul_add(t, 1.0)
 }
 
-/// Baseline brightness of a room from its floor area and effective fixture
-/// power. The result is always inside `[MIN_AMBIENT, MAX_BRIGHTNESS]`.
+/// Logarithmic compression of a normalised fixture density.
+///
+/// The fixture density of a room (`power / area x REFERENCE_LIGHT_AREA_M2`) is
+/// fed through `ln(1 + n)` before [`saturating_brightness`]. The logarithm is
+/// what lets one clip cover the game's whole range: a sparse 13 m grid and a
+/// dense closet grid differ by a factor of ~100 in raw density, but only by a
+/// factor of ~4 after compression, so the sparse room is not dark and the
+/// dense room is not blown out. Zero density stays exactly zero and the curve
+/// is continuous, monotonic and safe for every input.
 #[must_use]
-pub fn room_baseline(area_m2: f32, effective_power_sum: f32) -> f32 {
+pub fn compressed_density(normalized_density: f32) -> f32 {
+    if normalized_density.is_nan() {
+        return 0.0;
+    }
+    if normalized_density <= 0.0 {
+        return 0.0;
+    }
+    if normalized_density.is_infinite() {
+        return f32::INFINITY;
+    }
+    normalized_density.ln_1p()
+}
+
+/// Baseline illumination of a room from its floor area and the summed emitted
+/// colour of the fixtures it owns.
+///
+/// Each channel is treated as an independent scalar light: the effective power
+/// of the channel is spread over the floor area, compressed logarithmically and
+/// mapped onto `[AMBIENT_LEVEL, MAX_BRIGHTNESS]` by the saturating curve. A
+/// room with no fixtures returns exactly [`ambient_color`]; the result is
+/// always finite and inside the legal range.
+#[must_use]
+pub fn room_baseline(area_m2: f32, effective_power: LightColor) -> LightColor {
     let area = if area_m2.is_finite() {
         area_m2.max(MIN_ROOM_AREA_M2)
     } else {
         MIN_ROOM_AREA_M2
     };
-    let power = if effective_power_sum.is_finite() {
-        effective_power_sum.max(0.0)
-    } else if effective_power_sum.is_infinite() && effective_power_sum > 0.0 {
-        effective_power_sum
-    } else {
-        0.0
+    let channel = |power: f32| -> f32 {
+        // An undefined power emits nothing; +infinity means "as bright as the
+        // curve allows" rather than an error, matching the old scalar contract.
+        let power = if power.is_finite() {
+            power.max(0.0)
+        } else if power > 0.0 {
+            f32::INFINITY
+        } else {
+            0.0
+        };
+        let density = power / area;
+        let normalized = compressed_density(density * REFERENCE_LIGHT_AREA_M2);
+        let component = saturating_brightness(normalized);
+        (MAX_BRIGHTNESS - AMBIENT_LEVEL)
+            .mul_add(component, AMBIENT_LEVEL)
+            .clamp(AMBIENT_LEVEL, MAX_BRIGHTNESS)
     };
-    let density = power / area;
-    let normalized = density * REFERENCE_LIGHT_AREA_M2;
-    let component = saturating_brightness(normalized);
-    (MAX_BRIGHTNESS - MIN_AMBIENT)
-        .mul_add(component, MIN_AMBIENT)
-        .clamp(MIN_AMBIENT, MAX_BRIGHTNESS)
+    LightColor {
+        r: channel(effective_power.r),
+        g: channel(effective_power.g),
+        b: channel(effective_power.b),
+    }
 }
 
 /// Number of baked-lighting grid cells along one surface axis of `extent_m`.
@@ -312,10 +562,12 @@ pub struct RoomLighting {
     pub area_m2: f32,
     /// Number of ceiling fixtures owned by this room.
     pub fixture_count: usize,
-    /// Sum of `intensity x ceiling-height factor` over the owned fixtures.
-    pub effective_power: f32,
-    /// Baked baseline brightness, inside `[MIN_AMBIENT, MAX_BRIGHTNESS]`.
-    pub baseline: f32,
+    /// Summed emitted colour of the owned fixtures, each scaled by
+    /// `intensity x ceiling-height factor`.
+    pub effective_power: LightColor,
+    /// Baked baseline illumination, every channel inside
+    /// `[AMBIENT_LEVEL, MAX_BRIGHTNESS]`.
+    pub baseline: LightColor,
 }
 
 /// One ceiling fixture resolved for baking.
@@ -327,6 +579,8 @@ pub struct BakedLight {
     pub y: f32,
     /// Sanitised authored intensity.
     pub intensity: f32,
+    /// Sanitised emitted colour.
+    pub color: LightColor,
     /// Ceiling-height correction of the owned room.
     pub height_factor: f32,
     /// Half-extents of the luminous panel in world X/Z, after rotation.
@@ -354,7 +608,7 @@ struct OpeningBlend {
     /// Top edge of the opening in world Y.
     top_y: f32,
     /// Baseline of the room on the other side of the opening.
-    neighbor_baseline: f32,
+    neighbor_baseline: LightColor,
 }
 
 /// Fully baked static lighting for one level.
@@ -426,8 +680,8 @@ impl LevelLighting {
                 height_m,
                 area_m2: width * depth,
                 fixture_count: 0,
-                effective_power: 0.0,
-                baseline: MIN_AMBIENT,
+                effective_power: LightColor::BLACK,
+                baseline: ambient_color(),
             });
         }
 
@@ -456,19 +710,24 @@ impl LevelLighting {
             };
             let height_factor = ceiling_height_factor(height_m);
             let intensity = sanitize_intensity(light.intensity());
+            let color = light.emitted_color();
             // Rotation swaps the panel's long axis, exactly like the fixture
             // geometry emitted by `crate::render` (shared helper, so a
             // fractional rotation cannot drift between the two).
             let (half_w, half_d) = fixture_half_extents(light.rotation_degrees);
             if let Some(index) = room {
                 rooms[index].fixture_count += 1;
-                rooms[index].effective_power += effective_power(intensity, height_m);
+                let power = effective_power(intensity, height_m);
+                rooms[index].effective_power.r += power * color.r;
+                rooms[index].effective_power.g += power * color.g;
+                rooms[index].effective_power.b += power * color.b;
             }
             lights.push(BakedLight {
                 x: light.x,
                 z: light.z,
                 y: height_m - FIXTURE_DROP_M,
                 intensity,
+                color,
                 height_factor,
                 half_w,
                 half_d,
@@ -641,38 +900,55 @@ impl LevelLighting {
             })
     }
 
-    /// Baked brightness at a world position, resolving the room by containment.
+    /// Baked illumination at a world position, resolving the room by
+    /// containment.
     ///
     /// Used for props and for geometry that does not know its room. Points
-    /// outside every room still receive the minimum ambient and any local
-    /// fixture pools they are inside.
+    /// outside every room still receive the ambient fill and any local fixture
+    /// pools they are inside.
     #[must_use]
-    pub fn sample(&self, x: f32, y: f32, z: f32) -> f32 {
+    pub fn sample(&self, x: f32, y: f32, z: f32) -> LightColor {
         self.room_index_at(x, z).map_or_else(
             || {
-                (MIN_AMBIENT + self.local_light(&self.all_lights, x, y, z))
-                    .clamp(MIN_AMBIENT, MAX_BRIGHTNESS)
+                self.local_light(&self.all_lights, x, y, z)
+                    .plus(ambient_color())
             },
             |index| self.sample_in_room(index, x, y, z),
         )
     }
 
-    /// Baked brightness for a point already known to belong to `room`.
+    /// Scalar luminance view of [`Self::sample`].
+    ///
+    /// Diagnostics and brightness-only comparisons (logging, audit tests) use
+    /// this; anything that cares about colour must read the [`LightColor`]
+    /// channels from [`Self::sample`] instead.
+    #[must_use]
+    pub fn sample_luminance(&self, x: f32, y: f32, z: f32) -> f32 {
+        self.sample(x, y, z).luminance()
+    }
+
+    /// Scalar luminance view of [`Self::sample_in_room`].
+    #[must_use]
+    pub fn sample_in_room_luminance(&self, room: usize, x: f32, y: f32, z: f32) -> f32 {
+        self.sample_in_room(room, x, y, z).luminance()
+    }
+
+    /// Baked illumination for a point already known to belong to `room`.
     ///
     /// Floors, ceilings and wall faces use this so a vertex sitting exactly on a
     /// room boundary is lit by the surface's own room, not by whichever room the
     /// containment rule happens to prefer.
     #[must_use]
-    pub fn sample_in_room(&self, room: usize, x: f32, y: f32, z: f32) -> f32 {
+    pub fn sample_in_room(&self, room: usize, x: f32, y: f32, z: f32) -> LightColor {
         let Some(info) = self.rooms.get(room) else {
             return self.sample(x, y, z);
         };
         if !x.is_finite() || !y.is_finite() || !z.is_finite() {
-            return MIN_AMBIENT;
+            return ambient_color();
         }
 
         let candidates = &self.room_lights[room];
-        let mut value = info.baseline + self.local_light(candidates, x, y, z);
+        let mut value = info.baseline.plus(self.local_light(candidates, x, y, z));
 
         // Bounded doorway blending: mix a fraction of the neighbouring room's
         // baseline that fades to nothing over `OPENING_BLEND_RADIUS_M` and above
@@ -689,33 +965,42 @@ impl LevelLighting {
             if y > blend.top_y {
                 influence *= smooth_falloff((y - blend.top_y) / OPENING_VERTICAL_FADE_M);
             }
-            value = (blend.neighbor_baseline - info.baseline).mul_add(influence, value);
+            // Each opening contributes a bounded delta relative to this room's
+            // own baseline, exactly like the previous scalar model; openings do
+            // not recursively feed on each other's result.
+            value = LightColor {
+                r: (blend.neighbor_baseline.r - info.baseline.r).mul_add(influence, value.r),
+                g: (blend.neighbor_baseline.g - info.baseline.g).mul_add(influence, value.g),
+                b: (blend.neighbor_baseline.b - info.baseline.b).mul_add(influence, value.b),
+            };
         }
 
         if value.is_finite() {
-            value.clamp(MIN_AMBIENT, MAX_BRIGHTNESS)
+            value.clamped(AMBIENT_LEVEL, MAX_BRIGHTNESS)
         } else {
-            MIN_AMBIENT
+            ambient_color()
         }
     }
 
     /// Local fixture pools at a world position: broad, smooth and bounded.
     ///
     /// Each fixture's contribution falls from [`LOCAL_LIGHT_STRENGTH`] at its
-    /// panel to zero at [`LOCAL_LIGHT_RADIUS_M`], scaled by the fixture's
-    /// intensity and by its room's ceiling-height factor. The sum is capped at
-    /// [`LOCAL_LIGHT_MAX`] so clusters stay in range.
+    /// panel to zero at [`LOCAL_LIGHT_RADIUS_M`], scaled per channel by the
+    /// fixture's emitted colour, intensity and room ceiling-height factor. The
+    /// summed colour is capped per channel at [`LOCAL_LIGHT_MAX`] so clusters
+    /// stay in range; a fixture emits nothing at all in a channel whose colour
+    /// is zero.
     ///
     /// `candidates` are indices into [`Self::lights`]; squared distances are
     /// compared against the radius before the square root, so fixtures that
     /// cannot reach the sample are rejected with a couple of multiplies.
-    fn local_light(&self, candidates: &[u32], x: f32, y: f32, z: f32) -> f32 {
+    fn local_light(&self, candidates: &[u32], x: f32, y: f32, z: f32) -> LightColor {
         if !x.is_finite() || !y.is_finite() || !z.is_finite() {
-            return 0.0;
+            return LightColor::BLACK;
         }
         let radius_squared = LOCAL_LIGHT_RADIUS_M * LOCAL_LIGHT_RADIUS_M;
         let inv_radius = 1.0 / LOCAL_LIGHT_RADIUS_M;
-        let mut sum = 0.0;
+        let mut sum = LightColor::BLACK;
         for index in candidates {
             let light = &self.lights[*index as usize];
             // Horizontal distance to the rotated panel footprint.
@@ -733,13 +1018,17 @@ impl LevelLighting {
                 continue;
             }
             let falloff = smooth_falloff(distance_squared.sqrt() * inv_radius);
-            sum = (LOCAL_LIGHT_STRENGTH * light.intensity * light.height_factor)
-                .mul_add(falloff, sum);
-            if sum >= LOCAL_LIGHT_MAX {
-                return LOCAL_LIGHT_MAX;
+            let strength = LOCAL_LIGHT_STRENGTH * light.intensity * light.height_factor * falloff;
+            sum = LightColor {
+                r: strength.mul_add(light.color.r, sum.r),
+                g: strength.mul_add(light.color.g, sum.g),
+                b: strength.mul_add(light.color.b, sum.b),
+            };
+            if sum.min_channel() >= LOCAL_LIGHT_MAX {
+                return LightColor::grey(LOCAL_LIGHT_MAX);
             }
         }
-        sum.clamp(0.0, LOCAL_LIGHT_MAX)
+        sum.clamped(0.0, LOCAL_LIGHT_MAX)
     }
 
     /// True when a fixture's panel can come within [`LOCAL_LIGHT_RADIUS_M`] of
@@ -758,7 +1047,8 @@ impl LevelLighting {
         gap_x.mul_add(gap_x, gap_z * gap_z) < LOCAL_LIGHT_RADIUS_M * LOCAL_LIGHT_RADIUS_M
     }
 
-    /// Aggregate statistics for developer logging.
+    /// Aggregate statistics for developer logging. Baselines are reported as
+    /// luminance so one number can describe a coloured room.
     #[must_use]
     pub fn summary(&self) -> LightingSummary {
         if self.rooms.is_empty() {
@@ -774,9 +1064,10 @@ impl LevelLighting {
         let mut max = f32::MIN;
         let mut total = 0.0;
         for room in &self.rooms {
-            min = min.min(room.baseline);
-            max = max.max(room.baseline);
-            total += room.baseline;
+            let luminance = room.baseline.luminance();
+            min = min.min(luminance);
+            max = max.max(luminance);
+            total += luminance;
         }
         LightingSummary {
             rooms: self.rooms.len(),
@@ -821,18 +1112,58 @@ mod tests {
         LevelDef::from_json(&json).expect("test level parses")
     }
 
+    /// One rectangular room with explicit per-fixture emitted colours, spread
+    /// evenly over the floor like [`level_with_room`].
+    fn level_with_colored_room(
+        width: f32,
+        depth: f32,
+        height: f32,
+        lights: &[(f32, [f32; 3])],
+    ) -> LevelDef {
+        let entries: Vec<String> = lights
+            .iter()
+            .enumerate()
+            .map(|(index, (intensity, color))| {
+                let x = width * (index as f32 + 1.0) / (lights.len() as f32 + 1.0);
+                let z = depth * (index as f32 + 1.0) / (lights.len() as f32 + 1.0);
+                format!(
+                    r#"{{ "fixture": "core:fluorescent_panel_01", "x": {x}, "z": {z}, "intensity": {intensity}, "color": [{}, {}, {}] }}"#,
+                    color[0], color[1], color[2]
+                )
+            })
+            .collect();
+        let json = format!(
+            r#"{{
+                "format_version": 1,
+                "id": "lighting_color_test",
+                "name": "Lighting Colour Test",
+                "spawn": {{ "x": 0.0, "z": 0.0 }},
+                "rooms": [{{ "x": 0.0, "z": 0.0, "width": {width}, "depth": {depth}, "height": {height} }}],
+                "ceiling_lights": [{}]
+            }}"#,
+            entries.join(",")
+        );
+        LevelDef::from_json(&json).expect("test level parses")
+    }
+
+    /// Shorthand: the luminance of a baked sample, for tests that reason about
+    /// overall brightness rather than colour.
+    fn lum(lighting: &LevelLighting, x: f32, y: f32, z: f32) -> f32 {
+        lighting.sample(x, y, z).luminance()
+    }
+
     #[test]
     fn more_lights_raise_the_room_baseline() {
         let dim = LevelLighting::bake(&level_with_room(20.0, 20.0, 3.5, &[1.0]));
         let brighter =
             LevelLighting::bake(&level_with_room(20.0, 20.0, 3.5, &[1.0, 1.0, 1.0, 1.0]));
         assert!(
-            brighter.rooms()[0].baseline > dim.rooms()[0].baseline,
-            "4 lights ({}) must beat 1 light ({})",
+            brighter.rooms()[0].baseline.luminance() > dim.rooms()[0].baseline.luminance(),
+            "4 lights ({:?}) must beat 1 light ({:?})",
             brighter.rooms()[0].baseline,
             dim.rooms()[0].baseline
         );
-        assert!(brighter.rooms()[0].baseline <= MAX_BRIGHTNESS);
+        assert!(brighter.rooms()[0].baseline.max_channel() <= MAX_BRIGHTNESS);
     }
 
     #[test]
@@ -840,8 +1171,8 @@ mod tests {
         let small = LevelLighting::bake(&level_with_room(10.0, 10.0, 3.5, &[1.0, 1.0]));
         let large = LevelLighting::bake(&level_with_room(30.0, 30.0, 3.5, &[1.0, 1.0]));
         assert!(
-            small.rooms()[0].baseline > large.rooms()[0].baseline,
-            "12 m2-class room ({}) must beat 900 m2 one ({})",
+            small.rooms()[0].baseline.luminance() > large.rooms()[0].baseline.luminance(),
+            "12 m2-class room ({:?}) must beat 900 m2 one ({:?})",
             small.rooms()[0].baseline,
             large.rooms()[0].baseline
         );
@@ -855,8 +1186,8 @@ mod tests {
         let weak = LevelLighting::bake(&level_with_room(16.0, 16.0, 3.5, &[0.5]));
         let standard = LevelLighting::bake(&level_with_room(16.0, 16.0, 3.5, &[1.0]));
         let strong = LevelLighting::bake(&level_with_room(16.0, 16.0, 3.5, &[2.0]));
-        assert!(weak.rooms()[0].baseline < standard.rooms()[0].baseline);
-        assert!(standard.rooms()[0].baseline < strong.rooms()[0].baseline);
+        assert!(weak.rooms()[0].baseline.luminance() < standard.rooms()[0].baseline.luminance());
+        assert!(standard.rooms()[0].baseline.luminance() < strong.rooms()[0].baseline.luminance());
     }
 
     #[test]
@@ -871,9 +1202,11 @@ mod tests {
         }"#;
         let level = LevelDef::from_json(json).expect("valid json");
         assert_exact(level.ceiling_lights[0].intensity(), 1.0);
+        // An omitted colour is exactly as bright as the documented default.
+        assert_eq!(level.ceiling_lights[0].emitted_color(), DEFAULT_LIGHT_COLOR);
         let omitted = LevelLighting::bake(&level);
         let explicit = LevelLighting::bake(&level_with_room(16.0, 16.0, 3.5, &[1.0]));
-        assert_exact(omitted.rooms()[0].baseline, explicit.rooms()[0].baseline);
+        assert_eq!(omitted.rooms()[0].baseline, explicit.rooms()[0].baseline);
         assert_exact(omitted.lights()[0].intensity, 1.0);
     }
 
@@ -897,10 +1230,9 @@ mod tests {
         let lighting = LevelLighting::bake(&level);
         assert_eq!(lighting.lights().len(), 2);
         // The negative fixture adds no baseline power and no local light.
-        let point = [7.0, 0.0, 7.0];
-        let under_negative = lighting.sample(point[0], point[1], point[2]);
+        let under_negative = lighting.sample(7.0, 0.0, 7.0);
         assert!(under_negative.is_finite());
-        assert!((MIN_AMBIENT..=MAX_BRIGHTNESS).contains(&under_negative));
+        assert!(under_negative.is_valid());
     }
 
     #[test]
@@ -909,14 +1241,14 @@ mod tests {
         let normal = LevelLighting::bake(&level_with_room(16.0, 16.0, 3.5, &[1.0, 1.0]));
         let tall = LevelLighting::bake(&level_with_room(16.0, 16.0, 5.0, &[1.0, 1.0]));
         assert!(
-            low.rooms()[0].baseline > normal.rooms()[0].baseline,
-            "2.6 m ({}) should beat 3.5 m ({})",
+            low.rooms()[0].baseline.luminance() > normal.rooms()[0].baseline.luminance(),
+            "2.6 m ({:?}) should beat 3.5 m ({:?})",
             low.rooms()[0].baseline,
             normal.rooms()[0].baseline
         );
         assert!(
-            normal.rooms()[0].baseline > tall.rooms()[0].baseline,
-            "3.5 m ({}) should beat 5 m ({})",
+            normal.rooms()[0].baseline.luminance() > tall.rooms()[0].baseline.luminance(),
+            "3.5 m ({:?}) should beat 5 m ({:?})",
             normal.rooms()[0].baseline,
             tall.rooms()[0].baseline
         );
@@ -924,6 +1256,10 @@ mod tests {
         // of the reference output.
         assert!(tall.lights()[0].height_factor > 0.7);
         assert!(low.lights()[0].height_factor < 1.3);
+        // And it must not be a fixed height assumption: taller rooms really do
+        // bake a lower fixture panel.
+        assert!(tall.lights()[0].y > normal.lights()[0].y);
+        assert!(normal.lights()[0].y > low.lights()[0].y);
     }
 
     #[test]
@@ -932,9 +1268,15 @@ mod tests {
         let intensities = vec![2.0_f32; 200];
         let lighting = LevelLighting::bake(&level_with_room(4.0, 4.0, 3.5, &intensities));
         let baseline = lighting.rooms()[0].baseline;
+        let sparse = LevelLighting::bake(&level_with_room(4.0, 4.0, 3.5, &[2.0]));
         assert!(
-            baseline <= MAX_BRIGHTNESS && baseline > 0.99,
-            "an absurd fixture count must saturate just below the maximum, got {baseline}"
+            baseline.luminance() > sparse.rooms()[0].baseline.luminance() + 0.05,
+            "a dense grid ({baseline:?}) must beat a single fixture ({:?})",
+            sparse.rooms()[0].baseline
+        );
+        assert!(
+            baseline.max_channel() <= MAX_BRIGHTNESS && baseline.luminance() > 0.85,
+            "an absurd fixture count must saturate near the maximum, got {baseline:?}"
         );
         assert!(baseline.is_finite());
         for sample in [
@@ -943,23 +1285,32 @@ mod tests {
             lighting.sample(3.9, 2.9, 3.9),
         ] {
             assert!(sample.is_finite());
-            assert!((MIN_AMBIENT..=MAX_BRIGHTNESS).contains(&sample), "{sample}");
+            assert!(sample.is_valid(), "{sample:?}");
+            assert!(sample.max_channel() <= MAX_BRIGHTNESS);
         }
 
         // Even overflow-sized inputs stay inside the allowed range.
         let extreme = vec![f32::MAX; 4];
         let lighting = LevelLighting::bake(&level_with_room(2.0, 2.0, 3.5, &extreme));
-        assert!(lighting.rooms()[0].baseline <= MAX_BRIGHTNESS);
-        assert!(lighting.rooms()[0].baseline.is_finite());
+        let baseline = lighting.rooms()[0].baseline;
+        assert!(baseline.is_finite());
+        assert!(baseline.max_channel() <= MAX_BRIGHTNESS);
+        assert!(baseline.luminance() >= AMBIENT_LEVEL);
     }
 
     #[test]
     fn a_room_without_fixtures_is_dim_but_never_black() {
         let lighting = LevelLighting::bake(&level_with_room(20.0, 20.0, 3.5, &[]));
-        assert_exact(lighting.rooms()[0].baseline, MIN_AMBIENT);
-        const { assert!(MIN_AMBIENT > 0.0) };
+        assert_eq!(lighting.rooms()[0].baseline, ambient_color());
+        // Regression guard: the historical 0.55 "ambient" floor must never come
+        // back. Ambient may provide visibility, never room illumination.
+        const { assert!(AMBIENT_LEVEL < 0.2) };
         let sample = lighting.sample(10.0, 0.0, 10.0);
-        assert_exact(sample, MIN_AMBIENT);
+        assert_eq!(sample, ambient_color());
+        // A lit room of the same size is meaningfully brighter than the ambient
+        // floor, so the floor is not doing the illumination work.
+        let lit = LevelLighting::bake(&level_with_room(20.0, 20.0, 3.5, &[1.0]));
+        assert!(lit.rooms()[0].baseline.luminance() > sample.luminance() * 3.0);
     }
 
     #[test]
@@ -975,16 +1326,16 @@ mod tests {
         let level = LevelDef::from_json(json).expect("valid json");
         let lighting = LevelLighting::bake(&level);
 
-        let beneath = lighting.sample(4.0, 0.0, 4.0);
-        let near = lighting.sample(6.0, 0.0, 4.0);
-        let far = lighting.sample(20.0, 0.0, 4.0);
+        let beneath = lum(&lighting, 4.0, 0.0, 4.0);
+        let near = lum(&lighting, 6.0, 0.0, 4.0);
+        let far = lum(&lighting, 20.0, 0.0, 4.0);
         assert!(
             beneath > near,
             "directly beneath ({beneath}) must beat near ({near})"
         );
         assert!(near > far, "near ({near}) must beat far ({far})");
         assert!(
-            (far - lighting.rooms()[0].baseline).abs() < 1e-4,
+            (far - lighting.rooms()[0].baseline.luminance()).abs() < 1e-4,
             "far from every fixture must sit at the room baseline"
         );
         // Pools are broad, not spotlights: 2 m away still benefits.
@@ -1017,15 +1368,15 @@ mod tests {
         };
         let weak = LevelLighting::bake(&level(0.5));
         let strong = LevelLighting::bake(&level(2.0));
-        let weak_under = weak.sample(10.0, 0.0, 10.0);
-        let strong_under = strong.sample(10.0, 0.0, 10.0);
+        let weak_under = lum(&weak, 10.0, 0.0, 10.0);
+        let strong_under = lum(&strong, 10.0, 0.0, 10.0);
         assert!(
             strong_under > weak_under + 0.1,
             "2.0 fixture ({strong_under}) must clearly beat 0.5 ({weak_under})"
         );
         // Both stay inside the legal range.
         for value in [weak_under, strong_under] {
-            assert!((MIN_AMBIENT..=MAX_BRIGHTNESS).contains(&value));
+            assert!((AMBIENT_LEVEL..=MAX_BRIGHTNESS).contains(&value));
         }
     }
 
@@ -1072,18 +1423,18 @@ mod tests {
         let lighting = LevelLighting::bake(&level);
         assert_eq!(lighting.rooms().len(), 2);
 
-        let baseline_bright = lighting.rooms()[0].baseline;
-        let baseline_dim = lighting.rooms()[1].baseline;
+        let baseline_bright = lighting.rooms()[0].baseline.luminance();
+        let baseline_dim = lighting.rooms()[1].baseline.luminance();
         assert!(
             baseline_bright > baseline_dim + 0.1,
             "test setup needs contrasting rooms: {baseline_bright} vs {baseline_dim}"
         );
 
         // Sampling below y = 3 m near the doorway, on both sides of the wall.
-        let bright_near_door = lighting.sample_in_room(0, 9.9, 0.0, 5.0);
-        let dim_near_door = lighting.sample_in_room(1, 10.5, 0.0, 5.0);
-        let bright_without_opening = solid.sample_in_room(0, 9.9, 0.0, 5.0);
-        let dim_without_opening = solid.sample_in_room(1, 10.5, 0.0, 5.0);
+        let bright_near_door = lum(&lighting, 9.9, 0.0, 5.0);
+        let dim_near_door = lum(&lighting, 10.5, 0.0, 5.0);
+        let bright_without_opening = solid.sample_in_room(0, 9.9, 0.0, 5.0).luminance();
+        let dim_without_opening = solid.sample_in_room(1, 10.5, 0.0, 5.0).luminance();
 
         // The doorway pulls each side towards the other room...
         assert!(
@@ -1095,11 +1446,12 @@ mod tests {
             "the dim side must gain light from the bright room: {dim_near_door} vs {dim_without_opening}"
         );
         // ...by a bounded, gradual amount, so the two sides meet at a threshold
-        // instead of stepping.
+        // instead of stepping. The bound is the maximum door blend (0.5 of the
+        // baseline difference) plus the local pool difference at the two probes.
         let step = (bright_near_door - dim_near_door).abs();
-        assert!(step < 0.05, "doorway step too large: {step}");
+        assert!(step < 0.15, "doorway step too large: {step}");
         for value in [bright_near_door, dim_near_door] {
-            assert!((MIN_AMBIENT..=MAX_BRIGHTNESS).contains(&value), "{value}");
+            assert!((AMBIENT_LEVEL..=MAX_BRIGHTNESS).contains(&value), "{value}");
         }
 
         // The influence is bounded: far from the opening the rooms keep their
@@ -1108,8 +1460,8 @@ mod tests {
             let open = lighting.sample_in_room(room, x, 0.0, z);
             let closed = solid.sample_in_room(room, x, 0.0, z);
             assert!(
-                (open - closed).abs() < 1e-4,
-                "room {room} at ({x}, {z}) must not be blended from {OPENING_BLEND_RADIUS_M} m away: {open} vs {closed}"
+                (open.luminance() - closed.luminance()).abs() < 1e-4,
+                "room {room} at ({x}, {z}) must not be blended from {OPENING_BLEND_RADIUS_M} m away: {open:?} vs {closed:?}"
             );
         }
     }
@@ -1132,11 +1484,12 @@ mod tests {
         let lighting = LevelLighting::bake(&level);
         let a = lighting.rooms()[0].baseline;
         let b = lighting.rooms()[1].baseline;
-        assert!(a > b, "only room A has fixtures");
+        assert!(a.luminance() > b.luminance(), "only room A has fixtures");
         // Deep inside room B, including just past the solid wall, nothing leaks.
         for x in [12.0, 18.0] {
+            let sample = lighting.sample_in_room(1, x, 0.0, 5.0);
             assert!(
-                (lighting.sample_in_room(1, x, 0.0, 5.0) - b).abs() < 1e-4,
+                (sample.luminance() - b.luminance()).abs() < 1e-4,
                 "solid wall leaked light at x = {x}"
             );
         }
@@ -1165,11 +1518,21 @@ mod tests {
         assert_eq!(lighting.room_index_at(7.0, 7.0), Some(1));
         assert_eq!(lighting.room_index_at(30.0, 30.0), Some(0));
         assert_eq!(lighting.room_index_at(-1.0, -1.0), None);
-        // The light is counted once, in the small room.
-        assert_exact(
-            lighting.rooms()[0].effective_power + lighting.rooms()[1].effective_power,
-            lighting.lights()[0].intensity * lighting.lights()[0].height_factor,
-        );
+        // The light is counted once, in the small room, per channel.
+        let light = lighting.lights()[0];
+        let power = light.intensity * light.height_factor;
+        let summed = LightColor {
+            r: lighting.rooms()[0].effective_power.r + lighting.rooms()[1].effective_power.r,
+            g: lighting.rooms()[0].effective_power.g + lighting.rooms()[1].effective_power.g,
+            b: lighting.rooms()[0].effective_power.b + lighting.rooms()[1].effective_power.b,
+        };
+        for channel in 0..3 {
+            assert_exact(
+                summed.channel(channel),
+                power * light.color.channel(channel),
+            );
+        }
+        assert_eq!(lighting.rooms()[0].baseline, ambient_color());
     }
 
     #[test]
@@ -1177,6 +1540,7 @@ mod tests {
         let mut level = level_with_room(10.0, 10.0, 3.0, &[1.0]);
         level.ceiling_lights[0].x = f32::NAN;
         level.ceiling_lights[0].brightness = Some(f32::NAN);
+        level.ceiling_lights[0].color = Some(LightColor::rgb(f32::NAN, f32::INFINITY, -3.0));
         level.rooms[0].height = -2.0;
         let lighting = LevelLighting::bake(&level);
         assert!(
@@ -1190,10 +1554,11 @@ mod tests {
         let mut extreme = level_with_room(1.0e30, 1.0e30, 3.5, &[1.0, 1.0]);
         extreme.ceiling_lights[0].brightness = Some(f32::MAX);
         extreme.ceiling_lights[1].brightness = Some(f32::INFINITY);
+        extreme.ceiling_lights[0].color = Some(LightColor::rgb(f32::MAX, f32::NAN, -0.5));
         extreme.ceiling_lights[1].x = f32::NAN; // dropped entirely
         let lighting = LevelLighting::bake(&extreme);
         let baseline = lighting.rooms()[0].baseline;
-        assert!(baseline.is_finite() && baseline <= MAX_BRIGHTNESS);
+        assert!(baseline.is_finite() && baseline.max_channel() <= MAX_BRIGHTNESS);
         assert!(lighting.sample(1.0, 0.0, 1.0).is_finite());
     }
 
@@ -1238,6 +1603,43 @@ mod tests {
         assert_eq!(light_grid_cells(1.0e30), MAX_LIGHT_GRID_CELLS);
         assert_eq!(wall_light_segments(1.0), 1);
         assert_eq!(wall_light_segments(1000.0), MAX_WALL_LIGHT_SEGMENTS);
+
+        // Density compression: zero stays zero, the curve is monotonic and it
+        // never exceeds the saturating curve's own input.
+        assert_exact(compressed_density(0.0), 0.0);
+        assert_exact(compressed_density(-1.0), 0.0);
+        assert_exact(compressed_density(f32::NAN), 0.0);
+        assert_exact(compressed_density(f32::INFINITY), f32::INFINITY);
+        let mut previous = 0.0;
+        for step in 1..40 {
+            let value = compressed_density(step as f32 * 0.5);
+            assert!(value > previous, "compression must be monotonic");
+            assert!(value < step as f32 * 0.5 || step == 1);
+            previous = value;
+        }
+
+        // Colour helpers stay finite and bounded.
+        assert_eq!(
+            LightColor::rgb(f32::NAN, f32::INFINITY, -1.0).sanitized(),
+            LightColor::rgb(0.0, MAX_LIGHT_COLOR, 0.0)
+        );
+        assert_eq!(
+            LightColor::rgb(0.25, 0.5, 0.75).clamped(0.4, 0.6),
+            LightColor::rgb(0.4, 0.5, 0.6)
+        );
+        assert_eq!(
+            LightColor::BLACK.mix(LightColor::WHITE, 0.5),
+            LightColor::grey(0.5)
+        );
+        assert_eq!(
+            LightColor::WHITE.mix(LightColor::BLACK, f32::NAN),
+            LightColor::WHITE
+        );
+        assert!(DEFAULT_LIGHT_COLOR.is_valid());
+        const { assert!(DEFAULT_LIGHT_COLOR.r >= DEFAULT_LIGHT_COLOR.g) };
+        const { assert!(DEFAULT_LIGHT_COLOR.g >= DEFAULT_LIGHT_COLOR.b) };
+        const { assert!(DEFAULT_LIGHT_COLOR.b > 0.7) };
+        assert!(ambient_color().is_valid());
     }
 
     #[test]
@@ -1247,9 +1649,9 @@ mod tests {
         // discrete brightness tiers.
         let level = level_with_room(20.0, 20.0, 3.0, &[1.0]);
         let lighting = LevelLighting::bake(&level);
-        let mut previous = lighting.sample(0.0, 0.0, 10.0);
+        let mut previous = lum(&lighting, 0.0, 0.0, 10.0);
         for x in scan(0.0, 0.05, 20.0) {
-            let current = lighting.sample(x, 0.0, 10.0);
+            let current = lum(&lighting, x, 0.0, 10.0);
             assert!(
                 (current - previous).abs() < 0.02,
                 "brightness jumped at x = {x}: {previous} -> {current}"
@@ -1257,7 +1659,7 @@ mod tests {
             previous = current;
         }
         // And it genuinely varies across the room.
-        assert!(lighting.sample(10.0, 0.0, 10.0) - lighting.sample(0.0, 0.0, 10.0) > 0.05);
+        assert!(lum(&lighting, 10.0, 0.0, 10.0) - lum(&lighting, 0.0, 0.0, 10.0) > 0.05);
     }
 
     #[test]
@@ -1268,7 +1670,7 @@ mod tests {
         assert_eq!(summary.rooms, 1);
         assert_eq!(summary.lights, 4);
         assert_exact(summary.min_baseline, summary.max_baseline);
-        assert!(summary.average_baseline >= MIN_AMBIENT);
+        assert!(summary.average_baseline >= AMBIENT_LEVEL);
         assert!(summary.average_baseline <= MAX_BRIGHTNESS);
     }
 
@@ -1310,8 +1712,8 @@ mod tests {
         }"#;
         let level = LevelDef::from_json(json).expect("valid json");
         let lighting = LevelLighting::bake(&level);
-        let floor = lighting.sample(5.0, 0.0, 5.0);
-        let beside_panel = lighting.sample(5.0, 2.8, 5.0);
+        let floor = lum(&lighting, 5.0, 0.0, 5.0);
+        let beside_panel = lum(&lighting, 5.0, 2.8, 5.0);
         assert!(beside_panel > floor);
     }
 
@@ -1333,9 +1735,249 @@ mod tests {
         let level = LevelDef::from_json(json).expect("valid json");
         let lighting = LevelLighting::bake(&level);
         assert_eq!(lighting.room_index_at(7.0, 7.0), Some(1));
-        let inside = lighting.sample(7.0, 0.0, 7.0);
-        let outside = lighting.sample(30.0, 0.0, 30.0);
+        let inside = lum(&lighting, 7.0, 0.0, 7.0);
+        let outside = lum(&lighting, 30.0, 0.0, 30.0);
         assert!(inside > outside, "the small room owns the light");
-        assert!(outside >= MIN_AMBIENT);
+        assert!(outside >= AMBIENT_LEVEL);
+    }
+
+    // -----------------------------------------------------------------------
+    // RGB lighting
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn a_red_fixture_lights_geometry_red() {
+        let level = level_with_colored_room(20.0, 20.0, 3.5, &[(1.0, [1.0, 0.0, 0.0])]);
+        let lighting = LevelLighting::bake(&level);
+        let baseline = lighting.rooms()[0].baseline;
+        assert!(
+            baseline.r > baseline.g + 0.1 && baseline.r > baseline.b + 0.1,
+            "the red channel must dominate the baseline, got {baseline:?}"
+        );
+        let beneath = lighting.sample(10.0, 0.0, 10.0);
+        assert!(
+            beneath.r > beneath.g + 0.2 && beneath.r > beneath.b + 0.2,
+            "the floor beneath the fixture must be clearly red, got {beneath:?}"
+        );
+        // The unlit channels stay at the ambient floor: this is colour, not a
+        // uniform desaturation.
+        assert_exact(beneath.g, AMBIENT_LEVEL);
+        assert_exact(beneath.b, AMBIENT_LEVEL);
+    }
+
+    #[test]
+    fn a_blue_fixture_lights_geometry_blue() {
+        let level = level_with_colored_room(20.0, 20.0, 3.5, &[(1.0, [0.0, 0.1, 1.0])]);
+        let lighting = LevelLighting::bake(&level);
+        let beneath = lighting.sample(10.0, 0.0, 10.0);
+        assert!(
+            beneath.b > beneath.r + 0.3 && beneath.b > beneath.g + 0.2,
+            "the floor beneath the fixture must be clearly blue, got {beneath:?}"
+        );
+        assert!(
+            beneath.r < beneath.g,
+            "the near-zero red channel must stay dim"
+        );
+    }
+
+    #[test]
+    fn warm_and_cool_fixtures_mix_without_losing_either_colour() {
+        // Two fixtures on one axis. Each light is baked alone first, then both
+        // together: the blend in the middle must gain from both additions
+        // instead of one colour replacing the other.
+        let scenario = |lights: &str| {
+            LevelDef::from_json(&format!(
+                r#"{{
+                    "format_version": 1,
+                    "id": "mix_two",
+                    "name": "Mix Two",
+                    "spawn": {{ "x": 0.0, "z": 0.0 }},
+                    "rooms": [{{ "x": 0.0, "z": 0.0, "width": 16.0, "depth": 16.0, "height": 3.0 }}],
+                    "ceiling_lights": [{lights}]
+                }}"#
+            ))
+            .expect("valid json")
+        };
+        let warm = r#"{ "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 8.0,
+                        "color": [1.0, 0.55, 0.1] }"#;
+        let cool = r#"{ "fixture": "core:fluorescent_panel_01", "x": 11.0, "z": 8.0,
+                        "color": [0.2, 0.4, 1.0] }"#;
+        let both = LevelLighting::bake(&scenario(&format!("{warm},{cool}")));
+        let only_warm = LevelLighting::bake(&scenario(warm));
+        let only_cool = LevelLighting::bake(&scenario(cool));
+
+        // Near the warm fixture the warm channels dominate...
+        let near_warm = both.sample(5.0, 1.6, 8.0);
+        assert!(
+            near_warm.r > near_warm.b,
+            "warm fixture must dominate nearby, got {near_warm:?}"
+        );
+        // ...near the cool one the blue channel does...
+        let near_cool = both.sample(11.0, 1.6, 8.0);
+        assert!(
+            near_cool.b > near_cool.r,
+            "cool fixture must dominate nearby, got {near_cool:?}"
+        );
+        // ...and the transition region keeps contributions from both: adding
+        // the cool fixture must raise blue without removing the warm fixture's
+        // red, and vice versa.
+        let middle = both.sample(8.0, 1.6, 8.0);
+        let middle_warm_only = only_warm.sample(8.0, 1.6, 8.0);
+        let middle_cool_only = only_cool.sample(8.0, 1.6, 8.0);
+        assert!(
+            middle.b > middle_warm_only.b + 0.05,
+            "the cool fixture must add blue in the middle: {middle:?} vs {middle_warm_only:?}"
+        );
+        assert!(
+            middle.r > middle_cool_only.r + 0.05,
+            "the warm fixture must add red in the middle: {middle:?} vs {middle_cool_only:?}"
+        );
+        assert!(
+            middle.r > AMBIENT_LEVEL + 0.2 && middle.b > AMBIENT_LEVEL + 0.2,
+            "both channels must survive in the transition region: {middle:?}"
+        );
+    }
+
+    #[test]
+    fn three_arbitrary_colours_accumulate_independently() {
+        // Red, green and blue fixtures across one room: every channel must be
+        // able to accumulate from an arbitrary fixture, which rules out two
+        // hardcoded fixture modes.
+        let json = r#"{
+            "format_version": 1,
+            "id": "mix_three",
+            "name": "Mix Three",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 18.0, "depth": 6.0, "height": 3.0 }],
+            "ceiling_lights": [
+                { "fixture": "core:fluorescent_panel_01", "x": 3.0, "z": 3.0,
+                  "color": [1.0, 0.0, 0.0] },
+                { "fixture": "core:fluorescent_panel_01", "x": 9.0, "z": 3.0,
+                  "color": [0.0, 1.0, 0.0] },
+                { "fixture": "core:fluorescent_panel_01", "x": 15.0, "z": 3.0,
+                  "color": [0.0, 0.0, 1.0] }
+            ]
+        }"#;
+        let level = LevelDef::from_json(json).expect("valid json");
+        let lighting = LevelLighting::bake(&level);
+        assert_eq!(lighting.lights().len(), 3);
+        for (x, channel, name) in [
+            (3.0_f32, 0_usize, "red"),
+            (9.0, 1, "green"),
+            (15.0, 2, "blue"),
+        ] {
+            let sample = lighting.sample(x, 1.6, 3.0);
+            assert!(
+                sample.channel(channel) > sample.channel((channel + 1) % 3) + 0.2,
+                "the {name} fixture at x = {x} must dominate its own channel, got {sample:?}"
+            );
+        }
+        // A point between all three keeps every channel above ambient: the
+        // system accumulates arbitrary RGB fixtures rather than two modes.
+        let middle = lighting.sample(9.0, 0.0, 3.0);
+        for channel in 0..3 {
+            assert!(
+                middle.channel(channel) > AMBIENT_LEVEL + 0.02,
+                "channel {channel} vanished in the three-colour blend: {middle:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn coloured_accumulation_stays_finite_and_bounded() {
+        // A dense grid of saturated colours: every channel must stay finite and
+        // inside the render range even where pools overlap.
+        let lights: Vec<(f32, [f32; 3])> = (0..36)
+            .map(|index| {
+                let color = match index % 3 {
+                    0 => [1.0, 0.0, 0.0],
+                    1 => [0.0, 1.0, 0.0],
+                    _ => [0.0, 0.0, 1.0],
+                };
+                (2.0, color)
+            })
+            .collect();
+        let level = level_with_colored_room(4.0, 4.0, 2.6, &lights);
+        let lighting = LevelLighting::bake(&level);
+        let mut samples = Vec::new();
+        for x in scan(0.0, 0.25, 4.0) {
+            samples.push(lighting.sample(x, 0.0, 2.0));
+        }
+        for sample in &samples {
+            assert!(sample.is_finite());
+            assert!(
+                sample.is_valid(),
+                "channel escaped the legal range: {sample:?}"
+            );
+            assert!(sample.max_channel() <= MAX_BRIGHTNESS);
+        }
+        // The three colours really are all present in the room.
+        let baseline = lighting.rooms()[0].baseline;
+        for channel in 0..3 {
+            assert!(
+                baseline.channel(channel) > AMBIENT_LEVEL + 0.05,
+                "channel {channel} missing from the mixed room: {baseline:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_colour_that_emits_nothing_is_dark_but_valid() {
+        let level = level_with_colored_room(20.0, 20.0, 3.5, &[(1.0, [0.0, 0.0, 0.0])]);
+        let lighting = LevelLighting::bake(&level);
+        assert_eq!(lighting.rooms()[0].fixture_count, 1);
+        assert_eq!(lighting.rooms()[0].baseline, ambient_color());
+        assert_eq!(lighting.sample(10.0, 0.0, 10.0), ambient_color());
+    }
+
+    #[test]
+    fn intensities_multiply_the_authored_colour_per_channel() {
+        // The same colour at half intensity must be dimmer in every channel it
+        // emits, and a coloured fixture must not brighten channels it does not
+        // emit.
+        let level = |intensity: f32| {
+            level_with_colored_room(16.0, 16.0, 3.0, &[(intensity, [0.4, 0.6, 0.9])])
+        };
+        let dim = LevelLighting::bake(&level(0.5));
+        let bright = LevelLighting::bake(&level(2.0));
+        let dim_baseline = dim.rooms()[0].baseline;
+        let bright_baseline = bright.rooms()[0].baseline;
+        assert!(bright_baseline.r > dim_baseline.r);
+        assert!(bright_baseline.g > dim_baseline.g);
+        assert!(bright_baseline.b > dim_baseline.b);
+        // Hue order is preserved: blue > green > red at both intensities.
+        assert!(bright_baseline.b > bright_baseline.g);
+        assert!(bright_baseline.g > bright_baseline.r);
+        assert!(dim_baseline.b > dim_baseline.g);
+        assert!(dim_baseline.g > dim_baseline.r);
+    }
+
+    #[test]
+    fn legacy_levels_without_a_colour_use_the_documented_default() {
+        // Every shipped level omits `color`; they must load unchanged and bake
+        // the restrained warm default rather than turning white or black.
+        let legacy = r#"{
+            "format_version": 1,
+            "id": "legacy",
+            "name": "Legacy",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 3.0 }],
+            "ceiling_lights": [
+                { "fixture": "core:fluorescent_panel_01", "x": 3.0, "z": 3.0 },
+                { "fixture": "core:fluorescent_panel_01", "x": 9.0, "z": 9.0, "brightness": 0.75 }
+            ]
+        }"#;
+        let level = LevelDef::from_json(legacy).expect("legacy level parses");
+        assert_eq!(level.ceiling_lights[0].color, None);
+        assert_eq!(level.ceiling_lights[0].emitted_color(), DEFAULT_LIGHT_COLOR);
+        let lighting = LevelLighting::bake(&level);
+        assert_eq!(lighting.lights()[0].color, DEFAULT_LIGHT_COLOR);
+        let baseline = lighting.rooms()[0].baseline;
+        assert!(
+            baseline.r > baseline.b && baseline.b >= AMBIENT_LEVEL,
+            "legacy lights must bake the warm default, got {baseline:?}"
+        );
+        let sample = lighting.sample(3.0, 0.0, 3.0);
+        assert!(sample.r > sample.b);
     }
 }

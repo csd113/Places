@@ -1024,7 +1024,21 @@ fn deterministic_fuzz_levels_bake_and_build_within_budget() {
             let x = rng.range(-10.0, 30.0);
             let z = rng.range(-10.0, 30.0);
             let intensity = rng.range(0.0, 2.5);
-            lights.push(light(x, z, Some(intensity)));
+            // Mix authored colours into the fuzz so saturated and zero channels
+            // reach every geometry path, not only the greyscale default.
+            let entry = match rng.next_u32() % 4 {
+                0 => light(x, z, Some(intensity)),
+                1 => format!(
+                    r#"{{ "fixture": "core:fluorescent_panel_01", "x": {x}, "z": {z}, "intensity": {intensity}, "color": [1.0, 0.0, 0.0] }}"#
+                ),
+                2 => format!(
+                    r#"{{ "fixture": "core:fluorescent_panel_01", "x": {x}, "z": {z}, "intensity": {intensity}, "color": [0.0, 1.0, 0.0] }}"#
+                ),
+                _ => format!(
+                    r#"{{ "fixture": "core:fluorescent_panel_01", "x": {x}, "z": {z}, "intensity": {intensity}, "color": [0.1, 0.2, 0.9] }}"#
+                ),
+            };
+            lights.push(entry);
         }
         let prop_count = usize::try_from(rng.int(0, 12)).unwrap_or(0);
         let mut props = Vec::new();
@@ -1082,8 +1096,11 @@ fn deterministic_fuzz_levels_bake_and_build_within_budget() {
         }
         let lighting = LevelLighting::bake(&level);
         for info in lighting.rooms() {
-            assert!(info.baseline.is_finite());
-            assert!((0.55..=1.0).contains(&info.baseline));
+            assert!(info.baseline.luminance().is_finite());
+            assert!(
+                (crate::lighting::AMBIENT_LEVEL..=crate::lighting::MAX_BRIGHTNESS)
+                    .contains(&info.baseline.luminance())
+            );
         }
         let (mesh, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
         assert_vertex_colors_safe(&mesh.all_vertices());
@@ -1103,7 +1120,11 @@ fn deterministic_fuzz_levels_bake_and_build_within_budget() {
             let z = rng.range(-15.0, 35.0);
             let value = lighting.sample(x, y, z);
             assert!(value.is_finite(), "case {case}: sample ({x}, {y}, {z})");
-            assert!((0.55..=1.0).contains(&value));
+            assert!(value.is_valid(), "case {case}: sample ({x}, {y}, {z})");
+            assert!(
+                (crate::lighting::AMBIENT_LEVEL..=crate::lighting::MAX_BRIGHTNESS)
+                    .contains(&value.luminance())
+            );
         }
     }
 }
@@ -1142,7 +1163,7 @@ fn shared_wall_level(wall_y: f32, opening_sill: f32, opening_width: f32) -> Leve
 #[test]
 fn regression_raised_walls_do_not_blend_through_their_openings() {
     let sample_at = |level: &LevelDef, x: f32, y: f32, z: f32| {
-        LevelLighting::bake(level).sample_in_room(1, x, y, z)
+        LevelLighting::bake(level).sample_in_room_luminance(1, x, y, z)
     };
     let solid_control = |mut level: LevelDef| {
         level.walls[0].openings.clear();
@@ -1151,7 +1172,9 @@ fn regression_raised_walls_do_not_blend_through_their_openings() {
 
     // A walk-through doorway at floor level blends...
     let floor_wall = LevelLighting::bake(&shared_wall_level(0.0, 0.0, 1.0));
-    assert!(floor_wall.rooms()[1].baseline < floor_wall.rooms()[0].baseline);
+    assert!(
+        floor_wall.rooms()[1].baseline.luminance() < floor_wall.rooms()[0].baseline.luminance()
+    );
     let blended = sample_at(&shared_wall_level(0.0, 0.0, 1.0), 10.5, 0.0, 5.0);
     let floor_solid = sample_at(
         &solid_control(shared_wall_level(0.0, 0.0, 1.0)),
@@ -1208,7 +1231,7 @@ fn regression_invalid_openings_do_not_create_phantom_doorways() {
         level.walls[0].openings.clear();
         LevelLighting::bake(&level)
     };
-    let reference_sample = reference.sample_in_room(1, 10.5, 0.0, 5.0);
+    let reference_sample = reference.sample_in_room_luminance(1, 10.5, 0.0, 5.0);
     for (label, mutate) in [
         (
             "zero width",
@@ -1230,7 +1253,7 @@ fn regression_invalid_openings_do_not_create_phantom_doorways() {
             reference.rooms(),
             "{label}: open malformed opening changed the bake"
         );
-        let value = lighting.sample_in_room(1, 10.5, 0.0, 5.0);
+        let value = lighting.sample_in_room_luminance(1, 10.5, 0.0, 5.0);
         assert!(
             (value - reference_sample).abs() < 1e-5,
             "{label}: phantom doorway leaked light ({value} vs {reference_sample})"
@@ -1311,8 +1334,8 @@ fn regression_wall_reveals_take_light_from_both_rooms() {
     // the room each edge faces instead of the ambient value of the wall cavity.
     let level = shared_wall_level(0.0, 0.0, 1.0);
     let lighting = LevelLighting::bake(&level);
-    let bright = lighting.rooms()[0].baseline;
-    let dim = lighting.rooms()[1].baseline;
+    let bright = lighting.rooms()[0].baseline.luminance();
+    let dim = lighting.rooms()[1].baseline.luminance();
     assert!(bright > dim + 0.05);
 
     let mesh = build_level_geometry(&level);
@@ -1345,7 +1368,7 @@ fn regression_wall_reveals_take_light_from_both_rooms() {
         "jamb edges must track the rooms they face: {max_bright} vs {min_dim}"
     );
     assert!(
-        max_bright > crate::lighting::MIN_AMBIENT + 0.01,
+        max_bright > crate::lighting::AMBIENT_LEVEL + 0.01,
         "the bright jamb edge must carry room light, got {max_bright}"
     );
     assert_vertex_colors_safe(&walls);
@@ -1389,14 +1412,16 @@ fn merged_floor_and_ceiling_quads_keep_exact_samples_and_tile_the_room() {
         // room that contains the corner and matches the baked colour.
         let matches_floor = |x: f32, z: f32, color: [f32; 4]| {
             (0..lighting.rooms().len()).any(|room| {
-                let expected = lighting.sample_in_room(room, x, 0.0, z);
-                (0..3).all(|channel| (color[channel] - expected).abs() < 1e-6)
+                let expected = lighting.sample_in_room(room, x, 0.0, z).to_array();
+                (0..3).all(|channel| (color[channel] - expected[channel]).abs() < 1e-6)
             })
         };
         let matches_ceiling = |x: f32, z: f32, color: [f32; 4]| {
             lighting.rooms().iter().enumerate().any(|(room, info)| {
-                let expected = lighting.sample_in_room(room, x, info.height_m, z);
-                let expected = [0.72 * expected, 0.72 * expected, 0.70 * expected];
+                let expected = lighting
+                    .sample_in_room(room, x, info.height_m, z)
+                    .to_array();
+                let expected = [0.72 * expected[0], 0.72 * expected[1], 0.70 * expected[2]];
                 (0..3).all(|channel| (color[channel] - expected[channel]).abs() < 1e-6)
             })
         };

@@ -118,6 +118,7 @@ class Renderer {
 
     this.drawRooms(level, editorState);
     this.drawFloorPatches(level);
+    this.drawDecals(level, editorState);
     this.drawWalls(level, editorState, defaultCeiling);
     this.drawOpenings(level, editorState);
     this.drawLights(level, editorState);
@@ -235,6 +236,30 @@ class Renderer {
       ctx.lineWidth = 1;
       ctx.strokeStyle = 'rgba(120, 130, 110, 0.5)';
       ctx.strokeRect(s.x + 0.5, s.y + 0.5, w - 1, h - 1);
+    }
+  }
+
+  /** Plan-view markers for decals: the square that bounds the in-plane marking. */
+  drawDecals(level, editorState) {
+    const ctx = this.ctx;
+    for (const decal of (level.decals || [])) {
+      const selected = editorState.selectedIds.has(decal.id);
+      const reach = Math.max(Math.abs(decal.width), Math.abs(decal.height)) / 2;
+      const s = this.worldToScreen(decal.x - reach, decal.z - reach);
+      const size = Math.max(6, this.worldDistToScreen(reach * 2));
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = selected ? '#4cc2ff' : this.materialFill(decal.material, 0.9, 0.8);
+      ctx.strokeRect(s.x + 0.5, s.y + 0.5, size - 1, size - 1);
+      ctx.setLineDash([]);
+      if (this.zoom >= 22 && size > 14) {
+        ctx.font = '10px ui-monospace, monospace';
+        ctx.fillStyle = selected ? '#8fd6ff' : 'rgba(210, 216, 222, 0.75)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const label = decal.surface === 'floor' ? 'F' : decal.surface === 'ceiling' ? 'C' : 'W';
+        ctx.fillText(label, s.x + size / 2, s.y + size / 2);
+      }
     }
   }
 

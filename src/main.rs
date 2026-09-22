@@ -65,7 +65,7 @@ fn log_prop_usage(renderer: &Renderer) {
         level.surfaces_millis
     );
     println!(
-        "[spatial] {} cells: {} static batch(es) (floor {} / ceiling {} / wall {} / light {} / prop box {}), {} prop batch(es)",
+        "[spatial] {} cells: {} static batch(es) (floor {} / ceiling {} / wall {} / light {} / prop box {} / decal {}), {} prop batch(es)",
         renderer.spatial_grid().describe(),
         renderer.static_batch_count(),
         batches[0],
@@ -73,6 +73,7 @@ fn log_prop_usage(renderer: &Renderer) {
         batches[2],
         batches[3],
         batches[4],
+        batches[5],
         level.prop_draws
     );
     println!(

@@ -37,7 +37,6 @@
     head: [0.72, 0.66, 0.50],
     floor: [0.62, 0.57, 0.46],
     ceiling: [0.86, 0.86, 0.83],
-    light: [1.0, 0.98, 0.85],
     spawn: [0.30, 0.85, 0.45],
     prop: [0.70, 0.68, 0.64]
   };
@@ -826,7 +825,18 @@
     const y = Math.max(0.05, (ceilingHeight || 3.5) - 0.06);
     const x0 = light.x - halfW, x1 = light.x + halfW;
     const z0 = light.z - halfD, z1 = light.z + halfD;
-    const color = COLOR.light;
+    // The panel shows the same authored colour the bake emits into the room,
+    // scaled by the fixture intensity response (see render.rs).
+    const authored = light.brightness !== undefined && light.brightness !== null
+      ? light.brightness
+      : (light.intensity !== undefined && light.intensity !== null ? light.intensity : 1.0);
+    const intensity = lighting.sanitizeIntensity(authored);
+    // An explicitly zero-output fixture is off and shows no glow (see render.rs).
+    const output = intensity <= 0
+      ? 0
+      : Math.min(Math.max(0.40 * Math.min(intensity, 2.0) + 0.60, 0), 1);
+    const emitted = lighting.emittedColor(light);
+    const color = [emitted[0] * output, emitted[1] * output, emitted[2] * output];
     builder.quad(
       [x0, y, z1], [x1, y, z1], [x1, y, z0], [x0, y, z0],
       [scaleColor(color, 0.85), color, color, scaleColor(color, 0.85)],
@@ -950,9 +960,9 @@
         if (roomIndex === undefined || roomIndex < 0) continue;
         const light = baked.sampleInRoom(roomIndex, positions[p], positions[p + 1], positions[p + 2]);
         const c = vertex * 4;
-        colors[c] = Math.min(1, colors[c] * light);
-        colors[c + 1] = Math.min(1, colors[c + 1] * light);
-        colors[c + 2] = Math.min(1, colors[c + 2] * light);
+        colors[c] = Math.min(1, colors[c] * light[0]);
+        colors[c + 1] = Math.min(1, colors[c + 1] * light[1]);
+        colors[c + 2] = Math.min(1, colors[c + 2] * light[2]);
       }
     }
   }

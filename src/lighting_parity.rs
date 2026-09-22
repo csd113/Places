@@ -6,6 +6,10 @@
 //! (`level-editor/tests/lighting-parity.test.mjs`) replays the exact same file
 //! inside a tolerance, so drift between the two implementations fails loudly.
 //!
+//! Baked illumination is three-channel RGB, so vectors carry `[r, g, b]`
+//! arrays: an editor preview that mirrored only brightness would no longer be
+//! able to show the coloured light the game bakes.
+//!
 //! The vector file is generated once and checked in. Regenerate it after an
 //! intentional lighting change with:
 //!
@@ -19,7 +23,7 @@
 #![cfg(test)]
 
 use crate::level::LevelDef;
-use crate::lighting::LevelLighting;
+use crate::lighting::{LevelLighting, LightColor};
 
 /// One parity scenario: raw level data plus the room samples to compare.
 struct Scenario {
@@ -50,6 +54,26 @@ const SCENARIOS: &[Scenario] = &[
             (0, 10.0, 0.0, 10.0),
             (0, 2.0, 0.0, 2.0),
             (0, 1.0, 0.0, 19.0),
+        ],
+    },
+    Scenario {
+        name: "level1_sparse_grid",
+        rooms: r#"{ "x": 0.0, "z": 0.0, "width": 52.0, "depth": 54.0, "height": 3.5 }"#,
+        walls: "",
+        lights: r#"{ "fixture": "core:fluorescent_panel_01", "x": 13.5, "z": 13.0 },
+                 { "fixture": "core:fluorescent_panel_01", "x": 13.5, "z": 26.0 },
+                 { "fixture": "core:fluorescent_panel_01", "x": 13.5, "z": 39.0 },
+                 { "fixture": "core:fluorescent_panel_01", "x": 27.0, "z": 13.0 },
+                 { "fixture": "core:fluorescent_panel_01", "x": 27.0, "z": 26.0 },
+                 { "fixture": "core:fluorescent_panel_01", "x": 27.0, "z": 39.0 },
+                 { "fixture": "core:fluorescent_panel_01", "x": 40.5, "z": 13.0 },
+                 { "fixture": "core:fluorescent_panel_01", "x": 40.5, "z": 26.0 },
+                 { "fixture": "core:fluorescent_panel_01", "x": 40.5, "z": 39.0 }"#,
+        samples: &[
+            (0, 27.0, 0.0, 26.0),
+            (0, 13.5, 0.0, 13.0),
+            (0, 2.0, 0.0, 2.0),
+            (0, 50.0, 0.0, 50.0),
         ],
     },
     Scenario {
@@ -122,6 +146,41 @@ const SCENARIOS: &[Scenario] = &[
             (0, 20.0, 0.0, 4.0),
         ],
     },
+    Scenario {
+        name: "red_and_blue_room",
+        rooms: r#"{ "x": 0.0, "z": 0.0, "width": 16.0, "depth": 8.0, "height": 3.0 }"#,
+        walls: "",
+        lights: r#"{ "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 4.0,
+                     "color": [1.0, 0.0, 0.0] },
+                 { "fixture": "core:fluorescent_panel_01", "x": 12.0, "z": 4.0,
+                     "color": [0.0, 0.0, 1.0] }"#,
+        samples: &[(0, 4.0, 0.0, 4.0), (0, 8.0, 0.0, 4.0), (0, 12.0, 0.0, 4.0)],
+    },
+    Scenario {
+        name: "warm_cool_three_colour",
+        rooms: r#"{ "x": 0.0, "z": 0.0, "width": 18.0, "depth": 6.0, "height": 3.0 }"#,
+        walls: "",
+        lights: r#"{ "fixture": "core:fluorescent_panel_01", "x": 3.0, "z": 3.0,
+                     "color": [1.0, 0.55, 0.1] },
+                 { "fixture": "core:fluorescent_panel_01", "x": 9.0, "z": 3.0,
+                     "color": [0.2, 0.4, 1.0] },
+                 { "fixture": "core:fluorescent_panel_01", "x": 15.0, "z": 3.0,
+                     "color": [0.1, 1.0, 0.3] }"#,
+        samples: &[
+            (0, 3.0, 0.0, 3.0),
+            (0, 9.0, 0.0, 3.0),
+            (0, 15.0, 0.0, 3.0),
+            (0, 6.0, 1.6, 3.0),
+        ],
+    },
+    Scenario {
+        name: "coloured_tall_room",
+        rooms: r#"{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 6.5 }"#,
+        walls: "",
+        lights: r#"{ "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 5.0,
+                     "color": [0.9, 0.3, 0.1], "intensity": 1.5 }"#,
+        samples: &[(0, 5.0, 0.0, 5.0), (0, 5.0, 6.4, 5.0)],
+    },
 ];
 
 /// Full level JSON for one scenario: the same bytes both implementations read.
@@ -141,6 +200,11 @@ fn scenario_level_json(index: usize) -> String {
     )
 }
 
+/// `[r, g, b]` JSON array for one colour.
+fn color_json(color: LightColor) -> serde_json::Value {
+    serde_json::json!([color.r, color.g, color.b])
+}
+
 /// Builds the complete vector document from the current Rust implementation.
 fn build_vectors_document() -> serde_json::Value {
     let mut scenarios = Vec::new();
@@ -155,8 +219,8 @@ fn build_vectors_document() -> serde_json::Value {
                 serde_json::json!({
                     "area": room.area_m2,
                     "fixture_count": room.fixture_count,
-                    "effective_power": room.effective_power,
-                    "baseline": room.baseline,
+                    "effective_power": color_json(room.effective_power),
+                    "baseline": color_json(room.baseline),
                 })
             })
             .collect();
@@ -169,7 +233,7 @@ fn build_vectors_document() -> serde_json::Value {
                     "x": x,
                     "y": y,
                     "z": z,
-                    "value": lighting.sample_in_room(*room, *x, *y, *z),
+                    "value": color_json(lighting.sample_in_room(*room, *x, *y, *z)),
                 })
             })
             .collect();
@@ -180,7 +244,7 @@ fn build_vectors_document() -> serde_json::Value {
         }));
     }
     serde_json::json!({
-        "comment": "Generated by src/lighting_parity.rs; Rust is authoritative. Regenerate with: cargo test -- --ignored generate_lighting_parity_vectors",
+        "comment": "Generated by src/lighting_parity.rs; Rust is authoritative. Values are [r, g, b]. Regenerate with: cargo test -- --ignored generate_lighting_parity_vectors",
         "scenarios": scenarios,
     })
 }
@@ -199,6 +263,19 @@ fn generate_lighting_parity_vectors() {
         panic!("cannot write {path}: {error}; run from the app directory");
     });
     println!("wrote {path}");
+}
+
+/// Reads one `[r, g, b]` array from the vector document.
+fn read_color(value: &serde_json::Value, context: &str) -> [f32; 3] {
+    let array = value
+        .as_array()
+        .unwrap_or_else(|| panic!("{context}: expected an [r, g, b] array"));
+    assert_eq!(array.len(), 3, "{context}: expected three channels");
+    [
+        array[0].as_f64().unwrap_or_else(|| panic!("{context}: r")) as f32,
+        array[1].as_f64().unwrap_or_else(|| panic!("{context}: g")) as f32,
+        array[2].as_f64().unwrap_or_else(|| panic!("{context}: b")) as f32,
+    ]
 }
 
 /// The checked-in vectors must match the current Rust implementation.
@@ -227,11 +304,10 @@ fn lighting_parity_vectors_match_rust() {
         let expected_rooms = expected["rooms"].as_array().expect("rooms array");
         assert_eq!(expected_rooms.len(), lighting.rooms().len());
         for (room, expected) in lighting.rooms().iter().zip(expected_rooms) {
+            let context = format!("{}: room", scenario.name);
             for (field, actual) in [
                 ("area", room.area_m2),
                 ("fixture_count", room.fixture_count as f32),
-                ("effective_power", room.effective_power),
-                ("baseline", room.baseline),
             ] {
                 let wanted = expected[field]
                     .as_f64()
@@ -243,6 +319,20 @@ fn lighting_parity_vectors_match_rust() {
                     scenario.name
                 );
             }
+            for (field, actual) in [
+                ("effective_power", room.effective_power),
+                ("baseline", room.baseline),
+            ] {
+                let wanted = read_color(&expected[field], &format!("{context} {field}"));
+                for (channel, (actual, wanted)) in actual.to_array().iter().zip(wanted).enumerate()
+                {
+                    assert!(
+                        (actual - wanted).abs() < 1e-5,
+                        "{}: room {field}[{channel}] drifted: {actual} vs vector {wanted}",
+                        scenario.name
+                    );
+                }
+            }
         }
 
         let expected_samples = expected["samples"].as_array().expect("samples array");
@@ -250,12 +340,17 @@ fn lighting_parity_vectors_match_rust() {
         for (sample, expected) in scenario.samples.iter().zip(expected_samples) {
             let (room, x, y, z) = *sample;
             let actual = lighting.sample_in_room(room, x, y, z);
-            let wanted = expected["value"].as_f64().expect("sample value") as f32;
-            assert!(
-                (actual - wanted).abs() < 1e-5,
-                "{}: sample ({room}, {x}, {y}, {z}) drifted: {actual} vs vector {wanted}",
-                scenario.name
+            let wanted = read_color(
+                &expected["value"],
+                &format!("{}: sample ({room}, {x}, {y}, {z})", scenario.name),
             );
+            for (channel, (actual, wanted)) in actual.to_array().iter().zip(wanted).enumerate() {
+                assert!(
+                    (actual - wanted).abs() < 1e-5,
+                    "{}: sample ({room}, {x}, {y}, {z})[{channel}] drifted: {actual} vs vector {wanted}",
+                    scenario.name
+                );
+            }
         }
     }
 }

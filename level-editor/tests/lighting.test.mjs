@@ -2,14 +2,17 @@
 //
 // These tests cover the externally meaningful behaviour the game's
 // src/lighting.rs tests also cover, so an author can trust the preview's
-// relative brightness even though it is an approximation.
+// relative brightness and colour even though it is an approximation.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import lighting from '../js/lighting.js';
 import geometry from '../js/geometry.js';
 import model from '../js/model.js';
 
-const { TUNING, bakeLevelLighting, sanitizeIntensity, roomBaseline, smoothFalloff } = lighting;
+const {
+  TUNING, bakeLevelLighting, sanitizeIntensity, sanitizeColor, emittedColor,
+  roomBaseline, smoothFalloff, luminance
+} = lighting;
 
 function levelWith(rooms, lights, walls) {
   return {
@@ -35,23 +38,23 @@ test('more fixtures raise a room baseline and larger rooms lower it', () => {
     [room(0, 0, 20, 20, 3.5)],
     [light(5, 5), light(15, 5), light(5, 15), light(15, 15)]
   ));
-  assert.ok(one.rooms[0].baseline < four.rooms[0].baseline);
+  assert.ok(luminance(one.rooms[0].baseline) < luminance(four.rooms[0].baseline));
 
   const large = bakeLevelLighting(levelWith([room(0, 0, 60, 60, 3.5)], [light(30, 30)]));
-  assert.ok(large.rooms[0].baseline < one.rooms[0].baseline);
-  assert.ok(large.rooms[0].baseline >= TUNING.MIN_AMBIENT);
+  assert.ok(luminance(large.rooms[0].baseline) < luminance(one.rooms[0].baseline));
+  assert.ok(luminance(large.rooms[0].baseline) >= TUNING.AMBIENT_LEVEL);
 });
 
 test('fixture intensity scales the baseline and defaults to one', () => {
   const weak = bakeLevelLighting(levelWith([room(0, 0, 16, 16, 3.5)], [light(8, 8, { brightness: 0.5 })]));
   const standard = bakeLevelLighting(levelWith([room(0, 0, 16, 16, 3.5)], [light(8, 8)]));
   const strong = bakeLevelLighting(levelWith([room(0, 0, 16, 16, 3.5)], [light(8, 8, { brightness: 2.0 })]));
-  assert.ok(weak.rooms[0].baseline < standard.rooms[0].baseline);
-  assert.ok(standard.rooms[0].baseline < strong.rooms[0].baseline);
+  assert.ok(luminance(weak.rooms[0].baseline) < luminance(standard.rooms[0].baseline));
+  assert.ok(luminance(standard.rooms[0].baseline) < luminance(strong.rooms[0].baseline));
 
   // The `intensity` alias is accepted too.
   const alias = bakeLevelLighting(levelWith([room(0, 0, 16, 16, 3.5)], [light(8, 8, { intensity: 2.0 })]));
-  assert.equal(alias.rooms[0].baseline, strong.rooms[0].baseline);
+  assert.deepEqual(alias.rooms[0].baseline, strong.rooms[0].baseline);
   assert.equal(alias.lights[0].intensity, 2.0);
 });
 
@@ -59,15 +62,17 @@ test('higher ceilings make the same fixtures less effective', () => {
   const low = bakeLevelLighting(levelWith([room(0, 0, 16, 16, 2.6)], [light(8, 8)]));
   const normal = bakeLevelLighting(levelWith([room(0, 0, 16, 16, 3.5)], [light(8, 8)]));
   const tall = bakeLevelLighting(levelWith([room(0, 0, 16, 16, 5.0)], [light(8, 8)]));
-  assert.ok(low.rooms[0].baseline > normal.rooms[0].baseline);
-  assert.ok(normal.rooms[0].baseline > tall.rooms[0].baseline);
+  assert.ok(luminance(low.rooms[0].baseline) > luminance(normal.rooms[0].baseline));
+  assert.ok(luminance(normal.rooms[0].baseline) > luminance(tall.rooms[0].baseline));
 });
 
-test('an unlit room stays at the minimum ambient, never black', () => {
+test('an unlit room stays at the small ambient fill, never black and never bright', () => {
   const empty = bakeLevelLighting(levelWith([room(0, 0, 12, 12, 3.0)], []));
-  assert.equal(empty.rooms[0].baseline, TUNING.MIN_AMBIENT);
-  assert.equal(empty.sample(6, 0, 6), TUNING.MIN_AMBIENT);
-  assert.ok(TUNING.MIN_AMBIENT > 0);
+  assert.deepEqual(empty.rooms[0].baseline, [TUNING.AMBIENT_LEVEL, TUNING.AMBIENT_LEVEL, TUNING.AMBIENT_LEVEL]);
+  assert.deepEqual(empty.sample(6, 0, 6), [TUNING.AMBIENT_LEVEL, TUNING.AMBIENT_LEVEL, TUNING.AMBIENT_LEVEL]);
+  assert.ok(TUNING.AMBIENT_LEVEL > 0);
+  // Regression guard against the historical 0.55 floor.
+  assert.ok(TUNING.AMBIENT_LEVEL < 0.2);
 });
 
 test('malformed intensities are sanitized to finite, non-negative values', () => {
@@ -78,22 +83,58 @@ test('malformed intensities are sanitized to finite, non-negative values', () =>
   assert.ok(sanitizeIntensity(Infinity) > 0);
   const level = levelWith([room(0, 0, 10, 10, 3.0)], [light(5, 5, { brightness: -2 })]);
   const baked = bakeLevelLighting(level);
-  assert.ok(Number.isFinite(baked.sample(5, 0, 5)));
-  assert.ok(baked.sample(5, 0, 5) >= TUNING.MIN_AMBIENT);
+  assert.ok(Number.isFinite(luminance(baked.sample(5, 0, 5))));
+  assert.ok(luminance(baked.sample(5, 0, 5)) >= TUNING.AMBIENT_LEVEL);
+});
+
+test('malformed colours are sanitized and omitted colours use the warm default', () => {
+  assert.deepEqual(sanitizeColor(undefined), TUNING.DEFAULT_LIGHT_COLOR);
+  assert.deepEqual(sanitizeColor(null), TUNING.DEFAULT_LIGHT_COLOR);
+  assert.deepEqual(sanitizeColor([1.5, -1, 0.5]), [1, 0, 0.5]);
+  assert.deepEqual(sanitizeColor([NaN, Infinity, 0.25]), [0, 1, 0.25]);
+  assert.deepEqual(emittedColor({}), TUNING.DEFAULT_LIGHT_COLOR);
+  assert.deepEqual(emittedColor({ color: [0, 0, 1] }), [0, 0, 1]);
+  const baked = bakeLevelLighting(levelWith([room(0, 0, 10, 10, 3)], [light(5, 5)]));
+  assert.deepEqual(baked.lights[0].color, TUNING.DEFAULT_LIGHT_COLOR);
+});
+
+test('coloured fixtures tint the baked samples in their own channels', () => {
+  const red = bakeLevelLighting(levelWith([room(0, 0, 16, 16, 3)], [light(8, 8, { color: [1, 0, 0] })]));
+  const blue = bakeLevelLighting(levelWith([room(0, 0, 16, 16, 3)], [light(8, 8, { color: [0, 0, 1] })]));
+  const redSample = red.sample(8, 0, 8);
+  const blueSample = blue.sample(8, 0, 8);
+  assert.ok(redSample[0] > redSample[1] + 0.1, `red fixture must dominate red: ${redSample}`);
+  assert.ok(blueSample[2] > blueSample[0] + 0.1, `blue fixture must dominate blue: ${blueSample}`);
+  assert.equal(redSample[1], TUNING.AMBIENT_LEVEL);
+  assert.equal(redSample[2], TUNING.AMBIENT_LEVEL);
+
+  // Two colours in one room accumulate instead of one replacing the other.
+  const mixed = bakeLevelLighting(levelWith(
+    [room(0, 0, 16, 8, 3)],
+    [light(4, 4, { color: [1, 0, 0] }), light(12, 4, { color: [0, 0, 1] })]
+  ));
+  const middle = mixed.sample(8, 0, 4);
+  assert.ok(middle[0] > TUNING.AMBIENT_LEVEL + 0.05, `red must survive: ${middle}`);
+  assert.ok(middle[2] > TUNING.AMBIENT_LEVEL + 0.05, `blue must survive: ${middle}`);
 });
 
 test('saturation keeps extreme fixture counts inside the allowed range', () => {
   const lights = [];
   for (let i = 0; i < 200; i++) lights.push(light(2 + (i % 10) * 0.2, 2 + Math.floor(i / 10) * 0.2, { brightness: 2 }));
   const baked = bakeLevelLighting(levelWith([room(0, 0, 4, 4, 3.5)], lights));
-  assert.ok(baked.rooms[0].baseline <= TUNING.MAX_BRIGHTNESS);
-  assert.ok(baked.rooms[0].baseline > 0.99);
-  assert.ok(Number.isFinite(baked.sample(2, 0, 2)));
-  assert.ok(baked.sample(2, 0, 2) <= TUNING.MAX_BRIGHTNESS);
+  assert.ok(luminance(baked.rooms[0].baseline) <= TUNING.MAX_BRIGHTNESS);
+  assert.ok(luminance(baked.rooms[0].baseline) > 0.85);
+  assert.ok(Number.isFinite(luminance(baked.sample(2, 0, 2))));
+  assert.ok(luminance(baked.sample(2, 0, 2)) <= TUNING.MAX_BRIGHTNESS);
 
   // The pure curve never exceeds its bounds either.
-  assert.equal(roomBaseline(0, 0), TUNING.MIN_AMBIENT);
-  assert.equal(roomBaseline(0, 1e30), TUNING.MAX_BRIGHTNESS);
+  assert.deepEqual(roomBaseline(0, [0, 0, 0]), [TUNING.AMBIENT_LEVEL, TUNING.AMBIENT_LEVEL, TUNING.AMBIENT_LEVEL]);
+  assert.deepEqual(
+    roomBaseline(0, [Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE]),
+    [1, 1, 1]
+  );
+  // A finite extreme saturates just below the maximum, exactly like the game.
+  assert.ok(luminance(roomBaseline(0, [1e30, 1e30, 1e30])) > 0.98);
   assert.equal(smoothFalloff(0), 1);
   assert.equal(smoothFalloff(1), 0);
   assert.equal(smoothFalloff(NaN), 0);
@@ -101,12 +142,12 @@ test('saturation keeps extreme fixture counts inside the allowed range', () => {
 
 test('fixture pools brighten the floor beneath a fixture', () => {
   const baked = bakeLevelLighting(levelWith([room(0, 0, 24, 8, 3.0)], [light(4, 4)]));
-  const beneath = baked.sample(4, 0, 4);
-  const near = baked.sample(6.5, 0, 4);
-  const far = baked.sample(20, 0, 4);
+  const beneath = luminance(baked.sample(4, 0, 4));
+  const near = luminance(baked.sample(6.5, 0, 4));
+  const far = luminance(baked.sample(20, 0, 4));
   assert.ok(beneath > near, `${beneath} should beat ${near}`);
   assert.ok(near > far, `${near} should beat ${far}`);
-  assert.ok(Math.abs(far - baked.rooms[0].baseline) < 1e-6);
+  assert.ok(Math.abs(far - luminance(baked.rooms[0].baseline)) < 1e-6);
 });
 
 test('doorways blend between differently lit rooms instead of stepping', () => {
@@ -121,21 +162,26 @@ test('doorways blend between differently lit rooms instead of stepping', () => {
   };
   const open = bakeLevelLighting(levelWith(rooms, lights, [wall]));
   const closed = bakeLevelLighting(levelWith(rooms, lights, [Object.assign({}, wall, { openings: [] })]));
-  assert.ok(open.rooms[0].baseline > open.rooms[1].baseline + 0.1, 'test setup needs contrast');
+  assert.ok(
+    luminance(open.rooms[0].baseline) > luminance(open.rooms[1].baseline) + 0.1,
+    'test setup needs contrast'
+  );
 
-  const brightNearDoor = open.sampleInRoom(0, 9.9, 0, 5);
-  const brightSolid = closed.sampleInRoom(0, 9.9, 0, 5);
-  const dimNearDoor = open.sampleInRoom(1, 10.5, 0, 5);
-  const dimSolid = closed.sampleInRoom(1, 10.5, 0, 5);
+  const brightNearDoor = luminance(open.sampleInRoom(0, 9.9, 0, 5));
+  const brightSolid = luminance(closed.sampleInRoom(0, 9.9, 0, 5));
+  const dimNearDoor = luminance(open.sampleInRoom(1, 10.5, 0, 5));
+  const dimSolid = luminance(closed.sampleInRoom(1, 10.5, 0, 5));
   assert.ok(brightNearDoor < brightSolid, 'the bright side loses light to the dim room');
   assert.ok(dimNearDoor > dimSolid, 'the dim side gains light from the bright room');
-  assert.ok(Math.abs(brightNearDoor - dimNearDoor) < 0.05, 'no hard seam at the threshold');
+  assert.ok(Math.abs(brightNearDoor - dimNearDoor) < 0.15, 'no hard seam at the threshold');
 
   // Bounded: far from the opening both rooms keep their baselines.
-  assert.ok(Math.abs(open.sampleInRoom(1, 35, 0, 15) - closed.sampleInRoom(1, 35, 0, 15)) < 1e-6);
+  assert.ok(
+    Math.abs(luminance(open.sampleInRoom(1, 35, 0, 15)) - luminance(closed.sampleInRoom(1, 35, 0, 15))) < 1e-6
+  );
 });
 
-test('the 3D preview mesh bakes room brightness into its vertex colours', () => {
+test('the 3D preview mesh bakes room colour into its vertex colours', () => {
   // A small, well-lit room next to a large, dim one: the same fixture count
   // must produce visibly different pre-grey levels in the preview.
   const rooms = [room(0, 0, 6, 6, 3.0), room(24, 0, 60, 60, 3.0)];
@@ -146,13 +192,16 @@ test('the 3D preview mesh bakes room brightness into its vertex colours', () => 
   );
   const mesh = geometry.buildLevelMesh(level);
   const baked = bakeLevelLighting(level);
-  assert.ok(baked.rooms[0].baseline > baked.rooms[1].baseline + 0.1, 'test setup needs contrast');
+  assert.ok(
+    luminance(baked.rooms[0].baseline) > luminance(baked.rooms[1].baseline) + 0.1,
+    'test setup needs contrast'
+  );
 
   const floor = mesh.batches.find((batch) => batch.name === 'floor');
   assert.ok(floor && floor.count > 0);
-  const luminance = (vertex) => mesh.colors[vertex * 4];
-  const small = luminance(floor.start);
-  const large = luminance(floor.start + 6);
+  const red = (vertex) => mesh.colors[vertex * 4];
+  const small = red(floor.start);
+  const large = red(floor.start + 6);
   assert.ok(small > large + 0.05, `a well-lit room must read brighter: ${small} vs ${large}`);
 
   // Every vertex stays inside the renderer's valid colour range.
@@ -164,17 +213,30 @@ test('the 3D preview mesh bakes room brightness into its vertex colours', () => 
   // The wall batch is baked too (walls carry the per-vertex gradients).
   const wall = mesh.batches.find((batch) => batch.name === 'walls');
   assert.ok(wall && wall.count > 0);
-  assert.ok(luminance(wall.start) <= geometry.COLOR.wall[0] + 1e-6);
+  assert.ok(red(wall.start) <= geometry.COLOR.wall[0] + 1e-6);
 
   // The emissive fixture panels are left alone by the bake: their brightest
-  // corner is the un-dimmed fixture glow.
+  // corner is the un-dimmed fixture glow (the authored colour at full output).
   const lights = mesh.batches.find((batch) => batch.name === 'lights');
   assert.ok(lights && lights.count > 0);
   let lightMax = 0;
   for (let v = lights.start; v < lights.start + lights.count; v++) {
-    lightMax = Math.max(lightMax, luminance(v));
+    lightMax = Math.max(lightMax, red(v));
   }
-  assert.equal(lightMax, geometry.COLOR.light[0]);
+  assert.equal(lightMax, TUNING.DEFAULT_LIGHT_COLOR[0]);
+
+  // A coloured fixture shows that colour on its panel.
+  const coloured = geometry.buildLevelMesh(levelWith(
+    [room(0, 0, 6, 6, 3.0)],
+    [light(3, 3, { color: [0, 0.2, 1] })],
+    []
+  ));
+  const colouredLights = coloured.batches.find((batch) => batch.name === 'lights');
+  let maxBlue = 0;
+  for (let v = colouredLights.start; v < colouredLights.start + colouredLights.count; v++) {
+    maxBlue = Math.max(maxBlue, coloured.colors[v * 4 + 2]);
+  }
+  assert.equal(maxBlue, 1);
 
   // Disabling the lighting option restores the flat preview colours.
   const flat = geometry.buildLevelMesh(level, { lighting: false });
@@ -196,6 +258,17 @@ test('the preview respects the model-level intensity limit', () => {
   });
   const baked = bakeLevelLighting(parsed);
   assert.equal(baked.lights[0].intensity, 1.4);
+  // The editor's CeilingLight model carries the authored colour through.
+  const coloured = new model.Level({
+    format_version: 1,
+    id: 'preview_colour',
+    name: 'Preview Colour',
+    spawn: { x: 0, z: 0 },
+    rooms: [{ x: 0, z: 0, width: 10, depth: 10, height: 3 }],
+    ceiling_lights: [{ fixture: 'core:fluorescent_panel_01', x: 5, z: 5, color: [0.1, 0.2, 0.9] }]
+  });
+  const bakedColoured = bakeLevelLighting(coloured);
+  assert.deepEqual(bakedColoured.lights[0].color, [0.1, 0.2, 0.9]);
 });
 
 test('fixture orientation is one shared rule for the bake and the preview mesh', () => {

@@ -4,6 +4,39 @@
 // inside an Advanced <details> section (which the app hides entirely in simple mode).
 // Nothing here mutates the level directly except through small, explicit helpers.
 
+/** Formats an authored light colour as the properties panel's text field. */
+function formatLightColor(color) {
+  if (!Array.isArray(color) || color.length !== 3) return '';
+  return color.map((channel) => Number(Number(channel).toFixed(3))).join(', ');
+}
+
+/**
+ * Parses the light colour field.
+ *
+ * `''` clears the colour back to the game's warm default (`null`); `#rrggbb`
+ * and `r, g, b` with 0..1 channels are accepted. Anything else returns
+ * `undefined`, which the caller treats as "leave the colour alone" so typing
+ * cannot destroy a valid colour halfway through.
+ */
+function parseLightColor(value) {
+  const text = String(value === undefined || value === null ? '' : value).trim();
+  if (!text) return null;
+  const hex = /^#([0-9a-f]{6})$/i.exec(text);
+  if (hex) {
+    const number = parseInt(hex[1], 16);
+    return [
+      ((number >> 16) & 255) / 255,
+      ((number >> 8) & 255) / 255,
+      (number & 255) / 255
+    ].map((channel) => Number(channel.toFixed(4)));
+  }
+  const parts = text.split(',').map((part) => Number(part.trim()));
+  if (parts.length !== 3 || !parts.every((channel) => Number.isFinite(channel) && channel >= 0 && channel <= 1)) {
+    return undefined;
+  }
+  return parts;
+}
+
 class PropertiesPanel {
   constructor(container, app) {
     this.container = container;
@@ -251,6 +284,8 @@ class PropertiesPanel {
     if (prop) return this.renderProp(prop);
     const patch = level.floor_patches.find(p => p.id === id);
     if (patch) return this.renderPatch(patch);
+    const decal = (level.decals || []).find(d => d.id === id);
+    if (decal) return this.renderDecal(decal);
     const openingRef = LiminalOps.findOpening(level, id);
     if (openingRef) return this.renderOpening(openingRef.wall, openingRef.opening);
     return null;
@@ -413,8 +448,13 @@ class PropertiesPanel {
         ${this.field('Brightness', this.input('light', 'brightness', light.brightness, { min: 0.1, max: 5, step: 0.1 }))}
         <label class="switch"><input type="checkbox" data-obj="light" data-field="turned" ${Math.round(light.rotation_degrees / 90) % 2 !== 0 ? 'checked' : ''}><span>Turned 90°</span></label>
       </div>
+      <div class="fields">
+        ${this.field('Colour (r, g, b or #hex)', this.text('light', 'color', formatLightColor(light.color), 'Colour'))}
+      </div>
       <p class="field-note">Fixture output (intensity ×): 0.5 weak, 1.0 standard, 2.0 high output.
-        The game bakes this into the room's brightness and the pool beneath the panel; omitted means 1.0.</p>
+        The game bakes this into the room's brightness and the pool beneath the panel; omitted means 1.0.
+        Colour is the emitted light (0..1 per channel): a blue fixture lights nearby geometry blue.
+        Leave it empty for the default warm fluorescent.</p>
       <p class="hint">Fits the ceiling at ${this.num(level.getCeilingHeight(light.x, light.z), 1)} m.</p>
       ${this.actions(light.id)}
       ${this.advanced(`
@@ -505,15 +545,45 @@ class PropertiesPanel {
     `;
   }
 
+  renderDecal(decal) {
+    const surfaces = DECAL_SURFACES.map(s => `<option value="${s}"${decal.surface === s ? ' selected' : ''}>${s.replace('_', ' ')}</option>`).join('');
+    return `
+      <h4>Decal</h4>
+      ${this.header('Decal · surface marking', 'room', decal.id)}
+      <div class="fields two">
+        ${this.field('Width (m)', this.input('decal', 'width', decal.width, { min: 0.05, max: DECAL_MAX_SIZE, step: 0.1 }))}
+        ${this.field('Height (m)', this.input('decal', 'height', decal.height, { min: 0.05, max: DECAL_MAX_SIZE, step: 0.1 }))}
+      </div>
+      <div class="fields">
+        ${this.materialField('Sheet', 'decal', 'material', 'decal', decal.material, false)}
+        ${this.field('Surface', `<select data-obj="decal" data-field="surface" data-label="Surface">${surfaces}</select>`)}
+        ${this.field('Rotation (degrees)', this.input('decal', 'rotation_degrees', decal.rotation_degrees, { step: 15 }))}
+      </div>
+      <p class="hint">A decal is printed flat on its surface. Rotation spins it in the surface plane; the game draws decals last with a tiny depth bias, so no offset is authored here.</p>
+      ${this.actions(decal.id)}
+      ${this.advanced(`
+        <div class="fields two">
+          ${this.field('Position X (m)', this.input('decal', 'x', decal.x, { step: 0.05 }))}
+          ${this.field('Position Z (m)', this.input('decal', 'z', decal.z, { step: 0.05 }))}
+        </div>
+        <div class="fields two">
+          ${this.field('Height Y (m)', this.input('decal', 'y', decal.y, { step: 0.05 }))}
+          ${this.field('Object ID', `<input type="text" value="${this.esc(decal.id)}" disabled>`)}
+        </div>
+      `)}
+    `;
+  }
+
   renderMulti(ids) {
     const level = this.app.level;
-    const counts = { room: 0, wall: 0, light: 0, prop: 0, opening: 0, spawn: 0 };
+    const counts = { room: 0, wall: 0, light: 0, prop: 0, decal: 0, opening: 0, spawn: 0 };
     for (const id of ids) {
       if (id === 'spawn') counts.spawn++;
       else if (level.rooms.some(r => r.id === id)) counts.room++;
       else if (level.walls.some(w => w.id === id)) counts.wall++;
       else if (level.ceiling_lights.some(l => l.id === id)) counts.light++;
       else if (level.props.some(p => p.id === id)) counts.prop++;
+      else if ((level.decals || []).some(d => d.id === id)) counts.decal++;
       else if (LiminalOps.findOpening(level, id)) counts.opening++;
     }
     const summary = Object.entries(counts).filter(([, n]) => n > 0)
@@ -558,6 +628,7 @@ class PropertiesPanel {
     if (obj === 'light') return level.ceiling_lights.find(l => l.id === id);
     if (obj === 'prop') return level.props.find(p => p.id === id);
     if (obj === 'patch') return level.floor_patches.find(p => p.id === id);
+    if (obj === 'decal') return (level.decals || []).find(d => d.id === id);
     if (obj === 'multi') return { ids: [...this.app.editor.selectedIds] };
     return null;
   }
@@ -570,6 +641,7 @@ class PropertiesPanel {
     if (field === 'thickness' && wall) return LiminalGeometry.wallThickness(wall);
     if (field === 'fullHeight' && wall) return wall.height === null || wall.height === undefined;
     if (field === 'turned') return Math.round(target.rotation_degrees / 90) % 2 !== 0 ? 1 : 0;
+    if (field === 'color') return formatLightColor(target.color);
     if (field.startsWith('face-') && wall) return wall.faces[field.slice(5)] || '';
     if (field.startsWith('size')) {
       const index = Number(field.slice(4));
@@ -615,6 +687,10 @@ class PropertiesPanel {
       if (target.openings) LiminalOps.clampWallOpenings(target);
     } else if (field === 'turned') {
       target.rotation_degrees = value ? 90 : 0;
+    } else if (field === 'color') {
+      const parsed = parseLightColor(value);
+      if (parsed === undefined) return;
+      target.color = parsed;
     } else if (field.startsWith('face-')) {
       const face = field.slice(5);
       if (value && String(value).trim()) target.faces[face] = String(value).trim();

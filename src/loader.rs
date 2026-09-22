@@ -628,6 +628,13 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
             level.props.len()
         ));
     }
+    if u64::try_from(level.decals.len()).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_DECALS {
+        return Err(format!(
+            "Level contains too many decals: {} (limit: {})",
+            level.decals.len(),
+            crate::level::MAX_LEVEL_DECALS
+        ));
+    }
 
     for (i, r) in level.room_iter().enumerate() {
         if !r.width.is_finite() || !r.depth.is_finite() || !r.height.is_finite() {
@@ -729,6 +736,17 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
                 return Err(format!("Ceiling light {i} intensity cannot be negative"));
             }
         }
+        // The optional emitted colour. Omitted means the standard warm
+        // fixture; channels outside `[0, 1]` or non-finite values are
+        // malformed data, exactly like a negative intensity.
+        if let Some(color) = light.color
+            && !color.is_valid()
+        {
+            return Err(format!(
+                "Ceiling light {i} colour channels must be finite numbers between 0 and {}",
+                crate::lighting::MAX_LIGHT_COLOR
+            ));
+        }
     }
 
     for (i, prop) in level.props.iter().enumerate() {
@@ -754,6 +772,37 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
             return Err(format!(
                 "Prop {i} size must contain positive finite numbers"
             ));
+        }
+    }
+
+    for (i, decal) in level.decals.iter().enumerate() {
+        if !decal.x.is_finite()
+            || !decal.y.is_finite()
+            || !decal.z.is_finite()
+            || !decal.rotation_degrees.is_finite()
+        {
+            return Err(format!(
+                "Decal {i} position and rotation must be finite numbers"
+            ));
+        }
+        if !decal.width.is_finite() || !decal.height.is_finite() {
+            return Err(format!("Decal {i} size must be finite numbers"));
+        }
+        if decal.width <= 0.0 || decal.height <= 0.0 {
+            return Err(format!("Decal {i} width and height must be positive"));
+        }
+        if decal.width > crate::level::MAX_DECAL_SIZE_M
+            || decal.height > crate::level::MAX_DECAL_SIZE_M
+        {
+            return Err(format!(
+                "Decal {i} is larger than the {} m limit ({} x {})",
+                crate::level::MAX_DECAL_SIZE_M,
+                decal.width,
+                decal.height
+            ));
+        }
+        if decal.material.trim().is_empty() {
+            return Err(format!("Decal {i} must reference a non-empty material id"));
         }
     }
 
@@ -1228,6 +1277,7 @@ mod tests {
             }],
             floor_patches: vec![],
             ceiling_lights: vec![],
+            decals: Vec::new(),
             props: vec![],
         };
         assert!(validate_level(&level).is_ok());
@@ -1251,6 +1301,7 @@ mod tests {
             walls: vec![],
             floor_patches: vec![],
             ceiling_lights: vec![],
+            decals: Vec::new(),
             props: vec![],
         };
         assert!(validate_level(&level).is_err());
@@ -1317,6 +1368,7 @@ mod tests {
             ],
             floor_patches: vec![],
             ceiling_lights: vec![],
+            decals: Vec::new(),
             props: vec![],
         };
         assert!(validate_level(&level).is_ok());
@@ -1424,6 +1476,7 @@ mod tests {
             walls: vec![],
             floor_patches: vec![],
             ceiling_lights: vec![],
+            decals: Vec::new(),
             props: vec![],
         };
 
@@ -2014,40 +2067,40 @@ mod tests {
         );
         for room in lighting.rooms() {
             assert!(
-                room.baseline >= crate::lighting::MIN_AMBIENT
-                    && room.baseline <= crate::lighting::MAX_BRIGHTNESS,
+                room.baseline.luminance() >= crate::lighting::AMBIENT_LEVEL
+                    && room.baseline.luminance() <= crate::lighting::MAX_BRIGHTNESS,
                 "baseline {} out of range",
-                room.baseline
+                room.baseline.luminance()
             );
-            assert!(room.baseline.is_finite());
+            assert!(room.baseline.luminance().is_finite());
         }
         let corridor = &lighting.rooms()[4];
         for room in &lighting.rooms()[..4] {
             assert!(
-                corridor.baseline > room.baseline,
+                corridor.baseline.luminance() > room.baseline.luminance(),
                 "the corridor ({}) should read brighter than a room ({})",
-                corridor.baseline,
-                room.baseline
+                corridor.baseline.luminance(),
+                room.baseline.luminance()
             );
         }
         // A fixture casts a local pool: directly beneath a corridor panel is
         // brighter than the corridor's baseline.
-        let beneath = lighting.sample(-7.0, 0.0, 0.0);
+        let beneath = lighting.sample_luminance(-7.0, 0.0, 0.0);
         assert!(
-            beneath > corridor.baseline + 0.02,
+            beneath > corridor.baseline.luminance() + 0.02,
             "expected a visible pool beneath the panel: {beneath} vs {}",
-            corridor.baseline
+            corridor.baseline.luminance()
         );
         // Doorway blending: the two sides of the living-room door (25 cm apart,
         // on opposite sides of the wall) read nearly the same, even though the
         // two rooms' baselines differ by enough to show a seam without blending.
-        let living = lighting.rooms()[0].baseline;
+        let living = lighting.rooms()[0].baseline.luminance();
         assert!(
-            (corridor.baseline - living).abs() > 0.05,
+            (corridor.baseline.luminance() - living).abs() > 0.05,
             "the demo's rooms and corridor should differ enough to prove blending"
         );
-        let living_side = lighting.sample(-13.4, 0.0, -1.9);
-        let corridor_side = lighting.sample(-13.4, 0.0, -1.6);
+        let living_side = lighting.sample_luminance(-13.4, 0.0, -1.9);
+        let corridor_side = lighting.sample_luminance(-13.4, 0.0, -1.6);
         assert!(
             (living_side - corridor_side).abs() < 0.05,
             "the doorway seam should be blended, got {living_side} vs {corridor_side}"
@@ -2077,10 +2130,11 @@ mod tests {
         assert_eq!(counts, vec![0, 1, 2, 4], "density row fixture counts");
         for pair in density.windows(2) {
             assert!(
-                lighting.rooms()[pair[0]].baseline < lighting.rooms()[pair[1]].baseline,
+                lighting.rooms()[pair[0]].baseline.luminance()
+                    < lighting.rooms()[pair[1]].baseline.luminance(),
                 "the density row must brighten eastwards: {:?} vs {:?}",
-                lighting.rooms()[pair[0]].baseline,
-                lighting.rooms()[pair[1]].baseline
+                lighting.rooms()[pair[0]].baseline.luminance(),
+                lighting.rooms()[pair[1]].baseline.luminance()
             );
         }
 
@@ -2090,10 +2144,11 @@ mod tests {
         assert_eq!(lighting.rooms()[weak].fixture_count, 1);
         assert_eq!(lighting.rooms()[strong].fixture_count, 1);
         assert!(
-            lighting.rooms()[strong].baseline > lighting.rooms()[weak].baseline + 0.05,
+            lighting.rooms()[strong].baseline.luminance()
+                > lighting.rooms()[weak].baseline.luminance() + 0.05,
             "the strong fixture room ({}) must clearly beat the weak one ({})",
-            lighting.rooms()[strong].baseline,
-            lighting.rooms()[weak].baseline
+            lighting.rooms()[strong].baseline.luminance(),
+            lighting.rooms()[weak].baseline.luminance()
         );
 
         // Ceiling height: same area and fixtures, 2.6 m vs 4.2 m. The lower
@@ -2105,16 +2160,17 @@ mod tests {
             lighting.rooms()[tall].fixture_count
         );
         assert!(
-            lighting.rooms()[low].baseline > lighting.rooms()[tall].baseline,
+            lighting.rooms()[low].baseline.luminance()
+                > lighting.rooms()[tall].baseline.luminance(),
             "the lower room ({}) must beat the taller one ({})",
-            lighting.rooms()[low].baseline,
-            lighting.rooms()[tall].baseline
+            lighting.rooms()[low].baseline.luminance(),
+            lighting.rooms()[tall].baseline.luminance()
         );
         // Matched corners beside each room's outer wall: the 2.6 m room's pool
         // is strong enough to reach the cap while the 4.2 m room's floor at the
         // same relative point stays visibly below it.
-        let low_corner = lighting.sample(14.6, 0.0, 1.2);
-        let tall_corner = lighting.sample(22.2, 0.0, 1.2);
+        let low_corner = lighting.sample_luminance(14.6, 0.0, 1.2);
+        let tall_corner = lighting.sample_luminance(22.2, 0.0, 1.2);
         assert!(
             low_corner > tall_corner + 0.05,
             "the 2.6 m room ({low_corner}) must clearly out-light the 4.2 m one ({tall_corner})"
@@ -2126,35 +2182,35 @@ mod tests {
         let bright_room = room_at(40.8, 4.0);
         let dark_room = room_at(40.8, -2.0);
         assert_eq!(lighting.rooms()[dark_room].fixture_count, 0);
-        assert_exact(
+        assert_eq!(
             lighting.rooms()[dark_room].baseline,
-            crate::lighting::MIN_AMBIENT,
+            crate::lighting::ambient_color()
         );
-        let at_door = lighting.sample_in_room(dark_room, 43.8, 0.0, 3.6);
-        let corner = lighting.sample_in_room(dark_room, 41.4, 0.0, -1.4);
+        let at_door = lighting.sample_in_room_luminance(dark_room, 43.8, 0.0, 3.6);
+        let corner = lighting.sample_in_room_luminance(dark_room, 41.4, 0.0, -1.4);
         assert!(
-            at_door > lighting.rooms()[dark_room].baseline + 0.02,
+            at_door > lighting.rooms()[dark_room].baseline.luminance() + 0.02,
             "the doorway must spill light into the dark room: {at_door}"
         );
         assert!(
-            (corner - lighting.rooms()[dark_room].baseline).abs() < 0.02,
+            (corner - lighting.rooms()[dark_room].baseline.luminance()).abs() < 0.02,
             "the dark room's far corner must stay dim: {corner}"
         );
         assert!(
             at_door <= crate::lighting::MAX_BRIGHTNESS
-                && at_door < lighting.sample_in_room(bright_room, 43.8, 0.0, 7.0) + 0.01,
+                && at_door < lighting.sample_in_room_luminance(bright_room, 43.8, 0.0, 7.0) + 0.01,
             "the doorway spill must stay below the bright room itself: {at_door}"
         );
 
         // Local pools: the wing corridor (room 5) brightens under each of its
         // four spaced fixtures and dips between them.
         let wing_corridor = &lighting.rooms()[5];
-        let pool = lighting.sample(25.0, 0.0, 7.0);
-        let gap = lighting.sample(31.0, 0.0, 7.0);
+        let pool = lighting.sample_luminance(25.0, 0.0, 7.0);
+        let gap = lighting.sample_luminance(31.0, 0.0, 7.0);
         assert!(
-            pool > gap + 0.01 && gap > wing_corridor.baseline,
+            pool > gap + 0.01 && gap > wing_corridor.baseline.luminance(),
             "spaced fixtures must read as pools: {pool} > {gap} > {}",
-            wing_corridor.baseline
+            wing_corridor.baseline.luminance()
         );
 
         // Prop lighting demonstration: the two-fixture room carries a chair, a
@@ -2325,6 +2381,85 @@ mod tests {
         assert_exact(
             high.ceiling_lights[0].intensity(),
             crate::lighting::MAX_LIGHT_INTENSITY,
+        );
+    }
+
+    #[test]
+    fn test_ceiling_light_colour_is_optional_validated_and_round_trips() {
+        let base = |lights: &str| {
+            format!(
+                r#"{{
+                    "format_version": 1,
+                    "id": "colour",
+                    "name": "Colour",
+                    "spawn": {{ "x": 0.0, "z": 0.0 }},
+                    "room": {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 }},
+                    "ceiling_lights": {lights}
+                }}"#
+            )
+        };
+
+        // Omitted colour: legacy levels keep loading and emit the documented
+        // restrained warm default.
+        let omitted = LevelDef::from_json(&base(
+            r#"[{ "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0 }]"#,
+        ))
+        .expect("omitted colour parses");
+        validate_level(&omitted).expect("an omitted colour validates");
+        assert_eq!(omitted.ceiling_lights[0].color, None);
+        assert_eq!(
+            omitted.ceiling_lights[0].emitted_color(),
+            crate::lighting::DEFAULT_LIGHT_COLOR
+        );
+
+        // Explicit colours, including the boundary values 0 and 1.
+        let explicit = LevelDef::from_json(&base(
+            r#"[
+                { "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0,
+                  "color": [1.0, 0.55, 0.0] },
+                { "fixture": "core:fluorescent_panel_01", "x": 8.0, "z": 8.0,
+                  "color": [0.0, 0.0, 1.0] }
+            ]"#,
+        ))
+        .expect("explicit colours parse");
+        validate_level(&explicit).expect("boundary colours validate");
+        assert_eq!(
+            explicit.ceiling_lights[0].color,
+            Some(crate::lighting::LightColor::rgb(1.0, 0.55, 0.0))
+        );
+        assert_eq!(
+            explicit.ceiling_lights[1].emitted_color(),
+            crate::lighting::LightColor::rgb(0.0, 0.0, 1.0)
+        );
+
+        // Serialisation round trip: the array shape survives editor saves.
+        let json = serde_json::to_value(&explicit).expect("level serialises");
+        let restored: LevelDef = serde_json::from_value(json).expect("level deserialises");
+        assert_eq!(
+            restored.ceiling_lights[0].color,
+            explicit.ceiling_lights[0].color
+        );
+
+        // Out-of-range and non-finite channels are rejected, exactly like a
+        // negative intensity.
+        for bad in [
+            r#"[{ "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0, "color": [1.5, 0.0, 0.0] }]"#,
+            r#"[{ "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0, "color": [-0.1, 0.0, 0.0] }]"#,
+        ] {
+            let level = LevelDef::from_json(&base(bad)).expect("out-of-range colour still parses");
+            let error = validate_level(&level).expect_err("out-of-range colour is rejected");
+            assert!(error.contains("colour"), "unexpected error: {error}");
+        }
+        // Programmatic non-finite channels are rejected by the same rule.
+        let mut non_finite = explicit.clone();
+        non_finite.ceiling_lights[0].color =
+            Some(crate::lighting::LightColor::rgb(f32::NAN, 0.5, 0.5));
+        assert!(validate_level(&non_finite).is_err());
+        // And sanitising them for baking can never produce negative or
+        // non-finite illumination.
+        assert_eq!(
+            non_finite.ceiling_lights[0].emitted_color(),
+            crate::lighting::LightColor::rgb(0.0, 0.5, 0.5)
         );
     }
 
@@ -2701,5 +2836,103 @@ mod tests {
                 "{name}: only {corridors} hallway sections; the plan needs real circulation"
             );
         }
+    }
+
+    // ---------------------------------------------------------------- decals
+
+    /// One decal in an otherwise valid room, with `body` replacing the decal
+    /// object so malformed fields can be injected.
+    fn decal_level(body: &str) -> String {
+        format!(
+            r#"{{
+                "format_version": 1,
+                "id": "decal_level",
+                "name": "Decal Level",
+                "spawn": {{ "x": 1.0, "z": 1.0 }},
+                "rooms": [{{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }}],
+                "decals": [{body}]
+            }}"#
+        )
+    }
+
+    #[test]
+    fn test_decals_parse_with_defaults_and_validate() {
+        let json = decal_level(
+            r#"{ "x": 2.0, "z": 2.0, "width": 1.0, "height": 0.5,
+                 "material": "core:decal_test_01", "surface": "floor" }"#,
+        );
+        let level = LevelDef::from_json(&json).expect("valid decal json");
+        assert_eq!(level.decals.len(), 1);
+        let decal = &level.decals[0];
+        assert_exact(decal.y, 0.0);
+        assert_exact(decal.rotation_degrees, 0.0);
+        assert_eq!(decal.surface, crate::level::DecalSurface::Floor);
+        validate_level(&level).expect("a well-formed decal validates");
+        assert_eq!(level.estimate_geometry().decal_quads, 1);
+    }
+
+    #[test]
+    fn test_validate_level_rejects_malformed_decals() {
+        let valid = decal_level(
+            r#"{ "x": 2.0, "y": 1.0, "z": 0.0, "width": 1.0, "height": 0.5,
+                 "material": "core:decal_test_01", "surface": "wall_south" }"#,
+        );
+        let base = LevelDef::from_json(&valid).expect("valid decal json");
+        validate_level(&base).expect("the base level validates");
+
+        let mut level = base.clone();
+        level.decals[0].x = f32::NAN;
+        assert!(validate_level(&level).is_err(), "non-finite x");
+        let mut level = base.clone();
+        level.decals[0].height = -1.0;
+        assert!(validate_level(&level).is_err(), "negative height");
+        let mut level = base.clone();
+        level.decals[0].width = 11.0;
+        assert!(validate_level(&level).is_err(), "oversized width");
+        let mut level = base.clone();
+        level.decals[0].material = "  ".into();
+        assert!(validate_level(&level).is_err(), "empty material");
+
+        // An unknown surface name is a schema error, not a silently dropped
+        // decal: the level does not parse at all.
+        let unknown_surface = LevelDef::from_json(&decal_level(
+            r#"{ "x": 1.0, "y": 1.0, "z": 0.0, "width": 1.0, "height": 0.5,
+                 "material": "core:decal_test_01", "surface": "wall_up" }"#,
+        ));
+        assert!(unknown_surface.is_err());
+    }
+
+    #[test]
+    fn test_the_decal_count_is_bounded() {
+        let decal = r#"{ "x": 1.0, "y": 1.0, "z": 0.0, "width": 1.0, "height": 0.5,
+                         "material": "core:decal_test_01", "surface": "wall_south" }"#;
+        let decals = std::iter::repeat_n(decal, 5001)
+            .collect::<Vec<_>>()
+            .join(",");
+        let level =
+            LevelDef::from_json(&decal_level(&decals)).expect("large decal list still parses");
+        assert!(
+            validate_level(&level).is_err(),
+            "a level past the decal cap must be rejected"
+        );
+    }
+
+    #[test]
+    fn test_rendering_diagnostic_level_shows_every_decal_sheet() {
+        let level = residential_level("rendering_diagnostic");
+        assert_eq!(level.decals.len(), 8);
+        for decal in &level.decals {
+            assert!(
+                crate::render::decal_material_slot(&decal.material).is_some(),
+                "{} references an unknown decal sheet",
+                decal.material
+            );
+        }
+        let mesh = crate::render::build_level_geometry(&level);
+        assert_eq!(
+            mesh.batches.decal_batch.count,
+            i32::try_from(level.decals.len()).unwrap_or(0) * 6,
+            "every diagnostic decal must emit one quad"
+        );
     }
 }

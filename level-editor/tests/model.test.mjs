@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import model from '../js/model.js';
 import geometry from '../js/geometry.js';
 
-const { Level, Wall, WallOpening, Prop, Room } = model;
+const { Level, Wall, WallOpening, Prop, Room, Decal } = model;
 
 test('a wall round trip preserves openings', () => {
   const wall = new Wall({ x: 1, z: 2, width: 6, depth: 0.35 });
@@ -64,6 +64,10 @@ test('a level round trips rooms, openings, props, lights and textures', () => {
     walls: [{ x: -5, z: -5, width: 10, depth: 0.35, openings: [{ kind: 'door', offset: 4, width: 1.2, height: 2.1 }] }],
     ceiling_lights: [{ fixture: 'core:fluorescent_panel_01', x: 0, z: 0 }],
     props: [{ model: 'core:couch', x: 1, z: 1, rotation_degrees: 180 }],
+    decals: [
+      { x: 0, y: 1.5, z: -4.9, width: 1.6, height: 0.6, material: 'core:decal_test_01', surface: 'wall_south' },
+      { x: 2, y: 0, z: 2, width: 1, height: 1, material: 'core:decal_arrow_01', surface: 'floor', rotation_degrees: 90 }
+    ],
     custom_textures: { 'pack:tile': { filename: 'textures/tile.png', width: 32, height: 32, dataUrl: 'data:,' } }
   });
   const json = JSON.parse(JSON.stringify(level.toJSON()));
@@ -74,6 +78,9 @@ test('a level round trips rooms, openings, props, lights and textures', () => {
   assert.equal(restored.props.length, 1);
   assert.equal(restored.props[0].model, 'core:couch');
   assert.equal(restored.spawn.yaw_degrees, 45);
+  assert.equal(restored.decals.length, 2);
+  assert.equal(restored.decals[0].surface, 'wall_south');
+  assert.equal(restored.decals[1].rotation_degrees, 90);
   // Custom texture metadata is not part of level.json (the ZIP pack carries the
   // texture files and materials.json), but cloning keeps it for the session.
   assert.ok(level.clone().custom_textures['pack:tile']);
@@ -155,6 +162,39 @@ test('validation rejects malformed openings and props only', () => {
   assert.ok(result.errors.some(e => e.includes('non-empty model id')));
 });
 
+test('decals serialize their surface and rotation and reject malformed data', () => {
+  const build = (decals) => new Level({
+    id: 'decals', name: 'Decals', spawn: { x: 0, z: 0 },
+    rooms: [{ x: 0, z: 0, width: 6, depth: 6, height: 3.5 }],
+    decals
+  });
+
+  const valid = model.validateLevel(build([
+    { x: 3, y: 1.5, z: 0, width: 1.2, height: 0.5, material: 'core:decal_test_01', surface: 'wall_south' },
+    { x: 3, y: 0, z: 3, width: 1, height: 1, material: 'core:decal_arrow_01', surface: 'floor', rotation_degrees: 45 }
+  ]));
+  assert.deepEqual(valid.errors, []);
+
+  const bad = model.validateLevel(build([
+    { x: 3, y: 1.5, z: 0, width: -1, height: 0.5, material: 'core:decal_test_01', surface: 'wall_south' },
+    { x: 3, y: 1.5, z: 0, width: 11, height: 0.5, material: 'core:decal_test_01', surface: 'floor' },
+    { x: 3, y: 1.5, z: 0, width: 1, height: 0.5, material: '  ', surface: 'floor' },
+    { x: 3, y: 1.5, z: 0, width: 1, height: 0.5, material: 'core:decal_test_01', surface: 'wall_up' }
+  ]));
+  assert.equal(bad.valid, false);
+  assert.ok(bad.errors.some(e => e.includes('must be positive')));
+  assert.ok(bad.errors.some(e => e.includes('larger than the 10 m limit')));
+  assert.ok(bad.errors.some(e => e.includes('non-empty material id')));
+  assert.ok(bad.errors.some(e => e.includes('is not one of floor')));
+
+  // A decal round trips with its rotation and sheet untouched.
+  const decal = new Decal({ x: 2, y: 1, z: 3, width: 1.5, height: 0.4, rotation_degrees: 90, material: 'core:decal_stripes_01', surface: 'wall_east' });
+  const restored = new Decal(JSON.parse(JSON.stringify(decal.toJSON())));
+  assert.equal(restored.surface, 'wall_east');
+  assert.equal(restored.rotation_degrees, 90);
+  assert.notEqual(decal.duplicate().id, decal.id);
+});
+
 test('ceiling light intensity is optional, aliased and validated', () => {
   // Omitted means the standard 1.0 fixture, and the JSON stays terse.
   const standard = new model.CeilingLight({ fixture: 'core:fluorescent_panel_01', x: 1, z: 2 });
@@ -200,6 +240,47 @@ test('ceiling light intensity is optional, aliased and validated', () => {
   ]));
   assert.equal(high.valid, true);
   assert.ok(high.warnings.some(w => w.includes('clamped')), high.warnings.join());
+});
+
+test('ceiling light colour is optional, round-trips and is validated', () => {
+  // Omitted colour stays omitted on save: legacy levels keep their shape.
+  const legacy = new model.CeilingLight({ fixture: 'core:fluorescent_panel_01', x: 1, z: 2 });
+  assert.equal(legacy.color, null);
+  assert.equal('color' in legacy.toJSON(), false);
+
+  // An authored colour survives a clone and a JSON round trip.
+  const blue = new model.CeilingLight({
+    fixture: 'core:fluorescent_panel_01', x: 1, z: 2, color: [0.1, 0.2, 0.9]
+  });
+  assert.deepEqual(blue.toJSON().color, [0.1, 0.2, 0.9]);
+  assert.deepEqual(blue.clone().color, [0.1, 0.2, 0.9]);
+  const restored = new model.CeilingLight(JSON.parse(JSON.stringify(blue.toJSON())));
+  assert.deepEqual(restored.color, [0.1, 0.2, 0.9]);
+  assert.deepEqual(blue.duplicate().color, [0.1, 0.2, 0.9]);
+
+  const build = (lights) => new Level({
+    id: 'colours', name: 'Colours', spawn: { x: 0, z: 0 },
+    rooms: [{ x: 0, z: 0, width: 6, depth: 6, height: 3.5 }],
+    ceiling_lights: lights
+  });
+  // Boundary channels (0 and 1) are legal.
+  assert.deepEqual(model.validateLevel(build([
+    { fixture: 'core:fluorescent_panel_01', x: 1, z: 1, color: [0, 1, 0] }
+  ])).errors, []);
+  // Out-of-range colours are reported like a negative intensity.
+  const bad = model.validateLevel(build([
+    { fixture: 'core:fluorescent_panel_01', x: 1, z: 1, color: [1.5, 0, 0] },
+    { fixture: 'core:fluorescent_panel_01', x: 2, z: 2, color: [-0.1, 0, 0] }
+  ]));
+  assert.equal(bad.valid, false);
+  assert.equal(bad.errors.filter(e => e.includes('colour')).length, 2, bad.errors.join());
+  // A malformed array is normalised back to "no colour" (the game default)
+  // instead of being written out as invalid JSON.
+  const malformed = new model.CeilingLight({
+    fixture: 'core:fluorescent_panel_01', x: 1, z: 2, color: [0, 0]
+  });
+  assert.equal(malformed.color, null);
+  assert.equal('color' in malformed.toJSON(), false);
 });
 
 test('unknown opening kinds stay forward compatible', () => {

@@ -1,13 +1,15 @@
 // lighting.js - Static baked-lighting mirror for the editor's 3D preview.
 //
 // The game (`src/lighting.rs`) is authoritative: this module only exists so the
-// editor preview can approximate the same room brightness while an author edits.
-// It implements the same model with the same tuned constants:
+// editor preview can approximate the same room illumination while an author
+// edits. It implements the same model with the same tuned constants:
 //
-//   * room baseline  = MIN_AMBIENT + (MAX_BRIGHTNESS - MIN_AMBIENT) * d / (1 + d)
-//     where d = (sum of intensity x height factor) / floor area, normalised by
-//     one fixture per REFERENCE_LIGHT_AREA_M2 square metres;
-//   * broad local fixture pools with a smooth falloff;
+//   * every light emits an [r, g, b] colour and the bake accumulates per
+//     channel, so a red fixture tints surrounding geometry red;
+//   * room baseline = AMBIENT + (MAX_BRIGHTNESS - AMBIENT) * c, where the
+//     fixture density is logarithmically compressed and then saturated
+//     (`c = n / (1 + n)`, `n = ln(1 + density * REFERENCE_LIGHT_AREA_M2)`);
+//   * broad local fixture pools with a smooth falloff, capped per channel;
 //   * bounded blending through walk-through openings;
 //   * the same deterministic ownership rule (smallest containing room wins).
 //
@@ -31,11 +33,13 @@
 
   // Mirrors the constants in src/lighting.rs. Keep both files in step.
   const TUNING = {
-    REFERENCE_LIGHT_AREA_M2: 8.0,
+    REFERENCE_LIGHT_AREA_M2: 500.0,
     REFERENCE_CEILING_HEIGHT_M: 3.5,
     HEIGHT_FALLOFF: 0.5,
-    MIN_AMBIENT: 0.55,
+    AMBIENT_LEVEL: 0.10,
     MAX_BRIGHTNESS: 1.0,
+    MAX_LIGHT_COLOR: 1.0,
+    DEFAULT_LIGHT_COLOR: [1.0, 0.96, 0.88],
     LOCAL_LIGHT_RADIUS_M: 6.0,
     LOCAL_LIGHT_STRENGTH: 0.42,
     LOCAL_LIGHT_MAX: 0.45,
@@ -57,12 +61,61 @@
     return typeof value === 'number' && Number.isFinite(value);
   }
 
+  /** Neutral ambient fill, mirroring `ambient_color()` in the game. */
+  function ambientColor() {
+    return [TUNING.AMBIENT_LEVEL, TUNING.AMBIENT_LEVEL, TUNING.AMBIENT_LEVEL];
+  }
+
   /** Sanitises an authored fixture intensity exactly like the game does. */
   function sanitizeIntensity(intensity) {
     const value = Number(intensity);
     if (Number.isNaN(value)) return 1.0;
     if (!Number.isFinite(value)) return value > 0 ? TUNING.MAX_LIGHT_INTENSITY : 0.0;
     return Math.min(Math.max(value, 0.0), TUNING.MAX_LIGHT_INTENSITY);
+  }
+
+  /**
+   * Sanitises one authored light colour into an [r, g, b] array.
+   *
+   * Mirrors `LightColor::sanitized`: non-finite channels become 0, finite
+   * out-of-range channels clamp to [0, MAX_LIGHT_COLOR]. An omitted or malformed
+   * entry falls back to the documented restrained warm default, which is what
+   * every legacy level without a `color` key emits.
+   */
+  function sanitizeColor(color) {
+    if (color === undefined || color === null || typeof color === 'object' && !Array.isArray(color)) {
+      return TUNING.DEFAULT_LIGHT_COLOR.slice();
+    }
+    const source = Array.isArray(color) ? color : [];
+    const channel = (index) => {
+      const value = Number(source[index]);
+      if (Number.isNaN(value)) return 0.0;
+      if (!Number.isFinite(value)) return value > 0 ? TUNING.MAX_LIGHT_COLOR : 0.0;
+      return Math.min(Math.max(value, 0.0), TUNING.MAX_LIGHT_COLOR);
+    };
+    return [channel(0), channel(1), channel(2)];
+  }
+
+  /** Emitted colour of one light definition, defaulted like the game. */
+  function emittedColor(light) {
+    if (!light || light.color === undefined || light.color === null) {
+      return TUNING.DEFAULT_LIGHT_COLOR.slice();
+    }
+    return sanitizeColor(light.color);
+  }
+
+  /** Rec. 709 luminance, mirroring `LightColor::luminance`. */
+  function luminance(color) {
+    return 0.2126 * color[0] + 0.7152 * color[1] + 0.0722 * color[2];
+  }
+
+  /** Per-channel clamp into [low, high]. */
+  function clampColor(color, low, high) {
+    return [
+      Math.min(Math.max(color[0], low), high),
+      Math.min(Math.max(color[1], low), high),
+      Math.min(Math.max(color[2], low), high)
+    ];
   }
 
   /** Gentle ceiling-height correction: lower ceilings make fixtures count more. */
@@ -78,6 +131,14 @@
     if (!Number.isFinite(normalizedDensity)) return normalizedDensity > 0 ? 1.0 : 0.0;
     const n = Math.max(normalizedDensity, 0.0);
     return n / (1 + n);
+  }
+
+  /** Logarithmic fixture-density compression, mirroring `compressed_density`. */
+  function compressedDensity(normalizedDensity) {
+    if (Number.isNaN(normalizedDensity)) return 0.0;
+    if (!(normalizedDensity > 0)) return 0.0;
+    if (!Number.isFinite(normalizedDensity)) return Infinity;
+    return Math.log1p(normalizedDensity);
   }
 
   /** `1 - smoothstep(t)`: 1 at t = 0, 0 at t = 1, flat at both ends. */
@@ -108,14 +169,25 @@
       : [TUNING.FIXTURE_HALF_WIDTH_M, TUNING.FIXTURE_HALF_DEPTH_M];
   }
 
-  /** Baseline brightness of a room from its floor area and effective fixture power. */
+  /**
+   * Baseline illumination of a room from its floor area and the summed emitted
+   * colour of its fixtures. `effectivePower` is an [r, g, b] array; the result
+   * is an [r, g, b] array.
+   */
   function roomBaseline(areaM2, effectivePower) {
     const area = isFiniteNumber(areaM2) ? Math.max(areaM2, 0.01) : 0.01;
-    const power = isFiniteNumber(effectivePower) ? Math.max(effectivePower, 0.0) : 0.0;
-    const normalized = (power / area) * TUNING.REFERENCE_LIGHT_AREA_M2;
-    const component = saturatingBrightness(normalized);
-    const baseline = TUNING.MIN_AMBIENT + (TUNING.MAX_BRIGHTNESS - TUNING.MIN_AMBIENT) * component;
-    return Math.min(Math.max(baseline, TUNING.MIN_AMBIENT), TUNING.MAX_BRIGHTNESS);
+    const power = Array.isArray(effectivePower)
+      ? effectivePower
+      : [Number(effectivePower) || 0, Number(effectivePower) || 0, Number(effectivePower) || 0];
+    const channel = (value) => {
+      const finite = isFiniteNumber(value) ? Math.max(value, 0.0) : value > 0 ? Infinity : 0.0;
+      const normalized = compressedDensity((finite / area) * TUNING.REFERENCE_LIGHT_AREA_M2);
+      const component = saturatingBrightness(normalized);
+      const baseline = TUNING.AMBIENT_LEVEL
+        + (TUNING.MAX_BRIGHTNESS - TUNING.AMBIENT_LEVEL) * component;
+      return Math.min(Math.max(baseline, TUNING.AMBIENT_LEVEL), TUNING.MAX_BRIGHTNESS);
+    };
+    return [channel(power[0]), channel(power[1]), channel(power[2])];
   }
 
   function roomBounds(room) {
@@ -156,8 +228,8 @@
         height: isFiniteNumber(rawHeight) && rawHeight > 0 ? rawHeight : TUNING.REFERENCE_CEILING_HEIGHT_M,
         area: width * depth,
         fixtureCount: 0,
-        effectivePower: 0,
-        baseline: TUNING.MIN_AMBIENT
+        effectivePower: [0, 0, 0],
+        baseline: ambientColor()
       };
     });
 
@@ -188,15 +260,21 @@
       const heightFactor = ceilingHeightFactor(height);
       const rotation = Number(light.rotation_degrees) || 0;
       const [halfW, halfD] = fixtureHalfExtents(rotation);
+      const color = emittedColor(light);
       if (roomIndex >= 0) {
-        rooms[roomIndex].fixtureCount += 1;
-        rooms[roomIndex].effectivePower += intensity * heightFactor;
+        const power = intensity * heightFactor;
+        const room = rooms[roomIndex];
+        room.fixtureCount += 1;
+        room.effectivePower[0] += power * color[0];
+        room.effectivePower[1] += power * color[1];
+        room.effectivePower[2] += power * color[2];
       }
       lights.push({
         x,
         z,
         y: height - TUNING.FIXTURE_DROP_M,
         intensity,
+        color,
         heightFactor,
         halfW,
         halfD,
@@ -229,7 +307,13 @@
         if ((kind !== 'door' && kind !== 'passage') || sill > 1e-3) continue;
         const offset = Number(opening.offset) || 0;
         const openingWidth = Number(opening.width) || 0;
-        if (!(openingWidth > 0)) continue;
+        const openingHeight = Number(opening.height) || 0;
+        // The same guards the game applies (src/lighting.rs): only openings the
+        // geometry actually cuts blend light, and a wall raised off the floor is
+        // a header rather than a walk-through.
+        if (![offset, openingWidth, openingHeight, sill].every(Number.isFinite)) continue;
+        if (!(openingWidth > 0) || !(openingHeight > 0)) continue;
+        if (baseY + Math.max(sill, 0) > 1e-3) continue;
         const center = Math.min(Math.max(offset + openingWidth * 0.5, 0), length);
         const across = (across0 + across1) * 0.5;
         const probe = halfThickness + OPENING_PROBE_M;
@@ -241,59 +325,77 @@
         const roomA = roomIndexAt(sideA[0], sideA[1]);
         const roomB = roomIndexAt(sideB[0], sideB[1]);
         if (roomA < 0 || roomB < 0 || roomA === roomB) continue;
-        const topY = baseY + sill + (Number(opening.height) || 0);
+        const topY = baseY + sill + openingHeight;
         blends[roomA].push({ x: centerX, z: centerZ, topY, neighborBaseline: rooms[roomB].baseline });
         blends[roomB].push({ x: centerX, z: centerZ, topY, neighborBaseline: rooms[roomA].baseline });
       }
     }
 
     function localLight(x, y, z) {
-      if (!isFiniteNumber(x) || !isFiniteNumber(y) || !isFiniteNumber(z)) return 0;
-      let sum = 0;
+      if (!isFiniteNumber(x) || !isFiniteNumber(y) || !isFiniteNumber(z)) return [0, 0, 0];
+      const sum = [0, 0, 0];
       for (let i = 0; i < lights.length; i++) {
         const light = lights[i];
         const dx = Math.max(Math.abs(x - light.x) - light.halfW, 0);
         const dz = Math.max(Math.abs(z - light.z) - light.halfD, 0);
         const horizontal = Math.sqrt(dx * dx + dz * dz);
-        if (horizontal >= TUNING.LOCAL_LIGHT_RADIUS_M) continue;
+        if (!(horizontal < TUNING.LOCAL_LIGHT_RADIUS_M)) continue;
         const vertical = y - light.y;
         const distance = Math.sqrt(horizontal * horizontal + vertical * vertical);
-        if (distance >= TUNING.LOCAL_LIGHT_RADIUS_M) continue;
-        sum += TUNING.LOCAL_LIGHT_STRENGTH * light.intensity * light.heightFactor
+        if (!(distance < TUNING.LOCAL_LIGHT_RADIUS_M)) continue;
+        const strength = TUNING.LOCAL_LIGHT_STRENGTH * light.intensity * light.heightFactor
           * smoothFalloff(distance / TUNING.LOCAL_LIGHT_RADIUS_M);
-        if (sum >= TUNING.LOCAL_LIGHT_MAX) return TUNING.LOCAL_LIGHT_MAX;
+        sum[0] += strength * light.color[0];
+        sum[1] += strength * light.color[1];
+        sum[2] += strength * light.color[2];
+        if (Math.min(sum[0], sum[1], sum[2]) >= TUNING.LOCAL_LIGHT_MAX) {
+          return [TUNING.LOCAL_LIGHT_MAX, TUNING.LOCAL_LIGHT_MAX, TUNING.LOCAL_LIGHT_MAX];
+        }
       }
-      return Math.min(sum, TUNING.LOCAL_LIGHT_MAX);
+      return clampColor(sum, 0, TUNING.LOCAL_LIGHT_MAX);
     }
 
     function sampleInRoom(roomIndex, x, y, z) {
       if (roomIndex < 0 || roomIndex >= rooms.length) return sample(x, y, z);
-      if (!isFiniteNumber(x) || !isFiniteNumber(y) || !isFiniteNumber(z)) return TUNING.MIN_AMBIENT;
+      if (!isFiniteNumber(x) || !isFiniteNumber(y) || !isFiniteNumber(z)) return ambientColor();
       const info = rooms[roomIndex];
-      let value = info.baseline + localLight(x, y, z);
+      const local = localLight(x, y, z);
+      const value = [
+        info.baseline[0] + local[0],
+        info.baseline[1] + local[1],
+        info.baseline[2] + local[2]
+      ];
       const list = blends[roomIndex];
       for (let i = 0; i < list.length; i++) {
         const blend = list[i];
         const dx = x - blend.x;
         const dz = z - blend.z;
         const distance = Math.sqrt(dx * dx + dz * dz);
-        if (distance >= TUNING.OPENING_BLEND_RADIUS_M) continue;
+        if (!(distance < TUNING.OPENING_BLEND_RADIUS_M)) continue;
         let influence = TUNING.OPENING_BLEND_STRENGTH
           * smoothFalloff(distance / TUNING.OPENING_BLEND_RADIUS_M);
         if (y > blend.topY) {
           influence *= smoothFalloff((y - blend.topY) / TUNING.OPENING_VERTICAL_FADE_M);
         }
-        value += (blend.neighborBaseline - info.baseline) * influence;
+        for (let channel = 0; channel < 3; channel++) {
+          value[channel] += (blend.neighborBaseline[channel] - info.baseline[channel]) * influence;
+        }
       }
-      if (!Number.isFinite(value)) return TUNING.MIN_AMBIENT;
-      return Math.min(Math.max(value, TUNING.MIN_AMBIENT), TUNING.MAX_BRIGHTNESS);
+      if (!Number.isFinite(value[0]) || !Number.isFinite(value[1]) || !Number.isFinite(value[2])) {
+        return ambientColor();
+      }
+      return clampColor(value, TUNING.AMBIENT_LEVEL, TUNING.MAX_BRIGHTNESS);
     }
 
     function sample(x, y, z) {
       const roomIndex = roomIndexAt(x, z);
       if (roomIndex < 0) {
-        const value = TUNING.MIN_AMBIENT + localLight(x, y, z);
-        return Math.min(Math.max(value, TUNING.MIN_AMBIENT), TUNING.MAX_BRIGHTNESS);
+        const local = localLight(x, y, z);
+        return clampColor(
+          [local[0] + TUNING.AMBIENT_LEVEL, local[1] + TUNING.AMBIENT_LEVEL, local[2] + TUNING.AMBIENT_LEVEL],
+          TUNING.AMBIENT_LEVEL,
+          TUNING.MAX_BRIGHTNESS
+        );
       }
       return sampleInRoom(roomIndex, x, y, z);
     }
@@ -306,9 +408,10 @@
       let max = -Infinity;
       let total = 0;
       for (const room of rooms) {
-        min = Math.min(min, room.baseline);
-        max = Math.max(max, room.baseline);
-        total += room.baseline;
+        const value = luminance(room.baseline);
+        min = Math.min(min, value);
+        max = Math.max(max, value);
+        total += value;
       }
       return {
         rooms: rooms.length,
@@ -337,9 +440,14 @@
 
   return {
     TUNING,
+    ambientColor,
     sanitizeIntensity,
+    sanitizeColor,
+    emittedColor,
+    luminance,
     ceilingHeightFactor,
     saturatingBrightness,
+    compressedDensity,
     smoothFalloff,
     fixtureIsTurned,
     fixtureHalfExtents,

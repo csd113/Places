@@ -1,0 +1,573 @@
+{
+  "format_version": 1,
+  "id": "lighting_diagnostic",
+  "name": "Lighting Diagnostic",
+  "author": "Vitrallis",
+  "spawn": {
+    "x": 6.0,
+    "z": 6.0,
+    "yaw_degrees": 0.0
+  },
+  "defaults": {
+    "wall": "core:ceiling_panel_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "rooms": [
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 12.0,
+      "depth": 12.0,
+      "height": 3.0
+    },
+    {
+      "x": 12.0,
+      "z": 0.0,
+      "width": 12.0,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 24.0,
+      "z": 0.0,
+      "width": 12.0,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 36.0,
+      "z": 0.0,
+      "width": 12.0,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 48.0,
+      "z": 0.0,
+      "width": 12.0,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 60.0,
+      "z": 0.0,
+      "width": 12.0,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 72.0,
+      "z": 0.0,
+      "width": 12.0,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 84.0,
+      "z": 0.0,
+      "width": 12.0,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 96.0,
+      "z": 0.0,
+      "width": 12.0,
+      "depth": 12.0,
+      "height": 8.0,
+      "material": "core:ceiling_panel_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    }
+  ],
+  "walls": [
+    {
+      "x": 11.8,
+      "z": 0.0,
+      "width": 0.4,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 5.0,
+          "width": 2.0,
+          "height": 2.2,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 23.8,
+      "z": 0.0,
+      "width": 0.4,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 5.0,
+          "width": 2.0,
+          "height": 2.2,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 35.8,
+      "z": 0.0,
+      "width": 0.4,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 5.0,
+          "width": 2.0,
+          "height": 2.2,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 47.8,
+      "z": 0.0,
+      "width": 0.4,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 5.0,
+          "width": 2.0,
+          "height": 2.2,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 59.8,
+      "z": 0.0,
+      "width": 0.4,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 5.0,
+          "width": 2.0,
+          "height": 2.2,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 71.8,
+      "z": 0.0,
+      "width": 0.4,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 5.0,
+          "width": 2.0,
+          "height": 2.2,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 83.8,
+      "z": 0.0,
+      "width": 0.4,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 5.0,
+          "width": 2.0,
+          "height": 2.2,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 95.8,
+      "z": 0.0,
+      "width": 0.4,
+      "depth": 12.0,
+      "height": 8.0,
+      "material": "core:ceiling_panel_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 5.0,
+          "width": 2.0,
+          "height": 2.2,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 0.0,
+      "z": -0.4,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 0.0,
+      "z": 12.0,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 12.0,
+      "z": -0.4,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 12.0,
+      "z": 12.0,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 24.0,
+      "z": -0.4,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 24.0,
+      "z": 12.0,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 36.0,
+      "z": -0.4,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 36.0,
+      "z": 12.0,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 48.0,
+      "z": -0.4,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 48.0,
+      "z": 12.0,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 60.0,
+      "z": -0.4,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 60.0,
+      "z": 12.0,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 72.0,
+      "z": -0.4,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 72.0,
+      "z": 12.0,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 84.0,
+      "z": -0.4,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 84.0,
+      "z": 12.0,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 96.0,
+      "z": -0.4,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 8.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 96.0,
+      "z": 12.0,
+      "width": 12.0,
+      "depth": 0.4,
+      "height": 8.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": -0.4,
+      "z": 0.0,
+      "width": 0.4,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 108.0,
+      "z": 0.0,
+      "width": 0.4,
+      "depth": 12.0,
+      "height": 8.0,
+      "material": "core:ceiling_panel_01"
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 18.0,
+      "z": 6.0,
+      "color": [
+        1.0,
+        0.78,
+        0.45
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 27.0,
+      "z": 3.0,
+      "color": [
+        1.0,
+        0.85,
+        0.65
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 33.0,
+      "z": 3.0,
+      "color": [
+        1.0,
+        0.85,
+        0.65
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 27.0,
+      "z": 9.0,
+      "color": [
+        1.0,
+        0.85,
+        0.65
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 33.0,
+      "z": 9.0,
+      "color": [
+        1.0,
+        0.85,
+        0.65
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 42.0,
+      "z": 6.0,
+      "color": [
+        0.15,
+        0.35,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 54.0,
+      "z": 6.0,
+      "color": [
+        1.0,
+        0.08,
+        0.05
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 63.0,
+      "z": 6.0,
+      "color": [
+        1.0,
+        0.65,
+        0.25
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 69.0,
+      "z": 6.0,
+      "color": [
+        0.2,
+        0.45,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 75.0,
+      "z": 6.0,
+      "color": [
+        1.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 78.0,
+      "z": 6.0,
+      "color": [
+        0.0,
+        1.0,
+        0.0
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 81.0,
+      "z": 6.0,
+      "color": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 87.0,
+      "z": 3.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 90.0,
+      "z": 3.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 93.0,
+      "z": 3.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 87.0,
+      "z": 6.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 90.0,
+      "z": 6.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 93.0,
+      "z": 6.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 87.0,
+      "z": 9.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 90.0,
+      "z": 9.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 93.0,
+      "z": 9.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 100.0,
+      "z": 6.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 104.0,
+      "z": 6.0
+    }
+  ],
+  "props": []
+}
