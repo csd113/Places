@@ -1,9 +1,8 @@
-"""Package-level checks for the Liminal app.
+"""Repository-level checks for Places.
 
-These run on the source tree before a catalog release, without a GPU and without
-a PocketCHIP. They cover what a release has to get right: manifest/version
-consistency, the shipped level files, the material and prop ids those levels
-reference, and the declared payload path.
+These run on the source tree without a GPU. They cover the shipped level files,
+the material and prop ids those levels reference, and the crate release
+metadata.
 """
 
 from __future__ import annotations
@@ -38,37 +37,6 @@ RESIDENTIAL_LEVELS = {
     "after_the_leak": "After the Leak",
 }
 
-PAYLOAD = "bin/armv7-unknown-linux-gnueabihf/app"
-
-
-def manifest_fields() -> dict:
-    """Reads the small manifest (manifest v1) without a TOML dependency."""
-    fields: dict[str, object] = {}
-    section = None
-    for line in (PACKAGE / "app.toml").read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if line.startswith("[") and line.endswith("]"):
-            section = line[1:-1]
-            fields.setdefault(section, {})
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip()
-        if value.startswith('"') and value.endswith('"'):
-            parsed: object = value[1:-1]
-        elif value in ("true", "false"):
-            parsed = value == "true"
-        else:
-            parsed = int(value)
-        if section is None:
-            fields[key] = parsed
-        else:
-            fields[section][key] = parsed
-    return fields
-
-
 def cargo_version() -> str:
     text = (PACKAGE / "Cargo.toml").read_text(encoding="utf-8")
     match = re.search(r'^version = "([^"]+)"', text, re.MULTILINE)
@@ -92,20 +60,9 @@ def rooms_of(level: dict) -> list[dict]:
     return rooms
 
 
-class ManifestTests(unittest.TestCase):
-    def setUp(self):
-        self.manifest = manifest_fields()
-
-    def test_manifest_declares_the_native_runtime_form(self):
-        self.assertEqual(self.manifest["manifest_version"], 1)
-        self.assertEqual(self.manifest["runtime"], "rust")
-        self.assertEqual(self.manifest["id"], "io.vitrallis.liminalrust")
-        self.assertEqual(self.manifest["name"], "Places")
-        self.assertNotIn("entry", self.manifest)
-
-    def test_version_matches_the_crate_and_the_changelog(self):
-        version = self.manifest["version"]
-        self.assertEqual(version, cargo_version())
+class RepositoryTests(unittest.TestCase):
+    def test_version_matches_the_changelog(self):
+        version = cargo_version()
         newest = re.search(
             r"^## (\S+) — (\d{4}-\d{2}-\d{2})$",
             (PACKAGE / "CHANGELOG.md").read_text(encoding="utf-8"),
@@ -114,16 +71,11 @@ class ManifestTests(unittest.TestCase):
         self.assertIsNotNone(newest, "CHANGELOG.md needs a dated release heading")
         self.assertEqual(newest.group(1), version)
 
-    def test_binaries_declare_the_staged_arm_payload(self):
-        binaries = self.manifest["binaries"]
-        self.assertEqual(list(binaries), ["armv7-unknown-linux-gnueabihf"])
-        self.assertEqual(binaries["armv7-unknown-linux-gnueabihf"], PAYLOAD)
-
-    def test_permissions_are_the_closed_key_set(self):
-        permissions = self.manifest["permissions"]
-        self.assertEqual(set(permissions), {"network", "audio", "storage"})
-        self.assertIs(permissions["network"], False)
-        self.assertIs(permissions["audio"], False)
+    def test_crate_metadata_describes_places(self):
+        cargo = (PACKAGE / "Cargo.toml").read_text(encoding="utf-8")
+        self.assertIn('name = "liminal-rust"', cargo)
+        self.assertIn('description = "First-person liminal walking game"', cargo)
+        self.assertIn('repository = "https://github.com/csd113/Places"', cargo)
 
     def test_icon_is_a_small_non_interlaced_png(self):
         data = (PACKAGE / "icon.png").read_bytes()
@@ -261,15 +213,14 @@ class ShippedLevelTests(unittest.TestCase):
 
 class SourceHygieneTests(unittest.TestCase):
     def test_the_package_excludes_build_output(self):
-        # Packaging stages the release binary with `tools/build_rust_app.py` into
-        # a fresh directory, so Cargo output and benchmark results never ship.
+        # Cargo output and benchmark results are local development artifacts.
         ignored = (PACKAGE / ".gitignore").read_text(encoding="utf-8")
         for entry in ("/target", "tools/bench/results/"):
             self.assertIn(entry, ignored)
 
     def test_readme_documents_controls_and_prerequisites(self):
         readme = (PACKAGE / "README.md").read_text(encoding="utf-8")
-        for needle in ("## Controls", "## Runtime prerequisites", "settings.json"):
+        for needle in ("## Controls", "## Desktop prerequisites", "settings.json"):
             self.assertIn(needle, readme)
         self.assertIn("SDL2", readme)
 

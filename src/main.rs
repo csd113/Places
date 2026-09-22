@@ -157,13 +157,11 @@ fn apply_swap_interval(video: &sdl2::VideoSubsystem, want_vsync: bool) -> i32 {
     }
 }
 
-/// Root of the installed package.
+/// Root of an installed legacy package.
 ///
-/// App Center installs a native package and launcher-executes the mapped
-/// payload at `bin/<target-triple>/app`, which is three levels below the
-/// package root — the same convention the other native Vitrallis app uses. A
-/// development build (run from the crate directory) falls back to the crate
-/// path so tests and `cargo run` keep working unchanged.
+/// A deployed native payload is launched from `bin/<target-triple>/app`, three
+/// levels below its package root. A development build falls back to the crate
+/// path so tests and `cargo run` use the repository root.
 fn package_root() -> std::path::PathBuf {
     let fallback = || std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let Ok(executable) = std::env::current_exe() else {

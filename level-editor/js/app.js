@@ -648,7 +648,7 @@ class App {
           <p>Save the file, drop it in the game's import folder, then load it from the in-game Level Select screen.</p></div>
          <ol class="steps">
            <li>Click <strong>Save level file</strong> below — it writes <code>${filename}</code>.</li>
-           <li>Move that file into <code>apps/liminal-rust/import/</code> (create the folder if it does not exist).</li>
+           <li>Move that file into <code>import/</code> at the Places repository root (create the folder if it does not exist).</li>
            <li>Start the game, choose <strong>Level Select → Load / Import</strong>, and pick this level.</li>
            <li>Use the same flow after every change: save again, then re-import in the game.</li>
          </ol>

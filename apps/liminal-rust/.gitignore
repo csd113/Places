@@ -1,4 +1,0 @@
-/target
-
-# Benchmark artifacts are generated locally, never committed.
-tools/bench/results/

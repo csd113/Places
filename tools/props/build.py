@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Builds and validates the liminal-rust core prop pack.
 
-Usage (from ``apps/liminal-rust``)::
+Usage (from the Places repository root)::
 
     python3 tools/props/build.py                # rebuild every prop + report
     python3 tools/props/build.py --only core:chair core:crate

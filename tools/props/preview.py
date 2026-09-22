@@ -10,7 +10,7 @@ ground plane, so what you see here is what the handheld shows.
 Nothing produced by this script is a runtime asset (thumbnails for the level
 editor's prop browser are the one deliberate exception).
 
-Usage (from ``apps/liminal-rust``)::
+Usage (from the Places repository root)::
 
     python3 tools/props/preview.py --all --out target/prop-previews
     python3 tools/props/preview.py --only core:chair --out target/prop-previews

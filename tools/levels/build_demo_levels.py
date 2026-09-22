@@ -19,7 +19,7 @@
   (~150 placements across nine models) used to prove that instances reuse one
   decoded model, one texture and one draw call per model.
 
-Run from ``apps/liminal-rust``:
+Run from the Places repository root:
 
     python3 tools/levels/build_demo_levels.py
 """

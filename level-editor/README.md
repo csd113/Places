@@ -8,7 +8,7 @@ Open `level-editor/index.html`. There is no build step and no dependency install
 For the prop catalogue (and to avoid `file://` restrictions) serve the app folder:
 
 ```sh
-cd apps/liminal-rust
+cd /path/to/Places
 python3 -m http.server 8765      # then open http://127.0.0.1:8765/level-editor/
 ```
 

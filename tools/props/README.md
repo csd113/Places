@@ -26,7 +26,7 @@ and texture budgets, GLB profile — are documented once in
 ## Commands
 
 ```sh
-cd apps/liminal-rust
+cd /path/to/Places
 python3 tools/props/build.py                     # rebuild + validate every prop
 python3 tools/props/build.py --only core:chair   # iterate on one prop
 python3 tools/props/build.py --check             # validate shipped GLBs only
