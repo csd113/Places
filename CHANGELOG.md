@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.3.2 — 2026-09-21
+
+Conventional desktop default controls: WASD movement with arrow-key looking.
+Bindings stay rebindable, and existing custom layouts still load from
+`settings.json`.
+
+### Changed
+
+- Change the default keyboard bindings to WASD movement (`W` forward, `S`
+  backward, `A` strafe left, `D` strafe right) with the arrow keys looking
+  (`UP`/`DOWN` pitch, `LEFT`/`RIGHT` yaw). The previous PocketCHIP-oriented
+  layout (`Z` backward, `S` strafe right, `K`/`L`/`O`/`.` look) remains
+  reachable by rebinding each action in Settings.
+- Update menu navigation to match: `W`/`S` or `UP`/`DOWN` move through items,
+  `A`/`D` or `LEFT`/`RIGHT` adjust them, and `Z` is no longer a menu key.
+  On-screen help and the README document the new layout.
+- `Restore Default Bindings` now restores WASD + arrow keys.
+
+### Notes
+
+- Existing `settings.json` files load unchanged, so player-rebound keys survive
+  the update; only the defaults and the reset target changed.
+
 ## 0.3.1 — 2026-09-21
 
 ### Changed

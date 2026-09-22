@@ -4,7 +4,12 @@ use std::path::Path;
 
 pub const DEFAULT_SETTINGS_PATH: &str = "settings.json";
 
-/// PocketCHIP-aligned gameplay key bindings.
+/// Player-rebindable gameplay key bindings.
+///
+/// The defaults are the conventional desktop layout: `W`/`A`/`S`/`D` for
+/// movement and the arrow keys for looking. The PocketCHIP layout (`Z`/`S`
+/// movement with `K`/`L`/`O`/`.` look) remains reachable by rebinding each
+/// action in Settings; only the defaults changed.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct KeyBindings {
     pub forward: String,
@@ -21,13 +26,13 @@ impl Default for KeyBindings {
     fn default() -> Self {
         Self {
             forward: "W".to_string(),
-            backward: "Z".to_string(),
+            backward: "S".to_string(),
             strafe_left: "A".to_string(),
-            strafe_right: "S".to_string(),
-            look_up: "O".to_string(),
-            look_down: ".".to_string(),
-            look_left: "K".to_string(),
-            look_right: "L".to_string(),
+            strafe_right: "D".to_string(),
+            look_up: "UP".to_string(),
+            look_down: "DOWN".to_string(),
+            look_left: "LEFT".to_string(),
+            look_right: "RIGHT".to_string(),
         }
     }
 }
@@ -216,16 +221,90 @@ mod tests {
     use crate::test_support::assert_exact;
 
     #[test]
-    fn test_default_pocketchip_bindings() {
+    fn test_default_wasd_and_arrow_bindings() {
         let bindings = KeyBindings::default();
         assert_eq!(bindings.forward, "W");
-        assert_eq!(bindings.backward, "Z");
+        assert_eq!(bindings.backward, "S");
         assert_eq!(bindings.strafe_left, "A");
-        assert_eq!(bindings.strafe_right, "S");
-        assert_eq!(bindings.look_up, "O");
-        assert_eq!(bindings.look_down, ".");
-        assert_eq!(bindings.look_left, "K");
-        assert_eq!(bindings.look_right, "L");
+        assert_eq!(bindings.strafe_right, "D");
+        assert_eq!(bindings.look_up, "UP");
+        assert_eq!(bindings.look_down, "DOWN");
+        assert_eq!(bindings.look_left, "LEFT");
+        assert_eq!(bindings.look_right, "RIGHT");
+    }
+
+    /// The default action map must be exactly WASD + arrows: every key resolves
+    /// to one action, no key is shared, and the previous PocketCHIP layout is
+    /// not silently retained as a duplicate binding.
+    #[test]
+    fn test_default_action_map_is_wasd_and_arrows_only() {
+        let bindings = KeyBindings::default();
+        let expected = [
+            ("forward", "W"),
+            ("backward", "S"),
+            ("strafe_left", "A"),
+            ("strafe_right", "D"),
+            ("look_up", "UP"),
+            ("look_down", "DOWN"),
+            ("look_left", "LEFT"),
+            ("look_right", "RIGHT"),
+        ];
+
+        let mut bound_keys: Vec<&str> = Vec::new();
+        for (action, key) in expected {
+            assert_eq!(bindings.get_key(action), Some(key), "action {action}");
+            bound_keys.push(key);
+        }
+
+        // No duplicate default keys.
+        bound_keys.sort_unstable();
+        let unique = {
+            let mut keys = bound_keys.clone();
+            keys.dedup();
+            keys
+        };
+        assert_eq!(unique.len(), bound_keys.len(), "duplicate default keys");
+
+        // Legacy keys are no longer part of the default layout.
+        for legacy in ["Z", "O", ".", "K", "L"] {
+            for action in [
+                "forward",
+                "backward",
+                "strafe_left",
+                "strafe_right",
+                "look_up",
+                "look_down",
+                "look_left",
+                "look_right",
+            ] {
+                assert_ne!(
+                    bindings.get_key(action),
+                    Some(legacy),
+                    "legacy key {legacy} is still the default for {action}"
+                );
+            }
+        }
+    }
+
+    /// "Restore Default Bindings" rebuilds exactly `KeyBindings::default()`, so
+    /// resetting after a rebind always lands on WASD + arrows.
+    #[test]
+    fn test_reset_to_defaults_restores_wasd_and_arrows() {
+        let mut bindings = KeyBindings::default();
+        bindings.set_key("forward", "I").expect("rebind forward");
+        assert_eq!(bindings.forward, "I");
+
+        // Settings -> "Restore Default Bindings" assigns `KeyBindings::default()`.
+        bindings = KeyBindings::default();
+
+        assert_eq!(bindings.forward, "W");
+        assert_eq!(bindings.backward, "S");
+        assert_eq!(bindings.strafe_left, "A");
+        assert_eq!(bindings.strafe_right, "D");
+        assert_eq!(bindings.look_up, "UP");
+        assert_eq!(bindings.look_down, "DOWN");
+        assert_eq!(bindings.look_left, "LEFT");
+        assert_eq!(bindings.look_right, "RIGHT");
     }
 
     #[test]

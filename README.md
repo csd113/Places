@@ -29,23 +29,26 @@ be chosen from the same menu.
 
 ## Controls
 
-Menus use `W`/`UP`, `Z`/`DOWN`, `A`/`LEFT`, `S`/`RIGHT`, `ENTER` to activate and
-`ESC` to go back.
+Menus use `W`/`S` or `UP`/`DOWN` to move through items, `A`/`D` or
+`LEFT`/`RIGHT` to adjust values, `ENTER` to activate and `ESC` to go back.
 
 Gameplay uses these bindings (all of them can be changed in Settings):
 
 | Action | Key |
 | --- | --- |
 | Walk forward | `W` |
-| Walk backward | `Z` |
+| Walk backward | `S` |
 | Strafe left | `A` |
-| Strafe right | `S` |
-| Look up | `O` |
-| Look down | `.` |
-| Look left | `K` |
-| Look right | `L` |
+| Strafe right | `D` |
+| Look up | `UP` |
+| Look down | `DOWN` |
+| Look left | `LEFT` |
+| Look right | `RIGHT` |
 | Pause menu | `ESC` |
 | Performance overlay | `-` |
+
+`Restore Default Bindings` in Settings puts this layout back after a rebind.
+Custom bindings are saved to `settings.json` and are kept across launches.
 
 The overlay prints frame timing, CPU/GPU load, submitted draw calls and the
 baked-lighting summary; it is hidden by default.

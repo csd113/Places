@@ -87,7 +87,10 @@ Long-term input support should include both:
 
 Where practical, both should be available on all supported platforms.
 
-PocketCHIP-style keyboard controls remain valid and supported, while desktop users may use conventional mouse look.
+The default keyboard layout is conventional WASD movement with arrow-key look
+controls, and every action remains rebindable, so PocketCHIP-style keyboard
+controls stay valid and supported. Desktop users may also use conventional
+mouse look.
 
 ---
 

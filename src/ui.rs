@@ -317,7 +317,7 @@ pub fn build_ui_geometry(
             // Controls help bottom
             draw_text(
                 &mut vertices,
-                "W/Z: Move   ENTER: Select",
+                "W/S: Move   ENTER: Select",
                 250.0,
                 235.0,
                 1.0,
@@ -411,7 +411,7 @@ pub fn build_ui_geometry(
 
             draw_text(
                 &mut vertices,
-                "W/Z: Move   ENTER: Select   ESC: Back",
+                "W/S: Move   ENTER: Select   ESC: Back",
                 160.0,
                 235.0,
                 1.0,
@@ -545,7 +545,7 @@ pub fn build_ui_geometry(
 
             draw_text(
                 &mut vertices,
-                "W/Z: Nav  ENTER/A/S: Adjust/Rebind  ESC: Back",
+                "W/S: Nav  ENTER/A/D: Adjust/Rebind  ESC: Back",
                 70.0,
                 250.0,
                 1.0,

@@ -226,7 +226,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // that engages InputMethodKit (`interpretKeyEvents` on SDL's text responder).
     video_subsystem.text_input().stop();
 
-    // Load persisted settings or fallback safely to PocketCHIP defaults
+    // Load persisted settings or fallback safely to the default settings
     let mut settings = Settings::load_or_default();
 
     // Configure the framebuffer/context attributes *before* the OpenGL window

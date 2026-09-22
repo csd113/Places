@@ -224,6 +224,31 @@ class SourceHygieneTests(unittest.TestCase):
             self.assertIn(needle, readme)
         self.assertIn("SDL2", readme)
 
+    def test_readme_documents_wasd_and_arrow_defaults(self):
+        readme = (PACKAGE / "README.md").read_text(encoding="utf-8")
+        for row in (
+            "| Walk forward | `W` |",
+            "| Walk backward | `S` |",
+            "| Strafe left | `A` |",
+            "| Strafe right | `D` |",
+            "| Look up | `UP` |",
+            "| Look down | `DOWN` |",
+            "| Look left | `LEFT` |",
+            "| Look right | `RIGHT` |",
+        ):
+            self.assertIn(row, readme, f"README is missing the default row {row!r}")
+        # The previous PocketCHIP-oriented defaults must no longer be presented
+        # as the normal controls.
+        for legacy in (
+            "| Walk backward | `Z` |",
+            "| Strafe right | `S` |",
+            "| Look up | `O` |",
+            "| Look down | `.` |",
+            "| Look left | `K` |",
+            "| Look right | `L` |",
+        ):
+            self.assertNotIn(legacy, readme, f"README still lists the old row {legacy!r}")
+
 
 if __name__ == "__main__":
     unittest.main()
