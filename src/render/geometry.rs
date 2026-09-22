@@ -7,14 +7,14 @@
 use super::{
     DECAL_EXTERNAL_BASE, LIGHT_FACE_PROBE_M, LevelDef, LevelLighting, LevelMesh, LevelSurfaces,
     LitSurface, MATERIAL_NONE, MaterialIndex, MaterialLookup, MaterialSlot, MaterialTable, PropDef,
-    SurfaceKey, SurfaceKind, Vertex, WALL_FACE_EAST_MULT, WALL_FACE_NORTH_MULT,
-    WALL_FACE_SOUTH_MULT, WALL_FACE_WEST_MULT, WallAxis, WallCoverage, WallUnit, add_decal_quad,
-    add_panel_fixture, add_prop_box, add_quad, add_round_fixture, add_wall_cross_quad,
-    add_wall_fixture, add_wall_length_face, cross_section_covered, decal_sheet_index,
-    decal_uv_rect, decal_uv_rect_full, emit_floor_skirts, emit_lit_surface_grid,
-    finish_indexed_mesh, floor_surfaces, flush_wall_run, interval_symmetric_difference,
-    lit_corners, lit_surface_grid, room_is_tessellatable, shade, spatial_cell_grid,
-    subtract_rectangles, tiled_uv, wall_layout, wall_vertical_extent,
+    SurfaceKey, SurfaceKind, Vertex, WALL_COINCIDENCE_EPS, WALL_FACE_EAST_MULT,
+    WALL_FACE_NORTH_MULT, WALL_FACE_SOUTH_MULT, WALL_FACE_WEST_MULT, WallAxis, WallCoverage,
+    WallUnit, add_decal_quad, add_panel_fixture, add_prop_box, add_quad, add_round_fixture,
+    add_wall_cross_quad, add_wall_fixture, add_wall_length_face, cross_section_covered,
+    decal_sheet_index, decal_uv_rect, decal_uv_rect_full, emit_floor_skirts,
+    emit_lit_surface_grid, finish_indexed_mesh, floor_surfaces, flush_wall_run,
+    interval_symmetric_difference, lit_corners, lit_surface_grid, room_is_tessellatable, shade,
+    spatial_cell_grid, subtract_rectangles, tiled_uv, wall_layout, wall_vertical_extent,
 };
 use crate::level::{RoomDef, WallDef, WallSlice};
 use crate::spatial::SpatialBuckets;
@@ -533,6 +533,21 @@ fn emit_wall_length_face(
 
 /// Emits the horizontal caps one solid slice exposes: the top of a half-height
 /// wall or window sill, and the underside of a raised wall or door header.
+///
+/// A cap is only the part of the slice's horizontal face that is actually
+/// exposed. Two things can own the same plane instead:
+///
+/// * the unit's own solid volume: the step between two stacked cells of a
+///   coalesced group is an interior face, not two caps back to back;
+/// * a room floor: the adjoining rooms' floors meet at a doorway's shared
+///   boundary and jointly cover the wall footprint, so a sill whose top lands
+///   on that plane is buried under a real floor surface. Emitting it anyway
+///   puts two coplanar faces at the same depth, which is the doorway threshold
+///   flicker this function exists to prevent.
+///
+/// Both are subtracted as rectangles, so a cap covered over only part of its
+/// span keeps exactly the exposed remainder instead of disappearing whole or
+/// surviving underneath the covering surface.
 fn emit_wall_caps(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -543,33 +558,6 @@ fn emit_wall_caps(
 ) {
     let slice_mid = f32::midpoint(slice.start, slice.end);
     let ceiling_along = |offset: f32| context.surfaces.ceiling_y_along(state.wall, offset);
-    // A cap inside the unit's own solid volume is an interior face: a taller
-    // member of a coalesced group continues the wall above or below this slice,
-    // so the step between them must not grow a horizontal pair at the same
-    // depth. The exposed steps at the group's top and bottom are still capped
-    // by whichever slice actually ends there.
-    let covered_above = |slice: &WallSlice| {
-        state.slices.iter().any(|other| {
-            (other.start - slice.start).abs() <= 1e-3
-                && (other.end - slice.end).abs() <= 1e-3
-                && (other.bottom - slice.top).abs() <= 1e-3
-        })
-    };
-    let covered_below = |slice: &WallSlice| {
-        state.slices.iter().any(|other| {
-            (other.start - slice.start).abs() <= 1e-3
-                && (other.end - slice.end).abs() <= 1e-3
-                && (other.top - slice.bottom).abs() <= 1e-3
-        })
-    };
-    // A wall that reaches the ceiling over this span needs no top face, which
-    // is what keeps gable-end walls from growing a flat cap above the slope.
-    if slice.top < ceiling_along(slice_mid) - 1e-3 && !covered_above(slice) {
-        emit_wall_slice_cap(context, buckets, scratch, state, slice, cursor, true);
-    }
-
-    // The underside is visible wherever it is above the floor the player
-    // actually stands on (raised walls, door and window headers).
     let floor_along = |offset: f32| {
         let (x, z) = crate::level::wall_point(state.wall, offset);
         context
@@ -578,15 +566,86 @@ fn emit_wall_caps(
             .or_else(|| context.surfaces.room_floor_y_at(x, z))
             .unwrap_or(0.0)
     };
-    if slice.bottom > floor_along(slice_mid) + 1e-3 && !covered_below(slice) {
-        emit_wall_slice_cap(context, buckets, scratch, state, slice, cursor, false);
+    // The cap's own rectangle in (along the wall, across its thickness) space.
+    let cap = (slice.start, slice.end, state.t0, state.t1);
+    // Floor rectangles at a cap's world plane, in the same (along, across)
+    // space. Each room's floor grid resolves heights exactly like the floor
+    // mesh does, so coverage can never disagree with what is drawn.
+    let floor_covered = |plane: f32| -> Vec<(f32, f32, f32, f32)> {
+        let area = match state.axis {
+            WallAxis::X => (
+                state.origin_x + slice.start,
+                state.origin_x + slice.end,
+                state.t0,
+                state.t1,
+            ),
+            WallAxis::Z => (
+                state.t0,
+                state.t1,
+                state.origin_z + slice.start,
+                state.origin_z + slice.end,
+            ),
+        };
+        let (ax0, ax1, az0, az1) = area;
+        floor_coverage_at(
+            context.surfaces,
+            plane,
+            (ax0.min(ax1), ax0.max(ax1), az0.min(az1), az0.max(az1)),
+        )
+        .into_iter()
+        // World rects become cap-local `(along, across)` rects: the cap's
+        // along coordinate is measured from the wall's own length origin.
+        .map(|(x0, x1, z0, z1)| match state.axis {
+            WallAxis::X => (x0 - state.origin_x, x1 - state.origin_x, z0, z1),
+            WallAxis::Z => (z0 - state.origin_z, z1 - state.origin_z, x0, x1),
+        })
+        .collect()
+    };
+    // Slices of the unit that sit directly on top of this one, or directly
+    // under it: their span is solid volume, so the shared plane is interior
+    // there.
+    let self_covered = |plane: f32, above: bool| -> Vec<(f32, f32, f32, f32)> {
+        state
+            .slices
+            .iter()
+            .filter(|other| {
+                let other_plane = if above { other.bottom } else { other.top };
+                (other_plane - plane).abs() <= WALL_COINCIDENCE_EPS
+            })
+            .map(|other| (other.start, other.end, state.t0, state.t1))
+            .collect()
+    };
+
+    // A wall that reaches the ceiling over this span needs no top face, which
+    // is what keeps gable-end walls from growing a flat cap above the slope.
+    if slice.top < ceiling_along(slice_mid) - 1e-3 {
+        let mut covered = self_covered(slice.top, true);
+        covered.extend(floor_covered(slice.top));
+        for rect in subtract_rectangles(cap, &covered) {
+            emit_wall_slice_cap(context, buckets, scratch, state, slice, cursor, true, rect);
+        }
+    }
+
+    // The underside is visible wherever it is above the floor the player
+    // actually stands on (raised walls, door and window headers).
+    if slice.bottom > floor_along(slice_mid) + 1e-3 {
+        let mut covered = self_covered(slice.bottom, false);
+        covered.extend(floor_covered(slice.bottom));
+        for rect in subtract_rectangles(cap, &covered) {
+            emit_wall_slice_cap(context, buckets, scratch, state, slice, cursor, false, rect);
+        }
     }
 }
 
-/// Emits one solid slice's top (`up = true`) or bottom cap and flushes it.
+/// Emits one exposed rectangle of a solid slice's top (`up = true`) or bottom
+/// cap and flushes it.
 ///
-/// The cap looks up or down, so the two directions use opposite winding and
-/// opposite thickness coordinates.
+/// `rect` is the rectangle in the cap's own `(along the wall, across its
+/// thickness)` space, already reduced to the part no other surface owns. The
+/// cap looks up or down, so the two directions use opposite winding; the
+/// Z-axis world mapping is the transpose of the X-axis one, so its corners
+/// run the other way round to keep the same facing.
+#[allow(clippy::too_many_arguments)] // matches the other quad emitters in this module
 fn emit_wall_slice_cap(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -595,11 +654,8 @@ fn emit_wall_slice_cap(
     slice: &WallSlice,
     cursor: &mut usize,
     up: bool,
+    rect: (f32, f32, f32, f32),
 ) {
-    let (l0, l1) = match state.axis {
-        WallAxis::X => (state.origin_x + slice.start, state.origin_x + slice.end),
-        WallAxis::Z => (state.origin_z + slice.start, state.origin_z + slice.end),
-    };
     let y = if up { slice.top } else { slice.bottom };
     let key = state
         .unit
@@ -610,44 +666,97 @@ fn emit_wall_slice_cap(
     } else {
         (0.85, WALL_BOTTOM_GRADIENT)
     };
-    let (first, second) = if up {
-        (state.t1, state.t0)
-    } else {
-        (state.t0, state.t1)
+    let (a0, a1, b0, b1) = rect;
+    let points = match (state.axis, up) {
+        (WallAxis::X, true) => [[a0, y, b1], [a1, y, b1], [a1, y, b0], [a0, y, b0]],
+        (WallAxis::X, false) => [[a0, y, b0], [a1, y, b0], [a1, y, b1], [a0, y, b1]],
+        (WallAxis::Z, true) => [[b0, y, a0], [b0, y, a1], [b1, y, a1], [b1, y, a0]],
+        (WallAxis::Z, false) => [[b1, y, a0], [b1, y, a1], [b0, y, a1], [b0, y, a0]],
     };
     let base_color = scaled_wall_color(context.materials, key, mult, grad);
-    let points = match state.axis {
-        WallAxis::X => [
-            [l0, y, first],
-            [l1, y, first],
-            [l1, y, second],
-            [l0, y, second],
-        ],
-        WallAxis::Z => [
-            [first, y, l0],
-            [first, y, l1],
-            [second, y, l1],
-            [second, y, l0],
-        ],
-    };
     let colors = lit_corners(base_color, points, context.lighting);
     let tile = context.materials.tile_metres(key);
+    let uv = |point: [f32; 3]| match state.axis {
+        WallAxis::X => tiled_uv(point[0], point[2], tile),
+        WallAxis::Z => tiled_uv(point[2], point[0], tile),
+    };
     add_quad(
         scratch,
         points[0],
         colors[0],
-        tiled_uv(l0, first, tile),
+        uv(points[0]),
         points[1],
         colors[1],
-        tiled_uv(l1, first, tile),
+        uv(points[1]),
         points[2],
         colors[2],
-        tiled_uv(l1, second, tile),
+        uv(points[2]),
         points[3],
         colors[3],
-        tiled_uv(l0, second, tile),
+        uv(points[3]),
     );
     flush_wall_run(buckets, scratch, cursor, key);
+}
+
+/// Tolerance within which a floor surface is treated as lying on a wall cap's
+/// plane, in metres.
+///
+/// It is the same 1 mm the wall-coincidence resolution uses, so "the same
+/// plane" means the same thing wherever two surfaces are deduplicated.
+const FLOOR_CAP_EPS: f32 = 1e-3;
+
+/// The rectangles of walkable floor at world Y `y`, clipped to the world
+/// `(x0, x1, z0, z1)` area they are needed in.
+///
+/// The rectangles are the room floor grid cells the floor emitter draws:
+/// heights resolve through [`LevelSurfaces::floor_grid`], which samples the
+/// same per-cell offsets the mesh, the collision rims and the walkable surface
+/// use, so a cap can never be emitted on top of a floor the renderer draws.
+fn floor_coverage_at(
+    surfaces: &LevelSurfaces<'_>,
+    y: f32,
+    area: (f32, f32, f32, f32),
+) -> Vec<(f32, f32, f32, f32)> {
+    let (ax0, ax1, az0, az1) = area;
+    let mut rects: Vec<(f32, f32, f32, f32)> = Vec::new();
+    for room in surfaces.rooms() {
+        if !room_is_tessellatable(room) {
+            continue;
+        }
+        let (rx0, rx1, rz0, rz1) = room.bounds();
+        if rx1 <= ax0 || rx0 >= ax1 || rz1 <= az0 || rz0 >= az1 {
+            continue;
+        }
+        // Without regions the room floor is its whole footprint; with them the
+        // grid is cut at their edges and each cell resolves its own height.
+        if surfaces.regions_for_room(room).is_empty() {
+            if (room.floor_y - y).abs() <= FLOOR_CAP_EPS {
+                rects.push((rx0.max(ax0), rx1.min(ax1), rz0.max(az0), rz1.min(az1)));
+            }
+            continue;
+        }
+        let grid = surfaces.floor_grid(room);
+        for iz in 0..grid.cells_z() {
+            for ix in 0..grid.cells_x() {
+                if (room.floor_y + grid.offset_at(ix, iz) - y).abs() > FLOOR_CAP_EPS {
+                    continue;
+                }
+                let (Some(&x0), Some(&x1)) = (grid.xs.get(ix), grid.xs.get(ix.saturating_add(1)))
+                else {
+                    continue;
+                };
+                let (Some(&z0), Some(&z1)) = (grid.zs.get(iz), grid.zs.get(iz.saturating_add(1)))
+                else {
+                    continue;
+                };
+                let rect = (x0.max(ax0), x1.min(ax1), z0.max(az0), z1.min(az1));
+                if rect.0 < rect.1 && rect.2 < rect.3 {
+                    rects.push(rect);
+                }
+            }
+        }
+    }
+    rects
 }
 
 /// The two sides of one solid-profile boundary, as absolute Y intervals.

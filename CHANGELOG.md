@@ -1,5 +1,52 @@
 # Changelog
 
+## Unreleased — doorway floors own their threshold plane
+
+Some doorways in `Places Demo` flickered between the two adjoining rooms'
+floor textures as the camera moved: the office/stairs door at x = 19 and the
+pool-deck/corridor door at x = 26. The cause was generated geometry, not depth
+tuning. Both doors have a raised sill, so the wall's solid below the opening is
+a plinth whose top lands exactly on the walkable floor plane. The wall emitter
+drew that plinth's top cap as a full-thickness quad — x 18.85..19.15,
+z 0.3..1.5 at y = 0 for the first door, x 25.85..26.15, z 12.5..14.1 at
+y = -0.9 for the second — while the two rooms' floors already meet at their
+shared boundary and jointly cover the same footprint (the documented threshold
+ownership rule). That was 12 coplanar triangle pairs over 0.84 m², one of them
+the plinth cap and the other a room floor, fighting for the same depth value in
+every frame.
+
+Two defects came together. The cap was never clipped against the floor that
+owns its plane, and for Z-axis walls the cap's winding was transposed: a top
+cap came out facing down and a bottom cap facing up. The reversed cap was why
+the surface audit's opposite-facing skip treated the pair as "a wall's own back
+face", and it would also be culled away in a culling-enabled build.
+
+### Fixed
+
+- **Wall caps are emitted only where they are actually exposed.**
+  `render::emit_wall_caps` subtracts, rectangle by rectangle, the room-floor
+  coverage at the cap's world plane — resolved from the same `LevelSurfaces`
+  floor grid cells the floor mesh draws, so coverage can never disagree with
+  the rendered floor — and the unit's own solid volume that continues the wall
+  above or below the cap. A cap covered only in part keeps exactly its exposed
+  remainder, which is what preserves a real sill ledge over a lower floor.
+- **Z-axis cap winding is corrected.**
+  `render::emit_wall_slice_cap` now winds X- and Z-axis caps so a top cap faces
+  +Y and a bottom cap faces -Y, matching the X-axis branch and the outward
+  convention every other face uses.
+
+### Added
+
+- `src/surface_audit.rs`: the coincidence detector compares canonical planes,
+  so two triangles in one plane are reported whether they face the same way or
+  opposite ways, and it runs against the architecture kinds only (decal
+  offsets and prop floor contact are documented features). New regression
+  coverage builds real meshes for same-material and mixed-material doorways,
+  both wall orientations, wide and narrow openings, corner-adjacent openings,
+  multiple doorways, differently sized rooms, a raised-threshold region, a sill
+  ledge over a lower floor, a doorway chain, the two affected `Places Demo`
+  doorways and Z-axis cap winding.
+
 ## Unreleased — decals own their depth plane
 
 Wall and floor decals could flicker in `Places Demo`: the base surface showed

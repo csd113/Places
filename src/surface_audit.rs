@@ -5,12 +5,18 @@
 //! on top of each other). It must never emit a *coincident* pair as a
 //! by-product of how it derives walls, openings, thresholds or groups: two
 //! surfaces at the same depth fight for the same pixels, and the loser flickers
-//! as the camera moves.
+//! as the camera moves. Face culling is off, so a triangle facing one way and
+//! one facing the other still compete; the audit checks both.
+//!
+//! The invariant holds for the architecture kinds — floors, ceilings and walls.
+//! Decals are deliberately offset from their parent surface and prop boxes
+//! deliberately rest on the floor, so those contact planes are permitted by the
+//! features themselves.
 //!
 //! These tests build real meshes through the same entry point the game uses and
 //! measure the emitted triangles, rather than asserting that a level parses.
 //! The `places_demo` case is the shipped acceptance check: it must emit no
-//! coincident static surface at all.
+//! coincident architecture surface at all.
 
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
@@ -131,10 +137,12 @@ impl Overlap {
 /// Every pair of triangles that share a plane (within `plane_tolerance`) and
 /// overlap in that plane by more than `area_tolerance`.
 ///
-/// The triangles are bucketed by a quantised plane key, which is exact for the
-/// axis-aligned surfaces the builder emits; each bucket is then checked
-/// pairwise with a real 2D polygon intersection, so touching neighbours are
-/// never reported and a genuine overlap of any size is.
+/// The triangles are bucketed by a sign-canonical quantised plane key, so the
+/// two facings of one plane land in the same bucket, and each bucket is then
+/// checked pairwise with a real 2D polygon intersection. Face culling is off,
+/// so a front- and a back-facing triangle in one plane still fight for the
+/// same pixels; both are reported. Touching neighbours are never reported and
+/// a genuine overlap of any size is.
 fn coincident_overlaps(
     all: &[Triangle],
     plane_tolerance: f32,
@@ -142,13 +150,7 @@ fn coincident_overlaps(
 ) -> Vec<Overlap> {
     let mut buckets: HashMap<(i32, i32, i32, i32), Vec<usize>> = HashMap::new();
     for (index, triangle) in all.iter().enumerate() {
-        let key = (
-            (triangle.normal[0] * 256.0).round() as i32,
-            (triangle.normal[1] * 256.0).round() as i32,
-            (triangle.normal[2] * 256.0).round() as i32,
-            (triangle.offset * 256.0).round() as i32,
-        );
-        buckets.entry(key).or_default().push(index);
+        buckets.entry(plane_key(triangle)).or_default().push(index);
     }
     let mut overlaps = Vec::new();
     for members in buckets.values() {
@@ -158,12 +160,9 @@ fn coincident_overlaps(
                 let (Some(ta), Some(tb)) = (all.get(first), all.get(second)) else {
                     continue;
                 };
-                // A pair that faces opposite ways is a wall with its own back
-                // face, not two surfaces competing for a pixel.
-                if dot(ta.normal, tb.normal) <= 0.0 {
-                    continue;
-                }
-                if (ta.offset - tb.offset).abs() > plane_tolerance {
+                let (_, first_offset) = canonical_plane(ta);
+                let (_, second_offset) = canonical_plane(tb);
+                if (first_offset - second_offset).abs() > plane_tolerance {
                     continue;
                 }
                 let area = overlap_area(ta, tb);
@@ -180,8 +179,45 @@ fn coincident_overlaps(
     overlaps
 }
 
+/// A triangle's plane with a canonical facing: the normal component with the
+/// largest magnitude is positive and the offset carries the same sign flip.
+///
+/// Two triangles on one plane with opposite windings produce opposite raw
+/// normals and offsets; canonicalising them puts both in the same bucket and
+/// makes their plane constants directly comparable.
+fn canonical_plane(triangle: &Triangle) -> ([f32; 3], f32) {
+    let [nx, ny, nz] = triangle.normal;
+    let largest = if nx.abs() >= ny.abs() && nx.abs() >= nz.abs() {
+        nx
+    } else if ny.abs() >= nz.abs() {
+        ny
+    } else {
+        nz
+    };
+    if largest < 0.0 {
+        ([-nx, -ny, -nz], -triangle.offset)
+    } else {
+        ([nx, ny, nz], triangle.offset)
+    }
+}
+
+/// A quantised bucket key for a triangle's canonical plane.
+///
+/// The quantisation is far finer than any plane the builder emits (1/256 m)
+/// and only groups candidate pairs; the exact tolerance check happens on the
+/// canonical offsets afterwards.
+fn plane_key(triangle: &Triangle) -> (i32, i32, i32, i32) {
+    let ([nx, ny, nz], offset) = canonical_plane(triangle);
+    let quantise = |value: f32| (value * 256.0).round() as i32;
+    (quantise(nx), quantise(ny), quantise(nz), quantise(offset))
+}
+
 /// The area of the intersection of two coplanar triangles, projected onto the
 /// plane's own 2D basis.
+///
+/// Both polygons are re-oriented to a consistent winding before clipping, so
+/// the result is correct whether the triangles face the same way or opposite
+/// ways.
 fn overlap_area(a: &Triangle, b: &Triangle) -> f32 {
     let normal = glam::Vec3::from(a.normal);
     let tangent = if normal.dot(glam::Vec3::Y).abs() > 0.9 {
@@ -195,7 +231,13 @@ fn overlap_area(a: &Triangle, b: &Triangle) -> f32 {
         [v.dot(tangent), v.dot(bitangent)]
     };
     let mut subject: Vec<[f32; 2]> = a.points.iter().map(|p| to_2d(*p)).collect();
-    let clip: Vec<[f32; 2]> = b.points.iter().map(|p| to_2d(*p)).collect();
+    let mut clip: Vec<[f32; 2]> = b.points.iter().map(|p| to_2d(*p)).collect();
+    if signed_area(&subject) < 0.0 {
+        subject.reverse();
+    }
+    if signed_area(&clip) < 0.0 {
+        clip.reverse();
+    }
     for edge in 0..3 {
         let start = clip[edge];
         let end = clip[(edge + 1) % 3];
@@ -205,6 +247,18 @@ fn overlap_area(a: &Triangle, b: &Triangle) -> f32 {
         }
     }
     polygon_area(&subject)
+}
+
+/// The signed area of a 2D polygon: positive for counter-clockwise winding in
+/// the basis [`overlap_area`] builds.
+fn signed_area(points: &[[f32; 2]]) -> f32 {
+    let mut area = 0.0;
+    for index in 0..points.len() {
+        let current = points[index];
+        let next = points[(index + 1) % points.len()];
+        area += current[0] * next[1] - next[0] * current[1];
+    }
+    area * 0.5
 }
 
 /// Clips a convex polygon against the half-plane left of `start -> end`.
@@ -245,13 +299,7 @@ fn line_intersection(a0: [f32; 2], a1: [f32; 2], b0: [f32; 2], b1: [f32; 2]) -> 
 }
 
 fn polygon_area(points: &[[f32; 2]]) -> f32 {
-    let mut area = 0.0;
-    for index in 0..points.len() {
-        let current = points[index];
-        let next = points[(index + 1) % points.len()];
-        area += current[0] * next[1] - next[0] * current[1];
-    }
-    (area * 0.5).abs()
+    signed_area(points).abs()
 }
 
 /// Builds a level through the shipped asset pipeline (so decals resolve too).
@@ -265,17 +313,42 @@ fn parse(json: &str) -> LevelDef {
     LevelDef::from_json(json).expect("test level parses")
 }
 
-/// Fails with every offending pair listed when any coincident overlap exists.
-fn assert_no_coincident_overlaps(all: &[Triangle], context: &str) {
-    let overlaps = coincident_overlaps(all, 1e-4, 1e-4);
+/// True for the architectural surface kinds: the real world geometry the
+/// player walks on and between.
+///
+/// Decals are deliberately offset from their parent surface and prop boxes
+/// deliberately rest on the floor, so their contact planes are permitted by
+/// those features; floors, ceilings and walls are not.
+const fn is_architecture(kind: SurfaceKind) -> bool {
+    matches!(
+        kind,
+        SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall
+    )
+}
+
+/// Fails with every offending pair listed when any two architecture triangles
+/// share a plane and overlap.
+///
+/// The plane tolerance matches the builder's own wall-coincidence tolerance,
+/// and the area tolerance rejects edge-touching neighbours while keeping a
+/// genuine sliver. Both facings are checked: face culling is off, so a
+/// front-facing and a back-facing triangle in one plane still fight for the
+/// same depth value.
+fn assert_no_coincident_architecture_overlaps(all: &[Triangle], context: &str) {
+    let architecture: Vec<Triangle> = all
+        .iter()
+        .copied()
+        .filter(|triangle| is_architecture(triangle.kind))
+        .collect();
+    let overlaps = coincident_overlaps(&architecture, 1e-3, 1e-4);
     assert!(
         overlaps.is_empty(),
-        "{context}: {} coincident overlapping triangle pair(s):\n{}",
+        "{context}: {} coincident architecture triangle pair(s):\n{}",
         overlaps.len(),
         overlaps
             .iter()
             .take(8)
-            .map(|overlap| overlap.describe(all))
+            .map(|overlap| overlap.describe(&architecture))
             .collect::<Vec<_>>()
             .join("\n")
     );
@@ -327,7 +400,7 @@ fn a_doorway_threshold_is_covered_by_exactly_one_floor_surface() {
     // Nothing in the whole level may fight for a pixel: the two rooms' floors
     // meet at the shared boundary and the doorway is a hole through the wall,
     // never a second floor quad.
-    assert_no_coincident_overlaps(&all, "two connected rooms with a doorway");
+    assert_no_coincident_architecture_overlaps(&all, "two connected rooms with a doorway");
 
     // And the threshold really is covered: every point of the shared plane
     // inside the doorway is on exactly one floor surface, so the player walks
@@ -384,7 +457,7 @@ fn adjacent_rooms_with_different_floor_materials_do_not_overlap() {
     ));
     let mesh = shipped_mesh(&level);
     let all = triangles(&mesh);
-    assert_no_coincident_overlaps(&all, "rooms with different floor materials");
+    assert_no_coincident_architecture_overlaps(&all, "rooms with different floor materials");
 
     // Each room's own floor material stays on its own side of the wall.
     let beige = MaterialTable::logical(&level, PropCatalog::load_default().assets(), None)
@@ -428,7 +501,492 @@ fn multiple_openings_on_one_wall_keep_one_surface_per_span() {
     );
     let mesh = shipped_mesh(&level);
     let all = triangles(&mesh);
-    assert_no_coincident_overlaps(&all, "three openings on one wall");
+    assert_no_coincident_architecture_overlaps(&all, "three openings on one wall");
+}
+
+// ---------------------------------------------------------------------------
+// Doorway threshold ownership
+// ---------------------------------------------------------------------------
+//
+// A doorway is a hole through a wall: the two rooms' floors meet at their
+// shared boundary and jointly cover the wall's footprint, so the floor is the
+// threshold surface. A sill below a raised door is a solid plinth under that
+// floor, and its top cap may never be emitted at the floor's own plane. These
+// cases exercise that ownership rule across room sizes, materials, elevations,
+// opening sizes and orientations.
+
+/// A two-room doorway case for the threshold ownership tests.
+///
+/// Room A starts at the origin and room B begins where A ends, so their
+/// footprints meet on one plane. The dividing wall is centred on that shared
+/// boundary, exactly like the shipped demo's rooms, so the two floors jointly
+/// cover the wall's footprint.
+#[derive(Clone, Copy)]
+struct DoorwayCase {
+    /// True when the dividing wall runs along Z (rooms side by side in X);
+    /// false when it runs along X (rooms stacked in Z).
+    along_z: bool,
+    size_a: (f32, f32),
+    size_b: (f32, f32),
+    floor_a: f32,
+    floor_b: f32,
+    material_a: &'static str,
+    material_b: &'static str,
+    /// The dividing wall's `openings` array.
+    openings: &'static str,
+    /// Extra level `floor_regions` entries, in world coordinates.
+    floor_regions: &'static str,
+}
+
+impl DoorwayCase {
+    /// Two identical 4x4 rooms, level floors and default materials.
+    const fn simple(along_z: bool, openings: &'static str) -> Self {
+        Self {
+            along_z,
+            size_a: (4.0, 4.0),
+            size_b: (4.0, 4.0),
+            floor_a: 0.0,
+            floor_b: 0.0,
+            material_a: "",
+            material_b: "",
+            openings,
+            floor_regions: "[]",
+        }
+    }
+
+    /// The shared boundary coordinate: room A's far edge on the neighbour axis.
+    fn boundary(&self) -> f32 {
+        if self.along_z {
+            self.size_a.0
+        } else {
+            self.size_a.1
+        }
+    }
+
+    fn level(&self) -> LevelDef {
+        let room = |x: f32, z: f32, (width, depth): (f32, f32), floor_y: f32, material: &str| {
+            let material = if material.is_empty() {
+                String::new()
+            } else {
+                format!(r#", "material": "{material}""#)
+            };
+            format!(
+                r#"{{ "x": {x}, "z": {z}, "width": {width}, "depth": {depth}, "height": 3.0, "floor_y": {floor_y}{material} }}"#
+            )
+        };
+        let (room_a, room_b) = if self.along_z {
+            (
+                room(0.0, 0.0, self.size_a, self.floor_a, self.material_a),
+                room(self.size_a.0, 0.0, self.size_b, self.floor_b, self.material_b),
+            )
+        } else {
+            (
+                room(0.0, 0.0, self.size_a, self.floor_a, self.material_a),
+                room(0.0, self.size_a.1, self.size_b, self.floor_b, self.material_b),
+            )
+        };
+        // The wall reaches from the lower floor to the higher ceiling, so it
+        // crosses the shared boundary whatever the two elevations are.
+        let base = self.floor_a.min(self.floor_b);
+        let height = self.floor_a.max(self.floor_b) + 3.0 - base;
+        let wall = if self.along_z {
+            format!(
+                r#"{{ "x": {}, "z": 0.0, "width": 0.4, "depth": {}, "y": {base}, "height": {height}, "openings": {} }}"#,
+                self.size_a.0 - 0.2,
+                self.size_a.1.max(self.size_b.1),
+                self.openings
+            )
+        } else {
+            format!(
+                r#"{{ "x": 0.0, "z": {}, "width": {}, "depth": 0.4, "y": {base}, "height": {height}, "openings": {} }}"#,
+                self.size_a.1 - 0.2,
+                self.size_a.0.max(self.size_b.0),
+                self.openings
+            )
+        };
+        parse(&format!(
+            r#"{{
+                "format_version": 1,
+                "id": "doorway_case",
+                "name": "Doorway Case",
+                "spawn": {{ "x": 1.0, "z": 1.0 }},
+                "rooms": [{room_a}, {room_b}],
+                "walls": [{wall}],
+                "floor_regions": {}
+            }}"#,
+            self.floor_regions
+        ))
+    }
+}
+
+/// Probe points across a doorway: both sides of the shared boundary, at the
+/// opening's centre and just inside both jambs.
+fn threshold_probes(boundary: f32, span: (f32, f32), along_z: bool) -> Vec<(f32, f32)> {
+    let (start, end) = span;
+    let mut probes = Vec::new();
+    for offset in [-0.18f32, -0.05, 0.05, 0.18] {
+        for along in [start + 0.03, f32::midpoint(start, end), end - 0.03] {
+            probes.push(if along_z {
+                (boundary + offset, along)
+            } else {
+                (along, boundary + offset)
+            });
+        }
+    }
+    probes
+}
+
+/// Asserts every probe point is covered by exactly one emitted floor surface.
+///
+/// The count is per distinct `(material, plane)` surface, so the two triangles
+/// of one emitted quad — which share an edge a probe can land on — read as the
+/// one surface they are. Two genuinely different coplanar floors at one point
+/// still count twice (and are also caught by the coincidence invariant).
+fn assert_exactly_one_floor_at(all: &[Triangle], probes: &[(f32, f32)], context: &str) {
+    let floor_triangles: Vec<&Triangle> = all
+        .iter()
+        .filter(|triangle| triangle.kind == SurfaceKind::Floor)
+        .collect();
+    assert!(!floor_triangles.is_empty(), "{context}: no floor was emitted");
+    for &(x, z) in probes {
+        let mut covering: Vec<(MaterialIndex, f32)> = Vec::new();
+        for triangle in &floor_triangles {
+            if !covers_xz(triangle, x, z) {
+                continue;
+            }
+            let already = covering.iter().any(|(material, offset)| {
+                *material == triangle.material && (offset - triangle.offset).abs() < 1e-4
+            });
+            if !already {
+                covering.push((triangle.material, triangle.offset));
+            }
+        }
+        assert_eq!(
+            covering.len(),
+            1,
+            "{context}: floor coverage at ({x}, {z}) is {} surface(s), not 1",
+            covering.len()
+        );
+    }
+}
+
+/// Builds a case and asserts its whole mesh has no coincident architecture
+/// pair and its threshold is owned by exactly one floor.
+fn assert_doorway_case(case: &DoorwayCase, span: (f32, f32), context: &str) {
+    let level = case.level();
+    let mesh = shipped_mesh(&level);
+    let all = triangles(&mesh);
+    assert_no_coincident_architecture_overlaps(&all, context);
+    let probes = threshold_probes(case.boundary(), span, case.along_z);
+    assert_exactly_one_floor_at(&all, &probes, context);
+}
+
+#[test]
+fn a_same_material_doorway_is_owned_by_exactly_one_floor_surface() {
+    assert_doorway_case(
+        &DoorwayCase::simple(
+            true,
+            r#"[{ "kind": "door", "offset": 1.5, "width": 1.0, "height": 2.1, "sill": 0.0 }]"#,
+        ),
+        (1.5, 2.5),
+        "same-material doorway",
+    );
+}
+
+#[test]
+fn different_floor_materials_transition_at_the_shared_boundary() {
+    let case = DoorwayCase {
+        material_b: "core:carpet_damp_01",
+        ..DoorwayCase::simple(
+            true,
+            r#"[{ "kind": "door", "offset": 1.5, "width": 1.0, "height": 2.1, "sill": 0.0 }]"#,
+        )
+    };
+    let level = case.level();
+    let mesh = shipped_mesh(&level);
+    let all = triangles(&mesh);
+    assert_no_coincident_architecture_overlaps(&all, "different-material doorway");
+    assert_exactly_one_floor_at(
+        &all,
+        &threshold_probes(case.boundary(), (1.5, 2.5), true),
+        "different-material doorway",
+    );
+
+    // Each room's material stays on its own side: the boundary is a clean
+    // transition, not a set of coplanar competitors.
+    let materials = MaterialTable::logical(&level, PropCatalog::load_default().assets(), None);
+    let beige = materials.index_of("core:carpet_beige_01").expect("beige");
+    let damp = materials.index_of("core:carpet_damp_01").expect("damp");
+    assert_ne!(beige, damp);
+    for triangle in all.iter().filter(|t| t.kind == SurfaceKind::Floor) {
+        let mid_x = f32::midpoint(
+            triangle.points[0][0]
+                .min(triangle.points[1][0])
+                .min(triangle.points[2][0]),
+            triangle.points[0][0]
+                .max(triangle.points[1][0])
+                .max(triangle.points[2][0]),
+        );
+        if triangle.material == beige {
+            assert!(mid_x < case.boundary() + 1e-3, "beige floor crossed the boundary");
+        }
+        if triangle.material == damp {
+            assert!(mid_x > case.boundary() - 1e-3, "damp floor crossed the boundary");
+        }
+    }
+}
+
+#[test]
+fn doorways_work_on_both_wall_orientations() {
+    for along_z in [true, false] {
+        let case = DoorwayCase {
+            material_b: "core:carpet_damp_01",
+            ..DoorwayCase::simple(
+                along_z,
+                r#"[{ "kind": "door", "offset": 1.5, "width": 1.0, "height": 2.1, "sill": 0.0 }]"#,
+            )
+        };
+        assert_doorway_case(&case, (1.5, 2.5), "oriented doorway");
+    }
+}
+
+#[test]
+fn wide_and_narrow_doorways_are_clean() {
+    let wide = DoorwayCase::simple(
+        true,
+        r#"[{ "kind": "door", "offset": 0.6, "width": 2.8, "height": 2.2, "sill": 0.0 }]"#,
+    );
+    assert_doorway_case(&wide, (0.6, 3.4), "wide doorway");
+
+    let narrow = DoorwayCase::simple(
+        true,
+        r#"[{ "kind": "door", "offset": 1.6, "width": 0.7, "height": 2.0, "sill": 0.0 }]"#,
+    );
+    assert_doorway_case(&narrow, (1.6, 2.3), "narrow doorway");
+}
+
+#[test]
+fn a_doorway_close_to_a_room_corner_is_clean() {
+    let case = DoorwayCase::simple(
+        true,
+        r#"[{ "kind": "door", "offset": 0.02, "width": 0.9, "height": 2.1, "sill": 0.0 }]"#,
+    );
+    assert_doorway_case(&case, (0.02, 0.92), "corner doorway");
+}
+
+#[test]
+fn multiple_doorways_keep_one_floor_owner_each() {
+    let case = DoorwayCase {
+        material_b: "core:carpet_damp_01",
+        ..DoorwayCase::simple(
+            true,
+            r#"[
+                { "kind": "door", "offset": 0.4, "width": 0.9, "height": 2.1, "sill": 0.0 },
+                { "kind": "door", "offset": 2.5, "width": 1.1, "height": 2.1, "sill": 0.0 }
+            ]"#,
+        )
+    };
+    let level = case.level();
+    let mesh = shipped_mesh(&level);
+    let all = triangles(&mesh);
+    assert_no_coincident_architecture_overlaps(&all, "multiple doorways");
+    for span in [(0.4, 1.3), (2.5, 3.6)] {
+        assert_exactly_one_floor_at(
+            &all,
+            &threshold_probes(case.boundary(), span, true),
+            "multiple doorways",
+        );
+    }
+}
+
+#[test]
+fn different_room_dimensions_still_own_the_threshold_once() {
+    for size_b in [(6.0, 3.0), (2.5, 6.0)] {
+        let case = DoorwayCase {
+            size_b,
+            material_b: "core:carpet_damp_01",
+            ..DoorwayCase::simple(
+                true,
+                r#"[{ "kind": "door", "offset": 1.0, "width": 1.0, "height": 2.1, "sill": 0.0 }]"#,
+            )
+        };
+        assert_doorway_case(&case, (1.0, 2.0), "doorway between different-sized rooms");
+    }
+}
+
+#[test]
+fn a_raised_threshold_region_does_not_duplicate_the_floor() {
+    // The stair door's construction: room B's floor is lower, the door has a
+    // raised sill, and a floor region lifts room B's threshold back up to room
+    // A's floor plane. The sill top and the region surface share that plane,
+    // so exactly one of them may be emitted.
+    let case = DoorwayCase {
+        floor_b: -0.6,
+        material_b: "core:carpet_damp_01",
+        openings: r#"[{ "kind": "door", "offset": 1.5, "width": 1.0, "height": 2.1, "sill": 0.6 }]"#,
+        floor_regions: r#"[{ "x": 4.0, "z": 1.5, "width": 1.0, "depth": 1.0, "offset_y": 0.6 }]"#,
+        ..DoorwayCase::simple(true, "")
+    };
+    let level = case.level();
+    let mesh = shipped_mesh(&level);
+    let all = triangles(&mesh);
+    assert_no_coincident_architecture_overlaps(&all, "raised threshold region");
+    assert_exactly_one_floor_at(
+        &all,
+        &threshold_probes(case.boundary(), (1.5, 2.5), true),
+        "raised threshold region",
+    );
+
+    // The intentional step away from the threshold is still there: room B's
+    // own floor at -0.6 survives beyond the region.
+    assert!(
+        all.iter()
+            .any(|t| t.kind == SurfaceKind::Floor && (t.offset + 0.6).abs() < 1e-4),
+        "the lower room floor must not be flattened"
+    );
+}
+
+#[test]
+fn a_sill_over_a_lower_floor_keeps_its_exposed_ledge() {
+    // Rooms at different elevations with a raised sill: room A's floor covers
+    // the sill top on its own half of the wall, but room B's half is a real
+    // exposed ledge and must remain visible, not be deleted with the overlap.
+    let case = DoorwayCase {
+        floor_b: -0.5,
+        openings: r#"[{ "kind": "door", "offset": 1.5, "width": 1.0, "height": 2.1, "sill": 0.5 }]"#,
+        ..DoorwayCase::simple(true, "")
+    };
+    let level = case.level();
+    let mesh = shipped_mesh(&level);
+    let all = triangles(&mesh);
+    assert_no_coincident_architecture_overlaps(&all, "sill over a lower floor");
+    assert_exactly_one_floor_at(
+        &all,
+        &threshold_probes(case.boundary(), (1.5, 2.5), true),
+        "sill over a lower floor",
+    );
+    // The ledge is room B's half of the sill top, at room A's floor plane.
+    assert!(
+        all.iter().any(|t| {
+            t.kind == SurfaceKind::Wall
+                && t.normal[1] > 0.9
+                && t.offset.abs() < 1e-4
+                && t.points.iter().all(|p| p[0] >= 4.0 - 1e-3)
+        }),
+        "the exposed half of the sill top must stay"
+    );
+}
+
+#[test]
+fn a_chain_of_doorways_has_one_floor_owner_per_threshold() {
+    let level = parse(
+        r#"{
+            "format_version": 1,
+            "id": "doorway_chain",
+            "name": "Doorway Chain",
+            "spawn": { "x": 2.0, "z": 2.0 },
+            "rooms": [
+                { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 },
+                { "x": 4.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0,
+                  "material": "core:carpet_damp_01" },
+                { "x": 4.0, "z": 4.0, "width": 4.0, "depth": 4.0, "height": 3.0 }
+            ],
+            "walls": [
+                { "x": 3.8, "z": 0.0, "width": 0.4, "depth": 4.0, "height": 3.0,
+                  "openings": [{ "kind": "door", "offset": 1.0, "width": 1.0, "height": 2.1 }] },
+                { "x": 4.0, "z": 3.8, "width": 4.0, "depth": 0.4, "height": 3.0,
+                  "openings": [{ "kind": "door", "offset": 2.0, "width": 1.2, "height": 2.1 }] }
+            ]
+        }"#,
+    );
+    let mesh = shipped_mesh(&level);
+    let all = triangles(&mesh);
+    assert_no_coincident_architecture_overlaps(&all, "a chain of doorways");
+    assert_exactly_one_floor_at(
+        &all,
+        &threshold_probes(4.0, (1.0, 2.0), true),
+        "chain's first doorway",
+    );
+    assert_exactly_one_floor_at(
+        &all,
+        &threshold_probes(4.0, (6.0, 7.2), false),
+        "chain's second doorway",
+    );
+}
+
+#[test]
+fn z_axis_wall_caps_face_out_of_the_wall_solid() {
+    // The Z-axis cap mapping is the transpose of the X-axis one, so its cap
+    // corners must run the other way round: without that, a sill's top cap
+    // comes out facing down and a header's underside facing up. The reversed
+    // cap was how a floor-coplanar sill escaped the coincidence check, and it
+    // would also be culled away in a culling-enabled build.
+    let level = parse(
+        r#"{
+            "format_version": 1,
+            "id": "z_caps",
+            "name": "Z Caps",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 6.0, "height": 3.0 }],
+            "walls": [{
+                "x": 2.8, "z": 0.0, "width": 0.4, "depth": 6.0, "height": 3.0,
+                "openings": [{ "kind": "window", "offset": 2.0, "width": 2.0,
+                               "height": 1.0, "sill": 1.0 }]
+            }]
+        }"#,
+    );
+    let mesh = shipped_mesh(&level);
+    let all = triangles(&mesh);
+    let has_cap = |up: bool, plane: f32| {
+        all.iter().any(|triangle| {
+            triangle.kind == SurfaceKind::Wall
+                && triangle.normal[1].abs() > 0.9
+                && (triangle.normal[1] > 0.0) == up
+                && (triangle.offset.abs() - plane).abs() < 1e-4
+        })
+    };
+    assert!(has_cap(true, 1.0), "the window sill top must face up");
+    assert!(has_cap(false, 2.0), "the window header must face down");
+}
+
+#[test]
+fn places_demo_doorway_thresholds_are_owned_once() {
+    let level = parse(include_str!("../assets/levels/places_demo.json"));
+    let mesh = shipped_mesh(&level);
+    let all = triangles(&mesh);
+    assert_no_coincident_architecture_overlaps(&all, "places_demo doorways");
+
+    // The two doorways whose sills used to duplicate the floor plane: the
+    // stair door at x = 19 between the offices and the stair hall, and the
+    // pool deck door at x = 26 between the pool hall and the corridor.
+    assert_exactly_one_floor_at(
+        &all,
+        &threshold_probes(19.0, (0.3, 1.5), true),
+        "places_demo stair doorway",
+    );
+    assert_exactly_one_floor_at(
+        &all,
+        &threshold_probes(26.0, (12.5, 14.1), true),
+        "places_demo pool-deck doorway",
+    );
+
+    // The transition is the rooms' own boundary: beige office carpet west of
+    // the x = 19 door, damp carpet east of it, with no wall face on top.
+    let materials = MaterialTable::logical(&level, PropCatalog::load_default().assets(), None);
+    let beige = materials.index_of("core:carpet_beige_01").expect("beige");
+    let damp = materials.index_of("core:carpet_damp_01").expect("damp");
+    let pool_deck = materials
+        .index_of("core:pool_tile_deck_01")
+        .expect("pool deck");
+    let floor_material_at = |x: f32, z: f32| {
+        all.iter()
+            .find(|t| t.kind == SurfaceKind::Floor && covers_xz(t, x, z))
+            .map(|t| t.material)
+    };
+    assert_eq!(floor_material_at(18.9, 0.9), Some(beige));
+    assert_eq!(floor_material_at(19.1, 0.9), Some(damp));
+    assert_eq!(floor_material_at(25.9, 13.3), Some(pool_deck));
+    assert_eq!(floor_material_at(26.1, 13.3), Some(beige));
 }
 
 #[test]
@@ -453,7 +1011,7 @@ fn coincident_walls_with_different_vertical_extents_emit_one_surface() {
     let level = parse(json);
     let mesh = shipped_mesh(&level);
     let all = triangles(&mesh);
-    assert_no_coincident_overlaps(&all, "a wall continued at a different base");
+    assert_no_coincident_architecture_overlaps(&all, "a wall continued at a different base");
 
     // Both authored walls must still contribute a visible surface: the shared
     // span once, each material on its own stretch.
@@ -463,6 +1021,50 @@ fn coincident_walls_with_different_vertical_extents_emit_one_surface() {
         .collect();
     assert!(walls.iter().any(|t| t.points.iter().any(|p| p[2] < 4.0)));
     assert!(walls.iter().any(|t| t.points.iter().any(|p| p[2] > 4.4)));
+}
+
+#[test]
+fn a_coalesced_groups_interior_step_emits_no_cap_pair() {
+    // Two coincident walls whose union steps from a full-height stretch to a
+    // passage header: the step at y = 0.9 is solid wall volume on both sides,
+    // so it must not emit a top cap and a bottom cap in the same plane. The
+    // header's underside outside the overlap is still real and must remain.
+    let level = parse(
+        r#"{
+            "format_version": 1,
+            "id": "coalesced_step",
+            "name": "Coalesced Step",
+            "spawn": { "x": 0.5, "z": 0.5 },
+            "rooms": [{
+                "x": -0.15, "z": -0.15, "width": 4.3, "depth": 1.5,
+                "height": 4.2, "floor_y": -1.5
+            }],
+            "walls": [
+                { "x": 0.0, "z": 0.0, "width": 1.0, "depth": 0.3,
+                  "y": -1.5, "height": 4.2,
+                  "faces": { "north": "core:wallpaper_stained_01" } },
+                { "x": 0.85, "z": 0.0, "width": 3.15, "depth": 0.3,
+                  "y": -1.5, "height": 4.2,
+                  "faces": { "north": "core:wallpaper_yellow_01" },
+                  "openings": [{ "kind": "passage", "offset": 0.0, "width": 2.4,
+                                 "height": 2.4, "sill": 0.0 }] }
+            ]
+        }"#,
+    );
+    let mesh = shipped_mesh(&level);
+    let all = triangles(&mesh);
+    assert_no_coincident_architecture_overlaps(&all, "a coalesced group's interior step");
+
+    // The passage header's underside survives beyond the step.
+    assert!(
+        all.iter().any(|t| {
+            t.kind == SurfaceKind::Wall
+                && t.normal[1] < -0.9
+                && (t.offset + 0.9).abs() < 1e-4
+                && t.points.iter().any(|p| p[0] > 1.0 + 1e-3)
+        }),
+        "the header underside outside the overlap must stay"
+    );
 }
 
 #[test]
@@ -483,7 +1085,7 @@ fn a_wall_end_abutting_another_wall_emits_no_hidden_face() {
     let level = parse(json);
     let mesh = shipped_mesh(&level);
     let all = triangles(&mesh);
-    assert_no_coincident_overlaps(&all, "a wall crossing another wall");
+    assert_no_coincident_architecture_overlaps(&all, "a wall crossing another wall");
 
     // The crossing is a real T: the length wall's face is interrupted by the
     // partition, and both walls still emit their own faces.
@@ -672,16 +1274,11 @@ fn the_decal_depth_solution_is_sub_visible_and_resolvable_where_it_matters() {
 }
 
 #[test]
-fn the_shipped_demo_has_no_coincident_static_surfaces() {
+fn the_shipped_demo_has_no_coincident_architecture_surfaces() {
     let level = parse(include_str!("../assets/levels/places_demo.json"));
     let mesh = shipped_mesh(&level);
     let all = triangles(&mesh);
-    let static_only: Vec<Triangle> = all
-        .iter()
-        .copied()
-        .filter(|triangle| triangle.kind != SurfaceKind::Decal)
-        .collect();
-    assert_no_coincident_overlaps(&static_only, "places_demo static surfaces");
+    assert_no_coincident_architecture_overlaps(&all, "places_demo architecture");
 }
 
 #[test]
