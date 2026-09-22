@@ -30,11 +30,11 @@
 //!    fixtures it owns (`colour x intensity x ceiling-height factor`), divides
 //!    each channel by its floor area and feeds that through a logarithmic
 //!    compression and a smoothly saturating curve. The compression is what
-//!    keeps the game's deliberately sparse large rooms (Level 1 places nine
-//!    panels in a 52 x 54 m room) broadly illuminated without also saturating
-//!    small, densely lit rooms; see [`compressed_density`]. A large room with
-//!    two panels is dim; a small room with many panels approaches full
-//!    brightness; no channel ever exceeds [`MAX_BRIGHTNESS`].
+//!    keeps the game's deliberately sparse large rooms (a long corridor or a
+//!    hall with a handful of widely spaced panels) broadly illuminated without
+//!    also saturating small, densely lit rooms; see [`compressed_density`]. A
+//!    large room with two panels is dim; a small room with many panels
+//!    approaches full brightness; no channel ever exceeds [`MAX_BRIGHTNESS`].
 //! 2. **Local fixture pools.** Every fixture adds a broad pool of its own
 //!    colour with a smooth falloff that reaches zero at
 //!    [`LOCAL_LIGHT_RADIUS_M`]. The pool is measured to the fixture's

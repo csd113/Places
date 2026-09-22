@@ -461,13 +461,13 @@ test('every object type renders its inspector panel', () => {
   assert.match(advanced, /Object ID/);
 });
 
-test('opening the shipped sample level works and it still validates', async () => {
+test('opening the sample fixture level works and it still validates', async () => {
   const env = boot();
   const fs = await import('node:fs');
   const path = await import('node:path');
   const { fileURLToPath } = await import('node:url');
   const here = path.dirname(fileURLToPath(import.meta.url));
-  const samplePath = path.resolve(here, '../../assets/levels/test_room.json');
+  const samplePath = path.resolve(here, '../../tests/fixtures/levels/test_room.json');
   const json = fs.readFileSync(samplePath, 'utf8');
 
   const opened = env.run(`app.io.importJSONString(${JSON.stringify(json)}, 'test_room.json')`);

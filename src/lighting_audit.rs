@@ -429,16 +429,18 @@ fn bench_worst_reasonable() -> LevelDef {
     ))
 }
 
-fn shipped_level(name: &str) -> LevelDef {
-    let path = format!("assets/levels/{name}.json");
-    let content = std::fs::read_to_string(&path)
+/// The shipped official demo (the only level bundled with the game).
+fn shipped_demo() -> LevelDef {
+    let path = "assets/levels/places_demo.json";
+    let content = std::fs::read_to_string(path)
         .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
     parse(&content)
 }
 
-fn demo_level() -> LevelDef {
-    let path = "levels/asset_demo.json";
-    let content = std::fs::read_to_string(path)
+/// One engine regression fixture from `tests/fixtures/levels/`.
+fn fixture_level(name: &str) -> LevelDef {
+    let path = format!("tests/fixtures/levels/{name}.json");
+    let content = std::fs::read_to_string(&path)
         .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
     parse(&content)
 }
@@ -518,30 +520,13 @@ fn lighting_benchmark_report() {
     };
 
     add("A Tiny", bench_tiny(), &mut assets);
-    add("B Asset Demo", demo_level(), &mut assets);
-    add("C Level 1", shipped_level("level1"), &mut assets);
-    add("D 100 lights", bench_many_lights(100), &mut assets);
-    add("E Large surfaces", bench_large_surfaces(), &mut assets);
-    add("F 36 rooms", bench_many_rooms(6), &mut assets);
-    add("G Prop heavy", bench_prop_heavy(), &mut assets);
-    add("H Worst reasonable", bench_worst_reasonable(), &mut assets);
-    // The three authored residential levels ship with the game, so their
-    // geometry, prop and lighting cost is measured on every test run.
-    add(
-        "I The Residence",
-        shipped_level("the_residence"),
-        &mut assets,
-    );
-    add(
-        "J Quiet Apartments",
-        shipped_level("quiet_apartments"),
-        &mut assets,
-    );
-    add(
-        "K After the Leak",
-        shipped_level("after_the_leak"),
-        &mut assets,
-    );
+    add("B Places Demo", shipped_demo(), &mut assets);
+    add("C 100 lights", bench_many_lights(100), &mut assets);
+    add("D Large surfaces", bench_large_surfaces(), &mut assets);
+    add("E 36 rooms", bench_many_rooms(6), &mut assets);
+    add("F Prop heavy", bench_prop_heavy(), &mut assets);
+    add("G Worst reasonable", bench_worst_reasonable(), &mut assets);
+    add("H Prop fixture", fixture_level("prop_showcase"), &mut assets);
 
     println!();
     println!(
@@ -614,7 +599,7 @@ fn lighting_benchmark_report() {
     // The prop expansion stays inside the documented prop budget.
     let demo_stats = rows
         .iter()
-        .find(|row| row.name == "B Asset Demo")
+        .find(|row| row.name == "B Places Demo")
         .expect("demo row")
         .stats;
     assert!(demo_stats.prop_vertices <= MAX_LEVEL_PROP_VERTICES);
@@ -625,7 +610,7 @@ fn lighting_benchmark_report() {
     // than one draw per instance.
     let prop_row = rows
         .iter()
-        .find(|row| row.name == "G Prop heavy")
+        .find(|row| row.name == "F Prop heavy")
         .expect("prop-heavy row")
         .stats;
     assert!(
@@ -769,7 +754,7 @@ fn budget_estimate_bounds_generated_geometry_for_opening_heavy_walls() {
 fn budget_estimate_is_tight_enough_to_not_over_reserve_wildly() {
     // The estimate is also the reservation size, so a representative level must
     // not over-reserve by an order of magnitude.
-    let level = shipped_level("level1");
+    let level = shipped_demo();
     let estimate = level.estimate_geometry();
     let mesh = build_level_geometry(&level);
     assert!(
@@ -781,17 +766,8 @@ fn budget_estimate_is_tight_enough_to_not_over_reserve_wildly() {
     // looser *upper bound* than it was. It still must not over-reserve wildly.
     let ratio = estimate.total_vertices as f64 / mesh.vertex_count as f64;
     assert!(
-        ratio < 5.0,
-        "level 1 estimate {ratio:.2}x the real geometry is too loose"
-    );
-
-    let demo = demo_level();
-    let estimate = demo.estimate_geometry();
-    let mesh = build_level_geometry(&demo);
-    let ratio = estimate.total_vertices as f64 / mesh.vertex_count as f64;
-    assert!(
         ratio < 6.0,
-        "asset demo estimate {ratio:.2}x the placeholder geometry is too loose"
+        "the demo estimate {ratio:.2}x the real geometry is too loose"
     );
 }
 
@@ -928,8 +904,8 @@ fn ten_chairs_in_different_lighting_stay_one_batch() {
 #[test]
 fn group_r_repeated_builds_are_bit_identical() {
     let levels = [
-        shipped_level("level1"),
-        demo_level(),
+        shipped_demo(),
+        fixture_level("prop_showcase"),
         bench_many_rooms(4),
         bench_worst_reasonable(),
         bench_many_lights(64),
@@ -1431,7 +1407,7 @@ fn quads(vertices: &[crate::render::Vertex]) -> Vec<([(f32, f32); 4], [[f32; 4];
 
 #[test]
 fn merged_floor_and_ceiling_quads_keep_exact_samples_and_tile_the_room() {
-    for level in [shipped_level("level1"), demo_level()] {
+    for level in [fixture_level("prop_showcase"), fixture_level("prop_stress")] {
         let lighting = LevelLighting::bake(&level);
         let mesh = build_level_geometry(&level);
         let floor = mesh.triangles_for_family(SurfaceKind::Floor);

@@ -367,16 +367,16 @@ fn level_select_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
 }
 
 /// The scrolling level list body: at most six rows plus the trailing actions.
+///
+/// An empty list (no installed demo and no drop-in levels) shows only the
+/// trailing actions, so selection, drawing and activation all agree on the
+/// same row indices.
 fn level_select_items(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
-    let mut items: Vec<(String, bool)> = if ui_state.level_entries.is_empty() {
-        vec![("Level 1".to_string(), true)]
-    } else {
-        ui_state
-            .level_entries
-            .iter()
-            .map(|name| (name.clone(), true))
-            .collect()
-    };
+    let mut items: Vec<(String, bool)> = ui_state
+        .level_entries
+        .iter()
+        .map(|name| (name.clone(), true))
+        .collect();
     items.push(("Load/Import Level".to_string(), true));
     items.push(("Back".to_string(), true));
 

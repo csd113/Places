@@ -25,8 +25,8 @@ pub struct Vertex {
 ///   liminal level can be over 250 m across and a centimetre of drift would move
 ///   geometry through walls.
 /// * `uv` stays `f32` — texturing is where quantisation would actually show, and
-///   tiling surfaces carry world-space coordinates that reach ±130 on the
-///   largest shipped level.
+///   tiling surfaces carry world-space coordinates that reach ±130 on a level
+///   the size of the largest regression fixture.
 /// * `color` becomes normalised `RGBA8`. It is a *shade* folded into the vertex
 ///   by the lighting bake, and that bake is bounded: `lighting::AMBIENT_LEVEL`
 ///   is 0.10 and `MAX_BRIGHTNESS` is 1.0, so a vertex channel only ever spans

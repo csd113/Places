@@ -63,15 +63,17 @@ and a corner module turns a run through 90 degrees. The guardrail's base plates
 are what fill the catalogue's 8 cm depth; a section rotated 90 degrees needs its
 level `"size"` written with x/z swapped.
 
-## The showcase level
+## The Pool content
 
-`assets/levels/pool_showcase.json` is the composed demonstration complex: a
+The Pool family is the one the official demo ends in: `places_demo` walks from
+the office into the red stair hall and out onto the pool deck, past the
+guardrail runs and the curtain cubicle line. A dedicated regression fixture in
+`tests/fixtures/levels/pool_showcase.json` composes the family on its own: a
 16 x 11 m pool room with a 9 x 4.5 m empty basin (deck at 0, a -0.35 m walk-in
 step, the basin floor at -1.5 m), a corridor and a changing bay, cool round
-ceiling lights plus four wall luminaires, a curtain cubicle line, guardrail
-runs along part of the pool edge, the patio table and two chairs, and the final
-NO DIVING decal on the deck and on the north wall. Run it with
-`LIMINAL_LEVEL=pool_showcase`.
+ceiling lights plus four wall luminaires, the patio table and two chairs, and
+the final NO DIVING decal on the deck and on the north wall. Stage it in a
+`levels/` directory to boot it with `LIMINAL_LEVEL=pool_showcase`.
 
 ## Decal artwork
 

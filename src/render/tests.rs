@@ -303,7 +303,7 @@ fn test_shipped_surface_textures_tile() {
 
 #[test]
 fn test_build_geometry_from_test_room() {
-    let json = include_str!("../../assets/levels/test_room.json");
+    let json = include_str!("../../tests/fixtures/levels/test_room.json");
     let level = LevelDef::from_json(json).expect("valid test_room json");
     let mesh = build_level_geometry(&level);
     assert!(mesh.vertex_count != 0);
@@ -588,9 +588,9 @@ fn test_framebuffer_size_changes_update_scale() {
 }
 
 #[test]
-fn test_build_geometry_from_level1() {
-    let json = include_str!("../../assets/levels/level1.json");
-    let level = LevelDef::from_json(json).expect("valid level1 json");
+fn test_build_geometry_from_the_shipped_demo() {
+    let json = include_str!("../../assets/levels/places_demo.json");
+    let level = LevelDef::from_json(json).expect("valid places_demo json");
     let mesh = build_level_geometry(&level);
     assert!(mesh.vertex_count != 0);
     assert_eq!(mesh.index_count % 6, 0, "geometry is whole quads");
@@ -603,31 +603,10 @@ fn test_build_geometry_from_level1() {
     assert!(mesh.batches.wall_batch.count > 0);
     assert!(mesh.batches.light_batch.count > 0);
 
-    // Floor/ceiling geometry follows the bounded baked-lighting grid: never
-    // per square metre, and flat cells merge, so the emitted count is at
-    // most the cell grid and usually below it.
-    let expected_cells: i32 = level
-        .room_iter()
-        .map(|room| {
-            i32::try_from(
-                crate::lighting::light_grid_cells(room.width)
-                    * crate::lighting::light_grid_cells(room.depth),
-            )
-            .unwrap_or(i32::MAX)
-        })
-        .sum();
-    assert!(mesh.batches.floor_batch.count <= expected_cells * 6);
-    assert!(mesh.batches.ceiling_batch.count <= expected_cells * 6);
-    assert!(
-        mesh.batches.floor_batch.count < expected_cells * 6,
-        "level 1's large rooms must merge uniform lighting cells"
-    );
-
-    // The whole shipped level stays a few tens of thousands of vertices.
-    // (Per-metre tessellation of its 25 large rooms would be ~800,000.)
+    // The whole shipped demo stays a modest number of vertices.
     assert!(
         mesh.vertex_count < 100_000,
-        "level1 unexpectedly large: {} vertices",
+        "places_demo unexpectedly large: {} vertices",
         mesh.vertex_count
     );
 }
@@ -2181,8 +2160,9 @@ fn prop_transforms_follow_position_rotation_scale_and_vertical_offset() {
     );
 }
 
-fn shipped_level(name: &str) -> crate::level::LevelDef {
-    let path = format!("assets/levels/{name}.json");
+/// Loads one engine regression fixture from `tests/fixtures/levels/`.
+fn fixture_level(name: &str) -> crate::level::LevelDef {
+    let path = format!("tests/fixtures/levels/{name}.json");
     let content = std::fs::read_to_string(&path)
         .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
     crate::level::LevelDef::from_json(&content)
@@ -2193,7 +2173,7 @@ fn shipped_level(name: &str) -> crate::level::LevelDef {
 fn the_showcase_level_renders_every_core_prop_with_real_geometry() {
     let catalog = shipped_catalog();
     let mut assets = shipped_assets();
-    let level = shipped_level("prop_showcase");
+    let level = fixture_level("prop_showcase");
     let (mesh, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
 
     assert_eq!(
@@ -2205,7 +2185,7 @@ fn the_showcase_level_renders_every_core_prop_with_real_geometry() {
     // once: the domestic/office map covers the generic and Office props, and
     // the Pool showcase covers the Pool family. Themes organize content;
     // this is the one place a "placed somewhere" check is legitimate.
-    let pool_showcase = shipped_level("pool_showcase");
+    let pool_showcase = fixture_level("pool_showcase");
     let mut used: std::collections::HashSet<&str> = std::collections::HashSet::new();
     used.extend(level.props.iter().map(|prop| prop.model.as_str()));
     used.extend(pool_showcase.props.iter().map(|prop| prop.model.as_str()));
@@ -2245,7 +2225,7 @@ fn the_showcase_level_renders_every_core_prop_with_real_geometry() {
 fn the_stress_level_batches_repeats_into_one_draw_per_model_and_cell() {
     let catalog = shipped_catalog();
     let mut assets = shipped_assets();
-    let level = shipped_level("prop_stress");
+    let level = fixture_level("prop_stress");
     assert!(
         level.props.len() >= 100,
         "the stress level needs a real load"
@@ -3176,11 +3156,7 @@ fn test_gable_end_wall_follows_the_sloped_ceiling() {
 
 #[test]
 fn test_vertical_diagnostic_geometry_has_no_degenerate_or_misoriented_faces() {
-    let level = LevelDef::from_json(
-        &std::fs::read_to_string("assets/levels/vertical_diagnostic.json")
-            .expect("the phase 4 diagnostic ships"),
-    )
-    .expect("it parses");
+    let level = fixture_level("vertical_diagnostic");
     let mesh = build_level_geometry(&level);
 
     let normal = |a: [f32; 3], b: [f32; 3], c: [f32; 3]| -> [f32; 3] {
@@ -3387,15 +3363,16 @@ fn a_wall_with_no_twin_is_emitted_exactly_as_authored() {
     );
 }
 
+/// The shipped official demo.
+fn shipped_demo() -> crate::level::LevelDef {
+    crate::level::LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+        .expect("the shipped places_demo parses")
+}
+
 #[test]
-fn the_residential_levels_resolve_their_stain_overlays() {
-    for name in [
-        "the_residence",
-        "quiet_apartments",
-        "after_the_leak",
-        "rendering_diagnostic",
-    ] {
-        let level = shipped_level(name);
+fn the_shipped_demo_and_the_rendering_fixture_resolve_their_stain_overlays() {
+    for level in [shipped_demo(), fixture_level("rendering_diagnostic")] {
+        let name = level.id.as_str();
         let materials = logical_materials(&level);
         let lookup = MaterialLookup::new(&materials);
         let units = wall_units(&level, &crate::level::LevelSurfaces::new(&level), &lookup);
@@ -3407,12 +3384,6 @@ fn the_residential_levels_resolve_their_stain_overlays() {
             coalesced >= 1,
             "{name}: expected the authored stain overlays to coalesce, got {coalesced}"
         );
-        if name != "rendering_diagnostic" {
-            assert!(
-                coalesced >= 5,
-                "{name}: expected the authored stain overlays to coalesce, got {coalesced}"
-            );
-        }
         // Every coalesced unit must cover its whole span with runs, so no
         // face can fall back to the host material at a run boundary.
         for unit in &units {

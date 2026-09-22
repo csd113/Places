@@ -463,9 +463,9 @@ fn apply_spawn_override(
 
 /// Boots straight into the level named by `LIMINAL_LEVEL`.
 ///
-/// This is how the prop showcase and stress levels are checked on the
+/// This is how the shipped demo and the bench levels are checked on the
 /// `PocketCHIP`, where the menu cannot be driven over SSH:
-/// `LIMINAL_LEVEL=prop_showcase ./liminal-rust`.
+/// `LIMINAL_LEVEL=places_demo ./liminal-rust`.
 // Developer CLI output that has no logger to route through.
 #[allow(clippy::print_stdout, clippy::print_stderr)]
 fn apply_level_request(
@@ -1021,7 +1021,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut level_manager = loader::LevelManager::new();
     log_asset_catalog(&level_manager);
     let initial_level = level_manager
-        .load_default_or_level1()
+        .load_default()
         .map_err(|e| format!("Failed to load initial level: {e}"))?;
     let mut renderer =
         create_renderer(&window, &video_subsystem, &initial_level, &settings, &bench)?;

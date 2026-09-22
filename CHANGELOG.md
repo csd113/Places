@@ -86,6 +86,29 @@ demonstrable.
 - `Cargo.toml`'s description now describes Places rather than the historical
   Liminal walking game (`tests/test_package.py` updated in step).
 
+### Removed
+
+- **`Places Demo` is the only level bundled with the game.** The other
+  packaged maps were removed from the distributable content: `level1.json`
+  (which was also the embedded fallback level), the three residential levels
+  (`the_residence`, `quiet_apartments`, `after_the_leak`), the Office and Pool
+  showcases, `texture_diagnostic`, and the generated `asset_demo` /
+  `asset_maintained` maps. The game now boots into `places_demo`, the embedded
+  fallback embeds the demo, and the tests that only asserted the removed
+  levels' own design were retired with them.
+- The engine regression fixtures moved to `tests/fixtures/levels/`
+  (`test_room`, `prop_showcase`, `prop_stress`, `pool_showcase`,
+  `vertical_diagnostic`, `rendering_diagnostic`, `lighting_isolation`,
+  `lighting_diagnostic`). They are not scanned by the game and are never
+  packaged, but the loader, renderer, collision and lighting suites keep
+  loading them by name. `tools/levels/build_demo_levels.py` became
+  `tools/levels/build_fixture_levels.py` and now emits only the two generated
+  fixtures.
+- No asset was removed: every model, texture, material and decal in
+  `assets/catalog.json` is still shipped, because `Places Demo`, the engine
+  tests and user-created levels all resolve through the catalog. Nothing
+  about drop-in level discovery or loading changed.
+
 ### Investigated, not changed
 
 - **sRGB/gamma.** The pipeline is gamma-naive by design and stays that way. A

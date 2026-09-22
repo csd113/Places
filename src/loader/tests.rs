@@ -17,7 +17,7 @@
 )]
 
 use super::*;
-use crate::level::{RoomDef, WallAxis, WallDef};
+use crate::level::{RoomDef, WallDef};
 use crate::test_support::{assert_exact, assert_exact_array};
 use std::io::Cursor;
 
@@ -367,13 +367,6 @@ fn level_from_rooms_json(rooms_json: &str) -> LevelDef {
         }}"#
     );
     LevelDef::from_json(&json).expect("valid json")
-}
-
-#[test]
-fn test_validate_accepts_shipped_level1() {
-    let level =
-        LevelDef::from_json(include_str!("../../assets/levels/level1.json")).expect("valid level1");
-    assert!(validate_level(&level).is_ok());
 }
 
 #[test]
@@ -946,7 +939,7 @@ fn test_shipped_prop_catalog_parses() {
 
 #[test]
 fn test_shipped_test_room_demonstrates_openings_and_props() {
-    let json = include_str!("../../assets/levels/test_room.json");
+    let json = include_str!("../../tests/fixtures/levels/test_room.json");
     let level = LevelDef::from_json(json).expect("valid test_room json");
     validate_level(&level).expect("the shipped sample level validates");
 
@@ -1125,384 +1118,109 @@ fn test_the_official_demo_exercises_every_showcased_feature() {
     );
 }
 
-/// The playable demo map lives in the custom `levels/` folder, so this also
-/// proves it is discovered and loaded through the ordinary level path.
+/// External/user levels are discovered and loaded independently of the bundled
+/// demo: a `.json` dropped into the installed levels directory appears in the
+/// level list and loads through the ordinary custom-level path.
 #[test]
-fn test_asset_demo_level_loads_and_shows_every_asset() {
-    let manager = LevelManager::new();
+fn test_custom_levels_are_discovered_and_loaded() {
+    use zip::write::SimpleFileOptions;
+
+    let root = std::env::temp_dir().join(format!(
+        "liminal-custom-level-test-{}",
+        std::process::id()
+    ));
+    let assets_dir = root.join("assets/levels");
+    let levels_dir = root.join("levels");
+    let import_dir = root.join("import");
+    fs::create_dir_all(&assets_dir).expect("test assets dir");
+    fs::create_dir_all(&levels_dir).expect("test levels dir");
+
+    let level_json = r#"{
+        "format_version": 1,
+        "id": "community_room",
+        "name": "Community Room",
+        "author": "A Player",
+        "spawn": { "x": 1.0, "z": 1.0 },
+        "rooms": [{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }],
+        "ceiling_lights": [{ "fixture": "core:ceiling_panel_01", "x": 2.0, "z": 2.0 }]
+    }"#;
+    fs::write(levels_dir.join("community_room.json"), level_json)
+        .expect("write the drop-in level");
+
+    let manager = LevelManager::with_paths(assets_dir, levels_dir.clone(), import_dir.clone());
     let entry = manager
         .entries()
         .iter()
-        .find(|entry| entry.id == "asset_demo")
+        .find(|entry| entry.id == "community_room")
         .cloned()
-        .unwrap_or_else(|| {
-            panic!(
-                "levels/asset_demo.json is not discovered; found: {:?}",
-                manager
-                    .entries()
-                    .iter()
-                    .map(|e| e.id.as_str())
-                    .collect::<Vec<_>>()
-            )
-        });
+        .expect("a drop-in level is discovered");
+    assert_eq!(entry.source_type, LevelSourceType::CustomJson);
+    assert_eq!(entry.name, "Community Room");
     let loaded = manager
         .load_level(&entry)
-        .expect("the asset demo level loads");
-    let level = &loaded.level;
+        .expect("the drop-in level loads");
+    assert_eq!(loaded.level.name, "Community Room");
 
-    // Every generic and Office catalogue prop (including spooner-man)
-    // appears at least once; the Pool family is exercised by the Pool
-    // showcase instead, so a residential demo map never has to hold a pool
-    // ladder.
-    let catalog = PropCatalog::load_default();
-    let asset_catalog = crate::assets::AssetCatalog::load_default();
-    let placed: std::collections::HashSet<&str> =
-        level.props.iter().map(|prop| prop.model.as_str()).collect();
-    for asset in catalog.entries() {
-        let themed_pool = asset_catalog
-            .get(&asset.id)
-            .and_then(|entry| entry.theme.as_ref())
-            .is_some_and(|theme| theme.as_str() == "pool");
-        if themed_pool {
-            continue;
-        }
-        assert!(
-            placed.contains(asset.id.as_str()),
-            "levels/asset_demo.json must place {}",
-            asset.id
-        );
+    // A `.zip` pack in the same directory is discovered and loaded as a pack.
+    let pack_path = levels_dir.join("pack_room.zip");
+    {
+        let file = fs::File::create(&pack_path).expect("create the pack");
+        let mut writer = zip::ZipWriter::new(file);
+        let options =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+        let pack_json = r#"{
+            "format_version": 1,
+            "id": "pack_room",
+            "name": "Pack Room",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }]
+        }"#;
+        writer.start_file("level.json", options).expect("pack level.json");
+        std::io::Write::write_all(&mut writer, pack_json.as_bytes()).expect("write level.json");
+        writer.finish().expect("finish the pack");
     }
-
-    // Every structural feature the level format supports is exercised.
-    let kinds: std::collections::HashSet<&str> = level
-        .walls
+    let manager = LevelManager::with_paths(
+        root.join("assets/levels"),
+        levels_dir,
+        import_dir,
+    );
+    let pack_entry = manager
+        .entries()
         .iter()
-        .flat_map(|wall| wall.openings.iter().map(|opening| opening.kind.as_str()))
-        .collect();
-    for kind in ["door", "window", "passage", "vent"] {
-        assert!(
-            kinds.contains(kind),
-            "the demo map must include a {kind} opening"
-        );
-    }
-    assert!(
-        level.ceiling_lights.len() >= 4,
-        "the demo map lights every room"
-    );
-    assert_eq!(
-        level.defaults.wall, "core:wallpaper_stained_01",
-        "the demo map shows the stained wallpaper variant"
-    );
-    assert_eq!(level.defaults.floor, "core:carpet_damp_01");
+        .find(|entry| entry.id == "pack_room")
+        .cloned()
+        .expect("a drop-in pack is discovered");
+    assert_eq!(pack_entry.source_type, LevelSourceType::PackZip);
+    let loaded_pack = manager
+        .load_level(&pack_entry)
+        .expect("the drop-in pack loads");
+    assert_eq!(loaded_pack.level.name, "Pack Room");
 
-    // Props keep the placement features the editor and game support: a
-    // prop standing on another prop (positive vertical offset) and one
-    // placed on furniture.
-    assert!(
-        level
-            .props
-            .iter()
-            .any(|prop| prop.y > 0.3 && prop.model == "core:plant"),
-        "the demo map shows a positive vertical offset"
-    );
-    assert!(
-        level
-            .props
-            .iter()
-            .any(|prop| prop.model == "spooner-man" && prop.y > 0.3),
-        "spooner-man is placed on the bed, exercising the vertical offset"
-    );
+    fs::remove_dir_all(&root).expect("clean up the test directory");
+}
 
-    // The level builds real prop geometry, not placeholder boxes.
-    let mut assets = crate::props::PropAssets::load_default();
-    let (mesh, batches, lighting) =
-        crate::render::build_level_geometry_with_assets_and_lighting(level, &catalog, &mut assets);
-    assert_eq!(
-        mesh.batches.prop_batch.count, 0,
-        "no placeholder boxes expected"
-    );
-    assert!(
-        batches.len() >= 18,
-        "the demo map draws most of the pack in one batch per model, got {}",
-        batches.len()
-    );
-    assert_eq!(assets.stats().models_failed, 0);
-
-    // Lighting: every fixture is owned exactly once, every room gets a
-    // navigable baseline, and the original corridor beats the large rooms
-    // it connects.
-    assert_eq!(
-        lighting.summary().rooms,
-        level.room_iter().count(),
-        "every room must bake"
-    );
-    assert_eq!(
-        lighting.summary().lights,
-        level.ceiling_lights.len(),
-        "every fixture must bake"
-    );
-    assert_eq!(
-        lighting
-            .rooms()
-            .iter()
-            .map(|room| room.fixture_count)
-            .sum::<usize>(),
-        level.ceiling_lights.len(),
-        "every fixture must be owned by exactly one room"
-    );
-    for room in lighting.rooms() {
-        assert!(
-            room.baseline.luminance() >= crate::lighting::AMBIENT_LEVEL
-                && room.baseline.luminance() <= crate::lighting::MAX_BRIGHTNESS,
-            "baseline {} out of range",
-            room.baseline.luminance()
-        );
-        assert!(room.baseline.luminance().is_finite());
-    }
-    let corridor = &lighting.rooms()[4];
-    for room in &lighting.rooms()[..4] {
-        assert!(
-            corridor.baseline.luminance() > room.baseline.luminance(),
-            "the corridor ({}) should read brighter than a room ({})",
-            corridor.baseline.luminance(),
-            room.baseline.luminance()
-        );
-    }
-    // A fixture casts a local pool: directly beneath a corridor panel is
-    // brighter than the corridor's baseline.
-    let beneath = lighting.sample_luminance(-7.0, 0.0, 0.0);
-    assert!(
-        beneath > corridor.baseline.luminance() + 0.02,
-        "expected a visible pool beneath the panel: {beneath} vs {}",
-        corridor.baseline.luminance()
-    );
-    // Doorway blending: the two sides of the living-room door (25 cm apart,
-    // on opposite sides of the wall) read nearly the same, even though the
-    // two rooms' baselines differ by enough to show a seam without blending.
-    let living = lighting.rooms()[0].baseline.luminance();
-    assert!(
-        (corridor.baseline.luminance() - living).abs() > 0.05,
-        "the demo's rooms and corridor should differ enough to prove blending"
-    );
-    let living_side = lighting.sample_luminance(-13.4, 0.0, -1.9);
-    let corridor_side = lighting.sample_luminance(-13.4, 0.0, -1.6);
-    assert!(
-        (living_side - corridor_side).abs() < 0.05,
-        "the doorway seam should be blended, got {living_side} vs {corridor_side}"
-    );
-
-    // -------------------------------------------------------------------
-    // The lighting demonstration wing: each showcase must actually differ.
-    // -------------------------------------------------------------------
-    let room_at = |x: f32, z: f32| {
-        lighting
-            .rooms()
-            .iter()
-            .position(|room| (room.x0 - x).abs() < 1e-3 && (room.z0 - z).abs() < 1e-3)
-            .unwrap_or_else(|| panic!("no room with its minimum corner at ({x}, {z})"))
-    };
-
-    // Light density: identical rooms with 0, 1, 2 and 4 fixtures must get
-    // strictly brighter in that order.
-    let density: Vec<usize> = [6.4_f32, 10.4, 14.4, 18.4]
+#[test]
+fn test_the_default_level_is_the_shipped_demo() {
+    let manager = LevelManager::new();
+    // The Level Select menu renders exactly this list: the demo is the only
+    // bundled (Official) entry; any drop-in levels are CustomJson/PackZip.
+    let official: Vec<&LevelEntry> = manager
+        .entries()
         .iter()
-        .map(|x| room_at(*x, 9.2))
+        .filter(|entry| entry.source_type == LevelSourceType::Official)
         .collect();
-    let counts: Vec<usize> = density
-        .iter()
-        .map(|index| lighting.rooms()[*index].fixture_count)
-        .collect();
-    assert_eq!(counts, vec![0, 1, 2, 4], "density row fixture counts");
-    for pair in density.windows(2) {
-        assert!(
-            lighting.rooms()[pair[0]].baseline.luminance()
-                < lighting.rooms()[pair[1]].baseline.luminance(),
-            "the density row must brighten eastwards: {:?} vs {:?}",
-            lighting.rooms()[pair[0]].baseline.luminance(),
-            lighting.rooms()[pair[1]].baseline.luminance()
-        );
-    }
-
-    // Fixture intensity: same room, same single fixture, 0.5 vs 1.8.
-    let weak = room_at(6.4, 0.8);
-    let strong = room_at(10.4, 0.8);
-    assert_eq!(lighting.rooms()[weak].fixture_count, 1);
-    assert_eq!(lighting.rooms()[strong].fixture_count, 1);
-    assert!(
-        lighting.rooms()[strong].baseline.luminance()
-            > lighting.rooms()[weak].baseline.luminance() + 0.05,
-        "the strong fixture room ({}) must clearly beat the weak one ({})",
-        lighting.rooms()[strong].baseline.luminance(),
-        lighting.rooms()[weak].baseline.luminance()
-    );
-
-    // Ceiling height: same area and fixtures, 2.6 m vs 4.2 m. The lower
-    // room reads brighter and its pool beneath the fixture is stronger.
-    let low = room_at(14.4, 0.8);
-    let tall = room_at(18.4, 0.8);
     assert_eq!(
-        lighting.rooms()[low].fixture_count,
-        lighting.rooms()[tall].fixture_count
+        official.len(),
+        1,
+        "Places Demo must be the only bundled level, found {:?}",
+        official.iter().map(|entry| entry.id.as_str()).collect::<Vec<_>>()
     );
-    assert!(
-        lighting.rooms()[low].baseline.luminance() > lighting.rooms()[tall].baseline.luminance(),
-        "the lower room ({}) must beat the taller one ({})",
-        lighting.rooms()[low].baseline.luminance(),
-        lighting.rooms()[tall].baseline.luminance()
-    );
-    // Matched corners beside each room's outer wall: the 2.6 m room's pool
-    // is strong enough to reach the cap while the 4.2 m room's floor at the
-    // same relative point stays visibly below it.
-    let low_corner = lighting.sample_luminance(14.6, 0.0, 1.2);
-    let tall_corner = lighting.sample_luminance(22.2, 0.0, 1.2);
-    assert!(
-        low_corner > tall_corner + 0.05,
-        "the 2.6 m room ({low_corner}) must clearly out-light the 4.2 m one ({tall_corner})"
-    );
+    assert_eq!(official[0].id, "places_demo");
 
-    // Doorway bleed: the bright room (four fixtures) against the dark room
-    // (none), joined by a wide doorway. Standing just inside the dark room
-    // the doorway must lift the tone; deep in its corner it stays dark.
-    let bright_room = room_at(40.8, 4.0);
-    let dark_room = room_at(40.8, -2.0);
-    assert_eq!(lighting.rooms()[dark_room].fixture_count, 0);
-    assert_eq!(
-        lighting.rooms()[dark_room].baseline,
-        crate::lighting::ambient_color()
-    );
-    let at_door = lighting.sample_in_room_luminance(dark_room, 43.8, 0.0, 3.6);
-    let corner = lighting.sample_in_room_luminance(dark_room, 41.4, 0.0, -1.4);
-    assert!(
-        at_door > lighting.rooms()[dark_room].baseline.luminance() + 0.02,
-        "the doorway must spill light into the dark room: {at_door}"
-    );
-    assert!(
-        (corner - lighting.rooms()[dark_room].baseline.luminance()).abs() < 0.02,
-        "the dark room's far corner must stay dim: {corner}"
-    );
-    assert!(
-        at_door <= crate::lighting::MAX_BRIGHTNESS
-            && at_door < lighting.sample_in_room_luminance(bright_room, 43.8, 0.0, 7.0) + 0.01,
-        "the doorway spill must stay below the bright room itself: {at_door}"
-    );
-
-    // Local pools: the wing corridor (room 5) brightens under each of its
-    // four spaced fixtures and dips between them.
-    let wing_corridor = &lighting.rooms()[5];
-    let pool = lighting.sample_luminance(25.0, 0.0, 7.0);
-    let gap = lighting.sample_luminance(31.0, 0.0, 7.0);
-    assert!(
-        pool > gap + 0.01 && gap > wing_corridor.baseline.luminance(),
-        "spaced fixtures must read as pools: {pool} > {gap} > {}",
-        wing_corridor.baseline.luminance()
-    );
-
-    // Prop lighting demonstration: the two-fixture room carries a chair, a
-    // crate and a plant, and the bright room one more spooner-man. Every
-    // wing prop must sit inside a wing room (x > 6, away from the base map).
-    let wing_models: Vec<&str> = level
-        .props
-        .iter()
-        .filter(|prop| prop.x > 6.0)
-        .map(|prop| prop.model.as_str())
-        .collect();
-    assert!(wing_models.contains(&"core:chair"));
-    assert!(wing_models.contains(&"core:crate"));
-    assert!(wing_models.contains(&"core:plant"));
-    assert_eq!(
-        wing_models
-            .iter()
-            .filter(|model| **model == "spooner-man")
-            .count(),
-        1
-    );
-    for prop in level.props.iter().filter(|prop| prop.x > 6.0) {
-        assert!(
-            prop.z > 0.0,
-            "wing props stay in the wing's rooms: {prop:?}"
-        );
-    }
-
-    // The wing is walkable: a player path from the spawn to every
-    // comparison room and to both sides of the dark/bright doorway must
-    // never intersect a collision box. Sampled at 10 cm steps with the
-    // player's radius, this proves the doorways line up with the rooms.
-    let walls = level.collision_aabbs();
-    let assert_walkable = |points: &[(f32, f32)]| {
-        for pair in points.windows(2) {
-            let (ax, az) = pair[0];
-            let (bx, bz) = pair[1];
-            let distance = ((bx - ax).hypot(bz - az) * 10.0).ceil() as i32;
-            for step in 0..=distance {
-                let t = step as f32 / distance.max(1) as f32;
-                let x = (bx - ax).mul_add(t, ax);
-                let z = (bz - az).mul_add(t, az);
-                for wall in &walls {
-                    assert!(
-                        !wall.intersects_circle(glam::Vec2::new(x, z), 0.3, 0.0),
-                        "player path blocked at ({x:.2}, {z:.2}) by {wall:?}"
-                    );
-                }
-            }
-        }
-    };
-    // Spawn -> base corridor -> lobby -> wing corridor.
-    // Through the corridor doorway (x ~ 0.6) then west of the lobby chairs
-    // to the wing door (z ~ 7).
-    let mut waypoints = vec![
-        (-13.0, 0.0),
-        (0.6, 1.0),
-        (0.6, 3.0),
-        (-1.5, 3.0),
-        (-1.5, 7.2),
-        (1.0, 7.2),
-        (6.2, 7.2),
-        (7.0, 7.0),
-    ];
-    // Every comparison room through its own doorway.
-    for x in [8.4_f32, 12.4, 16.4, 20.4] {
-        waypoints.push((x, 7.0));
-        waypoints.push((x, 11.2));
-        waypoints.push((x, 7.0));
-        waypoints.push((x, 2.8));
-        waypoints.push((x, 7.0));
-    }
-    // The bright/dark pair.
-    waypoints.extend([
-        (24.0, 7.0),
-        (40.6, 7.0),
-        (42.0, 7.0),
-        (43.8, 6.0),
-        (43.8, 3.0),
-        (43.8, 1.0),
-    ]);
-    assert_walkable(&waypoints);
-
-    // Baked colours stay in range, and floors genuinely vary across the demo
-    // (the corridor has fixture pools, the rooms have their own).
-    let floor = mesh.triangles_for_family(crate::render::SurfaceKind::Floor);
-    let floor_min = floor.iter().map(|v| v.color[0]).fold(f32::MAX, f32::min);
-    let floor_max = floor.iter().map(|v| v.color[0]).fold(f32::MIN, f32::max);
-    assert!(floor_max - floor_min > 0.05, "floors must not be flat-lit");
-    for vertex in mesh.all_vertices() {
-        assert!(vertex.color.iter().all(|c| c.is_finite()));
-        assert!(vertex.color.iter().all(|c| (0.0..=1.0).contains(c)));
-    }
-    // Real prop instances are baked per vertex, and every instance of a
-    // model still shares one batch (no extra draw calls for lighting).
-    for batch in &batches {
-        let min = batch
-            .vertices
-            .iter()
-            .map(|v| v.color[0])
-            .fold(f32::MAX, f32::min);
-        let max = batch
-            .vertices
-            .iter()
-            .map(|v| v.color[0])
-            .fold(f32::MIN, f32::max);
-        assert!(max - min > 1e-4, "prop batch {} is flat-lit", batch.model);
-    }
+    let loaded = manager.load_default().expect("the shipped demo loads");
+    assert_eq!(loaded.entry.id, "places_demo");
+    assert_eq!(loaded.entry.source_type, LevelSourceType::Official);
+    assert_eq!(loaded.level.name, "Places Demo");
 }
 
 #[test]
@@ -1678,341 +1396,22 @@ fn test_shipped_prop_catalog_covers_shipped_levels() {
             props_checked += 1;
         }
     }
-    assert!(levels_checked >= 2, "expected the shipped level files");
+    assert!(levels_checked >= 1, "expected the shipped level file");
     assert!(props_checked >= 1, "expected at least one placed prop");
 }
 
-/// The three authored residential levels. They share one design idea: the
-/// building is maintained where the player starts and decays the further
-/// they walk, so these checks are about that gradient rather than about any
-/// particular room.
-const RESIDENTIAL_LEVELS: [&str; 3] = ["the_residence", "quiet_apartments", "after_the_leak"];
-
-const DAMAGED_FLOOR: &str = "core:carpet_damp_01";
-const DAMAGED_CEILING: &str = "core:ceiling_stained_01";
-const DAMAGED_WALL: &str = "core:wallpaper_stained_01";
-
-fn residential_level(name: &str) -> LevelDef {
-    let path = format!("assets/levels/{name}.json");
+/// Loads one engine regression fixture from `tests/fixtures/levels/`.
+///
+/// Fixtures exercise the loader, renderer and lighting model; they are not part
+/// of the shipped game content.
+fn fixture_level(name: &str) -> LevelDef {
+    let path = format!("tests/fixtures/levels/{name}.json");
     let content = fs::read_to_string(&path)
         .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
     let level = LevelDef::from_json(&content)
         .unwrap_or_else(|error| panic!("{path} is not a valid level: {error}"));
     validate_level(&level).unwrap_or_else(|error| panic!("{path} failed validation: {error}"));
     level
-}
-
-/// Walking distance from the spawn to every room, hopping through the
-/// walk-through openings the player can actually use.
-fn walking_distances(level: &LevelDef) -> Vec<f32> {
-    let rooms: Vec<&RoomDef> = level.room_iter().collect();
-    let centre = |room: &RoomDef| {
-        (
-            room.width.mul_add(0.5, room.x),
-            room.depth.mul_add(0.5, room.z),
-        )
-    };
-    let room_at = |x: f32, z: f32| {
-        rooms.iter().position(|room| {
-            x >= room.x.min(room.x + room.width) - 0.01
-                && x <= room.x.max(room.x + room.width) + 0.01
-                && z >= room.z.min(room.z + room.depth) - 0.01
-                && z <= room.z.max(room.z + room.depth) + 0.01
-        })
-    };
-
-    let mut graph: Vec<Vec<usize>> = vec![Vec::new(); rooms.len()];
-    for wall in &level.walls {
-        let axis = wall.axis();
-        let (origin_x, origin_z) = wall.length_origin();
-        let crossing = match axis {
-            WallAxis::X => wall.depth.mul_add(0.5, wall.z),
-            WallAxis::Z => wall.width.mul_add(0.5, wall.x),
-        };
-        for opening in &wall.openings {
-            if !opening.is_door() || !opening.reaches_floor() || opening.height < 1.9 {
-                continue;
-            }
-            let start = match axis {
-                WallAxis::X => origin_x + opening.offset,
-                WallAxis::Z => origin_z + opening.offset,
-            };
-            let end = start + opening.width;
-
-            // Rooms touching this opening's span on the wall's line.
-            let mut sides: Vec<(usize, f32, f32)> = Vec::new();
-            for (index, room) in rooms.iter().enumerate() {
-                let (position, span_a, span_b, low, high) = match axis {
-                    WallAxis::X => (
-                        room.z,
-                        room.x,
-                        room.x + room.width,
-                        room.z,
-                        room.z + room.depth,
-                    ),
-                    WallAxis::Z => (
-                        room.x,
-                        room.z,
-                        room.z + room.depth,
-                        room.x,
-                        room.x + room.width,
-                    ),
-                };
-                let _ = position;
-                let (line, side_lo, side_hi) = match axis {
-                    WallAxis::X => {
-                        let line = if (room.z - crossing).abs() < 0.02 {
-                            Some(room.z)
-                        } else if (room.z + room.depth - crossing).abs() < 0.02 {
-                            Some(room.z + room.depth)
-                        } else {
-                            None
-                        };
-                        (line, room.x, room.x + room.width)
-                    }
-                    WallAxis::Z => {
-                        let line = if (room.x - crossing).abs() < 0.02 {
-                            Some(room.x)
-                        } else if (room.x + room.width - crossing).abs() < 0.02 {
-                            Some(room.x + room.width)
-                        } else {
-                            None
-                        };
-                        (line, room.z, room.z + room.depth)
-                    }
-                };
-                let _ = (span_a, span_b, low, high);
-                if line.is_some() && side_hi.min(end) - side_lo.max(start) > 0.1 {
-                    sides.push((index, low, high));
-                }
-            }
-
-            for (a_index, a_low, a_high) in &sides {
-                for (b_index, b_low, b_high) in &sides {
-                    if a_index == b_index {
-                        continue;
-                    }
-                    let opposite = (*a_high <= crossing + 0.02 && *b_low >= crossing - 0.02)
-                        || (*b_high <= crossing + 0.02 && *a_low >= crossing - 0.02);
-                    if opposite {
-                        graph[*a_index].push(*b_index);
-                    }
-                }
-            }
-        }
-    }
-
-    let start = room_at(level.spawn.x, level.spawn.z).expect("the spawn is inside a room");
-    let mut distance = vec![f32::NAN; rooms.len()];
-    distance[start] = 0.0;
-    let mut queue = std::collections::VecDeque::from([start]);
-    while let Some(current) = queue.pop_front() {
-        let (cx, cz) = centre(rooms[current]);
-        for neighbour in std::mem::take(&mut graph[current]) {
-            if distance[neighbour].is_finite() {
-                continue;
-            }
-            let (nx, nz) = centre(rooms[neighbour]);
-            distance[neighbour] = distance[current] + (nx - cx).hypot(nz - cz);
-            queue.push_back(neighbour);
-        }
-    }
-    distance
-}
-
-/// Fraction of the rooms in one walking-distance band whose floor uses the
-/// damp carpet.
-fn damp_floor_fraction(
-    level: &LevelDef,
-    distance: &[f32],
-    reach: f32,
-    low: f32,
-    high: f32,
-) -> (usize, f32) {
-    let mut total = 0usize;
-    let mut damp = 0usize;
-    for (index, room) in level.room_iter().enumerate() {
-        if !distance[index].is_finite() {
-            continue;
-        }
-        if distance[index] < reach * low || distance[index] > reach * high {
-            continue;
-        }
-        total += 1;
-        let floor = room.material.as_deref().unwrap_or(&level.defaults.floor);
-        if floor == DAMAGED_FLOOR {
-            damp += 1;
-        }
-    }
-    assert!(total > 0, "band {low}..{high} holds no rooms");
-    (total, damp as f32 / total as f32)
-}
-
-/// Fixtures per room multiplied by their average intensity, so both a
-/// missing fixture and a failing one lower the number.
-fn fixture_strength(level: &LevelDef, distance: &[f32], reach: f32, low: f32, high: f32) -> f32 {
-    let mut rooms_in_band = 0usize;
-    let mut fixtures = 0usize;
-    let mut brightness = 0.0f32;
-    for (index, room) in level.room_iter().enumerate() {
-        if !distance[index].is_finite()
-            || distance[index] < reach * low
-            || distance[index] > reach * high
-        {
-            continue;
-        }
-        rooms_in_band += 1;
-        for light in level.ceiling_lights.iter().filter(|light| {
-            light.x >= room.x - 0.6
-                && light.x <= room.x + room.width + 0.6
-                && light.z >= room.z - 0.6
-                && light.z <= room.z + room.depth + 0.6
-        }) {
-            fixtures += 1;
-            brightness += light.intensity();
-        }
-    }
-    assert!(rooms_in_band > 0, "band {low}..{high} holds no rooms");
-    let average = if fixtures == 0 {
-        0.0
-    } else {
-        brightness / fixtures as f32
-    };
-    fixtures as f32 / rooms_in_band as f32 * average
-}
-
-#[test]
-fn the_residential_levels_degrade_with_walking_distance() {
-    for name in RESIDENTIAL_LEVELS {
-        let level = residential_level(name);
-        let distance = walking_distances(&level);
-        let reach = distance.iter().copied().fold(0.0f32, f32::max);
-        assert!(
-            reach >= 45.0,
-            "{name}: the far end is only {reach:.0} m of walking from the spawn"
-        );
-        let unreachable = distance.iter().filter(|d| !d.is_finite()).count();
-        assert_eq!(
-            unreachable, 0,
-            "{name}: {unreachable} room(s) are sealed off"
-        );
-
-        // Walking away from the spawn, the carpet gets wet and the light
-        // gets worse. Both gradients are what these levels are for.
-        let (near_rooms, near_damp) = damp_floor_fraction(&level, &distance, reach, 0.0, 0.25);
-        let (far_rooms, far_damp) = damp_floor_fraction(&level, &distance, reach, 0.75, 1.01);
-        assert!(
-            near_damp <= 0.25,
-            "{name}: {:.0}% of the first {near_rooms} rooms already have damp carpet",
-            near_damp * 100.0
-        );
-        assert!(
-            far_damp >= 0.75 && far_damp > near_damp,
-            "{name}: damp carpet must dominate the last {far_rooms} rooms, got {:.0}%",
-            far_damp * 100.0
-        );
-
-        let near_light = fixture_strength(&level, &distance, reach, 0.0, 0.25);
-        let far_light = fixture_strength(&level, &distance, reach, 0.75, 1.01);
-        assert!(
-            near_light > far_light,
-            "{name}: fixture strength must fall with distance ({near_light:.2} -> {far_light:.2})"
-        );
-        assert!(
-            far_light > 0.0,
-            "{name}: the last rooms must keep at least one working fixture"
-        );
-
-        // Stained ceilings and soaked walls appear too, and never in a
-        // quantity of one material only: the level is not a single sheet.
-        let stained_ceilings = level
-            .room_iter()
-            .filter(|room| room.ceiling_material.as_deref() == Some(DAMAGED_CEILING))
-            .count();
-        let stained_walls = level
-            .walls
-            .iter()
-            .filter(|wall| {
-                wall.material.as_deref() == Some(DAMAGED_WALL)
-                    || wall.faces.values().any(|material| material == DAMAGED_WALL)
-            })
-            .count();
-        let damp_rooms = level
-            .room_iter()
-            .filter(|room| {
-                room.material.as_deref().unwrap_or(&level.defaults.floor) == DAMAGED_FLOOR
-            })
-            .count();
-        let total_rooms = level.room_iter().count();
-        assert!(
-            stained_ceilings > 0,
-            "{name}: no room carries a stained ceiling"
-        );
-        assert!(stained_walls > 0, "{name}: no wall carries water damage");
-        assert!(
-            damp_rooms < total_rooms,
-            "{name}: every room is damp; the level needs maintained surfaces too"
-        );
-    }
-}
-
-#[test]
-fn the_residential_levels_stay_walkable_and_residential() {
-    for name in RESIDENTIAL_LEVELS {
-        let level = residential_level(name);
-        let rooms: Vec<&RoomDef> = level.room_iter().collect();
-
-        // The spawn is inside a room and clear of every collider.
-        let spawn = glam::Vec2::new(level.spawn.x, level.spawn.z);
-        let spawn_room = rooms.iter().find(|room| {
-            level.spawn.x >= room.x.min(room.x + room.width)
-                && level.spawn.x <= room.x.max(room.x + room.width)
-                && level.spawn.z >= room.z.min(room.z + room.depth)
-                && level.spawn.z <= room.z.max(room.z + room.depth)
-        });
-        assert!(
-            spawn_room.is_some(),
-            "{name}: the spawn is outside every room"
-        );
-        for aabb in level.collision_aabbs() {
-            assert!(
-                !aabb.intersects_circle(spawn, crate::collision::PLAYER_RADIUS, 0.0),
-                "{name}: the spawn sits inside level geometry"
-            );
-        }
-
-        // Every walk-through opening is wide enough for the player without
-        // precision movement.
-        for wall in &level.walls {
-            for opening in &wall.openings {
-                if opening.is_door() {
-                    assert!(
-                        opening.width >= 1.0,
-                        "{name}: a {:.2} m doorway is too narrow to walk through",
-                        opening.width
-                    );
-                }
-            }
-        }
-
-        // Residential rooms, not halls, and genuine circulation space.
-        let mut corridors = 0;
-        for room in &rooms {
-            let short = room.width.min(room.depth);
-            let long = room.width.max(room.depth);
-            assert!(
-                long <= 12.0,
-                "{name}: a {long:.1} by {short:.1} m room is too big for a residence"
-            );
-            if short <= 2.6 {
-                corridors += 1;
-            }
-        }
-        assert!(
-            corridors >= 8,
-            "{name}: only {corridors} hallway sections; the plan needs real circulation"
-        );
-    }
 }
 
 // ---------------------------------------------------------------- decals
@@ -2095,7 +1494,7 @@ fn test_the_decal_count_is_bounded() {
 
 #[test]
 fn test_rendering_diagnostic_level_shows_every_decal_sheet() {
-    let level = residential_level("rendering_diagnostic");
+    let level = fixture_level("rendering_diagnostic");
     assert_eq!(level.decals.len(), 8);
     let catalog = crate::assets::AssetCatalog::load_default();
     for decal in &level.decals {
@@ -2118,7 +1517,7 @@ fn test_rendering_diagnostic_level_shows_every_decal_sheet() {
 
 #[test]
 fn test_vertical_diagnostic_level_exercises_the_new_geometry() {
-    let level = residential_level("vertical_diagnostic");
+    let level = fixture_level("vertical_diagnostic");
     assert!(
         validate_level(&level).is_ok(),
         "the phase 4 level must validate"

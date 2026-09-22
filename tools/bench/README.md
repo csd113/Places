@@ -51,8 +51,8 @@ python3 tools/bench/run_bench.py --phase phase2 --scenes cull_ab,away --repeat 3
 That command
 
 1. cross-compiles the release build for `armv7-unknown-linux-gnueabihf`;
-2. uploads it, the shipped assets, the generated benchmark levels and the
-   previous phase's binary to `/tmp/liminal-benchmark`;
+2. uploads it, the shipped assets, the generated benchmark levels, the prop
+   regression fixtures and the previous phase's binary to `/tmp/liminal-benchmark`;
 3. generates a device-side shell script and runs every scene in one SSH session
    (connections are the slowest and flakiest part on PocketCHIP Wi-Fi);
 4. downloads the per-frame CSVs and per-run logs into
@@ -72,11 +72,11 @@ python3 tools/bench/run_bench.py --phase cleanup --cleanup
 | `chairs` | full prop-count curve, 0 → 1000 chairs, default camera |
 | `chairs_core` | the 0/100/200/300/400/500 subset |
 | `away` | 400 chairs with the camera pinned facing / away / side-on |
-| `levels` | shipped `level_1`, `prop_stress`, `asset_demo` |
+| `levels` | shipped `places_demo` plus the `prop_stress` and `prop_showcase` fixtures |
 | `vsync` | renderer-only vs presentation-only vs `glFinish`-split runs, VSync on and off |
 | `cull_ab` | the same build with culling on and off, plus the previous phase's binary |
 | `cellsweep` | the spatial-grid-resolution trade-off |
-| `levels_ab` | shipped levels under culling / no culling / previous phase |
+| `levels_ab` | the demo and the prop fixtures under culling / no culling / previous phase |
 
 `BIN=phase1` inside a scene's environment selects the pre-optimisation baseline
 binary, so one suite can measure a phase against the exact build it must beat.

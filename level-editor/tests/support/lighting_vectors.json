@@ -306,7 +306,7 @@
         },
         "walls": []
       },
-      "name": "level1_sparse_grid"
+      "name": "sparse_grid_hall"
     },
     {
       "expect": {

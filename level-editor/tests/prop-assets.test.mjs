@@ -1,6 +1,6 @@
 // prop-assets.test.mjs - End-to-end check that the editor renders the REAL
-// shipped prop assets: the derived proxy file, the catalogue and the demo
-// levels are all read from disk and pushed through the editor's own geometry
+// shipped prop assets: the derived proxy file, the catalogue and the
+// regression fixture levels are all read from disk and pushed through the editor's own geometry
 // builder, so a missing proxy, a stale catalogue entry or a prop that silently
 // fell back to a box fails here instead of in the browser.
 import test from 'node:test';
@@ -57,7 +57,7 @@ test('proxy bounds match the catalogue size and origin conventions', () => {
 });
 
 test('the editor draws real proxy geometry instead of the placeholder box', () => {
-  const level = JSON.parse(fs.readFileSync(path.join(appRoot, 'assets/levels/prop_showcase.json'), 'utf8'));
+  const level = JSON.parse(fs.readFileSync(path.join(appRoot, 'tests/fixtures/levels/prop_showcase.json'), 'utf8'));
   const mesh = geometry.buildLevelMesh(level, { catalog, proxies });
   const batch = mesh.batches.find(entry => entry.name === 'props');
   assert.ok(batch, 'the props batch exists');
@@ -96,8 +96,8 @@ test('every prop has a thumbnail for the browser', () => {
 });
 
 test('the demo levels place every core prop', () => {
-  const showcase = JSON.parse(fs.readFileSync(path.join(appRoot, 'assets/levels/prop_showcase.json'), 'utf8'));
-  const poolShowcase = JSON.parse(fs.readFileSync(path.join(appRoot, 'assets/levels/pool_showcase.json'), 'utf8'));
+  const showcase = JSON.parse(fs.readFileSync(path.join(appRoot, 'tests/fixtures/levels/prop_showcase.json'), 'utf8'));
+  const poolShowcase = JSON.parse(fs.readFileSync(path.join(appRoot, 'tests/fixtures/levels/pool_showcase.json'), 'utf8'));
   const placed = new Set(showcase.props.map(prop => prop.model));
   for (const prop of poolShowcase.props) {
     placed.add(prop.model);
@@ -108,7 +108,7 @@ test('the demo levels place every core prop', () => {
     assert.ok(placed.has(entry.id), `the showcase levels must place ${entry.id}`);
   }
 
-  const stress = JSON.parse(fs.readFileSync(path.join(appRoot, 'assets/levels/prop_stress.json'), 'utf8'));
+  const stress = JSON.parse(fs.readFileSync(path.join(appRoot, 'tests/fixtures/levels/prop_stress.json'), 'utf8'));
   assert.ok(stress.props.length >= 100, 'the stress level must carry a real repeated load');
   const models = new Set(stress.props.map(prop => prop.model));
   assert.ok(models.size <= 12, `the stress level should stay within a handful of models, got ${models.size}`);

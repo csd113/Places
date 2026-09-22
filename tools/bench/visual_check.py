@@ -42,18 +42,20 @@ REPO = Path(__file__).resolve().parent.parent.parent
 
 # One shot per camera state worth protecting: interiors, prop-heavy rooms,
 # dark/bright baked lighting, doorways and a view along a corridor.
+#
+# The shipped demo and the generated `bench_chairs_*` levels are discoverable
+# from the repository. The `prop_*`/`test_room` regression fixtures live under
+# `tests/fixtures/levels/`; stage them in the run's `levels/` directory (as
+# `run_bench.py` does for the device) before including those shots.
 SHOTS: list[tuple[str, str, str]] = [
     # (label, level id, extra environment)
-    ("level1_spawn", "level_1", {}),
-    ("level1_wide", "level_1", {"LIMINAL_CAMERA": "90"}),
-    ("level1_up", "level_1", {"LIMINAL_CAMERA": "180,20"}),
+    ("places_demo_spawn", "places_demo", {}),
+    ("places_demo_side", "places_demo", {"LIMINAL_CAMERA": "90"}),
+    ("places_demo_up", "places_demo", {"LIMINAL_CAMERA": "180,20"}),
     ("prop_stress_spawn", "prop_stress", {}),
     ("prop_stress_side", "prop_stress", {"LIMINAL_CAMERA": "200"}),
     ("prop_showcase_spawn", "prop_showcase", {}),
     ("prop_showcase_back", "prop_showcase", {"LIMINAL_CAMERA": "0"}),
-    ("asset_demo_spawn", "asset_demo", {}),
-    ("asset_demo_reverse", "asset_demo", {"LIMINAL_CAMERA": "0"}),
-    ("asset_maintained", "asset_maintained", {}),
     ("test_room", "test_room", {}),
     ("chairs_400_facing", "bench_chairs_400", {"LIMINAL_CAMERA": "180"}),
     ("chairs_400_away", "bench_chairs_400", {"LIMINAL_CAMERA": "0"}),

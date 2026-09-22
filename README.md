@@ -116,7 +116,7 @@ Validate the project:
 cargo fmt --check
 cargo clippy --workspace --all-targets --all-features
 cargo test
-python3 tools/assets/validate.py          # catalog, resources, every shipped level
+python3 tools/assets/validate.py          # catalog, resources, shipped + fixture levels
 python3 tools/textures/build.py --check   # surface and decal PNGs and their budgets
 python3 tools/props/build.py --check      # prop models exist and fit their budgets
 cd level-editor && npm test               # the legacy level editor still parses the catalog
@@ -131,7 +131,7 @@ Places/
     places                  the executable
     assets/                 catalog.json, levels/, models, textures, decals
         catalog.json
-        levels/*.json
+        levels/places_demo.json
         core/ environment/ entities/ diagnostic/
     levels/                 drop-in level packs (*.json and *.zip)
     settings.json           written on first run
@@ -189,7 +189,7 @@ may stand anywhere.
 | NO DIVING sign | `core:decal_no_diving_01` |
 
 Generic props (`core:couch`, `core:bed`, `core:table`, appliances, …) carry no
-theme and are used by the residential levels. `spooner-man` is an `entity`, not
+theme and are used by the official demo. `spooner-man` is an `entity`, not
 a prop, and places through the same system.
 
 ### Textures and materials
@@ -258,8 +258,8 @@ optional per-face materials and openings cut out of them.
 Drop a level into `levels/` (optionally in a `.zip` pack with its own textures,
 see `assets/README.md`) or `assets/levels/`, and it appears in the Level Select
 menu. A level that fails validation is skipped and reported on the console
-rather than crashing the game. `assets/levels/README.md` indexes every shipped
-level and says which ones are regression fixtures.
+rather than crashing the game. `assets/levels/README.md` indexes the one shipped
+level and explains where the regression fixtures live.
 
 Notable supported details:
 
@@ -313,8 +313,8 @@ Working and shipped:
 * rooms with per-room floor elevation, clear height, flat and gable ceilings;
 * recessed and raised floor regions with real transition geometry;
 * props and entities placed by logical id, with authored collision boxes;
-* three large residential levels, two environment showcases, the official demo,
-  and compact diagnostic levels that back the automated tests;
+* one official demo level, and compact regression fixtures that back the
+  automated tests without shipping;
 * a clean packaged distribution and a catalog-driven content pipeline.
 
 Known limitations, all deliberate:

@@ -51,11 +51,10 @@ material has no tint), so it is painted at the historical warm-brown albedo.
 path; the shipped PNGs are authoritative and hand-painted replacements are
 equally valid. `tools/textures/build.py --check` gates the budget.
 
-The Goal 5 demo level `../../levels/office_showcase.json` exercises the set:
-five connected rooms (two open-plan offices, a damaged corridor, a reception
-and a side office), warm fluorescent fixtures with dimmer and unlit corners,
-sparse charcoal desks and task chairs, cabinets, a water cooler and floor
-decals.
+The official demo `../../levels/places_demo.json` exercises the set: a warm
+office reception and workroom on the yellow wallpaper and panel ceiling, the
+stained/damp variants in the areas the building has given up on, sparse desks
+and task chairs, cabinets, a water cooler and floor decals.
 
 Generic props (couch, bed, plants, utilities, ...) are deliberately **not**
 listed here: they belong to no theme and live under `../../core/`.

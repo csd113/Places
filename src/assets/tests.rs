@@ -327,13 +327,13 @@ fn every_file_asset_exists_exactly_once() {
 }
 
 #[test]
-fn shipped_levels_only_reference_catalog_ids() {
+fn levels_only_reference_catalog_ids() {
     let catalog = shipped_catalog();
     let mut levels = 0;
     let mut props = 0;
     let mut spooner_levels = 0;
 
-    for dir in ["assets/levels", "levels"] {
+    for dir in ["assets/levels", "tests/fixtures/levels"] {
         let entries = fs::read_dir(dir).unwrap_or_else(|error| panic!("{dir} must exist: {error}"));
         for file in entries.flatten() {
             let path = file.path();
@@ -394,11 +394,11 @@ fn shipped_levels_only_reference_catalog_ids() {
             }
         }
     }
-    assert!(levels >= 10, "expected the shipped and custom levels");
+    assert!(levels >= 5, "expected the shipped level and the regression fixtures");
     assert!(props >= 1, "expected placed props");
     assert!(
         spooner_levels >= 1,
-        "at least one shipped level must still reference `spooner-man`"
+        "at least one level must still reference `spooner-man`"
     );
 }
 
@@ -409,15 +409,15 @@ fn renderer_and_catalog_agree_on_surface_and_decal_ids() {
     // Every catalogued surface material must resolve through the material
     // table to a decoded PNG: no material is allowed to depend on a
     // renderer-known id or a code-generated sheet any more.
-    let level = LevelDef::from_json(include_str!("../../assets/levels/level1.json"))
-        .expect("level1 parses");
+    let level = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+        .expect("places_demo parses");
     let mut cache = crate::materials::TextureCache::new();
     let root = resolve_asset_root().expect("assets/ is discoverable");
     let table =
         crate::materials::resolve_materials(&level, &catalog, None, Some(&root), &mut cache);
     assert!(
         table.errors().is_empty(),
-        "level1 materials must all resolve: {:?}",
+        "the demo's materials must all resolve: {:?}",
         table.errors()
     );
     for material in table.entries() {
@@ -525,7 +525,7 @@ fn renderer_and_catalog_agree_on_surface_and_decal_ids() {
 fn level_material_references_cover_floor_regions_too() {
     let catalog = shipped_catalog();
     let mut checked = 0usize;
-    for dir in ["assets/levels", "levels"] {
+    for dir in ["assets/levels", "tests/fixtures/levels"] {
         let entries = fs::read_dir(dir).unwrap_or_else(|error| panic!("{dir}: {error}"));
         for file in entries.flatten() {
             let path = file.path();

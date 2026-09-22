@@ -447,57 +447,39 @@ texture is never hidden behind unrelated artwork.
 
 ## Development fixtures and checks
 
-`assets/levels/` carries the showable content and the regression fixtures;
-`assets/levels/README.md` indexes every shipped level and says what depends on
-it. The short version:
+`assets/levels/` carries the one level the game ships, `places_demo.json`;
+`assets/levels/README.md` indexes it and explains where the regression fixtures
+went. The engine fixtures used by the test suite live in
+`tests/fixtures/levels/` and are never packaged. The short version:
 
-* `assets/levels/places_demo.json` — **the official demo**, and the level to
-  show someone. One continuous route: office → doorways and windows → red stair
-  hall → empty pool → steps up → quiet corridor → the unmade world. Run it with
-  `LIMINAL_LEVEL=places_demo`.
-* `levels/asset_demo.json` — **the walkable asset map**, in the game's
-  custom-level folder. Four rooms around a corridor place every generic and
-  Office placeable asset (the core props plus `spooner-man`), and it exercises
-  the whole level format: doorways, a wide passage, windows, a vent, twelve
-  ceiling lights, several props standing on other props, and the worn material
-  set (stained wallpaper, damp carpet, stained ceiling) that Level 1 does not
-  use. The Pool family lives in the Pool showcase instead, so a residential
-  demo never has to hold a pool ladder.
-* `levels/asset_maintained.json` — the same building on the maintained material
-  set (yellow wallpaper, beige carpet, panel ceiling). A level carries one wall,
-  one floor and one ceiling material, so the two demos are how the maintained
-  and water-damaged sets are compared in game.
-  Regenerate both with `python3 tools/levels/build_demo_levels.py`.
-* `assets/levels/prop_showcase.json` — every generic and Office placeable asset
-  placed once, arranged as a domestic room plus a utility room, including one
-  crate deliberately sunk into the floor and a box overlapping it.
-* `assets/levels/prop_stress.json` — ~150 repeated placements across nine
-  models, used to prove that instances share one decoded model, one texture and
-  one draw call per model.
-* `assets/levels/vertical_diagnostic.json` — the vertical-geometry level:
-  an elevated room reached by a region staircase, a walkable recess and a
-  blocked deep recess, a gable room with eave/ridge fixtures, RGB-lit corners and
-  decals. Run it with `LIMINAL_LEVEL=vertical_diagnostic`.
-* `assets/levels/texture_diagnostic.json` — the Goal 4.5 external-texture level:
-  the diagnostic wall/floor/ceiling materials, the 96×64 NPOT texture, an RGBA
-  alpha sheet, a coalesced material-run overlay, decals on external surfaces,
-  a gable ceiling, a walkable recess, a region staircase into an elevated room
-  and warm/blue/white fixtures. Run it with
-  `LIMINAL_LEVEL=texture_diagnostic`; see
-  `tools/bench/notes/texture-material-validation.md` for the capture spots.
-* `assets/levels/office_showcase.json` — the Goal 5 Office showcase: a small,
-  mostly empty institutional suite on the final wallpaper/carpet/ceiling, with
-  warm fluorescent fixtures, sparse desks and chairs, one room on the damaged
-  material set and floor decals. Run it with `LIMINAL_LEVEL=office_showcase`.
-* `assets/levels/pool_showcase.json` — the Goal 5 Pool showcase: the clean
-  sterile Pool family, a real recessed empty basin (`floor_regions`), the
-  walk-in step, the ladder standing on the basin floor, the patio table and
-  chair, modular curtains and guardrails (with collision), both Pool light
-  fixtures and the final external `NO DIVING` sign. Run it with
-  `LIMINAL_LEVEL=pool_showcase`.
-* `assets/levels/lighting_isolation.json` and
-  `assets/levels/lighting_diagnostic.json` — the wall-boundary lighting
-  acceptance fixtures behind `src/lighting_isolation.rs`.
+* `assets/levels/places_demo.json` — **the official demo and the only shipped
+  level**, and the level to show someone. One continuous route: office →
+  doorways and windows → red stair hall → empty pool → steps up → quiet
+  corridor → the unmade world. Run it with `LIMINAL_LEVEL=places_demo`.
+* `tests/fixtures/levels/prop_showcase.json` — every placeable asset placed
+  once, arranged as a domestic room plus a utility room, including one crate
+  deliberately sunk into the floor and a box overlapping it.
+* `tests/fixtures/levels/prop_stress.json` — ~150 repeated placements across
+  nine models, used to prove that instances share one decoded model, one
+  texture and one draw call per model.
+* `tests/fixtures/levels/vertical_diagnostic.json` — the vertical-geometry
+  fixture: an elevated room reached by a region staircase, a walkable recess
+  and a blocked deep recess, a gable room with eave/ridge fixtures, RGB-lit
+  corners and decals. Run it with `LIMINAL_LEVEL=vertical_diagnostic`.
+* `tests/fixtures/levels/pool_showcase.json` — the Pool family fixture: a real
+  recessed empty basin (`floor_regions`), the walk-in step, the ladder standing
+  on the basin floor, the patio table and chair, modular curtains and guardrails
+  (with collision), both Pool light fixtures and the external `NO DIVING` sign.
+  Run it with `LIMINAL_LEVEL=pool_showcase`.
+* `tests/fixtures/levels/rendering_diagnostic.json`,
+  `tests/fixtures/levels/lighting_isolation.json`,
+  `tests/fixtures/levels/lighting_diagnostic.json` and
+  `tests/fixtures/levels/test_room.json` — the decal-sheet, wall-boundary
+  lighting, lighting-boundary and minimal-room fixtures the renderer and loader
+  tests load by name.
+
+The prop fixtures are generated: run `python3 tools/levels/build_fixture_levels.py`
+to rebuild them.
 
 Checks to run before shipping an asset change:
 
@@ -512,7 +494,7 @@ cd level-editor && npm test                  # editor parses the proxies and dra
 
 Useful developer-only run flags (they never affect normal play):
 
-* `LIMINAL_LEVEL=prop_showcase` — boot straight into a level (handy on the
+* `LIMINAL_LEVEL=places_demo` — boot straight into a level (handy on the
   PocketCHIP, where the menu is awkward over SSH).
 * `LIMINAL_CAPTURE=frame.png` — render one frame and write it out, then exit;
   this is how prop rendering is inspected on hardware without a screenshot tool.

@@ -12,7 +12,9 @@ use crate::materials::{MaterialTable, PackMaterials, resolve_materials};
 /// Re-exported so the rest of the crate keeps its historical import paths.
 pub use crate::materials::{RawImage, TextureCache, decode_png, encode_png, parse_materials_json};
 
-const FALLBACK_LEVEL1_JSON: &str = include_str!("../assets/levels/level1.json");
+/// The official demo, embedded so the game still boots when no level files are
+/// installed on disk. `Places Demo` is the only level shipped with the game.
+const FALLBACK_DEMO_JSON: &str = include_str!("../assets/levels/places_demo.json");
 
 const MAX_ZIP_ENTRIES: usize = 500;
 const MAX_ZIP_ENTRY_SIZE: u64 = 10 * 1024 * 1024; // 10 MB per file
@@ -974,28 +976,6 @@ impl LevelManager {
             }
         }
 
-        // If level_1 was not found on disk, insert fallback official entry
-        if discovered.iter().any(|e| e.id == "level_1") {
-            // Ensure level_1 is first in the list for immediate access
-            if let Some(pos) = discovered.iter().position(|e| e.id == "level_1")
-                && pos != 0
-            {
-                let e = discovered.remove(pos);
-                discovered.insert(0, e);
-            }
-        } else {
-            discovered.insert(
-                0,
-                LevelEntry {
-                    id: "level_1".into(),
-                    name: "Level 1".into(),
-                    author: "Liminal Team".into(),
-                    source_type: LevelSourceType::Official,
-                    path: self.assets_dir.join("level1.json"),
-                },
-            );
-        }
-
         self.entries = discovered;
     }
 
@@ -1027,21 +1007,24 @@ impl LevelManager {
         })
     }
 
-    /// Loads the default or initial Level 1 level through the unified loader.
+    /// Loads the official demo, or the embedded copy when it is not installed.
+    ///
+    /// `Places Demo` is the only level bundled with the game, so it is also the
+    /// default level the game boots into. External/user levels are unaffected:
+    /// they are discovered alongside it and can be selected from the menu.
     /// # Errors
     ///
-    /// Returns a message when no `level_1` is installed and the embedded
-    /// fallback level fails to parse or validate, or when the found entry cannot
-    /// be loaded.
-    pub fn load_default_or_level1(&self) -> Result<LoadedLevel, String> {
-        if let Some(entry) = self.entries.iter().find(|e| e.id == "level_1") {
+    /// Returns a message when the demo cannot be loaded, or when neither an
+    /// installed nor an embedded demo parses and validates.
+    pub fn load_default(&self) -> Result<LoadedLevel, String> {
+        if let Some(entry) = self.entries.iter().find(|e| e.id == "places_demo") {
             self.load_level(entry)
         } else {
-            // Direct fallback: the embedded Level 1 JSON still resolves its
+            // Direct fallback: the embedded demo JSON still resolves its
             // materials through the shipped catalog (and degrades loudly to the
             // diagnostic texture when no assets are installed at all).
-            let level = LevelDef::from_json(FALLBACK_LEVEL1_JSON)
-                .map_err(|e| format!("Failed to parse embedded Level 1: {e}"))?;
+            let level = LevelDef::from_json(FALLBACK_DEMO_JSON)
+                .map_err(|e| format!("Failed to parse embedded Places Demo: {e}"))?;
             validate_level(&level)?;
             let materials = self.resolve_level_materials(&level, None);
             Ok(LoadedLevel {
@@ -1049,11 +1032,11 @@ impl LevelManager {
                 materials,
                 fixture: None,
                 entry: LevelEntry {
-                    id: "level_1".into(),
-                    name: "Level 1".into(),
+                    id: "places_demo".into(),
+                    name: "Places Demo".into(),
                     author: "Liminal Team".into(),
                     source_type: LevelSourceType::Official,
-                    path: self.assets_dir.join("level1.json"),
+                    path: self.assets_dir.join("places_demo.json"),
                 },
             })
         }
@@ -1095,14 +1078,8 @@ impl LevelManager {
     pub fn load_level(&self, entry: &LevelEntry) -> Result<LoadedLevel, String> {
         match entry.source_type {
             LevelSourceType::Official | LevelSourceType::CustomJson => {
-                let content = if entry.path.exists() {
-                    fs::read_to_string(&entry.path)
-                        .map_err(|e| format!("Failed to read {}: {e}", entry.path.display()))?
-                } else if entry.id == "level_1" {
-                    FALLBACK_LEVEL1_JSON.to_string()
-                } else {
-                    return Err(format!("Level file not found: {}", entry.path.display()));
-                };
+                let content = fs::read_to_string(&entry.path)
+                    .map_err(|e| format!("Failed to read {}: {e}", entry.path.display()))?;
 
                 let level = LevelDef::from_json(&content)
                     .map_err(|e| format!("JSON parse error in {}: {e}", entry.path.display()))?;

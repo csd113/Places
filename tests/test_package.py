@@ -24,12 +24,6 @@ import validate  # noqa: E402
 
 DECAL_SURFACES = {"floor", "ceiling", "wall_north", "wall_south", "wall_east", "wall_west"}
 
-RESIDENTIAL_LEVELS = {
-    "the_residence": "The Residence",
-    "quiet_apartments": "Quiet Apartments",
-    "after_the_leak": "After the Leak",
-}
-
 
 def cargo_version() -> str:
     text = (PACKAGE / "Cargo.toml").read_text(encoding="utf-8")
@@ -55,6 +49,11 @@ def catalog_ids() -> set[str]:
 
 def level_files() -> list[Path]:
     return sorted((PACKAGE / "assets" / "levels").glob("*.json"))
+
+
+def fixture_files() -> list[Path]:
+    """Engine regression fixtures; these are not shipped with the game."""
+    return sorted((PACKAGE / "tests" / "fixtures" / "levels").glob("*.json"))
 
 
 def custom_level_files() -> list[Path]:
@@ -105,14 +104,17 @@ class RepositoryTests(unittest.TestCase):
 
 
 class ShippedLevelTests(unittest.TestCase):
-    def test_the_three_residential_levels_ship_with_matching_ids(self):
+    def test_places_demo_is_the_only_bundled_level(self):
         shipped = {path.stem: load_level(path) for path in level_files()}
-        for level_id, name in RESIDENTIAL_LEVELS.items():
-            self.assertIn(level_id, shipped, f"{level_id}.json is missing")
-            level = shipped[level_id]
-            self.assertEqual(level["id"], level_id)
-            self.assertEqual(level["name"], name)
-            self.assertEqual(level["format_version"], 1)
+        self.assertEqual(
+            set(shipped),
+            {"places_demo"},
+            "Places Demo must be the only level bundled with the game",
+        )
+        demo = shipped["places_demo"]
+        self.assertEqual(demo["id"], "places_demo")
+        self.assertEqual(demo["name"], "Places Demo")
+        self.assertEqual(demo["format_version"], 1)
 
     def test_every_shipped_level_has_rooms_walls_light_and_an_inside_spawn(self):
         for path in level_files():
@@ -130,17 +132,6 @@ class ShippedLevelTests(unittest.TestCase):
                 for room in rooms
             )
             self.assertTrue(inside, f"{path.name}: the spawn is outside every room")
-
-    def test_the_residential_levels_are_large_interiors(self):
-        for level_id in RESIDENTIAL_LEVELS:
-            level = load_level(PACKAGE / "assets" / "levels" / f"{level_id}.json")
-            rooms = rooms_of(level)
-            self.assertGreaterEqual(len(rooms), 35, f"{level_id} is too small")
-            floor_area = sum(room["width"] * room["depth"] for room in rooms)
-            self.assertGreater(floor_area, 700.0, f"{level_id} has too little floor")
-            # Residential rooms, not chambers: every room fits in a house.
-            for room in rooms:
-                self.assertLessEqual(max(room["width"], room["depth"]), 12.0)
 
     def test_materials_are_real_core_ids(self):
         known_materials = {
@@ -244,7 +235,7 @@ class AssetCatalogTests(unittest.TestCase):
 
     def test_logical_ids_are_separate_from_physical_paths(self):
         # Levels store logical ids; a physical path never leaks into level JSON.
-        for path in level_files() + custom_level_files():
+        for path in level_files() + fixture_files() + custom_level_files():
             text = path.read_text(encoding="utf-8")
             self.assertNotIn(".glb", text, f"{path.name} stores a model file path")
             self.assertNotIn(".png", text, f"{path.name} stores a texture file path")
@@ -281,12 +272,17 @@ class AssetCatalogTests(unittest.TestCase):
             self.assertEqual(by_id[material_id].get("theme"), "office", material_id)
 
     def test_themes_organize_without_restricting_placement(self):
-        # The asset demo mixes office, generic and entity assets in one level;
-        # nothing in the catalog or level format gates placement by theme.
-        demo = load_level(PACKAGE / "levels" / "asset_demo.json")
+        # The official demo mixes Office, generic and Pool assets, and the prop
+        # regression fixture mixes in an entity; nothing in the catalog or level
+        # format gates placement by theme.
+        demo = load_level(PACKAGE / "assets" / "levels" / "places_demo.json")
         placed = {prop["model"] for prop in demo.get("props", [])}
-        for expected in ("core:desk", "core:couch", "spooner-man"):
+        for expected in ("core:desk", "core:pool_ladder"):
             self.assertIn(expected, placed)
+        fixture = load_level(PACKAGE / "tests" / "fixtures" / "levels" / "prop_showcase.json")
+        fixture_placed = {prop["model"] for prop in fixture.get("props", [])}
+        for expected in ("core:couch", "spooner-man"):
+            self.assertIn(expected, fixture_placed)
         self.assertTrue(
             validate.placeable_entries(catalog()),
             "every theme's assets resolve through one placeable lookup",
@@ -307,10 +303,10 @@ class AssetCatalogTests(unittest.TestCase):
         )
         referencing = [
             path.name
-            for path in level_files() + custom_level_files()
+            for path in level_files() + fixture_files() + custom_level_files()
             if '"model": "spooner-man"' in path.read_text(encoding="utf-8")
         ]
-        self.assertTrue(referencing, "no shipped level still references spooner-man")
+        self.assertTrue(referencing, "no level still references spooner-man")
 
     def _validate(self, entries, themes=None):
         base = catalog()
@@ -490,7 +486,7 @@ class PoolContentTests(unittest.TestCase):
         self.assertTrue(transparent, "the sign sheet has no transparent pixels")
 
     def test_the_pool_showcase_is_real_lowered_floor_geometry(self):
-        level = load_level(PACKAGE / "assets" / "levels" / "pool_showcase.json")
+        level = load_level(PACKAGE / "tests" / "fixtures" / "levels" / "pool_showcase.json")
         regions = level.get("floor_regions", [])
         self.assertTrue(regions, "the pool basin must be a floor region, not a prop")
         offsets = [float(region.get("offset_y", 0.0)) for region in regions]
@@ -513,33 +509,20 @@ class PoolContentTests(unittest.TestCase):
                 self.assertIn("y", light, light)
 
     def test_the_pool_showcase_places_every_pool_prop(self):
-        level = load_level(PACKAGE / "assets" / "levels" / "pool_showcase.json")
+        level = load_level(PACKAGE / "tests" / "fixtures" / "levels" / "pool_showcase.json")
         placed = {prop["model"] for prop in level.get("props", [])}
         for prop_id in self.POOL_PROPS:
             self.assertIn(prop_id, placed, f"pool_showcase.json must place {prop_id}")
 
-    def test_the_office_case_goods_have_real_collision_boxes(self):
-        # A solid prop blocks with the level's own `size`; without one it falls
-        # back to a neutral 0.6 x 0.9 x 0.6 box, which lets a player walk
-        # through most of a desk. The Goal 5 showcase authors every solid box.
-        level = load_level(PACKAGE / "assets" / "levels" / "office_showcase.json")
-        solids = [prop for prop in level.get("props", []) if prop.get("solid") is True]
-        self.assertTrue(solids, "the office showcase must place solid furniture")
-        for prop in solids:
-            self.assertIn("size", prop, f"{prop['model']} at ({prop['x']}, {prop['z']}) needs a collision size")
-            size = prop["size"]
-            self.assertEqual(len(size), 3, prop)
-            self.assertTrue(all(value > 0 for value in size), prop)
-
     def test_every_pool_solid_prop_authors_its_collision_box(self):
-        level = load_level(PACKAGE / "assets" / "levels" / "pool_showcase.json")
+        level = load_level(PACKAGE / "tests" / "fixtures" / "levels" / "pool_showcase.json")
         for prop in level.get("props", []):
             if prop.get("solid") is True:
                 self.assertIn("size", prop, f"{prop['model']} needs an explicit collision size")
                 self.assertTrue(all(value > 0 for value in prop["size"]), prop)
 
     def test_guardrails_and_the_ladder_have_collision(self):
-        level = load_level(PACKAGE / "assets" / "levels" / "pool_showcase.json")
+        level = load_level(PACKAGE / "tests" / "fixtures" / "levels" / "pool_showcase.json")
         solid = {
             prop["model"]: prop
             for prop in level.get("props", [])

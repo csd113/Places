@@ -12,8 +12,8 @@ use crate::test_support::assert_exact;
 /// (rugs, plants, lamps, TVs, cardboard boxes) never affect collision.
 #[test]
 fn test_showcase_level_collision_matches_the_solid_flags() {
-    let content = std::fs::read_to_string("assets/levels/prop_showcase.json")
-        .expect("the prop showcase level ships with the game");
+    let content = std::fs::read_to_string("tests/fixtures/levels/prop_showcase.json")
+        .expect("the prop showcase regression fixture is present");
     let level = LevelDef::from_json(&content).expect("showcase level parses");
     let aabbs = level.collision_aabbs();
 

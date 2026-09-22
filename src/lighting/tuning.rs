@@ -10,9 +10,10 @@ use super::color::LightColor;
 /// Floor area one standard fixture is expected to illuminate, in square metres.
 ///
 /// This is the reference point of the density curve used by [`room_baseline`].
-/// It is calibrated to the sparsest fixture grid the game ships: Level 1 places
-/// nine panels in a 52 x 54 m room (about 300 m^2 per fixture), and those rooms
-/// must still read as lit commercial spaces rather than dark halls.
+/// It is calibrated to the sparsest fixture grid the game shows: a large hall
+/// with a handful of widely spaced panels (as the generated benchmark levels
+/// and the demo's long corridor do) must still read as a lit commercial space
+/// rather than a dark hall.
 ///
 /// Because rooms sit somewhere between "one panel in a huge hall" and "a dense
 /// grid in a small room", the raw area ratio spans more than two orders of

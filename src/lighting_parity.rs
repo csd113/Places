@@ -67,7 +67,7 @@ const SCENARIOS: &[Scenario] = &[
         ],
     },
     Scenario {
-        name: "level1_sparse_grid",
+        name: "sparse_grid_hall",
         rooms: r#"{ "x": 0.0, "z": 0.0, "width": 52.0, "depth": 54.0, "height": 3.5 }"#,
         walls: "",
         lights: r#"{ "fixture": "core:fluorescent_panel_01", "x": 13.5, "z": 13.0 },

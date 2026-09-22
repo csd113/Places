@@ -13,8 +13,9 @@ The checks here are the tooling half of the asset architecture:
   assets (materials) resolve to a file-backed PNG texture instead;
 * ``spooner-man`` is a single canonical entity resource under
   ``entities/spooner-man/``, never a duplicate prop file;
-* every shipped level in ``assets/levels/`` and every custom level in
-  ``levels/`` only references ids the catalog declares.
+* the shipped level in ``assets/levels/``, the drop-in levels in ``levels/``
+  and the engine regression fixtures in ``tests/fixtures/levels/`` only
+  reference ids the catalog declares.
 
 Run it from the repository root::
 
@@ -43,6 +44,7 @@ CATALOG_PATH = os.path.join(ASSET_ROOT, "catalog.json")
 LEVEL_DIRS = (
     os.path.join(ASSET_ROOT, "levels"),
     os.path.join(PACKAGE_ROOT, "levels"),
+    os.path.join(PACKAGE_ROOT, "tests", "fixtures", "levels"),
 )
 
 # Architectural classification: adding a class is deliberate (it changes what
@@ -359,7 +361,7 @@ def wall_touches_any_room(level: dict, wall: dict, epsilon: float = 0.05) -> boo
 
 
 def validate_levels(catalog: dict) -> Tuple[List[str], List[str]]:
-    """Returns ``(errors, warnings)`` for every shipped and custom level."""
+    """Returns ``(errors, warnings)`` for every shipped level, drop-in level and fixture."""
     errors: List[str] = []
     warnings: List[str] = []
     known = {str(entry.get("id")) for entry in catalog_entries(catalog)}

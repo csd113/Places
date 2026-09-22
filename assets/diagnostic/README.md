@@ -25,23 +25,22 @@ content, not these.
 `diagnostic_alpha_01` carries a transparent margin and a translucent ring, so
 the loading tests have an NPOT and an RGBA case in the shipped set.
 
-The diagnostic **levels** themselves live with the rest of the shipped levels
-(`../levels/lighting_diagnostic.json`, `../levels/rendering_diagnostic.json`,
-`../levels/vertical_diagnostic.json`, `../levels/texture_diagnostic.json`)
-because levels are discovered from the level directories, not the asset
+The diagnostic **levels** are engine regression fixtures and live in
+`tests/fixtures/levels/` (`lighting_diagnostic.json`,
+`rendering_diagnostic.json`, `vertical_diagnostic.json`), outside the shipped
+content, because levels are discovered from the level directories, not the asset
 catalog. Future diagnostic models, textures or fixtures belong in this
 directory.
 
-* `../levels/vertical_diagnostic.json` is the Goal 4 vertical-geometry level: a
-  normal room at floor `0` with the default 4.0 m ceiling, a staircase built from
-  floor regions that climbs to an elevated room at `floor_y: 2.0`, a room with a
-  walkable recess and a blocked deep recess, a gable room with eave and ridge
-  fixtures, RGB-lit corners and decals.
-* `../levels/texture_diagnostic.json` is the Goal 4.5 external-texture level:
-  diagnostic materials on all three surface families, an NPOT texture, an RGBA
-  sheet, a coalesced material-run overlay, decals, a gable, a walkable recess, a
-  region staircase into an elevated room, and warm/blue/white fixtures for the
-  lighting check. Boot it with `LIMINAL_LEVEL=texture_diagnostic`.
+* `tests/fixtures/levels/vertical_diagnostic.json` is the Goal 4
+  vertical-geometry fixture: a normal room at floor `0` with the default 4.0 m
+  ceiling, a staircase built from floor regions that climbs to an elevated room
+  at `floor_y: 2.0`, a room with a walkable recess and a blocked deep recess, a
+  gable room with eave and ridge fixtures, RGB-lit corners and decals.
+* The Goal 4.5 `texture_diagnostic` level was retired together with the other
+  non-demo bundled levels. Its diagnostic materials and textures stay in the
+  catalog: the external-texture loading tests still use them, and user levels
+  can reference them like any other catalogued asset.
 
 Goal 1 (RGB lighting), Goal 2 (stable overlays/decals), Goal 3 (assets) and
 Goal 4 (vertical geometry) diagnostic content still loads and resolves

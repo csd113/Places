@@ -9,8 +9,8 @@ Layout (all inside `/tmp/liminal-benchmark`, removed with `--cleanup`):
 
 ```text
 /tmp/liminal-benchmark/liminal-rust     release binary for armv7
-/tmp/liminal-benchmark/assets/          shipped level + prop assets
-/tmp/liminal-benchmark/levels/          shipped levels + generated bench levels
+/tmp/liminal-benchmark/assets/          shipped assets (catalog, demo, props)
+/tmp/liminal-benchmark/levels/          demo fixtures + generated bench levels
 /tmp/liminal-benchmark/bench_suite.sh   generated per-phase runner
 /tmp/liminal-benchmark/out/*.csv        per-frame samples written by the game
 /tmp/liminal-benchmark/out/*.log        the game's stdout for each run
@@ -70,9 +70,9 @@ SCENE_SETS: dict[str, list[tuple[str, str, dict[str, str]]]] = {
         ("400_side", "bench_chairs_400", {"LIMINAL_CAMERA": "90"}),
     ],
     "levels": [
-        ("level_1", "level_1", {}),
+        ("places_demo", "places_demo", {}),
         ("prop_stress", "prop_stress", {}),
-        ("asset_demo", "asset_demo", {}),
+        ("prop_showcase", "prop_showcase", {}),
     ],
     # Phase 1: separate the renderer's own cost from the presentation path.
     "vsync": [
@@ -112,9 +112,9 @@ SCENE_SETS: dict[str, list[tuple[str, str, dict[str, str]]]] = {
             ("chairs400_facing", "bench_chairs_400", {"LIMINAL_CAMERA": "180"}),
             ("chairs400_away", "bench_chairs_400", {"LIMINAL_CAMERA": "0"}),
             ("chairs1000_facing", "bench_chairs_1000", {"LIMINAL_CAMERA": "180"}),
-            ("level_1", "level_1", {}),
+            ("places_demo", "places_demo", {}),
             ("prop_stress", "prop_stress", {}),
-            ("asset_demo", "asset_demo", {}),
+            ("prop_showcase", "prop_showcase", {}),
         ]
         for variant, extra in [
             # Exactly the shipping build: culling + indexing + packed vertices.
@@ -155,15 +155,15 @@ SCENE_SETS: dict[str, list[tuple[str, str, dict[str, str]]]] = {
         for size in (12, 24, 48, 96)
     ],
     "levels_ab": [
-        ("level_1_cull", "level_1", {}),
-        ("level_1_nocull", "level_1", {"LIMINAL_BENCH_NOCULL": "1"}),
-        ("level_1_phase1", "level_1", {"BIN": "phase1"}),
+        ("places_demo_cull", "places_demo", {}),
+        ("places_demo_nocull", "places_demo", {"LIMINAL_BENCH_NOCULL": "1"}),
+        ("places_demo_phase1", "places_demo", {"BIN": "phase1"}),
         ("prop_stress_cull", "prop_stress", {}),
         ("prop_stress_nocull", "prop_stress", {"LIMINAL_BENCH_NOCULL": "1"}),
         ("prop_stress_phase1", "prop_stress", {"BIN": "phase1"}),
-        ("asset_demo_cull", "asset_demo", {}),
-        ("asset_demo_nocull", "asset_demo", {"LIMINAL_BENCH_NOCULL": "1"}),
-        ("asset_demo_phase1", "asset_demo", {"BIN": "phase1"}),
+        ("prop_showcase_cull", "prop_showcase", {}),
+        ("prop_showcase_nocull", "prop_showcase", {"LIMINAL_BENCH_NOCULL": "1"}),
+        ("prop_showcase_phase1", "prop_showcase", {"BIN": "phase1"}),
     ],
 }
 
@@ -342,6 +342,11 @@ def main() -> None:
             capture_output=True,
         )
         for level in (REPO / "levels").glob("*.json"):
+            (staging / "levels" / level.name).write_bytes(level.read_bytes())
+        # The prop fixtures live outside the shipped content but are measured
+        # levels too; stage them as ordinary drop-in levels on the device.
+        for name in ("prop_showcase", "prop_stress"):
+            level = REPO / "tests" / "fixtures" / "levels" / f"{name}.json"
             (staging / "levels" / level.name).write_bytes(level.read_bytes())
         upload(args.host, staging / "levels", REMOTE_ROOT)
 

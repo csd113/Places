@@ -1,9 +1,9 @@
 //! Lighting-isolation regression cases.
 //!
 //! These tests are the acceptance suite for the wall-boundary repair: they use
-//! the dedicated diagnostic level `assets/levels/lighting_isolation.json`, whose
-//! thirteen plain cells each isolate one behaviour, and assert the rules the
-//! baked lighting model must obey:
+//! the dedicated regression fixture `tests/fixtures/levels/lighting_isolation.json`,
+//! whose thirteen plain cells each isolate one behaviour, and assert the rules
+//! the baked lighting model must obey:
 //!
 //! ```text
 //! opaque wall      blocks a direct fixture pool
@@ -17,8 +17,8 @@
 //! several lights   are evaluated one by one; a blocked light is not a veto
 //! ```
 //!
-//! The level is also playable and is validated by `tools/assets/validate.py`;
-//! the file, not this module, owns the layout.
+//! The level is a regression fixture, not packaged content; the file, not this
+//! module, owns the layout.
 
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
@@ -35,7 +35,7 @@
 use crate::level::LevelDef;
 use crate::lighting::{AMBIENT_LEVEL, LevelLighting, LightColor};
 
-/// Room indices in `assets/levels/lighting_isolation.json`, in file order.
+/// Room indices in `tests/fixtures/levels/lighting_isolation.json`, in file order.
 mod cell {
     pub const CORNER_WHITE: usize = 0;
     pub const DARK_NEIGHBOUR: usize = 1;
@@ -54,7 +54,7 @@ mod cell {
 
 /// Loads and bakes the diagnostic level.
 fn isolation() -> (LevelDef, LevelLighting) {
-    let path = "assets/levels/lighting_isolation.json";
+    let path = "tests/fixtures/levels/lighting_isolation.json";
     let content = std::fs::read_to_string(path)
         .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
     let level =
@@ -432,7 +432,7 @@ fn emitted_wall_faces_are_lit_by_the_room_they_open_into() {
     // the artifact was a blue-grey wedge at that end of a red room's wall. The
     // blue room's own wall ends at the same plane, so the check looks for the
     // red room's face among the vertices that share the position.
-    let diag_path = "assets/levels/lighting_diagnostic.json";
+    let diag_path = "tests/fixtures/levels/lighting_diagnostic.json";
     let diagnostic = LevelDef::from_json(
         &std::fs::read_to_string(diag_path)
             .unwrap_or_else(|error| panic!("{diag_path} must be readable: {error}")),

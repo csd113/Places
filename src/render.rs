@@ -677,7 +677,7 @@ fn find_root(parent: &mut [usize], index: usize) -> usize {
 
 /// Resolves coincident collinear walls into single emission units.
 ///
-/// The shipped residential levels paint part of a wall with water damage by
+/// The authored levels paint part of a wall with water damage by
 /// placing a second wall in exactly the same plane with a stained material.
 /// That is a material overlay represented as duplicate geometry, and depending
 /// on submission order the two identical surfaces fight for the same depth
