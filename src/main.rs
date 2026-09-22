@@ -12,6 +12,8 @@ mod lighting_audit;
 #[cfg(test)]
 mod lighting_audit_cases;
 #[cfg(test)]
+mod lighting_isolation;
+#[cfg(test)]
 mod lighting_parity;
 pub mod loader;
 pub mod materials;

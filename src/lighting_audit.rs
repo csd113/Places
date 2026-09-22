@@ -1188,7 +1188,9 @@ fn regression_raised_walls_do_not_blend_through_their_openings() {
     );
 
     // ...but the same opening in a wall raised to 2.5 m is a hole near the
-    // ceiling, not a passage: no light may leak through it.
+    // ceiling, not a passage: the doorway exchange must not reach the floor
+    // through it. The pool may still pass through the real hole where the
+    // geometry allows it, and only there.
     let raised = sample_at(&shared_wall_level(2.5, 0.0, 1.0), 10.5, 0.0, 5.0);
     let raised_solid = sample_at(
         &solid_control(shared_wall_level(2.5, 0.0, 1.0)),
@@ -1198,9 +1200,21 @@ fn regression_raised_walls_do_not_blend_through_their_openings() {
     );
     assert!(
         (raised - raised_solid).abs() < 1e-5,
-        "a raised wall's opening must not blend: {raised} vs solid {raised_solid}"
+        "a raised wall's opening must not light the floor below it: {raised} vs solid {raised_solid}"
     );
-    // Even at the opening's own height nothing leaks.
+    // The doorway exchange is what a raised wall must not have at all, at any
+    // height: the wall does not stand on the floor it would connect.
+    let raised_lighting = LevelLighting::bake(&shared_wall_level(2.5, 0.0, 1.0));
+    for y in [0.0_f32, 1.5, 2.7] {
+        assert_exact_named(
+            raised_lighting.opening_blend(1, 10.5, y, 5.0).luminance(),
+            0.0,
+            "a raised wall must not blend at any height",
+        );
+    }
+    // At the opening's own height the physical hole does transmit a fixture
+    // pool: the aperture is real geometry, and the wall still blocks everything
+    // below it.
     let at_opening_height = sample_at(&shared_wall_level(2.5, 0.0, 1.0), 10.5, 2.7, 5.0);
     let height_solid = sample_at(
         &solid_control(shared_wall_level(2.5, 0.0, 1.0)),
@@ -1208,7 +1222,10 @@ fn regression_raised_walls_do_not_blend_through_their_openings() {
         2.7,
         5.0,
     );
-    assert!((at_opening_height - height_solid).abs() < 1e-5);
+    assert!(
+        at_opening_height >= height_solid,
+        "the hole must not remove light at its own height: {at_opening_height} vs {height_solid}"
+    );
 
     // A sill above the floor on a grounded wall is a window, not a door.
     let window = sample_at(&shared_wall_level(0.0, 0.5, 1.0), 10.5, 0.0, 5.0);

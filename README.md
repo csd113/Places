@@ -263,6 +263,13 @@ look along `z`), and vice versa.
   the gap, so shell every room you want to walk inside of. Coincident duplicate
   walls are coalesced into one surface with material runs (that is how overlays
   are authored), so an overlapping copy is not a hole.
+* **Walls are lighting boundaries.** A fixture's light only reaches what its
+  panel can see: an opaque wall blocks the pool behind it, and a doorway,
+  window, passage or vent transmits light through exactly the hole it cuts. A
+  window therefore passes light over its sill and under its header, and a wall
+  whose opening stops short of the floor is a header, not a passage. Author
+  walls wherever two spaces should be lit independently — a partition inside one
+  room shadows a fixture's pool but not the room's own baseline.
 
 ### Local floor regions
 

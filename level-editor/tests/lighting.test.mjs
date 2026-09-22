@@ -173,11 +173,81 @@ test('doorways blend between differently lit rooms instead of stepping', () => {
   const dimSolid = luminance(closed.sampleInRoom(1, 10.5, 0, 5));
   assert.ok(brightNearDoor < brightSolid, 'the bright side loses light to the dim room');
   assert.ok(dimNearDoor > dimSolid, 'the dim side gains light from the bright room');
-  assert.ok(Math.abs(brightNearDoor - dimNearDoor) < 0.15, 'no hard seam at the threshold');
+
+  // The exchange itself cancels across the threshold: the two sides of the
+  // 0.4 m wall are the same distance from the opening. Local fixture pools are
+  // deliberately not part of it — a fixture behind the wall no longer lights
+  // the other side — so the exchange is measured on its own.
+  const brightBlend = luminance(open.openingBlend(0, 9.95, 0, 5));
+  const dimBlend = luminance(open.openingBlend(1, 10.45, 0, 5));
+  assert.ok(brightBlend < -0.001 && dimBlend > 0.001, 'the doorway exchanges light');
+  assert.ok(Math.abs(brightBlend + dimBlend) < 0.01, 'no hard seam at the threshold');
+
+  // A fixture behind the wall contributes nothing on the far side: the raw
+  // threshold step is the local pool difference, which is real geometry.
+  const leaked = closed.sampleInRoom(1, 10.5, 0, 5);
+  const throughDoor = open.sampleInRoom(1, 10.5, 0, 5);
+  assert.ok(
+    Math.abs(leaked[0] - open.rooms[1].baseline[0]) < 0.35,
+    'a solid wall keeps the dim room near its own baseline'
+  );
+  assert.ok(throughDoor[0] >= leaked[0], 'the doorway only adds light on the dim side');
 
   // Bounded: far from the opening both rooms keep their baselines.
   assert.ok(
     Math.abs(luminance(open.sampleInRoom(1, 35, 0, 15)) - luminance(closed.sampleInRoom(1, 35, 0, 15))) < 1e-6
+  );
+});
+
+test('opaque walls stop a fixture pool from crossing them', () => {
+  // A red light on one side of a solid wall, a blue one on the other: the
+  // editor preview must not show either colour contaminating the far room.
+  const rooms = [room(0, 0, 10, 10, 3.0), room(10.4, 0, 10, 10, 3.0)];
+  const lights = [
+    Object.assign(light(5, 5), { color: [1, 0, 0] }),
+    Object.assign(light(15.4, 5), { color: [0, 0, 1] })
+  ];
+  const solid = { id: 'w1', x: 10, z: 0, width: 0.4, depth: 10, height: 3, openings: [] };
+  const closed = bakeLevelLighting(levelWith(rooms, lights, [solid]));
+  const nearRedWall = closed.sampleInRoom(1, 10.5, 0, 5);
+  const nearBlueWall = closed.sampleInRoom(0, 9.9, 0, 5);
+  assert.ok(
+    nearRedWall[2] > nearRedWall[0],
+    `the blue room must stay blue next to the wall: ${nearRedWall}`
+  );
+  assert.ok(
+    nearBlueWall[0] > nearBlueWall[2],
+    `the red room must stay red next to the wall: ${nearBlueWall}`
+  );
+
+  // Opening the wall admits the neighbour's pool through the hole, at the hole.
+  const open = bakeLevelLighting(levelWith(rooms, lights, [
+    Object.assign({}, solid, {
+      openings: [{ kind: 'door', offset: 4.0, width: 2.0, height: 2.1, sill: 0 }]
+    })
+  ]));
+  const throughDoor = open.sampleInRoom(1, 10.5, 0, 5);
+  assert.ok(
+    throughDoor[0] > closed.sampleInRoom(1, 10.5, 0, 5)[0],
+    'the doorway must admit the neighbouring fixture through the hole'
+  );
+});
+
+test('a wall that straddles a room boundary does not shadow its own floor', () => {
+  // The showcase levels author walls across the room edge, so the outermost
+  // floor sample sits inside the wall. It must read as the room, not as a dark
+  // strip along the wall base.
+  const level = levelWith(
+    [room(0, 0, 10, 10, 3.0)],
+    [light(5, 5)],
+    [{ id: 'w1', x: 0, z: 0, width: 10, depth: 0.4, height: 3 }]
+  );
+  const baked = bakeLevelLighting(level);
+  const edge = luminance(baked.sampleInRoom(0, 5, 0, 0));
+  const interior = luminance(baked.sampleInRoom(0, 5, 0, 2.5));
+  assert.ok(
+    edge > interior - 0.35,
+    `the floor edge under the wall must not go dark: ${edge} vs ${interior}`
   );
 });
 

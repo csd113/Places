@@ -1,5 +1,99 @@
 # Changelog
 
+## 0.5.3 — Goal 5.5: wall-boundary lighting isolation and source refactor
+
+An engine-quality phase rather than a content phase: the baked lighting now
+treats an opaque wall as a lighting boundary, the wall-corner artifacts that
+Goal 5 surfaced are gone, and the largest source modules were split into
+focused ones. No new content, no new gameplay and no change to the level,
+catalog or material formats.
+
+### Fixed
+
+- **Light no longer crosses an opaque wall.** A fixture's local pool is tested
+  against the level's solid wall geometry before it contributes, so a light
+  behind a wall (or around a closed corner) no longer illuminates the room on
+  the other side. The test uses the same `wall_solid_slices_profiled` geometry
+  the mesh and collision use, so a doorway, window, passage or vent still
+  transmits light through exactly the hole it cuts, and the solid header above
+  a door still blocks it.
+- **Colour stops at walls too.** A red-lit room no longer tints the room behind
+  an opaque wall, and two coloured rooms sharing a divider keep their own light
+  right up to the shared face — in both the bake and the emitted vertices.
+- **A wall face is lit by the room it opens into.** Wall faces resolve their
+  room once, from an unambiguous point in the middle of the face, instead of
+  sampling whatever room the containment tie-break preferred at a boundary.
+  This removes the blue-grey wedge a red room's wall used to carry along a
+  shared boundary, and the mirror case on the blue side.
+- **Wall corners no longer collapse to ambient.** A wall authored across a room
+  boundary ends inside the perpendicular wall; its end sample used to fall
+  outside every room and drag the first 2.5 m of the face down to the ambient
+  fill. Surface samples that lie inside a wall are now walked into their own
+  room before they are measured, and a face's samples use the face's own room.
+- **Reveals and end caps take light from both sides of their wall**, resolved
+  in the room each side opens into, so a doorway jamb carries the threshold
+  light instead of dropping to ambient in the wall cavity.
+- **The doorway blend follows the aperture.** The bounded exchange between two
+  rooms is only applied where the sample can see through the opening, so an
+  opening joins its rooms through the hole rather than through the wall around
+  it. The blend is unchanged at the threshold itself: symmetric, bounded by half
+  the baseline difference, and still smoothing the doorway instead of stepping
+  at it.
+### Added
+
+- `assets/levels/lighting_isolation.json`: a deliberately plain thirteen-cell
+  diagnostic level that isolates the wall-boundary cases (blocked white light,
+  blocked colour, doorway transmission, window sill and header, two coloured
+  rooms, a dark neighbour, an interior partition, a lit corner, a two-fixture
+  corner and an unlit control). It is a regression fixture, not a showcase.
+- `src/lighting/visibility.rs`: the static wall-visibility model. Opaque wall
+  geometry is prebuilt into world-space boxes per solid wall patch, with one
+  distance-ordered box list per fixture and per opening, and the reach cut-off
+  that keeps the common query to a box or two. Everything is built once per
+  level load; there is no per-frame visibility work.
+- `src/lighting_isolation.rs`: the acceptance suite over the diagnostic level,
+  including a test that asserts the wall rules on *emitted vertices* so a
+  regression in the geometry emitter cannot hide behind a correct bake, and a
+  test that measures the blocked pool's magnitude so the "blocked" assertions
+  prove the wall is doing real work.
+- `tools/bench/notes/wall-boundary-lighting-validation.md`: the root causes, the
+  fix architecture, the diagnostic level, the capture matrix and the
+  before/after bake and build timings.
+- `LevelLighting::opening_blend`, a diagnostic accessor for the doorway exchange
+  used by the regression tests and mirrored in the editor preview.
+- `lighting::WALL_FACE_PROBE_M`, shared by the bake and the geometry emitter so
+  the room a face is lit by and the room its samples resolve in cannot drift.
+
+### Changed
+
+- `src/lighting.rs` is now a small façade over `lighting/{color,tuning,math,
+  bake,visibility,tests}.rs`, `src/materials.rs` over `materials/{image,pack,
+  resolve,decal,tests}.rs`, and `src/render.rs` over `render/{view,mesh,api,
+  geometry,decals,fixtures,props,renderer,tests}.rs` (the wall emitters and the
+  lit-surface grids stay with the façade). Every inline unit-test module in the
+  tree moved to a sibling `tests.rs`, taking roughly 11k lines of test code out
+  of the production files. Behaviour, serialized formats, material ids and
+  public paths are unchanged, and the largest level rebuilds to the same mesh
+  vertex counts as before the split.
+- `level-editor/js/lighting.js` mirrors the visibility model (wall columns,
+  solid spans, the per-site box lists and the aperture-limited blend) so the 3D
+  preview does not show light crossing a wall; `level-editor/tests/` gained
+  cases for the wall block, the doorway and the straddling-wall floor edge.
+- The lighting parity vectors were regenerated for the corrected doorway values.
+
+### Notes
+
+- The dark ambient floor is unchanged: an unlit room is still exactly ambient,
+  and no corner-brightness, ambient or saturation compensation was added.
+- Lighting remains fully baked and static. The bake grew from ~0.02 ms to
+  ~2.9 ms on Level 1 (225 fixtures, 208 walls) and stays under 3 ms there; the
+  larger prop levels pay the new cost in prop vertex lighting (~15-22 ms total
+  level build on desktop). See the validation note for the measurements.
+- Known limitations are listed in the validation note: the room baseline is a
+  room-wide term by design, walls are the only blockers (no stacked-room
+  separation yet), and long walls are sampled at most eight times along their
+  length.
+
 ## 0.5.2 — 2026-09-21
 
 The first complete content release: the **Office** and **Pool** themes ship as
