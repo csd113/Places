@@ -1,7 +1,7 @@
 # Core / generic assets
 
 Shared content that belongs to no environment theme: the domestic and utility
-props used across residential, office and future levels.
+props used across office, pool and user-created levels.
 
 `props/models/*.glb` holds the fifteen generic props (couch, armchair, table,
 bookshelf, bed, stove, sink, fridge, washing machine, crate, cardboard box,

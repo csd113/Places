@@ -473,7 +473,7 @@ fn test_collision_aabbs_include_solid_props_only() {
     assert_exact(aabbs[0].max_z, 3.5);
 }
 
-// ------------------------------------------------- vertical geometry (4.0)
+// ------------------------------------------------------- vertical geometry
 
 #[test]
 fn test_legacy_room_gets_zero_elevation_flat_ceiling_and_the_new_default_height() {

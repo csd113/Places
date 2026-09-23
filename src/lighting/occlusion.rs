@@ -37,8 +37,8 @@
 //! of its rotation.
 //!
 //! Only static props participate. Every entry of a level's `props` array is
-//! static in this batch; dynamic objects are a separate renderer-side scene
-//! and never level props ([`prop_is_static`]).
+//! static; dynamic objects are a separate renderer-side scene and never level
+//! props ([`prop_is_static`]).
 //!
 //! Loading
 //! -------
@@ -90,9 +90,9 @@ pub(super) struct ModelOcclusion {
 
 /// True when a placed prop is static geometry for the baked lighting.
 ///
-/// Every level `props` entry is static in this batch: dynamic objects are a
-/// separate renderer-side scene, not level props. Naming the classification
-/// here keeps a future dynamic source from leaking into the occluder builder.
+/// Every level `props` entry is static: dynamic objects are a separate
+/// renderer-side scene, not level props. Naming the classification here keeps
+/// a future dynamic source from leaking into the occluder builder.
 #[must_use]
 pub(super) const fn prop_is_static(_prop: &PropDef) -> bool {
     true

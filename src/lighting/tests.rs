@@ -84,7 +84,7 @@ fn lum(lighting: &LevelLighting, x: f32, y: f32, z: f32) -> f32 {
     lighting.sample(x, y, z).luminance()
 }
 
-// ------------------------------------------------- vertical geometry (4.0)
+// ------------------------------------------------------- vertical geometry
 
 #[test]
 fn fixture_panel_follows_a_gable_eave_and_ridge() {
@@ -1140,7 +1140,7 @@ fn fixture_families_own_their_footprint_and_mount() {
     assert!((y - WALL_LIGHT_DEFAULT_HEIGHT_M).abs() < 1e-4, "{y}");
 
     // A room lit only by the cool round fixture must read cool; mixing a
-    // warm fixture in stays a blend, which the Goal 1 RGB tests cover.
+    // warm fixture in stays a blend, which the RGB lighting tests cover.
     let cool_only = r#"{
         "format_version": 1,
         "id": "cool_only",
@@ -1216,7 +1216,7 @@ fn a_wall_fixture_needs_a_height_and_validation_says_so() {
     crate::loader::validate_level(&non_finite).expect_err("non-finite heights are rejected");
 }
 
-// ----------------------------------------- opening seams and corners (5.6)
+// ----------------------------------------------- opening seams and corners
 
 /// Two 4 x 4 m rooms side by side, separated by a 0.4 m wall at x = 4 on which
 /// the caller authors the openings. The wall runs along Z, so `offset` is a Z
@@ -1326,7 +1326,7 @@ fn a_lit_corner_does_not_transmit_diagonally() {
     );
 }
 
-// ------------------------------------------------- generic light sources (1.0)
+// ------------------------------------------------------- generic light sources
 
 /// One room with one light entry, written verbatim so a test can exercise any
 /// authored field of the fixture/light schema.
@@ -1612,7 +1612,7 @@ fn malformed_prop_lights_are_rejected_or_skipped_without_panicking() {
 }
 
 // ===========================================================================
-// Prop occlusion (batch 2)
+// Prop occlusion
 // ===========================================================================
 
 /// One rectangular room with the given `ceiling_lights` and `props` entries.

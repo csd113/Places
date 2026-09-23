@@ -66,7 +66,7 @@ pub struct ResolvedMaterial {
     /// Where the surface's reflection image comes from, and how strong it is.
     ///
     /// [`MaterialReflection::NONE`] for every material that does not author a
-    /// mode, which is every material authored before Batch 4.
+    /// mode.
     pub reflection: MaterialReflection,
     /// The resolution problem that forced the diagnostic fallback, if any.
     pub error: Option<String>,

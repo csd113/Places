@@ -26,10 +26,10 @@ one pixel, close in value to the field (12.5 % darker for the tile joints,
 as a debug grid. Tone comes from per-tile jitter (one tile in seven slightly
 darker), a gentle low-frequency field and a barely-visible speckle.
 
-The upgraded 1024x1024 sheets are the authoritative artwork, not the 128 px
-seed painters: `tools/textures/build.py` skips a sheet whose shipped dimensions
+The 1024x1024 sheets are the authoritative artwork, not the 128 px painter
+output: `tools/textures/build.py` skips a sheet whose shipped dimensions
 differ from its painter's output, so a plain run leaves them untouched and only
-`--force` would replace the upgraded sheets with the seed size. The wall
+`--force` would replace the shipped sheets with the 128 px output. The wall
 tile's left-to-right wrap step measured about three times its own interior
 variation (a visible vertical seam where the tile grid re-met itself); it was
 repaired in place with

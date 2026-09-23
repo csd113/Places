@@ -344,7 +344,7 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
         if surface is not None and str(surface).strip() not in ("wall", "floor", "ceiling"):
             errors.append(f"{where}: surface must be 'wall', 'floor' or 'ceiling'")
 
-        # Batch 3 surface response and alpha. Like emission these are material
+        # Surface-response and alpha fields. Like emission these are material
         # definition fields: a prop or a texture that authored them would be a
         # silent no-op, so it is an error.
         normal_texture = entry.get("normal_texture")
@@ -412,7 +412,7 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
                     errors.append(f"{where}: {field} must be a number between 0 and 1")
                 if alpha_mode is None:
                     errors.append(f"{where}: {field} requires an explicit alpha_mode")
-            # Batch 4 selective reflections: a mode plus its weight.
+            # Selective reflections: a mode plus its weight.
             if reflection_mode is not None and str(reflection_mode).strip().lower() not in (
                 "none",
                 "probe",
@@ -613,7 +613,7 @@ def level_ids(level: dict):
 
 
 def validate_animated_emissions(level: dict, where: str, errors: list[str]) -> None:
-    """Batch 4 animated emissions: a material id, a known effect and bounded rates.
+    """Animated emissions: a material id, a known effect and bounded rates.
 
     A malformed animation is an error rather than a silent no-op: a sign that
     was meant to breathe and does not is a bug the author has to see.

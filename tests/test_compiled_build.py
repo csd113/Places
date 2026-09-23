@@ -356,6 +356,25 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         )
         self.assertTrue(os.path.isfile(capture))
 
+    # -- 8. Every declared sampler is bound before the world is first drawn --
+    #
+    # The level-load reflection-probe bake draws the world program before the
+    # first frame exists. The lightmap and reflection units must already hold
+    # complete textures there: when they did not, the Apple GL driver logged
+    # "GLD_TEXTURE_INDEX_2D is unloadable ... using zero texture" and the probe
+    # bakes sampled a zero lightmap (reflections baked black).
+    def test_the_probe_bake_draws_with_complete_samplers(self):
+        runtime = self.make_package("probe-bake")
+        binary = os.path.join(runtime, "places")
+        capture = os.path.join(runtime, "frame.png")
+        code, output = self.run_binary(
+            runtime, capture, {"LIMINAL_LEVEL": "places_demo"}, binary=binary
+        )
+        self.assertEqual(code, 0, output)
+        self.assertTrue(os.path.isfile(capture))
+        self.assertNotIn("GLD_TEXTURE_INDEX_2D", output, output)
+        self.assertNotIn("texture unloadable", output, output)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

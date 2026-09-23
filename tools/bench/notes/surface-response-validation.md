@@ -1,6 +1,6 @@
-# Batch 3 validation: surface response, transparency and the offscreen scene
+# Surface response, transparency and offscreen validation
 
-How the three Batch 3 subsystems were measured and inspected, on the same
+How the three subsystems were measured and inspected, on the same
 machine, with the same level, assets, camera and frame count in every run.
 Everything here lives under `target/agent-work/`, per the repository rule for
 temporary files.
@@ -10,7 +10,7 @@ temporary files.
 `LIMINAL_NO_OFFSCREEN=1` draws the scene straight into the window; the default
 draws it into an offscreen colour+depth target and presents it with one
 fullscreen quad. Same binary, same level, same camera, seven fixed views
-(`tools/bench/capture_batch3.sh`):
+(`tools/bench/capture_views.sh`):
 
 | View | Differing channels > 2 of 255 | Mean channel delta |
 |---|---:|---:|
@@ -25,7 +25,7 @@ fullscreen quad. Same binary, same level, same camera, seven fixed views
 
 Two isolated pixels in the office view (of 522 240) and three channels in the
 menu capture differ: sub-pixel rasterisation at a geometry silhouette, the same
-class of ±1 ULP difference the Batch 2 renderer note documents for a recompiled
+class of ±1 ULP difference the lightmap-bake validation note documents for a recompiled
 binary. The offscreen target is created with a 24-bit depth renderbuffer (the
 log line reports `24-bit depth`), so the decal depth bias behaves as it did.
 
@@ -49,11 +49,11 @@ the level authored.
 
 ## Frame cost, draw calls and memory
 
-`python3 tools/bench/bench_repeat.py` (macOS, 960×544, `LIMINAL_BENCH_FINISH=1`,
-120 frames after 20 warm-up, 9 runs each). `b2_baseline` is a release build of
-the Batch 2 checkout with *this* repository's assets, so only the code differs.
+`python3 tools/bench/bench_local.py --repeat 9` (macOS, 960×544, `LIMINAL_BENCH_FINISH=1`,
+120 frames after 20 warm-up, 9 runs each). `baseline` is a release build of
+the previous checkout with *this* repository's assets, so only the code differs.
 
-| Metric | Batch 2 | Batch 3 (offscreen) | Batch 3 (`NO_OFFSCREEN`) |
+| Metric | Baseline | Offscreen | Direct |
 |---|---:|---:|---:|
 | `render_mean_ms` min / median | 0.348 / 0.377 | 0.473 / 0.491 | 0.458 / 0.483 |
 | `frame_median_ms` min / median | 0.431 / 0.476 | 0.576 / 0.602 | 0.522 / 0.558 |
@@ -63,7 +63,7 @@ the Batch 2 checkout with *this* repository's assets, so only the code differs.
 | `texture_binds` | not counted | 39 | 38 |
 | `material_changes` | not counted | 37 | 37 |
 
-(The Batch 3 numbers include the transfer grille added in the validation commit;
+(The offscreen numbers include the transfer grille added in the validation commit;
 the one-shot runner's earlier numbers, 74 draw calls / 108 binds, are superseded
 by these. A single run of this benchmark varies by ±0.1 ms on this machine, which
 is why the table reports the minimum as well as the median over nine runs.)
@@ -74,7 +74,7 @@ Reading the numbers:
   3 % of the frame at this size). It is one fullscreen textured quad, and the
   work is proportional to the drawable's pixel count — the PocketCHIP's 480×272
   is well inside budget.
-* **Batch 3 costs ~0.11 ms more per frame than Batch 2** on this machine
+* **The offscreen path costs ~0.11 ms more per frame than the baseline** on this machine
   (0.377 → 0.491): the presentation pass, five more draw batches (the panes),
   the per-material response/alpha state, and 12.7 % more vertex bytes. On a
   half-millisecond frame this is a *relative* cost, not an absolute one: nothing
@@ -104,7 +104,7 @@ Reading the numbers:
 ## Scene correctness
 
 * `cargo test --workspace --all-features`: 646 passed, 0 failed, 1 ignored.
-  The new coverage is listed in the report; the Batch 2 lighting, lightmap and
+  The new coverage is listed in the report; the pre-existing lighting, lightmap and
   audit suites are untouched and still pass.
 * `python3 tools/assets/validate.py`: 87 assets, 0 warnings.
 * `python3 tools/textures/build.py --check`: 30 textures, 12 soft size warnings
@@ -115,12 +115,10 @@ Reading the numbers:
 * Places Demo was inspected in all seven views at Full and Low, and through the
   direct path, before this note was written.
 
-## What Batch 4 could pick up
+## Not implemented
 
-* Post-processing in the offscreen pass (bloom, exposure, grading, fog): the
-  target exists and the presentation pass is one file.
 * Refraction/transmission and glass-aware lighting (currently a pane does not
   tint the bake).
-* Per-object transparency for GLB props (`alphaMode` is not read yet).
+* Per-object transparency for GLB props (the GLB `alphaMode` field is not read).
 * Realtime specular: the response has no light direction because the bake has
   none; a realtime light would give it one.

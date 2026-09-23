@@ -14,11 +14,11 @@ spread. Nothing outside ``target/agent-work/bench/`` is written.
 Usage::
 
     python3 tools/bench/bench_local.py --binary target/release/liminal-rust \
-        --label batch3 --repeat 3
+        --label current --repeat 3
 
-    python3 tools/bench/bench_local.py --label batch3_low --quality low
-    python3 tools/bench/bench_local.py --label batch3_direct --direct
-    python3 tools/bench/bench_local.py --label batch3_nolightmaps --no-lightmaps
+    python3 tools/bench/bench_local.py --label current_low --quality low
+    python3 tools/bench/bench_local.py --label current_direct --direct
+    python3 tools/bench/bench_local.py --label current_nolightmaps --no-lightmaps
 
 Every run is a release build of the *current* working tree unless `--binary`
 names another executable (the usual way to compare against a baseline checkout).

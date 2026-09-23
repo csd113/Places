@@ -1,6 +1,6 @@
-# Batch 5 validation: compiled build, cleanup, QA and the performance baseline
+# Compiled-build, cleanup and QA validation
 
-How the Batch 5 stabilization pass was verified. Everything here was run on the
+How the compiled build, cleanup work and QA were verified. Everything here was run on the
 development machine (macOS, 960x544 drawable) with the shipped assets and
 Places Demo; all scratch output lives under `target/agent-work/`.
 
@@ -34,20 +34,20 @@ python3 -m unittest tests.test_compiled_build -v
 
 Same machine, same level, assets and camera (`places_demo`, camera `74,0`,
 120 frames after 20 warm-up, `LIMINAL_VSYNC=off`, `LIMINAL_BENCH_FINISH=1`,
-7 repeats). `b4_baseline` is commit `60c86f7` (Batch 4) built in a worktree and
+7 repeats). `baseline` is commit `60c86f7` (the previous build) built in a worktree and
 run with the same content:
 
 | Run | `render_mean_ms` min / median | `loop_median_ms` | draws | binds | material changes |
 | --- | --- | --- | --- | --- | --- |
-| `b4_baseline` Full | 0.963 / 1.009 | 1.108 | 77 | 97 | 77 |
-| `b5_full` (this build) | 0.958 / 1.024 | 1.111 | 77 | 97 | 77 |
-| `b4_baseline` Low | 0.438 / 0.448 | 0.563 | 77 | 48 | 38 |
-| `b5_low` (this build) | 0.442 / 0.450 | 0.531 | 77 | 48 | 38 |
+| `baseline` Full | 0.963 / 1.009 | 1.108 | 77 | 97 | 77 |
+| `full` (this build) | 0.958 / 1.024 | 1.111 | 77 | 97 | 77 |
+| `baseline` Low | 0.438 / 0.448 | 0.563 | 77 | 48 | 38 |
+| `low` (this build) | 0.442 / 0.450 | 0.531 | 77 | 48 | 38 |
 
 Reading the numbers:
 
 * **No material regression.** Full render min is 0.5 % faster and median 1.5 %
-  slower than the Batch 4 baseline, both inside the run-to-run spread; Low is
+  slower than the previous build, both inside the run-to-run spread; Low is
   flat. Draw calls, texture binds and material changes are identical.
 * **Vertex memory +88 vertices** (12 114 → 12 202, +0.7 %): the second pool
   notice board's bottom rail is now visible above the deck instead of buried
@@ -71,8 +71,8 @@ default level, once for the request). A cold verbose run now prints exactly one
 
 Memory at 960x544 Full, from the same telemetry: lightmap atlas 3 072 KiB
 (1 048 576 page texels), prop textures 752 KiB for 14 models (2 724 triangles),
-plus the Batch 4 post/reflection targets documented in
-`batch4-post-reflection-validation.md`.
+plus the post-processing/reflection targets documented in
+`post-processing-reflections-validation.md`.
 
 ## Places Demo QA
 
@@ -102,7 +102,7 @@ table now carries the correct absolute yaw for every walkthrough view.
 ## Error paths
 
 Beyond the compiled-build cases above, the Rust suites cover the malformed
-content paths, and Batch 5 added:
+content paths, and the error-path coverage added here includes:
 
 * a ZIP entry that lies about its decompressed size cannot expand past the
   per-entry cap (`test_zip_reads_are_capped_by_output_not_the_declared_size`);
@@ -127,5 +127,5 @@ python3 tools/props/build.py --check
 python3 -m unittest tests.test_compiled_build
 ```
 
-The Batch 3/4 capture and device-suite scripts were retired in this pass; the
+The per-change capture scripts and the PocketCHIP device suite were removed; the
 historical measurements remain in the other notes in this directory.

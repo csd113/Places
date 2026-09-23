@@ -25,7 +25,7 @@
 //! ```
 //!
 //! Three properties, each optional and each with a default that reproduces the
-//! pre-Batch-3 look exactly:
+//! legacy flat-shaded look exactly:
 //!
 //! * **Normal map** ([`MaterialResponse::normal`]) — an optional texture whose
 //!   texels perturb the shading normal, plus a strength multiplier. Absent (the
@@ -103,7 +103,7 @@ pub struct MaterialResponse {
 }
 
 impl MaterialResponse {
-    /// No response: every material authored before Batch 3.
+    /// No response: a material that authors no normal map and no sheen.
     pub const NONE: Self = Self {
         normal: None,
         normal_strength: DEFAULT_NORMAL_STRENGTH,

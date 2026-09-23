@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Office surface artwork: wallpaper, carpet and panel ceiling PNGs.
 
-Goal 5 owns this file.  The three surface families and their two wear states
-each have one painter; ``ART`` maps the logical texture id to its catalog
+The three surface families and their two wear states each have one painter;
+``ART`` maps the logical texture id to its catalog
 ``model`` path and painter, which ``build.py`` merges into the manifest.
 
 The PNGs are the authoritative runtime assets: the game loads them at level
 load and never runs this script.  Editing this file only matters when the
 shipped artwork is meant to change; hand-painted replacements are equally
-valid.  The shipped Office sheets are the upgraded 1024x1024 artwork, while
-this painter is the 128x128 legacy seed: ``build.py`` skips a shipped sheet
+valid.  The shipped Office sheets are the 1024x1024 artwork, while
+this painter generates 128x128 sheets: ``build.py`` skips a shipped sheet
 whose dimensions differ from its painter's unless ``--force`` is passed.
 
 Painting rules for this set:

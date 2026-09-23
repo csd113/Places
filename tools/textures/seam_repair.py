@@ -75,9 +75,9 @@ Usage::
     python3 tools/textures/seam_repair.py --check  PATH...
     python3 tools/textures/seam_repair.py --repair PATH...
 
-The 128x128 painters in ``office_art.py`` are superseded legacy seeds: the
+The 128x128 painters in ``office_art.py`` produce placeholder output: the
 1024x1024 sheets are the authoritative artwork and must not be regenerated
-from those seeds to satisfy this tool.
+from those painters' output to satisfy this tool.
 """
 
 from __future__ import annotations

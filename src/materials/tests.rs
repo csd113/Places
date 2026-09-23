@@ -785,7 +785,7 @@ fn pack_material_emission_resolves_pack_local_and_catalog_masks() {
 
 // ------------------------------------------------- surface response and alpha
 
-/// A synthetic catalog exercising the Batch 3 material fields.
+/// A synthetic catalog exercising the surface-response and alpha fields.
 ///
 /// Every texture path is shipped artwork, so the test needs no new asset files.
 fn response_catalog() -> AssetCatalog {
@@ -850,7 +850,7 @@ fn resolved_response_table() -> MaterialTable {
 }
 
 #[test]
-fn a_material_without_response_fields_keeps_the_pre_batch_three_look() {
+fn a_material_without_response_fields_keeps_the_default_surface_look() {
     let table = resolved_response_table();
     let plain = table.entry_of("core:mat_plain").expect("plain");
     assert_eq!(plain.response, MaterialResponse::NONE);
@@ -1107,7 +1107,7 @@ fn the_shipped_glass_and_response_materials_resolve_with_their_pngs() {
             panic!("{material} must be a shipped material");
         });
         // Only a translucent shipped material has to author the mode: an opaque
-        // one that authors nothing is exactly the pre-Batch-3 contract.
+        // one that authors nothing keeps the legacy opaque default.
         if authors_mode {
             assert_eq!(entry.alpha_mode.as_deref(), Some(mode.name()), "{material}");
         }

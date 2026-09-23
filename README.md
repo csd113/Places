@@ -467,7 +467,7 @@ place a scene pixel becomes a display pixel. Bloom is drawn from the world's
 glow; the tone curve is a soft shoulder above 0.75 that leaves the baked
 lighting's own contrast untouched below it; and the fog is a scalar mix in the
 world shader. `Low` sets the resolve stage to the identity, so it presents the
-scene with the plain copy quad and costs what the pre-Batch-4 renderer did, and
+scene with the plain copy quad and skips the post-processing stage, and
 `LIMINAL_NO_BLOOM=1` / `LIMINAL_NO_REFLECTIONS=1` measure each stage alone.
 
 Reflections are opt-in per material: a **probe** reads a small cubemap baked once
@@ -527,12 +527,12 @@ looks like:
   art set, not a correctness toggle.
 
 The investigation, the numbers and the reasoning are recorded in
-`tools/bench/notes/`-style detail in the goal changelog; the current pipeline is
+`tools/bench/notes/` detail in the changelog; the current pipeline is
 kept because it is internally consistent and calibrated as a whole.
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for the full history, including the Goal 6
+See [CHANGELOG.md](CHANGELOG.md) for the full history, including the
 distribution, branding, documentation and demo work.
 
 ## License

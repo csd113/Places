@@ -1222,7 +1222,7 @@
       ],
       "specular": 0.0,
       "roughness": 1.0,
-      "description": "Flat painted wall: no sheen at all, which is what every material authored before Batch 3 already was. Kept explicit as the dull end of the comparison."
+      "description": "Flat painted wall: no sheen at all, the default for materials that author no surface-response fields. Kept explicit as the dull end of the comparison."
     },
     {
       "id": "core:tex_grille_01",

@@ -86,7 +86,7 @@ impl PackMaterialDef {
     /// The normal map is left `None` here for the same reason as the emissive
     /// mask: it is a texture-table index the resolver fills in. A pack that
     /// authors neither a normal map nor a sheen gets [`MaterialResponse::NONE`],
-    /// which is exactly a pre-Batch-3 surface.
+    /// which is exactly a legacy flat-shaded surface.
     #[must_use]
     pub fn response(&self) -> MaterialResponse {
         let sheen = self.specular.unwrap_or(0.0);

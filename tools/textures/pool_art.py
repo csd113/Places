@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Pool surface artwork: deck tile, wall tile, basin tile and ceiling PNGs.
 
-Goal 5 owns this file.  The Pool set is deliberately clean, pale and
+The Pool set is deliberately clean, pale and
 institutional: commercial tile with restrained grout, a sterile ceiling, and a
 basin tile that reads at gameplay distance without turning into a grid.
 
 ``ART`` maps each logical texture id to its catalog ``model`` path and painter;
 ``build.py`` merges it into the manifest.  The PNGs are the authoritative
 runtime assets -- the game never runs this script, and the artwork can be
-replaced by hand.  The shipped Pool sheets are the upgraded 1024x1024
-artwork, while this painter is the 128x128 legacy seed: ``build.py`` skips a
+replaced by hand.  The shipped Pool sheets are the 1024x1024
+artwork, while this painter generates 128x128 sheets: ``build.py`` skips a
 shipped sheet whose dimensions differ from its painter's unless ``--force``
 is passed.
 

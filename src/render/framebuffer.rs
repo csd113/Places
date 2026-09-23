@@ -11,10 +11,11 @@
 //! ```
 //!
 //! This is *infrastructure*: the target carries exactly the drawable's aspect
-//! ratio, no scaling tricks, no grading, and no other post-processing pass. It
-//! exists so a later batch can insert bloom, fog, exposure or grading between
-//! the scene and the presentation without touching the draw path, and it lets
-//! the Low profile render the scene at a smaller resolution than the window.
+//! ratio and adds no scaling of its own. It exists so the post-processing
+//! resolve ([`super::postprocess`]) can insert bloom, exposure and grading
+//! between the scene and the presentation without touching the draw path, and
+//! it lets the Low profile render the scene at a smaller resolution than the
+//! window.
 //!
 //! Failure is never fatal: a target that cannot be created or that comes back
 //! incomplete is reported and the renderer draws straight into the default

@@ -1,6 +1,6 @@
 # Renderer-change validation
 
-How each renderer change in this pass was checked, and what the pixel comparison
+How each renderer change was checked, and what the pixel comparison
 actually shows. The point of recording this is that "0 pixels differ" is only a
 meaningful claim if the comparison holds everything else fixed.
 
@@ -17,14 +17,14 @@ including compiler code generation:
 | packed 24 B vs exact 36 B (`LIMINAL_BENCH_EXACT_VERTEX`) | **0** |
 | culling on vs off (`LIMINAL_BENCH_NOCULL`) at a fixed grid | **0** |
 
-Measured on the 400-chair stress level, both camera-away and camera-facing, and
-on Level 1, the Asset Demo, the prop showcase, the prop stress test and the test
-room. So spatial culling, indexed submission and the packed vertex layout each
-change the rendered image by nothing at all.
+Measured on levels since retired (the 400-chair stress level, Level 1 and the
+Asset Demo) plus the `prop_showcase`, `prop_stress` and `test_room` fixtures,
+both camera-away and camera-facing. So spatial culling, indexed submission and
+the packed vertex layout each change the rendered image by nothing at all.
 
 ## Against the pre-optimisation binary
 
-`visual_check.py --baseline target/phase1/liminal-rust-macos` reports, per shot,
+`visual_check.py --baseline target/agent-work/baseline/liminal-rust` reports, per shot,
 the number of differing pixels and the worst channel delta, and fails only above
 a tolerance (default 24 of 255).
 

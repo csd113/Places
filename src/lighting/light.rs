@@ -26,8 +26,7 @@
 //! The compact set the current static bake can use well: a point, a rectangle
 //! (a panel, a sign face, a screen), and a line (a tube, a neon strip, a
 //! fluorescent batten). A cone/spot light needs a directional response model
-//! that belongs with later surface-response work, so it is deliberately not
-//! part of this batch.
+//! the light model does not provide, so it is deliberately not supported.
 //!
 //! Falloff
 //! -------

@@ -4,7 +4,7 @@ The initial office collection: the classic liminal materials, the fluorescent
 ceiling fixture and clearly office-oriented furniture.
 
 Every surface material is a **data definition** that names an external PNG
-texture (Goal 4.5). The material owns the tiling/tint; the texture owns the
+texture. The material owns the tiling/tint; the texture owns the
 image file, so a PNG can be replaced without touching the catalog, and the
 catalog entry can move without touching a level.
 
@@ -19,10 +19,10 @@ catalog entry can move without touching a level.
 | `core:fluorescent_panel_01` | light | `core:fluorescent_panel_01` (256x128 face) | `textures/lights/fluorescent_panel_01.png` |
 | `core:desk`, `core:chair`, `core:cabinet`, `core:water_cooler`, `core:vending_machine` | prop | embedded in each GLB | `props/models/*.glb` |
 
-## Goal 5 artwork
+## Surface artwork
 
-The six PNGs are the **final Office artwork** (Goal 5), not the Goal 4.5 seed
-set. They ship as 1024x1024 8-bit RGB sheets, opaque, and tileable in both
+The six PNGs are the shipped Office artwork, not the 128x128 painter output.
+They ship as 1024x1024 8-bit RGB sheets, opaque, and tileable in both
 directions (the wrapped edges are gated by `tools/textures/seam_repair.py
 --check`; see [Texture seam repair](#texture-seam-repair) below). They stay
 pale and near-neutral, because the material `tint` and the baked lighting
@@ -36,9 +36,8 @@ material has no tint), so it is painted at the historical warm-brown albedo.
   damp fields and a few vertical runs. No dark outlines, so the damage does not
   turn into a repeating pattern.
 * `carpet_beige_01` — short-pile carpet: low-frequency mottle, fine directional
-  fibre and 2 px pile loops. **There is no metre checker anywhere**: the
-  historical 1 m bright/dark quadrants were removed in Goal 5, and the sheet is
-  painted so Level 1's floor keeps its previous brightness and warmth.
+  fibre and 2 px pile loops. **There is no metre checker anywhere**: the sheet
+  is painted so the demo's office carpet keeps its brightness and warmth.
 * `carpet_damp_01` — the same pile, darker, cooler and slightly flattened in
   soft damp patches.
 * `ceiling_panel_01` — a 2x2 grid of 1 m suspended acoustic panels (2 px T-bar
@@ -48,9 +47,9 @@ material has no tint), so it is painted at the historical warm-brown albedo.
   panel and a smaller leak on another, clipped by a grid fade so the T-bar
   still reads through the damage.
 
-`tools/textures/office_art.py` still carries the deterministic, stdlib-only
-128x128 seed painters, but they are superseded: the shipped 1024x1024 PNGs are
-the authoritative artwork and hand-painted replacements are equally valid.
+`tools/textures/office_art.py` carries deterministic, stdlib-only 128x128
+painters; the shipped 1024x1024 PNGs are the authoritative artwork and
+hand-painted replacements are equally valid.
 `tools/textures/build.py --check` gates the budget without writing a file.
 
 The official demo `../../levels/places_demo.json` exercises the set: a warm
@@ -63,8 +62,8 @@ listed here: they belong to no theme and live under `../../core/`.
 
 ## Texture seam repair
 
-The 1024x1024 sheets are the authoritative upgraded artwork; the 128x128
-generators in `tools/textures/office_art.py` are superseded legacy seeds. The
+The 1024x1024 sheets are the authoritative artwork; the 128x128 generators in
+`tools/textures/office_art.py` are the original painters. The
 unstained yellow paper, the panel ceiling and its stained variant already
 wrapped cleanly; the stained wallpaper and both carpets carried a real
 wrapped-edge step on both axes and were repaired via
@@ -86,10 +85,10 @@ every sheet on
 for both the raw and the three-tap-smoothed profiles, and exits non-zero on a
 failure.
 
-These six sheets ship at 1024x1024 while the painters in `office_art.py` still
-produce 128x128 seeds. `python3 tools/textures/build.py` therefore **skips**
+These six sheets ship at 1024x1024 while the painters in `office_art.py`
+produce 128x128 output. `python3 tools/textures/build.py` therefore **skips**
 them — it refuses to overwrite a sheet whose shipped dimensions differ from its
-painter's output — so a plain run cannot downgrade the artwork; `--force` is
-what would replace a sheet with the seed-sized painter output. `python3
+painter's output — so a plain run cannot replace the artwork; `--force` is
+what would replace a sheet with the 128x128 painter output. `python3
 tools/textures/build.py --check` only validates the shipped files and never
 writes.

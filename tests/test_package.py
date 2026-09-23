@@ -31,7 +31,7 @@ DECAL_SURFACES = {"floor", "ceiling", "wall_north", "wall_south", "wall_east", "
 # Rust policy unit tests (`assets::tests`) pin the same contract.
 MAX_TEXTURE_DIMENSION = 1024
 PREFERRED_TEXTURE_DIMENSION = 256
-# The upgraded artwork is deliberately high resolution, not seed-size: the
+# The shipped artwork is deliberately high resolution, not placeholder-size: the
 # Office/Pool surfaces and the NO DIVING sign were raised to the hard budget.
 HIGH_RESOLUTION_TEXTURE_MINIMUM = 512
 
@@ -601,7 +601,7 @@ class AssetCatalogTests(unittest.TestCase):
 
 
 class EnvironmentTextureTests(unittest.TestCase):
-    """Goal 4.5: environment surfaces ship as file-backed PNG texture assets."""
+    """Environment surfaces ship as file-backed PNG texture assets."""
 
     LEGACY_MATERIAL_IDS = (
         "core:wallpaper_yellow_01",
@@ -711,7 +711,7 @@ class EnvironmentTextureTests(unittest.TestCase):
 
 
 class PoolContentTests(unittest.TestCase):
-    """Goal 5: the Pool theme is real content, not a reserved category."""
+    """The Pool theme is shipped content, not a reserved category."""
 
     POOL_MATERIALS = (
         "core:pool_tile_deck_01",
@@ -764,9 +764,9 @@ class PoolContentTests(unittest.TestCase):
         colour_type = data[25]
         self.assertEqual(colour_type, 6, "the sign needs an alpha channel")
         width, height = struct.unpack(">II", data[16:24])
-        # The current intentional contract: the upgraded sign is a square
-        # power-of-two sheet authored at the hard 1024x1024 budget, not the old
-        # 128x128 seed. The numbers come from the mirrored policy constants
+        # The current intentional contract: the sign sheet is a square
+        # power-of-two sheet authored at the hard 1024x1024 budget, not a
+        # 128x128 placeholder. The numbers come from the mirrored policy constants
         # above (see `src/assets.rs`).
         self.assertEqual(width, height, "the sign sheet must be square")
         self.assertTrue(
@@ -776,12 +776,12 @@ class PoolContentTests(unittest.TestCase):
         self.assertGreaterEqual(
             width,
             HIGH_RESOLUTION_TEXTURE_MINIMUM,
-            "the sign must be high-resolution upgraded artwork",
+            "the sign must be high-resolution artwork",
         )
         self.assertGreater(
             width,
             PREFERRED_TEXTURE_DIMENSION,
-            "the upgraded sign intentionally exceeds the soft preferred budget",
+            "the sign intentionally exceeds the soft preferred budget",
         )
         self.assertLessEqual(
             width,
@@ -791,7 +791,7 @@ class PoolContentTests(unittest.TestCase):
         self.assertEqual(
             (width, height),
             (MAX_TEXTURE_DIMENSION, MAX_TEXTURE_DIMENSION),
-            "the sign is the upgraded 1024x1024 sheet",
+            "the sign is the 1024x1024 sheet",
         )
         # The sheet must be a cut-out: some pixel is fully transparent, so the
         # decal pass has a silhouette to discard instead of a floating plate.

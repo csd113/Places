@@ -1,11 +1,10 @@
 //! Dynamic objects: the moving half of the scene.
 //!
-//! Batch 1's renderer is entirely static. Every surface, fixture and placed prop
-//! is baked once at level load into shared, pre-transformed vertex buffers, and
-//! the frame loop only submits ranges and samples the baked light. That is still
-//! true: **nothing in this module rebuilds, re-bakes or re-uploads static
-//! geometry.** A dynamic object is a different kind of thing with a different
-//! lifetime:
+//! The static renderer bakes every surface, fixture and placed prop once at
+//! level load into shared, pre-transformed vertex buffers, and the frame loop
+//! only submits ranges and samples the baked light. **Nothing in this module
+//! rebuilds, re-bakes or re-uploads static geometry.** A dynamic object is a
+//! different kind of thing with a different lifetime:
 //!
 //! ```text
 //! static                              dynamic (this module)
@@ -33,8 +32,8 @@
 //! existing `u_mvp` uniform per object, so moving an object costs one uniform
 //! upload and never touches a vertex buffer.
 //!
-//! Lighting (Batch 2, temporary)
-//! -----------------------------
+//! Lighting (probe-based)
+//! ----------------------
 //! Baked static light cannot follow a moving object, so each object carries a
 //! **probe**: the baked [`LevelLighting::sample`] value at its world-space
 //! centre, refreshed only when the object has moved by more than
@@ -43,7 +42,7 @@
 //! albedo/tint only — exactly like a lightmapped static vertex. The object then
 //! reads coherently as it crosses a pool of light and a dark corner.
 //!
-//! Documented limits of that model, for whoever evolves it in Batch 3:
+//! Documented limits of that model:
 //!
 //! * **One probe per object.** The whole object is lit uniformly; a long object
 //!   lying across a light/dark boundary cannot shade across its length.
@@ -89,7 +88,7 @@ pub const PROBE_EPSILON_M: f32 = 0.05;
 /// Degrees per second the demonstration drum turns.
 pub const DEMO_SPIN_DEGREES_PER_SECOND: f32 = 12.0;
 
-/// Catalogue id of the static prop the Batch 2 demonstration is built around.
+/// Catalogue id of the static prop the washer-drum demonstration is built around.
 pub const DEMO_MACHINE_ID: &str = "core:washing_machine";
 
 /// Catalogue id of the dynamic drum the demonstration spawns.
@@ -660,7 +659,7 @@ impl DynamicScene {
 
     /// Registers the dynamic drum in front of every placed washing machine.
     ///
-    /// The Batch 2 demonstration, kept deliberately small: the machine itself
+    /// The washer-drum demonstration, kept deliberately small: the machine itself
     /// stays an ordinary static level prop (baked, occluding, collidable) and
     /// only the loose drum is dynamic. Placement is derived, not authored — the
     /// drum stands on the floor in front of the machine's door, so moving the

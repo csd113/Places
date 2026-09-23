@@ -1,6 +1,6 @@
 # Lightmap bake and runtime validation
 
-This note records what Batch 2's baked lightmaps cost and what the numbers were
+This note records what the baked lightmaps cost and what the numbers were
 measured with. Everything here is reproducible with `tools/bench/lightmap_report.py`
 (captures + developer log parsing), `tools/bench/visual_check.py` (binary-to-binary
 pixel comparison) and the games's own `LIMINAL_BENCH` telemetry.
@@ -58,12 +58,12 @@ Same camera, 150 frames each, `LIMINAL_BENCH=1 LIMINAL_VSYNC=off` (the capture
 path also skips the swap, so these are CPU submission costs, not presentation):
 
 | run | level | draw calls | visible vertices | batches | render median | VBO bytes |
-|---|---|---:|---:|---:|---:|---:|
-| Batch 1 baseline | demo | 71 | 10 005 | 83 | 0.033 ms | 284 352 |
-| Batch 2, vertex-lit fallback | demo | 72 | 10 305 | 84 | 0.044 ms | 379 136 |
-| Batch 2, lightmapped | demo | **64** | 9 918 | 73 | 0.043 ms | 364 352 |
-| Batch 1 baseline | prop_stress | 25 | 31 618 | 43 | 0.016 ms | 1 409 232 |
-| Batch 2, lightmapped | prop_stress | **20** | 31 408 | 37 | 0.020 ms | 1 870 080 |
+|---|---|---|---:|---:|---:|---:|---:|
+| pre-lightmap baseline | demo | 71 | 10 005 | 83 | 0.033 ms | 284 352 |
+| lightmaps off (vertex-lit fallback) | demo | 72 | 10 305 | 84 | 0.044 ms | 379 136 |
+| lightmaps on | demo | **64** | 9 918 | 73 | 0.043 ms | 364 352 |
+| pre-lightmap baseline | prop_stress | 25 | 31 618 | 43 | 0.016 ms | 1 409 232 |
+| lightmaps on | prop_stress | **20** | 31 408 | 37 | 0.020 ms | 1 870 080 |
 
 * **Draw calls fall** with lightmaps: the merged quads are fewer, so a level
   splits into fewer batches (71 → 64 on the demo, 25 → 20 on the stress level).
@@ -72,8 +72,8 @@ path also skips the swap, so these are CPU submission costs, not presentation):
 * **Vertex memory rises ~33%** because `Vertex` grew from 24 to 32 bytes for the
   lightmap channel — and props pay it too, since they share the vertex type
   while never sampling the atlas (demo 284 KB → 364 KB, stress 1.4 MB →
-  1.87 MB). This is the one measured cost of the batch; a prop-only 24-byte
-  layout is the obvious Batch 3 follow-up.
+  1.87 MB). This is the one measured cost of the lightmap channel; a prop-only
+  24-byte layout is not implemented.
 * **Lightmap texture memory** is 3 MiB at Full and 1.5 MiB at Low, bound once
   per world draw on texture units 2/3.
 
@@ -88,22 +88,22 @@ build, same camera:
 | `demo_cabinet_contact` | 91.5% | 15.0/255 | 37/255 |
 | `demo_pool` | 89.9% | 9.5/255 | 39/255 |
 | `demo_pool_table` | 81.9% | 2.4/255 | 15/255 |
-| `prop_stress_close` (vs Batch 1 binary) | 89.6% | 3.7/255 | 85/255 |
+| `prop_stress_close` (vs pre-lightmap binary) | 89.6% | 3.7/255 | 85/255 |
 
 Static prop occlusion also changes the **vertex-lit** path, deliberately: with
-occlusion off the render is bit-identical to Batch 1, and with it on 17.2% of
-the demo's pixels move (mean 4.7/255, worst 22/255), all of them darkening
-around placed props. The largest single connected change on the desk shot is
-the contact shadow under the desk.
+occlusion off the render is bit-identical to the pre-lightmap build, and with it
+on 17.2% of the demo's pixels move (mean 4.7/255, worst 22/255), all of them
+darkening around placed props. The largest single connected change on the desk
+shot is the contact shadow under the desk.
 
 All 14 benchmark captures were checked with `tools/bench/check_holes.py`
 (0.0% near-black each): the lightmap pass introduces no unlit surfaces.
 
-## Batch 2 repair: dark rings and material-boundary seams
+## Repair: dark rings and material-boundary seams
 
-Batch 2's visual validation found two artifacts the automated checks had missed.
+Visual validation found two artifacts the automated checks had missed.
 Both were fixed in the engine, not in the level, and both root causes are
-measured in `target/agent-work/lightmap-repair/reports/` (Agent A and Agent B)
+measured in `target/agent-work/lightmap-repair/reports/` (two independent runs)
 with A/B captures under `target/agent-work/lightmap-repair/captures/`.
 
 ### Dark rings and blotches around fixtures (visual failure A)
@@ -116,7 +116,7 @@ plain `enter < exit` read the grazing segment as a crossing. The fixture's whole
 pool was then deleted for that sample. Because the segment's vertical span
 depends only on the horizontal distance to the emitter footprint, the failures
 were coherent *rings*: 8.7% of a 0–5 m ceiling sweep, 10–14% of a fixture's
-ceiling window, 60–78 RGB8 levels between neighbouring texels. At Batch 1's
+ceiling window, 60–78 RGB8 levels between neighbouring texels. At the pre-lightmap
 2.5 m vertex grid the same samples were spread over whole quads; at 8–12
 texels/m they became hard rings, and the office/pool ceilings went from smooth
 pools to mottled rings in the render.
@@ -152,7 +152,7 @@ a long wall become one over-long chart and silently broke the shared
 
 ### Cost of the repair
 
-| measurement | Batch 2 | repaired |
+| measurement | before repair | repaired |
 |---|---:|---:|
 | demo cold lightmap fill | 162.9 ms | 168.2 ms (+3%) |
 | demo warm (cache hit) level build | 8.7 ms | 9.2 ms |

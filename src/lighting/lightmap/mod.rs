@@ -1,9 +1,9 @@
 //! Real baked static lightmaps for the static world geometry.
 //!
-//! Batch 2 adds one thing on top of the baked-vertex lighting model: the light
-//! that used to be folded into every static vertex colour is instead baked into
-//! a texel atlas, and the fragment shader multiplies the surface texture by the
-//! atlas texel. Nothing about the *lighting model* changes — every texel is one
+//! The lightmap path adds one thing on top of the baked-vertex lighting model:
+//! the light that the vertex-colour path carries is instead baked into a texel
+//! atlas, and the fragment shader multiplies the surface texture by the atlas
+//! texel. Nothing about the *lighting model* changes — every texel is one
 //! [`crate::lighting::LevelLighting::sample_in_room`] call — only where the
 //! result is stored.
 //!

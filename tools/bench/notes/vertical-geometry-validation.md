@@ -1,4 +1,4 @@
-# Vertical geometry validation (Goal 4)
+# Vertical geometry validation
 
 How the vertical-geometry architecture was validated, and how to repeat it. All
 commands run from the repository root on macOS.
@@ -18,7 +18,7 @@ python3 tools/props/build.py --check
 cd level-editor && npm test
 ```
 
-The Rust tests that carry the phase:
+The Rust tests that carry the contract:
 
 * `level::tests::test_legacy_room_gets_zero_elevation_flat_ceiling_and_the_new_default_height`
 * `level::tests::test_gable_ceiling_interpolates_eave_to_ridge_on_both_axes`
@@ -55,7 +55,7 @@ for spec in "a_spawn:1.5,5.0,90" "b_stairs:6.0,5.0,90" "c_elevated:12.5,5.0,90" 
             "i_colored:6.0,6.0,250" "j_looking_back:20.0,5.0,270"; do
   name="${spec%%:*}"; spawn="${spec#*:}"
   LIMINAL_LEVEL=vertical_diagnostic LIMINAL_SPAWN="$spawn" \
-    LIMINAL_CAPTURE="/tmp/p6/$name.png" ./target/release/liminal-rust
+    LIMINAL_CAPTURE="/tmp/vertical-captures/$name.png" ./target/release/liminal-rust
 done
 ```
 
@@ -63,7 +63,7 @@ Inspect the PNGs for holes, seams, inverted faces, floating fixtures and
 surfaces at the wrong height. A quick automated pre-filter: count pixels that
 are exactly the clear colour (`r,g,b < 40`) — a grid of captures should have
 almost none, and any block of them is a hole. A one-off Python check over
-`/tmp/p6` did this for the phase-4 captures.
+`/tmp/vertical-captures` did this for the captures.
 
 ## Interactive walk (state log)
 
@@ -89,5 +89,6 @@ elevated floor (`floor_y 2.0`), drops to `3.25` inside the shallow recess
 (`-0.35`), returns to `3.6`, and stops just before the deep recess (`x ≈ 24.0`)
 because a 1.5 m drop is refused.
 
-For a legacy regression walk use `LIMINAL_LEVEL=level_1`: the eye height must
-stay exactly `1.6` for the whole walk.
+For a flat-floor regression walk, `LIMINAL_LEVEL=level_1` had to keep the eye
+height exactly `1.6` for the whole walk; `level_1` no longer ships, so that
+expectation is kept as a historical record.

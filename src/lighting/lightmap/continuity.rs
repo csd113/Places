@@ -1,21 +1,21 @@
 //! Regression tests: a lightmap chart boundary must not become a lighting step.
 //!
-//! Batch 2 gave every emitted quad its own lightmap chart, and `fill_chart`
-//! evaluated each texel at its *centre*. The atlas is sampled bilinearly and a
-//! chart's gutter is a copy of its own border texel, so a fragment on the
-//! patch's geometric edge reconstructs exactly that border texel's value: the
-//! light half a texel *inside* that patch. Two coplanar patches sharing an edge
-//! (two albedo materials on one floor, two length runs of one wall, one surface
-//! split at the chart-span cap) therefore each reconstructed their own
-//! inward-shifted value, and the two shifts point in opposite directions. The
-//! result was a first-order step of `grad * (tA + tB) / 2` at every chart
-//! boundary — a visible lighting seam wherever the material changed, even
-//! though the lighting itself was continuous there.
+//! Every emitted quad owns its own lightmap chart, and chart texels *span*
+//! their patch (see [`super::fill::fill_chart`]): the first and last texel sit
+//! exactly on the patch's geometric edges, so two coplanar charts evaluate the
+//! same world point on their shared edge and store it in the texel that edge
+//! reconstructs. The atlas is sampled bilinearly, and a chart's gutter is a
+//! copy of its own border texel.
 //!
-//! The repair makes chart texels *span* their patch (see
-//! [`super::fill::fill_chart`]): the first and last texel sit exactly on the
-//! patch's geometric edges, so two coplanar charts evaluate the same world
-//! point on their shared edge and store it in the texel that edge reconstructs.
+//! Spanning matters because a texel evaluated at its *centre* would
+//! reconstruct, on the patch's geometric edge, the light half a texel *inside*
+//! that patch. Two coplanar patches sharing an edge (two albedo materials on
+//! one floor, two length runs of one wall, one surface split at the chart-span
+//! cap) would then each reconstruct their own inward-shifted value, and the
+//! two shifts point in opposite directions: a first-order step of
+//! `grad * (tA + tB) / 2` at every chart boundary — a visible lighting seam
+//! wherever the material changed, even though the lighting itself was
+//! continuous there. These tests pin the spanning rule against that failure.
 //!
 //! These tests drive the real mesh emitter and the real atlas pages, reconstruct
 //! a fragment exactly as the shader would (quantised [`Chart::uv_at`] then a

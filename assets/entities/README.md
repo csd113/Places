@@ -15,8 +15,8 @@ entities/
 * No theme: an entity may stand in any environment.
 
 Entities resolve through the same placeable lookup as props, so levels place
-them with the ordinary `props` format and nothing about their migration changes
-the placement, orientation, scale or appearance.
+them with the ordinary `props` format, and placement, orientation, scale and
+appearance are unchanged.
 
 The directory is designed to hold future player models, NPCs and creatures as
 new subdirectories (`entities/<id>/model/...`) with catalog entries of their

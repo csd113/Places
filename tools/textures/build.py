@@ -160,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check", action="store_true", help="validate the shipped PNGs without regenerating them")
     parser.add_argument("--only", nargs="+", metavar="ID", help="regenerate only these logical texture ids")
-    parser.add_argument("--force", action="store_true", help="allow a painter to overwrite a sheet whose shipped dimensions differ from the seed art")
+    parser.add_argument("--force", action="store_true", help="allow a painter to overwrite a sheet whose shipped dimensions differ from its painter's")
     parser.add_argument("--quiet", action="store_true", help="only print problems")
     args = parser.parse_args(argv)
 
@@ -186,14 +186,14 @@ def main(argv: list[str] | None = None) -> int:
                 except (OSError, ValueError):
                     shipped_size = None
                 if shipped_size is not None and shipped_size != seed_size:
-                    # The upgraded Office/Pool artwork is intentionally larger
-                    # than its legacy painter. Overwriting it here would
-                    # silently downgrade a shipped asset, so refuse unless the
-                    # caller says the seed replacement is deliberate.
+                    # The shipped Office/Pool artwork is intentionally larger
+                    # than its painter's output. Overwriting it here would
+                    # silently downgrade a shipped asset, so refuse unless
+                    # --force is passed.
                     skipped += 1
                     print(
                         f"SKIP {texture_id}: {entry['model']} ships {shipped_size[0]}x{shipped_size[1]}, "
-                        f"the seed painter makes {seed_size[0]}x{seed_size[1]}; pass --force to replace it"
+                        f"the painter makes {seed_size[0]}x{seed_size[1]}; pass --force to replace it"
                     )
                     continue
             os.makedirs(os.path.dirname(path), exist_ok=True)

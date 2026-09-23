@@ -280,13 +280,24 @@ void main() {
         gl_FragColor = vec4(emission, 1.0);
         return;
     }
-    vec3 lm = mix(
-        texture2D(u_lightmap0, v_lightmap_uv).rgb,
-        texture2D(u_lightmap1, v_lightmap_uv).rgb,
-        step(0.5, v_lightmap_page)
-    );
+    // The atlas is read only when this fragment actually takes its light from
+    // it: the global switch is on while a real bake is resident, and a vertex
+    // whose page byte is `LIGHTMAP_NONE` (>= 254.5) keeps the light already in
+    // its colour. Inside the guard the two pages are selected branchlessly,
+    // because a batch can mix pages. (A driver may still resolve both declared
+    // samplers for the draw, which is why the units are bound to complete
+    // textures even when no fragment ends up reading them.)
     float lightmap_on = u_lightmap_enabled * (1.0 - step(254.5, v_lightmap_page));
-    vec3 light = mix(vec3(1.0), lm, lightmap_on) * u_light_scale;
+    vec3 light = vec3(1.0);
+    if (lightmap_on > 0.5) {
+        vec3 lm = mix(
+            texture2D(u_lightmap0, v_lightmap_uv).rgb,
+            texture2D(u_lightmap1, v_lightmap_uv).rgb,
+            step(0.5, v_lightmap_page)
+        );
+        light = lm;
+    }
+    light *= u_light_scale;
 
     // The geometric normal, made to face the viewer: nothing in the world is
     // back-face culled, so a wall seen from behind must still shade.
@@ -405,7 +416,8 @@ pub fn fragment_shader_source(cutout: bool) -> String {
 ///   vertex colour by the historical bake. `u_lightmap_enabled` is the global
 ///   switch: with lightmaps unavailable it is zero and every vertex takes the
 ///   vertex-lit path, which is what makes the fallback exact rather than
-///   approximate.
+///   approximate. The atlas is only sampled inside the guard that selects
+///   between those two paths.
 /// * **Emission** — the material's own brightness, added on top and never
 ///   multiplied by the light. A dark room cannot extinguish it, and it cannot
 ///   brighten anything else: emission is not a light source.

@@ -478,8 +478,8 @@ fn capture_path_from_env() -> Option<PathBuf> {
 ///
 /// The default is the first rendered frame, which is what every existing
 /// capture does. `LIMINAL_CAPTURE_FRAME=n` waits for frame `n` first, so a
-/// capture can show something that changes over time (the Batch 2
-/// demonstration drum turns as the frame loop runs) without a second launch.
+/// capture can show something that changes over time (the washer-drum
+/// demonstration turns as the frame loop runs) without a second launch.
 fn capture_frame_from_env() -> u64 {
     std::env::var("LIMINAL_CAPTURE_FRAME")
         .ok()

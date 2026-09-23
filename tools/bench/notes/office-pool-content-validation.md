@@ -1,4 +1,4 @@
-# Office and Pool content validation (Goal 5)
+# Office and Pool content validation
 
 How the first two complete environment families were validated, and how to
 repeat it. All commands run from the repository root on macOS, with a window
@@ -18,7 +18,7 @@ python3 tools/props/build.py --check
 cd level-editor && npm test
 ```
 
-The Rust tests that carry the phase:
+The Rust tests that carry the contract:
 
 * `lighting::tests::fixture_families_own_their_footprint_and_mount`
 * `lighting::tests::a_wall_fixture_needs_a_height_and_validation_says_so`
@@ -42,8 +42,13 @@ and the Python checks in `tests/test_package.py::PoolContentTests`:
 
 ## Static frame captures
 
+The Office commands below target `level_1` and `office_showcase`, two levels
+that no longer ship; the spawn coordinates are kept as a historical record of
+the validation. The Pool fixture survives as
+`tests/fixtures/levels/pool_showcase.json`.
+
 ```sh
-mkdir -p target/captures/goal5/office target/captures/goal5/pool
+mkdir -p target/agent-work/captures/office target/agent-work/captures/pool
 
 # Office: Level 1 (the maintained set in place) and the showcase.
 for spec in "level1_spawn:0,0,0" "level1_corner:-60,-60,45" \
@@ -52,7 +57,7 @@ for spec in "level1_spawn:0,0,0" "level1_corner:-60,-60,45" \
   name="${spec%%:*}"; spawn="${spec#*:}"
   LIMINAL_LEVEL=$([ "${name#level1}" != "$name" ] && echo level_1 || echo office_showcase) \
     LIMINAL_SPAWN="$spawn" \
-    LIMINAL_CAPTURE="target/captures/goal5/office/$name.png" ./target/debug/liminal-rust
+    LIMINAL_CAPTURE="target/agent-work/captures/office/$name.png" ./target/debug/liminal-rust
 done
 
 # Pool: the showcase from the deck, the basin, the props and the sign.
@@ -62,7 +67,7 @@ for spec in "wide:8,11,0" "deck_edge:8,8,0" "basin:8,5,180" \
             "sign:8,5.2,0" "lights:4,2.6,0"; do
   name="${spec%%:*}"; spawn="${spec#*:}"
   LIMINAL_LEVEL=pool_showcase LIMINAL_SPAWN="$spawn" \
-    LIMINAL_CAPTURE="target/captures/goal5/pool/$name.png" ./target/debug/liminal-rust
+    LIMINAL_CAPTURE="target/agent-work/captures/pool/$name.png" ./target/debug/liminal-rust
 done
 ```
 
@@ -72,7 +77,7 @@ Look-down/up shots need the bench camera:
 LIMINAL_BENCH=1 LIMINAL_BENCH_FRAMES=3 LIMINAL_BENCH_WARMUP=1 \
   LIMINAL_BENCH_OUT=/tmp/bench.csv LIMINAL_LEVEL=pool_showcase \
   LIMINAL_SPAWN="4,2.6,0" LIMINAL_CAMERA=0,75 \
-  LIMINAL_CAPTURE=target/captures/goal5/pool/round_light.png ./target/debug/liminal-rust
+  LIMINAL_CAPTURE=target/agent-work/captures/pool/round_light.png ./target/debug/liminal-rust
 ```
 
 Inspect each PNG for holes (clear-colour blocks), seams, wrong tile scale,
@@ -81,17 +86,17 @@ lighting that is too flat or too dark. An automated pre-filter counts pixels
 that are exactly the clear colour:
 
 ```sh
-python3 tools/bench/check_holes.py target/captures/goal5/office target/captures/goal5/pool
-python3 tools/bench/check_holes.py --json /tmp/holes.json target/captures/goal5
+python3 tools/bench/check_holes.py target/agent-work/captures/office target/agent-work/captures/pool
+python3 tools/bench/check_holes.py --json /tmp/holes.json target/agent-work/captures
 ```
 
 A shelled room should be ~0%; a block of clear-colour pixels is a hole — that
-check caught a centre-authored wall in the Pool level during this phase. The
+check caught a centre-authored wall in the Pool level during this validation. The
 tool's default threshold is tiny on purpose: the clear colour is exactly black
 while an unlit room still renders its ambient-lit surfaces around 23, so the
 many legitimately dim captures stay unflagged.
 
-## Moddability (Goal 4.5 regression, on the final content)
+## Moddability (on the final content)
 
 The final Office and Pool artwork must be replaceable without Rust changes:
 
@@ -120,7 +125,7 @@ cp /tmp/deck.png assets/environment/pool/textures/floors/pool_tile_deck_01.png
 
 `LIMINAL_STATE_LOG` records `frame,x,y,z,yaw,pitch` every few frames so a real
 input walk can be asserted afterwards; drive the keys with macOS System Events
-(the same approach the phase-4 note documents).
+(the same approach the `vertical-geometry-validation.md` note documents).
 
 ```sh
 LIMINAL_LEVEL=pool_showcase LIMINAL_STATE_LOG=/tmp/pool_walk.csv ./target/debug/liminal-rust &
@@ -133,4 +138,5 @@ sleep 3 && osascript -e 'tell application "System Events" to key up "w"'
 Walk the deck, push into the guardrails and the ladder (the position must stop),
 walk onto the `-0.35 m` entry step (the foot height may change) and push at the
 deep basin edge (the player must not fall in). Repeat in `office_showcase` and
-`level_1` for movement, prop collision and brightness.
+`level_1` for movement, prop collision and brightness; both of those levels no
+longer ship, so those walks are kept as a historical record.

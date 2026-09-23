@@ -18,9 +18,9 @@ IDAT gives meaningless colours.
 
 Usage::
 
-    python3 tools/bench/check_holes.py target/captures/goal5/pool/*.png
-    python3 tools/bench/check_holes.py --threshold 8 --step 2 target/captures/goal5/**/*.png
-    python3 tools/bench/check_holes.py --json /tmp/holes.json target/captures/goal5
+    python3 tools/bench/check_holes.py target/agent-work/captures/pool/*.png
+    python3 tools/bench/check_holes.py --threshold 8 --step 2 target/agent-work/captures/**/*.png
+    python3 tools/bench/check_holes.py --json /tmp/holes.json target/agent-work/captures
 
 Exits non-zero when any capture exceeds `--max-fraction` (default 0.05), so it
 can gate a capture matrix.

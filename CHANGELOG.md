@@ -223,12 +223,12 @@ materials already author, and the fog is a scalar mix.
 - Measured on macOS at 960×544: bloom 0.19 ms and the planar reflection 0.23 ms
   of a 0.89 ms `Full` frame, `Low` 0.47 ms (the same shape as Batch 3's 0.45 ms),
   two extra draw calls, and about 3.2 MiB of reflection and bloom targets.
-  `tools/bench/notes/batch4-post-reflection-validation.md` has the full table.
+  `tools/bench/notes/post-processing-reflections-validation.md` has the full table.
 - The emissive image the bloom blurs shares the scene's depth buffer, drawn at
   the scene target's resolution, so an emitter hidden behind a wall cannot glow
   through it. A view with no emissive surface on screen skips the stage.
 - `tools/bench/capture_batch4.sh` captures the fixed validation view set, and
-  `tools/bench/notes/batch4-post-reflection-validation.md` records what the runs
+  `tools/bench/notes/post-processing-reflections-validation.md` records what the runs
   showed.
 
 ---
@@ -303,7 +303,7 @@ already delivers.
   failed allocation disables the offscreen path for the session (one diagnostic
   line) and the scene draws straight into the default framebuffer as before.
   `LIMINAL_NO_OFFSCREEN=1` forces that path for an A/B comparison, and the two
-  paths are pixel-identical (see `tools/bench/notes/batch3-surface-validation.md`).
+  paths are pixel-identical (see `tools/bench/notes/surface-response-validation.md`).
 - **Diagnostics.** A `[framebuffer]` line reports the target size and depth
   format once per resize; `RenderStats` gained `texture_binds` and
   `material_changes`, and the benchmark CSV/summary report them.

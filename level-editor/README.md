@@ -44,16 +44,15 @@ ids, imported texture ids, scale, vertical offsets, clipping) lives behind the
 **Advanced** switch in the top bar. Advanced changes what is *shown*; it never
 changes the level format.
 
-The editor predates the vertical-geometry format (`floor_y`, `ceiling` profiles
-and `floor_regions`); it does not author or preview those keys yet, and a
-replacement editor is planned. A level that uses them still opens (unknown keys
-are ignored on import), but **saving it here drops them**, because the editor
-writes only the fields it knows. The same applies to a wall-mounted light's
-`mount`/`y`, to per-face wall `material`, and to a wall's minimum-corner
-placement convention — the editor writes what it knows and drops the rest. Edit
-vertical-geometry and Pool-fixture levels in a text editor until the
-replacement lands. See the "Level format" section of the repository README for
-the format.
+The editor does not support the vertical-geometry format (`floor_y`, `ceiling`
+profiles and `floor_regions`): it does not author or preview those keys. A
+level that uses them still opens (unknown keys are ignored on import), but
+**saving it here drops them**, because the editor writes only the fields it
+knows. The same applies to a wall-mounted light's `mount`/`y`, to per-face wall
+`material`, and to a wall's minimum-corner placement convention — the editor
+writes what it knows and drops the rest. Edit vertical-geometry and Pool-fixture
+levels in a text editor. See the "Level format" section of the repository README
+for the format.
 
 ### Keyboard
 

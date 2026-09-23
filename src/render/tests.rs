@@ -83,7 +83,7 @@ fn the_packed_vertex_is_thirty_six_bytes_with_the_declared_layout() {
         "colour must be four packed bytes"
     );
 
-    // The Batch 3 frame lives between the lightmap pair and the lightmap page:
+    // The normal frame lives between the lightmap pair and the lightmap page:
     // normal, tangent and the bitangent sign, three normalised signed bytes
     // each for the vectors and one more for the sign.
     assert_eq!(
@@ -556,14 +556,13 @@ fn test_floor_geometry_does_not_scale_with_room_area() {
     assert_eq!(small.batches.ceiling_batch.count, 6);
 }
 
-/// The final carpet must never read as the old metre checker again.
+/// The final carpet must never read as a metre checker.
 ///
-/// The seed art carried a deliberate 1 m bright/dark quadrant tint, which
-/// looked like a debug board on a large floor. The Goal 5 artwork replaces
-/// it with low-frequency pile variation, so the four quadrant means must be
-/// close: the sheet may be mottled, but no quadrant may be a visibly
-/// different flat cell. The quadrants are derived from the decoded sheet, so
-/// the check holds at whatever resolution the artwork ships.
+/// A 1 m bright/dark quadrant tint would look like a debug board on a large
+/// floor. The artwork uses low-frequency pile variation, so the four quadrant
+/// means must be close: the sheet may be mottled, but no quadrant may be a
+/// visibly different flat cell. The quadrants are derived from the decoded
+/// sheet, so the check holds at whatever resolution the artwork ships.
 #[test]
 fn test_carpet_png_has_no_metre_checker() {
     let carpet = texture_image("core:tex_carpet_beige_01");
@@ -3456,7 +3455,7 @@ fn an_empty_material_id_emits_a_bare_key_not_an_arbitrary_material() {
     }
 }
 
-// ------------------------------------------------- vertical geometry (4.0)
+// ------------------------------------------------------- vertical geometry
 
 /// Vertical bounds of a vertex run, as `(min_y, max_y)`.
 fn y_bounds(vertices: &[Vertex]) -> (f32, f32) {
@@ -4192,7 +4191,7 @@ fn emission_routing_follows_the_surface_kind() {
     assert_eq!(
         emission_routing(SurfaceKind::Decal, true),
         EmissionRouting::None,
-        "decal emission is deferred to a later batch"
+        "decals do not carry material emission"
     );
 }
 
@@ -4732,7 +4731,7 @@ fn atlas_bytes_match_the_fill_pass_exactly() {
 
 #[test]
 fn the_dynamic_demonstration_machine_stays_a_static_prop() {
-    // Places Demo places the washing machine the Batch 2 demonstration is
+    // Places Demo places the washing machine the washer-drum demonstration is
     // built around as an ordinary static prop: it is baked, it occludes, it
     // collides, and it draws from the static prop batches. The drum the
     // demonstration turns is spawned by `render::dynamic` at runtime and must
@@ -4782,7 +4781,7 @@ fn the_dynamic_demonstration_machine_stays_a_static_prop() {
     );
 }
 
-// ------------------------------------------------------------- Batch 3 passes
+// ------------------------------------------------------- material draw passes
 
 use super::renderer::{
     BatchPass, EmissionState, MaterialRenderState, ScenePass, SurfaceState, TranslucentSource,
@@ -4962,7 +4961,7 @@ fn the_post_process_fallback_is_the_historical_presentation() {
     //
     // 1. No offscreen target: the scene draws straight into the default
     //    framebuffer, so there is nothing to resolve and no post-processing
-    //    stage at all. This is the pre-Batch-4 path and it is one env var away.
+    //    stage at all. This is the direct path and it is one env var away.
     let drawable = DrawableSize::new(960, 544);
     assert_eq!(
         offscreen_plan(false, false, crate::quality::QualityProfile::Full, drawable),
@@ -5002,7 +5001,7 @@ fn the_vertex_shader_declares_exactly_the_attributes_the_table_wires() {
     // The table can only be complete if it covers everything the shader reads.
     // This is the test that fails when an attribute is added to the vertex
     // stage and packed into the vertex but left out of the pointer table — the
-    // shape of the Batch 3 defect that flattened every surface normal.
+    // defect that flattens every surface normal.
     let declared: Vec<String> = super::view::VERTEX_SHADER_SRC
         .lines()
         .filter_map(|line| line.trim().strip_prefix("attribute "))
@@ -5040,6 +5039,81 @@ fn the_vertex_shader_declares_exactly_the_attributes_the_table_wires() {
             "the vertex shader no longer declares `{expected}`"
         );
     }
+}
+
+#[test]
+fn the_world_fragment_shader_gates_the_lightmap_reads() {
+    // The world stage declares both atlas pages for every draw, so a unit that
+    // is not complete is a driver-visible error even when the fragment would
+    // not have read it. The fragment must therefore only sample the atlas when
+    // it actually takes its light from it: the global switch and the vertex's
+    // own page byte both have to agree before either `texture2D` runs. This is
+    // the shader half of the lightmap-unit invariant; the binding half is
+    // `Renderer::bind_lightmap_units`.
+    let source = super::view::fragment_shader_source(false);
+    let guard = source
+        .find("if (lightmap_on > 0.5)")
+        .expect("the atlas path must stay behind the lightmap guard");
+    let page0 = source
+        .find("texture2D(u_lightmap0")
+        .expect("the first atlas page must stay declared");
+    let page1 = source
+        .find("texture2D(u_lightmap1")
+        .expect("the second atlas page must stay declared");
+    assert!(
+        guard < page0 && guard < page1,
+        "both atlas reads must happen after the guard opens"
+    );
+    assert_eq!(
+        source.matches("texture2D(u_lightmap0").count(),
+        1,
+        "the first page must be read exactly once"
+    );
+    assert_eq!(
+        source.matches("texture2D(u_lightmap1").count(),
+        1,
+        "the second page must be read exactly once"
+    );
+    // A vertex with no chart (`LIGHTMAP_NONE`, page >= 254.5) never takes the
+    // atlas path at all.
+    assert!(
+        source.contains("step(254.5, v_lightmap_page)"),
+        "the LIGHTMAP_NONE sentinel must still close the atlas path"
+    );
+}
+
+#[test]
+fn the_lightmap_units_cover_every_declared_atlas_sampler() {
+    use super::view::{LIGHTMAP_PAGE_SLOTS, LIGHTMAP_TEXTURE_UNIT, LIGHTMAP_TEXTURE_UNIT_1};
+
+    // One bound unit per page, and the two constants stay adjacent: the vertex
+    // page byte selects between exactly these units.
+    assert_eq!(LIGHTMAP_TEXTURE_UNIT, 2, "the first atlas unit is unit 2");
+    assert_eq!(LIGHTMAP_TEXTURE_UNIT_1, LIGHTMAP_TEXTURE_UNIT + 1);
+    assert_eq!(
+        usize::try_from(LIGHTMAP_TEXTURE_UNIT_1 - LIGHTMAP_TEXTURE_UNIT).unwrap_or(0) + 1,
+        LIGHTMAP_PAGE_SLOTS,
+        "the unit pair must cover every page slot"
+    );
+    // The lighting side plans against the same bound: a bake that may need a
+    // page the renderer cannot sample must fall back, not drop it.
+    assert_eq!(LIGHTMAP_ATLAS_MAX_PAGES, LIGHTMAP_PAGE_SLOTS);
+
+    // Every declared sampler the world stage carries is bound for every world
+    // draw. The lightmap pair is the one that used to be bound only once per
+    // frame, so it is the one pinned here.
+    let source = super::view::fragment_shader_source(false);
+    let atlas_samplers = source
+        .lines()
+        .filter(|line| {
+            line.trim_start()
+                .starts_with("uniform sampler2D u_lightmap")
+        })
+        .count();
+    assert_eq!(
+        atlas_samplers, LIGHTMAP_PAGE_SLOTS,
+        "the world stage declares one sampler per bound atlas unit"
+    );
 }
 
 #[test]
@@ -5609,7 +5683,7 @@ fn every_material_property_resolves_into_the_renderers_per_material_state() {
 }
 
 #[test]
-fn the_hud_and_every_pre_batch_three_batch_draw_with_no_response_and_no_alpha() {
+fn the_hud_and_every_plain_batch_draw_with_no_response_and_no_alpha() {
     // The HUD's surface state: no normal map, no sheen, no emission and opaque.
     // The UI pass sets exactly this, so a bright fixture the camera walked away
     // from cannot leak into the text and a Low-profile gate cannot make the HUD

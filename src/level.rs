@@ -6,9 +6,8 @@ use crate::lighting::{DEFAULT_LIGHT_COLOR, LightColor};
 
 /// Clear ceiling height of a room whose level JSON omits `height`, in metres.
 ///
-/// Phase 4 raised the standard default from the historical 3.5 m. Levels that
-/// author `"height": 3.5` keep it verbatim; only rooms that leave the key out
-/// (or that are created without one) receive the new default.
+/// Levels that author `"height": 3.5` keep it verbatim; only rooms that leave
+/// the key out (or that are created without one) receive this default.
 pub const DEFAULT_CEILING_HEIGHT_M: f32 = 4.0;
 
 const fn default_ceiling_height() -> f32 {
@@ -135,9 +134,9 @@ pub fn ceiling_y_for_volume(
 /// `height` stays the room-local clear height from that floor to the eave; the
 /// ceiling profile only ever adds height above the eave.
 ///
-/// `material` and `ceiling_material` are the object-level material overrides of
-/// design section 21 (individual surface override -> object-level material ->
-/// level default material). Both are optional: an omitted value keeps the
+/// `material` and `ceiling_material` are the object-level material overrides
+/// (individual surface override -> object-level material -> level default
+/// material). Both are optional: an omitted value keeps the
 /// level's `defaults.floor` / `defaults.ceiling`. The level editor authors these
 /// exact keys, so a single room's floor or ceiling can be damp or stained
 /// without changing the whole level.
@@ -360,10 +359,10 @@ pub struct WallDef {
     pub height: Option<f32>,
     #[serde(default)]
     pub faces: HashMap<String, String>,
-    /// Object-level material for this wall's length faces (design section 21).
+    /// Object-level material for this wall's length faces.
     /// `faces` overrides it per face; an omitted value keeps `defaults.wall`.
     /// Faces are named `north`/`south` on an X-axis wall and `west`/`east` on a
-    /// Z-axis wall, matching the design document's example.
+    /// Z-axis wall.
     #[serde(default)]
     pub material: Option<String>,
     /// Rectangular cutouts (doors, windows, passages, vents) through this wall.
@@ -740,8 +739,8 @@ impl FloorPatchDef {
 /// Which surface a decal lies on, and therefore which way its outward normal
 /// points.
 ///
-/// The wall names match the wall face names of the level format (and design
-/// section 21): `north` faces -Z, `south` +Z, `west` -X and `east` +X. Floors
+/// The wall names match the wall face names of the level format: `north` faces
+/// -Z, `south` +Z, `west` -X and `east` +X. Floors
 /// face +Y and ceilings -Y. A decal is a small, intentionally decorative
 /// surface marking (a sign, a floor line, a warning), so unlike a material
 /// overlay it is a separate piece of geometry and never part of the wall it is
@@ -1217,8 +1216,8 @@ impl PropDef {
     }
 }
 
-/// Level schema corresponding to Sections 22 and 24 of the design document,
-/// supporting both single rooms and multiple connected room sections.
+/// Level schema supporting both single rooms and multiple connected room
+/// sections.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDef {
     pub format_version: u32,

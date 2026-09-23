@@ -776,7 +776,7 @@ fn budget_estimate_is_tight_enough_to_not_over_reserve_wildly() {
 }
 
 // ---------------------------------------------------------------------------
-// Draw-call shape and batching (Phase 8)
+// Draw-call shape and batching
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -902,7 +902,7 @@ fn ten_chairs_in_different_lighting_stay_one_batch() {
 }
 
 // ---------------------------------------------------------------------------
-// Determinism (Group R) and deterministic fuzz-style stress (Phase 10)
+// Determinism (Group R) and deterministic fuzz-style stress
 // ---------------------------------------------------------------------------
 
 #[test]

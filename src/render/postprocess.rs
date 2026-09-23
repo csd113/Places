@@ -77,7 +77,7 @@ impl PostSettings {
             // Low presents the scene unfiltered: no bloom, no exposure, no
             // shoulder and no grade, so the resolve stage is the identity and
             // the renderer uses the plain copy quad instead of it. That keeps
-            // Low exactly as cheap as the pre-Batch-4 presentation while the
+            // Low exactly as cheap as the plain copy presentation while the
             // world shader keeps the fog, which is part of the image rather
             // than an extra pass.
             QualityProfile::Low => Self {

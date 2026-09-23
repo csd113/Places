@@ -150,13 +150,13 @@ pub(super) fn build_level_geometry_mesh_with_lightmaps(
 /// lighting is effectively flat (unlit rooms and the far flanks of large rooms
 /// therefore stay one or two quads). The cell count is bounded by
 /// `lighting::MAX_LIGHT_GRID_CELLS`, and UVs keep mapping world space at the
-/// material's tiling period, so the checkered seed carpet and a Goal 5
-/// replacement tile identically.
+/// material's tiling period, so the checkered carpet and any replacement tile
+/// map identically.
 ///
 /// A room that carries floor patches or floor regions is cut at their edges and
 /// emitted one material/height surface at a time, so a damp patch has an exact
 /// edge and a recess sits at its real elevation without a second overlapping
-/// slab (design section 23).
+/// slab.
 ///
 /// # Threshold ownership
 ///

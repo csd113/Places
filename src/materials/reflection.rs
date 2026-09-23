@@ -6,8 +6,7 @@
 //!
 //! ```text
 //! mode    source                                        cost
-//! none    nothing (the default, and every material          -
-//!         authored before Batch 4)
+//! none    nothing (the default; no mode authored)           -
 //! probe   one static cubemap baked at level load,        one texture read
 //!         read by the reflection vector                  per fragment
 //! planar  a second view of the level through the         one scene pass
@@ -45,8 +44,8 @@ pub const DEFAULT_REFLECTION_STRENGTH: f32 = 0.45;
 /// Where a material's reflection image comes from.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ReflectionMode {
-    /// No reflection at all: the default, and every material authored before
-    /// Batch 4.
+    /// No reflection at all: the default for a material that authors no
+    /// reflection mode.
     #[default]
     None,
     /// A static cubemap baked once per level load and sampled by the reflected
@@ -105,7 +104,7 @@ pub struct MaterialReflection {
 }
 
 impl MaterialReflection {
-    /// No reflection: every material authored before Batch 4.
+    /// No reflection: a material that authors no reflection mode.
     pub const NONE: Self = Self {
         mode: ReflectionMode::None,
         strength: 0.0,

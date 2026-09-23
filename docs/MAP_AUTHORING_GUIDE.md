@@ -5,17 +5,15 @@
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
 | Level format version documented | `1` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
-| Verification | Re-verified against the working tree for the **Batch 5 stabilization build**. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
+| Verification | Re-verified against the working tree at version 0.6.0. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Primary benchmark level | `assets/levels/places_demo.json` |
 
-> This revision describes the **current** engine: four batches of work are in the
-> tree and all of them are authorable or affect authoring — the Full/Low quality
-> profiles, the generic engine-level light model, true emissive materials and
-> baked lightmaps (Batch 1–2); surface response, transparency/glass and the
-> offscreen presentation path (Batch 3); selective reflections, post-processing
-> and animated emissions (Batch 4); and the stabilization fixes folded into
-> Batch 5. Read [Known Implementation Caveats](#known-implementation-caveats)
+> This revision describes the **current** engine: the Full/Low quality
+> profiles, the generic engine-level light model, true emissive materials,
+> baked lightmaps, surface response, transparency/glass, the offscreen
+> presentation path, selective reflections, post-processing and animated
+> emissions. Read [Known Implementation Caveats](#known-implementation-caveats)
 > before relying on engine limits, and re-run the validation commands after
 > pulling new commits.
 
@@ -97,7 +95,7 @@ Authoritative paths:
 | Benchmark level | `assets/levels/places_demo.json` |
 | Regression fixtures | `tests/fixtures/levels/` |
 
-### Quick implemented-vs-planned reference
+### Quick implemented-vs-unimplemented reference
 
 | Capability | Status |
 | --- | --- |
@@ -894,7 +892,7 @@ catalog (with the asset id in the message), not just the field.
 | `emissive_mask` | string | none | Logical id of a file-backed `texture`. Its RGB modulates where the surface emits; it must resolve or the whole material degrades to the diagnostic texture. Asserting it without `emissive` is a catalog error. | No mask; the material's own texture modulates the glow. |
 | `normal_texture` | string | none | Logical id of a file-backed `texture` holding a tangent-space normal map (RGB = x/y/z encoded `0..255 → -1..1`). Must resolve or the whole material degrades. | No normal perturbation. |
 | `normal_strength` | number | `1.0` | `0.0`–`2.0`. Multiplies the decoded map's `xy`. Asserting it without `normal_texture` is a catalog error. | `1.0`. |
-| `specular` | number | `0.0` | `0.0`–`1.0`. Sheen strength. `0.0` is the pre-Batch-3 look. | No sheen. |
+| `specular` | number | `0.0` | `0.0`–`1.0`. Sheen strength. `0.0` is the default flat look. | No sheen. |
 | `specular_color` | `[r,g,b]` | white | Each channel `0.0`–`1.0`. Sheen colour; it does **not** require `specular`. With `specular: 0` the whole sheen term is zero, so the colour has no visible effect. | White sheen. |
 | `roughness` | number | `0.6` | `0.0` mirror-tight sheen … `1.0` fully matte. Shapes the sheen only; a material with `specular: 0` never sheens at any roughness. | `0.6`. |
 | `alpha_mode` | string | `opaque` (absent) | `opaque`, `cutout` or `blend`. An unknown value is a catalog error. | `opaque`. |
@@ -995,11 +993,11 @@ What to author for the usual cases:
 | Glossy tile / linoleum / polished floor | `0.4`–`0.5` | `0.1`–`0.2` | |
 | Wet surface | `0.6`–`0.7` | `0.05`–`0.1` | a `floor_patches` entry over the dry material |
 
-Defaults keep every pre-Batch-3 material exactly as it was: no normal map, no
-sheen and `alpha_mode: opaque` add nothing to the pixel. `tools/assets/validate.py`
-rejects out-of-range values by name, and a normal map that cannot resolve
-degrades the whole material to the diagnostic texture (it does not silently
-flat-shade).
+A material that authors none of these fields adds nothing to the pixel: no
+normal map, no sheen and `alpha_mode: opaque` are the defaults.
+`tools/assets/validate.py` rejects out-of-range values by name, and a normal
+map that cannot resolve degrades the whole material to the diagnostic texture
+(it does not silently flat-shade).
 
 **Quality profiles.** `Full` draws the response; `Low` leaves the normal-map and
 sheen terms out and keeps albedo × light × emission × alpha. Both profiles use
@@ -2586,7 +2584,7 @@ none of them is optional for a change that ships content.
 | `python3 tests/test_package.py` | Repository/package gate: shipped-level checks, texture policy, catalog validation, README hygiene | Recommended before shipping a map into `assets/levels/` |
 | `LIMINAL_DUMP_LIGHTMAPS=1 LIMINAL_LEVEL=<id> cargo run` | Writes the baked atlas pages as PNGs under `target/agent-work/atlases/` | Useful |
 | `python3 tools/textures/seam_repair.py --check <png>` | Tiling seam metric per texture | Yes for new surface art |
-| `tools/bench/README.md` | Index of the current benchmark and capture tools — it is the authoritative, batch-current list | Useful |
+| `tools/bench/README.md` | Index of the current benchmark and capture tools — it is the authoritative, current list | Useful |
 
 Do not treat a clean `--check` as budget approval: `tools/props/build.py --check`
 prints budget flags but does not fail on them; budget enforcement lives in
@@ -2778,11 +2776,8 @@ authoring. They are not invitations to change the engine as part of an authoring
     demonstration drum spawned by placing `core:washing_machine`; a level cannot place
     or drive one.
 15. **Documentation drift in shipped docs** (recorded here so agents trust the code):
-    `assets/README.md` describes decal sheets as `CLAMP_TO_EDGE` (they are uploaded
-    `REPEAT`); the prop exceedance allowlist lives in `src/props/tests.rs`, not
-    `src/props.rs`; `README.md`'s asset summary says "eight external or generated
-    decal sheets" where the catalog declares four decal ids (three file-backed, one
-    generated);
+    the prop exceedance allowlist lives in `src/props/tests.rs`, not
+    `src/props.rs`;
     `src/level.rs`'s `y` comment says a ceiling fixture's `y` is ignored, but the bake
     honours it for storey selection; `src/materials/reflection.rs`'s module comment
     shows a nested `"reflection": {"mode": …}` catalog form while the catalog uses the

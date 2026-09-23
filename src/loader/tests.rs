@@ -425,7 +425,7 @@ fn test_validate_rejects_huge_geometry_without_overflowing() {
     assert!(validate_level(&level).is_err());
 }
 
-// -------------------------------------------- vertical geometry (goal 4.0)
+// ------------------------------------------------------- vertical geometry
 
 /// A level with one room plus whatever extra JSON keys the test supplies.
 fn vertical_level(room_extra: &str, level_extra: &str) -> LevelDef {
@@ -1574,7 +1574,7 @@ fn test_vertical_diagnostic_level_exercises_the_new_geometry() {
     let level = fixture_level("vertical_diagnostic");
     assert!(
         validate_level(&level).is_ok(),
-        "the phase 4 level must validate"
+        "the vertical diagnostic level must validate"
     );
 
     // Area A keeps the standard default ceiling height.

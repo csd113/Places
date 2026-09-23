@@ -13,7 +13,7 @@ Spooner-Man is a low-poly tuxedo cat and the first entity asset.
 
 ## Migration note
 
-Goal 3 moved the model here from `assets/props/models/spooner-man.glb`. The
+The model moved here from `assets/props/models/spooner-man.glb`. The
 file bytes are unchanged (the move is recorded as a rename; the prop toolkit's
 regenerated preview matches the committed thumbnail), and there is exactly one
 copy of the resource in the repository.

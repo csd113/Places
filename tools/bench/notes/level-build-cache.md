@@ -1,9 +1,15 @@
-# Level-build cost and a proposed build cache
+# Level-build cost
 
 This note records what a level load actually costs, what could be cached safely,
-and why no cache is implemented in this pass. It is written from measurements
-taken at the time of the Phase 2 work; the numbers on the PocketCHIP come from
-the `[level]` line the game prints on every load.
+and why no whole-level build cache is implemented. It is written from
+measurements taken during the original load-cost work; the device numbers come
+from the `[level]` line the game prints on load under `LIMINAL_VERBOSE`.
+
+A separate, runtime-owned lightmap cache does ship: `LightmapCache`
+(`src/lighting/lightmap/cache.rs`) stores baked atlases under `cache/lightmaps/`
+below the state root and reuses them while the content key is unchanged. It
+covers the lightmap bake only; it is not the whole-level build cache proposed
+below.
 
 ## What a level load does
 
@@ -28,6 +34,10 @@ Measured cost, release build:
 | `asset_demo` | ~120 | 11.8 | ~0.0 | 5.6 | 0.4 |
 | `level_1` | 0 | 1.5 | ~0.0 | 0.0 | 1.5 |
 
+The `bench_chairs_*`, `asset_demo` and `level_1` rows are historical
+measurements from levels that no longer ship; `prop_stress` remains a
+regression fixture in `tests/fixtures/levels/`.
+
 (Mac development machine, so absolute times are ~50–70× faster than the
 PocketCHIP's ~1.8–2.3 ms per prop. The *proportions* are what matter here.)
 
@@ -51,19 +61,21 @@ Conclusions:
 | Baked lighting grid | **yes** | Depends only on the level JSON. |
 | GPU buffer uploads | **yes** | Follows from the CPU-side vertices. |
 
-There is an important synergy with Phase 3: because instancing calls
+There is an important synergy with indexed submission: because instancing calls
 `lighting.sample` once per *submitted* vertex and a model has ~30% fewer distinct
 vertices than its flat triangle list, indexed submission reduces the per-prop
 build cost by the same ~30% without any cache at all.
 
-## Proposed cache key and invalidation
+## Not implemented: whole-level build cache
+
+### Proposed cache key and invalidation
 
 The design that fits the existing level format, with no change to it:
 
 ```
 key = hash(
     level file bytes (or the exact JSON string used),
-    prop catalogue bytes (assets/props/props.json),
+    prop catalogue bytes (assets/catalog.json),
     for each model path the level references:
         model file bytes,
         texture file bytes,
@@ -74,13 +86,13 @@ Invalidation is total: any edit to the level, the catalogue, a referenced model
 or a texture produces a different key. There is no partial invalidation to get
 wrong.
 
-Storage: one file per level under a cache directory
+Proposed storage: one file per level under a cache directory
 (`assets/levels/.cache/<key>.lvl`), containing the already-built static vertex
 buffer, the prop vertex buffer, the index buffer, the per-batch ranges and
 bounds, and the `LightingSummary`. Loading it means `read` + `buffer_data`
 instead of bake + transform + sample.
 
-Risks and why this is not implemented in this pass:
+Risks:
 
 * The cache must be *versioned with the build format*. A renderer change that
   alters vertex layout, batch structure or lighting must bump a format version
@@ -92,11 +104,11 @@ Risks and why this is not implemented in this pass:
   the class of regression this task is trying to avoid.
 * It does nothing for a level's first load, which is the cost that was measured.
 
-The right moment for this is a dedicated pass with its own format-version test
-matrix, not a renderer-optimisation pass. What this pass does contribute is the
+The right moment for this is a dedicated change with its own format-version test
+matrix, not a renderer-optimisation change. What this work does contribute is the
 *instrumentation*: the `[level]` breakdown above makes the cost visible, and the
-prop-instancing dependency on submitted vertex count means Phase 3 reduces it by
-~30 % for free.
+prop-instancing dependency on submitted vertex count means indexed submission
+reduces it by ~30 % for free.
 
 ## Draw-order sensitivity of the spatial grid (measured)
 

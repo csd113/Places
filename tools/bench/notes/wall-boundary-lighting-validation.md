@@ -1,4 +1,4 @@
-# Wall-boundary lighting isolation and validation (Goal 5.5)
+# Wall-boundary lighting isolation and validation
 
 How the wall/corner lighting defects were reproduced, what actually caused them,
 how the fix works, and how to repeat every check. All commands run from the
@@ -45,12 +45,13 @@ The artifacts were three separate causes, all in the *bake*, not in the
 renderer:
 
 * **Dark corners / dark wedges.** Wall faces sampled the bake at their own
-  endpoints. A wall authored across a room boundary (the construction both Goal
-  5 showcase levels use) ends inside the perpendicular wall, so that endpoint's
-  probe resolved to no room at all and the face interpolated down to the
-  ambient fill over its first 2.5 m segment. A wall face running along a *shared*
-  room boundary had the mirror problem: the containment tie-break picked the
-  neighbouring room, so a red room's wall carried a blue-grey wedge.
+  endpoints. A wall authored across a room boundary (the construction the
+  shipped Office and Pool content uses) ends inside the perpendicular wall, so
+  that endpoint's probe resolved to no room at all and the face interpolated
+  down to the ambient fill over its first 2.5 m segment. A wall face running
+  along a *shared* room boundary had the mirror problem: the containment
+  tie-break picked the neighbouring room, so a red room's wall carried a
+  blue-grey wedge.
 * **White and RGB bleed.** Local fixture pools were pure distance: a fixture
   lit anything within 6 m, including surfaces behind an opaque wall and around a
   closed corner.
@@ -61,7 +62,7 @@ renderer:
 
 ## The diagnostic level
 
-`assets/levels/lighting_isolation.json` is a deliberately plain row of thirteen
+`tests/fixtures/levels/lighting_isolation.json` is a deliberately plain row of thirteen
 cells, one per case. Boot it with:
 
 ```sh
@@ -97,7 +98,7 @@ python3 tools/props/build.py --check
 cd level-editor && npm test
 ```
 
-The tests that carry the phase:
+The tests that carry the contract:
 
 * `lighting_isolation::*` — the acceptance suite over the diagnostic level:
   blocked white light, blocked colour (with the unoccluded contribution
@@ -119,9 +120,9 @@ The tests that carry the phase:
 ## Captures
 
 ```sh
-mkdir -p target/goal55/captures
+mkdir -p target/agent-work/captures/
 LIMINAL_LEVEL=lighting_isolation LIMINAL_SPAWN="34,1.5,2.9,270" \
-  LIMINAL_CAPTURE=target/goal55/captures/iso_door.png ./target/debug/liminal-rust
+  LIMINAL_CAPTURE=target/agent-work/captures/iso_door.png ./target/debug/liminal-rust
 ```
 
 `LIMINAL_LEVEL`, `LIMINAL_SPAWN=x,y,z,yaw` and `LIMINAL_CAPTURE` render one
@@ -129,7 +130,7 @@ frame of a specific level from a specific position; the process exits after
 writing the PNG. Two runs of the same command are byte-identical, which is what
 makes a before/after comparison meaningful.
 
-Views used for the phase (all reproduced in the Goal 5.5 changelog entry):
+Views used for the validation:
 
 | view | command |
 | --- | --- |
@@ -141,6 +142,10 @@ Views used for the phase (all reproduced in the Goal 5.5 changelog entry):
 | Diagnostic red/blue wall | `LIMINAL_LEVEL=lighting_diagnostic LIMINAL_SPAWN="49.5,1.4,1.5,315"` |
 | Diagnostic dark-to-lit door | `LIMINAL_LEVEL=lighting_diagnostic LIMINAL_SPAWN="9.0,1.4,6,90"` |
 | Isolation door / red-blue wall | `LIMINAL_LEVEL=lighting_isolation LIMINAL_SPAWN="34,1.5,2.9,270"` / `"59.5,1.5,4.5,180"` |
+
+The `office_showcase` and `level_1` rows target levels that no longer ship and
+are kept as a historical record; `places_demo` is the shipped level. The
+diagnostic and isolation rows use fixtures in `tests/fixtures/levels/`.
 
 Walk each of these with the camera moved toward, away from and sideways along
 the surface; a dark seam or a coloured edge that changes with the angle is a
@@ -159,8 +164,10 @@ one or two boxes. Measured with
 | The Residence (44 fixtures, 65 walls, 140 props) | 0.04 ms | 0.3 ms | 5.5 ms | 17–22 ms |
 | After the Leak (39 fixtures, 61 walls, 144 props) | 0.03 ms | 0.25 ms | 4.6 ms | 15–18 ms |
 
-The remaining cost is prop vertex lighting (one occluded sample per transformed
-prop vertex); the static bake stays under 3 ms for the largest shipped level.
+Level 1, The Residence and After the Leak no longer ship; those rows are
+historical measurements. The remaining cost is prop vertex lighting (one
+occluded sample per transformed prop vertex); the static bake stays under 3 ms
+for the largest shipped level.
 
 ## Known limitations
 
@@ -168,9 +175,11 @@ prop vertex); the static bake stays under 3 ms for the largest shipped level.
   occlusion-tested but its contribution to the room baseline is not. A partition
   inside one room therefore shadows a pool without dimming the room baseline;
   author two rooms to get two baselines.
-* Only walls block light. Floors and ceilings are not blockers, so two stacked
-  rooms are not separated vertically yet; the blocker set is a flat list of
-  boxes, so adding a slab is a small change when a level needs it.
+* Walls, floor interfaces and ceiling bodies all block light, so stacked rooms
+  are sealed vertically: a fixture on one storey does not light the other, while
+  an intentional vertical opening still transmits through its own hole. The
+  blocker set is a flat list of boxes, so a stacked storey needs no extra
+  authoring beyond the rooms' own floors and ceilings.
 * A surface sample that lies inside a wall (the outermost row of a room's floor
   where a wall straddles the boundary) is walked into the room before it is
   measured. A sample that cannot leave the solid falls back to the room centre.

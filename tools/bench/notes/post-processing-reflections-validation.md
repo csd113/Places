@@ -1,26 +1,26 @@
-# Batch 4 validation: post-processing, reflections, dynamic polish and the visual repairs
+# Post-processing, reflections and visual-repair validation
 
-How the four Batch 4 workstreams were measured and inspected, on the same
+How the four change areas were measured and inspected, on the same
 machine, with the same level, assets and cameras in every run. Everything here
 lives under `target/agent-work/`, per the repository rule for temporary files.
 
 The before/after pairs were captured with the same script against two binaries:
 
 ```sh
-sh tools/bench/capture_batch4.sh                                  # Batch 4
-LIMINAL_BIN=target/agent-work/baseline-b3/target/release/liminal-rust \
-    sh tools/bench/capture_batch4.sh                              # Batch 3, same assets
+sh tools/bench/capture_views.sh                                  # this build
+LIMINAL_BIN=target/agent-work/baseline/target/release/liminal-rust \
+    sh tools/bench/capture_views.sh                              # baseline, same assets
 ```
 
-The Batch 3 binary lives in the worktree this validation created; it can be
+The baseline binary lives in the worktree this validation created; it can be
 rebuilt from the branch point with:
 
 ```sh
-git worktree add target/agent-work/baseline-b3 708c177
-cd target/agent-work/baseline-b3 && CARGO_TARGET_DIR=$PWD/target cargo build --release
+git worktree add target/agent-work/baseline 708c177
+cd target/agent-work/baseline && CARGO_TARGET_DIR=$PWD/target cargo build --release
 ```
 
-(`708c177` is the Batch 3 verification commit. `target/agent-work/` is ignored by
+(`708c177` is the previous build's verification commit. `target/agent-work/` is ignored by
 git, so the worktree never shows up as repository content.)
 
 `LIMINAL_BENCH_NOSWAP=1` is set by the script: a desktop whose display has gone
@@ -70,7 +70,7 @@ builds a wall offset from the origin and fails with
 `the cap at y = 1 spans 2.5..4.5, expected (6.5, 8.5)` when the translation is
 removed (verified by reverting the fix).
 
-**The two thin white boxes.** They are Batch 3's surface-response
+**The two thin white boxes.** They are the surface-response
 demonstrations: a 0.06 × 2.6 × 1.7 m brushed-metal slab at (25.78, 7.3) and a
 0.06 × 2.4 × 1.6 m moulded-plastic slab at (5.2, 7.16), both authored as thin
 `walls` in `places_demo.json`. Bare, they read as unexplained white panels. Each
@@ -96,8 +96,8 @@ buffer, so an emitter behind a wall cannot glow through it. The first
 implementation drew the emissive image at a quarter resolution, which reads only
 the bottom-left corner of a full-resolution depth buffer: the corridor capture
 showed two fluorescent panels from the rooms behind it glowing through the
-wallpaper. `captures_b4/crop_corridor.png` is that frame and
-`captures_b4/crop_corridor3.png` is the fixed one.
+wallpaper. `captures/crop_corridor.png` is that frame and
+`captures/crop_corridor3.png` is the fixed one.
 
 `Limit`: the emissive image is drawn at a quarter of the scene target's edge and
 blurred with two separable 5-tap passes, so the glow is a low-frequency pool
@@ -138,8 +138,8 @@ Memory the reflections add at 960×544 `Full`: one 480×272 RGBA8 planar target
 
 ## Dynamic content
 
-The rotating washer drum is Batch 2's and is unchanged
-(`b4_drum2.png`). Batch 4 adds animated emissions, verified by capturing the same
+The rotating washer drum is the earlier dynamic-content demonstration and is unchanged
+(`b4_drum2.png`). Animated emissions are verified by capturing the same
 camera at several frame numbers and reading the sign's own pixels:
 
 | frame | sign pixel | note |
@@ -158,24 +158,24 @@ brightness. The unit tests pin the bounds, the resting share of a flicker
 
 ## Frame cost
 
-`python3 tools/bench/bench_repeat.py` (macOS, 960×544, `LIMINAL_BENCH_FINISH=1`,
-120 frames after 20 warm-up, 7–9 runs each, camera `74,0`). `b3_baseline` is the
-Batch 3 checkout's own binary; every other row is this build.
+`python3 tools/bench/bench_local.py --repeat 9` (macOS, 960×544, `LIMINAL_BENCH_FINISH=1`,
+120 frames after 20 warm-up, 7–9 runs each, camera `74,0`). `baseline` is the
+previous checkout's own binary; every other row is this build.
 
 | Run | `render` min / median | draws | binds | material changes |
 | --- | --- | --- | --- | --- |
-| `b3_baseline` | 0.430 / 0.445 | 75 | 48 | 37 |
-| `b4_full` | 0.894 / 0.954 | 77 | 97 | 77 |
-| `b4_full`, `LIMINAL_NO_BLOOM=1` | 0.707 / 0.718 | 77 | 91 | 77 |
-| `b4_full`, `LIMINAL_NO_REFLECTIONS=1` | 0.666 / 0.678 | 77 | 58 | 43 |
-| `b4_low` | 0.467 / 0.474 | 77 | 48 | 38 |
-| `b4_direct` (`NO_OFFSCREEN`) | 0.452 / 0.466 | 77 | 48 | 38 |
+| `baseline` | 0.430 / 0.445 | 75 | 48 | 37 |
+| `full` | 0.894 / 0.954 | 77 | 97 | 77 |
+| `full`, `LIMINAL_NO_BLOOM=1` | 0.707 / 0.718 | 77 | 91 | 77 |
+| `full`, `LIMINAL_NO_REFLECTIONS=1` | 0.666 / 0.678 | 77 | 58 | 43 |
+| `low` | 0.467 / 0.474 | 77 | 48 | 38 |
+| `direct` (`NO_OFFSCREEN`) | 0.452 / 0.466 | 77 | 48 | 38 |
 
 Reading the numbers:
 
 * **Each stage is measurable on its own build.** Bloom costs about 0.19 ms
   (0.894 → 0.707) and the planar reflection about 0.23 ms (0.894 → 0.666); the
-  rest of the difference against Batch 3 — about 0.24 ms — is the resolve pass
+  rest of the difference against the baseline — about 0.24 ms — is the resolve pass
   itself, the fog term in the world shader and the two notice boards' extra
   geometry. `reflection_passes: 1` in the same run's summary confirms the plane
   was on screen for these frames.
@@ -184,18 +184,18 @@ Reading the numbers:
   buffer; a quarter-resolution image would read the wrong corner of that buffer
   and let an emitter hidden behind a wall glow through it (which is exactly what
   the first implementation did, and what
-  `captures_b4/crop_corridor.png`/`crop_corridor3.png` show). Only the emissive
+  `captures/crop_corridor.png`/`crop_corridor3.png` show). Only the emissive
   batches are submitted, so the extra pixels are the few the emitters cover, and
   a view with no emissive surface on screen skips the stage entirely.
-* **`Low` costs about the same as `b4_direct`** (0.467 vs 0.452, inside the
-  run-to-run spread) and has Batch 3's bind and material-change shape: its
+* **`Low` costs about the same as `direct`** (0.467 vs 0.452, inside the
+  run-to-run spread) and has the baseline's bind and material-change shape: its
   resolve settings are the identity, so it presents the scene with the plain copy
   quad and never allocates a planar or bloom target. What is left is the fog and
   the new content.
 * **Draw calls +2** (75 → 77): the two notice boards' extra wall ranges. The
   reflection and emissive passes submit the *same* batches in their own passes,
   so they raise binds and material changes rather than the main pass's draw-call
-  count — 97 binds and 77 material changes for 77 draws against Batch 3's 48
+  count — 97 binds and 77 material changes for 77 draws against the baseline's 48
   and 37.
 * **Memory**: at 960×544 `Full` adds one 480×272 RGBA8 planar target (0.5 MiB)
   with a 16-bit depth (0.25 MiB), a scene-sized emissive target (2.0 MiB,
@@ -213,7 +213,7 @@ Reading the numbers:
 
 ## What was inspected visually
 
-Every capture below is in `target/agent-work/captures_b4/` and was viewed at
+Every capture below is in `target/agent-work/captures/` and was viewed at
 full size, not only diffed numerically:
 
 * the pause menu over the office and over the pool (before/after);

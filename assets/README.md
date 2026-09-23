@@ -113,7 +113,7 @@ unknown classes so typos (`enviroment`) cannot slip through.
 ### Theme (`theme`)
 
 An organizational environment collection, absent for generic/shared content.
-The initial built-in themes are **`office`** and **`pool`**. Themes are data:
+The built-in themes are **`office`** and **`pool`**. Themes are data:
 add a `themes` record and future `hotel`/`school`/`residential` assets resolve
 without touching Rust.
 
@@ -361,14 +361,13 @@ Same material id, new pixels:
 3. Restart the game. There is no live hot reload, and **no recompilation**:
    image pixels are read at level load and decoded once per session.
 
-This is the same for creators: `tools/textures/build.py` regenerates the seed
-artwork deterministically, but hand-painted PNGs are just as valid. The shipped
-Office/Pool surfaces and the NO DIVING sign are upgraded 1024x1024 artwork, an
-order larger than what the legacy seed painters in `office_art.py`,
-`pool_art.py` and `decal_art.py` produce; `build.py` skips a sheet whose
-on-disk dimensions differ from its painter's and only overwrites with
-`--force`, so a plain regeneration can never silently downgrade the shipped
-art.
+This is the same for creators: `tools/textures/build.py` can regenerate the art
+deterministically, but hand-painted PNGs are just as valid. The shipped
+Office/Pool surfaces and the NO DIVING sign are 1024x1024 artwork, an order
+larger than what the painters in `office_art.py`, `pool_art.py` and
+`decal_art.py` produce; `build.py` skips a sheet whose on-disk dimensions
+differ from its painter's and only overwrites with `--force`, so a plain
+regeneration can never silently replace the shipped art.
 
 ### Where the artwork lives
 
@@ -473,7 +472,7 @@ Low, and the source hard limit (1024 px) is unchanged.
   an opaque material (the default) ignores it.
 * **Tileable** in both directions: the right edge must join the left, the top
   the bottom. `tools/textures/build.py --check` does not verify tileability
-  (that is an art check), but the seed generator wraps all of its noise.
+  (that is an art check), but the texture painters wrap all of their noise.
 * **Wall orientation**: the image's top row is at the top of the wall and its
   left edge is on the viewer's left from the side the face looks into, so
   signs/borders read correctly on both sides of a partition. A tile is
@@ -547,7 +546,7 @@ PNGs.
 | `[decals] decal `{id}`: {problem}` | an external decal sheet's catalog entry or PNG is broken | fix the entry/path; the decal draws the diagnostic sheet meanwhile |
 | `{id}: a file-backed light fixture must name a `.png` sheet, found ...` | a light entry points at something that is not a PNG | point `model` at the fixture's artwork |
 | `[fixtures] fixture `{id}` sheet `{path}`: {problem}` | a fixture's PNG is missing or corrupt | restore the file; the fixture draws the untextured white sheet meanwhile |
-| `[textures] ...` (from `tools/textures/build.py --check`) | file missing, corrupt, oversized or non-PNG | restore the file; `python3 tools/textures/build.py` regenerates seed-sized (128x128) artwork, so for an upgraded 1024x1024 sheet prefer restoring it from the repository rather than regenerating (the painter skips a differing sheet unless `--force` is passed) |
+| `[textures] ...` (from `tools/textures/build.py --check`) | file missing, corrupt, oversized or non-PNG | restore the file; `python3 tools/textures/build.py` regenerates 128x128 artwork, so for an upgraded 1024x1024 sheet prefer restoring it from the repository rather than regenerating (the painter skips a differing sheet unless `--force` is passed) |
 
 Validation fails loudly in tooling and degrades visibly in game: a broken
 texture is never hidden behind unrelated artwork.
@@ -601,8 +600,8 @@ cd level-editor && npm test                  # editor parses the proxies and dra
 
 Useful developer-only run flags (they never affect normal play):
 
-* `LIMINAL_LEVEL=places_demo` — boot straight into a level (handy on the
-  PocketCHIP, where the menu is awkward over SSH).
+* `LIMINAL_LEVEL=places_demo` — boot straight into a level without entering
+  the menu.
 * `LIMINAL_CAPTURE=frame.png` — render one frame and write it out, then exit;
   this is how prop rendering is inspected on hardware without a screenshot tool.
 * `LIMINAL_SPAWN=x,z,yaw_degrees` (or `x,y,z,yaw`) — stand at a specific spot,

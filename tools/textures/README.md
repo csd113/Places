@@ -25,14 +25,15 @@ python3 tools/textures/build.py --check                      # validate the ship
 python3 tools/textures/build.py --force --only core:tex_pool_tile_deck_01
 ```
 
-A plain regeneration never downgrades shipped artwork: the upgraded Office/Pool
+A plain regeneration never downgrades shipped artwork: the shipped Office/Pool
 surfaces and the NO DIVING sign ship at 1024x1024 while `office_art.py`,
-`pool_art.py` and `decal_art.py` still paint 128x128 seeds, so `build.py`
-**skips any sheet whose on-disk dimensions differ from its painter's output**
-and requires `--force` to replace it. The remaining sheets (the Batch 3 core
-set, the fixture faces, the arrow/stripes decals and the diagnostics) match
-their painters' dimensions and regenerate normally; the painters themselves are
-deterministic, so a regeneration is diffable like source.
+`pool_art.py` and `decal_art.py` still paint 128x128 placeholder sheets, so
+`build.py` **skips any sheet whose on-disk dimensions differ from its painter's
+output** and requires `--force` to replace it. The remaining sheets (the
+surface-response set, the fixture faces, the arrow/stripes decals and the
+diagnostics) match their painters' dimensions and regenerate normally; the
+painters themselves are deterministic, so a regeneration is diffable like
+source.
 
 A normal map (`extra_art.py`) is an ordinary surface sheet in the same asset
 tree: RGB carries the tangent-space normal (`0..255` maps to `-1..1`), alpha is
@@ -45,7 +46,7 @@ textures, decal sheets and fixture faces):
 * the file exists below `assets/`;
 * the bytes are a real PNG (signature, IHDR, IEND);
 * the dimensions are non-zero and within the hard 1024x1024 limit;
-* warns above the preferred 256x256 (a soft budget only: the upgraded
+* warns above the preferred 256x256 (a soft budget only: the shipped
   Office/Pool surfaces and the NO DIVING sign are intentionally 1024x1024) and
   for non-power-of-two dimensions (decal sheets and fixture faces must be POT);
 * prints the parsed dimensions, e.g.
@@ -88,7 +89,7 @@ runs `--check` over every environment surface as a repository gate.
 | `office_art.py` | the Office wallpaper, carpet and panel ceiling, with their damaged variants |
 | `pool_art.py` | the Pool deck, basin and wall tile and the sterile Pool ceiling |
 | `lights_art.py` | the visible face of every built-in light fixture: the office fluorescent diffuser, the round pool downlight and the pool wall luminaire's lens |
-| `extra_art.py` | the Batch 3 sheets: clear/dirty/tinted glass, a cut-out transfer grille, polished linoleum, a brushed-metal panel, a moulded-plastic panel and two tangent-space normal maps |
+| `extra_art.py` | the surface-response sheets: clear/dirty/tinted glass, a cut-out transfer grille, polished linoleum, a brushed-metal panel, a moulded-plastic panel and two tangent-space normal maps |
 | `decal_art.py` | the final Pool **NO DIVING** sign sheet (RGBA, transparent background) |
 | `diagnostic_art.py` | the orientation/alpha/NPOT test sheets, never used by shipping levels |
 | `seam_repair.py` | measures and repairs wrapped-edge seams in a shipped surface sheet (see below) |
@@ -144,7 +145,7 @@ The policy is declared in `src/assets.rs` (`ShippedTextureKind`) and mirrored by
 
 | rule                | value                                                       |
 | ------------------- | ----------------------------------------------------------- |
-| preferred           | ≤ 256x256, soft: the upgraded Office/Pool surfaces and the NO DIVING sign are deliberately 1024x1024 |
+| preferred           | ≤ 256x256, soft: the shipped Office/Pool surfaces and the NO DIVING sign are deliberately 1024x1024 |
 | hard ceiling        | 1024x1024, enforced by `--check` and by the runtime decoder |
 | decoded budget      | ≤ 4 MiB per surface sheet (one 1024x1024 RGBA8 sheet; `MAX_SURFACE_TEXTURE_BYTES`) |
 | surface sheets      | square (the renderer samples them as square `tile_metres` cells); POT preferred, not required |

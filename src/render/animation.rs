@@ -1,6 +1,6 @@
 //! A small, controlled set of animated surface emissions.
 //!
-//! Batch 2's dynamic path moves objects; this module moves *brightness*. It is
+//! The dynamic path moves objects; this module moves *brightness*. It is
 //! deliberately not a general animation framework: two shapes, both of which
 //! multiply the emissive term a surface already has, and nothing else.
 //!

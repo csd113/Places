@@ -56,7 +56,7 @@ so only the flag you changed differs between two labels.
 
 ## Capture views
 
-`capture_views.sh` renders the fixed validation view set: the Batch 3/4 surface
+`capture_views.sh` renders the fixed validation view set: the surface-response
 and post-processing shots (windows, panels, deck, sign, linoleum, pause menu)
 plus a walkthrough of the demo's route from reception to the unmade world. Each
 view nails its spawn and camera, so the same command produces the same image on
@@ -95,7 +95,7 @@ extra geometry.
 
 ```sh
 python3 tools/bench/visual_check.py \
-    --baseline target/phase1/liminal-rust-macos \
+    --baseline target/agent-work/baseline/liminal-rust \
     --current  target/release/liminal-rust
 ```
 
@@ -198,25 +198,31 @@ renderer submissions.
 ## Retired
 
 The PocketCHIP-over-SSH device suite (`run_bench.py`, `runone.sh`,
-`gen_levels.py`, `analyze.py`) was removed in Batch 5. It depended on the
-historical PocketCHIP/Vitrallis deployment, the committed cross-compile shim and
-expect-shim script paths outside the repository, and its local replacement is
-`bench_local.py`. `bench_repeat.py` was removed because `bench_local.py` now
-reports min/median/max itself, and the Batch 3/4 capture scripts
-(`capture_batch3.sh`, `capture_batch4.sh`) were replaced by the single
-`capture_views.sh`. The measurements those tools produced are kept as
-historical records in `notes/`:
+`gen_levels.py`, `analyze.py`) was removed with the PocketCHIP device support. It
+depended on the historical PocketCHIP/Vitrallis deployment, the committed
+cross-compile shim and expect-shim script paths outside the repository, and its
+local replacement is `bench_local.py`. `bench_repeat.py` was removed because
+`bench_local.py` now reports min/median/max itself, and the earlier per-change
+capture scripts were replaced by the single `capture_views.sh`.
+
+## Validation notes
+
+Validation records and measurements live in `notes/`:
 
 | note | contents |
 |---|---|
 | `renderer-change-validation.md` | how each change was validated, and what the pixel comparison actually measures |
-| `level-build-cache.md` | what a level load costs, and the build-cache key/invalidation design |
+| `level-build-cache.md` | what a level load costs, and the proposed whole-level build-cache key/invalidation design |
 | `lightmap-bake-validation.md` | the baked-lightmap measurements: cold/warm bake cost, Full/Low density and memory, runtime draw calls, vertex-memory cost and the lightmap-vs-vertex pixel A/B |
-| `batch3-surface-validation.md` | the Batch 3 surface/material changes |
-| `batch4-post-reflection-validation.md` | the Batch 4 bloom and reflection changes |
-| `batch5-stabilization-validation.md` | the Batch 5 compiled-build smoke tests, Full/Low comparison against the Batch 4 baseline, demo QA playthrough and error-path additions |
+| `surface-response-validation.md` | the surface-response, transparency and offscreen changes |
+| `post-processing-reflections-validation.md` | the bloom and reflection changes |
+| `compiled-build-qa-validation.md` | the compiled-build smoke tests, Full/Low comparison against the pre-change baseline, demo QA playthrough and error-path additions |
+| `office-pool-content-validation.md` | the Office and Pool content checks and the creator replacement test |
+| `texture-material-validation.md` | the external-texture/material loading and replacement checks |
+| `vertical-geometry-validation.md` | the elevated/recessed/gable geometry checks |
+| `wall-boundary-lighting-validation.md` | the wall/floor/ceiling isolation model and its acceptance fixture |
 
-The `LIMINAL_BENCH_*` submission switches the device suite used for its phase
-attribution (`LIMINAL_BENCH_NOCULL`, `LIMINAL_BENCH_NOINDEX`,
-`LIMINAL_BENCH_EXACT_VERTEX`) are still implemented and still isolate one
-renderer decision each; they are simply exercised by `bench_local.py` now.
+The `LIMINAL_BENCH_*` submission switches (`LIMINAL_BENCH_NOCULL`,
+`LIMINAL_BENCH_NOINDEX`, `LIMINAL_BENCH_EXACT_VERTEX`) are still implemented and
+still isolate one renderer decision each; they are simply exercised by
+`bench_local.py` now.

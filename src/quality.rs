@@ -24,9 +24,9 @@
 //! prefers far smaller sheets. A quality profile only decides how much of an
 //! *accepted* source reaches the GPU; it never raises the source limit.
 //!
-//! The same profile also budgets the Batch 2 static lightmap atlas: `Full`
-//! bakes at 12 texels per metre onto up to two 1024-texel pages, `Low` at 8
-//! texels per metre onto two 512-texel pages (see
+//! The same profile also budgets the static lightmap atlas: `Full` bakes at 12
+//! texels per metre onto up to two 1024-texel pages, `Low` at 8 texels per
+//! metre onto two 512-texel pages (see
 //! [`crate::lighting::lightmap::LightmapConfig::for_profile`]). Both profiles
 //! bake from the *same* patch set — the density and page size are the only
 //! difference, never a different set of surfaces — and both target the same

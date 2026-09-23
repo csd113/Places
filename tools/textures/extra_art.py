@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Batch 3 surface artwork: glass, polished floors, panels and normal maps.
+"""Surface artwork: glass, polished floors, panels and normal maps.
 
 These are ordinary surface sheets like every other file in this directory: the
 game loads the PNGs at level load and never runs this script.  They exist so
-the lightweight surface response added in Batch 3 has real artwork to
+the lightweight surface response has real artwork to
 demonstrate rather than procedures:
 
 ``core:tex_glass_clear_01``

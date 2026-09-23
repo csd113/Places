@@ -899,7 +899,7 @@ fn validated_alpha_mode(id: &str, mode: Option<String>) -> Result<Option<String>
     Ok(Some(mode.to_lowercase()))
 }
 
-/// Batch 3 surface-response and alpha fields of one catalog entry, validated.
+/// Surface-response, alpha and reflection fields of one catalog entry, validated.
 struct ValidatedResponse {
     normal_texture: Option<String>,
     normal_strength: Option<f32>,
@@ -955,8 +955,8 @@ struct CatalogEntryFile {
     emissive_intensity: Option<f32>,
     #[serde(default)]
     emissive_mask: Option<String>,
-    /// Batch 3 surface response: an optional normal map with a strength, a
-    /// sheen strength/colour and a roughness.
+    /// Surface response: an optional normal map with a strength, a sheen
+    /// strength/colour and a roughness.
     #[serde(default)]
     normal_texture: Option<String>,
     #[serde(default)]
@@ -967,16 +967,16 @@ struct CatalogEntryFile {
     specular_color: Option<Vec<f32>>,
     #[serde(default)]
     roughness: Option<f32>,
-    /// Batch 3 alpha: `opaque` | `cutout` | `blend`, plus the opacity
-    /// multiplier and the cut-out threshold.
+    /// Alpha: `opaque` | `cutout` | `blend`, plus the opacity multiplier and
+    /// the cut-out threshold.
     #[serde(default)]
     alpha_mode: Option<String>,
     #[serde(default)]
     opacity: Option<f32>,
     #[serde(default)]
     alpha_cutoff: Option<f32>,
-    /// Batch 4 selective reflections: `none` | `probe` | `planar`, plus the
-    /// weight of the reflected image.
+    /// Selective reflections: `none` | `probe` | `planar`, plus the weight of
+    /// the reflected image.
     #[serde(default)]
     reflection_mode: Option<String>,
     #[serde(default)]
@@ -1260,12 +1260,12 @@ impl CatalogEntryFile {
         })
     }
 
-    /// Validates the Batch 3 surface-response and alpha fields.
+    /// Validates the surface-response, alpha and reflection fields.
     ///
-    /// A material that declares none of them is exactly a pre-Batch-3 material:
-    /// no normal map, no sheen and opaque. Every authored value is range-checked
-    /// here so a malformed entry is a named catalog error rather than a silently
-    /// different surface.
+    /// A material that declares none of them renders as a legacy flat-shaded
+    /// material: no normal map, no sheen and opaque. Every authored value is
+    /// range-checked here so a malformed entry is a named catalog error rather
+    /// than a silently different surface.
     fn resolve_response(
         &self,
         id: &str,

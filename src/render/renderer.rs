@@ -438,7 +438,9 @@ pub(super) struct SurfaceState {
 
 impl SurfaceState {
     /// The state of a batch that binds only an albedo sheet and a vertex-lit
-    /// colour: every material authored before Batch 3, and the HUD.
+    /// colour: no normal map, no sheen, no emission and opaque. The HUD draws
+    /// with it, and a material that authors no response or alpha resolves to
+    /// the same terms.
     pub(super) const fn plain(texture: glow::Texture) -> Self {
         Self {
             texture,
@@ -609,9 +611,8 @@ pub(super) struct TranslucentDraw {
 
 /// Where one translucent draw's geometry lives.
 ///
-/// Only the static world contributes translucent geometry in this batch: a
-/// prop's glTF `alphaMode` is not parsed yet, so every placed model draws
-/// opaque. See the deferred-list note in the Batch 3 report.
+/// Only the static world contributes translucent geometry: a prop's glTF
+/// `alphaMode` is not parsed, so every placed model draws opaque.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum TranslucentSource {
     /// Index into [`Renderer::static_batches`].
@@ -1421,9 +1422,9 @@ pub struct Renderer {
     font_texture: glow::Texture,
     /// Decal rendering state (program, shared sheet, uniforms).
     decal: DecalPass,
-    /// Lightmap atlas pages currently bound on texture units 2 and 3. The shared
-    /// white sheet stands in when a page is absent, so the units are never
-    /// unbound.
+    /// Lightmap atlas pages currently assigned to texture units 2 and 3. The
+    /// shared white sheet stands in when a page is absent, so
+    /// [`Self::bind_lightmap_units`] always has a complete texture for both.
     lightmap_pages: [glow::Texture; LIGHTMAP_PAGE_SLOTS],
     /// Whether [`Self::lightmap_pages`] holds a real baked atlas.
     lightmaps_resident: bool,
@@ -1719,6 +1720,9 @@ impl Renderer {
         }
         self.linear_filtering = linear;
         unsafe {
+            // The rebinds below unbind whichever unit is active at the end; pin
+            // that to the scene unit so a lightmap unit is never left empty.
+            self.gl.active_texture(glow::TEXTURE0);
             self.gl
                 .bind_texture(glow::TEXTURE_2D, Some(self.decal.texture));
             set_repeat_filter(&self.gl, linear);
@@ -2499,19 +2503,9 @@ impl Renderer {
         self.scene_mvp = mvp;
         self.bind_scene_target(offscreen, render_size);
 
-        // Lightmap atlas pages live on their own units and are bound once per
-        // frame: the global switch is on only while a real atlas is resident, and
-        // every vertex whose page is `LIGHTMAP_NONE` takes the vertex-lit path
-        // regardless.
-        unsafe {
-            self.gl.active_texture(glow::TEXTURE2);
-            self.gl
-                .bind_texture(glow::TEXTURE_2D, Some(self.lightmap_pages[0]));
-            self.gl.active_texture(glow::TEXTURE3);
-            self.gl
-                .bind_texture(glow::TEXTURE_2D, Some(self.lightmap_pages[1]));
-            self.gl.active_texture(glow::TEXTURE0);
-        }
+        // The lightmap units are bound by [`Self::draw_scene_body`], which every
+        // scene submission goes through — including the level-load probe bake
+        // that runs before the first frame.
         self.current_pass = None;
         self.frame_state_valid = false;
         // The counters the passes increment; the report below replaces the whole
@@ -2529,6 +2523,11 @@ impl Renderer {
             // The reflection pass drew into its own target: put the scene target
             // back before the main body, exactly as if it had never run.
             self.bind_scene_target(offscreen, render_size);
+        } else {
+            // The direct path never runs the reflection pass, so the declared
+            // reflection samplers still need their complete fallbacks (the
+            // nearest probe, or the black cube/white sheet when none exists).
+            unsafe { self.bind_reflection_textures(None) };
         }
 
         // Static level geometry, then the batched props, then the dynamic
@@ -2691,6 +2690,9 @@ impl Renderer {
         self.current_pass = None;
         self.frame_state_valid = false;
         self.emissive_visible = false;
+        // Every world draw needs both lightmap units defined, including the
+        // level-load probe bake that runs before the first frame.
+        self.bind_lightmap_units();
         self.draw_static_pass(frustum, cull, BatchPass::Opaque, false)
             .plus(self.draw_prop_batches(frustum, cull, false))
             .plus(self.draw_dynamic_objects(frustum, cull, mvp, false))
@@ -2715,6 +2717,10 @@ impl Renderer {
         self.current_pass = None;
         self.frame_state_valid = false;
         self.emission_only = 1.0;
+        // The emissive stage never samples the atlas (`u_emission_only` returns
+        // before the lightmap term), but the units are bound anyway so every
+        // body begins from the same defined state.
+        self.bind_lightmap_units();
         let totals = self
             .draw_static_pass(frustum, cull, BatchPass::Opaque, true)
             .plus(self.draw_prop_batches(frustum, cull, true))
@@ -2893,8 +2899,8 @@ impl Renderer {
     /// Turns the offscreen scene into the display image.
     ///
     /// The post-processing resolve when the pipeline exists, the plain copy quad
-    /// when it does not: the fallback is the pre-Batch-4 presentation path and
-    /// is pixel-identical to it.
+    /// when it does not: the copy shows the scene texture unchanged and is
+    /// pixel-identical to the direct (no-offscreen) presentation.
     fn resolve_scene(&mut self, bloom: Option<glow::Texture>) {
         let drawable = self.drawable_size;
         let Some(scene) = self
@@ -2939,6 +2945,13 @@ impl Renderer {
             return;
         }
         let started = std::time::Instant::now();
+        // The bake is the first thing that ever draws the world program, and it
+        // runs before any frame has bound the reflection units. Both must hold a
+        // complete texture already — the probe cubemap does not exist yet, so the
+        // shared fallbacks are exactly right — or the driver reports the empty
+        // binding as an unloadable sampler on the very first face and substitutes
+        // a zero texture.
+        unsafe { self.bind_reflection_textures(None) };
         let points = self.reflections.routing.probe_points.clone();
         let profile = self.quality;
         for point in points.into_iter().take(wanted) {
@@ -3110,7 +3123,7 @@ impl Renderer {
         let mvp = self.scene_mvp.to_cols_array();
         let camera = [self.camera_pos.x, self.camera_pos.y, self.camera_pos.z];
         let scale = self.light_scale;
-        let lightmap_on = if self.lightmaps_resident { 1.0 } else { 0.0 };
+        let lightmap_on = if self.lightmaps_enabled { 1.0 } else { 0.0 };
         unsafe {
             if let Some(ref loc) = uniforms.mvp {
                 self.gl.uniform_matrix_4_f32_slice(Some(loc), false, &mvp);
@@ -3355,7 +3368,7 @@ impl Renderer {
     ///
     /// A level that marks nothing never binds a reflection source, never
     /// allocates a target and reports its materials as reflection-free, so the
-    /// frame is exactly the Batch 3 frame.
+    /// frame is pixel-identical to one drawn with reflection support absent.
     const fn reflections_supported(&self) -> bool {
         self.reflections_enabled && !self.reflections.routing.is_empty()
     }
@@ -3992,6 +4005,33 @@ impl Renderer {
         }
     }
 
+    /// Binds the current atlas pages on the two lightmap units, restoring
+    /// [`SCENE_TEXTURE_UNIT`] as the active unit.
+    ///
+    /// Both units must hold a *complete* 2D texture for every world draw, atlas
+    /// or not: the world fragment stage declares both samplers, and a unit whose
+    /// binding is the default (empty) texture object is not a defined sample —
+    /// the Apple GL driver reports it as unloadable and substitutes a zero
+    /// texture. [`Self::draw_scene_body`] and [`Self::draw_emissive_body`] call
+    /// this before every submission, not just once per frame, because the
+    /// level-load reflection-probe bake draws the world program before
+    /// `render_scene` has ever run.
+    fn bind_lightmap_units(&mut self) {
+        unsafe {
+            self.gl
+                .active_texture(super::view::texture_unit(LIGHTMAP_TEXTURE_UNIT));
+            self.gl
+                .bind_texture(glow::TEXTURE_2D, Some(self.lightmap_pages[0]));
+            self.gl
+                .active_texture(super::view::texture_unit(LIGHTMAP_TEXTURE_UNIT_1));
+            self.gl
+                .bind_texture(glow::TEXTURE_2D, Some(self.lightmap_pages[1]));
+            self.gl
+                .active_texture(super::view::texture_unit(SCENE_TEXTURE_UNIT));
+        }
+        self.render_stats.texture_binds = self.render_stats.texture_binds.saturating_add(2);
+    }
+
     /// Number of atlas pages currently resident on the GPU.
     #[must_use]
     pub const fn lightmap_page_count(&self) -> usize {
@@ -3999,7 +4039,8 @@ impl Renderer {
     }
 
     /// Uploads a whole baked atlas: one RGB8 texture per page, clamped and
-    /// filter-configured, bound on units 2 and 3, then marked resident.
+    /// filter-configured, then marked resident for [`Self::bind_lightmap_units`]
+    /// to bind on units 2 and 3.
     ///
     /// On any failure every texture this call created is deleted and the units
     /// are restored to the white sheet, so the caller can fall back to vertex
@@ -4057,6 +4098,10 @@ impl Renderer {
     unsafe fn upload_lightmap_page(&self, page: &LightmapPage) -> Result<glow::Texture, String> {
         unsafe {
             let texture = self.gl.create_texture()?;
+            // Upload on the scene unit rather than whichever unit happens to be
+            // active: the lightmap units hold the previous atlas until the
+            // caller swaps the pages in, and this must not unbind them.
+            self.gl.active_texture(glow::TEXTURE0);
             self.gl.bind_texture(glow::TEXTURE_2D, Some(texture));
             self.gl.tex_image_2d(
                 glow::TEXTURE_2D,
@@ -4285,6 +4330,10 @@ impl Renderer {
             }
             self.light_scale = [1.0; 3];
             self.frame_state_valid = true;
+            // The HUD closes `u_lightmap_enabled`, but the world program still
+            // declares both atlas samplers: bind them complete so this draw can
+            // never resolve an empty unit either.
+            self.bind_lightmap_units();
             // All of the surface uniforms — emission, sheen, roughness, opacity
             // and the response gate — are set from the same plain state the
             // world's own batcher uses, so the UI can never inherit a material.
@@ -4393,7 +4442,7 @@ impl Renderer {
         &self.dynamic
     }
 
-    /// Replaces the dynamic scene with the Batch 2 demonstration for `level`.
+    /// Replaces the dynamic scene with the washer-drum demonstration for `level`.
     ///
     /// Called once per level load (never per frame). The scene is cleared, the
     /// demonstration spawns a turning drum in front of every placed washing
