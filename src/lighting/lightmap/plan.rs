@@ -172,7 +172,6 @@ impl LightmapPlan {
         room: Option<usize>,
     ) -> bool {
         let Some(patch) = LightmapPatch::from_quad(kind, corners, room) else {
-            eprintln!("ZZDEGEN kind={kind:?} corners={corners:?}");
             self.failure.get_or_insert(LightmapFailure::DegenerateQuad);
             return false;
         };

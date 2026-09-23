@@ -4591,7 +4591,11 @@ fn lightmaps_off_reproduces_the_historical_vertex_lit_mesh() {
 
 #[test]
 fn full_and_low_share_the_patch_set_at_different_densities() {
-    let level = shipped_demo();
+    // The one-level/two-profiles contract, checked on the Home showcase
+    // fixture: it stays inside the two-page atlas at both densities, so this
+    // asserts the patch set and the density, not the page budget. Places Demo
+    // is checked separately below, because it has grown past the Low atlas.
+    let level = fixture_level("home_showcase");
     let full = lightmap_build(
         &level,
         crate::quality::QualityProfile::Full,
@@ -4630,6 +4634,38 @@ fn full_and_low_share_the_patch_set_at_different_densities() {
     );
     assert_eq!(full_lightmaps.pages[0].width, 1024);
     assert_eq!(low_lightmaps.pages[0].width, 512);
+}
+
+#[test]
+fn the_demo_bakes_on_full_and_takes_the_documented_fallback_on_low() {
+    // Places Demo has grown past the Low atlas (two 512-texel pages hold
+    // roughly a demo's worth of static surface): its patch set no longer packs
+    // there, so the Low profile takes the documented vertex-lit fallback while
+    // Full still bakes the same geometry into the 1024-texel pages. This pins
+    // the shipped level's honest behaviour rather than pretending both
+    // densities fit.
+    let level = shipped_demo();
+    let full = lightmap_build(
+        &level,
+        crate::quality::QualityProfile::Full,
+        LightmapMode::On,
+    );
+    assert_eq!(full.lightmap_failure, None, "the demo must bake on Full");
+    assert!(full.lightmaps.is_some(), "Full must produce the atlas");
+    let low = lightmap_build(
+        &level,
+        crate::quality::QualityProfile::Low,
+        LightmapMode::On,
+    );
+    assert_eq!(
+        low.lightmap_failure,
+        Some(LightmapFailure::PageOverflow),
+        "the demo must report the Low atlas overflow by name"
+    );
+    assert!(
+        low.lightmaps.is_none(),
+        "Low must fall back to vertex light"
+    );
 }
 
 #[test]
