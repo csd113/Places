@@ -6,6 +6,7 @@
 //! lighting or builds geometry; it uploads and draws what those phases already
 //! produced.
 
+use super::animation::{AnimationEffect, EmissionAnimation};
 use super::api::{
     LevelBuild, LightmapBuildOptions, build_level_geometry_timed_with_lightmaps,
     shipped_asset_catalog,
@@ -18,20 +19,25 @@ use super::{
     LIGHTMAP_PAGE_SLOTS, LIGHTMAP_TEXTURE_UNIT, LIGHTMAP_TEXTURE_UNIT_1, LevelMesh, MaterialIndex,
     MaterialTable, MeshChunk, MeshPacker, NORMAL_MAP_TEXTURE_UNIT, PRESENT_FRAGMENT_SHADER_SRC,
     PRESENT_TEXTURE_UNIT, PRESENT_VERTEX_SHADER_SRC, PackedVertex, PropMeshBatch,
-    SCENE_ATTRIB_COLOR, SCENE_ATTRIB_COUNT, SCENE_ATTRIB_HANDEDNESS, SCENE_ATTRIB_LIGHTMAP_PAGE,
+    REFLECTION_PLANAR_TEXTURE_UNIT, REFLECTION_PROBE_TEXTURE_UNIT, SCENE_ATTRIB_COLOR,
+    SCENE_ATTRIB_COUNT, SCENE_ATTRIB_HANDEDNESS, SCENE_ATTRIB_LIGHTMAP_PAGE,
     SCENE_ATTRIB_LIGHTMAP_UV, SCENE_ATTRIB_NORMAL, SCENE_ATTRIB_POS, SCENE_ATTRIB_TANGENT,
     SCENE_ATTRIB_UV, SCENE_FAR_M, SCENE_NEAR_M, SCENE_TEXTURE_UNIT, StaticBatch, SurfaceKey,
     SurfaceKind, UI_REFERENCE_HEIGHT, UI_REFERENCE_WIDTH, VERTEX_SHADER_SRC, Vertex, VertexLayout,
-    decal_external_sheet_ids, fragment_shader_source, generate_font_atlas, generate_white_texture,
-    packed_layout, spatial_cell_grid, vertical_fov_for_aspect,
+    decal_external_sheet_ids, exact_layout, fragment_shader_source, generate_font_atlas,
+    generate_white_texture, packed_layout, spatial_cell_grid, vertical_fov_for_aspect,
 };
 use crate::lighting::LevelLighting;
 use crate::lighting::lightmap::{
     LevelLightmaps, LightmapCache, LightmapFailure, LightmapMode, LightmapPage,
 };
-use crate::materials::{AlphaMode, MaterialAlpha, MaterialEmission, MaterialResponse};
+use crate::materials::{
+    AlphaMode, MaterialAlpha, MaterialEmission, MaterialReflection, MaterialResponse,
+    ReflectionMode,
+};
 use crate::spatial::Frustum;
 
+use super::atmosphere::FogState;
 use super::framebuffer::{self, PRESENT_QUAD};
 
 use super::dynamic::{DynamicMesh, DynamicScene, DynamicUpdate};
@@ -43,6 +49,24 @@ use super::dynamic::{DynamicMesh, DynamicScene, DynamicUpdate};
 /// a bring-up on a driver with a broken framebuffer implementation) needs.
 fn offscreen_requested_from_env() -> bool {
     std::env::var("LIMINAL_NO_OFFSCREEN").as_deref() != Ok("1")
+}
+
+/// Whether the post-processing bloom stage should start enabled.
+///
+/// On by default. `LIMINAL_NO_BLOOM=1` drops the emissive pass and the blur
+/// while keeping the resolve pass, so a benchmark can measure the bloom stages
+/// alone against the same build, profile and level.
+fn bloom_requested_from_env() -> bool {
+    std::env::var("LIMINAL_NO_BLOOM").as_deref() != Ok("1")
+}
+
+/// Whether selective reflections should start enabled.
+///
+/// On by default. `LIMINAL_NO_REFLECTIONS=1` reports every material as
+/// reflection-free, so the planar pass, the probe bake and the reflection
+/// texture binds all disappear from the frame.
+fn reflections_requested_from_env() -> bool {
+    std::env::var("LIMINAL_NO_REFLECTIONS").as_deref() != Ok("1")
 }
 
 /// Whether the scene should render offscreen at all, and at which size.
@@ -167,6 +191,61 @@ unsafe fn create_texture_2d(
     }
 }
 
+/// Creates a one-texel black cubemap.
+///
+/// The world shader declares `u_probe_map` unconditionally, so the unit must
+/// always hold a complete cube: sampling an unbound cube sampler is a GL error
+/// even when the material's reflection weight is zero. This is that cube, and
+/// it is what a frame draws with when no probe was baked.
+unsafe fn create_black_cube(gl: &glow::Context) -> Result<glow::Texture, String> {
+    unsafe {
+        let texture = gl.create_texture()?;
+        gl.bind_texture(glow::TEXTURE_CUBE_MAP, Some(texture));
+        for face in [
+            glow::TEXTURE_CUBE_MAP_POSITIVE_X,
+            glow::TEXTURE_CUBE_MAP_NEGATIVE_X,
+            glow::TEXTURE_CUBE_MAP_POSITIVE_Y,
+            glow::TEXTURE_CUBE_MAP_NEGATIVE_Y,
+            glow::TEXTURE_CUBE_MAP_POSITIVE_Z,
+            glow::TEXTURE_CUBE_MAP_NEGATIVE_Z,
+        ] {
+            gl.tex_image_2d(
+                face,
+                0,
+                glow::RGBA.cast_signed(),
+                1,
+                1,
+                0,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                glow::PixelUnpackData::Slice(Some(&[0, 0, 0, 255])),
+            );
+        }
+        gl.tex_parameter_i32(
+            glow::TEXTURE_CUBE_MAP,
+            glow::TEXTURE_WRAP_S,
+            glow::CLAMP_TO_EDGE.cast_signed(),
+        );
+        gl.tex_parameter_i32(
+            glow::TEXTURE_CUBE_MAP,
+            glow::TEXTURE_WRAP_T,
+            glow::CLAMP_TO_EDGE.cast_signed(),
+        );
+        gl.tex_parameter_i32(
+            glow::TEXTURE_CUBE_MAP,
+            glow::TEXTURE_MIN_FILTER,
+            glow::LINEAR.cast_signed(),
+        );
+        gl.tex_parameter_i32(
+            glow::TEXTURE_CUBE_MAP,
+            glow::TEXTURE_MAG_FILTER,
+            glow::LINEAR.cast_signed(),
+        );
+        gl.bind_texture(glow::TEXTURE_CUBE_MAP, None);
+        Ok(texture)
+    }
+}
+
 unsafe fn create_shader(
     gl: &glow::Context,
     shader_type: u32,
@@ -185,7 +264,7 @@ unsafe fn create_shader(
     }
 }
 
-unsafe fn create_program(
+pub(super) unsafe fn create_program(
     gl: &glow::Context,
     vert_src: &str,
     frag_src: &str,
@@ -292,6 +371,27 @@ impl EmissionState {
             vertex: true,
         }
     }
+
+    /// Whether this surface emits anything at all.
+    ///
+    /// The bloom pass draws exactly the batches this answers `true` for, which
+    /// is what keeps the glow on fixtures, signs and screens instead of on
+    /// brightly lit wallpaper.
+    pub(super) fn is_emissive(self) -> bool {
+        self.vertex || self.color[0] > 0.0 || self.color[1] > 0.0 || self.color[2] > 0.0
+    }
+}
+
+/// The mirror plane a frame's planar reflection was drawn through.
+#[derive(Clone, Copy, Debug)]
+struct ActiveReflectionPlane {
+    /// Index into the level's reflection routing.
+    index: usize,
+    /// View-projection of the reflected camera, for projecting a world position
+    /// onto the reflection image.
+    matrix: glam::Mat4,
+    /// Plane as `(normal, offset)`, for the shader's on-plane test.
+    plane: [f32; 4],
 }
 
 /// The complete surface state one world draw runs with.
@@ -324,6 +424,16 @@ pub(super) struct SurfaceState {
     /// False for a material that authors none, for the HUD, and for the whole
     /// scene under the Low quality profile.
     pub(super) response: bool,
+    /// Where this surface's reflection comes from, if it authors one.
+    pub(super) reflection: MaterialReflection,
+    /// The mirror plane this surface lies on, when its reflection is planar.
+    ///
+    /// Resolved at level load from the geometry itself: the same material can
+    /// be used on two planes, so the plane is a property of the batch, not of
+    /// the material.
+    pub(super) reflection_plane: Option<u16>,
+    /// How this surface's emission moves over time, if the level animates it.
+    pub(super) emission_animation: Option<EmissionAnimation>,
 }
 
 impl SurfaceState {
@@ -340,6 +450,9 @@ impl SurfaceState {
             opacity: 1.0,
             alpha_cutoff: crate::materials::DEFAULT_ALPHA_CUTOFF,
             response: false,
+            reflection: MaterialReflection::NONE,
+            reflection_plane: None,
+            emission_animation: None,
         }
     }
 }
@@ -591,6 +704,9 @@ pub struct RenderStats {
     /// Surface-state changes the scene passes applied: one per material change
     /// per pass, plus the pass switches that invalidate the cache.
     pub material_changes: usize,
+    /// Scene submissions the frame spent on reflections: one for the active
+    /// planar plane, zero when only probes are drawn or nothing reflects.
+    pub reflection_passes: u32,
 }
 
 /// GPU state for the decal pass: a second program (the world shader plus an
@@ -656,6 +772,8 @@ pub(super) struct MaterialRenderState {
     pub(super) responses: Vec<MaterialResponse>,
     /// Alpha contract per material index.
     pub(super) alphas: Vec<MaterialAlpha>,
+    /// Reflection contract per material index.
+    pub(super) reflections: Vec<MaterialReflection>,
 }
 
 impl MaterialRenderState {
@@ -667,6 +785,7 @@ impl MaterialRenderState {
             state.emissions.push(entry.emission);
             state.responses.push(entry.response);
             state.alphas.push(entry.alpha);
+            state.reflections.push(entry.reflection);
         }
         state
     }
@@ -687,6 +806,7 @@ struct ProgramUniforms {
     emission_color: Option<glow::UniformLocation>,
     emission_mask_enabled: Option<glow::UniformLocation>,
     emission_vertex: Option<glow::UniformLocation>,
+    emission_scale: Option<glow::UniformLocation>,
     lightmap_enabled: Option<glow::UniformLocation>,
     light_scale: Option<glow::UniformLocation>,
     response_enabled: Option<glow::UniformLocation>,
@@ -696,6 +816,15 @@ struct ProgramUniforms {
     roughness: Option<glow::UniformLocation>,
     opacity: Option<glow::UniformLocation>,
     alpha_cutoff: Option<glow::UniformLocation>,
+    fog_color: Option<glow::UniformLocation>,
+    fog_density: Option<glow::UniformLocation>,
+    fog_reference_y: Option<glow::UniformLocation>,
+    fog_height_gain: Option<glow::UniformLocation>,
+    reflect_mode: Option<glow::UniformLocation>,
+    reflect_strength: Option<glow::UniformLocation>,
+    planar_matrix: Option<glow::UniformLocation>,
+    planar_plane: Option<glow::UniformLocation>,
+    emission_only: Option<glow::UniformLocation>,
 }
 
 impl ProgramUniforms {
@@ -710,6 +839,7 @@ impl ProgramUniforms {
                 emission_color: gl.get_uniform_location(program, "u_emission_color"),
                 emission_mask_enabled: gl.get_uniform_location(program, "u_emission_mask_enabled"),
                 emission_vertex: gl.get_uniform_location(program, "u_emission_vertex"),
+                emission_scale: gl.get_uniform_location(program, "u_emission_scale"),
                 lightmap_enabled: gl.get_uniform_location(program, "u_lightmap_enabled"),
                 light_scale: gl.get_uniform_location(program, "u_light_scale"),
                 response_enabled: gl.get_uniform_location(program, "u_response_enabled"),
@@ -719,6 +849,15 @@ impl ProgramUniforms {
                 roughness: gl.get_uniform_location(program, "u_roughness"),
                 opacity: gl.get_uniform_location(program, "u_opacity"),
                 alpha_cutoff: gl.get_uniform_location(program, "u_alpha_cutoff"),
+                fog_color: gl.get_uniform_location(program, "u_fog_color"),
+                fog_density: gl.get_uniform_location(program, "u_fog_density"),
+                fog_reference_y: gl.get_uniform_location(program, "u_fog_reference_y"),
+                fog_height_gain: gl.get_uniform_location(program, "u_fog_height_gain"),
+                reflect_mode: gl.get_uniform_location(program, "u_reflect_mode"),
+                reflect_strength: gl.get_uniform_location(program, "u_reflect_strength"),
+                planar_matrix: gl.get_uniform_location(program, "u_planar_matrix"),
+                planar_plane: gl.get_uniform_location(program, "u_planar_plane"),
+                emission_only: gl.get_uniform_location(program, "u_emission_only"),
             }
         }
     }
@@ -747,8 +886,124 @@ impl ProgramUniforms {
             if let Some(loc) = gl.get_uniform_location(program, "u_lightmap1") {
                 gl.uniform_1_i32(Some(&loc), LIGHTMAP_TEXTURE_UNIT_1);
             }
+            if let Some(loc) = gl.get_uniform_location(program, "u_probe_map") {
+                gl.uniform_1_i32(Some(&loc), REFLECTION_PROBE_TEXTURE_UNIT);
+            }
+            if let Some(loc) = gl.get_uniform_location(program, "u_planar_map") {
+                gl.uniform_1_i32(Some(&loc), REFLECTION_PLANAR_TEXTURE_UNIT);
+            }
         }
     }
+}
+
+/// One scene attribute's `glVertexAttribPointer` description.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct SceneAttributePointer {
+    /// Component count (3 for a position, 2 for a UV, 4 for a colour).
+    pub(super) components: i32,
+    /// GL component type.
+    pub(super) gl_type: u32,
+    /// Whether the fixed function should normalize an integer type to `[0, 1]`.
+    pub(super) normalized: bool,
+    /// Byte offset inside the vertex.
+    pub(super) offset: i32,
+}
+
+/// The pointer description of every scene attribute, for one vertex layout.
+///
+/// This is the single source of truth for *where* each shader attribute reads
+/// from: [`Renderer::set_vertex_attributes`] walks it, and
+/// `scene_attribute_table_matches_the_vertex_structs` pins every entry against
+/// the offset constants and `offset_of!`. An attribute left out here is not
+/// merely unread — it silently reads the generic default `(0, 0, 0, 1)`, which
+/// is how a missing normal once collapsed every surface frame in the scene.
+#[must_use]
+pub(super) fn scene_attribute_table(
+    layout: VertexLayout,
+) -> [Option<SceneAttributePointer>; SCENE_ATTRIB_COUNT] {
+    let packed = layout == VertexLayout::Packed;
+    let frame = |packed_offset: i32, exact_offset: i32| SceneAttributePointer {
+        components: 3,
+        gl_type: if packed { glow::BYTE } else { glow::FLOAT },
+        normalized: packed,
+        offset: if packed { packed_offset } else { exact_offset },
+    };
+    [
+        Some(SceneAttributePointer {
+            components: 3,
+            gl_type: glow::FLOAT,
+            normalized: false,
+            offset: if packed {
+                packed_layout::POS_OFFSET
+            } else {
+                exact_layout::POS_OFFSET
+            },
+        }),
+        Some(SceneAttributePointer {
+            components: 4,
+            gl_type: if packed {
+                glow::UNSIGNED_BYTE
+            } else {
+                glow::FLOAT
+            },
+            normalized: packed,
+            offset: if packed {
+                packed_layout::COLOR_OFFSET
+            } else {
+                exact_layout::COLOR_OFFSET
+            },
+        }),
+        Some(SceneAttributePointer {
+            components: 2,
+            gl_type: glow::FLOAT,
+            normalized: false,
+            offset: if packed {
+                packed_layout::UV_OFFSET
+            } else {
+                exact_layout::UV_OFFSET
+            },
+        }),
+        // The lightmap attributes keep their exact quantised type in *both*
+        // layouts, so the packed and exact builds sample the atlas identically.
+        Some(SceneAttributePointer {
+            components: 2,
+            gl_type: glow::UNSIGNED_SHORT,
+            normalized: true,
+            offset: if packed {
+                packed_layout::LIGHTMAP_OFFSET
+            } else {
+                exact_layout::LIGHTMAP_OFFSET
+            },
+        }),
+        Some(SceneAttributePointer {
+            components: 1,
+            gl_type: glow::UNSIGNED_BYTE,
+            normalized: false,
+            offset: if packed {
+                packed_layout::LIGHTMAP_PAGE_OFFSET
+            } else {
+                exact_layout::LIGHTMAP_PAGE_OFFSET
+            },
+        }),
+        Some(frame(
+            packed_layout::NORMAL_OFFSET,
+            exact_layout::NORMAL_OFFSET,
+        )),
+        Some(frame(
+            packed_layout::TANGENT_OFFSET,
+            exact_layout::TANGENT_OFFSET,
+        )),
+        Some(SceneAttributePointer {
+            components: 1,
+            gl_type: if packed { glow::BYTE } else { glow::FLOAT },
+            normalized: packed,
+            offset: if packed {
+                packed_layout::HANDEDNESS_OFFSET
+            } else {
+                exact_layout::HANDEDNESS_OFFSET
+            },
+        }),
+    ]
 }
 
 /// GPU state for the offscreen presentation pass: the program, its uniforms and
@@ -767,6 +1022,10 @@ struct StartupResources {
     programs: [glow::Program; ScenePass::ALL.len()],
     uniforms: [ProgramUniforms; ScenePass::ALL.len()],
     present: PresentPass,
+    post: Option<super::postprocess::PostProcess>,
+    /// One-texel black cube bound to the reflection-probe unit whenever no probe
+    /// is resident, so the world shader always samples a complete cube.
+    black_cube: glow::Texture,
     ui_vbo: glow::Buffer,
     white_texture: glow::Texture,
     font_texture: glow::Texture,
@@ -842,10 +1101,19 @@ impl StartupResources {
             let ui_vbo = gl.create_buffer()?;
             gl.bind_buffer(glow::ARRAY_BUFFER, None);
 
+            // Post-processing is optional: a context that cannot link the
+            // resolve and blur programs (or cannot allocate their targets at
+            // resize) keeps the plain presentation copy instead. The diagnostic
+            // is one line; nothing else changes.
+            let post = create_post_process(gl);
+            let black_cube = create_black_cube(gl)?;
+
             Ok(Self {
                 programs,
                 uniforms,
                 present,
+                post,
+                black_cube,
                 ui_vbo,
                 white_texture,
                 font_texture,
@@ -859,6 +1127,27 @@ impl StartupResources {
                 a_tangent_loc,
                 a_handedness_loc,
             })
+        }
+    }
+}
+
+/// Creates the optional post-processing pipeline for the default profile.
+///
+/// A failure is reported once and yields `None`: the renderer then presents the
+/// offscreen scene with the plain copy quad, exactly as it did before the
+/// post-processing stage existed.
+#[allow(clippy::print_stderr)] // the documented non-fatal fallback path
+unsafe fn create_post_process(gl: &glow::Context) -> Option<super::postprocess::PostProcess> {
+    match unsafe {
+        super::postprocess::PostProcess::create(
+            gl,
+            super::postprocess::PostSettings::for_profile(crate::quality::QualityProfile::DEFAULT),
+        )
+    } {
+        Ok(post) => Some(post),
+        Err(error) => {
+            eprintln!("[postprocess] disabled: {error}");
+            None
         }
     }
 }
@@ -1170,6 +1459,46 @@ pub struct Renderer {
     level_stats: LevelBuildStats,
     /// Counters for the most recently submitted frame (see [`RenderStats`]).
     render_stats: RenderStats,
+    /// Set when a level build produced reflection routing that still needs its
+    /// probes baked; the bake runs once the level's textures are resident.
+    pending_probe_bake: bool,
+    /// Whether the bloom stage may run this session (`LIMINAL_NO_BLOOM`).
+    bloom_enabled: bool,
+    /// Set by the main pass when an emissive batch survived culling, so a view
+    /// with nothing glowing skips the bloom stages entirely.
+    emissive_visible: bool,
+    /// Whether selective reflections may run this session
+    /// (`LIMINAL_NO_REFLECTIONS`).
+    reflections_enabled: bool,
+    /// Emission animation per material index, resolved from the level.
+    material_animations: Vec<Option<EmissionAnimation>>,
+    /// Seconds since the level loaded, for the emission animations. Advanced by
+    /// the simulation's own delta, never by wall-clock time, so a capture is
+    /// reproducible.
+    animation_seconds: f32,
+    /// The mirror plane this frame's planar reflection was drawn through, if
+    /// any. The matrix projects a world position into the reflected frame, so
+    /// the same value both drew the image and samples it.
+    active_plane: Option<ActiveReflectionPlane>,
+    /// True while a pass is drawing a reflection: reflective materials must not
+    /// read the image being written, and a probe bake must not read a cubemap
+    /// that does not exist yet.
+    reflection_capture: bool,
+    /// Restrained post-processing: bloom, exposure/tone and a subtle grade. None
+    /// when the context refused the extra programs, in which case the offscreen
+    /// scene is presented by the plain copy quad.
+    post: Option<super::postprocess::PostProcess>,
+    /// Non-zero while a pass draws the world's emissive term alone into the
+    /// bloom target.
+    emission_only: f32,
+    /// Atmospheric fog the world shader mixes in.
+    fog: FogState,
+    /// One-texel black cube bound to the reflection-probe unit when no probe is
+    /// resident.
+    black_cube: glow::Texture,
+    /// Planar reflection planes the current level declares, and the state of the
+    /// reflection pass for this frame.
+    reflections: super::reflections::Reflections,
 }
 
 impl Renderer {
@@ -1215,8 +1544,27 @@ impl Renderer {
         let prop_catalog = crate::loader::PropCatalog::load_default();
         let startup = unsafe { StartupResources::create(&gl)? };
         let (initial_width, initial_height) = window.drawable_size();
+        Ok(Self::from_startup(
+            gl,
+            gl_context,
+            startup,
+            prop_catalog,
+            DrawableSize::new(initial_width, initial_height),
+        ))
+    }
 
-        Ok(Self {
+    /// Assembles a renderer from the objects [`StartupResources::create`] built.
+    ///
+    /// Split out of [`Renderer::new`] so the context creation and the state it
+    /// starts from are each readable on their own.
+    fn from_startup(
+        gl: glow::Context,
+        gl_context: sdl2::video::GLContext,
+        startup: StartupResources,
+        prop_catalog: crate::loader::PropCatalog,
+        drawable_size: DrawableSize,
+    ) -> Self {
+        Self {
             _gl_context: gl_context,
             gl,
             programs: startup.programs,
@@ -1261,6 +1609,9 @@ impl Renderer {
             materials: MaterialRenderState::default(),
             material_textures: Vec::new(),
             quality: crate::quality::QualityProfile::DEFAULT,
+            bloom_enabled: bloom_requested_from_env(),
+            emissive_visible: false,
+            reflections_enabled: reflections_requested_from_env(),
             white_texture: startup.white_texture,
             font_texture: startup.font_texture,
             decal: startup.decal,
@@ -1279,10 +1630,20 @@ impl Renderer {
             a_tangent_loc: startup.a_tangent_loc,
             a_handedness_loc: startup.a_handedness_loc,
             linear_filtering: true,
-            drawable_size: DrawableSize::new(initial_width, initial_height),
+            drawable_size,
             level_stats: LevelBuildStats::default(),
             render_stats: RenderStats::default(),
-        })
+            pending_probe_bake: false,
+            material_animations: Vec::new(),
+            animation_seconds: 0.0,
+            active_plane: None,
+            reflection_capture: false,
+            post: startup.post,
+            emission_only: 0.0,
+            fog: FogState::SHIPPED,
+            black_cube: startup.black_cube,
+            reflections: super::reflections::Reflections::default(),
+        }
     }
 
     /// Records the current physical framebuffer size.
@@ -1314,10 +1675,29 @@ impl Renderer {
     /// so changing it takes effect on the next level load rather than by
     /// rescaling anything already resident — and never per frame.
     ///
+    /// The post-processing stack and the reflection budget follow the profile:
+    /// Full blooms, grades and reflects through one mirror plane, Low keeps the
+    /// resolve pass (tone and fog are part of the image, not an extra effect),
+    /// drops bloom and grading, and reads only the static probes.
+    ///
     /// [`Full`]: crate::quality::QualityProfile::Full
     /// [`Low`]: crate::quality::QualityProfile::Low
-    pub const fn set_quality(&mut self, quality: crate::quality::QualityProfile) {
+    pub fn set_quality(&mut self, quality: crate::quality::QualityProfile) {
+        if self.quality == quality {
+            return;
+        }
         self.quality = quality;
+        let settings = super::postprocess::PostSettings::for_profile(quality);
+        if let Some(post) = self.post.as_mut() {
+            unsafe { post.set_settings(&self.gl, settings) };
+        }
+        self.reflections.set_profile(quality);
+        if !self.reflections_enabled {
+            self.reflections.set_enabled(false);
+        }
+        // Whether a material reflects at all depends on the profile, and the
+        // surface cache holds the previous answer.
+        self.surface_state = None;
     }
 
     /// The active runtime quality profile.
@@ -1601,6 +1981,63 @@ impl Renderer {
             lightmap_fallback: lightmap_failure.is_some(),
         };
         self.prop_draws = draws;
+        self.resolve_scene_extras(level, materials, &mesh);
+    }
+
+    /// Resolves the per-level reflection routing and emission animations.
+    ///
+    /// Both are derived from the geometry and material table that were just
+    /// built: the material table says *whether* a surface reflects or animates,
+    /// and the batch's own vertices say which mirror plane it reflects on. The
+    /// probe bake waits for [`Self::set_level`], which is where the surface
+    /// textures and the render-side material table exist.
+    fn resolve_scene_extras(
+        &mut self,
+        level: &crate::level::LevelDef,
+        materials: &MaterialTable,
+        mesh: &LevelMesh,
+    ) {
+        let reflections = materials
+            .entries()
+            .iter()
+            .map(|entry| entry.reflection)
+            .collect::<Vec<_>>();
+        let routing = super::reflections::routing_from_mesh(mesh, &reflections, reflections.len());
+        if !routing.is_empty() {
+            Self::report_reflections(&routing);
+        }
+        unsafe { self.reflections.set_routing(&self.gl, routing) };
+        self.reflections.set_profile(self.quality);
+        if !self.reflections_enabled {
+            self.reflections.set_enabled(false);
+        }
+        self.pending_probe_bake = true;
+
+        // Emission animations, resolved from material ids to table indices. A
+        // level that declares none leaves every entry `None`, which is the
+        // identity multiplier and costs one uniform per draw.
+        self.material_animations = vec![None; materials.entries().len()];
+        self.animation_seconds = 0.0;
+        for animation in &level.animated_emissions {
+            let Some(index) = materials.index_of(animation.material.trim()) else {
+                continue;
+            };
+            let effect = animation
+                .effect
+                .as_deref()
+                .and_then(AnimationEffect::parse)
+                .unwrap_or(AnimationEffect::Pulse);
+            let resolved = EmissionAnimation {
+                effect,
+                hz: animation.hz.unwrap_or_else(|| effect.default_hz()),
+                depth: animation.depth.unwrap_or_else(|| effect.default_depth()),
+                phase: animation.phase.unwrap_or(0.0),
+            }
+            .sanitized();
+            if let Some(slot) = self.material_animations.get_mut(usize::from(index)) {
+                *slot = resolved.is_active().then_some(resolved);
+            }
+        }
     }
 
     /// Packs every prop batch and uploads one texture per distinct model.
@@ -1926,6 +2363,13 @@ impl Renderer {
         self.fixture_sheets = self.upload_fixture_sheets(&loaded.light_sheets, &mut level_textures);
 
         self.level_textures = level_textures;
+
+        // Now that the geometry, the material table and the fixture sheets are
+        // resident, one look around each probe point is enough to bake the
+        // static reflection probes for the whole level.
+        if std::mem::take(&mut self.pending_probe_bake) {
+            self.bake_reflection_probes();
+        }
     }
 
     /// Uploads the level's fixture sheets, one GPU texture per
@@ -2027,21 +2471,7 @@ impl Renderer {
         );
         self.camera_pos = camera_pos;
         self.scene_mvp = mvp;
-
-        unsafe {
-            match self.scene_target.as_ref() {
-                Some(target) if offscreen => target.bind(&self.gl),
-                _ => self.gl.bind_framebuffer(glow::FRAMEBUFFER, None),
-            }
-            self.gl.viewport(
-                0,
-                0,
-                i32::try_from(render_size.width).unwrap_or(i32::MAX),
-                i32::try_from(render_size.height).unwrap_or(i32::MAX),
-            );
-            self.gl
-                .clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
-        }
+        self.bind_scene_target(offscreen, render_size);
 
         // Lightmap atlas pages live on their own units and are bound once per
         // frame: the global switch is on only while a real atlas is resident, and
@@ -2063,6 +2493,18 @@ impl Renderer {
         self.render_stats.texture_binds = 0;
         self.render_stats.material_changes = 0;
 
+        // Reflections are recorded before the main pass, because the pass that
+        // draws the scene needs to know what the reflective materials read from.
+        // A planar plane is chosen by (in-frustum, then nearest); the emissive
+        // image the bloom blurs is a separate small target drawn afterwards.
+        self.render_stats.reflection_passes = 0;
+        if offscreen {
+            self.capture_reflections(&frustum, cull, &mvp, render_size);
+            // The reflection pass drew into its own target: put the scene target
+            // back before the main body, exactly as if it had never run.
+            self.bind_scene_target(offscreen, render_size);
+        }
+
         // Static level geometry, then the batched props, then the dynamic
         // objects, each in the pass their material belongs to, then the
         // translucent pass sorted back to front, then the decal pass: one draw
@@ -2071,13 +2513,13 @@ impl Renderer {
         // already in the depth buffer when a decal's alpha cut-out is tested
         // against them, and so the pass that changes program and state stays
         // last.
-        let totals = self
-            .draw_static_pass(&frustum, cull, BatchPass::Opaque)
-            .plus(self.draw_prop_batches(&frustum, cull))
-            .plus(self.draw_dynamic_objects(&frustum, cull, &mvp))
-            .plus(self.draw_static_pass(&frustum, cull, BatchPass::Cutout))
-            .plus(self.draw_translucent_pass(&frustum, cull, &mvp))
-            .plus(self.draw_decal_batches(&frustum, cull, &mvp));
+        let totals = self.draw_scene_body(&mvp, &frustum, cull);
+
+        let bloom = if offscreen {
+            self.capture_bloom(&frustum, cull, &mvp)
+        } else {
+            None
+        };
 
         unsafe {
             self.disable_scene_attributes();
@@ -2087,7 +2529,7 @@ impl Renderer {
         }
 
         if offscreen {
-            self.present_scene();
+            self.resolve_scene(bloom);
         }
 
         // Report what this frame actually submitted, straight from the draw
@@ -2116,6 +2558,7 @@ impl Renderer {
             index_bytes: self.level_stats.index_bytes,
             texture_binds: self.render_stats.texture_binds,
             material_changes: self.render_stats.material_changes,
+            reflection_passes: self.render_stats.reflection_passes,
         };
     }
 
@@ -2188,6 +2631,375 @@ impl Renderer {
     /// follows. The target covers the whole drawable, so no clear is needed —
     /// but the framebuffer's depth is cleared anyway, so a later frame that
     /// takes the direct path starts from the same state.
+    /// Points the GL draw target at the scene (or the window) and clears it.
+    fn bind_scene_target(&self, offscreen: bool, render_size: DrawableSize) {
+        unsafe {
+            match self.scene_target.as_ref() {
+                Some(target) if offscreen => target.bind(&self.gl),
+                _ => self.gl.bind_framebuffer(glow::FRAMEBUFFER, None),
+            }
+            self.gl.viewport(
+                0,
+                0,
+                i32::try_from(render_size.width).unwrap_or(i32::MAX),
+                i32::try_from(render_size.height).unwrap_or(i32::MAX),
+            );
+            self.gl
+                .clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
+        }
+    }
+
+    /// Draws the whole 3D scene body with one view-projection.
+    ///
+    /// This is the one place the frame's draw order is written down; the main
+    /// pass and every reflection pass run it with a different matrix. Dynamic
+    /// objects are opaque and belong *before* the decal pass so their fragments
+    /// are already in the depth buffer when a decal's alpha cut-out is tested
+    /// against them, and so the pass that changes program and state stays last.
+    fn draw_scene_body(&mut self, mvp: &glam::Mat4, frustum: &Frustum, cull: bool) -> DrawTotals {
+        self.scene_mvp = *mvp;
+        // The program and its uniforms belong to whichever body ran last.
+        self.current_pass = None;
+        self.frame_state_valid = false;
+        self.emissive_visible = false;
+        self.draw_static_pass(frustum, cull, BatchPass::Opaque, false)
+            .plus(self.draw_prop_batches(frustum, cull, false))
+            .plus(self.draw_dynamic_objects(frustum, cull, mvp, false))
+            .plus(self.draw_static_pass(frustum, cull, BatchPass::Cutout, false))
+            .plus(self.draw_translucent_pass(frustum, cull, mvp, false))
+            .plus(self.draw_decal_batches(frustum, cull, mvp))
+    }
+
+    /// Draws only the world's emissive surfaces, for the bloom image.
+    ///
+    /// The emissive term is the one thing bloom is allowed to see; drawing it
+    /// into its own small target is what keeps a brightly lit wall out of the
+    /// glow no matter how bright its bake is, and the pass submits a handful of
+    /// fixture, sign and screen batches at a quarter resolution.
+    fn draw_emissive_body(
+        &mut self,
+        mvp: &glam::Mat4,
+        frustum: &Frustum,
+        cull: bool,
+    ) -> DrawTotals {
+        self.scene_mvp = *mvp;
+        self.current_pass = None;
+        self.frame_state_valid = false;
+        self.emission_only = 1.0;
+        let totals = self
+            .draw_static_pass(frustum, cull, BatchPass::Opaque, true)
+            .plus(self.draw_prop_batches(frustum, cull, true))
+            .plus(self.draw_dynamic_objects(frustum, cull, mvp, true))
+            .plus(self.draw_static_pass(frustum, cull, BatchPass::Cutout, true))
+            .plus(self.draw_translucent_pass(frustum, cull, mvp, true));
+        self.emission_only = 0.0;
+        totals
+    }
+
+    /// Binds the reflection samplers for this frame.
+    ///
+    /// The probe unit always has a complete cube and the planar unit a complete
+    /// 2D texture, because the world shader declares both samplers for every
+    /// draw; the per-material weights decide whether anything is read.
+    unsafe fn bind_reflection_textures(&mut self, planar: Option<glow::Texture>) {
+        let probe = self
+            .reflections
+            .probe_texture([self.camera_pos.x, self.camera_pos.y, self.camera_pos.z])
+            .unwrap_or(self.black_cube);
+        unsafe {
+            self.gl
+                .active_texture(super::view::texture_unit(REFLECTION_PROBE_TEXTURE_UNIT));
+            self.gl.bind_texture(glow::TEXTURE_CUBE_MAP, Some(probe));
+            self.gl
+                .active_texture(super::view::texture_unit(REFLECTION_PLANAR_TEXTURE_UNIT));
+            self.gl
+                .bind_texture(glow::TEXTURE_2D, Some(planar.unwrap_or(self.white_texture)));
+            self.gl.active_texture(glow::TEXTURE0);
+        }
+        self.render_stats.texture_binds = self.render_stats.texture_binds.saturating_add(2);
+    }
+
+    /// Chooses and draws this frame's planar reflection, and binds the
+    /// reflection samplers.
+    ///
+    /// At most one plane is reflected per frame: the nearest one whose
+    /// reflective geometry survived the frustum test. That is the deliberate
+    /// limit — a second plane would double the scene submission again for a
+    /// mirror edge the player is far less likely to be looking at.
+    fn capture_reflections(
+        &mut self,
+        frustum: &Frustum,
+        cull: bool,
+        mvp: &glam::Mat4,
+        render_size: DrawableSize,
+    ) {
+        self.active_plane = None;
+        let plane_index = self.nearest_visible_reflection_plane(frustum);
+        let mut planar_texture = None;
+        if let Some(index) = plane_index
+            && self.reflections.planar_enabled()
+        {
+            let Some(plane) = self.reflections.routing.planes.get(index).copied() else {
+                unsafe { self.bind_reflection_textures(None) };
+                return;
+            };
+            let ready = unsafe { self.reflections.ensure_planar(&self.gl, render_size) };
+            if ready {
+                let mirror = super::reflections::mirror_matrix(plane.normal, plane.offset);
+                let [nx, ny, nz] = plane.normal;
+                // `glam` matrix products are per-element `f32` arithmetic with
+                // no overflow or panic path.
+                #[allow(clippy::arithmetic_side_effects)]
+                let mirrored_mvp = *mvp * mirror;
+                let mirrored_camera = super::reflections::mirror_point(
+                    plane.normal,
+                    plane.offset,
+                    [self.camera_pos.x, self.camera_pos.y, self.camera_pos.z],
+                );
+                let frustum_mirrored = Frustum::from_view_projection(
+                    &mirrored_mvp,
+                    crate::spatial::DepthRange::NegativeOneToOne,
+                );
+                let planar_color = self
+                    .reflections
+                    .planar()
+                    .map(super::reflections::PlanarTarget::color);
+                if self.reflections.planar().is_some() {
+                    if let Some(planar) = self.reflections.planar() {
+                        unsafe { planar.bind(&self.gl) };
+                    }
+                    unsafe {
+                        self.gl.clear_color(0.08, 0.08, 0.09, 1.0);
+                        self.gl
+                            .clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
+                    }
+                    // The mirrored transform reverses every triangle's winding,
+                    // and the world shader flips the shading normal on a back
+                    // face. Telling GL which winding is front keeps the
+                    // reflected image shaded exactly like the real one.
+                    unsafe { self.gl.front_face(glow::CW) };
+                    self.reflection_capture = true;
+                    let saved_camera = self.camera_pos;
+                    self.camera_pos =
+                        glam::Vec3::new(mirrored_camera[0], mirrored_camera[1], mirrored_camera[2]);
+                    let _ = self.draw_scene_body(&mirrored_mvp, &frustum_mirrored, cull);
+                    self.camera_pos = saved_camera;
+                    self.reflection_capture = false;
+                    unsafe { self.gl.front_face(glow::CCW) };
+                    self.render_stats.reflection_passes =
+                        self.render_stats.reflection_passes.saturating_add(1);
+                    planar_texture = planar_color;
+                    self.active_plane = Some(ActiveReflectionPlane {
+                        index,
+                        matrix: mirrored_mvp,
+                        plane: [nx, ny, nz, plane.offset],
+                    });
+                }
+            }
+        }
+        unsafe { self.bind_reflection_textures(planar_texture) };
+    }
+
+    /// Draws the emissive image and blurs it into the bloom texture.
+    ///
+    /// `None` when the profile does not bloom or no target could be allocated,
+    /// in which case the resolve pass adds nothing.
+    fn capture_bloom(
+        &mut self,
+        frustum: &Frustum,
+        cull: bool,
+        mvp: &glam::Mat4,
+    ) -> Option<glow::Texture> {
+        // `LIMINAL_NO_BLOOM=1` measures the same build without the stage, and a
+        // view with no emissive surface on screen skips it without one: bloom
+        // can only come from emission, so there is nothing to draw.
+        if !self.bloom_enabled || !self.emissive_visible {
+            return None;
+        }
+        // The bloom target shares the scene target's aspect ratio (both scale
+        // by the same factor), so the scene's own view-projection and frustum
+        // are the right ones. The emissive pass is a scatter of small bright
+        // rectangles: at a quarter resolution the blur cannot tell.
+        let render_size = self.scene_target_size;
+        let scene_depth = self
+            .scene_target
+            .as_ref()
+            .map(framebuffer::SceneTarget::depth_buffer);
+        {
+            let post = self.post.as_mut()?;
+            if !unsafe { post.ensure_targets(&self.gl, render_size, scene_depth) } {
+                return None;
+            }
+        }
+        {
+            let post = self.post.as_ref()?;
+            unsafe { post.begin_emissive(&self.gl) }?;
+        }
+        let _ = self.draw_emissive_body(mvp, frustum, cull);
+        let post = self.post.as_ref()?;
+        unsafe { super::postprocess::PostProcess::end_emissive(&self.gl) };
+        unsafe { post.finish_bloom(&self.gl) }
+    }
+
+    /// The nearest mirror plane whose reflective geometry is on screen.
+    fn nearest_visible_reflection_plane(&self, frustum: &Frustum) -> Option<usize> {
+        let mut best: Option<(f32, usize)> = None;
+        for (index, plane) in self.reflections.routing.planes.iter().enumerate() {
+            if !frustum.intersects_aabb(&plane.bounds) {
+                continue;
+            }
+            let distance = plane
+                .distance([self.camera_pos.x, self.camera_pos.y, self.camera_pos.z])
+                .abs();
+            if !distance.is_finite() {
+                continue;
+            }
+            if best.is_none_or(|(nearest, _)| distance < nearest) {
+                best = Some((distance, index));
+            }
+        }
+        best.map(|(_, index)| index)
+    }
+
+    /// Turns the offscreen scene into the display image.
+    ///
+    /// The post-processing resolve when the pipeline exists, the plain copy quad
+    /// when it does not: the fallback is the pre-Batch-4 presentation path and
+    /// is pixel-identical to it.
+    fn resolve_scene(&mut self, bloom: Option<glow::Texture>) {
+        let drawable = self.drawable_size;
+        let Some(scene) = self
+            .scene_target
+            .as_ref()
+            .map(framebuffer::SceneTarget::color)
+        else {
+            return;
+        };
+        let post = self.post.as_ref();
+        if post.is_some_and(|post| post.settings().is_identity()) {
+            // Nothing to add, expose or grade: the plain copy quad is the same
+            // image for less work. The targets are dropped so the memory is not
+            // held for a stage that never runs.
+            self.present_scene();
+            return;
+        }
+        let (bloom_strength, bloom_texture) = match (post, bloom) {
+            (Some(post), Some(bloom)) if post.blooms() => (post.settings().bloom_strength, bloom),
+            // No bloom this frame: the sampler still needs a complete texture,
+            // so it reads the scene and multiplies it by zero.
+            _ => (0.0, scene),
+        };
+        match post {
+            Some(post) => unsafe {
+                post.resolve(&self.gl, scene, bloom_texture, bloom_strength, drawable);
+                self.render_stats.texture_binds = self.render_stats.texture_binds.saturating_add(2);
+                self.gl.clear(glow::DEPTH_BUFFER_BIT);
+            },
+            None => self.present_scene(),
+        }
+    }
+
+    /// Bakes the static reflection probes for the current level.
+    ///
+    /// Six scene submissions per probe, once per level load. A probe is the
+    /// cheap half of the reflection support: after this, sampling it costs one
+    /// texture read per reflective fragment and nothing per frame.
+    fn bake_reflection_probes(&mut self) {
+        let wanted = self.reflections.wanted_probe_count();
+        if wanted == 0 {
+            return;
+        }
+        let started = std::time::Instant::now();
+        let points = self.reflections.routing.probe_points.clone();
+        let profile = self.quality;
+        for point in points.into_iter().take(wanted) {
+            // A probe sits a little above the surface that asked for it: a
+            // floor's centroid is on the floor, and a cubemap baked *in* a
+            // surface sees nothing.
+            let position = [point[0], point[1] + 1.2, point[2]];
+            let probe = match unsafe {
+                super::reflections::ProbeTarget::create(&self.gl, profile, position)
+            } {
+                Ok(probe) => probe,
+                Err(error) => {
+                    Self::report_reflection_failure(&error);
+                    return;
+                }
+            };
+            let side = probe.face_texels();
+            let projection = glam::Mat4::perspective_rh_gl(
+                std::f32::consts::FRAC_PI_2,
+                1.0,
+                SCENE_NEAR_M,
+                SCENE_FAR_M,
+            );
+            let eye = glam::Vec3::new(position[0], position[1], position[2]);
+            for (face, direction, up) in super::reflections::CUBE_FACES {
+                unsafe { probe.bind_face(&self.gl, face) };
+                unsafe {
+                    self.gl.viewport(
+                        0,
+                        0,
+                        i32::try_from(side).unwrap_or(i32::MAX),
+                        i32::try_from(side).unwrap_or(i32::MAX),
+                    );
+                    self.gl.clear_color(0.08, 0.08, 0.09, 1.0);
+                    self.gl
+                        .clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
+                }
+                let target = glam::Vec3::new(direction[0], direction[1], direction[2]);
+                let up = glam::Vec3::new(up[0], up[1], up[2]);
+                #[allow(clippy::arithmetic_side_effects)] // glam float math
+                let (view, mvp) = {
+                    let view = glam::Mat4::look_at_rh(eye, eye + target, up);
+                    (view, projection * view)
+                };
+                let _ = view;
+                let frustum = Frustum::from_view_projection(
+                    &mvp,
+                    crate::spatial::DepthRange::NegativeOneToOne,
+                );
+                // The probe is an image of the room, not of the reflections in
+                // it: suppressing them here is what stops a mirror from baking
+                // its own uninitialised cubemap into the probe.
+                self.reflection_capture = true;
+                let saved_camera = self.camera_pos;
+                self.camera_pos = eye;
+                let _ = self.draw_scene_body(&mvp, &frustum, true);
+                self.camera_pos = saved_camera;
+                self.reflection_capture = false;
+            }
+            self.reflections.push_probe(probe);
+        }
+        self.scene_mvp = glam::Mat4::IDENTITY;
+        let millis = started.elapsed().as_secs_f64() * 1000.0;
+        #[allow(clippy::print_stderr)]
+        {
+            eprintln!(
+                "[reflections] baked {} probe(s) at {} texels/face in {millis:.1} ms",
+                self.reflections.probes().len(),
+                self.reflections
+                    .probes()
+                    .first()
+                    .map_or(0, super::reflections::ProbeTarget::face_texels)
+            );
+        }
+    }
+
+    #[allow(clippy::print_stderr)] // level-load diagnostics have no logger
+    fn report_reflections(routing: &super::reflections::ReflectionRouting) {
+        eprintln!(
+            "[reflections] {} mirror plane(s), {} probe point(s)",
+            routing.planes.len(),
+            routing.probe_points.len()
+        );
+    }
+
+    #[allow(clippy::print_stderr)] // one line per refused probe, at level load
+    fn report_reflection_failure(error: &str) {
+        eprintln!("[reflections] probe baking disabled: {error}");
+    }
+
     fn present_scene(&mut self) {
         let drawable = self.drawable_size;
         let Some(target) = self.scene_target.as_ref() else {
@@ -2294,6 +3106,44 @@ impl Renderer {
             if let Some(ref loc) = uniforms.lightmap_enabled {
                 self.gl.uniform_1_f32(Some(loc), lightmap_on);
             }
+            let fog = self.fog;
+            if let Some(ref loc) = uniforms.fog_color {
+                self.gl
+                    .uniform_3_f32(Some(loc), fog.color[0], fog.color[1], fog.color[2]);
+            }
+            if let Some(ref loc) = uniforms.fog_density {
+                self.gl.uniform_1_f32(Some(loc), fog.density);
+            }
+            if let Some(ref loc) = uniforms.fog_reference_y {
+                self.gl.uniform_1_f32(Some(loc), fog.reference_y);
+            }
+            if let Some(ref loc) = uniforms.fog_height_gain {
+                self.gl.uniform_1_f32(Some(loc), fog.height_gain);
+            }
+            if let Some(ref loc) = uniforms.emission_only {
+                self.gl.uniform_1_f32(Some(loc), self.emission_only);
+            }
+            // The planar reflection's own view-projection and plane, zeroed
+            // when this frame has no active mirror: a material can only read
+            // the reflection image when its plane was the one drawn, and the
+            // matrix is what projects a world position into that image.
+            let (planar_matrix, planar_plane) = self.active_plane.map_or_else(
+                || (glam::Mat4::IDENTITY.to_cols_array(), [0.0, 0.0, 1.0, 0.0]),
+                |active| (active.matrix.to_cols_array(), active.plane),
+            );
+            if let Some(ref loc) = uniforms.planar_matrix {
+                self.gl
+                    .uniform_matrix_4_f32_slice(Some(loc), false, &planar_matrix);
+            }
+            if let Some(ref loc) = uniforms.planar_plane {
+                self.gl.uniform_4_f32(
+                    Some(loc),
+                    planar_plane[0],
+                    planar_plane[1],
+                    planar_plane[2],
+                    planar_plane[3],
+                );
+            }
         }
         self.uploaded_camera_pos = self.camera_pos;
         self.frame_state_valid = true;
@@ -2362,7 +3212,13 @@ impl Renderer {
     /// decal program and depth bias, which keeps the world program's early
     /// depth testing intact. Translucent batches are collected by
     /// [`Self::draw_translucent_pass`], which sorts them.
-    fn draw_static_pass(&mut self, frustum: &Frustum, cull: bool, pass: BatchPass) -> DrawTotals {
+    fn draw_static_pass(
+        &mut self,
+        frustum: &Frustum,
+        cull: bool,
+        pass: BatchPass,
+        emissive_only: bool,
+    ) -> DrawTotals {
         let mut totals = DrawTotals::default();
         let mut begun = false;
         let mut bound_key: Option<SurfaceKey> = None;
@@ -2383,6 +3239,13 @@ impl Renderer {
             if cull && !frustum.intersects_aabb(&batch.bounds) {
                 continue;
             }
+            let state = self.static_surface_state(batch.key);
+            if emissive_only && !state.emission.is_emissive() {
+                continue;
+            }
+            if state.emission.is_emissive() {
+                self.emissive_visible = true;
+            }
             if !begun {
                 self.begin_pass(pass.program());
                 begun = true;
@@ -2395,7 +3258,6 @@ impl Renderer {
                 }
             }
             if bound_key != Some(batch.key) {
-                let state = self.static_surface_state(batch.key);
                 unsafe { self.apply_surface_state(state) };
                 bound_key = Some(batch.key);
             }
@@ -2425,6 +3287,86 @@ impl Renderer {
     /// level material.
     fn material_alpha(&self, material: MaterialIndex) -> Option<MaterialAlpha> {
         self.materials.alphas.get(usize::from(material)).copied()
+    }
+
+    /// Uploads the reflection and emission-animation uniforms of one draw.
+    ///
+    /// Both are per-material extras an ordinary surface does not use: the
+    /// reflection mode is zero unless the surface authors one *and* this frame
+    /// drew its plane or a probe, and the emission scale is one unless the level
+    /// animates the material. Kept out of
+    /// [`Self::apply_surface_state`]'s already-long body so each term is
+    /// readable on its own.
+    ///
+    /// # Safety
+    ///
+    /// A scene program must be current.
+    unsafe fn upload_scene_extras(&self, uniforms: &ProgramUniforms, state: &SurfaceState) {
+        let (reflect_mode, reflect_strength) = self.reflection_uniforms(state);
+        unsafe {
+            if let Some(ref loc) = uniforms.reflect_mode {
+                self.gl.uniform_1_f32(Some(loc), reflect_mode);
+            }
+            if let Some(ref loc) = uniforms.reflect_strength {
+                self.gl.uniform_3_f32(
+                    Some(loc),
+                    reflect_strength[0],
+                    reflect_strength[1],
+                    reflect_strength[2],
+                );
+            }
+            if let Some(ref loc) = uniforms.emission_scale {
+                let scale = state
+                    .emission_animation
+                    .map_or(1.0, |animation| animation.factor(self.animation_seconds));
+                self.gl.uniform_1_f32(Some(loc), scale);
+            }
+        }
+    }
+
+    /// Whether the current level asked for any reflection at all.
+    ///
+    /// A level that marks nothing never binds a reflection source, never
+    /// allocates a target and reports its materials as reflection-free, so the
+    /// frame is exactly the Batch 3 frame.
+    const fn reflections_supported(&self) -> bool {
+        self.reflections_enabled && !self.reflections.routing.is_empty()
+    }
+
+    /// The reflection uniforms one draw runs with.
+    ///
+    /// Zero mode for every material that authors none, for the whole frame
+    /// while a reflection is being drawn (a mirror must not sample the image
+    /// being written), for a planar material whose plane is not the one this
+    /// frame reflects, and for a probe material while no probe is baked. The
+    /// strength folds the material's specular colour in, so a surface with no
+    /// sheen adds nothing even if it asks for a reflection.
+    fn reflection_uniforms(&self, state: &SurfaceState) -> (f32, [f32; 3]) {
+        let zero = [0.0_f32; 3];
+        if self.reflection_capture || !state.reflection.is_active() {
+            return (0.0, zero);
+        }
+        let strength = [
+            state.specular[0] * state.reflection.strength,
+            state.specular[1] * state.reflection.strength,
+            state.specular[2] * state.reflection.strength,
+        ];
+        match state.reflection.mode {
+            ReflectionMode::Planar => match (self.active_plane, state.reflection_plane) {
+                (Some(active), Some(plane)) if active.index == usize::from(plane) => {
+                    (2.0, strength)
+                }
+                _ => (0.0, zero),
+            },
+            ReflectionMode::Probe => {
+                if self.reflections.probes().is_empty() {
+                    (0.0, zero)
+                } else {
+                    (1.0, strength)
+                }
+            }
+            ReflectionMode::None => (0.0, zero),
+        }
     }
 
     /// The complete surface state one static surface key draws with.
@@ -2474,6 +3416,12 @@ impl Renderer {
                 } else {
                     None
                 };
+                let reflection = self
+                    .materials
+                    .reflections
+                    .get(usize::from(material))
+                    .copied()
+                    .unwrap_or(MaterialReflection::NONE);
                 SurfaceState {
                     texture,
                     normal,
@@ -2490,6 +3438,21 @@ impl Renderer {
                         .unwrap_or(MaterialAlpha::OPAQUE)
                         .cutoff,
                     response: live && (response.has_normal() || response.has_sheen()),
+                    emission_animation: self
+                        .material_animations
+                        .get(usize::from(material))
+                        .copied()
+                        .flatten(),
+                    reflection: if self.reflections_supported() {
+                        reflection
+                    } else {
+                        MaterialReflection::NONE
+                    },
+                    reflection_plane: self
+                        .reflections
+                        .routing
+                        .plane_of(usize::from(material))
+                        .and_then(|plane| u16::try_from(plane).ok()),
                 }
             }
         }
@@ -2595,6 +3558,7 @@ impl Renderer {
                 self.gl
                     .uniform_1_f32(Some(loc), if state.response { 1.0 } else { 0.0 });
             }
+            self.upload_scene_extras(uniforms, &state);
             self.gl.active_texture(glow::TEXTURE0);
         }
         self.render_stats.texture_binds = self.render_stats.texture_binds.saturating_add(binds);
@@ -2645,7 +3609,12 @@ impl Renderer {
     /// Submits the batched real prop geometry: one buffer and one draw call per
     /// (model, primitive, spatial cell), with one texture and emission bind per
     /// change.
-    fn draw_prop_batches(&mut self, frustum: &Frustum, cull: bool) -> DrawTotals {
+    fn draw_prop_batches(
+        &mut self,
+        frustum: &Frustum,
+        cull: bool,
+        emissive_only: bool,
+    ) -> DrawTotals {
         let mut totals = DrawTotals::default();
         let mut begun = false;
         let mut bound_texture: Option<glow::Texture> = None;
@@ -2659,6 +3628,12 @@ impl Renderer {
             }
             if cull && !frustum.intersects_aabb(&draw.bounds) {
                 continue;
+            }
+            if emissive_only && !draw.emission.is_emissive() {
+                continue;
+            }
+            if draw.emission.is_emissive() {
+                self.emissive_visible = true;
             }
             if !begun {
                 self.begin_pass(ScenePass::World);
@@ -2709,6 +3684,7 @@ impl Renderer {
         frustum: &Frustum,
         cull: bool,
         _mvp: &glam::Mat4,
+        emissive_only: bool,
     ) -> DrawTotals {
         let mut totals = DrawTotals::default();
         {
@@ -2753,8 +3729,11 @@ impl Renderer {
                     continue;
                 }
             }
+            let state = self.static_surface_state(batch.key);
+            if emissive_only && !state.emission.is_emissive() {
+                continue;
+            }
             if bound_key != Some(batch.key) {
-                let state = self.static_surface_state(batch.key);
                 unsafe { self.apply_surface_state(state) };
                 bound_key = Some(batch.key);
             }
@@ -3135,62 +4114,37 @@ impl Renderer {
     /// honest.
     fn set_vertex_attributes(&self) {
         let stride = self.vertex_layout.stride();
-        let (color_type, color_normalized, color_offset) = match self.vertex_layout {
-            VertexLayout::Packed => (glow::UNSIGNED_BYTE, true, packed_layout::COLOR_OFFSET),
-            VertexLayout::Exact => (glow::FLOAT, false, 12),
-        };
-        let uv_offset = match self.vertex_layout {
-            VertexLayout::Packed => packed_layout::UV_OFFSET,
-            VertexLayout::Exact => 28,
-        };
-        let lightmap_offset = match self.vertex_layout {
-            VertexLayout::Packed => packed_layout::LIGHTMAP_OFFSET,
-            VertexLayout::Exact => 36,
-        };
-        let lightmap_page_offset = match self.vertex_layout {
-            VertexLayout::Packed => packed_layout::LIGHTMAP_PAGE_OFFSET,
-            VertexLayout::Exact => 40,
-        };
-        unsafe {
-            self.gl.enable_vertex_attrib_array(self.a_pos_loc);
-            self.gl
-                .vertex_attrib_pointer_f32(self.a_pos_loc, 3, glow::FLOAT, false, stride, 0);
-            self.gl.enable_vertex_attrib_array(self.a_color_loc);
-            self.gl.vertex_attrib_pointer_f32(
-                self.a_color_loc,
-                4,
-                color_type,
-                color_normalized,
-                stride,
-                color_offset,
-            );
-            self.gl.enable_vertex_attrib_array(self.a_uv_loc);
-            self.gl.vertex_attrib_pointer_f32(
-                self.a_uv_loc,
-                2,
-                glow::FLOAT,
-                false,
-                stride,
-                uv_offset,
-            );
-            self.gl.enable_vertex_attrib_array(self.a_lightmap_uv_loc);
-            self.gl.vertex_attrib_pointer_f32(
-                self.a_lightmap_uv_loc,
-                2,
-                glow::UNSIGNED_SHORT,
-                true,
-                stride,
-                lightmap_offset,
-            );
-            self.gl.enable_vertex_attrib_array(self.a_lightmap_page_loc);
-            self.gl.vertex_attrib_pointer_f32(
-                self.a_lightmap_page_loc,
-                1,
-                glow::UNSIGNED_BYTE,
-                false,
-                stride,
-                lightmap_page_offset,
-            );
+        let locations = [
+            self.a_pos_loc,
+            self.a_color_loc,
+            self.a_uv_loc,
+            self.a_lightmap_uv_loc,
+            self.a_lightmap_page_loc,
+            self.a_normal_loc,
+            self.a_tangent_loc,
+            self.a_handedness_loc,
+        ];
+        for (slot, pointer) in scene_attribute_table(self.vertex_layout)
+            .into_iter()
+            .enumerate()
+        {
+            let Some(pointer) = pointer else {
+                continue;
+            };
+            let Some(&location) = locations.get(slot) else {
+                continue;
+            };
+            unsafe {
+                self.gl.enable_vertex_attrib_array(location);
+                self.gl.vertex_attrib_pointer_f32(
+                    location,
+                    pointer.components,
+                    pointer.gl_type,
+                    pointer.normalized,
+                    stride,
+                    pointer.offset,
+                );
+            }
         }
     }
 
@@ -3248,9 +4202,13 @@ impl Renderer {
             // The HUD draws with the world program but with none of a surface's
             // extra terms: no lightmap (its vertices carry `LIGHTMAP_NONE`), no
             // emission, no sheen and no alpha. The tracked state is invalidated
-            // rather than trusted, because the world program was just (re)bound
-            // behind `begin_pass`'s back.
-            self.current_pass = None;
+            // *and then re-applied* rather than merely claimed, because the
+            // uniforms still hold whatever the last world material left in them
+            // — a translucent surface's `u_opacity`, an emissive fixture's
+            // `u_emission_vertex`, a panel's `u_response_enabled` — and drawing
+            // the HUD under those would blend the UI with the scene's material
+            // state.
+            self.current_pass = Some(ScenePass::World);
             self.surface_state = None;
             self.frame_state_valid = false;
             self.uploaded_camera_pos = self.camera_pos;
@@ -3284,13 +4242,27 @@ impl Renderer {
                 if let Some(ref loc) = uniforms.lightmap_enabled {
                     self.gl.uniform_1_f32(Some(loc), 0.0);
                 }
+                // The HUD is not in the world: no fog, no emissive-only pass and
+                // no reflection image. These are frame uniforms rather than
+                // material ones, so they are cleared here explicitly instead of
+                // through `apply_surface_state`.
+                if let Some(ref loc) = uniforms.fog_density {
+                    self.gl.uniform_1_f32(Some(loc), FogState::NONE.density);
+                }
+                if let Some(ref loc) = uniforms.emission_only {
+                    self.gl.uniform_1_f32(Some(loc), 0.0);
+                }
+                if let Some(ref loc) = uniforms.reflect_mode {
+                    self.gl.uniform_1_f32(Some(loc), 0.0);
+                }
             }
             self.light_scale = [1.0; 3];
             self.frame_state_valid = true;
-            self.surface_state = Some(SurfaceState::plain(self.font_texture));
+            // All of the surface uniforms — emission, sheen, roughness, opacity
+            // and the response gate — are set from the same plain state the
+            // world's own batcher uses, so the UI can never inherit a material.
+            self.apply_surface_state(SurfaceState::plain(self.font_texture));
             self.gl.active_texture(glow::TEXTURE0);
-            self.gl
-                .bind_texture(glow::TEXTURE_2D, Some(self.font_texture));
 
             self.gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.ui_vbo));
             // The HUD is a few thousand vertices rebuilt every frame anyway, so
@@ -3416,6 +4388,12 @@ impl Renderer {
     /// level and never touches the lightmap baker; with an empty scene it is a
     /// length check.
     pub fn update_dynamic(&mut self, delta_seconds: f32) -> DynamicUpdate {
+        // The emission animations share the simulation's clock. A non-finite or
+        // negative delta is ignored rather than allowed to jump every animated
+        // surface at once.
+        if delta_seconds.is_finite() && delta_seconds > 0.0 {
+            self.animation_seconds += delta_seconds;
+        }
         self.dynamic
             .update(delta_seconds, self.dynamic_lighting.as_ref())
     }
@@ -3583,6 +4561,7 @@ impl Renderer {
         frustum: &Frustum,
         cull: bool,
         view_projection: &glam::Mat4,
+        emissive_only: bool,
     ) -> DrawTotals {
         let mut totals = DrawTotals::default();
         if self.dynamic.is_empty()
@@ -3641,6 +4620,9 @@ impl Renderer {
                 let emission = override_emission.map_or(submesh.emission, |emission| {
                     EmissionState::material(emission, override_mask)
                 });
+                if emissive_only && !emission.is_emissive() {
+                    continue;
+                }
                 let state = SurfaceState {
                     emission,
                     ..SurfaceState::plain(submesh.texture)

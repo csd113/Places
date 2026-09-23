@@ -578,6 +578,17 @@ fn apply_level_request(
                     WalkableFloor::from_level(&loaded.level),
                 );
                 game.set_app_state(AppState::Playing);
+                // `LIMINAL_PAUSE=1` opens the pause menu on the first frame so
+                // the pause UI can be captured and compared without a keyboard.
+                // It changes nothing about how the menu draws.
+                if std::env::var("LIMINAL_PAUSE").is_ok_and(|value| {
+                    !matches!(
+                        value.trim().to_ascii_lowercase().as_str(),
+                        "" | "0" | "false" | "off"
+                    )
+                }) {
+                    game.set_app_state(AppState::Paused);
+                }
             }
             Err(error) => {
                 eprintln!("LIMINAL_LEVEL: could not load '{requested}': {error}");

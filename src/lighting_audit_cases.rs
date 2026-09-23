@@ -1610,6 +1610,7 @@ fn empty_level() -> LevelDef {
         decals: Vec::new(),
         ceiling_lights: Vec::new(),
         props: Vec::new(),
+        animated_emissions: Vec::new(),
     }
 }
 

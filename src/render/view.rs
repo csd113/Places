@@ -208,6 +208,10 @@ uniform sampler2D u_lightmap1;
 uniform vec3 u_emission_color;
 uniform float u_emission_mask_enabled;
 uniform float u_emission_vertex;
+// Animated emission: a level can make a sign breathe or a tube stutter. The
+// multiplier is 1.0 for every surface that declares no animation, and it scales
+// the emissive term alone — never the baked light, the albedo or the alpha.
+uniform float u_emission_scale;
 uniform float u_lightmap_enabled;
 uniform vec3 u_light_scale;
 // Surface response. `u_response_enabled` is the master gate: it is zero for
@@ -223,6 +227,29 @@ uniform float u_roughness;
 uniform float u_opacity;
 uniform float u_alpha_cutoff;
 uniform vec3 u_camera_pos;
+// Atmosphere. Exponential-squared distance fog with a mild height term, so
+// depth reads inside the building without the interior turning milky. The
+// density is a frame uniform: the HUD sets it to zero.
+uniform vec3 u_fog_color;
+uniform float u_fog_density;
+uniform float u_fog_reference_y;
+uniform float u_fog_height_gain;
+// Reflections. `u_reflect_mode` is 0 for every material that authors no
+// reflection, 1 for a static probe cubemap and 2 for a planar mirror surface.
+// `u_reflect_strength` already folds the authored strength and the material's
+// specular colour; roughness and the view angle are applied here, so a rough
+// surface suppresses the response instead of mirroring.
+uniform samplerCube u_probe_map;
+uniform sampler2D u_planar_map;
+uniform float u_reflect_mode;
+uniform vec3 u_reflect_strength;
+uniform mat4 u_planar_matrix;
+// Plane of the active planar reflection: `xyz` is the unit normal, `w` the
+// signed distance from the origin (`dot(normal, point) + w == 0`).
+uniform vec4 u_planar_plane;
+// The bloom path draws the emissive term alone into a quarter-resolution
+// target. It is zero for every ordinary frame draw.
+uniform float u_emission_only;
 varying vec4 v_color;
 varying vec2 v_uv;
 varying vec2 v_lightmap_uv;
@@ -238,7 +265,21 @@ void main() {
     if (u_emission_mask_enabled > 0.5) {
         mask = texture2D(u_emission_mask, v_uv).rgb;
     }
-    vec3 emission = mix(u_emission_color, v_color.rgb, u_emission_vertex) * mask * tex_color.rgb;
+    vec3 emission =
+        mix(u_emission_color, v_color.rgb, u_emission_vertex) * mask * tex_color.rgb * u_emission_scale;
+    float alpha = tex_color.a * v_color.a * u_opacity;
+#ifdef ALPHA_CUTOUT
+    if (alpha < u_alpha_cutoff) {
+        discard;
+    }
+#endif
+    // The bloom pass wants the emissive term and nothing else, before any
+    // lighting, fog or tone work: a fixture blooms because it emits, never
+    // because it is brightly lit.
+    if (u_emission_only > 0.5) {
+        gl_FragColor = vec4(emission, 1.0);
+        return;
+    }
     vec3 lm = mix(
         texture2D(u_lightmap0, v_lightmap_uv).rgb,
         texture2D(u_lightmap1, v_lightmap_uv).rgb,
@@ -267,9 +308,9 @@ void main() {
     // catches as it turns away from the camera. Roughness decides how tightly
     // that concentrates; there is no light direction to sample, because the
     // engine has no realtime lights.
+    vec3 view = normalize(u_camera_pos - v_world_pos);
     vec3 sheen = vec3(0.0);
     if (u_response_enabled > 0.5) {
-        vec3 view = normalize(u_camera_pos - v_world_pos);
         float facing = clamp(abs(dot(normal, view)), 0.0, 1.0);
         float gloss = 1.0 - u_roughness;
         float grazing = pow(1.0 - facing, mix(1.0, 16.0, gloss));
@@ -282,14 +323,61 @@ void main() {
         sheen = u_specular * (grazing * 0.55 + ahead * 0.45) * light;
     }
 
-    vec3 lit = tex_color.rgb * v_color.rgb * light * (1.0 - u_emission_vertex);
-    float alpha = tex_color.a * v_color.a * u_opacity;
-#ifdef ALPHA_CUTOUT
-    if (alpha < u_alpha_cutoff) {
-        discard;
+    // Reflections. A planar surface projects the reflected frame through the
+    // mirrored camera; a probe surface reads the static cubemap baked at load.
+    // Both are weighted by the authored strength, the material's specular
+    // colour, a Fresnel term and the gloss, so a rough or dull surface never
+    // behaves like a mirror.
+    vec3 reflection = vec3(0.0);
+    if (u_reflect_mode > 0.5) {
+        float facing = clamp(abs(dot(normal, view)), 0.0, 1.0);
+        float fresnel = mix(0.08, 1.0, pow(1.0 - facing, 5.0));
+        float gloss = clamp(1.0 - u_roughness, 0.0, 1.0);
+        float weight = mix(fresnel, 1.0, gloss * gloss);
+        vec3 sample_color = vec3(0.0);
+        if (u_reflect_mode > 1.5) {
+            vec4 clip = u_planar_matrix * vec4(v_world_pos, 1.0);
+            vec2 uv = clip.xy / max(clip.w, 1.0e-4) * 0.5 + 0.5;
+            // A rough surface reads a small disc around the projected point; a
+            // polished one reads the single texel the plane projects to.
+            float blur = u_roughness * 0.028;
+            if (blur > 0.002) {
+                sample_color += texture2D(u_planar_map, uv + vec2(blur, blur)).rgb;
+                sample_color += texture2D(u_planar_map, uv + vec2(-blur, blur)).rgb;
+                sample_color += texture2D(u_planar_map, uv + vec2(blur, -blur)).rgb;
+                sample_color += texture2D(u_planar_map, uv + vec2(-blur, -blur)).rgb;
+                sample_color *= 0.25;
+            } else {
+                sample_color = texture2D(u_planar_map, uv).rgb;
+            }
+            // Outside the reflected frame there is no image to show.
+            float inside =
+                step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
+            // Only a fragment on (or very near) the mirror plane reflects.
+            float on_plane = 1.0 - smoothstep(
+                0.0,
+                0.08,
+                abs(dot(u_planar_plane.xyz, v_world_pos) + u_planar_plane.w)
+            );
+            weight *= inside * on_plane;
+        } else {
+            vec3 reflected = reflect(-view, normal);
+            sample_color = textureCube(u_probe_map, reflected).rgb;
+        }
+        reflection = u_reflect_strength * (weight * 1.1) * sample_color;
     }
-#endif
-    gl_FragColor = vec4(lit + sheen + emission, alpha);
+
+    vec3 lit = tex_color.rgb * v_color.rgb * light * (1.0 - u_emission_vertex);
+    vec3 color = lit + sheen + reflection + emission;
+    // Distance fog, applied to the finished surface colour: emission is a
+    // surface property, not a hole punched through the air.
+    float distance = length(u_camera_pos - v_world_pos);
+    float below = max(0.0, u_fog_reference_y - v_world_pos.y);
+    float density = u_fog_density * (1.0 + u_fog_height_gain * min(below, 12.0));
+    float fog_amount = density * distance;
+    fog_amount = 1.0 - exp(-fog_amount * fog_amount);
+    color = mix(color, u_fog_color, clamp(fog_amount, 0.0, 1.0));
+    gl_FragColor = vec4(color, alpha);
 }
 ";
 
@@ -378,6 +466,75 @@ varying vec2 v_uv;
 void main() {
     v_uv = a_pos.xy;
     gl_Position = u_mvp * vec4(a_pos, 1.0);
+}
+";
+
+/// Fragment stage of the resolve pass: the scene colour, plus bloom, exposed
+/// and tone-mapped, with an optional grain-free colour grade.
+///
+/// This replaces the plain copy the offscreen path used to end with, so the
+/// tone curve costs no extra pass over the pixels. It is the *only* place the
+/// scene's exposure and tone are decided: the world shader writes linear-ish
+/// surface colour and this pass turns it into a display image. The HUD is drawn
+/// after it, on the default framebuffer, and never passes through here.
+///
+/// The shoulder is deliberately gentle: everything below `u_tone_knee` passes
+/// through unchanged, so the baked lighting's own contrast — which is the art
+/// direction — survives exactly, and only the genuinely over-bright pixels (an
+/// emissive fixture face at intensity > 1) roll off. `u_bloom_strength` is zero
+/// when no bloom target was drawn, which is what the Low profile and a frame
+/// with no emissive geometry do.
+pub(super) const RESOLVE_FRAGMENT_SHADER_SRC: &str = r"
+#ifdef GL_ES
+precision mediump float;
+#endif
+uniform sampler2D u_scene;
+uniform sampler2D u_bloom;
+uniform float u_bloom_strength;
+uniform float u_exposure;
+uniform float u_tone_knee;
+uniform float u_grade_saturation;
+uniform float u_grade_contrast;
+varying vec2 v_uv;
+
+void main() {
+    vec3 color = texture2D(u_scene, v_uv).rgb;
+    if (u_bloom_strength > 0.0) {
+        color += texture2D(u_bloom, v_uv).rgb * u_bloom_strength;
+    }
+    color *= u_exposure;
+    // Soft shoulder: identity at and below the knee, asymptotic to white above.
+    vec3 above = max(color - u_tone_knee, vec3(0.0));
+    float span = max(1.0 - u_tone_knee, 1.0e-3);
+    color = min(color, vec3(u_tone_knee)) + span * (above / (above + span));
+    float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    color = mix(vec3(luma), color, u_grade_saturation);
+    color = clamp((color - 0.5) * u_grade_contrast + 0.5, 0.0, 1.0);
+    gl_FragColor = vec4(color, 1.0);
+}
+";
+
+/// Fragment stage of a separable bloom blur: a five-tap Gaussian.
+///
+/// `u_texel` is one source texel along the blur axis, so the same program runs
+/// horizontally and vertically. The taps are at whole texels on purpose: the
+/// source is already a quarter-resolution emissive image, and this only has to
+/// turn a fixture face into a soft pool of light.
+pub(super) const BLOOM_BLUR_FRAGMENT_SHADER_SRC: &str = r"
+#ifdef GL_ES
+precision mediump float;
+#endif
+uniform sampler2D u_source;
+uniform vec2 u_texel;
+varying vec2 v_uv;
+
+void main() {
+    vec2 step0 = u_texel * 1.0;
+    vec2 step1 = u_texel * 2.0;
+    vec3 sum = texture2D(u_source, v_uv).rgb * 0.375;
+    sum += (texture2D(u_source, v_uv + step0).rgb + texture2D(u_source, v_uv - step0).rgb) * 0.25;
+    sum += (texture2D(u_source, v_uv + step1).rgb + texture2D(u_source, v_uv - step1).rgb) * 0.0625;
+    gl_FragColor = vec4(sum, 1.0);
 }
 ";
 
@@ -488,6 +645,58 @@ pub(super) const NORMAL_MAP_TEXTURE_UNIT: i32 = 4;
 
 /// Texture unit the offscreen presentation pass samples the scene colour from.
 pub(super) const PRESENT_TEXTURE_UNIT: i32 = 0;
+
+/// One texture unit expressed as the `GL_TEXTURE0 + n` constant GL wants.
+///
+/// The units in this module are small non-negative constants, so the conversion
+/// cannot fail or wrap; the fallback keeps the expression total anyway.
+#[must_use]
+pub(super) fn texture_unit(unit: i32) -> u32 {
+    #[allow(clippy::cast_sign_loss)] // the units here are non-negative by definition
+    let unit = unit.max(0) as u32;
+    glow::TEXTURE0.saturating_add(unit)
+}
+
+/// Texture unit the world pass samples a static reflection probe cubemap from.
+///
+/// Always has a cube bound (a one-pixel black cube when the renderer has no
+/// probe resident), and `u_reflect_mode` decides whether the fragment stage
+/// reads it at all.
+pub(super) const REFLECTION_PROBE_TEXTURE_UNIT: i32 = 5;
+/// Texture unit the world pass samples the planar reflection target from.
+///
+/// Bound exactly like the probe unit: a one-pixel black texture when no planar
+/// reflection is being drawn this frame.
+pub(super) const REFLECTION_PLANAR_TEXTURE_UNIT: i32 = 6;
+/// Texture unit the resolve pass samples the blurred bloom image from.
+pub(super) const BLOOM_TEXTURE_UNIT: i32 = 1;
+
+/// Edge of one static reflection probe's cubemap faces, in texels, at Full.
+///
+/// A probe is deliberately small: it is an approximate, static impression of
+/// the room — the shape of the windows and the general colour of the walls —
+/// not a second view of the scene. It is baked once per level load and costs
+/// one texture read per reflective fragment at run time.
+pub const PROBE_FACE_TEXELS_FULL: u32 = 64;
+/// Edge of one static reflection probe's cubemap faces at Low.
+pub const PROBE_FACE_TEXELS_LOW: u32 = 32;
+/// Largest number of static probes the renderer bakes for one level.
+pub const MAX_REFLECTION_PROBES: usize = 2;
+
+/// Divisor from the scene target's size to the emissive/bloom target's.
+///
+/// Bloom is a low-frequency glow: rendering the emissive term at a quarter of
+/// the scene's edge (a sixteenth of its pixels) and letting bilinear filtering
+/// stretch it back up is what makes it soft, and it is why the pass is cheap
+/// enough to keep off the Low profile's critical path entirely.
+pub const BLOOM_SCALE_DIVISOR: u32 = 4;
+
+/// Divisor from the scene target's size to the planar reflection target's.
+///
+/// A planar reflection is a real second view of the level, so it is drawn once
+/// per active plane per frame and at half resolution; the blur a rough surface
+/// reads hides the difference, and the profile can switch it off completely.
+pub const PLANAR_REFLECTION_SCALE_DIVISOR: u32 = 2;
 
 /// Texture unit the world pass samples a material's emissive mask from.
 ///

@@ -1098,6 +1098,27 @@
       "description": "Translucent backlit sign panel: a tinted sheet that emits on its own, which is what a transparent emissive material looks like."
     },
     {
+      "id": "core:glass_sign_flicker_01",
+      "display_name": "Failing Lit Sign Glass",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_glass_tinted_01",
+      "tile_metres": 1.0,
+      "alpha_mode": "blend",
+      "opacity": 0.88,
+      "specular": 0.35,
+      "roughness": 0.3,
+      "emissive": [
+        0.95,
+        0.97,
+        1.0
+      ],
+      "emissive_intensity": 1.15,
+      "description": "A backlit sign panel on a failing ballast: the same translucent sheet as `core:glass_sign_lit_01`, driven by a level's `animated_emissions` flicker so it stutters instead of holding steady."
+    },
+    {
       "id": "core:linoleum_polished_01",
       "display_name": "Polished Linoleum",
       "asset_class": "environment",
@@ -1113,7 +1134,9 @@
         0.84,
         0.8,
         0.7
-      ]
+      ],
+      "reflection_mode": "probe",
+      "reflection_strength": 0.4
     },
     {
       "id": "core:metal_brushed_01",
@@ -1138,7 +1161,9 @@
       "roughness": 0.22,
       "normal_texture": "core:tex_normal_brushed_01",
       "normal_strength": 0.35,
-      "description": "Brushed metal: a cool tinted sheen plus a fine directional normal map, so it reads as metal rather than as grey paint."
+      "description": "Brushed metal: a cool tinted sheen plus a fine directional normal map, so it reads as metal rather than as grey paint.",
+      "reflection_mode": "probe",
+      "reflection_strength": 0.3
     },
     {
       "id": "core:plastic_panel_01",
@@ -1177,7 +1202,9 @@
       ],
       "specular": 0.65,
       "roughness": 0.06,
-      "description": "Wet deck tile: the shipped deck artwork with a near-mirror sheen, so a patch of floor reads as standing water."
+      "description": "Wet deck tile: the shipped deck artwork with a near-mirror sheen, so a patch of floor reads as standing water.",
+      "reflection_mode": "planar",
+      "reflection_strength": 0.4
     },
     {
       "id": "core:painting_dull_01",

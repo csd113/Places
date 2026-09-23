@@ -736,6 +736,17 @@ fn emit_wall_slice_cap(
         .lightmap
         .map_or(f32::INFINITY, |lightmap| lightmap.max_span_m);
     for (a0, a1, b0, b1) in split_rect(rect, max_span_m) {
+        // `rect` is in the cap's own `(along the wall, across its thickness)`
+        // space, so the along axis is a local offset from the wall's length
+        // origin exactly as [`WallSlice`] is for the length faces. Translate it
+        // before anything reads a world coordinate: an untranslated cap is
+        // shifted by the wall's origin, which leaves a gap at one jamb and a
+        // buried overhang at the other on every wall whose min corner is not
+        // zero.
+        let (a0, a1) = match state.axis {
+            WallAxis::X => (state.origin_x + a0, state.origin_x + a1),
+            WallAxis::Z => (state.origin_z + a0, state.origin_z + a1),
+        };
         let points = match (state.axis, up) {
             (WallAxis::X, true) => [[a0, y, b1], [a1, y, b1], [a1, y, b0], [a0, y, b0]],
             (WallAxis::X, false) => [[a0, y, b0], [a1, y, b0], [a1, y, b1], [a0, y, b1]],

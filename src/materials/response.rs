@@ -69,6 +69,12 @@ pub const DEFAULT_NORMAL_STRENGTH: f32 = 1.0;
 /// Largest accepted specular strength (and specular colour channel).
 pub const MAX_SPECULAR: f32 = 1.0;
 
+/// Roughness a fully matte surface authors.
+///
+/// `roughness` is a `0.0..=1.0` scale where one is completely matte, so this is
+/// the upper bound [`MaterialResponse::sanitized`] clamps to.
+pub const MAX_ROUGHNESS: f32 = 1.0;
+
 /// Roughness a material keeps when it authors none.
 ///
 /// It only matters to a material that also authors a specular strength — a
@@ -167,7 +173,7 @@ impl MaterialResponse {
             DEFAULT_NORMAL_STRENGTH
         };
         let roughness = if self.roughness.is_finite() {
-            self.roughness.clamp(0.0, DEFAULT_ROUGHNESS)
+            self.roughness.clamp(0.0, MAX_ROUGHNESS)
         } else {
             DEFAULT_ROUGHNESS
         };

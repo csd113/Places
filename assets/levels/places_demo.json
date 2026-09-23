@@ -364,7 +364,53 @@
       "depth": 1.7,
       "y": -1.5,
       "height": 2.6,
+      "material": "core:metal_brushed_01",
+      "comment": "Pool notice board: a brushed-metal frame and a backlit sign face turn the bare panel into a wall-mounted board."
+    },
+    {
+      "x": 25.74,
+      "z": 7.18,
+      "width": 0.12,
+      "depth": 1.94,
+      "y": 1.12,
+      "height": 0.14,
       "material": "core:metal_brushed_01"
+    },
+    {
+      "x": 25.74,
+      "z": 7.18,
+      "width": 0.12,
+      "depth": 1.94,
+      "y": -1.66,
+      "height": 0.14,
+      "material": "core:metal_brushed_01"
+    },
+    {
+      "x": 25.74,
+      "z": 7.18,
+      "width": 0.12,
+      "depth": 0.14,
+      "y": -1.518,
+      "height": 2.636,
+      "material": "core:metal_brushed_01"
+    },
+    {
+      "x": 25.74,
+      "z": 8.98,
+      "width": 0.12,
+      "depth": 0.14,
+      "y": -1.518,
+      "height": 2.636,
+      "material": "core:metal_brushed_01"
+    },
+    {
+      "x": 25.72,
+      "z": 7.85,
+      "width": 0.05,
+      "depth": 0.9,
+      "y": 0.15,
+      "height": 0.35,
+      "material": "core:glass_sign_lit_01"
     },
     {
       "x": 5.2,
@@ -373,7 +419,53 @@
       "depth": 0.06,
       "y": -1.5,
       "height": 2.4,
-      "material": "core:plastic_panel_01"
+      "material": "core:plastic_panel_01",
+      "comment": "Second pool notice board, framed the same way on the north wall."
+    },
+    {
+      "x": 5.02,
+      "z": 7.16,
+      "width": 1.96,
+      "depth": 0.14,
+      "y": 0.92,
+      "height": 0.14,
+      "material": "core:metal_brushed_01"
+    },
+    {
+      "x": 5.02,
+      "z": 7.16,
+      "width": 1.96,
+      "depth": 0.14,
+      "y": -1.66,
+      "height": 0.14,
+      "material": "core:metal_brushed_01"
+    },
+    {
+      "x": 5.02,
+      "z": 7.16,
+      "width": 0.16,
+      "depth": 0.14,
+      "y": -1.518,
+      "height": 1.836,
+      "material": "core:metal_brushed_01"
+    },
+    {
+      "x": 6.82,
+      "z": 7.16,
+      "width": 0.16,
+      "depth": 0.14,
+      "y": -1.518,
+      "height": 1.836,
+      "material": "core:metal_brushed_01"
+    },
+    {
+      "x": 5.6,
+      "z": 7.228,
+      "width": 0.9,
+      "depth": 0.05,
+      "y": 0.0,
+      "height": 0.35,
+      "material": "core:glass_sign_flicker_01"
     },
     {
       "x": 33.9,
@@ -1121,6 +1213,24 @@
       "rotation_degrees": 90.0,
       "material": "core:decal_stripes_01",
       "surface": "floor"
+    }
+  ],
+  "animated_emissions": [
+    {
+      "material": "core:glass_sign_lit_01",
+      "effect": "pulse",
+      "hz": 0.09,
+      "depth": 0.18,
+      "phase": 0.0,
+      "comment": "The backlit signs breathe very slowly: a closed building, not a display."
+    },
+    {
+      "material": "core:glass_sign_flicker_01",
+      "effect": "flicker",
+      "hz": 7.5,
+      "depth": 0.6,
+      "phase": 0.31,
+      "comment": "One sign on the north wall is on a failing ballast: an occasional, bounded stutter."
     }
   ]
 }

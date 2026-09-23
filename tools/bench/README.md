@@ -67,6 +67,36 @@ from both sides, the metal and plastic panels, the wet deck, the lit sign, the
 linoleum patch and the transfer grille) into `target/agent-work/captures/`, with
 a suffix per profile/path so a comparison run never overwrites the reference.
 
+## Batch 4 switches and captures
+
+Batch 4 adds post-processing and selective reflections, both optional on the
+same build:
+
+| Switch | Effect |
+| --- | --- |
+| `LIMINAL_NO_BLOOM=1` | Drop the emissive pass and the blur, keeping the resolve stage, so the bloom stages can be measured alone. |
+| `LIMINAL_NO_REFLECTIONS=1` | Report every material as reflection-free: no planar pass, no probe bake, no reflection binds. |
+| `LIMINAL_PAUSE=1` | Open the pause menu on the first frame, so the pause UI can be captured without a keyboard. |
+
+The benchmark CSV and `BENCH_SUMMARY` now also report `reflection_passes` (scene
+submissions the frame spent on the active planar plane). The demo's emission
+animations advance on the simulation's own delta, so a capture at
+`LIMINAL_CAPTURE_FRAME=1` is always the authored brightness; later frames show
+whatever the elapsed clock reached, which is what a flicker capture wants.
+
+`capture_batch4.sh` captures the Batch 4 validation set (window corners from both
+sides at close range and at grazing angles, the pool curtains and wet deck, the
+two pool notice boards, the animated signs, the pause menu over two rooms) into
+`target/agent-work/captures_b4/`, with a suffix per profile and per switch so a
+comparison run never overwrites the reference. `LIMINAL_BIN` points the same
+script at another build, which is how the before/after pairs are captured:
+
+```sh
+sh tools/bench/capture_batch4.sh
+LIMINAL_BIN=target/agent-work/baseline-b3/target/release/liminal-rust \
+    sh tools/bench/capture_batch4.sh
+```
+
 `notes/batch3-surface-validation.md` records what those runs showed.
 
 ## Running a suite

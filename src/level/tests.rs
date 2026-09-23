@@ -169,6 +169,7 @@ fn test_estimate_geometry_saturates_on_extreme_input() {
         decals: Vec::new(),
         ceiling_lights: Vec::new(),
         props: Vec::new(),
+        animated_emissions: Vec::new(),
     };
     let estimate = level.estimate_geometry();
     // Values are clamped before multiplication, so no wrap-around occurs and

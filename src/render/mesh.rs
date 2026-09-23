@@ -160,6 +160,33 @@ pub struct PackedVertex {
 /// it equal to the struct's real size.
 pub const EXACT_VERTEX_STRIDE: i32 = 72;
 
+/// Byte offset of each scene attribute in the exact (unpacked) layout.
+///
+/// The renderer points `glVertexAttribPointer` at these, so they are part of the
+/// same contract as [`packed_layout`]: a field added to [`Vertex`] without a
+/// matching entry here would silently feed a shader attribute the wrong bytes.
+/// `exact_layout_offsets_match_the_vertex_struct` pins every one of them against
+/// `offset_of!(Vertex, ...)`, which is what makes that mistake impossible to
+/// land unnoticed.
+pub mod exact_layout {
+    /// Offset of `a_pos`, in bytes.
+    pub const POS_OFFSET: i32 = 0;
+    /// Offset of `a_color`, in bytes.
+    pub const COLOR_OFFSET: i32 = 12;
+    /// Offset of `a_uv`, in bytes.
+    pub const UV_OFFSET: i32 = 28;
+    /// Offset of `a_normal`, in bytes.
+    pub const NORMAL_OFFSET: i32 = 36;
+    /// Offset of `a_tangent`, in bytes.
+    pub const TANGENT_OFFSET: i32 = 48;
+    /// Offset of `a_handedness`, in bytes.
+    pub const HANDEDNESS_OFFSET: i32 = 60;
+    /// Offset of `a_lightmap_uv`, in bytes.
+    pub const LIGHTMAP_OFFSET: i32 = 64;
+    /// Offset of `a_lightmap_page`, in bytes.
+    pub const LIGHTMAP_PAGE_OFFSET: i32 = 68;
+}
+
 pub mod packed_layout {
     /// Offset of `a_pos`, in bytes.
     pub const POS_OFFSET: i32 = 0;

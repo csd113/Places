@@ -4885,6 +4885,379 @@ fn the_opaque_cutout_and_translucent_passes_are_decided_by_the_material() {
     assert_eq!(BatchPass::Cutout.program(), ScenePass::Cutout);
 }
 
+/// A `glow::Texture` handle that never reaches a GPU, for state tests.
+fn fake_texture() -> glow::Texture {
+    glow::NativeTexture(std::num::NonZeroU32::new(1).expect("1 is non-zero"))
+}
+
+#[test]
+fn the_vertex_attribute_table_wires_every_scene_attribute_in_both_layouts() {
+    // The frame attributes are the ones that were silently missing: with no
+    // pointer they read the generic default `(0, 0, 0, 1)`, which collapses
+    // `v_normal` to the zero vector and pins the view-dependent sheen at its
+    // grazing lobe on every surface. This test is the guard that keeps a new
+    // attribute from being declared, packed and bound but never pointed at.
+    for layout in [VertexLayout::Packed, VertexLayout::Exact] {
+        let table = super::renderer::scene_attribute_table(layout);
+        assert_eq!(table.len(), SCENE_ATTRIB_COUNT);
+        for (slot, pointer) in table.iter().enumerate() {
+            assert!(
+                pointer.is_some(),
+                "{layout:?} leaves attribute {slot} unwired"
+            );
+        }
+        let stride = layout.stride();
+        for pointer in table.iter().flatten() {
+            assert!(
+                pointer.components >= 1 && pointer.components <= 4,
+                "{layout:?}: {} components",
+                pointer.components
+            );
+            let size = pointer.components
+                * match pointer.gl_type {
+                    glow::FLOAT => 4,
+                    glow::UNSIGNED_SHORT => 2,
+                    _ => 1,
+                };
+            assert!(
+                pointer.offset >= 0 && pointer.offset + size <= stride,
+                "{layout:?}: a {}-component attribute at offset {} overruns the {stride}-byte stride",
+                pointer.components,
+                pointer.offset
+            );
+        }
+        let attribute = |slot: usize| table[slot].expect("wired");
+        assert_eq!(attribute(SCENE_ATTRIB_POS as usize).components, 3);
+        assert_eq!(attribute(SCENE_ATTRIB_COLOR as usize).components, 4);
+        assert_eq!(attribute(SCENE_ATTRIB_UV as usize).components, 2);
+        assert_eq!(attribute(SCENE_ATTRIB_LIGHTMAP_UV as usize).components, 2);
+        assert_eq!(attribute(SCENE_ATTRIB_LIGHTMAP_PAGE as usize).components, 1);
+        assert_eq!(attribute(SCENE_ATTRIB_NORMAL as usize).components, 3);
+        assert_eq!(attribute(SCENE_ATTRIB_TANGENT as usize).components, 3);
+        assert_eq!(attribute(SCENE_ATTRIB_HANDEDNESS as usize).components, 1);
+        let expected = match layout {
+            VertexLayout::Packed => (glow::BYTE, true),
+            VertexLayout::Exact => (glow::FLOAT, false),
+        };
+        for slot in [
+            SCENE_ATTRIB_NORMAL,
+            SCENE_ATTRIB_TANGENT,
+            SCENE_ATTRIB_HANDEDNESS,
+        ] {
+            let pointer = attribute(slot as usize);
+            assert_eq!(
+                (pointer.gl_type, pointer.normalized),
+                expected,
+                "{layout:?}: attribute {slot} has the wrong component type"
+            );
+        }
+    }
+}
+
+#[test]
+fn the_post_process_fallback_is_the_historical_presentation() {
+    use super::postprocess::PostSettings;
+
+    // Two independent fallbacks, and both must leave a working frame.
+    //
+    // 1. No offscreen target: the scene draws straight into the default
+    //    framebuffer, so there is nothing to resolve and no post-processing
+    //    stage at all. This is the pre-Batch-4 path and it is one env var away.
+    let drawable = DrawableSize::new(960, 544);
+    assert_eq!(
+        offscreen_plan(false, false, crate::quality::QualityProfile::Full, drawable),
+        None,
+        "the direct path must not ask for a scene target"
+    );
+    assert_eq!(
+        offscreen_plan(true, true, crate::quality::QualityProfile::Full, drawable),
+        None,
+        "a target that already failed must not be retried every frame"
+    );
+
+    // 2. Low's resolve settings are the identity, so the renderer presents the
+    //    scene with the plain copy quad instead of resolving it. That is what
+    //    keeps Low as cheap as the historical presentation.
+    let low = PostSettings::for_profile(crate::quality::QualityProfile::Low);
+    assert!(low.is_identity(), "Low must be able to skip the resolve");
+    assert!(!low.blooms());
+    let full = PostSettings::for_profile(crate::quality::QualityProfile::Full);
+    assert!(!full.is_identity(), "Full always resolves");
+    assert!(full.blooms());
+    assert!(full.bloom_strength < 1.0, "bloom stays restrained");
+    assert!(
+        full.grade_saturation >= 1.0 && full.grade_saturation < 1.1,
+        "the grade is a trim, not a look: {}",
+        full.grade_saturation
+    );
+    assert!(
+        (0.5..1.0).contains(&full.tone_knee),
+        "the tone shoulder must leave the common range untouched: {}",
+        full.tone_knee
+    );
+}
+
+#[test]
+fn the_vertex_shader_declares_exactly_the_attributes_the_table_wires() {
+    // The table can only be complete if it covers everything the shader reads.
+    // This is the test that fails when an attribute is added to the vertex
+    // stage and packed into the vertex but left out of the pointer table — the
+    // shape of the Batch 3 defect that flattened every surface normal.
+    let declared: Vec<String> = super::view::VERTEX_SHADER_SRC
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("attribute "))
+        .filter_map(|declaration| declaration.split_whitespace().nth(1))
+        .map(|name| name.trim_end_matches(';').to_string())
+        .collect();
+    assert_eq!(
+        declared.len(),
+        SCENE_ATTRIB_COUNT,
+        "the shader declares {declared:?}, the layout has room for {SCENE_ATTRIB_COUNT}"
+    );
+    let wired = super::renderer::scene_attribute_table(VertexLayout::Packed)
+        .iter()
+        .filter(|pointer| pointer.is_some())
+        .count();
+    assert_eq!(
+        wired,
+        declared.len(),
+        "the shader declares {} attributes but only {wired} are wired",
+        declared.len()
+    );
+    // The four the scene programs bind by index, so a rename here is caught.
+    for expected in [
+        "a_pos",
+        "a_color",
+        "a_uv",
+        "a_lightmap_uv",
+        "a_lightmap_page",
+        "a_normal",
+        "a_tangent",
+        "a_handedness",
+    ] {
+        assert!(
+            declared.iter().any(|name| name == expected),
+            "the vertex shader no longer declares `{expected}`"
+        );
+    }
+}
+
+#[test]
+fn the_exact_vertex_offsets_match_the_vertex_struct() {
+    // The exact layout is the reference the packed one is measured against, so
+    // its offsets are pinned to the struct's real fields rather than to
+    // hand-written numbers.
+    let offset = |field: usize| i32::try_from(field).expect("a 72-byte vertex fits an i32");
+    assert_eq!(
+        mesh::exact_layout::POS_OFFSET,
+        offset(std::mem::offset_of!(Vertex, pos))
+    );
+    assert_eq!(
+        mesh::exact_layout::COLOR_OFFSET,
+        offset(std::mem::offset_of!(Vertex, color))
+    );
+    assert_eq!(
+        mesh::exact_layout::UV_OFFSET,
+        offset(std::mem::offset_of!(Vertex, uv))
+    );
+    assert_eq!(
+        mesh::exact_layout::NORMAL_OFFSET,
+        offset(std::mem::offset_of!(Vertex, normal))
+    );
+    assert_eq!(
+        mesh::exact_layout::TANGENT_OFFSET,
+        offset(std::mem::offset_of!(Vertex, tangent))
+    );
+    assert_eq!(
+        mesh::exact_layout::HANDEDNESS_OFFSET,
+        offset(std::mem::offset_of!(Vertex, handedness))
+    );
+    assert_eq!(
+        mesh::exact_layout::LIGHTMAP_OFFSET,
+        offset(std::mem::offset_of!(Vertex, lightmap))
+    );
+    assert_eq!(
+        mesh::exact_layout::LIGHTMAP_PAGE_OFFSET,
+        offset(std::mem::offset_of!(Vertex, lightmap_page))
+    );
+    assert_eq!(EXACT_VERTEX_STRIDE, offset(std::mem::size_of::<Vertex>()));
+}
+
+#[test]
+fn the_hud_surface_state_disables_every_world_term() {
+    // The HUD draws with the world program, so every term that program can add
+    // has to be switched off in the state it draws with. `render_ui` applies
+    // this state through the ordinary `apply_surface_state` path rather than
+    // claiming the cache is clean, which is what stops a previous frame's
+    // material — an emissive fixture's vertex emission, a glass pane's opacity,
+    // a panel's sheen — from leaking into the pause menu.
+    let state = super::renderer::SurfaceState::plain(fake_texture());
+    assert_eq!(state.emission, super::renderer::EmissionState::NONE);
+    assert!(!state.response);
+    assert!(state.normal.is_none());
+    assert_eq!(state.specular, [0.0; 3]);
+    assert_eq!(state.opacity, 1.0);
+    assert_eq!(state.reflection, crate::materials::MaterialReflection::NONE);
+    assert!(state.reflection_plane.is_none());
+    assert!(state.emission_animation.is_none());
+}
+
+#[test]
+fn every_window_cap_spans_its_opening_in_world_space() {
+    // Caps are built in the wall unit's local length space and must be
+    // translated by the wall's length origin like every other emitter. When
+    // they are not, a sill stops short of one jamb and buries itself in the
+    // other by exactly the wall's origin, which is a hole at one corner of
+    // every opening on a wall whose min corner is not zero.
+    let level = crate::level::LevelDef::from_json(
+        r#"{ "format_version": 1, "id": "cap_origin", "name": "Cap Origin",
+            "spawn": { "x": 1.0, "z": 1.0, "yaw_degrees": 0.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 14.0,
+                        "height": 3.0, "floor_y": 0.0 }],
+            "walls": [{
+                "x": 3.0, "z": 4.0, "width": 0.3, "depth": 6.0, "height": 3.0,
+                "openings": [{ "kind": "window", "offset": 2.5, "width": 2.0,
+                               "height": 1.2, "sill": 1.0 }]
+            }]
+        }"#,
+    )
+    .expect("the cap-origin fixture parses");
+    let mesh = lightmap_build(
+        &level,
+        crate::quality::QualityProfile::Full,
+        LightmapMode::On,
+    )
+    .mesh;
+    let wall = &level.walls[0];
+    // The wall runs along z from 4.0, so its length origin is non-zero — which
+    // is exactly the case a cap that forgets to translate gets wrong.
+    assert_eq!(wall.axis(), crate::level::WallAxis::Z);
+    let (origin_x, origin_z) = wall.length_origin();
+    let origin = match wall.axis() {
+        crate::level::WallAxis::X => origin_x,
+        crate::level::WallAxis::Z => origin_z,
+    };
+    let opening = &wall.openings[0];
+    let expected = (origin + opening.offset, origin + opening.end());
+    for (plane_y, up) in [(opening.bottom(wall.y), true), (opening.top(wall.y), false)] {
+        let mut lo = f32::INFINITY;
+        let mut hi = f32::NEG_INFINITY;
+        for triangle in mesh.triangles_for(SurfaceKind::Wall).as_chunks::<3>().0 {
+            let [a, b, c] = *triangle;
+            let normal = glam::Vec3::from(a.normal);
+            if normal.y.abs() < 0.9 {
+                continue;
+            }
+            if (normal.y > 0.0) != up {
+                continue;
+            }
+            if (a.pos[1] - plane_y).abs() > 1.0e-3 {
+                continue;
+            }
+            for vertex in [a, b, c] {
+                lo = lo.min(vertex.pos[2]);
+                hi = hi.max(vertex.pos[2]);
+            }
+        }
+        assert!(
+            lo.is_finite() && hi.is_finite(),
+            "the wall must emit a cap at y = {plane_y}"
+        );
+        assert!(
+            (lo - expected.0).abs() <= 1.0e-3 && (hi - expected.1).abs() <= 1.0e-3,
+            "the cap at y = {plane_y} spans {lo}..{hi}, expected {expected:?}"
+        );
+    }
+}
+
+#[test]
+fn the_demo_routes_its_reflective_materials_to_a_plane_and_a_probe() {
+    use crate::materials::{MaterialReflection, ReflectionMode, resolve_materials};
+
+    let level = shipped_demo();
+    let logical = logical_materials(&level);
+    let catalog = crate::assets::AssetCatalog::load_default();
+    let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
+    let mut cache = crate::materials::TextureCache::new();
+    let resolved = resolve_materials(&level, &catalog, None, Some(&root), &mut cache);
+
+    // Every material that authors a reflection must resolve into one; a
+    // catalog entry whose mode the parser does not know is a catalog error, and
+    // a material with no reflection must stay exactly `NONE`.
+    let reflections: Vec<MaterialReflection> = resolved
+        .entries()
+        .iter()
+        .map(|entry| entry.reflection)
+        .collect();
+    let wet = logical.index_of("core:pool_deck_wet_01").expect("wet deck");
+    let linoleum = logical
+        .index_of("core:linoleum_polished_01")
+        .expect("linoleum");
+    let carpet = logical.index_of("core:carpet_beige_01").expect("carpet");
+    assert_eq!(
+        reflections[usize::from(wet)].mode,
+        ReflectionMode::Planar,
+        "the wet deck is the demo's planar mirror"
+    );
+    assert!(reflections[usize::from(wet)].strength > 0.0);
+    assert_eq!(
+        reflections[usize::from(linoleum)].mode,
+        ReflectionMode::Probe,
+        "polished linoleum reads a static probe"
+    );
+    assert_eq!(
+        reflections[usize::from(carpet)],
+        MaterialReflection::NONE,
+        "an unmarked material must never reflect"
+    );
+
+    // The routing itself comes from the emitted geometry, so build the demo the
+    // renderer builds and check the plane it derives.
+    let mesh = lightmap_build(
+        &level,
+        crate::quality::QualityProfile::Full,
+        LightmapMode::On,
+    )
+    .mesh;
+    let routing = super::reflections::routing_from_mesh(&mesh, &reflections, reflections.len());
+    assert_eq!(
+        routing.planes.len(),
+        1,
+        "the demo has exactly one mirror plane: the pool deck"
+    );
+    let plane = routing.planes[0];
+    assert!(
+        (plane.normal[1] - 1.0).abs() < 1.0e-4 && plane.normal[0].abs() < 1.0e-4,
+        "the wet deck faces up, got {:?}",
+        plane.normal
+    );
+    assert!(
+        (plane.offset - 1.5).abs() < 1.0e-3,
+        "the pool deck sits at y = -1.5, got offset {}",
+        plane.offset
+    );
+    assert_eq!(
+        routing.plane_of(usize::from(wet)),
+        Some(0),
+        "the wet deck material routes to that plane"
+    );
+    assert_eq!(
+        routing.plane_of(usize::from(linoleum)),
+        None,
+        "a probe material never routes to a plane"
+    );
+    assert!(routing.probe_for_material[usize::from(linoleum)]);
+    assert!(!routing.probe_for_material[usize::from(wet)]);
+    assert!(
+        !routing.probe_points.is_empty(),
+        "the demo's polished floors want a probe"
+    );
+    // The probe is a real point inside the building, not a plane coefficient.
+    for point in &routing.probe_points {
+        assert!(point.iter().all(|value| value.is_finite()), "{point:?}");
+    }
+}
+
 #[test]
 fn the_demo_glazes_every_window_and_classifies_the_panes_translucent() {
     let level = shipped_demo();

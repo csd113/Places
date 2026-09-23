@@ -355,6 +355,8 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
         alpha_mode = entry.get("alpha_mode")
         opacity = entry.get("opacity")
         alpha_cutoff = entry.get("alpha_cutoff")
+        reflection_mode = entry.get("reflection_mode")
+        reflection_strength = entry.get("reflection_strength")
         declares_response = any(
             entry.get(field) is not None
             for field in (
@@ -366,6 +368,8 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
                 "alpha_mode",
                 "opacity",
                 "alpha_cutoff",
+                "reflection_mode",
+                "reflection_strength",
             )
         )
         if declares_response and not (asset_type == "material" and source == "definition"):
@@ -408,6 +412,23 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
                     errors.append(f"{where}: {field} must be a number between 0 and 1")
                 if alpha_mode is None:
                     errors.append(f"{where}: {field} requires an explicit alpha_mode")
+            # Batch 4 selective reflections: a mode plus its weight.
+            if reflection_mode is not None and str(reflection_mode).strip().lower() not in (
+                "none",
+                "probe",
+                "planar",
+            ):
+                errors.append(
+                    f"{where}: reflection_mode must be 'none', 'probe' or 'planar', "
+                    f"found '{reflection_mode}'"
+                )
+            if reflection_strength is not None and (
+                not is_finite_number(reflection_strength)
+                or not 0.0 <= reflection_strength <= 1.0
+            ):
+                errors.append(f"{where}: reflection_strength must be a number between 0 and 1")
+            if reflection_strength is not None and reflection_mode is None:
+                errors.append(f"{where}: reflection_strength requires an explicit reflection_mode")
 
         # Material emission: a colour triple, an intensity and an optional mask
         # texture. Only definition materials may author it, and the mask must
@@ -586,6 +607,48 @@ def level_ids(level: dict):
     for prop in level.get("props") or []:
         if prop.get("model"):
             yield str(prop["model"]), "prop"
+    for index, animation in enumerate(level.get("animated_emissions") or []):
+        if animation.get("material"):
+            yield str(animation["material"]).strip(), f"animated_emissions[{index}] material"
+
+
+def validate_animated_emissions(level: dict, where: str, errors: list[str]) -> None:
+    """Batch 4 animated emissions: a material id, a known effect and bounded rates.
+
+    A malformed animation is an error rather than a silent no-op: a sign that
+    was meant to breathe and does not is a bug the author has to see.
+    """
+    animations = level.get("animated_emissions")
+    if animations is None:
+        return
+    if not isinstance(animations, list):
+        errors.append(f"{where}: animated_emissions must be a list")
+        return
+    for index, animation in enumerate(animations):
+        entry_where = f"{where}: animated_emissions[{index}]"
+        if not isinstance(animation, dict):
+            errors.append(f"{entry_where} must be an object")
+            continue
+        material = animation.get("material")
+        if not isinstance(material, str) or not _ASSET_ID.match(material.strip()):
+            errors.append(f"{entry_where}: material must be a well-formed asset id")
+        effect = animation.get("effect")
+        if effect is not None and str(effect).strip().lower() not in ("pulse", "flicker"):
+            errors.append(
+                f"{entry_where}: effect must be 'pulse' or 'flicker', found '{effect}'"
+            )
+        hz = animation.get("hz")
+        if hz is not None and (not is_finite_number(hz) or not 0.0 < float(hz) <= 24.0):
+            errors.append(f"{entry_where}: hz must be a number above 0 and at most 24")
+        if effect is not None and str(effect).strip().lower() == "pulse" and hz is not None:
+            if float(hz) > 2.0:
+                errors.append(f"{entry_where}: a pulse must be at most 2 Hz")
+        depth = animation.get("depth")
+        if depth is not None and (not is_finite_number(depth) or not 0.0 < float(depth) <= 0.85):
+            errors.append(f"{entry_where}: depth must be a number above 0 and at most 0.85")
+        phase = animation.get("phase")
+        if phase is not None and not is_finite_number(phase):
+            errors.append(f"{entry_where}: phase must be a finite number")
 
 
 def wall_touches_any_room(level: dict, wall: dict, epsilon: float = 0.05) -> bool:
@@ -686,6 +749,7 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
                     )
                     errors.extend(light_errors)
                     warnings.extend(light_warnings)
+            validate_animated_emissions(level, relative, errors)
             rooms = list(level.get("rooms") or [])
             if level.get("room"):
                 rooms.append(level["room"])

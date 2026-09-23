@@ -193,6 +193,16 @@ impl SceneTarget {
         self.color
     }
 
+    /// The depth attachment, which a later pass can share.
+    ///
+    /// The bloom pass draws the world's emissive term at a quarter resolution
+    /// and needs the scene's own depth to reject the emitters hidden behind a
+    /// wall; a renderbuffer may be attached to several framebuffers as long as
+    /// only one is bound at a time, which is the case here.
+    pub(super) const fn depth_buffer(&self) -> glow::Renderbuffer {
+        self.depth
+    }
+
     /// Deletes every GL object this target owns.
     pub(super) unsafe fn destroy(&self, gl: &glow::Context) {
         unsafe {

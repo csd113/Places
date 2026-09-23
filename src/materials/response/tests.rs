@@ -58,7 +58,27 @@ fn sanitize_clamps_every_field_and_neutralises_nan() {
     // A finite out-of-range channel clamps; a non-finite one becomes zero,
     // because an infinity must never reach a shader.
     assert!(same_color(response.specular, [MAX_SPECULAR, 0.0, 0.0]));
-    assert!(same(response.roughness, DEFAULT_ROUGHNESS));
+    // Roughness is a `0.0..=1.0` scale whose upper bound is *fully matte*, so an
+    // out-of-range value clamps to 1.0 — not to the default. A matte surface a
+    // material asks for must stay matte.
+    assert!(same(response.roughness, MAX_ROUGHNESS));
+    assert!(same(
+        MaterialResponse {
+            roughness: f32::NAN,
+            ..MaterialResponse::NONE
+        }
+        .sanitized()
+        .roughness,
+        DEFAULT_ROUGHNESS
+    ));
+}
+
+#[test]
+fn a_fully_matte_material_keeps_its_roughness() {
+    // `roughness: 1.0` is how content says "this surface has no reflection and
+    // no sheen"; clamping it down to the default would give it a sheen back.
+    let response = MaterialResponse::with_sheen(0.5, 1.0).sanitized();
+    assert!(same(response.roughness, MAX_ROUGHNESS));
 }
 
 #[test]

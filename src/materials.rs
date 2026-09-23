@@ -49,6 +49,7 @@ mod decal;
 mod emission;
 mod image;
 mod pack;
+mod reflection;
 mod resolve;
 mod response;
 
@@ -63,13 +64,16 @@ pub use image::{
     RawImage, TextureCache, decode_png, encode_png, load_png_relative, missing_texture,
 };
 pub use pack::{PackMaterialDef, PackMaterials, parse_materials_json};
+pub use reflection::{
+    DEFAULT_REFLECTION_STRENGTH, MAX_REFLECTION_STRENGTH, MaterialReflection, ReflectionMode,
+};
 pub use resolve::{
     MaterialTable, ResolvedMaterial, ResolvedTexture, TextureOrigin, referenced_material_ids,
     resolve_materials,
 };
 pub use response::{
     AlphaMode, DEFAULT_ALPHA_CUTOFF, DEFAULT_NORMAL_STRENGTH, DEFAULT_ROUGHNESS,
-    MAX_NORMAL_STRENGTH, MAX_SPECULAR, MaterialAlpha, MaterialResponse,
+    MAX_NORMAL_STRENGTH, MAX_ROUGHNESS, MAX_SPECULAR, MaterialAlpha, MaterialResponse,
 };
 
 /// Cache/dedupe key of the one diagnostic texture every resolution failure

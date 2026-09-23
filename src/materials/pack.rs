@@ -12,8 +12,8 @@ use crate::assets::DEFAULT_TILE_METRES;
 
 use super::image::{RawImage, TextureCache, decode_png};
 use super::{
-    DEFAULT_EMISSION_INTENSITY, DEFAULT_TINT, MAX_EMISSION_INTENSITY, MaterialAlpha,
-    MaterialEmission, MaterialResponse,
+    DEFAULT_EMISSION_INTENSITY, DEFAULT_REFLECTION_STRENGTH, DEFAULT_TINT, MAX_EMISSION_INTENSITY,
+    MaterialAlpha, MaterialEmission, MaterialReflection, MaterialResponse, ReflectionMode,
 };
 
 /// One material a pack's `materials.json` declares.
@@ -40,6 +40,10 @@ pub struct PackMaterialDef {
     pub specular: Option<f32>,
     pub specular_color: Option<[f32; 3]>,
     pub roughness: Option<f32>,
+    /// `none` | `probe` | `planar`. Absent means no reflection at all.
+    pub reflection_mode: Option<String>,
+    /// `0.0..=1.0`; `None` keeps [`DEFAULT_REFLECTION_STRENGTH`].
+    pub reflection_strength: Option<f32>,
     /// `opaque` | `cutout` | `blend`.
     pub alpha_mode: Option<String>,
     pub opacity: Option<f32>,
@@ -97,6 +101,28 @@ impl PackMaterialDef {
             specular,
             roughness: self.roughness.unwrap_or(super::DEFAULT_ROUGHNESS),
         }
+        .sanitized()
+    }
+
+    /// The reflection contract this definition describes.
+    ///
+    /// A definition that names no mode reflects nothing, and a mode without a
+    /// strength gets [`DEFAULT_REFLECTION_STRENGTH`]: marking a surface is one
+    /// word in the catalog, and how strong it is stays a separate decision.
+    #[must_use]
+    pub fn reflection(&self) -> MaterialReflection {
+        let Some(mode) = self
+            .reflection_mode
+            .as_deref()
+            .and_then(ReflectionMode::parse)
+        else {
+            return MaterialReflection::NONE;
+        };
+        MaterialReflection::new(
+            mode,
+            self.reflection_strength
+                .unwrap_or(DEFAULT_REFLECTION_STRENGTH),
+        )
         .sanitized()
     }
 
@@ -329,6 +355,13 @@ pub fn parse_materials_json(json_str: Option<&str>) -> HashMap<String, PackMater
                     .map(str::to_string),
                 opacity: value.get("opacity").and_then(parse_unit_number),
                 alpha_cutoff: value.get("alpha_cutoff").and_then(parse_unit_number),
+                reflection_mode: value
+                    .get("reflection_mode")
+                    .and_then(|mode| mode.as_str())
+                    .map(str::trim)
+                    .filter(|mode| !mode.is_empty())
+                    .map(str::to_string),
+                reflection_strength: value.get("reflection_strength").and_then(parse_unit_number),
             }
         };
         if !definition.texture.is_empty() {

@@ -57,6 +57,20 @@ The engine is deliberately small and the content is deliberately editable:
 * **A real catalog.** Levels never store a file path. They name a logical id
   (`core:desk`, `core:pool_tile_deck_01`, `spooner-man`) and `assets/catalog.json`
   resolves it to a file, a material definition or a generated resource.
+* **Restrained post-processing.** The scene is drawn into an offscreen target and
+  resolved into the display image: bloom that follows *emission* rather than
+  brightness, a tone shoulder that leaves everything below 0.75 untouched,
+  distance fog and a barely-there grade. The HUD draws after it, so the UI is
+  never touched by any of it, and `Low` skips the whole stage.
+* **Selective reflections.** A material can ask for a static **probe** (a small
+  cubemap baked once per level load, one texture read a fragment) or a **planar
+  mirror** (a real second view of the level through the surface's own plane, at
+  most one plane per frame). Both are weighted by the sheen the material already
+  authors, so a rough or dull surface suppresses its reflection instead of
+  mirroring.
+* **Animated emissions.** A level can make a material's emission `pulse` or
+  `flicker`, deterministically and within a bounded depth — a backlit sign
+  breathing, a tube on a failing ballast.
 
 ## Screenshots
 
@@ -416,12 +430,29 @@ perturbing the shading normal. A separate decal pass alpha-tests a cut-out sheet
 over the surface it belongs to. Lighting is computed once per level load, never
 per frame.
 
-The scene is rendered into an offscreen colour+depth target and presented to the
-framebuffer by one fullscreen quad; the HUD is drawn afterwards, on the default
-framebuffer, at the drawable's own resolution, so it stays sharp. The target
-tracks the drawable's size and aspect ratio (nothing is stretched) and falls
-back to drawing straight into the framebuffer if it cannot be created.
-`LIMINAL_NO_OFFSCREEN=1` forces that fallback path for an A/B comparison.
+The scene is rendered into an offscreen colour+depth target and resolved into the
+display image by one fullscreen pass; the HUD is drawn afterwards, on the default
+framebuffer, at the drawable's own resolution, so it stays sharp and outside
+every post-processing stage. The target tracks the drawable's size and aspect
+ratio (nothing is stretched) and falls back to drawing straight into the
+framebuffer if it cannot be created — `LIMINAL_NO_OFFSCREEN=1` forces that
+fallback path for an A/B comparison.
+
+The resolve stage adds bloom, exposure and a subtle grade, and it is the only
+place a scene pixel becomes a display pixel. Bloom is drawn from the world's
+**emissive term alone** — never from brightness — so a brightly lit wall cannot
+glow; the tone curve is a soft shoulder above 0.75 that leaves the baked
+lighting's own contrast untouched below it; and the fog is a scalar mix in the
+world shader. `Low` sets the resolve stage to the identity, so it presents the
+scene with the plain copy quad and costs what the pre-Batch-4 renderer did, and
+`LIMINAL_NO_BLOOM=1` / `LIMINAL_NO_REFLECTIONS=1` measure each stage alone.
+
+Reflections are opt-in per material: a **probe** reads a small cubemap baked once
+per level load, a **planar** mirror draws a real second view of the level through
+the surface's own plane (at most one plane per frame, half resolution, `Full`
+only). Both are weighted by the sheen the material already authors, so a rough or
+dull surface suppresses its reflection instead of mirroring.
+
 
 Transparent surfaces are drawn after everything opaque, sorted back to front by
 the distance from the camera to their spatial batch, with depth testing on and
@@ -435,10 +466,11 @@ assets unchanged. **Low** uses the same assets and box-filters each one once at
 level load (sheets 256, prop sheets 128, emissive masks 128). Downscaling is a
 load-time step that is cached with the texture it produced, never a per-frame
 cost, and `"quality"` in `settings.json` (or `LIMINAL_QUALITY=full|low` for one
-run) selects the profile. Low also leaves the optional surface response out and
-renders the 3D scene no wider than the PocketCHIP reference resolution: the same
-level, the same materials and the same ids, with the optional per-pixel work
-dropped.
+run) selects the profile. Low also leaves the optional surface response out, skips
+the post-processing stage (bloom, exposure, tone, grade) and renders the 3D scene
+no wider than the PocketCHIP reference resolution: the same level, the same
+materials and the same ids, with the optional per-pixel work dropped. Fog and
+frame are both profiles; reflections are probes only.
 
 A decal owns its depth plane by construction, in two halves that level authors
 never have to think about:

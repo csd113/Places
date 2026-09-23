@@ -1,3 +1,134 @@
+## Unreleased — Batch 4: post-processing, selective reflections, dynamic polish, visual repair
+
+Batch 4 finishes the presentation path the offscreen target made possible and
+repairs three defects the earlier batches left behind. It adds no new lighting
+model: bloom follows *emission*, reflections are weighted by the sheen the
+materials already author, and the fog is a scalar mix.
+
+### Restrained post-processing
+
+- **Bloom follows emission.** The emissive term is drawn alone into a
+  quarter-resolution target, blurred with two separable passes and added back by
+  the resolve stage. A brightly lit wall can never bloom however bright its bake
+  is; only a surface or fixture face that emits does. `u_emission_only` is the
+  one flag, and the pass submits only the handful of emissive batches.
+- **A tone shoulder, not a look.** The resolve stage applies exposure and a soft
+  shoulder above `0.75`: everything below is untouched, so the baked lighting's
+  own contrast survives exactly and only genuinely over-bright pixels (an
+  emissive face at intensity > 1) roll off instead of clipping.
+- **Atmospheric fog** (`src/render/atmosphere.rs`) is exponential-squared
+  distance fog with a mild height term, mixed in the world fragment stage: about
+  4 % at 20 m, 15 % at 40 m and 63 % at the far plane, a little denser near the
+  floor. It is in the world shader, so both profiles and the direct fallback get
+  it, and it costs no pass.
+- **A barely-there grade** (saturation 1.03, contrast 1.02) runs in the resolve
+  stage on `Full` only.
+- **Low skips all of it.** `Low`'s resolve settings are the identity, so the
+  renderer presents the scene with the plain copy quad and costs what the
+  pre-Batch-4 presentation did. Bloom, exposure, the shoulder and the grade are
+  `Full`-only; the fog is both.
+- **The UI is outside it by construction**: `render_ui` still draws on the
+  default framebuffer after the resolve, and it now *re-applies* a plain surface
+  state rather than trusting the cache (see the defect below).
+
+### Selective reflections
+
+- **Per-material, opt-in, two kinds.** `MaterialReflection` /
+  `ReflectionMode` (`src/materials/reflection.rs`) add `reflection_mode`
+  (`none` / `probe` / `planar`) and `reflection_strength` to a material.
+  `none` is the default and reflects nothing.
+- **Static probes** (`src/render/reflections.rs`) are cubemaps baked once per
+  level load at the centroid of the probe-reflective geometry, clustered by room
+  (at most two). Sampling one is a single texture read; `Full` bakes 64-texel
+  faces, `Low` 32. The whole bake costs 3.6 ms on Places Demo.
+- **Planar mirrors** are a real second view of the level, mirrored through a
+  plane *derived from the emitted geometry* — so a material reused on two planes
+  is resolved per batch, and a material on a non-planar surface is reported and
+  skipped rather than reflected wrongly. At most one plane is drawn per frame
+  (the nearest one on screen) and at half resolution, and `Low` never allocates
+  the target at all.
+- **Reflections respect the response.** The reflected colour is weighted by the
+  material's own specular colour, its roughness and a Fresnel term, so a surface
+  with no sheen never reflects and a rough one suppresses what it does catch.
+- Places Demo marks the wet pool deck (`planar`), the polished linoleum and the
+  brushed-metal panel (`probe`).
+
+### Dynamic visual polish
+
+- **Animated emissions** (`src/render/animation.rs`, level
+  `animated_emissions[]`): a named material's emission can `pulse` (a slow
+  sinusoid) or `flicker` (an occasional, bounded stutter). Both shapes are pure
+  functions of the level's elapsed seconds, start at full brightness and are
+  bounded by `depth`; the animation scales the emissive term only, so the
+  fixture blinks while its baked pool of light stays steady. The clock advances
+  from the simulation's own delta, so a first-frame capture is always the
+  authored image.
+- Places Demo's backlit signs breathe at 0.09 Hz, and one sign on the north pool
+  wall is on a failing ballast: a 7.5 Hz flicker to 40 % about a tenth of the
+  time.
+- The Batch 2 rotating washer drum is unchanged and still the dynamic-object
+  path's demonstration.
+
+### Visual repair
+
+- **The pause menu leaked the world's material state.** `render_ui` bound the
+  world program and then *claimed* the surface cache held a plain state without
+  uploading it, so the uniforms still held whatever the last world material left
+  in them — most visibly the last translucent surface's `u_opacity`, which made
+  the pause panel see-through. It now applies `SurfaceState::plain` through the
+  same `apply_surface_state` path the world uses, so no emission, sheen, opacity,
+  reflection or animation can reach the UI.
+- **The vertex frame was never wired.** `set_vertex_attributes` pointed
+  `a_pos`, `a_color`, `a_uv` and the lightmap attributes but never `a_normal`,
+  `a_tangent` or `a_handedness`, so every surface read the generic attribute
+  default `(0, 0, 0, 1)`: `v_normal` was the zero vector, the sheen's grazing
+  lobe was pinned at 1 on every fragment, and normal maps were dead. That is the
+  white wash on the pool's brushed-metal screen and wet deck. The exact layout's
+  lightmap offsets were also wrong (they pointed into the normal bytes). The
+  pointer table is now one pure function, walked by the renderer and pinned by a
+  test.
+- **Window reveal caps were not translated.** `emit_wall_slice_cap` built its
+  quad in the wall unit's *local* length space and never added the wall's length
+  origin, so every sill and header on a wall whose min corner is not zero was
+  shifted by that origin: a gap at one jamb and a buried overhang at the other,
+  letting the player see into the wall. The caps are translated like every other
+  emitter, and a regression test builds a wall with a non-zero origin and
+  asserts the cap spans its opening exactly.
+- **The two bare pool panels are now notice boards.** The brushed-metal and
+  moulded-plastic slabs against the pool walls (Batch 3's surface-response
+  demonstration) read as unexplained white boxes. Each now sits inside a
+  brushed-metal frame and carries a backlit sign face: the pool's two
+  illuminated notice boards, one of them on the flickering ballast.
+
+### Validation and tooling
+
+- New regression tests: the attribute table against the vertex structs and the
+  shader's declarations, the exact-layout offsets, the HUD's plain state, the
+  window cap's world span, the shipped demo's reflection routing (plane
+  normal/offset, material mapping and probe points), the two post-processing
+  fallbacks (no offscreen target, and `Low`'s identity resolve), and the
+  animation shapes (bounds, first-frame identity and the flicker's resting
+  share).
+- `tools/assets/validate.py` validates `reflection_mode` /
+  `reflection_strength` on materials and the level `animated_emissions` array.
+- New benchmark switches: `LIMINAL_NO_BLOOM=1` and
+  `LIMINAL_NO_REFLECTIONS=1`, so one build can measure each post-processing and
+  reflection stage in isolation. The benchmark CSV and summary now report
+  `reflection_passes`, and `LIMINAL_PAUSE=1` opens the pause menu on the first
+  frame so the pause UI can be captured without a keyboard.
+- Measured on macOS at 960×544: bloom 0.19 ms and the planar reflection 0.23 ms
+  of a 0.89 ms `Full` frame, `Low` 0.47 ms (the same shape as Batch 3's 0.45 ms),
+  two extra draw calls, and about 3.2 MiB of reflection and bloom targets.
+  `tools/bench/notes/batch4-post-reflection-validation.md` has the full table.
+- The emissive image the bloom blurs shares the scene's depth buffer, drawn at
+  the scene target's resolution, so an emitter hidden behind a wall cannot glow
+  through it. A view with no emissive surface on screen skips the stage.
+- `tools/bench/capture_batch4.sh` captures the fixed validation view set, and
+  `tools/bench/notes/batch4-post-reflection-validation.md` records what the runs
+  showed.
+
+---
+
 ## Unreleased — Batch 3: surface response, transparency/glass, offscreen framebuffer
 
 Batch 3 makes the surfaces *react* to the Batch 1/2 lighting, gives materials a

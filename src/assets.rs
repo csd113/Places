@@ -29,7 +29,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::materials::{
-    MAX_EMISSION_COLOR, MAX_EMISSION_INTENSITY, MAX_NORMAL_STRENGTH, MAX_SPECULAR,
+    MAX_EMISSION_COLOR, MAX_EMISSION_INTENSITY, MAX_NORMAL_STRENGTH, MAX_REFLECTION_STRENGTH,
+    MAX_SPECULAR, ReflectionMode,
 };
 
 /// Environment variable that overrides every other asset-root candidate.
@@ -664,6 +665,11 @@ pub struct AssetEntry {
     pub opacity: Option<f32>,
     /// Alpha cut-off of a `cutout` material.
     pub alpha_cutoff: Option<f32>,
+    /// `none` (default), `probe` or `planar`: where a material's reflection
+    /// image comes from. Absent means the surface never reflects.
+    pub reflection_mode: Option<String>,
+    /// `0.0..=1.0` weight of [`Self::reflection_mode`]; authored only with it.
+    pub reflection_strength: Option<f32>,
     /// Future entity kind (`character`, `npc`, `creature`, ...).
     pub entity_type: Option<String>,
     pub description: Option<String>,
@@ -743,6 +749,50 @@ struct ValidatedEmission {
     mask: Option<String>,
 }
 
+/// Validates a material's reflection fields, naming the problem when one is
+/// malformed.
+///
+/// A mode is only meaningful with a strength and vice versa, so a strength
+/// without a mode is an authoring error rather than a silent no-op.
+fn validate_reflection(
+    id: &str,
+    entry: &CatalogEntryFile,
+) -> Result<(Option<String>, Option<f32>), String> {
+    let reflection_mode = match entry
+        .reflection_mode
+        .as_deref()
+        .map(str::trim)
+        .filter(|mode| !mode.is_empty())
+    {
+        Some(mode) => Some(
+            ReflectionMode::parse(mode)
+                .ok_or_else(|| {
+                    format!(
+                        "{id}: `reflection_mode` must be one of `none`, `probe` or `planar`, found `{mode}`"
+                    )
+                })?
+                .name()
+                .to_string(),
+        ),
+        None => None,
+    };
+    if entry.reflection_strength.is_some() && reflection_mode.is_none() {
+        return Err(format!(
+            "{id}: `reflection_strength` requires an explicit `reflection_mode`"
+        ));
+    }
+    let reflection_strength = match entry.reflection_strength {
+        Some(value) if !value.is_finite() || !(0.0..=MAX_REFLECTION_STRENGTH).contains(&value) => {
+            return Err(format!(
+                "{id}: reflection_strength must be between 0.0 and {MAX_REFLECTION_STRENGTH:?}, found {value:?}"
+            ));
+        }
+        Some(value) => Some(value),
+        None => None,
+    };
+    Ok((reflection_mode, reflection_strength))
+}
+
 /// Validates one unit-interval number, naming the field when it is out of range.
 fn unit_number(value: Option<f32>, field: &str) -> Result<Option<f32>, String> {
     match value {
@@ -800,6 +850,8 @@ struct ValidatedResponse {
     alpha_mode: Option<String>,
     opacity: Option<f32>,
     alpha_cutoff: Option<f32>,
+    reflection_mode: Option<String>,
+    reflection_strength: Option<f32>,
 }
 
 #[derive(serde::Deserialize)]
@@ -864,6 +916,12 @@ struct CatalogEntryFile {
     opacity: Option<f32>,
     #[serde(default)]
     alpha_cutoff: Option<f32>,
+    /// Batch 4 selective reflections: `none` | `probe` | `planar`, plus the
+    /// weight of the reflected image.
+    #[serde(default)]
+    reflection_mode: Option<String>,
+    #[serde(default)]
+    reflection_strength: Option<f32>,
     #[serde(default)]
     entity_type: Option<String>,
     #[serde(default)]
@@ -929,6 +987,8 @@ impl CatalogEntryFile {
             alpha_mode: response.alpha_mode,
             opacity: response.opacity,
             alpha_cutoff: response.alpha_cutoff,
+            reflection_mode: response.reflection_mode,
+            reflection_strength: response.reflection_strength,
             entity_type: self
                 .entity_type
                 .as_deref()
@@ -1172,7 +1232,9 @@ impl CatalogEntryFile {
             && self.roughness.is_none()
             && alpha_mode.is_none()
             && self.opacity.is_none()
-            && self.alpha_cutoff.is_none();
+            && self.alpha_cutoff.is_none()
+            && self.reflection_mode.is_none()
+            && self.reflection_strength.is_none();
         if untouched {
             return Ok(ValidatedResponse {
                 normal_texture: None,
@@ -1183,13 +1245,16 @@ impl CatalogEntryFile {
                 alpha_mode: None,
                 opacity: None,
                 alpha_cutoff: None,
+                reflection_mode: None,
+                reflection_strength: None,
             });
         }
         if asset_type.as_str() != AssetType::MATERIAL || source != AssetSource::Definition {
             return Err(format!(
                 "{id}: only a `material` `definition` asset may declare surface-response \
                  (`normal_texture`, `normal_strength`, `specular`, `specular_color`, \
-                 `roughness`) or alpha (`alpha_mode`, `opacity`, `alpha_cutoff`) fields"
+                 `roughness`), alpha (`alpha_mode`, `opacity`, `alpha_cutoff`) or a \
+                 reflection (`reflection_mode`, `reflection_strength`) field"
             ));
         }
         if let Some(texture) = &normal_texture
@@ -1213,6 +1278,7 @@ impl CatalogEntryFile {
         }
         let specular_color = specular_color(id, self.specular_color.as_deref())?;
         let alpha_mode = validated_alpha_mode(id, alpha_mode)?;
+        let (reflection_mode, reflection_strength) = validate_reflection(id, self)?;
         if (self.opacity.is_some() || self.alpha_cutoff.is_some()) && alpha_mode.is_none() {
             return Err(format!(
                 "{id}: `opacity` and `alpha_cutoff` require an explicit `alpha_mode`"
@@ -1231,6 +1297,8 @@ impl CatalogEntryFile {
                 .map_err(|field| format!("{id}: {field}"))?,
             alpha_cutoff: unit_number(self.alpha_cutoff, "alpha_cutoff")
                 .map_err(|field| format!("{id}: {field}"))?,
+            reflection_mode,
+            reflection_strength,
         })
     }
 

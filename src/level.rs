@@ -1256,6 +1256,33 @@ pub struct LevelDef {
     /// Placed props / furniture / appliances.
     #[serde(default)]
     pub props: Vec<PropDef>,
+    /// Surfaces whose *emission* moves over time: a breathing illuminated sign,
+    /// a failing tube. Empty on every level that does not ask for one.
+    ///
+    /// The animation scales the additive emissive term only. The baked
+    /// illumination is static by design, so a flickering panel keeps lighting
+    /// the room exactly as it was baked.
+    #[serde(default)]
+    pub animated_emissions: Vec<AnimatedEmissionDef>,
+}
+
+/// One animated emission a level declares, by material id.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AnimatedEmissionDef {
+    /// Material whose emissive term animates. Must be a material the level uses.
+    pub material: String,
+    /// `pulse` or `flicker`. Defaults to `pulse`.
+    #[serde(default)]
+    pub effect: Option<String>,
+    /// Cycles per second; the effect's own default when absent.
+    #[serde(default)]
+    pub hz: Option<f32>,
+    /// How far the emission may fall below its authored value.
+    #[serde(default)]
+    pub depth: Option<f32>,
+    /// Phase offset in cycles, so two signs do not breathe in lockstep.
+    #[serde(default)]
+    pub phase: Option<f32>,
 }
 
 /// Number of quads the office fluorescent panel generates (panel plus two

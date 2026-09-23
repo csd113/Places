@@ -11,17 +11,24 @@ use crate::lighting::lightmap::{LightmapPlan, PatchKind};
 use crate::lighting::{LevelLighting, LightColor, wall_light_segments};
 use crate::materials::{MaterialTable, ResolvedMaterial};
 
+mod animation;
 mod api;
+mod atmosphere;
 mod decals;
 mod dynamic;
 mod fixtures;
 mod framebuffer;
 mod geometry;
 mod mesh;
+mod postprocess;
 mod props;
+mod reflections;
 mod renderer;
 mod view;
 
+pub use animation::{
+    AnimationEffect, EmissionAnimation, MAX_ANIMATION_DEPTH, MAX_FLICKER_HZ, MAX_PULSE_HZ,
+};
 pub use api::{
     BuildTimings, LevelBuild, LightmapBuildOptions, build_level_geometry,
     build_level_geometry_timed, build_level_geometry_timed_with_lightmaps,
@@ -45,7 +52,7 @@ pub use mesh::packed_layout;
 pub use mesh::{
     BatchRange, EXACT_VERTEX_STRIDE, LIGHTMAP_NONE, LevelMesh, LevelMeshBatches, LevelMeshRange,
     MATERIAL_NONE, MaterialIndex, MaterialSlot, PackedVertex, StaticBatch, SurfaceKey, SurfaceKind,
-    Vertex, VertexLayout, dequantize_normal, dequantize_unit, spatial_cell_grid,
+    Vertex, VertexLayout, dequantize_normal, dequantize_unit, exact_layout, spatial_cell_grid,
 };
 use mesh::{MeshChunk, MeshPacker, finish_indexed_mesh};
 pub use props::PropMeshBatch;
@@ -74,7 +81,8 @@ use view::{
     DECAL_FRAGMENT_SHADER_SRC, EMISSION_MASK_TEXTURE_UNIT, LIGHTMAP_PAGE_SLOTS,
     LIGHTMAP_TEXTURE_UNIT, LIGHTMAP_TEXTURE_UNIT_1, NORMAL_MAP_TEXTURE_UNIT,
     PRESENT_FRAGMENT_SHADER_SRC, PRESENT_TEXTURE_UNIT, PRESENT_VERTEX_SHADER_SRC,
-    SCENE_ATTRIB_COLOR, SCENE_ATTRIB_COUNT, SCENE_ATTRIB_HANDEDNESS, SCENE_ATTRIB_LIGHTMAP_PAGE,
+    REFLECTION_PLANAR_TEXTURE_UNIT, REFLECTION_PROBE_TEXTURE_UNIT, SCENE_ATTRIB_COLOR,
+    SCENE_ATTRIB_COUNT, SCENE_ATTRIB_HANDEDNESS, SCENE_ATTRIB_LIGHTMAP_PAGE,
     SCENE_ATTRIB_LIGHTMAP_UV, SCENE_ATTRIB_NORMAL, SCENE_ATTRIB_POS, SCENE_ATTRIB_TANGENT,
     SCENE_ATTRIB_UV, SCENE_TEXTURE_UNIT, VERTEX_SHADER_SRC,
 };

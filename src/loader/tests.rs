@@ -62,6 +62,7 @@ fn test_validate_level_success() {
         ceiling_lights: vec![],
         decals: Vec::new(),
         props: vec![],
+        animated_emissions: Vec::new(),
     };
     assert!(validate_level(&level).is_ok());
 }
@@ -87,6 +88,7 @@ fn test_validate_level_invalid_version() {
         ceiling_lights: vec![],
         decals: Vec::new(),
         props: vec![],
+        animated_emissions: Vec::new(),
     };
     assert!(validate_level(&level).is_err());
 }
@@ -159,6 +161,7 @@ fn test_validate_level_preserves_overlapping_geometry() {
         ceiling_lights: vec![],
         decals: Vec::new(),
         props: vec![],
+        animated_emissions: Vec::new(),
     };
     assert!(validate_level(&level).is_ok());
 }
@@ -272,6 +275,7 @@ fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
         ceiling_lights: vec![],
         decals: Vec::new(),
         props: vec![],
+        animated_emissions: Vec::new(),
     };
 
     // No custom textures supplied: the two `pack:` materials resolve to the

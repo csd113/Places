@@ -110,12 +110,16 @@ Authoritative paths:
 | Material transparency (`alpha_mode`: `opaque` / `cutout` / `blend`, `opacity`, `alpha_cutoff`) | Implemented |
 | Opening glazing: a `glass` material fills a window, vent or door aperture with one pane | Implemented |
 | Offscreen scene rendering presented by a fullscreen quad, UI at drawable resolution | Implemented |
+| Selective reflections: per-material `reflection_mode` (`probe` / `planar`) at 64-texel probes and a half-resolution planar pass | Implemented |
+| Restrained post-processing: emission-driven bloom, a tone shoulder, distance fog and a subtle grade, with the UI drawn outside it | Implemented |
+| Animated emissions: `animated_emissions[]` makes a material's emission pulse or flicker, deterministically | Implemented |
 | Full / Low runtime quality profiles with texture downscaling | Implemented |
 | Props/entities from GLBs by logical id, `solid` collision boxes | Implemented |
 | Multi-primitive / multi-material GLB props, embedded emissive materials, node transforms | Implemented |
 | External PNG surfaces, decals, fixture faces; catalog + themes | Implemented |
 | Level `.zip` packs with `materials.json` and pack textures | Implemented |
-| Water, refraction/transmission, reflections, realtime dynamic lights, realtime shadow maps, animation/skinning | Not implemented |
+| Water, refraction/transmission, realtime dynamic lights, realtime shadow maps, skeletal animation | Not implemented |
+| Screen-space reflections; per-frame raytraced reflections; cubemap probes with realtime updates | Not implemented (Batch 4 has static probes and one planar plane) |
 | Per-object transparency on GLB props (a prop's glTF `alphaMode` is not read) | Not implemented |
 | Emissive decals; per-placement emission overrides; cone/spot lights | Not implemented |
 | Authoring a normal map from a level (a level names a material, and the material owns the map) | Implemented (via the catalog) |
@@ -754,6 +758,8 @@ Materials are **definitions**, not files. A material entry carries:
 | `specular_color` | no | white | Optional `[r,g,b]` sheen colour (a metal catches its own colour). Requires `specular`. |
 | `roughness` | no | `0.6` | `0.0` mirror-tight sheen … `1.0` fully matte. Only matters when `specular` is set. |
 | `alpha_mode` | no | `opaque` | `opaque`, `cutout` or `blend`. See [Transparency](#transparency-alpha-modes). |
+| `reflection_mode` | no | `none` | `none`, `probe` or `planar`. See [Selective reflections](#selective-reflections-which-surfaces-reflect). |
+| `reflection_strength` | no | `0.45` | Weight of the reflected image, `0`–`1`. Requires `reflection_mode`. |
 | `opacity` | no | `1.0` | Multiplier on the sampled alpha, `0.0`–`1.0`. Requires an explicit `alpha_mode`. |
 | `alpha_cutoff` | no | `0.5` | Alpha below which a `cutout` texel is discarded. Requires an explicit `alpha_mode`. |
 
@@ -861,6 +867,83 @@ second art set.
 not a substitute for geometry: it cannot cast a shadow, it does not change the
 silhouette and it is lit only by the baked room light. Keep the low-poly
 vocabulary — bumps, grime, brushed streaks and panel seams, not sculpted detail.
+
+### Selective reflections: which surfaces reflect
+
+Batch 4 adds two deliberately limited ways for a surface to show the room back:
+a **static probe** (a small cubemap baked once per level load) and a **planar
+mirror** (a real second view of the level through the surface's own plane).
+Neither is a screen-space effect, and nothing reflects unless a material asks.
+
+```json
+{ "id": "core:pool_deck_wet_01", "asset_type": "material", "source": "definition",
+  "texture": "core:tex_pool_tile_deck_01", "tile_metres": 1.5,
+  "specular": 0.65, "roughness": 0.06,
+  "reflection_mode": "planar", "reflection_strength": 0.4 }
+```
+
+| `reflection_mode` | What it draws | Cost |
+| --- | --- | --- |
+| `none` (default) | nothing | none |
+| `probe` | the static cubemap baked at level load, read by the reflected view vector | one texture read per reflective fragment |
+| `planar` | a real second view of the level, mirrored through the surface's plane | one extra scene pass per frame while that plane is on screen |
+
+Four properties are worth designing around:
+
+* **It rides on the sheen.** The reflected colour is weighted by the material's
+  own `specular` colour, its `roughness` and the view angle. A material with
+  `specular: 0` never reflects, and a rough one suppresses what it does catch
+  instead of mirroring. There is no separate "reflectivity" number to keep in
+  step with the sheen, and `reflection_strength` is a weight on top (default
+  `0.45`, maximum `1.0`).
+* **It is approximate.** A probe is a 64-texel-per-face cubemap — the shape of
+  the room, not a second render of it — and a planar reflection is drawn at half
+  resolution. Use them where the surface should read as wet, polished or
+  mirrored, not where the player will compare the reflection with the room.
+* **Mark only where it is worthwhile.** Planar reflections are the expensive
+  half: at most one plane is drawn per frame, chosen as the nearest one whose
+  geometry is on screen. Marking several walls will make them take turns. Places
+  Demo ships **one** planar surface (the wet pool deck) and one probe material
+  (polished linoleum); the brushed-metal panel is a probe.
+* **The surface must be flat and axis-aligned to work well as a mirror.** The
+  plane is derived from the emitted geometry at load; a material reused on a
+  curved or stepped surface is reported and skipped rather than reflected
+  wrongly.
+
+**Quality profiles.** `Full` draws the planar pass and 64-texel probes; `Low`
+draws the probes at 32 texels and never allocates a planar target. A material
+marked `planar` simply keeps its sheen and loses the mirror image on `Low`.
+
+Shipped examples: `core:pool_deck_wet_01` (`planar`, 0.4),
+`core:linoleum_polished_01` (`probe`, 0.4), `core:metal_brushed_01` (`probe`, 0.3).
+
+### Post-processing: bloom, exposure, fog and grading
+
+Batch 4 renders the scene into an offscreen colour+depth target and turns it into
+the display image in a final **resolve** pass. The HUD still draws afterwards on
+the default framebuffer, so nothing here touches the UI.
+
+| Stage | What it does | Full | Low |
+| --- | --- | --- | --- |
+| Bloom | Draws the world's **emissive term alone** at quarter resolution, blurs it and adds it back | yes | no |
+| Exposure / tone | A gentle shoulder above `0.75`: everything below is untouched, only genuinely over-bright pixels roll off | yes | no |
+| Fog | Exponential-squared distance fog with a mild height term, in the world shader | yes | yes |
+| Grade | A barely-there saturation and contrast trim | yes (1.03 / 1.02) | no |
+
+Two consequences for authoring:
+
+* **Bloom follows emission, not brightness.** A brightly lit wall can never
+  bloom however bright its bake is; only a surface whose material (or fixture
+  face) emits does. If a fixture should glow, author emission on it — there is
+  no threshold to tune in the level.
+* **Fog is depth, not weather.** The shipped density gives about 4 % at 20 m,
+  15 % at 40 m and 63 % at the 100 m far plane, a little denser near the floor.
+  It is most visible down a long corridor or through the last doorway, and it
+  never turns a room smoky.
+
+`Low` presents the scene unfiltered (no bloom, no grade, no tone shoulder) and
+the renderer skips the resolve pass entirely, so `Low` costs what the pre-Batch-4
+presentation cost. Fog is in the world shader and applies to both profiles.
 
 ### Transparency: alpha modes
 
@@ -1147,6 +1230,8 @@ anywhere).
 | `alpha_mode` | string | optional | `opaque` | materials: `opaque` / `cutout` / `blend` |
 | `opacity` | number | optional | `1.0` | materials (`0`–`1`; requires `alpha_mode`) |
 | `alpha_cutoff` | number | optional | `0.5` | materials (`0`–`1`; requires `alpha_mode` = `cutout`) |
+| `reflection_mode` | string | optional | `none` | materials: `none` / `probe` / `planar`. See [Selective reflections](#selective-reflections-which-surfaces-reflect) |
+| `reflection_strength` | number | optional | `0.45` | materials (`0`–`1`; requires `reflection_mode`) |
 | `entity_type` | string | optional | none | entities |
 | `description` | string | optional | none | all |
 | `tags` | array of strings | optional | `[]` | currently unused |
@@ -1366,10 +1451,12 @@ object has depth.
 
 ## 18. Lighting
 
-Places has **no dynamic lights, no shadows, no lightmaps and no shaders beyond one
-texture-times-vertex-colour pass**. Lighting is baked once per level load into vertex
-colours. Authors control it with fixture placement, fixture type, colour and
-brightness — there is no level- or room-wide lighting override.
+Places has **no dynamic lights and no realtime shadow maps**. Lighting is baked once
+per level load into a per-texel lightmap atlas (with the historical baked-vertex
+path as the exact fallback). Authors control it with fixture placement, fixture
+type, colour and brightness — there is no level- or room-wide lighting override.
+Surface response, emission, reflections and post-processing are added on top of
+that bake; none of them is a light source (see section 11).
 
 ### The implemented lighting model
 
@@ -1480,6 +1567,43 @@ machine itself is an ordinary static prop and participates in the bake).
   (no shadows, no realtime lights), which is the documented temporary behaviour
   for Batch 3 to evolve.
 * Moving one never rebuilds geometry, batches or lightmaps.
+
+### Animated emissions
+
+A level can make a surface's **emission** move over time: a backlit sign that
+breathes, a tube on a failing ballast. It is a level-level array, keyed by
+material id.
+
+```json
+"animated_emissions": [
+  { "material": "core:glass_sign_lit_01",    "effect": "pulse",   "hz": 0.09, "depth": 0.18 },
+  { "material": "core:glass_sign_flicker_01", "effect": "flicker", "hz": 7.5,  "depth": 0.6, "phase": 0.31 }
+]
+```
+
+| Field | Meaning |
+| --- | --- |
+| `material` | the material whose emissive term animates; it must be a material the level uses |
+| `effect` | `pulse` (a slow sinusoid) or `flicker` (an occasional, bounded stutter). Defaults to `pulse` |
+| `hz` | cycles per second: at most `2` for a pulse and `24` for a flicker; each effect has its own default |
+| `depth` | how far the emission may fall below its authored value, at most `0.85` |
+| `phase` | a phase offset in cycles, so two signs do not breathe in lockstep |
+
+Three things to know:
+
+* **Emission only.** The animation scales the additive emissive term. The baked
+  illumination is static by design, so a flickering panel keeps lighting the room
+  exactly as it was baked — the fixture blinks, its pool of light does not. That
+  is a deliberate, and rather liminal, property of the engine.
+* **Deterministic.** Both shapes are pure functions of the level's elapsed
+  seconds and start at full brightness, so the first frame is always the authored
+  image and the same clock reading always produces the same picture. The clock
+  advances from the simulation's delta, so a later frame number does not pin the
+  phase of a running animation — only `LIMINAL_CAPTURE_FRAME=1` does.
+* **Subtle by default.** `depth` is how *far down* the emission goes, so a pulse
+  at `0.18` is a 9 % average drop and a flicker at `0.6` stutters to 40 % about a
+  tenth of the time. Places Demo ships one slow pulse (its backlit signs) and one
+  flicker (a single sign on the north pool wall).
 
 ### Current Light Fixture Types
 

@@ -15,8 +15,8 @@ use crate::level::LevelDef;
 use super::image::{RawImage, TextureCache, load_png_relative, missing_texture};
 use super::pack::PackMaterials;
 use super::{
-    DEFAULT_EMISSION_INTENSITY, DEFAULT_TINT, MISSING_TEXTURE_KEY, MaterialAlpha, MaterialEmission,
-    MaterialResponse,
+    DEFAULT_EMISSION_INTENSITY, DEFAULT_REFLECTION_STRENGTH, DEFAULT_TINT, MISSING_TEXTURE_KEY,
+    MaterialAlpha, MaterialEmission, MaterialReflection, MaterialResponse, ReflectionMode,
 };
 
 /// Where a resolved texture came from; also its GPU lifetime.
@@ -63,6 +63,11 @@ pub struct ResolvedMaterial {
     /// The decoded image; `None` only for catalog-only logical tables used by
     /// geometry tests that do not render.
     pub image: Option<Rc<RawImage>>,
+    /// Where the surface's reflection image comes from, and how strong it is.
+    ///
+    /// [`MaterialReflection::NONE`] for every material that does not author a
+    /// mode, which is every material authored before Batch 4.
+    pub reflection: MaterialReflection,
     /// The resolution problem that forced the diagnostic fallback, if any.
     pub error: Option<String>,
 }
@@ -289,6 +294,7 @@ fn material_base(
         tint,
         response: MaterialResponse::NONE,
         alpha: MaterialAlpha::OPAQUE,
+        reflection: MaterialReflection::NONE,
         emission,
         image: None,
         error,
@@ -301,6 +307,13 @@ impl ResolvedMaterial {
     const fn with_surface(mut self, response: MaterialResponse, alpha: MaterialAlpha) -> Self {
         self.response = response;
         self.alpha = alpha;
+        self
+    }
+
+    /// Attaches a resolved reflection contract.
+    #[must_use]
+    const fn with_reflection(mut self, reflection: MaterialReflection) -> Self {
+        self.reflection = reflection;
         self
     }
 }
@@ -338,6 +351,28 @@ fn catalog_alpha(entry: &crate::assets::AssetEntry) -> MaterialAlpha {
         opacity: entry.opacity.unwrap_or(1.0),
         cutoff: entry.alpha_cutoff.unwrap_or(super::DEFAULT_ALPHA_CUTOFF),
     }
+    .sanitized()
+}
+
+/// The reflection a catalog material describes.
+///
+/// The mode is validated when the catalog is parsed, so an unknown name has
+/// already been reported; here it only has to become a
+/// [`MaterialReflection`]. A material that names no mode reflects nothing.
+fn catalog_reflection(entry: &crate::assets::AssetEntry) -> MaterialReflection {
+    let Some(mode) = entry
+        .reflection_mode
+        .as_deref()
+        .and_then(ReflectionMode::parse)
+    else {
+        return MaterialReflection::NONE;
+    };
+    MaterialReflection::new(
+        mode,
+        entry
+            .reflection_strength
+            .unwrap_or(DEFAULT_REFLECTION_STRENGTH),
+    )
     .sanitized()
 }
 
@@ -452,6 +487,7 @@ fn describe_catalog_material(
         None,
     )
     .with_surface(catalog_response(entry), catalog_alpha(entry))
+    .with_reflection(catalog_reflection(entry))
 }
 
 /// Describes a `pack:` material through the pack's own definitions.
@@ -480,7 +516,8 @@ fn describe_pack_material(
                 emission,
                 None,
             )
-            .with_surface(response, alpha);
+            .with_surface(response, alpha)
+            .with_reflection(definition.reflection());
         }
         if pack.is_some_and(|pack| pack.lookup(&definition.texture).is_some()) {
             return material_base(
@@ -664,6 +701,9 @@ fn fall_back_to_missing(
     entry.emission = MaterialEmission::NONE;
     entry.response = MaterialResponse::NONE;
     entry.alpha = MaterialAlpha::OPAQUE;
+    // A material whose artwork is missing must not claim a reflection source:
+    // the diagnostic checkerboard is not a wet floor.
+    entry.reflection = MaterialReflection::NONE;
 }
 
 /// Resolves every material a level references into decoded images.

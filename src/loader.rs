@@ -419,7 +419,58 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_prop_lights(level)?;
     validate_decals(level)?;
     validate_decal_surfaces(level)?;
+    validate_animated_emissions(level)?;
     validate_geometry_budget(level)
+}
+
+/// Animated emissions: a known effect, a finite rate and a bounded depth.
+///
+/// A malformed animation is a level error rather than a silent no-op: a sign
+/// that was meant to breathe and does not is a bug the author has to see.
+fn validate_animated_emissions(level: &LevelDef) -> Result<(), String> {
+    for (i, animation) in level.animated_emissions.iter().enumerate() {
+        let id = animation.material.trim();
+        if id.is_empty() {
+            return Err(format!("Animated emission {i} names no material"));
+        }
+        let effect = animation
+            .effect
+            .as_deref()
+            .map(str::trim)
+            .filter(|effect| !effect.is_empty());
+        if let Some(effect) = effect
+            && crate::render::AnimationEffect::parse(effect).is_none()
+        {
+            return Err(format!(
+                "Animated emission {i} (`{id}`) has an unknown effect `{effect}`; \
+                 expected `pulse` or `flicker`"
+            ));
+        }
+        if let Some(hz) = animation.hz
+            && (!hz.is_finite() || hz <= 0.0 || hz > crate::render::MAX_FLICKER_HZ)
+        {
+            return Err(format!(
+                "Animated emission {i} (`{id}`) must have a rate between 0 and {} Hz",
+                crate::render::MAX_FLICKER_HZ
+            ));
+        }
+        if let Some(depth) = animation.depth
+            && (!depth.is_finite() || depth <= 0.0 || depth > crate::render::MAX_ANIMATION_DEPTH)
+        {
+            return Err(format!(
+                "Animated emission {i} (`{id}`) must have a depth between 0 and {}",
+                crate::render::MAX_ANIMATION_DEPTH
+            ));
+        }
+        if let Some(phase) = animation.phase
+            && !phase.is_finite()
+        {
+            return Err(format!(
+                "Animated emission {i} (`{id}`) has a non-finite phase"
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Format version, identity and spawn point.
