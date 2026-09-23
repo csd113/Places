@@ -1,9 +1,9 @@
 //! The per-texel light evaluation of one lightmap chart.
 //!
 //! A chart is a rectangle of atlas texels covering one planar patch of static
-//! geometry. Filling it is the whole lightmap pass: for every texel centre,
-//! evaluate the baked lighting at the corresponding world position and write
-//! the result as a linear RGB triple. The bake itself is
+//! geometry. Filling it is the whole lightmap pass: for every texel, evaluate
+//! the baked lighting at the corresponding world position and write the result
+//! as a linear RGB triple. The bake itself is
 //! [`crate::lighting::LevelLighting`]; this module owns only the texel walk,
 //! the patch-to-world mapping and the output ordering the atlas builder and the
 //! shader both rely on.
@@ -12,17 +12,37 @@
 //!
 //! * `chart.height` rows of `chart.width` RGB triples, row-major.
 //! * Row `j` runs along the patch's `v` axis, column `i` along `u`.
-//! * Texel `(i, j)` samples the patch at `u = (i + 0.5) / width`,
-//!   `v = (j + 0.5) / height` — texel *centres*, never corners, so a chart's
-//!   edge texels sample a half texel inside the geometry they cover.
+//! * The texels *span* the patch: texel `i` of `width` samples
+//!   `u = i / (width - 1)`, so the first and last texel sit exactly on the
+//!   patch's geometric edges (a one-texel axis samples the middle). The same
+//!   holds along `v`.
 //! * Values are linear display-space light, the same units as
 //!   [`crate::lighting::LevelLighting::sample_in_room`], clamped per channel to
 //!   `[AMBIENT_LEVEL, MAX_BRIGHTNESS]` exactly like the vertex bake.
 //!
+//! Why the edges are exact
+//! -----------------------
+//! The atlas is sampled bilinearly, and a chart's gutter is a copy of its own
+//! border texel, so a fragment on a patch's geometric edge reconstructs exactly
+//! that border texel's value. Sampling texel *centres* therefore made every
+//! edge reconstruct the light half a texel *inside* its own patch. Two
+//! coplanar patches sharing an edge (two albedo materials on one floor, two
+//! length runs of one wall, two charts of one surface split at the chart-span
+//! cap) then each reconstructed their own inward-shifted value, and since the
+//! shifts point in opposite directions the pair formed a first-order step of
+//! `g * (tA + tB) / 2` — a visible lighting seam at every material boundary,
+//! even though the lighting itself is continuous there.
+//!
+//! Spanning the patch inclusively removes it at the source: both charts
+//! evaluate the *same world point* on the shared edge and store it in the texel
+//! that edge reconstructs. Nothing has to be matched, stitched or averaged, and
+//! a genuine discontinuity — a 90-degree corner, a wall, another room — is
+//! untouched because those samples are different world points to begin with.
+//!
 //! The evaluation goes through
 //! [`crate::lighting::LevelLighting::lightmap_texel`], which is
-//! `sample_in_room` without the wall-clearing walk: a texel centre is generated
-//! on a surface plane, and the fast path returns exactly the same value as the
+//! `sample_in_room` without the wall-clearing walk: a texel is generated on a
+//! surface plane, and the fast path returns exactly the same value as the
 //! vertex bake for every texel that is not buried in a wall.
 //!
 //! Two details keep a *vertical* face honest, because its texels are generated
@@ -32,12 +52,14 @@
 //!   [`LIGHTMAP_FACE_NORMAL_BIAS_M`](super::super::tuning::LIGHTMAP_FACE_NORMAL_BIAS_M)
 //!   along its patch normal, the same nudge the vertex bake applies to a face
 //!   sample, so the texel is evaluated in the air the face opens into;
-//! * a junction texel that is still inside a crossing wall after the nudge
-//!   takes the walked
-//!   [`crate::lighting::LevelLighting::sample_in_room`] path instead.
+//! * a texel that is still inside a wall solid — a junction with a crossing
+//!   wall, or the outermost floor/ceiling row where a wall is authored across
+//!   the room boundary — takes the walked
+//!   [`crate::lighting::LevelLighting::sample_in_room`] path instead, exactly
+//!   like the vertex bake.
 //!
-//! With both, `fill_chart` reproduces the vertex bake's wall values exactly on
-//! the shipped demo (verified over every wall texel during development).
+//! With both, `fill_chart` reproduces the vertex bake's values on the shipped
+//! demo where the two paths are meant to agree.
 
 use super::super::tuning::LIGHTMAP_FACE_NORMAL_BIAS_M;
 use super::{Chart, LightmapPatch, PatchKind};
@@ -57,24 +79,24 @@ pub fn fill_chart(lighting: &LevelLighting, patch: &LightmapPatch, chart: &Chart
     if width == 0 || height == 0 {
         return texels;
     }
-    let width_f = f32::from(u16::try_from(chart.width).unwrap_or(u16::MAX)).max(1.0);
-    let height_f = f32::from(u16::try_from(chart.height).unwrap_or(u16::MAX)).max(1.0);
     // A vertical face texel sits exactly on the face's solid boundary, which
     // point containment counts as buried; the vertex bake nudges such a sample
     // into the room before it measures light, so the texel grid does the same
     // along the patch normal. See `LIGHTMAP_FACE_NORMAL_BIAS_M`.
-    let vertical_face = matches!(patch.kind, PatchKind::Wall | PatchKind::Skirt);
     let bias = face_normal_bias(patch);
     for j in 0..height {
-        let v = (texel_centre(j) / height_f).clamp(0.0, 1.0);
+        let v = texel_axis(j, height);
         for i in 0..width {
-            let u = (texel_centre(i) / width_f).clamp(0.0, 1.0);
+            let u = texel_axis(i, width);
             let point = patch.point_at(u, v);
             let point = [point[0] + bias[0], point[1] + bias[1], point[2] + bias[2]];
-            // At a wall junction the nudged texel can still be inside another
-            // wall solid; only that rare case pays for the walked path, so the
-            // texel matches the vertex bake there too.
-            let light = if vertical_face && lighting.wall_contains_point(point[0], point[2]) {
+            // A texel can lie inside a wall solid: at a junction with a
+            // crossing wall, and along the outermost floor/ceiling row where a
+            // wall was authored across the room boundary. Only those texels pay
+            // for the walked path, which is what the vertex bake applies to
+            // every sample; the fast path is exactly equivalent everywhere
+            // else.
+            let light = if lighting.wall_contains_point(point[0], point[2]) {
                 patch.room.map_or_else(
                     || lighting.sample(point[0], point[1], point[2]),
                     |room| lighting.sample_in_room(room, point[0], point[1], point[2]),
@@ -92,14 +114,21 @@ pub fn fill_chart(lighting: &LevelLighting, patch: &LightmapPatch, chart: &Chart
     texels
 }
 
-/// Index of a texel's centre: `i + 0.5` for a non-negative `usize` index.
+/// Local coordinate of texel `index` along one axis of `count` texels.
 ///
-/// A `usize` above `2^24` cannot be represented exactly as an `f32` index, but
-/// a chart needing one would need a page edge that no [`super::LightmapConfig`]
-/// allows; the conversion is still saturating instead of wrapping.
-fn texel_centre(index: usize) -> f32 {
-    let index = u32::try_from(index).unwrap_or(u32::MAX);
-    f32::from(u16::try_from(index).unwrap_or(u16::MAX)) + 0.5
+/// The texels span the patch inclusively: the first sits on the patch's `0`
+/// edge and the last on its `1` edge, so a chart's border texels hold the light
+/// exactly where the geometry ends. That is what makes two coplanar charts
+/// agree on a shared edge (see the module docs). An axis of a single texel has
+/// no span to divide, so it samples the middle.
+fn texel_axis(index: usize, count: usize) -> f32 {
+    let count = u16::try_from(count).unwrap_or(u16::MAX);
+    if count <= 1 {
+        return 0.5;
+    }
+    let index = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+    let last = f32::from(count.saturating_sub(1));
+    (index / last).clamp(0.0, 1.0)
 }
 
 /// The world-space nudge a patch's texels get before evaluation.
@@ -162,7 +191,7 @@ mod tests {
     }
 
     #[test]
-    fn fill_chart_writes_texel_centres_row_major_along_v() {
+    fn fill_chart_spans_the_patch_edge_to_edge_row_major_along_v() {
         let level = level(
             r#"{
                 "format_version": 1,
@@ -194,8 +223,10 @@ mod tests {
         assert_eq!(texels.len(), 12);
         for j in 0..3usize {
             for i in 0..4usize {
-                let u = (i as f32 + 0.5) / 4.0;
-                let v = (j as f32 + 0.5) / 3.0;
+                // Spanning, not centred: 0, 1/3, 2/3, 1 along u and 0, 1/2, 1
+                // along v, so the border texels hold the patch's edge light.
+                let u = i as f32 / 3.0;
+                let v = j as f32 / 2.0;
                 let point = patch.point_at(u, v);
                 let expected = lighting.lightmap_texel(Some(0), point[0], point[1], point[2]);
                 let expected = [
@@ -213,6 +244,42 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn a_single_texel_axis_samples_the_middle() {
+        let level = level(
+            r#"{
+                "format_version": 1,
+                "id": "fill_thin",
+                "name": "Fill Thin",
+                "spawn": { "x": 1.0, "z": 1.0 },
+                "rooms": [{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 }]
+            }"#,
+        );
+        let lighting = LevelLighting::bake(&level);
+        let patch = LightmapPatch {
+            origin: [2.0, 0.5, 3.0],
+            u_axis: [1.0, 0.0, 0.0],
+            v_axis: [0.0, 0.0, 1.0],
+            room: Some(0),
+            kind: PatchKind::Floor,
+        };
+        let chart = Chart {
+            page: 0,
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+        };
+        let texels = fill_chart(&lighting, &patch, &chart);
+        assert_eq!(texels.len(), 1);
+        let middle = patch.point_at(0.5, 0.5);
+        let expected = lighting.lightmap_texel(Some(0), middle[0], middle[1], middle[2]);
+        assert_eq!(
+            texels[0][0],
+            expected.r.clamp(AMBIENT_LEVEL, MAX_BRIGHTNESS)
+        );
     }
 
     #[test]
@@ -246,7 +313,7 @@ mod tests {
         // Outside every room there is no pool: the ambient fill, and the same
         // value the whole-position sample returns with no room hint.
         assert_eq!(texels[0], [AMBIENT_LEVEL; 3]);
-        let point = patch.point_at(0.75, 0.5);
+        let point = patch.point_at(1.0, 0.5);
         assert_eq!(texels[1], {
             let value = lighting.sample(point[0], point[1], point[2]);
             [
@@ -312,8 +379,8 @@ mod tests {
         let mut walked_differently = false;
         for j in 0..2usize {
             for i in 0..5usize {
-                let u = (i as f32 + 0.5) / 5.0;
-                let v = texel_centre(j) / 2.0;
+                let u = texel_axis(i, 5);
+                let v = texel_axis(j, 2);
                 let point = patch.point_at(u, v);
                 let shifted = [point[0] + bias[0], point[1] + bias[1], point[2] + bias[2]];
                 let expected = lighting.sample_in_room(0, shifted[0], shifted[1], shifted[2]);
@@ -392,8 +459,8 @@ mod tests {
         let mut junction_texels = 0usize;
         for j in 0..2usize {
             for i in 0..4usize {
-                let u = (i as f32 + 0.5) / 4.0;
-                let v = texel_centre(j) / 2.0;
+                let u = texel_axis(i, 4);
+                let v = texel_axis(j, 2);
                 let point = patch.point_at(u, v);
                 let shifted = [point[0] + bias[0], point[1] + bias[1], point[2] + bias[2]];
                 if lighting.wall_contains_point(shifted[0], shifted[2]) {

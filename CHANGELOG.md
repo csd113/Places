@@ -70,6 +70,50 @@ unchanged and still the only lighting/material model.
 - **Demonstration**: a `core:washing_machine` static body in Places Demo with a
   rotating `core:washer_drum` dynamic component in front of it.
 
+### Repair: dark rings around fixtures and steps at material boundaries
+
+Visual validation of the batch found two artifacts that the automated checks had
+missed. Both are engine fixes; no level, texture or fixture was touched.
+
+- **Dark circular rings and blotches around ordinary fixtures.**
+  `segment_hits_box` (the visibility clip) treated a segment whose endpoint lay
+  exactly on a box face as crossing it when the entry parameter rounded a few
+  ULPs below `1.0`. Every ceiling sample lies exactly on its room's ceiling body,
+  so a fixture's whole local pool was deleted on 10–14% of the ceiling texels
+  within its reach; because the failure depends only on the horizontal distance
+  to the emitter footprint, the deleted samples formed concentric rings (up to
+  78 RGB8 levels between neighbouring texels at 12 texels/m, where the old 2.5 m
+  vertex grid had smeared them). The clip now requires a minimum overlap of
+  `SEGMENT_CLIP_EPS` of the segment's length, which absorbs the rounding without
+  weakening real occlusion; the start nudge and exact box sizes are unchanged.
+- **Lighting steps wherever a texture/material boundary met a lightmap chart
+  boundary.** `fill_chart` sampled texel centres, so a chart's geometric edge
+  reconstructed the light half a texel *inside* that patch. Two coplanar patches
+  each reconstructed their own inward-shifted value and formed a first-order step
+  of `grad * (tA + tB) / 2` (2–5 RGB8 levels at the shipped densities, scaling
+  with 1/density) even though the lighting was continuous. Chart texels now
+  *span* their patch — the outermost texels sit exactly on the geometry edges —
+  so two coplanar charts evaluate the same world point on a shared edge and
+  agree exactly. A real 90-degree corner, a wall or another room is unaffected
+  because those are different world points to begin with; nothing is averaged.
+- **Floor/ceiling boundary rows buried in a wall** now take the same walked path
+  the vertex bake uses, instead of reading the room baseline only and leaving a
+  dark rim along their own wall base.
+- **`merge_light_runs` off-by-one**: a wall face's final boundary was never
+  checked against `MAX_CHART_SPAN_M`, so a long wall could become one over-long
+  chart and break the Full/Low shared-split invariant. Fixed; the chart-span cap
+  now holds for every emitted quad.
+- **Cost**: demo cold lightmap fill 162.9 → 168.2 ms (+3%), warm load unchanged,
+  atlas pages/KiB/charts/texels and static vertices unchanged, runtime draw calls
+  and frame time unchanged. `LIGHTMAP_FORMAT_VERSION` is `3`, so an atlas baked
+  by the earlier build is rejected as a cache miss.
+- **Regression tests**: `a_slanted_segment_to_the_ceiling_is_not_blocked_by_that_ceiling`
+  and `a_fixture_pool_reaches_its_whole_ceiling_without_a_ring` (the ring), the
+  four-lightmap-continuity tests in `src/lighting/lightmap/continuity.rs`
+  (material boundary across both axes, a same-material chart split, and a
+  right-angle corner that must not be averaged), and the boundary-exact fill
+  contract tests in `src/lighting/lightmap/fill.rs`.
+
 # Changelog
 
 ## Unreleased — Batch 1 foundation: quality profiles, generic lights, true emission

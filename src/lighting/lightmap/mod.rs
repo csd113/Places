@@ -36,6 +36,8 @@ pub(crate) mod fill;
 mod plan;
 
 #[cfg(test)]
+mod continuity;
+#[cfg(test)]
 mod tests;
 
 pub use atlas::{LightmapAtlas, LightmapPage, ShelfAllocator, page_png_bytes, write_page_png};
@@ -221,7 +223,7 @@ impl LightmapPatch {
     /// Local `(u, v)` of a world point projected onto the patch's plane, by
     /// solving the 2x2 normal equations of the frame.
     ///
-    /// A point off the plane (a texel centre of a sloped gable patch, say) is
+    /// A point off the plane (a texel of a sloped gable patch, say) is
     /// projected onto it, which is what the fill pass wants. A degenerate frame
     /// returns `(0, 0)` rather than a division by zero; [`Self::from_quad`]
     /// never produces one.

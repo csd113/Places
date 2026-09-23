@@ -1695,17 +1695,18 @@ impl LevelLighting {
     /// Baked illumination for a lightmap texel: [`Self::sample_in_room`]
     /// without the wall-clearing walk.
     ///
-    /// A texel centre is generated on a surface plane, not walked to from a
+    /// A texel is generated on a surface plane, not walked to from a
     /// mesh vertex, so the common case has no wall to leave. Dropping the walk
     /// removes one grid lookup and the bounded step loop from every texel of a
     /// lightmap page; for a point that is not inside a wall the two functions
     /// return **exactly** the same value (the walk is the identity there),
     /// which a test pins over a sample grid.
     ///
-    /// The caller must rule out a buried point itself. A wall-face texel can
-    /// still sit inside a crossing wall at a junction; `lightmap::fill` checks
-    /// [`Self::wall_contains_point`] and falls back to [`Self::sample_in_room`]
-    /// for exactly those texels.
+    /// The caller must rule out a buried point itself. A texel can sit inside a
+    /// crossing wall at a junction, and the outermost floor/ceiling row sits
+    /// inside a wall authored across the room boundary; `lightmap::fill` checks
+    /// [`Self::wall_contains_point`] for every patch kind and falls back to
+    /// [`Self::sample_in_room`] for exactly those texels.
     ///
     /// `room` is the patch's room hint. `None` — a patch outside every room —
     /// resolves the room by containment, exactly like [`Self::sample`].

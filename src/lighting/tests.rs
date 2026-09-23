@@ -367,6 +367,46 @@ fn samples_under_a_fixture_are_brighter_than_distant_samples() {
 }
 
 #[test]
+fn a_fixture_pool_reaches_its_whole_ceiling_without_a_ring() {
+    // The pool has to be visible on the ceiling all the way around a fixture,
+    // not only straight below it: every ceiling sample sits exactly on the
+    // plane of the room's own ceiling body, and the visibility clip must treat
+    // that as "touching, not crossing". A rounding error in that clip used to
+    // delete the fixture's contribution on ~10% of ceiling samples, which a
+    // 12-texels/metre lightmap draws as hard dark rings around every fixture.
+    let level = level_with_room(16.0, 16.0, 2.7, &[0.5]);
+    let lighting = LevelLighting::bake(&level);
+    let ceiling_y = 2.7;
+    let baseline = lighting.baseline_in_room(0, 8.0, 8.0).luminance();
+    // The pool is present at every radius out to 6 m, not only straight below.
+    let ceiling = |radius: f32| {
+        lighting
+            .sample_in_room(0, 8.0 + radius, ceiling_y, 8.0)
+            .luminance()
+    };
+    for radius in [0.0_f32, 0.6, 1.0, 1.3, 2.0, 2.7, 3.2, 4.0, 4.5] {
+        let value = ceiling(radius);
+        assert!(
+            value > baseline + 0.05,
+            "the ceiling pool is missing at r = {radius} m: {value} against a baseline of {baseline}"
+        );
+    }
+    // And it varies smoothly: the artifact was a ~0.24 step between two
+    // neighbouring samples 2 cm apart.
+    let mut previous = ceiling(0.0);
+    let mut worst: f32 = 0.0;
+    for step in 1..=300_u16 {
+        let value = ceiling(f32::from(step) * 0.02);
+        worst = worst.max((value - previous).abs());
+        previous = value;
+    }
+    assert!(
+        worst < 0.01,
+        "the ceiling pool has a ring: largest 2 cm step {worst}"
+    );
+}
+
+#[test]
 fn local_pools_scale_with_fixture_intensity() {
     // One fixture at a known position in a large room, sampled directly
     // beneath it: a 2.0 fixture must out-light a 0.5 fixture clearly.

@@ -40,7 +40,11 @@ use super::{
 /// * `1` — level definition, lightmap config, quality profile.
 /// * `2` — adds the occluder-set fingerprint, so a change to a placed prop
 ///   model's geometry (which now occludes the bake) invalidates the atlas.
-pub const LIGHTMAP_FORMAT_VERSION: u32 = 2;
+/// * `3` — chart texels span their patch edge to edge (so coplanar charts agree
+///   on a shared edge), and the ceiling-slab visibility clip no longer deletes a
+///   fixture's pool on grazing samples. Both change baked texel values, so an
+///   atlas from an older build must not be reused.
+pub const LIGHTMAP_FORMAT_VERSION: u32 = 3;
 
 /// Root of the project-owned on-disk cache. Everything lives under `target/`,
 /// which is never committed.

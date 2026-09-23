@@ -72,6 +72,26 @@
 
 use crate::level::{LevelDef, LevelSurfaces, RoomDef, WallAxis, wall_solid_slices_profiled};
 
+/// Smallest clipped overlap, as a fraction of a segment's own length, that
+/// still counts as the segment entering an opaque box.
+///
+/// A surface sample sits *exactly* on the plane of the floor or ceiling slab it
+/// belongs to, and the clip's contract is that such a sample is lit by the
+/// fixture it belongs to: the segment only touches the box's face, it does not
+/// cross it. In `f32` the entry parameter of such a grazing segment rounds a
+/// few ULPs below its exit parameter (measured: `delta * (1/delta)` can be
+/// `1.0 - 6.0e-8`), which a plain `enter < exit` then reads as a crossing.
+/// Requiring the overlap to exceed this fraction of the segment absorbs that
+/// rounding while leaving real occlusion untouched: no solid in a level is
+/// thinner than a few millimetres, and a segment would have to pass through one
+/// for less than 1/100000 of its own length to slip through (60 µm on a 6 m
+/// ray, 0.6 mm on a 64 m ray — the largest range a light may author).
+///
+/// This is the tolerance half of the clip; [`nudge_segment_start`] is the other
+/// half, handling a start point that sits on a face. Neither shrinks a box, so
+/// the wall-boundary leak the nudge's documentation warns about cannot return.
+const SEGMENT_CLIP_EPS: f32 = 1.0e-5;
+
 /// How far a segment's start point is pushed along its own direction before the
 /// slab clip runs, in metres.
 ///
@@ -945,7 +965,11 @@ fn hash_f32(hash: &mut u64, value: f32) {
 /// The standard slab clip against the segment's own `[0, 1]` parameter range.
 /// The clip is strict: a segment whose endpoint lands exactly on a face of the
 /// box does not count as entering it, so a surface sample that lies on its own
-/// floor or ceiling plane is lit by the fixture it belongs to.
+/// floor or ceiling plane is lit by the fixture it belongs to. Strictness is
+/// enforced with [`SEGMENT_CLIP_EPS`] rather than with `enter < exit` alone,
+/// because the entry parameter of a grazing segment can round below the exit
+/// parameter; see that constant for the measured failure and why the tolerance
+/// cannot open a real leak.
 fn segment_hits_box(blocker: Blocker, from: [f32; 3], to: [f32; 3]) -> bool {
     let mut enter = 0.0_f32;
     let mut exit = 1.0_f32;
@@ -973,7 +997,7 @@ fn segment_hits_box(blocker: Blocker, from: [f32; 3], to: [f32; 3]) -> bool {
             return false;
         }
     }
-    enter < exit
+    exit - enter > SEGMENT_CLIP_EPS
 }
 
 /// Moves a segment's start point [`SEGMENT_START_EPS_M`] along the segment, so a
@@ -1635,6 +1659,42 @@ mod tests {
         assert!(
             !visibility.occludes_anywhere([2.0, 3.2, 2.0], [2.0, 3.21, 2.0]),
             "a surface sample on the upper floor is not blocked by its own plane"
+        );
+    }
+
+    #[test]
+    fn a_slanted_segment_to_the_ceiling_is_not_blocked_by_that_ceiling() {
+        // A fixture panel hangs 1 cm below its ceiling, and a surface sample
+        // lies exactly on the ceiling plane. The clip's contract is that the
+        // segment only *touches* the slab's bottom face and does not cross it.
+        // In f32 the vertical segment above happened to round safely, but a
+        // slanted one (every sample that is not straight above the panel) used
+        // to report a crossing and deleted the fixture's whole pool on that
+        // sample, which is what drew dark rings around fixtures on a lightmap.
+        let level = stacked_rooms();
+        let visibility = Visibility::build(&level, &[QuerySite::new(2.0, 2.0, 8.0)]);
+        let fixture = [2.0, 2.99, 2.0];
+        for step in 0..=3_750_u16 {
+            let radius = f32::from(step).mul_add(0.001, 0.25);
+            for sample in [
+                [2.0 + radius, 3.0, 2.0],
+                [2.0, 3.0, 2.0 + radius],
+                [2.0 + radius, 3.0, 2.0 - radius],
+            ] {
+                assert!(
+                    !visibility.occludes(0, fixture, sample),
+                    "a fixture must light its own ceiling at {sample:?}"
+                );
+            }
+        }
+        // The same slab still blocks a segment that genuinely crosses it.
+        assert!(
+            visibility.occludes(0, fixture, [2.0, 3.001, 2.0]),
+            "the ceiling body must still block light through it"
+        );
+        assert!(
+            visibility.occludes(0, fixture, [3.0, 3.001, 2.0]),
+            "and it must still block a slanted segment that crosses it"
         );
     }
 

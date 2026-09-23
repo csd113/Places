@@ -601,7 +601,9 @@ type WallBoundary = (f32, f32, [f32; 3], [f32; 3]);
 /// `max_span_m` caps how long one merged quad may become: lightmapped builds
 /// pass the chart budget so every emitted face fits one atlas chart, while the
 /// vertex-lit fallback passes an infinite span and merges exactly as it always
-/// did.
+/// did. The cap is checked on the run's own far boundary, including the face's
+/// last boundary, so a run can never grow past it; a run always covers at least
+/// one segment.
 fn merge_light_runs(
     boundaries: &[WallBoundary],
     segments: usize,
@@ -627,15 +629,21 @@ fn merge_light_runs(
         let Some(reference) = boundaries.get(start) else {
             break;
         };
+        // `end` is the run's far boundary. It starts one segment ahead (a run
+        // always covers at least one segment) and grows while the boundary at
+        // `end` still matches the reference, so the face's final boundary is
+        // tested like every other one.
         let mut end = start.saturating_add(1);
-        while end < segments
-            && boundaries.get(start..=end).is_some_and(|run| {
-                run.iter()
-                    .all(|candidate| matches_run(reference, candidate))
-            })
+        while end <= segments
+            && boundaries
+                .get(end)
+                .is_some_and(|candidate| matches_run(reference, candidate))
         {
             end = end.saturating_add(1);
         }
+        // `end` is the first boundary that does not belong to the run (or
+        // `segments + 1` when the whole face does), so the run ends one short.
+        let end = end.saturating_sub(1).max(start.saturating_add(1));
         if boundaries.get(end).is_none() {
             break;
         }

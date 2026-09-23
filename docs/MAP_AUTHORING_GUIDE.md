@@ -1272,6 +1272,12 @@ storage change, not an authoring one.
   two 1024-texel pages, **Low** bakes 8 texels per metre onto two 512-texel pages.
   Both profiles bake the same set of surfaces; faces longer than one chart are split
   automatically.
+* A chart's texels span their own patch: the first and last texel sit exactly on the
+  patch's geometric edges. Adjacent coplanar surfaces therefore evaluate the *same*
+  world point on a shared edge, so changing an albedo material across one continuous
+  floor changes the texture and leaves the baked illumination continuous. Charts stay
+  separate wherever the lighting is genuinely discontinuous (a 90-degree corner, a
+  wall, a different room).
 * `settings.json` carries `"lightmaps": true|false` (default `true`). The environment
   override `LIMINAL_NO_LIGHTMAPS=1` forces the historical vertex-lit path for a
   benchmark or A/B capture run.
@@ -1777,8 +1783,12 @@ drawn model, not the collision box.
 one surface's light bleeding into the next.
 
 **Cause:** a lightmap chart boundary. Charts are padded and their gutters are filled
-from the chart's own edge texels, so this should not happen; extra subdivision appears
-where a merged quad was capped or a wall face was split.
+from the chart's own edge texels, and their texels span the patch edge to edge, so a
+coplanar boundary — including one created only because two materials meet — is
+continuous by construction. A blotchy, mottled or ring-shaped patch instead of a
+line is a different failure: it means a sample's visibility answer is wrong (the
+local pool was deleted for some samples and not others), not that a chart is
+misplaced.
 
 **Authoring rule:** do not try to fix it from the level — there is no chart authoring
 control. Report it as an engine bug with the level id and camera position. A

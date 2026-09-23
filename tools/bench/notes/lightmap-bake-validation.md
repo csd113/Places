@@ -97,3 +97,74 @@ the contact shadow under the desk.
 
 All 14 benchmark captures were checked with `tools/bench/check_holes.py`
 (0.0% near-black each): the lightmap pass introduces no unlit surfaces.
+
+## Batch 2 repair: dark rings and material-boundary seams
+
+Batch 2's visual validation found two artifacts the automated checks had missed.
+Both were fixed in the engine, not in the level, and both root causes are
+measured in `target/agent-work/lightmap-repair/reports/` (Agent A and Agent B)
+with A/B captures under `target/agent-work/lightmap-repair/captures/`.
+
+### Dark rings and blotches around fixtures (visual failure A)
+
+**Cause: visibility, not the falloff.** Every ceiling sample sits exactly on the
+plane of the room's own ceiling body, and the visibility clip's contract is that
+such an endpoint only *touches* the slab and does not cross it. In `f32` the
+entry parameter `(low - start) * (1 / delta)` rounds a few ULPs below `1.0`, so a
+plain `enter < exit` read the grazing segment as a crossing. The fixture's whole
+pool was then deleted for that sample. Because the segment's vertical span
+depends only on the horizontal distance to the emitter footprint, the failures
+were coherent *rings*: 8.7% of a 0–5 m ceiling sweep, 10–14% of a fixture's
+ceiling window, 60–78 RGB8 levels between neighbouring texels. At Batch 1's
+2.5 m vertex grid the same samples were spread over whole quads; at 8–12
+texels/m they became hard rings, and the office/pool ceilings went from smooth
+pools to mottled rings in the render.
+
+The clip now requires the clipped overlap to exceed `SEGMENT_CLIP_EPS` of the
+segment's own length (1e-5 — 60 µm on a 6 m ray, far below any solid), which
+absorbs the rounding without weakening real occlusion. The strict-start nudge and
+the exact box sizes are unchanged, so the wall-seam leak the nudge guards against
+cannot return. The same fix repairs the vertex-lit fallback; the repaired
+lightmap and the vertex-lit control now agree on the pool ceiling to within
+0.53/255 (mean 0.17/255), against +6.7/255 rings before.
+
+### Lighting steps at material boundaries (visual failure B)
+
+**Cause: chart-edge sampling.** `fill_chart` evaluated texel *centres*, and a
+chart's geometric edge reconstructs its border texel's value (the gutter is a
+copy of that texel), i.e. the light half a texel *inside* its own patch. Two
+coplanar patches sharing an edge each reconstructed their own inward-shifted
+value, and the two shifts point in opposite directions: a first-order step of
+`grad * (tA + tB) / 2` at every chart boundary — 2–5 RGB8 levels at the shipped
+densities, proportional to 1/density, and present whenever the albedo material
+changed even though the lighting was continuous.
+
+Chart texels now *span* their patch: the first and last texel sit exactly on the
+patch's geometric edges, so two coplanar charts evaluate the same world point on
+a shared edge and store it in the texel that edge reconstructs. The measured
+seam step is 0.00–0.01/255 at both profiles (it was 2–5/255); a real 90-degree
+corner is unaffected, because those samples are different world points to begin
+with and nothing is averaged. The emitter-level `merge_light_runs` span cap was
+also off by one segment (the face's final boundary was never checked), which let
+a long wall become one over-long chart and silently broke the shared
+`MAX_CHART_SPAN_M` invariant; it now stops at the cap.
+
+### Cost of the repair
+
+| measurement | Batch 2 | repaired |
+|---|---:|---:|
+| demo cold lightmap fill | 162.9 ms | 168.2 ms (+3%) |
+| demo warm (cache hit) level build | 8.7 ms | 9.2 ms |
+| demo atlas | 1 page, 3072 KiB | 1 page, 3072 KiB |
+| demo charts / chart texels | 221 / 340 773 | 221 / 340 773 |
+| demo static vertices | 1772 | 1772 |
+| demo draw calls (150 frames) | 64 | 64 |
+| demo frame median | 0.048 ms | 0.049 ms |
+| `prop_stress` frame median | 0.026 ms | 0.024 ms |
+
+The +3% bake cost is the per-texel "is this sample buried in a wall?" check that
+lets a floor or ceiling boundary row take the same walked path the vertex bake
+uses (without it, a wall authored across a room boundary leaves a dark rim along
+its own base). No atlas page, chart, vertex or draw call changed, and no
+per-frame work was added. A cached atlas from an older build is rejected by
+`LIGHTMAP_FORMAT_VERSION = 3`.
