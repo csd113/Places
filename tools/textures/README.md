@@ -120,15 +120,15 @@ is validated and regenerated exactly like a surface sheet.
 | `core:decal_no_diving_01` | `environment/pool/decals/no_diving_01.png` | 1024x1024 | RGBA cut-out safety sign (a decal, not a surface) |
 | `core:decal_arrow_01` | `core/decals/arrow_01.png` | 128x128 | RGBA cut-out floor-direction arrow decal |
 | `core:decal_stripes_01` | `core/decals/stripes_01.png` | 128x128 | RGBA cut-out diagonal hazard-band decal |
-| `core:tex_glass_clear_01` | `core/textures/glass/glass_clear_01.png` | 128x128 | clear glazing: faint tint plus alpha, drawn with `alpha_mode: "blend"` |
-| `core:tex_glass_dirty_01` | `core/textures/glass/glass_dirty_01.png` | 128x128 | unwashed glazing: blotchy alpha and a grime film |
-| `core:tex_glass_tinted_01` | `core/textures/glass/glass_tinted_01.png` | 128x128 | tinted glazing at roughly half opacity |
-| `core:tex_linoleum_01` | `core/textures/floors/linoleum_01.png` | 128x128 | polished speckled linoleum with faint seams |
-| `core:tex_metal_panel_01` | `core/textures/walls/metal_panel_01.png` | 128x128 | brushed metal wall panel, two rivet rows |
-| `core:tex_plastic_panel_01` | `core/textures/walls/plastic_panel_01.png` | 128x128 | moulded pale plastic wall panel |
-| `core:tex_grille_01` | `core/textures/walls/grille_01.png` | 128x128 | RGBA cut-out transfer grille (metal slats over transparent openings) |
-| `core:tex_normal_panel_01` | `core/textures/normals/normal_panel_01.png` | 128x128 | tangent-space normal map: soft moulded dimples |
-| `core:tex_normal_brushed_01` | `core/textures/normals/normal_brushed_01.png` | 128x128 | tangent-space normal map: fine horizontal brushing |
+| `core:tex_glass_clear_01` | `core/textures/glass/glass_clear_01.png` | 1024x1024 | clear glazing: faint tint plus alpha, drawn with `alpha_mode: "blend"` |
+| `core:tex_glass_dirty_01` | `core/textures/glass/glass_dirty_01.png` | 1024x1024 | unwashed glazing: blotchy alpha and a grime film |
+| `core:tex_glass_tinted_01` | `core/textures/glass/glass_tinted_01.png` | 1024x1024 | tinted glazing at roughly half opacity |
+| `core:tex_linoleum_01` | `core/textures/floors/linoleum_01.png` | 1024x1024 | polished speckled linoleum with faint seams |
+| `core:tex_metal_panel_01` | `core/textures/walls/metal_panel_01.png` | 1024x1024 | brushed metal wall panel, two rivet rows |
+| `core:tex_plastic_panel_01` | `core/textures/walls/plastic_panel_01.png` | 1024x1024 | moulded pale plastic wall panel |
+| `core:tex_grille_01` | `core/textures/walls/grille_01.png` | 1024x1024 | RGBA cut-out transfer grille (metal slats over transparent openings) |
+| `core:tex_normal_panel_01` | `core/textures/normals/normal_panel_01.png` | 1024x1024 | tangent-space normal map: soft moulded dimples |
+| `core:tex_normal_brushed_01` | `core/textures/normals/normal_brushed_01.png` | 1024x1024 | tangent-space normal map: fine horizontal brushing |
 | `core:tex_diagnostic_wall_01` | `diagnostic/textures/diagnostic_wall_01.png` | 128x128 | orientation-revealing, never shipped in a level |
 | `core:tex_diagnostic_floor_01` | `diagnostic/textures/diagnostic_floor_01.png` | 128x128 | orientation-revealing |
 | `core:tex_diagnostic_ceiling_01` | `diagnostic/textures/diagnostic_ceiling_01.png` | 128x128 | orientation-revealing |

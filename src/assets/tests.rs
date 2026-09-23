@@ -665,6 +665,53 @@ fn shipped_texture_policy_accepts_the_upgraded_art_and_rejects_breaches() {
     }
 }
 
+/// Every shipped file-backed sheet satisfies the dimension contract of the
+/// class it draws as: surfaces are square (`tile_metres` cells are square on
+/// both axes), fitted sheets are power-of-two on both edges (mipmapped fitted
+/// sampling on the ES 2.0 target), and every sheet stays inside the decoder's
+/// hard edge limit.
+///
+/// The diagnostic sheets are exempt: their whole purpose is to prove that
+/// non-standard dimensions decode, and the 96x64 `alt` sheet is the deliberate
+/// NPOT exception the policy documents rather than a production contract.
+#[test]
+fn every_shipped_sheet_satisfies_its_texture_kind_contract() {
+    let catalog = shipped_catalog();
+    let root = resolve_asset_root().expect("assets/ is discoverable");
+    let mut checked = 0usize;
+    for entry in catalog.entries() {
+        let kind = match entry.asset_type.as_str() {
+            AssetType::TEXTURE => {
+                if entry.asset_class.as_str() == AssetClass::DIAGNOSTIC {
+                    continue;
+                }
+                ShippedTextureKind::Surface
+            }
+            AssetType::DECAL => ShippedTextureKind::DecalSheet,
+            AssetType::LIGHT => ShippedTextureKind::FixtureFace,
+            _ => continue,
+        };
+        if entry.source != AssetSource::File {
+            continue;
+        }
+        let model = entry
+            .model
+            .as_deref()
+            .unwrap_or_else(|| panic!("{}: a file-backed sheet needs a model", entry.id));
+        let bytes = std::fs::read(root.join(model))
+            .unwrap_or_else(|error| panic!("{}: cannot read `{model}`: {error}", entry.id));
+        let image = crate::materials::decode_png(&bytes)
+            .unwrap_or_else(|error| panic!("{}: `{model}` does not decode: {error}", entry.id));
+        kind.check_dimensions(image.width, image.height)
+            .unwrap_or_else(|error| panic!("{}: `{model}`: {error}", entry.id));
+        checked += 1;
+    }
+    assert!(
+        checked >= 20,
+        "the shipped sheet set is unexpectedly small: only {checked} sheets checked"
+    );
+}
+
 /// A minimal catalog with an albedo texture and a mask texture; `extra`
 /// appends fields to the third entry, the material.
 fn emissive_catalog_json(extra: &str) -> String {
