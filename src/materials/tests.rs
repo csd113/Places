@@ -542,3 +542,243 @@ fn every_shipped_material_resolves_to_a_png_texture() {
         assert_eq!(material.source, AssetSource::Definition);
     }
 }
+
+/// A synthetic catalog with two emissive materials sharing one mask sheet.
+///
+/// Both PNG paths are shipped artwork, so the test needs no new asset files.
+fn emissive_catalog() -> AssetCatalog {
+    let json = r##"{
+        "assets": [
+            { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
+              "source": "file",
+              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+            { "id": "core:tex_mask", "asset_class": "environment", "asset_type": "texture",
+              "source": "file",
+              "model": "environment/office/textures/floors/carpet_beige_01.png" },
+            { "id": "core:mat_glow_a", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo",
+              "emissive": [0.25, 0.5, 1.0], "emissive_intensity": 2.0,
+              "emissive_mask": "core:tex_mask" },
+            { "id": "core:mat_glow_b", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo",
+              "emissive": [1.0, 1.0, 1.0], "emissive_mask": "core:tex_mask" }
+        ]
+    }"##;
+    AssetCatalog::from_json_str(json).expect("synthetic emissive catalog")
+}
+
+#[test]
+fn materials_without_emission_stay_non_emissive() {
+    let catalog = shipped_catalog();
+    for id in [
+        "core:wallpaper_yellow_01",
+        "core:carpet_beige_01",
+        "core:ceiling_panel_01",
+    ] {
+        assert_eq!(catalog.material_emissive(id), None, "{id}");
+        assert_eq!(catalog.material_emissive_intensity(id), None, "{id}");
+        assert_eq!(catalog.material_emissive_mask(id), None, "{id}");
+    }
+
+    let level = basic_level(
+        "core:wallpaper_yellow_01",
+        "core:carpet_beige_01",
+        "core:ceiling_panel_01",
+    );
+    let mut cache = TextureCache::new();
+    let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
+    let table = resolve_materials(&level, &catalog, None, Some(&root), &mut cache);
+    for entry in table.entries() {
+        assert_eq!(entry.emission, MaterialEmission::NONE, "{}", entry.id);
+        assert_eq!(entry.emission.mask, None, "{}", entry.id);
+        assert!(!entry.emission.is_emissive(), "{}", entry.id);
+        assert_eq!(entry.emission.effective_color(), [0.0, 0.0, 0.0]);
+    }
+}
+
+#[test]
+fn emissive_catalog_material_resolves_colour_intensity_and_shared_mask() {
+    let catalog = emissive_catalog();
+    assert_eq!(
+        catalog.material_emissive("core:mat_glow_a"),
+        Some([0.25, 0.5, 1.0])
+    );
+    assert_eq!(
+        catalog.material_emissive_intensity("core:mat_glow_a"),
+        Some(2.0)
+    );
+    assert_eq!(
+        catalog.material_emissive_mask("core:mat_glow_a"),
+        Some("core:tex_mask")
+    );
+
+    let level = basic_level("core:mat_glow_a", "core:mat_glow_b", "core:mat_glow_a");
+    let mut cache = TextureCache::new();
+    let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
+    let table = resolve_materials(&level, &catalog, None, Some(&root), &mut cache);
+    assert!(table.errors().is_empty(), "errors: {:?}", table.errors());
+
+    let a = table.entry_of("core:mat_glow_a").expect("a");
+    assert_eq!(a.emission.color, [0.25, 0.5, 1.0]);
+    assert_eq!(a.emission.intensity, 2.0);
+    assert_eq!(a.emission.effective_color(), [0.5, 1.0, 2.0]);
+    assert!(a.emission.is_emissive());
+
+    // Without an authored intensity the default applies.
+    let b = table.entry_of("core:mat_glow_b").expect("b");
+    assert_eq!(b.emission.intensity, DEFAULT_EMISSION_INTENSITY);
+
+    let mask_index = a.emission.mask.expect("a mask index");
+    assert_eq!(
+        b.emission.mask,
+        Some(mask_index),
+        "two materials share one mask"
+    );
+    assert_ne!(
+        mask_index, a.texture_index,
+        "the mask is a separate texture"
+    );
+    let mask = &table.textures()[mask_index as usize];
+    assert_eq!(mask.key, "core:tex_mask");
+    assert_eq!(mask.origin, TextureOrigin::Catalog);
+    assert!(Rc::ptr_eq(
+        &mask.image,
+        &cache.get("core:tex_mask").expect("the mask decoded once")
+    ));
+
+    assert_eq!(table.textures().len(), 2, "albedo plus one shared mask");
+    assert_eq!(cache.decoded_count(), 2, "each distinct PNG decodes once");
+}
+
+#[test]
+fn emissive_material_without_a_mask_has_no_mask_index() {
+    let json = r##"{
+        "assets": [
+            { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
+              "source": "file",
+              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+            { "id": "core:mat_glow", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo",
+              "emissive": [0.5, 0.5, 0.5] }
+        ]
+    }"##;
+    let catalog = AssetCatalog::from_json_str(json).expect("catalog");
+    let level = basic_level("core:mat_glow", "core:mat_glow", "core:mat_glow");
+
+    // A logical table describes emission without decoding any image; a mask
+    // index would be meaningless there, so it stays `None`.
+    let logical = MaterialTable::logical(&level, &catalog, None);
+    let entry = logical.entry_of("core:mat_glow").expect("logical entry");
+    assert_eq!(entry.emission.color, [0.5, 0.5, 0.5]);
+    assert_eq!(entry.emission.intensity, DEFAULT_EMISSION_INTENSITY);
+    assert_eq!(entry.emission.mask, None);
+    assert!(entry.image.is_none());
+
+    let mut cache = TextureCache::new();
+    let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
+    let table = resolve_materials(&level, &catalog, None, Some(&root), &mut cache);
+    let entry = table.entry_of("core:mat_glow").expect("resolved entry");
+    assert_eq!(entry.emission.mask, None);
+    assert_eq!(entry.emission.effective_color(), [0.5, 0.5, 0.5]);
+    assert_eq!(table.textures().len(), 1, "only the albedo uploads");
+}
+
+#[test]
+fn missing_emissive_mask_falls_back_to_the_diagnostic_texture() {
+    let json = r##"{
+        "assets": [
+            { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
+              "source": "file",
+              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+            { "id": "core:tex_mask", "asset_class": "environment", "asset_type": "texture",
+              "source": "file",
+              "model": "environment/office/textures/masks/does_not_exist.png" },
+            { "id": "core:mat_glow", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo",
+              "emissive": [1.0, 1.0, 1.0], "emissive_mask": "core:tex_mask" }
+        ]
+    }"##;
+    let catalog = AssetCatalog::from_json_str(json).expect("catalog");
+    let level = basic_level("core:mat_glow", "core:mat_glow", "core:mat_glow");
+    let mut cache = TextureCache::new();
+    let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
+    let table = resolve_materials(&level, &catalog, None, Some(&root), &mut cache);
+
+    let entry = table.entry_of("core:mat_glow").expect("entry");
+    assert_eq!(entry.origin, TextureOrigin::Missing);
+    assert_eq!(entry.texture_key, MISSING_TEXTURE_KEY);
+    assert_eq!(
+        entry.emission,
+        MaterialEmission::NONE,
+        "a material that cannot bind its mask must not glow"
+    );
+    let error = entry.error.as_deref().expect("error");
+    assert!(error.contains("core:mat_glow"), "error: {error}");
+    assert!(error.contains("core:tex_mask"), "error: {error}");
+    assert!(error.contains("does_not_exist.png"), "error: {error}");
+    assert_eq!(table.textures().len(), 1);
+    assert_eq!(table.textures()[0].key, MISSING_TEXTURE_KEY);
+}
+
+#[test]
+fn pack_material_emission_resolves_pack_local_and_catalog_masks() {
+    let albedo = encode_png(&RawImage::new(2, 2, vec![1; 16])).expect("encode albedo");
+    let mask = encode_png(&RawImage::new(1, 1, vec![10, 20, 30, 255])).expect("encode mask");
+    let mut textures: HashMap<String, Rc<[u8]>> = HashMap::new();
+    textures.insert("textures/wall.png".to_string(), Rc::from(albedo));
+    textures.insert("textures/glow_mask.png".to_string(), Rc::from(mask));
+    let json = r#"{
+        "materials": {
+            "pack:glow": { "texture": "textures/wall.png", "emissive": [0.5, 0.25, 0.0],
+                           "emissive_intensity": 3.0,
+                           "emissive_mask": "textures/glow_mask.png" },
+            "pack:builtin_mask": { "texture": "textures/wall.png", "emissive": [1.0, 1.0, 1.0],
+                                   "emissive_mask": "core:tex_ceiling_panel_01" },
+            "pack:plain": "textures/wall.png"
+        }
+    }"#;
+    let pack = PackMaterials::new("unit_pack", Some(json), textures);
+    let level = basic_level("pack:glow", "pack:plain", "pack:builtin_mask");
+    let catalog = shipped_catalog();
+    let mut cache = TextureCache::new();
+    let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
+    let table = resolve_materials(&level, &catalog, Some(&pack), Some(&root), &mut cache);
+    assert!(table.errors().is_empty(), "errors: {:?}", table.errors());
+
+    let glow = table.entry_of("pack:glow").expect("glow");
+    assert_eq!(glow.emission.color, [0.5, 0.25, 0.0]);
+    assert_eq!(glow.emission.intensity, 3.0);
+    assert_eq!(glow.emission.effective_color(), [1.5, 0.75, 0.0]);
+    let local_mask = glow.emission.mask.expect("pack-local mask");
+    assert_eq!(
+        table.textures()[local_mask as usize].key,
+        "pack:unit_pack:textures/glow_mask.png"
+    );
+    assert_eq!(
+        table.textures()[local_mask as usize].origin,
+        TextureOrigin::Pack
+    );
+
+    let builtin = table.entry_of("pack:builtin_mask").expect("builtin mask");
+    assert_eq!(builtin.emission.intensity, DEFAULT_EMISSION_INTENSITY);
+    let catalog_mask = builtin.emission.mask.expect("catalog mask");
+    assert_eq!(
+        table.textures()[catalog_mask as usize].key,
+        "core:tex_ceiling_panel_01"
+    );
+    assert_eq!(
+        table.textures()[catalog_mask as usize].origin,
+        TextureOrigin::Catalog
+    );
+    assert_ne!(local_mask, catalog_mask);
+
+    let plain = table.entry_of("pack:plain").expect("plain");
+    assert_eq!(
+        plain.emission,
+        MaterialEmission::NONE,
+        "the string shorthand stays emission-free"
+    );
+
+    // The shared albedo, the pack mask and the catalog mask.
+    assert_eq!(table.textures().len(), 3);
+}

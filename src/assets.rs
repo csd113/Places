@@ -28,6 +28,8 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::materials::{MAX_EMISSION_COLOR, MAX_EMISSION_INTENSITY};
+
 /// Environment variable that overrides every other asset-root candidate.
 ///
 /// An absolute or relative path to the directory that *contains* `assets/`,
@@ -637,6 +639,14 @@ pub struct AssetEntry {
     pub tile_metres: Option<f32>,
     /// Static multiply tint the renderer applies to a material's texture.
     pub tint: Option<[f32; 3]>,
+    /// Emissive colour a material's surface reads with, if the catalog authors
+    /// one. Emission is additive on top of baked illumination and never lights
+    /// anything else; a material without it stays non-emissive.
+    pub emissive: Option<[f32; 3]>,
+    /// Scalar multiplier for [`Self::emissive`]; authored only together with it.
+    pub emissive_intensity: Option<f32>,
+    /// Logical texture asset id whose texels select where emission applies.
+    pub emissive_mask: Option<String>,
     /// Future entity kind (`character`, `npc`, `creature`, ...).
     pub entity_type: Option<String>,
     pub description: Option<String>,
@@ -709,6 +719,13 @@ struct CatalogThemeFile {
     description: String,
 }
 
+/// Emission fields of one catalog entry once they have been validated.
+struct ValidatedEmission {
+    color: Option<[f32; 3]>,
+    intensity: Option<f32>,
+    mask: Option<String>,
+}
+
 #[derive(serde::Deserialize)]
 struct CatalogEntryFile {
     #[serde(default)]
@@ -743,6 +760,14 @@ struct CatalogEntryFile {
     tile_metres: Option<f32>,
     #[serde(default)]
     tint: Option<[f32; 3]>,
+    /// Raw `emissive` channels; the exact length is validated on conversion so
+    /// a wrong channel count gets a descriptive error, not a serde error.
+    #[serde(default)]
+    emissive: Option<Vec<f32>>,
+    #[serde(default)]
+    emissive_intensity: Option<f32>,
+    #[serde(default)]
+    emissive_mask: Option<String>,
     #[serde(default)]
     entity_type: Option<String>,
     #[serde(default)]
@@ -766,6 +791,7 @@ impl CatalogEntryFile {
         let tile_metres = self.resolve_tile_metres(&id, &asset_type)?;
         let tint = self.resolve_tint(&id, &asset_type)?;
         let source = self.resolve_source(&id, model.as_deref(), texture.as_deref())?;
+        let emission = self.resolve_emissive(&id, &asset_type, source)?;
         let size = self
             .size
             .filter(|size| size.iter().all(|value| value.is_finite() && *value > 0.0));
@@ -795,6 +821,9 @@ impl CatalogEntryFile {
             texture,
             tile_metres,
             tint,
+            emissive: emission.color,
+            emissive_intensity: emission.intensity,
+            emissive_mask: emission.mask,
             entity_type: self
                 .entity_type
                 .as_deref()
@@ -932,6 +961,81 @@ impl CatalogEntryFile {
         Ok(Some(tint))
     }
 
+    /// The validated emission of a material: colour, optional intensity and
+    /// optional mask id.
+    ///
+    /// Emission changes how a surface *reads*, so it is only meaningful on a
+    /// material definition: a prop, texture, light or generated asset may not
+    /// author any of the three fields. An intensity or mask without a colour
+    /// is rejected because there would be nothing for it to shape.
+    fn resolve_emissive(
+        &self,
+        id: &str,
+        asset_type: &AssetType,
+        source: AssetSource,
+    ) -> Result<ValidatedEmission, String> {
+        let mask = self
+            .emissive_mask
+            .as_deref()
+            .map(str::trim)
+            .filter(|mask| !mask.is_empty())
+            .map(str::to_string);
+        if self.emissive.is_none() && self.emissive_intensity.is_none() && mask.is_none() {
+            return Ok(ValidatedEmission {
+                color: None,
+                intensity: None,
+                mask: None,
+            });
+        }
+        if asset_type.as_str() != AssetType::MATERIAL || source != AssetSource::Definition {
+            return Err(format!(
+                "{id}: only a `material` `definition` asset may declare `emissive`, \
+                 `emissive_intensity` or `emissive_mask`"
+            ));
+        }
+        let Some(raw) = self.emissive.as_deref() else {
+            return Err(if self.emissive_intensity.is_some() {
+                format!("{id}: `emissive_intensity` requires an `emissive` colour")
+            } else {
+                format!("{id}: `emissive_mask` requires an `emissive` colour")
+            });
+        };
+        if raw.len() != 3 {
+            return Err(format!(
+                "{id}: emissive must be exactly three channels, found {} in {raw:?}",
+                raw.len()
+            ));
+        }
+        let mut color = [0.0_f32; 3];
+        for (slot, channel) in color.iter_mut().zip(raw) {
+            if !channel.is_finite() || !(0.0..=MAX_EMISSION_COLOR).contains(channel) {
+                return Err(format!(
+                    "{id}: emissive channels must be between 0.0 and {MAX_EMISSION_COLOR:?}, found {raw:?}"
+                ));
+            }
+            *slot = *channel;
+        }
+        if let Some(intensity) = self.emissive_intensity
+            && (!intensity.is_finite() || !(0.0..=MAX_EMISSION_INTENSITY).contains(&intensity))
+        {
+            return Err(format!(
+                "{id}: emissive_intensity must be between 0.0 and {MAX_EMISSION_INTENSITY:?}, found {intensity:?}"
+            ));
+        }
+        if let Some(mask) = &mask
+            && !is_valid_asset_id(mask)
+        {
+            return Err(format!(
+                "{id}: emissive_mask `{mask}` is not a well-formed logical asset id"
+            ));
+        }
+        Ok(ValidatedEmission {
+            color: Some(color),
+            intensity: self.emissive_intensity,
+            mask,
+        })
+    }
+
     /// Where the resource comes from, inferred from the declared model/texture
     /// when no explicit `source` is given.
     fn resolve_source(
@@ -1017,6 +1121,37 @@ fn is_relative_resource_path(path: &str) -> bool {
             .any(|component| component == ".." || component.is_empty())
 }
 
+/// Checks that a material's emissive mask names a loadable texture asset.
+///
+/// The mask follows exactly the albedo `texture` rule: it must be a declared
+/// catalog texture with a file behind it. A dangling mask would otherwise only
+/// surface as a runtime diagnostic fallback.
+fn check_emissive_mask(entry: &AssetEntry, catalog: &AssetCatalog) -> Result<(), String> {
+    let Some(mask_id) = entry.emissive_mask.as_deref() else {
+        return Ok(());
+    };
+    let Some(mask) = catalog.entries.get(mask_id) else {
+        return Err(format!(
+            "{}: emissive mask `{mask_id}` is not declared in the asset catalog",
+            entry.id
+        ));
+    };
+    if !mask.is_texture() {
+        return Err(format!(
+            "{}: emissive mask `{mask_id}` is a `{}` asset, not a texture",
+            entry.id,
+            mask.asset_type.as_str()
+        ));
+    }
+    if mask.source != AssetSource::File {
+        return Err(format!(
+            "{}: emissive mask `{mask_id}` has no PNG file to load",
+            entry.id
+        ));
+    }
+    Ok(())
+}
+
 /// True when a resource path names a PNG (case-insensitive extension).
 #[must_use]
 pub fn has_png_extension(path: Option<&str>) -> bool {
@@ -1098,12 +1233,14 @@ impl AssetCatalog {
         }
 
         // Second pass: every material must reference a texture this catalog
-        // actually declares, every texture asset must be a PNG, and every
-        // file-backed fixture must name the PNG face it draws. Doing this
-        // after all entries exist means a material may be declared before the
-        // texture it draws with, but never with a dangling reference.
+        // actually declares (its albedo and any emissive mask), every texture
+        // asset must be a PNG, and every file-backed fixture must name the PNG
+        // face it draws. Doing this after all entries exist means a material
+        // may be declared before the texture it draws with, but never with a
+        // dangling reference.
         let entries: Vec<&AssetEntry> = catalog.entries.values().collect();
         for entry in entries {
+            check_emissive_mask(entry, &catalog)?;
             if entry.is_texture() && !has_png_extension(entry.model.as_deref()) {
                 return Err(format!(
                     "{}: a texture asset must name a `.png` file, found `{}`",
@@ -1230,6 +1367,31 @@ impl AssetCatalog {
     pub fn material_tint(&self, id: &str) -> Option<[f32; 3]> {
         self.material(id)
             .map(|entry| entry.tint.unwrap_or([1.0, 1.0, 1.0]))
+    }
+
+    /// The emissive colour a material authors; `None` when it emits nothing.
+    ///
+    /// Only a material can carry emission, so a prop or texture id is `None`
+    /// here even if an entry somehow declared one: emission can never be read
+    /// off a non-material.
+    #[must_use]
+    pub fn material_emissive(&self, id: &str) -> Option<[f32; 3]> {
+        self.material(id)?.emissive
+    }
+
+    /// The scalar emissive intensity a material authors, if it authors one.
+    ///
+    /// `None` means "use the default for an authored colour"; it is not the
+    /// same as an authored `0.0`, which keeps the material dark.
+    #[must_use]
+    pub fn material_emissive_intensity(&self, id: &str) -> Option<f32> {
+        self.material(id)?.emissive_intensity
+    }
+
+    /// The logical texture id of a material's emissive mask, if it declares one.
+    #[must_use]
+    pub fn material_emissive_mask(&self, id: &str) -> Option<&str> {
+        self.material(id)?.emissive_mask.as_deref()
     }
 
     /// The canonical PNG path of a texture asset, relative to the asset root.

@@ -121,11 +121,12 @@ fn fixture_panel_follows_a_gable_eave_and_ridge() {
     // The baked panel plane is exactly the drawn one, panel extents included.
     let (half_w, half_d) = fixture_half_extents(0.0);
     for light in lighting.lights() {
-        let expected = lighting.fixture_panel_y(light.x, light.z, light.half_w, light.half_d);
-        assert!((light.y - expected).abs() < 1e-4);
-        assert!(light.half_w == half_w && light.half_d == half_d);
+        let expected =
+            lighting.fixture_panel_y(light.x(), light.z(), light.half_w(), light.half_d());
+        assert!((light.y() - expected).abs() < 1e-4);
+        assert!(light.half_w() == half_w && light.half_d() == half_d);
         // The panel stays below the ceiling everywhere it hangs.
-        assert!(light.y < 5.0 - FIXTURE_DROP_M + 1e-3);
+        assert!(light.y() < 5.0 - FIXTURE_DROP_M + 1e-3);
     }
 
     // The ridge fixture's pool is centred on the high ceiling: directly
@@ -226,7 +227,7 @@ fn a_missing_intensity_behaves_as_a_standard_fixture() {
     let omitted = LevelLighting::bake(&level);
     let explicit = LevelLighting::bake(&level_with_room(16.0, 16.0, 3.5, &[1.0]));
     assert_eq!(omitted.rooms()[0].baseline, explicit.rooms()[0].baseline);
-    assert_exact(omitted.lights()[0].intensity, 1.0);
+    assert_exact(omitted.lights()[0].intensity(), 1.0);
 }
 
 #[test]
@@ -277,8 +278,8 @@ fn higher_ceilings_lower_the_effective_illumination() {
     assert!(low.lights()[0].height_factor < 1.3);
     // And it must not be a fixed height assumption: taller rooms really do
     // bake a lower fixture panel.
-    assert!(tall.lights()[0].y > normal.lights()[0].y);
-    assert!(normal.lights()[0].y > low.lights()[0].y);
+    assert!(tall.lights()[0].y() > normal.lights()[0].y());
+    assert!(normal.lights()[0].y() > low.lights()[0].y());
 }
 
 #[test]
@@ -558,7 +559,7 @@ fn overlapping_rooms_own_lights_deterministically_and_only_once() {
     assert_eq!(lighting.room_index_at(-1.0, -1.0), None);
     // The light is counted once, in the small room, per channel.
     let light = lighting.lights()[0];
-    let power = light.intensity * light.height_factor;
+    let power = light.intensity() * light.height_factor;
     let summed = LightColor {
         r: lighting.rooms()[0].effective_power.r + lighting.rooms()[1].effective_power.r,
         g: lighting.rooms()[0].effective_power.g + lighting.rooms()[1].effective_power.g,
@@ -567,7 +568,7 @@ fn overlapping_rooms_own_lights_deterministically_and_only_once() {
     for channel in 0..3 {
         assert_exact(
             summed.channel(channel),
-            power * light.color.channel(channel),
+            power * light.color().channel(channel),
         );
     }
     assert_eq!(lighting.rooms()[0].baseline, ambient_color());
@@ -1007,7 +1008,7 @@ fn legacy_levels_without_a_colour_use_the_documented_default() {
     assert_eq!(level.ceiling_lights[0].color, None);
     assert_eq!(level.ceiling_lights[0].emitted_color(), DEFAULT_LIGHT_COLOR);
     let lighting = LevelLighting::bake(&level);
-    assert_eq!(lighting.lights()[0].color, DEFAULT_LIGHT_COLOR);
+    assert_eq!(lighting.lights()[0].color(), DEFAULT_LIGHT_COLOR);
     let baseline = lighting.rooms()[0].baseline;
     assert!(
         baseline.r > baseline.b && baseline.b >= AMBIENT_LEVEL,
@@ -1069,14 +1070,17 @@ fn fixture_families_own_their_footprint_and_mount() {
     // A ceiling fixture hangs just below the room ceiling; a wall fixture
     // stays at its authored height.
     let round = lighting.lights()[0];
-    assert!((round.y - (4.0 - FIXTURE_DROP_M)).abs() < 1e-4, "{round:?}");
+    assert!(
+        (round.y() - (4.0 - FIXTURE_DROP_M)).abs() < 1e-4,
+        "{round:?}"
+    );
     let wall = lighting.lights()[1];
-    assert!((wall.y - 2.2).abs() < 1e-4, "{wall:?}");
-    assert!((wall.half_w - 0.20).abs() < 1e-4);
+    assert!((wall.y() - 2.2).abs() < 1e-4, "{wall:?}");
+    assert!((wall.half_w() - 0.20).abs() < 1e-4);
     // The unknown id is baked with the panel footprint, not skipped.
     let unknown = lighting.lights()[2];
-    assert!((unknown.half_w - 0.6).abs() < 1e-4);
-    assert!((unknown.y - (4.0 - FIXTURE_DROP_M)).abs() < 1e-4);
+    assert!((unknown.half_w() - 0.6).abs() < 1e-4);
+    assert!((unknown.y() - (4.0 - FIXTURE_DROP_M)).abs() < 1e-4);
 
     // A hand-edited wall fixture without a height stays finite.
     let json = r#"{
@@ -1091,7 +1095,7 @@ fn fixture_families_own_their_footprint_and_mount() {
     }"#;
     let level = LevelDef::from_json(json).expect("wall fixture parses");
     let lighting = LevelLighting::bake(&level);
-    let y = lighting.lights()[0].y;
+    let y = lighting.lights()[0].y();
     assert!(y.is_finite());
     assert!((y - WALL_LIGHT_DEFAULT_HEIGHT_M).abs() < 1e-4, "{y}");
 
@@ -1114,7 +1118,7 @@ fn fixture_families_own_their_footprint_and_mount() {
     assert!(sample.b > sample.r, "cool light must stay cool: {sample:?}");
     assert!(sample.b >= AMBIENT_LEVEL && sample.b <= MAX_BRIGHTNESS);
     for light in lighting.lights() {
-        assert!(light.intensity.is_finite() && light.intensity >= 0.0);
+        assert!(light.intensity().is_finite() && light.intensity() >= 0.0);
     }
 }
 
@@ -1157,9 +1161,9 @@ fn a_wall_fixture_needs_a_height_and_validation_says_so() {
     let lighting = LevelLighting::bake(&ceiling_with_y);
     let panel = lighting.lights().first().expect("the fixture bakes");
     assert!(
-        (panel.y - 2.4).abs() < 1e-6,
+        (panel.y() - 2.4).abs() < 1e-6,
         "an authored ceiling y is the panel's world height: {}",
-        panel.y
+        panel.y()
     );
     assert_eq!(panel.room, Some(0), "and it still owns its room");
 
@@ -1280,4 +1284,222 @@ fn a_lit_corner_does_not_transmit_diagonally() {
         (sample.r - ambient.r).abs() < 1e-3 && (sample.b - ambient.b).abs() < 1e-3,
         "the sealed room must keep the ambient colour exactly: {sample:?}"
     );
+}
+
+// ------------------------------------------------- generic light sources (1.0)
+
+/// One room with one light entry, written verbatim so a test can exercise any
+/// authored field of the fixture/light schema.
+fn level_with_one_light(light_json: &str) -> LevelDef {
+    let json = format!(
+        r#"{{
+            "format_version": 1,
+            "id": "single_light_test",
+            "name": "Single Light Test",
+            "spawn": {{ "x": 5.0, "z": 5.0 }},
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 }}],
+            "ceiling_lights": [{light_json}]
+        }}"#
+    );
+    LevelDef::from_json(&json).expect("test level parses")
+}
+
+#[test]
+fn a_disabled_fixture_keeps_its_emission_but_casts_no_light() {
+    let level = level_with_one_light(
+        r#"{ "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 5.0,
+             "brightness": 1.0, "enabled": false }"#,
+    );
+    let lighting = LevelLighting::bake(&level);
+
+    // The light exists, keeps its authored values, and is inert.
+    let light = lighting.lights().first().expect("the light still bakes");
+    assert!(!light.enabled());
+    assert!((light.intensity() - 1.0).abs() < 1e-6);
+    assert!(!light.is_active());
+
+    // Nothing it could have illuminated changed: the room stays at ambient.
+    let ambient = ambient_color();
+    for (x, z) in [(5.0, 5.0), (2.0, 2.0), (5.0, 2.0)] {
+        let sample = lighting.sample(x, 0.0, z);
+        assert!(
+            (sample.luminance() - ambient.luminance()).abs() < 1e-6,
+            "a disabled fixture lit ({x}, {z}): {sample:?}"
+        );
+    }
+    // It is still owned (the count describes the room's fixtures) and its
+    // emissive value is untouched, so the visible face can still glow.
+    assert_eq!(lighting.rooms()[0].fixture_count, 1);
+    assert_eq!(lighting.rooms()[0].effective_power.luminance(), 0.0);
+    assert!((level.ceiling_lights[0].emission_intensity() - 1.0).abs() < 1e-6);
+}
+
+#[test]
+fn a_fixture_can_author_an_independent_emissive_strength() {
+    let dim_but_bright = level_with_one_light(
+        r#"{ "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 5.0,
+             "brightness": 0.2, "emission": 1.0 }"#,
+    );
+    let plain = level_with_one_light(
+        r#"{ "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 5.0,
+             "brightness": 0.2 }"#,
+    );
+    // The light is identical: the bake cannot see the emissive strength.
+    assert_eq!(
+        LevelLighting::bake(&dim_but_bright).sample(5.0, 0.0, 5.0),
+        LevelLighting::bake(&plain).sample(5.0, 0.0, 5.0)
+    );
+    // The authored face strength is not.
+    let mut bright = dim_but_bright.clone();
+    bright.ceiling_lights[0].emission = None;
+    assert!((dim_but_bright.ceiling_lights[0].emission_intensity() - 1.0).abs() < 1e-6);
+    assert!((bright.ceiling_lights[0].emission_intensity() - 0.2).abs() < 1e-6);
+}
+
+#[test]
+fn a_fixture_can_author_its_own_pool_shape() {
+    let default_range = level_with_one_light(
+        r#"{ "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 5.0, "intensity": 0.1 }"#,
+    );
+    let short_range = level_with_one_light(
+        r#"{ "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 5.0, "intensity": 0.1,
+             "range": 3.0 }"#,
+    );
+    let constant = level_with_one_light(
+        r#"{ "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 5.0, "intensity": 0.1,
+             "falloff": "constant" }"#,
+    );
+    let default = LevelLighting::bake(&default_range);
+    let narrow = LevelLighting::bake(&short_range);
+    let flat = LevelLighting::bake(&constant);
+
+    // Every pool reaches the floor under the panel (the pool is a 3D distance
+    // from the panel plane, so a range that cannot reach the floor at all would
+    // light nothing), and a tighter pool is never brighter than the default:
+    // the falloff curve is evaluated over the light's own range.
+    assert!(narrow.sample(5.0, 0.0, 5.0).r > 0.0);
+    assert!(narrow.sample(5.0, 0.0, 5.0).r < default.sample(5.0, 0.0, 5.0).r);
+    // Away from the panel the shorter range has already ended while the
+    // default pool still contributes.
+    assert!(narrow.sample(7.5, 0.0, 5.0).r < default.sample(7.5, 0.0, 5.0).r);
+    // A constant curve holds full strength out to its range, so it wins at a
+    // distance where the smooth curve has decayed.
+    assert!(flat.sample(7.5, 0.0, 5.0).r > default.sample(7.5, 0.0, 5.0).r);
+    assert!(flat.sample(7.5, 0.0, 5.0).r <= LOCAL_LIGHT_MAX);
+
+    // The authored range is visible on the baked source, and reflects the
+    // documented default when it is not authored.
+    assert!((default.lights()[0].range() - LOCAL_LIGHT_RADIUS_M).abs() < 1e-6);
+    assert!((narrow.lights()[0].range() - 3.0).abs() < 1e-6);
+    assert_eq!(flat.lights()[0].falloff(), LightFalloff::Constant);
+}
+
+/// A room whose only illumination is a light attached to a placed prop.
+fn level_with_prop_light(prop_json: &str) -> LevelDef {
+    let json = format!(
+        r#"{{
+            "format_version": 1,
+            "id": "prop_light_test",
+            "name": "Prop Light Test",
+            "spawn": {{ "x": 1.0, "z": 1.0 }},
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 3.0 }}],
+            "props": [{prop_json}]
+        }}"#
+    );
+    LevelDef::from_json(&json).expect("test level parses")
+}
+
+#[test]
+fn a_prop_light_is_placed_by_the_props_own_transform() {
+    // A prop at (6, 0, 6) turned a quarter turn and scaled 2x, with a rect
+    // light offset one metre along its local +Z (which its yaw sends along +X).
+    let level = level_with_prop_light(
+        r#"{ "model": "core:desk", "x": 6.0, "z": 6.0, "rotation_degrees": 90.0, "scale": 2.0,
+             "lights": [ { "shape": "rect", "half_width": 0.3, "half_depth": 0.1,
+                           "offset": [0.0, 1.5, 1.0],
+                           "color": [1.0, 0.0, 0.0], "intensity": 1.0 } ] }"#,
+    );
+    let lighting = LevelLighting::bake(&level);
+    let light = lighting.lights().first().expect("the prop light bakes");
+
+    // Yaw 90 degrees sends local +Z to world +X and local +X to world -Z.
+    assert!((light.x() - 8.0).abs() < 1e-5, "x was {}", light.x());
+    assert!((light.z() - 6.0).abs() < 1e-5, "z was {}", light.z());
+    // The offset's height is scaled with the object; the floor is at 0.
+    assert!((light.y() - 3.0).abs() < 1e-5, "y was {}", light.y());
+    // The emitter's own half-extents scale with the object and then rotate as a
+    // rectangle: 2 x (0.3, 0.1) turned 90 degrees is (0.2, 0.6).
+    assert!(
+        (light.half_w() - 0.2).abs() < 1e-5,
+        "half_w {}",
+        light.half_w()
+    );
+    assert!(
+        (light.half_d() - 0.6).abs() < 1e-5,
+        "half_d {}",
+        light.half_d()
+    );
+    assert!((light.color().r - 1.0).abs() < 1e-6);
+    assert_eq!(light.room, Some(0));
+}
+
+#[test]
+fn a_prop_light_lights_its_room_and_a_disabled_one_does_not() {
+    let lit = level_with_prop_light(
+        r#"{ "model": "core:desk", "x": 6.0, "z": 6.0,
+             "lights": [ { "shape": "point", "offset": [0.0, 1.0, 0.0], "intensity": 2.0 } ] }"#,
+    );
+    let off = level_with_prop_light(
+        r#"{ "model": "core:desk", "x": 6.0, "z": 6.0,
+             "lights": [ { "shape": "point", "offset": [0.0, 1.0, 0.0], "intensity": 2.0,
+                           "enabled": false } ] }"#,
+    );
+    let no_lights = level_with_prop_light(r#"{ "model": "core:desk", "x": 6.0, "z": 6.0 }"#);
+    let lit = LevelLighting::bake(&lit);
+    let off = LevelLighting::bake(&off);
+    let none = LevelLighting::bake(&no_lights);
+
+    // A prop light raises the room baseline and its local pool.
+    assert!(lit.rooms()[0].baseline.luminance() > none.rooms()[0].baseline.luminance());
+    assert!(lit.sample(6.0, 0.5, 6.0).luminance() > none.sample(6.0, 0.5, 6.0).luminance());
+    // Disabled, it changes nothing at all.
+    assert!(
+        (off.rooms()[0].baseline.luminance() - none.rooms()[0].baseline.luminance()).abs() < 1e-6
+    );
+    assert!(
+        (off.sample(6.0, 0.5, 6.0).luminance() - none.sample(6.0, 0.5, 6.0).luminance()).abs()
+            < 1e-6
+    );
+    assert!(!off.lights()[0].enabled());
+    assert_eq!(none.lights().len(), 0);
+}
+
+#[test]
+fn malformed_prop_lights_are_rejected_or_skipped_without_panicking() {
+    // A light with a finite offset but a malformed shape is a level error.
+    let bad_shape = level_with_prop_light(
+        r#"{ "model": "core:desk", "x": 6.0, "z": 6.0,
+             "lights": [ { "shape": "rect", "half_width": 0.0, "half_depth": 0.1 } ] }"#,
+    );
+    assert!(crate::loader::validate_level(&bad_shape).is_err());
+
+    // A non-finite offset is a level error too.
+    let bad_offset = LevelDef::from_json(
+        r#"{ "format_version": 1, "id": "bad_offset", "name": "Bad Offset",
+             "spawn": { "x": 0.0, "z": 0.0 },
+             "rooms": [{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 }],
+             "props": [{ "model": "core:desk", "x": 1.0, "z": 1.0,
+                         "lights": [{ "shape": "point" }] }] }"#,
+    )
+    .expect("parses");
+    assert!(crate::loader::validate_level(&bad_offset).is_ok());
+    let mut hand_edited = bad_offset;
+    hand_edited.props[0].lights[0].offset = [f32::NAN, 0.0, 0.0];
+    assert!(crate::loader::validate_level(&hand_edited).is_err());
+
+    // The bake itself stays finite for hand-edited data that skipped the
+    // loader: a non-finite offset is dropped, not propagated.
+    let baked = LevelLighting::bake(&hand_edited);
+    assert_eq!(baked.lights().len(), 0);
+    assert!(baked.sample(1.0, 0.5, 1.0).luminance().is_finite());
 }

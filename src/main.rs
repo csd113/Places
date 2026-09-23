@@ -25,6 +25,7 @@ pub mod loader;
 pub mod materials;
 pub mod perf;
 pub mod props;
+pub mod quality;
 pub mod render;
 pub mod settings;
 pub mod spatial;
@@ -359,6 +360,9 @@ fn create_renderer(
 ) -> Result<Renderer, String> {
     let mut renderer = Renderer::new(window, video_subsystem)
         .map_err(|e| format!("Failed to initialize renderer: {e}"))?;
+    // The quality profile decides how large a texture may reach the GPU, so it
+    // is applied before the first level upload rather than after it.
+    renderer.set_quality(settings.quality_profile());
     renderer.set_level(level);
     renderer.set_texture_filtering(&settings.texture_filtering);
     renderer.set_culling(!bench.no_cull());

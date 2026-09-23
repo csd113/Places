@@ -8,8 +8,10 @@
 //!
 //! ```text
 //! load level
-//!     -> collect rooms + ceiling fixtures            (self::bake)
-//!     -> room area, fixture density, height factor   (self::math)
+//!     -> collect rooms                               (self::bake)
+//!     -> resolve generic light sources: fixtures      (self::light, self::bake)
+//!        and prop-attached lights, into one list
+//!     -> room area, light density, height factor      (self::math)
 //!     -> partition areas + baseline field            (self::bake)
 //!     -> room baseline + local fixture pools         (self::bake)
 //!     -> walls, floor interfaces, ceiling bodies     (self::visibility)
@@ -27,8 +29,13 @@
 //! Every value below is a three-channel [`LightColor`], accumulated per channel;
 //! a fixture emits the colour it authors, not one global tint.
 //!
-//! 1. **Room baseline.** Every room sums the emitted colour of the ceiling
-//!    fixtures it owns (`colour x intensity x ceiling-height factor`), divides
+//! Every source is a [`LightSource`]: a shape (point, rectangle or line), an
+//! authored colour, intensity, range, falloff curve and an `enabled` flag. A
+//! visible fixture is geometry that owns one; a placed prop may own several.
+//! Nothing about a fixture family or a material creates a light.
+//!
+//! 1. **Room baseline.** Every room sums the emitted colour of the light
+//!    sources it owns (`colour x intensity x ceiling-height factor`), divides
 //!    each channel by its floor area and feeds that through a logarithmic
 //!    compression and a smoothly saturating curve. The compression is what
 //!    keeps the game's deliberately sparse large rooms (a long corridor or a
@@ -37,12 +44,13 @@
 //!    large room with two panels is dim; a small room with many panels
 //!    approaches full brightness; no channel ever exceeds [`MAX_BRIGHTNESS`].
 //!    The baseline is spatially aware: see *Partitions* below.
-//! 2. **Local fixture pools.** Every fixture adds a broad pool of its own
-//!    colour with a smooth falloff that reaches zero at
-//!    [`LOCAL_LIGHT_RADIUS_M`]. The pool is measured to the fixture's
-//!    rectangular panel rather than to a point, so it reads as a fluorescent
-//!    panel instead of a spotlight. A pool only reaches a surface the fixture
-//!    can actually see: see [`visibility`].
+//! 2. **Local pools.** Every light adds a broad pool of its own colour that
+//!    reaches zero at its own `range` on its own falloff curve (the default is
+//!    the historical 6 m smooth cushion, so nothing authored before the generic
+//!    model existed changed). The pool is measured to the light's emitting
+//!    shape rather than to a point, so a panel reads as a panel and a tube as a
+//!    tube. A pool only reaches a surface the light can actually see: see
+//!    [`visibility`].
 //! 3. **Opening blending.** Room areas joined by walk-through openings (doors
 //!    and passages that reach the floor) mix a bounded fraction of each other's
 //!    baseline near the opening, so light appears to leak through doorways
@@ -114,6 +122,7 @@
 
 mod bake;
 mod color;
+mod light;
 mod math;
 mod tuning;
 mod visibility;
@@ -123,6 +132,10 @@ mod tests;
 
 pub use bake::{BakedLight, LevelLighting, LightingSummary, RoomLighting};
 pub use color::{LightColor, MAX_LIGHT_COLOR};
+pub use light::{
+    DEFAULT_LIGHT_RANGE_M, LINE_LIGHT_HALF_THICKNESS_M, LightFalloff, LightShape, LightSource,
+    MAX_LIGHT_HALF_EXTENT_M, MAX_LIGHT_LENGTH_M, MAX_LIGHT_RANGE_M, MIN_LIGHT_RANGE_M,
+};
 pub use math::{
     ceiling_height_factor, compressed_density, effective_power, fixture_half_extents,
     fixture_half_extents_for, fixture_is_turned, light_grid_cells, room_baseline,

@@ -94,6 +94,13 @@ const DECAL_MAX_SIZE = 10.0;
 /** Highest number of decals a level may place (mirrors MAX_LEVEL_DECALS). */
 const DECAL_MAX_COUNT = 5000;
 
+// Generic light sources a prop may own (mirrors the engine's prop-light
+// schema): a dimension-free "point", a "rect" sized by half extents and a
+// "line" sized by its length. A missing shape defaults to "rect" when half
+// extents are authored, otherwise "point".
+const PROP_LIGHT_SHAPES = ['point', 'rect', 'line'];
+const PROP_LIGHT_FALLOFFS = ['smooth', 'linear', 'constant'];
+
 // Generates procedural thumbnails matching the game's built-in textures
 const CORE_THUMBNAILS = {};
 function initCoreThumbnails() {
@@ -352,6 +359,16 @@ class Wall {
   }
 }
 
+/** Deep-copies one authored prop light so the editor round-trips it untouched. */
+function copyPropLight(light) {
+  return light && typeof light === 'object' ? JSON.parse(JSON.stringify(light)) : light;
+}
+
+function copyPropLights(lights) {
+  if (Array.isArray(lights)) return lights.map(copyPropLight);
+  return lights && typeof lights === 'object' ? copyPropLight(lights) : lights;
+}
+
 /**
  * A placed prop / furniture / appliance instance. Mirrors `PropDef` in src/level.rs:
  * the catalog registry supplies the model's box extents, colour and future mesh path;
@@ -371,6 +388,11 @@ class Prop {
     this.scale = Number(data.scale ?? 1);
     this.size = Array.isArray(data.size) && data.size.length === 3 ? data.size.map(Number) : null;
     this.solid = data.solid === true;
+    // Generic light sources attached to this prop. The editor has no UI for
+    // them, so they are kept exactly as authored (shape, half extents, colour,
+    // intensity, falloff, ...) and serialized back verbatim; malformed input is
+    // preserved rather than dropped so validation can flag it.
+    this.lights = data.lights === undefined || data.lights === null ? [] : copyPropLights(data.lights);
   }
 
   clone() {
@@ -383,7 +405,8 @@ class Prop {
       rotation_degrees: this.rotation_degrees,
       scale: this.scale,
       size: this.size ? this.size.slice() : null,
-      solid: this.solid
+      solid: this.solid,
+      lights: copyPropLights(this.lights)
     });
   }
 
@@ -404,6 +427,13 @@ class Prop {
     if (this.scale !== 1) obj.scale = Number(this.scale.toFixed(3));
     if (this.size) obj.size = this.size.map(v => Number(v.toFixed(3)));
     if (this.solid) obj.solid = true;
+    if (Array.isArray(this.lights) && this.lights.length > 0) {
+      obj.lights = copyPropLights(this.lights);
+    } else if (!Array.isArray(this.lights) && this.lights !== undefined && this.lights !== null) {
+      // A malformed `lights` value is written back as authored so validation
+      // reports it instead of the editor silently repairing the level.
+      obj.lights = copyPropLights(this.lights);
+    }
     return obj;
   }
 }
@@ -427,18 +457,38 @@ class CeilingLight {
     this.color = Array.isArray(data.color) && data.color.length === 3
       ? data.color.map((channel) => Number(channel))
       : null;
+    // A disabled fixture still draws its visible face but contributes no
+    // environmental illumination. Omitted means enabled; whether the level
+    // authored the key is remembered so an explicit `true` also round-trips.
+    this.enabled = data.enabled === undefined ? true : data.enabled;
+    this.enabledExplicit = data.enabled !== undefined;
+    // Optional pool shape and independent emissive strength. All three are
+    // preserved verbatim so editing a level never rewrites them by omission.
+    this.range = Number.isFinite(Number(data.range)) && data.range !== undefined && data.range !== null
+      ? Number(data.range)
+      : null;
+    this.falloff = typeof data.falloff === 'string' ? data.falloff : null;
+    this.emission = Number.isFinite(Number(data.emission)) && data.emission !== undefined && data.emission !== null
+      ? Number(data.emission)
+      : null;
   }
 
   clone() {
-    return new CeilingLight({
+    const copy = new CeilingLight({
       id: this.id,
       fixture: this.fixture,
       x: this.x,
       z: this.z,
       rotation_degrees: this.rotation_degrees,
       brightness: this.brightness,
-      color: this.color ? this.color.slice() : null
+      color: this.color ? this.color.slice() : null,
+      enabled: this.enabled,
+      range: this.range,
+      falloff: this.falloff,
+      emission: this.emission
     });
+    copy.enabledExplicit = this.enabledExplicit;
+    return copy;
   }
 
   duplicate() {
@@ -459,6 +509,20 @@ class CeilingLight {
     }
     if (Array.isArray(this.color) && this.color.length === 3) {
       obj.color = this.color.map((channel) => Number(Number(channel).toFixed(3)));
+    }
+    // `enabled: true` is the engine default, but an explicit `true` authored in
+    // the level is still written back unchanged on save.
+    if (this.enabled !== true || this.enabledExplicit) {
+      obj.enabled = this.enabled;
+    }
+    if (this.range !== null) {
+      obj.range = Number(this.range.toFixed(3));
+    }
+    if (this.falloff !== null) {
+      obj.falloff = this.falloff;
+    }
+    if (this.emission !== null) {
+      obj.emission = Number(this.emission.toFixed(2));
     }
     return obj;
   }
@@ -750,6 +814,87 @@ function openingLabel(kind) {
   }
 }
 
+/**
+ * Validates one generic light source attached to a prop. Mirrors the engine's
+ * prop-light schema (and tools/assets/validate.py): `shape` defaults to "rect"
+ * when half extents are authored, else "point"; a rect needs positive half
+ * extents and a line a positive length; every optional placement field is a
+ * finite number in its documented range. Intensities above the game clamp warn
+ * instead of failing. Returns `{ errors, warnings }` labelled with `label`.
+ */
+function validatePropLight(light, label) {
+  const errors = [];
+  const warnings = [];
+  if (!light || typeof light !== 'object' || Array.isArray(light)) {
+    errors.push(`${label} must be an object`);
+    return { errors, warnings };
+  }
+  const has = (field) => light[field] !== undefined && light[field] !== null;
+  const shape = light.shape;
+  let effectiveShape = shape;
+  if (shape === undefined || shape === null) {
+    if (has('half_width') || has('half_depth')) effectiveShape = 'rect';
+    else if (has('length')) effectiveShape = 'line';
+    else effectiveShape = 'point';
+  } else if (!PROP_LIGHT_SHAPES.includes(shape)) {
+    errors.push(`${label} shape must be one of ${PROP_LIGHT_SHAPES.join(', ')}`);
+  }
+  if (effectiveShape === 'rect') {
+    for (const field of ['half_width', 'half_depth']) {
+      const value = light[field];
+      if (!has(field)) {
+        errors.push(`${label} rect lights need a ${field}`);
+      } else if (!Number.isFinite(value) || value <= 0) {
+        errors.push(`${label} ${field} must be a finite number > 0`);
+      }
+    }
+  } else if (effectiveShape === 'line') {
+    const value = light.length;
+    if (!has('length')) {
+      errors.push(`${label} line lights need a length`);
+    } else if (!Number.isFinite(value) || value <= 0) {
+      errors.push(`${label} length must be a finite number > 0`);
+    }
+  }
+  if (has('offset')) {
+    const offset = light.offset;
+    if (!Array.isArray(offset) || offset.length !== 3 || !offset.every(Number.isFinite)) {
+      errors.push(`${label} offset must be exactly three finite numbers`);
+    }
+  }
+  if (has('color')) {
+    const color = light.color;
+    if (!Array.isArray(color) || color.length !== 3
+        || !color.every((channel) => Number.isFinite(channel) && channel >= 0 && channel <= 1)) {
+      errors.push(`${label} colour must be three channels between 0 and 1`);
+    }
+  }
+  if (has('rotation_degrees') && !Number.isFinite(light.rotation_degrees)) {
+    errors.push(`${label} rotation_degrees must be a finite number`);
+  }
+  for (const field of ['intensity', 'brightness']) {
+    if (!has(field)) continue;
+    const value = light[field];
+    if (!Number.isFinite(value)) {
+      errors.push(`${label} ${field} must be a finite number >= 0`);
+    } else if (value < 0) {
+      errors.push(`${label} ${field} cannot be negative`);
+    } else if (value > LIGHT_INTENSITY_MAX) {
+      warnings.push(`${label} ${field} ${value} is above ${LIGHT_INTENSITY_MAX} and will be clamped by the game`);
+    }
+  }
+  if (has('range') && (!Number.isFinite(light.range) || light.range <= 0)) {
+    errors.push(`${label} range must be a finite number > 0`);
+  }
+  if (has('falloff') && !PROP_LIGHT_FALLOFFS.includes(light.falloff)) {
+    errors.push(`${label} falloff "${light.falloff}" is not one of ${PROP_LIGHT_FALLOFFS.join(', ')}`);
+  }
+  if ('enabled' in light && typeof light.enabled !== 'boolean') {
+    errors.push(`${label} enabled must be a boolean`);
+  }
+  return { errors, warnings };
+}
+
 function validateLevel(level) {
   const errors = [];
   const warnings = [];
@@ -882,6 +1027,21 @@ function validateLevel(level) {
     if (p.size && !p.size.every(v => Number.isFinite(v) && v > 0)) {
       errors.push(`Prop ${i} size must contain positive finite numbers`);
     }
+    // Generic light sources attached to the prop (props[].lights). Messages
+    // mirror the game loader so a level the editor accepts is accepted by
+    // liminal-rust.
+    const lights = p.lights;
+    if (lights !== undefined && lights !== null) {
+      if (!Array.isArray(lights)) {
+        errors.push(`Prop ${i} lights must be an array`);
+      } else {
+        lights.forEach((light, j) => {
+          const result = validatePropLight(light, `Prop ${i} light ${j}`);
+          errors.push(...result.errors);
+          warnings.push(...result.warnings);
+        });
+      }
+    }
   });
 
   // 5. Ceiling lights: fixtures, positions and optional intensity. `brightness`
@@ -909,6 +1069,25 @@ function validateLevel(level) {
       } else if (!l.color.every((channel) => Number.isFinite(channel) && channel >= 0 && channel <= 1)) {
         errors.push(`Ceiling light ${i} colour channels must be between 0 and 1`);
       }
+    }
+    // Optional fixture switch: a non-boolean value is malformed. Omitted means
+    // enabled, which the model represents as `true`.
+    if (l.enabled !== undefined && typeof l.enabled !== 'boolean') {
+      errors.push(`Ceiling light ${i} enabled must be a boolean`);
+    }
+    // Optional pool shape and independent emissive strength, validated exactly
+    // like a prop-attached light's.
+    const rawRange = l.range;
+    if (rawRange !== undefined && rawRange !== null && !(Number.isFinite(Number(rawRange)) && Number(rawRange) > 0)) {
+      errors.push(`Ceiling light ${i} range must be a positive number of metres`);
+    }
+    if (l.falloff !== undefined && l.falloff !== null
+        && !PROP_LIGHT_FALLOFFS.includes(l.falloff)) {
+      errors.push(`Ceiling light ${i} falloff must be one of ${PROP_LIGHT_FALLOFFS.join(', ')}`);
+    }
+    const rawEmission = l.emission;
+    if (rawEmission !== undefined && rawEmission !== null && !(Number.isFinite(Number(rawEmission)) && Number(rawEmission) >= 0)) {
+      errors.push(`Ceiling light ${i} emission must be a finite number that is not negative`);
     }
   });
 
@@ -1011,6 +1190,8 @@ if (typeof window !== 'undefined') {
     DECAL_SURFACES,
     DECAL_MAX_SIZE,
     DECAL_MAX_COUNT,
+    PROP_LIGHT_SHAPES,
+    PROP_LIGHT_FALLOFFS,
     WallOpening,
     Wall,
     CeilingLight,
@@ -1022,6 +1203,7 @@ if (typeof window !== 'undefined') {
     LevelDefaults,
     Level,
     openingLabel,
+    validatePropLight,
     validateLevel,
     generateUniqueId,
     LIGHT_INTENSITY_MAX
@@ -1034,6 +1216,8 @@ if (typeof module !== 'undefined' && module.exports) {
     DECAL_SURFACES,
     DECAL_MAX_SIZE,
     DECAL_MAX_COUNT,
+    PROP_LIGHT_SHAPES,
+    PROP_LIGHT_FALLOFFS,
     WallOpening,
     Wall,
     CeilingLight,
@@ -1045,6 +1229,7 @@ if (typeof module !== 'undefined' && module.exports) {
     LevelDefaults,
     Level,
     openingLabel,
+    validatePropLight,
     validateLevel,
     LIGHT_INTENSITY_MAX
   };

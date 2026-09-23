@@ -14,7 +14,7 @@ use crate::level::LevelDef;
 
 use super::image::{RawImage, TextureCache, load_png_relative, missing_texture};
 use super::pack::PackMaterials;
-use super::{DEFAULT_TINT, MISSING_TEXTURE_KEY};
+use super::{DEFAULT_EMISSION_INTENSITY, DEFAULT_TINT, MISSING_TEXTURE_KEY, MaterialEmission};
 
 /// Where a resolved texture came from; also its GPU lifetime.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -43,6 +43,12 @@ pub struct ResolvedMaterial {
     pub tile_metres: f32,
     /// Static multiply tint applied to the sampled texture.
     pub tint: [f32; 3],
+    /// Emission of the surface: colour, intensity and optional mask texture.
+    ///
+    /// [`MaterialEmission::mask`] is an index into [`MaterialTable::textures`]
+    /// and is only filled in by [`resolve_materials`], which interns the mask.
+    /// A logical-only table always leaves it `None`.
+    pub emission: MaterialEmission,
     /// The decoded image; `None` only for catalog-only logical tables used by
     /// geometry tests that do not render.
     pub image: Option<Rc<RawImage>>,
@@ -55,6 +61,11 @@ pub struct ResolvedMaterial {
 pub struct ResolvedTexture {
     pub key: String,
     pub origin: TextureOrigin,
+    /// Which runtime quality budget applies to this image.
+    ///
+    /// An albedo sheet is sized for a tiling surface; an emissive mask is a
+    /// separate, usually smaller image, and Low may scale it harder.
+    pub class: crate::quality::TextureClass,
     pub image: Rc<RawImage>,
 }
 
@@ -72,8 +83,13 @@ pub struct MaterialTable {
 }
 
 impl MaterialTable {
-    /// Builds the logical table for a level: ids, tiling and tint resolved
-    /// through the catalog and an optional pack, with no image decoding.
+    /// Builds the logical table for a level: ids, tiling, tint and emission
+    /// colour/intensity resolved through the catalog and an optional pack, with
+    /// no image decoding.
+    ///
+    /// Emission's `mask` is always `None` here: a mask is a texture-table
+    /// index, and no table exists until images are decoded. Only
+    /// [`resolve_materials`] fills it in.
     ///
     /// This is what geometry-only tests and the lighting audit use; the
     /// renderer always uses [`resolve_materials`] so every entry has an image.
@@ -169,6 +185,7 @@ fn intern_texture(
     textures: &mut Vec<ResolvedTexture>,
     key: String,
     origin: TextureOrigin,
+    class: crate::quality::TextureClass,
     image: Rc<RawImage>,
 ) -> u16 {
     if let Some(index) = textures.iter().position(|texture| texture.key == key) {
@@ -177,7 +194,12 @@ fn intern_texture(
     // The new entry's index is the length before the push, which is also
     // `len - 1` afterwards — computed without an off-by-one subtraction.
     let index = u16::try_from(textures.len()).unwrap_or(u16::MAX);
-    textures.push(ResolvedTexture { key, origin, image });
+    textures.push(ResolvedTexture {
+        key,
+        origin,
+        class,
+        image,
+    });
     index
 }
 
@@ -239,6 +261,7 @@ fn material_base(
     origin: TextureOrigin,
     tile_metres: f32,
     tint: [f32; 3],
+    emission: MaterialEmission,
     error: Option<String>,
 ) -> ResolvedMaterial {
     ResolvedMaterial {
@@ -248,9 +271,28 @@ fn material_base(
         origin,
         tile_metres,
         tint,
+        emission,
         image: None,
         error,
     }
+}
+
+/// The emission a catalog material describes.
+///
+/// An authored colour without an intensity keeps
+/// [`DEFAULT_EMISSION_INTENSITY`]; the mask index is filled in later by
+/// [`resolve_materials`], once the mask texture is interned.
+fn catalog_emission(entry: &crate::assets::AssetEntry) -> MaterialEmission {
+    let Some(color) = entry.emissive else {
+        return MaterialEmission::NONE;
+    };
+    MaterialEmission::new(
+        color,
+        entry
+            .emissive_intensity
+            .unwrap_or(DEFAULT_EMISSION_INTENSITY),
+    )
+    .sanitized()
 }
 
 /// Logical description of one material before its image is resolved.
@@ -270,6 +312,7 @@ fn describe_material(
             TextureOrigin::Missing,
             DEFAULT_TILE_METRES,
             DEFAULT_TINT,
+            MaterialEmission::NONE,
             Some(format!(
                 "`{id}` is a `{}` asset, not a surface material; using the diagnostic texture",
                 entry.asset_type.as_str()
@@ -287,6 +330,7 @@ fn describe_material(
         TextureOrigin::Missing,
         DEFAULT_TILE_METRES,
         DEFAULT_TINT,
+        MaterialEmission::NONE,
         Some(format!(
             "unknown material `{id}`; add it to the asset catalog or use the diagnostic material"
         )),
@@ -295,11 +339,16 @@ fn describe_material(
 
 /// Describes a material the catalog declares as a surface material, naming the
 /// problem when its texture cannot be resolved.
+///
+/// Emission colour and intensity come straight from the catalog entry; the
+/// mask index is left `None` because it refers to the resolved texture table,
+/// which does not exist yet.
 fn describe_catalog_material(
     id: &str,
     entry: &crate::assets::AssetEntry,
     catalog: &AssetCatalog,
 ) -> ResolvedMaterial {
+    let emission = catalog_emission(entry);
     let texture_id = entry.texture.clone().unwrap_or_default();
     if texture_id.is_empty() {
         return material_base(
@@ -308,6 +357,7 @@ fn describe_catalog_material(
             TextureOrigin::Missing,
             DEFAULT_TILE_METRES,
             DEFAULT_TINT,
+            emission,
             Some(format!(
                 "material `{id}` declares no `texture`; using the diagnostic texture"
             )),
@@ -322,6 +372,7 @@ fn describe_catalog_material(
             TextureOrigin::Missing,
             tile_metres,
             tint,
+            emission,
             Some(format!(
                 "material `{id}` references texture `{texture_id}`, which has no PNG file in the catalog"
             )),
@@ -333,6 +384,7 @@ fn describe_catalog_material(
         TextureOrigin::Catalog,
         tile_metres,
         tint,
+        emission,
         None,
     )
 }
@@ -347,6 +399,7 @@ fn describe_pack_material(
         // A pack may reuse a catalog texture by logical id, or ship its own
         // PNG. A declared-but-missing pack file is a named error, not a
         // silent fall-through to a same-named file.
+        let emission = definition.emission();
         if definition.texture.contains(':') && catalog.texture_path(&definition.texture).is_some() {
             return material_base(
                 id,
@@ -354,6 +407,7 @@ fn describe_pack_material(
                 TextureOrigin::Catalog,
                 definition.tile_metres(),
                 definition.tint(),
+                emission,
                 None,
             );
         }
@@ -364,6 +418,7 @@ fn describe_pack_material(
                 TextureOrigin::Pack,
                 definition.tile_metres(),
                 definition.tint(),
+                emission,
                 None,
             );
         }
@@ -373,6 +428,7 @@ fn describe_pack_material(
             TextureOrigin::Pack,
             definition.tile_metres(),
             definition.tint(),
+            MaterialEmission::NONE,
             Some(format!(
                 "pack material `{id}`: `materials.json` names `{}`, which is not present in the pack",
                 definition.texture
@@ -386,6 +442,7 @@ fn describe_pack_material(
             TextureOrigin::Pack,
             DEFAULT_TILE_METRES,
             DEFAULT_TINT,
+            MaterialEmission::NONE,
             None,
         );
     }
@@ -395,18 +452,144 @@ fn describe_pack_material(
         TextureOrigin::Pack,
         DEFAULT_TILE_METRES,
         DEFAULT_TINT,
+        MaterialEmission::NONE,
         Some(format!(
             "pack material `{id}` has no `materials.json` entry and no matching PNG in the pack"
         )),
     )
 }
 
+/// Where a material's authored emissive mask resolves to, before decoding.
+enum EmissionMask {
+    /// A catalog texture asset; the dedupe key is its logical id.
+    Catalog { texture_id: String, path: String },
+    /// A PNG inside the loaded pack; the dedupe key is the pack cache key.
+    Pack { path: String },
+    /// The mask cannot resolve; the error is already phrased for the entry.
+    Unresolved { error: String },
+}
+
+/// The emissive mask a material authors, resolved through catalog or pack.
+///
+/// Catalog materials name a catalog texture id; `pack:` materials may reuse a
+/// catalog texture or ship their own PNG, exactly like their albedo `texture`.
+/// `None` means the material declares no mask at all.
+fn emission_mask(
+    material_id: &str,
+    catalog: &AssetCatalog,
+    pack: Option<&PackMaterials>,
+) -> Option<EmissionMask> {
+    if let Some(entry) = catalog.material(material_id) {
+        let mask_id = entry.emissive_mask.as_deref()?;
+        return Some(catalog.texture_path(mask_id).map_or_else(
+            || EmissionMask::Unresolved {
+                error: format!(
+                    "material `{material_id}` emissive mask `{mask_id}` has no PNG file in the catalog"
+                ),
+            },
+            |path| EmissionMask::Catalog {
+                texture_id: mask_id.to_string(),
+                path: path.to_string(),
+            },
+        ));
+    }
+    let mask = pack
+        .and_then(|pack| pack.definition(material_id))
+        .and_then(|definition| definition.emissive_mask.as_deref())?;
+    if mask.contains(':')
+        && let Some(path) = catalog.texture_path(mask)
+    {
+        return Some(EmissionMask::Catalog {
+            texture_id: mask.to_string(),
+            path: path.to_string(),
+        });
+    }
+    if pack.is_some_and(|pack| pack.mask_bytes(mask).is_some()) {
+        return Some(EmissionMask::Pack {
+            path: mask.to_string(),
+        });
+    }
+    Some(EmissionMask::Unresolved {
+        error: format!(
+            "pack material `{material_id}`: `materials.json` names emissive mask `{mask}`, which is not present in the pack"
+        ),
+    })
+}
+
+/// Decodes one authored emissive mask into its dedupe key, origin and image.
+fn resolve_mask_image(
+    material_id: &str,
+    mask: EmissionMask,
+    cache: &mut TextureCache,
+    pack: Option<&PackMaterials>,
+    asset_root: Option<&Path>,
+) -> Result<(String, TextureOrigin, Rc<RawImage>), String> {
+    match mask {
+        EmissionMask::Catalog { texture_id, path } => {
+            if let Some(image) = cache.get(&texture_id) {
+                return Ok((texture_id, TextureOrigin::Catalog, image));
+            }
+            match asset_root {
+                Some(root) => load_png_relative(root, &path)
+                    .map_err(|error| {
+                        format!("material `{material_id}` emissive mask `{texture_id}`: {error}")
+                    })
+                    .map(|image| {
+                        let image = cache.insert(texture_id.clone(), image);
+                        (texture_id, TextureOrigin::Catalog, image)
+                    }),
+                None => Err(format!(
+                    "material `{material_id}` emissive mask `{texture_id}`: the asset root is missing"
+                )),
+            }
+        }
+        EmissionMask::Pack { path } => pack.map_or_else(
+            || {
+                Err(format!(
+                    "material `{material_id}` emissive mask `{path}`: the pack is not loaded"
+                ))
+            },
+            |pack| {
+                pack.decode_cached(cache, &path)
+                    .map(|(image, key)| (key, TextureOrigin::Pack, image))
+                    .map_err(|error| format!("material `{material_id}` emissive mask: {error}"))
+            },
+        ),
+        EmissionMask::Unresolved { error } => Err(error),
+    }
+}
+
+/// Degrades one entry to the shared diagnostic texture and clears its
+/// emission: a material that cannot bind every authored texture must not glow.
+fn fall_back_to_missing(
+    entry: &mut ResolvedMaterial,
+    textures: &mut Vec<ResolvedTexture>,
+    missing: &Rc<RawImage>,
+    error: String,
+) {
+    let texture_index = intern_texture(
+        textures,
+        MISSING_TEXTURE_KEY.to_string(),
+        TextureOrigin::Missing,
+        crate::quality::TextureClass::Surface,
+        Rc::clone(missing),
+    );
+    entry.texture_key = MISSING_TEXTURE_KEY.to_string();
+    entry.origin = TextureOrigin::Missing;
+    entry.image = Some(Rc::clone(missing));
+    entry.texture_index = texture_index;
+    entry.error = Some(error);
+    entry.emission = MaterialEmission::NONE;
+}
+
 /// Resolves every material a level references into decoded images.
 ///
 /// Built-in materials resolve through the catalog and are decoded once into
 /// `cache`; pack materials decode from the pack's own bytes with the pack's
-/// namespace folded into the cache key. Unresolvable materials keep a
-/// context-rich error on their entry and share one diagnostic texture.
+/// namespace folded into the cache key. An authored emissive mask is decoded
+/// through the same cache and interned into the texture table, so two
+/// materials that share a mask upload one GPU texture. Unresolvable materials
+/// keep a context-rich error on their entry and share one diagnostic texture.
 #[must_use]
 pub fn resolve_materials(
     level: &LevelDef,
@@ -461,25 +644,42 @@ pub fn resolve_materials(
             TextureOrigin::Missing => return_error(entry.error.as_deref(), &entry.id),
         };
 
-        match image_result {
-            Ok(image) => {
-                let texture_index = intern_texture(textures, key, origin, image.clone());
-                entry.image = Some(image);
-                entry.texture_index = texture_index;
-            }
+        let image = match image_result {
+            Ok(image) => image,
             Err(error) => {
-                let texture_index = intern_texture(
-                    textures,
-                    MISSING_TEXTURE_KEY.to_string(),
-                    TextureOrigin::Missing,
-                    Rc::clone(&missing),
-                );
-                entry.texture_key = MISSING_TEXTURE_KEY.to_string();
-                entry.origin = TextureOrigin::Missing;
-                entry.image = Some(Rc::clone(&missing));
-                entry.texture_index = texture_index;
-                entry.error = Some(error);
+                fall_back_to_missing(entry, textures, &missing, error);
+                continue;
             }
+        };
+
+        // The mask is part of the material: a mask that cannot resolve
+        // degrades the whole material exactly like a broken albedo, rather
+        // than emitting through a texture nobody authored.
+        let mask_image = emission_mask(&entry.id, catalog, pack)
+            .map(|mask| resolve_mask_image(&entry.id, mask, cache, pack, asset_root));
+        if let Some(Err(error)) = mask_image {
+            fall_back_to_missing(entry, textures, &missing, error);
+            continue;
+        }
+
+        let texture_index = intern_texture(
+            textures,
+            key,
+            origin,
+            crate::quality::TextureClass::Surface,
+            image.clone(),
+        );
+        entry.image = Some(image);
+        entry.texture_index = texture_index;
+        if let Some(Ok((mask_key, mask_origin, mask_image))) = mask_image {
+            let mask_index = intern_texture(
+                textures,
+                mask_key,
+                mask_origin,
+                crate::quality::TextureClass::EmissionMask,
+                mask_image,
+            );
+            entry.emission.mask = Some(mask_index);
         }
     }
 

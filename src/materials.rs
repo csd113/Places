@@ -44,6 +44,7 @@
 //! ```
 
 mod decal;
+mod emission;
 mod image;
 mod pack;
 mod resolve;
@@ -52,6 +53,9 @@ mod resolve;
 mod tests;
 
 pub use decal::{ResolvedDecalSheet, resolve_decal_sheet};
+pub use emission::{
+    DEFAULT_EMISSION_INTENSITY, MAX_EMISSION_COLOR, MAX_EMISSION_INTENSITY, MaterialEmission,
+};
 pub use image::{
     RawImage, TextureCache, decode_png, encode_png, load_png_relative, missing_texture,
 };

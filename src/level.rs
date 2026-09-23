@@ -842,7 +842,7 @@ pub enum LightMount {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CeilingLightDef {
+pub struct LightFixtureDef {
     pub fixture: String,
     pub x: f32,
     pub z: f32,
@@ -860,9 +860,54 @@ pub struct CeilingLightDef {
     /// height is derived from the room's ceiling.
     #[serde(default)]
     pub y: Option<f32>,
+    /// Distance at which the light reaches zero, in metres. Omitted means
+    /// [`crate::lighting::DEFAULT_LIGHT_RANGE_M`] (the historical pool radius).
+    #[serde(default)]
+    pub range: Option<f32>,
+    /// Falloff curve; omitted means `smooth` (the historical pool curve).
+    #[serde(default)]
+    pub falloff: Option<crate::lighting::LightFalloff>,
+    /// Whether the fixture casts environmental light. Defaults to `true`.
+    ///
+    /// `false` makes the fixture a *luminous object only*: its visible face
+    /// still glows with its authored colour and brightness, while the bake skips
+    /// it entirely. This is the authored half of the separation between material
+    /// emission and environmental illumination — a sign, a screen or a
+    /// decorative tube that reads bright while lighting nothing.
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    /// Independent emissive strength for the fixture's visible face.
+    ///
+    /// Omitted means the face glows with the fixture's own `brightness`, the
+    /// historical behaviour. Authoring it decouples the two sides of the
+    /// fixture: a dying tube can read fully bright while casting its dim light,
+    /// and a screen-like face can glow without its light being raised to match.
+    /// The value drives only the material emission; illumination always comes
+    /// from `brightness` (and only while `enabled`).
+    #[serde(default)]
+    pub emission: Option<f32>,
 }
 
-impl CeilingLightDef {
+impl Default for LightFixtureDef {
+    fn default() -> Self {
+        Self {
+            fixture: String::new(),
+            x: 0.0,
+            z: 0.0,
+            rotation_degrees: 0.0,
+            brightness: None,
+            color: None,
+            mount: LightMount::Ceiling,
+            y: None,
+            range: None,
+            falloff: None,
+            enabled: true,
+            emission: None,
+        }
+    }
+}
+
+impl LightFixtureDef {
     /// Authored fixture intensity, sanitised for rendering.
     ///
     /// * omitted (or `NaN`) -> `1.0`, the standard fixture;
@@ -870,11 +915,34 @@ impl CeilingLightDef {
     /// * non-finite -> the finite [`MAX_LIGHT_INTENSITY`] or `0.0`.
     ///
     /// The value is therefore always finite and never negative; baking clamps it
-    /// to [`crate::lighting::MAX_LIGHT_INTENSITY`] as well.
+    /// to [`crate::lighting::MAX_LIGHT_INTENSITY`] as well. It drives both the
+    /// fixture's visible emission and, unless [`Self::enabled`] is false, the
+    /// light it casts.
     #[must_use]
     pub fn intensity(&self) -> f32 {
         self.brightness
             .map_or(1.0, crate::lighting::sanitize_intensity)
+    }
+
+    /// Authored emissive strength of the fixture's visible face.
+    ///
+    /// Defaults to the fixture's own [`Self::intensity`], so an existing level
+    /// keeps its appearance; an authored value lets the face read at a
+    /// different brightness from the light the fixture casts.
+    #[must_use]
+    pub fn emission_intensity(&self) -> f32 {
+        self.emission.map_or_else(
+            || self.intensity(),
+            |value| {
+                if value.is_finite() {
+                    value.clamp(0.0, crate::materials::MAX_EMISSION_INTENSITY)
+                } else if value.is_sign_positive() {
+                    crate::materials::MAX_EMISSION_INTENSITY
+                } else {
+                    0.0
+                }
+            },
+        )
     }
 
     /// Emitted light colour, sanitised for baking.
@@ -888,7 +956,188 @@ impl CeilingLightDef {
     pub fn emitted_color(&self) -> LightColor {
         self.color.unwrap_or(DEFAULT_LIGHT_COLOR).sanitized()
     }
+
+    /// Authored range, or the documented default when omitted.
+    #[must_use]
+    pub fn range(&self) -> f32 {
+        self.range
+            .filter(|value| value.is_finite() && *value > 0.0)
+            .map_or(crate::lighting::DEFAULT_LIGHT_RANGE_M, |value| {
+                value.clamp(
+                    crate::lighting::MIN_LIGHT_RANGE_M,
+                    crate::lighting::MAX_LIGHT_RANGE_M,
+                )
+            })
+    }
+
+    /// Authored falloff curve, or the documented default when omitted.
+    #[must_use]
+    pub fn falloff(&self) -> crate::lighting::LightFalloff {
+        self.falloff.unwrap_or_default()
+    }
 }
+
+/// Authoring-level shape name of a prop-attached light.
+///
+/// The serialized form is flat — `{"shape": "rect", "half_width": 0.3, ...}` —
+/// so a level stays readable and the validator can report one field at a time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum LightShapeKind {
+    /// A single point: an indicator LED, a small lamp.
+    #[default]
+    Point,
+    /// A flat panel: a screen, a sign face, a diffuser.
+    Rect,
+    /// A tube: a fluorescent batten, a neon strip.
+    Line,
+}
+
+/// One generic light attached to a placed object.
+///
+/// This is how an object — a vending machine, a TV, an arcade cabinet, a
+/// future glowing prop — owns illumination without a new hardcoded light
+/// family: the light's shape and numbers live here, and its position is an
+/// offset in the prop's own local frame. Emission stays a separate property of
+/// the object's material; a light authored here is the only way a prop
+/// illuminates anything.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LightDef {
+    /// Shape of the emitting surface; defaults to `point`.
+    #[serde(default)]
+    pub shape: LightShapeKind,
+    /// Half-extent along the local X axis, in metres (`rect` only).
+    #[serde(default)]
+    pub half_width: Option<f32>,
+    /// Half-extent along the local Z axis, in metres (`rect` only).
+    #[serde(default)]
+    pub half_depth: Option<f32>,
+    /// Total length along the local X axis, in metres (`line` only).
+    #[serde(default)]
+    pub length: Option<f32>,
+    /// Position of the light's centre in the object's local frame, in metres.
+    #[serde(default)]
+    pub offset: [f32; 3],
+    /// Yaw of the light's shape about Y, relative to the object, in degrees.
+    #[serde(default)]
+    pub rotation_degrees: f32,
+    /// Emitted colour; omitted means [`DEFAULT_LIGHT_COLOR`].
+    #[serde(default)]
+    pub color: Option<LightColor>,
+    /// Authored intensity; `brightness` is accepted as an alias. Omitted means
+    /// the standard fixture strength (`1.0`).
+    #[serde(default, alias = "brightness")]
+    pub intensity: Option<f32>,
+    /// Distance at which the light reaches zero, in metres. Omitted means
+    /// [`crate::lighting::DEFAULT_LIGHT_RANGE_M`].
+    #[serde(default)]
+    pub range: Option<f32>,
+    /// Falloff curve; omitted means `smooth`.
+    #[serde(default)]
+    pub falloff: Option<crate::lighting::LightFalloff>,
+    /// Whether the light illuminates at all; defaults to `true`.
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+}
+
+impl Default for LightDef {
+    fn default() -> Self {
+        Self {
+            shape: LightShapeKind::Point,
+            half_width: None,
+            half_depth: None,
+            length: None,
+            offset: [0.0; 3],
+            rotation_degrees: 0.0,
+            color: None,
+            intensity: None,
+            range: None,
+            falloff: None,
+            enabled: true,
+        }
+    }
+}
+
+impl LightDef {
+    /// The engine-level shape this authored light describes.
+    #[must_use]
+    pub fn shape(&self) -> crate::lighting::LightShape {
+        match self.shape {
+            LightShapeKind::Point => crate::lighting::LightShape::Point,
+            LightShapeKind::Rect => crate::lighting::LightShape::Rect {
+                half_width: self.half_width.unwrap_or(0.0),
+                half_depth: self.half_depth.unwrap_or(0.0),
+            },
+            LightShapeKind::Line => crate::lighting::LightShape::Line {
+                length: self.length.unwrap_or(0.0),
+            },
+        }
+    }
+
+    /// Authored intensity, sanitised exactly like a fixture's `brightness`.
+    #[must_use]
+    pub fn intensity(&self) -> f32 {
+        self.intensity
+            .map_or(1.0, crate::lighting::sanitize_intensity)
+    }
+
+    /// Emitted colour, sanitised for baking.
+    #[must_use]
+    pub fn emitted_color(&self) -> LightColor {
+        self.color.unwrap_or(DEFAULT_LIGHT_COLOR).sanitized()
+    }
+
+    /// Authored range, or the documented default when omitted.
+    #[must_use]
+    pub fn range(&self) -> f32 {
+        self.range
+            .filter(|value| value.is_finite() && *value > 0.0)
+            .map_or(crate::lighting::DEFAULT_LIGHT_RANGE_M, |value| {
+                value.clamp(
+                    crate::lighting::MIN_LIGHT_RANGE_M,
+                    crate::lighting::MAX_LIGHT_RANGE_M,
+                )
+            })
+    }
+
+    /// Authored falloff curve, or the documented default when omitted.
+    #[must_use]
+    pub fn falloff(&self) -> crate::lighting::LightFalloff {
+        self.falloff.unwrap_or_default()
+    }
+
+    /// This authored light as an engine-level source at a resolved world
+    /// position, with every value sanitised.
+    ///
+    /// `scale` is the owning object's scale: it scales the emitter's shape and
+    /// (at the call site) its offset, exactly as object geometry scales.
+    #[must_use]
+    pub fn to_source(
+        &self,
+        position: [f32; 3],
+        rotation_degrees: f32,
+        scale: f32,
+    ) -> crate::lighting::LightSource {
+        crate::lighting::LightSource {
+            shape: self.shape().scaled(scale),
+            position,
+            rotation_degrees,
+            color: self.emitted_color(),
+            intensity: self.intensity(),
+            range: self.range(),
+            falloff: self.falloff(),
+            enabled: self.enabled,
+        }
+    }
+}
+
+/// Default for the `enabled` field of lights and fixtures.
+const fn default_enabled() -> bool {
+    true
+}
+
+/// Largest number of attached lights one placed prop may declare.
+pub const MAX_PROP_LIGHTS: usize = 8;
 
 /// Fallback prop box extents [width, height, depth] in metres, used whenever
 /// neither the placed prop nor the prop catalog provides explicit sizes.
@@ -923,6 +1172,13 @@ pub struct PropDef {
     /// When true the prop blocks the player (axis-aligned box from position/size). Defaults to false.
     #[serde(default)]
     pub solid: bool,
+    /// Generic light sources this object owns, positioned in its local frame.
+    ///
+    /// Zero by default: an object glows only through its material unless a
+    /// light is authored here. Nothing about the object's model, material or
+    /// category decides whether it lights a room.
+    #[serde(default)]
+    pub lights: Vec<LightDef>,
 }
 
 impl PropDef {
@@ -966,8 +1222,15 @@ pub struct LevelDef {
     /// Local surface decals (signs, floor markings, warnings).
     #[serde(default)]
     pub decals: Vec<DecalDef>,
-    #[serde(default)]
-    pub ceiling_lights: Vec<CeilingLightDef>,
+    /// Every placed light fixture, in bake order.
+    ///
+    /// The key is `ceiling_lights` for compatibility with existing levels
+    /// (and accepts `lights` as an alias); it holds every fixture, including
+    /// wall-mounted ones, which author `"mount": "wall"` plus a world-space
+    /// `y`. A fixture is visible geometry that owns one generic light; lights
+    /// attached to props live on the prop instead (see [`PropDef::lights`]).
+    #[serde(default, alias = "lights")]
+    pub ceiling_lights: Vec<LightFixtureDef>,
     /// Placed props / furniture / appliances.
     #[serde(default)]
     pub props: Vec<PropDef>,
@@ -984,12 +1247,47 @@ pub const MAX_PROP_QUADS: u64 = 6;
 pub const PROP_TRIANGLE_TARGET: usize = 500;
 /// Triangle count above which a prop model needs an explicit justification.
 pub const PROP_TRIANGLE_REVIEW: usize = 800;
-/// Hard ceiling on one prop model's triangle count, enforced by the loader.
-pub const MAX_PROP_TRIANGLES: usize = 1_500;
+/// The Places art budget for one shipped prop model.
+///
+/// This is the count the prop tooling enforces when it builds the shipped
+/// library, and the number `assets/README.md` documents. It is deliberately
+/// **not** an engine limit: a model from another source that lands above it
+/// still loads, with an art-budget warning naming the count, because the
+/// renderer handles it correctly. The visual language is protected by the
+/// budget being the authored norm, not by refusing the file.
+pub const PROP_TRIANGLE_BUDGET: usize = 1_500;
+/// Hard engine ceiling on one prop model's triangle count.
+///
+/// Four times the art budget: far above anything the Places visual language
+/// wants, and still small enough that one model's vertices and the level's
+/// instance budget stay bounded on the `PocketCHIP` target. A file above this is
+/// genuinely unsupported rather than merely over budget.
+pub const MAX_PROP_TRIANGLES: usize = 6_000;
+/// Engine ceiling on the primitives (draw ranges) one prop model may declare.
+///
+/// Production GLBs split a model per material, so a handful is normal; the cap
+/// exists so a pathological file cannot turn one prop into hundreds of draws.
+pub const MAX_PROP_PRIMITIVES: usize = 32;
+/// Engine ceiling on the materials one prop model may declare.
+pub const MAX_PROP_MATERIALS: usize = 16;
+/// Engine ceiling on the distinct images embedded in one prop model.
+pub const MAX_PROP_IMAGES: usize = 16;
 /// Hard ceiling on one prop model's vertex count (16-bit indices, `PocketCHIP` RAM).
 pub const MAX_PROP_VERTICES: usize = 65_535;
-/// Hard ceiling on prop texture dimensions; 64x64/128x128 are the preferred sizes.
-pub const MAX_PROP_TEXTURE_SIZE: u32 = 256;
+/// The Places art budget for a prop texture's edge length.
+///
+/// Shipped prop artwork is 64x64 or 128x128 (256 for a few detailed sheets).
+/// Larger embedded textures load and are downscaled to the runtime budget, but
+/// tooling warns: the low-poly visual language wants restrained texture detail,
+/// not photographic sheets hidden inside a crude mesh.
+pub const PROP_TEXTURE_PREFERRED_SIZE: u32 = 256;
+/// Hard engine ceiling on a prop texture's edge length.
+///
+/// Matches the surface decoder's [`crate::assets::MAX_TEXTURE_DIMENSION`]: a
+/// GLB may carry a texture up to the same size any other asset may, and the
+/// runtime quality profile decides what actually reaches the GPU.
+pub const MAX_PROP_TEXTURE_SIZE: u32 = 1_024;
+
 /// Hard ceiling on the number of distinct prop models a single level may use.
 pub const MAX_LEVEL_PROP_MODELS: usize = 256;
 /// Upper bound on the summed prop vertex count a level may expand into after

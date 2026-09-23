@@ -160,7 +160,7 @@ mod tests {
         // world `y` of the fixture is what gives it to the lower room.
         let light = first_light(&lighting);
         assert_eq!(light.room, Some(0));
-        assert!((light.y - 2.99).abs() < 1e-4, "panel y {}", light.y);
+        assert!((light.y() - 2.99).abs() < 1e-4, "panel y {}", light.y());
     }
 
     /// Case 2: the mirror image — the only fixture is on the upper storey.
@@ -486,9 +486,9 @@ mod tests {
             "the ridge must be lit: {ridge}"
         );
         assert!(
-            lighting.lights()[0].y > 4.5,
+            lighting.lights()[0].y() > 4.5,
             "the panel must hang up at the ridge, not at the eave: {}",
-            lighting.lights()[0].y
+            lighting.lights()[0].y()
         );
     }
 

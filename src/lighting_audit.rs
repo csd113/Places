@@ -1298,12 +1298,12 @@ fn regression_fractional_rotations_agree_between_bake_and_panel_geometry() {
         ));
         let lighting = LevelLighting::bake(&level);
         assert_exact_named(
-            lighting.lights()[0].half_w,
+            lighting.lights()[0].half_w(),
             half_w,
             format_args!("rotation {rotation}"),
         );
         assert_exact_named(
-            lighting.lights()[0].half_d,
+            lighting.lights()[0].half_d(),
             half_d,
             format_args!("rotation {rotation}"),
         );

@@ -78,14 +78,15 @@ pub const fn fixture_half_extents(rotation_degrees: f32) -> (f32, f32) {
 }
 
 /// [`fixture_half_extents`] for any fixture family.
+///
+/// Delegates to the family's generic [`LightShape`], so the bake, the drawn
+/// fixture geometry and the light source share one rotation rule and cannot
+/// drift apart by a rounding step.
 #[must_use]
 pub const fn fixture_half_extents_for(kind: FixtureKind, rotation_degrees: f32) -> (f32, f32) {
-    let profile = fixture_profile_for_kind(kind);
-    if fixture_is_turned(rotation_degrees) {
-        (profile.half_depth, profile.half_width)
-    } else {
-        (profile.half_width, profile.half_depth)
-    }
+    fixture_profile_for_kind(kind)
+        .shape()
+        .half_extents_rotated(rotation_degrees)
 }
 
 /// Smoothly saturating brightness component of a normalised light density.

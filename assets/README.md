@@ -414,20 +414,34 @@ what the runtime reads, so files may move freely as long as the catalog follows.
 
 | budget     | value                                                      |
 | ---------- | ---------------------------------------------------------- |
-| triangles  | 50–500 preferred, ≤800 acceptable, 1500 hard ceiling; props above 800 are allowlisted in `src/props.rs` with a written reason (`spooner-man`, a creature, needs 928) |
-| prop texture | 64×64 or 128×128 preferred, 256×256 hard ceiling         |
-| surface texture | Office/Pool sheets are intentionally 1024×1024 (square, opaque); 256×256 soft preferred, 1024×1024 hard load ceiling, ≤4 MiB decoded per sheet |
-| materials  | exactly one diffuse texture per prop                       |
-| draw calls | one per distinct model per level (instances are baked)     |
+| triangles  | 50–500 preferred, ≤800 acceptable, **1500 shipped art budget** (`tools/props` refuses to build above it); the engine loads up to 6000 with an art-budget warning, and a model above 6000 falls back to a placeholder box |
+| prop texture | 64×64 or 128×128 preferred, 256×256 shipped art target; the engine accepts up to 1024×1024 and downscales to the runtime quality budget (Full 256, Low 128) at upload |
+| surface texture | Office/Pool sheets are intentionally 1024×1024 (square, opaque); 256×256 soft preferred, 1024×1024 hard load ceiling, ≤4 MiB decoded per sheet. Full uploads them unchanged; Low downscales to 256 |
+| materials  | one material per primitive; a multi-material model costs one draw range per material per batch |
+| primitives / materials / images per model | 32 / 16 / 16 |
+| draw calls | one per model primitive per spatial batch (instances are baked) |
 
 Baked vertex colours carry the per-face shading and contact darkening (the same
-`PROP_FACE_SHADES` the old placeholder boxes used); the shader stays
-`texture2D(u_texture, v_uv) * v_color`. No normal maps, no PBR extensions, no
-alpha, no animation, no skinning, no morph targets.
+`PROP_FACE_SHADES` the old placeholder boxes used). The fragment shader is
+`texture × vertex colour` plus the material's emissive term; emission is added
+on top of the baked light and never multiplied by it, so an emissive surface
+stays bright in a dark room. No normal maps, no PBR extensions, no alpha
+(blending is off), no animation, no skinning, no morph targets.
 
 Surface materials multiply the same way: the sampled texture is scaled by the
 material's `tint` and then by the baked lighting exactly like the old
-code-generated sheets, so RGB lighting keeps working on external artwork.
+code-generated sheets, so RGB lighting keeps working on external artwork. A
+material may additionally author `emissive`, `emissive_intensity` and
+`emissive_mask` (a texture id): that is **visual** brightness only, and it does
+not illuminate anything around it.
+
+### Runtime quality profiles
+
+`settings.json` selects `"quality": "full"` (default) or `"low"`. Both use the
+same assets: Full uploads shipped textures at their historical runtime size, and
+Low box-filters each one once at level load (surfaces/fixtures/decals to 256,
+prop sheets to 128, emissive masks to 128). Sources are never re-authored for
+Low, and the source hard limit (1024 px) is unchanged.
 
 ## PNG conventions for surface textures
 
@@ -447,11 +461,28 @@ code-generated sheets, so RGB lighting keeps working on external artwork.
 
 ## GLB profile (props and entities)
 
-One scene, one node, one mesh, one primitive, one material, one embedded PNG
-image. Attributes: `POSITION` (float32 vec3), `TEXCOORD_0` (float32 vec2),
-`COLOR_0` (normalised uint8 vec4), 16-bit indices, `mode: 4` (triangles).
-Self-contained: no external `.bin`, no external textures, no extensions.
-Anything else is rejected by `src/props.rs` with an actionable message.
+The `tools/props` writer emits one scene, one node, one mesh, one primitive, one
+material and one embedded PNG — and the runtime accepts more than that when a
+model comes from elsewhere:
+
+* **Scene graph**: nodes may carry TRS or matrix transforms, composed down the
+  hierarchy, and may reference meshes. One model may hold several meshes and
+  several primitives per mesh.
+* **Materials**: one per primitive, each with an optional
+  `pbrMetallicRoughness.baseColorTexture` and `baseColorFactor`. A material with
+  no texture draws its factor through the shared white sheet.
+* **Emission**: `emissiveFactor`, `emissiveTexture`, and
+  `KHR_materials_emissive_strength` (the only accepted extension).
+* **Images**: embedded PNG bufferViews only, decoded once per distinct image.
+* Attributes: `POSITION` (required), `TEXCOORD_0` (required), `COLOR_0`
+  (optional), indices 8/16/32-bit inside the 65 535-vertex cap, `mode: 4`.
+* **Rejected** with an actionable message: skins, animations, morph targets,
+  sparse accessors, external/data-URI textures, non-triangle modes, and any
+  other extension.
+
+A model above the shipped art budget still loads (with a one-time warning)
+unless it crosses the engine ceiling, in which case the prop falls back to its
+placeholder box exactly as before.
 
 Props keep their textures embedded in the GLB: only level surfaces, decal
 sheets and fixture faces load external PNGs.

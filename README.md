@@ -272,6 +272,11 @@ menu. A level that fails validation is skipped and reported on the console
 rather than crashing the game. `assets/levels/README.md` indexes the one shipped
 level and explains where the regression fixtures live.
 
+**Creating or modifying a map?** `docs/MAP_AUTHORING_GUIDE.md` is the canonical
+authoring reference: the currently implemented level format, asset catalog,
+materials, textures, props, lighting, validation workflow and common failure
+modes.
+
 Notable supported details:
 
 * **Openings** are cut from the wall's minimum corner: `offset` along the wall's
@@ -319,7 +324,17 @@ Working and shipped:
 * first-person exploration with collision and floor-elevation traversal;
 * two environment themes with external PNG surfaces and eight external or
   generated decal sheets;
-* baked RGB lighting with per-fixture colour, brightness and pooling;
+* baked RGB lighting driven by generic engine-level light sources (point,
+  rectangle and line shapes) with per-light colour, intensity, range, falloff
+  and enabled state; fixtures and props own lights, and neither materials nor
+  fixture families imply one;
+* true material emission (`emissive`, `emissive_intensity`, `emissive_mask`),
+  independent of environmental illumination: a surface or fixture face can read
+  fully bright while casting nothing, and a light can cast while nothing glows;
+* Full and Low runtime quality profiles that use the same assets, with Low
+  downscaling textures once at level load;
+* multi-material / multi-primitive GLB props with per-primitive textures and
+  emission;
 * wall-boundary lighting isolation, including light through openings;
 * rooms with per-room floor elevation, clear height, flat and gable ceilings;
 * recessed and raised floor regions with real transition geometry;
@@ -331,7 +346,9 @@ Working and shipped:
 Known limitations, all deliberate:
 
 * no gameplay systems — no objectives, inventory, enemies or scripting;
-* no dynamic lights, shadows, normal maps, specular maps or PBR;
+* no dynamic lights, shadows, lightmaps, normal maps, specular maps or PBR;
+* emission reaches surfaces and fixture faces; emissive decals and cone/spot
+  lights are not implemented yet;
 * no animation, no skinning, no water and no swimming; the pool is empty on
   purpose;
 * no glass or transparent surfaces — openings are bare architectural holes;
@@ -345,9 +362,21 @@ Known limitations, all deliberate:
 ## Rendering notes
 
 The renderer draws the world in one pass: a baked vertex colour multiplied by a
-sampled texel (`texture2D(u_texture, v_uv) * v_color`), with a separate decal
-pass that alpha-tests a cut-out sheet over the surface it belongs to. Lighting
-is computed once per level load, never per frame.
+sampled texel, plus a material emission term
+(`texture2D(u_texture, v_uv) * v_color + emission`). The emissive term is added
+*after* the light multiply, so darkness cannot extinguish it, and it never
+becomes illumination — environmental light comes only from the generic light
+sources a level places. A separate decal pass alpha-tests a cut-out sheet over
+the surface it belongs to. Lighting is computed once per level load, never per
+frame.
+
+Two runtime quality profiles decide how much of an accepted source texture
+reaches the GPU. **Full** is the historical Places runtime size (surface,
+fixture and decal sheets up to 1024, prop sheets up to 256) and uploads shipped
+assets unchanged. **Low** uses the same assets and box-filters each one once at
+level load (sheets 256, prop sheets 128, emissive masks 128). Downscaling is a
+load-time step that is cached with the texture it produced, never a per-frame
+cost, and `"quality"` in `settings.json` selects the profile.
 
 A decal owns its depth plane by construction, in two halves that level authors
 never have to think about:

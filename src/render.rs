@@ -60,8 +60,8 @@ pub use view::{
     reference_aspect_ratio, vertical_fov_for_aspect,
 };
 use view::{
-    DECAL_FRAGMENT_SHADER_SRC, FRAGMENT_SHADER_SRC, SCENE_ATTRIB_COLOR, SCENE_ATTRIB_POS,
-    SCENE_ATTRIB_UV, VERTEX_SHADER_SRC,
+    DECAL_FRAGMENT_SHADER_SRC, EMISSION_MASK_TEXTURE_UNIT, FRAGMENT_SHADER_SRC, SCENE_ATTRIB_COLOR,
+    SCENE_ATTRIB_POS, SCENE_ATTRIB_UV, SCENE_TEXTURE_UNIT, VERTEX_SHADER_SRC,
 };
 
 /// Resolves level material ids into surface keys and render parameters.

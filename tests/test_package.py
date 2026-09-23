@@ -325,6 +325,26 @@ class AssetCatalogTests(unittest.TestCase):
             {"themes": base["themes"] if themes is None else themes, "assets": entries}
         )
 
+    def _validate_with_mutation(self, mutate):
+        """Validates the shipped catalog with one entry changed in place."""
+        entries = [dict(entry) for entry in catalog_entries()]
+        mutate(entries)
+        return validate.validate_catalog({"themes": catalog()["themes"], "assets": entries})
+
+    def _validate_level_document(self, level):
+        """Runs the level checks against one temporary level document."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "probe.json"
+            path.write_text(json.dumps(level), encoding="utf-8")
+            return validate.validate_levels(catalog(), level_dirs=(directory,))
+
+    def _emissive_errors(self, material_id="core:wallpaper_yellow_01", **fields):
+        def mutate(entries):
+            material = next(entry for entry in entries if entry["id"] == material_id)
+            material.update(fields)
+        errors, _ = self._validate_with_mutation(mutate)
+        return errors
+
     def test_the_validator_rejects_broken_catalogs(self):
         placeables = validate.placeable_entries(catalog())
         spooner = next(entry for entry in catalog_entries() if entry["id"] == "spooner-man")
@@ -357,6 +377,218 @@ class AssetCatalogTests(unittest.TestCase):
         # Spooner-Man must be an entity, not a themed prop.
         errors, _ = self._validate(without_spooner + [dict(spooner, theme="office")])
         self.assertTrue(any("entity must not carry" in e for e in errors), errors)
+
+    def test_the_validator_accepts_emissive_materials_and_prop_lights(self):
+        # Emission is authored on a definition material: an RGB colour, an
+        # optional intensity and an optional mask that resolves to a real
+        # file-backed PNG texture exactly like the material's own texture.
+        errors = self._emissive_errors(
+            emissive=[1.0, 0.53, 0.2],
+            emissive_intensity=2.0,
+            emissive_mask="core:tex_wallpaper_yellow_01",
+        )
+        self.assertEqual(errors, [], "the shipped catalog plus emission must validate")
+
+        # A minimal level that uses every new field: a ceiling fixture switched
+        # off, and rect/point/line prop lights with the documented defaults.
+        level = {
+            "format_version": 1,
+            "id": "schema_probe",
+            "name": "Schema Probe",
+            "spawn": {"x": 0.0, "z": 0.0, "yaw_degrees": 0.0},
+            "defaults": {
+                "wall": "core:wallpaper_yellow_01",
+                "floor": "core:carpet_beige_01",
+                "ceiling": "core:ceiling_panel_01",
+            },
+            "rooms": [{"x": -5.0, "z": -5.0, "width": 10.0, "depth": 10.0, "height": 3.5}],
+            "props": [
+                {
+                    "model": "core:desk",
+                    "x": 0.0,
+                    "z": 0.0,
+                    "lights": [
+                        {
+                            "shape": "rect",
+                            "half_width": 0.3,
+                            "half_depth": 0.05,
+                            "offset": [0.0, 0.9, 0.25],
+                            "rotation_degrees": 0.0,
+                            "color": [0.53, 0.73, 1.0],
+                            "intensity": 0.4,
+                            "range": 3.0,
+                            "falloff": "smooth",
+                            "enabled": True,
+                        },
+                        {"shape": "point", "brightness": 0.5},
+                        {"shape": "line", "length": 1.2, "falloff": "linear", "enabled": False},
+                        {"color": [1.0, 0.9, 0.8]},  # no shape and no dimensions: a point
+                    ],
+                }
+            ],
+            "ceiling_lights": [
+                {"fixture": "core:fluorescent_panel_01", "x": 0.0, "z": 0.0, "enabled": False},
+                {"fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0},
+            ],
+        }
+        errors, warnings = self._validate_level_document(level)
+        self.assertEqual(errors, [], "a level authored with the new fields must validate")
+        self.assertEqual(warnings, [], "a level authored with the new fields must not warn")
+
+    def test_the_validator_rejects_malformed_emissive_materials(self):
+        emissive = [1.0, 0.5, 0.25]
+        for errors in (
+            self._emissive_errors(emissive=[1.5, 0.0, 0.0]),
+            self._emissive_errors(emissive="warm"),
+            self._emissive_errors(emissive=[0.0, 0.0]),
+            self._emissive_errors(emissive=[0.0, float("inf"), 0.0]),
+        ):
+            self.assertTrue(
+                any("emissive must be three numbers in 0..1" in e for e in errors), errors
+            )
+
+        for errors in (
+            self._emissive_errors(emissive=emissive, emissive_intensity=9.0),
+            self._emissive_errors(emissive=emissive, emissive_intensity=float("nan")),
+        ):
+            self.assertTrue(
+                any("emissive_intensity must be a number between 0 and 8" in e for e in errors),
+                errors,
+            )
+
+        errors = self._emissive_errors(emissive_intensity=2.0)
+        self.assertTrue(any("emissive_intensity requires emissive" in e for e in errors), errors)
+        errors = self._emissive_errors(emissive_mask="core:tex_wallpaper_yellow_01")
+        self.assertTrue(any("emissive_mask requires emissive" in e for e in errors), errors)
+
+        for mask, needle in (
+            ("core:tex_not_shipped", "is not in the catalog"),
+            ("core:desk", "is not a texture asset"),
+            ("not a valid id!", "malformed emissive_mask id"),
+        ):
+            errors = self._emissive_errors(emissive=emissive, emissive_mask=mask)
+            self.assertTrue(any(needle in e for e in errors), (mask, errors))
+
+    def test_the_validator_rejects_emissive_outside_definition_materials(self):
+        def mutate_prop(entries):
+            prop = next(entry for entry in entries if entry["id"] == "core:desk")
+            prop["emissive"] = [1.0, 0.0, 0.0]
+
+        errors, _ = self._validate_with_mutation(mutate_prop)
+        self.assertTrue(
+            any("emissive is only valid on a definition material" in e for e in errors), errors
+        )
+
+        def mutate_material(entries):
+            material = next(entry for entry in entries if entry["id"] == "core:wallpaper_yellow_01")
+            material["source"] = "generated"
+            material["emissive"] = [1.0, 0.0, 0.0]
+            material["emissive_intensity"] = 2.0
+
+        errors, _ = self._validate_with_mutation(mutate_material)
+        self.assertTrue(
+            any("emissive is only valid on a definition material" in e for e in errors), errors
+        )
+
+    def test_the_validator_rejects_malformed_prop_lights(self):
+        def level_with(lights, enabled="__missing__"):
+            ceiling = {"fixture": "core:fluorescent_panel_01", "x": 0.0, "z": 0.0}
+            if enabled != "__missing__":
+                ceiling["enabled"] = enabled
+            return {
+                "format_version": 1,
+                "id": "light_probe",
+                "name": "Light Probe",
+                "spawn": {"x": 0.0, "z": 0.0, "yaw_degrees": 0.0},
+                "defaults": {
+                    "wall": "core:wallpaper_yellow_01",
+                    "floor": "core:carpet_beige_01",
+                    "ceiling": "core:ceiling_panel_01",
+                },
+                "rooms": [{"x": -5.0, "z": -5.0, "width": 10.0, "depth": 10.0, "height": 3.5}],
+                "props": [{"model": "core:desk", "x": 0.0, "z": 0.0, "lights": lights}],
+                "ceiling_lights": [ceiling],
+            }
+
+        cases = (
+            ("unknown shape", [{"shape": "sphere"}], "shape must be one of point, rect, line"),
+            ("rect missing half_depth", [{"shape": "rect", "half_width": 0.3}], "a rect light needs half_depth"),
+            ("rect zero half_width", [{"shape": "rect", "half_width": 0.0, "half_depth": 0.05}], "half_width must be a finite number > 0"),
+            ("rect non-finite half_depth", [{"shape": "rect", "half_width": 0.3, "half_depth": float("inf")}], "half_depth must be a finite number > 0"),
+            ("line missing length", [{"shape": "line"}], "a line light needs length"),
+            ("line negative length", [{"shape": "line", "length": -1.0}], "length must be a finite number > 0"),
+            ("bad falloff", [{"shape": "point", "falloff": "quadratic"}], "falloff must be one of smooth, linear, constant"),
+            ("offset of two", [{"shape": "point", "offset": [0.0, 1.0]}], "offset must be exactly three finite numbers"),
+            ("offset non-finite", [{"shape": "point", "offset": [0.0, float("nan"), 0.0]}], "offset must be exactly three finite numbers"),
+            ("colour over one", [{"shape": "point", "color": [2.0, 0.0, 0.0]}], "color must be three numbers in 0..1"),
+            ("colour wrong length", [{"shape": "point", "color": [0.0, 0.0]}], "color must be three numbers in 0..1"),
+            ("negative intensity", [{"shape": "point", "intensity": -0.1}], "intensity cannot be negative"),
+            ("non-finite brightness", [{"shape": "point", "brightness": float("nan")}], "brightness must be a finite number >= 0"),
+            ("zero range", [{"shape": "point", "range": 0.0}], "range must be a finite number > 0"),
+            ("non-boolean enabled", [{"shape": "point", "enabled": "on"}], "enabled must be a boolean"),
+            ("non-object entry", ["bright"], "must be an object"),
+            ("non-array lights", {"shape": "point"}, "lights must be an array"),
+        )
+        for label, lights, needle in cases:
+            errors, _ = self._validate_level_document(level_with(lights))
+            self.assertTrue(any(needle in error for error in errors), f"{label}: {errors}")
+
+        # The engine default shape is inferred from the authored dimensions.
+        errors, _ = self._validate_level_document(level_with([
+            {"shape": "rect", "half_width": 0.3, "half_depth": 0.05},
+            {"shape": "line", "length": 1.2},
+            {"shape": "point"},
+            {"color": [0.0, 1.0, 0.0]},
+        ]))
+        self.assertEqual(errors, [], "the documented minimum must validate")
+
+        # Above the engine clamp the level still loads, so the validator warns.
+        errors, warnings = self._validate_level_document(level_with([{"shape": "point", "intensity": 20.0}]))
+        self.assertEqual(errors, [])
+        self.assertTrue(any("clamped" in warning for warning in warnings), warnings)
+
+        # `enabled` must be a boolean on a ceiling fixture too; null is not.
+        for value in ("on", 1, None):
+            errors, _ = self._validate_level_document(level_with([{"shape": "point"}], enabled=value))
+            self.assertTrue(
+                any("ceiling light 0 enabled must be a boolean" in e for e in errors), (value, errors)
+            )
+
+    def test_the_validator_checks_fixture_pool_and_emission_fields(self):
+        def level_with(fields):
+            ceiling = {"fixture": "core:fluorescent_panel_01", "x": 0.0, "z": 0.0}
+            ceiling.update(fields)
+            return {
+                "format_version": 1,
+                "id": "fixture_probe",
+                "name": "Fixture Probe",
+                "spawn": {"x": 0.0, "z": 0.0, "yaw_degrees": 0.0},
+                "defaults": {
+                    "wall": "core:wallpaper_yellow_01",
+                    "floor": "core:carpet_beige_01",
+                    "ceiling": "core:ceiling_panel_01",
+                },
+                "rooms": [{"x": -5.0, "z": -5.0, "width": 10.0, "depth": 10.0, "height": 3.5}],
+                "ceiling_lights": [ceiling],
+            }
+
+        # The documented pool/emission fields validate.
+        errors, warnings = self._validate_level_document(
+            level_with({"range": 4.0, "falloff": "linear", "emission": 1.5, "enabled": False})
+        )
+        self.assertEqual(errors, [], errors)
+        self.assertEqual(warnings, [])
+
+        cases = (
+            ("zero range", {"range": 0.0}, "range must be a finite number > 0"),
+            ("nan range", {"range": float("nan")}, "range must be a finite number > 0"),
+            ("unknown falloff", {"falloff": "inverse-square"}, "falloff must be one of smooth, linear, constant"),
+            ("negative emission", {"emission": -0.5}, "emission must be a finite number >= 0"),
+            ("nan emission", {"emission": float("nan")}, "emission must be a finite number >= 0"),
+        )
+        for label, fields, needle in cases:
+            errors, _ = self._validate_level_document(level_with(fields))
+            self.assertTrue(any(needle in error for error in errors), f"{label}: {errors}")
 
     def test_a_broken_catalog_surfaces_in_the_validators_exit_code(self):
         with tempfile.TemporaryDirectory() as directory:

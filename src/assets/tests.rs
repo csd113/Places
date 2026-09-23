@@ -4,6 +4,7 @@
 // the production lints stay enforced everywhere else in the crate.
 #![allow(
     clippy::expect_used,
+    clippy::float_cmp,
     clippy::indexing_slicing,
     clippy::map_unwrap_or,
     clippy::needless_raw_string_hashes,
@@ -662,4 +663,174 @@ fn shipped_texture_policy_accepts_the_upgraded_art_and_rejects_breaches() {
             "{kind:?} must not silently accept the NPOT diagnostic"
         );
     }
+}
+
+/// A minimal catalog with an albedo texture and a mask texture; `extra`
+/// appends fields to the third entry, the material.
+fn emissive_catalog_json(extra: &str) -> String {
+    format!(
+        r##"{{
+            "assets": [
+                {{ "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
+                  "source": "file",
+                  "model": "environment/office/textures/ceilings/ceiling_panel_01.png" }},
+                {{ "id": "core:tex_mask", "asset_class": "environment", "asset_type": "texture",
+                  "source": "file",
+                  "model": "environment/office/textures/floors/carpet_beige_01.png" }},
+                {{ "id": "core:mat", "asset_class": "environment", "asset_type": "material",
+                  "source": "definition", "texture": "core:tex_albedo"{extra} }}
+            ]
+        }}"##
+    )
+}
+
+#[test]
+fn emissive_materials_parse_and_are_exposed_only_through_material_accessors() {
+    let json = emissive_catalog_json(
+        r#", "emissive": [0.25, 0.5, 1.0], "emissive_intensity": 2.0,
+           "emissive_mask": "core:tex_mask""#,
+    );
+    let catalog = AssetCatalog::from_json_str(&json).expect("emissive catalog parses");
+    let material = catalog.material("core:mat").expect("material");
+    assert_eq!(material.emissive, Some([0.25, 0.5, 1.0]));
+    assert_eq!(material.emissive_intensity, Some(2.0));
+    assert_eq!(material.emissive_mask.as_deref(), Some("core:tex_mask"));
+    assert_eq!(
+        catalog.material_emissive("core:mat"),
+        Some([0.25, 0.5, 1.0])
+    );
+    assert_eq!(catalog.material_emissive_intensity("core:mat"), Some(2.0));
+    assert_eq!(
+        catalog.material_emissive_mask("core:mat"),
+        Some("core:tex_mask")
+    );
+
+    // An authored colour may stand alone: intensity and mask stay unauthored.
+    let bare = emissive_catalog_json(r#", "emissive": [1.0, 0.0, 0.0]"#);
+    let catalog = AssetCatalog::from_json_str(&bare).expect("bare emissive catalog parses");
+    assert_eq!(catalog.material_emissive("core:mat"), Some([1.0, 0.0, 0.0]));
+    assert_eq!(catalog.material_emissive_intensity("core:mat"), None);
+    assert_eq!(catalog.material_emissive_mask("core:mat"), None);
+
+    // Emission can never be read off a non-material, authored or not.
+    for id in ["core:tex_albedo", "core:tex_mask", "core:absent"] {
+        assert_eq!(catalog.material_emissive(id), None, "{id}");
+        assert_eq!(catalog.material_emissive_intensity(id), None, "{id}");
+        assert_eq!(catalog.material_emissive_mask(id), None, "{id}");
+    }
+}
+
+#[test]
+fn catalog_rejects_malformed_emission_values() {
+    let cases = [
+        (r#", "emissive": [0.1, 0.2]"#, "exactly three channels"),
+        (
+            r#", "emissive": [0.1, 0.2, 0.3, 0.4]"#,
+            "exactly three channels",
+        ),
+        (r#", "emissive": [1.5, 0.0, 0.0]"#, "between 0.0 and 1.0"),
+        (r#", "emissive": [-0.1, 0.0, 0.0]"#, "between 0.0 and 1.0"),
+        (r#", "emissive_intensity": 2.0"#, "requires an `emissive`"),
+        (
+            r#", "emissive_mask": "core:tex_mask""#,
+            "requires an `emissive`",
+        ),
+        (
+            r#", "emissive": [1.0, 1.0, 1.0], "emissive_intensity": 9.0"#,
+            "emissive_intensity",
+        ),
+        (
+            r#", "emissive": [1.0, 1.0, 1.0], "emissive_intensity": -1.0"#,
+            "emissive_intensity",
+        ),
+        (
+            r#", "emissive": [1.0, 1.0, 1.0], "emissive_mask": "core tex mask""#,
+            "well-formed logical asset id",
+        ),
+    ];
+    for (extra, needle) in cases {
+        let json = emissive_catalog_json(extra);
+        let error =
+            AssetCatalog::from_json_str(&json).expect_err(&format!("must be rejected: {extra}"));
+        assert!(
+            error.contains(needle),
+            "error {error:?} does not mention {needle:?}"
+        );
+    }
+}
+
+#[test]
+fn catalog_rejects_non_finite_emission_values() {
+    // JSON cannot carry NaN or infinity, so the boundary values are injected
+    // into the parsed file directly.
+    let json = emissive_catalog_json(r#", "emissive": [1.0, 0.0, 0.0], "emissive_intensity": 1.0"#);
+
+    let mut file: CatalogFile = serde_json::from_str(&json).expect("catalog JSON parses");
+    file.assets[2].emissive_intensity = Some(f32::NAN);
+    let error = file.assets[2].convert(false).expect_err("NaN intensity");
+    assert!(error.contains("emissive_intensity"), "error: {error}");
+
+    let mut file: CatalogFile = serde_json::from_str(&json).expect("catalog JSON parses");
+    file.assets[2].emissive = Some(vec![f32::INFINITY, 0.0, 0.0]);
+    let error = file.assets[2].convert(false).expect_err("infinite channel");
+    assert!(error.contains("emissive"), "error: {error}");
+}
+
+#[test]
+fn catalog_rejects_emission_outside_material_definitions() {
+    let on_prop = r##"{
+        "assets": [
+            { "id": "core:prop", "asset_class": "environment", "asset_type": "prop",
+              "source": "file", "model": "core/props/models/couch.glb",
+              "emissive": [1.0, 1.0, 1.0] }
+        ]
+    }"##;
+    let error = AssetCatalog::from_json_str(on_prop).expect_err("emission on a prop");
+    assert!(error.contains("only a `material`"), "error: {error}");
+
+    // A material whose source is not `definition` may not emit either.
+    let generated = r##"{
+        "assets": [
+            { "id": "core:tex_a", "asset_class": "environment", "asset_type": "texture",
+              "source": "file", "model": "environment/office/textures/walls/a.png" },
+            { "id": "core:mat", "asset_class": "environment", "asset_type": "material",
+              "source": "generated", "texture": "core:tex_a",
+              "emissive": [1.0, 1.0, 1.0] }
+        ]
+    }"##;
+    let error = AssetCatalog::from_json_str(generated).expect_err("emission on a generated asset");
+    assert!(
+        error.contains("only a `material` `definition`"),
+        "error: {error}"
+    );
+}
+
+#[test]
+fn catalog_rejects_emissive_masks_that_are_not_loadable_textures() {
+    let dangling =
+        emissive_catalog_json(r#", "emissive": [1.0, 1.0, 1.0], "emissive_mask": "core:tex_nope""#);
+    let error = AssetCatalog::from_json_str(&dangling).expect_err("dangling mask");
+    assert!(error.contains("core:tex_nope"), "error: {error}");
+    assert!(error.contains("emissive mask"), "error: {error}");
+
+    // A mask must name a texture, not another material.
+    let wrong_type =
+        emissive_catalog_json(r#", "emissive": [1.0, 1.0, 1.0], "emissive_mask": "core:mat""#);
+    let error = AssetCatalog::from_json_str(&wrong_type).expect_err("non-texture mask");
+    assert!(error.contains("not a texture"), "error: {error}");
+}
+
+#[test]
+fn catalog_rejects_an_emissive_mask_without_a_png_file() {
+    let json =
+        emissive_catalog_json(r#", "emissive": [1.0, 1.0, 1.0], "emissive_mask": "core:tex_mask""#);
+    let mut catalog = AssetCatalog::from_json_str(&json).expect("catalog parses");
+    let mask = catalog
+        .entries
+        .get_mut("core:tex_mask")
+        .expect("mask entry");
+    mask.source = AssetSource::Generated;
+    let material = catalog.entries.get("core:mat").expect("material");
+    let error = check_emissive_mask(material, &catalog).expect_err("mask without a file");
+    assert!(error.contains("no PNG file"), "error: {error}");
 }

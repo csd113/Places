@@ -37,12 +37,20 @@ import glb  # noqa: E402
 import parts  # noqa: E402
 from mesh import PropBuilder  # noqa: E402
 
-# Budgets, mirrored by the Rust validator (src/props.rs) and the editor tests.
+# The shipped art budgets. These are deliberately tighter than the engine's
+# limits: the builder refuses to ship art over budget even though the runtime
+# accepts more. The engine ceilings live in src/level.rs
+# (PROP_TRIANGLE_BUDGET / PROP_TEXTURE_PREFERRED_SIZE name the same art budgets;
+# MAX_PROP_TRIANGLES is 6000 and MAX_PROP_TEXTURE_SIZE is 1024, downscaled at
+# runtime). Mirrored by the Rust budget suite (src/props/tests.rs) and the
+# editor tests.
 TRIANGLE_TARGET = 500
 TRIANGLE_REVIEW = 800
-TRIANGLE_HARD_MAX = 1500
+TRIANGLE_ART_MAX = 1500
+TRIANGLE_ENGINE_MAX = 6000
 TEXTURE_PREFERRED_MAX = 128
-TEXTURE_HARD_MAX = 256
+TEXTURE_ART_MAX = 256
+TEXTURE_ENGINE_MAX = 1024
 
 # Asset types the toolkit can build: entities place through the same pipeline.
 PLACEABLE_TYPES = ("prop", "entity")
@@ -88,15 +96,16 @@ def build_one(entry: dict, build_fn) -> dict:
         raise SystemExit(f"{prop_id}: mesh contains {degenerate} degenerate (zero-area) triangles")
 
     triangles = builder.mesh.triangle_count
-    if triangles > TRIANGLE_HARD_MAX:
+    if triangles > TRIANGLE_ART_MAX:
         raise SystemExit(
-            f"{prop_id} has {triangles} triangles; the PocketCHIP hard ceiling is {TRIANGLE_HARD_MAX} "
-            f"(target {TRIANGLE_TARGET})"
+            f"{prop_id} has {triangles} triangles; the shipped art budget is {TRIANGLE_ART_MAX} "
+            f"(target {TRIANGLE_TARGET}; the engine accepts up to {TRIANGLE_ENGINE_MAX})"
         )
-    if builder.tex.width > TEXTURE_HARD_MAX:
+    if builder.tex.width > TEXTURE_ART_MAX:
         raise SystemExit(
             f"{prop_id} texture is {builder.tex.width}x{builder.tex.height}; "
-            f"the PocketCHIP asset limit is {TEXTURE_HARD_MAX}x{TEXTURE_HARD_MAX}"
+            f"the shipped art budget is {TEXTURE_ART_MAX}x{TEXTURE_ART_MAX} "
+            f"(the engine accepts up to {TEXTURE_ENGINE_MAX} and downscales at runtime)"
         )
 
     payload = glb.write_glb(builder.mesh, builder.tex.png_bytes(), name=prop_id.replace(":", "_"))
@@ -286,7 +295,9 @@ def _print_report(report: List[dict]) -> None:
     )
     print(
         f"budget: {TRIANGLE_TARGET} triangles preferred, {TRIANGLE_REVIEW} review, "
-        f"{TRIANGLE_HARD_MAX} hard max; texture max {TEXTURE_PREFERRED_MAX} preferred / {TEXTURE_HARD_MAX} hard"
+        f"{TRIANGLE_ART_MAX} shipped art max (engine {TRIANGLE_ENGINE_MAX}); "
+        f"texture max {TEXTURE_PREFERRED_MAX} preferred / {TEXTURE_ART_MAX} shipped art "
+        f"(engine {TEXTURE_ENGINE_MAX}, downscaled at runtime)"
     )
 
 

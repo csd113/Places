@@ -21,7 +21,7 @@
 )]
 
 use crate::level::{
-    CeilingLightDef, LevelDef, MAX_LEVEL_FLOOR_AREA_M2, PropDef, RoomDef, SpawnDef,
+    LevelDef, LightFixtureDef, MAX_LEVEL_FLOOR_AREA_M2, PropDef, RoomDef, SpawnDef,
 };
 use crate::lighting::{
     AMBIENT_LEVEL, LOCAL_LIGHT_MAX, LOCAL_LIGHT_RADIUS_M, LOCAL_LIGHT_STRENGTH, LevelLighting,
@@ -41,8 +41,8 @@ fn bake(level: &LevelDef) -> LevelLighting {
 
 /// Per-channel effective power of one baked fixture.
 fn fixture_power(light: &crate::lighting::BakedLight) -> [f32; 3] {
-    let power = light.intensity * light.height_factor;
-    light.color.to_array().map(|channel| channel * power)
+    let power = light.intensity() * light.height_factor;
+    light.color().to_array().map(|channel| channel * power)
 }
 
 /// Per-channel sum of the rooms' effective power.
@@ -209,7 +209,7 @@ fn group_b_a_zero_intensity_fixture_behaves_like_no_fixture() {
     assert_eq!(lighting.rooms()[0].baseline, ambient_color());
     // No local pool either: a zero-output fixture is physically dark.
     assert_eq!(lighting.sample(5.0, 0.0, 5.0), ambient_color());
-    assert_exact(lighting.lights()[0].intensity, 0.0);
+    assert_exact(lighting.lights()[0].intensity(), 0.0);
 
     // Its panel shows no glow at all, even with an authored colour: an off
     // fixture must not look lit while emitting nothing.
@@ -476,7 +476,7 @@ fn group_e_taller_rooms_stay_dim_but_valid_and_lower_rooms_stay_bounded() {
         previous = baseline;
 
         // Fixtures hang just below the ceiling and pools follow them.
-        let fixture_y = lighting.lights()[0].y;
+        let fixture_y = lighting.lights()[0].y();
         assert!(fixture_y < height && fixture_y > height - 0.02);
         build_checked(&level);
     }
@@ -562,7 +562,7 @@ fn group_f_fixture_placement_variants_are_all_deterministic() {
             usize::from(owned),
             "{label}: fixture count must match ownership"
         );
-        let fixture_y = first.lights()[0].y;
+        let fixture_y = first.lights()[0].y();
         assert!(fixture_y.is_finite());
         assert!((fixture_y - 2.99).abs() < 1e-6 || fixture_y > 0.0);
         build_checked(&level);
@@ -673,7 +673,7 @@ fn group_g_smallest_containing_room_wins_for_every_lookup() {
     assert_eq!(lighting.lights()[0].room, Some(1));
     assert_eq!(lighting.lights()[1].room, Some(1));
     // And they hang from the small room's lower ceiling.
-    assert!((lighting.lights()[0].y - 2.59).abs() < 1e-6);
+    assert!((lighting.lights()[0].y() - 2.59).abs() < 1e-6);
     // World sampling and prop sampling use the same rule: a point in the
     // overlap is lit by the small room (bright), not the big dim one.
     let small_baseline = lighting.rooms()[1].baseline.luminance();
@@ -1553,7 +1553,7 @@ fn group_o_fixtures_outside_rooms_are_defined_and_isolated() {
     let stray = lighting
         .lights()
         .iter()
-        .find(|l| (l.x + 50.0).abs() < 1e-3)
+        .find(|l| (l.x() + 50.0).abs() < 1e-3)
         .expect("stray fixture survives the bake");
     assert_eq!(stray.room, None, "no room owns the stray fixture");
     // It contributes no baseline power anywhere.
@@ -1642,7 +1642,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         material: None,
         ceiling_material: None,
     });
-    zero_room.ceiling_lights.push(CeilingLightDef {
+    zero_room.ceiling_lights.push(LightFixtureDef {
         fixture: "core:fluorescent_panel_01".into(),
         x: 5.0,
         z: 5.0,
@@ -1651,6 +1651,10 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         color: None,
         mount: Default::default(),
         y: None,
+        range: None,
+        falloff: None,
+        enabled: true,
+        emission: None,
     });
     let lighting = bake(&zero_room);
     let baseline = lighting.rooms()[0].baseline.luminance();
@@ -1713,6 +1717,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
             scale: 1.0,
             size: None,
             solid: false,
+            lights: Vec::new(),
         }],
         ..empty.clone()
     };
@@ -1731,7 +1736,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
 
     // A level with nothing but a ceiling fixture list.
     let mut lights_only = empty.clone();
-    lights_only.ceiling_lights.push(CeilingLightDef {
+    lights_only.ceiling_lights.push(LightFixtureDef {
         fixture: "core:fluorescent_panel_01".into(),
         x: 0.0,
         z: 0.0,
@@ -1740,16 +1745,24 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         color: None,
         mount: Default::default(),
         y: None,
+        range: None,
+        falloff: None,
+        enabled: true,
+        emission: None,
     });
     let lighting = bake(&lights_only);
     assert_eq!(lighting.lights().len(), 1);
-    assert_exact_named(lighting.lights()[0].intensity, 1.0, "NaN falls back to 1.0");
+    assert_exact_named(
+        lighting.lights()[0].intensity(),
+        1.0,
+        "NaN falls back to 1.0",
+    );
     assert!(lighting.sample_luminance(0.0, 0.0, 0.0).is_finite());
     build_checked(&lights_only);
 
     // Non-finite fixtures are dropped, not propagated.
     let mut broken = empty;
-    broken.ceiling_lights.push(CeilingLightDef {
+    broken.ceiling_lights.push(LightFixtureDef {
         fixture: "core:fluorescent_panel_01".into(),
         x: f32::INFINITY,
         z: 0.0,
@@ -1758,6 +1771,10 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         color: None,
         mount: Default::default(),
         y: None,
+        range: None,
+        falloff: None,
+        enabled: true,
+        emission: None,
     });
     let lighting = bake(&broken);
     assert!(lighting.lights().is_empty());

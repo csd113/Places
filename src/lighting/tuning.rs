@@ -6,6 +6,7 @@
 //! loops, allocates or reads a level.
 
 use super::color::LightColor;
+use super::light::LightShape;
 
 /// Floor area one standard fixture is expected to illuminate, in square metres.
 ///
@@ -155,6 +156,21 @@ pub struct FixtureProfile {
     /// Upper bound on the quads the renderer emits for one fixture, used by
     /// the level geometry estimate.
     pub quads: u64,
+}
+
+impl FixtureProfile {
+    /// The generic light shape this family's luminous surface casts from.
+    ///
+    /// The bake consumes this rather than the family: a fixture family is a
+    /// piece of visible geometry that happens to own a light, and any future
+    /// family only has to describe its emitting rectangle here.
+    #[must_use]
+    pub const fn shape(self) -> LightShape {
+        LightShape::Rect {
+            half_width: self.half_width,
+            half_depth: self.half_depth,
+        }
+    }
 }
 
 /// Every fixture id with a built-in appearance, in catalog order.

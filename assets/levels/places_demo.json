@@ -726,6 +726,7 @@
       "z": 13.0,
       "rotation_degrees": 0.0,
       "brightness": 0.18,
+      "emission": 1.0,
       "color": [
         0.96,
         0.96,

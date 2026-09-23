@@ -416,6 +416,7 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_walls(level)?;
     validate_ceiling_lights(level)?;
     validate_props(level)?;
+    validate_prop_lights(level)?;
     validate_decals(level)?;
     validate_decal_surfaces(level)?;
     validate_geometry_budget(level)
@@ -727,6 +728,81 @@ fn validate_ceiling_lights(level: &LevelDef) -> Result<(), String> {
             return Err(format!(
                 "Ceiling light {i} height (`y`) must be a finite number when authored"
             ));
+        }
+        // Optional range/falloff: a fixture may shape its own pool, but
+        // malformed numbers are rejected rather than silently clamped, exactly
+        // like an intensity.
+        if let Some(range) = light.range
+            && !(range.is_finite() && range > 0.0)
+        {
+            return Err(format!(
+                "Ceiling light {i} range must be a positive finite number of metres"
+            ));
+        }
+        // The optional independent emissive strength of the visible face.
+        if let Some(emission) = light.emission
+            && !(emission.is_finite() && emission >= 0.0)
+        {
+            return Err(format!(
+                "Ceiling light {i} emission must be a finite number that is not negative"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Validate the generic light sources a placed object owns.
+///
+/// These are the engine-level lights of [`crate::lighting::LightSource`]: a
+/// shape, a local offset, a colour and a pool. A malformed light is a level
+/// error — unlike an unknown prop model, which degrades to a placeholder box —
+/// because a light is authored data the engine can check completely.
+fn validate_prop_lights(level: &LevelDef) -> Result<(), String> {
+    for (i, prop) in level.props.iter().enumerate() {
+        if prop.lights.len() > crate::level::MAX_PROP_LIGHTS {
+            return Err(format!(
+                "Prop {i} declares {} attached lights; the limit is {}",
+                prop.lights.len(),
+                crate::level::MAX_PROP_LIGHTS
+            ));
+        }
+        for (j, light) in prop.lights.iter().enumerate() {
+            if !light.offset.iter().all(|value| value.is_finite())
+                || !light.rotation_degrees.is_finite()
+            {
+                return Err(format!(
+                    "Prop {i} light {j} offset and rotation must be finite numbers"
+                ));
+            }
+            if let Some(intensity) = light.intensity
+                && !(intensity.is_finite() && intensity >= 0.0)
+            {
+                return Err(format!(
+                    "Prop {i} light {j} intensity must be a finite number that is not negative"
+                ));
+            }
+            if let Some(color) = light.color
+                && !color.is_valid()
+            {
+                return Err(format!(
+                    "Prop {i} light {j} colour channels must be finite numbers between 0 and {}",
+                    crate::lighting::MAX_LIGHT_COLOR
+                ));
+            }
+            if let Some(range) = light.range
+                && !(range.is_finite() && range > 0.0)
+            {
+                return Err(format!(
+                    "Prop {i} light {j} range must be a positive finite number of metres"
+                ));
+            }
+            if !light.shape().is_valid() {
+                return Err(format!(
+                    "Prop {i} light {j} has malformed {} dimensions; every extent must be \
+                     finite, positive and within the engine caps",
+                    light.shape().name()
+                ));
+            }
         }
     }
     Ok(())

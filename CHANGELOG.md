@@ -1,5 +1,75 @@
 # Changelog
 
+## Unreleased — Batch 1 foundation: quality profiles, generic lights, true emission
+
+This batch lays three foundations that later rendering work (lightmaps, surface
+response, transparency, reflections, post-processing, dynamic objects) will build
+on, without implementing any of them.
+
+### Asset pipeline and quality
+
+- **GLB import expanded** from "one mesh, one primitive, one material, one
+  texture" to the production-friendly subset: a scene graph with composed node
+  transforms, several meshes, several primitives per mesh, one material per
+  primitive, several embedded PNGs (decoded once per distinct image),
+  `baseColorFactor` for textured and untextured materials, `emissiveFactor`,
+  `emissiveTexture`, and `KHR_materials_emissive_strength` (the only accepted
+  extension). Skins, animations, morph targets, sparse accessors, external
+  images and every other extension are still rejected with a named error, and a
+  malformed model still falls back to the placeholder box.
+- **Budgets are split into art budget vs engine ceiling.** 1500 triangles and a
+  256 px prop sheet remain the shipped Places art budget (`tools/props` still
+  refuses to build above them); the engine now loads up to 6000 triangles and a
+  1024 px sheet with a one-time art-budget warning, and refuses only what it
+  genuinely cannot draw (32 primitives / 16 materials / 16 images / 65 535
+  vertices per model).
+- **Full and Low runtime quality profiles** (`src/quality.rs`,
+  `"quality"` in `settings.json`). Full is the historical runtime size
+  (surfaces/fixtures/decals 1024, props 256) and uploads shipped assets
+  unchanged; Low uses the same assets and box-filters each one once at level
+  load (sheets 256, props 128, emissive masks 128). Downscaling happens at
+  upload, never per frame, and the result is cached with the texture.
+- **Multi-material props batch**: instances of a model are grouped per spatial
+  cell and drawn one range per primitive, so a model with three materials costs
+  three draws per batch no matter how many times it is placed.
+
+### Generic engine-level lights
+
+- **`LightSource`** (`src/lighting/light.rs`): shape (point, rectangle, line),
+  world position, yaw, RGB colour, intensity, `range`, `falloff`
+  (smooth/linear/constant) and `enabled`. The bake consumes only this type.
+- **Fixtures are geometry that owns a light.** The three shipped fixture
+  families map their luminous footprint to a rectangle via
+  `FixtureProfile::shape()`; their placement, colour and intensity are unchanged,
+  so the bake is numerically identical for existing levels (all lighting,
+  isolation, partition, vertical and leak audits pass unchanged).
+- **Props can own lights** (`props[].lights`): a prop positions generic sources
+  in its own local frame (offset scaled, rotated by its yaw), so a machine,
+  screen or sign illuminates a room without a new hardcoded light family.
+- **New authored light fields**: `range`, `falloff`, `enabled` (fixture and
+  prop light), plus `emission` on a fixture to set its face brightness
+  independently of the light it casts.
+
+### True emissive materials
+
+- **`MaterialEmission`** (`src/materials/emission.rs`): colour, intensity and an
+  optional mask texture, kept deliberately additive so `albedo`, `normal`,
+  `specular`, `roughness` and `opacity` can land beside it later.
+- **Emission is not illumination.** The fragment shader adds the emissive term
+  after the baked-light multiply, so darkness cannot extinguish it, and no
+  material ever creates a light. Catalog materials author `emissive`,
+  `emissive_intensity` and `emissive_mask`; GLB materials author their own;
+  fixture faces use per-vertex emission so a level can colour every fixture
+  differently while they share one batch.
+- **Old content is unchanged**: a material with no emission draws exactly the
+  expression it always did, and the demo's lights bake to the same values.
+
+### Demonstrations
+
+- `places_demo.json`'s far east corridor keeps its last tube at `brightness`
+  0.18 with `emission: 1.0`: the diffuser reads fully bright while the room
+  keeps its dim pool — the authored proof that the two are independent.
+
 ## Unreleased — doorway floors own their threshold plane
 
 Some doorways in `Places Demo` flickered between the two adjoining rooms'

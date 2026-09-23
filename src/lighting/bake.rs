@@ -22,19 +22,22 @@
 //! reports one room, and surfaces keep sampling through the room they belong to.
 
 use super::color::LightColor;
+use super::light::{LightFalloff, LightSource};
 use super::math::{
-    ceiling_height_factor, effective_power, fixture_half_extents_for, room_baseline,
-    sanitize_intensity, smooth_falloff,
+    ceiling_height_factor, effective_power, fixture_half_extents_for, room_baseline, smooth_falloff,
 };
 use super::tuning::{
     AMBIENT_LEVEL, CLEAR_SAMPLE_MAX_STEPS, CLEAR_SAMPLE_STEP_M, FIXTURE_DROP_M, LOCAL_LIGHT_MAX,
-    LOCAL_LIGHT_RADIUS_M, LOCAL_LIGHT_STRENGTH, MAX_BRIGHTNESS, OPENING_BLEND_RADIUS_M,
-    OPENING_BLEND_STRENGTH, OPENING_PROBE_M, OPENING_VERTICAL_FADE_M, REFERENCE_CEILING_HEIGHT_M,
-    ROOM_EDGE_EPS_M, WALL_FACE_PROBE_M, WALL_LIGHT_DEFAULT_HEIGHT_M, ZONE_PROBE_DROP_M,
+    LOCAL_LIGHT_STRENGTH, MAX_BRIGHTNESS, OPENING_BLEND_RADIUS_M, OPENING_BLEND_STRENGTH,
+    OPENING_PROBE_M, OPENING_VERTICAL_FADE_M, REFERENCE_CEILING_HEIGHT_M, ROOM_EDGE_EPS_M,
+    WALL_FACE_PROBE_M, WALL_LIGHT_DEFAULT_HEIGHT_M, ZONE_PROBE_DROP_M,
     ZONE_PROBE_MIN_ABOVE_FLOOR_M, ambient_color, fixture_profile,
 };
 use super::visibility::{Occluders, QuerySite, Visibility};
-use crate::level::{CeilingLightDef, CeilingProfileDef, LevelDef, LightMount, WallAxis};
+use crate::level::{
+    CeilingProfileDef, LevelDef, LevelSurfaces, LightFixtureDef, LightMount, MAX_PROP_LIGHTS,
+    WallAxis,
+};
 
 /// Baked illumination information for one room.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -71,27 +74,92 @@ pub struct RoomLighting {
     pub baseline: LightColor,
 }
 
-/// One ceiling fixture resolved for baking.
+/// One light resolved for baking: a generic [`LightSource`] plus the context
+/// the bake resolved for it.
+///
+/// The source carries everything about *what the light is* (shape, position,
+/// colour, intensity, range, falloff, enabled). The extra fields are what the
+/// bake knows and the source does not: which room owns it, and the ceiling
+/// height correction that room applies. Visible fixture geometry is derived
+/// from the level definition, not from this record, so a light with no fixture
+/// (a prop-attached source) and a fixture with no light (an emissive-only sign)
+/// are both ordinary.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BakedLight {
-    pub x: f32,
-    pub z: f32,
-    /// World Y of the fixture panel: the lowest point of its room's ceiling
-    /// over the panel footprint, minus [`FIXTURE_DROP_M`], or the authored
-    /// world `y` for a ceiling fixture that mounts at one. Under a gable the
-    /// panel therefore hangs below the slope instead of intersecting it.
-    pub y: f32,
-    /// Sanitised authored intensity.
-    pub intensity: f32,
-    /// Sanitised emitted colour.
-    pub color: LightColor,
-    /// Ceiling-height correction of the owned room.
+    /// The engine-level light source, sanitised and positioned.
+    pub source: LightSource,
+    /// Ceiling-height correction of the owning room.
     pub height_factor: f32,
-    /// Half-extents of the luminous panel in world X/Z, after rotation.
-    pub half_w: f32,
-    pub half_d: f32,
-    /// Owning room, or `None` when no room contains the fixture.
+    /// Owning room, or `None` when no room contains the light.
     pub room: Option<usize>,
+}
+
+impl BakedLight {
+    /// World X of the light's centre.
+    #[must_use]
+    pub const fn x(&self) -> f32 {
+        self.source.position[0]
+    }
+
+    /// World Y of the light's emitting plane.
+    #[must_use]
+    pub const fn y(&self) -> f32 {
+        self.source.position[1]
+    }
+
+    /// World Z of the light's centre.
+    #[must_use]
+    pub const fn z(&self) -> f32 {
+        self.source.position[2]
+    }
+
+    /// Sanitised authored intensity.
+    #[must_use]
+    pub const fn intensity(&self) -> f32 {
+        self.source.intensity
+    }
+
+    /// Sanitised emitted colour.
+    #[must_use]
+    pub const fn color(&self) -> LightColor {
+        self.source.color
+    }
+
+    /// Half-extent of the emitting surface along world X, after rotation.
+    #[must_use]
+    pub const fn half_w(&self) -> f32 {
+        self.source.half_extents().0
+    }
+
+    /// Half-extent of the emitting surface along world Z, after rotation.
+    #[must_use]
+    pub const fn half_d(&self) -> f32 {
+        self.source.half_extents().1
+    }
+
+    /// Distance at which this light's contribution reaches zero, in metres.
+    #[must_use]
+    pub const fn range(&self) -> f32 {
+        self.source.range
+    }
+
+    /// The light's falloff curve.
+    #[must_use]
+    pub const fn falloff(&self) -> LightFalloff {
+        self.source.falloff
+    }
+
+    /// Whether this light casts environmental illumination at all.
+    #[must_use]
+    pub const fn enabled(&self) -> bool {
+        self.source.enabled
+    }
+
+    /// True when this light contributes illumination.
+    #[must_use]
+    pub fn is_active(&self) -> bool {
+        self.source.is_active()
+    }
 }
 
 /// Aggregate bake statistics, used for developer logging and tests.
@@ -493,15 +561,34 @@ fn resolve_light_room(
         .or_else(|| smallest(candidates))
 }
 
-/// Resolves every fixture once: ownership, fixture plane, rotated panel
-/// footprint and its contribution to its room's effective power.
+/// Resolves every light in a level once: ownership, world position, shape and
+/// its contribution to its room's effective power.
+///
+/// Two authored forms converge here into one list of [`LightSource`]s:
+///
+/// 1. **Placed fixtures** (`ceiling_lights`): the visible fixture's family owns
+///    the emitting shape, and the height resolves from the room's ceiling (or
+///    the authored world `y` for a wall mount).
+/// 2. **Prop-attached lights** (`props[].lights`): the level authors the shape
+///    and the offset, the prop's own transform places it.
+///
+/// The list order is the bake order and the visibility-site order, so a light's
+/// index is stable for the whole bake. Fixture lights come first, in level
+/// order, then attached lights in prop order.
 fn baked_lights(
     level: &LevelDef,
     rooms: &mut [RoomLighting],
+    surfaces: Option<&LevelSurfaces<'_>>,
     default_height_m: f32,
     default_ceiling_y: f32,
 ) -> Vec<BakedLight> {
-    let mut lights: Vec<BakedLight> = Vec::with_capacity(level.ceiling_lights.len());
+    let attached = level
+        .props
+        .iter()
+        .map(|prop| prop.lights.len())
+        .sum::<usize>();
+    let mut lights: Vec<BakedLight> =
+        Vec::with_capacity(level.ceiling_lights.len().saturating_add(attached));
     for light in &level.ceiling_lights {
         if !light.x.is_finite() || !light.z.is_finite() {
             continue;
@@ -521,7 +608,7 @@ fn baked_lights(
             .and_then(|index| rooms.get(index))
             .map_or(default_height_m, |info| info.height_m);
         let height_factor = ceiling_height_factor(height_m);
-        let intensity = sanitize_intensity(light.intensity());
+        let intensity = light.intensity();
         let color = light.emitted_color();
         // Rotation swaps the panel's long axis, exactly like the fixture
         // geometry emitted by `crate::render` (shared helper, so a
@@ -529,7 +616,8 @@ fn baked_lights(
         // family owns the footprint, so a round downlight pools light in a
         // small disc while the office panel pools it over its rectangle.
         let profile = fixture_profile(&light.fixture);
-        let (half_w, half_d) = fixture_half_extents_for(profile.kind, light.rotation_degrees);
+        let shape = profile.shape();
+        let (half_w, half_d) = shape.half_extents_rotated(light.rotation_degrees);
         let panel_y = match light.mount {
             LightMount::Ceiling => light.y.filter(|y| y.is_finite()).unwrap_or_else(|| {
                 panel_min_ceiling_y(
@@ -545,24 +633,130 @@ fn baked_lights(
             // fallback only keeps a hand-edited level finite.
             LightMount::Wall => resolve_wall_fixture_y(rooms, light.x, light.z, light.y),
         };
+        let source = LightSource {
+            shape,
+            position: [light.x, panel_y, light.z],
+            rotation_degrees: light.rotation_degrees,
+            color,
+            intensity,
+            range: light
+                .range
+                .unwrap_or(crate::lighting::DEFAULT_LIGHT_RANGE_M),
+            falloff: light.falloff.unwrap_or_default(),
+            enabled: light.enabled,
+        }
+        .sanitized();
         if let Some(info) = room.and_then(|index| rooms.get_mut(index)) {
+            // Ownership is recorded for every owned light, active or not: the
+            // count describes the room's fixtures, exactly as it always has.
             info.fixture_count = info.fixture_count.saturating_add(1);
-            let power = effective_power(intensity, height_m);
-            info.effective_power.r = power.mul_add(color.r, info.effective_power.r);
-            info.effective_power.g = power.mul_add(color.g, info.effective_power.g);
-            info.effective_power.b = power.mul_add(color.b, info.effective_power.b);
+            if source.enabled {
+                let power = effective_power(intensity, height_m);
+                info.effective_power.r = power.mul_add(color.r, info.effective_power.r);
+                info.effective_power.g = power.mul_add(color.g, info.effective_power.g);
+                info.effective_power.b = power.mul_add(color.b, info.effective_power.b);
+            }
         }
         lights.push(BakedLight {
-            x: light.x,
-            z: light.z,
-            y: panel_y,
-            intensity,
-            color,
+            source,
             height_factor,
-            half_w,
-            half_d,
             room,
         });
+    }
+
+    // Lights owned by placed objects. `surfaces` is only absent when the level
+    // has none, which is also when this cannot add anything.
+    if let Some(surfaces) = surfaces {
+        lights.extend(baked_attached_lights(
+            level,
+            rooms,
+            surfaces,
+            default_height_m,
+        ));
+    }
+
+    lights
+}
+
+/// Resolves every light a placed object owns into a world-positioned source.
+///
+/// The offset is in the object's local frame, so the placement transform is the
+/// same one the prop geometry uses: translate to the walkable floor plus the
+/// authored offset, rotate about Y by the object's yaw, scale by the object's
+/// scale. A source that lands in no room still exists — it lights whatever its
+/// pool reaches, exactly like a fixture outside every room.
+fn baked_attached_lights(
+    level: &LevelDef,
+    rooms: &mut [RoomLighting],
+    surfaces: &LevelSurfaces<'_>,
+    default_height_m: f32,
+) -> Vec<BakedLight> {
+    let mut lights: Vec<BakedLight> = Vec::new();
+    for prop in &level.props {
+        if prop.lights.is_empty()
+            || !prop.x.is_finite()
+            || !prop.y.is_finite()
+            || !prop.z.is_finite()
+            || !prop.rotation_degrees.is_finite()
+            || !prop.scale.is_finite()
+            || prop.scale <= 0.0
+        {
+            continue;
+        }
+        let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
+        let origin = [prop.x, base_y + prop.y, prop.z];
+        let yaw = prop.rotation_degrees.to_radians();
+        let (sin, cos) = yaw.sin_cos();
+        for light in prop.lights.iter().take(MAX_PROP_LIGHTS) {
+            let offset = light.offset;
+            if !offset.iter().all(|value| value.is_finite()) {
+                continue;
+            }
+            let scaled = [
+                offset[0] * prop.scale,
+                offset[1] * prop.scale,
+                offset[2] * prop.scale,
+            ];
+            let position = [
+                origin[0] + scaled[0].mul_add(cos, scaled[2] * sin),
+                origin[1] + scaled[1],
+                origin[2] + scaled[2].mul_add(cos, -scaled[0] * sin),
+            ];
+            let rotation = prop.rotation_degrees + light.rotation_degrees;
+            let source = light.to_source(position, rotation, prop.scale).sanitized();
+            let Some(room) = resolve_light_room(
+                rooms,
+                &room_candidates(rooms, position[0], position[2]),
+                position[0],
+                position[2],
+                Some(position[1]),
+            ) else {
+                lights.push(BakedLight {
+                    source,
+                    height_factor: 1.0,
+                    room: None,
+                });
+                continue;
+            };
+            let height_m = rooms
+                .get(room)
+                .map_or(default_height_m, |info| info.height_m);
+            let height_factor = ceiling_height_factor(height_m);
+            if let Some(info) = rooms.get_mut(room) {
+                info.fixture_count = info.fixture_count.saturating_add(1);
+                if source.enabled {
+                    let power = effective_power(source.intensity, height_m);
+                    info.effective_power.r = power.mul_add(source.color.r, info.effective_power.r);
+                    info.effective_power.g = power.mul_add(source.color.g, info.effective_power.g);
+                    info.effective_power.b = power.mul_add(source.color.b, info.effective_power.b);
+                }
+            }
+            lights.push(BakedLight {
+                source,
+                height_factor,
+                room: Some(room),
+            });
+        }
     }
     lights
 }
@@ -574,6 +768,9 @@ fn baked_lights(
 fn room_light_candidates(lights: &[BakedLight], rooms: &[RoomLighting]) -> Vec<Vec<u32>> {
     let mut room_lights: Vec<Vec<u32>> = vec![Vec::new(); rooms.len()];
     for (index, light) in lights.iter().enumerate() {
+        if !light.is_active() {
+            continue;
+        }
         let slot = u32::try_from(index).unwrap_or(u32::MAX);
         for (room_index, room) in rooms.iter().enumerate() {
             if (light.room == Some(room_index) || LevelLighting::light_reaches_room(light, room))
@@ -806,13 +1003,13 @@ fn accumulate_zone_power(
     lights: &[BakedLight],
 ) {
     for light in lights {
-        if light.room != Some(room_index) {
+        if light.room != Some(room_index) || !light.is_active() {
             continue;
         }
-        let Some(ix) = cell_index(edges_x, light.x) else {
+        let Some(ix) = cell_index(edges_x, light.x()) else {
             continue;
         };
-        let Some(iz) = cell_index(edges_z, light.z) else {
+        let Some(iz) = cell_index(edges_z, light.z()) else {
             continue;
         };
         let index = iz.saturating_mul(columns).saturating_add(ix);
@@ -822,10 +1019,10 @@ fn accumulate_zone_power(
         let Some(entry) = zones.get_mut(zone as usize) else {
             continue;
         };
-        let power = light.intensity * light.height_factor;
-        entry.power.r = power.mul_add(light.color.r, entry.power.r);
-        entry.power.g = power.mul_add(light.color.g, entry.power.g);
-        entry.power.b = power.mul_add(light.color.b, entry.power.b);
+        let power = light.intensity() * light.height_factor;
+        entry.power.r = power.mul_add(light.color().r, entry.power.r);
+        entry.power.g = power.mul_add(light.color().g, entry.power.g);
+        entry.power.b = power.mul_add(light.color().b, entry.power.b);
         entry.fixture_count = entry.fixture_count.saturating_add(1);
     }
 }
@@ -990,9 +1187,25 @@ impl LevelLighting {
 
         let (mut rooms, default_height_m, default_ceiling_y) = baked_rooms(level);
 
-        // Resolve every fixture once: ownership, fixture plane, rotated panel
-        // footprint and its contribution to its room's effective power.
-        let lights = baked_lights(level, &mut rooms, default_height_m, default_ceiling_y);
+        // Resolve every light once: fixtures and prop-attached sources converge
+        // into one list of generic light sources, each with its owning room and
+        // its contribution to that room's effective power. Prop lights need the
+        // walkable floor at their prop's position, which is the same lookup the
+        // prop geometry uses; a level that attaches no lights to props (which is
+        // every level authored before the generic model existed) skips building
+        // that lookup entirely and bakes exactly as it always did.
+        let lights = if level.props.iter().any(|prop| !prop.lights.is_empty()) {
+            let surfaces = LevelSurfaces::new(level);
+            baked_lights(
+                level,
+                &mut rooms,
+                Some(&surfaces),
+                default_height_m,
+                default_ceiling_y,
+            )
+        } else {
+            baked_lights(level, &mut rooms, None, default_height_m, default_ceiling_y)
+        };
 
         // A room split by internal walls gets one baseline per connected area;
         // an open room stays a single uniform baseline, bit for bit.
@@ -1019,10 +1232,11 @@ impl LevelLighting {
         let mut sites: Vec<QuerySite> =
             Vec::with_capacity(lights.len().saturating_add(blend_sites.len()));
         for light in &lights {
+            let (half_w, half_d) = light.source.half_extents();
             sites.push(QuerySite::new(
-                light.x,
-                light.z,
-                LOCAL_LIGHT_RADIUS_M.max(light.half_w).max(light.half_d),
+                light.x(),
+                light.z(),
+                light.source.range.max(half_w).max(half_d),
             ));
         }
         sites.extend_from_slice(&blend_sites);
@@ -1325,7 +1539,7 @@ impl LevelLighting {
     /// * a ceiling fixture without one hangs just below the ceiling of the room
     ///   its position resolves to, exactly as it always did.
     #[must_use]
-    pub fn fixture_y_for(&self, light: &CeilingLightDef) -> f32 {
+    pub fn fixture_y_for(&self, light: &LightFixtureDef) -> f32 {
         match light.mount {
             LightMount::Wall => self.wall_fixture_y(light.x, light.z, light.y),
             LightMount::Ceiling => {
@@ -1573,13 +1787,17 @@ impl LevelLighting {
         if !x.is_finite() || !y.is_finite() || !z.is_finite() {
             return LightColor::BLACK;
         }
-        let radius_squared = LOCAL_LIGHT_RADIUS_M * LOCAL_LIGHT_RADIUS_M;
-        let inv_radius = 1.0 / LOCAL_LIGHT_RADIUS_M;
         let mut sum = LightColor::BLACK;
         for index in candidates {
             let Some(light) = self.lights.get(*index as usize) else {
                 continue;
             };
+            if !light.is_active() {
+                continue;
+            }
+            let (half_w, half_d) = light.source.half_extents();
+            let range = light.source.range;
+            let radius_squared = range * range;
             if let Some(sample_room) = room
                 && let Some(light_room) = light.room
                 && light_room != sample_room
@@ -1588,38 +1806,38 @@ impl LevelLighting {
             {
                 continue;
             }
-            // Horizontal distance to the rotated panel footprint.
-            let dx = ((x - light.x).abs() - light.half_w).max(0.0);
-            let dz = ((z - light.z).abs() - light.half_d).max(0.0);
+            // Horizontal distance to the rotated emitter footprint.
+            let dx = ((x - light.x()).abs() - half_w).max(0.0);
+            let dz = ((z - light.z()).abs() - half_d).max(0.0);
             let horizontal_squared = dx * dx + dz * dz;
             if !horizontal_squared.is_finite() || horizontal_squared >= radius_squared {
                 continue;
             }
-            // Full 3D distance to the panel, so a wall at fixture height reads
-            // brighter than the floor below it.
-            let vertical = y - light.y;
+            // Full 3D distance to the emitter, so a wall at fixture height
+            // reads brighter than the floor below it.
+            let vertical = y - light.y();
             let distance_squared = vertical.mul_add(vertical, horizontal_squared);
             if !distance_squared.is_finite() || distance_squared >= radius_squared {
                 continue;
             }
-            // Static solid visibility: a fixture contributes only where its
-            // panel can actually see the sample. The segment starts at the
-            // closest point of the panel, so a wide fixture is not blocked by a
-            // wall its brighter edge can see past.
+            // Static solid visibility: a light contributes only where its
+            // emitter can actually see the sample. The segment starts at the
+            // closest point of the emitter, so a wide fixture is not blocked by
+            // a wall its brighter edge can see past.
             let source = [
-                x.clamp(light.x - light.half_w, light.x + light.half_w),
-                light.y,
-                z.clamp(light.z - light.half_d, light.z + light.half_d),
+                x.clamp(light.x() - half_w, light.x() + half_w),
+                light.y(),
+                z.clamp(light.z() - half_d, light.z() + half_d),
             ];
             if self.visibility.occludes(*index, source, [x, y, z]) {
                 continue;
             }
-            let falloff = smooth_falloff(distance_squared.sqrt() * inv_radius);
-            let strength = LOCAL_LIGHT_STRENGTH * light.intensity * light.height_factor * falloff;
+            let falloff = light.falloff().factor(distance_squared.sqrt() / range);
+            let strength = LOCAL_LIGHT_STRENGTH * light.intensity() * light.height_factor * falloff;
             sum = LightColor {
-                r: strength.mul_add(light.color.r, sum.r),
-                g: strength.mul_add(light.color.g, sum.g),
-                b: strength.mul_add(light.color.b, sum.b),
+                r: strength.mul_add(light.color().r, sum.r),
+                g: strength.mul_add(light.color().g, sum.g),
+                b: strength.mul_add(light.color().b, sum.b),
             };
             if sum.min_channel() >= LOCAL_LIGHT_MAX {
                 return LightColor::grey(LOCAL_LIGHT_MAX);
@@ -1653,22 +1871,24 @@ impl LevelLighting {
         a_floor < b_ceiling - ROOM_EDGE_EPS_M && b_floor < a_ceiling - ROOM_EDGE_EPS_M
     }
 
-    /// True when a fixture's panel can come within [`LOCAL_LIGHT_RADIUS_M`] of
-    /// some point above a room's footprint.
+    /// True when a light's emitter can come within its own range of some point
+    /// above a room's footprint.
     ///
-    /// Used to build the per-room candidate lists: a fixture this test rejects
+    /// Used to build the per-room candidate lists: a light this test rejects
     /// contributes exactly zero everywhere in the room, so pruning is lossless.
     /// The test ignores vertical distance, which only makes it more permissive;
-    /// a fixture on another storey is admitted here and then refused by the
+    /// a light on another storey is admitted here and then refused by the
     /// floor/ceiling slabs during the actual visibility test.
     fn light_reaches_room(light: &BakedLight, room: &RoomLighting) -> bool {
-        let panel_span_x = (light.x - light.half_w, light.x + light.half_w);
-        let panel_span_z = (light.z - light.half_d, light.z + light.half_d);
+        let (half_w, half_d) = light.source.half_extents();
+        let panel_span_x = (light.x() - half_w, light.x() + half_w);
+        let panel_span_z = (light.z() - half_d, light.z() + half_d);
         let room_span_x = (room.x0 - ROOM_EDGE_EPS_M, room.x1 + ROOM_EDGE_EPS_M);
         let room_span_z = (room.z0 - ROOM_EDGE_EPS_M, room.z1 + ROOM_EDGE_EPS_M);
         let gap_x = interval_gap(room_span_x, panel_span_x);
         let gap_z = interval_gap(room_span_z, panel_span_z);
-        gap_x.mul_add(gap_x, gap_z * gap_z) < LOCAL_LIGHT_RADIUS_M * LOCAL_LIGHT_RADIUS_M
+        let range = light.source.range;
+        gap_x.mul_add(gap_x, gap_z * gap_z) < range * range
     }
 
     /// Aggregate statistics for developer logging. Baselines are reported as

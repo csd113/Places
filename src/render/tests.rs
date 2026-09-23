@@ -1735,6 +1735,7 @@ fn placeholder_prop_boxes_receive_the_environment_lighting() {
             scale: 1.0,
             size: Some([1.0, 1.0, 1.0]),
             solid: false,
+            lights: Vec::new(),
         },
         PropDef {
             model: "core:crate".into(),
@@ -1745,6 +1746,7 @@ fn placeholder_prop_boxes_receive_the_environment_lighting() {
             scale: 1.0,
             size: Some([1.0, 1.0, 1.0]),
             solid: false,
+            lights: Vec::new(),
         },
     ];
     let mesh = build_level_geometry(&level);
@@ -1792,6 +1794,7 @@ fn vertically_offset_props_sample_their_true_world_position() {
         scale: 1.0,
         size: Some([1.0, 1.0, 1.0]),
         solid: false,
+        lights: Vec::new(),
     };
     let mut raised = base.clone();
     raised.y = 2.0;
@@ -2248,9 +2251,18 @@ fn real_prop_geometry_replaces_the_placeholder_box() {
         "environment/office/props/models/chair.glb"
     );
     assert!(!batches[0].vertices.is_empty());
-    assert!(batches[0].texture.width > 0);
-    assert_eq!(batches[0].texture.width, batches[0].texture.height);
-    assert!(batches[0].texture.width <= crate::level::MAX_PROP_TEXTURE_SIZE);
+    assert_eq!(batches[0].textures.len(), 1, "a single material model");
+    assert_eq!(batches[0].submeshes.len(), 1);
+    assert_eq!(batches[0].submeshes[0].texture, Some(0));
+    assert!(batches[0].textures[0].width > 0);
+    assert_eq!(batches[0].textures[0].width, batches[0].textures[0].height);
+    assert!(batches[0].textures[0].width <= crate::level::MAX_PROP_TEXTURE_SIZE);
+    assert!(batches[0].submeshes[0].index_count > 0);
+    assert!(
+        usize::try_from(batches[0].submeshes[0].first_index).unwrap_or(0)
+            + usize::try_from(batches[0].submeshes[0].index_count).unwrap_or(0)
+            <= batches[0].indices.len()
+    );
 
     // Placed at (3, 0, -2), resting on the floor: a 0.5 x 0.9 x 0.5 chair.
     let (low, high) = bounds_of(&batches[0].vertices);
@@ -4090,4 +4102,189 @@ fn the_shipped_demo_and_the_rendering_fixture_resolve_their_stain_overlays() {
         let mesh = build_level_geometry(&level);
         assert!(mesh.batches.wall_batch.count > 0);
     }
+}
+
+// ------------------------------------- emission routing and multi-material props
+
+#[test]
+fn emission_routing_follows_the_surface_kind() {
+    use crate::render::renderer::{EmissionRouting, emission_routing};
+
+    // Built surfaces take their material's emission; a light batch's sheet face
+    // carries it per vertex; the fixture housing, placeholder boxes and decals
+    // never emit.
+    for kind in [SurfaceKind::Floor, SurfaceKind::Ceiling, SurfaceKind::Wall] {
+        assert_eq!(emission_routing(kind, true), EmissionRouting::Material);
+        assert_eq!(emission_routing(kind, false), EmissionRouting::Material);
+    }
+    assert_eq!(
+        emission_routing(SurfaceKind::Light, true),
+        EmissionRouting::Vertex
+    );
+    assert_eq!(
+        emission_routing(SurfaceKind::Light, false),
+        EmissionRouting::None,
+        "a fixture's untextured housing is lit like any other surface"
+    );
+    assert_eq!(
+        emission_routing(SurfaceKind::PropFallback, false),
+        EmissionRouting::None
+    );
+    assert_eq!(
+        emission_routing(SurfaceKind::Decal, true),
+        EmissionRouting::None,
+        "decal emission is deferred to a later batch"
+    );
+}
+
+/// A fixture whose face glows at a different strength from the light it casts
+/// keeps both values separate in the emitted geometry and the bake.
+#[test]
+fn a_fixture_face_can_glow_independently_of_its_light() {
+    let dim = level_with_wall_and_lights(
+        "[]",
+        "[]",
+        r#"[{ "fixture": "core:fluorescent_panel_01", "x": 0.0, "z": 0.0,
+              "brightness": 0.2, "emission": 1.0 }]"#,
+    );
+    let plain = level_with_wall_and_lights(
+        "[]",
+        "[]",
+        r#"[{ "fixture": "core:fluorescent_panel_01", "x": 0.0, "z": 0.0,
+              "brightness": 0.2 }]"#,
+    );
+    let dim_mesh = build_level_geometry(&dim);
+    let plain_mesh = build_level_geometry(&plain);
+    let face_color = |mesh: &crate::render::LevelMesh| -> [f32; 4] {
+        let face = mesh
+            .triangles_for(SurfaceKind::Light)
+            .first()
+            .copied()
+            .expect("the fixture emits a luminous face");
+        face.color
+    };
+    let dim_face = face_color(&dim_mesh);
+    let plain_face = face_color(&plain_mesh);
+    assert!(
+        dim_face[0] > plain_face[0] + 0.1,
+        "the authored emission must brighten the face: {} vs {}",
+        dim_face[0],
+        plain_face[0]
+    );
+
+    // The illumination side is unchanged by the emissive override.
+    let dim_lighting = crate::lighting::LevelLighting::bake(&dim);
+    let plain_lighting = crate::lighting::LevelLighting::bake(&plain);
+    assert_eq!(
+        dim_lighting.sample(0.0, 0.0, 0.0),
+        plain_lighting.sample(0.0, 0.0, 0.0),
+        "emission must not leak into environmental illumination"
+    );
+}
+
+/// Writes a two-material GLB where the second material emits, plus the catalog
+/// and level that place one instance of it.
+fn multi_material_scene() -> (
+    crate::loader::PropCatalog,
+    crate::props::PropAssets,
+    LevelDef,
+) {
+    use crate::test_support::{TestGlbMaterial, two_material_glb};
+
+    let directory = std::path::PathBuf::from("target/agent-work/tests/multi_material");
+    std::fs::create_dir_all(&directory).expect("scratch directory is writable");
+    let model_path = "multi_material.glb";
+    let glb = two_material_glb(
+        TestGlbMaterial::plain([200, 40, 40, 255]),
+        TestGlbMaterial::emissive([20, 60, 220, 255], [0.25, 0.5, 1.0], true),
+    );
+    std::fs::write(directory.join(model_path), glb).expect("scratch GLB is writable");
+
+    let catalog = crate::loader::PropCatalog::from_json_str(&format!(
+        r##"{{
+            "format_version": 1,
+            "props": [{{
+                "id": "core:test_multimat", "name": "Test Multimat", "category": "Decorative",
+                "model": "{model_path}", "size": [1.0, 0.2, 2.0],
+                "color": "#808080", "solid": false
+            }}]
+        }}"##
+    ))
+    .expect("the test catalog parses");
+
+    let level = level_with_wall(
+        "[]",
+        r#"[{ "model": "core:test_multimat", "x": 0.0, "z": 0.0 }]"#,
+    );
+    (
+        catalog,
+        crate::props::PropAssets::with_root(&directory),
+        level,
+    )
+}
+
+#[test]
+fn a_two_material_prop_becomes_two_draw_ranges_with_two_textures() {
+    let (catalog, mut assets, level) = multi_material_scene();
+    let (mesh, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
+    assert_eq!(
+        mesh.batches.prop_batch.count, 0,
+        "the real model replaces the box"
+    );
+    assert_eq!(batches.len(), 1, "one model, one spatial cell");
+
+    let batch = &batches[0];
+    assert_eq!(batch.textures.len(), 2, "one decoded sheet per material");
+    assert!(batch.textures.iter().all(|image| image.width == 2));
+    assert_ne!(
+        batch.textures[0].rgba, batch.textures[1].rgba,
+        "the two materials must keep their own artwork"
+    );
+    assert_eq!(batch.submeshes.len(), 2, "one draw range per material");
+
+    // Both materials draw the same two quads; the ranges partition the index
+    // list, and only the second material emits.
+    assert_eq!(batch.submeshes[0].texture, Some(0));
+    assert_eq!(batch.submeshes[1].texture, Some(1));
+    assert!(!batch.submeshes[0].emission.is_emissive());
+    assert!(batch.submeshes[1].emission.is_emissive());
+    assert_eq!(
+        batch.submeshes[1].emission.effective_color(),
+        [0.25, 0.5, 1.0]
+    );
+    assert_eq!(batch.submeshes[1].emission.mask, Some(1));
+    let total: u32 = batch
+        .submeshes
+        .iter()
+        .map(|submesh| submesh.index_count)
+        .sum();
+    assert_eq!(usize::try_from(total).unwrap_or(0), batch.indices.len());
+    assert_eq!(
+        batch.submeshes[0].first_index, 0,
+        "the first range starts at the beginning of the index buffer"
+    );
+
+    // Every instance's vertices are lit; the emission itself never enters the
+    // vertex colour (that is the environment light, not the glow).
+    assert!(batch.vertices.len() >= 8);
+}
+
+#[test]
+fn a_second_instance_of_a_multi_material_prop_still_batches() {
+    let (catalog, mut assets, level) = multi_material_scene();
+    let mut two = level.clone();
+    two.props.push(crate::level::PropDef {
+        model: "core:test_multimat".to_string(),
+        x: 1.5,
+        ..level.props[0].clone()
+    });
+    let (_, single) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
+    let (_, double) = build_level_geometry_with_assets(&two, &catalog, &mut assets);
+    assert_eq!(double.len(), 1, "both instances share one batch");
+    assert_eq!(
+        double[0].submeshes.len(),
+        single[0].submeshes.len(),
+        "two instances cost the same draw ranges as one"
+    );
+    assert!(double[0].vertices.len() > single[0].vertices.len());
 }

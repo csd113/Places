@@ -127,6 +127,44 @@ fn test_settings_bounds_sanitization() {
 }
 
 #[test]
+fn test_quality_profile_defaults_validates_and_round_trips() {
+    use crate::quality::QualityProfile;
+
+    // Omitted means the default profile.
+    let default = Settings::default();
+    assert_eq!(default.quality_profile(), QualityProfile::DEFAULT);
+    assert_eq!(default.quality, "full");
+
+    // An unknown profile falls back to the default rather than picking a tier.
+    let mut settings = Settings {
+        quality: "ultra".to_string(),
+        ..Default::default()
+    };
+    settings.sanitize();
+    assert_eq!(settings.quality, "full");
+
+    // Every real profile survives sanitizing, in any case.
+    for profile in QualityProfile::ALL {
+        let mut settings = Settings {
+            quality: profile.name().to_uppercase(),
+            ..Default::default()
+        };
+        settings.sanitize();
+        assert_eq!(settings.quality_profile(), profile);
+    }
+
+    // A settings file from before profiles existed still loads.
+    let legacy = r#"{
+        "bindings": {
+            "forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D",
+            "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT"
+        }
+    }"#;
+    let parsed: Settings = serde_json::from_str(legacy).expect("legacy settings parse");
+    assert_eq!(parsed.quality_profile(), QualityProfile::DEFAULT);
+}
+
+#[test]
 fn test_settings_persistence() {
     let temp_dir = std::env::temp_dir();
     let test_path = temp_dir.join("test_liminal_settings.json");

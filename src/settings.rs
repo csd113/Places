@@ -121,6 +121,10 @@ pub struct Settings {
     pub vsync: bool,
     #[serde(default = "default_filtering")]
     pub texture_filtering: String,
+    /// Runtime quality profile: `"full"` (the intended presentation) or
+    /// `"low"` (the same assets, more aggressively downscaled textures).
+    #[serde(default = "default_quality")]
+    pub quality: String,
 }
 
 const fn default_look_speed_h() -> f32 {
@@ -141,6 +145,9 @@ const fn default_vsync() -> bool {
 fn default_filtering() -> String {
     "linear".to_string()
 }
+fn default_quality() -> String {
+    crate::quality::QualityProfile::DEFAULT.name().to_string()
+}
 
 impl Default for Settings {
     fn default() -> Self {
@@ -152,6 +159,7 @@ impl Default for Settings {
             fov_degrees: default_fov(),
             vsync: default_vsync(),
             texture_filtering: default_filtering(),
+            quality: default_quality(),
         }
     }
 }
@@ -166,6 +174,18 @@ impl Settings {
         if self.texture_filtering != "linear" && self.texture_filtering != "nearest" {
             self.texture_filtering = "linear".to_string();
         }
+        // An unknown profile falls back to the default rather than picking a
+        // tier the player did not ask for.
+        self.quality = crate::quality::QualityProfile::parse(&self.quality)
+            .unwrap_or_default()
+            .name()
+            .to_string();
+    }
+
+    /// The quality profile this settings file selects.
+    #[must_use]
+    pub fn quality_profile(&self) -> crate::quality::QualityProfile {
+        crate::quality::QualityProfile::parse(&self.quality).unwrap_or_default()
     }
 
     /// Saves settings to a JSON file.

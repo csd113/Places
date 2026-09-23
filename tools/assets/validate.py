@@ -12,11 +12,16 @@ The checks here are the tooling half of the asset architecture:
   below ``assets/`` (a GLB for a placeable, a PNG for a texture, a decal sheet
   or a fixture face), generated assets never name a file, and definition
   assets (materials) resolve to a file-backed PNG texture instead;
+* definition materials may author emission (``emissive``, ``emissive_intensity``
+  and an ``emissive_mask`` that resolves to a file-backed PNG texture exactly
+  like the material's own ``texture``);
 * ``spooner-man`` is a single canonical entity resource under
   ``entities/spooner-man/``, never a duplicate prop file;
 * the shipped level in ``assets/levels/``, the drop-in levels in ``levels/``
   and the engine regression fixtures in ``tests/fixtures/levels/`` only
-  reference ids the catalog declares.
+  reference ids the catalog declares, and their optional ``ceiling_lights[]``
+  pool/emission fields, ``ceiling_lights[].enabled`` switch and
+  ``props[].lights`` sources obey the documented shapes, dimensions and ranges.
 
 Run it from the repository root::
 
@@ -55,6 +60,17 @@ KNOWN_TYPES = {"prop", "material", "texture", "light", "decal", "entity"}
 PLACEABLE_TYPES = {"prop", "entity"}
 BUILTIN_THEMES = {"office", "pool"}
 
+# Generic light sources a prop may own: a dimension-free "point", a "rect"
+# sized by half extents and a "line" sized by its length. The engine's default
+# shape is "rect" when half extents are authored, otherwise "point".
+LIGHT_SHAPES = ("point", "rect", "line")
+LIGHT_FALLOFFS = ("smooth", "linear", "constant")
+# An authored prop-light intensity above this still loads: the engine clamps it.
+MAX_LIGHT_INTENSITY = 8.0
+# Emissive materials: colour channels are 0..1 and the intensity is clamped by
+# the engine (mirrors src/materials/emission.rs).
+MAX_EMISSION_INTENSITY = 8.0
+
 _SLUG = re.compile(r"^[a-z][a-z0-9_-]*$")
 _ASSET_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:_-]*$")
 
@@ -86,6 +102,98 @@ def is_relative_resource(path: str) -> bool:
     return all(component not in ("", ".", "..") for component in path.split("/"))
 
 
+def is_finite_number(value: object) -> bool:
+    """True for a JSON number that is real (never a bool) and finite."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def is_color_triplet(value: object) -> bool:
+    """True for ``[r, g, b]`` with each channel a finite number in 0..1."""
+    return (
+        isinstance(value, list)
+        and len(value) == 3
+        and all(is_finite_number(channel) and 0.0 <= channel <= 1.0 for channel in value)
+    )
+
+
+def validate_light_source(light: object, where: str) -> Tuple[List[str], List[str]]:
+    """Validates one generic light source attached to a prop.
+
+    Mirrors the engine's prop-light schema: ``shape`` is ``point``/``rect``/
+    ``line`` (defaulting to ``rect`` when half extents are authored, else
+    ``point``), a rect needs a positive ``half_width``/``half_depth``, a line
+    needs a positive ``length``, and every optional placement field is a finite
+    number in its documented range. Returns ``(errors, warnings)`` with every
+    message prefixed by ``where``; intensities above the engine clamp warn
+    instead of failing.
+    """
+    errors: List[str] = []
+    warnings: List[str] = []
+    if not isinstance(light, dict):
+        errors.append(f"{where}: must be an object")
+        return errors, warnings
+
+    shape = light.get("shape")
+    if shape is None:
+        if light.get("half_width") is not None or light.get("half_depth") is not None:
+            shape = "rect"
+        elif light.get("length") is not None:
+            shape = "line"
+        else:
+            shape = "point"
+    elif not isinstance(shape, str) or shape not in LIGHT_SHAPES:
+        errors.append(f"{where}: shape must be one of {', '.join(LIGHT_SHAPES)}")
+    if shape == "rect":
+        for field in ("half_width", "half_depth"):
+            value = light.get(field)
+            if value is None:
+                errors.append(f"{where}: a rect light needs {field}")
+            elif not is_finite_number(value) or value <= 0.0:
+                errors.append(f"{where}: {field} must be a finite number > 0")
+    elif shape == "line":
+        value = light.get("length")
+        if value is None:
+            errors.append(f"{where}: a line light needs length")
+        elif not is_finite_number(value) or value <= 0.0:
+            errors.append(f"{where}: length must be a finite number > 0")
+
+    offset = light.get("offset")
+    if offset is not None:
+        valid_offset = (
+            isinstance(offset, list)
+            and len(offset) == 3
+            and all(is_finite_number(component) for component in offset)
+        )
+        if not valid_offset:
+            errors.append(f"{where}: offset must be exactly three finite numbers")
+    if light.get("color") is not None and not is_color_triplet(light.get("color")):
+        errors.append(f"{where}: color must be three numbers in 0..1")
+    rotation = light.get("rotation_degrees")
+    if rotation is not None and not is_finite_number(rotation):
+        errors.append(f"{where}: rotation_degrees must be a finite number")
+    for field in ("intensity", "brightness"):
+        value = light.get(field)
+        if value is None:
+            continue
+        if not is_finite_number(value):
+            errors.append(f"{where}: {field} must be a finite number >= 0")
+        elif value < 0.0:
+            errors.append(f"{where}: {field} cannot be negative")
+        elif value > MAX_LIGHT_INTENSITY:
+            warnings.append(
+                f"{where}: {field} {value} is above {MAX_LIGHT_INTENSITY} and will be clamped by the engine"
+            )
+    light_range = light.get("range")
+    if light_range is not None and (not is_finite_number(light_range) or light_range <= 0.0):
+        errors.append(f"{where}: range must be a finite number > 0")
+    falloff = light.get("falloff")
+    if falloff is not None and (not isinstance(falloff, str) or falloff not in LIGHT_FALLOFFS):
+        errors.append(f"{where}: falloff must be one of {', '.join(LIGHT_FALLOFFS)}")
+    if "enabled" in light and not isinstance(light.get("enabled"), bool):
+        errors.append(f"{where}: enabled must be a boolean")
+    return errors, warnings
+
+
 def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[str], List[str]]:
     """Returns ``(errors, warnings)`` for one parsed catalog document."""
     errors: List[str] = []
@@ -114,6 +222,7 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
     seen_ids: Dict[str, int] = {}
     seen_models: Dict[str, str] = {}
     material_textures: List[Tuple[str, str]] = []
+    material_emissive_masks: List[Tuple[str, str]] = []
     for index, entry in enumerate(catalog_entries(catalog)):
         raw_id = str(entry.get("id", "")).strip()
         where = raw_id or f"entry #{index + 1}"
@@ -234,6 +343,41 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
         if surface is not None and str(surface).strip() not in ("wall", "floor", "ceiling"):
             errors.append(f"{where}: surface must be 'wall', 'floor' or 'ceiling'")
 
+        # Material emission: a colour triple, an intensity and an optional mask
+        # texture. Only definition materials may author it, and the mask must
+        # resolve to a file-backed PNG texture exactly like the material's own
+        # `texture` (checked with the other cross-entry references below).
+        emissive = entry.get("emissive")
+        emissive_intensity = entry.get("emissive_intensity")
+        emissive_mask = entry.get("emissive_mask")
+        if asset_type == "material" and source == "definition":
+            if emissive is not None and not is_color_triplet(emissive):
+                errors.append(f"{where}: emissive must be three numbers in 0..1")
+            if emissive_intensity is not None:
+                valid_emissive_intensity = (
+                    is_finite_number(emissive_intensity)
+                    and 0.0 <= emissive_intensity <= MAX_EMISSION_INTENSITY
+                )
+                if not valid_emissive_intensity:
+                    errors.append(
+                        f"{where}: emissive_intensity must be a number between 0 and {MAX_EMISSION_INTENSITY:g}"
+                    )
+            if emissive_mask is not None:
+                mask_id = str(emissive_mask).strip()
+                if not _ASSET_ID.match(mask_id):
+                    errors.append(f"{where}: malformed emissive_mask id '{mask_id}'")
+                else:
+                    material_emissive_masks.append((raw_id, mask_id))
+            if emissive is None:
+                if emissive_intensity is not None:
+                    errors.append(f"{where}: emissive_intensity requires emissive")
+                if emissive_mask is not None:
+                    errors.append(f"{where}: emissive_mask requires emissive")
+        else:
+            for field in ("emissive", "emissive_intensity", "emissive_mask"):
+                if entry.get(field) is not None:
+                    errors.append(f"{where}: {field} is only valid on a definition material")
+
         if asset_type in PLACEABLE_TYPES:
             size = entry.get("size")
             if not (isinstance(size, list) and len(size) == 3 and all(isinstance(v, (int, float)) and v > 0 for v in size)):
@@ -264,6 +408,28 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
         elif not os.path.isfile(os.path.join(asset_root, target_model)):
             errors.append(
                 f"{material_id}: texture '{texture_id}' file '{target_model}' does not exist below assets/"
+            )
+
+    # An emissive mask follows the same contract as the material's texture: a
+    # catalog texture entry backed by a real .png below assets/.
+    for material_id, mask_id in material_emissive_masks:
+        target = entries_by_id.get(mask_id)
+        if target is None:
+            errors.append(f"{material_id}: emissive_mask '{mask_id}' is not in the catalog")
+            continue
+        if str(target.get("asset_type", "")).strip() != "texture":
+            errors.append(f"{material_id}: emissive_mask '{mask_id}' is not a texture asset")
+            continue
+        target_source = str(target.get("source", "")).strip()
+        target_model = target.get("model")
+        target_model = str(target_model).strip() if isinstance(target_model, str) else ""
+        if target_source != "file":
+            errors.append(f"{material_id}: emissive_mask '{mask_id}' must be a file asset")
+        elif not target_model.lower().endswith(".png"):
+            errors.append(f"{material_id}: emissive_mask '{mask_id}' must name a .png model")
+        elif not os.path.isfile(os.path.join(asset_root, target_model)):
+            errors.append(
+                f"{material_id}: emissive_mask '{mask_id}' file '{target_model}' does not exist below assets/"
             )
 
     # The canonical entity resource: one logical id, one physical file.
@@ -366,14 +532,18 @@ def wall_touches_any_room(level: dict, wall: dict, epsilon: float = 0.05) -> boo
     return False
 
 
-def validate_levels(catalog: dict) -> Tuple[List[str], List[str]]:
-    """Returns ``(errors, warnings)`` for every shipped level, drop-in level and fixture."""
+def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> Tuple[List[str], List[str]]:
+    """Returns ``(errors, warnings)`` for every shipped level, drop-in level and fixture.
+
+    ``level_dirs`` defaults to the shipped/drop-in/fixture directories; tests
+    pass one temporary directory to validate a single authored level document.
+    """
     errors: List[str] = []
     warnings: List[str] = []
     known = {str(entry.get("id")) for entry in catalog_entries(catalog)}
     placeable = {str(entry.get("id")) for entry in placeable_entries(catalog)}
     levels = 0
-    for directory in LEVEL_DIRS:
+    for directory in level_dirs:
         if not os.path.isdir(directory):
             warnings.append(f"levels: directory '{os.path.relpath(directory, PACKAGE_ROOT)}' is missing")
             continue
@@ -390,6 +560,41 @@ def validate_levels(catalog: dict) -> Tuple[List[str], List[str]]:
                 elif what == "prop" and asset_id not in placeable:
                     errors.append(f"{os.path.relpath(path, PACKAGE_ROOT)}: prop '{asset_id}' is not a placeable asset")
             relative = os.path.relpath(path, PACKAGE_ROOT)
+            # Optional schema: a fixture may be switched off without losing its
+            # visible glow, and a prop may own generic light sources. Both are
+            # validated with the same rules the editor and the engine enforce.
+            for index, light in enumerate(level.get("ceiling_lights") or []):
+                where = f"{relative}: ceiling light {index}"
+                if "enabled" in light and not isinstance(light.get("enabled"), bool):
+                    errors.append(f"{where} enabled must be a boolean")
+                fixture_range = light.get("range")
+                if fixture_range is not None and (
+                    not is_finite_number(fixture_range) or fixture_range <= 0.0
+                ):
+                    errors.append(f"{where} range must be a finite number > 0")
+                falloff = light.get("falloff")
+                if falloff is not None and (
+                    not isinstance(falloff, str) or falloff not in LIGHT_FALLOFFS
+                ):
+                    errors.append(f"{where} falloff must be one of {', '.join(LIGHT_FALLOFFS)}")
+                emission = light.get("emission")
+                if emission is not None and (
+                    not is_finite_number(emission) or emission < 0.0
+                ):
+                    errors.append(f"{where} emission must be a finite number >= 0")
+            for index, prop in enumerate(level.get("props") or []):
+                lights = prop.get("lights")
+                if lights is None:
+                    continue
+                if not isinstance(lights, list):
+                    errors.append(f"{relative}: prop {index} lights must be an array")
+                    continue
+                for light_index, light in enumerate(lights):
+                    light_errors, light_warnings = validate_light_source(
+                        light, f"{relative}: prop {index} light {light_index}"
+                    )
+                    errors.extend(light_errors)
+                    warnings.extend(light_warnings)
             rooms = list(level.get("rooms") or [])
             if level.get("room"):
                 rooms.append(level["room"])

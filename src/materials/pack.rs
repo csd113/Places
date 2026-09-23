@@ -10,8 +10,8 @@ use std::rc::Rc;
 
 use crate::assets::DEFAULT_TILE_METRES;
 
-use super::DEFAULT_TINT;
 use super::image::{RawImage, TextureCache, decode_png};
+use super::{DEFAULT_EMISSION_INTENSITY, DEFAULT_TINT, MAX_EMISSION_INTENSITY, MaterialEmission};
 
 /// One material a pack's `materials.json` declares.
 ///
@@ -24,6 +24,12 @@ pub struct PackMaterialDef {
     /// World metres per repeat; `None` keeps [`DEFAULT_TILE_METRES`].
     pub tile_metres: Option<f32>,
     pub tint: Option<[f32; 3]>,
+    /// Emissive colour, when the pack authors one.
+    pub emissive: Option<[f32; 3]>,
+    /// Scalar multiplier; `None` keeps [`DEFAULT_EMISSION_INTENSITY`].
+    pub emissive_intensity: Option<f32>,
+    /// Pack path, or logical catalog texture id, of the emissive mask.
+    pub emissive_mask: Option<String>,
 }
 
 impl PackMaterialDef {
@@ -37,6 +43,24 @@ impl PackMaterialDef {
     #[must_use]
     pub fn tint(&self) -> [f32; 3] {
         self.tint.unwrap_or(DEFAULT_TINT)
+    }
+
+    /// The emission this definition describes.
+    ///
+    /// A definition without an emissive colour is non-emissive and can never
+    /// pick up a stray intensity or mask. The mask is left as `None`: its
+    /// table index only exists once the resolver has interned the texture.
+    #[must_use]
+    pub fn emission(&self) -> MaterialEmission {
+        let Some(color) = self.emissive else {
+            return MaterialEmission::NONE;
+        };
+        MaterialEmission::new(
+            color,
+            self.emissive_intensity
+                .unwrap_or(DEFAULT_EMISSION_INTENSITY),
+        )
+        .sanitized()
     }
 }
 
@@ -111,6 +135,17 @@ impl PackMaterials {
         .find(|candidate| self.lookup(candidate).is_some())
     }
 
+    /// The raw PNG bytes behind a pack emissive mask.
+    ///
+    /// A mask is authored like `texture`: a pack-relative path that
+    /// [`Self::lookup`] normalises (so `textures/mask.png` and `mask.png` are
+    /// the same blob), or a logical catalog texture id the catalog resolves
+    /// instead of the pack. This is the pack half of that rule.
+    #[must_use]
+    pub fn mask_bytes(&self, mask: &str) -> Option<Rc<[u8]>> {
+        self.lookup(mask)
+    }
+
     /// The raw PNG bytes behind a pack-relative path (or a catalog texture id
     /// the pack reuses), with the pack's own alias rules.
     #[must_use]
@@ -172,9 +207,10 @@ impl PackMaterials {
 ///
 /// Accepts `{"materials": {...}}` and a flat object, with string values
 /// (`"pack:wall": "textures/wall.png"`) or objects carrying `texture`/`file`/
-/// `diffuse`, plus the optional `tile_metres` and `tint` fields. Unknown fields
-/// are ignored and malformed values fall back to the defaults, so an older or
-/// newer pack keeps loading.
+/// `diffuse`, plus the optional `tile_metres`, `tint`, `emissive`,
+/// `emissive_intensity` and `emissive_mask` fields. Unknown fields are ignored
+/// and malformed values fall back to the defaults, so an older or newer pack
+/// keeps loading. The string shorthand is emission-free by construction.
 #[must_use]
 pub fn parse_materials_json(json_str: Option<&str>) -> HashMap<String, PackMaterialDef> {
     let mut result = HashMap::new();
@@ -212,7 +248,17 @@ pub fn parse_materials_json(json_str: Option<&str>) -> HashMap<String, PackMater
             PackMaterialDef {
                 texture: path.to_string(),
                 tile_metres: value.get("tile_metres").and_then(parse_tile_metres),
-                tint: value.get("tint").and_then(parse_tint_value),
+                tint: value.get("tint").and_then(parse_unit_rgb),
+                emissive: value.get("emissive").and_then(parse_unit_rgb),
+                emissive_intensity: value
+                    .get("emissive_intensity")
+                    .and_then(parse_emissive_intensity),
+                emissive_mask: value
+                    .get("emissive_mask")
+                    .and_then(|mask| mask.as_str())
+                    .map(str::trim)
+                    .filter(|mask| !mask.is_empty())
+                    .map(str::to_string),
             }
         };
         if !definition.texture.is_empty() {
@@ -236,8 +282,24 @@ fn parse_tile_metres(value: &serde_json::Value) -> Option<f32> {
     Some(narrowed)
 }
 
-/// Parses a `[r, g, b]` tint array from JSON.
-fn parse_tint_value(value: &serde_json::Value) -> Option<[f32; 3]> {
+/// Parses an optional `emissive_intensity` number.
+///
+/// Non-finite results and values outside `0.0..=MAX_EMISSION_INTENSITY` are
+/// discarded: the field is decoration on top of `emissive`, and a discarded
+/// one leaves the default in its place.
+fn parse_emissive_intensity(value: &serde_json::Value) -> Option<f32> {
+    // `f64 -> f32` can round and saturates to an infinity for absurd JSON;
+    // both outcomes are filtered out below.
+    #[allow(clippy::cast_possible_truncation)]
+    let narrowed = value.as_f64()? as f32;
+    if !narrowed.is_finite() || !(0.0..=MAX_EMISSION_INTENSITY).contains(&narrowed) {
+        return None;
+    }
+    Some(narrowed)
+}
+
+/// Parses a `[r, g, b]` unit-RGB array (a tint or emissive colour) from JSON.
+fn parse_unit_rgb(value: &serde_json::Value) -> Option<[f32; 3]> {
     let array = value.as_array()?;
     let mut tint = [0.0f32; 3];
     if array.len() != tint.len() {

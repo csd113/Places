@@ -12,11 +12,13 @@
 )]
 
 use super::*;
+use crate::gltf::{PropSubmesh, PropVertex};
 use crate::level::{
-    MAX_PROP_TEXTURE_SIZE, MAX_PROP_TRIANGLES, MAX_PROP_VERTICES, PROP_TRIANGLE_REVIEW,
-    PROP_TRIANGLE_TARGET,
+    MAX_PROP_TEXTURE_SIZE, MAX_PROP_TRIANGLES, MAX_PROP_VERTICES, PROP_TEXTURE_PREFERRED_SIZE,
+    PROP_TRIANGLE_BUDGET, PROP_TRIANGLE_REVIEW, PROP_TRIANGLE_TARGET,
 };
-use crate::loader::PropCatalog;
+use crate::loader::{PropCatalog, RawImage};
+use crate::materials::MaterialEmission;
 
 /// Catalogue + shipped GLB validation, the automated half of the asset
 /// budgets in `assets/README.md`. Every failure message names the prop
@@ -87,18 +89,73 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
             model.vertices.len()
         );
         assert!(
-            model.texture.width <= MAX_PROP_TEXTURE_SIZE
-                && model.texture.height <= MAX_PROP_TEXTURE_SIZE,
-            "{}: texture is {}x{}; the PocketCHIP asset limit is {MAX_PROP_TEXTURE_SIZE}x{MAX_PROP_TEXTURE_SIZE}",
-            entry.id,
-            model.texture.width,
-            model.texture.height
-        );
-        assert!(
-            model.texture.rgba.len() == (model.texture.width * model.texture.height * 4) as usize,
-            "{}: decoded texture buffer does not match its dimensions",
+            model.texture_count() >= 1,
+            "{}: every shipped prop embeds at least one texture",
             entry.id
         );
+        for texture in &model.textures {
+            assert!(
+                texture.width <= MAX_PROP_TEXTURE_SIZE && texture.height <= MAX_PROP_TEXTURE_SIZE,
+                "{}: texture is {}x{}; the PocketCHIP asset limit is {MAX_PROP_TEXTURE_SIZE}x{MAX_PROP_TEXTURE_SIZE}",
+                entry.id,
+                texture.width,
+                texture.height
+            );
+            assert!(
+                texture.rgba.len() == (texture.width * texture.height * 4) as usize,
+                "{}: decoded texture buffer does not match its dimensions",
+                entry.id
+            );
+        }
+        // Art budget, not engine ceiling: shipped assets must stay inside the
+        // numbers `assets/README.md` and `tools/props/build.py` enforce.
+        assert!(
+            model.triangles <= PROP_TRIANGLE_BUDGET,
+            "{}: model has {} triangles, above the {PROP_TRIANGLE_BUDGET}-triangle art budget",
+            entry.id,
+            model.triangles
+        );
+        for texture in &model.textures {
+            assert!(
+                texture.width <= PROP_TEXTURE_PREFERRED_SIZE
+                    && texture.height <= PROP_TEXTURE_PREFERRED_SIZE,
+                "{}: texture is {}x{}, above the {PROP_TEXTURE_PREFERRED_SIZE}px art budget",
+                entry.id,
+                texture.width,
+                texture.height
+            );
+        }
+        // Every model is drawable: at least one submesh, each range inside the
+        // index buffer, each material a real index.
+        assert!(
+            !model.submeshes.is_empty(),
+            "{}: model declares no draw ranges",
+            entry.id
+        );
+        for submesh in &model.submeshes {
+            assert!(
+                submesh.index_count > 0 && submesh.index_count % 3 == 0,
+                "{}: submesh has {} indices; triangle lists need a positive multiple of three",
+                entry.id,
+                submesh.index_count
+            );
+            assert!(
+                usize::from(submesh.material) < model.materials,
+                "{}: submesh references material {} of {} declared",
+                entry.id,
+                submesh.material,
+                model.materials
+            );
+            let first = usize::try_from(submesh.first_index).expect("first index fits");
+            let count = usize::try_from(submesh.index_count).expect("index count fits");
+            assert!(
+                first + count <= model.indices.len(),
+                "{}: submesh range {first}..{} exceeds the {} index buffer",
+                entry.id,
+                first + count,
+                model.indices.len()
+            );
+        }
 
         // Scale/origin conventions: 1 unit = 1 metre, base at y = 0, centred.
         let (low, high) = model.bounds().expect("model has vertices");
@@ -225,4 +282,76 @@ fn assets_are_shared_between_instances() {
         "identical models must share one decoded copy"
     );
     assert_eq!(assets.stats().models_loaded, 1);
+}
+
+/// RGBA bytes of a `width x height` 8-bit image, for fixture buffers.
+fn rgba_bytes(width: u32, height: u32) -> usize {
+    usize::try_from(width)
+        .expect("fixture width fits")
+        .saturating_mul(usize::try_from(height).expect("fixture height fits"))
+        .saturating_mul(4)
+}
+
+/// A synthetic model with the given triangle count and texture dimensions,
+/// for the art-budget predicate tests below.
+fn synthetic_model(triangles: usize, textures: &[(u32, u32)]) -> PropModel {
+    PropModel {
+        vertices: vec![PropVertex {
+            pos: [0.0; 3],
+            color: [1.0; 4],
+            uv: [0.0; 2],
+        }],
+        indices: vec![0u16; triangles.saturating_mul(3)],
+        textures: textures
+            .iter()
+            .map(|&(width, height)| {
+                RawImage::new(width, height, vec![0u8; rgba_bytes(width, height)])
+            })
+            .collect(),
+        submeshes: vec![PropSubmesh {
+            material: 0,
+            texture: (!textures.is_empty()).then_some(0u16),
+            emission: MaterialEmission::NONE,
+            first_index: 0,
+            index_count: u32::try_from(triangles.saturating_mul(3))
+                .expect("fixture index count fits"),
+        }],
+        triangles,
+        materials: 1,
+    }
+}
+
+#[test]
+fn texture_bytes_sums_every_texture_in_the_model() {
+    let model = synthetic_model(2, &[(4, 4), (8, 8)]);
+    assert_eq!(texture_bytes(&model), 4 * 4 * 4 + 8 * 8 * 4);
+    assert_eq!(texture_bytes(&synthetic_model(1, &[])), 0);
+}
+
+#[test]
+fn art_budget_warnings_name_the_broken_budget_and_never_fail_a_load() {
+    assert_eq!(
+        art_budget_warning(&synthetic_model(PROP_TRIANGLE_BUDGET, &[(128, 128)])),
+        None,
+        "a model inside the art budget warns about nothing"
+    );
+    let warning = art_budget_warning(&synthetic_model(PROP_TRIANGLE_BUDGET + 1, &[(128, 128)]))
+        .expect("over-budget triangles warn");
+    assert!(warning.contains("triangles"), "{warning}");
+
+    let warning = art_budget_warning(&synthetic_model(
+        100,
+        &[(PROP_TEXTURE_PREFERRED_SIZE + 1, 8)],
+    ))
+    .expect("oversized textures warn");
+    assert!(warning.contains("texture"), "{warning}");
+
+    let mut assets = PropAssets::default();
+    assets.report_budget_warning("models/many_tris.glb", "warning");
+    assets.report_budget_warning("models/many_tris.glb", "warning");
+    assert_eq!(
+        assets.reported_budget_warnings.len(),
+        1,
+        "a model warns exactly once no matter how often it resolves"
+    );
 }

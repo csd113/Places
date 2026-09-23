@@ -11,12 +11,13 @@ use super::decals::{DECAL_ATLAS_SIZE, generate_decal_atlas};
 use super::view::dimension_f32;
 use super::{
     BatchRange, DECAL_ALPHA_CUTOFF, DECAL_EXTERNAL_BASE, DECAL_FRAGMENT_SHADER_SRC,
-    DECAL_POLYGON_OFFSET, DrawableSize, FRAGMENT_SHADER_SRC, HasContext, LevelMesh, MaterialIndex,
-    MaterialTable, MeshChunk, MeshPacker, PackedVertex, PropMeshBatch, SCENE_ATTRIB_COLOR,
-    SCENE_ATTRIB_POS, SCENE_ATTRIB_UV, SCENE_FAR_M, SCENE_NEAR_M, StaticBatch, SurfaceKey,
-    SurfaceKind, UI_REFERENCE_HEIGHT, UI_REFERENCE_WIDTH, VERTEX_SHADER_SRC, Vertex, VertexLayout,
-    decal_external_sheet_ids, generate_font_atlas, generate_white_texture, packed_layout,
-    spatial_cell_grid, vertical_fov_for_aspect,
+    DECAL_POLYGON_OFFSET, DrawableSize, EMISSION_MASK_TEXTURE_UNIT, FRAGMENT_SHADER_SRC,
+    HasContext, LevelMesh, MaterialIndex, MaterialTable, MeshChunk, MeshPacker, PackedVertex,
+    PropMeshBatch, SCENE_ATTRIB_COLOR, SCENE_ATTRIB_POS, SCENE_ATTRIB_UV, SCENE_FAR_M,
+    SCENE_NEAR_M, SCENE_TEXTURE_UNIT, StaticBatch, SurfaceKey, SurfaceKind, UI_REFERENCE_HEIGHT,
+    UI_REFERENCE_WIDTH, VERTEX_SHADER_SRC, Vertex, VertexLayout, decal_external_sheet_ids,
+    generate_font_atlas, generate_white_texture, packed_layout, spatial_cell_grid,
+    vertical_fov_for_aspect,
 };
 use crate::spatial::Frustum;
 
@@ -150,11 +151,14 @@ unsafe fn create_program(
 }
 
 /// One drawable batch of placed props: all instances of a single model inside a
-/// single spatial cell, sharing one texture, drawn as a contiguous vertex range
-/// of the prop buffer.
+/// single spatial cell, drawn as a contiguous vertex range of the prop buffer
+/// with one material.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct PropDraw {
     texture: glow::Texture,
+    /// Emission this range draws with (a prop material's own emission, never a
+    /// light source).
+    emission: EmissionState,
     /// Which prop buffer pair this range lives in (see `MeshPacker`).
     chunk: usize,
     /// Range in that chunk's index buffer.
@@ -163,6 +167,56 @@ pub(super) struct PropDraw {
     /// Distinct vertices the range reads, for the debug counters.
     vertex_count: i32,
     bounds: crate::spatial::Aabb,
+}
+
+/// The emission term the world program should currently be drawing with.
+///
+/// A batch's emission is material state, not vertex state, so it reaches the
+/// GPU as uniforms. This value is cached by the renderer: a run of batches that
+/// share the previous batch's emission costs no uniform or texture-unit work at
+/// all, and non-emissive content stays exactly as cheap as it was before the
+/// emission path existed.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) struct EmissionState {
+    /// Colour premultiplied by intensity, or the per-vertex colour when
+    /// `vertex` is set.
+    color: [f32; 3],
+    /// Mask sheet bound on the emissive texture unit. `None` disables the mask,
+    /// which is the common case and skips a fragment-stage texture fetch.
+    mask: Option<glow::Texture>,
+    /// True when the vertex colour itself carries the emission (fixture faces).
+    vertex: bool,
+}
+
+impl EmissionState {
+    /// No emission: every material authored before emission existed.
+    const NONE: Self = Self {
+        color: [0.0, 0.0, 0.0],
+        mask: None,
+        vertex: false,
+    };
+
+    /// A material's uniform emission with an optional mask sheet.
+    const fn material(
+        emission: crate::materials::MaterialEmission,
+        mask: Option<glow::Texture>,
+    ) -> Self {
+        Self {
+            color: emission.effective_color(),
+            mask,
+            vertex: false,
+        }
+    }
+
+    /// Per-vertex emission: a fixture's luminous face, whose glow varies per
+    /// placement while the batch stays shared.
+    const fn vertex() -> Self {
+        Self {
+            color: [0.0, 0.0, 0.0],
+            mask: None,
+            vertex: true,
+        }
+    }
 }
 
 /// Cost and shape of the last level build, split by stage so a hardware run can
@@ -241,6 +295,36 @@ pub(super) struct DecalPass {
     u_alpha_cutoff_loc: Option<glow::UniformLocation>,
 }
 
+/// Which emission term one static surface batch draws with.
+///
+/// Split out from [`Renderer::static_emission`] so the routing — the part that
+/// decides *whether* a surface emits — is testable without a GL context, and so
+/// the rule lives in one place instead of in a match spread over the draw path.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum EmissionRouting {
+    /// No emission term: plain lit surfaces.
+    None,
+    /// The batch's material decides (floors, ceilings, walls).
+    Material,
+    /// The vertex colour *is* the emission (a fixture's luminous face, whose
+    /// glow is per placement while the batch is shared).
+    Vertex,
+}
+
+/// The emission term a static surface kind uses.
+///
+/// `has_material` is [`SurfaceKey::has_material`]: a light batch without one is
+/// the fixture's untextured housing, which is lit like any other surface.
+pub(super) const fn emission_routing(kind: SurfaceKind, has_material: bool) -> EmissionRouting {
+    match kind {
+        SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall => EmissionRouting::Material,
+        SurfaceKind::Light if has_material => EmissionRouting::Vertex,
+        SurfaceKind::Light | SurfaceKind::PropFallback | SurfaceKind::Decal => {
+            EmissionRouting::None
+        }
+    }
+}
+
 /// The GL objects every renderer owns from startup: the two scene programs, the
 /// UI vertex buffer, the untextured and font sheets, and the scene attribute and
 /// uniform locations.
@@ -252,6 +336,9 @@ struct StartupResources {
     decal: DecalPass,
     u_mvp_loc: Option<glow::UniformLocation>,
     u_texture_loc: Option<glow::UniformLocation>,
+    u_emission_color_loc: Option<glow::UniformLocation>,
+    u_emission_mask_enabled_loc: Option<glow::UniformLocation>,
+    u_emission_vertex_loc: Option<glow::UniformLocation>,
     a_pos_loc: u32,
     a_color_loc: u32,
     a_uv_loc: u32,
@@ -283,6 +370,19 @@ impl StartupResources {
 
             let u_mvp_loc = gl.get_uniform_location(program, "u_mvp");
             let u_texture_loc = gl.get_uniform_location(program, "u_texture");
+            // Emission state. The sampler units are fixed once (albedo on 0,
+            // mask on 1) and the mask unit always has a texture bound, so a
+            // shader that samples it anyway reads a defined value.
+            let u_emission_color_loc = gl.get_uniform_location(program, "u_emission_color");
+            let u_emission_mask_enabled_loc =
+                gl.get_uniform_location(program, "u_emission_mask_enabled");
+            let u_emission_vertex_loc = gl.get_uniform_location(program, "u_emission_vertex");
+            if let Some(ref loc) = u_texture_loc {
+                gl.uniform_1_i32(Some(loc), SCENE_TEXTURE_UNIT);
+            }
+            if let Some(loc) = gl.get_uniform_location(program, "u_emission_mask") {
+                gl.uniform_1_i32(Some(&loc), EMISSION_MASK_TEXTURE_UNIT);
+            }
 
             // The untextured fixture sheet and the UI/decal resources are the
             // only textures this renderer owns up front. Every surface texture
@@ -327,6 +427,9 @@ impl StartupResources {
                 decal,
                 u_mvp_loc,
                 u_texture_loc,
+                u_emission_color_loc,
+                u_emission_mask_enabled_loc,
+                u_emission_vertex_loc,
                 a_pos_loc,
                 a_color_loc,
                 a_uv_loc,
@@ -368,9 +471,10 @@ pub struct Renderer {
     prop_assets: crate::props::PropAssets,
     /// Per-model prop draw ranges for the current level.
     prop_draws: Vec<PropDraw>,
-    /// GPU textures for prop models, keyed by catalogue model path so a level
-    /// change never re-uploads a texture that is already resident.
-    prop_textures: std::collections::HashMap<String, glow::Texture>,
+    /// Per-model prop GPU textures for the current level, indexed by model path
+    /// and then by the model's own texture slot. Kept across level changes so a
+    /// level switch never re-uploads a model that is already resident.
+    prop_textures: std::collections::HashMap<String, Vec<glow::Texture>>,
     /// GPU textures for catalog/missing surface textures, keyed by logical
     /// texture key. Decoded images are already cached per session; this cache
     /// keeps their GPU copies across level changes, so a level switch never
@@ -403,6 +507,14 @@ pub struct Renderer {
     /// `material_textures` is indexed by). Two materials that share one texture
     /// map to the same slot, so the upload is shared.
     material_texture_slots: Vec<u16>,
+    /// Emission per material index, parallel to `material_texture_slots`.
+    material_emissions: Vec<crate::materials::MaterialEmission>,
+    /// The emission the world program is currently set to draw with. See
+    /// [`EmissionState`].
+    emission_state: EmissionState,
+    /// Runtime quality profile: how large a texture may reach the GPU. Chosen
+    /// once at startup from the settings (`full` or `low`).
+    quality: crate::quality::QualityProfile,
     /// The untextured sheet every family without its own artwork binds: the
     /// light housing's flat vertex colour, a prop placeholder box, the UI.
     white_texture: glow::Texture,
@@ -411,6 +523,10 @@ pub struct Renderer {
     decal: DecalPass,
     u_mvp_loc: Option<glow::UniformLocation>,
     u_texture_loc: Option<glow::UniformLocation>,
+    /// World-program locations of the emission uniforms (see [`EmissionState`]).
+    u_emission_color_loc: Option<glow::UniformLocation>,
+    u_emission_mask_enabled_loc: Option<glow::UniformLocation>,
+    u_emission_vertex_loc: Option<glow::UniformLocation>,
     a_pos_loc: u32,
     a_color_loc: u32,
     a_uv_loc: u32,
@@ -476,6 +592,9 @@ impl Renderer {
             decal,
             u_mvp_loc,
             u_texture_loc,
+            u_emission_color_loc,
+            u_emission_mask_enabled_loc,
+            u_emission_vertex_loc,
             a_pos_loc,
             a_color_loc,
             a_uv_loc,
@@ -509,11 +628,17 @@ impl Renderer {
             level_textures: Vec::new(),
             material_textures: Vec::new(),
             material_texture_slots: Vec::new(),
+            material_emissions: Vec::new(),
+            emission_state: EmissionState::NONE,
+            quality: crate::quality::QualityProfile::DEFAULT,
             white_texture,
             font_texture,
             decal,
             u_mvp_loc,
             u_texture_loc,
+            u_emission_color_loc,
+            u_emission_mask_enabled_loc,
+            u_emission_vertex_loc,
             a_pos_loc,
             a_color_loc,
             a_uv_loc,
@@ -537,6 +662,32 @@ impl Renderer {
         }
         self.drawable_size = size;
         true
+    }
+
+    /// True when culling is on: the benchmark harness toggles it.
+    #[must_use]
+    pub const fn culling_enabled(&self) -> bool {
+        self.culling_enabled
+    }
+
+    /// Selects the runtime quality profile.
+    ///
+    /// The profile decides how large a texture may reach the GPU: [`Full`] is
+    /// the historical Places runtime size, [`Low`] downscales the same source
+    /// assets further. It is applied when a level (or a texture) is uploaded,
+    /// so changing it takes effect on the next level load rather than by
+    /// rescaling anything already resident — and never per frame.
+    ///
+    /// [`Full`]: crate::quality::QualityProfile::Full
+    /// [`Low`]: crate::quality::QualityProfile::Low
+    pub const fn set_quality(&mut self, quality: crate::quality::QualityProfile) {
+        self.quality = quality;
+    }
+
+    /// The active runtime quality profile.
+    #[must_use]
+    pub const fn quality(&self) -> crate::quality::QualityProfile {
+        self.quality
     }
 
     /// Applies the user-facing texture filtering mode to the repeating 3D
@@ -577,8 +728,10 @@ impl Renderer {
                 set_repeat_filter(&self.gl, linear);
             }
             for texture in self.prop_textures.values() {
-                self.gl.bind_texture(glow::TEXTURE_2D, Some(*texture));
-                set_repeat_filter(&self.gl, linear);
+                for texture in texture {
+                    self.gl.bind_texture(glow::TEXTURE_2D, Some(*texture));
+                    set_repeat_filter(&self.gl, linear);
+                }
             }
             self.gl.bind_texture(glow::TEXTURE_2D, None);
         }
@@ -736,44 +889,125 @@ impl Renderer {
     ) -> (MeshPacker, Vec<PropDraw>) {
         let mut packer = MeshPacker::default();
         let mut draws: Vec<PropDraw> = Vec::with_capacity(batches.len());
+
+        // Upload each model's textures once, at the active quality profile, and
+        // keep them resident across level changes. `gpu_textures` is indexed
+        // exactly like `batch.textures`, so a submesh's `texture`/mask index
+        // means the same thing on the CPU and on the GPU.
+        let mut gpu_textures: std::collections::HashMap<String, Vec<glow::Texture>> =
+            std::collections::HashMap::new();
         for batch in batches {
-            let texture = match self.prop_textures.get(&batch.model) {
-                Some(texture) => *texture,
-                None => match unsafe { self.upload_fitted_texture(&batch.texture) } {
-                    Ok(texture) => {
-                        self.prop_textures.insert(batch.model.clone(), texture);
-                        texture
-                    }
-                    Err(error) => {
-                        eprintln!(
-                            "[props] cannot upload texture for {}: {error}; skipping that batch",
-                            batch.model
-                        );
-                        continue;
-                    }
-                },
+            if gpu_textures.contains_key(&batch.model) {
+                continue;
+            }
+            if let Some(textures) = self.prop_textures.get(&batch.model) {
+                gpu_textures.insert(batch.model.clone(), textures.clone());
+                continue;
+            }
+            if let Some(textures) = self.upload_model_textures(&batch.model, &batch.textures) {
+                gpu_textures.insert(batch.model.clone(), textures);
+            }
+        }
+
+        for batch in batches {
+            let Some(textures) = gpu_textures.get(&batch.model) else {
+                continue;
             };
-            let placements = if indexed {
-                packer.push(&batch.vertices, &batch.indices)
-            } else {
-                packer.push_unindexed(&batch.vertices, &batch.indices)
-            };
-            for packed in placements {
-                draws.push(PropDraw {
-                    texture,
-                    chunk: packed.chunk,
-                    index_start: packed.index_start,
-                    index_count: packed.index_count,
-                    vertex_count: packed.vertex_count,
-                    bounds: batch.bounds,
-                });
+            // Each submesh is packed on its own so every returned placement is
+            // exactly one material's index range: a chunk split never cuts a
+            // draw across two materials, and instance order never affects what
+            // a draw covers.
+            for submesh in &batch.submeshes {
+                let start = usize::try_from(submesh.first_index).unwrap_or(0);
+                let count = usize::try_from(submesh.index_count).unwrap_or(0);
+                let Some(indices) = batch.indices.get(start..start.saturating_add(count)) else {
+                    continue;
+                };
+                let placements = if indexed {
+                    packer.push(&batch.vertices, indices)
+                } else {
+                    packer.push_unindexed(&batch.vertices, indices)
+                };
+                let texture = submesh
+                    .texture
+                    .and_then(|slot| textures.get(usize::from(slot)).copied())
+                    .unwrap_or(self.white_texture);
+                let mask = submesh
+                    .emission
+                    .mask
+                    .and_then(|slot| textures.get(usize::from(slot)).copied());
+                for packed in placements {
+                    draws.push(PropDraw {
+                        texture,
+                        emission: EmissionState::material(submesh.emission, mask),
+                        chunk: packed.chunk,
+                        index_start: packed.index_start,
+                        index_count: packed.index_count,
+                        vertex_count: packed.vertex_count,
+                        bounds: batch.bounds,
+                    });
+                }
             }
         }
         (packer, draws)
     }
 
-    /// Uploads one fitted (non-tiling) sheet: a prop's diffuse texture or a
-    /// fixture's visible face.
+    /// Returns the image a texture class uploads at the active quality profile.
+    ///
+    /// Full keeps the image exactly as decoded (all shipped content is at or
+    /// below the historical runtime size, so nothing is rescaled and no copy is
+    /// made). Low box-filters it once, here, at upload time; the result is
+    /// uploaded and dropped, so a texture is never rescaled per frame or twice
+    /// for the same upload.
+    /// Returns the image a texture class uploads at the active quality profile.
+    ///
+    /// See [`crate::quality::fit_image`] for the policy; this is the renderer's
+    /// thin wrapper over it.
+    fn fit_texture<'a>(
+        &self,
+        image: &'a crate::loader::RawImage,
+        class: crate::quality::TextureClass,
+    ) -> std::borrow::Cow<'a, crate::loader::RawImage> {
+        crate::quality::fit_image(image, self.quality, class)
+    }
+
+    /// Uploads every texture one prop model uses, at the prop quality budget.
+    ///
+    /// Returns `None` after reporting a failure, and deletes any texture it had
+    /// already created for that model, so a model is either fully resident or
+    /// absent — a half-uploaded model would bind the white sheet to some of its
+    /// primitives and its own artwork to others.
+    // A failed upload is a chatty one-line diagnostic and this renderer has no
+    // logger (the game prints its own diagnostics directly), so the stderr
+    // report is the intended behaviour and stays scoped to this method.
+    #[allow(clippy::print_stderr)]
+    fn upload_model_textures(
+        &mut self,
+        model: &str,
+        images: &[std::rc::Rc<crate::loader::RawImage>],
+    ) -> Option<Vec<glow::Texture>> {
+        let mut uploads: Vec<glow::Texture> = Vec::with_capacity(images.len());
+        for image in images {
+            match unsafe { self.upload_fitted_texture(image, crate::quality::TextureClass::Prop) } {
+                Ok(texture) => uploads.push(texture),
+                Err(error) => {
+                    eprintln!(
+                        "[props] cannot upload texture for {model}: {error}; skipping that model"
+                    );
+                    for texture in uploads {
+                        unsafe { self.gl.delete_texture(texture) };
+                    }
+                    return None;
+                }
+            }
+        }
+        self.prop_textures
+            .insert(model.to_string(), uploads.clone());
+        Some(uploads)
+    }
+
+    /// Uploads one fitted (non-tiling) sheet: a prop's material texture or a
+    /// fixture's visible face, at the active quality profile.
     ///
     /// Fitted artwork is sampled with `CLAMP_TO_EDGE` wrapping and mipmaps: its
     /// UVs never leave the sheet, so a repeat wrap would only bleed one edge of
@@ -782,7 +1016,9 @@ impl Renderer {
     unsafe fn upload_fitted_texture(
         &self,
         image: &crate::loader::RawImage,
+        class: crate::quality::TextureClass,
     ) -> Result<glow::Texture, String> {
+        let source = self.fit_texture(image, class);
         unsafe {
             let texture = self.gl.create_texture()?;
             self.gl.bind_texture(glow::TEXTURE_2D, Some(texture));
@@ -790,12 +1026,12 @@ impl Renderer {
                 glow::TEXTURE_2D,
                 0,
                 glow::RGBA.cast_signed(),
-                i32::try_from(image.width).unwrap_or(i32::MAX),
-                i32::try_from(image.height).unwrap_or(i32::MAX),
+                i32::try_from(source.width).unwrap_or(i32::MAX),
+                i32::try_from(source.height).unwrap_or(i32::MAX),
                 0,
                 glow::RGBA,
                 glow::UNSIGNED_BYTE,
-                glow::PixelUnpackData::Slice(Some(&image.rgba)),
+                glow::PixelUnpackData::Slice(Some(&source.rgba)),
             );
             self.gl.tex_parameter_i32(
                 glow::TEXTURE_2D,
@@ -859,12 +1095,13 @@ impl Renderer {
                 self.decal.external.push(*handle);
                 continue;
             }
+            let fitted = self.fit_texture(&image, crate::quality::TextureClass::DecalSheet);
             let uploaded = unsafe {
                 create_texture_2d(
                     &self.gl,
-                    i32::try_from(image.width).unwrap_or(i32::MAX),
-                    i32::try_from(image.height).unwrap_or(i32::MAX),
-                    &image.rgba,
+                    i32::try_from(fitted.width).unwrap_or(i32::MAX),
+                    i32::try_from(fitted.height).unwrap_or(i32::MAX),
+                    &fitted.rgba,
                     true,
                     self.linear_filtering,
                 )
@@ -921,11 +1158,12 @@ impl Renderer {
             }
 
             let uploaded = unsafe {
+                let source = self.fit_texture(&texture.image, texture.class);
                 create_texture_2d(
                     &self.gl,
-                    i32::try_from(texture.image.width).unwrap_or(i32::MAX),
-                    i32::try_from(texture.image.height).unwrap_or(i32::MAX),
-                    &texture.image.rgba,
+                    i32::try_from(source.width).unwrap_or(i32::MAX),
+                    i32::try_from(source.height).unwrap_or(i32::MAX),
+                    &source.rgba,
                     true,
                     linear,
                 )
@@ -954,6 +1192,12 @@ impl Renderer {
             .entries()
             .iter()
             .map(|entry| entry.texture_index)
+            .collect();
+        self.material_emissions = loaded
+            .materials
+            .entries()
+            .iter()
+            .map(|entry| entry.emission)
             .collect();
 
         // The fixture sheets: one slot per family, so a light batch binds its
@@ -992,7 +1236,9 @@ impl Renderer {
                 *slot = *handle;
                 continue;
             }
-            match unsafe { self.upload_fitted_texture(&sheet.image) } {
+            match unsafe {
+                self.upload_fitted_texture(&sheet.image, crate::quality::TextureClass::FixtureFace)
+            } {
                 Ok(texture) => {
                     if persistent {
                         self.fixture_sheet_textures
@@ -1095,16 +1341,19 @@ impl Renderer {
     }
 
     /// Submits every opaque static batch the frustum keeps, binding each
-    /// texture and buffer pair once per run.
+    /// texture, emission state and buffer pair once per run.
     ///
     /// Decals are skipped here: they are submitted by their own pass, with the
     /// decal program and depth bias, which keeps the world program's early
     /// depth testing intact.
-    fn draw_static_batches(&self, frustum: &Frustum, cull: bool) -> DrawTotals {
+    fn draw_static_batches(&mut self, frustum: &Frustum, cull: bool) -> DrawTotals {
         let mut totals = DrawTotals::default();
         let mut bound_key: Option<SurfaceKey> = None;
         let mut bound_chunk: Option<usize> = None;
-        for batch in &self.static_batches {
+        for index in 0..self.static_batches.len() {
+            let Some(batch) = self.static_batches.get(index).copied() else {
+                continue;
+            };
             if batch.index_range.count <= 0 {
                 continue;
             }
@@ -1123,7 +1372,11 @@ impl Renderer {
             }
             if bound_key != Some(batch.key) {
                 let texture = self.static_texture(batch.key);
-                unsafe { self.gl.bind_texture(glow::TEXTURE_2D, Some(texture)) };
+                let emission = self.static_emission(batch.key);
+                unsafe {
+                    self.gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+                    self.set_emission(emission);
+                }
                 bound_key = Some(batch.key);
             }
             unsafe {
@@ -1137,6 +1390,69 @@ impl Renderer {
             totals.add(batch.vertex_count);
         }
         totals
+    }
+
+    /// The emission one static surface key draws with.
+    ///
+    /// Floors, ceilings and walls take their material's emission from the
+    /// material table. Fixture luminous faces carry theirs per vertex: their
+    /// key's material slot is the family's sheet, not a level material, and the
+    /// glow varies per placement while the batch is shared. Fixture housings,
+    /// placeholder boxes and anything else emit nothing.
+    fn static_emission(&self, key: SurfaceKey) -> EmissionState {
+        match emission_routing(key.kind, key.has_material()) {
+            EmissionRouting::None => EmissionState::NONE,
+            EmissionRouting::Vertex => EmissionState::vertex(),
+            EmissionRouting::Material => {
+                let emission = self
+                    .material_emissions
+                    .get(usize::from(key.material))
+                    .copied()
+                    .unwrap_or_default();
+                if !emission.is_emissive() {
+                    return EmissionState::NONE;
+                }
+                let mask = emission
+                    .mask
+                    .and_then(|index| self.material_textures.get(usize::from(index)).copied());
+                EmissionState::material(emission, mask)
+            }
+        }
+    }
+
+    /// Applies the emission the world program should draw with, skipping the
+    /// work when the previous batch already set exactly this state.
+    ///
+    /// # Safety
+    ///
+    /// The world program must be current. The mask sampler is bound on its own
+    /// texture unit and the active unit is restored to
+    /// [`SCENE_TEXTURE_UNIT`] before returning.
+    unsafe fn set_emission(&mut self, state: EmissionState) {
+        if self.emission_state == state {
+            return;
+        }
+        unsafe {
+            if let Some(ref loc) = self.u_emission_color_loc {
+                self.gl
+                    .uniform_3_f32(Some(loc), state.color[0], state.color[1], state.color[2]);
+            }
+            if let Some(ref loc) = self.u_emission_mask_enabled_loc {
+                self.gl
+                    .uniform_1_f32(Some(loc), if state.mask.is_some() { 1.0 } else { 0.0 });
+            }
+            if let Some(ref loc) = self.u_emission_vertex_loc {
+                self.gl
+                    .uniform_1_f32(Some(loc), if state.vertex { 1.0 } else { 0.0 });
+            }
+            self.gl.active_texture(glow::TEXTURE1);
+            self.gl.bind_texture(
+                glow::TEXTURE_2D,
+                Some(state.mask.unwrap_or(self.white_texture)),
+            );
+            self.gl.active_texture(glow::TEXTURE0);
+        }
+        self.emission_state = state;
     }
 
     /// The texture one static surface key binds: its resolved material sheet,
@@ -1179,12 +1495,16 @@ impl Renderer {
     }
 
     /// Submits the batched real prop geometry: one buffer and one draw call per
-    /// (model, spatial cell), with one texture bind per model.
-    fn draw_prop_batches(&self, frustum: &Frustum, cull: bool) -> DrawTotals {
+    /// (model, primitive, spatial cell), with one texture and emission bind per
+    /// change.
+    fn draw_prop_batches(&mut self, frustum: &Frustum, cull: bool) -> DrawTotals {
         let mut totals = DrawTotals::default();
         let mut bound_texture: Option<glow::Texture> = None;
         let mut bound_chunk: Option<usize> = None;
-        for draw in &self.prop_draws {
+        for index in 0..self.prop_draws.len() {
+            let Some(draw) = self.prop_draws.get(index).copied() else {
+                continue;
+            };
             if draw.index_count <= 0 {
                 continue;
             }
@@ -1202,6 +1522,7 @@ impl Renderer {
                 unsafe { self.gl.bind_texture(glow::TEXTURE_2D, Some(draw.texture)) };
                 bound_texture = Some(draw.texture);
             }
+            unsafe { self.set_emission(draw.emission) };
             unsafe {
                 self.gl.draw_elements(
                     glow::TRIANGLES,
@@ -1486,6 +1807,10 @@ impl Renderer {
             if let Some(ref loc) = self.u_texture_loc {
                 self.gl.uniform_1_i32(Some(loc), 0);
             }
+            // The HUD is never emissive: replace whatever emission state the
+            // world left behind, so a bright fixture the camera walked away
+            // from cannot leak its glow into the text.
+            self.set_emission(EmissionState::NONE);
             self.gl.active_texture(glow::TEXTURE0);
             self.gl
                 .bind_texture(glow::TEXTURE_2D, Some(self.font_texture));

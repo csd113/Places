@@ -56,6 +56,93 @@ impl RawImage {
             rgba,
         }
     }
+
+    /// The image's longest edge, in texels.
+    #[must_use]
+    pub const fn longest_edge(&self) -> u32 {
+        if self.width > self.height {
+            self.width
+        } else {
+            self.height
+        }
+    }
+
+    /// Box-filters this image so both edges fit in `max_edge` texels.
+    ///
+    /// Deterministic: the scale factor is the smallest integer that fits, each
+    /// output texel averages exactly the source texels whose centres fall under
+    /// it, and channel values are integer-rounded. Power-of-two source edges
+    /// scale by exact power-of-two factors, so a 1024x1024 sheet becomes an
+    /// exact 4x4 average at 256 and a 2x2 average at 512.
+    ///
+    /// Returns `None` when the image already fits, so a caller can keep the
+    /// decoded buffer it has instead of copying it. Callers downscale once, at
+    /// load/upload time, and keep the result with the texture they uploaded;
+    /// nothing here is meant to run per frame.
+    #[must_use]
+    pub fn downscaled_to(&self, max_edge: u32) -> Option<Self> {
+        if max_edge == 0 || self.width == 0 || self.height == 0 {
+            return None;
+        }
+        if self.longest_edge() <= max_edge {
+            return None;
+        }
+        let factor = self.longest_edge().div_ceil(max_edge);
+        let width = self.width.div_ceil(factor);
+        let height = self.height.div_ceil(factor);
+        let buffer_len = rgba_byte_len(width, height)?;
+        let mut rgba = vec![0u8; buffer_len];
+        for out_y in 0..height {
+            let y0 = out_y.saturating_mul(factor);
+            let y1 = y0.saturating_add(factor).min(self.height);
+            for out_x in 0..width {
+                let x0 = out_x.saturating_mul(factor);
+                let x1 = x0.saturating_add(factor).min(self.width);
+                let mut sums = [0u64; 4];
+                let mut count = 0u64;
+                for y in y0..y1 {
+                    for x in x0..x1 {
+                        let Some(offset) = texel_offset(x, y, self.width) else {
+                            continue;
+                        };
+                        let Some(texel) = self.rgba.get(offset..offset.saturating_add(4)) else {
+                            continue;
+                        };
+                        for (sum, channel) in sums.iter_mut().zip(texel) {
+                            *sum = sum.saturating_add(u64::from(*channel));
+                        }
+                        count = count.saturating_add(1);
+                    }
+                }
+                if count == 0 {
+                    continue;
+                }
+                let Some(offset) = texel_offset(out_x, out_y, width) else {
+                    continue;
+                };
+                for (index, sum) in sums.iter().enumerate() {
+                    let rounded = sum
+                        .saturating_add(count / 2)
+                        .checked_div(count)
+                        .unwrap_or(0);
+                    let value = u8::try_from(rounded.min(u64::from(u8::MAX))).unwrap_or(u8::MAX);
+                    if let Some(slot) = rgba.get_mut(offset.saturating_add(index)) {
+                        *slot = value;
+                    }
+                }
+            }
+        }
+        Some(Self::new(width, height, rgba))
+    }
+}
+
+/// Byte offset of texel `(x, y)` in a row-major RGBA8 buffer.
+fn texel_offset(x: u32, y: u32, width: u32) -> Option<usize> {
+    let column = usize::try_from(x).ok()?.checked_mul(RGBA_CHANNELS)?;
+    let row = usize::try_from(y)
+        .ok()?
+        .checked_mul(usize::try_from(width).ok()?)?;
+    row.checked_mul(RGBA_CHANNELS)?.checked_add(column)
 }
 
 /// Encodes an 8-bit RGBA image as PNG bytes.
@@ -268,3 +355,6 @@ impl TextureCache {
         self.decodes = 0;
     }
 }
+
+#[cfg(test)]
+mod tests;

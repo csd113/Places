@@ -125,13 +125,13 @@ fn an_opaque_wall_blocks_colour_not_only_brightness() {
     let light = lighting
         .lights()
         .iter()
-        .find(|light| (light.x - 15.8).abs() < 1e-3 && (light.z - 3.0).abs() < 1e-3)
+        .find(|light| (light.x() - 15.8).abs() < 1e-3 && (light.z() - 3.0).abs() < 1e-3)
         .expect("the red fixture is baked");
-    let horizontal = ((19.4 - light.x).abs() - light.half_w).max(0.0);
-    let vertical = 1.5 - light.y;
+    let horizontal = ((19.4 - light.x()).abs() - light.half_w()).max(0.0);
+    let vertical = 1.5 - light.y();
     let distance = horizontal.hypot(vertical);
     let unoccluded = crate::lighting::LOCAL_LIGHT_STRENGTH
-        * light.intensity
+        * light.intensity()
         * light.height_factor
         * crate::lighting::smooth_falloff(distance / crate::lighting::LOCAL_LIGHT_RADIUS_M);
     assert!(

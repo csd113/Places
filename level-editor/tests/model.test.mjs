@@ -283,6 +283,123 @@ test('ceiling light colour is optional, round-trips and is validated', () => {
   assert.equal('color' in malformed.toJSON(), false);
 });
 
+test('ceiling light enabled round-trips and is validated', () => {
+  // Omitted means enabled, and a legacy light keeps its terse shape on save.
+  const standard = new model.CeilingLight({ fixture: 'core:fluorescent_panel_01', x: 1, z: 2 });
+  assert.equal(standard.enabled, true);
+  assert.equal('enabled' in standard.toJSON(), false);
+
+  // A disabled fixture survives clone, duplicate and a JSON round trip.
+  const disabled = new model.CeilingLight({ fixture: 'core:fluorescent_panel_01', x: 1, z: 2, enabled: false });
+  assert.equal(disabled.enabled, false);
+  assert.equal(disabled.toJSON().enabled, false);
+  assert.equal(disabled.clone().toJSON().enabled, false);
+  assert.equal(disabled.duplicate().toJSON().enabled, false);
+  const restored = new model.CeilingLight(JSON.parse(JSON.stringify(disabled.toJSON())));
+  assert.equal(restored.enabled, false);
+  assert.equal(restored.toJSON().enabled, false);
+
+  // An explicit `true` is authored data too, so it is written back unchanged.
+  const explicit = new model.CeilingLight({ fixture: 'core:fluorescent_panel_01', x: 1, z: 2, enabled: true });
+  assert.equal(explicit.toJSON().enabled, true);
+
+  // A whole level round trip keeps the switch.
+  const level = new Level({
+    id: 'enabled', name: 'Enabled', spawn: { x: 0, z: 0 },
+    rooms: [{ x: 0, z: 0, width: 6, depth: 6, height: 3.5 }],
+    ceiling_lights: [
+      { fixture: 'core:fluorescent_panel_01', x: 1, z: 1, enabled: false },
+      { fixture: 'core:fluorescent_panel_01', x: 4, z: 4, enabled: true }
+    ]
+  });
+  const json = JSON.parse(JSON.stringify(level.toJSON()));
+  assert.equal(json.ceiling_lights[0].enabled, false);
+  assert.equal(json.ceiling_lights[1].enabled, true);
+  assert.deepEqual(new Level(json).toJSON().ceiling_lights, json.ceiling_lights);
+
+  // Non-boolean values are malformed, exactly like the loader.
+  const build = (enabled) => new Level({
+    id: 'bad_enabled', name: 'Bad Enabled', spawn: { x: 0, z: 0 },
+    rooms: [{ x: 0, z: 0, width: 6, depth: 6, height: 3.5 }],
+    ceiling_lights: [{ fixture: 'core:fluorescent_panel_01', x: 1, z: 1, enabled }]
+  });
+  const malformed = model.validateLevel(build('off'));
+  assert.equal(malformed.valid, false);
+  assert.ok(malformed.errors.some(e => e.includes('enabled must be a boolean')), malformed.errors.join());
+  assert.deepEqual(model.validateLevel(build(false)).errors, []);
+});
+
+test('prop light sources round-trip unchanged', () => {
+  const lights = [
+    {
+      shape: 'rect', half_width: 0.3, half_depth: 0.05, offset: [0, 0.9, 0.25],
+      rotation_degrees: 0, color: [0.53, 0.73, 1.0], intensity: 0.4,
+      range: 3.0, falloff: 'smooth', enabled: true
+    },
+    { shape: 'point', brightness: 0.5 },
+    { shape: 'line', length: 1.2, falloff: 'linear', enabled: false },
+    { color: [1.0, 0.9, 0.8] } // no shape and no dimensions: the default point
+  ];
+  const prop = new Prop({ model: 'core:desk', x: 1, z: 2, lights });
+  assert.deepEqual(prop.toJSON().lights, lights);
+  assert.deepEqual(prop.clone().toJSON().lights, lights);
+  assert.deepEqual(prop.duplicate().toJSON().lights, lights);
+  assert.deepEqual(new Prop(JSON.parse(JSON.stringify(prop.toJSON()))).toJSON().lights, lights);
+
+  const level = new Level({
+    id: 'prop_lights', name: 'Prop Lights', spawn: { x: 0, z: 0 },
+    rooms: [{ x: 0, z: 0, width: 6, depth: 6, height: 3.5 }],
+    props: [{ model: 'core:desk', x: 1, z: 2, lights }]
+  });
+  const json = JSON.parse(JSON.stringify(level.toJSON()));
+  assert.deepEqual(json.props[0].lights, lights);
+  assert.deepEqual(new Level(json).toJSON().props[0].lights, lights);
+});
+
+test('malformed prop lights are rejected and over-bright ones only warn', () => {
+  const build = (lights, enabled) => new Level({
+    id: 'bad_lights', name: 'Bad Lights', spawn: { x: 0, z: 0 },
+    rooms: [{ x: 0, z: 0, width: 6, depth: 6, height: 3.5 }],
+    ceiling_lights: enabled === undefined
+      ? []
+      : [{ fixture: 'core:fluorescent_panel_01', x: 1, z: 1, enabled }],
+    props: [{ model: 'core:desk', x: 1, z: 2, lights }]
+  });
+  const errorsFor = (lights, enabled) => model.validateLevel(build(lights, enabled)).errors.join('\n');
+
+  assert.match(errorsFor([{ shape: 'sphere' }]), /shape must be one of point, rect, line/);
+  assert.match(errorsFor([{ shape: 'rect', half_width: 0.3 }]), /rect lights need a half_depth/);
+  assert.match(errorsFor([{ shape: 'rect', half_width: 0.0, half_depth: 0.05 }]), /half_width must be a finite number > 0/);
+  assert.match(errorsFor([{ shape: 'line' }]), /line lights need a length/);
+  assert.match(errorsFor([{ shape: 'line', length: -1 }]), /length must be a finite number > 0/);
+  assert.match(errorsFor([{ shape: 'point', falloff: 'quadratic' }]), /falloff/);
+  assert.match(errorsFor([{ shape: 'point', offset: [0, 1] }]), /offset must be exactly three finite numbers/);
+  assert.match(errorsFor([{ shape: 'point', offset: [0, Number.POSITIVE_INFINITY, 0] }]), /offset must be exactly three finite numbers/);
+  assert.match(errorsFor([{ shape: 'point', color: [2, 0, 0] }]), /colour/);
+  assert.match(errorsFor([{ shape: 'point', color: [0, 1] }]), /colour/);
+  assert.match(errorsFor([{ shape: 'point', intensity: -1 }]), /cannot be negative/);
+  assert.match(errorsFor([{ shape: 'point', brightness: 'bright' }]), /finite number/);
+  assert.match(errorsFor([{ shape: 'point', offset: [0, 'up', 0] }]), /offset must be exactly three finite numbers/);
+  assert.match(errorsFor([{ shape: 'point', range: 0 }]), /range must be a finite number > 0/);
+  assert.match(errorsFor([{ shape: 'point', enabled: 'on' }]), /enabled must be a boolean/);
+  assert.match(errorsFor(['bright']), /must be an object/);
+  assert.match(errorsFor({ shape: 'point' }), /lights must be an array/);
+  assert.match(errorsFor([{ shape: 'point' }], 1), /enabled must be a boolean/);
+
+  // The documented minimum and everything in range is accepted.
+  assert.deepEqual(model.validateLevel(build([
+    { shape: 'point' },
+    { shape: 'rect', half_width: 0.3, half_depth: 0.05 },
+    { shape: 'line', length: 1.2 },
+    { color: [0, 1, 0], brightness: 0.5, range: 3.0, falloff: 'constant', enabled: false }
+  ])).errors, []);
+
+  // Above the game clamp the level still loads, so the editor warns only.
+  const high = model.validateLevel(build([{ shape: 'point', intensity: 20 }]));
+  assert.equal(high.valid, true);
+  assert.ok(high.warnings.some(w => w.includes('clamped')), high.warnings.join());
+});
+
 test('unknown opening kinds stay forward compatible', () => {
   const level = new Level({
     id: 'future', name: 'Future', spawn: { x: 0, z: 0 },
@@ -327,4 +444,53 @@ test('validation measures wall length the same way geometry does', () => {
     const wall = new Wall({ width: w, depth: d });
     assert.equal(geometry.wallLength(wall), Math.max(Math.abs(w), Math.abs(d)));
   }
+});
+
+test('fixture pool and emission fields round-trip unchanged', () => {
+  const fields = { range: 4.0, falloff: 'linear', emission: 1.5, enabled: false };
+  const lit = new model.CeilingLight({
+    fixture: 'core:fluorescent_panel_01', x: 1, z: 2, brightness: 0.2, ...fields
+  });
+  const emitted = lit.toJSON();
+  assert.equal(emitted.range, 4.0);
+  assert.equal(emitted.falloff, 'linear');
+  assert.equal(emitted.emission, 1.5);
+  assert.equal(emitted.enabled, false);
+  assert.deepEqual(lit.clone().toJSON(), emitted);
+  const duplicated = lit.duplicate().toJSON();
+  delete duplicated.id;
+  const original = { ...emitted };
+  delete original.id;
+  assert.deepEqual(duplicated, original);
+
+  // A fixture that authors none of them keeps its terse shape.
+  const plain = new model.CeilingLight({ fixture: 'core:fluorescent_panel_01', x: 1, z: 2 });
+  const terse = plain.toJSON();
+  for (const key of Object.keys(fields)) {
+    assert.equal(key in terse, false, `${key} must stay omitted when unauthored`);
+  }
+
+  // A whole level round trip keeps them, and validation mirrors the engine.
+  const level = new Level({
+    id: 'emission', name: 'Emission', spawn: { x: 0, z: 0 },
+    rooms: [{ x: 0, z: 0, width: 6, depth: 6, height: 3.5 }],
+    ceiling_lights: [
+      { fixture: 'core:fluorescent_panel_01', x: 1, z: 1, brightness: 0.18, emission: 1.0 },
+      { fixture: 'core:fluorescent_panel_01', x: 4, z: 4, range: 3.0, falloff: 'constant' }
+    ]
+  });
+  const json = JSON.parse(JSON.stringify(level.toJSON()));
+  assert.equal(json.ceiling_lights[0].emission, 1.0);
+  assert.equal(json.ceiling_lights[1].falloff, 'constant');
+  assert.deepEqual(new Level(json).toJSON().ceiling_lights, json.ceiling_lights);
+
+  const bad = (fields) => model.validateLevel(new Level({
+    id: 'bad_emission', name: 'Bad Emission', spawn: { x: 0, z: 0 },
+    rooms: [{ x: 0, z: 0, width: 6, depth: 6, height: 3.5 }],
+    ceiling_lights: [{ fixture: 'core:fluorescent_panel_01', x: 1, z: 1, ...fields }]
+  }));
+  assert.ok(bad({ range: 0 }).errors.some(e => e.includes('range must be a positive')));
+  assert.ok(bad({ falloff: 'quadratic' }).errors.some(e => e.includes('falloff must be one of')));
+  assert.ok(bad({ emission: -1 }).errors.some(e => e.includes('emission must be a finite number')));
+  assert.deepEqual(bad({ emission: 2.0 }).errors, []);
 });

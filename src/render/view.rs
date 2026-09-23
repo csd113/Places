@@ -164,17 +164,49 @@ void main() {
 }
 ";
 
+/// Fragment stage of the world pass.
+///
+/// Two independent terms make a pixel:
+///
+/// * **Lit** — `texture x vertex colour`, exactly the historical behaviour. The
+///   vertex colour already carries the baked environment light, the material
+///   tint and the per-face shading.
+/// * **Emission** — the material's own brightness, added on top and never
+///   multiplied by the light. A dark room cannot extinguish it, and it cannot
+///   brighten anything else: emission is not a light source.
+///
+/// `u_emission_vertex` selects which value feeds the emissive term. Ordinary
+/// materials use the per-batch `u_emission_color` (their `emissive x
+/// intensity`, modulated by the emissive mask when one is bound, and by the
+/// surface texture so artwork shapes the glow). Fixture faces use `1.0`, which
+/// makes the per-vertex colour the emission source: their glow is per instance
+/// (colour x intensity response) while the batch stays shared, and the lit term
+/// is multiplied by zero so exactly one term remains.
+///
+/// With no emission colour, no mask and `u_emission_vertex = 0` — every
+/// material authored before emission existed — the added term is zero and the
+/// output is bit-for-bit the old `texture2D(u_texture, v_uv) * v_color`.
 pub(super) const FRAGMENT_SHADER_SRC: &str = r"
 #ifdef GL_ES
 precision mediump float;
 #endif
 uniform sampler2D u_texture;
+uniform sampler2D u_emission_mask;
+uniform vec3 u_emission_color;
+uniform float u_emission_mask_enabled;
+uniform float u_emission_vertex;
 varying vec4 v_color;
 varying vec2 v_uv;
 
 void main() {
     vec4 tex_color = texture2D(u_texture, v_uv);
-    gl_FragColor = tex_color * v_color;
+    vec3 mask = vec3(1.0);
+    if (u_emission_mask_enabled > 0.5) {
+        mask = texture2D(u_emission_mask, v_uv).rgb;
+    }
+    vec3 emission = mix(u_emission_color, v_color.rgb, u_emission_vertex) * mask * tex_color.rgb;
+    vec3 lit = tex_color.rgb * v_color.rgb * (1.0 - u_emission_vertex);
+    gl_FragColor = vec4(lit + emission, tex_color.a * v_color.a);
 }
 ";
 
@@ -256,3 +288,11 @@ pub const DECAL_ALPHA_CUTOFF: f32 = 0.5;
 pub(super) const SCENE_ATTRIB_POS: u32 = 0;
 pub(super) const SCENE_ATTRIB_COLOR: u32 = 1;
 pub(super) const SCENE_ATTRIB_UV: u32 = 2;
+
+/// Texture unit the world pass samples a surface's own sheet from.
+pub(super) const SCENE_TEXTURE_UNIT: i32 = 0;
+/// Texture unit the world pass samples a material's emissive mask from.
+///
+/// The unit always has a bound texture (the shared white sheet when a batch has
+/// no mask), so a shader that samples it anyway still reads a defined value.
+pub(super) const EMISSION_MASK_TEXTURE_UNIT: i32 = 1;

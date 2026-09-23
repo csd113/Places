@@ -577,12 +577,24 @@ impl DoorwayCase {
         let (room_a, room_b) = if self.along_z {
             (
                 room(0.0, 0.0, self.size_a, self.floor_a, self.material_a),
-                room(self.size_a.0, 0.0, self.size_b, self.floor_b, self.material_b),
+                room(
+                    self.size_a.0,
+                    0.0,
+                    self.size_b,
+                    self.floor_b,
+                    self.material_b,
+                ),
             )
         } else {
             (
                 room(0.0, 0.0, self.size_a, self.floor_a, self.material_a),
-                room(0.0, self.size_a.1, self.size_b, self.floor_b, self.material_b),
+                room(
+                    0.0,
+                    self.size_a.1,
+                    self.size_b,
+                    self.floor_b,
+                    self.material_b,
+                ),
             )
         };
         // The wall reaches from the lower floor to the higher ceiling, so it
@@ -647,7 +659,10 @@ fn assert_exactly_one_floor_at(all: &[Triangle], probes: &[(f32, f32)], context:
         .iter()
         .filter(|triangle| triangle.kind == SurfaceKind::Floor)
         .collect();
-    assert!(!floor_triangles.is_empty(), "{context}: no floor was emitted");
+    assert!(
+        !floor_triangles.is_empty(),
+        "{context}: no floor was emitted"
+    );
     for &(x, z) in probes {
         let mut covering: Vec<(MaterialIndex, f32)> = Vec::new();
         for triangle in &floor_triangles {
@@ -728,10 +743,16 @@ fn different_floor_materials_transition_at_the_shared_boundary() {
                 .max(triangle.points[2][0]),
         );
         if triangle.material == beige {
-            assert!(mid_x < case.boundary() + 1e-3, "beige floor crossed the boundary");
+            assert!(
+                mid_x < case.boundary() + 1e-3,
+                "beige floor crossed the boundary"
+            );
         }
         if triangle.material == damp {
-            assert!(mid_x > case.boundary() - 1e-3, "damp floor crossed the boundary");
+            assert!(
+                mid_x > case.boundary() - 1e-3,
+                "damp floor crossed the boundary"
+            );
         }
     }
 }

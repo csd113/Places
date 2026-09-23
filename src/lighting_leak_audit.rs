@@ -171,19 +171,19 @@ fn reference_pool(
 ) -> [f32; 3] {
     let mut sum = [0.0f32; 3];
     for light in lighting.lights() {
-        let dx = ((x - light.x).abs() - light.half_w).max(0.0);
-        let dz = ((z - light.z).abs() - light.half_d).max(0.0);
+        let dx = ((x - light.x()).abs() - light.half_w()).max(0.0);
+        let dz = ((z - light.z()).abs() - light.half_d()).max(0.0);
         let horizontal_squared = dx * dx + dz * dz;
-        let vertical = y - light.y;
+        let vertical = y - light.y();
         let distance_squared = vertical.mul_add(vertical, horizontal_squared);
         let radius_squared = 6.0 * 6.0;
         if !distance_squared.is_finite() || distance_squared >= radius_squared {
             continue;
         }
         let source = [
-            x.clamp(light.x - light.half_w, light.x + light.half_w),
-            light.y,
-            z.clamp(light.z - light.half_d, light.z + light.half_d),
+            x.clamp(light.x() - light.half_w(), light.x() + light.half_w()),
+            light.y(),
+            z.clamp(light.z() - light.half_d(), light.z() + light.half_d()),
         ];
         // Start a millimetre along the segment so a fixture mounted flush with
         // a face is not blocked by the wall it sits on, exactly like the
@@ -211,10 +211,10 @@ fn reference_pool(
             continue;
         }
         let falloff = smooth_falloff(distance_squared.sqrt() / 6.0);
-        let strength = 0.42 * light.intensity * light.height_factor * falloff;
-        sum[0] += strength * light.color.r;
-        sum[1] += strength * light.color.g;
-        sum[2] += strength * light.color.b;
+        let strength = 0.42 * light.intensity() * light.height_factor * falloff;
+        sum[0] += strength * light.color().r;
+        sum[1] += strength * light.color().g;
+        sum[2] += strength * light.color().b;
     }
     [
         sum[0].clamp(0.0, 0.45),

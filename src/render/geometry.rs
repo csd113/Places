@@ -11,10 +11,10 @@ use super::{
     WALL_FACE_NORTH_MULT, WALL_FACE_SOUTH_MULT, WALL_FACE_WEST_MULT, WallAxis, WallCoverage,
     WallUnit, add_decal_quad, add_panel_fixture, add_prop_box, add_quad, add_round_fixture,
     add_wall_cross_quad, add_wall_fixture, add_wall_length_face, cross_section_covered,
-    decal_sheet_index, decal_uv_rect, decal_uv_rect_full, emit_floor_skirts,
-    emit_lit_surface_grid, finish_indexed_mesh, floor_surfaces, flush_wall_run,
-    interval_symmetric_difference, lit_corners, lit_surface_grid, room_is_tessellatable, shade,
-    spatial_cell_grid, subtract_rectangles, tiled_uv, wall_layout, wall_vertical_extent,
+    decal_sheet_index, decal_uv_rect, decal_uv_rect_full, emit_floor_skirts, emit_lit_surface_grid,
+    finish_indexed_mesh, floor_surfaces, flush_wall_run, interval_symmetric_difference,
+    lit_corners, lit_surface_grid, room_is_tessellatable, shade, spatial_cell_grid,
+    subtract_rectangles, tiled_uv, wall_layout, wall_vertical_extent,
 };
 use crate::level::{RoomDef, WallDef, WallSlice};
 use crate::spatial::SpatialBuckets;
@@ -982,9 +982,11 @@ fn nearest_cross_sides(
 /// A fixture's family comes from its catalog id (see
 /// `lighting::fixture_profile`): the office panel hangs just below its room's
 /// ceiling, a round downlight sits in the same plane, and a wall luminaire
-/// mounts at its authored world height. The fixture's visible glow is the same
-/// authored colour the bake emits into the room, scaled by the intensity
-/// response, so the two can never silently diverge.
+/// mounts at its authored world height. The fixture's visible glow comes from
+/// its authored colour and its **emissive** strength — by default the same
+/// intensity the bake casts into the room, so existing content is unchanged,
+/// but separately authorable (and independent of `enabled`) so a face can read
+/// bright while its light stays dim or absent.
 ///
 /// A light batch carries the family's fixture-sheet slot
 /// ([`crate::lighting::FixtureKind::index`]) so the renderer binds the PNG that
@@ -1008,14 +1010,19 @@ fn emit_fixtures(
         let (half_w, half_d) =
             crate::lighting::fixture_half_extents_for(profile.kind, light.rotation_degrees);
 
-        let intensity = light.intensity();
+        // The luminous face's emission is driven by the fixture's authored
+        // emissive strength, which defaults to its light intensity but can be
+        // authored independently: a fixture may read fully bright while casting
+        // its dim light, or glow while casting nothing at all (`enabled: false`).
+        // This value never becomes illumination — the bake reads `intensity()`.
+        let emission = light.emission_intensity();
         // An explicitly zero-output fixture is off: its panel must not glow
         // with the authored colour while emitting no illumination.
-        let output = if intensity <= 0.0 {
+        let output = if emission <= 0.0 {
             0.0
         } else {
             0.40f32
-                .mul_add(intensity.clamp(0.0, 2.0), 0.60)
+                .mul_add(emission.clamp(0.0, 2.0), 0.60)
                 .clamp(0.0, 1.0)
         };
         let color = light.emitted_color();
