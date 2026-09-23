@@ -131,6 +131,10 @@ def showcase_level() -> Dict:
         prop("core:vending_machine", -1.6, -0.2, rotation=90.0, solid=True),
         prop("core:sink", 0.9, -5.7, solid=True),
         prop("core:stove", 3.3, -5.7, solid=True),
+        # The Home kitchen run: a base cabinet flush with the sink and its
+        # wall unit hung above it, backs against the north wall.
+        prop("home:cabinet_base", 1.5, -5.7, solid=True),
+        prop("home:cabinet_wall", 1.5, -5.835, y=1.45, solid=True),
         prop("core:fridge", 6.4, -4.9, solid=True),
         prop("core:washing_machine", 7.1, 0.6, rotation=270.0, solid=True),
         # The loose drum sits in front of the machine's door. In the shipped

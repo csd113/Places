@@ -385,3 +385,79 @@ fn test_solid_prop_blocks_the_player() {
         into_prop
     );
 }
+
+/// The generic architectural pieces are real barriers and the trim is not:
+/// columns, half walls, archway piers and guardrails block, while thresholds
+/// and baseboards never appear in the collision set at all.
+#[test]
+fn test_architecture_pieces_block_and_trim_never_does() {
+    let content = std::fs::read_to_string("tests/fixtures/levels/home_showcase.json")
+        .expect("the Home showcase fixture is present");
+    let level = LevelDef::from_json(&content).expect("the Home showcase parses");
+
+    let moved = |position: Vec2, foot_y: f32| -> bool {
+        let resolved =
+            resolve_player_collision(position, PLAYER_RADIUS, foot_y, &level.collision_aabbs());
+        (resolved - position).length() > 1e-3
+    };
+
+    // A post standing on the platform blocks at the platform's floor height.
+    assert!(moved(Vec2::new(3.83, 2.23), 0.75), "the column must block");
+    // The parapet at the top of the flight blocks.
+    assert!(moved(Vec2::new(3.7, 2.3), 0.75), "the half wall must block");
+    // The guardrail is a barrier from above and from the floor below it.
+    assert!(
+        moved(Vec2::new(5.35, 3.0), 0.75),
+        "the rail blocks on the platform"
+    );
+    assert!(
+        moved(Vec2::new(5.35, 3.0), 0.0),
+        "the rail blocks from the room floor"
+    );
+    // The kitchen knee wall blocks on the tile.
+    assert!(moved(Vec2::new(6.55, 6.7), 0.0), "the knee wall must block");
+    // The archway opening is clear: a player standing in the middle of it is
+    // not pushed out, and its header is above the player's head.
+    assert!(
+        !moved(Vec2::new(6.0, 2.3), 0.0),
+        "the archway opening must never block the player"
+    );
+    assert!(
+        !moved(Vec2::new(6.0, 2.15), 0.0),
+        "the opening stays clear a player radius from its piers"
+    );
+    // The threshold in the archway is at the same spot and adds nothing.
+    assert!(
+        !moved(Vec2::new(6.0, 2.45), 0.0),
+        "a threshold strip is trim, not a step"
+    );
+
+    // Nothing that thin is ever solid: every collision box is at least a
+    // walkable step tall, so no decorative trim can snag the player.
+    for aabb in level.collision_aabbs() {
+        assert!(
+            aabb.max_y - aabb.min_y > 0.2,
+            "a trim-sized collider appeared: {aabb:?}"
+        );
+    }
+}
+
+/// A floor-region rim never blocks a step the controller could take: it
+/// carries the walkable step as headroom, so a player on a ramp or stair
+/// arriving beside it passes, while a player below the cliff is stopped.
+#[test]
+fn test_a_rim_blocks_cliffs_but_never_a_walkable_step() {
+    // A 0.75 m platform edge: the collider extends 0.4 m under the platform.
+    let rim = WallAabb::with_y(2.0, 0.0, 0.0, 0.4, 0.75, 4.0).allowing_step();
+    // A player on the lower floor is blocked...
+    assert!(rim.intersects_player_y(0.0));
+    assert!(rim.intersects_player_y(0.1));
+    // ... and a player whose feet are within the walkable step of the top is
+    // not: that is a step the controller takes anyway.
+    assert!(!rim.intersects_player_y(0.4));
+    assert!(!rim.intersects_player_y(0.75));
+    // A real wall keeps the strict rule at the same height.
+    let wall = WallAabb::with_y(2.0, 0.0, 0.0, 0.4, 0.75, 4.0);
+    assert!(wall.intersects_player_y(0.4));
+    assert!(!wall.intersects_player_y(0.75));
+}

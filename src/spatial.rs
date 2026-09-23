@@ -562,7 +562,12 @@ fn index_run(run: &[crate::render::Vertex]) -> Vec<IndexedRange> {
             current
                 .indices
                 .extend_from_slice(&[corners[0], corners[1], corners[2]]);
-            if quad.len() >= QUAD {
+            // A face can be a triangle encoded in the quad form (the emitter
+            // repeats the last corner): its second triangle has no area, so it
+            // is dropped rather than stored. `corners` are deduplicated vertex
+            // indices, so a repeated corner compares equal exactly when the
+            // emitter repeated it.
+            if quad.len() >= QUAD && corners[2] != corners[3] {
                 current
                     .indices
                     .extend_from_slice(&[corners[0], corners[2], corners[3]]);

@@ -1,3 +1,111 @@
+## Unreleased — Adversarial architecture audit
+
+A deliberate break-it pass over the Home theme's generic architectural pieces
+found and fixed a set of cross-system defects: geometry that only worked at the
+showcase's dimensions, walking surfaces that disagreed with the mesh at cell
+boundaries, and collision that could stop a player on a legal slope.
+
+### Fixed
+
+- **Ramps now close their sides.** A ramp whose high end lands on a platform of
+  its own height sampled the floor at the run's exact end, where the platform is
+  already the walking surface, and skipped the whole side skirt — leaving an
+  open wedge. The skirt samples along the run and bottoms out at the lowest
+  floor it meets.
+- **Ramp and staircase walking heights come from one definition.** The walkable
+  model re-derived a flight's run from its normalised bounds (`x1 - x0`) while
+  the renderer used the authored `width`/`depth`; a one-ulp difference flipped a
+  tread boundary and left the player standing a whole riser above the drawn
+  tread. `RampSurface`/`StairSurface` now hold the canonical maths for both.
+- **The step rule runs per movement sub-step.** Applying it to the frame's end
+  point made the loader's maximum ramp slope (2 m/m) unwalkable at 10 fps and at
+  high `walk_speed`: a frame moved a metre and the 2 m rise was refused. A
+  sub-step is at most 0.15 m, so every legal slope and exact-limit riser is now
+  climbable at any frame rate.
+- **Region rims never block a walkable step.** A rim now carries the walkable
+  step as headroom and is sampled in 0.25 m segments, so a ramp or staircase
+  arriving beside a platform edge no longer snags on the rim's backing strip
+  (which previously could stop the player part-way down a legal flight).
+- **Baseboards are placed on the wall's face and corners are solved, not
+  gapped.** The loader rejects a board buried inside a wall solid; where two
+  boards meet at a corner the later run's cap is trimmed against the earlier
+  run's cap and its front face stops at the earlier run's face, so there is no
+  coplanar surface pair and no gap. The Home showcase's north and west runs
+  (which were entirely inside their walls) are corrected.
+- **Rotated guardrail posts keep their UVs.** The post face UV axis was chosen
+  from the world normal, which collapsed a face onto a single texel column at
+  90/270 degrees (and at 45-degree-ish angles).
+- **Guardrails double as handrails.** With `y` and `rise` omitted, the rail's
+  base line follows the walkable floor from the start to the end of the run, so
+  a handrail spans a flight's first to last nosing at a constant height above
+  the treads.
+- **Ramps and flights must stay inside one floor plane.** A piece crossing rooms
+  with different `floor_y` values is rejected: it is drawn once, on one floor
+  plane, while the walkable surface resolves each room's own floor.
+- **A quad whose fourth corner collapses is a triangle.** Architecture faces
+  fold the repeated corner to the end so the index pass drops the zero-area
+  second triangle, and triangle-shaped ramp skirts no longer fail the lightmap
+  plan's patch builder.
+
+## Unreleased — Home theme and generic architectural pieces
+
+Places gains a residential **Home** theme and a set of **generic
+architectural** level primitives that any theme can use. Both are ordinary
+content: materials are catalog definitions, the pieces are level JSON drawn
+with the materials a level names, and nothing about either is hard-coded to
+Home.
+
+### Added
+
+- **Home theme** (`"theme": "home"`) with clean, residential defaults:
+  `home:wallpaper_offwhite_01`, `home:wallpaper_pattern_01`,
+  `home:wall_paint_offwhite_01`, `home:hardwood_oak_01`,
+  `home:hardwood_walnut_02`, `home:carpet_cream_01`, `home:tile_home_01`,
+  `home:ceiling_white_01`, `home:ceiling_plaster_01`,
+  `home:baseboard_wood_01`, `home:baseboard_white_01`,
+  `home:handrail_wood_01` and `home:threshold_wood_01`, each with a real
+  1024×1024 tileable PNG. Every canonical Home surface is clean: no dirt,
+  stains, water damage or wear, and the office set's dirty variants stay where
+  they are.
+- **`home:ceiling_light_round`**, a fourth fixture family: a round residential
+  flush mount whose visible face is its own 256×256 sheet with a neutral
+  emissive diffuser, drawn by a new `FixtureKind::FlushMount` (sheet slot 3).
+- **Two kitchen cabinet props**, `home:cabinet_base` and `home:cabinet_wall`,
+  off-white shaker units built by the prop toolkit.
+- **Generic architectural level primitives**, all documented and validated:
+  - `ramps[]` — straight sloped walking surfaces with a signed rise.
+  - `stairs[]` — straight flights with configurable steps, rise and materials.
+  - `half_walls[]` — capped knee walls with length, end and cap materials.
+  - `columns[]` — square/rectangular posts, ceiling-height by default.
+  - `archways[]` — wall blocks with a centred arched opening.
+  - `guardrails[]` — level or sloping rails with posts, solid by default.
+  - `thresholds[]` — collision-free floor transition strips.
+  - `baseboards[]` — collision-free skirting runs.
+- `tests/fixtures/levels/home_showcase.json` — a four-room Home level
+  (living room, hall, kitchen, bedroom) with a split-level platform reached by
+  a staircase and a ramp, an archway, a knee wall, columns, guardrails,
+  thresholds and baseboards, plus wall artwork, painted and papered walls,
+  both hardwoods, carpet, tile and both ceilings.
+
+### Changed
+
+- **Region rims now sample the walking surface**, not the bare floor grid, so
+  a staircase or ramp that arrives at a raised platform is no longer walled off
+  by that platform's rim (`collision_aabbs`, `RoomFloorGrid::push_region_rims`).
+- **Fixture sheets gain slot 3** (`FixtureKind::FlushMount`); `LIGHT_FIXTURE_IDS`
+  grows to four ids and the catalog/renderer consistency test covers it.
+- The material reference scan (`referenced_material_ids`) covers every new
+  architectural array, so a piece's material is resolved like any other surface.
+- The lighting bake treats half walls, columns, archway piers/spandrels and
+  guardrails as opaque blockers, from the same boxes collision uses.
+
+### Tooling
+
+- `tools/textures/home_art.py` and `tools/textures/lights_art.py` paint the
+  Home sheets; `tools/props/parts/home.py` builds the cabinets.
+- `tools/assets/validate.py` validates the new level arrays: material
+  references, per-surface `shine` overrides and dimensions.
+
 ## Unreleased — Surface shine and the Places Demo material pass
 
 Reflections were reading far too strong for the Places aesthetic: linoleum

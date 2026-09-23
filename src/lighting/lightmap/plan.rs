@@ -27,6 +27,7 @@
 
 use super::{
     Chart, LightmapConfig, LightmapFailure, LightmapPage, LightmapPatch, PatchKind, ShelfAllocator,
+    corners_coincident,
 };
 use crate::render::{LIGHTMAP_NONE, Vertex};
 
@@ -180,12 +181,25 @@ impl LightmapPlan {
             return false;
         };
         let edge = self.config.page_edge;
-        let uvs = [
-            chart.uv_at(edge, 0.0, 0.0),
-            chart.uv_at(edge, 1.0, 0.0),
-            chart.uv_at(edge, 1.0, 1.0),
-            chart.uv_at(edge, 0.0, 1.0),
-        ];
+        // A folded-triangle quad repeats its last corner: the third corner is
+        // the triangle's second edge (`v = 1`) and carries no `u`, so its chart
+        // coordinate must not be the quad's `(1, 1)`.
+        let folded = corners_coincident(corners[2], corners[3]);
+        let uvs = if folded {
+            [
+                chart.uv_at(edge, 0.0, 0.0),
+                chart.uv_at(edge, 1.0, 0.0),
+                chart.uv_at(edge, 0.0, 1.0),
+                chart.uv_at(edge, 0.0, 1.0),
+            ]
+        } else {
+            [
+                chart.uv_at(edge, 0.0, 0.0),
+                chart.uv_at(edge, 1.0, 0.0),
+                chart.uv_at(edge, 1.0, 1.0),
+                chart.uv_at(edge, 0.0, 1.0),
+            ]
+        };
         let page = u8::try_from(chart.page).unwrap_or(LIGHTMAP_NONE);
         for (offset, corner) in [0usize, 1, 2, 0, 2, 3].into_iter().enumerate() {
             let Some(vertex) = vertices.get_mut(first.saturating_add(offset)) else {

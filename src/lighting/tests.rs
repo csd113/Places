@@ -1071,7 +1071,8 @@ fn level_with_fixture_families() -> LevelDef {
               "color": [0.7, 0.85, 1.0], "brightness": 1.0 },
             { "fixture": "core:pool_light_wall", "x": 10.0, "z": 0.2,
               "mount": "wall", "y": 2.2, "color": [0.7, 0.85, 1.0], "brightness": 0.8 },
-            { "fixture": "core:does_not_exist", "x": 7.0, "z": 8.0 }
+            { "fixture": "core:does_not_exist", "x": 7.0, "z": 8.0 },
+            { "fixture": "home:ceiling_light_round", "x": 11.0, "z": 8.0 }
         ]
     }"#;
     LevelDef::from_json(json).expect("fixture level parses")
@@ -1103,9 +1104,27 @@ fn fixture_families_own_their_footprint_and_mount() {
         "a round fixture is rotation-invariant"
     );
 
+    let flush = fixture_profile("home:ceiling_light_round");
+    assert_eq!(flush.kind, FixtureKind::FlushMount);
+    assert_eq!(
+        (flush.half_width, flush.half_depth),
+        (
+            crate::lighting::FLUSH_MOUNT_RADIUS_M,
+            crate::lighting::FLUSH_MOUNT_RADIUS_M
+        )
+    );
+    assert_eq!(
+        fixture_half_extents_for(FixtureKind::FlushMount, 90.0),
+        (
+            crate::lighting::FLUSH_MOUNT_RADIUS_M,
+            crate::lighting::FLUSH_MOUNT_RADIUS_M
+        ),
+        "a round fixture is rotation-invariant"
+    );
+
     let level = level_with_fixture_families();
     let lighting = LevelLighting::bake(&level);
-    assert_eq!(lighting.lights().len(), 3);
+    assert_eq!(lighting.lights().len(), 4);
 
     // A ceiling fixture hangs just below the room ceiling; a wall fixture
     // stays at its authored height.
@@ -1117,6 +1136,14 @@ fn fixture_families_own_their_footprint_and_mount() {
     let wall = lighting.lights()[1];
     assert!((wall.y() - 2.2).abs() < 1e-4, "{wall:?}");
     assert!((wall.half_w() - 0.20).abs() < 1e-4);
+    // The residential flush mount hangs just below the ceiling like the round
+    // pool downlight, with its own disc footprint.
+    let flush = lighting.lights()[3];
+    assert!(
+        (flush.y() - (4.0 - FIXTURE_DROP_M)).abs() < 1e-4,
+        "{flush:?}"
+    );
+    assert!((flush.half_w() - crate::lighting::FLUSH_MOUNT_RADIUS_M).abs() < 1e-4);
     // The unknown id is baked with the panel footprint, not skipped.
     let unknown = lighting.lights()[2];
     assert!((unknown.half_w() - 0.6).abs() < 1e-4);

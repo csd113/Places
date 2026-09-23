@@ -113,9 +113,9 @@ unknown classes so typos (`enviroment`) cannot slip through.
 ### Theme (`theme`)
 
 An organizational environment collection, absent for generic/shared content.
-The built-in themes are **`office`** and **`pool`**. Themes are data:
-add a `themes` record and future `hotel`/`school`/`residential` assets resolve
-without touching Rust.
+The built-in themes are **`office`**, **`pool`** and **`home`**. Themes are data:
+add a `themes` record and a future `hotel`/`school` theme resolves without
+touching Rust.
 
 **Themes organize, they never restrict.** There is no code path that rejects an
 asset because a room has a different theme; the runtime deliberately exposes no
@@ -254,6 +254,7 @@ footprint the bake treats as a light source. The built-in families are:
 | `core:fluorescent_panel_01` | recessed 1.2 x 0.6 m twin-tube office panel | ceiling (height derived from the room) |
 | `core:pool_light_round` | round recessed downlight, 0.44 m | ceiling (height derived from the room) |
 | `core:pool_light_wall` | shallow wall luminaire | wall: needs `"mount": "wall"` and a world `"y"` |
+| `home:ceiling_light_round` | round residential flush mount: a shallow white drum with a glowing diffuser disc | ceiling (height derived from the room) |
 
 A fixture's **mesh** is generated geometry, but its **visible face** is ordinary
 external artwork, exactly like a decal sheet: the light entry's `model` names
@@ -271,6 +272,11 @@ and no recompilation.
 * `core:pool_light_wall` — `environment/pool/textures/lights/pool_light_wall_01.png`
   (128x64): the lens face, `u` across its 0.4 m width and `v` up its 0.2 m
   height.
+* `home:ceiling_light_round` — `environment/home/textures/lights/ceiling_light_round_01.png`
+  (256x256): the diffuser seen face-on; the sheet centre is the fixture centre
+  and its inscribed circle is the diffuser's outer radius. The drum, its bottom
+  rim and the centre boss behind the diffuser's small centre hole are
+  untextured body geometry.
 
 Fixture appearance and emitted light are separate: `color` and `brightness` are
 authored per placed light and drive both the visible panel and the illumination

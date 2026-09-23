@@ -3516,7 +3516,8 @@ fn fixture_family_level() -> LevelDef {
                 { "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 3.0 },
                 { "fixture": "core:pool_light_round", "x": 6.0, "z": 3.0 },
                 { "fixture": "core:pool_light_wall", "x": 10.0, "z": 3.0,
-                  "mount": "wall", "y": 1.7 }
+                  "mount": "wall", "y": 1.7 },
+                { "fixture": "home:ceiling_light_round", "x": 4.0, "z": 3.0 }
             ]
         }"#,
     )
@@ -3525,7 +3526,7 @@ fn fixture_family_level() -> LevelDef {
 
 /// The sheet slot of a family, as the mesh format carries it.
 fn sheet_slot(kind: crate::lighting::FixtureKind) -> MaterialIndex {
-    MaterialIndex::try_from(kind.index()).expect("three families fit u16")
+    MaterialIndex::try_from(kind.index()).expect("four families fit u16")
 }
 
 /// UV extents of a vertex run, as `(min_u, max_u, min_v, max_v)`.
@@ -3553,7 +3554,7 @@ fn quad_area(points: [[f32; 2]; 4]) -> f32 {
 
 #[test]
 fn every_fixture_family_has_a_stable_sheet_slot() {
-    assert_eq!(crate::lighting::FixtureKind::ALL.len(), 3);
+    assert_eq!(crate::lighting::FixtureKind::ALL.len(), 4);
     for (slot, kind) in crate::lighting::FixtureKind::ALL.iter().enumerate() {
         assert_eq!(kind.index(), slot, "{kind:?} drifted to another sheet slot");
     }
@@ -3575,6 +3576,7 @@ fn fixture_faces_carry_their_own_family_sheet_and_the_housing_stays_bare() {
         (FixtureKind::FluorescentPanel, 1),
         (FixtureKind::RoundRecessed, 10),
         (FixtureKind::WallSconce, 1),
+        (FixtureKind::FlushMount, 10),
     ] {
         let lit = mesh.triangles_for_key(SurfaceKey::new(SurfaceKind::Light, sheet_slot(kind)));
         assert_eq!(
@@ -3585,14 +3587,15 @@ fn fixture_faces_carry_their_own_family_sheet_and_the_housing_stays_bare() {
     }
 
     // The flat metal housing keeps the bare key: the round bezel ring plus
-    // can, and the wall housing's four sides. The panel is its sheet alone,
-    // with no generated bezel beside the artwork.
+    // can, the wall housing's four sides, and the flush mount's drum, bottom
+    // rim and centre boss. The panel is its sheet alone, with no generated
+    // bezel beside the artwork.
     let housing = mesh.triangles_for_key(SurfaceKey::bare(SurfaceKind::Light));
-    assert_eq!(housing.len(), (20 + 4) * 6);
+    assert_eq!(housing.len(), (20 + 4 + 10 + 10 + 1) * 6);
     let lit_plus_housing = batch_slice(&mesh, SurfaceKind::Light).len();
     assert_eq!(
         lit_plus_housing,
-        housing.len() + (1 + 10 + 1) * 6,
+        housing.len() + (1 + 10 + 1 + 10) * 6,
         "every fixture quad is either a lit face or housing"
     );
 }
@@ -3675,6 +3678,40 @@ fn fixture_sheets_are_fitted_once_and_keep_their_aspect() {
         (outermost - radius).abs() < 1e-5,
         "the diffuser's outer edge is the sheet's inscribed circle, found {outermost}"
     );
+    // Residential flush mount: the same planar, isotropic mapping over the
+    // sheet's inscribed circle, with the diffuser inset behind the drum's rim.
+    let flush = sheet(FixtureKind::FlushMount);
+    let (fu0, fu1, fv0, fv1) = uv_bounds(&flush);
+    assert!(
+        fu0 >= 0.0 && fu1 <= 1.0 && fv0 >= 0.0 && fv1 <= 1.0,
+        "the flush-mount diffuser samples the sheet once"
+    );
+    let flush_radius = crate::lighting::FLUSH_MOUNT_RADIUS_M;
+    let (fx0, fx1, fz0, fz1) = xz_bounds(&flush);
+    let flush_centre_x = f32::midpoint(fx0, fx1);
+    let flush_centre_z = f32::midpoint(fz0, fz1);
+    let mut flush_outermost = 0.0_f32;
+    for vertex in &flush {
+        let dx = vertex.pos[0] - flush_centre_x;
+        let dz = vertex.pos[2] - flush_centre_z;
+        flush_outermost = flush_outermost.max(dx.hypot(dz));
+        let expected = [
+            (dx / flush_radius).mul_add(0.5, 0.5),
+            (dz / flush_radius).mul_add(0.5, 0.5),
+        ];
+        assert!(
+            (vertex.uv[0] - expected[0]).abs() < 1e-5 && (vertex.uv[1] - expected[1]).abs() < 1e-5,
+            "the diffuser's UVs are planar in the fixture plane: {:?} vs {expected:?}",
+            vertex.uv
+        );
+    }
+    // The diffuser stops short of the fixture's outer radius by its inset, so
+    // the drum's own rim shows as a ring around the glowing face.
+    assert!(
+        (flush_outermost - (flush_radius - 0.012)).abs() < 1e-5,
+        "the diffuser edge is the inset radius, found {flush_outermost}"
+    );
+
     // Orientation: every segment's UV ring winds the same way as its world
     // ring, so no segment is mirrored. A six-vertex quad chunk is
     // [p0, p1, p2, p0, p2, p3], so its corners are indices 0, 1, 2 and 5.
@@ -5884,4 +5921,195 @@ fn the_hud_and_every_plain_batch_draw_with_no_response_and_no_alpha() {
     assert!((state.opacity - 1.0).abs() < f32::EPSILON);
     assert!((state.alpha_cutoff - DECAL_ALPHA_CUTOFF).abs() < f32::EPSILON);
     assert_eq!(state.emission, EmissionState::NONE);
+}
+
+// ------------------------------------------------- generic architecture
+
+/// The committed Home showcase: every generic architectural piece and every
+/// Home material in one level.
+fn home_showcase() -> crate::level::LevelDef {
+    crate::level::LevelDef::from_json(include_str!(
+        "../../tests/fixtures/levels/home_showcase.json"
+    ))
+    .expect("the Home showcase fixture parses")
+}
+
+#[test]
+fn test_the_home_showcase_bakes_lightmaps_with_every_surface_vertex_charted() {
+    let level = home_showcase();
+    let build = lightmap_build(
+        &level,
+        crate::quality::QualityProfile::Full,
+        LightmapMode::On,
+    );
+    assert_eq!(
+        build.lightmap_failure, None,
+        "the showcase must bake cleanly"
+    );
+    let lightmaps = build
+        .lightmaps
+        .as_deref()
+        .expect("the showcase must produce an atlas");
+    assert!(lightmaps.chart_count() > 0);
+    for range in &build.mesh.ranges {
+        for vertex in &range.vertices {
+            match range.key.kind {
+                SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall => {
+                    assert!(
+                        vertex.is_lightmapped(),
+                        "a static surface vertex must carry a chart"
+                    );
+                    assert!(
+                        vertex_in_some_chart(lightmaps, vertex),
+                        "a lightmapped vertex must sample inside its own chart"
+                    );
+                }
+                SurfaceKind::Light | SurfaceKind::PropFallback | SurfaceKind::Decal => {
+                    assert!(
+                        !vertex.is_lightmapped(),
+                        "fixtures, prop boxes and decals stay vertex-lit"
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// Every architectural face is a real, finite, correctly wound quad, and the
+/// archway's opening is genuinely open geometry.
+#[test]
+fn test_the_home_showcase_architecture_is_well_formed() {
+    let level = home_showcase();
+    let mesh = build_level_geometry(&level);
+    assert!(mesh.vertex_count > 0);
+    // The mesh is an indexed triangle list. Faces are emitted as quads almost
+    // everywhere, but a face whose fourth corner collapses (a ramp side landing
+    // flush on a floor, a baseboard cap trimmed at a corner) is a real triangle,
+    // and every emitted triangle must still have area — checked below.
+    assert_eq!(mesh.index_count % 3, 0, "the mesh is a triangle list");
+
+    let normal = |a: [f32; 3], b: [f32; 3], c: [f32; 3]| -> [f32; 3] {
+        let u = glam::Vec3::from(b) - glam::Vec3::from(a);
+        let v = glam::Vec3::from(c) - glam::Vec3::from(a);
+        (u.cross(v)).to_array()
+    };
+    for range in &mesh.ranges {
+        let vertices: Vec<Vertex> = range
+            .indices
+            .iter()
+            .filter_map(|index| range.vertices.get(usize::from(*index)).copied())
+            .collect();
+        for triangle in vertices.as_chunks::<3>().0 {
+            let n = normal(triangle[0].pos, triangle[1].pos, triangle[2].pos);
+            assert!(
+                n.iter().all(|value| value.is_finite()),
+                "{:?} has a non-finite normal",
+                range.key.kind
+            );
+            assert!(
+                glam::Vec3::from(n).length() > 1e-6,
+                "{:?} has a degenerate triangle",
+                range.key.kind
+            );
+            match range.key.kind {
+                SurfaceKind::Floor => assert!(n[1] > 0.0, "a floor triangle faces down: {n:?}"),
+                SurfaceKind::Ceiling => assert!(n[1] < 0.0, "a ceiling triangle faces up: {n:?}"),
+                // A fixture's *sheet* face looks down into the room; its
+                // untextured housing (bezel, drum, can) has real side walls.
+                SurfaceKind::Light if range.key.has_material() => {
+                    assert!(n[1] < 0.0, "a fixture face must look down: {n:?}");
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // The ramp's sloped top must be tilted, not flat: it is the one place the
+    // level's floors are not horizontal.
+    let floors = batch_slice(&mesh, SurfaceKind::Floor);
+    let tilted = floors.as_chunks::<3>().0.iter().any(|triangle| {
+        let n = normal(triangle[0].pos, triangle[1].pos, triangle[2].pos);
+        let length = glam::Vec3::from(n).length();
+        (n[1] / length) < 0.999
+    });
+    assert!(tilted, "the ramp contributes a sloped floor surface");
+
+    // The archway's opening is open: no architecture vertex sits inside the
+    // clear volume between its piers and under its springing line.
+    for triangle in mesh
+        .ranges
+        .iter()
+        .filter(|range| {
+            matches!(
+                range.key.kind,
+                SurfaceKind::Floor | SurfaceKind::Wall | SurfaceKind::Ceiling
+            )
+        })
+        .flat_map(|range| range.vertices.iter())
+    {
+        let [x, y, z] = triangle.pos;
+        let inside = x > 5.87 && x < 6.13 && z > 1.84 && z < 2.76 && y > 0.02 && y < 1.83;
+        assert!(
+            !inside,
+            "the archway's clear volume has geometry in it at {x}, {y}, {z}"
+        );
+    }
+}
+
+/// Every material a generic piece names is resolved and actually drawn.
+///
+/// This is the regression test for the scan that collects a level's material
+/// references: a piece whose material was missed renders the bare white sheet
+/// instead of its own surface, which is exactly the kind of silent fallback the
+/// generic architecture must never have.
+#[test]
+fn test_the_home_showcase_draws_every_architectural_material() {
+    let level = home_showcase();
+    let materials = logical_materials(&level);
+    let mesh = build_level_geometry(&level);
+    for id in [
+        "home:hardwood_oak_01",
+        "home:wall_paint_offwhite_01",
+        "home:baseboard_white_01",
+        "home:baseboard_wood_01",
+        "home:handrail_wood_01",
+        "home:threshold_wood_01",
+    ] {
+        let index = materials
+            .index_of(id)
+            .unwrap_or_else(|| panic!("{id} must resolve in the level's material table"));
+        assert!(
+            mesh.ranges.iter().any(|range| range.key.material == index),
+            "{id} must be drawn by at least one batch"
+        );
+    }
+
+    // The living room's north baseboard is trim: its faces stand proud of the
+    // wall plane (z = 0) by the board's own thickness, so it never shares the
+    // wall's plane.
+    let wood = materials
+        .index_of("home:baseboard_wood_01")
+        .expect("the wood baseboard resolves");
+    let mut seen = false;
+    for range in &mesh.ranges {
+        if range.key.material != wood {
+            continue;
+        }
+        let vertices: Vec<Vertex> = range
+            .indices
+            .iter()
+            .filter_map(|index| range.vertices.get(usize::from(*index)).copied())
+            .collect();
+        for vertex in &vertices {
+            let [x, y, z] = vertex.pos;
+            if (0.0..6.0).contains(&x) && (0.0..=0.09).contains(&y) {
+                assert!(
+                    z >= -1e-4,
+                    "a baseboard vertex sits behind the wall plane: {z}"
+                );
+                seen = true;
+            }
+        }
+    }
+    assert!(seen, "the living room's baseboard must be drawn");
 }

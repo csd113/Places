@@ -222,9 +222,10 @@ fn intern_texture(
 /// Every material id a level references, in first-reference order.
 ///
 /// The scan covers defaults, rooms, walls (including per-face overrides),
-/// floor patches and floor regions (floor and transition-edge materials). It is
-/// deterministic even though `WallDef::faces` is a map, so the material index
-/// of an id never depends on hash order.
+/// floor patches and regions, and every generic architectural piece (ramps,
+/// staircases, half walls, columns, archways, guardrails, thresholds and
+/// baseboards). It is deterministic even though `WallDef::faces` is a map, so
+/// the material index of an id never depends on hash order.
 #[must_use]
 pub fn referenced_material_ids(level: &LevelDef) -> Vec<String> {
     let mut ids: Vec<String> = Vec::new();
@@ -272,7 +273,56 @@ pub fn referenced_material_ids(level: &LevelDef) -> Vec<String> {
             push(material);
         }
     }
+    push_architecture_materials(level, &mut push);
     ids
+}
+
+/// Pushes every material id the level's generic architectural pieces name.
+///
+/// Split out of [`referenced_material_ids`] so the scan stays one readable
+/// list per asset class; the order is the authored order of the arrays.
+fn push_architecture_materials(level: &LevelDef, push: &mut impl FnMut(&str)) {
+    let mut push_all = |materials: [Option<&String>; 3]| {
+        for material in materials.into_iter().flatten() {
+            push(material);
+        }
+    };
+    for ramp in &level.ramps {
+        push_all([ramp.material.as_ref(), ramp.edge_material.as_ref(), None]);
+    }
+    for stair in &level.stairs {
+        push_all([
+            stair.material.as_ref(),
+            stair.riser_material.as_ref(),
+            stair.side_material.as_ref(),
+        ]);
+    }
+    for piece in &level.half_walls {
+        push_all([
+            piece.material.as_ref(),
+            piece.end_material.as_ref(),
+            piece.cap_material.as_ref(),
+        ]);
+    }
+    for piece in &level.columns {
+        push_all([piece.material.as_ref(), piece.cap_material.as_ref(), None]);
+    }
+    for piece in &level.archways {
+        push_all([
+            piece.material.as_ref(),
+            piece.reveal_material.as_ref(),
+            None,
+        ]);
+    }
+    for rail in &level.guardrails {
+        push_all([rail.material.as_ref(), rail.post_material.as_ref(), None]);
+    }
+    for strip in &level.thresholds {
+        push_all([strip.material.as_ref(), None, None]);
+    }
+    for board in &level.baseboards {
+        push_all([board.material.as_ref(), None, None]);
+    }
 }
 
 /// Builds a material description before its image is resolved.

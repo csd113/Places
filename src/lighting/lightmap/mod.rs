@@ -151,10 +151,9 @@ pub struct LightmapPatch {
 }
 
 impl LightmapPatch {
-    /// Builds the patch for one planar quad, from its four world corners in the
-    /// winding the mesh emits (`p0, p1, p2, p3` of the quad, counter-clockwise
+    /// Builds the patch for one planar quad, from its four world corners in
+    /// the winding the mesh emits (`p0, p1, p2, p3` of the quad, counter-clockwise
     /// as a single loop).
-    ///
     /// `u` runs `p0 -> p1` and `v` runs `p0 -> p3`. Returns `None` for a
     /// degenerate or non-finite quad: an axis shorter than
     /// [`MIN_PATCH_AXIS_M`], an area below [`MIN_PATCH_AREA_M2`], or any
@@ -184,11 +183,15 @@ impl LightmapPatch {
             return None;
         }
         // Guard against a bow-tie or a wildly non-planar quad: the fourth
-        // corner has to close the loop within its own frame.
-        let closing = subtract(add(add(p0, u_axis), v_axis), p2);
-        let diag = u_len.hypot(v_len);
-        if length(closing) > diag * 0.5 {
-            return None;
+        // corner has to close the loop within its own frame. A quad whose last
+        // two corners coincide is really a triangle (a ramp skirt landing flush
+        // on a floor), so it has no fourth corner to close.
+        if !corners_coincident(p2, p3) {
+            let closing = subtract(add(add(p0, u_axis), v_axis), p2);
+            let diag = u_len.hypot(v_len);
+            if length(closing) > diag * 0.5 {
+                return None;
+            }
         }
         Some(Self {
             origin: p0,
@@ -431,6 +434,18 @@ fn texels_for(metres: f32, texels_per_metre: f32, cap: u32) -> u32 {
 }
 
 /// `a - b` for two world positions.
+/// True when two corners are the same point, within the patch builder's
+/// tolerance.
+///
+/// Used to recognise the folded-triangle quad form (a triangle emitted in the
+/// quad form with its last corner repeated), which has no fourth corner and so
+/// skips the closing check.
+#[must_use]
+pub fn corners_coincident(a: [f32; 3], b: [f32; 3]) -> bool {
+    let d = subtract(a, b);
+    dot(d, d) <= 1.0e-12
+}
+
 fn subtract(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
     [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
 }

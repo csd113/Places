@@ -92,12 +92,24 @@ fn shipped_catalog_classifies_environments_themes_and_entities() {
         Some("environment/office/textures/floors/carpet_beige_01.png")
     );
 
+    // The Home theme's own fixture is catalogued with its visible face, exactly
+    // like the office and pool families, so a Home level draws a real textured
+    // lamp rather than the fallback sheet.
+    assert_eq!(
+        catalog.fixture_sheet_path("home:ceiling_light_round"),
+        Some("environment/home/textures/lights/ceiling_light_round_01.png")
+    );
+    assert_eq!(
+        catalog.texture_path("home:tex_hardwood_oak_01"),
+        Some("environment/home/textures/floors/hardwood_oak_01.png")
+    );
+
     let themes: Vec<&str> = catalog
         .themes()
         .iter()
         .map(|theme| theme.id.as_str())
         .collect();
-    assert_eq!(themes, ["office", "pool"]);
+    assert_eq!(themes, ["office", "pool", "home"]);
     assert!(
         catalog
             .themes()

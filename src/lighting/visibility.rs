@@ -742,6 +742,15 @@ impl Occluders {
         for wall in &level.walls {
             append_wall_blockers(&mut walls, wall, &surfaces);
         }
+        // The solid architectural pieces — half walls, columns, archway piers
+        // and spandrels, guardrails — occlude baked light exactly like a wall
+        // slice, from the same boxes collision uses. Thresholds and baseboards
+        // are deliberately absent: they are trim, not barriers.
+        for solid in level.architecture_solids() {
+            if let Some(blocker) = Blocker::from_corners(solid.min, solid.max) {
+                walls.push(blocker);
+            }
+        }
         let mut horizontals: Vec<Horizontal> = Vec::new();
         append_room_horizontals(&mut horizontals, &surfaces);
         let props = super::occlusion::level_occluders(level, &surfaces);

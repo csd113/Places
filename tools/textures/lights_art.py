@@ -261,6 +261,66 @@ def build_pool_light_wall() -> Canvas:
     return canvas
 
 
+# ---------------------------------------------------------------- home, round
+#
+# The home flush-mount's diffuser seen face-on: 256x256, the same mapping as
+# the pool round downlight (image centre = fixture centre, the inscribed circle
+# = the diffuser's own radius), so the two round faces can share a fixture
+# family. It is a neutral white opal drum, not a tinted fixture: the vertex
+# emission multiplies a near-white sheet, and a coloured light only ever tints
+# the illumination it bakes into the room.
+
+HOME_ROUND_SIZE = 256
+HOME_ROUND_CENTRE = (HOME_ROUND_SIZE - 1) * 0.5
+HOME_ROUND_INSCRIBED = HOME_ROUND_SIZE * 0.5
+
+HOME_DISC_CENTRE = (252.0, 250.0, 244.0)  # the lamp's warm-neutral core
+HOME_DISC_RIM = (231.0, 228.0, 221.0)     # the diffuser at its outer edge
+HOME_DISC_BEZEL = (221.0, 218.0, 212.0)   # flat tone outside the inscribed circle
+HOME_RIM_LINE = 0.90                      # fractional radius of the rim moulding
+
+
+def build_home_ceiling_light_round() -> Canvas:
+    """The home flush-mount's diffuser face: opal disc, one rim line, a centre hint.
+
+    A soft radial tone runs from the bright centre to the settled rim, one
+    moulded line sits just inside the rim and a small centre cap gives the
+    middle a little structure.  There is no radial ribbing and no tint: this
+    is an ordinary white residential diffuser.  Everything outside the
+    inscribed circle is a single flat bezel tone (the sheet corners are never
+    sampled as the face, but they are what a distant mip averages against).
+    """
+    canvas = Canvas(HOME_ROUND_SIZE, HOME_ROUND_SIZE)
+    for y in range(HOME_ROUND_SIZE):
+        for x in range(HOME_ROUND_SIZE):
+            dx = x + 0.5 - HOME_ROUND_CENTRE
+            dy = y + 0.5 - HOME_ROUND_CENTRE
+            radius = math.hypot(dx, dy) / HOME_ROUND_INSCRIBED
+            if radius > 1.0:
+                canvas.set(x, y, HOME_DISC_BEZEL)
+                continue
+            # Radial tone: flat through the middle, settling towards the rim.
+            ease = smoothstep(radius, 0.22, 1.0)
+            r = HOME_DISC_RIM[0] + (HOME_DISC_CENTRE[0] - HOME_DISC_RIM[0]) * (1.0 - ease)
+            g = HOME_DISC_RIM[1] + (HOME_DISC_CENTRE[1] - HOME_DISC_RIM[1]) * (1.0 - ease)
+            b = HOME_DISC_RIM[2] + (HOME_DISC_CENTRE[2] - HOME_DISC_RIM[2]) * (1.0 - ease)
+            tone = 1.0
+            # The concentric rim moulding with its lit lip just inside.
+            line = 1.0 - smoothstep(abs(radius - HOME_RIM_LINE), 0.0, 0.026)
+            lip = 1.0 - smoothstep(abs(radius - (HOME_RIM_LINE - 0.045)), 0.0, 0.018)
+            tone *= 1.0 - 0.018 * line
+            tone *= 1.0 + 0.008 * lip
+            # A hint of the centre cap: a small capped core and its edge.
+            cap = 1.0 - smoothstep(radius, 0.06, 0.16)
+            cap_edge = 1.0 - smoothstep(abs(radius - 0.145), 0.0, 0.020)
+            tone *= 1.0 + 0.005 * cap
+            tone *= 1.0 - 0.010 * cap_edge
+            # A whisper of diffuser grain so a large face never goes dead flat.
+            tone *= 1.0 + (hash01(x, y, 811) - 0.5) * 0.008
+            canvas.set(x, y, (r * tone, g * tone, b * tone))
+    return canvas
+
+
 # ------------------------------------------------------------------ manifest
 
 ART = {
@@ -277,6 +337,11 @@ ART = {
     "core:pool_light_wall": {
         "model": "environment/pool/textures/lights/pool_light_wall_01.png",
         "build": build_pool_light_wall,
+        "kind": "light",
+    },
+    "home:ceiling_light_round": {
+        "model": "environment/home/textures/lights/ceiling_light_round_01.png",
+        "build": build_home_ceiling_light_round,
         "kind": "light",
     },
 }

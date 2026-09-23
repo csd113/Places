@@ -43,6 +43,32 @@ def cargo_version() -> str:
     return match.group(1)
 
 
+
+def decode_png(path: Path):
+    """Decodes a repository PNG as ``(width, height, pixels, channels)``.
+
+    test_package is stdlib-only like the tooling it mirrors, so the decoder
+    comes from the texture toolkit rather than from an image library.
+    """
+    sys.path.insert(0, str(PACKAGE / "tools" / "textures"))
+    from seam_repair import read_png  # noqa: PLC0415
+
+    image = read_png(str(path))
+    channels = len(image.pixels) // (image.width * image.height)
+    return image.width, image.height, image.pixels, channels
+
+
+def pixel_mean(decoded) -> float:
+    """Mean luminance of a decoded image, in 0..255."""
+    _width, _height, pixels, channels = decoded
+    total = 0
+    count = 0
+    for index in range(0, len(pixels), channels):
+        total += pixels[index] + pixels[index + 1] + pixels[index + 2]
+        count += 3
+    return total / count
+
+
 def catalog() -> dict:
     return validate.load_catalog(str(PACKAGE / "assets" / "catalog.json"))
 
@@ -750,6 +776,164 @@ class EnvironmentTextureTests(unittest.TestCase):
             # powers of two for the ES 2.0 target.
             for dimension in (width, height):
                 self.assertEqual(dimension & (dimension - 1), 0, f"{fixture['id']}: {dimension}")
+
+
+class HomeContentTests(unittest.TestCase):
+    """The Home theme is shipped content, and its materials stay clean."""
+
+    HOME_MATERIALS = (
+        "home:wallpaper_offwhite_01",
+        "home:wallpaper_pattern_01",
+        "home:wall_paint_offwhite_01",
+        "home:hardwood_oak_01",
+        "home:hardwood_walnut_02",
+        "home:carpet_cream_01",
+        "home:tile_home_01",
+        "home:ceiling_white_01",
+        "home:ceiling_plaster_01",
+        "home:baseboard_wood_01",
+        "home:baseboard_white_01",
+        "home:handrail_wood_01",
+        "home:threshold_wood_01",
+    )
+    HOME_FIXTURE = "home:ceiling_light_round"
+    HOME_PROPS = ("home:cabinet_base", "home:cabinet_wall")
+
+    def test_home_content_is_classified_and_organized(self):
+        by_id = {entry["id"]: entry for entry in catalog_entries()}
+        for material_id in self.HOME_MATERIALS:
+            material = by_id.get(material_id)
+            self.assertIsNotNone(material, material_id)
+            self.assertEqual(material["theme"], "home", material_id)
+            self.assertEqual(material["asset_type"], "material", material_id)
+            self.assertEqual(material["source"], "definition", material_id)
+            texture = by_id[material["texture"]]
+            self.assertTrue(texture["model"].startswith("environment/home/"), material_id)
+            self.assertTrue((PACKAGE / "assets" / texture["model"]).is_file(), material_id)
+        for prop_id in self.HOME_PROPS:
+            prop = by_id[prop_id]
+            self.assertEqual(prop["theme"], "home", prop_id)
+            self.assertTrue(prop["model"].startswith("environment/home/"), prop_id)
+            self.assertTrue((PACKAGE / "assets" / prop["model"]).is_file(), prop_id)
+        fixture = by_id[self.HOME_FIXTURE]
+        self.assertEqual(fixture["theme"], "home", self.HOME_FIXTURE)
+        self.assertEqual(fixture["asset_type"], "light", self.HOME_FIXTURE)
+        self.assertTrue(fixture["model"].startswith("environment/home/"), self.HOME_FIXTURE)
+        self.assertTrue((PACKAGE / "assets" / fixture["model"]).is_file(), self.HOME_FIXTURE)
+
+    def test_the_home_surfaces_are_clean_and_hardwood_has_two_tones(self):
+        """The canonical Home set carries no damage and offers two woods.
+
+        "Clean" is enforced at the palette level: a Home surface sheet's darkest
+        pixels must stay within a few percent of its base tone, so no sheet can
+        ship a stain, a water tide or mould as its default appearance. Dirty
+        variants stay in their own materials, as the office set already does.
+        """
+        by_id = {entry["id"]: entry for entry in catalog_entries()}
+
+        def decoded(model: str):
+            return decode_png(PACKAGE / "assets" / model)
+
+        for material_id, minimum_mean in (
+            ("home:wallpaper_offwhite_01", 150),
+            ("home:wallpaper_pattern_01", 150),
+            ("home:wall_paint_offwhite_01", 150),
+            ("home:hardwood_oak_01", 60),
+            ("home:hardwood_walnut_02", 40),
+            ("home:carpet_cream_01", 120),
+            ("home:tile_home_01", 150),
+            ("home:ceiling_white_01", 150),
+            ("home:ceiling_plaster_01", 150),
+        ):
+            texture = by_id[by_id[material_id]["texture"]]
+            width, height, pixels, channels = decoded(texture["model"])
+            del width, height
+            totals = [0, 0, 0]
+            darkest = [255, 255, 255]
+            count = 0
+            for index in range(0, len(pixels), channels):
+                red, green, blue = pixels[index], pixels[index + 1], pixels[index + 2]
+                totals[0] += red
+                totals[1] += green
+                totals[2] += blue
+                darkest[0] = min(darkest[0], red)
+                darkest[1] = min(darkest[1], green)
+                darkest[2] = min(darkest[2], blue)
+                count += 1
+            for channel in range(3):
+                mean = totals[channel] / count
+                # A stain or a water tide darkens a channel by tens of levels;
+                # a clean residential surface stays within a gentle margin.
+                self.assertGreater(
+                    darkest[channel],
+                    mean - 60,
+                    f"{material_id} has a dark stain in channel {channel}",
+                )
+                self.assertGreater(
+                    mean, minimum_mean, f"{material_id} is darker than its clean base tone"
+                )
+
+        # Two genuinely different hardwoods: tone and plank scale differ.
+        oak = by_id["home:hardwood_oak_01"]
+        walnut = by_id["home:hardwood_walnut_02"]
+        self.assertNotEqual(oak["tile_metres"], walnut["tile_metres"])
+        oak_mean = pixel_mean(decoded(by_id[oak["texture"]]["model"]))
+        walnut_mean = pixel_mean(decoded(by_id[walnut["texture"]]["model"]))
+        self.assertGreater(
+            oak_mean - walnut_mean,
+            20,
+            "the two hardwoods must read as different floors, not a tint",
+        )
+
+    def test_the_home_showcase_exercises_every_generic_piece(self):
+        """The Home fixture level demonstrates each new architectural piece."""
+        path = PACKAGE / "tests" / "fixtures" / "levels" / "home_showcase.json"
+        self.assertTrue(path.is_file(), "the Home showcase fixture is missing")
+        level = load_level(path)
+        for key in (
+            "ramps",
+            "stairs",
+            "half_walls",
+            "columns",
+            "archways",
+            "guardrails",
+            "thresholds",
+            "baseboards",
+        ):
+            self.assertTrue(level.get(key), f"the showcase places at least one {key} entry")
+        # Every piece names Home materials through ordinary ids, and the room
+        # set covers wallpaper, paint, both hardwoods, carpet, tile and both
+        # ceilings.
+        materials = set()
+        for room in rooms_of(level):
+            materials.add(room.get("material"))
+            materials.add(room.get("ceiling_material"))
+        for material_id in (
+            "home:hardwood_oak_01",
+            "home:hardwood_walnut_02",
+            "home:carpet_cream_01",
+            "home:tile_home_01",
+            "home:ceiling_white_01",
+            "home:ceiling_plaster_01",
+        ):
+            self.assertIn(material_id, materials, material_id)
+        wall_materials = {wall.get("material") for wall in level.get("walls", [])}
+        self.assertIn("home:wallpaper_offwhite_01", wall_materials)
+        self.assertIn("home:wall_paint_offwhite_01", wall_materials)
+        wall_surfaces = set()
+        for wall in level.get("walls", []):
+            wall_surfaces.add(wall.get("material"))
+            wall_surfaces.update((wall.get("faces") or {}).values())
+        self.assertIn(
+            "home:wallpaper_pattern_01",
+            wall_surfaces,
+            "the subtle patterned wallpaper is used",
+        )
+        # The archway is the only wall between the living room and the hall, so
+        # the showcase demonstrates a real arched opening rather than a decal.
+        archway = level["archways"][0]
+        self.assertGreater(archway["arch_rise"], 0.0)
+        self.assertGreaterEqual(archway["height"], archway["opening_height"])
 
 
 class PoolContentTests(unittest.TestCase):

@@ -73,7 +73,9 @@
     { id: 'core:rug', name: 'Rug', category: 'Decorative', size: [2.0, 0.02, 1.4], color: '#6d5a52', model: 'core/props/models/rug.glb', solid: false },
     { id: 'core:lamp', name: 'Floor Lamp', category: 'Decorative', size: [0.35, 1.5, 0.35], color: '#8a8272', model: 'core/props/models/lamp.glb', solid: false },
     { id: 'core:tv', name: 'Television', category: 'Decorative', size: [1.1, 0.7, 0.1], color: '#33363a', model: 'core/props/models/tv.glb', solid: false },
-    { id: 'spooner-man', name: 'Spooner-Man', category: 'Decorative', size: [0.27, 0.39, 1.02], color: '#33343a', model: 'entities/spooner-man/model/spooner-man.glb', solid: false }
+    { id: 'spooner-man', name: 'Spooner-Man', category: 'Decorative', size: [0.27, 0.39, 1.02], color: '#33343a', model: 'entities/spooner-man/model/spooner-man.glb', solid: false },
+    { id: 'home:cabinet_base', name: 'Base Kitchen Cabinet', category: 'Furniture', size: [0.6, 0.9, 0.6], color: '#d8d3c8', model: 'environment/home/props/models/cabinet_base.glb', solid: true },
+    { id: 'home:cabinet_wall', name: 'Wall Kitchen Cabinet', category: 'Furniture', size: [0.6, 0.72, 0.33], color: '#ddd8ce', model: 'environment/home/props/models/cabinet_wall.glb', solid: true }
   ];
 
   function parseHexColor(value) {

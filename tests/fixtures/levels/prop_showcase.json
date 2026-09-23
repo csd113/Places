@@ -226,6 +226,21 @@
       "solid": true
     },
     {
+      "id": "cabinet_base_1",
+      "model": "home:cabinet_base",
+      "x": 1.5,
+      "z": -5.7,
+      "solid": true
+    },
+    {
+      "id": "cabinet_wall_1",
+      "model": "home:cabinet_wall",
+      "x": 1.5,
+      "z": -5.835,
+      "y": 1.45,
+      "solid": true
+    },
+    {
       "id": "fridge_1",
       "model": "core:fridge",
       "x": 6.4,

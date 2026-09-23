@@ -11,22 +11,22 @@ use super::{
     LightmapEmit, LitSurface, MATERIAL_NONE, MaterialIndex, MaterialLookup, MaterialSlot,
     MaterialTable, PropDef, SurfaceKey, SurfaceKind, Vertex, WALL_COINCIDENCE_EPS,
     WALL_FACE_EAST_MULT, WALL_FACE_NORTH_MULT, WALL_FACE_SOUTH_MULT, WALL_FACE_WEST_MULT, WallAxis,
-    WallCoverage, WallUnit, add_decal_quad, add_panel_fixture, add_prop_box, add_quad,
-    add_round_fixture, add_wall_cross_quad, add_wall_fixture, add_wall_length_face,
-    cross_section_covered, decal_sheet_index, decal_uv_rect, decal_uv_rect_full, emit_floor_skirts,
-    emit_lit_surface_grid, finish_indexed_mesh, floor_surfaces, flush_wall_run,
-    interval_symmetric_difference, lit_corners, lit_surface_grid, room_is_tessellatable, shade,
-    spatial_cell_grid, split_rect, stamp_lightmap_quad, subtract_rectangles, tiled_uv, wall_layout,
-    wall_vertical_extent,
+    WallCoverage, WallUnit, add_decal_quad, add_flush_mount_fixture, add_panel_fixture,
+    add_prop_box, add_quad, add_round_fixture, add_wall_cross_quad, add_wall_fixture,
+    add_wall_length_face, cross_section_covered, decal_sheet_index, decal_uv_rect,
+    decal_uv_rect_full, emit_floor_skirts, emit_lit_surface_grid, finish_indexed_mesh,
+    floor_surfaces, flush_wall_run, interval_symmetric_difference, lit_corners, lit_surface_grid,
+    room_is_tessellatable, shade, spatial_cell_grid, split_rect, stamp_lightmap_quad,
+    subtract_rectangles, tiled_uv, wall_layout, wall_vertical_extent,
 };
 use crate::level::{RoomDef, WallDef, WallSlice};
 use crate::lighting::lightmap::{LightmapPlan, PatchKind};
 use crate::spatial::SpatialBuckets;
 
 /// Directional shade multiplier applied to the top of a wall face.
-const WALL_TOP_GRADIENT: f32 = 1.05;
+pub(super) const WALL_TOP_GRADIENT: f32 = 1.05;
 /// Directional shade multiplier applied to the bottom of a wall face.
-const WALL_BOTTOM_GRADIENT: f32 = 0.92;
+pub(super) const WALL_BOTTOM_GRADIENT: f32 = 0.92;
 /// Reveal faces are deliberately darker than the wall faces they interrupt, so
 /// doorways and windows read clearly.
 const WALL_JAMB_MULT: f32 = 0.78;
@@ -34,24 +34,24 @@ const WALL_JAMB_MULT: f32 = 0.78;
 const WALL_HEAD_MULT: f32 = 0.92;
 
 /// The immutable inputs every emitter stage of one level build shares.
-struct EmitContext<'a, 's> {
-    level: &'a LevelDef,
-    surfaces: &'s LevelSurfaces<'a>,
-    lighting: &'a LevelLighting,
-    materials: &'a MaterialLookup<'a>,
+pub(super) struct EmitContext<'a, 's> {
+    pub(super) level: &'a LevelDef,
+    pub(super) surfaces: &'s LevelSurfaces<'a>,
+    pub(super) lighting: &'a LevelLighting,
+    pub(super) materials: &'a MaterialLookup<'a>,
     /// Every authored wall's solid volume, so a wall face an abutting wall
     /// already covers is never emitted underneath it.
-    coverages: &'s [WallCoverage],
+    pub(super) coverages: &'s [WallCoverage],
     /// The lightmap state: the plan when this build is lightmapped plus the
     /// chart-span cap, or `None` for the historical vertex-lit path, where
     /// every emitter must compute exactly the colours and vertices it always
     /// did.
-    lightmap: Option<LightmapEmit<'s>>,
+    pub(super) lightmap: Option<LightmapEmit<'s>>,
 }
 
 impl EmitContext<'_, '_> {
     /// True when this build bakes light into an atlas instead of vertex colours.
-    const fn lightmapped(&self) -> bool {
+    pub(super) const fn lightmapped(&self) -> bool {
         self.lightmap.is_some()
     }
 }
@@ -130,6 +130,11 @@ pub(super) fn build_level_geometry_mesh_with_lightmaps(
     emit_floors(&context, &mut buckets, &mut scratch, &rooms);
     emit_ceilings(&context, &mut buckets, &mut scratch, &rooms);
     emit_walls(&context, &wall_layout.units, &mut buckets, &mut scratch);
+    // Generic architectural pieces: ramps, staircases, half walls, columns,
+    // archways, guardrails, thresholds and baseboards. They are static
+    // surfaces like the walls above, so they join the same build and the same
+    // lightmap atlas.
+    super::architecture::emit_architecture(&context, &mut buckets, &mut scratch);
     emit_glass_panes(&context, &mut buckets, &mut scratch);
     emit_fixtures(&context, &mut buckets, &mut scratch);
     emit_prop_fallbacks(
@@ -1204,6 +1209,17 @@ fn emit_fixtures(
                     y,
                     light.z,
                     light.rotation_degrees,
+                    face_emission,
+                );
+            }
+            crate::lighting::FixtureKind::FlushMount => {
+                add_flush_mount_fixture(
+                    scratch,
+                    &mut housing,
+                    light.x,
+                    light.z,
+                    y,
+                    profile.half_width,
                     face_emission,
                 );
             }

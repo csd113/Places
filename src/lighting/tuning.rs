@@ -121,6 +121,8 @@ pub enum FixtureKind {
     RoundRecessed,
     /// Wall-mounted luminaire; needs `mount: "wall"` and a `y`.
     WallSconce,
+    /// Shallow round drum with a diffuser disc: the residential flush mount.
+    FlushMount,
 }
 
 impl FixtureKind {
@@ -129,10 +131,11 @@ impl FixtureKind {
     /// [`FixtureKind::index`] is the slot a level's resolved fixture sheets are
     /// stored under and the key its light batches carry, so the order is part
     /// of the mesh format. It is not a draw order or a bake order.
-    pub const ALL: [Self; 3] = [
+    pub const ALL: [Self; 4] = [
         Self::FluorescentPanel,
         Self::RoundRecessed,
         Self::WallSconce,
+        Self::FlushMount,
     ];
 
     /// Slot of this family in a level's resolved fixture sheets.
@@ -142,6 +145,7 @@ impl FixtureKind {
             Self::FluorescentPanel => 0,
             Self::RoundRecessed => 1,
             Self::WallSconce => 2,
+            Self::FlushMount => 3,
         }
     }
 }
@@ -174,16 +178,24 @@ impl FixtureProfile {
     }
 }
 
+/// Outer radius of the residential flush-mount fixture's diffuser, in metres.
+///
+/// The fixture's luminous footprint is the bounding square of that disc, exactly
+/// like the round pool downlight: the bake's local pool is a rectangle model, and
+/// a 32 cm lamp's square footprint is within a few centimetres of its disc.
+pub const FLUSH_MOUNT_RADIUS_M: f32 = 0.16;
+
 /// Every fixture id with a built-in appearance, in catalog order.
 ///
 /// The catalog/renderer consistency test keeps this list, the catalog's
 /// `asset_type: "light"` entries and each entry's visible-face PNG in
 /// agreement, so a catalogued fixture can never silently render as some other
 /// fixture or fall back to an untextured sheet.
-pub const LIGHT_FIXTURE_IDS: [&str; 3] = [
+pub const LIGHT_FIXTURE_IDS: [&str; 4] = [
     "core:fluorescent_panel_01",
     "core:pool_light_round",
     "core:pool_light_wall",
+    "home:ceiling_light_round",
 ];
 
 /// The profile of a fixture family.
@@ -208,6 +220,12 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
             half_depth: 0.09,
             quads: 6,
         },
+        FixtureKind::FlushMount => FixtureProfile {
+            kind,
+            half_width: FLUSH_MOUNT_RADIUS_M,
+            half_depth: FLUSH_MOUNT_RADIUS_M,
+            quads: 32,
+        },
     }
 }
 
@@ -222,6 +240,7 @@ pub fn fixture_profile(fixture_id: &str) -> FixtureProfile {
     let kind = match fixture_id {
         "core:pool_light_round" => FixtureKind::RoundRecessed,
         "core:pool_light_wall" => FixtureKind::WallSconce,
+        "home:ceiling_light_round" => FixtureKind::FlushMount,
         _ => FixtureKind::FluorescentPanel,
     };
     fixture_profile_for_kind(kind)

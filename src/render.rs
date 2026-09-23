@@ -13,6 +13,7 @@ use crate::materials::{MaterialTable, ResolvedMaterial};
 
 mod animation;
 mod api;
+mod architecture;
 mod atmosphere;
 mod decals;
 mod dynamic;
@@ -46,7 +47,7 @@ pub use dynamic::{
     DynamicObject, DynamicScene, DynamicSubmesh, DynamicUpdate, MAX_DYNAMIC_MESHES,
     MAX_DYNAMIC_OBJECTS, PROBE_EPSILON_M,
 };
-use fixtures::{add_panel_fixture, add_round_fixture, add_wall_fixture};
+use fixtures::{add_flush_mount_fixture, add_panel_fixture, add_round_fixture, add_wall_fixture};
 use geometry::build_level_geometry_mesh;
 pub use mesh::packed_layout;
 pub use mesh::{

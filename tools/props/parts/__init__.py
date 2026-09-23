@@ -14,7 +14,7 @@ from mesh import PropBuilder
 
 BuildFn = Callable[[PropBuilder], None]
 
-MODULES = ("furniture", "appliances", "utility", "decor", "pool", "spooner_man")
+MODULES = ("furniture", "appliances", "utility", "decor", "pool", "spooner_man", "home")
 
 
 def collect() -> Dict[str, BuildFn]:
@@ -26,8 +26,8 @@ def collect() -> Dict[str, BuildFn]:
         except ImportError as error:  # pragma: no cover - developer feedback
             raise ImportError(
                 f"prop part module parts/{module_name}.py is missing ({error}); "
-                "the pack expects the furniture, appliances, utility, decor, pool "
-                "and spooner_man modules"
+                "the pack expects the furniture, appliances, utility, decor, pool, "
+                "spooner_man and home modules"
             ) from error
         props = getattr(module, "PROPS", {})
         for prop_id, build in props.items():

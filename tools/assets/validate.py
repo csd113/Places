@@ -609,6 +609,48 @@ def level_ids(level: dict):
     for patch in level.get("floor_patches") or []:
         if patch.get("material"):
             yield str(patch["material"]), "floor patch material"
+    # Generic architectural pieces: every material a piece can name is an
+    # ordinary catalog material, checked like any other level reference.
+    for ramp in level.get("ramps") or []:
+        if ramp.get("material"):
+            yield str(ramp["material"]), "ramp material"
+        if ramp.get("edge_material"):
+            yield str(ramp["edge_material"]), "ramp edge material"
+    for stair in level.get("stairs") or []:
+        if stair.get("material"):
+            yield str(stair["material"]), "staircase tread material"
+        if stair.get("riser_material"):
+            yield str(stair["riser_material"]), "staircase riser material"
+        if stair.get("side_material"):
+            yield str(stair["side_material"]), "staircase side material"
+    for piece in level.get("half_walls") or []:
+        if piece.get("material"):
+            yield str(piece["material"]), "half wall material"
+        if piece.get("end_material"):
+            yield str(piece["end_material"]), "half wall end material"
+        if piece.get("cap_material"):
+            yield str(piece["cap_material"]), "half wall cap material"
+    for piece in level.get("columns") or []:
+        if piece.get("material"):
+            yield str(piece["material"]), "column material"
+        if piece.get("cap_material"):
+            yield str(piece["cap_material"]), "column cap material"
+    for piece in level.get("archways") or []:
+        if piece.get("material"):
+            yield str(piece["material"]), "archway material"
+        if piece.get("reveal_material"):
+            yield str(piece["reveal_material"]), "archway reveal material"
+    for rail in level.get("guardrails") or []:
+        if rail.get("material"):
+            yield str(rail["material"]), "guardrail material"
+        if rail.get("post_material"):
+            yield str(rail["post_material"]), "guardrail post material"
+    for strip in level.get("thresholds") or []:
+        if strip.get("material"):
+            yield str(strip["material"]), "threshold material"
+    for board in level.get("baseboards") or []:
+        if board.get("material"):
+            yield str(board["material"]), "baseboard material"
     for light in level.get("ceiling_lights") or []:
         if light.get("fixture"):
             yield str(light["fixture"]), "ceiling light fixture"
@@ -690,11 +732,82 @@ def validate_surface_shine(level: dict, where: str, errors: list[str]) -> None:
     for index, region in enumerate(level.get("floor_regions") or []):
         checks.append((f"{where}: floor region {index} shine", region.get("shine")))
         checks.append((f"{where}: floor region {index} edge_shine", region.get("edge_shine")))
+    for index, ramp in enumerate(level.get("ramps") or []):
+        checks.append((f"{where}: ramp {index} shine", ramp.get("shine")))
+        checks.append((f"{where}: ramp {index} edge_shine", ramp.get("edge_shine")))
+    for index, stair in enumerate(level.get("stairs") or []):
+        checks.append((f"{where}: staircase {index} shine", stair.get("shine")))
+        checks.append((f"{where}: staircase {index} riser_shine", stair.get("riser_shine")))
+        checks.append((f"{where}: staircase {index} side_shine", stair.get("side_shine")))
+    for index, piece in enumerate(level.get("half_walls") or []):
+        checks.append((f"{where}: half wall {index} shine", piece.get("shine")))
+        checks.append((f"{where}: half wall {index} end_shine", piece.get("end_shine")))
+        checks.append((f"{where}: half wall {index} cap_shine", piece.get("cap_shine")))
+    for index, piece in enumerate(level.get("columns") or []):
+        checks.append((f"{where}: column {index} shine", piece.get("shine")))
+        checks.append((f"{where}: column {index} cap_shine", piece.get("cap_shine")))
+    for index, piece in enumerate(level.get("archways") or []):
+        checks.append((f"{where}: archway {index} shine", piece.get("shine")))
+        checks.append((f"{where}: archway {index} reveal_shine", piece.get("reveal_shine")))
+    for index, rail in enumerate(level.get("guardrails") or []):
+        checks.append((f"{where}: guardrail {index} shine", rail.get("shine")))
+        checks.append((f"{where}: guardrail {index} post_shine", rail.get("post_shine")))
+    for index, strip in enumerate(level.get("thresholds") or []):
+        checks.append((f"{where}: threshold {index} shine", strip.get("shine")))
+    for index, board in enumerate(level.get("baseboards") or []):
+        checks.append((f"{where}: baseboard {index} shine", board.get("shine")))
     for label, value in checks:
         if value is None:
             continue
         if not is_finite_number(value) or not 0.0 <= value <= 1.0:
             errors.append(f"{label} must be a number between 0 and 1")
+
+
+def validate_architecture(level: dict, where: str, errors: list[str]) -> None:
+    """Basic shape checks for the generic architectural pieces.
+
+    The loader owns the full contract (slopes, risers, opening geometry); this
+    check catches the mistakes an author makes while typing — a missing size, a
+    negative one, a non-number — with the piece named.
+    """
+    positive = ("width", "depth", "length", "height", "rise", "steps", "opening_width",
+                "opening_height", "thickness")
+    pieces = (
+        ("ramps", "ramp", ("width", "depth", "rise")),
+        ("stairs", "staircase", ("width", "depth", "rise", "steps")),
+        ("half_walls", "half wall", ("width", "depth", "height")),
+        ("columns", "column", ("width", "depth")),
+        ("archways", "archway", ("width", "depth", "height", "opening_width", "opening_height")),
+        ("guardrails", "guardrail", ("length",)),
+        ("thresholds", "threshold", ("length",)),
+        ("baseboards", "baseboard", ("length",)),
+    )
+    for key, label, required in pieces:
+        entries = level.get(key)
+        if entries is None:
+            continue
+        if not isinstance(entries, list):
+            errors.append(f"{where}: {key} must be a list")
+            continue
+        for index, piece in enumerate(entries):
+            entry_where = f"{where}: {key}[{index}]"
+            if not isinstance(piece, dict):
+                errors.append(f"{entry_where} must be an object")
+                continue
+            for field in required:
+                value = piece.get(field)
+                if value is None:
+                    errors.append(f"{entry_where}: {field} is required")
+                    continue
+                if not is_finite_number(value):
+                    errors.append(f"{entry_where}: {field} must be a finite number")
+                    continue
+                if float(value) <= 0.0:
+                    errors.append(f"{entry_where}: {field} must be positive")
+            for field in positive:
+                value = piece.get(field)
+                if value is not None and is_finite_number(value) and float(value) < 0.0:
+                    errors.append(f"{entry_where}: {field} cannot be negative")
 
 
 def wall_touches_any_room(level: dict, wall: dict, epsilon: float = 0.05) -> bool:
@@ -797,6 +910,7 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
                     warnings.extend(light_warnings)
             validate_animated_emissions(level, relative, errors)
             validate_surface_shine(level, relative, errors)
+            validate_architecture(level, relative, errors)
             rooms = list(level.get("rooms") or [])
             if level.get("room"):
                 rooms.append(level["room"])

@@ -215,6 +215,115 @@ pub(super) fn add_round_fixture(
     }
 }
 
+/// Emits the residential flush-mount ceiling lamp: a shallow white drum with a
+/// glowing diffuser disc, centred on `(cx, cz)` with its mounting plane at `y`.
+///
+/// The visible appearance is the family's sheet. The diffuser's lit ring samples
+/// the sheet's inscribed circle (its planar UVs make the sheet's centre the
+/// fixture's centre, so the artwork's concentric tone and rim land where the
+/// geometry expects them), and the drum wall, its bottom rim and the centre boss
+/// behind the diffuser's small centre hole are genuine untextured body geometry.
+/// `emission` is the face's neutral emission strength, so the lit surface keeps
+/// the sheet's own colour.
+pub(super) fn add_flush_mount_fixture(
+    lit: &mut Vec<Vertex>,
+    housing: &mut Vec<Vertex>,
+    cx: f32,
+    cz: f32,
+    y: f32,
+    radius: f32,
+    emission: [f32; 3],
+) {
+    const SEGMENTS: usize = 10;
+    /// How far the drum hangs below the ceiling plane, in metres.
+    const BODY_DROP: f32 = 0.07;
+    /// How far the diffuser sits inset behind the drum's outer edge, in metres.
+    const DIFFUSER_INSET: f32 = 0.012;
+    /// Painted white body, drawn through the shared untextured white sheet.
+    const BODY_COLOR: [f32; 3] = [0.86, 0.86, 0.84];
+    /// The body's shadowed bottom rim, a touch brighter than the wall it caps.
+    const RIM_COLOR: [f32; 3] = [0.92, 0.92, 0.90];
+    /// Radius of the diffuser's centre screw hole, as a fraction of `radius`.
+    const CENTRE_HOLE: f32 = 0.08;
+    /// How far the centre boss sits behind the diffuser plane, in metres.
+    const BOSS_INSET: f32 = 0.004;
+    let y_bottom = y - BODY_DROP;
+    let diffuser_outer = (radius - DIFFUSER_INSET).max(radius * 0.5);
+    let inner = radius * CENTRE_HOLE;
+    // Planar UVs: the sheet's inscribed circle is the fixture's outer radius, so
+    // one texel covers the same distance along both in-plane axes.
+    let planar_uv = |r: f32, cos: f32, sin: f32| -> [f32; 2] {
+        let unit = r / radius;
+        [unit.mul_add(cos, 1.0) * 0.5, unit.mul_add(sin, 1.0) * 0.5]
+    };
+    // `SEGMENTS` is 10, so every segment index fits `u8` and converts to `f32`
+    // exactly.
+    let segments = u8::try_from(SEGMENTS).unwrap_or(0);
+    for segment in 0..SEGMENTS {
+        let segment = u8::try_from(segment).unwrap_or(0);
+        let a0 = f32::from(segment) / f32::from(segments) * std::f32::consts::TAU;
+        let a1 = f32::from(segment.saturating_add(1)) / f32::from(segments) * std::f32::consts::TAU;
+        let (sin0, cos0) = a0.sin_cos();
+        let (sin1, cos1) = a1.sin_cos();
+        // The drum's outer wall, from the ceiling down to the diffuser plane.
+        add_can_quad(
+            housing, cx, cz, y, y_bottom, radius, cos0, sin0, cos1, sin1, BODY_COLOR,
+        );
+        // The body's bottom rim, between the drum wall and the diffuser.
+        add_ring_quad(
+            housing,
+            cx,
+            cz,
+            y_bottom,
+            diffuser_outer,
+            radius,
+            cos0,
+            sin0,
+            cos1,
+            sin1,
+            RIM_COLOR,
+            SHEET_UV,
+        );
+        // The diffuser ring: the sheet's own artwork, lit by its neutral
+        // emission. It is a ring rather than a filled disc so the fixture stays
+        // quad-only; the small centre it leaves is covered by the boss below.
+        add_ring_quad(
+            lit,
+            cx,
+            cz,
+            y_bottom,
+            inner,
+            diffuser_outer,
+            cos0,
+            sin0,
+            cos1,
+            sin1,
+            emission,
+            [
+                planar_uv(diffuser_outer, cos0, sin0),
+                planar_uv(diffuser_outer, cos1, sin1),
+                planar_uv(inner, cos1, sin1),
+                planar_uv(inner, cos0, sin0),
+            ],
+        );
+    }
+    // The centre boss: a small untextured plate just behind the diffuser's
+    // centre hole, so the hole never shows the room through the fitting.
+    let boss = radius * 0.13;
+    add_quad_flat(
+        housing,
+        [cx - boss, y_bottom - BOSS_INSET, cz - boss],
+        [cx + boss, y_bottom - BOSS_INSET, cz - boss],
+        [cx + boss, y_bottom - BOSS_INSET, cz + boss],
+        [cx - boss, y_bottom - BOSS_INSET, cz + boss],
+        BODY_COLOR,
+        SHEET_UV[0],
+        SHEET_UV[1],
+        SHEET_UV[2],
+        SHEET_UV[3],
+    );
+}
+
 /// Emits a wall-mounted luminaire at `(x, y, z)` facing `yaw_degrees`: its
 /// emissive front face into `lit` and its shallow housing into `housing`.
 /// `emission` is the face's neutral emission strength, so the lens keeps its

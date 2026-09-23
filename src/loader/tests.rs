@@ -8,6 +8,7 @@
     clippy::cast_precision_loss,
     clippy::expect_used,
     clippy::float_cmp,
+    clippy::unwrap_in_result,
     clippy::indexing_slicing,
     clippy::panic,
     clippy::redundant_clone,
@@ -63,6 +64,14 @@ fn test_validate_level_success() {
         }],
         floor_patches: vec![],
         floor_regions: vec![],
+        ramps: vec![],
+        stairs: vec![],
+        half_walls: vec![],
+        columns: vec![],
+        archways: vec![],
+        guardrails: vec![],
+        thresholds: vec![],
+        baseboards: vec![],
         ceiling_lights: vec![],
         decals: Vec::new(),
         props: vec![],
@@ -89,6 +98,14 @@ fn test_validate_level_invalid_version() {
         walls: vec![],
         floor_patches: vec![],
         floor_regions: vec![],
+        ramps: vec![],
+        stairs: vec![],
+        half_walls: vec![],
+        columns: vec![],
+        archways: vec![],
+        guardrails: vec![],
+        thresholds: vec![],
+        baseboards: vec![],
         ceiling_lights: vec![],
         decals: Vec::new(),
         props: vec![],
@@ -170,6 +187,14 @@ fn test_validate_level_preserves_overlapping_geometry() {
         ],
         floor_patches: vec![],
         floor_regions: vec![],
+        ramps: vec![],
+        stairs: vec![],
+        half_walls: vec![],
+        columns: vec![],
+        archways: vec![],
+        guardrails: vec![],
+        thresholds: vec![],
+        baseboards: vec![],
         ceiling_lights: vec![],
         decals: Vec::new(),
         props: vec![],
@@ -287,6 +312,14 @@ fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
         walls: vec![],
         floor_patches: vec![],
         floor_regions: vec![],
+        ramps: vec![],
+        stairs: vec![],
+        half_walls: vec![],
+        columns: vec![],
+        archways: vec![],
+        guardrails: vec![],
+        thresholds: vec![],
+        baseboards: vec![],
         ceiling_lights: vec![],
         decals: Vec::new(),
         props: vec![],
@@ -1792,7 +1825,8 @@ fn test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog() {
                 { "fixture": "core:pool_light_round", "x": 4.0, "z": 2.0 },
                 { "fixture": "core:pool_light_wall", "x": 6.0, "z": 2.0,
                   "mount": "wall", "y": 1.7, "rotation_degrees": 180.0 },
-                { "fixture": "core:fluorescent_panel_01", "x": 8.0, "z": 2.0 }
+                { "fixture": "core:fluorescent_panel_01", "x": 8.0, "z": 2.0 },
+                { "fixture": "home:ceiling_light_round", "x": 10.0, "z": 2.0 }
             ]
         }"#,
     )
@@ -1810,6 +1844,7 @@ fn test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog() {
             crate::lighting::FixtureKind::RoundRecessed,
             crate::lighting::FixtureKind::WallSconce,
             crate::lighting::FixtureKind::FluorescentPanel,
+            crate::lighting::FixtureKind::FlushMount,
         ]
     );
 
@@ -1860,6 +1895,10 @@ fn test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog() {
     assert_eq!(
         dimensions(crate::lighting::FixtureKind::WallSconce),
         (128, 64)
+    );
+    assert_eq!(
+        dimensions(crate::lighting::FixtureKind::FlushMount),
+        (256, 256)
     );
 }
 
@@ -1946,4 +1985,172 @@ fn test_the_embedded_demo_is_always_listed_and_loadable() {
     assert_eq!(loaded.entry.source_type, LevelSourceType::Embedded);
 
     let _ = std::fs::remove_dir_all(scratch);
+}
+
+// ------------------------------------------------- generic architecture
+
+/// The committed Home showcase must satisfy the full loader contract: it
+/// exercises every generic architectural piece and every Home material.
+#[test]
+fn test_validate_accepts_the_home_showcase_fixture() {
+    let content = std::fs::read_to_string("tests/fixtures/levels/home_showcase.json")
+        .expect("the Home showcase fixture is present");
+    let level = LevelDef::from_json(&content).expect("the Home showcase parses");
+    if let Err(error) = validate_level(&level) {
+        panic!("the Home showcase must validate: {error}");
+    }
+    for (name, empty) in [
+        ("ramps", level.ramps.is_empty()),
+        ("stairs", level.stairs.is_empty()),
+        ("half_walls", level.half_walls.is_empty()),
+        ("columns", level.columns.is_empty()),
+        ("archways", level.archways.is_empty()),
+        ("guardrails", level.guardrails.is_empty()),
+        ("thresholds", level.thresholds.is_empty()),
+        ("baseboards", level.baseboards.is_empty()),
+    ] {
+        assert!(!empty, "the showcase places at least one {name} entry");
+    }
+}
+
+/// A level with one room and the given architecture arrays appended, validated.
+fn architecture_level(extra: &str) -> Result<(), String> {
+    let json = format!(
+        r#"{{
+            "format_version": 1,
+            "id": "architecture",
+            "name": "Architecture",
+            "spawn": {{ "x": 1.0, "z": 1.0 }},
+            "room": {{ "x": 0.0, "z": 0.0, "width": 14.0, "depth": 10.0, "height": 4.0 }}{extra}
+        }}"#
+    );
+    let level = LevelDef::from_json(&json).expect("architecture json parses");
+    validate_level(&level)
+}
+
+#[test]
+fn test_validate_rejects_malformed_ramps() {
+    architecture_level(
+        r#", "ramps": [{ "x": 1.0, "z": 1.0, "width": 0.4, "depth": 1.0, "rise": 2.0 }]"#,
+    )
+    .expect("a 2 m rise over a 1 m run is exactly at the walkable slope limit");
+
+    let error = architecture_level(
+        r#", "ramps": [{ "x": 1.0, "z": 1.0, "width": 0.4, "depth": 0.5, "rise": 2.0 }]"#,
+    )
+    .expect_err("two metres of rise over a half-metre run is a wall, not a ramp");
+    assert!(error.contains("too steep"), "{error}");
+
+    let error = architecture_level(
+        r#", "ramps": [{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 2.0, "rise": 0.0 }]"#,
+    )
+    .expect_err("a ramp with no rise is a floor region");
+    assert!(error.contains("no rise"), "{error}");
+
+    let error = architecture_level(
+        r#", "ramps": [{ "x": 30.0, "z": 30.0, "width": 1.0, "depth": 2.0, "rise": 0.5 }]"#,
+    )
+    .expect_err("a ramp outside every room");
+    assert!(error.contains("outside every room"), "{error}");
+}
+
+#[test]
+fn test_validate_rejects_malformed_staircases() {
+    let error = architecture_level(
+        r#", "stairs": [{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0,
+                           "rise": 1.2, "steps": 2 }]"#,
+    )
+    .expect_err("a 0.6 m riser is taller than the walkable step");
+    assert!(error.contains("riser"), "{error}");
+
+    let error = architecture_level(
+        r#", "stairs": [{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 2.0,
+                           "rise": 0.8, "steps": 20 }]"#,
+    )
+    .expect_err("a 0.1 m tread is not a step");
+    assert!(error.contains("tread"), "{error}");
+
+    let error = architecture_level(
+        r#", "stairs": [{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0,
+                           "rise": 0.4, "steps": 1 }]"#,
+    )
+    .expect_err("a single step is a floor region");
+    assert!(error.contains("at least 2 steps"), "{error}");
+}
+
+#[test]
+fn test_validate_rejects_walking_surfaces_that_overlap() {
+    let error = architecture_level(
+        r#", "ramps": [{ "x": 1.0, "z": 1.0, "width": 2.0, "depth": 4.0, "rise": 0.5 }],
+             "floor_regions": [{ "x": 2.0, "z": 2.0, "width": 2.0, "depth": 2.0, "offset_y": 1.0 }]"#,
+    )
+    .expect_err("a floor region inside a ramp has no single floor");
+    assert!(error.contains("overlaps ramp"), "{error}");
+
+    let error = architecture_level(
+        r#", "ramps": [{ "x": 1.0, "z": 1.0, "width": 2.0, "depth": 4.0, "rise": 0.5 }],
+             "stairs": [{ "x": 1.0, "z": 2.0, "width": 2.0, "depth": 2.0,
+                           "rise": 0.4, "steps": 2 }]"#,
+    )
+    .expect_err("a staircase inside a ramp has no single floor");
+    assert!(error.contains("overlaps staircase"), "{error}");
+}
+
+#[test]
+fn test_validate_rejects_malformed_archways() {
+    let error = architecture_level(
+        r#", "archways": [{ "x": 5.0, "z": 3.0, "width": 0.3, "depth": 1.0, "height": 3.0,
+                             "opening_width": 0.95, "opening_height": 2.1, "arch_rise": 0.2 }]"#,
+    )
+    .expect_err("an opening with no pier left is not an archway");
+    assert!(error.contains("too wide"), "{error}");
+
+    let error = architecture_level(
+        r#", "archways": [{ "x": 5.0, "z": 3.0, "width": 0.3, "depth": 1.4, "height": 1.5,
+                             "opening_width": 0.9, "opening_height": 2.1, "arch_rise": 0.2 }]"#,
+    )
+    .expect_err("the block must be at least as tall as its opening");
+    assert!(error.contains("shorter than its opening"), "{error}");
+
+    let error = architecture_level(
+        r#", "archways": [{ "x": 5.0, "z": 3.0, "width": 0.3, "depth": 1.4, "height": 3.0,
+                             "opening_width": 0.9, "opening_height": 1.0, "arch_rise": 1.2 }]"#,
+    )
+    .expect_err("the crown cannot sit at or below the springing line");
+    assert!(error.contains("arch rise"), "{error}");
+}
+
+#[test]
+fn test_validate_rejects_a_threshold_over_an_elevation_change() {
+    let error = architecture_level(
+        r#", "floor_regions": [{ "x": 4.0, "z": 2.0, "width": 2.0, "depth": 2.0, "offset_y": 0.5 }],
+             "thresholds": [{ "x": 5.0, "z": 4.0, "length": 1.0 }]"#,
+    )
+    .expect_err("a strip that spans the platform edge would float on one side");
+    assert!(error.contains("height change"), "{error}");
+
+    let error = architecture_level(r#", "thresholds": [{ "x": 30.0, "z": 30.0, "length": 1.0 }]"#)
+        .expect_err("a strip outside every room has no floor to sit on");
+    assert!(error.contains("outside every room"), "{error}");
+}
+
+#[test]
+fn test_validate_rejects_malformed_trim_and_rails() {
+    let error = architecture_level(
+        r#", "guardrails": [{ "x": 1.0, "z": 1.0, "length": 2.0, "height": 3.5 }]"#,
+    )
+    .expect_err("a 3.5 m rail is not a guardrail");
+    assert!(error.contains("height"), "{error}");
+
+    let error = architecture_level(
+        r#", "guardrails": [{ "x": 1.0, "z": 1.0, "length": 2.0, "post_spacing": 0.05 }]"#,
+    )
+    .expect_err("a 5 cm post spacing is a typo");
+    assert!(error.contains("post spacing"), "{error}");
+
+    let error = architecture_level(
+        r#", "baseboards": [{ "x": 1.0, "z": 1.0, "length": 3.0, "height": 1.5 }]"#,
+    )
+    .expect_err("a 1.5 m skirting board is not trim");
+    assert!(error.contains("height"), "{error}");
 }

@@ -342,7 +342,23 @@ fn referenced_ids_are_deterministic_and_cover_faces_patches_and_regions() {
                         "material": "wall-body", "faces": { "south": "face-s", "north": "face-n" } }],
             "floor_patches": [{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0, "material": "patch" }],
             "floor_regions": [{ "x": 2.0, "z": 2.0, "width": 1.0, "depth": 1.0,
-                                "offset_y": -0.5, "material": "region-floor", "edge_material": "region-edge" }]
+                                "offset_y": -0.5, "material": "region-floor", "edge_material": "region-edge" }],
+            "ramps": [{ "x": 0.0, "z": 0.0, "width": 1.0, "depth": 2.0,
+                        "rise": 0.4, "material": "ramp-top", "edge_material": "ramp-edge" }],
+            "stairs": [{ "x": 0.0, "z": 0.0, "width": 1.0, "depth": 2.0, "rise": 0.6, "steps": 3,
+                         "material": "stair-tread", "riser_material": "stair-riser",
+                         "side_material": "stair-side" }],
+            "half_walls": [{ "x": 0.0, "z": 0.0, "width": 2.0, "depth": 0.2, "height": 1.05,
+                             "material": "knee", "end_material": "knee-end", "cap_material": "knee-cap" }],
+            "columns": [{ "x": 0.0, "z": 0.0, "width": 0.3, "depth": 0.3,
+                          "material": "post", "cap_material": "post-cap" }],
+            "archways": [{ "x": 0.0, "z": 0.0, "width": 0.3, "depth": 1.4, "height": 3.0,
+                           "opening_width": 1.0, "opening_height": 2.1, "arch_rise": 0.2,
+                           "material": "arch-body", "reveal_material": "arch-reveal" }],
+            "guardrails": [{ "x": 0.0, "z": 0.0, "length": 2.0,
+                             "material": "rail", "post_material": "rail-post" }],
+            "thresholds": [{ "x": 3.0, "z": 0.0, "length": 1.0, "material": "strip" }],
+            "baseboards": [{ "x": 0.0, "z": 0.0, "length": 2.0, "material": "skirt" }]
         }"##,
     );
     let ids = referenced_material_ids(&level);
@@ -360,6 +376,22 @@ fn referenced_ids_are_deterministic_and_cover_faces_patches_and_regions() {
             "patch",
             "region-floor",
             "region-edge",
+            "ramp-top",
+            "ramp-edge",
+            "stair-tread",
+            "stair-riser",
+            "stair-side",
+            "knee",
+            "knee-end",
+            "knee-cap",
+            "post",
+            "post-cap",
+            "arch-body",
+            "arch-reveal",
+            "rail",
+            "rail-post",
+            "strip",
+            "skirt",
         ]
     );
     let again = referenced_material_ids(&level);

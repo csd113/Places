@@ -2,7 +2,9 @@ use std::time::Instant;
 
 use glam::{Vec2, Vec3};
 
-use crate::collision::{PLAYER_RADIUS, PLAYER_STEP_HEIGHT, WallAabb, resolve_player_collision};
+use crate::collision::{
+    PLAYER_RADIUS, PLAYER_STEP_HEIGHT, STEP_EPS, WallAabb, resolve_player_collision,
+};
 use crate::input::{Control, InputState};
 use crate::level::{LevelDef, LevelSurfaces, WalkableFloor};
 use crate::settings::Settings;
@@ -292,35 +294,48 @@ impl Game {
             );
             let previous = Vec2::new(self.player_position.x, self.player_position.z);
             let mut current_pos = previous;
+            let mut current_floor = self.player_floor_y;
+            let mut on_a_floor = self.floor.height_at(previous.x, previous.y).is_some();
+            // The floor sampler is the same model the mesh was built from, so
+            // the player stands exactly where the geometry says. The step rule
+            // runs *per sub-step* (each at most half a player radius, 0.15 m):
+            // at the loader's maximum ramp slope a sub-step rises at most
+            // 0.3 m, so every legal slope and flight is climbable at any frame
+            // rate. Applying the rule only to the frame's end point made a
+            // maximum-slope ramp unwalkable whenever `walk_speed * delta`
+            // exceeded `PLAYER_STEP_HEIGHT / slope`. A rise or drop within
+            // `PLAYER_STEP_HEIGHT` plus the surface tolerance is walked through
+            // instantly; anything larger is refused, which is the conservative
+            // stand-in for falling physics (there is none) and keeps the player
+            // off cliff edges.
             for _ in 0..steps {
-                current_pos = resolve_player_collision(
+                let candidate = resolve_player_collision(
                     Vec2::new(current_pos.x + step_delta.x, current_pos.y + step_delta.z),
                     PLAYER_RADIUS,
-                    self.player_floor_y,
+                    current_floor,
                     &self.walls,
                 );
-            }
-            // The floor sampler is the same model the mesh was built from, so
-            // the player stands exactly where the geometry says. A rise or drop
-            // within `PLAYER_STEP_HEIGHT` is walked through instantly; anything
-            // larger is refused, which is the conservative stand-in for falling
-            // physics (there is none) and keeps the player off cliff edges.
-            match self.floor.height_at(current_pos.x, current_pos.y) {
-                Some(y) if (y - self.player_floor_y).abs() <= PLAYER_STEP_HEIGHT => {
-                    self.player_floor_y = y;
-                    self.player_position.x = current_pos.x;
-                    self.player_position.z = current_pos.y;
-                }
-                Some(_) => {}
-                None => {
-                    // Outside every room: keep the historical freedom to walk
-                    // over the void, but never step off a real floor into it.
-                    if self.floor.height_at(previous.x, previous.y).is_none() {
-                        self.player_position.x = current_pos.x;
-                        self.player_position.z = current_pos.y;
+                match self.floor.height_at(candidate.x, candidate.y) {
+                    Some(y) if (y - current_floor).abs() <= PLAYER_STEP_HEIGHT + STEP_EPS => {
+                        current_floor = y;
+                        current_pos = candidate;
+                        on_a_floor = true;
+                    }
+                    Some(_) => break,
+                    None => {
+                        // Outside every room: keep the historical freedom to
+                        // walk over the void, but never step off a real floor
+                        // into it.
+                        if on_a_floor {
+                            break;
+                        }
+                        current_pos = candidate;
                     }
                 }
             }
+            self.player_floor_y = current_floor;
+            self.player_position.x = current_pos.x;
+            self.player_position.z = current_pos.y;
             // Maintain grounded eye height regardless of pitch
             self.player_position.y = self.player_floor_y + EYE_HEIGHT;
         }

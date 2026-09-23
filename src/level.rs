@@ -382,6 +382,721 @@ impl FloorRegionDef {
     }
 }
 
+/// Steepest walkable ramp slope, as rise per metre of run.
+///
+/// The player controller moves in sub-steps of at most half a player radius and
+/// refuses any step taller than [`PLAYER_STEP_HEIGHT`]. A slope above this
+/// limit would make the controller stall part-way up, so the loader rejects it
+/// with a named error instead of shipping a ramp that cannot be climbed.
+pub const MAX_RAMP_SLOPE: f32 = 2.0;
+
+/// Hard ceiling on a ramp's or staircase's total rise, in metres.
+pub const MAX_RAMP_RISE_M: f32 = 50.0;
+
+/// Tallest riser a staircase may author, in metres.
+///
+/// A staircase is walked by the same step rule as a chain of floor regions: a
+/// riser above [`PLAYER_STEP_HEIGHT`] would refuse the player instead of
+/// letting them climb. The loader rejects anything above this plus a
+/// millimetre of float tolerance, and the controller accepts anything within
+/// this plus `STEP_EPS`: the accepted set is therefore always traversable,
+/// including a riser of exactly `0.4 m` resolved at a non-zero floor height
+/// (where the two floats can differ by a few ulps).
+pub const MAX_STAIR_RISER_M: f32 = PLAYER_STEP_HEIGHT;
+
+/// Shallowest staircase tread the loader accepts, in metres.
+///
+/// A tread shorter than a foot is not a step; it is a malformed staircase, and
+/// it would also make the walkable sampler staircase-shaped at a finer scale
+/// than the controller's sub-step.
+pub const MIN_STAIR_TREAD_M: f32 = 0.15;
+
+/// A straight sloped floor surface: the level's ramp primitive.
+///
+/// A ramp is a rectangle in plan whose walking surface rises (or falls)
+/// **linearly** along its length axis. It is a floor surface, not a prop: the
+/// player walks up and down it at a continuous height, collision answers with
+/// the slope, and the renderer draws it as a real surface with the level's own
+/// materials.
+///
+/// * `offset_y` is the surface offset at the ramp's **low** end, relative to
+///   the containing room's `floor_y` (exactly like a [`FloorRegionDef`]).
+/// * `rise` is the signed height change from the low end to the far end:
+///   positive climbs toward the far end of the length axis, negative descends
+///   toward it. Both are relative to the room floor.
+///
+/// A ramp is only ever a *walking* surface: the space underneath it is not
+/// walkable (the walkable floor at a point is the ramp's own height), and its
+/// ends are meant to meet the floors they connect: the low end usually meets
+/// the room floor or a floor region, and the high end a raised platform of the
+/// same height. A floor region may not overlap a ramp's footprint; the two
+/// would draw two floors through the same space.
+///
+/// `material` overrides the ramp's top surface; `edge_material` overrides the
+/// vertical side faces (both fall back to the room's floor/wall material).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RampDef {
+    pub x: f32,
+    pub z: f32,
+    pub width: f32,
+    pub depth: f32,
+    /// Surface offset at the low end, relative to the room's `floor_y`.
+    #[serde(default)]
+    pub offset_y: f32,
+    /// Signed height change to the far end along the length axis, in metres.
+    pub rise: f32,
+    /// Top-surface material id; falls back to the room's floor material.
+    #[serde(default)]
+    pub material: Option<String>,
+    /// Per-surface shine override for [`Self::material`].
+    #[serde(default)]
+    pub shine: Option<f32>,
+    /// Material for the ramp's side faces; falls back to the room's wall
+    /// material.
+    #[serde(default)]
+    pub edge_material: Option<String>,
+    /// Per-surface shine override for [`Self::edge_material`].
+    #[serde(default)]
+    pub edge_shine: Option<f32>,
+}
+
+/// A finite value, or `0.0` when non-finite.
+///
+/// The surface value types collapse the height fields the way the authoring
+/// types' getters always have, so a malformed level renders and walks the same
+/// way on every path instead of one path sanitising and another not.
+const fn sanitized(value: f32) -> f32 {
+    if value.is_finite() { value } else { 0.0 }
+}
+
+/// The walking surface of a ramp, detached from its authored definition.
+///
+/// [`RampDef`] and the player's [`WalkableFloor`] both resolve their heights
+/// through this one value, so the sloped surface the geometry draws and the
+/// surface the controller stands on cannot drift apart: they are the same
+/// arithmetic over the same fields. The controller outlives the level's
+/// `RampDef`, which is why this is a small owned value rather than a borrowed
+/// view.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RampSurface {
+    x: f32,
+    z: f32,
+    width: f32,
+    depth: f32,
+    offset_y: f32,
+    rise: f32,
+}
+
+impl RampSurface {
+    /// The surface of one authored ramp.
+    #[must_use]
+    pub const fn new(ramp: &RampDef) -> Self {
+        Self {
+            x: ramp.x,
+            z: ramp.z,
+            width: ramp.width,
+            depth: ramp.depth,
+            offset_y: sanitized(ramp.offset_y),
+            rise: sanitized(ramp.rise),
+        }
+    }
+
+    /// Ramp footprint as `(x0, x1, z0, z1)`, normalised.
+    #[must_use]
+    pub fn bounds(&self) -> (f32, f32, f32, f32) {
+        (
+            self.x.min(self.x + self.width),
+            self.x.max(self.x + self.width),
+            self.z.min(self.z + self.depth),
+            self.z.max(self.z + self.depth),
+        )
+    }
+
+    /// True when `(x, z)` lies inside the ramp footprint.
+    #[must_use]
+    pub fn contains(&self, x: f32, z: f32) -> bool {
+        if !x.is_finite() || !z.is_finite() {
+            return false;
+        }
+        let (x0, x1, z0, z1) = self.bounds();
+        x >= x0 && x <= x1 && z >= z0 && z <= z1
+    }
+
+    /// The axis the run follows: the longer of width/depth.
+    #[must_use]
+    pub fn axis(&self) -> WallAxis {
+        WallAxis::of(self.width.abs(), self.depth.abs())
+    }
+
+    /// Length of the run along [`Self::axis`], in metres.
+    #[must_use]
+    pub fn length(&self) -> f32 {
+        match self.axis() {
+            WallAxis::X => self.width.abs(),
+            WallAxis::Z => self.depth.abs(),
+        }
+    }
+
+    /// Signed rise, sanitised to `0.0` for non-finite values.
+    #[must_use]
+    pub const fn rise(&self) -> f32 {
+        self.rise
+    }
+
+    /// Base offset at the run's low end, sanitised.
+    #[must_use]
+    pub const fn base_offset(&self) -> f32 {
+        self.offset_y
+    }
+
+    /// Fraction of the way along the run at `(x, z)`, clamped to `0.0..=1.0`.
+    #[must_use]
+    pub fn fraction_at(&self, x: f32, z: f32) -> f32 {
+        let length = self.length();
+        if !length.is_finite() || length <= 0.0 {
+            return 0.0;
+        }
+        let (x0, _x1, z0, _z1) = self.bounds();
+        let along = match self.axis() {
+            WallAxis::X => x - x0,
+            WallAxis::Z => z - z0,
+        };
+        (along / length).clamp(0.0, 1.0)
+    }
+
+    /// Vertical offset of the walking surface at `(x, z)`, relative to the
+    /// containing room's floor.
+    #[must_use]
+    pub fn offset_at(&self, x: f32, z: f32) -> f32 {
+        self.rise.mul_add(self.fraction_at(x, z), self.offset_y)
+    }
+
+    /// Vertical offset at the run's low end (the lower of the two ends).
+    #[must_use]
+    pub fn low_offset(&self) -> f32 {
+        self.offset_y + self.rise.min(0.0)
+    }
+
+    /// Vertical offset at the run's high end (the higher of the two ends).
+    #[must_use]
+    pub fn high_offset(&self) -> f32 {
+        self.offset_y + self.rise.max(0.0)
+    }
+
+    /// World `(x, z)` of the end at the high (`true`) or low (`false`) side of
+    /// the run.
+    #[must_use]
+    pub fn end_point(&self, high: bool) -> (f32, f32) {
+        let (x0, x1, z0, z1) = self.bounds();
+        // The far end of the run is the high end for a positive rise, and the
+        // low end for a negative one.
+        let far = high == (self.rise >= 0.0);
+        match self.axis() {
+            WallAxis::X => (if far { x1 } else { x0 }, f32::midpoint(z0, z1)),
+            WallAxis::Z => (f32::midpoint(x0, x1), if far { z1 } else { z0 }),
+        }
+    }
+
+    /// A world point just outside one side of the ramp, at run fraction
+    /// `fraction`, used to sample the floor the ramp's side faces meet.
+    ///
+    /// `side` is `-1.0` for the low-coordinate side (north/west) and `1.0` for
+    /// the high-coordinate side.
+    #[must_use]
+    pub fn side_probe(&self, side: f32, fraction: f32, probe: f32) -> (f32, f32) {
+        let (x0, x1, z0, z1) = self.bounds();
+        let fraction = fraction.clamp(0.0, 1.0);
+        match self.axis() {
+            WallAxis::X => (
+                fraction.mul_add(x1 - x0, x0),
+                if side < 0.0 { z0 - probe } else { z1 + probe },
+            ),
+            WallAxis::Z => (
+                if side < 0.0 { x0 - probe } else { x1 + probe },
+                fraction.mul_add(z1 - z0, z0),
+            ),
+        }
+    }
+}
+
+impl RampDef {
+    /// The ramp's walking surface as a detached value; the single definition
+    /// the renderer, the collision rims and the controller all resolve.
+    #[must_use]
+    pub const fn surface(&self) -> RampSurface {
+        RampSurface::new(self)
+    }
+
+    /// The ramp's top material reference, if it overrides the room's floor.
+    #[must_use]
+    pub fn floor_ref(&self) -> Option<MaterialRef<'_>> {
+        self.material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.shine))
+    }
+
+    /// The ramp's side-face material reference, if authored.
+    #[must_use]
+    pub fn edge_ref(&self) -> Option<MaterialRef<'_>> {
+        self.edge_material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.edge_shine))
+    }
+
+    /// Ramp footprint as `(x0, x1, z0, z1)`, normalised.
+    #[must_use]
+    pub fn bounds(&self) -> (f32, f32, f32, f32) {
+        self.surface().bounds()
+    }
+
+    /// True when `(x, z)` lies inside the ramp footprint.
+    #[must_use]
+    pub fn contains(&self, x: f32, z: f32) -> bool {
+        self.surface().contains(x, z)
+    }
+
+    /// The axis the ramp's run follows: the longer of width/depth.
+    #[must_use]
+    pub fn axis(&self) -> WallAxis {
+        self.surface().axis()
+    }
+
+    /// Length of the run along [`Self::axis`], in metres.
+    #[must_use]
+    pub fn length(&self) -> f32 {
+        self.surface().length()
+    }
+
+    /// Fraction of the way along the run at `(x, z)`, clamped to `0.0..=1.0`.
+    #[must_use]
+    pub fn fraction_at(&self, x: f32, z: f32) -> f32 {
+        self.surface().fraction_at(x, z)
+    }
+
+    /// Signed rise, sanitised to `0.0` for non-finite values.
+    #[must_use]
+    pub const fn rise(&self) -> f32 {
+        self.surface().rise()
+    }
+
+    /// Base offset at the ramp's low end, sanitised.
+    #[must_use]
+    pub const fn base_offset(&self) -> f32 {
+        self.surface().base_offset()
+    }
+
+    /// Vertical offset of the walking surface at `(x, z)`, relative to the
+    /// containing room's floor.
+    #[must_use]
+    pub fn offset_at(&self, x: f32, z: f32) -> f32 {
+        self.surface().offset_at(x, z)
+    }
+
+    /// Vertical offset at the ramp's low end (the lower of the two ends).
+    #[must_use]
+    pub fn low_offset(&self) -> f32 {
+        self.surface().low_offset()
+    }
+
+    /// Vertical offset at the ramp's high end (the higher of the two ends).
+    #[must_use]
+    pub fn high_offset(&self) -> f32 {
+        self.surface().high_offset()
+    }
+
+    /// World `(x, z)` of the end at the high (`true`) or low (`false`) side of
+    /// the run.
+    #[must_use]
+    pub fn end_point(&self, high: bool) -> (f32, f32) {
+        self.surface().end_point(high)
+    }
+
+    /// A world point just outside one side of the ramp, at run fraction
+    /// `fraction`, used to sample the floor the ramp's side faces meet.
+    #[must_use]
+    pub fn side_probe(&self, side: f32, fraction: f32, probe: f32) -> (f32, f32) {
+        self.surface().side_probe(side, fraction, probe)
+    }
+}
+
+/// A straight residential staircase: the level's stepped floor primitive.
+///
+/// A staircase is a rectangle in plan whose walking surface climbs in equal
+/// steps along its length axis. It is drawn as real treads, risers and closed
+/// sides, and collision resolves the same stepped heights, so the player walks
+/// it one step at a time with the ordinary 0.4 m walkable step rule.
+///
+/// * `offset_y` is the walking-surface offset at the **foot** of the flight
+///   (the first riser's base), relative to the containing room's `floor_y`.
+/// * `rise` is the total height climbed over `steps` risers, so the riser
+///   height is `rise / steps` and the tread depth is `length / steps`.
+/// * `steps` counts risers *and* treads: a flight of 16 steps climbs 16 risers
+///   and stands on 16 treads, the last of which is level with the far floor.
+///
+/// Tread material is `material`, risers use `riser_material` (falling back to
+/// the tread material) and the closed stringer sides use `side_material`
+/// (falling back to the riser material).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StairDef {
+    pub x: f32,
+    pub z: f32,
+    pub width: f32,
+    pub depth: f32,
+    /// Walking-surface offset at the foot, relative to the room's `floor_y`.
+    #[serde(default)]
+    pub offset_y: f32,
+    /// Total rise from the foot to the top tread, in metres; must be positive.
+    pub rise: f32,
+    /// Number of risers and treads; at least 2.
+    pub steps: u32,
+    /// Tread material id; falls back to the room's floor material.
+    #[serde(default)]
+    pub material: Option<String>,
+    /// Per-surface shine override for [`Self::material`].
+    #[serde(default)]
+    pub shine: Option<f32>,
+    /// Riser material id; falls back to [`Self::material`].
+    #[serde(default)]
+    pub riser_material: Option<String>,
+    /// Per-surface shine override for [`Self::riser_material`].
+    #[serde(default)]
+    pub riser_shine: Option<f32>,
+    /// Closed side material id; falls back to [`Self::riser_material`].
+    #[serde(default)]
+    pub side_material: Option<String>,
+    /// Per-surface shine override for [`Self::side_material`].
+    #[serde(default)]
+    pub side_shine: Option<f32>,
+}
+
+/// The walking surface of a straight staircase, detached from its authored
+/// definition.
+///
+/// [`StairDef`] and the player's [`WalkableFloor`] both resolve their stepped
+/// heights through this one value, so the treads the geometry draws and the
+/// treads the controller stands on cannot drift apart. The earlier walkable
+/// model re-derived the run from `bounds()` (`z1 - z0`) while the renderer used
+/// the authored `depth`; a one-ulp difference flipped the last step boundary
+/// and left the player standing a whole riser above the drawn tread.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StairSurface {
+    x: f32,
+    z: f32,
+    width: f32,
+    depth: f32,
+    offset_y: f32,
+    rise: f32,
+    steps: u32,
+}
+
+impl StairSurface {
+    /// The surface of one authored staircase.
+    #[must_use]
+    pub const fn new(stair: &StairDef) -> Self {
+        Self {
+            x: stair.x,
+            z: stair.z,
+            width: stair.width,
+            depth: stair.depth,
+            offset_y: sanitized(stair.offset_y),
+            rise: sanitized(stair.rise),
+            steps: stair.steps,
+        }
+    }
+
+    /// Stair footprint as `(x0, x1, z0, z1)`, normalised.
+    #[must_use]
+    pub fn bounds(&self) -> (f32, f32, f32, f32) {
+        (
+            self.x.min(self.x + self.width),
+            self.x.max(self.x + self.width),
+            self.z.min(self.z + self.depth),
+            self.z.max(self.z + self.depth),
+        )
+    }
+
+    /// True when `(x, z)` lies inside the stair footprint.
+    #[must_use]
+    pub fn contains(&self, x: f32, z: f32) -> bool {
+        if !x.is_finite() || !z.is_finite() {
+            return false;
+        }
+        let (x0, x1, z0, z1) = self.bounds();
+        x >= x0 && x <= x1 && z >= z0 && z <= z1
+    }
+
+    /// The axis the flight climbs along: the longer of width/depth.
+    #[must_use]
+    pub fn axis(&self) -> WallAxis {
+        WallAxis::of(self.width.abs(), self.depth.abs())
+    }
+
+    /// Run of the flight along [`Self::axis`], in metres.
+    #[must_use]
+    pub fn length(&self) -> f32 {
+        match self.axis() {
+            WallAxis::X => self.width.abs(),
+            WallAxis::Z => self.depth.abs(),
+        }
+    }
+
+    /// Number of steps.
+    #[must_use]
+    pub const fn step_count(&self) -> u32 {
+        self.steps
+    }
+
+    /// Total rise, sanitised to `0.0` for non-finite values.
+    #[must_use]
+    pub const fn rise(&self) -> f32 {
+        self.rise
+    }
+
+    /// Walking-surface offset at the foot, sanitised.
+    #[must_use]
+    pub const fn base_offset(&self) -> f32 {
+        self.offset_y
+    }
+
+    /// Run fraction at `(x, z)`, clamped to `0.0..=1.0`.
+    #[must_use]
+    pub fn fraction_at(&self, x: f32, z: f32) -> f32 {
+        let length = self.length();
+        if !length.is_finite() || length <= 0.0 {
+            return 0.0;
+        }
+        let (x0, _x1, z0, _z1) = self.bounds();
+        let along = match self.axis() {
+            WallAxis::X => x - x0,
+            WallAxis::Z => z - z0,
+        };
+        (along / length).clamp(0.0, 1.0)
+    }
+
+    /// Index of the tread carrying run fraction `fraction`, `0..steps`.
+    #[must_use]
+    pub fn step_index(&self, fraction: f32) -> u32 {
+        if self.steps == 0 {
+            return 0;
+        }
+        #[allow(
+            clippy::cast_precision_loss,
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss
+        )]
+        // The clamped value is far inside u32's range and the count is bounded.
+        let index = (fraction.clamp(0.0, 1.0) * self.steps as f32).floor() as u32;
+        index.min(self.steps.saturating_sub(1))
+    }
+
+    /// Height of one riser, in metres (zero when malformed).
+    #[must_use]
+    pub fn riser_height(&self) -> f32 {
+        if self.steps == 0 {
+            return 0.0;
+        }
+        #[allow(clippy::cast_precision_loss)] // step counts are bounded by validation
+        let count = self.steps as f32;
+        self.rise / count
+    }
+
+    /// Depth of one tread, in metres (zero when malformed).
+    #[must_use]
+    pub fn tread_depth(&self) -> f32 {
+        if self.steps == 0 {
+            return 0.0;
+        }
+        #[allow(clippy::cast_precision_loss)] // step counts are bounded by validation
+        let count = self.steps as f32;
+        self.length() / count
+    }
+
+    /// Vertical offset of the walking surface at `(x, z)`, relative to the
+    /// containing room's floor.
+    ///
+    /// The first tread stands one riser above the foot, so walking onto the
+    /// flight from the room floor is one ordinary step.
+    #[must_use]
+    pub fn offset_at(&self, x: f32, z: f32) -> f32 {
+        let step = self.step_index(self.fraction_at(x, z));
+        #[allow(clippy::cast_precision_loss)] // step counts are bounded by validation
+        let risers = (step.saturating_add(1)) as f32;
+        self.riser_height().mul_add(risers, self.offset_y)
+    }
+
+    /// Vertical offset of the top tread (level with the far floor).
+    #[must_use]
+    pub fn top_offset(&self) -> f32 {
+        #[allow(clippy::cast_precision_loss)] // step counts are bounded by validation
+        let count = self.steps as f32;
+        self.riser_height().mul_add(count, self.offset_y)
+    }
+
+    /// Run span `[start, end]` of tread `index` as world coordinates along the
+    /// length axis.
+    #[must_use]
+    pub fn tread_span(&self, index: u32) -> (f32, f32) {
+        let (x0, _x1, z0, _z1) = self.bounds();
+        let origin = match self.axis() {
+            WallAxis::X => x0,
+            WallAxis::Z => z0,
+        };
+        #[allow(clippy::cast_precision_loss)] // step counts are bounded by validation
+        let start = self.tread_depth().mul_add(index as f32, origin);
+        (start, start + self.tread_depth())
+    }
+
+    /// A world point just outside one side of the flight, at run fraction
+    /// `fraction`, used to sample the floor the closed sides meet.
+    #[must_use]
+    pub fn side_probe(&self, side: f32, fraction: f32, probe: f32) -> (f32, f32) {
+        let (x0, x1, z0, z1) = self.bounds();
+        let fraction = fraction.clamp(0.0, 1.0);
+        match self.axis() {
+            WallAxis::X => (
+                fraction.mul_add(x1 - x0, x0),
+                if side < 0.0 { z0 - probe } else { z1 + probe },
+            ),
+            WallAxis::Z => (
+                if side < 0.0 { x0 - probe } else { x1 + probe },
+                fraction.mul_add(z1 - z0, z0),
+            ),
+        }
+    }
+}
+
+impl StairDef {
+    /// The tread material reference, if it overrides the room's floor.
+    #[must_use]
+    pub fn tread_ref(&self) -> Option<MaterialRef<'_>> {
+        self.material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.shine))
+    }
+
+    /// The riser material reference: its own, else the tread's.
+    #[must_use]
+    pub fn riser_ref(&self) -> Option<MaterialRef<'_>> {
+        self.riser_material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.riser_shine))
+            .or_else(|| self.tread_ref())
+    }
+
+    /// The closed-side material reference: its own, else the riser's, else the
+    /// tread's.
+    #[must_use]
+    pub fn side_ref(&self) -> Option<MaterialRef<'_>> {
+        self.side_material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.side_shine))
+            .or_else(|| self.riser_ref())
+    }
+
+    /// The staircase's walking surface as a detached value; the single
+    /// definition the renderer, the collision rims and the controller resolve.
+    #[must_use]
+    pub const fn surface(&self) -> StairSurface {
+        StairSurface::new(self)
+    }
+
+    /// Stair footprint as `(x0, x1, z0, z1)`, normalised.
+    #[must_use]
+    pub fn bounds(&self) -> (f32, f32, f32, f32) {
+        self.surface().bounds()
+    }
+
+    /// True when `(x, z)` lies inside the stair footprint.
+    #[must_use]
+    pub fn contains(&self, x: f32, z: f32) -> bool {
+        self.surface().contains(x, z)
+    }
+
+    /// The axis the flight climbs along: the longer of width/depth.
+    #[must_use]
+    pub fn axis(&self) -> WallAxis {
+        self.surface().axis()
+    }
+
+    /// Run of the flight along [`Self::axis`], in metres.
+    #[must_use]
+    pub fn length(&self) -> f32 {
+        self.surface().length()
+    }
+
+    /// Number of steps, sanitised to zero when malformed.
+    #[must_use]
+    pub const fn step_count(&self) -> u32 {
+        self.surface().step_count()
+    }
+
+    /// Total rise, sanitised to `0.0` for non-finite values.
+    #[must_use]
+    pub const fn rise(&self) -> f32 {
+        self.surface().rise()
+    }
+
+    /// Walking-surface offset at the foot, sanitised.
+    #[must_use]
+    pub const fn base_offset(&self) -> f32 {
+        self.surface().base_offset()
+    }
+
+    /// Height of one riser, in metres (zero when malformed).
+    #[must_use]
+    pub fn riser_height(&self) -> f32 {
+        self.surface().riser_height()
+    }
+
+    /// Depth of one tread, in metres (zero when malformed).
+    #[must_use]
+    pub fn tread_depth(&self) -> f32 {
+        self.surface().tread_depth()
+    }
+
+    /// Run fraction at `(x, z)`, clamped to `0.0..=1.0`.
+    #[must_use]
+    pub fn fraction_at(&self, x: f32, z: f32) -> f32 {
+        self.surface().fraction_at(x, z)
+    }
+
+    /// Index of the tread carrying run fraction `fraction`, `0..steps`.
+    #[must_use]
+    pub fn step_index(&self, fraction: f32) -> u32 {
+        self.surface().step_index(fraction)
+    }
+
+    /// Vertical offset of the walking surface at `(x, z)`, relative to the
+    /// containing room's floor.
+    ///
+    /// The first tread stands one riser above the foot, so walking onto the
+    /// flight from the room floor is one ordinary step.
+    #[must_use]
+    pub fn offset_at(&self, x: f32, z: f32) -> f32 {
+        self.surface().offset_at(x, z)
+    }
+
+    /// Vertical offset of the top tread (level with the far floor).
+    #[must_use]
+    pub fn top_offset(&self) -> f32 {
+        self.surface().top_offset()
+    }
+
+    /// Run span `[start, end]` of tread `index` as world coordinates along the
+    /// length axis.
+    #[must_use]
+    pub fn tread_span(&self, index: u32) -> (f32, f32) {
+        self.surface().tread_span(index)
+    }
+
+    /// A world point just outside one side of the flight, at run fraction
+    /// `fraction`, used to sample the floor the closed sides meet.
+    #[must_use]
+    pub fn side_probe(&self, side: f32, fraction: f32, probe: f32) -> (f32, f32) {
+        self.surface().side_probe(side, fraction, probe)
+    }
+}
+
 /// Player initial spawn position and orientation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpawnDef {
@@ -680,6 +1395,975 @@ impl WallOpeningDef {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Generic architectural pieces
+// ---------------------------------------------------------------------------
+//
+// Half walls, columns, archways, guardrails, thresholds and baseboards are
+// theme-independent architecture: each one is a small solid or trim piece whose
+// surfaces are ordinary material ids, so a level draws it with whatever
+// materials it already uses. They carry no built-in textures of their own.
+
+/// One solid axis-aligned architectural box, in world coordinates.
+///
+/// The shared shape behind the pieces that physically exist (half walls,
+/// columns, archway piers and headers, guardrails): collision turns them into
+/// [`WallAabb`]s and the lighting bake turns them into blockers, so a piece
+/// that is drawn is also solid and also occludes.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ArchitectureBox {
+    pub min: [f32; 3],
+    pub max: [f32; 3],
+}
+
+impl ArchitectureBox {
+    /// A box from two corners, normalised so `min` is the low corner.
+    #[must_use]
+    pub fn from_corners(a: [f32; 3], b: [f32; 3]) -> Option<Self> {
+        if !a.iter().chain(b.iter()).all(|value| value.is_finite()) {
+            return None;
+        }
+        let min = [a[0].min(b[0]), a[1].min(b[1]), a[2].min(b[2])];
+        let max = [a[0].max(b[0]), a[1].max(b[1]), a[2].max(b[2])];
+        if max[0] <= min[0] || max[1] <= min[1] || max[2] <= min[2] {
+            return None;
+        }
+        Some(Self { min, max })
+    }
+
+    /// The box as a collision box.
+    #[must_use]
+    pub fn to_wall_aabb(&self) -> WallAabb {
+        WallAabb::with_y(
+            self.min[0],
+            self.min[1],
+            self.min[2],
+            self.max[0] - self.min[0],
+            self.max[1] - self.min[1],
+            self.max[2] - self.min[2],
+        )
+    }
+}
+
+/// Default height of a guardrail's top rail above its base line, in metres.
+pub const GUARDRAIL_DEFAULT_HEIGHT_M: f32 = 1.0;
+/// Default spacing between guardrail posts, in metres.
+pub const GUARDRAIL_DEFAULT_POST_SPACING_M: f32 = 1.2;
+/// Vertical size of a guardrail's top rail, in metres.
+pub const GUARDRAIL_RAIL_THICKNESS_M: f32 = 0.045;
+/// Across-the-run width of a guardrail's rails, in metres.
+pub const GUARDRAIL_RAIL_WIDTH_M: f32 = 0.07;
+/// Height of the guardrail's lower rail's top edge above its base line, in m.
+pub const GUARDRAIL_MIDRAIL_TOP_M: f32 = 0.33;
+/// Vertical size of a guardrail's lower rail, in metres.
+pub const GUARDRAIL_MIDRAIL_THICKNESS_M: f32 = 0.03;
+/// Square section of a guardrail post, in metres.
+///
+/// Deliberately slimmer than [`GUARDRAIL_RAIL_WIDTH_M`] so a post's sides never
+/// lie in the same plane as the rail they carry.
+pub const GUARDRAIL_POST_SIZE_M: f32 = 0.06;
+
+/// Default height of a baseboard above its base line, in metres.
+pub const BASEBOARD_DEFAULT_HEIGHT_M: f32 = 0.09;
+/// Default thickness (how far a baseboard stands proud of the wall), in metres.
+pub const BASEBOARD_DEFAULT_THICKNESS_M: f32 = 0.018;
+/// Default height of a threshold strip above the floor, in metres.
+pub const THRESHOLD_DEFAULT_HEIGHT_M: f32 = 0.012;
+/// Default width of a threshold strip across the doorway, in metres.
+pub const THRESHOLD_DEFAULT_THICKNESS_M: f32 = 0.06;
+
+/// A reusable half-height wall: a solid rectangular knee wall with its own
+/// length-face, end and cap materials.
+///
+/// The footprint is placed by its **minimum corner** exactly like a wall, and
+/// `height` is authored (a half wall without a height has no meaning). The
+/// piece is a real solid: it blocks the player, occludes baked light and draws
+/// a capped top, which is what makes it usable as a partition, a kitchen
+/// division, a stair-landing parapet or a planter edge. It is deliberately
+/// theme-independent: give it a Home wallpaper, an office panel or an
+/// industrial metal by naming the material.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HalfWallDef {
+    pub x: f32,
+    pub z: f32,
+    pub width: f32,
+    pub depth: f32,
+    /// Height above the piece's base, in metres.
+    pub height: f32,
+    /// Absolute world Y of the base. Omitted means the walkable floor under the
+    /// footprint's centre.
+    #[serde(default)]
+    pub y: Option<f32>,
+    /// Length-face material id; falls back to `defaults.wall`.
+    #[serde(default)]
+    pub material: Option<String>,
+    /// Per-surface shine override for [`Self::material`].
+    #[serde(default)]
+    pub shine: Option<f32>,
+    /// The two short end faces' material id; falls back to [`Self::material`].
+    #[serde(default)]
+    pub end_material: Option<String>,
+    /// Per-surface shine override for [`Self::end_material`].
+    #[serde(default)]
+    pub end_shine: Option<f32>,
+    /// Top cap material id; falls back to [`Self::material`].
+    #[serde(default)]
+    pub cap_material: Option<String>,
+    /// Per-surface shine override for [`Self::cap_material`].
+    #[serde(default)]
+    pub cap_shine: Option<f32>,
+}
+
+impl HalfWallDef {
+    /// Footprint `(x0, x1, z0, z1)`, normalised.
+    #[must_use]
+    pub fn bounds(&self) -> (f32, f32, f32, f32) {
+        (
+            self.x.min(self.x + self.width),
+            self.x.max(self.x + self.width),
+            self.z.min(self.z + self.depth),
+            self.z.max(self.z + self.depth),
+        )
+    }
+
+    /// The axis the piece's length runs along: the longer of width/depth.
+    #[must_use]
+    pub fn axis(&self) -> WallAxis {
+        WallAxis::of(self.width.abs(), self.depth.abs())
+    }
+
+    /// Length along [`Self::axis`], in metres.
+    #[must_use]
+    pub fn length(&self) -> f32 {
+        match self.axis() {
+            WallAxis::X => self.width.abs(),
+            WallAxis::Z => self.depth.abs(),
+        }
+    }
+
+    /// Thickness across the length axis, in metres.
+    #[must_use]
+    pub fn thickness(&self) -> f32 {
+        match self.axis() {
+            WallAxis::X => self.depth.abs(),
+            WallAxis::Z => self.width.abs(),
+        }
+    }
+
+    /// World Y of the piece's base, resolved against the level's floors when
+    /// the level does not author one.
+    #[must_use]
+    pub fn base_y(&self, surfaces: &LevelSurfaces<'_>) -> f32 {
+        if let Some(y) = self.y.filter(|value| value.is_finite()) {
+            return y;
+        }
+        let (x0, x1, z0, z1) = self.bounds();
+        surfaces
+            .floor_y_at(f32::midpoint(x0, x1), f32::midpoint(z0, z1))
+            .unwrap_or(0.0)
+    }
+
+    /// Length-face material reference, if it overrides `defaults.wall`.
+    #[must_use]
+    pub fn material_ref(&self) -> Option<MaterialRef<'_>> {
+        self.material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.shine))
+    }
+
+    /// End-face material reference: its own, else the length faces'.
+    #[must_use]
+    pub fn end_ref(&self) -> Option<MaterialRef<'_>> {
+        self.end_material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.end_shine))
+            .or_else(|| self.material_ref())
+    }
+
+    /// Cap material reference: its own, else the length faces'.
+    #[must_use]
+    pub fn cap_ref(&self) -> Option<MaterialRef<'_>> {
+        self.cap_material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.cap_shine))
+            .or_else(|| self.material_ref())
+    }
+
+    /// The piece's solid box, if its dimensions are usable.
+    #[must_use]
+    pub fn solid_box(&self, surfaces: &LevelSurfaces<'_>) -> Option<ArchitectureBox> {
+        let (x0, x1, z0, z1) = self.bounds();
+        if !self.height.is_finite() || self.height <= 0.0 {
+            return None;
+        }
+        let base = self.base_y(surfaces);
+        ArchitectureBox::from_corners([x0, base, z0], [x1, base + self.height, z1])
+    }
+}
+
+/// A reusable square or rectangular column: a solid post with a selectable
+/// body material and an optional cap.
+///
+/// Place by minimum corner like a wall. With `height` omitted the post runs
+/// from its base to the local clear ceiling, and its top cap is skipped when it
+/// meets the ceiling exactly (so a full-height column never z-fights the
+/// ceiling plane); author a smaller `height` for a post with a visible capital.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ColumnDef {
+    pub x: f32,
+    pub z: f32,
+    pub width: f32,
+    pub depth: f32,
+    /// Height above the base; omitted means the local clear ceiling height.
+    #[serde(default)]
+    pub height: Option<f32>,
+    /// Absolute world Y of the base. Omitted means the walkable floor under the
+    /// footprint's centre.
+    #[serde(default)]
+    pub y: Option<f32>,
+    /// Body material id; falls back to `defaults.wall`.
+    #[serde(default)]
+    pub material: Option<String>,
+    /// Per-surface shine override for [`Self::material`].
+    #[serde(default)]
+    pub shine: Option<f32>,
+    /// Top cap material id; falls back to [`Self::material`].
+    #[serde(default)]
+    pub cap_material: Option<String>,
+    /// Per-surface shine override for [`Self::cap_material`].
+    #[serde(default)]
+    pub cap_shine: Option<f32>,
+}
+
+impl ColumnDef {
+    /// Footprint `(x0, x1, z0, z1)`, normalised.
+    #[must_use]
+    pub fn bounds(&self) -> (f32, f32, f32, f32) {
+        (
+            self.x.min(self.x + self.width),
+            self.x.max(self.x + self.width),
+            self.z.min(self.z + self.depth),
+            self.z.max(self.z + self.depth),
+        )
+    }
+
+    /// World Y of the piece's base, resolved against the level's floors when
+    /// the level does not author one.
+    #[must_use]
+    pub fn base_y(&self, surfaces: &LevelSurfaces<'_>) -> f32 {
+        if let Some(y) = self.y.filter(|value| value.is_finite()) {
+            return y;
+        }
+        let (x0, x1, z0, z1) = self.bounds();
+        surfaces
+            .floor_y_at(f32::midpoint(x0, x1), f32::midpoint(z0, z1))
+            .unwrap_or(0.0)
+    }
+
+    /// World Y of the post's top: the authored height, else the local clear
+    /// ceiling.
+    #[must_use]
+    pub fn top_y(&self, surfaces: &LevelSurfaces<'_>) -> f32 {
+        let base = self.base_y(surfaces);
+        if let Some(height) = self
+            .height
+            .filter(|value| value.is_finite() && *value > 0.0)
+        {
+            return base + height;
+        }
+        let (x0, x1, z0, z1) = self.bounds();
+        let (x, z) = (f32::midpoint(x0, x1), f32::midpoint(z0, z1));
+        let ceiling = surfaces.ceiling_y_at(x, z);
+        if ceiling.is_finite() && ceiling > base {
+            ceiling
+        } else {
+            base + DEFAULT_CEILING_HEIGHT_M
+        }
+    }
+
+    /// Body material reference, if it overrides `defaults.wall`.
+    #[must_use]
+    pub fn material_ref(&self) -> Option<MaterialRef<'_>> {
+        self.material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.shine))
+    }
+
+    /// Cap material reference: its own, else the body's.
+    #[must_use]
+    pub fn cap_ref(&self) -> Option<MaterialRef<'_>> {
+        self.cap_material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.cap_shine))
+            .or_else(|| self.material_ref())
+    }
+
+    /// The piece's solid box, if its dimensions are usable.
+    #[must_use]
+    pub fn solid_box(&self, surfaces: &LevelSurfaces<'_>) -> Option<ArchitectureBox> {
+        let (x0, x1, z0, z1) = self.bounds();
+        let base = self.base_y(surfaces);
+        let top = self.top_y(surfaces);
+        ArchitectureBox::from_corners([x0, base, z0], [x1, top, z1])
+    }
+}
+
+/// A reusable archway: a wall block with a centred opening capped by an arch.
+///
+/// The footprint is the whole block (placed by minimum corner like a wall).
+/// `opening_height` is the clear height at the **crown**, `arch_rise` how much
+/// higher the crown is than the springing line where the arch leaves the jambs
+/// (`arch_rise: 0` gives a flat lintel), and `height` the block's own height;
+/// the block must be at least as tall as the opening.
+///
+/// The arch is drawn as a small number of flat segments — low-poly, smooth
+/// enough to read as a curve and cheap enough for the renderer. Collision only
+/// covers the two piers and the spandrel above the opening, so the opening is
+/// never blocked and the player never catches on the curve.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchwayDef {
+    pub x: f32,
+    pub z: f32,
+    pub width: f32,
+    pub depth: f32,
+    /// Height of the block above its base, in metres.
+    pub height: f32,
+    /// Clear width of the opening, in metres.
+    pub opening_width: f32,
+    /// Clear height of the opening at its crown, in metres.
+    pub opening_height: f32,
+    /// Crown rise above the springing line, in metres; `0.0` is a flat lintel.
+    #[serde(default)]
+    pub arch_rise: f32,
+    /// Absolute world Y of the base. Omitted means the walkable floor under the
+    /// footprint's centre.
+    #[serde(default)]
+    pub y: Option<f32>,
+    /// Face material id; falls back to `defaults.wall`.
+    #[serde(default)]
+    pub material: Option<String>,
+    /// Per-surface shine override for [`Self::material`].
+    #[serde(default)]
+    pub shine: Option<f32>,
+    /// Material for the reveals and the arch soffit; falls back to
+    /// [`Self::material`].
+    #[serde(default)]
+    pub reveal_material: Option<String>,
+    /// Per-surface shine override for [`Self::reveal_material`].
+    #[serde(default)]
+    pub reveal_shine: Option<f32>,
+}
+
+/// Number of flat segments the arch curve is approximated with.
+pub const ARCHWAY_SEGMENTS: u32 = 8;
+
+/// Smallest pier an archway must keep beside its opening, in metres.
+pub const ARCHWAY_MIN_PIER_M: f32 = 0.08;
+
+impl ArchwayDef {
+    /// Footprint `(x0, x1, z0, z1)`, normalised.
+    #[must_use]
+    pub fn bounds(&self) -> (f32, f32, f32, f32) {
+        (
+            self.x.min(self.x + self.width),
+            self.x.max(self.x + self.width),
+            self.z.min(self.z + self.depth),
+            self.z.max(self.z + self.depth),
+        )
+    }
+
+    /// The axis the block's length runs along: the longer of width/depth.
+    #[must_use]
+    pub fn axis(&self) -> WallAxis {
+        WallAxis::of(self.width.abs(), self.depth.abs())
+    }
+
+    /// Length of the block along [`Self::axis`], in metres.
+    #[must_use]
+    pub fn length(&self) -> f32 {
+        match self.axis() {
+            WallAxis::X => self.width.abs(),
+            WallAxis::Z => self.depth.abs(),
+        }
+    }
+
+    /// Thickness of the block across [`Self::axis`], in metres.
+    #[must_use]
+    pub fn thickness(&self) -> f32 {
+        match self.axis() {
+            WallAxis::X => self.depth.abs(),
+            WallAxis::Z => self.width.abs(),
+        }
+    }
+
+    /// World Y of the piece's base, resolved against the level's floors when
+    /// the level does not author one.
+    #[must_use]
+    pub fn base_y(&self, surfaces: &LevelSurfaces<'_>) -> f32 {
+        if let Some(y) = self.y.filter(|value| value.is_finite()) {
+            return y;
+        }
+        let (x0, x1, z0, z1) = self.bounds();
+        surfaces
+            .floor_y_at(f32::midpoint(x0, x1), f32::midpoint(z0, z1))
+            .unwrap_or(0.0)
+    }
+
+    /// Arch rise, sanitised to `0.0` for a flat lintel.
+    #[must_use]
+    pub const fn rise(&self) -> f32 {
+        if self.arch_rise.is_finite() && self.arch_rise > 0.0 {
+            self.arch_rise
+        } else {
+            0.0
+        }
+    }
+
+    /// Clear height of the opening at the jambs, in metres.
+    #[must_use]
+    pub fn spring_height(&self) -> f32 {
+        self.opening_height - self.rise()
+    }
+
+    /// Start and end of the opening along the block's length axis, measured
+    /// from the minimum corner.
+    #[must_use]
+    pub fn opening_span(&self) -> (f32, f32) {
+        let length = self.length();
+        let half = self.opening_width * 0.5;
+        let centre = length * 0.5;
+        (centre - half, centre + half)
+    }
+
+    /// World `(x, z)` of the arch curve's crown at height offset `y`, for the
+    /// segment boundary at run offset `along`.
+    #[must_use]
+    pub fn arch_height_at(&self, along: f32) -> f32 {
+        let (start, end) = self.opening_span();
+        let half = self.opening_width * 0.5;
+        let rise = self.rise();
+        if half <= 0.0 || rise <= 0.0 {
+            return self.opening_height;
+        }
+        // A circular segment through the two springing points and the crown:
+        // solving for the circle's rise above the chord gives the curve.
+        let x = (along - f32::midpoint(start, end)).clamp(-half, half) / half;
+        let shape = (1.0 - x * x).max(0.0).sqrt();
+        rise.mul_add(shape, self.spring_height())
+    }
+
+    /// Face material reference, if it overrides `defaults.wall`.
+    #[must_use]
+    pub fn material_ref(&self) -> Option<MaterialRef<'_>> {
+        self.material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.shine))
+    }
+
+    /// Reveal/soffit material reference: its own, else the faces'.
+    #[must_use]
+    pub fn reveal_ref(&self) -> Option<MaterialRef<'_>> {
+        self.reveal_material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.reveal_shine))
+            .or_else(|| self.material_ref())
+    }
+
+    /// The solid boxes the archway contributes: one per pier, plus the
+    /// spandrel above the opening.
+    #[must_use]
+    pub fn solid_boxes(&self, surfaces: &LevelSurfaces<'_>) -> Vec<ArchitectureBox> {
+        let (x0, x1, z0, z1) = self.bounds();
+        let base = self.base_y(surfaces);
+        let top = base + self.height;
+        let (open_start, open_end) = self.opening_span();
+        let spring = base + self.spring_height();
+        let mut boxes = Vec::with_capacity(3);
+        // In length/across space: the first pier, the second pier and the
+        // spandrel the arch leaves above the opening.
+        let piers = [
+            (0.0, open_start, base, top),
+            (open_end, self.length(), base, top),
+            (open_start, open_end, spring, top),
+        ];
+        for (start, end, bottom, ceiling) in piers {
+            let piece_box = match self.axis() {
+                WallAxis::X => {
+                    ArchitectureBox::from_corners([x0 + start, bottom, z0], [x0 + end, ceiling, z1])
+                }
+                WallAxis::Z => {
+                    ArchitectureBox::from_corners([x0, bottom, z0 + start], [x1, ceiling, z0 + end])
+                }
+            };
+            if let Some(piece_box) = piece_box {
+                boxes.push(piece_box);
+            }
+        }
+        boxes
+    }
+}
+
+/// A reusable guardrail or stair handrail: a wooden rail run with posts.
+///
+/// The rail runs along its own local `+X` axis from `(x, z)`, rotated by
+/// `rotation_degrees` about Y (0 runs east, 90 north, 180 west, 270 south), and
+/// `rise` slopes it for a staircase or ramp (`rise: 0` is a level landing
+/// rail). It stands `height` tall with a top rail, a lower rail and square
+/// posts at `post_spacing`, and it is solid: a guardrail is a barrier, so it
+/// blocks the player rather than merely being drawn.
+///
+/// `material` is the rail timber and `post_material` the posts' (falling back
+/// to the rail's). Nothing about the piece is residential: name a metal or
+/// painted material and it is an industrial or office rail.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GuardrailDef {
+    /// World X of the rail's start point.
+    pub x: f32,
+    /// World Z of the rail's start point.
+    pub z: f32,
+    /// Length of the run, in metres.
+    pub length: f32,
+    /// Yaw about Y in degrees; 0 runs east (+X).
+    #[serde(default)]
+    pub rotation_degrees: f32,
+    /// Height of the top rail's top edge above the base line, in metres.
+    #[serde(default = "default_guardrail_height")]
+    pub height: f32,
+    /// Height change along the run, in metres (a stair or ramp rail). Omitted
+    /// means the rail follows the walkable floor from its start point to its
+    /// end point — a handrail beside a flight or ramp keeps a constant height
+    /// above the sloped surface without the author having to compute the
+    /// difference; author `rise` to override that line (a level rail on a
+    /// slope, or a known rise).
+    #[serde(default)]
+    pub rise: Option<f32>,
+    /// Distance between posts, in metres.
+    #[serde(default = "default_post_spacing")]
+    pub post_spacing: f32,
+    /// Absolute world Y of the base line at the start point. Omitted means the
+    /// walkable floor under the start point.
+    #[serde(default)]
+    pub y: Option<f32>,
+    /// Rail material id; falls back to `defaults.wall`.
+    #[serde(default)]
+    pub material: Option<String>,
+    /// Per-surface shine override for [`Self::material`].
+    #[serde(default)]
+    pub shine: Option<f32>,
+    /// Post material id; falls back to [`Self::material`].
+    #[serde(default)]
+    pub post_material: Option<String>,
+    /// Per-surface shine override for [`Self::post_material`].
+    #[serde(default)]
+    pub post_shine: Option<f32>,
+}
+
+const fn default_guardrail_height() -> f32 {
+    GUARDRAIL_DEFAULT_HEIGHT_M
+}
+
+const fn default_post_spacing() -> f32 {
+    GUARDRAIL_DEFAULT_POST_SPACING_M
+}
+
+impl GuardrailDef {
+    /// Direction of the run as a `(x, z)` unit vector.
+    #[must_use]
+    pub fn direction(&self) -> (f32, f32) {
+        let radians = self.rotation_degrees.to_radians();
+        (radians.cos(), -radians.sin())
+    }
+
+    /// Across-the-run direction as a `(x, z)` unit vector.
+    #[must_use]
+    pub fn across(&self) -> (f32, f32) {
+        let radians = self.rotation_degrees.to_radians();
+        (radians.sin(), radians.cos())
+    }
+
+    /// Signed rise as authored, sanitised to `0.0` for non-finite values.
+    ///
+    /// This is the authored override only; [`Self::resolved_rise`] is the value
+    /// the geometry and collision use, which follows the floor when no rise is
+    /// authored.
+    #[must_use]
+    pub const fn rise(&self) -> f32 {
+        match self.rise {
+            Some(rise) if rise.is_finite() => rise,
+            _ => 0.0,
+        }
+    }
+
+    /// The rise the rail actually runs with: the authored value, or the
+    /// walkable floor's change from the start point to the end point.
+    ///
+    /// Following the floors is what makes the primitive usable as a handrail
+    /// beside a staircase or a ramp: the rail's base line stays the walkable
+    /// surface's own slope, so the top rail keeps a constant height above the
+    /// nosings. A level rail on sloping ground authors `rise: 0.0` explicitly.
+    #[must_use]
+    pub fn resolved_rise(&self, surfaces: &LevelSurfaces<'_>) -> f32 {
+        if self.rise.is_some() {
+            return self.rise();
+        }
+        let (end_x, end_z) = self.point_at(1.0, 0.0);
+        let start = surfaces.floor_y_at(self.x, self.z).unwrap_or(0.0);
+        let end = surfaces.floor_y_at(end_x, end_z).unwrap_or(start);
+        let rise = end - start;
+        if rise.is_finite() { rise } else { 0.0 }
+    }
+
+    /// Top-rail height, sanitised to the default.
+    #[must_use]
+    pub fn height(&self) -> f32 {
+        if self.height.is_finite() && self.height > 0.0 {
+            self.height
+        } else {
+            GUARDRAIL_DEFAULT_HEIGHT_M
+        }
+    }
+
+    /// Post spacing, sanitised to the default.
+    #[must_use]
+    pub fn post_spacing(&self) -> f32 {
+        if self.post_spacing.is_finite() && self.post_spacing > 0.0 {
+            self.post_spacing
+        } else {
+            GUARDRAIL_DEFAULT_POST_SPACING_M
+        }
+    }
+
+    /// World `(x, z)` of a point at run fraction `fraction`, offset across the
+    /// run by `across` metres.
+    #[must_use]
+    pub fn point_at(&self, fraction: f32, across: f32) -> (f32, f32) {
+        let (dx, dz) = self.direction();
+        let (ax, az) = self.across();
+        let along = self.length * fraction.clamp(0.0, 1.0);
+        (
+            dx.mul_add(along, ax.mul_add(across, self.x)),
+            dz.mul_add(along, az.mul_add(across, self.z)),
+        )
+    }
+
+    /// World Y of the base line at run fraction `fraction`.
+    ///
+    /// An authored `y` pins the start; an omitted one resolves the walkable
+    /// floor under the start point, and an omitted `rise` follows the floor's
+    /// change to the end point.
+    #[must_use]
+    pub fn base_y_at(&self, surfaces: &LevelSurfaces<'_>, fraction: f32) -> f32 {
+        let base = self.base_y(surfaces);
+        self.resolved_rise(surfaces)
+            .mul_add(fraction.clamp(0.0, 1.0), base)
+    }
+
+    /// World Y of the base line at the run's start point, resolved against the
+    /// level's floors when the level does not author one.
+    #[must_use]
+    pub fn base_y(&self, surfaces: &LevelSurfaces<'_>) -> f32 {
+        if let Some(y) = self.y.filter(|value| value.is_finite()) {
+            return y;
+        }
+        surfaces.floor_y_at(self.x, self.z).unwrap_or(0.0)
+    }
+
+    /// Rail material reference, if it overrides `defaults.wall`.
+    #[must_use]
+    pub fn material_ref(&self) -> Option<MaterialRef<'_>> {
+        self.material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.shine))
+    }
+
+    /// Post material reference: its own, else the rail's.
+    #[must_use]
+    pub fn post_ref(&self) -> Option<MaterialRef<'_>> {
+        self.post_material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.post_shine))
+            .or_else(|| self.material_ref())
+    }
+
+    /// The barrier's solid box: the run's whole swept volume, from just below
+    /// the base line to the top of the rail.
+    #[must_use]
+    pub fn solid_box(&self, surfaces: &LevelSurfaces<'_>) -> Option<ArchitectureBox> {
+        let corners = [
+            self.point_at(0.0, -GUARDRAIL_RAIL_WIDTH_M * 0.5),
+            self.point_at(0.0, GUARDRAIL_RAIL_WIDTH_M * 0.5),
+            self.point_at(1.0, -GUARDRAIL_RAIL_WIDTH_M * 0.5),
+            self.point_at(1.0, GUARDRAIL_RAIL_WIDTH_M * 0.5),
+        ];
+        let (mut x0, mut x1, mut z0, mut z1) = (
+            f32::INFINITY,
+            f32::NEG_INFINITY,
+            f32::INFINITY,
+            f32::NEG_INFINITY,
+        );
+        for (x, z) in corners {
+            x0 = x0.min(x);
+            x1 = x1.max(x);
+            z0 = z0.min(z);
+            z1 = z1.max(z);
+        }
+        let base_low = self
+            .base_y_at(surfaces, 0.0)
+            .min(self.base_y_at(surfaces, 1.0));
+        let base_high = self
+            .base_y_at(surfaces, 0.0)
+            .max(self.base_y_at(surfaces, 1.0));
+        // Back the barrier a little below the base line so a player standing on
+        // a lower floor still meets it.
+        ArchitectureBox::from_corners(
+            [x0, base_low - 0.2, z0],
+            [x1, base_high + self.height(), z1],
+        )
+    }
+}
+
+/// A reusable floor threshold strip: the narrow transition piece between two
+/// floor materials at a doorway.
+///
+/// It is a decorative strip, not architecture: it sits on the floor, is raised
+/// by `height` (a centimetre or so) and takes a material of its own, so a
+/// hardwood-to-carpet doorway has a real painted or wooden transition instead
+/// of two floors meeting in a line. It deliberately carries **no collision**:
+/// the player walks over it, and a trip-hazard collider under a doorway is
+/// exactly the kind of decoration the movement code should ignore.
+///
+/// It is placed by its centre and runs along its own local `+X` axis, rotated
+/// by `rotation_degrees` (0 runs east). Author `length` a few centimetres wider
+/// than the opening so the strip's ends tuck into the jambs rather than
+/// touching them face to face, and keep it over a level floor: the loader
+/// rejects a threshold whose ends stand at different heights.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThresholdDef {
+    pub x: f32,
+    pub z: f32,
+    /// Length along the strip's own axis, in metres.
+    pub length: f32,
+    /// Width across the strip (the doorway's depth direction), in metres.
+    #[serde(default = "default_threshold_thickness")]
+    pub thickness: f32,
+    /// How far the strip stands above the floor, in metres.
+    #[serde(default = "default_threshold_height")]
+    pub height: f32,
+    /// Yaw about Y in degrees; 0 runs east (+X).
+    #[serde(default)]
+    pub rotation_degrees: f32,
+    /// Absolute world Y of the strip's base. Omitted means the walkable floor
+    /// under the strip's centre.
+    #[serde(default)]
+    pub y: Option<f32>,
+    /// Strip material id; falls back to `defaults.floor`.
+    #[serde(default)]
+    pub material: Option<String>,
+    /// Per-surface shine override for [`Self::material`].
+    #[serde(default)]
+    pub shine: Option<f32>,
+}
+
+const fn default_threshold_thickness() -> f32 {
+    THRESHOLD_DEFAULT_THICKNESS_M
+}
+
+const fn default_threshold_height() -> f32 {
+    THRESHOLD_DEFAULT_HEIGHT_M
+}
+
+impl ThresholdDef {
+    /// Strip thickness, sanitised to the default.
+    #[must_use]
+    pub fn thickness(&self) -> f32 {
+        if self.thickness.is_finite() && self.thickness > 0.0 {
+            self.thickness
+        } else {
+            THRESHOLD_DEFAULT_THICKNESS_M
+        }
+    }
+
+    /// Strip height above the floor, sanitised to the default.
+    #[must_use]
+    pub fn height(&self) -> f32 {
+        if self.height.is_finite() && self.height > 0.0 {
+            self.height
+        } else {
+            THRESHOLD_DEFAULT_HEIGHT_M
+        }
+    }
+
+    /// Direction of the strip as a `(x, z)` unit vector.
+    #[must_use]
+    pub fn direction(&self) -> (f32, f32) {
+        let radians = self.rotation_degrees.to_radians();
+        (radians.cos(), -radians.sin())
+    }
+
+    /// Across-the-strip direction as a `(x, z)` unit vector.
+    #[must_use]
+    pub fn across(&self) -> (f32, f32) {
+        let radians = self.rotation_degrees.to_radians();
+        (radians.sin(), radians.cos())
+    }
+
+    /// World `(x, z)` at run offset `along` metres from the strip's centre and
+    /// `across` metres across it.
+    #[must_use]
+    pub fn point_at_offset(&self, along: f32, across: f32) -> (f32, f32) {
+        let (dx, dz) = self.direction();
+        let (ax, az) = self.across();
+        (
+            dx.mul_add(along, ax.mul_add(across, self.x)),
+            dz.mul_add(along, az.mul_add(across, self.z)),
+        )
+    }
+
+    /// World `(x, z)` of a point at run fraction `fraction` (0 at the strip's
+    /// centre, 1 at one end) and across offset `across`, in metres.
+    #[must_use]
+    pub fn point_at(&self, fraction: f32, across: f32) -> (f32, f32) {
+        self.point_at_offset(self.length * fraction.clamp(0.0, 1.0), across)
+    }
+
+    /// World Y of the strip's base, resolved against the level's floors when
+    /// the level does not author one.
+    #[must_use]
+    pub fn base_y(&self, surfaces: &LevelSurfaces<'_>) -> f32 {
+        if let Some(y) = self.y.filter(|value| value.is_finite()) {
+            return y;
+        }
+        surfaces.floor_y_at(self.x, self.z).unwrap_or(0.0)
+    }
+
+    /// Strip material reference, if it overrides `defaults.floor`.
+    #[must_use]
+    pub fn material_ref(&self) -> Option<MaterialRef<'_>> {
+        self.material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.shine))
+    }
+}
+
+/// A reusable baseboard / skirting run: a thin trim board along the bottom of a
+/// wall.
+///
+/// It runs along its own local `+X` axis from `(x, z)`, rotated by
+/// `rotation_degrees` (0 runs east, 90 north, 180 west, 270 south), stands
+/// `height` tall and `thickness` proud of the wall plane it is placed against.
+/// It carries **no collision**: a nine-centimetre board is decoration, and the
+/// player's own radius already keeps them clear of it.
+///
+/// Corners are made the way trim is fitted: run two boards so they overlap at
+/// the corner by about their own thickness, leaving the ends buried inside each
+/// other, or stop one against the other's face. The material is whatever the
+/// level names, so the same geometry is a painted Home skirting or an
+/// industrial kick plate.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BaseboardDef {
+    /// World X of the run's start point.
+    pub x: f32,
+    /// World Z of the run's start point.
+    pub z: f32,
+    /// Length of the run, in metres.
+    pub length: f32,
+    /// Yaw about Y in degrees; 0 runs east (+X).
+    #[serde(default)]
+    pub rotation_degrees: f32,
+    /// Height of the board above its base line, in metres.
+    #[serde(default = "default_baseboard_height")]
+    pub height: f32,
+    /// How far the board stands proud of the wall, in metres.
+    #[serde(default = "default_baseboard_thickness")]
+    pub thickness: f32,
+    /// Absolute world Y of the board's base. Omitted means the walkable floor
+    /// under the run's start point.
+    #[serde(default)]
+    pub y: Option<f32>,
+    /// Board material id; falls back to `defaults.wall`.
+    #[serde(default)]
+    pub material: Option<String>,
+    /// Per-surface shine override for [`Self::material`].
+    #[serde(default)]
+    pub shine: Option<f32>,
+}
+
+const fn default_baseboard_height() -> f32 {
+    BASEBOARD_DEFAULT_HEIGHT_M
+}
+
+const fn default_baseboard_thickness() -> f32 {
+    BASEBOARD_DEFAULT_THICKNESS_M
+}
+
+impl BaseboardDef {
+    /// Board height, sanitised to the default.
+    #[must_use]
+    pub fn height(&self) -> f32 {
+        if self.height.is_finite() && self.height > 0.0 {
+            self.height
+        } else {
+            BASEBOARD_DEFAULT_HEIGHT_M
+        }
+    }
+
+    /// Board thickness, sanitised to the default.
+    #[must_use]
+    pub fn thickness(&self) -> f32 {
+        if self.thickness.is_finite() && self.thickness > 0.0 {
+            self.thickness
+        } else {
+            BASEBOARD_DEFAULT_THICKNESS_M
+        }
+    }
+
+    /// Direction of the run as a `(x, z)` unit vector.
+    #[must_use]
+    pub fn direction(&self) -> (f32, f32) {
+        let radians = self.rotation_degrees.to_radians();
+        (radians.cos(), -radians.sin())
+    }
+
+    /// Across-the-board direction as a `(x, z)` unit vector, pointing out of
+    /// the wall's face.
+    #[must_use]
+    pub fn across(&self) -> (f32, f32) {
+        let radians = self.rotation_degrees.to_radians();
+        (radians.sin(), radians.cos())
+    }
+
+    /// World `(x, z)` of a point at run fraction `fraction` and across offset
+    /// `across` metres from the wall plane.
+    #[must_use]
+    pub fn point_at(&self, fraction: f32, across: f32) -> (f32, f32) {
+        let (dx, dz) = self.direction();
+        let (ax, az) = self.across();
+        let along = self.length * fraction.clamp(0.0, 1.0);
+        (
+            dx.mul_add(along, ax.mul_add(across, self.x)),
+            dz.mul_add(along, az.mul_add(across, self.z)),
+        )
+    }
+
+    /// World Y of the board's base, resolved against the level's floors when
+    /// the level does not author one.
+    #[must_use]
+    pub fn base_y(&self, surfaces: &LevelSurfaces<'_>) -> f32 {
+        if let Some(y) = self.y.filter(|value| value.is_finite()) {
+            return y;
+        }
+        surfaces.floor_y_at(self.x, self.z).unwrap_or(0.0)
+    }
+
+    /// Board material reference, if it overrides `defaults.wall`.
+    #[must_use]
+    pub fn material_ref(&self) -> Option<MaterialRef<'_>> {
+        self.material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.shine))
+    }
+}
+
 /// One solid rectangular slice of a wall in local wall space.
 /// `start`/`end` are offsets along the wall's length axis; `bottom`/`top` are absolute Y.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -691,7 +2375,10 @@ pub struct WallSlice {
 }
 
 /// Tolerance used when clamping and comparing wall opening geometry, in metres.
-const WALL_SLICE_EPS: f32 = 1e-4;
+///
+/// Also the exclusive-boundary tolerance for "is this point inside a wall
+/// solid", used by the loader's buried-trim checks.
+pub(crate) const WALL_SLICE_EPS: f32 = 1e-4;
 
 /// Splits a wall into solid vertical slices, with the openings removed.
 ///
@@ -1432,6 +3119,31 @@ pub struct LevelDef {
     /// raised platforms). Empty on every legacy level.
     #[serde(default)]
     pub floor_regions: Vec<FloorRegionDef>,
+    /// Straight sloped walking surfaces (ramps). Empty on every legacy level.
+    #[serde(default)]
+    pub ramps: Vec<RampDef>,
+    /// Straight stepped walking surfaces (staircases). Empty on every legacy
+    /// level.
+    #[serde(default)]
+    pub stairs: Vec<StairDef>,
+    /// Solid half-height walls: partitions, parapets and knee walls.
+    #[serde(default)]
+    pub half_walls: Vec<HalfWallDef>,
+    /// Solid square or rectangular columns/posts.
+    #[serde(default)]
+    pub columns: Vec<ColumnDef>,
+    /// Arched openings through a wall block.
+    #[serde(default)]
+    pub archways: Vec<ArchwayDef>,
+    /// Guardrails and stair handrails.
+    #[serde(default)]
+    pub guardrails: Vec<GuardrailDef>,
+    /// Floor threshold strips: the transition between two floor materials.
+    #[serde(default)]
+    pub thresholds: Vec<ThresholdDef>,
+    /// Baseboard / skirting runs along a wall.
+    #[serde(default)]
+    pub baseboards: Vec<BaseboardDef>,
     /// Local surface decals (signs, floor markings, warnings).
     #[serde(default)]
     pub decals: Vec<DecalDef>,
@@ -1544,6 +3256,42 @@ pub const MAX_LEVEL_FLOOR_REGIONS: u64 = 2000;
 pub const MAX_LEVEL_FLOOR_PATCHES: u64 = 2000;
 /// Hard ceiling on the number of openings a single wall may declare.
 pub const MAX_WALL_OPENINGS: usize = 64;
+/// Hard ceiling on the number of ramps a level may define.
+pub const MAX_LEVEL_RAMPS: u64 = 500;
+/// Hard ceiling on the number of staircases a level may define.
+pub const MAX_LEVEL_STAIRS: u64 = 500;
+/// Hard ceiling on the number of half walls a level may define.
+pub const MAX_LEVEL_HALF_WALLS: u64 = 2000;
+/// Hard ceiling on the number of columns a level may define.
+pub const MAX_LEVEL_COLUMNS: u64 = 2000;
+/// Hard ceiling on the number of archways a level may define.
+pub const MAX_LEVEL_ARCHWAYS: u64 = 500;
+/// Hard ceiling on the number of guardrails a level may define.
+pub const MAX_LEVEL_GUARDRAILS: u64 = 2000;
+/// Hard ceiling on the number of threshold strips a level may define.
+pub const MAX_LEVEL_THRESHOLDS: u64 = 1000;
+/// Hard ceiling on the number of baseboard runs a level may define.
+pub const MAX_LEVEL_BASEBOARDS: u64 = 2000;
+/// Upper bound on the quads a ramp emits beyond its top-surface cells: two
+/// side skirts, two end faces and their lightmap tiling.
+pub const MAX_RAMP_EXTRA_QUADS: u64 = 12;
+/// Upper bound on the quads a staircase emits beyond its treads and risers.
+pub const MAX_STAIR_EXTRA_QUADS: u64 = 8;
+/// Upper bound on the quads one half wall emits: length faces, ends and caps.
+pub const MAX_HALF_WALL_QUADS: u64 = 6;
+/// Upper bound on the quads one column emits.
+pub const MAX_COLUMN_QUADS: u64 = 6;
+/// Upper bound on the quads an archway emits beyond its two arch curves (front
+/// and back).
+pub const MAX_ARCHWAY_EXTRA_QUADS: u64 = 16;
+/// Upper bound on the quads a guardrail emits beyond its posts.
+pub const MAX_GUARDRAIL_EXTRA_QUADS: u64 = 16;
+/// Upper bound on the quads one threshold strip emits.
+pub const MAX_THRESHOLD_QUADS: u64 = 5;
+/// Upper bound on the quads one baseboard run emits: a front run, a cap split
+/// into up to two trimmed pieces (each a triangle fan of at most two triangles)
+/// and two end faces.
+pub const MAX_BASEBOARD_QUADS: u64 = 8;
 /// Hard byte ceiling on a standalone level JSON file before it is parsed.
 ///
 /// The shipped demo is about 23 KB, so this is three orders of magnitude of
@@ -1623,6 +3371,65 @@ impl LevelDef {
             .collect()
     }
 
+    /// Ramps overlapping the given room's footprint, in authored order.
+    #[must_use]
+    pub fn ramps_for_room(&self, room: &RoomDef) -> Vec<&RampDef> {
+        let (x0, x1, z0, z1) = room.bounds();
+        self.ramps
+            .iter()
+            .filter(|ramp| {
+                let (rx0, rx1, rz0, rz1) = ramp.bounds();
+                rx1 > x0 && rx0 < x1 && rz1 > z0 && rz0 < z1
+            })
+            .collect()
+    }
+
+    /// Staircases overlapping the given room's footprint, in authored order.
+    #[must_use]
+    pub fn stairs_for_room(&self, room: &RoomDef) -> Vec<&StairDef> {
+        let (x0, x1, z0, z1) = room.bounds();
+        self.stairs
+            .iter()
+            .filter(|stair| {
+                let (sx0, sx1, sz0, sz1) = stair.bounds();
+                sx1 > x0 && sx0 < x1 && sz1 > z0 && sz0 < z1
+            })
+            .collect()
+    }
+
+    /// Every solid architectural piece as one axis-aligned box, in authored
+    /// order: half walls, columns, the piers and spandrel of every archway, and
+    /// every guardrail's barrier volume.
+    ///
+    /// This is the single list collision and the lighting bake share, so a
+    /// piece that is drawn is also solid and also occludes. The decorative
+    /// pieces (thresholds, baseboards) are deliberately absent: they are trim,
+    /// not barriers.
+    #[must_use]
+    pub fn architecture_solids(&self) -> Vec<ArchitectureBox> {
+        let surfaces = LevelSurfaces::new(self);
+        let mut boxes: Vec<ArchitectureBox> = Vec::new();
+        for piece in &self.half_walls {
+            if let Some(boxed) = piece.solid_box(&surfaces) {
+                boxes.push(boxed);
+            }
+        }
+        for piece in &self.columns {
+            if let Some(boxed) = piece.solid_box(&surfaces) {
+                boxes.push(boxed);
+            }
+        }
+        for piece in &self.archways {
+            boxes.extend(piece.solid_boxes(&surfaces));
+        }
+        for piece in &self.guardrails {
+            if let Some(boxed) = piece.solid_box(&surfaces) {
+                boxes.push(boxed);
+            }
+        }
+        boxes
+    }
+
     /// Upper bound on the extra floor-grid cut lines the floor patches and
     /// floor regions overlapping `room` add, as an `(x, z)` count pair.
     ///
@@ -1647,6 +3454,54 @@ impl LevelDef {
             z_cuts = z_cuts.saturating_add(2);
         }
         (x_cuts, z_cuts)
+    }
+
+    /// Upper bound on the extra floor and wall quads the architectural pieces
+    /// contribute: ramps and staircases count as walking surfaces, everything
+    /// else as wall-like geometry.
+    fn architecture_estimate(&self) -> (u64, u64) {
+        let mut floor_quads: u64 = 0;
+        let mut wall_quads: u64 = 0;
+        for ramp in &self.ramps {
+            let cells = u64::from(crate::lighting::light_grid_cells(ramp.width.abs()))
+                .saturating_mul(u64::from(crate::lighting::light_grid_cells(
+                    ramp.depth.abs(),
+                )));
+            floor_quads = floor_quads
+                .saturating_add(cells)
+                .saturating_add(MAX_RAMP_EXTRA_QUADS);
+        }
+        for stair in &self.stairs {
+            wall_quads = wall_quads
+                .saturating_add(u64::from(stair.step_count()).saturating_mul(4))
+                .saturating_add(MAX_STAIR_EXTRA_QUADS);
+        }
+        for _ in &self.half_walls {
+            wall_quads = wall_quads.saturating_add(MAX_HALF_WALL_QUADS);
+        }
+        for _ in &self.columns {
+            wall_quads = wall_quads.saturating_add(MAX_COLUMN_QUADS);
+        }
+        for _ in &self.archways {
+            wall_quads = wall_quads.saturating_add(
+                u64::from(ARCHWAY_SEGMENTS)
+                    .saturating_mul(2)
+                    .saturating_add(MAX_ARCHWAY_EXTRA_QUADS),
+            );
+        }
+        for rail in &self.guardrails {
+            let posts = clamped_ceil_u64(rail.length / rail.post_spacing(), 1024.0);
+            wall_quads = wall_quads
+                .saturating_add(posts.saturating_add(2).saturating_mul(4))
+                .saturating_add(MAX_GUARDRAIL_EXTRA_QUADS);
+        }
+        for _ in &self.thresholds {
+            wall_quads = wall_quads.saturating_add(MAX_THRESHOLD_QUADS);
+        }
+        for _ in &self.baseboards {
+            wall_quads = wall_quads.saturating_add(MAX_BASEBOARD_QUADS);
+        }
+        (floor_quads, wall_quads)
     }
 
     /// Estimates the generated geometry for this level using saturating
@@ -1747,6 +3602,15 @@ impl LevelDef {
                 wall_quads = wall_quads.saturating_add(ending.saturating_add(starting));
             }
         }
+        // Architectural pieces. Ramps and staircases are walking surfaces (their
+        // top faces join the floor count); half walls, columns, archways,
+        // guardrails, thresholds and baseboards are wall-like solids and trim.
+        // Every count is an upper bound, so the estimate keeps bounding what the
+        // builder emits.
+        let (arch_floor_quads, arch_wall_quads) = self.architecture_estimate();
+        floor_quads = floor_quads.saturating_add(arch_floor_quads);
+        wall_quads = wall_quads.saturating_add(arch_wall_quads);
+
         let light_quads = self.ceiling_lights.iter().fold(0u64, |total, light| {
             total.saturating_add(crate::lighting::fixture_profile(&light.fixture).quads)
         });
@@ -1819,7 +3683,22 @@ impl LevelDef {
         }
 
         for room in self.room_iter() {
-            surfaces.floor_grid(room).push_region_rims(room, &mut aabbs);
+            let grid = surfaces.floor_grid(room);
+            // Rims compare the *walking* surface on either side of a grid edge,
+            // so a staircase or ramp arriving at a raised platform is not walled
+            // off by that platform's rim.
+            grid.push_region_rims(
+                |x, z| surfaces.floor_y_at(x, z).unwrap_or(room.floor_y),
+                &mut aabbs,
+            );
+        }
+
+        // Architectural solids: half walls, columns, archway piers and
+        // spandrels and guardrails are real barriers, so they collide exactly
+        // like a wall slice. Thresholds and baseboards are deliberately absent:
+        // they are trim the player walks over.
+        for boxed in self.architecture_solids() {
+            aabbs.push(boxed.to_wall_aabb());
         }
 
         for prop in &self.props {
@@ -1896,73 +3775,182 @@ impl RoomFloorGrid {
         room.floor_y + self.offset_at(ix, iz)
     }
 
-    /// Emits a solid box for every grid edge where the floor height changes by
-    /// more than a walkable step, spanning the edge and the height difference.
+    /// World Y of the cell containing `(x, z)`, sampled from its centre.
+    ///
+    /// The lookup is the inverse of the grid's own construction: a point is
+    /// resolved to the cell whose span contains it, and a point outside every
+    /// cell resolves to the nearest cell.
+    #[must_use]
+    pub fn height_at(&self, room: &RoomDef, x: f32, z: f32) -> f32 {
+        let index_of = |positions: &[f32], value: f32, cells: usize| -> usize {
+            positions
+                .windows(2)
+                .position(|span| {
+                    let (&low, &high) = (
+                        span.first().unwrap_or(&value),
+                        span.get(1).unwrap_or(&value),
+                    );
+                    value >= low && value < high
+                })
+                .unwrap_or_else(|| cells.saturating_sub(1))
+        };
+        let ix = index_of(&self.xs, x, self.cells_x());
+        let iz = index_of(&self.zs, z, self.cells_z());
+        self.y_at(room, ix, iz)
+    }
+
+    /// Emits a solid box for every grid edge where the walking surface changes
+    /// by more than a walkable step, spanning the edge and the height
+    /// difference.
     ///
     /// Shallow steps are deliberately *not* solid: the player controller steps
     /// up and down them, which is what makes staircases built from floor regions
     /// work without any stair-specific code.
     ///
+    /// `heights` supplies the walking-surface height at a point, and is what
+    /// lets the rim rule see the *walking* surface rather than the bare region
+    /// grid: a staircase or ramp crossing a grid edge raises one side of the
+    /// edge, so a flight or slope that arrives at a raised platform is not
+    /// walled off by that platform's rim. Callers that want the region grid
+    /// alone pass the grid's own cell heights. Each edge is sampled
+    /// [`RIM_PROBE_M`] either side of it, which reads the two sides of a cliff
+    /// without blurring a gradual slope into the same answer.
+    ///
     /// Each rim's blocking face sits exactly on the boundary, so a player
     /// standing on the lower side stops one player radius short of the visible
     /// transition face, exactly as they do at an authored wall. The box is
     /// [`RIM_BACKING`] deep *under the higher floor*, which is what stops a
-    /// sub-stepped move from tunnelling through a zero-thickness wall.
-    pub fn push_region_rims(&self, room: &RoomDef, out: &mut Vec<WallAabb>) {
+    /// sub-stepped move from tunnelling through a zero-thickness wall; because
+    /// the box also carries [`crate::collision::PLAYER_STEP_HEIGHT`] of
+    /// `step_up`, it never blocks a player whose feet are already within a
+    /// walkable step of the rim's top (a ramp or staircase arriving beside the
+    /// platform), which is what a rim is not allowed to do.
+    pub fn push_region_rims(&self, heights: impl Fn(f32, f32) -> f32, out: &mut Vec<WallAabb>) {
         let (cells_x, cells_z) = (self.cells_x(), self.cells_z());
         if cells_x == 0 || cells_z == 0 {
             return;
         }
-        for (iz, z_span) in self.zs.windows(2).enumerate() {
-            let &[z0, z1] = z_span else {
-                continue;
-            };
-            for (ix, x_span) in self.xs.windows(2).enumerate() {
+        // Every interior grid line across X, one rim per cell row.
+        for (ix, &at) in self.xs.iter().enumerate().skip(1) {
+            if ix >= cells_x {
+                break;
+            }
+            for z_span in self.zs.windows(2) {
+                let &[z0, z1] = z_span else {
+                    continue;
+                };
+                for (sz0, sz1) in split_rim_span(z0, z1) {
+                    let mid = f32::midpoint(sz0, sz1);
+                    let near = heights(at - RIM_PROBE_M, mid);
+                    let far = heights(at + RIM_PROBE_M, mid);
+                    if (far - near).abs() <= PLAYER_STEP_HEIGHT + 1e-3 {
+                        continue;
+                    }
+                    // Extend under the higher side so the blocking face is the
+                    // boundary itself.
+                    let (rx0, rx1) = if near > far {
+                        (at - RIM_BACKING, at)
+                    } else {
+                        (at, at + RIM_BACKING)
+                    };
+                    out.push(
+                        WallAabb::with_y(
+                            rx0,
+                            near.min(far),
+                            sz0,
+                            rx1 - rx0,
+                            (near - far).abs(),
+                            sz1 - sz0,
+                        )
+                        .allowing_step(),
+                    );
+                }
+            }
+        }
+        // Every interior grid line across Z, the mirror case.
+        for (iz, &at) in self.zs.iter().enumerate().skip(1) {
+            if iz >= cells_z {
+                break;
+            }
+            for x_span in self.xs.windows(2) {
                 let &[x0, x1] = x_span else {
                     continue;
                 };
-                let y = self.y_at(room, ix, iz);
-                if ix.saturating_add(1) < cells_x {
-                    let right = self.y_at(room, ix.saturating_add(1), iz);
-                    if (right - y).abs() > PLAYER_STEP_HEIGHT + 1e-3 {
-                        // Extend under the higher side so the blocking face is
-                        // the boundary itself.
-                        let (rx0, rx1) = if y > right {
-                            (x1 - RIM_BACKING, x1)
-                        } else {
-                            (x1, x1 + RIM_BACKING)
-                        };
-                        out.push(WallAabb::with_y(
-                            rx0,
-                            y.min(right),
-                            z0,
-                            rx1 - rx0,
-                            (y - right).abs(),
-                            z1 - z0,
-                        ));
+                for (sx0, sx1) in split_rim_span(x0, x1) {
+                    let mid = f32::midpoint(sx0, sx1);
+                    let near = heights(mid, at - RIM_PROBE_M);
+                    let far = heights(mid, at + RIM_PROBE_M);
+                    if (far - near).abs() <= PLAYER_STEP_HEIGHT + 1e-3 {
+                        continue;
                     }
-                }
-                if iz.saturating_add(1) < cells_z {
-                    let back = self.y_at(room, ix, iz.saturating_add(1));
-                    if (back - y).abs() > PLAYER_STEP_HEIGHT + 1e-3 {
-                        let (rz0, rz1) = if y > back {
-                            (z1 - RIM_BACKING, z1)
-                        } else {
-                            (z1, z1 + RIM_BACKING)
-                        };
-                        out.push(WallAabb::with_y(
-                            x0,
-                            y.min(back),
+                    let (rz0, rz1) = if near > far {
+                        (at - RIM_BACKING, at)
+                    } else {
+                        (at, at + RIM_BACKING)
+                    };
+                    out.push(
+                        WallAabb::with_y(
+                            sx0,
+                            near.min(far),
                             rz0,
-                            x1 - x0,
-                            (y - back).abs(),
+                            sx1 - sx0,
+                            (near - far).abs(),
                             rz1 - rz0,
-                        ));
-                    }
+                        )
+                        .allowing_step(),
+                    );
                 }
             }
         }
     }
+}
+
+/// Distance either side of a floor-grid edge at which a rim samples the
+/// walking surface, in metres.
+///
+/// Close enough that a rising slope is read at the edge itself rather than at
+/// its cell's average, far enough that the sample lands clearly on one side.
+pub const RIM_PROBE_M: f32 = 0.01;
+
+/// Longest run of a floor-region rim segment along the boundary, in metres.
+///
+/// A rim's height is sampled at the segment's midpoint, and a sloped walking
+/// surface changes height across the segment. At the loader's maximum slope
+/// (2 m per metre) a 0.25 m segment is within 0.25 m of the local surface
+/// anywhere inside it, which is inside the walkable-step tolerance a rim
+/// carries ([`WallAabb::allowing_step`]); one rim per whole grid cell used a
+/// ceiling sampled from the cell's middle and blocked a player climbing the
+/// lower half of a steep ramp that ran beside a platform edge.
+pub const RIM_SEGMENT_M: f32 = 0.25;
+
+/// Splits one rim span into sub-spans of at most [`RIM_SEGMENT_M`].
+///
+/// At least one span is returned for a non-finite or empty input so callers
+/// never drop a rim entirely.
+fn split_rim_span(low: f32, high: f32) -> Vec<(f32, f32)> {
+    let span = high - low;
+    if !span.is_finite() || span <= RIM_SEGMENT_M {
+        return vec![(low, high)];
+    }
+    let pieces = (span / RIM_SEGMENT_M).ceil().clamp(1.0, 4096.0);
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    // `pieces` is clamped to [1, 4096] before the cast.
+    let count = pieces as u32;
+    // Fits u16 by the clamp above, so the conversions below are exact.
+    let count_f = f32::from(u16::try_from(count).unwrap_or(u16::MAX));
+    let step = span / count_f;
+    (0..count)
+        .map(|index| {
+            let index_f = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+            let start = step.mul_add(index_f, low);
+            let end = if index.saturating_add(1) >= count {
+                high
+            } else {
+                step.mul_add(index_f + 1.0, low)
+            };
+            (start, end)
+        })
+        .collect()
 }
 
 /// Depth of a floor-region rim collider under the higher floor, in metres.
@@ -1990,6 +3978,8 @@ pub struct LevelSurfaces<'a> {
     rooms: Vec<&'a RoomDef>,
     regions: &'a [FloorRegionDef],
     patches: &'a [FloorPatchDef],
+    ramps: &'a [RampDef],
+    stairs: &'a [StairDef],
 }
 
 impl<'a> LevelSurfaces<'a> {
@@ -2001,6 +3991,8 @@ impl<'a> LevelSurfaces<'a> {
             rooms: level.room_iter().collect(),
             regions: &level.floor_regions,
             patches: &level.floor_patches,
+            ramps: &level.ramps,
+            stairs: &level.stairs,
         }
     }
 
@@ -2038,9 +4030,46 @@ impl<'a> LevelSurfaces<'a> {
 
     /// Vertical offset of the walkable floor from the containing room's floor
     /// plane at `(x, z)`: zero outside every region.
+    ///
+    /// This is the **floor region** lookup only; it is what the floor grid,
+    /// its cells and its skirts are built from, so a sloped ramp or a
+    /// staircase never distorts the room's own tessellation. Use
+    /// [`Self::walkable_offset_at`] for "what height does the player stand
+    /// at".
     #[must_use]
     pub fn floor_offset_at(&self, x: f32, z: f32) -> f32 {
         self.region_at(x, z).map_or(0.0, FloorRegionDef::offset)
+    }
+
+    /// The last (highest-precedence) ramp covering `(x, z)`.
+    #[must_use]
+    pub fn ramp_at(&self, x: f32, z: f32) -> Option<&'a RampDef> {
+        self.ramps.iter().rev().find(|ramp| ramp.contains(x, z))
+    }
+
+    /// The last (highest-precedence) staircase covering `(x, z)`.
+    #[must_use]
+    pub fn stair_at(&self, x: f32, z: f32) -> Option<&'a StairDef> {
+        self.stairs.iter().rev().find(|stair| stair.contains(x, z))
+    }
+
+    /// Vertical offset of the **walkable** floor at `(x, z)` from the
+    /// containing room's floor plane.
+    ///
+    /// A ramp wins over a staircase, and both win over a floor region: they are
+    /// authored walking surfaces, and a level that overlaps them is asking for
+    /// the sloped or stepped surface to be the one underfoot. With none of
+    /// them, the region offset applies, and with no region the room's own floor
+    /// is the walking surface (offset zero).
+    #[must_use]
+    pub fn walkable_offset_at(&self, x: f32, z: f32) -> f32 {
+        if let Some(ramp) = self.ramp_at(x, z) {
+            return ramp.offset_at(x, z);
+        }
+        if let Some(stair) = self.stair_at(x, z) {
+            return stair.offset_at(x, z);
+        }
+        self.floor_offset_at(x, z)
     }
 
     /// World Y of the room's own floor plane at `(x, z)`, ignoring floor
@@ -2057,7 +4086,8 @@ impl<'a> LevelSurfaces<'a> {
     }
 
     /// World Y of the walkable floor surface at `(x, z)`: the containing room's
-    /// floor plus any floor region's offset. `None` outside every room.
+    /// floor plus any ramp, staircase or floor region offset. `None` outside
+    /// every room.
     #[must_use]
     pub fn floor_y_at(&self, x: f32, z: f32) -> Option<f32> {
         let room = self.room_at(x, z)?;
@@ -2066,7 +4096,7 @@ impl<'a> LevelSurfaces<'a> {
         } else {
             0.0
         };
-        Some(floor_y + self.floor_offset_at(x, z))
+        Some(floor_y + self.walkable_offset_at(x, z))
     }
 
     /// World Y of the ceiling surface at `(x, z)`.
@@ -2228,6 +4258,32 @@ impl<'a> LevelSurfaces<'a> {
             .collect()
     }
 
+    /// Ramps whose footprint overlaps `room`, in authored order.
+    #[must_use]
+    pub fn ramps_for_room(&self, room: &RoomDef) -> Vec<&'a RampDef> {
+        let (x0, x1, z0, z1) = room.bounds();
+        self.ramps
+            .iter()
+            .filter(|ramp| {
+                let (rx0, rx1, rz0, rz1) = ramp.bounds();
+                rx1 > x0 && rx0 < x1 && rz1 > z0 && rz0 < z1
+            })
+            .collect()
+    }
+
+    /// Staircases whose footprint overlaps `room`, in authored order.
+    #[must_use]
+    pub fn stairs_for_room(&self, room: &RoomDef) -> Vec<&'a StairDef> {
+        let (x0, x1, z0, z1) = room.bounds();
+        self.stairs
+            .iter()
+            .filter(|stair| {
+                let (sx0, sx1, sz0, sz1) = stair.bounds();
+                sx1 > x0 && sx0 < x1 && sz1 > z0 && sz0 < z1
+            })
+            .collect()
+    }
+
     /// Axis positions of a room's ceiling grid: the baked-lighting grid plus the
     /// gable ridge, so the ridge lands exactly on a cell edge.
     #[must_use]
@@ -2306,6 +4362,38 @@ struct WalkableRegion {
     y: f32,
 }
 
+/// One ramp resolved into the walkable surface model.
+///
+/// It owns the ramp's [`RampSurface`] and its room's floor plane and answers
+/// with `floor_y + surface.offset_at(...)`, so the controller resolves the exact
+/// arithmetic the renderer used.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct WalkableRamp {
+    surface: RampSurface,
+    floor_y: f32,
+}
+
+impl WalkableRamp {
+    /// World Y of the sloped surface at `(x, z)`.
+    fn height_at(&self, x: f32, z: f32) -> f32 {
+        self.floor_y + self.surface.offset_at(x, z)
+    }
+}
+
+/// One staircase resolved into the walkable surface model.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct WalkableStair {
+    surface: StairSurface,
+    floor_y: f32,
+}
+
+impl WalkableStair {
+    /// World Y of the stepped surface at `(x, z)`.
+    fn height_at(&self, x: f32, z: f32) -> f32 {
+        self.floor_y + self.surface.offset_at(x, z)
+    }
+}
+
 /// One room of the walkable surface model.
 #[derive(Debug, Clone, PartialEq)]
 struct WalkableRoom {
@@ -2314,6 +4402,10 @@ struct WalkableRoom {
     z0: f32,
     z1: f32,
     floor_y: f32,
+    /// Ramps resolved against this room, in authored order (later wins).
+    ramps: Vec<WalkableRamp>,
+    /// Staircases resolved against this room, in authored order (later wins).
+    stairs: Vec<WalkableStair>,
     /// Regions resolved against this room, in authored order (later wins).
     regions: Vec<WalkableRegion>,
 }
@@ -2358,12 +4450,30 @@ impl WalkableFloor {
                     }
                 })
                 .collect();
+            let ramps = surfaces
+                .ramps_for_room(room)
+                .into_iter()
+                .map(|ramp| WalkableRamp {
+                    surface: ramp.surface(),
+                    floor_y,
+                })
+                .collect();
+            let stairs = surfaces
+                .stairs_for_room(room)
+                .into_iter()
+                .map(|stair| WalkableStair {
+                    surface: stair.surface(),
+                    floor_y,
+                })
+                .collect();
             rooms.push(WalkableRoom {
                 x0,
                 x1,
                 z0,
                 z1,
                 floor_y,
+                ramps,
+                stairs,
                 regions,
             });
         }
@@ -2385,8 +4495,9 @@ impl WalkableFloor {
     /// World Y of the walkable floor at `(x, z)`, or `None` outside every room.
     ///
     /// The first room in level order containing the point wins, matching
-    /// [`LevelSurfaces::floor_y_at`]; inside it the last authored floor region
-    /// covering the point wins.
+    /// [`LevelSurfaces::floor_y_at`]; inside it a ramp or staircase covering the
+    /// point wins over the last authored floor region, exactly as the surface
+    /// queries resolve it.
     #[must_use]
     pub fn height_at(&self, x: f32, z: f32) -> Option<f32> {
         if !x.is_finite() || !z.is_finite() {
@@ -2399,6 +4510,22 @@ impl WalkableFloor {
                 || z > room.z1 + ROOM_EDGE_EPS_M
             {
                 continue;
+            }
+            if let Some(ramp) = room
+                .ramps
+                .iter()
+                .rev()
+                .find(|ramp| ramp.surface.contains(x, z))
+            {
+                return Some(ramp.height_at(x, z));
+            }
+            if let Some(stair) = room
+                .stairs
+                .iter()
+                .rev()
+                .find(|stair| stair.surface.contains(x, z))
+            {
+                return Some(stair.height_at(x, z));
             }
             for region in room.regions.iter().rev() {
                 if x >= region.x0 && x <= region.x1 && z >= region.z0 && z <= region.z1 {

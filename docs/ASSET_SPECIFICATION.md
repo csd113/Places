@@ -142,7 +142,7 @@ assets/
       walls/*.png                    generic wall sheets
       normals/*.png                  tangent-space normal maps
   environment/
-    <theme>/                         one directory per theme, e.g. office, pool
+    <theme>/                         one directory per theme: office, pool, home
       props/models/*.glb             theme props (embedded textures)
       textures/
         walls/*.png                  wall surface sheets
@@ -217,6 +217,7 @@ currently nothing enforces a minimum for any class.
 | Fluorescent panel face | `fluorescent_panel_01.png` | **2:1** | 1024×512 (current production) | none enforced | ignored (face is opaque) | no | full sheet; `u` across 1.2 m width, `v` across 0.6 m depth | POT both edges; replacement must stay 2:1 |
 | Round downlight face | `pool_light_round_01.png` | **1:1** | 128×128 shipped; 256×256 or 512×512 to raise density | none enforced | ignored | no | planar; sheet centre = fixture centre; inscribed circle = diffuser radius | POT both edges |
 | Wall luminaire face | `pool_light_wall_01.png` | **2:1** | 128×64 shipped; 256×128 or 512×256 to raise density | none enforced | ignored | no | full sheet; `u` across 0.4 m width, `v` up 0.2 m height | POT both edges |
+| Flush-mount diffuser face | `ceiling_light_round_01.png` | **1:1** | 256×256 shipped | none enforced | ignored | no | planar; sheet centre = fixture centre; inscribed circle = diffuser radius (0.16 m) | POT both edges |
 | Decal sheet | `no_diving_01.png` | **asset-defined**; placement must match it | 128×128 small markings; 1024×1024 hero signage | none enforced | **required cut-out**: alpha 0 background | no | full sheet fitted to the level placement's width × height | POT both edges |
 | Prop / entity texture | embedded in `chair.glb` | **model-defined** (shipped 1:1) | 64×64 or 128×128 typical, 256×256 art target | none enforced | none: props always draw opaque | no | model `TEXCOORD_0`, normalized 0..1, clamped | hard 1024; uniform resize safe, repack is not |
 | Emissive mask | (none shipped) | **any**; must share the albedo's UV frame | ≤512 (Full budget) | none enforced | RGB sampled, alpha ignored | follows the albedo | same UV frame as the albedo | dimensions need not equal the albedo; a mask-only texture is exempt from the square-surface dimension test |
@@ -343,6 +344,15 @@ tool.
   the alpha channel is the shape and its material authors
   `alpha_mode: "cutout"`. The transparent regions let the surface behind show
   through. Keep the cut-out silhouette and keep the sheet square and tileable.
+* **Trim sheets (baseboard, handrail, threshold)** — ordinary wall/floor
+  surface sheets that a level puts on the generic trim pieces (`baseboards[]`,
+  `guardrails[]`, `thresholds[]`). They keep the surface contract: 1:1,
+  tileable in both axes, opaque, sampled at the material's `tile_metres`. The
+  Home set (`home:baseboard_wood_01`, `home:baseboard_white_01`,
+  `home:handrail_wood_01`, `home:threshold_wood_01`) uses a 0.4–0.5 m repeat, so
+  a 9 cm board shows the top ~18 % of the sheet vertically: paint the grain and
+  any tonal banding so it reads in that band, and keep the top and bottom rows
+  similar (the sheet still tiles vertically).
 * **Concrete and standalone artwork/paintings** — not present as separate
   classes in the repository. The catalog's `core:painting_dull_01` material
   reuses the wallpaper texture. A new concrete or artwork sheet would be
@@ -369,6 +379,17 @@ and never repaints the face. The sheet itself is *not* a lightmap and carries
 no lighting information; its job is the fixture's appearance (diffuser, lens,
 housing trim on the luminous face). There is no separate emissive map for a
 fixture face.
+
+A fixture's **housing** (the office panel has none; the round and wall fixtures'
+bezel, can and drum do) is ordinary body geometry drawn through the shared 2×2
+white sheet (§12.3) with the profile's flat authored shade. It is deliberately
+untextured: the housing is metal/plastic body geometry, not artwork, and a
+theme that wants patterned housing would introduce a fitted body sheet the way
+the luminous face already is one. The texture-first contract therefore covers
+everything a player reads as the fixture's *artwork* — the diffuser, lens or
+panel face — and the round Home flush mount in particular draws its whole
+visible face, rim line and centre structure from
+`environment/home/textures/lights/ceiling_light_round_01.png`.
 
 Fixture faces are **opaque by construction**: the face draws in the opaque
 pass and its alpha channel is ignored. A shipped fixture sheet is additionally
@@ -447,7 +468,28 @@ Shipped asset: `core:pool_light_wall` →
 | Transparency | none |
 | Filtering / wrapping | mipmaps; `CLAMP_TO_EDGE` |
 
-### 6.4 Ceiling lights and wall lights, summarised
+### 6.4 Residential flush-mount ceiling light
+
+Shipped asset: `home:ceiling_light_round` →
+`assets/environment/home/textures/lights/ceiling_light_round_01.png`.
+
+| Property | Value |
+|---|---|
+| Aspect ratio | **1:1 (mandatory)** |
+| Geometry mapping | planar diffuser ring in the fixture's own plane, 0.07 m below the ceiling; the sheet centre is the fixture centre and the sheet's inscribed circle is the diffuser's outer radius (0.16 m) |
+| UV layout | `u = 0.5 + 0.5·(r/R)·cos θ`, `v = 0.5 + 0.5·(r/R)·sin θ`, with `u` along world X, `v` along world Z |
+| Orientation | concentric artwork (the diffuser tone and its moulded rim) lands centred on the fixture; the mapping is isotropic |
+| Current asset | 256×256 |
+| Transparency | none; the artwork is the diffuser face |
+| Filtering / wrapping | mipmaps; `CLAMP_TO_EDGE` |
+
+The artwork is the *whole* visible lamp appearance: the lit ring samples the
+sheet's inscribed circle, and the drum, its bottom rim and the centre boss are
+untextured body geometry. Do not draw the drum in the sheet, and do not replace
+the sheet with a flat colour: a code-tinted face would violate the texture-first
+rule every fixture family follows.
+
+### 6.5 Ceiling lights and wall lights, summarised
 
 There is no separate "ceiling light" or "wall light" texture class. A placed
 light names a fixture id; the fixture id selects one of the three families and
@@ -458,8 +500,9 @@ therefore one of the three face contracts:
 | Fluorescent panel | `core:fluorescent_panel_01` | 2:1 | ceiling panel; `rotation_degrees` turns the panel |
 | Round recessed | `core:pool_light_round` | 1:1 | ceiling downlight |
 | Wall luminaire | `core:pool_light_wall` | 2:1 | needs `"mount": "wall"` and a world `"y"` |
+| Flush mount | `home:ceiling_light_round` | 1:1 | residential ceiling lamp: a drum with a glowing diffuser disc |
 
-Adding a fourth fixture family is a code change (a new `FixtureKind`, profile
+Adding a further fixture family is a code change (a new `FixtureKind`, profile
 and geometry in `src/lighting/tuning.rs` and `src/render/fixtures.rs`) plus an
 asset. Do not add a fixture PNG without adding the family and its face
 contract.
@@ -723,7 +766,7 @@ PNGs. They are listed so no one mistakes them for assets to replace:
 
 | Image | Producer | Purpose |
 |---|---|---|
-| 2×2 white sheet | `src/render.rs` | untextured geometry (fixture housings, UI quads, untextured model materials) |
+| 2×2 white sheet | `src/render.rs` | untextured geometry (fixture housings, UI quads, untextured model materials). A shared *engine* sheet, like the font and decal atlases: it carries no artwork, no level references it, and every fixture's visible artwork is its own committed PNG (see §6). A theme that wants textured housing adds a fitted body sheet rather than replacing this fallback. |
 | 128×64 HUD font atlas | `src/font.rs` | project-owned bitmap UI font |
 | 256×256 decal atlas (one live cell) | `src/render/decals.rs` | internal validation marking machinery |
 | 64×64 missing-texture pattern | `src/materials/image.rs` | visible fallback for a broken texture |

@@ -5,7 +5,7 @@
 #![allow(clippy::expect_used, clippy::indexing_slicing)]
 
 use super::*;
-use crate::test_support::assert_exact;
+use crate::test_support::{assert_exact, assert_exact_named};
 
 #[test]
 fn test_parse_single_room_level() {
@@ -168,6 +168,14 @@ fn test_estimate_geometry_saturates_on_extreme_input() {
         walls: Vec::new(),
         floor_patches: Vec::new(),
         floor_regions: Vec::new(),
+        ramps: Vec::new(),
+        stairs: Vec::new(),
+        half_walls: Vec::new(),
+        columns: Vec::new(),
+        archways: Vec::new(),
+        guardrails: Vec::new(),
+        thresholds: Vec::new(),
+        baseboards: Vec::new(),
         decals: Vec::new(),
         ceiling_lights: Vec::new(),
         props: Vec::new(),
@@ -697,9 +705,8 @@ fn test_floor_region_rims_are_solid_only_for_unwalkable_steps() {
     let deep_surfaces = LevelSurfaces::new(&deep);
     let room = deep.room_iter().next().expect("one room");
     let mut rims = Vec::new();
-    deep_surfaces
-        .floor_grid(room)
-        .push_region_rims(room, &mut rims);
+    let deep_grid = deep_surfaces.floor_grid(room);
+    deep_grid.push_region_rims(|x, z| deep_grid.height_at(room, x, z), &mut rims);
     assert!(!rims.is_empty(), "a 1.2 m recess needs solid walls");
     for rim in &rims {
         assert_exact(rim.min_y, -1.2);
@@ -723,9 +730,8 @@ fn test_floor_region_rims_are_solid_only_for_unwalkable_steps() {
     let shallow_surfaces = LevelSurfaces::new(&shallow);
     let room = shallow.room_iter().next().expect("one room");
     let mut rims = Vec::new();
-    shallow_surfaces
-        .floor_grid(room)
-        .push_region_rims(room, &mut rims);
+    let shallow_grid = shallow_surfaces.floor_grid(room);
+    shallow_grid.push_region_rims(|x, z| shallow_grid.height_at(room, x, z), &mut rims);
     assert!(rims.is_empty(), "a walkable step must stay walkable");
 }
 
@@ -952,4 +958,177 @@ fn wall_face_shine_resolves_face_then_wall_then_material() {
         Some(0.6),
         "a face falling back to the wall material keeps the wall override"
     );
+}
+
+// ------------------------------------------------- generic architecture
+
+/// A ramp's surface is a straight line between its ends, and the sign of `rise`
+/// decides which end is high.
+#[test]
+fn test_ramp_offset_is_linear_and_signed() {
+    let json = r#"{
+        "format_version": 1,
+        "id": "ramps",
+        "name": "Ramps",
+        "spawn": { "x": 1.0, "z": 1.0 },
+        "room": { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 4.0 },
+        "ramps": [
+            { "x": 1.0, "z": 1.0, "width": 1.0, "depth": 4.0, "rise": 1.0 },
+            { "x": 5.0, "z": 1.0, "width": 1.0, "depth": 4.0, "offset_y": 0.5, "rise": -0.5 }
+        ]
+    }"#;
+    let level = LevelDef::from_json(json).expect("ramp json");
+    let rise = &level.ramps[0];
+    // The run is the longer axis (Z), and the rise climbs toward its far end.
+    assert_eq!(rise.axis(), WallAxis::Z);
+    assert_exact(rise.length(), 4.0);
+    assert_exact(rise.offset_at(1.5, 1.0), 0.0);
+    assert_exact(rise.offset_at(1.5, 3.0), 0.5);
+    assert_exact(rise.offset_at(1.5, 5.0), 1.0);
+    // Outside the footprint the fraction clamps, so the query never shoots past
+    // the ends; containment is what decides whether a point is on the ramp.
+    assert_exact(rise.offset_at(1.5, 0.0), 0.0);
+    assert!(!rise.contains(1.5, 0.0));
+    assert!(rise.contains(1.5, 3.0));
+    assert_exact(rise.low_offset(), 0.0);
+    assert_exact(rise.high_offset(), 1.0);
+    let (high_x, high_z) = rise.end_point(true);
+    assert_exact(high_x, 1.5);
+    assert_exact(high_z, 5.0);
+    // A negative rise descends toward the far end from the authored offset.
+    let descend = &level.ramps[1];
+    assert_exact(descend.offset_at(6.0, 1.0), 0.5);
+    assert_exact(descend.offset_at(6.0, 5.0), 0.0);
+}
+
+/// A staircase climbs one riser per tread and steps out at the top; every step
+/// is within the player's walkable step.
+#[test]
+fn test_staircase_offset_steps_over_its_risers() {
+    let json = r#"{
+        "format_version": 1,
+        "id": "stairs",
+        "name": "Stairs",
+        "spawn": { "x": 1.0, "z": 1.0 },
+        "room": { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 4.0 },
+        "stairs": [
+            { "x": 1.0, "z": 1.0, "width": 1.0, "depth": 2.0, "rise": 0.8, "steps": 4 }
+        ]
+    }"#;
+    let level = LevelDef::from_json(json).expect("stair json");
+    let stair = &level.stairs[0];
+    assert_eq!(stair.axis(), WallAxis::Z);
+    assert_exact(stair.riser_height(), 0.2);
+    assert_exact(stair.tread_depth(), 0.5);
+    assert_exact(stair.offset_at(1.5, 1.0), 0.2);
+    assert_exact(stair.offset_at(1.5, 1.49), 0.2);
+    assert_exact(stair.offset_at(1.5, 1.5), 0.4);
+    assert_exact(stair.offset_at(1.5, 2.99), 0.8);
+    assert_exact(stair.top_offset(), 0.8);
+    assert!(stair.riser_height() <= PLAYER_STEP_HEIGHT + 1e-6);
+}
+
+/// The walkable floor answers with the ramp's slope and the staircase's steps,
+/// and agrees with [`LevelSurfaces::floor_y_at`] everywhere.
+#[test]
+fn test_walkable_floor_follows_ramps_and_stairs() {
+    let json = r#"{
+        "format_version": 1,
+        "id": "walkable_architecture",
+        "name": "Walkable Architecture",
+        "spawn": { "x": 1.0, "z": 1.0 },
+        "rooms": [
+            { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0 }
+        ],
+        "ramps": [
+            { "x": 1.0, "z": 1.0, "width": 1.0, "depth": 4.0, "rise": 1.0 }
+        ],
+        "stairs": [
+            { "x": 5.0, "z": 1.0, "width": 1.0, "depth": 2.0, "rise": 0.8, "steps": 4 }
+        ]
+    }"#;
+    let level = LevelDef::from_json(json).expect("architecture json");
+    let surfaces = LevelSurfaces::new(&level);
+    let floor = WalkableFloor::from_level(&level);
+    for (x, z) in [
+        (1.5f32, 1.0f32),
+        (1.5, 2.5),
+        (1.5, 5.0),
+        (5.5, 1.0),
+        (5.5, 1.75),
+        (5.5, 2.99),
+        (9.0, 9.0),
+    ] {
+        assert_exact_named(
+            floor.height_at(x, z).unwrap_or(f32::NAN),
+            surfaces.floor_y_at(x, z).unwrap_or(f32::NAN),
+            format!("({x}, {z})"),
+        );
+    }
+    assert_exact(floor.height_at(1.5, 2.5).unwrap_or(f32::NAN), 0.375);
+    assert_exact(floor.height_at(5.5, 2.99).unwrap_or(f32::NAN), 0.8);
+    // A ramp wins over a floor region that overlaps it, so the sloped surface
+    // is the one underfoot.
+    assert_exact(surfaces.walkable_offset_at(1.5, 4.0), 0.75);
+}
+
+/// The solid pieces become real boxes for collision and the lighting bake; the
+/// walking surfaces and the trim are deliberately not solid.
+#[test]
+fn test_architecture_solids_cover_walls_piers_rails_and_not_trim() {
+    let json = r#"{
+        "format_version": 1,
+        "id": "solids",
+        "name": "Solids",
+        "spawn": { "x": 1.0, "z": 1.0 },
+        "room": { "x": 0.0, "z": 0.0, "width": 14.0, "depth": 10.0, "height": 4.0 },
+        "ramps": [
+            { "x": 1.0, "z": 1.0, "width": 1.0, "depth": 2.0, "rise": 0.5 }
+        ],
+        "stairs": [
+            { "x": 3.0, "z": 1.0, "width": 1.0, "depth": 2.0, "rise": 0.6, "steps": 3 }
+        ],
+        "half_walls": [
+            { "x": 5.0, "z": 5.0, "width": 2.0, "depth": 0.2, "height": 1.05 }
+        ],
+        "columns": [
+            { "x": 8.0, "z": 5.0, "width": 0.3, "depth": 0.3 }
+        ],
+        "archways": [
+            { "x": 10.0, "z": 3.0, "width": 0.3, "depth": 1.4, "height": 3.0,
+              "opening_width": 1.0, "opening_height": 2.1, "arch_rise": 0.25 }
+        ],
+        "guardrails": [
+            { "x": 1.0, "z": 7.0, "length": 2.0, "rotation_degrees": 0.0, "height": 1.0 }
+        ],
+        "thresholds": [
+            { "x": 2.0, "z": 9.0, "length": 1.0, "material": "core:carpet_beige_01" }
+        ],
+        "baseboards": [
+            { "x": 0.0, "z": 0.0, "length": 3.0, "material": "core:wallpaper_yellow_01" }
+        ]
+    }"#;
+    let level = LevelDef::from_json(json).expect("solids json");
+    let solids = level.architecture_solids();
+    // Two half-wall/column boxes, three archway boxes (two piers and the
+    // spandrel) and one guardrail barrier.
+    assert_eq!(solids.len(), 6, "{solids:?}");
+    // Nothing on the walking surfaces or the trim.
+    let aabbs = level.collision_aabbs();
+    assert_eq!(aabbs.len(), solids.len(), "only the solid pieces collide");
+    let column = solids
+        .iter()
+        .find(|solid| (solid.min[0] - 8.0).abs() < 1e-4)
+        .expect("the column is a solid box");
+    assert_exact(column.min[1], 0.0);
+    assert_exact_named(
+        column.max[1],
+        4.0,
+        "a column without a height reaches the ceiling",
+    );
+    let half_wall = solids
+        .iter()
+        .find(|solid| (solid.min[0] - 5.0).abs() < 1e-4)
+        .expect("the half wall is a solid box");
+    assert_exact(half_wall.max[1], 1.05);
 }

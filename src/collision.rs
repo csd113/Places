@@ -26,6 +26,16 @@ pub struct WallAabb {
     pub max_y: f32,
     pub min_z: f32,
     pub max_z: f32,
+    /// Extra headroom below the box's top that the player may walk under
+    /// without colliding, in metres.
+    ///
+    /// Zero for every real wall and solid: a wall flush with the floor must
+    /// block, and a wall taller than the walkable step must block. A floor
+    /// region's *rim* sets it to [`PLAYER_STEP_HEIGHT`]: the rim exists to stop
+    /// a step the controller could not otherwise take, so a player whose feet
+    /// are already within one walkable step of the rim's top (on a ramp or a
+    /// staircase arriving beside it) must pass rather than snag on it.
+    pub step_up: f32,
 }
 
 impl WallAabb {
@@ -39,6 +49,16 @@ impl WallAabb {
             crate::level::DEFAULT_CEILING_HEIGHT_M,
             depth,
         )
+    }
+
+    /// The same box, treating its top as a walkable step instead of a wall.
+    ///
+    /// Used for floor-region rims: a rim blocks a cliff, never a step the
+    /// player's own feet could take.
+    #[must_use]
+    pub const fn allowing_step(mut self) -> Self {
+        self.step_up = PLAYER_STEP_HEIGHT;
+        self
     }
 
     #[must_use]
@@ -65,6 +85,7 @@ impl WallAabb {
             max_y,
             min_z,
             max_z,
+            step_up: 0.0,
         }
     }
 
@@ -75,10 +96,12 @@ impl WallAabb {
     /// what makes a recessed region's rim one-way, blocking a player standing
     /// inside the depression while letting a player on the upper floor walk
     /// right up to the edge. A box starting at or above head height never
-    /// blocks, so door headers stay passable.
+    /// blocks, so door headers stay passable. [`WallAabb::step_up`] raises the
+    /// top by the walkable step for rims, so a rim never blocks a step the
+    /// controller could take anyway.
     #[must_use]
     pub fn intersects_player_y(&self, foot_y: f32) -> bool {
-        self.max_y > foot_y + STEP_EPS && self.min_y < foot_y + PLAYER_HEIGHT
+        self.max_y > foot_y + self.step_up + STEP_EPS && self.min_y < foot_y + PLAYER_HEIGHT
     }
 
     /// Checks if a 2D circle intersects this wall AABB at the player's foot Y.

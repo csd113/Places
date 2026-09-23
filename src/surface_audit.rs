@@ -1352,3 +1352,14 @@ fn every_shipped_demo_decal_owns_its_depth_plane() {
         );
     }
 }
+
+#[test]
+fn the_home_showcase_has_no_coincident_architecture_surfaces() {
+    // The generic architectural pieces sit against walls, floors and each
+    // other by construction; none of them may end up sharing a plane with the
+    // surface it touches.
+    let level = parse(include_str!("../tests/fixtures/levels/home_showcase.json"));
+    let mesh = shipped_mesh(&level);
+    let all = triangles(&mesh);
+    assert_no_coincident_architecture_overlaps(&all, "home_showcase architecture");
+}

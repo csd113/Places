@@ -34,11 +34,22 @@ check.
 | `rendering_diagnostic` | Rendering Diagnostic | The decal-sheet coverage test (eight placements covering every decal sheet) and the stain-overlay test. |
 | `lighting_isolation` | Lighting Isolation | The whole `src/lighting_isolation.rs` suite (13 cells, one per wall-boundary rule: blocked white light, blocked colour, doorway transmission, window sill and header, two coloured rooms, dark neighbour, interior partition, lit corners, unlit control). The acceptance fixture for wall-boundary lighting isolation. |
 | `lighting_diagnostic` | Lighting Diagnostic | `emitted_wall_faces_are_lit_by_the_room_they_open_into` — a wall authored across a room boundary. |
+| `home_showcase` | Home Showcase (dev) | The Home theme and every generic architectural piece: four rooms (living room, hall, kitchen, bedroom), a split-level platform reached by a staircase and a ramp, an archway, a knee wall, columns, guardrails, thresholds, baseboards, both hardwoods, carpet, tile and both ceilings. Depended on by `test_validate_accepts_the_home_showcase_fixture`, `test_the_home_showcase_bakes_lightmaps_with_every_surface_vertex_charted`, `test_the_home_showcase_architecture_is_well_formed`, `the_home_showcase_has_no_coincident_architecture_surfaces`, the collision and controller tests, and `tests/test_package.py`'s Home checks. |
 
 `prop_showcase` and `prop_stress` are **generated**: running
 `python3 tools/levels/build_fixture_levels.py` overwrites them. Change the
 generator, not the JSON. Every other fixture is hand-authored and safe to edit
 directly.
+
+`home_showcase` is the level to boot when working on the Home theme or the
+generic architectural pieces. It is a fixture rather than shipped content, so it
+does not appear in a packaged game's menu; copy it into `levels/` (the drop-in
+directory) when you want it in Level Select:
+
+```sh
+cp tests/fixtures/levels/home_showcase.json levels/
+LIMINAL_LEVEL=home_showcase cargo run
+```
 
 ## Retired shipped levels
 

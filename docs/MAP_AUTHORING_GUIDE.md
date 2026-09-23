@@ -5,7 +5,7 @@
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
 | Level format version documented | `1` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
-| Verification | Re-verified against the working tree at version 0.6.0. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
+| Verification | Re-verified against the working tree at version 0.6.0 plus the Home theme and generic architectural pieces. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Primary benchmark level | `assets/levels/places_demo.json` |
 
@@ -126,7 +126,8 @@ Authoritative paths:
 | Per-object transparency on GLB props (a prop's glTF `alphaMode` is not read) | Not implemented |
 | Emissive decals; per-placement emission overrides; cone/spot lights | Not implemented |
 | Authoring a normal map from a level (a level names a material, and the material owns the map) | Implemented (via the catalog) |
-| Ramps/sloped floor regions; ceiling/floor openings; traversal between stacked storeys | Not implemented |
+| Sloped floors (`ramps`), staircases (`stairs`), half walls, columns, archways, guardrails, thresholds, baseboards | Implemented |
+| Ceiling/floor openings; traversal between stacked storeys | Not implemented |
 | Room-wide brightness/tint modifiers; non-fixture decor meshes beyond props | Not implemented |
 | WebP or formats other than PNG; arbitrary structural meshes | Not implemented |
 | `wall_lights` level array; per-room wall material | Not implemented (wall fixtures live in `ceiling_lights` with `"mount": "wall"`; prop-owned lights live in `props[].lights`) |
@@ -318,6 +319,68 @@ skeleton and the per-field tables.
     }
   ],
 
+  "ramps": [                               // sloped walking surfaces
+    { "x": 4.0, "z": 0.4, "width": 1.0, "depth": 1.6,  // REQUIRED
+      "offset_y": 0.0, "rise": 0.75,        // offset at the min corner, signed rise
+      "material": "home:hardwood_oak_01",   // optional: top surface
+      "shine": 0.3,
+      "edge_material": "home:wall_paint_offwhite_01",  // optional: side faces
+      "edge_shine": 0.2 }
+  ],
+
+  "stairs": [                              // straight stepped flights
+    { "x": 2.2, "z": 2.6, "width": 1.4, "depth": 1.2,  // REQUIRED
+      "offset_y": 0.0, "rise": 0.75, "steps": 5,       // REQUIRED rise and steps
+      "material": "home:hardwood_oak_01",   // treads (default: room floor)
+      "riser_material": "home:wall_paint_offwhite_01", // risers (default: treads)
+      "side_material": "home:baseboard_white_01" }     // sides  (default: risers)
+  ],
+
+  "half_walls": [                          // capped knee walls
+    { "x": 6.05, "z": 6.6, "width": 1.0, "depth": 0.2,  // min corner like a wall
+      "height": 1.05,                      // REQUIRED
+      "y": null,                           // optional absolute base; floor default
+      "material": "home:wall_paint_offwhite_01",
+      "end_material": null, "cap_material": "home:baseboard_white_01" }
+  ],
+
+  "columns": [                             // square / rectangular posts
+    { "x": 3.7, "z": 2.1, "width": 0.26, "depth": 0.26,
+      "height": null,                      // default: floor to local ceiling
+      "material": "home:wall_paint_offwhite_01",
+      "cap_material": "home:baseboard_white_01" }
+  ],
+
+  "archways": [                            // wall block with an arched opening
+    { "x": 5.83, "z": 1.6, "width": 0.34, "depth": 1.4,
+      "height": 3.0,                       // block height
+      "opening_width": 1.0,                // centred in the block's length
+      "opening_height": 2.1,               // clear height at the crown
+      "arch_rise": 0.25,                   // crown above the springing line
+      "material": "home:wallpaper_offwhite_01",
+      "reveal_material": "home:wall_paint_offwhite_01" }
+  ],
+
+  "guardrails": [                          // rails and stair handrails
+    { "x": 5.35, "z": 2.1, "length": 2.2,  // start point, run along local +X
+      "rotation_degrees": 270.0,           // 0 east, 90 north, 180 west, 270 south
+      "height": 0.95, "rise": null,        // omitted: follow the walkable floor
+      "post_spacing": 1.2,
+      "material": "home:handrail_wood_01", "post_material": null }
+  ],
+
+  "thresholds": [                          // floor transition strips
+    { "x": 6.0, "z": 2.3, "length": 1.04,  // centre, run along local +X
+      "thickness": 0.08, "height": 0.012, "rotation_degrees": 90.0,
+      "material": "home:threshold_wood_01" }
+  ],
+
+  "baseboards": [                          // skirting runs
+    { "x": 0.15, "z": 0.15, "length": 5.85, // start point on the wall's face
+      "rotation_degrees": 0.0, "height": 0.09, "thickness": 0.018,
+      "material": "home:baseboard_wood_01" }
+  ],
+
   "decals": [
     { "x": 4.5, "y": 0.0, "z": 2.0,        // x, z REQUIRED; y default 0.0
       "width": 0.9, "height": 0.9,         // REQUIRED, > 0, <= 10
@@ -419,6 +482,14 @@ read the "Enforced as" column carefully.
 | Decals | ≤ 5000 | Loader rejection |
 | Decal edge (`width`, `height`) | ≤ 10 m | Loader rejection |
 | Floor regions | ≤ 2000 | Loader rejection |
+| Ramps | ≤ 500 | Loader rejection |
+| Staircases | ≤ 500 | Loader rejection |
+| Half walls | ≤ 2000 | Loader rejection |
+| Columns | ≤ 2000 | Loader rejection |
+| Archways | ≤ 500 | Loader rejection |
+| Guardrails | ≤ 2000 | Loader rejection |
+| Thresholds | ≤ 1000 | Loader rejection |
+| Baseboards | ≤ 2000 | Loader rejection |
 | Floor patches | ≤ 2000 | Loader rejection |
 | Openings per wall | ≤ 64 | Loader rejection on that wall |
 | Room width/depth | ≤ 2000 m | Loader rejection per room |
@@ -837,9 +908,16 @@ Rules that matter:
 rim** — solid from the lower side, and refused from the upper side. Staircases are
 chains of floor regions whose consecutive offsets differ by ≤ 0.4 m (Places Demo
 stair: 1.5 → 1.2 → 0.9 → 0.6 → 0.3 risers). This is what makes pool basins safe
-without fall physics. The rim's blocking face sits on the region boundary; the collider
-is a thin box extending 0.4 m under the higher floor so a sub-stepped move cannot
-tunnel through it.
+without fall physics. The rim's blocking face sits on the region boundary; the
+collider is a thin box extending 0.4 m under the higher floor so a sub-stepped move
+cannot tunnel through it.
+
+A rim **only ever blocks a change the player could not otherwise take**: it carries
+the walkable step as headroom, so a player already within 0.4 m of the rim's top
+(on a ramp or a staircase arriving beside the platform) walks past it. Its height
+is sampled in short segments along the boundary, so a slope beside a rim is read at
+its real local height instead of the cell's average. A rim never walls a landing
+off.
 
 Places Demo: the lowered pool basin (room `floor_y` is −1.5):
 
@@ -877,6 +955,197 @@ The same room's walk-in step, one 0.35 m rise above the basin floor:
   roughly 2.5 m light grid cells (capped at 12 cells per axis) plus one cut line per
   patch/region edge, so materials and baked light can vary across a large room. This
   is automatic; there is nothing to author.
+
+### Ramps and staircases
+
+A level can author **sloped walking surfaces** (`ramps`) and **stepped walking
+surfaces** (`stairs`) beside its rooms, walls and floor regions. Both are floor
+surfaces, not props: the player walks them, the bake lights them, collision
+answers with their real height, and they draw with the level's own materials.
+
+```json
+"ramps": [
+  { "x": 4.0, "z": 0.4, "width": 1.0, "depth": 1.6,
+    "offset_y": 0.0, "rise": 0.75,
+    "material": "home:hardwood_oak_01",
+    "edge_material": "home:wall_paint_offwhite_01" }
+],
+"stairs": [
+  { "x": 2.2, "z": 2.6, "width": 1.4, "depth": 1.2,
+    "offset_y": 0.0, "rise": 0.75, "steps": 5,
+    "material": "home:hardwood_oak_01",
+    "riser_material": "home:wall_paint_offwhite_01",
+    "side_material": "home:baseboard_white_01" }
+]
+```
+
+**Ramps** (`ramps[]`):
+
+| Field | Type | Required | Default | Constraints / semantics |
+| --- | --- | --- | --- | --- |
+| `x`, `z` | number | **yes** | — | Minimum corner of the footprint, like a wall or region. |
+| `width`, `depth` | number | **yes** | — | `> 0`. The run follows the longer axis (ties → X), exactly like a wall. |
+| `offset_y` | number | no | `0.0` | Surface offset at the **minimum-corner end**, relative to the room's `floor_y`. |
+| `rise` | number | **yes** | — | Signed height change to the far (maximum-coordinate) end, in metres. `+1.0` climbs toward it, `-1.0` descends toward it. Not zero, at most 50 m, and at most `2.0 m` of rise per metre of run (a steeper slope is not walkable). |
+| `material`, `shine` | string / number | no | room floor | The ramp's top surface. |
+| `edge_material`, `edge_shine` | string / number | no | level wall default | The two closed side faces. |
+
+**Staircases** (`stairs[]`):
+
+| Field | Type | Required | Default | Constraints / semantics |
+| --- | --- | --- | --- | --- |
+| `x`, `z`, `width`, `depth` | number | **yes** | — | Footprint; the flight climbs along the longer axis (ties → X). |
+| `offset_y` | number | no | `0.0` | Walking-surface offset at the **foot** of the flight. |
+| `rise` | number | **yes** | — | Total climb, `> 0`, at most 50 m. |
+| `steps` | integer | **yes** | — | Risers *and* treads; at least 2. The riser is `rise / steps` (must be ≤ 0.4 m, the walkable step) and the tread is `length / steps` (must be ≥ 0.15 m). |
+| `material`, `shine` | string / number | no | room floor | The treads. |
+| `riser_material`, `riser_shine` | string / number | no | the tread material | The risers. |
+| `side_material`, `side_shine` | string / number | no | the riser material | The closed stringer sides. |
+
+How the two behave:
+
+* **They are walking surfaces.** A ramp's height is linear along its run and a
+  staircase's is one riser per tread, both measured from the containing room's
+  `floor_y`. The player controller steps or slopes over them with the ordinary
+  0.4 m rule, and `LIMINAL_CAPTURE`-style inspection shows exactly what the
+  player stands on.
+* **The step rule runs per movement sub-step**, and a sub-step is at most 0.15 m,
+  so the full legal range is walkable at every supported frame rate: at the
+  steepest legal ramp (2 m of rise per metre of run) a sub-step rises at most
+  0.3 m, and an exact-limit riser (0.4 m) is climbed even on a floor whose
+  height is metres above zero.
+* **They have no collision boxes of their own.** The walking surface *is* the
+  collision: a step of more than 0.4 m at the piece's edge refuses the player,
+  exactly like a floor-region rim. A ramp or flight that lands flush on a raised
+  platform is closed by that platform's own skirt, and the platform's rim does
+  not wall the landing off (the rim rule samples the walking surface on either
+  side of a grid edge).
+* **Their sides are real skirts.** A ramp's two sides drop from the sloped edge
+  to the lowest floor they meet, and a staircase's sides close each step down to
+  the floor line beside it, so a flight or slope is never an open wedge. The side
+  is not a collider: the height rule keeps the player off it because the walkable
+  floor inside the footprint is the piece's own surface.
+* **The space under a ramp or flight is not walkable.** The walkable floor at a
+  point over the footprint is the piece's own height, so the volume beneath it
+  is solid to the player by construction.
+* **They may not overlap a floor region or each other.** The loader rejects a
+  region inside a ramp or staircase, a staircase inside a ramp, and a ramp
+  inside a staircase: a space has one walking surface, and two floors in the
+  same place would fight. They *do* meet a floor region edge-to-edge, which is
+  how a flight lands on a platform.
+* **They stay inside one floor plane.** A ramp or flight drawn across rooms with
+  different `floor_y` values is rejected: its geometry is generated once, from
+  the room under its centre, while the walkable surface would resolve each room's
+  own floor. Rooms that share a floor plane are fine.
+* **Their ends are closed against what they meet.** The low end of a ramp (and
+  the foot of a flight) is level with the room floor, so no face is drawn there;
+  an end that stands above the floor beyond it gets a real end face. The top
+  lands flush on the platform, whose skirt closes it.
+* **Validation**: non-finite or non-positive dimensions, a flat ramp, an
+  over-steep ramp, an unclimbable riser, a too-shallow tread, a piece that
+  overlaps no room, a piece that rises through the ceiling, or a piece crossing
+  rooms with different floors are named errors.
+
+### Half walls, columns, archways, guardrails, thresholds and baseboards
+
+Six more arrays cover the ordinary architectural furniture of an interior. Every
+one is theme-independent: it takes ordinary material ids, so the same geometry
+is a Home skirting, an office partition or an industrial kick plate.
+
+```json
+"half_walls": [
+  { "x": 6.05, "z": 6.6, "width": 1.0, "depth": 0.2, "height": 1.05,
+    "material": "home:wall_paint_offwhite_01",
+    "cap_material": "home:baseboard_white_01" }
+],
+"columns": [
+  { "x": 3.7, "z": 2.1, "width": 0.26, "depth": 0.26,
+    "material": "home:wall_paint_offwhite_01" }
+],
+"archways": [
+  { "x": 5.83, "z": 1.6, "width": 0.34, "depth": 1.4,
+    "height": 3.0, "opening_width": 1.0, "opening_height": 2.1, "arch_rise": 0.25,
+    "material": "home:wallpaper_offwhite_01",
+    "reveal_material": "home:wall_paint_offwhite_01" }
+],
+"guardrails": [
+  { "x": 5.35, "z": 2.1, "length": 2.2, "rotation_degrees": 270.0,
+    "height": 0.95, "material": "home:handrail_wood_01" }
+  // beside a flight or ramp, omit `rise` and the rail follows the floor;
+  // author `rise` (with `y`) to pin an explicit slope
+],
+"thresholds": [
+  { "x": 6.0, "z": 2.3, "length": 1.04, "thickness": 0.08, "height": 0.012,
+    "rotation_degrees": 90.0, "material": "home:threshold_wood_01" }
+],
+"baseboards": [
+  { "x": 0.15, "z": 0.15, "length": 5.85, "height": 0.09, "thickness": 0.018,
+    "material": "home:baseboard_wood_01" }   // back plane on the wall face
+]
+```
+
+**Placement and the base height.** Half walls, columns and archways are placed
+by **minimum corner** (`x`, `z`) like a wall; guardrails and baseboards by the
+**start point of their run** (`x`, `z` = where the run begins); a threshold by
+its **centre**. Every one of them takes an optional absolute world `y`, and
+omitting it resolves the walkable floor under the piece (the footprint centre
+for a box, the run's start for a rail or board). A piece authored `y` is
+absolute, like a wall's — not floor-relative like a prop's.
+
+**Orientation.** Guardrails, thresholds and baseboards run along their own local
+`+X` axis and are rotated about Y by `rotation_degrees`: `0` runs east (`+X`),
+`90` north (`−Z`), `180` west, `270` south. Half walls, columns and archways
+derive their length axis from `width`/`depth` exactly like a wall (the longer
+dimension; ties → X), and an archway's opening is centred on that length.
+
+| Piece | Key fields | Materials | Collision |
+| --- | --- | --- | --- |
+| `half_walls[]` | `width`, `depth`, **`height` (required)** | `material` (length faces), `end_material`, `cap_material` | **Solid.** A knee wall, parapet or partition: it blocks and it occludes baked light. |
+| `columns[]` | `width`, `depth`, optional `height` (default: floor to the local clear ceiling) | `material` (body), `cap_material` | **Solid.** A full-height column skips its cap where it meets the ceiling, so it never fights the ceiling plane. |
+| `archways[]` | `width`, `depth`, `height` (block), `opening_width`, `opening_height` (at the crown), `arch_rise` (`0` = flat lintel) | `material` (faces and ends), `reveal_material` (jambs and soffit) | **Solid piers and spandrel, open doorway.** Collision covers the two piers and the wall above the opening only, so the opening is never blocked. The arch itself is eight flat segments. |
+| `guardrails[]` | `length`, `height` (default 1.0), `rise` (slopes the rail; omitted follows the walkable floor), `post_spacing` (default 1.2) | `material` (rails), `post_material` (default: the rails') | **Solid barrier.** Its box spans the run from just below the base line to the top rail, so it stops the player from either side. Rail width and post section are fixed (0.07 m rail, 0.06 m post). |
+| `thresholds[]` | `length`, `thickness` (default 0.06), `height` (default 0.012) | `material` (default: the level's floor) | **No collision.** A 12 mm strip of trim; the player walks over it. The loader rejects a strip whose ends stand at different floor heights (more than 0.05 m), that lies outside every room, or that is buried in a wall solid. |
+| `baseboards[]` | `length`, `height` (default 0.09), `thickness` (default 0.018) | `material` (default: the level's wall) | **No collision.** The back face is not drawn (it is buried in the wall), and the run stands proud of the wall plane, so it never shares a plane with it. The loader rejects a board whose whole cross-section is inside a wall solid. |
+
+Rules that matter:
+
+* **Half wall, column and archway heights are rigid.** An authored height is
+  drawn exactly, like a wall's authored height; a piece that is taller than the
+  ceiling pokes through it. Columns default to the local clear ceiling and skip
+  their cap when they meet it exactly (within 2 cm).
+* **An archway needs piers.** `opening_width` must leave at least 0.08 m of
+  block on each side, and the block must be at least as tall as its opening.
+  Place the block so its ends tuck about 10 cm into the walls it interrupts:
+  the block is slightly thicker than the wall is a comfortable way to case the
+  opening, and its end caps then sit inside the adjoining wall rather than on
+  its face.
+* **Corners are solved by the engine, not by gaps.** Place each board's back
+  plane on the wall's face and stop each end at the corner joint (the line where
+  the two wall faces meet). Where two boards meet at a corner, the later-authored
+  run gives up the overlap: its cap is trimmed against the earlier run's cap and
+  its front face stops at the earlier run's face, so the two never share a
+  coplanar surface and no gap is left. An end that is not a corner is closed with
+  its own end face; an end buried inside a wall keeps its face hidden.
+* **Boards belong on a wall face.** The room boundary is the wall's *centre*
+  plane, so `"z": 0` against a 0.3 m wall puts the board 15 cm inside it. The
+  loader rejects a board whose whole cross-section lies inside a wall solid, with
+  the wall named. Use the wall's inner face (`z: 0.15` for a wall spanning
+  `-0.15 … 0.15`).
+* **Thresholds belong on a level floor.** Put one in a doorway between two
+  floors at the same height (`length` a couple of centimetres wider than the
+  opening tucks its ends into the jambs). A transition across a real step is a
+  floor region or a small ramp, not a threshold strip.
+* **Baseboards do not change the room's walkable surface** and are ignored by
+  the lighting bake's occlusion: they are decoration with zero gameplay effect.
+* **A guardrail is a barrier, and its posts are trimmed to fit.** A run that
+  does not divide evenly by `post_spacing` gets an end post too; the rail and
+  the posts use the same material unless `post_material` overrides it.
+* **A guardrail is also a handrail.** With `y` and `rise` omitted the rail's base
+  line follows the walkable floor from the run's start to its end, so a run
+  placed from a flight's first nosing to its last nosing keeps a constant height
+  above the treads; the same is true beside a ramp. Author `rise` (with `y`) to
+  pin an explicit line, such as a level landing rail on sloping ground. Posts
+  stay vertical and the barrier box follows the slope.
 
 ---
 
@@ -932,6 +1201,12 @@ Where a level can name a material (all resolved at load):
 * `floor_regions[].material` and `floor_regions[].edge_material`
 * `walls[].openings[].glass` (the pane filling an aperture, see
   [Panes](#panes-glass-grilles-and-screens))
+* every generic architectural piece: `ramps[].material` / `.edge_material`,
+  `stairs[].material` / `.riser_material` / `.side_material`,
+  `half_walls[].material` / `.end_material` / `.cap_material`,
+  `columns[].material` / `.cap_material`, `archways[].material` /
+  `.reveal_material`, `guardrails[].material` / `.post_material`,
+  `thresholds[].material`, `baseboards[].material`
 
 Every one of those carriers takes an optional per-surface `shine` override as a
 sibling key, so a level can change how glossy **one surface** is without a new
@@ -947,6 +1222,14 @@ material:
 | `floor_patches[].material` | `floor_patches[].shine` |
 | `floor_regions[].material` / `edge_material` | `floor_regions[].shine` / `edge_shine` |
 | `walls[].openings[].glass` | `walls[].openings[].glass_shine` |
+| `ramps[].material` / `edge_material` | `ramps[].shine` / `edge_shine` |
+| `stairs[].material` / `riser_material` / `side_material` | `stairs[].shine` / `riser_shine` / `side_shine` |
+| `half_walls[].material` / `end_material` / `cap_material` | `half_walls[].shine` / `end_shine` / `cap_shine` |
+| `columns[].material` / `cap_material` | `columns[].shine` / `cap_shine` |
+| `archways[].material` / `reveal_material` | `archways[].shine` / `reveal_shine` |
+| `guardrails[].material` / `post_material` | `guardrails[].shine` / `post_shine` |
+| `thresholds[].material` | `thresholds[].shine` |
+| `baseboards[].material` | `baseboards[].shine` |
 
 ```json
 { "x": 15.8, "z": 0.2, "width": 3.0, "depth": 2.8,
@@ -1424,7 +1707,7 @@ Asset classes in the current catalog:
 | `entity` | Yes (one entry) | `spooner-man`. |
 | `core` | No shipped entry uses it | Supported and accepted (engine-level shared resources); the `assets/core/` **directory** holds generic props such as `core:couch`, but their catalog class is `environment`. Class is independent of directory. |
 
-Two themes ship: **`office`** and **`pool`**, declared in `assets/catalog.json`'s
+Three themes ship: **`office`**, **`pool`** and **`home`**, declared in `assets/catalog.json`'s
 `themes` array. A theme is an organizational collection with a display name and a
 description. Generic/shared assets omit `theme`.
 
@@ -1432,6 +1715,36 @@ description. Generic/shared assets omit `theme`.
 has a different theme, and there is deliberately no theme-filtering query. Place Pool
 fixtures in an office, mix themes in one room, or use generic `core` props anywhere.
 Rooms have no mandatory theme field.
+
+### The Home theme
+
+`home:` materials are ordinary catalog definitions, so a level uses them like any
+other material id. The canonical set is **clean by design**: no dirt, stains,
+water damage or wear, and the office set's stained/damp variants remain available
+for a level that wants them.
+
+| Material id | Surface | Intended use | Notes |
+| --- | --- | --- | --- |
+| `home:wallpaper_offwhite_01` | wall | The default clean residential wallpaper | Matte (`specular: 0.0`), no pattern; 2 m tile |
+| `home:wallpaper_pattern_01` | wall | A second wallpaper with one very subtle repeating motif | Same paper, a 25 cm motif cell; still matte |
+| `home:wall_paint_offwhite_01` | wall | Plain painted wall: distinct from wallpaper | A low satin response (`specular: 0.10`, `shine: 0.22`) |
+| `home:hardwood_oak_01` | floor | Primary hardwood: a finished warm oak, 20 cm planks | `tile_metres: 1.6`, a restrained satin sheen |
+| `home:hardwood_walnut_02` | floor | Secondary hardwood: darker walnut, 15 cm planks | A genuinely different floor, not a tint |
+| `home:carpet_cream_01` | floor | Clean beige/cream carpet | Matte (`shine: 0.06`), no baked dirt |
+| `home:tile_home_01` | floor | Kitchen / bathroom / utility tile | 15 cm tiles at a 1.2 m repeat |
+| `home:ceiling_white_01` | ceiling | Flat white residential ceiling | Near-flat painted finish |
+| `home:ceiling_plaster_01` | ceiling | Lightly textured plaster ceiling | A fine stipple, not a popcorn ceiling |
+| `home:baseboard_wood_01` | wall | Wood skirting; also fine on rail trim | Fine horizontal grain; 0.5 m repeat |
+| `home:baseboard_white_01` | wall | Painted white skirting | Smooth, faint brush grain |
+| `home:handrail_wood_01` | wall | Handrail / guardrail timber | Varnished, a little glossier |
+| `home:threshold_wood_01` | floor | Threshold strips at a floor-material change | Independent of the floors it joins |
+
+The fixture is `home:ceiling_light_round` (see
+[Current Light Fixture Types](#current-light-fixture-types)) and the two kitchen
+cabinets are the `home:cabinet_base` / `home:cabinet_wall` props. Generic
+`core:` props (`core:couch`, `core:bed`, `core:table`, `core:lamp`, `core:rug`,
+`core:fridge`, `core:stove`, `core:sink`, `core:bookshelf`, `core:tv`,
+`core:plant`) are already domestic and need no Home variant.
 
 **Adding a future theme (e.g. `hotel`)** — no engine change:
 
@@ -1915,6 +2228,7 @@ code**.
 | --- | --- | --- | --- | --- |
 | `core:fluorescent_panel_01` | ceiling (default) | `environment/office/textures/lights/fluorescent_panel_01.png` (1024×512) | Rectangle 1.2 × 0.6 m (half extents 0.6 × 0.3); rotation swaps axes | The default family **and the fallback for every unknown id**. The fitted sheet is the whole visible fixture (no generated bezel beside it). Hangs 0.01 m below the local ceiling; under a gable it follows the eave/ceiling above its footprint. |
 | `core:pool_light_round` | ceiling | `environment/pool/textures/lights/pool_light_round_01.png` (128×128) | Disc, 0.44 m diameter (half extent 0.22); rotation-invariant | Round recessed downlight. Same ceiling-plane derivation as the panel. |
+| `home:ceiling_light_round` | ceiling (default) | `environment/home/textures/lights/ceiling_light_round_01.png` (256×256) | Disc, 0.32 m diameter (half extent 0.16); rotation-invariant | Round residential flush mount: a shallow white drum with a glowing diffuser disc, hanging 0.07 m below the ceiling plane. Its pool is the disc's bounding square, as with the pool downlight. |
 | `core:pool_light_wall` | **wall** — requires `"mount": "wall"` and a finite world `"y"` | `environment/pool/textures/lights/pool_light_wall_01.png` (128×64) | Rectangle 0.4 × 0.18 m (half extents 0.20 × 0.09) centred on (x, y, z) | Faces `rotation_degrees`: 0 = +Z, 90 = +X, 180 = −Z, 270 = −X. Place the point on the wall plane; the body extends ~0.11 m forward. Light is emitted from the rectangle's front. |
 
 Ceiling fixture rotation is quantised to a 0°/90° axis swap; only wall sconces rotate
@@ -1922,6 +2236,23 @@ continuously. Unknown fixture ids load as the office panel with the untextured w
 sheet (no error); a named-but-broken sheet logs
 `[fixtures] fixture {id} sheet {path}: {error}; drawing the untextured sheet instead`.
 The first light of a family decides that family's sheet for the whole level.
+
+### The residential flush mount
+
+`home:ceiling_light_round` is a ceiling fixture: a shallow white drum hanging
+0.07 m below the ceiling plane with a glowing diffuser disc. Its visible face is
+its own 256×256 sheet whose inscribed circle is the disc, so the artwork — a
+soft neutral white with a moulded rim — *is* the lamp's appearance; the lit face
+carries only a neutral emission strength, and the authored light `color` never
+tints it. The drum wall, its bottom rim and the small centre boss behind the
+diffuser's centre hole are untextured body geometry, exactly like the pool
+downlight's bezel.
+
+Its emitting footprint is the disc's bounding square (0.32 m), and like every
+fixture the illumination is `brightness` (default 1.0; the Home showcase uses
+0.34–0.40) while `emission` controls how bright the face reads (the showcase
+authors `emission: 1.0` so the diffuser reads as a lit lamp in a softly lit
+room).
 
 A fixture family is **visible geometry plus one shape** (see
 `FixtureProfile::shape` in `src/lighting/tuning.rs`): the family decides the emitting
@@ -2236,7 +2567,8 @@ Decision tree:
 | A light source | Existing fixture, a prop-owned light, or a new fixture family | Reuse a fixture id (`ceiling_lights`) or add a family (see [Adding a New Light Fixture Type](#adding-a-new-light-fixture-type)). A prop can own 0–8 generic lights. |
 | Something mounted but not luminous | Prop | Model it as a GLB prop; there is no generic mounted-fixture system (no exit signs, fans or alarms as fixtures). |
 | Something that pulses or flickers | Animated emission on a material | `animated_emissions[]`, section 18. |
-| Arbitrary structural geometry | **Not supported.** | Only rectangular rooms, walls, openings, patches and regions exist. Shape the environment from these; use props for details. |
+| Sloped floors, stairs, half walls, columns, archways, rails, trim | The generic architectural pieces | Add `ramps`, `stairs`, `half_walls`, `columns`, `archways`, `guardrails`, `thresholds` or `baseboards`. Each takes ordinary material ids (section 10). |
+| Arbitrary *other* structural geometry | **Not supported.** | Only rectangular rooms, walls, openings, patches, regions and the documented architectural pieces exist. Shape the environment from these; use props for details. |
 
 Rules that apply to every new asset:
 
@@ -2877,10 +3209,12 @@ authoring. They are not invitations to change the engine as part of an authoring
     honours it for storey selection; `src/materials/reflection.rs`'s module comment
     shows a nested `"reflection": {"mode": …}` catalog form while the catalog uses the
     flat `reflection_mode`/`reflection_strength` fields.
-16. **Legacy level editor is stale for vertical keys.** `level-editor/js/` does not
-    model `floor_y`, `floor_regions`, `ceiling` profiles or fixture `mount`/`y`, and it
-    defaults a missing room `height` to 3.5 (the engine default is 4.0). Prefer editing
-    JSON directly for those features.
+16. **Legacy level editor is stale for vertical and architectural keys.**
+    `level-editor/js/` does not model `floor_y`, `floor_regions`, `ceiling` profiles,
+    fixture `mount`/`y`, or any of `ramps`, `stairs`, `half_walls`, `columns`,
+    `archways`, `guardrails`, `thresholds` and `baseboards`, and it defaults a missing
+    room `height` to 3.5 (the engine default is 4.0). Prefer editing JSON directly for
+    those features.
 17. **Tooling vs runtime strictness.** The Rust runtime is permissive (unknown
     class/type, missing `model`, invalid `size`, unknown fixture/prop ids degrade);
     `tools/assets/validate.py` is strict and fails. Pass the tool, not the runtime
@@ -3274,6 +3608,97 @@ A lit sign face:
 { "id": "hotel:decal_evacuation_01", "display_name": "Evacuation Route Sign",
   "asset_class": "environment", "theme": "hotel", "asset_type": "decal",
   "source": "file", "model": "environment/hotel/decals/evacuation_route_01.png" }
+```
+
+## Add a ramp or a staircase
+
+1. Choose the footprint and the run axis: the longer of `width`/`depth` is the
+   run, exactly like a wall.
+2. A ramp takes `offset_y` (at the minimum-corner end) and a signed `rise`; a
+   staircase takes `offset_y` (at the foot) and a positive `rise` with `steps`.
+3. Make the far end meet a floor region edge-to-edge at the same height (a ramp
+   may not overlap one).
+4. Name a `material` for the top and, for a ramp, an `edge_material` for the
+   sides; stairs take tread, riser and side materials.
+
+```json
+{ "x": 4.0, "z": 0.4, "width": 1.0, "depth": 1.6, "offset_y": 0.0, "rise": 0.75,
+  "material": "home:hardwood_oak_01",
+  "edge_material": "home:wall_paint_offwhite_01" }
+```
+
+```json
+{ "x": 2.2, "z": 2.6, "width": 1.4, "depth": 1.2, "offset_y": 0.0, "rise": 0.75,
+  "steps": 5, "material": "home:hardwood_oak_01",
+  "riser_material": "home:wall_paint_offwhite_01",
+  "side_material": "home:baseboard_white_01" }
+```
+
+The platform it lands on is an ordinary raised floor region:
+
+```json
+{ "x": 3.6, "z": 2.0, "width": 1.8, "depth": 2.4, "offset_y": 0.75,
+  "material": "home:hardwood_oak_01", "edge_material": "home:wall_paint_offwhite_01" }
+```
+
+## Add a half wall, a column or an archway
+
+1. Place by minimum corner like a wall; the longer of `width`/`depth` is its
+   length axis.
+2. Give a half wall its `height` (required) and, optionally, an `end_material`
+   and a `cap_material`; a column may omit `height` to reach the local ceiling.
+3. An archway's `height` is the whole block, `opening_height` is the clear
+   height at the crown and `arch_rise` how much higher the crown is than the
+   springing line (`0` is a flat lintel). Centre it on the opening and let its
+   ends tuck into the adjoining walls.
+4. Every one of them is solid: it blocks the player and occludes the baked
+   light.
+
+```json
+{ "x": 6.05, "z": 6.6, "width": 1.0, "depth": 0.2, "height": 1.05,
+  "material": "home:wall_paint_offwhite_01",
+  "cap_material": "home:baseboard_white_01" }
+```
+
+```json
+{ "x": 5.83, "z": 1.6, "width": 0.34, "depth": 1.4, "height": 3.0,
+  "opening_width": 1.0, "opening_height": 2.1, "arch_rise": 0.25,
+  "material": "home:wallpaper_offwhite_01",
+  "reveal_material": "home:wall_paint_offwhite_01" }
+```
+
+## Add a guardrail or handrail
+
+1. `x`, `z` is the start of the run and the rail runs along its own `+X` axis:
+   `rotation_degrees` 0 = east, 90 = north, 180 = west, 270 = south.
+2. `height` (default 1.0) is the top rail above the base line; `rise` slopes the
+   run for a staircase or ramp rail; `post_spacing` (default 1.2) places the
+   posts.
+3. It is a barrier: it blocks the player and occludes light.
+
+```json
+{ "x": 5.35, "z": 2.1, "length": 2.2, "rotation_degrees": 270.0,
+  "height": 0.95, "material": "home:handrail_wood_01" }
+```
+
+## Add a threshold or a baseboard
+
+1. Both run along their own `+X` axis from their start point (a threshold from
+   its centre), rotated the same way as a guardrail.
+2. Neither collides: the player walks over a threshold and past a baseboard.
+3. A threshold must sit on a level floor; author `length` a couple of
+   centimetres wider than the opening so its ends tuck into the jambs.
+4. At a corner, stop one board just short of the other's face so no two trim
+   faces share a plane.
+
+```json
+{ "x": 6.0, "z": 2.3, "length": 1.04, "thickness": 0.08, "height": 0.012,
+  "rotation_degrees": 90.0, "material": "home:threshold_wood_01" }
+```
+
+```json
+{ "x": 0.0, "z": 0.0, "length": 6.0, "height": 0.09, "thickness": 0.018,
+  "material": "home:baseboard_wood_01" }
 ```
 
 ## Add a new light fixture

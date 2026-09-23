@@ -1,3 +1,5 @@
+#[cfg(test)]
+mod architecture_audit;
 pub mod assets;
 pub mod bench;
 pub mod collision;

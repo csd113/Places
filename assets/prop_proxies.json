@@ -5696,6 +5696,276 @@
       ],
       "triangles": 184
     },
+    "home:cabinet_base": {
+      "bounds_max": [
+        0.3,
+        0.9,
+        0.3
+      ],
+      "bounds_min": [
+        -0.3,
+        0.0,
+        -0.3
+      ],
+      "model": "environment/home/props/models/cabinet_base.glb",
+      "name": "Base Kitchen Cabinet",
+      "parts": [
+        {
+          "center": [
+            0.0,
+            0.8825,
+            0.0
+          ],
+          "color": "#d9d5c9",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.6,
+            0.035,
+            0.6
+          ]
+        },
+        {
+          "center": [
+            0.0,
+            0.481,
+            -0.012
+          ],
+          "color": "#e1dcce",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.6,
+            0.782,
+            0.556
+          ]
+        },
+        {
+          "center": [
+            0.0,
+            0.045,
+            -0.037
+          ],
+          "color": "#727068",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.57,
+            0.09,
+            0.486
+          ]
+        },
+        {
+          "center": [
+            -0.1475,
+            0.47,
+            0.276
+          ],
+          "color": "#e0dbce",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.28,
+            0.74,
+            0.016
+          ]
+        },
+        {
+          "center": [
+            0.1475,
+            0.47,
+            0.276
+          ],
+          "color": "#e0dbce",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.28,
+            0.74,
+            0.016
+          ]
+        },
+        {
+          "center": [
+            -0.045,
+            0.75,
+            0.292
+          ],
+          "color": "#d6d5cd",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.018,
+            0.12,
+            0.012
+          ]
+        },
+        {
+          "center": [
+            0.045,
+            0.75,
+            0.292
+          ],
+          "color": "#d6d5cd",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.018,
+            0.12,
+            0.012
+          ]
+        }
+      ],
+      "texture": [
+        128,
+        128
+      ],
+      "triangles": 66
+    },
+    "home:cabinet_wall": {
+      "bounds_max": [
+        0.3,
+        0.72,
+        0.165
+      ],
+      "bounds_min": [
+        -0.3,
+        0.0,
+        -0.165
+      ],
+      "model": "environment/home/props/models/cabinet_wall.glb",
+      "name": "Wall Kitchen Cabinet",
+      "parts": [
+        {
+          "center": [
+            0.0,
+            0.36,
+            -0.0165
+          ],
+          "color": "#e1dcce",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.6,
+            0.72,
+            0.297
+          ]
+        },
+        {
+          "center": [
+            -0.1475,
+            0.36,
+            0.142
+          ],
+          "color": "#e0dbce",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.28,
+            0.67,
+            0.016
+          ]
+        },
+        {
+          "center": [
+            0.1475,
+            0.36,
+            0.142
+          ],
+          "color": "#e0dbce",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.28,
+            0.67,
+            0.016
+          ]
+        },
+        {
+          "center": [
+            -0.045,
+            0.115,
+            0.159
+          ],
+          "color": "#d6d5cd",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.018,
+            0.1,
+            0.012
+          ]
+        },
+        {
+          "center": [
+            0.045,
+            0.115,
+            0.159
+          ],
+          "color": "#d6d5cd",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "shape": "box",
+          "size": [
+            0.018,
+            0.1,
+            0.012
+          ]
+        }
+      ],
+      "texture": [
+        128,
+        128
+      ],
+      "triangles": 50
+    },
     "spooner-man": {
       "bounds_max": [
         0.136,

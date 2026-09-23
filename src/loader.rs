@@ -6,7 +6,10 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use zip::ZipArchive;
 
-use crate::level::{LevelDef, MAX_LEVEL_FLOOR_AREA_M2, MAX_LEVEL_VERTICES};
+use crate::level::{
+    LevelDef, LevelSurfaces, MAX_LEVEL_FLOOR_AREA_M2, MAX_LEVEL_VERTICES, WALL_SLICE_EPS, WallAxis,
+    wall_solid_slices_profiled,
+};
 use crate::materials::{MaterialTable, PackMaterials, load_png_relative, resolve_materials};
 
 /// Re-exported so the rest of the crate keeps its historical import paths.
@@ -438,6 +441,7 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_surface_shine(level)?;
     validate_floor_regions(level)?;
     validate_walls(level)?;
+    validate_architecture(level)?;
     validate_ceiling_lights(level)?;
     validate_props(level)?;
     validate_prop_lights(level)?;
@@ -725,6 +729,693 @@ fn validate_floor_regions(level: &LevelDef) -> Result<(), String> {
         }
         if !overlaps_room {
             return Err(format!("Floor region {i} lies outside every room section"));
+        }
+    }
+    Ok(())
+}
+
+/// The generic architectural pieces: ramps, staircases, half walls, columns,
+/// archways, guardrails, thresholds and baseboards.
+///
+/// Every piece is validated on the same contract its geometry is built from:
+/// finite dimensions, materials that are non-empty when authored, an overlap
+/// with a room where the piece is a walking surface, and — for ramps and
+/// staircases — a slope or riser the player controller can actually climb.
+/// Invalid dimensions are named errors, never silently clamped geometry.
+fn validate_architecture(level: &LevelDef) -> Result<(), String> {
+    validate_ramps(level)?;
+    validate_stairs(level)?;
+    validate_half_walls(level)?;
+    validate_columns(level)?;
+    validate_archways(level)?;
+    validate_guardrails(level)?;
+    validate_thresholds(level)?;
+    validate_baseboards(level)?;
+    validate_architecture_overlaps(level)
+}
+
+/// True when an axis-aligned rectangle overlaps any room's footprint.
+fn rect_overlaps_room(level: &LevelDef, bounds: (f32, f32, f32, f32)) -> bool {
+    let (x0, x1, z0, z1) = bounds;
+    level.room_iter().any(|room| {
+        let (rx0, rx1, rz0, rz1) = room.bounds();
+        x1 > rx0 && x0 < rx1 && z1 > rz0 && z0 < rz1
+    })
+}
+
+/// True when two axis-aligned rectangles overlap by a real area.
+fn rects_overlap(a: (f32, f32, f32, f32), b: (f32, f32, f32, f32)) -> bool {
+    a.1 > b.0 && a.0 < b.1 && a.3 > b.2 && a.2 < b.3
+}
+
+/// True when an optional material id is present but blank.
+fn blank_material(material: Option<&str>) -> bool {
+    material.is_some_and(|id| id.trim().is_empty())
+}
+
+/// Ramps: a walkable slope inside a room, shallow enough to climb.
+fn validate_ramps(level: &LevelDef) -> Result<(), String> {
+    if u64::try_from(level.ramps.len()).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_RAMPS {
+        return Err(format!(
+            "Level contains too many ramps: {} (limit: {})",
+            level.ramps.len(),
+            crate::level::MAX_LEVEL_RAMPS
+        ));
+    }
+    for (i, ramp) in level.ramps.iter().enumerate() {
+        if !ramp.x.is_finite()
+            || !ramp.z.is_finite()
+            || !ramp.width.is_finite()
+            || !ramp.depth.is_finite()
+            || !ramp.offset_y.is_finite()
+            || !ramp.rise.is_finite()
+        {
+            return Err(format!(
+                "Ramp {i} position, size, offset and rise must be finite numbers"
+            ));
+        }
+        if ramp.width <= 0.0 || ramp.depth <= 0.0 {
+            return Err(format!("Ramp {i} width and depth must be positive"));
+        }
+        if ramp.rise.abs() <= 1e-3 {
+            return Err(format!(
+                "Ramp {i} has no rise; use a floor region for a flat material change"
+            ));
+        }
+        if ramp.rise.abs() > crate::level::MAX_RAMP_RISE_M {
+            return Err(format!(
+                "Ramp {i} rise exceeds the maximum of {} m",
+                crate::level::MAX_RAMP_RISE_M
+            ));
+        }
+        let length = ramp.length();
+        if ramp.rise.abs() > crate::level::MAX_RAMP_SLOPE * length {
+            return Err(format!(
+                "Ramp {i} is too steep to walk: {:.2} m of rise over {:.2} m of run \
+                 (limit {} m per metre)",
+                ramp.rise.abs(),
+                length,
+                crate::level::MAX_RAMP_SLOPE
+            ));
+        }
+        if blank_material(ramp.material.as_deref()) || blank_material(ramp.edge_material.as_deref())
+        {
+            return Err(format!(
+                "Ramp {i} materials must be non-empty ids when specified"
+            ));
+        }
+        if !rect_overlaps_room(level, ramp.bounds()) {
+            return Err(format!("Ramp {i} lies outside every room section"));
+        }
+        // The ramp's high end has to stay under the ceiling of every room it
+        // crosses, or the walking surface would pass through the ceiling. Every
+        // room it crosses must also share one floor plane: the mesh and the
+        // lightmap are generated once, from the room under the ramp's centre,
+        // while the walkable surface resolves each room's own floor.
+        let mut ramp_floor: Option<f32> = None;
+        for (room_index, room) in level.room_iter().enumerate() {
+            if !rects_overlap(ramp.bounds(), room.bounds()) {
+                continue;
+            }
+            let high = room.floor_y + ramp.high_offset();
+            if !high.is_finite() || high >= room.eave_y() {
+                return Err(format!(
+                    "Ramp {i} rises to or above the ceiling of room {room_index} \
+                     ({high:.2} m vs eave {:.2} m)",
+                    room.eave_y()
+                ));
+            }
+            match ramp_floor {
+                None => ramp_floor = Some(room.floor_y),
+                Some(floor) if (floor - room.floor_y).abs() > 1.0e-4 => {
+                    return Err(format!(
+                        "Ramp {i} spans rooms with different floors ({floor:.2} m vs \
+                         {:.2} m in room {room_index}); the ramp is drawn on one floor \
+                         plane, so every room it crosses must share it",
+                        room.floor_y
+                    ));
+                }
+                Some(_) => {}
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Staircases: climeable risers, usable treads, and a top tread that stays
+/// under the ceiling.
+fn validate_stairs(level: &LevelDef) -> Result<(), String> {
+    if u64::try_from(level.stairs.len()).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_STAIRS {
+        return Err(format!(
+            "Level contains too many staircases: {} (limit: {})",
+            level.stairs.len(),
+            crate::level::MAX_LEVEL_STAIRS
+        ));
+    }
+    for (i, stair) in level.stairs.iter().enumerate() {
+        if !stair.x.is_finite()
+            || !stair.z.is_finite()
+            || !stair.width.is_finite()
+            || !stair.depth.is_finite()
+            || !stair.offset_y.is_finite()
+            || !stair.rise.is_finite()
+        {
+            return Err(format!(
+                "Staircase {i} position, size, offset and rise must be finite numbers"
+            ));
+        }
+        if stair.width <= 0.0 || stair.depth <= 0.0 {
+            return Err(format!("Staircase {i} width and depth must be positive"));
+        }
+        if stair.step_count() < 2 {
+            return Err(format!(
+                "Staircase {i} needs at least 2 steps (found {})",
+                stair.step_count()
+            ));
+        }
+        if stair.rise() <= 0.0 {
+            return Err(format!("Staircase {i} rise must be positive"));
+        }
+        if stair.rise() > crate::level::MAX_RAMP_RISE_M {
+            return Err(format!(
+                "Staircase {i} rise exceeds the maximum of {} m",
+                crate::level::MAX_RAMP_RISE_M
+            ));
+        }
+        let riser = stair.riser_height();
+        if riser > crate::level::MAX_STAIR_RISER_M + 1e-4 {
+            return Err(format!(
+                "Staircase {i} riser is {riser:.2} m, taller than the {:.2} m walkable step; \
+                 add steps or reduce the rise",
+                crate::level::MAX_STAIR_RISER_M
+            ));
+        }
+        let tread = stair.tread_depth();
+        if tread < crate::level::MIN_STAIR_TREAD_M {
+            return Err(format!(
+                "Staircase {i} tread is {tread:.2} m, shallower than the {} m minimum",
+                crate::level::MIN_STAIR_TREAD_M
+            ));
+        }
+        if blank_material(stair.material.as_deref())
+            || blank_material(stair.riser_material.as_deref())
+            || blank_material(stair.side_material.as_deref())
+        {
+            return Err(format!(
+                "Staircase {i} materials must be non-empty ids when specified"
+            ));
+        }
+        if !rect_overlaps_room(level, stair.bounds()) {
+            return Err(format!("Staircase {i} lies outside every room section"));
+        }
+        // Every room the flight crosses must share one floor plane: the mesh is
+        // generated once from the room under the flight's centre, while the
+        // walkable surface resolves each room's own floor.
+        let mut stair_floor: Option<f32> = None;
+        for (room_index, room) in level.room_iter().enumerate() {
+            if !rects_overlap(stair.bounds(), room.bounds()) {
+                continue;
+            }
+            let top = room.floor_y + stair.top_offset();
+            if !top.is_finite() || top >= room.eave_y() {
+                return Err(format!(
+                    "Staircase {i} climbs to or above the ceiling of room {room_index} \
+                     ({top:.2} m vs eave {:.2} m)",
+                    room.eave_y()
+                ));
+            }
+            match stair_floor {
+                None => stair_floor = Some(room.floor_y),
+                Some(floor) if (floor - room.floor_y).abs() > 1.0e-4 => {
+                    return Err(format!(
+                        "Staircase {i} spans rooms with different floors ({floor:.2} m vs \
+                         {:.2} m in room {room_index}); the flight is drawn on one floor \
+                         plane, so every room it crosses must share it",
+                        room.floor_y
+                    ));
+                }
+                Some(_) => {}
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Half walls: an authored height and usable footprint.
+fn validate_half_walls(level: &LevelDef) -> Result<(), String> {
+    if u64::try_from(level.half_walls.len()).unwrap_or(u64::MAX)
+        > crate::level::MAX_LEVEL_HALF_WALLS
+    {
+        return Err(format!(
+            "Level contains too many half walls: {} (limit: {})",
+            level.half_walls.len(),
+            crate::level::MAX_LEVEL_HALF_WALLS
+        ));
+    }
+    for (i, piece) in level.half_walls.iter().enumerate() {
+        if !piece.x.is_finite()
+            || !piece.z.is_finite()
+            || !piece.width.is_finite()
+            || !piece.depth.is_finite()
+            || !piece.height.is_finite()
+        {
+            return Err(format!(
+                "Half wall {i} position and dimensions must be finite numbers"
+            ));
+        }
+        if piece.width <= 0.0 || piece.depth <= 0.0 || piece.height <= 0.0 {
+            return Err(format!(
+                "Half wall {i} width, depth and height must be positive"
+            ));
+        }
+        if piece.height > 50.0 {
+            return Err(format!("Half wall {i} height exceeds the maximum of 50 m"));
+        }
+        if piece.y.is_some_and(|y| !y.is_finite()) {
+            return Err(format!("Half wall {i} base height must be a finite number"));
+        }
+        if blank_material(piece.material.as_deref())
+            || blank_material(piece.end_material.as_deref())
+            || blank_material(piece.cap_material.as_deref())
+        {
+            return Err(format!(
+                "Half wall {i} materials must be non-empty ids when specified"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Columns: a solid post with an optional authored height.
+fn validate_columns(level: &LevelDef) -> Result<(), String> {
+    if u64::try_from(level.columns.len()).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_COLUMNS {
+        return Err(format!(
+            "Level contains too many columns: {} (limit: {})",
+            level.columns.len(),
+            crate::level::MAX_LEVEL_COLUMNS
+        ));
+    }
+    for (i, piece) in level.columns.iter().enumerate() {
+        if !piece.x.is_finite()
+            || !piece.z.is_finite()
+            || !piece.width.is_finite()
+            || !piece.depth.is_finite()
+        {
+            return Err(format!(
+                "Column {i} position and dimensions must be finite numbers"
+            ));
+        }
+        if piece.width <= 0.0 || piece.depth <= 0.0 {
+            return Err(format!("Column {i} width and depth must be positive"));
+        }
+        if let Some(height) = piece.height
+            && (!height.is_finite() || height <= 0.0)
+        {
+            return Err(format!(
+                "Column {i} height must be a positive finite number when authored"
+            ));
+        }
+        if piece.y.is_some_and(|y| !y.is_finite()) {
+            return Err(format!("Column {i} base height must be a finite number"));
+        }
+        if blank_material(piece.material.as_deref())
+            || blank_material(piece.cap_material.as_deref())
+        {
+            return Err(format!(
+                "Column {i} materials must be non-empty ids when specified"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Archways: an opening that fits inside its block, with a crown above the
+/// springing line.
+fn validate_archways(level: &LevelDef) -> Result<(), String> {
+    if u64::try_from(level.archways.len()).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_ARCHWAYS {
+        return Err(format!(
+            "Level contains too many archways: {} (limit: {})",
+            level.archways.len(),
+            crate::level::MAX_LEVEL_ARCHWAYS
+        ));
+    }
+    for (i, piece) in level.archways.iter().enumerate() {
+        if !piece.x.is_finite()
+            || !piece.z.is_finite()
+            || !piece.width.is_finite()
+            || !piece.depth.is_finite()
+            || !piece.height.is_finite()
+            || !piece.opening_width.is_finite()
+            || !piece.opening_height.is_finite()
+            || !piece.arch_rise.is_finite()
+        {
+            return Err(format!(
+                "Archway {i} position and dimensions must be finite numbers"
+            ));
+        }
+        if piece.width <= 0.0 || piece.depth <= 0.0 || piece.height <= 0.0 {
+            return Err(format!(
+                "Archway {i} width, depth and height must be positive"
+            ));
+        }
+        if piece.opening_width <= 0.0 || piece.opening_height <= 0.0 {
+            return Err(format!(
+                "Archway {i} opening width and height must be positive"
+            ));
+        }
+        if piece.arch_rise < 0.0 {
+            return Err(format!("Archway {i} arch rise cannot be negative"));
+        }
+        if piece.arch_rise >= piece.opening_height {
+            return Err(format!(
+                "Archway {i} arch rise ({:.2} m) must be lower than its opening height \
+                 ({:.2} m); a flat lintel is `arch_rise: 0`",
+                piece.arch_rise, piece.opening_height
+            ));
+        }
+        if piece.height < piece.opening_height {
+            return Err(format!(
+                "Archway {i} block is shorter than its opening ({:.2} m vs {:.2} m)",
+                piece.height, piece.opening_height
+            ));
+        }
+        if piece.height > 50.0 {
+            return Err(format!("Archway {i} height exceeds the maximum of 50 m"));
+        }
+        let length = piece.length();
+        let minimum_pier = crate::level::ARCHWAY_MIN_PIER_M;
+        if piece.opening_width > (-2.0f32).mul_add(minimum_pier, length) {
+            return Err(format!(
+                "Archway {i} opening is too wide for its block: {:.2} m opening in a {:.2} m \
+                 block (each pier needs at least {:.2} m)",
+                piece.opening_width, length, minimum_pier
+            ));
+        }
+        if piece.y.is_some_and(|y| !y.is_finite()) {
+            return Err(format!("Archway {i} base height must be a finite number"));
+        }
+        if blank_material(piece.material.as_deref())
+            || blank_material(piece.reveal_material.as_deref())
+        {
+            return Err(format!(
+                "Archway {i} materials must be non-empty ids when specified"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Guardrails: a sane rail height, post spacing and slope.
+fn validate_guardrails(level: &LevelDef) -> Result<(), String> {
+    if u64::try_from(level.guardrails.len()).unwrap_or(u64::MAX)
+        > crate::level::MAX_LEVEL_GUARDRAILS
+    {
+        return Err(format!(
+            "Level contains too many guardrails: {} (limit: {})",
+            level.guardrails.len(),
+            crate::level::MAX_LEVEL_GUARDRAILS
+        ));
+    }
+    for (i, rail) in level.guardrails.iter().enumerate() {
+        if !rail.x.is_finite()
+            || !rail.z.is_finite()
+            || !rail.length.is_finite()
+            || !rail.rotation_degrees.is_finite()
+            || !rail.height.is_finite()
+            || rail.rise.is_some_and(|rise| !rise.is_finite())
+            || !rail.post_spacing.is_finite()
+        {
+            return Err(format!(
+                "Guardrail {i} position and dimensions must be finite numbers"
+            ));
+        }
+        if rail.length <= 0.0 {
+            return Err(format!("Guardrail {i} length must be positive"));
+        }
+        if !(0.2..=2.0).contains(&rail.height) {
+            return Err(format!(
+                "Guardrail {i} height must be between 0.2 and 2.0 m (got {:.2} m)",
+                rail.height
+            ));
+        }
+        if !(0.2..=3.0).contains(&rail.post_spacing) {
+            return Err(format!(
+                "Guardrail {i} post spacing must be between 0.2 and 3.0 m (got {:.2} m)",
+                rail.post_spacing
+            ));
+        }
+        if rail.rise().abs() > crate::level::MAX_RAMP_SLOPE * rail.length {
+            return Err(format!(
+                "Guardrail {i} slopes too steeply: {:.2} m of rise over {:.2} m of run",
+                rail.rise().abs(),
+                rail.length
+            ));
+        }
+        if rail.y.is_some_and(|y| !y.is_finite()) {
+            return Err(format!("Guardrail {i} base height must be a finite number"));
+        }
+        if blank_material(rail.material.as_deref()) || blank_material(rail.post_material.as_deref())
+        {
+            return Err(format!(
+                "Guardrail {i} materials must be non-empty ids when specified"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Threshold strips: a small, floor-hugging trim piece over a level floor.
+fn validate_thresholds(level: &LevelDef) -> Result<(), String> {
+    if u64::try_from(level.thresholds.len()).unwrap_or(u64::MAX)
+        > crate::level::MAX_LEVEL_THRESHOLDS
+    {
+        return Err(format!(
+            "Level contains too many thresholds: {} (limit: {})",
+            level.thresholds.len(),
+            crate::level::MAX_LEVEL_THRESHOLDS
+        ));
+    }
+    let surfaces = crate::level::LevelSurfaces::new(level);
+    for (i, strip) in level.thresholds.iter().enumerate() {
+        if !strip.x.is_finite()
+            || !strip.z.is_finite()
+            || !strip.length.is_finite()
+            || !strip.thickness.is_finite()
+            || !strip.height.is_finite()
+            || !strip.rotation_degrees.is_finite()
+        {
+            return Err(format!(
+                "Threshold {i} position and dimensions must be finite numbers"
+            ));
+        }
+        if strip.length <= 0.0 {
+            return Err(format!("Threshold {i} length must be positive"));
+        }
+        if !(0.02..=0.5).contains(&strip.thickness) {
+            return Err(format!(
+                "Threshold {i} thickness must be between 0.02 and 0.5 m (got {:.3} m)",
+                strip.thickness
+            ));
+        }
+        if !(0.002..=0.05).contains(&strip.height) {
+            return Err(format!(
+                "Threshold {i} height must be between 0.002 and 0.05 m (got {:.3} m)",
+                strip.height
+            ));
+        }
+        if strip.y.is_some_and(|y| !y.is_finite()) {
+            return Err(format!("Threshold {i} base height must be a finite number"));
+        }
+        if blank_material(strip.material.as_deref()) {
+            return Err(format!(
+                "Threshold {i} materials must be non-empty ids when specified"
+            ));
+        }
+        // The strip sits on a floor: it must resolve one, and its ends must
+        // stand at (essentially) the same height, or half of it floats.
+        let Some(centre) = surfaces.floor_y_at(strip.x, strip.z) else {
+            return Err(format!("Threshold {i} lies outside every room section"));
+        };
+        let half_length = strip.length * 0.5;
+        let half_thickness = strip.thickness() * 0.5;
+        let mut low = centre;
+        let mut high = centre;
+        for (along, across) in [
+            (-half_length, -half_thickness),
+            (half_length, -half_thickness),
+            (-half_length, half_thickness),
+            (half_length, half_thickness),
+        ] {
+            let (px, pz) = strip.point_at_offset(along, across);
+            let Some(y) = surfaces.floor_y_at(px, pz) else {
+                return Err(format!(
+                    "Threshold {i} spans the point ({px:.2}, {pz:.2}) outside every room section"
+                ));
+            };
+            low = low.min(y);
+            high = high.max(y);
+        }
+        if high - low > 0.05 {
+            return Err(format!(
+                "Threshold {i} spans a floor height change of {:.2} m; threshold strips \
+                 belong on a level floor",
+                high - low
+            ));
+        }
+        // A strip buried in a wall's solid (not in one of its openings) is
+        // invisible, so it is rejected like a buried baseboard.
+        let mid_y = strip.height().mul_add(0.5, centre);
+        if let Some(wall) = point_buried_in_wall(level, strip.x, strip.z, mid_y) {
+            return Err(format!(
+                "Threshold {i} is buried inside wall {wall}: place the strip in the \
+                 opening it crosses, not inside the wall solid"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Baseboards: a thin trim run with usable proportions, placed where its front
+/// face can actually be seen.
+fn validate_baseboards(level: &LevelDef) -> Result<(), String> {
+    if u64::try_from(level.baseboards.len()).unwrap_or(u64::MAX)
+        > crate::level::MAX_LEVEL_BASEBOARDS
+    {
+        return Err(format!(
+            "Level contains too many baseboards: {} (limit: {})",
+            level.baseboards.len(),
+            crate::level::MAX_LEVEL_BASEBOARDS
+        ));
+    }
+    for (i, board) in level.baseboards.iter().enumerate() {
+        if !board.x.is_finite()
+            || !board.z.is_finite()
+            || !board.length.is_finite()
+            || !board.rotation_degrees.is_finite()
+            || !board.height.is_finite()
+            || !board.thickness.is_finite()
+        {
+            return Err(format!(
+                "Baseboard {i} position and dimensions must be finite numbers"
+            ));
+        }
+        if board.length <= 0.0 {
+            return Err(format!("Baseboard {i} length must be positive"));
+        }
+        if !(0.01..=1.0).contains(&board.height) {
+            return Err(format!(
+                "Baseboard {i} height must be between 0.01 and 1.0 m (got {:.3} m)",
+                board.height
+            ));
+        }
+        if !(0.004..=0.2).contains(&board.thickness) {
+            return Err(format!(
+                "Baseboard {i} thickness must be between 0.004 and 0.2 m (got {:.3} m)",
+                board.thickness
+            ));
+        }
+        if board.y.is_some_and(|y| !y.is_finite()) {
+            return Err(format!("Baseboard {i} base height must be a finite number"));
+        }
+        if blank_material(board.material.as_deref()) {
+            return Err(format!(
+                "Baseboard {i} materials must be non-empty ids when specified"
+            ));
+        }
+        // A board whose whole cross-section lies inside a wall is invisible.
+        // The room boundary is the *centre* of the wall that straddles it, so
+        // the natural "place the run at x = 0" lands the board inside the wall;
+        // the run's back plane belongs on the wall's inner face.
+        let (mx, mz) = board.point_at(0.5, board.thickness() * 0.5);
+        let mid_y = board
+            .height()
+            .mul_add(0.5, board.base_y(&LevelSurfaces::new(level)));
+        if let Some(wall) = point_buried_in_wall(level, mx, mz, mid_y) {
+            return Err(format!(
+                "Baseboard {i} is buried inside wall {wall}: place the run so its back \
+                 plane lies on the wall's face (the room edge is the wall's centre plane)"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// The index of a wall whose solid contains `(x, z, y)`, openings respected.
+///
+/// A point exactly on a wall face is *not* inside: every wall boundary is
+/// exclusive by [`WALL_SLICE_EPS`], so a surface mounted flush on the face
+/// counts as visible. Openings are cut first, so trim floating in a doorway is
+/// left alone: it is visible through the hole.
+fn point_buried_in_wall(level: &LevelDef, x: f32, z: f32, y: f32) -> Option<usize> {
+    if !x.is_finite() || !z.is_finite() || !y.is_finite() {
+        return None;
+    }
+    let surfaces = LevelSurfaces::new(level);
+    for (index, wall) in level.walls.iter().enumerate() {
+        let (x0, x1) = (
+            wall.x.min(wall.x + wall.width),
+            wall.x.max(wall.x + wall.width),
+        );
+        let (z0, z1) = (
+            wall.z.min(wall.z + wall.depth),
+            wall.z.max(wall.z + wall.depth),
+        );
+        if x <= x0 + WALL_SLICE_EPS
+            || x >= x1 - WALL_SLICE_EPS
+            || z <= z0 + WALL_SLICE_EPS
+            || z >= z1 - WALL_SLICE_EPS
+        {
+            continue;
+        }
+        let breaks = surfaces.wall_profile_breaks(wall);
+        let clear = |offset: f32| surfaces.clear_ceiling_height_along(wall, offset);
+        let (origin_x, origin_z) = wall.length_origin();
+        let offset = match wall.axis() {
+            WallAxis::X => x - origin_x,
+            WallAxis::Z => z - origin_z,
+        };
+        for slice in wall_solid_slices_profiled(wall, clear, &breaks) {
+            if offset > slice.start + WALL_SLICE_EPS
+                && offset < slice.end - WALL_SLICE_EPS
+                && y > slice.bottom + WALL_SLICE_EPS
+                && y < slice.top - WALL_SLICE_EPS
+            {
+                return Some(index);
+            }
+        }
+    }
+    None
+}
+
+/// Cross-piece checks that no single piece can answer on its own: two walking
+/// surfaces may not overlap, and a floor region may not be authored inside a
+/// ramp or staircase.
+fn validate_architecture_overlaps(level: &LevelDef) -> Result<(), String> {
+    for (ri, ramp) in level.ramps.iter().enumerate() {
+        for (si, stair) in level.stairs.iter().enumerate() {
+            if rects_overlap(ramp.bounds(), stair.bounds()) {
+                return Err(format!(
+                    "Ramp {ri} overlaps staircase {si}; a space has one walking surface"
+                ));
+            }
+        }
+        for (fi, region) in level.floor_regions.iter().enumerate() {
+            if rects_overlap(ramp.bounds(), region.bounds()) {
+                return Err(format!(
+                    "Floor region {fi} overlaps ramp {ri}; a ramp is a floor surface itself \
+                     and the two cannot share a footprint"
+                ));
+            }
+        }
+    }
+    for (si, stair) in level.stairs.iter().enumerate() {
+        for (fi, region) in level.floor_regions.iter().enumerate() {
+            if rects_overlap(stair.bounds(), region.bounds()) {
+                return Err(format!(
+                    "Floor region {fi} overlaps staircase {si}; a staircase is a floor surface \
+                     itself and the two cannot share a footprint"
+                ));
+            }
         }
     }
     Ok(())
