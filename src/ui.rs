@@ -126,31 +126,37 @@ fn add_ui_quad(
         pos: p0,
         color,
         uv: [u0, v0],
+    ..Vertex::UNLIT
     });
     vertices.push(Vertex {
         pos: p1,
         color,
         uv: [u1, v0],
+    ..Vertex::UNLIT
     });
     vertices.push(Vertex {
         pos: p2,
         color,
         uv: [u1, v1],
+    ..Vertex::UNLIT
     });
     vertices.push(Vertex {
         pos: p0,
         color,
         uv: [u0, v0],
+    ..Vertex::UNLIT
     });
     vertices.push(Vertex {
         pos: p2,
         color,
         uv: [u1, v1],
+    ..Vertex::UNLIT
     });
     vertices.push(Vertex {
         pos: p3,
         color,
         uv: [u0, v1],
+    ..Vertex::UNLIT
     });
 }
 

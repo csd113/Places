@@ -32,14 +32,14 @@ use crate::spatial::{DepthRange, Frustum};
 // ------------------------------------------------------- vertex packing
 
 #[test]
-fn the_packed_vertex_is_twenty_four_bytes_with_the_declared_layout() {
+fn the_packed_vertex_is_thirty_two_bytes_with_the_declared_layout() {
     assert_eq!(
         std::mem::size_of::<PackedVertex>(),
-        24,
-        "the packed scene vertex must be 24 bytes"
+        32,
+        "the packed scene vertex must be 32 bytes"
     );
     assert_eq!(std::mem::align_of::<PackedVertex>(), 4);
-    assert_eq!(packed_layout::STRIDE, 24, "stride must match the struct");
+    assert_eq!(packed_layout::STRIDE, 32, "stride must match the struct");
     assert_eq!(
         VertexLayout::Exact.stride(),
         i32::try_from(std::mem::size_of::<Vertex>()).unwrap_or(i32::MAX),
@@ -60,15 +60,29 @@ fn the_packed_vertex_is_twenty_four_bytes_with_the_declared_layout() {
         packed_layout::UV_OFFSET as usize
     );
     assert_eq!(
+        std::mem::offset_of!(PackedVertex, lightmap),
+        packed_layout::LIGHTMAP_OFFSET as usize
+    );
+    assert_eq!(
+        std::mem::offset_of!(PackedVertex, lightmap_page),
+        packed_layout::LIGHTMAP_PAGE_OFFSET as usize
+    );
+    assert_eq!(
+        packed_layout::LIGHTMAP_OFFSET as usize + 4,
+        packed_layout::LIGHTMAP_PAGE_OFFSET as usize,
+        "the lightmap UV pair is two 16-bit values"
+    );
+    assert_eq!(
         packed_layout::UV_OFFSET as usize + 2 * 4,
-        packed_layout::STRIDE as usize
+        packed_layout::LIGHTMAP_OFFSET as usize
     );
     assert_eq!(
         packed_layout::COLOR_OFFSET as usize + 4,
         packed_layout::UV_OFFSET as usize,
         "colour must be four packed bytes"
     );
-    // 12 bytes saved per vertex against the original representation.
+    // 12 bytes saved per vertex against the original 44-byte exact layout, even
+    // with the lightmap channel added to both.
     assert_eq!(
         std::mem::size_of::<Vertex>() - std::mem::size_of::<PackedVertex>(),
         12
@@ -81,6 +95,7 @@ fn packed_channel_error(value: f32) -> f32 {
         pos: [0.0, 0.0, 0.0],
         color: [value, value, value, value],
         uv: [0.0, 0.0],
+    ..Vertex::UNLIT
     });
     (dequantize_unit(packed.color[0]) - value).abs()
 }
@@ -133,6 +148,7 @@ fn packed_colour_clamps_instead_of_wrapping() {
             pos: [0.0, 0.0, 0.0],
             color: [value, value, value, 1.0],
             uv: [0.0, 0.0],
+        ..Vertex::UNLIT
         });
         assert_eq!(
             packed.color[0], expected,
@@ -143,6 +159,7 @@ fn packed_colour_clamps_instead_of_wrapping() {
         pos: [0.0, 0.0, 0.0],
         color: [f32::NAN; 4],
         uv: [0.0, 0.0],
+    ..Vertex::UNLIT
     });
     assert_eq!(
         nan.color,
@@ -160,6 +177,7 @@ fn packed_alpha_is_preserved_for_props_and_the_hud() {
             pos: [0.0, 0.0, 0.0],
             color: [1.0, 1.0, 1.0, value],
             uv: [0.0, 0.0],
+        ..Vertex::UNLIT
         });
         assert!(
             (dequantize_unit(packed.color[3]) - value).abs() <= 0.5 / 255.0 + 1e-6,
@@ -185,6 +203,7 @@ fn packed_positions_and_uvs_are_bit_exact() {
             pos,
             color: [0.5, 0.5, 0.5, 1.0],
             uv,
+            ..Vertex::UNLIT
         };
         let packed = PackedVertex::from(&vertex);
         assert_eq!(packed.pos.map(f32::to_bits), pos.map(f32::to_bits));
@@ -217,11 +236,11 @@ fn packing_a_whole_mesh_never_moves_geometry_or_uvs() {
 }
 
 #[test]
-fn the_packed_layout_shrinks_gpu_memory_by_a_third() {
+fn the_packed_layout_is_smaller_than_the_exact_one() {
     let mesh = build_level_geometry(&two_cluster_level(6));
     let packed_bytes = mesh.vertex_count * std::mem::size_of::<PackedVertex>();
     let unpacked_bytes = mesh.vertex_count * std::mem::size_of::<Vertex>();
-    assert_eq!(packed_bytes * 3, unpacked_bytes * 2, "36 -> 24 bytes");
+    assert_eq!(packed_bytes * 11, unpacked_bytes * 8, "44 -> 32 bytes");
     // Indices are unchanged at two bytes each, so the whole static buffer
     // footprint drops by a quarter, not a third.
     let packed_total = packed_bytes + mesh.index_count * 2;
@@ -1226,6 +1245,7 @@ fn the_packer_keeps_every_range_inside_16_bit_indices() {
         pos: [x, 0.0, 0.0],
         color: [1.0, 1.0, 1.0, 1.0],
         uv: [0.0, 0.0],
+    ..Vertex::UNLIT
     };
     // Three ranges of 40 000 vertices each cannot share one chunk.
     let mut placements = Vec::new();
@@ -1264,6 +1284,7 @@ fn a_single_range_larger_than_the_index_space_is_split_not_wrapped() {
         pos: [x, 0.0, 0.0],
         color: [1.0, 1.0, 1.0, 1.0],
         uv: [0.0, 0.0],
+    ..Vertex::UNLIT
     };
     // 50 000 distinct vertices with a 2x-long index list: one chunk cannot
     // hold them together with the next range, and the range itself must be

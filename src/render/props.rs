@@ -320,6 +320,7 @@ fn append_instance_vertices(
                 vertex.color[3],
             ],
             uv: vertex.uv,
+        ..Vertex::UNLIT
         });
     }
 }

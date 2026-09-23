@@ -12,12 +12,13 @@ use super::view::dimension_f32;
 use super::{
     BatchRange, DECAL_ALPHA_CUTOFF, DECAL_EXTERNAL_BASE, DECAL_FRAGMENT_SHADER_SRC,
     DECAL_POLYGON_OFFSET, DrawableSize, EMISSION_MASK_TEXTURE_UNIT, FRAGMENT_SHADER_SRC,
-    HasContext, LevelMesh, MaterialIndex, MaterialTable, MeshChunk, MeshPacker, PackedVertex,
-    PropMeshBatch, SCENE_ATTRIB_COLOR, SCENE_ATTRIB_POS, SCENE_ATTRIB_UV, SCENE_FAR_M,
-    SCENE_NEAR_M, SCENE_TEXTURE_UNIT, StaticBatch, SurfaceKey, SurfaceKind, UI_REFERENCE_HEIGHT,
-    UI_REFERENCE_WIDTH, VERTEX_SHADER_SRC, Vertex, VertexLayout, decal_external_sheet_ids,
-    generate_font_atlas, generate_white_texture, packed_layout, spatial_cell_grid,
-    vertical_fov_for_aspect,
+    HasContext, LevelMesh, LIGHTMAP_PAGE_SLOTS, LIGHTMAP_TEXTURE_UNIT, LIGHTMAP_TEXTURE_UNIT_1,
+    MaterialIndex, MaterialTable, MeshChunk, MeshPacker, PackedVertex, PropMeshBatch,
+    SCENE_ATTRIB_COLOR, SCENE_ATTRIB_LIGHTMAP_PAGE, SCENE_ATTRIB_LIGHTMAP_UV, SCENE_ATTRIB_POS,
+    SCENE_ATTRIB_UV, SCENE_FAR_M, SCENE_NEAR_M, SCENE_TEXTURE_UNIT, StaticBatch, SurfaceKey,
+    SurfaceKind, UI_REFERENCE_HEIGHT, UI_REFERENCE_WIDTH, VERTEX_SHADER_SRC, Vertex, VertexLayout,
+    decal_external_sheet_ids, generate_font_atlas, generate_white_texture, packed_layout,
+    spatial_cell_grid, vertical_fov_for_aspect,
 };
 use crate::spatial::Frustum;
 
@@ -132,6 +133,8 @@ unsafe fn create_program(
         gl.bind_attrib_location(program, SCENE_ATTRIB_POS, "a_pos");
         gl.bind_attrib_location(program, SCENE_ATTRIB_COLOR, "a_color");
         gl.bind_attrib_location(program, SCENE_ATTRIB_UV, "a_uv");
+        gl.bind_attrib_location(program, SCENE_ATTRIB_LIGHTMAP_UV, "a_lightmap_uv");
+        gl.bind_attrib_location(program, SCENE_ATTRIB_LIGHTMAP_PAGE, "a_lightmap_page");
         gl.attach_shader(program, vs);
         gl.attach_shader(program, fs);
         gl.link_program(program);
@@ -339,9 +342,13 @@ struct StartupResources {
     u_emission_color_loc: Option<glow::UniformLocation>,
     u_emission_mask_enabled_loc: Option<glow::UniformLocation>,
     u_emission_vertex_loc: Option<glow::UniformLocation>,
+    u_lightmap_enabled_loc: Option<glow::UniformLocation>,
+    u_light_scale_loc: Option<glow::UniformLocation>,
     a_pos_loc: u32,
     a_color_loc: u32,
     a_uv_loc: u32,
+    a_lightmap_uv_loc: u32,
+    a_lightmap_page_loc: u32,
 }
 
 impl StartupResources {
@@ -367,6 +374,12 @@ impl StartupResources {
             let a_uv_loc = gl
                 .get_attrib_location(program, "a_uv")
                 .ok_or_else(|| "Missing a_uv attribute".to_string())?;
+            let a_lightmap_uv_loc = gl
+                .get_attrib_location(program, "a_lightmap_uv")
+                .ok_or_else(|| "Missing a_lightmap_uv attribute".to_string())?;
+            let a_lightmap_page_loc = gl
+                .get_attrib_location(program, "a_lightmap_page")
+                .ok_or_else(|| "Missing a_lightmap_page attribute".to_string())?;
 
             let u_mvp_loc = gl.get_uniform_location(program, "u_mvp");
             let u_texture_loc = gl.get_uniform_location(program, "u_texture");
@@ -377,11 +390,28 @@ impl StartupResources {
             let u_emission_mask_enabled_loc =
                 gl.get_uniform_location(program, "u_emission_mask_enabled");
             let u_emission_vertex_loc = gl.get_uniform_location(program, "u_emission_vertex");
+            // Lightmap state: both atlas units are fixed once and default to the
+            // white sheet with the global switch off, which is exactly the
+            // vertex-lit fallback.
+            let u_lightmap_enabled_loc = gl.get_uniform_location(program, "u_lightmap_enabled");
+            let u_light_scale_loc = gl.get_uniform_location(program, "u_light_scale");
             if let Some(ref loc) = u_texture_loc {
                 gl.uniform_1_i32(Some(loc), SCENE_TEXTURE_UNIT);
             }
             if let Some(loc) = gl.get_uniform_location(program, "u_emission_mask") {
                 gl.uniform_1_i32(Some(&loc), EMISSION_MASK_TEXTURE_UNIT);
+            }
+            if let Some(loc) = gl.get_uniform_location(program, "u_lightmap0") {
+                gl.uniform_1_i32(Some(&loc), LIGHTMAP_TEXTURE_UNIT);
+            }
+            if let Some(loc) = gl.get_uniform_location(program, "u_lightmap1") {
+                gl.uniform_1_i32(Some(&loc), LIGHTMAP_TEXTURE_UNIT_1);
+            }
+            if let Some(ref loc) = u_lightmap_enabled_loc {
+                gl.uniform_1_f32(Some(loc), 0.0);
+            }
+            if let Some(ref loc) = u_light_scale_loc {
+                gl.uniform_3_f32(Some(loc), 1.0, 1.0, 1.0);
             }
 
             // The untextured fixture sheet and the UI/decal resources are the
@@ -430,9 +460,13 @@ impl StartupResources {
                 u_emission_color_loc,
                 u_emission_mask_enabled_loc,
                 u_emission_vertex_loc,
+                u_lightmap_enabled_loc,
+                u_light_scale_loc,
                 a_pos_loc,
                 a_color_loc,
                 a_uv_loc,
+                a_lightmap_uv_loc,
+                a_lightmap_page_loc,
             })
         }
     }
@@ -527,9 +561,33 @@ pub struct Renderer {
     u_emission_color_loc: Option<glow::UniformLocation>,
     u_emission_mask_enabled_loc: Option<glow::UniformLocation>,
     u_emission_vertex_loc: Option<glow::UniformLocation>,
+    /// World-program switch that turns lightmap sampling on.
+    ///
+    /// Zero whenever no valid lightmap set is resident, which makes every vertex
+    /// fall back to the light already baked into its colour.
+    u_lightmap_enabled_loc: Option<glow::UniformLocation>,
+    /// World-program multiplier the dynamic-object path sets to the baked light
+    /// sampled at a moving object's current position. Static draws keep `1`.
+    u_light_scale_loc: Option<glow::UniformLocation>,
+    /// The light multiplier the world program is currently drawing with, so the
+    /// static/dynamic switch does not re-upload an unchanged uniform.
+    light_scale: [f32; 3],
+    /// Lightmap atlas pages currently bound on texture units 2 and 3. The shared
+    /// white sheet stands in when a page is absent, so the units are never
+    /// unbound.
+    lightmap_pages: [glow::Texture; LIGHTMAP_PAGE_SLOTS],
+    /// Whether [`Self::lightmap_pages`] holds a real baked atlas.
+    lightmaps_resident: bool,
+    /// Whether the world program is currently sampling the atlas. Follows
+    /// `lightmaps_resident` for a normal level load; the settings switch and the
+    /// benchmark harness can turn sampling off without dropping the atlas, which
+    /// is what makes an A/B capture of the two lighting paths cheap.
+    lightmaps_enabled: bool,
     a_pos_loc: u32,
     a_color_loc: u32,
     a_uv_loc: u32,
+    a_lightmap_uv_loc: u32,
+    a_lightmap_page_loc: u32,
     /// Whether repeating 3D textures use linear (vs nearest) filtering. Wired
     /// to the user-facing `texture_filtering` setting.
     linear_filtering: bool,
@@ -595,9 +653,13 @@ impl Renderer {
             u_emission_color_loc,
             u_emission_mask_enabled_loc,
             u_emission_vertex_loc,
+            u_lightmap_enabled_loc,
+            u_light_scale_loc,
             a_pos_loc,
             a_color_loc,
             a_uv_loc,
+            a_lightmap_uv_loc,
+            a_lightmap_page_loc,
         } = unsafe { StartupResources::create(&gl)? };
 
         let (initial_width, initial_height) = window.drawable_size();
@@ -634,14 +696,22 @@ impl Renderer {
             white_texture,
             font_texture,
             decal,
+            lightmap_pages: [white_texture; LIGHTMAP_PAGE_SLOTS],
+            lightmaps_resident: false,
+            lightmaps_enabled: false,
+            light_scale: [1.0; 3],
             u_mvp_loc,
             u_texture_loc,
             u_emission_color_loc,
             u_emission_mask_enabled_loc,
             u_emission_vertex_loc,
+            u_lightmap_enabled_loc,
+            u_light_scale_loc,
             a_pos_loc,
             a_color_loc,
             a_uv_loc,
+            a_lightmap_uv_loc,
+            a_lightmap_page_loc,
             linear_filtering: true,
             drawable_size: DrawableSize::new(initial_width, initial_height),
             level_stats: LevelBuildStats::default(),
@@ -1301,6 +1371,26 @@ impl Renderer {
         if let Some(ref loc) = self.u_texture_loc {
             unsafe { self.gl.uniform_1_i32(Some(loc), 0) };
         }
+        // Lightmap atlas pages live on their own units and are bound once per
+        // frame: the global switch is on only while a real atlas is resident, and
+        // every vertex whose page is `LIGHTMAP_NONE` takes the vertex-lit path
+        // regardless.
+        unsafe {
+            self.gl.active_texture(glow::TEXTURE2);
+            self.gl
+                .bind_texture(glow::TEXTURE_2D, Some(self.lightmap_pages[0]));
+            self.gl.active_texture(glow::TEXTURE3);
+            self.gl
+                .bind_texture(glow::TEXTURE_2D, Some(self.lightmap_pages[1]));
+        }
+        if let Some(ref loc) = self.u_lightmap_enabled_loc {
+            unsafe {
+                self.gl.uniform_1_f32(
+                    Some(loc),
+                    if self.lightmaps_resident { 1.0 } else { 0.0 },
+                );
+            }
+        }
         unsafe { self.gl.active_texture(glow::TEXTURE0) };
 
         // Static level geometry, then the batched props, then the decal pass:
@@ -1314,6 +1404,10 @@ impl Renderer {
             self.gl.disable_vertex_attrib_array(self.a_pos_loc);
             self.gl.disable_vertex_attrib_array(self.a_color_loc);
             self.gl.disable_vertex_attrib_array(self.a_uv_loc);
+            self.gl
+                .disable_vertex_attrib_array(self.a_lightmap_uv_loc);
+            self.gl
+                .disable_vertex_attrib_array(self.a_lightmap_page_loc);
             self.gl.bind_texture(glow::TEXTURE_2D, None);
             self.gl.bind_buffer(glow::ARRAY_BUFFER, None);
             self.gl.use_program(None);
@@ -1654,6 +1748,79 @@ impl Renderer {
         self.culling_enabled = enabled;
     }
 
+    /// Sets the world program's per-draw light multiplier.
+    ///
+    /// Static geometry always draws with `[1, 1, 1]`: its light is already in the
+    /// lightmap atlas or in its vertex colour. The dynamic-object path sets this
+    /// to the baked light sampled at the object's current position, which is how
+    /// a moving object stays coherently lit without rebuilding its vertex
+    /// buffer.
+    pub fn set_light_scale(&mut self, scale: [f32; 3]) {
+        let scale = scale.map(|value| if value.is_finite() { value } else { 1.0 });
+        if self.light_scale == scale {
+            return;
+        }
+        self.light_scale = scale;
+        if let Some(ref loc) = self.u_light_scale_loc {
+            unsafe {
+                self.gl
+                    .uniform_3_f32(Some(loc), scale[0], scale[1], scale[2]);
+            }
+        }
+    }
+
+    /// Turns lightmap sampling on or off without dropping the resident atlas.
+    ///
+    /// Enabling has no effect when no valid atlas is resident: a level whose bake
+    /// failed must not render black surfaces, so the switch can only ever
+    /// *restore* the vertex-lit path.
+    pub fn set_lightmaps_enabled(&mut self, enabled: bool) {
+        self.lightmaps_enabled = enabled && self.lightmaps_resident;
+        self.upload_lightmap_switch();
+    }
+
+    /// Records whether a valid baked lightmap set is resident and follows it
+    /// with the sampling switch: no atlas means the vertex-lit path.
+    pub fn set_lightmaps_resident(&mut self, resident: bool) {
+        self.lightmaps_resident = resident;
+        self.lightmaps_enabled = resident;
+        self.upload_lightmap_switch();
+    }
+
+    /// Pushes [`Self::lightmaps_enabled`] to the world program.
+    fn upload_lightmap_switch(&mut self) {
+        let enabled = self.lightmaps_enabled;
+        if let Some(ref loc) = self.u_lightmap_enabled_loc {
+            unsafe {
+                self.gl
+                    .uniform_1_f32(Some(loc), if enabled { 1.0 } else { 0.0 });
+            }
+        }
+    }
+
+    /// True when a real baked lightmap atlas is resident and being sampled.
+    #[must_use]
+    pub const fn lightmaps_enabled(&self) -> bool {
+        self.lightmaps_enabled
+    }
+
+    /// True when a valid baked lightmap atlas has been uploaded.
+    #[must_use]
+    pub const fn lightmaps_resident(&self) -> bool {
+        self.lightmaps_resident
+    }
+
+    /// Replaces one lightmap atlas page on its texture unit.
+    ///
+    /// `slot` indexes the two units the world shader samples. `None` restores the
+    /// white sheet, so an unused unit always has a defined sample.
+    pub fn set_lightmap_page(&mut self, slot: usize, texture: Option<glow::Texture>) {
+        let page = texture.unwrap_or(self.white_texture);
+        if let Some(current) = self.lightmap_pages.get_mut(slot) {
+            *current = page;
+        }
+    }
+
     /// Spatial grid the current level was partitioned with, for developer logs.
     pub const fn spatial_grid(&self) -> crate::spatial::CellGrid {
         self.spatial_grid
@@ -1697,11 +1864,17 @@ impl Renderer {
         self.render_stats
     }
 
-    /// Points the three scene attributes at the selected vertex layout.
+    /// Points the scene attributes at the selected vertex layout.
     ///
     /// In the packed layout `normalized = true` lets the fixed-function pipeline
     /// expand `GL_UNSIGNED_BYTE` colour to `[0, 1]` floats, so the shader is the
     /// same `vec4` in both layouts. Both are core OpenGL ES 2.0.
+    ///
+    /// The lightmap attributes keep their exact quantised type in *both*
+    /// layouts: `a_lightmap_uv` is always two normalized unsigned shorts and
+    /// `a_lightmap_page` one plain unsigned byte, so the packed and exact builds
+    /// sample the atlas identically and the debug benchmark's comparison stays
+    /// honest.
     fn set_vertex_attributes(&self) {
         let stride = self.vertex_layout.stride();
         let (color_type, color_normalized, color_offset) = match self.vertex_layout {
@@ -1711,6 +1884,14 @@ impl Renderer {
         let uv_offset = match self.vertex_layout {
             VertexLayout::Packed => packed_layout::UV_OFFSET,
             VertexLayout::Exact => 28,
+        };
+        let lightmap_offset = match self.vertex_layout {
+            VertexLayout::Packed => packed_layout::LIGHTMAP_OFFSET,
+            VertexLayout::Exact => 36,
+        };
+        let lightmap_page_offset = match self.vertex_layout {
+            VertexLayout::Packed => packed_layout::LIGHTMAP_PAGE_OFFSET,
+            VertexLayout::Exact => 40,
         };
         unsafe {
             self.gl.enable_vertex_attrib_array(self.a_pos_loc);
@@ -1733,6 +1914,24 @@ impl Renderer {
                 false,
                 stride,
                 uv_offset,
+            );
+            self.gl.enable_vertex_attrib_array(self.a_lightmap_uv_loc);
+            self.gl.vertex_attrib_pointer_f32(
+                self.a_lightmap_uv_loc,
+                2,
+                glow::UNSIGNED_SHORT,
+                true,
+                stride,
+                lightmap_offset,
+            );
+            self.gl.enable_vertex_attrib_array(self.a_lightmap_page_loc);
+            self.gl.vertex_attrib_pointer_f32(
+                self.a_lightmap_page_loc,
+                1,
+                glow::UNSIGNED_BYTE,
+                false,
+                stride,
+                lightmap_page_offset,
             );
         }
     }

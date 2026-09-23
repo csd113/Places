@@ -153,27 +153,41 @@ precision mediump float;
 attribute vec3 a_pos;
 attribute vec4 a_color;
 attribute vec2 a_uv;
+attribute vec2 a_lightmap_uv;
+attribute float a_lightmap_page;
 uniform mat4 u_mvp;
 varying vec4 v_color;
 varying vec2 v_uv;
+varying vec2 v_lightmap_uv;
+varying float v_lightmap_page;
 
 void main() {
     v_color = a_color;
     v_uv = a_uv;
+    v_lightmap_uv = a_lightmap_uv;
+    v_lightmap_page = a_lightmap_page;
     gl_Position = u_mvp * vec4(a_pos, 1.0);
 }
 ";
 
 /// Fragment stage of the world pass.
 ///
-/// Two independent terms make a pixel:
+/// Three independent terms make a pixel:
 ///
-/// * **Lit** — `texture x vertex colour`, exactly the historical behaviour. The
-///   vertex colour already carries the baked environment light, the material
-///   tint and the per-face shading.
+/// * **Lit** — `texture x vertex colour x baked light`, where the baked light is
+///   either the lightmap atlas or, for a vertex that carries no lightmap
+///   coordinates (`v_lightmap_page >= 254.5`), the light already folded into the
+///   vertex colour by the historical bake. `u_lightmap_enabled` is the global
+///   switch: with lightmaps unavailable it is zero and every vertex takes the
+///   vertex-lit path, which is what makes the fallback exact rather than
+///   approximate.
 /// * **Emission** — the material's own brightness, added on top and never
 ///   multiplied by the light. A dark room cannot extinguish it, and it cannot
 ///   brighten anything else: emission is not a light source.
+/// * **Dynamic probe** — `u_light_scale` is `1` for static geometry. The
+///   dynamic-object path sets it to the baked light sampled at the object's
+///   current position, so a moving object is shaded coherently without touching
+///   its vertex buffer.
 ///
 /// `u_emission_vertex` selects which value feeds the emissive term. Ordinary
 /// materials use the per-batch `u_emission_color` (their `emissive x
@@ -183,9 +197,9 @@ void main() {
 /// (colour x intensity response) while the batch stays shared, and the lit term
 /// is multiplied by zero so exactly one term remains.
 ///
-/// With no emission colour, no mask and `u_emission_vertex = 0` — every
-/// material authored before emission existed — the added term is zero and the
-/// output is bit-for-bit the old `texture2D(u_texture, v_uv) * v_color`.
+/// With no emission colour, no mask, `u_emission_vertex = 0` and no lightmap —
+/// every material authored before either existed — the added term is zero and
+/// the output is bit-for-bit the old `texture2D(u_texture, v_uv) * v_color`.
 pub(super) const FRAGMENT_SHADER_SRC: &str = r"
 #ifdef GL_ES
 precision mediump float;
@@ -195,8 +209,14 @@ uniform sampler2D u_emission_mask;
 uniform vec3 u_emission_color;
 uniform float u_emission_mask_enabled;
 uniform float u_emission_vertex;
+uniform sampler2D u_lightmap0;
+uniform sampler2D u_lightmap1;
+uniform float u_lightmap_enabled;
+uniform vec3 u_light_scale;
 varying vec4 v_color;
 varying vec2 v_uv;
+varying vec2 v_lightmap_uv;
+varying float v_lightmap_page;
 
 void main() {
     vec4 tex_color = texture2D(u_texture, v_uv);
@@ -205,7 +225,14 @@ void main() {
         mask = texture2D(u_emission_mask, v_uv).rgb;
     }
     vec3 emission = mix(u_emission_color, v_color.rgb, u_emission_vertex) * mask * tex_color.rgb;
-    vec3 lit = tex_color.rgb * v_color.rgb * (1.0 - u_emission_vertex);
+    vec3 lm = mix(
+        texture2D(u_lightmap0, v_lightmap_uv).rgb,
+        texture2D(u_lightmap1, v_lightmap_uv).rgb,
+        step(0.5, v_lightmap_page)
+    );
+    float lightmap_on = u_lightmap_enabled * (1.0 - step(254.5, v_lightmap_page));
+    vec3 light = mix(vec3(1.0), lm, lightmap_on) * u_light_scale;
+    vec3 lit = tex_color.rgb * v_color.rgb * light * (1.0 - u_emission_vertex);
     gl_FragColor = vec4(lit + emission, tex_color.a * v_color.a);
 }
 ";
@@ -288,6 +315,10 @@ pub const DECAL_ALPHA_CUTOFF: f32 = 0.5;
 pub(super) const SCENE_ATTRIB_POS: u32 = 0;
 pub(super) const SCENE_ATTRIB_COLOR: u32 = 1;
 pub(super) const SCENE_ATTRIB_UV: u32 = 2;
+/// Lightmap atlas coordinates, as two normalized unsigned shorts.
+pub(super) const SCENE_ATTRIB_LIGHTMAP_UV: u32 = 3;
+/// Lightmap atlas page, as one plain unsigned byte.
+pub(super) const SCENE_ATTRIB_LIGHTMAP_PAGE: u32 = 4;
 
 /// Texture unit the world pass samples a surface's own sheet from.
 pub(super) const SCENE_TEXTURE_UNIT: i32 = 0;
@@ -296,3 +327,22 @@ pub(super) const SCENE_TEXTURE_UNIT: i32 = 0;
 /// The unit always has a bound texture (the shared white sheet when a batch has
 /// no mask), so a shader that samples it anyway still reads a defined value.
 pub(super) const EMISSION_MASK_TEXTURE_UNIT: i32 = 1;
+/// First texture unit of the baked lightmap atlas pages.
+///
+/// Two pages are bound at once ([`LIGHTMAP_PAGE_SLOTS`] = 2) and the vertex's
+/// page byte selects between them, so a level that needs a second page does not
+/// split its batches. Both units always have a texture bound — the white sheet
+/// when no lightmap is resident — so a world draw without lightmaps is defined.
+pub(super) const LIGHTMAP_TEXTURE_UNIT: i32 = 2;
+
+/// Number of lightmap atlas pages the world pass can sample at once.
+///
+/// Two units (2 and 3) are bound for every world draw and the vertex's page byte
+/// selects between them. A level whose bake needs more pages than this cannot
+/// render its lightmaps correctly, so the lightmap build fails over to the
+/// vertex-lit path instead of dropping pages silently; see
+/// `crate::lighting::lightmap::LightmapConfig::max_pages`.
+pub(super) const LIGHTMAP_PAGE_SLOTS: usize = 2;
+
+/// Second lightmap texture unit: [`LIGHTMAP_TEXTURE_UNIT`] + 1.
+pub(super) const LIGHTMAP_TEXTURE_UNIT_1: i32 = LIGHTMAP_TEXTURE_UNIT + 1;

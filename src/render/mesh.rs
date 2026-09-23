@@ -17,9 +17,77 @@ pub struct Vertex {
     pub pos: [f32; 3],
     pub color: [f32; 4],
     pub uv: [f32; 2],
+    /// Lightmap atlas coordinates, one 16-bit fixed-point value per axis
+    /// covering the chart's slice of its atlas page.
+    ///
+    /// A vertex that is not lightmapped carries [`LIGHTMAP_NONE`] in
+    /// [`Vertex::lightmap_page`] and the shader ignores these coordinates, so
+    /// the two lighting paths share one buffer.
+    pub lightmap: [u16; 2],
+    /// Lightmap atlas page this vertex samples, or [`LIGHTMAP_NONE`] for the
+    /// historical vertex-lit path.
+    pub lightmap_page: u8,
 }
 
-/// GPU vertex layout: 24 bytes instead of 36, with no loss of achievable output.
+/// Lightmap page sentinel meaning "this vertex is not lightmapped".
+///
+/// The shader treats any page at or above this value as "sample no lightmap and
+/// use the vertex colour's baked light instead", which is what makes the
+/// fallback per-vertex rather than per-draw.
+pub const LIGHTMAP_NONE: u8 = u8::MAX;
+
+impl Vertex {
+    /// A vertex with no lightmap coordinates: the historical vertex-lit vertex.
+    ///
+    /// Used as a struct-update base (`..Vertex::UNLIT`) so a call site only
+    /// names the attributes it cares about.
+    pub const UNLIT: Self = Self {
+        pos: [0.0; 3],
+        color: [1.0; 4],
+        uv: [0.0; 2],
+        lightmap: [0; 2],
+        lightmap_page: LIGHTMAP_NONE,
+    };
+
+    /// A vertex-lit vertex with the given position, shade and tile UV.
+    #[must_use]
+    pub const fn new(pos: [f32; 3], color: [f32; 4], uv: [f32; 2]) -> Self {
+        Self {
+            pos,
+            color,
+            uv,
+            lightmap: [0; 2],
+            lightmap_page: LIGHTMAP_NONE,
+        }
+    }
+
+    /// A lightmapped vertex: its colour carries the surface tint and its baked
+    /// light comes from the atlas.
+    #[must_use]
+    pub const fn lightmapped(
+        pos: [f32; 3],
+        color: [f32; 4],
+        uv: [f32; 2],
+        lightmap: [u16; 2],
+        page: u8,
+    ) -> Self {
+        Self {
+            pos,
+            color,
+            uv,
+            lightmap,
+            lightmap_page: page,
+        }
+    }
+
+    /// True when this vertex samples the lightmap atlas.
+    #[must_use]
+    pub const fn is_lightmapped(&self) -> bool {
+        self.lightmap_page != LIGHTMAP_NONE
+    }
+}
+
+/// GPU vertex layout: 32 bytes, with no loss of achievable output.
 ///
 /// * `pos` stays `f32` — world position precision is not negotiable, since a
 ///   liminal level can be over 250 m across and a centimetre of drift would move
@@ -32,6 +100,10 @@ pub struct Vertex {
 ///   is 0.10 and `MAX_BRIGHTNESS` is 1.0, so a vertex channel only ever spans
 ///   [0, 1] and the smallest step is 1/255 ≈ 0.9% of the range actually used.
 ///   Alpha is kept because prop models carry it from their glTF `COLOR_0`.
+/// * `lightmap` becomes two normalised `u16` atlas coordinates (4 bytes) and
+///   `lightmap_page` a plain byte: 16 bits per axis resolves one quarter of a
+///   texel on a 1024-texel atlas page, so the fixed-point step is far below what
+///   the sampling filter can see.
 ///
 /// `glVertexAttribPointer` with `normalized = true` and `GL_UNSIGNED_BYTE` is
 /// core OpenGL ES 2.0, so no extension or newer context is required.
@@ -41,6 +113,13 @@ pub struct PackedVertex {
     pub pos: [f32; 3],
     pub color: [u8; 4],
     pub uv: [f32; 2],
+    /// Lightmap atlas coordinates, uploaded as normalized `GL_UNSIGNED_SHORT`.
+    pub lightmap: [u16; 2],
+    /// Lightmap atlas page, uploaded as a plain `GL_UNSIGNED_BYTE`.
+    pub lightmap_page: u8,
+    /// Alignment padding so one vertex stays 32 bytes: the attribute offsets
+    /// stay 4-byte aligned, which is what the Mali-400 wants.
+    pub pad: [u8; 3],
 }
 
 /// Byte offset of each packed attribute, and the stride between vertices.
@@ -50,7 +129,7 @@ pub struct PackedVertex {
 /// Written out rather than derived from `size_of::<Vertex>()` so that
 /// [`VertexLayout::stride`] can stay a `const fn`; the packed-layout test keeps
 /// it equal to the struct's real size.
-pub const EXACT_VERTEX_STRIDE: i32 = 36;
+pub const EXACT_VERTEX_STRIDE: i32 = 44;
 
 pub mod packed_layout {
     /// Offset of `a_pos`, in bytes.
@@ -59,8 +138,12 @@ pub mod packed_layout {
     pub const COLOR_OFFSET: i32 = 12;
     /// Offset of `a_uv`, in bytes.
     pub const UV_OFFSET: i32 = 16;
+    /// Offset of `a_lightmap_uv`, in bytes.
+    pub const LIGHTMAP_OFFSET: i32 = 24;
+    /// Offset of `a_lightmap_page`, in bytes.
+    pub const LIGHTMAP_PAGE_OFFSET: i32 = 28;
     /// Bytes between consecutive vertices.
-    pub const STRIDE: i32 = 24;
+    pub const STRIDE: i32 = 32;
 }
 
 impl From<&Vertex> for PackedVertex {
@@ -74,6 +157,9 @@ impl From<&Vertex> for PackedVertex {
                 quantize_unit(vertex.color[3]),
             ],
             uv: vertex.uv,
+            lightmap: vertex.lightmap,
+            lightmap_page: vertex.lightmap_page,
+            pad: [0; 3],
         }
     }
 }

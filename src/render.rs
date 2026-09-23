@@ -60,8 +60,10 @@ pub use view::{
     reference_aspect_ratio, vertical_fov_for_aspect,
 };
 use view::{
-    DECAL_FRAGMENT_SHADER_SRC, EMISSION_MASK_TEXTURE_UNIT, FRAGMENT_SHADER_SRC, SCENE_ATTRIB_COLOR,
-    SCENE_ATTRIB_POS, SCENE_ATTRIB_UV, SCENE_TEXTURE_UNIT, VERTEX_SHADER_SRC,
+    DECAL_FRAGMENT_SHADER_SRC, EMISSION_MASK_TEXTURE_UNIT, FRAGMENT_SHADER_SRC, LIGHTMAP_PAGE_SLOTS,
+    LIGHTMAP_TEXTURE_UNIT, LIGHTMAP_TEXTURE_UNIT_1, SCENE_ATTRIB_COLOR, SCENE_ATTRIB_LIGHTMAP_PAGE,
+    SCENE_ATTRIB_LIGHTMAP_UV, SCENE_ATTRIB_POS, SCENE_ATTRIB_UV, SCENE_TEXTURE_UNIT,
+    VERTEX_SHADER_SRC,
 };
 
 /// Resolves level material ids into surface keys and render parameters.
@@ -156,31 +158,37 @@ fn add_quad(
         pos: p0,
         color: col0,
         uv: uv0,
+    ..Vertex::UNLIT
     });
     vertices.push(Vertex {
         pos: p1,
         color: col1,
         uv: uv1,
+    ..Vertex::UNLIT
     });
     vertices.push(Vertex {
         pos: p2,
         color: col2,
         uv: uv2,
+    ..Vertex::UNLIT
     });
     vertices.push(Vertex {
         pos: p0,
         color: col0,
         uv: uv0,
+    ..Vertex::UNLIT
     });
     vertices.push(Vertex {
         pos: p2,
         color: col2,
         uv: uv2,
+    ..Vertex::UNLIT
     });
     vertices.push(Vertex {
         pos: p3,
         color: col3,
         uv: uv3,
+    ..Vertex::UNLIT
     });
 }
 
