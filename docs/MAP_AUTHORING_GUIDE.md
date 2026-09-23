@@ -5,15 +5,17 @@
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
 | Level format version documented | `1` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
-| Last verified commit SHA | `08115a5` (Batch 2: baked lightmaps, static prop occlusion, dynamic-object path) |
+| Last verified commit SHA | `c778a3d` (Batch 3: surface response, transparency/glass, offscreen framebuffer) |
 | Verification performed | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check`; `python3 -m unittest tests.test_package`; `cd level-editor && npm test` |
 | Primary benchmark level | `assets/levels/places_demo.json` |
 
 > This revision documents the Batch 1 foundation (Full/Low quality profiles, the
-> generic engine-level light model, true emissive materials) **plus the Batch 2
-> lighting work**: baked lightmaps for static world geometry with the vertex-lit
+> generic engine-level light model, true emissive materials), **the Batch 2
+> lighting work** (baked lightmaps for static world geometry with the vertex-lit
 > path as an exact fallback, automatic static-prop occlusion, and a separate
-> dynamic-object render path. Read
+> dynamic-object render path) **and the Batch 3 surface work** (lightweight
+> normal/specular/roughness response, `alpha_mode` transparency with real glass
+> panes in window openings, and the offscreen scene presentation path). Read
 > [Known Implementation Caveats](#known-implementation-caveats) before relying on
 > engine limits, and re-run the validation commands after pulling new commits.
 
@@ -104,13 +106,19 @@ Authoritative paths:
 | A separate dynamic-object render path (per-frame transforms, no rebuild of static geometry or lightmaps) | Implemented (one demonstration object in Places Demo; not authorable from a level yet) |
 | Generic engine-level lights (point / rect / line) owned by fixtures and props | Implemented |
 | Material emission (`emissive`, `emissive_intensity`, `emissive_mask`) and per-fixture `emission` | Implemented |
+| Material surface response (`normal_texture`, `normal_strength`, `specular`, `specular_color`, `roughness`) | Implemented |
+| Material transparency (`alpha_mode`: `opaque` / `cutout` / `blend`, `opacity`, `alpha_cutoff`) | Implemented |
+| Opening glazing: a `glass` material fills a window, vent or door aperture with one pane | Implemented |
+| Offscreen scene rendering presented by a fullscreen quad, UI at drawable resolution | Implemented |
 | Full / Low runtime quality profiles with texture downscaling | Implemented |
 | Props/entities from GLBs by logical id, `solid` collision boxes | Implemented |
 | Multi-primitive / multi-material GLB props, embedded emissive materials, node transforms | Implemented |
 | External PNG surfaces, decals, fixture faces; catalog + themes | Implemented |
 | Level `.zip` packs with `materials.json` and pack textures | Implemented |
-| Water, transparency/glass, realtime dynamic lights, realtime shadow maps, animation/skinning | Not implemented |
+| Water, refraction/transmission, reflections, realtime dynamic lights, realtime shadow maps, animation/skinning | Not implemented |
+| Per-object transparency on GLB props (a prop's glTF `alphaMode` is not read) | Not implemented |
 | Emissive decals; per-placement emission overrides; cone/spot lights | Not implemented |
+| Authoring a normal map from a level (a level names a material, and the material owns the map) | Implemented (via the catalog) |
 | Ramps/sloped floor regions; ceiling/floor openings; traversal between stacked storeys | Not implemented |
 | Room-wide brightness/tint modifiers; non-fixture decor meshes beyond props | Not implemented |
 | WebP or formats other than PNG; arbitrary structural meshes | Not implemented |
@@ -245,7 +253,10 @@ an error; diff against this skeleton.
   "walls": [
     { "x": 0.0, "z": 0.0, "width": 9.0, "depth": 0.3,
       "openings": [ { "kind": "door", "offset": 2.0, "width": 1.2,
-                      "height": 2.1, "sill": 0.0 } ] }
+                      "height": 2.1, "sill": 0.0 },
+                    { "kind": "window", "offset": 5.0, "width": 2.0,
+                      "height": 1.3, "sill": 1.7,
+                      "glass": "core:glass_window_clear_01" } ] }
   ],
 
   "floor_patches": [                   // material-only overlays (no elevation)
@@ -519,6 +530,7 @@ are the same rectangle; `kind` only changes labels and one lighting behavior.
 | `width` | number | **yes** | — | Cut width along the wall; `> 0`; `offset + width ≤ length` (tolerance 1e-3) or the level is rejected. |
 | `height` | number | **yes** | — | Cut height above the sill; `> 0`. |
 | `sill` | number | no | `0.0` | Bottom edge above the wall's base (`wall.y`); `≥ 0`. `0.0` reaches the floor. |
+| `glass` | string | no | — | Material id of a pane filling the aperture. Absent = the historical bare hole. See [Panes](#panes-glass-grilles-and-screens). |
 
 ```text
    X-axis wall: footprint (x .. x+width) by (z .. z+depth)
@@ -563,6 +575,14 @@ brightness.
 
 ```json
 { "kind": "window", "offset": 1.65, "width": 3.2, "height": 1.3, "sill": 1.7 }
+```
+
+A window with `glass` really is glazed, which is the usual way a Places room gets
+a window you can look *through* rather than *into*:
+
+```json
+{ "kind": "window", "offset": 1.65, "width": 3.2, "height": 1.3, "sill": 1.7,
+  "glass": "core:glass_window_dirty_01" }
 ```
 
 ### Passage
@@ -728,6 +748,14 @@ Materials are **definitions**, not files. A material entry carries:
 | `emissive` | no | — | `[r, g, b]` (not hex), each `0.0`–`1.0`. Makes the surface read bright on its own; see [Emission](#emission-materials-that-glow). |
 | `emissive_intensity` | no | `1.0` when `emissive` is set | Multiplier for the emissive colour, `0.0`–`8.0`. |
 | `emissive_mask` | no | — | Logical id of a `texture` asset whose RGB restricts *where* the surface emits. Same rules as `texture` (must exist, file-backed, `.png`). |
+| `normal_texture` | no | — | Logical id of a `texture` asset holding a tangent-space normal map (RGB = x/y/z encoded `0..255 → -1..1`). Same rules as `texture`. See [Surface response](#surface-response-normal-specular-roughness). |
+| `normal_strength` | no | `1.0` | Multiplier on the decoded map's `xy`, `0.0`–`2.0`. Requires `normal_texture`. |
+| `specular` | no | `0.0` | Sheen strength, `0.0`–`1.0`. `0.0` is the pre-Batch-3 look; see [Surface response](#surface-response-normal-specular-roughness). |
+| `specular_color` | no | white | Optional `[r,g,b]` sheen colour (a metal catches its own colour). Requires `specular`. |
+| `roughness` | no | `0.6` | `0.0` mirror-tight sheen … `1.0` fully matte. Only matters when `specular` is set. |
+| `alpha_mode` | no | `opaque` | `opaque`, `cutout` or `blend`. See [Transparency](#transparency-alpha-modes). |
+| `opacity` | no | `1.0` | Multiplier on the sampled alpha, `0.0`–`1.0`. Requires an explicit `alpha_mode`. |
+| `alpha_cutoff` | no | `0.5` | Alpha below which a `cutout` texel is discarded. Requires an explicit `alpha_mode`. |
 
 Where a level can name a material (all resolved at load):
 
@@ -736,6 +764,8 @@ Where a level can name a material (all resolved at load):
 * `walls[].material` and `walls[].faces.<face>`
 * `floor_patches[].material`
 * `floor_regions[].material` and `floor_regions[].edge_material`
+* `walls[].openings[].glass` (the pane filling an aperture, see
+  [Panes](#panes-glass-grilles-and-screens))
 
 The renderer multiplies: **sampled texture × material tint × baked light**, where
 *baked light* is the lightmap atlas texel for static world geometry (see
@@ -780,6 +810,121 @@ resolves to nothing and draws the diagnostic pattern.
 
 ---
 
+### Surface response: normal, specular, roughness
+
+Batch 3 adds the smallest set of numbers that makes two surfaces read differently
+under the *existing* baked light. It is **not** a physically based model: there is
+no realtime light direction in the bake, so there is no highlighted specular to
+place, and nothing here samples the framebuffer.
+
+```text
+what a surface draws = texture x tint x baked light     (the historical term)
+                     + sheen                            (specular x Fresnel x baked light)
+                     + emission                         (the material's own brightness)
+```
+
+* **Sheen** (`specular`, `specular_color`, `roughness`) is *view dependent*: a
+  surface catches more of the room's light as it turns away from the camera, and
+  a polished surface keeps a tight near-normal glow as well. It is scaled by the
+  baked light, so a glossy surface in an unlit room stays dark.
+* **Roughness** shapes the sheen only: `0.1` is a tight, polished response (tile,
+  linoleum, wet floors), `1.0` is fully matte. A material with `specular: 0`
+  never sheens, whatever its roughness.
+* **Normal map** (`normal_texture`, `normal_strength`) perturbs the shading
+  normal per texel. The tangent frame comes from the geometry's own UVs, so the
+  map is oriented with the surface's tiling and a mirrored UV layout flips it
+  correctly. Every mesh a level builds carries a geometric frame; nothing is
+  authored per vertex.
+
+What to author for the usual cases:
+
+| Look | `specular` | `roughness` | Notes |
+| --- | --- | --- | --- |
+| Dull painted wall, bare concrete | `0.0` | anything | the default: no sheen at all |
+| Plastic / painted metal panel | `0.3`–`0.4` | `0.4`–`0.5` | white sheen |
+| Brushed metal | `0.5`–`0.65`, `specular_color` slightly cool | `0.2`–`0.3` | add a normal map for the brushing |
+| Glossy tile / linoleum / polished floor | `0.4`–`0.5` | `0.1`–`0.2` | |
+| Wet surface | `0.6`–`0.7` | `0.05`–`0.1` | a `floor_patches` entry over the dry material |
+
+Defaults keep every pre-Batch-3 material exactly as it was: no normal map, no
+sheen and `alpha_mode: opaque` add nothing to the pixel. `tools/assets/validate.py`
+rejects out-of-range values by name, and a normal map that cannot resolve
+degrades the whole material to the diagnostic texture (it does not silently
+flat-shade).
+
+**Quality profiles.** `Full` draws the response; `Low` leaves the normal-map and
+sheen terms out and keeps albedo × light × emission × alpha. Both profiles use
+the same materials and the same PNGs — the difference is one shader gate, not a
+second art set.
+
+**Art direction.** A normal map on this renderer is *detail on a flat surface*,
+not a substitute for geometry: it cannot cast a shadow, it does not change the
+silhouette and it is lit only by the baked room light. Keep the low-poly
+vocabulary — bumps, grime, brushed streaks and panel seams, not sculpted detail.
+
+### Transparency: alpha modes
+
+`alpha_mode` is a **material** property; a level never authors a render order.
+The renderer decides which pass a surface lands in, and there are exactly three:
+
+| `alpha_mode` | Behaviour | Pass |
+| --- | --- | --- |
+| `opaque` (default) | The texture's alpha channel is ignored entirely. | Opaque: depth writes on, blending off. |
+| `cutout` | Texels below `alpha_cutoff` are discarded; the rest are written opaque. | Opaque, through the alpha-tested fragment stage (a separate program, so the opaque pass keeps early depth testing). |
+| `blend` | The texel's alpha (texture alpha × `opacity`) blends the surface over what is behind it. | Translucent: after everything opaque, sorted back to front per spatial batch, depth *testing* on and depth *writing* off. |
+
+Consequences worth knowing:
+
+* Two overlapping translucent surfaces blend correctly because the pass is sorted
+  back to front by the distance from the camera to each batch. Sorting is per
+  spatial batch (the granularity the renderer already partitions the world at),
+  not per triangle.
+* A translucent surface never occludes anything: a pane of glass is hidden by the
+  wall it sits in, but does not hide the room behind it in the depth buffer.
+* Emissive translucent materials work: emission is added to the lit term before
+  the alpha blend, so a backlit sign is *both* bright and see-through. Author it
+  with `emissive` plus `alpha_mode: blend` (Places Demo's
+  `core:glass_sign_lit_01` is exactly that).
+* Decals are unaffected: they are their own pass with a cut-out and a depth bias,
+  authored as decal sheets (section 17), not as materials.
+* A `blend` material with `opacity: 0` is invisible and is skipped entirely.
+* Transparency is alpha blending, not refraction: nothing bends, and the lighting
+  bake still treats the aperture as an open hole (see the glazing note below).
+
+Authoring a transparent sheet is ordinary artwork: RGBA, with the alpha channel
+carrying the coverage (a grime film, a tint, a cut-out pattern). `tile_metres`
+applies as usual.
+
+### Panes: glass, grilles and screens
+
+An opening may carry a **pane**: a `glass` material that fills the aperture with
+one surface at the wall's centre plane. It is what turns "a hole in a wall" into
+"a window with glass in it".
+
+```json
+{ "kind": "window", "offset": 1.65, "width": 3.2, "height": 1.3, "sill": 1.7,
+  "glass": "core:glass_window_dirty_01" }
+```
+
+* `glass` takes an **ordinary material id**, so the pane's tint, dirt, roughness,
+  sheen, emission and alpha mode are the material's, not the opening's.
+* The pane is the opening's own rectangle: no frame, no thickness, one surface
+  seen from both sides. It is lightmapped exactly like the wall around it.
+* It is purely visual. Collision still follows the wall's solid slices (a raised
+  window still blocks), and the lighting bake still transmits through the
+  aperture as an open hole — glass does not darken the room behind it. Tint the
+  glass to imply that in the artwork.
+* Any alpha mode works. `blend` gives real glass; `cutout` gives a grille,
+  mesh or screen with holes in it (`core:grille_vent_01` is a transfer grille,
+  authored on a `vent` opening above Places Demo's office door); `opaque` gives a
+  solid panel, which is also how to fill an aperture with a blanking plate.
+* Author each physical wall once, as everywhere else: two coincident walls each
+  emit their own pane.
+
+Shipped glass materials: `core:glass_window_clear_01`, `core:glass_window_dirty_01`,
+`core:glass_tinted_01`, `core:glass_sign_lit_01` (translucent + emissive),
+`core:grille_vent_01` (cut-out).
+
 ## 12. Textures
 
 **Repository rule: normal editable game textures must exist as real image files in
@@ -802,7 +947,8 @@ listed at the end of this section — they are exceptions, not the authoring pat
 | Surface wrapping | `REPEAT` + mipmaps. Surfaces are expected to tile. |
 | Decal wrapping | `REPEAT` + mipmaps, but full-sheet fitted UVs, so the sheet never actually repeats. |
 | Fixture wrapping | `CLAMP_TO_EDGE` + mipmaps; the whole sheet is fitted once across the face. |
-| Alpha | Surfaces are opaque (base pass has blending off). Decals are alpha cut-outs (alpha < 0.5 discarded). Fixture faces are opaque. |
+| Alpha | Surface sheets are opaque *unless* their material authors `alpha_mode`. The base pass has blending off, so an `opaque` material's alpha channel is ignored; `cutout` discards texels below the material's cutoff and `blend` samples it. Decals are alpha cut-outs (alpha < 0.5 discarded). Fixture faces are opaque. |
+| Normal maps | A normal map is an ordinary RGB sheet in the same asset tree; the material names it with `normal_texture`. It is a *surface* texture for quality purposes (Full 1024 / Low 256), tiles like its albedo and may be hand-painted or generated. |
 | Colour space | No gamma handling; texture × tint × baked light in display space. |
 
 Shipped Office/Pool surface sheets are intentionally 1024×1024, square, opaque;
@@ -878,7 +1024,8 @@ Convention (not enforced): texture ids use a `tex_` prefix
 
 | Kind | What it is | Tiling | Alpha | Catalog type |
 | --- | --- | --- | --- | --- |
-| Repeating surface texture | Wall/floor/ceiling artwork | Tiles (`REPEAT`) | Opaque | `texture` + a `material` |
+| Repeating surface texture | Wall/floor/ceiling artwork | Tiles (`REPEAT`) | Per the material's `alpha_mode` | `texture` + a `material` |
+| Normal map | Tangent-space detail for a material | Tiles (`REPEAT`) | Opaque (alpha unused) | `texture` + a material's `normal_texture` |
 | Decal artwork | A sign/marking cut-out placed on a surface | Fitted once (sheet never repeats) | Alpha cut-out (background alpha 0) | `decal` |
 | Fixture-face artwork | The visible lit face of a light fixture | Fitted once | Opaque | `light` |
 | Model-embedded texture | A prop's texture, inside its GLB | Fitted per the model's UVs | Per model | inside the GLB, no catalog texture entry |
@@ -992,6 +1139,14 @@ anywhere).
 | `texture` | string | **required for `material`** | — | materials. Logical id of a `texture` asset. Not allowed on other types. |
 | `tile_metres` | number | optional | `2.0` (`0.05`–`64`) | materials only |
 | `tint` | `[r,g,b]` | optional | `[1,1,1]` (channels `0`–`1`) | materials only |
+| `normal_texture` | string | optional | — | materials. Logical texture id of a tangent-space normal map. |
+| `normal_strength` | number | optional | `1.0` | materials (`0`–`2`; requires `normal_texture`) |
+| `specular` | number | optional | `0.0` | materials (`0`–`1`): sheen strength |
+| `specular_color` | `[r,g,b]` | optional | white | materials (requires `specular`) |
+| `roughness` | number | optional | `0.6` | materials (`0`–`1`): `0` tight sheen, `1` matte |
+| `alpha_mode` | string | optional | `opaque` | materials: `opaque` / `cutout` / `blend` |
+| `opacity` | number | optional | `1.0` | materials (`0`–`1`; requires `alpha_mode`) |
+| `alpha_cutoff` | number | optional | `0.5` | materials (`0`–`1`; requires `alpha_mode` = `cutout`) |
 | `entity_type` | string | optional | none | entities |
 | `description` | string | optional | none | all |
 | `tags` | array of strings | optional | `[]` | currently unused |
@@ -1580,7 +1735,9 @@ interiors that stop being finished around you. Keep this practical:
 
 * **Coherent low-poly environments.** Geometry, props and textures share one scale and
   one deliberate vocabulary. Do not mix photorealistic texture detail with crude
-  boxes — the renderer has no PBR, no normal maps and no shadows to sell it.
+  boxes — the renderer has no PBR, no realtime shadows and no reflections to sell it.
+  The surface response (section 11) is detail *on* a surface: bumps, grime and
+  brushed streaks, not sculpted geometry.
 * **Textures complement geometry.** Surface art should read at a glance: tiles, carpet,
   wallpaper, concrete, panel ceilings. Detail is carried by pattern, tint and wear,
   not resolution.
@@ -1600,9 +1757,12 @@ interiors that stop being finished around you. Keep this practical:
 * **Darkness is a tool.** Unlit rooms sit at the 0.10 ambient floor. Use fewer, dimmer
   or coloured fixtures rather than expecting global light.
 
-There is no water, no glass, no transparency and no reflections. Implied water is
-damp/damaged materials plus recessed geometry; implied glass is an empty window
-aperture.
+There is still no water, no refraction and no reflections. Implied water is
+damp/damaged materials plus recessed geometry — optionally with a wet
+`floor_patches` material (`core:pool_deck_wet_01`, a near-mirror sheen over the
+dry tile) where puddled water should read. Windows may now hold real glass (see
+[Panes](#panes-glass-grilles-and-screens)), and a dull/dirty/clear/tinted pane is
+a material choice, not a geometry one.
 
 ---
 
@@ -1613,6 +1773,8 @@ Decision tree:
 | Need | Use | Procedure |
 | --- | --- | --- |
 | A wall/floor/ceiling appearance | Material + texture | Add PNG → texture entry → material entry (recipes below). |
+| A glossy, metal, wet or bumpy surface | Material fields + an optional normal map | Add the albedo PNG as above, then `specular` / `roughness` / `specular_color` and (optionally) a `normal_texture`. Recipe below. |
+| A pane of glass, a grille or a backlit sign in an opening | A `blend`/`cutout` material + `glass` on the opening | Author the RGBA sheet, add a material with `alpha_mode`, then name it in `walls[].openings[].glass`. |
 | A local sign or marking | Decal | Add POT RGBA cut-out PNG → `decal` entry → place in `decals`. |
 | A three-dimensional object | GLB prop | Toolkit (`tools/props/parts/*.py`) → build → `prop` entry → place in `props`. |
 | A light source | Existing fixture, or a new fixture family | Reuse a fixture id (`ceiling_lights`) or add a family (see [Adding a New Light Fixture Type](#adding-a-new-light-fixture-type)). |
@@ -2004,7 +2166,7 @@ Run from the repository root. Commands verified at the documented commit.
 | Command | What it validates | Required for map authoring? |
 | --- | --- | --- |
 | `python3 tools/assets/validate.py` | Catalog parse; classes/types/sources; unique ids; every file-backed resource exists exactly once; shipped/drop-in/fixture levels reference declared ids; warns when a wall touches no room | **Yes** |
-| `cargo test --workspace` | All 449 tests (448 pass, 1 ignored), including level/loader/render/collision/lighting suites and every audit | **Yes** |
+| `cargo test --workspace` | All 647 tests (646 pass, 1 ignored), including level/loader/render/material/collision/lighting suites, the offscreen-target and transparency cases, and every audit | **Yes** |
 | `cargo test surface_audit` | Coplanar architecture, doorway-threshold ownership, decal depth, wall junctions (Places Demo + fixed cases) | Strongly recommended |
 | `cargo test lighting` | All lighting suites and audits: wall/colour occlusion, partition baselines, vertical isolation, the shipped demo's exact-visibility acceptance (matches `lighting::tests` and every `lighting_*` audit) | Strongly recommended |
 | `LIMINAL_LEVEL=<id> cargo run` | Boots straight into the level and prints validation errors verbatim | **Yes, once per map** |
@@ -2020,10 +2182,19 @@ Run from the repository root. Commands verified at the documented commit.
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Strict lints | Required before committing code (see `AGENTS.md`), not for JSON-only maps |
 | `cd level-editor && npm test` | Legacy editor tests | **Not part of map authoring.** The editor is out of scope and stale for vertical keys. |
 
-At the documented commit these pass: `validate.py` → 67 assets / 0 warnings, exit 0;
-`textures/build.py --check` → 21 textures / 12 soft warnings, exit 0;
-`props/build.py --check` → 30 props, exit 0; `cargo test --workspace` → 448 passed,
-0 failed, 1 ignored; `tests/test_package.py` → exit 0.
+At the documented commit these pass: `validate.py` → 87 assets / 0 warnings, exit 0;
+`textures/build.py --check` → 30 textures / 12 soft warnings, exit 0;
+`props/build.py --check` → 30 props, exit 0; `cargo test --workspace --all-features`
+→ 646 passed, 0 failed, 1 ignored; `cd level-editor && npm test` → 144 passed;
+`tests/test_package.py` → exit 0.
+
+Two environment switches are worth knowing when validating a map's *appearance*
+rather than its data:
+
+| Switch | Effect |
+| --- | --- |
+| `LIMINAL_QUALITY=full\|low` | Draws this run at the named profile without editing `settings.json`, so the two profiles of the same level can be captured back to back. |
+| `LIMINAL_NO_OFFSCREEN=1` | Draws the 3D scene straight into the window instead of through the offscreen target. The two paths are pixel-identical (see the Batch 3 bench note); the switch exists so that can be re-checked on new hardware. |
 
 ### What validation does NOT exist
 
@@ -2176,7 +2347,7 @@ authoring. They are not invitations to change the engine as part of an authoring
 16. **`props/build.py --check` prints budget flags but does not fail on them**; budget
     enforcement lives in `cargo test`. Do not treat a clean `--check` as budget
     approval.
-17. **No water, transparency or dynamic lighting.** "Flooded", "glass" and "mood
+17. **No water or dynamic lighting.** "Flooded" and "mood
     lighting" must be expressed with existing materials, geometry and per-fixture
     colour/brightness.
 
@@ -2232,6 +2403,65 @@ follows the geometry, so a raised window blocks.
 
 ```json
 { "kind": "window", "offset": 1.65, "width": 2.2, "height": 1.3, "sill": 1.7 }
+```
+
+## Glaze a window
+
+1. Name a material with `alpha_mode: "blend"` (clear, dirty, tinted or emissive);
+   see [Panes](#panes-glass-grilles-and-screens) and the shipped
+   `core:glass_window_*` materials.
+2. Add `glass` to the opening. The pane fills the aperture at the wall's centre
+   plane and is lit by the same bake as the wall.
+
+```json
+{ "kind": "window", "offset": 1.65, "width": 3.2, "height": 1.3, "sill": 1.7,
+  "glass": "core:glass_window_dirty_01" }
+```
+
+For a grille or screen instead of glass, use a `cutout` material
+(`core:grille_vent_01` on a `vent` opening is the shipped example).
+
+## Give a surface a sheen (plastic, metal, glossy tile, wet floor)
+
+1. Start from an ordinary material. Add `specular` (strength) and `roughness`
+   (how tight the sheen is); add `specular_color` only when the sheen should be
+   tinted (metal).
+2. Optionally name a `normal_texture` for surface detail.
+3. Do not author a light for this: the sheen is lit by whatever the bake already
+   delivers to that surface.
+
+```json
+{ "id": "hotel:floor_polished_01", "asset_class": "environment",
+  "asset_type": "material", "source": "definition", "surface": "floor",
+  "texture": "hotel:tex_floor_polished_01", "tile_metres": 2.0,
+  "specular": 0.5, "roughness": 0.15 }
+```
+
+```json
+{ "id": "hotel:metal_panel_01", "asset_class": "environment",
+  "asset_type": "material", "source": "definition", "surface": "wall",
+  "texture": "hotel:tex_metal_panel_01", "tile_metres": 2.0,
+  "tint": [0.86, 0.87, 0.88],
+  "specular": 0.55, "specular_color": [0.9, 0.93, 1.0], "roughness": 0.25,
+  "normal_texture": "hotel:tex_normal_brushed_01", "normal_strength": 0.45 }
+```
+
+## Make a surface translucent or a cut-out
+
+1. Author (or reuse) an RGBA sheet: the alpha channel is the coverage.
+2. Set `alpha_mode`. `blend` for glass or a lit sign, `cutout` for a grid or a
+   perforated panel; add `opacity` / `alpha_cutoff` only when the defaults are
+   wrong.
+3. Nothing else: the renderer puts the material in the right pass. A translucent
+   emissive surface is just `emissive` plus `alpha_mode: "blend"`.
+
+```json
+{ "id": "hotel:glass_sign_lit_01", "asset_class": "environment",
+  "asset_type": "material", "source": "definition", "surface": "wall",
+  "texture": "hotel:tex_glass_tinted_01", "tile_metres": 1.0,
+  "alpha_mode": "blend", "opacity": 0.9,
+  "specular": 0.35, "roughness": 0.3,
+  "emissive": [0.86, 0.93, 1.0], "emissive_intensity": 1.35 }
 ```
 
 ## Change one wall face's material

@@ -224,7 +224,10 @@ Every surface, decal and fixture PNG is an ordinary editable file; the ones
 under `tools/` regenerate the shipped set deterministically, but hand-painted
 artwork is just as valid. Add a new surface material without touching Rust: add
 the PNG, add a `texture` entry and a `material` entry to the catalog, then name
-the material from a level. A light fixture's *mesh* is still code, but its face
+the material from a level. A material may also name a `normal_texture` (a
+tangent-space normal map, generated or hand-painted like any other sheet), a
+`specular`/`roughness` pair for its sheen, and an `alpha_mode` with an optional
+`opacity` for translucency. A light fixture's *mesh* is still code, but its face
 is the PNG its catalog entry names. `assets/README.md` documents the catalog
 format, the material/texture split and the asset budgets.
 
@@ -348,6 +351,18 @@ Working and shipped:
 * true material emission (`emissive`, `emissive_intensity`, `emissive_mask`),
   independent of environmental illumination: a surface or fixture face can read
   fully bright while casting nothing, and a light can cast while nothing glows;
+* a lightweight surface response on top of that lighting: an optional normal map
+  (`normal_texture`, `normal_strength`), a sheen (`specular`, `specular_color`,
+  `roughness`), all of it additive and view-dependent — dull paint, plastic,
+  metal, glossy tile, linoleum and wet floors read differently without a
+  physically based material model;
+* real transparency: a material's `alpha_mode` (`opaque`, `cutout` or `blend`)
+  decides whether its texture's alpha channel is ignored, alpha-tested, or
+  blended in a sorted pass with depth writes off, and window openings can carry
+  a `glass` material so a window holds an actual pane instead of being a hole;
+* an offscreen scene path: the 3D scene renders into a colour+depth target and
+  is presented to the window by a fullscreen quad, with the UI still drawn at
+  the drawable's own resolution;
 * Full and Low runtime quality profiles that use the same assets, with Low
   downscaling textures once at level load;
 * multi-material / multi-primitive GLB props with per-primitive textures and
@@ -363,7 +378,13 @@ Working and shipped:
 Known limitations, all deliberate:
 
 * no gameplay systems — no objectives, inventory, enemies or scripting;
-* no realtime lights, realtime shadow maps, normal maps, specular maps or PBR;
+* no realtime lights, realtime shadow maps, reflections, planar reflections or
+  reflection probes;
+* no physically based material model: the surface response is a normal map plus
+  a view-dependent sheen, not a BRDF, and it has no light direction to place a
+  highlighted specular from;
+* no refraction, no transmission through glass to the lighting bake, no
+  per-object alpha on GLB props (a prop's glTF `alphaMode` is not read yet);
 * dynamic objects are engine-spawned, not authorable from a level, and are lit
   by one probe of the static bake (no shadows, no self-occlusion);
 * lightmaps are baked and cached, never hand-authored, and a bake that cannot
@@ -372,7 +393,8 @@ Known limitations, all deliberate:
   lights are not implemented yet;
 * no animation, no skinning, no water and no swimming; the pool is empty on
   purpose;
-* no glass or transparent surfaces — openings are bare architectural holes;
+* the surface response is drawn at Full quality only: Low keeps the same
+  materials, albedo, emission and alpha and leaves the normal/sheen term out;
 * floor regions are rectangular and flat: no ramps or sloped regions;
 * no traversal between stacked rooms, and no ceiling or floor openings;
 * decals cannot cross a floor or ceiling height change, and a gable ceiling
@@ -383,13 +405,28 @@ Known limitations, all deliberate:
 ## Rendering notes
 
 The renderer draws the world in one pass: a baked vertex colour multiplied by a
-sampled texel, plus a material emission term
-(`texture2D(u_texture, v_uv) * v_color + emission`). The emissive term is added
-*after* the light multiply, so darkness cannot extinguish it, and it never
-becomes illumination — environmental light comes only from the generic light
-sources a level places. A separate decal pass alpha-tests a cut-out sheet over
-the surface it belongs to. Lighting is computed once per level load, never per
-frame.
+sampled texel, plus a material emission term, plus an optional surface-response
+term (`texture2D(u_texture, v_uv) * v_color * light + sheen + emission`). The
+emissive term is added *after* the light multiply, so darkness cannot extinguish
+it, and it never becomes illumination — environmental light comes only from the
+generic light sources a level places. The response term is a view-dependent
+Fresnel sheen scaled by the same baked light (there is no light direction in the
+bake, so there is no highlighted specular to place) and an optional normal map
+perturbing the shading normal. A separate decal pass alpha-tests a cut-out sheet
+over the surface it belongs to. Lighting is computed once per level load, never
+per frame.
+
+The scene is rendered into an offscreen colour+depth target and presented to the
+framebuffer by one fullscreen quad; the HUD is drawn afterwards, on the default
+framebuffer, at the drawable's own resolution, so it stays sharp. The target
+tracks the drawable's size and aspect ratio (nothing is stretched) and falls
+back to drawing straight into the framebuffer if it cannot be created.
+`LIMINAL_NO_OFFSCREEN=1` forces that fallback path for an A/B comparison.
+
+Transparent surfaces are drawn after everything opaque, sorted back to front by
+the distance from the camera to their spatial batch, with depth testing on and
+depth writes off; alpha-tested surfaces are drawn with the opaque world through a
+separate fragment stage so the opaque pass keeps early depth testing.
 
 Two runtime quality profiles decide how much of an accepted source texture
 reaches the GPU. **Full** is the historical Places runtime size (surface,
@@ -397,7 +434,11 @@ fixture and decal sheets up to 1024, prop sheets up to 256) and uploads shipped
 assets unchanged. **Low** uses the same assets and box-filters each one once at
 level load (sheets 256, prop sheets 128, emissive masks 128). Downscaling is a
 load-time step that is cached with the texture it produced, never a per-frame
-cost, and `"quality"` in `settings.json` selects the profile.
+cost, and `"quality"` in `settings.json` (or `LIMINAL_QUALITY=full|low` for one
+run) selects the profile. Low also leaves the optional surface response out and
+renders the 3D scene no wider than the PocketCHIP reference resolution: the same
+level, the same materials and the same ids, with the optional per-pixel work
+dropped.
 
 A decal owns its depth plane by construction, in two halves that level authors
 never have to think about:

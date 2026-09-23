@@ -42,6 +42,33 @@ difference between two rows is that phase's contribution. macOS runs of this set
 already give the hardware-independent part of the answer (submitted vertices,
 buffer bytes, draw calls); the device run adds the frame times.
 
+## Batch 3 switches and the local runner
+
+The same build can be measured through either scene path and either quality
+profile without recompiling:
+
+| Switch | Effect |
+| --- | --- |
+| `LIMINAL_NO_OFFSCREEN=1` | Draw the 3D scene straight into the default framebuffer instead of through the offscreen target. |
+| `LIMINAL_QUALITY=full\|low` | Draw this run at the named profile without editing `settings.json`. |
+
+`bench_local.py` runs the release binary on this machine (no device, no SSH) and
+prints the headline counters, including the `texture_binds` and
+`material_changes` the Batch 3 state cache exists to keep small:
+
+```sh
+python3 tools/bench/bench_local.py --label batch3 --repeat 3
+python3 tools/bench/bench_local.py --label batch3_low --quality low
+python3 tools/bench/bench_local.py --label batch3_direct --direct
+```
+
+`capture_batch3.sh` captures the fixed Batch 3 validation views (glazed windows
+from both sides, the metal and plastic panels, the wet deck, the lit sign, the
+linoleum patch and the transfer grille) into `target/agent-work/captures/`, with
+a suffix per profile/path so a comparison run never overwrites the reference.
+
+`notes/batch3-surface-validation.md` records what those runs showed.
+
 ## Running a suite
 
 ```sh

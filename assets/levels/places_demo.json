@@ -100,6 +100,14 @@
           "width": 1.2,
           "height": 2.1,
           "sill": 0.0
+        },
+        {
+          "kind": "vent",
+          "offset": 2.85,
+          "width": 1.2,
+          "height": 0.35,
+          "sill": 2.25,
+          "glass": "core:grille_vent_01"
         }
       ]
     },

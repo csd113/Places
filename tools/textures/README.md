@@ -31,6 +31,11 @@ surfaces and the NO DIVING sign ship at 1024x1024 while `office_art.py`,
 skips any sheet whose on-disk dimensions differ from its painter's output and
 requires `--force` to replace it.
 
+A normal map (`extra_art.py`) is an ordinary surface sheet in the same asset
+tree: RGB carries the tangent-space normal (`0..255` maps to `-1..1`), alpha is
+unused, and the material that wants it names it with `normal_texture`. A
+*cut-out* sheet like the grille is RGBA where the alpha channel is the shape.
+
 `--check` reads `assets/catalog.json` and, for every file-backed sheet (surface
 textures, decal sheets and fixture faces):
 
@@ -80,6 +85,7 @@ runs `--check` over every environment surface as a repository gate.
 | `office_art.py` | the Office wallpaper, carpet and panel ceiling, with their damaged variants |
 | `pool_art.py` | the Pool deck, basin and wall tile and the sterile Pool ceiling |
 | `lights_art.py` | the visible face of every built-in light fixture: the office fluorescent diffuser, the round pool downlight and the pool wall luminaire's lens |
+| `extra_art.py` | the Batch 3 sheets: clear/dirty/tinted glass, a cut-out transfer grille, polished linoleum, a brushed-metal panel, a moulded-plastic panel and two tangent-space normal maps |
 | `decal_art.py` | the final Pool **NO DIVING** sign sheet (RGBA, transparent background) |
 | `diagnostic_art.py` | the orientation/alpha/NPOT test sheets, never used by shipping levels |
 | `seam_repair.py` | measures and repairs wrapped-edge seams in a shipped surface sheet (see below) |

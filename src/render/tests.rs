@@ -4900,18 +4900,30 @@ fn the_demo_glazes_every_window_and_classifies_the_panes_translucent() {
             Some((SurfaceKey::new(SurfaceKind::Wall, index), alpha))
         })
         .collect();
-    assert_eq!(panes.len(), 5, "every demo window is glazed");
+    assert_eq!(
+        panes.len(),
+        6,
+        "five windows and one transfer grille are glazed"
+    );
+    let translucent = panes
+        .iter()
+        .filter(|(_, alpha)| alpha.is_translucent())
+        .count();
+    let cutout = panes.iter().filter(|(_, alpha)| alpha.is_cutout()).count();
+    assert_eq!((translucent, cutout), (5, 1));
     for (key, alpha) in &panes {
-        assert!(
-            alpha.is_translucent(),
+        let expected = if alpha.is_cutout() {
+            BatchPass::Cutout
+        } else {
+            BatchPass::Translucent
+        };
+        assert_eq!(
+            batch_pass_for(key.kind, key.has_material(), Some(*alpha)),
+            expected,
             "{}",
             materials
                 .entry(key.material)
                 .map_or("?", |entry| entry.id.as_str())
-        );
-        assert_eq!(
-            batch_pass_for(key.kind, key.has_material(), Some(*alpha)),
-            BatchPass::Translucent
         );
     }
 
@@ -4955,8 +4967,8 @@ fn the_demo_glazes_every_window_and_classifies_the_panes_translucent() {
     }
     assert_eq!(
         keys.len(),
-        3,
-        "the demo glazes three distinct glass materials"
+        4,
+        "three glass materials and one grille fill the demo's openings"
     );
     assert!(
         (pane_area - opening_area).abs() <= 1.0e-3 * opening_area.max(1.0),

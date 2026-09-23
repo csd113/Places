@@ -220,6 +220,29 @@ def build_plastic_panel() -> Canvas:
     return canvas
 
 
+def build_grille() -> Canvas:
+    """A cut-out transfer grille: metal slats over transparent openings.
+
+    The alpha channel *is* the grille: solid where a slat is, zero in the
+    openings between them. A material that binds this sheet with
+    `alpha_mode: "cutout"` therefore draws real holes instead of a grey
+    rectangle, which is what the world's alpha-tested pass exists for.
+    """
+    slat = 8
+    pitch = 16
+    # The RGB field is deliberately constant and only the alpha channel carries
+    # the pattern: a colour that varied with the slat phase would step at the
+    # sheet's edge (row 0 is a highlight, row 127 a shadow), and a cut-out sheet
+    # that is sampled with its alpha ignored must still be a sane colour.
+    canvas = Canvas(SIZE, SIZE, (128, 132, 138, 0))
+    for y in range(SIZE):
+        if y % pitch >= slat:
+            continue
+        for x in range(SIZE):
+            canvas.set(x, y, (128.0, 132.0, 138.0), 255)
+    return canvas
+
+
 # -------------------------------------------------------------- normal maps
 
 
@@ -319,6 +342,10 @@ ART = {
     "core:tex_plastic_panel_01": {
         "model": "core/textures/walls/plastic_panel_01.png",
         "build": build_plastic_panel,
+    },
+    "core:tex_grille_01": {
+        "model": "core/textures/walls/grille_01.png",
+        "build": build_grille,
     },
     "core:tex_normal_panel_01": {
         "model": "core/textures/normals/normal_panel_01.png",

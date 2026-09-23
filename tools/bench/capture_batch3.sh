@@ -32,6 +32,7 @@ panels_east:23.6,8.2,90
 plastic_panel:6.0,10.5,0
 wet_deck:21.5,11.4,0
 sign_corridor:34.4,13.6,0
+grille_vent:5.0,3.7,90
 linoleum:13.6,1.6,90
 "
 

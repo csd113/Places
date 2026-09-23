@@ -584,6 +584,13 @@ pub struct RenderStats {
     pub vbo_bytes: usize,
     /// Bytes resident in element (index) buffers.
     pub index_bytes: usize,
+    /// `glBindTexture` calls the scene and presentation passes issued. One
+    /// material change costs three (albedo, emission mask, normal map); a run
+    /// of batches that share a material costs none.
+    pub texture_binds: usize,
+    /// Surface-state changes the scene passes applied: one per material change
+    /// per pass, plus the pass switches that invalidate the cache.
+    pub material_changes: usize,
 }
 
 /// GPU state for the decal pass: a second program (the world shader plus an
@@ -2038,6 +2045,10 @@ impl Renderer {
         }
         self.current_pass = None;
         self.frame_state_valid = false;
+        // The counters the passes increment; the report below replaces the whole
+        // structure, so this is the only place they are cleared.
+        self.render_stats.texture_binds = 0;
+        self.render_stats.material_changes = 0;
 
         // Static level geometry, then the batched props, then the dynamic
         // objects, each in the pass their material belongs to, then the
@@ -2090,6 +2101,8 @@ impl Renderer {
             dynamic_vertices,
             vbo_bytes: self.level_stats.vbo_bytes,
             index_bytes: self.level_stats.index_bytes,
+            texture_binds: self.render_stats.texture_binds,
+            material_changes: self.render_stats.material_changes,
         };
     }
 
@@ -2186,6 +2199,7 @@ impl Renderer {
             }
             self.gl.active_texture(glow::TEXTURE0);
             self.gl.bind_texture(glow::TEXTURE_2D, Some(color));
+            self.render_stats.texture_binds = self.render_stats.texture_binds.saturating_add(1);
             self.gl
                 .bind_buffer(glow::ARRAY_BUFFER, Some(self.present.vbo));
             self.gl
@@ -2541,6 +2555,8 @@ impl Renderer {
             }
             self.gl.active_texture(glow::TEXTURE0);
         }
+        self.render_stats.texture_binds = self.render_stats.texture_binds.saturating_add(3);
+        self.render_stats.material_changes = self.render_stats.material_changes.saturating_add(1);
         self.surface_state = Some(state);
     }
 
@@ -2776,6 +2792,7 @@ impl Renderer {
             let sheet = self.decal_sheet_texture(batch.key.material);
             if bound_decal_texture != Some(sheet) {
                 unsafe { self.gl.bind_texture(glow::TEXTURE_2D, Some(sheet)) };
+                self.render_stats.texture_binds = self.render_stats.texture_binds.saturating_add(1);
                 bound_decal_texture = Some(sheet);
             }
             unsafe {

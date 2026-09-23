@@ -1,4 +1,100 @@
-## Unreleased — Batch 2: baked lightmaps, prop occlusion, dynamic objects
+## Unreleased — Batch 3: surface response, transparency/glass, offscreen framebuffer
+
+Batch 3 makes the surfaces *react* to the Batch 1/2 lighting, gives materials a
+real alpha contract (including glass you can look through), and puts the 3D scene
+behind an offscreen target that a later batch can post-process. It adds no new
+lighting model: everything here multiplies or blends with the light the bake
+already delivers.
+
+### Lightweight surface response
+
+- **Optional per-material response.** `ResolvedMaterial` gained
+  `MaterialResponse` (`src/materials/response.rs`): an optional normal map with a
+  strength, a sheen colour and a roughness. The world fragment stage adds a
+  view-dependent Fresnel sheen scaled by the baked light and perturbs the shading
+  normal from the map — dull paint, plastic, brushed metal, glossy tile,
+  linoleum and wet surfaces read differently with no BRDF, no light direction to
+  sample and no shadow map. The engine deliberately has no realtime specular.
+- **A tangent frame on every vertex.** `Vertex`/`PackedVertex` carry a normal,
+  a tangent and a bitangent sign; the packed layout grows from 32 to 36 bytes
+  (three normalised signed bytes per vector, one for the sign) and the exact
+  layout from 44 to 72. The frame is computed once per range from the emitted
+  triangles (`compute_surface_frames`), so no emitter knows about normals and a
+  future emitter cannot forget one; the tangent comes from the surface's own
+  UVs, which is what orients a normal map with its tiling.
+- **Defaults are the old look.** A material without response fields is exactly
+  the pre-Batch-3 material: no normal map, no sheen, and the shader gate is off.
+- **Full / Low.** `Full` draws the response; `Low` leaves it out
+  (`QualityProfile::draws_surface_response`) and keeps albedo × light × emission ×
+  alpha — the same assets, one shader gate fewer.
+
+### Transparency, glass and alpha modes
+
+- **A material's alpha contract** (`MaterialAlpha`, `AlphaMode`): `opaque`
+  (ignore the texture's alpha; the default and the legacy behaviour), `cutout`
+  (discard below `alpha_cutoff`, drawn through a second, alpha-tested fragment
+  stage) and `blend` (sorted translucent pass, depth writes off, texture alpha ×
+  `opacity`).
+- **Pass routing is derived, never authored.** `batch_pass_for` puts a batch in
+  the opaque, cut-out or translucent pass from its material; the translucent pass
+  is collected and sorted back to front by camera distance
+  (`collect_translucent_draws`) with a reusable scratch list, so the frame loop
+  allocates nothing.
+- **A second scene program** for the alpha-tested pass, compiled from the same
+  source with `ALPHA_CUTOUT` defined, so the opaque program keeps early depth
+  testing. Uniform state is per program; the renderer tracks which pass is
+  current and re-uploads the frame state after a switch.
+- **Windows can hold real glass.** An opening may name a `glass` material
+  (`WallOpeningDef::glass`), which emits one pane quad in the wall's centre
+  plane, lightmapped like the wall around it. Clear, dirty, tinted and emissive
+  translucent materials all work, and a `cutout` material gives a grille or
+  screen instead of a pane.
+- **Transparent emissive materials work**: emission is added before the alpha
+  blend, so a backlit sign is both bright and see-through.
+- **Emission degradation is consistent**: a material whose albedo, mask or normal
+  map cannot resolve now loses its emission, response *and* alpha with the
+  diagnostic texture, rather than half-rendering.
+
+### Offscreen scene and presentation
+
+- **`src/render/framebuffer.rs`**: an offscreen colour (RGBA8) + depth (24-bit,
+  falling back to 16) target, recreated only when the drawable's size or the
+  quality profile changes, presented by one fullscreen quad. The UI still draws
+  on the default framebuffer at the drawable's resolution, so it stays sharp.
+- **No distortion.** The target scales the drawable by a single factor, so its
+  aspect ratio is the drawable's; `Full` renders at native size and `Low` renders
+  no wider than the PocketCHIP reference width.
+- **Clean fallback.** An incomplete framebuffer, a zero-sized drawable or a
+  failed allocation disables the offscreen path for the session (one diagnostic
+  line) and the scene draws straight into the default framebuffer as before.
+  `LIMINAL_NO_OFFSCREEN=1` forces that path for an A/B comparison, and the two
+  paths are pixel-identical (see `tools/bench/notes/batch3-surface-validation.md`).
+- **Diagnostics.** A `[framebuffer]` line reports the target size and depth
+  format once per resize; `RenderStats` gained `texture_binds` and
+  `material_changes`, and the benchmark CSV/summary report them.
+
+### Places Demo
+
+- Five windows are glazed (clear, dirty and tinted sheets), a transfer grille
+  fills a new vent above the office door, a polished-linoleum patch and a wet
+  pool-deck patch join the existing carpet and tile, a brushed-metal and a
+  moulded-plastic panel stand against the pool wall, and a backlit translucent
+  sign hangs in the corridor. Nothing existing was repainted.
+
+### Validation and tooling
+
+- `tools/assets/validate.py` validates the new material fields by name and
+  resolves `normal_texture` to a file-backed PNG, exactly like `texture` and
+  `emissive_mask`; it also checks that every `glass` id in a level is declared.
+- `tools/textures/extra_art.py` generates the eight new sheets (glass, linoleum,
+  metal, plastic, grille and two normal maps) deterministically.
+- `tools/bench/bench_local.py` runs the benchmark on this machine and compares
+  Full / Low / offscreen / direct / baseline runs;
+  `tools/bench/capture_batch3.sh` captures the fixed validation views.
+
+---
+
+## Batch 2: baked lightmaps, prop occlusion, dynamic objects
 
 Batch 2 replaces the coarse painted-vertex light on static world geometry with a
 real baked lightmap atlas, makes static props occlude the bake, and adds a

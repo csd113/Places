@@ -1196,6 +1196,36 @@
       "specular": 0.0,
       "roughness": 1.0,
       "description": "Flat painted wall: no sheen at all, which is what every material authored before Batch 3 already was. Kept explicit as the dull end of the comparison."
+    },
+    {
+      "id": "core:tex_grille_01",
+      "display_name": "Transfer Grille Texture",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "core/textures/walls/grille_01.png",
+      "description": "Alpha cut-out grille sheet: slats are solid, the openings between them are transparent."
+    },
+    {
+      "id": "core:grille_vent_01",
+      "display_name": "Transfer Grille",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_grille_01",
+      "tile_metres": 1.0,
+      "tint": [
+        0.84,
+        0.86,
+        0.9
+      ],
+      "alpha_mode": "cutout",
+      "alpha_cutoff": 0.5,
+      "specular": 0.32,
+      "roughness": 0.38,
+      "description": "Painted steel transfer grille: an alpha-tested cut-out that fills an opening with slats instead of a pane."
     }
   ]
 }
