@@ -955,6 +955,247 @@
       "category": "Decorative",
       "solid": false,
       "description": "Low-poly tuxedo cat placed through the ordinary prop placement system."
+    },
+    {
+      "id": "core:tex_glass_clear_01",
+      "display_name": "Clear Glass Texture",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "core/textures/glass/glass_clear_01.png",
+      "description": "Nearly transparent glass sheet: a faint green-grey tint and a barely-there alpha."
+    },
+    {
+      "id": "core:tex_glass_dirty_01",
+      "display_name": "Dirty Glass Texture",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "core/textures/glass/glass_dirty_01.png",
+      "description": "Unwashed glass sheet: blotchy alpha, a dried-film tint and a few drip trails."
+    },
+    {
+      "id": "core:tex_glass_tinted_01",
+      "display_name": "Tinted Glass Texture",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "core/textures/glass/glass_tinted_01.png",
+      "description": "Uniformly tinted teal glass sheet at roughly half opacity."
+    },
+    {
+      "id": "core:tex_linoleum_01",
+      "display_name": "Polished Linoleum Texture",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "floor",
+      "model": "core/textures/floors/linoleum_01.png",
+      "description": "Polished linoleum sheet: pale speckled field with faint sheet seams."
+    },
+    {
+      "id": "core:tex_metal_panel_01",
+      "display_name": "Brushed Metal Panel Texture",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "core/textures/walls/metal_panel_01.png",
+      "description": "Brushed metal sheet with a panel seam and two rivet rows."
+    },
+    {
+      "id": "core:tex_plastic_panel_01",
+      "display_name": "Plastic Panel Texture",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "core/textures/walls/plastic_panel_01.png",
+      "description": "Moulded plastic sheet: pale, near-neutral, softly periodic."
+    },
+    {
+      "id": "core:tex_normal_panel_01",
+      "display_name": "Panel Normal Map",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "core/textures/normals/normal_panel_01.png",
+      "description": "Tangent-space normal sheet with soft moulded dimples; generic detail, not aligned to any albedo."
+    },
+    {
+      "id": "core:tex_normal_brushed_01",
+      "display_name": "Brushed Normal Map",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "core/textures/normals/normal_brushed_01.png",
+      "description": "Tangent-space normal sheet with fine horizontal brushing; generic detail, not aligned to any albedo."
+    },
+    {
+      "id": "core:glass_window_clear_01",
+      "display_name": "Clear Window Glass",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_glass_clear_01",
+      "tile_metres": 2.0,
+      "alpha_mode": "blend",
+      "specular": 0.5,
+      "roughness": 0.12,
+      "description": "Clear glazing for a window opening: almost no tint, a smooth glass sheen, and a transparent sheet. Author it on an opening with `glass`."
+    },
+    {
+      "id": "core:glass_window_dirty_01",
+      "display_name": "Dirty Window Glass",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_glass_dirty_01",
+      "tile_metres": 2.0,
+      "alpha_mode": "blend",
+      "specular": 0.4,
+      "roughness": 0.32,
+      "description": "Unwashed window glazing: grimy alpha and a duller sheen than clean glass."
+    },
+    {
+      "id": "core:glass_tinted_01",
+      "display_name": "Tinted Glass",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_glass_tinted_01",
+      "tile_metres": 2.0,
+      "alpha_mode": "blend",
+      "specular": 0.45,
+      "roughness": 0.18,
+      "description": "Tinted glazing at roughly half opacity, for observation windows between rooms."
+    },
+    {
+      "id": "core:glass_sign_lit_01",
+      "display_name": "Lit Sign Glass",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_glass_tinted_01",
+      "tile_metres": 1.0,
+      "alpha_mode": "blend",
+      "opacity": 0.88,
+      "specular": 0.35,
+      "roughness": 0.3,
+      "emissive": [
+        0.86,
+        0.93,
+        1.0
+      ],
+      "emissive_intensity": 1.35,
+      "description": "Translucent backlit sign panel: a tinted sheet that emits on its own, which is what a transparent emissive material looks like."
+    },
+    {
+      "id": "core:linoleum_polished_01",
+      "display_name": "Polished Linoleum",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_linoleum_01",
+      "tile_metres": 2.0,
+      "specular": 0.5,
+      "roughness": 0.16,
+      "description": "Polished linoleum with a tight sheen: the glossy counterpart of the office carpet.",
+      "tint": [
+        0.84,
+        0.8,
+        0.7
+      ]
+    },
+    {
+      "id": "core:metal_brushed_01",
+      "display_name": "Brushed Metal Panel",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_metal_panel_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.9,
+        0.91,
+        0.93
+      ],
+      "specular": 0.65,
+      "specular_color": [
+        0.9,
+        0.93,
+        1.0
+      ],
+      "roughness": 0.22,
+      "normal_texture": "core:tex_normal_brushed_01",
+      "normal_strength": 0.35,
+      "description": "Brushed metal: a cool tinted sheen plus a fine directional normal map, so it reads as metal rather than as grey paint."
+    },
+    {
+      "id": "core:plastic_panel_01",
+      "display_name": "Moulded Plastic Panel",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_plastic_panel_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.94,
+        0.95,
+        0.96
+      ],
+      "specular": 0.3,
+      "roughness": 0.45,
+      "normal_texture": "core:tex_normal_panel_01",
+      "normal_strength": 0.4,
+      "description": "Moulded plastic: a broad white sheen and soft dimples, the deliberate counterpart of the brushed metal panel."
+    },
+    {
+      "id": "core:pool_deck_wet_01",
+      "display_name": "Wet Pool Deck",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_pool_tile_deck_01",
+      "tile_metres": 1.5,
+      "tint": [
+        0.86,
+        0.9,
+        0.94
+      ],
+      "specular": 0.65,
+      "roughness": 0.06,
+      "description": "Wet deck tile: the shipped deck artwork with a near-mirror sheen, so a patch of floor reads as standing water."
+    },
+    {
+      "id": "core:painting_dull_01",
+      "display_name": "Dull Painted Wall",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_wallpaper_yellow_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.8,
+        0.84,
+        0.78
+      ],
+      "specular": 0.0,
+      "roughness": 1.0,
+      "description": "Flat painted wall: no sheen at all, which is what every material authored before Batch 3 already was. Kept explicit as the dull end of the comparison."
     }
   ]
 }

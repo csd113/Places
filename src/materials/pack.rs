@@ -11,7 +11,10 @@ use std::rc::Rc;
 use crate::assets::DEFAULT_TILE_METRES;
 
 use super::image::{RawImage, TextureCache, decode_png};
-use super::{DEFAULT_EMISSION_INTENSITY, DEFAULT_TINT, MAX_EMISSION_INTENSITY, MaterialEmission};
+use super::{
+    DEFAULT_EMISSION_INTENSITY, DEFAULT_TINT, MAX_EMISSION_INTENSITY, MaterialAlpha,
+    MaterialEmission, MaterialResponse,
+};
 
 /// One material a pack's `materials.json` declares.
 ///
@@ -30,6 +33,17 @@ pub struct PackMaterialDef {
     pub emissive_intensity: Option<f32>,
     /// Pack path, or logical catalog texture id, of the emissive mask.
     pub emissive_mask: Option<String>,
+    /// Pack path, or logical catalog texture id, of the normal map.
+    pub normal_texture: Option<String>,
+    pub normal_strength: Option<f32>,
+    /// Sheen strength (white) and optional explicit sheen colour.
+    pub specular: Option<f32>,
+    pub specular_color: Option<[f32; 3]>,
+    pub roughness: Option<f32>,
+    /// `opaque` | `cutout` | `blend`.
+    pub alpha_mode: Option<String>,
+    pub opacity: Option<f32>,
+    pub alpha_cutoff: Option<f32>,
 }
 
 impl PackMaterialDef {
@@ -60,6 +74,44 @@ impl PackMaterialDef {
             self.emissive_intensity
                 .unwrap_or(DEFAULT_EMISSION_INTENSITY),
         )
+        .sanitized()
+    }
+
+    /// The surface response this definition describes.
+    ///
+    /// The normal map is left `None` here for the same reason as the emissive
+    /// mask: it is a texture-table index the resolver fills in. A pack that
+    /// authors neither a normal map nor a sheen gets [`MaterialResponse::NONE`],
+    /// which is exactly a pre-Batch-3 surface.
+    #[must_use]
+    pub fn response(&self) -> MaterialResponse {
+        let sheen = self.specular.unwrap_or(0.0);
+        let specular = self
+            .specular_color
+            .map_or([sheen; 3], |color| color.map(|channel| channel * sheen));
+        MaterialResponse {
+            normal: None,
+            normal_strength: self
+                .normal_strength
+                .unwrap_or(super::DEFAULT_NORMAL_STRENGTH),
+            specular,
+            roughness: self.roughness.unwrap_or(super::DEFAULT_ROUGHNESS),
+        }
+        .sanitized()
+    }
+
+    /// The alpha contract this definition describes.
+    #[must_use]
+    pub fn alpha(&self) -> MaterialAlpha {
+        MaterialAlpha {
+            mode: self
+                .alpha_mode
+                .as_deref()
+                .and_then(super::AlphaMode::parse)
+                .unwrap_or_default(),
+            opacity: self.opacity.unwrap_or(1.0),
+            cutoff: self.alpha_cutoff.unwrap_or(super::DEFAULT_ALPHA_CUTOFF),
+        }
         .sanitized()
     }
 }
@@ -259,6 +311,24 @@ pub fn parse_materials_json(json_str: Option<&str>) -> HashMap<String, PackMater
                     .map(str::trim)
                     .filter(|mask| !mask.is_empty())
                     .map(str::to_string),
+                normal_texture: value
+                    .get("normal_texture")
+                    .and_then(|texture| texture.as_str())
+                    .map(str::trim)
+                    .filter(|texture| !texture.is_empty())
+                    .map(str::to_string),
+                normal_strength: value.get("normal_strength").and_then(parse_unit_number),
+                specular: value.get("specular").and_then(parse_unit_number),
+                specular_color: value.get("specular_color").and_then(parse_unit_rgb),
+                roughness: value.get("roughness").and_then(parse_unit_number),
+                alpha_mode: value
+                    .get("alpha_mode")
+                    .and_then(|mode| mode.as_str())
+                    .map(str::trim)
+                    .filter(|mode| !mode.is_empty())
+                    .map(str::to_string),
+                opacity: value.get("opacity").and_then(parse_unit_number),
+                alpha_cutoff: value.get("alpha_cutoff").and_then(parse_unit_number),
             }
         };
         if !definition.texture.is_empty() {
@@ -293,6 +363,21 @@ fn parse_emissive_intensity(value: &serde_json::Value) -> Option<f32> {
     #[allow(clippy::cast_possible_truncation)]
     let narrowed = value.as_f64()? as f32;
     if !narrowed.is_finite() || !(0.0..=MAX_EMISSION_INTENSITY).contains(&narrowed) {
+        return None;
+    }
+    Some(narrowed)
+}
+
+/// Parses an optional unit-interval number (`0.0..=1.0`).
+///
+/// Non-finite results and out-of-range values are discarded: the field is
+/// decoration, and a discarded one leaves the documented default in its place.
+fn parse_unit_number(value: &serde_json::Value) -> Option<f32> {
+    // `f64 -> f32` can round and saturates to an infinity for absurd JSON;
+    // both outcomes are filtered out below.
+    #[allow(clippy::cast_possible_truncation)]
+    let narrowed = value.as_f64()? as f32;
+    if !narrowed.is_finite() || !(0.0..=1.0).contains(&narrowed) {
         return None;
     }
     Some(narrowed)

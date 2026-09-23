@@ -782,3 +782,352 @@ fn pack_material_emission_resolves_pack_local_and_catalog_masks() {
     // The shared albedo, the pack mask and the catalog mask.
     assert_eq!(table.textures().len(), 3);
 }
+
+// ------------------------------------------------- surface response and alpha
+
+/// A synthetic catalog exercising the Batch 3 material fields.
+///
+/// Every texture path is shipped artwork, so the test needs no new asset files.
+fn response_catalog() -> AssetCatalog {
+    let json = r##"{
+        "assets": [
+            { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
+              "source": "file",
+              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+            { "id": "core:tex_normal", "asset_class": "environment", "asset_type": "texture",
+              "source": "file", "model": "core/textures/normals/normal_panel_01.png" },
+            { "id": "core:mat_plain", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo" },
+            { "id": "core:mat_gloss", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo",
+              "specular": 0.5, "roughness": 0.15,
+              "normal_texture": "core:tex_normal", "normal_strength": 0.75 },
+            { "id": "core:mat_metal", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo",
+              "specular": 0.6, "specular_color": [0.5, 0.25, 0.1], "roughness": 0.3 },
+            { "id": "core:mat_glass", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_normal",
+              "alpha_mode": "blend", "opacity": 0.5 },
+            { "id": "core:mat_grille", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_normal",
+              "alpha_mode": "cutout", "alpha_cutoff": 0.25 },
+            { "id": "core:mat_glow_glass", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_normal",
+              "emissive": [0.4, 0.6, 1.0], "emissive_intensity": 2.0,
+              "alpha_mode": "blend", "opacity": 0.8 }
+        ]
+    }"##;
+    AssetCatalog::from_json_str(json).expect("synthetic response catalog")
+}
+
+/// Resolves one synthetic catalog against the shipped asset root.
+///
+/// The level references every synthetic material, so the resolved table covers
+/// all of them: `defaults` carries three and the floor patches the rest.
+fn resolved_response_table() -> MaterialTable {
+    let level_json = r#"{
+        "format_version": 1,
+        "id": "response_level",
+        "name": "Response Level",
+        "spawn": { "x": 1.0, "z": 1.0 },
+        "defaults": { "wall": "core:mat_gloss", "floor": "core:mat_plain",
+                      "ceiling": "core:mat_metal" },
+        "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 2.7 } ],
+        "floor_patches": [
+            { "x": 0.0, "z": 0.0, "width": 1.0, "depth": 1.0,
+              "material": "core:mat_glass" },
+            { "x": 1.0, "z": 0.0, "width": 1.0, "depth": 1.0,
+              "material": "core:mat_grille" },
+            { "x": 2.0, "z": 0.0, "width": 1.0, "depth": 1.0,
+              "material": "core:mat_glow_glass" }
+        ]
+    }"#;
+    let level = serde_json::from_str::<LevelDef>(level_json).expect("level parses");
+    let catalog = response_catalog();
+    let mut cache = TextureCache::new();
+    let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
+    resolve_materials(&level, &catalog, None, Some(&root), &mut cache)
+}
+
+#[test]
+fn a_material_without_response_fields_keeps_the_pre_batch_three_look() {
+    let table = resolved_response_table();
+    let plain = table.entry_of("core:mat_plain").expect("plain");
+    assert_eq!(plain.response, MaterialResponse::NONE);
+    assert!(!plain.response.is_active());
+    assert!(!plain.response.has_normal());
+    assert!(!plain.response.has_sheen());
+    assert_eq!(plain.alpha, MaterialAlpha::OPAQUE);
+    assert!(!plain.alpha.is_translucent());
+    assert!(!plain.alpha.is_cutout());
+    assert_eq!(plain.emission, MaterialEmission::NONE);
+}
+
+#[test]
+fn a_normal_map_resolves_into_the_texture_table_at_its_authored_strength() {
+    let table = resolved_response_table();
+    let gloss = table.entry_of("core:mat_gloss").expect("gloss");
+    assert!(gloss.response.is_active());
+    assert!(gloss.response.has_normal());
+    assert!((gloss.response.normal_strength - 0.75).abs() < f32::EPSILON);
+    let normal = gloss.response.normal.expect("a normal texture index");
+    assert_ne!(normal, gloss.texture_index, "the map is its own texture");
+    let texture = &table.textures()[normal as usize];
+    assert_eq!(texture.key, "core:tex_normal");
+    assert_eq!(texture.origin, TextureOrigin::Catalog);
+
+    // A sheen without a normal map is a sheen only.
+    let metal = table.entry_of("core:mat_metal").expect("metal");
+    assert!(metal.response.is_active());
+    assert!(!metal.response.has_normal());
+    assert!(metal.response.normal.is_none());
+}
+
+#[test]
+fn specular_strength_and_colour_are_the_product_the_shader_uploads() {
+    let table = resolved_response_table();
+    let metal = table.entry_of("core:mat_metal").expect("metal");
+    // The authored colour is scaled by the authored strength, channel-wise.
+    let expected = [0.6 * 0.5, 0.6 * 0.25, 0.6 * 0.1];
+    for (channel, value) in metal.response.specular.iter().zip(expected) {
+        assert!((channel - value).abs() < 1.0e-6, "{channel} != {value}");
+    }
+    assert!((metal.response.roughness - 0.3).abs() < f32::EPSILON);
+
+    // A scalar strength with no colour is white at that strength.
+    let gloss = table.entry_of("core:mat_gloss").expect("gloss");
+    assert_eq!(gloss.response.specular, [0.5; 3]);
+    assert!((gloss.response.roughness - 0.15).abs() < f32::EPSILON);
+}
+
+#[test]
+fn roughness_defaults_and_out_of_range_values_are_clamped_by_the_catalog() {
+    // A sheen with no authored roughness keeps the documented default.
+    let json = r##"{
+        "assets": [
+            { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
+              "source": "file",
+              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+            { "id": "core:mat_sheen", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo", "specular": 0.4 }
+        ]
+    }"##;
+    let catalog = AssetCatalog::from_json_str(json).expect("catalog");
+    let level = basic_level("core:mat_sheen", "core:mat_sheen", "core:mat_sheen");
+    let mut cache = TextureCache::new();
+    let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
+    let table = resolve_materials(&level, &catalog, None, Some(&root), &mut cache);
+    let sheen = table.entry_of("core:mat_sheen").expect("sheen");
+    assert!((sheen.response.roughness - DEFAULT_ROUGHNESS).abs() < f32::EPSILON);
+    assert!(sheen.response.has_sheen());
+
+    // A roughness outside 0..1 is a catalog error, not a silent clamp.
+    let bad = r##"{
+        "assets": [
+            { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
+              "source": "file",
+              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+            { "id": "core:mat_bad", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo", "roughness": 4.0 }
+        ]
+    }"##;
+    let error = AssetCatalog::from_json_str(bad).expect_err("roughness 4.0 must be rejected");
+    assert!(error.contains("roughness"), "{error}");
+}
+
+#[test]
+fn alpha_modes_resolve_to_the_three_draw_passes() {
+    let table = resolved_response_table();
+    assert_eq!(
+        table.entry_of("core:mat_plain").expect("plain").alpha.mode,
+        AlphaMode::Opaque
+    );
+    let glass = table.entry_of("core:mat_glass").expect("glass");
+    assert_eq!(glass.alpha.mode, AlphaMode::Blend);
+    assert!((glass.alpha.opacity - 0.5).abs() < f32::EPSILON);
+    assert!(glass.alpha.is_translucent());
+    let grille = table.entry_of("core:mat_grille").expect("grille");
+    assert_eq!(grille.alpha.mode, AlphaMode::Cutout);
+    assert!(grille.alpha.is_cutout());
+    assert!((grille.alpha.cutoff - 0.25).abs() < f32::EPSILON);
+}
+
+#[test]
+fn a_translucent_emissive_material_keeps_both_properties() {
+    let table = resolved_response_table();
+    let sign = table.entry_of("core:mat_glow_glass").expect("sign");
+    assert!(sign.emission.is_emissive());
+    assert_eq!(sign.emission.effective_color(), [0.8, 1.2, 2.0]);
+    assert!(sign.alpha.is_translucent());
+    // Neither property cancels the other: emission is additive on top of the
+    // lit term and alpha only decides how the result blends.
+    assert_eq!(sign.response, MaterialResponse::NONE);
+}
+
+#[test]
+fn an_opacity_or_cutoff_without_a_mode_is_a_catalog_error() {
+    let json = r##"{
+        "assets": [
+            { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
+              "source": "file",
+              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+            { "id": "core:mat_bad", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo", "opacity": 0.4 }
+        ]
+    }"##;
+    let error = AssetCatalog::from_json_str(json).expect_err("opacity needs a mode");
+    assert!(error.contains("alpha_mode"), "{error}");
+}
+
+#[test]
+fn an_unknown_alpha_mode_is_rejected_by_name() {
+    let json = r##"{
+        "assets": [
+            { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
+              "source": "file",
+              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+            { "id": "core:mat_bad", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo",
+              "alpha_mode": "translucent" }
+        ]
+    }"##;
+    let error = AssetCatalog::from_json_str(json).expect_err("unknown mode");
+    assert!(error.contains("translucent"), "{error}");
+}
+
+#[test]
+fn a_normal_map_that_cannot_resolve_degrades_the_whole_material() {
+    let json = r##"{
+        "assets": [
+            { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
+              "source": "file",
+              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+            { "id": "core:mat_broken", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo",
+              "specular": 0.5, "roughness": 0.2,
+              "normal_texture": "core:tex_nowhere" }
+        ]
+    }"##;
+    let catalog = AssetCatalog::from_json_str(json).expect("catalog parses; the reference dangles");
+    let level = basic_level("core:mat_broken", "core:mat_broken", "core:mat_broken");
+    let mut cache = TextureCache::new();
+    let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
+    let table = resolve_materials(&level, &catalog, None, Some(&root), &mut cache);
+    let broken = table.entry_of("core:mat_broken").expect("broken");
+    assert_eq!(broken.origin, TextureOrigin::Missing);
+    assert!(broken.response.normal.is_none());
+    assert_eq!(broken.response, MaterialResponse::NONE);
+    assert!(
+        broken
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("core:tex_nowhere")),
+        "the error names the missing texture: {:?}",
+        broken.error
+    );
+}
+
+#[test]
+fn pack_materials_may_author_response_and_alpha_fields() {
+    let albedo = encode_png(&RawImage::new(2, 2, vec![9; 16])).expect("encode albedo");
+    let normal = encode_png(&RawImage::new(1, 1, vec![128, 128, 255, 255])).expect("encode normal");
+    let mut textures: HashMap<String, Rc<[u8]>> = HashMap::new();
+    textures.insert("textures/wall.png".to_string(), Rc::from(albedo));
+    textures.insert("textures/bump.png".to_string(), Rc::from(normal));
+    let json = r#"{
+        "materials": {
+            "pack:glass": { "texture": "textures/wall.png", "alpha_mode": "blend",
+                            "opacity": 0.35, "specular": 0.4, "roughness": 0.2,
+                            "normal_texture": "textures/bump.png", "normal_strength": 1.5 }
+        }
+    }"#;
+    let pack = PackMaterials::new("response_pack", Some(json), textures);
+    let catalog = shipped_catalog();
+    let level = basic_level("pack:glass", "pack:glass", "pack:glass");
+    let mut cache = TextureCache::new();
+    let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
+    let table = resolve_materials(&level, &catalog, Some(&pack), Some(&root), &mut cache);
+    assert!(table.errors().is_empty(), "errors: {:?}", table.errors());
+
+    let glass = table.entry_of("pack:glass").expect("glass");
+    assert!(glass.alpha.is_translucent());
+    assert!((glass.alpha.opacity - 0.35).abs() < f32::EPSILON);
+    assert!(glass.response.has_sheen());
+    let normal = glass.response.normal.expect("pack normal index");
+    assert_eq!(
+        table.textures()[normal as usize].key,
+        "pack:response_pack:textures/bump.png"
+    );
+    assert_eq!(
+        table.textures()[normal as usize].origin,
+        TextureOrigin::Pack
+    );
+}
+
+#[test]
+fn opening_glass_materials_are_referenced_by_the_material_scan() {
+    let level_json = r#"{
+        "format_version": 1,
+        "id": "glass_scan",
+        "name": "Glass Scan",
+        "spawn": { "x": 1.0, "z": 1.0 },
+        "defaults": { "wall": "core:wallpaper_yellow_01", "floor": "core:carpet_beige_01",
+                      "ceiling": "core:ceiling_panel_01" },
+        "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 2.7 } ],
+        "walls": [
+            { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 0.3,
+              "openings": [ { "kind": "window", "offset": 1.0, "width": 1.0,
+                              "height": 1.0, "sill": 1.2,
+                              "glass": "core:glass_window_clear_01" } ] }
+        ]
+    }"#;
+    let level = serde_json::from_str::<LevelDef>(level_json).expect("level parses");
+    let ids = referenced_material_ids(&level);
+    assert!(
+        ids.iter().any(|id| id == "core:glass_window_clear_01"),
+        "the pane material must be part of the level's material set: {ids:?}"
+    );
+}
+
+#[test]
+fn the_shipped_glass_and_response_materials_resolve_with_their_pngs() {
+    let catalog = shipped_catalog();
+    for (material, mode, sheen, authors_mode) in [
+        ("core:glass_window_clear_01", AlphaMode::Blend, true, true),
+        ("core:glass_window_dirty_01", AlphaMode::Blend, true, true),
+        ("core:glass_tinted_01", AlphaMode::Blend, true, true),
+        ("core:glass_sign_lit_01", AlphaMode::Blend, true, true),
+        ("core:linoleum_polished_01", AlphaMode::Opaque, true, false),
+        ("core:metal_brushed_01", AlphaMode::Opaque, true, false),
+        ("core:plastic_panel_01", AlphaMode::Opaque, true, false),
+        ("core:pool_deck_wet_01", AlphaMode::Opaque, true, false),
+        ("core:painting_dull_01", AlphaMode::Opaque, false, false),
+    ] {
+        let entry = catalog.material(material).unwrap_or_else(|| {
+            panic!("{material} must be a shipped material");
+        });
+        // Only a translucent shipped material has to author the mode: an opaque
+        // one that authors nothing is exactly the pre-Batch-3 contract.
+        if authors_mode {
+            assert_eq!(entry.alpha_mode.as_deref(), Some(mode.name()), "{material}");
+        }
+        let level = basic_level(material, material, material);
+        let mut cache = TextureCache::new();
+        let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
+        let table = resolve_materials(&level, &catalog, None, Some(&root), &mut cache);
+        assert!(
+            table.errors().is_empty(),
+            "{material}: {:?}",
+            table.errors()
+        );
+        let resolved = table.entry_of(material).expect("resolved");
+        assert_eq!(resolved.alpha.mode, mode, "{material}");
+        assert_eq!(resolved.response.has_sheen(), sheen, "{material}");
+        if material == "core:metal_brushed_01" || material == "core:plastic_panel_01" {
+            assert!(
+                resolved.response.has_normal(),
+                "{material} ships a normal map"
+            );
+        }
+    }
+}

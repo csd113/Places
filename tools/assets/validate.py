@@ -223,6 +223,7 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
     seen_models: Dict[str, str] = {}
     material_textures: List[Tuple[str, str]] = []
     material_emissive_masks: List[Tuple[str, str]] = []
+    material_normal_textures: List[Tuple[str, str]] = []
     for index, entry in enumerate(catalog_entries(catalog)):
         raw_id = str(entry.get("id", "")).strip()
         where = raw_id or f"entry #{index + 1}"
@@ -343,6 +344,71 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
         if surface is not None and str(surface).strip() not in ("wall", "floor", "ceiling"):
             errors.append(f"{where}: surface must be 'wall', 'floor' or 'ceiling'")
 
+        # Batch 3 surface response and alpha. Like emission these are material
+        # definition fields: a prop or a texture that authored them would be a
+        # silent no-op, so it is an error.
+        normal_texture = entry.get("normal_texture")
+        normal_strength = entry.get("normal_strength")
+        specular = entry.get("specular")
+        specular_color = entry.get("specular_color")
+        roughness = entry.get("roughness")
+        alpha_mode = entry.get("alpha_mode")
+        opacity = entry.get("opacity")
+        alpha_cutoff = entry.get("alpha_cutoff")
+        declares_response = any(
+            entry.get(field) is not None
+            for field in (
+                "normal_texture",
+                "normal_strength",
+                "specular",
+                "specular_color",
+                "roughness",
+                "alpha_mode",
+                "opacity",
+                "alpha_cutoff",
+            )
+        )
+        if declares_response and not (asset_type == "material" and source == "definition"):
+            errors.append(
+                f"{where}: surface-response and alpha fields are only valid on a definition material"
+            )
+        else:
+            if normal_texture is not None:
+                normal_id = str(normal_texture).strip()
+                if not _ASSET_ID.match(normal_id):
+                    errors.append(f"{where}: malformed normal_texture id '{normal_id}'")
+                else:
+                    material_normal_textures.append((raw_id, normal_id))
+            if normal_strength is not None and (
+                not is_finite_number(normal_strength) or not 0.0 <= normal_strength <= 2.0
+            ):
+                errors.append(f"{where}: normal_strength must be a number between 0 and 2")
+            if normal_strength is not None and normal_texture is None:
+                errors.append(f"{where}: normal_strength requires a normal_texture")
+            if specular is not None and (
+                not is_finite_number(specular) or not 0.0 <= specular <= 1.0
+            ):
+                errors.append(f"{where}: specular must be a number between 0 and 1")
+            if specular_color is not None and not is_color_triplet(specular_color):
+                errors.append(f"{where}: specular_color must be three numbers in 0..1")
+            if roughness is not None and (
+                not is_finite_number(roughness) or not 0.0 <= roughness <= 1.0
+            ):
+                errors.append(f"{where}: roughness must be a number between 0 and 1")
+            if alpha_mode is not None:
+                mode = str(alpha_mode).strip().lower()
+                if mode not in ("opaque", "cutout", "blend"):
+                    errors.append(
+                        f"{where}: alpha_mode must be 'opaque', 'cutout' or 'blend', found '{alpha_mode}'"
+                    )
+            for field, value in (("opacity", opacity), ("alpha_cutoff", alpha_cutoff)):
+                if value is None:
+                    continue
+                if not is_finite_number(value) or not 0.0 <= value <= 1.0:
+                    errors.append(f"{where}: {field} must be a number between 0 and 1")
+                if alpha_mode is None:
+                    errors.append(f"{where}: {field} requires an explicit alpha_mode")
+
         # Material emission: a colour triple, an intensity and an optional mask
         # texture. Only definition materials may author it, and the mask must
         # resolve to a file-backed PNG texture exactly like the material's own
@@ -408,6 +474,28 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
         elif not os.path.isfile(os.path.join(asset_root, target_model)):
             errors.append(
                 f"{material_id}: texture '{texture_id}' file '{target_model}' does not exist below assets/"
+            )
+
+    # A normal map follows the same contract as the material's texture: a
+    # catalog texture entry backed by a real .png below assets/.
+    for material_id, normal_id in material_normal_textures:
+        target = entries_by_id.get(normal_id)
+        if target is None:
+            errors.append(f"{material_id}: normal_texture '{normal_id}' is not in the catalog")
+            continue
+        if str(target.get("asset_type", "")).strip() != "texture":
+            errors.append(f"{material_id}: normal_texture '{normal_id}' is not a texture asset")
+            continue
+        if str(target.get("source", "")).strip() != "file":
+            errors.append(f"{material_id}: normal_texture '{normal_id}' must be a file asset")
+            continue
+        target_model = str(target.get("model", "")).strip()
+        if not target_model.lower().endswith(".png"):
+            errors.append(f"{material_id}: normal_texture '{normal_id}' must name a .png model")
+            continue
+        if not os.path.isfile(os.path.join(asset_root, target_model)):
+            errors.append(
+                f"{material_id}: normal_texture '{normal_id}' file '{target_model}' does not exist below assets/"
             )
 
     # An emissive mask follows the same contract as the material's texture: a
@@ -483,6 +571,9 @@ def level_ids(level: dict):
             yield str(wall["material"]), "wall material"
         for face, material in (wall.get("faces") or {}).items():
             yield str(material), f"wall {face} face material"
+        for opening in wall.get("openings") or []:
+            if opening.get("glass"):
+                yield str(opening["glass"]).strip(), "opening glass material"
     for patch in level.get("floor_patches") or []:
         if patch.get("material"):
             yield str(patch["material"]), "floor patch material"

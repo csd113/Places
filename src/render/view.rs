@@ -155,68 +155,82 @@ attribute vec4 a_color;
 attribute vec2 a_uv;
 attribute vec2 a_lightmap_uv;
 attribute float a_lightmap_page;
+attribute vec3 a_normal;
+attribute vec3 a_tangent;
+attribute float a_handedness;
 uniform mat4 u_mvp;
+// Model transform of the object being drawn, identity for the static world.
+// Normals and the world position the surface-response term needs are taken
+// through it, so the dynamic-object path can shade a rigidly transformed mesh
+// with the same program.
+uniform mat4 u_model;
 varying vec4 v_color;
 varying vec2 v_uv;
 varying vec2 v_lightmap_uv;
 varying float v_lightmap_page;
+varying vec3 v_world_pos;
+varying vec3 v_normal;
+varying vec3 v_tangent;
+varying float v_handedness;
 
 void main() {
     v_color = a_color;
     v_uv = a_uv;
     v_lightmap_uv = a_lightmap_uv;
     v_lightmap_page = a_lightmap_page;
+    v_world_pos = (u_model * vec4(a_pos, 1.0)).xyz;
+    // The frame goes through the model's rotation. A mat4 multiply (rather than
+    // a mat3 constructor) is what GLSL 110 and GLSL ES 100 both accept; the
+    // model transform is a rigid motion, so the vectors stay unit length.
+    v_normal = (u_model * vec4(a_normal, 0.0)).xyz;
+    v_tangent = (u_model * vec4(a_tangent, 0.0)).xyz;
+    v_handedness = a_handedness;
     gl_Position = u_mvp * vec4(a_pos, 1.0);
 }
 ";
 
-/// Fragment stage of the world pass.
+/// The world fragment stage's body, compiled twice.
 ///
-/// Three independent terms make a pixel:
-///
-/// * **Lit** — `texture x vertex colour x baked light`, where the baked light is
-///   either the lightmap atlas or, for a vertex that carries no lightmap
-///   coordinates (`v_lightmap_page >= 254.5`), the light already folded into the
-///   vertex colour by the historical bake. `u_lightmap_enabled` is the global
-///   switch: with lightmaps unavailable it is zero and every vertex takes the
-///   vertex-lit path, which is what makes the fallback exact rather than
-///   approximate.
-/// * **Emission** — the material's own brightness, added on top and never
-///   multiplied by the light. A dark room cannot extinguish it, and it cannot
-///   brighten anything else: emission is not a light source.
-/// * **Dynamic probe** — `u_light_scale` is `1` for static geometry. The
-///   dynamic-object path sets it to the baked light sampled at the object's
-///   current position, so a moving object is shaded coherently without touching
-///   its vertex buffer.
-///
-/// `u_emission_vertex` selects which value feeds the emissive term. Ordinary
-/// materials use the per-batch `u_emission_color` (their `emissive x
-/// intensity`, modulated by the emissive mask when one is bound, and by the
-/// surface texture so artwork shapes the glow). Fixture faces use `1.0`, which
-/// makes the per-vertex colour the emission source: their glow is per instance
-/// (colour x intensity response) while the batch stays shared, and the lit term
-/// is multiplied by zero so exactly one term remains.
-///
-/// With no emission colour, no mask, `u_emission_vertex = 0` and no lightmap —
-/// every material authored before either existed — the added term is zero and
-/// the output is bit-for-bit the old `texture2D(u_texture, v_uv) * v_color`.
-pub(super) const FRAGMENT_SHADER_SRC: &str = r"
+/// `u_alpha_cutoff` is only *used* when the source is compiled with
+/// `ALPHA_CUTOUT` defined: a `discard` inside a program can disable early depth
+/// testing for every draw that uses it, and the opaque world must keep it. The
+/// same body therefore becomes two programs ([`fragment_shader_source`]) rather
+/// than one branch.
+const FRAGMENT_SHADER_BODY: &str = r"
 #ifdef GL_ES
 precision mediump float;
 #endif
 uniform sampler2D u_texture;
 uniform sampler2D u_emission_mask;
+uniform sampler2D u_normal_map;
+uniform sampler2D u_lightmap0;
+uniform sampler2D u_lightmap1;
 uniform vec3 u_emission_color;
 uniform float u_emission_mask_enabled;
 uniform float u_emission_vertex;
-uniform sampler2D u_lightmap0;
-uniform sampler2D u_lightmap1;
 uniform float u_lightmap_enabled;
 uniform vec3 u_light_scale;
+// Surface response. `u_response_enabled` is the master gate: it is zero for
+// every material without a normal map or a sheen, for the HUD, and for the
+// whole scene under the Low quality profile.
+uniform float u_response_enabled;
+uniform float u_normal_enabled;
+uniform float u_normal_strength;
+uniform vec3 u_specular;
+uniform float u_roughness;
+// Alpha. `u_opacity` scales the sampled alpha; `u_alpha_cutoff` is the
+// cut-out threshold of the ALPHA_CUTOUT program.
+uniform float u_opacity;
+uniform float u_alpha_cutoff;
+uniform vec3 u_camera_pos;
 varying vec4 v_color;
 varying vec2 v_uv;
 varying vec2 v_lightmap_uv;
 varying float v_lightmap_page;
+varying vec3 v_world_pos;
+varying vec3 v_normal;
+varying vec3 v_tangent;
+varying float v_handedness;
 
 void main() {
     vec4 tex_color = texture2D(u_texture, v_uv);
@@ -232,8 +246,138 @@ void main() {
     );
     float lightmap_on = u_lightmap_enabled * (1.0 - step(254.5, v_lightmap_page));
     vec3 light = mix(vec3(1.0), lm, lightmap_on) * u_light_scale;
+
+    // The geometric normal, made to face the viewer: nothing in the world is
+    // back-face culled, so a wall seen from behind must still shade.
+    vec3 normal = normalize(v_normal);
+    if (!gl_FrontFacing) {
+        normal = -normal;
+    }
+    if (u_response_enabled > 0.5 && u_normal_enabled > 0.5) {
+        vec3 tangent_space = texture2D(u_normal_map, v_uv).xyz * 2.0 - 1.0;
+        tangent_space.xy *= u_normal_strength;
+        vec3 tangent = normalize(v_tangent - normal * dot(normal, v_tangent));
+        vec3 bitangent = cross(normal, tangent) * v_handedness;
+        normal = normalize(
+            tangent * tangent_space.x + bitangent * tangent_space.y + normal * tangent_space.z
+        );
+    }
+
+    // View-dependent sheen: how much of the already-baked light a surface
+    // catches as it turns away from the camera. Roughness decides how tightly
+    // that concentrates; there is no light direction to sample, because the
+    // engine has no realtime lights.
+    vec3 sheen = vec3(0.0);
+    if (u_response_enabled > 0.5) {
+        vec3 view = normalize(u_camera_pos - v_world_pos);
+        float facing = clamp(abs(dot(normal, view)), 0.0, 1.0);
+        float gloss = 1.0 - u_roughness;
+        float grazing = pow(1.0 - facing, mix(1.0, 16.0, gloss));
+        float ahead = pow(facing, mix(1.0, 24.0, gloss));
+        // Two lobes: the broad one is the sheen a surface picks up as it turns
+        // away from the camera, the tight one is the near-normal glow a polished
+        // surface keeps even face-on. The engine has no light direction to place
+        // a real highlight, so both are scaled by the baked light and neither
+        // invents a source.
+        sheen = u_specular * (grazing * 0.55 + ahead * 0.45) * light;
+    }
+
     vec3 lit = tex_color.rgb * v_color.rgb * light * (1.0 - u_emission_vertex);
-    gl_FragColor = vec4(lit + emission, tex_color.a * v_color.a);
+    float alpha = tex_color.a * v_color.a * u_opacity;
+#ifdef ALPHA_CUTOUT
+    if (alpha < u_alpha_cutoff) {
+        discard;
+    }
+#endif
+    gl_FragColor = vec4(lit + sheen + emission, alpha);
+}
+";
+
+/// The world fragment source for one program variant.
+///
+/// `cutout` prepends the `ALPHA_CUTOUT` define so the alpha-tested program
+/// carries the `discard` and the opaque one does not. Compiled once at startup.
+#[must_use]
+pub fn fragment_shader_source(cutout: bool) -> String {
+    let define = if cutout {
+        "#define ALPHA_CUTOUT 1\n"
+    } else {
+        ""
+    };
+    format!("{define}{FRAGMENT_SHADER_BODY}")
+}
+
+/// Fragment stage of the world pass.
+///
+/// Three independent terms make a pixel:
+///
+/// * **Lit** — `texture x vertex colour x baked light`, where the baked light is
+///   either the lightmap atlas or, for a vertex that carries no lightmap
+///   coordinates (`v_lightmap_page >= 254.5`), the light already folded into the
+///   vertex colour by the historical bake. `u_lightmap_enabled` is the global
+///   switch: with lightmaps unavailable it is zero and every vertex takes the
+///   vertex-lit path, which is what makes the fallback exact rather than
+///   approximate.
+/// * **Emission** — the material's own brightness, added on top and never
+///   multiplied by the light. A dark room cannot extinguish it, and it cannot
+///   brighten anything else: emission is not a light source.
+/// * **Sheen** — the material's lightweight surface response: a view-dependent
+///   Fresnel term scaled by the baked light, optionally perturbed by a normal
+///   map. See [`crate::materials::response`]. Zero for every material that
+///   authors none.
+/// * **Dynamic probe** — `u_light_scale` is `1` for static geometry. The
+///   dynamic-object path sets it to the baked light sampled at the object's
+///   current position, so a moving object is shaded coherently without touching
+///   its vertex buffer.
+///
+/// `u_emission_vertex` selects which value feeds the emissive term. Ordinary
+/// materials use the per-batch `u_emission_color` (their `emissive x
+/// intensity`, modulated by the emissive mask when one is bound, and by the
+/// surface texture so artwork shapes the glow). Fixture faces use `1.0`, which
+/// makes the per-vertex colour the emission source: their glow is per instance
+/// (colour x intensity response) while the batch stays shared, and the lit term
+/// is multiplied by zero so exactly one term remains.
+///
+/// With no emission colour, no mask, no response, `u_emission_vertex = 0` and no
+/// lightmap — every material authored before either existed — the added terms
+/// are zero and the output is the historical
+/// `texture2D(u_texture, v_uv) * v_color` with an opaque alpha.
+///
+/// Fragment stage of the offscreen presentation pass follows.: one textured, unlit quad.
+///
+/// The scene is rendered into an offscreen colour attachment and presented to
+/// the default framebuffer by this pass. It applies no grading, no scaling and
+/// no sampling tricks — `texture2D` with `NEAREST` wrapping and no mip chain —
+/// so what the scene pass drew is what the window shows.
+pub(super) const PRESENT_FRAGMENT_SHADER_SRC: &str = r"
+#ifdef GL_ES
+precision mediump float;
+#endif
+uniform sampler2D u_scene;
+varying vec2 v_uv;
+
+void main() {
+    gl_FragColor = vec4(texture2D(u_scene, v_uv).rgb, 1.0);
+}
+";
+
+/// Vertex stage of the presentation pass: a screen-covering quad.
+///
+/// The quad's corners are the only geometry; `u_mvp` scales them from `[0, 1]`
+/// to the whole drawable, and the vertex's own position is its texture
+/// coordinate, so the scene texture is presented exactly once over the
+/// framebuffer with no distortion and no letterbox maths.
+pub(super) const PRESENT_VERTEX_SHADER_SRC: &str = r"
+#ifdef GL_ES
+precision mediump float;
+#endif
+attribute vec3 a_pos;
+uniform mat4 u_mvp;
+varying vec2 v_uv;
+
+void main() {
+    v_uv = a_pos.xy;
+    gl_Position = u_mvp * vec4(a_pos, 1.0);
 }
 ";
 
@@ -319,9 +463,32 @@ pub(super) const SCENE_ATTRIB_UV: u32 = 2;
 pub(super) const SCENE_ATTRIB_LIGHTMAP_UV: u32 = 3;
 /// Lightmap atlas page, as one plain unsigned byte.
 pub(super) const SCENE_ATTRIB_LIGHTMAP_PAGE: u32 = 4;
+/// Geometric normal, as three normalized signed bytes.
+pub(super) const SCENE_ATTRIB_NORMAL: u32 = 5;
+/// Surface tangent, as three normalized signed bytes.
+pub(super) const SCENE_ATTRIB_TANGENT: u32 = 6;
+/// Bitangent sign (±1), as one normalized signed byte.
+pub(super) const SCENE_ATTRIB_HANDEDNESS: u32 = 7;
+
+/// Number of vertex attributes the scene programs consume.
+///
+/// Exactly eight, the OpenGL ES 2.0 guaranteed minimum
+/// (`GL_MAX_VERTEX_ATTRIBS >= 8`), which is why the frame is packed into three
+/// signed bytes per vector and one for the sign rather than into floats.
+pub(super) const SCENE_ATTRIB_COUNT: usize = 8;
 
 /// Texture unit the world pass samples a surface's own sheet from.
 pub(super) const SCENE_TEXTURE_UNIT: i32 = 0;
+/// Texture unit the world pass samples a material's normal map from.
+///
+/// Like the mask unit it always has a texture bound (the white sheet when a
+/// material authors no normal map), and the material's `u_normal_enabled`
+/// uniform decides whether the fragment stage reads it at all.
+pub(super) const NORMAL_MAP_TEXTURE_UNIT: i32 = 4;
+
+/// Texture unit the offscreen presentation pass samples the scene colour from.
+pub(super) const PRESENT_TEXTURE_UNIT: i32 = 0;
+
 /// Texture unit the world pass samples a material's emissive mask from.
 ///
 /// The unit always has a bound texture (the shared white sheet when a batch has

@@ -446,6 +446,15 @@ pub struct WallOpeningDef {
     /// Height of the opening's bottom edge above the wall's base (wall.y). 0.0 = walk-through doorway.
     #[serde(default)]
     pub sill: f32,
+    /// Optional surface material that fills the opening with a pane: the level's
+    /// way to put **actual glass** in a window instead of leaving a hole.
+    ///
+    /// The value is an ordinary material id, so the pane's colour, dirt,
+    /// roughness, sheen and translucency are the material's, not the opening's
+    /// (`"glass": "core:glass_window_dirty_01"`). An opening without `glass` is
+    /// exactly the historical hole.
+    #[serde(default)]
+    pub glass: Option<String>,
 }
 
 fn default_opening_kind() -> String {
@@ -481,6 +490,19 @@ impl WallOpeningDef {
     #[must_use]
     pub fn is_door(&self) -> bool {
         self.kind == "door" || self.kind == "passage"
+    }
+
+    /// The material id of the pane filling this opening, if it authors one.
+    ///
+    /// A blank or whitespace-only id is treated as "no glass" rather than as an
+    /// unresolved material, so an empty string cannot paint the diagnostic
+    /// pattern across a window.
+    #[must_use]
+    pub fn glass_material(&self) -> Option<&str> {
+        self.glass
+            .as_deref()
+            .map(str::trim)
+            .filter(|glass| !glass.is_empty())
     }
 }
 

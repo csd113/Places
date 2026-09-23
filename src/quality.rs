@@ -135,10 +135,35 @@ impl QualityProfile {
     ///
     /// Reserving the hook now keeps later effect work (a future reflection or
     /// post-processing path) from having to invent its own tier names: it asks
-    /// the active profile instead. Nothing in this batch is switched off yet.
+    /// the active profile instead.
     #[must_use]
     pub const fn reduces_optional_features(self) -> bool {
         matches!(self, Self::Low)
+    }
+
+    /// True when this profile draws the optional surface response.
+    ///
+    /// The response is the normal-map perturbation and the view-dependent sheen
+    /// a material may author ([`crate::materials::response`]). Both profiles draw
+    /// the same geometry and the same albedo, emission and alpha; Low simply
+    /// leaves the response term out, which is the one per-fragment cost a
+    /// constrained GPU can drop without changing what an author authored. It is
+    /// a shader gate, not a different asset: the same PNGs and the same
+    /// materials reach the GPU under either profile.
+    #[must_use]
+    pub const fn draws_surface_response(self) -> bool {
+        matches!(self, Self::Full)
+    }
+
+    /// True when this profile renders the 3D scene at the drawable's own
+    /// resolution.
+    ///
+    /// See [`crate::render::framebuffer`]: Low renders the scene no wider than
+    /// the `PocketCHIP` reference width and presents it across the drawable,
+    /// which trades scene pixels for headroom on the devices Low exists for.
+    #[must_use]
+    pub const fn draws_scene_at_drawable_resolution(self) -> bool {
+        matches!(self, Self::Full)
     }
 }
 

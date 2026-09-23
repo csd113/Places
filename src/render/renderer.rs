@@ -14,23 +14,55 @@ use super::decals::{DECAL_ATLAS_SIZE, generate_decal_atlas};
 use super::view::dimension_f32;
 use super::{
     BatchRange, DECAL_ALPHA_CUTOFF, DECAL_EXTERNAL_BASE, DECAL_FRAGMENT_SHADER_SRC,
-    DECAL_POLYGON_OFFSET, DrawableSize, EMISSION_MASK_TEXTURE_UNIT, FRAGMENT_SHADER_SRC,
-    HasContext, LIGHTMAP_PAGE_SLOTS, LIGHTMAP_TEXTURE_UNIT, LIGHTMAP_TEXTURE_UNIT_1, LevelMesh,
-    MaterialIndex, MaterialTable, MeshChunk, MeshPacker, PackedVertex, PropMeshBatch,
-    SCENE_ATTRIB_COLOR, SCENE_ATTRIB_LIGHTMAP_PAGE, SCENE_ATTRIB_LIGHTMAP_UV, SCENE_ATTRIB_POS,
+    DECAL_POLYGON_OFFSET, DrawableSize, EMISSION_MASK_TEXTURE_UNIT, HasContext,
+    LIGHTMAP_PAGE_SLOTS, LIGHTMAP_TEXTURE_UNIT, LIGHTMAP_TEXTURE_UNIT_1, LevelMesh, MaterialIndex,
+    MaterialTable, MeshChunk, MeshPacker, NORMAL_MAP_TEXTURE_UNIT, PRESENT_FRAGMENT_SHADER_SRC,
+    PRESENT_TEXTURE_UNIT, PRESENT_VERTEX_SHADER_SRC, PackedVertex, PropMeshBatch,
+    SCENE_ATTRIB_COLOR, SCENE_ATTRIB_COUNT, SCENE_ATTRIB_HANDEDNESS, SCENE_ATTRIB_LIGHTMAP_PAGE,
+    SCENE_ATTRIB_LIGHTMAP_UV, SCENE_ATTRIB_NORMAL, SCENE_ATTRIB_POS, SCENE_ATTRIB_TANGENT,
     SCENE_ATTRIB_UV, SCENE_FAR_M, SCENE_NEAR_M, SCENE_TEXTURE_UNIT, StaticBatch, SurfaceKey,
     SurfaceKind, UI_REFERENCE_HEIGHT, UI_REFERENCE_WIDTH, VERTEX_SHADER_SRC, Vertex, VertexLayout,
-    decal_external_sheet_ids, generate_font_atlas, generate_white_texture, packed_layout,
-    spatial_cell_grid, vertical_fov_for_aspect,
+    decal_external_sheet_ids, fragment_shader_source, generate_font_atlas, generate_white_texture,
+    packed_layout, spatial_cell_grid, vertical_fov_for_aspect,
 };
 use crate::lighting::LevelLighting;
 use crate::lighting::lightmap::{
     LevelLightmaps, LightmapCache, LightmapFailure, LightmapMode, LightmapPage,
 };
-use crate::materials::MaterialEmission;
+use crate::materials::{AlphaMode, MaterialAlpha, MaterialEmission, MaterialResponse};
 use crate::spatial::Frustum;
 
+use super::framebuffer::{self, PRESENT_QUAD};
+
 use super::dynamic::{DynamicMesh, DynamicScene, DynamicUpdate};
+
+/// Whether the offscreen scene path should start enabled.
+///
+/// On by default. `LIMINAL_NO_OFFSCREEN=1` forces the historical
+/// draw-into-the-default-framebuffer path, which is what an A/B benchmark (and
+/// a bring-up on a driver with a broken framebuffer implementation) needs.
+fn offscreen_requested_from_env() -> bool {
+    std::env::var("LIMINAL_NO_OFFSCREEN").as_deref() != Ok("1")
+}
+
+/// Whether the scene should render offscreen at all, and at which size.
+///
+/// Pure so the decision can be tested without a GL context: `None` is the
+/// historical direct path (the switch is off, a target has already failed, or
+/// there is nothing to render into), `Some(size)` is the target to have.
+/// [`framebuffer::scene_target_size`] owns the profile's size rule.
+#[must_use]
+pub(super) fn offscreen_plan(
+    enabled: bool,
+    failed: bool,
+    quality: crate::quality::QualityProfile,
+    drawable: DrawableSize,
+) -> Option<DrawableSize> {
+    if !enabled || failed || drawable.is_empty() {
+        return None;
+    }
+    Some(framebuffer::scene_target_size(quality, drawable))
+}
 
 /// Applies min/mag filtering for a repeating, mipmapped texture.
 ///
@@ -165,12 +197,17 @@ unsafe fn create_program(
         let program = gl.create_program()?;
         // Both programs share the scene attribute layout, so bind the indices
         // explicitly before linking: the decal pass switches programs mid-frame
-        // and must not need to re-point the vertex attributes.
+        // and must not need to re-point the vertex attributes. Every slot the
+        // scene programs read is bound here; `scene_attribute_locations`
+        // verifies the driver honoured them.
         gl.bind_attrib_location(program, SCENE_ATTRIB_POS, "a_pos");
         gl.bind_attrib_location(program, SCENE_ATTRIB_COLOR, "a_color");
         gl.bind_attrib_location(program, SCENE_ATTRIB_UV, "a_uv");
         gl.bind_attrib_location(program, SCENE_ATTRIB_LIGHTMAP_UV, "a_lightmap_uv");
         gl.bind_attrib_location(program, SCENE_ATTRIB_LIGHTMAP_PAGE, "a_lightmap_page");
+        gl.bind_attrib_location(program, SCENE_ATTRIB_NORMAL, "a_normal");
+        gl.bind_attrib_location(program, SCENE_ATTRIB_TANGENT, "a_tangent");
+        gl.bind_attrib_location(program, SCENE_ATTRIB_HANDEDNESS, "a_handedness");
         gl.attach_shader(program, vs);
         gl.attach_shader(program, fs);
         gl.link_program(program);
@@ -208,18 +245,17 @@ pub(super) struct PropDraw {
     bounds: crate::spatial::Aabb,
 }
 
-/// The emission term the world program should currently be drawing with.
+/// The emission term one surface batch draws with: a colour premultiplied by
+/// intensity, an optional mask sheet, or the per-vertex colour.
 ///
-/// A batch's emission is material state, not vertex state, so it reaches the
-/// GPU as uniforms. This value is cached by the renderer: a run of batches that
-/// share the previous batch's emission costs no uniform or texture-unit work at
-/// all, and non-emissive content stays exactly as cheap as it was before the
-/// emission path existed.
+/// Split out of [`SurfaceState`] because it predates it and because the two
+/// paths that carry it (materials and fixture faces) are genuinely different
+/// sources of the same three uniforms.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) struct EmissionState {
     /// Colour premultiplied by intensity, or the per-vertex colour when
     /// `vertex` is set.
-    color: [f32; 3],
+    pub(super) color: [f32; 3],
     /// Mask sheet bound on the emissive texture unit. `None` disables the mask,
     /// which is the common case and skips a fragment-stage texture fetch.
     mask: Option<glow::Texture>,
@@ -229,7 +265,7 @@ pub(super) struct EmissionState {
 
 impl EmissionState {
     /// No emission: every material authored before emission existed.
-    const NONE: Self = Self {
+    pub(super) const NONE: Self = Self {
         color: [0.0, 0.0, 0.0],
         mask: None,
         vertex: false,
@@ -256,6 +292,217 @@ impl EmissionState {
             vertex: true,
         }
     }
+}
+
+/// The complete surface state one world draw runs with.
+///
+/// A batch's material is *not* vertex state: it reaches the GPU as uniforms.
+/// This value is cached by the renderer, so a run of batches that share the
+/// previous batch's material costs no uniform or texture-unit work at all, and
+/// content that authors no emission, no normal map and no sheen is exactly as
+/// cheap to draw as it was before those paths existed.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) struct SurfaceState {
+    /// Albedo sheet bound on [`SCENE_TEXTURE_UNIT`].
+    pub(super) texture: glow::Texture,
+    /// Normal-map sheet bound on [`NORMAL_MAP_TEXTURE_UNIT`], `None` to disable.
+    pub(super) normal: Option<glow::Texture>,
+    /// Emission colour, mask and source.
+    pub(super) emission: EmissionState,
+    /// Sheen colour, premultiplied by the authored strength.
+    pub(super) specular: [f32; 3],
+    /// `0.0` mirror-tight .. `1.0` fully matte.
+    pub(super) roughness: f32,
+    /// Multiplier applied to the sampled alpha.
+    pub(super) opacity: f32,
+    /// Alpha below which the alpha-tested program discards a texel.
+    pub(super) alpha_cutoff: f32,
+    /// Multiplier applied to the normal map's decoded `xy`.
+    pub(super) normal_strength: f32,
+    /// Whether the response term (normal map and sheen) is live for this draw.
+    ///
+    /// False for a material that authors none, for the HUD, and for the whole
+    /// scene under the Low quality profile.
+    pub(super) response: bool,
+}
+
+impl SurfaceState {
+    /// The state of a batch that binds only an albedo sheet and a vertex-lit
+    /// colour: every material authored before Batch 3, and the HUD.
+    pub(super) const fn plain(texture: glow::Texture) -> Self {
+        Self {
+            texture,
+            normal: None,
+            emission: EmissionState::NONE,
+            specular: [0.0; 3],
+            roughness: crate::materials::DEFAULT_ROUGHNESS,
+            normal_strength: crate::materials::DEFAULT_NORMAL_STRENGTH,
+            opacity: 1.0,
+            alpha_cutoff: crate::materials::DEFAULT_ALPHA_CUTOFF,
+            response: false,
+        }
+    }
+}
+
+/// Which fragment stage one draw uses.
+///
+/// The opaque world and the alpha-tested world are two *programs*, not one
+/// branch: a `discard` in a program can disable early depth testing for every
+/// draw that uses it, and the opaque world must keep it. The index is also the
+/// slot of the program's uniform locations.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum ScenePass {
+    /// The opaque/translucent world stage.
+    World,
+    /// The same stage with an alpha cut-out.
+    Cutout,
+}
+
+impl ScenePass {
+    /// Every pass, in slot order.
+    pub(super) const ALL: [Self; 2] = [Self::World, Self::Cutout];
+
+    /// This pass's slot in the uniform-location table.
+    const fn index(self) -> usize {
+        match self {
+            Self::World => 0,
+            Self::Cutout => 1,
+        }
+    }
+}
+
+/// Which draw pass one batch belongs to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum BatchPass {
+    /// Written in the opaque pass with depth writes on.
+    Opaque,
+    /// Written in the opaque pass through the alpha-tested program.
+    Cutout,
+    /// Written after everything opaque, sorted and blended, with depth writes
+    /// off.
+    Translucent,
+}
+
+impl BatchPass {
+    /// The pass a material's alpha contract implies.
+    #[must_use]
+    pub(super) const fn of(alpha: MaterialAlpha) -> Self {
+        match alpha.mode {
+            AlphaMode::Opaque => Self::Opaque,
+            AlphaMode::Cutout => Self::Cutout,
+            AlphaMode::Blend => {
+                if alpha.opacity > 0.0 {
+                    Self::Translucent
+                } else {
+                    // Nothing to see through: an invisible surface must not be
+                    // submitted at all, and the opaque pass is where a
+                    // zero-opacity surface is cheapest to skip.
+                    Self::Opaque
+                }
+            }
+        }
+    }
+
+    /// The scene program this pass draws with.
+    #[must_use]
+    pub(super) const fn program(self) -> ScenePass {
+        match self {
+            Self::Cutout => ScenePass::Cutout,
+            Self::Opaque | Self::Translucent => ScenePass::World,
+        }
+    }
+}
+
+/// Which pass one static surface key belongs to, given its material's alpha.
+///
+/// Fixtures, placeholder prop boxes and decals are opaque by construction: their
+/// alpha never reaches the framebuffer. Only a floor, ceiling or wall that binds
+/// a level material can be translucent, because only a level material authors an
+/// alpha contract at all.
+#[must_use]
+pub(super) fn batch_pass_for(
+    kind: SurfaceKind,
+    has_material: bool,
+    alpha: Option<MaterialAlpha>,
+) -> BatchPass {
+    match kind {
+        SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall if has_material => {
+            alpha.map_or(BatchPass::Opaque, BatchPass::of)
+        }
+        SurfaceKind::Floor
+        | SurfaceKind::Ceiling
+        | SurfaceKind::Wall
+        | SurfaceKind::Light
+        | SurfaceKind::PropFallback
+        | SurfaceKind::Decal => BatchPass::Opaque,
+    }
+}
+
+/// Collects every translucent static batch that should be drawn, and sorts them
+/// back to front.
+///
+/// `pass_of` answers which pass a key belongs to (the renderer's material table
+/// answers it in the frame loop, a test answers it directly) and `visible`
+/// answers whether a batch survived culling. Sorting is by the squared distance
+/// from the camera to each batch's centre, nearest last, so a nearer translucent
+/// surface blends *over* a farther one; two surfaces at the same distance keep
+/// their build order, which is deterministic.
+pub(super) fn collect_translucent_draws(
+    batches: &[StaticBatch],
+    pass_of: impl Fn(SurfaceKey) -> BatchPass,
+    camera: glam::Vec3,
+    visible: impl Fn(&crate::spatial::Aabb) -> bool,
+    out: &mut Vec<TranslucentDraw>,
+) {
+    out.clear();
+    for (index, batch) in batches.iter().enumerate() {
+        if batch.index_range.count <= 0 || batch.key.kind == SurfaceKind::Decal {
+            continue;
+        }
+        if pass_of(batch.key) != BatchPass::Translucent {
+            continue;
+        }
+        if !visible(&batch.bounds) {
+            continue;
+        }
+        let centre = batch.bounds.centre();
+        let delta = glam::Vec3::new(
+            centre[0] - camera.x,
+            centre[1] - camera.y,
+            centre[2] - camera.z,
+        );
+        out.push(TranslucentDraw {
+            source: TranslucentSource::Static(index),
+            distance_sq: delta.length_squared(),
+        });
+    }
+    // Farthest first: a nearer surface must blend over a farther one.
+    out.sort_by(|left, right| {
+        right
+            .distance_sq
+            .partial_cmp(&left.distance_sq)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+}
+
+/// One item of the translucent pass, resolved to the batch it draws.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) struct TranslucentDraw {
+    pub(super) source: TranslucentSource,
+    /// Squared distance from the camera to the batch's centre, used to sort the
+    /// pass back to front.
+    pub(super) distance_sq: f32,
+}
+
+/// Where one translucent draw's geometry lives.
+///
+/// Only the static world contributes translucent geometry in this batch: a
+/// prop's glTF `alphaMode` is not parsed yet, so every placed model draws
+/// opaque. See the deferred-list note in the Batch 3 report.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum TranslucentSource {
+    /// Index into [`Renderer::static_batches`].
+    Static(usize),
 }
 
 /// Cost and shape of the last level build, split by stage so a hardware run can
@@ -384,27 +631,113 @@ pub(super) const fn emission_routing(kind: SurfaceKind, has_material: bool) -> E
     }
 }
 
-/// The GL objects every renderer owns from startup: the two scene programs, the
-/// UI vertex buffer, the untextured and font sheets, and the scene attribute and
-/// uniform locations.
-struct StartupResources {
+/// Every uniform location one scene program exposes.
+///
+/// Uniform state in OpenGL is *per program*, not per context: switching to the
+/// alpha-tested program invalidates everything the opaque program was holding,
+/// so each program owns its own location table and the renderer re-uploads the
+/// per-frame state (lightmap switch, light scale, model transform, camera) after
+/// every switch.
+struct ProgramUniforms {
+    mvp: Option<glow::UniformLocation>,
+    model: Option<glow::UniformLocation>,
+    texture: Option<glow::UniformLocation>,
+    camera_pos: Option<glow::UniformLocation>,
+    emission_color: Option<glow::UniformLocation>,
+    emission_mask_enabled: Option<glow::UniformLocation>,
+    emission_vertex: Option<glow::UniformLocation>,
+    lightmap_enabled: Option<glow::UniformLocation>,
+    light_scale: Option<glow::UniformLocation>,
+    response_enabled: Option<glow::UniformLocation>,
+    normal_enabled: Option<glow::UniformLocation>,
+    normal_strength: Option<glow::UniformLocation>,
+    specular: Option<glow::UniformLocation>,
+    roughness: Option<glow::UniformLocation>,
+    opacity: Option<glow::UniformLocation>,
+    alpha_cutoff: Option<glow::UniformLocation>,
+}
+
+impl ProgramUniforms {
+    /// Looks up every location of one linked program.
+    unsafe fn new(gl: &glow::Context, program: glow::Program) -> Self {
+        unsafe {
+            Self {
+                mvp: gl.get_uniform_location(program, "u_mvp"),
+                model: gl.get_uniform_location(program, "u_model"),
+                texture: gl.get_uniform_location(program, "u_texture"),
+                camera_pos: gl.get_uniform_location(program, "u_camera_pos"),
+                emission_color: gl.get_uniform_location(program, "u_emission_color"),
+                emission_mask_enabled: gl.get_uniform_location(program, "u_emission_mask_enabled"),
+                emission_vertex: gl.get_uniform_location(program, "u_emission_vertex"),
+                lightmap_enabled: gl.get_uniform_location(program, "u_lightmap_enabled"),
+                light_scale: gl.get_uniform_location(program, "u_light_scale"),
+                response_enabled: gl.get_uniform_location(program, "u_response_enabled"),
+                normal_enabled: gl.get_uniform_location(program, "u_normal_enabled"),
+                normal_strength: gl.get_uniform_location(program, "u_normal_strength"),
+                specular: gl.get_uniform_location(program, "u_specular"),
+                roughness: gl.get_uniform_location(program, "u_roughness"),
+                opacity: gl.get_uniform_location(program, "u_opacity"),
+                alpha_cutoff: gl.get_uniform_location(program, "u_alpha_cutoff"),
+            }
+        }
+    }
+
+    /// Points the program's fixed sampler units at the units they read.
+    ///
+    /// The units never change for the lifetime of a program, so this runs once
+    /// at startup. Every unit always has a texture bound before a draw (the
+    /// white sheet stands in for a missing mask or normal map), so a shader that
+    /// samples one anyway reads a defined value.
+    unsafe fn bind_samplers(&self, gl: &glow::Context, program: glow::Program) {
+        unsafe {
+            gl.use_program(Some(program));
+            if let Some(ref loc) = self.texture {
+                gl.uniform_1_i32(Some(loc), SCENE_TEXTURE_UNIT);
+            }
+            if let Some(loc) = gl.get_uniform_location(program, "u_emission_mask") {
+                gl.uniform_1_i32(Some(&loc), EMISSION_MASK_TEXTURE_UNIT);
+            }
+            if let Some(loc) = gl.get_uniform_location(program, "u_normal_map") {
+                gl.uniform_1_i32(Some(&loc), NORMAL_MAP_TEXTURE_UNIT);
+            }
+            if let Some(loc) = gl.get_uniform_location(program, "u_lightmap0") {
+                gl.uniform_1_i32(Some(&loc), LIGHTMAP_TEXTURE_UNIT);
+            }
+            if let Some(loc) = gl.get_uniform_location(program, "u_lightmap1") {
+                gl.uniform_1_i32(Some(&loc), LIGHTMAP_TEXTURE_UNIT_1);
+            }
+        }
+    }
+}
+
+/// GPU state for the offscreen presentation pass: the program, its uniforms and
+/// the four-vertex quad every frame draws.
+struct PresentPass {
     program: glow::Program,
+    vbo: glow::Buffer,
+    u_mvp: Option<glow::UniformLocation>,
+    u_scene: Option<glow::UniformLocation>,
+}
+
+/// The GL objects every renderer owns from startup: the three scene programs, the
+/// UI vertex buffer, the untextured and font sheets, and the scene attribute
+/// locations.
+struct StartupResources {
+    programs: [glow::Program; ScenePass::ALL.len()],
+    uniforms: [ProgramUniforms; ScenePass::ALL.len()],
+    present: PresentPass,
     ui_vbo: glow::Buffer,
     white_texture: glow::Texture,
     font_texture: glow::Texture,
     decal: DecalPass,
-    u_mvp_loc: Option<glow::UniformLocation>,
-    u_texture_loc: Option<glow::UniformLocation>,
-    u_emission_color_loc: Option<glow::UniformLocation>,
-    u_emission_mask_enabled_loc: Option<glow::UniformLocation>,
-    u_emission_vertex_loc: Option<glow::UniformLocation>,
-    u_lightmap_enabled_loc: Option<glow::UniformLocation>,
-    u_light_scale_loc: Option<glow::UniformLocation>,
     a_pos_loc: u32,
     a_color_loc: u32,
     a_uv_loc: u32,
     a_lightmap_uv_loc: u32,
     a_lightmap_page_loc: u32,
+    a_normal_loc: u32,
+    a_tangent_loc: u32,
+    a_handedness_loc: u32,
 }
 
 impl StartupResources {
@@ -420,64 +753,18 @@ impl StartupResources {
             gl.depth_func(glow::LEQUAL);
             gl.clear_color(0.08, 0.08, 0.09, 1.0);
 
-            let program = create_program(gl, VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC)?;
-            // `glUniform*` writes the uniform of the program *currently in use*,
-            // so bind it before the one-time sampler-unit and `u_light_scale`
-            // uploads below. Without this they are no-ops (`GL_INVALID_OPERATION`
-            // with no program bound) and the uniforms keep their default value:
-            // `u_light_scale` would be `(0, 0, 0)`, which blacks out every
-            // surface that is not drawing through the per-vertex emission path,
-            // and `u_lightmap0/1` would both read texture unit 0 instead of the
-            // atlas units.
-            gl.use_program(Some(program));
-            let a_pos_loc = gl
-                .get_attrib_location(program, "a_pos")
-                .ok_or_else(|| "Missing a_pos attribute".to_string())?;
-            let a_color_loc = gl
-                .get_attrib_location(program, "a_color")
-                .ok_or_else(|| "Missing a_color attribute".to_string())?;
-            let a_uv_loc = gl
-                .get_attrib_location(program, "a_uv")
-                .ok_or_else(|| "Missing a_uv attribute".to_string())?;
-            let a_lightmap_uv_loc = gl
-                .get_attrib_location(program, "a_lightmap_uv")
-                .ok_or_else(|| "Missing a_lightmap_uv attribute".to_string())?;
-            let a_lightmap_page_loc = gl
-                .get_attrib_location(program, "a_lightmap_page")
-                .ok_or_else(|| "Missing a_lightmap_page attribute".to_string())?;
-
-            let u_mvp_loc = gl.get_uniform_location(program, "u_mvp");
-            let u_texture_loc = gl.get_uniform_location(program, "u_texture");
-            // Emission state. The sampler units are fixed once (albedo on 0,
-            // mask on 1) and the mask unit always has a texture bound, so a
-            // shader that samples it anyway reads a defined value.
-            let u_emission_color_loc = gl.get_uniform_location(program, "u_emission_color");
-            let u_emission_mask_enabled_loc =
-                gl.get_uniform_location(program, "u_emission_mask_enabled");
-            let u_emission_vertex_loc = gl.get_uniform_location(program, "u_emission_vertex");
-            // Lightmap state: both atlas units are fixed once and default to the
-            // white sheet with the global switch off, which is exactly the
-            // vertex-lit fallback.
-            let u_lightmap_enabled_loc = gl.get_uniform_location(program, "u_lightmap_enabled");
-            let u_light_scale_loc = gl.get_uniform_location(program, "u_light_scale");
-            if let Some(ref loc) = u_texture_loc {
-                gl.uniform_1_i32(Some(loc), SCENE_TEXTURE_UNIT);
-            }
-            if let Some(loc) = gl.get_uniform_location(program, "u_emission_mask") {
-                gl.uniform_1_i32(Some(&loc), EMISSION_MASK_TEXTURE_UNIT);
-            }
-            if let Some(loc) = gl.get_uniform_location(program, "u_lightmap0") {
-                gl.uniform_1_i32(Some(&loc), LIGHTMAP_TEXTURE_UNIT);
-            }
-            if let Some(loc) = gl.get_uniform_location(program, "u_lightmap1") {
-                gl.uniform_1_i32(Some(&loc), LIGHTMAP_TEXTURE_UNIT_1);
-            }
-            if let Some(ref loc) = u_lightmap_enabled_loc {
-                gl.uniform_1_f32(Some(loc), 0.0);
-            }
-            if let Some(ref loc) = u_light_scale_loc {
-                gl.uniform_3_f32(Some(loc), 1.0, 1.0, 1.0);
-            }
+            let (programs, uniforms) = create_scene_programs(gl)?;
+            let [
+                a_pos_loc,
+                a_color_loc,
+                a_uv_loc,
+                a_lightmap_uv_loc,
+                a_lightmap_page_loc,
+                a_normal_loc,
+                a_tangent_loc,
+                a_handedness_loc,
+            ] = scene_attribute_locations(gl, programs)?;
+            let present = create_present_pass(gl)?;
 
             // The untextured fixture sheet and the UI/decal resources are the
             // only textures this renderer owns up front. Every surface texture
@@ -515,25 +802,153 @@ impl StartupResources {
             gl.bind_buffer(glow::ARRAY_BUFFER, None);
 
             Ok(Self {
-                program,
+                programs,
+                uniforms,
+                present,
                 ui_vbo,
                 white_texture,
                 font_texture,
                 decal,
-                u_mvp_loc,
-                u_texture_loc,
-                u_emission_color_loc,
-                u_emission_mask_enabled_loc,
-                u_emission_vertex_loc,
-                u_lightmap_enabled_loc,
-                u_light_scale_loc,
                 a_pos_loc,
                 a_color_loc,
                 a_uv_loc,
                 a_lightmap_uv_loc,
                 a_lightmap_page_loc,
+                a_normal_loc,
+                a_tangent_loc,
+                a_handedness_loc,
             })
         }
+    }
+}
+
+/// Compiles the two world programs and looks up their uniform locations.
+///
+/// One shader body, two programs: the opaque world and the same world with an
+/// alpha cut-out. Splitting them keeps `discard` out of the program every opaque
+/// draw uses, where it would disable early depth testing for the whole frame.
+///
+/// # Errors
+///
+/// Returns a message when either program fails to compile or link.
+unsafe fn create_scene_programs(
+    gl: &glow::Context,
+) -> Result<
+    (
+        [glow::Program; ScenePass::ALL.len()],
+        [ProgramUniforms; ScenePass::ALL.len()],
+    ),
+    String,
+> {
+    unsafe {
+        let world = create_program(gl, VERTEX_SHADER_SRC, &fragment_shader_source(false))?;
+        let cutout = match create_program(gl, VERTEX_SHADER_SRC, &fragment_shader_source(true)) {
+            Ok(program) => program,
+            Err(error) => {
+                gl.delete_program(world);
+                return Err(error);
+            }
+        };
+        let programs = [world, cutout];
+        let uniforms = [
+            ProgramUniforms::new(gl, world),
+            ProgramUniforms::new(gl, cutout),
+        ];
+        for pass in ScenePass::ALL {
+            if let (Some(uniforms), Some(program)) =
+                (uniforms.get(pass.index()), programs.get(pass.index()))
+            {
+                uniforms.bind_samplers(gl, *program);
+            }
+        }
+        Ok((programs, uniforms))
+    }
+}
+
+/// Verifies that every scene attribute linked at its fixed slot.
+///
+/// The slots are bound before linking (see [`create_program`]), so the decal
+/// pass can switch programs mid-frame without re-pointing the vertex attributes.
+/// A driver that reorders them anyway is a hard startup error rather than a
+/// silently mis-drawn frame.
+///
+/// # Errors
+///
+/// Returns a message when an attribute is missing or linked at another slot.
+unsafe fn scene_attribute_locations(
+    gl: &glow::Context,
+    programs: [glow::Program; ScenePass::ALL.len()],
+) -> Result<[u32; SCENE_ATTRIB_COUNT], String> {
+    let Some(&program) = programs.get(ScenePass::World.index()) else {
+        return Err("the world program is missing".to_string());
+    };
+    let mut locations = [0u32; SCENE_ATTRIB_COUNT];
+    unsafe {
+        for (slot, (name, expected)) in [
+            ("a_pos", SCENE_ATTRIB_POS),
+            ("a_color", SCENE_ATTRIB_COLOR),
+            ("a_uv", SCENE_ATTRIB_UV),
+            ("a_lightmap_uv", SCENE_ATTRIB_LIGHTMAP_UV),
+            ("a_lightmap_page", SCENE_ATTRIB_LIGHTMAP_PAGE),
+            ("a_normal", SCENE_ATTRIB_NORMAL),
+            ("a_tangent", SCENE_ATTRIB_TANGENT),
+            ("a_handedness", SCENE_ATTRIB_HANDEDNESS),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let location = gl
+                .get_attrib_location(program, name)
+                .ok_or_else(|| format!("Missing {name} attribute"))?;
+            if location != expected {
+                return Err(format!(
+                    "attribute {name} linked at {location}, expected the fixed slot {expected}"
+                ));
+            }
+            if let Some(target) = locations.get_mut(slot) {
+                *target = location;
+            }
+        }
+    }
+    Ok(locations)
+}
+
+/// Creates the offscreen presentation program and its four-vertex quad.
+///
+/// # Errors
+///
+/// Returns a message when the program fails to compile or link, or a buffer
+/// cannot be created.
+unsafe fn create_present_pass(gl: &glow::Context) -> Result<PresentPass, String> {
+    unsafe {
+        let program = create_program(gl, PRESENT_VERTEX_SHADER_SRC, PRESENT_FRAGMENT_SHADER_SRC)?;
+        let vbo = match gl.create_buffer() {
+            Ok(buffer) => buffer,
+            Err(error) => {
+                gl.delete_program(program);
+                return Err(error);
+            }
+        };
+        gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
+        // `f32` has no padding and the array is a plain buffer, so its raw
+        // bytes are exactly what the attribute pointer reads back.
+        let quad_bytes = std::slice::from_raw_parts(
+            PRESENT_QUAD.as_ptr().cast::<u8>(),
+            std::mem::size_of_val(&PRESENT_QUAD),
+        );
+        gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, quad_bytes, glow::STATIC_DRAW);
+        gl.bind_buffer(glow::ARRAY_BUFFER, None);
+        let present = PresentPass {
+            program,
+            vbo,
+            u_mvp: gl.get_uniform_location(program, "u_mvp"),
+            u_scene: gl.get_uniform_location(program, "u_scene"),
+        };
+        if let Some(loc) = present.u_scene.as_ref() {
+            gl.use_program(Some(program));
+            gl.uniform_1_i32(Some(loc), PRESENT_TEXTURE_UNIT);
+        }
+        Ok(present)
     }
 }
 
@@ -546,7 +961,46 @@ impl StartupResources {
 pub struct Renderer {
     _gl_context: sdl2::video::GLContext,
     gl: glow::Context,
-    program: glow::Program,
+    /// The opaque world and alpha-tested world programs, in [`ScenePass`] order.
+    programs: [glow::Program; ScenePass::ALL.len()],
+    /// Uniform locations of each program, in the same order.
+    program_uniforms: [ProgramUniforms; ScenePass::ALL.len()],
+    /// Which program is currently bound, so a run of draws in one pass costs no
+    /// program switch at all.
+    current_pass: Option<ScenePass>,
+    /// The surface state the current program was last set to.
+    surface_state: Option<SurfaceState>,
+    /// The per-frame state (lightmap switch, light scale, model transform,
+    /// camera position) *this program* was last set to. Cleared on every program
+    /// switch, because uniform state lives with the program.
+    frame_state_valid: bool,
+    /// View-projection matrix of the current scene frame, re-uploaded to
+    /// whichever program starts drawing after a switch.
+    scene_mvp: glam::Mat4,
+    /// Camera position the sheen term measures the view direction from.
+    camera_pos: glam::Vec3,
+    /// Camera position currently uploaded to the bound program.
+    uploaded_camera_pos: glam::Vec3,
+    /// The light multiplier the bound program is currently drawing with, so the
+    /// static/dynamic switch does not re-upload an unchanged uniform.
+    light_scale: [f32; 3],
+    /// Offscreen scene target, recreated whenever the drawable's size or the
+    /// quality profile changes. `None` means "draw straight into the default
+    /// framebuffer", which is what a failed target falls back to.
+    scene_target: Option<framebuffer::SceneTarget>,
+    /// Size the resident scene target was created for.
+    scene_target_size: DrawableSize,
+    /// Whether offscreen rendering is enabled at all (settings switch and the
+    /// `LIMINAL_NO_OFFSCREEN=1` benchmark override).
+    offscreen_enabled: bool,
+    /// True once a target creation has failed, so the failure is reported once
+    /// and every later frame takes the direct path.
+    offscreen_failed: bool,
+    /// The presentation pass: the offscreen scene copied onto the drawable.
+    present: PresentPass,
+    /// Scratch list of translucent draws, rebuilt every frame and sorted back to
+    /// front. Kept across frames so the sort never allocates.
+    translucent_scratch: Vec<TranslucentDraw>,
     /// Static-geometry buffer pairs: `(vbo, ibo)`, each addressable with
     /// 16-bit indices. A small level needs one; a large one needs several.
     level_buffers: Vec<(glow::Buffer, glow::Buffer)>,
@@ -628,9 +1082,10 @@ pub struct Renderer {
     material_texture_slots: Vec<u16>,
     /// Emission per material index, parallel to `material_texture_slots`.
     material_emissions: Vec<crate::materials::MaterialEmission>,
-    /// The emission the world program is currently set to draw with. See
-    /// [`EmissionState`].
-    emission_state: EmissionState,
+    /// Surface response per material index, parallel to `material_texture_slots`.
+    material_responses: Vec<MaterialResponse>,
+    /// Alpha contract per material index, parallel to `material_texture_slots`.
+    material_alphas: Vec<MaterialAlpha>,
     /// Runtime quality profile: how large a texture may reach the GPU. Chosen
     /// once at startup from the settings (`full` or `low`).
     quality: crate::quality::QualityProfile,
@@ -640,23 +1095,6 @@ pub struct Renderer {
     font_texture: glow::Texture,
     /// Decal rendering state (program, shared sheet, uniforms).
     decal: DecalPass,
-    u_mvp_loc: Option<glow::UniformLocation>,
-    u_texture_loc: Option<glow::UniformLocation>,
-    /// World-program locations of the emission uniforms (see [`EmissionState`]).
-    u_emission_color_loc: Option<glow::UniformLocation>,
-    u_emission_mask_enabled_loc: Option<glow::UniformLocation>,
-    u_emission_vertex_loc: Option<glow::UniformLocation>,
-    /// World-program switch that turns lightmap sampling on.
-    ///
-    /// Zero whenever no valid lightmap set is resident, which makes every vertex
-    /// fall back to the light already baked into its colour.
-    u_lightmap_enabled_loc: Option<glow::UniformLocation>,
-    /// World-program multiplier the dynamic-object path sets to the baked light
-    /// sampled at a moving object's current position. Static draws keep `1`.
-    u_light_scale_loc: Option<glow::UniformLocation>,
-    /// The light multiplier the world program is currently drawing with, so the
-    /// static/dynamic switch does not re-upload an unchanged uniform.
-    light_scale: [f32; 3],
     /// Lightmap atlas pages currently bound on texture units 2 and 3. The shared
     /// white sheet stands in when a page is absent, so the units are never
     /// unbound.
@@ -685,6 +1123,9 @@ pub struct Renderer {
     a_uv_loc: u32,
     a_lightmap_uv_loc: u32,
     a_lightmap_page_loc: u32,
+    a_normal_loc: u32,
+    a_tangent_loc: u32,
+    a_handedness_loc: u32,
     /// Whether repeating 3D textures use linear (vs nearest) filtering. Wired
     /// to the user-facing `texture_filtering` setting.
     linear_filtering: bool,
@@ -738,35 +1179,29 @@ impl Renderer {
         };
 
         let prop_catalog = crate::loader::PropCatalog::load_default();
-
-        let StartupResources {
-            program,
-            ui_vbo,
-            white_texture,
-            font_texture,
-            decal,
-            u_mvp_loc,
-            u_texture_loc,
-            u_emission_color_loc,
-            u_emission_mask_enabled_loc,
-            u_emission_vertex_loc,
-            u_lightmap_enabled_loc,
-            u_light_scale_loc,
-            a_pos_loc,
-            a_color_loc,
-            a_uv_loc,
-            a_lightmap_uv_loc,
-            a_lightmap_page_loc,
-        } = unsafe { StartupResources::create(&gl)? };
-
+        let startup = unsafe { StartupResources::create(&gl)? };
         let (initial_width, initial_height) = window.drawable_size();
 
-        let renderer = Self {
+        Ok(Self {
             _gl_context: gl_context,
             gl,
-            program,
+            programs: startup.programs,
+            program_uniforms: startup.uniforms,
+            current_pass: None,
+            surface_state: None,
+            frame_state_valid: false,
+            scene_mvp: glam::Mat4::IDENTITY,
+            camera_pos: glam::Vec3::ZERO,
+            uploaded_camera_pos: glam::Vec3::ZERO,
+            light_scale: [1.0; 3],
+            scene_target: None,
+            scene_target_size: DrawableSize::new(0, 0),
+            offscreen_enabled: offscreen_requested_from_env(),
+            offscreen_failed: false,
+            present: startup.present,
+            translucent_scratch: Vec::new(),
             level_buffers: Vec::new(),
-            ui_vbo,
+            ui_vbo: startup.ui_vbo,
             ui_scratch: Vec::new(),
             vertex_layout: VertexLayout::Packed,
             indexing_enabled: true,
@@ -792,44 +1227,40 @@ impl Renderer {
             material_textures: Vec::new(),
             material_texture_slots: Vec::new(),
             material_emissions: Vec::new(),
-            emission_state: EmissionState::NONE,
+            material_responses: Vec::new(),
+            material_alphas: Vec::new(),
             quality: crate::quality::QualityProfile::DEFAULT,
-            white_texture,
-            font_texture,
-            decal,
-            lightmap_pages: [white_texture; LIGHTMAP_PAGE_SLOTS],
+            white_texture: startup.white_texture,
+            font_texture: startup.font_texture,
+            decal: startup.decal,
+            lightmap_pages: [startup.white_texture; LIGHTMAP_PAGE_SLOTS],
             lightmaps_resident: false,
             lightmaps_enabled: false,
             lightmaps_requested: true,
             lightmap_textures: Vec::new(),
             lightmap_cache: LightmapCache::with_disk(),
-            light_scale: [1.0; 3],
-            u_mvp_loc,
-            u_texture_loc,
-            u_emission_color_loc,
-            u_emission_mask_enabled_loc,
-            u_emission_vertex_loc,
-            u_lightmap_enabled_loc,
-            u_light_scale_loc,
-            a_pos_loc,
-            a_color_loc,
-            a_uv_loc,
-            a_lightmap_uv_loc,
-            a_lightmap_page_loc,
+            a_pos_loc: startup.a_pos_loc,
+            a_color_loc: startup.a_color_loc,
+            a_uv_loc: startup.a_uv_loc,
+            a_lightmap_uv_loc: startup.a_lightmap_uv_loc,
+            a_lightmap_page_loc: startup.a_lightmap_page_loc,
+            a_normal_loc: startup.a_normal_loc,
+            a_tangent_loc: startup.a_tangent_loc,
+            a_handedness_loc: startup.a_handedness_loc,
             linear_filtering: true,
             drawable_size: DrawableSize::new(initial_width, initial_height),
             level_stats: LevelBuildStats::default(),
             render_stats: RenderStats::default(),
-        };
-        Ok(renderer)
+        })
     }
 
     /// Records the current physical framebuffer size.
     ///
-    /// This renderer draws directly into the default framebuffer, so no offscreen
-    /// colour/depth attachments exist to recreate; the viewport and projection are
-    /// derived from this size each frame. Returns `true` when the size changed,
-    /// which is where any future size-dependent GPU resource would be rebuilt.
+    /// The offscreen scene target is sized from this value, so the next
+    /// [`Self::render_scene`] rebuilds it when the drawable changed — a window
+    /// resize, a monitor move or a `HiDPI` backing-scale change. Nothing is
+    /// rebuilt here: the target is created lazily, in the frame that needs it.
+    /// Returns `true` when the size changed.
     pub fn set_drawable_size(&mut self, size: DrawableSize) -> bool {
         if self.drawable_size == size {
             return false;
@@ -1527,6 +1958,15 @@ impl Renderer {
 
     /// Renders the 3D level combining yaw and pitch into the view matrix.
     ///
+    /// With offscreen rendering enabled (the default) the scene is drawn into a
+    /// dedicated colour+depth target and then presented to the default
+    /// framebuffer by one fullscreen quad; the UI is drawn afterwards, on the
+    /// default framebuffer, at the drawable's own resolution. The target follows
+    /// the drawable's size and aspect ratio (see
+    /// [`framebuffer::scene_target_size`]), so nothing is stretched, and a target
+    /// that cannot be created falls back to drawing straight into the default
+    /// framebuffer — the historical path, one flag away.
+    ///
     /// Takes `&mut self` because the pass records what it actually submitted
     /// (see [`RenderStats`]) for the debug-only benchmark harness.
     pub fn render_scene(
@@ -1541,32 +1981,48 @@ impl Renderer {
             return;
         }
 
-        let (mvp, frustum) =
-            scene_view_projection(camera_pos, camera_yaw, camera_pitch, fov_degrees, drawable);
+        let target_size = offscreen_plan(
+            self.offscreen_enabled,
+            self.offscreen_failed,
+            self.quality,
+            drawable,
+        );
+        let offscreen = self.ensure_scene_target(target_size);
+        let render_size = if offscreen {
+            target_size.unwrap_or(drawable)
+        } else {
+            drawable
+        };
         let cull = self.culling_enabled;
+        let _ = offscreen;
+        // The projection follows the *scene* aspect, which is the drawable's own
+        // aspect scaled by a single factor, so the presented image is neither
+        // stretched nor cropped.
+        let (mvp, frustum) = scene_view_projection(
+            camera_pos,
+            camera_yaw,
+            camera_pitch,
+            fov_degrees,
+            render_size,
+        );
+        self.camera_pos = camera_pos;
+        self.scene_mvp = mvp;
 
         unsafe {
-            // Render at the real drawable resolution; no fixed 480x272 target.
+            match self.scene_target.as_ref() {
+                Some(target) if offscreen => target.bind(&self.gl),
+                _ => self.gl.bind_framebuffer(glow::FRAMEBUFFER, None),
+            }
             self.gl.viewport(
                 0,
                 0,
-                i32::try_from(drawable.width).unwrap_or(i32::MAX),
-                i32::try_from(drawable.height).unwrap_or(i32::MAX),
+                i32::try_from(render_size.width).unwrap_or(i32::MAX),
+                i32::try_from(render_size.height).unwrap_or(i32::MAX),
             );
             self.gl
                 .clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
-            self.gl.use_program(Some(self.program));
         }
 
-        if let Some(ref loc) = self.u_mvp_loc {
-            unsafe {
-                self.gl
-                    .uniform_matrix_4_f32_slice(Some(loc), false, &mvp.to_cols_array());
-            }
-        }
-        if let Some(ref loc) = self.u_texture_loc {
-            unsafe { self.gl.uniform_1_i32(Some(loc), 0) };
-        }
         // Lightmap atlas pages live on their own units and are bound once per
         // frame: the global switch is on only while a real atlas is resident, and
         // every vertex whose page is `LIGHTMAP_NONE` takes the vertex-lit path
@@ -1578,37 +2034,36 @@ impl Renderer {
             self.gl.active_texture(glow::TEXTURE3);
             self.gl
                 .bind_texture(glow::TEXTURE_2D, Some(self.lightmap_pages[1]));
+            self.gl.active_texture(glow::TEXTURE0);
         }
-        if let Some(ref loc) = self.u_lightmap_enabled_loc {
-            unsafe {
-                self.gl
-                    .uniform_1_f32(Some(loc), if self.lightmaps_resident { 1.0 } else { 0.0 });
-            }
-        }
-        unsafe { self.gl.active_texture(glow::TEXTURE0) };
+        self.current_pass = None;
+        self.frame_state_valid = false;
 
         // Static level geometry, then the batched props, then the dynamic
-        // objects, then the decal pass: one draw loop each, in the order their
-        // state depends on. Dynamic objects are opaque and belong *before* the
-        // decal pass so their fragments are already in the depth buffer when a
-        // decal's alpha cut-out is tested against them, and so the pass that
-        // changes program and state stays last.
+        // objects, each in the pass their material belongs to, then the
+        // translucent pass sorted back to front, then the decal pass: one draw
+        // loop each, in the order their state depends on. Dynamic objects are
+        // opaque and belong *before* the decal pass so their fragments are
+        // already in the depth buffer when a decal's alpha cut-out is tested
+        // against them, and so the pass that changes program and state stays
+        // last.
         let totals = self
-            .draw_static_batches(&frustum, cull)
+            .draw_static_pass(&frustum, cull, BatchPass::Opaque)
             .plus(self.draw_prop_batches(&frustum, cull))
             .plus(self.draw_dynamic_objects(&frustum, cull, &mvp))
+            .plus(self.draw_static_pass(&frustum, cull, BatchPass::Cutout))
+            .plus(self.draw_translucent_pass(&frustum, cull, &mvp))
             .plus(self.draw_decal_batches(&frustum, cull, &mvp));
 
         unsafe {
-            self.gl.disable_vertex_attrib_array(self.a_pos_loc);
-            self.gl.disable_vertex_attrib_array(self.a_color_loc);
-            self.gl.disable_vertex_attrib_array(self.a_uv_loc);
-            self.gl.disable_vertex_attrib_array(self.a_lightmap_uv_loc);
-            self.gl
-                .disable_vertex_attrib_array(self.a_lightmap_page_loc);
+            self.disable_scene_attributes();
             self.gl.bind_texture(glow::TEXTURE_2D, None);
             self.gl.bind_buffer(glow::ARRAY_BUFFER, None);
             self.gl.use_program(None);
+        }
+
+        if offscreen {
+            self.present_scene();
         }
 
         // Report what this frame actually submitted, straight from the draw
@@ -1638,14 +2093,251 @@ impl Renderer {
         };
     }
 
-    /// Submits every opaque static batch the frustum keeps, binding each
-    /// texture, emission state and buffer pair once per run.
+    /// Unbinds every attribute the scene programs read.
+    unsafe fn disable_scene_attributes(&self) {
+        unsafe {
+            for location in [
+                self.a_pos_loc,
+                self.a_color_loc,
+                self.a_uv_loc,
+                self.a_lightmap_uv_loc,
+                self.a_lightmap_page_loc,
+                self.a_normal_loc,
+                self.a_tangent_loc,
+                self.a_handedness_loc,
+            ] {
+                self.gl.disable_vertex_attrib_array(location);
+            }
+        }
+    }
+
+    /// Creates, recreates or discards the offscreen scene target so it matches
+    /// `size`, returning it when the scene should render offscreen.
+    ///
+    /// A target is recreated only when its size actually changes (a window
+    /// resize, a `HiDPI` scale change or a quality-profile change), never per
+    /// frame. A creation failure is reported once and disables the offscreen
+    /// path for the session: the caller then draws straight into the default
+    /// framebuffer, exactly as the renderer did before this path existed.
+    // A GL target that cannot be allocated is the one case this path exists for;
+    // there is no error channel above the renderer, so the diagnostic is a
+    // one-line stderr report and the fallback is the documented behaviour.
+    #[allow(clippy::print_stderr)]
+    fn ensure_scene_target(&mut self, size: Option<DrawableSize>) -> bool {
+        let Some(size) = size else {
+            return false;
+        };
+        if self.scene_target.is_none() || self.scene_target_size != size {
+            if let Some(existing) = self.scene_target.take() {
+                unsafe { existing.destroy(&self.gl) };
+            }
+            self.scene_target_size = size;
+            match unsafe { framebuffer::SceneTarget::create(&self.gl, size) } {
+                Ok(target) => {
+                    eprintln!(
+                        "[framebuffer] offscreen scene target {}x{} (RGBA8 colour, {}-bit depth)",
+                        size.width,
+                        size.height,
+                        target.depth_bits()
+                    );
+                    self.scene_target = Some(target);
+                }
+                Err(error) => {
+                    eprintln!(
+                        "[framebuffer] {error}; drawing directly into the default framebuffer"
+                    );
+                    self.offscreen_failed = true;
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    /// Presents the offscreen scene on the default framebuffer.
+    ///
+    /// One fullscreen quad, one texture, no blending and no depth test: the
+    /// scene pass's own depth buffer stayed with the offscreen target, and the
+    /// default framebuffer's depth is left untouched for the UI pass that
+    /// follows. The target covers the whole drawable, so no clear is needed —
+    /// but the framebuffer's depth is cleared anyway, so a later frame that
+    /// takes the direct path starts from the same state.
+    fn present_scene(&mut self) {
+        let drawable = self.drawable_size;
+        let Some(target) = self.scene_target.as_ref() else {
+            return;
+        };
+        let color = target.color();
+        unsafe {
+            self.gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+            self.gl.viewport(
+                0,
+                0,
+                i32::try_from(drawable.width).unwrap_or(i32::MAX),
+                i32::try_from(drawable.height).unwrap_or(i32::MAX),
+            );
+            self.gl.disable(glow::DEPTH_TEST);
+            self.gl.disable(glow::BLEND);
+            self.gl.use_program(Some(self.present.program));
+            if let Some(ref loc) = self.present.u_mvp {
+                let matrix = framebuffer::present_matrix();
+                self.gl
+                    .uniform_matrix_4_f32_slice(Some(loc), false, &matrix.to_cols_array());
+            }
+            self.gl.active_texture(glow::TEXTURE0);
+            self.gl.bind_texture(glow::TEXTURE_2D, Some(color));
+            self.gl
+                .bind_buffer(glow::ARRAY_BUFFER, Some(self.present.vbo));
+            self.gl
+                .vertex_attrib_pointer_f32(self.a_pos_loc, 3, glow::FLOAT, false, 12, 0);
+            self.gl.enable_vertex_attrib_array(self.a_pos_loc);
+            self.gl.draw_arrays(glow::TRIANGLES, 0, 6);
+            self.gl.disable_vertex_attrib_array(self.a_pos_loc);
+            self.gl.bind_buffer(glow::ARRAY_BUFFER, None);
+            self.gl.bind_texture(glow::TEXTURE_2D, None);
+            self.gl.use_program(None);
+            self.gl.enable(glow::DEPTH_TEST);
+            // The presented quad covers the drawable; only the depth buffer
+            // needs clearing for whatever draws next (the HUD does not depth
+            // test, but the next scene frame's direct path might).
+            self.gl.clear(glow::DEPTH_BUFFER_BIT);
+        }
+    }
+
+    /// The linked program of one scene pass, when it exists.
+    fn program_for(&self, pass: ScenePass) -> Option<glow::Program> {
+        self.programs.get(pass.index()).copied()
+    }
+
+    /// The uniform table of one scene pass, when it exists.
+    fn uniforms_for(&self, pass: ScenePass) -> Option<&ProgramUniforms> {
+        self.program_uniforms.get(pass.index())
+    }
+
+    /// Binds one scene program and (re)uploads the per-frame state it owns.
+    ///
+    /// Uniform state in OpenGL is per program, so a switch invalidates
+    /// everything the previous program held: the lightmap switch, the light
+    /// scale, the model transform and the camera position are all re-uploaded
+    /// here. A run of passes that stay on the same program pays nothing.
+    fn begin_pass(&mut self, pass: ScenePass) {
+        if self.current_pass == Some(pass) && self.frame_state_valid {
+            return;
+        }
+        if self.current_pass != Some(pass) {
+            let Some(program) = self.program_for(pass) else {
+                return;
+            };
+            unsafe { self.gl.use_program(Some(program)) };
+            self.current_pass = Some(pass);
+            // The new program has never been told about the current surface.
+            self.surface_state = None;
+        }
+        self.upload_frame_state(pass);
+    }
+
+    /// Pushes the per-frame uniforms to the program of `pass`.
+    fn upload_frame_state(&mut self, pass: ScenePass) {
+        let Some(uniforms) = self.uniforms_for(pass) else {
+            return;
+        };
+        let mvp = self.scene_mvp.to_cols_array();
+        let camera = [self.camera_pos.x, self.camera_pos.y, self.camera_pos.z];
+        let scale = self.light_scale;
+        let lightmap_on = if self.lightmaps_resident { 1.0 } else { 0.0 };
+        unsafe {
+            if let Some(ref loc) = uniforms.mvp {
+                self.gl.uniform_matrix_4_f32_slice(Some(loc), false, &mvp);
+            }
+            if let Some(ref loc) = uniforms.model {
+                self.gl.uniform_matrix_4_f32_slice(
+                    Some(loc),
+                    false,
+                    &glam::Mat4::IDENTITY.to_cols_array(),
+                );
+            }
+            if let Some(ref loc) = uniforms.camera_pos {
+                self.gl
+                    .uniform_3_f32(Some(loc), camera[0], camera[1], camera[2]);
+            }
+            if let Some(ref loc) = uniforms.light_scale {
+                self.gl
+                    .uniform_3_f32(Some(loc), scale[0], scale[1], scale[2]);
+            }
+            if let Some(ref loc) = uniforms.lightmap_enabled {
+                self.gl.uniform_1_f32(Some(loc), lightmap_on);
+            }
+        }
+        self.uploaded_camera_pos = self.camera_pos;
+        self.frame_state_valid = true;
+    }
+
+    /// Re-points the model transform and light scale for one dynamic object.
+    ///
+    /// Everything else about the frame state stays as it is; only these two
+    /// change per object, and only for the dynamic path.
+    fn set_dynamic_frame_state(&mut self, model: glam::Mat4, mvp: glam::Mat4, scale: [f32; 3]) {
+        let Some(pass) = self.current_pass else {
+            return;
+        };
+        let Some(uniforms) = self.uniforms_for(pass) else {
+            return;
+        };
+        let model_columns = model.to_cols_array();
+        let mvp_columns = mvp.to_cols_array();
+        unsafe {
+            if let Some(ref loc) = uniforms.model {
+                self.gl
+                    .uniform_matrix_4_f32_slice(Some(loc), false, &model_columns);
+            }
+            if let Some(ref loc) = uniforms.mvp {
+                self.gl
+                    .uniform_matrix_4_f32_slice(Some(loc), false, &mvp_columns);
+            }
+            if let Some(ref loc) = uniforms.light_scale {
+                self.gl
+                    .uniform_3_f32(Some(loc), scale[0], scale[1], scale[2]);
+            }
+        }
+    }
+
+    /// Restores the frame's own MVP and light scale after the dynamic path.
+    fn restore_frame_mvp(&mut self) {
+        let Some(pass) = self.current_pass else {
+            return;
+        };
+        let Some(uniforms) = self.uniforms_for(pass) else {
+            return;
+        };
+        let mvp = self.scene_mvp.to_cols_array();
+        unsafe {
+            if let Some(ref loc) = uniforms.mvp {
+                self.gl.uniform_matrix_4_f32_slice(Some(loc), false, &mvp);
+            }
+            if let Some(ref loc) = uniforms.model {
+                self.gl.uniform_matrix_4_f32_slice(
+                    Some(loc),
+                    false,
+                    &glam::Mat4::IDENTITY.to_cols_array(),
+                );
+            }
+            if let Some(ref loc) = uniforms.light_scale {
+                self.gl.uniform_3_f32(Some(loc), 1.0, 1.0, 1.0);
+            }
+        }
+        self.light_scale = [1.0; 3];
+    }
+
+    /// Submits every static batch of one pass the frustum keeps, binding each
+    /// material state and buffer pair once per run.
     ///
     /// Decals are skipped here: they are submitted by their own pass, with the
     /// decal program and depth bias, which keeps the world program's early
-    /// depth testing intact.
-    fn draw_static_batches(&mut self, frustum: &Frustum, cull: bool) -> DrawTotals {
+    /// depth testing intact. Translucent batches are collected by
+    /// [`Self::draw_translucent_pass`], which sorts them.
+    fn draw_static_pass(&mut self, frustum: &Frustum, cull: bool, pass: BatchPass) -> DrawTotals {
         let mut totals = DrawTotals::default();
+        let mut begun = false;
         let mut bound_key: Option<SurfaceKey> = None;
         let mut bound_chunk: Option<usize> = None;
         for index in 0..self.static_batches.len() {
@@ -1658,8 +2350,15 @@ impl Renderer {
             if batch.key.kind == SurfaceKind::Decal {
                 continue;
             }
+            if self.static_batch_pass(batch.key) != pass {
+                continue;
+            }
             if cull && !frustum.intersects_aabb(&batch.bounds) {
                 continue;
+            }
+            if !begun {
+                self.begin_pass(pass.program());
+                begun = true;
             }
             if bound_chunk != Some(batch.chunk) {
                 if self.bind_chunk(&self.level_buffers, batch.chunk) {
@@ -1669,12 +2368,8 @@ impl Renderer {
                 }
             }
             if bound_key != Some(batch.key) {
-                let texture = self.static_texture(batch.key);
-                let emission = self.static_emission(batch.key);
-                unsafe {
-                    self.gl.bind_texture(glow::TEXTURE_2D, Some(texture));
-                    self.set_emission(emission);
-                }
+                let state = self.static_surface_state(batch.key);
+                unsafe { self.apply_surface_state(state) };
                 bound_key = Some(batch.key);
             }
             unsafe {
@@ -1690,67 +2385,163 @@ impl Renderer {
         totals
     }
 
-    /// The emission one static surface key draws with.
+    /// Which pass one static batch's material belongs to.
+    fn static_batch_pass(&self, key: SurfaceKey) -> BatchPass {
+        batch_pass_for(
+            key.kind,
+            key.has_material(),
+            self.material_alpha(key.material),
+        )
+    }
+
+    /// The alpha contract of one material index, or `None` for a key without a
+    /// level material.
+    fn material_alpha(&self, material: MaterialIndex) -> Option<MaterialAlpha> {
+        self.material_alphas.get(usize::from(material)).copied()
+    }
+
+    /// The complete surface state one static surface key draws with.
     ///
-    /// Floors, ceilings and walls take their material's emission from the
-    /// material table. Fixture luminous faces carry theirs per vertex: their
-    /// key's material slot is the family's sheet, not a level material, and the
-    /// glow varies per placement while the batch is shared. Fixture housings,
-    /// placeholder boxes and anything else emit nothing.
-    fn static_emission(&self, key: SurfaceKey) -> EmissionState {
+    /// Floors, ceilings and walls take their emission, response and alpha from
+    /// the material table. Fixture luminous faces carry their emission per
+    /// vertex: their key's material slot is the family's sheet, not a level
+    /// material, and the glow varies per placement while the batch is shared.
+    /// Fixture housings, placeholder boxes and anything else draw plain.
+    fn static_surface_state(&self, key: SurfaceKey) -> SurfaceState {
+        let texture = self.static_texture(key);
         match emission_routing(key.kind, key.has_material()) {
-            EmissionRouting::None => EmissionState::NONE,
-            EmissionRouting::Vertex => EmissionState::vertex(),
+            EmissionRouting::None => SurfaceState::plain(texture),
+            EmissionRouting::Vertex => SurfaceState {
+                emission: EmissionState::vertex(),
+                ..SurfaceState::plain(texture)
+            },
             EmissionRouting::Material => {
+                let material = key.material;
                 let emission = self
                     .material_emissions
-                    .get(usize::from(key.material))
+                    .get(usize::from(material))
                     .copied()
                     .unwrap_or_default();
-                if !emission.is_emissive() {
-                    return EmissionState::NONE;
+                let emission = if emission.is_emissive() {
+                    let mask = emission
+                        .mask
+                        .and_then(|index| self.material_textures.get(usize::from(index)).copied());
+                    EmissionState::material(emission, mask)
+                } else {
+                    EmissionState::NONE
+                };
+                let response = self
+                    .material_responses
+                    .get(usize::from(material))
+                    .copied()
+                    .unwrap_or_default();
+                // Low leaves the optional response out: the same material, the
+                // same albedo, emission and alpha, one fragment term less.
+                let live = response.is_active() && self.quality.draws_surface_response();
+                let normal = if live && response.has_normal() {
+                    response
+                        .normal
+                        .and_then(|index| self.material_textures.get(usize::from(index)).copied())
+                } else {
+                    None
+                };
+                SurfaceState {
+                    texture,
+                    normal,
+                    emission,
+                    specular: if live { response.specular } else { [0.0; 3] },
+                    roughness: response.roughness,
+                    normal_strength: response.normal_strength,
+                    opacity: self
+                        .material_alpha(material)
+                        .unwrap_or(MaterialAlpha::OPAQUE)
+                        .opacity,
+                    alpha_cutoff: self
+                        .material_alpha(material)
+                        .unwrap_or(MaterialAlpha::OPAQUE)
+                        .cutoff,
+                    response: live && (response.has_normal() || response.has_sheen()),
                 }
-                let mask = emission
-                    .mask
-                    .and_then(|index| self.material_textures.get(usize::from(index)).copied());
-                EmissionState::material(emission, mask)
             }
         }
     }
 
-    /// Applies the emission the world program should draw with, skipping the
-    /// work when the previous batch already set exactly this state.
+    /// Applies one surface state to the current program, skipping the work when
+    /// the previous draw already set exactly this state.
     ///
     /// # Safety
     ///
-    /// The world program must be current. The mask sampler is bound on its own
-    /// texture unit and the active unit is restored to
+    /// A scene program must be current
+    /// ([`Self::begin_pass`]); the active texture unit is restored to
     /// [`SCENE_TEXTURE_UNIT`] before returning.
-    unsafe fn set_emission(&mut self, state: EmissionState) {
-        if self.emission_state == state {
+    unsafe fn apply_surface_state(&mut self, state: SurfaceState) {
+        if self.surface_state == Some(state) {
             return;
         }
+        let Some(pass) = self.current_pass else {
+            return;
+        };
+        let Some(uniforms) = self.uniforms_for(pass) else {
+            return;
+        };
+        let white = self.white_texture;
+        let emission = state.emission;
         unsafe {
-            if let Some(ref loc) = self.u_emission_color_loc {
-                self.gl
-                    .uniform_3_f32(Some(loc), state.color[0], state.color[1], state.color[2]);
+            self.gl.active_texture(glow::TEXTURE0);
+            self.gl.bind_texture(glow::TEXTURE_2D, Some(state.texture));
+            if let Some(ref loc) = uniforms.emission_color {
+                self.gl.uniform_3_f32(
+                    Some(loc),
+                    emission.color[0],
+                    emission.color[1],
+                    emission.color[2],
+                );
             }
-            if let Some(ref loc) = self.u_emission_mask_enabled_loc {
+            if let Some(ref loc) = uniforms.emission_mask_enabled {
                 self.gl
-                    .uniform_1_f32(Some(loc), if state.mask.is_some() { 1.0 } else { 0.0 });
+                    .uniform_1_f32(Some(loc), if emission.mask.is_some() { 1.0 } else { 0.0 });
             }
-            if let Some(ref loc) = self.u_emission_vertex_loc {
+            if let Some(ref loc) = uniforms.emission_vertex {
                 self.gl
-                    .uniform_1_f32(Some(loc), if state.vertex { 1.0 } else { 0.0 });
+                    .uniform_1_f32(Some(loc), if emission.vertex { 1.0 } else { 0.0 });
             }
             self.gl.active_texture(glow::TEXTURE1);
-            self.gl.bind_texture(
-                glow::TEXTURE_2D,
-                Some(state.mask.unwrap_or(self.white_texture)),
-            );
+            self.gl
+                .bind_texture(glow::TEXTURE_2D, Some(emission.mask.unwrap_or(white)));
+            self.gl.active_texture(glow::TEXTURE4);
+            self.gl
+                .bind_texture(glow::TEXTURE_2D, Some(state.normal.unwrap_or(white)));
+            if let Some(ref loc) = uniforms.normal_enabled {
+                self.gl
+                    .uniform_1_f32(Some(loc), if state.normal.is_some() { 1.0 } else { 0.0 });
+            }
+            if let Some(ref loc) = uniforms.normal_strength {
+                self.gl.uniform_1_f32(Some(loc), state.normal_strength);
+            }
+            if let Some(ref loc) = uniforms.specular {
+                self.gl.uniform_3_f32(
+                    Some(loc),
+                    state.specular[0],
+                    state.specular[1],
+                    state.specular[2],
+                );
+            }
+            if let Some(ref loc) = uniforms.roughness {
+                self.gl.uniform_1_f32(Some(loc), state.roughness);
+            }
+            if let Some(ref loc) = uniforms.opacity {
+                self.gl.uniform_1_f32(Some(loc), state.opacity);
+            }
+            if let Some(ref loc) = uniforms.alpha_cutoff {
+                self.gl.uniform_1_f32(Some(loc), state.alpha_cutoff);
+            }
+            if let Some(ref loc) = uniforms.response_enabled {
+                self.gl
+                    .uniform_1_f32(Some(loc), if state.response { 1.0 } else { 0.0 });
+            }
             self.gl.active_texture(glow::TEXTURE0);
         }
-        self.emission_state = state;
+        self.surface_state = Some(state);
     }
 
     /// The texture one static surface key binds: its resolved material sheet,
@@ -1797,6 +2588,7 @@ impl Renderer {
     /// change.
     fn draw_prop_batches(&mut self, frustum: &Frustum, cull: bool) -> DrawTotals {
         let mut totals = DrawTotals::default();
+        let mut begun = false;
         let mut bound_texture: Option<glow::Texture> = None;
         let mut bound_chunk: Option<usize> = None;
         for index in 0..self.prop_draws.len() {
@@ -1809,6 +2601,10 @@ impl Renderer {
             if cull && !frustum.intersects_aabb(&draw.bounds) {
                 continue;
             }
+            if !begun {
+                self.begin_pass(ScenePass::World);
+                begun = true;
+            }
             if bound_chunk != Some(draw.chunk) {
                 if self.bind_chunk(&self.prop_buffers, draw.chunk) {
                     bound_chunk = Some(draw.chunk);
@@ -1820,7 +2616,11 @@ impl Renderer {
                 unsafe { self.gl.bind_texture(glow::TEXTURE_2D, Some(draw.texture)) };
                 bound_texture = Some(draw.texture);
             }
-            unsafe { self.set_emission(draw.emission) };
+            let state = SurfaceState {
+                emission: draw.emission,
+                ..SurfaceState::plain(draw.texture)
+            };
+            unsafe { self.apply_surface_state(state) };
             unsafe {
                 self.gl.draw_elements(
                     glow::TRIANGLES,
@@ -1834,6 +2634,88 @@ impl Renderer {
         totals
     }
 
+    /// Submits every translucent batch, back to front.
+    ///
+    /// The list is collected from the static batches that survived culling and
+    /// sorted by the squared distance from the camera to each batch's centre.
+    /// Depth *testing* stays on — a pane of glass is still hidden by the wall it
+    /// sits in — but depth *writing* is off, so two overlapping translucent
+    /// surfaces blend with each other instead of one erasing the other, and the
+    /// pass runs after the opaque world so it blends against real geometry.
+    /// Sorting is per spatial batch, which is the granularity the renderer
+    /// already partitions the world at; the scratch list keeps its capacity
+    /// between frames, so the sort never allocates in the frame loop.
+    fn draw_translucent_pass(
+        &mut self,
+        frustum: &Frustum,
+        cull: bool,
+        _mvp: &glam::Mat4,
+    ) -> DrawTotals {
+        let mut totals = DrawTotals::default();
+        {
+            let batches = &self.static_batches;
+            let alphas = &self.material_alphas;
+            let pass_of = |key: SurfaceKey| {
+                let alpha = alphas.get(usize::from(key.material)).copied();
+                batch_pass_for(key.kind, key.has_material(), alpha)
+            };
+            let visible = |bounds: &crate::spatial::Aabb| !cull || frustum.intersects_aabb(bounds);
+            let camera = self.camera_pos;
+            // `collect_translucent_draws` sorts in place and reuses the vector's
+            // capacity, so the frame loop allocates nothing here.
+            let scratch = &mut self.translucent_scratch;
+            collect_translucent_draws(batches, pass_of, camera, visible, scratch);
+        }
+        if self.translucent_scratch.is_empty() {
+            return totals;
+        }
+
+        self.begin_pass(ScenePass::World);
+        unsafe {
+            self.gl.enable(glow::BLEND);
+            self.gl
+                .blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
+            self.gl.depth_mask(false);
+        }
+        let mut bound_chunk: Option<usize> = None;
+        let mut bound_key: Option<SurfaceKey> = None;
+        for slot in 0..self.translucent_scratch.len() {
+            let Some(item) = self.translucent_scratch.get(slot).copied() else {
+                continue;
+            };
+            let TranslucentSource::Static(index) = item.source;
+            let Some(batch) = self.static_batches.get(index).copied() else {
+                continue;
+            };
+            if bound_chunk != Some(batch.chunk) {
+                if self.bind_chunk(&self.level_buffers, batch.chunk) {
+                    bound_chunk = Some(batch.chunk);
+                } else {
+                    continue;
+                }
+            }
+            if bound_key != Some(batch.key) {
+                let state = self.static_surface_state(batch.key);
+                unsafe { self.apply_surface_state(state) };
+                bound_key = Some(batch.key);
+            }
+            unsafe {
+                self.gl.draw_elements(
+                    glow::TRIANGLES,
+                    batch.index_range.count,
+                    glow::UNSIGNED_SHORT,
+                    batch.index_range.start.saturating_mul(2),
+                );
+            }
+            totals.add(batch.vertex_count);
+        }
+        unsafe {
+            self.gl.depth_mask(true);
+            self.gl.disable(glow::BLEND);
+        }
+        totals
+    }
+
     /// Submits the decal pass: local surface markings drawn after the opaque
     /// world and the props.
     ///
@@ -1842,7 +2724,12 @@ impl Renderer {
     /// that pulls each decal two depth steps towards the camera, which is what
     /// makes it win the coincident-depth test against the surface it lies on.
     /// The world program and offset state are restored before returning.
-    fn draw_decal_batches(&self, frustum: &Frustum, cull: bool, mvp: &glam::Mat4) -> DrawTotals {
+    fn draw_decal_batches(
+        &mut self,
+        frustum: &Frustum,
+        cull: bool,
+        mvp: &glam::Mat4,
+    ) -> DrawTotals {
         let mut totals = DrawTotals::default();
         let mut decal_active = false;
         let mut decal_chunk: Option<usize> = None;
@@ -1903,13 +2790,19 @@ impl Renderer {
         }
         if decal_active {
             // Restore the exact scene state: no polygon offset, and the world
-            // program (whose uniforms are per-program and still valid), so
-            // nothing after the pass can inherit decal state.
+            // program. The pass changed the bound program behind the renderer's
+            // back, so the tracked state is invalidated and the next pass
+            // re-binds and re-uploads.
             unsafe {
                 self.gl.polygon_offset(0.0, 0.0);
                 self.gl.disable(glow::POLYGON_OFFSET_FILL);
-                self.gl.use_program(Some(self.program));
+                if let Some(program) = self.program_for(ScenePass::World) {
+                    self.gl.use_program(Some(program));
+                }
             }
+            self.current_pass = None;
+            self.surface_state = None;
+            self.frame_state_valid = false;
         }
         totals
     }
@@ -1958,22 +2851,10 @@ impl Renderer {
     /// lightmap atlas or in its vertex colour. The dynamic-object path sets this
     /// to the baked light sampled at the object's current position, which is how
     /// a moving object stays coherently lit without rebuilding its vertex
-    /// buffer.
+    /// buffer. The value is recorded here and uploaded by the next
+    /// [`Self::begin_pass`], because uniform state belongs to the program.
     pub fn set_light_scale(&mut self, scale: [f32; 3]) {
-        let scale = scale.map(|value| if value.is_finite() { value } else { 1.0 });
-        // Bit equality is the intended test: it is only here to skip an
-        // identical uniform upload, and `-0.0` vs `0.0` never matters to the
-        // shader.
-        if self.light_scale.map(f32::to_bits) == scale.map(f32::to_bits) {
-            return;
-        }
-        self.light_scale = scale;
-        if let Some(ref loc) = self.u_light_scale_loc {
-            unsafe {
-                self.gl
-                    .uniform_3_f32(Some(loc), scale[0], scale[1], scale[2]);
-            }
-        }
+        self.light_scale = scale.map(|value| if value.is_finite() { value } else { 1.0 });
     }
 
     /// Requests lightmaps for the *next* level build.
@@ -1984,7 +2865,7 @@ impl Renderer {
     /// vertex's colour omits the baked light by design, so turning lightmaps off
     /// takes effect as an explicit rebuild with [`LightmapMode::Off`], which is
     /// the exact historical vertex-lit level.
-    pub fn set_lightmaps_requested(&mut self, requested: bool) {
+    pub const fn set_lightmaps_requested(&mut self, requested: bool) {
         self.lightmaps_requested = requested;
         self.set_lightmaps_enabled(requested);
     }
@@ -2003,28 +2884,23 @@ impl Renderer {
     /// keeps that level's tint-only vertex colours, which is the benchmark A/B
     /// ("what does the atlas contribute"), not the vertex-lit fallback; use
     /// [`Self::set_lightmaps_requested`] plus a rebuild for that.
-    pub fn set_lightmaps_enabled(&mut self, enabled: bool) {
+    pub const fn set_lightmaps_enabled(&mut self, enabled: bool) {
         self.lightmaps_enabled = enabled && self.lightmaps_resident;
         self.upload_lightmap_switch();
     }
 
     /// Records whether a valid baked lightmap set is resident and follows it
     /// with the sampling switch: no atlas means the vertex-lit path.
-    pub fn set_lightmaps_resident(&mut self, resident: bool) {
+    pub const fn set_lightmaps_resident(&mut self, resident: bool) {
         self.lightmaps_resident = resident;
         self.lightmaps_enabled = resident;
         self.upload_lightmap_switch();
     }
 
-    /// Pushes [`Self::lightmaps_enabled`] to the world program.
-    fn upload_lightmap_switch(&mut self) {
-        let enabled = self.lightmaps_enabled;
-        if let Some(ref loc) = self.u_lightmap_enabled_loc {
-            unsafe {
-                self.gl
-                    .uniform_1_f32(Some(loc), if enabled { 1.0 } else { 0.0 });
-            }
-        }
+    /// Marks the per-program lightmap switch stale so the next pass re-uploads
+    /// it. The value itself lives in [`Self::lightmaps_enabled`].
+    const fn upload_lightmap_switch(&mut self) {
+        self.frame_state_valid = false;
     }
 
     /// True when a real baked lightmap atlas is resident and being sampled.
@@ -2306,7 +3182,18 @@ impl Renderer {
             self.gl
                 .blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
 
-            self.gl.use_program(Some(self.program));
+            if let Some(program) = self.program_for(ScenePass::World) {
+                self.gl.use_program(Some(program));
+            }
+            // The HUD draws with the world program but with none of a surface's
+            // extra terms: no lightmap (its vertices carry `LIGHTMAP_NONE`), no
+            // emission, no sheen and no alpha. The tracked state is invalidated
+            // rather than trusted, because the world program was just (re)bound
+            // behind `begin_pass`'s back.
+            self.current_pass = None;
+            self.surface_state = None;
+            self.frame_state_valid = false;
+            self.uploaded_camera_pos = self.camera_pos;
 
             self.gl
                 .viewport(viewport.x, viewport.y, viewport.width, viewport.height);
@@ -2320,18 +3207,27 @@ impl Renderer {
                 1.0,
             );
 
-            if let Some(ref loc) = self.u_mvp_loc {
-                self.gl
-                    .uniform_matrix_4_f32_slice(Some(loc), false, &ortho.to_cols_array());
+            let ortho_columns = ortho.to_cols_array();
+            let identity_columns = glam::Mat4::IDENTITY.to_cols_array();
+            if let Some(uniforms) = self.uniforms_for(ScenePass::World) {
+                if let Some(ref loc) = uniforms.mvp {
+                    self.gl
+                        .uniform_matrix_4_f32_slice(Some(loc), false, &ortho_columns);
+                }
+                if let Some(ref loc) = uniforms.model {
+                    self.gl
+                        .uniform_matrix_4_f32_slice(Some(loc), false, &identity_columns);
+                }
+                if let Some(ref loc) = uniforms.light_scale {
+                    self.gl.uniform_3_f32(Some(loc), 1.0, 1.0, 1.0);
+                }
+                if let Some(ref loc) = uniforms.lightmap_enabled {
+                    self.gl.uniform_1_f32(Some(loc), 0.0);
+                }
             }
-
-            if let Some(ref loc) = self.u_texture_loc {
-                self.gl.uniform_1_i32(Some(loc), 0);
-            }
-            // The HUD is never emissive: replace whatever emission state the
-            // world left behind, so a bright fixture the camera walked away
-            // from cannot leak its glow into the text.
-            self.set_emission(EmissionState::NONE);
+            self.light_scale = [1.0; 3];
+            self.frame_state_valid = true;
+            self.surface_state = Some(SurfaceState::plain(self.font_texture));
             self.gl.active_texture(glow::TEXTURE0);
             self.gl
                 .bind_texture(glow::TEXTURE_2D, Some(self.font_texture));
@@ -2635,10 +3531,11 @@ impl Renderer {
         {
             return totals;
         }
+        self.begin_pass(ScenePass::World);
         // Take the scene and its GPU state out for the loop so the draw helpers
-        // (`set_emission`, `set_light_scale`) can borrow `self` mutably while
-        // the objects are iterated. Both takes are constant-time moves: no
-        // per-frame allocation, and both are put back before returning.
+        // (which borrow `self` mutably) can run while the objects are iterated.
+        // Both takes are constant-time moves: no per-frame allocation, and both
+        // are put back before returning.
         let dynamic = std::mem::take(&mut self.dynamic);
         let meshes = std::mem::take(&mut self.dynamic_meshes);
         let mut bound: Option<(glow::Buffer, glow::Buffer)> = None;
@@ -2662,18 +3559,14 @@ impl Renderer {
                 let composed = *view_projection * object.transform();
                 composed
             };
-            if let Some(ref loc) = self.u_mvp_loc {
-                unsafe {
-                    self.gl
-                        .uniform_matrix_4_f32_slice(Some(loc), false, &mvp.to_cols_array());
-                }
-            }
             let light_scale = if object.probe_valid() {
                 object.light_scale()
             } else {
                 [1.0; 3]
             };
-            self.set_light_scale(light_scale);
+            // Only the model transform, the composed MVP and the probe scale
+            // change per object: everything else about the frame state stays.
+            self.set_dynamic_frame_state(object.transform(), mvp, light_scale);
             // The object-wide override, resolved once per object; `None` means
             // every primitive draws its own material emission.
             let override_emission = object.emission().filter(MaterialEmission::is_emissive);
@@ -2685,14 +3578,14 @@ impl Renderer {
                 })
             });
             for submesh in &gpu.submeshes {
-                unsafe {
-                    self.gl
-                        .bind_texture(glow::TEXTURE_2D, Some(submesh.texture));
-                }
                 let emission = override_emission.map_or(submesh.emission, |emission| {
                     EmissionState::material(emission, override_mask)
                 });
-                unsafe { self.set_emission(emission) };
+                let state = SurfaceState {
+                    emission,
+                    ..SurfaceState::plain(submesh.texture)
+                };
+                unsafe { self.apply_surface_state(state) };
                 unsafe {
                     self.gl.draw_elements(
                         glow::TRIANGLES,
@@ -2705,17 +3598,9 @@ impl Renderer {
             }
         }
         if totals.calls > 0 {
-            // Hand the world program back exactly as the static path left it.
-            if let Some(ref loc) = self.u_mvp_loc {
-                unsafe {
-                    self.gl.uniform_matrix_4_f32_slice(
-                        Some(loc),
-                        false,
-                        &view_projection.to_cols_array(),
-                    );
-                }
-            }
-            self.set_light_scale([1.0; 3]);
+            // Hand the world program back exactly as the static path left it:
+            // the scene MVP, an identity model transform and no light override.
+            self.restore_frame_mvp();
         }
         self.dynamic = dynamic;
         self.dynamic_meshes = meshes;
@@ -2842,7 +3727,10 @@ fn upload_chunks(
 /// expanded into a flat triangle list first, so one build can measure indexed
 /// submission against non-indexed submission with the same batching, culling
 /// and vertex layout.
-fn pack_static_batches(mesh: &LevelMesh, indexed: bool) -> (MeshPacker, Vec<StaticBatch>) {
+pub(super) fn pack_static_batches(
+    mesh: &LevelMesh,
+    indexed: bool,
+) -> (MeshPacker, Vec<StaticBatch>) {
     let mut packer = MeshPacker::default();
     let mut batches: Vec<StaticBatch> = Vec::with_capacity(mesh.ranges.len());
     for range in &mesh.ranges {

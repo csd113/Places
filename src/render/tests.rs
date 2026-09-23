@@ -32,14 +32,14 @@ use crate::spatial::{DepthRange, Frustum};
 // ------------------------------------------------------- vertex packing
 
 #[test]
-fn the_packed_vertex_is_thirty_two_bytes_with_the_declared_layout() {
+fn the_packed_vertex_is_thirty_six_bytes_with_the_declared_layout() {
     assert_eq!(
         std::mem::size_of::<PackedVertex>(),
-        32,
-        "the packed scene vertex must be 32 bytes"
+        36,
+        "the packed scene vertex must be 36 bytes"
     );
     assert_eq!(std::mem::align_of::<PackedVertex>(), 4);
-    assert_eq!(packed_layout::STRIDE, 32, "stride must match the struct");
+    assert_eq!(packed_layout::STRIDE, 36, "stride must match the struct");
     assert_eq!(
         VertexLayout::Exact.stride(),
         i32::try_from(std::mem::size_of::<Vertex>()).unwrap_or(i32::MAX),
@@ -69,23 +69,61 @@ fn the_packed_vertex_is_thirty_two_bytes_with_the_declared_layout() {
     );
     assert_eq!(
         packed_layout::LIGHTMAP_OFFSET as usize + 4,
-        packed_layout::LIGHTMAP_PAGE_OFFSET as usize,
+        packed_layout::NORMAL_OFFSET as usize,
         "the lightmap UV pair is two 16-bit values"
     );
     assert_eq!(
         packed_layout::UV_OFFSET as usize + 2 * 4,
-        packed_layout::LIGHTMAP_OFFSET as usize
+        packed_layout::COLOR_OFFSET as usize,
+        "the tile UV is two f32 values"
     );
     assert_eq!(
         packed_layout::COLOR_OFFSET as usize + 4,
-        packed_layout::UV_OFFSET as usize,
+        packed_layout::LIGHTMAP_OFFSET as usize,
         "colour must be four packed bytes"
     );
-    // 12 bytes saved per vertex against the original 44-byte exact layout, even
-    // with the lightmap channel added to both.
+
+    // The Batch 3 frame lives between the lightmap pair and the lightmap page:
+    // normal, tangent and the bitangent sign, three normalised signed bytes
+    // each for the vectors and one more for the sign.
+    assert_eq!(
+        std::mem::offset_of!(PackedVertex, normal),
+        packed_layout::NORMAL_OFFSET as usize
+    );
+    assert_eq!(
+        std::mem::offset_of!(PackedVertex, tangent),
+        packed_layout::TANGENT_OFFSET as usize
+    );
+    assert_eq!(
+        std::mem::offset_of!(PackedVertex, handedness),
+        packed_layout::HANDEDNESS_OFFSET as usize
+    );
+    assert_eq!(
+        packed_layout::LIGHTMAP_OFFSET as usize + 4,
+        packed_layout::NORMAL_OFFSET as usize,
+        "the frame follows the lightmap pair"
+    );
+    assert_eq!(
+        packed_layout::NORMAL_OFFSET + 3,
+        packed_layout::TANGENT_OFFSET,
+        "the normal is three signed bytes"
+    );
+    assert_eq!(
+        packed_layout::TANGENT_OFFSET + 3,
+        packed_layout::HANDEDNESS_OFFSET,
+        "the tangent is three signed bytes"
+    );
+    assert_eq!(
+        packed_layout::HANDEDNESS_OFFSET + 1,
+        packed_layout::LIGHTMAP_PAGE_OFFSET,
+        "the sign is one byte and the page follows it"
+    );
+    // 36 bytes per vertex in the packed layout, 72 in the exact one: the exact
+    // layout carries the frame as three f32 vectors, the packed one as seven
+    // bytes.
     assert_eq!(
         std::mem::size_of::<Vertex>() - std::mem::size_of::<PackedVertex>(),
-        12
+        36
     );
 }
 
@@ -240,9 +278,9 @@ fn the_packed_layout_is_smaller_than_the_exact_one() {
     let mesh = build_level_geometry(&two_cluster_level(6));
     let packed_bytes = mesh.vertex_count * std::mem::size_of::<PackedVertex>();
     let unpacked_bytes = mesh.vertex_count * std::mem::size_of::<Vertex>();
-    assert_eq!(packed_bytes * 11, unpacked_bytes * 8, "44 -> 32 bytes");
-    // Indices are unchanged at two bytes each, so the whole static buffer
-    // footprint drops by a quarter, not a third.
+    assert_eq!(packed_bytes, unpacked_bytes / 2, "72 -> 36 bytes");
+    // Indices are unchanged at two bytes each, so the packed layout still wins
+    // on the whole static buffer footprint.
     let packed_total = packed_bytes + mesh.index_count * 2;
     let unpacked_total = unpacked_bytes + mesh.index_count * 2;
     assert!(packed_total < unpacked_total);
@@ -4742,4 +4780,414 @@ fn the_dynamic_demonstration_machine_stays_a_static_prop() {
         batches.iter().any(|batch| batch.model == machine),
         "the static machine must be instanced into a static prop batch"
     );
+}
+
+// ------------------------------------------------------------- Batch 3 passes
+
+use super::renderer::{
+    BatchPass, EmissionState, ScenePass, SurfaceState, TranslucentSource, batch_pass_for,
+    collect_translucent_draws, offscreen_plan, pack_static_batches,
+};
+use crate::materials::{AlphaMode, MaterialAlpha};
+
+/// A minimal level with one glassed window per wall in `walls`.
+///
+/// The walls are the pool-room shape from the fixtures: a 4x4 room with two
+/// parallel Z-axis walls across it, each carrying one window with a pane.
+fn two_layer_glass_level(pane_materials: [&str; 2]) -> crate::level::LevelDef {
+    let json = format!(
+        r#"{{
+        "format_version": 1,
+        "id": "glass_layers",
+        "name": "Glass Layers",
+        "spawn": {{ "x": 2.0, "z": 2.0 }},
+        "defaults": {{ "wall": "core:wallpaper_yellow_01",
+                      "floor": "core:carpet_beige_01",
+                      "ceiling": "core:ceiling_panel_01" }},
+        "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 2.7 }} ],
+        "walls": [
+            {{ "x": 1.9, "z": 0.0, "width": 0.2, "depth": 4.0,
+               "openings": [ {{ "kind": "window", "offset": 1.0, "width": 1.2,
+                                "height": 1.0, "sill": 1.0,
+                                "glass": "{}" }} ] }},
+            {{ "x": 2.9, "z": 0.0, "width": 0.2, "depth": 4.0,
+               "openings": [ {{ "kind": "window", "offset": 1.0, "width": 1.2,
+                                "height": 1.0, "sill": 1.0,
+                                "glass": "{}" }} ] }}
+        ]
+    }}"#,
+        pane_materials[0], pane_materials[1]
+    );
+    crate::level::LevelDef::from_json(&json).expect("the synthetic glass level parses")
+}
+
+#[test]
+fn the_opaque_cutout_and_translucent_passes_are_decided_by_the_material() {
+    // Non-material families are opaque whatever a material index happens to be:
+    // a fixture face, a placeholder box and a decal never alpha-blend.
+    for kind in [
+        SurfaceKind::Light,
+        SurfaceKind::PropFallback,
+        SurfaceKind::Decal,
+    ] {
+        for alpha in [
+            MaterialAlpha::OPAQUE,
+            MaterialAlpha::blend(0.5),
+            MaterialAlpha {
+                mode: AlphaMode::Cutout,
+                ..MaterialAlpha::OPAQUE
+            },
+        ] {
+            assert_eq!(
+                batch_pass_for(kind, true, Some(alpha)),
+                BatchPass::Opaque,
+                "{kind:?} must stay opaque"
+            );
+        }
+    }
+
+    // A surface material's contract decides its pass.
+    for kind in [SurfaceKind::Floor, SurfaceKind::Ceiling, SurfaceKind::Wall] {
+        assert_eq!(
+            batch_pass_for(kind, true, Some(MaterialAlpha::OPAQUE)),
+            BatchPass::Opaque
+        );
+        assert_eq!(
+            batch_pass_for(
+                kind,
+                true,
+                Some(MaterialAlpha {
+                    mode: AlphaMode::Cutout,
+                    ..MaterialAlpha::OPAQUE
+                })
+            ),
+            BatchPass::Cutout
+        );
+        assert_eq!(
+            batch_pass_for(kind, true, Some(MaterialAlpha::blend(0.4))),
+            BatchPass::Translucent
+        );
+        // A surface family without a resolved material (an empty authored id)
+        // has no alpha contract at all.
+        assert_eq!(batch_pass_for(kind, false, None), BatchPass::Opaque);
+    }
+
+    // Zero opacity is invisible: it must not be submitted as translucent.
+    assert_eq!(
+        batch_pass_for(SurfaceKind::Wall, true, Some(MaterialAlpha::blend(0.0))),
+        BatchPass::Opaque
+    );
+
+    // The scene program each pass uses: only the cut-out pass needs the
+    // alpha-tested stage.
+    assert_eq!(BatchPass::Opaque.program(), ScenePass::World);
+    assert_eq!(BatchPass::Translucent.program(), ScenePass::World);
+    assert_eq!(BatchPass::Cutout.program(), ScenePass::Cutout);
+}
+
+#[test]
+fn the_demo_glazes_every_window_and_classifies_the_panes_translucent() {
+    let level = shipped_demo();
+    let materials = logical_materials(&level);
+    let panes: Vec<(SurfaceKey, MaterialAlpha)> = level
+        .walls
+        .iter()
+        .flat_map(|wall| wall.openings.iter())
+        .filter_map(|opening| opening.glass_material())
+        .filter_map(|id| {
+            let index = materials.index_of(id)?;
+            let alpha = materials.entry(index)?.alpha;
+            Some((SurfaceKey::new(SurfaceKind::Wall, index), alpha))
+        })
+        .collect();
+    assert_eq!(panes.len(), 5, "every demo window is glazed");
+    for (key, alpha) in &panes {
+        assert!(
+            alpha.is_translucent(),
+            "{}",
+            materials
+                .entry(key.material)
+                .map_or("?", |entry| entry.id.as_str())
+        );
+        assert_eq!(
+            batch_pass_for(key.kind, key.has_material(), Some(*alpha)),
+            BatchPass::Translucent
+        );
+    }
+
+    // The panes are real geometry: a glassed opening contributes wall quads
+    // whose total area is exactly the opening's own area. (The mesh splits a
+    // pane into several quads where its lightmap chart or its spatial cell
+    // ends, so the count is not one per opening; the area is.) The builds are
+    // the lightmapped ones, because that is what the renderer uses.
+    let mesh = lightmap_build(
+        &level,
+        crate::quality::QualityProfile::Full,
+        LightmapMode::On,
+    )
+    .mesh;
+    let opening_area: f32 = level
+        .walls
+        .iter()
+        .flat_map(|wall| wall.openings.iter())
+        .filter(|opening| opening.glass_material().is_some())
+        .map(|opening| opening.width * opening.height)
+        .sum();
+    // Two openings may share one glass material, and a key's geometry is the
+    // union of everything that binds it, so the distinct keys are what carry the
+    // area.
+    let mut keys: Vec<SurfaceKey> = panes.iter().map(|(key, _)| *key).collect();
+    keys.sort_unstable();
+    keys.dedup();
+    let mut pane_area = 0.0f32;
+    for key in &keys {
+        let count = mesh.index_count_for_key(*key);
+        assert!(
+            count > 0 && count.is_multiple_of(6),
+            "a pane is whole quads (six indices each), got {count}"
+        );
+        for triangle in mesh.triangles_for_key(*key).as_chunks::<3>().0 {
+            let [a, b, c] = *triangle;
+            let edge1 = glam::Vec3::from(a.pos) - glam::Vec3::from(b.pos);
+            let edge2 = glam::Vec3::from(c.pos) - glam::Vec3::from(b.pos);
+            pane_area = edge1.cross(edge2).length().mul_add(0.5, pane_area);
+        }
+    }
+    assert_eq!(
+        keys.len(),
+        3,
+        "the demo glazes three distinct glass materials"
+    );
+    assert!(
+        (pane_area - opening_area).abs() <= 1.0e-3 * opening_area.max(1.0),
+        "the panes cover their openings exactly: {pane_area} vs {opening_area}"
+    );
+    let pane_vertices = mesh.triangles_for_key(panes[0].0);
+    assert!(!pane_vertices.is_empty());
+    let lightmapped = pane_vertices
+        .iter()
+        .filter(|vertex| vertex.is_lightmapped())
+        .count();
+    assert_eq!(
+        lightmapped,
+        pane_vertices.len(),
+        "a pane samples the same atlas the wall around it does"
+    );
+}
+
+#[test]
+fn the_translucent_pass_is_sorted_back_to_front_and_skips_culled_batches() {
+    let level = shipped_demo();
+    let materials = logical_materials(&level);
+    let mesh = build_level_geometry_with_materials(&level, &materials);
+    let (_, batches) = pack_static_batches(&mesh, true);
+    assert!(!batches.is_empty(), "the demo packs into static batches");
+
+    // Every batch is translucent for this test, so the sort and the cull filter
+    // are the only things under test.
+    let camera = glam::Vec3::new(0.0, 1.6, 0.0);
+    let mut out = Vec::new();
+    collect_translucent_draws(
+        &batches,
+        |_| BatchPass::Translucent,
+        camera,
+        |_| true,
+        &mut out,
+    );
+    assert_eq!(out.len(), batches.len());
+    for pair in out.windows(2) {
+        let [first, second] = pair else {
+            continue;
+        };
+        assert!(
+            first.distance_sq >= second.distance_sq,
+            "the translucent pass must be sorted farthest-first"
+        );
+    }
+
+    // A culled batch never reaches the pass.
+    let mut kept = Vec::new();
+    collect_translucent_draws(
+        &batches,
+        |_| BatchPass::Translucent,
+        camera,
+        |bounds| bounds.centre()[0] > 0.0,
+        &mut kept,
+    );
+    let kept_count = batches
+        .iter()
+        .filter(|batch| batch.bounds.centre()[0] > 0.0)
+        .count();
+    assert_eq!(kept.len(), kept_count);
+
+    // The scratch vector is reused: collecting twice must not accumulate.
+    let mut scratch = Vec::new();
+    collect_translucent_draws(
+        &batches,
+        |_| BatchPass::Opaque,
+        camera,
+        |_| true,
+        &mut scratch,
+    );
+    assert!(scratch.is_empty(), "an opaque batch is not translucent");
+    assert_eq!(scratch.capacity(), 0);
+}
+
+#[test]
+fn two_overlapping_panes_sort_with_the_nearer_one_last() {
+    let level = two_layer_glass_level(["core:glass_window_clear_01", "core:glass_window_dirty_01"]);
+    let materials = logical_materials(&level);
+    let alphas: Vec<MaterialAlpha> = materials
+        .entries()
+        .iter()
+        .map(|entry| entry.alpha)
+        .collect();
+    let mesh = build_level_geometry_with_materials(&level, &materials);
+    let (_, batches) = pack_static_batches(&mesh, true);
+
+    let glass_keys = materials
+        .entries()
+        .iter()
+        .filter(|entry| entry.alpha.is_translucent())
+        .filter_map(|entry| {
+            materials
+                .index_of(&entry.id)
+                .map(|index| SurfaceKey::new(SurfaceKind::Wall, index))
+        });
+    assert_eq!(glass_keys.clone().count(), 2, "two distinct pane materials");
+
+    // Camera in front of both panes, near the first wall (x = 1.9).
+    let camera = glam::Vec3::new(0.5, 1.5, 3.0);
+    let mut out = Vec::new();
+    collect_translucent_draws(
+        &batches,
+        |key| {
+            let alpha = alphas.get(usize::from(key.material)).copied();
+            batch_pass_for(key.kind, key.has_material(), alpha)
+        },
+        camera,
+        |_| true,
+        &mut out,
+    );
+    assert_eq!(out.len(), 2, "both panes are in the pass");
+    let mut centres = Vec::new();
+    for item in &out {
+        let TranslucentSource::Static(index) = item.source;
+        let Some(batch) = batches.get(index) else {
+            continue;
+        };
+        centres.push((batch.key, batch.bounds.centre()[0]));
+    }
+    assert!(
+        centres[0].1 > centres[1].1,
+        "farthest pane first, nearest last: {centres:?}"
+    );
+    assert!(
+        centres[0].0.material != centres[1].0.material,
+        "the two layers are different glass materials"
+    );
+}
+
+#[test]
+fn the_cutout_and_translucent_materials_are_built_but_never_blended_together() {
+    // A material that authors a cut-out keeps its geometry in the opaque pass
+    // with an alpha-tested stage; only `blend` reaches the sorted pass. The two
+    // are mutually exclusive by construction, which is what keeps a cut-out
+    // decal or grille from being sorted as if it were glass.
+    let alphas = [
+        MaterialAlpha::OPAQUE,
+        MaterialAlpha {
+            mode: AlphaMode::Cutout,
+            ..MaterialAlpha::OPAQUE
+        },
+        MaterialAlpha::blend(0.5),
+    ];
+    let passes: Vec<BatchPass> = alphas
+        .into_iter()
+        .map(|alpha| batch_pass_for(SurfaceKind::Wall, true, Some(alpha)))
+        .collect();
+    assert_eq!(
+        passes,
+        vec![BatchPass::Opaque, BatchPass::Cutout, BatchPass::Translucent]
+    );
+    assert_eq!(
+        passes
+            .iter()
+            .filter(|pass| **pass == BatchPass::Translucent)
+            .count(),
+        1
+    );
+}
+
+// ----------------------------------------------------------- offscreen scene
+
+#[test]
+fn the_offscreen_target_plan_follows_the_drawable_the_profile_and_its_own_failures() {
+    let drawable = DrawableSize::new(1280, 720);
+
+    // Full: the target is the drawable itself.
+    assert_eq!(
+        offscreen_plan(true, false, crate::quality::QualityProfile::Full, drawable),
+        Some(drawable)
+    );
+
+    // Low: a smaller target with the drawable's aspect, never an upscale.
+    let low = offscreen_plan(true, false, crate::quality::QualityProfile::Low, drawable)
+        .expect("Low still renders offscreen");
+    assert!(low.width < drawable.width && low.height < drawable.height);
+    let drawable_aspect = f64::from(drawable.width) / f64::from(drawable.height);
+    let low_aspect = f64::from(low.width) / f64::from(low.height);
+    assert!(
+        (drawable_aspect - low_aspect).abs() < 1.0e-2,
+        "the scene target must not distort the image: {low:?}"
+    );
+
+    // A target that already failed takes the direct path, as does the explicit
+    // switch, as does a minimized window.
+    assert_eq!(
+        offscreen_plan(true, true, crate::quality::QualityProfile::Full, drawable),
+        None
+    );
+    assert_eq!(
+        offscreen_plan(false, false, crate::quality::QualityProfile::Full, drawable),
+        None
+    );
+    assert_eq!(
+        offscreen_plan(
+            true,
+            false,
+            crate::quality::QualityProfile::Full,
+            DrawableSize::new(0, 0)
+        ),
+        None
+    );
+
+    // Resizing the drawable changes the planned target, which is what makes the
+    // renderer rebuild the offscreen attachments exactly once per size change.
+    let resized = offscreen_plan(
+        true,
+        false,
+        crate::quality::QualityProfile::Full,
+        DrawableSize::new(800, 600),
+    );
+    assert_eq!(resized, Some(DrawableSize::new(800, 600)));
+    assert_ne!(resized, Some(drawable));
+}
+
+#[test]
+fn the_hud_and_every_pre_batch_three_batch_draw_with_no_response_and_no_alpha() {
+    // The HUD's surface state: no normal map, no sheen, no emission and opaque.
+    // The UI pass sets exactly this, so a bright fixture the camera walked away
+    // from cannot leak into the text and a Low-profile gate cannot make the HUD
+    // dimmer than the scene.
+    // A stand-in texture handle: the state compares and uploads it, but this
+    // test only reads the material terms around it.
+    let stand_in = glow::NativeTexture(std::num::NonZeroU32::new(42).expect("non-zero"));
+    let state = SurfaceState::plain(stand_in);
+    assert!(!state.response);
+    assert!(state.normal.is_none());
+    assert_eq!(state.specular, [0.0; 3]);
+    assert!((state.opacity - 1.0).abs() < f32::EPSILON);
+    assert!((state.alpha_cutoff - DECAL_ALPHA_CUTOFF).abs() < f32::EPSILON);
+    assert_eq!(state.emission, EmissionState::NONE);
 }

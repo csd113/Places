@@ -195,8 +195,18 @@ impl Settings {
     }
 
     /// The quality profile this settings file selects.
+    ///
+    /// `LIMINAL_QUALITY=full|low` overrides it for one process, so a benchmark
+    /// can capture the two profiles of the same level without editing
+    /// `settings.json`. An unrecognised value is ignored, exactly like an
+    /// unrecognised settings value.
     #[must_use]
     pub fn quality_profile(&self) -> crate::quality::QualityProfile {
+        if let Ok(value) = std::env::var("LIMINAL_QUALITY")
+            && let Some(profile) = crate::quality::QualityProfile::parse(&value)
+        {
+            return profile;
+        }
         crate::quality::QualityProfile::parse(&self.quality).unwrap_or_default()
     }
 

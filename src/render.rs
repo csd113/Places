@@ -15,6 +15,7 @@ mod api;
 mod decals;
 mod dynamic;
 mod fixtures;
+mod framebuffer;
 mod geometry;
 mod mesh;
 mod props;
@@ -42,9 +43,9 @@ use fixtures::{add_panel_fixture, add_round_fixture, add_wall_fixture};
 use geometry::build_level_geometry_mesh;
 pub use mesh::packed_layout;
 pub use mesh::{
-    BatchRange, LIGHTMAP_NONE, LevelMesh, LevelMeshBatches, LevelMeshRange, MATERIAL_NONE,
-    MaterialIndex, MaterialSlot, PackedVertex, StaticBatch, SurfaceKey, SurfaceKind, Vertex,
-    VertexLayout, dequantize_unit, spatial_cell_grid,
+    BatchRange, EXACT_VERTEX_STRIDE, LIGHTMAP_NONE, LevelMesh, LevelMeshBatches, LevelMeshRange,
+    MATERIAL_NONE, MaterialIndex, MaterialSlot, PackedVertex, StaticBatch, SurfaceKey, SurfaceKind,
+    Vertex, VertexLayout, dequantize_normal, dequantize_unit, spatial_cell_grid,
 };
 use mesh::{MeshChunk, MeshPacker, finish_indexed_mesh};
 pub use props::PropMeshBatch;
@@ -67,13 +68,15 @@ pub(crate) const SCENE_FAR_M: f32 = 100.0;
 pub use view::{
     DECAL_ALPHA_CUTOFF, DECAL_POLYGON_OFFSET, DECAL_SURFACE_OFFSET_M, DrawableSize,
     UI_REFERENCE_HEIGHT, UI_REFERENCE_WIDTH, UiViewport, WINDOW_HEIGHT, WINDOW_WIDTH,
-    reference_aspect_ratio, vertical_fov_for_aspect,
+    fragment_shader_source, reference_aspect_ratio, vertical_fov_for_aspect,
 };
 use view::{
-    DECAL_FRAGMENT_SHADER_SRC, EMISSION_MASK_TEXTURE_UNIT, FRAGMENT_SHADER_SRC,
-    LIGHTMAP_PAGE_SLOTS, LIGHTMAP_TEXTURE_UNIT, LIGHTMAP_TEXTURE_UNIT_1, SCENE_ATTRIB_COLOR,
-    SCENE_ATTRIB_LIGHTMAP_PAGE, SCENE_ATTRIB_LIGHTMAP_UV, SCENE_ATTRIB_POS, SCENE_ATTRIB_UV,
-    SCENE_TEXTURE_UNIT, VERTEX_SHADER_SRC,
+    DECAL_FRAGMENT_SHADER_SRC, EMISSION_MASK_TEXTURE_UNIT, LIGHTMAP_PAGE_SLOTS,
+    LIGHTMAP_TEXTURE_UNIT, LIGHTMAP_TEXTURE_UNIT_1, NORMAL_MAP_TEXTURE_UNIT,
+    PRESENT_FRAGMENT_SHADER_SRC, PRESENT_TEXTURE_UNIT, PRESENT_VERTEX_SHADER_SRC,
+    SCENE_ATTRIB_COLOR, SCENE_ATTRIB_COUNT, SCENE_ATTRIB_HANDEDNESS, SCENE_ATTRIB_LIGHTMAP_PAGE,
+    SCENE_ATTRIB_LIGHTMAP_UV, SCENE_ATTRIB_NORMAL, SCENE_ATTRIB_POS, SCENE_ATTRIB_TANGENT,
+    SCENE_ATTRIB_UV, SCENE_TEXTURE_UNIT, VERTEX_SHADER_SRC,
 };
 
 /// Resolves level material ids into surface keys and render parameters.

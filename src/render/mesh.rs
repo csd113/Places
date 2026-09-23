@@ -17,6 +17,19 @@ pub struct Vertex {
     pub pos: [f32; 3],
     pub color: [f32; 4],
     pub uv: [f32; 2],
+    /// Geometric normal of the surface this vertex belongs to, unit length.
+    ///
+    /// Computed once per range from the emitted triangles
+    /// ([`compute_surface_frames`]), never authored: the mesh builder emits
+    /// quads and the frame falls out of their winding.
+    pub normal: [f32; 3],
+    /// Tangent along the surface's `u` direction, unit length and orthogonal
+    /// to [`Vertex::normal`].
+    pub tangent: [f32; 3],
+    /// Sign of the bitangent: `cross(normal, tangent) * handedness` is the
+    /// surface's `v` direction. Needed so a mirrored UV layout flips the normal
+    /// map instead of tilting it the wrong way.
+    pub handedness: f32,
     /// Lightmap atlas coordinates, one 16-bit fixed-point value per axis
     /// covering the chart's slice of its atlas page.
     ///
@@ -40,11 +53,17 @@ impl Vertex {
     /// A vertex with no lightmap coordinates: the historical vertex-lit vertex.
     ///
     /// Used as a struct-update base (`..Vertex::UNLIT`) so a call site only
-    /// names the attributes it cares about.
+    /// names the attributes it cares about. The default frame points along +Z
+    /// with +X as its tangent, which is only ever a placeholder: every range
+    /// gets its real frame from [`compute_surface_frames`] before upload, and
+    /// the UI (which never reads a normal) keeps this one.
     pub const UNLIT: Self = Self {
         pos: [0.0; 3],
         color: [1.0; 4],
         uv: [0.0; 2],
+        normal: [0.0, 0.0, 1.0],
+        tangent: [1.0, 0.0, 0.0],
+        handedness: 1.0,
         lightmap: [0; 2],
         lightmap_page: LIGHTMAP_NONE,
     };
@@ -56,8 +75,7 @@ impl Vertex {
             pos,
             color,
             uv,
-            lightmap: [0; 2],
-            lightmap_page: LIGHTMAP_NONE,
+            ..Self::UNLIT
         }
     }
 
@@ -77,6 +95,7 @@ impl Vertex {
             uv,
             lightmap,
             lightmap_page: page,
+            ..Self::UNLIT
         }
     }
 
@@ -87,7 +106,7 @@ impl Vertex {
     }
 }
 
-/// GPU vertex layout: 32 bytes, with no loss of achievable output.
+/// GPU vertex layout: 36 bytes, with no loss of achievable output.
 ///
 /// * `pos` stays `f32` — world position precision is not negotiable, since a
 ///   liminal level can be over 250 m across and a centimetre of drift would move
@@ -100,26 +119,36 @@ impl Vertex {
 ///   is 0.10 and `MAX_BRIGHTNESS` is 1.0, so a vertex channel only ever spans
 ///   [0, 1] and the smallest step is 1/255 ≈ 0.9% of the range actually used.
 ///   Alpha is kept because prop models carry it from their glTF `COLOR_0`.
+/// * `normal` and `tangent` become three normalised signed bytes each. Both are
+///   unit vectors, so a byte gives about 0.8% of error — far below the shading
+///   slope a normal map can show — and axis-aligned geometry (every wall, floor
+///   and ceiling) is represented exactly.
+/// * `handedness` is one more normalised signed byte holding ±1, which keeps a
+///   mirrored UV layout from flipping the normal map's green channel.
 /// * `lightmap` becomes two normalised `u16` atlas coordinates (4 bytes) and
 ///   `lightmap_page` a plain byte: 16 bits per axis resolves one quarter of a
 ///   texel on a 1024-texel atlas page, so the fixed-point step is far below what
 ///   the sampling filter can see.
 ///
-/// `glVertexAttribPointer` with `normalized = true` and `GL_UNSIGNED_BYTE` is
-/// core OpenGL ES 2.0, so no extension or newer context is required.
+/// `glVertexAttribPointer` with `normalized = true` and `GL_UNSIGNED_BYTE` (or
+/// `GL_BYTE`) is core OpenGL ES 2.0, so no extension or newer context is
+/// required.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PackedVertex {
     pub pos: [f32; 3],
-    pub color: [u8; 4],
     pub uv: [f32; 2],
+    pub color: [u8; 4],
     /// Lightmap atlas coordinates, uploaded as normalized `GL_UNSIGNED_SHORT`.
     pub lightmap: [u16; 2],
+    /// Geometric normal, uploaded as three normalized `GL_BYTE` values.
+    pub normal: [i8; 3],
+    /// Surface tangent, uploaded as three normalized `GL_BYTE` values.
+    pub tangent: [i8; 3],
+    /// Bitangent sign, uploaded as one normalized `GL_BYTE` holding ±1.
+    pub handedness: i8,
     /// Lightmap atlas page, uploaded as a plain `GL_UNSIGNED_BYTE`.
     pub lightmap_page: u8,
-    /// Alignment padding so one vertex stays 32 bytes: the attribute offsets
-    /// stay 4-byte aligned, which is what the Mali-400 wants.
-    pub pad: [u8; 3],
 }
 
 /// Byte offset of each packed attribute, and the stride between vertices.
@@ -129,37 +158,45 @@ pub struct PackedVertex {
 /// Written out rather than derived from `size_of::<Vertex>()` so that
 /// [`VertexLayout::stride`] can stay a `const fn`; the packed-layout test keeps
 /// it equal to the struct's real size.
-pub const EXACT_VERTEX_STRIDE: i32 = 44;
+pub const EXACT_VERTEX_STRIDE: i32 = 72;
 
 pub mod packed_layout {
     /// Offset of `a_pos`, in bytes.
     pub const POS_OFFSET: i32 = 0;
-    /// Offset of `a_color`, in bytes.
-    pub const COLOR_OFFSET: i32 = 12;
     /// Offset of `a_uv`, in bytes.
-    pub const UV_OFFSET: i32 = 16;
+    pub const UV_OFFSET: i32 = 12;
+    /// Offset of `a_color`, in bytes.
+    pub const COLOR_OFFSET: i32 = 20;
     /// Offset of `a_lightmap_uv`, in bytes.
     pub const LIGHTMAP_OFFSET: i32 = 24;
+    /// Offset of `a_normal`, in bytes.
+    pub const NORMAL_OFFSET: i32 = 28;
+    /// Offset of `a_tangent`, in bytes.
+    pub const TANGENT_OFFSET: i32 = 31;
+    /// Offset of `a_handedness`, in bytes.
+    pub const HANDEDNESS_OFFSET: i32 = 34;
     /// Offset of `a_lightmap_page`, in bytes.
-    pub const LIGHTMAP_PAGE_OFFSET: i32 = 28;
+    pub const LIGHTMAP_PAGE_OFFSET: i32 = 35;
     /// Bytes between consecutive vertices.
-    pub const STRIDE: i32 = 32;
+    pub const STRIDE: i32 = 36;
 }
 
 impl From<&Vertex> for PackedVertex {
     fn from(vertex: &Vertex) -> Self {
         Self {
             pos: vertex.pos,
+            uv: vertex.uv,
             color: [
                 quantize_unit(vertex.color[0]),
                 quantize_unit(vertex.color[1]),
                 quantize_unit(vertex.color[2]),
                 quantize_unit(vertex.color[3]),
             ],
-            uv: vertex.uv,
             lightmap: vertex.lightmap,
+            normal: quantize_normal(vertex.normal),
+            tangent: quantize_normal(vertex.tangent),
+            handedness: if vertex.handedness < 0.0 { -127 } else { 127 },
             lightmap_page: vertex.lightmap_page,
-            pad: [0; 3],
         }
     }
 }
@@ -188,6 +225,42 @@ fn quantize_unit(value: f32) -> u8 {
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let byte = clamped.mul_add(255.0, 0.5) as u8;
     byte
+}
+
+/// Maps a unit vector to three normalised signed bytes, rounding to nearest.
+///
+/// A non-finite component becomes zero, and a vector that quantises to nothing
+/// falls back to +Z: a degenerate frame must stay a defined direction rather
+/// than a zero normal the shader would normalise into a NaN.
+#[must_use]
+fn quantize_normal(vector: [f32; 3]) -> [i8; 3] {
+    let mut packed = [0i8; 3];
+    for (slot, value) in packed.iter_mut().zip(vector) {
+        if !value.is_finite() {
+            continue;
+        }
+        // `clamp` handles the infinities by saturation; the scaled value is in
+        // [-127, 127], which an `i8` holds exactly.
+        let scaled = (value.clamp(-1.0, 1.0) * 127.0).round();
+        #[allow(clippy::cast_possible_truncation)]
+        let byte = scaled as i8;
+        *slot = byte;
+    }
+    if packed == [0i8; 3] {
+        return [0, 0, 127];
+    }
+    packed
+}
+
+/// The exact value a normalised signed byte decodes to, for tests and audits.
+#[must_use]
+pub fn dequantize_normal(byte: i8) -> f32 {
+    if byte == -128 {
+        // `-128 / 127` is the normalised decode of the one byte outside the
+        // symmetric range; clamping keeps the result inside [-1, 1].
+        return -1.0;
+    }
+    f32::from(byte) / 127.0
 }
 
 /// The exact value a normalised byte decodes to, for tests and audits.
@@ -564,6 +637,10 @@ impl LevelMesh {
 /// reproducible: the same level always produces the same buffer. Materials stay
 /// contiguous, which is what keeps the per-material aggregate spans in
 /// [`LevelMesh::batches`] meaningful.
+///
+/// Every range's per-vertex geometric frame is computed here, once, from the
+/// range's own triangles (see [`compute_surface_frames`]): the emitters stay
+/// free of normal arithmetic and no emitter can forget to set a normal.
 pub(super) fn finish_indexed_mesh(
     mut buckets: crate::spatial::SpatialBuckets<SurfaceKey>,
 ) -> LevelMesh {
@@ -582,6 +659,8 @@ pub(super) fn finish_indexed_mesh(
         if range.indices.is_empty() {
             continue;
         }
+        let mut vertices = range.vertices;
+        compute_surface_frames(&mut vertices, &range.indices);
         let index_len = i32::try_from(range.indices.len()).unwrap_or(i32::MAX);
         let span_end = virtual_index.saturating_add(index_len);
         if let Some(slot) = spans.get_mut(key.kind as usize) {
@@ -591,11 +670,11 @@ pub(super) fn finish_indexed_mesh(
             });
         }
         virtual_index = span_end;
-        vertex_count = vertex_count.saturating_add(range.vertices.len());
+        vertex_count = vertex_count.saturating_add(vertices.len());
         index_count = index_count.saturating_add(range.indices.len());
         ranges.push(LevelMeshRange {
             key,
-            vertices: range.vertices,
+            vertices,
             indices: range.indices,
             bounds: range.bounds,
         });
@@ -615,6 +694,153 @@ pub(super) fn finish_indexed_mesh(
         vertex_count,
         index_count,
     }
+}
+
+/// Computes the per-vertex geometric frame of one indexed range.
+///
+/// The mesh builder emits *geometry* (positions, colours, UVs, lightmap
+/// coordinates); the frame — normal, tangent and bitangent sign — is derived
+/// here from the range's own triangles, so every surface family gets a correct
+/// frame without a single emitter knowing about normals, and a future emitter
+/// cannot forget one.
+///
+/// * **Normal** is the area-weighted average of the adjacent triangle normals.
+///   The builder emits each quad with its own four vertices, so a planar quad
+///   resolves to exactly its geometric normal, and a curved patch (a gable
+///   slope, a prop box face) smooths within its own patch only.
+/// * **Tangent** is the UV-space `u` derivative, Gram-Schmidt-orthogonalised
+///   against the normal, which is what a normal map needs to be oriented with
+///   the surface's own tiling.
+/// * **Handedness** is the sign of the UV-space `v` derivative against
+///   `cross(normal, tangent)`: `-1` for a mirrored UV layout, so a normal map
+///   tilts the same way on both sides of a mirrored seam instead of inverting.
+///
+/// Degenerate triangles and degenerate UVs are skipped rather than propagated:
+/// a vertex that ends up with no usable frame keeps a defined, unit-length one.
+fn compute_surface_frames(vertices: &mut [Vertex], indices: &[u16]) {
+    let count = vertices.len();
+    let mut normals = vec![[0.0f32; 3]; count];
+    let mut tangents = vec![[0.0f32; 3]; count];
+    let mut bitangents = vec![[0.0f32; 3]; count];
+
+    for triangle in indices.as_chunks::<3>().0 {
+        let [a, b, c] = *triangle;
+        let (Some(pa), Some(pb), Some(pc)) = (
+            vertices.get(usize::from(a)).map(|vertex| vertex.pos),
+            vertices.get(usize::from(b)).map(|vertex| vertex.pos),
+            vertices.get(usize::from(c)).map(|vertex| vertex.pos),
+        ) else {
+            continue;
+        };
+        let edge1 = sub3(pb, pa);
+        let edge2 = sub3(pc, pa);
+        let face = cross3(edge1, edge2);
+        let (Some(ua), Some(ub), Some(uc)) = (
+            vertices.get(usize::from(a)).map(|vertex| vertex.uv),
+            vertices.get(usize::from(b)).map(|vertex| vertex.uv),
+            vertices.get(usize::from(c)).map(|vertex| vertex.uv),
+        ) else {
+            continue;
+        };
+        let duv1 = [ub[0] - ua[0], ub[1] - ua[1]];
+        let duv2 = [uc[0] - ua[0], uc[1] - ua[1]];
+        let determinant = duv2[0].mul_add(-duv1[1], duv1[0] * duv2[1]);
+        // A UV-degenerate triangle (a zero-area UV, a seam point) contributes no
+        // usable tangent, but its geometry still contributes a normal.
+        let uv_ok = determinant.is_finite() && determinant.abs() > 1.0e-12;
+        let scale = if uv_ok { 1.0 / determinant } else { 0.0 };
+        let tangent = [
+            edge2[0].mul_add(-duv1[1], edge1[0] * duv2[1]) * scale,
+            edge2[1].mul_add(-duv1[1], edge1[1] * duv2[1]) * scale,
+            edge2[2].mul_add(-duv1[1], edge1[2] * duv2[1]) * scale,
+        ];
+        let bitangent = [
+            edge1[0].mul_add(-duv2[0], edge2[0] * duv1[0]) * scale,
+            edge1[1].mul_add(-duv2[0], edge2[1] * duv1[0]) * scale,
+            edge1[2].mul_add(-duv2[0], edge2[2] * duv1[0]) * scale,
+        ];
+        for index in [a, b, c] {
+            let slot = usize::from(index);
+            if let Some(accumulator) = normals.get_mut(slot) {
+                add3_assign(accumulator, face);
+            }
+            if uv_ok {
+                if let Some(accumulator) = tangents.get_mut(slot) {
+                    add3_assign(accumulator, tangent);
+                }
+                if let Some(accumulator) = bitangents.get_mut(slot) {
+                    add3_assign(accumulator, bitangent);
+                }
+            }
+        }
+    }
+
+    for (index, vertex) in vertices.iter_mut().enumerate() {
+        let normal = normals
+            .get(index)
+            .copied()
+            .and_then(normalize3)
+            .unwrap_or([0.0, 0.0, 1.0]);
+        let raw_tangent = tangents.get(index).copied().unwrap_or_default();
+        // Gram-Schmidt: the component along the normal is not part of the
+        // surface's tangent plane.
+        let projected = sub3(raw_tangent, scale3(normal, dot3(normal, raw_tangent)));
+        let tangent = normalize3(projected)
+            .or_else(|| normalize3(cross3([0.0, 1.0, 0.0], normal)))
+            .or_else(|| normalize3(cross3([1.0, 0.0, 0.0], normal)))
+            .unwrap_or([1.0, 0.0, 0.0]);
+        let handedness = match bitangents.get(index).copied().and_then(normalize3) {
+            Some(bitangent) if dot3(cross3(normal, tangent), bitangent) < 0.0 => -1.0,
+            Some(_) | None => 1.0,
+        };
+        vertex.normal = normal;
+        vertex.tangent = tangent;
+        vertex.handedness = handedness;
+    }
+}
+
+/// `a - b`.
+fn sub3(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+    [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+}
+
+/// `a * scale`.
+fn scale3(a: [f32; 3], scale: f32) -> [f32; 3] {
+    [a[0] * scale, a[1] * scale, a[2] * scale]
+}
+
+/// `a + b`, in place.
+fn add3_assign(accumulator: &mut [f32; 3], value: [f32; 3]) {
+    for (slot, value) in accumulator.iter_mut().zip(value) {
+        *slot += value;
+    }
+}
+
+/// The dot product of two three-component vectors.
+fn dot3(a: [f32; 3], b: [f32; 3]) -> f32 {
+    a[0].mul_add(b[0], a[1].mul_add(b[1], a[2] * b[2]))
+}
+
+/// The cross product of two three-component vectors.
+fn cross3(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+    [
+        a[1].mul_add(b[2], -(a[2] * b[1])),
+        a[2].mul_add(b[0], -(a[0] * b[2])),
+        a[0].mul_add(b[1], -(a[1] * b[0])),
+    ]
+}
+
+/// A unit vector in the direction of `value`, or `None` when it has no
+/// direction (or is not finite).
+fn normalize3(value: [f32; 3]) -> Option<[f32; 3]> {
+    if !value.iter().all(|channel| channel.is_finite()) {
+        return None;
+    }
+    let length = dot3(value, value).sqrt();
+    if !length.is_finite() || length <= 1.0e-12 {
+        return None;
+    }
+    Some(scale3(value, 1.0 / length))
 }
 
 /// One surface family's aggregate index span, or an empty range when the

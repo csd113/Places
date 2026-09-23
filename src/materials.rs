@@ -36,11 +36,13 @@
 //! Module layout
 //! -------------
 //! ```text
-//! image.rs    PNG decode/encode, the diagnostic pattern and the session cache
-//! pack.rs     material definitions carried inside a level pack
-//! resolve.rs  material id -> catalog -> texture -> decoded image
-//! decal.rs    external PNG decal sheets
-//! tests.rs    unit tests for the whole pipeline
+//! image.rs     PNG decode/encode, the diagnostic pattern and the session cache
+//! pack.rs      material definitions carried inside a level pack
+//! resolve.rs   material id -> catalog -> texture -> decoded image
+//! decal.rs     external PNG decal sheets
+//! emission.rs  additive emission: how bright a surface reads
+//! response.rs  lightweight normal/specular/roughness response and alpha mode
+//! tests.rs     unit tests for the whole pipeline
 //! ```
 
 mod decal;
@@ -48,6 +50,7 @@ mod emission;
 mod image;
 mod pack;
 mod resolve;
+mod response;
 
 #[cfg(test)]
 mod tests;
@@ -63,6 +66,10 @@ pub use pack::{PackMaterialDef, PackMaterials, parse_materials_json};
 pub use resolve::{
     MaterialTable, ResolvedMaterial, ResolvedTexture, TextureOrigin, referenced_material_ids,
     resolve_materials,
+};
+pub use response::{
+    AlphaMode, DEFAULT_ALPHA_CUTOFF, DEFAULT_NORMAL_STRENGTH, DEFAULT_ROUGHNESS,
+    MAX_NORMAL_STRENGTH, MAX_SPECULAR, MaterialAlpha, MaterialResponse,
 };
 
 /// Cache/dedupe key of the one diagnostic texture every resolution failure

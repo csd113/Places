@@ -42,6 +42,7 @@ if HERE not in sys.path:
 from artkit import PNG_SIGNATURE, write_png  # noqa: E402
 import decal_art  # noqa: E402
 import diagnostic_art  # noqa: E402
+import extra_art  # noqa: E402
 import lights_art  # noqa: E402
 import office_art  # noqa: E402
 import pool_art  # noqa: E402
@@ -55,7 +56,7 @@ HARD_DIMENSION = 1024
 # per-theme art modules; mirrors the asset_type "texture" entries in
 # assets/catalog.json and --check warns on drift.
 MANIFEST = {}
-for module in (office_art, pool_art, lights_art, decal_art, diagnostic_art):
+for module in (office_art, pool_art, lights_art, decal_art, diagnostic_art, extra_art):
     for texture_id, entry in module.ART.items():
         if texture_id in MANIFEST:
             raise SystemExit(f"texture manifest: {texture_id} is declared in more than one art module")

@@ -179,6 +179,7 @@ impl DynamicMesh {
                 // unused and the probe uniform carries the light instead.
                 lightmap: [0; 2],
                 lightmap_page: LIGHTMAP_NONE,
+                ..Vertex::UNLIT
             })
             .collect();
         let submeshes: Vec<DynamicSubmesh> = asset

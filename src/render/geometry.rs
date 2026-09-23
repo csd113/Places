@@ -130,6 +130,7 @@ pub(super) fn build_level_geometry_mesh_with_lightmaps(
     emit_floors(&context, &mut buckets, &mut scratch, &rooms);
     emit_ceilings(&context, &mut buckets, &mut scratch, &rooms);
     emit_walls(&context, &wall_layout.units, &mut buckets, &mut scratch);
+    emit_glass_panes(&context, &mut buckets, &mut scratch);
     emit_fixtures(&context, &mut buckets, &mut scratch);
     emit_prop_fallbacks(
         &context,
@@ -1200,6 +1201,140 @@ fn emit_fixtures(
         let sheet = MaterialIndex::try_from(profile.kind.index()).unwrap_or(MATERIAL_NONE);
         buckets.add_quads(SurfaceKey::new(SurfaceKind::Light, sheet), scratch);
         buckets.add_quads(SurfaceKey::bare(SurfaceKind::Light), &housing);
+    }
+}
+
+/// Step 3b: the glass panes that fill openings.
+///
+/// An opening with a `glass` material is a *hole with a pane in it*: the wall
+/// keeps its full cut (collision and the lighting bake are unchanged — glass
+/// transmits light, and the bake already runs through the aperture), and one
+/// quad is emitted in the wall's mid-plane so the opening reads as glazed
+/// rather than empty.
+///
+/// The pane is deliberately the opening's own rectangle at the wall's centre
+/// plane, with no frame and no thickness: it is a *surface*, so every material
+/// feature applies to it — tint, dirt texture, roughness, sheen, alpha mode and
+/// emission. A `blend` glass draws in the translucent pass like any other
+/// translucent surface, which is what lets a level put real glass in a window
+/// without the renderer knowing what a window is.
+///
+/// A pane is emitted once per authored opening. Two coincident walls that the
+/// wall emitter coalesces into one would each emit their own pane; author a
+/// wall once, as everywhere else in the format.
+///
+/// The pane is never lightmapped: like a fixture face or a prop, its four
+/// corners sample the baked light directly and fold it into the vertex colour.
+/// A pane spans at most one opening, so per-corner sampling is smooth across it.
+fn emit_glass_panes(
+    context: &EmitContext<'_, '_>,
+    buckets: &mut SpatialBuckets<SurfaceKey>,
+    scratch: &mut Vec<Vertex>,
+) {
+    for wall in &context.level.walls {
+        if !wall.x.is_finite()
+            || !wall.z.is_finite()
+            || !wall.width.is_finite()
+            || !wall.depth.is_finite()
+            || !wall.y.is_finite()
+            || !wall.height.unwrap_or(0.0).is_finite()
+        {
+            continue;
+        }
+        for opening in &wall.openings {
+            let Some(material) = opening.glass_material() else {
+                continue;
+            };
+            if !opening.offset.is_finite()
+                || !opening.width.is_finite()
+                || !opening.height.is_finite()
+                || !opening.sill.is_finite()
+                || opening.width <= 0.0
+                || opening.height <= 0.0
+            {
+                continue;
+            }
+            let key = context.materials.key(MaterialSlot::Wall, material);
+            let tile = context.materials.tile_metres(key);
+            let tint = context.materials.tint(key);
+            let base = wall.y;
+            let bottom = opening.bottom(base);
+            let top = opening.top(base);
+            let near = opening.offset;
+            let far = opening.end();
+            let (origin_x, origin_z) = wall.length_origin();
+            let (t0, t1) = {
+                let z0 = wall.z.min(wall.z + wall.depth);
+                let z1 = wall.z.max(wall.z + wall.depth);
+                let x0 = wall.x.min(wall.x + wall.width);
+                let x1 = wall.x.max(wall.x + wall.width);
+                match wall.axis() {
+                    WallAxis::X => (z0, z1),
+                    WallAxis::Z => (x0, x1),
+                }
+            };
+            // The pane sits in the middle of the wall's thickness: one surface,
+            // drawn from both sides (nothing in the world is back-face culled,
+            // and the shader flips the normal towards the viewer).
+            let across = f32::midpoint(t0, t1);
+            // Corners in the wall's own winding: p0 -> p1 runs along the opening
+            // (u), p0 -> p3 runs up it (v).
+            let (p0, p1, p2, p3) = match wall.axis() {
+                WallAxis::X => (
+                    [origin_x + near, bottom, across],
+                    [origin_x + far, bottom, across],
+                    [origin_x + far, top, across],
+                    [origin_x + near, top, across],
+                ),
+                WallAxis::Z => (
+                    [across, bottom, origin_z + near],
+                    [across, bottom, origin_z + far],
+                    [across, top, origin_z + far],
+                    [across, top, origin_z + near],
+                ),
+            };
+            let (u_near, u_far) = (near, far);
+            let uv0 = tiled_uv(u_near, opening.sill, tile);
+            let uv1 = tiled_uv(u_far, opening.sill, tile);
+            let uv2 = tiled_uv(u_far, opening.sill + opening.height, tile);
+            let uv3 = tiled_uv(u_near, opening.sill + opening.height, tile);
+            // The pane is a *wall* surface: a lightmapped build stamps it into
+            // its own chart (so per-texel baked light crosses the pane, exactly
+            // as it crosses the wall around it) and the vertex colour is the
+            // material tint alone. The vertex-lit fallback bakes the light into
+            // the corners as it does everywhere else.
+            let lightmapped = context.lightmapped();
+            let colours = if lightmapped {
+                [tint; 4]
+            } else {
+                lit_corners(tint, [p0, p1, p2, p3], context.lighting)
+            };
+            let room = if lightmapped {
+                let centre_x = 0.25 * (p0[0] + p1[0] + p2[0] + p3[0]);
+                let centre_y = 0.25 * (p0[1] + p1[1] + p2[1] + p3[1]);
+                let centre_z = 0.25 * (p0[2] + p1[2] + p2[2] + p3[2]);
+                context
+                    .lighting
+                    .room_index_at_height(centre_x, centre_y, centre_z)
+            } else {
+                None
+            };
+            scratch.clear();
+            let first = scratch.len();
+            add_quad(
+                scratch, p0, colours[0], uv0, p1, colours[1], uv1, p2, colours[2], uv2, p3,
+                colours[3], uv3,
+            );
+            stamp_lightmap_quad(
+                context.lightmap,
+                scratch,
+                first,
+                PatchKind::Wall,
+                [p0, p1, p2, p3],
+                room,
+            );
+            buckets.add_quads(key, scratch);
+        }
     }
 }
 

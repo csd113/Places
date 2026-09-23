@@ -14,7 +14,10 @@ use crate::level::LevelDef;
 
 use super::image::{RawImage, TextureCache, load_png_relative, missing_texture};
 use super::pack::PackMaterials;
-use super::{DEFAULT_EMISSION_INTENSITY, DEFAULT_TINT, MISSING_TEXTURE_KEY, MaterialEmission};
+use super::{
+    DEFAULT_EMISSION_INTENSITY, DEFAULT_TINT, MISSING_TEXTURE_KEY, MaterialAlpha, MaterialEmission,
+    MaterialResponse,
+};
 
 /// Where a resolved texture came from; also its GPU lifetime.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -43,6 +46,14 @@ pub struct ResolvedMaterial {
     pub tile_metres: f32,
     /// Static multiply tint applied to the sampled texture.
     pub tint: [f32; 3],
+    /// Lightweight surface response: optional normal map, sheen and roughness.
+    ///
+    /// [`MaterialResponse::normal`] is an index into [`MaterialTable::textures`]
+    /// and is only filled in by [`resolve_materials`], which interns the normal
+    /// map. A logical-only table always leaves it `None`.
+    pub response: MaterialResponse,
+    /// Alpha mode, opacity multiplier and cut-out threshold.
+    pub alpha: MaterialAlpha,
     /// Emission of the surface: colour, intensity and optional mask texture.
     ///
     /// [`MaterialEmission::mask`] is an index into [`MaterialTable::textures`]
@@ -239,6 +250,11 @@ pub fn referenced_material_ids(level: &LevelDef) -> Vec<String> {
         for material in faces {
             push(material);
         }
+        for opening in &wall.openings {
+            if let Some(glass) = opening.glass_material() {
+                push(glass);
+            }
+        }
     }
     for patch in &level.floor_patches {
         push(&patch.material);
@@ -271,10 +287,58 @@ fn material_base(
         origin,
         tile_metres,
         tint,
+        response: MaterialResponse::NONE,
+        alpha: MaterialAlpha::OPAQUE,
         emission,
         image: None,
         error,
     }
+}
+
+impl ResolvedMaterial {
+    /// Attaches a resolved surface response and alpha contract.
+    #[must_use]
+    const fn with_surface(mut self, response: MaterialResponse, alpha: MaterialAlpha) -> Self {
+        self.response = response;
+        self.alpha = alpha;
+        self
+    }
+}
+
+/// The surface response a catalog material describes.
+///
+/// The normal map is left `None` here: it is a texture-table index, and no
+/// table exists until [`resolve_materials`] interns the image. The sheen and
+/// roughness are already final, because they are plain numbers.
+fn catalog_response(entry: &crate::assets::AssetEntry) -> MaterialResponse {
+    let sheen = entry.specular.unwrap_or(0.0).clamp(0.0, 1.0);
+    let specular = entry.specular_color.map_or([sheen; 3], |color| {
+        color.map(|channel| (channel * sheen).clamp(0.0, 1.0))
+    });
+    MaterialResponse {
+        normal: None,
+        normal_strength: entry
+            .normal_strength
+            .unwrap_or(super::DEFAULT_NORMAL_STRENGTH),
+        specular,
+        roughness: entry.roughness.unwrap_or(super::DEFAULT_ROUGHNESS),
+    }
+    .sanitized()
+}
+
+/// The alpha contract a catalog material describes.
+fn catalog_alpha(entry: &crate::assets::AssetEntry) -> MaterialAlpha {
+    let mode = entry
+        .alpha_mode
+        .as_deref()
+        .and_then(super::AlphaMode::parse)
+        .unwrap_or_default();
+    MaterialAlpha {
+        mode,
+        opacity: entry.opacity.unwrap_or(1.0),
+        cutoff: entry.alpha_cutoff.unwrap_or(super::DEFAULT_ALPHA_CUTOFF),
+    }
+    .sanitized()
 }
 
 /// The emission a catalog material describes.
@@ -387,6 +451,7 @@ fn describe_catalog_material(
         emission,
         None,
     )
+    .with_surface(catalog_response(entry), catalog_alpha(entry))
 }
 
 /// Describes a `pack:` material through the pack's own definitions.
@@ -395,7 +460,12 @@ fn describe_pack_material(
     catalog: &AssetCatalog,
     pack: Option<&PackMaterials>,
 ) -> ResolvedMaterial {
-    if let Some(definition) = pack.and_then(|pack| pack.definition(id)) {
+    let definition = pack.and_then(|pack| pack.definition(id));
+    let (response, alpha) = definition.map_or(
+        (MaterialResponse::NONE, MaterialAlpha::OPAQUE),
+        |definition| (definition.response(), definition.alpha()),
+    );
+    if let Some(definition) = definition {
         // A pack may reuse a catalog texture by logical id, or ship its own
         // PNG. A declared-but-missing pack file is a named error, not a
         // silent fall-through to a same-named file.
@@ -409,7 +479,8 @@ fn describe_pack_material(
                 definition.tint(),
                 emission,
                 None,
-            );
+            )
+            .with_surface(response, alpha);
         }
         if pack.is_some_and(|pack| pack.lookup(&definition.texture).is_some()) {
             return material_base(
@@ -420,7 +491,8 @@ fn describe_pack_material(
                 definition.tint(),
                 emission,
                 None,
-            );
+            )
+            .with_surface(response, alpha);
         }
         return material_base(
             id,
@@ -459,108 +531,118 @@ fn describe_pack_material(
     )
 }
 
-/// Where a material's authored emissive mask resolves to, before decoding.
-enum EmissionMask {
+/// One additional texture a material authors beside its albedo (an emissive
+/// mask or a normal map), before it is decoded.
+enum AuthoredTexture {
     /// A catalog texture asset; the dedupe key is its logical id.
     Catalog { texture_id: String, path: String },
     /// A PNG inside the loaded pack; the dedupe key is the pack cache key.
     Pack { path: String },
-    /// The mask cannot resolve; the error is already phrased for the entry.
+    /// The texture cannot resolve; the error is already phrased for the entry.
     Unresolved { error: String },
 }
 
-/// The emissive mask a material authors, resolved through catalog or pack.
+/// Where a material's authored `field` texture resolves to, before decoding.
 ///
 /// Catalog materials name a catalog texture id; `pack:` materials may reuse a
 /// catalog texture or ship their own PNG, exactly like their albedo `texture`.
-/// `None` means the material declares no mask at all.
-fn emission_mask(
+/// `None` means the material declares no such texture at all.
+fn authored_texture(
     material_id: &str,
+    field: &str,
+    texture_id: Option<&str>,
     catalog: &AssetCatalog,
     pack: Option<&PackMaterials>,
-) -> Option<EmissionMask> {
+) -> Option<AuthoredTexture> {
     if let Some(entry) = catalog.material(material_id) {
-        let mask_id = entry.emissive_mask.as_deref()?;
-        return Some(catalog.texture_path(mask_id).map_or_else(
-            || EmissionMask::Unresolved {
+        let id = match field {
+            "emissive_mask" => entry.emissive_mask.as_deref(),
+            _ => entry.normal_texture.as_deref(),
+        }?;
+        return Some(catalog.texture_path(id).map_or_else(
+            || AuthoredTexture::Unresolved {
                 error: format!(
-                    "material `{material_id}` emissive mask `{mask_id}` has no PNG file in the catalog"
+                    "material `{material_id}` {field} `{id}` has no PNG file in the catalog"
                 ),
             },
-            |path| EmissionMask::Catalog {
-                texture_id: mask_id.to_string(),
+            |path| AuthoredTexture::Catalog {
+                texture_id: id.to_string(),
                 path: path.to_string(),
             },
         ));
     }
-    let mask = pack
-        .and_then(|pack| pack.definition(material_id))
-        .and_then(|definition| definition.emissive_mask.as_deref())?;
-    if mask.contains(':')
-        && let Some(path) = catalog.texture_path(mask)
+    let authored = texture_id?;
+    if authored.contains(':')
+        && let Some(path) = catalog.texture_path(authored)
     {
-        return Some(EmissionMask::Catalog {
-            texture_id: mask.to_string(),
+        return Some(AuthoredTexture::Catalog {
+            texture_id: authored.to_string(),
             path: path.to_string(),
         });
     }
-    if pack.is_some_and(|pack| pack.mask_bytes(mask).is_some()) {
-        return Some(EmissionMask::Pack {
-            path: mask.to_string(),
+    if pack.is_some_and(|pack| pack.lookup(authored).is_some()) {
+        return Some(AuthoredTexture::Pack {
+            path: authored.to_string(),
         });
     }
-    Some(EmissionMask::Unresolved {
+    Some(AuthoredTexture::Unresolved {
         error: format!(
-            "pack material `{material_id}`: `materials.json` names emissive mask `{mask}`, which is not present in the pack"
+            "pack material `{material_id}`: `materials.json` names {field} `{authored}`, which is not present in the pack"
         ),
     })
 }
 
-/// Decodes one authored emissive mask into its dedupe key, origin and image.
-fn resolve_mask_image(
+/// Decodes one authored texture into its dedupe key, origin and image.
+fn resolve_authored_image(
     material_id: &str,
-    mask: EmissionMask,
+    field: &str,
+    texture: AuthoredTexture,
     cache: &mut TextureCache,
     pack: Option<&PackMaterials>,
     asset_root: Option<&Path>,
 ) -> Result<(String, TextureOrigin, Rc<RawImage>), String> {
-    match mask {
-        EmissionMask::Catalog { texture_id, path } => {
+    match texture {
+        AuthoredTexture::Catalog { texture_id, path } => {
             if let Some(image) = cache.get(&texture_id) {
                 return Ok((texture_id, TextureOrigin::Catalog, image));
             }
             match asset_root {
                 Some(root) => load_png_relative(root, &path)
                     .map_err(|error| {
-                        format!("material `{material_id}` emissive mask `{texture_id}`: {error}")
+                        format!("material `{material_id}` {field} `{texture_id}`: {error}")
                     })
                     .map(|image| {
                         let image = cache.insert(texture_id.clone(), image);
                         (texture_id, TextureOrigin::Catalog, image)
                     }),
                 None => Err(format!(
-                    "material `{material_id}` emissive mask `{texture_id}`: the asset root is missing"
+                    "material `{material_id}` {field} `{texture_id}`: the asset root is missing"
                 )),
             }
         }
-        EmissionMask::Pack { path } => pack.map_or_else(
+        AuthoredTexture::Pack { path } => pack.map_or_else(
             || {
                 Err(format!(
-                    "material `{material_id}` emissive mask `{path}`: the pack is not loaded"
+                    "material `{material_id}` {field} `{path}`: the pack is not loaded"
                 ))
             },
             |pack| {
                 pack.decode_cached(cache, &path)
                     .map(|(image, key)| (key, TextureOrigin::Pack, image))
-                    .map_err(|error| format!("material `{material_id}` emissive mask: {error}"))
+                    .map_err(|error| format!("material `{material_id}` {field}: {error}"))
             },
         ),
-        EmissionMask::Unresolved { error } => Err(error),
+        AuthoredTexture::Unresolved { error } => Err(error),
     }
 }
 
-/// Degrades one entry to the shared diagnostic texture and clears its
-/// emission: a material that cannot bind every authored texture must not glow.
+/// Degrades one entry to the shared diagnostic texture.
+///
+/// A material that cannot bind every authored texture loses everything that
+/// texture was supposed to carry: it must not glow, must not sheen and must not
+/// be see-through, because those are all properties of artwork nobody could
+/// load. What is left is the diagnostic pattern with the material's plain lit
+/// look, plus a context-rich error on the entry.
 fn fall_back_to_missing(
     entry: &mut ResolvedMaterial,
     textures: &mut Vec<ResolvedTexture>,
@@ -580,6 +662,8 @@ fn fall_back_to_missing(
     entry.texture_index = texture_index;
     entry.error = Some(error);
     entry.emission = MaterialEmission::NONE;
+    entry.response = MaterialResponse::NONE;
+    entry.alpha = MaterialAlpha::OPAQUE;
 }
 
 /// Resolves every material a level references into decoded images.
@@ -605,85 +689,165 @@ pub fn resolve_materials(
     let MaterialTable {
         entries, textures, ..
     } = &mut table;
+    let context = ResolveContext {
+        catalog,
+        pack,
+        asset_root,
+    };
 
     for entry in entries.iter_mut() {
-        let origin = entry.origin;
-        let key = entry.texture_key.clone();
-        let image_result: Result<Rc<RawImage>, String> = match origin {
-            TextureOrigin::Catalog => cache.get(&key).map_or_else(
-                || match (asset_root, catalog.texture_path(&key)) {
-                    (Some(root), Some(path)) => match load_png_relative(root, path) {
-                        Ok(image) => Ok(cache.insert(key.clone(), image)),
-                        Err(error) => {
-                            Err(format!("material `{}` texture `{key}`: {error}", entry.id))
-                        }
-                    },
-                    (None, _) => Err(format!(
-                        "material `{}` texture `{key}`: the asset root is missing",
-                        entry.id
-                    )),
-                    (_, None) => Err(format!(
-                        "material `{}` texture `{key}`: no PNG path in the catalog",
-                        entry.id
-                    )),
-                },
-                Ok,
-            ),
-            TextureOrigin::Pack => {
-                let unresolved = key.starts_with("pack:unresolved:");
-                match pack {
-                    Some(pack) if !unresolved => pack
-                        .decode_cached(cache, &key)
-                        .map(|(image, _key)| image)
-                        .map_err(|error| format!("material `{}`: {error}", entry.id)),
-                    _ => Err(entry.error.clone().unwrap_or_else(|| {
-                        format!("material `{}` has no resolvable pack texture", entry.id)
-                    })),
-                }
-            }
-            TextureOrigin::Missing => return_error(entry.error.as_deref(), &entry.id),
-        };
-
-        let image = match image_result {
-            Ok(image) => image,
-            Err(error) => {
-                fall_back_to_missing(entry, textures, &missing, error);
-                continue;
-            }
-        };
-
-        // The mask is part of the material: a mask that cannot resolve
-        // degrades the whole material exactly like a broken albedo, rather
-        // than emitting through a texture nobody authored.
-        let mask_image = emission_mask(&entry.id, catalog, pack)
-            .map(|mask| resolve_mask_image(&entry.id, mask, cache, pack, asset_root));
-        if let Some(Err(error)) = mask_image {
-            fall_back_to_missing(entry, textures, &missing, error);
-            continue;
-        }
-
-        let texture_index = intern_texture(
-            textures,
-            key,
-            origin,
-            crate::quality::TextureClass::Surface,
-            image.clone(),
-        );
-        entry.image = Some(image);
-        entry.texture_index = texture_index;
-        if let Some(Ok((mask_key, mask_origin, mask_image))) = mask_image {
-            let mask_index = intern_texture(
-                textures,
-                mask_key,
-                mask_origin,
-                crate::quality::TextureClass::EmissionMask,
-                mask_image,
-            );
-            entry.emission.mask = Some(mask_index);
-        }
+        resolve_entry(entry, textures, &missing, &context, cache);
     }
 
     table
+}
+
+/// The immutable inputs every per-material resolution step shares.
+#[derive(Clone, Copy)]
+struct ResolveContext<'a> {
+    catalog: &'a AssetCatalog,
+    pack: Option<&'a PackMaterials>,
+    asset_root: Option<&'a Path>,
+}
+
+/// Resolves one material entry in place, degrading it to the diagnostic
+/// texture (and clearing its emission, response and alpha) when any authored
+/// texture is missing.
+fn resolve_entry(
+    entry: &mut ResolvedMaterial,
+    textures: &mut Vec<ResolvedTexture>,
+    missing: &Rc<RawImage>,
+    context: &ResolveContext<'_>,
+    cache: &mut TextureCache,
+) {
+    let ResolveContext {
+        catalog,
+        pack,
+        asset_root,
+    } = *context;
+    let origin = entry.origin;
+    let key = entry.texture_key.clone();
+
+    let image = match decode_albedo(entry, origin, &key, context, cache) {
+        Ok(image) => image,
+        Err(error) => {
+            fall_back_to_missing(entry, textures, missing, error);
+            return;
+        }
+    };
+
+    // The mask is part of the material: a mask that cannot resolve
+    // degrades the whole material exactly like a broken albedo, rather
+    // than emitting through a texture nobody authored.
+    let pack_definition = pack.and_then(|pack| pack.definition(&entry.id));
+    let mask_image = authored_texture(
+        &entry.id,
+        "emissive_mask",
+        pack_definition.and_then(|definition| definition.emissive_mask.as_deref()),
+        catalog,
+        pack,
+    )
+    .map(|mask| resolve_authored_image(&entry.id, "emissive mask", mask, cache, pack, asset_root));
+    if let Some(Err(error)) = mask_image {
+        fall_back_to_missing(entry, textures, missing, error);
+        return;
+    }
+
+    // The normal map follows the same rule: a normal map that cannot
+    // resolve degrades the material rather than silently flat-shading it.
+    let normal_image = authored_texture(
+        &entry.id,
+        "normal_texture",
+        pack_definition.and_then(|definition| definition.normal_texture.as_deref()),
+        catalog,
+        pack,
+    )
+    .map(|normal| resolve_authored_image(&entry.id, "normal map", normal, cache, pack, asset_root));
+    if let Some(Err(error)) = normal_image {
+        fall_back_to_missing(entry, textures, missing, error);
+        return;
+    }
+
+    let texture_index = intern_texture(
+        textures,
+        key,
+        origin,
+        crate::quality::TextureClass::Surface,
+        image.clone(),
+    );
+    entry.image = Some(image);
+    entry.texture_index = texture_index;
+    if let Some(Ok((mask_key, mask_origin, mask_image))) = mask_image {
+        let mask_index = intern_texture(
+            textures,
+            mask_key,
+            mask_origin,
+            crate::quality::TextureClass::EmissionMask,
+            mask_image,
+        );
+        entry.emission.mask = Some(mask_index);
+    }
+    if let Some(Ok((normal_key, normal_origin, normal_image))) = normal_image {
+        let normal_index = intern_texture(
+            textures,
+            normal_key,
+            normal_origin,
+            crate::quality::TextureClass::Surface,
+            normal_image,
+        );
+        entry.response.normal = Some(normal_index);
+    }
+}
+
+/// Decodes one material's albedo image through the catalog or the pack.
+///
+/// Returns the shared diagnostic failure message when the entry is already
+/// known to be unresolvable, so the caller degrades it exactly like a decode
+/// error.
+fn decode_albedo(
+    entry: &ResolvedMaterial,
+    origin: TextureOrigin,
+    key: &str,
+    context: &ResolveContext<'_>,
+    cache: &mut TextureCache,
+) -> Result<Rc<RawImage>, String> {
+    let ResolveContext {
+        catalog,
+        pack,
+        asset_root,
+    } = *context;
+    match origin {
+        TextureOrigin::Catalog => cache.get(key).map_or_else(
+            || match (asset_root, catalog.texture_path(key)) {
+                (Some(root), Some(path)) => match load_png_relative(root, path) {
+                    Ok(image) => Ok(cache.insert(key.to_string(), image)),
+                    Err(error) => Err(format!("material `{}` texture `{key}`: {error}", entry.id)),
+                },
+                (None, _) => Err(format!(
+                    "material `{}` texture `{key}`: the asset root is missing",
+                    entry.id
+                )),
+                (_, None) => Err(format!(
+                    "material `{}` texture `{key}`: no PNG path in the catalog",
+                    entry.id
+                )),
+            },
+            Ok,
+        ),
+        TextureOrigin::Pack => {
+            let unresolved = key.starts_with("pack:unresolved:");
+            match pack {
+                Some(pack) if !unresolved => pack
+                    .decode_cached(cache, key)
+                    .map(|(image, _key)| image)
+                    .map_err(|error| format!("material `{}`: {error}", entry.id)),
+                _ => Err(entry.error.clone().unwrap_or_else(|| {
+                    format!("material `{}` has no resolvable pack texture", entry.id)
+                })),
+            }
+        }
+        TextureOrigin::Missing => return_error(entry.error.as_deref(), &entry.id),
+    }
 }
 
 /// Builds the error of an entry that was already known to be missing.

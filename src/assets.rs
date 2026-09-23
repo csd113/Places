@@ -28,7 +28,9 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::materials::{MAX_EMISSION_COLOR, MAX_EMISSION_INTENSITY};
+use crate::materials::{
+    MAX_EMISSION_COLOR, MAX_EMISSION_INTENSITY, MAX_NORMAL_STRENGTH, MAX_SPECULAR,
+};
 
 /// Environment variable that overrides every other asset-root candidate.
 ///
@@ -647,6 +649,21 @@ pub struct AssetEntry {
     pub emissive_intensity: Option<f32>,
     /// Logical texture asset id whose texels select where emission applies.
     pub emissive_mask: Option<String>,
+    /// Logical texture asset id of the material's normal map, if it authors one.
+    pub normal_texture: Option<String>,
+    /// Multiplier applied to the decoded normal map, `0.0..=2.0`.
+    pub normal_strength: Option<f32>,
+    /// Sheen strength (white) and, optionally, an explicit sheen colour.
+    pub specular: Option<f32>,
+    pub specular_color: Option<[f32; 3]>,
+    /// `0.0` mirror-tight sheen .. `1.0` fully matte.
+    pub roughness: Option<f32>,
+    /// `opaque` (default), `cutout` or `blend`.
+    pub alpha_mode: Option<String>,
+    /// Multiplier applied to a blended material's sampled alpha.
+    pub opacity: Option<f32>,
+    /// Alpha cut-off of a `cutout` material.
+    pub alpha_cutoff: Option<f32>,
     /// Future entity kind (`character`, `npc`, `creature`, ...).
     pub entity_type: Option<String>,
     pub description: Option<String>,
@@ -726,6 +743,65 @@ struct ValidatedEmission {
     mask: Option<String>,
 }
 
+/// Validates one unit-interval number, naming the field when it is out of range.
+fn unit_number(value: Option<f32>, field: &str) -> Result<Option<f32>, String> {
+    match value {
+        Some(value) if !value.is_finite() || !(0.0..=1.0).contains(&value) => Err(format!(
+            "{field} must be between 0.0 and 1.0, found {value:?}"
+        )),
+        Some(value) => Ok(Some(value)),
+        None => Ok(None),
+    }
+}
+
+/// Validates an authored specular colour, defaulting to nothing.
+fn specular_color(id: &str, raw: Option<&[f32]>) -> Result<Option<[f32; 3]>, String> {
+    let Some(raw) = raw else {
+        return Ok(None);
+    };
+    if raw.len() != 3 {
+        return Err(format!(
+            "{id}: specular_color must be exactly three channels, found {} in {raw:?}",
+            raw.len()
+        ));
+    }
+    let mut color = [0.0_f32; 3];
+    for (slot, channel) in color.iter_mut().zip(raw) {
+        if !channel.is_finite() || !(0.0..=MAX_SPECULAR).contains(channel) {
+            return Err(format!(
+                "{id}: specular_color channels must be between 0.0 and {MAX_SPECULAR:?}, found {raw:?}"
+            ));
+        }
+        *slot = *channel;
+    }
+    Ok(Some(color))
+}
+
+/// Validates an authored alpha mode, normalising its spelling.
+fn validated_alpha_mode(id: &str, mode: Option<String>) -> Result<Option<String>, String> {
+    let Some(mode) = mode else {
+        return Ok(None);
+    };
+    if crate::materials::AlphaMode::parse(&mode).is_none() {
+        return Err(format!(
+            "{id}: alpha_mode `{mode}` is not one of `opaque`, `cutout` or `blend`"
+        ));
+    }
+    Ok(Some(mode.to_lowercase()))
+}
+
+/// Batch 3 surface-response and alpha fields of one catalog entry, validated.
+struct ValidatedResponse {
+    normal_texture: Option<String>,
+    normal_strength: Option<f32>,
+    specular: Option<f32>,
+    specular_color: Option<[f32; 3]>,
+    roughness: Option<f32>,
+    alpha_mode: Option<String>,
+    opacity: Option<f32>,
+    alpha_cutoff: Option<f32>,
+}
+
 #[derive(serde::Deserialize)]
 struct CatalogEntryFile {
     #[serde(default)]
@@ -768,6 +844,26 @@ struct CatalogEntryFile {
     emissive_intensity: Option<f32>,
     #[serde(default)]
     emissive_mask: Option<String>,
+    /// Batch 3 surface response: an optional normal map with a strength, a
+    /// sheen strength/colour and a roughness.
+    #[serde(default)]
+    normal_texture: Option<String>,
+    #[serde(default)]
+    normal_strength: Option<f32>,
+    #[serde(default)]
+    specular: Option<f32>,
+    #[serde(default)]
+    specular_color: Option<Vec<f32>>,
+    #[serde(default)]
+    roughness: Option<f32>,
+    /// Batch 3 alpha: `opaque` | `cutout` | `blend`, plus the opacity
+    /// multiplier and the cut-out threshold.
+    #[serde(default)]
+    alpha_mode: Option<String>,
+    #[serde(default)]
+    opacity: Option<f32>,
+    #[serde(default)]
+    alpha_cutoff: Option<f32>,
     #[serde(default)]
     entity_type: Option<String>,
     #[serde(default)]
@@ -792,6 +888,7 @@ impl CatalogEntryFile {
         let tint = self.resolve_tint(&id, &asset_type)?;
         let source = self.resolve_source(&id, model.as_deref(), texture.as_deref())?;
         let emission = self.resolve_emissive(&id, &asset_type, source)?;
+        let response = self.resolve_response(&id, &asset_type, source)?;
         let size = self
             .size
             .filter(|size| size.iter().all(|value| value.is_finite() && *value > 0.0));
@@ -824,6 +921,14 @@ impl CatalogEntryFile {
             emissive: emission.color,
             emissive_intensity: emission.intensity,
             emissive_mask: emission.mask,
+            normal_texture: response.normal_texture,
+            normal_strength: response.normal_strength,
+            specular: response.specular,
+            specular_color: response.specular_color,
+            roughness: response.roughness,
+            alpha_mode: response.alpha_mode,
+            opacity: response.opacity,
+            alpha_cutoff: response.alpha_cutoff,
             entity_type: self
                 .entity_type
                 .as_deref()
@@ -1033,6 +1138,99 @@ impl CatalogEntryFile {
             color: Some(color),
             intensity: self.emissive_intensity,
             mask,
+        })
+    }
+
+    /// Validates the Batch 3 surface-response and alpha fields.
+    ///
+    /// A material that declares none of them is exactly a pre-Batch-3 material:
+    /// no normal map, no sheen and opaque. Every authored value is range-checked
+    /// here so a malformed entry is a named catalog error rather than a silently
+    /// different surface.
+    fn resolve_response(
+        &self,
+        id: &str,
+        asset_type: &AssetType,
+        source: AssetSource,
+    ) -> Result<ValidatedResponse, String> {
+        let normal_texture = self
+            .normal_texture
+            .as_deref()
+            .map(str::trim)
+            .filter(|texture| !texture.is_empty())
+            .map(str::to_string);
+        let alpha_mode = self
+            .alpha_mode
+            .as_deref()
+            .map(str::trim)
+            .filter(|mode| !mode.is_empty())
+            .map(str::to_string);
+        let untouched = normal_texture.is_none()
+            && self.normal_strength.is_none()
+            && self.specular.is_none()
+            && self.specular_color.is_none()
+            && self.roughness.is_none()
+            && alpha_mode.is_none()
+            && self.opacity.is_none()
+            && self.alpha_cutoff.is_none();
+        if untouched {
+            return Ok(ValidatedResponse {
+                normal_texture: None,
+                normal_strength: None,
+                specular: None,
+                specular_color: None,
+                roughness: None,
+                alpha_mode: None,
+                opacity: None,
+                alpha_cutoff: None,
+            });
+        }
+        if asset_type.as_str() != AssetType::MATERIAL || source != AssetSource::Definition {
+            return Err(format!(
+                "{id}: only a `material` `definition` asset may declare surface-response \
+                 (`normal_texture`, `normal_strength`, `specular`, `specular_color`, \
+                 `roughness`) or alpha (`alpha_mode`, `opacity`, `alpha_cutoff`) fields"
+            ));
+        }
+        if let Some(texture) = &normal_texture
+            && !is_valid_asset_id(texture)
+        {
+            return Err(format!(
+                "{id}: normal_texture `{texture}` is not a well-formed logical asset id"
+            ));
+        }
+        if self.normal_strength.is_some() && normal_texture.is_none() {
+            return Err(format!(
+                "{id}: `normal_strength` requires a `normal_texture`"
+            ));
+        }
+        if let Some(value) = self.normal_strength
+            && (!value.is_finite() || !(0.0..=MAX_NORMAL_STRENGTH).contains(&value))
+        {
+            return Err(format!(
+                "{id}: normal_strength must be between 0.0 and {MAX_NORMAL_STRENGTH:?}, found {value:?}"
+            ));
+        }
+        let specular_color = specular_color(id, self.specular_color.as_deref())?;
+        let alpha_mode = validated_alpha_mode(id, alpha_mode)?;
+        if (self.opacity.is_some() || self.alpha_cutoff.is_some()) && alpha_mode.is_none() {
+            return Err(format!(
+                "{id}: `opacity` and `alpha_cutoff` require an explicit `alpha_mode`"
+            ));
+        }
+        Ok(ValidatedResponse {
+            normal_texture,
+            normal_strength: self.normal_strength,
+            specular: unit_number(self.specular, "specular")
+                .map_err(|field| format!("{id}: {field}"))?,
+            specular_color,
+            roughness: unit_number(self.roughness, "roughness")
+                .map_err(|field| format!("{id}: {field}"))?,
+            alpha_mode,
+            opacity: unit_number(self.opacity, "opacity")
+                .map_err(|field| format!("{id}: {field}"))?,
+            alpha_cutoff: unit_number(self.alpha_cutoff, "alpha_cutoff")
+                .map_err(|field| format!("{id}: {field}"))?,
         })
     }
 
