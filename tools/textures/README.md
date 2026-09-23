@@ -114,7 +114,7 @@ is validated and regenerated exactly like a surface sheet.
 | `core:tex_pool_tile_basin_01` | `environment/pool/textures/floors/pool_tile_basin_01.png` | 1024x1024 | 10 cm basin tile, 1 m repeat |
 | `core:tex_pool_tile_wall_01` | `environment/pool/textures/walls/pool_tile_wall_01.png` | 1024x1024 | 10 cm wall tile, 1 m repeat |
 | `core:tex_pool_ceiling_01` | `environment/pool/textures/ceilings/pool_ceiling_01.png` | 1024x1024 | sterile painted panels, 2 m repeat |
-| `core:fluorescent_panel_01` | `environment/office/textures/lights/fluorescent_panel_01.png` | 256x128 | the office panel's twin-tube diffuser face (a fixture, not a tiling surface) |
+| `core:fluorescent_panel_01` | `environment/office/textures/lights/fluorescent_panel_01.png` | 1024x512 | the office panel's twin-tube diffuser face (a fixture, not a tiling surface) |
 | `core:pool_light_round` | `environment/pool/textures/lights/pool_light_round_01.png` | 128x128 | the round downlight's diffuser, seen face-on |
 | `core:pool_light_wall` | `environment/pool/textures/lights/pool_light_wall_01.png` | 128x64 | the wall luminaire's ribbed lens face |
 | `core:decal_no_diving_01` | `environment/pool/decals/no_diving_01.png` | 1024x1024 | RGBA cut-out safety sign (a decal, not a surface) |

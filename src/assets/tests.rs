@@ -674,15 +674,33 @@ fn shipped_texture_policy_accepts_the_upgraded_art_and_rejects_breaches() {
 /// The diagnostic sheets are exempt: their whole purpose is to prove that
 /// non-standard dimensions decode, and the 96x64 `alt` sheet is the deliberate
 /// NPOT exception the policy documents rather than a production contract.
+///
+/// A texture used only as an emissive mask is exempt too: the shader samples a
+/// mask with the material's own UVs and never compares its dimensions to the
+/// albedo, so the engine imposes no shape on it. A texture that is also an
+/// albedo or a normal map is still held to the surface contract.
 #[test]
 fn every_shipped_sheet_satisfies_its_texture_kind_contract() {
     let catalog = shipped_catalog();
     let root = resolve_asset_root().expect("assets/ is discoverable");
+    let entries = catalog.entries();
+    let mask_only: Vec<&str> = entries
+        .iter()
+        .filter_map(|entry| entry.emissive_mask.as_deref())
+        .filter(|mask| {
+            !entries.iter().any(|entry| {
+                entry.texture.as_deref() == Some(*mask)
+                    || entry.normal_texture.as_deref() == Some(*mask)
+            })
+        })
+        .collect();
     let mut checked = 0usize;
-    for entry in catalog.entries() {
+    for entry in &entries {
         let kind = match entry.asset_type.as_str() {
             AssetType::TEXTURE => {
-                if entry.asset_class.as_str() == AssetClass::DIAGNOSTIC {
+                if entry.asset_class.as_str() == AssetClass::DIAGNOSTIC
+                    || mask_only.contains(&entry.id.as_str())
+                {
                     continue;
                 }
                 ShippedTextureKind::Surface

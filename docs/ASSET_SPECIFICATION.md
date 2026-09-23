@@ -69,7 +69,9 @@ introducing it.
    application or a level loads. The few images the engine itself generates
    (the white fallback sheet, the HUD font atlas, the internal decal atlas,
    the missing-texture diagnostic, lightmap atlases and reflection probes) are
-   internal machinery, listed in §12.3, and are not an authoring path.
+   internal machinery, listed in §12.3, and are not an authoring path. The
+   level editor paints its own preview tiles in JavaScript; those are previews,
+   not runtime assets, and are outside this policy.
 
 3. **PNG is the only raster format the runtime accepts.** The decoder
    signature-checks every texture and rejects anything that is not a PNG
@@ -170,7 +172,9 @@ Rules:
   `assets/environment/<theme>/`.
 * **Surface textures live in `textures/{walls,floors,ceilings}/`** according
   to the surface they were painted for. The directory is organisational; the
-  catalog's `surface` field and the material are what the renderer reads.
+  catalog's `surface` field is documentation/validation only, and what the
+  renderer reads is the material's `texture`, `tile_metres`, `tint` and
+  alpha/response fields. A level may use any material on any surface.
 * **Fixture faces live in `textures/lights/`.** They are catalog `light`
   entries, not `texture` entries; the fixture PNG is the `model` of the light.
 * **Decal sheets live in `decals/`** — `assets/environment/<theme>/decals/`
@@ -191,7 +195,7 @@ Rules:
   same lower-case `_01` naming. This convention is not enforced by tooling.
 * **A PNG is claimed by exactly one catalog entry.** Two assets cannot share
   one file. (Three pool curtain models and three guardrail models
-  intentionally contain identical embedded texture *bytes* — see §8.6.)
+  intentionally contain identical embedded texture *bytes* — see §8.3.)
 
 ---
 
@@ -210,12 +214,12 @@ currently nothing enforces a minimum for any class.
 | Ceiling surface sheet | `ceiling_panel_01.png` | **1:1** | 1024×1024 (shipped) | none enforced | RGB shipped; ignored by default material | **yes, both axes** | world `(x, z)` ÷ `tile_metres` | ceiling material authors a grey tint |
 | Core shared sheet (glass/floor/wall) | `glass_clear_01.png` | **1:1** | 1024×1024 (current production); 128×128 painter output is contract-valid | none enforced | per material: `blend` glass, `cutout` grille, opaque otherwise | **yes, both axes** | world metres ÷ `tile_metres` | seam-gated with the environment set |
 | Normal map | `normal_panel_01.png` | **1:1** | 1024×1024 (current production); 128×128 painter output is contract-valid | none enforced | alpha unused | **yes, both axes** | same UV as the albedo it augments | Surface quality class |
-| Fluorescent panel face | `fluorescent_panel_01.png` | **2:1** | 256×128 shipped; 1024×512 = 2× texel density | none enforced | ignored (face is opaque) | no | full sheet; `u` across 1.2 m width, `v` across 0.6 m depth | POT both edges; replacement must stay 2:1 |
+| Fluorescent panel face | `fluorescent_panel_01.png` | **2:1** | 1024×512 (current production) | none enforced | ignored (face is opaque) | no | full sheet; `u` across 1.2 m width, `v` across 0.6 m depth | POT both edges; replacement must stay 2:1 |
 | Round downlight face | `pool_light_round_01.png` | **1:1** | 128×128 shipped; 256×256 or 512×512 to raise density | none enforced | ignored | no | planar; sheet centre = fixture centre; inscribed circle = diffuser radius | POT both edges |
 | Wall luminaire face | `pool_light_wall_01.png` | **2:1** | 128×64 shipped; 256×128 or 512×256 to raise density | none enforced | ignored | no | full sheet; `u` across 0.4 m width, `v` up 0.2 m height | POT both edges |
 | Decal sheet | `no_diving_01.png` | **asset-defined**; placement must match it | 128×128 small markings; 1024×1024 hero signage | none enforced | **required cut-out**: alpha 0 background | no | full sheet fitted to the level placement's width × height | POT both edges |
 | Prop / entity texture | embedded in `chair.glb` | **model-defined** (shipped 1:1) | 64×64 or 128×128 typical, 256×256 art target | none enforced | none: props always draw opaque | no | model `TEXCOORD_0`, normalized 0..1, clamped | hard 1024; uniform resize safe, repack is not |
-| Emissive mask | (none shipped) | **any**; must share the albedo's UV frame | ≤512 (Full budget) | none enforced | RGB sampled, alpha ignored | follows the albedo | same UV frame as the albedo | dimensions need not equal the albedo |
+| Emissive mask | (none shipped) | **any**; must share the albedo's UV frame | ≤512 (Full budget) | none enforced | RGB sampled, alpha ignored | follows the albedo | same UV frame as the albedo | dimensions need not equal the albedo; a mask-only texture is exempt from the square-surface dimension test |
 | Level-pack texture | `textures/*.png` in a `.zip` pack | 1:1 for tiling surfaces | any | none enforced | per pack material | yes for surface materials | same surface UV rules | no tooling validates pack contents |
 | Diagnostic texture | `diagnostic_alt_01.png` | deliberately varied (96×64) | n/a | n/a | deliberately varied | n/a | not used by any shipped level | test artwork only |
 | Editor thumbnail | `thumbs/desk.png` | 1:1 | 64×64 | 64×64 (generator) | RGBA, transparent background | no | n/a | generated by `tools/props/preview.py` |
@@ -251,7 +255,7 @@ resolution.
 | Preferred source resolution | 1024×1024 (the shipped office/pool wallpaper and tile) |
 | Soft warning threshold | above 256 px on either edge (`PREFERRED_TEXTURE_DIMENSION`); the shipped 1024² art is intentionally over it and Full uploads it unchanged |
 | Hard maximum | 1024×1024 per edge (`MAX_TEXTURE_DIMENSION`, enforced by the decoder) |
-| Power-of-two | not required for surfaces; a square NPOT sheet is policy-legal and the 96×64 diagnostic proves arbitrary dimensions decode on the desktop GL path |
+| Power-of-two | not required for surfaces; a square NPOT sheet is policy-legal (`assets::tests`) and the 96×64 diagnostic proves non-square NPOT dimensions decode on the desktop GL path |
 | Tileable | **yes, both axes**; seam-gated |
 | Channels | RGB or RGBA; 8-bit output |
 | Alpha | ignored unless the material authors `cutout` or `blend` |
@@ -364,8 +368,11 @@ appearance (diffuser, lens, housing trim on the luminous face). There is no
 separate emissive map for a fixture face.
 
 Fixture faces are **opaque by construction**: the face draws in the opaque
-pass and its alpha channel is ignored. An RGBA fixture PNG is accepted but its
-alpha has no effect.
+pass and its alpha channel is ignored. A shipped fixture sheet is additionally
+required to be fully opaque by
+`src/loader/tests.rs::test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog`,
+so RGB artwork and an RGBA file whose alpha is everywhere 255 are equivalent
+in practice.
 
 ### 6.1 Fluorescent ceiling panel
 
@@ -378,9 +385,9 @@ Shipped asset: `core:fluorescent_panel_01` →
 | Geometry mapping | the face is a 1.2 m × 0.6 m rectangle (width along world X, depth along world Z) |
 | UV layout | `u` spans the 1.2 m width (`u = 0` at min X, `u = 1` at max X); `v` spans the 0.6 m depth (`v = 0` at min Z / the −Z edge, `v = 1` at max Z) |
 | Orientation | `v = 0` is the image's top row; the twin tubes run across the panel *width*, i.e. horizontally in the image |
-| Current asset | 256×128 (≈4.7 mm per texel both ways) |
-| Preferred source resolution | 1024×512 for 4× the shipped texel density |
-| Higher resolutions | allowed while 2:1 and POT both hold: 256×128 → 512×256 → 1024×512. They are the same layout. |
+| Current asset | 1024×512 (≈1.17 mm per texel both ways) |
+| Preferred source resolution | 1024×512 |
+| Higher resolutions | allowed while 2:1 and POT both hold: 128×64 → 256×128 → 512×256 → 1024×512 are the same layout. A resolution change to a *shipped* fixture sheet also requires updating the pin in `src/loader/tests.rs::test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog`, which asserts the exact shipped dimensions and full opacity. |
 | Hard maximum | 1024 per edge, so 1024×512 is the largest valid 2:1 sheet |
 | Transparency | none: no transparent padding, no cut-out, no alpha use |
 | Emissive information | embedded in the artwork's brightness only; the glow is added by the renderer, and the base texture always multiplies the emission term |
@@ -393,8 +400,13 @@ rather than rotated as a sheet (contrary to the comment in
 `src/render/fixtures.rs`). No test covers rotated-panel UVs. Until that is
 resolved, do not treat the rotated placement as an additional contract for the
 artwork; keep the sheet 2:1 landscape and flag a rotated fixture for review
-(§25.2). Likewise, the legacy map guide's "0.4 × 0.18 m" wall-lens figure is
-stale; the code and the test pin 0.4 × 0.2 m.
+(§25.1).
+
+The visible lens face is 0.4 × 0.2 m (`src/render/fixtures.rs`, pinned by
+test). The map guide's separate "0.4 × 0.18 m" figure for the wall luminaire
+describes the *bake's light rectangle* (`half_width: 0.20`,
+`half_depth: 0.09` in `src/lighting/tuning.rs::fixture_profile_for_kind`), not
+the lens artwork; both figures are current and describe different things.
 
 ### 6.2 Round recessed downlight (pool ceiling light)
 
@@ -619,6 +631,12 @@ emission = mix(material_emissive_color, vertex_color, vertex_emission)
     artwork.
   * Masks upload like a surface-class texture but with their own budgets:
     Full ≤512, Low ≤128.
+  * A texture used *only* as a mask is exempt from the shipped-asset dimension
+    test, because the engine imposes no shape on it. A sheet shared as both an
+    albedo (or normal map) and a mask must satisfy the surface contract.
+  * A mask that cannot be read or decoded is not a partial failure: the whole
+    material degrades to the missing-texture diagnostic and its emission,
+    response and alpha settings are cleared.
   * No shipped material currently authors an `emissive_mask`; the feature is
     covered by unit tests only.
 * **Fixture faces** use the vertex-emission path: the whole luminous face is
@@ -656,10 +674,19 @@ A `.zip` level pack may ship its own surface art next to its `level.json`:
 * a `materials.json` mapping `pack:` material ids to those paths (or to
   catalog texture ids, which reuses shipped artwork).
 
-Pack textures use the same decoder and therefore the same rules as catalog
-surface sheets: PNG, ≤1024 px per edge, 8-bit colour any type, tileable if the
-material repeats, and square for tiling surfaces. A pack mapping that names a
-missing file is a named console error, not a silent substitution.
+Pack textures use the same decoder, so the format rules are enforced: PNG,
+≤1024 px per edge, any accepted colour type. The layout rules are the
+author's responsibility — tileable if the material repeats, square for tiling
+surfaces — because the decoder cannot know how a sheet will be sampled. A pack
+mapping that names a missing file is a named console error, not a silent
+substitution.
+
+A pack's `materials.json` supports the same fields as a catalog material
+definition, including `emissive`, `emissive_intensity`, `emissive_mask`,
+`normal_texture`, `normal_strength`, `specular`, `roughness`, `alpha_mode`,
+`opacity`, `alpha_cutoff` and the reflection fields. Pack decals are a
+limitation: a `pack:` decal id produces no geometry, because the decal pass
+resolves only built-in patterns and catalog file decals.
 
 There is no tooling that validates pack contents against this specification;
 the pack author is responsible for the same contracts.
@@ -675,7 +702,8 @@ the pack author is responsible for the same contracts.
 * Generated by `tools/props/preview.py` and refreshed with
   `python3 tools/props/build.py --thumbs`.
 * The editor test (`level-editor/tests/prop-assets.test.mjs`) fails if a
-  thumbnail is missing. Staleness is not detected.
+  thumbnail is missing; it checks existence and the PNG signature, not the
+  64×64 size (that is a property of the generator). Staleness is not detected.
 
 ### 12.2 Application icon and documentation screenshots
 
@@ -695,7 +723,7 @@ PNGs. They are listed so no one mistakes them for assets to replace:
 | 128×64 HUD font atlas | `src/font.rs` | project-owned bitmap UI font |
 | 256×256 decal atlas (one live cell) | `src/render/decals.rs` | internal validation marking machinery |
 | 64×64 missing-texture pattern | `src/materials/image.rs` | visible fallback for a broken texture |
-| Lightmap atlas pages | `src/lighting/lightmap/` | baked light data, regenerated at level load; never a shipped asset |
+| Lightmap atlas pages | `src/lighting/lightmap/` | baked light data, regenerated at level load; never a shipped asset. A developer path can dump a page as a PNG under `target/`, but that is a diagnostic capture, not an asset. |
 | Reflection probe cubemaps | `src/render/reflections.rs` | baked per level load |
 
 Diagnostic textures under `assets/diagnostic/textures/` are real PNGs but are
@@ -744,10 +772,11 @@ p95(wrap)  <= 2.20 × p95(interior)  + 3.0
 ```
 
 Wrapped edge is measured exhaustively; the interior reference is sampled every
-4th line and every 8th position. Alpha is never measured. The same metric is
-implemented independently by the Rust render test
-`test_shipped_surface_textures_tile`; both halves must agree before a sheet
-ships.
+4th line and every 8th position. Alpha is never measured. The Rust render test
+`test_shipped_surface_textures_tile` independently checks the three-tap
+smoothed profile for ten named office/pool surfaces (RGB channels only, no
+luminance); the Python tool checks both profiles for all nineteen catalog
+environment sheets. A sheet is expected to pass whichever gates cover it.
 
 Repository gates that run the seam tool automatically:
 
@@ -824,7 +853,7 @@ target.
 | Environment surface | square | 1024×1024 (shipped); tooling warns above 256 | 1024 |
 | Core surface | square | 1024×1024 (current); 128×128 painter output is contract-valid | 1024 |
 | Normal map | square, tileable | 1024×1024 (current); 128×128 painter output is contract-valid | 1024 |
-| Fluorescent panel | 2:1, POT | 256×128 shipped; 1024×512 for maximum density | 1024 |
+| Fluorescent panel | 2:1, POT | 1024×512 (current production) | 1024 |
 | Round downlight | 1:1, POT | 128×128 shipped; 512×512 for density | 1024 |
 | Wall luminaire | 2:1, POT | 128×64 shipped; 512×256 for density | 1024 |
 | Decal sheet | POT both edges, cut-out alpha | 128×128 small; 1024×1024 hero | 1024 |
@@ -866,12 +895,13 @@ should be a deliberate decision.
   painters emit 128×128, which remains contract-valid.
 * Prop sheets: 64–128 typical, 256 art target.
 * Decals: 128×128 small markings, 1024×1024 hero signage.
-* Fixture faces: the shipped sizes (256×128, 128×128, 128×64).
+* Fixture faces: the current shipped sizes (1024×512, 128×128, 128×64).
 
 **Minimum** — nothing in the repository enforces a minimum source resolution.
-The nearest thing to a floor is a consequence of the runtime budgets: art
-below the class's Full budget is displayed at that size under both profiles,
-so there is no reason to author below it unless the style wants it.
+The nearest thing to a floor is a consequence of the runtime budgets: art at
+or below the active profile's budget is displayed at its own size under that
+profile, so there is no reason to author below the class's Full budget unless
+the style wants it.
 
 **Runtime-derived** — dimensions the engine reads rather than assumes.
 
@@ -901,7 +931,7 @@ why a surface sheet must be square.
 | Indexed/palette | supported (the decoder expands the palette) |
 | Colour space | **no gamma or ICC handling.** No `GL_SRGB` upload, no transfer function, no gamma chunk written or read. Sampled texels are combined in display space. |
 | Premultiplied alpha | not used; alpha is treated as straight coverage |
-| Metadata | ignored (XMP/eXIf/`pHYs` chunks pass through untouched) |
+| Metadata | ignored (non-pixel chunks are not read; the decoder keeps only pixels) |
 
 Authoring consequences:
 
@@ -925,7 +955,7 @@ Filtering and wrapping are chosen by the **texture's role**, not by the asset:
 |---|---|---|---|
 | Surface albedo, normal map, emissive mask | `REPEAT` | yes | global setting: linear (default) or nearest |
 | External decal sheet | `REPEAT` | yes | global setting |
-| Generated decal atlas | `REPEAT` | yes | nearest |
+| Generated decal atlas | `REPEAT` | yes | global setting |
 | Fixture face | `CLAMP_TO_EDGE` | yes | global setting |
 | Prop/entity texture | `CLAMP_TO_EDGE` | yes | global setting |
 | White fallback sheet | `CLAMP_TO_EDGE` | no | nearest |
@@ -988,7 +1018,7 @@ replacing artwork.
 | Uploaded PNG | row 0 of the PNG is `v = 0`; the engine never flips an image. `v = 0` is therefore the image's **top row**. |
 | Walls | image top row at the top of the wall; image left edge on the viewer's left from the side the face looks into; `u` runs along the wall length (sign-flipped per face so artwork reads unmirrored); `v` is measured downward from the wall top, so the tiling phase is anchored to the face top. |
 | Floors and ceilings | image `x` maps to world **+X**, image `y` maps to world **+Z**; an image authored map-style reads with north (−Z) at the top. |
-| Glass panes | local `u` from the wall length origin, `v` increasing upward from the sill. This differs from the wall convention (world `u`, downward `v`); see §25.3. |
+| Glass panes | local `u` from the wall length origin, `v` increasing upward from the sill. This differs from the wall convention (world `u`, downward `v`); see §25.2. |
 | Fixture panel | `u` along +X, `v` along +Z, `v = 0` at the min-Z edge; pinned by test. |
 | Round diffuser | planar in the fixture plane, centre at `(0.5, 0.5)`, `u` along +X, `v` along +Z; pinned by test. |
 | Wall luminaire | `u` across the face width along the rotation's right vector, `v` upward. |
@@ -1116,10 +1146,12 @@ repository):
 | Environment surface seams | `tools/textures/seam_repair.py --check` via `tests/test_package.py` | `python3 -m unittest tests.test_package` | yes |
 | Ten named surfaces' seams (independent metric) | Rust test `test_shipped_surface_textures_tile` | `cargo test` | yes |
 | Six office sheets: square, opaque, ≤1024 | Rust test `test_shipped_texture_assets_are_opaque_and_within_budget` | `cargo test` | yes |
-| **Every shipped non-diagnostic file sheet satisfies its class dimension contract (square surfaces, POT fitted sheets, hard limit)** | Rust test `every_shipped_sheet_satisfies_its_texture_kind_contract` (see below) | `cargo test` | yes |
+| **Every catalogued file-backed texture/decal/light sheet satisfies its class dimension contract (square surfaces, POT fitted sheets, hard limit)** | Rust test `every_shipped_sheet_satisfies_its_texture_kind_contract` (see below); props/entities are covered by the props tests and the GLB parser, not this test | `cargo test` | yes |
+| Fixture sheets: exact shipped dimensions and fully opaque | Rust test `loader::tests::test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog` | `cargo test` | yes |
 | Fixture faces: POT, unique sheet, ≤1024 | `tests/test_package.py` | `python3 -m unittest tests.test_package` | yes |
 | NO DIVING sign: 1024², RGBA, transparent pixel | `tests/test_package.py` | same | yes |
-| Prop GLB: parses, UVs 0..1, budgets, scale/origin, PNG ≤1024 | `tools/props/build.py --check`; Rust `props::tests` | both | yes |
+| Prop GLB: container parses, one mesh, `TEXCOORD_0` present | `tools/props/build.py --check` | `python3 tools/props/build.py --check` | yes (exit 1) for a missing or unparseable model; budgets, UV range and scale/origin are not evaluated here |
+| Prop GLB: UVs 0..1, triangle/vertex/texture budgets, scale/origin, PNG ≤1024 | Rust `props::tests`; runtime parser | `cargo test` | yes |
 | Prop art budgets (triangles, texture edges) | Rust `props::tests::shipped_prop_assets_match_the_catalogue_and_budgets` | `cargo test` | yes |
 | Editor thumbnails exist for every prop | Node test `level-editor/tests/prop-assets.test.mjs` | `cd level-editor && npm test` | yes |
 | Model textures: embedded PNG only, ≤1024, UV bounds | `src/gltf.rs` parser (runtime) + `cargo test` | game run / `cargo test` | fallback box / test failure |
@@ -1129,8 +1161,10 @@ The strengthened Rust test added with this specification
 walks every file-backed `texture`, `decal` and `light` entry in the catalog,
 decodes its PNG and checks the dimensions against
 `ShippedTextureKind::Surface` / `DecalSheet` / `FixtureFace`. Diagnostic
-entries are skipped because the 96×64 sheet is a deliberate NPOT probe. Its
-failure messages name the asset, the path and the violated rule, for example:
+entries are skipped because the 96×64 sheet is a deliberate NPOT probe, and a
+texture used only as an emissive mask is skipped because the engine imposes no
+shape on a mask. Its failure messages name the asset, the path and the
+violated rule, for example:
 
 ```
 core:tex_pool_tile_wall_01: `environment/pool/textures/walls/pool_tile_wall_01.png`:
@@ -1146,7 +1180,8 @@ Known enforcement gaps (checked here, not automated):
 * decal non-POT is only a tooling warning for the small sheets (the new Rust
   test makes it a test failure for shipped decals);
 * `tile_metres` is not compared against the painted repeat period;
-* orientation and "pale albedo" conventions are not machine-checked;
+* surface and decal orientation, and the "pale albedo" convention, are not
+  machine-checked (fixture orientation is pinned by render tests);
 * level-pack contents are not validated;
 * no dead-asset detection (unreferenced files, unused catalog entries);
 * the `--preferred` warning does not fail a build;
@@ -1184,21 +1219,48 @@ without checking the implementation.
    payload. Whether the icon is consumed by an external step is unknown.
 7. **Diagnostic sheets are not used by any level.** Their documented
    "asserted at the call site" claim refers to tests only.
-8. **Interlaced PNGs are untested.** The decode path likely handles them;
-   nothing verifies it.
-9. **`tools/props/build.py` still describes 128 px as the pack maximum** in a
-   stale docstring, while 256 is allowed and used (Spooner-Man). The preferred
-   texture constant in `tools/props/build.py` (128) also disagrees with the
-   engine's art target (256). Neither affects runtime behaviour.
+8. **Interlaced PNGs are untested and rejected by the tiling tool.**
+   `tools/textures/seam_repair.py` explicitly refuses interlaced input, so an
+   interlaced tiling-sheet replacement fails the Python gate even if the Rust
+   decoder handles Adam7 correctly.
+9. **The prop toolkit has stale size wording.** `tools/props/mesh.py` and
+   `tools/props/tex.py` still describe 128 px as the pack maximum, while 256
+   is allowed and used (Spooner-Man), and `tools/props/build.py`'s preferred
+   report constant (128) disagrees with the engine's art target (256). Neither
+   affects runtime behaviour.
 10. **Prop textures and the repository texture policy.** The repository rule
     says textures live as real PNG files under `assets/`; prop textures are
     committed as PNG byte streams inside their GLB instead. The asset
     documentation treats this as a deliberate exception (§8.1). A strict
     reading of the policy is not satisfied, but the design is intentional.
 11. **No minimum sizes and no per-class maximum below the global 1024.**
-    Nothing stops a 16×16 surface sheet or a 1024×1024 prop sheet; both would
-    pass the current tests, the first as a quality problem, the second as a
-    wasted budget. Art direction is the only guard.
+    A 16×16 surface sheet passes the dimension tests; a catalogued prop whose
+    embedded texture exceeds 256 px fails the props art-budget test
+    (`src/props/tests.rs`), but no such cap exists for surfaces or decals
+    below 1024. Art direction is the only guard for the rest.
+12. **Shipped fixture dimensions are pinned by a Rust test.** The loader test
+    `test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog` asserts
+    the exact dimensions of the three shipped fixture sheets and that every
+    texel is opaque. Raising a shipped fixture's resolution requires updating
+    that pin; the component itself is otherwise resolution-independent.
+13. **The level editor paints its own preview textures.** The editor's 3D
+    viewport generates wall/floor/ceiling preview tiles in JavaScript
+    (`level-editor/js/viewport3d.js`). They are previews, not runtime assets,
+    and are outside this specification; the game never loads them.
+14. **`tools/props/build.py --check` has a narrower scope than the build
+    path.** `--check` parses the GLB container only; UV range, budgets,
+    scale and origin are enforced by the Rust tests and by the runtime parser.
+15. **Fixture painters lag the shipped sheets.** `tools/textures/lights_art.py`
+    still paints the panel at 256×128 while the shipped sheet is 1024×512; a
+    plain `build.py` run skips it (dimension mismatch) and `--force` would
+    downgrade the shipped artwork.
+16. **`assets/README.md` and `docs/MAP_AUTHORING_GUIDE.md` lag the shipped
+    fixture sizes** in their fixture tables (they state 256×128 for the panel).
+    This specification and `tools/textures/README.md` carry the current sizes.
+17. **Pack materials are richer than pack textures.** A pack's `materials.json`
+    supports emissive, mask, normal, alpha and reflection fields exactly like a
+    catalog definition; a `pack:` decal id, however, produces no geometry —
+    pack decals are silently unsupported.
 
 ---
 

@@ -1729,7 +1729,7 @@ fn test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog() {
     };
     assert_eq!(
         dimensions(crate::lighting::FixtureKind::FluorescentPanel),
-        (256, 128)
+        (1024, 512)
     );
     assert_eq!(
         dimensions(crate::lighting::FixtureKind::RoundRecessed),
