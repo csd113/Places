@@ -49,42 +49,54 @@ the level authored.
 
 ## Frame cost, draw calls and memory
 
-`python3 tools/bench/bench_local.py` (macOS, 960×544, `LIMINAL_BENCH_FINISH=1`,
-120 frames after 20 warm-up, 3 runs, medians). `batch2` is a release build of the
-Batch 2 checkout with *this* repository's assets, so only the code differs.
+`python3 tools/bench/bench_repeat.py` (macOS, 960×544, `LIMINAL_BENCH_FINISH=1`,
+120 frames after 20 warm-up, 9 runs each). `b2_baseline` is a release build of
+the Batch 2 checkout with *this* repository's assets, so only the code differs.
 
-| Metric | Batch 2 | Batch 3 (offscreen) | Batch 3 (`NO_OFFSCREEN`) | Batch 3 (Low) |
-|---|---:|---:|---:|---:|
-| `render_mean_ms` | 0.454 | 0.546 | 0.527 | 0.542 |
-| `frame_median_ms` | 0.535 | 0.605 | 0.617 | 0.628 |
-| `draw_calls` | 70 | 74 | 74 | 74 |
-| `visible_batches` | 70 | 74 | 74 | 74 |
-| `vbo_bytes` | 367 296 | 413 928 | 413 928 | 413 928 |
-| `index_bytes` | 33 120 | 33 180 | 33 180 | 33 180 |
-| `texture_binds` | not counted | 108 | 107 | 108 |
-| `material_changes` | not counted | 35 | 35 | 35 |
+| Metric | Batch 2 | Batch 3 (offscreen) | Batch 3 (`NO_OFFSCREEN`) |
+|---|---:|---:|---:|
+| `render_mean_ms` min / median | 0.348 / 0.377 | 0.473 / 0.491 | 0.458 / 0.483 |
+| `frame_median_ms` min / median | 0.431 / 0.476 | 0.576 / 0.602 | 0.522 / 0.558 |
+| `draw_calls` | 70 | 75 | 75 |
+| `vbo_bytes` | 367 296 | 414 936 | 414 936 |
+| `index_bytes` | 33 120 | 33 264 | 33 264 |
+| `texture_binds` | not counted | 39 | 38 |
+| `material_changes` | not counted | 37 | 37 |
+
+(The Batch 3 numbers include the transfer grille added in the validation commit;
+the one-shot runner's earlier numbers, 74 draw calls / 108 binds, are superseded
+by these. A single run of this benchmark varies by ±0.1 ms on this machine, which
+is why the table reports the minimum as well as the median over nine runs.)
 
 Reading the numbers:
 
-* **Offscreen presentation costs about 0.02 ms here** (0.546 vs 0.527), i.e.
-  ~3 % of the frame at this size. It is one fullscreen textured quad; the work
-  is proportional to the drawable's pixel count, so the PocketCHIP's 480×272 is
-  well inside budget.
-* **Draw calls +4, indices +60 B, vertices +20**: the five glass panes and the
-  grille pane. Each is one quad, lightmapped and split by chart/cell like any
-  wall surface, and they add no new per-frame state.
-* **Vertex memory +12.7 %** (32 → 36 bytes per vertex, plus 20 new vertices).
-  The frame costs three signed bytes per vector and one for the sign; that is the
+* **Offscreen presentation costs about 0.01 ms here** (0.483 vs 0.491 median,
+  3 % of the frame at this size). It is one fullscreen textured quad, and the
+  work is proportional to the drawable's pixel count — the PocketCHIP's 480×272
+  is well inside budget.
+* **Batch 3 costs ~0.11 ms more per frame than Batch 2** on this machine
+  (0.377 → 0.491): the presentation pass, five more draw batches (the panes),
+  the per-material response/alpha state, and 12.7 % more vertex bytes. On a
+  half-millisecond frame this is a *relative* cost, not an absolute one: nothing
+  here is per-pixel work on the whole surface (the response is only live on the
+  two panel materials), and the device-side numbers need the PocketCHIP bench.
+* **Draw calls +5, indices +144 B, vertices +28**: the glazed openings (five
+  windows and the transfer grille) plus the three panel walls and two floor
+  patches the demo added. Each pane is one quad, lightmapped and split by
+  chart/cell like any wall surface, and adds no new per-frame state.
+* **Vertex memory +13 %** (32 → 36 bytes per vertex, plus the new geometry). The
+  frame costs three signed bytes per vector and one for the sign; that is the
   price of a tangent-space frame on every surface, and it is why the frame is
   packed rather than float.
 * **Framebuffer memory**: one RGBA8 colour texture plus a 24-bit depth
   renderbuffer at the scene target's size — 5.2 MiB at 960×544, and 0.9 MiB at
   the PocketCHIP's 480×272 under either profile (Low renders at the reference
   size, so it never allocates more than the device can fill).
-* **Texture binds** are now measured. 108 binds for 74 draw batches: the three
-  units a material change touches (albedo, emission mask, normal map), the decal
-  sheet, the lightmap units once per frame and the presentation quad. A run of
-  batches sharing a material costs none — that is what the state cache is for.
+* **Texture binds** are now measured, and the surface-state cache keeps them
+  down to one per material change for ordinary content: 39 binds for 75 draw
+  calls, where the same run bound 108 before the per-sampler comparison was
+  added. A run of batches sharing a material costs none at all, and the two
+  samplers a material does not use are left alone.
 * **Low shows no frame-time win on this machine**, because the macOS driver is
   not fill-bound at this size. Its purpose is the Mali-400: a quarter of the
   scene pixels and the response term are exactly the costs that device pays.

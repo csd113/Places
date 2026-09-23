@@ -638,6 +638,40 @@ pub(super) const fn emission_routing(kind: SurfaceKind, has_material: bool) -> E
     }
 }
 
+/// The per-material parameters the draw path needs, derived once per level from
+/// the resolved material table.
+///
+/// One place derives all four vectors, so a new material property cannot be
+/// resolved correctly and then simply not reach the draw path: the failure this
+/// type exists to prevent. Every vector is parallel and indexed by *material
+/// index* (what a batch's `SurfaceKey` carries), not by texture index.
+#[derive(Default)]
+pub(super) struct MaterialRenderState {
+    /// Texture slot per material index (what `Renderer::material_textures` is
+    /// indexed by). Two materials that share one texture map to one slot.
+    pub(super) texture_slots: Vec<u16>,
+    /// Emission per material index.
+    pub(super) emissions: Vec<MaterialEmission>,
+    /// Surface response per material index.
+    pub(super) responses: Vec<MaterialResponse>,
+    /// Alpha contract per material index.
+    pub(super) alphas: Vec<MaterialAlpha>,
+}
+
+impl MaterialRenderState {
+    /// Derives every per-material parameter from a resolved table.
+    pub(super) fn from_table(table: &MaterialTable) -> Self {
+        let mut state = Self::default();
+        for entry in table.entries() {
+            state.texture_slots.push(entry.texture_index);
+            state.emissions.push(entry.emission);
+            state.responses.push(entry.response);
+            state.alphas.push(entry.alpha);
+        }
+        state
+    }
+}
+
 /// Every uniform location one scene program exposes.
 ///
 /// Uniform state in OpenGL is *per program*, not per context: switching to the
@@ -1083,16 +1117,9 @@ pub struct Renderer {
     /// exactly like [`MaterialTable::textures`]. The draw loop binds by the
     /// material index a batch carries.
     material_textures: Vec<glow::Texture>,
-    /// Maps a material index (what batches carry) to its texture index (what
-    /// `material_textures` is indexed by). Two materials that share one texture
-    /// map to the same slot, so the upload is shared.
-    material_texture_slots: Vec<u16>,
-    /// Emission per material index, parallel to `material_texture_slots`.
-    material_emissions: Vec<crate::materials::MaterialEmission>,
-    /// Surface response per material index, parallel to `material_texture_slots`.
-    material_responses: Vec<MaterialResponse>,
-    /// Alpha contract per material index, parallel to `material_texture_slots`.
-    material_alphas: Vec<MaterialAlpha>,
+    /// The per-material draw parameters, derived from the loaded level's
+    /// resolved table in one place (see [`MaterialRenderState`]).
+    materials: MaterialRenderState,
     /// Runtime quality profile: how large a texture may reach the GPU. Chosen
     /// once at startup from the settings (`full` or `low`).
     quality: crate::quality::QualityProfile,
@@ -1231,11 +1258,8 @@ impl Renderer {
             decal_image_cache: crate::materials::TextureCache::new(),
             decal_sheet_textures: std::collections::HashMap::new(),
             level_textures: Vec::new(),
+            materials: MaterialRenderState::default(),
             material_textures: Vec::new(),
-            material_texture_slots: Vec::new(),
-            material_emissions: Vec::new(),
-            material_responses: Vec::new(),
-            material_alphas: Vec::new(),
             quality: crate::quality::QualityProfile::DEFAULT,
             white_texture: startup.white_texture,
             font_texture: startup.font_texture,
@@ -1891,18 +1915,7 @@ impl Renderer {
             }
         }
         self.material_textures = material_textures;
-        self.material_texture_slots = loaded
-            .materials
-            .entries()
-            .iter()
-            .map(|entry| entry.texture_index)
-            .collect();
-        self.material_emissions = loaded
-            .materials
-            .entries()
-            .iter()
-            .map(|entry| entry.emission)
-            .collect();
+        self.materials = MaterialRenderState::from_table(&loaded.materials);
 
         // The fixture sheets: one slot per family, so a light batch binds its
         // family's PNG by the sheet index it carries. Catalog sheets stay
@@ -2411,7 +2424,7 @@ impl Renderer {
     /// The alpha contract of one material index, or `None` for a key without a
     /// level material.
     fn material_alpha(&self, material: MaterialIndex) -> Option<MaterialAlpha> {
-        self.material_alphas.get(usize::from(material)).copied()
+        self.materials.alphas.get(usize::from(material)).copied()
     }
 
     /// The complete surface state one static surface key draws with.
@@ -2432,7 +2445,8 @@ impl Renderer {
             EmissionRouting::Material => {
                 let material = key.material;
                 let emission = self
-                    .material_emissions
+                    .materials
+                    .emissions
                     .get(usize::from(material))
                     .copied()
                     .unwrap_or_default();
@@ -2445,7 +2459,8 @@ impl Renderer {
                     EmissionState::NONE
                 };
                 let response = self
-                    .material_responses
+                    .materials
+                    .responses
                     .get(usize::from(material))
                     .copied()
                     .unwrap_or_default();
@@ -2483,6 +2498,13 @@ impl Renderer {
     /// Applies one surface state to the current program, skipping the work when
     /// the previous draw already set exactly this state.
     ///
+    /// The three samplers are re-bound only when the texture behind one actually
+    /// changes: most material runs share the "no mask, no normal map" case, so a
+    /// level of plain surfaces still issues one bind per material change, not
+    /// three. The state cache is per program and is invalidated on every program
+    /// switch and after the decal and UI passes, both of which bind their own
+    /// textures behind this cache's back.
+    ///
     /// # Safety
     ///
     /// A scene program must be current
@@ -2500,9 +2522,31 @@ impl Renderer {
         };
         let white = self.white_texture;
         let emission = state.emission;
+        let mask = emission.mask.unwrap_or(white);
+        let normal = state.normal.unwrap_or(white);
+        // With no cached state every unit is (re)bound: the renderer cannot
+        // assume what the last pass left on them, and an unbound sampler is a
+        // driver error even when the shader would not read it.
+        let previous = self.surface_state;
+        let (bind_albedo, bind_mask, bind_normal) =
+            previous.map_or((true, true, true), |previous| {
+                (
+                    previous.texture != state.texture,
+                    previous.emission.mask.unwrap_or(white) != mask,
+                    previous.normal.unwrap_or(white) != normal,
+                )
+            });
+        let mut binds = 0usize;
+        let bind_if_changed = |gl: &glow::Context, changed: bool, wanted: glow::Texture| -> usize {
+            if changed {
+                unsafe { gl.bind_texture(glow::TEXTURE_2D, Some(wanted)) };
+                return 1;
+            }
+            0
+        };
         unsafe {
             self.gl.active_texture(glow::TEXTURE0);
-            self.gl.bind_texture(glow::TEXTURE_2D, Some(state.texture));
+            binds = binds.saturating_add(bind_if_changed(&self.gl, bind_albedo, state.texture));
             if let Some(ref loc) = uniforms.emission_color {
                 self.gl.uniform_3_f32(
                     Some(loc),
@@ -2520,11 +2564,9 @@ impl Renderer {
                     .uniform_1_f32(Some(loc), if emission.vertex { 1.0 } else { 0.0 });
             }
             self.gl.active_texture(glow::TEXTURE1);
-            self.gl
-                .bind_texture(glow::TEXTURE_2D, Some(emission.mask.unwrap_or(white)));
+            binds = binds.saturating_add(bind_if_changed(&self.gl, bind_mask, mask));
             self.gl.active_texture(glow::TEXTURE4);
-            self.gl
-                .bind_texture(glow::TEXTURE_2D, Some(state.normal.unwrap_or(white)));
+            binds = binds.saturating_add(bind_if_changed(&self.gl, bind_normal, normal));
             if let Some(ref loc) = uniforms.normal_enabled {
                 self.gl
                     .uniform_1_f32(Some(loc), if state.normal.is_some() { 1.0 } else { 0.0 });
@@ -2555,7 +2597,7 @@ impl Renderer {
             }
             self.gl.active_texture(glow::TEXTURE0);
         }
-        self.render_stats.texture_binds = self.render_stats.texture_binds.saturating_add(3);
+        self.render_stats.texture_binds = self.render_stats.texture_binds.saturating_add(binds);
         self.render_stats.material_changes = self.render_stats.material_changes.saturating_add(1);
         self.surface_state = Some(state);
     }
@@ -2568,7 +2610,8 @@ impl Renderer {
             SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall => {
                 if key.has_material() {
                     let slot = self
-                        .material_texture_slots
+                        .materials
+                        .texture_slots
                         .get(usize::from(key.material))
                         .copied()
                         .unwrap_or(0);
@@ -2670,7 +2713,7 @@ impl Renderer {
         let mut totals = DrawTotals::default();
         {
             let batches = &self.static_batches;
-            let alphas = &self.material_alphas;
+            let alphas = &self.materials.alphas;
             let pass_of = |key: SurfaceKey| {
                 let alpha = alphas.get(usize::from(key.material)).copied();
                 batch_pass_for(key.kind, key.has_material(), alpha)

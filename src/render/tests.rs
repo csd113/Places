@@ -4785,8 +4785,8 @@ fn the_dynamic_demonstration_machine_stays_a_static_prop() {
 // ------------------------------------------------------------- Batch 3 passes
 
 use super::renderer::{
-    BatchPass, EmissionState, ScenePass, SurfaceState, TranslucentSource, batch_pass_for,
-    collect_translucent_draws, offscreen_plan, pack_static_batches,
+    BatchPass, EmissionState, MaterialRenderState, ScenePass, SurfaceState, TranslucentSource,
+    batch_pass_for, collect_translucent_draws, offscreen_plan, pack_static_batches,
 };
 use crate::materials::{AlphaMode, MaterialAlpha};
 
@@ -5184,6 +5184,55 @@ fn the_offscreen_target_plan_follows_the_drawable_the_profile_and_its_own_failur
     );
     assert_eq!(resized, Some(DrawableSize::new(800, 600)));
     assert_ne!(resized, Some(drawable));
+}
+
+#[test]
+fn every_material_property_resolves_into_the_renderers_per_material_state() {
+    // The renderer derives its per-material vectors from the resolved table in
+    // one place. The failure this guards against is a property that resolves
+    // correctly and then never reaches the draw path: a glass material that
+    // draws opaque, or a normal map that never binds.
+    let level = shipped_demo();
+    // The *resolved* table, not the logical one: a normal map only exists once
+    // its PNG has been interned, which is exactly what the renderer loads.
+    let mut cache = crate::materials::TextureCache::new();
+    let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
+    let materials = crate::materials::resolve_materials(
+        &level,
+        super::api::shipped_asset_catalog(),
+        None,
+        Some(&root),
+        &mut cache,
+    );
+    assert!(materials.errors().is_empty(), "{:?}", materials.errors());
+    let state = MaterialRenderState::from_table(&materials);
+    assert_eq!(state.alphas.len(), materials.len());
+
+    let mut translucent = 0usize;
+    let mut cutout = 0usize;
+    let mut sheen = 0usize;
+    let mut normal_mapped = 0usize;
+    for (index, entry) in materials.entries().iter().enumerate() {
+        let slot = state.texture_slots[index];
+        assert_eq!(slot, entry.texture_index, "{}", entry.id);
+        assert_eq!(state.emissions[index], entry.emission, "{}", entry.id);
+        assert_eq!(state.responses[index], entry.response, "{}", entry.id);
+        assert_eq!(state.alphas[index], entry.alpha, "{}", entry.id);
+        translucent += usize::from(entry.alpha.is_translucent());
+        cutout += usize::from(entry.alpha.is_cutout());
+        sheen += usize::from(entry.response.has_sheen());
+        normal_mapped += usize::from(entry.response.has_normal());
+    }
+    assert!(
+        translucent >= 4,
+        "the demo's glass and sign are translucent"
+    );
+    assert!(cutout >= 1, "the demo's grille is a cut-out");
+    assert!(sheen >= 4, "the demo's glossy surfaces have a sheen");
+    assert_eq!(
+        normal_mapped, 2,
+        "the metal and plastic panels are the demo's normal-mapped materials"
+    );
 }
 
 #[test]
