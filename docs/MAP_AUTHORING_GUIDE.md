@@ -5,7 +5,7 @@
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
 | Level format version documented | `1` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
-| Last verified commit SHA | `c778a3d` (Batch 3: surface response, transparency/glass, offscreen framebuffer) |
+| Last verified commit SHA | `16ea398` (Batch 3: surface response, transparency/glass, offscreen framebuffer) |
 | Verification performed | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check`; `python3 -m unittest tests.test_package`; `cd level-editor && npm test` |
 | Primary benchmark level | `assets/levels/places_demo.json` |
 
