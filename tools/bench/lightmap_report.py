@@ -46,6 +46,10 @@ SHOTS: list[tuple[str, str, dict[str, str]]] = [
     ("demo_cabinet_contact", "places_demo", {"LIMINAL_SPAWN": "8.5,2.9,0", "LIMINAL_CAMERA": "0,-16"}),
     ("demo_pool_table", "places_demo", {"LIMINAL_SPAWN": "4.0,13.6,180", "LIMINAL_CAMERA": "180,-18"}),
     ("demo_doorway", "places_demo", {"LIMINAL_SPAWN": "9.0,3.5,0"}),
+    # The Batch 2 dynamic demonstration: a static washing machine with a turning
+    # drum in front of its door, in the west end of the long corridor.
+    ("demo_dynamic", "places_demo",
+     {"LIMINAL_SPAWN": "28.4,13.6,0", "LIMINAL_CAMERA": "0,-12"}),
     ("prop_stress", "prop_stress", {}),
     ("prop_stress_close", "prop_stress", {"LIMINAL_SPAWN": "2.0,2.0,135", "LIMINAL_CAMERA": "135,-16"}),
     ("prop_showcase", "prop_showcase", {}),

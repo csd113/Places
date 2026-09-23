@@ -131,6 +131,7 @@ Notes on the measurements themselves live in `notes/`:
 |---|---|
 | `renderer-change-validation.md` | how each change was validated, and what the pixel comparison actually measures |
 | `level-build-cache.md` | what a level load costs, and a proposed build-cache key/invalidation design |
+| `lightmap-bake-validation.md` | Batch 2 baked-lightmap measurements: cold/warm bake cost, Full/Low density and memory, runtime draw calls, vertex-memory cost and the lightmap-vs-vertex pixel A/B |
 
 ## Visual regression
 
@@ -146,6 +147,30 @@ python3 tools/bench/visual_check.py \
 It runs a fixed list of levels and camera states through `LIMINAL_CAPTURE`,
 decodes both sets of PNGs and reports the number of differing pixels, the
 fraction of the image, and the worst channel delta per shot.
+
+## Lightmap bake and lighting A/B
+
+Batch 2's static lightmaps are measured with a dedicated driver: it runs the
+one-frame capture path plus `LIMINAL_BENCH` telemetry over a fixed shot list,
+parses the `[level]`/`[lighting]`/`[lightmaps]`/`[spatial]` developer lines and
+writes `report.json` beside the PNGs and per-frame CSVs.
+
+```sh
+# cold bake + captures for the standard shot list
+python3 tools/bench/lightmap_report.py --label full --cold
+
+# the exact vertex-lit control run (same build, lightmaps forced off)
+LIMINAL_NO_LIGHTMAPS=1 python3 tools/bench/lightmap_report.py --label vertex
+
+# a specific profile, run from a package directory holding its settings.json
+python3 tools/bench/lightmap_report.py --label low \
+    --run-dir $PWD/target/agent-work/benchmarks/run-low
+```
+
+Fixtures under `tests/fixtures/levels/` are staged into a package directory under
+`target/agent-work/` (via `LIMINAL_ASSET_ROOT`), never copied into the
+repository's own `levels/`. `tools/bench/notes/lightmap-bake-validation.md` holds
+the measurements taken with it.
 
 ## Level generation
 

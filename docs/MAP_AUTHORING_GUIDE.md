@@ -5,12 +5,15 @@
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
 | Level format version documented | `1` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
-| Last verified commit SHA | working tree on top of `1783828` (Batch 1: quality profiles, generic lights, emissive materials) |
+| Last verified commit SHA | `08115a5` (Batch 2: baked lightmaps, static prop occlusion, dynamic-object path) |
 | Verification performed | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check`; `python3 -m unittest tests.test_package`; `cd level-editor && npm test` |
 | Primary benchmark level | `assets/levels/places_demo.json` |
 
-> This revision documents the Batch 1 foundation: Full/Low quality profiles, the
-> generic engine-level light model, and true emissive materials. Read
+> This revision documents the Batch 1 foundation (Full/Low quality profiles, the
+> generic engine-level light model, true emissive materials) **plus the Batch 2
+> lighting work**: baked lightmaps for static world geometry with the vertex-lit
+> path as an exact fallback, automatic static-prop occlusion, and a separate
+> dynamic-object render path. Read
 > [Known Implementation Caveats](#known-implementation-caveats) before relying on
 > engine limits, and re-run the validation commands after pulling new commits.
 
