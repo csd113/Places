@@ -34,9 +34,12 @@ unchanged and still the only lighting/material model.
   (Full) and 8 texels/m at a 512 page (Low) from the *same* patch set, so Low
   needs no separate level or hand-authored bake.
 - **Cache.** A deterministic content key over the lighting-relevant inputs
-  (level definition, static prop placement and model bytes, light definitions,
-  quality profile, lightmap format version) decides whether a cached bake may be
-  reused; the key is exposed for tests.
+  (level definition, light definitions, lightmap config, quality profile,
+  format version, and the fingerprint of the occluder set the bake actually
+  used — walls, slabs and the derived prop boxes) decides whether a cached bake
+  may be reused. A texture-only edit correctly keeps the atlas; a moved prop or
+  an edited prop model re-bakes. The cache lives under the project-owned
+  `target/level-cache/lightmaps/` and a miss simply bakes again.
 
 ### Static props occlude the bake
 

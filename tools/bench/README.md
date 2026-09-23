@@ -104,6 +104,9 @@ it and allocates nothing per frame.
 | `LIMINAL_LEVEL=<id>` | boot straight into a level |
 | `LIMINAL_SPAWN=x[,y],z,yaw` | spawn override |
 | `LIMINAL_CAPTURE=frame.png` | render one frame, write it, exit |
+| `LIMINAL_CAPTURE_FRAME=n` | which frame to capture (default 1), so a moving object can be captured mid-animation |
+| `LIMINAL_NO_LIGHTMAPS=1` | force the vertex-lit path for a lightmap A/B capture |
+| `LIMINAL_DUMP_LIGHTMAPS=1` | write baked atlas pages as PNGs under `target/agent-work/atlases/` |
 
 The run summary is printed as a single line:
 
