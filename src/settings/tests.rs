@@ -5,7 +5,7 @@
 #![allow(clippy::doc_markdown, clippy::expect_used)]
 
 use super::*;
-use crate::test_support::assert_exact;
+use crate::test_support::{assert_exact, assert_exact_named};
 
 #[test]
 fn test_default_wasd_and_arrow_bindings() {
@@ -204,4 +204,91 @@ fn test_missing_or_invalid_preferences_fallback() {
     assert_eq!(loaded_corrupt, default_settings);
 
     let _ = fs::remove_file(corrupt_path);
+}
+
+/// A hand-edited file can contain a reserved key, an empty name or two actions
+/// sharing one key; sanitizing repairs each bad entry in a fixed order.
+#[test]
+fn test_sanitize_repairs_reserved_empty_and_duplicate_bindings() {
+    let raw = r#"{
+        "bindings": {
+            "forward": "-", "backward": "A", "strafe_left": "A", "strafe_right": "",
+            "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT"
+        }
+    }"#;
+    let mut settings: Settings = serde_json::from_str(raw).expect("hand-edited file parses");
+    settings.sanitize();
+
+    assert_eq!(settings.bindings.forward, "W", "reserved key falls back");
+    assert_eq!(settings.bindings.strafe_left, "A", "first use is kept");
+    assert_eq!(
+        settings.bindings.backward, "S",
+        "duplicate falls back to its default"
+    );
+    assert_eq!(
+        settings.bindings.strafe_right, "D",
+        "empty name falls back to its default"
+    );
+    assert_eq!(settings.bindings.look_up, "UP");
+}
+
+/// A malformed settings file is preserved as `settings.json.invalid` and the
+/// defaults are returned, so the next run starts from a known state.
+#[test]
+fn test_malformed_settings_file_is_preserved_and_recovered() {
+    let scratch = std::path::Path::new("target/agent-work/tests/settings");
+    fs::create_dir_all(scratch).expect("scratch dir is writable");
+    let path = scratch.join("settings.json");
+    fs::write(&path, "{ this is not json").expect("write malformed settings");
+
+    let loaded = Settings::load_or_default_reporting(&path);
+    assert_eq!(loaded, Settings::default());
+    assert!(!path.exists(), "malformed file is moved aside");
+    assert!(
+        scratch.join("settings.json.invalid").exists(),
+        "the player's file is preserved for inspection"
+    );
+
+    // A second load with no file present just returns the defaults.
+    let loaded_again = Settings::load_or_default_reporting(&path);
+    assert_eq!(loaded_again, Settings::default());
+
+    let _ = fs::remove_file(scratch.join("settings.json.invalid"));
+}
+
+/// First run: `ensure_saved_to_path` writes the defaults once, and never
+/// overwrites a file that already exists.
+#[test]
+fn test_ensure_saved_writes_defaults_only_once() {
+    let scratch = std::path::Path::new("target/agent-work/tests/settings");
+    fs::create_dir_all(scratch).expect("scratch dir is writable");
+    let path = scratch.join("ensure-saved.json");
+    let _ = fs::remove_file(&path);
+
+    Settings::default().ensure_saved_to_path(&path);
+    assert!(path.exists(), "first run writes the default file");
+
+    let custom = Settings {
+        look_speed_h: 120.0,
+        ..Settings::default()
+    };
+    custom.save_to_path(&path).expect("save custom");
+    custom.ensure_saved_to_path(&path);
+    let reloaded = Settings::load_or_default_from_path(&path);
+    assert_exact_named(
+        reloaded.look_speed_h,
+        120.0,
+        "existing file is not replaced",
+    );
+
+    let _ = fs::remove_file(path);
+}
+
+/// Action names are shown to the player in the settings prompt and status
+/// messages; they must be readable words, not `snake_case` identifiers.
+#[test]
+fn test_action_labels_are_player_facing() {
+    assert_eq!(action_label("forward"), "Forward");
+    assert_eq!(action_label("strafe_right"), "Strafe Right");
+    assert_eq!(action_label("look_up"), "Look Up");
 }

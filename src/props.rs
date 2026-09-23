@@ -163,16 +163,18 @@ impl PropAssets {
 
     /// Prints a one-time developer warning for a model that fell back.
     ///
-    /// Missing assets have no logger to route through, and the message is
-    /// aimed at a developer watching the terminal, so it goes to stderr as it
-    /// always has.
-    #[allow(clippy::print_stderr)]
+    /// Missing assets are reported through [`crate::logging`], deduplicated per
+    /// model path, and the message is aimed at a developer watching the
+    /// terminal.
     pub fn report_failure(&mut self, model_path: &str, message: &str) {
         if self.reported_failures.iter().any(|path| path == model_path) {
             return;
         }
         self.reported_failures.push(model_path.to_string());
-        eprintln!("[props] {message} - using the catalogue placeholder box");
+        crate::logging::warn_once(
+            format!("prop-fallback:{model_path}"),
+            format!("[props] {message} - using the catalogue placeholder box"),
+        );
     }
 
     /// Prints a one-time art-budget warning for a model that loaded anyway.
@@ -180,7 +182,6 @@ impl PropAssets {
     /// This is deliberately not a failure: the renderer draws the model, and
     /// the note exists so the artist knows the shipped pack wants a lighter
     /// mesh or a smaller texture. Deduped per model like [`Self::report_failure`].
-    #[allow(clippy::print_stderr)]
     fn report_budget_warning(&mut self, model_path: &str, message: &str) {
         if self
             .reported_budget_warnings
@@ -190,7 +191,10 @@ impl PropAssets {
             return;
         }
         self.reported_budget_warnings.push(model_path.to_string());
-        eprintln!("[props] art budget warning: {model_path} {message}; the asset still loads");
+        crate::logging::warn_once(
+            format!("prop-budget:{model_path}"),
+            format!("[props] art budget warning: {model_path} {message}; the asset still loads"),
+        );
     }
 
     /// Cache statistics, used by the performance overlay and tests.

@@ -86,8 +86,10 @@ every sheet on
 for both the raw and the three-tap-smoothed profiles, and exits non-zero on a
 failure.
 
-Do not regenerate these six sheets from the 128px seeds: `python3
-tools/textures/build.py` without `--check` rewrites every manifest sheet from
-its painter and would replace the 1024x1024 artwork with the legacy seeds.
-`python3 tools/textures/build.py --check` only validates the shipped files and
-never writes.
+These six sheets ship at 1024x1024 while the painters in `office_art.py` still
+produce 128x128 seeds. `python3 tools/textures/build.py` therefore **skips**
+them — it refuses to overwrite a sheet whose shipped dimensions differ from its
+painter's output — so a plain run cannot downgrade the artwork; `--force` is
+what would replace a sheet with the seed-sized painter output. `python3
+tools/textures/build.py --check` only validates the shipped files and never
+writes.

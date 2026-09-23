@@ -348,11 +348,14 @@ fn dump_lightmaps_if_requested(level: &LevelDef, lightmaps: &LevelLightmaps) {
     } else {
         id
     };
-    let dir = std::path::PathBuf::from("target/agent-work/atlases");
+    let dir = crate::assets::state_path("target/agent-work/atlases");
     for (index, page) in lightmaps.pages.iter().enumerate() {
         let path = dir.join(format!("{id}_page{index}.png"));
         if let Err(error) = write_page_png(page, &path) {
-            eprintln!("[lightmaps] cannot write {}: {error}", path.display());
+            crate::logging::warn_once(
+                format!("lightmap-page:{}", path.display()),
+                format!("[lightmaps] cannot write {}: {error}", path.display()),
+            );
         }
     }
 }

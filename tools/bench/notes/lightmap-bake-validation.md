@@ -12,7 +12,8 @@ not the `PocketCHIP`'s; the proportions and the memory figures are the point.
 
 `[level] ... (lighting A + props B + surfaces C)` plus the new
 `[lightmaps] <pages> page(s), <charts> chart(s), <charts texels>, <page texels> (<KiB>),
-filled in <ms>` line. Cold runs delete `target/level-cache/lightmaps/` first.
+filled in <ms>` line. Cold runs delete `cache/lightmaps/` below the run
+directory's state root first.
 
 | level | charts | chart texels | pages | page KiB | fill+bake cold | level build cold | level build warm (cache hit) |
 |---|---:|---:|---:|---:|---:|---:|---:|

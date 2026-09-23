@@ -53,6 +53,65 @@ pub const ASSET_ROOT_CANDIDATES: [&str; 3] = ["assets", "./assets", "../assets"]
 /// Catalog file name inside the asset root.
 pub const CATALOG_FILE_NAME: &str = "catalog.json";
 
+/// Environment variable that overrides where writable runtime state lives.
+///
+/// The state root is the directory that owns `settings.json`, the drop-in
+/// `levels/` and `import/` directories and the level cache. A relative value is
+/// resolved against the working directory at read time, like
+/// [`ASSET_ROOT_ENV`].
+pub const STATE_ROOT_ENV: &str = "LIMINAL_STATE_ROOT";
+
+/// The directory that owns every writable runtime file.
+///
+/// Precedence is deliberate and deterministic:
+///
+/// 1. the [`STATE_ROOT_ENV`] override — tests and benchmark runs pin their own
+///    scratch state;
+/// 2. the package root, i.e. the parent of the resolved asset root — a portable
+///    install keeps settings, drop-in levels and its cache next to its payload,
+///    no matter what the working directory is;
+/// 3. the working directory, for the degenerate case where no asset root was
+///    found at all.
+///
+/// Nothing here creates the directory: callers create the subdirectories they
+/// need, so a read-only installation still fails only where it must.
+#[must_use]
+pub fn state_root() -> PathBuf {
+    static RESOLVED: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    RESOLVED
+        .get_or_init(|| {
+            if let Ok(raw) = std::env::var(STATE_ROOT_ENV) {
+                let trimmed = raw.trim();
+                if !trimmed.is_empty() {
+                    let path = PathBuf::from(trimmed);
+                    return if path.is_absolute() {
+                        path
+                    } else {
+                        std::env::current_dir()
+                            .map(|cwd| cwd.join(&path))
+                            .unwrap_or(path)
+                    };
+                }
+            }
+            if let Some(assets) = resolve_asset_root()
+                && let Some(root) = assets.parent()
+            {
+                return root.to_path_buf();
+            }
+            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+        })
+        .clone()
+}
+
+/// A runtime path below the [`state_root`].
+///
+/// An absolute `relative` is returned unchanged, so a caller with a specific
+/// file in mind can still pass one.
+#[must_use]
+pub fn state_path(relative: impl AsRef<Path>) -> PathBuf {
+    state_root().join(relative)
+}
+
 /// First line of the missing-asset-root diagnostic.
 ///
 /// Deliberately loud and self-describing: a distribution that cannot find its
@@ -1553,15 +1612,15 @@ impl AssetCatalog {
     /// Loads a catalog from `path`, returning `None` when the file is missing
     /// or invalid. Never panics.
     #[must_use]
-    // The catalog loader is the only reporter of a broken installation, and it
-    // has no logger to route through.
-    #[allow(clippy::print_stderr)]
     pub fn load_from_path(path: &Path) -> Option<Self> {
         let content = fs::read_to_string(path).ok()?;
         match Self::from_json_str(&content) {
             Ok(catalog) => Some(catalog),
             Err(error) => {
-                eprintln!("[assets] {}: {error}", path.display());
+                crate::logging::warn_once(
+                    format!("catalog:{}", path.display()),
+                    format!("[assets] {}: {error}", path.display()),
+                );
                 None
             }
         }
@@ -1569,28 +1628,35 @@ impl AssetCatalog {
 
     /// Loads the shipped catalog, falling back to an empty catalog with a
     /// developer-facing message when no catalog can be found.
+    ///
+    /// The missing-asset-root report is printed once per process even though
+    /// the catalog is loaded by several independent callers.
     #[must_use]
-    // A missing asset root is the loudest possible startup failure and has no
-    // logger to route through.
-    #[allow(clippy::print_stderr)]
     pub fn load_default() -> Self {
         for candidate in catalog_path_candidates() {
             if let Some(catalog) = Self::load_from_path(&candidate) {
                 return catalog;
             }
         }
-        eprintln!("{NO_ASSET_ROOT_MESSAGE}");
+        let mut message = String::from(NO_ASSET_ROOT_MESSAGE);
         for (path, exists) in asset_root_search_report() {
-            eprintln!(
-                "  {} {}",
-                if exists { "found   " } else { "missing " },
-                path.display()
+            let _ = std::fmt::Write::write_fmt(
+                &mut message,
+                format_args!(
+                    "\n  {} {}",
+                    if exists { "found   " } else { "missing " },
+                    path.display()
+                ),
             );
         }
-        eprintln!(
-            "  set {ASSET_ROOT_ENV}=<directory containing assets/> to override, \
-             or run from a directory that contains assets/."
+        let _ = std::fmt::Write::write_fmt(
+            &mut message,
+            format_args!(
+                "\n  set {ASSET_ROOT_ENV}=<directory containing assets/> to override, \
+                 or run from a directory that contains assets/."
+            ),
         );
+        crate::logging::warn_once("no-asset-root", message);
         Self::builtin()
     }
 

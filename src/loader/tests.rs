@@ -603,6 +603,60 @@ fn test_validate_rejects_a_decal_that_straddles_a_height_change() {
 }
 
 #[test]
+fn test_validate_rejects_too_many_floor_patches() {
+    let patches: Vec<String> = (0..=crate::level::MAX_LEVEL_FLOOR_PATCHES)
+        .map(|_| {
+            r#"{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0, "material": "core:carpet_beige_01" }"#
+                .to_string()
+        })
+        .collect();
+    let level = vertical_level(
+        "",
+        &format!(r#", "floor_patches": [{}]"#, patches.join(",")),
+    );
+    let err = validate_level(&level).expect_err("too many patches must be rejected");
+    assert!(
+        err.contains("too many floor patches"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn test_validate_rejects_too_many_wall_openings() {
+    let openings: Vec<String> = (0..=crate::level::MAX_WALL_OPENINGS)
+        .map(|_| r#"{ "kind": "door", "offset": 0.0, "width": 0.5, "height": 1.0 }"#.to_string())
+        .collect();
+    let level = LevelDef::from_json(&format!(
+        r#"{{
+            "format_version": 1,
+            "id": "openings",
+            "name": "Openings",
+            "spawn": {{ "x": 0.0, "z": 0.0 }},
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 }}],
+            "walls": [{{
+                "x": 0.0, "z": 2.0, "width": 4.0, "depth": 0.2,
+                "openings": [{}]
+            }}]
+        }}"#,
+        openings.join(",")
+    ))
+    .expect("level parses");
+    let err = validate_level(&level).expect_err("too many openings must be rejected");
+    assert!(err.contains("too many openings"), "unexpected error: {err}");
+}
+
+#[test]
+fn test_zip_reads_are_capped_by_output_not_the_declared_size() {
+    // A lying header can declare one byte and still expand past the cap; the
+    // reader must bound its own output rather than trust `entry.size()`.
+    let payload = vec![0u8; usize::try_from(MAX_ZIP_ENTRY_SIZE + 1).expect("cap fits usize")];
+    let mut cursor = Cursor::new(payload);
+    let error = read_zip_entry_capped(&mut cursor, 1, MAX_ZIP_ENTRY_SIZE, "bomb.bin")
+        .expect_err("output past the cap must fail");
+    assert!(error.contains("decompression limit"), "unexpected: {error}");
+}
+
+#[test]
 fn test_validate_rejects_too_many_floor_regions() {
     let regions: Vec<String> = (0..=crate::level::MAX_LEVEL_FLOOR_REGIONS)
         .map(|_| r#"{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0 }"#.to_string())
@@ -1742,4 +1796,32 @@ fn test_the_demo_loads_every_fixture_family_with_its_sheet() {
             .unwrap_or_else(|| panic!("{kind:?} must resolve its sheet"));
         assert!(!sheet.image.rgba.is_empty(), "{kind:?} sheet is empty");
     }
+}
+
+/// Places Demo is offered even when nothing is installed, and selecting the
+/// offered entry loads the embedded copy.
+#[test]
+fn test_the_embedded_demo_is_always_listed_and_loadable() {
+    let scratch = std::path::Path::new("target/agent-work/tests/levels-empty");
+    let _ = std::fs::remove_dir_all(scratch);
+    std::fs::create_dir_all(scratch).expect("scratch directory is writable");
+
+    // `with_paths` never discovers anything under a fresh scratch directory.
+    let manager = LevelManager::with_paths(
+        scratch.join("assets/levels"),
+        scratch.join("levels"),
+        scratch.join("import"),
+    );
+    let entry = manager
+        .entries()
+        .iter()
+        .find(|entry| entry.id == DEMO_LEVEL_ID)
+        .expect("the embedded demo is always listed");
+    assert_eq!(entry.source_type, LevelSourceType::Embedded);
+
+    let loaded = manager.load_level(entry).expect("the embedded demo loads");
+    assert_eq!(loaded.level.id, DEMO_LEVEL_ID);
+    assert_eq!(loaded.entry.source_type, LevelSourceType::Embedded);
+
+    let _ = std::fs::remove_dir_all(scratch);
 }

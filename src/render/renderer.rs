@@ -1146,7 +1146,10 @@ unsafe fn create_post_process(gl: &glow::Context) -> Option<super::postprocess::
     } {
         Ok(post) => Some(post),
         Err(error) => {
-            eprintln!("[postprocess] disabled: {error}");
+            crate::logging::warn_once(
+                "postprocess-disabled",
+                format!("[postprocess] disabled: {error}"),
+            );
             None
         }
     }
@@ -1867,9 +1870,12 @@ impl Renderer {
                 Ok(())
             };
             if let Err(error) = upload {
-                eprintln!(
-                    "[lightmaps] {error}; rebuilding '{level_id}' with vertex lighting",
-                    level_id = level.id
+                crate::logging::warn_once(
+                    format!("lightmap-upload:{}", level.id),
+                    format!(
+                        "[lightmaps] {error}; rebuilding '{}' with vertex lighting",
+                        level.id
+                    ),
                 );
                 self.clear_lightmap_pages();
                 build = build_level_geometry_timed_with_lightmaps(
@@ -1938,7 +1944,10 @@ impl Renderer {
             &mut self.level_buffers,
             &static_packer.chunks,
         ) {
-            eprintln!("[level] cannot upload static geometry: {error}");
+            crate::logging::warn_once(
+                "level-upload",
+                format!("[level] cannot upload static geometry: {error}"),
+            );
         }
         if let Err(error) = upload_chunks(
             &self.gl,
@@ -2156,8 +2165,11 @@ impl Renderer {
             match unsafe { self.upload_fitted_texture(image, crate::quality::TextureClass::Prop) } {
                 Ok(texture) => uploads.push(texture),
                 Err(error) => {
-                    eprintln!(
-                        "[props] cannot upload texture for {model}: {error}; skipping that model"
+                    crate::logging::warn_once(
+                        format!("prop-texture-upload:{model}"),
+                        format!(
+                            "[props] cannot upload texture for {model}: {error}; skipping that model"
+                        ),
                     );
                     for texture in uploads {
                         unsafe { self.gl.delete_texture(texture) };
@@ -2249,7 +2261,10 @@ impl Renderer {
             let (key, image) = match resolved {
                 Ok(sheet) => (sheet.key, sheet.image),
                 Err(error) => {
-                    eprintln!("[decals] {error}; drawing the diagnostic sheet instead");
+                    crate::logging::warn_once(
+                        format!("decal-sheet:{id}"),
+                        format!("[decals] {error}; drawing the diagnostic sheet instead"),
+                    );
                     (
                         crate::materials::MISSING_TEXTURE_KEY.to_string(),
                         std::rc::Rc::new(crate::materials::missing_texture()),
@@ -2277,7 +2292,12 @@ impl Renderer {
                     self.decal.external.push(texture);
                 }
                 Err(error) => {
-                    eprintln!("[decals] decal `{id}`: {error}; drawing the built-in sheet instead");
+                    crate::logging::warn_once(
+                        format!("decal-upload:{id}"),
+                        format!(
+                            "[decals] decal `{id}`: {error}; drawing the built-in sheet instead"
+                        ),
+                    );
                     self.decal.external.push(self.decal.texture);
                 }
             }
@@ -2343,9 +2363,12 @@ impl Renderer {
                     material_textures.push(handle);
                 }
                 Err(error) => {
-                    eprintln!(
-                        "[materials] cannot upload texture `{}`: {error}; binding the missing pattern",
-                        texture.key
+                    crate::logging::warn_once(
+                        format!("material-upload:{}", texture.key),
+                        format!(
+                            "[materials] cannot upload texture `{}`: {error}; binding the missing pattern",
+                            texture.key
+                        ),
                     );
                     material_textures.push(self.white_texture);
                 }
@@ -2410,9 +2433,12 @@ impl Renderer {
                     *slot = texture;
                 }
                 Err(error) => {
-                    eprintln!(
-                        "[fixtures] cannot upload sheet `{}`: {error}; drawing the untextured sheet",
-                        sheet.key
+                    crate::logging::warn_once(
+                        format!("fixture-upload:{}", sheet.key),
+                        format!(
+                            "[fixtures] cannot upload sheet `{}`: {error}; drawing the untextured sheet",
+                            sheet.key
+                        ),
                     );
                 }
             }
@@ -2603,17 +2629,20 @@ impl Renderer {
             self.scene_target_size = size;
             match unsafe { framebuffer::SceneTarget::create(&self.gl, size) } {
                 Ok(target) => {
-                    eprintln!(
+                    crate::logging::info(format!(
                         "[framebuffer] offscreen scene target {}x{} (RGBA8 colour, {}-bit depth)",
                         size.width,
                         size.height,
                         target.depth_bits()
-                    );
+                    ));
                     self.scene_target = Some(target);
                 }
                 Err(error) => {
-                    eprintln!(
-                        "[framebuffer] {error}; drawing directly into the default framebuffer"
+                    crate::logging::warn_once(
+                        "framebuffer-fallback",
+                        format!(
+                            "[framebuffer] {error}; drawing directly into the default framebuffer"
+                        ),
                     );
                     self.offscreen_failed = true;
                     return false;
@@ -2973,31 +3002,29 @@ impl Renderer {
         }
         self.scene_mvp = glam::Mat4::IDENTITY;
         let millis = started.elapsed().as_secs_f64() * 1000.0;
-        #[allow(clippy::print_stderr)]
-        {
-            eprintln!(
-                "[reflections] baked {} probe(s) at {} texels/face in {millis:.1} ms",
-                self.reflections.probes().len(),
-                self.reflections
-                    .probes()
-                    .first()
-                    .map_or(0, super::reflections::ProbeTarget::face_texels)
-            );
-        }
+        crate::logging::info(format!(
+            "[reflections] baked {} probe(s) at {} texels/face in {millis:.1} ms",
+            self.reflections.probes().len(),
+            self.reflections
+                .probes()
+                .first()
+                .map_or(0, super::reflections::ProbeTarget::face_texels)
+        ));
     }
 
-    #[allow(clippy::print_stderr)] // level-load diagnostics have no logger
     fn report_reflections(routing: &super::reflections::ReflectionRouting) {
-        eprintln!(
+        crate::logging::info(format!(
             "[reflections] {} mirror plane(s), {} probe point(s)",
             routing.planes.len(),
             routing.probe_points.len()
-        );
+        ));
     }
 
-    #[allow(clippy::print_stderr)] // one line per refused probe, at level load
     fn report_reflection_failure(error: &str) {
-        eprintln!("[reflections] probe baking disabled: {error}");
+        crate::logging::warn_once(
+            "reflection-probe-disabled",
+            format!("[reflections] probe baking disabled: {error}"),
+        );
     }
 
     fn present_scene(&mut self) {
@@ -4430,9 +4457,12 @@ impl Renderer {
                     self.dynamic_meshes.insert(mesh.model_path.clone(), gpu);
                 }
                 Err(error) => {
-                    eprintln!(
-                        "[dynamic] cannot upload mesh {}: {error}; skipping that object",
-                        mesh.model_path
+                    crate::logging::warn_once(
+                        format!("dynamic-upload:{}", mesh.model_path),
+                        format!(
+                            "[dynamic] cannot upload mesh {}: {error}; skipping that object",
+                            mesh.model_path
+                        ),
                     );
                 }
             }

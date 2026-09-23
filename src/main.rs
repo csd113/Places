@@ -22,6 +22,7 @@ mod lighting_partition_audit;
 #[cfg(test)]
 mod lighting_vertical_audit;
 pub mod loader;
+pub mod logging;
 pub mod materials;
 pub mod perf;
 pub mod props;
@@ -86,9 +87,14 @@ const fn menu_next(index: usize, len: usize) -> usize {
 /// Prints what the level's props and baked lighting cost, so hardware runs
 /// (`PocketCHIP` over SSH) can be checked without a debugger: decoded models,
 /// texture memory, draw calls, level-build time and the baked room baselines.
+///
+/// Developer telemetry: only printed when `LIMINAL_VERBOSE` is set.
 // Startup CLI output that has no logger to route through.
 #[allow(clippy::print_stdout)]
 fn log_prop_usage(renderer: &Renderer) {
+    if !logging::verbose() {
+        return;
+    }
     let stats = renderer.prop_asset_stats();
     println!(
         "[props] {} models cached ({} failed), {} triangles, {} KiB of textures, {} draw call(s)",
@@ -206,9 +212,8 @@ fn configure_gl_attributes(video: &VideoSubsystem, gles: bool) {
 /// silently ignored `VSync` request indistinguishable from a working one. The
 /// requested interval, the call's return status and `SDL_GL_GetSwapInterval`
 /// (a fresh query of the platform, not an echo of the request) are all logged
-/// once at startup, and the interval in force is returned for the caller.
-// Startup CLI output that has no logger to route through.
-#[allow(clippy::print_stdout)]
+/// once at startup when telemetry is enabled, and the interval in force is
+/// returned for the caller.
 fn apply_swap_interval(video: &VideoSubsystem, want_vsync: bool) -> i32 {
     let requested = if want_vsync {
         sdl2::video::SwapInterval::VSync
@@ -218,16 +223,16 @@ fn apply_swap_interval(video: &VideoSubsystem, want_vsync: bool) -> i32 {
     match video.gl_set_swap_interval(requested) {
         Ok(()) => {
             let reported = video.gl_get_swap_interval();
-            println!(
+            logging::info(format!(
                 "[vsync] requested {requested:?}, SDL_GL_SetSwapInterval -> Ok, SDL_GL_GetSwapInterval -> {reported:?}",
-            );
+            ));
             reported as i32
         }
         Err(error) => {
             let reported = video.gl_get_swap_interval();
-            println!(
+            logging::info(format!(
                 "[vsync] requested {requested:?}, SDL_GL_SetSwapInterval -> Err({error}), SDL_GL_GetSwapInterval -> {reported:?}",
-            );
+            ));
             reported as i32
         }
     }
@@ -282,20 +287,23 @@ fn use_package_assets() -> PathBuf {
 }
 
 /// Logs the resolved package directory and asset root at startup.
-// Startup CLI output that has no logger to route through.
-#[allow(clippy::print_stdout)]
+///
+/// Developer telemetry: only printed when `LIMINAL_VERBOSE` is set.
 fn log_package(package: &Path) {
-    println!(
+    if !logging::verbose() {
+        return;
+    }
+    logging::info(format!(
         "[package] {} (assets: {})",
         package.display(),
         package.join("assets/levels").display()
-    );
+    ));
     match crate::assets::resolve_asset_root() {
         Some(assets) => {
             let shown = std::fs::canonicalize(&assets).unwrap_or(assets);
-            println!("[package] asset root: {}", shown.display());
+            logging::info(format!("[package] asset root: {}", shown.display()));
         }
-        None => println!("[package] asset root: NONE"),
+        None => logging::info("[package] asset root: NONE"),
     }
 }
 
@@ -344,9 +352,12 @@ fn create_window() -> Result<(Sdl, VideoSubsystem, Window), String> {
 /// Logs one startup line for the asset catalog: how many logical assets it
 /// declares and which environment themes organize them. Lookup itself is
 /// resolved once per level load, never per frame.
-// Startup CLI output that has no logger to route through.
-#[allow(clippy::print_stdout)]
+///
+/// Developer telemetry: only printed when `LIMINAL_VERBOSE` is set.
 fn log_asset_catalog(level_manager: &loader::LevelManager) {
+    if !logging::verbose() {
+        return;
+    }
     let catalog = level_manager.prop_catalog();
     let themes: Vec<&str> = catalog
         .themes()
@@ -358,15 +369,12 @@ fn log_asset_catalog(level_manager: &loader::LevelManager) {
     } else {
         themes.join(", ")
     };
-    println!(
+    logging::info(format!(
         "[assets] {} placeable asset(s) of {} catalog entries; themes: {themes}",
         catalog.len(),
         catalog.assets().len()
-    );
+    ));
 }
-
-/// The level that ships with the Batch 2 dynamic demonstration.
-const DEMO_LEVEL_ID: &str = "places_demo";
 
 /// Spawns the dynamic demonstration for levels that ship with one.
 ///
@@ -374,7 +382,7 @@ const DEMO_LEVEL_ID: &str = "places_demo";
 /// demonstration is content: it lives in Places Demo so the engine regression
 /// fixtures and their benchmarks are unaffected by it.
 fn spawn_level_demonstration(renderer: &mut Renderer, loaded: &loader::LoadedLevel) {
-    if loaded.level.id == DEMO_LEVEL_ID {
+    if loaded.level.id == loader::DEMO_LEVEL_ID {
         renderer.set_dynamic_demo(&loaded.level);
     }
 }
@@ -534,6 +542,10 @@ fn apply_spawn_override(
 /// This is how the shipped demo and the bench levels are checked on the
 /// `PocketCHIP`, where the menu cannot be driven over SSH:
 /// `LIMINAL_LEVEL=places_demo ./liminal-rust`.
+///
+/// When the request names the level that is already loaded (the ordinary
+/// `LIMINAL_LEVEL=places_demo` case), the renderer is left alone: rebuilding the
+/// same level would repeat the whole cold level build and lightmap bake.
 // Developer CLI output that has no logger to route through.
 #[allow(clippy::print_stdout, clippy::print_stderr)]
 fn apply_level_request(
@@ -541,6 +553,7 @@ fn apply_level_request(
     renderer: &mut Renderer,
     game: &mut Game,
     bench: &Bench,
+    current_level_id: &str,
     spawn_pos: &mut Vec3,
     spawn_yaw: &mut f32,
 ) {
@@ -556,6 +569,16 @@ fn apply_level_request(
         .iter()
         .position(|entry| entry.id == requested || entry.name.eq_ignore_ascii_case(&requested));
     match index.and_then(|index| level_manager.get_entry(index).cloned()) {
+        Some(entry) if entry.id == current_level_id => {
+            println!(
+                "LIMINAL_LEVEL: '{}' ({}) is already the loaded level",
+                entry.name, entry.id
+            );
+            game.set_app_state(AppState::Playing);
+            if pause_requested() {
+                game.set_app_state(AppState::Paused);
+            }
+        }
         Some(entry) => match level_manager.load_level(&entry) {
             Ok(loaded) => {
                 println!(
@@ -581,12 +604,7 @@ fn apply_level_request(
                 // `LIMINAL_PAUSE=1` opens the pause menu on the first frame so
                 // the pause UI can be captured and compared without a keyboard.
                 // It changes nothing about how the menu draws.
-                if std::env::var("LIMINAL_PAUSE").is_ok_and(|value| {
-                    !matches!(
-                        value.trim().to_ascii_lowercase().as_str(),
-                        "" | "0" | "false" | "off"
-                    )
-                }) {
+                if pause_requested() {
                     game.set_app_state(AppState::Paused);
                 }
             }
@@ -604,6 +622,16 @@ fn apply_level_request(
                 .join(", ")
         ),
     }
+}
+
+/// True when `LIMINAL_PAUSE` asks for the pause menu on the first frame.
+fn pause_requested() -> bool {
+    std::env::var("LIMINAL_PAUSE").is_ok_and(|value| {
+        !matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "" | "0" | "false" | "off"
+        )
+    })
 }
 
 /// Renders one frame of the running level to `path` as a PNG.
@@ -742,12 +770,16 @@ impl FrameLoop<'_> {
                     let key_str = keycode_to_str(*key);
                     match self.settings.bindings.set_key(action, &key_str) {
                         Ok(()) => {
-                            self.ui_state.status_message =
-                                Some(format!("Bound {action} to [{key_str}]"));
-                            let _ = self.settings.save();
+                            let label = crate::settings::action_label(action);
+                            self.ui_state
+                                .set_status(format!("Bound {label} to [{key_str}]"), false);
+                            if let Err(error) = self.settings.save() {
+                                self.ui_state
+                                    .set_status(format!("Could not save settings: {error}"), true);
+                            }
                         }
                         Err(err) => {
-                            self.ui_state.status_message = Some(err);
+                            self.ui_state.set_status(err, true);
                         }
                     }
                     self.ui_state.rebinding_action = None;
@@ -756,7 +788,8 @@ impl FrameLoop<'_> {
             return true;
         }
 
-        // Performance overlay toggle with '-' key (hidden by default)
+        // Performance overlay toggle with '-' key (hidden by default, reserved
+        // so it can never also be a gameplay binding)
         if let Event::KeyDown {
             keycode: Some(Keycode::Minus | Keycode::KpMinus),
             repeat: false,
@@ -764,8 +797,6 @@ impl FrameLoop<'_> {
         } = event
         {
             self.perf_overlay.toggle();
-            self.input_handler
-                .set_overlay_visible(self.perf_overlay.is_visible());
             return true;
         }
 
@@ -854,6 +885,15 @@ impl FrameLoop<'_> {
         ) {
             let index = self.ui_state.settings_idx;
             activate_settings_item(index, self.ui_state, self.settings, direction);
+            self.save_settings();
+        }
+    }
+
+    /// Persists settings after a change, surfacing a failure to the player.
+    fn save_settings(&mut self) {
+        if let Err(error) = self.settings.save() {
+            self.ui_state
+                .set_status(format!("Could not save settings: {error}"), true);
         }
     }
 
@@ -865,18 +905,34 @@ impl FrameLoop<'_> {
             AppState::Paused => self.activate_pause_menu(),
             AppState::Settings => {
                 let index = self.ui_state.settings_idx;
-                if activate_settings_item(index, self.ui_state, self.settings, 1) {
-                    self.game.set_app_state(AppState::MainMenu);
+                let back = activate_settings_item(index, self.ui_state, self.settings, 1);
+                self.save_settings();
+                if back {
+                    self.goto(AppState::MainMenu);
                 }
             }
             AppState::PauseSettings => {
                 let index = self.ui_state.settings_idx;
-                if activate_settings_item(index, self.ui_state, self.settings, 1) {
-                    self.game.set_app_state(AppState::Paused);
+                let back = activate_settings_item(index, self.ui_state, self.settings, 1);
+                self.save_settings();
+                if back {
+                    self.goto(AppState::Paused);
                 }
             }
             AppState::Playing => {}
         }
+    }
+
+    /// Switches screens, dropping any status line that belonged to the old one.
+    ///
+    /// Without this, "FOV updated" from Settings would appear on the level list
+    /// and "Load failed: ..." would appear in Settings, because one `UiState`
+    /// field backs every screen's status line.
+    fn goto(&mut self, state: AppState) {
+        if self.game.app_state() != state {
+            self.ui_state.clear_status();
+        }
+        self.game.set_app_state(state);
     }
 
     /// Main menu: open the level list, open settings, or quit.
@@ -887,9 +943,9 @@ impl FrameLoop<'_> {
                 // imports; opening the level list must not re-scan/re-extract
                 // packs.
                 self.refresh_level_entries();
-                self.game.set_app_state(AppState::LevelSelect);
+                self.goto(AppState::LevelSelect);
             }
-            1 => self.game.set_app_state(AppState::Settings),
+            1 => self.goto(AppState::Settings),
             2 => self.game.stop(),
             _ => {}
         }
@@ -907,10 +963,10 @@ impl FrameLoop<'_> {
         match selected.cmp(&num_levels) {
             // One of the installed levels: load it.
             Ordering::Less => self.load_level_at(selected),
-            // `Load/Import Level`.
+            // `Import Levels`.
             Ordering::Equal => self.import_levels(),
             // `Back`.
-            Ordering::Greater => self.game.set_app_state(AppState::MainMenu),
+            Ordering::Greater => self.goto(AppState::MainMenu),
         }
     }
 
@@ -932,31 +988,36 @@ impl FrameLoop<'_> {
                     WalkableFloor::from_level(&loaded.level),
                 );
                 self.input_handler.clear_gameplay_inputs();
-                self.ui_state.status_message = None;
+                self.ui_state.clear_status();
                 self.game.set_app_state(AppState::Playing);
             }
             Err(err) => {
-                self.ui_state.status_message = Some(format!("Load failed: {err}"));
+                crate::logging::warn(format!("[levels] {} failed to load: {err}", entry.name));
+                self.ui_state
+                    .set_status(format!("Could not load {}: {err}", entry.name), true);
             }
         }
     }
 
-    /// Imports packs waiting in `import/` and refreshes the level list.
+    /// Imports packs waiting in the import folders and refreshes the level list.
     fn import_levels(&mut self) {
         match self.level_manager.import_available() {
             Ok(count) => {
                 // `import_available` rescans after importing.
                 self.refresh_level_entries();
                 if count > 0 {
-                    self.ui_state.status_message =
-                        Some(format!("Imported {count} level(s) from import/"));
+                    self.ui_state.set_status(
+                        format!("Imported {count} level(s). Select one from the list."),
+                        false,
+                    );
                 } else {
-                    self.ui_state.status_message =
-                        Some("No new .json/.zip in import/ or levels/import/".to_string());
+                    self.ui_state
+                        .set_status("No new levels found (put .json or .zip in import/)", false);
                 }
             }
             Err(err) => {
-                self.ui_state.status_message = Some(format!("Import error: {err}"));
+                self.ui_state
+                    .set_status(format!("Import failed: {err}"), true);
             }
         }
     }
@@ -966,10 +1027,10 @@ impl FrameLoop<'_> {
         match self.ui_state.pause_menu_idx {
             0 => {
                 self.input_handler.clear_gameplay_inputs();
-                self.game.set_app_state(AppState::Playing);
+                self.goto(AppState::Playing);
             }
-            1 => self.game.set_app_state(AppState::PauseSettings),
-            2 => self.game.set_app_state(AppState::MainMenu),
+            1 => self.goto(AppState::PauseSettings),
+            2 => self.goto(AppState::MainMenu),
             _ => {}
         }
     }
@@ -1099,8 +1160,11 @@ fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window), String> {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (sdl_context, video_subsystem, window) = bootstrap()?;
 
-    // Load persisted settings or fallback safely to the default settings
+    // Load persisted settings or fallback safely to the default settings. A
+    // genuinely fresh install gets its default `settings.json` written here,
+    // so the documented configuration file exists from the first run.
     let mut settings = Settings::load_or_default();
+    settings.ensure_saved();
 
     // Debug-only frame telemetry. Inert unless `LIMINAL_BENCH=1` is set.
     let mut bench = Bench::new();
@@ -1120,6 +1184,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut input_handler = InputHandler::new();
     let (mut game, mut spawn_pos, mut spawn_yaw) = new_game(&initial_level);
+    let initial_level_id = initial_level.entry.id.clone();
     log_prop_usage(&renderer);
     // All required level state has been extracted (spawn, collision walls,
     // renderer uploads), so release the CPU-side textures and level definition.
@@ -1130,6 +1195,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &mut renderer,
         &mut game,
         &bench,
+        &initial_level_id,
         &mut spawn_pos,
         &mut spawn_yaw,
     );

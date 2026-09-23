@@ -264,7 +264,7 @@ def main() -> int:
     run_dir = Path(args.run_dir) if args.run_dir else WORK / f"run-{args.label}"
     stage_run_dir(run_dir)
     if args.cold:
-        cache = run_dir / "target" / "level-cache" / "lightmaps"
+        cache = run_dir / "cache" / "lightmaps"
         if cache.is_dir():
             for entry in sorted(cache.iterdir()):
                 if entry.is_dir():

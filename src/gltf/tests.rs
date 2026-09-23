@@ -943,6 +943,44 @@ fn rejects_models_over_the_vertex_ceiling() {
 }
 
 #[test]
+fn rejects_zero_stride_accessors_that_claim_many_elements() {
+    // A zero `byteStride` makes the "does the accessor fit its bufferView?"
+    // arithmetic collapse to one element, so together with a huge `count` it
+    // used to pass the check and then reserve/loop over a buffer it does not
+    // have. The reader must reject it instead.
+    let (json, binary) = minimal_triangle_parts();
+    let json = json.replace(
+        r#"{"buffer": 0, "byteOffset": 0, "byteLength": 36, "target": 34962}"#,
+        r#"{"buffer": 0, "byteOffset": 0, "byteLength": 36, "byteStride": 0, "target": 34962}"#,
+    );
+    let json = json.replace(
+        r#"{"bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3"}"#,
+        r#"{"bufferView": 0, "componentType": 5126, "count": 1000000000, "type": "VEC3"}"#,
+    );
+    let error = parse_glb(&glb_container(&json, &binary))
+        .expect_err("a zero byteStride must not disable the bounds check");
+    assert!(error.0.contains("byteStride"), "{}", error.0);
+}
+
+#[test]
+fn rejects_a_count_larger_than_the_buffer_can_hold() {
+    // Even with a plausible stride, a count whose elements cannot physically
+    // fit the view is refused before any reservation is made.
+    let (json, binary) = minimal_triangle_parts();
+    let json = json.replace(
+        r#"{"bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3"}"#,
+        r#"{"bufferView": 0, "componentType": 5126, "count": 1000000000, "type": "VEC3"}"#,
+    );
+    let error = parse_glb(&glb_container(&json, &binary))
+        .expect_err("a count past the bufferView must fail");
+    assert!(
+        error.0.contains("bufferView") || error.0.contains("too small"),
+        "{}",
+        error.0
+    );
+}
+
+#[test]
 fn rejects_truncated_and_oversized_containers() {
     let mut truncated = minimal_triangle_glb();
     truncated.truncate(truncated.len() - 40);

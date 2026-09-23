@@ -16,9 +16,40 @@ pub use crate::materials::{RawImage, TextureCache, decode_png, encode_png, parse
 /// installed on disk. `Places Demo` is the only level shipped with the game.
 const FALLBACK_DEMO_JSON: &str = include_str!("../assets/levels/places_demo.json");
 
+/// Stable id of the one official level, used by discovery and the runtime.
+pub const DEMO_LEVEL_ID: &str = "places_demo";
+
 const MAX_ZIP_ENTRIES: usize = 500;
 const MAX_ZIP_ENTRY_SIZE: u64 = 10 * 1024 * 1024; // 10 MB per file
 const MAX_ZIP_TOTAL_SIZE: u64 = 50 * 1024 * 1024; // 50 MB total uncompressed
+
+/// Reads one ZIP entry with a hard output cap.
+///
+/// The ZIP header's declared uncompressed size is attacker-controlled and is
+/// never trusted: a small deflate stream can declare `size = 1024` and expand
+/// to gigabytes. The reader is capped with [`Read::take`] instead, and a read
+/// that reaches the cap is an error. The declared size is still used for the
+/// capacity hint, clamped to the cap.
+fn read_zip_entry_capped<R: Read>(
+    reader: &mut R,
+    declared_size: u64,
+    limit: u64,
+    name: &str,
+) -> Result<Vec<u8>, String> {
+    let capacity = usize::try_from(declared_size.min(limit)).unwrap_or(0);
+    let mut bytes = Vec::with_capacity(capacity);
+    let read = reader
+        .take(limit.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .map_err(|e| format!("Failed to read {name}: {e}"))?;
+    if u64::try_from(read).unwrap_or(u64::MAX) > limit {
+        return Err(format!(
+            "ZIP entry {name} exceeds the {}MB decompression limit",
+            limit / (1024 * 1024)
+        ));
+    }
+    Ok(bytes)
+}
 
 /// Source type of an installed level.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -26,6 +57,10 @@ pub enum LevelSourceType {
     Official,
     CustomJson,
     PackZip,
+    /// The demo compiled into the executable, used when no installed copy of
+    /// Places Demo exists on disk. Selecting it loads the embedded JSON, so the
+    /// demo is always offered no matter what is installed.
+    Embedded,
 }
 
 /// Discovered level entry for level selection menu.
@@ -124,13 +159,8 @@ pub fn read_zip_level_json<R: Read + Seek>(reader: R) -> Result<String, String> 
     let mut entry = archive
         .by_index(index)
         .map_err(|e| format!("Corrupt ZIP entry {index}: {e}"))?;
-    if entry.size() > MAX_ZIP_ENTRY_SIZE {
-        return Err("level.json exceeds the maximum decompression limit".into());
-    }
-    let mut bytes = Vec::with_capacity(usize::try_from(entry.size()).unwrap_or(0));
-    entry
-        .read_to_end(&mut bytes)
-        .map_err(|e| format!("Failed to read level.json: {e}"))?;
+    let declared = entry.size();
+    let bytes = read_zip_entry_capped(&mut entry, declared, MAX_ZIP_ENTRY_SIZE, "level.json")?;
     String::from_utf8(bytes).map_err(|e| format!("level.json is not valid UTF-8: {e}"))
 }
 
@@ -183,20 +213,13 @@ pub fn extract_zip<R: Read + Seek>(reader: R) -> Result<RawPackContents, String>
             continue;
         }
 
-        let size = file.size();
-        if size > MAX_ZIP_ENTRY_SIZE {
-            return Err(format!(
-                "ZIP entry {raw_name} exceeds 10MB decompression limit"
-            ));
-        }
-        total_uncompressed = total_uncompressed.saturating_add(size);
+        let declared = file.size();
+        let bytes = read_zip_entry_capped(&mut file, declared, MAX_ZIP_ENTRY_SIZE, &raw_name)?;
+        total_uncompressed =
+            total_uncompressed.saturating_add(u64::try_from(bytes.len()).unwrap_or(u64::MAX));
         if total_uncompressed > MAX_ZIP_TOTAL_SIZE {
             return Err("Total uncompressed size of ZIP exceeds 50MB limit".into());
         }
-
-        let mut bytes = Vec::with_capacity(usize::try_from(size).unwrap_or(0));
-        file.read_to_end(&mut bytes)
-            .map_err(|e| format!("Failed to read {raw_name}: {e}"))?;
 
         let normalized = raw_name.replace('\\', "/");
         let file_name = normalized.rsplit('/').next().unwrap_or(&normalized);
@@ -535,6 +558,15 @@ fn validate_element_limits(level: &LevelDef) -> Result<(), String> {
             crate::level::MAX_LEVEL_DECALS
         ));
     }
+    if u64::try_from(level.floor_patches.len()).unwrap_or(u64::MAX)
+        > crate::level::MAX_LEVEL_FLOOR_PATCHES
+    {
+        return Err(format!(
+            "Level contains too many floor patches: {} (limit: {})",
+            level.floor_patches.len(),
+            crate::level::MAX_LEVEL_FLOOR_PATCHES
+        ));
+    }
     Ok(())
 }
 
@@ -681,6 +713,13 @@ fn validate_walls(level: &LevelDef) -> Result<(), String> {
 
         // Openings are optional cutouts; openings that do not overlap the
         // wall's vertical range are allowed (they simply produce no cut).
+        if w.openings.len() > crate::level::MAX_WALL_OPENINGS {
+            return Err(format!(
+                "Wall {i} has too many openings: {} (limit: {})",
+                w.openings.len(),
+                crate::level::MAX_WALL_OPENINGS
+            ));
+        }
         for (j, opening) in w.openings.iter().enumerate() {
             if !opening.offset.is_finite()
                 || !opening.width.is_finite()
@@ -1008,9 +1047,6 @@ fn validate_geometry_budget(level: &LevelDef) -> Result<(), String> {
 /// cannot be read or decoded is logged with the fixture id in it and degrades
 /// the same way.
 #[must_use]
-// A broken fixture sheet is a chatty one-line diagnostic and the loader has no
-// logger to route through (see `resolve_level_materials`).
-#[allow(clippy::print_stderr)]
 pub fn resolve_fixture_sheets(
     level: &LevelDef,
     catalog: &crate::assets::AssetCatalog,
@@ -1028,7 +1064,10 @@ pub fn resolve_fixture_sheets(
             Ok(Some(sheet)) => sheets.push(sheet),
             Ok(None) => {}
             Err(error) => {
-                eprintln!("[fixtures] {error}; drawing the untextured sheet instead");
+                crate::logging::warn_once(
+                    format!("fixture-sheet:{}:{error}", light.fixture),
+                    format!("[fixtures] {error}; drawing the untextured sheet instead"),
+                );
             }
         }
     }
@@ -1117,16 +1156,41 @@ impl Default for LevelManager {
 impl LevelManager {
     #[must_use]
     pub fn new() -> Self {
+        let assets_dir = crate::assets::resolve_asset_root().map_or_else(
+            || PathBuf::from("assets/levels"),
+            |root| root.join("levels"),
+        );
         let mut manager = Self {
-            assets_dir: PathBuf::from("assets/levels"),
-            levels_dir: PathBuf::from("levels"),
-            import_dir: PathBuf::from("import"),
+            assets_dir,
+            levels_dir: crate::assets::state_path("levels"),
+            import_dir: crate::assets::state_path("import"),
             entries: Vec::new(),
             prop_catalog: PropCatalog::load_default(),
             texture_cache: RefCell::new(TextureCache::new()),
         };
+        manager.ensure_directories();
         manager.refresh();
         manager
+    }
+
+    /// Creates the writable directories a fresh install needs.
+    ///
+    /// A first launch must not require the player to construct `levels/` or
+    /// `import/` by hand, and a read-only installation must still boot: a
+    /// failure is reported once and the level list simply comes from the
+    /// shipped `assets/levels/` folder.
+    pub fn ensure_directories(&self) {
+        for dir in [&self.levels_dir, &self.import_dir] {
+            if let Err(error) = fs::create_dir_all(dir) {
+                crate::logging::warn_once(
+                    format!("state-dir:{}", dir.display()),
+                    format!(
+                        "[levels] cannot create {}: {error}; custom levels may be unavailable",
+                        dir.display()
+                    ),
+                );
+            }
+        }
     }
 
     #[must_use]
@@ -1172,6 +1236,10 @@ impl LevelManager {
     }
 
     /// Re-scans directories for installed levels.
+    ///
+    /// A file that does not parse or does not validate is skipped with one
+    /// warning naming the file and the reason, so a malformed drop-in level is
+    /// diagnosable instead of silently absent.
     pub fn refresh(&mut self) {
         let mut discovered = Vec::new();
 
@@ -1179,10 +1247,11 @@ impl LevelManager {
         if let Ok(dir) = fs::read_dir(&self.assets_dir) {
             for entry in dir.flatten() {
                 let p = entry.path();
-                if p.extension().is_some_and(|ext| ext == "json")
-                    && let Ok(meta) = Self::probe_level_file(&p, LevelSourceType::Official)
-                {
-                    discovered.push(meta);
+                if p.extension().is_some_and(|ext| ext == "json") {
+                    match Self::probe_level_file(&p, LevelSourceType::Official) {
+                        Ok(meta) => discovered.push(meta),
+                        Err(error) => Self::report_skipped_level(&p, &error),
+                    }
                 }
             }
         }
@@ -1192,22 +1261,64 @@ impl LevelManager {
             for entry in dir.flatten() {
                 let p = entry.path();
                 if p.extension().is_some_and(|ext| ext == "json") {
-                    if let Ok(meta) = Self::probe_level_file(&p, LevelSourceType::CustomJson) {
-                        discovered.push(meta);
+                    match Self::probe_level_file(&p, LevelSourceType::CustomJson) {
+                        Ok(meta) => discovered.push(meta),
+                        Err(error) => Self::report_skipped_level(&p, &error),
                     }
-                } else if p.extension().is_some_and(|ext| ext == "zip")
-                    && let Ok(meta) = Self::probe_zip_file(&p)
-                {
-                    discovered.push(meta);
+                } else if p.extension().is_some_and(|ext| ext == "zip") {
+                    match Self::probe_zip_file(&p) {
+                        Ok(meta) => discovered.push(meta),
+                        Err(error) => Self::report_skipped_level(&p, &error),
+                    }
                 }
             }
+        }
+
+        // Deterministic menu order: `read_dir` order is filesystem-dependent.
+        discovered.sort_by(|a, b| a.name.cmp(&b.name).then_with(|| a.id.cmp(&b.id)));
+
+        // Places Demo is always offered. When no installed `places_demo.json`
+        // was discovered (no asset tree, or the installed copy is malformed),
+        // the embedded copy is exposed as an ordinary entry so the Level Select
+        // menu and `LIMINAL_LEVEL=places_demo` both keep working.
+        if !discovered.iter().any(|entry| entry.id == DEMO_LEVEL_ID) {
+            discovered.push(LevelEntry {
+                id: DEMO_LEVEL_ID.to_string(),
+                name: "Places Demo".to_string(),
+                author: "Places Team".to_string(),
+                source_type: LevelSourceType::Embedded,
+                path: self.assets_dir.join("places_demo.json"),
+            });
         }
 
         self.entries = discovered;
     }
 
+    /// Reports one unreadable level file once per path.
+    fn report_skipped_level(path: &Path, error: &str) {
+        crate::logging::warn_once(
+            format!("level-skipped:{}", path.display()),
+            format!("[levels] skipping {}: {error}", path.display()),
+        );
+    }
+
+    /// Reads a standalone level JSON with a hard byte cap before parsing.
+    fn read_standalone_level(path: &Path) -> Result<String, String> {
+        let metadata =
+            fs::metadata(path).map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
+        if metadata.len() > crate::level::MAX_LEVEL_JSON_BYTES {
+            return Err(format!(
+                "{} is {} bytes, over the {} byte level limit",
+                path.display(),
+                metadata.len(),
+                crate::level::MAX_LEVEL_JSON_BYTES
+            ));
+        }
+        fs::read_to_string(path).map_err(|e| format!("Failed to read {}: {e}", path.display()))
+    }
+
     fn probe_level_file(path: &Path, source_type: LevelSourceType) -> Result<LevelEntry, String> {
-        let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
+        let content = Self::read_standalone_level(path)?;
         let level = LevelDef::from_json(&content).map_err(|e| e.to_string())?;
         validate_level(&level)?;
         Ok(LevelEntry {
@@ -1244,7 +1355,7 @@ impl LevelManager {
     /// Returns a message when the demo cannot be loaded, or when neither an
     /// installed nor an embedded demo parses and validates.
     pub fn load_default(&self) -> Result<LoadedLevel, String> {
-        if let Some(entry) = self.entries.iter().find(|e| e.id == "places_demo") {
+        if let Some(entry) = self.entries.iter().find(|e| e.id == DEMO_LEVEL_ID) {
             self.load_level(entry)
         } else {
             // Direct fallback: the embedded demo JSON still resolves its
@@ -1260,9 +1371,9 @@ impl LevelManager {
                 materials,
                 light_sheets,
                 entry: LevelEntry {
-                    id: "places_demo".into(),
+                    id: DEMO_LEVEL_ID.into(),
                     name: "Places Demo".into(),
-                    author: "Liminal Team".into(),
+                    author: "Places Team".into(),
                     source_type: LevelSourceType::Official,
                     path: self.assets_dir.join("places_demo.json"),
                 },
@@ -1271,10 +1382,7 @@ impl LevelManager {
     }
 
     /// Resolves a level's surface materials through the catalog and an optional
-    /// pack, logging every problem once with its level and material context.
-    // A bad material is reported here or nowhere: the loader has no logger to
-    // route the diagnostic through.
-    #[allow(clippy::print_stderr)]
+    /// pack, reporting every problem once with its level and material context.
     fn resolve_level_materials(
         &self,
         level: &LevelDef,
@@ -1289,8 +1397,24 @@ impl LevelManager {
             root.as_deref(),
             &mut cache,
         );
+        if root.is_none() && !table.errors().is_empty() {
+            // Without an asset root the missing-root report above already said
+            // why every one of these failed; do not repeat it per material.
+            crate::logging::warn_once(
+                format!("materials-no-root:{}", level.id),
+                format!(
+                    "[materials] {}: {} material(s) unresolved (no asset root; see above)",
+                    level.id,
+                    table.errors().len()
+                ),
+            );
+            return table;
+        }
         for error in table.errors() {
-            eprintln!("[materials] {}: {error}", level.id);
+            crate::logging::warn_once(
+                format!("material:{}:{error}", level.id),
+                format!("[materials] {}: {error}", level.id),
+            );
         }
         table
     }
@@ -1317,11 +1441,24 @@ impl LevelManager {
     pub fn load_level(&self, entry: &LevelEntry) -> Result<LoadedLevel, String> {
         match entry.source_type {
             LevelSourceType::Official | LevelSourceType::CustomJson => {
-                let content = fs::read_to_string(&entry.path)
-                    .map_err(|e| format!("Failed to read {}: {e}", entry.path.display()))?;
+                let content = Self::read_standalone_level(&entry.path)?;
 
                 let level = LevelDef::from_json(&content)
                     .map_err(|e| format!("JSON parse error in {}: {e}", entry.path.display()))?;
+                validate_level(&level)?;
+                let materials = self.resolve_level_materials(&level, None);
+                let light_sheets = self.resolve_level_fixture_sheets(&level, None);
+
+                Ok(LoadedLevel {
+                    level,
+                    materials,
+                    light_sheets,
+                    entry: entry.clone(),
+                })
+            }
+            LevelSourceType::Embedded => {
+                let level = LevelDef::from_json(FALLBACK_DEMO_JSON)
+                    .map_err(|e| format!("Failed to parse the embedded Places Demo: {e}"))?;
                 validate_level(&level)?;
                 let materials = self.resolve_level_materials(&level, None);
                 let light_sheets = self.resolve_level_fixture_sheets(&level, None);
@@ -1385,8 +1522,7 @@ impl LevelManager {
             .ok_or_else(|| "Invalid file name".to_string())?;
 
         let (level_id, level_name, author, source_type) = if ext == "json" {
-            let content = fs::read_to_string(source_path)
-                .map_err(|e| format!("Failed to read {}: {e}", source_path.display()))?;
+            let content = Self::read_standalone_level(source_path)?;
             let level =
                 LevelDef::from_json(&content).map_err(|e| format!("Invalid level JSON: {e}"))?;
             validate_level(&level)?;
@@ -1442,7 +1578,8 @@ impl LevelManager {
         let _ = fs::create_dir_all(&self.levels_dir);
 
         let mut imported_count: usize = 0;
-        let candidate_dirs = [self.import_dir.clone(), PathBuf::from("levels/import")];
+        let nested_import = self.levels_dir.join("import");
+        let candidate_dirs = [self.import_dir.clone(), nested_import];
 
         for dir in &candidate_dirs {
             if let Ok(entries) = fs::read_dir(dir) {

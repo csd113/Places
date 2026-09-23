@@ -28,8 +28,11 @@ python3 tools/textures/build.py --force --only core:tex_pool_tile_deck_01
 A plain regeneration never downgrades shipped artwork: the upgraded Office/Pool
 surfaces and the NO DIVING sign ship at 1024x1024 while `office_art.py`,
 `pool_art.py` and `decal_art.py` still paint 128x128 seeds, so `build.py`
-skips any sheet whose on-disk dimensions differ from its painter's output and
-requires `--force` to replace it.
+**skips any sheet whose on-disk dimensions differ from its painter's output**
+and requires `--force` to replace it. The remaining sheets (the Batch 3 core
+set, the fixture faces, the arrow/stripes decals and the diagnostics) match
+their painters' dimensions and regenerate normally; the painters themselves are
+deterministic, so a regeneration is diffable like source.
 
 A normal map (`extra_art.py`) is an ordinary surface sheet in the same asset
 tree: RGB carries the tangent-space normal (`0..255` maps to `-1..1`), alpha is
@@ -114,6 +117,17 @@ is validated and regenerated exactly like a surface sheet.
 | `core:pool_light_round` | `environment/pool/textures/lights/pool_light_round_01.png` | 128x128 | the round downlight's diffuser, seen face-on |
 | `core:pool_light_wall` | `environment/pool/textures/lights/pool_light_wall_01.png` | 128x64 | the wall luminaire's ribbed lens face |
 | `core:decal_no_diving_01` | `environment/pool/decals/no_diving_01.png` | 1024x1024 | RGBA cut-out safety sign (a decal, not a surface) |
+| `core:decal_arrow_01` | `core/decals/arrow_01.png` | 128x128 | RGBA cut-out floor-direction arrow decal |
+| `core:decal_stripes_01` | `core/decals/stripes_01.png` | 128x128 | RGBA cut-out diagonal hazard-band decal |
+| `core:tex_glass_clear_01` | `core/textures/glass/glass_clear_01.png` | 128x128 | clear glazing: faint tint plus alpha, drawn with `alpha_mode: "blend"` |
+| `core:tex_glass_dirty_01` | `core/textures/glass/glass_dirty_01.png` | 128x128 | unwashed glazing: blotchy alpha and a grime film |
+| `core:tex_glass_tinted_01` | `core/textures/glass/glass_tinted_01.png` | 128x128 | tinted glazing at roughly half opacity |
+| `core:tex_linoleum_01` | `core/textures/floors/linoleum_01.png` | 128x128 | polished speckled linoleum with faint seams |
+| `core:tex_metal_panel_01` | `core/textures/walls/metal_panel_01.png` | 128x128 | brushed metal wall panel, two rivet rows |
+| `core:tex_plastic_panel_01` | `core/textures/walls/plastic_panel_01.png` | 128x128 | moulded pale plastic wall panel |
+| `core:tex_grille_01` | `core/textures/walls/grille_01.png` | 128x128 | RGBA cut-out transfer grille (metal slats over transparent openings) |
+| `core:tex_normal_panel_01` | `core/textures/normals/normal_panel_01.png` | 128x128 | tangent-space normal map: soft moulded dimples |
+| `core:tex_normal_brushed_01` | `core/textures/normals/normal_brushed_01.png` | 128x128 | tangent-space normal map: fine horizontal brushing |
 | `core:tex_diagnostic_wall_01` | `diagnostic/textures/diagnostic_wall_01.png` | 128x128 | orientation-revealing, never shipped in a level |
 | `core:tex_diagnostic_floor_01` | `diagnostic/textures/diagnostic_floor_01.png` | 128x128 | orientation-revealing |
 | `core:tex_diagnostic_ceiling_01` | `diagnostic/textures/diagnostic_ceiling_01.png` | 128x128 | orientation-revealing |

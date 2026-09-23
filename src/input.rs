@@ -47,13 +47,11 @@ impl Control {
 ///
 /// The eight movement and look controls are independent bits rather than eight
 /// separate `bool` fields: they are all set and cleared by the same binding
-/// lookup, and the whole state is copied every frame. `toggle_overlay` and
-/// `quit_requested` stay named fields because the game flips them itself
-/// instead of holding a key.
+/// lookup, and the whole state is copied every frame. `quit_requested` stays a
+/// named field because the game flips it itself instead of holding a key.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct InputState {
     held: u16,
-    pub toggle_overlay: bool,
     pub quit_requested: bool,
 }
 
@@ -182,10 +180,6 @@ impl InputHandler {
         self.state.release_all();
     }
 
-    pub const fn set_overlay_visible(&mut self, visible: bool) {
-        self.state.toggle_overlay = visible;
-    }
-
     /// Handles gameplay events using active `KeyBindings`.
     pub fn handle_gameplay_event(&mut self, event: &Event, bindings: &KeyBindings) {
         if let Event::Quit { .. } = event {
@@ -201,9 +195,6 @@ impl InputHandler {
             let name = keycode_to_str(*key);
             if let Some(button) = InputState::binding_control(bindings, &name) {
                 self.state.set_held(button, true);
-            }
-            if *key == Keycode::Minus || *key == Keycode::KpMinus {
-                self.state.toggle_overlay = !self.state.toggle_overlay;
             }
             return;
         }

@@ -43,10 +43,13 @@ REPO = Path(__file__).resolve().parent.parent.parent
 # One shot per camera state worth protecting: interiors, prop-heavy rooms,
 # dark/bright baked lighting, doorways and a view along a corridor.
 #
-# The shipped demo and the generated `bench_chairs_*` levels are discoverable
-# from the repository. The `prop_*`/`test_room` regression fixtures live under
-# `tests/fixtures/levels/`; stage them in the run's `levels/` directory (as
-# `run_bench.py` does for the device) before including those shots.
+# The shipped demo resolves from the repository's own `assets/levels/`. The
+# `prop_*`/`test_room` regression fixtures live under `tests/fixtures/levels/`;
+# the run stages them into the capture directory the same way
+# `lightmap_report.py` does, so no fixture is copied into the repository's own
+# `levels/`. The generated `bench_chairs_*` levels were retired with the
+# PocketCHIP device suite, so the shot list only names levels the repository
+# still provides.
 SHOTS: list[tuple[str, str, dict[str, str]]] = [
     # (label, level id, extra environment)
     ("places_demo_spawn", "places_demo", {}),
@@ -72,8 +75,6 @@ SHOTS: list[tuple[str, str, dict[str, str]]] = [
     ("prop_showcase_spawn", "prop_showcase", {}),
     ("prop_showcase_back", "prop_showcase", {"LIMINAL_CAMERA": "0"}),
     ("test_room", "test_room", {}),
-    ("chairs_400_facing", "bench_chairs_400", {"LIMINAL_CAMERA": "180"}),
-    ("chairs_400_away", "bench_chairs_400", {"LIMINAL_CAMERA": "0"}),
 ]
 
 
@@ -149,6 +150,7 @@ def capture(binary: Path, shot: tuple[str, str, str], out_dir: Path, cwd: Path) 
     command = [str(binary)]
     environment = {
         "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+        "LIMINAL_ASSET_ROOT": str(cwd),
         "LIMINAL_LEVEL": level,
         "LIMINAL_CAPTURE": str(path),
         "LIMINAL_BENCH": "0",
@@ -231,7 +233,8 @@ def main() -> None:
         "--levels",
         type=Path,
         default=None,
-        help="working directory that contains levels/; defaults to a temp copy of the bench levels",
+        help="package directory providing assets/ and levels/; defaults to a "
+        "staged directory under --out",
     )
     parser.add_argument(
         "--tolerance",
@@ -254,9 +257,21 @@ def main() -> None:
 
     cwd = args.levels or args.out
     cwd.mkdir(parents=True, exist_ok=True)
-    # The capture runs need `levels/` next to them; copy the bench levels in.
-    for source in (REPO / "tools/bench/gen_levels.py",):
-        del source
+    if args.levels is None:
+        # The capture runs resolve their payload through LIMINAL_ASSET_ROOT, so
+        # the capture directory is staged as a package root: the shipped assets
+        # plus the regression fixture levels. Nothing is copied into the
+        # repository's own levels/.
+        for name, target in (
+            ("assets", REPO / "assets"),
+            ("levels", REPO / "tests" / "fixtures" / "levels"),
+        ):
+            link = cwd / name
+            if link.is_symlink():
+                link.unlink()
+            elif link.exists():
+                continue
+            link.symlink_to(target, target_is_directory=True)
     args.out.mkdir(parents=True, exist_ok=True)
 
     failures = 0

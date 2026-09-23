@@ -196,14 +196,18 @@ Texture assets are just files:
   `core:tex_diagnostic_alt_01` surface, which exists to prove the NPOT load
   path and is asserted explicitly where it is loaded.
 * Surface textures are uploaded with `REPEAT` wrapping and mipmaps. Alpha is
-  decoded and preserved, but base surfaces are opaque and blending is off (only
-  the decal pass alpha-tests), so keep surface PNGs opaque unless you are
-  deliberately authoring a decal-style asset.
-* Fixture faces (and decal sheets) are **fitted**, not tiled: their UVs never
-  leave the sheet, so they are uploaded with `CLAMP_TO_EDGE` wrapping and
-  mipmaps. A fixture PNG must therefore be *complete* artwork — no bleeding
-  margin is needed, and a power-of-two size keeps the mip chain exact on the
-  ES 2.0 target.
+  decoded and preserved, and whether it is *used* is the material's
+  `alpha_mode`: `opaque` (the default) writes every texel, `cutout` discards
+  texels below the cut-off and writes the rest opaquely, and `blend` draws the
+  surface in the sorted translucent pass. The shipped glass and lit-sign
+  materials author `blend`, and the transfer grille authors `cutout`, so a
+  surface PNG may carry alpha when its material asks for it; a material that
+  names no `alpha_mode` still ignores the channel.
+* Fixture faces are **fitted**, not tiled: their UVs never leave the sheet, so
+  they are uploaded with `CLAMP_TO_EDGE` wrapping and mipmaps. A fixture PNG
+  must therefore be *complete* artwork — no bleeding margin is needed, and a
+  power-of-two size keeps the mip chain exact on the ES 2.0 target. Decal
+  sheets are fitted too, but are uploaded with `REPEAT` (see below).
 
 ### Decal sheets
 
@@ -270,16 +274,21 @@ and no recompilation.
 
 Fixture appearance and emitted light are separate: `color` and `brightness` are
 authored per placed light and drive both the visible panel and the illumination
-the bake applies. The fixture's vertex colour (its authored colour scaled by the
-intensity response) multiplies into the sampled sheet, so a red fixture reddens
-its lamp face and an off fixture darkens it without the artwork knowing
-anything. The flat metal housing around each face is untextured geometry: it
-draws its authored shade through the shared white sheet. An unknown fixture id
-keeps loading and draws as the office panel with the untextured sheet, because
-the catalog/renderer consistency test reports the mismatch instead of the
-renderer failing at load. Adding a new appearance is a three-step asset change:
-the PNG, the catalog texture entry and the light entry naming it — plus the
-mesh family in `src/lighting.rs::fixture_profile`, which is still code.
+the bake applies. A placed light may also author `emission`, an independent
+strength for the visible face only: omitted means the face glows with the
+fixture's own `brightness`, and an authored value lets a dying tube read fully
+bright while casting its dim light (or a screen-like face glow without its light
+being raised to match). The visible-face strength (from `emission`, or
+`brightness` when it is absent) scales the fixture's vertex colour, which
+multiplies into the sampled sheet, so a red fixture reddens its lamp face and an
+off fixture darkens it without the artwork knowing anything. The flat metal
+housing around each face is untextured geometry: it draws its authored shade
+through the shared white sheet. An unknown fixture id keeps loading and draws as
+the office panel with the untextured sheet, because the catalog/renderer
+consistency test reports the mismatch instead of the renderer failing at load.
+Adding a new appearance is a three-step asset change: the PNG, the catalog
+texture entry and the light entry naming it — plus the mesh family in
+`src/lighting/tuning.rs::fixture_profile`, which is still code.
 
 ### Level packs and custom textures
 A `.zip` level pack can ship its own surface art without touching the catalog.
@@ -422,18 +431,32 @@ what the runtime reads, so files may move freely as long as the catalog follows.
 | draw calls | one per model primitive per spatial batch (instances are baked) |
 
 Baked vertex colours carry the per-face shading and contact darkening (the same
-`PROP_FACE_SHADES` the old placeholder boxes used). The fragment shader is
+`PROP_FACE_SHADES` the old placeholder boxes used). A prop's fragment shader is
 `texture × vertex colour` plus the material's emissive term; emission is added
 on top of the baked light and never multiplied by it, so an emissive surface
-stays bright in a dark room. No normal maps, no PBR extensions, no alpha
-(blending is off), no animation, no skinning, no morph targets.
+stays bright in a dark room. Prop models keep the simple model: no normal maps,
+no alpha, no animation, no skinning, no morph targets.
 
 Surface materials multiply the same way: the sampled texture is scaled by the
 material's `tint` and then by the baked lighting exactly like the old
-code-generated sheets, so RGB lighting keeps working on external artwork. A
-material may additionally author `emissive`, `emissive_intensity` and
-`emissive_mask` (a texture id): that is **visual** brightness only, and it does
-not illuminate anything around it.
+code-generated sheets, so RGB lighting keeps working on external artwork. On top
+of that base the catalog may author, per material:
+
+* `emissive`, `emissive_intensity` and `emissive_mask` (a texture id) —
+  **visual** brightness only, illuminating nothing around it;
+* `normal_texture` (a texture id) and `normal_strength` (`0.0..=2.0`) — a
+  tangent-space normal map that perturbs the shading normal;
+* `specular` (a white strength, or `specular_color` for a tinted sheen) and
+  `roughness` (`0.0` mirror-tight .. `1.0` fully matte) — a view-dependent
+  sheen added on top of the baked light, never a realtime light;
+* `alpha_mode` (`opaque`, `cutout` or `blend`), with `alpha_cutoff` and
+  `opacity` — how the sampled texture's alpha combines with the framebuffer;
+* `reflection_mode` (`none`, `probe` or `planar`) and `reflection_strength` — a
+  selective image of the room, weighted by the material's own specular and
+  roughness.
+
+A material that authors none of these draws exactly as it did before they
+existed: they add terms to the baked lighting model, they never replace it.
 
 ### Runtime quality profiles
 
@@ -445,7 +468,9 @@ Low, and the source hard limit (1024 px) is unchanged.
 
 ## PNG conventions for surface textures
 
-* **Opaque** RGBA or RGB; 8-bit.
+* RGBA or RGB; 8-bit. Alpha is decoded and preserved, but a surface only uses
+  the channel when its material authors `alpha_mode: "cutout"` or `"blend"`;
+  an opaque material (the default) ignores it.
 * **Tileable** in both directions: the right edge must join the left, the top
   the bottom. `tools/textures/build.py --check` does not verify tileability
   (that is an art check), but the seed generator wraps all of its noise.

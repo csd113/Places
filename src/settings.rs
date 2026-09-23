@@ -1,8 +1,42 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub const DEFAULT_SETTINGS_PATH: &str = "settings.json";
+
+/// Keys the shell owns and a gameplay action may never bind.
+///
+/// `ESC` opens the pause menu and cancels a rebind; `-` / keypad `-` toggles
+/// the performance overlay. Accepting one of these as a gameplay binding would
+/// create a control that can never fire, so the rebind is rejected with a
+/// message instead.
+pub const RESERVED_KEYS: [&str; 3] = ["ESC", "-", "KP_MINUS"];
+
+/// True when `name` (as produced by [`crate::input::keycode_to_str`]) is
+/// reserved by the shell.
+#[must_use]
+pub fn is_reserved_key(name: &str) -> bool {
+    let normalized = name.trim().to_uppercase();
+    RESERVED_KEYS.contains(&normalized.as_str())
+}
+
+/// Player-facing label of a bindable action (`strafe_right` → `Strafe Right`).
+///
+/// The settings screen shows this instead of the internal `snake_case` name in
+/// its prompts and status messages.
+#[must_use]
+pub fn action_label(action: &str) -> String {
+    action
+        .split('_')
+        .map(|word| {
+            let mut chars = word.chars();
+            chars.next().map_or_else(String::new, |first| {
+                first.to_uppercase().collect::<String>() + chars.as_str()
+            })
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
 
 /// Player-rebindable gameplay key bindings.
 ///
@@ -78,17 +112,46 @@ impl KeyBindings {
         None
     }
 
+    /// The eight bindable actions, in settings-screen order.
+    pub const ACTIONS: [&'static str; 8] = [
+        "forward",
+        "strafe_left",
+        "strafe_right",
+        "backward",
+        "look_up",
+        "look_down",
+        "look_left",
+        "look_right",
+    ];
+
     /// Rebinds an action to a new key if there is no conflict.
     /// # Errors
     ///
-    /// Returns a message when `action` is not a known binding name or `new_key`
-    /// is already bound to another action.
+    /// Returns a message when `action` is not a known binding name, `new_key`
+    /// is reserved by the shell, or `new_key` is already bound to another
+    /// action.
     pub fn set_key(&mut self, action: &str, new_key: &str) -> Result<(), String> {
-        if let Some(conflicting) = self.check_conflict(action, new_key) {
+        if is_reserved_key(new_key) {
             return Err(format!(
-                "Key '{new_key}' is already bound to '{conflicting}'"
+                "Key '{}' is reserved for pause/overlay",
+                new_key.trim().to_uppercase()
             ));
         }
+        if let Some(conflicting) = self.check_conflict(action, new_key) {
+            return Err(format!(
+                "Key '{}' is already bound to '{}'",
+                new_key.trim(),
+                action_label(conflicting)
+            ));
+        }
+        self.assign(action, new_key)
+    }
+
+    /// Assigns a binding without conflict or reservation checks.
+    ///
+    /// Only [`Self::set_key`] (which validates first) and
+    /// [`Self::sanitize`] (which repairs a hand-edited file) may call this.
+    fn assign(&mut self, action: &str, new_key: &str) -> Result<(), String> {
         let key = new_key.trim().to_uppercase();
         match action {
             "forward" => self.forward = key,
@@ -102,6 +165,31 @@ impl KeyBindings {
             _ => return Err(format!("Unknown action: {action}")),
         }
         Ok(())
+    }
+
+    /// Repairs a binding set that could not come from the settings screen.
+    ///
+    /// A hand-edited or corrupted `settings.json` can contain an empty name, a
+    /// reserved key or two actions sharing one key. Each bad entry falls back
+    /// to its default independently, in a fixed order, so loading is
+    /// deterministic and a valid file is never altered.
+    pub fn sanitize(&mut self) {
+        let defaults = Self::default();
+        let mut used: Vec<String> = Vec::new();
+        for action in Self::ACTIONS {
+            let current = self.get_key(action).map_or("", str::trim);
+            let fallback = defaults.get_key(action).unwrap_or("");
+            let key = if current.is_empty()
+                || is_reserved_key(current)
+                || used.iter().any(|seen| seen == &current.to_uppercase())
+            {
+                fallback.to_string()
+            } else {
+                current.to_uppercase()
+            };
+            let _ = self.assign(action, &key);
+            used.push(key.trim().to_uppercase());
+        }
     }
 }
 
@@ -179,6 +267,7 @@ impl Default for Settings {
 impl Settings {
     /// Validates and clamps settings values to safe operational ranges.
     pub fn sanitize(&mut self) {
+        self.bindings.sanitize();
         self.look_speed_h = self.look_speed_h.clamp(30.0, 360.0);
         self.look_speed_v = self.look_speed_v.clamp(20.0, 240.0);
         self.walk_speed = self.walk_speed.clamp(1.0, 10.0);
@@ -235,10 +324,20 @@ impl Settings {
     pub fn save_to_path<P: AsRef<Path>>(&self, path: P) -> Result<(), std::io::Error> {
         let json = serde_json::to_string_pretty(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+        if let Some(parent) = path.as_ref().parent()
+            && !parent.as_os_str().is_empty()
+        {
+            fs::create_dir_all(parent)?;
+        }
         fs::write(path, json)
     }
 
     /// Loads settings from a JSON file, falling back safely to defaults on missing/corrupt data.
+    ///
+    /// A file that cannot be read or parsed yields the defaults; this entry
+    /// point is used by tests and callers that want the raw behaviour. The
+    /// persistent load path is [`Self::load_or_default`], which additionally
+    /// reports and preserves a malformed file.
     pub fn load_or_default_from_path<P: AsRef<Path>>(path: P) -> Self {
         let path = path.as_ref();
         if !path.exists() {
@@ -259,19 +358,103 @@ impl Settings {
         )
     }
 
-    /// Loads settings from default path ("settings.json") or creates default.
+    /// The path of the persistent settings file inside the runtime state root.
     #[must_use]
-    pub fn load_or_default() -> Self {
-        Self::load_or_default_from_path(DEFAULT_SETTINGS_PATH)
+    pub fn default_path() -> PathBuf {
+        crate::assets::state_path(DEFAULT_SETTINGS_PATH)
     }
 
-    /// Saves current settings to the default path.
+    /// Loads the persistent settings, reporting a malformed file once.
+    ///
+    /// An unreadable or unparseable `settings.json` cannot be used, so the
+    /// defaults are returned. A file that exists but does not parse is renamed
+    /// to `settings.json.invalid` first: the player's data is preserved for
+    /// inspection, the next save writes a clean file, and the game never
+    /// silently overwrites a file it could not understand.
+    #[must_use]
+    pub fn load_or_default() -> Self {
+        Self::load_or_default_reporting(Self::default_path())
+    }
+
+    /// [`Self::load_or_default`] against an explicit path, for tests.
+    #[must_use]
+    pub fn load_or_default_reporting<P: AsRef<Path>>(path: P) -> Self {
+        let path = path.as_ref();
+        if !path.exists() {
+            return Self::default();
+        }
+        let content = match fs::read_to_string(path) {
+            Ok(content) => content,
+            Err(error) => {
+                crate::logging::warn_once(
+                    format!("settings-unreadable:{}", path.display()),
+                    format!(
+                        "[settings] cannot read {}: {error}; using defaults for this session",
+                        path.display()
+                    ),
+                );
+                return Self::default();
+            }
+        };
+        match serde_json::from_str::<Self>(&content) {
+            Ok(mut settings) => {
+                settings.sanitize();
+                settings
+            }
+            Err(error) => {
+                let backup = path.with_extension("json.invalid");
+                let preserved = fs::rename(path, &backup).is_ok();
+                crate::logging::warn_once(
+                    format!("settings-invalid:{}", path.display()),
+                    format!(
+                        "[settings] {} is not a valid settings file ({error}); using defaults{}",
+                        path.display(),
+                        if preserved {
+                            format!(" and keeping the old file as {}", backup.display())
+                        } else {
+                            String::new()
+                        }
+                    ),
+                );
+                Self::default()
+            }
+        }
+    }
+
+    /// Writes the defaults to the state root when no settings file exists yet.
+    ///
+    /// This makes a genuinely fresh install initialize its configuration
+    /// deliberately, so the first documented file the player can edit is
+    /// present without having to change a setting first. An existing file —
+    /// valid or not — is never overwritten here.
+    pub fn ensure_saved(&self) {
+        self.ensure_saved_to_path(Self::default_path());
+    }
+
+    /// [`Self::ensure_saved`] against an explicit path, for tests.
+    pub fn ensure_saved_to_path<P: AsRef<Path>>(&self, path: P) {
+        let path = path.as_ref();
+        if path.exists() {
+            return;
+        }
+        if let Err(error) = self.save_to_path(path) {
+            crate::logging::warn_once(
+                format!("settings-unwritable:{}", path.display()),
+                format!(
+                    "[settings] cannot create {}: {error}; changes will not persist",
+                    path.display()
+                ),
+            );
+        }
+    }
+
+    /// Saves current settings to the persistent state path.
     /// # Errors
     ///
     /// Returns the serialization error or the I/O error from writing
-    /// [`DEFAULT_SETTINGS_PATH`].
+    /// [`DEFAULT_SETTINGS_PATH`] below the state root.
     pub fn save(&self) -> Result<(), std::io::Error> {
-        self.save_to_path(DEFAULT_SETTINGS_PATH)
+        self.save_to_path(Self::default_path())
     }
 }
 

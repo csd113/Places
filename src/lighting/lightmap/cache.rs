@@ -16,15 +16,15 @@
 //!
 //! The key never depends on wall-clock time, iteration order or floating-point
 //! formatting: serialising the same level twice produces the same bytes, and
-//! so does hashing them. The on-disk cache under `target/level-cache/lightmaps/`
-//! is *never* consulted without that key, so stale data cannot be reused after
-//! an edit; a cache miss simply bakes again.
+//! so does hashing them. The on-disk cache under `cache/lightmaps/` (below the
+//! runtime state root) is *never* consulted without that key, so stale data
+//! cannot be reused after an edit; a cache miss simply bakes again.
 //!
 //! The cache is deliberately allowed to fail silently: it is an optimisation,
 //! and a read-only or full filesystem must never break a level load.
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use super::{
@@ -35,7 +35,7 @@ use super::{
 ///
 /// It is part of every content key, so an implementation change can never
 /// silently reuse an atlas baked by an older build; a stale directory under
-/// `target/level-cache/lightmaps/` is simply ignored.
+/// `cache/lightmaps/` is simply ignored.
 ///
 /// * `1` — level definition, lightmap config, quality profile.
 /// * `2` — adds the occluder-set fingerprint, so a change to a placed prop
@@ -46,9 +46,12 @@ use super::{
 ///   atlas from an older build must not be reused.
 pub const LIGHTMAP_FORMAT_VERSION: u32 = 3;
 
-/// Root of the project-owned on-disk cache. Everything lives under `target/`,
-/// which is never committed.
-pub const LIGHTMAP_CACHE_ROOT: &str = "target/level-cache/lightmaps";
+/// Root of the runtime-owned on-disk cache, below the state root.
+///
+/// The state root is the package root (or `LIMINAL_STATE_ROOT` when set), so a
+/// packaged build caches next to its own payload instead of creating a
+/// development-flavoured `target/` directory.
+pub const LIGHTMAP_CACHE_ROOT: &str = "cache/lightmaps";
 
 /// One serialised cache directory: the key, the page edge and the charts.
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -77,7 +80,8 @@ impl LightmapCache {
         Self::default()
     }
 
-    /// A cache that also reads and writes `target/level-cache/lightmaps/`.
+    /// A cache that also reads and writes `cache/lightmaps/` below the state
+    /// root.
     #[must_use]
     pub fn with_disk() -> Self {
         Self {
@@ -110,7 +114,7 @@ impl LightmapCache {
         if !self.disk {
             return None;
         }
-        let root = PathBuf::from(LIGHTMAP_CACHE_ROOT);
+        let root = crate::assets::state_path(LIGHTMAP_CACHE_ROOT);
         let lightmaps = disk_load(&root, key)?;
         let lightmaps = Arc::new(lightmaps);
         self.entries.insert(key.to_string(), Arc::clone(&lightmaps));
@@ -123,7 +127,7 @@ impl LightmapCache {
     /// when unavailable.
     pub fn insert(&mut self, key: &str, lightmaps: Arc<LevelLightmaps>) {
         if self.disk {
-            let root = PathBuf::from(LIGHTMAP_CACHE_ROOT);
+            let root = crate::assets::state_path(LIGHTMAP_CACHE_ROOT);
             disk_store(&root, key, &lightmaps);
         }
         self.entries.insert(key.to_string(), lightmaps);

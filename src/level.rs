@@ -1344,6 +1344,19 @@ pub const MAX_LEVEL_PROP_MODELS: usize = 256;
 pub const MAX_LEVEL_PROP_VERTICES: usize = 1_500_000;
 /// Hard ceiling on the number of local floor regions a level may define.
 pub const MAX_LEVEL_FLOOR_REGIONS: u64 = 2000;
+/// Hard ceiling on the number of floor patches a level may define.
+///
+/// A patch is a material override, not geometry, so this only bounds parse and
+/// lookup cost; it is deliberately the same order as the region budget.
+pub const MAX_LEVEL_FLOOR_PATCHES: u64 = 2000;
+/// Hard ceiling on the number of openings a single wall may declare.
+pub const MAX_WALL_OPENINGS: usize = 64;
+/// Hard byte ceiling on a standalone level JSON file before it is parsed.
+///
+/// The shipped demo is about 23 KB, so this is three orders of magnitude of
+/// headroom for a hand-authored or generated level while still refusing an
+/// accidentally huge file before it is read into memory.
+pub const MAX_LEVEL_JSON_BYTES: u64 = 8 * 1024 * 1024;
 /// PocketCHIP-safe budget for total authored floor area, in square metres.
 ///
 /// Floor rendering no longer scales with area, but absurdly large levels still

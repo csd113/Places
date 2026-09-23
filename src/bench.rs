@@ -104,6 +104,13 @@ impl BenchSwitches {
     }
 }
 
+/// Hard cap on retained frame records for an unbounded benchmark session.
+///
+/// `LIMINAL_BENCH_FRAMES` normally ends a run; this only bounds the case where
+/// the harness is left enabled for a whole interactive session. At 60 fps the
+/// cap is a little over half an hour of recording.
+pub const MAX_RECORDED_FRAMES: usize = 120_000;
+
 /// Parsed `LIMINAL_BENCH*` environment configuration.
 #[derive(Clone, Debug, Default)]
 pub struct BenchConfig {
@@ -391,6 +398,12 @@ impl Bench {
         stats: RenderStats,
     ) {
         if !self.config.enabled {
+            return;
+        }
+        // An unbounded run (`LIMINAL_BENCH=1` with no `LIMINAL_BENCH_FRAMES`)
+        // keeps statistics for the whole session; stop retaining records once
+        // the cap is reached so a long-running session cannot grow forever.
+        if self.frames.len() >= MAX_RECORDED_FRAMES {
             return;
         }
         // The gap between consecutive frame starts is the real presentation

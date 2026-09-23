@@ -8,10 +8,12 @@ closed and empty — and the building stops being finished around you. There is
 nothing to collect, fight or solve.
 
 Places is a desktop game written in Rust: `sdl2` for the window and input,
-OpenGL through `glow`, and a baked vertex-lit renderer with no dynamic lights,
-no shadow maps and no shaders beyond one texture-multiplied-by-vertex-colour
-pass. Its content is data: levels are JSON, surfaces are PNGs, props are GLBs,
-and a catalog maps stable logical ids onto all of it.
+OpenGL through `glow`, and a baked-lighting renderer with no dynamic shadow
+maps. Every fixture bakes into a lightmap atlas for static geometry, props
+occlude the bake, and emission, transparency, selective reflections and a
+restrained post-processing stage are all authored as content. Its content is
+data: levels are JSON, surfaces are PNGs, props are GLBs, and a catalog maps
+stable logical ids onto all of it.
 
 ![An office interior](docs/screenshots/01-office.png)
 
@@ -142,17 +144,31 @@ cargo run
 
 `cargo run` resolves `assets/`, `levels/` and `settings.json` from the
 repository root, and also from the executable's own directory, so running the
-game from a subdirectory works too.
+game from a subdirectory works too. A compiled build locates its payload from
+its own path and does not depend on the working directory at all.
+
+A first launch is self-initializing: the game creates the drop-in `levels/` and
+`import/` directories and writes a default `settings.json` next to its payload
+(or below `$LIMINAL_STATE_ROOT` when that is set), so nothing has to be prepared
+by hand. Places Demo is always available, even if no asset tree and no level
+files exist at all. Normal startup prints nothing; `LIMINAL_VERBOSE=1` turns the
+developer telemetry (package/asset/level/lighting/build lines) back on for a
+run. Genuine problems — a missing asset root, a skipped level file, an
+unresolved material — are always reported, once each.
 
 Validate the project:
 
 ```sh
-cargo fmt --check
-cargo clippy --workspace --all-targets --all-features
-cargo test
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-features
 python3 tools/assets/validate.py          # catalog, resources, shipped + fixture levels
 python3 tools/textures/build.py --check   # surface, decal and fixture PNGs and their budgets
 python3 tools/props/build.py --check      # prop models exist and fit their budgets
+cargo build --release && python3 -m unittest tests.test_compiled_build
+                                          # the compiled executable: fresh install,
+                                          # packaged layout, first-run state, config
+                                          # reload, malformed content, clean exit
 cd level-editor && npm test               # the legacy level editor still parses the catalog
 ```
 
@@ -167,8 +183,10 @@ Places/
         catalog.json
         levels/places_demo.json
         core/ environment/ entities/ diagnostic/
-    levels/                 drop-in level packs (*.json and *.zip)
+    levels/                 drop-in level packs (*.json and *.zip); created on first run
+    import/                 files waiting to be imported; created on first run
     settings.json           written on first run
+    cache/                  lightmap cache; created on demand
 ```
 
 Build one with:
@@ -194,7 +212,11 @@ $CARGO_MANIFEST_DIR/assets             development builds only, never a release 
 A release binary therefore cannot read the source tree it was built from, and a
 missing asset root is reported loudly with the full list of locations checked
 rather than silently degrading. `assets/levels/` is scanned for shipped levels
-and `levels/` for drop-in ones; both appear in the same Level Select menu.
+and `levels/` for drop-in ones; both appear in the same Level Select menu. The
+writable side — `settings.json`, `levels/`, `import/` and `cache/` — always
+lives below the package root (the parent of `assets/`), or below
+`$LIMINAL_STATE_ROOT` when that is set, never in whatever directory the process
+happens to be started from.
 
 ## Assets, themes and ids
 
@@ -350,7 +372,7 @@ platforms/           historical PocketCHIP/Vitrallis packaging, not part of the 
 Working and shipped:
 
 * first-person exploration with collision and floor-elevation traversal;
-* two environment themes with external PNG surfaces and eight external or
+* two environment themes with external PNG surfaces and four external or
   generated decal sheets;
 * baked RGB lighting driven by generic engine-level light sources (point,
   rectangle and line shapes) with per-light colour, intensity, range, falloff
@@ -392,8 +414,9 @@ Working and shipped:
 Known limitations, all deliberate:
 
 * no gameplay systems — no objectives, inventory, enemies or scripting;
-* no realtime lights, realtime shadow maps, reflections, planar reflections or
-  reflection probes;
+* no realtime dynamic lights and no realtime shadow maps; reflections are a
+  static probe baked per level load or at most one half-resolution planar mirror
+  per frame, never a dynamic scene reflection;
 * no physically based material model: the surface response is a normal map plus
   a view-dependent sheen, not a BRDF, and it has no light direction to place a
   highlighted specular from;

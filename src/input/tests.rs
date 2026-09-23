@@ -232,18 +232,17 @@ fn test_menu_nav_uses_wasd_and_arrows() {
 }
 
 #[test]
-fn test_toggle_overlay_event() {
-    let mut handler = InputHandler::new();
-    let bindings = KeyBindings::default();
-
-    assert!(!handler.state().toggle_overlay);
-
-    handler.handle_gameplay_event(&key_down(Keycode::Minus), &bindings);
-    assert!(handler.state().toggle_overlay);
-
-    handler.handle_gameplay_event(&key_down(Keycode::Minus), &bindings);
-    assert!(!handler.state().toggle_overlay);
-
-    handler.handle_gameplay_event(&key_down(Keycode::KpMinus), &bindings);
-    assert!(handler.state().toggle_overlay);
+fn reserved_keys_are_not_gameplay_bindings() {
+    // `-` toggles the performance overlay in every app state, so it must never
+    // be claimed by a gameplay binding; ESC pauses and cancels rebinds.
+    let mut settings = crate::settings::Settings::default();
+    for key in ["-", "KP_MINUS", "ESC"] {
+        assert!(
+            crate::settings::is_reserved_key(key),
+            "{key} should be reserved"
+        );
+    }
+    assert!(settings.bindings.set_key("forward", "-").is_err());
+    assert!(settings.bindings.set_key("forward", "ESC").is_err());
+    assert!(settings.bindings.set_key("forward", "Z").is_ok());
 }

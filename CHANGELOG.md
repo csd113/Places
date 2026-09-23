@@ -1,3 +1,107 @@
+## Unreleased — Batch 5: compiled-build readiness, cleanup, QA, documentation
+
+Batch 5 is a stabilization pass, not a feature batch. It makes the compiled
+binary a first-class citizen, removes the accumulations of four development
+batches, hardens the content error paths, and rewrites the authoring guide
+against the current engine.
+
+### Compiled-build and runtime behavior
+
+- **The writable runtime state has one deliberate location.** `settings.json`,
+  the drop-in `levels/` and `import/` directories and the lightmap cache resolve
+  below the package root (the parent of the resolved `assets/`), never against
+  the process working directory;
+  `LIMINAL_STATE_ROOT` overrides it for tests and benchmark runs. The lightmap
+  cache moved from `target/level-cache/lightmaps/` to `cache/lightmaps/` so a
+  compiled build never creates a development-flavoured `target/` directory.
+- **A fresh launch initializes itself.** The game creates `levels/` and
+  `import/` and writes a default `settings.json` on first run; Places Demo
+  exists even when no asset tree and no level files exist.
+- **Normal startup is quiet.** The `[package]`/`[props]`/`[level]`/`[spatial]`/
+  `[lighting]`/`[lightmaps]`/`[dynamic]`/`[vsync]`/`[framebuffer]` telemetry is
+  printed only under `LIMINAL_VERBOSE=1`. Genuine problems (missing asset root,
+  an unreadable settings file, a skipped level, an unresolved material, a failed
+  upload) still print, deduplicated once per item through the new
+  `src/logging.rs` instead of repeating per caller.
+- **Configuration is created, validated and recovered.** Values are clamped and
+  bindings repaired on load; an unparseable `settings.json` is preserved as
+  `settings.json.invalid`, defaults are used and a clean file is written. The
+  three configured actions are reported to the player with readable labels
+  ("Strafe Right", not `strafe_right`), and a save failure is surfaced instead
+  of discarded.
+- **A level file that cannot be used is skipped with its name and reason**, so a
+  broken drop-in level is diagnosable instead of silently absent.
+- **Compiled-build smoke tests** (`tests/test_compiled_build.py`) run the real
+  release executable from outside the repository: a portable package started
+  from an unrelated directory, an empty first-run install with the embedded
+  demo, configuration reload across restarts, malformed settings recovery,
+  malformed custom levels, unknown materials/props/fixtures/glass, and a clean
+  exit. They skip themselves when no release binary or no display is available.
+
+### Content error paths
+
+- **ZIP entries are capped by actual output, not the header's declared size** —
+  a deflate stream that lies about its size can no longer expand past the
+  per-file or per-pack limit.
+- **GLB accessors with `byteStride: 0` and a large `count` are rejected** (they
+  used to defeat the bufferView bounds check), and every accessor count is
+  clamped to what its bufferView can physically hold, so a malformed model falls
+  back to the placeholder box instead of attempting a huge allocation.
+- **New standalone level file cap** (`MAX_LEVEL_JSON_BYTES`, 8 MiB), a floor
+  patch cap (`MAX_LEVEL_FLOOR_PATCHES`) and a per-wall opening cap
+  (`MAX_WALL_OPENINGS`), all rejected with named loader messages.
+- **An unbounded benchmark session now caps its retained frame records.**
+
+### Player-facing UI
+
+- **Screen status lines are correct and screen-local.** Error text is red by an
+  explicit flag instead of prefix guessing (Level Select failures used to render
+  green), and switching screens clears the message that belonged to the old one.
+- **Nothing clips.** Level names and long diagnostics are truncated to their
+  panel, the rebind prompt moved left and names the action in words, and the
+  longest action label fits its box.
+- **Every legend is a centred, consistently-worded line**; titles are centred in
+  their panels; the version label lines up with the menu items.
+- **`ESC` and `-` are reserved keys**: a gameplay action can no longer be bound
+  to a control the shell always intercepts, `settings.json` bindings are repaired
+  on load, and duplicate/empty bindings fall back to their defaults.
+- **Honest settings.** VSync says it applies after restart, "Restore Defaults"
+  resets every persisted preference, and a rebind that cannot be saved says so.
+- The Level Select import row is labelled "Import Levels" with player-facing
+  status text, and an empty list says so instead of showing a bare menu. The
+  dead disabled-row styling and the duplicate overlay-toggle input state were
+  removed.
+
+### Places Demo QA
+
+- A full capture playthrough (offices, stairs, pool, corridors, final doorway,
+  unmade world) in Full and Low found no Z-fighting, holes, floating props,
+  broken transparency, reflection artifacts or light leaks. Two real fixes:
+  the second pool notice board's bottom rail was buried below the deck and is
+  now a visible rail, offset so no architecture faces are coplanar (the
+  shipped-demo surface audit covers it).
+- `tools/bench/capture_views.sh` replaces the Batch 3/4 capture scripts and adds
+  a full walkthrough view set with corrected camera aiming.
+
+### Tooling and documentation
+
+- **One current asset/benchmark workflow.** Removed the broken PocketCHIP-over-
+  SSH suite (`run_bench.py`, `runone.sh`, `gen_levels.py`, `analyze.py`), the
+  redundant `bench_repeat.py`, the superseded Batch 3/4 capture scripts, and the
+  committed ARM binary under `platforms/pocketchip/`. `bench_local.py` now
+  reports min/median/max and is the single local runner. Generators for assets
+  that are still shipped (textures, props, fixture levels, the spooner-man
+  entity, the validators) are kept.
+- **Stale asset documentation corrected** (build.py's skip behavior, decal
+  wrapping, the surface shader's response/alpha fields, the lightmap cache path).
+- **`docs/MAP_AUTHORING_GUIDE.md` rewritten and re-verified** field-by-field
+  against the parser, loader and shipped content: the complete current schema,
+  per-limit enforcement, corrected animated-emission and prop-light rules, the
+  reflection and quality-profile contracts, emission-versus-illumination, the
+  pack `materials.json` schema, export-validation split and refreshed recipes.
+- `settings.json`, `cache/`, `import/` and drop-in level files are gitignored,
+  so running the game no longer dirties the repository.
+
 ## Unreleased — Batch 4: post-processing, selective reflections, dynamic polish, visual repair
 
 Batch 4 finishes the presentation path the offscreen target made possible and

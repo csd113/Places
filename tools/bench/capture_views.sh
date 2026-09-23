@@ -1,30 +1,36 @@
 #!/bin/sh
-# Captures the Batch 4 validation views into target/agent-work/captures_b4/.
+# Captures the fixed validation views into target/agent-work/captures/.
 #
 # Every view is a fixed spawn and camera, so the same command produces the same
-# image on any machine and the before/after, Full/Low and direct-path captures
+# image on any machine and the before/after, Full/Low, direct and no-post runs
 # are directly comparable. Run from the repository root:
 #
-#     sh tools/bench/capture_batch4.sh                       # Full profile
-#     LIMINAL_QUALITY=low sh tools/bench/capture_batch4.sh
-#     LIMINAL_NO_OFFSCREEN=1 sh tools/bench/capture_batch4.sh
-#     LIMINAL_NO_BLOOM=1 sh tools/bench/capture_batch4.sh
-#     LIMINAL_NO_REFLECTIONS=1 sh tools/bench/capture_batch4.sh
+#     sh tools/bench/capture_views.sh                       # Full profile
+#     LIMINAL_QUALITY=low sh tools/bench/capture_views.sh
+#     LIMINAL_NO_OFFSCREEN=1 sh tools/bench/capture_views.sh
+#     LIMINAL_NO_BLOOM=1 sh tools/bench/capture_views.sh
+#     LIMINAL_NO_REFLECTIONS=1 sh tools/bench/capture_views.sh
 #
 # `LIMINAL_BIN` overrides the binary, which is how the same view set is captured
-# from the previous batch's checkout for a before/after pair:
+# from a baseline checkout for a before/after pair:
 #
-#     LIMINAL_BIN=target/agent-work/baseline-b3/target/release/liminal-rust \
-#         sh tools/bench/capture_batch4.sh
+#     LIMINAL_BIN=target/agent-work/baseline/target/release/liminal-rust \
+#         sh tools/bench/capture_views.sh
 #
-# The suffix is built from the environment so a comparison run never overwrites
-# the reference capture. `LIMINAL_BENCH_NOSWAP=1` keeps a capture from blocking
-# on a display that has gone to sleep; it does not change the pixels.
+# `LIMINAL_CAPTURE_DIR` overrides the output directory (default
+# target/agent-work/captures). Files are named view_<name><suffix>.png; the
+# suffix is built from the environment so a comparison run never overwrites the
+# reference capture. `LIMINAL_BENCH_NOSWAP=1` keeps a capture from blocking on a
+# display that has gone to sleep; it does not change the pixels.
 set -eu
 
 BIN="${LIMINAL_BIN:-target/release/liminal-rust}"
-OUT="${LIMINAL_CAPTURE_DIR:-target/agent-work/captures_b4}"
+OUT="${LIMINAL_CAPTURE_DIR:-target/agent-work/captures}"
 mkdir -p "$OUT"
+case "$OUT" in
+    /*) OUT_ABS="$OUT" ;;
+    *) OUT_ABS="$PWD/$OUT" ;;
+esac
 
 SUFFIX=""
 if [ "${LIMINAL_QUALITY:-full}" = "low" ]; then
@@ -41,8 +47,9 @@ if [ "${LIMINAL_NO_REFLECTIONS:-0}" = "1" ]; then
 fi
 
 # One line per view: <name>:<spawn>:<camera yaw,pitch>:<pause>
-# `spawn` is x,z[,yaw] (the eye height comes from the local floor) and `camera`
-# is the `LIMINAL_CAMERA` override, which needs LIMINAL_BENCH=1 to take effect.
+# `spawn` is x,z[,yaw] (or x,y,z,yaw for an elevated spot; the eye height comes
+# from the local floor) and `camera` is the `LIMINAL_CAMERA` override, which
+# needs LIMINAL_BENCH=1 to take effect. `pause` = 1 opens the pause menu.
 VIEWS="
 spawn:::
 office:9.5,3.5,90::
@@ -67,6 +74,21 @@ linoleum:13.6,1.6,90::
 drum:28.4,13.6,0:0,-22:
 pause_office:9.5,3.5,90::1
 pause_pool:18.0,12.0,58::1
+reception:2.0,5.6,74::
+workroom:14.0,3.5,0:0,-4:
+stair_top:21.0,1.6,180:180,-18:
+stair_mid:21.5,3.2,180:180,-14:
+pool_entry:21.0,8.6,270:270,-10:
+pool_basin_from_deck:14.0,9.5,180:180,-22:
+pool_steps:22.0,11.5,0:90,-10:
+pool_overview:3.0,10.0,180:135,-18:
+corridor_entry:27.5,13.0,90:90,-4:
+corridor_mid:30.5,13.0,90:90,-4:
+corridor_end:35.0,13.0,90:90,-4:
+final_doorway:31.5,13.0,90:90,-6:
+unmade_world:37.0,13.0,90:90,-4:
+unmade_back:45.0,13.0,90:270,-4:
+ceiling_office:13.5,3.5,45:45,55:
 "
 
 for view in $VIEWS; do
@@ -86,7 +108,7 @@ for view in $VIEWS; do
     if [ "$pause" = "1" ]; then
         set -- "$@" LIMINAL_PAUSE=1
     fi
-    set -- "$@" LIMINAL_CAPTURE="$PWD/$OUT/b4_${name}${SUFFIX}.png" "$BIN"
+    set -- "$@" LIMINAL_CAPTURE="$OUT_ABS/view_${name}${SUFFIX}.png" "$BIN"
     "$@" >/dev/null 2>&1 || echo "FAILED $name" >&2
 done
 

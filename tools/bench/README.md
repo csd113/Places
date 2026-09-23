@@ -1,202 +1,97 @@
-# Hardware benchmark suite
+# Benchmark and capture suite
 
-Everything here drives the release build on a real PocketCHIP over SSH. The
-device does the measuring; these scripts only stage the payload, run the suite
-and collect the CSV files, because the on-screen `-` performance overlay cannot
-be read back over SSH.
+Everything here drives the release binary on this development machine (no
+device, no SSH) and writes its artifacts below `target/agent-work/`. Those
+artifacts are generated locally and **never committed**: `target/` and the
+result directories are ignored, so re-running a suite is the way to reproduce
+a number, not a file in the repository.
 
-## One-time cross-compile setup
+The current workflow is four tools plus one capture script:
 
-The PocketCHIP runs Debian armhf. `sdl2-sys` needs a `pkg-config` that answers
-for the *target*, so a small shim points it at the device's own `libSDL2`:
-
-```sh
-mkdir -p ~/.cache/liminal-armhf/lib
-# copy /usr/lib/arm-linux-gnueabihf/libSDL2-2.0.so.0 from the device into that dir
-ln -sf libSDL2-2.0.so.0 ~/.cache/liminal-armhf/lib/libSDL2.so
-# ~/.cache/liminal-armhf/pkg-config is the shim (see run_bench.py)
-PKG_CONFIG=$HOME/.cache/liminal-armhf/pkg-config \
-PKG_CONFIG_ALLOW_CROSS=1 \
-cargo zigbuild --release --target armv7-unknown-linux-gnueabihf
-```
-
-`run_bench.py` performs the cross-compile itself unless `--no-build` is passed.
-
-## Attributing each optimisation
-
-The submission switches exist so one release build can measure all four renderer
-phases with the level build, the spatial partition, the draw order and the shader
-held fixed. The `phase_ab` scene set uses them:
-
-| Run | Culling | Indexing | Vertex layout | Is |
-|---|---|---|---|---|
-| `phase1` | off | off | 36 B floats | the pre-optimisation submission shape |
-| `phase2` | **on** | off | 36 B floats | Phase 2: spatial culling |
-| `phase3` | on | **on** | 36 B floats | Phase 3: indexed geometry |
-| `phase4` | on | on | **24 B packed** | Phase 4: packed vertex (shipping) |
-| `nocull` | off | on | 24 B packed | the culling delta alone |
-| `noindex` | on | off | 24 B packed | the indexing delta alone |
-
-Each row changes exactly one submission decision against its neighbour, so the
-difference between two rows is that phase's contribution. macOS runs of this set
-already give the hardware-independent part of the answer (submitted vertices,
-buffer bytes, draw calls); the device run adds the frame times.
-
-## Batch 3 switches and the local runner
-
-The same build can be measured through either scene path and either quality
-profile without recompiling:
-
-| Switch | Effect |
+| tool | what it does |
 | --- | --- |
-| `LIMINAL_NO_OFFSCREEN=1` | Draw the 3D scene straight into the default framebuffer instead of through the offscreen target. |
-| `LIMINAL_QUALITY=full\|low` | Draw this run at the named profile without editing `settings.json`. |
+| `bench_local.py` | repeats one benchmark configuration and prints min/median/max per field |
+| `capture_views.sh` | renders the fixed validation view set, one PNG per view |
+| `visual_check.py` | decodes two capture sets and reports per-shot pixel differences |
+| `lightmap_report.py` | runs the bake/lighting shot list and writes a `report.json` |
+| `check_holes.py` | counts near-black pixels in captures, to catch holes in a level shell |
 
-`bench_local.py` runs the release binary on this machine (no device, no SSH) and
-prints the headline counters, including the `texture_binds` and
-`material_changes` the Batch 3 state cache exists to keep small:
+## Local benchmark
+
+`bench_local.py` runs the release binary directly and repeats one configuration
+`--repeat` times. It prints the minimum, median and maximum of every headline
+field (the minimum is the number least contaminated by unrelated system work)
+and writes the same numbers to `target/agent-work/bench/<label>.json`.
 
 ```sh
-python3 tools/bench/bench_local.py --label batch3 --repeat 3
-python3 tools/bench/bench_local.py --label batch3_low --quality low
-python3 tools/bench/bench_local.py --label batch3_direct --direct
+# the Full profile, five repeats
+python3 tools/bench/bench_local.py --label current_full --repeat 5
+
+# the Low profile on the same build
+python3 tools/bench/bench_local.py --label current_low --repeat 5 --quality low
+
+# a baseline checkout, for a before/after pair
+python3 tools/bench/bench_local.py --label baseline --repeat 5 \
+    --binary target/agent-work/baseline/target/release/liminal-rust
 ```
 
-`capture_batch3.sh` captures the fixed Batch 3 validation views (glazed windows
-from both sides, the metal and plastic panels, the wet deck, the lit sign, the
-linoleum patch and the transfer grille) into `target/agent-work/captures/`, with
-a suffix per profile/path so a comparison run never overwrites the reference.
+Flags:
 
-## Batch 4 switches and captures
-
-Batch 4 adds post-processing and selective reflections, both optional on the
-same build:
-
-| Switch | Effect |
+| flag | effect |
 | --- | --- |
-| `LIMINAL_NO_BLOOM=1` | Drop the emissive pass and the blur, keeping the resolve stage, so the bloom stages can be measured alone. |
-| `LIMINAL_NO_REFLECTIONS=1` | Report every material as reflection-free: no planar pass, no probe bake, no reflection binds. |
-| `LIMINAL_PAUSE=1` | Open the pause menu on the first frame, so the pause UI can be captured without a keyboard. |
+| `--label NAME` | output name; the JSON lands at `target/agent-work/bench/NAME.json` |
+| `--repeat N` | how many whole runs to take the min/median/max over (default 3) |
+| `--quality full\|low` | draw this run at the named profile without editing `settings.json` |
+| `--direct` | `LIMINAL_NO_OFFSCREEN=1`: draw straight into the default framebuffer |
+| `--no-lightmaps` | `LIMINAL_NO_LIGHTMAPS=1`: force the vertex-lit path |
+| `--binary PATH` | measure another executable (default `target/release/liminal-rust`) |
+| `--level ID`, `--camera yaw[,pitch]` | the fixed scene (default `places_demo`, `74,0`) |
+| `--frames N`, `--warmup N` | recorded frames and discarded warm-up frames (default 120 / 20) |
+| `--finish` | insert `glFinish` before the swap, splitting renderer from presentation time |
+| `--noswap` | skip `SDL_GL_SwapWindow`, so a run cannot block on a display that has gone to sleep |
+| `--timeout S` | seconds before one run is treated as hung (default 300) |
 
-The benchmark CSV and `BENCH_SUMMARY` now also report `reflection_passes` (scene
-submissions the frame spent on the active planar plane). The demo's emission
-animations advance on the simulation's own delta, so a capture at
-`LIMINAL_CAPTURE_FRAME=1` is always the authored brightness; later frames show
-whatever the elapsed clock reached, which is what a flicker capture wants.
+Every run holds the level, assets, camera, frame count and swap interval fixed,
+so only the flag you changed differs between two labels.
 
-`capture_batch4.sh` captures the Batch 4 validation set (window corners from both
-sides at close range and at grazing angles, the pool curtains and wet deck, the
-two pool notice boards, the animated signs, the pause menu over two rooms) into
-`target/agent-work/captures_b4/`, with a suffix per profile and per switch so a
-comparison run never overwrites the reference. `LIMINAL_BIN` points the same
-script at another build, which is how the before/after pairs are captured:
+## Capture views
 
-```sh
-sh tools/bench/capture_batch4.sh
-LIMINAL_BIN=target/agent-work/baseline-b3/target/release/liminal-rust \
-    sh tools/bench/capture_batch4.sh
-```
-
-`notes/batch3-surface-validation.md` records what those runs showed.
-
-## Running a suite
+`capture_views.sh` renders the fixed validation view set: the Batch 3/4 surface
+and post-processing shots (windows, panels, deck, sign, linoleum, pause menu)
+plus a walkthrough of the demo's route from reception to the unmade world. Each
+view nails its spawn and camera, so the same command produces the same image on
+any machine and the before/after and Full/Low sets are directly comparable.
 
 ```sh
-python3 tools/bench/run_bench.py --phase phase2 --scenes cull_ab,away --repeat 3
+sh tools/bench/capture_views.sh                            # Full profile
+LIMINAL_QUALITY=low sh tools/bench/capture_views.sh        # profile suffix _low
+LIMINAL_NO_OFFSCREEN=1 sh tools/bench/capture_views.sh     # _direct
+LIMINAL_NO_BLOOM=1 sh tools/bench/capture_views.sh         # _nobloom
+LIMINAL_NO_REFLECTIONS=1 sh tools/bench/capture_views.sh   # _norefl
 ```
 
-That command
-
-1. cross-compiles the release build for `armv7-unknown-linux-gnueabihf`;
-2. uploads it, the shipped assets, the generated benchmark levels, the prop
-   regression fixtures and the previous phase's binary to `/tmp/liminal-benchmark`;
-3. generates a device-side shell script and runs every scene in one SSH session
-   (connections are the slowest and flakiest part on PocketCHIP Wi-Fi);
-4. downloads the per-frame CSVs and per-run logs into
-   `tools/bench/results/<phase>/`;
-5. prints the summary table and writes `summary.csv` / `summary.json`.
-
-Remove everything the suite created with:
+Files are written as `view_<name><suffix>.png` to
+`target/agent-work/captures/` by default. `LIMINAL_CAPTURE_DIR` overrides the
+output directory, and `LIMINAL_BIN` points the same view table at another build,
+which is how a before/after pair is captured without overwriting the reference:
 
 ```sh
-python3 tools/bench/run_bench.py --phase cleanup --cleanup
+LIMINAL_BIN=target/agent-work/baseline/target/release/liminal-rust \
+    LIMINAL_CAPTURE_DIR=target/agent-work/captures_baseline \
+    sh tools/bench/capture_views.sh
 ```
 
-## Scene sets
-
-| Set | What it measures |
-|---|---|
-| `chairs` | full prop-count curve, 0 → 1000 chairs, default camera |
-| `chairs_core` | the 0/100/200/300/400/500 subset |
-| `away` | 400 chairs with the camera pinned facing / away / side-on |
-| `levels` | shipped `places_demo` plus the `prop_stress` and `prop_showcase` fixtures |
-| `vsync` | renderer-only vs presentation-only vs `glFinish`-split runs, VSync on and off |
-| `cull_ab` | the same build with culling on and off, plus the previous phase's binary |
-| `cellsweep` | the spatial-grid-resolution trade-off |
-| `levels_ab` | the demo and the prop fixtures under culling / no culling / previous phase |
-
-`BIN=phase1` inside a scene's environment selects the pre-optimisation baseline
-binary, so one suite can measure a phase against the exact build it must beat.
-
-## Telemetry the game emits
-
-All of it is gated behind `LIMINAL_BENCH=1`; a normal release run prints none of
-it and allocates nothing per frame.
-
-| Variable | Meaning |
-|---|---|
-| `LIMINAL_BENCH=1` | enables the harness (required for all of the below) |
-| `LIMINAL_BENCH_OUT=file.csv` | per-frame rows: `frame,update_ms,render_ms,swap_ms,frame_ms,loop_ms,total_vertices,visible_vertices,culled_vertices,total_batches,visible_batches,draw_calls,vbo_bytes,index_bytes` |
-| `LIMINAL_BENCH_WARMUP=n` | discard the first `n` frames |
-| `LIMINAL_BENCH_FRAMES=n` | stop after `n` recorded frames and print the summary |
-| `LIMINAL_CAMERA=yaw[,pitch]` | pin the camera for a repeatable shot |
-| `LIMINAL_VSYNC=on\|off` | override the swap interval for VSync characterisation |
-| `LIMINAL_BENCH_FINISH=1` | `glFinish` before the swap (splits renderer from presentation time) |
-| `LIMINAL_BENCH_NORENDER=1` | skip scene/UI submission (presentation-only run) |
-| `LIMINAL_BENCH_NOSWAP=1` | skip `SDL_GL_SwapWindow` (renderer-only run) |
-| `LIMINAL_BENCH_NOCULL=1` | submit every batch (isolates what culling is worth) |
-| `LIMINAL_BENCH_NOINDEX=1` | submit flat triangle lists (isolates what indexing is worth) |
-| `LIMINAL_BENCH_EXACT_VERTEX=1` | upload the 36-byte exact vertex layout (isolates what packing is worth) |
-| `LIMINAL_CELL_METRES=n` | force a uniform spatial grid instead of the adaptive one |
-| `LIMINAL_LEVEL=<id>` | boot straight into a level |
-| `LIMINAL_SPAWN=x[,y],z,yaw` | spawn override |
-| `LIMINAL_CAPTURE=frame.png` | render one frame, write it, exit |
-| `LIMINAL_CAPTURE_FRAME=n` | which frame to capture (default 1), so a moving object can be captured mid-animation |
-| `LIMINAL_NO_LIGHTMAPS=1` | force the vertex-lit path for a lightmap A/B capture |
-| `LIMINAL_DUMP_LIGHTMAPS=1` | write baked atlas pages as PNGs under `target/agent-work/atlases/` |
-
-The run summary is printed as a single line:
-
-```
-BENCH_SUMMARY {"level":...,"frames":...,"swap_interval":...,"loop_median_ms":...,...}
-```
-
-`loop_ms` is begin-of-frame to begin-of-frame, i.e. the real presentation
-cadence including the swap. `frame_ms` is begin-of-frame to end-of-swap. FPS
-figures in the summary are always derived from `loop_ms`, never from a count of
-renderer submissions.
-
-## Analysis
-
-```sh
-python3 tools/bench/analyze.py tools/bench/results/phase2 \
-    --csv tools/bench/results/phase2/summary.csv
-```
-
-`analyze.py` is also invoked automatically at the end of `run_bench.py`.
-
-Notes on the measurements themselves live in `notes/`:
-
-| Note | Contents |
-|---|---|
-| `renderer-change-validation.md` | how each change was validated, and what the pixel comparison actually measures |
-| `level-build-cache.md` | what a level load costs, and a proposed build-cache key/invalidation design |
-| `lightmap-bake-validation.md` | Batch 2 baked-lightmap measurements: cold/warm bake cost, Full/Low density and memory, runtime draw calls, vertex-memory cost and the lightmap-vs-vertex pixel A/B |
+The suffix accumulates in the order low / direct / nobloom / norefl, so a
+comparison run never overwrites the reference capture.
 
 ## Visual regression
 
-Renderer changes must be pixel-identical when they only reorder or re-batch the
-same geometry:
+`visual_check.py` drives the one-frame capture path from two builds over a fixed
+shot list, decodes both sets of PNGs and reports the number of differing pixels,
+the fraction of the image and the worst channel delta per shot. It fails on the
+largest *connected* group of significant pixels exceeding `--max-component`
+(default 256), which separates a one-row float-rounding sliver from dropped or
+extra geometry.
 
 ```sh
 python3 tools/bench/visual_check.py \
@@ -204,16 +99,18 @@ python3 tools/bench/visual_check.py \
     --current  target/release/liminal-rust
 ```
 
-It runs a fixed list of levels and camera states through `LIMINAL_CAPTURE`,
-decodes both sets of PNGs and reports the number of differing pixels, the
-fraction of the image, and the worst channel delta per shot.
+`--out` selects where the captures and the staged package root live; the run
+symlinks the shipped `assets/` and the `tests/fixtures/levels/` fixtures into it
+and points `LIMINAL_ASSET_ROOT` there, so the demo and the regression fixtures
+resolve without copying anything into the repository's own `levels/`.
+`--tolerance`, `--max-component` and `--strict` adjust the gate.
 
 ## Lightmap bake and lighting A/B
 
-Batch 2's static lightmaps are measured with a dedicated driver: it runs the
-one-frame capture path plus `LIMINAL_BENCH` telemetry over a fixed shot list,
-parses the `[level]`/`[lighting]`/`[lightmaps]`/`[spatial]` developer lines and
-writes `report.json` beside the PNGs and per-frame CSVs.
+`lightmap_report.py` runs the one-frame capture path plus `LIMINAL_BENCH`
+telemetry over the bake/lighting shot list, parses the
+`[level]`/`[lighting]`/`[lightmaps]`/`[spatial]` developer lines and writes
+`report.json` beside the PNGs and per-frame CSVs.
 
 ```sh
 # cold bake + captures for the standard shot list
@@ -229,12 +126,97 @@ python3 tools/bench/lightmap_report.py --label low \
 
 Fixtures under `tests/fixtures/levels/` are staged into a package directory under
 `target/agent-work/` (via `LIMINAL_ASSET_ROOT`), never copied into the
-repository's own `levels/`. `tools/bench/notes/lightmap-bake-validation.md` holds
-the measurements taken with it.
+repository's own `levels/`. `--cold` deletes that run directory's
+`cache/lightmaps/` (the runtime lightmap cache below the state root) first, so
+the next run bakes for real. `tools/bench/notes/lightmap-bake-validation.md`
+holds the measurements taken with it.
 
-## Level generation
+## Checking captures for holes
 
-`gen_levels.py` writes the chair-stress levels as ordinary community-format
-`LevelDef` JSON, so nothing about the benchmark bypasses the normal load path.
-The spawn faces the whole chair grid, which makes `LIMINAL_CAMERA=180` the
-"facing" view and `LIMINAL_CAMERA=0` the camera-away view.
+`check_holes.py` counts near-black pixels in captured PNGs. A shelled room never
+renders the clear colour, so a capture from inside it must have almost no fully
+black pixels; a block of them is a missing wall, floor or ceiling.
+
+```sh
+python3 tools/bench/check_holes.py target/agent-work/captures/view_*.png
+python3 tools/bench/check_holes.py --threshold 8 --step 2 target/agent-work/captures/
+```
+
+It exits non-zero when any capture exceeds `--max-fraction` (default 0.05), so
+it can gate a capture matrix.
+
+## Telemetry the game emits
+
+All of it is gated behind `LIMINAL_BENCH=1`; a normal release run prints none of
+it and allocates nothing per frame.
+
+| Variable | Meaning |
+|---|---|
+| `LIMINAL_BENCH=1` | enables the harness (required for all of the below) |
+| `LIMINAL_BENCH_OUT=file.csv` | per-frame rows: `frame,update_ms,render_ms,swap_ms,frame_ms,loop_ms,total_vertices,visible_vertices,culled_vertices,total_batches,visible_batches,draw_calls,vbo_bytes,index_bytes,texture_binds,material_changes,reflection_passes` |
+| `LIMINAL_BENCH_WARMUP=n` | discard the first `n` frames |
+| `LIMINAL_BENCH_FRAMES=n` | stop after `n` recorded frames and print the summary |
+| `LIMINAL_CAMERA=yaw[,pitch]` | pin the camera for a repeatable shot |
+| `LIMINAL_VSYNC=on\|off` | override the swap interval for VSync characterisation |
+| `LIMINAL_BENCH_FINISH=1` | `glFinish` before the swap (splits renderer from presentation time) |
+| `LIMINAL_BENCH_NORENDER=1` | skip scene/UI submission (presentation-only run) |
+| `LIMINAL_BENCH_NOSWAP=1` | skip `SDL_GL_SwapWindow` (renderer-only run) |
+| `LIMINAL_BENCH_NOCULL=1` | submit every batch (isolates what culling is worth) |
+| `LIMINAL_BENCH_NOINDEX=1` | submit flat triangle lists (isolates what indexing is worth) |
+| `LIMINAL_BENCH_EXACT_VERTEX=1` | upload the 36-byte exact vertex layout (isolates what packing is worth) |
+| `LIMINAL_CELL_METRES=n` | force a uniform spatial grid instead of the adaptive one |
+| `LIMINAL_LEVEL=<id>` | boot straight into a level |
+| `LIMINAL_SPAWN=x,z[,yaw]` or `x,y,z[,yaw]` | spawn override; the 3-number form drops the player onto the local floor |
+| `LIMINAL_CAPTURE=frame.png` | render one frame, write it, exit |
+| `LIMINAL_CAPTURE_FRAME=n` | which frame to capture (default 1), so a moving object can be captured mid-animation |
+| `LIMINAL_NO_LIGHTMAPS=1` | force the vertex-lit path for a lightmap A/B capture |
+| `LIMINAL_DUMP_LIGHTMAPS=1` | write baked atlas pages as PNGs under `target/agent-work/atlases/` |
+| `LIMINAL_QUALITY=full\|low` | draw this run at the named profile without editing `settings.json` |
+| `LIMINAL_NO_OFFSCREEN=1` | skip the offscreen scene target and draw into the default framebuffer |
+| `LIMINAL_NO_BLOOM=1` | drop the emissive pass and the blur, keeping the resolve stage |
+| `LIMINAL_NO_REFLECTIONS=1` | report every material as reflection-free (no planar pass, no probe bake, no reflection binds) |
+| `LIMINAL_PAUSE=1` | open the pause menu on the first frame, so the pause UI can be captured without a keyboard |
+| `LIMINAL_VERBOSE=1` | print the startup/level-build telemetry a capture run usually stays silent about |
+
+The demo's emission animations advance on the simulation's own delta, so a
+capture at `LIMINAL_CAPTURE_FRAME=1` is always the authored brightness; later
+frames show whatever the elapsed clock reached, which is what a flicker capture
+wants. The summary reports `reflection_passes` (scene submissions the frame
+spent on the active planar plane) alongside the timing and counter fields.
+
+The run summary is printed as a single line:
+
+```
+BENCH_SUMMARY {"level":...,"frames":...,"swap_interval":...,"loop_median_ms":...,...}
+```
+
+`loop_ms` is begin-of-frame to begin-of-frame, i.e. the real presentation
+cadence including the swap. `frame_ms` is begin-of-frame to end-of-swap. FPS
+figures in the summary are always derived from `loop_ms`, never from a count of
+renderer submissions.
+
+## Retired
+
+The PocketCHIP-over-SSH device suite (`run_bench.py`, `runone.sh`,
+`gen_levels.py`, `analyze.py`) was removed in Batch 5. It depended on the
+historical PocketCHIP/Vitrallis deployment, the committed cross-compile shim and
+expect-shim script paths outside the repository, and its local replacement is
+`bench_local.py`. `bench_repeat.py` was removed because `bench_local.py` now
+reports min/median/max itself, and the Batch 3/4 capture scripts
+(`capture_batch3.sh`, `capture_batch4.sh`) were replaced by the single
+`capture_views.sh`. The measurements those tools produced are kept as
+historical records in `notes/`:
+
+| note | contents |
+|---|---|
+| `renderer-change-validation.md` | how each change was validated, and what the pixel comparison actually measures |
+| `level-build-cache.md` | what a level load costs, and the build-cache key/invalidation design |
+| `lightmap-bake-validation.md` | the baked-lightmap measurements: cold/warm bake cost, Full/Low density and memory, runtime draw calls, vertex-memory cost and the lightmap-vs-vertex pixel A/B |
+| `batch3-surface-validation.md` | the Batch 3 surface/material changes |
+| `batch4-post-reflection-validation.md` | the Batch 4 bloom and reflection changes |
+| `batch5-stabilization-validation.md` | the Batch 5 compiled-build smoke tests, Full/Low comparison against the Batch 4 baseline, demo QA playthrough and error-path additions |
+
+The `LIMINAL_BENCH_*` submission switches the device suite used for its phase
+attribution (`LIMINAL_BENCH_NOCULL`, `LIMINAL_BENCH_NOINDEX`,
+`LIMINAL_BENCH_EXACT_VERTEX`) are still implemented and still isolate one
+renderer decision each; they are simply exercised by `bench_local.py` now.

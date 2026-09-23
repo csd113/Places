@@ -15,6 +15,9 @@ pub struct UiState {
     pub settings_idx: usize,
     pub rebinding_action: Option<&'static str>,
     pub status_message: Option<String>,
+    /// True when [`Self::status_message`] describes a failure, so screens can
+    /// colour it without parsing their own text.
+    pub status_is_error: bool,
     pub level_entries: Vec<String>,
 }
 
@@ -24,9 +27,21 @@ impl UiState {
         Self::default()
     }
 
+    /// Sets the one-line status shown by the level list and settings screens.
+    pub fn set_status(&mut self, message: impl Into<String>, is_error: bool) {
+        self.status_message = Some(message.into());
+        self.status_is_error = is_error;
+    }
+
+    /// Drops any status message (used on screen transitions and retry).
+    pub fn clear_status(&mut self) {
+        self.status_message = None;
+        self.status_is_error = false;
+    }
+
     pub fn cancel_rebinding(&mut self) {
         self.rebinding_action = None;
-        self.status_message = None;
+        self.clear_status();
     }
 }
 
@@ -46,6 +61,7 @@ fn ui_signature(
     ui_state.settings_idx.hash(&mut hasher);
     ui_state.rebinding_action.hash(&mut hasher);
     ui_state.status_message.as_deref().hash(&mut hasher);
+    ui_state.status_is_error.hash(&mut hasher);
     ui_state.level_entries.hash(&mut hasher);
     version.hash(&mut hasher);
 
@@ -211,6 +227,58 @@ pub fn draw_text(
     }
 }
 
+/// Pixel width of `text` at `scale` in the 480x272 reference space.
+///
+/// Every glyph — including an unsupported character — advances exactly
+/// `8 * scale` pixels, so this is exact rather than an estimate.
+#[must_use]
+pub fn text_width(text: &str, scale: f32) -> f32 {
+    let characters = u16::try_from(text.chars().count()).unwrap_or(u16::MAX);
+    f32::from(characters).mul_add(8.0 * scale, 0.0)
+}
+
+/// Truncates `text` with a trailing `...` so it fits `max_width` pixels.
+///
+/// Level names and loader diagnostics are arbitrary strings; a name that would
+/// run past the panel is shortened rather than allowed to bleed over the
+/// screen edge (there is no scissor rectangle on the UI pass).
+#[must_use]
+pub fn fit_text(text: &str, max_width: f32, scale: f32) -> String {
+    /// Upper bound on the characters a single fitted line may occupy.
+    const MAX_FITTED_CHARS: usize = 512;
+    let char_w = 8.0 * scale;
+    if char_w <= 0.0 {
+        return text.to_string();
+    }
+    let mut max_chars = 0usize;
+    let mut used = 0.0_f32;
+    while used + char_w <= max_width && max_chars < MAX_FITTED_CHARS {
+        used += char_w;
+        max_chars = max_chars.saturating_add(1);
+    }
+    if text.chars().count() <= max_chars {
+        return text.to_string();
+    }
+    if max_chars <= 3 {
+        return ".".repeat(max_chars);
+    }
+    let kept: String = text.chars().take(max_chars.saturating_sub(3)).collect();
+    format!("{kept}...")
+}
+
+/// Horizontal x that centres `text` at `scale` inside `[left, right]`.
+#[must_use]
+fn centered_x(text: &str, scale: f32, left: f32, right: f32) -> f32 {
+    let offset = (right - left - text_width(text, scale)).mul_add(0.5, left);
+    offset.max(left)
+}
+
+/// Draws one centred legend line inside the panel bounds.
+fn draw_legend(vertices: &mut Vec<Vertex>, text: &str, left: f32, right: f32, y: f32) {
+    let x = centered_x(text, 1.0, left, right);
+    draw_text(vertices, text, x, y, 1.0, [0.55, 0.55, 0.50]);
+}
+
 /// Generates 2D UI overlay vertices in the 480x272 reference space for the
 /// active `AppState`. `Renderer::render_ui` scales this space to the drawable.
 #[must_use]
@@ -293,11 +361,18 @@ fn main_menu_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState, version: &
     );
 
     // Title
-    draw_text(vertices, "Places", 40.0, 36.0, 2.0, [0.92, 0.88, 0.45]);
+    draw_text(
+        vertices,
+        "Places",
+        centered_x("Places", 2.0, 22.0, 458.0),
+        36.0,
+        2.0,
+        [0.92, 0.88, 0.45],
+    );
     draw_text(
         vertices,
         "an experience",
-        42.0,
+        centered_x("an experience", 1.0, 22.0, 458.0),
         58.0,
         1.0,
         [0.65, 0.65, 0.60],
@@ -322,19 +397,12 @@ fn main_menu_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState, version: &
         }
     }
 
-    // Version bottom-left (requirement 3)
+    // Version bottom-left, aligned with the menu items above it.
     let ver_text = format!("v{version}");
-    draw_text(vertices, &ver_text, 35.0, 235.0, 1.0, [0.5, 0.5, 0.5]);
+    draw_text(vertices, &ver_text, 40.0, 235.0, 1.0, [0.5, 0.5, 0.5]);
 
-    // Controls help bottom
-    draw_text(
-        vertices,
-        "W/S: Move   ENTER: Select",
-        250.0,
-        235.0,
-        1.0,
-        [0.55, 0.55, 0.50],
-    );
+    // Controls help bottom.
+    draw_legend(vertices, "W/S: Move   ENTER: Select", 22.0, 458.0, 235.0);
 }
 
 /// Level selection: scrolling list of installed levels, status line and legend.
@@ -345,7 +413,7 @@ fn level_select_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
     draw_text(
         vertices,
         "LEVEL SELECT",
-        40.0,
+        centered_x("LEVEL SELECT", 2.0, 22.0, 458.0),
         38.0,
         2.0,
         [0.92, 0.88, 0.45],
@@ -353,22 +421,34 @@ fn level_select_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
 
     level_select_items(vertices, ui_state);
 
+    if ui_state.level_entries.is_empty() {
+        draw_text(
+            vertices,
+            "No level files installed - import one below.",
+            40.0,
+            190.0,
+            1.0,
+            [0.6, 0.6, 0.55],
+        );
+    }
+
     if let Some(ref msg) = ui_state.status_message {
-        let col = if msg.starts_with("Error") || msg.starts_with("Failed") {
+        let col = if ui_state.status_is_error {
             [1.0, 0.4, 0.3]
         } else {
             [0.4, 0.9, 0.4]
         };
-        draw_text(vertices, msg, 40.0, 212.0, 1.0, col);
+        // The list panel is 440 px wide; a loader diagnostic can be longer.
+        let line = fit_text(msg, 420.0, 1.0);
+        draw_text(vertices, &line, 40.0, 212.0, 1.0, col);
     }
 
-    draw_text(
+    draw_legend(
         vertices,
         "W/S: Move   ENTER: Select   ESC: Back",
-        160.0,
+        22.0,
+        458.0,
         235.0,
-        1.0,
-        [0.55, 0.55, 0.50],
     );
 }
 
@@ -378,13 +458,9 @@ fn level_select_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
 /// trailing actions, so selection, drawing and activation all agree on the
 /// same row indices.
 fn level_select_items(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
-    let mut items: Vec<(String, bool)> = ui_state
-        .level_entries
-        .iter()
-        .map(|name| (name.clone(), true))
-        .collect();
-    items.push(("Load/Import Level".to_string(), true));
-    items.push(("Back".to_string(), true));
+    let mut items: Vec<String> = ui_state.level_entries.clone();
+    items.push("Import Levels".to_string());
+    items.push("Back".to_string());
 
     // Show at most 6 items per page with scrolling
     let max_visible = 6;
@@ -402,7 +478,7 @@ fn level_select_items(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
     let start_y = 75.0;
     let line_h = 22.0;
 
-    for (vi, (i, (label, enabled))) in items
+    for (vi, (i, label)) in items
         .iter()
         .enumerate()
         .skip(scroll_offset)
@@ -411,35 +487,35 @@ fn level_select_items(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
     {
         let y = row_y(vi, line_h, start_y);
         let is_sel = i == ui_state.level_select_idx;
+        // `> ` or `  ` plus the row indent, then the label; a long name is
+        // shortened so it cannot run past the panel.
+        let label = fit_text(label, 320.0, 1.0);
 
         if is_sel {
             add_rect(vertices, 38.0, y - 2.0, 380.0, y + 14.0, [0.25, 0.23, 0.16]);
             let line = format!("> {label}");
-            let col = if *enabled {
-                [1.0, 0.95, 0.40]
-            } else {
-                [0.55, 0.50, 0.35]
-            };
-            draw_text(vertices, &line, 40.0, y, 1.0, col);
+            draw_text(vertices, &line, 40.0, y, 1.0, [1.0, 0.95, 0.40]);
         } else {
             let line = format!("  {label}");
-            let col = if *enabled {
-                [0.85, 0.85, 0.80]
-            } else {
-                [0.45, 0.45, 0.42]
-            };
-            draw_text(vertices, &line, 40.0, y, 1.0, col);
+            draw_text(vertices, &line, 40.0, y, 1.0, [0.85, 0.85, 0.80]);
         }
     }
 }
 
-/// Pause menu: scrim, title, three items and the legend.
+/// Pause menu: panel, title, three items and the legend.
 fn pause_menu_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
-    // Semi-transparent pause scrim
+    // Opaque pause panel over the frozen scene.
     add_rect(vertices, 80.0, 40.0, 400.0, 230.0, [0.06, 0.06, 0.05]);
     add_rect(vertices, 82.0, 42.0, 398.0, 228.0, [0.12, 0.11, 0.10]);
 
-    draw_text(vertices, "PAUSED", 100.0, 58.0, 2.0, [0.92, 0.88, 0.45]);
+    draw_text(
+        vertices,
+        "PAUSED",
+        centered_x("PAUSED", 2.0, 82.0, 398.0),
+        58.0,
+        2.0,
+        [0.92, 0.88, 0.45],
+    );
 
     let items = ["Resume", "Settings", "Return to Main Menu"];
     let start_y = 105.0;
@@ -459,13 +535,12 @@ fn pause_menu_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
         }
     }
 
-    draw_text(
+    draw_legend(
         vertices,
-        "ESC: Resume   ENTER: Select",
-        120.0,
+        "W/S: Move   ENTER: Select   ESC: Resume",
+        82.0,
+        398.0,
         205.0,
-        1.0,
-        [0.55, 0.55, 0.50],
     );
 }
 
@@ -476,29 +551,30 @@ fn settings_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState, settings: &
 
     draw_text(vertices, "SETTINGS", 25.0, 20.0, 2.0, [0.92, 0.88, 0.45]);
 
-    // Rebinding prompt or conflict message
+    // Rebinding prompt or status message.
     if let Some(action) = ui_state.rebinding_action {
-        add_rect(vertices, 160.0, 18.0, 460.0, 36.0, [0.35, 0.15, 0.10]);
-        let prompt = format!("PRESS KEY FOR {action} (ESC: cancel)");
-        draw_text(vertices, &prompt, 165.0, 22.0, 1.0, [1.0, 0.9, 0.3]);
+        add_rect(vertices, 22.0, 18.0, 462.0, 32.0, [0.35, 0.15, 0.10]);
+        let label = crate::settings::action_label(action);
+        let prompt = fit_text(&format!("PRESS KEY FOR {label} (ESC: CANCEL)"), 432.0, 1.0);
+        draw_text(vertices, &prompt, 26.0, 21.0, 1.0, [1.0, 0.9, 0.3]);
     } else if let Some(ref msg) = ui_state.status_message {
-        let col = if msg.starts_with("Error") || msg.contains("already") {
+        let col = if ui_state.status_is_error {
             [1.0, 0.4, 0.3]
         } else {
             [0.4, 0.9, 0.4]
         };
-        draw_text(vertices, msg, 160.0, 22.0, 1.0, col);
+        let line = fit_text(msg, 320.0, 1.0);
+        draw_text(vertices, &line, 160.0, 22.0, 1.0, col);
     }
 
     settings_item_rows(vertices, ui_state, settings);
 
-    draw_text(
+    draw_legend(
         vertices,
-        "W/S: Nav  ENTER/A/D: Adjust/Rebind  ESC: Back",
-        70.0,
+        "W/S: Move   ENTER/A/D: Adjust   ESC: Back",
+        22.0,
+        458.0,
         250.0,
-        1.0,
-        [0.55, 0.55, 0.50],
     );
 }
 
@@ -526,7 +602,7 @@ fn settings_item_rows(vertices: &mut Vec<Vertex>, ui_state: &UiState, settings: 
             "Filtering:      [{}]",
             settings.texture_filtering.to_uppercase()
         ),
-        "Restore Default Bindings".to_string(),
+        "Restore Defaults".to_string(),
         "Back".to_string(),
     ];
 
@@ -549,18 +625,12 @@ fn settings_item_rows(vertices: &mut Vec<Vertex>, ui_state: &UiState, settings: 
 }
 
 pub const SETTINGS_ITEM_COUNT: usize = 16;
-pub const SETTINGS_ACTIONS: [&str; 8] = [
-    "forward",
-    "strafe_left",
-    "strafe_right",
-    "backward",
-    "look_up",
-    "look_down",
-    "look_left",
-    "look_right",
-];
 
 /// Cycles or rebinds selected settings item.
+///
+/// Returns `true` when the item asks to leave the screen (the Back row).
+/// Persisting the change is the caller's job, so this stays a pure UI mutation
+/// and a screen can report a failed save itself.
 pub fn activate_settings_item(
     idx: usize,
     ui_state: &mut UiState,
@@ -568,9 +638,9 @@ pub fn activate_settings_item(
     direction: i32,
 ) -> bool {
     // 0..8: Keybindings
-    if let Some(action) = SETTINGS_ACTIONS.get(idx) {
+    if let Some(action) = KeyBindings::ACTIONS.get(idx) {
         ui_state.rebinding_action = Some(*action);
-        ui_state.status_message = None;
+        ui_state.clear_status();
         return false;
     }
 
@@ -584,7 +654,7 @@ pub fn activate_settings_item(
             } else if settings.look_speed_h < 45.0 {
                 settings.look_speed_h = 180.0;
             }
-            ui_state.status_message = Some("Horizontal look speed updated".to_string());
+            ui_state.set_status("Horizontal look speed updated", false);
         }
         9 => {
             // Look Speed V
@@ -595,7 +665,7 @@ pub fn activate_settings_item(
             } else if settings.look_speed_v < 30.0 {
                 settings.look_speed_v = 150.0;
             }
-            ui_state.status_message = Some("Vertical look speed updated".to_string());
+            ui_state.set_status("Vertical look speed updated", false);
         }
         10 => {
             // Walk speed
@@ -606,7 +676,7 @@ pub fn activate_settings_item(
             } else if settings.walk_speed < 1.5 {
                 settings.walk_speed = 6.0;
             }
-            ui_state.status_message = Some("Walk speed updated".to_string());
+            ui_state.set_status("Walk speed updated", false);
         }
         11 => {
             // FOV
@@ -617,19 +687,22 @@ pub fn activate_settings_item(
             } else if settings.fov_degrees < 45.0 {
                 settings.fov_degrees = 90.0;
             }
-            ui_state.status_message = Some("FOV updated".to_string());
+            ui_state.set_status("Field of view updated", false);
         }
         12 => {
-            // VSync
+            // VSync applies when the GL context is configured at startup.
             settings.vsync = !settings.vsync;
-            ui_state.status_message = Some(format!(
-                "VSync {}",
-                if settings.vsync {
-                    "enabled"
-                } else {
-                    "disabled"
-                }
-            ));
+            ui_state.set_status(
+                format!(
+                    "VSync {} (applies after restart)",
+                    if settings.vsync {
+                        "enabled"
+                    } else {
+                        "disabled"
+                    }
+                ),
+                false,
+            );
         }
         13 => {
             // Filtering
@@ -638,21 +711,20 @@ pub fn activate_settings_item(
             } else {
                 "linear".to_string()
             };
-            ui_state.status_message = Some(format!(
-                "Texture filtering: {}",
-                settings.texture_filtering.to_uppercase()
-            ));
+            ui_state.set_status(
+                format!(
+                    "Texture filtering: {}",
+                    settings.texture_filtering.to_uppercase()
+                ),
+                false,
+            );
         }
         14 => {
-            // Restore defaults
-            settings.bindings = KeyBindings::default();
-            settings.look_speed_h = 90.0;
-            settings.look_speed_v = 60.0;
-            settings.walk_speed = 3.0;
-            settings.fov_degrees = 60.0;
-            settings.vsync = true;
-            settings.texture_filtering = "linear".to_string();
-            ui_state.status_message = Some("Restored default settings & bindings".to_string());
+            // Restore defaults: every persisted preference returns to its
+            // documented default, including the two without a dedicated row.
+            let defaults = Settings::default();
+            *settings = defaults;
+            ui_state.set_status("Restored default settings", false);
         }
         15 => {
             // Back
@@ -660,6 +732,169 @@ pub fn activate_settings_item(
         }
         _ => {}
     }
-    let _ = settings.save();
     false
+}
+
+#[cfg(test)]
+mod tests {
+    // Test code: `expect` documents the invariant being asserted; the
+    // production lints stay enforced everywhere else in the crate.
+    #![allow(clippy::expect_used)]
+
+    use super::*;
+    use crate::test_support::assert_exact;
+
+    #[test]
+    fn text_width_counts_every_glyph_including_spaces_and_unknowns() {
+        assert_exact(text_width("AB", 1.0), 16.0);
+        assert_exact(text_width("A B", 1.0), 24.0);
+        assert_exact(text_width("AB", 2.0), 32.0);
+        // An unsupported character advances without drawing, exactly like the
+        // renderer does, so it still occupies width.
+        assert_exact(text_width("é", 1.0), 8.0);
+    }
+
+    #[test]
+    fn fit_text_truncates_without_exceeding_its_budget() {
+        let long = "A".repeat(100);
+        let fitted = fit_text(&long, 80.0, 1.0);
+        assert_eq!(fitted.chars().count(), 10);
+        assert!(fitted.ends_with("..."));
+        assert!(text_width(&fitted, 1.0) <= 80.0);
+
+        // Short text and an exact fit are untouched.
+        assert_eq!(fit_text("ok", 80.0, 1.0), "ok");
+        assert_eq!(fit_text("1234567890", 80.0, 1.0), "1234567890");
+    }
+
+    #[test]
+    fn the_rebind_prompt_fits_the_panel_for_every_action() {
+        // The prompt is drawn at scale 1 inside a 432 px box; the longest
+        // action label ("Strafe Right") must not overflow it.
+        for action in KeyBindings::ACTIONS {
+            let label = crate::settings::action_label(action);
+            let prompt = fit_text(&format!("PRESS KEY FOR {label} (ESC: CANCEL)"), 432.0, 1.0);
+            assert!(
+                text_width(&prompt, 1.0) <= 432.0,
+                "prompt for {action} is too wide: {prompt:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn status_messages_carry_their_own_error_flag() {
+        let mut ui = UiState::new();
+        assert!(ui.status_message.is_none());
+        assert!(!ui.status_is_error);
+
+        ui.set_status("Load failed: nothing", true);
+        assert!(ui.status_is_error);
+
+        ui.set_status("Imported 1 level", false);
+        assert!(!ui.status_is_error);
+        assert_eq!(ui.status_message.as_deref(), Some("Imported 1 level"));
+
+        ui.clear_status();
+        assert!(ui.status_message.is_none());
+        assert!(!ui.status_is_error);
+
+        ui.set_status("bound", false);
+        ui.cancel_rebinding();
+        assert!(ui.status_message.is_none(), "cancel clears the message too");
+    }
+
+    #[test]
+    fn every_settings_row_activates_without_breaking_the_settings() {
+        // Walk the whole screen in both directions, including the binding rows
+        // (which open a rebind), the value rows (which wrap) and the two
+        // terminal rows. Back must be the only row that signals leaving.
+        let mut ui = UiState::new();
+        let mut settings = Settings::default();
+        for idx in 0..SETTINGS_ITEM_COUNT {
+            for direction in [1, -1] {
+                let back = activate_settings_item(idx, &mut ui, &mut settings, direction);
+                assert_eq!(
+                    back,
+                    idx == SETTINGS_ITEM_COUNT - 1,
+                    "row {idx} direction {direction} back signal"
+                );
+                ui.cancel_rebinding();
+            }
+        }
+        settings.sanitize();
+        for action in KeyBindings::ACTIONS {
+            assert!(settings.bindings.get_key(action).is_some());
+        }
+    }
+
+    #[test]
+    fn restore_defaults_resets_every_persisted_preference() {
+        let mut ui = UiState::new();
+        let mut settings = Settings {
+            look_speed_h: 180.0,
+            look_speed_v: 20.0,
+            walk_speed: 6.0,
+            fov_degrees: 90.0,
+            vsync: false,
+            texture_filtering: "nearest".to_string(),
+            quality: "low".to_string(),
+            lightmaps: false,
+            ..Settings::default()
+        };
+        let back = activate_settings_item(14, &mut ui, &mut settings, 1);
+        assert!(!back);
+        assert_eq!(settings, Settings::default());
+        assert_eq!(
+            ui.status_message.as_deref(),
+            Some("Restored default settings")
+        );
+    }
+
+    #[test]
+    fn every_screen_draws_inside_the_reference_frame() {
+        // Long names and diagnostics are the clipping risk: they are fitted,
+        // so no UI vertex may leave the 480x272 reference space on any screen.
+        for state in [
+            AppState::MainMenu,
+            AppState::LevelSelect,
+            AppState::Paused,
+            AppState::Settings,
+            AppState::PauseSettings,
+        ] {
+            let mut ui = UiState::new();
+            ui.level_entries = vec![
+                "A level name long enough to overflow its panel if it were not shortened"
+                    .to_string(),
+            ];
+            ui.set_status(
+                "A status message long enough to run off the right edge if it were not shortened",
+                false,
+            );
+            ui.rebinding_action = Some("strafe_right");
+            let vertices = build_ui_geometry(state, &ui, &Settings::default(), "9.9.9");
+            assert!(!vertices.is_empty(), "{state:?} drew nothing");
+            for vertex in &vertices {
+                assert!(
+                    (0.0..=480.0).contains(&vertex.pos[0]),
+                    "{state:?} vertex x {} is outside the frame",
+                    vertex.pos[0]
+                );
+                assert!(
+                    (0.0..=272.0).contains(&vertex.pos[1]),
+                    "{state:?} vertex y {} is outside the frame",
+                    vertex.pos[1]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn vsync_says_it_applies_after_restart() {
+        let mut ui = UiState::new();
+        let mut settings = Settings::default();
+        activate_settings_item(12, &mut ui, &mut settings, 1);
+        assert!(!settings.vsync);
+        let message = ui.status_message.clone().expect("a status message");
+        assert!(message.contains("after restart"), "{message}");
+    }
 }

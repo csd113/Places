@@ -5,19 +5,19 @@
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
 | Level format version documented | `1` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
-| Last verified commit SHA | `f47f06f` (Batch 3: surface response, transparency/glass, offscreen framebuffer) |
-| Verification performed | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check`; `python3 -m unittest tests.test_package`; `cd level-editor && npm test` |
+| Verification | Re-verified against the working tree for the **Batch 5 stabilization build**. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
+| Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Primary benchmark level | `assets/levels/places_demo.json` |
 
-> This revision documents the Batch 1 foundation (Full/Low quality profiles, the
-> generic engine-level light model, true emissive materials), **the Batch 2
-> lighting work** (baked lightmaps for static world geometry with the vertex-lit
-> path as an exact fallback, automatic static-prop occlusion, and a separate
-> dynamic-object render path) **and the Batch 3 surface work** (lightweight
-> normal/specular/roughness response, `alpha_mode` transparency with real glass
-> panes in window openings, and the offscreen scene presentation path). Read
-> [Known Implementation Caveats](#known-implementation-caveats) before relying on
-> engine limits, and re-run the validation commands after pulling new commits.
+> This revision describes the **current** engine: four batches of work are in the
+> tree and all of them are authorable or affect authoring — the Full/Low quality
+> profiles, the generic engine-level light model, true emissive materials and
+> baked lightmaps (Batch 1–2); surface response, transparency/glass and the
+> offscreen presentation path (Batch 3); selective reflections, post-processing
+> and animated emissions (Batch 4); and the stabilization fixes folded into
+> Batch 5. Read [Known Implementation Caveats](#known-implementation-caveats)
+> before relying on engine limits, and re-run the validation commands after
+> pulling new commits.
 
 ---
 
@@ -41,7 +41,7 @@ while building:
 
 This guide describes **Implemented Now** capabilities only, unless a section explicitly
 says otherwise. Where the engine's design documents describe future work, the guide
-marks it **PLANNED — not authorable** and never shows planned syntax as usable.
+lists it as **Not implemented** and never shows planned syntax as usable.
 
 **Places Demo is the benchmark.** `assets/levels/places_demo.json` is the project's
 canonical showcase and the technical reference for established authoring patterns.
@@ -59,13 +59,17 @@ When any two sources disagree, resolve in this order:
 
 1. **Runtime implementation** — `src/level.rs` (level schema and geometry rules),
    `src/loader.rs` (validation, discovery, packs), `src/game.rs` / `src/collision.rs`
-   (movement and collision), `src/render/` (meshes, decals, fixtures, props),
-   `src/lighting/` (bake), `src/materials/` + `src/assets.rs` (catalog and materials).
+   (movement and collision), `src/render/` (meshes, decals, fixtures, props,
+   reflections, post-processing), `src/lighting/` (bake and lightmaps),
+   `src/materials/` + `src/assets.rs` (catalog and materials),
+   `src/quality.rs` + `src/settings.rs` (profiles).
 2. **Validation and tests** — `src/loader/tests.rs`, `src/level/tests.rs`,
    `src/render/tests.rs`, `src/materials/tests.rs`, `src/assets/tests.rs`,
    `src/props/tests.rs`, `src/collision/tests.rs`, `src/game/tests.rs`,
-   `src/lighting/tests.rs`, and the audit modules listed in
-   [Validation Workflow](#27-validation-workflow). Tests pin the accepted contract.
+   `src/lighting/tests.rs`, and the audit modules under `src/` (`surface_audit.rs`,
+   `lighting_audit*.rs`, `lighting_isolation.rs`, `lighting_parity.rs`,
+   `lighting_partition_audit.rs`, `lighting_vertical_audit.rs`). Tests pin the
+   accepted contract.
 3. **Asset catalog** — `assets/catalog.json`, plus `assets/README.md`.
 4. **Known-good shipped content** — `assets/levels/places_demo.json`,
    `tests/fixtures/levels/*.json`.
@@ -79,16 +83,16 @@ Authoritative paths:
 | --- | --- |
 | Level schema | `src/level.rs` |
 | Loader / validator | `src/loader.rs` |
-| Collision | `src/collision.rs`, `src/game.rs` |
+| Collision / walkable floor | `src/collision.rs`, `src/game.rs` |
 | Mesh generation | `src/render.rs`, `src/render/geometry.rs` |
 | Decals | `src/render/decals.rs`, `src/render.rs` |
 | Fixture geometry | `src/render/fixtures.rs`, `src/lighting/tuning.rs` |
 | Prop loading | `src/props.rs`, `src/gltf.rs`, `src/render/props.rs` |
-| Lighting bake | `src/lighting/`, `src/lighting/tuning.rs` |
+| Lighting bake | `src/lighting/` (bake, visibility, occlusion, lightmap) |
 | Materials / textures | `src/materials/`, `src/assets.rs` |
-| Quality profiles / downscaling | `src/quality.rs` |
-| Emissive material model | `src/materials/emission.rs` |
-| Generic light model | `src/lighting/light.rs` |
+| Reflections | `src/render/reflections.rs`, `src/render/renderer.rs` |
+| Post-processing / fog | `src/render/postprocess.rs`, `src/render/atmosphere.rs`, `src/render/framebuffer.rs` |
+| Quality profiles / settings | `src/quality.rs`, `src/settings.rs` |
 | Catalog | `assets/catalog.json` |
 | Benchmark level | `assets/levels/places_demo.json` |
 | Regression fixtures | `tests/fixtures/levels/` |
@@ -103,30 +107,31 @@ Authoritative paths:
 | Baked lightmaps for static world geometry (floors, ceilings, walls, reveals, skirts), with the baked-vertex path as the exact fallback | Implemented |
 | Baked vertex lighting, 3 fixture families, per-light colour/intensity/range/falloff, partitions, vertical isolation | Implemented |
 | Static props occlude baked light (contact darkening, blocked pools), derived from the placed model's own triangles | Implemented |
-| A separate dynamic-object render path (per-frame transforms, no rebuild of static geometry or lightmaps) | Implemented (one demonstration object in Places Demo; not authorable from a level yet) |
+| A separate dynamic-object render path (per-frame transforms, no rebuild of static geometry or lightmaps) | Implemented (one engine-created demonstration object; not authorable from a level) |
 | Generic engine-level lights (point / rect / line) owned by fixtures and props | Implemented |
 | Material emission (`emissive`, `emissive_intensity`, `emissive_mask`) and per-fixture `emission` | Implemented |
 | Material surface response (`normal_texture`, `normal_strength`, `specular`, `specular_color`, `roughness`) | Implemented |
 | Material transparency (`alpha_mode`: `opaque` / `cutout` / `blend`, `opacity`, `alpha_cutoff`) | Implemented |
 | Opening glazing: a `glass` material fills a window, vent or door aperture with one pane | Implemented |
 | Offscreen scene rendering presented by a fullscreen quad, UI at drawable resolution | Implemented |
-| Selective reflections: per-material `reflection_mode` (`probe` / `planar`) at 64-texel probes and a half-resolution planar pass | Implemented |
-| Restrained post-processing: emission-driven bloom, a tone shoulder, distance fog and a subtle grade, with the UI drawn outside it | Implemented |
+| Selective reflections: per-material `reflection_mode` (`none` / `probe` / `planar`) at 64-texel probes (32 on Low) and a half-resolution planar pass | Implemented |
+| Restrained post-processing: emission-driven bloom, a tone shoulder, distance fog and a subtle grade, with the UI drawn outside it | Implemented (engine-global; not level-authorable) |
 | Animated emissions: `animated_emissions[]` makes a material's emission pulse or flicker, deterministically | Implemented |
-| Full / Low runtime quality profiles with texture downscaling | Implemented |
+| Full / Low runtime quality profiles over the same level content | Implemented |
 | Props/entities from GLBs by logical id, `solid` collision boxes | Implemented |
 | Multi-primitive / multi-material GLB props, embedded emissive materials, node transforms | Implemented |
 | External PNG surfaces, decals, fixture faces; catalog + themes | Implemented |
 | Level `.zip` packs with `materials.json` and pack textures | Implemented |
+| `ceiling_lights` accepting the `lights` alias | Implemented |
 | Water, refraction/transmission, realtime dynamic lights, realtime shadow maps, skeletal animation | Not implemented |
-| Screen-space reflections; per-frame raytraced reflections; cubemap probes with realtime updates | Not implemented (Batch 4 has static probes and one planar plane) |
+| Screen-space reflections; per-frame raytraced reflections; cubemap probes with realtime updates | Not implemented (static probes and one planar plane exist) |
 | Per-object transparency on GLB props (a prop's glTF `alphaMode` is not read) | Not implemented |
 | Emissive decals; per-placement emission overrides; cone/spot lights | Not implemented |
 | Authoring a normal map from a level (a level names a material, and the material owns the map) | Implemented (via the catalog) |
 | Ramps/sloped floor regions; ceiling/floor openings; traversal between stacked storeys | Not implemented |
 | Room-wide brightness/tint modifiers; non-fixture decor meshes beyond props | Not implemented |
 | WebP or formats other than PNG; arbitrary structural meshes | Not implemented |
-| `lights` / `wall_lights` level arrays; per-room wall material | Not implemented (wall fixtures live in `ceiling_lights` with `"mount": "wall"`; prop-owned lights live in `props[].lights`) |
+| `wall_lights` level array; per-room wall material | Not implemented (wall fixtures live in `ceiling_lights` with `"mount": "wall"`; prop-owned lights live in `props[].lights`) |
 
 ---
 
@@ -159,7 +164,8 @@ steps 14–17.
    following [Asset Catalog](#14-asset-catalog) and the recipes.
 10. **Author structural geometry.** Rooms → walls → openings → floor patches/regions.
     Check wall min-corner placement and opening bounds as you go.
-11. **Add props.** Logical ids, x/y/z, rotation, `size` for solid props. Mind +Z fronts.
+11. **Add props.** Logical ids, x/y/z, rotation, `scale`, `size` for solid props.
+    Mind +Z fronts. Add `props[].lights` only when the object should illuminate.
 12. **Add decals.** One flat surface each; never across height changes; no gable ceilings.
 13. **Add lights.** Choose fixture types per intended look; place enough fixtures to
     light the route; use colour/intensity for mood. Wall fixtures need `mount`+`y`.
@@ -169,12 +175,13 @@ steps 14–17.
     doorway thresholds owned once; no wall ends buried in other walls.
 16. **Validate assets.** Run the catalog, texture and prop checks
     ([Validation Workflow](#27-validation-workflow)).
-17. **Run tests and boot the level.** `cargo test --workspace`, then
+17. **Run tests and boot the level.** `cargo test --workspace --all-features`, then
     `LIMINAL_LEVEL=<id> cargo run` and read the console. A level that fails validation
-    is silently absent from the menu, so always boot it explicitly at least once.
+    is reported as `[levels] skipping …` at discovery, so read the console even when
+    the level is meant to appear in the menu.
 18. **Visual/render validation if available.** Screenshot with
-    `LIMINAL_CAPTURE=frame.png` and inspect: no holes, no flicker, no light leaks,
-    no floating props.
+    `LIMINAL_CAPTURE=frame.png LIMINAL_LEVEL=<id> cargo run` and inspect: no holes, no
+    flicker, no light leaks, no floating props.
 
 **Worked example.** "An abandoned hotel with a flooded basement and dim green emergency
 lights" resolves to: read this guide → check the catalog (no hotel theme exists yet, so
@@ -186,7 +193,8 @@ basement (reach it the way Places Demo reaches its stair hall: a chain of
 doorway) → reuse `core:carpet_damp_01` for flood-damaged surfaces (there is **no water
 rendering**, so "flooded" must be implied by damp/stained materials and region
 recesses) → dim green lights as ordinary ceiling fixtures with
-`"color": [0.35, 1.0, 0.45]` and low `brightness` → validate.
+`"color": [0.35, 1.0, 0.45]` and low `brightness` → validate. Do **not** author a
+second variant of the level for the Low quality profile; one level is used by both.
 
 ---
 
@@ -202,6 +210,7 @@ recesses) → dim green lights as ordinary ceiling fixtures with
 | Yaw | Degrees. **0° faces −Z (north); +90° faces +X (east); +180° faces +Z; +270° faces −X.** Forward vector is `(sin yaw, 0, −cos yaw)`, so yaw increases turning right (clockwise seen from above with north up). |
 | Spawn | `{ "x": …, "z": …, "yaw_degrees": … }`. There is **no spawn `y`**; the eye is placed at the walkable floor under `(x,z)` plus 1.6 m. |
 | Player | radius 0.3 m, height 1.8 m, eye 1.6 m; **walkable step = 0.4 m**. |
+| Room tolerance | A point within **0.01 m** of a room's footprint edge counts as inside it. |
 
 ```text
                     -Z  north
@@ -226,105 +235,199 @@ Consequences to internalise:
   `wall_north` −Z, `wall_south` +Z, `wall_west` −X, `wall_east` +X.
 * A prop at `rotation_degrees: 0` faces **+Z**; the model is authored that way
   (`assets/README.md`, "Prop and entity conventions").
+* A prop's `y` is an offset **above the local walkable floor**, while a wall or
+  fixture `y` is a **world** height. The two conventions differ and are not
+  interchangeable.
 
 ---
 
 ## 5. Level File Structure
 
-A complete level is one JSON object. This is the full current skeleton — every field
-below exists in `src/level.rs`; nothing else in a level document has any effect.
-Unknown keys are **silently ignored** (no `deny_unknown_fields`), so typos fail without
-an error; diff against this skeleton.
+A complete level is one JSON object. This is a **readable subset** of the format that
+shows the shape and the common fields; the complete field-by-field contract is in the
+tables of sections 6–10, 16, 17 and 19–21, and the skeleton below names every current
+field at least once (the legacy `room` key is covered in prose below it). Unknown keys
+are **silently ignored** (the structs do not use
+`deny_unknown_fields`), so a typo disappears without an error; diff against the
+skeleton and the per-field tables.
 
 ```jsonc
 {
-  "format_version": 1,                 // REQUIRED. Must be exactly 1.
-  "id": "my_level",                    // REQUIRED. Non-empty; menu key.
-  "name": "My Level",                  // REQUIRED. Non-empty; display name.
-  "author": "",                        // optional, default "".
-  "spawn": { "x": 2.0, "z": 5.0, "yaw_degrees": 0.0 },   // REQUIRED (x,z required)
+  "format_version": 1,                     // REQUIRED. Must be exactly 1.
+  "id": "my_level",                        // REQUIRED. Non-empty; menu key.
+  "name": "My Level",                      // REQUIRED. Non-empty; display name.
+  "author": "",                            // optional, default "".
 
-  "defaults": {                        // optional; see the warning below
+  "spawn": { "x": 2.0, "z": 5.0, "yaw_degrees": 0.0 },  // x, z REQUIRED; yaw default 0.0
+
+  "defaults": {                            // optional block; see the warning below
     "wall": "core:wallpaper_yellow_01",
     "floor": "core:carpet_beige_01",
     "ceiling": "core:ceiling_panel_01"
   },
 
-  "rooms": [                           // floors + ceilings only; no implicit walls
-    { "x": 0.0, "z": 0.0, "width": 9.0, "depth": 7.0, "height": 2.7 }
+  "rooms": [                               // floors + ceilings only; no implicit walls
+    {
+      "x": 0.0, "z": 0.0,                  // optional, default 0.0 each
+      "width": 9.0, "depth": 7.0,          // REQUIRED, > 0
+      "height": 2.7,                       // optional, default 4.0
+      "floor_y": 0.0,                      // optional, default 0.0
+      "ceiling": { "kind": "flat" },       // optional, default flat
+      "material": "core:carpet_beige_01",  // optional, default defaults.floor
+      "ceiling_material": "core:ceiling_panel_01" // optional, default defaults.ceiling
+    }
   ],
 
   "walls": [
-    { "x": 0.0, "z": 0.0, "width": 9.0, "depth": 0.3,
-      "openings": [ { "kind": "door", "offset": 2.0, "width": 1.2,
-                      "height": 2.1, "sill": 0.0 },
-                    { "kind": "window", "offset": 5.0, "width": 2.0,
-                      "height": 1.3, "sill": 1.7,
-                      "glass": "core:glass_window_clear_01" } ] }
+    {
+      "x": 0.0, "y": 0.0, "z": 0.0,        // x, z REQUIRED; y default 0.0
+      "width": 9.0, "depth": 0.3,          // REQUIRED, > 0
+      "height": 2.7,                       // optional: omitted follows the local ceiling
+      "material": "core:wallpaper_yellow_01",          // optional, default defaults.wall
+      "faces": { "north": "core:wallpaper_stained_01" }, // optional per-face overrides
+      "openings": [
+        {
+          "kind": "door",                  // optional, default "door"; free string
+          "offset": 2.0,                   // REQUIRED
+          "width": 1.2,                    // REQUIRED
+          "height": 2.1,                   // REQUIRED
+          "sill": 0.0,                     // optional, default 0.0
+          "glass": "core:glass_window_clear_01"  // optional; absent = bare hole
+        }
+      ]
+    }
   ],
 
-  "floor_patches": [                   // material-only overlays (no elevation)
+  "floor_patches": [                       // material-only overlays (no elevation)
     { "x": 3.0, "z": 5.0, "width": 2.0, "depth": 1.5,
-      "material": "core:carpet_damp_01" }
+      "material": "core:carpet_damp_01" }  // all five fields REQUIRED
   ],
 
-  "floor_regions": [                   // recesses / raised platforms
-    { "x": 2.0, "z": 2.0, "width": 4.0, "depth": 3.0,
-      "offset_y": -1.5,
-      "material": "core:pool_tile_basin_01",
-      "edge_material": "core:pool_tile_wall_01" }
+  "floor_regions": [                       // recesses / raised platforms
+    {
+      "x": 2.0, "z": 2.0, "width": 4.0, "depth": 3.0,  // REQUIRED
+      "offset_y": -1.5,                    // optional, default 0.0
+      "material": "core:pool_tile_basin_01",           // optional
+      "edge_material": "core:pool_tile_wall_01"        // optional
+    }
   ],
 
   "decals": [
-    { "x": 4.5, "z": 2.0, "width": 0.9, "height": 0.9,
-      "material": "core:decal_no_diving_01", "surface": "floor" }
+    { "x": 4.5, "y": 0.0, "z": 2.0,        // x, z REQUIRED; y default 0.0
+      "width": 0.9, "height": 0.9,         // REQUIRED, > 0, <= 10
+      "rotation_degrees": 0.0,             // optional, default 0.0
+      "material": "core:decal_no_diving_01",  // REQUIRED
+      "surface": "floor" }                 // REQUIRED enum
   ],
 
-  "ceiling_lights": [                  // ALL fixtures, ceiling- and wall-mounted
-    { "fixture": "core:fluorescent_panel_01", "x": 4.5, "z": 3.5,
-      "brightness": 0.7, "color": [1.0, 0.94, 0.82] }
+  "ceiling_lights": [                      // ALL fixtures, ceiling and wall; alias: "lights"
+    {
+      "fixture": "core:pool_light_wall",   // REQUIRED
+      "x": 0.15, "z": 13.0,                // REQUIRED
+      "rotation_degrees": 90.0,            // optional, default 0.0
+      "brightness": 0.7,                   // optional; alias "intensity"; default 1.0
+      "color": [0.55, 0.78, 1.0],          // optional; default [1.0, 0.96, 0.88]
+      "mount": "wall",                     // optional; default "ceiling"
+      "y": 1.9,                            // REQUIRED when mount is "wall"
+      "range": 6.0,                        // optional, default 6.0
+      "falloff": "smooth",                 // optional, default "smooth"
+      "enabled": true,                     // optional, default true
+      "emission": 0.7                      // optional; default = brightness
+    }
   ],
 
   "props": [
-    { "model": "core:desk", "x": 2.0, "z": 5.0, "rotation_degrees": 0.0,
-      "solid": true, "size": [1.6, 0.75, 0.7] }
+    {
+      "model": "core:desk",                // REQUIRED
+      "x": 2.0, "y": 0.0, "z": 5.0,        // optional, default 0.0; y is floor-relative
+      "rotation_degrees": 0.0,             // optional, default 0.0
+      "scale": 1.0,                        // optional, default 1.0, must be > 0
+      "size": [1.6, 0.75, 0.7],            // optional [w,h,d]; collision box, x scale
+      "solid": true,                       // optional, default false
+      "lights": [                          // optional, default []; max 8 per prop
+        {
+          "shape": "rect",                 // optional; default "point"
+          "half_width": 0.3, "half_depth": 0.05,  // used by "rect"
+          "length": 1.2,                   // used by "line"
+          "offset": [0.0, 0.9, 0.3],       // optional, default [0, 0, 0]
+          "rotation_degrees": 0.0,         // optional, default 0.0
+          "color": [0.55, 0.78, 1.0],      // optional; default [1.0, 0.96, 0.88]
+          "intensity": 0.15,               // optional; alias "brightness"; default 1.0
+          "range": 3.0,                    // optional, default 6.0
+          "falloff": "smooth",             // optional, default "smooth"
+          "enabled": true                  // optional, default true
+        }
+      ]
+    }
+  ],
+
+  "animated_emissions": [
+    {
+      "material": "core:glass_sign_lit_01",  // REQUIRED
+      "effect": "pulse",                   // optional; `pulse` or `flicker`; default pulse
+      "hz": 0.09,                          // optional; effect default when absent
+      "depth": 0.18,                       // optional; effect default when absent
+      "phase": 0.0                         // optional, default 0.0
+    }
   ]
 }
 ```
 
 Two collections are merged/legacy and should not be used in new maps except for
-compatibility: `room` (a single `RoomDef`, appended **after** `rooms`) and the catalog's
-legacy `props` array (see [Asset Catalog](#14-asset-catalog)).
+compatibility: `room` (a single `RoomDef`, resolved **after** the `rooms` array) and
+the catalog's legacy `props` array (see [Asset Catalog](#14-asset-catalog)).
 
 **Warning — the `defaults` gotcha.** If the `defaults` key is absent entirely, the
 engine uses `core:wallpaper_yellow_01` / `core:carpet_beige_01` /
-`core:ceiling_panel_01`. If you author `defaults`, author **all three keys**: an empty
-string material id is accepted and resolves to the *untextured* surface, not the
-default. Never leave a material id empty.
+`core:ceiling_panel_01`. If you author `defaults`, author **all three keys**: each
+missing key becomes the empty string, and an empty material id resolves to the
+*untextured white sheet*, not the built-in default. Never leave a material id empty.
+
+**Closed enums vs free strings.** Serde rejects the whole document at parse time when a
+*closed enum* field has an unknown value: `ceiling.kind`, `ridge`, `mount`, `falloff`,
+`shape` (prop light), and decal `surface`. Free strings are validated later by the
+loader or the renderer: opening `kind` (unknown names load), animated-emission
+`effect` (unknown names are a named validation error), and all logical asset ids.
+A misspelled enum is a parse error, not a silently ignored key.
 
 **Where levels live.** `assets/levels/*.json` ships with the game;
-`levels/*.json` and `levels/*.zip` are drop-in packs. Both appear in the Level Select
-menu. `tests/fixtures/levels/` is for engine regression fixtures and is never packaged.
-A level that fails validation is skipped without a console line at discovery — boot it
-with `LIMINAL_LEVEL=<id>` to see the error.
+`levels/*.json` and `levels/*.zip` are drop-in packs (under the writable state root,
+normally next to the asset root). Both appear in the Level Select menu.
+`tests/fixtures/levels/` is for engine regression fixtures and is never packaged.
+A level file that fails to read, parse or validate is reported at discovery as
+`[levels] skipping {path}: {reason}`, so check the console rather than assuming it is
+absent. `LIMINAL_LEVEL=<id>` boots a specific level and prints validation errors
+verbatim.
 
-### Level limits (validation)
+### Level limits
 
-| Limit | Value |
-| --- | --- |
-| Rooms | ≤ 500 |
-| Walls | ≤ 5000 |
-| Ceiling lights | ≤ 5000 |
-| Props | ≤ 5000 |
-| Decals | ≤ 5000; each edge ≤ 10 m |
-| Floor regions | ≤ 2000 |
-| Room dimensions | width/depth ≤ 2000 m, height ≤ 50 m |
-| Estimated floor area | ≤ 1 000 000 m² |
-| Estimated generated vertices | ≤ 2 000 000 |
-| Distinct prop models placed | ≤ 256 |
-| Summed baked prop vertices | ≤ 1 500 000 |
+The engine enforces several independent caps. Only some of them reject a level:
+read the "Enforced as" column carefully.
 
-These are enforced by `src/loader.rs` at load time with named rejection messages.
+| Limit | Value | Enforced as |
+| --- | --- | --- |
+| Rooms (`rooms` + legacy `room`) | ≤ 500 | Loader rejection: `Level contains too many rooms: …` |
+| Walls | ≤ 5000 | Loader rejection |
+| Ceiling lights | ≤ 5000 | Loader rejection |
+| Props | ≤ 5000 | Loader rejection |
+| Decals | ≤ 5000 | Loader rejection |
+| Decal edge (`width`, `height`) | ≤ 10 m | Loader rejection |
+| Floor regions | ≤ 2000 | Loader rejection |
+| Floor patches | ≤ 2000 | Loader rejection |
+| Openings per wall | ≤ 64 | Loader rejection on that wall |
+| Room width/depth | ≤ 2000 m | Loader rejection per room |
+| Room height | ≤ 50 m | Loader rejection per room |
+| Gable `ridge_rise` | ≤ 50 m, and > 0 | Loader rejection per room |
+| Estimated floor area | ≤ 1 000 000 m² | Loader rejection (its own estimate, computed from room rectangles) |
+| Estimated generated vertices | ≤ 2 000 000 | Loader rejection (its own upper-bound estimate) |
+| Standalone level JSON file size | ≤ 8 MiB (`8 * 1024 * 1024` bytes) | Rejected before parsing; the embedded fallback demo is exempt |
+| ZIP pack: entries / entry size / total uncompressed | ≤ 500 entries / ≤ 10 MB per entry / ≤ 50 MB total | Pack rejected while reading |
+| Distinct prop models placed | ≤ 256 | **Not a rejection:** later placements draw placeholder boxes |
+| Summed prop vertices (after instancing) | ≤ 1 500 000 | **Not a rejection:** further placements draw placeholder boxes |
+
+The prop-model caps (triangles, vertices, primitives, materials, images, texture edge)
+are listed in [Props and Models](#16-props-and-models); an over-budget *model* falls
+back to a placeholder box with a one-time `[props]` warning.
 
 ---
 
@@ -338,7 +441,7 @@ These are enforced by `src/loader.rs` at load time with named rejection messages
 | `author` | string | no | `""` | Display metadata only. |
 | `spawn.x` | number | **yes** | — | World X. Must be finite. |
 | `spawn.z` | number | **yes** | — | World Z. Must be finite. |
-| `spawn.yaw_degrees` | number | no | `0.0` | 0 = north (−Z), +90 = east (+X). |
+| `spawn.yaw_degrees` | number | no | `0.0` | 0 = north (−Z), +90 = east (+X). Must be finite when present. |
 
 Known-valid header (from Places Demo):
 
@@ -357,7 +460,8 @@ Known-valid header (from Places Demo):
   height 1.6 over the void. Always check this yourself.
 * Default material ids if `defaults` is omitted:
   wall `core:wallpaper_yellow_01`, floor `core:carpet_beige_01`,
-  ceiling `core:ceiling_panel_01`.
+  ceiling `core:ceiling_panel_01`. If `defaults` is present, author all three keys
+  (see the warning in section 5).
 
 ---
 
@@ -408,13 +512,14 @@ A gable ceiling with the ridge running along X and a 2 m rise above the eave:
 { "kind": "gable", "ridge": "x", "ridge_rise": 2.0 }
 ```
 
-* Tagged enum: `kind` is `"flat"` or `"gable"`.
+* Tagged enum: `kind` is `"flat"` or `"gable"`; an unknown `kind` is a JSON parse error.
 * `ridge` is the axis the ridge runs **along**: `"x"` leaves the ridge constant in X
   and slopes the ceiling along Z; `"z"` is the mirror case. The ridge sits at the
   footprint midpoint of the perpendicular axis.
-* `ridge_rise` is metres above the eave, `> 0`, `≤ 50`.
-* Gable ceilings are real sloped geometry (two slopes with a ridge cut line). A wall
-  whose `height` is omitted follows the local ceiling, including splitting at a
+* `ridge_rise` is metres above the eave; it must be finite, `> 0` and `≤ 50`, or the
+  level is rejected (`Room {i} ceiling ridge rise …`).
+* Gable ceilings are real sloped geometry (two slopes meeting at a ridge cut line). A
+  wall whose `height` is omitted follows the local ceiling, including splitting at a
   crossing ridge; a wall with an authored `height` is rigid and can poke through.
 * Gable-end walls follow the slope unless they author their own height.
 * **No decals on gable ceilings** and no ceiling openings.
@@ -424,11 +529,13 @@ A gable ceiling with the ridge running along X and a 2 m rise above the eave:
 Overlapping rooms are legal and sometimes intentional (they are how stacked storeys
 and vertical features are built). Two different ownership rules apply:
 
-* **Geometry, collision and the walkable floor** use the **first room in `rooms`
-  order** whose footprint contains the point (0.01 m tolerance). If several rooms
-  overlap, the earlier one wins.
-* **Baked lighting** uses the **smallest-area** room at that point, with a height hint
-  when the light authors a world `y`.
+* **Geometry, collision and the walkable floor** use the **first room in resolution
+  order** (`rooms` order, then the legacy `room` entry) whose footprint contains the
+  point (0.01 m tolerance). If several rooms overlap, the earlier one wins.
+* **Baked lighting** uses the **smallest-area** room at that point when no height hint
+  is authored; an authored light `y` first picks the room whose vertical air volume
+  contains that height, so a fixture on one storey does not lend its power to the
+  other. Ties break to the smaller area, then to the earlier room.
 
 Both floors/ceilings of an intentional overlap are emitted. This mismatch is a known
 design property, not a bug; keep overlapping footprints deliberate and minimal.
@@ -458,7 +565,7 @@ which almost always means an authored-by-centre mistake.
 | `height` | number | no | follows the local ceiling | Authored height above `y`. Omitted = the wall top follows the room ceiling (gable-aware). Authored = rigid. |
 | `material` | string | no | `defaults.wall` | Object-level material for the wall's length faces. |
 | `faces` | object | no | `{}` | Per-face material overrides; wins over `material`. |
-| `openings` | array | no | `[]` | Rectangular cutouts; see [Openings](#9-openings). |
+| `openings` | array | no | `[]` | Rectangular cutouts (≤ 64 per wall); see [Openings](#9-openings). |
 
 **Axis, length, thickness.** A wall's **length axis** is the larger of `width`/`depth`
 (ties → X). Its **length** is that extent; its **thickness** is the other extent. So
@@ -473,7 +580,8 @@ Opening offsets are measured from the minimum corner (`x.min(x+width)`,
 each point — which is why an unheighted wall in a gable room follows the slope. A wall
 spanning two rooms of different ceiling heights follows the ceiling above each part.
 With `height` authored, the wall is drawn exactly `y..y+height`, even through a
-ceiling or across rooms.
+ceiling or across rooms. Validation requires a positive finite `height` when it is
+present.
 
 **Face names.** Read the names as normals:
 
@@ -500,25 +608,46 @@ wall keeps office wallpaper while the pool side is tile):
   "faces": { "west": "core:wallpaper_yellow_01" } }
 ```
 
+### Fixed wall shading
+
+The renderer folds a small fixed directional shade into every wall face, before baked
+light is applied. It is not authorable and applies on both the lightmapped and the
+vertex-lit path, so it is worth knowing when comparing two walls:
+
+| Surface | Multiplier |
+| --- | --- |
+| Wall face with normal −Z (north) | 1.00 |
+| Wall face with normal +Z (south) | 0.88 |
+| Wall face with normal −X (west) | 0.84 |
+| Wall face with normal +X (east) | 0.94 |
+| Door/window jamb reveal | 0.78 |
+| Door/window header reveal | 0.92 |
+| Bottom of a wall face | ×0.92 of its face value |
+| Top of a wall face | ×1.05 of its face value |
+
 ### Avoiding duplicate coplanar surfaces
 
-This is the single most common geometry failure. Two walls that share a plane and
-overlap in length **and** height physically duplicate a surface; the renderer
-coalesces them, the last covering member's material wins along each
-(length × height) cell, and end caps buried inside another wall are clipped. That
-prevents most z-fighting but it is not a licence to duplicate:
+This is the single most common geometry failure. Two walls that share a plane,
+thickness and vertical span and overlap in length **and** height are resolved into one
+emission unit: the group's solid profile is unioned and its surfaces carry material
+runs, where the **last covering wall in authored order owns each length×height cell**;
+hidden end caps and reveals are clipped. That prevents most z-fighting but it is not a
+licence to duplicate:
 
 * Never place two walls with the same footprint or the same length-face plane
-  "because it renders the same". Overlap makes materials ambiguous and can surface
-  as flicker at angles.
+  "because it renders the same". Overlap makes materials ambiguous and can surface as
+  flicker at angles.
 * Never continue a wall by starting a second wall at the same base/height over a
-  different length without reason; the renderer will merge them, but authored
-  overlap is fragile.
+  different length without reason; the renderer will merge them, but authored overlap
+  is fragile.
 * Wall end caps/reveals are clipped against abutting walls; a wall end buried in
   another wall contributes nothing visible.
-* The surface audit (`cargo test surface_audit`) only checks Places Demo and fixed
-  cases. There is no general z-fighting detector for your level; inspect junctions
-  manually and keep one physical wall per surface.
+* A coalesced group emits one **pane per authored opening**, so two coincident walls
+  with the same `glass` opening each draw their own pane. Author each physical wall
+  once.
+* The surface audit (`cargo test surface_audit`) checks Places Demo and fixed cases.
+  There is no general z-fighting detector for your level; inspect junctions manually
+  and keep one physical wall per surface.
 
 ---
 
@@ -529,12 +658,12 @@ are the same rectangle; `kind` only changes labels and one lighting behavior.
 
 | Field | Type | Required | Default | Semantics |
 | --- | --- | --- | --- | --- |
-| `kind` | string | no | `"door"` | Free string; documented spellings `door`, `window`, `passage`, `vent`. Unknown strings load (forward compatibility). |
+| `kind` | string | no | `"door"` | Free string; documented spellings `door`, `window`, `passage`, `vent`. Unknown strings load (forward compatibility) but are not doors for lighting. |
 | `offset` | number | **yes** | — | Distance along the wall's length axis from the min corner to the opening's near edge; `≥ 0`. |
 | `width` | number | **yes** | — | Cut width along the wall; `> 0`; `offset + width ≤ length` (tolerance 1e-3) or the level is rejected. |
 | `height` | number | **yes** | — | Cut height above the sill; `> 0`. |
 | `sill` | number | no | `0.0` | Bottom edge above the wall's base (`wall.y`); `≥ 0`. `0.0` reaches the floor. |
-| `glass` | string | no | — | Material id of a pane filling the aperture. Absent = the historical bare hole. See [Panes](#panes-glass-grilles-and-screens). |
+| `glass` | string | no | — | Material id of a pane filling the aperture. Absent (or blank) = the historical bare hole. See [Panes](#panes-glass-grilles-and-screens). |
 
 ```text
    X-axis wall: footprint (x .. x+width) by (z .. z+depth)
@@ -554,8 +683,10 @@ are the same rectangle; `kind` only changes labels and one lighting behavior.
 ### Door
 
 A walk-through hole when `sill: 0.0`. `kind: "door"` (and `"passage"`) also get the
-bounded **doorway baseline light blend** between the connected rooms, but only when
-the opening's bottom reaches the lower of the two connected floors.
+bounded **doorway baseline light blend** between the connected rooms, but only when the
+opening's bottom reaches the lower of the two connected floors
+(`wall.y + sill <= min(floor of both sides) + 1e-3`). A raised-sill door on a raised
+wall base does not blend.
 
 ```json
 { "kind": "door", "offset": 2.85, "width": 1.2, "height": 2.1, "sill": 0.0 }
@@ -619,20 +750,21 @@ low service openings.
   rectangle from the wall solid; headers never block a walking player, and a sill
   above foot height blocks. There is no separate collision toggle.
 * **Lighting transmits pools through every kind of hole**, but only `door`/`passage`
-  that reach the lower floor blend baselines.
-* **Openings are clamped to the wall and the local ceiling.** An opening larger than
-  the wall can remove it entirely; an opening whose vertical span misses the wall
-  entirely is accepted by validation and silently does nothing.
+  openings whose bottom reaches the lower floor blend baselines; `window` and `vent`
+  never do.
+* **Openings are clamped to the wall footprint and the local ceiling.** An opening
+  larger than the wall can remove it entirely; an opening whose vertical span misses
+  the wall entirely is accepted by validation and silently does nothing.
 * **Rejections** name the problem: `Wall {i} opening {j} starts before the wall`,
   `… cannot have a negative sill height`, `… must have a positive width and height`,
   and `Door/Window opening extends beyond this wall (wall {i}: opening ends at {x} m,
-  wall is {y} m long)`.
+  wall is {y} m long)`. A wall with more than 64 openings is rejected
+  (`Wall {i} has too many openings: …`).
 * **Doorway thresholds**: adjacent rooms meeting at a doorway should have their
   floors meet at the wall's centre plane. The renderer subtracts floor coverage from
   wall caps so the two floors jointly cover the threshold exactly once. Do **not**
   author a sill-top surface that is coplanar with a floor; express a raised
-  threshold as a floor region instead. This was a real z-fighting bug
-  (commit `1783828`).
+  threshold as a floor region instead.
 * **Windows/vents do not connect baselines**, so a room lit only through a window
   stays at its own baseline + the pool that physically passes through the aperture.
 
@@ -648,9 +780,10 @@ low service openings.
 
 All five fields are required. A patch changes the floor material of an area with no
 elevation change. Later patches win over earlier ones, and a floor region's own
-material wins over patches. **Patches are not validated** (no dimension/count checks,
-no room-overlap requirement); malformed values are skipped at build time. Keep them
-inside a room and well-formed.
+material wins over patches. Patches are counted against the 2000-patch cap, but
+individual patches are **not dimension-validated**: malformed values are skipped at
+build time and a patch outside a room simply covers nothing. Keep them inside a room
+and well-formed.
 
 ### `floor_regions` — recesses and raised platforms
 
@@ -666,22 +799,21 @@ inside a room and well-formed.
 | `x`, `z` | number | **yes** | — | Minimum corner. |
 | `width`, `depth` | number | **yes** | — | `> 0`. |
 | `offset_y` | number | no | `0.0` | Offset from the **containing room's `floor_y`**: negative recesses, positive raises. |
-| `material` | string | no | room floor material | Region floor material. |
-| `edge_material` | string | no | `defaults.wall` | Vertical transition (skirt) material. |
+| `material` | string | no | room floor material | Region floor material; if present it must be a non-empty id. |
+| `edge_material` | string | no | `defaults.wall` | Vertical transition (skirt) material; if present it must be a non-empty id. |
 
 Rules that matter:
 
 * Regions are **not scoped to a room**: the same rectangle applies to every room it
   overlaps, resolved against that room's `floor_y`. The region's surface must stay
-  below each overlapping room's eave or the level is rejected
+  below every overlapping room's eave or the level is rejected
   (`Floor region {i} sits at or above the ceiling of room {r}`), and a region that
   overlaps no room is rejected (`Floor region {i} lies outside every room section`).
 * **Last authored region wins** per point, like patches. Overlapping regions are
   legal; they create their own skirts at their edges.
 * Regions generate real vertical transition faces (skirts). Always give recesses an
   `edge_material` — a missing one falls back to the wall default and can look like
-  unfinished space (this hid a real bug: a pool-basin wall once rendered as office
-  wallpaper).
+  unfinished space.
 * `offset_y: 0` is a legal region that only changes material (like a patch) and
   emits no skirt.
 
@@ -691,7 +823,9 @@ Rules that matter:
 rim** — solid from the lower side, and refused from the upper side. Staircases are
 chains of floor regions whose consecutive offsets differ by ≤ 0.4 m (Places Demo
 stair: 1.5 → 1.2 → 0.9 → 0.6 → 0.3 risers). This is what makes pool basins safe
-without fall physics.
+without fall physics. The rim's blocking face sits on the region boundary; the collider
+is a thin box extending 0.4 m under the higher floor so a sub-stepped move cannot
+tunnel through it.
 
 Places Demo: the lowered pool basin (room `floor_y` is −1.5):
 
@@ -724,7 +858,11 @@ The same room's walk-in step, one 0.35 m rise above the basin floor:
   promise a multi-storey building; use one continuous level with room-to-room
   elevation steps, as Places Demo does (office 0.0 → stair hall −1.5 → corridor −0.9).
 * **Light authors a storey**: when rooms share a footprint, an authored fixture `y`
-  selects the storey. Unauthored ceiling fixtures use the smallest containing room.
+  selects the storey (see [Rooms and lighting](#rooms-and-lighting)).
+* **Lightmaps and floors are tessellated**: floors and ceilings are cut into
+  roughly 2.5 m light grid cells (capped at 12 cells per axis) plus one cut line per
+  patch/region edge, so materials and baked light can vary across a large room. This
+  is automatic; there is nothing to author.
 
 ---
 
@@ -741,27 +879,34 @@ level JSON
                       └─ PNG file     assets/environment/office/textures/walls/wallpaper_yellow_01.png
 ```
 
-Materials are **definitions**, not files. A material entry carries:
+Materials are **definitions**, not files. A material entry may carry the fields below.
+All of them are validated when the catalog is parsed; a bad value rejects the whole
+catalog (with the asset id in the message), not just the field.
 
-| Field | Required | Default | Notes |
-| --- | --- | --- | --- |
-| `texture` | **yes** | — | Logical id of a `texture` asset that owns the PNG. |
-| `tile_metres` | no | `2.0` | World metres covered by one repeat, both directions. Range `0.05`–`64`. |
-| `tint` | no | `[1,1,1]` | Per-channel multiply, each `0.0`–`1.0`. |
-| `surface` | no | — | `wall`, `floor` or `ceiling`; documentation/validation only. Geometry decides which family a material draws on; a level may legally use any material on any surface. |
-| `emissive` | no | — | `[r, g, b]` (not hex), each `0.0`–`1.0`. Makes the surface read bright on its own; see [Emission](#emission-materials-that-glow). |
-| `emissive_intensity` | no | `1.0` when `emissive` is set | Multiplier for the emissive colour, `0.0`–`8.0`. |
-| `emissive_mask` | no | — | Logical id of a `texture` asset whose RGB restricts *where* the surface emits. Same rules as `texture` (must exist, file-backed, `.png`). |
-| `normal_texture` | no | — | Logical id of a `texture` asset holding a tangent-space normal map (RGB = x/y/z encoded `0..255 → -1..1`). Same rules as `texture`. See [Surface response](#surface-response-normal-specular-roughness). |
-| `normal_strength` | no | `1.0` | Multiplier on the decoded map's `xy`, `0.0`–`2.0`. Requires `normal_texture`. |
-| `specular` | no | `0.0` | Sheen strength, `0.0`–`1.0`. `0.0` is the pre-Batch-3 look; see [Surface response](#surface-response-normal-specular-roughness). |
-| `specular_color` | no | white | Optional `[r,g,b]` sheen colour (a metal catches its own colour). Requires `specular`. |
-| `roughness` | no | `0.6` | `0.0` mirror-tight sheen … `1.0` fully matte. Only matters when `specular` is set. |
-| `alpha_mode` | no | `opaque` | `opaque`, `cutout` or `blend`. See [Transparency](#transparency-alpha-modes). |
-| `reflection_mode` | no | `none` | `none`, `probe` or `planar`. See [Selective reflections](#selective-reflections-which-surfaces-reflect). |
-| `reflection_strength` | no | `0.45` | Weight of the reflected image, `0`–`1`. Requires `reflection_mode`. |
-| `opacity` | no | `1.0` | Multiplier on the sampled alpha, `0.0`–`1.0`. Requires an explicit `alpha_mode`. |
-| `alpha_cutoff` | no | `0.5` | Alpha below which a `cutout` texel is discarded. Requires an explicit `alpha_mode`. |
+| Field | Type | Default | Range / rule | Behaviour when omitted |
+| --- | --- | --- | --- | --- |
+| `texture` | string | — | **Required** for a `material`. A logical `texture` id that must resolve to a file-backed `.png`. Only a `material` may declare it. | A material without it is a catalog error. |
+| `tile_metres` | number | `2.0` | `0.05`–`64`. World metres covered by one repeat, both directions. Only a material may declare it. | Uses `2.0`, the historical sheet size. |
+| `tint` | `[r,g,b]` | `[1,1,1]` | Each channel `0.0`–`1.0`. Static multiply on the sampled texture. Only a material may declare it. | White; no tint. |
+| `surface` | string | none | `wall`, `floor` or `ceiling`. Documentation/validation only; geometry decides which family a material draws on, so any material may legally be used on any surface. | No surface tag. |
+| `emissive` | `[r,g,b]` | none | Each channel `0.0`–`1.0`. Adds an emissive term on top of baked light. Only a `material` `definition` may declare emission. | The surface does not emit. |
+| `emissive_intensity` | number | `1.0` when `emissive` is set | `0.0`–`8.0`. Multiplier on the emissive colour. Asserting it without `emissive` is a catalog error. | `1.0`. |
+| `emissive_mask` | string | none | Logical id of a file-backed `texture`. Its RGB modulates where the surface emits; it must resolve or the whole material degrades to the diagnostic texture. Asserting it without `emissive` is a catalog error. | No mask; the material's own texture modulates the glow. |
+| `normal_texture` | string | none | Logical id of a file-backed `texture` holding a tangent-space normal map (RGB = x/y/z encoded `0..255 → -1..1`). Must resolve or the whole material degrades. | No normal perturbation. |
+| `normal_strength` | number | `1.0` | `0.0`–`2.0`. Multiplies the decoded map's `xy`. Asserting it without `normal_texture` is a catalog error. | `1.0`. |
+| `specular` | number | `0.0` | `0.0`–`1.0`. Sheen strength. `0.0` is the pre-Batch-3 look. | No sheen. |
+| `specular_color` | `[r,g,b]` | white | Each channel `0.0`–`1.0`. Sheen colour; it does **not** require `specular`. With `specular: 0` the whole sheen term is zero, so the colour has no visible effect. | White sheen. |
+| `roughness` | number | `0.6` | `0.0` mirror-tight sheen … `1.0` fully matte. Shapes the sheen only; a material with `specular: 0` never sheens at any roughness. | `0.6`. |
+| `alpha_mode` | string | `opaque` (absent) | `opaque`, `cutout` or `blend`. An unknown value is a catalog error. | `opaque`. |
+| `opacity` | number | `1.0` | `0.0`–`1.0`. Multiplies the sampled alpha. Requires an explicit `alpha_mode`; only changes the image for `blend`, and shifts the threshold for `cutout`. | `1.0`. |
+| `alpha_cutoff` | number | `0.5` | `0.0`–`1.0`. Alpha below which a texel is discarded. Requires an explicit `alpha_mode`; only `cutout` uses it. | `0.5`. |
+| `reflection_mode` | string | `none` (absent) | `none`, `probe` or `planar`. An unknown value is a catalog error. See [Selective reflections](#selective-reflections-which-surfaces-reflect). | No reflection. |
+| `reflection_strength` | number | `0.45` | `0.0`–`1.0`. Weight of the reflected image. Asserting it without `reflection_mode` is a catalog error. | `0.45` when a mode is set. |
+
+Emission, surface-response, alpha and reflection fields are only valid on a
+`material` whose `source` is `definition`. A prop, texture, light or generated entry
+that authors any of them is a catalog error, because the renderer would never read
+them.
 
 Where a level can name a material (all resolved at load):
 
@@ -776,8 +921,7 @@ Where a level can name a material (all resolved at load):
 The renderer multiplies: **sampled texture × material tint × baked light**, where
 *baked light* is the lightmap atlas texel for static world geometry (see
 [Lighting](#18-lighting)) and the baked vertex colour on the vertex-lit fallback
-path.
-There is no gamma handling; the shipped art, tints and lighting constants were
+path. There is no gamma handling; the shipped art, tints and lighting constants were
 calibrated together in that space. Author with the tint in mind (the office wallpaper
 tint, for example, is `[0.85, 0.80, 0.42]`, so the PNG is authored pale).
 
@@ -790,11 +934,11 @@ how bright a surface reads        = material emission   (emissive x emissive_int
 how much a room is illuminated    = generic light sources (see section 18)
 ```
 
-The two are independent by construction. An emissive surface is added *on top of*
-the baked lighting, so it stays visibly bright in a dark room, and it never
-brightens anything around it: emission does not create light. Author an ordinary
-`light` on the object (or a fixture, or a prop-attached light) if the object should
-also illuminate the room.
+The two are independent by construction. An emissive surface is added *on top of* the
+baked lighting, so it stays visibly bright in a dark room, and it never brightens
+anything around it: **emissive materials do not cast light.** Author an ordinary
+fixture (`ceiling_lights`) or a prop-attached light (`props[].lights`) if the object
+should also illuminate the room.
 
 * **No mask**: emission is modulated by the material's own texture, so artwork shapes
   the glow (`emission = emissive x intensity x texture`).
@@ -804,24 +948,23 @@ also illuminate the room.
   as it always did.
 * **Fixture faces** are emission too: a placed fixture's visible face glows with its
   authored `color` and `emission` (which defaults to its `brightness`) and never takes
-  part in the room's baked light.
+  part in the room's baked light. See [Light Placement](#21-light-placement).
 
-Failure behavior: an unknown material id or a broken texture logs a
-`[materials] {level}: …` line and draws the shared magenta/black diagnostic texture.
-A level can load with a visibly broken surface; there is no silent substitution with
-unrelated art.
+Failure behavior: an unknown material id, a non-material id, a dangling texture, or a
+mask/normal map that cannot resolve logs a `[materials] {level}: …` line and draws the
+shared magenta/black diagnostic texture with **no** emission, response, alpha or
+reflection (the whole material degrades; a half-resolved material would be worse than
+an obvious placeholder).
 
 Never write a filesystem path where a logical id is expected. A path in `material`
 resolves to nothing and draws the diagnostic pattern.
 
----
-
 ### Surface response: normal, specular, roughness
 
-Batch 3 adds the smallest set of numbers that makes two surfaces read differently
-under the *existing* baked light. It is **not** a physically based model: there is
-no realtime light direction in the bake, so there is no highlighted specular to
-place, and nothing here samples the framebuffer.
+The surface-response set is the smallest set of numbers that makes two surfaces read
+differently under the *existing* baked light. It is **not** a physically based model:
+there is no realtime light direction in the bake, so there is no highlighted specular
+to place, and nothing here samples the framebuffer.
 
 ```text
 what a surface draws = texture x tint x baked light     (the historical term)
@@ -870,10 +1013,10 @@ vocabulary — bumps, grime, brushed streaks and panel seams, not sculpted detai
 
 ### Selective reflections: which surfaces reflect
 
-Batch 4 adds two deliberately limited ways for a surface to show the room back:
-a **static probe** (a small cubemap baked once per level load) and a **planar
-mirror** (a real second view of the level through the surface's own plane).
-Neither is a screen-space effect, and nothing reflects unless a material asks.
+Two authorable paths can show a surface the room back: a **static probe** (a small
+cubemap baked once per level load) and a **planar mirror** (a real second view of the
+level through the surface's own plane). Neither is a screen-space effect, and
+**nothing reflects unless a material asks** via `reflection_mode`.
 
 ```json
 { "id": "core:pool_deck_wet_01", "asset_type": "material", "source": "definition",
@@ -896,19 +1039,27 @@ Four properties are worth designing around:
   instead of mirroring. There is no separate "reflectivity" number to keep in
   step with the sheen, and `reflection_strength` is a weight on top (default
   `0.45`, maximum `1.0`).
-* **It is approximate.** A probe is a 64-texel-per-face cubemap — the shape of
-  the room, not a second render of it — and a planar reflection is drawn at half
-  resolution. Use them where the surface should read as wet, polished or
+* **It is approximate.** A probe is a 64-texel-per-face cubemap (32 on `Low`) — the
+  shape of the room, not a second render of it — and a planar reflection is drawn at
+  half resolution. Use them where the surface should read as wet, polished or
   mirrored, not where the player will compare the reflection with the room.
+* **Probes are clustered, and there are at most two.** Reflective probe geometry is
+  clustered by distance (a room-sized 12 m radius, area-weighted centroids), and only
+  the two largest clusters get a probe; the nearest probe is sampled per fragment.
+  A probe sits 1.2 m above the surface that asked for it.
 * **Mark only where it is worthwhile.** Planar reflections are the expensive
   half: at most one plane is drawn per frame, chosen as the nearest one whose
   geometry is on screen. Marking several walls will make them take turns. Places
-  Demo ships **one** planar surface (the wet pool deck) and one probe material
-  (polished linoleum); the brushed-metal panel is a probe.
-* **The surface must be flat and axis-aligned to work well as a mirror.** The
-  plane is derived from the emitted geometry at load; a material reused on a
-  curved or stepped surface is reported and skipped rather than reflected
-  wrongly.
+  Demo ships **one** planar surface (the wet pool deck) and two probe materials
+  (polished linoleum and brushed metal).
+* **The surface must be geometrically flat to work as a mirror.** The plane is
+  derived from the emitted geometry at load (all of a material's vertices must lie on
+  one plane); a material reused on a curved or stepped surface is reported
+  (`[reflections] material {n} marks a planar reflection but its geometry is not
+  planar; skipping that range`) and skipped rather than reflected wrongly. The
+  material keeps its sheen and loses only the mirror image. In practice a planar
+  material belongs on an axis-aligned floor, wall or ceiling pane; a probe is the
+  right choice for anything else.
 
 **Quality profiles.** `Full` draws the planar pass and 64-texel probes; `Low`
 draws the probes at 32 texels and never allocates a planar target. A material
@@ -916,34 +1067,6 @@ marked `planar` simply keeps its sheen and loses the mirror image on `Low`.
 
 Shipped examples: `core:pool_deck_wet_01` (`planar`, 0.4),
 `core:linoleum_polished_01` (`probe`, 0.4), `core:metal_brushed_01` (`probe`, 0.3).
-
-### Post-processing: bloom, exposure, fog and grading
-
-Batch 4 renders the scene into an offscreen colour+depth target and turns it into
-the display image in a final **resolve** pass. The HUD still draws afterwards on
-the default framebuffer, so nothing here touches the UI.
-
-| Stage | What it does | Full | Low |
-| --- | --- | --- | --- |
-| Bloom | Draws the world's **emissive term alone** at quarter resolution, blurs it and adds it back | yes | no |
-| Exposure / tone | A gentle shoulder above `0.75`: everything below is untouched, only genuinely over-bright pixels roll off | yes | no |
-| Fog | Exponential-squared distance fog with a mild height term, in the world shader | yes | yes |
-| Grade | A barely-there saturation and contrast trim | yes (1.03 / 1.02) | no |
-
-Two consequences for authoring:
-
-* **Bloom follows emission, not brightness.** A brightly lit wall can never
-  bloom however bright its bake is; only a surface whose material (or fixture
-  face) emits does. If a fixture should glow, author emission on it — there is
-  no threshold to tune in the level.
-* **Fog is depth, not weather.** The shipped density gives about 4 % at 20 m,
-  15 % at 40 m and 63 % at the 100 m far plane, a little denser near the floor.
-  It is most visible down a long corridor or through the last doorway, and it
-  never turns a room smoky.
-
-`Low` presents the scene unfiltered (no bloom, no grade, no tone shoulder) and
-the renderer skips the resolve pass entirely, so `Low` costs what the pre-Batch-4
-presentation cost. Fog is in the world shader and applies to both profiles.
 
 ### Transparency: alpha modes
 
@@ -953,7 +1076,7 @@ The renderer decides which pass a surface lands in, and there are exactly three:
 | `alpha_mode` | Behaviour | Pass |
 | --- | --- | --- |
 | `opaque` (default) | The texture's alpha channel is ignored entirely. | Opaque: depth writes on, blending off. |
-| `cutout` | Texels below `alpha_cutoff` are discarded; the rest are written opaque. | Opaque, through the alpha-tested fragment stage (a separate program, so the opaque pass keeps early depth testing). |
+| `cutout` | Texels below `alpha_cutoff` (after the `opacity` multiplier) are discarded; the rest are written opaque. | Opaque, through the alpha-tested fragment stage (a separate program, so the opaque pass keeps early depth testing). |
 | `blend` | The texel's alpha (texture alpha × `opacity`) blends the surface over what is behind it. | Translucent: after everything opaque, sorted back to front per spatial batch, depth *testing* on and depth *writing* off. |
 
 Consequences worth knowing:
@@ -973,6 +1096,8 @@ Consequences worth knowing:
 * A `blend` material with `opacity: 0` is invisible and is skipped entirely.
 * Transparency is alpha blending, not refraction: nothing bends, and the lighting
   bake still treats the aperture as an open hole (see the glazing note below).
+* GLB props are always drawn opaque: a prop's glTF `alphaMode` is not read. Only
+  level surfaces and fixture faces have material alpha.
 
 Authoring a transparent sheet is ordinary artwork: RGBA, with the alpha channel
 carrying the coverage (a grime film, a tint, a cut-out pattern). `tile_metres`
@@ -992,11 +1117,13 @@ one surface at the wall's centre plane. It is what turns "a hole in a wall" into
 * `glass` takes an **ordinary material id**, so the pane's tint, dirt, roughness,
   sheen, emission and alpha mode are the material's, not the opening's.
 * The pane is the opening's own rectangle: no frame, no thickness, one surface
-  seen from both sides. It is lightmapped exactly like the wall around it.
-* It is purely visual. Collision still follows the wall's solid slices (a raised
-  window still blocks), and the lighting bake still transmits through the
-  aperture as an open hole — glass does not darken the room behind it. Tint the
-  glass to imply that in the artwork.
+  seen from both sides. It is **not lightmapped**: its four corners sample the
+  baked light directly and fold it into the vertex colour, like a fixture face or a
+  prop.
+* Collision still follows the wall's solid slices (a raised window still blocks),
+  and the lighting bake still transmits through the aperture as an open hole —
+  glass does not darken the room behind it. Tint the glass to imply that in the
+  artwork.
 * Any alpha mode works. `blend` gives real glass; `cutout` gives a grille,
   mesh or screen with holes in it (`core:grille_vent_01` is a transfer grille,
   authored on a `vent` opening above Places Demo's office door); `opaque` gives a
@@ -1006,7 +1133,58 @@ one surface at the wall's centre plane. It is what turns "a hole in a wall" into
 
 Shipped glass materials: `core:glass_window_clear_01`, `core:glass_window_dirty_01`,
 `core:glass_tinted_01`, `core:glass_sign_lit_01` (translucent + emissive),
+`core:glass_sign_flicker_01` (the same sheet, meant for `animated_emissions`), and
 `core:grille_vent_01` (cut-out).
+
+### Post-processing, fog and grading are engine-global
+
+Bloom, the tone shoulder, distance fog and the colour grade are **not level
+properties**. They are built from the quality profile (`src/render/postprocess.rs`,
+`src/render/atmosphere.rs`) and there is no level key, material field or room field
+that authors them. Two consequences are still useful to a map author:
+
+* **Bloom follows emission, not brightness.** Only a surface whose material (or
+  fixture face) emits blooms; a brightly lit wall never does, because the bloom pass
+  draws the emissive term alone. If a fixture should glow, author emission on it.
+* **Fog is depth, not weather.** The shipped density gives about 4 % at 20 m,
+  15 % at 40 m and 63 % at the 100 m far plane, a little denser near the floor. It is
+  most visible down a long corridor, and it never turns a room smoky.
+* `Full` draws the full resolve (bloom at quarter resolution, tone shoulder, grade);
+  `Low` presents the scene unfiltered and keeps only the fog, which lives in the
+  world shader.
+
+### Level packs: `materials.json`
+
+A `.zip` pack may ship material definitions and textures. A pack material is named
+with a `pack:` id (e.g. `pack:lobby_wall`); a pack **cannot shadow a catalog id**, and
+a level references the pack id exactly like any other material id.
+
+`materials.json` accepts either a top-level object of definitions or one nested under
+`"materials"`. Each value is either a string (the texture path — the shorthand, which
+is emission-free and has no response/alpha fields) or an object:
+
+| Key | Meaning |
+| --- | --- |
+| `texture` (aliases `file`, `diffuse`) | Pack-relative path or a logical catalog texture id. Required on the object form. |
+| `tile_metres`, `tint` | As in the catalog; malformed values are discarded and the default applies. |
+| `emissive`, `emissive_intensity`, `emissive_mask` | As in the catalog; the mask may be a pack path or a catalog texture id. |
+| `normal_texture`, `normal_strength` | As in the catalog; pack path or catalog texture id. |
+| `specular`, `specular_color`, `roughness` | As in the catalog. |
+| `alpha_mode`, `opacity`, `alpha_cutoff` | As in the catalog. |
+| `reflection_mode`, `reflection_strength` | Accepted, but see the limitation below. |
+
+A texture path inside the pack is looked up with tolerant aliasing
+(`textures/<name>.png`, `<name>.png`, `textures/<name>`, `<name>`), so a pack may lay
+its files out either way. Unknown keys are ignored and malformed values fall back to
+defaults; malformed `materials.json` yields no definitions at all (the pack's
+`pack:` ids then fall back to the direct-name lookup).
+
+**Known limitation — reflection settings on pack artwork.** A pack material whose
+opaque `texture` is a **logical catalog texture id** keeps its
+`reflection_mode`/`reflection_strength`. A pack material that ships its **own PNG**
+applies emission, sheen and alpha but currently drops the reflection settings
+(`reflection_mode` has no effect). Plan reflective pack surfaces to reuse a catalog
+texture, or accept the sheen without a reflection.
 
 ## 12. Textures
 
@@ -1020,10 +1198,10 @@ listed at the end of this section — they are exceptions, not the authoring pat
 
 | Property | Value |
 | --- | --- |
-| File format | **PNG only.** Signature-checked; RGB, RGBA, grayscale, grayscale+alpha, palette (with/without `tRNS`) all normalise to 8-bit RGBA; 16-bit is stripped to 8-bit. |
-| Hard edge limit | **1024 px** on either edge, enforced for every PNG (surfaces, decals, fixtures, pack textures): `texture dimensions {w}x{h} exceed the 1024x1024 limit`. |
+| File format | **PNG only.** Signature-checked; RGB, RGBA, grayscale, grayscale+alpha and palette (with/without `tRNS`) all normalise to 8-bit RGBA; 16-bit is stripped to 8-bit. |
+| Hard edge limit | **1024 px** on either edge, enforced by the runtime decoder for every PNG (surfaces, decals, fixtures, pack textures, embedded GLB images): `texture dimensions {w}x{h} exceed the 1024x1024 limit`. |
 | Preferred edge | **256 px** — a soft tooling/policy warning, not a runtime error. |
-| Surface sheets | **Square** (both edges equal); otherwise a `tile_metres` cell would stretch. |
+| Surface sheets | **Square** (both edges equal) per shipped-asset policy; the runtime accepts another shape, but a `tile_metres` cell would stretch. |
 | Decal sheets | **Power-of-two on both edges** (mipmapped fitted sampling; POT is the shipped-asset policy). |
 | Fixture faces | **Power-of-two on both edges** likewise. |
 | Decoded surface budget | ≤ 4 MiB RGBA8 per sheet (one 1024×1024 sheet is exactly 4 MiB). |
@@ -1065,8 +1243,10 @@ edge budget per texture class:
 * The source hard limit (1024 px) is unchanged by either profile: quality only decides
   how much of an accepted source reaches the GPU.
 * The **lightmap atlas** is baked light data, not shipped artwork (see
-  [Textures](#12-textures)): the same level bakes at the profile's density, so Low
-  needs no separate level or hand-authored lightmap set.
+  [Baked lightmaps](#baked-lightmaps)): the same level bakes at the profile's density,
+  so Low needs no separate level or hand-authored lightmap set.
+* Do **not** author a separate level or asset set for Low. Both profiles run the same
+  level content.
 
 An author does not need to do anything differently for Low: ship the sane source
 size and let the engine fit it.
@@ -1122,16 +1302,16 @@ entry.)
 | Resource | Where | Purpose |
 | --- | --- | --- |
 | Missing-texture diagnostic (64×64 magenta/black) | `src/materials/image.rs` | Visible fallback for any broken surface/decal/fixture texture. |
-| Generated decal atlas (256×256; only `core:decal_test_01`) | `src/render/decals.rs` | Internal validation marking; the three external decal sheets are ordinary PNGs. |
+| Generated decal atlas (256×256; only `core:decal_test_01`) | `src/render/decals.rs` | Internal validation marking; the external decal sheets are ordinary PNGs. |
 | White sheet (2×2) | `src/render.rs` | Untextured geometry (fixture housings, UI quads). |
 | HUD font atlas (128×64) | `src/font.rs` | Project-owned bitmap UI font. |
 | Lightmap atlas (up to two pages, quality-profile sized) | `src/lighting/lightmap/` | Baked *light data*, derived at level load from the level's own lights and geometry — the texel equivalent of the baked vertex colours it replaces. Not authored artwork, and deliberately not shipped as PNGs: it changes whenever a light, prop or surface moves, and it is regenerated (never re-saved) on load. |
 
 Everything else the renderer draws from an image comes from a PNG under `assets/`.
 Every *surface, fixture, decal and prop texture* is still a real PNG asset under
-`assets/`, including the lightmaps' albedo partners; the lightmap atlas is the
-only thing the renderer samples that is generated at runtime, and it is lighting
-data rather than texture artwork.
+`assets/`, including the lightmap's albedo partners; the lightmap atlas is the only
+thing the renderer samples that is generated at runtime, and it is lighting data
+rather than texture artwork.
 
 ### Texture budget summary
 
@@ -1200,7 +1380,7 @@ never paths; the catalog maps an id to its class, theme, type and resource.
 Only `id`, `asset_class` and `asset_type` are required on an entry. Unknown JSON
 fields are ignored; a JSON *type* error in a field like `size` or `tint` rejects the
 whole document. `format_version` is parsed and currently ignored (no version check
-anywhere).
+anywhere). `display_name` has a legacy alias `name`.
 
 ### Entry field reference
 
@@ -1208,13 +1388,12 @@ anywhere).
 | --- | --- | --- | --- | --- |
 | `id` | string | **required** | — | all. Non-empty; characters `[A-Za-z0-9:_.-]`, may not start with `:`. Duplicates are a catalog error. |
 | `display_name` | string | optional | legacy `name`, then the id | all |
-| `name` | string | optional | — | legacy alias for `display_name` |
-| `asset_class` | string | **required** | — | all. Validated slug; shipped: `environment`, `entity`, `core`, `diagnostic`. |
-| `theme` | string | optional | none (generic) | all. Organizational only. |
+| `asset_class` | string | **required** | — | all. Validated lower-case slug; shipped: `environment`, `entity`, `core`, `diagnostic`. Unknown classes parse in Rust but fail `validate.py`. |
+| `theme` | string | optional | none (generic) | all. Organizational only; must be a declared theme to satisfy `validate.py`. |
 | `asset_type` | string | **required** | — | all. Shipped: `prop`, `entity`, `material`, `texture`, `light`, `decal`. |
-| `source` | `"file"` \| `"definition"` \| `"generated"` | optional | inferred: `texture` → `definition`; else `model` → `file`; else `generated` | all |
-| `model` | string | type-specific | — | Resource path **relative to `assets/`**. `.glb` for props/entities; `.png` for file textures, file decals and file lights. Must not be declared by `generated`/`definition` entries. |
-| `size` | `[w,h,d]` | optional (validator requires it for placeables) | invalid values dropped; runtime fallback `[0.6, 0.9, 0.6]` | props, entities |
+| `source` | `"file"` \| `"definition"` \| `"generated"` | optional | inferred: `texture` → `definition`; else `model` → `file`; else `generated` | all. `file` requires a `model`; `generated` must not declare one; `definition` requires a `texture` and must not declare a `model`. |
+| `model` | string | type-specific | — | Resource path **relative to `assets/`**. `.glb` for props/entities; `.png` for file textures, file decals and file lights. Rejected if absolute, backslashed or containing `..`/empty components. |
+| `size` | `[w,h,d]` | optional (validator requires it for placeables) | invalid values dropped; runtime fallback `[0.6, 0.9, 0.6]` | props, entities. Used by editor/placeholder boxes; a level's own `size` overrides it for collision. |
 | `color` | `"#rrggbb"` | optional | `#8a8a8a` | props, entities (placeholder box + editor) |
 | `category` | string | optional | `"Other"` | props, entities (organizational) |
 | `solid` | boolean | optional | `false` | props, entities (catalog advisory; level `solid` controls collision) |
@@ -1222,22 +1401,33 @@ anywhere).
 | `texture` | string | **required for `material`** | — | materials. Logical id of a `texture` asset. Not allowed on other types. |
 | `tile_metres` | number | optional | `2.0` (`0.05`–`64`) | materials only |
 | `tint` | `[r,g,b]` | optional | `[1,1,1]` (channels `0`–`1`) | materials only |
+| `emissive` | `[r,g,b]` | optional | — | materials (`0`–`1` each; the anchor of the emission group) |
+| `emissive_intensity` | number | optional | `1.0` | materials (`0`–`8`; requires `emissive`) |
+| `emissive_mask` | string | optional | — | materials (logical file-backed texture id; requires `emissive`) |
 | `normal_texture` | string | optional | — | materials. Logical texture id of a tangent-space normal map. |
 | `normal_strength` | number | optional | `1.0` | materials (`0`–`2`; requires `normal_texture`) |
 | `specular` | number | optional | `0.0` | materials (`0`–`1`): sheen strength |
-| `specular_color` | `[r,g,b]` | optional | white | materials (requires `specular`) |
+| `specular_color` | `[r,g,b]` | optional | white | materials (`0`–`1` each; does not require `specular`, and has no visible effect without it) |
 | `roughness` | number | optional | `0.6` | materials (`0`–`1`): `0` tight sheen, `1` matte |
 | `alpha_mode` | string | optional | `opaque` | materials: `opaque` / `cutout` / `blend` |
-| `opacity` | number | optional | `1.0` | materials (`0`–`1`; requires `alpha_mode`) |
-| `alpha_cutoff` | number | optional | `0.5` | materials (`0`–`1`; requires `alpha_mode` = `cutout`) |
+| `opacity` | number | optional | `1.0` | materials (`0`–`1`; requires an explicit `alpha_mode`) |
+| `alpha_cutoff` | number | optional | `0.5` | materials (`0`–`1`; requires an explicit `alpha_mode`; only `cutout` uses it) |
 | `reflection_mode` | string | optional | `none` | materials: `none` / `probe` / `planar`. See [Selective reflections](#selective-reflections-which-surfaces-reflect) |
 | `reflection_strength` | number | optional | `0.45` | materials (`0`–`1`; requires `reflection_mode`) |
 | `entity_type` | string | optional | none | entities |
 | `description` | string | optional | none | all |
 | `tags` | array of strings | optional | `[]` | currently unused |
 
+A material's `texture` must name a declared, file-backed `texture` asset
+(`source: "file"`, `model` ending `.png`); `emissive_mask` and `normal_texture`
+follow exactly the same rule. A material may be declared before the
+texture it draws with, but never with a dangling reference: the catalog does a second
+pass after all entries exist, and any failure rejects the catalog.
+
 The loader also accepts the legacy `props` array (old flat registry) and merges it
-with `assets`; new content should use `assets` only.
+with `assets`; new content should use `assets` only. A legacy `props` entry may omit
+`asset_class`/`asset_type` (defaulted to `environment`/`prop`) and an entry with an
+empty id is skipped.
 
 ### Field examples
 
@@ -1273,8 +1463,11 @@ and the `hotel:` ids in the recipes are illustrative placeholders, not shipped i
 
 ### Catalog validation behavior
 
-* Rust runtime (permissive): unknown classes/types parse; malformed `size`/`color`
-  silently drop to fallbacks; duplicate ids are **rejected**.
+* Rust runtime (permissive): unknown classes/types parse; malformed `size` drops to
+  the fallback; malformed `color` drops to the fallback; duplicate ids are
+  **rejected**; a malformed material reference (missing texture, dangling texture,
+  emission without colour, response field on a non-definition, out-of-range numeric)
+  rejects the catalog and the whole catalog loads as empty.
 * `python3 tools/assets/validate.py` (strict): rejects unknown classes/types/sources,
   missing files, duplicate model paths, bad `surface` values, missing built-in
   `office`/`pool` themes, and levels that reference undeclared ids. Always run it.
@@ -1290,8 +1483,8 @@ new asset type is added, add a row here and update the referenced sections.
 | --- | --- | --- | --- | --- |
 | `prop` | Three-dimensional object | `model` = `.glb` under `assets/` | **Yes** — `props[].model` | levels, `prop_proxies.json` (derived) |
 | `entity` | A special placeable actor (currently `spooner-man`) | `model` = `.glb` | **Yes** — same prop pipeline | levels |
-| `material` | Surface appearance definition | `source: "definition"`, no file; names a `texture` | No | `defaults`, rooms, walls/`faces`, patches, regions |
-| `texture` | A surface PNG | `model` = `.png` | No | a `material`'s `texture` field |
+| `material` | Surface appearance definition | `source: "definition"`, no file; names a `texture` | No | `defaults`, rooms, walls/`faces`, patches, regions, opening `glass` |
+| `texture` | A surface PNG | `model` = `.png` | No | a `material`'s `texture`, `emissive_mask`, `normal_texture` |
 | `light` | A fixture's visible face PNG (the fixture's mesh family is code) | `model` = `.png` | No (levels name it in `ceiling_lights[].fixture`) | level fixture ids; `src/lighting/tuning.rs` fixture table |
 | `decal` | A surface marking sheet | `model` = `.png` (`source: "file"`), or `source: "generated"` for the internal test atlas | No (levels name it in `decals[].material`) | level decal placement |
 
@@ -1311,9 +1504,9 @@ embedded in the GLB; they are not separate catalog assets.
 * One **scene graph**: nodes may carry TRS/matrix transforms (composed down the
   hierarchy) and may reference meshes; one model may hold several meshes, several
   primitives per mesh, and one material per primitive.
-* Attributes: `POSITION` (required, vec3), `TEXCOORD_0` (required, vec2), `COLOR_0`
-  (optional, vec4; absent = white). Indices 8/16/32-bit, but every index must fit
-  16-bit addressing and the mesh is capped at 65 535 vertices.
+* Attributes: `POSITION` (required, vec3), `TEXCOORD_0` (required, vec2),
+  `COLOR_0` (optional, vec4; absent = white). Indices may be 8/16/32-bit, but every
+  index must fit 16-bit addressing and the assembled mesh is capped at 65 535 vertices.
 * Materials: `pbrMetallicRoughness.baseColorTexture` (optional — a material with no
   texture draws its `baseColorFactor` through the shared white sheet),
   `baseColorFactor`, `emissiveFactor`, `emissiveTexture`, and
@@ -1324,6 +1517,8 @@ embedded in the GLB; they are not separate catalog assets.
 * Still rejected (each with a descriptive message): skins, animations, morph targets,
   sparse accessors, non-triangle primitive modes, and any extension other than
   `KHR_materials_emissive_strength`.
+* A broken model, an over-budget model, an unknown id or a missing file never fails a
+  level: it draws a placeholder box instead (see [Fallback behavior](#fallback-behavior)).
 
 Rejections are reported once per model as
 `[props] {message} - using the catalogue placeholder box`; a broken model never
@@ -1346,56 +1541,53 @@ an unknown id) and the level keeps working.
 | Budget | Value |
 | --- | --- |
 | Triangles — preferred target | 500 |
-| Triangles — needs justification above | 800 (only `spooner-man` is allowlisted) |
+| Triangles — needs justification above | 800 (any exceedance is allowlisted explicitly in `src/props/tests.rs`) |
 | Triangles — shipped art budget (tooling hard max) | **1500** (`tools/props` refuses to build above it) |
 | Triangles — still loads, with an art-budget warning | above 1500, up to 6000 |
-| Triangles — engine hard ceiling | 6000 (`src/level.rs::MAX_PROP_TRIANGLES`; above it the model falls back to a box) |
-| Vertices per model | 65 535 |
+| Triangles — engine hard ceiling | 6000 (`MAX_PROP_TRIANGLES`; above it the model falls back to a box) |
+| Vertices per model | 65 535 (`MAX_PROP_VERTICES`) |
 | Primitives / materials / images per model | 32 / 16 / 16 |
 | Prop texture | 64×64 or 128×128 preferred; 256×256 shipped art max; engine ceiling 1024 (`MAX_PROP_TEXTURE_SIZE`), downscaled to the runtime budget at upload |
 | Materials per prop | one per primitive; a multi-material model costs one draw range per material per batch |
-| Distinct models per level | 256 |
-| Summed baked prop vertices per level | 1 500 000 |
+| Distinct models per level | 256 (fallback boxes beyond it) |
+| Summed baked prop vertices per level | 1 500 000 (fallback boxes beyond it) |
 
 The GLB tools in `tools/props/` emit and enforce the art budget; follow it. A model
 above the art budget may still load if the engine ceiling allows it, but it does not
-match the project's visual language and the shipped-asset tests will flag it.
+match the project's visual language and the shipped-asset tests will flag it. The
+budget helpers and the preview/build commands are documented in `tools/props/README.md`.
 
 ### Fallback behavior
 
-Unknown catalog id → placeholder box (neutral size fallback
-`[0.6, 0.9, 0.6]` m). Missing/malformed GLB or over-budget mesh → placeholder box plus
-a one-time `[props]` warning. More than 256 distinct models, or exhausting the level
-prop-vertex budget → later placements fall back to boxes.
+Unknown catalog id → placeholder box (neutral size fallback `[0.6, 0.9, 0.6]` m, but
+the catalog `size` is used for the placeholder when the level does not author one).
+Missing/malformed GLB, over-budget mesh, more than 256 distinct models, or exhausting
+the level prop-vertex budget → placeholder box plus a one-time `[props]` warning where
+a file was involved. `solid` is never affected by any of this.
 
 ### Adding a New Prop
 
 1. Build the model with the Python toolkit (the intended route):
-   * add `def build_<name>(p)` to `tools/props/parts/<module>.py` following the
-     commented exemplar `tools/props/parts/utility.py`, and register it in that
-     module's `PROPS` dict;
-   * a new module must be listed in `tools/props/parts/__init__.py`;
-   * use `p.set_texture(64|128)` and paint with `p.tex` (or `tex.auto`); build with
-     `p.box`/`p.cylinder`/`p.tube`/`p.plane`.
+   add a builder to `tools/props/parts/` and register it, following the module's
+   exemplar; a new module must be listed in `tools/props/parts/__init__.py`.
 2. Add the catalog entry under `assets[]`:
    `id`, `display_name`, `asset_class`, optional `theme`, `asset_type: "prop"` (or
    `"entity"`), `source: "file"`, `model` relative `.glb` path, `size` `[w,h,d]`,
    `color` `#rrggbb`, `category`, `solid`.
-3. Build it: `python3 tools/props/build.py --only core:your_prop`.
-4. Preview it: `python3 tools/props/preview.py --only core:your_prop` and inspect
-   `target/prop-previews/your_prop.png`.
+3. Build it with the toolkit (`tools/props/README.md`).
+4. Preview it and inspect the PNG.
 5. Validate:
    ```sh
    python3 tools/props/build.py --check
    python3 tools/assets/validate.py
-   cargo test --workspace
+   cargo test --workspace --all-features
    ```
-6. Refresh editor thumbnails if you want them: `python3 tools/props/build.py --thumbs`.
+6. Refresh editor thumbnails if you want them (toolkit flag in `tools/props/README.md`).
 
 A hand-authored GLB is accepted by the runtime if it satisfies the profile above, but
-the default `tools/props/build.py` run requires a registered Python builder for every
-catalogued placeable, and `cargo test` enforces the origin/scale/budget conventions.
-Do not modify `spooner-man` while authoring a map; it is a shipped entity.
+the default `cargo test` run enforces the origin/scale/budget conventions for every
+catalogued placeable. Do not modify `spooner-man` while authoring a map; it is a
+shipped entity.
 
 ---
 
@@ -1403,9 +1595,10 @@ Do not modify `spooner-man` while authoring a map; it is a shipped entity.
 
 A decal is a small decorative surface marking (a sign, a floor arrow, hazard stripes).
 It is **separate geometry** laid on an existing surface, not a material edit. Its
-depth handling is automatic: every decal is displaced 0.2 mm along its surface normal
-and drawn with a polygon offset, so it never fights its parent surface. Do not author
-epsilon offsets or per-decal depth tricks.
+depth handling is automatic: every decal is displaced
+`DECAL_SURFACE_OFFSET_M = 2.0e-4` m (0.2 mm) along its surface normal and drawn with a
+polygon offset (`glPolygonOffset(-1, -4)`, pulling it towards the camera), so it never
+fights its parent surface. Do not author epsilon offsets or per-decal depth tricks.
 
 | Field | Type | Required | Default | Semantics |
 | --- | --- | --- | --- | --- |
@@ -1415,7 +1608,7 @@ epsilon offsets or per-decal depth tricks.
 | `height` | number | **yes** | — | In-plane vertical size, `> 0`, `≤ 10` m. |
 | `rotation_degrees` | number | no | `0.0` | In-plane rotation about the surface normal. |
 | `material` | string | **yes** | — | A catalog `decal` id. |
-| `surface` | enum | **yes** | — | `floor`, `ceiling`, `wall_north`, `wall_south`, `wall_west`, `wall_east`. |
+| `surface` | enum | **yes** | — | `floor`, `ceiling`, `wall_north`, `wall_south`, `wall_west`, `wall_east`. An unknown value is a JSON parse error. |
 
 Rules:
 
@@ -1424,11 +1617,13 @@ Rules:
   (`Decal {i} spans a floor or ceiling height change …`). It may not straddle a
   recess edge or two rooms at different elevations.
 * **No decals on gable ceilings** (`Ceiling decal {i} targets a gable ceiling …`).
-* Keep decals inside the room that should light them; they receive that room's baked
-  lighting.
-* Unknown decal ids emit nothing (no error geometry).
+* Keep decals inside the room that should light them; their corners sample that room's
+  baked light. Decals are **not lightmapped**, and they have no emission term: an
+  `emissive` decal sheet does not glow.
+* Unknown decal ids emit nothing (no error geometry). `tools/assets/validate.py`
+  reports them as level errors, so the tool is the place to catch a typo.
 * Decal sheets are alpha cut-outs; background alpha 0. Artwork is visible where
-  alpha ≥ 0.5.
+  alpha ≥ 0.5 (`DECAL_ALPHA_CUTOFF`).
 
 Use a decal when you need a **local marking on an existing surface**: signs, arrows,
 hazard bands, stains that must be a specific shape. Use a material change (patch or
@@ -1458,13 +1653,23 @@ type, colour and brightness — there is no level- or room-wide lighting overrid
 Surface response, emission, reflections and post-processing are added on top of
 that bake; none of them is a light source (see section 11).
 
+**The two halves of a glowing object are separate authored values:**
+
+```text
+visible face brightness   <- the fixture's `emission` (default = `brightness`)
+illumination of the room  <- the fixture's `brightness`, only while `enabled: true`
+                             (or a prop's `props[].lights`)
+```
+
+Nothing about a fixture family, a prop model or a *material* creates light. An
+emissive material never casts light; a fixture face never lights a room by itself.
+
 ### The implemented lighting model
 
 Every light is a generic engine-level source: a **shape** (point, rectangle, line), a
 world position, an RGB colour, an intensity, a **range**, a **falloff** curve and an
 `enabled` flag. Visible fixtures and placed props are ordinary objects that *own* zero
-or more of these sources; nothing about a fixture family, prop model or material
-creates or implies a light. Adding a new glowing object never means adding a new light
+or more of these sources. Adding a new glowing object never means adding a new light
 family.
 
 ```text
@@ -1475,25 +1680,27 @@ sample = room/partition-area baseline
 ```
 
 1. **Room baseline.** Each room sums `intensity × height factor × colour` over the
-   fixtures it owns, spreads it over its floor area, log-compresses it and maps it
-   onto `[0.10, 1.0]`. A room with no fixtures sits at exactly the ambient `0.10`:
+   fixtures it owns, spreads it over its floor area, compresses the density and maps
+   it onto `[0.10, 1.0]`. A room with no fixtures sits at exactly the ambient `0.10`:
    unlit rooms are dark by design.
 2. **Partitions.** If opaque internal walls split a room's footprint into
    disconnected areas, each area gets **its own baseline** from the fixtures it can
    reach. A wall that stops short of the ceiling is not a partition; a door header
    separates while a doorway keeps a bounded blend; a window does not connect
-   baselines at all.
-3. **Local fixture pools.** Each fixture adds a bounded local pool (brightness ×
-   height factor × falloff), reaching up to 6 m and capped per channel. The pool is
-   computed from the fixture's luminous rectangle/disc, so being near a bright
-   fixture matters.
+   baselines at all. The connectivity probe runs 0.15 m below the ceiling, so a wall
+   must cross more than 0.75 m into the room before it is a partition candidate.
+3. **Local fixture pools.** Each fixture adds a bounded local pool
+   (`brightness × height factor × falloff`), evaluated over the fixture's own
+   `range` (default **6 m**, clamped to `0.05`–`64` m); the summed local
+   contribution is capped per channel at `0.45`. The pool is computed from the
+   fixture's luminous rectangle or disc, so being near a bright fixture matters.
 4. **Wall-boundary occlusion.** A pool only reaches what its fixture can see: light
    is tested against the exact wall solids. Doors, windows, passages and vents all
    transmit through exactly the hole they cut; a solid header/sill still blocks.
-5. **Doorway baseline transfer.** Only `door` and `passage` openings whose sill
+5. **Doorway baseline transfer.** Only `door` and `passage` openings whose bottom
    reaches the lower connected floor blend a bounded amount of the neighbour's
-   baseline through the aperture (radius 6 m, strength 0.5, fading above the header).
-   Windows and vents transmit pools only; they never blend baselines.
+   baseline through the aperture (radius 6 m, strength 0.5, fading over 1 m above the
+   header). Windows and vents transmit pools only; they never blend baselines.
 6. **Vertical isolation.** Floors and ceilings are light boundaries: stacked rooms do
    not light each other through a slab, in brightness or colour. A raised platform or
    lowered basin inside one room volume is not a barrier, and an open side of an upper
@@ -1513,7 +1720,7 @@ storage change, not an authoring one.
 * Density follows the quality profile: **Full** bakes 12 texels per metre onto up to
   two 1024-texel pages, **Low** bakes 8 texels per metre onto two 512-texel pages.
   Both profiles bake the same set of surfaces; faces longer than one chart are split
-  automatically.
+  automatically (chart span cap 63.75 m).
 * A chart's texels span their own patch: the first and last texel sit exactly on the
   patch's geometric edges. Adjacent coplanar surfaces therefore evaluate the *same*
   world point on a shared edge, so changing an albedo material across one continuous
@@ -1526,8 +1733,8 @@ storage change, not an authoring one.
 * If a bake cannot fit the page budget, or an atlas page cannot upload, the level
   rebuilds with `LightmapMode::Off` and draws exactly the old vertex-lit colours — a
   level never renders black because of a lightmap failure.
-* Fixtures, prop placeholder boxes and decals are always vertex-lit: their colour
-  keeps the baked light folded in, exactly as before.
+* Fixtures, prop placeholder boxes, decals and glass panes are always vertex-lit:
+  their colour keeps the baked light folded in, exactly as before.
 * Set `LIMINAL_DUMP_LIGHTMAPS=1` to write the baked atlas pages as PNGs under
   `target/agent-work/atlases/` for inspection.
 
@@ -1553,43 +1760,43 @@ was previously lighting straight through a machine now does not, and a prop that
 is *not* solid still occludes light (occlusion follows the drawn model, not the
 collision box).
 
-#### Dynamic objects (demonstration only in this batch)
+#### Dynamic objects (engine-created demonstration)
 
 The engine has a separate render path for objects whose transform changes every
 frame — moving components that must not be re-baked, re-batched or written into
-the static lightmap. In this batch it is proven by one object in Places Demo: a
-`core:washer_drum` turning in front of a placed `core:washing_machine` (the
-machine itself is an ordinary static prop and participates in the bake).
+the static lightmap. It is proven by one generated object: a `core:washer_drum`
+turning in front of every placed `core:washing_machine` (the machine itself is an
+ordinary static prop and participates in the bake).
 
-* Dynamic objects are engine-created, not authored in level JSON. A level cannot
-  place or drive one yet.
+* Dynamic objects are engine-created, not authored in level JSON. Placing a
+  `core:washing_machine` is the only way a level influences one.
 * They are lit by a single probe of the static bake at their current position
-  (no shadows, no realtime lights), which is the documented temporary behaviour
-  for Batch 3 to evolve.
+  (no shadows, no realtime lights).
 * Moving one never rebuilds geometry, batches or lightmaps.
 
 ### Animated emissions
 
 A level can make a surface's **emission** move over time: a backlit sign that
 breathes, a tube on a failing ballast. It is a level-level array, keyed by
-material id.
+material id. This is real content from `assets/levels/places_demo.json` (the
+`comment` keys shown there are ignored extras; they are omitted here):
 
 ```json
 "animated_emissions": [
-  { "material": "core:glass_sign_lit_01",    "effect": "pulse",   "hz": 0.09, "depth": 0.18 },
-  { "material": "core:glass_sign_flicker_01", "effect": "flicker", "hz": 7.5,  "depth": 0.6, "phase": 0.31 }
+  { "material": "core:glass_sign_lit_01",     "effect": "pulse",   "hz": 0.09, "depth": 0.18, "phase": 0.0 },
+  { "material": "core:glass_sign_flicker_01", "effect": "flicker", "hz": 7.5,  "depth": 0.6,  "phase": 0.31 }
 ]
 ```
 
 | Field | Meaning |
 | --- | --- |
-| `material` | the material whose emissive term animates; it must be a material the level uses |
-| `effect` | `pulse` (a slow sinusoid) or `flicker` (an occasional, bounded stutter). Defaults to `pulse` |
-| `hz` | cycles per second: at most `2` for a pulse and `24` for a flicker; each effect has its own default |
-| `depth` | how far the emission may fall below its authored value, at most `0.85` |
-| `phase` | a phase offset in cycles, so two signs do not breathe in lockstep |
+| `material` | the material whose emissive term animates. **Not validated against the materials the level uses**: an id that is not in the level's material table is silently ignored at render time. `validate.py` checks only that it is a well-formed id. |
+| `effect` | `pulse` (a slow sinusoid) or `flicker` (an occasional, bounded stutter). Omitted means `pulse`; an unknown name is rejected by the loader. |
+| `hz` | cycles per second, must be finite, `> 0` and `≤ 24` **for both effects**. A `pulse` above 2 Hz is accepted by the loader and then clamped to 2 Hz at render time; `validate.py` rejects it up front. Omitted uses the effect default (`pulse` 0.12, `flicker` 9.5). |
+| `depth` | how far the emission may fall below its authored value, must be finite, `> 0` and `≤ 0.85`. Omitted uses the effect default (`pulse` 0.22, `flicker` 0.55). |
+| `phase` | a phase offset in cycles, so two signs do not breathe in lockstep; must be finite. Default `0.0`. |
 
-Three things to know:
+Four things to know:
 
 * **Emission only.** The animation scales the additive emissive term. The baked
   illumination is static by design, so a flickering panel keeps lighting the room
@@ -1602,25 +1809,28 @@ Three things to know:
   phase of a running animation — only `LIMINAL_CAPTURE_FRAME=1` does.
 * **Subtle by default.** `depth` is how *far down* the emission goes, so a pulse
   at `0.18` is a 9 % average drop and a flicker at `0.6` stutters to 40 % about a
-  tenth of the time. Places Demo ships one slow pulse (its backlit signs) and one
-  flicker (a single sign on the north pool wall).
+  tenth of the time.
+* **Unknown-material entries do nothing.** If the material is not resolved by the
+  level, the entry costs nothing and changes nothing; check the console for
+  material-resolution warnings when a sign was supposed to breathe.
 
 ### Current Light Fixture Types
 
-Generated from `src/lighting/tuning.rs::fixture_profile` and `assets/catalog.json` at
-the documented commit. The fixture's **face PNG is data**; its **mesh family and
-luminous footprint are code**.
+Generated from `src/lighting/tuning.rs::fixture_profile` and `assets/catalog.json`.
+The fixture's **face PNG is data**; its **mesh family and luminous footprint are
+code**.
 
 | Fixture ID | Mount type | Visible artwork (PNG) | Shape / footprint | Important authoring notes |
 | --- | --- | --- | --- | --- |
-| `core:fluorescent_panel_01` | ceiling (default) | `environment/office/textures/lights/fluorescent_panel_01.png` (256×128) | Rectangle 1.2 × 0.6 m; rotation swaps axes | The default family **and the fallback for every unknown id**. Hangs 0.01 m below the local ceiling; under a gable it follows the eave/ceiling above its footprint. Also used as `pool:` restyle base in packs. |
-| `core:pool_light_round` | ceiling | `environment/pool/textures/lights/pool_light_round_01.png` (128×128) | Disc, 0.44 m diameter; rotation-invariant | Round recessed downlight. Same ceiling-plane derivation as the panel. |
-| `core:pool_light_wall` | **wall** — requires `"mount": "wall"` and a finite world `"y"` | `environment/pool/textures/lights/pool_light_wall_01.png` (128×64) | Rectangle 0.4 × 0.18 m centred on (x, y, z) | Faces `rotation_degrees`: 0 = +Z, 90 = +X, 180 = −Z, 270 = −X. Place the point on the wall plane; the body extends ~0.11 m forward. Light is emitted from the rectangle's front. |
+| `core:fluorescent_panel_01` | ceiling (default) | `environment/office/textures/lights/fluorescent_panel_01.png` (256×128) | Rectangle 1.2 × 0.6 m (half extents 0.6 × 0.3); rotation swaps axes | The default family **and the fallback for every unknown id**. Hangs 0.01 m below the local ceiling; under a gable it follows the eave/ceiling above its footprint. |
+| `core:pool_light_round` | ceiling | `environment/pool/textures/lights/pool_light_round_01.png` (128×128) | Disc, 0.44 m diameter (half extent 0.22); rotation-invariant | Round recessed downlight. Same ceiling-plane derivation as the panel. |
+| `core:pool_light_wall` | **wall** — requires `"mount": "wall"` and a finite world `"y"` | `environment/pool/textures/lights/pool_light_wall_01.png` (128×64) | Rectangle 0.4 × 0.18 m (half extents 0.20 × 0.09) centred on (x, y, z) | Faces `rotation_degrees`: 0 = +Z, 90 = +X, 180 = −Z, 270 = −X. Place the point on the wall plane; the body extends ~0.11 m forward. Light is emitted from the rectangle's front. |
 
 Ceiling fixture rotation is quantised to a 0°/90° axis swap; only wall sconces rotate
 continuously. Unknown fixture ids load as the office panel with the untextured white
 sheet (no error); a named-but-broken sheet logs
 `[fixtures] fixture {id} sheet {path}: {error}; drawing the untextured sheet instead`.
+The first light of a family decides that family's sheet for the whole level.
 
 A fixture family is **visible geometry plus one shape** (see
 `FixtureProfile::shape` in `src/lighting/tuning.rs`): the family decides the emitting
@@ -1653,6 +1863,10 @@ Fixture geometry is code. To add a family, touch each of these:
    `tools/textures/lights_art.py` and run the texture check.
 8. If the editor should author/preview it: update `level-editor/js/lighting.js`,
    `model.js` and `app.js` (the editor currently mirrors only the office panel).
+9. Validate: `python3 tools/textures/build.py --check`,
+   `python3 tools/assets/validate.py`,
+   `cargo clippy --workspace --all-targets --all-features -- -D warnings`,
+   `cargo test --workspace --all-features`.
 
 No catalog/renderer change is needed for a **pack** to restyle the panel family: a
 `.zip` level pack may reference `"fixture": "pack:<id>"` and ship its own PNG; `pack:`
@@ -1664,14 +1878,15 @@ ids always resolve to the office-panel geometry.
 
 Exact level syntax (all fields verified against `src/level.rs::PropDef`):
 
-```json
+```jsonc
 {
   "model": "core:desk",          // REQUIRED. Logical catalog id. Unknown ids render a placeholder box.
   "x": 4.6, "y": 0.0, "z": 5.8,  // optional, default 0. y is an offset ABOVE the local walkable floor.
   "rotation_degrees": 180.0,     // optional Y rotation; model +Z faces this way at 0.
-  "scale": 1.0,                  // optional, > 0. Scales model and explicit size.
+  "scale": 1.0,                  // optional, default 1.0, must be > 0. Scales model and explicit size.
   "size": [1.6, 0.75, 0.7],      // optional [w,h,d] metres for collision/placeholder.
-  "solid": true                  // optional, default false. Only this flag creates collision.
+  "solid": true,                 // optional, default false. Only this flag creates collision.
+  "lights": []                   // optional 0..8 generic light sources, see section 21.
 }
 ```
 
@@ -1680,14 +1895,17 @@ Semantics:
 * `y` is **not absolute world Y**: `base_y = walkable floor at (x,z) + y`. A negative
   `y` deliberately sinks a prop into the floor and is never corrected. On a room with
   `floor_y: -1.5`, a prop at `y: 0` stands on that room's floor.
-* **Collision box = level `size` (or `PROP_FALLBACK_SIZE [0.6, 0.9, 0.6]`) × scale.**
+* **Collision box = level `size` (or `PROP_FALLBACK_SIZE [0.6, 0.9, 0.6]`) × `scale`.**
   The catalog `size` is never used for collision. A solid prop that should block like
-  its picture must author `size`.
+  its picture must author `size`. Validation rejects non-positive/non-finite `size`
+  and `scale`.
 * The collision box is **axis-aligned and does not rotate**. For a 90°/270° rotated
   solid prop, author the x/z-extents swapped.
 * Rotation does rotate the rendered model around Y.
-* `props` are never tested against their render mesh; intentional clipping and
-  overlap are preserved.
+* The **placeholder box** (unknown id, missing model or over-budget model) uses the
+  level `size` when authored, else the catalog `size`, × `scale`.
+* `props` are never tested against their render mesh for placement; intentional
+  clipping and overlap are preserved.
 * **Every placed prop occludes baked lighting**, automatically, from its rendered
   model: the floor under it darkens, it blocks the fixtures behind it, and it
   darkens the wall it stands against. `solid` controls collision only — a
@@ -1706,8 +1924,8 @@ Known-valid examples:
   "size": [2.0, 1.05, 0.08], "solid": true }
 ```
 
-A deliberate sunken prop (from the prop showcase fixture; the `id` key shown there is
-an ignored extra — do not copy it):
+A deliberate sunken prop (from the generated prop showcase fixture; the `id` key shown
+there is an ignored extra — do not copy it):
 
 ```json
 { "model": "core:crate", "x": -10.9, "z": -5.4, "rotation_degrees": 12.0,
@@ -1732,10 +1950,13 @@ an ignored extra — do not copy it):
 
 * `x`/`z` are the decal **centre**, not a corner.
 * `surface` fixes the plane and normal; `rotation_degrees` spins the artwork in that
-  plane.
+  plane. At rotation `0` the sheet's horizontal axis runs along the surface's own
+  reference direction: world **+X** for floors and ceilings, and the face's
+  left-to-right direction for a viewer standing in front of a wall.
 * Floor/ceiling decals snap to the real surface height under them and lift 0.2 mm;
-  keep `y` consistent with the room for readability but it is replaced.
-* Wall decals use the authored `y`.
+  keep `y` consistent with the room for readability but it is replaced (a floor decal
+  on a room at `floor_y: -1.5` conventionally writes `"y": -1.5`).
+* Wall decals use the authored `y` as the height on the wall.
 
 Known-valid examples:
 
@@ -1753,38 +1974,40 @@ Known-valid examples:
 
 ## 21. Light Placement
 
-All fixtures — ceiling and wall — live in the level's `ceiling_lights` array (the key
-name is historical).
+All fixtures — ceiling and wall — live in the level's `ceiling_lights` array. The key
+name is historical; **`lights` is accepted as a serde alias** for the same array.
 
 | Field | Type | Required | Default | Semantics |
 | --- | --- | --- | --- | --- |
-| `fixture` | string | **yes** | — | Fixture id from the catalog/registry. |
-| `x`, `z` | number | **yes** | — | World position. |
+| `fixture` | string | **yes** | — | Fixture id from the catalog/registry. Unknown ids render and bake as the office panel with the untextured sheet. |
+| `x`, `z` | number | **yes** | — | World position. Must be finite. |
 | `rotation_degrees` | number | no | `0.0` | Y rotation. Ceiling families quantise to a 0°/90° axis swap; wall fixtures rotate continuously. |
-| `brightness` | number | no | `1.0` | Alias `intensity`. Must be finite, `≥ 0`; baking clamps to 8. |
+| `brightness` | number | no | `1.0` | Alias `intensity`. Must be finite and `≥ 0`; baking clamps to `8.0`. |
 | `color` | `[r,g,b]` | no | `[1.0, 0.96, 0.88]` | Each channel `0`–`1`. Drives both the lamp face and the illumination. |
-| `mount` | `"ceiling"` \| `"wall"` | no | `"ceiling"` | Wall fixtures require `y`. |
+| `mount` | `"ceiling"` \| `"wall"` | no | `"ceiling"` | Closed enum. Wall fixtures require `y` or the level is rejected. |
 | `y` | number | no (required for wall) | derived for ceiling | Ceiling: optional mounting world Y (also selects a storey in stacked rooms). Wall: required world Y of the fixture centre. |
-| `range` | number | no | `6.0` | Distance in metres at which this fixture's pool reaches zero. The falloff curve is evaluated over this range, so a shorter range is also a softer pool. |
-| `falloff` | `"smooth"` \| `"linear"` \| `"constant"` | no | `"smooth"` | Pool decay curve. `constant` holds full strength to `range` then stops (a deliberately hard pool). |
+| `range` | number | no | `6.0` | Distance in metres at which this fixture's pool reaches zero; must be positive and finite; clamped to `0.05`–`64`. The falloff curve is evaluated over this range, so a shorter range is also a softer pool. |
+| `falloff` | `"smooth"` \| `"linear"` \| `"constant"` | no | `"smooth"` | Closed enum. Pool decay curve. `constant` holds full strength to `range` then stops (a deliberately hard pool). |
 | `enabled` | boolean | no | `true` | `false` keeps the fixture's visible glow but removes **all** of its environmental illumination. |
-| `emission` | number | no | the fixture's `brightness` | Independent emissive strength of the visible face, `≥ 0`. Lets a face read brighter (or dimmer) than the light the fixture casts. |
+| `emission` | number | no | the fixture's `brightness` | Independent emissive strength of the visible face, finite, `≥ 0`, clamped to `8.0`. Lets a face read brighter (or dimmer) than the light the fixture casts. |
 
-Ceiling fixture, office default look:
+Ceiling fixture, office default look (Places Demo, office room with red emergency
+light):
 
 ```json
 { "fixture": "core:fluorescent_panel_01", "x": 21.5, "z": 2.4,
   "rotation_degrees": 0.0, "brightness": 0.34, "color": [1.0, 0.2, 0.15] }
 ```
 
-Round pool downlight:
+Round pool downlight (Places Demo):
 
 ```json
 { "fixture": "core:pool_light_round", "x": 9.0, "z": 9.0,
   "brightness": 0.85, "color": [0.55, 0.78, 1.0] }
 ```
 
-Wall fixture (must author `mount` and `y`; the point sits on the wall plane):
+Wall fixture (must author `mount` and `y`; the point sits on the wall plane).
+Places Demo:
 
 ```json
 { "fixture": "core:pool_light_wall", "x": 0.15, "z": 13.0,
@@ -1800,8 +2023,10 @@ Stacked-storey selection (ceiling fixtures only):
 
 Invalid values are rejected with named messages (`Wall light {i} needs a world height
 (\`y\`)…`, `Ceiling light {i} intensity cannot be negative`, `… colour channels must be
-finite numbers between 0 and 1`). Unknown fixture ids are not rejected; they render and
-bake as the office panel with the untextured sheet.
+finite numbers between 0 and 1`, `Ceiling light {i} range must be a positive finite
+number of metres`, `Ceiling light {i} emission must be a finite number that is not
+negative`). Unknown fixture ids are not rejected; they render and bake as the office
+panel with the untextured sheet.
 
 A fixture whose face should glow without lighting the room — a sign, a screen, a
 decorative tube — authors its own emissive strength separately:
@@ -1816,16 +2041,19 @@ reads fully bright while still casting only its dim 0.18 pool.
 
 ### Lights owned by props
 
-Any placed prop may own generic light sources. They are positioned in the prop's own
-local frame (offset scaled with the prop, rotated by its yaw) and cast light through
-exactly the same engine path as a fixture:
+Any placed prop may own generic light sources. `lights` is a level array on the prop
+(0–8 entries; more is a level error). The emitter's **offset is scaled by the prop's
+`scale`**, its yaw is added to the prop's rotation, and its shape is scaled with the
+prop. It then casts light through exactly the same engine path as a fixture.
 
 ```json
 {
   "model": "core:vending_machine", "x": 12.0, "z": 1.0, "rotation_degrees": 270.0,
+  "size": [0.9, 1.9, 0.8], "solid": true,
   "lights": [
     { "shape": "rect", "half_width": 0.3, "half_depth": 0.05,
-      "offset": [0.0, 0.9, 0.3], "intensity": 0.15, "range": 3.0,
+      "offset": [0.0, 1.35, 0.45], "rotation_degrees": 0.0,
+      "intensity": 0.15, "range": 3.0,
       "color": [0.55, 0.78, 1.0], "falloff": "smooth", "enabled": true }
   ]
 }
@@ -1833,22 +2061,27 @@ exactly the same engine path as a fixture:
 
 | Field | Type | Required | Default | Semantics |
 | --- | --- | --- | --- | --- |
-| `shape` | `"point"` \| `"rect"` \| `"line"` | no | inferred: `rect` when half extents are authored, `line` when `length` is, else `point` | Emitting shape. |
-| `half_width`, `half_depth` | number | for `rect` | — | Half extents in the object's local X/Z, metres, `> 0`. |
-| `length` | number | for `line` | — | Tube length along local X, metres, `> 0`. |
-| `offset` | `[x, y, z]` | no | `[0, 0, 0]` | Centre of the emitter in the object's local frame; scaled with the object. |
+| `shape` | `"point"` \| `"rect"` \| `"line"` | no | **`"point"`** | Emitting shape. Authored extents are ignored unless `shape` says `rect` or `line`; the default does **not** infer a shape from `half_width`/`half_depth`/`length`. |
+| `half_width`, `half_depth` | number | for `rect` | — | Half extents in the object's local X/Z, metres. Must be finite, `> 0`; clamped at use to 8 m. |
+| `length` | number | for `line` | — | Tube length along local X, metres. Must be finite, `> 0` and `≤ 32` m. |
+| `offset` | `[x, y, z]` | no | `[0, 0, 0]` | Centre of the emitter in the object's local frame; scaled with the object. A JSON array of exactly three finite numbers. |
 | `rotation_degrees` | number | no | `0.0` | Yaw of the emitter relative to the object. |
 | `color` | `[r, g, b]` | no | `[1.0, 0.96, 0.88]` | Each channel `0`–`1`. |
-| `intensity` | number | no | `1.0` | Alias `brightness`; finite, `≥ 0`. |
-| `range` | number | no | `6.0` | Pool radius in metres, `> 0`. |
-| `falloff` | `"smooth"` \| `"linear"` \| `"constant"` | no | `"smooth"` | Pool decay curve. |
+| `intensity` | number | no | `1.0` | Alias `brightness`; finite, `≥ 0`; clamped to `8.0` while baking. |
+| `range` | number | no | `6.0` | Pool radius in metres, positive and finite; clamped to `0.05`–`64`. |
+| `falloff` | `"smooth"` \| `"linear"` \| `"constant"` | no | `"smooth"` | Closed enum. Pool decay curve. |
 | `enabled` | boolean | no | `true` | `false` casts nothing. |
 
-At most 8 lights per prop. A light with malformed shape dimensions, a negative
-intensity, a non-positive range or a non-finite offset is a level error (the loader
-reports the prop and light index). The prop's own **emission is a separate property of
-its GLB material** — a light authored here is the only way a prop illuminates
-anything, and a glowing material does not imply one.
+At most 8 lights per prop. A light with malformed shape dimensions, a negative or
+non-finite intensity, a non-positive range, a non-finite offset/rotation or an invalid
+colour is a level error (the loader reports the prop and light index). The prop's own
+**emission is a separate property of its GLB material** — a light authored here is the
+only way a prop illuminates anything, and a glowing material does not imply one.
+
+**Tooling note.** `tools/assets/validate.py` currently infers `rect` from authored
+half extents and `line` from `length` when `shape` is omitted. The engine does not:
+it treats such a light as `point` and ignores the extents. Always author `shape`
+explicitly when you mean `rect` or `line`.
 
 ---
 
@@ -1859,9 +2092,9 @@ interiors that stop being finished around you. Keep this practical:
 
 * **Coherent low-poly environments.** Geometry, props and textures share one scale and
   one deliberate vocabulary. Do not mix photorealistic texture detail with crude
-  boxes — the renderer has no PBR, no realtime shadows and no reflections to sell it.
-  The surface response (section 11) is detail *on* a surface: bumps, grime and
-  brushed streaks, not sculpted geometry.
+  boxes — the lighting is baked, shadows are static, and reflections are limited to a
+  couple of explicitly marked materials per level. The surface response (section 11) is
+  detail *on* a surface: bumps, grime and brushed streaks, not sculpted geometry.
 * **Textures complement geometry.** Surface art should read at a glance: tiles, carpet,
   wallpaper, concrete, panel ceilings. Detail is carried by pattern, tint and wear,
   not resolution.
@@ -1880,13 +2113,18 @@ interiors that stop being finished around you. Keep this practical:
   office, 3.0 m in the quiet corridor and 4.2 m in the stair hall and pool.)
 * **Darkness is a tool.** Unlit rooms sit at the 0.10 ambient floor. Use fewer, dimmer
   or coloured fixtures rather than expecting global light.
+* **One level, both quality profiles.** Full and Low run the same geometry, ids,
+  materials and lights; Low lowers texture resolution, lightmap density, scene
+  resolution and surface detail. Never author a second variant.
 
-There is still no water, no refraction and no reflections. Implied water is
+There is still **no water rendering and no refraction**. Implied water is
 damp/damaged materials plus recessed geometry — optionally with a wet
-`floor_patches` material (`core:pool_deck_wet_01`, a near-mirror sheen over the
-dry tile) where puddled water should read. Windows may now hold real glass (see
-[Panes](#panes-glass-grilles-and-screens)), and a dull/dirty/clear/tinted pane is
-a material choice, not a geometry one.
+`floor_patches` material (`core:pool_deck_wet_01`, a near-mirror `planar` sheen over
+the dry tile) where puddled water should read. Windows may hold real glass (see
+[Panes](#panes-glass-grilles-and-screens)), and a dull/dirty/clear/tinted pane is a
+material choice, not a geometry one. Static probe reflections and one planar mirror
+per frame exist and are used exactly where a material marks them; they are not a
+general "reflections everywhere" feature.
 
 ---
 
@@ -1899,10 +2137,12 @@ Decision tree:
 | A wall/floor/ceiling appearance | Material + texture | Add PNG → texture entry → material entry (recipes below). |
 | A glossy, metal, wet or bumpy surface | Material fields + an optional normal map | Add the albedo PNG as above, then `specular` / `roughness` / `specular_color` and (optionally) a `normal_texture`. Recipe below. |
 | A pane of glass, a grille or a backlit sign in an opening | A `blend`/`cutout` material + `glass` on the opening | Author the RGBA sheet, add a material with `alpha_mode`, then name it in `walls[].openings[].glass`. |
+| A surface that should mirror the room | A `probe` or `planar` reflection material | Mark the material; the plane is derived from the geometry it is emitted on. Recipe below. |
 | A local sign or marking | Decal | Add POT RGBA cut-out PNG → `decal` entry → place in `decals`. |
-| A three-dimensional object | GLB prop | Toolkit (`tools/props/parts/*.py`) → build → `prop` entry → place in `props`. |
-| A light source | Existing fixture, or a new fixture family | Reuse a fixture id (`ceiling_lights`) or add a family (see [Adding a New Light Fixture Type](#adding-a-new-light-fixture-type)). |
+| A three-dimensional object | GLB prop | Toolkit (`tools/props/`) → build → `prop` entry → place in `props`. |
+| A light source | Existing fixture, a prop-owned light, or a new fixture family | Reuse a fixture id (`ceiling_lights`) or add a family (see [Adding a New Light Fixture Type](#adding-a-new-light-fixture-type)). A prop can own 0–8 generic lights. |
 | Something mounted but not luminous | Prop | Model it as a GLB prop; there is no generic mounted-fixture system (no exit signs, fans or alarms as fixtures). |
+| Something that pulses or flickers | Animated emission on a material | `animated_emissions[]`, section 18. |
 | Arbitrary structural geometry | **Not supported.** | Only rectangular rooms, walls, openings, patches and regions exist. Shape the environment from these; use props for details. |
 
 Rules that apply to every new asset:
@@ -1925,11 +2165,11 @@ Rules that apply to every new asset:
 **Cause:** two floor surfaces occupy effectively the same plane — duplicate rooms,
 a patch overlapping an identical surface, or a sill top coincident with a floor.
 
-**Authoring rule:** one surface per plane. Do not author a second floor/wall to
-overlap an existing one. Raised thresholds belong in `floor_regions`, not in a
-duplicated cap. Adjacent rooms meeting at a doorway should have their floors meet at
-the shared boundary; the renderer already prevents the wall cap from duplicating
-them (commit `1783828`).
+**Authoring rule:** one surface per plane. Do not author a second floor to overlap an
+existing one. Raised thresholds belong in `floor_regions`, not in a duplicated cap.
+Adjacent rooms meeting at a doorway should have their floors meet at the shared
+boundary; the renderer subtracts floor coverage from wall caps so the two floors
+jointly cover the threshold exactly once.
 
 ### Duplicate Wall Surfaces / Adjoining Walls
 
@@ -1938,10 +2178,10 @@ them (commit `1783828`).
 **Cause:** a continued wall emitted a second coplanar face over the shared span, or a
 wall end cap/reveal was emitted under an abutting wall.
 
-**Authoring rule:** author each physical wall once. The renderer coalesces walls that
-share plane + thickness and overlap in length and height (last covering member's
-material wins per cell) and clips hidden caps, but the correct authoring is a single
-wall. Never place two walls with the same footprint.
+**Authoring rule:** author each physical wall once. The renderer resolves coincident
+collinear walls (same plane, thickness and overlapping length and height spans) into
+one emission unit and clips hidden caps, but the correct authoring is a single wall.
+Never place two walls with the same footprint.
 
 ### Wall End Caps Colliding With Perpendicular Walls
 
@@ -1974,7 +2214,8 @@ that were meant to share a corner, or walls placed by centre instead of min corn
 **Authoring rule:** shell every room. Place walls by minimum corner and overlap the
 corners slightly (the demo uses 0.3 m-thick walls with ±0.15 m corner offsets) or
 align them exactly at shared boundaries. `tools/assets/validate.py` warns when a wall
-touches no room; `tools/bench/check_holes.py` counts clear-colour pixels in captures.
+touches no room; the bench suite (`tools/bench/`, see its README) includes a capture
+checker that counts near-black pixels, which catches holes in a level shell.
 
 ### Invalid Wall or Opening Dimensions
 
@@ -1985,8 +2226,8 @@ silently does nothing.
 or an opening whose vertical span misses the wall.
 
 **Authoring rule:** measure the wall first: length = larger of `width`/`depth`;
-openings start at the min corner. Openings that miss the wall vertically are accepted
-but produce no cut — check the numbers.
+openings start at the min corner. Openings that miss the wall vertically, or that are
+clamped away by the local ceiling, are accepted but produce no cut — check the numbers.
 
 ### Floor Elevation Mismatch
 
@@ -2005,8 +2246,8 @@ become solid rims with real transition faces.
 **Symptom:** a wall top pokes through a sloped ceiling, or a flat cap floats above a
 slope.
 
-**Cause:** the wall authors a rigid `height` in a gable room, or its origin is not at
-the room's floor level so it resolves the wrong ceiling.
+**Cause:** the wall authors a rigid `height` in a gable room, or its `y` is not the
+room's floor level so it resolves the wrong ceiling height.
 
 **Authoring rule:** omit `height` for walls that should follow the local ceiling.
 Author `height` only when you deliberately want a rigid wall (e.g. a half-height
@@ -2018,7 +2259,7 @@ partition), and remember it is measured from the wall's own `y`.
 double floors, or odd fixture selection.
 
 **Cause:** overlapping room footprints are legal but ownership differs between
-geometry (first room in order) and lighting (smallest area).
+geometry (first room in order) and lighting (smallest area, with a `y` hint).
 
 **Authoring rule:** overlap only deliberately (stacked storeys, balconies) and keep
 the overlap minimal. Give lights an explicit `y` when storeys share a footprint.
@@ -2034,6 +2275,20 @@ corrected.
 intentional. For solid props, author `size` matching the rendered footprint, swapped
 for 90°/270° rotations.
 
+### Exposed Window Interiors
+
+**Symptom:** a window or vent looks into black void, or shows a room you did not
+expect; a doorway shows a slice of the outside.
+
+**Cause:** an opening is just a hole through a wall. What is behind it is whatever
+geometry exists there: another room's interior, an unlit neighbouring volume, or the
+void if the far side is outside every room.
+
+**Authoring rule:** check both sides of every opening. A window into an enclosed
+neighbouring room is glazing (author `glass`); a window on the outermost wall shows
+the void and should be glazed or blanked. A door that connects rooms at different
+elevations needs a floor surface under the threshold on both sides.
+
 ---
 
 ## 25. Common Lighting Mistakes
@@ -2043,7 +2298,8 @@ for 90°/270° rotations.
 **Symptom:** a fixture appears to light the room behind a wall.
 
 **Cause:** historically, local pools were distance-only. This is fixed: pools are
-occlusion-tested against exact wall solids.
+occlusion-tested against exact wall solids, and pool colour is occluded with the
+brightness.
 
 **Authoring rule:** trust the occlusion, but place fixtures inside the room they
 should light. A fixture outside a room still lights the space it can see; fixtures
@@ -2054,9 +2310,9 @@ outside every room are defined but isolated.
 **Symptom:** after upgrading, a floor or wall behind a machine/cabinet is darker than
 it used to be, and the object looks grounded instead of floating.
 
-**Cause:** this is intended. Static props occlude baked light (Batch 2), derived from
-the rendered model. A prop that stood in front of a fixture was previously lit as if
-it were air.
+**Cause:** this is intended. Static props occlude baked light, derived from the
+rendered model. A prop that stood in front of a fixture was previously lit as if it
+were air.
 
 **Authoring rule:** nothing to change — it is the desired result. If a space is now
 too dark, add or brighten a fixture on the side that needs the light rather than
@@ -2098,7 +2354,7 @@ disambiguates stacked rooms.
 level in a gable room.
 
 **Cause:** wall fixtures use the authored world `y`; ceiling fixtures derive it from
-the ceiling under their footprint.
+the ceiling under their footprint (0.01 m below it).
 
 **Authoring rule:** wall fixtures need `y` (validation requires it). Ceiling fixtures
 need no `y` unless you are choosing a storey; under a gable they follow the ceiling
@@ -2135,22 +2391,12 @@ intensity to 8.
 **Authoring rule:** the shipped demo runs 0.18–0.85 brightness. Start there; treat
 values above ~1.5 as special effects, not lighting.
 
-### Coloured Light Crossing an Opaque Wall
-
-**Symptom:** a green room tints the room behind its wall.
-
-**Cause:** historical distance-only pools. Fixed by exact occlusion applied to colour
-as well as brightness.
-
-**Authoring rule:** the rules are colour-symmetric now; still verify by viewing both
-sides of a shared wall. A wall face is lit by the room it opens into.
-
 ### Vertical Light Leakage
 
 **Symptom:** a lit lower storey brightens the sealed room above (or vice versa).
 
-**Cause:** historically floors/ceilings were not blockers. Fixed by per-storey
-interfaces and ceiling bodies.
+**Cause:** floors and ceilings are light boundaries; stacked rooms are sealed by
+design.
 
 **Authoring rule:** stack rooms freely; they are sealed. Raised platforms and lowered
 basins inside one room stay connected — that is intended. If you want light to move
@@ -2160,14 +2406,14 @@ vertically, leave a genuine open side (an upper floor covering part of the footp
 
 **Symptom:** a partitioned room's dark half still glows with the lit half's baseline.
 
-**Cause:** historically one baseline per room footprint. Fixed: baselines flood-fill
+**Cause:** historically one baseline per room footprint. Now baselines flood-fill
 around opaque internal walls.
 
 **Authoring rule:** an opaque internal wall that reaches the ceiling partitions the
 room; a wall that stops short of the ceiling does not, because the flood fill probes
-just below the ceiling. (The bake also skips the flood fill entirely for rooms whose
-walls only hug the boundary: a wall must cross more than 0.75 m into the room before it
-is worth testing.) Doorways still blend a bounded amount by design.
+just below the ceiling. (The bake skips the flood fill entirely for rooms whose
+walls only hug the boundary: a wall must cross more than 0.75 m into the room before
+it is a partition candidate.) Doorways still blend a bounded amount by design.
 
 ### Doorway Transfer Assumptions
 
@@ -2175,11 +2421,33 @@ is worth testing.) Doorways still blend a bounded amount by design.
 header should block.
 
 **Cause:** `window`/`vent` transmit pools but do not blend baselines; solid headers
-block; only `door`/`passage` reaching the lower floor blend.
+block; only `door`/`passage` whose bottom reaches the lower floor blend.
 
 **Authoring rule:** use `door`/`passage` for real room connections where you want
 baseline sharing; use `window`/`vent` for apertures that should only pass local
 light. Coloured light is not a global wash: it comes from specific fixtures.
+
+### A Glowing Fixture That Lights Nothing
+
+**Symptom:** a panel reads bright but the room stays at ambient.
+
+**Cause:** `enabled: false` (illumination off), `brightness` near zero, the fixture
+outside every room, or the fixture assigned to another storey.
+
+**Authoring rule:** `emission` controls only how bright the face reads; `brightness`
+controls the light it casts; `enabled: false` removes the cast entirely. Check all
+three, plus `y` and the room it resolves to.
+
+### An Animated Sign That Does Not Animate
+
+**Symptom:** an `animated_emissions` entry has no visible effect.
+
+**Cause:** the entry's `material` is not a material the level actually uses (entries
+are silently ignored), the material does not emit, or the effect's `depth` is too
+small to notice.
+
+**Authoring rule:** animate a material that is on a surface in the level and has
+`emissive`; start from the demo's depth values.
 
 ---
 
@@ -2227,8 +2495,8 @@ texture), or a fixture/prop renders a fallback.
 
 **Symptom:** magenta/black diagnostic surface or decal, or a named console error.
 
-**Cause:** the `texture` id dangles, the `.png` is missing, truncated, or the wrong
-dimensions; or a decal sheet is not a `.png`.
+**Cause:** the `texture` id dangles, the `.png` is missing, truncated, or over 1024
+px; or a decal sheet is not a `.png`.
 
 **Prevention:** run `python3 tools/textures/build.py --check` (existence, PNG
 validity, 1024 hard limit) and keep the files in the repository.
@@ -2245,11 +2513,15 @@ POT; decals/fixtures are fitted, so author complete artwork with no bleed margin
 
 **Symptom:** `[props] prop model {path} is invalid: {reason}` and a placeholder box.
 
-**Cause:** extensions, skins, animations, node transforms, >1 mesh/material, external
-textures, non-triangle primitives, >65 535 vertices, over-budget triangles or texture.
+**Cause:** extensions other than `KHR_materials_emissive_strength`, skins, animations,
+morph targets, sparse accessors, external textures, non-triangle primitives,
+>65 535 vertices, >6000 triangles, >32 primitives, >16 materials/images, or a
+texture edge >1024.
 
-**Prevention:** build props with `tools/props/build.py`, preview them, and run
-`cargo test` so the shipped-asset checks enforce the conventions.
+**Prevention:** build props with `tools/props/`, preview them, and run
+`cargo test --workspace --all-features` so the shipped-asset checks enforce the
+conventions. (Multiple meshes, multiple primitives and multiple materials are
+supported — the old single-mesh restriction is gone.)
 
 ### Excessive Model Budget
 
@@ -2257,8 +2529,8 @@ textures, non-triangle primitives, >65 535 vertices, over-budget triangles or te
 language; possible engine rejection.
 
 **Prevention:** 500 triangles preferred, 800 justified, 1500 shipped art budget;
-64–128 px prop texture preferred, 256 max. `spooner-man` is the only allowlisted
-exception.
+64–128 px prop texture preferred, 256 max. Exceedances are allowlisted explicitly in
+`src/props/tests.rs`.
 
 ### Texture Seams / Incorrect Tiling
 
@@ -2275,66 +2547,94 @@ period (pool deck 1.5, basin/wall 1.0, office surfaces 2.0).
 ### Incorrect Alpha
 
 **Symptom:** a decal shows its background plate (alpha not cut out); a surface
-renders unexpectedly transparent (base pass has blending off, so surfaces should be
-opaque).
+renders unexpectedly transparent (an `opaque` material ignores the alpha channel by
+design).
 
 **Prevention:** decal sheets are RGBA cut-outs with background alpha 0 and artwork
-alpha 255; surface and fixture images are opaque.
+alpha 255; surface and fixture images are opaque unless their material authors
+`alpha_mode`.
+
+### Generated Artwork Instead of a File
+
+**Symptom:** a texture that only exists in code; a review rejection; a shipped asset
+check that cannot find the PNG.
+
+**Cause:** the texture was drawn procedurally in Rust/Python at runtime instead of
+being stored as a PNG.
+
+**Prevention:** every permanent texture is a real `.png` in `assets/` and is named by
+a catalog entry. The only generated images are the diagnostics listed in
+[Textures](#12-textures).
 
 ---
 
 ## 27. Validation Workflow
 
-Run from the repository root. Commands verified at the documented commit.
+Run from the repository root. The commands below are the current required checks;
+none of them is optional for a change that ships content.
 
 | Command | What it validates | Required for map authoring? |
 | --- | --- | --- |
-| `python3 tools/assets/validate.py` | Catalog parse; classes/types/sources; unique ids; every file-backed resource exists exactly once; shipped/drop-in/fixture levels reference declared ids; warns when a wall touches no room | **Yes** |
-| `cargo test --workspace` | All 647 tests (646 pass, 1 ignored), including level/loader/render/material/collision/lighting suites, the offscreen-target and transparency cases, and every audit | **Yes** |
-| `cargo test surface_audit` | Coplanar architecture, doorway-threshold ownership, decal depth, wall junctions (Places Demo + fixed cases) | Strongly recommended |
-| `cargo test lighting` | All lighting suites and audits: wall/colour occlusion, partition baselines, vertical isolation, the shipped demo's exact-visibility acceptance (matches `lighting::tests` and every `lighting_*` audit) | Strongly recommended |
+| `python3 tools/assets/validate.py` | Catalog parse; classes/types/sources; unique ids; every file-backed resource exists exactly once; material texture/mask/normal references; shipped/drop-in/fixture levels reference declared ids; prop-light and fixture-pool shapes/fields; animated-emission schema; warns when a wall touches no room | **Yes** |
+| `cargo test --workspace --all-features` | The whole Rust suite: level/loader/render/material/collision/lighting tests plus the audits (surface, lighting, isolation, parity, partition, vertical, leak) | **Yes** |
+| `cargo fmt --all --check` | Rust formatting | **Yes** when code changed |
+| `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Strict lints (`AGENTS.md` policy) | **Yes** when code changed |
+| `python3 tools/textures/build.py --check` | Texture/decal/fixture PNGs exist, parse, ≤1024; warns >256 / non-POT | Yes when art changed |
+| `python3 tools/props/build.py --check` | Every catalogued prop GLB exists and parses; prints bounds/budget flags (budget enforcement lives in `cargo test`) | Yes when props changed |
 | `LIMINAL_LEVEL=<id> cargo run` | Boots straight into the level and prints validation errors verbatim | **Yes, once per map** |
-| `LIMINAL_CAPTURE=frame.png LIMINAL_LEVEL=<id> cargo run` | One-frame PNG capture for visual inspection | Useful |
-| `python3 tools/textures/build.py --check` | Texture/decal/fixture PNGs exist, parse, ≤1024; warns >256 / non-POT | Yes for new art |
+| `LIMINAL_CAPTURE=frame.png LIMINAL_LEVEL=<id> cargo run` | One-frame PNG capture for visual inspection (`LIMINAL_CAPTURE_FRAME=n` waits for frame n first) | Useful |
+| `python3 tests/test_package.py` | Repository/package gate: shipped-level checks, texture policy, catalog validation, README hygiene | Recommended before shipping a map into `assets/levels/` |
+| `LIMINAL_DUMP_LIGHTMAPS=1 LIMINAL_LEVEL=<id> cargo run` | Writes the baked atlas pages as PNGs under `target/agent-work/atlases/` | Useful |
 | `python3 tools/textures/seam_repair.py --check <png>` | Tiling seam metric per texture | Yes for new surface art |
-| `python3 tools/props/build.py --check` | Every catalogued prop GLB exists and parses | Yes for new props |
-| `python3 tools/props/preview.py --only <id>` | Renders a prop preview PNG | Recommended for new props |
-| `python3 tests/test_package.py` | Package/repository gate (shipped-level checks, texture policy, catalog validation, README hygiene) | Recommended before shipping a map into `assets/levels/` |
-| `python3 tools/bench/check_holes.py <capture.png>` | Counts clear-colour pixels (missing shells) in a capture | Useful |
-| `python3 tools/bench/visual_check.py --baseline … --current …` | Visual regression between two builds (needs a GL window) | Optional |
-| `cargo test --release -- --nocapture lighting_benchmark_report` | Prints the bake/build budget table for representative levels | Optional |
-| `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Strict lints | Required before committing code (see `AGENTS.md`), not for JSON-only maps |
-| `cd level-editor && npm test` | Legacy editor tests | **Not part of map authoring.** The editor is out of scope and stale for vertical keys. |
+| `tools/bench/README.md` | Index of the current benchmark and capture tools — it is the authoritative, batch-current list | Useful |
 
-At the documented commit these pass: `validate.py` → 87 assets / 0 warnings, exit 0;
-`textures/build.py --check` → 30 textures / 12 soft warnings, exit 0;
-`props/build.py --check` → 30 props, exit 0; `cargo test --workspace --all-features`
-→ 646 passed, 0 failed, 1 ignored; `cd level-editor && npm test` → 144 passed;
-`tests/test_package.py` → exit 0.
+Do not treat a clean `--check` as budget approval: `tools/props/build.py --check`
+prints budget flags but does not fail on them; budget enforcement lives in
+`cargo test`. Conversely, `validate.py` is stricter than the runtime about catalog
+classes/types/sources and is the tool that catches a dangling level reference.
 
-Two environment switches are worth knowing when validating a map's *appearance*
-rather than its data:
+### What `tools/assets/validate.py` checks (and what only Rust checks)
+
+`validate.py` is not a headless replacement for the Rust loader. It checks:
+
+* the catalog: themes, unique ids, known classes/types, `source`, relative model
+  paths that exist, `.png` models for textures/decals/fixture faces, materials
+  resolving to file-backed textures, `emissive_mask`/`normal_texture` references,
+  the canonical `spooner-man`, and the numeric ranges listed in
+  [Asset Catalog](#14-asset-catalog);
+* levels: every referenced asset id is declared (defaults, rooms, regions, walls,
+  faces, opening `glass`, patches, decals, fixtures, props, animated-emission
+  materials), prop lights and fixture pool/emission fields, animated-emission schema,
+  and a warning when a wall touches no room.
+
+Only the Rust loader enforces: format version, identity, spawn finiteness, room/
+wall/region/opening dimensions and bounds, floor-region containment and eave rule,
+prop/light/decal schemas, the geometry budgets, limits and caps, gable rules, decal
+surface rules, and the walkable/collision behaviour. Boot the level to prove those.
+
+### Environment switches
+
+These are session switches, not authoring fields. They exist for benchmarking,
+capture and diagnosis.
 
 | Switch | Effect |
 | --- | --- |
-| `LIMINAL_QUALITY=full\|low` | Draws this run at the named profile without editing `settings.json`, so the two profiles of the same level can be captured back to back. |
-| `LIMINAL_NO_OFFSCREEN=1` | Draws the 3D scene straight into the window instead of through the offscreen target. The two paths are pixel-identical (see the Batch 3 bench note); the switch exists so that can be re-checked on new hardware. |
+| `LIMINAL_LEVEL=<id>` | Boot straight into a level and print its validation errors. |
+| `LIMINAL_QUALITY=full\|low` | Draw this run at the named quality profile without editing `settings.json`, so both profiles of the same level can be captured back to back. |
+| `LIMINAL_CAPTURE=<file.png>` | Write one frame as a PNG and exit. |
+| `LIMINAL_CAPTURE_FRAME=<n>` | Capture frame n (1-based) instead of the first; also pins animation phase. |
+| `LIMINAL_NO_LIGHTMAPS=1` | Force the historical vertex-lit path. |
+| `LIMINAL_DUMP_LIGHTMAPS=1` | Write the baked atlas pages to `target/agent-work/atlases/`. |
+| `LIMINAL_NO_OFFSCREEN=1` | Draw the 3D scene straight into the window instead of through the offscreen target. **Not pixel-identical any more:** this path skips the planar reflection pass, the reflection-probe binds, bloom and the resolve, and it ignores the Low profile's reduced scene resolution. It exists for benchmark A/B runs and driver bring-up. |
+| `LIMINAL_NO_BLOOM=1` | Keep the resolve pass but drop the emissive bloom pass and blur. |
+| `LIMINAL_NO_REFLECTIONS=1` | Report every material as reflection-free: no planar pass, no probe bake, no reflection binds. |
+| `LIMINAL_ASSET_ROOT=<dir>` | Override the directory that contains `assets/`. |
+| `LIMINAL_STATE_ROOT=<dir>` | Override the directory that owns `settings.json`, drop-in `levels/` and `import/`. |
+| `LIMINAL_VERBOSE=1` | Print the developer telemetry (package, asset, level-build, lighting, lightmap and framing lines). Unset, a normal run is silent; problems are still reported once each. |
 
-### What validation does NOT exist
-
-* No coplanar/z-fighting detector for arbitrary levels; `surface_audit` checks Places
-  Demo and fixed cases only. Inspect your level manually.
-* No headless JSON validator: opening bounds, elevation rules, gable rules, decal
-  rules, limits and budgets are enforced only by the Rust loader at load time.
-* No duplicate-level-id detection; two files may share an `id`.
-* No spawn-inside-room validation (only the shipped-level package test checks it).
-* No unknown-key detection — typo'd JSON keys are silently ignored.
-* No automated collision-vs-render-mesh check; collision is authored data.
-* No automated tiling/orientation/opacity checks for user artwork beyond the shipped
-  checks above.
-
-A level that fails validation is skipped at discovery without a console line. Always
-boot with `LIMINAL_LEVEL=<id>` to see the reason.
+A level that fails validation is reported at discovery
+(`[levels] skipping {path}: {reason}`). Always boot with `LIMINAL_LEVEL=<id>` to read
+the error in full.
 
 ---
 
@@ -2348,7 +2648,7 @@ boot with `LIMINAL_LEVEL=<id>` to see the reason.
 - [ ] Room elevations match the intended route; no unwalkable surprise cliffs (or the
       cliffs are intended and have real rims).
 - [ ] Openings fit their walls: `0 ≤ offset`, `offset + width ≤ length`, `sill ≥ 0`,
-      positive dimensions.
+      positive dimensions, ≤ 64 per wall.
 - [ ] No accidental gaps at wall corners or wall ends.
 
 ### Geometry
@@ -2361,6 +2661,8 @@ boot with `LIMINAL_LEVEL=<id>` to see the reason.
 - [ ] Walls do not duplicate each other; wall ends butt cleanly.
 - [ ] Floor regions overlap a room and sit below its eave.
 - [ ] No floor/elevation faces poke through walls or ceilings.
+- [ ] Windows/vents look into geometry, not the void; glazing is authored where the
+      opening should read as glazed.
 
 ### Materials
 
@@ -2370,6 +2672,10 @@ boot with `LIMINAL_LEVEL=<id>` to see the reason.
 - [ ] Recesses author an `edge_material`.
 - [ ] Textures tile correctly at the intended real-world scale (`tile_metres`).
 - [ ] No visible unintended seams; new surface art passed the seam check.
+- [ ] `alpha_mode` choices are intentional; `blend` surfaces never hide a room behind
+      them in the depth buffer.
+- [ ] Reflection markings are deliberate: at most a couple of probe materials and at
+      most one or two planar surfaces that are flat and axis-aligned.
 
 ### Props
 
@@ -2380,6 +2686,8 @@ boot with `LIMINAL_LEVEL=<id>` to see the reason.
 - [ ] `solid` matches intent; every solid prop authors a `size` that matches its
       rendered footprint (x/z swapped for 90°/270° rotations).
 - [ ] No accidental prop-in-prop or prop-in-wall intersections.
+- [ ] Props that should illuminate author `props[].lights` (≤ 8) and their `shape` is
+      explicit.
 
 ### Lighting
 
@@ -2395,8 +2703,10 @@ boot with `LIMINAL_LEVEL=<id>` to see the reason.
       material alone does not illuminate anything.
 - [ ] A fixture meant to glow without lighting the room authors `emission` (and, if
       it must cast nothing at all, `enabled: false`).
-- [ ] Emissive surfaces read bright in dark areas without brightening their
-      neighbours.
+- [ ] Emissive surfaces read bright in dark areas without brightening their neighbours.
+- [ ] Animated emissions name materials the level actually uses.
+- [ ] New props that shadow a previously lit area are intentional; the space still
+      reads with the contact darkening.
 
 ### Assets
 
@@ -2412,9 +2722,10 @@ boot with `LIMINAL_LEVEL=<id>` to see the reason.
 - [ ] `python3 tools/assets/validate.py` exits 0.
 - [ ] `python3 tools/textures/build.py --check` exits 0 (new art in particular).
 - [ ] `python3 tools/props/build.py --check` exits 0 (new props in particular).
-- [ ] `cargo test --workspace` passes.
+- [ ] `cargo test --workspace --all-features` passes.
 - [ ] The level boots with `LIMINAL_LEVEL=<id>` with no validation error.
-- [ ] A capture (`LIMINAL_CAPTURE`) has been inspected if practical.
+- [ ] A capture (`LIMINAL_CAPTURE`) has been inspected if practical, at both Full and
+      `LIMINAL_QUALITY=low` if reflections or material response matter.
 
 ---
 
@@ -2425,9 +2736,10 @@ authoring. They are not invitations to change the engine as part of an authoring
 
 1. **Quality profiles apply at level load.** `settings.json`'s `quality` value is read
    when the renderer is created; changing it mid-session does not re-scale textures
-   already on the GPU. Set it, then load the level.
+   already on the GPU. Set it, then load the level — or use `LIMINAL_QUALITY` for one
+   run.
 2. **Emission reaches surfaces and fixture faces, not decals.** A decal is drawn by
-   its own pass, which has no emission term yet; an `emissive` material used as a
+   its own pass, which has no emission term; an `emissive` material used as a
    *decal sheet* will not glow. Emission on wall/floor/ceiling materials and on GLB
    prop materials works.
 3. **A light's range normalises its falloff.** `range` is the distance at which the
@@ -2435,8 +2747,7 @@ authoring. They are not invitations to change the engine as part of an authoring
    makes the pool both tighter and dimmer near the source. There is no separate
    "cutoff only" mode.
 4. **Cone/spot lights are not implemented.** The generic model has point, rectangle
-   and line shapes; a directional light needs a response model that is out of scope
-   for this batch.
+   and line shapes; a directional light needs a response model that does not exist.
 5. **Prop textures are downscaled, not re-authored.** A GLB may embed up to 1024 px
    per edge, but Full uploads a prop sheet at 256 and Low at 128; authoring big
    prop art gains nothing.
@@ -2444,36 +2755,56 @@ authoring. They are not invitations to change the engine as part of an authoring
    glowing face should also light the room, that is `brightness`/`enabled`.
 7. **No `deny_unknown_fields`.** Misspelled or unsupported level keys are silently
    ignored: `"rotation": 90` does nothing, `"brightnesss": 0.5` does nothing. Diff
-   against the schema skeleton in section 5.
-8. **Invalid levels are silently dropped from the menu.** Boot with
-   `LIMINAL_LEVEL=<id>` to see the validation error.
+   against the schema skeleton and the field tables.
+8. **Invalid levels are reported, then skipped.** Discovery logs
+   `[levels] skipping {path}: {reason}`; the level is absent from the menu. Boot with
+   `LIMINAL_LEVEL=<id>` to reproduce.
 9. **No duplicate-level-id detection.** Two files may both declare `"id": "my_level"`;
-   both appear, and `LIMINAL_LEVEL` picks the first discovered.
+   both appear, and `LIMINAL_LEVEL` picks the first in the deterministic menu order
+   (name, then id).
 10. **Spawn outside every room is accepted** and falls back to floor `0.0`. Check it.
-11. **`floor_patches` are unvalidated.** Malformed values are skipped at build time.
-   Keep them well-formed and inside rooms.
-12. **Documentation drift in shipped docs** (recorded here so agents trust the code):
-   `assets/README.md` describes decal sheets as `CLAMP_TO_EDGE` (they are uploaded
-   `REPEAT`); the prop exceedance allowlist lives in `src/props/tests.rs`, not
-   `src/props.rs`; `README.md` counts "eight decal sheets" where the catalog has four
-   decal ids; `src/level.rs`'s `y` comment says ceiling `y` is ignored, but the bake
-   honours it.
-13. **Legacy level editor is stale for vertical keys.** It does not round-trip
-   `floor_y`, `floor_regions`, `ceiling`, light `mount`/`y`, and it rewrites a missing
-   room `height` as 3.5 (the engine default is 4.0). Prefer editing JSON directly for
-   those features.
-14. **Tooling vs runtime strictness.** The Rust runtime is permissive (unknown
-   class/type, missing `model`, invalid `size`, unknown fixture/prop ids degrade);
-   `tools/assets/validate.py` is strict and fails. Pass the tool, not the runtime
-   fallback.
-15. **Generated fixture quirk:** `tests/fixtures/levels/prop_showcase.json` (generated)
+11. **`floor_patches` are dimension-unvalidated.** They are capped at 2000 entries,
+    but a malformed patch is skipped at build time rather than rejected. Keep them
+    well-formed and inside a room.
+12. **A pack cannot shadow a catalog material id**, and a pack material that ships its
+    own PNG currently drops `reflection_mode`/`reflection_strength` (rule a
+    reflective pack surface to reuse a catalog texture). See
+    [Level packs: `materials.json`](#level-packs-materialsjson).
+13. **A prop light's `shape` does not infer.** Omitting `shape` makes the light a
+    point and ignores `half_width`/`half_depth`/`length`. `tools/assets/validate.py`
+    currently infers a shape from those fields, so a level can pass the tool and
+    still bake as a point; author `shape` explicitly.
+14. **Dynamic objects are not authorable.** The only dynamic object is the engine's
+    demonstration drum spawned by placing `core:washing_machine`; a level cannot place
+    or drive one.
+15. **Documentation drift in shipped docs** (recorded here so agents trust the code):
+    `assets/README.md` describes decal sheets as `CLAMP_TO_EDGE` (they are uploaded
+    `REPEAT`); the prop exceedance allowlist lives in `src/props/tests.rs`, not
+    `src/props.rs`; `README.md`'s asset summary says "eight external or generated
+    decal sheets" where the catalog declares four decal ids (three file-backed, one
+    generated);
+    `src/level.rs`'s `y` comment says a ceiling fixture's `y` is ignored, but the bake
+    honours it for storey selection; `src/materials/reflection.rs`'s module comment
+    shows a nested `"reflection": {"mode": …}` catalog form while the catalog uses the
+    flat `reflection_mode`/`reflection_strength` fields.
+16. **Legacy level editor is stale for vertical keys.** `level-editor/js/` does not
+    model `floor_y`, `floor_regions`, `ceiling` profiles or fixture `mount`/`y`, and it
+    defaults a missing room `height` to 3.5 (the engine default is 4.0). Prefer editing
+    JSON directly for those features.
+17. **Tooling vs runtime strictness.** The Rust runtime is permissive (unknown
+    class/type, missing `model`, invalid `size`, unknown fixture/prop ids degrade);
+    `tools/assets/validate.py` is strict and fails. Pass the tool, not the runtime
+    fallback.
+18. **Generated fixture quirk:** `tests/fixtures/levels/prop_showcase.json` (generated)
     carries an `id` key on props that the level schema ignores. Do not copy it.
-16. **`props/build.py --check` prints budget flags but does not fail on them**; budget
+19. **`props/build.py --check` prints budget flags but does not fail on them**; budget
     enforcement lives in `cargo test`. Do not treat a clean `--check` as budget
     approval.
-17. **No water or dynamic lighting.** "Flooded" and "mood
-    lighting" must be expressed with existing materials, geometry and per-fixture
-    colour/brightness.
+20. **No water or dynamic lighting.** "Flooded" and "mood lighting" must be expressed
+    with existing materials, geometry and per-fixture colour/brightness.
+21. **Reflections are per-material and limited.** One planar plane per frame, at most
+    two probes per level, probes are static (no realtime update), and a planar material
+    reused on non-planar geometry is skipped with a warning.
 
 ---
 
@@ -2498,6 +2829,17 @@ references shipped content uses a real catalog id.
   "material": "core:carpet_beige_01",
   "ceiling_material": "core:ceiling_panel_01" }
 ```
+
+## Add a gable ceiling
+
+```json
+{ "x": 30.0, "z": 0.0, "width": 8.0, "depth": 6.0, "height": 3.0,
+  "ceiling": { "kind": "gable", "ridge": "z", "ridge_rise": 1.6 },
+  "material": "core:carpet_beige_01",
+  "ceiling_material": "core:ceiling_stained_01" }
+```
+
+No decals on this ceiling; walls may omit `height` to follow the slope.
 
 ## Add a wall
 
@@ -2535,7 +2877,7 @@ follows the geometry, so a raised window blocks.
    see [Panes](#panes-glass-grilles-and-screens) and the shipped
    `core:glass_window_*` materials.
 2. Add `glass` to the opening. The pane fills the aperture at the wall's centre
-   plane and is lit by the same bake as the wall.
+   plane and samples the wall's baked light.
 
 ```json
 { "kind": "window", "offset": 1.65, "width": 3.2, "height": 1.3, "sill": 1.7,
@@ -2568,6 +2910,32 @@ For a grille or screen instead of glass, use a `cutout` material
   "tint": [0.86, 0.87, 0.88],
   "specular": 0.55, "specular_color": [0.9, 0.93, 1.0], "roughness": 0.25,
   "normal_texture": "hotel:tex_normal_brushed_01", "normal_strength": 0.45 }
+```
+
+## Make a reflective surface (probe or planar)
+
+1. Start from a sheen material: the reflection rides on `specular` and `roughness`,
+   and a material with `specular: 0` never reflects.
+2. Add `reflection_mode`; `probe` for a curved/unknown view (static cubemap), `planar`
+   for a genuinely flat, axis-aligned mirror.
+3. Add `reflection_strength` (default 0.45) only when the default reads wrong.
+4. Mark sparingly: only one planar plane is drawn per frame (extra planes take
+   turns), and `Low` drops planar reflections entirely.
+
+```json
+{ "id": "hotel:lobby_marble_01", "asset_class": "environment",
+  "asset_type": "material", "source": "definition", "surface": "floor",
+  "texture": "hotel:tex_marble_01", "tile_metres": 2.0,
+  "specular": 0.55, "roughness": 0.15,
+  "reflection_mode": "probe", "reflection_strength": 0.4 }
+```
+
+```json
+{ "id": "hotel:pool_deck_wet_01", "asset_class": "environment",
+  "asset_type": "material", "source": "definition", "surface": "floor",
+  "texture": "hotel:tex_deck_tile_01", "tile_metres": 1.5,
+  "specular": 0.65, "roughness": 0.06,
+  "reflection_mode": "planar", "reflection_strength": 0.4 }
 ```
 
 ## Make a surface translucent or a cut-out
@@ -2630,11 +2998,11 @@ A prop that owns its own light (a machine with a lit panel or a subtle glow):
 
 ```json
 { "model": "core:vending_machine", "x": 12.0, "z": 1.0, "rotation_degrees": 270.0,
-  "size": [0.9, 2.0, 0.7], "solid": true,
+  "size": [0.9, 1.9, 0.8], "solid": true,
   "lights": [
-    { "shape": "rect", "half_width": 0.35, "half_depth": 0.05,
-      "offset": [0.0, 1.2, 0.4], "intensity": 0.15, "range": 3.0,
-      "color": [0.55, 0.78, 1.0] }
+    { "shape": "rect", "half_width": 0.3, "half_depth": 0.05,
+      "offset": [0.0, 1.35, 0.45], "intensity": 0.15, "range": 3.0,
+      "color": [0.55, 0.78, 1.0], "falloff": "smooth", "enabled": true }
   ] }
 ```
 
@@ -2681,6 +3049,52 @@ A tube that reads bright but casts its dim pool (the demo's far corridor panel):
   "mount": "wall", "y": 1.9 }
 ```
 
+## Animate an emission
+
+1. The material must be used by the level and must have `emissive`.
+2. Add an entry to `animated_emissions`: `effect` is `pulse` or `flicker`; keep
+   `hz` ≤ 2 for a pulse; `depth` ≤ 0.85.
+3. Give a second sign a different `phase`.
+
+```json
+"animated_emissions": [
+  { "material": "core:glass_sign_lit_01", "effect": "pulse",
+    "hz": 0.09, "depth": 0.18, "phase": 0.0 }
+]
+```
+
+## Package a level as a `.zip` pack
+
+1. Put `level.json` at the pack root (the file name is required).
+2. Optionally add `materials.json` and PNGs under `textures/`.
+3. Declare pack materials with `pack:` ids inside `materials.json`, then reference
+   those ids from `level.json`.
+4. Keep the pack within the limits: ≤ 500 entries, ≤ 10 MB per entry, ≤ 50 MB total
+   uncompressed. Safe extensions: `.exe`, `.sh`, `.bat`, `.so`, `.dylib`, `.dll`,
+   `.bin`, `.wasm` are skipped.
+5. Drop the `.zip` into `levels/` (or use the import flow) and boot it with
+   `LIMINAL_LEVEL=<id>`.
+
+```json
+{
+  "materials": {
+    "pack:lobby_wall": {
+      "texture": "textures/wall_lobby.png",
+      "tile_metres": 2.0,
+      "tint": [1.0, 0.98, 0.94]
+    },
+    "pack:sign_face": {
+      "texture": "textures/sign_face.png",
+      "tile_metres": 1.0,
+      "emissive": [1.0, 0.9, 0.6],
+      "emissive_intensity": 1.5,
+      "alpha_mode": "blend",
+      "opacity": 0.9
+    }
+  }
+}
+```
+
 ## Add a new texture
 
 1. Create the PNG: square, opaque, tileable, ≤1024 (256 preferred), 8-bit.
@@ -2700,7 +3114,8 @@ A tube that reads bright but casts its dim pool (the demo's far corridor panel):
 
 1. Ensure the texture entry exists (above).
 2. Add a `material` entry naming `texture`, with optional `tile_metres` and `tint`.
-3. Reference it from a level (`defaults`, room, wall/`faces`, patch or region).
+3. Reference it from a level (`defaults`, room, wall/`faces`, patch, region or
+   opening `glass`).
 4. Optional: author `emissive`/`emissive_intensity` (and `emissive_mask`) to make the
    surface glow. Emission is not a light: add a fixture or a `props[].lights` entry if
    the surface should illuminate the room.
@@ -2713,7 +3128,7 @@ A tube that reads bright but casts its dim pool (the demo's far corridor panel):
   "tint": [1.0, 1.0, 1.0] }
 ```
 
-A lit sign face, using the same PNG as its own mask:
+A lit sign face:
 
 ```json
 { "id": "hotel:sign_exit_01", "display_name": "Exit Sign Face",
@@ -2725,14 +3140,14 @@ A lit sign face, using the same PNG as its own mask:
 
 ## Add a new prop
 
-1. Add a builder + registry entry in `tools/props/parts/<module>.py` (see
-   `parts/utility.py`).
+1. Add a builder + registry entry in `tools/props/parts/<module>.py` (see the module
+   exemplar and `tools/props/README.md`).
 2. Add the catalog `prop` entry (`model` `.glb`, `size`, `color`, `category`,
    `solid`).
-3. `python3 tools/props/build.py --only <id>`.
-4. Preview with `python3 tools/props/preview.py --only <id>`.
-5. Validate: `python3 tools/props/build.py --check`, `python3 tools/assets/validate.py`,
-   `cargo test --workspace`.
+3. Build it with the toolkit.
+4. Preview it and inspect the PNG.
+5. Validate: `python3 tools/props/build.py --check`,
+   `python3 tools/assets/validate.py`, `cargo test --workspace --all-features`.
 6. Place it by logical id from a level. Do not modify `spooner-man`.
 
 ```json
@@ -2775,11 +3190,11 @@ A new *fixture id* always needs a code mesh family (section
 7. Validate: `python3 tools/textures/build.py --check`,
    `python3 tools/assets/validate.py`,
    `cargo clippy --workspace --all-targets --all-features -- -D warnings`,
-   `cargo test --workspace`.
-7. Place it: `{ "fixture": "<id>", "x": …, "z": … }`
+   `cargo test --workspace --all-features`.
+8. Place it: `{ "fixture": "<id>", "x": …, "z": … }`
    (plus `mount: "wall"`, `y` for a wall family).
 
-To reuse an existing family with new artwork, only steps 3–4 and 7 are needed, and
+To reuse an existing family with new artwork, only steps 3–4 and 8 are needed, and
 the fixture must be the only one claiming that sheet.
 
 ## Add a new environment theme
@@ -2812,6 +3227,7 @@ when adding or changing:
 * prop metadata, placement fields or collision behavior;
 * decal placement, surfaces or depth behavior;
 * light types, fixture mounting types, or lighting parameters exposed to authors;
+* reflections, animated emissions, or any new per-material render behavior;
 * validation commands or quality/budget rules.
 
 The structure is deliberately table-based: a new capability should be inserted as a
@@ -2824,12 +3240,14 @@ rewriting the document.
 When you update this guide:
 
 1. Verify every changed claim against the runtime and tests, not against old prose.
-2. Update the metadata block: the format versions and the last verified commit SHA
-   (`git rev-parse HEAD`), and note which checks you ran.
+2. Update the metadata block: the format versions and the verification note (say what
+   was re-verified and against which tree or build; do not paste a stale SHA without
+   re-checking it).
 3. Re-run the validation commands in [Validation Workflow](#27-validation-workflow) and
    fix any example that no longer matches.
-4. Keep **Implemented Now** and **PLANNED** clearly separated. Never document a
-   planned field, type or behavior as authorable, and never invent future JSON fields.
+4. Keep the **Implemented Now** and **Not implemented** lists clearly separated.
+   Never document a planned field, type or behavior as authorable, and never invent
+   future JSON fields.
 5. Keep normal game artwork as external image files in the asset tree; if internal
    generated diagnostics change, update the exceptions table in [Textures](#12-textures).
 

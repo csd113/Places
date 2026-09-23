@@ -1341,6 +1341,15 @@ fn accessor_data<'a>(
         .get("byteStride")
         .and_then(json_usize)
         .unwrap_or(element_size);
+    // A zero stride is only meaningful for a single element (the GLB spec
+    // requires >= 4 when `byteStride` is authored at all). With more than one
+    // element it would make the size check below pass for any `count`, so it is
+    // rejected here rather than trusted.
+    if stride == 0 && count > 1 {
+        return Err(GltfError::new(format!(
+            "accessor {index} declares a zero byteStride with {count} elements"
+        )));
+    }
     let required = if count == 0 {
         // No elements are read, so even an empty bufferView is acceptable.
         0
@@ -1356,6 +1365,16 @@ fn accessor_data<'a>(
     if required > view_length {
         return Err(GltfError::new(format!(
             "accessor {index} declares {count} elements but its bufferView is too small"
+        )));
+    }
+    // Belt and braces against a count that the element size cannot physically
+    // fit, so no reader can reserve or loop past the buffer it was given.
+    let element_size = element_size.max(1);
+    #[allow(clippy::arithmetic_side_effects)] // `element_size >= 1` is checked above
+    let max_count = view_length / element_size;
+    if count > max_count {
+        return Err(GltfError::new(format!(
+            "accessor {index} declares {count} elements but its bufferView holds at most {max_count}"
         )));
     }
     Ok((

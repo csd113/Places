@@ -160,9 +160,12 @@ pub(super) fn routing_from_mesh(
             continue;
         }
         let Some((normal, offset)) = range_plane(range) else {
-            eprintln!(
-                "[reflections] material {material} marks a planar reflection but its \
-                 geometry is not planar; skipping that range"
+            crate::logging::warn_once(
+                format!("planar-not-planar:{material}"),
+                format!(
+                    "[reflections] material {material} marks a planar reflection but its \
+                     geometry is not planar; skipping that range"
+                ),
             );
             continue;
         };

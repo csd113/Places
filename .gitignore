@@ -6,3 +6,12 @@ __pycache__/
 tools/bench/results/
 .DS_Store
 AGENTS.md
+
+# Per-user runtime state written by the game (portable install layout).
+# `levels/` ships only its README; drop-in levels and packs are never committed.
+settings.json
+settings.json.invalid
+cache/
+import/
+levels/*.json
+levels/*.zip
