@@ -48,8 +48,9 @@ pub const MAX_BRIGHTNESS: f32 = 1.0;
 ///
 /// A restrained, slightly aged institutional fluorescent: warm enough to read
 /// as artificial light, far from a saturated yellow. Centralised here so the
-/// level schema, the bake and the fixture panel appearance cannot drift apart;
-/// `level-editor/js/lighting.js` mirrors this constant for the preview.
+/// level schema, the bake and its local pools cannot drift apart;
+/// `level-editor/js/lighting.js` mirrors this constant for the preview. The
+/// fixture's visible face is texture-first and never consumes this colour.
 pub const DEFAULT_LIGHT_COLOR: LightColor = LightColor::rgb(1.0, 0.96, 0.88);
 
 /// Ambient fill colour per channel: neutral, small and fixed.
@@ -193,7 +194,7 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
             kind,
             half_width: FIXTURE_HALF_WIDTH_M,
             half_depth: FIXTURE_HALF_DEPTH_M,
-            quads: 3,
+            quads: 1,
         },
         FixtureKind::RoundRecessed => FixtureProfile {
             kind,

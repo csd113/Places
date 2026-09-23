@@ -69,7 +69,8 @@ The engine is deliberately small and the content is deliberately editable:
   mirror** (a real second view of the level through the surface's own plane, at
   most one plane per frame). Both are weighted by the sheen the material already
   authors, so a rough or dull surface suppresses its reflection instead of
-  mirroring.
+  mirroring, and `shine` (`0.0` matte .. `1.0` glossy) is an authorable material
+  property with an optional per-surface override in a level.
 * **Animated emissions.** A level can make a material's emission `pulse` or
   `flicker`, deterministically and within a bounded depth — a backlit sign
   breathing, a tube on a failing ballast.
@@ -262,8 +263,9 @@ artwork is just as valid. Add a new surface material without touching Rust: add
 the PNG, add a `texture` entry and a `material` entry to the catalog, then name
 the material from a level. A material may also name a `normal_texture` (a
 tangent-space normal map, generated or hand-painted like any other sheet), a
-`specular`/`roughness` pair for its sheen, and an `alpha_mode` with an optional
-`opacity` for translucency. A light fixture's *mesh* is still code, but its face
+`specular` strength and a `shine` glossiness for its sheen (a level may override
+the glossiness per surface), and an `alpha_mode` with an optional `opacity` for
+translucency. A light fixture's *mesh* is still code, but its face
 is the PNG its catalog entry names. `assets/README.md` documents the catalog
 format, the material/texture split and the asset budgets.
 
@@ -389,7 +391,7 @@ Working and shipped:
   fully bright while casting nothing, and a light can cast while nothing glows;
 * a lightweight surface response on top of that lighting: an optional normal map
   (`normal_texture`, `normal_strength`), a sheen (`specular`, `specular_color`,
-  `roughness`), all of it additive and view-dependent — dull paint, plastic,
+  `shine`), all of it additive and view-dependent — dull paint, plastic,
   metal, glossy tile, linoleum and wet floors read differently without a
   physically based material model;
 * real transparency: a material's `alpha_mode` (`opaque`, `cutout` or `blend`)
@@ -418,8 +420,9 @@ Known limitations, all deliberate:
   static probe baked per level load or at most one half-resolution planar mirror
   per frame, never a dynamic scene reflection;
 * no physically based material model: the surface response is a normal map plus
-  a view-dependent sheen, not a BRDF, and it has no light direction to place a
-  highlighted specular from;
+  a view-dependent sheen shaped by `shine` (`0.0` matte .. `1.0` glossy, with an
+  optional per-surface override in a level), not a BRDF, and it has no light
+  direction to place a highlighted specular from;
 * no refraction, no transmission through glass to the lighting bake, no
   per-object alpha on GLB props (a prop's glTF `alphaMode` is not read yet);
 * dynamic objects are engine-spawned, not authorable from a level, and are lit
@@ -443,15 +446,17 @@ Known limitations, all deliberate:
 
 The renderer draws the world in one pass: a baked vertex colour multiplied by a
 sampled texel, plus a material emission term, plus an optional surface-response
-term (`texture2D(u_texture, v_uv) * v_color * light + sheen + emission`). The
+term (`texture2D(u_texture, v_uv) * v_color * light + sheen + reflection + emission`). The
 emissive term is added *after* the light multiply, so darkness cannot extinguish
 it, and it never becomes illumination — environmental light comes only from the
 generic light sources a level places. The response term is a view-dependent
 Fresnel sheen scaled by the same baked light (there is no light direction in the
-bake, so there is no highlighted specular to place) and an optional normal map
-perturbing the shading normal. A separate decal pass alpha-tests a cut-out sheet
-over the surface it belongs to. Lighting is computed once per level load, never
-per frame.
+bake, so there is no highlighted specular to place), shaped by the material's
+`shine` and an optional normal map perturbing the shading normal: a low-shine
+surface keeps a broad grazing sheen and a faint, blurred reflection, a high-shine
+one a tight highlight and a recognizable image. A separate decal pass alpha-tests
+a cut-out sheet over the surface it belongs to. Lighting is computed once per
+level load, never per frame.
 
 The scene is rendered into an offscreen colour+depth target and resolved into the
 display image by one fullscreen pass; the HUD is drawn afterwards, on the default

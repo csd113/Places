@@ -1514,6 +1514,7 @@ mod tests {
             height: 2.1,
             sill: 0.0,
             glass: None,
+            glass_shine: None,
         });
         let visibility = Visibility::build(&level, &[QuerySite::new(0.5, 2.0, 6.0)]);
         // Through the doorway.
@@ -1535,6 +1536,7 @@ mod tests {
             height: 1.0,
             sill: 1.0,
             glass: None,
+            glass_shine: None,
         });
         level
     }

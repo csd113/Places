@@ -280,7 +280,7 @@ Same rules as walls, with two differences:
 **Do not assume floors and walls are interchangeable.** They share the shape
 and tiling contract, but a floor sheet is sampled on the ground plane and a
 wall sheet on vertical faces; orientation and the material's response
-(roughness, specular, reflection) are authored per material, not per file.
+(shine, specular, reflection) are authored per material, not per file.
 
 ### 5.3 Ceiling textures
 
@@ -360,12 +360,15 @@ the whole sheet is mapped once across the face, the UVs never leave `[0, 1]`,
 and the renderer uploads them `CLAMP_TO_EDGE` with mipmaps. Nothing about a
 fixture face tiles.
 
-The luminous face's brightness is the fixture's per-vertex emission colour
-(from the placed light's colour and intensity, multiplied by the authored
-`emission` override when present) times the sampled sheet. The sheet itself is
-*not* a lightmap and carries no lighting information; its job is the fixture's
-appearance (diffuser, lens, housing trim on the luminous face). There is no
-separate emissive map for a fixture face.
+The luminous face is **texture-first**: the sheet defines the fixture's visible
+colour and appearance, and the face's per-vertex emission is a *neutral*
+brightness (the authored `emission` strength, defaulting to the fixture's
+intensity) multiplied into the sampled sheet. The placed light's `color` is a
+property of the illumination only: it tints what the bake casts into the room
+and never repaints the face. The sheet itself is *not* a lightmap and carries
+no lighting information; its job is the fixture's appearance (diffuser, lens,
+housing trim on the luminous face). There is no separate emissive map for a
+fixture face.
 
 Fixture faces are **opaque by construction**: the face draws in the opaque
 pass and its alpha channel is ignored. A shipped fixture sheet is additionally
@@ -683,8 +686,9 @@ substitution.
 
 A pack's `materials.json` supports the same fields as a catalog material
 definition, including `emissive`, `emissive_intensity`, `emissive_mask`,
-`normal_texture`, `normal_strength`, `specular`, `roughness`, `alpha_mode`,
-`opacity`, `alpha_cutoff` and the reflection fields. Pack decals are a
+`normal_texture`, `normal_strength`, `specular`, `shine` (and the legacy
+`roughness` inverse), `alpha_mode`, `opacity`, `alpha_cutoff` and the reflection
+fields. Pack decals are a
 limitation: a `pack:` decal id produces no geometry, because the decal pass
 resolves only built-in patterns and catalog file decals.
 
@@ -1099,7 +1103,7 @@ existing class), decide and record all of the following in this document:
 - [ ] Tiling requirement (both axes, none);
 - [ ] Alpha behaviour (opaque, cut-out, blend);
 - [ ] Filtering and wrapping (which role it follows);
-- [ ] Material behaviour (tint, roughness, specular, reflection, normal map);
+- [ ] Material behaviour (tint, shine, specular, reflection, normal map);
 - [ ] Emissive behaviour (material emission, vertex emission, mask, none);
 - [ ] Validation (what will check it, and the command);
 - [ ] Directory and naming convention;

@@ -155,7 +155,9 @@ fn test_estimate_geometry_saturates_on_extreme_input() {
             floor_y: 0.0,
             ceiling: CeilingProfileDef::Flat,
             material: None,
+            shine: None,
             ceiling_material: None,
+            ceiling_shine: None,
         }],
         spawn: SpawnDef {
             x: 0.0,
@@ -806,5 +808,148 @@ fn test_estimate_geometry_accounts_for_regions_and_gables() {
     let mesh = crate::render::build_level_geometry(&complex);
     assert!(
         u64::try_from(mesh.vertex_count).unwrap_or(u64::MAX) <= complex_estimate.total_vertices
+    );
+}
+
+// ------------------------------------------------------- surface shine
+
+/// A level with a shine override on every surface carrier.
+fn shine_level_json() -> &'static str {
+    r#"{
+        "format_version": 1,
+        "id": "shine",
+        "name": "Shine",
+        "spawn": { "x": 4.0, "z": 4.0 },
+        "defaults": { "wall": "core:wallpaper_yellow_01",
+                      "floor": "core:carpet_beige_01",
+                      "ceiling": "core:ceiling_panel_01",
+                      "wall_shine": 0.0, "floor_shine": 0.1, "ceiling_shine": 0.0 },
+        "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0,
+                     "material": "core:linoleum_polished_01", "shine": 0.05,
+                     "ceiling_material": "core:ceiling_panel_01",
+                     "ceiling_shine": 0.0 } ],
+        "walls": [
+            { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 0.3, "height": 3.0,
+              "material": "core:metal_brushed_01", "shine": 0.3,
+              "faces": { "south": "core:metal_brushed_01" },
+              "face_shine": { "south": 0.6 },
+              "openings": [
+                  { "kind": "window", "offset": 1.0, "width": 1.0, "height": 1.0,
+                    "sill": 1.0, "glass": "core:glass_window_clear_01",
+                    "glass_shine": 0.85 }
+              ] }
+        ],
+        "floor_patches": [
+            { "x": 0.0, "z": 0.0, "width": 1.0, "depth": 1.0,
+              "material": "core:carpet_damp_01", "shine": 0.0 }
+        ],
+        "floor_regions": [
+            { "x": 4.0, "z": 4.0, "width": 2.0, "depth": 2.0, "offset_y": -0.5,
+              "material": "core:pool_tile_basin_01", "shine": 0.3,
+              "edge_material": "core:pool_tile_wall_01", "edge_shine": 0.28 }
+        ]
+    }"#
+}
+
+#[test]
+fn every_authored_shine_survives_a_json_round_trip() {
+    let level = LevelDef::from_json(shine_level_json()).expect("shine level parses");
+    let rewritten = serde_json::to_string(&level).expect("level serialises");
+    let again = LevelDef::from_json(&rewritten).expect("rewritten level parses");
+
+    assert_eq!(again.defaults.floor_shine, Some(0.1));
+    let room = &again.rooms[0];
+    assert_eq!(room.shine, Some(0.05));
+    assert_eq!(room.ceiling_shine, Some(0.0));
+    let wall = &again.walls[0];
+    assert_eq!(wall.shine, Some(0.3));
+    assert_eq!(wall.face_shine.get("south"), Some(&0.6));
+    assert_eq!(wall.openings[0].glass_shine, Some(0.85));
+    assert_eq!(again.floor_patches[0].shine, Some(0.0));
+    assert_eq!(again.floor_regions[0].shine, Some(0.3));
+    assert_eq!(again.floor_regions[0].edge_shine, Some(0.28));
+}
+
+#[test]
+fn a_level_without_shine_keeps_every_override_empty() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1, "id": "plain", "name": "Plain",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 }
+        }"#,
+    )
+    .expect("plain level parses");
+    assert!(level.defaults.floor_shine.is_none());
+    assert!(level.room_iter().all(|room| room.shine.is_none()));
+    assert!(level.walls.is_empty());
+}
+
+#[test]
+fn material_references_carry_the_surface_override() {
+    let level = LevelDef::from_json(shine_level_json()).expect("shine level parses");
+    let room = &level.rooms[0];
+    let floor = room.floor_ref().expect("the room overrides its floor");
+    assert_eq!(floor.id, "core:linoleum_polished_01");
+    assert_eq!(floor.shine, Some(0.05));
+    assert!(floor.has_shine());
+
+    // The default is a reference too, with the level-wide override.
+    let default_floor = level.defaults.floor_ref();
+    assert_eq!(default_floor.shine, Some(0.1));
+    assert_eq!(level.defaults.wall_ref().shine, Some(0.0));
+
+    // A pane carries its own override.
+    let glass = level.walls[0].openings[0]
+        .glass_ref()
+        .expect("the opening is glazed");
+    assert_eq!(glass.id, "core:glass_window_clear_01");
+    assert_eq!(glass.shine, Some(0.85));
+
+    // A patch and a region resolve theirs.
+    assert_eq!(level.floor_patches[0].material_ref().shine, Some(0.0));
+    let region = &level.floor_regions[0];
+    assert_eq!(region.floor_ref().expect("region floor").shine, Some(0.3));
+    assert_eq!(region.edge_ref().expect("region edge").shine, Some(0.28));
+}
+
+#[test]
+fn wall_face_shine_resolves_face_then_wall_then_material() {
+    let level = LevelDef::from_json(shine_level_json()).expect("shine level parses");
+    let wall = &level.walls[0];
+    // The face's own override wins.
+    assert_eq!(wall.face_ref("south").expect("south face").shine, Some(0.6));
+    // A face that only falls back to the wall's material keeps the wall shine.
+    assert_eq!(wall.face_ref("north").expect("north face").shine, Some(0.3));
+    // The wall's own reference carries it too.
+    assert_eq!(wall.material_ref().expect("wall material").shine, Some(0.3));
+
+    // A face with a different material does not inherit the wall's override:
+    // its own material default applies.
+    let json = r#"{
+        "format_version": 1, "id": "faces", "name": "Faces",
+        "spawn": { "x": 0.0, "z": 0.0 },
+        "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 } ],
+        "walls": [
+            { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 0.3, "height": 3.0,
+              "material": "core:metal_brushed_01", "shine": 0.6,
+              "faces": { "north": "core:wallpaper_yellow_01" } }
+        ]
+    }"#;
+    let level = LevelDef::from_json(json).expect("faces level parses");
+    let wall = &level.walls[0];
+    assert_eq!(
+        wall.face_ref("north").expect("north").id,
+        "core:wallpaper_yellow_01"
+    );
+    assert_eq!(
+        wall.face_ref("north").expect("north").shine,
+        None,
+        "a face with its own material keeps that material's default"
+    );
+    assert_eq!(
+        wall.face_ref("south").expect("south").shine,
+        Some(0.6),
+        "a face falling back to the wall material keeps the wall override"
     );
 }

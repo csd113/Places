@@ -39,6 +39,9 @@ pub struct PackMaterialDef {
     /// Sheen strength (white) and optional explicit sheen colour.
     pub specular: Option<f32>,
     pub specular_color: Option<[f32; 3]>,
+    /// Author-facing glossiness, `0.0` matte .. `1.0` extremely glossy.
+    pub shine: Option<f32>,
+    /// Legacy inverse of [`Self::shine`]; `shine` wins when both are authored.
     pub roughness: Option<f32>,
     /// `none` | `probe` | `planar`. Absent means no reflection at all.
     pub reflection_mode: Option<String>,
@@ -93,13 +96,17 @@ impl PackMaterialDef {
         let specular = self
             .specular_color
             .map_or([sheen; 3], |color| color.map(|channel| channel * sheen));
+        let roughness = self.shine.map_or_else(
+            || self.roughness.unwrap_or(super::DEFAULT_ROUGHNESS),
+            super::roughness_from_shine,
+        );
         MaterialResponse {
             normal: None,
             normal_strength: self
                 .normal_strength
                 .unwrap_or(super::DEFAULT_NORMAL_STRENGTH),
             specular,
-            roughness: self.roughness.unwrap_or(super::DEFAULT_ROUGHNESS),
+            roughness,
         }
         .sanitized()
     }
@@ -286,9 +293,10 @@ impl PackMaterials {
 /// Accepts `{"materials": {...}}` and a flat object, with string values
 /// (`"pack:wall": "textures/wall.png"`) or objects carrying `texture`/`file`/
 /// `diffuse`, plus the optional `tile_metres`, `tint`, `emissive`,
-/// `emissive_intensity` and `emissive_mask` fields. Unknown fields are ignored
-/// and malformed values fall back to the defaults, so an older or newer pack
-/// keeps loading. The string shorthand is emission-free by construction.
+/// `emissive_intensity`, `emissive_mask`, `shine` (and its legacy inverse
+/// `roughness`) fields. Unknown fields are ignored and malformed values fall
+/// back to the defaults, so an older or newer pack keeps loading. The string
+/// shorthand is emission-free by construction.
 #[must_use]
 pub fn parse_materials_json(json_str: Option<&str>) -> HashMap<String, PackMaterialDef> {
     let mut result = HashMap::new();
@@ -346,6 +354,7 @@ pub fn parse_materials_json(json_str: Option<&str>) -> HashMap<String, PackMater
                 normal_strength: value.get("normal_strength").and_then(parse_unit_number),
                 specular: value.get("specular").and_then(parse_unit_number),
                 specular_color: value.get("specular_color").and_then(parse_unit_rgb),
+                shine: value.get("shine").and_then(parse_unit_number),
                 roughness: value.get("roughness").and_then(parse_unit_number),
                 alpha_mode: value
                     .get("alpha_mode")

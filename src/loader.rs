@@ -435,6 +435,7 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_header(level)?;
     validate_element_limits(level)?;
     validate_rooms(level)?;
+    validate_surface_shine(level)?;
     validate_floor_regions(level)?;
     validate_walls(level)?;
     validate_ceiling_lights(level)?;
@@ -614,6 +615,51 @@ fn validate_rooms(level: &LevelDef) -> Result<(), String> {
                 ));
             }
         }
+    }
+    Ok(())
+}
+
+/// Every per-surface `shine` override a level authors must be a unit value.
+///
+/// Shine is the author-facing glossiness (`0.0` matte .. `1.0` extremely
+/// glossy). A malformed value is a level error rather than a silent clamp: a
+/// surface that was meant to be matte and renders glossy (or the reverse) is
+/// exactly the kind of mistake the loader exists to surface. A level that
+/// authors no shine passes unchanged.
+fn validate_surface_shine(level: &LevelDef) -> Result<(), String> {
+    let check = |label: &str, shine: Option<f32>| -> Result<(), String> {
+        let Some(shine) = shine else {
+            return Ok(());
+        };
+        if !shine.is_finite() || !(0.0..=1.0).contains(&shine) {
+            return Err(format!(
+                "{label} shine must be a finite number between 0.0 and 1.0, found {shine:?}"
+            ));
+        }
+        Ok(())
+    };
+    check("Level default wall", level.defaults.wall_shine)?;
+    check("Level default floor", level.defaults.floor_shine)?;
+    check("Level default ceiling", level.defaults.ceiling_shine)?;
+    for (i, room) in level.room_iter().enumerate() {
+        check(&format!("Room {i} floor"), room.shine)?;
+        check(&format!("Room {i} ceiling"), room.ceiling_shine)?;
+    }
+    for (i, wall) in level.walls.iter().enumerate() {
+        check(&format!("Wall {i}"), wall.shine)?;
+        for (face, shine) in &wall.face_shine {
+            check(&format!("Wall {i} face `{face}`"), Some(*shine))?;
+        }
+        for (j, opening) in wall.openings.iter().enumerate() {
+            check(&format!("Wall {i} opening {j} glass"), opening.glass_shine)?;
+        }
+    }
+    for (i, patch) in level.floor_patches.iter().enumerate() {
+        check(&format!("Floor patch {i}"), patch.shine)?;
+    }
+    for (i, region) in level.floor_regions.iter().enumerate() {
+        check(&format!("Floor region {i} floor"), region.shine)?;
+        check(&format!("Floor region {i} edge"), region.edge_shine)?;
     }
     Ok(())
 }
@@ -1043,9 +1089,9 @@ fn validate_geometry_budget(level: &LevelDef) -> Result<(), String> {
 /// The list is indexed by [`crate::lighting::FixtureKind::index`] and holds at
 /// most one sheet per family: the first light of a family decides. A family with
 /// no resolvable sheet is simply absent, and the fixture draws the shared white
-/// sheet (its flat authored glow, exactly as before); a sheet that was named but
-/// cannot be read or decoded is logged with the fixture id in it and degrades
-/// the same way.
+/// sheet with its neutral face emission; a sheet that was named but cannot be
+/// read or decoded is logged with the fixture id in it and degrades the same
+/// way.
 #[must_use]
 pub fn resolve_fixture_sheets(
     level: &LevelDef,

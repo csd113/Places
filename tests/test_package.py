@@ -590,6 +590,48 @@ class AssetCatalogTests(unittest.TestCase):
             errors, _ = self._validate_level_document(level_with(fields))
             self.assertTrue(any(needle in error for error in errors), f"{label}: {errors}")
 
+    def test_the_validator_checks_per_surface_shine(self):
+        def level_with(**fields):
+            level = {
+                "format_version": 1,
+                "id": "shine_probe",
+                "name": "Shine Probe",
+                "spawn": {"x": 0.0, "z": 0.0, "yaw_degrees": 0.0},
+                "defaults": {
+                    "wall": "core:wallpaper_yellow_01",
+                    "floor": "core:carpet_beige_01",
+                    "ceiling": "core:ceiling_panel_01",
+                },
+                "rooms": [{"x": -5.0, "z": -5.0, "width": 10.0, "depth": 10.0, "height": 3.5}],
+                "floor_patches": [
+                    {
+                        "x": 0.0,
+                        "z": 0.0,
+                        "width": 1.0,
+                        "depth": 1.0,
+                        "material": "core:linoleum_polished_01",
+                    }
+                ],
+            }
+            level["floor_patches"][0].update(fields)
+            return level
+
+        # The documented range, including both ends, validates.
+        for shine in (0.0, 0.05, 0.5, 1.0):
+            errors, _ = self._validate_level_document(level_with(shine=shine))
+            self.assertEqual(errors, [], f"shine {shine}: {errors}")
+
+        # The shipped demo's override is part of the validated set.
+        errors, _ = validate.validate_levels(catalog())
+        self.assertEqual(errors, [], errors)
+
+        for value in (-0.1, 1.5, "bright"):
+            errors, _ = self._validate_level_document(level_with(shine=value))
+            self.assertTrue(
+                any("shine must be a number between 0 and 1" in e for e in errors),
+                f"{value!r}: {errors}",
+            )
+
     def test_a_broken_catalog_surfaces_in_the_validators_exit_code(self):
         with tempfile.TemporaryDirectory() as directory:
             base = catalog()

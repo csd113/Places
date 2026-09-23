@@ -108,7 +108,7 @@ Authoritative paths:
 | A separate dynamic-object render path (per-frame transforms, no rebuild of static geometry or lightmaps) | Implemented (one engine-created demonstration object; not authorable from a level) |
 | Generic engine-level lights (point / rect / line) owned by fixtures and props | Implemented |
 | Material emission (`emissive`, `emissive_intensity`, `emissive_mask`) and per-fixture `emission` | Implemented |
-| Material surface response (`normal_texture`, `normal_strength`, `specular`, `specular_color`, `roughness`) | Implemented |
+| Material surface response (`normal_texture`, `normal_strength`, `specular`, `specular_color`, `shine`; legacy `roughness`) | Implemented |
 | Material transparency (`alpha_mode`: `opaque` / `cutout` / `blend`, `opacity`, `alpha_cutoff`) | Implemented |
 | Opening glazing: a `glass` material fills a window, vent or door aperture with one pane | Implemented |
 | Offscreen scene rendering presented by a fullscreen quad, UI at drawable resolution | Implemented |
@@ -259,8 +259,8 @@ skeleton and the per-field tables.
   "spawn": { "x": 2.0, "z": 5.0, "yaw_degrees": 0.0 },  // x, z REQUIRED; yaw default 0.0
 
   "defaults": {                            // optional block; see the warning below
-    "wall": "core:wallpaper_yellow_01",
-    "floor": "core:carpet_beige_01",
+    "wall": "core:wallpaper_yellow_01",    // optional per-surface shine overrides:
+    "floor": "core:carpet_beige_01",       // wall_shine / floor_shine / ceiling_shine
     "ceiling": "core:ceiling_panel_01"
   },
 
@@ -272,7 +272,9 @@ skeleton and the per-field tables.
       "floor_y": 0.0,                      // optional, default 0.0
       "ceiling": { "kind": "flat" },       // optional, default flat
       "material": "core:carpet_beige_01",  // optional, default defaults.floor
-      "ceiling_material": "core:ceiling_panel_01" // optional, default defaults.ceiling
+      "shine": 0.0,                        // optional 0..1; default = material's own
+      "ceiling_material": "core:ceiling_panel_01", // optional, default defaults.ceiling
+      "ceiling_shine": 0.0                 // optional 0..1; default = material's own
     }
   ],
 
@@ -282,7 +284,9 @@ skeleton and the per-field tables.
       "width": 9.0, "depth": 0.3,          // REQUIRED, > 0
       "height": 2.7,                       // optional: omitted follows the local ceiling
       "material": "core:wallpaper_yellow_01",          // optional, default defaults.wall
+      "shine": 0.0,                        // optional 0..1 for this wall's faces
       "faces": { "north": "core:wallpaper_stained_01" }, // optional per-face overrides
+      "face_shine": { "north": 0.0 },      // optional per-face 0..1, keyed like faces
       "openings": [
         {
           "kind": "door",                  // optional, default "door"; free string
@@ -290,7 +294,8 @@ skeleton and the per-field tables.
           "width": 1.2,                    // REQUIRED
           "height": 2.1,                   // REQUIRED
           "sill": 0.0,                     // optional, default 0.0
-          "glass": "core:glass_window_clear_01"  // optional; absent = bare hole
+          "glass": "core:glass_window_clear_01",  // optional; absent = bare hole
+          "glass_shine": 0.2               // optional 0..1 for the pane
         }
       ]
     }
@@ -298,7 +303,8 @@ skeleton and the per-field tables.
 
   "floor_patches": [                       // material-only overlays (no elevation)
     { "x": 3.0, "z": 5.0, "width": 2.0, "depth": 1.5,
-      "material": "core:carpet_damp_01" }  // all five fields REQUIRED
+      "material": "core:carpet_damp_01",   // required
+      "shine": 0.0 }                       // optional 0..1
   ],
 
   "floor_regions": [                       // recesses / raised platforms
@@ -306,7 +312,9 @@ skeleton and the per-field tables.
       "x": 2.0, "z": 2.0, "width": 4.0, "depth": 3.0,  // REQUIRED
       "offset_y": -1.5,                    // optional, default 0.0
       "material": "core:pool_tile_basin_01",           // optional
-      "edge_material": "core:pool_tile_wall_01"        // optional
+      "shine": 0.3,                        // optional 0..1
+      "edge_material": "core:pool_tile_wall_01",       // optional
+      "edge_shine": 0.28                   // optional 0..1
     }
   ],
 
@@ -478,7 +486,9 @@ the player should walk inside must be enclosed by authored `walls`.
 | `floor_y` | number | no | `0.0` | World Y of the room's floor plane. Moves floor, walls and ceiling together. |
 | `ceiling` | object | no | `{"kind":"flat"}` | Ceiling profile; see below. |
 | `material` | string | no | `defaults.floor` | Floor material override for this room. |
+| `shine` | number | no | material default | Per-surface glossiness (`0`–`1`) for `material`. |
 | `ceiling_material` | string | no | `defaults.ceiling` | Ceiling material override for this room. |
+| `ceiling_shine` | number | no | material default | Per-surface glossiness (`0`–`1`) for `ceiling_material`. |
 
 There is no per-room wall material: walls carry their own `material` / `faces`.
 
@@ -562,7 +572,9 @@ which almost always means an authored-by-centre mistake.
 | `depth` | number | **yes** | — | Z extent, `> 0`. |
 | `height` | number | no | follows the local ceiling | Authored height above `y`. Omitted = the wall top follows the room ceiling (gable-aware). Authored = rigid. |
 | `material` | string | no | `defaults.wall` | Object-level material for the wall's length faces. |
+| `shine` | number | no | material default | Per-surface glossiness (`0`–`1`) for the wall's faces that draw `material`. |
 | `faces` | object | no | `{}` | Per-face material overrides; wins over `material`. |
+| `face_shine` | object | no | `{}` | Per-face glossiness overrides, keyed like `faces`; a face with a different material keeps that material's default. |
 | `openings` | array | no | `[]` | Rectangular cutouts (≤ 64 per wall); see [Openings](#9-openings). |
 
 **Axis, length, thickness.** A wall's **length axis** is the larger of `width`/`depth`
@@ -662,6 +674,7 @@ are the same rectangle; `kind` only changes labels and one lighting behavior.
 | `height` | number | **yes** | — | Cut height above the sill; `> 0`. |
 | `sill` | number | no | `0.0` | Bottom edge above the wall's base (`wall.y`); `≥ 0`. `0.0` reaches the floor. |
 | `glass` | string | no | — | Material id of a pane filling the aperture. Absent (or blank) = the historical bare hole. See [Panes](#panes-glass-grilles-and-screens). |
+| `glass_shine` | number | no | material default | Per-surface glossiness (`0`–`1`) for the `glass` pane. |
 
 ```text
    X-axis wall: footprint (x .. x+width) by (z .. z+depth)
@@ -776,7 +789,8 @@ low service openings.
 { "x": 3.0, "z": 5.0, "width": 2.0, "depth": 1.5, "material": "core:carpet_damp_01" }
 ```
 
-All five fields are required. A patch changes the floor material of an area with no
+`material` and the geometry are required; `shine` is an optional per-patch
+glossiness override (`0`–`1`). A patch changes the floor material of an area with no
 elevation change. Later patches win over earlier ones, and a floor region's own
 material wins over patches. Patches are counted against the 2000-patch cap, but
 individual patches are **not dimension-validated**: malformed values are skipped at
@@ -798,7 +812,9 @@ and well-formed.
 | `width`, `depth` | number | **yes** | — | `> 0`. |
 | `offset_y` | number | no | `0.0` | Offset from the **containing room's `floor_y`**: negative recesses, positive raises. |
 | `material` | string | no | room floor material | Region floor material; if present it must be a non-empty id. |
+| `shine` | number | no | material default | Per-surface glossiness (`0`–`1`) for `material`. |
 | `edge_material` | string | no | `defaults.wall` | Vertical transition (skirt) material; if present it must be a non-empty id. |
+| `edge_shine` | number | no | material default | Per-surface glossiness (`0`–`1`) for `edge_material`. |
 
 Rules that matter:
 
@@ -892,9 +908,10 @@ catalog (with the asset id in the message), not just the field.
 | `emissive_mask` | string | none | Logical id of a file-backed `texture`. Its RGB modulates where the surface emits; it must resolve or the whole material degrades to the diagnostic texture. Asserting it without `emissive` is a catalog error. | No mask; the material's own texture modulates the glow. |
 | `normal_texture` | string | none | Logical id of a file-backed `texture` holding a tangent-space normal map (RGB = x/y/z encoded `0..255 → -1..1`). Must resolve or the whole material degrades. | No normal perturbation. |
 | `normal_strength` | number | `1.0` | `0.0`–`2.0`. Multiplies the decoded map's `xy`. Asserting it without `normal_texture` is a catalog error. | `1.0`. |
-| `specular` | number | `0.0` | `0.0`–`1.0`. Sheen strength. `0.0` is the default flat look. | No sheen. |
+| `specular` | number | `0.0` | `0.0`–`1.0`. Sheen strength: how much light the surface catches. `0.0` is the default flat look, and no `shine` value can switch a sheen on. | No sheen. |
 | `specular_color` | `[r,g,b]` | white | Each channel `0.0`–`1.0`. Sheen colour; it does **not** require `specular`. With `specular: 0` the whole sheen term is zero, so the colour has no visible effect. | White sheen. |
-| `roughness` | number | `0.6` | `0.0` mirror-tight sheen … `1.0` fully matte. Shapes the sheen only; a material with `specular: 0` never sheens at any roughness. | `0.6`. |
+| `shine` | number | `0.4` | `0.0`–`1.0`. Glossiness: `0.0` matte, `0.25` slight sheen, `0.5` semi-gloss, `0.75` polished, `1.0` extremely glossy. Shapes both the sheen and the reflection; a material with `specular: 0` never sheens at any shine. **Not a mirror** — a mirror is `reflection_mode: planar`. | The legacy `roughness` if authored, else `0.4`. |
+| `roughness` | number | — | Legacy inverse of `shine` (`roughness = 1 - shine`), kept so catalogs authored before `shine` existed load unchanged. Author **either** field, not both; authoring both is a catalog error. | Prefer `shine`. |
 | `alpha_mode` | string | `opaque` (absent) | `opaque`, `cutout` or `blend`. An unknown value is a catalog error. | `opaque`. |
 | `opacity` | number | `1.0` | `0.0`–`1.0`. Multiplies the sampled alpha. Requires an explicit `alpha_mode`; only changes the image for `blend`, and shifts the threshold for `cutout`. | `1.0`. |
 | `alpha_cutoff` | number | `0.5` | `0.0`–`1.0`. Alpha below which a texel is discarded. Requires an explicit `alpha_mode`; only `cutout` uses it. | `0.5`. |
@@ -915,6 +932,32 @@ Where a level can name a material (all resolved at load):
 * `floor_regions[].material` and `floor_regions[].edge_material`
 * `walls[].openings[].glass` (the pane filling an aperture, see
   [Panes](#panes-glass-grilles-and-screens))
+
+Every one of those carriers takes an optional per-surface `shine` override as a
+sibling key, so a level can change how glossy **one surface** is without a new
+material:
+
+| Carrier | Per-surface shine key |
+| --- | --- |
+| `defaults.wall` / `defaults.floor` / `defaults.ceiling` | `wall_shine` / `floor_shine` / `ceiling_shine` |
+| `rooms[].material` (floor) | `rooms[].shine` |
+| `rooms[].ceiling_material` | `rooms[].ceiling_shine` |
+| `walls[].material` (length faces) | `walls[].shine` |
+| `walls[].faces.<face>` | `walls[].face_shine.<face>` |
+| `floor_patches[].material` | `floor_patches[].shine` |
+| `floor_regions[].material` / `edge_material` | `floor_regions[].shine` / `edge_shine` |
+| `walls[].openings[].glass` | `walls[].openings[].glass_shine` |
+
+```json
+{ "x": 15.8, "z": 0.2, "width": 3.0, "depth": 2.8,
+  "material": "core:linoleum_polished_01", "shine": 0.05 }
+```
+
+A carrier without an override keeps the material's own default. A malformed
+override (outside `0.0..=1.0`, or not a number) is a level error with the
+surface named, not a silent clamp. `shine` only moves a surface along the
+glossiness range: it cannot give a `specular: 0` material a sheen and it can
+never turn a surface into a mirror.
 
 The renderer multiplies: **sampled texture × material tint × baked light**, where
 *baked light* is the lightmap atlas texel for static world geometry (see
@@ -957,7 +1000,7 @@ an obvious placeholder).
 Never write a filesystem path where a logical id is expected. A path in `material`
 resolves to nothing and draws the diagnostic pattern.
 
-### Surface response: normal, specular, roughness
+### Surface response: shine, specular and normal
 
 The surface-response set is the smallest set of numbers that makes two surfaces read
 differently under the *existing* baked light. It is **not** a physically based model:
@@ -967,31 +1010,57 @@ to place, and nothing here samples the framebuffer.
 ```text
 what a surface draws = texture x tint x baked light     (the historical term)
                      + sheen                            (specular x Fresnel x baked light)
+                     + reflection                       (a marked surface's probe or plane)
                      + emission                         (the material's own brightness)
 ```
 
-* **Sheen** (`specular`, `specular_color`, `roughness`) is *view dependent*: a
-  surface catches more of the room's light as it turns away from the camera, and
-  a polished surface keeps a tight near-normal glow as well. It is scaled by the
-  baked light, so a glossy surface in an unlit room stays dark.
-* **Roughness** shapes the sheen only: `0.1` is a tight, polished response (tile,
-  linoleum, wet floors), `1.0` is fully matte. A material with `specular: 0`
-  never sheens, whatever its roughness.
+* **Sheen** (`specular`, `specular_color`) is *view dependent*: a surface catches
+  more of the room's light as it turns away from the camera. `specular` is the
+  material's identity — how much light the surface can catch at all — and
+  `specular_color` tints it (a metal catches its own cool colour). It is scaled
+  by the baked light, so a glossy surface in an unlit room stays dark.
+* **Shine** (`shine`, `0.0`–`1.0`) is how glossy the surface is. It shapes the
+  sheen *and* any reflection: a low-shine surface keeps only a broad, weak
+  grazing sheen, and a reflection on it is dim and reads a wide average of the
+  room; a high-shine surface gets a tight highlight and a sharp, recognizable
+  image. A material with `specular: 0` never sheens or reflects at any shine.
 * **Normal map** (`normal_texture`, `normal_strength`) perturbs the shading
   normal per texel. The tangent frame comes from the geometry's own UVs, so the
   map is oriented with the surface's tiling and a mirrored UV layout flips it
   correctly. Every mesh a level builds carries a geometric frame; nothing is
   authored per vertex.
 
+The places' art direction is deliberately dull: **reflections should be subtle
+enough that the player notices them only when looking for them**, with mirrors
+and intentionally polished surfaces as the exceptions. Author the default of an
+ordinary room surface near matte.
+
 What to author for the usual cases:
 
-| Look | `specular` | `roughness` | Notes |
+| Look | `specular` | `shine` | Notes |
 | --- | --- | --- | --- |
-| Dull painted wall, bare concrete | `0.0` | anything | the default: no sheen at all |
-| Plastic / painted metal panel | `0.3`–`0.4` | `0.4`–`0.5` | white sheen |
-| Brushed metal | `0.5`–`0.65`, `specular_color` slightly cool | `0.2`–`0.3` | add a normal map for the brushing |
-| Glossy tile / linoleum / polished floor | `0.4`–`0.5` | `0.1`–`0.2` | |
-| Wet surface | `0.6`–`0.7` | `0.05`–`0.1` | a `floor_patches` entry over the dry material |
+| Wallpaper / painted wall / ceiling / carpet | `0.0` | anything | no sheen at all; the default |
+| Unfinished wood, bare concrete | `0.0`–`0.15` | `0.0`–`0.1` | practically matte |
+| Institutional linoleum / vinyl | `0.2`–`0.35` | `0.0`–`0.1` | ordinary floors; not a waxed finish |
+| Varnished wood, satin plastic | `0.25`–`0.4` | `0.3`–`0.45` | a visible but restrained sheen |
+| Glazed tile (pool areas) | `0.2`–`0.3` | `0.25`–`0.4` | a low sheen, never a mirror |
+| Painted metal, rough/aged metal | `0.4`–`0.6` | `0.2`–`0.35` | broad highlights and some environment colour |
+| Brushed/stainless metal fixture | `0.5`–`0.65` | `0.4`–`0.6` | visibly metallic, softer than polished |
+| Deliberately waxed floor / polished metal | `0.4`–`0.6` | `0.6`–`0.85` | the shiny end of ordinary materials |
+| Wet surface | `0.5`–`0.65` | `0.6`–`0.8` | a `floor_patches` entry over the dry material |
+| Mirror | `0.8`–`1.0` | `0.9`–`1.0` | **and** `reflection_mode: planar`; shine alone is not a mirror |
+
+The same `shine` range applies to one material reused at different glossiness:
+
+```json
+{ "material": "core:metal_brushed_01" }                          // aged: the material default
+{ "material": "core:metal_brushed_01", "shine": 0.1 }            // dull, still reads as metal
+{ "material": "core:metal_brushed_01", "shine": 0.7 }            // a deliberately polished fixture
+```
+
+Material identity stays separate from shine: the sheen colour, the normal map
+and the reflection mode keep a metal reading as metal at every shine value, and
+a shiny linoleum floor never becomes polished steel.
 
 A material that authors none of these fields adds nothing to the pixel: no
 normal map, no sheen and `alpha_mode: opaque` are the defaults.
@@ -1014,13 +1083,16 @@ vocabulary — bumps, grime, brushed streaks and panel seams, not sculpted detai
 Two authorable paths can show a surface the room back: a **static probe** (a small
 cubemap baked once per level load) and a **planar mirror** (a real second view of the
 level through the surface's own plane). Neither is a screen-space effect, and
-**nothing reflects unless a material asks** via `reflection_mode`.
+**nothing reflects unless a material asks** via `reflection_mode`. Shine and
+reflection are separate: an extremely glossy ordinary material (`shine: 1.0`)
+without a `reflection_mode` sheens but never samples the room, and a mirror is
+always the dedicated `planar` behaviour rather than a shine value.
 
 ```json
 { "id": "core:pool_deck_wet_01", "asset_type": "material", "source": "definition",
   "texture": "core:tex_pool_tile_deck_01", "tile_metres": 1.5,
-  "specular": 0.65, "roughness": 0.06,
-  "reflection_mode": "planar", "reflection_strength": 0.4 }
+  "specular": 0.55, "shine": 0.72,
+  "reflection_mode": "planar", "reflection_strength": 0.3 }
 ```
 
 | `reflection_mode` | What it draws | Cost |
@@ -1031,16 +1103,31 @@ level through the surface's own plane). Neither is a screen-space effect, and
 
 Four properties are worth designing around:
 
-* **It rides on the sheen.** The reflected colour is weighted by the material's
-  own `specular` colour, its `roughness` and the view angle. A material with
-  `specular: 0` never reflects, and a rough one suppresses what it does catch
-  instead of mirroring. There is no separate "reflectivity" number to keep in
+* **It rides on the sheen and the shine.** The reflected colour is weighted by
+  the material's own `specular` colour, its `shine` and the view angle. A
+  material with `specular: 0` never reflects. At low shine the reflection only
+  appears near grazing angles, at reduced weight, and reads a broad average of
+  the room rather than a recognizable image; a highly polished surface reflects
+  across the whole face. There is no separate "reflectivity" number to keep in
   step with the sheen, and `reflection_strength` is a weight on top (default
   `0.45`, maximum `1.0`).
+* **A per-surface `shine` override also re-shapes the reflection** (and the
+  sheen) on that surface alone, because both read the same value. It never
+  changes *where* the reflection comes from, so a matte override on a marked
+  surface keeps the (now faint) probe or planar reflection rather than removing
+  it.
 * **It is approximate.** A probe is a 64-texel-per-face cubemap (32 on `Low`) — the
   shape of the room, not a second render of it — and a planar reflection is drawn at
   half resolution. Use them where the surface should read as wet, polished or
   mirrored, not where the player will compare the reflection with the room.
+* **A planar mirror shows the room through its own surface.** The mirror plane's
+  geometry is left out of the mirrored draw, so the reflected image is what the
+  mirrored camera sees through the plane rather than the plane's own colour.
+  That works because a planar surface is an *aperture*: a floor or ceiling
+  plane, a floor patch or region, or an opening's pane. A wall **slab** is not
+  one — it emits several faces and its caps span its thickness, so the plane
+  cannot be derived and the marking is skipped with a log line. Put a wall
+  mirror on an opening as an opaque `glass` pane instead.
 * **Probes are clustered, and there are at most two.** Reflective probe geometry is
   clustered by distance (a room-sized 12 m radius, area-weighted centroids), and only
   the two largest clusters get a probe; the nearest probe is sampled per fragment.
@@ -1063,8 +1150,10 @@ Four properties are worth designing around:
 draws the probes at 32 texels and never allocates a planar target. A material
 marked `planar` simply keeps its sheen and loses the mirror image on `Low`.
 
-Shipped examples: `core:pool_deck_wet_01` (`planar`, 0.4),
-`core:linoleum_polished_01` (`probe`, 0.4), `core:metal_brushed_01` (`probe`, 0.3).
+Shipped examples: `core:pool_deck_wet_01` (`planar`, 0.4, the wet deck patch),
+`core:linoleum_polished_01` (`probe`, 0.25, the deliberately waxed end — Places
+Demo overrides its ordinary linoleum patch down to `shine: 0.05`) and
+`core:metal_brushed_01` (`probe`, 0.25, aged metal).
 
 ### Transparency: alpha modes
 
@@ -1112,8 +1201,9 @@ one surface at the wall's centre plane. It is what turns "a hole in a wall" into
   "glass": "core:glass_window_dirty_01" }
 ```
 
-* `glass` takes an **ordinary material id**, so the pane's tint, dirt, roughness,
-  sheen, emission and alpha mode are the material's, not the opening's.
+* `glass` takes an **ordinary material id**, so the pane's tint, dirt, shine,
+  sheen, emission and alpha mode are the material's, not the opening's. A
+  `glass_shine` override can re-shine one pane without a second material.
 * The pane is the opening's own rectangle: no frame, no thickness, one surface
   seen from both sides. It is **not lightmapped**: its four corners sample the
   baked light directly and fold it into the vertex colour, like a fixture face or a
@@ -1167,7 +1257,7 @@ is emission-free and has no response/alpha fields) or an object:
 | `tile_metres`, `tint` | As in the catalog; malformed values are discarded and the default applies. |
 | `emissive`, `emissive_intensity`, `emissive_mask` | As in the catalog; the mask may be a pack path or a catalog texture id. |
 | `normal_texture`, `normal_strength` | As in the catalog; pack path or catalog texture id. |
-| `specular`, `specular_color`, `roughness` | As in the catalog. |
+| `specular`, `specular_color`, `shine` (and the legacy `roughness`) | As in the catalog; `shine` wins if both are present. |
 | `alpha_mode`, `opacity`, `alpha_cutoff` | As in the catalog. |
 | `reflection_mode`, `reflection_strength` | Accepted, but see the limitation below. |
 
@@ -1406,7 +1496,8 @@ anywhere). `display_name` has a legacy alias `name`.
 | `normal_strength` | number | optional | `1.0` | materials (`0`–`2`; requires `normal_texture`) |
 | `specular` | number | optional | `0.0` | materials (`0`–`1`): sheen strength |
 | `specular_color` | `[r,g,b]` | optional | white | materials (`0`–`1` each; does not require `specular`, and has no visible effect without it) |
-| `roughness` | number | optional | `0.6` | materials (`0`–`1`): `0` tight sheen, `1` matte |
+| `shine` | number | optional | legacy `roughness`, else `0.4` | materials (`0`–`1`): `0` matte, `0.5` semi-gloss, `1` extremely glossy. Not a mirror. |
+| `roughness` | number | optional | — | materials (`0`–`1`): legacy inverse of `shine`; author either one, never both |
 | `alpha_mode` | string | optional | `opaque` | materials: `opaque` / `cutout` / `blend` |
 | `opacity` | number | optional | `1.0` | materials (`0`–`1`; requires an explicit `alpha_mode`) |
 | `alpha_cutoff` | number | optional | `0.5` | materials (`0`–`1`; requires an explicit `alpha_mode`; only `cutout` uses it) |
@@ -1655,8 +1746,10 @@ that bake; none of them is a light source (see section 11).
 
 ```text
 visible face brightness   <- the fixture's `emission` (default = `brightness`)
-illumination of the room  <- the fixture's `brightness`, only while `enabled: true`
-                             (or a prop's `props[].lights`)
+visible face colour       <- the fixture's catalog sheet (texture-first; the
+                             light's `color` never repaints the artwork)
+illumination of the room  <- the fixture's `brightness` and `color`, only while
+                             `enabled: true` (or a prop's `props[].lights`)
 ```
 
 Nothing about a fixture family, a prop model or a *material* creates light. An
@@ -1820,7 +1913,7 @@ code**.
 
 | Fixture ID | Mount type | Visible artwork (PNG) | Shape / footprint | Important authoring notes |
 | --- | --- | --- | --- | --- |
-| `core:fluorescent_panel_01` | ceiling (default) | `environment/office/textures/lights/fluorescent_panel_01.png` (256×128) | Rectangle 1.2 × 0.6 m (half extents 0.6 × 0.3); rotation swaps axes | The default family **and the fallback for every unknown id**. Hangs 0.01 m below the local ceiling; under a gable it follows the eave/ceiling above its footprint. |
+| `core:fluorescent_panel_01` | ceiling (default) | `environment/office/textures/lights/fluorescent_panel_01.png` (1024×512) | Rectangle 1.2 × 0.6 m (half extents 0.6 × 0.3); rotation swaps axes | The default family **and the fallback for every unknown id**. The fitted sheet is the whole visible fixture (no generated bezel beside it). Hangs 0.01 m below the local ceiling; under a gable it follows the eave/ceiling above its footprint. |
 | `core:pool_light_round` | ceiling | `environment/pool/textures/lights/pool_light_round_01.png` (128×128) | Disc, 0.44 m diameter (half extent 0.22); rotation-invariant | Round recessed downlight. Same ceiling-plane derivation as the panel. |
 | `core:pool_light_wall` | **wall** — requires `"mount": "wall"` and a finite world `"y"` | `environment/pool/textures/lights/pool_light_wall_01.png` (128×64) | Rectangle 0.4 × 0.18 m (half extents 0.20 × 0.09) centred on (x, y, z) | Faces `rotation_degrees`: 0 = +Z, 90 = +X, 180 = −Z, 270 = −X. Place the point on the wall plane; the body extends ~0.11 m forward. Light is emitted from the rectangle's front. |
 
@@ -1844,8 +1937,10 @@ Fixture geometry is code. To add a family, touch each of these:
    (append only; it is the sheet/pipeline slot), include it in `FixtureKind::ALL`,
    add its `FixtureProfile` (`half_width`, `half_depth`, `quads`), map its logical id
    in `fixture_profile`, and append the id to `LIGHT_FIXTURE_IDS`.
-2. `src/render/fixtures.rs` — implement the family's emitter(s): lit faces into the
-   `lit` batch, untextured housing into `housing`.
+2. `src/render/fixtures.rs` — implement the family's emitter(s): the visible face
+   (the fitted PNG) into the `lit` batch, and only genuine untextured body
+   geometry (a can, a housing) into `housing`. The office panel has no housing:
+   its sheet is the whole fixture.
 3. `src/render/geometry.rs` (`emit_fixtures`) — add the `match` arm that calls the new
    emitter.
 4. Add the PNG under `assets/environment/<theme>/textures/lights/` (POT, opaque,
@@ -2133,7 +2228,7 @@ Decision tree:
 | Need | Use | Procedure |
 | --- | --- | --- |
 | A wall/floor/ceiling appearance | Material + texture | Add PNG → texture entry → material entry (recipes below). |
-| A glossy, metal, wet or bumpy surface | Material fields + an optional normal map | Add the albedo PNG as above, then `specular` / `roughness` / `specular_color` and (optionally) a `normal_texture`. Recipe below. |
+| A glossy, metal, wet or bumpy surface | Material fields + an optional normal map | Add the albedo PNG as above, then `specular` / `shine` / `specular_color` and (optionally) a `normal_texture`. Recipe below. |
 | A pane of glass, a grille or a backlit sign in an opening | A `blend`/`cutout` material + `glass` on the opening | Author the RGBA sheet, add a material with `alpha_mode`, then name it in `walls[].openings[].glass`. |
 | A surface that should mirror the room | A `probe` or `planar` reflection material | Mark the material; the plane is derived from the geometry it is emitted on. Recipe below. |
 | A local sign or marking | Decal | Add POT RGBA cut-out PNG → `decal` entry → place in `decals`. |
@@ -2884,9 +2979,10 @@ For a grille or screen instead of glass, use a `cutout` material
 
 ## Give a surface a sheen (plastic, metal, glossy tile, wet floor)
 
-1. Start from an ordinary material. Add `specular` (strength) and `roughness`
-   (how tight the sheen is); add `specular_color` only when the sheen should be
-   tinted (metal).
+1. Start from an ordinary material. Add `specular` (how much light the surface
+   can catch) and `shine` (how glossy it is); add `specular_color` only when the
+   sheen should be tinted (metal). Keep ordinary floors and walls near
+   `shine: 0.0`.
 2. Optionally name a `normal_texture` for surface detail.
 3. Do not author a light for this: the sheen is lit by whatever the bake already
    delivers to that surface.
@@ -2895,7 +2991,7 @@ For a grille or screen instead of glass, use a `cutout` material
 { "id": "hotel:floor_polished_01", "asset_class": "environment",
   "asset_type": "material", "source": "definition", "surface": "floor",
   "texture": "hotel:tex_floor_polished_01", "tile_metres": 2.0,
-  "specular": 0.5, "roughness": 0.15 }
+  "specular": 0.4, "shine": 0.5 }
 ```
 
 ```json
@@ -2903,13 +2999,22 @@ For a grille or screen instead of glass, use a `cutout` material
   "asset_type": "material", "source": "definition", "surface": "wall",
   "texture": "hotel:tex_metal_panel_01", "tile_metres": 2.0,
   "tint": [0.86, 0.87, 0.88],
-  "specular": 0.55, "specular_color": [0.9, 0.93, 1.0], "roughness": 0.25,
+  "specular": 0.55, "specular_color": [0.9, 0.93, 1.0], "shine": 0.3,
   "normal_texture": "hotel:tex_normal_brushed_01", "normal_strength": 0.45 }
+```
+
+To vary one surface's glossiness without a new material, put a `shine` override
+on the room/wall/patch/region that names it (see
+[Material references and shine overrides](#11-materials)):
+
+```json
+{ "x": 6.0, "z": 4.0, "width": 3.0, "depth": 2.0, "material": "hotel:floor_polished_01",
+  "shine": 0.05 }
 ```
 
 ## Make a reflective surface (probe or planar)
 
-1. Start from a sheen material: the reflection rides on `specular` and `roughness`,
+1. Start from a sheen material: the reflection rides on `specular` and `shine`,
    and a material with `specular: 0` never reflects.
 2. Add `reflection_mode`; `probe` for a curved/unknown view (static cubemap), `planar`
    for a genuinely flat, axis-aligned mirror.
@@ -2921,17 +3026,21 @@ For a grille or screen instead of glass, use a `cutout` material
 { "id": "hotel:lobby_marble_01", "asset_class": "environment",
   "asset_type": "material", "source": "definition", "surface": "floor",
   "texture": "hotel:tex_marble_01", "tile_metres": 2.0,
-  "specular": 0.55, "roughness": 0.15,
-  "reflection_mode": "probe", "reflection_strength": 0.4 }
+  "specular": 0.55, "shine": 0.4,
+  "reflection_mode": "probe", "reflection_strength": 0.35 }
 ```
 
 ```json
 { "id": "hotel:pool_deck_wet_01", "asset_class": "environment",
   "asset_type": "material", "source": "definition", "surface": "floor",
   "texture": "hotel:tex_deck_tile_01", "tile_metres": 1.5,
-  "specular": 0.65, "roughness": 0.06,
-  "reflection_mode": "planar", "reflection_strength": 0.4 }
+  "specular": 0.55, "shine": 0.72,
+  "reflection_mode": "planar", "reflection_strength": 0.3 }
 ```
+
+A true mirror is a planar reflective material with a high shine and an opaque,
+flat surface (a pane in an opening, or a wall slab): `shine` alone never samples
+the room.
 
 ## Make a surface translucent or a cut-out
 
@@ -2947,7 +3056,7 @@ For a grille or screen instead of glass, use a `cutout` material
   "asset_type": "material", "source": "definition", "surface": "wall",
   "texture": "hotel:tex_glass_tinted_01", "tile_metres": 1.0,
   "alpha_mode": "blend", "opacity": 0.9,
-  "specular": 0.35, "roughness": 0.3,
+  "specular": 0.35, "shine": 0.6,
   "emissive": [0.86, 0.93, 1.0], "emissive_intensity": 1.35 }
 ```
 

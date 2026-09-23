@@ -827,7 +827,7 @@ fn draw_calls_do_not_scale_with_fixture_count_and_batching_is_stable() {
         previous_shape = Some(shape);
         assert_eq!(
             mesh.batches.light_batch.count,
-            i32::try_from(count).unwrap_or(i32::MAX) * 18
+            i32::try_from(count).unwrap_or(i32::MAX) * 6
         );
     }
 }
@@ -1308,7 +1308,9 @@ fn regression_fractional_rotations_agree_between_bake_and_panel_geometry() {
             format_args!("rotation {rotation}"),
         );
 
-        // The drawn fixture panel must have the same footprint as the pool.
+        // The drawn fixture panel must have the same footprint as the pool:
+        // the sheet is the whole fixture, with no generated bezel extending
+        // beyond it.
         let mesh = build_level_geometry(&level);
         let fixture = mesh.triangles_for(SurfaceKind::Light);
         let mut min_x = f32::MAX;
@@ -1321,19 +1323,17 @@ fn regression_fractional_rotations_agree_between_bake_and_panel_geometry() {
             min_z = min_z.min(vertex.pos[2]);
             max_z = max_z.max(vertex.pos[2]);
         }
-        // The panel is the widest quad; the bezels add 0.05 m on each side of
-        // both axes, so the batch bounds are the panel extents plus 0.1 m.
         assert!(
-            ((max_x - min_x) - half_w.mul_add(2.0, 0.1)).abs() < 1e-5,
+            half_w.mul_add(-2.0, max_x - min_x).abs() < 1e-5,
             "rotation {rotation}: drawn x extent {} vs pool {}",
             max_x - min_x,
-            half_w.mul_add(2.0, 0.1)
+            half_w * 2.0
         );
         assert!(
-            ((max_z - min_z) - half_d.mul_add(2.0, 0.1)).abs() < 1e-5,
+            half_d.mul_add(-2.0, max_z - min_z).abs() < 1e-5,
             "rotation {rotation}: drawn z extent {} vs pool {}",
             max_z - min_z,
-            half_d.mul_add(2.0, 0.1)
+            half_d * 2.0
         );
     }
 }

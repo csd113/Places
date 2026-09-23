@@ -13,22 +13,23 @@
 //! the renderer uploads the sheets clamped for exactly that reason.
 //!
 //! * **Panel.** `u` runs along the panel's 1.2 m width axis and `v` across its
-//!   0.6 m depth axis, so a 2:1 sheet shows 4.7 mm per texel in both
-//!   directions at 256x128. A rotated fixture rotates the sheet with it.
+//!   0.6 m depth axis, so a 2:1 sheet shows 1.17 mm per texel in both
+//!   directions at 1024x512. A rotated fixture rotates the sheet with it.
 //! * **Round diffuser.** Planar, in the fixture's own plane: the sheet centre
 //!   is the fixture centre and the sheet's inscribed circle is the diffuser's
 //!   outer radius. A 128x128 sheet therefore shows 3.9 mm per texel.
 //! * **Wall luminaire.** `u` is the 0.4 m face width and `v` its 0.2 m height,
 //!   so the sheet's aspect matches the face exactly.
 //!
-//! The *housing* — the panel's two bezel strips, the round can and bezel ring,
-//! the wall fixture's top, bottom and ends — stays untextured geometry: it
-//! draws its flat authored metal colour through the shared white sheet, exactly
-//! as every fixture face did before the sheets existed. Keeping the two apart
-//! means the trim's shade never depends on the artwork, which is where the
-//! luminous face's albedo lives. The lighting never enters into it: a fixture's
-//! visible brightness is the vertex colour the bake and the intensity response
-//! already produced, multiplied into whatever the sheet shows.
+//! The *housing* — the round can and bezel ring, the wall fixture's top,
+//! bottom and ends — is genuine body geometry and stays untextured: it draws
+//! its flat authored metal colour through the shared white sheet. The office
+//! panel has no housing at all: its whole visible fixture is the fitted sheet,
+//! which is why nothing is drawn beside the panel artwork.
+//!
+//! A luminous face's vertex colour is a *neutral* emission strength, never the
+//! placed light's colour: the sheet defines the fixture's visible appearance,
+//! and the authored light colour belongs to the illumination the bake resolves.
 
 use super::{Vertex, add_quad_flat};
 
@@ -39,20 +40,19 @@ use super::{Vertex, add_quad_flat};
 /// below (`[low-v, low-u]` first), and `v = 0` is the image's top row.
 const SHEET_UV: [[f32; 2]; 4] = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
 
-/// Emits the office fluorescent panel's luminous face into `lit` and its two
-/// bezel strips into `housing`, all facing down into the room.
-// A face rectangle, a colour and two sinks: the emitters are inherently wide,
-// exactly like the ring and can helpers below.
-#[allow(clippy::too_many_arguments)]
+/// Emits the office fluorescent panel's luminous face into `lit`, facing down
+/// into the room.
+///
+/// The fitted sheet is the whole fixture: no generated strip, frame or bezel
+/// is drawn beside it, so the panel's visible appearance is exactly its PNG.
 pub(super) fn add_panel_fixture(
     lit: &mut Vec<Vertex>,
-    housing: &mut Vec<Vertex>,
     x0: f32,
     x1: f32,
     z0: f32,
     z1: f32,
     y: f32,
-    glow: [f32; 3],
+    emission: [f32; 3],
 ) {
     add_quad_flat(
         lit,
@@ -60,38 +60,11 @@ pub(super) fn add_panel_fixture(
         [x1, y, z0],
         [x1, y, z1],
         [x0, y, z1],
-        glow,
+        emission,
         SHEET_UV[0],
         SHEET_UV[1],
         SHEET_UV[2],
         SHEET_UV[3],
-    );
-
-    let bezel_color = [0.40, 0.40, 0.40];
-    let b = 0.05;
-    add_quad_flat(
-        housing,
-        [x0 - b, y, z0 - b],
-        [x1 + b, y, z0 - b],
-        [x1 + b, y, z0],
-        [x0 - b, y, z0],
-        bezel_color,
-        [0.0, 0.0],
-        [1.0, 0.0],
-        [1.0, 1.0],
-        [0.0, 1.0],
-    );
-    add_quad_flat(
-        housing,
-        [x0 - b, y, z1],
-        [x1 + b, y, z1],
-        [x1 + b, y, z1 + b],
-        [x0 - b, y, z1 + b],
-        bezel_color,
-        [0.0, 0.0],
-        [1.0, 0.0],
-        [1.0, 1.0],
-        [0.0, 1.0],
     );
 }
 
@@ -161,7 +134,8 @@ pub(super) fn add_can_quad(
 /// quad-only; the small centre it leaves reads as the lamp recess behind a
 /// nearly-closed diffuser. Its planar UVs make the sheet's centre the fixture
 /// centre, so the artwork's concentric rings and lamp core land where the
-/// geometry expects them whatever the fixture's radius.
+/// geometry expects them whatever the fixture's radius. `emission` is the
+/// face's neutral emission strength, so the diffuser keeps its sheet colour.
 pub(super) fn add_round_fixture(
     lit: &mut Vec<Vertex>,
     housing: &mut Vec<Vertex>,
@@ -169,7 +143,7 @@ pub(super) fn add_round_fixture(
     cz: f32,
     y: f32,
     radius: f32,
-    glow: [f32; 3],
+    emission: [f32; 3],
 ) {
     const SEGMENTS: usize = 10;
     const BEZEL_COLOR: [f32; 3] = [0.40, 0.40, 0.40];
@@ -203,7 +177,7 @@ pub(super) fn add_round_fixture(
             sin0,
             cos1,
             sin1,
-            glow,
+            emission,
             [
                 planar_uv(radius, cos0, sin0),
                 planar_uv(radius, cos1, sin1),
@@ -243,6 +217,8 @@ pub(super) fn add_round_fixture(
 
 /// Emits a wall-mounted luminaire at `(x, y, z)` facing `yaw_degrees`: its
 /// emissive front face into `lit` and its shallow housing into `housing`.
+/// `emission` is the face's neutral emission strength, so the lens keeps its
+/// sheet colour.
 pub(super) fn add_wall_fixture(
     lit: &mut Vec<Vertex>,
     housing: &mut Vec<Vertex>,
@@ -250,7 +226,7 @@ pub(super) fn add_wall_fixture(
     y: f32,
     z: f32,
     yaw_degrees: f32,
-    glow: [f32; 3],
+    emission: [f32; 3],
 ) {
     const HALF_WIDTH: f32 = 0.20;
     const HALF_HEIGHT: f32 = 0.10;
@@ -276,7 +252,7 @@ pub(super) fn add_wall_fixture(
         point(HALF_WIDTH, -HALF_HEIGHT, DEPTH),
         point(HALF_WIDTH, HALF_HEIGHT, DEPTH),
         point(-HALF_WIDTH, HALF_HEIGHT, DEPTH),
-        glow,
+        emission,
         uv[0],
         uv[1],
         uv[2],

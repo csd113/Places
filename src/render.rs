@@ -4,8 +4,8 @@ use glow::HasContext;
 
 use crate::font::generate_font_atlas;
 use crate::level::{
-    FloorPatchDef, LevelDef, LevelSurfaces, PropDef, RoomDef, RoomFloorGrid, WallAxis, WallDef,
-    WallSlice, wall_solid_slices_profiled,
+    FloorPatchDef, LevelDef, LevelSurfaces, MaterialRef, PropDef, RoomDef, RoomFloorGrid, WallAxis,
+    WallDef, WallSlice, wall_solid_slices_profiled,
 };
 use crate::lighting::lightmap::{LightmapPlan, PatchKind};
 use crate::lighting::{LevelLighting, LightColor, wall_light_segments};
@@ -52,7 +52,8 @@ pub use mesh::packed_layout;
 pub use mesh::{
     BatchRange, EXACT_VERTEX_STRIDE, LIGHTMAP_NONE, LevelMesh, LevelMeshBatches, LevelMeshRange,
     MATERIAL_NONE, MaterialIndex, MaterialSlot, PackedVertex, StaticBatch, SurfaceKey, SurfaceKind,
-    Vertex, VertexLayout, dequantize_normal, dequantize_unit, exact_layout, spatial_cell_grid,
+    SurfaceShine, Vertex, VertexLayout, dequantize_normal, dequantize_unit, exact_layout,
+    spatial_cell_grid,
 };
 use mesh::{MeshChunk, MeshPacker, finish_indexed_mesh};
 pub use props::PropMeshBatch;
@@ -102,9 +103,17 @@ impl<'a> MaterialLookup<'a> {
         Self { table }
     }
 
-    /// The surface key for one slot and material id.
-    fn key(&self, slot: MaterialSlot, material_id: &str) -> SurfaceKey {
-        SurfaceKey::new(slot.kind(), self.index(material_id))
+    /// The surface key for one slot and material reference.
+    ///
+    /// The reference's optional shine override becomes the key's quantised
+    /// [`SurfaceShine`], so two surfaces that share a material but not a shine
+    /// value batch separately and draw with their own glossiness.
+    fn key(&self, slot: MaterialSlot, material: MaterialRef<'_>) -> SurfaceKey {
+        SurfaceKey::with_shine(
+            slot.kind(),
+            self.index(material.id),
+            material.shine.map(SurfaceShine::from_unit),
+        )
     }
 
     fn index(&self, material_id: &str) -> MaterialIndex {
@@ -714,7 +723,10 @@ pub(in crate::render) enum WallUnit<'a> {
     Coalesced {
         /// Every authored wall index this unit resolves.
         members: Vec<usize>,
-        wall: WallDef,
+        /// The synthetic wall, boxed: it is materialised per group and much
+        /// larger than a plain unit's borrowed reference, so the enum stays
+        /// small by value.
+        wall: Box<WallDef>,
         /// The group's solid profile in the unit wall's local length space.
         slices: Vec<WallSlice>,
         runs: Vec<WallMaterialRun>,
@@ -876,22 +888,24 @@ fn wall_slab(wall: &WallDef, surfaces: &LevelSurfaces<'_>) -> Option<WallSlab> {
 /// The two length-face keys and the body key of one wall.
 fn wall_material_keys(
     wall: &WallDef,
-    default_wall: &str,
+    default_wall: MaterialRef<'_>,
     materials: &MaterialLookup<'_>,
 ) -> ([SurfaceKey; 2], SurfaceKey) {
-    let wall_material = wall.material.as_deref().unwrap_or(default_wall);
+    let wall_ref = wall.material_ref().unwrap_or(default_wall);
     let axis = wall.axis();
     let (low_name, high_name) = match axis {
         WallAxis::X => ("north", "south"),
         WallAxis::Z => ("west", "east"),
     };
     let face = |name: &str| {
-        let material = wall.faces.get(name).map_or(wall_material, String::as_str);
-        materials.key(MaterialSlot::Wall, material)
+        materials.key(
+            MaterialSlot::Wall,
+            wall.face_ref(name).unwrap_or(default_wall),
+        )
     };
     (
         [face(low_name), face(high_name)],
-        materials.key(MaterialSlot::Wall, wall_material),
+        materials.key(MaterialSlot::Wall, wall_ref),
     )
 }
 
@@ -970,7 +984,7 @@ pub(in crate::render) fn wall_layout<'a>(
     surfaces: &LevelSurfaces<'_>,
     materials: &MaterialLookup<'_>,
 ) -> WallLayout<'a> {
-    let default_wall = level.defaults.wall.as_str();
+    let default_wall = level.defaults.wall_ref();
     let walls = &level.walls;
     let slabs: Vec<Option<WallSlab>> = walls.iter().map(|wall| wall_slab(wall, surfaces)).collect();
     let groups = wall_groups(&slabs);
@@ -1263,7 +1277,7 @@ fn coalesce_wall_group<'a>(
     walls: &'a [WallDef],
     surfaces: &LevelSurfaces<'_>,
     materials: &MaterialLookup<'_>,
-    default_wall: &str,
+    default_wall: MaterialRef<'_>,
 ) -> Option<WallUnit<'a>> {
     let (lo, hi) = group_union_span(group, slabs);
     let host_index = *group.first()?;
@@ -1327,7 +1341,7 @@ fn coalesce_wall_group<'a>(
     }
     Some(WallUnit::Coalesced {
         members: group.to_vec(),
-        wall,
+        wall: Box::new(wall),
         slices,
         runs,
     })
@@ -1376,7 +1390,7 @@ fn group_solid_cells(
     hi: f32,
     walls: &[WallDef],
     materials: &MaterialLookup<'_>,
-    default_wall: &str,
+    default_wall: MaterialRef<'_>,
 ) -> (Vec<WallSlice>, Vec<WallMaterialRun>) {
     let mut length_cuts: Vec<f32> = vec![lo, hi];
     for solid in solids {
@@ -2404,10 +2418,11 @@ fn floor_surfaces(
             };
             let x = f32::midpoint(x0, x1);
             // Material precedence: the region's own material, then the latest
-            // floor patch, then the room's floor material.
+            // floor patch, then the room's floor material. Each carrier's own
+            // shine override travels with it.
             let key = surfaces_at
                 .region_at(x, z)
-                .and_then(|region| region.material.as_deref())
+                .and_then(crate::level::FloorRegionDef::floor_ref)
                 .map_or_else(
                     || {
                         patches
@@ -2415,7 +2430,7 @@ fn floor_surfaces(
                             .rev()
                             .find(|patch| patch_contains(patch, x, z))
                             .map_or(base_key, |patch| {
-                                materials.key(MaterialSlot::Floor, &patch.material)
+                                materials.key(MaterialSlot::Floor, patch.material_ref())
                             })
                     },
                     |material| materials.key(MaterialSlot::Floor, material),
@@ -2641,7 +2656,7 @@ fn emit_floor_skirts(
     // A room has floor and ceiling materials but no wall material of its own, so
     // the documented fallback for a transition face is the level's wall material.
     // A region with its own `edge_material` overrides it.
-    let default_edge = materials.key(MaterialSlot::Wall, level.defaults.wall.as_str());
+    let default_edge = materials.key(MaterialSlot::Wall, level.defaults.wall_ref());
 
     // Skirts are few and short-lived: one local scratch keeps the emitter
     // signature within the module's argument budget.
@@ -2656,7 +2671,7 @@ fn emit_floor_skirts(
     // that cell's height difference creates.
     let edge_key = |region: Option<&crate::level::FloorRegionDef>| -> SurfaceKey {
         region
-            .and_then(|region| region.edge_material.as_deref())
+            .and_then(crate::level::FloorRegionDef::edge_ref)
             .map_or(default_edge, |material| {
                 materials.key(MaterialSlot::Wall, material)
             })

@@ -27,9 +27,10 @@ draws (no world tiling, so nothing here is tileable and nothing wraps):
   lamp band, vertical ribbing and a slightly shadowed cover edge.
 
 The palette stays pale and near-neutral on purpose: the fixture's vertex colour
-(the authored light colour scaled by the intensity response) multiplies into the
-sampled texel, so a red fixture reddens this artwork and an off fixture darkens
-it to black without any code knowing about the texture.
+is a *neutral* emission strength (the intensity response, never the authored
+light colour) multiplied into the sampled texel, so an off fixture darkens this
+artwork to black without any code knowing about the texture, while a coloured
+light changes only the illumination it bakes into the room.
 
 Everything is deterministic -- only :mod:`artkit` helpers, no randomness, no
 clock, no external images.

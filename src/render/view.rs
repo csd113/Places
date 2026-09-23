@@ -237,8 +237,9 @@ uniform float u_fog_height_gain;
 // Reflections. `u_reflect_mode` is 0 for every material that authors no
 // reflection, 1 for a static probe cubemap and 2 for a planar mirror surface.
 // `u_reflect_strength` already folds the authored strength and the material's
-// specular colour; roughness and the view angle are applied here, so a rough
-// surface suppresses the response instead of mirroring.
+// specular colour; roughness (the inverse of the authored shine) and the view
+// angle are applied here, so a rough surface suppresses the response instead of
+// mirroring.
 uniform samplerCube u_probe_map;
 uniform sampler2D u_planar_map;
 uniform float u_reflect_mode;
@@ -325,12 +326,14 @@ void main() {
         float facing = clamp(abs(dot(normal, view)), 0.0, 1.0);
         float gloss = 1.0 - u_roughness;
         float grazing = pow(1.0 - facing, mix(1.0, 16.0, gloss));
-        float ahead = pow(facing, mix(1.0, 24.0, gloss));
-        // Two lobes: the broad one is the sheen a surface picks up as it turns
-        // away from the camera, the tight one is the near-normal glow a polished
-        // surface keeps even face-on. The engine has no light direction to place
-        // a real highlight, so both are scaled by the baked light and neither
-        // invents a source.
+        // The tight near-normal lobe is scaled by the gloss itself: every
+        // surface catches the room's light towards its silhouette, but only a
+        // polished one keeps a bright glow when looked at head-on. A rough
+        // surface that kept that flat glow is what made dull metal read as
+        // grey plastic.
+        float ahead = pow(facing, mix(1.0, 24.0, gloss)) * gloss;
+        // The engine has no light direction to place a real highlight, so both
+        // lobes are scaled by the baked light and neither invents a source.
         sheen = u_specular * (grazing * 0.55 + ahead * 0.45) * light;
     }
 
@@ -338,20 +341,25 @@ void main() {
     // mirrored camera; a probe surface reads the static cubemap baked at load.
     // Both are weighted by the authored strength, the material's specular
     // colour, a Fresnel term and the gloss, so a rough or dull surface never
-    // behaves like a mirror.
+    // behaves like a mirror: at low shine only the grazing silhouette catches
+    // the image, and what it catches is a broad average rather than a sharp
+    // reflection of the room.
     vec3 reflection = vec3(0.0);
     if (u_reflect_mode > 0.5) {
         float facing = clamp(abs(dot(normal, view)), 0.0, 1.0);
         float fresnel = mix(0.08, 1.0, pow(1.0 - facing, 5.0));
         float gloss = clamp(1.0 - u_roughness, 0.0, 1.0);
-        float weight = mix(fresnel, 1.0, gloss * gloss);
+        float polish = gloss * gloss;
+        // A polished surface reflects across the whole face; a dull one only
+        // reaches the image near grazing angles, and then at reduced weight.
+        float weight = mix(fresnel * 0.35, 1.0, polish);
         vec3 sample_color = vec3(0.0);
         if (u_reflect_mode > 1.5) {
             vec4 clip = u_planar_matrix * vec4(v_world_pos, 1.0);
             vec2 uv = clip.xy / max(clip.w, 1.0e-4) * 0.5 + 0.5;
             // A rough surface reads a small disc around the projected point; a
             // polished one reads the single texel the plane projects to.
-            float blur = u_roughness * 0.028;
+            float blur = u_roughness * 0.035;
             if (blur > 0.002) {
                 sample_color += texture2D(u_planar_map, uv + vec2(blur, blur)).rgb;
                 sample_color += texture2D(u_planar_map, uv + vec2(-blur, blur)).rgb;
@@ -373,9 +381,19 @@ void main() {
             weight *= inside * on_plane;
         } else {
             vec3 reflected = reflect(-view, normal);
-            sample_color = textureCube(u_probe_map, reflected).rgb;
+            vec3 sharp = textureCube(u_probe_map, reflected).rgb;
+            // A rough surface averages a wider cone of the room than a single
+            // reflected ray would: mixing the reading towards the surface's own
+            // facing direction stands in for a blurred cubemap read without a
+            // mip chain, a second render or a per-tap kernel.
+            if (u_roughness > 0.15) {
+                vec3 broad =
+                    textureCube(u_probe_map, normalize(mix(reflected, normal, 0.5))).rgb;
+                sharp = mix(sharp, broad, u_roughness);
+            }
+            sample_color = sharp;
         }
-        reflection = u_reflect_strength * (weight * 1.1) * sample_color;
+        reflection = u_reflect_strength * weight * sample_color;
     }
 
     vec3 lit = tex_color.rgb * v_color.rgb * light * (1.0 - u_emission_vertex);
@@ -424,7 +442,15 @@ pub fn fragment_shader_source(cutout: bool) -> String {
 /// * **Sheen** — the material's lightweight surface response: a view-dependent
 ///   Fresnel term scaled by the baked light, optionally perturbed by a normal
 ///   map. See [`crate::materials::response`]. Zero for every material that
-///   authors none.
+///   authors none. Its `u_specular` colour is the material's identity and its
+///   `u_roughness` is `1 - shine`: the tight lobe shrinks with the gloss, so a
+///   matte surface keeps the broad grazing sheen and loses the flat face-on
+///   glow.
+/// * **Reflection** — `u_reflect_mode` selects the static probe or the planar
+///   image, weighted by `u_reflect_strength` (already the material's specular
+///   colour times its authored strength), a Fresnel term and the same gloss.
+///   A rough surface only catches the image near grazing angles and reads a
+///   broad cone of it; a polished one reflects across the whole face.
 /// * **Dynamic probe** — `u_light_scale` is `1` for static geometry. The
 ///   dynamic-object path sets it to the baked light sampled at the object's
 ///   current position, so a moving object is shaded coherently without touching
@@ -435,8 +461,9 @@ pub fn fragment_shader_source(cutout: bool) -> String {
 /// intensity`, modulated by the emissive mask when one is bound, and by the
 /// surface texture so artwork shapes the glow). Fixture faces use `1.0`, which
 /// makes the per-vertex colour the emission source: their glow is per instance
-/// (colour x intensity response) while the batch stays shared, and the lit term
-/// is multiplied by zero so exactly one term remains.
+/// (a neutral emission strength, so the sheet keeps its own colour) while the
+/// batch stays shared, and the lit term is multiplied by zero so exactly one
+/// term remains.
 ///
 /// With no emission colour, no mask, no response, `u_emission_vertex = 0` and no
 /// lightmap — every material authored before either existed — the added terms

@@ -351,6 +351,7 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
         normal_strength = entry.get("normal_strength")
         specular = entry.get("specular")
         specular_color = entry.get("specular_color")
+        shine = entry.get("shine")
         roughness = entry.get("roughness")
         alpha_mode = entry.get("alpha_mode")
         opacity = entry.get("opacity")
@@ -364,6 +365,7 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
                 "normal_strength",
                 "specular",
                 "specular_color",
+                "shine",
                 "roughness",
                 "alpha_mode",
                 "opacity",
@@ -395,10 +397,19 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
                 errors.append(f"{where}: specular must be a number between 0 and 1")
             if specular_color is not None and not is_color_triplet(specular_color):
                 errors.append(f"{where}: specular_color must be three numbers in 0..1")
+            if shine is not None and (
+                not is_finite_number(shine) or not 0.0 <= shine <= 1.0
+            ):
+                errors.append(f"{where}: shine must be a number between 0 and 1")
             if roughness is not None and (
                 not is_finite_number(roughness) or not 0.0 <= roughness <= 1.0
             ):
                 errors.append(f"{where}: roughness must be a number between 0 and 1")
+            if shine is not None and roughness is not None:
+                errors.append(
+                    f"{where}: author either shine or roughness, not both "
+                    "(shine is the author-facing spelling; roughness is its inverse)"
+                )
             if alpha_mode is not None:
                 mode = str(alpha_mode).strip().lower()
                 if mode not in ("opaque", "cutout", "blend"):
@@ -651,6 +662,41 @@ def validate_animated_emissions(level: dict, where: str, errors: list[str]) -> N
             errors.append(f"{entry_where}: phase must be a finite number")
 
 
+def validate_surface_shine(level: dict, where: str, errors: list[str]) -> None:
+    """Every per-surface ``shine`` override must be a unit number.
+
+    Shine is the author-facing glossiness (``0.0`` matte .. ``1.0`` extremely
+    glossy); the shipped engine also rejects a malformed value by name, so this
+    check keeps the authoring tool and the loader in step.
+    """
+    defaults = level.get("defaults") or {}
+    checks = [(f"{where}: defaults.{key}", defaults.get(key)) for key in ("wall_shine", "floor_shine", "ceiling_shine")]
+    rooms = list(level.get("rooms") or [])
+    if level.get("room"):
+        rooms.append(level["room"])
+    for index, room in enumerate(rooms):
+        checks.append((f"{where}: room {index} shine", room.get("shine")))
+        checks.append((f"{where}: room {index} ceiling_shine", room.get("ceiling_shine")))
+    for index, wall in enumerate(level.get("walls") or []):
+        checks.append((f"{where}: wall {index} shine", wall.get("shine")))
+        for face, shine in (wall.get("face_shine") or {}).items():
+            checks.append((f"{where}: wall {index} face '{face}' shine", shine))
+        for opening_index, opening in enumerate(wall.get("openings") or []):
+            checks.append(
+                (f"{where}: wall {index} opening {opening_index} glass_shine", opening.get("glass_shine"))
+            )
+    for index, patch in enumerate(level.get("floor_patches") or []):
+        checks.append((f"{where}: floor patch {index} shine", patch.get("shine")))
+    for index, region in enumerate(level.get("floor_regions") or []):
+        checks.append((f"{where}: floor region {index} shine", region.get("shine")))
+        checks.append((f"{where}: floor region {index} edge_shine", region.get("edge_shine")))
+    for label, value in checks:
+        if value is None:
+            continue
+        if not is_finite_number(value) or not 0.0 <= value <= 1.0:
+            errors.append(f"{label} must be a number between 0 and 1")
+
+
 def wall_touches_any_room(level: dict, wall: dict, epsilon: float = 0.05) -> bool:
     """True when a wall's footprint meets at least one room's footprint.
 
@@ -750,6 +796,7 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
                     errors.extend(light_errors)
                     warnings.extend(light_warnings)
             validate_animated_emissions(level, relative, errors)
+            validate_surface_shine(level, relative, errors)
             rooms = list(level.get("rooms") or [])
             if level.get("room"):
                 rooms.append(level["room"])

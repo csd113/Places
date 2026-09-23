@@ -825,8 +825,10 @@
     const y = Math.max(0.05, (ceilingHeight || 3.5) - 0.06);
     const x0 = light.x - halfW, x1 = light.x + halfW;
     const z0 = light.z - halfD, z1 = light.z + halfD;
-    // The panel shows the same authored colour the bake emits into the room,
-    // scaled by the fixture intensity response (see render.rs).
+    // The face is texture-first: it carries only the fixture's neutral
+    // emission strength, never the authored light colour, so the artwork keeps
+    // its own colour (see `emit_fixtures` in src/render/geometry.rs). The
+    // authored colour still lights the room through `lighting.bakeLevelLighting`.
     const authored = light.brightness !== undefined && light.brightness !== null
       ? light.brightness
       : (light.intensity !== undefined && light.intensity !== null ? light.intensity : 1.0);
@@ -835,8 +837,7 @@
     const output = intensity <= 0
       ? 0
       : Math.min(Math.max(0.40 * Math.min(intensity, 2.0) + 0.60, 0), 1);
-    const emitted = lighting.emittedColor(light);
-    const color = [emitted[0] * output, emitted[1] * output, emitted[2] * output];
+    const color = [output, output, output];
     builder.quad(
       [x0, y, z1], [x1, y, z1], [x1, y, z0], [x0, y, z0],
       [scaleColor(color, 0.85), color, color, scaleColor(color, 0.85)],

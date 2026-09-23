@@ -5,12 +5,12 @@
 //! differently under the *existing* baked illumination:
 //!
 //! ```text
-//! dull painted wall   specular 0.0                 roughness 1.0
-//! plastic             specular 0.35 (white)        roughness 0.35
-//! brushed metal       specular 0.55 (own colour)   roughness 0.25
-//! glossy tile         specular 0.45 (white)        roughness 0.15
-//! polished floor      specular 0.60 (white)        roughness 0.10
-//! wet surface         specular 0.70 (white)        roughness 0.05
+//! dull painted wall   specular 0.0                 shine 0.00
+//! plastic             specular 0.35 (white)        shine 0.35
+//! brushed metal       specular 0.55 (own colour)   shine 0.30
+//! glossy tile         specular 0.45 (white)        shine 0.55
+//! polished floor      specular 0.60 (white)        shine 0.80
+//! wet surface         specular 0.70 (white)        shine 0.90
 //! ```
 //!
 //! The response is *added on top of* the baked light, exactly like emission:
@@ -34,14 +34,25 @@
 //! * **Specular** ([`MaterialResponse::specular`]) — the colour of the sheen,
 //!   normally a scalar strength multiplied by white, optionally tinted (a metal
 //!   catches its own colour). Zero (the default) adds nothing at all.
-//! * **Roughness** ([`MaterialResponse::roughness`]) — how tightly the sheen
-//!   concentrates towards grazing angles. One (the default) is fully matte and
-//!   produces no visible term even if a specular strength is authored.
+//! * **Shine** — how glossy the surface is, authored as `shine` (`0.0` matte,
+//!   `1.0` extremely glossy) and stored internally as
+//!   [`MaterialResponse::roughness`] `= 1.0 - shine`, the form the shader
+//!   consumes. Roughness shapes how tightly the sheen and the reflection
+//!   concentrate: a low-shine surface is broad and dull, a high-shine one
+//!   tight and polished. Shine `0.0` is fully matte and produces no visible
+//!   term even when a specular strength is authored.
 //!
 //! The response is *view dependent*: it brightens where the surface turns away
 //! from the camera, which is what makes a polished floor catch the room's light
 //! and a painted wall stay flat. It is not a reflection and it does not sample
 //! the framebuffer.
+//!
+//! Shine is intentionally *not* material identity: a metal can author any
+//! shine from dull to chrome, and the sheen colour, the normal map and the
+//! reflection mode keep it reading as metal at every value. A mirror is not a
+//! high-shine surface either — that is [`MaterialReflection`]'s planar mode.
+//!
+//! [`MaterialReflection`]: crate::materials::MaterialReflection
 //!
 //! Alpha
 //! -----
@@ -69,19 +80,57 @@ pub const DEFAULT_NORMAL_STRENGTH: f32 = 1.0;
 /// Largest accepted specular strength (and specular colour channel).
 pub const MAX_SPECULAR: f32 = 1.0;
 
+/// Largest accepted author-facing shine value.
+///
+/// `shine` is the author's knob for glossiness: `0.0` is completely matte,
+/// `0.5` semi-gloss and `1.0` extremely glossy. It is not a mirror — mirrors
+/// are [`crate::materials::ReflectionMode::Planar`], a separate behaviour.
+pub const MAX_SHINE: f32 = 1.0;
+
 /// Roughness a fully matte surface authors.
 ///
-/// `roughness` is a `0.0..=1.0` scale where one is completely matte, so this is
-/// the upper bound [`MaterialResponse::sanitized`] clamps to.
+/// `roughness` is the shader-facing inverse of shine (`roughness = 1 - shine`)
+/// where one is completely matte, so this is the upper bound
+/// [`MaterialResponse::sanitized`] clamps to.
 pub const MAX_ROUGHNESS: f32 = 1.0;
 
-/// Roughness a material keeps when it authors none.
+/// Roughness a material keeps when it authors no shine and no roughness.
 ///
 /// It only matters to a material that also authors a specular strength — a
 /// material without one has no sheen to shape — so the default is the visibly
 /// glossy-but-not-mirror middle: `specular: 0.4` on its own reads as plastic,
-/// and an author wanting a matte surface writes `roughness: 1.0`.
+/// and an author wanting a matte surface writes `shine: 0.0`.
 pub const DEFAULT_ROUGHNESS: f32 = 0.6;
+
+/// Shine a material keeps when it authors no shine and no roughness.
+///
+/// The author-facing spelling of [`DEFAULT_ROUGHNESS`]; the two are inverses
+/// and pinned together by a test.
+pub const DEFAULT_SHINE: f32 = 1.0 - DEFAULT_ROUGHNESS;
+
+/// The shader-facing roughness of an author-facing shine value.
+///
+/// Shine is a `0.0..=1.0` scale where one is extremely glossy, so the engine's
+/// internal roughness is its inverse. A non-finite value degrades to the
+/// documented default rather than to a NaN the shader would spread.
+#[must_use]
+pub fn roughness_from_shine(shine: f32) -> f32 {
+    if shine.is_finite() {
+        (1.0 - shine).clamp(0.0, MAX_ROUGHNESS)
+    } else {
+        DEFAULT_ROUGHNESS
+    }
+}
+
+/// The author-facing shine of the engine's internal roughness value.
+#[must_use]
+pub fn shine_from_roughness(roughness: f32) -> f32 {
+    if roughness.is_finite() {
+        (1.0 - roughness).clamp(0.0, MAX_SHINE)
+    } else {
+        DEFAULT_SHINE
+    }
+}
 
 /// Default alpha cut-off of a [`AlphaMode::Cutout`] material.
 pub const DEFAULT_ALPHA_CUTOFF: f32 = 0.5;
@@ -98,7 +147,8 @@ pub struct MaterialResponse {
     /// Sheen colour: a scalar strength premultiplied by white, or an authored
     /// RGB. Each channel is `0.0..=1.0`; zero means no sheen at all.
     pub specular: [f32; 3],
-    /// `0.0` is a mirror-tight sheen, `1.0` is fully matte.
+    /// `0.0` is a mirror-tight sheen, `1.0` is fully matte; the shader-facing
+    /// inverse of the author's `shine` ([`roughness_from_shine`]).
     pub roughness: f32,
 }
 
@@ -129,6 +179,23 @@ impl MaterialResponse {
             roughness,
             ..Self::NONE
         }
+    }
+
+    /// A sheen of the given strength, in white, at the given author-facing
+    /// shine.
+    #[must_use]
+    pub const fn with_shine(strength: f32, shine: f32) -> Self {
+        Self {
+            specular: [strength; 3],
+            roughness: 1.0 - shine,
+            ..Self::NONE
+        }
+    }
+
+    /// This response's author-facing shine: `1.0 - roughness`.
+    #[must_use]
+    pub fn shine(&self) -> f32 {
+        shine_from_roughness(self.roughness)
     }
 
     /// True when this response can change a pixel at all.

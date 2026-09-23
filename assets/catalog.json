@@ -619,7 +619,9 @@
       "surface": "floor",
       "texture": "core:tex_pool_tile_deck_01",
       "tile_metres": 1.5,
-      "description": "Pale commercial tile for the pool deck."
+      "specular": 0.22,
+      "shine": 0.3,
+      "description": "Pale commercial tile for the pool deck: glazed, so a small sheen, never a mirror."
     },
     {
       "id": "core:pool_tile_basin_01",
@@ -631,7 +633,9 @@
       "surface": "floor",
       "texture": "core:tex_pool_tile_basin_01",
       "tile_metres": 1.0,
-      "description": "Smaller-format pale tile for the empty basin floor and steps."
+      "specular": 0.22,
+      "shine": 0.3,
+      "description": "Smaller-format pale tile for the empty basin floor and steps: glazed, with a slight sheen."
     },
     {
       "id": "core:pool_tile_wall_01",
@@ -643,7 +647,9 @@
       "surface": "wall",
       "texture": "core:tex_pool_tile_wall_01",
       "tile_metres": 1.0,
-      "description": "Commercial wall tile for the pool room and basin walls."
+      "specular": 0.2,
+      "shine": 0.28,
+      "description": "Commercial wall tile for the pool room and basin walls: a low glazed sheen, not a glossy panel."
     },
     {
       "id": "core:pool_ceiling_01",
@@ -1045,7 +1051,7 @@
       "tile_metres": 2.0,
       "alpha_mode": "blend",
       "specular": 0.5,
-      "roughness": 0.12,
+      "shine": 0.85,
       "description": "Clear glazing for a window opening: almost no tint, a smooth glass sheen, and a transparent sheet. Author it on an opening with `glass`."
     },
     {
@@ -1059,7 +1065,7 @@
       "tile_metres": 2.0,
       "alpha_mode": "blend",
       "specular": 0.4,
-      "roughness": 0.32,
+      "shine": 0.6,
       "description": "Unwashed window glazing: grimy alpha and a duller sheen than clean glass."
     },
     {
@@ -1073,7 +1079,7 @@
       "tile_metres": 2.0,
       "alpha_mode": "blend",
       "specular": 0.45,
-      "roughness": 0.18,
+      "shine": 0.8,
       "description": "Tinted glazing at roughly half opacity, for observation windows between rooms."
     },
     {
@@ -1088,7 +1094,7 @@
       "alpha_mode": "blend",
       "opacity": 0.88,
       "specular": 0.35,
-      "roughness": 0.3,
+      "shine": 0.6,
       "emissive": [
         0.86,
         0.93,
@@ -1109,7 +1115,7 @@
       "alpha_mode": "blend",
       "opacity": 0.88,
       "specular": 0.35,
-      "roughness": 0.3,
+      "shine": 0.6,
       "emissive": [
         0.95,
         0.97,
@@ -1127,16 +1133,16 @@
       "surface": "floor",
       "texture": "core:tex_linoleum_01",
       "tile_metres": 2.0,
-      "specular": 0.5,
-      "roughness": 0.16,
-      "description": "Polished linoleum with a tight sheen: the glossy counterpart of the office carpet.",
+      "specular": 0.45,
+      "shine": 0.55,
+      "description": "Deliberately waxed linoleum: a buffed sheen with a faint probe reflection, the polished end of the family. Ordinary institutional floors should author `shine` 0.0-0.1 on the surface instead of using this default.",
       "tint": [
         0.84,
         0.8,
         0.7
       ],
       "reflection_mode": "probe",
-      "reflection_strength": 0.4
+      "reflection_strength": 0.25
     },
     {
       "id": "core:metal_brushed_01",
@@ -1152,18 +1158,18 @@
         0.91,
         0.93
       ],
-      "specular": 0.65,
+      "specular": 0.6,
       "specular_color": [
         0.9,
         0.93,
         1.0
       ],
-      "roughness": 0.22,
+      "shine": 0.35,
       "normal_texture": "core:tex_normal_brushed_01",
       "normal_strength": 0.35,
-      "description": "Brushed metal: a cool tinted sheen plus a fine directional normal map, so it reads as metal rather than as grey paint.",
+      "description": "Aged brushed metal: a cool tinted sheen, broad highlights and a faint environmental reflection plus a fine directional normal map, so it reads as metal rather than as grey paint without becoming chrome. Raise `shine` on a deliberately polished fixture.",
       "reflection_mode": "probe",
-      "reflection_strength": 0.3
+      "reflection_strength": 0.25
     },
     {
       "id": "core:plastic_panel_01",
@@ -1180,10 +1186,10 @@
         0.96
       ],
       "specular": 0.3,
-      "roughness": 0.45,
+      "shine": 0.4,
       "normal_texture": "core:tex_normal_panel_01",
       "normal_strength": 0.4,
-      "description": "Moulded plastic: a broad white sheen and soft dimples, the deliberate counterpart of the brushed metal panel."
+      "description": "Moulded plastic: a broad white sheen and soft dimples, the deliberate counterpart of the brushed metal panel. Satin plastic, not a lacquered wall."
     },
     {
       "id": "core:pool_deck_wet_01",
@@ -1196,13 +1202,13 @@
       "texture": "core:tex_pool_tile_deck_01",
       "tile_metres": 1.5,
       "tint": [
-        0.86,
-        0.9,
-        0.94
+        0.45,
+        0.5,
+        0.56
       ],
-      "specular": 0.65,
-      "roughness": 0.06,
-      "description": "Wet deck tile: the shipped deck artwork with a near-mirror sheen, so a patch of floor reads as standing water.",
+      "specular": 0.7,
+      "shine": 0.78,
+      "description": "Wet deck tile: the shipped deck artwork with a wet sheen and a planar reflection, so a patch of floor reads as standing water without behaving like a mirror.",
       "reflection_mode": "planar",
       "reflection_strength": 0.4
     },
@@ -1221,7 +1227,7 @@
         0.78
       ],
       "specular": 0.0,
-      "roughness": 1.0,
+      "shine": 0.0,
       "description": "Flat painted wall: no sheen at all, the default for materials that author no surface-response fields. Kept explicit as the dull end of the comparison."
     },
     {
@@ -1250,8 +1256,8 @@
       ],
       "alpha_mode": "cutout",
       "alpha_cutoff": 0.5,
-      "specular": 0.32,
-      "roughness": 0.38,
+      "specular": 0.25,
+      "shine": 0.3,
       "description": "Painted steel transfer grille: an alpha-tested cut-out that fills an opening with slats instead of a pane."
     }
   ]

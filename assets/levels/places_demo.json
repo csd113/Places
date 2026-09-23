@@ -420,7 +420,7 @@
       "y": -1.5,
       "height": 2.4,
       "material": "core:plastic_panel_01",
-      "comment": "Second pool notice board, framed the same way on the north wall."
+      "comment": "Second pool notice board, framed the same way but in polished stainless: per-surface `shine` makes this metal deliberately glossy while the first board keeps the aged brushed default."
     },
     {
       "x": 5.02,
@@ -429,7 +429,8 @@
       "depth": 0.14,
       "y": 0.92,
       "height": 0.14,
-      "material": "core:metal_brushed_01"
+      "material": "core:metal_brushed_01",
+      "shine": 0.6
     },
     {
       "x": 5.02,
@@ -438,7 +439,8 @@
       "depth": 0.14,
       "y": -1.49,
       "height": 0.14,
-      "material": "core:metal_brushed_01"
+      "material": "core:metal_brushed_01",
+      "shine": 0.6
     },
     {
       "x": 5.02,
@@ -447,7 +449,8 @@
       "depth": 0.14,
       "y": -1.518,
       "height": 1.836,
-      "material": "core:metal_brushed_01"
+      "material": "core:metal_brushed_01",
+      "shine": 0.6
     },
     {
       "x": 6.82,
@@ -456,7 +459,8 @@
       "depth": 0.14,
       "y": -1.518,
       "height": 1.836,
-      "material": "core:metal_brushed_01"
+      "material": "core:metal_brushed_01",
+      "shine": 0.6
     },
     {
       "x": 5.6,
@@ -483,7 +487,9 @@
       "z": 0.2,
       "width": 3.0,
       "depth": 2.8,
-      "material": "core:linoleum_polished_01"
+      "material": "core:linoleum_polished_01",
+      "shine": 0.05,
+      "comment": "Ordinary institutional linoleum: the shipped material's waxed default is deliberately overridden down to near-matte here, which is the whole point of the per-surface `shine` override."
     },
     {
       "x": 20.0,

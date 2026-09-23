@@ -716,7 +716,13 @@ pub struct AssetEntry {
     /// Sheen strength (white) and, optionally, an explicit sheen colour.
     pub specular: Option<f32>,
     pub specular_color: Option<[f32; 3]>,
-    /// `0.0` mirror-tight sheen .. `1.0` fully matte.
+    /// Author-facing glossiness, `0.0` matte .. `1.0` extremely glossy.
+    ///
+    /// The preferred spelling; the engine stores `roughness = 1 - shine`.
+    pub shine: Option<f32>,
+    /// Legacy inverse of [`Self::shine`], `0.0` mirror-tight .. `1.0` fully
+    /// matte. Still accepted so catalogs authored before `shine` keep loading;
+    /// authoring both fields is a catalog error.
     pub roughness: Option<f32>,
     /// `opaque` (default), `cutout` or `blend`.
     pub alpha_mode: Option<String>,
@@ -905,6 +911,7 @@ struct ValidatedResponse {
     normal_strength: Option<f32>,
     specular: Option<f32>,
     specular_color: Option<[f32; 3]>,
+    shine: Option<f32>,
     roughness: Option<f32>,
     alpha_mode: Option<String>,
     opacity: Option<f32>,
@@ -965,6 +972,10 @@ struct CatalogEntryFile {
     specular: Option<f32>,
     #[serde(default)]
     specular_color: Option<Vec<f32>>,
+    /// Author-facing glossiness; the shader-facing `roughness` is its inverse
+    /// and stays accepted for catalogs authored before `shine` existed.
+    #[serde(default)]
+    shine: Option<f32>,
     #[serde(default)]
     roughness: Option<f32>,
     /// Alpha: `opaque` | `cutout` | `blend`, plus the opacity multiplier and
@@ -1042,6 +1053,7 @@ impl CatalogEntryFile {
             normal_strength: response.normal_strength,
             specular: response.specular,
             specular_color: response.specular_color,
+            shine: response.shine,
             roughness: response.roughness,
             alpha_mode: response.alpha_mode,
             opacity: response.opacity,
@@ -1288,6 +1300,7 @@ impl CatalogEntryFile {
             && self.normal_strength.is_none()
             && self.specular.is_none()
             && self.specular_color.is_none()
+            && self.shine.is_none()
             && self.roughness.is_none()
             && alpha_mode.is_none()
             && self.opacity.is_none()
@@ -1300,6 +1313,7 @@ impl CatalogEntryFile {
                 normal_strength: None,
                 specular: None,
                 specular_color: None,
+                shine: None,
                 roughness: None,
                 alpha_mode: None,
                 opacity: None,
@@ -1311,9 +1325,15 @@ impl CatalogEntryFile {
         if asset_type.as_str() != AssetType::MATERIAL || source != AssetSource::Definition {
             return Err(format!(
                 "{id}: only a `material` `definition` asset may declare surface-response \
-                 (`normal_texture`, `normal_strength`, `specular`, `specular_color`, \
+                 (`normal_texture`, `normal_strength`, `specular`, `specular_color`, `shine`, \
                  `roughness`), alpha (`alpha_mode`, `opacity`, `alpha_cutoff`) or a \
                  reflection (`reflection_mode`, `reflection_strength`) field"
+            ));
+        }
+        if self.shine.is_some() && self.roughness.is_some() {
+            return Err(format!(
+                "{id}: author either `shine` or `roughness`, not both; `shine` is the \
+                 author-facing spelling (`roughness` is its inverse)"
             ));
         }
         if let Some(texture) = &normal_texture
@@ -1349,6 +1369,7 @@ impl CatalogEntryFile {
             specular: unit_number(self.specular, "specular")
                 .map_err(|field| format!("{id}: {field}"))?,
             specular_color,
+            shine: unit_number(self.shine, "shine").map_err(|field| format!("{id}: {field}"))?,
             roughness: unit_number(self.roughness, "roughness")
                 .map_err(|field| format!("{id}: {field}"))?,
             alpha_mode,

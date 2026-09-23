@@ -38,7 +38,9 @@ fn test_validate_level_success() {
             depth: 20.0,
             height: 3.5,
             material: None,
+            shine: None,
             ceiling_material: None,
+            ceiling_shine: None,
         }],
         spawn: crate::level::SpawnDef {
             x: 5.0,
@@ -56,6 +58,8 @@ fn test_validate_level_success() {
             faces: HashMap::new(),
             openings: Vec::new(),
             material: None,
+            shine: None,
+            face_shine: HashMap::new(),
         }],
         floor_patches: vec![],
         floor_regions: vec![],
@@ -112,7 +116,9 @@ fn test_validate_level_preserves_overlapping_geometry() {
                 depth: 10.0,
                 height: 3.5,
                 material: None,
+                shine: None,
                 ceiling_material: None,
+                ceiling_shine: None,
             },
             RoomDef {
                 ceiling: crate::level::CeilingProfileDef::Flat,
@@ -123,7 +129,9 @@ fn test_validate_level_preserves_overlapping_geometry() {
                 depth: 10.0,
                 height: 3.5,
                 material: None,
+                shine: None,
                 ceiling_material: None,
+                ceiling_shine: None,
             },
         ],
         spawn: crate::level::SpawnDef {
@@ -143,6 +151,8 @@ fn test_validate_level_preserves_overlapping_geometry() {
                 faces: HashMap::new(),
                 openings: Vec::new(),
                 material: None,
+                shine: None,
+                face_shine: HashMap::new(),
             },
             WallDef {
                 x: 3.0,
@@ -154,6 +164,8 @@ fn test_validate_level_preserves_overlapping_geometry() {
                 faces: HashMap::new(),
                 openings: Vec::new(),
                 material: None,
+                shine: None,
+                face_shine: HashMap::new(),
             },
         ],
         floor_patches: vec![],
@@ -268,6 +280,9 @@ fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
             wall: "pack:missing_wall".into(),
             floor: "pack:missing_carpet".into(),
             ceiling: "core:ceiling_panel_01".into(),
+            wall_shine: None,
+            floor_shine: None,
+            ceiling_shine: None,
         },
         walls: vec![],
         floor_patches: vec![],
@@ -474,7 +489,9 @@ fn test_validate_rejects_non_finite_room_elevation() {
             floor_y: f32::INFINITY,
             ceiling: crate::level::CeilingProfileDef::Flat,
             material: None,
+            shine: None,
             ceiling_material: None,
+            ceiling_shine: None,
         });
         level
     };
@@ -516,10 +533,115 @@ fn test_validate_rejects_impossible_gable_definitions() {
             ridge_rise: f32::NAN,
         },
         material: None,
+        shine: None,
         ceiling_material: None,
+        ceiling_shine: None,
     });
     let err = validate_level(&level).expect_err("NaN ridge must be rejected");
     assert!(err.contains("ridge rise"), "unexpected error: {err}");
+}
+
+// ------------------------------------------------------- surface shine
+
+/// A level that authors `shine` on every carrier, with `value` spliced in.
+fn shine_level(value: &str) -> LevelDef {
+    LevelDef::from_json(&format!(
+        r#"{{
+            "format_version": 1,
+            "id": "shine",
+            "name": "Shine",
+            "spawn": {{ "x": 4.0, "z": 4.0 }},
+            "defaults": {{ "wall": "core:wallpaper_yellow_01",
+                          "floor": "core:carpet_beige_01",
+                          "ceiling": "core:ceiling_panel_01",
+                          "wall_shine": {value}, "floor_shine": {value},
+                          "ceiling_shine": {value} }},
+            "room": {{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0,
+                       "material": "core:linoleum_polished_01", "shine": {value},
+                       "ceiling_material": "core:ceiling_panel_01",
+                       "ceiling_shine": {value} }},
+            "walls": [
+                {{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 0.3, "height": 3.0,
+                   "material": "core:metal_brushed_01", "shine": {value},
+                   "face_shine": {{ "south": {value} }},
+                   "openings": [
+                       {{ "kind": "window", "offset": 1.0, "width": 1.0,
+                          "height": 1.0, "sill": 1.0,
+                          "glass": "core:glass_window_clear_01",
+                          "glass_shine": {value} }}
+                   ] }}
+            ],
+            "floor_patches": [
+                {{ "x": 0.0, "z": 0.0, "width": 1.0, "depth": 1.0,
+                   "material": "core:carpet_damp_01", "shine": {value} }}
+            ],
+            "floor_regions": [
+                {{ "x": 4.0, "z": 4.0, "width": 2.0, "depth": 2.0, "offset_y": -0.5,
+                   "material": "core:pool_tile_basin_01", "shine": {value},
+                   "edge_material": "core:pool_tile_wall_01", "edge_shine": {value} }}
+            ]
+        }}"#
+    ))
+    .expect("shine level parses")
+}
+
+#[test]
+fn test_validate_accepts_a_legacy_level_without_any_shine() {
+    // The shipped shape: no `shine` key anywhere. Every override is `None`.
+    let level = vertical_level("", "");
+    assert!(validate_level(&level).is_ok());
+    assert!(level.defaults.wall_shine.is_none());
+    assert!(level.rooms.iter().all(|room| room.shine.is_none()));
+
+    // And the shipped demo, which mixes explicit and default shine.
+    let demo = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+        .expect("the shipped demo parses");
+    assert!(validate_level(&demo).is_ok());
+    assert_eq!(demo.floor_patches[0].shine, Some(0.05));
+}
+
+#[test]
+fn test_validate_accepts_every_shine_value_in_range() {
+    for value in ["0.0", "0.05", "0.5", "0.999", "1.0"] {
+        let level = shine_level(value);
+        assert!(
+            validate_level(&level).is_ok(),
+            "shine {value} must be accepted"
+        );
+    }
+}
+
+#[test]
+fn test_validate_rejects_malformed_shine_by_surface_name() {
+    for (value, expected) in [
+        ("-0.1", "shine must be a finite number"),
+        ("1.1", "shine must be a finite number"),
+    ] {
+        let err = validate_level(&shine_level(value))
+            .expect_err("an out-of-range shine must be rejected");
+        assert!(err.contains(expected), "unexpected error: {err}");
+    }
+
+    // A non-finite value cannot come from JSON, so it is built directly; the
+    // loader still rejects it by name rather than letting a NaN reach the
+    // renderer.
+    let mut level = shine_level("0.5");
+    level.floor_patches[0].shine = Some(f32::NAN);
+    let err = validate_level(&level).expect_err("a NaN shine must be rejected");
+    assert!(
+        err.contains("Floor patch 0") && err.contains("shine"),
+        "unexpected error: {err}"
+    );
+
+    // Malformed JSON (a string where a number belongs) is a load error, not a
+    // panic: the level loader reports it and the level is skipped.
+    let json = r#"{
+        "format_version": 1, "id": "bad_shine", "name": "Bad Shine",
+        "spawn": { "x": 0.0, "z": 0.0 },
+        "floor_patches": [ { "x": 0.0, "z": 0.0, "width": 1.0, "depth": 1.0,
+                             "material": "core:carpet_beige_01", "shine": "very" } ]
+    }"#;
+    assert!(LevelDef::from_json(json).is_err());
 }
 
 #[test]

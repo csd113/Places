@@ -21,6 +21,48 @@ const fn default_ceiling_height() -> f32 {
 /// and collision agree on where a room ends.
 pub const ROOM_EDGE_EPS_M: f32 = 0.01;
 
+/// A level's reference to one surface material: the material id plus an
+/// optional per-surface `shine` override.
+///
+/// The id keeps its meaning from the material definition (its texture, tint,
+/// sheen colour and reflection behaviour); the override only changes how
+/// glossy *this* surface is, so a level can lay matte institutional linoleum
+/// without a second catalog material. `None` keeps the material's own default.
+///
+/// Authoring is a sibling key in the level JSON:
+///
+/// ```json
+/// { "material": "core:linoleum_polished_01", "shine": 0.05 }
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MaterialRef<'a> {
+    /// Material id exactly as the level wrote it.
+    pub id: &'a str,
+    /// Author-facing per-surface shine, `0.0..=1.0`; `None` keeps the
+    /// material's default.
+    pub shine: Option<f32>,
+}
+
+impl<'a> MaterialRef<'a> {
+    /// A reference that keeps the material's default shine.
+    #[must_use]
+    pub const fn id(id: &'a str) -> Self {
+        Self { id, shine: None }
+    }
+
+    /// A reference with an optional per-surface shine override.
+    #[must_use]
+    pub const fn with_shine(id: &'a str, shine: Option<f32>) -> Self {
+        Self { id, shine }
+    }
+
+    /// True when a shine value has been authored for this surface.
+    #[must_use]
+    pub const fn has_shine(&self) -> bool {
+        self.shine.is_some()
+    }
+}
+
 /// The profile of a room's ceiling.
 ///
 /// `Flat` is the historical single horizontal plane. `Gable` is a symmetrical
@@ -160,12 +202,35 @@ pub struct RoomDef {
     /// Floor material id for this room. Falls back to `defaults.floor`.
     #[serde(default)]
     pub material: Option<String>,
+    /// Per-surface shine override for [`Self::material`], `0.0..=1.0`.
+    /// Omitted keeps the material's default.
+    #[serde(default)]
+    pub shine: Option<f32>,
     /// Ceiling material id for this room. Falls back to `defaults.ceiling`.
     #[serde(default)]
     pub ceiling_material: Option<String>,
+    /// Per-surface shine override for [`Self::ceiling_material`].
+    #[serde(default)]
+    pub ceiling_shine: Option<f32>,
 }
 
 impl RoomDef {
+    /// This room's floor material reference, if it overrides the level default.
+    #[must_use]
+    pub fn floor_ref(&self) -> Option<MaterialRef<'_>> {
+        self.material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.shine))
+    }
+
+    /// This room's ceiling material reference, if it overrides the default.
+    #[must_use]
+    pub fn ceiling_ref(&self) -> Option<MaterialRef<'_>> {
+        self.ceiling_material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.ceiling_shine))
+    }
+
     /// Room footprint as `(x0, x1, z0, z1)`, normalised and finite-safe.
     #[must_use]
     pub fn bounds(&self) -> (f32, f32, f32, f32) {
@@ -256,13 +321,35 @@ pub struct FloorRegionDef {
     /// Floor material id for the region; falls back to the room's floor.
     #[serde(default)]
     pub material: Option<String>,
+    /// Per-surface shine override for [`Self::material`].
+    #[serde(default)]
+    pub shine: Option<f32>,
     /// Material for the vertical transition faces around the region; falls back
     /// to the room's wall material.
     #[serde(default)]
     pub edge_material: Option<String>,
+    /// Per-surface shine override for [`Self::edge_material`].
+    #[serde(default)]
+    pub edge_shine: Option<f32>,
 }
 
 impl FloorRegionDef {
+    /// The region's floor material reference, if it overrides the room's floor.
+    #[must_use]
+    pub fn floor_ref(&self) -> Option<MaterialRef<'_>> {
+        self.material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.shine))
+    }
+
+    /// The region's transition-face material reference, if authored.
+    #[must_use]
+    pub fn edge_ref(&self) -> Option<MaterialRef<'_>> {
+        self.edge_material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.edge_shine))
+    }
+
     /// Region footprint as `(x0, x1, z0, z1)`, normalised.
     #[must_use]
     pub fn bounds(&self) -> (f32, f32, f32, f32) {
@@ -305,6 +392,10 @@ pub struct SpawnDef {
 }
 
 /// Default material codes for room surfaces.
+///
+/// Each id has a matching `*_shine` override so a level can make every default
+/// floor matte (or every default wall slightly satin) in one place; an omitted
+/// shine keeps the material's own default.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDefaults {
     #[serde(default)]
@@ -313,6 +404,35 @@ pub struct LevelDefaults {
     pub floor: String,
     #[serde(default)]
     pub ceiling: String,
+    /// Per-surface shine override for [`Self::wall`].
+    #[serde(default)]
+    pub wall_shine: Option<f32>,
+    /// Per-surface shine override for [`Self::floor`].
+    #[serde(default)]
+    pub floor_shine: Option<f32>,
+    /// Per-surface shine override for [`Self::ceiling`].
+    #[serde(default)]
+    pub ceiling_shine: Option<f32>,
+}
+
+impl LevelDefaults {
+    /// The default wall material reference.
+    #[must_use]
+    pub fn wall_ref(&self) -> MaterialRef<'_> {
+        MaterialRef::with_shine(&self.wall, self.wall_shine)
+    }
+
+    /// The default floor material reference.
+    #[must_use]
+    pub fn floor_ref(&self) -> MaterialRef<'_> {
+        MaterialRef::with_shine(&self.floor, self.floor_shine)
+    }
+
+    /// The default ceiling material reference.
+    #[must_use]
+    pub fn ceiling_ref(&self) -> MaterialRef<'_> {
+        MaterialRef::with_shine(&self.ceiling, self.ceiling_shine)
+    }
 }
 
 impl Default for LevelDefaults {
@@ -321,6 +441,9 @@ impl Default for LevelDefaults {
             wall: "core:wallpaper_yellow_01".into(),
             floor: "core:carpet_beige_01".into(),
             ceiling: "core:ceiling_panel_01".into(),
+            wall_shine: None,
+            floor_shine: None,
+            ceiling_shine: None,
         }
     }
 }
@@ -365,12 +488,54 @@ pub struct WallDef {
     /// Z-axis wall.
     #[serde(default)]
     pub material: Option<String>,
+    /// Per-surface shine override for [`Self::material`] and for the faces that
+    /// do not author their own in [`Self::face_shine`].
+    #[serde(default)]
+    pub shine: Option<f32>,
+    /// Per-face shine overrides, keyed exactly like [`Self::faces`]. A face
+    /// keeps [`Self::shine`], then the material's default, when it authors
+    /// none.
+    #[serde(default)]
+    pub face_shine: HashMap<String, f32>,
     /// Rectangular cutouts (doors, windows, passages, vents) through this wall.
     #[serde(default)]
     pub openings: Vec<WallOpeningDef>,
 }
 
 impl WallDef {
+    /// The wall's own length-face material reference, if it overrides
+    /// `defaults.wall`.
+    #[must_use]
+    pub fn material_ref(&self) -> Option<MaterialRef<'_>> {
+        self.material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.shine))
+    }
+
+    /// The material reference for one named length face.
+    ///
+    /// `faces` wins over the wall's own [`Self::material`], exactly as before.
+    /// Shine resolves independently: the face's own `face_shine` wins; else the
+    /// wall's `shine` applies to every face that draws the wall's own material
+    /// (or falls back to the level default); a face with a different material
+    /// keeps that material's default.
+    #[must_use]
+    pub fn face_ref(&self, name: &str) -> Option<MaterialRef<'_>> {
+        let face_material = self.faces.get(name).map(String::as_str);
+        let id = face_material.or(self.material.as_deref())?;
+        let shine = match self.face_shine.get(name) {
+            Some(value) => Some(*value),
+            // A face with no override of its own — or one that names the same
+            // material — keeps the wall's own shine; a face with a different
+            // material keeps that material's default.
+            None if face_material.is_none() || face_material == self.material.as_deref() => {
+                self.shine
+            }
+            None => None,
+        };
+        Some(MaterialRef::with_shine(id, shine))
+    }
+
     #[must_use]
     pub fn resolved_height(&self, default_ceiling: f32) -> f32 {
         self.height.unwrap_or(default_ceiling)
@@ -454,6 +619,9 @@ pub struct WallOpeningDef {
     /// exactly the historical hole.
     #[serde(default)]
     pub glass: Option<String>,
+    /// Per-surface shine override for [`Self::glass`]'s material.
+    #[serde(default)]
+    pub glass_shine: Option<f32>,
 }
 
 fn default_opening_kind() -> String {
@@ -502,6 +670,13 @@ impl WallOpeningDef {
             .as_deref()
             .map(str::trim)
             .filter(|glass| !glass.is_empty())
+    }
+
+    /// The pane's material reference, with its optional shine override.
+    #[must_use]
+    pub fn glass_ref(&self) -> Option<MaterialRef<'_>> {
+        self.glass_material()
+            .map(|id| MaterialRef::with_shine(id, self.glass_shine))
     }
 }
 
@@ -721,9 +896,19 @@ pub struct FloorPatchDef {
     pub width: f32,
     pub depth: f32,
     pub material: String,
+    /// Per-surface shine override, `0.0..=1.0`; omitted keeps the material's
+    /// default.
+    #[serde(default)]
+    pub shine: Option<f32>,
 }
 
 impl FloorPatchDef {
+    /// The patch's material reference, with its optional shine override.
+    #[must_use]
+    pub fn material_ref(&self) -> MaterialRef<'_> {
+        MaterialRef::with_shine(&self.material, self.shine)
+    }
+
     /// Patch footprint as `(x0, x1, z0, z1)`, normalised.
     #[must_use]
     pub fn bounds(&self) -> (f32, f32, f32, f32) {
@@ -834,18 +1019,6 @@ impl DecalDef {
     }
 }
 
-/// Ceiling light fixture placement.
-///
-/// `brightness` is the optional fixture intensity/power. It is the field the
-/// level editor already authors and writes, so it stays the canonical key; the
-/// more descriptive `intensity` spelling is accepted as an alias so levels
-/// written from the design notes load unchanged. Omitted means `1.0`.
-///
-/// `color` is the optional emitted light colour as an `[r, g, b]` array of
-/// `0.0..=1.0` fractions. It drives both the fixture panel's visible tint and
-/// the coloured illumination the bake applies to surrounding geometry. Levels
-/// that omit it keep loading: they emit [`DEFAULT_LIGHT_COLOR`], the restrained
-/// warm fluorescent the game has always implied.
 /// Where a light fixture is mounted inside its room.
 ///
 /// The level key is `ceiling_lights` for compatibility with existing levels;
@@ -862,6 +1035,19 @@ pub enum LightMount {
     Wall,
 }
 
+/// Ceiling light fixture placement.
+///
+/// `brightness` is the optional fixture intensity/power. It is the field the
+/// level editor already authors and writes, so it stays the canonical key; the
+/// more descriptive `intensity` spelling is accepted as an alias so levels
+/// written from the design notes load unchanged. Omitted means `1.0`.
+///
+/// `color` is the optional emitted light colour as an `[r, g, b]` array of
+/// `0.0..=1.0` fractions. It drives the coloured illumination the bake applies
+/// to surrounding geometry; the fixture's visible face is texture-first and is
+/// never tinted by it. Levels that omit it keep loading: they emit
+/// [`DEFAULT_LIGHT_COLOR`], the restrained warm fluorescent the game has always
+/// implied.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LightFixtureDef {
     pub fixture: String,
@@ -872,6 +1058,11 @@ pub struct LightFixtureDef {
     #[serde(default, alias = "intensity")]
     pub brightness: Option<f32>,
     /// Emitted light colour; omitted means [`DEFAULT_LIGHT_COLOR`].
+    ///
+    /// The colour is a property of the *illumination*: it tints the baked
+    /// light and its local pool. It never repaints the fixture's visible face,
+    /// which is texture-first — the catalog sheet defines the fixture's own
+    /// colour and the face carries only a neutral emission brightness.
     #[serde(default)]
     pub color: Option<LightColor>,
     /// Ceiling (default) or wall mounting.
@@ -891,8 +1082,8 @@ pub struct LightFixtureDef {
     /// Whether the fixture casts environmental light. Defaults to `true`.
     ///
     /// `false` makes the fixture a *luminous object only*: its visible face
-    /// still glows with its authored colour and brightness, while the bake skips
-    /// it entirely. This is the authored half of the separation between material
+    /// still glows at its neutral emission brightness, while the bake skips it
+    /// entirely. This is the authored half of the separation between material
     /// emission and environmental illumination — a sign, a screen or a
     /// decorative tube that reads bright while lighting nothing.
     #[serde(default = "default_enabled")]
@@ -970,9 +1161,10 @@ impl LightFixtureDef {
     ///
     /// Omitted means [`DEFAULT_LIGHT_COLOR`]; authored channels are clamped
     /// into `[0, 1]` and non-finite channels emit nothing (see
-    /// [`LightColor::sanitized`]). This is the single source of truth for both
-    /// the fixture panel appearance and the coloured environmental illumination;
-    /// the two must never diverge.
+    /// [`LightColor::sanitized`]). This is the single source of truth for the
+    /// coloured environmental illumination (the bake and its local pools); the
+    /// fixture's visible face takes only a neutral emission brightness from the
+    /// light and never this colour.
     #[must_use]
     pub fn emitted_color(&self) -> LightColor {
         self.color.unwrap_or(DEFAULT_LIGHT_COLOR).sanitized()
@@ -1284,10 +1476,12 @@ pub struct AnimatedEmissionDef {
     pub phase: Option<f32>,
 }
 
-/// Number of quads the office fluorescent panel generates (panel plus two
-/// bezels). Other fixture families declare their own budget on
-/// [`crate::lighting::FixtureProfile::quads`].
-pub const MAX_LIGHT_QUADS: u64 = 3;
+/// Number of quads the office fluorescent panel generates (its single
+/// luminous face).
+///
+/// The sheet is the whole fixture. Other fixture families declare their own
+/// budget on [`crate::lighting::FixtureProfile::quads`].
+pub const MAX_LIGHT_QUADS: u64 = 1;
 /// Number of quads a prop generates in its placeholder-box form. Real prop
 /// geometry is batched separately and bounded by [`MAX_LEVEL_PROP_VERTICES`].
 pub const MAX_PROP_QUADS: u64 = 6;

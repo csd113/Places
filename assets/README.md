@@ -446,13 +446,14 @@ of that base the catalog may author, per material:
 * `normal_texture` (a texture id) and `normal_strength` (`0.0..=2.0`) — a
   tangent-space normal map that perturbs the shading normal;
 * `specular` (a white strength, or `specular_color` for a tinted sheen) and
-  `roughness` (`0.0` mirror-tight .. `1.0` fully matte) — a view-dependent
-  sheen added on top of the baked light, never a realtime light;
+  `shine` (`0.0` matte .. `1.0` extremely glossy; the legacy `roughness` inverse
+  is still accepted) — a view-dependent sheen added on top of the baked light,
+  never a realtime light, and never a mirror;
 * `alpha_mode` (`opaque`, `cutout` or `blend`), with `alpha_cutoff` and
   `opacity` — how the sampled texture's alpha combines with the framebuffer;
 * `reflection_mode` (`none`, `probe` or `planar`) and `reflection_strength` — a
   selective image of the room, weighted by the material's own specular and
-  roughness.
+  shine, and blurred/dimmed as the shine drops.
 
 A material that authors none of these draws exactly as it did before they
 existed: they add terms to the baked lighting model, they never replace it.

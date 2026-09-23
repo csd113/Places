@@ -267,7 +267,7 @@ fn group_c_dense_fixture_grids_saturate_without_overflow_or_geometry_explosion()
         let mesh = build_checked(&level);
         assert_eq!(
             mesh.batches.light_batch.count,
-            i32::try_from(count).unwrap_or(i32::MAX) * 18
+            i32::try_from(count).unwrap_or(i32::MAX) * 6
         );
         assert!(mesh.batches.floor_batch.count <= 12 * 12 * 6);
         assert!(mesh.batches.floor_batch.count > 0);
@@ -1641,7 +1641,9 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         depth: 0.0,
         height: 3.0,
         material: None,
+        shine: None,
         ceiling_material: None,
+        ceiling_shine: None,
     });
     zero_room.ceiling_lights.push(LightFixtureDef {
         fixture: "core:fluorescent_panel_01".into(),
@@ -1694,7 +1696,9 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         depth: 10.0,
         height: 3.0,
         material: None,
+        shine: None,
         ceiling_material: None,
+        ceiling_shine: None,
     };
     duplicate.ceiling_lights[0].x = 1.0e30 + 5.0;
     duplicate.ceiling_lights[0].z = -1.0e30 + 5.0;
@@ -1818,6 +1822,8 @@ fn group_q_coloured_fixtures_tint_floor_and_wall_geometry() {
         faces: std::collections::HashMap::default(),
         openings: Vec::new(),
         material: None,
+        shine: None,
+        face_shine: std::collections::HashMap::default(),
     });
     let lighting = bake(&level);
     let mesh = build_checked(&level);

@@ -2003,6 +2003,8 @@ fn a_room_without_fixtures_stays_visible_and_within_range() {
         faces: std::collections::HashMap::default(),
         openings: Vec::new(),
         material: None,
+        shine: None,
+        face_shine: std::collections::HashMap::default(),
     }];
     let mesh = build_level_geometry(&level);
     let floor = batch_slice(&mesh, SurfaceKind::Floor);
@@ -3315,11 +3317,17 @@ fn coincident_overlay_walls_become_one_surface_with_material_runs() {
     assert_eq!(runs.len(), 3, "host/overlay/host material runs");
     assert_eq!(
         runs[0].body,
-        lookup.key(MaterialSlot::Wall, "core:wallpaper_yellow_01")
+        lookup.key(
+            MaterialSlot::Wall,
+            crate::level::MaterialRef::id("core:wallpaper_yellow_01")
+        )
     );
     assert_eq!(
         runs[1].body,
-        lookup.key(MaterialSlot::Wall, "core:wallpaper_stained_01")
+        lookup.key(
+            MaterialSlot::Wall,
+            crate::level::MaterialRef::id("core:wallpaper_stained_01")
+        )
     );
     assert_exact_named(runs[1].start, 2.0, "stain run start");
     assert_exact_named(runs[1].end, 6.0, "stain run end");
@@ -3576,10 +3584,11 @@ fn fixture_faces_carry_their_own_family_sheet_and_the_housing_stays_bare() {
         );
     }
 
-    // The flat metal housing keeps the bare key: two panel bezels, the round
-    // bezel ring plus can, and the wall housing's four sides.
+    // The flat metal housing keeps the bare key: the round bezel ring plus
+    // can, and the wall housing's four sides. The panel is its sheet alone,
+    // with no generated bezel beside the artwork.
     let housing = mesh.triangles_for_key(SurfaceKey::bare(SurfaceKind::Light));
-    assert_eq!(housing.len(), (2 + 20 + 4) * 6);
+    assert_eq!(housing.len(), (20 + 4) * 6);
     let lit_plus_housing = batch_slice(&mesh, SurfaceKind::Light).len();
     assert_eq!(
         lit_plus_housing,
@@ -4238,6 +4247,60 @@ fn a_fixture_face_can_glow_independently_of_its_light() {
         plain_lighting.sample(0.0, 0.0, 0.0),
         "emission must not leak into environmental illumination"
     );
+}
+
+/// The authored light colour is a property of the illumination, never of the
+/// drawn fixture: two otherwise identical pool lights must show the same
+/// neutral face while their baked light stays red and blue.
+#[test]
+fn a_fixture_face_is_texture_first_and_never_repainted_by_the_light_colour() {
+    use crate::lighting::FixtureKind;
+
+    let pool_light = |color: &str| {
+        level_with_wall_and_lights(
+            "[]",
+            "[]",
+            &format!(
+                r#"[{{ "fixture": "core:pool_light_round", "x": 0.0, "z": 0.0,
+                       "brightness": 1.0, "color": {color} }}]"#
+            ),
+        )
+    };
+    let red = pool_light("[1.0, 0.0, 0.0]");
+    let blue = pool_light("[0.0, 0.0, 1.0]");
+
+    let face = |level: &LevelDef| -> Vec<[f32; 4]> {
+        let mesh = build_level_geometry(level);
+        mesh.triangles_for_key(SurfaceKey::new(
+            SurfaceKind::Light,
+            sheet_slot(FixtureKind::RoundRecessed),
+        ))
+        .into_iter()
+        .map(|vertex| vertex.color)
+        .collect()
+    };
+    let red_face = face(&red);
+    let blue_face = face(&blue);
+    assert_eq!(red_face.len(), 10 * 6, "the round diffuser's lit ring");
+    assert_eq!(
+        red_face, blue_face,
+        "the authored colour must not repaint the fixture face"
+    );
+    for color in &red_face {
+        assert!(
+            (color[0] - color[1]).abs() < 1e-6 && (color[0] - color[2]).abs() < 1e-6,
+            "the face's emission is neutral, so the sheet keeps its own colour: {color:?}"
+        );
+        assert!(color[0] > 0.5, "a lit fixture's face must not be black");
+    }
+
+    // The colour still reaches the room through the bake.
+    let red_lighting = crate::lighting::LevelLighting::bake(&red);
+    let blue_lighting = crate::lighting::LevelLighting::bake(&blue);
+    let red_sample = red_lighting.sample(0.0, 0.0, 0.0);
+    let blue_sample = blue_lighting.sample(0.0, 0.0, 0.0);
+    assert!(red_sample.r > red_sample.b + 0.1, "{red_sample:?}");
+    assert!(blue_sample.b > blue_sample.r + 0.1, "{blue_sample:?}");
 }
 
 /// Writes a two-material GLB where the second material emits, plus the catalog
@@ -5679,6 +5742,129 @@ fn every_material_property_resolves_into_the_renderers_per_material_state() {
     assert_eq!(
         normal_mapped, 2,
         "the metal and plastic panels are the demo's normal-mapped materials"
+    );
+}
+
+#[test]
+fn surface_shine_quantises_to_whole_percent_and_inverts_the_roughness() {
+    assert_eq!(SurfaceShine::from_unit(0.0), SurfaceShine::MATTE);
+    assert_eq!(SurfaceShine::from_unit(1.0), SurfaceShine::GLOSS);
+    // Out-of-range and non-finite input saturates instead of producing a NaN.
+    assert_eq!(SurfaceShine::from_unit(-2.0), SurfaceShine::MATTE);
+    assert_eq!(SurfaceShine::from_unit(f32::NAN), SurfaceShine::MATTE);
+    assert_eq!(SurfaceShine::from_unit(f32::INFINITY), SurfaceShine::MATTE);
+
+    let half = SurfaceShine::from_unit(0.5);
+    assert!((half.unit() - 0.5).abs() < f32::EPSILON);
+    assert!((half.roughness() - 0.5).abs() < f32::EPSILON);
+    assert!((SurfaceShine::MATTE.roughness() - 1.0).abs() < f32::EPSILON);
+    assert!(SurfaceShine::GLOSS.roughness().abs() < f32::EPSILON);
+
+    // Rounding to whole percent is what lets a key carry the value: two
+    // shades within the same percent are the same batch, a whole percent
+    // apart is a different one.
+    assert_eq!(
+        SurfaceShine::from_unit(0.054),
+        SurfaceShine::from_unit(0.052)
+    );
+    assert_ne!(SurfaceShine::from_unit(0.05), SurfaceShine::from_unit(0.06));
+}
+
+#[test]
+fn a_per_surface_shine_override_reaches_the_batch_key() {
+    // A level lays matte linoleum over a waxed material: the material's own
+    // resolved response keeps its authored default and the surface's batch key
+    // carries the override, which is the one place the draw path reads it.
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1, "id": "shine_key", "name": "Shine Key",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "defaults": { "wall": "core:wallpaper_yellow_01",
+                          "floor": "core:carpet_beige_01",
+                          "ceiling": "core:ceiling_panel_01" },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 } ],
+            "floor_patches": [
+                { "x": 0.0, "z": 0.0, "width": 2.0, "depth": 2.0,
+                  "material": "core:linoleum_polished_01", "shine": 0.05 }
+            ]
+        }"#,
+    )
+    .expect("shine level parses");
+    let materials = logical_materials(&level);
+    let linoleum = materials
+        .index_of("core:linoleum_polished_01")
+        .expect("the linoleum material resolves");
+    let material_roughness = materials
+        .entry(linoleum)
+        .expect("the linoleum entry")
+        .response
+        .roughness;
+    // The shipped material stays deliberately waxed; only this surface is matte.
+    assert!(
+        (material_roughness - 0.45).abs() < 1.0e-6,
+        "the material default must stay its own, got {material_roughness}"
+    );
+
+    let mesh = build_level_geometry(&level);
+    let patch_key = mesh
+        .ranges
+        .iter()
+        .map(|range| range.key)
+        .find(|key| key.material == linoleum)
+        .expect("the patch emits a linoleum range");
+    assert_eq!(patch_key.shine, Some(SurfaceShine::from_unit(0.05)));
+    assert!(
+        (patch_key.roughness(material_roughness) - 0.95).abs() < 1.0e-6,
+        "the override must win over the material default"
+    );
+
+    // A surface of the same family without an override keeps the default.
+    let carpet = materials.index_of("core:carpet_beige_01").expect("carpet");
+    let carpet_key = mesh
+        .ranges
+        .iter()
+        .map(|range| range.key)
+        .find(|key| key.material == carpet)
+        .expect("the room floor emits a carpet range");
+    assert_eq!(carpet_key.shine, None);
+    assert!(
+        (carpet_key.roughness(0.6) - 0.6).abs() < f32::EPSILON,
+        "a key without an override uses the material's own roughness"
+    );
+}
+
+#[test]
+fn the_demos_matte_linoleum_keeps_its_probe_and_its_material_default() {
+    // The shipped demo overrides its linoleum patch down to near-matte. That
+    // must change only the surface's glossiness: the material's waxed default
+    // and its probe reflection are untouched, and shine 0.05 must not remove
+    // the reflection the material authors.
+    use crate::materials::{MaterialReflection, ReflectionMode};
+
+    let level = shipped_demo();
+    let materials = logical_materials(&level);
+    let linoleum = materials
+        .index_of("core:linoleum_polished_01")
+        .expect("linoleum");
+    let entry = materials.entry(linoleum).expect("linoleum entry");
+    assert_eq!(entry.reflection.mode, ReflectionMode::Probe);
+    assert_ne!(entry.reflection, MaterialReflection::NONE);
+    assert!(
+        (entry.response.roughness - 0.45).abs() < 1.0e-6,
+        "the material's waxed default is still 0.55 shine"
+    );
+
+    let mesh = build_level_geometry(&level);
+    let patch_key = mesh
+        .ranges
+        .iter()
+        .map(|range| range.key)
+        .find(|key| key.material == linoleum)
+        .expect("the linoleum patch emits a range");
+    assert_eq!(patch_key.shine, Some(SurfaceShine::from_unit(0.05)));
+    assert!(
+        (patch_key.roughness(entry.response.roughness) - 0.95).abs() < 1.0e-6,
+        "the demo's institutional linoleum is matte"
     );
 }
 

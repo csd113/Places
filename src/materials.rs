@@ -72,8 +72,9 @@ pub use resolve::{
     resolve_materials,
 };
 pub use response::{
-    AlphaMode, DEFAULT_ALPHA_CUTOFF, DEFAULT_NORMAL_STRENGTH, DEFAULT_ROUGHNESS,
-    MAX_NORMAL_STRENGTH, MAX_ROUGHNESS, MAX_SPECULAR, MaterialAlpha, MaterialResponse,
+    AlphaMode, DEFAULT_ALPHA_CUTOFF, DEFAULT_NORMAL_STRENGTH, DEFAULT_ROUGHNESS, DEFAULT_SHINE,
+    MAX_NORMAL_STRENGTH, MAX_ROUGHNESS, MAX_SHINE, MAX_SPECULAR, MaterialAlpha, MaterialResponse,
+    roughness_from_shine, shine_from_roughness,
 };
 
 /// Cache/dedupe key of the one diagnostic texture every resolution failure

@@ -180,9 +180,8 @@ fn emit_floors(
             continue;
         }
         let base_material = room
-            .material
-            .as_deref()
-            .unwrap_or(context.level.defaults.floor.as_str());
+            .floor_ref()
+            .unwrap_or_else(|| context.level.defaults.floor_ref());
         let base_key = context.materials.key(MaterialSlot::Floor, base_material);
         let room_patches = context.surfaces.patches_for_room(room);
         let grid = context.surfaces.floor_grid(room);
@@ -258,9 +257,8 @@ fn emit_ceilings(
         }
         let ceiling_key = context.materials.key(
             MaterialSlot::Ceiling,
-            room.ceiling_material
-                .as_deref()
-                .unwrap_or(context.level.defaults.ceiling.as_str()),
+            room.ceiling_ref()
+                .unwrap_or_else(|| context.level.defaults.ceiling_ref()),
         );
         let (xs, zs) = context.surfaces.ceiling_grid(room);
         let ceiling_at = |x: f32, z: f32| room.ceiling_y_at(x, z);
@@ -352,9 +350,8 @@ fn emit_wall_unit(
     let wall = unit.wall();
     scratch.clear();
     let wall_material = wall
-        .material
-        .as_deref()
-        .unwrap_or(context.level.defaults.wall.as_str());
+        .material_ref()
+        .unwrap_or_else(|| context.level.defaults.wall_ref());
     let wall_key = context.materials.key(MaterialSlot::Wall, wall_material);
     let x0 = wall.x.min(wall.x + wall.width);
     let x1 = wall.x.max(wall.x + wall.width);
@@ -1122,18 +1119,20 @@ fn nearest_cross_sides(
 /// A fixture's family comes from its catalog id (see
 /// `lighting::fixture_profile`): the office panel hangs just below its room's
 /// ceiling, a round downlight sits in the same plane, and a wall luminaire
-/// mounts at its authored world height. The fixture's visible glow comes from
-/// its authored colour and its **emissive** strength — by default the same
-/// intensity the bake casts into the room, so existing content is unchanged,
-/// but separately authorable (and independent of `enabled`) so a face can read
-/// bright while its light stays dim or absent.
+/// mounts at its authored world height. The luminous face is texture-first:
+/// its visible colour is the sheet's own RGB, and the vertex emission only
+/// carries a neutral brightness from the fixture's **emissive** strength — by
+/// default the same intensity the bake casts into the room, but separately
+/// authorable (and independent of `enabled`) so a face can read bright while
+/// its light stays dim or absent. The authored light colour never repaints the
+/// face; it stays a property of the illumination the bake resolves.
 ///
 /// A light batch carries the family's fixture-sheet slot
 /// ([`crate::lighting::FixtureKind::index`]) so the renderer binds the PNG that
 /// catalog declares as that fixture's visible face. The flat metal housing
-/// (panel bezels, round bezel and can, the wall housing) keeps the bare key:
-/// it draws its authored shade through the shared white sheet, exactly as every
-/// fixture face did before the sheets existed.
+/// (the round bezel and can, the wall housing) keeps the bare key: it draws
+/// its authored shade through the shared white sheet. The panel has no
+/// housing: its sheet is the whole fixture.
 fn emit_fixtures(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -1157,7 +1156,7 @@ fn emit_fixtures(
         // This value never becomes illumination — the bake reads `intensity()`.
         let emission = light.emission_intensity();
         // An explicitly zero-output fixture is off: its panel must not glow
-        // with the authored colour while emitting no illumination.
+        // while emitting no illumination.
         let output = if emission <= 0.0 {
             0.0
         } else {
@@ -1165,8 +1164,10 @@ fn emit_fixtures(
                 .mul_add(emission.clamp(0.0, 2.0), 0.60)
                 .clamp(0.0, 1.0)
         };
-        let color = light.emitted_color();
-        let fixture_glow = [color.r * output, color.g * output, color.b * output];
+        // Neutral brightness, so the sheet is the fixture's visible colour: the
+        // authored light colour (`light.emitted_color()`) reaches the room
+        // through the bake and never tints the artwork.
+        let face_emission = [output; 3];
         // The bake and the mesh share one resolver, so the drawn panel can
         // never sit at a different height from the light plane it casts: a
         // ceiling fixture without an authored `y` hangs below the lowest
@@ -1182,7 +1183,7 @@ fn emit_fixtures(
                 let x1 = light.x + half_w;
                 let z0 = light.z - half_d;
                 let z1 = light.z + half_d;
-                add_panel_fixture(scratch, &mut housing, x0, x1, z0, z1, y, fixture_glow);
+                add_panel_fixture(scratch, x0, x1, z0, z1, y, face_emission);
             }
             crate::lighting::FixtureKind::RoundRecessed => {
                 add_round_fixture(
@@ -1192,7 +1193,7 @@ fn emit_fixtures(
                     light.z,
                     y,
                     profile.half_width,
-                    fixture_glow,
+                    face_emission,
                 );
             }
             crate::lighting::FixtureKind::WallSconce => {
@@ -1203,12 +1204,13 @@ fn emit_fixtures(
                     y,
                     light.z,
                     light.rotation_degrees,
-                    fixture_glow,
+                    face_emission,
                 );
             }
         }
-        // The luminous faces bind the family's sheet; the housing binds the
-        // family's own bare key, which draws the untextured white sheet.
+        // The luminous faces bind the family's sheet; the housing (empty for
+        // the panel) binds the family's own bare key, which draws the
+        // untextured white sheet.
         let sheet = MaterialIndex::try_from(profile.kind.index()).unwrap_or(MATERIAL_NONE);
         buckets.add_quads(SurfaceKey::new(SurfaceKind::Light, sheet), scratch);
         buckets.add_quads(SurfaceKey::bare(SurfaceKind::Light), &housing);
@@ -1253,7 +1255,7 @@ fn emit_glass_panes(
             continue;
         }
         for opening in &wall.openings {
-            let Some(material) = opening.glass_material() else {
+            let Some(material) = opening.glass_ref() else {
                 continue;
             };
             if !opening.offset.is_finite()
@@ -1420,11 +1422,9 @@ fn emit_decals(
 /// The material key for one named wall face: the `faces` override for its
 /// direction, else the wall's own material, else the level default.
 fn wall_face_key(context: &EmitContext<'_, '_>, wall: &WallDef, name: &str) -> SurfaceKey {
-    let wall_material = wall
-        .material
-        .as_deref()
-        .unwrap_or(context.level.defaults.wall.as_str());
-    let material = wall.faces.get(name).map_or(wall_material, String::as_str);
+    let material = wall
+        .face_ref(name)
+        .unwrap_or_else(|| context.level.defaults.wall_ref());
     context.materials.key(MaterialSlot::Wall, material)
 }
 

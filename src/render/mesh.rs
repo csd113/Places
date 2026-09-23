@@ -377,21 +377,101 @@ impl MaterialSlot {
     }
 }
 
-/// A batch group: one surface family plus the material index it binds.
+/// A per-surface shine override, quantised to whole percent.
 ///
-/// Sorting is `(kind, material)`, so every cell of one material stays adjacent
-/// in the drain order and a draw loop binds each texture once per group.
+/// A [`SurfaceKey`] is compared, ordered and hashed to batch geometry, and an
+/// `f32` is none of those things. One percent steps are far below the visible
+/// difference in a material's response, so the override is stored as this
+/// small integer and expanded back to a shine (and its inverse, the shader's
+/// roughness) at draw time. The material *default* shine is not part of the
+/// key: it lives in the resolved material, and only an authored override needs
+/// to separate one surface from another.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SurfaceShine(u8);
+
+impl SurfaceShine {
+    /// Fully matte (`shine = 0.0`).
+    pub const MATTE: Self = Self(0);
+    /// Extremely glossy (`shine = 1.0`). Not a mirror: mirrors are the planar
+    /// reflection mode, a separate material behaviour.
+    pub const GLOSS: Self = Self(100);
+
+    /// Quantises an authored `0.0..=1.0` shine to whole percent.
+    ///
+    /// Out-of-range and non-finite input saturates: the loader already rejects
+    /// it for levels, and a material-level value that reached here must not
+    /// become a NaN.
+    #[must_use]
+    pub fn from_unit(shine: f32) -> Self {
+        if !shine.is_finite() {
+            return Self::MATTE;
+        }
+        // The clamp keeps the scaled value inside `0..=100`, so the cast
+        // neither wraps, truncates a meaningful fraction nor loses a sign.
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss // non-negative by the clamp
+        )]
+        Self((shine.clamp(0.0, 1.0) * 100.0).round() as u8)
+    }
+
+    /// The author-facing shine, `0.0..=1.0`.
+    #[must_use]
+    pub fn unit(self) -> f32 {
+        f32::from(self.0) / 100.0
+    }
+
+    /// The shader-facing roughness, `1.0 - shine`.
+    #[must_use]
+    pub fn roughness(self) -> f32 {
+        1.0 - self.unit()
+    }
+}
+
+impl From<f32> for SurfaceShine {
+    fn from(shine: f32) -> Self {
+        Self::from_unit(shine)
+    }
+}
+
+/// A batch group: one surface family, the material index it binds, and any
+/// per-surface shine override.
+///
+/// Sorting is `(kind, material, shine)`, so every cell of one material stays
+/// adjacent in the drain order and a draw loop binds each texture once per
+/// group. Two surfaces of the same material with different authored shine are
+/// separate groups, which is exactly one material state change.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SurfaceKey {
     pub kind: SurfaceKind,
     pub material: MaterialIndex,
+    /// Per-surface shine override; `None` keeps the material's default.
+    pub shine: Option<SurfaceShine>,
 }
 
 impl SurfaceKey {
     /// A key for a material-bearing surface family.
     #[must_use]
     pub const fn new(kind: SurfaceKind, material: MaterialIndex) -> Self {
-        Self { kind, material }
+        Self {
+            kind,
+            material,
+            shine: None,
+        }
+    }
+
+    /// A key with an authored per-surface shine override.
+    #[must_use]
+    pub const fn with_shine(
+        kind: SurfaceKind,
+        material: MaterialIndex,
+        shine: Option<SurfaceShine>,
+    ) -> Self {
+        Self {
+            kind,
+            material,
+            shine,
+        }
     }
 
     /// A key for a family that does not bind a level material.
@@ -400,6 +480,7 @@ impl SurfaceKey {
         Self {
             kind,
             material: MATERIAL_NONE,
+            shine: None,
         }
     }
 
@@ -407,6 +488,17 @@ impl SurfaceKey {
     #[must_use]
     pub const fn has_material(self) -> bool {
         self.material != MATERIAL_NONE
+    }
+
+    /// The shader-facing roughness this surface draws with.
+    ///
+    /// An authored per-surface `shine` override wins; otherwise the material's
+    /// own resolved roughness applies. One place decides this, so the sheen and
+    /// the reflection the shader derives from it can never disagree.
+    #[must_use]
+    pub fn roughness(self, material_roughness: f32) -> f32 {
+        self.shine
+            .map_or(material_roughness, SurfaceShine::roughness)
     }
 }
 

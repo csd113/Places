@@ -321,20 +321,26 @@ impl ResolvedMaterial {
 /// The surface response a catalog material describes.
 ///
 /// The normal map is left `None` here: it is a texture-table index, and no
-/// table exists until [`resolve_materials`] interns the image. The sheen and
-/// roughness are already final, because they are plain numbers.
+/// table exists until [`resolve_materials`] interns the image. The sheen, shine
+/// and the internal roughness are already final, because they are plain
+/// numbers: an authored `shine` becomes `roughness = 1 - shine`, and a catalog
+/// that only authors the legacy `roughness` keeps it verbatim.
 fn catalog_response(entry: &crate::assets::AssetEntry) -> MaterialResponse {
     let sheen = entry.specular.unwrap_or(0.0).clamp(0.0, 1.0);
     let specular = entry.specular_color.map_or([sheen; 3], |color| {
         color.map(|channel| (channel * sheen).clamp(0.0, 1.0))
     });
+    let roughness = entry.shine.map_or_else(
+        || entry.roughness.unwrap_or(super::DEFAULT_ROUGHNESS),
+        super::roughness_from_shine,
+    );
     MaterialResponse {
         normal: None,
         normal_strength: entry
             .normal_strength
             .unwrap_or(super::DEFAULT_NORMAL_STRENGTH),
         specular,
-        roughness: entry.roughness.unwrap_or(super::DEFAULT_ROUGHNESS),
+        roughness,
     }
     .sanitized()
 }

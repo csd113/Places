@@ -49,10 +49,10 @@ profiles and `floor_regions`): it does not author or preview those keys. A
 level that uses them still opens (unknown keys are ignored on import), but
 **saving it here drops them**, because the editor writes only the fields it
 knows. The same applies to a wall-mounted light's `mount`/`y`, to per-face wall
-`material`, and to a wall's minimum-corner placement convention — the editor
-writes what it knows and drops the rest. Edit vertical-geometry and Pool-fixture
-levels in a text editor. See the "Level format" section of the repository README
-for the format.
+`material`, to per-surface `shine` overrides, and to a wall's minimum-corner
+placement convention — the editor writes what it knows and drops the rest. Edit
+vertical-geometry, Pool-fixture and shine-override levels in a text editor. See
+the "Level format" section of the repository README for the format.
 
 ### Keyboard
 

@@ -1,3 +1,59 @@
+## Unreleased — Surface shine and the Places Demo material pass
+
+Reflections were reading far too strong for the Places aesthetic: linoleum
+mirrored the room, ordinary brushed metal read like chrome, and floors and
+panels looked wet or freshly lacquered. Shininess is now an explicit, authorable
+material property instead of something a material class implied, and the
+official demo was re-authored with it.
+
+### Material model
+
+- **`shine` is the author-facing glossiness**, `0.0` matte … `1.0` extremely
+  glossy, on a catalog or pack material. The engine still stores the shader's
+  `roughness` as `1 - shine`; the legacy `roughness` field is accepted unchanged
+  (authoring both is a named catalog error), so an existing catalog or pack
+  keeps its exact surface response.
+- **A level can override one surface's shine** with a sibling key wherever it
+  names a material: `defaults.*_shine`, `rooms[].shine` / `ceiling_shine`,
+  `walls[].shine` / `face_shine`, `floor_patches[].shine`,
+  `floor_regions[].shine` / `edge_shine` and `openings[].glass_shine`. An
+  out-of-range or non-numeric value is a named loader error, not a silent clamp
+  or a crash.
+- **Shine is not material identity and not a mirror.** It shapes the sheen and
+  the reflection — weight, sharpness, and how broad a reading a probe returns —
+  while the sheen colour, the normal map and `reflection_mode` keep a metal
+  reading as metal at every value. `shine: 1.0` without a reflection mode never
+  samples the room; a mirror remains the dedicated `reflection_mode: planar`.
+- **The response shader is duller by construction.** The tight near-normal sheen
+  lobe now scales with the gloss, so a semi-gloss surface no longer gets a flat
+  face-on glow that read as plastic; a reflection's weight is grazing-dominated
+  at low shine, a rough probe surface blends towards a wide, unsharp reading of
+  the cubemap, and the planar blur scales with the shine. High-shine surfaces
+  keep their tight, recognizable reflection.
+- **A planar mirror now reflects the room instead of itself.** The mirror
+  plane's own geometry is skipped while the reflection image is drawn, so the
+  mirrored camera sees the room *through* the plane; before, the mirror surface
+  was the nearest thing to the mirrored camera and filled the image with its own
+  colour. A planar surface is an aperture — a floor/ceiling plane, a floor patch
+  or region, or an opening pane — and a wall slab is still reported as
+  non-planar rather than mirrored.
+
+### Places Demo
+
+- Ordinary office linoleum is near-matte (`shine: 0.05`) through a per-surface
+  override; the catalog material keeps its deliberately waxed `shine: 0.55`
+  default and its faint probe reflection for floors that are meant to be
+  buffed.
+- The aged brushed-metal notice board drops to `shine: 0.35` with a softer probe
+  (0.25), and the second board's frame is deliberately polished stainless
+  (`shine: 0.6`) so not every metal in the demo is equally shiny.
+- Pool deck, basin and wall tile keep a low glazed sheen (`shine: 0.28`–`0.3`)
+  instead of no response at all, and the wet deck keeps its one planar mirror
+  (`shine: 0.78`, strength `0.4`, a darker wet tint) so a puddle reads as
+  standing water that reflects the room rather than a bright block.
+- Walls, wallpaper, ceilings, carpet and the painted grille stay matte; glass
+  and the backlit signs keep their smooth-sheen defaults.
+
 ## Unreleased — Batch 5: compiled-build readiness, cleanup, QA, documentation
 
 Batch 5 is a stabilization pass, not a feature batch. It makes the compiled

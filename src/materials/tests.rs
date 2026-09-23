@@ -935,6 +935,184 @@ fn roughness_defaults_and_out_of_range_values_are_clamped_by_the_catalog() {
     assert!(error.contains("roughness"), "{error}");
 }
 
+// ------------------------------------------------- shine
+
+/// A synthetic catalog exercising `shine` (and its legacy inverse
+/// `roughness`). Every texture path is shipped artwork, so the test needs no
+/// new asset files.
+fn shine_catalog() -> AssetCatalog {
+    let json = r##"{
+        "assets": [
+            { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
+              "source": "file",
+              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+            { "id": "core:mat_matte", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo",
+              "specular": 0.4, "shine": 0.0 },
+            { "id": "core:mat_gloss", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo",
+              "specular": 0.4, "shine": 1.0 },
+            { "id": "core:mat_waxed", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo",
+              "specular": 0.4, "shine": 0.5 },
+            { "id": "core:mat_legacy", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo",
+              "specular": 0.4, "roughness": 0.25 },
+            { "id": "core:mat_mirror", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo",
+              "specular": 0.9, "shine": 1.0,
+              "reflection_mode": "planar", "reflection_strength": 0.9 }
+        ]
+    }"##;
+    AssetCatalog::from_json_str(json).expect("synthetic shine catalog")
+}
+
+/// Resolves the synthetic shine catalog against the shipped asset root.
+///
+/// The level references every synthetic material once, so the resolved table
+/// covers all of them.
+fn resolved_shine_table() -> MaterialTable {
+    let level = level_from(
+        r##"{
+            "format_version": 1, "id": "shine", "name": "Shine",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "defaults": { "wall": "core:mat_matte", "floor": "core:mat_gloss",
+                          "ceiling": "core:mat_waxed" },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 } ],
+            "floor_patches": [
+                { "x": 0.0, "z": 0.0, "width": 1.0, "depth": 1.0,
+                  "material": "core:mat_legacy" },
+                { "x": 1.0, "z": 0.0, "width": 1.0, "depth": 1.0,
+                  "material": "core:mat_mirror" }
+            ]
+        }"##,
+    );
+    let catalog = shine_catalog();
+    let mut cache = TextureCache::new();
+    let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
+    resolve_materials(&level, &catalog, None, Some(&root), &mut cache)
+}
+
+#[test]
+fn shine_is_the_author_facing_spelling_and_roughness_is_its_inverse() {
+    let table = resolved_shine_table();
+    let matte = table.entry_of("core:mat_matte").expect("matte");
+    assert!((matte.response.roughness - 1.0).abs() < f32::EPSILON);
+    assert!((matte.response.shine() - 0.0).abs() < f32::EPSILON);
+
+    let gloss = table.entry_of("core:mat_gloss").expect("gloss");
+    assert!(gloss.response.roughness.abs() < f32::EPSILON);
+    assert!((gloss.response.shine() - 1.0).abs() < f32::EPSILON);
+
+    let waxed = table.entry_of("core:mat_waxed").expect("waxed");
+    assert!((waxed.response.roughness - 0.5).abs() < f32::EPSILON);
+
+    // The two conversion helpers are defined as inverses and stay that way.
+    for shine in [0.0_f32, 0.05, 0.5, 0.75, 1.0] {
+        assert!((shine_from_roughness(roughness_from_shine(shine)) - shine).abs() < 1.0e-6);
+    }
+    assert!((DEFAULT_SHINE - (1.0 - DEFAULT_ROUGHNESS)).abs() < f32::EPSILON);
+}
+
+#[test]
+fn a_legacy_roughness_material_keeps_its_exact_roughness() {
+    // Catalogs authored before `shine` exist must render exactly as they did:
+    // `roughness` is still accepted verbatim.
+    let table = resolved_shine_table();
+    let legacy = table.entry_of("core:mat_legacy").expect("legacy");
+    assert!((legacy.response.roughness - 0.25).abs() < f32::EPSILON);
+    assert!(legacy.response.has_sheen());
+}
+
+#[test]
+fn shine_outside_the_unit_range_is_a_named_catalog_error() {
+    for (value, expected) in [("-0.25", "shine"), ("1.5", "shine")] {
+        let json = format!(
+            r##"{{
+                "assets": [
+                    {{ "id": "core:tex_albedo", "asset_class": "environment",
+                       "asset_type": "texture", "source": "file",
+                       "model": "environment/office/textures/ceilings/ceiling_panel_01.png" }},
+                    {{ "id": "core:mat_bad", "asset_class": "environment",
+                       "asset_type": "material", "source": "definition",
+                       "texture": "core:tex_albedo", "shine": {value} }}
+                ]
+            }}"##
+        );
+        let error =
+            AssetCatalog::from_json_str(&json).expect_err("an out-of-range shine must be rejected");
+        assert!(error.contains(expected), "{error}");
+    }
+}
+
+#[test]
+fn authoring_both_shine_and_roughness_is_a_named_catalog_error() {
+    let json = r##"{
+        "assets": [
+            { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
+              "source": "file",
+              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
+            { "id": "core:mat_both", "asset_class": "environment", "asset_type": "material",
+              "source": "definition", "texture": "core:tex_albedo",
+              "shine": 0.4, "roughness": 0.6 }
+        ]
+    }"##;
+    let error = AssetCatalog::from_json_str(json).expect_err("both spellings must be rejected");
+    assert!(
+        error.contains("shine") && error.contains("roughness"),
+        "{error}"
+    );
+}
+
+#[test]
+fn a_shiny_material_is_not_a_mirror_without_a_reflection_mode() {
+    // Shine shapes the sheen; it must never switch the reflection on. A
+    // `shine: 1.0` material with no `reflection_mode` reflects nothing, and a
+    // mirror keeps its planar mode even at shine 1.0.
+    let table = resolved_shine_table();
+    let gloss = table.entry_of("core:mat_gloss").expect("gloss");
+    assert!(gloss.response.has_sheen());
+    assert_eq!(gloss.reflection, MaterialReflection::NONE);
+    assert!(!gloss.reflection.is_active());
+
+    let mirror = table.entry_of("core:mat_mirror").expect("mirror");
+    assert_eq!(mirror.reflection.mode, ReflectionMode::Planar);
+    assert!(mirror.reflection.is_active());
+    assert!(mirror.reflection.is_planar());
+    assert!(
+        mirror.reflection.strength > 0.5,
+        "a mirror keeps its authored strength"
+    );
+}
+
+#[test]
+fn pack_materials_accept_shine_and_prefer_it_over_roughness() {
+    // A pack may use the author-facing spelling, the legacy one, or both; the
+    // author-facing one wins so an upgraded pack cannot keep the old value.
+    let json = r#"{
+        "materials": {
+            "pack:matte": { "texture": "textures/wall.png", "specular": 0.4, "shine": 0.0 },
+            "pack:legacy": { "texture": "textures/wall.png", "specular": 0.4, "roughness": 0.2 },
+            "pack:both": { "texture": "textures/wall.png", "specular": 0.4,
+                           "shine": 0.5, "roughness": 0.9 }
+        }
+    }"#;
+    let definitions = parse_materials_json(Some(json));
+    let response = |id: &str| definitions.get(id).expect(id).response();
+    assert!((response("pack:matte").roughness - 1.0).abs() < f32::EPSILON);
+    assert!((response("pack:legacy").roughness - 0.2).abs() < f32::EPSILON);
+    assert!((response("pack:both").roughness - 0.5).abs() < f32::EPSILON);
+
+    // An out-of-range pack value is discarded, exactly like every other
+    // malformed pack field: the documented default stays in place.
+    let json = r#"{ "materials": {
+        "pack:bad": { "texture": "textures/wall.png", "specular": 0.4, "shine": 4.0 }
+    } }"#;
+    let definitions = parse_materials_json(Some(json));
+    let bad = definitions.get("pack:bad").expect("pack:bad").response();
+    assert!((bad.roughness - DEFAULT_ROUGHNESS).abs() < f32::EPSILON);
+}
+
 #[test]
 fn alpha_modes_resolve_to_the_three_draw_passes() {
     let table = resolved_response_table();

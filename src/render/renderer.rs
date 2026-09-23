@@ -1484,6 +1484,10 @@ pub struct Renderer {
     /// any. The matrix projects a world position into the reflected frame, so
     /// the same value both drew the image and samples it.
     active_plane: Option<ActiveReflectionPlane>,
+    /// The mirror plane this frame's planar reflection is drawing, while the
+    /// reflection image is being rendered. Its own geometry is skipped from
+    /// that image (see [`super::reflections::is_mirror_range`]).
+    capture_plane: Option<usize>,
     /// True while a pass is drawing a reflection: reflective materials must not
     /// read the image being written, and a probe bake must not read a cubemap
     /// that does not exist yet.
@@ -1642,6 +1646,7 @@ impl Renderer {
             animation_seconds: 0.0,
             active_plane: None,
             reflection_capture: false,
+            capture_plane: None,
             post: startup.post,
             emission_only: 0.0,
             fog: FogState::SHIPPED,
@@ -2761,6 +2766,12 @@ impl Renderer {
     /// reflective geometry survived the frustum test. That is the deliberate
     /// limit — a second plane would double the scene submission again for a
     /// mirror edge the player is far less likely to be looking at.
+    ///
+    /// The mirror plane's own surface is left out of the mirrored draw: it is
+    /// the nearest thing to the mirrored camera, so drawing it would fill the
+    /// image with the mirror's own colour instead of the room it faces. The
+    /// plane is an aperture, so leaving it out is exactly what a real mirror
+    /// shows.
     fn capture_reflections(
         &mut self,
         frustum: &Frustum,
@@ -2814,11 +2825,13 @@ impl Renderer {
                     // reflected image shaded exactly like the real one.
                     unsafe { self.gl.front_face(glow::CW) };
                     self.reflection_capture = true;
+                    self.capture_plane = Some(index);
                     let saved_camera = self.camera_pos;
                     self.camera_pos =
                         glam::Vec3::new(mirrored_camera[0], mirrored_camera[1], mirrored_camera[2]);
                     let _ = self.draw_scene_body(&mirrored_mvp, &frustum_mirrored, cull);
                     self.camera_pos = saved_camera;
+                    self.capture_plane = None;
                     self.reflection_capture = false;
                     unsafe { self.gl.front_face(glow::CCW) };
                     self.render_stats.reflection_passes =
@@ -3273,6 +3286,9 @@ impl Renderer {
             if batch.key.kind == SurfaceKind::Decal {
                 continue;
             }
+            if self.is_capture_mirror(batch.key) {
+                continue;
+            }
             if self.static_batch_pass(batch.key) != pass {
                 continue;
             }
@@ -3373,6 +3389,21 @@ impl Renderer {
         self.reflections_enabled && !self.reflections.routing.is_empty()
     }
 
+    /// True when a batch is the mirror plane the reflection image is currently
+    /// being drawn through, and must therefore be left out of that image.
+    ///
+    /// Only while `reflection_capture` is set: the ordinary frame draws every
+    /// batch exactly as always.
+    fn is_capture_mirror(&self, key: SurfaceKey) -> bool {
+        self.reflection_capture
+            && key.has_material()
+            && super::reflections::is_mirror_range(
+                &self.reflections.routing,
+                self.capture_plane,
+                usize::from(key.material),
+            )
+    }
+
     /// The reflection uniforms one draw runs with.
     ///
     /// Zero mode for every material that authors none, for the whole frame
@@ -3462,12 +3493,16 @@ impl Renderer {
                     .get(usize::from(material))
                     .copied()
                     .unwrap_or(MaterialReflection::NONE);
+                // A level's per-surface override wins over the material's own
+                // shine and reaches both the sheen and the reflection, because
+                // both read the same roughness.
+                let roughness = key.roughness(response.roughness);
                 SurfaceState {
                     texture,
                     normal,
                     emission,
                     specular: if live { response.specular } else { [0.0; 3] },
-                    roughness: response.roughness,
+                    roughness,
                     normal_strength: response.normal_strength,
                     opacity: self
                         .material_alpha(material)
@@ -3762,6 +3797,9 @@ impl Renderer {
             let Some(batch) = self.static_batches.get(index).copied() else {
                 continue;
             };
+            if self.is_capture_mirror(batch.key) {
+                continue;
+            }
             if bound_chunk != Some(batch.chunk) {
                 if self.bind_chunk(&self.level_buffers, batch.chunk) {
                     bound_chunk = Some(batch.chunk);
