@@ -46,6 +46,18 @@ boundaries, and collision that could stop a player on a legal slope.
   fold the repeated corner to the end so the index pass drops the zero-area
   second triangle, and triangle-shaped ramp skirts no longer fail the lightmap
   plan's patch builder.
+- **Ramp side skirts shade up the face, not along the run.** The skirt's wall
+  gradient was classified by corner position; on the triangle a flush-landing
+  end produces, the winding normalisation could move the collapsed corner and
+  the fold then kept the *top* flag on a bottom corner, rotating the gradient
+  90 degrees and putting a thin shade step right where the skirt meets the
+  floor. The flags are now derived from each corner's position on the face's
+  sloped upper edge, so both duplicates agree whichever one the fold drops.
+- **A flat-lintel archway soffit is a horizontal face.** With `arch_rise = 0`
+  the soffit still took the vertical wall gradient (which ran across the block
+  thickness). A segment with no rise is now classified as a horizontal
+  down-facing face and takes the same flat shade as a box's bottom cap; a real
+  curve's sloped segments keep the vertical gradient unchanged.
 
 ## Unreleased — Home theme and generic architectural pieces
 

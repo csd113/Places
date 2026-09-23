@@ -66,12 +66,13 @@ introducing it.
 2. **No production texture imagery is generated from source code at runtime.**
    Do not paint textures in Rust, in shaders, in embedded pixel arrays or in
    draw commands, and do not synthesize a missing texture on demand when the
-   application or a level loads. The few images the engine itself generates
-   (the white fallback sheet, the HUD font atlas, the internal decal atlas,
-   the missing-texture diagnostic, lightmap atlases and reflection probes) are
-   internal machinery, listed in §12.3, and are not an authoring path. The
-   level editor paints its own preview tiles in JavaScript; those are previews,
-   not runtime assets, and are outside this policy.
+   application or a level loads. The shared untextured white sheet is a real
+   committed PNG like every other texture (`core:tex_white_01`, §12.3). The
+   few images the engine still generates (the HUD font atlas, the internal
+   decal atlas, the missing-texture diagnostic, lightmap atlases and reflection
+   probes) are internal machinery, listed in §12.4, and are not an authoring
+   path. The level editor paints its own preview tiles in JavaScript; those are
+   previews, not runtime assets, and are outside this policy.
 
 3. **PNG is the only raster format the runtime accepts.** The decoder
    signature-checks every texture and rejects anything that is not a PNG
@@ -141,6 +142,7 @@ assets/
       floors/*.png                   generic floor sheets
       walls/*.png                    generic wall sheets
       normals/*.png                  tangent-space normal maps
+      white_01.png                   shared untextured fallback sheet (§12.3)
   environment/
     <theme>/                         one directory per theme: office, pool, home
       props/models/*.glb             theme props (embedded textures)
@@ -213,6 +215,7 @@ currently nothing enforces a minimum for any class.
 | Floor surface sheet | `carpet_beige_01.png` | **1:1** | 1024×1024 (shipped) | none enforced | RGB shipped (carpet); ignored by default material | **yes, both axes** | world `(x, z)` ÷ `tile_metres` | carpet has no tint; painted at warm albedo |
 | Ceiling surface sheet | `ceiling_panel_01.png` | **1:1** | 1024×1024 (shipped) | none enforced | RGB shipped; ignored by default material | **yes, both axes** | world `(x, z)` ÷ `tile_metres` | ceiling material authors a grey tint |
 | Core shared sheet (glass/floor/wall) | `glass_clear_01.png` | **1:1** | 1024×1024 (current production); 128×128 painter output is contract-valid | none enforced | per material: `blend` glass, `cutout` grille, opaque otherwise | **yes, both axes** | world metres ÷ `tile_metres` | seam-gated with the environment set |
+| Shared white sheet | `white_01.png` | **1:1** | 2×2 (`core:tex_white_01`) | none enforced | opaque white | no | no authored UV contract: it is a flat fill bound wherever a surface is untextured | engine fallback loaded once at startup; see §12.3 |
 | Normal map | `normal_panel_01.png` | **1:1** | 1024×1024 (current production); 128×128 painter output is contract-valid | none enforced | alpha unused | **yes, both axes** | same UV as the albedo it augments | Surface quality class |
 | Fluorescent panel face | `fluorescent_panel_01.png` | **2:1** | 1024×512 (current production) | none enforced | ignored (face is opaque) | no | full sheet; `u` across 1.2 m width, `v` across 0.6 m depth | POT both edges; replacement must stay 2:1 |
 | Round downlight face | `pool_light_round_01.png` | **1:1** | 128×128 shipped; 256×256 or 512×512 to raise density | none enforced | ignored | no | planar; sheet centre = fixture centre; inscribed circle = diffuser radius | POT both edges |
@@ -381,8 +384,9 @@ housing trim on the luminous face). There is no separate emissive map for a
 fixture face.
 
 A fixture's **housing** (the office panel has none; the round and wall fixtures'
-bezel, can and drum do) is ordinary body geometry drawn through the shared 2×2
-white sheet (§12.3) with the profile's flat authored shade. It is deliberately
+bezel, can and drum do) is ordinary body geometry drawn through the shared
+untextured white sheet (`core:tex_white_01`, §12.3) with the profile's flat
+authored shade. It is deliberately
 untextured: the housing is metal/plastic body geometry, not artwork, and a
 theme that wants patterned housing would introduce a fitted body sheet the way
 the luminous face already is one. The texture-first contract therefore covers
@@ -759,14 +763,35 @@ the pack author is responsible for the same contracts.
 * `docs/screenshots/*.png`: 960×544 documentation captures. Not runtime
   assets; no contract beyond being still frames.
 
-### 12.3 Internal generated images (not authoring paths)
+### 12.3 Shared untextured white sheet
+
+`core:tex_white_01` → `assets/core/textures/white_01.png` is the renderer's
+neutral fallback sheet: a solid opaque 2×2 white fill. Fixture housings, plain
+body geometry and every texture slot with nothing better to bind sample it
+(§6). It is deliberately tiny — it carries no artwork, no level references it,
+and nothing derives detail from it — so the 2×2 size is a budget choice rather
+than a UV or aspect contract; it must stay a fully opaque white fill.
+
+It is an ordinary committed catalog PNG (`asset_class: "core"`), resolved
+through `assets/catalog.json` like any other texture and loaded once at
+renderer startup. The catalog entry, not a hard-coded pixel array, is the
+source of truth. It is uploaded `CLAMP_TO_EDGE` with nearest filtering and no
+mipmaps, because every sample reads the same white texel. It is not a surface
+material and is exempt from the tiling and environment-seam gates for that
+reason; its squareness and dimension budget are still checked by the shared
+shipped-sheet tests.
+
+A theme that wants patterned fixture housing would introduce a fitted body
+sheet the way the luminous face already is one — the white sheet itself is not
+an authoring target.
+
+### 12.4 Internal generated images (not authoring paths)
 
 These images are produced by the engine and are deliberately not shipped as
 PNGs. They are listed so no one mistakes them for assets to replace:
 
 | Image | Producer | Purpose |
 |---|---|---|
-| 2×2 white sheet | `src/render.rs` | untextured geometry (fixture housings, UI quads, untextured model materials). A shared *engine* sheet, like the font and decal atlases: it carries no artwork, no level references it, and every fixture's visible artwork is its own committed PNG (see §6). A theme that wants textured housing adds a fitted body sheet rather than replacing this fallback. |
 | 128×64 HUD font atlas | `src/font.rs` | project-owned bitmap UI font |
 | 256×256 decal atlas (one live cell) | `src/render/decals.rs` | internal validation marking machinery |
 | 64×64 missing-texture pattern | `src/materials/image.rs` | visible fallback for a broken texture |
@@ -861,9 +886,10 @@ edge budget per texture class:
 * The result is cached with the texture; nothing is rescaled per frame.
 * Both profiles use the same assets, ids, levels and geometry. Low is not a
   second art library. **Never author a separate low-resolution asset set.**
-* No image class bypasses the budget. The white sheet, font atlas, decals'
-  internal atlas and lightmap pages are internal machinery, not shipped
-  textures.
+* No image class bypasses the budget. The font atlas, the decals' internal
+  atlas and the lightmap pages are internal machinery, not shipped textures;
+  the shared white sheet (`core:tex_white_01`, §12.3) is a catalog texture
+  loaded once at startup at 2×2, far below every budget.
 
 ### 14.2 Why sources are kept large
 
@@ -1005,7 +1031,7 @@ Filtering and wrapping are chosen by the **texture's role**, not by the asset:
 | Generated decal atlas | `REPEAT` | yes | global setting |
 | Fixture face | `CLAMP_TO_EDGE` | yes | global setting |
 | Prop/entity texture | `CLAMP_TO_EDGE` | yes | global setting |
-| White fallback sheet | `CLAMP_TO_EDGE` | no | nearest |
+| White fallback sheet (`core:tex_white_01`) | `CLAMP_TO_EDGE` | no | nearest |
 | HUD font atlas | `CLAMP_TO_EDGE` | no | nearest |
 | Lightmap atlas page | `CLAMP_TO_EDGE` | no | linear |
 | Reflection probe cubemap | `CLAMP_TO_EDGE` | no | linear |
@@ -1194,6 +1220,7 @@ repository):
 | Ten named surfaces' seams (independent metric) | Rust test `test_shipped_surface_textures_tile` | `cargo test` | yes |
 | Six office sheets: square, opaque, ≤1024 | Rust test `test_shipped_texture_assets_are_opaque_and_within_budget` | `cargo test` | yes |
 | **Every catalogued file-backed texture/decal/light sheet satisfies its class dimension contract (square surfaces, POT fitted sheets, hard limit)** | Rust test `every_shipped_sheet_satisfies_its_texture_kind_contract` (see below); props/entities are covered by the props tests and the GLB parser, not this test | `cargo test` | yes |
+| Shared white sheet: committed PNG, 2×2, opaque white, and what the renderer actually loads | Rust tests `assets::tests::the_shared_white_sheet_is_a_committed_opaque_white_png` and `render::tests::the_renderers_white_sheet_loads_from_the_committed_catalog_asset` | `cargo test` | yes |
 | Fixture sheets: exact shipped dimensions and fully opaque | Rust test `loader::tests::test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog` | `cargo test` | yes |
 | Fixture faces: POT, unique sheet, ≤1024 | `tests/test_package.py` | `python3 -m unittest tests.test_package` | yes |
 | NO DIVING sign: 1024², RGBA, transparent pixel | `tests/test_package.py` | same | yes |

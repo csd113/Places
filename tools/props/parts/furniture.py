@@ -27,9 +27,12 @@ nothing can flicker in the depth buffer.
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 import palette
+from parts.refreshed import load_atlas, solid_box, solid_cylinder, padded_box
 from mesh import FACE_KEYS, PropBuilder
+from tex import decode_png
 
 # Triangle targets from the pack spec (build.py enforces the 500 preferred /
 # 1500 hard budget itself; these are what each prop aims for).
@@ -168,151 +171,63 @@ def _cushion(p: PropBuilder, center, size, uv, color, top: float = 0.03, inset: 
 # ----------------------------------------------------------------- furniture
 
 
-def build_couch(p: PropBuilder) -> None:
-    """Couch: wooden feet, a seat frame, panel arms with padded caps, a full
-    width back under a crest rail, three seat and three back cushions."""
-    size = p.size  # [2.0, 0.9, 0.9]
-    tex = p.set_texture(128, seed=41)
-    tex.auto("body", "seat", "back", "wood")
-
-    body = palette.shade(palette.hex_to_rgb(palette.FABRIC_BROWN), 0.92)
-    seat = palette.hex_to_rgb(palette.FABRIC_TAN)
-    back = palette.mix(palette.hex_to_rgb(palette.FABRIC_TAN), body, 0.45)
-    pillow = palette.mix(palette.hex_to_rgb(palette.FABRIC_OLIVE), body, 0.52)
-    wood = palette.hex_to_rgb(palette.WOOD_DARK)
-
-    # The wood cell is split so the throw cushions get their own woven swatch
-    # (a shared region would just be the frame fabric multiplied into mud).
+def _build_seating(p: PropBuilder, seats: int) -> None:
+    """Matching closed upholstered frames with bevelled loose cushions."""
+    sofa = seats == 3
+    tex = load_atlas(p, "couch" if sofa else "armchair", ("body", "seat", "back", "wood"))
     _split_cell(tex, "wood", "pillow")
+    body_uv, seat_uv, back_uv, wood_uv, pillow_uv = (
+        tex.uv(name, inset=1) for name in ("body", "seat", "back", "wood", "pillow"))
+    width, _, depth = p.size
+    white = (255, 255, 255)
+    foot_x = 0.88 if sofa else 0.36
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            solid_box(p, (sx * foot_x, 0.06, sz * 0.36), (0.06, 0.12, 0.06),
+                      uv=wood_uv, color=white)
+    solid_box(p, (0.0, 0.22, 0.0), (width, 0.20, depth), uv=body_uv, color=white)
+    # Sink the back into the frame without sharing its rear edge/coplanar face.
+    solid_box(p, (0.0, 0.599, -depth * 0.5 + 0.08), (width, 0.562, 0.158),
+              uv=body_uv, color=white)
+    padded_box(p, (0.0, 0.87, -depth * 0.5 + 0.095), (width, 0.06, 0.19),
+               body_uv, bevel=0.018)
+    arm_width, arm_top, radius = (0.17, 0.60, 0.085) if sofa else (0.15, 0.56, 0.07)
+    arm_x = width * 0.5 - arm_width * 0.5
+    for sx in (-1, 1):
+        solid_box(p, (sx * arm_x, (0.32 + arm_top) * 0.5, 0.065),
+                  (arm_width, arm_top - 0.32, 0.77), uv=body_uv, color=white)
+        solid_cylinder(p, (sx * arm_x, arm_top, -0.34), radius, 0.76,
+                       segments=12, axis="z", side_uv=body_uv, cap_uv=body_uv,
+                       color=white, proxy=False)
+    for index in range(seats):
+        cx = (index - 1) * 0.56 if sofa else 0.0
+        cushion_width = 0.535 if sofa else 0.58
+        # One closed cushion replaces the old block plus inset top slab.
+        seat_height = 0.17 if sofa else 0.175
+        padded_box(p, (cx, 0.32 + seat_height * 0.5, 0.07),
+                   (cushion_width, seat_height, 0.70), seat_uv, bevel=0.035)
+        lean = (-6.0, -8.0, -5.0)[index] if sofa else -7.0
+        padded_box(p, (cx, 0.64 if sofa else 0.62, -0.16),
+                   (cushion_width, 0.36 if sofa else 0.32, 0.23 if sofa else 0.21),
+                   back_uv, bevel=0.04, rotation=(lean, 0.0, 0.0))
+    if sofa:
+        for sx in (-1, 1):
+            padded_box(p, (sx * 0.575, 0.62, -0.03), (0.32, 0.30, 0.13),
+                       pillow_uv, bevel=0.035, rotation=(0.0, sx * 18.0, sx * -7.0))
+    else:
+        padded_box(p, (0.15, 0.60, -0.04), (0.30, 0.28, 0.12), pillow_uv,
+                   bevel=0.035, rotation=(0.0, 24.0, -6.0))
+    p.add_note("closed frame and 12-segment armrests; bevelled seat/back/throw cushions; file-backed upholstery")
 
-    _paint_fabric(tex, "body", body, seed=101)
-    _paint_cushion(tex, "seat", seat, seed=107)
-    _paint_cushion(tex, "back", back, seed=113)
-    _paint_wood(tex, "wood", wood, seed=127, wear=1.4)
-    _paint_fabric(tex, "pillow", pillow, seed=131)
 
-    half_w = size[0] * 0.5  # 1.00
-    half_d = size[2] * 0.5  # 0.45
-    body_uv = tex.uv("body")
-    seat_uv = tex.uv("seat")
-    back_uv = tex.uv("back")
-    wood_uv = tex.uv("wood")
-    pillow_uv = tex.uv("pillow")
-
-    frame_top = 0.32          # seat platform
-    arm_x = half_w - 0.085    # arm centre: outer face owns the footprint
-    arm_top = 0.60            # where the padded roll takes over
-    arm_front = 0.45          # the arms run to the front edge of the footprint
-    arm_back = -0.32          # sunk 3 cm into the back panel
-    back_front = -0.29        # the back panel's front face
-
-    # Four block feet, then the seat frame: the frame's front face is the apron
-    # that carries the couch's silhouette at floor level.
-    for sx in (-1.0, 1.0):
-        for sz in (-1.0, 1.0):
-            _solid(p, (sx * 0.88, 0.06, sz * 0.36), (0.06, 0.12, 0.06), wood_uv, _tint(wood, 0.5))
-    _solid(p, (0.0, 0.22, 0.0), (size[0], frame_top - 0.12, size[2]), body_uv, _tint(body),
-           hidden=("-y",))
-    # Back panel spans the full width *behind* the arms and rises to the
-    # catalogue height; the crest rail caps it and breaks the flat top edge.
-    _solid(p, (0.0, 0.60, -half_d + 0.08), (size[0], 0.56, 0.16), body_uv,
-           _tint(palette.shade(body, 0.94)), hidden=("-y", "+y"))
-    _solid(p, (0.0, 0.87, -half_d + 0.095), (size[0], 0.06, 0.19), body_uv,
-           _tint(palette.shade(body, 1.02)), hidden=("-y",),
-           colors={"+y": _tint(palette.shade(body, 1.08))})
-    # Arms: a panel from the seat platform to 0.60, capped by a 6-segment roll
-    # that is the one soft silhouette cue on an otherwise angular frame.
-    for sx in (-1.0, 1.0):
-        _solid(p, (sx * arm_x, (frame_top + arm_top) * 0.5, (arm_back + arm_front) * 0.5),
-               (0.17, arm_top - frame_top, arm_front - arm_back), body_uv, _tint(body),
-               hidden=("-y", "+y"))
-        p.cylinder((sx * arm_x, arm_top, arm_back - 0.02), 0.085, arm_front - arm_back - 0.01,
-                   segments=6, axis="z", side_uv=body_uv, cap_uv=body_uv,
-                   color=_tint(palette.shade(body, 1.06)), shades=False, proxy=False)
-    # Three seat cushions between the arms, each with a soft top puff.
-    for index in range(3):
-        cx = (index - 1) * 0.56
-        _cushion(p, (cx, frame_top + 0.07, 0.07), (0.535, 0.14, 0.70), seat_uv, _tint(seat))
-    # Matching back cushions, leaning on the back panel at slightly different
-    # angles, each with a shallow front pad so the row reads as loose cushions
-    # instead of one extruded block.
-    for index, lean in enumerate((-6.0, -8.0, -5.0)):
-        cx = (index - 1) * 0.56
-        _solid(p, (cx, 0.64, -0.18), (0.535, 0.36, 0.20), back_uv, _tint(back),
-               hidden=("-y",), rotation=(lean, 0.0, 0.0))
-        _solid(p, (cx, 0.64, -0.115), (0.47, 0.30, 0.05), back_uv,
-               _tint(palette.shade(back, 1.07)), hidden=("-y",), rotation=(lean, 0.0, 0.0))
-    # Two loose cushions tucked into the corners: the only deliberately soft
-    # note, in the pack's muted olive so they read against the brown frame.
-    for sx in (-1.0, 1.0):
-        _solid(p, (sx * 0.575, 0.62, -0.03), (0.32, 0.30, 0.13), pillow_uv,
-               _tint(pillow), hidden=(), rotation=(0.0, sx * 18.0, sx * -7.0))
-    p.add_note("frame, rolled arm panels, crest rail; three seat/back cushions; block feet")
+def build_couch(p: PropBuilder) -> None:
+    """Three-seat upholstered sofa, preserving the 2.0 x 0.9 x 0.9 m bounds."""
+    _build_seating(p, seats=3)
 
 
 def build_armchair(p: PropBuilder) -> None:
-    """Armchair: the couch's vocabulary at 0.9 m, one wide cushion each."""
-    size = p.size  # [0.9, 0.9, 0.9]
-    tex = p.set_texture(128, seed=53)
-    tex.auto("body", "seat", "back", "wood")
-
-    body = palette.shade(palette.hex_to_rgb(palette.FABRIC_BROWN), 0.92)
-    seat = palette.hex_to_rgb(palette.FABRIC_TAN)
-    back = palette.mix(palette.hex_to_rgb(palette.FABRIC_TAN), body, 0.45)
-    pillow = palette.mix(palette.hex_to_rgb(palette.FABRIC_OLIVE), body, 0.52)
-    wood = palette.hex_to_rgb(palette.WOOD_DARK)
-
-    _split_cell(tex, "wood", "pillow")
-
-    _paint_fabric(tex, "body", body, seed=201)
-    _paint_cushion(tex, "seat", seat, seed=207)
-    _paint_cushion(tex, "back", back, seed=213)
-    _paint_wood(tex, "wood", wood, seed=227, wear=1.4)
-    _paint_fabric(tex, "pillow", pillow, seed=231)
-
-    half_w = size[0] * 0.5  # 0.45
-    half_d = size[2] * 0.5  # 0.45
-    body_uv = tex.uv("body")
-    seat_uv = tex.uv("seat")
-    back_uv = tex.uv("back")
-    wood_uv = tex.uv("wood")
-    pillow_uv = tex.uv("pillow")
-
-    frame_top = 0.32
-    arm_top = 0.56
-    arm_x = half_w - 0.075
-    arm_front = 0.45
-    arm_back = -0.32
-    back_front = -0.29
-
-    for sx in (-1.0, 1.0):
-        for sz in (-1.0, 1.0):
-            _solid(p, (sx * 0.36, 0.06, sz * 0.36), (0.06, 0.12, 0.06), wood_uv, _tint(wood, 0.5))
-    _solid(p, (0.0, 0.22, 0.0), (size[0], frame_top - 0.12, size[2]), body_uv, _tint(body),
-           hidden=("-y",))
-    _solid(p, (0.0, 0.60, -half_d + 0.08), (size[0], 0.56, 0.16), body_uv,
-           _tint(palette.shade(body, 0.94)), hidden=("-y", "+y"))
-    _solid(p, (0.0, 0.87, -half_d + 0.095), (size[0], 0.06, 0.19), body_uv,
-           _tint(palette.shade(body, 1.02)), hidden=("-y",),
-           colors={"+y": _tint(palette.shade(body, 1.08))})
-    for sx in (-1.0, 1.0):
-        _solid(p, (sx * arm_x, (frame_top + arm_top) * 0.5, (arm_back + arm_front) * 0.5),
-               (0.15, arm_top - frame_top, arm_front - arm_back), body_uv, _tint(body),
-               hidden=("-y", "+y"))
-        p.cylinder((sx * arm_x, arm_top, arm_back - 0.02), 0.07, arm_front - arm_back - 0.01,
-                   segments=6, axis="z", side_uv=body_uv, cap_uv=body_uv,
-                   color=_tint(palette.shade(body, 1.06)), shades=False, proxy=False)
-    # One broad seat cushion and one back cushion: the couch's three, merged.
-    _cushion(p, (0.0, frame_top + 0.07, 0.07), (0.58, 0.14, 0.70), seat_uv, _tint(seat),
-             top=0.035, inset=0.03)
-    _solid(p, (0.0, 0.62, -0.18), (0.58, 0.32, 0.18), back_uv, _tint(back), hidden=("-y",),
-           rotation=(-7.0, 0.0, 0.0))
-    _solid(p, (0.0, 0.62, -0.13), (0.51, 0.26, 0.05), back_uv, _tint(palette.shade(back, 1.07)),
-           hidden=("-y",), rotation=(-7.0, 0.0, 0.0))
-    # A single loose cushion tucked against one arm.
-    _solid(p, (0.15, 0.60, -0.04), (0.30, 0.28, 0.12), pillow_uv,
-           _tint(pillow), hidden=(), rotation=(0.0, 24.0, -6.0))
-    p.add_note("couch vocabulary at 0.9 m; one seat and one back cushion")
+    """Matching armchair, preserving the 0.9 x 0.9 x 0.9 m bounds."""
+    _build_seating(p, seats=1)
 
 
 def build_chair(p: PropBuilder) -> None:
@@ -407,45 +322,73 @@ def build_chair(p: PropBuilder) -> None:
 
 
 def build_table(p: PropBuilder) -> None:
-    """Table: one thick top on a four-leg frame with aprons."""
+    """Closed timber components with outward winding and a file-backed oak atlas."""
     size = p.size  # [1.4, 0.75, 0.8]
-    tex = p.set_texture(64, seed=71)
+    source = Path(__file__).resolve().parents[3] / "assets/core/props/models/table.png"
+    width, height, pixels = decode_png(source.read_bytes())
+    if (width, height) != (256, 256):
+        raise ValueError("table.png must be the 256x256 four-region oak atlas")
+    tex = p.set_texture(width, seed=71)
+    tex.pixels[:] = pixels
     tex.auto("top", "wood", "edge", "apron")
 
-    wood = palette.hex_to_rgb(palette.WOOD_MID)
-    pale = palette.hex_to_rgb(palette.WOOD_PALE)
-    dark = palette.shade(wood, 0.78)
+    top_uv = tex.uv("top", inset=2)
+    wood_uv = tex.uv("wood", inset=2)
+    edge_uv = tex.uv("edge", inset=2)
+    apron_uv = tex.uv("apron", inset=2)
 
-    _paint_wood(tex, "top", pale, seed=401, wear=1.5)
-    _paint_wood(tex, "wood", wood, seed=407)
-    _paint_wood(tex, "edge", dark, seed=411, wear=1.6)
-    _paint_wood(tex, "apron", wood, seed=417)
+    def outward(start: int, center) -> None:
+        # Correct winding locally: shared primitives are used by other assets.
+        mesh = p.mesh
+        for offset in range(start, len(mesh.indices), 3):
+            a, b, c = [mesh.positions[i] for i in mesh.indices[offset:offset + 3]]
+            ab = [b[i] - a[i] for i in range(3)]
+            ac = [c[i] - a[i] for i in range(3)]
+            normal = (ab[1] * ac[2] - ab[2] * ac[1],
+                      ab[2] * ac[0] - ab[0] * ac[2],
+                      ab[0] * ac[1] - ab[1] * ac[0])
+            if sum(normal[i] * (a[i] - center[i]) for i in range(3)) < 0:
+                mesh.indices[offset + 1], mesh.indices[offset + 2] = (
+                    mesh.indices[offset + 2], mesh.indices[offset + 1])
 
-    top_uv = tex.uv("top")
-    wood_uv = tex.uv("wood")
-    edge_uv = tex.uv("edge")
-    apron_uv = tex.uv("apron")
+    def box(center, dimensions, **kwargs) -> None:
+        start = len(p.mesh.indices)
+        p.box(center, dimensions, **kwargs)
+        outward(start, center)
 
     # The top slab owns the catalogue width and depth.
-    _solid(p, (0.0, 0.728, 0.0), (size[0], 0.044, size[2]),
-           {"+y": top_uv, "-y": None, "+x": edge_uv, "-x": edge_uv, "+z": edge_uv, "-z": edge_uv},
-           _tint(pale), hidden=("-y",), colors={"+y": _tint(palette.shade(pale, 1.06))})
+    box((0.0, 0.728, 0.0), (size[0], 0.044, size[2]),
+        uv={"+y": top_uv, "-y": top_uv, "+x": edge_uv, "-x": edge_uv, "+z": edge_uv, "-z": edge_uv},
+        color=(255, 255, 255))
+    # The box top's default U axis runs across its depth; align oak along X.
+    for index, (x, y, z) in enumerate(p.mesh.positions):
+        if abs(y - 0.75) < 1e-6 and p.mesh.uvs[index][1] < 0.5:
+            p.mesh.uvs[index] = (
+                top_uv[0] + (x / size[0] + 0.5) * (top_uv[2] - top_uv[0]),
+                top_uv[1] + (z / size[2] + 0.5) * (top_uv[3] - top_uv[1]))
     # An inset frame under the slab keeps the top from reading as a floating card.
-    _solid(p, (0.0, 0.688, 0.0), (size[0] - 0.10, 0.048, size[2] - 0.10), apron_uv, _tint(dark),
-           hidden=("-y", "+y"))
+    box((0.0, 0.688, 0.0), (size[0] - 0.10, 0.048, size[2] - 0.10),
+        uv=apron_uv, color=(225, 225, 225))
     # Square legs, tapered to a slimmer foot the way a plain timber leg is.
     for sx in (-1.0, 1.0):
         for sz in (-1.0, 1.0):
-            p.cylinder((sx * (size[0] * 0.5 - 0.08), 0.0, sz * (size[2] * 0.5 - 0.07)), 0.045,
-                       0.706, segments=4, taper=0.86, rotation=0.7854,
-                       side_uv=wood_uv, cap_uv=wood_uv, color=_tint(wood))
+            base = (sx * (size[0] * 0.5 - 0.08), 0.0, sz * (size[2] * 0.5 - 0.07))
+            start = len(p.mesh.indices)
+            p.cylinder(base, 0.045 * 0.86, 0.706, segments=4, taper=1.0 / 0.86,
+                       rotation=math.pi / 4, bottom=True,
+                       side_uv=wood_uv, cap_uv=wood_uv, color=(255, 255, 255))
+            outward(start, (base[0], 0.353, base[2]))
     for sz in (-1.0, 1.0):
-        p.box((0.0, 0.638, sz * (size[2] * 0.5 - 0.085)), (size[0] - 0.20, 0.07, 0.03), uv=apron_uv,
-              color=_tint(wood))
+        box((0.0, 0.638, sz * (size[2] * 0.5 - 0.085)), (size[0] - 0.20, 0.07, 0.03), uv=apron_uv,
+            color=(255, 255, 255))
     for sx in (-1.0, 1.0):
-        p.box((sx * (size[0] * 0.5 - 0.095), 0.638, 0.0), (0.03, 0.07, size[2] - 0.18), uv=apron_uv,
-              color=_tint(wood))
-    p.add_note("slab top, four tapered square legs, four aprons")
+        box((sx * (size[0] * 0.5 - 0.095), 0.638, 0.0), (0.03, 0.07, size[2] - 0.18), uv=apron_uv,
+            color=(255, 255, 255))
+    # Editor proxies have no texture, so give them the atlas's average oak tone.
+    oak = tuple(sum(pixels[channel::4]) // (width * height) for channel in range(3))
+    for part in p.mesh.parts:
+        part["color"] = "#%02x%02x%02x" % oak
+    p.add_note("closed slab and frame, four downward-tapered square legs, four aprons; file-backed oak atlas")
 
 
 def build_desk(p: PropBuilder) -> None:
@@ -533,45 +476,35 @@ def build_desk(p: PropBuilder) -> None:
 def build_bookshelf(p: PropBuilder) -> None:
     """Bookshelf: open shell with four shelves and front lips; no books."""
     size = p.size  # [1.0, 1.8, 0.35]
-    tex = p.set_texture(128, seed=83)
-    tex.auto("side", "shelf", "back", "front")
+    tex = load_atlas(p, "bookshelf", ("side", "shelf", "back", "front"))
+    body = shelf = back = front = (255, 255, 255)
 
-    body = palette.hex_to_rgb(palette.WOOD_DARK)
-    shelf = palette.mix(body, palette.hex_to_rgb(palette.WOOD_MID), 0.70)
-    back = palette.shade(body, 0.70)
-    front = palette.shade(body, 1.22)
-
-    _paint_wood(tex, "side", body, seed=601, wear=1.5)
-    _paint_wood(tex, "shelf", shelf, seed=607, wear=1.3)
-    _paint_wood(tex, "back", back, seed=611, wear=1.8)
-    _paint_wood(tex, "front", front, seed=617, wear=1.5)
-
-    side_uv = tex.uv("side")
-    shelf_uv = tex.uv("shelf")
-    back_uv = tex.uv("back")
-    front_uv = tex.uv("front")
+    side_uv = tex.uv("side", inset=2)
+    shelf_uv = tex.uv("shelf", inset=2)
+    back_uv = tex.uv("back", inset=2)
+    front_uv = tex.uv("front", inset=2)
 
     # Two full-height sides define the catalogue height and depth.
     for sx in (-1.0, 1.0):
-        p.box((sx * (size[0] * 0.5 - 0.0175), size[1] * 0.5, 0.0), (0.035, size[1], size[2]),
-              uv=side_uv, color=_tint(body))
-    p.box((0.0, size[1] - 0.02, 0.0), (size[0] - 0.04, 0.04, size[2]), uv=front_uv, color=_tint(front))
-    p.box((0.0, 0.02, 0.0), (size[0] - 0.04, 0.04, size[2]), uv=front_uv, color=_tint(front))
+        solid_box(p, (sx * (size[0] * 0.5 - 0.0175), size[1] * 0.5, 0.0), (0.035, size[1], size[2]),
+              uv=side_uv, color=body)
+    solid_box(p, (0.0, size[1] - 0.02, 0.0), (size[0] - 0.04, 0.04, size[2]), uv=front_uv, color=front)
+    solid_box(p, (0.0, 0.02, 0.0), (size[0] - 0.04, 0.04, size[2]), uv=front_uv, color=front)
     # Hardboard back: the empty shelves need something dull behind them.
-    p.box((0.0, size[1] * 0.5, -(size[2] * 0.5 - 0.01)), (size[0] - 0.04, size[1] - 0.04, 0.015),
-          uv=back_uv, color=_tint(back))
+    solid_box(p, (0.0, size[1] * 0.5, -(size[2] * 0.5 - 0.01)), (size[0] - 0.04, size[1] - 0.04, 0.015),
+          uv=back_uv, color=back)
     # Four shelves at five equal gaps, each with a front lip.
     gap = (size[1] - 0.22) / 5.0
     for index in range(4):
         cy = 0.04 + gap + 0.0175 + index * (0.035 + gap)
-        p.box((0.0, cy, 0.01), (size[0] - 0.04, 0.035, size[2] - 0.05), uv=shelf_uv, color=_tint(shelf))
-        p.box((0.0, cy, size[2] * 0.5 - 0.01), (size[0] - 0.04, 0.025, 0.02), uv=front_uv,
-              color=_tint(front))
+        solid_box(p, (0.0, cy, 0.01), (size[0] - 0.04, 0.035, size[2] - 0.05), uv=shelf_uv, color=shelf)
+        solid_box(p, (0.0, cy, size[2] * 0.5 - 0.01), (size[0] - 0.04, 0.025, 0.02), uv=front_uv,
+              color=front)
     # A top and a bottom rail stand in for a face frame (one texture seam each).
-    p.box((0.0, size[1] - 0.06, size[2] * 0.5 - 0.01), (size[0] - 0.06, 0.04, 0.02), uv=front_uv,
-          color=_tint(front))
-    p.box((0.0, 0.03, size[2] * 0.5 - 0.01), (size[0] - 0.06, 0.04, 0.02), uv=front_uv,
-          color=_tint(front))
+    solid_box(p, (0.0, size[1] - 0.06, size[2] * 0.5 - 0.01), (size[0] - 0.06, 0.04, 0.02), uv=front_uv,
+          color=front)
+    solid_box(p, (0.0, 0.03, size[2] * 0.5 - 0.01), (size[0] - 0.06, 0.04, 0.02), uv=front_uv,
+          color=front)
     p.add_note("empty institutional shelves: no book geometry")
 
 

@@ -1266,6 +1266,15 @@
       "description": "Painted steel transfer grille: an alpha-tested cut-out that fills an opening with slats instead of a pane."
     },
     {
+      "id": "core:tex_white_01",
+      "display_name": "Untextured White Sheet",
+      "asset_class": "core",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "core/textures/white_01.png",
+      "description": "The shared untextured sheet: a solid opaque 2x2 white fill the renderer binds to fixture housings, plain body geometry and any texture slot with nothing better to show. Not artwork and not tileable; loaded once at renderer startup."
+    },
+    {
       "id": "home:tex_wallpaper_offwhite_01",
       "display_name": "Home Off-White Wallpaper Texture",
       "asset_class": "environment",

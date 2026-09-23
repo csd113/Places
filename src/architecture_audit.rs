@@ -2061,3 +2061,357 @@ fn test_arriving_at_a_platform_is_not_walled_off_by_its_rim() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Ramp side-skirt shading
+// ---------------------------------------------------------------------------
+
+/// One side skirt face: its across-plane coordinate and the deduplicated world
+/// position and vertex colour of each of its corners.
+type SkirtFaceCorners = (f32, Vec<([f32; 3], [f32; 3])>);
+
+/// A ramp side skirt's wall gradient must vary with height, not along the run —
+/// including on the triangle-shaped skirt a flush-landing end produces, where
+/// `orient` may reverse the corner order before the folded triangle is emitted.
+///
+/// The gradient used to be classified positionally (`p2`/`p3` are the top
+/// corners). A flush end collapses two corners onto one another; when the
+/// winding normalisation reversed the corner order, the fold dropped the other
+/// duplicate and the surviving corner kept the *top* flag, rotating the
+/// gradient 90 degrees: the skirt's shade then changed along the junction with
+/// the floor instead of up the face, a thin artificial step exactly where the
+/// skirt meets the adjacent surface.
+#[test]
+fn test_ramp_side_skirt_gradient_follows_height_not_run() {
+    // (name, x, z, width, depth, offset_y, rise)
+    let cases: [(&str, f32, f32, f32, f32, f32, f32); 4] = [
+        ("z_rising_flush_low", 4.0, 0.4, 1.0, 1.6, 0.0, 0.75),
+        ("x_rising_flush_low", 0.4, 4.0, 1.6, 1.0, 0.0, 0.75),
+        ("z_falling_flush_low", 4.0, 0.4, 1.0, 1.6, 0.75, -0.75),
+        ("z_raised_trapezoid", 4.0, 0.4, 1.0, 1.6, 0.4, 0.5),
+    ];
+    for (name, x, z, width, depth, offset_y, rise) in cases {
+        let level = parse(&format!(
+            r#"{{
+                "format_version": 1,
+                "id": "ramp_skirt_shading",
+                "name": "Ramp Skirt Shading",
+                "spawn": {{ "x": 1.0, "z": 1.0 }},
+                "room": {{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 }},
+                "ramps": [ {{ "x": {x}, "z": {z}, "width": {width}, "depth": {depth},
+                              "offset_y": {offset_y}, "rise": {rise},
+                              "material": "core:carpet_beige_01",
+                              "edge_material": "core:wallpaper_yellow_01" }} ],
+                "ceiling_lights": [
+                    {{ "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 2.0, "intensity": 1.0 }}
+                ]
+            }}"#
+        ));
+        let materials = logical_materials(&level);
+        let catalog = crate::loader::PropCatalog::builtin();
+        let mut assets = crate::props::PropAssets::default();
+        let (mesh, _batches, lighting) =
+            crate::render::build_level_geometry_with_assets_and_lighting_and_materials(
+                &level,
+                &catalog,
+                &mut assets,
+                &materials,
+            );
+        let wallpaper = materials
+            .index_of("core:wallpaper_yellow_01")
+            .expect("the skirt material resolves");
+        let ramp = &level.ramps[0];
+        let (x0, x1, z0, z1) = ramp.bounds();
+        let axis = ramp.axis();
+        // The skirt faces live on the footprint's two across planes. A triangle
+        // must lie wholly on one of them: the end faces span both, and the run
+        // planes carry the ends themselves.
+        let side_plane = |points: &[[f32; 3]; 3]| -> Option<f32> {
+            let (low, high) = match axis {
+                WallAxis::X => (z0, z1),
+                WallAxis::Z => (x0, x1),
+            };
+            let coordinate = |point: [f32; 3]| match axis {
+                WallAxis::X => point[2],
+                WallAxis::Z => point[0],
+            };
+            if points.iter().all(|p| (coordinate(*p) - low).abs() < 1.0e-4) {
+                Some(low)
+            } else if points
+                .iter()
+                .all(|p| (coordinate(*p) - high).abs() < 1.0e-4)
+            {
+                Some(high)
+            } else {
+                None
+            }
+        };
+        // Gather the corners of each side face, deduplicated by position.
+        let mut faces: Vec<SkirtFaceCorners> = Vec::new();
+        for range in &mesh.ranges {
+            if range.key.material != wallpaper {
+                continue;
+            }
+            for chunk in range.indices.chunks(3) {
+                let mut points = [[0.0f32; 3]; 3];
+                let mut colors = [[0.0f32; 3]; 3];
+                for (slot, index) in chunk.iter().enumerate() {
+                    let Some(vertex) = range.vertices.get(usize::from(*index)) else {
+                        continue;
+                    };
+                    points[slot] = vertex.pos;
+                    colors[slot] = [vertex.color[0], vertex.color[1], vertex.color[2]];
+                }
+                let Some(plane) = side_plane(&points) else {
+                    continue;
+                };
+                let face_index = faces
+                    .iter()
+                    .position(|(existing, _)| (existing - plane).abs() < 1.0e-4)
+                    .unwrap_or_else(|| {
+                        faces.push((plane, Vec::new()));
+                        faces.len().saturating_sub(1)
+                    });
+                let corners = &mut faces[face_index].1;
+                for (point, color) in points.iter().zip(colors.iter()) {
+                    if !corners.iter().any(|(seen, _)| *seen == *point) {
+                        corners.push((*point, *color));
+                    }
+                }
+            }
+        }
+        assert_eq!(faces.len(), 2, "{name}: the ramp has two side skirts");
+
+        for (plane, corners) in &faces {
+            let bottom = corners
+                .iter()
+                .map(|(point, _)| point[1])
+                .fold(f32::INFINITY, f32::min);
+            let factor = |point: [f32; 3], color: [f32; 3]| {
+                let light = lighting.sample(point[0], point[1], point[2]);
+                color[0] / light.r.max(1.0e-6)
+            };
+            let mut bottom_factors = Vec::new();
+            let mut top_factors = Vec::new();
+            for (point, color) in corners {
+                let value = factor(*point, *color);
+                if point[1] - bottom <= 1.0e-4 {
+                    bottom_factors.push(value);
+                } else {
+                    top_factors.push(value);
+                }
+            }
+            assert!(
+                bottom_factors.len() >= 2,
+                "{name} (plane {plane}): the skirt has a bottom edge"
+            );
+            assert!(
+                !top_factors.is_empty(),
+                "{name} (plane {plane}): the skirt has an upper edge"
+            );
+            let bottom_shade = bottom_factors[0];
+            for value in &bottom_factors {
+                assert!(
+                    (value - bottom_shade).abs() <= 1.0e-3,
+                    "{name} (plane {plane}): the skirt's shade varies along the junction with the floor: {bottom_factors:?}"
+                );
+            }
+            let top_shade = top_factors[0];
+            for value in &top_factors {
+                assert!(
+                    (value - top_shade).abs() <= 1.0e-3,
+                    "{name} (plane {plane}): the skirt's upper edge shades unevenly: {top_factors:?}"
+                );
+            }
+            assert!(
+                top_shade > bottom_shade,
+                "{name} (plane {plane}): the gradient must run up the face, got bottom {bottom_shade} top {top_shade}"
+            );
+            assert!(
+                (top_shade / bottom_shade - 1.05 / 0.92).abs() <= 1.0e-3,
+                "{name} (plane {plane}): the wall gradient's contrast changed: {top_shade} / {bottom_shade}"
+            );
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Archway soffit shading
+// ---------------------------------------------------------------------------
+
+/// The archway soffit shades from its own geometry: a flat lintel
+/// (`arch_rise = 0`) is a horizontal face looking down and takes the same flat
+/// down-facing shade as a box's bottom cap, while a real curve keeps the
+/// vertical wall gradient on its sloped segments.
+#[test]
+fn test_archway_soffit_shading_follows_the_segment_slope() {
+    // (arch_rise, curved)
+    for (rise, curved) in [(0.0f32, false), (0.2, true), (0.8, true)] {
+        let level = parse(&format!(
+            r#"{{
+                "format_version": 1,
+                "id": "arch_soffit_shading",
+                "name": "Arch Soffit Shading",
+                "spawn": {{ "x": -2.0, "z": 0.0 }},
+                "room": {{ "x": -5.0, "z": -5.0, "width": 10.0, "depth": 10.0, "height": 3.0 }},
+                "archways": [
+                    {{ "x": -0.5, "z": -1.5, "width": 0.4, "depth": 3.0,
+                       "height": 2.8, "opening_width": 1.2, "opening_height": 2.0,
+                       "arch_rise": {rise},
+                       "material": "core:wallpaper_yellow_01",
+                       "reveal_material": "core:plastic_panel_01" }}
+                ],
+                "ceiling_lights": [
+                    {{ "fixture": "core:fluorescent_panel_01", "x": 1.5, "z": 0.0, "intensity": 1.0 }}
+                ]
+            }}"#
+        ));
+        let materials = logical_materials(&level);
+        let catalog = crate::loader::PropCatalog::builtin();
+        let mut assets = crate::props::PropAssets::default();
+        let (mesh, _batches, lighting) =
+            crate::render::build_level_geometry_with_assets_and_lighting_and_materials(
+                &level,
+                &catalog,
+                &mut assets,
+                &materials,
+            );
+        let reveal = materials
+            .index_of("core:plastic_panel_01")
+            .expect("the reveal material resolves");
+        let tint = materials
+            .entry_of("core:plastic_panel_01")
+            .expect("the reveal material has an entry")
+            .tint;
+        let arch = &level.archways[0];
+        let surfaces = LevelSurfaces::new(&level);
+        let base = arch.base_y(&surfaces);
+        let spring = base + arch.spring_height();
+        let (open_start, open_end) = arch.opening_span();
+        let axis = arch.axis();
+        let (x0, x1, z0, z1) = arch.bounds();
+        let along = |point: [f32; 3]| match axis {
+            WallAxis::X => point[0] - x0 - open_start,
+            WallAxis::Z => point[2] - z0 - open_start,
+        };
+        let across = |point: [f32; 3]| match axis {
+            WallAxis::X => point[2],
+            WallAxis::Z => point[0],
+        };
+
+        let mut soffit_triangles = Vec::new();
+        for range in &mesh.ranges {
+            if range.key.material != reveal {
+                continue;
+            }
+            for chunk in range.indices.chunks(3) {
+                let mut points = [[0.0f32; 3]; 3];
+                let mut colors = [[0.0f32; 3]; 3];
+                for (slot, index) in chunk.iter().enumerate() {
+                    let Some(vertex) = range.vertices.get(usize::from(*index)) else {
+                        continue;
+                    };
+                    points[slot] = vertex.pos;
+                    colors[slot] = [vertex.color[0], vertex.color[1], vertex.color[2]];
+                }
+                let normal = triangle_normal(points);
+                // Every soffit segment faces at least partly down; the jamb
+                // reveals and the spandrel are vertical and have no Y component.
+                if normal[1] < -0.1 {
+                    soffit_triangles.push((points, colors));
+                }
+            }
+        }
+        assert!(
+            !soffit_triangles.is_empty(),
+            "arch_rise {rise}: the archway emits a soffit"
+        );
+        // The soffit spans exactly the opening along the run and the block's
+        // full thickness across it, and every corner is at or above the
+        // springing line.
+        let mut along_span = (f32::INFINITY, f32::NEG_INFINITY);
+        let mut across_span = (f32::INFINITY, f32::NEG_INFINITY);
+        let mut all_factors = Vec::new();
+        for (points, colors) in &soffit_triangles {
+            for (point, color) in points.iter().zip(colors.iter()) {
+                let (a, t) = (along(*point), across(*point));
+                assert!(
+                    a >= -1.0e-4 && a <= open_end - open_start + 1.0e-4,
+                    "arch_rise {rise}: a soffit corner lies outside the opening ({a})"
+                );
+                assert!(
+                    point[1] >= spring - 1.0e-4,
+                    "arch_rise {rise}: a soffit corner lies below the springing line"
+                );
+                along_span.0 = along_span.0.min(a);
+                along_span.1 = along_span.1.max(a);
+                across_span.0 = across_span.0.min(t);
+                across_span.1 = across_span.1.max(t);
+                let light = lighting.sample(point[0], point[1], point[2]);
+                all_factors.push(color[0] / light.r.max(1.0e-6));
+            }
+        }
+        let expected_along = open_end - open_start;
+        let expected_across = match axis {
+            WallAxis::X => z1 - z0,
+            WallAxis::Z => x1 - x0,
+        };
+        assert!(
+            (along_span.0).abs() <= 1.0e-3 && (along_span.1 - expected_along).abs() <= 1.0e-3,
+            "arch_rise {rise}: the soffit spans the opening ({along_span:?} of {expected_along})"
+        );
+        assert!(
+            (across_span.1 - across_span.0 - expected_across).abs() <= 1.0e-3,
+            "arch_rise {rise}: the soffit spans the block thickness ({across_span:?} of {expected_across})"
+        );
+
+        if curved {
+            // A real curve keeps the vertical wall gradient on every sloped
+            // segment: each triangle carries the bottom and top shades in the
+            // wall vocabulary's 1.05/0.92 ratio.
+            for (points, colors) in &soffit_triangles {
+                let mut factors = Vec::new();
+                for (point, color) in points.iter().zip(colors.iter()) {
+                    let light = lighting.sample(point[0], point[1], point[2]);
+                    factors.push(color[0] / light.r.max(1.0e-6));
+                }
+                let low = factors.iter().copied().fold(f32::INFINITY, f32::min);
+                let high = factors.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+                assert!(
+                    high > low,
+                    "arch_rise {rise}: a curved soffit segment lost its gradient: {factors:?}"
+                );
+                assert!(
+                    (high / low - 1.05 / 0.92).abs() <= 1.0e-2,
+                    "arch_rise {rise}: a curved soffit segment's gradient changed: {high} / {low}"
+                );
+            }
+        } else {
+            // A flat lintel is one horizontal face looking down: every corner
+            // shares the flat down-facing shade (`tint * FACE_DOWN_MULT`, the
+            // same 0.85 a box's bottom cap uses) and none of them is at a
+            // different height.
+            for (points, _) in &soffit_triangles {
+                for point in points {
+                    assert!(
+                        (point[1] - (base + arch.opening_height)).abs() <= 1.0e-4,
+                        "a flat lintel's soffit is horizontal, got y={}",
+                        point[1]
+                    );
+                }
+            }
+            let first = all_factors[0];
+            for value in &all_factors {
+                assert!(
+                    (value - first).abs() <= 1.0e-3,
+                    "a flat lintel's soffit must not carry a vertical gradient: {all_factors:?}"
+                );
+            }
+            assert!(
+                (first - tint[0] * 0.85).abs() <= 1.0e-3,
+                "a flat lintel's soffit takes the horizontal down shade, got {first} (tint {})",
+                tint[0]
+            );
+        }
+    }
+}

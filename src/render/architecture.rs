@@ -47,6 +47,11 @@ const FACE_DOWN_MULT: f32 = 0.85;
 /// Tolerance within which a cap is treated as meeting the ceiling exactly and
 /// is therefore not emitted, in metres.
 const FLUSH_EPS_M: f32 = 0.02;
+/// Rise below which an archway soffit segment is treated as a horizontal flat
+/// lintel rather than a sloped intrados, in metres. An `arch_rise` of `0.0`
+/// produces exactly-flat segments; a real curve's segments climb by centimetres,
+/// far above this.
+const FLAT_SOFFIT_EPS_M: f32 = 1.0e-4;
 /// How far outside a ramp or staircase the surrounding floor is sampled, in
 /// metres. Small enough to sample the neighbour the piece actually meets, large
 /// enough to clear the piece's own boundary.
@@ -534,13 +539,28 @@ fn emit_ramp_sides(
                 [at, top_low, span.0],
             ],
         };
-        let mut top_flags = [false, false, true, true];
+        let along_of = |point: [f32; 3]| match axis {
+            WallAxis::X => point[0],
+            WallAxis::Z => point[2],
+        };
+        // A corner belongs to the face's upper edge when it sits on the sloped
+        // line from `(span.0, top_low)` to `(span.1, top_high)` and that line
+        // stands clear of the face's bottom. A ramp end that lands flush on a
+        // floor collapses the upper edge onto the bottom there: that corner is
+        // classified as a bottom corner, and its duplicate carries the same
+        // flag. The winding normalisation may reverse the corner order and the
+        // triangle fold drops one of the two coincident corners, so a flag that
+        // differed between the duplicates could survive on the wrong corner and
+        // rotate the wall gradient to run along the run instead of up the face
+        // — a shade step exactly at the junction with the floor.
+        let mut top_flags: [bool; 4] = map_corners(points, |point| {
+            let along = along_of(point);
+            let fraction = ((along - span.0) / (span.1 - span.0)).clamp(0.0, 1.0);
+            let edge = (top_high - top_low).mul_add(fraction, top_low);
+            edge - bottom > 1e-4 && (point[1] - edge).abs() <= 1e-4
+        });
         let mut uv: [[f32; 2]; 4] = map_corners(points, |point| {
-            let along = match axis {
-                WallAxis::X => point[0],
-                WallAxis::Z => point[2],
-            };
-            tiled_uv(along, top_low.max(top_high) - point[1], edge_tile)
+            tiled_uv(along_of(point), top_low.max(top_high) - point[1], edge_tile)
         });
         orient(&mut points, &mut uv, &mut top_flags, expected);
         emit_face(
@@ -1435,6 +1455,11 @@ fn emit_archway_soffit(
             frame.world(a0, y0, frame.t1),
         ];
         let normal = [0.0, -1.0, 0.0];
+        // A segment with no rise is the flat lintel's underside: a horizontal
+        // face looking down, which takes the same flat `FACE_DOWN_MULT` shade as
+        // a box's bottom cap. Only a segment that actually climbs keeps the
+        // vertical wall-style gradient of the curved intrados.
+        let horizontal = (y1 - y0).abs() <= FLAT_SOFFIT_EPS_M;
         let mut top_flags = [false, false, true, true];
         let mut uv: [[f32; 2]; 4] = map_corners(points, |point| {
             let along = world_along(frame.axis, point, frame.origin);
@@ -1449,9 +1474,9 @@ fn emit_archway_soffit(
             ArchitectureFace {
                 points,
                 uv,
-                top: top_flags,
+                top: if horizontal { [false; 4] } else { top_flags },
                 normal,
-                vertical: true,
+                vertical: !horizontal,
                 up: false,
                 key: frame.reveal_key,
                 kind: PatchKind::Wall,

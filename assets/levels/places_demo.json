@@ -67,6 +67,44 @@
       "floor_y": -0.9,
       "material": "core:carpet_damp_01",
       "ceiling_material": "core:ceiling_stained_01"
+    },
+    {
+      "x": 53.0,
+      "z": 3.0,
+      "width": 16.0,
+      "depth": 16.0,
+      "height": 5.1,
+      "floor_y": -0.9,
+      "ceiling": {
+        "kind": "gable",
+        "ridge": "x",
+        "ridge_rise": 2.0
+      },
+      "material": "home:hardwood_oak_01",
+      "ceiling_material": "home:ceiling_white_01",
+      "comment": "The Home's main volume: eave at 4.2 m, ridge at 6.2 m, so the lower floor and the walnut balcony share one tall pitched space."
+    },
+    {
+      "x": 56.7,
+      "z": -5.9,
+      "width": 14.0,
+      "depth": 8.9,
+      "height": 3.3,
+      "floor_y": -0.9,
+      "material": "home:carpet_cream_01",
+      "ceiling_material": "home:ceiling_plaster_01",
+      "comment": "The winding corridor's footprint: one flat-ceilinged volume, carved into a serpentine route by the partition walls below."
+    },
+    {
+      "x": 69.0,
+      "z": 3.0,
+      "width": 1.55,
+      "depth": 3.2,
+      "height": 3.3,
+      "floor_y": -0.9,
+      "material": "home:carpet_cream_01",
+      "ceiling_material": "home:ceiling_plaster_01",
+      "comment": "The return leg that brings the loop back through the east wall into the main room."
     }
   ],
   "walls": [
@@ -479,6 +517,213 @@
       "y": 0.4,
       "height": 0.5,
       "material": "core:glass_sign_lit_01"
+    },
+    {
+      "x": 36.15,
+      "z": 10.85,
+      "width": 16.85,
+      "depth": 0.3,
+      "y": -0.9,
+      "height": 3.0,
+      "material": "core:wallpaper_yellow_01",
+      "comment": "Continues the corridor's north wall from the existing stub to the Home entrance."
+    },
+    {
+      "x": 36.15,
+      "z": 14.85,
+      "width": 16.85,
+      "depth": 0.3,
+      "y": -0.9,
+      "height": 3.0,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 53.0,
+      "z": 3.0,
+      "width": 0.3,
+      "depth": 9.1,
+      "y": -0.9,
+      "material": "home:wallpaper_offwhite_01"
+    },
+    {
+      "x": 53.0,
+      "z": 13.9,
+      "width": 0.3,
+      "depth": 5.1,
+      "y": -0.9,
+      "material": "home:wallpaper_offwhite_01"
+    },
+    {
+      "x": 53.0,
+      "z": 11.9,
+      "width": 0.3,
+      "depth": 2.2,
+      "y": 2.1,
+      "material": "home:wallpaper_offwhite_01"
+    },
+    {
+      "x": 53.0,
+      "z": 2.85,
+      "width": 16.0,
+      "depth": 0.3,
+      "y": -0.9,
+      "height": 5.3,
+      "material": "home:wallpaper_offwhite_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 7.3,
+          "width": 1.4,
+          "height": 2.1,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 68.7,
+      "z": 3.0,
+      "width": 0.3,
+      "depth": 16.0,
+      "y": -0.9,
+      "material": "home:wall_paint_offwhite_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 1.4,
+          "width": 1.4,
+          "height": 2.1,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 53.0,
+      "z": 18.7,
+      "width": 16.0,
+      "depth": 0.3,
+      "y": -0.9,
+      "height": 5.3,
+      "material": "home:wallpaper_offwhite_01"
+    },
+    {
+      "x": 56.7,
+      "z": -5.9,
+      "width": 14.0,
+      "depth": 0.3,
+      "y": -0.9,
+      "material": "home:wallpaper_offwhite_01"
+    },
+    {
+      "x": 56.7,
+      "z": -5.9,
+      "width": 0.3,
+      "depth": 8.9,
+      "y": -0.9,
+      "material": "home:wallpaper_offwhite_01"
+    },
+    {
+      "x": 70.4,
+      "z": -5.9,
+      "width": 0.3,
+      "depth": 12.25,
+      "y": -0.9,
+      "material": "home:wallpaper_offwhite_01"
+    },
+    {
+      "x": 68.85,
+      "z": 6.05,
+      "width": 1.85,
+      "depth": 0.3,
+      "y": -0.9,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 58.4,
+      "z": -4.2,
+      "width": 4.2,
+      "depth": 0.3,
+      "y": -0.9,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 58.1,
+      "z": -3.8,
+      "width": 3.9,
+      "depth": 0.3,
+      "y": -0.9,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 58.4,
+      "z": -4.2,
+      "width": 0.3,
+      "depth": 0.7,
+      "y": -0.9,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 56.7,
+      "z": -2.1,
+      "width": 3.6,
+      "depth": 0.3,
+      "y": -0.9,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 60.0,
+      "z": -2.1,
+      "width": 0.3,
+      "depth": 5.1,
+      "y": -0.9,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 61.7,
+      "z": -3.8,
+      "width": 0.3,
+      "depth": 6.8,
+      "y": -0.9,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 62.3,
+      "z": -4.2,
+      "width": 0.3,
+      "depth": 2.8,
+      "y": -0.9,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 64.0,
+      "z": -5.6,
+      "width": 0.3,
+      "depth": 2.8,
+      "y": -0.9,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 62.6,
+      "z": -1.4,
+      "width": 6.4,
+      "depth": 0.3,
+      "y": -0.9,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 64.0,
+      "z": -3.1,
+      "width": 6.4,
+      "depth": 0.3,
+      "y": -0.9,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 68.7,
+      "z": -1.4,
+      "width": 0.3,
+      "depth": 4.4,
+      "y": -0.9,
+      "material": "home:wallpaper_pattern_01"
     }
   ],
   "floor_patches": [
@@ -497,6 +742,14 @@
       "width": 3.0,
       "depth": 2.0,
       "material": "core:pool_deck_wet_01"
+    },
+    {
+      "x": 53.0,
+      "z": 3.0,
+      "width": 6.4,
+      "depth": 5.75,
+      "material": "home:tile_home_01",
+      "comment": "Kitchen tile, ending at the two knee walls; the tile/hardwood transition is the cased opening marked by the threshold below."
     }
   ],
   "floor_regions": [
@@ -575,6 +828,36 @@
       "offset_y": 0.6,
       "material": "core:pool_tile_deck_01",
       "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 22.5,
+      "z": 12.0,
+      "width": 1.0,
+      "depth": 3.2,
+      "offset_y": 0.3,
+      "material": "core:pool_tile_deck_01",
+      "edge_material": "core:pool_tile_wall_01",
+      "comment": "West side of the raised landing: the intermediate step now wraps the landing's west edge, so the deck reaches it from the west as well."
+    },
+    {
+      "x": 22.5,
+      "z": 15.2,
+      "width": 3.5,
+      "depth": 1.0,
+      "offset_y": 0.3,
+      "material": "core:pool_tile_deck_01",
+      "edge_material": "core:pool_tile_wall_01",
+      "comment": "South side of the landing, meeting the west step at the south-west corner: the landing is approachable from the north, the west and the south."
+    },
+    {
+      "x": 58.3,
+      "z": 14.0,
+      "width": 10.45,
+      "depth": 4.75,
+      "offset_y": 2.6,
+      "material": "home:hardwood_walnut_02",
+      "edge_material": "home:wall_paint_offwhite_01",
+      "comment": "The walkable second floor and balcony: walnut boards 2.6 m above the lower floor, reached by the staircase at its west end."
     }
   ],
   "ceiling_lights": [
@@ -886,6 +1169,160 @@
         0.96,
         0.93
       ]
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 55.4,
+      "z": 4.4,
+      "brightness": 0.36,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 55.4,
+      "z": 7.4,
+      "brightness": 0.34,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 61.0,
+      "z": 5.0,
+      "brightness": 0.36,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 61.0,
+      "z": 9.5,
+      "brightness": 0.36,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 65.6,
+      "z": 5.0,
+      "brightness": 0.36,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 65.6,
+      "z": 9.5,
+      "brightness": 0.36,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 61.0,
+      "z": 12.8,
+      "brightness": 0.36,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 65.6,
+      "z": 12.8,
+      "brightness": 0.36,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 55.6,
+      "z": 12.4,
+      "brightness": 0.34,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 60.6,
+      "z": 16.5,
+      "brightness": 0.38,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 64.2,
+      "z": 16.5,
+      "brightness": 0.38,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 67.6,
+      "z": 16.5,
+      "brightness": 0.36,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 61.0,
+      "z": 1.0,
+      "brightness": 0.34,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 59.2,
+      "z": -1.3,
+      "brightness": 0.34,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 57.7,
+      "z": -3.0,
+      "brightness": 0.34,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 58.2,
+      "z": -4.9,
+      "brightness": 0.34,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 62.6,
+      "z": -4.9,
+      "brightness": 0.34,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 64.1,
+      "z": -3.4,
+      "brightness": 0.34,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 66.3,
+      "z": -2.1,
+      "brightness": 0.34,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 69.7,
+      "z": -0.5,
+      "brightness": 0.34,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 69.7,
+      "z": 2.2,
+      "brightness": 0.34,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 69.7,
+      "z": 4.6,
+      "brightness": 0.34,
+      "emission": 1.0
     }
   ],
   "props": [
@@ -1187,6 +1624,419 @@
         0.6
       ],
       "solid": false
+    },
+    {
+      "model": "home:cabinet_base",
+      "x": 53.6,
+      "y": 0.0,
+      "z": 3.45,
+      "rotation_degrees": 0.0,
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
+      "solid": true,
+      "comment": "Kitchen run along the north wall; the counters are the base cabinets' own slabs."
+    },
+    {
+      "model": "home:cabinet_base",
+      "x": 54.2,
+      "y": 0.0,
+      "z": 3.45,
+      "rotation_degrees": 0.0,
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:sink",
+      "x": 54.8,
+      "y": 0.0,
+      "z": 3.425,
+      "rotation_degrees": 0.0,
+      "size": [
+        0.6,
+        0.85,
+        0.55
+      ],
+      "solid": true
+    },
+    {
+      "model": "home:cabinet_base",
+      "x": 55.4,
+      "y": 0.0,
+      "z": 3.45,
+      "rotation_degrees": 0.0,
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:stove",
+      "x": 56.0,
+      "y": 0.0,
+      "z": 3.45,
+      "rotation_degrees": 0.0,
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
+      "solid": true
+    },
+    {
+      "model": "home:cabinet_base",
+      "x": 56.6,
+      "y": 0.0,
+      "z": 3.45,
+      "rotation_degrees": 0.0,
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:fridge",
+      "x": 57.25,
+      "y": 0.0,
+      "z": 3.5,
+      "rotation_degrees": 0.0,
+      "size": [
+        0.7,
+        1.8,
+        0.7
+      ],
+      "solid": true
+    },
+    {
+      "model": "home:cabinet_wall",
+      "x": 53.6,
+      "y": 1.45,
+      "z": 3.315,
+      "rotation_degrees": 0.0,
+      "size": [
+        0.6,
+        0.72,
+        0.33
+      ],
+      "solid": true
+    },
+    {
+      "model": "home:cabinet_wall",
+      "x": 54.2,
+      "y": 1.45,
+      "z": 3.315,
+      "rotation_degrees": 0.0,
+      "size": [
+        0.6,
+        0.72,
+        0.33
+      ],
+      "solid": true
+    },
+    {
+      "model": "home:cabinet_wall",
+      "x": 54.8,
+      "y": 1.45,
+      "z": 3.315,
+      "rotation_degrees": 0.0,
+      "size": [
+        0.6,
+        0.72,
+        0.33
+      ],
+      "solid": true
+    },
+    {
+      "model": "home:cabinet_wall",
+      "x": 55.4,
+      "y": 1.45,
+      "z": 3.315,
+      "rotation_degrees": 0.0,
+      "size": [
+        0.6,
+        0.72,
+        0.33
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:table",
+      "x": 56.6,
+      "y": 0.0,
+      "z": 7.6,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ],
+      "solid": true,
+      "comment": "Kitchen table in the tile bay between the knee walls."
+    },
+    {
+      "model": "core:chair",
+      "x": 55.55,
+      "y": 0.0,
+      "z": 7.6,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:chair",
+      "x": 57.65,
+      "y": 0.0,
+      "z": 7.6,
+      "rotation_degrees": 270.0,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:couch",
+      "x": 63.4,
+      "y": 0.0,
+      "z": 5.6,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.9,
+        0.9,
+        2.0
+      ],
+      "solid": true,
+      "comment": "Living group facing the television across the coffee table."
+    },
+    {
+      "model": "core:table",
+      "x": 64.9,
+      "y": 0.0,
+      "z": 5.6,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:tv",
+      "x": 68.6,
+      "y": 0.0,
+      "z": 5.6,
+      "rotation_degrees": 270.0,
+      "size": [
+        0.1,
+        0.7,
+        1.1
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:rug",
+      "x": 64.9,
+      "y": 0.0,
+      "z": 5.6,
+      "rotation_degrees": 90.0,
+      "size": [
+        2.0,
+        0.02,
+        1.4
+      ],
+      "solid": false
+    },
+    {
+      "model": "core:armchair",
+      "x": 64.9,
+      "y": 0.0,
+      "z": 7.5,
+      "rotation_degrees": 180.0,
+      "size": [
+        0.9,
+        0.9,
+        0.9
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:lamp",
+      "x": 62.6,
+      "y": 0.0,
+      "z": 4.4,
+      "rotation_degrees": 0.0,
+      "solid": false
+    },
+    {
+      "model": "core:bookshelf",
+      "x": 66.8,
+      "y": 0.0,
+      "z": 3.35,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.0,
+        1.8,
+        0.35
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:plant",
+      "x": 53.75,
+      "y": 0.0,
+      "z": 11.15,
+      "rotation_degrees": 0.0,
+      "solid": false,
+      "comment": "Greets the player beside the entrance archway."
+    },
+    {
+      "model": "core:table",
+      "x": 55.6,
+      "y": 0.0,
+      "z": 16.6,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:chair",
+      "x": 54.55,
+      "y": 0.0,
+      "z": 16.6,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:chair",
+      "x": 56.65,
+      "y": 0.0,
+      "z": 16.6,
+      "rotation_degrees": 270.0,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:plant",
+      "x": 57.9,
+      "y": 0.0,
+      "z": 18.3,
+      "rotation_degrees": 0.0,
+      "solid": false
+    },
+    {
+      "model": "core:bed",
+      "x": 67.6,
+      "y": 0.0,
+      "z": 16.4,
+      "rotation_degrees": 270.0,
+      "size": [
+        2.0,
+        0.55,
+        1.4
+      ],
+      "solid": true,
+      "comment": "Loft sleeping nook against the east gable end."
+    },
+    {
+      "model": "core:rug",
+      "x": 65.0,
+      "y": 0.0,
+      "z": 16.4,
+      "rotation_degrees": 0.0,
+      "size": [
+        2.0,
+        0.02,
+        1.4
+      ],
+      "solid": false
+    },
+    {
+      "model": "core:lamp",
+      "x": 66.3,
+      "y": 0.0,
+      "z": 17.6,
+      "rotation_degrees": 0.0,
+      "solid": false
+    },
+    {
+      "model": "core:bookshelf",
+      "x": 63.0,
+      "y": 0.0,
+      "z": 18.5,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.0,
+        1.8,
+        0.35
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:armchair",
+      "x": 66.0,
+      "y": 0.0,
+      "z": 17.7,
+      "rotation_degrees": 180.0,
+      "size": [
+        0.9,
+        0.9,
+        0.9
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:plant",
+      "x": 58.9,
+      "y": 0.0,
+      "z": 18.3,
+      "rotation_degrees": 0.0,
+      "solid": false
+    },
+    {
+      "model": "core:plant",
+      "x": 57.35,
+      "y": 0.0,
+      "z": -3.0,
+      "rotation_degrees": 0.0,
+      "solid": false,
+      "comment": "Held against the corridor wall; the route stays clear."
+    },
+    {
+      "model": "core:plant",
+      "x": 70.1,
+      "y": 0.0,
+      "z": 1.0,
+      "rotation_degrees": 0.0,
+      "solid": false
     }
   ],
   "decals": [
@@ -1237,6 +2087,372 @@
       "depth": 0.6,
       "phase": 0.31,
       "comment": "One sign on the north wall is on a failing ballast: an occasional, bounded stutter."
+    }
+  ],
+  "stairs": [
+    {
+      "x": 58.3,
+      "z": 11.0,
+      "width": 1.4,
+      "depth": 3.0,
+      "offset_y": 0.0,
+      "rise": 2.6,
+      "steps": 10,
+      "material": "home:hardwood_oak_01",
+      "riser_material": "home:wall_paint_offwhite_01",
+      "side_material": "home:baseboard_white_01",
+      "comment": "Lower floor to the balcony: ten risers of 0.26 m on 0.30 m treads, landing flush on the raised walnut floor."
+    }
+  ],
+  "half_walls": [
+    {
+      "x": 59.25,
+      "z": 3.05,
+      "width": 0.15,
+      "depth": 3.85,
+      "height": 1.05,
+      "material": "home:wall_paint_offwhite_01",
+      "cap_material": "home:baseboard_white_01",
+      "comment": "Kitchen knee wall: the tile ends at its inside face."
+    },
+    {
+      "x": 53.2,
+      "z": 8.75,
+      "width": 6.2,
+      "depth": 0.15,
+      "height": 1.05,
+      "material": "home:wall_paint_offwhite_01",
+      "cap_material": "home:baseboard_white_01"
+    }
+  ],
+  "columns": [
+    {
+      "x": 59.3,
+      "z": 8.59,
+      "width": 0.26,
+      "depth": 0.26,
+      "material": "home:wall_paint_offwhite_01",
+      "cap_material": "home:baseboard_white_01",
+      "comment": "Cased post at the kitchen opening: it tucks into the south knee wall's end and runs to the pitched ceiling."
+    },
+    {
+      "x": 59.3,
+      "z": 6.54,
+      "width": 0.26,
+      "depth": 0.26,
+      "material": "home:wall_paint_offwhite_01",
+      "cap_material": "home:baseboard_white_01"
+    }
+  ],
+  "archways": [
+    {
+      "x": 52.98,
+      "z": 12.0,
+      "width": 0.34,
+      "depth": 2.0,
+      "height": 3.0,
+      "opening_width": 1.6,
+      "opening_height": 2.1,
+      "arch_rise": 0.3,
+      "material": "home:wallpaper_offwhite_01",
+      "reveal_material": "home:wall_paint_offwhite_01",
+      "comment": "The Home's entrance, cased 2 cm proud of the west wall: the corridor ends by stepping through it into the two-storey room."
+    }
+  ],
+  "guardrails": [
+    {
+      "x": 58.37,
+      "z": 11.0,
+      "length": 2.9,
+      "rotation_degrees": 270.0,
+      "height": 0.95,
+      "post_spacing": 1.0,
+      "material": "home:handrail_wood_01",
+      "comment": "Handrail up the flight's west side, following the nosings."
+    },
+    {
+      "x": 59.63,
+      "z": 11.0,
+      "length": 2.9,
+      "rotation_degrees": 270.0,
+      "height": 0.95,
+      "post_spacing": 1.0,
+      "material": "home:handrail_wood_01"
+    },
+    {
+      "x": 59.7,
+      "z": 14.05,
+      "length": 9.1,
+      "rotation_degrees": 0.0,
+      "height": 0.95,
+      "post_spacing": 1.2,
+      "material": "home:handrail_wood_01",
+      "comment": "Balcony rail along the void: it leaves the stair landing open and runs into the east wall."
+    },
+    {
+      "x": 58.37,
+      "z": 14.06,
+      "length": 4.59,
+      "rotation_degrees": 270.0,
+      "height": 0.95,
+      "post_spacing": 1.2,
+      "material": "home:handrail_wood_01"
+    }
+  ],
+  "thresholds": [
+    {
+      "x": 59.4,
+      "z": 7.825,
+      "length": 1.8,
+      "thickness": 0.08,
+      "height": 0.012,
+      "rotation_degrees": 90.0,
+      "material": "home:threshold_wood_01",
+      "comment": "Kitchen tile to main hardwood, across the cased opening."
+    },
+    {
+      "x": 61.0,
+      "z": 3.0,
+      "length": 1.5,
+      "thickness": 0.08,
+      "height": 0.012,
+      "rotation_degrees": 0.0,
+      "material": "home:threshold_wood_01"
+    },
+    {
+      "x": 68.85,
+      "z": 5.1,
+      "length": 1.5,
+      "thickness": 0.08,
+      "height": 0.012,
+      "rotation_degrees": 90.0,
+      "material": "home:threshold_wood_01"
+    }
+  ],
+  "baseboards": [
+    {
+      "x": 53.3,
+      "z": 12.1,
+      "length": 8.928,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 90.0,
+      "comment": "Landing/wall skirting along the Home's west wall."
+    },
+    {
+      "x": 53.3,
+      "z": 18.678,
+      "length": 4.778,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 90.0
+    },
+    {
+      "x": 53.28,
+      "z": 3.15,
+      "length": 7.02,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "comment": "North wall, west of the entrance passage."
+    },
+    {
+      "x": 61.7,
+      "z": 3.15,
+      "length": 7.02,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "comment": "North wall, east of the entrance passage."
+    },
+    {
+      "x": 68.7,
+      "z": 3.172,
+      "length": 1.228,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 270.0
+    },
+    {
+      "x": 68.7,
+      "z": 5.8,
+      "length": 12.92,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 270.0
+    },
+    {
+      "x": 68.68,
+      "z": 18.7,
+      "length": 15.4,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 180.0
+    },
+    {
+      "x": 53.0,
+      "z": 11.17,
+      "length": 0.93,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 270.0
+    },
+    {
+      "x": 53.0,
+      "z": 13.9,
+      "length": 0.93,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 270.0
+    },
+    {
+      "x": 68.68,
+      "z": 18.7,
+      "length": 10.36,
+      "material": "home:baseboard_wood_01",
+      "y": 1.7,
+      "rotation_degrees": 180.0,
+      "comment": "Walnut storey: wooden skirting along the balcony's solid walls."
+    },
+    {
+      "x": 68.7,
+      "z": 14.02,
+      "length": 4.7,
+      "material": "home:baseboard_wood_01",
+      "y": 1.7,
+      "rotation_degrees": 270.0
+    },
+    {
+      "x": 33.05,
+      "z": 11.15,
+      "length": 20.0,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "comment": "Hall skirting: both flanks of the approach."
+    },
+    {
+      "x": 53.05,
+      "z": 14.85,
+      "length": 20.0,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 180.0
+    },
+    {
+      "x": 33.15,
+      "z": 14.83,
+      "length": 3.71,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 90.0,
+      "comment": "The hall's west end wall."
+    },
+    {
+      "x": 56.98,
+      "z": -5.6,
+      "length": 7.04,
+      "material": "home:baseboard_white_01",
+      "y": -0.9
+    },
+    {
+      "x": 57.0,
+      "z": -2.1,
+      "length": 3.478,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 90.0
+    },
+    {
+      "x": 60.2,
+      "z": -2.1,
+      "length": 3.22,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 180.0
+    },
+    {
+      "x": 60.3,
+      "z": 3.0,
+      "length": 5.1,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 90.0
+    },
+    {
+      "x": 62.6,
+      "z": -4.2,
+      "length": 4.2,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 180.0
+    },
+    {
+      "x": 58.4,
+      "z": -3.5,
+      "length": 3.3,
+      "material": "home:baseboard_white_01",
+      "y": -0.9
+    },
+    {
+      "x": 62.6,
+      "z": -1.4,
+      "length": 2.78,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 90.0
+    },
+    {
+      "x": 64.0,
+      "z": -5.58,
+      "length": 2.78,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 270.0
+    },
+    {
+      "x": 64.0,
+      "z": -2.8,
+      "length": 6.42,
+      "material": "home:baseboard_white_01",
+      "y": -0.9
+    },
+    {
+      "x": 68.98,
+      "z": -1.4,
+      "length": 6.36,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 180.0
+    },
+    {
+      "x": 70.4,
+      "z": -2.78,
+      "length": 8.83,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 270.0
+    },
+    {
+      "x": 69.0,
+      "z": 4.4,
+      "length": 5.8,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 90.0
+    },
+    {
+      "x": 69.0,
+      "z": 6.03,
+      "length": 0.23,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 90.0
+    },
+    {
+      "x": 70.42,
+      "z": 6.05,
+      "length": 1.44,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 180.0
     }
   ]
 }

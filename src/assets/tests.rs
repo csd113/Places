@@ -742,6 +742,50 @@ fn every_shipped_sheet_satisfies_its_texture_kind_contract() {
     );
 }
 
+/// The renderer's shared untextured sheet is a real committed PNG.
+///
+/// It used to be synthesized from a hard-coded pixel array in `src/render.rs`;
+/// it is now an ordinary catalogued texture, so it is covered by the same
+/// validator and test set as every shipped sheet. This test is the guard that
+/// the file (not a code fallback) is the sheet's source: it fails if the PNG
+/// disappears, stops being opaque white, or is upscaled away from its
+/// deliberately tiny size.
+#[test]
+fn the_shared_white_sheet_is_a_committed_opaque_white_png() {
+    let catalog = shipped_catalog();
+    let entry = catalog
+        .get("core:tex_white_01")
+        .expect("the shared white sheet must be catalogued");
+    assert_eq!(entry.asset_class.as_str(), AssetClass::CORE);
+    assert_eq!(entry.asset_type.as_str(), AssetType::TEXTURE);
+    assert_eq!(entry.source, AssetSource::File);
+    assert_eq!(
+        catalog.texture_path("core:tex_white_01"),
+        Some("core/textures/white_01.png")
+    );
+
+    let root = resolve_asset_root().expect("assets/ is discoverable");
+    let bytes = std::fs::read(root.join("core/textures/white_01.png"))
+        .expect("the committed white sheet must exist on disk");
+    assert!(
+        bytes.starts_with(b"\x89PNG\r\n\x1a\n"),
+        "the white sheet must be a PNG"
+    );
+    let image = crate::materials::decode_png(&bytes).expect("the white sheet decodes");
+    assert_eq!(
+        (image.width, image.height),
+        (2, 2),
+        "the sheet is a flat fill; 2x2 is deliberate, not a size to raise"
+    );
+    for texel in image.rgba.as_chunks::<4>().0 {
+        assert_eq!(
+            *texel,
+            [255, 255, 255, 255],
+            "every texel of the shared white sheet must be opaque white"
+        );
+    }
+}
+
 /// A minimal catalog with an albedo texture and a mask texture; `extra`
 /// appends fields to the third entry, the material.
 fn emissive_catalog_json(extra: &str) -> String {

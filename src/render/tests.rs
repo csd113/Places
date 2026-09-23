@@ -346,6 +346,31 @@ fn test_shipped_texture_assets_are_opaque_and_within_budget() {
     assert_eq!(npot.rgba.len(), (96 * 64 * 4) as usize);
 }
 
+/// The renderer's shared untextured sheet comes from the committed catalog PNG.
+///
+/// [`load_white_sheet`](super::renderer::load_white_sheet) is how startup fills
+/// the fallback slot that fixture housings, plain body geometry and every
+/// otherwise-empty sampler bind; it used to be a 2x2 array generated in
+/// `src/render.rs`. Pinning the loaded payload keeps the renderer pointed at
+/// the file: a wrong catalog id, a deleted PNG or a reintroduced pixel array
+/// no longer resolves to the same 2x2 opaque fill.
+#[test]
+fn the_renderers_white_sheet_loads_from_the_committed_catalog_asset() {
+    let image = super::renderer::load_white_sheet().expect("the white sheet must load");
+    assert_eq!(
+        (image.width, image.height),
+        (2, 2),
+        "the shared sheet is the committed 2x2 fill"
+    );
+    for texel in image.rgba.as_chunks::<4>().0 {
+        assert_eq!(
+            *texel,
+            [255, 255, 255, 255],
+            "the shared sheet must stay opaque white"
+        );
+    }
+}
+
 /// Mean and nearest-rank p95 of a sample, sorted in place.
 fn seam_distribution(values: &mut [f32]) -> (f32, f32) {
     if values.is_empty() {

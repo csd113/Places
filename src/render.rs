@@ -674,10 +674,6 @@ fn merge_light_runs(
     runs
 }
 
-pub(crate) const fn generate_white_texture() -> [u8; 2 * 2 * 4] {
-    [255u8; 2 * 2 * 4]
-}
-
 /// Tolerance for treating two walls as occupying the same plane, in metres.
 ///
 /// It is the same 1 mm tolerance the floor cut lines and wall cross-section

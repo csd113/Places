@@ -25,7 +25,7 @@ use super::{
     SCENE_ATTRIB_UV, SCENE_FAR_M, SCENE_NEAR_M, SCENE_TEXTURE_UNIT, StaticBatch, SurfaceKey,
     SurfaceKind, UI_REFERENCE_HEIGHT, UI_REFERENCE_WIDTH, VERTEX_SHADER_SRC, Vertex, VertexLayout,
     decal_external_sheet_ids, exact_layout, fragment_shader_source, generate_font_atlas,
-    generate_white_texture, packed_layout, spatial_cell_grid, vertical_fov_for_aspect,
+    packed_layout, spatial_cell_grid, vertical_fov_for_aspect,
 };
 use crate::lighting::LevelLighting;
 use crate::lighting::lightmap::{
@@ -1017,8 +1017,8 @@ struct PresentPass {
 }
 
 /// The GL objects every renderer owns from startup: the three scene programs, the
-/// UI vertex buffer, the untextured and font sheets, and the scene attribute
-/// locations.
+/// UI vertex buffer, the untextured sheet, the generated font atlas and the
+/// scene attribute locations.
 struct StartupResources {
     programs: [glow::Program; ScenePass::ALL.len()],
     uniforms: [ProgramUniforms; ScenePass::ALL.len()],
@@ -1044,11 +1044,18 @@ struct StartupResources {
 impl StartupResources {
     /// Creates the renderer's startup GL objects and applies the base GL state.
     ///
+    /// `white_sheet` is the decoded committed PNG for the shared untextured
+    /// sheet; the caller loads it (see [`load_white_sheet`]) because reading an
+    /// asset is not GL work.
+    ///
     /// # Errors
     ///
     /// Returns a message when a shader program does not link or a texture,
     /// buffer or attribute lookup fails.
-    unsafe fn create(gl: &glow::Context) -> Result<Self, String> {
+    unsafe fn create(
+        gl: &glow::Context,
+        white_sheet: &crate::loader::RawImage,
+    ) -> Result<Self, String> {
         unsafe {
             gl.enable(glow::DEPTH_TEST);
             gl.depth_func(glow::LEQUAL);
@@ -1067,11 +1074,18 @@ impl StartupResources {
             ] = scene_attribute_locations(gl, programs)?;
             let present = create_present_pass(gl)?;
 
-            // The untextured fixture sheet and the UI/decal resources are the
-            // only textures this renderer owns up front. Every surface texture
-            // is uploaded by `set_level`, once per distinct resolved texture.
-            let white_texture =
-                create_texture_2d(gl, 2, 2, &generate_white_texture(), false, false)?;
+            // The committed untextured sheet, the generated font atlas and the
+            // generated decal atlas are the only textures this renderer owns up
+            // front. Every surface texture is uploaded by `set_level`, once per
+            // distinct resolved texture.
+            let white_texture = create_texture_2d(
+                gl,
+                i32::try_from(white_sheet.width).unwrap_or(i32::MAX),
+                i32::try_from(white_sheet.height).unwrap_or(i32::MAX),
+                &white_sheet.rgba,
+                false,
+                false,
+            )?;
             let font_texture =
                 create_texture_2d(gl, 128, 64, &generate_font_atlas(), false, false)?;
 
@@ -1130,6 +1144,37 @@ impl StartupResources {
             })
         }
     }
+}
+
+/// Catalog id of the renderer's shared untextured sheet.
+///
+/// The sheet is a real committed PNG (`assets/core/textures/white_01.png`)
+/// rather than a pixel array generated in code: the asset policy requires a
+/// permanent visible texture to be file-backed, and cataloguing it keeps it
+/// under the same validators as every other shipped texture.
+const WHITE_SHEET_ID: &str = "core:tex_white_01";
+
+/// Loads the shared untextured white sheet from its catalog PNG.
+///
+/// The renderer binds this sheet to fixture housings, plain body geometry and
+/// every texture slot that has nothing better to show, so it is loaded once at
+/// startup like the font atlas. A failure is fatal: every world program
+/// declares texture samplers that must always hold a complete texture, and the
+/// white sheet is what each empty slot is bound to.
+///
+/// # Errors
+///
+/// Returns a message when no asset root exists, the catalog does not declare
+/// the white sheet, or its PNG cannot be read or decoded.
+pub(super) fn load_white_sheet() -> Result<crate::loader::RawImage, String> {
+    let catalog = shipped_asset_catalog();
+    let path = catalog
+        .texture_path(WHITE_SHEET_ID)
+        .ok_or_else(|| format!("`{WHITE_SHEET_ID}` is not a file-backed texture in the catalog"))?;
+    let root = crate::assets::resolve_asset_root()
+        .ok_or_else(|| "no asset root found; cannot load the shared white sheet".to_string())?;
+    crate::materials::load_png_relative(&root, path)
+        .map_err(|error| format!("`{WHITE_SHEET_ID}`: {error}"))
 }
 
 /// Creates the optional post-processing pipeline for the default profile.
@@ -1550,7 +1595,8 @@ impl Renderer {
         };
 
         let prop_catalog = crate::loader::PropCatalog::load_default();
-        let startup = unsafe { StartupResources::create(&gl)? };
+        let white_sheet = load_white_sheet()?;
+        let startup = unsafe { StartupResources::create(&gl, &white_sheet)? };
         let (initial_width, initial_height) = window.drawable_size();
         Ok(Self::from_startup(
             gl,

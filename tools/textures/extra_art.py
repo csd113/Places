@@ -28,6 +28,14 @@ demonstrate rather than procedures:
     (x and y in the red and green channels, z in blue) with a flat alpha, which
     is what the fragment shader decodes.
 
+``core:tex_white_01``
+    The shared untextured white sheet, a solid opaque 2x2 fill.  It is not
+    artwork: it is the neutral sheet the renderer binds to fixture housings,
+    plain body geometry and any texture slot that has nothing else, so it is
+    deliberately the smallest valid PNG.  It is catalogued like every other
+    shipped texture and loaded by the renderer at startup, never generated in
+    Rust.
+
 Painting rules match the rest of the texture set: deterministic helpers only,
 no randomness, no clock, no external images, and every pattern period divides
 the sheet so the sheet tiles.
@@ -316,6 +324,20 @@ def build_normal_brushed() -> Canvas:
     return _normal_canvas(heights, strength=1.7)
 
 
+# ------------------------------------------------------------- white sheet
+
+# The shared untextured sheet is sampled only as a flat colour, so its size is
+# a budget choice, not a layout: 2x2 is the smallest sheet the texture pipeline
+# can upload and is exactly what the renderer used to generate in Rust.  Keep
+# it tiny; upscaling it buys nothing and would upload a pointless image.
+WHITE_SIZE = 2
+
+
+def build_white() -> Canvas:
+    """The shared untextured sheet: solid opaque white, 2x2 texels."""
+    return Canvas(WHITE_SIZE, WHITE_SIZE, (255, 255, 255, 255))
+
+
 # ---------------------------------------------------------------- manifest
 
 ART = {
@@ -354,5 +376,9 @@ ART = {
     "core:tex_normal_brushed_01": {
         "model": "core/textures/normals/normal_brushed_01.png",
         "build": build_normal_brushed,
+    },
+    "core:tex_white_01": {
+        "model": "core/textures/white_01.png",
+        "build": build_white,
     },
 }

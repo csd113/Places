@@ -19,6 +19,7 @@ from __future__ import annotations
 import math
 
 import palette
+from parts.refreshed import load_atlas, solid_box
 from mesh import FACE_SHADE, PropBuilder
 
 # Per-prop triangle aims from the pack brief.  They are targets, not limits:
@@ -399,44 +400,9 @@ def build_fridge(p: PropBuilder) -> None:
     width, height, depth = p.size
     half_d = depth * 0.5
 
-    tex = p.set_texture(64, seed=53)
-    tex.auto("freezer", "fridge", "side", "top")
-
-    metal = palette.mix(
-        palette.shade(palette.hex_to_rgb(palette.METAL_LIGHT), 1.02),
-        palette.hex_to_rgb(palette.INSTITUTIONAL_BLUE),
-        0.08,
-    )
-    metal_light = palette.shade(metal, 1.05)
-    metal_dark = palette.shade(metal, 0.6)
-    gasket = palette.shade(metal, 0.72)
-    paper = palette.hex_to_rgb(palette.PAPER)
-
-    # --- texture: freezer door ---------------------------------------------
-    _paint(tex, "freezer", metal_light, seed=1, grain_density=0.16, grain_alpha=14)
-    tex.panel("freezer", metal_dark, rect=(0.04, 0.04, 0.96, 0.96), depth=1, alpha=45)
-    tex.border("freezer", gasket, width=1, alpha=120)
-    tex.scribble("freezer", palette.shade(metal_dark, 0.9), (0.26, 0.44, 0.74, 0.62), seed=2, alpha=120)
-    _wear(tex, "freezer", seed=3, rust=2)
-
-    # --- texture: fridge door ----------------------------------------------
-    _paint(tex, "fridge", metal_light, seed=4, grain_density=0.16, grain_alpha=14)
-    tex.panel("fridge", metal_dark, rect=(0.04, 0.02, 0.96, 0.98), depth=1, alpha=45)
-    tex.border("fridge", gasket, width=1, alpha=120)
-    # A faded energy sticker and a thermometer plate: institutional, no brands.
-    tex.bar("fridge", paper, (0.60, 0.16, 0.88, 0.30))
-    tex.scribble("fridge", palette.shade(metal_dark, 0.8), (0.62, 0.19, 0.86, 0.26), seed=5, text_blocks=1)
-    tex.bar("fridge", palette.shade(metal_dark, 0.85), (0.10, 0.40, 0.28, 0.44))
-    _wear(tex, "fridge", seed=6, rust=3)
-
-    # --- texture: flanks and top -------------------------------------------
-    _paint(tex, "side", palette.shade(metal, 0.92), seed=7)
-    tex.streaks("side", palette.shade(metal_dark, 0.95), count=2, seed=8, alpha=34)
-    tex.border("side", palette.shade(metal_dark, 0.9), width=1, alpha=70)
-    _wear(tex, "side", seed=9)
-    _paint(tex, "top", palette.shade(metal, 0.88), seed=10, grain_density=0.18)
-    tex.spots("top", palette.hex_to_rgb(palette.GRIME), count=3, seed=11, radius=2, alpha=30)
-    tex.border("top", palette.shade(metal_dark, 0.9), width=1, alpha=80)
+    tex = load_atlas(p, "fridge", ("freezer", "fridge", "side", "top"))
+    metal = metal_light = (255, 255, 255)
+    metal_dark = (120, 120, 120)
 
     # --- geometry -----------------------------------------------------------
     proud = 0.04  # door (2 cm) + handle (2 cm)
@@ -444,45 +410,45 @@ def build_fridge(p: PropBuilder) -> None:
     plinth_h = 0.06
     seam = 1.185  # freezer / fridge door split
 
-    p.box(
+    solid_box(p,
         (0.0, plinth_h * 0.5, -0.02),
         (width - 0.04, plinth_h, depth - 0.08),
-        uv=tex.uv("side"),
+        uv=tex.uv("side", inset=2),
         color=palette.shade(metal_dark, 0.85),
         proxy=False,
     )
-    p.box(
+    solid_box(p,
         (0.0, plinth_h + (height - plinth_h) * 0.5, (body_front - half_d) * 0.5),
         (width, height - plinth_h, depth - proud),
-        uv={"+z": tex.uv("side"), "-z": tex.uv("side"), "+y": tex.uv("top"),
-            "-y": None, "+x": tex.uv("side"), "-x": tex.uv("side")},
+        uv={"+z": tex.uv("side", inset=2), "-z": tex.uv("side", inset=2), "+y": tex.uv("top", inset=2),
+            "-y": None, "+x": tex.uv("side", inset=2), "-x": tex.uv("side", inset=2)},
         color=metal,
     )
     doors = (("freezer", seam + 0.015, height - 0.01), ("fridge", 0.07, seam - 0.015))
     for name, bottom, top in doors:
-        p.box(
+        solid_box(p,
             (0.0, (bottom + top) * 0.5, body_front + 0.01),
             (width - 0.04, top - bottom, 0.02),
-            uv={"+z": tex.uv(name), "-z": None, "+y": tex.uv("side"), "-y": None,
-                "+x": tex.uv("side"), "-x": tex.uv("side")},
+            uv={"+z": tex.uv(name), "-z": None, "+y": tex.uv("side", inset=2), "-y": None,
+                "+x": tex.uv("side", inset=2), "-x": tex.uv("side", inset=2)},
             color=metal_light,
         )
     # Two thin vertical handles, aligned across the door seam.  They stay a
     # mid grey so they read against the pale doors.
     handle = palette.mix(metal, palette.hex_to_rgb(palette.METAL_DARK), 0.55)
     for bottom, top in ((1.24, 1.50), (0.87, 1.13)):
-        p.box(
+        solid_box(p,
             (0.25, (bottom + top) * 0.5, body_front + 0.03),
             (0.035, top - bottom, 0.02),
-            uv=tex.uv("side"),
+            uv=tex.uv("side", inset=2),
             color=handle,
         )
     # Hinges on the opposite side, visible in profile.
     for axis_y in (1.76, 1.19, 0.09):
-        p.box(
+        solid_box(p,
             (-0.33, axis_y, body_front + 0.025),
             (0.04, 0.07, 0.025),
-            uv=tex.uv("side"),
+            uv=tex.uv("side", inset=2),
             color=palette.shade(metal, 0.7),
             proxy=False,
         )

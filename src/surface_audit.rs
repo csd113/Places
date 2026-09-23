@@ -1363,3 +1363,47 @@ fn the_home_showcase_has_no_coincident_architecture_surfaces() {
     let all = triangles(&mesh);
     assert_no_coincident_architecture_overlaps(&all, "home_showcase architecture");
 }
+
+
+#[test]
+fn zz_probe_full_bake() {
+    let level = parse(include_str!("../assets/levels/places_demo.json"));
+    let materials = crate::render::logical_materials(&level);
+    let catalog = crate::loader::PropCatalog::builtin();
+    let mut assets = crate::props::PropAssets::default();
+    let _ = &mut assets;
+    let mut options = crate::render::LightmapBuildOptions::for_profile(
+        crate::quality::QualityProfile::Full,
+        crate::lighting::lightmap::LightmapMode::On,
+    );
+    options.config.max_pages = 64;
+    let build = crate::render::build_level_geometry_timed_with_lightmaps(
+        &level,
+        &catalog,
+        &mut assets,
+        &materials,
+        options,
+        None,
+    );
+    println!("failure={:?}", build.lightmap_failure);
+    if let Some(lightmaps) = build.lightmaps.as_deref() {
+        let mut area: u64 = 0;
+        for (_, chart) in &lightmaps.charts {
+            area += u64::from(chart.width) * u64::from(chart.height);
+        }
+        println!(
+            "charts={} pages={} chart_texels={} page_texels={}",
+            lightmaps.charts.len(),
+            lightmaps.pages.len(),
+            area,
+            lightmaps
+                .pages
+                .iter()
+                .map(|p| u64::from(p.width) * u64::from(p.height))
+                .sum::<u64>()
+        );
+        for (index, page) in lightmaps.pages.iter().enumerate() {
+            println!("page {index}: {}x{}", page.width, page.height);
+        }
+    }
+}

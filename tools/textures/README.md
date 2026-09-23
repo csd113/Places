@@ -89,7 +89,7 @@ runs `--check` over every environment surface as a repository gate.
 | `office_art.py` | the Office wallpaper, carpet and panel ceiling, with their damaged variants |
 | `pool_art.py` | the Pool deck, basin and wall tile and the sterile Pool ceiling |
 | `lights_art.py` | the visible face of every built-in light fixture: the office fluorescent diffuser, the round pool downlight and the pool wall luminaire's lens |
-| `extra_art.py` | the surface-response sheets: clear/dirty/tinted glass, a cut-out transfer grille, polished linoleum, a brushed-metal panel, a moulded-plastic panel and two tangent-space normal maps |
+| `extra_art.py` | the surface-response sheets: clear/dirty/tinted glass, a cut-out transfer grille, polished linoleum, a brushed-metal panel, a moulded-plastic panel, two tangent-space normal maps and the shared untextured white sheet |
 | `decal_art.py` | the final Pool **NO DIVING** sign sheet (RGBA, transparent background) |
 | `diagnostic_art.py` | the orientation/alpha/NPOT test sheets, never used by shipping levels |
 | `seam_repair.py` | measures and repairs wrapped-edge seams in a shipped surface sheet (see below) |
@@ -129,6 +129,7 @@ is validated and regenerated exactly like a surface sheet.
 | `core:tex_grille_01` | `core/textures/walls/grille_01.png` | 1024x1024 | RGBA cut-out transfer grille (metal slats over transparent openings) |
 | `core:tex_normal_panel_01` | `core/textures/normals/normal_panel_01.png` | 1024x1024 | tangent-space normal map: soft moulded dimples |
 | `core:tex_normal_brushed_01` | `core/textures/normals/normal_brushed_01.png` | 1024x1024 | tangent-space normal map: fine horizontal brushing |
+| `core:tex_white_01` | `core/textures/white_01.png` | 2x2 | the shared untextured fallback sheet (solid opaque white, loaded at startup, never generated in Rust) |
 | `core:tex_diagnostic_wall_01` | `diagnostic/textures/diagnostic_wall_01.png` | 128x128 | orientation-revealing, never shipped in a level |
 | `core:tex_diagnostic_floor_01` | `diagnostic/textures/diagnostic_floor_01.png` | 128x128 | orientation-revealing |
 | `core:tex_diagnostic_ceiling_01` | `diagnostic/textures/diagnostic_ceiling_01.png` | 128x128 | orientation-revealing |

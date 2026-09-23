@@ -81,3 +81,61 @@ is a muted, faded, slightly worn PS2-era institutional/domestic set, not a
 modern showroom. Favour silhouette and large colour blocks; spend texture
 pixels on handles, doors, burners, screens and wear, never on tiny detail that
 vanishes on a 480×272 screen.
+
+### Table source artwork
+
+`core:table` loads `assets/core/props/models/table.png` at build time and embeds
+it in `table.glb`; the runtime still loads only the self-contained GLB. Keep
+the opaque 256×256 atlas in its 2×2 layout: top / legs / edge / apron, read
+left-to-right then top-to-bottom. Rebuild with `--only core:table` after editing.
+The table builder closes component undersides and corrects component winding
+locally without changing the shared primitives used by other props.
+
+### Refreshed bookshelf, fridge, lamp, rug and plant
+
+These builders also load an opaque 128×128 source PNG beside the matching GLB
+and embed it during `build.py --only core:<name>`. Keep those source PNGs;
+rebuilding does not regenerate their artwork. `parts/refreshed.py` provides
+opt-in closed, outward-facing primitives and samples atlas colours for editor
+proxies. Other props still use their existing builders.
+
+Atlas regions, read left-to-right then top-to-bottom in a 2×2 grid:
+
+| Model | Regions |
+| --- | --- |
+| bookshelf | side, shelf, back, front |
+| fridge | freezer door, fridge door, side, top |
+| lamp | base, stem, shade, lining |
+| plant | pot, soil, leaf, stem |
+
+The rug uses a different fitted layout: its face occupies rows 0–83, while
+the binding/backing samples rows 86–127. Its UVs were rebuilt to match the
+delivered artwork. Horizontal box faces map U along X and V along Z; each
+region is inset by two pixels to reduce sampling across atlas boundaries.
+
+The lamp has 24-segment base/shade rings and a hollow shade with joined hems.
+The plant's fourteen leaves have closed 0.8 mm shells instead of coincident
+front/back faces. This takes the plant to 512 triangles, slightly above the
+500 target but below the 800 review threshold. Components intentionally
+intersect at assembly joints; these are game props, not boolean-unioned
+manufacturing solids. The lamp remains non-emissive.
+
+These five 128 px atlases keep the combined shipped prop pack within its
+decoded texture memory budget; raising each to 256 px exceeds that pack budget.
+
+### Matching upholstered seating
+
+`core:armchair` and `core:couch` load their respective opaque 128×128 PNGs
+beside the GLBs. Both use the same matching artwork: body / seat / back / wood
+in the usual 2×2 layout, with the wood quadrant split vertically into wood
+(left) and olive throw-pillow fabric (right). UVs use a one-pixel inset.
+Keep both sheets in sync when changing the furniture set's materials.
+
+Rebuild with `python3 tools/props/build.py --only core:armchair core:couch`.
+The frames and arm rolls are closed and outward-facing. Seat, back and loose
+cushions use the opt-in 44-triangle `padded_box` helper, with bevelled edges
+instead of overlapping cushion slabs. Twelve-segment arm rolls smooth the
+silhouette. The armchair is 368 triangles; the couch is 588, above the 500
+preferred target but below the 800 review threshold. Original catalogue
+bounds and floor-contact origins are retained. Neither source texture grows,
+so this pair adds no decoded texture memory to the pack.
