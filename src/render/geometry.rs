@@ -4,19 +4,23 @@
 //! a scratch buffer per material run and split into spatial batches on the way
 //! into the mesh, so the emitting code itself is free of grid awareness.
 
+use std::cell::RefCell;
+
 use super::{
     DECAL_EXTERNAL_BASE, LIGHT_FACE_PROBE_M, LevelDef, LevelLighting, LevelMesh, LevelSurfaces,
-    LitSurface, MATERIAL_NONE, MaterialIndex, MaterialLookup, MaterialSlot, MaterialTable, PropDef,
-    SurfaceKey, SurfaceKind, Vertex, WALL_COINCIDENCE_EPS, WALL_FACE_EAST_MULT,
-    WALL_FACE_NORTH_MULT, WALL_FACE_SOUTH_MULT, WALL_FACE_WEST_MULT, WallAxis, WallCoverage,
-    WallUnit, add_decal_quad, add_panel_fixture, add_prop_box, add_quad, add_round_fixture,
-    add_wall_cross_quad, add_wall_fixture, add_wall_length_face, cross_section_covered,
-    decal_sheet_index, decal_uv_rect, decal_uv_rect_full, emit_floor_skirts, emit_lit_surface_grid,
-    finish_indexed_mesh, floor_surfaces, flush_wall_run, interval_symmetric_difference,
-    lit_corners, lit_surface_grid, room_is_tessellatable, shade, spatial_cell_grid,
-    subtract_rectangles, tiled_uv, wall_layout, wall_vertical_extent,
+    LightmapEmit, LitSurface, MATERIAL_NONE, MaterialIndex, MaterialLookup, MaterialSlot,
+    MaterialTable, PropDef, SurfaceKey, SurfaceKind, Vertex, WALL_COINCIDENCE_EPS,
+    WALL_FACE_EAST_MULT, WALL_FACE_NORTH_MULT, WALL_FACE_SOUTH_MULT, WALL_FACE_WEST_MULT, WallAxis,
+    WallCoverage, WallUnit, add_decal_quad, add_panel_fixture, add_prop_box, add_quad,
+    add_round_fixture, add_wall_cross_quad, add_wall_fixture, add_wall_length_face,
+    cross_section_covered, decal_sheet_index, decal_uv_rect, decal_uv_rect_full, emit_floor_skirts,
+    emit_lit_surface_grid, finish_indexed_mesh, floor_surfaces, flush_wall_run,
+    interval_symmetric_difference, lit_corners, lit_surface_grid, room_is_tessellatable, shade,
+    spatial_cell_grid, split_rect, stamp_lightmap_quad, subtract_rectangles, tiled_uv, wall_layout,
+    wall_vertical_extent,
 };
 use crate::level::{RoomDef, WallDef, WallSlice};
+use crate::lighting::lightmap::{LightmapPlan, PatchKind};
 use crate::spatial::SpatialBuckets;
 
 /// Directional shade multiplier applied to the top of a wall face.
@@ -38,6 +42,18 @@ struct EmitContext<'a, 's> {
     /// Every authored wall's solid volume, so a wall face an abutting wall
     /// already covers is never emitted underneath it.
     coverages: &'s [WallCoverage],
+    /// The lightmap state: the plan when this build is lightmapped plus the
+    /// chart-span cap, or `None` for the historical vertex-lit path, where
+    /// every emitter must compute exactly the colours and vertices it always
+    /// did.
+    lightmap: Option<LightmapEmit<'s>>,
+}
+
+impl EmitContext<'_, '_> {
+    /// True when this build bakes light into an atlas instead of vertex colours.
+    const fn lightmapped(&self) -> bool {
+        self.lightmap.is_some()
+    }
 }
 
 pub(super) fn build_level_geometry_mesh(
@@ -46,6 +62,31 @@ pub(super) fn build_level_geometry_mesh(
     fallback_props: &[&PropDef],
     lighting: &LevelLighting,
     materials: &MaterialTable,
+) -> LevelMesh {
+    build_level_geometry_mesh_with_lightmaps(
+        level,
+        catalog,
+        fallback_props,
+        lighting,
+        materials,
+        None,
+    )
+}
+
+/// [`build_level_geometry_mesh`] with a lightmap plan the emitters stamp.
+///
+/// With `lightmaps: None` the result is the historical vertex-lit mesh, byte for
+/// byte. With a plan every static floor, ceiling, wall and skirt quad is stamped
+/// with a chart and its vertex colour is reduced to material tint and
+/// directional face shade; the plan records one patch per quad for the fill
+/// pass. Fixtures, prop placeholder boxes and decals stay vertex-lit either way.
+pub(super) fn build_level_geometry_mesh_with_lightmaps(
+    level: &LevelDef,
+    catalog: &crate::loader::PropCatalog,
+    fallback_props: &[&PropDef],
+    lighting: &LevelLighting,
+    materials: &MaterialTable,
+    lightmaps: Option<&mut LightmapPlan>,
 ) -> LevelMesh {
     // Collect the merged room list once; geometry and ceiling lookups then
     // borrow it instead of cloning the room vector repeatedly.
@@ -59,12 +100,24 @@ pub(super) fn build_level_geometry_mesh(
     // units, plus every wall's solid volume for the cross-section coverage
     // test. Built once and shared by the wall emitter.
     let wall_layout = wall_layout(level, &surfaces, &lookup);
+    // The plan is lent to the emit context as a `RefCell` so the emitters can
+    // stamp quads through `&EmitContext` without an extra `&mut` parameter on
+    // every function; `plan_cell` outlives `context` in this scope.
+    let max_span_m = lightmaps
+        .as_ref()
+        .map_or(f32::INFINITY, |plan| plan.max_chart_span_m());
+    let plan_cell: Option<RefCell<&mut LightmapPlan>> = lightmaps.map(RefCell::new);
+    let lightmap = plan_cell.as_ref().map(|cell| LightmapEmit {
+        plan: Some(cell),
+        max_span_m,
+    });
     let context = EmitContext {
         level,
         surfaces: &surfaces,
         lighting,
         materials: &lookup,
         coverages: &wall_layout.coverages,
+        lightmap,
     };
     // Emitters still write whole quads into one scratch buffer; the bucket
     // builder splits each run by spatial cell on the way into the mesh. That
@@ -150,6 +203,7 @@ fn emit_floors(
                 &grid.zs,
                 |_, _| y,
                 Some(tint),
+                context.lightmapped(),
             );
             let tile = context.materials.tile_metres(surface.key);
             scratch.clear();
@@ -164,6 +218,9 @@ fn emit_floors(
                     region: Some((u32::try_from(label).unwrap_or(u32::MAX), &labels)),
                 },
                 |x, z| tiled_uv(x, z, tile),
+                PatchKind::Floor,
+                Some(room_index),
+                context.lightmap,
             );
             buckets.add_quads(surface.key, scratch);
         }
@@ -172,12 +229,12 @@ fn emit_floors(
         // not a hole into the void.
         emit_floor_skirts(
             buckets,
-            scratch,
             room,
             &grid,
             context.level,
             context.lighting,
             context.materials,
+            context.lightmap,
         );
     }
 }
@@ -213,6 +270,7 @@ fn emit_ceilings(
             &zs,
             ceiling_at,
             Some(context.materials.tint(ceiling_key)),
+            context.lightmapped(),
         );
         let tile = context.materials.tile_metres(ceiling_key);
         scratch.clear();
@@ -227,6 +285,9 @@ fn emit_ceilings(
                 region: None,
             },
             |x, z| tiled_uv(x, z, tile),
+            PatchKind::Ceiling,
+            Some(room_index),
+            context.lightmap,
         );
         buckets.add_quads(ceiling_key, scratch);
     }
@@ -527,6 +588,7 @@ fn emit_wall_length_face(
         strip.flip_u,
         context.lighting,
         context.materials.tile_metres(strip.key),
+        context.lightmap,
     );
     flush_wall_run(buckets, scratch, cursor, strip.key);
 }
@@ -666,36 +728,65 @@ fn emit_wall_slice_cap(
     } else {
         (0.85, WALL_BOTTOM_GRADIENT)
     };
-    let (a0, a1, b0, b1) = rect;
-    let points = match (state.axis, up) {
-        (WallAxis::X, true) => [[a0, y, b1], [a1, y, b1], [a1, y, b0], [a0, y, b0]],
-        (WallAxis::X, false) => [[a0, y, b0], [a1, y, b0], [a1, y, b1], [a0, y, b1]],
-        (WallAxis::Z, true) => [[b0, y, a0], [b0, y, a1], [b1, y, a1], [b1, y, a0]],
-        (WallAxis::Z, false) => [[b1, y, a0], [b1, y, a1], [b0, y, a1], [b0, y, a0]],
-    };
-    let base_color = scaled_wall_color(context.materials, key, mult, grad);
-    let colors = lit_corners(base_color, points, context.lighting);
     let tile = context.materials.tile_metres(key);
-    let uv = |point: [f32; 3]| match state.axis {
-        WallAxis::X => tiled_uv(point[0], point[2], tile),
-        WallAxis::Z => tiled_uv(point[2], point[0], tile),
-    };
-    add_quad(
-        scratch,
-        points[0],
-        colors[0],
-        uv(points[0]),
-        points[1],
-        colors[1],
-        uv(points[1]),
-        points[2],
-        colors[2],
-        uv(points[2]),
-        points[3],
-        colors[3],
-        uv(points[3]),
-    );
-    flush_wall_run(buckets, scratch, cursor, key);
+    // A lightmapped cap larger than one chart is tiled; the vertex-lit fallback
+    // gets the original rectangle back unchanged (see `split_rect`).
+    let max_span_m = context
+        .lightmap
+        .map_or(f32::INFINITY, |lightmap| lightmap.max_span_m);
+    for (a0, a1, b0, b1) in split_rect(rect, max_span_m) {
+        let points = match (state.axis, up) {
+            (WallAxis::X, true) => [[a0, y, b1], [a1, y, b1], [a1, y, b0], [a0, y, b0]],
+            (WallAxis::X, false) => [[a0, y, b0], [a1, y, b0], [a1, y, b1], [a0, y, b1]],
+            (WallAxis::Z, true) => [[b0, y, a0], [b0, y, a1], [b1, y, a1], [b1, y, a0]],
+            (WallAxis::Z, false) => [[b1, y, a0], [b1, y, a1], [b0, y, a1], [b0, y, a0]],
+        };
+        let base_color = scaled_wall_color(context.materials, key, mult, grad);
+        let lightmapped = context.lightmapped();
+        let colors = if lightmapped {
+            [base_color; 4]
+        } else {
+            lit_corners(base_color, points, context.lighting)
+        };
+        let room = if lightmapped {
+            let (center_x, center_z) = match state.axis {
+                WallAxis::X => (f32::midpoint(a0, a1), f32::midpoint(b0, b1)),
+                WallAxis::Z => (f32::midpoint(b0, b1), f32::midpoint(a0, a1)),
+            };
+            context.lighting.room_index_at_height(center_x, y, center_z)
+        } else {
+            None
+        };
+        let uv = |point: [f32; 3]| match state.axis {
+            WallAxis::X => tiled_uv(point[0], point[2], tile),
+            WallAxis::Z => tiled_uv(point[2], point[0], tile),
+        };
+        let first = scratch.len();
+        add_quad(
+            scratch,
+            points[0],
+            colors[0],
+            uv(points[0]),
+            points[1],
+            colors[1],
+            uv(points[1]),
+            points[2],
+            colors[2],
+            uv(points[2]),
+            points[3],
+            colors[3],
+            uv(points[3]),
+        );
+        stamp_lightmap_quad(
+            context.lightmap,
+            scratch,
+            first,
+            PatchKind::Wall,
+            points,
+            room,
+        );
+        flush_wall_run(buckets, scratch, cursor, key);
+    }
 }
 
 /// Tolerance within which a floor surface is treated as lying on a wall cap's
@@ -825,6 +916,22 @@ fn emit_wall_cross_sections(
     }
 }
 
+/// The room a cross-section edge's face opens into, via the same inboard probe
+/// [`sample_cross_edge`] samples from.
+fn cross_edge_room(
+    context: &EmitContext<'_, '_>,
+    state: &WallState<'_>,
+    inboard: f32,
+    side: f32,
+    side_normal: f32,
+) -> Option<usize> {
+    let (px, pz, nx, nz) = match state.axis {
+        WallAxis::X => (inboard, side, 0.0, side_normal),
+        WallAxis::Z => (side, inboard, side_normal, 0.0),
+    };
+    context.lighting.face_room(px, pz, nx, nz)
+}
+
 /// Samples the baked light for one edge of a cross-section quad, from the room
 /// that edge's face opens into.
 fn sample_cross_edge(
@@ -835,11 +942,7 @@ fn sample_cross_edge(
     side_normal: f32,
     y: f32,
 ) -> crate::lighting::LightColor {
-    let (px, pz, nx, nz) = match state.axis {
-        WallAxis::X => (inboard, side, 0.0, side_normal),
-        WallAxis::Z => (side, inboard, side_normal, 0.0),
-    };
-    let room = context.lighting.face_room(px, pz, nx, nz);
+    let room = cross_edge_room(context, state, inboard, side, side_normal);
     let probe = side_normal.mul_add(LIGHT_FACE_PROBE_M, side);
     match state.axis {
         WallAxis::X => context.lighting.sample_face(room, inboard, y, probe),
@@ -899,55 +1002,80 @@ fn emit_wall_cross_quad(
         .run_at(boundary.position, f32::midpoint(bottom, top))
         .map_or(state.wall_key, |run| run.body);
     let tile = context.materials.tile_metres(key);
+    let lightmapped = context.lightmapped();
+    let max_span_m = context
+        .lightmap
+        .map_or(f32::INFINITY, |lightmap| lightmap.max_span_m);
     for (across_low, across_high, rect_bottom, rect_top) in exposed {
-        // Wall ends keep the directional face shading; internal reveals use
-        // the darker jamb/head colours.
-        let mult = if at_start {
-            match state.axis {
-                WallAxis::X => WALL_FACE_WEST_MULT,
-                WallAxis::Z => WALL_FACE_NORTH_MULT,
-            }
-        } else if at_end {
-            match state.axis {
-                WallAxis::X => WALL_FACE_EAST_MULT,
-                WallAxis::Z => WALL_FACE_SOUTH_MULT,
-            }
-        } else if rect_bottom <= state.wall_base + 1e-3 {
-            WALL_JAMB_MULT
-        } else {
-            WALL_HEAD_MULT
-        };
         let (low_side, low_normal, high_side, high_normal) =
             nearest_cross_sides(state, across_low, across_high);
-        let (bottom_low, bottom_high, top_low, top_high) = (
-            sample_cross_edge(context, state, inboard, low_side, low_normal, rect_bottom),
-            sample_cross_edge(context, state, inboard, high_side, high_normal, rect_bottom),
-            sample_cross_edge(context, state, inboard, low_side, low_normal, rect_top),
-            sample_cross_edge(context, state, inboard, high_side, high_normal, rect_top),
-        );
-        // Corner order: low thickness, high thickness, then the same at the top
-        // (see add_wall_cross_quad).
-        let bottom_shade = scaled_wall_color(context.materials, key, mult, WALL_BOTTOM_GRADIENT);
-        let top_shade = scaled_wall_color(context.materials, key, mult, WALL_TOP_GRADIENT);
-        let corners = [
-            shade(bottom_shade, bottom_low),
-            shade(bottom_shade, bottom_high),
-            shade(top_shade, top_high),
-            shade(top_shade, top_low),
-        ];
-        *cursor = scratch.len();
-        add_wall_cross_quad(
-            scratch,
-            state.axis,
-            at,
-            (across_low, across_high),
-            rect_bottom,
-            rect_top,
-            covers(boundary.left),
-            corners,
-            tile,
-        );
-        flush_wall_run(buckets, scratch, cursor, key);
+        // One room hint for every tile of this reveal: the room its lower edge
+        // opens into (the higher side is the fallback when that is ambiguous).
+        let room = if lightmapped {
+            cross_edge_room(context, state, inboard, low_side, low_normal)
+                .or_else(|| cross_edge_room(context, state, inboard, high_side, high_normal))
+        } else {
+            None
+        };
+        // A lightmapped reveal larger than one chart is tiled; the vertex-lit
+        // fallback gets the original rectangle back unchanged.
+        for (across0, across1, bottom, top) in
+            split_rect((across_low, across_high, rect_bottom, rect_top), max_span_m)
+        {
+            // Wall ends keep the directional face shading; internal reveals use
+            // the darker jamb/head colours.
+            let mult = if at_start {
+                match state.axis {
+                    WallAxis::X => WALL_FACE_WEST_MULT,
+                    WallAxis::Z => WALL_FACE_NORTH_MULT,
+                }
+            } else if at_end {
+                match state.axis {
+                    WallAxis::X => WALL_FACE_EAST_MULT,
+                    WallAxis::Z => WALL_FACE_SOUTH_MULT,
+                }
+            } else if bottom <= state.wall_base + 1e-3 {
+                WALL_JAMB_MULT
+            } else {
+                WALL_HEAD_MULT
+            };
+            // Corner order: low thickness, high thickness, then the same at the
+            // top (see add_wall_cross_quad).
+            let bottom_shade =
+                scaled_wall_color(context.materials, key, mult, WALL_BOTTOM_GRADIENT);
+            let top_shade = scaled_wall_color(context.materials, key, mult, WALL_TOP_GRADIENT);
+            let corners = if lightmapped {
+                [bottom_shade, bottom_shade, top_shade, top_shade]
+            } else {
+                let (bottom_low, bottom_high, top_low, top_high) = (
+                    sample_cross_edge(context, state, inboard, low_side, low_normal, bottom),
+                    sample_cross_edge(context, state, inboard, high_side, high_normal, bottom),
+                    sample_cross_edge(context, state, inboard, low_side, low_normal, top),
+                    sample_cross_edge(context, state, inboard, high_side, high_normal, top),
+                );
+                [
+                    shade(bottom_shade, bottom_low),
+                    shade(bottom_shade, bottom_high),
+                    shade(top_shade, top_high),
+                    shade(top_shade, top_low),
+                ]
+            };
+            *cursor = scratch.len();
+            add_wall_cross_quad(
+                scratch,
+                state.axis,
+                at,
+                (across0, across1),
+                bottom,
+                top,
+                covers(boundary.left),
+                corners,
+                tile,
+                context.lightmap,
+                room,
+            );
+            flush_wall_run(buckets, scratch, cursor, key);
+        }
     }
 }
 

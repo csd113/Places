@@ -209,6 +209,23 @@
       "solid": true
     },
     {
+      "id": "core:washer_drum",
+      "display_name": "Washer Drum",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/washer_drum.glb",
+      "size": [
+        0.42,
+        0.3,
+        0.42
+      ],
+      "color": "#b4b8ba",
+      "category": "Appliances",
+      "solid": false,
+      "description": "Loose drum basket: the dynamic-object demonstrator, spawned and turned in front of a placed washing machine."
+    },
+    {
       "id": "core:vending_machine",
       "display_name": "Vending Machine",
       "asset_class": "environment",

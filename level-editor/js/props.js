@@ -55,6 +55,7 @@
     { id: 'core:sink', name: 'Sink', category: 'Appliances', size: [0.6, 0.85, 0.55], color: '#9aa0a0', model: 'core/props/models/sink.glb', solid: true },
     { id: 'core:fridge', name: 'Fridge', category: 'Appliances', size: [0.7, 1.8, 0.7], color: '#b8bcc0', model: 'core/props/models/fridge.glb', solid: true },
     { id: 'core:washing_machine', name: 'Washing Machine', category: 'Appliances', size: [0.6, 0.85, 0.6], color: '#a2a6aa', model: 'core/props/models/washing_machine.glb', solid: true },
+    { id: 'core:washer_drum', name: 'Washer Drum', category: 'Appliances', size: [0.42, 0.3, 0.42], color: '#b4b8ba', model: 'core/props/models/washer_drum.glb', solid: false },
     { id: 'core:vending_machine', name: 'Vending Machine', category: 'Appliances', size: [1.0, 1.9, 0.8], color: '#4f5a63', model: 'environment/office/props/models/vending_machine.glb', solid: true },
     { id: 'core:water_cooler', name: 'Water Cooler', category: 'Appliances', size: [0.35, 1.1, 0.35], color: '#8fa4ae', model: 'environment/office/props/models/water_cooler.glb', solid: true },
     { id: 'core:pool_table', name: 'Pool Patio Table', category: 'Furniture', size: [0.8, 0.74, 0.8], color: '#e8e6e0', model: 'environment/pool/props/models/pool_table.glb', solid: true },

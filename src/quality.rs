@@ -2,7 +2,7 @@
 //!
 //! Places deliberately has exactly two quality modes — there are no
 //! hardware-specific tiers, no auto-detection and no per-setting zoo. A profile
-//! answers one question: **how large may a texture be once it reaches the GPU?**
+//! answers one question: **how much texture data may reach the GPU?**
 //!
 //! ```text
 //! source PNG (asset)  ──decode──▶  Full runtime image  ──upload──▶  GPU
@@ -24,9 +24,19 @@
 //! prefers far smaller sheets. A quality profile only decides how much of an
 //! *accepted* source reaches the GPU; it never raises the source limit.
 //!
+//! The same profile also budgets the Batch 2 static lightmap atlas: `Full`
+//! bakes at 12 texels per metre onto up to two 1024-texel pages, `Low` at 8
+//! texels per metre onto two 512-texel pages (see
+//! [`crate::lighting::lightmap::LightmapConfig::for_profile`]). Both profiles
+//! bake from the *same* patch set — the density and page size are the only
+//! difference, never a different set of surfaces — and both target the same
+//! world span per chart, so the geometry splits in the same places.
+//!
 //! Downscaling happens once, at upload/level-load time, through
 //! [`crate::materials::RawImage::downscaled_to`] and is cached with the texture
-//! it produced — never per frame, and never twice for the same image.
+//! it produced — never per frame, and never twice for the same image. A
+//! lightmap atlas is likewise baked once per level load and cached by content
+//! key; nothing here runs per frame.
 
 /// One of Places' two runtime quality profiles.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]

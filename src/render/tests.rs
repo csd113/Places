@@ -95,7 +95,7 @@ fn packed_channel_error(value: f32) -> f32 {
         pos: [0.0, 0.0, 0.0],
         color: [value, value, value, value],
         uv: [0.0, 0.0],
-    ..Vertex::UNLIT
+        ..Vertex::UNLIT
     });
     (dequantize_unit(packed.color[0]) - value).abs()
 }
@@ -148,7 +148,7 @@ fn packed_colour_clamps_instead_of_wrapping() {
             pos: [0.0, 0.0, 0.0],
             color: [value, value, value, 1.0],
             uv: [0.0, 0.0],
-        ..Vertex::UNLIT
+            ..Vertex::UNLIT
         });
         assert_eq!(
             packed.color[0], expected,
@@ -159,7 +159,7 @@ fn packed_colour_clamps_instead_of_wrapping() {
         pos: [0.0, 0.0, 0.0],
         color: [f32::NAN; 4],
         uv: [0.0, 0.0],
-    ..Vertex::UNLIT
+        ..Vertex::UNLIT
     });
     assert_eq!(
         nan.color,
@@ -177,7 +177,7 @@ fn packed_alpha_is_preserved_for_props_and_the_hud() {
             pos: [0.0, 0.0, 0.0],
             color: [1.0, 1.0, 1.0, value],
             uv: [0.0, 0.0],
-        ..Vertex::UNLIT
+            ..Vertex::UNLIT
         });
         assert!(
             (dequantize_unit(packed.color[3]) - value).abs() <= 0.5 / 255.0 + 1e-6,
@@ -1245,7 +1245,7 @@ fn the_packer_keeps_every_range_inside_16_bit_indices() {
         pos: [x, 0.0, 0.0],
         color: [1.0, 1.0, 1.0, 1.0],
         uv: [0.0, 0.0],
-    ..Vertex::UNLIT
+        ..Vertex::UNLIT
     };
     // Three ranges of 40 000 vertices each cannot share one chunk.
     let mut placements = Vec::new();
@@ -1284,7 +1284,7 @@ fn a_single_range_larger_than_the_index_space_is_split_not_wrapped() {
         pos: [x, 0.0, 0.0],
         color: [1.0, 1.0, 1.0, 1.0],
         uv: [0.0, 0.0],
-    ..Vertex::UNLIT
+        ..Vertex::UNLIT
     };
     // 50 000 distinct vertices with a 2x-long index list: one chunk cannot
     // hold them together with the next range, and the range itself must be
@@ -4308,4 +4308,438 @@ fn a_second_instance_of_a_multi_material_prop_still_batches() {
         "two instances cost the same draw ranges as one"
     );
     assert!(double[0].vertices.len() > single[0].vertices.len());
+}
+
+// ---------------------------------------------------------- lightmaps
+
+use crate::lighting::lightmap::{
+    LIGHTMAP_ATLAS_MAX_PAGES, LevelLightmaps, LightmapConfig, LightmapFailure, LightmapMode,
+};
+use crate::loader::PropCatalog;
+use crate::props::PropAssets;
+
+/// A renderer-independent lightmap build with the builtin prop catalog (every
+/// prop is a fallback box, which is irrelevant to the static chart set).
+fn lightmap_build(
+    level: &LevelDef,
+    profile: crate::quality::QualityProfile,
+    mode: LightmapMode,
+) -> LevelBuild {
+    let materials = logical_materials(level);
+    let catalog = PropCatalog::builtin();
+    let mut assets = PropAssets::default();
+    build_level_geometry_timed_with_lightmaps(
+        level,
+        &catalog,
+        &mut assets,
+        &materials,
+        LightmapBuildOptions::for_profile(profile, mode),
+        None,
+    )
+}
+
+/// True when a lightmapped vertex's quantised atlas UV lies inside one of the
+/// charts on its page.
+fn vertex_in_some_chart(lightmaps: &LevelLightmaps, vertex: &Vertex) -> bool {
+    let Some(page) = lightmaps.pages.get(usize::from(vertex.lightmap_page)) else {
+        return false;
+    };
+    let edge = page.width as f32;
+    let x = f32::from(vertex.lightmap[0]) / 65535.0 * edge;
+    let y = f32::from(vertex.lightmap[1]) / 65535.0 * edge;
+    lightmaps.charts.iter().any(|(_, chart)| {
+        usize::from(chart.page) == usize::from(vertex.lightmap_page)
+            && x >= chart.x as f32 - 0.25
+            && x <= (chart.x + chart.width) as f32 + 0.25
+            && y >= chart.y as f32 - 0.25
+            && y <= (chart.y + chart.height) as f32 + 0.25
+    })
+}
+
+#[test]
+fn the_demo_bakes_lightmaps_with_every_surface_vertex_charted() {
+    let level = shipped_demo();
+    let build = lightmap_build(
+        &level,
+        crate::quality::QualityProfile::Full,
+        LightmapMode::On,
+    );
+    assert_eq!(build.lightmap_failure, None, "the demo must bake cleanly");
+    let lightmaps = build
+        .lightmaps
+        .as_deref()
+        .expect("the demo must produce an atlas");
+    assert!(!lightmaps.pages.is_empty());
+    assert!(lightmaps.pages.len() <= LIGHTMAP_ATLAS_MAX_PAGES);
+    assert!(lightmaps.chart_count() > 0);
+    for page in &lightmaps.pages {
+        assert_eq!(page.width, 1024);
+        assert_eq!(page.height, 1024);
+        assert_eq!(page.rgb.len(), 1024 * 1024 * 3);
+    }
+
+    let mut surface_vertices = 0usize;
+    let mut vertex_lit_vertices = 0usize;
+    for range in &build.mesh.ranges {
+        for vertex in &range.vertices {
+            match range.key.kind {
+                SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall => {
+                    assert!(
+                        vertex.is_lightmapped(),
+                        "a static surface vertex must carry a chart"
+                    );
+                    assert!(
+                        vertex_in_some_chart(lightmaps, vertex),
+                        "a lightmapped vertex must sample inside its own chart"
+                    );
+                    surface_vertices += 1;
+                }
+                SurfaceKind::Light | SurfaceKind::PropFallback | SurfaceKind::Decal => {
+                    assert!(
+                        !vertex.is_lightmapped(),
+                        "fixtures, prop boxes and decals stay vertex-lit"
+                    );
+                    assert_eq!(vertex.lightmap, [0, 0]);
+                    vertex_lit_vertices += 1;
+                }
+            }
+        }
+    }
+    assert!(surface_vertices > 0);
+    assert!(vertex_lit_vertices > 0, "the demo draws fixtures and props");
+}
+
+#[test]
+fn lightmaps_off_reproduces_the_historical_vertex_lit_mesh() {
+    let level = shipped_demo();
+    let off = lightmap_build(
+        &level,
+        crate::quality::QualityProfile::Full,
+        LightmapMode::Off,
+    );
+    assert!(off.lightmaps.is_none());
+    assert_eq!(off.lightmap_failure, None, "Off is not a failure");
+    let history = build_level_geometry(&level);
+    assert_eq!(off.mesh.all_vertices(), history.all_vertices());
+    for vertex in off.mesh.all_vertices() {
+        assert!(!vertex.is_lightmapped());
+        assert_eq!(vertex.lightmap, [0, 0]);
+    }
+}
+
+#[test]
+fn full_and_low_share_the_patch_set_at_different_densities() {
+    let level = shipped_demo();
+    let full = lightmap_build(
+        &level,
+        crate::quality::QualityProfile::Full,
+        LightmapMode::On,
+    );
+    let low = lightmap_build(
+        &level,
+        crate::quality::QualityProfile::Low,
+        LightmapMode::On,
+    );
+    let full_lightmaps = full.lightmaps.as_deref().expect("full bake");
+    let low_lightmaps = low.lightmaps.as_deref().expect("low bake");
+    let patches = |lightmaps: &LevelLightmaps| {
+        lightmaps
+            .charts
+            .iter()
+            .map(|(patch, _)| {
+                (
+                    patch.kind,
+                    patch.origin,
+                    patch.u_axis,
+                    patch.v_axis,
+                    patch.room,
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        patches(full_lightmaps),
+        patches(low_lightmaps),
+        "both profiles bake the same patch set"
+    );
+    assert!(
+        full_lightmaps.stats.texels > low_lightmaps.stats.texels,
+        "Full must bake more texels than Low"
+    );
+    assert_eq!(full_lightmaps.pages[0].width, 1024);
+    assert_eq!(low_lightmaps.pages[0].width, 512);
+}
+
+#[test]
+fn a_second_bake_of_the_same_level_is_bit_identical() {
+    let level = lit_room_level(
+        8.0,
+        6.0,
+        3.0,
+        r#"[{ "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 3.0, "brightness": 0.8 }]"#,
+    );
+    let first = lightmap_build(
+        &level,
+        crate::quality::QualityProfile::Full,
+        LightmapMode::On,
+    );
+    let second = lightmap_build(
+        &level,
+        crate::quality::QualityProfile::Full,
+        LightmapMode::On,
+    );
+    let first_lightmaps = first.lightmaps.as_deref().expect("first bake");
+    let second_lightmaps = second.lightmaps.as_deref().expect("second bake");
+    assert_eq!(first_lightmaps.pages, second_lightmaps.pages);
+    assert_eq!(first_lightmaps.charts, second_lightmaps.charts);
+    assert_eq!(first.mesh.all_vertices(), second.mesh.all_vertices());
+    assert!(
+        first_lightmaps
+            .pages
+            .iter()
+            .any(|page| page.rgb.iter().any(|byte| *byte != 0)),
+        "a lit room must not bake to black"
+    );
+}
+
+#[test]
+fn lightmapped_vertex_colours_carry_tint_and_face_shade_only() {
+    let level = lit_room_level(
+        8.0,
+        6.0,
+        3.0,
+        r#"[{ "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 3.0, "brightness": 0.1 }]"#,
+    );
+    let on = lightmap_build(
+        &level,
+        crate::quality::QualityProfile::Full,
+        LightmapMode::On,
+    );
+    let off = lightmap_build(
+        &level,
+        crate::quality::QualityProfile::Full,
+        LightmapMode::Off,
+    );
+    let table = logical_materials(&level);
+    let index = table
+        .index_of(&level.defaults.floor)
+        .expect("the default floor material resolves");
+    let tint = table.entry(index).expect("resolved").tint;
+
+    let on_floor = on.mesh.triangles_for(SurfaceKind::Floor);
+    assert!(!on_floor.is_empty());
+    for vertex in &on_floor {
+        assert_eq!(vertex.color[0], tint[0]);
+        assert_eq!(vertex.color[1], tint[1]);
+        assert_eq!(vertex.color[2], tint[2]);
+    }
+    let off_floor = off.mesh.triangles_for(SurfaceKind::Floor);
+    assert!(
+        off_floor
+            .iter()
+            .any(|vertex| vertex.color[0] < tint[0] - 1.0e-6),
+        "the historical path folds the dim bake into the floor colour"
+    );
+}
+
+#[test]
+fn atlas_overflow_rebuilds_with_vertex_lighting() {
+    let level = lit_room_level(
+        8.0,
+        6.0,
+        3.0,
+        r#"[{ "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 3.0, "brightness": 0.8 }]"#,
+    );
+    let materials = logical_materials(&level);
+    let catalog = PropCatalog::builtin();
+    let mut assets = PropAssets::default();
+    let mut config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
+    config.page_edge = 16;
+    config.max_pages = 1;
+    config.padding = 1;
+    let options = LightmapBuildOptions {
+        mode: LightmapMode::On,
+        config,
+        profile: crate::quality::QualityProfile::Full,
+    };
+    let build = build_level_geometry_timed_with_lightmaps(
+        &level,
+        &catalog,
+        &mut assets,
+        &materials,
+        options,
+        None,
+    );
+    assert!(build.lightmaps.is_none());
+    assert_eq!(build.lightmap_failure, Some(LightmapFailure::PageOverflow));
+    let history = build_level_geometry(&level);
+    assert_eq!(build.mesh.all_vertices(), history.all_vertices());
+}
+
+#[test]
+fn every_lightmapped_vertex_uv_lands_on_its_own_chart_corner() {
+    let level = shipped_demo();
+    let materials = logical_materials(&level);
+    let catalog = PropCatalog::builtin();
+    let mut assets = PropAssets::default();
+    let build = build_level_geometry_timed_with_lightmaps(
+        &level,
+        &catalog,
+        &mut assets,
+        &materials,
+        LightmapBuildOptions::for_profile(crate::quality::QualityProfile::Full, LightmapMode::On),
+        None,
+    );
+    let lightmaps = build.lightmaps.as_deref().expect("the demo bakes");
+    let mut checked = 0usize;
+    for range in &build.mesh.ranges {
+        if !matches!(
+            range.key.kind,
+            SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall
+        ) {
+            continue;
+        }
+        for vertex in &range.vertices {
+            assert!(vertex.is_lightmapped());
+            let page = lightmaps
+                .pages
+                .get(usize::from(vertex.lightmap_page))
+                .expect("vertex page exists");
+            let edge = page.width;
+            let scale = f32::from(u16::try_from(edge).expect("page edge fits u16"));
+            let atlas_u = f32::from(vertex.lightmap[0]) / 65_535.0 * scale;
+            let atlas_v = f32::from(vertex.lightmap[1]) / 65_535.0 * scale;
+            let (_, chart) = lightmaps
+                .charts
+                .iter()
+                .find(|(_, chart)| {
+                    usize::from(chart.page) == usize::from(vertex.lightmap_page)
+                        && atlas_u >= chart.x as f32 - 0.75
+                        && atlas_u <= (chart.x + chart.width) as f32 + 0.75
+                        && atlas_v >= chart.y as f32 - 0.75
+                        && atlas_v <= (chart.y + chart.height) as f32 + 0.75
+                })
+                .expect("every lightmapped vertex lies in a chart");
+            // A stamped vertex is a quad corner, so its local coordinates are 0
+            // or 1: it must sit within half a texel of one of the chart's four
+            // corners, at exactly the u16 that corner's mapping produces.
+            let mut matched = false;
+            for (u, v) in [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)] {
+                let target = chart.uv_at(edge, u, v);
+                let target_u = f32::from(target[0]) / 65_535.0 * scale;
+                let target_v = f32::from(target[1]) / 65_535.0 * scale;
+                if (target_u - atlas_u).abs() <= 0.75 && (target_v - atlas_v).abs() <= 0.75 {
+                    assert_eq!(
+                        vertex.lightmap, target,
+                        "vertex UV must be exactly the chart corner's quantised UV"
+                    );
+                    matched = true;
+                    break;
+                }
+            }
+            assert!(
+                matched,
+                "vertex UV ({atlas_u:.2}, {atlas_v:.2}) is not a corner of {chart:?}"
+            );
+            checked += 1;
+        }
+    }
+    assert!(
+        checked > 500,
+        "the test must actually check a mesh: {checked}"
+    );
+}
+
+#[test]
+fn atlas_bytes_match_the_fill_pass_exactly() {
+    let level = shipped_demo();
+    let materials = logical_materials(&level);
+    let catalog = PropCatalog::builtin();
+    let mut assets = PropAssets::default();
+    let build = build_level_geometry_timed_with_lightmaps(
+        &level,
+        &catalog,
+        &mut assets,
+        &materials,
+        LightmapBuildOptions::for_profile(crate::quality::QualityProfile::Full, LightmapMode::On),
+        None,
+    );
+    let lightmaps = build.lightmaps.as_deref().expect("demo bakes");
+    let lighting = LevelLighting::bake(&level);
+    let mut checked = 0usize;
+    for (patch, chart) in &lightmaps.charts {
+        let texels = crate::lighting::lightmap::fill_chart(&lighting, patch, chart);
+        let page = &lightmaps.pages[usize::from(chart.page)];
+        for row in 0..chart.height {
+            for column in 0..chart.width {
+                let index = (row * chart.width + column) as usize;
+                let offset = ((chart.y + row) as usize * page.width as usize
+                    + (chart.x + column) as usize)
+                    * 3;
+                for (channel, expected) in texels[index].iter().enumerate() {
+                    let stored = f32::from(page.rgb[offset + channel]) / 255.0;
+                    let wanted = expected.clamp(0.0, 1.0);
+                    assert!(
+                        (stored - wanted).abs() <= 1.0 / 255.0 + 1.0e-6,
+                        "chart {chart:?} texel ({column},{row}) channel {channel}: \
+                         stored {stored} vs fill {wanted}"
+                    );
+                }
+                checked += 1;
+            }
+        }
+    }
+    assert!(checked > 100_000, "must check real texel volume: {checked}");
+}
+
+#[test]
+fn the_dynamic_demonstration_machine_stays_a_static_prop() {
+    // Places Demo places the washing machine the Batch 2 demonstration is
+    // built around as an ordinary static prop: it is baked, it occludes, it
+    // collides, and it draws from the static prop batches. The drum the
+    // demonstration turns is spawned by `render::dynamic` at runtime and must
+    // never appear in the level file.
+    let path = "assets/levels/places_demo.json";
+    let content = std::fs::read_to_string(path)
+        .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
+    let level = crate::level::LevelDef::from_json(&content)
+        .unwrap_or_else(|error| panic!("{path} must parse: {error}"));
+    assert!(
+        level
+            .props
+            .iter()
+            .any(|prop| prop.model == crate::render::DEMO_MACHINE_ID),
+        "Places Demo must place {} statically",
+        crate::render::DEMO_MACHINE_ID
+    );
+    assert!(
+        !level
+            .props
+            .iter()
+            .any(|prop| prop.model == crate::render::DEMO_DRUM_ID),
+        "{} must only exist as a dynamic object, never as a level prop",
+        crate::render::DEMO_DRUM_ID
+    );
+
+    let catalog = shipped_catalog();
+    let mut assets = shipped_assets();
+    let materials = logical_materials(&level);
+    let (mesh, batches, _lighting) = build_level_geometry_with_assets_and_lighting_and_materials(
+        &level,
+        &catalog,
+        &mut assets,
+        &materials,
+    );
+    assert_eq!(
+        mesh.batches.prop_batch.count, 0,
+        "the machine must draw real prop geometry, never a placeholder box"
+    );
+    let machine = catalog
+        .get(crate::render::DEMO_MACHINE_ID)
+        .model
+        .expect("the machine ships a model");
+    assert!(
+        batches.iter().any(|batch| batch.model == machine),
+        "the static machine must be instanced into a static prop batch"
+    );
 }

@@ -239,6 +239,13 @@
       "z": 0.6,
       "rotation_degrees": 270.0,
       "solid": true
+    },
+    {
+      "id": "washer_drum_1",
+      "model": "core:washer_drum",
+      "x": 6.57,
+      "z": 0.6,
+      "rotation_degrees": 270.0
     }
   ]
 }

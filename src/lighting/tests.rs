@@ -1410,6 +1410,73 @@ fn level_with_prop_light(prop_json: &str) -> LevelDef {
 }
 
 #[test]
+fn the_occlusion_fingerprint_tracks_the_solids_the_bake_uses() {
+    // The lightmap cache key folds this value in, so it must be deterministic
+    // for one level and must change whenever a solid the bake tests against
+    // changes: a moved prop, an added prop, a re-aimed wall.
+    let level = level_with_prop_light(r#"{ "model": "core:desk", "x": 6.0, "z": 6.0 }"#);
+    let first = LevelLighting::bake(&level);
+    let again = LevelLighting::bake(&level);
+    assert_eq!(first.occlusion_fingerprint(), again.occlusion_fingerprint());
+
+    // Moving the prop moves its derived occluders.
+    let mut moved = level.clone();
+    if let Some(prop) = moved.props.first_mut() {
+        prop.x += 1.0;
+    }
+    let moved = LevelLighting::bake(&moved);
+    assert_ne!(first.occlusion_fingerprint(), moved.occlusion_fingerprint());
+
+    // Removing it removes them.
+    let mut removed = level.clone();
+    removed.props.clear();
+    let removed = LevelLighting::bake(&removed);
+    assert_ne!(
+        first.occlusion_fingerprint(),
+        removed.occlusion_fingerprint()
+    );
+
+    // Turning it changes the oriented boxes' sin/cos, not just their centre.
+    // (The last use of `level`, so it can be consumed rather than cloned.)
+    let mut turned = level;
+    if let Some(prop) = turned.props.first_mut() {
+        prop.rotation_degrees += 45.0;
+    }
+    let turned = LevelLighting::bake(&turned);
+    assert_ne!(
+        first.occlusion_fingerprint(),
+        turned.occlusion_fingerprint()
+    );
+}
+
+/// The same level twice through the renderer's key path must produce one key,
+/// and a prop edit that changes occlusion must produce another.
+#[test]
+fn the_lightmap_content_key_covers_the_occluder_set() {
+    use crate::lighting::lightmap::{LightmapConfig, content_key_with_extra};
+    use crate::quality::QualityProfile;
+
+    let config = LightmapConfig::for_profile(QualityProfile::Full);
+    let level = level_with_prop_light(r#"{ "model": "core:desk", "x": 6.0, "z": 6.0 }"#);
+    let key_of = |level: &LevelDef| {
+        let lighting = LevelLighting::bake(level);
+        content_key_with_extra(
+            level,
+            &config,
+            QualityProfile::Full,
+            &lighting.occlusion_fingerprint().to_le_bytes(),
+        )
+    };
+    assert_eq!(key_of(&level), key_of(&level));
+
+    let mut moved = level.clone();
+    if let Some(prop) = moved.props.first_mut() {
+        prop.z += 0.75;
+    }
+    assert_ne!(key_of(&level), key_of(&moved));
+}
+
+#[test]
 fn a_prop_light_is_placed_by_the_props_own_transform() {
     // A prop at (6, 0, 6) turned a quarter turn and scaled 2x, with a rect
     // light offset one metre along its local +Z (which its yaw sends along +X).
@@ -1502,4 +1569,616 @@ fn malformed_prop_lights_are_rejected_or_skipped_without_panicking() {
     let baked = LevelLighting::bake(&hand_edited);
     assert_eq!(baked.lights().len(), 0);
     assert!(baked.sample(1.0, 0.5, 1.0).luminance().is_finite());
+}
+
+// ===========================================================================
+// Prop occlusion (batch 2)
+// ===========================================================================
+
+/// One rectangular room with the given `ceiling_lights` and `props` entries.
+fn prop_scene(width: f32, depth: f32, lights: &[String], props: &[String]) -> LevelDef {
+    let json = format!(
+        r#"{{
+            "format_version": 1,
+            "id": "prop_occlusion",
+            "name": "Prop Occlusion",
+            "spawn": {{ "x": 0.0, "z": 0.0 }},
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": {width}, "depth": {depth}, "height": 3.0 }}],
+            "ceiling_lights": [{}],
+            "props": [{}]
+        }}"#,
+        lights.join(","),
+        props.join(",")
+    );
+    LevelDef::from_json(&json).expect("prop scene parses")
+}
+
+/// One office-panel fixture entry.
+fn fixture_at(x: f32, z: f32, intensity: f32) -> String {
+    format!(
+        r#"{{ "fixture": "core:fluorescent_panel_01", "x": {x}, "z": {z}, "intensity": {intensity} }}"#
+    )
+}
+
+/// One placed prop entry with no lights.
+fn prop_at(model: &str, x: f32, z: f32) -> String {
+    format!(r#"{{ "model": "{model}", "x": {x}, "z": {z} }}"#)
+}
+
+/// Bakes a scene and returns it plus the sample grid the occlusion tests use.
+fn bake_scene(width: f32, depth: f32, lights: &[String], props: &[String]) -> LevelLighting {
+    LevelLighting::bake(&prop_scene(width, depth, lights, props))
+}
+
+#[test]
+fn lightmap_texels_match_the_vertex_path_exactly() {
+    // A wall plus two props make every query path interesting: pools, prop
+    // bodies and the wall solid all participate. The grid stays clear of the
+    // wall's own boxes, which is the one condition the fast path is defined
+    // for (a texel centre is generated on a surface, never inside a wall).
+    let json = format!(
+        r#"{{
+            "format_version": 1,
+            "id": "prop_occlusion",
+            "name": "Prop Occlusion",
+            "spawn": {{ "x": 0.0, "z": 0.0 }},
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 3.0 }}],
+            "walls": [{{ "x": 5.9, "z": 0.0, "width": 0.2, "depth": 12.0, "height": 3.0 }}],
+            "ceiling_lights": [{}, {}],
+            "props": [{}, {}]
+        }}"#,
+        fixture_at(3.0, 3.0, 0.5),
+        fixture_at(9.0, 5.0, 0.3),
+        prop_at("core:washing_machine", 3.0, 6.0),
+        prop_at("core:desk", 9.0, 9.0),
+    );
+    let level = LevelDef::from_json(&json).expect("scene parses");
+    let lighting = LevelLighting::bake(&level);
+    let mut checked = 0usize;
+    for ix in 0..13 {
+        let x = 0.25 + ix as f32 * 0.95;
+        if (x - 6.0).abs() < 0.5 {
+            continue;
+        }
+        for iz in 0..13 {
+            let z = 0.25 + iz as f32 * 0.95;
+            for y in [0.0_f32, 0.6, 1.5, 2.5] {
+                let fast = lighting.lightmap_texel(Some(0), x, y, z);
+                let slow = lighting.sample_in_room(0, x, y, z);
+                assert_eq!(fast, slow, "texel ({x}, {y}, {z})");
+                checked += 1;
+            }
+        }
+    }
+    assert!(checked > 500, "the grid must actually cover the room");
+}
+
+#[test]
+fn lightmap_texels_evaluate_point_rect_and_line_sources_like_the_vertex_path() {
+    let shapes = [
+        ("point", r#""shape": "point""#),
+        (
+            "rect",
+            r#""shape": "rect", "half_width": 0.4, "half_depth": 0.2"#,
+        ),
+        ("line", r#""shape": "line", "length": 2.0"#),
+    ];
+    for (label, shape) in shapes {
+        let prop = format!(
+            r#"{{ "model": "core:desk", "x": 6.0, "z": 6.0,
+                 "lights": [ {{ {shape}, "offset": [0.0, 1.0, 0.0], "intensity": 1.0,
+                                "color": [0.8, 0.4, 0.2], "range": 5.0 }} ] }}"#
+        );
+        let lighting = bake_scene(12.0, 12.0, &[], &[prop]);
+        assert_eq!(lighting.lights().len(), 1, "{label}: one prop light");
+        for x in [4.0_f32, 5.0, 6.0, 7.5] {
+            for y in [0.5_f32, 1.2, 2.0] {
+                for z in [4.5_f32, 6.0, 7.5] {
+                    assert_eq!(
+                        lighting.lightmap_texel(Some(0), x, y, z),
+                        lighting.sample_in_room(0, x, y, z),
+                        "{label} texel ({x}, {y}, {z})"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn lightmap_texels_respect_range_falloff_colour_and_enabled() {
+    let with_light = |light: &str| {
+        let prop = format!(
+            r#"{{ "model": "core:desk", "x": 6.0, "z": 6.0, "lights": [ {{ {light} }} ] }}"#
+        );
+        bake_scene(12.0, 12.0, &[], &[prop])
+    };
+    let base = r#""shape": "point", "offset": [0.0, 1.0, 0.0], "intensity": 1.0"#;
+    let smooth = with_light(&format!(r#"{base}, "range": 4.0"#));
+    let constant = with_light(&format!(r#"{base}, "range": 4.0, "falloff": "constant""#));
+    let short = with_light(&format!(r#"{base}, "range": 1.5"#));
+    let off = with_light(&format!(r#"{base}, "enabled": false"#));
+    let none = bake_scene(12.0, 12.0, &[], &[prop_at("core:desk", 6.0, 6.0)]);
+
+    // The pool honours the range: a shorter range ends earlier and is never
+    // brighter inside its own reach.
+    let near = (6.0_f32, 1.0, 5.0);
+    assert!(smooth.lightmap_texel(Some(0), near.0, near.1, near.2).r > 0.0);
+    assert!(
+        short.lightmap_texel(Some(0), 6.0, 0.0, 3.5).r
+            < smooth.lightmap_texel(Some(0), 6.0, 0.0, 3.5).r
+    );
+    // A constant falloff holds its strength where the smooth curve has decayed.
+    assert!(
+        constant.lightmap_texel(Some(0), 6.0, 0.0, 3.5).r
+            > smooth.lightmap_texel(Some(0), 6.0, 0.0, 3.5).r
+    );
+    // Colour is carried per channel, not as a luminance wash: a green-only
+    // light leaves red and blue on the ambient floor.
+    let coloured = with_light(&format!(r#"{base}, "color": [0.0, 1.0, 0.0]"#));
+    let sample = coloured.lightmap_texel(Some(0), 6.0, 1.0, 5.0);
+    assert!(sample.g > sample.r);
+    assert_eq!(sample.r, AMBIENT_LEVEL);
+    assert_eq!(sample.b, AMBIENT_LEVEL);
+
+    // `enabled: false` is not a dim light: it is exactly the unlit scene.
+    for point in [(6.0_f32, 1.0, 5.0), (7.0, 0.0, 6.0), (4.0, 2.0, 4.0)] {
+        assert_eq!(
+            off.lightmap_texel(Some(0), point.0, point.1, point.2),
+            none.lightmap_texel(Some(0), point.0, point.1, point.2)
+        );
+    }
+    assert_eq!(off.rooms()[0].baseline, none.rooms()[0].baseline);
+}
+
+#[test]
+fn a_static_prop_blocks_light_and_leaves_the_covered_side_darker() {
+    // A tall vending machine between the fixture and the floor sample: the
+    // sample is inside the pool's range but on the far side of the body.
+    let with_prop = bake_scene(
+        14.0,
+        10.0,
+        &[fixture_at(4.0, 5.0, 0.6)],
+        &[prop_at("core:vending_machine", 7.0, 5.0)],
+    );
+    let without = bake_scene(14.0, 10.0, &[fixture_at(4.0, 5.0, 0.6)], &[]);
+    let blocked = with_prop.sample_in_room(0, 8.0, 0.0, 5.0).luminance();
+    let open = without.sample_in_room(0, 8.0, 0.0, 5.0).luminance();
+    assert!(
+        open > blocked,
+        "the vending machine must shadow the sample: {open} vs {blocked}"
+    );
+    assert!(
+        open > without.rooms()[0].baseline.luminance() + 1e-4,
+        "without the prop the pool must actually reach the sample: {open}"
+    );
+}
+
+#[test]
+fn a_floor_texel_under_a_prop_is_darker_than_open_floor_beside_it() {
+    // The fixture sits directly between the two samples, one metre either way:
+    // the under-prop texel is blocked by the machine body, the open texel is
+    // at exactly the same distance from the fixture.
+    let lighting = bake_scene(
+        12.0,
+        12.0,
+        &[fixture_at(5.5, 5.0, 0.6)],
+        &[prop_at("core:washing_machine", 4.5, 5.0)],
+    );
+    let without = bake_scene(12.0, 12.0, &[fixture_at(5.5, 5.0, 0.6)], &[]);
+    let under = lighting.sample_in_room(0, 4.5, 0.0, 5.0);
+    let open = lighting.sample_in_room(0, 6.5, 0.0, 5.0);
+    let open_without = without.sample_in_room(0, 6.5, 0.0, 5.0);
+    assert!(
+        under.luminance() < open.luminance(),
+        "contact darkening must shade the prop's own footprint: {} vs {}",
+        under.luminance(),
+        open.luminance()
+    );
+    assert!(
+        (open.luminance() - open_without.luminance()).abs() < 1e-6,
+        "the open side is not shadowed by the prop"
+    );
+}
+
+#[test]
+fn a_rotated_prop_occludes_its_rotated_footprint_not_its_bounding_box() {
+    // The desk is 1.6 x 0.7 m. At 90 degrees its footprint is 0.7 x 1.6, so
+    // the sample at x = 5.65 is under the upright desk top but clear of the
+    // rotated one. Using the axis-aligned bounds of the rotation would block
+    // both.
+    let upright = bake_scene(
+        12.0,
+        12.0,
+        &[fixture_at(5.65, 5.0, 0.6)],
+        &[prop_at("core:desk", 5.0, 5.0)],
+    );
+    let rotated = bake_scene(
+        12.0,
+        12.0,
+        &[fixture_at(5.65, 5.0, 0.6)],
+        &[r#"{ "model": "core:desk", "x": 5.0, "z": 5.0, "rotation_degrees": 90.0 }"#.to_string()],
+    );
+    let blocked = upright.sample_in_room(0, 5.65, 0.0, 5.0);
+    let lit = rotated.sample_in_room(0, 5.65, 0.0, 5.0);
+    assert!(
+        lit.luminance() > blocked.luminance(),
+        "the rotated footprint must clear the sample: {} vs {}",
+        lit.luminance(),
+        blocked.luminance()
+    );
+    assert!(
+        (blocked.luminance() - upright.rooms()[0].baseline.luminance()).abs() < 1e-6,
+        "the upright desk top blocks the pool completely: {blocked:?}"
+    );
+}
+
+#[test]
+fn a_scaled_prop_occludes_proportionally() {
+    // Scale 2 grows the 1.6 m desk to 3.2 m: x = 6.4 is under the scaled top
+    // and outside the unscaled one, with the fixture directly above.
+    let plain = bake_scene(
+        14.0,
+        12.0,
+        &[fixture_at(6.4, 5.0, 0.6)],
+        &[prop_at("core:desk", 5.0, 5.0)],
+    );
+    let scaled = bake_scene(
+        14.0,
+        12.0,
+        &[fixture_at(6.4, 5.0, 0.6)],
+        &[r#"{ "model": "core:desk", "x": 5.0, "z": 5.0, "scale": 2.0 }"#.to_string()],
+    );
+    let clear = plain.sample_in_room(0, 6.4, 0.0, 5.0);
+    let blocked = scaled.sample_in_room(0, 6.4, 0.0, 5.0);
+    assert!(
+        clear.luminance() > blocked.luminance(),
+        "the scaled desk must reach x = 6.4: {} vs {}",
+        clear.luminance(),
+        blocked.luminance()
+    );
+}
+
+#[test]
+fn multiple_props_stack_their_shadows() {
+    // Two fixtures light the sample from opposite sides; one vending machine
+    // blocks each fixture's line. Removing a machine lets that side's pool
+    // through, so brightness falls in the order none > one > both.
+    let lights = [fixture_at(1.5, 6.0, 0.6), fixture_at(10.5, 6.0, 0.6)];
+    let both = bake_scene(
+        12.0,
+        12.0,
+        &lights,
+        &[
+            prop_at("core:vending_machine", 4.0, 6.0),
+            prop_at("core:vending_machine", 8.0, 6.0),
+        ],
+    );
+    let one = bake_scene(
+        12.0,
+        12.0,
+        &lights,
+        &[prop_at("core:vending_machine", 4.0, 6.0)],
+    );
+    let none = bake_scene(12.0, 12.0, &lights, &[]);
+    let sample = |lighting: &LevelLighting| lighting.sample_in_room(0, 6.0, 0.0, 6.0).luminance();
+    assert!(
+        sample(&none) > sample(&one),
+        "removing one prop must let one pool through: {} vs {}",
+        sample(&none),
+        sample(&one)
+    );
+    assert!(
+        sample(&one) > sample(&both),
+        "with both props neither pool reaches the sample: {} vs {}",
+        sample(&one),
+        sample(&both)
+    );
+}
+
+#[test]
+fn a_prop_over_a_raised_floor_region_occludes_from_its_own_base() {
+    let json = format!(
+        r#"{{
+            "format_version": 1,
+            "id": "raised_prop",
+            "name": "Raised Prop",
+            "spawn": {{ "x": 0.0, "z": 0.0 }},
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 3.0 }}],
+            "floor_regions": [
+                {{ "x": 2.0, "z": 2.0, "width": 8.0, "depth": 8.0, "offset_y": 0.8 }}
+            ],
+            "ceiling_lights": [{}],
+            "props": [{}]
+        }}"#,
+        fixture_at(6.0, 6.0, 0.6),
+        prop_at("core:washing_machine", 6.0, 6.0),
+    );
+    let with_prop = LevelLighting::bake(&LevelDef::from_json(&json).expect("scene parses"));
+    let json_without = format!(
+        r#"{{
+            "format_version": 1,
+            "id": "raised_prop",
+            "name": "Raised Prop",
+            "spawn": {{ "x": 0.0, "z": 0.0 }},
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 3.0 }}],
+            "floor_regions": [
+                {{ "x": 2.0, "z": 2.0, "width": 8.0, "depth": 8.0, "offset_y": 0.8 }}
+            ],
+            "ceiling_lights": [{}]
+        }}"#,
+        fixture_at(6.0, 6.0, 0.6),
+    );
+    let without = LevelLighting::bake(&LevelDef::from_json(&json_without).expect("scene parses"));
+
+    // The prop stands on the platform (base 0.8): a platform sample under its
+    // footprint is shaded, while the low floor outside the region is not
+    // touched at all.
+    let on_platform = with_prop.sample_in_room(0, 6.0, 0.8, 6.0);
+    let platform_open = without.sample_in_room(0, 6.0, 0.8, 6.0);
+    let low_with = with_prop.sample_in_room(0, 1.5, 0.0, 6.0);
+    let low_without = without.sample_in_room(0, 1.5, 0.0, 6.0);
+    assert!(
+        on_platform.luminance() < platform_open.luminance(),
+        "the prop must darken the platform it stands on: {} vs {}",
+        on_platform.luminance(),
+        platform_open.luminance()
+    );
+    assert!(
+        (low_with.luminance() - low_without.luminance()).abs() < 1e-6,
+        "the raised prop must not shadow the low floor: {} vs {}",
+        low_with.luminance(),
+        low_without.luminance()
+    );
+}
+
+#[test]
+fn a_prop_against_a_wall_still_occludes() {
+    let json = format!(
+        r#"{{
+            "format_version": 1,
+            "id": "prop_wall",
+            "name": "Prop Wall",
+            "spawn": {{ "x": 0.0, "z": 0.0 }},
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 3.0 }}],
+            "walls": [{{ "x": 10.0, "z": 0.0, "width": 0.4, "depth": 12.0, "height": 3.0 }}],
+            "ceiling_lights": [{}],
+            "props": [{}]
+        }}"#,
+        fixture_at(1.5, 9.7, 0.6),
+        prop_at("core:vending_machine", 4.0, 9.7),
+    );
+    let with_prop = LevelLighting::bake(&LevelDef::from_json(&json).expect("scene parses"));
+    let json_without = format!(
+        r#"{{
+            "format_version": 1,
+            "id": "prop_wall",
+            "name": "Prop Wall",
+            "spawn": {{ "x": 0.0, "z": 0.0 }},
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 3.0 }}],
+            "walls": [{{ "x": 10.0, "z": 0.0, "width": 0.4, "depth": 12.0, "height": 3.0 }}],
+            "ceiling_lights": [{}]
+        }}"#,
+        fixture_at(1.5, 9.7, 0.6),
+    );
+    let without = LevelLighting::bake(&LevelDef::from_json(&json_without).expect("scene parses"));
+
+    // The machine stands just off the wall the light grazes along; it still
+    // shadows the floor beyond it.
+    let blocked = with_prop.sample_in_room(0, 5.5, 0.0, 9.7).luminance();
+    let open = without.sample_in_room(0, 5.5, 0.0, 9.7).luminance();
+    assert!(
+        open > blocked,
+        "the wall-side prop must still block: {open} vs {blocked}"
+    );
+}
+
+#[test]
+fn a_props_own_light_lights_around_its_body() {
+    // A vending machine with a front-mounted rect light: the floor in front of
+    // the panel is lit by the prop's own pool, while the machine body blocks
+    // the same pool from reaching the floor behind it.
+    let lighting = bake_scene(
+        12.0,
+        12.0,
+        &[],
+        &[r#"{ "model": "core:vending_machine", "x": 5.0, "z": 5.0,
+                "lights": [ { "shape": "rect", "half_width": 0.4, "half_depth": 0.05,
+                               "offset": [0.0, 1.2, 0.5], "intensity": 1.0, "range": 5.0,
+                               "color": [0.6, 0.8, 1.0] } ] }"#
+            .to_string()],
+    );
+    assert_eq!(lighting.lights().len(), 1, "one prop light bakes");
+    let front = lighting.sample_in_room(0, 5.0, 0.6, 7.0);
+    let back = lighting.sample_in_room(0, 5.0, 0.6, 3.0);
+    assert!(
+        front.luminance() > back.luminance(),
+        "the prop body must block its own light behind it: {} vs {}",
+        front.luminance(),
+        back.luminance()
+    );
+    assert!(
+        front.luminance() > lighting.rooms()[0].baseline.luminance() + 1e-4,
+        "the pool must reach the floor in front of the panel"
+    );
+}
+
+#[test]
+fn prop_emission_is_never_illumination() {
+    // The vending machine's GLB carries a bright emissive panel. With no
+    // author lights it must contribute exactly nothing: the room baseline is
+    // the ambient floor and every sample equals the same scene without props.
+    let with_prop = bake_scene(
+        12.0,
+        12.0,
+        &[],
+        &[prop_at("core:vending_machine", 5.0, 5.0)],
+    );
+    let without = bake_scene(12.0, 12.0, &[], &[]);
+    assert!(with_prop.lights().is_empty(), "emission is not a light");
+    assert_eq!(with_prop.rooms()[0].baseline, ambient_color());
+    for point in [(5.0_f32, 1.0, 5.5), (4.0, 0.0, 4.0), (6.0, 2.0, 6.0)] {
+        assert_eq!(
+            with_prop.lightmap_texel(Some(0), point.0, point.1, point.2),
+            without.lightmap_texel(Some(0), point.0, point.1, point.2)
+        );
+    }
+
+    // A bright emissive panel with `enabled: false` casts nothing either;
+    // the authored weak light is the only illumination the scene gains.
+    let off = bake_scene(
+        12.0,
+        12.0,
+        &[],
+        &[r#"{ "model": "core:vending_machine", "x": 5.0, "z": 5.0,
+                "lights": [ { "shape": "rect", "half_width": 0.4, "half_depth": 0.05,
+                               "offset": [0.0, 1.2, 0.5], "intensity": 1.0,
+                               "enabled": false } ] }"#
+            .to_string()],
+    );
+    assert_eq!(off.rooms()[0].baseline, ambient_color());
+    assert_eq!(
+        off.sample_in_room(0, 5.0, 0.6, 7.0),
+        without.sample_in_room(0, 5.0, 0.6, 7.0)
+    );
+    assert_eq!(off.lights().len(), 1);
+    assert!(!off.lights()[0].enabled());
+    let none = bake_scene(
+        12.0,
+        12.0,
+        &[],
+        &[prop_at("core:vending_machine", 5.0, 5.0)],
+    );
+
+    // A weak prop light must cast exactly the power it authors: the same
+    // intensity and colour on a ceiling fixture produces the same baseline.
+    let weak_prop = bake_scene(
+        12.0,
+        12.0,
+        &[],
+        &[r#"{ "model": "core:vending_machine", "x": 5.0, "z": 5.0,
+                "lights": [ { "shape": "point", "offset": [0.0, 1.2, 0.0],
+                               "intensity": 0.2, "color": [1.0, 0.0, 0.0] } ] }"#
+            .to_string()],
+    );
+    let weak_fixture = bake_scene(
+        12.0,
+        12.0,
+        &[r#"{ "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 5.0, "intensity": 0.2, "color": [1.0, 0.0, 0.0] }"#.to_string()],
+        &[],
+    );
+    assert_eq!(
+        weak_prop.rooms()[0].baseline,
+        weak_fixture.rooms()[0].baseline
+    );
+    assert_eq!(
+        weak_prop.rooms()[0].effective_power,
+        weak_fixture.rooms()[0].effective_power
+    );
+    assert!(weak_prop.rooms()[0].baseline.r > none.rooms()[0].baseline.r);
+}
+
+#[test]
+fn prop_occluders_do_not_split_a_room_into_baseline_zones() {
+    // Occlusion must not answer the partition query: a couch in the middle of
+    // a room is furniture, not a wall, so the room keeps one baseline.
+    let lighting = bake_scene(
+        10.0,
+        10.0,
+        &[fixture_at(2.5, 5.0, 0.5), fixture_at(7.5, 5.0, 0.5)],
+        &[prop_at("core:couch", 5.0, 5.0)],
+    );
+    assert_eq!(lighting.zone_count(), 1);
+    assert!(!lighting.is_partitioned(0));
+    assert!(
+        lighting.summary().props > 0,
+        "the couch must contribute occluders"
+    );
+}
+
+#[test]
+fn prop_occluders_do_not_create_a_dark_hole_outside_their_footprint() {
+    // Fixture directly above x = 5.5; the machine footprint ends at x = 4.8.
+    // A floor point just outside it is not merely "less dark" — it is exactly
+    // the unoccluded value.
+    let with_prop = bake_scene(
+        12.0,
+        12.0,
+        &[fixture_at(5.5, 5.0, 0.6)],
+        &[prop_at("core:washing_machine", 4.5, 5.0)],
+    );
+    let without = bake_scene(12.0, 12.0, &[fixture_at(5.5, 5.0, 0.6)], &[]);
+    let outside_with = with_prop.sample_in_room(0, 4.95, 0.0, 5.0);
+    let outside_without = without.sample_in_room(0, 4.95, 0.0, 5.0);
+    assert!(
+        (outside_with.luminance() - outside_without.luminance()).abs() < 1e-6,
+        "no shadow outside the footprint: {} vs {}",
+        outside_with.luminance(),
+        outside_without.luminance()
+    );
+    // And the sample under the footprint is still visibly darker, so the
+    // comparison above is not passing because nothing occludes at all.
+    let under = with_prop.sample_in_room(0, 4.5, 0.0, 5.0);
+    let under_without = without.sample_in_room(0, 4.5, 0.0, 5.0);
+    assert!(under.luminance() < under_without.luminance());
+}
+
+#[test]
+#[allow(clippy::print_stdout)] // developer measurement output, like the audit report
+fn the_shipped_levels_bake_bounded_prop_occlusion() {
+    for (path, label) in [
+        ("assets/levels/places_demo.json", "places_demo"),
+        ("tests/fixtures/levels/prop_stress.json", "prop_stress"),
+    ] {
+        let content = std::fs::read_to_string(path).expect("shipped level must be readable");
+        let level = LevelDef::from_json(&content).expect("shipped level parses");
+        let lighting = LevelLighting::bake(&level);
+        let props = lighting.summary().props;
+        assert!(
+            props <= super::tuning::MAX_PROP_OCCLUSION_BOXES_PER_LEVEL,
+            "{label}: {props} occluder boxes exceed the cap"
+        );
+        assert!(
+            props > 0 || level.props.is_empty(),
+            "{label}: a level with props must derive occluders"
+        );
+        for x in (0..14).map(|step| step as f32 * 2.5) {
+            for z in (0..14).map(|step| step as f32 * 2.5) {
+                let value = lighting.sample(x, 0.5, z);
+                assert!(
+                    value.is_finite(),
+                    "{label}: sample ({x}, 0.5, {z}) is not finite"
+                );
+            }
+        }
+        println!(
+            "[occlusion] {label}: {} placed prop(s), {} prop occluder box(es), {} fixture(s)",
+            level.props.len(),
+            props,
+            lighting.lights().len()
+        );
+        // A prop occluder set is derived from assets and level order, so two
+        // bakes of the same level must agree bit for bit.
+        let again = LevelLighting::bake(&level);
+        assert_eq!(again.summary(), lighting.summary(), "{label}: second bake");
+        for x in (0..14).map(|step| step as f32 * 2.5) {
+            for z in (0..14).map(|step| step as f32 * 2.5) {
+                assert_eq!(again.sample(x, 0.5, z), lighting.sample(x, 0.5, z));
+            }
+        }
+    }
+}
+
+#[test]
+fn lightmap_texel_with_no_room_resolves_by_containment() {
+    let lighting = bake_scene(8.0, 8.0, &[fixture_at(4.0, 4.0, 0.5)], &[]);
+    // Inside a room, the None hint must still resolve the room (via `sample`
+    // rather than `sample_in_room`), and outside every room it returns the
+    // local-light + ambient fill.
+    let inside = lighting.lightmap_texel(None, 4.0, 0.0, 4.0);
+    assert_eq!(inside, lighting.sample(4.0, 0.0, 4.0));
+    assert_eq!(inside, lighting.sample_in_room(0, 4.0, 0.0, 4.0));
+    let outside = lighting.lightmap_texel(None, 20.0, 0.0, 20.0);
+    assert_eq!(outside, lighting.sample(20.0, 0.0, 20.0));
+    assert!(outside.luminance() <= AMBIENT_LEVEL + f32::EPSILON);
 }

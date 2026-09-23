@@ -169,9 +169,13 @@ pub struct LightingSummary {
     pub lights: usize,
     /// Opaque boxes the bake tests light against: wall solids plus the
     /// horizontal floor/ceiling slabs. See [`Visibility::blocker_count`].
+    /// Static prop bodies are reported separately in [`Self::props`].
     pub blockers: usize,
     /// The wall-solid subset of [`Self::blockers`], for the developer log.
     pub walls: usize,
+    /// Static prop occlusion boxes derived from the placed models' triangles.
+    /// See [`Visibility::prop_blocker_count`].
+    pub props: usize,
     /// Connected baseline areas across every room. An unpartitioned room
     /// contributes one, so this equals `rooms` for a fully open level.
     pub zones: usize,
@@ -1572,6 +1576,18 @@ impl LevelLighting {
             .map_or(self.default_height_m, |info| info.height_m)
     }
 
+    /// True when `(x, z)` lies inside a static wall solid, ignoring height.
+    ///
+    /// The baked-lighting query behind [`Self::clear_sample`]. Surface emitters
+    /// ask it directly for lightmap texels: a wall-face texel nudged off its own
+    /// face can still land inside another wall at a junction (a cross wall, a
+    /// doorway jamb), and such a texel has to take the walked
+    /// [`Self::sample_in_room`] path instead of the fast texel path.
+    #[must_use]
+    pub fn wall_contains_point(&self, x: f32, z: f32) -> bool {
+        self.visibility.contains_point(x, z)
+    }
+
     /// Moves a room surface sample out of an opaque wall it lies inside.
     ///
     /// The walk runs straight toward the middle of the room in fixed steps and
@@ -1673,7 +1689,44 @@ impl LevelLighting {
             return ambient_color();
         }
         let (x, z) = self.clear_sample(room, x, z);
+        self.illumination_in_room(room, x, y, z)
+    }
 
+    /// Baked illumination for a lightmap texel: [`Self::sample_in_room`]
+    /// without the wall-clearing walk.
+    ///
+    /// A texel centre is generated on a surface plane, not walked to from a
+    /// mesh vertex, so the common case has no wall to leave. Dropping the walk
+    /// removes one grid lookup and the bounded step loop from every texel of a
+    /// lightmap page; for a point that is not inside a wall the two functions
+    /// return **exactly** the same value (the walk is the identity there),
+    /// which a test pins over a sample grid.
+    ///
+    /// The caller must rule out a buried point itself. A wall-face texel can
+    /// still sit inside a crossing wall at a junction; `lightmap::fill` checks
+    /// [`Self::wall_contains_point`] and falls back to [`Self::sample_in_room`]
+    /// for exactly those texels.
+    ///
+    /// `room` is the patch's room hint. `None` — a patch outside every room —
+    /// resolves the room by containment, exactly like [`Self::sample`].
+    #[must_use]
+    pub fn lightmap_texel(&self, room: Option<usize>, x: f32, y: f32, z: f32) -> LightColor {
+        match room {
+            Some(room) if self.rooms.get(room).is_some() => {
+                if !x.is_finite() || !y.is_finite() || !z.is_finite() {
+                    return ambient_color();
+                }
+                self.illumination_in_room(room, x, y, z)
+            }
+            _ => self.sample(x, y, z),
+        }
+    }
+
+    /// The illumination sum of one room at an already-resolved world point.
+    ///
+    /// Shared by [`Self::sample_in_room`] (after its walk) and
+    /// [`Self::lightmap_texel`] (which skips it), so the two can never drift.
+    fn illumination_in_room(&self, room: usize, x: f32, y: f32, z: f32) -> LightColor {
         let Some(candidates) = self.room_lights.get(room) else {
             return ambient_color();
         };
@@ -1891,6 +1944,19 @@ impl LevelLighting {
         gap_x.mul_add(gap_x, gap_z * gap_z) < range * range
     }
 
+    /// Fingerprint of the whole solid set the bake tests light against.
+    ///
+    /// Wall solids, floor interfaces, ceiling bodies and the derived static
+    /// prop occluders, in their deterministic build order. A lightmap is a pure
+    /// function of the level definition, the lightmap config *and* this set, so
+    /// the lightmap cache key folds it in: editing a prop model that changes its
+    /// occlusion produces a different fingerprint and a different key, while a
+    /// texture-only edit correctly keeps the cached atlas valid.
+    #[must_use]
+    pub fn occlusion_fingerprint(&self) -> u64 {
+        self.visibility.occluder_fingerprint()
+    }
+
     /// Aggregate statistics for developer logging. Baselines are reported as
     /// luminance so one number can describe a coloured room.
     #[must_use]
@@ -1901,6 +1967,7 @@ impl LevelLighting {
                 lights: self.lights.len(),
                 blockers: self.visibility.blocker_count(),
                 walls: self.visibility.wall_blocker_count(),
+                props: self.visibility.prop_blocker_count(),
                 zones: self.zone_count(),
                 min_baseline: 0.0,
                 max_baseline: 0.0,
@@ -1923,6 +1990,7 @@ impl LevelLighting {
             lights: self.lights.len(),
             blockers: self.visibility.blocker_count(),
             walls: self.visibility.wall_blocker_count(),
+            props: self.visibility.prop_blocker_count(),
             zones: self.zone_count(),
             min_baseline: min,
             max_baseline: max,

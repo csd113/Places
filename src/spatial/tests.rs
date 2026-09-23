@@ -206,7 +206,7 @@ fn quad(x0: f32, z0: f32, size: f32) -> Vec<crate::render::Vertex> {
         pos: [x, 0.0, z],
         color: [1.0, 1.0, 1.0, 1.0],
         uv: [x, z],
-    ..crate::render::Vertex::UNLIT
+        ..crate::render::Vertex::UNLIT
     };
     let (x1, z1) = (x0 + size, z0 + size);
     vec![
@@ -376,7 +376,7 @@ fn indexing_never_merges_vertices_that_differ_in_baked_lighting() {
                 pos: [x, 0.0, z],
                 color: [light, light, light, 1.0],
                 uv: [x, z],
-            ..crate::render::Vertex::UNLIT
+                ..crate::render::Vertex::UNLIT
             });
         }
     };
@@ -526,7 +526,7 @@ fn a_trailing_partial_quad_is_kept_rather_than_dropped() {
         pos: [0.0, 0.0, 0.0],
         color: [1.0, 1.0, 1.0, 1.0],
         uv: [0.0, 0.0],
-    ..crate::render::Vertex::UNLIT
+        ..crate::render::Vertex::UNLIT
     };
     let mut buckets = SpatialBuckets::<()>::new(12.0);
     buckets.add_quads((), &[one; 3]);
@@ -551,7 +551,7 @@ fn cell_order_is_sorted_rather_than_insertion_order() {
         pos: [x, 0.0, 0.0],
         color: [1.0, 1.0, 1.0, 1.0],
         uv: [0.0, 0.0],
-    ..crate::render::Vertex::UNLIT
+        ..crate::render::Vertex::UNLIT
     };
     let flat_quad = |x: f32| vec![vertex(x); 6];
 

@@ -6,13 +6,16 @@
 //! lighting or builds geometry; it uploads and draws what those phases already
 //! produced.
 
-use super::api::{build_level_geometry_timed, shipped_asset_catalog};
+use super::api::{
+    LevelBuild, LightmapBuildOptions, build_level_geometry_timed_with_lightmaps,
+    shipped_asset_catalog,
+};
 use super::decals::{DECAL_ATLAS_SIZE, generate_decal_atlas};
 use super::view::dimension_f32;
 use super::{
     BatchRange, DECAL_ALPHA_CUTOFF, DECAL_EXTERNAL_BASE, DECAL_FRAGMENT_SHADER_SRC,
     DECAL_POLYGON_OFFSET, DrawableSize, EMISSION_MASK_TEXTURE_UNIT, FRAGMENT_SHADER_SRC,
-    HasContext, LevelMesh, LIGHTMAP_PAGE_SLOTS, LIGHTMAP_TEXTURE_UNIT, LIGHTMAP_TEXTURE_UNIT_1,
+    HasContext, LIGHTMAP_PAGE_SLOTS, LIGHTMAP_TEXTURE_UNIT, LIGHTMAP_TEXTURE_UNIT_1, LevelMesh,
     MaterialIndex, MaterialTable, MeshChunk, MeshPacker, PackedVertex, PropMeshBatch,
     SCENE_ATTRIB_COLOR, SCENE_ATTRIB_LIGHTMAP_PAGE, SCENE_ATTRIB_LIGHTMAP_UV, SCENE_ATTRIB_POS,
     SCENE_ATTRIB_UV, SCENE_FAR_M, SCENE_NEAR_M, SCENE_TEXTURE_UNIT, StaticBatch, SurfaceKey,
@@ -20,7 +23,14 @@ use super::{
     decal_external_sheet_ids, generate_font_atlas, generate_white_texture, packed_layout,
     spatial_cell_grid, vertical_fov_for_aspect,
 };
+use crate::lighting::LevelLighting;
+use crate::lighting::lightmap::{
+    LevelLightmaps, LightmapCache, LightmapFailure, LightmapMode, LightmapPage,
+};
+use crate::materials::MaterialEmission;
 use crate::spatial::Frustum;
+
+use super::dynamic::{DynamicMesh, DynamicScene, DynamicUpdate};
 
 /// Applies min/mag filtering for a repeating, mipmapped texture.
 ///
@@ -31,6 +41,32 @@ unsafe fn set_repeat_filter(gl: &glow::Context, linear: bool) {
         (glow::LINEAR_MIPMAP_LINEAR, glow::LINEAR)
     } else {
         (glow::NEAREST_MIPMAP_NEAREST, glow::NEAREST)
+    };
+    unsafe {
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_MIN_FILTER,
+            min_filter.cast_signed(),
+        );
+        gl.tex_parameter_i32(
+            glow::TEXTURE_2D,
+            glow::TEXTURE_MAG_FILTER,
+            mag_filter.cast_signed(),
+        );
+    }
+}
+
+/// Applies min/mag filtering to a lightmap page.
+///
+/// Lightmaps deliberately have no mip chain: the atlas is a collection of
+/// unrelated charts, and any mip level below the top would average across chart
+/// boundaries (and gutters), bleeding one surface's light into another. `LINEAR`
+/// or `NEAREST`, matching the game's filtering setting, is the whole policy.
+unsafe fn set_lightmap_filter(gl: &glow::Context, linear: bool) {
+    let (min_filter, mag_filter) = if linear {
+        (glow::LINEAR, glow::LINEAR)
+    } else {
+        (glow::NEAREST, glow::NEAREST)
     };
     unsafe {
         gl.tex_parameter_i32(
@@ -256,6 +292,21 @@ pub struct LevelBuildStats {
     pub surfaces_millis: f64,
     /// Summary of the baked static lighting.
     pub lighting: crate::lighting::LightingSummary,
+    /// Lightmap atlas pages resident on the GPU.
+    pub lightmap_pages: usize,
+    /// Page texels uploaded, including gutters and unused page space.
+    pub lightmap_texels: usize,
+    /// Charts the lightmap bake filled.
+    pub lightmap_charts: usize,
+    /// Chart data texels the fill pass wrote, i.e. the light samples this level
+    /// actually evaluated. Smaller than [`Self::lightmap_texels`], which counts
+    /// whole pages including gutters and unused space.
+    pub lightmap_chart_texels: usize,
+    /// Time spent filling and packing the lightmap atlas, in ms.
+    pub lightmap_millis: f64,
+    /// True when a lightmap build failed and the level fell back to vertex
+    /// lighting; the reason is on the level build, not in this counter.
+    pub lightmap_fallback: bool,
 }
 
 /// Geometry counters for the frame that was most recently submitted.
@@ -277,6 +328,11 @@ pub struct RenderStats {
     pub visible_batches: usize,
     /// `glDrawArrays`/`glDrawElements` calls issued for the scene.
     pub draw_calls: usize,
+    /// Draw calls the dynamic-object path submitted this frame: one per object
+    /// per material, never one per vertex.
+    pub dynamic_draws: usize,
+    /// Distinct vertices the dynamic objects hold this frame.
+    pub dynamic_vertices: usize,
     /// Bytes resident in static vertex buffers (level + props).
     pub vbo_bytes: usize,
     /// Bytes resident in element (index) buffers.
@@ -365,6 +421,15 @@ impl StartupResources {
             gl.clear_color(0.08, 0.08, 0.09, 1.0);
 
             let program = create_program(gl, VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC)?;
+            // `glUniform*` writes the uniform of the program *currently in use*,
+            // so bind it before the one-time sampler-unit and `u_light_scale`
+            // uploads below. Without this they are no-ops (`GL_INVALID_OPERATION`
+            // with no program bound) and the uniforms keep their default value:
+            // `u_light_scale` would be `(0, 0, 0)`, which blacks out every
+            // surface that is not drawing through the per-vertex emission path,
+            // and `u_lightmap0/1` would both read texture unit 0 instead of the
+            // atlas units.
+            gl.use_program(Some(program));
             let a_pos_loc = gl
                 .get_attrib_location(program, "a_pos")
                 .ok_or_else(|| "Missing a_pos attribute".to_string())?;
@@ -473,6 +538,11 @@ impl StartupResources {
 }
 
 /// Manages OpenGL ES 2.0-compatible accelerated rendering context, textures, and scene/UI drawing.
+// The flags are independent GL/runtime state — culling, indexing, three
+// lightmap switches and the filtering mode — not a state machine with one
+// active variant: a level can be culled, indexed and lightmapped at once, and
+// the benchmark toggles each one alone.
+#[allow(clippy::struct_excessive_bools)]
 pub struct Renderer {
     _gl_context: sdl2::video::GLContext,
     gl: glow::Context,
@@ -505,6 +575,21 @@ pub struct Renderer {
     prop_assets: crate::props::PropAssets,
     /// Per-model prop draw ranges for the current level.
     prop_draws: Vec<PropDraw>,
+    /// CPU-side dynamic objects for the current level. Empty until the game
+    /// spawns some (`set_dynamic_demo`); never part of the static bake, the
+    /// static batches or the lightmap occlusion set. See [`super::dynamic`].
+    dynamic: DynamicScene,
+    /// GPU state for the dynamic scene's distinct meshes, keyed by model path:
+    /// one small vertex/index pair uploaded once in model space.
+    dynamic_meshes: std::collections::HashMap<String, DynamicMeshGpu>,
+    /// [`DynamicScene::revision`] the GPU meshes were uploaded from. The draw
+    /// path skips the scene while the two disagree, so a mesh is never drawn
+    /// from stale buffers.
+    dynamic_revision: u64,
+    /// Baked static lighting, kept for the dynamic light probes. The static
+    /// path needs it only while building, but a moving object samples it as it
+    /// moves, so the renderer keeps the (small) bake alongside the level.
+    dynamic_lighting: Option<LevelLighting>,
     /// Per-model prop GPU textures for the current level, indexed by model path
     /// and then by the model's own texture slot. Kept across level changes so a
     /// level switch never re-uploads a model that is already resident.
@@ -583,6 +668,18 @@ pub struct Renderer {
     /// benchmark harness can turn sampling off without dropping the atlas, which
     /// is what makes an A/B capture of the two lighting paths cheap.
     lightmaps_enabled: bool,
+    /// Whether the *next* level build should bake lightmaps. Set before
+    /// [`Self::set_level`]; a change takes effect on the next build, because a
+    /// lightmapped mesh's vertex colours deliberately omit the baked light and
+    /// cannot be re-interpreted as a vertex-lit level.
+    lightmaps_requested: bool,
+    /// GPU textures of the resident atlas pages, in page order, so they can be
+    /// deleted on the next level load and re-filtered when the user changes the
+    /// texture filtering setting.
+    lightmap_textures: Vec<glow::Texture>,
+    /// Bake cache for the current quality profile: an in-memory table plus the
+    /// project-owned on-disk store under `target/level-cache/lightmaps/`.
+    lightmap_cache: LightmapCache,
     a_pos_loc: u32,
     a_color_loc: u32,
     a_uv_loc: u32,
@@ -681,6 +778,10 @@ impl Renderer {
             prop_catalog,
             prop_assets: crate::props::PropAssets::load_default(),
             prop_draws: Vec::new(),
+            dynamic: DynamicScene::new(),
+            dynamic_meshes: std::collections::HashMap::new(),
+            dynamic_revision: 0,
+            dynamic_lighting: None,
             prop_textures: std::collections::HashMap::new(),
             surface_textures: std::collections::HashMap::new(),
             fixture_sheet_textures: std::collections::HashMap::new(),
@@ -699,6 +800,9 @@ impl Renderer {
             lightmap_pages: [white_texture; LIGHTMAP_PAGE_SLOTS],
             lightmaps_resident: false,
             lightmaps_enabled: false,
+            lightmaps_requested: true,
+            lightmap_textures: Vec::new(),
+            lightmap_cache: LightmapCache::with_disk(),
             light_scale: [1.0; 3],
             u_mvp_loc,
             u_texture_loc,
@@ -803,6 +907,11 @@ impl Renderer {
                     set_repeat_filter(&self.gl, linear);
                 }
             }
+            // Lightmap pages follow the same setting but keep mipmaps off.
+            for texture in &self.lightmap_textures {
+                self.gl.bind_texture(glow::TEXTURE_2D, Some(*texture));
+                set_lightmap_filter(&self.gl, linear);
+            }
             self.gl.bind_texture(glow::TEXTURE_2D, None);
         }
     }
@@ -870,6 +979,73 @@ impl Renderer {
         self.prop_assets.stats()
     }
 
+    /// Builds one level (geometry, props, lighting and lightmaps) and uploads
+    /// its atlas, falling back to an explicit vertex-lit rebuild when a page
+    /// cannot upload.
+    ///
+    /// This is the load-time half of [`Self::rebuild_level_geometry`], split out
+    /// so the lightmap state machine reads in one piece. The returned build's
+    /// mesh matches whatever atlas ended up resident: a lightmapped mesh if the
+    /// atlas uploaded, the historical vertex-lit mesh otherwise.
+    // A failed page upload is a chatty one-line diagnostic and this renderer has
+    // no logger (the game prints its own diagnostics directly), so the stderr
+    // report is the intended behaviour and stays scoped to this method.
+    #[allow(clippy::print_stderr)]
+    fn build_level_for_load(
+        &mut self,
+        level: &crate::level::LevelDef,
+        materials: &MaterialTable,
+    ) -> LevelBuild {
+        let options = LightmapBuildOptions::for_profile(
+            self.quality,
+            if self.lightmaps_requested {
+                LightmapMode::On
+            } else {
+                LightmapMode::Off
+            },
+        );
+        let mut build = build_level_geometry_timed_with_lightmaps(
+            level,
+            &self.prop_catalog,
+            &mut self.prop_assets,
+            materials,
+            options,
+            Some(&mut self.lightmap_cache),
+        );
+
+        // The atlas goes up before the geometry that samples it, and a page that
+        // cannot upload forces one explicit rebuild with `LightmapMode::Off`:
+        // a lightmapped mesh's vertex colours deliberately omit the baked light,
+        // so it must never be drawn without a resident atlas.
+        if options.mode == LightmapMode::On {
+            let upload = if let Some(lightmaps) = build.lightmaps.as_deref() {
+                self.upload_level_lightmaps(lightmaps)
+            } else {
+                self.clear_lightmap_pages();
+                Ok(())
+            };
+            if let Err(error) = upload {
+                eprintln!(
+                    "[lightmaps] {error}; rebuilding '{level_id}' with vertex lighting",
+                    level_id = level.id
+                );
+                self.clear_lightmap_pages();
+                build = build_level_geometry_timed_with_lightmaps(
+                    level,
+                    &self.prop_catalog,
+                    &mut self.prop_assets,
+                    materials,
+                    LightmapBuildOptions::for_profile(self.quality, LightmapMode::Off),
+                    None,
+                );
+                build.lightmap_failure = Some(LightmapFailure::Upload);
+            }
+        } else {
+            self.clear_lightmap_pages();
+        }
+        build
+    }
+
     /// Builds and uploads the level's static geometry plus every placed prop.
     ///
     /// Called once per level load (never per frame): each distinct prop model is
@@ -890,9 +1066,23 @@ impl Renderer {
         materials: &MaterialTable,
     ) {
         let started = std::time::Instant::now();
-        let (mesh, batches, lighting, timings) =
-            build_level_geometry_timed(level, &self.prop_catalog, &mut self.prop_assets, materials);
+        let build = self.build_level_for_load(level, materials);
+
+        let LevelBuild {
+            mesh,
+            batches,
+            lighting,
+            timings,
+            lightmaps,
+            lightmap_failure,
+            lightmap_millis,
+        } = build;
+        let lightmap_stats = lightmaps.as_deref().map(|lightmaps| lightmaps.stats);
         self.spatial_grid = spatial_cell_grid(level);
+        // Keep the bake for the dynamic-object light probes. The clone is once
+        // per level load, never per frame, and `LevelLighting` is a few bytes
+        // per room, fixture and blocker.
+        self.dynamic_lighting = Some(lighting.clone());
 
         let index_ranges = self.indexing_enabled;
         let (static_packer, static_batches) = pack_static_batches(&mesh, index_ranges);
@@ -941,6 +1131,12 @@ impl Renderer {
             props_millis: timings.props_millis,
             surfaces_millis: timings.surfaces_millis,
             lighting: lighting.summary(),
+            lightmap_pages: lightmap_stats.map_or(0, |stats| stats.pages),
+            lightmap_texels: lightmap_stats.map_or(0, |stats| stats.page_texels),
+            lightmap_charts: lightmap_stats.map_or(0, |stats| stats.charts),
+            lightmap_chart_texels: lightmap_stats.map_or(0, |stats| stats.texels),
+            lightmap_millis,
+            lightmap_fallback: lightmap_failure.is_some(),
         };
         self.prop_draws = draws;
     }
@@ -1385,27 +1581,29 @@ impl Renderer {
         }
         if let Some(ref loc) = self.u_lightmap_enabled_loc {
             unsafe {
-                self.gl.uniform_1_f32(
-                    Some(loc),
-                    if self.lightmaps_resident { 1.0 } else { 0.0 },
-                );
+                self.gl
+                    .uniform_1_f32(Some(loc), if self.lightmaps_resident { 1.0 } else { 0.0 });
             }
         }
         unsafe { self.gl.active_texture(glow::TEXTURE0) };
 
-        // Static level geometry, then the batched props, then the decal pass:
-        // one draw loop each, in the order their state depends on.
+        // Static level geometry, then the batched props, then the dynamic
+        // objects, then the decal pass: one draw loop each, in the order their
+        // state depends on. Dynamic objects are opaque and belong *before* the
+        // decal pass so their fragments are already in the depth buffer when a
+        // decal's alpha cut-out is tested against them, and so the pass that
+        // changes program and state stays last.
         let totals = self
             .draw_static_batches(&frustum, cull)
             .plus(self.draw_prop_batches(&frustum, cull))
+            .plus(self.draw_dynamic_objects(&frustum, cull, &mvp))
             .plus(self.draw_decal_batches(&frustum, cull, &mvp));
 
         unsafe {
             self.gl.disable_vertex_attrib_array(self.a_pos_loc);
             self.gl.disable_vertex_attrib_array(self.a_color_loc);
             self.gl.disable_vertex_attrib_array(self.a_uv_loc);
-            self.gl
-                .disable_vertex_attrib_array(self.a_lightmap_uv_loc);
+            self.gl.disable_vertex_attrib_array(self.a_lightmap_uv_loc);
             self.gl
                 .disable_vertex_attrib_array(self.a_lightmap_page_loc);
             self.gl.bind_texture(glow::TEXTURE_2D, None);
@@ -1415,10 +1613,13 @@ impl Renderer {
 
         // Report what this frame actually submitted, straight from the draw
         // path rather than reconstructed from the level.
+        let dynamic_draws = self.dynamic.draw_count();
+        let dynamic_vertices = self.dynamic.vertex_count();
         let total_vertices = self
             .level_stats
             .static_vertices
-            .saturating_add(self.level_stats.prop_vertices);
+            .saturating_add(self.level_stats.prop_vertices)
+            .saturating_add(dynamic_vertices);
         self.render_stats = RenderStats {
             total_vertices,
             visible_vertices: totals.vertices,
@@ -1426,9 +1627,12 @@ impl Renderer {
             total_batches: self
                 .static_batches
                 .len()
-                .saturating_add(self.prop_draws.len()),
+                .saturating_add(self.prop_draws.len())
+                .saturating_add(dynamic_draws),
             visible_batches: totals.batches,
             draw_calls: totals.calls,
+            dynamic_draws,
+            dynamic_vertices,
             vbo_bytes: self.level_stats.vbo_bytes,
             index_bytes: self.level_stats.index_bytes,
         };
@@ -1757,7 +1961,10 @@ impl Renderer {
     /// buffer.
     pub fn set_light_scale(&mut self, scale: [f32; 3]) {
         let scale = scale.map(|value| if value.is_finite() { value } else { 1.0 });
-        if self.light_scale == scale {
+        // Bit equality is the intended test: it is only here to skip an
+        // identical uniform upload, and `-0.0` vs `0.0` never matters to the
+        // shader.
+        if self.light_scale.map(f32::to_bits) == scale.map(f32::to_bits) {
             return;
         }
         self.light_scale = scale;
@@ -1769,11 +1976,33 @@ impl Renderer {
         }
     }
 
+    /// Requests lightmaps for the *next* level build.
+    ///
+    /// This is the settings switch (`lightmaps: true|false`,
+    /// `LIMINAL_NO_LIGHTMAPS=1`), applied by `set_level`/`rebuild_level_geometry`.
+    /// It cannot re-interpret an already loaded lightmapped mesh: a lightmapped
+    /// vertex's colour omits the baked light by design, so turning lightmaps off
+    /// takes effect as an explicit rebuild with [`LightmapMode::Off`], which is
+    /// the exact historical vertex-lit level.
+    pub fn set_lightmaps_requested(&mut self, requested: bool) {
+        self.lightmaps_requested = requested;
+        self.set_lightmaps_enabled(requested);
+    }
+
+    /// True when the next level build will bake lightmaps.
+    #[must_use]
+    pub const fn lightmaps_requested(&self) -> bool {
+        self.lightmaps_requested
+    }
+
     /// Turns lightmap sampling on or off without dropping the resident atlas.
     ///
     /// Enabling has no effect when no valid atlas is resident: a level whose bake
     /// failed must not render black surfaces, so the switch can only ever
-    /// *restore* the vertex-lit path.
+    /// *restore* the vertex-lit path. Turning sampling off on a lightmapped level
+    /// keeps that level's tint-only vertex colours, which is the benchmark A/B
+    /// ("what does the atlas contribute"), not the vertex-lit fallback; use
+    /// [`Self::set_lightmaps_requested`] plus a rebuild for that.
     pub fn set_lightmaps_enabled(&mut self, enabled: bool) {
         self.lightmaps_enabled = enabled && self.lightmaps_resident;
         self.upload_lightmap_switch();
@@ -1818,6 +2047,99 @@ impl Renderer {
         let page = texture.unwrap_or(self.white_texture);
         if let Some(current) = self.lightmap_pages.get_mut(slot) {
             *current = page;
+        }
+    }
+
+    /// Number of atlas pages currently resident on the GPU.
+    #[must_use]
+    pub const fn lightmap_page_count(&self) -> usize {
+        self.lightmap_textures.len()
+    }
+
+    /// Uploads a whole baked atlas: one RGB8 texture per page, clamped and
+    /// filter-configured, bound on units 2 and 3, then marked resident.
+    ///
+    /// On any failure every texture this call created is deleted and the units
+    /// are restored to the white sheet, so the caller can fall back to vertex
+    /// lighting without a half-bound atlas. Never called per frame.
+    fn upload_level_lightmaps(&mut self, lightmaps: &LevelLightmaps) -> Result<(), String> {
+        if lightmaps.pages.len() > LIGHTMAP_PAGE_SLOTS {
+            return Err(format!(
+                "{} atlas pages exceed the {LIGHTMAP_PAGE_SLOTS} bound units",
+                lightmaps.pages.len()
+            ));
+        }
+        self.clear_lightmap_pages();
+        let mut uploaded: Vec<glow::Texture> = Vec::with_capacity(lightmaps.pages.len());
+        for (slot, page) in lightmaps.pages.iter().enumerate() {
+            match unsafe { self.upload_lightmap_page(page) } {
+                Ok(texture) => {
+                    self.set_lightmap_page(slot, Some(texture));
+                    uploaded.push(texture);
+                }
+                Err(error) => {
+                    for texture in uploaded {
+                        unsafe { self.gl.delete_texture(texture) };
+                    }
+                    for slot in 0..LIGHTMAP_PAGE_SLOTS {
+                        self.set_lightmap_page(slot, None);
+                    }
+                    self.set_lightmaps_resident(false);
+                    return Err(error);
+                }
+            }
+        }
+        self.lightmap_textures = uploaded;
+        self.set_lightmaps_resident(!self.lightmap_textures.is_empty());
+        Ok(())
+    }
+
+    /// Deletes every resident atlas page and restores the white sheet.
+    fn clear_lightmap_pages(&mut self) {
+        for texture in self.lightmap_textures.drain(..) {
+            unsafe { self.gl.delete_texture(texture) };
+        }
+        for slot in 0..LIGHTMAP_PAGE_SLOTS {
+            self.set_lightmap_page(slot, None);
+        }
+        self.set_lightmaps_resident(false);
+    }
+
+    /// Uploads one atlas page as an RGB8 texture with clamped, mipmap-free
+    /// sampling.
+    ///
+    /// Lightmap UVs are authored to touch a chart's dilated gutter, never a
+    /// neighbouring chart, so `CLAMP_TO_EDGE` plus linear (or nearest) filtering
+    /// with no mip chain is the whole sampling policy: a mip level would blend
+    /// across chart boundaries far too early.
+    unsafe fn upload_lightmap_page(&self, page: &LightmapPage) -> Result<glow::Texture, String> {
+        unsafe {
+            let texture = self.gl.create_texture()?;
+            self.gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+            self.gl.tex_image_2d(
+                glow::TEXTURE_2D,
+                0,
+                glow::RGB8.cast_signed(),
+                i32::try_from(page.width).unwrap_or(i32::MAX),
+                i32::try_from(page.height).unwrap_or(i32::MAX),
+                0,
+                glow::RGB,
+                glow::UNSIGNED_BYTE,
+                glow::PixelUnpackData::Slice(Some(&page.rgb)),
+            );
+            self.gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_S,
+                glow::CLAMP_TO_EDGE.cast_signed(),
+            );
+            self.gl.tex_parameter_i32(
+                glow::TEXTURE_2D,
+                glow::TEXTURE_WRAP_T,
+                glow::CLAMP_TO_EDGE.cast_signed(),
+            );
+            set_lightmap_filter(&self.gl, self.linear_filtering);
+            self.gl.bind_texture(glow::TEXTURE_2D, None);
+            Ok(texture)
         }
     }
 
@@ -2057,6 +2379,357 @@ impl Renderer {
 
             self.gl.disable(glow::BLEND);
             self.gl.enable(glow::DEPTH_TEST);
+        }
+    }
+}
+
+/// GPU state for one distinct dynamic mesh: a small vertex/index pair plus its
+/// per-primitive draw state.
+///
+/// Uploaded once in **model space** per distinct dynamic model, exactly like a
+/// prop batch except that nothing is pre-transformed. Every object that uses
+/// the mesh draws it with its own composed `u_mvp`, so nothing here is touched
+/// when an object moves.
+struct DynamicMeshGpu {
+    vbo: glow::Buffer,
+    ibo: glow::Buffer,
+    submeshes: Vec<DynamicSubmeshGpu>,
+}
+
+/// One primitive's GPU draw state: the texture it binds and the emission it
+/// adds, resolved once at upload.
+struct DynamicSubmeshGpu {
+    texture: glow::Texture,
+    /// The model material's own emission, routed exactly like a static prop
+    /// primitive's. A per-object override replaces it at draw time.
+    emission: EmissionState,
+    first_index: i32,
+    index_count: i32,
+    /// Distinct vertices this primitive reads, for the frame counters.
+    vertex_count: i32,
+}
+
+/// The dynamic-object half of the renderer: spawn/update, one upload per
+/// distinct model, and one draw per object.
+///
+/// This is deliberately a separate `impl` block so the static pipeline above
+/// stays untouched: nothing here runs at level build time, and nothing in the
+/// static path knows this block exists. A dynamic object is transformed by
+/// `u_mvp` alone (the shared world program already multiplies `a_pos` by it),
+/// lit by the `u_light_scale` probe, and shaded through the same texture,
+/// emission and material routing the static props use.
+impl Renderer {
+    /// Number of draw calls the current dynamic scene needs (one per object per
+    /// primitive), exposed for the developer log and tests.
+    #[must_use]
+    pub fn dynamic_draw_count(&self) -> usize {
+        self.dynamic.draw_count()
+    }
+
+    /// Number of live dynamic objects.
+    #[must_use]
+    pub const fn dynamic_object_count(&self) -> usize {
+        self.dynamic.len()
+    }
+
+    /// The current dynamic scene, for the developer log and tests.
+    #[must_use]
+    pub const fn dynamic_scene(&self) -> &DynamicScene {
+        &self.dynamic
+    }
+
+    /// Replaces the dynamic scene with the Batch 2 demonstration for `level`.
+    ///
+    /// Called once per level load (never per frame). The scene is cleared, the
+    /// demonstration spawns a turning drum in front of every placed washing
+    /// machine, and the distinct meshes are uploaded once. Returns how many
+    /// objects were spawned.
+    pub fn set_dynamic_demo(&mut self, level: &crate::level::LevelDef) -> usize {
+        self.dynamic.clear_all();
+        let spawned =
+            self.dynamic
+                .spawn_washer_drum_demo(level, &self.prop_catalog, &mut self.prop_assets);
+        self.sync_dynamic_meshes();
+        spawned
+    }
+
+    /// Advances the dynamic objects by `delta_seconds`: spins, transform
+    /// updates and (only for objects that moved appreciably) light probes.
+    ///
+    /// Called once per frame. It never uploads geometry, never rebuilds the
+    /// level and never touches the lightmap baker; with an empty scene it is a
+    /// length check.
+    pub fn update_dynamic(&mut self, delta_seconds: f32) -> DynamicUpdate {
+        self.dynamic
+            .update(delta_seconds, self.dynamic_lighting.as_ref())
+    }
+
+    /// Uploads one GPU mesh per distinct dynamic model.
+    ///
+    /// Runs when the dynamic scene's mesh list changes (level load, first
+    /// spawn), never per frame. Textures go through the shared prop cache, so a
+    /// model that is also placed statically uploads once for both paths.
+    // A failed upload is a chatty one-line diagnostic and this renderer has no
+    // logger (the game prints its own diagnostics directly), so the stderr
+    // report is the intended behaviour and stays scoped to this method.
+    #[allow(clippy::print_stderr)]
+    fn sync_dynamic_meshes(&mut self) {
+        // Drop the previous scene's GPU state first: a level switch may reuse a
+        // model path with different geometry.
+        for (_, mesh) in self.dynamic_meshes.drain() {
+            unsafe {
+                self.gl.delete_buffer(mesh.vbo);
+                self.gl.delete_buffer(mesh.ibo);
+            }
+        }
+        let meshes: Vec<std::rc::Rc<DynamicMesh>> = self.dynamic.meshes().to_vec();
+        for mesh in &meshes {
+            if !self.prop_textures.contains_key(&mesh.model_path)
+                && self
+                    .upload_model_textures(&mesh.model_path, &mesh.textures)
+                    .is_none()
+            {
+                continue;
+            }
+            match self.upload_dynamic_mesh(mesh) {
+                Ok(gpu) => {
+                    self.dynamic_meshes.insert(mesh.model_path.clone(), gpu);
+                }
+                Err(error) => {
+                    eprintln!(
+                        "[dynamic] cannot upload mesh {}: {error}; skipping that object",
+                        mesh.model_path
+                    );
+                }
+            }
+        }
+        self.dynamic_revision = self.dynamic.revision();
+    }
+
+    /// Uploads one model-space dynamic mesh into its own small buffer pair.
+    ///
+    /// # Errors
+    ///
+    /// Returns a message when a GL buffer cannot be created.
+    fn upload_dynamic_mesh(&self, mesh: &DynamicMesh) -> Result<DynamicMeshGpu, String> {
+        let textures = self
+            .prop_textures
+            .get(&mesh.model_path)
+            .cloned()
+            .unwrap_or_default();
+        let mut submeshes: Vec<DynamicSubmeshGpu> = Vec::with_capacity(mesh.submeshes.len());
+        for submesh in &mesh.submeshes {
+            let texture = submesh
+                .texture
+                .and_then(|slot| textures.get(usize::from(slot)).copied())
+                .unwrap_or(self.white_texture);
+            let mask = submesh
+                .emission
+                .mask
+                .and_then(|slot| textures.get(usize::from(slot)).copied());
+            let emission = if submesh.emission.is_emissive() {
+                EmissionState::material(submesh.emission, mask)
+            } else {
+                EmissionState::NONE
+            };
+            let start = usize::try_from(submesh.first_index).unwrap_or(0);
+            let count = usize::try_from(submesh.index_count).unwrap_or(0);
+            let end = start.saturating_add(count);
+            let Some(indices) = mesh.indices.get(start..end) else {
+                continue;
+            };
+            // Distinct vertices this primitive actually reads, for the frame
+            // counters; the static path gets the same number out of its packer.
+            let mut used = vec![false; mesh.vertices.len()];
+            for index in indices {
+                if let Some(flag) = used.get_mut(usize::from(*index)) {
+                    *flag = true;
+                }
+            }
+            let vertex_count = used.iter().filter(|flag| **flag).count();
+            submeshes.push(DynamicSubmeshGpu {
+                texture,
+                emission,
+                first_index: i32::try_from(start).unwrap_or(i32::MAX),
+                index_count: i32::try_from(count).unwrap_or(i32::MAX),
+                vertex_count: i32::try_from(vertex_count).unwrap_or(i32::MAX),
+            });
+        }
+        let (vbo, ibo) = unsafe {
+            let vbo = self.gl.create_buffer()?;
+            let ibo = match self.gl.create_buffer() {
+                Ok(ibo) => ibo,
+                Err(error) => {
+                    self.gl.delete_buffer(vbo);
+                    return Err(error);
+                }
+            };
+            (vbo, ibo)
+        };
+        unsafe {
+            self.gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
+            match self.vertex_layout {
+                VertexLayout::Packed => {
+                    let packed: Vec<PackedVertex> =
+                        mesh.vertices.iter().map(PackedVertex::from).collect();
+                    let bytes = std::slice::from_raw_parts(
+                        packed.as_ptr().cast::<u8>(),
+                        packed
+                            .len()
+                            .saturating_mul(std::mem::size_of::<PackedVertex>()),
+                    );
+                    self.gl
+                        .buffer_data_u8_slice(glow::ARRAY_BUFFER, bytes, glow::STATIC_DRAW);
+                }
+                VertexLayout::Exact => {
+                    let bytes = std::slice::from_raw_parts(
+                        mesh.vertices.as_ptr().cast::<u8>(),
+                        mesh.vertices
+                            .len()
+                            .saturating_mul(std::mem::size_of::<Vertex>()),
+                    );
+                    self.gl
+                        .buffer_data_u8_slice(glow::ARRAY_BUFFER, bytes, glow::STATIC_DRAW);
+                }
+            }
+            self.gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ibo));
+            let index_bytes = std::slice::from_raw_parts(
+                mesh.indices.as_ptr().cast::<u8>(),
+                mesh.indices
+                    .len()
+                    .saturating_mul(std::mem::size_of::<u16>()),
+            );
+            self.gl.buffer_data_u8_slice(
+                glow::ELEMENT_ARRAY_BUFFER,
+                index_bytes,
+                glow::STATIC_DRAW,
+            );
+            self.gl.bind_buffer(glow::ARRAY_BUFFER, None);
+            self.gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, None);
+        }
+        Ok(DynamicMeshGpu {
+            vbo,
+            ibo,
+            submeshes,
+        })
+    }
+
+    /// Subtracts the dynamic scene's objects from the frame: one `u_mvp`
+    /// upload, one light-probe upload and one draw call per object per
+    /// primitive, sharing the static path's program, attributes and textures.
+    ///
+    /// The pass restores the static state before returning: `u_mvp` goes back
+    /// to the view-projection and `u_light_scale` back to `[1, 1, 1]`, so the
+    /// next frame's static draws are exactly as they were before this path
+    /// existed.
+    fn draw_dynamic_objects(
+        &mut self,
+        frustum: &Frustum,
+        cull: bool,
+        view_projection: &glam::Mat4,
+    ) -> DrawTotals {
+        let mut totals = DrawTotals::default();
+        if self.dynamic.is_empty()
+            || self.dynamic_revision != self.dynamic.revision()
+            || self.dynamic_meshes.len() != self.dynamic.mesh_count()
+        {
+            return totals;
+        }
+        // Take the scene and its GPU state out for the loop so the draw helpers
+        // (`set_emission`, `set_light_scale`) can borrow `self` mutably while
+        // the objects are iterated. Both takes are constant-time moves: no
+        // per-frame allocation, and both are put back before returning.
+        let dynamic = std::mem::take(&mut self.dynamic);
+        let meshes = std::mem::take(&mut self.dynamic_meshes);
+        let mut bound: Option<(glow::Buffer, glow::Buffer)> = None;
+        for object in dynamic.objects() {
+            if cull && !frustum.intersects_aabb(&object.world_bounds()) {
+                continue;
+            }
+            let Some(gpu) = meshes.get(object.model_path()) else {
+                continue;
+            };
+            if bound != Some((gpu.vbo, gpu.ibo)) {
+                self.bind_dynamic_buffers(gpu.vbo, gpu.ibo);
+                bound = Some((gpu.vbo, gpu.ibo));
+            }
+            let mvp = {
+                // `glam` matrix multiplication is per-element `f32` arithmetic
+                // with no overflow or panic path; clippy cannot see that through
+                // the operator impl (the same note `scene_view_projection`
+                // carries).
+                #[allow(clippy::arithmetic_side_effects)]
+                let composed = *view_projection * object.transform();
+                composed
+            };
+            if let Some(ref loc) = self.u_mvp_loc {
+                unsafe {
+                    self.gl
+                        .uniform_matrix_4_f32_slice(Some(loc), false, &mvp.to_cols_array());
+                }
+            }
+            let light_scale = if object.probe_valid() {
+                object.light_scale()
+            } else {
+                [1.0; 3]
+            };
+            self.set_light_scale(light_scale);
+            // The object-wide override, resolved once per object; `None` means
+            // every primitive draws its own material emission.
+            let override_emission = object.emission().filter(MaterialEmission::is_emissive);
+            let override_mask = override_emission.and_then(|emission| {
+                emission.mask.and_then(|slot| {
+                    self.prop_textures
+                        .get(object.model_path())
+                        .and_then(|textures| textures.get(usize::from(slot)).copied())
+                })
+            });
+            for submesh in &gpu.submeshes {
+                unsafe {
+                    self.gl
+                        .bind_texture(glow::TEXTURE_2D, Some(submesh.texture));
+                }
+                let emission = override_emission.map_or(submesh.emission, |emission| {
+                    EmissionState::material(emission, override_mask)
+                });
+                unsafe { self.set_emission(emission) };
+                unsafe {
+                    self.gl.draw_elements(
+                        glow::TRIANGLES,
+                        submesh.index_count,
+                        glow::UNSIGNED_SHORT,
+                        submesh.first_index.saturating_mul(2),
+                    );
+                }
+                totals.add(submesh.vertex_count);
+            }
+        }
+        if totals.calls > 0 {
+            // Hand the world program back exactly as the static path left it.
+            if let Some(ref loc) = self.u_mvp_loc {
+                unsafe {
+                    self.gl.uniform_matrix_4_f32_slice(
+                        Some(loc),
+                        false,
+                        &view_projection.to_cols_array(),
+                    );
+                }
+            }
+            self.set_light_scale([1.0; 3]);
+        }
+        self.dynamic = dynamic;
+        self.dynamic_meshes = meshes;
+        totals
+    }
+
+    /// Binds one dynamic mesh's buffer pair and points the scene attributes at
+    /// it (the attributes are captured against the bound buffer, exactly like
+    /// [`Self::bind_chunk`]).
+    fn bind_dynamic_buffers(&self, vbo: glow::Buffer, ibo: glow::Buffer) {
+        unsafe {
+            self.gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
+            self.set_vertex_attributes();
+            self.gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ibo));
         }
     }
 }

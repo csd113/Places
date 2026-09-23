@@ -37,6 +37,13 @@
 //!   starts *at* the ceiling plane and extends upward. It gives a gable roof a
 //!   solid stepped body without ever reaching into the room's own air, so a
 //!   segment that enters through the roof from the side is still stopped.
+//! * **Static prop bodies.** Every placed prop contributes the boxes derived
+//!   from its real model triangles ([`super::occlusion`]), transformed by its
+//!   placement: uniform scale, yaw about Y and translation. They are a
+//!   separate list on purpose — the wall-only point-containment and
+//!   partition-connectivity queries must not see furniture, so a floor sample
+//!   under a couch is shaded by the couch rather than walked out from under
+//!   it.
 //!
 //! The boxes are the exact solid extents: they are never inflated or shrunk.
 //! Two pieces that meet in the mesh — the wall beside a window, the wall a
@@ -163,6 +170,113 @@ impl Blocker {
     }
 }
 
+/// One opaque box that may be rotated about the vertical axis.
+///
+/// Props are placed with a yaw and a uniform scale, so a model-local occlusion
+/// box maps to a box that is not axis-aligned. Rather than inflating it to the
+/// axis-aligned bounding box of its rotation — which over-shadows badly at
+/// 45 degrees — the query transforms the segment into the box's own frame and
+/// the existing slab clip runs unchanged. An axis-aligned instance takes the
+/// exact same code path it always did.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) struct OrientedBox {
+    center: [f32; 3],
+    half: [f32; 3],
+    sin: f32,
+    cos: f32,
+}
+
+impl OrientedBox {
+    /// Builds a rotated box, or `None` when it has no volume or a non-finite
+    /// value (a model box is always positive; the guard keeps hand-edited or
+    /// degenerate input out of the visibility set).
+    pub(super) fn new(center: [f32; 3], half: [f32; 3], yaw: f32) -> Option<Self> {
+        if !yaw.is_finite()
+            || !center
+                .iter()
+                .chain(half.iter())
+                .all(|value| value.is_finite())
+        {
+            return None;
+        }
+        if half.iter().any(|value| *value <= 0.0) {
+            return None;
+        }
+        let (sin, cos) = yaw.sin_cos();
+        Some(Self {
+            center,
+            half,
+            sin,
+            cos,
+        })
+    }
+
+    /// True when the two X/Z footprints touch or overlap.
+    fn overlaps_footprint(&self, x0: f32, x1: f32, z0: f32, z1: f32) -> bool {
+        let (min_x, max_x, min_z, max_z) = self.footprint();
+        min_x <= x1 && max_x >= x0 && min_z <= z1 && max_z >= z0
+    }
+
+    /// World X/Z footprint of the rotated box: the tight axis-aligned bounds
+    /// of its four rotated corners. Deliberately conservative when the box is
+    /// turned, which only ever admits one more prefilter entry.
+    fn footprint(&self) -> (f32, f32, f32, f32) {
+        let extent_x = self.half[2].mul_add(self.sin.abs(), self.half[0] * self.cos.abs());
+        let extent_z = self.half[2].mul_add(self.cos.abs(), self.half[0] * self.sin.abs());
+        (
+            self.center[0] - extent_x,
+            self.center[0] + extent_x,
+            self.center[2] - extent_z,
+            self.center[2] + extent_z,
+        )
+    }
+
+    /// Horizontal distance from `(x, z)` to the footprint, zero over it.
+    fn footprint_distance(&self, x: f32, z: f32) -> f32 {
+        let (min_x, max_x, min_z, max_z) = self.footprint();
+        let dx = (min_x - x).max(x - max_x).max(0.0);
+        let dz = (min_z - z).max(z - max_z).max(0.0);
+        dx.hypot(dz)
+    }
+
+    /// True when the segment crosses this box.
+    fn hits(&self, from: [f32; 3], to: [f32; 3]) -> bool {
+        if self.sin == 0.0 {
+            // A zero yaw (or a negative zero) is the only angle whose sine is
+            // exactly zero: the historical axis-aligned box path, bit for bit.
+            let blocker = Blocker {
+                min: [
+                    self.center[0] - self.half[0],
+                    self.center[1] - self.half[1],
+                    self.center[2] - self.half[2],
+                ],
+                max: [
+                    self.center[0] + self.half[0],
+                    self.center[1] + self.half[1],
+                    self.center[2] + self.half[2],
+                ],
+            };
+            return segment_hits_box(blocker, from, to);
+        }
+        let blocker = Blocker {
+            min: [-self.half[0], -self.half[1], -self.half[2]],
+            max: [self.half[0], self.half[1], self.half[2]],
+        };
+        segment_hits_box(blocker, self.local_point(from), self.local_point(to))
+    }
+
+    /// One world-space point in the box's own frame: translate, then un-yaw.
+    fn local_point(&self, point: [f32; 3]) -> [f32; 3] {
+        let dx = point[0] - self.center[0];
+        let dz = point[2] - self.center[2];
+        [
+            dx.mul_add(self.cos, -(dz * self.sin)),
+            point[1] - self.center[1],
+            dz.mul_add(self.cos, dx * self.sin),
+        ]
+    }
+}
+
 /// A zero-thickness horizontal interface over a rectangular X/Z footprint.
 ///
 /// The floor of every room is a stair-step of these, one per floor-grid cell,
@@ -271,20 +385,13 @@ impl QuerySite {
     }
 }
 
-/// Extra horizontal reach allowed for a query's start point beyond its site
-/// centre, in metres.
-///
-/// A fixture's segment starts at the closest point of its panel rather than at
-/// the panel's centre, so the segment can reach this much further from the site
-/// than the sample does. One metre covers the largest fixture footprint the
-/// fixture table defines.
-const SITE_REACH_MARGIN_M: f32 = 1.0;
-
 /// Which list a pooled solid lives in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SolidIndex {
     Wall(u32),
     Horizontal(u32),
+    /// A static prop body, rotation included.
+    Prop(u32),
 }
 
 /// One solid a site can reach, with the horizontal distance from the site
@@ -595,13 +702,19 @@ pub(super) struct Occluders {
     walls: Vec<Blocker>,
     /// Ceiling bodies, then floor interfaces, in room order.
     horizontals: Vec<Horizontal>,
+    /// Static prop bodies, in level order then model-box order. Deliberately a
+    /// separate list: props must never answer the wall-only point and
+    /// partition queries, or a floor sample under a couch would be walked out
+    /// from under it.
+    props: Vec<OrientedBox>,
     /// Walls only: the uniform grid behind point containment and the
     /// partition-connectivity segment queries.
     wall_grid: PointGrid,
 }
 
 impl Occluders {
-    /// Builds the wall boxes, floor interfaces and ceiling bodies of a level.
+    /// Builds the wall boxes, floor interfaces, ceiling bodies and static prop
+    /// occluders of a level.
     #[must_use]
     pub(super) fn build(level: &LevelDef) -> Self {
         let surfaces = LevelSurfaces::new(level);
@@ -611,11 +724,19 @@ impl Occluders {
         }
         let mut horizontals: Vec<Horizontal> = Vec::new();
         append_room_horizontals(&mut horizontals, &surfaces);
+        let props = super::occlusion::level_occluders(level, &surfaces);
         Self {
             wall_grid: PointGrid::build(&walls, 0),
             walls,
             horizontals,
+            props,
         }
+    }
+
+    /// Number of static prop occluder boxes.
+    #[must_use]
+    pub(super) const fn prop_count(&self) -> usize {
+        self.props.len()
     }
 
     /// True when `(x, z)` lies inside a solid wall, ignoring height.
@@ -729,7 +850,10 @@ impl Occluders {
             return true;
         }
         let from = nudge_segment_start(from, to);
-        self.horizontals.iter().any(|solid| solid.hits(from, to))
+        if self.horizontals.iter().any(|solid| solid.hits(from, to)) {
+            return true;
+        }
+        self.props.iter().any(|prop| prop.hits(from, to))
     }
 
     /// Number of wall boxes.
@@ -737,6 +861,83 @@ impl Occluders {
     pub(super) const fn wall_count(&self) -> usize {
         self.walls.len()
     }
+
+    /// Order-sensitive fingerprint of every solid a bake query tests against.
+    ///
+    /// This is the *occluder set itself*, not the inputs it was derived from:
+    /// walls, floor interfaces, ceiling bodies and the derived prop boxes, in
+    /// their deterministic build order. Two bakes with the same fingerprint
+    /// shade every sample identically, which is exactly the property the
+    /// lightmap cache key needs — a prop model edit that changes its occlusion
+    /// changes this number, while a texture-only edit correctly does not.
+    ///
+    /// Coordinates are hashed as their exact bit patterns, so the result is
+    /// stable across platforms and runs and never depends on formatting.
+    #[must_use]
+    pub(super) fn fingerprint(&self) -> u64 {
+        let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+        hash_bytes(&mut hash, b"occluders-v1");
+        hash_u64(
+            &mut hash,
+            u64::try_from(self.walls.len()).unwrap_or(u64::MAX),
+        );
+        for wall in &self.walls {
+            for value in wall.min.iter().chain(wall.max.iter()) {
+                hash_f32(&mut hash, *value);
+            }
+        }
+        hash_u64(
+            &mut hash,
+            u64::try_from(self.horizontals.len()).unwrap_or(u64::MAX),
+        );
+        for solid in &self.horizontals {
+            match solid {
+                Horizontal::Slab(blocker) => {
+                    hash_bytes(&mut hash, b"slab");
+                    for value in blocker.min.iter().chain(blocker.max.iter()) {
+                        hash_f32(&mut hash, *value);
+                    }
+                }
+                Horizontal::Floor(plane) => {
+                    hash_bytes(&mut hash, b"floor");
+                    for value in [plane.x0, plane.x1, plane.z0, plane.z1, plane.y] {
+                        hash_f32(&mut hash, value);
+                    }
+                }
+            }
+        }
+        hash_u64(
+            &mut hash,
+            u64::try_from(self.props.len()).unwrap_or(u64::MAX),
+        );
+        for prop in &self.props {
+            hash_bytes(&mut hash, b"prop");
+            for value in prop.center.iter().chain(prop.half.iter()) {
+                hash_f32(&mut hash, *value);
+            }
+            hash_f32(&mut hash, prop.sin);
+            hash_f32(&mut hash, prop.cos);
+        }
+        hash
+    }
+}
+
+/// FNV-1a step over raw bytes.
+fn hash_bytes(hash: &mut u64, bytes: &[u8]) {
+    for byte in bytes {
+        *hash ^= u64::from(*byte);
+        *hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+}
+
+/// FNV-1a step over one `u64`.
+fn hash_u64(hash: &mut u64, value: u64) {
+    hash_bytes(hash, &value.to_le_bytes());
+}
+
+/// FNV-1a step over one `f32`'s exact bit pattern.
+fn hash_f32(hash: &mut u64, value: f32) {
+    hash_bytes(hash, &value.to_bits().to_le_bytes());
 }
 
 /// True when the segment `from`-`to` intersects the box `blocker`.
@@ -1009,7 +1210,8 @@ impl Visibility {
         let solid_count = occluders
             .walls
             .len()
-            .saturating_add(occluders.horizontals.len());
+            .saturating_add(occluders.horizontals.len())
+            .saturating_add(occluders.props.len());
         let mut pool: Vec<SiteSolid> =
             Vec::with_capacity(solid_count.saturating_mul(sites.len().min(4)));
         let mut ranges: Vec<(u32, u32)> = Vec::with_capacity(sites.len());
@@ -1033,6 +1235,14 @@ impl Visibility {
                         pool.push(SiteSolid {
                             solid: SolidIndex::Horizontal(u32::try_from(index).unwrap_or(u32::MAX)),
                             near: horizontal.footprint_distance(site.x, site.z),
+                        });
+                    }
+                }
+                for (index, prop) in occluders.props.iter().enumerate() {
+                    if prop.overlaps_footprint(x0, x1, z0, z1) {
+                        pool.push(SiteSolid {
+                            solid: SolidIndex::Prop(u32::try_from(index).unwrap_or(u32::MAX)),
+                            near: prop.footprint_distance(site.x, site.z),
                         });
                     }
                 }
@@ -1079,6 +1289,22 @@ impl Visibility {
         self.occluders.wall_count()
     }
 
+    /// Number of static prop occlusion boxes the set tests against.
+    #[must_use]
+    pub const fn prop_blocker_count(&self) -> usize {
+        self.occluders.prop_count()
+    }
+
+    /// Fingerprint of the whole occluder set, for the lightmap content key.
+    ///
+    /// See [`Occluders::fingerprint`]: two bakes with the same value shade
+    /// every sample identically, so it is exactly what a cache key needs to
+    /// reject a stale atlas after a prop model or a light changes.
+    #[must_use]
+    pub fn occluder_fingerprint(&self) -> u64 {
+        self.occluders.fingerprint()
+    }
+
     /// Number of query sites the set was built for.
     #[must_use]
     pub const fn site_count(&self) -> usize {
@@ -1116,14 +1342,17 @@ impl Visibility {
         let Some(&(site_x, site_z)) = self.sites.get(site as usize) else {
             return false;
         };
-        // The segment can only reach as far from the site centre as the sample
-        // does, plus the offset from the centre to the panel point the segment
-        // starts at. Solids past that are skipped without a geometric test:
-        // every point of the segment lies within `max(distance(from),
-        // distance(to))` of the site centre, and the start point is within
-        // `SITE_REACH_MARGIN_M` of it by construction, so a solid whose nearest
-        // footprint point is beyond `reach` cannot be crossed.
-        let reach = (to[0] - site_x).hypot(to[2] - site_z) + SITE_REACH_MARGIN_M;
+        // The segment can only reach as far from the site centre as its own
+        // farther endpoint: every point of it is inside the disc through
+        // `from` and `to`. A solid whose nearest footprint point is beyond
+        // that cannot be crossed, so it is skipped without a geometric test.
+        // Taking the actual start point (not the site centre plus a fixed
+        // margin) keeps the bound exact for any emitter size — a wide
+        // prop-attached panel starts far from its centre.
+        let reach = (to[0] - site_x)
+            .hypot(to[2] - site_z)
+            .max((from[0] - site_x).hypot(from[2] - site_z))
+            + SEGMENT_START_EPS_M;
         let Some(entries) = self.pool.get(start as usize..end as usize) else {
             return false;
         };
@@ -1147,6 +1376,13 @@ impl Visibility {
                         return true;
                     }
                 }
+                SolidIndex::Prop(index) => {
+                    if let Some(prop) = self.occluders.props.get(index as usize)
+                        && prop.hits(from, to)
+                    {
+                        return true;
+                    }
+                }
             }
         }
         false
@@ -1164,9 +1400,16 @@ impl Visibility {
 fn solid_order(a: SolidIndex, b: SolidIndex) -> std::cmp::Ordering {
     match (a, b) {
         (SolidIndex::Wall(x), SolidIndex::Wall(y))
-        | (SolidIndex::Horizontal(x), SolidIndex::Horizontal(y)) => x.cmp(&y),
-        (SolidIndex::Wall(_), SolidIndex::Horizontal(_)) => std::cmp::Ordering::Less,
+        | (SolidIndex::Horizontal(x), SolidIndex::Horizontal(y))
+        | (SolidIndex::Prop(x), SolidIndex::Prop(y)) => x.cmp(&y),
+        (SolidIndex::Wall(_), SolidIndex::Horizontal(_) | SolidIndex::Prop(_)) => {
+            std::cmp::Ordering::Less
+        }
         (SolidIndex::Horizontal(_), SolidIndex::Wall(_)) => std::cmp::Ordering::Greater,
+        (SolidIndex::Horizontal(_), SolidIndex::Prop(_)) => std::cmp::Ordering::Less,
+        (SolidIndex::Prop(_), SolidIndex::Wall(_) | SolidIndex::Horizontal(_)) => {
+            std::cmp::Ordering::Greater
+        }
     }
 }
 
@@ -1177,9 +1420,11 @@ fn solid_order(a: SolidIndex, b: SolidIndex) -> std::cmp::Ordering {
     clippy::cast_possible_truncation,
     clippy::cast_precision_loss,
     clippy::cast_sign_loss,
+    clippy::expect_used,
     clippy::indexing_slicing,
     clippy::missing_const_for_fn,
-    clippy::panic
+    clippy::panic,
+    clippy::unwrap_used
 )]
 mod tests {
     use super::*;
@@ -1521,5 +1766,44 @@ mod tests {
             visibility.occludes_anywhere([2.0, 4.0, 2.0], [2.0, 6.0, 2.0]),
             "the stepped roof must still block upward"
         );
+    }
+
+    // --------------------------------------------------- oriented prop boxes
+
+    #[test]
+    fn an_axis_aligned_oriented_box_behaves_like_a_plain_box() {
+        let boxed = OrientedBox::new([1.0, 2.0, 3.0], [0.5, 1.0, 0.25], 0.0)
+            .expect("a positive box builds");
+        assert!(boxed.hits([0.0, 2.0, 3.0], [2.0, 2.0, 3.0]));
+        assert!(!boxed.hits([0.0, 2.0, 4.0], [2.0, 2.0, 4.0]));
+        assert!(!boxed.hits([0.0, 3.5, 3.0], [2.0, 3.5, 3.0]));
+    }
+
+    #[test]
+    fn a_yawed_box_blocks_only_its_rotated_volume() {
+        // A 2.0 x 0.5 m footprint (half extents 1.0 x 0.25) turned 45 degrees.
+        // Its axis-aligned bounds reach ~0.88 m on both axes; the corner of
+        // that bounding box is outside the rotated box itself.
+        let boxed = OrientedBox::new([0.0, 0.0, 0.0], [1.0, 0.5, 0.25], 45.0_f32.to_radians())
+            .expect("a positive box builds");
+        let bounds = boxed.footprint();
+        assert!(bounds.0 < -0.8 && bounds.1 > 0.8, "bounds {bounds:?}");
+        // A point on the local +X axis, 0.8 m out, is inside the panel.
+        assert!(boxed.hits([0.5, 0.0, -0.6], [0.6, 0.0, -0.5]));
+        // The corner of the bounding box is not.
+        assert!(
+            !boxed.hits([0.8, 0.0, 0.75], [0.8, 0.0, 0.85]),
+            "the 45-degree box must not over-shadow its bounding-box corner"
+        );
+        // Height still clips: a segment above the box passes.
+        assert!(!boxed.hits([0.5, 1.0, -0.6], [0.6, 1.0, -0.5]));
+    }
+
+    #[test]
+    fn a_degenerate_oriented_box_is_rejected() {
+        assert!(OrientedBox::new([0.0, 0.0, 0.0], [0.0, 1.0, 1.0], 0.0).is_none());
+        assert!(OrientedBox::new([0.0, 0.0, 0.0], [1.0, -1.0, 1.0], 0.0).is_none());
+        assert!(OrientedBox::new([f32::NAN, 0.0, 0.0], [1.0, 1.0, 1.0], 0.0).is_none());
+        assert!(OrientedBox::new([0.0, 0.0, 0.0], [1.0, 1.0, 1.0], f32::NAN).is_none());
     }
 }

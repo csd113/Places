@@ -1,3 +1,72 @@
+## Unreleased — Batch 2: baked lightmaps, prop occlusion, dynamic objects
+
+Batch 2 replaces the coarse painted-vertex light on static world geometry with a
+real baked lightmap atlas, makes static props occlude the bake, and adds a
+separate render path for objects that move every frame. The Batch 1 foundations
+(Full/Low quality profiles, the generic `LightSource`, emissive materials) are
+unchanged and still the only lighting/material model.
+
+### Baked lightmaps for static world geometry
+
+- **Lightmap atlas.** Static floors, ceilings (including gable slopes), wall
+  faces, reveals, headers and floor-region skirts are baked into atlas pages of
+  RGB8 texels (`src/lighting/lightmap/`). One deterministic shelf packer places
+  every chart with a dilated padding gutter, so bilinear filtering cannot bleed
+  one chart into its neighbour; the same level always produces identical pages.
+- **The lighting model is unchanged.** Every texel is one
+  `LevelLighting::sample_in_room` call: the same room baseline, local fixture
+  pools, doorway blends, vertical isolation and wall occlusion the vertex bake
+  uses. Only the resolution changes — the vertex bake sampled floors every
+  2.5 m, the lightmap every 6.25 cm at Full.
+- **The mesh carries a second UV channel.** `Vertex`/`PackedVertex` gained
+  lightmap atlas coordinates (16-bit per axis) and a page byte; the packed
+  stride goes from 24 to 32 bytes. A vertex whose page is `LIGHTMAP_NONE` keeps
+  the historical vertex-lit colour, so both paths share one buffer and one
+  draw call.
+- **Shader.** The world fragment stage multiplies the sampled surface texture by
+  the atlas texel on units 2/3 behind a global switch and the per-vertex page
+  byte; emission is still added after the multiply. With no atlas resident the
+  shader is behaviourally the previous vertex-lit pass.
+- **Exact fallback.** Lightmaps off, an atlas overflow, a failed bake or a
+  failed upload all rebuild the level with `LightmapMode::Off`, which reproduces
+  the historical vertex-lit geometry bit for bit — never a black surface.
+- **Full / Low.** `LightmapConfig::for_profile` picks 16 texels/m at a 1024 page
+  (Full) and 8 texels/m at a 512 page (Low) from the *same* patch set, so Low
+  needs no separate level or hand-authored bake.
+- **Cache.** A deterministic content key over the lighting-relevant inputs
+  (level definition, static prop placement and model bytes, light definitions,
+  quality profile, lightmap format version) decides whether a cached bake may be
+  reused; the key is exposed for tests.
+
+### Static props occlude the bake
+
+- **Derived occlusion geometry** (`src/lighting/occlusion.rs`): each distinct
+  placed prop model is ground into a bounded column grid, merged into a small
+  set of boxes and transformed with the instance's own scale, yaw and placement
+  — a desk stays thin, a rotated couch shades along its rotation.
+- **Contact darkening and blocked light are automatic.** No authoring change: a
+  machine darkens the floor under it, a fridge blocks the pool behind it, and a
+  prop against a wall darkens that wall.
+- **Yaw-rotated occluders** in the visibility set; prop boxes never affect
+  wall-containment (a floor sample under a prop is shaded, not moved) or
+  partition detection.
+- **Emission is still not illumination**: a prop's occluders come from its
+  vertices, and only an authored `LightSource` illuminates anything.
+
+### A separate dynamic-object path
+
+- **`DynamicScene`** (`src/render/dynamic.rs`) owns objects whose transform
+  changes at runtime. Geometry is uploaded once in model space and each object's
+  transform reaches the shader through `u_mvp`, so moving an object never
+  rebuilds a vertex buffer, a static batch or a lightmap.
+- **One material system**: dynamic objects use the same `PropModel` assets,
+  textures and emission routing as static props.
+- **Lighting for now**: a probe of the static bake at the object's current
+  position, fed through the new `u_light_scale` uniform, documented as the
+  batch's temporary behaviour (no dynamic shadows, no realtime lights).
+- **Demonstration**: a `core:washing_machine` static body in Places Demo with a
+  rotating `core:washer_drum` dynamic component in front of it.
+
 # Changelog
 
 ## Unreleased — Batch 1 foundation: quality profiles, generic lights, true emission

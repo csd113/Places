@@ -5482,6 +5482,41 @@
       ],
       "triangles": 102
     },
+    "core:washer_drum": {
+      "bounds_max": [
+        0.21,
+        0.3,
+        0.21
+      ],
+      "bounds_min": [
+        -0.21,
+        0.0,
+        -0.21
+      ],
+      "model": "core/props/models/washer_drum.glb",
+      "name": "Washer Drum",
+      "parts": [
+        {
+          "axis": "y",
+          "base": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "color": "#b0b4b6",
+          "height": 0.3,
+          "radius": 0.21,
+          "segments": 12,
+          "shape": "cylinder",
+          "taper": 1.0
+        }
+      ],
+      "texture": [
+        64,
+        64
+      ],
+      "triangles": 144
+    },
     "core:washing_machine": {
       "bounds_max": [
         0.3,

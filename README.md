@@ -21,9 +21,20 @@ The engine is deliberately small and the content is deliberately editable:
 
 * **Rooms, walls and openings** are authored as rectangles in a JSON level.
   Walls can be cut with doors, windows, passages and vents.
-* **Baked RGB lighting.** Every fixture bakes a room baseline plus a local pool
-  into the level's vertex colours at load time. Coloured fixtures tint both the
-  visible panel and the illumination.
+* **Baked RGB lighting, now as real lightmaps.** Every fixture bakes a room
+  baseline plus a local pool, exactly as before, but the result is stored per
+  *texel* in a lightmap atlas for static floors, ceilings, walls and skirts — so
+  a fixture reads as a pool of light with a soft edge instead of a plateau.
+  Coloured fixtures tint both the visible panel and the illumination. The old
+  per-vertex bake remains as an exact fallback.
+* **Props occlude the light.** A placed prop's own geometry joins the bake, so
+  the floor under a machine darkens, a fridge blocks the pool behind it and
+  furniture grounds itself against the wall it stands on — with nothing to
+  author.
+* **A separate dynamic-object path.** Objects whose transform changes every
+  frame render outside the static batches and the bake: upload the model once,
+  pass a transform per object, probe the baked light at its position. Moving one
+  never rebuilds geometry, batching or lightmaps.
 * **Partitions split the baseline.** When an opaque internal wall divides a
   room's footprint, each side gets its own baseline from the fixtures it can
   reach; a doorway still blends a bounded amount through its aperture, and a
@@ -328,6 +339,12 @@ Working and shipped:
   rectangle and line shapes) with per-light colour, intensity, range, falloff
   and enabled state; fixtures and props own lights, and neither materials nor
   fixture families imply one;
+* baked lightmaps for static world geometry with a quality-profile density, an
+  exact vertex-lit fallback, and a deterministic content-keyed cache;
+* automatic static-prop occlusion (contact darkening, blocked pools, grounded
+  corners) derived from each placed model's own triangles;
+* a separate dynamic-object render path proven by a turning washing-machine
+  drum in Places Demo;
 * true material emission (`emissive`, `emissive_intensity`, `emissive_mask`),
   independent of environmental illumination: a surface or fixture face can read
   fully bright while casting nothing, and a light can cast while nothing glows;
@@ -346,7 +363,11 @@ Working and shipped:
 Known limitations, all deliberate:
 
 * no gameplay systems — no objectives, inventory, enemies or scripting;
-* no dynamic lights, shadows, lightmaps, normal maps, specular maps or PBR;
+* no realtime lights, realtime shadow maps, normal maps, specular maps or PBR;
+* dynamic objects are engine-spawned, not authorable from a level, and are lit
+  by one probe of the static bake (no shadows, no self-occlusion);
+* lightmaps are baked and cached, never hand-authored, and a bake that cannot
+  fit its page budget falls back to vertex lighting;
 * emission reaches surfaces and fixture faces; emissive decals and cone/spot
   lights are not implemented yet;
 * no animation, no skinning, no water and no swimming; the pool is empty on

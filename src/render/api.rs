@@ -4,10 +4,17 @@
 //! static mesh (and, where asked, the prop batches) from a level, a catalog and
 //! a material table, with the lighting baked exactly once per level load.
 
+use std::sync::Arc;
+
+use super::geometry::build_level_geometry_mesh_with_lightmaps;
 use super::props::{PropMeshBatch, resolve_prop_instances};
 use super::{
     LevelDef, LevelLighting, LevelMesh, LevelSurfaces, MaterialTable, PropDef,
     build_level_geometry_mesh,
+};
+use crate::lighting::lightmap::{
+    LevelLightmaps, LightmapAtlas, LightmapCache, LightmapConfig, LightmapFailure, LightmapMode,
+    LightmapPlan, LightmapStats, content_key_with_extra, fill_chart, write_page_png,
 };
 
 /// Builds the level mesh with real prop geometry where possible, plus one
@@ -70,6 +77,48 @@ pub struct BuildTimings {
     pub surfaces_millis: f64,
 }
 
+/// What a level build should do about lightmaps, and against which budget.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LightmapBuildOptions {
+    /// Bake and stamp lightmaps, or take the historical vertex-lit path.
+    pub mode: LightmapMode,
+    /// Density and page budget the lightmapped path packs against.
+    pub config: LightmapConfig,
+    /// Profile the config came from; only used for the content key.
+    pub profile: crate::quality::QualityProfile,
+}
+
+impl LightmapBuildOptions {
+    /// The options one quality profile implies for a mode.
+    #[must_use]
+    pub const fn for_profile(profile: crate::quality::QualityProfile, mode: LightmapMode) -> Self {
+        Self {
+            mode,
+            config: LightmapConfig::for_profile(profile),
+            profile,
+        }
+    }
+}
+
+/// Everything one level build produced.
+///
+/// `lightmaps` is `Some` only when the level was built *and* baked with
+/// [`LightmapMode::On`]; `lightmap_failure` is set when an `On` build had to
+/// fall back, which is the named reason the caller can log. A build that was
+/// asked for `Off` has both `None` and is the historical vertex-lit level,
+/// byte for byte.
+pub struct LevelBuild {
+    pub mesh: LevelMesh,
+    pub batches: Vec<PropMeshBatch>,
+    pub lighting: LevelLighting,
+    pub timings: BuildTimings,
+    pub lightmaps: Option<Arc<LevelLightmaps>>,
+    /// Why an `On` build fell back to vertex colours, if it did.
+    pub lightmap_failure: Option<LightmapFailure>,
+    /// Wall-clock cost of filling and packing the atlas, in milliseconds.
+    pub lightmap_millis: f64,
+}
+
 /// [`build_level_geometry_with_assets_and_lighting`], also reporting how the
 /// build time splits between the lighting bake, prop instancing and static
 /// surface emission.
@@ -105,6 +154,207 @@ pub fn build_level_geometry_timed(
             surfaces_millis,
         },
     )
+}
+
+/// [`build_level_geometry_timed`] with the lightmap path.
+///
+/// This is the renderer's entry point. With [`LightmapMode::On`] the mesh is
+/// emitted with a [`LightmapPlan`], the plan's charts are filled from the same
+/// [`LevelLighting`] the historical build bakes into vertex colours, and the
+/// result is returned alongside the mesh. With [`LightmapMode::Off`] the build
+/// is the historical one and no plan is created at all.
+///
+/// A failed plan (page overflow, a degenerate quad) or a failed fill is rebuilt
+/// once with the historical mesh path and the same baked lighting, so the
+/// returned level is always drawable: `lightmaps` is then `None` and
+/// `lightmap_failure` names the reason. There is deliberately no third state —
+/// never a half-baked atlas, never black surfaces.
+///
+/// `cache` is best-effort: a hit skips the fill pass entirely, and `None`
+/// always bakes fresh (which is what the tests use to prove determinism).
+pub fn build_level_geometry_timed_with_lightmaps(
+    level: &LevelDef,
+    catalog: &crate::loader::PropCatalog,
+    assets: &mut crate::props::PropAssets,
+    materials: &MaterialTable,
+    options: LightmapBuildOptions,
+    mut cache: Option<&mut LightmapCache>,
+) -> LevelBuild {
+    let started = std::time::Instant::now();
+    let lighting = LevelLighting::bake(level);
+    let lighting_millis = elapsed_millis(started);
+
+    let surfaces = LevelSurfaces::new(level);
+    let started = std::time::Instant::now();
+    let (batches, fallbacks) = resolve_prop_instances(level, catalog, assets, &lighting, &surfaces);
+    let props_millis = elapsed_millis(started);
+
+    let mut plan = (options.mode == LightmapMode::On).then(|| LightmapPlan::new(options.config));
+    let started = std::time::Instant::now();
+    let mesh = plan.as_mut().map_or_else(
+        || build_level_geometry_mesh(level, catalog, &fallbacks, &lighting, materials),
+        |plan| {
+            build_level_geometry_mesh_with_lightmaps(
+                level,
+                catalog,
+                &fallbacks,
+                &lighting,
+                materials,
+                Some(plan),
+            )
+        },
+    );
+    let mut surfaces_millis = elapsed_millis(started);
+
+    let mut lightmaps: Option<Arc<LevelLightmaps>> = None;
+    let mut lightmap_failure: Option<LightmapFailure> = None;
+    let mut lightmap_millis = 0.0;
+    if let Some(plan) = plan.as_ref() {
+        if let Some(plan_failure) = plan.failure() {
+            lightmap_failure = Some(plan_failure);
+        } else {
+            // The key covers the level definition, the lightmap config, the
+            // quality profile *and* the occluder set the bake actually uses, so
+            // a prop model or light change invalidates the cached atlas while a
+            // texture-only edit does not. See
+            // [`LevelLighting::occlusion_fingerprint`].
+            let key = content_key_with_extra(
+                level,
+                &options.config,
+                options.profile,
+                &lighting.occlusion_fingerprint().to_le_bytes(),
+            );
+            if let Some(cached) = cache.as_deref_mut().and_then(|cache| cache.get(&key)) {
+                lightmaps = Some(cached);
+            }
+            if lightmaps.is_none() {
+                match bake_lightmaps(&lighting, plan, &options, &key) {
+                    Ok(baked) => {
+                        lightmap_millis = baked.stats.bake_millis;
+                        dump_lightmaps_if_requested(level, &baked);
+                        if let Some(cache) = cache {
+                            cache.insert(&key, Arc::clone(&baked));
+                        }
+                        lightmaps = Some(baked);
+                    }
+                    Err(fill_failure) => lightmap_failure = Some(fill_failure),
+                }
+            }
+        }
+    }
+
+    let mut timings = BuildTimings {
+        lighting_millis,
+        props_millis,
+        surfaces_millis,
+    };
+
+    // A failed lightmap build must never be drawn: rebuild the static mesh with
+    // the historical vertex path against the lighting already baked above. Only
+    // the surface emission repeats, and the fallback is exactly the mesh an
+    // `Off` build produces.
+    if lightmap_failure.is_some() && options.mode == LightmapMode::On {
+        let started = std::time::Instant::now();
+        let mesh = build_level_geometry_mesh(level, catalog, &fallbacks, &lighting, materials);
+        surfaces_millis += elapsed_millis(started);
+        timings.surfaces_millis = surfaces_millis;
+        return LevelBuild {
+            mesh,
+            batches,
+            lighting,
+            timings,
+            lightmaps: None,
+            lightmap_failure,
+            lightmap_millis,
+        };
+    }
+
+    LevelBuild {
+        mesh,
+        batches,
+        lighting,
+        timings,
+        lightmaps,
+        lightmap_failure,
+        lightmap_millis,
+    }
+}
+
+/// Fills every chart of a finished plan into atlas pages.
+fn bake_lightmaps(
+    lighting: &LevelLighting,
+    plan: &LightmapPlan,
+    options: &LightmapBuildOptions,
+    key: &str,
+) -> Result<Arc<LevelLightmaps>, LightmapFailure> {
+    let started = std::time::Instant::now();
+    let atlas = LightmapAtlas::bake(
+        &options.config,
+        plan.page_count(),
+        plan.charts(),
+        |patch, chart| fill_chart(lighting, patch, chart),
+    )?;
+    let mut texels = 0usize;
+    for (_, chart) in plan.charts() {
+        let width = usize::try_from(chart.width).unwrap_or(0);
+        let height = usize::try_from(chart.height).unwrap_or(0);
+        texels = texels.saturating_add(width.saturating_mul(height));
+    }
+    let edge = usize::try_from(options.config.page_edge).unwrap_or(0);
+    let stats = LightmapStats {
+        charts: plan.chart_count(),
+        pages: atlas.page_count(),
+        texels,
+        page_texels: atlas.page_count().saturating_mul(edge).saturating_mul(edge),
+        bake_millis: elapsed_millis(started),
+        cache_hit: false,
+    };
+    Ok(Arc::new(LevelLightmaps {
+        pages: atlas.into_pages(),
+        charts: plan.charts().to_vec(),
+        stats,
+        cache_key: key.to_string(),
+    }))
+}
+
+/// Milliseconds since `started`.
+fn elapsed_millis(started: std::time::Instant) -> f64 {
+    started.elapsed().as_secs_f64() * 1000.0
+}
+
+/// Writes every atlas page of a fresh bake under `target/agent-work/atlases/`
+/// when `LIMINAL_DUMP_LIGHTMAPS=1` is set in the environment.
+///
+/// A developer dump, not a shipping path; the write failure is a one-line
+/// diagnostic because there is no logger here to route it through.
+#[allow(clippy::print_stderr)]
+fn dump_lightmaps_if_requested(level: &LevelDef, lightmaps: &LevelLightmaps) {
+    if std::env::var("LIMINAL_DUMP_LIGHTMAPS").as_deref() != Ok("1") {
+        return;
+    }
+    let id: String = level
+        .id
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let id = if id.is_empty() {
+        "level".to_string()
+    } else {
+        id
+    };
+    let dir = std::path::PathBuf::from("target/agent-work/atlases");
+    for (index, page) in lightmaps.pages.iter().enumerate() {
+        let path = dir.join(format!("{id}_page{index}.png"));
+        if let Err(error) = write_page_png(page, &path) {
+            eprintln!("[lightmaps] cannot write {}: {error}", path.display());
+        }
+    }
 }
 
 /// The shipped catalog, loaded once per process for geometry-only callers.

@@ -279,3 +279,68 @@ pub(super) const CLEAR_SAMPLE_STEP_M: f32 = 0.05;
 /// Maximum number of steps that walk may take before it gives up and uses the
 /// room centre, bounding the cost of a pathological level.
 pub(super) const CLEAR_SAMPLE_MAX_STEPS: u32 = 64;
+
+/// Resolution of the X/Z occupancy grid a prop model's triangles are ground
+/// into before their boxes are merged, in metres.
+///
+/// This is the width of the smallest shadow detail a prop can cast. 0.15 m is
+/// far below the 2.5 m surface sampling grid while leaving a chair as a
+/// handful of boxes, and it is the same order as a real piece of furniture's
+/// leg/rail spacing.
+pub(super) const PROP_OCCLUSION_CELL_M: f32 = 0.15;
+
+/// Largest occupancy grid a prop model may produce per axis.
+///
+/// A model larger than `CELL_M x this` is ground at a proportionally coarser
+/// cell instead, so one pathological asset cannot turn box derivation into an
+/// unbounded scan. Ordinary furniture (couch, vending machine) stays well
+/// inside it at the calibrated cell size.
+pub(super) const PROP_OCCLUSION_MAX_CELLS_PER_AXIS: usize = 96;
+
+/// Two adjacent occupied columns merge into one box only when their Y spans
+/// agree within this tolerance, in metres.
+pub(super) const PROP_OCCLUSION_MERGE_EPS_M: f32 = 1.0e-4;
+
+/// Thickness given to a flat, zero-height occupied span (a single-quad shelf,
+/// a rug, a curtain rail), in metres.
+///
+/// Without a minimum a horizontal quad would collapse to a zero-height box and
+/// silently stop occluding; a couple of centimetres is enough for a crossing
+/// segment to be robustly inside it, without visibly inflating the prop.
+pub(super) const PROP_OCCLUSION_MIN_THICKNESS_M: f32 = 0.02;
+
+/// Squared X/Z area below which a triangle counts as a line when it is ground
+/// into the occupancy grid, in square metres.
+///
+/// A closed mesh's vertical faces project to zero area in X/Z, and they are
+/// exactly the panels — a guardrail, a cabinet door, a curtain — that must
+/// still occlude.
+pub(super) const PROP_OCCLUSION_DEGENERATE_AREA2_M2: f32 = 1.0e-6;
+
+/// Hard cap on the occlusion boxes one prop model may contribute.
+///
+/// Boxes are emitted in the deterministic grid scan order (rows of Z, then X),
+/// so hitting the cap keeps the low-Z / low-X part of the model. Ordinary
+/// shipped assets merge into far fewer boxes (a crate is one, a chair about
+/// eight); the cap exists so a pathological mesh cannot make one placement
+/// expensive.
+pub(super) const MAX_PROP_OCCLUSION_BOXES_PER_MODEL: usize = 64;
+
+/// Hard cap on the occlusion boxes every static prop of one level contributes.
+///
+/// Props are processed in level order and a prop that would exceed the cap
+/// contributes no further boxes, so the occluder set (and the bake cost) stays
+/// bounded no matter how many props a level places.
+pub(super) const MAX_PROP_OCCLUSION_BOXES_PER_LEVEL: usize = 4096;
+
+/// Distance a lightmap wall or skirt texel is pushed off its own face, along
+/// the face normal, before it is evaluated, in metres.
+///
+/// A wall face texel is generated exactly on the wall's solid boundary. The
+/// visibility clip is happy with that (an endpoint on a face is not blocked by
+/// it), but point containment is inclusive, so the sample also counts as
+/// buried: the vertex bake moves such a face sample [`ROOM_EDGE_EPS_M`] into
+/// its room before measuring light, and a lightmap texel gets the same nudge
+/// along its patch normal. The distance is shared with the vertex path so the
+/// two cannot disagree about which side of a wall face is sampled.
+pub(super) const LIGHTMAP_FACE_NORMAL_BIAS_M: f32 = ROOM_EDGE_EPS_M;

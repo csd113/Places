@@ -125,6 +125,14 @@ pub struct Settings {
     /// `"low"` (the same assets, more aggressively downscaled textures).
     #[serde(default = "default_quality")]
     pub quality: String,
+    /// Bake and draw static lightmaps for level geometry. Default on.
+    ///
+    /// `false` rebuilds the level through the historical vertex-lit path, which
+    /// renders exactly the pre-lightmap colours. The benchmark/A-B switch is the
+    /// `LIMINAL_NO_LIGHTMAPS=1` environment override; see
+    /// [`Settings::lightmaps_enabled`].
+    #[serde(default = "default_lightmaps")]
+    pub lightmaps: bool,
 }
 
 const fn default_look_speed_h() -> f32 {
@@ -148,6 +156,9 @@ fn default_filtering() -> String {
 fn default_quality() -> String {
     crate::quality::QualityProfile::DEFAULT.name().to_string()
 }
+const fn default_lightmaps() -> bool {
+    true
+}
 
 impl Default for Settings {
     fn default() -> Self {
@@ -160,6 +171,7 @@ impl Default for Settings {
             vsync: default_vsync(),
             texture_filtering: default_filtering(),
             quality: default_quality(),
+            lightmaps: default_lightmaps(),
         }
     }
 }
@@ -186,6 +198,24 @@ impl Settings {
     #[must_use]
     pub fn quality_profile(&self) -> crate::quality::QualityProfile {
         crate::quality::QualityProfile::parse(&self.quality).unwrap_or_default()
+    }
+
+    /// Whether lightmaps should be baked for level geometry.
+    ///
+    /// This is the persisted `lightmaps` setting, with the
+    /// `LIMINAL_NO_LIGHTMAPS` benchmark override applied: any value other than
+    /// empty, `0`, `false` or `off` forces lightmaps off for this process, so a
+    /// benchmark sweep can capture the vertex-lit and lightmapped builds of the
+    /// same level without editing `settings.json`.
+    #[must_use]
+    pub fn lightmaps_enabled(&self) -> bool {
+        if let Ok(value) = std::env::var("LIMINAL_NO_LIGHTMAPS") {
+            let normalized = value.trim().to_ascii_lowercase();
+            if !matches!(normalized.as_str(), "" | "0" | "false" | "off") {
+                return false;
+            }
+        }
+        self.lightmaps
     }
 
     /// Saves settings to a JSON file.

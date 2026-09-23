@@ -133,6 +133,11 @@ def showcase_level() -> Dict:
         prop("core:stove", 3.3, -5.7, solid=True),
         prop("core:fridge", 6.4, -4.9, solid=True),
         prop("core:washing_machine", 7.1, 0.6, rotation=270.0, solid=True),
+        # The loose drum sits in front of the machine's door. In the shipped
+        # demo the same model is the dynamic demonstrator (see
+        # src/render/dynamic.rs); here it is an ordinary static placement, so
+        # the shipping tests cover its geometry, budget and lighting.
+        prop("core:washer_drum", 6.57, 0.6, rotation=270.0),
     ]
 
     return {

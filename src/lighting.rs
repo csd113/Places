@@ -98,6 +98,13 @@
 //! white light and not with colour — while a doorway, window or vent still
 //! transmits light through the hole it cuts. See [`visibility`].
 //!
+//! Placed props are lighting boundaries too. A static prop's real model
+//! triangles are merged into a handful of oriented boxes (yaw included) and
+//! tested by the same pools, so a washing machine grounds its own contact
+//! shadow and a couch darkens the corner behind it. Emission stays separate:
+//! a prop only illuminates through the generic [`LightSource`]s its level
+//! entry attaches to it, never through its material. See [`occlusion`].
+//!
 //! Determinism and ownership
 //! -------------------------
 //! Overlapping and intersecting rooms are legal level design in this game, so
@@ -116,14 +123,17 @@
 //! tuning.rs       every calibrated number, and the fixture family table
 //! math.rs         the pure, bounded falloff and density maths
 //! bake.rs         the bake itself and the queries it answers
-//! visibility.rs   static opaque-wall visibility for local pools and openings
+//! visibility.rs   static opaque-geometry visibility for local pools and openings
+//! occlusion.rs    prop occlusion boxes derived from the placed models' triangles
 //! tests.rs        unit tests for the whole tree
 //! ```
 
 mod bake;
 mod color;
 mod light;
+pub mod lightmap;
 mod math;
+mod occlusion;
 mod tuning;
 mod visibility;
 

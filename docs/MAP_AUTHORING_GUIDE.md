@@ -95,7 +95,10 @@ Authoritative paths:
 | Rectangular rooms, per-room `floor_y`, `height`, flat/gable ceiling | Implemented |
 | Rectangular walls, per-face materials, doors/windows/passages/vents | Implemented |
 | `floor_patches` (material-only), `floor_regions` (recess/raise), 0.4 m step rule | Implemented |
+| Baked lightmaps for static world geometry (floors, ceilings, walls, reveals, skirts), with the baked-vertex path as the exact fallback | Implemented |
 | Baked vertex lighting, 3 fixture families, per-light colour/intensity/range/falloff, partitions, vertical isolation | Implemented |
+| Static props occlude baked light (contact darkening, blocked pools), derived from the placed model's own triangles | Implemented |
+| A separate dynamic-object render path (per-frame transforms, no rebuild of static geometry or lightmaps) | Implemented (one demonstration object in Places Demo; not authorable from a level yet) |
 | Generic engine-level lights (point / rect / line) owned by fixtures and props | Implemented |
 | Material emission (`emissive`, `emissive_intensity`, `emissive_mask`) and per-fixture `emission` | Implemented |
 | Full / Low runtime quality profiles with texture downscaling | Implemented |
@@ -103,7 +106,7 @@ Authoritative paths:
 | Multi-primitive / multi-material GLB props, embedded emissive materials, node transforms | Implemented |
 | External PNG surfaces, decals, fixture faces; catalog + themes | Implemented |
 | Level `.zip` packs with `materials.json` and pack textures | Implemented |
-| Water, transparency/glass, dynamic lights, shadows, lightmaps, animation/skinning | Not implemented |
+| Water, transparency/glass, realtime dynamic lights, realtime shadow maps, animation/skinning | Not implemented |
 | Emissive decals; per-placement emission overrides; cone/spot lights | Not implemented |
 | Ramps/sloped floor regions; ceiling/floor openings; traversal between stacked storeys | Not implemented |
 | Room-wide brightness/tint modifiers; non-fixture decor meshes beyond props | Not implemented |
@@ -731,7 +734,10 @@ Where a level can name a material (all resolved at load):
 * `floor_patches[].material`
 * `floor_regions[].material` and `floor_regions[].edge_material`
 
-The renderer multiplies: **sampled texture × material tint × baked vertex lighting**.
+The renderer multiplies: **sampled texture × material tint × baked light**, where
+*baked light* is the lightmap atlas texel for static world geometry (see
+[Lighting](#18-lighting)) and the baked vertex colour on the vertex-lit fallback
+path.
 There is no gamma handling; the shipped art, tints and lighting constants were
 calibrated together in that space. Author with the tint in mind (the office wallpaper
 tint, for example, is `[0.85, 0.80, 0.42]`, so the PNG is authored pale).
@@ -813,6 +819,7 @@ edge budget per texture class:
 | Decal sheet | 1024 | 256 |
 | Prop sheet (GLB) | 256 | 128 |
 | Emissive mask | 512 | 128 |
+| Lightmap atlas page | 1024, 12 texels/m | 512, 8 texels/m |
 
 * **Full is the historical Places runtime size.** Every shipped asset is already at
   or below it, so Full uploads the decoded image unchanged — no rescaling, no visual
@@ -825,6 +832,9 @@ edge budget per texture class:
   produces the same runtime image.
 * The source hard limit (1024 px) is unchanged by either profile: quality only decides
   how much of an accepted source reaches the GPU.
+* The **lightmap atlas** is baked light data, not shipped artwork (see
+  [Textures](#12-textures)): the same level bakes at the profile's density, so Low
+  needs no separate level or hand-authored lightmap set.
 
 An author does not need to do anything differently for Low: ship the sane source
 size and let the engine fit it.
@@ -882,8 +892,13 @@ entry.)
 | Generated decal atlas (256×256; only `core:decal_test_01`) | `src/render/decals.rs` | Internal validation marking; the three external decal sheets are ordinary PNGs. |
 | White sheet (2×2) | `src/render.rs` | Untextured geometry (fixture housings, UI quads). |
 | HUD font atlas (128×64) | `src/font.rs` | Project-owned bitmap UI font. |
+| Lightmap atlas (up to two pages, quality-profile sized) | `src/lighting/lightmap/` | Baked *light data*, derived at level load from the level's own lights and geometry — the texel equivalent of the baked vertex colours it replaces. Not authored artwork, and deliberately not shipped as PNGs: it changes whenever a light, prop or surface moves, and it is regenerated (never re-saved) on load. |
 
 Everything else the renderer draws from an image comes from a PNG under `assets/`.
+Every *surface, fixture, decal and prop texture* is still a real PNG asset under
+`assets/`, including the lightmaps' albedo partners; the lightmap atlas is the
+only thing the renderer samples that is generated at runtime, and it is lighting
+data rather than texture artwork.
 
 ### Texture budget summary
 
@@ -1242,6 +1257,66 @@ sample = room/partition-area baseline
 7. **No ambient control.** The 0.10 neutral floor is fixed; you cannot author sun,
    sky, a room-wide brightness or a room-wide tint. Express mood per fixture.
 
+### Baked lightmaps
+
+The value above is stored per *texel* of static geometry instead of per vertex: the
+engine packs every floor, ceiling, wall face, reveal and recess skirt into a lightmap
+atlas at level load, and the surface shader multiplies its texture by the atlas. The
+lighting model, the fixtures and everything a map authors are unchanged — this is a
+storage change, not an authoring one.
+
+* Density follows the quality profile: **Full** bakes 12 texels per metre onto up to
+  two 1024-texel pages, **Low** bakes 8 texels per metre onto two 512-texel pages.
+  Both profiles bake the same set of surfaces; faces longer than one chart are split
+  automatically.
+* `settings.json` carries `"lightmaps": true|false` (default `true`). The environment
+  override `LIMINAL_NO_LIGHTMAPS=1` forces the historical vertex-lit path for a
+  benchmark or A/B capture run.
+* If a bake cannot fit the page budget, or an atlas page cannot upload, the level
+  rebuilds with `LightmapMode::Off` and draws exactly the old vertex-lit colours — a
+  level never renders black because of a lightmap failure.
+* Fixtures, prop placeholder boxes and decals are always vertex-lit: their colour
+  keeps the baked light folded in, exactly as before.
+* Set `LIMINAL_DUMP_LIGHTMAPS=1` to write the baked atlas pages as PNGs under
+  `target/agent-work/atlases/` for inspection.
+
+#### Static props occlude the bake
+
+A placed prop is not air: every prop's own triangles become a small set of
+occlusion boxes for the bake, automatically and per distinct model. Nothing is
+authored and there is no per-prop occlusion flag. The visible consequences:
+
+* the floor under a machine, desk or couch is darker than open floor at the same
+  distance from a fixture (contact darkening);
+* a large object blocks the pool behind it — a fridge or vending machine throws a
+  real shadow onto the wall and floor behind it;
+* furniture pushed into a corner darkens that corner, so props read as standing
+  *in* the room rather than pasted onto it;
+* a rotated prop shades along its rotation, not along its bounding box;
+* a prop's own `lights[]` still cast normally, and are themselves blocked by the
+  prop body.
+
+Nothing about the level format changed for this, so no existing map needs an
+edit. Two consequences to expect when reviewing an existing map: a fixture that
+was previously lighting straight through a machine now does not, and a prop that
+is *not* solid still occludes light (occlusion follows the drawn model, not the
+collision box).
+
+#### Dynamic objects (demonstration only in this batch)
+
+The engine has a separate render path for objects whose transform changes every
+frame — moving components that must not be re-baked, re-batched or written into
+the static lightmap. In this batch it is proven by one object in Places Demo: a
+`core:washer_drum` turning in front of a placed `core:washing_machine` (the
+machine itself is an ordinary static prop and participates in the bake).
+
+* Dynamic objects are engine-created, not authored in level JSON. A level cannot
+  place or drive one yet.
+* They are lit by a single probe of the static bake at their current position
+  (no shadows, no realtime lights), which is the documented temporary behaviour
+  for Batch 3 to evolve.
+* Moving one never rebuilds geometry, batches or lightmaps.
+
 ### Current Light Fixture Types
 
 Generated from `src/lighting/tuning.rs::fixture_profile` and `assets/catalog.json` at
@@ -1325,6 +1400,11 @@ Semantics:
 * Rotation does rotate the rendered model around Y.
 * `props` are never tested against their render mesh; intentional clipping and
   overlap are preserved.
+* **Every placed prop occludes baked lighting**, automatically, from its rendered
+  model: the floor under it darkens, it blocks the fixtures behind it, and it
+  darkens the wall it stands against. `solid` controls collision only — a
+  non-solid prop still occludes, because the occlusion comes from the drawn
+  geometry. See [Static props occlude the bake](#static-props-occlude-the-bake).
 
 Known-valid examples:
 
@@ -1673,6 +1753,34 @@ occlusion-tested against exact wall solids.
 **Authoring rule:** trust the occlusion, but place fixtures inside the room they
 should light. A fixture outside a room still lights the space it can see; fixtures
 outside every room are defined but isolated.
+
+### A Prop That Used To Be Lit Through Now Shadows
+
+**Symptom:** after upgrading, a floor or wall behind a machine/cabinet is darker than
+it used to be, and the object looks grounded instead of floating.
+
+**Cause:** this is intended. Static props occlude baked light (Batch 2), derived from
+the rendered model. A prop that stood in front of a fixture was previously lit as if
+it were air.
+
+**Authoring rule:** nothing to change — it is the desired result. If a space is now
+too dark, add or brighten a fixture on the side that needs the light rather than
+removing the prop. Note that a *non-solid* prop occludes too: occlusion follows the
+drawn model, not the collision box.
+
+### Lightmap Seam or Blotch
+
+**Symptom:** a faint bright or dark line along where two walls meet, or a patch of
+one surface's light bleeding into the next.
+
+**Cause:** a lightmap chart boundary. Charts are padded and their gutters are filled
+from the chart's own edge texels, so this should not happen; extra subdivision appears
+where a merged quad was capped or a wall face was split.
+
+**Authoring rule:** do not try to fix it from the level — there is no chart authoring
+control. Report it as an engine bug with the level id and camera position. A
+vertex-lit fallback always exists (`"lightmaps": false` in `settings.json` or
+`LIMINAL_NO_LIGHTMAPS=1`), so a map is never blocked by a bake problem.
 
 ### Fixture Assigned to the Wrong Room / Storey
 

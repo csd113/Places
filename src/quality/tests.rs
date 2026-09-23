@@ -1,6 +1,6 @@
 // Test code: unwrap/expect, indexing and permissive arithmetic are idiomatic in
 // tests; the production lints stay enforced everywhere else in the crate.
-#![allow(clippy::expect_used, clippy::indexing_slicing)]
+#![allow(clippy::expect_used, clippy::float_cmp, clippy::indexing_slicing)]
 
 use super::*;
 
@@ -147,4 +147,30 @@ fn fitting_is_deterministic_for_the_same_input() {
     let first = fit_image(&image, QualityProfile::Low, TextureClass::Surface).into_owned();
     let second = fit_image(&image, QualityProfile::Low, TextureClass::Surface).into_owned();
     assert_eq!(first, second);
+}
+
+#[test]
+fn lightmap_budgets_scale_with_the_profile() {
+    use crate::lighting::lightmap::LightmapConfig;
+
+    let full = LightmapConfig::for_profile(QualityProfile::Full);
+    let low = LightmapConfig::for_profile(QualityProfile::Low);
+
+    assert_eq!(full.texels_per_metre, 12.0);
+    assert_eq!(full.page_edge, 1024);
+    assert_eq!(full.padding, 2);
+    assert_eq!(full.usable_edge(), 1020);
+
+    assert_eq!(low.texels_per_metre, 8.0);
+    assert_eq!(low.page_edge, 512);
+    assert_eq!(low.padding, 1);
+    assert_eq!(low.usable_edge(), 510);
+
+    // Both profiles target the same world span per chart, so the two densities
+    // split the level's geometry in exactly the same places.
+    assert_eq!(full.max_chart_span_m(), low.max_chart_span_m());
+    assert_eq!(full.max_pages, 2);
+    assert_eq!(low.max_pages, 2);
+    assert_eq!(full.bytes_per_texel, 3);
+    assert_eq!(low.bytes_per_texel, 3);
 }

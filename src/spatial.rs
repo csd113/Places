@@ -514,8 +514,9 @@ fn index_run(run: &[crate::render::Vertex]) -> Vec<IndexedRange> {
     let mut ranges: Vec<IndexedRange> = Vec::new();
     let mut current = IndexedRange::default();
     // Keyed by the exact bit pattern of every attribute, so two vertices that
-    // differ only in a baked-lighting channel or a UV stay separate.
-    let mut seen: HashMap<[u32; 9], u16> = HashMap::new();
+    // differ only in a baked-lighting channel, a UV or a lightmap chart stay
+    // separate.
+    let mut seen: HashMap<[u32; 12], u16> = HashMap::new();
 
     for quad in run.chunks(QUAD) {
         // A quad needs at most four new vertices; start a new range instead of
@@ -575,7 +576,13 @@ fn index_run(run: &[crate::render::Vertex]) -> Vec<IndexedRange> {
 }
 
 /// Exact bit-pattern key for a vertex, used only for equality.
-const fn vertex_key(vertex: &crate::render::Vertex) -> [u32; 9] {
+///
+/// The lightmap coordinates and page are part of the key: two quads that share
+/// a position, colour and tile UV still sample *different* atlas charts, so
+/// sharing a vertex between them would make one of the two quads read the
+/// other's light. Leaving the lightmap out of the key was correct only while
+/// every vertex was vertex-lit.
+fn vertex_key(vertex: &crate::render::Vertex) -> [u32; 12] {
     [
         vertex.pos[0].to_bits(),
         vertex.pos[1].to_bits(),
@@ -586,6 +593,9 @@ const fn vertex_key(vertex: &crate::render::Vertex) -> [u32; 9] {
         vertex.color[3].to_bits(),
         vertex.uv[0].to_bits(),
         vertex.uv[1].to_bits(),
+        u32::from(vertex.lightmap[0]),
+        u32::from(vertex.lightmap[1]),
+        u32::from(vertex.lightmap_page),
     ]
 }
 

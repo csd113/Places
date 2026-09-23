@@ -124,15 +124,36 @@ fn log_prop_usage(renderer: &Renderer) {
         level.prop_draws
     );
     println!(
-        "[lighting] baked {} room(s) / {} baseline area(s) from {} fixture(s): {} wall + {} slab blocker(s), baselines {:.2}..{:.2} (avg {:.2})",
+        "[lighting] baked {} room(s) / {} baseline area(s) from {} fixture(s): {} wall + {} slab + {} prop blocker(s), baselines {:.2}..{:.2} (avg {:.2})",
         level.lighting.rooms,
         level.lighting.zones,
         level.lighting.lights,
         level.lighting.walls,
         level.lighting.blockers.saturating_sub(level.lighting.walls),
+        level.lighting.props,
         level.lighting.min_baseline,
         level.lighting.max_baseline,
         level.lighting.average_baseline
+    );
+    println!(
+        "[lightmaps] {} page(s), {} chart(s), {} chart texels, {} page texels ({} KiB), filled in {:.1} ms{}",
+        level.lightmap_pages,
+        level.lightmap_charts,
+        level.lightmap_chart_texels,
+        level.lightmap_texels,
+        level.lightmap_texels.saturating_mul(3) / 1024,
+        level.lightmap_millis,
+        if level.lightmap_fallback {
+            " (fallback: vertex lighting)"
+        } else {
+            ""
+        }
+    );
+    println!(
+        "[dynamic] {} object(s): {} draw call(s), {} vertices (the demonstration path; never part of the static bake)",
+        renderer.dynamic_scene().len(),
+        renderer.dynamic_scene().draw_count(),
+        renderer.dynamic_scene().vertex_count()
     );
 }
 
@@ -344,6 +365,20 @@ fn log_asset_catalog(level_manager: &loader::LevelManager) {
     );
 }
 
+/// The level that ships with the Batch 2 dynamic demonstration.
+const DEMO_LEVEL_ID: &str = "places_demo";
+
+/// Spawns the dynamic demonstration for levels that ship with one.
+///
+/// The engine's dynamic path is generic (`Renderer::set_dynamic_demo`), but the
+/// demonstration is content: it lives in Places Demo so the engine regression
+/// fixtures and their benchmarks are unaffected by it.
+fn spawn_level_demonstration(renderer: &mut Renderer, loaded: &loader::LoadedLevel) {
+    if loaded.level.id == DEMO_LEVEL_ID {
+        renderer.set_dynamic_demo(&loaded.level);
+    }
+}
+
 /// Builds the renderer for the initial level and applies the persisted texture
 /// filtering plus the three benchmark submission switches.
 ///
@@ -363,7 +398,11 @@ fn create_renderer(
     // The quality profile decides how large a texture may reach the GPU, so it
     // is applied before the first level upload rather than after it.
     renderer.set_quality(settings.quality_profile());
+    // Lightmap baking is a build-time choice (and the `LIMINAL_NO_LIGHTMAPS`
+    // override lands here), so it must be set before the first level build too.
+    renderer.set_lightmaps_requested(settings.lightmaps_enabled());
     renderer.set_level(level);
+    spawn_level_demonstration(&mut renderer, level);
     renderer.set_texture_filtering(&settings.texture_filtering);
     renderer.set_culling(!bench.no_cull());
     renderer.set_indexing(!bench.no_index());
@@ -425,6 +464,20 @@ fn capture_path_from_env() -> Option<PathBuf> {
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .map(PathBuf::from)
+}
+
+/// The frame `LIMINAL_CAPTURE` should be taken on, 1-based.
+///
+/// The default is the first rendered frame, which is what every existing
+/// capture does. `LIMINAL_CAPTURE_FRAME=n` waits for frame `n` first, so a
+/// capture can show something that changes over time (the Batch 2
+/// demonstration drum turns as the frame loop runs) without a second launch.
+fn capture_frame_from_env() -> u64 {
+    std::env::var("LIMINAL_CAPTURE_FRAME")
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .filter(|frame| *frame > 0)
+        .unwrap_or(1)
 }
 
 /// The parsed `LIMINAL_SPAWN` override, if set.
@@ -512,6 +565,7 @@ fn apply_level_request(
                     loaded.level.props.len()
                 );
                 renderer.set_level(&loaded);
+                spawn_level_demonstration(renderer, &loaded);
                 renderer.set_culling(!bench.no_cull());
                 renderer.set_indexing(!bench.no_index());
                 log_prop_usage(renderer);
@@ -582,6 +636,7 @@ struct FrameLoop<'a> {
     ui_scratch: &'a mut Vec<Vertex>,
     applied_filtering: &'a mut String,
     capture_path: &'a mut Option<PathBuf>,
+    capture_at_frame: u64,
     state_log: &'a mut Option<std::fs::File>,
     spawn_pos: &'a mut Vec3,
     spawn_yaw: &'a mut f32,
@@ -613,6 +668,10 @@ impl FrameLoop<'_> {
         self.game
             .update_player_movement(self.input_handler.state(), self.settings);
         self.log_player_state();
+        // Advance the dynamic objects (the demonstration drum and any other
+        // spawned object) once per frame: transform only, never a geometry or
+        // lightmap rebuild.
+        self.renderer.update_dynamic(self.game.delta_seconds());
         let frame_update_done = Instant::now();
 
         self.render_and_present(frame_begin, frame_update_done);
@@ -852,6 +911,7 @@ impl FrameLoop<'_> {
         match self.level_manager.load_level(entry) {
             Ok(loaded) => {
                 self.renderer.set_level(&loaded);
+                spawn_level_demonstration(self.renderer, &loaded);
                 *self.spawn_pos = game::spawn_position(&loaded.level);
                 *self.spawn_yaw = loaded.level.spawn.yaw_degrees.to_radians();
                 self.game.reset_level(
@@ -981,8 +1041,9 @@ impl FrameLoop<'_> {
         }
         let frame_ui_done = Instant::now();
 
-        let capture = self.capture_path.take();
-        if let Some(path) = capture {
+        if self.game.frame_count() >= self.capture_at_frame
+            && let Some(path) = self.capture_path.take()
+        {
             write_capture(self.renderer, &path);
             self.game.stop();
         }
@@ -1079,6 +1140,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut ui_scratch: Vec<Vertex> = Vec::new();
     let mut applied_filtering = settings.texture_filtering.clone();
     let mut capture_path = capture_path_from_env();
+    let capture_at_frame = capture_frame_from_env();
 
     let mut frame_loop = FrameLoop {
         window: &window,
@@ -1095,6 +1157,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ui_scratch: &mut ui_scratch,
         applied_filtering: &mut applied_filtering,
         capture_path: &mut capture_path,
+        capture_at_frame,
         state_log: &mut state_log,
         spawn_pos: &mut spawn_pos,
         spawn_yaw: &mut spawn_yaw,

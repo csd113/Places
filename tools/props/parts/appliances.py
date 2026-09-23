@@ -30,6 +30,10 @@ TARGET = {
     "core:washing_machine": 240,
     "core:vending_machine": 260,
     "core:water_cooler": 220,
+    # Not placed by any level: the dynamic-object demonstrator (see
+    # src/render/dynamic.rs).  It spins about its vertical axis on screen, so
+    # the mouth, rim, basket wall and lifters have to read in motion.
+    "core:washer_drum": 170,
 }
 
 # Shared finish constants: identical counts across all six appliances.
@@ -593,6 +597,194 @@ def build_washing_machine(p: PropBuilder) -> None:
     p.add_note("8-segment porthole with a recessed, radially mapped glass; control rail with drawer and dial")
 
 
+# --------------------------------------------------------------- washer drum
+
+
+def build_washer_drum(p: PropBuilder) -> None:
+    """Open drum basket: shell, rim, inner wall, floor and three lifters.
+
+    The demonstrator for the dynamic-object path (`src/render/dynamic.rs`):
+    a level spawns it in front of a placed washing machine and turns it about
+    its own vertical axis.  Because it is seen in motion from standing height,
+    the paint budget goes on the parts that move -- the mouth's rim, the inner
+    wall and the drum floor -- and on three lifters, which are what make the
+    rotation legible at all.  It stands on its base like a basket lifted out of
+    the machine, so its local Y axis is the spin axis the transform applies.
+    """
+    width, height, _depth = p.size
+    radius = width * 0.5
+    rim_w = 0.045
+    mouth_radius = radius - rim_w
+    drum_floor = 0.05
+    rim_bottom = height - 0.04
+    segments = 12
+    lifter_angles = (30.0, 150.0, 270.0)
+
+    tex = p.set_texture(64, seed=73)
+    tex.auto("shell", "rim", "facing", "lifter")
+
+    steel = palette.shade(
+        palette.mix(palette.hex_to_rgb(palette.METAL_LIGHT),
+                    palette.hex_to_rgb(palette.INSTITUTIONAL_TEAL), 0.10), 0.96
+    )
+    steel_light = palette.shade(steel, 1.10)
+    steel_dark = palette.shade(steel, 0.58)
+    inside = palette.shade(
+        palette.mix(palette.hex_to_rgb(palette.METAL_DARK),
+                    palette.hex_to_rgb(palette.SCREEN_DARK), 0.35), 0.92
+    )
+    chrome = palette.hex_to_rgb(palette.CHROME)
+
+    # --- texture: outer shell ----------------------------------------------
+    _paint(tex, "shell", steel, seed=1, grain_density=0.22)
+    # One seam per segment: the basket's pressed panels.
+    for index in range(segments):
+        u = index / segments
+        tex.bar("shell", steel_dark, (max(0.0, u - 0.012), 0.0, min(1.0, u + 0.012), 1.0), alpha=90)
+    # Two rows of perforation dots read as the basket's wall in the light.
+    for row in (0.58, 0.70):
+        tex.dots("shell", palette.shade(steel_dark, 0.72),
+                 [(index / (segments * 2) + 0.02, row) for index in range(segments * 2)],
+                 radius=1, alpha=120)
+    # One asymmetrically painted service panel, on the +Z world side at spawn:
+    # the drum turns about its own axis, so a single marked segment is what
+    # makes the rotation legible from outside; the rest of the shell's detail
+    # is 12-fold symmetric. u = 0.25 is the model's front.
+    tex.bar("shell", palette.shade(steel, 0.72), (0.222, 0.06, 0.278, 0.94), alpha=150)
+    tex.scribble("shell", palette.shade(steel_dark, 0.7), (0.228, 0.30, 0.272, 0.46),
+                 seed=8, text_blocks=1, alpha=170)
+    tex.border("shell", steel_dark, width=1, alpha=70)
+    _wear(tex, "shell", seed=2, rust=2, streaks=2)
+
+    # --- texture: rim -------------------------------------------------------
+    _paint(tex, "rim", chrome, seed=3, grain_density=0.4, grain_alpha=26)
+    tex.band("rim", palette.shade(chrome, 0.78), 0.0, 0.30, alpha=60)
+    tex.spots("rim", palette.hex_to_rgb(palette.GRIME), count=3, seed=4, radius=2, alpha=30)
+
+    # --- texture: drum floor (mapped as a disc, centre in the middle) -------
+    _paint(tex, "facing", inside, seed=5, grain_density=0.3, grain_alpha=24)
+    for ring in (0.16, 0.31, 0.46):
+        tex.band("facing", palette.shade(inside, 0.80), ring, ring + 0.035, alpha=70)
+    tex.dots("facing", palette.shade(inside, 0.55), [(0.5, 0.5)], radius=3)
+    tex.dots("facing", palette.shade(steel_dark, 0.9), [(0.5, 0.5)], radius=1, alpha=200)
+    tex.spots("facing", palette.hex_to_rgb(palette.GRIME), count=4, seed=6, radius=2, alpha=34)
+
+    # --- texture: lifters ---------------------------------------------------
+    _paint(tex, "lifter", steel_light, seed=7, grain_density=0.3)
+    tex.band("lifter", palette.shade(steel_dark, 0.9), 0.55, 0.70, alpha=60)
+    tex.border("lifter", steel_dark, width=1, alpha=80)
+
+    # --- geometry -----------------------------------------------------------
+    def ring(angle: float, r: float, y: float):
+        return (math.cos(angle) * r, y, math.sin(angle) * r)
+
+    def angle_of(index: int) -> float:
+        return (index / segments) * math.tau
+
+    def sector_shade(index: int) -> float:
+        return 0.72 + 0.28 * (0.5 + 0.5 * math.cos(angle_of(index) - 0.9))
+
+    shell_uv = tex.uv("shell")
+    rim_uv = tex.uv("rim")
+    facing_uv = tex.uv("facing")
+    lifter_uv = tex.uv("lifter")
+    u0, v0, u1, v1 = shell_uv
+    facing_u0, facing_v0, facing_u1, facing_v1 = facing_uv
+    facing_cu = (facing_u0 + facing_u1) * 0.5
+    facing_cv = (facing_v0 + facing_v1) * 0.5
+    facing_ru = (facing_u1 - facing_u0) * 0.5
+    facing_rv = (facing_v1 - facing_v0) * 0.5
+    for index in range(segments):
+        nxt = (index + 1) % segments
+        a0, a1 = angle_of(index), angle_of(nxt)
+        t0, t1 = index / segments, nxt / segments
+        multiplier = sector_shade(index)
+        # Outer shell, open at the bottom.
+        p.mesh.quad(
+            ring(a0, radius, 0.0),
+            ring(a1, radius, 0.0),
+            ring(a1, radius, rim_bottom),
+            ring(a0, radius, rim_bottom),
+            [(u0 + (u1 - u0) * t0, v1), (u0 + (u1 - u0) * t1, v1),
+             (u0 + (u1 - u0) * t1, v0), (u0 + (u1 - u0) * t0, v0)],
+            steel,
+            shade_mult=multiplier,
+        )
+        # Bottom annulus, so the basket is closed from below.
+        p.mesh.quad(
+            ring(a0, mouth_radius, 0.0),
+            ring(a1, mouth_radius, 0.0),
+            ring(a1, radius, 0.0),
+            ring(a0, radius, 0.0),
+            rim_uv,
+            palette.shade(steel_dark, 0.8),
+            shade_mult=0.62,
+        )
+        # Polished rim between the shell and the mouth.
+        p.mesh.quad(
+            ring(a0, radius, height),
+            ring(a1, radius, height),
+            ring(a1, mouth_radius, height),
+            ring(a0, mouth_radius, height),
+            rim_uv,
+            chrome,
+            shade_mult=1.0,
+        )
+        # Inner basket wall, from the mouth down to the drum floor.
+        p.mesh.quad(
+            ring(a0, mouth_radius, drum_floor),
+            ring(a1, mouth_radius, drum_floor),
+            ring(a1, mouth_radius, height),
+            ring(a0, mouth_radius, height),
+            facing_uv,
+            palette.shade(steel, 0.86),
+            shade_mult=0.80 + 0.14 * (0.5 + 0.5 * math.cos(angle_of(index) + 1.6)),
+        )
+        # Drum floor: a fan whose UVs run around the painted disc, so the
+        # concentric wear stays concentric instead of smearing from one corner.
+        p.mesh.triangle(
+            (0.0, drum_floor, 0.0),
+            ring(a0, mouth_radius, drum_floor),
+            ring(a1, mouth_radius, drum_floor),
+            [
+                (facing_cu, facing_cv),
+                (facing_cu + facing_ru * math.cos(a0), facing_cv - facing_rv * math.sin(a0)),
+                (facing_cu + facing_ru * math.cos(a1), facing_cv - facing_rv * math.sin(a1)),
+            ],
+            palette.shade(inside, 1.05),
+            shade_mult=0.94,
+        )
+
+    # Three lifters: the paddles that make a turning drum read as a drum.
+    lifter_half = 0.05
+    lifter_radius = mouth_radius - 0.02
+    lifter_mid = drum_floor + 0.085
+    for angle in lifter_angles:
+        radians = math.radians(angle)
+        p.box(
+            (math.cos(radians) * lifter_radius, lifter_mid, math.sin(radians) * lifter_radius),
+            (lifter_half * 2.0, 0.15, 0.03),
+            uv=lifter_uv,
+            color=steel_light,
+            rotation=(0.0, 90.0 - angle, 0.0),
+            proxy=False,  # internal: the shell proxy already covers the silhouette
+        )
+    # The editor's derived preview only needs the outer mass.
+    p.mesh.parts.append(
+        {
+            "shape": "cylinder",
+            "axis": "y",
+            "base": [0.0, 0.0, 0.0],
+            "radius": round(radius, 4),
+            "height": round(height, 4),
+            "segments": segments,
+            "taper": 1.0,
+            "color": "#b0b4b6",
+        }
+    )
+    p.add_note("open basket: rim, inner wall, ribbed floor and three lifters; only the shell is a straight cylinder")
+
+
 # ---------------------------------------------------------- vending machine
 
 
@@ -886,4 +1078,5 @@ PROPS = {
     "core:washing_machine": build_washing_machine,
     "core:vending_machine": build_vending_machine,
     "core:water_cooler": build_water_cooler,
+    "core:washer_drum": build_washer_drum,
 }

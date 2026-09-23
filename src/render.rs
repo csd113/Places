@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use glow::HasContext;
 
 use crate::font::generate_font_atlas;
@@ -5,11 +7,13 @@ use crate::level::{
     FloorPatchDef, LevelDef, LevelSurfaces, PropDef, RoomDef, RoomFloorGrid, WallAxis, WallDef,
     WallSlice, wall_solid_slices_profiled,
 };
+use crate::lighting::lightmap::{LightmapPlan, PatchKind};
 use crate::lighting::{LevelLighting, LightColor, wall_light_segments};
 use crate::materials::{MaterialTable, ResolvedMaterial};
 
 mod api;
 mod decals;
+mod dynamic;
 mod fixtures;
 mod geometry;
 mod mesh;
@@ -18,7 +22,8 @@ mod renderer;
 mod view;
 
 pub use api::{
-    BuildTimings, build_level_geometry, build_level_geometry_timed,
+    BuildTimings, LevelBuild, LightmapBuildOptions, build_level_geometry,
+    build_level_geometry_timed, build_level_geometry_timed_with_lightmaps,
     build_level_geometry_with_assets, build_level_geometry_with_assets_and_lighting,
     build_level_geometry_with_assets_and_lighting_and_materials, build_level_geometry_with_catalog,
     build_level_geometry_with_catalog_and_materials, build_level_geometry_with_materials,
@@ -28,13 +33,18 @@ pub use decals::{
     DECAL_EXTERNAL_BASE, DECAL_MATERIALS, DECAL_TEST_MATERIAL, decal_external_sheet_ids,
     decal_material_slot, decal_sheet_index, decal_uv_rect, decal_uv_rect_full,
 };
+pub use dynamic::{
+    DEMO_DRUM_ID, DEMO_MACHINE_ID, DEMO_SPIN_DEGREES_PER_SECOND, DynamicId, DynamicMesh,
+    DynamicObject, DynamicScene, DynamicSubmesh, DynamicUpdate, MAX_DYNAMIC_MESHES,
+    MAX_DYNAMIC_OBJECTS, PROBE_EPSILON_M,
+};
 use fixtures::{add_panel_fixture, add_round_fixture, add_wall_fixture};
 use geometry::build_level_geometry_mesh;
 pub use mesh::packed_layout;
 pub use mesh::{
-    BatchRange, LevelMesh, LevelMeshBatches, LevelMeshRange, MATERIAL_NONE, MaterialIndex,
-    MaterialSlot, PackedVertex, StaticBatch, SurfaceKey, SurfaceKind, Vertex, VertexLayout,
-    dequantize_unit, spatial_cell_grid,
+    BatchRange, LIGHTMAP_NONE, LevelMesh, LevelMeshBatches, LevelMeshRange, MATERIAL_NONE,
+    MaterialIndex, MaterialSlot, PackedVertex, StaticBatch, SurfaceKey, SurfaceKind, Vertex,
+    VertexLayout, dequantize_unit, spatial_cell_grid,
 };
 use mesh::{MeshChunk, MeshPacker, finish_indexed_mesh};
 pub use props::PropMeshBatch;
@@ -60,10 +70,10 @@ pub use view::{
     reference_aspect_ratio, vertical_fov_for_aspect,
 };
 use view::{
-    DECAL_FRAGMENT_SHADER_SRC, EMISSION_MASK_TEXTURE_UNIT, FRAGMENT_SHADER_SRC, LIGHTMAP_PAGE_SLOTS,
-    LIGHTMAP_TEXTURE_UNIT, LIGHTMAP_TEXTURE_UNIT_1, SCENE_ATTRIB_COLOR, SCENE_ATTRIB_LIGHTMAP_PAGE,
-    SCENE_ATTRIB_LIGHTMAP_UV, SCENE_ATTRIB_POS, SCENE_ATTRIB_UV, SCENE_TEXTURE_UNIT,
-    VERTEX_SHADER_SRC,
+    DECAL_FRAGMENT_SHADER_SRC, EMISSION_MASK_TEXTURE_UNIT, FRAGMENT_SHADER_SRC,
+    LIGHTMAP_PAGE_SLOTS, LIGHTMAP_TEXTURE_UNIT, LIGHTMAP_TEXTURE_UNIT_1, SCENE_ATTRIB_COLOR,
+    SCENE_ATTRIB_LIGHTMAP_PAGE, SCENE_ATTRIB_LIGHTMAP_UV, SCENE_ATTRIB_POS, SCENE_ATTRIB_UV,
+    SCENE_TEXTURE_UNIT, VERTEX_SHADER_SRC,
 };
 
 /// Resolves level material ids into surface keys and render parameters.
@@ -158,37 +168,37 @@ fn add_quad(
         pos: p0,
         color: col0,
         uv: uv0,
-    ..Vertex::UNLIT
+        ..Vertex::UNLIT
     });
     vertices.push(Vertex {
         pos: p1,
         color: col1,
         uv: uv1,
-    ..Vertex::UNLIT
+        ..Vertex::UNLIT
     });
     vertices.push(Vertex {
         pos: p2,
         color: col2,
         uv: uv2,
-    ..Vertex::UNLIT
+        ..Vertex::UNLIT
     });
     vertices.push(Vertex {
         pos: p0,
         color: col0,
         uv: uv0,
-    ..Vertex::UNLIT
+        ..Vertex::UNLIT
     });
     vertices.push(Vertex {
         pos: p2,
         color: col2,
         uv: uv2,
-    ..Vertex::UNLIT
+        ..Vertex::UNLIT
     });
     vertices.push(Vertex {
         pos: p3,
         color: col3,
         uv: uv3,
-    ..Vertex::UNLIT
+        ..Vertex::UNLIT
     });
 }
 
@@ -239,7 +249,106 @@ fn lit_corners(base: [f32; 3], points: [[f32; 3]; 4], lighting: &LevelLighting) 
     points.map(|point| shade(base, lighting.sample(point[0], point[1], point[2])))
 }
 
-/// Emits one wall face parallel to the wall's length axis as a strip of quads.
+/// A plan shared with the emitters through the emit context.
+///
+/// The builder owns the plan and lends it as a [`RefCell`] so a `&EmitContext`
+/// can stamp quads without threading `&mut` through every emitter signature.
+/// Every stamp borrows for the length of one quad via `try_borrow_mut` and
+/// never holds a borrow across another stamp.
+pub(crate) type SharedLightmapPlan<'p> = RefCell<&'p mut LightmapPlan>;
+
+/// The lightmap state one emitter needs: the shared plan, when the build is
+/// lightmapped, plus the longest chart span its merges may produce.
+///
+/// `Copy`, so an emitter can take it by value out of the emit context and hand
+/// it to a nested helper without borrowing anything. `plan: None` is the
+/// historical vertex-lit path, where the emitters must compute exactly the
+/// colours and vertices they always did.
+#[derive(Clone, Copy)]
+pub(crate) struct LightmapEmit<'a> {
+    /// The plan to stamp quads into; `None` means vertex-lit.
+    pub(crate) plan: Option<&'a SharedLightmapPlan<'a>>,
+    /// Longest merged quad, in metres, a lightmapped build may emit.
+    pub(crate) max_span_m: f32,
+}
+
+impl LightmapEmit<'_> {
+    /// True when this build bakes light into an atlas.
+    pub(crate) const fn is_on(&self) -> bool {
+        self.plan.is_some()
+    }
+}
+
+/// Stamps the six vertices of one just-emitted quad with a lightmap chart.
+///
+/// `first` is the index of the quad's first vertex and `corners` are its four
+/// corners in the emitter's own winding (`u = p0 -> p1`, `v = p0 -> p3`). A
+/// `None` lightmap is the historical vertex-lit path and does nothing at all.
+pub(crate) fn stamp_lightmap_quad(
+    lightmap: Option<LightmapEmit<'_>>,
+    vertices: &mut [Vertex],
+    first: usize,
+    kind: PatchKind,
+    corners: [[f32; 3]; 4],
+    room: Option<usize>,
+) {
+    let Some(plan) = lightmap.and_then(|lightmap| lightmap.plan) else {
+        return;
+    };
+    let Ok(mut plan) = plan.try_borrow_mut() else {
+        return;
+    };
+    let _ = plan.stamp_emitted(vertices, first, kind, corners, room);
+}
+
+/// Splits `(lo, hi)` into sub-intervals of at most `max_span` length each.
+///
+/// Only used on the lightmapped path: with a non-finite span (the vertex-lit
+/// fallback) the original interval is returned unchanged, so no emitter that
+/// calls this can drift from its historical coordinates.
+pub(crate) fn split_span(lo: f32, hi: f32, max_span: f32) -> Vec<(f32, f32)> {
+    let span = hi - lo;
+    if !max_span.is_finite() || !span.is_finite() || span <= max_span || span <= 1.0e-6 {
+        return vec![(lo, hi)];
+    }
+    let pieces = (span / max_span).ceil().clamp(1.0, 64.0);
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    // `pieces` is clamped to [1, 64] before the cast.
+    let count = pieces as u32;
+    let step = span / f32::from(u16::try_from(count).unwrap_or(u16::MAX));
+    (0..count)
+        .map(|index| {
+            let index_f = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+            let start = index_f.mul_add(step, lo);
+            let end = if index.saturating_add(1) >= count {
+                hi
+            } else {
+                start + step
+            };
+            (start, end)
+        })
+        .collect()
+}
+
+/// Splits a `(a0, a1, b0, b1)` rectangle into tiles no larger than `max_span`
+/// on either axis. The whole rectangle is returned unchanged when `max_span`
+/// is not finite, which is the vertex-lit fallback.
+pub(crate) fn split_rect(rect: (f32, f32, f32, f32), max_span: f32) -> Vec<(f32, f32, f32, f32)> {
+    if !max_span.is_finite() {
+        return vec![rect];
+    }
+    let (a0, a1, b0, b1) = rect;
+    let mut out = Vec::new();
+    for (sa0, sa1) in split_span(a0, a1, max_span) {
+        for (sb0, sb1) in split_span(b0, b1, max_span) {
+            out.push((sa0, sa1, sb0, sb1));
+        }
+    }
+    out
+}
+
+/// One wall face parallel to the wall's length axis, ready to emit as a strip
+/// of quads.
 ///
 /// The face is split along its length (bounded by
 /// `lighting::MAX_WALL_LIGHT_SEGMENTS`) so baked fixture pools and doorway
@@ -254,8 +363,196 @@ fn lit_corners(base: [f32; 3], points: [[f32; 3]; 4], lighting: &LevelLighting) 
 /// makes the world length axis run the other way). A creator can therefore put
 /// a sign, a border or a directional pattern in a wall PNG and see it upright
 /// and unmirrored in game.
-#[allow(clippy::too_many_arguments)]
-fn add_wall_length_face(
+struct WallFaceStrip<'a, Y: Fn(f32) -> f32> {
+    /// The wall's length axis.
+    axis: WallAxis,
+    /// World position of the face across the wall's thickness.
+    face: f32,
+    /// Outward normal, `-1.0` or `1.0` across the thickness.
+    normal: f32,
+    /// World start of the face along the length axis.
+    l0: f32,
+    /// World end of the face along the length axis.
+    l1: f32,
+    /// World Y of the face's bottom edge.
+    bottom: f32,
+    /// The face's top edge at a length offset.
+    top_at: Y,
+    /// Shaded colour of the face's bottom edge.
+    bottom_shade: [f32; 3],
+    /// Shaded colour of the face's top edge.
+    top_shade: [f32; 3],
+    /// Whether the winding runs against the length axis.
+    reversed: bool,
+    /// Whether `u` is negated so the face reads unmirrored from its own side.
+    flip_u: bool,
+    lighting: &'a LevelLighting,
+    tile_metres: f32,
+    /// `None` is the historical vertex-lit path.
+    lightmap: Option<LightmapEmit<'a>>,
+}
+
+impl<Y: Fn(f32) -> f32> WallFaceStrip<'_, Y> {
+    /// A world point on the face.
+    const fn point(&self, at: f32, y: f32) -> [f32; 3] {
+        match self.axis {
+            WallAxis::X => [at, y, self.face],
+            WallAxis::Z => [self.face, y, at],
+        }
+    }
+
+    /// The vertex colour at one edge: the baked sample on the historical path,
+    /// the plain shaded base when the atlas carries the light.
+    fn color(&self, at: f32, y: f32, base: [f32; 3], face_room: Option<usize>) -> [f32; 3] {
+        if self.lightmap.is_some_and(|lightmap| lightmap.is_on()) {
+            // The atlas carries the baked light; the vertex colour is the
+            // material tint and the face's directional shade only.
+            return base;
+        }
+        let probe = match self.axis {
+            WallAxis::X => [at, y, self.normal.mul_add(LIGHT_FACE_PROBE_M, self.face)],
+            WallAxis::Z => [self.normal.mul_add(LIGHT_FACE_PROBE_M, self.face), y, at],
+        };
+        shade(
+            base,
+            self.lighting
+                .sample_face(face_room, probe[0], probe[1], probe[2]),
+        )
+    }
+
+    /// World-space tile UV of a point, at the face's own V reference.
+    fn uv(&self, v_ref: f32, at: f32, y: f32) -> [f32; 2] {
+        let u = if self.flip_u { -at } else { at };
+        tiled_uv(u, v_ref - y, self.tile_metres)
+    }
+
+    /// Samples the lighting once per segment boundary.
+    ///
+    /// Adjacent segments share a corner, so each boundary is sampled exactly
+    /// once (a 2x saving) and a merged strip keeps a single value at every
+    /// surviving edge.
+    fn boundaries(&self, face_room: Option<usize>) -> Vec<WallBoundary> {
+        let segments = wall_light_segments((self.l1 - self.l0).abs());
+        let boundary_count = segments as usize + 1;
+        let mut boundaries: Vec<WallBoundary> = Vec::with_capacity(boundary_count);
+        for boundary in 0..boundary_count {
+            let at = self.l0
+                + (self.l1 - self.l0) * count_to_f32(boundary) / count_to_f32(segments as usize);
+            let top = (self.top_at)(at);
+            boundaries.push((
+                at,
+                top,
+                self.color(at, self.bottom, self.bottom_shade, face_room),
+                self.color(at, top, self.top_shade, face_room),
+            ));
+        }
+        boundaries
+    }
+
+    /// Emits the face's merged lighting runs as quads.
+    fn emit(&self, vertices: &mut Vec<Vertex>) {
+        // Probe inside the room this face looks into, so the wall is lit by its
+        // own side of the wall even when the surface sits exactly on a room
+        // boundary. The room itself is resolved from the middle of the face,
+        // which is unambiguous, so a face that runs along a shared boundary is
+        // lit by the room it opens into instead of by whichever room the
+        // tie-break preferred.
+        let mid = f32::midpoint(self.l0, self.l1);
+        let (mid_x, mid_z, normal_x, normal_z) = match self.axis {
+            WallAxis::X => (mid, self.face, 0.0, self.normal),
+            WallAxis::Z => (self.face, mid, self.normal, 0.0),
+        };
+        let face_room = self.lighting.face_room(mid_x, mid_z, normal_x, normal_z);
+        // The V reference keeps the image's top row at the face's top while
+        // staying constant along the face, so tiling never breaks across a
+        // gable slope or a merged lighting run.
+        let uv_v_ref = (self.top_at)(self.l0);
+        let segments = wall_light_segments((self.l1 - self.l0).abs());
+        let boundaries = self.boundaries(face_room);
+        let max_span_m = self
+            .lightmap
+            .map_or(f32::INFINITY, |lightmap| lightmap.max_span_m);
+        for (start, end) in merge_light_runs(&boundaries, segments as usize, max_span_m) {
+            let (
+                Some(&(at_start, top_start, bottom_start, top_color_start)),
+                Some(&(at_end, top_end, bottom_end, top_color_end)),
+            ) = (boundaries.get(start), boundaries.get(end))
+            else {
+                continue;
+            };
+            // Walk the strip from `start` to `end`, or the other way round when
+            // the wall is reversed, so the quad keeps one consistent winding.
+            let (
+                first_at,
+                first_top,
+                first_bottom,
+                first_top_color,
+                second_at,
+                second_top,
+                second_bottom,
+                second_top_color,
+            ) = if self.reversed {
+                (
+                    at_end,
+                    top_end,
+                    bottom_end,
+                    top_color_end,
+                    at_start,
+                    top_start,
+                    bottom_start,
+                    top_color_start,
+                )
+            } else {
+                (
+                    at_start,
+                    top_start,
+                    bottom_start,
+                    top_color_start,
+                    at_end,
+                    top_end,
+                    bottom_end,
+                    top_color_end,
+                )
+            };
+            // Wound so the face's front side is the room the `normal` direction
+            // points into (the outward side of the wall).
+            let corners = [
+                self.point(first_at, first_top),
+                self.point(second_at, second_top),
+                self.point(second_at, self.bottom),
+                self.point(first_at, self.bottom),
+            ];
+            let first = vertices.len();
+            add_quad(
+                vertices,
+                corners[0],
+                first_top_color,
+                self.uv(uv_v_ref, first_at, first_top),
+                corners[1],
+                second_top_color,
+                self.uv(uv_v_ref, second_at, second_top),
+                corners[2],
+                second_bottom,
+                self.uv(uv_v_ref, second_at, self.bottom),
+                corners[3],
+                first_bottom,
+                self.uv(uv_v_ref, first_at, self.bottom),
+            );
+            stamp_lightmap_quad(
+                self.lightmap,
+                vertices,
+                first,
+                PatchKind::Wall,
+                corners,
+                face_room,
+            );
+        }
+    }
+}
+
+/// Emits one wall face parallel to the wall's length axis as a strip of quads.
+#[allow(clippy::too_many_arguments)] // one emitter per face; see `WallFaceStrip`
+fn add_wall_length_face<'a>(
     vertices: &mut Vec<Vertex>,
     axis: WallAxis,
     l0: f32,
@@ -268,123 +565,27 @@ fn add_wall_length_face(
     top_shade: [f32; 3],
     reversed: bool,
     flip_u: bool,
-    lighting: &LevelLighting,
+    lighting: &'a LevelLighting,
     tile_metres: f32,
+    lightmap: Option<LightmapEmit<'a>>,
 ) {
-    let point = |at: f32, y: f32| -> [f32; 3] {
-        match axis {
-            WallAxis::X => [at, y, face],
-            WallAxis::Z => [face, y, at],
-        }
+    let strip = WallFaceStrip {
+        axis,
+        face,
+        normal,
+        l0,
+        l1,
+        bottom,
+        top_at,
+        bottom_shade,
+        top_shade,
+        reversed,
+        flip_u,
+        lighting,
+        tile_metres,
+        lightmap,
     };
-    // Probe inside the room this face looks into, so the wall is lit by its own
-    // side of the wall even when the surface sits exactly on a room boundary.
-    // The room itself is resolved from the middle of the face, which is
-    // unambiguous, so a face that runs along a shared boundary is lit by the
-    // room it opens into instead of by whichever room the tie-break preferred.
-    let mid = f32::midpoint(l0, l1);
-    let (mid_x, mid_z, normal_x, normal_z) = match axis {
-        WallAxis::X => (mid, face, 0.0, normal),
-        WallAxis::Z => (face, mid, normal, 0.0),
-    };
-    let face_room = lighting.face_room(mid_x, mid_z, normal_x, normal_z);
-    let color = |at: f32, y: f32, base: [f32; 3]| -> [f32; 3] {
-        let probe = match axis {
-            WallAxis::X => [at, y, normal.mul_add(LIGHT_FACE_PROBE_M, face)],
-            WallAxis::Z => [normal.mul_add(LIGHT_FACE_PROBE_M, face), y, at],
-        };
-        shade(
-            base,
-            lighting.sample_face(face_room, probe[0], probe[1], probe[2]),
-        )
-    };
-
-    // The V reference keeps the image's top row at the face's top while
-    // staying constant along the face, so tiling never breaks across a gable
-    // slope or a merged lighting run.
-    let uv_v_ref = top_at(l0);
-    let uv = |at: f32, y: f32| {
-        let u = if flip_u { -at } else { at };
-        tiled_uv(u, uv_v_ref - y, tile_metres)
-    };
-
-    let segments = wall_light_segments((l1 - l0).abs());
-    // Sample the lighting once per segment boundary, then merge runs of
-    // boundaries whose colours are effectively flat. Adjacent segments share a
-    // corner, so each boundary is sampled exactly once (a 2x saving) and the
-    // merged strip keeps a single value at every surviving edge.
-    let boundary_count = segments as usize + 1;
-    let mut boundaries: Vec<WallBoundary> = Vec::with_capacity(boundary_count);
-    for boundary in 0..boundary_count {
-        let at = l0 + (l1 - l0) * count_to_f32(boundary) / count_to_f32(segments as usize);
-        let top = top_at(at);
-        boundaries.push((
-            at,
-            top,
-            color(at, bottom, bottom_shade),
-            color(at, top, top_shade),
-        ));
-    }
-    for (start, end) in merge_light_runs(&boundaries, segments as usize) {
-        let (
-            Some(&(at_start, top_start, bottom_start, top_color_start)),
-            Some(&(at_end, top_end, bottom_end, top_color_end)),
-        ) = (boundaries.get(start), boundaries.get(end))
-        else {
-            continue;
-        };
-        // Walk the strip from `start` to `end`, or the other way round when the
-        // wall is reversed, so the quad keeps one consistent winding.
-        let (
-            first_at,
-            first_top,
-            first_bottom,
-            first_top_color,
-            second_at,
-            second_top,
-            second_bottom,
-            second_top_color,
-        ) = if reversed {
-            (
-                at_end,
-                top_end,
-                bottom_end,
-                top_color_end,
-                at_start,
-                top_start,
-                bottom_start,
-                top_color_start,
-            )
-        } else {
-            (
-                at_start,
-                top_start,
-                bottom_start,
-                top_color_start,
-                at_end,
-                top_end,
-                bottom_end,
-                top_color_end,
-            )
-        };
-        // Wound so the face's front side is the room the `normal` direction
-        // points into (the outward side of the wall).
-        add_quad(
-            vertices,
-            point(first_at, first_top),
-            first_top_color,
-            uv(first_at, first_top),
-            point(second_at, second_top),
-            second_top_color,
-            uv(second_at, second_top),
-            point(second_at, bottom),
-            second_bottom,
-            uv(second_at, bottom),
-            point(first_at, bottom),
-            first_bottom,
-            uv(first_at, bottom),
-        );
-    }
+    strip.emit(vertices);
 }
 
 /// One boundary sample of a wall length face: length offset, top edge and the
@@ -396,13 +597,23 @@ type WallBoundary = (f32, f32, [f32; 3], [f32; 3]);
 /// Returns the surviving `(start, end)` boundary index pairs, each covering one
 /// emitted quad. Adjacent segments share a corner, so every boundary is sampled
 /// once and a merged strip keeps a single value at each surviving edge.
-fn merge_light_runs(boundaries: &[WallBoundary], segments: usize) -> Vec<(usize, usize)> {
+///
+/// `max_span_m` caps how long one merged quad may become: lightmapped builds
+/// pass the chart budget so every emitted face fits one atlas chart, while the
+/// vertex-lit fallback passes an infinite span and merges exactly as it always
+/// did.
+fn merge_light_runs(
+    boundaries: &[WallBoundary],
+    segments: usize,
+    max_span_m: f32,
+) -> Vec<(usize, usize)> {
     let matches_run = |reference: &WallBoundary, candidate: &WallBoundary| {
-        reference
-            .2
-            .iter()
-            .zip(&candidate.2)
-            .all(|(reference, candidate)| (candidate - reference).abs() <= LIGHT_GRID_MERGE_EPS)
+        (candidate.0 - reference.0).abs() <= max_span_m
+            && reference
+                .2
+                .iter()
+                .zip(&candidate.2)
+                .all(|(reference, candidate)| (candidate - reference).abs() <= LIGHT_GRID_MERGE_EPS)
             && reference
                 .3
                 .iter()
@@ -1359,6 +1570,8 @@ fn add_wall_cross_quad(
     facing_positive: bool,
     corners: [[f32; 3]; 4],
     tile_metres: f32,
+    lightmap: Option<LightmapEmit<'_>>,
+    room: Option<usize>,
 ) {
     let (t0, t1) = thickness;
     // The four corners are supplied in the order (low thickness, high
@@ -1391,6 +1604,7 @@ fn add_wall_cross_quad(
         WallAxis::X => tiled_uv(point[2], top - point[1], tile_metres),
         WallAxis::Z => tiled_uv(point[0], top - point[1], tile_metres),
     };
+    let first = vertices.len();
     add_quad(
         vertices,
         order[0].0,
@@ -1405,6 +1619,14 @@ fn add_wall_cross_quad(
         order[3].0,
         order[3].1,
         uv(order[3].0),
+    );
+    stamp_lightmap_quad(
+        lightmap,
+        vertices,
+        first,
+        PatchKind::Wall,
+        [order[0].0, order[1].0, order[2].0, order[3].0],
+        room,
     );
 }
 
@@ -1811,6 +2033,157 @@ struct LitSurface<'a, Y: Fn(f32, f32) -> f32> {
     region: Option<(u32, &'a [u32])>,
 }
 
+/// The merge state of one floor/ceiling grid pass.
+///
+/// Holds the grid, its corner colours and the covered-cell lattice so the
+/// greedy rectangle builder reads as one small method instead of a wall of
+/// loop conditions inside the emitter.
+struct GridMerger<'a, Y: Fn(f32, f32) -> f32> {
+    xs: &'a [f32],
+    zs: &'a [f32],
+    colors: &'a [[f32; 3]],
+    /// Cells already emitted, or outside the selected region.
+    covered: Vec<bool>,
+    cells_x: usize,
+    cells_z: usize,
+    row_len: usize,
+    y_at: &'a Y,
+    /// Longest merged quad, in metres; infinite on the vertex-lit path.
+    max_span_m: f32,
+}
+
+impl<'a, Y: Fn(f32, f32) -> f32> GridMerger<'a, Y> {
+    /// Creates the merge state, marking every cell outside `region` covered so
+    /// a growing rectangle stops at the label boundary.
+    fn new(
+        xs: &'a [f32],
+        zs: &'a [f32],
+        colors: &'a [[f32; 3]],
+        region: Option<(u32, &[u32])>,
+        y_at: &'a Y,
+        max_span_m: f32,
+    ) -> Self {
+        let cells_x = xs.len().saturating_sub(1);
+        let cells_z = zs.len().saturating_sub(1);
+        let mut covered = vec![false; cells_x.saturating_mul(cells_z)];
+        if let Some((label, labels)) = region {
+            for (index, cell) in covered.iter_mut().enumerate() {
+                *cell = labels.get(index).copied() != Some(label);
+            }
+        }
+        Self {
+            xs,
+            zs,
+            colors,
+            covered,
+            cells_x,
+            cells_z,
+            row_len: xs.len(),
+            y_at,
+            max_span_m,
+        }
+    }
+
+    /// Grows the largest rectangle starting at `(ix, iz)`, marks its cells
+    /// covered and returns its inclusive `(ix, ix1, iz, iz1)` bounds.
+    ///
+    /// Growth stops where a corner's colour leaves
+    /// [`LIGHT_GRID_MERGE_EPS`], where the surface stops being planar, where
+    /// the region boundary is reached, or where the rectangle would exceed the
+    /// lightmap chart span.
+    fn grow(&mut self, ix: usize, iz: usize) -> Option<(usize, usize, usize, usize)> {
+        if cell_is_covered(&self.covered, self.cells_x, ix, iz) {
+            return None;
+        }
+        let reference = *self
+            .colors
+            .get(iz.saturating_mul(self.row_len).saturating_add(ix))?;
+        let mut ix1 = ix;
+        while ix1.saturating_add(1) < self.cells_x
+            && region_free(
+                &self.covered,
+                self.cells_x,
+                ix,
+                ix1.saturating_add(1),
+                iz,
+                iz,
+            )
+            && grid_rect_is_uniform(
+                self.colors,
+                self.row_len,
+                ix,
+                ix1.saturating_add(1),
+                iz,
+                iz,
+                reference,
+            )
+            && grid_rect_is_planar(
+                self.xs,
+                self.zs,
+                self.y_at,
+                ix,
+                ix1.saturating_add(1),
+                iz,
+                iz,
+            )
+            && self
+                .xs
+                .get(ix1.saturating_add(2))
+                .zip(self.xs.get(ix))
+                .is_none_or(|(candidate, start)| candidate - start <= self.max_span_m)
+        {
+            ix1 = ix1.saturating_add(1);
+        }
+        let mut iz1 = iz;
+        while iz1.saturating_add(1) < self.cells_z
+            && region_free(
+                &self.covered,
+                self.cells_x,
+                ix,
+                ix1,
+                iz,
+                iz1.saturating_add(1),
+            )
+            && grid_rect_is_uniform(
+                self.colors,
+                self.row_len,
+                ix,
+                ix1,
+                iz,
+                iz1.saturating_add(1),
+                reference,
+            )
+            && grid_rect_is_planar(
+                self.xs,
+                self.zs,
+                self.y_at,
+                ix,
+                ix1,
+                iz,
+                iz1.saturating_add(1),
+            )
+            && self
+                .zs
+                .get(iz1.saturating_add(2))
+                .zip(self.zs.get(iz))
+                .is_none_or(|(candidate, start)| candidate - start <= self.max_span_m)
+        {
+            iz1 = iz1.saturating_add(1);
+        }
+        for z in iz..=iz1 {
+            for x in ix..=ix1 {
+                if let Some(cell) = self
+                    .covered
+                    .get_mut(z.saturating_mul(self.cells_x).saturating_add(x))
+                {
+                    *cell = true;
+                }
+            }
+        }
+        Some((ix, ix1, iz, iz1))
+    }
+}
+
 /// Emits one lit floor or ceiling from a precomputed corner-colour grid.
 ///
 /// Cells are greedily merged along X and then Z while every corner of the
@@ -1819,6 +2192,7 @@ struct LitSurface<'a, Y: Fn(f32, f32) -> f32> {
 /// `MAX_LIGHT_GRID_CELLS`² of them. The surviving corners keep their exact
 /// sampled colours and heights; UVs stay world-space, so merging is invisible
 /// to texturing.
+#[allow(clippy::too_many_arguments)] // mirrors the other quad emitters in this module
 fn emit_lit_surface_grid(
     vertices: &mut Vec<Vertex>,
     xs: &[f32],
@@ -1826,6 +2200,9 @@ fn emit_lit_surface_grid(
     colors: &[[f32; 3]],
     surface: LitSurface<'_, impl Fn(f32, f32) -> f32>,
     uv: impl Fn(f32, f32) -> [f32; 2],
+    kind: PatchKind,
+    room: Option<usize>,
+    lightmap: Option<LightmapEmit<'_>>,
 ) {
     let LitSurface {
         y_at,
@@ -1837,65 +2214,15 @@ fn emit_lit_surface_grid(
     if cells_x == 0 || cells_z == 0 {
         return;
     }
+    let max_span_m = lightmap.map_or(f32::INFINITY, |lightmap| lightmap.max_span_m);
+    let mut merger = GridMerger::new(xs, zs, colors, region, &y_at, max_span_m);
     let row_len = xs.len();
-    // Cells outside the selected region count as covered, so a growing
-    // rectangle stops at the label boundary.
-    let mut covered = vec![false; cells_x.saturating_mul(cells_z)];
-    if let Some((label, labels)) = region {
-        for (index, cell) in covered.iter_mut().enumerate() {
-            *cell = labels.get(index).copied() != Some(label);
-        }
-    }
 
     for iz in 0..cells_z {
         for ix in 0..cells_x {
-            if cell_is_covered(&covered, cells_x, ix, iz) {
-                continue;
-            }
-            let Some(&reference) = colors.get(iz.saturating_mul(row_len).saturating_add(ix)) else {
+            let Some((ix1, iz1)) = merger.grow(ix, iz).map(|(_, ix1, _, iz1)| (ix1, iz1)) else {
                 continue;
             };
-            let mut ix1 = ix;
-            while ix1.saturating_add(1) < cells_x
-                && region_free(&covered, cells_x, ix, ix1.saturating_add(1), iz, iz)
-                && grid_rect_is_uniform(
-                    colors,
-                    row_len,
-                    ix,
-                    ix1.saturating_add(1),
-                    iz,
-                    iz,
-                    reference,
-                )
-                && grid_rect_is_planar(xs, zs, &y_at, ix, ix1.saturating_add(1), iz, iz)
-            {
-                ix1 = ix1.saturating_add(1);
-            }
-            let mut iz1 = iz;
-            while iz1.saturating_add(1) < cells_z
-                && region_free(&covered, cells_x, ix, ix1, iz, iz1.saturating_add(1))
-                && grid_rect_is_uniform(
-                    colors,
-                    row_len,
-                    ix,
-                    ix1,
-                    iz,
-                    iz1.saturating_add(1),
-                    reference,
-                )
-                && grid_rect_is_planar(xs, zs, &y_at, ix, ix1, iz, iz1.saturating_add(1))
-            {
-                iz1 = iz1.saturating_add(1);
-            }
-            for z in iz..=iz1 {
-                for x in ix..=ix1 {
-                    if let Some(cell) = covered.get_mut(z.saturating_mul(cells_x).saturating_add(x))
-                    {
-                        *cell = true;
-                    }
-                }
-            }
-
             let (Some(&ax), Some(&bx)) = (xs.get(ix), xs.get(ix1.saturating_add(1))) else {
                 continue;
             };
@@ -1931,21 +2258,35 @@ fn emit_lit_surface_grid(
                     [c01, c11, c10, c00],
                 )
             };
-            emit_grid_quad(vertices, xz, corner_colors, &y_at, &uv);
+            emit_grid_quad(
+                vertices,
+                xz,
+                corner_colors,
+                &y_at,
+                &uv,
+                kind,
+                room,
+                lightmap,
+            );
         }
     }
 }
 
 /// Emits one merged grid rectangle: its `(x, z)` corners in winding order and
 /// the four shaded corner colours, with world height and UVs derived here.
+#[allow(clippy::too_many_arguments)] // mirrors the other quad emitters in this module
 fn emit_grid_quad(
     vertices: &mut Vec<Vertex>,
     xz: [[f32; 2]; 4],
     corner_colors: [[f32; 3]; 4],
     y_at: &impl Fn(f32, f32) -> f32,
     uv: &impl Fn(f32, f32) -> [f32; 2],
+    kind: PatchKind,
+    room: Option<usize>,
+    lightmap: Option<LightmapEmit<'_>>,
 ) {
     let points = xz.map(|[x, z]| [x, y_at(x, z), z]);
+    let first = vertices.len();
     add_quad(
         vertices,
         points[0],
@@ -1961,12 +2302,18 @@ fn emit_grid_quad(
         corner_colors[3],
         uv(points[3][0], points[3][2]),
     );
+    stamp_lightmap_quad(lightmap, vertices, first, kind, points, room);
 }
 
 /// Samples a `(cells_x + 1) x (cells_z + 1)` corner grid of baked colours.
 ///
 /// The surface height is supplied per corner, so a recessed floor region or a
 /// gable slope is lit by the baked illumination at its real world position.
+///
+/// With `lightmapped` set the baked light moves to the atlas and a corner's
+/// colour is the material tint alone (white when there is none), so the
+/// fragment stage's `texture x vertex colour x lightmap` still multiplies the
+/// surface by exactly the tint and the light it always did.
 fn lit_surface_grid(
     lighting: &LevelLighting,
     room_index: usize,
@@ -1974,8 +2321,13 @@ fn lit_surface_grid(
     zs: &[f32],
     y_at: impl Fn(f32, f32) -> f32,
     tint: Option<[f32; 3]>,
+    lightmapped: bool,
 ) -> Vec<[f32; 3]> {
     let mut colors = Vec::with_capacity(xs.len().saturating_mul(zs.len()));
+    if lightmapped {
+        colors.resize(xs.len().saturating_mul(zs.len()), tint.unwrap_or([1.0; 3]));
+        return colors;
+    }
     for z in zs {
         for x in xs {
             let light = lighting.sample_in_room(room_index, *x, y_at(*x, *z), *z);
@@ -2135,12 +2487,18 @@ fn skirt_corner_colors(
 }
 
 /// Emits one transition face as a lit quad carrying `key`'s material.
+///
+/// A lightmapped face whose span exceeds one chart is tiled into several quads,
+/// each with its own chart; the vertex-lit fallback passes an infinite
+/// `max_span_m` and emits exactly the historical single quad (positions and UVs
+/// unchanged, bit for bit).
 fn emit_skirt_face(
     buckets: &mut crate::spatial::SpatialBuckets<SurfaceKey>,
     scratch: &mut Vec<Vertex>,
     materials: &MaterialLookup<'_>,
     lighting: &LevelLighting,
     face: SkirtFace,
+    lightmap: Option<LightmapEmit<'_>>,
 ) {
     let SkirtFace {
         axis,
@@ -2154,7 +2512,6 @@ fn emit_skirt_face(
     if high - low <= HEIGHT_MERGE_EPS {
         return;
     }
-    let points = skirt_points(axis, positive, at, span, low, high);
     let mult = match (axis, positive) {
         (WallAxis::Z, false) => WALL_FACE_NORTH_MULT,
         (WallAxis::Z, true) => WALL_FACE_SOUTH_MULT,
@@ -2162,28 +2519,57 @@ fn emit_skirt_face(
         (WallAxis::X, true) => WALL_FACE_EAST_MULT,
     };
     let base = skirt_corner_shades(materials.tint(key), mult);
-    let colors = skirt_corner_colors(base, points, lighting);
-    let uv = |point: [f32; 3]| match axis {
-        WallAxis::X => materials.uv(key, point[2], high - point[1]),
-        WallAxis::Z => materials.uv(key, point[0], high - point[1]),
+    let (hint_x, hint_z) = match axis {
+        WallAxis::X => (at, f32::midpoint(span.0, span.1)),
+        WallAxis::Z => (f32::midpoint(span.0, span.1), at),
     };
-    scratch.clear();
-    add_quad(
-        scratch,
-        points[0],
-        colors[0],
-        uv(points[0]),
-        points[1],
-        colors[1],
-        uv(points[1]),
-        points[2],
-        colors[2],
-        uv(points[2]),
-        points[3],
-        colors[3],
-        uv(points[3]),
-    );
-    buckets.add_quads(key, scratch);
+    let room = lighting.room_index_at_height(hint_x, f32::midpoint(low, high), hint_z);
+    let lightmapped = lightmap.is_some_and(|lightmap| lightmap.is_on());
+    let max_span_m = lightmap.map_or(f32::INFINITY, |lightmap| lightmap.max_span_m);
+
+    for (span_start, span_end) in split_span(span.0, span.1, max_span_m) {
+        for (tile_low, tile_high) in split_span(low, high, max_span_m) {
+            if tile_high - tile_low <= HEIGHT_MERGE_EPS {
+                continue;
+            }
+            let points = skirt_points(
+                axis,
+                positive,
+                at,
+                (span_start, span_end),
+                tile_low,
+                tile_high,
+            );
+            let colors = if lightmapped {
+                base
+            } else {
+                skirt_corner_colors(base, points, lighting)
+            };
+            let uv = |point: [f32; 3]| match axis {
+                WallAxis::X => materials.uv(key, point[2], high - point[1]),
+                WallAxis::Z => materials.uv(key, point[0], high - point[1]),
+            };
+            scratch.clear();
+            let first = scratch.len();
+            add_quad(
+                scratch,
+                points[0],
+                colors[0],
+                uv(points[0]),
+                points[1],
+                colors[1],
+                uv(points[1]),
+                points[2],
+                colors[2],
+                uv(points[2]),
+                points[3],
+                colors[3],
+                uv(points[3]),
+            );
+            stamp_lightmap_quad(lightmap, scratch, first, PatchKind::Skirt, points, room);
+            buckets.add_quads(key, scratch);
+        }
+    }
 }
 
 /// The floor region owning cell `(ix, iz)`, if any: the latest authored region
@@ -2222,12 +2608,12 @@ fn region_at_cell<'a>(
 /// deterministic texture.
 fn emit_floor_skirts(
     buckets: &mut crate::spatial::SpatialBuckets<SurfaceKey>,
-    scratch: &mut Vec<Vertex>,
     room: &RoomDef,
     grid: &RoomFloorGrid,
     level: &LevelDef,
     lighting: &LevelLighting,
     materials: &MaterialLookup<'_>,
+    lightmap: Option<LightmapEmit<'_>>,
 ) {
     let (cells_x, cells_z) = (grid.cells_x(), grid.cells_z());
     if cells_x == 0 || cells_z == 0 {
@@ -2238,7 +2624,12 @@ fn emit_floor_skirts(
     // A region with its own `edge_material` overrides it.
     let default_edge = materials.key(MaterialSlot::Wall, level.defaults.wall.as_str());
 
-    let mut emit = |face: SkirtFace| emit_skirt_face(buckets, scratch, materials, lighting, face);
+    // Skirts are few and short-lived: one local scratch keeps the emitter
+    // signature within the module's argument budget.
+    let mut scratch: Vec<Vertex> = Vec::new();
+    let mut emit = |face: SkirtFace| {
+        emit_skirt_face(buckets, &mut scratch, materials, lighting, face, lightmap);
+    };
 
     let region_owner = |ix: usize, iz: usize| region_at_cell(level, room, grid, ix, iz);
 
