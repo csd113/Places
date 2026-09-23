@@ -1367,7 +1367,9 @@ fn the_home_showcase_has_no_coincident_architecture_surfaces() {
 
 #[test]
 fn zz_probe_full_bake() {
-    let level = parse(include_str!("../assets/levels/places_demo.json"));
+    let source = std::fs::read_to_string("target/agent-work/places_demo.before.json")
+        .unwrap_or_else(|error| panic!("{error}"));
+    let level = parse(&source);
     let materials = crate::render::logical_materials(&level);
     let catalog = crate::loader::PropCatalog::builtin();
     let mut assets = crate::props::PropAssets::default();
@@ -1402,8 +1404,36 @@ fn zz_probe_full_bake() {
                 .map(|p| u64::from(p.width) * u64::from(p.height))
                 .sum::<u64>()
         );
-        for (index, page) in lightmaps.pages.iter().enumerate() {
-            println!("page {index}: {}x{}", page.width, page.height);
+        let mut sized: Vec<(u64, usize)> = lightmaps
+            .charts
+            .iter()
+            .enumerate()
+            .map(|(index, (_, chart))| {
+                (
+                    u64::from(chart.width) * u64::from(chart.height),
+                    index,
+                )
+            })
+            .collect();
+        sized.sort_by(|a, b| b.0.cmp(&a.0));
+        let mut by_kind: std::collections::HashMap<String, (usize, u64)> =
+            std::collections::HashMap::new();
+        for (patch, chart) in &lightmaps.charts {
+            let entry = by_kind
+                .entry(format!("{:?}", patch.kind))
+                .or_insert((0, 0));
+            entry.0 += 1;
+            entry.1 += u64::from(chart.width) * u64::from(chart.height);
+        }
+        for (kind, (count, area)) in by_kind {
+            println!("kind {kind}: charts={count} texels={area}");
+        }
+        for (area, index) in sized.iter().take(12) {
+            let (patch, chart) = &lightmaps.charts[*index];
+            println!(
+                "big chart area={area} kind={:?} origin={:?} u={:?} v={:?} texels={}x{}",
+                patch.kind, patch.origin, patch.u_axis, patch.v_axis, chart.width, chart.height
+            );
         }
     }
 }
