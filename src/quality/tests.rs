@@ -202,3 +202,53 @@ fn lightmap_budgets_scale_with_the_profile() {
     assert_eq!(full.bytes_per_texel, 3);
     assert_eq!(low.bytes_per_texel, 3);
 }
+
+/// A live profile switch must change *every* decision the renderer derives from
+/// the profile, and switching back must restore all of them.
+///
+/// This is the pure half of the runtime Full ↔ Low transition: the GPU half is
+/// `Renderer::release_profile_textures` followed by a level rebuild, which the
+/// settings layer requests through `SettingsApply::graphics_rebuild` and which
+/// needs a GL context to execute. If any derived decision were profile-blind,
+/// the switch would be cosmetic and this test would fail.
+#[test]
+fn switching_full_low_full_changes_every_derived_decision() {
+    use crate::lighting::lightmap::LightmapConfig;
+
+    let prop = solid(256, [12, 34, 56, 255]);
+    let sheet = solid(1_024, [10, 20, 30, 255]);
+
+    // Full -> Low -> Full, checking the same five decisions at every stop.
+    let stops = [
+        (QualityProfile::Full, 256u32, 1_024u32, true, true, 1_024u32),
+        (QualityProfile::Low, 128, 256, false, false, 512),
+        (QualityProfile::Full, 256, 1_024, true, true, 1_024),
+    ];
+    for (profile, prop_edge, sheet_edge, response, scene_at_drawable, lightmap_page) in stops {
+        assert_eq!(
+            fit_image(&prop, profile, TextureClass::Prop).width,
+            prop_edge,
+            "{profile:?}: prop texture budget"
+        );
+        assert_eq!(
+            fit_image(&sheet, profile, TextureClass::Surface).width,
+            sheet_edge,
+            "{profile:?}: surface sheet budget"
+        );
+        assert_eq!(
+            profile.draws_surface_response(),
+            response,
+            "{profile:?}: surface-response gate"
+        );
+        assert_eq!(
+            profile.draws_scene_at_drawable_resolution(),
+            scene_at_drawable,
+            "{profile:?}: scene-resolution policy"
+        );
+        assert_eq!(
+            LightmapConfig::for_profile(profile).page_edge,
+            lightmap_page,
+            "{profile:?}: lightmap density"
+        );
+    }
+}

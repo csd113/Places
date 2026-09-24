@@ -1520,9 +1520,11 @@ that authors them. Two consequences are still useful to a map author:
 * **Fog is depth, not weather.** The shipped density gives about 4 % at 20 m,
   15 % at 40 m and 63 % at the 100 m far plane, a little denser near the floor. It is
   most visible down a long corridor, and it never turns a room smoky.
-* `Full` draws the full resolve (bloom at quarter resolution, tone shoulder, grade);
-  `Low` presents the scene unfiltered and keeps only the fog, which lives in the
-  world shader.
+* `Full` draws the profile resolve (tone shoulder and grade); `Low` presents the
+  scene unfiltered and keeps only the fog, which lives in the world shader.
+* Bloom is a **player setting** (Settings → Graphics → Bloom, default on), not a
+  profile term, so both profiles can bloom. The default `Low` presents unfiltered
+  only when Bloom is off.
 
 ### Level packs: `materials.json`
 
@@ -1591,7 +1593,10 @@ design. The preferred 256 px size is a budget warning, not a rejection.
 
 The source PNG is *not* what necessarily reaches the GPU. Two quality profiles
 (`settings.json` → `"quality": "full" | "low"`, default `full`) decide a **runtime**
-edge budget per texture class:
+edge budget per texture class. The profile is a selector in Settings → Graphics
+and can be changed while a level is running: the renderer releases its
+profile-dependent GPU textures and rebuilds them (plus the lightmap atlas) from
+the level already resident, so the player, camera and game state are preserved:
 
 | Texture class | Full (default) | Low |
 | --- | --- | --- |
@@ -2135,9 +2140,11 @@ storage change, not an authoring one.
   floor changes the texture and leaves the baked illumination continuous. Charts stay
   separate wherever the lighting is genuinely discontinuous (a 90-degree corner, a
   wall, a different room).
-* `settings.json` carries `"lightmaps": true|false` (default `true`). The environment
-  override `LIMINAL_NO_LIGHTMAPS=1` forces the historical vertex-lit path for a
-  benchmark or A/B capture run.
+* `settings.json` carries `"lightmaps": true|false` (default `true`), exposed as
+  Settings → Graphics → Lightmaps and switched live (the level's lighting is
+  rebuilt from the resident definition, with the player state preserved). The
+  environment override `LIMINAL_NO_LIGHTMAPS=1` forces the historical vertex-lit
+  path for a benchmark or A/B capture run.
 * If a bake cannot fit the page budget, or an atlas page cannot upload, the level
   rebuilds with `LightmapMode::Off` and draws exactly the old vertex-lit colours — a
   level never renders black because of a lightmap failure.
@@ -3051,14 +3058,14 @@ capture and diagnosis.
 | Switch | Effect |
 | --- | --- |
 | `LIMINAL_LEVEL=<id>` | Boot straight into a level and print its validation errors. |
-| `LIMINAL_QUALITY=full\|low` | Draw this run at the named quality profile without editing `settings.json`, so both profiles of the same level can be captured back to back. |
+| `LIMINAL_QUALITY=full\|low` | Draw this run at the named quality profile without editing `settings.json`, so both profiles of the same level can be captured back to back. The Settings screen shows the overridden profile (marked `*`) and changing it there clears the override. |
 | `LIMINAL_CAPTURE=<file.png>` | Write one frame as a PNG and exit. |
 | `LIMINAL_CAPTURE_FRAME=<n>` | Capture frame n (1-based) instead of the first; also pins animation phase. |
-| `LIMINAL_NO_LIGHTMAPS=1` | Force the historical vertex-lit path. |
+| `LIMINAL_NO_LIGHTMAPS=1` | Force the historical vertex-lit path for this run (overrides the Lightmaps setting). |
 | `LIMINAL_DUMP_LIGHTMAPS=1` | Write the baked atlas pages to `target/agent-work/atlases/`. |
 | `LIMINAL_NO_OFFSCREEN=1` | Draw the 3D scene straight into the window instead of through the offscreen target. **Not pixel-identical any more:** this path skips the planar reflection pass, the reflection-probe binds, bloom and the resolve, and it ignores the Low profile's reduced scene resolution. It exists for benchmark A/B runs and driver bring-up. |
-| `LIMINAL_NO_BLOOM=1` | Keep the resolve pass but drop the emissive bloom pass and blur. |
-| `LIMINAL_NO_REFLECTIONS=1` | Report every material as reflection-free: no planar pass, no probe bake, no reflection binds. |
+| `LIMINAL_NO_BLOOM=1` | Keep the resolve pass but drop the emissive bloom pass and blur for this run (overrides the Bloom setting). |
+| `LIMINAL_NO_REFLECTIONS=1` | Report every material as reflection-free: no planar pass, no probe bake, no reflection binds, for this run (overrides the Reflections setting). |
 | `LIMINAL_ASSET_ROOT=<dir>` | Override the directory that contains `assets/`. |
 | `LIMINAL_STATE_ROOT=<dir>` | Override the directory that owns `settings.json`, drop-in `levels/` and `import/`. |
 | `LIMINAL_VERBOSE=1` | Print the developer telemetry (package, asset, level-build, lighting, lightmap and framing lines). Unset, a normal run is silent; problems are still reported once each. |

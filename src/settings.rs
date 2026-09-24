@@ -1,8 +1,60 @@
+//! The authoritative player settings: what is persisted, what is in force at
+//! runtime, and what a change asks the running systems to do.
+//!
+//! There is exactly one runtime settings object. It carries:
+//!
+//! * the **saved values** (`settings.json`), which are what
+//!   [`Settings::save`] writes back;
+//! * the **startup overrides** (`LIMINAL_QUALITY=low`, `LIMINAL_NO_BLOOM=1`,
+//!   ...), which are session-only and never persisted;
+//! * a **pending-apply** record of which subsystems a change affects, so the
+//!   menu never reaches into the renderer, the window or the level directly.
+//!
+//! Precedence, from weakest to strongest:
+//!
+//! ```text
+//! built-in defaults
+//!   └─ saved settings.json
+//!        └─ explicit startup override (this process only)
+//!             └─ an explicit change made in Settings
+//! ```
+//!
+//! A startup override is visible in the menu (it is what the game is actually
+//! running with), and any option the player then changes in Settings clears
+//! that option's override and persists the player's choice — an explicit
+//! action always beats a launch switch, and the override never silently
+//! overwrites the saved file.
+
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::quality::QualityProfile;
+
 pub const DEFAULT_SETTINGS_PATH: &str = "settings.json";
+
+/// Width of the window a fresh installation opens with.
+///
+/// Places is a desktop game: this is the one authoritative default, referenced
+/// by window creation, the settings model and the tests. Nothing else may
+/// hard-code a startup window dimension.
+pub const DEFAULT_WINDOW_WIDTH: u32 = 1920;
+/// Height of the window a fresh installation opens with.
+pub const DEFAULT_WINDOW_HEIGHT: u32 = 1080;
+
+/// Smallest window edge a persisted or selected size may specify.
+pub const MIN_WINDOW_EDGE: u32 = 320;
+/// Largest window edge a persisted or selected size may specify.
+pub const MAX_WINDOW_EDGE: u32 = 16_384;
+
+/// Environment override selecting the quality profile for one process.
+pub const QUALITY_OVERRIDE_ENV: &str = "LIMINAL_QUALITY";
+/// Environment override disabling the bloom stage for one process.
+pub const NO_BLOOM_OVERRIDE_ENV: &str = "LIMINAL_NO_BLOOM";
+/// Environment override disabling reflections for one process.
+pub const NO_REFLECTIONS_OVERRIDE_ENV: &str = "LIMINAL_NO_REFLECTIONS";
+/// Environment override disabling lightmap baking for one process.
+pub const NO_LIGHTMAPS_OVERRIDE_ENV: &str = "LIMINAL_NO_LIGHTMAPS";
 
 /// Keys the shell owns and a gameplay action may never bind.
 ///
@@ -36,6 +88,48 @@ pub fn action_label(action: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+/// How the game window fills the display.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+pub enum WindowMode {
+    /// A resizable desktop window at the configured resolution.
+    #[default]
+    Windowed,
+    /// Borderless fullscreen at the display's own resolution.
+    Fullscreen,
+}
+
+impl WindowMode {
+    /// Every mode, in settings-screen order.
+    pub const ALL: [Self; 2] = [Self::Windowed, Self::Fullscreen];
+
+    /// Stable lowercase name, as written in `settings.json`.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Windowed => "windowed",
+            Self::Fullscreen => "fullscreen",
+        }
+    }
+
+    /// Player-facing label.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Windowed => "Windowed",
+            Self::Fullscreen => "Fullscreen",
+        }
+    }
+
+    /// Parses a mode name, case-insensitively. Unknown names are `None`.
+    #[must_use]
+    pub fn parse(name: &str) -> Option<Self> {
+        let trimmed = name.trim();
+        Self::ALL
+            .into_iter()
+            .find(|mode| mode.name().eq_ignore_ascii_case(trimmed))
+    }
 }
 
 /// Player-rebindable gameplay key bindings.
@@ -193,7 +287,68 @@ impl KeyBindings {
     }
 }
 
+/// Session-only startup overrides parsed from the environment.
+///
+/// `None` means "not overridden": the saved value is in force. `Some` is the
+/// value the process runs with regardless of what `settings.json` says, until
+/// the player changes that setting in the menu.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct StartupOverrides {
+    pub quality: Option<QualityProfile>,
+    pub bloom: Option<bool>,
+    pub reflections: Option<bool>,
+    pub lightmaps: Option<bool>,
+    pub vsync: Option<bool>,
+}
+
+/// What a settings change asks the running systems to do.
+///
+/// The settings screen only mutates [`Settings`]; `main` consumes this record
+/// and performs the minimum work each subsystem needs. A flag is set only by a
+/// real value change, so re-selecting the current value is inert.
+// A settings change really does have four independent subsystem consequences;
+// they are not mutually exclusive states, so an enum per flag would be worse.
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct SettingsApply {
+    /// The quality profile or the lightmap mode changed: the level's GPU
+    /// resources (textures, lightmaps, framebuffers) must be rebuilt while the
+    /// current game state stays untouched.
+    pub graphics_rebuild: bool,
+    /// Renderer state that reads settings directly changed (bloom,
+    /// reflections).
+    pub renderer_state: bool,
+    /// The swap interval must be re-applied to the window.
+    pub vsync: bool,
+    /// The window mode or resolution must be applied.
+    pub window: bool,
+}
+
+impl SettingsApply {
+    /// Every flag set, for a full restore-to-defaults.
+    pub const ALL: Self = Self {
+        graphics_rebuild: true,
+        renderer_state: true,
+        vsync: true,
+        window: true,
+    };
+
+    /// True when any subsystem has to be updated.
+    #[must_use]
+    pub const fn any(self) -> bool {
+        self.graphics_rebuild || self.renderer_state || self.vsync || self.window
+    }
+}
+
 /// User game preferences and display settings.
+///
+/// This is the authoritative runtime state: the menu renders these values, the
+/// simulation and renderer read effective values through the `*_enabled`
+/// getters, and [`Self::save`] writes exactly this structure back to
+/// `settings.json` (minus the session-only [`Self::overrides`]).
+// The booleans are independent player preferences (VSync, bloom, reflections,
+// lightmaps, look inversion), not a state machine: any combination is valid.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Settings {
     pub bindings: KeyBindings,
@@ -205,6 +360,9 @@ pub struct Settings {
     pub walk_speed: f32, // m/s
     #[serde(default = "default_fov")]
     pub fov_degrees: f32, // degrees
+    /// Flip the vertical look direction. Off is the historical behaviour.
+    #[serde(default = "default_invert_look")]
+    pub invert_look: bool,
     #[serde(default = "default_vsync")]
     pub vsync: bool,
     #[serde(default = "default_filtering")]
@@ -213,14 +371,44 @@ pub struct Settings {
     /// `"low"` (the same assets, more aggressively downscaled textures).
     #[serde(default = "default_quality")]
     pub quality: String,
+    /// Draw the bloom stage, independent of the quality profile. Default on.
+    ///
+    /// Bloom is a user preference, not a profile: `Full + Off` and
+    /// `Low + On` are both valid. When off, the emissive pass and the blur
+    /// passes are skipped entirely. `LIMINAL_NO_BLOOM=1` overrides it for one
+    /// process.
+    #[serde(default = "default_bloom")]
+    pub bloom: bool,
+    /// Draw reflections (static probes and the planar mirror). Default on.
+    ///
+    /// `LIMINAL_NO_REFLECTIONS=1` overrides it for one process.
+    #[serde(default = "default_reflections")]
+    pub reflections: bool,
     /// Bake and draw static lightmaps for level geometry. Default on.
     ///
     /// `false` rebuilds the level through the historical vertex-lit path, which
-    /// renders exactly the pre-lightmap colours. The benchmark/A-B switch is the
-    /// `LIMINAL_NO_LIGHTMAPS=1` environment override; see
-    /// [`Settings::lightmaps_enabled`].
+    /// renders exactly the pre-lightmap colours. `LIMINAL_NO_LIGHTMAPS=1`
+    /// overrides it for one process.
     #[serde(default = "default_lightmaps")]
     pub lightmaps: bool,
+    /// Windowed or borderless fullscreen. Persisted as `"windowed"` /
+    /// `"fullscreen"`; an unknown value falls back to `"windowed"` rather than
+    /// invalidating the file.
+    #[serde(default = "default_window_mode")]
+    pub window_mode: String,
+    /// Windowed width in logical pixels (independent of the Retina drawable).
+    #[serde(default = "default_window_width")]
+    pub window_width: u32,
+    /// Windowed height in logical pixels.
+    #[serde(default = "default_window_height")]
+    pub window_height: u32,
+    /// Session-only startup overrides. Never serialized.
+    #[serde(skip)]
+    pub overrides: StartupOverrides,
+    /// Session-only record of subsystem updates a change still owes. Never
+    /// serialized.
+    #[serde(skip)]
+    pub pending: SettingsApply,
 }
 
 const fn default_look_speed_h() -> f32 {
@@ -235,6 +423,9 @@ const fn default_walk_speed() -> f32 {
 const fn default_fov() -> f32 {
     60.0
 }
+const fn default_invert_look() -> bool {
+    false
+}
 const fn default_vsync() -> bool {
     true
 }
@@ -242,10 +433,25 @@ fn default_filtering() -> String {
     "linear".to_string()
 }
 fn default_quality() -> String {
-    crate::quality::QualityProfile::DEFAULT.name().to_string()
+    QualityProfile::DEFAULT.name().to_string()
+}
+const fn default_bloom() -> bool {
+    true
+}
+const fn default_reflections() -> bool {
+    true
 }
 const fn default_lightmaps() -> bool {
     true
+}
+fn default_window_mode() -> String {
+    WindowMode::default().name().to_string()
+}
+const fn default_window_width() -> u32 {
+    DEFAULT_WINDOW_WIDTH
+}
+const fn default_window_height() -> u32 {
+    DEFAULT_WINDOW_HEIGHT
 }
 
 impl Default for Settings {
@@ -256,11 +462,51 @@ impl Default for Settings {
             look_speed_v: default_look_speed_v(),
             walk_speed: default_walk_speed(),
             fov_degrees: default_fov(),
+            invert_look: default_invert_look(),
             vsync: default_vsync(),
             texture_filtering: default_filtering(),
             quality: default_quality(),
+            bloom: default_bloom(),
+            reflections: default_reflections(),
             lightmaps: default_lightmaps(),
+            window_mode: default_window_mode(),
+            window_width: default_window_width(),
+            window_height: default_window_height(),
+            overrides: StartupOverrides::default(),
+            pending: SettingsApply::default(),
         }
+    }
+}
+
+/// Shared truthiness rule for the `LIMINAL_*` switches.
+fn truthy(value: &str) -> bool {
+    !matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "" | "0" | "false" | "off"
+    )
+}
+
+/// Reads a `LIMINAL_*` switch that *disables* a feature when truthy.
+fn env_disable_override(name: &str) -> Option<bool> {
+    std::env::var(name).ok().map(|value| !truthy(&value))
+}
+
+/// Previous or next index in a cyclic list, never dividing or wrapping.
+///
+/// Used by the selectors (quality profile, window mode) so a left/right input
+/// is a pure, total step. `count` is never zero in practice; the guard keeps
+/// the helper total anyway.
+fn cycle_index(index: usize, direction: i32, count: usize) -> usize {
+    if count == 0 {
+        return 0;
+    }
+    if direction < 0 {
+        index
+            .checked_sub(1)
+            .unwrap_or_else(|| count.saturating_sub(1))
+    } else {
+        let next = index.saturating_add(1);
+        if next < count { next } else { 0 }
     }
 }
 
@@ -277,44 +523,298 @@ impl Settings {
         }
         // An unknown profile falls back to the default rather than picking a
         // tier the player did not ask for.
-        self.quality = crate::quality::QualityProfile::parse(&self.quality)
+        self.quality = QualityProfile::parse(&self.quality)
             .unwrap_or_default()
             .name()
             .to_string();
+        // An unknown window mode falls back to windowed rather than making the
+        // file unreadable.
+        self.window_mode = WindowMode::parse(&self.window_mode)
+            .unwrap_or_default()
+            .name()
+            .to_string();
+        self.window_width = self.window_width.clamp(MIN_WINDOW_EDGE, MAX_WINDOW_EDGE);
+        self.window_height = self.window_height.clamp(MIN_WINDOW_EDGE, MAX_WINDOW_EDGE);
     }
 
-    /// The quality profile this settings file selects.
+    /// Parses the environment's startup overrides into this settings object.
     ///
-    /// `LIMINAL_QUALITY=full|low` overrides it for one process, so a benchmark
-    /// can capture the two profiles of the same level without editing
-    /// `settings.json`. An unrecognised value is ignored, exactly like an
-    /// unrecognised settings value.
+    /// Called once at startup, before the window and renderer are created. The
+    /// values are session-only and are never written back by [`Self::save`].
+    /// `vsync` is passed in because the benchmark harness owns
+    /// `LIMINAL_VSYNC`, which is only honored for a benchmark run.
+    ///
+    /// Precedence: an override beats the saved file, and an explicit change in
+    /// Settings beats both (see the module documentation).
+    pub fn apply_startup_overrides(&mut self, vsync: Option<bool>) {
+        self.overrides = StartupOverrides {
+            quality: std::env::var(QUALITY_OVERRIDE_ENV)
+                .ok()
+                .and_then(|value| QualityProfile::parse(&value)),
+            bloom: env_disable_override(NO_BLOOM_OVERRIDE_ENV),
+            reflections: env_disable_override(NO_REFLECTIONS_OVERRIDE_ENV),
+            lightmaps: env_disable_override(NO_LIGHTMAPS_OVERRIDE_ENV),
+            vsync,
+        };
+    }
+
+    /// The quality profile in force.
+    ///
+    /// The saved value, with a startup override applied for this process. An
+    /// unrecognised override value is ignored, exactly like an unrecognised
+    /// settings value.
     #[must_use]
-    pub fn quality_profile(&self) -> crate::quality::QualityProfile {
-        if let Ok(value) = std::env::var("LIMINAL_QUALITY")
-            && let Some(profile) = crate::quality::QualityProfile::parse(&value)
-        {
-            return profile;
+    pub fn quality_profile(&self) -> QualityProfile {
+        self.overrides
+            .quality
+            .unwrap_or_else(|| QualityProfile::parse(&self.quality).unwrap_or_default())
+    }
+
+    /// Selects the quality profile and persists it as the saved value.
+    ///
+    /// Clears any startup override for this option: an explicit change in
+    /// Settings outranks a launch switch.
+    pub fn set_quality(&mut self, profile: QualityProfile) -> bool {
+        let changed = self.quality_profile() != profile;
+        self.overrides.quality = None;
+        self.quality = profile.name().to_string();
+        if changed {
+            self.pending.graphics_rebuild = true;
         }
-        crate::quality::QualityProfile::parse(&self.quality).unwrap_or_default()
+        changed
+    }
+
+    /// The quality profile a left/right input selects next.
+    #[must_use]
+    pub fn quality_step(current: QualityProfile, direction: i32) -> QualityProfile {
+        let all = QualityProfile::ALL;
+        let index = all
+            .iter()
+            .position(|profile| *profile == current)
+            .unwrap_or(0);
+        let next = cycle_index(index, direction, all.len());
+        all.get(next).copied().unwrap_or(current)
+    }
+
+    /// Whether the quality profile is pinned by a startup override.
+    #[must_use]
+    pub const fn quality_overridden(&self) -> bool {
+        self.overrides.quality.is_some()
+    }
+
+    /// Whether the bloom stage may run.
+    ///
+    /// This is the saved `bloom` preference, with the `LIMINAL_NO_BLOOM`
+    /// startup override applied for this process.
+    #[must_use]
+    pub fn bloom_enabled(&self) -> bool {
+        self.overrides.bloom.unwrap_or(self.bloom)
+    }
+
+    /// Turns the bloom stage on or off as a player preference.
+    pub fn set_bloom(&mut self, enabled: bool) -> bool {
+        let changed = self.bloom_enabled() != enabled;
+        self.overrides.bloom = None;
+        self.bloom = enabled;
+        if changed {
+            self.pending.renderer_state = true;
+        }
+        changed
+    }
+
+    /// Toggles the bloom stage, returning its new effective state.
+    pub fn toggle_bloom(&mut self) -> bool {
+        let next = !self.bloom_enabled();
+        self.set_bloom(next);
+        next
+    }
+
+    /// Whether the bloom stage is pinned by a startup override.
+    #[must_use]
+    pub const fn bloom_overridden(&self) -> bool {
+        self.overrides.bloom.is_some()
+    }
+
+    /// Whether reflections may be drawn.
+    ///
+    /// The saved `reflections` preference, with the `LIMINAL_NO_REFLECTIONS`
+    /// startup override applied for this process.
+    #[must_use]
+    pub fn reflections_enabled(&self) -> bool {
+        self.overrides.reflections.unwrap_or(self.reflections)
+    }
+
+    /// Turns reflections on or off as a player preference.
+    pub fn set_reflections(&mut self, enabled: bool) -> bool {
+        let changed = self.reflections_enabled() != enabled;
+        self.overrides.reflections = None;
+        self.reflections = enabled;
+        if changed {
+            self.pending.renderer_state = true;
+        }
+        changed
+    }
+
+    /// Toggles reflections, returning the new effective state.
+    pub fn toggle_reflections(&mut self) -> bool {
+        let next = !self.reflections_enabled();
+        self.set_reflections(next);
+        next
+    }
+
+    /// Whether reflections are pinned by a startup override.
+    #[must_use]
+    pub const fn reflections_overridden(&self) -> bool {
+        self.overrides.reflections.is_some()
     }
 
     /// Whether lightmaps should be baked for level geometry.
     ///
-    /// This is the persisted `lightmaps` setting, with the
-    /// `LIMINAL_NO_LIGHTMAPS` benchmark override applied: any value other than
-    /// empty, `0`, `false` or `off` forces lightmaps off for this process, so a
-    /// benchmark sweep can capture the vertex-lit and lightmapped builds of the
-    /// same level without editing `settings.json`.
+    /// The saved `lightmaps` preference, with the `LIMINAL_NO_LIGHTMAPS`
+    /// startup override applied for this process.
     #[must_use]
     pub fn lightmaps_enabled(&self) -> bool {
-        if let Ok(value) = std::env::var("LIMINAL_NO_LIGHTMAPS") {
-            let normalized = value.trim().to_ascii_lowercase();
-            if !matches!(normalized.as_str(), "" | "0" | "false" | "off") {
-                return false;
-            }
+        self.overrides.lightmaps.unwrap_or(self.lightmaps)
+    }
+
+    /// Selects whether lightmaps are baked, rebuilding the level through the
+    /// other lighting path at the next apply.
+    pub fn set_lightmaps(&mut self, enabled: bool) -> bool {
+        let changed = self.lightmaps_enabled() != enabled;
+        self.overrides.lightmaps = None;
+        self.lightmaps = enabled;
+        if changed {
+            self.pending.graphics_rebuild = true;
         }
-        self.lightmaps
+        changed
+    }
+
+    /// Toggles lightmaps, returning the new effective state.
+    pub fn toggle_lightmaps(&mut self) -> bool {
+        let next = !self.lightmaps_enabled();
+        self.set_lightmaps(next);
+        next
+    }
+
+    /// Whether lightmaps are pinned by a startup override.
+    #[must_use]
+    pub const fn lightmaps_overridden(&self) -> bool {
+        self.overrides.lightmaps.is_some()
+    }
+
+    /// Whether the swap interval should wait for vertical refresh.
+    #[must_use]
+    pub fn vsync_enabled(&self) -> bool {
+        self.overrides.vsync.unwrap_or(self.vsync)
+    }
+
+    /// Selects `VSync`, applied to the live window at the next apply.
+    pub fn set_vsync(&mut self, enabled: bool) -> bool {
+        let changed = self.vsync_enabled() != enabled;
+        self.overrides.vsync = None;
+        self.vsync = enabled;
+        if changed {
+            self.pending.vsync = true;
+        }
+        changed
+    }
+
+    /// Toggles `VSync`, returning the new effective state.
+    pub fn toggle_vsync(&mut self) -> bool {
+        let next = !self.vsync_enabled();
+        self.set_vsync(next);
+        next
+    }
+
+    /// Whether `VSync` is pinned by a startup override.
+    #[must_use]
+    pub const fn vsync_overridden(&self) -> bool {
+        self.overrides.vsync.is_some()
+    }
+
+    /// The window mode in force.
+    #[must_use]
+    pub fn window_mode(&self) -> WindowMode {
+        WindowMode::parse(&self.window_mode).unwrap_or_default()
+    }
+
+    /// Selects the window mode, applied to the live window at the next apply.
+    pub fn set_window_mode(&mut self, mode: WindowMode) -> bool {
+        let changed = self.window_mode() != mode;
+        self.window_mode = mode.name().to_string();
+        if changed {
+            self.pending.window = true;
+        }
+        changed
+    }
+
+    /// Cycles the window mode left or right.
+    pub fn step_window_mode(&mut self, direction: i32) -> WindowMode {
+        let current = self.window_mode();
+        let all = WindowMode::ALL;
+        let index = all.iter().position(|mode| *mode == current).unwrap_or(0);
+        let next = cycle_index(index, direction, all.len());
+        let mode = all.get(next).copied().unwrap_or(current);
+        self.set_window_mode(mode);
+        mode
+    }
+
+    /// The windowed size the player selected, in logical pixels.
+    #[must_use]
+    pub const fn window_size(&self) -> (u32, u32) {
+        (self.window_width, self.window_height)
+    }
+
+    /// Selects the windowed size, applied at the next apply.
+    ///
+    /// Dimensions are clamped to [`MIN_WINDOW_EDGE`]..=[`MAX_WINDOW_EDGE`], so
+    /// a hand-edited file can never produce an unusable window.
+    pub fn set_window_size(&mut self, width: u32, height: u32) -> bool {
+        let width = width.clamp(MIN_WINDOW_EDGE, MAX_WINDOW_EDGE);
+        let height = height.clamp(MIN_WINDOW_EDGE, MAX_WINDOW_EDGE);
+        let changed = self.window_size() != (width, height);
+        self.window_width = width;
+        self.window_height = height;
+        if changed {
+            self.pending.window = true;
+        }
+        changed
+    }
+
+    /// Records the window size actually adopted by the running window.
+    ///
+    /// Used when a requested windowed size does not fit the active display and
+    /// is reduced to fit (or when the player drags the window edge): the menu
+    /// then shows the real window, and the value is persisted like any other.
+    /// Unlike [`Self::set_window_size`] this does not ask for a window update —
+    /// the window already has this size — and it only caps the top of the
+    /// range, so a window the player shrank below the configured minimum is
+    /// still reported and stored as it is.
+    pub fn adopt_window_size(&mut self, width: u32, height: u32) {
+        self.window_width = width.clamp(1, MAX_WINDOW_EDGE);
+        self.window_height = height.clamp(1, MAX_WINDOW_EDGE);
+    }
+
+    /// Turns vertical-look inversion on or off.
+    ///
+    /// A scalar the simulation reads every frame, so no apply flag is needed.
+    pub const fn set_invert_look(&mut self, invert: bool) {
+        self.invert_look = invert;
+    }
+
+    /// Restores every preference to its documented default.
+    ///
+    /// Startup overrides are dropped with the rest: the defaults are the
+    /// player's explicit new choice. Every subsystem is asked to re-apply.
+    pub fn restore_defaults(&mut self) {
+        *self = Self::default();
+        self.pending = SettingsApply::ALL;
+    }
+
+    /// Removes and returns the subsystem updates a change still owes.
+    #[must_use]
+    pub fn take_pending_apply(&mut self) -> SettingsApply {
+        std::mem::take(&mut self.pending)
     }
 
     /// Saves settings to a JSON file.

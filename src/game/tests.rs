@@ -28,6 +28,45 @@ fn test_pitch_movement_and_clamping() {
     assert!((game.player_pitch - (-MAX_PITCH)).abs() < 1e-4);
 }
 
+/// `invert_look` flips only the vertical look direction; the horizontal turn
+/// and the movement keys are untouched.
+#[test]
+fn test_invert_look_flips_vertical_look_only() {
+    let mut game = Game::new(
+        Vec3::new(0.0, EYE_HEIGHT, 0.0),
+        0.0,
+        Vec::new(),
+        WalkableFloor::default(),
+    );
+    game.set_app_state(AppState::Playing);
+    game.sim_delta_seconds = 1.0;
+    let settings = Settings {
+        invert_look: true,
+        ..Settings::default()
+    };
+
+    game.update_player_movement(&InputState::holding(&[Control::LookUp]), &settings);
+    assert!(
+        game.player_pitch < 0.0,
+        "inverted look up must pitch down: {}",
+        game.player_pitch
+    );
+    game.player_pitch = 0.0;
+    game.update_player_movement(&InputState::holding(&[Control::LookDown]), &settings);
+    assert!(game.player_pitch > 0.0, "inverted look down must pitch up");
+
+    // Horizontal look is not inverted by the vertical preference.
+    game.player_yaw = 0.0;
+    game.update_player_movement(&InputState::holding(&[Control::LookRight]), &settings);
+    assert!(game.player_yaw > 0.0, "yaw must keep its normal direction");
+
+    // And the default stays the historical non-inverted behaviour.
+    let upright = Settings::default();
+    game.player_pitch = 0.0;
+    game.update_player_movement(&InputState::holding(&[Control::LookUp]), &upright);
+    assert!(game.player_pitch > 0.0);
+}
+
 #[test]
 fn test_sim_delta_is_clamped() {
     assert_exact(clamp_sim_delta(0.016), 0.016);

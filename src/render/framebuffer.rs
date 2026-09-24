@@ -233,7 +233,7 @@ pub(super) fn scene_target_size(profile: QualityProfile, drawable: DrawableSize)
     let factor = match profile {
         QualityProfile::Full => 1.0,
         QualityProfile::Low => {
-            let reference = f64::from(super::WINDOW_WIDTH);
+            let reference = f64::from(super::UI_REFERENCE_WIDTH);
             let width = f64::from(drawable.width);
             (reference / width).min(1.0)
         }

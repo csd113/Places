@@ -38,8 +38,9 @@ use crate::quality::QualityProfile;
 
 /// Resolve-stage settings for one frame.
 ///
-/// Built from the quality profile (see [`PostSettings::for_profile`]) rather
-/// than from level data: post-processing is a presentation choice, not content.
+/// Built from the quality profile ([`PostSettings::for_profile`]) plus the
+/// player's independent bloom choice ([`PostSettings::with_bloom`]) rather than
+/// from level data: post-processing is a presentation choice, not content.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) struct PostSettings {
     /// Linear exposure multiplier applied before the tone curve.
@@ -56,30 +57,37 @@ pub(super) struct PostSettings {
     pub(super) grade_contrast: f32,
 }
 
+/// Bloom strength a blooming frame adds.
+///
+/// Under one, so a fixture glows instead of blooming across the room. Applied
+/// by [`PostSettings::with_bloom`] to every profile: bloom is an independent
+/// player preference, so `Low + Bloom On` is as valid as `Full + Bloom On`.
+pub(super) const BLOOM_STRENGTH: f32 = 0.42;
+
 impl PostSettings {
-    /// The settings one quality profile runs with.
+    /// The profile-owned settings one quality profile runs with.
     ///
-    /// `Full` gets the complete restrained stack: a shoulder at 0.75, a bloom
-    /// strength under one so a fixture glows instead of blooming across the
-    /// room, and a grade that is barely a tint. `Low` keeps the tone shoulder —
-    /// it is part of the resolve pass the offscreen path already pays for — and
-    /// drops the two effects that need extra passes or extra per-pixel work.
+    /// `Full` gets the complete restrained stack: a shoulder at 0.75 and a
+    /// grade that is barely a tint. `Low` keeps the tone shoulder — it is part
+    /// of the resolve pass the offscreen path already pays for — and drops the
+    /// two effects that need extra per-pixel work. Bloom is *not* part of this:
+    /// the player decides it separately, in Settings.
     #[must_use]
     pub(super) const fn for_profile(profile: QualityProfile) -> Self {
         match profile {
             QualityProfile::Full => Self {
                 exposure: 1.0,
                 tone_knee: 0.75,
-                bloom_strength: 0.42,
+                bloom_strength: 0.0,
                 grade_saturation: 1.03,
                 grade_contrast: 1.02,
             },
-            // Low presents the scene unfiltered: no bloom, no exposure, no
-            // shoulder and no grade, so the resolve stage is the identity and
-            // the renderer uses the plain copy quad instead of it. That keeps
-            // Low exactly as cheap as the plain copy presentation while the
-            // world shader keeps the fog, which is part of the image rather
-            // than an extra pass.
+            // Low presents the scene unfiltered by profile effects: no exposure,
+            // no shoulder and no grade. With bloom off, the resolve stage is the
+            // identity and the renderer uses the plain copy quad instead of it,
+            // which keeps Low exactly as cheap as the plain copy presentation
+            // while the world shader keeps the fog (part of the image, not an
+            // extra pass). With bloom on, the resolve pass runs to add it.
             QualityProfile::Low => Self {
                 exposure: 1.0,
                 tone_knee: 1.0,
@@ -88,6 +96,13 @@ impl PostSettings {
                 grade_contrast: 1.0,
             },
         }
+    }
+
+    /// Returns these settings with the player's bloom preference applied.
+    #[must_use]
+    pub(super) const fn with_bloom(mut self, enabled: bool) -> Self {
+        self.bloom_strength = if enabled { BLOOM_STRENGTH } else { 0.0 };
+        self
     }
 
     /// Whether the resolve stage would change the image at all.
@@ -664,25 +679,46 @@ mod tests {
     }
 
     #[test]
-    fn full_blooms_and_low_does_not() {
+    fn bloom_is_an_independent_choice_on_every_profile() {
         let full = PostSettings::for_profile(QualityProfile::Full);
         let low = PostSettings::for_profile(QualityProfile::Low);
-        assert!(full.blooms(), "Full runs the bloom passes");
-        assert!(!low.blooms(), "Low must not pay for bloom");
-        assert_eq!(low.grade_saturation, 1.0, "Low leaves colour alone");
-        assert_eq!(low.grade_contrast, 1.0);
+
+        // The profile alone decides exposure/tone/grade; bloom starts off and
+        // is the player's separate switch.
+        assert!(!full.blooms(), "bloom is not implied by the profile");
+        assert!(!low.blooms());
+        assert!(!full.is_identity(), "Full still exposes and grades");
         assert!(
             low.is_identity(),
-            "Low must be able to skip the resolve stage entirely"
+            "Low without bloom is the plain copy presentation"
         );
-        assert!(!full.is_identity(), "Full always resolves");
+
+        // Bloom on is valid on both profiles and changes only the bloom term.
+        let full_bloom = full.with_bloom(true);
+        let low_bloom = low.with_bloom(true);
+        assert!(full_bloom.blooms(), "Full + Bloom On must bloom");
+        assert!(
+            low_bloom.blooms(),
+            "Low + Bloom On is a valid combination and must bloom"
+        );
+        assert!(!low_bloom.is_identity(), "a blooming Low needs the resolve");
+        assert_eq!(full_bloom.exposure, full.exposure);
+        assert_eq!(full_bloom.grade_contrast, full.grade_contrast);
+        assert_eq!(
+            low_bloom.grade_saturation, 1.0,
+            "Low still leaves colour alone"
+        );
+
+        // Bloom off never pays for the stage.
+        assert!(!full.with_bloom(false).blooms());
+        assert!(!low.with_bloom(false).blooms());
     }
 
     #[test]
     fn the_tone_knee_leaves_the_common_range_alone() {
         // The shoulder is only applied above the knee; the resolve shader's
         // arithmetic is pinned here so a change to the constant is deliberate.
-        let settings = PostSettings::for_profile(QualityProfile::Full);
+        let settings = PostSettings::for_profile(QualityProfile::Full).with_bloom(true);
         assert!((0.5..1.0).contains(&settings.tone_knee));
         assert!(settings.bloom_strength < 1.0, "bloom must stay restrained");
     }

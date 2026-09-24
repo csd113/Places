@@ -1,3 +1,76 @@
+## Unreleased — Settings, display and runtime configuration
+
+Places now starts like a desktop game and its pause-menu Settings screen is the
+real control center for player configuration. Settings is split into
+**Graphics**, **Display** and **Controls**, backed by one authoritative runtime
+settings state; every option applies immediately while the current level keeps
+running, and every preference persists. The default window is 1920×1080, and the
+renderer works in Retina drawable pixels rather than the logical window size.
+
+### Added
+
+- **A sectioned Settings screen.** The Settings root opens Graphics, Display and
+  Controls; the same screen is reachable from the main menu and the pause menu,
+  and Escape walks back up the section tree before resuming. Rows are generated
+  from one authoritative row list that both draws and dispatches, so the value
+  shown is always the value that changes.
+- **Graphics:** Graphics Quality (`Full` / `Low` selector), Bloom, Reflections,
+  Lightmaps, VSync and Texture Filtering. Quality and lightmaps rebuild the
+  level's GPU resources from the level already resident; the others are direct
+  renderer/backend updates. A value pinned by a startup override is marked `*`
+  until the player changes it.
+- **Display:** Window Mode (Windowed / borderless Fullscreen) and Resolution,
+  derived from a short list of 16:9 modes filtered to the active display's work
+  area (plus the current size). A windowed size that would not fit is reduced to
+  fit instead of opening partly off-screen.
+- **Controls:** all eight rebindable movement/look bindings (shown from the
+  authoritative mapping), horizontal and vertical look speed, walk speed, field
+  of view, and the new **Invert Look** preference. Pause and menu navigation are
+  fixed and listed on the page; no engine or debug shortcut is exposed.
+- **A centralized display default:** `DEFAULT_WINDOW_WIDTH = 1920` /
+  `DEFAULT_WINDOW_HEIGHT = 1080` in `src/settings.rs`, referenced by window
+  creation, the settings model and the tests.
+- **`src/display.rs`:** pure display policy (resolution choices, work-area
+  fitting, `DisplayStatus`), unit-tested without a window.
+
+### Changed
+
+- **Settings state is authoritative and persisted as one file.** `Settings`
+  carries saved values plus session-only startup overrides and a pending-apply
+  record; `main` consumes that record and performs the minimum work each
+  subsystem needs. Precedence is documented as: defaults → saved `settings.json`
+  → explicit startup override → an explicit change in Settings (which clears
+  that option's override and is persisted).
+- **Bloom is an independent player setting**, not a quality-profile term:
+  `Full + Bloom Off` and `Low + Bloom On` are both valid. With bloom off the
+  emissive and blur passes are skipped and the bloom targets are released.
+- **VSync applies immediately** through `SDL_GL_SetSwapInterval` instead of
+  "after restart", and the menu reports the interval SDL actually accepted.
+- **The renderer uses the drawable size** (Retina pixels) for the scene target,
+  bloom targets, viewport and capture; the logical window size only sizes the
+  window. Full quality at 1920×1080 renders the whole drawable — no obsolete
+  low-resolution target is stretched. Resizes update all targets without a
+  restart.
+- **`LIMINAL_QUALITY`, `LIMINAL_NO_BLOOM`, `LIMINAL_NO_REFLECTIONS` and
+  `LIMINAL_NO_LIGHTMAPS` are startup overrides** for their player settings: the
+  Settings screen shows the value actually in force, and `settings.json` is not
+  rewritten by an override.
+- Update `README.md` and `docs/MAP_AUTHORING_GUIDE.md` for the sectioned
+  Settings screen, the live quality/bloom/lightmap switches, the 1920×1080
+  default and the override precedence.
+
+### Fixed
+
+- **Default bloom actually runs again.** Decoupling bloom from the quality
+  profile left the post-process settings initialized with bloom strength 0 while
+  the runtime bloom flag defaulted to on, so `set_bloom_enabled(true)` returned
+  early and no bloom pass was submitted until the player toggled the option
+  twice. The renderer now reconciles its post-process settings at construction,
+  and the emissive pass is additionally gated on the post settings themselves.
+  A runtime A/B capture (same camera and frame, bloom on vs `LIMINAL_NO_BLOOM=1`)
+  now differs on ~3% of pixels at the demo spawn; before the fix it was
+  pixel-identical.
+
 ## Unreleased — Desktop texture policy
 
 Places is a desktop game now, and the asset pipeline no longer treats a

@@ -51,24 +51,6 @@ fn offscreen_requested_from_env() -> bool {
     std::env::var("LIMINAL_NO_OFFSCREEN").as_deref() != Ok("1")
 }
 
-/// Whether the post-processing bloom stage should start enabled.
-///
-/// On by default. `LIMINAL_NO_BLOOM=1` drops the emissive pass and the blur
-/// while keeping the resolve pass, so a benchmark can measure the bloom stages
-/// alone against the same build, profile and level.
-fn bloom_requested_from_env() -> bool {
-    std::env::var("LIMINAL_NO_BLOOM").as_deref() != Ok("1")
-}
-
-/// Whether selective reflections should start enabled.
-///
-/// On by default. `LIMINAL_NO_REFLECTIONS=1` reports every material as
-/// reflection-free, so the planar pass, the probe bake and the reflection
-/// texture binds all disappear from the frame.
-fn reflections_requested_from_env() -> bool {
-    std::env::var("LIMINAL_NO_REFLECTIONS").as_deref() != Ok("1")
-}
-
 /// Whether the scene should render offscreen at all, and at which size.
 ///
 /// Pure so the decision can be tested without a GL context: `None` is the
@@ -1198,7 +1180,8 @@ unsafe fn create_post_process(gl: &glow::Context) -> Option<super::postprocess::
     match unsafe {
         super::postprocess::PostProcess::create(
             gl,
-            super::postprocess::PostSettings::for_profile(crate::quality::QualityProfile::DEFAULT),
+            super::postprocess::PostSettings::for_profile(crate::quality::QualityProfile::DEFAULT)
+                .with_bloom(true),
         )
     } {
         Ok(post) => Some(post),
@@ -1522,13 +1505,16 @@ pub struct Renderer {
     /// Set when a level build produced reflection routing that still needs its
     /// probes baked; the bake runs once the level's textures are resident.
     pending_probe_bake: bool,
-    /// Whether the bloom stage may run this session (`LIMINAL_NO_BLOOM`).
+    /// Whether the bloom stage may run. Runtime state, applied from the
+    /// player's `bloom` setting (with its startup override) and changed live
+    /// through [`Self::set_bloom_enabled`].
     bloom_enabled: bool,
     /// Set by the main pass when an emissive batch survived culling, so a view
     /// with nothing glowing skips the bloom stages entirely.
     emissive_visible: bool,
-    /// Whether selective reflections may run this session
-    /// (`LIMINAL_NO_REFLECTIONS`).
+    /// Whether selective reflections may run. Runtime state, applied from the
+    /// player's `reflections` setting (with its startup override) and changed
+    /// live through [`Self::set_reflections_enabled`].
     reflections_enabled: bool,
     /// Emission animation per material index, resolved from the level.
     material_animations: Vec<Option<EmissionAnimation>>,
@@ -1629,7 +1615,7 @@ impl Renderer {
         prop_catalog: crate::loader::PropCatalog,
         drawable_size: DrawableSize,
     ) -> Self {
-        Self {
+        let mut renderer = Self {
             _gl_context: gl_context,
             gl,
             programs: startup.programs,
@@ -1674,9 +1660,12 @@ impl Renderer {
             materials: MaterialRenderState::default(),
             material_textures: Vec::new(),
             quality: crate::quality::QualityProfile::DEFAULT,
-            bloom_enabled: bloom_requested_from_env(),
+            // Both start enabled; the caller applies the player's settings
+            // (including the `LIMINAL_NO_BLOOM` / `LIMINAL_NO_REFLECTIONS`
+            // startup overrides) through the setters below.
+            bloom_enabled: true,
             emissive_visible: false,
-            reflections_enabled: reflections_requested_from_env(),
+            reflections_enabled: true,
             white_texture: startup.white_texture,
             font_texture: startup.font_texture,
             decal: startup.decal,
@@ -1709,7 +1698,12 @@ impl Renderer {
             fog: FogState::SHIPPED,
             black_cube: startup.black_cube,
             reflections: super::reflections::Reflections::default(),
-        }
+        };
+        // The bloom flag and the post-process settings must start in agreement:
+        // the field defaults to on, so the resolve stage is told about it here
+        // rather than relying on a later setter that would early-return.
+        renderer.refresh_post_settings();
+        renderer
     }
 
     /// Records the current physical framebuffer size.
@@ -1737,14 +1731,14 @@ impl Renderer {
     ///
     /// The profile decides how large a texture may reach the GPU: [`Full`] is
     /// the historical Places runtime size, [`Low`] downscales the same source
-    /// assets further. It is applied when a level (or a texture) is uploaded,
-    /// so changing it takes effect on the next level load rather than by
-    /// rescaling anything already resident — and never per frame.
+    /// assets further. It also decides the scene target's resolution and the
+    /// lightmap density. It is applied at upload/build time, so a live switch
+    /// calls [`Self::release_profile_textures`] and rebuilds the current level
+    /// (`main` does both) rather than rescaling anything already resident.
     ///
-    /// The post-processing stack and the reflection budget follow the profile:
-    /// Full blooms, grades and reflects through one mirror plane, Low keeps the
-    /// resolve pass (tone and fog are part of the image, not an extra effect),
-    /// drops bloom and grading, and reads only the static probes.
+    /// The post-processing profile terms and the reflection budget follow it;
+    /// bloom is *not* part of the profile and is applied separately through
+    /// [`Self::set_bloom_enabled`].
     ///
     /// [`Full`]: crate::quality::QualityProfile::Full
     /// [`Low`]: crate::quality::QualityProfile::Low
@@ -1753,10 +1747,7 @@ impl Renderer {
             return;
         }
         self.quality = quality;
-        let settings = super::postprocess::PostSettings::for_profile(quality);
-        if let Some(post) = self.post.as_mut() {
-            unsafe { post.set_settings(&self.gl, settings) };
-        }
+        self.refresh_post_settings();
         self.reflections.set_profile(quality);
         if !self.reflections_enabled {
             self.reflections.set_enabled(false);
@@ -1770,6 +1761,101 @@ impl Renderer {
     #[must_use]
     pub const fn quality(&self) -> crate::quality::QualityProfile {
         self.quality
+    }
+
+    /// Applies the profile's post-processing settings plus the player's bloom
+    /// choice to the resolve stage.
+    ///
+    /// A single place keeps the profile terms and the independent bloom toggle
+    /// from disagreeing: `Low + Bloom On` resolves with only the bloom term
+    /// added, and `Full + Bloom Off` keeps exposure and grade but never draws
+    /// the emissive or blur passes.
+    fn refresh_post_settings(&mut self) {
+        let settings = super::postprocess::PostSettings::for_profile(self.quality)
+            .with_bloom(self.bloom_enabled);
+        if let Some(post) = self.post.as_mut() {
+            unsafe { post.set_settings(&self.gl, settings) };
+        }
+    }
+
+    /// Turns the bloom stage on or off at runtime.
+    ///
+    /// Dropping the stage also releases its targets (through the post-process
+    /// settings), so a disabled bloom holds no framebuffers and submits no
+    /// emissive or blur passes. Turning it back on recreates them on the next
+    /// frame.
+    pub fn set_bloom_enabled(&mut self, enabled: bool) {
+        if self.bloom_enabled == enabled {
+            return;
+        }
+        self.bloom_enabled = enabled;
+        self.refresh_post_settings();
+    }
+
+    /// Whether the bloom stage may run.
+    #[must_use]
+    pub const fn bloom_enabled(&self) -> bool {
+        self.bloom_enabled
+    }
+
+    /// Turns reflections on or off at runtime.
+    ///
+    /// With reflections off, no planar pass is drawn and the probe units keep
+    /// their one-pixel fallbacks; the next frame after turning them back on
+    /// reflects again without a level rebuild.
+    pub const fn set_reflections_enabled(&mut self, enabled: bool) {
+        if self.reflections_enabled == enabled {
+            return;
+        }
+        self.reflections_enabled = enabled;
+        self.reflections.set_enabled(enabled);
+        // Whether a material reflects at all depends on the reflection switch,
+        // and the surface cache holds the previous answer.
+        self.surface_state = None;
+    }
+
+    /// Whether reflections may run.
+    #[must_use]
+    pub const fn reflections_enabled(&self) -> bool {
+        self.reflections_enabled
+    }
+
+    /// Deletes every GPU texture that was uploaded at the active quality
+    /// profile, so the next level build re-uploads the same sources at the
+    /// profile now selected.
+    ///
+    /// The decoded images stay in the session caches (the level manager's
+    /// texture cache, the prop asset cache and the decal image cache), so this
+    /// is a GPU-side release only: no PNG is re-read and no CPU image is
+    /// dropped. Textures that do not depend on the profile (the white sheet,
+    /// the font atlas, the generated decal atlas and the black cube) are not
+    /// touched.
+    ///
+    /// This must be followed by a level rebuild (or [`Self::set_level`]) in the
+    /// same frame: until then the resident material tables reference textures
+    /// that no longer exist.
+    pub fn release_profile_textures(&mut self) {
+        unsafe {
+            for textures in self.prop_textures.values() {
+                for texture in textures {
+                    self.gl.delete_texture(*texture);
+                }
+            }
+            for texture in self.surface_textures.values() {
+                self.gl.delete_texture(*texture);
+            }
+            for texture in self.fixture_sheet_textures.values() {
+                self.gl.delete_texture(*texture);
+            }
+            for texture in self.decal_sheet_textures.values() {
+                self.gl.delete_texture(*texture);
+            }
+        }
+        self.prop_textures.clear();
+        self.surface_textures.clear();
+        self.fixture_sheet_textures.clear();
+        self.decal_sheet_textures.clear();
+        self.decal.external.clear();
     }
 
     /// Applies the user-facing texture filtering mode to the repeating 3D
@@ -2915,10 +3001,16 @@ impl Renderer {
         cull: bool,
         mvp: &glam::Mat4,
     ) -> Option<glow::Texture> {
-        // `LIMINAL_NO_BLOOM=1` measures the same build without the stage, and a
-        // view with no emissive surface on screen skips it without one: bloom
-        // can only come from emission, so there is nothing to draw.
-        if !self.bloom_enabled || !self.emissive_visible {
+        // The bloom setting, the `LIMINAL_NO_BLOOM` startup override and a view
+        // with no emissive surface on screen each skip the stage: bloom can
+        // only come from emission, so there is nothing to draw.
+        if !self.bloom_enabled
+            || !self
+                .post
+                .as_ref()
+                .is_some_and(|post| post.settings().blooms())
+            || !self.emissive_visible
+        {
             return None;
         }
         // The bloom target shares the scene target's aspect ratio (both scale

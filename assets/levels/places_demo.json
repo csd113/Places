@@ -1305,6 +1305,14 @@
       "z": 4.6,
       "brightness": 0.32,
       "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 65.5,
+      "z": 0.9,
+      "brightness": 0.32,
+      "emission": 1.0,
+      "comment": "Lights the corridor's south-east leg; its baseline reaches the narrow hallway's east wall."
     }
   ],
   "props": [
@@ -1809,7 +1817,7 @@
       "model": "core:tv",
       "x": 64.5,
       "y": 0.0,
-      "z": 5.6,
+      "z": 6.55,
       "rotation_degrees": 270.0,
       "size": [
         0.1,
@@ -2108,13 +2116,14 @@
       "rotation_degrees": 0.0,
       "height": 0.95,
       "post_spacing": 1.4,
+      "rise": 0.0,
       "material": "home:handrail_wood_01",
-      "comment": "Balcony rail along the void towards the staircase: the stair landing comes up on the balcony's west edge."
+      "comment": "Balcony rail along the void towards the staircase: the stair landing comes up on the balcony's west edge. Level: the run's far end tucks into the east wall."
     },
     {
       "x": 58.0,
-      "z": 11.2,
-      "length": 1.8,
+      "z": 11.12,
+      "length": 1.88,
       "rotation_degrees": 270.0,
       "height": 0.95,
       "post_spacing": 1.2,
@@ -2404,11 +2413,20 @@
     {
       "x": 33.15,
       "z": 14.83,
-      "length": 3.67,
+      "length": 0.83,
       "material": "home:baseboard_white_01",
       "y": -0.9,
       "rotation_degrees": 90.0,
-      "comment": "The hall's west end wall."
+      "comment": "The hall's west end wall, stopping at the doorway's south jamb."
+    },
+    {
+      "x": 33.15,
+      "z": 12.4,
+      "length": 1.24,
+      "material": "home:baseboard_white_01",
+      "y": -0.9,
+      "rotation_degrees": 90.0,
+      "comment": "The hall's west end wall, north of the doorway."
     },
     {
       "x": 65.0,

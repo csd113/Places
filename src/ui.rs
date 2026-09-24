@@ -1,10 +1,114 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
+use crate::display::{DisplayStatus, resolution_label, step_resolution};
 use crate::font::{get_char_uv, get_white_uv};
 use crate::game::AppState;
+use crate::quality::QualityProfile;
 use crate::render::Vertex;
-use crate::settings::{KeyBindings, Settings};
+use crate::settings::{KeyBindings, Settings, WindowMode};
+
+/// Which Settings screen is open.
+///
+/// The root is a table of contents; the three sections group the actual
+/// options. Both entry points (the main menu's Settings and the pause menu's
+/// Settings) share this screen, so the page is state, not a separate
+/// `AppState`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+pub enum SettingsPage {
+    /// Graphics / Display / Controls, Restore Defaults and Back.
+    #[default]
+    Root,
+    /// Rendering and visual-quality options.
+    Graphics,
+    /// Window mode and resolution.
+    Display,
+    /// Bindings and control preferences.
+    Controls,
+}
+
+impl SettingsPage {
+    /// Page title drawn at the top of the panel.
+    #[must_use]
+    pub const fn title(self) -> &'static str {
+        match self {
+            Self::Root => "SETTINGS",
+            Self::Graphics => "GRAPHICS",
+            Self::Display => "DISPLAY",
+            Self::Controls => "CONTROLS",
+        }
+    }
+
+    /// Number of selectable rows on this page.
+    ///
+    /// Kept next to [`settings_rows`], which generates exactly this many rows;
+    /// a unit test pins the two together.
+    #[must_use]
+    pub const fn item_count(self) -> usize {
+        match self {
+            Self::Root => 5,
+            Self::Graphics => 7,
+            Self::Display => 3,
+            Self::Controls => 14,
+        }
+    }
+}
+
+/// One selectable row on a Settings page.
+///
+/// The row list is the single source of truth for both drawing and behaviour:
+/// [`activate_settings_item`] dispatches on the row's [`SettingsRowKind`], so a
+/// row can never do something other than what it shows.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SettingsRow {
+    pub label: String,
+    pub value: String,
+    pub kind: SettingsRowKind,
+}
+
+/// What activating or adjusting a row does.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SettingsRowKind {
+    /// A value changed with left/right (Enter adjusts one step too).
+    Value(SettingsValue),
+    /// A player-rebindable gameplay binding.
+    Binding(&'static str),
+    /// A section entry that opens another page.
+    Open(SettingsPage),
+    /// Restore every persisted preference to its default.
+    RestoreDefaults,
+    /// Leave the screen (or return to the root page).
+    Back,
+}
+
+/// The adjustable options, named so behaviour never depends on a row index.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SettingsValue {
+    GraphicsQuality,
+    Bloom,
+    Reflections,
+    Lightmaps,
+    Vsync,
+    Filtering,
+    WindowMode,
+    Resolution,
+    LookSpeedH,
+    LookSpeedV,
+    InvertLook,
+    WalkSpeed,
+    Fov,
+}
+
+/// What activating a Settings row asks the screen to do.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SettingsAction {
+    /// Nothing to do beyond persisting the changed value.
+    None,
+    /// Leave Settings (the root page's Back row).
+    Back,
+    /// Open another Settings page.
+    Open(SettingsPage),
+}
 
 /// Menu selection state across screens.
 #[derive(Debug, Clone, Default)]
@@ -13,6 +117,8 @@ pub struct UiState {
     pub level_select_idx: usize,
     pub pause_menu_idx: usize,
     pub settings_idx: usize,
+    /// Which Settings page is open (the root by default).
+    pub settings_page: SettingsPage,
     pub rebinding_action: Option<&'static str>,
     pub status_message: Option<String>,
     /// True when [`Self::status_message`] describes a failure, so screens can
@@ -51,6 +157,7 @@ fn ui_signature(
     app_state: AppState,
     ui_state: &UiState,
     settings: &Settings,
+    display: &DisplayStatus,
     version: &str,
 ) -> u64 {
     let mut hasher = DefaultHasher::new();
@@ -59,10 +166,12 @@ fn ui_signature(
     ui_state.level_select_idx.hash(&mut hasher);
     ui_state.pause_menu_idx.hash(&mut hasher);
     ui_state.settings_idx.hash(&mut hasher);
+    ui_state.settings_page.hash(&mut hasher);
     ui_state.rebinding_action.hash(&mut hasher);
     ui_state.status_message.as_deref().hash(&mut hasher);
     ui_state.status_is_error.hash(&mut hasher);
     ui_state.level_entries.hash(&mut hasher);
+    display.hash(&mut hasher);
     version.hash(&mut hasher);
 
     let b = &settings.bindings;
@@ -78,8 +187,16 @@ fn ui_signature(
     settings.look_speed_v.to_bits().hash(&mut hasher);
     settings.walk_speed.to_bits().hash(&mut hasher);
     settings.fov_degrees.to_bits().hash(&mut hasher);
-    settings.vsync.hash(&mut hasher);
+    settings.invert_look.hash(&mut hasher);
+    // The *effective* values: a startup override changes what the screen says.
+    settings.vsync_enabled().hash(&mut hasher);
+    settings.bloom_enabled().hash(&mut hasher);
+    settings.reflections_enabled().hash(&mut hasher);
+    settings.lightmaps_enabled().hash(&mut hasher);
+    settings.quality_profile().hash(&mut hasher);
+    settings.window_mode().hash(&mut hasher);
     settings.texture_filtering.hash(&mut hasher);
+    settings.window_size().hash(&mut hasher);
     hasher.finish()
 }
 
@@ -107,11 +224,12 @@ impl UiGeometryCache {
         app_state: AppState,
         ui_state: &UiState,
         settings: &Settings,
+        display: &DisplayStatus,
         version: &str,
     ) -> &[Vertex] {
-        let signature = ui_signature(app_state, ui_state, settings, version);
+        let signature = ui_signature(app_state, ui_state, settings, display, version);
         if !self.initialized || signature != self.signature {
-            self.vertices = build_ui_geometry(app_state, ui_state, settings, version);
+            self.vertices = build_ui_geometry(app_state, ui_state, settings, display, version);
             self.signature = signature;
             self.initialized = true;
         }
@@ -286,6 +404,7 @@ pub fn build_ui_geometry(
     app_state: AppState,
     ui_state: &UiState,
     settings: &Settings,
+    display: &DisplayStatus,
     version: &str,
 ) -> Vec<Vertex> {
     let mut vertices = Vec::new();
@@ -298,7 +417,7 @@ pub fn build_ui_geometry(
         AppState::LevelSelect => level_select_geometry(&mut vertices, ui_state),
         AppState::Paused => pause_menu_geometry(&mut vertices, ui_state),
         AppState::Settings | AppState::PauseSettings => {
-            settings_geometry(&mut vertices, ui_state, settings);
+            settings_geometry(&mut vertices, ui_state, settings, display);
         }
     }
 
@@ -307,8 +426,8 @@ pub fn build_ui_geometry(
 
 /// Y offset of menu row `index` in the 480x272 reference space.
 ///
-/// Menus hold at most [`SETTINGS_ITEM_COUNT`] rows, so the `u16` conversion is
-/// exact and the row offset is lossless.
+/// Menus hold at most a few dozen rows, so the `u16` conversion is exact and
+/// the row offset is lossless.
 fn row_y(index: usize, line_h: f32, start_y: f32) -> f32 {
     f32::from(u16::try_from(index).unwrap_or(u16::MAX)).mul_add(line_h, start_y)
 }
@@ -544,12 +663,265 @@ fn pause_menu_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
     );
 }
 
-/// Settings screen: panel, rebinding/status prompt, item list and legend.
-fn settings_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState, settings: &Settings) {
+/// The three section entries the Settings root offers, in menu order.
+pub const SETTINGS_SECTIONS: [SettingsPage; 3] = [
+    SettingsPage::Graphics,
+    SettingsPage::Display,
+    SettingsPage::Controls,
+];
+
+impl SettingsPage {
+    /// The player-facing label of a section entry.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Root => "Settings",
+            Self::Graphics => "Graphics",
+            Self::Display => "Display",
+            Self::Controls => "Controls",
+        }
+    }
+}
+
+/// Suffix appended to a value pinned by a startup override.
+const OVERRIDE_MARKER: &str = " *";
+
+/// Horizontal x the value column is right-aligned to, in the reference space.
+const VALUE_RIGHT: f32 = 450.0;
+/// Left x the row text starts at.
+const ROW_LEFT: f32 = 25.0;
+
+const fn on_off(value: bool) -> &'static str {
+    if value { "On" } else { "Off" }
+}
+
+const fn profile_label(profile: QualityProfile) -> &'static str {
+    match profile {
+        QualityProfile::Full => "Full",
+        QualityProfile::Low => "Low",
+    }
+}
+
+// `==` on `&str` is not const-callable yet, so this cannot be `const fn`;
+// clippy's suggestion is a known false positive for this case.
+#[allow(clippy::missing_const_for_fn)]
+fn filtering_label(mode: &str) -> &'static str {
+    if mode == "nearest" {
+        "Nearest"
+    } else {
+        "Linear"
+    }
+}
+
+/// The selector values a row wraps around, rendered as `< value >`.
+fn selector(value: &str) -> String {
+    format!("< {value} >")
+}
+
+/// A selector value with the startup-override marker when one is in force.
+fn selector_with_override(value: &str, overridden: bool) -> String {
+    if overridden {
+        format!("{}{OVERRIDE_MARKER}", selector(value))
+    } else {
+        selector(value)
+    }
+}
+
+/// True when any Graphics option is pinned by a startup override, so the
+/// Graphics legend can explain the marker.
+#[must_use]
+pub const fn any_graphics_override(settings: &Settings) -> bool {
+    settings.quality_overridden()
+        || settings.bloom_overridden()
+        || settings.reflections_overridden()
+        || settings.lightmaps_overridden()
+        || settings.vsync_overridden()
+}
+
+/// Appends one row to a page's row list.
+fn push_row(rows: &mut Vec<SettingsRow>, label: &str, value: String, kind: SettingsRowKind) {
+    rows.push(SettingsRow {
+        label: label.to_string(),
+        value,
+        kind,
+    });
+}
+
+/// Every row of one Settings page, in menu order.
+///
+/// This is the single source of truth for the screen: the geometry draws these
+/// rows and [`activate_settings_item`] dispatches on the same list, so the
+/// current value can never be shown without also being the value that changes.
+#[must_use]
+pub fn settings_rows(
+    page: SettingsPage,
+    settings: &Settings,
+    display: &DisplayStatus,
+) -> Vec<SettingsRow> {
+    match page {
+        SettingsPage::Root => root_rows(),
+        SettingsPage::Graphics => graphics_rows(settings),
+        SettingsPage::Display => display_rows(settings, display),
+        SettingsPage::Controls => controls_rows(settings),
+    }
+}
+
+/// The Settings root: one entry per section, Restore Defaults and Back.
+fn root_rows() -> Vec<SettingsRow> {
+    let mut rows = Vec::with_capacity(SettingsPage::Root.item_count());
+    for section in SETTINGS_SECTIONS {
+        push_row(
+            &mut rows,
+            section.label(),
+            ">".to_string(),
+            SettingsRowKind::Open(section),
+        );
+    }
+    push_row(
+        &mut rows,
+        "Restore Defaults",
+        String::new(),
+        SettingsRowKind::RestoreDefaults,
+    );
+    push_row(&mut rows, "Back", String::new(), SettingsRowKind::Back);
+    rows
+}
+
+/// Graphics: the quality profile, then the independent visual toggles.
+fn graphics_rows(settings: &Settings) -> Vec<SettingsRow> {
+    let mut rows = Vec::with_capacity(SettingsPage::Graphics.item_count());
+    push_row(
+        &mut rows,
+        "Graphics Quality",
+        selector_with_override(
+            profile_label(settings.quality_profile()),
+            settings.quality_overridden(),
+        ),
+        SettingsRowKind::Value(SettingsValue::GraphicsQuality),
+    );
+    push_row(
+        &mut rows,
+        "Bloom",
+        selector_with_override(
+            on_off(settings.bloom_enabled()),
+            settings.bloom_overridden(),
+        ),
+        SettingsRowKind::Value(SettingsValue::Bloom),
+    );
+    push_row(
+        &mut rows,
+        "Reflections",
+        selector_with_override(
+            on_off(settings.reflections_enabled()),
+            settings.reflections_overridden(),
+        ),
+        SettingsRowKind::Value(SettingsValue::Reflections),
+    );
+    push_row(
+        &mut rows,
+        "Lightmaps",
+        selector_with_override(
+            on_off(settings.lightmaps_enabled()),
+            settings.lightmaps_overridden(),
+        ),
+        SettingsRowKind::Value(SettingsValue::Lightmaps),
+    );
+    push_row(
+        &mut rows,
+        "VSync",
+        selector_with_override(
+            on_off(settings.vsync_enabled()),
+            settings.vsync_overridden(),
+        ),
+        SettingsRowKind::Value(SettingsValue::Vsync),
+    );
+    push_row(
+        &mut rows,
+        "Texture Filtering",
+        selector(filtering_label(&settings.texture_filtering)),
+        SettingsRowKind::Value(SettingsValue::Filtering),
+    );
+    push_row(&mut rows, "Back", String::new(), SettingsRowKind::Back);
+    rows
+}
+
+/// Display: the window mode and, while windowed, the resolution.
+fn display_rows(settings: &Settings, display: &DisplayStatus) -> Vec<SettingsRow> {
+    let mut rows = Vec::with_capacity(SettingsPage::Display.item_count());
+    push_row(
+        &mut rows,
+        "Window Mode",
+        selector(settings.window_mode().label()),
+        SettingsRowKind::Value(SettingsValue::WindowMode),
+    );
+    push_row(
+        &mut rows,
+        "Resolution",
+        selector(&resolution_label(settings, *display)),
+        SettingsRowKind::Value(SettingsValue::Resolution),
+    );
+    push_row(&mut rows, "Back", String::new(), SettingsRowKind::Back);
+    rows
+}
+
+/// Controls: every bindable action, the control preferences and Back.
+fn controls_rows(settings: &Settings) -> Vec<SettingsRow> {
+    let mut rows = Vec::with_capacity(SettingsPage::Controls.item_count());
+    for action in KeyBindings::ACTIONS {
+        let key = settings.bindings.get_key(action).unwrap_or("");
+        push_row(
+            &mut rows,
+            crate::settings::action_label(action).as_str(),
+            key.to_string(),
+            SettingsRowKind::Binding(action),
+        );
+    }
+    push_row(
+        &mut rows,
+        "Look Speed H",
+        selector(&format!("{:.0} deg/s", settings.look_speed_h)),
+        SettingsRowKind::Value(SettingsValue::LookSpeedH),
+    );
+    push_row(
+        &mut rows,
+        "Look Speed V",
+        selector(&format!("{:.0} deg/s", settings.look_speed_v)),
+        SettingsRowKind::Value(SettingsValue::LookSpeedV),
+    );
+    push_row(
+        &mut rows,
+        "Invert Look",
+        selector(on_off(settings.invert_look)),
+        SettingsRowKind::Value(SettingsValue::InvertLook),
+    );
+    push_row(
+        &mut rows,
+        "Walk Speed",
+        selector(&format!("{:.1} m/s", settings.walk_speed)),
+        SettingsRowKind::Value(SettingsValue::WalkSpeed),
+    );
+    push_row(
+        &mut rows,
+        "Field of View",
+        selector(&format!("{:.0} deg", settings.fov_degrees)),
+        SettingsRowKind::Value(SettingsValue::Fov),
+    );
+    push_row(&mut rows, "Back", String::new(), SettingsRowKind::Back);
+    rows
+}
+
+/// Settings screen: panel, rebinding/status prompt, page rows and legend.
+fn settings_geometry(
+    vertices: &mut Vec<Vertex>,
+    ui_state: &UiState,
+    settings: &Settings,
+    display: &DisplayStatus,
+) {
     add_rect(vertices, 10.0, 10.0, 470.0, 262.0, [0.08, 0.08, 0.07]);
     add_rect(vertices, 12.0, 12.0, 468.0, 260.0, [0.12, 0.11, 0.10]);
 
-    draw_text(vertices, "SETTINGS", 25.0, 20.0, 2.0, [0.92, 0.88, 0.45]);
+    let page = ui_state.settings_page;
+    draw_text(vertices, page.title(), 25.0, 20.0, 2.0, [0.92, 0.88, 0.45]);
 
     // Rebinding prompt or status message.
     if let Some(action) = ui_state.rebinding_action {
@@ -567,145 +939,149 @@ fn settings_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState, settings: &
         draw_text(vertices, &line, 160.0, 22.0, 1.0, col);
     }
 
-    settings_item_rows(vertices, ui_state, settings);
+    settings_item_rows(vertices, ui_state, settings, display);
 
-    draw_legend(
-        vertices,
-        "W/S: Move   ENTER/A/D: Adjust   ESC: Back",
-        22.0,
-        458.0,
-        250.0,
-    );
+    let legend = match page {
+        SettingsPage::Root => "W/S: Move   ENTER: Open   ESC: Back",
+        SettingsPage::Graphics | SettingsPage::Display => "A/D: Change   ENTER: Apply   ESC: Back",
+        SettingsPage::Controls => "ENTER: Rebind   A/D: Change   ESC: Back",
+    };
+    draw_legend(vertices, legend, 22.0, 458.0, 250.0);
+
+    // A footnote line the rows have room for: where the graphics values come
+    // from when a startup override pinned them, or which controls are fixed.
+    let footnote = match page {
+        SettingsPage::Graphics if any_graphics_override(settings) => "* = startup override",
+        SettingsPage::Root | SettingsPage::Graphics | SettingsPage::Display => "",
+        SettingsPage::Controls => "Fixed: ESC Pause   W/S/A/D Menu   - Overlay",
+    };
+    if !footnote.is_empty() {
+        draw_legend(vertices, footnote, 22.0, 458.0, 238.0);
+    }
 }
 
 /// One row per settings item, showing the current binding or value.
-fn settings_item_rows(vertices: &mut Vec<Vertex>, ui_state: &UiState, settings: &Settings) {
-    let b = &settings.bindings;
-    let items = [
-        format!("Forward:        [{}]", b.forward),
-        format!("Strafe Left:    [{}]", b.strafe_left),
-        format!("Strafe Right:   [{}]", b.strafe_right),
-        format!("Backward:       [{}]", b.backward),
-        format!("Look Up:        [{}]", b.look_up),
-        format!("Look Down:      [{}]", b.look_down),
-        format!("Look Left:      [{}]", b.look_left),
-        format!("Look Right:     [{}]", b.look_right),
-        format!("Look Speed H:   [{:.0} deg/s]", settings.look_speed_h),
-        format!("Look Speed V:   [{:.0} deg/s]", settings.look_speed_v),
-        format!("Walk Speed:     [{:.1} m/s]", settings.walk_speed),
-        format!("FOV:            [{:.0} deg]", settings.fov_degrees),
-        format!(
-            "VSync:          [{}]",
-            if settings.vsync { "ON" } else { "OFF" }
-        ),
-        format!(
-            "Filtering:      [{}]",
-            settings.texture_filtering.to_uppercase()
-        ),
-        "Restore Defaults".to_string(),
-        "Back".to_string(),
-    ];
-
+///
+/// Labels are left-aligned and values right-aligned; a label long enough to
+/// reach the value column pushes the value right instead of overlapping it.
+fn settings_item_rows(
+    vertices: &mut Vec<Vertex>,
+    ui_state: &UiState,
+    settings: &Settings,
+    display: &DisplayStatus,
+) {
+    let rows = settings_rows(ui_state.settings_page, settings, display);
     let start_y = 44.0;
     let line_h = 13.0;
 
-    for (i, label) in items.iter().enumerate() {
+    for (i, row) in rows.iter().enumerate() {
         let y = row_y(i, line_h, start_y);
         let is_sel = i == ui_state.settings_idx;
+        let label_color = if is_sel {
+            [1.0, 0.95, 0.40]
+        } else {
+            [0.85, 0.85, 0.80]
+        };
+        let value_color = if is_sel {
+            [1.0, 0.95, 0.40]
+        } else {
+            [0.62, 0.70, 0.72]
+        };
 
         if is_sel {
-            add_rect(vertices, 23.0, y - 1.0, 450.0, y + 10.0, [0.25, 0.23, 0.16]);
-            let line = format!("> {label}");
-            draw_text(vertices, &line, 25.0, y, 1.0, [1.0, 0.95, 0.40]);
-        } else {
-            let line = format!("  {label}");
-            draw_text(vertices, &line, 25.0, y, 1.0, [0.85, 0.85, 0.80]);
+            add_rect(
+                vertices,
+                23.0,
+                y - 1.0,
+                VALUE_RIGHT,
+                y + 10.0,
+                [0.25, 0.23, 0.16],
+            );
+        }
+        let prefix = if is_sel { "> " } else { "  " };
+        let text = format!("{prefix}{}", row.label);
+        draw_text(vertices, &text, ROW_LEFT, y, 1.0, label_color);
+        if !row.value.is_empty() {
+            let value_x = (VALUE_RIGHT - text_width(&row.value, 1.0))
+                .max(ROW_LEFT + text_width(&text, 1.0) + 8.0);
+            draw_text(vertices, &row.value, value_x, y, 1.0, value_color);
         }
     }
 }
 
-pub const SETTINGS_ITEM_COUNT: usize = 16;
-
-/// Cycles or rebinds selected settings item.
+/// Cycles, toggles or rebinds the selected settings row.
 ///
-/// Returns `true` when the item asks to leave the screen (the Back row).
-/// Persisting the change is the caller's job, so this stays a pure UI mutation
-/// and a screen can report a failed save itself.
+/// Persisting the change is the caller's job (as is applying it to the running
+/// systems), so this stays a pure mutation of the authoritative settings.
+/// Returns what the screen should do next.
 pub fn activate_settings_item(
+    page: SettingsPage,
     idx: usize,
     ui_state: &mut UiState,
     settings: &mut Settings,
+    display: &DisplayStatus,
     direction: i32,
-) -> bool {
-    // 0..8: Keybindings
-    if let Some(action) = KeyBindings::ACTIONS.get(idx) {
-        ui_state.rebinding_action = Some(*action);
-        ui_state.clear_status();
-        return false;
+) -> SettingsAction {
+    let rows = settings_rows(page, settings, display);
+    let Some(row) = rows.get(idx) else {
+        return SettingsAction::None;
+    };
+    match &row.kind {
+        SettingsRowKind::Binding(action) => {
+            ui_state.rebinding_action = Some(action);
+            ui_state.clear_status();
+            SettingsAction::None
+        }
+        SettingsRowKind::Open(section) => SettingsAction::Open(*section),
+        SettingsRowKind::RestoreDefaults => {
+            settings.restore_defaults();
+            ui_state.cancel_rebinding();
+            ui_state.set_status("Restored default settings", false);
+            SettingsAction::None
+        }
+        SettingsRowKind::Back => SettingsAction::Back,
+        SettingsRowKind::Value(value) => {
+            adjust_value(*value, ui_state, settings, display, direction);
+            SettingsAction::None
+        }
     }
+}
 
-    match idx {
-        8 => {
-            // Look Speed H
-            let step = if direction < 0 { -15.0 } else { 15.0 };
-            settings.look_speed_h += step;
-            if settings.look_speed_h > 180.0 {
-                settings.look_speed_h = 45.0;
-            } else if settings.look_speed_h < 45.0 {
-                settings.look_speed_h = 180.0;
+/// Applies one left/right or Enter step to an adjustable option.
+fn adjust_value(
+    value: SettingsValue,
+    ui_state: &mut UiState,
+    settings: &mut Settings,
+    display: &DisplayStatus,
+    direction: i32,
+) {
+    match value {
+        SettingsValue::GraphicsQuality => {
+            let next = Settings::quality_step(settings.quality_profile(), direction);
+            if settings.set_quality(next) {
+                ui_state.set_status(format!("Graphics quality: {}", profile_label(next)), false);
             }
-            ui_state.set_status("Horizontal look speed updated", false);
         }
-        9 => {
-            // Look Speed V
-            let step = if direction < 0 { -15.0 } else { 15.0 };
-            settings.look_speed_v += step;
-            if settings.look_speed_v > 150.0 {
-                settings.look_speed_v = 30.0;
-            } else if settings.look_speed_v < 30.0 {
-                settings.look_speed_v = 150.0;
-            }
-            ui_state.set_status("Vertical look speed updated", false);
+        SettingsValue::Bloom => {
+            let next = settings.toggle_bloom();
+            ui_state.set_status(format!("Bloom {}", on_off(next).to_lowercase()), false);
         }
-        10 => {
-            // Walk speed
-            let step = if direction < 0 { -0.5 } else { 0.5 };
-            settings.walk_speed += step;
-            if settings.walk_speed > 6.0 {
-                settings.walk_speed = 1.5;
-            } else if settings.walk_speed < 1.5 {
-                settings.walk_speed = 6.0;
-            }
-            ui_state.set_status("Walk speed updated", false);
-        }
-        11 => {
-            // FOV
-            let step = if direction < 0 { -15.0 } else { 15.0 };
-            settings.fov_degrees += step;
-            if settings.fov_degrees > 90.0 {
-                settings.fov_degrees = 45.0;
-            } else if settings.fov_degrees < 45.0 {
-                settings.fov_degrees = 90.0;
-            }
-            ui_state.set_status("Field of view updated", false);
-        }
-        12 => {
-            // VSync applies when the GL context is configured at startup.
-            settings.vsync = !settings.vsync;
+        SettingsValue::Reflections => {
+            let next = settings.toggle_reflections();
             ui_state.set_status(
-                format!(
-                    "VSync {} (applies after restart)",
-                    if settings.vsync {
-                        "enabled"
-                    } else {
-                        "disabled"
-                    }
-                ),
+                format!("Reflections {}", on_off(next).to_lowercase()),
                 false,
             );
         }
-        13 => {
-            // Filtering
+        SettingsValue::Lightmaps => {
+            let next = settings.toggle_lightmaps();
+            ui_state.set_status(format!("Lightmaps {}", on_off(next).to_lowercase()), false);
+        }
+        SettingsValue::Vsync => {
+            let next = settings.toggle_vsync();
+            ui_state.set_status(format!("VSync {}", on_off(next).to_lowercase()), false);
+        }
+        SettingsValue::Filtering => {
             settings.texture_filtering = if settings.texture_filtering == "linear" {
                 "nearest".to_string()
             } else {
@@ -714,34 +1090,75 @@ pub fn activate_settings_item(
             ui_state.set_status(
                 format!(
                     "Texture filtering: {}",
-                    settings.texture_filtering.to_uppercase()
+                    filtering_label(&settings.texture_filtering)
                 ),
                 false,
             );
         }
-        14 => {
-            // Restore defaults: every persisted preference returns to its
-            // documented default, including the two without a dedicated row.
-            let defaults = Settings::default();
-            *settings = defaults;
-            ui_state.set_status("Restored default settings", false);
+        SettingsValue::WindowMode => {
+            let mode = settings.step_window_mode(direction);
+            ui_state.set_status(format!("Window mode: {}", mode.label()), false);
         }
-        15 => {
-            // Back
-            return true; // Signal back
+        SettingsValue::Resolution => {
+            if display.mode == WindowMode::Fullscreen {
+                ui_state.set_status("Resolution follows the display in fullscreen mode", false);
+            } else {
+                let choices = display.resolution_choices(settings.window_size());
+                if let Some(next) = step_resolution(&choices, settings.window_size(), direction)
+                    && settings.set_window_size(next.0, next.1)
+                {
+                    ui_state.set_status(
+                        format!("Resolution: {}", crate::display::format_resolution(next)),
+                        false,
+                    );
+                }
+            }
         }
-        _ => {}
+        SettingsValue::LookSpeedH => {
+            step_range(&mut settings.look_speed_h, direction, 15.0, 45.0, 180.0);
+            ui_state.set_status("Horizontal look speed updated", false);
+        }
+        SettingsValue::LookSpeedV => {
+            step_range(&mut settings.look_speed_v, direction, 15.0, 30.0, 150.0);
+            ui_state.set_status("Vertical look speed updated", false);
+        }
+        SettingsValue::InvertLook => {
+            settings.set_invert_look(!settings.invert_look);
+            ui_state.set_status(
+                format!("Invert vertical look: {}", on_off(settings.invert_look)),
+                false,
+            );
+        }
+        SettingsValue::WalkSpeed => {
+            step_range(&mut settings.walk_speed, direction, 0.5, 1.5, 6.0);
+            ui_state.set_status("Walk speed updated", false);
+        }
+        SettingsValue::Fov => {
+            step_range(&mut settings.fov_degrees, direction, 15.0, 45.0, 90.0);
+            ui_state.set_status("Field of view updated", false);
+        }
     }
-    false
+}
+
+/// Moves a scalar value one step and wraps it around `min`..=`max`.
+fn step_range(value: &mut f32, direction: i32, step: f32, min: f32, max: f32) {
+    *value += if direction < 0 { -step } else { step };
+    if *value > max {
+        *value = min;
+    } else if *value < min {
+        *value = max;
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    // Test code: `expect` documents the invariant being asserted; the
-    // production lints stay enforced everywhere else in the crate.
-    #![allow(clippy::expect_used)]
+    // Test code: `expect` documents the invariant being asserted and row
+    // indexing documents which row a page declares; the production lints stay
+    // enforced everywhere else in the crate.
+    #![allow(clippy::expect_used, clippy::indexing_slicing)]
 
     use super::*;
+    use crate::settings::SettingsApply;
     use crate::test_support::assert_exact;
 
     #[test]
@@ -804,21 +1221,54 @@ mod tests {
     }
 
     #[test]
+    fn every_page_generates_exactly_the_rows_it_declares() {
+        let settings = Settings::default();
+        let display = DisplayStatus::default();
+        for page in [
+            SettingsPage::Root,
+            SettingsPage::Graphics,
+            SettingsPage::Display,
+            SettingsPage::Controls,
+        ] {
+            assert_eq!(
+                settings_rows(page, &settings, &display).len(),
+                page.item_count(),
+                "{page:?} row count"
+            );
+        }
+    }
+
+    #[test]
     fn every_settings_row_activates_without_breaking_the_settings() {
-        // Walk the whole screen in both directions, including the binding rows
-        // (which open a rebind), the value rows (which wrap) and the two
-        // terminal rows. Back must be the only row that signals leaving.
+        // Walk every page in both directions, including the binding rows
+        // (which open a rebind), the value rows (which wrap), the section rows
+        // and Back. Back must be the only row that signals leaving.
         let mut ui = UiState::new();
         let mut settings = Settings::default();
-        for idx in 0..SETTINGS_ITEM_COUNT {
-            for direction in [1, -1] {
-                let back = activate_settings_item(idx, &mut ui, &mut settings, direction);
-                assert_eq!(
-                    back,
-                    idx == SETTINGS_ITEM_COUNT - 1,
-                    "row {idx} direction {direction} back signal"
-                );
-                ui.cancel_rebinding();
+        let display = DisplayStatus::default();
+        for page in [
+            SettingsPage::Root,
+            SettingsPage::Graphics,
+            SettingsPage::Display,
+            SettingsPage::Controls,
+        ] {
+            for idx in 0..page.item_count() {
+                for direction in [1, -1] {
+                    let action = activate_settings_item(
+                        page,
+                        idx,
+                        &mut ui,
+                        &mut settings,
+                        &display,
+                        direction,
+                    );
+                    assert_eq!(
+                        action == SettingsAction::Back,
+                        idx == page.item_count() - 1,
+                        "page {page:?} row {idx} direction {direction} action {action:?}"
+                    );
+                    ui.cancel_rebinding();
+                }
             }
         }
         settings.sanitize();
@@ -828,25 +1278,266 @@ mod tests {
     }
 
     #[test]
-    fn restore_defaults_resets_every_persisted_preference() {
+    fn restore_defaults_resets_every_persisted_preference_and_requests_every_apply() {
         let mut ui = UiState::new();
         let mut settings = Settings {
             look_speed_h: 180.0,
             look_speed_v: 20.0,
             walk_speed: 6.0,
             fov_degrees: 90.0,
+            invert_look: true,
             vsync: false,
             texture_filtering: "nearest".to_string(),
             quality: "low".to_string(),
+            bloom: false,
+            reflections: false,
             lightmaps: false,
+            window_mode: "fullscreen".to_string(),
+            window_width: 1280,
+            window_height: 720,
             ..Settings::default()
         };
-        let back = activate_settings_item(14, &mut ui, &mut settings, 1);
-        assert!(!back);
+        let display = DisplayStatus::default();
+        let action =
+            activate_settings_item(SettingsPage::Root, 3, &mut ui, &mut settings, &display, 1);
+        assert_eq!(action, SettingsAction::None);
+        assert_eq!(
+            settings.take_pending_apply(),
+            SettingsApply::ALL,
+            "a restore must ask every subsystem to re-read the defaults"
+        );
         assert_eq!(settings, Settings::default());
         assert_eq!(
             ui.status_message.as_deref(),
             Some("Restored default settings")
+        );
+    }
+
+    #[test]
+    fn the_quality_selector_cycles_full_low_full_and_requests_a_graphics_rebuild() {
+        let mut ui = UiState::new();
+        let mut settings = Settings::default();
+        let display = DisplayStatus::default();
+        assert_eq!(settings.quality_profile(), QualityProfile::Full);
+
+        activate_settings_item(
+            SettingsPage::Graphics,
+            0,
+            &mut ui,
+            &mut settings,
+            &display,
+            1,
+        );
+        assert_eq!(settings.quality_profile(), QualityProfile::Low);
+        assert!(
+            settings.take_pending_apply().graphics_rebuild,
+            "Low must rebuild the GPU resources"
+        );
+
+        activate_settings_item(
+            SettingsPage::Graphics,
+            0,
+            &mut ui,
+            &mut settings,
+            &display,
+            1,
+        );
+        assert_eq!(settings.quality_profile(), QualityProfile::Full);
+        assert!(settings.take_pending_apply().graphics_rebuild);
+
+        activate_settings_item(
+            SettingsPage::Graphics,
+            0,
+            &mut ui,
+            &mut settings,
+            &display,
+            -1,
+        );
+        assert_eq!(
+            settings.quality_profile(),
+            QualityProfile::Low,
+            "left steps back"
+        );
+    }
+
+    #[test]
+    fn bloom_toggles_immediately_and_independently_of_the_quality_profile() {
+        let mut ui = UiState::new();
+        let mut settings = Settings {
+            quality: "low".to_string(),
+            ..Settings::default()
+        };
+        let display = DisplayStatus::default();
+        // Low + Bloom On is representable: the profile does not own bloom.
+        assert_eq!(settings.quality_profile(), QualityProfile::Low);
+        assert!(settings.bloom_enabled());
+
+        activate_settings_item(
+            SettingsPage::Graphics,
+            1,
+            &mut ui,
+            &mut settings,
+            &display,
+            1,
+        );
+        assert!(!settings.bloom_enabled());
+        assert!(settings.take_pending_apply().renderer_state);
+        assert_eq!(
+            settings.quality_profile(),
+            QualityProfile::Low,
+            "bloom must not rewrite the quality profile"
+        );
+
+        activate_settings_item(
+            SettingsPage::Graphics,
+            1,
+            &mut ui,
+            &mut settings,
+            &display,
+            1,
+        );
+        assert!(settings.bloom_enabled(), "Bloom comes straight back on");
+        assert!(settings.take_pending_apply().renderer_state);
+    }
+
+    #[test]
+    fn the_menu_shows_effective_values_not_stale_saved_ones() {
+        let mut settings = Settings {
+            quality: "low".to_string(),
+            bloom: false,
+            ..Settings::default()
+        };
+        // A startup override selects Full + Bloom On for this process.
+        settings.overrides.quality = Some(QualityProfile::Full);
+        settings.overrides.bloom = Some(true);
+        let display = DisplayStatus::default();
+        let rows = settings_rows(SettingsPage::Graphics, &settings, &display);
+        assert_eq!(rows[0].value, "< Full > *");
+        assert_eq!(rows[1].value, "< On > *");
+
+        // An explicit change clears the override and persists the new choice.
+        let mut ui = UiState::new();
+        activate_settings_item(
+            SettingsPage::Graphics,
+            1,
+            &mut ui,
+            &mut settings,
+            &display,
+            1,
+        );
+        assert!(!settings.bloom_enabled());
+        assert!(!settings.bloom_overridden());
+        assert!(
+            !settings.bloom,
+            "the player's choice is the saved value now"
+        );
+    }
+
+    #[test]
+    fn the_controls_page_shows_the_authoritative_bindings() {
+        let mut settings = Settings::default();
+        settings.bindings.set_key("forward", "I").expect("rebind");
+        let display = DisplayStatus::default();
+        let rows = settings_rows(SettingsPage::Controls, &settings, &display);
+        assert_eq!(rows[0].label, "Forward");
+        assert_eq!(rows[0].value, "I", "the row reads the real binding");
+        for action in KeyBindings::ACTIONS {
+            assert!(
+                rows.iter()
+                    .any(|row| row.kind == SettingsRowKind::Binding(action)),
+                "{action} has no Controls row"
+            );
+        }
+        // Control preferences the game actually supports are present too.
+        for value in [
+            SettingsValue::LookSpeedH,
+            SettingsValue::LookSpeedV,
+            SettingsValue::InvertLook,
+            SettingsValue::WalkSpeed,
+            SettingsValue::Fov,
+        ] {
+            assert!(
+                rows.iter()
+                    .any(|row| row.kind == SettingsRowKind::Value(value)),
+                "{value:?} has no Controls row"
+            );
+        }
+    }
+
+    #[test]
+    fn display_and_vsync_changes_ask_the_window_backend_to_reapply() {
+        let mut ui = UiState::new();
+        let mut settings = Settings::default();
+        let display = DisplayStatus {
+            usable_bounds: (2560, 1440),
+            ..DisplayStatus::default()
+        };
+
+        // VSync: an immediate backend update, not a restart.
+        activate_settings_item(
+            SettingsPage::Graphics,
+            4,
+            &mut ui,
+            &mut settings,
+            &display,
+            1,
+        );
+        assert!(!settings.vsync_enabled());
+        assert!(settings.take_pending_apply().vsync);
+
+        // Window mode.
+        activate_settings_item(
+            SettingsPage::Display,
+            0,
+            &mut ui,
+            &mut settings,
+            &display,
+            1,
+        );
+        assert_eq!(settings.window_mode(), WindowMode::Fullscreen);
+        assert!(settings.take_pending_apply().window);
+        activate_settings_item(
+            SettingsPage::Display,
+            0,
+            &mut ui,
+            &mut settings,
+            &display,
+            1,
+        );
+        assert_eq!(settings.window_mode(), WindowMode::Windowed);
+
+        // Resolution steps to the next mode that fits the work area.
+        activate_settings_item(
+            SettingsPage::Display,
+            1,
+            &mut ui,
+            &mut settings,
+            &display,
+            1,
+        );
+        assert_eq!(settings.window_size(), (2560, 1440));
+        assert!(settings.take_pending_apply().window);
+
+        // In fullscreen the resolution follows the display and is not edited.
+        settings.set_window_mode(WindowMode::Fullscreen);
+        let _ = settings.take_pending_apply();
+        let fullscreen_display = DisplayStatus {
+            mode: WindowMode::Fullscreen,
+            ..display
+        };
+        activate_settings_item(
+            SettingsPage::Display,
+            1,
+            &mut ui,
+            &mut settings,
+            &fullscreen_display,
+            1,
+        );
+        assert_eq!(settings.window_size(), (2560, 1440));
+        assert!(!settings.take_pending_apply().window);
+        assert_eq!(
+            ui.status_message.as_deref(),
+            Some("Resolution follows the display in fullscreen mode")
         );
     }
 
@@ -861,40 +1552,61 @@ mod tests {
             AppState::Settings,
             AppState::PauseSettings,
         ] {
-            let mut ui = UiState::new();
-            ui.level_entries = vec![
-                "A level name long enough to overflow its panel if it were not shortened"
-                    .to_string(),
-            ];
-            ui.set_status(
-                "A status message long enough to run off the right edge if it were not shortened",
-                false,
-            );
-            ui.rebinding_action = Some("strafe_right");
-            let vertices = build_ui_geometry(state, &ui, &Settings::default(), "9.9.9");
-            assert!(!vertices.is_empty(), "{state:?} drew nothing");
-            for vertex in &vertices {
-                assert!(
-                    (0.0..=480.0).contains(&vertex.pos[0]),
-                    "{state:?} vertex x {} is outside the frame",
-                    vertex.pos[0]
+            for page in [
+                SettingsPage::Root,
+                SettingsPage::Graphics,
+                SettingsPage::Display,
+                SettingsPage::Controls,
+            ] {
+                let mut ui = UiState::new();
+                ui.settings_page = page;
+                ui.level_entries = vec![
+                    "A level name long enough to overflow its panel if it were not shortened"
+                        .to_string(),
+                ];
+                ui.set_status(
+                    "A status message long enough to run off the right edge if it were not shortened",
+                    false,
                 );
-                assert!(
-                    (0.0..=272.0).contains(&vertex.pos[1]),
-                    "{state:?} vertex y {} is outside the frame",
-                    vertex.pos[1]
-                );
+                let mut settings = Settings::default();
+                settings.overrides.quality = Some(QualityProfile::Low);
+                let vertices =
+                    build_ui_geometry(state, &ui, &settings, &DisplayStatus::default(), "9.9.9");
+                assert!(!vertices.is_empty(), "{state:?}/{page:?} drew nothing");
+                for vertex in &vertices {
+                    assert!(
+                        (0.0..=480.0).contains(&vertex.pos[0]),
+                        "{state:?}/{page:?} vertex x {} is outside the frame",
+                        vertex.pos[0]
+                    );
+                    assert!(
+                        (0.0..=272.0).contains(&vertex.pos[1]),
+                        "{state:?}/{page:?} vertex y {} is outside the frame",
+                        vertex.pos[1]
+                    );
+                }
             }
         }
     }
 
     #[test]
-    fn vsync_says_it_applies_after_restart() {
+    fn vsync_is_applied_immediately_rather_than_at_restart() {
         let mut ui = UiState::new();
         let mut settings = Settings::default();
-        activate_settings_item(12, &mut ui, &mut settings, 1);
-        assert!(!settings.vsync);
+        let display = DisplayStatus::default();
+        activate_settings_item(
+            SettingsPage::Graphics,
+            4,
+            &mut ui,
+            &mut settings,
+            &display,
+            1,
+        );
+        assert!(!settings.vsync_enabled());
         let message = ui.status_message.clone().expect("a status message");
-        assert!(message.contains("after restart"), "{message}");
+        assert!(
+            !message.contains("restart"),
+            "VSync applies live now: {message}"
+        );
     }
 }

@@ -812,6 +812,66 @@ fn test_hidpi_uses_physical_pixels_not_logical_size() {
     assert!((physical.aspect_ratio() - logical.aspect_ratio()).abs() < 1e-6);
 }
 
+/// The fresh-install 1920x1080 window on a 2x Retina display produces a
+/// 3840x2160 drawable, and every derived render dimension follows the drawable:
+/// the scene target is not an old low-resolution buffer being stretched, and
+/// the projection keeps the window's 16:9 aspect.
+#[test]
+fn test_hidpi_1080p_window_renders_through_the_drawable_path() {
+    use crate::quality::QualityProfile;
+
+    let logical = (1920u32, 1080u32);
+    let physical = DrawableSize::new(logical.0 * 2, logical.1 * 2);
+    assert_eq!(physical, DrawableSize::new(3840, 2160));
+    assert!(
+        (logical.0 as f32 / logical.1 as f32 - physical.aspect_ratio()).abs() < 1e-6,
+        "a HiDPI drawable must keep the logical window's 16:9 aspect"
+    );
+
+    assert_eq!(
+        offscreen_plan(true, false, QualityProfile::Full, physical),
+        Some(physical),
+        "Full renders at the drawable's own resolution"
+    );
+    assert_eq!(
+        offscreen_plan(true, false, QualityProfile::Low, physical),
+        Some(DrawableSize::new(480, 270)),
+        "only the documented Low profile scales the scene down"
+    );
+
+    // The UI viewport follows the physical drawable, not the logical window.
+    assert_exact(physical.ui_viewport().scale, 2160.0 / 272.0);
+    assert_eq!(physical.ui_viewport().height, 2160);
+}
+
+/// A resize (or a `HiDPI` backing-scale change) updates every derived target size
+/// without a restart.
+#[test]
+fn test_a_resize_updates_scene_and_bloom_targets() {
+    use crate::quality::QualityProfile;
+
+    let before = DrawableSize::new(1920, 1080);
+    let after = DrawableSize::new(2560, 1440);
+
+    assert_eq!(
+        offscreen_plan(true, false, QualityProfile::Full, before),
+        Some(before)
+    );
+    assert_eq!(
+        offscreen_plan(true, false, QualityProfile::Full, after),
+        Some(after)
+    );
+    assert_eq!(
+        super::postprocess::bloom_target_size(before),
+        DrawableSize::new(480, 270)
+    );
+    assert_eq!(
+        super::postprocess::bloom_target_size(after),
+        DrawableSize::new(640, 360)
+    );
+    assert!(after.ui_viewport().scale > before.ui_viewport().scale);
+}
+
 #[test]
 fn test_framebuffer_size_changes_update_scale() {
     let small = DrawableSize::new(480, 272);
@@ -5152,15 +5212,28 @@ fn the_post_process_fallback_is_the_historical_presentation() {
         "a target that already failed must not be retried every frame"
     );
 
-    // 2. Low's resolve settings are the identity, so the renderer presents the
-    //    scene with the plain copy quad instead of resolving it. That is what
-    //    keeps Low as cheap as the historical presentation.
+    // 2. Low's profile settings are the identity, so with bloom off the
+    //    renderer presents the scene with the plain copy quad instead of
+    //    resolving it. That is what keeps Low as cheap as the historical
+    //    presentation; Bloom On (an independent player choice) makes Low pay
+    //    for exactly the bloom resolve.
     let low = PostSettings::for_profile(crate::quality::QualityProfile::Low);
-    assert!(low.is_identity(), "Low must be able to skip the resolve");
+    assert!(low.is_identity(), "Low without bloom can skip the resolve");
     assert!(!low.blooms());
+    assert!(
+        low.with_bloom(true).blooms(),
+        "Low + Bloom On must run the bloom path"
+    );
     let full = PostSettings::for_profile(crate::quality::QualityProfile::Full);
     assert!(!full.is_identity(), "Full always resolves");
-    assert!(full.blooms());
+    assert!(
+        !full.blooms(),
+        "bloom is a separate setting, not part of the profile"
+    );
+    assert!(
+        full.with_bloom(true).blooms(),
+        "Full + Bloom On runs the bloom path"
+    );
     assert!(full.bloom_strength < 1.0, "bloom stays restrained");
     assert!(
         full.grade_saturation >= 1.0 && full.grade_saturation < 1.1,

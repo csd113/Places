@@ -110,10 +110,14 @@ steps up into the dim corridor. The doorway at its end is the last one.
 ## Controls
 
 Menus use `W`/`S` to move through items, `ENTER` to activate and `ESC` to go
-back; Settings additionally uses `A`/`D` to adjust a value.
+back; a Settings value uses `A`/`D` (or `ENTER`) to change it.
+
+Settings is organized into three sections — **Graphics**, **Display** and
+**Controls** — reached from either the main menu or the pause menu, so the game
+can be reconfigured without leaving a level.
 
 Gameplay defaults (all eight movement bindings can be changed in Settings →
-`Restore Default Bindings` puts them back):
+Controls; `Restore Defaults` puts them back):
 
 | Action | Key |
 | --- | --- |
@@ -128,9 +132,15 @@ Gameplay defaults (all eight movement bindings can be changed in Settings →
 | Pause menu | `ESC` (fixed) |
 | Performance overlay | `-` (fixed, hidden by default) |
 
-Custom bindings, look speed, walk speed, field of view, VSync and texture
-filtering are saved to `settings.json` in the package root and kept across
-launches.
+Graphics and display preferences, custom bindings, look speed, walk speed,
+field of view and look inversion are saved to `settings.json` in the package
+root and kept across launches. The defaults are a 1920×1080 windowed desktop
+window; a fresh installation writes that configuration on first run. Changes
+apply immediately: Graphics Quality (`Full` / `Low`), Bloom, Reflections,
+Lightmaps, VSync, Texture Filtering, Window Mode, Resolution, sensitivity, look
+inversion and bindings all take effect without restarting or reloading the
+level. See [Rendering notes](#rendering-notes) for what each option changes.
+
 
 ## Build and run
 
@@ -402,7 +412,13 @@ Working and shipped:
   is presented to the window by a fullscreen quad, with the UI still drawn at
   the drawable's own resolution;
 * Full and Low runtime quality profiles that use the same assets, with Low
-  downscaling textures once at level load;
+  downscaling textures once at level load and the profile switchable while
+  playing;
+* a sectioned pause-menu Settings screen (Graphics, Display, Controls) backed by
+  one runtime settings state, with Bloom, Reflections, Lightmaps, VSync,
+  Graphics Quality, Window Mode and Resolution changes applying immediately;
+* a 1920×1080 windowed desktop default that adapts to the display work area and
+  renders through the Retina drawable, never a stretched low-resolution target;
 * multi-material / multi-primitive GLB props with per-primitive textures and
   emission;
 * wall-boundary lighting isolation, including light through openings;
@@ -471,15 +487,21 @@ place a scene pixel becomes a display pixel. Bloom is drawn from the world's
 **emissive term alone** — never from brightness — so a brightly lit wall cannot
 glow; the tone curve is a soft shoulder above 0.75 that leaves the baked
 lighting's own contrast untouched below it; and the fog is a scalar mix in the
-world shader. `Low` sets the resolve stage to the identity, so it presents the
-scene with the plain copy quad and skips the post-processing stage, and
-`LIMINAL_NO_BLOOM=1` / `LIMINAL_NO_REFLECTIONS=1` measure each stage alone.
+world shader. Bloom is a **player setting** (Settings → Graphics → Bloom), not
+part of the quality profile, so `Full + Bloom Off` and `Low + Bloom On` are both
+valid; with Bloom off no emissive or blur pass is submitted and the bloom targets
+are released, and with `Low` plus Bloom off the resolve stage is the identity and
+presents the scene with the plain copy quad. `LIMINAL_NO_BLOOM=1` /
+`LIMINAL_NO_REFLECTIONS=1` still measure each stage alone for a benchmark run.
 
 Reflections are opt-in per material: a **probe** reads a small cubemap baked once
 per level load, a **planar** mirror draws a real second view of the level through
 the surface's own plane (at most one plane per frame, half resolution, `Full`
 only). Both are weighted by the sheen the material already authors, so a rough or
-dull surface suppresses its reflection instead of mirroring.
+dull surface suppresses its reflection instead of mirroring. Reflections are a
+player setting too (Settings → Graphics → Reflections); turning them off removes
+the planar pass, the probe bake and the reflection texture binds from the frame
+without a level reload.
 
 
 Transparent surfaces are drawn after everything opaque, sorted back to front by
@@ -494,11 +516,14 @@ assets unchanged. **Low** uses the same assets and box-filters each one once at
 level load (sheets 256, prop sheets 128, emissive masks 128). Downscaling is a
 load-time step that is cached with the texture it produced, never a per-frame
 cost, and `"quality"` in `settings.json` (or `LIMINAL_QUALITY=full|low` for one
-run) selects the profile. Low also leaves the optional surface response out, skips
-the post-processing stage (bloom, exposure, tone, grade) and renders the 3D scene
-no wider than the PocketCHIP reference resolution: the same level, the same
-materials and the same ids, with the optional per-pixel work dropped. Fog and
-frame are both profiles; reflections are probes only.
+run) selects the profile. The profile is a selector in Settings → Graphics and
+can be changed while playing: the level's GPU textures and lightmap atlas are
+rebuilt from the level already resident, with the player, camera and game state
+untouched. Low also leaves the optional surface response out and renders the 3D
+scene no wider than the historical 480 px reference width: the same level, the
+same materials and the same ids, with the optional per-pixel work dropped. Fog,
+frame and emission are the same in both profiles; bloom and reflections are
+independent player settings, not profile terms.
 
 A decal owns its depth plane by construction, in two halves that level authors
 never have to think about:

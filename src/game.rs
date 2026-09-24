@@ -243,12 +243,15 @@ impl Game {
         }
         self.player_yaw = self.player_yaw.rem_euclid(TWO_PI);
 
-        // Vertical camera look (pitch) with clamping to prevent camera flipping
+        // Vertical camera look (pitch) with clamping to prevent camera flipping.
+        // `invert_look` flips only the vertical direction; the horizontal turn
+        // and every movement key are unaffected.
+        let pitch_sign = if settings.invert_look { -1.0 } else { 1.0 };
         if input.is_held(Control::LookUp) {
-            self.player_pitch = look_speed_v.mul_add(delta, self.player_pitch);
+            self.player_pitch = (look_speed_v * pitch_sign).mul_add(delta, self.player_pitch);
         }
         if input.is_held(Control::LookDown) {
-            self.player_pitch = look_speed_v.mul_add(-delta, self.player_pitch);
+            self.player_pitch = (look_speed_v * -pitch_sign).mul_add(delta, self.player_pitch);
         }
         self.player_pitch = self.player_pitch.clamp(-MAX_PITCH, MAX_PITCH);
 

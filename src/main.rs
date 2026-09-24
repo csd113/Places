@@ -3,6 +3,7 @@ mod architecture_audit;
 pub mod assets;
 pub mod bench;
 pub mod collision;
+pub mod display;
 pub mod font;
 pub mod game;
 pub mod gltf;
@@ -46,17 +47,18 @@ use std::time::Instant;
 use glam::Vec3;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::video::Window;
+use sdl2::video::{FullscreenType, Window};
 use sdl2::{EventPump, Sdl, VideoSubsystem};
 
 use bench::Bench;
+use display::DisplayStatus;
 use game::{AppState, Game};
 use input::{InputHandler, MenuNavEvent, keycode_to_str};
 use level::WalkableFloor;
 use perf::PerfOverlay;
-use render::{DrawableSize, Renderer, Vertex, WINDOW_HEIGHT, WINDOW_WIDTH};
-use settings::Settings;
-use ui::{SETTINGS_ITEM_COUNT, UiGeometryCache, UiState, activate_settings_item};
+use render::{DrawableSize, Renderer, Vertex};
+use settings::{Settings, WindowMode};
+use ui::{SettingsAction, SettingsPage, UiGeometryCache, UiState, activate_settings_item};
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -309,13 +311,80 @@ fn log_package(package: &Path) {
     }
 }
 
-/// Creates the SDL video subsystem and the game window.
+/// The usable work area of one display, in logical pixels.
 ///
-/// The window is sized to the `PocketCHIP` baseline; it is resizable so it can
-/// use the full drawable on desktop and `HiDPI` displays. If an OpenGL ES window
-/// cannot be created (e.g. desktop macOS), the platform default profile is
-/// requested so development builds still run.
-fn create_window() -> Result<(Sdl, VideoSubsystem, Window), String> {
+/// `(0, 0)` when the backend cannot report it, which the pure fitting rule
+/// treats as "unknown" rather than "nothing fits".
+fn usable_display_bounds(video: &VideoSubsystem, display_index: i32) -> (u32, u32) {
+    video
+        .display_usable_bounds(display_index)
+        .map_or((0, 0), |rect| (rect.width(), rect.height()))
+}
+
+/// Creates the game window from the effective display settings.
+///
+/// The window opens at the saved windowed resolution ([`crate::settings::DEFAULT_WINDOW_WIDTH`]
+/// x [`crate::settings::DEFAULT_WINDOW_HEIGHT`] on a fresh install), reduced to
+/// fit the active display's work area when necessary, or as borderless
+/// fullscreen when that is the selected mode. `allow_highdpi` keeps the drawable
+/// at the Retina backing scale; the renderer reads the drawable, never the
+/// logical size.
+///
+/// A size that had to be reduced to fit is adopted back into `settings` (and
+/// therefore persisted and shown in Display), so the menu and the window never
+/// disagree.
+fn create_window(video: &VideoSubsystem, settings: &mut Settings) -> Result<Window, String> {
+    // Configure the framebuffer/context attributes *before* the OpenGL window
+    // is created. On Linux/EGL (PocketCHIP) the visual (depth buffer, double
+    // buffering) is chosen at window creation, so setting these afterwards
+    // would have no effect.
+    configure_gl_attributes(video, true);
+
+    let requested = settings.window_size();
+    let usable = usable_display_bounds(video, 0);
+    let (width, height) = display::fit_window_to_bounds(requested, usable);
+    if (width, height) != requested {
+        logging::info(format!(
+            "[display] requested windowed {} does not fit the display work area ({}); \
+             opening {} instead",
+            display::format_resolution(requested),
+            display::format_resolution(usable),
+            display::format_resolution((width, height))
+        ));
+    }
+
+    let build_window = || {
+        let mut builder = video.window("Places", width, height);
+        builder
+            .position_centered()
+            .resizable()
+            .allow_highdpi()
+            .opengl();
+        if settings.window_mode() == WindowMode::Fullscreen {
+            builder.fullscreen_desktop();
+        }
+        builder.build()
+    };
+    let window = if let Ok(window) = build_window() {
+        window
+    } else {
+        configure_gl_attributes(video, false);
+        build_window().map_err(|e| format!("Failed to create window: {e}"))?
+    };
+
+    let actual = window.size();
+    if settings.window_mode() == WindowMode::Windowed
+        && actual.0 > 0
+        && actual.1 > 0
+        && actual != settings.window_size()
+    {
+        settings.adopt_window_size(actual.0, actual.1);
+    }
+    Ok(window)
+}
+
+/// Creates the SDL video subsystem and the game window.
+fn create_sdl_and_window(settings: &mut Settings) -> Result<(Sdl, VideoSubsystem, Window), String> {
     let sdl_context = sdl2::init().map_err(|e| format!("Failed to init SDL2: {e}"))?;
     let video_subsystem = sdl_context
         .video()
@@ -327,27 +396,7 @@ fn create_window() -> Result<(Sdl, VideoSubsystem, Window), String> {
     // that engages InputMethodKit (`interpretKeyEvents` on SDL's text responder).
     video_subsystem.text_input().stop();
 
-    // Configure the framebuffer/context attributes *before* the OpenGL window
-    // is created. On Linux/EGL (PocketCHIP) the visual (depth buffer, double
-    // buffering) is chosen at window creation, so setting these afterwards
-    // would have no effect.
-    configure_gl_attributes(&video_subsystem, true);
-
-    let build_window = || {
-        video_subsystem
-            .window("Places", WINDOW_WIDTH, WINDOW_HEIGHT)
-            .position_centered()
-            .resizable()
-            .allow_highdpi()
-            .opengl()
-            .build()
-    };
-    let window = if let Ok(window) = build_window() {
-        window
-    } else {
-        configure_gl_attributes(&video_subsystem, false);
-        build_window().map_err(|e| format!("Failed to create window: {e}"))?
-    };
+    let window = create_window(&video_subsystem, settings)?;
     Ok((sdl_context, video_subsystem, window))
 }
 
@@ -405,12 +454,16 @@ fn create_renderer(
 ) -> Result<Renderer, String> {
     let mut renderer = Renderer::new(window, video_subsystem)
         .map_err(|e| format!("Failed to initialize renderer: {e}"))?;
-    // The quality profile decides how large a texture may reach the GPU, so it
-    // is applied before the first level upload rather than after it.
+    // The quality profile decides how large a texture may reach the GPU, and
+    // the lightmap mode is a build-time choice, so both are applied before the
+    // first level upload rather than after it.
     renderer.set_quality(settings.quality_profile());
-    // Lightmap baking is a build-time choice (and the `LIMINAL_NO_LIGHTMAPS`
-    // override lands here), so it must be set before the first level build too.
     renderer.set_lightmaps_requested(settings.lightmaps_enabled());
+    // Bloom and reflections are independent player preferences (with their
+    // `LIMINAL_NO_*` startup overrides already folded in) and are applied
+    // before the first frame.
+    renderer.set_bloom_enabled(settings.bloom_enabled());
+    renderer.set_reflections_enabled(settings.reflections_enabled());
     renderer.set_level(level);
     spawn_level_demonstration(&mut renderer, level);
     renderer.set_texture_filtering(&settings.texture_filtering);
@@ -424,15 +477,16 @@ fn create_renderer(
     Ok(renderer)
 }
 
-/// Applies `VSync` from settings *after* the GL context exists and is current.
+/// Applies the effective `VSync` setting *after* the GL context exists and is
+/// current.
 ///
 /// `SDL_GL_SetSwapInterval` fails outright without a current context, which is
 /// why the request used to be dropped and the renderer's own unconditional
-/// VSync-on call won instead. `LIMINAL_VSYNC=on|off` overrides this for `VSync`
-/// characterisation runs only; the shipping default stays VSync-on.
+/// VSync-on call won instead. The same helper is called at runtime whenever the
+/// player changes the setting, so `VSync` applies immediately instead of at the
+/// next launch.
 fn configure_vsync(video_subsystem: &VideoSubsystem, bench: &mut Bench, settings: &Settings) {
-    let want_vsync = bench.vsync_override().unwrap_or(settings.vsync);
-    let swap_interval = apply_swap_interval(video_subsystem, want_vsync);
+    let swap_interval = apply_swap_interval(video_subsystem, settings.vsync_enabled());
     bench.set_reported_swap_interval(swap_interval);
 }
 
@@ -555,9 +609,9 @@ fn apply_level_request(
     renderer: &mut Renderer,
     game: &mut Game,
     bench: &Bench,
-    current_level_id: &str,
     spawn_pos: &mut Vec3,
     spawn_yaw: &mut f32,
+    current_level: &mut Option<loader::LoadedLevel>,
 ) {
     let Some(requested) = std::env::var("LIMINAL_LEVEL")
         .ok()
@@ -566,12 +620,15 @@ fn apply_level_request(
     else {
         return;
     };
+    let loaded_id = current_level
+        .as_ref()
+        .map_or("", |level| level.entry.id.as_str());
     let index = level_manager
         .entries()
         .iter()
         .position(|entry| entry.id == requested || entry.name.eq_ignore_ascii_case(&requested));
     match index.and_then(|index| level_manager.get_entry(index).cloned()) {
-        Some(entry) if entry.id == current_level_id => {
+        Some(entry) if entry.id == loaded_id => {
             println!(
                 "LIMINAL_LEVEL: '{}' ({}) is already the loaded level",
                 entry.name, entry.id
@@ -602,6 +659,7 @@ fn apply_level_request(
                     loaded.level.collision_aabbs(),
                     WalkableFloor::from_level(&loaded.level),
                 );
+                *current_level = Some(loaded);
                 game.set_app_state(AppState::Playing);
                 // `LIMINAL_PAUSE=1` opens the pause menu on the first frame so
                 // the pause UI can be captured and compared without a keyboard.
@@ -663,7 +721,8 @@ fn write_capture(renderer: &Renderer, path: &Path) {
 /// Grouping them keeps `main` a readable setup sequence and lets each step of a
 /// frame be reviewed (and unit-tested) on its own.
 struct FrameLoop<'a> {
-    window: &'a Window,
+    window: &'a mut Window,
+    video_subsystem: &'a VideoSubsystem,
     event_pump: &'a mut EventPump,
     renderer: &'a mut Renderer,
     level_manager: &'a mut loader::LevelManager,
@@ -681,6 +740,19 @@ struct FrameLoop<'a> {
     state_log: &'a mut Option<std::fs::File>,
     spawn_pos: &'a mut Vec3,
     spawn_yaw: &'a mut f32,
+    /// The level definition currently uploaded to the renderer, kept so a live
+    /// quality or lightmap change can rebuild its GPU resources without
+    /// re-reading the file and without touching the game's player state.
+    current_level: &'a mut Option<loader::LoadedLevel>,
+    /// What the windowing backend reports: actual window state, used by the
+    /// Display screen and refreshed once per frame.
+    display_status: &'a mut DisplayStatus,
+    /// True on the frame a windowed size was just applied, so the size read
+    /// back from the backend is not mistaken for a player resize.
+    window_apply_in_flight: bool,
+    /// Last `(window_w, window_h, drawable_w, drawable_h)` pair logged, so a
+    /// HiDPI/backing-scale change is reported exactly once.
+    last_logged_window: (u32, u32, u32, u32),
 }
 
 impl FrameLoop<'_> {
@@ -705,6 +777,12 @@ impl FrameLoop<'_> {
             self.game.stop();
         }
 
+        // Apply whatever the player changed in Settings before this frame
+        // simulates or draws, then refresh what the windowing backend actually
+        // did (a window change, a monitor move, a HiDPI backing-scale change).
+        self.apply_pending_settings();
+        self.refresh_display_status();
+
         // Update player movement (only active during AppState::Playing)
         self.game
             .update_player_movement(self.input_handler.state(), self.settings);
@@ -716,6 +794,165 @@ impl FrameLoop<'_> {
         let frame_update_done = Instant::now();
 
         self.render_and_present(frame_begin, frame_update_done);
+    }
+
+    /// Applies the subsystem updates a settings change owes.
+    ///
+    /// This is the only place the menu's mutations reach the renderer or the
+    /// window: `activate_settings_item` updates the authoritative [`Settings`]
+    /// and records what that implies, and this performs the minimum work for
+    /// each affected system. Nothing here reloads a level or resets the game:
+    /// a graphics rebuild re-uploads GPU resources from the level definition
+    /// already resident, leaving the player, camera and pause state untouched.
+    fn apply_pending_settings(&mut self) {
+        let apply = self.settings.take_pending_apply();
+        if !apply.any() {
+            return;
+        }
+        if apply.window
+            && let Err(error) = self.apply_window_settings()
+        {
+            self.ui_state
+                .set_status(format!("Could not change the window: {error}"), true);
+        }
+        if apply.vsync {
+            let interval = apply_swap_interval(self.video_subsystem, self.settings.vsync_enabled());
+            self.bench.set_reported_swap_interval(interval);
+        }
+        if apply.renderer_state {
+            self.renderer
+                .set_bloom_enabled(self.settings.bloom_enabled());
+            self.renderer
+                .set_reflections_enabled(self.settings.reflections_enabled());
+        }
+        if apply.graphics_rebuild {
+            self.rebuild_graphics_resources();
+        }
+    }
+
+    /// Applies the window mode and size to the live window.
+    ///
+    /// A windowed size that does not fit the work area is reduced to fit and
+    /// adopted back into the settings, so restoring from fullscreen always
+    /// lands on a usable window and the menu shows the real one.
+    fn apply_window_settings(&mut self) -> Result<(), String> {
+        if self.settings.window_mode() == WindowMode::Fullscreen {
+            return self.window.set_fullscreen(FullscreenType::Desktop);
+        }
+        self.window.set_fullscreen(FullscreenType::Off)?;
+        let requested = self.settings.window_size();
+        let fitted = display::fit_window_to_bounds(requested, self.display_status.usable_bounds);
+        self.window
+            .set_size(fitted.0, fitted.1)
+            .map_err(|error| error.to_string())?;
+        if fitted != requested {
+            self.settings.adopt_window_size(fitted.0, fitted.1);
+        }
+        // The backend may report the pre-apply size for a frame; do not mistake
+        // that for a player resize (see `refresh_display_status`).
+        self.window_apply_in_flight = true;
+        Ok(())
+    }
+
+    /// Rebuilds the renderer resources the quality profile and the lightmap
+    /// mode decide, from the level already resident.
+    ///
+    /// The profile changes how large a texture may reach the GPU and how the
+    /// lightmap atlas is baked, so the GPU-side texture caches are released and
+    /// the current level is re-uploaded at the new profile. The game world —
+    /// player position, camera, pause state, the `Game` struct — is not touched:
+    /// this is a renderer rebuild, not a level load.
+    fn rebuild_graphics_resources(&mut self) {
+        self.renderer.set_quality(self.settings.quality_profile());
+        self.renderer
+            .set_lightmaps_requested(self.settings.lightmaps_enabled());
+        self.renderer
+            .set_bloom_enabled(self.settings.bloom_enabled());
+        self.renderer
+            .set_reflections_enabled(self.settings.reflections_enabled());
+        let Some(level) = self.current_level.as_ref() else {
+            return;
+        };
+        self.renderer.release_profile_textures();
+        self.renderer.set_level(level);
+        crate::logging::info(format!(
+            "[settings] rebuilt GPU resources at quality '{}' (lightmaps {})",
+            self.settings.quality_profile().name(),
+            if self.settings.lightmaps_enabled() {
+                "on"
+            } else {
+                "off"
+            }
+        ));
+    }
+
+    /// Refreshes the actual window/display state the Display screen reports.
+    ///
+    /// The backend is the source of truth: a fullscreen request the platform
+    /// refused, a manual window resize and a monitor or backing-scale change all
+    /// show up here (and a manual resize is adopted into the settings, so the
+    /// menu and the persisted configuration follow the real window).
+    fn refresh_display_status(&mut self) {
+        let mode = match self.window.fullscreen_state() {
+            FullscreenType::Off => WindowMode::Windowed,
+            FullscreenType::True | FullscreenType::Desktop => WindowMode::Fullscreen,
+        };
+        let window_size = self.window.size();
+        if mode == WindowMode::Windowed
+            && !self.window_apply_in_flight
+            && window_size.0 > 0
+            && window_size.1 > 0
+            && window_size != self.settings.window_size()
+        {
+            self.settings
+                .adopt_window_size(window_size.0, window_size.1);
+        }
+        self.window_apply_in_flight = false;
+        let display_index = self.window.display_index().unwrap_or(0);
+        let usable_bounds = usable_display_bounds(self.video_subsystem, display_index);
+        let desktop_size = self
+            .video_subsystem
+            .display_bounds(display_index)
+            .map_or((0, 0), |rect| (rect.width(), rect.height()));
+        self.display_status.mode = mode;
+        self.display_status.window_size = window_size;
+        self.display_status.usable_bounds = if usable_bounds == (0, 0) {
+            self.display_status.usable_bounds
+        } else {
+            usable_bounds
+        };
+        self.display_status.desktop_size = desktop_size;
+
+        // Report the logical and drawable sizes (and their ratio) once per
+        // change when telemetry is on: this is the line that proves the
+        // renderer is using Retina pixels rather than the logical window size.
+        let (drawable_width, drawable_height) = self.window.drawable_size();
+        let logged = (
+            window_size.0,
+            window_size.1,
+            drawable_width,
+            drawable_height,
+        );
+        if logged != self.last_logged_window {
+            self.last_logged_window = logged;
+            logging::info(format!(
+                "[window] logical {}x{} | drawable {}x{} pixels | backing scale {:.1}x{}",
+                window_size.0,
+                window_size.1,
+                drawable_width,
+                drawable_height,
+                if window_size.0 == 0 {
+                    0.0
+                } else {
+                    f64::from(drawable_width) / f64::from(window_size.0)
+                },
+                if mode == WindowMode::Fullscreen {
+                    " | fullscreen"
+                } else {
+                    ""
+                }
+            ));
+        }
     }
 
     /// `LIMINAL_STATE_LOG=file.csv`: append the player state every few frames.
@@ -831,7 +1068,17 @@ impl FrameLoop<'_> {
             MenuNavEvent::Left => self.adjust_settings(-1),
             MenuNavEvent::Right => self.adjust_settings(1),
             MenuNavEvent::Activate => self.activate(),
-            MenuNavEvent::Back => self.game.handle_escape(),
+            MenuNavEvent::Back => {
+                let in_settings = matches!(
+                    self.game.app_state(),
+                    AppState::Settings | AppState::PauseSettings
+                );
+                if in_settings && !self.settings_back() {
+                    // A sub-page stepped back to the Settings root.
+                } else {
+                    self.game.handle_escape();
+                }
+            }
         }
     }
 
@@ -868,25 +1115,36 @@ impl FrameLoop<'_> {
                     menu_next(self.ui_state.pause_menu_idx, PAUSE_MENU_ITEM_COUNT);
             }
             (AppState::Settings | AppState::PauseSettings, true) => {
-                self.ui_state.settings_idx =
-                    menu_prev(self.ui_state.settings_idx, SETTINGS_ITEM_COUNT);
+                let count = self.ui_state.settings_page.item_count();
+                self.ui_state.settings_idx = menu_prev(self.ui_state.settings_idx, count);
             }
             (AppState::Settings | AppState::PauseSettings, false) => {
-                self.ui_state.settings_idx =
-                    menu_next(self.ui_state.settings_idx, SETTINGS_ITEM_COUNT);
+                let count = self.ui_state.settings_page.item_count();
+                self.ui_state.settings_idx = menu_next(self.ui_state.settings_idx, count);
             }
             (AppState::Playing, _) => {}
         }
     }
 
     /// Left/right on the settings screen adjusts or rebinds the selected item.
+    ///
+    /// A section or Back row ignores left/right (Enter opens or leaves); every
+    /// other row is a value selector, a toggle or a rebind.
     fn adjust_settings(&mut self, direction: i32) {
         if matches!(
             self.game.app_state(),
             AppState::Settings | AppState::PauseSettings
         ) {
+            let page = self.ui_state.settings_page;
             let index = self.ui_state.settings_idx;
-            activate_settings_item(index, self.ui_state, self.settings, direction);
+            let _ = activate_settings_item(
+                page,
+                index,
+                self.ui_state,
+                self.settings,
+                self.display_status,
+                direction,
+            );
             self.save_settings();
         }
     }
@@ -899,29 +1157,65 @@ impl FrameLoop<'_> {
         }
     }
 
+    /// Backs out of Settings one level.
+    ///
+    /// A sub-page (Graphics/Display/Controls) returns to the Settings root and
+    /// returns `false`; the root returns `true`, which means "leave the
+    /// screen". This is what makes Escape walk the section tree before it
+    /// resumes the game.
+    fn settings_back(&mut self) -> bool {
+        if self.ui_state.settings_page == SettingsPage::Root {
+            true
+        } else {
+            self.ui_state.settings_page = SettingsPage::Root;
+            self.ui_state.settings_idx = 0;
+            self.ui_state.clear_status();
+            false
+        }
+    }
+
     /// Activates the selected item on the current menu.
     fn activate(&mut self) {
         match self.game.app_state() {
             AppState::MainMenu => self.activate_main_menu(),
             AppState::LevelSelect => self.activate_level_select(),
             AppState::Paused => self.activate_pause_menu(),
-            AppState::Settings => {
-                let index = self.ui_state.settings_idx;
-                let back = activate_settings_item(index, self.ui_state, self.settings, 1);
-                self.save_settings();
-                if back {
-                    self.goto(AppState::MainMenu);
-                }
-            }
-            AppState::PauseSettings => {
-                let index = self.ui_state.settings_idx;
-                let back = activate_settings_item(index, self.ui_state, self.settings, 1);
-                self.save_settings();
-                if back {
-                    self.goto(AppState::Paused);
-                }
-            }
+            AppState::Settings | AppState::PauseSettings => self.activate_settings(),
             AppState::Playing => {}
+        }
+    }
+
+    /// Activates one Settings row: opens a section, leaves the screen or
+    /// adjusts/rebinds the selected option.
+    fn activate_settings(&mut self) {
+        let page = self.ui_state.settings_page;
+        let index = self.ui_state.settings_idx;
+        let action = activate_settings_item(
+            page,
+            index,
+            self.ui_state,
+            self.settings,
+            self.display_status,
+            1,
+        );
+        self.save_settings();
+        match action {
+            SettingsAction::Open(next) => {
+                self.ui_state.settings_page = next;
+                self.ui_state.settings_idx = 0;
+                self.ui_state.clear_status();
+            }
+            SettingsAction::Back => {
+                if self.settings_back() {
+                    let target = if self.game.app_state() == AppState::PauseSettings {
+                        AppState::Paused
+                    } else {
+                        AppState::MainMenu
+                    };
+                    self.goto(target);
+                }
+            }
+            SettingsAction::None => {}
         }
     }
 
@@ -947,7 +1241,11 @@ impl FrameLoop<'_> {
                 self.refresh_level_entries();
                 self.goto(AppState::LevelSelect);
             }
-            1 => self.goto(AppState::Settings),
+            1 => {
+                self.ui_state.settings_page = SettingsPage::Root;
+                self.ui_state.settings_idx = 0;
+                self.goto(AppState::Settings);
+            }
             2 => self.game.stop(),
             _ => {}
         }
@@ -989,6 +1287,9 @@ impl FrameLoop<'_> {
                     loaded.level.collision_aabbs(),
                     WalkableFloor::from_level(&loaded.level),
                 );
+                // Keep the definition resident: a live quality or lightmap
+                // change rebuilds this level's GPU resources from it.
+                *self.current_level = Some(loaded);
                 self.input_handler.clear_gameplay_inputs();
                 self.ui_state.clear_status();
                 self.game.set_app_state(AppState::Playing);
@@ -1031,7 +1332,11 @@ impl FrameLoop<'_> {
                 self.input_handler.clear_gameplay_inputs();
                 self.goto(AppState::Playing);
             }
-            1 => self.goto(AppState::PauseSettings),
+            1 => {
+                self.ui_state.settings_page = SettingsPage::Root;
+                self.ui_state.settings_idx = 0;
+                self.goto(AppState::PauseSettings);
+            }
             2 => self.goto(AppState::MainMenu),
             _ => {}
         }
@@ -1094,6 +1399,7 @@ impl FrameLoop<'_> {
             self.game.app_state(),
             self.ui_state,
             self.settings,
+            self.display_status,
             APP_VERSION,
         );
         if skip_render {
@@ -1145,9 +1451,40 @@ impl FrameLoop<'_> {
     }
 }
 
-/// Boots SDL, points relative paths at the running installation and creates
-/// the window.
-fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window), String> {
+/// Logs the effective runtime settings at startup when telemetry is enabled.
+///
+/// This is the line that makes a startup override visible: it reports what the
+/// process is really running with, not what the saved file says.
+fn log_effective_settings(settings: &Settings) {
+    if !logging::verbose() {
+        return;
+    }
+    logging::info(format!(
+        "[settings] quality {} (saved {}){} | bloom {} | reflections {} | lightmaps {} | vsync {} | filtering {} | window {} {}",
+        settings.quality_profile().name(),
+        settings.quality,
+        if settings.quality_overridden() {
+            " [startup override]"
+        } else {
+            ""
+        },
+        on_off(settings.bloom_enabled()),
+        on_off(settings.reflections_enabled()),
+        on_off(settings.lightmaps_enabled()),
+        on_off(settings.vsync_enabled()),
+        settings.texture_filtering,
+        settings.window_mode().label(),
+        display::format_resolution(settings.window_size()),
+    ));
+}
+
+const fn on_off(value: bool) -> &'static str {
+    if value { "on" } else { "off" }
+}
+
+/// Boots SDL, points relative paths at the running installation, loads the
+/// persisted settings (with any startup overrides) and creates the window.
+fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String> {
     let package = use_package_assets();
     log_package(&package);
     // X11 process identity, required for the App Center launcher and window
@@ -1156,20 +1493,25 @@ fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window), String> {
     // key, not a display name, and changing it would orphan existing installs.
     sdl2::hint::set("SDL_VIDEO_X11_WMCLASS", "io.vitrallis.liminalrust");
     sdl2::hint::set("SDL_APP_NAME", "Places");
-    create_window()
+
+    // The benchmark harness is parsed first because `LIMINAL_VSYNC` is its
+    // switch and has to be folded into the settings before the swap interval is
+    // configured.
+    let bench = Bench::new();
+    let mut settings = Settings::load_or_default();
+    settings.apply_startup_overrides(bench.vsync_override());
+    settings.ensure_saved();
+    log_effective_settings(&settings);
+
+    let (sdl_context, video_subsystem, window) = create_sdl_and_window(&mut settings)?;
+    // Boot applies every setting explicitly (window, swap interval, renderer),
+    // so no pending work is owed after it.
+    let _ = settings.take_pending_apply();
+    Ok((sdl_context, video_subsystem, window, settings, bench))
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let (sdl_context, video_subsystem, window) = bootstrap()?;
-
-    // Load persisted settings or fallback safely to the default settings. A
-    // genuinely fresh install gets its default `settings.json` written here,
-    // so the documented configuration file exists from the first run.
-    let mut settings = Settings::load_or_default();
-    settings.ensure_saved();
-
-    // Debug-only frame telemetry. Inert unless `LIMINAL_BENCH=1` is set.
-    let mut bench = Bench::new();
+    let (sdl_context, video_subsystem, mut window, mut settings, mut bench) = bootstrap()?;
 
     let mut level_manager = loader::LevelManager::new();
     log_asset_catalog(&level_manager);
@@ -1186,22 +1528,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut input_handler = InputHandler::new();
     let (mut game, mut spawn_pos, mut spawn_yaw) = new_game(&initial_level);
-    let initial_level_id = initial_level.entry.id.clone();
     log_prop_usage(&renderer);
-    // All required level state has been extracted (spawn, collision walls,
-    // renderer uploads), so release the CPU-side textures and level definition.
-    drop(initial_level);
+    // The current level stays resident for the session: the renderer keeps only
+    // GPU state, so a live quality or lightmap change rebuilds from this
+    // definition (and the session texture caches) instead of re-reading a file.
+    let mut current_level = Some(initial_level);
+    let mut display_status = DisplayStatus::default();
 
     apply_level_request(
         &level_manager,
         &mut renderer,
         &mut game,
         &bench,
-        &initial_level_id,
         &mut spawn_pos,
         &mut spawn_yaw,
+        &mut current_level,
     );
-
     // `LIMINAL_SPAWN=x,z,yaw_degrees` (or `x,y,z,yaw_degrees`) overrides the
     // level's spawn point, so a hardware run can stand in front of a specific
     // prop instead of walking there with a pad.
@@ -1222,7 +1564,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let capture_at_frame = capture_frame_from_env();
 
     let mut frame_loop = FrameLoop {
-        window: &window,
+        window: &mut window,
+        video_subsystem: &video_subsystem,
         event_pump: &mut event_pump,
         renderer: &mut renderer,
         level_manager: &mut level_manager,
@@ -1240,6 +1583,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         state_log: &mut state_log,
         spawn_pos: &mut spawn_pos,
         spawn_yaw: &mut spawn_yaw,
+        current_level: &mut current_level,
+        display_status: &mut display_status,
+        window_apply_in_flight: false,
+        last_logged_window: (0, 0, 0, 0),
     };
     frame_loop.run();
 

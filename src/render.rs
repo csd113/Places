@@ -76,8 +76,8 @@ pub(crate) const SCENE_NEAR_M: f32 = 0.1;
 pub(crate) const SCENE_FAR_M: f32 = 100.0;
 pub use view::{
     DECAL_ALPHA_CUTOFF, DECAL_POLYGON_OFFSET, DECAL_SURFACE_OFFSET_M, DrawableSize,
-    UI_REFERENCE_HEIGHT, UI_REFERENCE_WIDTH, UiViewport, WINDOW_HEIGHT, WINDOW_WIDTH,
-    fragment_shader_source, reference_aspect_ratio, vertical_fov_for_aspect,
+    UI_REFERENCE_HEIGHT, UI_REFERENCE_WIDTH, UiViewport, fragment_shader_source,
+    reference_aspect_ratio, vertical_fov_for_aspect,
 };
 use view::{
     DECAL_FRAGMENT_SHADER_SRC, EMISSION_MASK_TEXTURE_UNIT, LIGHTMAP_PAGE_SLOTS,

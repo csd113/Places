@@ -4,17 +4,16 @@
 //! of view for a non-reference aspect, and the three GLSL programs the renderer
 //! compiles once at startup.
 
-/// `PocketCHIP` reference resolution.
+/// The resolution 2D UI geometry is authored in (`PocketCHIP` baseline).
 ///
-/// The game logic and UI layout are authored against this 480x272 space; it is
-/// also the default window size. It is *not* an assumption about the actual
-/// drawable/framebuffer size at runtime.
-pub const WINDOW_WIDTH: u32 = 480;
-pub const WINDOW_HEIGHT: u32 = 272;
-
-/// Reference space that 2D UI geometry is authored in (`PocketCHIP` baseline).
-pub const UI_REFERENCE_WIDTH: u32 = WINDOW_WIDTH;
-pub const UI_REFERENCE_HEIGHT: u32 = WINDOW_HEIGHT;
+/// This is a *reference space*, not a window size: the UI is scaled to the
+/// drawable by [`DrawableSize::ui_viewport`], and the window the game opens at
+/// is [`crate::settings::DEFAULT_WINDOW_WIDTH`] x
+/// [`crate::settings::DEFAULT_WINDOW_HEIGHT`]. The Low quality profile also
+/// caps its internal scene width at this reference, which is the one runtime
+/// place it is used outside the UI.
+pub const UI_REFERENCE_WIDTH: u32 = 480;
+pub const UI_REFERENCE_HEIGHT: u32 = 272;
 
 /// Physical size (in pixels) of the current drawable/framebuffer.
 ///
