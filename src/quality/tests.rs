@@ -29,7 +29,7 @@ fn names_round_trip_and_parse_is_forgiving_about_case() {
 }
 
 #[test]
-fn full_keeps_the_historical_runtime_sizes() {
+fn full_keeps_the_native_runtime_sizes() {
     assert_eq!(QualityProfile::Full.budget(TextureClass::Surface), 1_024);
     assert_eq!(
         QualityProfile::Full.budget(TextureClass::FixtureFace),
@@ -121,6 +121,34 @@ fn a_prop_sheet_is_smaller_than_a_surface_sheet_under_both_profiles() {
     let low = fit_image(&image, QualityProfile::Low, TextureClass::Prop);
     assert_eq!((full.width, full.height), (256, 256));
     assert_eq!((low.width, low.height), (128, 128));
+}
+
+#[test]
+fn full_keeps_a_native_256_prop_texture_exactly() {
+    let image = solid(256, [12, 34, 56, 255]);
+    let full = fit_image(&image, QualityProfile::Full, TextureClass::Prop);
+    assert!(
+        matches!(full, std::borrow::Cow::Borrowed(_)),
+        "Full must neither copy nor resample a native 256px prop sheet"
+    );
+    assert_eq!((full.width, full.height), (256, 256));
+    assert_eq!(full.rgba, image.rgba);
+}
+
+#[test]
+fn low_halves_a_native_prop_texture_to_the_documented_budget() {
+    let image = solid(256, [12, 34, 56, 255]);
+    let low = fit_image(&image, QualityProfile::Low, TextureClass::Prop);
+    assert!(matches!(low, std::borrow::Cow::Owned(_)));
+    assert_eq!((low.width, low.height), (128, 128));
+    assert!(
+        low.rgba
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .all(|texel| *texel == [12, 34, 56, 255]),
+        "the halved sheet must keep the source colour"
+    );
 }
 
 #[test]

@@ -1266,6 +1266,34 @@ fn test_architecture_geometry_sweep_is_structurally_sound() {
 // Validation boundaries
 // ---------------------------------------------------------------------------
 
+/// The shipped demo is the acceptance case for every architectural piece the
+/// loader accepts: office and pool walls (including the notice boards and the
+/// pool-to-hall transition), the Home extension, stairs, a ramp-free split
+/// level, archways, baseboards and thresholds. None of it may emit a zero-area
+/// triangle. A degenerate wall quad is either authoring the loader should have
+/// rejected or an emitter defect, never shipped content; ramp skirts that
+/// legitimately end in a triangle fold the repeated corner away, so every
+/// surviving triangle must have real area.
+#[test]
+fn test_the_shipped_demo_emits_no_zero_area_triangles() {
+    let level = parse(include_str!("../assets/levels/places_demo.json"));
+    let materials = logical_materials(&level);
+    let mesh = build_level_geometry_with_materials(&level, &materials);
+    let triangles = emitted_triangles(&mesh);
+    assert!(!triangles.is_empty(), "the demo must emit geometry");
+    let degenerate: Vec<[[f32; 3]; 3]> = triangles
+        .iter()
+        .filter(|triangle| triangle.world_area <= 1.0e-9)
+        .map(|triangle| triangle.points)
+        .collect();
+    assert!(
+        degenerate.is_empty(),
+        "places_demo emits {} zero-area triangle(s), first at {:?}",
+        degenerate.len(),
+        degenerate.first()
+    );
+}
+
 /// Each primitive's documented bounds are enforced exactly, and malformed
 /// entries name the offending piece and field instead of panicking.
 #[test]

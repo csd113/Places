@@ -1,3 +1,58 @@
+## Unreleased — Desktop texture policy
+
+Places is a desktop game now, and the asset pipeline no longer treats a
+low-memory handheld as its budget. **256×256 is the normal native prop texture
+size**, the shipped pack has a desktop-scale decoded-memory allowance with
+years of headroom, and Full quality uploads native artwork unchanged. The old
+128×128 downgrades existed only to satisfy an aggregate memory test; the
+refreshed domestic props ship their real 256×256 artwork again.
+
+### Changed
+
+- **Native prop texture size is 256×256.** `PROP_TEXTURE_PREFERRED_SIZE` is
+  renamed `PROP_TEXTURE_NATIVE_SIZE` and documented as the ordinary shipped
+  size, not a special high-quality variant. The engine ceiling stays 1024 px
+  per edge for third-party GLBs, downscaled to the profile budget at load.
+- **The aggregate prop texture budget is desktop-scale.**
+  `PROP_TEXTURE_PACK_BUDGET_BYTES` allows 64 MiB of decoded RGBA8 for the whole
+  shipped pack (256 native sheets); the previous test budget allowed one 128 px
+  sheet per prop and forced the refresh to halve its artwork. The current
+  33-prop pack decodes to under 4 MiB, and `tools/props/build.py --check`
+  enforces both the per-texture 4 MiB ceiling and the pack budget.
+- **Full quality never resamples a native sheet.** A 256×256 prop texture
+  uploads as decoded (borrowed, no copy); Low remains an optional
+  quality/performance reduction that halves it to 128×128 once at load.
+- **The refreshed domestic props ship at 256×256 again:** armchair, bookshelf,
+  couch, fridge, lamp, plant, rug and table. Their source PNGs beside the GLBs
+  are restored to the native artwork, `load_atlas` accepts the 32/64/128/256
+  sizes, and every rebuilt GLB is deterministic (repeated builds are
+  byte-identical).
+- Update `docs/ASSET_SPECIFICATION.md`, `assets/README.md`,
+  `docs/MAP_AUTHORING_GUIDE.md` and `tools/props/README.md` for the new policy,
+  including the native-versus-maximum distinction and the aggregate budget.
+  Retire the low-end/handheld framing from texture, prop and level-memory
+  budgets.
+
+### Fixed
+
+- **An empty compiled install boots again.** A binary with no `assets/` tree
+  failed renderer startup with "`core:tex_white_01` is not a file-backed
+  texture in the catalog", so the embedded demo never opened and the two
+  compiled-build smoke tests failed. The renderer now falls back to an
+  `include_bytes!` copy of the same committed `white_01.png` when no asset root
+  or catalog entry resolves; the catalog file stays canonical whenever one
+  exists, and a malformed catalog sheet is still fatal. The two smoke tests
+  pass, and a Rust test pins the embedded fallback to the committed PNG's
+  pixels.
+- **The rug builder keeps its native atlas layout.** `build_rug` hard-coded
+  128 px pixel regions; it now uses the delivered 256×256 rug's real regions
+  (face rows 0–168, binding rows 172–255), so a rebuilt `rug.glb` reproduces
+  the shipped 256 build byte for byte instead of shifting every UV.
+- **The shipped demo emits no zero-area triangles.** A new architecture-audit
+  regression builds `places_demo.json` through the real emitter and asserts
+  every emitted triangle has real area, covering the pool walls, the
+  pool-to-hall landing and the Home extension.
+
 ## Unreleased — Adversarial architecture audit
 
 A deliberate break-it pass over the Home theme's generic architectural pieces

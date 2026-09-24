@@ -3214,8 +3214,8 @@ pub const PROP_TRIANGLE_BUDGET: usize = 1_500;
 ///
 /// Four times the art budget: far above anything the Places visual language
 /// wants, and still small enough that one model's vertices and the level's
-/// instance budget stay bounded on the `PocketCHIP` target. A file above this is
-/// genuinely unsupported rather than merely over budget.
+/// instance budget stay bounded on a desktop. A file above this is genuinely
+/// unsupported rather than merely over budget.
 pub const MAX_PROP_TRIANGLES: usize = 6_000;
 /// Engine ceiling on the primitives (draw ranges) one prop model may declare.
 ///
@@ -3226,21 +3226,37 @@ pub const MAX_PROP_PRIMITIVES: usize = 32;
 pub const MAX_PROP_MATERIALS: usize = 16;
 /// Engine ceiling on the distinct images embedded in one prop model.
 pub const MAX_PROP_IMAGES: usize = 16;
-/// Hard ceiling on one prop model's vertex count (16-bit indices, `PocketCHIP` RAM).
+/// Hard ceiling on one prop model's vertex count (16-bit indices).
 pub const MAX_PROP_VERTICES: usize = 65_535;
-/// The Places art budget for a prop texture's edge length.
+/// The normal native edge length of a shipped prop texture.
 ///
-/// Shipped prop artwork is 64x64 or 128x128 (256 for a few detailed sheets).
-/// Larger embedded textures load and are downscaled to the runtime budget, but
-/// tooling warns: the low-poly visual language wants restrained texture detail,
-/// not photographic sheets hidden inside a crude mesh.
-pub const PROP_TEXTURE_PREFERRED_SIZE: u32 = 256;
+/// 256x256 is the standard prop atlas size, not a special high-quality
+/// variant: the refreshed pack ships at it, the prop toolkit treats it as the
+/// unremarkable default, and `Full` uploads it unchanged. Larger embedded
+/// textures from third-party GLBs still load (up to [`MAX_PROP_TEXTURE_SIZE`])
+/// and are downscaled to the active profile's budget; no *shipped* atlas needs
+/// more, because `Full` never samples a prop sheet above this size.
+pub const PROP_TEXTURE_NATIVE_SIZE: u32 = 256;
 /// Hard engine ceiling on a prop texture's edge length.
 ///
 /// Matches the surface decoder's [`crate::assets::MAX_TEXTURE_DIMENSION`]: a
 /// GLB may carry a texture up to the same size any other asset may, and the
 /// runtime quality profile decides what actually reaches the GPU.
 pub const MAX_PROP_TEXTURE_SIZE: u32 = 1_024;
+/// Decoded RGBA8 memory one prop texture may hold at the engine ceiling.
+///
+/// One 1024x1024 image (4 MiB). The parser rejects a larger edge before any
+/// decode, so this is the largest allocation one embedded image can request.
+pub const MAX_PROP_TEXTURE_BYTES: usize =
+    crate::assets::decoded_rgba_bytes(MAX_PROP_TEXTURE_SIZE, MAX_PROP_TEXTURE_SIZE);
+/// Decoded RGBA8 budget for the whole shipped prop pack.
+///
+/// A deliberately desktop-scale limit: 64 MiB holds 256 native 256x256 sheets
+/// (the current 33-prop pack decodes to under 4 MiB), so ordinary content
+/// growth never has to trade texture quality against the budget. It still
+/// refuses a pathological or accidentally duplicated multi-gigabyte set
+/// before it can become resident.
+pub const PROP_TEXTURE_PACK_BUDGET_BYTES: usize = 64 * 1024 * 1024;
 
 /// Hard ceiling on the number of distinct prop models a single level may use.
 pub const MAX_LEVEL_PROP_MODELS: usize = 256;
@@ -3298,13 +3314,13 @@ pub const MAX_BASEBOARD_QUADS: u64 = 8;
 /// headroom for a hand-authored or generated level while still refusing an
 /// accidentally huge file before it is read into memory.
 pub const MAX_LEVEL_JSON_BYTES: u64 = 8 * 1024 * 1024;
-/// PocketCHIP-safe budget for total authored floor area, in square metres.
+/// Sanity budget for total authored floor area, in square metres.
 ///
 /// Floor rendering no longer scales with area, but absurdly large levels still
 /// stress collision, fill rate and level-design tooling, so a generous cap is
 /// kept as a sanity guard.
 pub const MAX_LEVEL_FLOOR_AREA_M2: u64 = 1_000_000;
-/// PocketCHIP-safe budget on the estimated number of generated vertices.
+/// Sanity budget on the estimated number of generated vertices.
 pub const MAX_LEVEL_VERTICES: u64 = 2_000_000;
 
 /// Estimated generated geometry for a level, used to bound memory use before

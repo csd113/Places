@@ -13,16 +13,19 @@
 //! second art library: it is the same PNG, downscaled further, so the visual
 //! identity (and every id, material and fixture) stays identical.
 //!
-//! Full keeps the sizes the project has always used at runtime — surfaces and
-//! fitted sheets at up to 1024, prop sheets at up to 256 — so existing content
-//! renders exactly as it did. Low applies the PocketCHIP/Mali-400 budget from
-//! `assets/README.md`: sheets at 256 and prop sheets at 128, which is a 16x
-//! reduction in texel count for a sheet and a 4x reduction for a prop.
+//! Full uploads the native artwork unchanged — a 256x256 prop atlas stays
+//! 256x256, and a 1024x1024 surface sheet stays 1024x1024. Low is an optional
+//! display-budget reduction for players who want it: sheets at 256 and prop
+//! sheets at 128, which is a 16x reduction in texel count for a sheet and a 4x
+//! reduction for a prop. It is an intentional quality/performance trade, not a
+//! hardware requirement of the desktop target, and it never changes the size
+//! of the asset stored in the repository.
 //!
 //! Texture discipline is unchanged: the decoder still refuses anything above
-//! [`crate::assets::MAX_TEXTURE_DIMENSION`], and art-budget guidance still
-//! prefers far smaller sheets. A quality profile only decides how much of an
-//! *accepted* source reaches the GPU; it never raises the source limit.
+//! [`crate::assets::MAX_TEXTURE_DIMENSION`], and the shipped prop art budget
+//! still caps a prop atlas at its 256x256 native size. A quality profile only
+//! decides how much of an *accepted* source reaches the GPU; it never raises
+//! the source limit.
 //!
 //! The same profile also budgets the static lightmap atlas: `Full` bakes at 12
 //! texels per metre onto up to two 1024-texel pages, `Low` at 8 texels per
@@ -41,10 +44,10 @@
 /// One of Places' two runtime quality profiles.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum QualityProfile {
-    /// The intended normal Places presentation.
+    /// The intended normal Places presentation: native textures, unchanged.
     #[default]
     Full,
-    /// The constrained-hardware presentation: same assets, smaller textures.
+    /// The optional reduced-texture presentation: same assets, smaller sheets.
     Low,
 }
 
@@ -69,13 +72,13 @@ pub enum TextureClass {
 
 /// Full-quality edge budget: surfaces and fitted sheets at 1024.
 const FULL_SHEET_EDGE: u32 = 1_024;
-/// Full-quality edge budget: props at 256.
+/// Full-quality edge budget: props at their native 256, uploaded unchanged.
 const FULL_PROP_EDGE: u32 = 256;
 /// Full-quality edge budget: emissive masks at 512.
 const FULL_MASK_EDGE: u32 = 512;
 /// Low-quality edge budget: sheets at 256.
 const LOW_SHEET_EDGE: u32 = 256;
-/// Low-quality edge budget: props at 128.
+/// Low-quality edge budget: native props halved once, 256 -> 128.
 const LOW_PROP_EDGE: u32 = 128;
 /// Low-quality edge budget: emissive masks at 128.
 const LOW_MASK_EDGE: u32 = 128;
@@ -159,8 +162,9 @@ impl QualityProfile {
     /// resolution.
     ///
     /// See [`crate::render::framebuffer`]: Low renders the scene no wider than
-    /// the `PocketCHIP` reference width and presents it across the drawable,
-    /// which trades scene pixels for headroom on the devices Low exists for.
+    /// the historical 480x272 reference width and presents it across the
+    /// drawable, trading scene pixels for performance in the optional Low
+    /// presentation.
     #[must_use]
     pub const fn draws_scene_at_drawable_resolution(self) -> bool {
         matches!(self, Self::Full)
@@ -172,10 +176,10 @@ mod tests;
 
 /// Returns the image a texture uploads with under `profile`.
 ///
-/// Full keeps the decoded image exactly as it is — every shipped asset is at or
-/// below the historical runtime size, so nothing is rescaled and no copy is
-/// made. Low box-filters it once. The caller does this at upload time and keeps
-/// the result with the texture it uploaded, so an image is never rescaled per
+/// Full keeps the decoded image exactly as it is — native 256x256 prop sheets
+/// and 1024x1024 surfaces are uploaded unchanged, with no rescale and no copy.
+/// Low box-filters it once. The caller does this at upload time and keeps the
+/// result with the texture it uploaded, so an image is never rescaled per
 /// frame, nor twice for one upload.
 #[must_use]
 pub fn fit_image(

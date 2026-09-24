@@ -52,7 +52,7 @@ for the run flags that boot straight into them and capture a frame.
 ```python
 def build_chair(p: PropBuilder) -> None:
     size = p.size                       # catalogue [w, h, d] in metres
-    tex = p.set_texture(64, seed=31)    # 64 or 128; must be called before painting
+    tex = p.set_texture(128, seed=31)   # 32, 64, 128 or 256; 256 is the native size
     tex.auto("wood", "fabric")          # named UV regions (here: two cells)
 
     wood = palette.hex_to_rgb(palette.WOOD_MID)
@@ -93,8 +93,8 @@ locally without changing the shared primitives used by other props.
 
 ### Refreshed bookshelf, fridge, lamp, rug and plant
 
-These builders also load an opaque 128×128 source PNG beside the matching GLB
-and embed it during `build.py --only core:<name>`. Keep those source PNGs;
+These builders load an opaque 256×256 source PNG beside the matching GLB and
+embed it during `build.py --only core:<name>`. Keep those source PNGs;
 rebuilding does not regenerate their artwork. `parts/refreshed.py` provides
 opt-in closed, outward-facing primitives and samples atlas colours for editor
 proxies. Other props still use their existing builders.
@@ -108,10 +108,11 @@ Atlas regions, read left-to-right then top-to-bottom in a 2×2 grid:
 | lamp | base, stem, shade, lining |
 | plant | pot, soil, leaf, stem |
 
-The rug uses a different fitted layout: its face occupies rows 0–83, while
-the binding/backing samples rows 86–127. Its UVs were rebuilt to match the
-delivered artwork. Horizontal box faces map U along X and V along Z; each
-region is inset by two pixels to reduce sampling across atlas boundaries.
+The rug uses a different fitted layout at its native 256×256 size: its face
+occupies rows 0–168 and the binding/backing rows 172–255, with a narrow gutter
+between them. Its UVs are rebuilt to match the delivered artwork. Horizontal
+box faces map U along X and V along Z; each region is inset by two pixels to
+reduce sampling across atlas boundaries.
 
 The lamp has 24-segment base/shade rings and a hollow shade with joined hems.
 The plant's fourteen leaves have closed 0.8 mm shells instead of coincident
@@ -120,12 +121,13 @@ front/back faces. This takes the plant to 512 triangles, slightly above the
 intersect at assembly joints; these are game props, not boolean-unioned
 manufacturing solids. The lamp remains non-emissive.
 
-These five 128 px atlases keep the combined shipped prop pack within its
-decoded texture memory budget; raising each to 256 px exceeds that pack budget.
+256×256 is the normal native prop texture size: these atlases are ordinary
+content, not a special high-quality variant, and the desktop pack budget has
+room for the whole catalogue at this size many times over.
 
 ### Matching upholstered seating
 
-`core:armchair` and `core:couch` load their respective opaque 128×128 PNGs
+`core:armchair` and `core:couch` load their respective opaque 256×256 PNGs
 beside the GLBs. Both use the same matching artwork: body / seat / back / wood
 in the usual 2×2 layout, with the wood quadrant split vertically into wood
 (left) and olive throw-pillow fabric (right). UVs use a one-pixel inset.
@@ -137,5 +139,4 @@ cushions use the opt-in 44-triangle `padded_box` helper, with bevelled edges
 instead of overlapping cushion slabs. Twelve-segment arm rolls smooth the
 silhouette. The armchair is 368 triangles; the couch is 588, above the 500
 preferred target but below the 800 review threshold. Original catalogue
-bounds and floor-contact origins are retained. Neither source texture grows,
-so this pair adds no decoded texture memory to the pack.
+bounds and floor-contact origins are retained.

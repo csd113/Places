@@ -1602,12 +1602,13 @@ edge budget per texture class:
 | Emissive mask | 512 | 128 |
 | Lightmap atlas page | 1024, 12 texels/m | 512, 8 texels/m |
 
-* **Full is the historical Places runtime size.** Every shipped asset is already at
-  or below it, so Full uploads the decoded image unchanged — no rescaling, no visual
-  change.
+* **Full is the native Places runtime size.** Every shipped asset is already at or
+  below it, so Full uploads the decoded image unchanged — no rescaling, no visual
+  change. A native 256×256 prop sheet stays 256×256.
 * **Low uses the same assets** and box-filters each image once, at level load, to the
   Low budget. It is not a second art library; ids, materials and geometry are
-  identical.
+  identical. Low is an optional quality/performance trade, never a repository asset
+  requirement.
 * Downscaling happens once per upload, never per frame, and the result is cached with
   the texture it produced. Full and Low are deterministic: the same source always
   produces the same runtime image.
@@ -1689,9 +1690,11 @@ rather than texture artwork.
 | Budget | Value | Enforced by |
 | --- | --- | --- |
 | PNG hard edge | 1024 | runtime decoder + `tools/textures/build.py` + package tests |
-| Preferred edge | 256 | tooling warning + shipped-asset policy tests |
+| Preferred edge (soft) | 256 | tooling warning + shipped-asset policy tests |
 | Surface square | both edges equal | policy tests |
 | Surface decoded bytes | 4 MiB | policy tests |
+| Prop native edge | 256 | prop toolkit + props policy tests |
+| Prop pack decoded memory | 64 MiB | `tools/props/build.py --check` + props policy tests |
 | Decal / fixture faces | POT both edges | build.py warning; package tests fail non-POT fitted sheets |
 
 ---
@@ -1949,7 +1952,8 @@ an unknown id) and the level keeps working.
 | Triangles — engine hard ceiling | 6000 (`MAX_PROP_TRIANGLES`; above it the model falls back to a box) |
 | Vertices per model | 65 535 (`MAX_PROP_VERTICES`) |
 | Primitives / materials / images per model | 32 / 16 / 16 |
-| Prop texture | 64×64 or 128×128 preferred; 256×256 shipped art max; engine ceiling 1024 (`MAX_PROP_TEXTURE_SIZE`), downscaled to the runtime budget at upload |
+| Prop texture | **256×256 native** (the normal shipped size; 32/64/128 legal for lighter props); engine ceiling 1024 (`MAX_PROP_TEXTURE_SIZE`), downscaled to the runtime budget at upload |
+| Prop pack decoded memory | 64 MiB (`PROP_TEXTURE_PACK_BUDGET_BYTES`); the current pack is under 4 MiB |
 | Materials per prop | one per primitive; a multi-material model costs one draw range per material per batch |
 | Distinct models per level | 256 (fallback boxes beyond it) |
 | Summed baked prop vertices per level | 1 500 000 (fallback boxes beyond it) |
@@ -2954,8 +2958,9 @@ supported — the old single-mesh restriction is gone.)
 language; possible engine rejection.
 
 **Prevention:** 500 triangles preferred, 800 justified, 1500 shipped art budget;
-64–128 px prop texture preferred, 256 max. Exceedances are allowlisted explicitly in
-`src/props/tests.rs`.
+256×256 is the native prop texture size (32/64/128 legal for lighter props), and
+the whole pack must decode to at most 64 MiB. Exceedances are allowlisted
+explicitly in `src/props/tests.rs`.
 
 ### Texture Seams / Incorrect Tiling
 
@@ -3005,7 +3010,7 @@ none of them is optional for a change that ships content.
 | `cargo fmt --all --check` | Rust formatting | **Yes** when code changed |
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Strict lints (`AGENTS.md` policy) | **Yes** when code changed |
 | `python3 tools/textures/build.py --check` | Texture/decal/fixture PNGs exist, parse, ≤1024; warns >256 / non-POT | Yes when art changed |
-| `python3 tools/props/build.py --check` | Every catalogued prop GLB exists and parses; prints bounds/budget flags (budget enforcement lives in `cargo test`) | Yes when props changed |
+| `python3 tools/props/build.py --check` | Every catalogued prop GLB exists and parses, and its decoded texture memory fits the per-texture and 64 MiB pack budgets; prints bounds/budget flags | Yes when props changed |
 | `LIMINAL_LEVEL=<id> cargo run` | Boots straight into the level and prints validation errors verbatim | **Yes, once per map** |
 | `LIMINAL_CAPTURE=frame.png LIMINAL_LEVEL=<id> cargo run` | One-frame PNG capture for visual inspection (`LIMINAL_CAPTURE_FRAME=n` waits for frame n first) | Useful |
 | `python3 tests/test_package.py` | Repository/package gate: shipped-level checks, texture policy, catalog validation, README hygiene | Recommended before shipping a map into `assets/levels/` |
@@ -3013,10 +3018,11 @@ none of them is optional for a change that ships content.
 | `python3 tools/textures/seam_repair.py --check <png>` | Tiling seam metric per texture | Yes for new surface art |
 | `tools/bench/README.md` | Index of the current benchmark and capture tools — it is the authoritative, current list | Useful |
 
-Do not treat a clean `--check` as budget approval: `tools/props/build.py --check`
-prints budget flags but does not fail on them; budget enforcement lives in
-`cargo test`. Conversely, `validate.py` is stricter than the runtime about catalog
-classes/types/sources and is the tool that catches a dangling level reference.
+Do not treat a clean `--check` as style approval: `tools/props/build.py --check`
+enforces texture memory and container validity, while the triangle/scale/origin
+art budgets live in `cargo test`. Conversely, `validate.py` is stricter than the
+runtime about catalog classes/types/sources and is the tool that catches a
+dangling level reference.
 
 ### What `tools/assets/validate.py` checks (and what only Rust checks)
 
@@ -3173,9 +3179,11 @@ authoring. They are not invitations to change the engine as part of an authoring
    "cutoff only" mode.
 4. **Cone/spot lights are not implemented.** The generic model has point, rectangle
    and line shapes; a directional light needs a response model that does not exist.
-5. **Prop textures are downscaled, not re-authored.** A GLB may embed up to 1024 px
-   per edge, but Full uploads a prop sheet at 256 and Low at 128; authoring big
-   prop art gains nothing.
+5. **A GLB may embed larger prop textures than the shipped native size.** The
+   engine accepts up to 1024 px per edge but Full uploads a prop sheet at 256
+   and Low at 128, so the shipped toolkit stays at the 256 native size;
+   authoring bigger embedded art gains nothing under Full unless the engine's
+   prop budget is raised first.
 6. **`emission` on a fixture is emission only.** It never changes illumination; if a
    glowing face should also light the room, that is `brightness`/`enabled`.
 7. **No `deny_unknown_fields`.** Misspelled or unsupported level keys are silently
@@ -3221,9 +3229,9 @@ authoring. They are not invitations to change the engine as part of an authoring
     fallback.
 18. **Generated fixture quirk:** `tests/fixtures/levels/prop_showcase.json` (generated)
     carries an `id` key on props that the level schema ignores. Do not copy it.
-19. **`props/build.py --check` prints budget flags but does not fail on them**; budget
-    enforcement lives in `cargo test`. Do not treat a clean `--check` as budget
-    approval.
+19. **`props/build.py --check` enforces container validity and decoded texture
+    memory but not the triangle/scale/origin art budgets**; those live in
+    `cargo test`. Do not treat a clean `--check` as complete budget approval.
 20. **No water or dynamic lighting.** "Flooded" and "mood lighting" must be expressed
     with existing materials, geometry and per-fixture colour/brightness.
 21. **Reflections are per-material and limited.** One planar plane per frame, at most

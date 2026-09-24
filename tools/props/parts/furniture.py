@@ -125,7 +125,7 @@ def _paint_bedding(tex, region: str, base: tuple[int, int, int], seed: int, stri
 def _solid(p: PropBuilder, center, size, uv, color, hidden=("-y",), colors=None, rotation=None) -> None:
     """A box that skips the faces a prop can never show.
 
-    Every hidden face is two triangles and two vertices of the PocketCHIP
+    Every hidden face is two triangles and two vertices of the triangle
     budget, and internal faces (a cushion's underside, a panel face buried in
     another panel) are never visible from any legal camera angle.
     """

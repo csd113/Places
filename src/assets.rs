@@ -295,8 +295,13 @@ pub const MAX_TILE_METRES: f32 = 64.0;
 /// Maximum PNG edge length the runtime decoder accepts.
 pub const MAX_TEXTURE_DIMENSION: u32 = 1024;
 
-/// Preferred PNG edge length for shipped textures (the PocketCHIP/Mali-400
-/// budget of `assets/README.md`). Larger images load, but tooling warns.
+/// Soft warning edge for shipped textures.
+///
+/// This is a tooling preference, not a low-end-memory budget: the tiling
+/// surface sheets ship at 1024x1024 on purpose (one sheet covers 2 m of wall
+/// within a 4 MiB decoded footprint), and the renderer samples whatever the
+/// file holds. Tooling warns above this edge so that adding a larger sheet is
+/// a deliberate decision rather than an accident.
 pub const PREFERRED_TEXTURE_DIMENSION: u32 = 256;
 
 /// Largest decoded RGBA8 surface sheet the renderer accepts.
@@ -320,24 +325,23 @@ pub const fn decoded_rgba_bytes(width: u32, height: u32) -> usize {
 /// The dimension contract one shipped PNG is held to.
 ///
 /// The renderer is the source of truth, so the policy is deliberately
-/// conservative rather than aspirational: it encodes what the runtime and the
-/// ES 2.0 target actually require, and it never special-cases an individual
-/// file. A deliberate exception — the 96x64 diagnostic, a future non-POT
-/// `pack:` sheet — is asserted at the call site that loads it, not hidden
-/// here.
+/// conservative rather than aspirational: it encodes what the runtime actually
+/// requires, and it never special-cases an individual file. A deliberate
+/// exception — the 96x64 diagnostic, a future non-POT `pack:` sheet — is
+/// asserted at the call site that loads it, not hidden here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShippedTextureKind {
     /// A tiling surface sheet (wall, floor or ceiling).
     ///
     /// Surfaces are sampled as square `tile_metres` cells, so the sheet must
     /// be square: a non-square sheet would stretch. Surfaces are *not*
-    /// power-of-two constrained; the desktop GL path loads NPOT fine and only
-    /// the ES 2.0 portability budget prefers it.
+    /// power-of-two constrained; the desktop GL path loads NPOT fine and POT is
+    /// only a portability preference.
     Surface,
     /// A fitted fixture face (a light's visible artwork).
     ///
     /// Fixture UVs never leave the sheet and the face is drawn with mipmaps,
-    /// so both edges must be powers of two for the ES 2.0 target.
+    /// so both edges must be powers of two for an exact mip chain.
     FixtureFace,
     /// A decal cut-out sheet drawn by the decal pass.
     ///

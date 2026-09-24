@@ -176,11 +176,11 @@ Texture assets are just files:
 * PNG dimensions are read from the file, not the catalog. The policy lives in
   `src/assets.rs` (`ShippedTextureKind`, `MAX_TEXTURE_DIMENSION`,
   `PREFERRED_TEXTURE_DIMENSION`, `MAX_SURFACE_TEXTURE_BYTES`): the hard runtime
-  ceiling is 1024×1024, the soft preference 256×256 (the PocketCHIP/Mali-400
-  budget), and one surface sheet may decode to at most 4 MiB of RGBA8. The
-  runtime accepts any non-zero size up to the ceiling and normalises RGB, RGBA,
+  ceiling is 1024×1024, 256×256 is a soft tooling preference for new sheets,
+  and one surface sheet may decode to at most 4 MiB of RGBA8. The runtime
+  accepts any non-zero size up to the ceiling and normalises RGB, RGBA,
   grayscale, grayscale+alpha, palette and 16-bit images to RGBA8. Exceeding the
-  preferred size is a tooling warning, never an error: the upgraded Office and
+  soft preference is a tooling warning, never an error: the upgraded Office and
   Pool surface sheets are intentionally 1024×1024.
 * **Surface sheets are square**, because the renderer samples them as square
   `tile_metres` cells and a non-square wall/floor/ceiling sheet would stretch.
@@ -424,13 +424,13 @@ what the runtime reads, so files may move freely as long as the catalog follows.
 * Levels place props with `x`, `y` (vertical offset, may be negative), `z`,
   `rotation_degrees` (Y), `scale` and an optional `size` override.
 
-## Budgets (PocketCHIP / Mali-400, 480×272 display)
+## Budgets (desktop target)
 
 | budget     | value                                                      |
 | ---------- | ---------------------------------------------------------- |
 | triangles  | 50–500 preferred, ≤800 acceptable, **1500 shipped art budget** (`tools/props` refuses to build above it); the engine loads up to 6000 with an art-budget warning, and a model above 6000 falls back to a placeholder box |
-| prop texture | 64×64 or 128×128 preferred, 256×256 shipped art target; the engine accepts up to 1024×1024 and downscales to the runtime quality budget (Full 256, Low 128) at upload |
-| surface texture | Office/Pool sheets are intentionally 1024×1024 (square, opaque); 256×256 soft preferred, 1024×1024 hard load ceiling, ≤4 MiB decoded per sheet. Full uploads them unchanged; Low downscales to 256 |
+| prop texture | **256×256 native** (the normal shipped size; 32/64/128 remain legal for lighter props); the engine accepts up to 1024×1024 and downscales to the runtime quality budget (Full 256, Low 128) at upload. The whole shipped pack decodes to under 4 MiB against a 64 MiB desktop pack budget |
+| surface texture | Office/Pool sheets are intentionally 1024×1024 (square, opaque); 256×256 soft tooling preference, 1024×1024 hard load ceiling, ≤4 MiB decoded per sheet. Full uploads them unchanged; Low downscales to 256 |
 | materials  | one material per primitive; a multi-material model costs one draw range per material per batch |
 | primitives / materials / images per model | 32 / 16 / 16 |
 | draw calls | one per model primitive per spatial batch (instances are baked) |
@@ -467,10 +467,12 @@ existed: they add terms to the baked lighting model, they never replace it.
 ### Runtime quality profiles
 
 `settings.json` selects `"quality": "full"` (default) or `"low"`. Both use the
-same assets: Full uploads shipped textures at their historical runtime size, and
-Low box-filters each one once at level load (surfaces/fixtures/decals to 256,
-prop sheets to 128, emissive masks to 128). Sources are never re-authored for
-Low, and the source hard limit (1024 px) is unchanged.
+same assets: Full uploads shipped textures at their native size (surfaces and
+fitted sheets 1024, prop sheets 256, emissive masks 512) with no resampling,
+and Low box-filters each one once at level load (surfaces/fixtures/decals to
+256, prop sheets to 128, emissive masks to 128). Low is an optional
+quality/performance trade, not a hardware requirement. Sources are never
+re-authored for Low, and the source hard limit (1024 px) is unchanged.
 
 ## PNG conventions for surface textures
 

@@ -1747,9 +1747,9 @@ fn validate_decal_surfaces(level: &LevelDef) -> Result<(), String> {
 
 /// 5. Generated-geometry complexity budget, checked after per-element
 ///    validation so dimension errors take precedence. This bounds the vertex
-///    buffer built at load time, protecting the ~512 MB `PocketCHIP` from
-///    levels that would otherwise exhaust memory. Overlapping/intersecting
-///    geometry is explicitly allowed and is not validated here.
+///    buffer built at load time, protecting the process from levels that would
+///    otherwise exhaust memory. Overlapping/intersecting geometry is explicitly
+///    allowed and is not validated here.
 fn validate_geometry_budget(level: &LevelDef) -> Result<(), String> {
     let estimate = level.estimate_geometry();
     if estimate.floor_area_m2 > MAX_LEVEL_FLOOR_AREA_M2 {

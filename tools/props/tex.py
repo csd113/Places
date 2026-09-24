@@ -1,8 +1,10 @@
 """Tiny procedural texture painter for the liminal-rust prop pack.
 
-Design goals (see ``tools/props/README.md``): 64x64 or 128x128 RGBA canvases,
-no external dependencies (pure stdlib + zlib), deterministic output, and
-painting operations that stay legible at 480x272 on an OpenGL ES 2.0 handheld.
+Design goals (see ``tools/props/README.md``): 32x32 to 256x256 RGBA canvases
+(256 is the normal native prop-atlas size), no external dependencies (pure
+stdlib + zlib), deterministic output, and painting operations that stay legible
+at the game's authored UI reference size. Places is a desktop game: nothing
+here is limited by a handheld memory budget.
 
 Textures are organised into named *regions*: a region is a pixel rectangle on
 the canvas (usually one cell of an ``auto`` grid) that a mesh face references

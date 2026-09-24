@@ -2,10 +2,10 @@
 //!
 //! The renderer used to submit one draw per material for the whole level, so a
 //! camera pointed away from a prop field still paid almost the full vertex cost
-//! (measured on the `PocketCHIP`: 400 chairs behind the camera cost ~28 ms against
-//! ~36 ms in front of it). This module provides the two pieces needed to stop
-//! that: a world-space axis-aligned bounding box per render batch, and a
-//! conservative box/frustum intersection test.
+//! (measured on the historical `PocketCHIP` target: 400 chairs behind the camera
+//! cost ~28 ms against ~36 ms in front of it). This module provides the two
+//! pieces needed to stop that: a world-space axis-aligned bounding box per
+//! render batch, and a conservative box/frustum intersection test.
 //!
 //! The partitioning is deliberately simple — a uniform X/Z grid, no Y
 //! subdivision, no hierarchy, no occlusion queries, nothing beyond what OpenGL

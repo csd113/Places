@@ -19,7 +19,9 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use crate::gltf::{GltfError, PropModel, parse_glb};
-use crate::level::{PROP_TEXTURE_PREFERRED_SIZE, PROP_TRIANGLE_BUDGET};
+use crate::level::{
+    PROP_TEXTURE_NATIVE_SIZE, PROP_TEXTURE_PACK_BUDGET_BYTES, PROP_TRIANGLE_BUDGET,
+};
 
 /// One model's decoded asset plus the path it came from.
 #[derive(Debug)]
@@ -36,6 +38,17 @@ pub fn texture_bytes(model: &PropModel) -> usize {
         .iter()
         .map(|texture| texture.rgba.len())
         .sum()
+}
+
+/// True when a pack's decoded prop textures exceed the desktop pack budget.
+///
+/// The budget is [`PROP_TEXTURE_PACK_BUDGET_BYTES`]: generous enough that a
+/// catalogue of native 256x256 sheets is unremarkable, firm enough to reject a
+/// pathological or accidentally duplicated multi-gigabyte set. The prop tests
+/// and `tools/props/build.py --check` enforce the same number.
+#[must_use]
+pub const fn pack_texture_budget_exceeded(decoded_bytes: usize) -> bool {
+    decoded_bytes > PROP_TEXTURE_PACK_BUDGET_BYTES
 }
 
 /// The Places art budget a loaded model breaks, if any.
@@ -55,14 +68,14 @@ fn art_budget_warning(model: &PropModel) -> Option<String> {
         .textures
         .iter()
         .filter(|texture| {
-            texture.width > PROP_TEXTURE_PREFERRED_SIZE
-                || texture.height > PROP_TEXTURE_PREFERRED_SIZE
+            texture.width > PROP_TEXTURE_NATIVE_SIZE || texture.height > PROP_TEXTURE_NATIVE_SIZE
         })
         .map(|texture| format!("{}x{}", texture.width, texture.height))
         .collect();
     if !oversized.is_empty() {
         reasons.push(format!(
-            "texture {} (art budget {PROP_TEXTURE_PREFERRED_SIZE}px)",
+            "texture {} (native prop size {PROP_TEXTURE_NATIVE_SIZE}px; \
+             Full downsamples anything larger)",
             oversized.join(", ")
         ));
     }

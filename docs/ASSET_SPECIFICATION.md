@@ -222,7 +222,7 @@ currently nothing enforces a minimum for any class.
 | Wall luminaire face | `pool_light_wall_01.png` | **2:1** | 128×64 shipped; 256×128 or 512×256 to raise density | none enforced | ignored | no | full sheet; `u` across 0.4 m width, `v` up 0.2 m height | POT both edges |
 | Flush-mount diffuser face | `ceiling_light_round_01.png` | **1:1** | 256×256 shipped | none enforced | ignored | no | planar; sheet centre = fixture centre; inscribed circle = diffuser radius (0.16 m) | POT both edges |
 | Decal sheet | `no_diving_01.png` | **asset-defined**; placement must match it | 128×128 small markings; 1024×1024 hero signage | none enforced | **required cut-out**: alpha 0 background | no | full sheet fitted to the level placement's width × height | POT both edges |
-| Prop / entity texture | embedded in `chair.glb` | **model-defined** (shipped 1:1) | 64×64 or 128×128 typical, 256×256 art target | none enforced | none: props always draw opaque | no | model `TEXCOORD_0`, normalized 0..1, clamped | hard 1024; uniform resize safe, repack is not |
+| Prop / entity texture | embedded in `chair.glb` | **model-defined** (shipped 1:1) | 256×256 native (the normal shipped size); 32/64/128 legal for lighter props | none enforced | none: props always draw opaque | no | model `TEXCOORD_0`, normalized 0..1, clamped | hard 1024 engine limit; uniform resize safe, repack is not |
 | Emissive mask | (none shipped) | **any**; must share the albedo's UV frame | ≤512 (Full budget) | none enforced | RGB sampled, alpha ignored | follows the albedo | same UV frame as the albedo | dimensions need not equal the albedo; a mask-only texture is exempt from the square-surface dimension test |
 | Level-pack texture | `textures/*.png` in a `.zip` pack | 1:1 for tiling surfaces | any | none enforced | per pack material | yes for surface materials | same surface UV rules | no tooling validates pack contents |
 | Diagnostic texture | `diagnostic_alt_01.png` | deliberately varied (96×64) | n/a | n/a | deliberately varied | n/a | not used by any shipped level | test artwork only |
@@ -590,8 +590,9 @@ The shipped toolkit organizes one square canvas per model into named *regions*:
   explicit pixel rectangles for hand-packed sheets (Spooner-Man);
 * region rectangles become UV fractions at build time and are baked into the
   GLB;
-* canvases are square and restricted by the tooling to 32, 64, 128 or 256 px
-  (Spooner-Man uses the 256 px maximum).
+* canvases are square and restricted by the tooling to 32, 64, 128 or 256 px;
+  **256 px is the normal native size**, and the refreshed domestic pack ships
+  at it.
 
 There is no shared cross-model atlas. Two models may embed byte-identical
 sheets (the three pool curtain models share one, as do the three guardrail
@@ -600,14 +601,29 @@ members must be rebuilt, or the family visibly drifts.
 
 ### 8.4 Resolution policy
 
+The pipeline distinguishes three sizes:
+
+```text
+source / master artwork        (optional, e.g. 512x512 or 1024x1024,
+        |                       kept beside the model as an authoring source)
+        v
+asset build pipeline           (tools/props: embeds the native runtime sheet;
+        |                       refuses to ship above the native size)
+        v
+normal runtime texture         256x256 native
+```
+
 | Property | Value |
 |---|---|
 | Aspect ratio | model-defined; shipped models use square sheets, but the loader accepts any shape up to 1024² |
-| Shipped sizes | 64×64 (12 models), 128×128 (18), 256×256 (Spooner-Man) |
-| Art target | 256 px edge (`PROP_TEXTURE_PREFERRED_SIZE`); larger loads but warns |
+| Native size | **256×256** is the normal shipped prop texture size (`PROP_TEXTURE_NATIVE_SIZE`); 32/64/128 remain legal for lighter props |
+| Shipped sizes | 64×64 (8 models), 128×128 (16), 256×256 (9, including the refreshed domestic props and Spooner-Man) |
+| Higher resolutions | The engine accepts embedded prop images up to 1024 px per edge (`MAX_PROP_TEXTURE_SIZE`) and downscales them to the active profile budget; no shipped atlas uses more than the native 256 because Full never samples a prop sheet above it |
 | Hard maximum | 1024 px per edge (parser rejects the model above it) |
-| Runtime budget | Full uploads prop sheets at ≤256; Low at ≤128 (`TextureClass::Prop`); downscaling preserves aspect via one integer factor |
-| Practical guidance | authoring above 256 gains nothing under Full; 64–128 is the visual language for props |
+| Runtime budget | Full uploads prop sheets at ≤256 unchanged; Low at ≤128 (`TextureClass::Prop`); downscaling preserves aspect via one integer factor |
+| Pack budget | 64 MiB decoded RGBA8 for the whole shipped pack (`PROP_TEXTURE_PACK_BUDGET_BYTES`); the current 33-prop pack is under 4 MiB |
+| Decoded memory | `width × height × 4` bytes per image (RGBA8), summed over a model for `texture_bytes`; the surface class additionally caps one sheet at `MAX_SURFACE_TEXTURE_BYTES` (4 MiB) |
+| Practical guidance | 256×256 is ordinary content, not a special high-quality variant; authoring above 256 only spends GLB bytes that no profile displays |
 
 ### 8.5 Materials, alpha and emissive maps
 
@@ -884,6 +900,13 @@ edge budget per texture class:
   integer-factor box filter that applies the same factor to both edges, so
   aspect ratio is preserved (up to per-edge rounding).
 * The result is cached with the texture; nothing is rescaled per frame.
+* **Full is the native presentation.** A 256×256 prop sheet and a 1024×1024
+  surface upload unchanged; Full never resamples an asset that already sits
+  within its class budget.
+* Low is an optional quality/performance reduction, not a hardware
+  requirement: it halves the native prop sheet (256 → 128) and quarters the
+  sheets. It must never dictate the size of the asset stored in the
+  repository.
 * Both profiles use the same assets, ids, levels and geometry. Low is not a
   second art library. **Never author a separate low-resolution asset set.**
 * No image class bypasses the budget. The font atlas, the decals' internal
@@ -900,10 +923,13 @@ any higher-resolution presentation without re-authoring. Low derives its 256 px
 image from the same source. Replacing a 1024×1024 sheet with a 256×256 sheet
 would visibly lower Full quality.
 
-Prop sheets are the opposite case: the engine never displays more than 256 px
-of a prop texture even at Full, so authoring prop art above 256 (up to the
-hard 1024) is wasted detail — the hard limit exists for correctness, not as a
-target.
+Prop sheets are the opposite case: the native size is 256×256, and Full
+uploads it unchanged. The engine can still read a third-party GLB with images
+up to 1024 px, but it downscales them to the profile budget, so the toolkit
+refuses to *ship* embedded prop art above the native size rather than spend GLB
+bytes on pixels no profile displays. Larger master artwork may be kept beside
+the model (like `table.png`, which is the 256×256 source of `table.glb`) for
+future quality work; the hard limit exists for correctness, not as a target.
 
 ### 14.3 Hard limits
 
@@ -930,7 +956,7 @@ target.
 | Round downlight | 1:1, POT | 128×128 shipped; 512×512 for density | 1024 |
 | Wall luminaire | 2:1, POT | 128×64 shipped; 512×256 for density | 1024 |
 | Decal sheet | POT both edges, cut-out alpha | 128×128 small; 1024×1024 hero | 1024 |
-| Prop texture | model UV layout, no tiling | 64–128 typical; 256 art target | 1024 |
+| Prop texture | model UV layout, no tiling | 256×256 native (the normal shipped size) | 1024 |
 | Emissive mask | same UV frame as albedo | ≤512 | 1024 |
 | Editor thumbnail | 64×64 | 64×64 | — |
 
@@ -966,7 +992,7 @@ should be a deliberate decision.
 * Environment surfaces: 1024×1024.
 * Core sheets: 1024×1024 in the current production set; the deterministic
   painters emit 128×128, which remains contract-valid.
-* Prop sheets: 64–128 typical, 256 art target.
+* Prop sheets: the native 256×256; 32/64/128 stay legal for lighter props.
 * Decals: 128×128 small markings, 1024×1024 hero signage.
 * Fixture faces: the current shipped sizes (1024×512, 128×128, 128×64).
 
@@ -1226,7 +1252,8 @@ repository):
 | NO DIVING sign: 1024², RGBA, transparent pixel | `tests/test_package.py` | same | yes |
 | Prop GLB: container parses, one mesh, `TEXCOORD_0` present | `tools/props/build.py --check` | `python3 tools/props/build.py --check` | yes (exit 1) for a missing or unparseable model; budgets, UV range and scale/origin are not evaluated here |
 | Prop GLB: UVs 0..1, triangle/vertex/texture budgets, scale/origin, PNG ≤1024 | Rust `props::tests`; runtime parser | `cargo test` | yes |
-| Prop art budgets (triangles, texture edges) | Rust `props::tests::shipped_prop_assets_match_the_catalogue_and_budgets` | `cargo test` | yes |
+| Prop art budgets (triangles, native 256 px texture, 64 MiB decoded pack budget) | Rust `props::tests::shipped_prop_assets_match_the_catalogue_and_budgets` and its policy tests | `cargo test` | yes |
+| Prop GLB decoded texture memory (per-texture and pack total) | `tools/props/build.py --check` | `python3 tools/props/build.py --check` | yes (exit 1) |
 | Editor thumbnails exist for every prop | Node test `level-editor/tests/prop-assets.test.mjs` | `cd level-editor && npm test` | yes |
 | Model textures: embedded PNG only, ≤1024, UV bounds | `src/gltf.rs` parser (runtime) + `cargo test` | game run / `cargo test` | fallback box / test failure |
 
@@ -1297,21 +1324,22 @@ without checking the implementation.
    `tools/textures/seam_repair.py` explicitly refuses interlaced input, so an
    interlaced tiling-sheet replacement fails the Python gate even if the Rust
    decoder handles Adam7 correctly.
-9. **The prop toolkit has stale size wording.** `tools/props/mesh.py` and
-   `tools/props/tex.py` still describe 128 px as the pack maximum, while 256
-   is allowed and used (Spooner-Man), and `tools/props/build.py`'s preferred
-   report constant (128) disagrees with the engine's art target (256). Neither
-   affects runtime behaviour.
+9. **The rug atlas layout is pinned to the delivered 256×256 artwork.**
+   `build_rug` uses explicit pixel regions (face rows 0–168, binding rows
+   172–255) and requires the native 256×256 sheet; the other refreshed builders
+   accept any legal 32/64/128/256 atlas. Resizing the rug atlas requires
+   updating those regions, or the fitted UVs move.
 10. **Prop textures and the repository texture policy.** The repository rule
     says textures live as real PNG files under `assets/`; prop textures are
     committed as PNG byte streams inside their GLB instead. The asset
     documentation treats this as a deliberate exception (§8.1). A strict
     reading of the policy is not satisfied, but the design is intentional.
-11. **No minimum sizes and no per-class maximum below the global 1024.**
-    A 16×16 surface sheet passes the dimension tests; a catalogued prop whose
-    embedded texture exceeds 256 px fails the props art-budget test
-    (`src/props/tests.rs`), but no such cap exists for surfaces or decals
-    below 1024. Art direction is the only guard for the rest.
+11. **No minimum sizes and no per-class maximum below the global 1024, and the
+    pack budget is aggregate.** A 16×16 surface sheet passes the dimension
+    tests; the prop toolkit refuses to ship an embedded atlas above the native
+    256×256 and the Rust props test enforces both that and the 64 MiB decoded
+    pack budget, but a single pathological sheet below the global 1024 edge cap
+    is otherwise unconstrained. Art direction is the only guard for the rest.
 12. **Shipped fixture dimensions are pinned by a Rust test.** The loader test
     `test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog` asserts
     the exact dimensions of the three shipped fixture sheets and that every

@@ -14,8 +14,9 @@
 use super::*;
 use crate::gltf::{PropSubmesh, PropVertex};
 use crate::level::{
-    MAX_PROP_TEXTURE_SIZE, MAX_PROP_TRIANGLES, MAX_PROP_VERTICES, PROP_TEXTURE_PREFERRED_SIZE,
-    PROP_TRIANGLE_BUDGET, PROP_TRIANGLE_REVIEW, PROP_TRIANGLE_TARGET,
+    MAX_PROP_TEXTURE_BYTES, MAX_PROP_TEXTURE_SIZE, MAX_PROP_TRIANGLES, MAX_PROP_VERTICES,
+    PROP_TEXTURE_NATIVE_SIZE, PROP_TEXTURE_PACK_BUDGET_BYTES, PROP_TRIANGLE_BUDGET,
+    PROP_TRIANGLE_REVIEW, PROP_TRIANGLE_TARGET,
 };
 use crate::loader::{PropCatalog, RawImage};
 use crate::materials::MaterialEmission;
@@ -78,7 +79,7 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
         assert!(model.triangles > 0, "{}: model has no triangles", entry.id);
         assert!(
             model.triangles <= MAX_PROP_TRIANGLES,
-            "{}: model has {} triangles; the PocketCHIP hard ceiling is {MAX_PROP_TRIANGLES}",
+            "{}: model has {} triangles; the engine hard ceiling is {MAX_PROP_TRIANGLES}",
             entry.id,
             model.triangles
         );
@@ -96,7 +97,15 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
         for texture in &model.textures {
             assert!(
                 texture.width <= MAX_PROP_TEXTURE_SIZE && texture.height <= MAX_PROP_TEXTURE_SIZE,
-                "{}: texture is {}x{}; the PocketCHIP asset limit is {MAX_PROP_TEXTURE_SIZE}x{MAX_PROP_TEXTURE_SIZE}",
+                "{}: texture is {}x{}; the engine texture limit is {MAX_PROP_TEXTURE_SIZE}x{MAX_PROP_TEXTURE_SIZE}",
+                entry.id,
+                texture.width,
+                texture.height
+            );
+            assert!(
+                crate::assets::decoded_rgba_bytes(texture.width, texture.height)
+                    <= MAX_PROP_TEXTURE_BYTES,
+                "{}: texture is {}x{}, over the {MAX_PROP_TEXTURE_BYTES}-byte decoded engine ceiling",
                 entry.id,
                 texture.width,
                 texture.height
@@ -117,9 +126,9 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
         );
         for texture in &model.textures {
             assert!(
-                texture.width <= PROP_TEXTURE_PREFERRED_SIZE
-                    && texture.height <= PROP_TEXTURE_PREFERRED_SIZE,
-                "{}: texture is {}x{}, above the {PROP_TEXTURE_PREFERRED_SIZE}px art budget",
+                texture.width <= PROP_TEXTURE_NATIVE_SIZE
+                    && texture.height <= PROP_TEXTURE_NATIVE_SIZE,
+                "{}: texture is {}x{}, above the {PROP_TEXTURE_NATIVE_SIZE}px native prop size",
                 entry.id,
                 texture.width,
                 texture.height
@@ -222,15 +231,13 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
         "the pack totals {total_triangles} triangles across {} props; investigate the outliers",
         entries.len()
     );
-    // Every prop may ship a preferred-size 128x128 texture (64 KiB decoded);
-    // the pack-wide budget is that cap for the whole catalogue, so the
-    // number scales with the content set instead of being a magic constant.
-    let texture_budget = entries.len() * 128 * 128 * 4;
+    // Whole-pack decoded-memory budget: a desktop-scale cap that holds 256
+    // native 256x256 sheets, so the shipped pack's texture quality is never a
+    // function of how many props happen to be catalogued together.
     assert!(
-        total_texture_bytes <= texture_budget,
-        "decoded prop textures total {total_texture_bytes} bytes; the pack budget for {} \
-         props at 128x128 is {texture_budget} bytes",
-        entries.len()
+        !pack_texture_budget_exceeded(total_texture_bytes),
+        "decoded prop textures total {total_texture_bytes} bytes, over the \
+         {PROP_TEXTURE_PACK_BUDGET_BYTES}-byte desktop pack budget"
     );
 
     let stats = assets.stats();
@@ -252,7 +259,8 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
     );
     println!(
         "budget: target {PROP_TRIANGLE_TARGET} triangles/prop, review above {PROP_TRIANGLE_REVIEW}, \
-         hard ceiling {MAX_PROP_TRIANGLES}; textures <= {MAX_PROP_TEXTURE_SIZE}px"
+         hard ceiling {MAX_PROP_TRIANGLES}; native texture {PROP_TEXTURE_NATIVE_SIZE}px \
+         (engine max {MAX_PROP_TEXTURE_SIZE}px, pack budget {PROP_TEXTURE_PACK_BUDGET_BYTES} bytes)"
     );
 }
 
@@ -328,6 +336,21 @@ fn texture_bytes_sums_every_texture_in_the_model() {
     assert_eq!(texture_bytes(&synthetic_model(1, &[])), 0);
 }
 
+/// 256x256 is the normal native prop texture, not an over-budget asset.
+#[test]
+fn a_native_256_prop_texture_is_unremarkable() {
+    assert_eq!(
+        art_budget_warning(&synthetic_model(100, &[(256, 256)])),
+        None,
+        "a native 256px prop texture must not warn"
+    );
+    assert_eq!(
+        texture_bytes(&synthetic_model(100, &[(256, 256)])),
+        256 * 256 * 4,
+        "a native sheet decodes to exactly its RGBA8 buffer"
+    );
+}
+
 #[test]
 fn art_budget_warnings_name_the_broken_budget_and_never_fail_a_load() {
     assert_eq!(
@@ -339,11 +362,8 @@ fn art_budget_warnings_name_the_broken_budget_and_never_fail_a_load() {
         .expect("over-budget triangles warn");
     assert!(warning.contains("triangles"), "{warning}");
 
-    let warning = art_budget_warning(&synthetic_model(
-        100,
-        &[(PROP_TEXTURE_PREFERRED_SIZE + 1, 8)],
-    ))
-    .expect("oversized textures warn");
+    let warning = art_budget_warning(&synthetic_model(100, &[(PROP_TEXTURE_NATIVE_SIZE + 1, 8)]))
+        .expect("textures above the native size warn");
     assert!(warning.contains("texture"), "{warning}");
 
     let mut assets = PropAssets::default();
@@ -353,5 +373,45 @@ fn art_budget_warnings_name_the_broken_budget_and_never_fail_a_load() {
         assets.reported_budget_warnings.len(),
         1,
         "a model warns exactly once no matter how often it resolves"
+    );
+}
+
+/// A normal collection of native 256x256 sheets fits the desktop budget with
+/// years of headroom: the eight refreshed domestic props together use 2 MiB
+/// against a 64 MiB pack budget.
+#[test]
+fn a_normal_256_collection_fits_the_desktop_pack_budget_with_headroom() {
+    let native_props = 8usize;
+    let collection = native_props * 256 * 256 * 4;
+    assert_eq!(
+        collection,
+        2 * 1024 * 1024,
+        "the reference collection is 2 MiB"
+    );
+    assert!(
+        !pack_texture_budget_exceeded(collection),
+        "a handful of 256px props must be unremarkable"
+    );
+    assert!(
+        collection.saturating_mul(8) <= PROP_TEXTURE_PACK_BUDGET_BYTES,
+        "the reference collection must leave at least 8x headroom"
+    );
+}
+
+/// The pack budget still rejects pathological content: sixteen engine-max
+/// images are 64 MiB and one byte more is over budget.
+#[test]
+fn a_pathological_texture_pack_is_still_rejected() {
+    let engine_max =
+        crate::assets::decoded_rgba_bytes(MAX_PROP_TEXTURE_SIZE, MAX_PROP_TEXTURE_SIZE);
+    assert_eq!(engine_max, MAX_PROP_TEXTURE_BYTES);
+    assert_eq!(PROP_TEXTURE_PACK_BUDGET_BYTES, 64 * 1024 * 1024);
+    assert!(
+        pack_texture_budget_exceeded(PROP_TEXTURE_PACK_BUDGET_BYTES + 1),
+        "one byte over the pack budget must be rejected"
+    );
+    assert!(
+        !pack_texture_budget_exceeded(PROP_TEXTURE_PACK_BUDGET_BYTES),
+        "the budget itself must be accepted"
     );
 }

@@ -40,17 +40,30 @@ from mesh import PropBuilder  # noqa: E402
 # The shipped art budgets. These are deliberately tighter than the engine's
 # limits: the builder refuses to ship art over budget even though the runtime
 # accepts more. The engine ceilings live in src/level.rs
-# (PROP_TRIANGLE_BUDGET / PROP_TEXTURE_PREFERRED_SIZE name the same art budgets;
-# MAX_PROP_TRIANGLES is 6000 and MAX_PROP_TEXTURE_SIZE is 1024, downscaled at
-# runtime). Mirrored by the Rust budget suite (src/props/tests.rs) and the
-# editor tests.
+# (PROP_TRIANGLE_BUDGET / PROP_TEXTURE_NATIVE_SIZE / MAX_PROP_TEXTURE_SIZE name
+# the same art budgets: 1500 triangles and a 256 px native texture; the engine
+# accepts 6000 triangles and 1024 px textures, downscaled at runtime). Mirrored
+# by the Rust budget suite (src/props/tests.rs) and the editor tests.
 TRIANGLE_TARGET = 500
 TRIANGLE_REVIEW = 800
 TRIANGLE_ART_MAX = 1500
 TRIANGLE_ENGINE_MAX = 6000
-TEXTURE_PREFERRED_MAX = 128
-TEXTURE_ART_MAX = 256
+# 256x256 is the normal native prop texture size. A GLB embeds its runtime
+# atlas, and Full already samples prop sheets at 256, so shipping embedded art
+# above the native size would spend GLB bytes on pixels no profile displays.
+# Source/master artwork may still be kept larger beside the model for future
+# quality work; the renderer itself accepts GLB images up to 1024 and
+# downscales them to the active profile budget (Full 256, Low 128).
+TEXTURE_NATIVE_MAX = 256
 TEXTURE_ENGINE_MAX = 1024
+# Decoded RGBA8 memory one shipped prop texture may embed: one engine-max
+# image. Larger dimensions are rejected before they can allocate.
+TEXTURE_DECODED_MAX = TEXTURE_ENGINE_MAX * TEXTURE_ENGINE_MAX * 4
+# Whole-pack decoded RGBA8 budget. Deliberately desktop-scale: 64 MiB holds
+# 256 native 256x256 sheets (the whole current pack is under 4 MiB), which
+# leaves years of content growth before it binds, while still catching a
+# pathological or accidentally duplicated multi-gigabyte set.
+PACK_TEXTURE_MEMORY_MAX = 64 * 1024 * 1024
 
 # Asset types the toolkit can build: entities place through the same pipeline.
 PLACEABLE_TYPES = ("prop", "entity")
@@ -101,10 +114,10 @@ def build_one(entry: dict, build_fn) -> dict:
             f"{prop_id} has {triangles} triangles; the shipped art budget is {TRIANGLE_ART_MAX} "
             f"(target {TRIANGLE_TARGET}; the engine accepts up to {TRIANGLE_ENGINE_MAX})"
         )
-    if builder.tex.width > TEXTURE_ART_MAX:
+    if builder.tex.width > TEXTURE_NATIVE_MAX or builder.tex.height > TEXTURE_NATIVE_MAX:
         raise SystemExit(
-            f"{prop_id} texture is {builder.tex.width}x{builder.tex.height}; "
-            f"the shipped art budget is {TEXTURE_ART_MAX}x{TEXTURE_ART_MAX} "
+            f"{prop_id} texture is {builder.tex.width}x{builder.tex.height}; the shipped native "
+            f"atlas is {TEXTURE_NATIVE_MAX}x{TEXTURE_NATIVE_MAX} "
             f"(the engine accepts up to {TEXTURE_ENGINE_MAX} and downscales at runtime)"
         )
 
@@ -122,6 +135,7 @@ def build_one(entry: dict, build_fn) -> dict:
         "triangles": triangles,
         "vertices": builder.mesh.vertex_count,
         "texture": [builder.tex.width, builder.tex.height],
+        "decoded_texture_bytes": builder.tex.width * builder.tex.height * 4,
         "bytes": len(payload),
         "bounds_min": [round(value, 3) for value in low],
         "bounds_max": [round(value, 3) for value in high],
@@ -178,11 +192,29 @@ def main(argv: List[str] | None = None) -> int:
                 continue
             low, high = mesh.bounds()
             pixels = None
+            decoded = 0
             if mesh.texture_png.startswith(b"\x89PNG"):
                 import struct as _struct
 
                 width, height = _struct.unpack(">II", mesh.texture_png[16:24])
                 pixels = [width, height]
+                decoded = width * height * 4
+                if width > TEXTURE_ENGINE_MAX or height > TEXTURE_ENGINE_MAX:
+                    failures.append(
+                        f"{entry['id']}: embedded texture is {width}x{height}, over the "
+                        f"engine {TEXTURE_ENGINE_MAX}px limit"
+                    )
+                elif decoded > TEXTURE_DECODED_MAX:
+                    failures.append(
+                        f"{entry['id']}: embedded texture decodes to {decoded} bytes, over the "
+                        f"{TEXTURE_DECODED_MAX}-byte per-texture ceiling"
+                    )
+                elif width > TEXTURE_NATIVE_MAX or height > TEXTURE_NATIVE_MAX:
+                    print(
+                        f"warning: {entry['id']}: embedded texture is {width}x{height}, above the "
+                        f"{TEXTURE_NATIVE_MAX}px native size; Full will downsample it to "
+                        f"{TEXTURE_NATIVE_MAX}"
+                    )
             report.append(
                 {
                     "id": entry["id"],
@@ -191,12 +223,19 @@ def main(argv: List[str] | None = None) -> int:
                     "triangles": mesh.triangle_count,
                     "vertices": len(mesh.positions),
                     "texture": pixels,
+                    "decoded_texture_bytes": decoded,
                     "bytes": len(data),
                     "bounds_min": [round(value, 3) for value in low],
                     "bounds_max": [round(value, 3) for value in high],
                     "parts": [],
                     "notes": [],
                 }
+            )
+        pack_decoded = sum(item["decoded_texture_bytes"] for item in report)
+        if pack_decoded > PACK_TEXTURE_MEMORY_MAX:
+            failures.append(
+                f"the pack's decoded prop textures total {pack_decoded} bytes, over the "
+                f"{PACK_TEXTURE_MEMORY_MAX}-byte desktop pack budget"
             )
         _print_report(report)
         for failure in failures:
@@ -274,6 +313,7 @@ def _print_report(report: List[dict]) -> None:
     print("-" * len(header))
     total_tris = 0
     total_bytes = 0
+    total_decoded = 0
     for item in sorted(report, key=lambda entry: entry["id"]):
         texture = item["texture"]
         tex_label = f"{texture[0]}x{texture[1]}" if texture else "n/a"
@@ -288,16 +328,18 @@ def _print_report(report: List[dict]) -> None:
         )
         total_tris += item["triangles"]
         total_bytes += item["bytes"]
+        total_decoded += item.get("decoded_texture_bytes", 0)
     print("-" * len(header))
     print(
         f"{'total':<24}{total_tris:>6}{'':>7}{'':>10}{total_bytes / 1024.0:>8.1f}k  "
-        f"({len(report)} props)"
+        f"({len(report)} props, {total_decoded / 1024.0:.1f} KiB decoded RGBA)"
     )
     print(
         f"budget: {TRIANGLE_TARGET} triangles preferred, {TRIANGLE_REVIEW} review, "
         f"{TRIANGLE_ART_MAX} shipped art max (engine {TRIANGLE_ENGINE_MAX}); "
-        f"texture max {TEXTURE_PREFERRED_MAX} preferred / {TEXTURE_ART_MAX} shipped art "
-        f"(engine {TEXTURE_ENGINE_MAX}, downscaled at runtime)"
+        f"texture native {TEXTURE_NATIVE_MAX}x{TEXTURE_NATIVE_MAX} "
+        f"(engine {TEXTURE_ENGINE_MAX}, Full samples {TEXTURE_NATIVE_MAX} / Low 128); "
+        f"pack decoded memory <= {PACK_TEXTURE_MEMORY_MAX // (1024 * 1024)} MiB"
     )
 
 

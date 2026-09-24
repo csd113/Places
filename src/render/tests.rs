@@ -371,6 +371,23 @@ fn the_renderers_white_sheet_loads_from_the_committed_catalog_asset() {
     }
 }
 
+/// The empty-install fallback is the same committed PNG, not a second source.
+///
+/// A compiled install with no `assets/` decodes the embedded copy of
+/// `assets/core/textures/white_01.png` so the renderer can start; this pins the
+/// two to the same pixels so the fallback can never drift from the catalog
+/// asset or become a code-generated fill.
+#[test]
+fn the_embedded_white_sheet_matches_the_committed_catalog_png() {
+    let embedded = crate::loader::decode_png(super::renderer::WHITE_SHEET_PNG)
+        .expect("the embedded white sheet must decode");
+    let loaded = super::renderer::load_white_sheet().expect("the catalog white sheet must load");
+    assert_eq!(
+        embedded, loaded,
+        "the embedded fallback must be the committed white sheet"
+    );
+}
+
 /// Mean and nearest-rank p95 of a sample, sorted in place.
 fn seam_distribution(values: &mut [f32]) -> (f32, f32) {
     if values.is_empty() {

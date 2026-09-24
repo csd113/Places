@@ -6,8 +6,9 @@
 //! its happy path. They cover the pathological inputs a community level can
 //! legitimately contain (huge rooms, dense fixture grids, overlapping rooms,
 //! doorways, vertically offset props) as well as the malformed-but-parseable
-//! ones, and they measure the level-build cost of representative levels on the
-//! PocketCHIP-class budget (Mali-400/Lima, GLES2, ~512 MB).
+//! ones, and they measure the level-build cost of representative levels against
+//! the historical PocketCHIP-class budget (Mali-400/Lima, GLES2, ~512 MB),
+//! retained as a conservative performance floor for the desktop game.
 //!
 //! The benchmark half prints a compact table with
 //! `cargo test --release -- --nocapture lighting_benchmark_report`.
@@ -610,8 +611,8 @@ fn lighting_benchmark_report() {
 
     // A dense synthetic prop level batches per (model, spatial cell) so the
     // frustum can reject whole cells. Five models spread over a level this size
-    // must still collapse into a coarse, PocketCHIP-friendly draw budget rather
-    // than one draw per instance.
+    // must still collapse into a coarse draw budget rather than one draw per
+    // instance.
     let prop_row = rows
         .iter()
         .find(|row| row.name == "F Prop heavy")

@@ -856,7 +856,7 @@ class PropBuilder:
         self.notes.append(text)
 
     def set_texture(self, size: int, seed: int | None = None) -> Texture:
-        """Replaces the canvas before any painting (128 is the pack maximum)."""
+        """Replaces the canvas before any painting (256 is the native maximum)."""
         self.tex = Texture(size, seed=seed if seed is not None else _stable_seed(self.id))
         return self.tex
 

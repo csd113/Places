@@ -1,10 +1,10 @@
 //! Static baked interior lighting.
 //!
-//! The game targets a `PocketCHIP` (Mali-400/Lima, OpenGL ES 2.0, 480x272), so
-//! there is no dynamic lighting anywhere in the render loop. Everything in this
-//! module tree runs once per level load, producing one [`LightColor`] per
-//! sampled point that the geometry builder bakes into ordinary vertex colours,
-//! one channel at a time:
+//! Places ships as a desktop game, but its lighting discipline grew up on a
+//! `PocketCHIP` (Mali-400/Lima, OpenGL ES 2.0, 480x272): there is no dynamic
+//! lighting anywhere in the render loop. Everything in this module tree runs
+//! once per level load, producing one [`LightColor`] per sampled point that the
+//! geometry builder bakes into ordinary vertex colours, one channel at a time:
 //!
 //! ```text
 //! load level

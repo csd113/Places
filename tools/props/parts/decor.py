@@ -227,9 +227,14 @@ def build_rug(p: PropBuilder) -> None:
     """Rug: one thin box; the weave, border and wear are all painted."""
     size = p.size  # [2.0, 0.02, 1.4]
     tex = load_atlas(p, "rug", ())
-    # The delivered artwork's bound rug occupies the upper 84 rows.
-    tex.region("top", (0, 0, 128, 84))
-    tex.region("edge", (0, 86, 128, 42))
+    if (tex.width, tex.height) != (256, 256):
+        raise ValueError("rug.png must be the delivered 256x256 woven atlas")
+    # The delivered artwork's bound rug occupies the upper 169 rows of the
+    # native 256 px atlas; the binding/backing occupies the bottom 84 rows
+    # (172-255), with a narrow gutter between the two. The historical 128 px
+    # atlas used 84/42 rows; the native atlas is the size that ships.
+    tex.region("top", (0, 0, 256, 169))
+    tex.region("edge", (0, 172, 256, 84))
     field = border = (255, 255, 255)
 
     # --- geometry -----------------------------------------------------------

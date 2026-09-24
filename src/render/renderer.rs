@@ -1154,27 +1154,38 @@ impl StartupResources {
 /// under the same validators as every other shipped texture.
 const WHITE_SHEET_ID: &str = "core:tex_white_01";
 
-/// Loads the shared untextured white sheet from its catalog PNG.
+/// The same committed PNG, compiled in so a fresh install with no asset tree
+/// can still bring the renderer up.
+///
+/// This is a reference to the real `assets/core/textures/white_01.png` bytes,
+/// not imagery generated in code: the file-backed policy still holds, and the
+/// catalog copy is preferred whenever one resolves. The embedded copy exists
+/// only because the smoke-tested empty install (binary alone, no `assets/`)
+/// must boot the embedded demo with every sampler holding a complete texture.
+pub(super) const WHITE_SHEET_PNG: &[u8] = include_bytes!("../../assets/core/textures/white_01.png");
+
+/// Loads the shared untextured white sheet.
 ///
 /// The renderer binds this sheet to fixture housings, plain body geometry and
 /// every texture slot that has nothing better to show, so it is loaded once at
-/// startup like the font atlas. A failure is fatal: every world program
-/// declares texture samplers that must always hold a complete texture, and the
-/// white sheet is what each empty slot is bound to.
+/// startup like the font atlas. The catalog's file-backed PNG is the canonical
+/// source; when no asset root or catalog entry resolves, the embedded copy of
+/// that same PNG is decoded instead, so a compiled install with no asset tree
+/// still boots. A malformed catalog sheet is still fatal: an install that
+/// *does* ship assets must not silently substitute for a broken one.
 ///
 /// # Errors
 ///
-/// Returns a message when no asset root exists, the catalog does not declare
-/// the white sheet, or its PNG cannot be read or decoded.
+/// Returns a message when the white sheet PNG cannot be read or decoded.
 pub(super) fn load_white_sheet() -> Result<crate::loader::RawImage, String> {
-    let catalog = shipped_asset_catalog();
-    let path = catalog
-        .texture_path(WHITE_SHEET_ID)
-        .ok_or_else(|| format!("`{WHITE_SHEET_ID}` is not a file-backed texture in the catalog"))?;
-    let root = crate::assets::resolve_asset_root()
-        .ok_or_else(|| "no asset root found; cannot load the shared white sheet".to_string())?;
-    crate::materials::load_png_relative(&root, path)
-        .map_err(|error| format!("`{WHITE_SHEET_ID}`: {error}"))
+    if let Some(path) = shipped_asset_catalog().texture_path(WHITE_SHEET_ID)
+        && let Some(root) = crate::assets::resolve_asset_root()
+    {
+        return crate::materials::load_png_relative(&root, path)
+            .map_err(|error| format!("`{WHITE_SHEET_ID}`: {error}"));
+    }
+    crate::loader::decode_png(WHITE_SHEET_PNG)
+        .map_err(|error| format!("`{WHITE_SHEET_ID}` (embedded): {error}"))
 }
 
 /// Creates the optional post-processing pipeline for the default profile.
@@ -1560,8 +1571,8 @@ impl Renderer {
     ///
     /// The caller uploads the first level with [`Renderer::set_level`] (or
     /// [`Renderer::rebuild_level_geometry`]); building here as well would bake
-    /// and upload the same level twice before the first frame, which is real
-    /// cost on the `PocketCHIP`.
+    /// and upload the same level twice before the first frame, wasting real
+    /// startup time.
     /// # Errors
     ///
     /// Returns a message when the GL context is missing, the shader program does

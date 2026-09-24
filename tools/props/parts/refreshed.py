@@ -12,8 +12,17 @@ from tex import decode_png
 def load_atlas(p, name, regions):
     source = Path(__file__).resolve().parents[3] / "assets/core/props/models" / (name + ".png")
     width, height, pixels = decode_png(source.read_bytes())
-    if (width, height) != (128, 128) or any(a != 255 for a in pixels[3::4]):
-        raise ValueError(f"{source.name} must be an opaque 128x128 atlas")
+    # 256x256 is the normal native prop-atlas size; 32/64/128 remain legal for
+    # lighter props. The runtime decoder accepts up to 1024 and downscales to
+    # the active quality profile, but shipping art above the native size only
+    # wastes GLB bytes because Full samples prop sheets at 256.
+    if (width, height) not in ((32, 32), (64, 64), (128, 128), (256, 256)) or any(
+        a != 255 for a in pixels[3::4]
+    ):
+        raise ValueError(
+            f"{source.name} must be an opaque square 32/64/128/256 px atlas "
+            f"(found {width}x{height})"
+        )
     tex = p.set_texture(width)
     tex.pixels[:] = pixels
     if regions:
