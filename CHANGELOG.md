@@ -1,3 +1,18 @@
+## 0.7.0 — 2026-09-23
+
+Final pre-wgpu baseline release. This preserves the last validated Places
+OpenGL/GLES2 renderer state before the desktop renderer modernization begins.
+
+### Baseline
+
+- `docs/renderer-baseline/BASELINE.md` records the renderer, validation results,
+  known existing imperfections and reproduction commands.
+- `docs/renderer-baseline/high/` and `docs/renderer-baseline/low/` contain the
+  canonical 25-view Places Demo reference captures for the Full and Low quality
+  profiles.
+- No wgpu migration, renderer alteration, cleanup or gameplay work is included
+  in this release.
+
 ## Unreleased — Settings, display and runtime configuration
 
 Places now starts like a desktop game and its pause-menu Settings screen is the
