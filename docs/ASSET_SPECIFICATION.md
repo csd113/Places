@@ -652,7 +652,7 @@ normal runtime texture         256x256 native
 * **Do not exceed 1024 px** on either edge; the whole model fails if you do.
 * The repository's regeneration path is the toolkit:
   `python3 tools/props/build.py --only <id>` (or
-  `python3 tools/generate_spooner_man.py`). It validates UV bounds, scale,
+  `python3 tools/props/generate_spooner_man.py`). It validates UV bounds, scale,
   origin, triangle and texture budgets, and writes
   `assets/prop_proxies.json`. Refresh editor thumbnails with `--thumbs`
   afterwards.
@@ -1408,7 +1408,7 @@ Regeneration paths (only when intentionally changing artwork):
 ```sh
 python3 tools/textures/build.py [--only <id>] [--force --only <id>]   # surface/decal/fixture PNGs
 python3 tools/props/build.py [--only <id>] [--thumbs]                 # prop GLBs + editor thumbnails
-python3 tools/generate_spooner_man.py                                 # the entity
+python3 tools/props/generate_spooner_man.py                           # the entity
 ```
 
 Per §2, regeneration never replaces shipped artwork whose dimensions differ

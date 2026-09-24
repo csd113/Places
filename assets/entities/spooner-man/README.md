@@ -25,5 +25,5 @@ duplicate GLB and no second resolution path.
 
 The mesh, texture, materials, proportions, origin, rotation and placement
 behaviour were not touched. Regenerating the model is still possible with
-`python3 tools/generate_spooner_man.py` (the generator writes to the catalog
+`python3 tools/props/generate_spooner_man.py` (the generator writes to the catalog
 path).

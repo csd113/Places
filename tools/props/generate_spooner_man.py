@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Convenience wrapper: (re)generate the spooner-man prop asset.
 
-The real work lives in the pack's toolkit (`tools/props/`), so this script is a
-thin, deterministic entry point with the exact command the prop is documented
-with:
+The real work lives in the pack's toolkit this wrapper sits in (`tools/props/`),
+so this script is a thin, deterministic entry point with the exact command the
+prop is documented with:
 
-    python3 tools/generate_spooner_man.py
+    python3 tools/props/generate_spooner_man.py
 
 It builds `assets/entities/spooner-man/model/spooner-man.glb` from the low-poly cat module
 (`tools/props/parts/spooner_man.py`), refreshes the derived editor proxy file
@@ -23,9 +23,9 @@ from __future__ import annotations
 import os
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-APP_ROOT = os.path.abspath(os.path.join(HERE, ".."))
-PROPS_TOOL = os.path.join(APP_ROOT, "tools", "props")
+# The wrapper lives beside the toolkit it drives, so the import path is its own
+# directory; `build.py` resolves the repository root from its own location.
+PROPS_TOOL = os.path.dirname(os.path.abspath(__file__))
 
 
 def main() -> int:

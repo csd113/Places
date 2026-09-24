@@ -6,12 +6,13 @@ artifacts are generated locally and **never committed**: `target/` and the
 result directories are ignored, so re-running a suite is the way to reproduce
 a number, not a file in the repository.
 
-The current workflow is four tools plus one capture script:
+The current workflow is four tools plus two capture scripts:
 
 | tool | what it does |
 | --- | --- |
 | `bench_local.py` | repeats one benchmark configuration and prints min/median/max per field |
 | `capture_views.sh` | renders the fixed validation view set, one PNG per view |
+| `capture_baseline_views.sh` | renders the canonical pre-wgpu baseline view set in the High and Low profiles |
 | `visual_check.py` | decodes two capture sets and reports per-shot pixel differences |
 | `lightmap_report.py` | runs the bake/lighting shot list and writes a `report.json` |
 | `check_holes.py` | counts near-black pixels in captures, to catch holes in a level shell |
@@ -84,6 +85,29 @@ LIMINAL_BIN=target/agent-work/baseline/target/release/liminal-rust \
 The suffix accumulates in the order low / direct / nobloom / norefl, so a
 comparison run never overwrites the reference capture.
 
+## Canonical renderer baseline
+
+`capture_baseline_views.sh` renders the smaller, curated view set that is the
+permanent pre-wgpu reference for the renderer migration, in both quality
+profiles at once. It owns its view table, a pinned `settings.json` under
+`target/renderer-baseline-state/` (a 640x360 logical window, which is a
+1280x720 drawable on a 2x display) and writes `<name>.png` plus `manifest.txt`
+per profile:
+
+```sh
+sh tools/bench/capture_baseline_views.sh                        # -> docs/renderer-baseline/{high,low}
+LIMINAL_QUALITY=low sh tools/bench/capture_baseline_views.sh    # one profile only
+LIMINAL_BIN=target/release/places-wgpu \
+    LIMINAL_CAPTURE_DIR=target/agent-work/wgpu-baseline \
+    sh tools/bench/capture_baseline_views.sh                    # a future renderer
+```
+
+The committed reference and its camera/settings manifest are documented in
+`docs/renderer-baseline/BASELINE.md`; that document is the authority on what
+each view exercises. `LIMINAL_QUALITY=full` and `LIMINAL_QUALITY=low` select one
+profile, and any other value is rejected. Delete the state root before a run to
+force a cold lightmap bake rather than reusing its cache.
+
 ## Visual regression
 
 `visual_check.py` drives the one-frame capture path from two builds over a fixed
@@ -95,11 +119,13 @@ extra geometry.
 
 ```sh
 python3 tools/bench/visual_check.py \
-    --baseline target/agent-work/baseline/liminal-rust \
-    --current  target/release/liminal-rust
+    --baseline "$PWD/target/agent-work/baseline/liminal-rust" \
+    --current  "$PWD/target/release/liminal-rust"
 ```
 
-`--out` selects where the captures and the staged package root live; the run
+Pass **absolute** binary paths: each capture runs with the staged package as its
+working directory, so a repository-relative path does not resolve. `--out`
+selects where the captures and the staged package root live; the run
 symlinks the shipped `assets/` and the `tests/fixtures/levels/` fixtures into it
 and points `LIMINAL_ASSET_ROOT` there, so the demo and the regression fixtures
 resolve without copying anything into the repository's own `levels/`.
@@ -112,9 +138,14 @@ telemetry over the bake/lighting shot list, parses the
 `[level]`/`[lighting]`/`[lightmaps]`/`[spatial]` developer lines and writes
 `report.json` beside the PNGs and per-frame CSVs.
 
+The parsed `[level]`/`[lighting]`/`[lightmaps]`/`[spatial]` lines are only
+emitted by a verbose run, so pass `--env LIMINAL_VERBOSE=1` to populate the
+report's metric fields; without it the report still captures every shot but its
+numbers are empty.
+
 ```sh
 # cold bake + captures for the standard shot list
-python3 tools/bench/lightmap_report.py --label full --cold
+python3 tools/bench/lightmap_report.py --label full --cold --env LIMINAL_VERBOSE=1
 
 # the exact vertex-lit control run (same build, lightmaps forced off)
 LIMINAL_NO_LIGHTMAPS=1 python3 tools/bench/lightmap_report.py --label vertex

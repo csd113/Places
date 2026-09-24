@@ -376,6 +376,7 @@ levels/              drop-in custom levels and level packs
 tools/               asset, texture, prop and level generators and validators
 level-editor/        the legacy browser level editor
 docs/screenshots/    the images in this README
+docs/renderer-baseline/  the fixed-view pre-wgpu renderer reference (High and Low)
 platforms/           historical PocketCHIP/Vitrallis packaging, not part of the desktop workflow
 ```
 
