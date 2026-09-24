@@ -16,6 +16,7 @@ use crate::lighting::lightmap::{
     LevelLightmaps, LightmapAtlas, LightmapCache, LightmapConfig, LightmapFailure, LightmapMode,
     LightmapPlan, LightmapStats, content_key_with_extra, fill_chart, write_page_png,
 };
+use crate::lighting::BakeConfig;
 
 /// Builds the level mesh with real prop geometry where possible, plus one
 /// batched draw per distinct prop model.
@@ -181,7 +182,15 @@ pub fn build_level_geometry_timed_with_lightmaps(
     mut cache: Option<&mut LightmapCache>,
 ) -> LevelBuild {
     let started = std::time::Instant::now();
-    let lighting = LevelLighting::bake(level);
+    // The vertex-lit mode is the *historical* path and must stay byte-identical
+    // to it, so it bakes with [`BakeConfig::HARD`] whatever profile is active: a
+    // soft-shadow, fine-occluder bake would change vertex colours that the
+    // fallback contract says are the historical ones.
+    let bake = match options.mode {
+        LightmapMode::On => options.profile.bake_config(),
+        LightmapMode::Off => BakeConfig::HARD,
+    };
+    let lighting = LevelLighting::bake_with(level, bake);
     let lighting_millis = elapsed_millis(started);
 
     let surfaces = LevelSurfaces::new(level);
@@ -210,20 +219,32 @@ pub fn build_level_geometry_timed_with_lightmaps(
     let mut lightmap_failure: Option<LightmapFailure> = None;
     let mut lightmap_millis = 0.0;
     if let Some(plan) = plan.as_ref() {
+        // Report invisible slivers the plan skipped: the level kept its whole
+        // lightmap, but the author should still know the geometry is there.
+        let slivers = plan.slivers_skipped();
+        if slivers > 0 {
+            crate::logging::warn_once(
+                format!("lightmap-slivers:{}", level.id),
+                format!(
+                    "[lightmaps] '{}' left {} sub-texel sliver quad(s) vertex-lit",
+                    level.id, slivers
+                ),
+            );
+        }
         if let Some(plan_failure) = plan.failure() {
             lightmap_failure = Some(plan_failure);
         } else {
             // The key covers the level definition, the lightmap config, the
-            // quality profile *and* the occluder set the bake actually uses, so
-            // a prop model or light change invalidates the cached atlas while a
-            // texture-only edit does not. See
-            // [`LevelLighting::occlusion_fingerprint`].
-            let key = content_key_with_extra(
-                level,
-                &options.config,
-                options.profile,
-                &lighting.occlusion_fingerprint().to_le_bytes(),
-            );
+            // quality profile, the *bake settings* (visibility taps and the
+            // prop-occlusion cell) and the occluder set the bake actually uses,
+            // so a prop model, a light or a shadow-quality constant change
+            // invalidates the cached atlas while a texture-only edit does not.
+            // See [`LevelLighting::occlusion_fingerprint`].
+            let mut extra: Vec<u8> = Vec::with_capacity(13);
+            extra.extend_from_slice(&lighting.occlusion_fingerprint().to_le_bytes());
+            extra.push(bake.sampling.taps_per_axis);
+            extra.extend_from_slice(&bake.prop_occlusion_cell_m.to_bits().to_le_bytes());
+            let key = content_key_with_extra(level, &options.config, options.profile, &extra);
             if let Some(cached) = cache.as_deref_mut().and_then(|cache| cache.get(&key)) {
                 lightmaps = Some(cached);
             }

@@ -9,12 +9,13 @@
     clippy::cast_sign_loss,
     clippy::expect_used,
     clippy::float_cmp,
+    clippy::format_push_string,
     clippy::indexing_slicing,
     clippy::panic,
     clippy::unwrap_used
 )]
 
-use super::{Chart, LightmapConfig, LightmapPatch, PatchKind, ShelfAllocator};
+use super::{Chart, LightmapConfig, LightmapMode, LightmapPatch, PatchKind, SkylineAllocator};
 
 /// A flat X/Z floor quad at `y`, from `(x0, z0)` to `(x1, z1)`, wound as a floor.
 fn floor_quad(x0: f32, z0: f32, x1: f32, z1: f32, y: f32) -> [[f32; 3]; 4] {
@@ -158,13 +159,13 @@ fn chart_uvs_stay_inside_the_chart() {
 }
 
 #[test]
-fn shelf_packing_is_deterministic_and_disjoint() {
+fn skyline_packing_is_deterministic_and_disjoint() {
     let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
     let patches: Vec<LightmapPatch> = (0..40)
         .map(|index| patch(1.0 + (index % 7) as f32, 0.5 + (index % 5) as f32))
         .collect();
     let pack = |patches: &[LightmapPatch]| {
-        let mut allocator = ShelfAllocator::new(config);
+        let mut allocator = SkylineAllocator::new(config);
         let charts: Vec<Chart> = patches
             .iter()
             .filter_map(|patch| allocator.allocate(patch))
@@ -208,12 +209,53 @@ fn shelf_packing_is_deterministic_and_disjoint() {
 }
 
 #[test]
+fn the_packer_places_at_the_lowest_free_position() {
+    // The bottom-left policy in one picture: a 32 x 32 page, an 8 x 16 tall
+    // chart first, then 8 x 8 short ones that fill the free row beside it and
+    // only then stack above it. A per-page shelf list would have had to start
+    // every following row below the tall chart's full height.
+    let config = LightmapConfig {
+        texels_per_metre: 1.0,
+        page_edge: 32,
+        max_pages: 1,
+        padding: 0,
+        bytes_per_texel: 3,
+    };
+    let mut allocator = SkylineAllocator::new(config);
+    let tall = allocator.allocate(&patch(8.0, 16.0)).expect("tall chart");
+    assert_eq!((tall.x, tall.y, tall.width, tall.height), (0, 0, 8, 16));
+    let expected = [
+        (8u32, 0u32),
+        (16, 0),
+        (24, 0),
+        (8, 8),
+        (16, 8),
+        (24, 8),
+        (0, 16),
+        (8, 16),
+        (16, 16),
+        (24, 16),
+        (0, 24),
+        (8, 24),
+        (16, 24),
+        (24, 24),
+    ];
+    for (x, y) in expected {
+        let chart = allocator.allocate(&patch(8.0, 8.0)).expect("short chart");
+        assert_eq!((chart.x, chart.y), (x, y), "bottom-left placement");
+    }
+    // The 32 x 32 page is now full, and the one-page budget is spent.
+    assert!(allocator.allocate(&patch(8.0, 8.0)).is_none());
+    assert!(allocator.failed());
+}
+
+#[test]
 fn overflow_is_reported_not_hidden() {
     let config = LightmapConfig {
         max_pages: 1,
         ..LightmapConfig::for_profile(crate::quality::QualityProfile::Full)
     };
-    let mut allocator = ShelfAllocator::new(config);
+    let mut allocator = SkylineAllocator::new(config);
     let usable = config.usable_edge();
     // One chart fills an empty page exactly; a second cannot fit anywhere.
     let big = patch(
@@ -232,7 +274,7 @@ fn overflow_is_reported_not_hidden() {
 #[test]
 fn two_pages_are_used_when_genuinely_needed() {
     let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
-    let mut allocator = ShelfAllocator::new(config);
+    let mut allocator = SkylineAllocator::new(config);
     let span = config.max_chart_span_m();
     let big = patch(span, span);
     assert!(allocator.allocate(&big).is_some());
@@ -302,19 +344,53 @@ fn plan_stamps_the_six_vertices_with_the_chart_mapping() {
 }
 
 #[test]
-fn plan_records_degenerate_quads_as_failures() {
+fn plan_skips_an_invisible_sliver_and_keeps_the_rest() {
+    // A sub-millimetre sliver is invisible: leaving its six vertices vertex-lit
+    // must not cost the level its whole lightmap, which is what treating it as a
+    // build failure used to do (a baseboard cap trimmed at a corner joint can
+    // leave one).
+    let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
+    let mut plan = LightmapPlan::new(config);
+    let mut vertices = vec![crate::render::Vertex::UNLIT; 12];
+    let real = floor_quad(0.0, 0.0, 4.0, 2.0, 0.0);
+    let sliver = [
+        [0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.000_000_5],
+        [1.0, 0.0, 1.0],
+        [1.0, 0.0, 1.0],
+    ];
+    assert!(plan.stamp_emitted(&mut vertices, 0, PatchKind::Floor, real, None));
+    assert!(!plan.stamp_emitted(&mut vertices, 6, PatchKind::Wall, sliver, None));
+    assert!(!plan.failed(), "a sliver is not a build failure");
+    assert_eq!(plan.failure(), None);
+    assert_eq!(plan.slivers_skipped(), 1);
+    assert_eq!(plan.chart_count(), 1, "the real quad still charted");
+    for vertex in &vertices[..6] {
+        assert!(vertex.is_lightmapped());
+    }
+    for vertex in &vertices[6..] {
+        assert!(!vertex.is_lightmapped(), "sliver stays vertex-lit");
+    }
+}
+
+#[test]
+fn plan_fails_over_on_a_visible_malformed_quad() {
+    // A bow-tie is *visible*: leaving it unlit would paint a bright unlit patch
+    // on the level, so the plan fails over to the exact vertex-lit mesh instead
+    // of skipping it.
     let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
     let mut plan = LightmapPlan::new(config);
     let mut vertices = vec![crate::render::Vertex::UNLIT; 6];
-    let degenerate = [
-        [0.0, 0.0, 0.0],
+    let bow_tie = [
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 1.0],
+        [1.0, 0.0, 0.0],
         [0.0, 0.0, 1.0],
     ];
-    assert!(!plan.stamp_emitted(&mut vertices, 0, PatchKind::Wall, degenerate, None));
+    assert!(!plan.stamp_emitted(&mut vertices, 0, PatchKind::Wall, bow_tie, None));
     assert_eq!(plan.failure(), Some(LightmapFailure::DegenerateQuad));
     assert!(plan.failed());
+    assert_eq!(plan.slivers_skipped(), 0);
     for vertex in &vertices {
         assert!(!vertex.is_lightmapped());
     }
@@ -338,7 +414,7 @@ fn plan_reports_page_overflow() {
 #[test]
 fn atlas_dilates_each_charts_border_into_its_own_gutter() {
     let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
-    let mut allocator = ShelfAllocator::new(config);
+    let mut allocator = SkylineAllocator::new(config);
     let chart_a = allocator.allocate(&patch(2.0, 2.0)).expect("chart a");
     let chart_b = allocator.allocate(&patch(2.0, 2.0)).expect("chart b");
     let charts = [(patch(2.0, 2.0), chart_a), (patch(2.0, 2.0), chart_b)];
@@ -375,7 +451,7 @@ fn atlas_dilates_each_charts_border_into_its_own_gutter() {
 #[test]
 fn atlas_rejects_a_fill_of_the_wrong_size_or_with_non_finite_values() {
     let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
-    let mut allocator = ShelfAllocator::new(config);
+    let mut allocator = SkylineAllocator::new(config);
     let chart = allocator.allocate(&patch(1.0, 1.0)).expect("chart");
     let charts = [(patch(1.0, 1.0), chart)];
     assert_eq!(
@@ -393,7 +469,7 @@ fn atlas_rejects_a_fill_of_the_wrong_size_or_with_non_finite_values() {
 #[test]
 fn a_page_encodes_as_a_decodable_png() {
     let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Low);
-    let mut allocator = ShelfAllocator::new(config);
+    let mut allocator = SkylineAllocator::new(config);
     let chart = allocator.allocate(&patch(1.0, 1.0)).expect("chart");
     let charts = [(patch(1.0, 1.0), chart)];
     let atlas = LightmapAtlas::bake(&config, allocator.page_count(), &charts, |_, chart| {
@@ -509,7 +585,7 @@ fn disk_cache_round_trips_a_page_set() {
 #[test]
 fn an_oversized_patch_is_clamped_to_a_page_not_dropped() {
     let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
-    let mut allocator = ShelfAllocator::new(config);
+    let mut allocator = SkylineAllocator::new(config);
     // 400 m of floor is 6400 texels at this density: far past one page.
     let huge = patch(400.0, 2.0);
     let chart = allocator
@@ -531,4 +607,176 @@ fn chart_texels_are_clamped_to_the_usable_edge() {
             (2.0 * config.texels_per_metre).ceil() as u32
         )
     );
+}
+
+/// The shipped level must keep real lightmaps under both profiles.
+///
+/// This is the density/packing regression guard: `Low` used to overflow its
+/// two 512-texel pages and fall back to vertex lighting for the whole level,
+/// and a density bump that overflows is worse than no bump at all. It also
+/// pins that the bake uses a meaningful part of the budget rather than
+/// "fitting" by accident at a trivial density.
+#[test]
+fn the_shipped_demo_fits_the_two_page_budget_at_both_profiles() {
+    let level = crate::level::LevelDef::from_json(include_str!(
+        "../../../assets/levels/places_demo.json"
+    ))
+    .expect("the shipped places_demo parses");
+    for profile in crate::quality::QualityProfile::ALL {
+        let config = profile.lightmap_config();
+        let materials = crate::render::logical_materials(&level);
+        let catalog = crate::loader::PropCatalog::builtin();
+        let mut assets = crate::props::PropAssets::default();
+        let build = crate::render::build_level_geometry_timed_with_lightmaps(
+            &level,
+            &catalog,
+            &mut assets,
+            &materials,
+            crate::render::LightmapBuildOptions::for_profile(profile, LightmapMode::On),
+            None,
+        );
+        let lightmaps = build.lightmaps.as_deref().unwrap_or_else(|| {
+            panic!(
+                "{profile:?} must keep its lightmaps on the demo: {:?}",
+                build.lightmap_failure
+            )
+        });
+        assert!(lightmaps.chart_count() > 900, "the demo's chart set is complete");
+        assert!(
+            lightmaps.pages.len() <= config.max_pages,
+            "{profile:?} must fit its page budget"
+        );
+        let budget = u64::from(config.page_edge).pow(2)
+            * u64::try_from(lightmaps.pages.len()).unwrap_or(0);
+        assert!(
+            lightmaps.stats.texels as u64 * 2 > budget,
+            "{profile:?} must use more than half of its budget: {} of {budget}",
+            lightmaps.stats.texels
+        );
+    }
+}
+
+/// Developer measurement, not an assertion.
+///
+/// Builds the shipped demo level with the real chart set and prints, per
+/// profile: chart count, chart data texels, the outer rectangle area the charts
+/// reserve (data plus both gutters), the pages the two-page build needs (or a
+/// generous-budget probe when it does not fit), the resulting utilisation and
+/// the bake time. Run with:
+///
+/// ```text
+/// cargo test --release measure_demo_chart_statistics -- --ignored --nocapture
+/// ```
+///
+/// Printing is the whole point of an `#[ignore]`d measurement, so the crate's
+/// `print_stdout` lint is switched off for this one test.
+#[test]
+#[ignore = "developer measurement: prints places_demo's chart statistics"]
+#[allow(clippy::print_stdout)]
+fn measure_demo_chart_statistics() {
+    let level = crate::level::LevelDef::from_json(include_str!(
+        "../../../assets/levels/places_demo.json"
+    ))
+    .expect("the shipped places_demo parses");
+    // The patch set is profile-independent (the chart-span cap is shared), so
+    // one successful build at Full collects the whole demo's patches.
+    let materials = crate::render::logical_materials(&level);
+    let catalog = crate::loader::PropCatalog::builtin();
+    let mut assets = crate::props::PropAssets::default();
+    let build = crate::render::build_level_geometry_timed_with_lightmaps(
+        &level,
+        &catalog,
+        &mut assets,
+        &materials,
+        crate::render::LightmapBuildOptions::for_profile(
+            crate::quality::QualityProfile::Full,
+            LightmapMode::On,
+        ),
+        None,
+    );
+    let Some(lightmaps) = build.lightmaps.as_deref() else {
+        panic!("the demo must bake at Full: {:?}", build.lightmap_failure);
+    };
+    let patches: Vec<LightmapPatch> = lightmaps.charts.iter().map(|(patch, _)| *patch).collect();
+    for profile in crate::quality::QualityProfile::ALL {
+        let config = profile.lightmap_config();
+        // Pack the same patch set with a generous budget, to separate "the
+        // two-page budget is too small" from "the packer is too
+        // wasteful".
+        let mut probe = SkylineAllocator::new(LightmapConfig {
+            max_pages: 64,
+            ..config
+        });
+        for patch in &patches {
+            probe.allocate(patch);
+        }
+        let padding = u64::from(config.padding);
+        let mut data = 0u64;
+        let mut outer = 0u64;
+        for patch in &patches {
+            let (w, h) = config.chart_texels(patch);
+            let (w, h) = (u64::from(w), u64::from(h));
+            data += w * h;
+            outer += (w + padding * 2) * (h + padding * 2);
+        }
+        let edge = u64::from(config.page_edge);
+        let budget = edge * edge * u64::try_from(config.max_pages).unwrap_or(1);
+        if std::env::var("LIMINAL_DUMP_CHARTS").as_deref() == Ok("1") {
+            let mut dump = String::new();
+            for patch in &patches {
+                let (w, h) = config.chart_texels(patch);
+                dump.push_str(&format!("{w} {h}\n"));
+            }
+            let path = format!("target/agent-work/chart-sizes-{}.txt", profile.name());
+            std::fs::write(&path, dump).expect("chart size dump");
+            println!("    wrote {path} (chart texels, emission order)");
+        }
+        println!(
+            "{:?}: {} charts, {} data texels, {} outer texels; two-page budget {} texels \
+             ({} pages of {}); data {:.1}% / outer {:.1}% of the budget; probe needs {} pages \
+             (failed {}), target {:.1} texels/m, padding {}",
+            profile,
+            patches.len(),
+            data,
+            outer,
+            budget,
+            config.max_pages,
+            config.page_edge,
+            100.0 * data as f64 / budget as f64,
+            100.0 * outer as f64 / budget as f64,
+            probe.page_count(),
+            probe.failed(),
+            config.texels_per_metre,
+            config.padding,
+        );
+    }
+    // The real two-page build, per profile, for the bake time and page shape.
+    for profile in crate::quality::QualityProfile::ALL {
+        let materials = crate::render::logical_materials(&level);
+        let catalog = crate::loader::PropCatalog::builtin();
+        let mut assets = crate::props::PropAssets::default();
+        let build = crate::render::build_level_geometry_timed_with_lightmaps(
+            &level,
+            &catalog,
+            &mut assets,
+            &materials,
+            crate::render::LightmapBuildOptions::for_profile(profile, LightmapMode::On),
+            None,
+        );
+        match build.lightmaps.as_deref() {
+            Some(lightmaps) => println!(
+                "{:?}: real build: {} page(s), {} charts, {} chart texels, {:.1} ms",
+                profile,
+                lightmaps.pages.len(),
+                lightmaps.charts.len(),
+                lightmaps.stats.texels,
+                lightmaps.stats.bake_millis,
+            ),
+            None => println!(
+                "{:?}: real build: FAILED ({:?})",
+                profile,
+                build.lightmap_failure.unwrap_or(LightmapFailure::Layout),
+            ),
+        }
+    }
 }

@@ -6,7 +6,7 @@
 
 use super::color::LightColor;
 use super::tuning::{
-    AMBIENT_LEVEL, FixtureKind, LIGHT_GRID_CELL_M, MAX_BRIGHTNESS, MAX_LIGHT_GRID_CELLS,
+    AMBIENT_LEVEL, BASELINE_MAX, FixtureKind, LIGHT_GRID_CELL_M, MAX_LIGHT_GRID_CELLS,
     MAX_LIGHT_INTENSITY, MAX_WALL_LIGHT_SEGMENTS, MIN_ROOM_AREA_M2, REFERENCE_CEILING_HEIGHT_M,
     REFERENCE_LIGHT_AREA_M2, fixture_profile_for_kind,
 };
@@ -149,9 +149,12 @@ pub fn compressed_density(normalized_density: f32) -> f32 {
 ///
 /// Each channel is treated as an independent scalar light: the effective power
 /// of the channel is spread over the floor area, compressed logarithmically and
-/// mapped onto `[AMBIENT_LEVEL, MAX_BRIGHTNESS]` by the saturating curve. A
-/// room with no fixtures returns exactly [`ambient_color`]; the result is
-/// always finite and inside the legal range.
+/// mapped onto `[AMBIENT_LEVEL, BASELINE_MAX]` by the saturating curve. The
+/// baseline is the room-wide fill, not the whole range: the remaining headroom
+/// is what local fixture pools (and therefore every shadow they cast) live in;
+/// see [`BASELINE_MAX`]. A room with no fixtures returns exactly
+/// [`ambient_color`]; the result is always finite and inside
+/// `[AMBIENT_LEVEL, BASELINE_MAX]`.
 #[must_use]
 pub fn room_baseline(area_m2: f32, effective_power: LightColor) -> LightColor {
     let area = if area_m2.is_finite() {
@@ -172,9 +175,9 @@ pub fn room_baseline(area_m2: f32, effective_power: LightColor) -> LightColor {
         let density = power / area;
         let normalized = compressed_density(density * REFERENCE_LIGHT_AREA_M2);
         let component = saturating_brightness(normalized);
-        (MAX_BRIGHTNESS - AMBIENT_LEVEL)
+        (BASELINE_MAX - AMBIENT_LEVEL)
             .mul_add(component, AMBIENT_LEVEL)
-            .clamp(AMBIENT_LEVEL, MAX_BRIGHTNESS)
+            .clamp(AMBIENT_LEVEL, BASELINE_MAX)
     };
     LightColor {
         r: channel(effective_power.r),

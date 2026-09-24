@@ -1605,7 +1605,9 @@ the level already resident, so the player, camera and game state are preserved:
 | Decal sheet | 1024 | 256 |
 | Prop sheet (GLB) | 256 | 128 |
 | Emissive mask | 512 | 128 |
-| Lightmap atlas page | 1024, 12 texels/m | 512, 8 texels/m |
+| Lightmap atlas page | 1024, 16 texels/m | 512, 9 texels/m |
+| Shadow penumbra taps | 2 per axis (5) | 1 per axis (hard) |
+| Prop occlusion grid | 0.075 m | 0.15 m |
 
 * **Full is the native Places runtime size.** Every shipped asset is already at or
   below it, so Full uploads the decoded image unchanged — no rescaling, no visual
@@ -2089,13 +2091,17 @@ family.
 sample = room/partition-area baseline
        + visibility-tested local fixture pools
        + doorway-blend deltas
-       clamped to [AMBIENT_LEVEL = 0.10, 1.0] per channel
+       clamped to [AMBIENT_LEVEL = 0.10, MAX_BRIGHTNESS = 1.0] per channel
 ```
 
 1. **Room baseline.** Each room sums `intensity × height factor × colour` over the
    fixtures it owns, spreads it over its floor area, compresses the density and maps
-   it onto `[0.10, 1.0]`. A room with no fixtures sits at exactly the ambient `0.10`:
-   unlit rooms are dark by design.
+   it onto `[AMBIENT_LEVEL, BASELINE_MAX = 0.60]`. The baseline is deliberately the
+   *fill* level, not the highlight: it is the one term a static occluder cannot
+   remove, so capping it at 0.60 leaves the visibility-tested pools (up to +0.45)
+   room to read as light and shadow instead of pinning every surface at the clamp.
+   A room with no fixtures sits at exactly the ambient `0.10`: unlit rooms are dark
+   by design.
 2. **Partitions.** If opaque internal walls split a room's footprint into
    disconnected areas, each area gets **its own baseline** from the fixtures it can
    reach. A wall that stops short of the ceiling is not a partition; a door header
@@ -2130,10 +2136,18 @@ atlas at level load, and the surface shader multiplies its texture by the atlas.
 lighting model, the fixtures and everything a map authors are unchanged — this is a
 storage change, not an authoring one.
 
-* Density follows the quality profile: **Full** bakes 12 texels per metre onto up to
-  two 1024-texel pages, **Low** bakes 8 texels per metre onto two 512-texel pages.
+* Density follows the quality profile: **Full** bakes 16 texels per metre onto up to
+  two 1024-texel pages, **Low** bakes 9 texels per metre onto two 512-texel pages.
   Both profiles bake the same set of surfaces; faces longer than one chart are split
-  automatically (chart span cap 63.75 m).
+  automatically (chart span cap 63.75 m). The packer is a deterministic bottom-left
+  skyline, so `places_demo` fits two Full pages at 54 % data occupancy and two Low
+  pages at 69 %.
+* Shadow softness follows the same profile: a local pool's visibility is sampled on
+  the fixture's own emitting rectangle — **Full** uses a five-tap quincunx (the
+  centre plus the four quadrant corners) and **Low** the historical single centre
+  tap — so a partially blocked pool fades over a penumbra instead of ending on a
+  hard line where the profile pays for it. `taps_per_axis == 1` is the historical
+  centre-only test, which is also what the vertex-lit fallback bakes with.
 * A chart's texels span their own patch: the first and last texel sit exactly on the
   patch's geometric edges. Adjacent coplanar surfaces therefore evaluate the *same*
   world point on a shared edge, so changing an albedo material across one continuous
@@ -2147,9 +2161,14 @@ storage change, not an authoring one.
   path for a benchmark or A/B capture run.
 * If a bake cannot fit the page budget, or an atlas page cannot upload, the level
   rebuilds with `LightmapMode::Off` and draws exactly the old vertex-lit colours — a
-  level never renders black because of a lightmap failure.
-* Fixtures, prop placeholder boxes, decals and glass panes are always vertex-lit:
-  their colour keeps the baked light folded in, exactly as before.
+  level never renders black because of a lightmap failure. A single quad with no
+  usable area (a sub-millimetre trim sliver) is *not* such a failure: it is invisible,
+  so the plan leaves that quad vertex-lit and reports it in the `[lightmaps]` line
+  (`left N sub-texel sliver quad(s) vertex-lit`) while the rest of the level keeps its
+  atlas. A visible malformed quad (a bow-tie) still fails the build over.
+* Fixtures, prop placeholder boxes, decals and the dynamic object are vertex-lit:
+  their colour keeps the baked light folded in, exactly as before. Glass panes and
+  stairs are lightmapped like the wall around them.
 * Set `LIMINAL_DUMP_LIGHTMAPS=1` to write the baked atlas pages as PNGs under
   `target/agent-work/atlases/` for inspection.
 
@@ -2157,7 +2176,11 @@ storage change, not an authoring one.
 
 A placed prop is not air: every prop's own triangles become a small set of
 occlusion boxes for the bake, automatically and per distinct model. Nothing is
-authored and there is no per-prop occlusion flag. The visible consequences:
+authored and there is no per-prop occlusion flag. The boxes are ground on a
+quality-profile grid — **Full** 0.075 m, **Low** the historical 0.15 m — so Full
+resolves a finer contact silhouette and the shadow a prop throws on the floor or
+wall behind it, while Low keeps the cheaper derivation. The visible
+consequences:
 
 * the floor under a machine, desk or couch is darker than open floor at the same
   distance from a fixture (contact darkening);

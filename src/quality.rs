@@ -27,13 +27,14 @@
 //! decides how much of an *accepted* source reaches the GPU; it never raises
 //! the source limit.
 //!
-//! The same profile also budgets the static lightmap atlas: `Full` bakes at 12
-//! texels per metre onto up to two 1024-texel pages, `Low` at 8 texels per
-//! metre onto two 512-texel pages (see
-//! [`crate::lighting::lightmap::LightmapConfig::for_profile`]). Both profiles
-//! bake from the *same* patch set — the density and page size are the only
-//! difference, never a different set of surfaces — and both target the same
-//! world span per chart, so the geometry splits in the same places.
+//! The same profile also budgets the static lightmap atlas and the baked
+//! shadow quality: `Full` bakes at 16 texels per metre onto up to two
+//! 1024-texel pages with a nine-tap penumbra, `Low` at 9 texels per metre onto
+//! two 512-texel pages with a five-tap one (see [`QualityProfile::lightmap_config`]
+//! and [`QualityProfile::shadow_taps_per_axis`]). Both profiles bake from the
+//! *same* patch set — density, page size and tap count are the differences,
+//! never a different set of surfaces — and both use the same shared chart-span
+//! cap, so the geometry splits in the same places.
 //!
 //! Downscaling happens once, at upload/level-load time, through
 //! [`crate::materials::RawImage::downscaled_to`] and is cached with the texture
@@ -168,6 +169,72 @@ impl QualityProfile {
     #[must_use]
     pub const fn draws_scene_at_drawable_resolution(self) -> bool {
         matches!(self, Self::Full)
+    }
+
+    /// Emitter taps per axis for the baked local-pool visibility test.
+    ///
+    /// `1` is the historical centre-only test (a hard shadow edge), `2` the
+    /// five-tap quincunx and `3` the nine-tap 3x3 grid. See
+    /// [`crate::lighting::ShadowSampling`]: the taps average a pool's visibility
+    /// over the fixture's own emitting rectangle, so a partially blocked pool
+    /// fades over a real penumbra instead of ending on a hard line.
+    ///
+    /// The values are measured, not guessed. On the shipped demo Full's 3x3 grid
+    /// is indistinguishable from the quincunx (all 19 fixed views: 0.00 % of
+    /// pixels differ by more than 24/255, worst case 13/255) while costing 1.8x
+    /// the lightmap fill, so Full takes the quincunx. Low keeps the single
+    /// centre tap: it is the cheapest bake (one visibility test per shaded
+    /// sample, ~2.3x cheaper than Low with five taps), its 11 cm texels already
+    /// smooth the edge, and the five-tap penumbra moves at most 5.5 % of a view's
+    /// pixels there. The tap count is a *cost* tier as much as a look tier.
+    #[must_use]
+    pub const fn shadow_taps_per_axis(self) -> u8 {
+        match self {
+            Self::Full => 2,
+            Self::Low => 1,
+        }
+    }
+
+    /// Grid cell, in metres, a prop model's triangles are ground into for the
+    /// bake's occlusion boxes.
+    ///
+    /// A finer cell derives more, smaller boxes: a prop's contact shadow and
+    /// the pool it blocks follow the model more closely, at a higher bake cost
+    /// and a larger occluder set. `Full` uses 0.075 m (half the historical
+    /// grid, the finest cell the shipped models resolve without hitting the
+    /// box caps); `Low` keeps the historical 0.15 m.
+    #[must_use]
+    pub const fn prop_occlusion_cell_m(self) -> f32 {
+        match self {
+            Self::Full => 0.075,
+            Self::Low => 0.15,
+        }
+    }
+
+    /// Every shadow and lightmap setting this profile implies, in one value.
+    ///
+    /// The lightmap cache key and the bake both read this, so a density, page
+    /// or padding change can never leave the two disagreeing about which atlas
+    /// a profile describes.
+    #[must_use]
+    pub const fn lightmap_config(self) -> crate::lighting::lightmap::LightmapConfig {
+        crate::lighting::lightmap::LightmapConfig::for_profile(self)
+    }
+
+    /// The bake settings this profile implies, in the one value
+    /// [`crate::lighting::LevelLighting::bake_with`] consumes.
+    ///
+    /// This is what keeps the shadow quality differences *centralised*: a
+    /// profile answers with its tap count and prop-occlusion cell here, and
+    /// nothing else in the renderer needs to know either number.
+    #[must_use]
+    pub const fn bake_config(self) -> crate::lighting::BakeConfig {
+        crate::lighting::BakeConfig {
+            sampling: crate::lighting::ShadowSampling {
+                taps_per_axis: self.shadow_taps_per_axis(),
+            },
+            prop_occlusion_cell_m: self.prop_occlusion_cell_m(),
+        }
     }
 }
 

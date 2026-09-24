@@ -1,10 +1,21 @@
-//! The deterministic shelf packer, atlas pages and PNG debugging.
+//! The deterministic bottom-left skyline packer, atlas pages and PNG debugging.
 //!
 //! Packing is deliberately simple and reproducible: charts are placed in the
-//! order the mesh emitter produced them, on the current fully-open row of the
-//! current page, and a new page is started only when the row and page are both
-//! full. Nothing depends on hashing or on floating-point sort order, so the same
-//! level always produces byte-identical pages and the same `Chart` rectangles.
+//! order the mesh emitter produced them, into the first page that has room for
+//! them, at the lowest free position on that page (leftmost when two positions
+//! tie). Nothing depends on hashing, sorting or floating-point order, so the
+//! same level always produces byte-identical pages and the same `Chart`
+//! rectangles.
+//!
+//! Why a skyline rather than one open shelf per page: the chart set is a
+//! heterogeneous mix of small floor cells, wide room floors and long thin wall
+//! strips, and a shelf's band is as tall as the tallest chart on it. Measured
+//! on `places_demo`, a per-page shelf list (even first-fit over every shelf)
+//! needs three 512-texel pages for the `Low` chart set, so the profile fell
+//! back to vertex lighting, while the skyline packs the same set into two. The
+//! skyline tracks the filled top edge per column and can therefore use the
+//! vertical slack a tall chart leaves beside itself; see
+//! `docs/MAP_AUTHORING_GUIDE.md` §18 for the density each profile now reaches.
 //!
 //! Every chart gets [`LightmapConfig::padding`] texels of gutter on all four
 //! sides, outside its data rectangle. After a chart is filled, those gutter
@@ -25,31 +36,33 @@ pub struct LightmapPage {
     pub rgb: Vec<u8>,
 }
 
-/// An allocated page's shelf cursor.
-#[derive(Clone, Copy, Debug, Default)]
-struct ShelfState {
-    /// Next free x on the current shelf.
-    cursor_x: u32,
-    /// Top of the current shelf.
-    cursor_y: u32,
-    /// Height of the tallest chart on the current shelf.
-    shelf_height: u32,
+/// One step of a page's skyline: the top edge of the filled area over
+/// `[x, x + width)`, with `y` in page texels.
+///
+/// The segments of one page tile `0..page_edge` in ascending `x` with no gaps
+/// and no overlap, and adjacent segments of equal `y` are always merged, so the
+/// list is a canonical function of the placements.
+#[derive(Clone, Copy, Debug)]
+struct Segment {
+    x: u32,
+    y: u32,
+    width: u32,
 }
 
-/// Places chart rectangles on square pages with a deterministic shelf policy.
+/// Places chart rectangles on square pages with a deterministic skyline policy.
 ///
 /// The allocator is designed to run *inline*, while the mesh is being emitted:
 /// each chart is placed the moment its patch is built, using only the patches
 /// that came before it. That is what lets the emitter write final lightmap UVs
 /// into its vertices in one pass instead of patching the mesh afterwards.
 #[derive(Clone, Debug)]
-pub struct ShelfAllocator {
+pub struct SkylineAllocator {
     config: LightmapConfig,
-    pages: Vec<ShelfState>,
+    pages: Vec<Vec<Segment>>,
     failed: bool,
 }
 
-impl ShelfAllocator {
+impl SkylineAllocator {
     /// A packer for one level build, with no pages opened yet.
     #[must_use]
     pub const fn new(config: LightmapConfig) -> Self {
@@ -101,29 +114,35 @@ impl ShelfAllocator {
             self.failed = true;
             return None;
         }
-        loop {
-            if self.pages.is_empty() {
-                if self.config.max_pages == 0 {
-                    self.failed = true;
-                    return None;
-                }
-                self.pages.push(ShelfState::default());
+        // First fit over the open pages, in page order.
+        for page_index in 0..self.pages.len() {
+            if let Some(chart) =
+                self.try_place(page_index, outer_w, outer_h, width, height, padding)
+            {
+                return Some(chart);
             }
+        }
+        // No open page can take it: open pages, in order, until one fits or the
+        // budget is spent. An empty page always fits a chart of usable size.
+        while self.pages.len() < self.config.max_pages {
+            self.pages.push(vec![Segment {
+                x: 0,
+                y: 0,
+                width: self.config.page_edge,
+            }]);
             let page_index = self.pages.len().saturating_sub(1);
             if let Some(chart) =
                 self.try_place(page_index, outer_w, outer_h, width, height, padding)
             {
                 return Some(chart);
             }
-            if self.pages.len() >= self.config.max_pages {
-                self.failed = true;
-                return None;
-            }
-            self.pages.push(ShelfState::default());
         }
+        self.failed = true;
+        None
     }
 
-    /// Tries to place one outer rectangle on `page_index`'s current shelf.
+    /// Tries one page: the lowest free position, leftmost on a tie, or `None`
+    /// when the chart does not fit anywhere on it.
     fn try_place(
         &mut self,
         page_index: usize,
@@ -135,27 +154,111 @@ impl ShelfAllocator {
     ) -> Option<Chart> {
         let edge = self.config.page_edge;
         let page = self.pages.get_mut(page_index)?;
-        if page.cursor_x.saturating_add(outer_w) > edge {
-            // Close the shelf and try the next row.
-            page.cursor_x = 0;
-            page.cursor_y = page.cursor_y.saturating_add(page.shelf_height);
-            page.shelf_height = 0;
+        let mut best: Option<(u32, u32)> = None;
+        for segment in page.iter() {
+            let x = segment.x;
+            let Some(right) = x.checked_add(outer_w) else {
+                continue;
+            };
+            if right > edge {
+                continue;
+            }
+            // The skyline tiles the page, so `[x, right)` is always fully
+            // covered; its top edge is the highest segment over the span.
+            let mut top = 0_u32;
+            for span in page.iter() {
+                if span.x >= right {
+                    break;
+                }
+                if span.x.saturating_add(span.width) > x {
+                    top = top.max(span.y);
+                }
+            }
+            if top.saturating_add(outer_h) > edge {
+                continue;
+            }
+            let better = best.is_none_or(|(best_top, best_x)| {
+                top < best_top || (top == best_top && x < best_x)
+            });
+            if better {
+                best = Some((top, x));
+            }
         }
-        if page.cursor_y.saturating_add(outer_h) > edge {
-            return None;
+        let (top, x) = best?;
+        let right = x.checked_add(outer_w)?;
+        let new_y = top.checked_add(outer_h)?;
+        let mut next: Vec<Segment> = Vec::with_capacity(page.len().saturating_add(2));
+        let mut inserted = false;
+        for segment in page.iter() {
+            let segment_right = segment.x.saturating_add(segment.width);
+            if segment_right <= x {
+                next.push(*segment);
+                continue;
+            }
+            if segment.x >= right {
+                if !inserted {
+                    push_merged(&mut next, Segment { x, y: new_y, width: outer_w });
+                    inserted = true;
+                }
+                next.push(*segment);
+                continue;
+            }
+            if segment.x < x {
+                next.push(Segment {
+                    x: segment.x,
+                    y: segment.y,
+                    width: x.saturating_sub(segment.x),
+                });
+            }
+            if !inserted {
+                push_merged(&mut next, Segment { x, y: new_y, width: outer_w });
+                inserted = true;
+            }
+            if segment_right > right {
+                next.push(Segment {
+                    x: right,
+                    y: segment.y,
+                    width: segment_right.saturating_sub(right),
+                });
+            }
         }
-        let x = page.cursor_x.saturating_add(padding);
-        let y = page.cursor_y.saturating_add(padding);
-        page.cursor_x = page.cursor_x.saturating_add(outer_w);
-        page.shelf_height = page.shelf_height.max(outer_h);
-        Some(Chart {
-            page: u16::try_from(page_index).unwrap_or(u16::MAX),
-            x,
-            y,
-            width,
-            height,
-        })
+        if !inserted {
+            push_merged(&mut next, Segment { x, y: new_y, width: outer_w });
+        }
+        *page = next;
+        Some(chart_at(page_index, x, top, width, height, padding))
     }
+}
+
+/// The chart a placement at outer-rectangle `(x, y)` produces.
+fn chart_at(
+    page_index: usize,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+    padding: u32,
+) -> Chart {
+    Chart {
+        page: u16::try_from(page_index).unwrap_or(u16::MAX),
+        x: x.saturating_add(padding),
+        y: y.saturating_add(padding),
+        width,
+        height,
+    }
+}
+
+/// Appends a segment, merging it with the previous one when they are adjacent
+/// at the same height, so a page's skyline stays canonical.
+fn push_merged(segments: &mut Vec<Segment>, segment: Segment) {
+    if let Some(last) = segments.last_mut()
+        && last.y == segment.y
+        && last.x.saturating_add(last.width) == segment.x
+    {
+        last.width = last.width.saturating_add(segment.width);
+        return;
+    }
+    segments.push(segment);
 }
 
 /// A baked set of atlas pages: one RGB8 buffer per page, gutter-dilated.

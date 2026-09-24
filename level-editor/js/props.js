@@ -52,7 +52,7 @@
     { id: 'core:cabinet', name: 'Cabinet', category: 'Furniture', size: [0.9, 0.85, 0.45], color: '#6a5c4a', model: 'environment/office/props/models/cabinet.glb', solid: true },
     { id: 'core:bed', name: 'Bed', category: 'Furniture', size: [1.4, 0.55, 2.0], color: '#7d7568', model: 'core/props/models/bed.glb', solid: true },
     { id: 'core:stove', name: 'Stove', category: 'Appliances', size: [0.6, 0.9, 0.6], color: '#8f8a80', model: 'core/props/models/stove.glb', solid: true },
-    { id: 'core:sink', name: 'Sink', category: 'Appliances', size: [0.6, 0.85, 0.55], color: '#9aa0a0', model: 'core/props/models/sink.glb', solid: true },
+    { id: 'core:sink', name: 'Sink', category: 'Appliances', size: [0.6, 1.1, 0.55], color: '#9aa0a0', model: 'core/props/models/sink.glb', solid: true },
     { id: 'core:fridge', name: 'Fridge', category: 'Appliances', size: [0.7, 1.8, 0.7], color: '#b8bcc0', model: 'core/props/models/fridge.glb', solid: true },
     { id: 'core:washing_machine', name: 'Washing Machine', category: 'Appliances', size: [0.6, 0.85, 0.6], color: '#a2a6aa', model: 'core/props/models/washing_machine.glb', solid: true },
     { id: 'core:washer_drum', name: 'Washer Drum', category: 'Appliances', size: [0.42, 0.3, 0.42], color: '#b4b8ba', model: 'core/props/models/washer_drum.glb', solid: false },

@@ -33,7 +33,7 @@ use super::tuning::{
     WALL_FACE_PROBE_M, WALL_LIGHT_DEFAULT_HEIGHT_M, ZONE_PROBE_DROP_M,
     ZONE_PROBE_MIN_ABOVE_FLOOR_M, ambient_color, fixture_profile,
 };
-use super::visibility::{Occluders, QuerySite, Visibility};
+use super::visibility::{Occluders, QuerySite, ShadowSampling, Visibility};
 use crate::level::{
     CeilingProfileDef, LevelDef, LevelSurfaces, LightFixtureDef, LightMount, MAX_PROP_LIGHTS,
     WallAxis,
@@ -65,12 +65,15 @@ pub struct RoomLighting {
     /// `intensity x ceiling-height factor`.
     pub effective_power: LightColor,
     /// Baked room-wide baseline illumination, every channel inside
-    /// `[AMBIENT_LEVEL, MAX_BRIGHTNESS]`.
+    /// `[AMBIENT_LEVEL, BASELINE_MAX]`.
     ///
     /// This is the value every sample in an unpartitioned room gets, and the
-    /// value the developer summary reports. A room with internal partitions
-    /// additionally carries a [`RoomZones`] field whose areas override it
-    /// spatially; see [`LevelLighting::baseline_in_room`].
+    /// value the developer summary reports. It is deliberately the room-wide
+    /// *fill*: local fixture pools are summed on top of it, up to
+    /// `LOCAL_LIGHT_MAX`, and the two together are what the renderer's clamp
+    /// sees. A room with internal partitions additionally carries a
+    /// [`RoomZones`] field whose areas override it spatially; see
+    /// [`LevelLighting::baseline_in_room`].
     pub baseline: LightColor,
 }
 
@@ -371,6 +374,35 @@ pub struct LevelLighting {
     default_ceiling_y: f32,
     /// Clear height used for the height factor of fixtures outside every room.
     default_height_m: f32,
+    /// Emitter taps per axis for local-pool visibility, from the bake's
+    /// [`BakeConfig`]. Stored as the plain byte so the empty [`Default`] bake
+    /// stays derivable; `0` and `1` are hard shadows.
+    sampling_taps: u8,
+}
+
+/// Everything the bake needs beyond the level definition.
+///
+/// [`Self::HARD`] is the historical bake: one visibility tap per fixture (a
+/// binary shadow edge) and the historical 0.15 m prop-occlusion grid, so
+/// [`LevelLighting::bake`] keeps every value it always had. The renderer
+/// passes the active quality profile's config through
+/// [`LevelLighting::bake_with`], which buys the soft penumbra and the finer
+/// prop occluders on Full.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BakeConfig {
+    /// How each local pool's visibility to a sample is resolved.
+    pub sampling: ShadowSampling,
+    /// Grid cell, in metres, a prop model's triangles are ground into for the
+    /// bake's occlusion boxes.
+    pub prop_occlusion_cell_m: f32,
+}
+
+impl BakeConfig {
+    /// The historical bake: hard shadows and the historical prop grid.
+    pub const HARD: Self = Self {
+        sampling: ShadowSampling::HARD,
+        prop_occlusion_cell_m: super::tuning::PROP_OCCLUSION_CELL_M,
+    };
 }
 
 impl RoomLighting {
@@ -1182,12 +1214,26 @@ impl LevelLighting {
     /// Malformed data never panics and never yields NaN: non-finite fixtures are
     /// skipped, non-finite dimensions fall back to safe values and every result
     /// is clamped.
+    ///
+    /// This is [`Self::bake_with`] at [`BakeConfig::HARD`]: one visibility tap
+    /// per fixture and the historical prop-occlusion grid, i.e. the bake every
+    /// value this engine ever produced came from.
     #[must_use]
     pub fn bake(level: &LevelDef) -> Self {
+        Self::bake_with(level, BakeConfig::HARD)
+    }
+
+    /// [`Self::bake`] with an explicit [`BakeConfig`]: the same model, baked
+    /// with the active profile's visibility sampling and prop-occlusion grid.
+    ///
+    /// The bake is a pure function of the level definition *and* `config`:
+    /// [`BakeConfig::HARD`] reproduces every value [`Self::bake`] produces.
+    #[must_use]
+    pub fn bake_with(level: &LevelDef, config: BakeConfig) -> Self {
         // The occluder set is built first: the baseline field's partition
         // connectivity asks it whether a wall separates two cells, and the
         // doorway blends then add their own query sites to it.
-        let occluders = Occluders::build(level);
+        let occluders = Occluders::build_with(level, config.prop_occlusion_cell_m);
 
         let (mut rooms, default_height_m, default_ceiling_y) = baked_rooms(level);
 
@@ -1256,6 +1302,7 @@ impl LevelLighting {
             all_lights,
             default_ceiling_y,
             default_height_m,
+            sampling_taps: config.sampling.taps_per_axis,
         }
     }
 
@@ -1875,19 +1922,30 @@ impl LevelLighting {
                 continue;
             }
             // Static solid visibility: a light contributes only where its
-            // emitter can actually see the sample. The segment starts at the
-            // closest point of the emitter, so a wide fixture is not blocked by
-            // a wall its brighter edge can see past.
-            let source = [
-                x.clamp(light.x() - half_w, light.x() + half_w),
-                light.y(),
-                z.clamp(light.z() - half_d, light.z() + half_d),
-            ];
-            if self.visibility.occludes(*index, source, [x, y, z]) {
+            // emitter can actually see the sample. With
+            // [`ShadowSampling::HARD`] this is the historical test from the
+            // emitter's closest point and returns exactly 0 or 1, so the
+            // contribution is bit-identical to the historical bake; a soft
+            // sampling fades the same contribution over the penumbra.
+            let visible = self.visibility.visible_fraction(
+                *index,
+                [light.x(), light.y(), light.z()],
+                half_w,
+                half_d,
+                [x, y, z],
+                ShadowSampling {
+                    taps_per_axis: self.sampling_taps,
+                },
+            );
+            if visible <= 0.0 {
                 continue;
             }
             let falloff = light.falloff().factor(distance_squared.sqrt() / range);
-            let strength = LOCAL_LIGHT_STRENGTH * light.intensity() * light.height_factor * falloff;
+            let strength = LOCAL_LIGHT_STRENGTH
+                * light.intensity()
+                * light.height_factor
+                * falloff
+                * visible;
             sum = LightColor {
                 r: strength.mul_add(light.color().r, sum.r),
                 g: strength.mul_add(light.color().g, sum.g),
@@ -1999,3 +2057,10 @@ impl LevelLighting {
         }
     }
 }
+
+/// Dynamic-range audit of the baked light, over real lightmap texels.
+///
+/// Test-only: it is the measurement the rebalance was calibrated against and
+/// the guard that keeps the model from drifting back into saturation.
+#[cfg(test)]
+mod range_audit;

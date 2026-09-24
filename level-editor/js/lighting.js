@@ -6,7 +6,7 @@
 //
 //   * every light emits an [r, g, b] colour and the bake accumulates per
 //     channel, so a red fixture tints surrounding geometry red;
-//   * room baseline = AMBIENT + (MAX_BRIGHTNESS - AMBIENT) * c, where the
+//   * room baseline = AMBIENT + (BASELINE_MAX - AMBIENT) * c, where the
 //     fixture density is logarithmically compressed and then saturated
 //     (`c = n / (1 + n)`, `n = ln(1 + density * REFERENCE_LIGHT_AREA_M2)`);
 //   * broad local fixture pools with a smooth falloff, capped per channel;
@@ -38,6 +38,7 @@
     HEIGHT_FALLOFF: 0.5,
     AMBIENT_LEVEL: 0.10,
     MAX_BRIGHTNESS: 1.0,
+    BASELINE_MAX: 0.60,
     MAX_LIGHT_COLOR: 1.0,
     DEFAULT_LIGHT_COLOR: [1.0, 0.96, 0.88],
     LOCAL_LIGHT_RADIUS_M: 6.0,
@@ -193,8 +194,8 @@
       const normalized = compressedDensity((finite / area) * TUNING.REFERENCE_LIGHT_AREA_M2);
       const component = saturatingBrightness(normalized);
       const baseline = TUNING.AMBIENT_LEVEL
-        + (TUNING.MAX_BRIGHTNESS - TUNING.AMBIENT_LEVEL) * component;
-      return Math.min(Math.max(baseline, TUNING.AMBIENT_LEVEL), TUNING.MAX_BRIGHTNESS);
+        + (TUNING.BASELINE_MAX - TUNING.AMBIENT_LEVEL) * component;
+      return Math.min(Math.max(baseline, TUNING.AMBIENT_LEVEL), TUNING.BASELINE_MAX);
     };
     return [channel(power[0]), channel(power[1]), channel(power[2])];
   }

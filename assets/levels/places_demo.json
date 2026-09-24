@@ -221,7 +221,7 @@
     {
       "x": 8.85,
       "z": 6.85,
-      "width": 10.3,
+      "width": 10.15,
       "depth": 0.3,
       "y": -1.5,
       "height": 4.2,
@@ -403,7 +403,7 @@
       "y": -1.5,
       "height": 2.6,
       "material": "core:metal_brushed_01",
-      "comment": "Pool notice board: a brushed-metal frame and a backlit sign face turn the bare panel into a wall-mounted board."
+      "comment": "Pool notice board: a brushed-metal frame turns the bare panel into a wall-mounted board. The former backlit sign face was removed as an unintended artifact (see the removed-object note in the shadows pass); re-add a sign only as a flush pane with real artwork."
     },
     {
       "x": 25.74,
@@ -442,17 +442,8 @@
       "material": "core:metal_brushed_01"
     },
     {
-      "x": 25.72,
-      "z": 7.85,
-      "width": 0.05,
-      "depth": 0.9,
-      "y": 0.15,
-      "height": 0.35,
-      "material": "core:glass_sign_lit_01"
-    },
-    {
       "x": 5.2,
-      "z": 7.16,
+      "z": 7.18,
       "width": 1.6,
       "depth": 0.06,
       "y": -1.5,
@@ -472,7 +463,7 @@
     },
     {
       "x": 5.02,
-      "z": 7.1,
+      "z": 7.16,
       "width": 1.96,
       "depth": 0.14,
       "y": -1.49,
@@ -486,7 +477,7 @@
       "width": 0.16,
       "depth": 0.14,
       "y": -1.518,
-      "height": 1.836,
+      "height": 2.436,
       "material": "core:metal_brushed_01",
       "shine": 0.6
     },
@@ -496,27 +487,9 @@
       "width": 0.16,
       "depth": 0.14,
       "y": -1.518,
-      "height": 1.836,
+      "height": 2.436,
       "material": "core:metal_brushed_01",
       "shine": 0.6
-    },
-    {
-      "x": 5.6,
-      "z": 7.228,
-      "width": 0.9,
-      "depth": 0.05,
-      "y": 0.0,
-      "height": 0.35,
-      "material": "core:glass_sign_flicker_01"
-    },
-    {
-      "x": 33.9,
-      "z": 11.16,
-      "width": 1.1,
-      "depth": 0.05,
-      "y": 0.4,
-      "height": 0.5,
-      "material": "core:glass_sign_lit_01"
     },
     {
       "x": 36.15,
@@ -1273,7 +1246,7 @@
     },
     {
       "fixture": "home:ceiling_light_round",
-      "x": 64.1,
+      "x": 63.3,
       "z": -3.4,
       "brightness": 0.32,
       "emission": 1.0
@@ -1513,7 +1486,7 @@
     },
     {
       "model": "core:pool_ladder",
-      "x": 19.45,
+      "x": 19.72,
       "y": 0.0,
       "z": 12.0,
       "rotation_degrees": 90.0,
@@ -1650,7 +1623,7 @@
       "rotation_degrees": 0.0,
       "size": [
         0.6,
-        0.85,
+        1.1,
         0.55
       ],
       "solid": true
@@ -1937,9 +1910,9 @@
       "z": 14.0,
       "rotation_degrees": 270.0,
       "size": [
-        1.0,
+        0.35,
         1.8,
-        0.35
+        1.0
       ],
       "solid": true
     },
@@ -2511,7 +2484,7 @@
     {
       "x": 61.7,
       "z": -0.24800000000000022,
-      "length": 3.3480000000000003,
+      "length": 3.098,
       "material": "home:baseboard_white_01",
       "y": -0.9,
       "rotation_degrees": 270.0

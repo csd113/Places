@@ -184,23 +184,64 @@ fn lightmap_budgets_scale_with_the_profile() {
     let full = LightmapConfig::for_profile(QualityProfile::Full);
     let low = LightmapConfig::for_profile(QualityProfile::Low);
 
-    assert_eq!(full.texels_per_metre, 12.0);
+    assert_eq!(full.texels_per_metre, 16.0);
     assert_eq!(full.page_edge, 1024);
     assert_eq!(full.padding, 2);
     assert_eq!(full.usable_edge(), 1020);
 
-    assert_eq!(low.texels_per_metre, 8.0);
+    assert_eq!(low.texels_per_metre, 9.0);
     assert_eq!(low.page_edge, 512);
     assert_eq!(low.padding, 1);
     assert_eq!(low.usable_edge(), 510);
 
-    // Both profiles target the same world span per chart, so the two densities
-    // split the level's geometry in exactly the same places.
+    // The profile carries the config itself, so the bake and the cache key can
+    // never read two different descriptions of one profile.
+    assert_eq!(QualityProfile::Full.lightmap_config(), full);
+    assert_eq!(QualityProfile::Low.lightmap_config(), low);
+
+    // Both profiles split the world in the same places: one shared chart-span
+    // cap, and the same page budget.
     assert_eq!(full.max_chart_span_m(), low.max_chart_span_m());
     assert_eq!(full.max_pages, 2);
     assert_eq!(low.max_pages, 2);
     assert_eq!(full.bytes_per_texel, 3);
     assert_eq!(low.bytes_per_texel, 3);
+    // Full must resolve the patch's full span at its density without using the
+    // last-resort clamp: the shared cap and the usable edge agree.
+    let cap_texels = (full.max_chart_span_m() * full.texels_per_metre).ceil();
+    assert!(
+        cap_texels <= f32::from(u16::try_from(full.usable_edge()).unwrap_or(u16::MAX)),
+        "the shared chart-span cap must fit Full's usable edge: {cap_texels} vs {}",
+        full.usable_edge()
+    );
+}
+
+/// The baked-shadow half of a profile is a real quality decision, not a
+/// label: Full resolves a finer prop-occlusion grid and a denser penumbra than
+/// Low, and Low's single tap is the cheapest bake that still grounds a shadow.
+#[test]
+fn shadow_quality_scales_with_the_profile() {
+    use crate::lighting::ShadowSampling;
+
+    assert_eq!(QualityProfile::Full.shadow_taps_per_axis(), 2);
+    assert_eq!(QualityProfile::Low.shadow_taps_per_axis(), 1);
+    assert_eq!(
+        ShadowSampling::HARD.taps_per_axis,
+        QualityProfile::Low.shadow_taps_per_axis(),
+        "Low is the historical one-tap bake"
+    );
+    assert!(
+        QualityProfile::Full.shadow_taps_per_axis() > QualityProfile::Low.shadow_taps_per_axis(),
+        "Full must sample the emitter more finely than Low"
+    );
+    let full_cell = QualityProfile::Full.prop_occlusion_cell_m();
+    let low_cell = QualityProfile::Low.prop_occlusion_cell_m();
+    assert!(
+        full_cell < low_cell && full_cell > 0.0,
+        "Full must resolve prop occlusion more finely: {full_cell} vs {low_cell}"
+    );
+    // Low keeps the historical 0.15 m default, which is also `BakeConfig::HARD`.
+    assert_eq!(low_cell, 0.15);
 }
 
 /// A live profile switch must change *every* decision the renderer derives from
@@ -218,13 +259,15 @@ fn switching_full_low_full_changes_every_derived_decision() {
     let prop = solid(256, [12, 34, 56, 255]);
     let sheet = solid(1_024, [10, 20, 30, 255]);
 
-    // Full -> Low -> Full, checking the same five decisions at every stop.
+    // Full -> Low -> Full, checking the same decisions at every stop.
     let stops = [
-        (QualityProfile::Full, 256u32, 1_024u32, true, true, 1_024u32),
-        (QualityProfile::Low, 128, 256, false, false, 512),
-        (QualityProfile::Full, 256, 1_024, true, true, 1_024),
+        (QualityProfile::Full, 256u32, 1_024u32, true, true, 1_024u32, 2u8, 0.075f32),
+        (QualityProfile::Low, 128, 256, false, false, 512, 1, 0.15),
+        (QualityProfile::Full, 256, 1_024, true, true, 1_024, 2, 0.075),
     ];
-    for (profile, prop_edge, sheet_edge, response, scene_at_drawable, lightmap_page) in stops {
+    for (profile, prop_edge, sheet_edge, response, scene_at_drawable, lightmap_page, taps, cell) in
+        stops
+    {
         assert_eq!(
             fit_image(&prop, profile, TextureClass::Prop).width,
             prop_edge,
@@ -249,6 +292,16 @@ fn switching_full_low_full_changes_every_derived_decision() {
             LightmapConfig::for_profile(profile).page_edge,
             lightmap_page,
             "{profile:?}: lightmap density"
+        );
+        assert_eq!(
+            profile.shadow_taps_per_axis(),
+            taps,
+            "{profile:?}: penumbra taps"
+        );
+        assert_eq!(
+            profile.prop_occlusion_cell_m(),
+            cell,
+            "{profile:?}: prop occlusion cell"
         );
     }
 }

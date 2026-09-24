@@ -4,6 +4,8 @@
 // the production lints stay enforced everywhere else in the crate.
 #![allow(clippy::expect_used)]
 
+use std::fmt::Write as _;
+
 use super::*;
 use crate::test_support::assert_exact;
 
@@ -519,6 +521,399 @@ fn test_controller_traverses_the_home_split_level_both_ways() {
     assert!(
         game.player_position.x < 3.0,
         "the route crosses the platform to the west: {:?}",
+        game.player_position
+    );
+}
+
+/// Diagnostic: walk the demo's real staircase up and back down, one fixed
+/// 60 Hz frame at a time, and write the eye Y, the controller's floor Y and
+/// the rendered tread Y per frame.
+///
+/// Ignored by default because it only exists to produce evidence; run it with
+/// the output path in the environment:
+///
+/// ```text
+/// LIMINAL_STAIRS_TRACE=/abs/path/walk.csv \
+///     cargo test --bin liminal-rust capture_stairs_walk_trace -- --ignored
+/// ```
+///
+/// The CSV columns are `phase,frame,x,z,eye_y,floor_y,render_y,step_dy`, and a
+/// `<path>.summary.txt` beside it reports the largest per-frame eye step of
+/// each phase against the authored riser.
+#[test]
+#[ignore = "developer diagnostic; writes a CSV when LIMINAL_STAIRS_TRACE is set"]
+fn capture_stairs_walk_trace() {
+    let Ok(path) = std::env::var("LIMINAL_STAIRS_TRACE") else {
+        return;
+    };
+    let content = std::fs::read_to_string("assets/levels/places_demo.json")
+        .expect("the Places demo level is present");
+    let level = LevelDef::from_json(&content).expect("the Places demo parses");
+    let stair = level.stairs.first().expect("the demo has one staircase");
+
+    let mut game = game_for(&level);
+    // The hall floor west of the flight, facing east up the stairs, on the
+    // lane between the two handrails (the stair spans z 13.0..14.2).
+    game.player_position = Vec3::new(54.0, -0.9 + EYE_HEIGHT, 13.6);
+    game.player_floor_y = -0.9;
+    game.player_yaw = 90.0_f32.to_radians();
+    game.set_app_state(AppState::Playing);
+    let settings = Settings::default();
+    let input = InputState::holding(&[Control::MoveForward]);
+    game.sim_delta_seconds = 1.0 / 60.0;
+
+    let mut csv = String::from("phase,frame,x,z,eye_y,floor_y,render_y,step_dy\n");
+    let mut steps: Vec<(u8, u32, f32)> = Vec::new();
+    let mut previous_eye = game.player_position.y;
+    for phase in 0..2 {
+        if phase == 1 {
+            // Turn around on the upper floor and walk back west.
+            game.player_yaw = (-90.0_f32).to_radians();
+        }
+        let frames = if phase == 0 { 110 } else { 130 };
+        for frame in 0..frames {
+            game.update_player_movement(&input, &settings);
+            let x = game.player_position.x;
+            let z = game.player_position.z;
+            let eye = game.player_position.y;
+            let floor = game.player_floor_y;
+            let render = game.floor.height_at(x, z).unwrap_or(f32::NAN);
+            let dy = eye - previous_eye;
+            previous_eye = eye;
+            writeln!(
+                csv,
+                "{phase},{frame},{x:.5},{z:.5},{eye:.5},{floor:.5},{render:.5},{dy:.6}"
+            )
+            .expect("the trace builds in memory");
+            steps.push((phase, frame, dy));
+        }
+    }
+
+    let riser = stair.riser_height();
+    let tread = stair.tread_depth();
+    let mut summary = String::new();
+    for phase in 0..2_u8 {
+        let mut max_dy = 0.0_f32;
+        let mut near = Vec::new();
+        for &(at_phase, frame, dy) in &steps {
+            if at_phase != phase {
+                continue;
+            }
+            let magnitude = dy.abs();
+            if magnitude > max_dy {
+                max_dy = magnitude;
+            }
+            if magnitude > riser * 0.9 {
+                near.push(frame);
+            }
+        }
+        let label = if phase == 0 { "up" } else { "down" };
+        writeln!(
+            summary,
+            "{label}: riser={riser:.4} tread={tread:.4} max|step_dy|={max_dy:.5} \
+             frames_over_0.9_riser={near:?}"
+        )
+        .expect("the summary builds in memory");
+    }
+    std::fs::write(&path, &csv).expect("the trace CSV is writable");
+    std::fs::write(format!("{path}.summary.txt"), &summary).expect("the summary is writable");
+}
+
+/// A ten-step flight -- 0.2 m risers on 0.3 m treads -- whose top tread lands
+/// flush on a raised platform.
+fn smooth_stairs_level() -> LevelDef {
+    LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "smooth_stairs",
+            "name": "Smooth Stairs",
+            "spawn": { "x": 2.0, "z": 4.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 20.0, "depth": 8.0, "height": 4.0 },
+            "stairs": [
+                { "x": 8.0, "z": 3.0, "width": 3.0, "depth": 2.0,
+                  "rise": 2.0, "steps": 10 }
+            ],
+            "floor_regions": [
+                { "x": 11.0, "z": 3.0, "width": 4.0, "depth": 2.0, "offset_y": 2.0 }
+            ]
+        }"#,
+    )
+    .expect("the smooth-stair level parses")
+}
+
+/// A game on the smooth-stairs fixture at `(x, z)` standing on `floor_y`,
+/// facing `yaw_degrees`, stepping a fixed 60 Hz.
+fn smooth_stairs_game(level: &LevelDef, x: f32, z: f32, floor_y: f32, yaw_degrees: f32) -> Game {
+    let mut game = game_for(level);
+    game.player_position = Vec3::new(x, floor_y + EYE_HEIGHT, z);
+    game.player_floor_y = floor_y;
+    game.player_yaw = yaw_degrees.to_radians();
+    game.set_app_state(AppState::Playing);
+    game.sim_delta_seconds = 1.0 / 60.0;
+    game
+}
+
+/// Walking up a staircase is continuous: every frame inside the flight moves
+/// the eye by at most the pitch line's own rise, not a whole riser per tread
+/// boundary, and the walking surface stays between the tread underfoot and the
+/// tread ahead. The one discrete step is the flight's real first riser.
+#[test]
+fn test_controller_walks_a_staircase_smoothly_up() {
+    let level = smooth_stairs_level();
+    let stair = level.stairs.first().expect("one staircase");
+    let riser = stair.riser_height();
+    let (foot_x, _x1, _z0, _z1) = stair.bounds();
+    let top_x = foot_x + stair.length();
+    assert!((riser - 0.2).abs() < 1e-6, "the fixture is 10 by 0.2: {riser}");
+    let settings = Settings::default();
+    let input = InputState::holding(&[Control::MoveForward]);
+    let frame_metres = settings.walk_speed / 60.0;
+    // The pitch line rises one riser per tread, so a frame that moves
+    // `frame_metres` along the flight changes the eye by this much.
+    let pitch_rise_per_frame = riser / stair.tread_depth() * frame_metres;
+
+    let mut game = smooth_stairs_game(&level, foot_x - 1.0, 4.0, 0.0, 90.0);
+    let mut previous_x = game.player_position.x;
+    let mut previous_eye = game.player_position.y;
+    let mut foot_steps = 0_u32;
+    let mut on_stair = Vec::new();
+    for _ in 0..140 {
+        game.update_player_movement(&input, &settings);
+        let x = game.player_position.x;
+        let floor = game.player_floor_y;
+        let eye = game.player_position.y;
+        assert_exact(eye, floor + EYE_HEIGHT);
+        let dy = eye - previous_eye;
+        if previous_x > foot_x + 0.1 && x < top_x - 1e-3 {
+            assert!(dy >= -1e-4, "walking up never dips: {dy} at x {x}");
+            assert!(
+                dy <= pitch_rise_per_frame + 1e-4,
+                "the tread boundary at x {x} is smoothed: dy {dy}"
+            );
+        }
+        if previous_x < foot_x && x < foot_x {
+            assert_exact(dy, 0.0);
+        }
+        if previous_x > top_x && x > top_x {
+            assert_exact(dy, 0.0);
+        }
+        if dy > riser * 0.9 {
+            foot_steps = foot_steps.saturating_add(1);
+            assert!(
+                dy <= riser + pitch_rise_per_frame + 1e-4,
+                "the foot's riser is one step, no more: {dy}"
+            );
+        }
+        assert!(dy <= PLAYER_STEP_HEIGHT + STEP_EPS, "step rule kept: {dy}");
+        if x >= foot_x && x <= top_x {
+            let stepped = game.floor.height_at(x, game.player_position.z);
+            on_stair.push((x, floor, stepped.expect("inside the flight")));
+        }
+        previous_x = x;
+        previous_eye = eye;
+    }
+    assert_eq!(foot_steps, 1, "only the foot's real riser is discrete");
+    assert!(
+        (game.player_floor_y - 2.0).abs() < 1e-4,
+        "the flight tops out on the platform: {}",
+        game.player_floor_y
+    );
+    assert!(
+        game.player_position.x > top_x + 1.0,
+        "the walk crosses the landing: {:?}",
+        game.player_position
+    );
+    assert!(!on_stair.is_empty());
+    // The walking surface is always between the tread underfoot and the tread
+    // ahead: never inside a step, never floating above the next one.
+    for (x, floor, stepped) in on_stair {
+        let next = (stepped + riser).min(stair.rise());
+        assert!(
+            floor >= stepped - 1e-4,
+            "at x {x} the feet are below the tread: {floor} vs {stepped}"
+        );
+        assert!(
+            floor <= next + 1e-4,
+            "at x {x} the feet are above the next tread: {floor} vs {next}"
+        );
+    }
+}
+
+/// The same flight walked down: continuous again, never a bounce back up, and
+/// the single foot riser is the only discrete drop.
+#[test]
+fn test_controller_walks_a_staircase_smoothly_down() {
+    let level = smooth_stairs_level();
+    let stair = level.stairs.first().expect("one staircase");
+    let riser = stair.riser_height();
+    let (foot_x, _x1, _z0, _z1) = stair.bounds();
+    let top_x = foot_x + stair.length();
+    let settings = Settings::default();
+    let input = InputState::holding(&[Control::MoveForward]);
+    let pitch_drop_per_frame = riser / stair.tread_depth() * settings.walk_speed / 60.0;
+
+    let mut game = smooth_stairs_game(&level, top_x + 1.0, 4.0, 2.0, -90.0);
+    let mut previous_x = game.player_position.x;
+    let mut previous_eye = game.player_position.y;
+    let mut foot_steps = 0_u32;
+    for _ in 0..150 {
+        game.update_player_movement(&input, &settings);
+        let x = game.player_position.x;
+        let eye = game.player_position.y;
+        assert_exact(eye, game.player_floor_y + EYE_HEIGHT);
+        let dy = eye - previous_eye;
+        assert!(dy <= 1e-4, "walking down never climbs: {dy} at x {x}");
+        if previous_x < top_x - 1e-3 && x > foot_x + 0.1 {
+            assert!(
+                dy >= -pitch_drop_per_frame - 1e-4,
+                "the tread boundary at x {x} is smoothed: dy {dy}"
+            );
+        }
+        if dy < -riser * 0.9 {
+            foot_steps = foot_steps.saturating_add(1);
+            assert!(
+                dy >= -riser - pitch_drop_per_frame - 1e-4,
+                "the foot's riser is one step, no more: {dy}"
+            );
+        }
+        assert!(dy >= -PLAYER_STEP_HEIGHT - STEP_EPS, "step rule kept: {dy}");
+        previous_x = x;
+        previous_eye = eye;
+    }
+    assert_eq!(foot_steps, 1, "only the foot's real riser is discrete");
+    assert!(
+        game.player_floor_y.abs() < 1e-4,
+        "the descent returns to the ground floor: {}",
+        game.player_floor_y
+    );
+    assert!(
+        game.player_position.x < foot_x,
+        "the walk returns past the foot: {:?}",
+        game.player_position
+    );
+}
+
+/// The controller's walking surface never leaves the tread it is on: at every
+/// sample of every flight orientation it sits at or above the rendered tread
+/// underfoot and at or below the next tread's top, and it is monotone from the
+/// foot to the top. That sandwich is what makes a continuous controller height
+/// physically meaningful: the feet are never inside a step and never floating
+/// over the one ahead.
+#[test]
+fn test_walk_surface_stays_between_the_treads_it_connects() {
+    let cases: [(f32, f32, f32, f32, f32, f32); 4] = [
+        // x, z, width, depth, offset_y, rise
+        (1.0, 1.0, 3.0, 1.5, 0.0, 2.0),   // +X run
+        (1.0, 1.0, 1.5, 3.0, 0.5, 1.5),   // +Z run on a raised floor
+        (5.0, 1.0, 3.0, 1.5, -0.25, 0.9), // +X run, recessed foot
+        (2.0, 2.0, 6.0, 2.0, 0.25, 2.4),  // long +X flight
+    ];
+    for (x, z, width, depth, offset_y, rise) in cases {
+        let level = LevelDef::from_json(&format!(
+            r#"{{
+                "format_version": 1,
+                "id": "stair_sandwich",
+                "name": "Stair Sandwich",
+                "spawn": {{ "x": 0.5, "z": 0.5 }},
+                "room": {{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 6.0 }},
+                "stairs": [
+                    {{ "x": {x}, "z": {z}, "width": {width}, "depth": {depth},
+                       "offset_y": {offset_y}, "rise": {rise}, "steps": 6 }}
+                ]
+            }}"#
+        ))
+        .expect("the sandwich level parses");
+        let floor = WalkableFloor::from_level(&level);
+        let stair = level.stairs.first().expect("one staircase");
+        let (x0, x1, z0, z1) = stair.bounds();
+        let riser = stair.riser_height();
+        let top = stair.top_offset();
+        let mut previous = f32::NEG_INFINITY;
+        for sample in 0..=32_u16 {
+            let fraction = f32::from(sample) / 32.0;
+            let (px, pz) = if stair.axis() == crate::level::WallAxis::X {
+                ((x1 - x0).mul_add(fraction, x0), f32::midpoint(z0, z1))
+            } else {
+                (f32::midpoint(x0, x1), (z1 - z0).mul_add(fraction, z0))
+            };
+            let stepped = floor.height_at(px, pz).expect("inside the room");
+            let walk = floor.walk_height_at(px, pz).expect("inside the room");
+            let next = (stepped + riser).min(top);
+            assert!(
+                walk >= stepped - 1e-4,
+                "at ({px}, {pz}) the walk sits below the tread: {walk} vs {stepped}"
+            );
+            assert!(
+                walk <= next + 1e-4,
+                "at ({px}, {pz}) the walk rises above the next tread: {walk} vs {next}"
+            );
+            assert!(
+                walk >= previous - 1e-4,
+                "at ({px}, {pz}) the walk surface dips: {walk} after {previous}"
+            );
+            previous = walk;
+        }
+        assert!(
+            (previous - top).abs() < 1e-4,
+            "the flight ends on its top tread: {previous} vs {top}"
+        );
+    }
+}
+
+/// A platform taller than `PLAYER_STEP_HEIGHT` and an authored wall are still
+/// barriers after the staircase became continuous: the step rule and the wall
+/// boxes keep their limits.
+#[test]
+fn test_controller_cannot_climb_a_tall_step_or_a_wall() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "no_climb",
+            "name": "No Climb",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 24.0, "depth": 8.0, "height": 4.0 },
+            "floor_regions": [
+                { "x": 6.0, "z": 0.0, "width": 2.0, "depth": 8.0, "offset_y": 0.5 }
+            ],
+            "walls": [
+                { "x": 12.0, "z": 0.0, "width": 0.3, "depth": 8.0 }
+            ]
+        }"#,
+    )
+    .expect("the no-climb level parses");
+
+    // The 0.5 m platform is half a metre tall: its rim stops the walk and the
+    // floor never rises toward its top.
+    let mut game = game_for(&level);
+    game.player_position = Vec3::new(4.0, EYE_HEIGHT, 4.0);
+    game.player_floor_y = 0.0;
+    game.player_yaw = 90.0_f32.to_radians();
+    walk_forward(&mut game, 60);
+    assert!(
+        game.player_floor_y.abs() < 1e-4,
+        "a 0.5 m step is not climbed: {}",
+        game.player_floor_y
+    );
+    assert!(
+        game.player_position.x <= 6.0 - PLAYER_RADIUS + 1e-3,
+        "the player stops one radius short of the platform: {:?}",
+        game.player_position
+    );
+
+    // An authored wall blocks exactly as before.
+    let mut game = game_for(&level);
+    game.player_position = Vec3::new(10.0, EYE_HEIGHT, 4.0);
+    game.player_floor_y = 0.0;
+    game.player_yaw = 90.0_f32.to_radians();
+    walk_forward(&mut game, 60);
+    assert!(
+        game.player_floor_y.abs() < 1e-4,
+        "a wall is not climbed: {}",
+        game.player_floor_y
+    );
+    assert!(
+        game.player_position.x <= 12.0 - PLAYER_RADIUS + 1e-3,
+        "the player stops at the wall face: {:?}",
         game.player_position
     );
 }

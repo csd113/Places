@@ -170,7 +170,7 @@ it and allocates nothing per frame.
 | `LIMINAL_CAPTURE=frame.png` | render one frame, write it, exit |
 | `LIMINAL_CAPTURE_FRAME=n` | which frame to capture (default 1), so a moving object can be captured mid-animation |
 | `LIMINAL_NO_LIGHTMAPS=1` | force the vertex-lit path for a lightmap A/B capture |
-| `LIMINAL_DUMP_LIGHTMAPS=1` | write baked atlas pages as PNGs under `target/agent-work/atlases/` |
+| `LIMINAL_DUMP_LIGHTMAPS=1` | write baked atlas pages as PNGs under `target/agent-work/atlases/` (a fresh bake only — delete `cache/lightmaps/` first, since a cache hit writes nothing) |
 | `LIMINAL_QUALITY=full\|low` | draw this run at the named profile without editing `settings.json` |
 | `LIMINAL_NO_OFFSCREEN=1` | skip the offscreen scene target and draw into the default framebuffer |
 | `LIMINAL_NO_BLOOM=1` | drop the emissive pass and the blur, keeping the resolve stage |

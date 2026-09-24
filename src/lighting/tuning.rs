@@ -44,6 +44,33 @@ pub const AMBIENT_LEVEL: f32 = 0.10;
 /// clip textured surfaces to flat white and wash the level out.
 pub const MAX_BRIGHTNESS: f32 = 1.0;
 
+/// Largest share of [`MAX_BRIGHTNESS`] a room baseline may claim, per channel.
+///
+/// The baseline is the room-wide *fill* every surface in a room receives; the
+/// local fixture pools are the light that actually shapes a room, and they are
+/// also the only term a static occluder can remove — every shadow in the game
+/// is a surface losing a pool. Both terms are summed and then clamped
+/// ([`MAX_BRIGHTNESS`]), so the fill has to leave the pool term room:
+/// `BASELINE_MAX + LOCAL_LIGHT_MAX` is `1.05`, and only a surface that both
+/// sits in the densest room the density curve allows *and* sees essentially
+/// the entire pool cap (directly under several overlapping fixtures) reaches
+/// that last 0.05. Everywhere else a pool's removal moves the final value by
+/// its full amount.
+///
+/// Measured on the shipped demo's real Full lightmap texels: with the
+/// historical full-range fill (rooms baked 0.58..0.77) 5.2% of surface texels
+/// sat at the clamp, 12.7% of the texels an occluder darkened showed no change
+/// after it, and a fully shadowed sample lost 30% of its light; with this fill
+/// nothing bakes at the clamp, 100% of what occluders remove shows, and a fully
+/// shadowed sample loses 43%. The sweep that chose 0.60 is in
+/// `bake/range_audit.rs`: the clamp damage collapses below ~0.65, while the
+/// fill still reaches two thirds of the unit range so rooms stay lit.
+///
+/// The span is not the baseline's *shape* — the density compression and the
+/// saturating curve are unchanged — only how much of the unit range the fill
+/// is allowed to occupy.
+pub const BASELINE_MAX: f32 = 0.60;
+
 /// Emitted colour used by fixtures that do not author one.
 ///
 /// A restrained, slightly aged institutional fluorescent: warm enough to read

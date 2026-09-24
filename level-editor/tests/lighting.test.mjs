@@ -123,18 +123,28 @@ test('saturation keeps extreme fixture counts inside the allowed range', () => {
   for (let i = 0; i < 200; i++) lights.push(light(2 + (i % 10) * 0.2, 2 + Math.floor(i / 10) * 0.2, { brightness: 2 }));
   const baked = bakeLevelLighting(levelWith([room(0, 0, 4, 4, 3.5)], lights));
   assert.ok(luminance(baked.rooms[0].baseline) <= TUNING.MAX_BRIGHTNESS);
-  assert.ok(luminance(baked.rooms[0].baseline) > 0.85);
+  // A saturated room approaches the baseline cap, not the brightness cap: the
+  // baseline is the fill level and the highlight headroom belongs to the
+  // visibility-tested fixture pools. The compression is asymptotic, so the
+  // check is that 200 fixtures in 16 m2 land in the top quarter of the range.
+  assert.ok(luminance(baked.rooms[0].baseline) <= TUNING.BASELINE_MAX);
+  assert.ok(
+    luminance(baked.rooms[0].baseline) >
+      TUNING.AMBIENT_LEVEL + 0.75 * (TUNING.BASELINE_MAX - TUNING.AMBIENT_LEVEL),
+    `200 fixtures in a 16 m2 room saturate near the cap: ${luminance(baked.rooms[0].baseline)}`
+  );
   assert.ok(Number.isFinite(luminance(baked.sample(2, 0, 2))));
   assert.ok(luminance(baked.sample(2, 0, 2)) <= TUNING.MAX_BRIGHTNESS);
 
-  // The pure curve never exceeds its bounds either.
+  // The pure curve never exceeds its bounds either. The bound is the baseline
+  // cap, not the brightness cap: an infinite power reaches `BASELINE_MAX`.
   assert.deepEqual(roomBaseline(0, [0, 0, 0]), [TUNING.AMBIENT_LEVEL, TUNING.AMBIENT_LEVEL, TUNING.AMBIENT_LEVEL]);
   assert.deepEqual(
     roomBaseline(0, [Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE]),
-    [1, 1, 1]
+    [TUNING.BASELINE_MAX, TUNING.BASELINE_MAX, TUNING.BASELINE_MAX]
   );
-  // A finite extreme saturates just below the maximum, exactly like the game.
-  assert.ok(luminance(roomBaseline(0, [1e30, 1e30, 1e30])) > 0.98);
+  // A finite extreme saturates just below the cap, exactly like the game.
+  assert.ok(luminance(roomBaseline(0, [1e30, 1e30, 1e30])) > 0.98 * TUNING.BASELINE_MAX);
   assert.equal(smoothFalloff(0), 1);
   assert.equal(smoothFalloff(1), 0);
   assert.equal(smoothFalloff(NaN), 0);

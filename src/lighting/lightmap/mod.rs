@@ -23,7 +23,7 @@
 //! -------------
 //! ```text
 //! mod.rs     the frozen types shared by the emitter, the fill pass and the renderer
-//! atlas.rs   the deterministic shelf packer, atlas pages and PNG debugging
+//! atlas.rs   the deterministic skyline packer, atlas pages and PNG debugging
 //! plan.rs    the per-level plan built while the mesh is emitted
 //! fill.rs    the per-texel light evaluation, called by the atlas builder
 //! cache.rs   the deterministic content key and the level lightmap cache
@@ -40,7 +40,7 @@ mod continuity;
 #[cfg(test)]
 mod tests;
 
-pub use atlas::{LightmapAtlas, LightmapPage, ShelfAllocator, page_png_bytes, write_page_png};
+pub use atlas::{LightmapAtlas, LightmapPage, SkylineAllocator, page_png_bytes, write_page_png};
 pub use cache::{LIGHTMAP_FORMAT_VERSION, LightmapCache, content_key, content_key_with_extra};
 pub use fill::fill_chart;
 pub use plan::{LevelLightmaps, LightmapMode, LightmapPlan, LightmapStats};
@@ -150,6 +150,22 @@ pub struct LightmapPatch {
     pub kind: PatchKind,
 }
 
+/// Why a quad cannot become a lightmap patch.
+///
+/// See [`LightmapPatch::rejection`]: the two kinds are handled differently by
+/// [`LightmapPlan`], because a sliver is invisible while a malformed quad is
+/// not.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PatchRejection {
+    /// No usable area: a sub-millimetre axis, a near-zero area, or a
+    /// non-finite coordinate on an otherwise floating-point-degenerate quad.
+    /// The quad is invisible, so leaving it vertex-lit changes no pixel.
+    Sliver,
+    /// Visible but broken: a bow-tie or a wildly non-planar loop. It must not
+    /// be silently left unlit, so the whole build fails over instead.
+    Malformed,
+}
+
 impl LightmapPatch {
     /// Builds the patch for one planar quad, from its four world corners in
     /// the winding the mesh emits (`p0, p1, p2, p3` of the quad, counter-clockwise
@@ -162,25 +178,51 @@ impl LightmapPatch {
     /// malformed vertex can never become a silently black patch.
     #[must_use]
     pub fn from_quad(kind: PatchKind, corners: [[f32; 3]; 4], room: Option<usize>) -> Option<Self> {
+        if Self::rejection(&corners).is_some() {
+            return None;
+        }
+        let [p0, p1, _, _] = corners;
+        let u_axis = subtract(p1, p0);
+        let v_axis = subtract(corners[3], p0);
+        Some(Self {
+            origin: p0,
+            u_axis,
+            v_axis,
+            room,
+            kind,
+        })
+    }
+
+    /// Why a quad cannot become a patch, or `None` when it can.
+    ///
+    /// The distinction matters to [`LightmapPlan`]: a [`PatchRejection::Sliver`]
+    /// is *invisible* (an axis below [`MIN_PATCH_AXIS_M`], an area below
+    /// [`MIN_PATCH_AREA_M2`], a non-finite coordinate on a zero-area quad), so
+    /// skipping that one quad locally is unobservable and must not cost a level
+    /// its whole lightmap. A [`PatchRejection::Malformed`] quad is visible but
+    /// broken (a bow-tie or a wildly non-planar loop): leaving it unlit would be
+    /// a visible error, so the build fails over to the exact vertex-lit mesh.
+    #[must_use]
+    pub fn rejection(corners: &[[f32; 3]; 4]) -> Option<PatchRejection> {
         if !corners
             .iter()
             .all(|corner| corner.iter().all(|value| value.is_finite()))
         {
-            return None;
+            return Some(PatchRejection::Sliver);
         }
-        let [p0, p1, p2, p3] = corners;
+        let [p0, p1, p2, p3] = *corners;
         let u_axis = subtract(p1, p0);
         let v_axis = subtract(p3, p0);
         let u_len = length(u_axis);
         let v_len = length(v_axis);
         if u_len < MIN_PATCH_AXIS_M || v_len < MIN_PATCH_AXIS_M {
-            return None;
+            return Some(PatchRejection::Sliver);
         }
         // The two triangles of the quad are (p0, p1, p2) and (p0, p2, p3), so a
         // patch is valid exactly when the crossed area of the frame is nonzero.
         let area = length(cross(u_axis, v_axis));
         if !area.is_finite() || area < MIN_PATCH_AREA_M2 {
-            return None;
+            return Some(PatchRejection::Sliver);
         }
         // Guard against a bow-tie or a wildly non-planar quad: the fourth
         // corner has to close the loop within its own frame. A quad whose last
@@ -190,16 +232,10 @@ impl LightmapPatch {
             let closing = subtract(add(add(p0, u_axis), v_axis), p2);
             let diag = u_len.hypot(v_len);
             if length(closing) > diag * 0.5 {
-                return None;
+                return Some(PatchRejection::Malformed);
             }
         }
-        Some(Self {
-            origin: p0,
-            u_axis,
-            v_axis,
-            room,
-            kind,
-        })
+        None
     }
 
     /// World position of local `(u, v)`, `origin + u_axis*u + v_axis*v`, with
@@ -354,31 +390,39 @@ pub struct LightmapConfig {
 /// profiles**: a profile decides texel density and page size, never where the
 /// geometry is cut, which is what keeps `Full` and `Low` on one patch set.
 ///
-/// The value is the tighter of the two page budgets — `Low`'s 512-texel page
-/// minus its gutters (510 texels) at its 8 texels per metre — because a chart
-/// that fits there fits the denser `Full` page too (63.75 m at 12 texels per
-/// metre is 765 texels against a 1020-texel usable edge).
+/// The value is a fixed historical constant (the span Low's smaller page could
+/// hold at the original 8 texels per metre). At the shipped densities it is
+/// never the binding constraint on the demo — its longest patch is 26.3 m — and
+/// a level that authors one surface longer than this still splits into several
+/// charts rather than failing: a chart wider than a page's usable edge would be
+/// clamped by [`LightmapConfig::chart_texels`].
 pub const MAX_CHART_SPAN_M: f32 = 63.75;
 
 impl LightmapConfig {
     /// The shipped settings of one quality profile.
     ///
-    /// Both profiles target the same texel footprint in metres (`usable_edge /
-    /// texels_per_metre` is identical), so the emitter's chart-span cap splits
-    /// geometry in exactly the same places at both densities; only chart texel
-    /// counts and page usage differ.
+    /// The chart-span cap ([`MAX_CHART_SPAN_M`]) is shared by both profiles, so
+    /// the emitter cuts the world's surfaces in exactly the same places at both
+    /// densities; only chart texel counts and page usage differ.
+    ///
+    /// The densities are the highest that fit the two-page budget on the
+    /// shipped demo with the skyline packer: `Full` 16 texels/m (matches the
+    /// shared cap exactly) and `Low` 9 texels/m, both measured on `places_demo`
+    /// at about 65% and 82% of the two-page budget respectively. A density that
+    /// does not fit the budget is worse than a lower one: the whole level falls
+    /// back to vertex lighting.
     #[must_use]
     pub const fn for_profile(profile: crate::quality::QualityProfile) -> Self {
         match profile {
             crate::quality::QualityProfile::Full => Self {
-                texels_per_metre: 12.0,
+                texels_per_metre: 16.0,
                 page_edge: 1_024,
                 max_pages: LIGHTMAP_ATLAS_MAX_PAGES,
                 padding: 2,
                 bytes_per_texel: 3,
             },
             crate::quality::QualityProfile::Low => Self {
-                texels_per_metre: 8.0,
+                texels_per_metre: 9.0,
                 page_edge: 512,
                 max_pages: LIGHTMAP_ATLAS_MAX_PAGES,
                 padding: 1,

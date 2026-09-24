@@ -924,6 +924,27 @@ impl StairSurface {
         self.riser_height().mul_add(risers, self.offset_y)
     }
 
+    /// Vertical offset of the **walking** surface at `(x, z)`: the line
+    /// through the flight's nosings, relative to the containing room's floor.
+    ///
+    /// The line meets every nosing at the height of the tread it fronts --
+    /// at run fraction `f` it is `offset_y + rise * min(f + 1/steps, 1)` --
+    /// and is level across the top tread, so it ends exactly on the far floor.
+    /// A player following it always stands between the tread underfoot and the
+    /// one ahead: never below the rendered tread, never above the next one.
+    /// Walking onto the flight from the room floor is still the one real riser
+    /// of the first step; every tread boundary inside the flight is continuous.
+    #[must_use]
+    pub fn pitch_offset_at(&self, x: f32, z: f32) -> f32 {
+        if self.steps == 0 {
+            return self.offset_y;
+        }
+        #[allow(clippy::cast_precision_loss)] // step counts are bounded by validation
+        let count = self.steps as f32;
+        let climbed = (self.fraction_at(x, z) + 1.0 / count).min(1.0);
+        self.rise.mul_add(climbed, self.offset_y)
+    }
+
     /// Vertical offset of the top tread (level with the far floor).
     #[must_use]
     pub fn top_offset(&self) -> f32 {
@@ -4404,9 +4425,15 @@ struct WalkableStair {
 }
 
 impl WalkableStair {
-    /// World Y of the stepped surface at `(x, z)`.
+    /// World Y of the stepped surface at `(x, z)` (the rendered treads).
     fn height_at(&self, x: f32, z: f32) -> f32 {
         self.floor_y + self.surface.offset_at(x, z)
+    }
+
+    /// World Y of the surface the controller walks at `(x, z)`: the line
+    /// through the nosings ([`StairSurface::pitch_offset_at`]).
+    fn pitch_height_at(&self, x: f32, z: f32) -> f32 {
+        self.floor_y + self.surface.pitch_offset_at(x, z)
     }
 }
 
@@ -4437,6 +4464,19 @@ struct WalkableRoom {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct WalkableFloor {
     rooms: Vec<WalkableRoom>,
+}
+
+/// Which vertical surface a staircase answers with.
+///
+/// The rendered treads and the controller's walking surface differ: the mesh,
+/// the floor atlas and prop placement need the exact stepped geometry, while a
+/// player must move continuously from one tread to the next.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StairSampling {
+    /// The rendered treads: the step the point is on.
+    Stepped,
+    /// The line through the flight's nosings, level on the top tread.
+    PitchLine,
 }
 
 impl WalkableFloor {
@@ -4510,12 +4550,38 @@ impl WalkableFloor {
 
     /// World Y of the walkable floor at `(x, z)`, or `None` outside every room.
     ///
+    /// This is the *rendered* surface: on a staircase it answers with the tread
+    /// the point is on, exactly like [`LevelSurfaces::floor_y_at`]. Use
+    /// [`Self::walk_height_at`] for the surface a walking player's feet follow,
+    /// which is continuous across a flight.
+    ///
     /// The first room in level order containing the point wins, matching
     /// [`LevelSurfaces::floor_y_at`]; inside it a ramp or staircase covering the
     /// point wins over the last authored floor region, exactly as the surface
     /// queries resolve it.
     #[must_use]
     pub fn height_at(&self, x: f32, z: f32) -> Option<f32> {
+        self.resolve_height_at(x, z, StairSampling::Stepped)
+    }
+
+    /// World Y of the surface the player's feet follow while walking at
+    /// `(x, z)`, or `None` outside every room.
+    ///
+    /// Resolves exactly like [`Self::height_at`] except on a staircase, where
+    /// it answers with the line through the flight's nosings
+    /// ([`StairSurface::pitch_offset_at`]). Sampling that line during movement
+    /// makes the foot height rise and fall continuously from tread to tread
+    /// instead of jumping one riser per boundary, while the rendered treads,
+    /// collision rims and prop placement keep using the stepped surface.
+    #[must_use]
+    pub fn walk_height_at(&self, x: f32, z: f32) -> Option<f32> {
+        self.resolve_height_at(x, z, StairSampling::PitchLine)
+    }
+
+    /// The height resolution shared by [`Self::height_at`] and
+    /// [`Self::walk_height_at`]; `stair_sampling` selects the staircase's
+    /// surface, everything else resolves identically.
+    fn resolve_height_at(&self, x: f32, z: f32, stair_sampling: StairSampling) -> Option<f32> {
         if !x.is_finite() || !z.is_finite() {
             return None;
         }
@@ -4541,7 +4607,10 @@ impl WalkableFloor {
                 .rev()
                 .find(|stair| stair.surface.contains(x, z))
             {
-                return Some(stair.height_at(x, z));
+                return Some(match stair_sampling {
+                    StairSampling::Stepped => stair.height_at(x, z),
+                    StairSampling::PitchLine => stair.pitch_height_at(x, z),
+                });
             }
             for region in room.regions.iter().rev() {
                 if x >= region.x0 && x <= region.x1 && z >= region.z0 && z <= region.z1 {

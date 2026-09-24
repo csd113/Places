@@ -289,12 +289,23 @@ def build_stove(p: PropBuilder) -> None:
 
 
 def build_sink(p: PropBuilder) -> None:
-    """Kitchen sink unit: cabinet with two doors, counter with a painted basin."""
+    """Kitchen sink unit: cabinet with two doors, counter at the run's working
+    height, and a real recessed bowl.
+
+    The slab top sits at 0.90 m -- the plane ``home:cabinet_base`` works to (the
+    Home kitchen's counter slabs; see ``parts/home.py``), so the sink stands in
+    a mixed run without breaking the worktop line.  Two closed shells carry the
+    basin: the slab is a picture-frame box around a 0.40 x 0.31 m opening, and
+    the bowl is a vessel hanging under it with a rolled rim, four sloped walls,
+    a floor and a drain strainer -- genuine recessed geometry with about
+    0.19 m of believable depth, not a painted rectangle on a flat top.
+    """
     width, height, depth = p.size
+    half_w = width * 0.5
     half_d = depth * 0.5
 
-    tex = p.set_texture(64, seed=47)
-    tex.auto("door", "side", "basin", "frame")
+    tex = p.set_texture(128, seed=47)
+    tex.auto("door", "side", "frame", "counter", "rim", "bowl", "floor", "drain", cols=3, rows=3)
 
     steel = palette.mix(palette.hex_to_rgb(palette.METAL_LIGHT), palette.hex_to_rgb(palette.INSTITUTIONAL_TEAL), 0.16)
     steel_mid = palette.shade(steel, 0.86)
@@ -316,64 +327,82 @@ def build_sink(p: PropBuilder) -> None:
     tex.border("frame", steel_dark, width=1, alpha=90)
     _wear(tex, "frame", seed=6)
 
-    # --- texture: counter with basin recess ---------------------------------
-    # The counter top's +Y face maps the region rotated a quarter turn (region
-    # rows run along x, columns along z), so the basin is painted symmetric.
-    _paint(tex, "basin", palette.shade(steel, 1.05), seed=7, grain_density=0.3)
-    tex.border("basin", steel_dark, width=1, alpha=90)
-    tex.bar("basin", palette.shade(steel_mid, 0.88), (0.16, 0.16, 0.84, 0.84))
-    tex.bar("basin", basin_floor, (0.20, 0.20, 0.80, 0.80))
-    tex.band("basin", palette.shade(basin_floor, 1.35), 0.23, 0.28, alpha=80)
-    tex.dots("basin", palette.shade(steel_dark, 0.6), [(0.5, 0.5)], radius=3, alpha=170)
-    tex.dots("basin", palette.shade(chrome, 1.1), [(0.5, 0.5)], radius=1, alpha=200)
-    _wear(tex, "basin", seed=8, rust=1, streaks=2)
+    # --- texture: counter deck ---------------------------------------------
+    # The deck maps the region as a plan (u along +Z, v along +X), so the
+    # shaded band under the upstand is a u-range, not a band().
+    _paint(tex, "counter", palette.shade(steel, 1.04), seed=7, grain_density=0.3)
+    tex.border("counter", steel_dark, width=1, alpha=100)
+    tex.bar("counter", palette.shade(steel_mid, 0.9), (0.0, 0.0, 0.14, 1.0), alpha=50)
+    tex.bar("counter", palette.shade(steel, 1.1), (0.14, 0.0, 0.18, 1.0), alpha=40)
+    _wear(tex, "counter", seed=8, rust=1, streaks=2)
+
+    # --- texture: rolled rim and the bowl interior --------------------------
+    _paint(tex, "rim", palette.shade(chrome, 1.0), seed=9, grain_density=0.45, grain_alpha=30)
+    tex.band("rim", palette.shade(chrome, 0.84), 0.0, 0.22, alpha=60)
+    # Bowl walls: v runs rim (bright) to floor (dark), so the gradient is depth.
+    tex.gradient("bowl", palette.shade(steel, 1.0), basin_floor, jitter=4, seed=10)
+    tex.band("bowl", palette.shade(steel, 1.12), 0.0, 0.06, alpha=70)
+    tex.streaks("bowl", palette.hex_to_rgb(palette.GRIME), count=3, seed=11, alpha=22)
+    tex.spots("bowl", palette.hex_to_rgb(palette.RUST), count=2, seed=12, radius=2, alpha=24,
+              sub=(0.0, 0.5, 1.0, 1.0))
+    tex.border("bowl", steel_dark, width=1, alpha=80)
+    # Bowl floor: the drain sits at the region centre, so the rings stay round.
+    tex.fill("floor", basin_floor, jitter=4, seed=13)
+    tex.noise("floor", amount=4, freq=3, seed=14)
+    tex.dots("floor", palette.shade(basin_floor, 1.16), [(0.5, 0.5)], radius=9, alpha=40)
+    tex.dots("floor", palette.shade(basin_floor, 0.78), [(0.5, 0.5)], radius=6, alpha=55)
+    tex.spots("floor", palette.hex_to_rgb(palette.GRIME), count=4, seed=15, radius=2, alpha=26)
+    # Drain strainer: mapped radially, so it is painted as concentric discs.
+    tex.fill("drain", palette.shade(chrome, 0.8), jitter=3, seed=16)
+    tex.dots("drain", palette.shade(chrome, 1.06), [(0.5, 0.5)], radius=16)
+    tex.dots("drain", palette.shade(chrome, 0.55), [(0.5, 0.5)], radius=9, alpha=200)
+    tex.dots("drain", palette.shade(chrome, 1.12), [(0.5, 0.5)], radius=3)
 
     # --- geometry -----------------------------------------------------------
-    proud = 0.035
-    cabinet_front = half_d - proud
-    cabinet_depth = depth - proud
-    cabinet_top = 0.66            # counter slab sits on the cabinet carcass
-    counter_h = 0.04
-    counter_top = cabinet_top + counter_h
+    # Vertical plan copied from ``home:cabinet_base``: toe kick to 0.09, the
+    # carcass sunk 7 mm into the slab, doors clear of the counter's overhang.
+    counter_top = 0.90
+    counter_h = 0.035
+    counter_bottom = counter_top - counter_h
+    cabinet_top = counter_bottom + 0.007
+    plinth_h = 0.09
+    door_bottom, door_top = 0.10, 0.84
+    door_w, door_depth = 0.28, 0.016
+    door_front = half_d - 0.016
+    carcass_front = half_d - 0.034
+    carcass_back = -half_d + 0.01
+    kick_front = door_front - 0.078
+    kick_back = carcass_back + 0.01
 
     p.box(
-        (0.0, 0.03, -0.02),
-        (width - 0.06, 0.06, cabinet_depth - 0.06),
+        (0.0, plinth_h * 0.5, (kick_front + kick_back) * 0.5),
+        (width - 0.03, plinth_h, kick_front - kick_back),
         uv=tex.uv("frame"),
         color=palette.shade(steel_dark, 0.75),
         proxy=False,
     )
     p.box(
-        (0.0, 0.06 + (cabinet_top - 0.06) * 0.5, -0.0175),
-        (width, cabinet_top - 0.06, cabinet_depth),
-        uv={"+z": tex.uv("frame"), "-z": tex.uv("side"), "+y": tex.uv("side"),
+        (0.0, (plinth_h + cabinet_top) * 0.5, (carcass_front + carcass_back) * 0.5),
+        (width, cabinet_top - plinth_h, carcass_front - carcass_back),
+        uv={"+z": tex.uv("frame"), "-z": tex.uv("side"), "+y": None,
             "-y": None, "+x": tex.uv("side"), "-x": tex.uv("side")},
         color=steel_mid,
     )
     for sx in (-1.0, 1.0):
         p.box(
-            (sx * 0.1525, 0.10 + (0.60 - 0.10) * 0.5, cabinet_front + 0.01),
-            (0.275, 0.60 - 0.10, 0.02),
+            (sx * (0.0075 + door_w * 0.5), (door_bottom + door_top) * 0.5, door_front - door_depth * 0.5),
+            (door_w, door_top - door_bottom, door_depth),
             uv={"+z": tex.uv("door"), "-z": None, "+y": tex.uv("side"), "-y": None,
                 "+x": tex.uv("side"), "-x": tex.uv("side")},
             color=palette.shade(steel_mid, 1.04),
         )
         p.box(
-            (sx * 0.075, 0.35, cabinet_front + 0.0275),
-            (0.024, 0.13, 0.015),
+            (sx * 0.045, 0.75, door_front + 0.008),
+            (0.018, 0.12, 0.012),
             uv=tex.uv("side"),
             color=chrome,
             proxy=False,
         )
-    # Counter slab with a raised back edge: the upstand is what makes a painted
-    # basin read as a sink unit rather than a cabinet with a lid.
-    p.box(
-        (0.0, cabinet_top + counter_h * 0.5, 0.0),
-        (width, counter_h, depth),
-        uv={"+z": tex.uv("side"), "-z": tex.uv("side"), "+y": tex.uv("basin"),
-            "-y": None, "+x": tex.uv("side"), "-x": tex.uv("side")},
-        color=steel,
-    )
     p.box(
         (0.0, counter_top + 0.035, -half_d + 0.0125),
         (width, 0.07, 0.025),
@@ -381,15 +410,177 @@ def build_sink(p: PropBuilder) -> None:
             "-y": None, "+x": tex.uv("side"), "-x": tex.uv("side")},
         color=palette.shade(steel, 1.03),
     )
-    # Faucet: a taller post, a forward spout and a cross handle.  Its tip is the
-    # prop's highest point, just inside the 0.85 m catalogue height.
-    p.cylinder((0.0, counter_top, -0.17), 0.02, 0.145, segments=6, side_uv=tex.uv("side"),
-               cap_uv=tex.uv("side"), color=chrome)
-    p.tube((0.0, 0.838, -0.17), (0.0, 0.808, -0.05), 0.016, segments=6, uv=tex.uv("side"),
-           color=chrome)
-    p.cylinder((-0.04, 0.795, -0.17), 0.009, 0.08, segments=4, axis="x",
+
+    # --- counter slab + bowl: two closed shells -----------------------------
+    # The slab is a picture-frame box around a 0.40 x 0.31 m opening; the bowl
+    # hangs under it as a closed vessel whose rolled rim stands 6 mm proud of
+    # the deck and 2 mm wider than the opening, its walls stepping 45 mm inward
+    # over the 0.186 m drop to the floor.  Every edge of both shells is shared
+    # by exactly two quads and both wind outwards (unlike the legacy
+    # `Mesh.box`, whose +X/-X faces wind inwards; see
+    # `parts/refreshed.py::orient_outward`), so a winding/manifold audit has
+    # something exact to prove.
+    bowl_rx = 0.20
+    bowl_z0, bowl_z1 = -0.10, 0.21
+    rim_w = 0.016
+    lip = 0.002
+    rim_top = counter_top + 0.006
+    bowl_floor_y = rim_top - 0.186
+    bottom_y = bowl_floor_y - 0.004
+    taper = 0.045
+    rix = bowl_rx - rim_w
+    ri0, ri1 = bowl_z0 + rim_w, bowl_z1 - rim_w
+    fix = rix - taper
+    fi0, fi1 = ri0 + taper, ri1 - taper
+    outer_rx = bowl_rx + lip
+    out_z0, out_z1 = bowl_z0 - lip, bowl_z1 + lip
+    side_uv = tex.uv("side")
+    rim_uv = tex.uv("rim", inset=1)
+    bowl_uv = tex.uv("bowl", inset=1)
+    floor_uv = tex.uv("floor", inset=1)
+    cu0, cv0, cu1, cv1 = tex.uv("counter", inset=1)
+
+    def deck_uv(x: float, z: float) -> tuple[float, float]:
+        """Deck plan mapping: u along +Z, v along +X (the box top's own axes)."""
+        return (
+            cu0 + (z + half_d) / depth * (cu1 - cu0),
+            cv0 + (x + half_w) / width * (cv1 - cv0),
+        )
+
+    def frame(y, outer, inner, uv, color, shade, face_up: bool = True) -> None:
+        """Picture-frame ring at height `y` between two rectangles.
+
+        Four trapezoids cut corner to corner, so each piece shares whole edges
+        with its neighbours: no half-shared (T-junction) edge anywhere in the
+        slab, the rim or the vessel's bottom.
+        """
+        ox, o0, o1 = outer
+        ix, i0, i1 = inner
+        pieces = (
+            ((ox, o0), (-ox, o0), (-ix, i0), (ix, i0)),
+            ((ox, o1), (ix, i1), (-ix, i1), (-ox, o1)),
+            ((-ox, o0), (-ox, o1), (-ix, i1), (-ix, i0)),
+            ((ox, o0), (ix, i0), (ix, i1), (ox, o1)),
+        )
+        for piece in pieces:
+            points = [(x, y, z) for x, z in piece]
+            if not face_up:
+                points.reverse()
+            uvs = [uv(x, z) for x, z in piece] if callable(uv) else uv
+            p.mesh.quad(*points, uv=uvs, color=color, shade_mult=shade)
+
+    # Slab: four outer walls, deck ring, underside ring and the opening wall.
+    p.mesh.quad((half_w, counter_bottom, half_d), (half_w, counter_bottom, -half_d),
+                (half_w, counter_top, -half_d), (half_w, counter_top, half_d),
+                uv=side_uv, color=steel, shade_mult=FACE_SHADE["+x"])
+    p.mesh.quad((-half_w, counter_bottom, -half_d), (-half_w, counter_bottom, half_d),
+                (-half_w, counter_top, half_d), (-half_w, counter_top, -half_d),
+                uv=side_uv, color=steel, shade_mult=FACE_SHADE["-x"])
+    p.mesh.quad((-half_w, counter_bottom, half_d), (half_w, counter_bottom, half_d),
+                (half_w, counter_top, half_d), (-half_w, counter_top, half_d),
+                uv=side_uv, color=steel, shade_mult=FACE_SHADE["+z"])
+    p.mesh.quad((half_w, counter_bottom, -half_d), (-half_w, counter_bottom, -half_d),
+                (-half_w, counter_top, -half_d), (half_w, counter_top, -half_d),
+                uv=side_uv, color=steel, shade_mult=FACE_SHADE["-z"])
+    frame(counter_top, (half_w, -half_d, half_d), (bowl_rx, bowl_z0, bowl_z1),
+          deck_uv, steel, FACE_SHADE["+y"])
+    frame(counter_bottom, (half_w, -half_d, half_d), (bowl_rx, bowl_z0, bowl_z1),
+          side_uv, palette.shade(steel_mid, 0.8), FACE_SHADE["-y"], face_up=False)
+    p.mesh.quad((-bowl_rx, counter_bottom, bowl_z0), (bowl_rx, counter_bottom, bowl_z0),
+                (bowl_rx, counter_top, bowl_z0), (-bowl_rx, counter_top, bowl_z0),
+                uv=side_uv, color=steel_mid, shade_mult=FACE_SHADE["+z"])
+    p.mesh.quad((bowl_rx, counter_bottom, bowl_z1), (-bowl_rx, counter_bottom, bowl_z1),
+                (-bowl_rx, counter_top, bowl_z1), (bowl_rx, counter_top, bowl_z1),
+                uv=side_uv, color=steel_mid, shade_mult=FACE_SHADE["-z"])
+    p.mesh.quad((-bowl_rx, counter_bottom, bowl_z1), (-bowl_rx, counter_bottom, bowl_z0),
+                (-bowl_rx, counter_top, bowl_z0), (-bowl_rx, counter_top, bowl_z1),
+                uv=side_uv, color=steel_mid, shade_mult=FACE_SHADE["+x"])
+    p.mesh.quad((bowl_rx, counter_bottom, bowl_z0), (bowl_rx, counter_bottom, bowl_z1),
+                (bowl_rx, counter_top, bowl_z1), (bowl_rx, counter_top, bowl_z0),
+                uv=side_uv, color=steel_mid, shade_mult=FACE_SHADE["-x"])
+    # Bowl vessel: outer wall and bottom, floor, sloped inner walls, rim band.
+    p.mesh.quad((outer_rx, bottom_y, out_z0), (-outer_rx, bottom_y, out_z0),
+                (-outer_rx, rim_top, out_z0), (outer_rx, rim_top, out_z0),
+                uv=rim_uv, color=chrome, shade_mult=FACE_SHADE["-z"])
+    p.mesh.quad((-outer_rx, bottom_y, out_z1), (outer_rx, bottom_y, out_z1),
+                (outer_rx, rim_top, out_z1), (-outer_rx, rim_top, out_z1),
+                uv=rim_uv, color=chrome, shade_mult=FACE_SHADE["+z"])
+    p.mesh.quad((-outer_rx, bottom_y, out_z0), (-outer_rx, bottom_y, out_z1),
+                (-outer_rx, rim_top, out_z1), (-outer_rx, rim_top, out_z0),
+                uv=rim_uv, color=chrome, shade_mult=FACE_SHADE["-x"])
+    p.mesh.quad((outer_rx, bottom_y, out_z1), (outer_rx, bottom_y, out_z0),
+                (outer_rx, rim_top, out_z0), (outer_rx, rim_top, out_z1),
+                uv=rim_uv, color=chrome, shade_mult=FACE_SHADE["+x"])
+    p.mesh.quad((-outer_rx, bottom_y, out_z0), (outer_rx, bottom_y, out_z0),
+                (outer_rx, bottom_y, out_z1), (-outer_rx, bottom_y, out_z1),
+                uv=side_uv, color=palette.shade(steel_mid, 0.7), shade_mult=FACE_SHADE["-y"])
+    p.mesh.quad((-fix, bowl_floor_y, fi0), (-fix, bowl_floor_y, fi1),
+                (fix, bowl_floor_y, fi1), (fix, bowl_floor_y, fi0),
+                uv=floor_uv, color=palette.shade(basin_floor, 1.1), shade_mult=0.9)
+    p.mesh.quad((-fix, bowl_floor_y, fi0), (fix, bowl_floor_y, fi0),
+                (rix, rim_top, ri0), (-rix, rim_top, ri0),
+                uv=bowl_uv, color=palette.shade(steel, 0.94), shade_mult=0.84)
+    p.mesh.quad((fix, bowl_floor_y, fi1), (-fix, bowl_floor_y, fi1),
+                (-rix, rim_top, ri1), (rix, rim_top, ri1),
+                uv=bowl_uv, color=palette.shade(steel, 0.9), shade_mult=0.78)
+    p.mesh.quad((-fix, bowl_floor_y, fi1), (-fix, bowl_floor_y, fi0),
+                (-rix, rim_top, ri0), (-rix, rim_top, ri1),
+                uv=bowl_uv, color=palette.shade(steel, 0.92), shade_mult=0.8)
+    p.mesh.quad((fix, bowl_floor_y, fi0), (fix, bowl_floor_y, fi1),
+                (rix, rim_top, ri1), (rix, rim_top, ri0),
+                uv=bowl_uv, color=palette.shade(steel, 0.96), shade_mult=0.86)
+    frame(rim_top, (outer_rx, out_z0, out_z1), (rix, ri0, ri1),
+          rim_uv, chrome, FACE_SHADE["+y"])
+    # Drain: a shallow 8-segment strainer with a radial mapping, so the painted
+    # rings stay concentric instead of smearing across the cap.
+    drain_r = 0.034
+    drain_h = 0.006
+    drain_cz = (fi0 + fi1) * 0.5
+    du0, dv0, du1, dv1 = tex.uv("drain", inset=1)
+    drain_cu, drain_cv = (du0 + du1) * 0.5, (dv0 + dv1) * 0.5
+    drain_ru, drain_rv = (du1 - du0) * 0.5, (dv1 - dv0) * 0.5
+    for index in range(8):
+        a0 = math.tau * index / 8
+        a1 = math.tau * (index + 1) / 8
+        x0, z0 = math.cos(a0) * drain_r, drain_cz + math.sin(a0) * drain_r
+        x1, z1 = math.cos(a1) * drain_r, drain_cz + math.sin(a1) * drain_r
+        p.mesh.quad((x1, bowl_floor_y, z1), (x0, bowl_floor_y, z0),
+                    (x0, bowl_floor_y + drain_h, z0), (x1, bowl_floor_y + drain_h, z1),
+                    uv=tex.uv("drain"), color=palette.shade(chrome, 0.8), shade_mult=0.72)
+        p.mesh.triangle(
+            (0.0, bowl_floor_y + drain_h, drain_cz), (x1, bowl_floor_y + drain_h, z1),
+            (x0, bowl_floor_y + drain_h, z0),
+            [
+                (drain_cu, drain_cv),
+                (drain_cu + drain_ru * math.cos(a1), drain_cv - drain_rv * math.sin(a1)),
+                (drain_cu + drain_ru * math.cos(a0), drain_cv - drain_rv * math.sin(a0)),
+            ],
+            palette.shade(chrome, 1.0),
+            shade_mult=0.95,
+        )
+    # Faucet: a post rising to the catalogue height, a spout over the bowl and
+    # a cross handle.  The post's cap is the prop's highest point by
+    # construction: the spout's ring is kept 20 mm below it, clear of its own
+    # 16 mm radius.
+    post_top = height
+    p.cylinder((0.0, counter_top, -0.17), 0.02, post_top - counter_top, segments=6,
+               side_uv=tex.uv("side"), cap_uv=tex.uv("side"), color=chrome)
+    p.tube((0.0, post_top - 0.02, -0.17), (0.0, post_top - 0.05, -0.06), 0.016, segments=6,
+           uv=tex.uv("side"), color=chrome)
+    p.cylinder((-0.04, post_top - 0.06, -0.17), 0.009, 0.08, segments=4, axis="x",
                side_uv=tex.uv("side"), cap_uv=tex.uv("side"), color=chrome, proxy=False)
-    p.add_note("basin recess is painted on the counter top; upstand and faucet are geometry")
+    # Editor proxy: the hand-built slab is not a box() call, so register its
+    # coarse mass for the derived preview geometry.
+    p.mesh.parts.append(
+        {
+            "shape": "box",
+            "center": [0.0, (counter_bottom + counter_top) * 0.5, 0.0],
+            "size": [width, counter_h, depth],
+            "rotation": [0.0, 0.0, 0.0],
+            "color": "#a6aeaf",
+        }
+    )
+    p.add_note("deck top at 0.90 m (the Home cabinet run's counter plane); slab and bowl are two closed shells: rolled rim, sloped walls, floor and drain")
 
 
 # -------------------------------------------------------------------- fridge

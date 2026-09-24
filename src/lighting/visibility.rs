@@ -10,9 +10,16 @@
 //! question, once per level load and never per frame:
 //!
 //! ```text
-//! can the straight segment from a fixture's panel to a surface sample pass
-//! through solid geometry?
+//! what fraction of a fixture's emitting rectangle can a surface sample see?
 //! ```
+//!
+//! [`Visibility::occludes`] is the historical binary answer — one segment from
+//! the emitter's closest point — and [`Visibility::visible_fraction`] is its
+//! sampled generalisation: the emitter is covered by a fixed tap pattern and the
+//! visible fraction of that area becomes the pool's weight, which is what turns
+//! a hard shadow edge into a penumbra. [`ShadowSampling::HARD`] reproduces
+//! `occludes` exactly, so the vertex-lit fallback and every historical test keep
+//! their values bit for bit.
 //!
 //! The geometry it tests is exactly the solid geometry the renderer emits and
 //! collision walks through, in three groups:
@@ -167,6 +174,20 @@ impl Blocker {
         }
     }
 
+    /// True when a point lies inside the box, boundary included.
+    ///
+    /// Used to recognise an emitter tap that sits *in* solid geometry — a wall
+    /// sconce's rectangle extends into its own wall — so it is removed from the
+    /// soft-visibility average instead of counting as blocked. The boundary is
+    /// inclusive for the same reason [`Self::contains_xz`] is: a tap exactly on
+    /// a face is not an emitting surface into any room.
+    fn contains(&self, point: [f32; 3]) -> bool {
+        point
+            .iter()
+            .zip(self.min.iter().zip(self.max.iter()))
+            .all(|(&value, (&low, &high))| value >= low && value <= high)
+    }
+
     /// True when the two X/Z footprint rectangles touch or overlap.
     fn overlaps_footprint(&self, x0: f32, x1: f32, z0: f32, z1: f32) -> bool {
         self.min[0] <= x1 && self.max[0] >= x0 && self.min[2] <= z1 && self.max[2] >= z0
@@ -257,6 +278,18 @@ impl OrientedBox {
         let dx = (min_x - x).max(x - max_x).max(0.0);
         let dz = (min_z - z).max(z - max_z).max(0.0);
         dx.hypot(dz)
+    }
+
+    /// True when a point lies inside the rotated box, boundary included.
+    ///
+    /// A prop's box can swallow an emitter tap (a lamp inside a cabinet, a
+    /// fixture clipping a machine), and such a tap is not an emitting surface:
+    /// [`Visibility::visible_fraction`] removes it from the soft average.
+    fn contains(&self, point: [f32; 3]) -> bool {
+        let local = self.local_point(point);
+        local[0].abs() <= self.half[0]
+            && local[1].abs() <= self.half[1]
+            && local[2].abs() <= self.half[2]
     }
 
     /// True when the segment crosses this box.
@@ -405,6 +438,131 @@ impl QuerySite {
     }
 }
 
+/// How a local pool's visibility to a sample is sampled.
+///
+/// The historical bake answered one binary question per fixture and sample:
+/// does the segment from the emitter's *closest point* cross solid geometry?
+/// That is [`Self::HARD`], and it is preserved exactly. Every other value
+/// resolves a real penumbra by sampling the emitter's rectangle: a partially
+/// occluded fixture then fades over the shadow instead of flipping at a line.
+///
+/// The tap count is total by construction. `0` and `1` are the single
+/// historical point; `2` is the five-tap quincunx (the centre plus the four
+/// quadrant corners); `3` and anything larger is the nine-tap 3x3 grid (the
+/// largest table this engine ships), so a hand-built value can never make a
+/// query unbounded.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ShadowSampling {
+    /// Emitter samples per axis: `1` samples the emitter's closest point only.
+    pub taps_per_axis: u8,
+}
+
+impl ShadowSampling {
+    /// The historical test: one tap, the emitter's closest point. A `HARD`
+    /// bake is bit-identical to every bake that predates soft shadows.
+    pub const HARD: Self = Self { taps_per_axis: 1 };
+
+    /// True when this sampling resolves no penumbra.
+    #[must_use]
+    pub const fn is_hard(self) -> bool {
+        self.taps_per_axis <= 1
+    }
+}
+
+/// One emitter sample: its position as a fraction of the emitter's half
+/// extents, and the share of the emitter's area it stands for.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct EmitterTap {
+    offset: [f32; 2],
+    weight: f32,
+}
+
+/// The centre plus the four quadrant corners, the five-tap quincunx.
+///
+/// The weights are the separable trapezoid rule on `{-1, 0, 1}` (which is
+/// exactly area weighting for a field that is linear across the rectangle)
+/// restricted to the taps that carry the centre and the corners, renormalised
+/// so the weights always sum to one. `taps_per_axis == 2` uses this table.
+const QUINCUNX_TAPS: [EmitterTap; 5] = [
+    EmitterTap {
+        offset: [-1.0, -1.0],
+        weight: 0.125,
+    },
+    EmitterTap {
+        offset: [1.0, -1.0],
+        weight: 0.125,
+    },
+    EmitterTap {
+        offset: [-1.0, 1.0],
+        weight: 0.125,
+    },
+    EmitterTap {
+        offset: [1.0, 1.0],
+        weight: 0.125,
+    },
+    EmitterTap {
+        offset: [0.0, 0.0],
+        weight: 0.5,
+    },
+];
+
+/// The full 3x3 grid over the emitter's extent, the nine-tap table.
+///
+/// Taps sit on the emitter's edges and at its centre, at offsets
+/// `{-1, 0, 1} x {-1, 0, 1}`, weighted by the separable trapezoid rule so the
+/// centre carries a quarter of the emitter's area, an edge tap an eighth and a
+/// corner tap a sixteenth. `taps_per_axis >= 3` uses this table.
+const GRID_TAPS: [EmitterTap; 9] = [
+    EmitterTap {
+        offset: [-1.0, -1.0],
+        weight: 0.0625,
+    },
+    EmitterTap {
+        offset: [0.0, -1.0],
+        weight: 0.125,
+    },
+    EmitterTap {
+        offset: [1.0, -1.0],
+        weight: 0.0625,
+    },
+    EmitterTap {
+        offset: [-1.0, 0.0],
+        weight: 0.125,
+    },
+    EmitterTap {
+        offset: [0.0, 0.0],
+        weight: 0.25,
+    },
+    EmitterTap {
+        offset: [1.0, 0.0],
+        weight: 0.125,
+    },
+    EmitterTap {
+        offset: [-1.0, 1.0],
+        weight: 0.0625,
+    },
+    EmitterTap {
+        offset: [0.0, 1.0],
+        weight: 0.125,
+    },
+    EmitterTap {
+        offset: [1.0, 1.0],
+        weight: 0.0625,
+    },
+];
+
+/// The emitter taps a sampling resolves to. Empty means the hard centre path.
+const fn tap_table(sampling: ShadowSampling) -> &'static [EmitterTap] {
+    match sampling.taps_per_axis {
+        0 | 1 => &[],
+        2 => &QUINCUNX_TAPS,
+        _ => &GRID_TAPS,
+    }
+}
+
+/// Largest tap table this engine ships: the 3x3 grid.
+const MAX_SHADOW_TAPS: usize = 9;
+
 /// Which list a pooled solid lives in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SolidIndex {
@@ -421,6 +579,20 @@ struct SiteSolid {
     solid: SolidIndex,
     /// Distance from the site centre to the solid's X/Z rectangle, in metres.
     near: f32,
+    /// The solid's X/Z bounds: `(x0, x1, z0, z1)`.
+    ///
+    /// A segment can only be blocked by a solid whose X/Z rectangle it crosses,
+    /// so a query rejects most of its reachable solids with four comparisons
+    /// instead of a full geometric test. For a rotated prop box these are its
+    /// conservative world bounds, which only ever admits one more test.
+    bounds: [f32; 4],
+}
+
+impl SiteSolid {
+    /// True when the X/Z rectangle touches this solid's footprint.
+    fn overlaps(&self, x0: f32, x1: f32, z0: f32, z1: f32) -> bool {
+        self.bounds[0] <= x1 && self.bounds[1] >= x0 && self.bounds[2] <= z1 && self.bounds[3] >= z0
+    }
 }
 
 /// A uniform X/Z grid mapping a cell to the solids whose footprint overlaps it.
@@ -737,6 +909,18 @@ impl Occluders {
     /// occluders of a level.
     #[must_use]
     pub(super) fn build(level: &LevelDef) -> Self {
+        Self::build_with(level, super::tuning::PROP_OCCLUSION_CELL_M)
+    }
+
+    /// [`Self::build`] with an explicit prop-occlusion grid cell, in metres.
+    ///
+    /// The cell is a quality knob: a finer grid derives more, smaller boxes
+    /// from a prop model, so its contact shadow and the pool it blocks are
+    /// grounded more precisely. The historical 0.15 m cell is the
+    /// `BakeConfig::HARD` value and must keep producing exactly the boxes it
+    /// always did, so it takes the historical entry point verbatim.
+    #[must_use]
+    pub(super) fn build_with(level: &LevelDef, cell_m: f32) -> Self {
         let surfaces = LevelSurfaces::new(level);
         let mut walls: Vec<Blocker> = Vec::new();
         for wall in &level.walls {
@@ -753,7 +937,14 @@ impl Occluders {
         }
         let mut horizontals: Vec<Horizontal> = Vec::new();
         append_room_horizontals(&mut horizontals, &surfaces);
-        let props = super::occlusion::level_occluders(level, &surfaces);
+        // The historical cell takes the historical derivation entry point, so a
+        // HARD bake is bit-for-bit unchanged and `level_occluders` keeps a
+        // production caller.
+        let props = if cell_m.to_bits() == super::tuning::PROP_OCCLUSION_CELL_M.to_bits() {
+            super::occlusion::level_occluders(level, &surfaces)
+        } else {
+            super::occlusion::level_occluders_with_cell(level, &surfaces, cell_m)
+        };
         Self {
             wall_grid: PointGrid::build(&walls, 0),
             walls,
@@ -1257,25 +1448,31 @@ impl Visibility {
                 let (z0, z1) = (site.z - radius, site.z + radius);
                 for (index, wall) in occluders.walls.iter().enumerate() {
                     if wall.overlaps_footprint(x0, x1, z0, z1) {
+                        let (fx0, fx1, fz0, fz1) = wall.footprint();
                         pool.push(SiteSolid {
                             solid: SolidIndex::Wall(u32::try_from(index).unwrap_or(u32::MAX)),
                             near: wall.footprint_distance(site.x, site.z),
+                            bounds: (fx0, fx1, fz0, fz1).into(),
                         });
                     }
                 }
                 for (index, horizontal) in occluders.horizontals.iter().enumerate() {
                     if horizontal.overlaps_footprint(x0, x1, z0, z1) {
+                        let (fx0, fx1, fz0, fz1) = horizontal.footprint();
                         pool.push(SiteSolid {
                             solid: SolidIndex::Horizontal(u32::try_from(index).unwrap_or(u32::MAX)),
                             near: horizontal.footprint_distance(site.x, site.z),
+                            bounds: (fx0, fx1, fz0, fz1).into(),
                         });
                     }
                 }
                 for (index, prop) in occluders.props.iter().enumerate() {
                     if prop.overlaps_footprint(x0, x1, z0, z1) {
+                        let (fx0, fx1, fz0, fz1) = prop.footprint();
                         pool.push(SiteSolid {
                             solid: SolidIndex::Prop(u32::try_from(index).unwrap_or(u32::MAX)),
                             near: prop.footprint_distance(site.x, site.z),
+                            bounds: (fx0, fx1, fz0, fz1).into(),
                         });
                     }
                 }
@@ -1390,32 +1587,319 @@ impl Visibility {
             return false;
         };
         let from = nudge_segment_start(from, to);
+        // A solid can only be crossed where the segment's X/Z projection
+        // overlaps its footprint; the start nudge moves one endpoint by up to
+        // `SEGMENT_START_EPS_M`, so the box is grown by that much.
+        let (x_span_min, x_span_max) = ordered_pair(from[0], to[0]);
+        let (z_span_min, z_span_max) = ordered_pair(from[2], to[2]);
+        let (x_span_min, x_span_max) =
+            (x_span_min - SEGMENT_START_EPS_M, x_span_max + SEGMENT_START_EPS_M);
+        let (z_span_min, z_span_max) =
+            (z_span_min - SEGMENT_START_EPS_M, z_span_max + SEGMENT_START_EPS_M);
         for entry in entries {
             if entry.near > reach {
                 break;
             }
-            match entry.solid {
-                SolidIndex::Wall(index) => {
-                    if let Some(wall) = self.occluders.walls.get(index as usize)
-                        && segment_hits_box(*wall, from, to)
-                    {
-                        return true;
-                    }
+            if !entry.overlaps(x_span_min, x_span_max, z_span_min, z_span_max) {
+                continue;
+            }
+            if self.solid_hits(entry.solid, from, to) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Fraction, in `0..=1`, of the emitter rectangle visible from `point`.
+    ///
+    /// `centre` is the light's world position and `half_w`/`half_d` its rotated
+    /// half extents, so the emitter is the axis-aligned rectangle
+    /// `centre.xz +- (half_w, half_d)` at `centre.y` — exactly the rectangle
+    /// the historical test clamps its closest point into.
+    ///
+    /// With [`ShadowSampling::HARD`] this is the historical test itself: the
+    /// query is made from the emitter's closest point to `point`, and the
+    /// result is `0.0` exactly when [`Self::occludes`] would answer `true`.
+    /// Every existing test and the historical vertex path therefore keep
+    /// bit-identical values.
+    ///
+    /// With a soft sampling this returns the area fraction of the emitter that
+    /// sees `point`, weighted by the fixed [`tap_table`] quadrature: `1.0` when
+    /// every tap sees it and `0.0` when every tap is blocked. A tap that is
+    /// itself inside solid geometry — half of a wall sconce's rectangle sits in
+    /// its own wall — is not an emitting surface the room can see, so it is
+    /// removed from the average rather than counted as blocked; without that a
+    /// flush-mounted fixture would lose half its pool to its own wall. The
+    /// emitter's centre is one of the taps, so a light that sees the sample
+    /// from its centre always contributes the centre's share.
+    ///
+    /// The caller applies the fraction to the pool *contribution*: the pool's
+    /// colour, intensity and falloff are unchanged, and only the visibility
+    /// gate becomes a fade instead of a switch.
+    #[must_use]
+    pub fn visible_fraction(
+        &self,
+        site: u32,
+        centre: [f32; 3],
+        half_w: f32,
+        half_d: f32,
+        point: [f32; 3],
+        sampling: ShadowSampling,
+    ) -> f32 {
+        if !centre.iter().chain(point.iter()).all(|value| value.is_finite()) {
+            // The hard test refuses a non-finite segment as blocked; a soft one
+            // must not answer "unlit" with a NaN, so it answers zero.
+            return 0.0;
+        }
+        let half_w = if half_w.is_finite() { half_w.max(0.0) } else { 0.0 };
+        let half_d = if half_d.is_finite() { half_d.max(0.0) } else { 0.0 };
+        if sampling.is_hard() {
+            let from = [
+                point[0].clamp(centre[0] - half_w, centre[0] + half_w),
+                centre[1],
+                point[2].clamp(centre[2] - half_d, centre[2] + half_d),
+            ];
+            return if self.occludes(site, from, point) {
+                0.0
+            } else {
+                1.0
+            };
+        }
+        self.visible_fraction_soft(site, centre, half_w, half_d, point, sampling)
+    }
+
+    /// The readable definition of the soft fraction: one `occludes` per tap.
+    ///
+    /// Kept as the reference [`Self::visible_fraction_soft`] is checked against,
+    /// because the two must agree exactly and the shared walk is the one the
+    /// bake pays for.
+    #[cfg(test)]
+    fn visible_fraction_per_tap(
+        &self,
+        site: u32,
+        centre: [f32; 3],
+        half_w: f32,
+        half_d: f32,
+        point: [f32; 3],
+        sampling: ShadowSampling,
+    ) -> f32 {
+        if !centre.iter().chain(point.iter()).all(|value| value.is_finite()) {
+            return 0.0;
+        }
+        let half_w = if half_w.is_finite() { half_w.max(0.0) } else { 0.0 };
+        let half_d = if half_d.is_finite() { half_d.max(0.0) } else { 0.0 };
+        if sampling.is_hard() {
+            return self.visible_fraction(site, centre, half_w, half_d, point, sampling);
+        }
+        let mut visible = 0.0_f32;
+        let mut exposed = 0.0_f32;
+        for tap in tap_table(sampling) {
+            let from = [
+                tap.offset[0].mul_add(half_w, centre[0]),
+                centre[1],
+                tap.offset[1].mul_add(half_d, centre[2]),
+            ];
+            if self.tap_is_buried(site, from) {
+                continue;
+            }
+            exposed += tap.weight;
+            if !self.occludes(site, from, point) {
+                visible += tap.weight;
+            }
+        }
+        if exposed <= 0.0 {
+            0.0
+        } else {
+            (visible / exposed).clamp(0.0, 1.0)
+        }
+    }
+
+    /// The soft half of [`Self::visible_fraction`], over the pool in **one**
+    /// walk.
+    ///
+    /// The per-tap loop in `visible_fraction_per_tap` is the readable
+    /// definition; this is the same answer with the pool walked once instead of
+    /// once per tap and the X/Z footprint prefilter evaluated once for the
+    /// union of the tap segments. On the shipped demo the shared walk is about
+    /// a quarter faster on a nine-tap Full bake, which is what makes a raised
+    /// lightmap density affordable.
+    fn visible_fraction_soft(
+        &self,
+        site: u32,
+        centre: [f32; 3],
+        half_w: f32,
+        half_d: f32,
+        point: [f32; 3],
+        sampling: ShadowSampling,
+    ) -> f32 {
+        if !centre.iter().chain(point.iter()).all(|value| value.is_finite()) {
+            return 0.0;
+        }
+        let half_w = if half_w.is_finite() { half_w.max(0.0) } else { 0.0 };
+        let half_d = if half_d.is_finite() { half_d.max(0.0) } else { 0.0 };
+        if sampling.is_hard() {
+            return self.visible_fraction(site, centre, half_w, half_d, point, sampling);
+        }
+        let Some(&(start, end)) = self.ranges.get(site as usize) else {
+            // An unregistered site blocks nothing, so every exposed tap sees.
+            let mut exposed = 0.0_f32;
+            for tap in tap_table(sampling) {
+                let from = [
+                    tap.offset[0].mul_add(half_w, centre[0]),
+                    centre[1],
+                    tap.offset[1].mul_add(half_d, centre[2]),
+                ];
+                if !self.tap_is_buried(site, from) {
+                    exposed += tap.weight;
                 }
-                SolidIndex::Horizontal(index) => {
-                    if let Some(horizontal) = self.occluders.horizontals.get(index as usize)
-                        && horizontal.hits(from, to)
-                    {
-                        return true;
-                    }
+            }
+            return if exposed <= 0.0 { 0.0 } else { 1.0 };
+        };
+        let Some(&(site_x, site_z)) = self.sites.get(site as usize) else {
+            return 1.0;
+        };
+        let Some(entries) = self.pool.get(start as usize..end as usize) else {
+            return 1.0;
+        };
+        let table = tap_table(sampling);
+        let mut from = [[0.0_f32; 3]; MAX_SHADOW_TAPS];
+        let mut weight = [0.0_f32; MAX_SHADOW_TAPS];
+        let mut blocked = [false; MAX_SHADOW_TAPS];
+        let mut count = 0usize;
+        let mut exposed = 0.0_f32;
+        let mut reach = 0.0_f32;
+        let (mut x_span_min, mut x_span_max) = (point[0], point[0]);
+        let (mut z_span_min, mut z_span_max) = (point[2], point[2]);
+        for tap in table {
+            let origin = [
+                tap.offset[0].mul_add(half_w, centre[0]),
+                centre[1],
+                tap.offset[1].mul_add(half_d, centre[2]),
+            ];
+            if self.tap_is_buried(site, origin) {
+                continue;
+            }
+            let Some(slot) = from.get_mut(count) else {
+                break;
+            };
+            *slot = nudge_segment_start(origin, point);
+            if let Some(entry) = weight.get_mut(count) {
+                *entry = tap.weight;
+            }
+            count = count.saturating_add(1);
+            exposed += tap.weight;
+            reach = reach.max((origin[0] - site_x).hypot(origin[2] - site_z));
+            x_span_min = x_span_min.min(origin[0]);
+            x_span_max = x_span_max.max(origin[0]);
+            z_span_min = z_span_min.min(origin[2]);
+            z_span_max = z_span_max.max(origin[2]);
+        }
+        if exposed <= 0.0 {
+            return 0.0;
+        }
+        // Every tap's start is within the emitter rectangle, so the union
+        // prefilter is the rectangle's bounds around the sample point.
+        let (x_span_min, x_span_max) =
+            (x_span_min - SEGMENT_START_EPS_M, x_span_max + SEGMENT_START_EPS_M);
+        let (z_span_min, z_span_max) =
+            (z_span_min - SEGMENT_START_EPS_M, z_span_max + SEGMENT_START_EPS_M);
+        reach = (reach.max((point[0] - site_x).hypot(point[2] - site_z))) + SEGMENT_START_EPS_M;
+        let mut blocked_weight = 0.0_f32;
+        for entry in entries {
+            if entry.near > reach {
+                break;
+            }
+            if !entry.overlaps(x_span_min, x_span_max, z_span_min, z_span_max) {
+                continue;
+            }
+            for index in 0..count {
+                if blocked.get(index).copied().unwrap_or(true) {
+                    continue;
                 }
-                SolidIndex::Prop(index) => {
-                    if let Some(prop) = self.occluders.props.get(index as usize)
-                        && prop.hits(from, to)
-                    {
-                        return true;
+                let Some(origin) = from.get(index).copied() else {
+                    continue;
+                };
+                if self.solid_hits(entry.solid, origin, point) {
+                    if let Some(slot) = blocked.get_mut(index) {
+                        *slot = true;
                     }
+                    blocked_weight += weight.get(index).copied().unwrap_or(0.0);
                 }
+            }
+            if blocked_weight >= exposed {
+                return 0.0;
+            }
+        }
+        ((exposed - blocked_weight) / exposed).clamp(0.0, 1.0)
+    }
+
+    /// True when `solid` is crossed by the segment `from`-`to`.
+    fn solid_hits(&self, solid: SolidIndex, from: [f32; 3], to: [f32; 3]) -> bool {
+        match solid {
+            SolidIndex::Wall(index) => self
+                .occluders
+                .walls
+                .get(index as usize)
+                .is_some_and(|wall| segment_hits_box(*wall, from, to)),
+            SolidIndex::Horizontal(index) => self
+                .occluders
+                .horizontals
+                .get(index as usize)
+                .is_some_and(|horizontal| horizontal.hits(from, to)),
+            SolidIndex::Prop(index) => self
+                .occluders
+                .props
+                .get(index as usize)
+                .is_some_and(|prop| prop.hits(from, to)),
+        }
+    }
+
+    /// True when a soft emitter tap sits inside solid geometry.
+    ///
+    /// The same site pool the visibility query walks, with a point test instead
+    /// of a segment test, so a tap buried in a wall or a prop contributes no
+    /// emitter area. The reach cut-off is the tap's own distance from the site
+    /// centre: a solid containing the tap necessarily lies within it, because
+    /// the tap is inside that solid's footprint.
+    fn tap_is_buried(&self, site: u32, point: [f32; 3]) -> bool {
+        let Some(&(start, end)) = self.ranges.get(site as usize) else {
+            return false;
+        };
+        let Some(&(site_x, site_z)) = self.sites.get(site as usize) else {
+            return false;
+        };
+        let reach = (point[0] - site_x).hypot(point[2] - site_z) + SEGMENT_START_EPS_M;
+        let Some(entries) = self.pool.get(start as usize..end as usize) else {
+            return false;
+        };
+        for entry in entries {
+            if entry.near > reach {
+                break;
+            }
+            let buried = match entry.solid {
+                SolidIndex::Wall(index) => self
+                    .occluders
+                    .walls
+                    .get(index as usize)
+                    .is_some_and(|wall| wall.contains(point)),
+                SolidIndex::Horizontal(index) => match self
+                    .occluders
+                    .horizontals
+                    .get(index as usize)
+                {
+                    // A floor interface has no body, so it can never contain a
+                    // tap; only a ceiling slab is solid.
+                    Some(Horizontal::Slab(slab)) => slab.contains(point),
+                    Some(Horizontal::Floor(_)) | None => false,
+                },
+                SolidIndex::Prop(index) => self
+                    .occluders
+                    .props
+                    .get(index as usize)
+                    .is_some_and(|prop| prop.contains(point)),
+            };
+            if buried {
+                return true;
             }
         }
         false
@@ -1447,16 +1931,19 @@ fn solid_order(a: SolidIndex, b: SolidIndex) -> std::cmp::Ordering {
 }
 
 #[cfg(test)]
-// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests.
+// Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are
+// idiomatic in tests.
 #[allow(
     clippy::arithmetic_side_effects,
     clippy::cast_possible_truncation,
     clippy::cast_precision_loss,
     clippy::cast_sign_loss,
     clippy::expect_used,
+    clippy::float_cmp,
     clippy::indexing_slicing,
     clippy::missing_const_for_fn,
     clippy::panic,
+    clippy::suboptimal_flops,
     clippy::unwrap_used
 )]
 mod tests {
@@ -1878,5 +2365,300 @@ mod tests {
         assert!(OrientedBox::new([0.0, 0.0, 0.0], [1.0, -1.0, 1.0], 0.0).is_none());
         assert!(OrientedBox::new([f32::NAN, 0.0, 0.0], [1.0, 1.0, 1.0], 0.0).is_none());
         assert!(OrientedBox::new([0.0, 0.0, 0.0], [1.0, 1.0, 1.0], f32::NAN).is_none());
+    }
+
+    // ------------------------------------------------------- soft sampling
+
+    /// The closest point of an emitter rectangle to a sample: the historical
+    /// from-point, written out independently of `visible_fraction` so the test
+    /// cannot agree with a bug by construction.
+    fn closest_emitter_point(centre: [f32; 3], half_w: f32, half_d: f32, point: [f32; 3]) -> [f32; 3] {
+        [
+            point[0].clamp(centre[0] - half_w, centre[0] + half_w),
+            centre[1],
+            point[2].clamp(centre[2] - half_d, centre[2] + half_d),
+        ]
+    }
+
+    #[test]
+    fn hard_sampling_reproduces_occludes_exactly_over_a_level() {
+        // A grid over a level with a solid partition, a window in it, floor
+        // interfaces and a ceiling body, so the grid crosses real edges. Every
+        // hard `visible_fraction` must be the historical binary answer from the
+        // closest emitter point, bit for bit.
+        let level = split_room_with_window();
+        let centre = [1.3, 1.7, 2.0];
+        let (half_w, half_d) = (0.6, 0.3);
+        let visibility = Visibility::build(&level, &[QuerySite::new(centre[0], centre[2], 8.0)]);
+        let mut checked = 0usize;
+        for ix in 0..=40_u16 {
+            for iz in 0..=40_u16 {
+                for iy in 0..=12_u16 {
+                    let point = [
+                        -0.5 + 0.11 * f32::from(ix),
+                        0.05 + 0.25 * f32::from(iy),
+                        -0.5 + 0.14 * f32::from(iz),
+                    ];
+                    let from = closest_emitter_point(centre, half_w, half_d, point);
+                    let expected: f32 = if visibility.occludes(0, from, point) {
+                        0.0
+                    } else {
+                        1.0
+                    };
+                    let actual = visibility.visible_fraction(
+                        0,
+                        centre,
+                        half_w,
+                        half_d,
+                        point,
+                        ShadowSampling::HARD,
+                    );
+                    assert_eq!(
+                        actual.to_bits(),
+                        expected.to_bits(),
+                        "hard visible_fraction must equal occludes at {point:?}"
+                    );
+                    checked += 1;
+                }
+            }
+        }
+        assert!(checked > 20_000, "the grid must be dense: {checked}");
+        // A zero-tap value is the same historical test, not a third behaviour.
+        for point in [[2.6, 1.0, 1.0], [3.6, 1.0, 2.0], [0.4, 0.1, 3.5]] {
+            assert_eq!(
+                visibility.visible_fraction(
+                    0,
+                    centre,
+                    half_w,
+                    half_d,
+                    point,
+                    ShadowSampling { taps_per_axis: 0 },
+                ),
+                visibility.visible_fraction(0, centre, half_w, half_d, point, ShadowSampling::HARD),
+            );
+        }
+    }
+
+    /// A 6 x 8 m room with a 1 m counter across it at z = 3.0..3.2: a ceiling
+    /// panel on one side throws a soft shadow onto the floor behind it.
+    fn penumbra_room() -> LevelDef {
+        level(
+            r#"{
+                "format_version": 1,
+                "id": "penumbra",
+                "name": "Penumbra",
+                "spawn": { "x": 3.0, "z": 5.0 },
+                "rooms": [
+                    { "x": 0.0, "z": 0.0, "width": 6.0, "depth": 8.0, "height": 3.0 }
+                ],
+                "half_walls": [
+                    { "x": 1.5, "z": 3.0, "width": 3.0, "depth": 0.2, "height": 1.0,
+                      "material": "core:wallpaper_yellow_01" }
+                ]
+            }"#,
+        )
+    }
+
+    #[test]
+    fn soft_sampling_resolves_a_real_penumbra() {
+        let level = penumbra_room();
+        // A 1.2 x 0.6 m panel 1 m above the counter's cap, 1 m behind it.
+        let centre = [3.0, 2.99, 2.0];
+        let (half_w, half_d) = (0.6, 0.3);
+        let visibility = Visibility::build(&level, &[QuerySite::new(centre[0], centre[2], 6.0)]);
+        let hard = ShadowSampling::HARD;
+        let quincunx = ShadowSampling { taps_per_axis: 2 };
+        let grid = ShadowSampling { taps_per_axis: 3 };
+
+        // Far in front of the counter: fully lit, and the hard test agrees.
+        let lit = [3.0, 0.0, 1.2];
+        assert_eq!(visibility.visible_fraction(0, centre, half_w, half_d, lit, hard), 1.0);
+        assert_eq!(visibility.visible_fraction(0, centre, half_w, half_d, lit, grid), 1.0);
+        assert_eq!(
+            visibility.visible_fraction(0, centre, half_w, half_d, lit, quincunx),
+            1.0
+        );
+
+        // Behind the counter at its foot: every tap's ray is stopped by the
+        // counter body, so the pool is fully blocked.
+        let blocked = [3.0, 0.0, 3.35];
+        assert_eq!(visibility.visible_fraction(0, centre, half_w, half_d, blocked, grid), 0.0);
+        assert_eq!(
+            visibility.visible_fraction(0, centre, half_w, half_d, blocked, quincunx),
+            0.0
+        );
+
+        // In the shadow band: some taps see over the counter and some do not,
+        // so the soft value is strictly between the two and the hard one is a
+        // step. Sweep the floor just behind the counter and require a real
+        // gradient: at least one partial sample per table, every value inside
+        // 0..=1, and the hard test still binary wherever the soft one is
+        // partial.
+        let mut partial = 0usize;
+        for step in 0..=80_u16 {
+            let z = 3.25 + 0.01 * f32::from(step);
+            let point = [3.0, 0.0, z];
+            let soft = visibility.visible_fraction(0, centre, half_w, half_d, point, grid);
+            let soft_quincunx =
+                visibility.visible_fraction(0, centre, half_w, half_d, point, quincunx);
+            assert!((0.0..=1.0).contains(&soft), "fraction out of range at z={z}");
+            assert!((0.0..=1.0).contains(&soft_quincunx));
+            // Determinism: the same query twice is bit-identical.
+            assert_eq!(
+                soft.to_bits(),
+                visibility
+                    .visible_fraction(0, centre, half_w, half_d, point, grid)
+                    .to_bits(),
+                "a soft query must be deterministic"
+            );
+            let hard_value = visibility.visible_fraction(0, centre, half_w, half_d, point, hard);
+            if soft > 0.0 && soft < 1.0 {
+                partial += 1;
+                assert!(
+                    hard_value == 0.0 || hard_value == 1.0,
+                    "the hard test stays binary"
+                );
+            }
+        }
+        assert!(
+            partial > 10,
+            "the soft shadow must have a real penumbra gradient: {partial} partial samples"
+        );
+    }
+
+    #[test]
+    fn a_point_emitter_has_no_penumbra() {
+        // A zero-area emitter has no area to sample: every soft table collapses
+        // to the historical closest point (which is the centre), so the soft
+        // and hard answers must agree exactly wherever the sample sits.
+        let level = penumbra_room();
+        let centre = [3.0, 2.5, 2.0];
+        let visibility = Visibility::build(&level, &[QuerySite::new(centre[0], centre[2], 6.0)]);
+        for step in 0..=60_u16 {
+            let point = [0.5 + 0.1 * f32::from(step), 0.0, 0.5 + 0.12 * f32::from(step)];
+            let hard = visibility.visible_fraction(
+                0,
+                centre,
+                0.0,
+                0.0,
+                point,
+                ShadowSampling::HARD,
+            );
+            for taps in [2u8, 3, 200] {
+                assert_eq!(
+                    visibility
+                        .visible_fraction(0, centre, 0.0, 0.0, point, ShadowSampling { taps_per_axis: taps })
+                        .to_bits(),
+                    hard.to_bits(),
+                    "a point emitter is hard at {taps} taps"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_flush_sconce_keeps_its_pool_under_soft_sampling() {
+        // A wall light mounted so its rectangle straddles the wall plane (the
+        // shipped sconce form: the point sits on or inside the wall and the
+        // emitter extends into the room). The part of the rectangle inside the
+        // wall is not an emitting surface: a soft average that counted it as
+        // blocked would halve the fixture's pool, so it is removed instead.
+        let level = split_room();
+        let centre = [2.1, 1.9, 2.0]; // on the partition's east face
+        let (half_w, half_d) = (0.09, 0.2);
+        let visibility = Visibility::build(&level, &[QuerySite::new(2.4, 2.0, 6.0)]);
+        let lit = [3.5, 1.9, 2.0];
+        for taps in [1u8, 2, 3] {
+            let sampling = ShadowSampling { taps_per_axis: taps };
+            let fraction = visibility.visible_fraction(0, centre, half_w, half_d, lit, sampling);
+            assert!(
+                (fraction - 1.0).abs() < f32::EPSILON,
+                "the exposed part of the emitter lights the room at {taps} taps: {fraction}"
+            );
+        }
+        // The wall still blocks the fixture in the other direction.
+        let behind = [0.5, 1.9, 2.0];
+        assert_eq!(
+            visibility.visible_fraction(0, centre, half_w, half_d, behind, ShadowSampling::HARD),
+            0.0
+        );
+        assert_eq!(
+            visibility.visible_fraction(
+                0,
+                centre,
+                half_w,
+                half_d,
+                behind,
+                ShadowSampling { taps_per_axis: 3 }
+            ),
+            0.0
+        );
+    }
+
+    /// The shared single-walk soft path must agree with the readable per-tap
+    /// definition everywhere, bit for bit, or the optimisation is a silent
+    /// behaviour change.
+    #[test]
+    fn the_shared_walk_matches_the_per_tap_definition() {
+        for level in [penumbra_room(), split_room()] {
+            let centre = [3.0, 2.99, 2.0];
+            let visibility = Visibility::build(&level, &[QuerySite::new(centre[0], centre[2], 6.0)]);
+            let mut checked = 0usize;
+            let mut partial = 0usize;
+            for taps in [2u8, 3] {
+                let sampling = ShadowSampling { taps_per_axis: taps };
+                for ix in 0..=60_u16 {
+                    for iz in 0..=60_u16 {
+                        for iy in 0..=6_u16 {
+                            let point = [
+                                0.2 + 0.1 * f32::from(ix),
+                                0.05 + 0.45 * f32::from(iy),
+                                0.2 + 0.13 * f32::from(iz),
+                            ];
+                            let shared = visibility.visible_fraction(0, centre, 0.6, 0.3, point, sampling);
+                            let per_tap = visibility.visible_fraction_per_tap(
+                                0, centre, 0.6, 0.3, point, sampling,
+                            );
+                            assert_eq!(
+                                shared.to_bits(),
+                                per_tap.to_bits(),
+                                "shared walk differs at {point:?} with {taps} taps"
+                            );
+                            if shared > 0.0 && shared < 1.0 {
+                                partial += 1;
+                            }
+                            checked += 1;
+                        }
+                    }
+                }
+            }
+            assert!(checked > 20_000);
+            assert!(
+                partial > 0,
+                "the comparison grid must include a partial penumbra"
+            );
+        }
+    }
+
+    #[test]
+    fn the_tap_table_is_bounded_and_ordered_by_cost() {
+        assert_eq!(tap_table(ShadowSampling::HARD).len(), 0);
+        assert_eq!(tap_table(ShadowSampling { taps_per_axis: 0 }).len(), 0);
+        assert_eq!(tap_table(ShadowSampling { taps_per_axis: 2 }).len(), 5);
+        assert_eq!(tap_table(ShadowSampling { taps_per_axis: 3 }).len(), 9);
+        // Out-of-range values cannot grow the query: they clamp to the largest
+        // shipped table.
+        assert_eq!(tap_table(ShadowSampling { taps_per_axis: 200 }).len(), 9);
+        for table in [&QUINCUNX_TAPS[..], &GRID_TAPS[..]] {
+            let total: f32 = table.iter().map(|tap| tap.weight).sum();
+            assert!((total - 1.0).abs() < 1.0e-6, "weights must sum to one: {total}");
+            assert!(
+                table.iter().any(|tap| tap.offset == [0.0, 0.0]),
+                "the emitter centre must be one of the taps"
+            );
+            for tap in table {
+                assert!(tap.offset[0].abs() <= 1.0 && tap.offset[1].abs() <= 1.0);
+            }
+        }
     }
 }

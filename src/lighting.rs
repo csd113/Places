@@ -42,7 +42,11 @@
 //!    hall with a handful of widely spaced panels) broadly illuminated without
 //!    also saturating small, densely lit rooms; see [`compressed_density`]. A
 //!    large room with two panels is dim; a small room with many panels
-//!    approaches full brightness; no channel ever exceeds [`MAX_BRIGHTNESS`].
+//!    approaches full brightness. The curve maps onto
+//!    `[AMBIENT_LEVEL, BASELINE_MAX]`, never the full `[AMBIENT_LEVEL,
+//!    MAX_BRIGHTNESS]` range: the baseline is the fill a static occluder cannot
+//!    remove, so leaving the highlight headroom to the visibility-tested pools
+//!    is what keeps a shadowed surface visibly darker than a lit one.
 //!    The baseline is spatially aware: see *Partitions* below.
 //! 2. **Local pools.** Every light adds a broad pool of its own colour that
 //!    reaches zero at its own `range` on its own falloff curve (the default is
@@ -50,7 +54,10 @@
 //!    model existed changed). The pool is measured to the light's emitting
 //!    shape rather than to a point, so a panel reads as a panel and a tube as a
 //!    tube. A pool only reaches a surface the light can actually see: see
-//!    [`visibility`].
+//!    [`visibility`]. Visibility is sampled on the emitter's own rectangle, so
+//!    a partially blocked pool fades over a penumbra; the tap count is a
+//!    quality-profile choice ([`ShadowSampling`]), and one tap per axis is the
+//!    historical hard edge the vertex-lit fallback still bakes with.
 //! 3. **Opening blending.** Room areas joined by walk-through openings (doors
 //!    and passages that reach the floor) mix a bounded fraction of each other's
 //!    baseline near the opening, so light appears to leak through doorways
@@ -140,7 +147,7 @@ mod visibility;
 #[cfg(test)]
 mod tests;
 
-pub use bake::{BakedLight, LevelLighting, LightingSummary, RoomLighting};
+pub use bake::{BakeConfig, BakedLight, LevelLighting, LightingSummary, RoomLighting};
 pub use color::{LightColor, MAX_LIGHT_COLOR};
 pub use light::{
     DEFAULT_LIGHT_RANGE_M, LINE_LIGHT_HALF_THICKNESS_M, LightFalloff, LightShape, LightSource,
@@ -160,4 +167,4 @@ pub use tuning::{
     REFERENCE_CEILING_HEIGHT_M, REFERENCE_LIGHT_AREA_M2, WALL_FACE_PROBE_M,
     WALL_LIGHT_DEFAULT_HEIGHT_M, ambient_color, fixture_profile, fixture_profile_for_kind,
 };
-pub use visibility::{QuerySite, Visibility};
+pub use visibility::{QuerySite, ShadowSampling, Visibility};

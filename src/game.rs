@@ -75,9 +75,11 @@ pub struct Game {
     frame_count: u64,
     /// World Y of the eye. Always `player_floor_y + EYE_HEIGHT`.
     pub player_position: Vec3,
-    /// World Y of the walkable floor the player is standing on. This is the
-    /// value collision filters against and the value the step rule updates, so
-    /// the camera and the collision band always agree about the local floor.
+    /// World Y of the walkable floor the player is standing on: the pitch line
+    /// across a staircase, the exact rendered surface everywhere else (see
+    /// [`crate::level::WalkableFloor::walk_height_at`]). This is the value
+    /// collision filters against, so the camera and the collision band always
+    /// agree about the local floor.
     pub player_floor_y: f32,
     pub player_yaw: f32,
     pub player_pitch: f32,
@@ -298,19 +300,27 @@ impl Game {
             let previous = Vec2::new(self.player_position.x, self.player_position.z);
             let mut current_pos = previous;
             let mut current_floor = self.player_floor_y;
-            let mut on_a_floor = self.floor.height_at(previous.x, previous.y).is_some();
-            // The floor sampler is the same model the mesh was built from, so
-            // the player stands exactly where the geometry says. The step rule
-            // runs *per sub-step* (each at most half a player radius, 0.15 m):
-            // at the loader's maximum ramp slope a sub-step rises at most
-            // 0.3 m, so every legal slope and flight is climbable at any frame
-            // rate. Applying the rule only to the frame's end point made a
-            // maximum-slope ramp unwalkable whenever `walk_speed * delta`
-            // exceeded `PLAYER_STEP_HEIGHT / slope`. A rise or drop within
-            // `PLAYER_STEP_HEIGHT` plus the surface tolerance is walked through
-            // instantly; anything larger is refused, which is the conservative
-            // stand-in for falling physics (there is none) and keeps the player
-            // off cliff edges.
+            let mut on_a_floor = self.floor.walk_height_at(previous.x, previous.y).is_some();
+            // Movement keeps two surfaces apart. *Reachability* is decided on
+            // the rendered floor -- the geometry the player's feet can actually
+            // step over -- exactly as it always was: a rise or drop larger than
+            // `PLAYER_STEP_HEIGHT` is refused, which keeps a cliff edge, a wall
+            // and a tall obstacle impassable. The height *applied* is the
+            // walking surface: identical to the rendered floor on ramps,
+            // regions and room floors, but the line through a staircase's
+            // nosings rather than the individual treads. The player therefore
+            // rises and falls continuously from one tread to the next instead
+            // of the eye jumping a whole riser at every boundary, while the
+            // rendered treads stay stepped. The walking surface never leaves
+            // the tread underfoot (it meets the render at every nosing) and
+            // never rises above the next tread, so the feet can be neither
+            // inside a step nor floating over the one ahead.
+            //
+            // The step rule runs *per sub-step* (each at most half a player
+            // radius, 0.15 m): at the loader's maximum ramp slope a sub-step
+            // rises at most 0.3 m, and the loader bounds a staircase's riser
+            // by `PLAYER_STEP_HEIGHT` and its tread by `MIN_STAIR_TREAD_M`, so
+            // every legal slope and flight is climbable at any frame rate.
             for _ in 0..steps {
                 let candidate = resolve_player_collision(
                     Vec2::new(current_pos.x + step_delta.x, current_pos.y + step_delta.z),
@@ -318,10 +328,20 @@ impl Game {
                     current_floor,
                     &self.walls,
                 );
+                let current_rendered = self
+                    .floor
+                    .height_at(current_pos.x, current_pos.y)
+                    .unwrap_or(current_floor);
                 match self.floor.height_at(candidate.x, candidate.y) {
-                    Some(y) if (y - current_floor).abs() <= PLAYER_STEP_HEIGHT + STEP_EPS => {
-                        current_floor = y;
+                    Some(y) if (y - current_rendered).abs() <= PLAYER_STEP_HEIGHT + STEP_EPS => {
                         current_pos = candidate;
+                        // Stand on the walking surface. It equals the rendered
+                        // floor everywhere except on a staircase, where it is
+                        // within one riser of it by construction.
+                        current_floor = self
+                            .floor
+                            .walk_height_at(candidate.x, candidate.y)
+                            .unwrap_or(y);
                         on_a_floor = true;
                     }
                     Some(_) => break,

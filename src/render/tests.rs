@@ -4714,35 +4714,38 @@ fn full_and_low_share_the_patch_set_at_different_densities() {
 }
 
 #[test]
-fn the_demo_bakes_on_full_and_takes_the_documented_fallback_on_low() {
-    // Places Demo has grown past the Low atlas (two 512-texel pages hold
-    // roughly a demo's worth of static surface): its patch set no longer packs
-    // there, so the Low profile takes the documented vertex-lit fallback while
-    // Full still bakes the same geometry into the 1024-texel pages. This pins
-    // the shipped level's honest behaviour rather than pretending both
-    // densities fit.
+fn the_demo_bakes_inside_the_page_budget_on_both_profiles() {
+    // Places Demo's chart set is the shipped level's real workload. Both
+    // profiles must bake it into their own two-page atlas: the skyline packer
+    // and the softened density were tuned exactly so `Low` no longer overflows
+    // its two 512-texel pages and fall back to vertex lighting. A profile that
+    // overflows is worse than a lower density, so this pins the shipped
+    // behaviour rather than a page count.
     let level = shipped_demo();
-    let full = lightmap_build(
-        &level,
+    for profile in [
         crate::quality::QualityProfile::Full,
-        LightmapMode::On,
-    );
-    assert_eq!(full.lightmap_failure, None, "the demo must bake on Full");
-    assert!(full.lightmaps.is_some(), "Full must produce the atlas");
-    let low = lightmap_build(
-        &level,
         crate::quality::QualityProfile::Low,
-        LightmapMode::On,
-    );
-    assert_eq!(
-        low.lightmap_failure,
-        Some(LightmapFailure::PageOverflow),
-        "the demo must report the Low atlas overflow by name"
-    );
-    assert!(
-        low.lightmaps.is_none(),
-        "Low must fall back to vertex light"
-    );
+    ] {
+        let build = lightmap_build(&level, profile, LightmapMode::On);
+        assert_eq!(
+            build.lightmap_failure, None,
+            "{profile:?} must bake the demo cleanly"
+        );
+        let lightmaps = build
+            .lightmaps
+            .as_deref()
+            .unwrap_or_else(|| panic!("{profile:?} must produce the atlas"));
+        let config = profile.lightmap_config();
+        assert!(
+            lightmaps.pages.len() <= config.max_pages,
+            "{profile:?} must stay in its page budget"
+        );
+        assert!(
+            lightmaps.pages.iter().all(|page| page.width == config.page_edge),
+            "{profile:?} must use its own page edge"
+        );
+        assert!(lightmaps.chart_count() > 900, "the whole level is charted");
+    }
 }
 
 #[test]
@@ -4940,7 +4943,13 @@ fn atlas_bytes_match_the_fill_pass_exactly() {
         None,
     );
     let lightmaps = build.lightmaps.as_deref().expect("demo bakes");
-    let lighting = LevelLighting::bake(&level);
+    // The atlas was baked with the active profile's bake config (soft shadows
+    // and the finer prop grid on Full), so the reference fill must use exactly
+    // the same one.
+    let lighting = LevelLighting::bake_with(
+        &level,
+        crate::quality::QualityProfile::Full.bake_config(),
+    );
     let mut checked = 0usize;
     for (patch, chart) in &lightmaps.charts {
         let texels = crate::lighting::lightmap::fill_chart(&lighting, patch, chart);
@@ -5922,8 +5931,9 @@ fn every_material_property_resolves_into_the_renderers_per_material_state() {
         normal_mapped += usize::from(entry.response.has_normal());
     }
     assert!(
-        translucent >= 4,
-        "the demo's glass and sign are translucent"
+        translucent >= 3,
+        "the demo's windows are translucent (the former backlit sign panels \
+         were removed as unintended artifacts)"
     );
     assert!(cutout >= 1, "the demo's grille is a cut-out");
     assert!(sheen >= 4, "the demo's glossy surfaces have a sheen");

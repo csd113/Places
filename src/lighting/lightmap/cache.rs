@@ -44,7 +44,10 @@ use super::{
 ///   on a shared edge), and the ceiling-slab visibility clip no longer deletes a
 ///   fixture's pool on grazing samples. Both change baked texel values, so an
 ///   atlas from an older build must not be reused.
-pub const LIGHTMAP_FORMAT_VERSION: u32 = 3;
+/// * `4` — soft shadows: the local pools are gated by an emitter-area
+///   visibility fraction and the chart density/packing changed, so every texel
+///   value differs from a version-3 atlas.
+pub const LIGHTMAP_FORMAT_VERSION: u32 = 4;
 
 /// Root of the runtime-owned on-disk cache, below the state root.
 ///

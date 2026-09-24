@@ -5,7 +5,7 @@
 //! ```text
 //! add_quad(scratch, p0, p1, p2, p3)          // the historical emit call
 //!     LIGHTMAPS: LightmapPatch::from_quad(p0, p1, p2, p3)   (u = p0->p1, v = p0->p3)
-//!                ShelfAllocator::allocate(patch) -> Chart
+//!                SkylineAllocator::allocate(patch) -> Chart
 //!                Vertex::lightmap = Chart::uv_at(0,0), (1,0), (1,1), (0,1)
 //!                Vertex::lightmap_page = chart.page
 //! ```
@@ -22,12 +22,12 @@
 //! order) rather than deferred, because the vertices need their final UVs as
 //! they are written and a deferred pass would have to find them again after
 //! spatial bucketing and index sharing. Determinism comes from the emitter's
-//! fixed order plus the shelf allocator's insertion-order policy: the same level
+//! fixed order plus the skyline allocator's placement order: the same level
 //! always produces the same charts and the same pages.
 
 use super::{
-    Chart, LightmapConfig, LightmapFailure, LightmapPage, LightmapPatch, PatchKind, ShelfAllocator,
-    corners_coincident,
+    Chart, LightmapConfig, LightmapFailure, LightmapPage, LightmapPatch, PatchKind, PatchRejection,
+    SkylineAllocator, corners_coincident,
 };
 use crate::render::{LIGHTMAP_NONE, Vertex};
 
@@ -88,9 +88,11 @@ impl LevelLightmaps {
 #[derive(Debug)]
 pub struct LightmapPlan {
     config: LightmapConfig,
-    allocator: ShelfAllocator,
+    allocator: SkylineAllocator,
     charts: Vec<(LightmapPatch, Chart)>,
     failure: Option<LightmapFailure>,
+    /// Invisible sliver quads left vertex-lit (see [`Self::slivers_skipped`]).
+    slivers_skipped: usize,
 }
 
 impl LightmapPlan {
@@ -98,10 +100,11 @@ impl LightmapPlan {
     #[must_use]
     pub const fn new(config: LightmapConfig) -> Self {
         Self {
-            allocator: ShelfAllocator::new(config),
+            allocator: SkylineAllocator::new(config),
             config,
             charts: Vec::new(),
             failure: None,
+            slivers_skipped: 0,
         }
     }
 
@@ -109,6 +112,16 @@ impl LightmapPlan {
     #[must_use]
     pub const fn config(&self) -> &LightmapConfig {
         &self.config
+    }
+
+    /// Number of invisible sliver quads this plan left vertex-lit.
+    ///
+    /// A sliver is thinner than a lightmap texel can resolve and has no visible
+    /// area, so skipping it is unobservable; the count is reported so a level
+    /// author can still find the geometry that produced it.
+    #[must_use]
+    pub const fn slivers_skipped(&self) -> usize {
+        self.slivers_skipped
     }
 
     /// Longest world span a merged quad may cover at this density.
@@ -172,11 +185,22 @@ impl LightmapPlan {
         room: Option<usize>,
     ) -> bool {
         let Some(patch) = LightmapPatch::from_quad(kind, corners, room) else {
-            self.failure.get_or_insert(LightmapFailure::DegenerateQuad);
+            if LightmapPatch::rejection(&corners) == Some(PatchRejection::Sliver) {
+                // An invisible sliver: leave these six vertices vertex-lit and
+                // keep every other chart in the level. A level whose content
+                // produces one sub-millimetre trim sliver must not lose its
+                // whole lightmap, which is what treating this as a build
+                // failure used to do.
+                self.slivers_skipped = self.slivers_skipped.saturating_add(1);
+            } else {
+                // A visible malformed quad: fail over to the exact vertex-lit
+                // mesh rather than drawing one unlit surface.
+                self.failure.get_or_insert(LightmapFailure::DegenerateQuad);
+            }
             return false;
         };
         let Some(chart) = self.allocator.allocate(&patch) else {
-            // `allocate` only fails on the page budget (see `ShelfAllocator`).
+            // `allocate` only fails on the page budget (see `SkylineAllocator`).
             self.failure.get_or_insert(LightmapFailure::PageOverflow);
             return false;
         };
