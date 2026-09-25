@@ -125,6 +125,7 @@ fn a_huge_warmup_counter_never_overflows_or_records() {
         frames: Vec::new(),
         reported_swap_interval: None,
         quality_cycle: Vec::new(),
+        graphics_cycle: Vec::new(),
         window_cycle: Vec::new(),
     };
     let now = Instant::now();
@@ -150,6 +151,7 @@ fn frame_limits_and_completion_are_exact() {
         frames: Vec::new(),
         reported_swap_interval: None,
         quality_cycle: Vec::new(),
+        graphics_cycle: Vec::new(),
         window_cycle: Vec::new(),
     };
     let now = Instant::now();

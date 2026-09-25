@@ -145,10 +145,13 @@ Graphics and display preferences, custom bindings, look speed, walk speed,
 field of view and look inversion are saved to `settings.json` in the package
 root and kept across launches. The defaults are a 1920×1080 windowed desktop
 window; a fresh installation writes that configuration on first run. Changes
-apply immediately: Graphics Quality (`Full` / `Low`), Bloom, Reflections,
-Lightmaps, VSync, Texture Filtering, Window Mode, Resolution, sensitivity, look
-inversion and bindings all take effect without restarting or reloading the
-level. See [Rendering notes](#rendering-notes) for what each option changes.
+apply immediately: Graphics Quality (Low / Medium / High), Bloom, VSync and the
+Advanced group (Texture Filtering, Lightmaps, Reflections), Window Mode,
+Resolution, sensitivity, look inversion and bindings all take effect without
+restarting or reloading the level. Changing the overall quality cascades the
+three Advanced defaults; each may then be overridden independently, and an
+override never changes the Quality label. See
+[Rendering notes](#rendering-notes) for what each option changes.
 
 
 ## Build and run
@@ -459,8 +462,9 @@ Working and shipped:
   downscaling textures once at level load and the profile switchable while
   playing;
 * a sectioned pause-menu Settings screen (Graphics, Display, Controls) backed by
-  one runtime settings state, with Bloom, Reflections, Lightmaps, VSync,
-  Graphics Quality, Window Mode and Resolution changes applying immediately;
+  one runtime settings state, with Graphics Quality, Bloom, VSync and the
+  Advanced group (Texture Filtering, Lightmaps, Reflections) applying
+  immediately, plus Window Mode and Resolution;
 * a 1920×1080 windowed desktop default that adapts to the display work area and
   renders through the Retina drawable, never a stretched low-resolution target;
 * multi-material / multi-primitive GLB props with per-primitive textures and
@@ -538,7 +542,7 @@ place a scene pixel becomes a display pixel. Bloom is drawn from the world's
 glow; the tone curve is a soft shoulder above 0.75 that leaves the baked
 lighting's own contrast untouched below it; and the fog is a scalar mix in the
 world shader. Bloom is a **player setting** (Settings → Graphics → Bloom), not
-part of the quality profile, so `Full + Bloom Off` and `Low + Bloom On` are both
+part of the quality profile, so `High + Bloom Off` and `Low + Bloom On` are both
 valid; with Bloom off no emissive or blur pass is submitted and the bloom targets
 are released, and with `Low` plus Bloom off the resolve stage is the identity and
 presents the scene with the plain copy quad. `PLACES_NO_BLOOM=1` /
@@ -559,21 +563,31 @@ the distance from the camera to their spatial batch, with depth testing on and
 depth writes off; alpha-tested surfaces are drawn with the opaque world through a
 separate fragment stage so the opaque pass keeps early depth testing.
 
-Two runtime quality profiles decide how much of an accepted source texture
-reaches the GPU. **Full** is the historical Places runtime size (surface,
-fixture and decal sheets up to 1024, prop sheets up to 256) and uploads shipped
-assets unchanged. **Low** uses the same assets and box-filters each one once at
-level load (sheets 256, prop sheets 128, emissive masks 128). Downscaling is a
-load-time step that is cached with the texture it produced, never a per-frame
-cost, and `"quality"` in `settings.json` (or `PLACES_QUALITY=full|low` for one
-run) selects the profile. The profile is a selector in Settings → Graphics and
-can be changed while playing: the level's GPU textures and lightmap atlas are
-rebuilt from the level already resident, with the player, camera and game state
-untouched. Low also leaves the optional surface response out and renders the 3D
-scene no wider than the historical 480 px reference width: the same level, the
-same materials and the same ids, with the optional per-pixel work dropped. Fog,
-frame and emission are the same in both profiles; bloom and reflections are
-independent player settings, not profile terms.
+Three runtime quality levels decide how much of an accepted source texture
+reaches the GPU and how large the scene target is. **High** is the historical
+Places runtime size (surface, fixture and decal sheets up to 1024, prop sheets
+up to 256) and uploads shipped assets unchanged. **Medium** halves sheets to 512
+and masks to 256 and renders the scene at half the drawable; **Low** uses the
+same assets and box-filters each one once at level load (sheets 256, prop sheets
+128, emissive masks 128) and renders the scene no wider than the historical 480
+px reference width. Downscaling is a load-time step that is cached with the
+texture it produced, never a per-frame cost, and `"quality"` in `settings.json`
+(or `PLACES_QUALITY=low|medium|high`, legacy `full` = High, for one run) selects
+the level. The level is a selector in Settings → Graphics and can be changed
+while playing: the change is applied as one diffed transaction, the resident
+level's CPU build is retained, and only the resources the change actually needs
+are re-fitted or rebuilt, with the player, camera and game state untouched. An
+uncached lightmap atlas fills on a worker thread while the previous lighting
+keeps rendering, so the window never freezes waiting for a bake.
+
+The overall level also cascades the three **Advanced** settings to their preset
+defaults (Low → Filtering Low / Lightmaps Off / Reflections Off, Medium →
+Medium / Medium / Medium, High → High / Full / Full). The player may override
+each independently — Texture Filtering changes sampler handles and no pixel
+data, Lightmaps swaps the baked atlas for the vertex-lit fallback or a smaller
+bake, and Reflections removes the probes and the planar pass — and an override
+never changes the level's label. Bloom and VSync stay ordinary top-level rows,
+independent of the level.
 
 A decal owns its depth plane by construction, in two halves that level authors
 never have to think about:

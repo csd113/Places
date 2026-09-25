@@ -482,6 +482,206 @@ impl QualityLevel {
     }
 }
 
+/// The player-facing Lightmaps quality: whether a baked atlas exists and how
+/// dense it is.
+///
+/// This is deliberately independent of [`QualityLevel`]: the overall quality
+/// preset selects one of these as its default, but the player may override it,
+/// so `Low + Lightmaps Full` and `High + Lightmaps Off` are both valid. The
+/// setting owns the whole bake configuration (atlas density/page and the
+/// shadow taps/prop-occlusion cell), so two configurations that produce
+/// different baked texels can never share a cache entry.
+///
+/// The sampled atlas keeps its own fixed clamped linear sampler; this setting
+/// never touches ordinary world Texture Filtering.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum LightmapQuality {
+    /// No bake at all: the validated historical vertex-lit path.
+    Off,
+    /// The intermediate atlas: Medium density at the Full page budget.
+    Medium,
+    /// The full/high-quality atlas.
+    #[default]
+    Full,
+}
+
+impl LightmapQuality {
+    /// Every level, in selector order.
+    pub const ALL: [Self; 3] = [Self::Off, Self::Medium, Self::Full];
+
+    /// The default a fresh install runs with.
+    pub const DEFAULT: Self = Self::Full;
+
+    /// Stable lowercase name, as written in `settings.json` and the logs.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Off => "off",
+            Self::Medium => "medium",
+            Self::Full => "full",
+        }
+    }
+
+    /// Player-facing label for the settings screen.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Off => "Off",
+            Self::Medium => "Medium",
+            Self::Full => "Full",
+        }
+    }
+
+    /// Parses a level name, case-insensitively and ignoring surrounding
+    /// whitespace. Unknown names are `None`, never a silent fallback.
+    #[must_use]
+    pub fn parse(name: &str) -> Option<Self> {
+        let trimmed = name.trim();
+        Self::ALL
+            .into_iter()
+            .find(|level| level.name().eq_ignore_ascii_case(trimmed))
+    }
+
+    /// True when no lightmap is baked or sampled.
+    #[must_use]
+    pub const fn is_off(self) -> bool {
+        matches!(self, Self::Off)
+    }
+
+    /// The atlas configuration this level bakes against, or `None` for
+    /// [`Self::Off`] (which never builds a plan).
+    ///
+    /// Medium and Full read the same validated values the quality levels used
+    /// before this setting existed, so an atlas baked by an earlier build keeps
+    /// its content key and is reused.
+    #[must_use]
+    pub const fn lightmap_config(self) -> Option<crate::lighting::lightmap::LightmapConfig> {
+        let full = crate::lighting::lightmap::LightmapConfig::for_profile(QualityProfile::Full);
+        match self {
+            Self::Off => None,
+            Self::Medium => Some(crate::lighting::lightmap::LightmapConfig {
+                texels_per_metre: MEDIUM_LIGHTMAP_DENSITY,
+                page_edge: full.page_edge,
+                max_pages: full.max_pages,
+                padding: full.padding,
+                bytes_per_texel: full.bytes_per_texel,
+            }),
+            Self::Full => Some(full),
+        }
+    }
+
+    /// The shadow bake this level runs, or `None` for [`Self::Off`].
+    ///
+    /// The vertex-lit fallback always bakes with the historical hard-shadow
+    /// configuration, exactly as it did before lightmap qualities existed; that
+    /// is the build path's decision, not this setting's.
+    #[must_use]
+    pub const fn bake_config(self) -> Option<crate::lighting::BakeConfig> {
+        match self {
+            Self::Off => None,
+            Self::Medium => Some(QualityLevel::Medium.bake_config()),
+            Self::Full => Some(QualityProfile::Full.bake_config()),
+        }
+    }
+
+    /// The profile the protected lightmap content-key boundary consumes.
+    ///
+    /// The key hashes the concrete [`Self::lightmap_config`] and
+    /// [`Self::bake_config`] values as well, so Medium and Full still never
+    /// share an entry even though both answer `Full` here.
+    #[must_use]
+    pub const fn profile(self) -> QualityProfile {
+        QualityProfile::Full
+    }
+
+    /// The preset default for an overall quality level.
+    #[must_use]
+    pub const fn default_for(quality: QualityLevel) -> Self {
+        match quality {
+            QualityLevel::Low => Self::Off,
+            QualityLevel::Medium => Self::Medium,
+            QualityLevel::High => Self::Full,
+        }
+    }
+}
+
+/// The player-facing Reflections quality: which optional reflection sources
+/// exist and at what probe resolution.
+///
+/// Independent of [`QualityLevel`] and of the Lightmaps setting, so
+/// `Low + Reflections Full` is valid. Turning reflections off retires the probe
+/// cubemaps and the planar target instead of leaving stale captures bound.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ReflectionQuality {
+    /// No dynamic reflection work: no probes, no planar mirror.
+    Off,
+    /// The intermediate probe resolution with the planar mirror enabled.
+    Medium,
+    /// The full probe resolution with the planar mirror enabled.
+    #[default]
+    Full,
+}
+
+impl ReflectionQuality {
+    /// Every level, in selector order.
+    pub const ALL: [Self; 3] = [Self::Off, Self::Medium, Self::Full];
+
+    /// The default a fresh install runs with.
+    pub const DEFAULT: Self = Self::Full;
+
+    /// Stable lowercase name, as written in `settings.json` and the logs.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Off => "off",
+            Self::Medium => "medium",
+            Self::Full => "full",
+        }
+    }
+
+    /// Player-facing label for the settings screen.
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Off => "Off",
+            Self::Medium => "Medium",
+            Self::Full => "Full",
+        }
+    }
+
+    /// Parses a level name, case-insensitively and ignoring surrounding
+    /// whitespace. Unknown names are `None`, never a silent fallback.
+    #[must_use]
+    pub fn parse(name: &str) -> Option<Self> {
+        let trimmed = name.trim();
+        Self::ALL
+            .into_iter()
+            .find(|level| level.name().eq_ignore_ascii_case(trimmed))
+    }
+
+    /// True when the probe cubemaps exist and are sampled.
+    #[must_use]
+    pub const fn draws_probes(self) -> bool {
+        !matches!(self, Self::Off)
+    }
+
+    /// True when the planar mirror pass may run.
+    #[must_use]
+    pub const fn draws_planar(self) -> bool {
+        matches!(self, Self::Medium | Self::Full)
+    }
+
+    /// The preset default for an overall quality level.
+    #[must_use]
+    pub const fn default_for(quality: QualityLevel) -> Self {
+        match quality {
+            QualityLevel::Low => Self::Off,
+            QualityLevel::Medium => Self::Medium,
+            QualityLevel::High => Self::Full,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests;
 

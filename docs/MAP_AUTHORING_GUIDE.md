@@ -2182,9 +2182,12 @@ storage change, not an authoring one.
   different float expression than the plane's own `y`, so the two can differ by a
   ULP, and without the contact band the floor shadowed its own wall base and two
   coplanar strips whose bottoms rounded opposite ways stepped at the seam.
-* `settings.json` carries `"lightmaps": true|false` (default `true`), exposed as
+* `settings.json` carries `"lightmaps": "off"|"medium"|"full"` (default
+  `"full"`; a legacy `true`/`false` still loads as Full/Off), exposed as
   Settings → Graphics → Lightmaps and switched live (the level's lighting is
-  rebuilt from the resident definition, with the player state preserved). The
+  rebuilt from the resident definition, with the player state preserved; an
+  uncached atlas fills on a worker while the previous lighting keeps
+  rendering). The
   environment override `PLACES_NO_LIGHTMAPS=1` forces the historical vertex-lit
   path for a benchmark or A/B capture run.
 * If a bake cannot fit the page budget, or an atlas page cannot upload, the level
@@ -2821,7 +2824,7 @@ misplaced.
 
 **Authoring rule:** do not try to fix it from the level — there is no chart authoring
 control. Report it as an engine bug with the level id and camera position. A
-vertex-lit fallback always exists (`"lightmaps": false` in `settings.json` or
+vertex-lit fallback always exists (`"lightmaps": "off"` in `settings.json`, or
 `PLACES_NO_LIGHTMAPS=1`), so a map is never blocked by a bake problem.
 
 ### Fixture Assigned to the Wrong Room / Storey

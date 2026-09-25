@@ -58,6 +58,8 @@
 //! flips the normal on back faces — so every world variant is two-sided and
 //! every pipeline keeps the same winding.
 
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::sync::Arc;
 
 use bytemuck::{Pod, Zeroable};
@@ -65,7 +67,10 @@ use glam::{Mat4, Vec4};
 
 use super::material::WorldMaterials;
 use super::surface::DEPTH_FORMAT;
-use super::texture::{CacheOutcome, GpuTexture, TextureCache, TextureFiltering, TextureSemantic};
+use super::texture::{
+    CacheOutcome, GpuTexture, TextureCache, TextureFiltering, TextureKey, TextureSemantic,
+    TextureUploadRequest,
+};
 use crate::materials::{MaterialTable, ResolvedTexture, TextureOrigin};
 use crate::quality::QualityLevel;
 use crate::render::RenderCamera;
@@ -721,11 +726,13 @@ impl WgpuWorldGeometry {
         materials: &MaterialRenderState,
     ) -> Self {
         let (packer, draws) = pack_world_ranges(mesh, materials);
+        crate::perf::startup_mark("world geometry: pack");
 
         let mut chunks: Vec<WorldChunk> = Vec::with_capacity(packer.chunks.len());
         for chunk in &packer.chunks {
             chunks.push(upload_chunk(device, queue, chunk));
         }
+        crate::perf::startup_mark("world geometry: GPU upload");
 
         let uploaded_vertices: usize = chunks
             .iter()
@@ -848,6 +855,12 @@ impl WorldTextures {
     /// sheet; a fixture draw samples its family's sheet from the already
     /// uploaded `fixture_sheets` list. Both are normal, deterministic outcomes,
     /// not errors.
+    ///
+    /// The distinct base textures are collected first, in first-use order, and
+    /// their CPU preparation (fit + mip chain) runs in one parallel batch; the
+    /// GPU uploads stay serial and on the caller's thread. The draw mapping,
+    /// the entry order and every counter are identical to resolving one draw at
+    /// a time.
     #[must_use]
     #[allow(clippy::too_many_arguments)] // one resolution pass over the level's draws and materials
     pub fn resolve(
@@ -860,45 +873,88 @@ impl WorldTextures {
         fixture_sheets: &[Arc<GpuTexture>],
         level: QualityLevel,
     ) -> Self {
+        /// Which texture one draw samples during the mapping pass.
+        enum DrawTexture {
+            /// The fixture family's sheet slot, indexed by material.
+            Fixture(usize),
+            /// One entry of the batched base-texture request list.
+            Base(usize),
+            /// The shared fallback sheet.
+            Fallback,
+        }
+
         let mut stats = WorldTextureStats {
             draws: draws.len(),
             ..WorldTextureStats::default()
         };
-        let mut entries: Vec<Arc<GpuTexture>> = Vec::new();
-        let mut per_draw: Vec<usize> = Vec::with_capacity(draws.len());
+        let mut requests: Vec<TextureUploadRequest<'_>> = Vec::new();
+        let mut sources: Vec<DrawTexture> = Vec::with_capacity(draws.len());
+        // The identity includes the lifetime, exactly like the cache's two maps:
+        // the same key can legitimately be a catalog entry and a pack entry.
+        let mut request_by_key: HashMap<(TextureKey, bool), usize> = HashMap::new();
+        // Pass 1: classify every draw and collect the distinct base textures
+        // (one request per semantic identity, in first-use order).
         for draw in draws {
-            let texture = if draw.kind == SurfaceKind::Light
+            if draw.kind == SurfaceKind::Light
                 && draw.material != crate::render::common::mesh::MATERIAL_NONE
             {
-                let sheet = fixture_sheets
-                    .get(usize::from(draw.material))
-                    .map_or_else(|| cache.fallback(), Arc::clone);
                 stats.fixture_draws = stats.fixture_draws.saturating_add(1);
-                sheet
-            } else if let Some(resolved) = resolve_base_texture(draw, materials, table) {
-                let (outcome, texture) = cache.get_or_upload(
-                    device,
-                    queue,
-                    resolved,
-                    TextureSemantic::BaseColorDisplay,
-                    level,
-                );
-                match outcome {
-                    CacheOutcome::Uploaded => {
-                        stats.uploads = stats.uploads.saturating_add(1);
-                    }
-                    CacheOutcome::Reused => {
-                        stats.cache_hits = stats.cache_hits.saturating_add(1);
-                    }
-                }
-                if resolved.origin == TextureOrigin::Missing {
-                    stats.missing = stats.missing.saturating_add(1);
-                }
-                stats.textured_draws = stats.textured_draws.saturating_add(1);
-                texture
-            } else {
+                sources.push(DrawTexture::Fixture(usize::from(draw.material)));
+                continue;
+            }
+            let Some(resolved) = resolve_base_texture(draw, materials, table) else {
                 stats.fallback_draws = stats.fallback_draws.saturating_add(1);
-                cache.fallback()
+                sources.push(DrawTexture::Fallback);
+                continue;
+            };
+            stats.textured_draws = stats.textured_draws.saturating_add(1);
+            if resolved.origin == TextureOrigin::Missing {
+                stats.missing = stats.missing.saturating_add(1);
+            }
+            let key = TextureKey::new(resolved, TextureSemantic::BaseColorDisplay, level);
+            let identity = (key.clone(), resolved.origin == TextureOrigin::Pack);
+            let index = match request_by_key.entry(identity) {
+                Entry::Occupied(entry) => *entry.get(),
+                Entry::Vacant(entry) => {
+                    let index = requests.len();
+                    entry.insert(index);
+                    requests.push(TextureUploadRequest {
+                        key,
+                        image: resolved.image.as_ref(),
+                        origin: resolved.origin,
+                    });
+                    index
+                }
+            };
+            sources.push(DrawTexture::Base(index));
+        }
+        crate::perf::startup_mark("world textures: plan");
+
+        // One batch: cache hits are served from the maps, the misses are
+        // prepared in parallel and uploaded serially in first-use order.
+        let resolved_textures = cache.get_or_upload_batch(device, queue, &requests);
+        crate::perf::startup_mark("world textures: batch");
+
+        // Pass 2: map each draw to its entry. The counters come from the batch
+        // results: every miss uploads exactly once (its first draw), so the
+        // remaining textured draws are cache hits, exactly like the serial
+        // loop's outcome accounting.
+        stats.uploads = resolved_textures
+            .iter()
+            .filter(|entry| entry.0 == CacheOutcome::Uploaded)
+            .count();
+        stats.cache_hits = stats.textured_draws.saturating_sub(stats.uploads);
+        let mut entries: Vec<Arc<GpuTexture>> = Vec::new();
+        let mut per_draw: Vec<usize> = Vec::with_capacity(draws.len());
+        for source in &sources {
+            let texture = match source {
+                DrawTexture::Fixture(index) => fixture_sheets
+                    .get(*index)
+                    .map_or_else(|| cache.fallback(), Arc::clone),
+                DrawTexture::Base(index) => resolved_textures
+                    .get(*index)
+                    .map_or_else(|| cache.fallback(), |entry| Arc::clone(&entry.1)),
+                DrawTexture::Fallback => cache.fallback(),
             };
             let slot = entry_slot(&entries, &texture).unwrap_or_else(|| {
                 entries.push(texture);

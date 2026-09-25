@@ -158,6 +158,11 @@ PLACES_CAPTURE_DIR="$PWD/target/verification/views" \
 The canonical setup is 640×360 logical pixels and the pinned session settings;
 the drawable is 1280×720 at the same 2.0x backing scale the tracked images use.
 
+Settings screens can be captured without a keyboard: `PLACES_SCREEN=settings`
+opens the Settings root, `PLACES_SCREEN=graphics` the Graphics page (Advanced
+collapsed) and `PLACES_SCREEN=advanced` the Graphics page with the Advanced
+group expanded; combine with `PLACES_CAPTURE` as above.
+
 ### Comparing captures
 
 - **Two current builds** (a pre-change and post-change pair, or a same-binary
@@ -180,14 +185,18 @@ visual comparison diagnostics. Generated captures and reports belong under
 
 Live window lifetime and live quality switches can be scripted with
 benchmark-only switches. `PLACES_BENCH_WINDOW_CYCLE` drives real window events
-through the SDL window — `resize:<w>x<h>`, `minimize`, `restore` — and
-`PLACES_BENCH_QUALITY_CYCLE` switches the quality level through the normal
-rebuild path (`low` / `medium` / `high`; the legacy `full` name is High):
+through the SDL window — `resize:<w>x<h>`, `minimize`, `restore` —
+`PLACES_BENCH_QUALITY_CYCLE` switches the overall quality level through the
+normal rebuild path (`low` / `medium` / `high`; the legacy `full` name is High),
+and `PLACES_BENCH_GRAPHICS_CYCLE` changes one Advanced graphics setting at a
+time through the same setters the menu uses (`filtering=low|medium|high`,
+`lightmaps=off|medium|full`, `reflections=off|medium|full`, `bloom=on|off`):
 
 ```sh
 PLACES_BENCH=1 PLACES_BENCH_FRAMES=34 \
 PLACES_BENCH_WINDOW_CYCLE=3:resize:800x450,6:resize:500x300,8:resize:800x450,12:minimize,16:restore,18:resize:640x360,24:resize:900x500,26:resize:640x360 \
 PLACES_BENCH_QUALITY_CYCLE=20:low,22:high \
+PLACES_BENCH_GRAPHICS_CYCLE=10:reflections=off,14:lightmaps=medium,28:bloom=off \
 PLACES_LEVEL=places_demo target/release/places
 ```
 

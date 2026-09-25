@@ -45,7 +45,7 @@ use super::postprocess::{EMISSIVE_FORMAT, PostProcess, SCENE_FORMAT};
 use super::props::WgpuProps;
 use super::reflections::{
     CaptureFrame, ProbeCube, ReflectionTargets, planar_size_for, planar_view_projection,
-    probe_face_view_projection,
+    probe_bake_position, probe_face_size, probe_face_view_projection,
 };
 use super::surface::{
     self, CLEAR_COLOR, CLEAR_COLOR_SRGB, DEPTH_FORMAT, SurfaceRecovery, SurfaceStatus,
@@ -60,12 +60,17 @@ use super::world::{
 use crate::lighting::lightmap::{LightmapCache, LightmapFailure, LightmapMode};
 use crate::loader::LoadedLevel;
 use crate::logging;
-use crate::quality::{QualityLevel, TextureClass};
+use crate::quality::{LightmapQuality, QualityLevel, ReflectionQuality, TextureClass};
 use crate::render::RenderCamera;
 use crate::render::common::SurfaceKind;
 use crate::render::common::Vertex;
 use crate::render::common::animation::{AnimationEffect, EmissionAnimation};
-use crate::render::common::api::{LightmapBuildOptions, build_level_geometry_timed_with_lightmaps};
+use crate::render::common::api::{
+    GraphicsTransition, LevelBuild, LightmapBuildOptions, LightmapFillOutcome, LightmapFillRequest,
+    LightmapFillWorker, PreparedLightmapBuild, build_level_geometry_timed_with_lightmaps,
+    dump_lightmaps_for_level, fill_lightmaps, fill_may_activate,
+    prepare_level_geometry_with_lightmaps, rebuild_vertex_lit_level,
+};
 use crate::render::common::atmosphere::FogState;
 use crate::render::common::dynamic::{DynamicScene, DynamicUpdate};
 use crate::render::common::materials::MaterialRenderState;
@@ -112,6 +117,140 @@ enum Acquired {
     Frame(wgpu::SurfaceTexture),
     /// No texture this frame; the surface is healthy and the frame is skipped.
     Skip,
+}
+
+/// The player-facing graphics configuration a settings action asks for.
+///
+/// The setters only record into this value; [`WgpuRenderer::apply_graphics`]
+/// is the one place that diffs it against the applied configuration and does
+/// the work. Keeping both sides as one plain `Copy` value is what makes a
+/// multi-setting change (a quality preset cascades Lightmaps and Reflections)
+/// one diff and, when a rebuild is needed, one CPU build.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct GraphicsConfig {
+    /// Overall quality: texture budgets, scene target, surface response.
+    quality: QualityLevel,
+    /// Ordinary world texture filtering (a sampler-handle swap at bind time).
+    filtering: TextureFiltering,
+    /// Whether the emissive/bloom chain runs.
+    bloom: bool,
+    /// Whether a baked lightmap atlas exists and how dense it is.
+    lightmaps: LightmapQuality,
+    /// Whether probe cubemaps and the planar mirror exist.
+    reflections: ReflectionQuality,
+}
+
+impl Default for GraphicsConfig {
+    fn default() -> Self {
+        Self {
+            quality: QualityLevel::default(),
+            filtering: TextureFiltering::DEFAULT,
+            bloom: true,
+            lightmaps: LightmapQuality::default(),
+            reflections: ReflectionQuality::default(),
+        }
+    }
+}
+
+impl GraphicsConfig {
+    /// What changed between the applied configuration and `next`.
+    fn delta_from(self, next: Self) -> GraphicsDelta {
+        GraphicsDelta {
+            quality: self.quality != next.quality,
+            filtering: self.filtering != next.filtering,
+            bloom: self.bloom != next.bloom,
+            lightmaps: self.lightmaps != next.lightmaps,
+            reflections: self.reflections != next.reflections,
+        }
+    }
+}
+
+/// Which graphics settings changed between the applied state and a request.
+///
+/// The flags mirror the work each setting owes, which is not the same for all
+/// of them: filtering and bloom are frame gates and owe no resource work at
+/// all, a quality change re-fits the retained CPU build's textures, and only a
+/// lightmap change needs the expensive CPU build. The whole file reads the
+/// delta instead of comparing settings again, so a change is classified once.
+///
+/// One bool per player setting is deliberate: they are independent flags, not
+/// a state machine with one active variant (the same reasoning as
+/// [`WgpuRenderer`]'s own boolean group).
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct GraphicsDelta {
+    /// Texture budgets, scene target, surface response.
+    quality: bool,
+    /// The world sampler preset (recorded only).
+    filtering: bool,
+    /// The bloom gate (recorded only).
+    bloom: bool,
+    /// The atlas exists/density: the one flag that needs a CPU build.
+    lightmaps: bool,
+    /// Probe cubemaps and the planar gate.
+    reflections: bool,
+}
+
+impl GraphicsDelta {
+    /// Every flag set, for a first upload or a new level: nothing is resident.
+    const fn everything() -> Self {
+        Self {
+            quality: true,
+            filtering: true,
+            bloom: true,
+            lightmaps: true,
+            reflections: true,
+        }
+    }
+
+    /// True when no setting changed.
+    const fn is_empty(self) -> bool {
+        !(self.quality || self.filtering || self.bloom || self.lightmaps || self.reflections)
+    }
+
+    /// True when any GPU resource work is owed.
+    ///
+    /// Filtering is a sampler handle the bind groups swap at bind time, and
+    /// bloom is a per-frame post gate, so neither ever rebuilds a resource:
+    /// this is the predicate that proves a filtering-only or bloom-only change
+    /// is zero-work.
+    const fn needs_gpu_work(self) -> bool {
+        self.quality || self.lightmaps || self.reflections
+    }
+
+    /// True when the CPU level build must run again (lighting, props and the
+    /// plan-stamped mesh). Only the lightmap configuration changes the mesh.
+    const fn needs_build(self) -> bool {
+        self.lightmaps
+    }
+
+    /// True when the retained CPU build can be kept and its GPU textures
+    /// re-fitted at the new quality budget.
+    const fn needs_texture_refit(self) -> bool {
+        self.quality
+    }
+}
+
+/// A CPU level build whose lightmap fill is running on a worker.
+///
+/// The staged build is deliberately not the world on screen: the previous
+/// configuration keeps rendering, with its own atlas, until the fill lands and
+/// [`WgpuRenderer::install_level`] swaps everything in one step. A cancelled or
+/// superseded stage is dropped without ever touching the GPU.
+struct StagedLightmapFill {
+    /// The prepared build: plan-stamped mesh, lighting and timings, no atlas.
+    build: LevelBuild,
+    /// The exact request the worker is filling (also its cache key).
+    request: LightmapFillRequest,
+    /// Which Lightmaps setting this build was prepared for.
+    lightmaps: LightmapQuality,
+    /// Monotonic generation this request was issued under.
+    generation: u64,
+    /// When the CPU build started, so the install reports the whole build cost.
+    started: std::time::Instant,
+    /// The loaded level the staged build belongs to, so the completion poll
+    /// can install it without the game loop handing the level in again.
+    loaded: LoadedLevel,
 }
 
 /// The wgpu implementation of the renderer facade.
@@ -182,9 +321,42 @@ pub struct WgpuRenderer {
     /// The reference's per-level lightmap cache (memory + disk), owned exactly
     /// like the OpenGL renderer owns its own.
     lightmap_cache: LightmapCache,
-    /// Whether the next level build should bake lightmaps (`PLACES_NO_LIGHTMAPS`
-    /// lands here through `set_lightmaps_requested`).
-    lightmaps_requested: bool,
+    /// The graphics configuration the setters have recorded (requested).
+    ///
+    /// All setters are cheap writes here; nothing in this file compares
+    /// individual settings outside [`Self::apply_graphics`].
+    graphics_requested: GraphicsConfig,
+    /// The graphics configuration whose resources are resident or scheduled.
+    ///
+    /// Updated at the end of [`Self::apply_graphics`], so a repeated call with
+    /// the same request — even while a lightmap fill runs — is a no-op instead
+    /// of restarting work.
+    graphics_applied: GraphicsConfig,
+    /// The quality level the resident GPU textures were fitted at.
+    ///
+    /// Compared against the requested level at install time to decide whether
+    /// the texture caches must be released; a lightmap-only rebuild at the same
+    /// quality reuses every cached texture.
+    installed_quality: QualityLevel,
+    /// The last completed CPU level build (mesh, batches, lighting, lightmaps,
+    /// timings) and the level it belongs to.
+    ///
+    /// This is what lets a texture-budget-only quality change skip the
+    /// expensive lighting bake: the mesh is re-uploaded with new texture
+    /// budgets instead of being rebuilt.
+    retained_build: Option<LevelBuild>,
+    /// The Lightmaps setting `retained_build` was prepared for; a request for
+    /// the same value never re-bakes.
+    retained_lightmaps: LightmapQuality,
+    /// The level id `retained_build` belongs to.
+    retained_level_id: Option<String>,
+    /// A prepared build whose atlas fill is running on [`Self::lightmap_worker`].
+    staged_lightmap: Option<StagedLightmapFill>,
+    /// The single live fill worker, if any. Dropping it cancels and joins.
+    lightmap_worker: Option<LightmapFillWorker>,
+    /// Monotonic generation of lightmap requests; a result from an older one
+    /// is discarded instead of activated.
+    lightmap_generation: u64,
     /// Whether the loaded level's atlas uploaded and the shader should sample
     /// it.
     lightmaps_resident: bool,
@@ -417,7 +589,15 @@ impl WgpuRenderer {
             prop_catalog: crate::loader::PropCatalog::load_default(),
             prop_assets: crate::props::PropAssets::load_default(),
             lightmap_cache: LightmapCache::with_disk(),
-            lightmaps_requested: true,
+            graphics_requested: GraphicsConfig::default(),
+            graphics_applied: GraphicsConfig::default(),
+            installed_quality: QualityLevel::default(),
+            retained_build: None,
+            retained_lightmaps: LightmapQuality::default(),
+            retained_level_id: None,
+            staged_lightmap: None,
+            lightmap_worker: None,
+            lightmap_generation: 0,
             lightmaps_resident: false,
             lightmaps,
             decals: None,
@@ -684,10 +864,15 @@ impl WgpuRenderer {
             .iter()
             .map(ProbeCube::view)
             .collect();
-        let planar = self
-            .reflection_targets
-            .planar()
-            .map_or(&self.planar_fallback_view, |planar| planar.view());
+        // The dynamic path keeps the fallback planar image. A dynamic object is
+        // drawn inside the planar capture as well as the ordinary frame, and an
+        // environment bind group that sampled the live planar target would make
+        // that capture pass sample the texture it is rendering into — a wgpu
+        // validation error (and a feedback loop GL tolerated but this port must
+        // not). Every level load already bound the fallback because the planar
+        // target is created after it; this keeps that behaviour stable across a
+        // later re-upload instead of depending on the target's creation timing.
+        let planar = &self.planar_fallback_view;
         let mut ctx = DynamicUploadContext {
             device: &self.device,
             queue: &self.queue,
@@ -706,74 +891,492 @@ impl WgpuRenderer {
         self.world_dynamic = Some(WgpuDynamic::upload(&mut ctx, &self.dynamic));
     }
 
-    /// Uploads the loaded level: its baked lightmap atlas, its static world
-    /// geometry, its materials and its fixture sheets.
+    /// Applies every recorded graphics setting in one transaction.
     ///
-    /// The build is the renderer-neutral one the reference used
-    /// ([`build_level_geometry_timed_with_lightmaps`]). With lightmaps
-    /// requested (the default) it asks for `LightmapMode::On`: the CPU bake runs
-    /// with the level's shadow configuration, the static mesh carries the
-    /// material factor and the lightmap atlas is baked or restored from the
-    /// content-keyed cache, then uploaded as the reference's RGB8 pages. A
-    /// failed bake rebuilds the exact historical vertex-lit mesh, exactly like
-    /// the reference's fallback. With lightmaps switched off the build is the
-    /// historical vertex-lit one.
+    /// This is the one entry point for a settings action. It diffs the
+    /// requested configuration (recorded by the setters) against the applied
+    /// one and does exactly the work the difference implies:
     ///
-    /// Called once per level load, never per frame. The previous level's
-    /// buffers, textures, atlas and environment bindings are dropped with the
-    /// replaced values.
-    #[allow(clippy::too_many_lines)] // one cohesive level upload: build, upload and install
-    pub fn set_level(&mut self, loaded: &LoadedLevel) {
+    /// * Texture Filtering and Bloom are frame gates — the sampler handle every
+    ///   bind group swaps at bind time and the post settings — so they owe no
+    ///   resource work at all.
+    /// * Reflections retire/create the probe cubemaps and the planar target,
+    ///   rebake the probes and rebuild the environment bind groups.
+    /// * Quality, when the lightmap configuration did not change, reuses the
+    ///   retained CPU build and re-fits its GPU textures at the new budget.
+    /// * Lightmaps rebuilds the CPU level (lighting bake, props, plan-stamped
+    ///   mesh) once. A cache hit activates immediately; a miss stages it and
+    ///   fills on one worker while the previous world keeps rendering.
+    ///
+    /// A first upload or a new level (a `retained_level_id` mismatch) forces the
+    /// full synchronous path, exactly the historical `set_level`: a fresh level
+    /// has no previous world to keep on screen, so its atlas fill runs inline.
+    pub fn apply_graphics(&mut self, loaded: &LoadedLevel) {
         if self.check_device_lost() {
             return;
         }
-        let started = std::time::Instant::now();
-        let options = LightmapBuildOptions::for_level(
-            self.quality,
-            if self.lightmaps_requested {
-                LightmapMode::On
-            } else {
-                LightmapMode::Off
-            },
-        );
-        let mut build = build_level_geometry_timed_with_lightmaps(
+        let requested = self.graphics_requested;
+        let force = self.retained_build.is_none()
+            || self.retained_level_id.as_deref() != Some(loaded.level.id.as_str());
+        let delta = if force {
+            GraphicsDelta::everything()
+        } else {
+            self.graphics_applied.delta_from(requested)
+        };
+        if delta.is_empty() {
+            return;
+        }
+        if !force && !delta.needs_gpu_work() {
+            // Filtering and Bloom are already in force — the sampler handle and
+            // the post gate read the recorded values — so this is the zero-work
+            // branch: recording the applied configuration is the whole change.
+            self.graphics_applied = requested;
+            return;
+        }
+
+        if delta.reflections {
+            self.apply_reflection_targets(requested.reflections);
+        }
+
+        let build_started = force || delta.needs_build();
+        if build_started {
+            // A new lightmap request supersedes any fill still in flight; the
+            // previous world keeps rendering until the new atlas is installed.
+            self.cancel_staged_lightmap();
+            let started = std::time::Instant::now();
+            let PreparedLightmapBuild { build, fill } =
+                self.prepare_level_build(loaded, requested.lightmaps);
+            match fill {
+                None => {
+                    // Off, a plan failure or a cache hit: complete right now.
+                    let build =
+                        self.install_level(loaded, build, requested.lightmaps, true, started);
+                    self.retain_build(loaded, build, requested.lightmaps);
+                }
+                Some(request) if force => {
+                    // A fresh level has no previous world to keep drawing: the
+                    // historical load path fills inline, exactly as before.
+                    let build = self.finish_lightmap_fill_inline(
+                        loaded,
+                        build,
+                        &request,
+                        requested.lightmaps,
+                        started,
+                    );
+                    self.retain_build(loaded, build, requested.lightmaps);
+                }
+                Some(request) => {
+                    self.stage_lightmap_fill(loaded, build, request, requested.lightmaps, started);
+                }
+            }
+        } else if delta.needs_texture_refit() {
+            self.install_retained(loaded);
+        } else if delta.reflections {
+            // A reflection-only change: the targets are already applied; rebuild
+            // the environment bind groups and rebake the probes against the
+            // world that is already resident.
+            self.refresh_reflection_resources();
+        }
+
+        self.graphics_applied = requested;
+        logging::info(format!(
+            "[settings] graphics applied: quality '{}', lightmaps '{}', reflections '{}', filtering '{}', bloom {}",
+            requested.quality.name(),
+            requested.lightmaps.name(),
+            requested.reflections.name(),
+            requested.filtering.name(),
+            if requested.bloom { "on" } else { "off" }
+        ));
+    }
+
+    /// Polls the one asynchronous graphics stage, if any, and installs a
+    /// finished lightmap fill.
+    ///
+    /// Called once per frame (at the top of [`Self::render_scene`]); idling is
+    /// two `Option` checks. The atlas upload and the GPU resource swap happen
+    /// here, on the main thread, and a result is discarded unless its
+    /// generation is the newest request, so a superseded fill can never
+    /// activate.
+    pub fn advance_graphics_transition(&mut self) {
+        if self.staged_lightmap.is_none() && self.lightmap_worker.is_none() {
+            return;
+        }
+        let Some(staged) = self.staged_lightmap.take() else {
+            // A worker without a staged build cannot happen; drop the stale
+            // worker so it cannot hold a thread.
+            self.lightmap_worker = None;
+            return;
+        };
+        let outcome = self
+            .lightmap_worker
+            .as_mut()
+            .and_then(LightmapFillWorker::try_take);
+        let Some(outcome) = outcome else {
+            // Still filling: the previous world keeps rendering.
+            self.staged_lightmap = Some(staged);
+            return;
+        };
+        self.lightmap_worker = None;
+        if !fill_may_activate(staged.generation, self.lightmap_generation) {
+            // A superseded fill finished just before its cancellation: discard
+            // it and let the newest request own the world.
+            return;
+        }
+        match outcome {
+            LightmapFillOutcome::Filled(filled) => {
+                let filled = Arc::new(filled);
+                self.lightmap_cache
+                    .insert(&staged.request.content_key, Arc::clone(&filled));
+                dump_lightmaps_for_level(&staged.loaded.level, &filled);
+                let mut build = staged.build;
+                let bake_millis = filled.stats.bake_millis;
+                build.lightmap_millis = bake_millis;
+                build.lightmaps = Some(filled);
+                let build = self.install_level(
+                    &staged.loaded,
+                    build,
+                    staged.lightmaps,
+                    true,
+                    staged.started,
+                );
+                self.retain_build(&staged.loaded, build, staged.lightmaps);
+                logging::info(format!(
+                    "[settings] lightmaps '{}' filled in {bake_millis:.1} ms on the worker; atlas installed",
+                    staged.lightmaps.name()
+                ));
+            }
+            LightmapFillOutcome::Failed(failure) => {
+                logging::warn_once(
+                    "lightmap-fill-failed",
+                    format!(
+                        "[lightmaps] '{}' fill failed ({}); rebuilding the vertex-lit level",
+                        staged.loaded.level.id,
+                        failure.name()
+                    ),
+                );
+                let mut build = staged.build;
+                build.lightmap_failure = Some(failure);
+                build.lightmaps = None;
+                let mesh_started = std::time::Instant::now();
+                let mesh = rebuild_vertex_lit_level(
+                    &staged.loaded.level,
+                    &self.prop_catalog,
+                    &mut self.prop_assets,
+                    &staged.loaded.materials,
+                    &build.lighting,
+                );
+                build.timings.surfaces_millis = mesh_started
+                    .elapsed()
+                    .as_secs_f64()
+                    .mul_add(1000.0, build.timings.surfaces_millis);
+                build.mesh = mesh;
+                let build = self.install_level(
+                    &staged.loaded,
+                    build,
+                    staged.lightmaps,
+                    true,
+                    staged.started,
+                );
+                self.retain_build(&staged.loaded, build, staged.lightmaps);
+            }
+            LightmapFillOutcome::Cancelled => {
+                // Nothing to install; the newest request already replaced this
+                // stage.
+            }
+        }
+    }
+
+    /// What the renderer is doing about a graphics change, for a status hint.
+    ///
+    /// Cheap: two `Option` checks. The game loop may show a subtle
+    /// "Applying..." message while a background lightmap fill runs; the
+    /// previous configuration keeps rendering throughout.
+    #[must_use]
+    pub const fn graphics_transition_status(&self) -> GraphicsTransition {
+        if self.staged_lightmap.is_some() {
+            GraphicsTransition::Preparing("lightmaps")
+        } else {
+            GraphicsTransition::Idle
+        }
+    }
+
+    /// Runs the CPU half of a lightmap build: lighting bake, prop instancing,
+    /// the plan-stamped mesh and the cache lookup.
+    fn prepare_level_build(
+        &mut self,
+        loaded: &LoadedLevel,
+        lightmaps: LightmapQuality,
+    ) -> PreparedLightmapBuild {
+        prepare_level_geometry_with_lightmaps(
             &loaded.level,
             &self.prop_catalog,
             &mut self.prop_assets,
             &loaded.materials,
-            options,
+            LightmapBuildOptions::for_lightmaps(lightmaps),
             Some(&mut self.lightmap_cache),
+        )
+    }
+
+    /// Stages a prepared build and starts its one worker fill.
+    ///
+    /// The previous world keeps rendering. A refused thread falls back to the
+    /// inline fill, which costs one blocking frame but never leaves the setting
+    /// half applied.
+    fn stage_lightmap_fill(
+        &mut self,
+        loaded: &LoadedLevel,
+        build: LevelBuild,
+        request: LightmapFillRequest,
+        lightmaps: LightmapQuality,
+        started: std::time::Instant,
+    ) {
+        if let Some(worker) = LightmapFillWorker::spawn(request.clone()) {
+            self.lightmap_generation = self.lightmap_generation.saturating_add(1);
+            let generation = self.lightmap_generation;
+            let charts = request.charts.len();
+            self.lightmap_worker = Some(worker);
+            self.staged_lightmap = Some(StagedLightmapFill {
+                build,
+                request,
+                lightmaps,
+                generation,
+                started,
+                loaded: loaded.clone(),
+            });
+            logging::info(format!(
+                "[settings] lightmaps '{}': {} chart(s) prepared in {:.1} ms, filling on a worker; the previous world keeps rendering",
+                lightmaps.name(),
+                charts,
+                started.elapsed().as_secs_f64().mul_add(1000.0, 0.0)
+            ));
+            return;
+        }
+        logging::warn_once(
+            "lightmap-worker-thread",
+            "[settings] could not start the lightmap fill thread; filling inline this frame",
         );
-        let mut atlas =
-            LightmapAtlas::upload(&self.device, &self.queue, build.lightmaps.as_deref());
-        // A plan or fill failure never reaches this branch: the neutral build
-        // has already returned the historical vertex-lit mesh with the *same*
-        // lighting (`build.lightmaps.is_none()`), exactly like the reference,
-        // which does not call `upload_level_lightmaps` for a missing atlas.
-        // Rebuilding again with `LightmapMode::Off` here would re-bake with
-        // `BakeConfig::HARD` and change every vertex colour. Only an upload
-        // failure rebuilds, and the wgpu upload cannot fail; the check stays as
-        // the reference's defensive fallback so a future failure cannot draw an
-        // atlas-less lightmapped mesh.
-        if needs_upload_fallback(options.mode, build.lightmaps.is_some(), atlas.is_resident()) {
-            build = build_level_geometry_timed_with_lightmaps(
-                &loaded.level,
-                &self.prop_catalog,
-                &mut self.prop_assets,
-                &loaded.materials,
-                LightmapBuildOptions::for_level(self.quality, LightmapMode::Off),
-                None,
+        let build = self.finish_lightmap_fill_inline(loaded, build, &request, lightmaps, started);
+        self.retain_build(loaded, build, lightmaps);
+    }
+
+    /// Fills a prepared build on the calling thread and installs it.
+    ///
+    /// The historical load path: only used for a fresh level (no previous world
+    /// to keep on screen) or when no worker thread could be started. On a fill
+    /// failure the historical vertex-lit mesh is rebuilt against the same
+    /// lighting, exactly like the inline entry point.
+    fn finish_lightmap_fill_inline(
+        &mut self,
+        loaded: &LoadedLevel,
+        mut build: LevelBuild,
+        request: &LightmapFillRequest,
+        lightmaps: LightmapQuality,
+        started: std::time::Instant,
+    ) -> LevelBuild {
+        match fill_lightmaps(request) {
+            Ok(filled) => {
+                let filled = Arc::new(filled);
+                dump_lightmaps_for_level(&loaded.level, &filled);
+                self.lightmap_cache
+                    .insert(&request.content_key, Arc::clone(&filled));
+                build.lightmap_millis = filled.stats.bake_millis;
+                build.lightmaps = Some(filled);
+                build.lightmap_failure = None;
+            }
+            Err(failure) => {
+                build.lightmap_failure = Some(failure);
+                build.lightmaps = None;
+                let mesh_started = std::time::Instant::now();
+                let mesh = rebuild_vertex_lit_level(
+                    &loaded.level,
+                    &self.prop_catalog,
+                    &mut self.prop_assets,
+                    &loaded.materials,
+                    &build.lighting,
+                );
+                build.timings.surfaces_millis = mesh_started
+                    .elapsed()
+                    .as_secs_f64()
+                    .mul_add(1000.0, build.timings.surfaces_millis);
+                build.mesh = mesh;
+            }
+        }
+        self.install_level(loaded, build, lightmaps, true, started)
+    }
+
+    /// Cancels and joins any live fill and drops the staged build.
+    ///
+    /// Dropping the worker sets its cancel flag and joins the thread, which
+    /// returns after the chart it was filling (the fill checks between charts),
+    /// so a supersede blocks for at most one chart. The generation is bumped so
+    /// a result that raced the cancellation can never activate.
+    fn cancel_staged_lightmap(&mut self) {
+        self.lightmap_worker = None;
+        self.staged_lightmap = None;
+        self.lightmap_generation = self.lightmap_generation.saturating_add(1);
+    }
+
+    /// Re-uploads the retained CPU build at the current quality budget.
+    ///
+    /// No lighting bake, no lightmap fill and no mesh rebuild: the same mesh is
+    /// re-resolved through the texture/material caches, which the install
+    /// releases first because the quality level is part of a texture's fit.
+    fn install_retained(&mut self, loaded: &LoadedLevel) {
+        let Some(build) = self.retained_build.take() else {
+            return;
+        };
+        let lightmaps = self.retained_lightmaps;
+        let build = self.install_level(loaded, build, lightmaps, false, std::time::Instant::now());
+        self.retain_build(loaded, build, lightmaps);
+    }
+
+    /// Applies a Reflections setting to the GPU targets and the frame gates.
+    ///
+    /// Probe cubemaps are created at the setting's face size (or retired for
+    /// Off), the planar target is dropped when the setting stops allowing it,
+    /// and the frame gates follow. Creating a cubemap does not bake it; the
+    /// caller's install or [`Self::refresh_reflection_resources`] bakes.
+    fn apply_reflection_targets(&mut self, quality: ReflectionQuality) {
+        self.reflections.set_quality(quality);
+        self.reflections_enabled = quality.draws_probes();
+        if !quality.draws_probes() {
+            self.active_plane = None;
+            self.active_probe = 0;
+        }
+        if !self.reflection_targets_match(quality) {
+            self.reflection_targets = ReflectionTargets::for_quality(
+                &self.device,
+                quality,
+                &self.reflections.routing.probe_points,
             );
-            build.lightmap_failure = Some(LightmapFailure::Upload);
-            atlas = LightmapAtlas::upload(&self.device, &self.queue, None);
+        }
+        if !quality.draws_planar() {
+            self.reflection_targets.drop_planar();
+        }
+    }
+
+    /// True when the resident probe cubemaps already match `quality` and the
+    /// routing's probe points, so a re-apply does not recreate them.
+    ///
+    /// The float comparison is exact on purpose: both sides are derived from
+    /// the same `probe_bake_position` input by the same code, so a mismatch is
+    /// a real change (another level's routing), never rounding noise.
+    #[allow(clippy::float_cmp)] // identical inputs re-derive identical bits
+    fn reflection_targets_match(&self, quality: ReflectionQuality) -> bool {
+        let face_size = probe_face_size(quality);
+        let wanted = if face_size.is_some() {
+            self.reflections
+                .routing
+                .probe_points
+                .len()
+                .min(crate::render::common::view::MAX_REFLECTION_PROBES)
+        } else {
+            0
+        };
+        self.reflection_targets.probes().len() == wanted
+            && self
+                .reflection_targets
+                .probes()
+                .iter()
+                .zip(self.reflections.routing.probe_points.iter())
+                .all(|(probe, point)| {
+                    Some(probe.face_size) == face_size
+                        && probe.position == probe_bake_position(*point)
+                })
+    }
+
+    /// Rebuilds the environment bindings and rebakes the probes after a
+    /// reflection-only change.
+    ///
+    /// The world, textures and materials are already resident and unchanged, so
+    /// only the bind group that references the (new) probe views and the probe
+    /// captures themselves run. `bake_reflection_probes` is a no-op when the
+    /// setting is Off, which is what stops all capture work immediately.
+    fn refresh_reflection_resources(&mut self) {
+        if self.world.is_none() {
+            return;
+        }
+        self.environment = Some(self.create_environment());
+        self.bake_reflection_probes();
+        self.upload_dynamic();
+    }
+
+    /// Retains the build that just became resident, keyed by its level and
+    /// lightmap configuration.
+    fn retain_build(
+        &mut self,
+        loaded: &LoadedLevel,
+        build: LevelBuild,
+        lightmaps: LightmapQuality,
+    ) {
+        self.retained_build = Some(build);
+        self.retained_lightmaps = lightmaps;
+        self.retained_level_id = Some(loaded.level.id.clone());
+    }
+
+    /// Uploads (or re-uploads) one prepared CPU build as the resident world.
+    ///
+    /// This is the single GPU-side install step: the lightmap atlas, the
+    /// fixture sheets, the static geometry, the world textures and materials,
+    /// the props, the decals, the environment bindings and the probe bake all
+    /// come from `build`. The texture caches are released only when the new
+    /// configuration really needs it: a quality change re-fits every texture,
+    /// a new level drops its pack textures, and a lightmap-only rebuild at the
+    /// same quality keeps both. The atlas upload happens here, on the main
+    /// thread, exactly once per activation — including for a background fill,
+    /// whose completion poll calls this. `build` is returned so the caller can
+    /// retain the exact build that became resident (the defensive upload
+    /// fallback may replace it).
+    #[allow(clippy::too_many_lines)] // one cohesive level upload: upload and install
+    fn install_level(
+        &mut self,
+        loaded: &LoadedLevel,
+        mut build: LevelBuild,
+        lightmaps_quality: LightmapQuality,
+        upload_atlas: bool,
+        started: std::time::Instant,
+    ) -> LevelBuild {
+        let level_changed = self.level_id.as_deref() != Some(loaded.level.id.as_str());
+        let quality_changed = self.quality != self.installed_quality;
+        if quality_changed {
+            self.textures.release_profile_textures();
+        } else if level_changed {
+            self.textures.begin_level();
+        }
+        let options = LightmapBuildOptions::for_lightmaps(lightmaps_quality);
+        if upload_atlas {
+            let mut atlas =
+                LightmapAtlas::upload(&self.device, &self.queue, build.lightmaps.as_deref());
+            // A plan or fill failure never reaches this branch: the neutral build
+            // has already returned the historical vertex-lit mesh with the *same*
+            // lighting (`build.lightmaps.is_none()`), exactly like the reference,
+            // which does not call `upload_level_lightmaps` for a missing atlas.
+            // Rebuilding again with `LightmapMode::Off` here would re-bake with
+            // `BakeConfig::HARD` and change every vertex colour. Only an upload
+            // failure rebuilds, and the wgpu upload cannot fail; the check stays
+            // as the reference's defensive fallback so a future failure cannot
+            // draw an atlas-less lightmapped mesh.
+            if needs_upload_fallback(options.mode, build.lightmaps.is_some(), atlas.is_resident()) {
+                build = build_level_geometry_timed_with_lightmaps(
+                    &loaded.level,
+                    &self.prop_catalog,
+                    &mut self.prop_assets,
+                    &loaded.materials,
+                    LightmapBuildOptions::for_lightmap_quality(
+                        lightmaps_quality,
+                        LightmapMode::Off,
+                    ),
+                    None,
+                );
+                build.lightmap_failure = Some(LightmapFailure::Upload);
+                atlas = LightmapAtlas::upload(&self.device, &self.queue, None);
+            }
+            self.lightmaps = atlas;
+            self.lightmaps_resident = self.lightmaps.is_resident();
         }
         let lightmap_failure = build.lightmap_failure;
         let lightmap_stats = build.lightmaps.as_deref().map(|lightmaps| lightmaps.stats);
-        self.lightmaps_resident = atlas.is_resident();
         let materials = MaterialRenderState::from_table(&loaded.materials);
-        // The previous level's pack textures die with the previous level; the
-        // catalog cache survives, exactly like the reference's caches.
-        self.textures.begin_level();
         let fixture_sheets = self.upload_fixture_sheets(loaded);
         let world = WgpuWorldGeometry::upload(&self.device, &self.queue, &build.mesh, &materials);
         let world_textures = WorldTextures::resolve(
@@ -797,15 +1400,11 @@ impl WgpuRenderer {
             .collect();
         let routing = routing_from_mesh(&build.mesh, &reflections_vec, reflections_vec.len());
         self.reflections.routing = routing;
-        self.reflections.set_level(self.quality);
-        // A disabled session keeps every material's mode zero; `set_enabled`
-        // carries the player setting into the per-frame gate.
-        self.reflections.set_enabled(self.reflections_enabled);
-        self.reflection_targets = ReflectionTargets::for_level(
-            &self.device,
-            self.quality,
-            &self.reflections.routing.probe_points,
-        );
+        // The reflection sources follow the Reflections setting, never the
+        // overall quality level: a lightmap-only rebuild keeps the probe
+        // cubemaps it already baked, and Off retires them. This is idempotent,
+        // so an install may call it even when the setting itself did not change.
+        self.apply_reflection_targets(self.graphics_requested.reflections);
         self.active_plane = None;
         self.reflection_passes = 0;
         let world_materials = WorldMaterials::resolve(
@@ -833,7 +1432,7 @@ impl WgpuRenderer {
         );
         let prop_stats = world_props.stats();
         let world_stats = world.stats();
-        let lightmap_upload = atlas.stats();
+        let lightmap_upload = self.lightmaps.stats();
         self.level_stats = LevelBuildStats {
             static_vertices: build.mesh.vertex_count,
             static_indices: build.mesh.index_count,
@@ -883,7 +1482,6 @@ impl WgpuRenderer {
             self.level_id = Some(loaded.level.id.clone());
         }
         self.world_dynamic = None;
-        self.lightmaps = atlas;
         self.environment = Some(self.create_environment());
         self.world = Some(world);
         self.world_props = Some(world_props);
@@ -902,6 +1500,8 @@ impl WgpuRenderer {
         // resource (the reference's own rebuild leaves stale handles and is
         // documented as a bug this port does not reproduce).
         self.upload_dynamic();
+        self.installed_quality = self.quality;
+        build
     }
 
     /// Uploads the level's decal batches against the current pipelines.
@@ -1104,31 +1704,34 @@ impl WgpuRenderer {
         self.culling = enabled;
     }
 
-    /// Records the active quality level.
+    /// Records the requested quality level.
     ///
-    /// The level is part of a texture's cache identity: it selects the edge
-    /// budget the image is fitted to when a level uploads. Recording the value
-    /// alone changes no GPU state, matching the reference, whose `set_quality`
-    /// also waits for the caller to release the level's textures and re-upload
-    /// the level.
+    /// Recording changes no GPU state; the work (re-fitting the retained
+    /// build's textures, or rebuilding it when the lightmaps changed too) runs
+    /// in [`Self::apply_graphics`]. The level is also recorded in the live
+    /// `quality` field because the per-frame scene target and surface-response
+    /// gates read it directly, exactly as they always have.
     pub const fn set_quality(&mut self, quality: QualityLevel) {
         self.quality = quality;
+        self.graphics_requested.quality = quality;
     }
 
-    /// Applies the player's texture filtering setting to the world.
+    /// Records the player's texture filtering setting.
     ///
     /// The three presets are shared samplers, so switching swaps which sampler
-    /// a draw's bind group holds; no pixel data is re-uploaded, and the
-    /// environment binding is not rebuilt because the lightmap sampler no
-    /// longer follows this setting. The legacy `"nearest"` parses as Low and
-    /// the legacy `"linear"` as High; an empty or unknown value keeps the
-    /// default (High). A real change logs the active preset once.
+    /// a draw's bind group holds; no pixel data is re-uploaded, no bind group
+    /// is rebuilt, and the environment binding does not follow it. The legacy
+    /// `"nearest"` parses as Low and the legacy `"linear"` as High; an empty or
+    /// unknown value keeps the default (High). A real change logs the active
+    /// preset once and is otherwise zero-work — the recorded value is applied
+    /// at bind time.
     pub fn set_texture_filtering(&mut self, mode: &str) {
         let filtering = TextureFiltering::parse(mode);
         if filtering == self.filtering {
             return;
         }
         self.filtering = filtering;
+        self.graphics_requested.filtering = filtering;
         logging::info(format!(
             "[wgpu] texture filtering: {} active (trilinear + {}x anisotropy requested)",
             filtering.name(),
@@ -1136,32 +1739,43 @@ impl WgpuRenderer {
         ));
     }
 
-    /// Records whether the next level build should bake and sample lightmaps.
-    ///
-    /// The reference's `set_lightmaps_requested` contract: the value is applied
-    /// at the next level upload, and the current frame keeps sampling the atlas
-    /// it already has.
-    pub const fn set_lightmaps_requested(&mut self, requested: bool) {
-        self.lightmaps_requested = requested;
-    }
-
     /// Records whether bloom is enabled.
     ///
-    /// The reference's `set_bloom_enabled`: the value is applied to the next
-    /// frame's post settings, and the bloom targets are released when it turns
-    /// off.
+    /// The gate applies at the next frame's post settings; `apply_graphics`
+    /// only records it, and the bloom targets stay allocated. No rebuild.
     pub const fn set_bloom_enabled(&mut self, enabled: bool) {
         self.bloom_requested = enabled;
+        self.graphics_requested.bloom = enabled;
     }
 
-    /// Records whether reflections are enabled.
+    /// Records the requested Lightmaps quality.
     ///
-    /// The player setting gates reflection sampling immediately (the next
-    /// frame's material modes and plane selection read it), exactly like the
-    /// reference's `reflections_supported` gate.
-    pub const fn set_reflections_enabled(&mut self, enabled: bool) {
-        self.reflections_enabled = enabled;
-        self.reflections.set_enabled(enabled);
+    /// The atlas configuration follows this value, never the overall quality
+    /// level. A change is applied by [`Self::apply_graphics`], which rebuilds
+    /// the CPU level once and fills an uncached atlas on a worker.
+    pub const fn set_lightmap_quality(&mut self, quality: LightmapQuality) {
+        self.graphics_requested.lightmaps = quality;
+    }
+
+    /// Records the requested Reflections quality.
+    ///
+    /// A change is applied by [`Self::apply_graphics`]: probe cubemaps and the
+    /// planar target are retired or created immediately, and `Off` stops all
+    /// capture work rather than leaving a stale capture sampled.
+    pub const fn set_reflection_quality(&mut self, quality: ReflectionQuality) {
+        self.graphics_requested.reflections = quality;
+    }
+
+    /// Uploads a loaded level: the one graphics transaction entry point.
+    ///
+    /// A level load routes through [`Self::apply_graphics`], which forces the
+    /// synchronous path for a level that is not resident (a fresh level has no
+    /// previous world to keep on screen, so its atlas fill runs inline exactly
+    /// like the historical load). For the same level it becomes the runtime
+    /// transition: only the settings that changed owe work, and an uncached
+    /// lightmap fill happens on a worker.
+    pub fn set_level(&mut self, loaded: &LoadedLevel) {
+        self.apply_graphics(loaded);
     }
 
     /// Releases the renderer's quality-fitted texture cache.
@@ -1227,6 +1841,11 @@ impl WgpuRenderer {
         if self.check_device_lost() {
             return;
         }
+        // The background lightmap fill, if any, is polled here: a finished fill
+        // uploads its atlas and swaps the world in on this thread, while the
+        // previous world keeps rendering until then. Two `Option` checks when
+        // idle.
+        self.advance_graphics_transition();
         self.ensure_ready();
         if self.fatal.is_some() || self.needs_configure || self.drawable_size.is_empty() {
             return;
@@ -2558,4 +3177,185 @@ fn read_back_rgba(
     }
     buffer.unmap();
     Ok(crate::loader::RawImage::new(width, height, rgba))
+}
+
+#[cfg(test)]
+mod tests {
+    // Test code: the delta fixtures are hand-built values, so unwraps and
+    // infallible indexing are idiomatic here.
+    #![allow(clippy::unwrap_used, clippy::indexing_slicing)]
+
+    use super::*;
+
+    fn graphics_config(
+        quality: QualityLevel,
+        lightmaps: LightmapQuality,
+        reflections: ReflectionQuality,
+    ) -> GraphicsConfig {
+        GraphicsConfig {
+            quality,
+            filtering: TextureFiltering::High,
+            bloom: true,
+            lightmaps,
+            reflections,
+        }
+    }
+
+    /// A filtering change is recorded, owes no GPU work, and therefore cannot
+    /// rebuild anything: the bind groups swap the sampler handle at bind time.
+    #[test]
+    fn a_filtering_only_change_is_zero_work() {
+        let applied = graphics_config(
+            QualityLevel::High,
+            LightmapQuality::Full,
+            ReflectionQuality::Full,
+        );
+        let requested = GraphicsConfig {
+            filtering: TextureFiltering::Low,
+            ..applied
+        };
+        let delta = applied.delta_from(requested);
+        assert!(delta.filtering);
+        assert!(!delta.needs_gpu_work());
+        assert!(!delta.needs_build());
+        assert!(!delta.needs_texture_refit());
+        assert!(
+            !delta.is_empty(),
+            "the change is still real; it is recorded"
+        );
+    }
+
+    /// A bloom change is recorded and gated per frame; no resource work.
+    #[test]
+    fn a_bloom_only_change_is_zero_work() {
+        let applied = graphics_config(
+            QualityLevel::High,
+            LightmapQuality::Full,
+            ReflectionQuality::Full,
+        );
+        let requested = GraphicsConfig {
+            bloom: false,
+            ..applied
+        };
+        let delta = applied.delta_from(requested);
+        assert!(delta.bloom);
+        assert!(!delta.needs_gpu_work());
+        assert!(!delta.needs_build());
+        assert!(!delta.needs_texture_refit());
+    }
+
+    /// Only a lightmap change rebuilds the CPU level; it does not re-fit
+    /// textures (the quality did not change).
+    #[test]
+    fn a_lightmap_only_change_needs_one_build_and_no_texture_refit() {
+        let applied = graphics_config(
+            QualityLevel::High,
+            LightmapQuality::Off,
+            ReflectionQuality::Full,
+        );
+        let requested = GraphicsConfig {
+            lightmaps: LightmapQuality::Full,
+            ..applied
+        };
+        let delta = applied.delta_from(requested);
+        assert!(delta.lightmaps);
+        assert!(delta.needs_build(), "the lightmap mesh must be re-emitted");
+        assert!(delta.needs_gpu_work());
+        assert!(!delta.needs_texture_refit());
+        assert!(!delta.quality && !delta.filtering && !delta.bloom);
+    }
+
+    /// A reflection change touches the probe/planar targets only: the retained
+    /// CPU build is not rebuilt and no texture is re-fitted.
+    #[test]
+    fn a_reflection_only_change_needs_no_build_and_no_texture_refit() {
+        let applied = graphics_config(
+            QualityLevel::High,
+            LightmapQuality::Full,
+            ReflectionQuality::Off,
+        );
+        let requested = GraphicsConfig {
+            reflections: ReflectionQuality::Medium,
+            ..applied
+        };
+        let delta = applied.delta_from(requested);
+        assert!(delta.reflections);
+        assert!(delta.needs_gpu_work(), "the targets are GPU resources");
+        assert!(!delta.needs_build());
+        assert!(!delta.needs_texture_refit());
+    }
+
+    /// A quality-only change with an unchanged lightmap configuration reuses
+    /// the retained build: re-fit textures, no lighting bake.
+    #[test]
+    fn a_quality_only_change_reuses_the_retained_build() {
+        let applied = graphics_config(
+            QualityLevel::Low,
+            LightmapQuality::Full,
+            ReflectionQuality::Full,
+        );
+        let requested = GraphicsConfig {
+            quality: QualityLevel::High,
+            ..applied
+        };
+        let delta = applied.delta_from(requested);
+        assert!(delta.quality);
+        assert!(!delta.needs_build(), "must not re-bake the lightmap");
+        assert!(delta.needs_texture_refit());
+        assert!(delta.needs_gpu_work());
+    }
+
+    /// A combined settings action has one delta and one build decision, never
+    /// one per setting.
+    #[test]
+    fn a_combined_change_is_classified_in_one_diff() {
+        let applied = graphics_config(
+            QualityLevel::Low,
+            LightmapQuality::Off,
+            ReflectionQuality::Off,
+        );
+        let requested = graphics_config(
+            QualityLevel::High,
+            LightmapQuality::Full,
+            ReflectionQuality::Full,
+        );
+        let delta = applied.delta_from(requested);
+        assert_eq!(
+            delta,
+            GraphicsDelta {
+                quality: true,
+                filtering: false,
+                bloom: false,
+                lightmaps: true,
+                reflections: true,
+            }
+        );
+        // Exactly one build result: `apply_graphics` has one
+        // `delta.needs_build()` branch, so the combined action runs one
+        // `prepare_level_geometry_with_lightmaps` call.
+        assert!(delta.needs_build());
+        assert!(delta.needs_texture_refit());
+    }
+
+    /// A re-applied identical configuration is a no-op.
+    #[test]
+    fn an_unchanged_configuration_has_an_empty_delta() {
+        let config = graphics_config(
+            QualityLevel::Medium,
+            LightmapQuality::Medium,
+            ReflectionQuality::Medium,
+        );
+        assert!(config.delta_from(config).is_empty());
+        assert!(!config.delta_from(config).needs_gpu_work());
+    }
+
+    /// A first upload or new level forces every branch.
+    #[test]
+    fn a_forced_first_upload_asks_for_everything() {
+        let delta = GraphicsDelta::everything();
+        assert!(delta.needs_build());
+        assert!(delta.needs_texture_refit());
+        assert!(delta.needs_gpu_work());
+        assert!(!delta.is_empty());
+    }
 }

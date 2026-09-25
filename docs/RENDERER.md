@@ -146,11 +146,13 @@ Clear and background values: raw targets clear to the reference display value `(
 LevelDef (src/level.rs)
         |  LoadedLevel { level, materials, ... }             (src/loader.rs)
         v
-Renderer::set_level(&LoadedLevel)                           (src/render/facade.rs)
+Renderer::set_level / apply_graphics(&LoadedLevel)          (src/render/facade.rs)
         v
-WgpuRenderer::set_level                                     (src/render/wgpu/renderer.rs)
+WgpuRenderer::apply_graphics                                (src/render/wgpu/renderer.rs)
+        |  a level load forces the full build; a settings change diffs and
+        |  reuses the retained build when the lightmap configuration is unchanged
         |  build_level_geometry_timed_with_lightmaps(level, catalog, assets,
-        |      materials, LightmapBuildOptions::for_level(quality, mode), ...)
+        |      materials, LightmapBuildOptions::for_lightmaps(lightmaps), ...)
         v
 LevelMesh { ranges: Vec<LevelMeshRange>, ... }              (src/render/common/mesh.rs)
         |  range classification + MeshPacker                (src/render/wgpu/world.rs)
@@ -167,7 +169,7 @@ WorldTextures::resolve(cache, device, queue, draws, materials, table, quality)
 WorldPipeline::encode(pass, geometry, textures, filtering, frustum, cull)
 ```
 
-The world build asks for the atlas build (`LightmapMode::On`) or the vertex-lit build (`LightmapMode::Off`) from `LightmapBuildOptions::for_level`, exactly as the lightmaps setting requests. An empty draw set yields no buffers and no draws, which clears/presents safely.
+The world build asks for the atlas build (`LightmapMode::On`) or the vertex-lit build (`LightmapMode::Off`) from `LightmapBuildOptions::for_lightmaps`, exactly as the Lightmaps setting requests. An empty draw set yields no buffers and no draws, which clears/presents safely.
 
 ### 4.2 Vertices, indices, buffers
 
@@ -276,7 +278,7 @@ The decode is `crate::materials::decode_png`, which normalizes any PNG colour ty
 | `persistent` | catalog and missing/diagnostic textures | renderer lifetime |
 | `level` | `TextureOrigin::Pack` textures | one level (dropped by `begin_level`) |
 
-`release_profile_textures` clears both maps; the loaded level's draws keep their `Arc`s alive until `set_level` replaces them, so a frame between the release and the rebuild still draws valid resources. There is no LRU and no eviction beyond those lifetimes: the shipped catalog holds 38 texture assets, so a renderer-lifetime map is bounded, and a level can only introduce pack textures, which die at the next level. Recorded on Places Demo: a first load uploads each distinct base texture once (26 unique textures over 105 draws, 26 uploads, 0 fallbacks); a reload that references those materials uploads nothing (2 reused textures, 0 uploads, 0 fallbacks); a quality change drops both maps and the next `set_level` re-fits at the new budget (High fits to 1024, ~145 MB resident; Medium to 512; Low to 256, ~9 MB).
+`release_profile_textures` clears both maps; the loaded level's draws keep their `Arc`s alive until the replacement is installed, so a frame between the release and the re-resolve still draws valid resources. There is no LRU and no eviction beyond those lifetimes: the shipped catalog holds 38 texture assets, so a renderer-lifetime map is bounded, and a level can only introduce pack textures, which die at the next level. Recorded on Places Demo: a first load uploads each distinct base texture once (34 unique, 30 uploads, 59 cache hits, 11 fallbacks, 188,743,640 B resident at High); a reload that references those materials reuses them; a quality change releases and re-fits the profile-fitted textures at the new budget (High fits to 1024, Medium to 512, Low to 256) without re-baking lighting when the Lightmaps setting is unchanged. `WorldTextures::resolve` prepares the distinct misses in parallel (fit plus the full CPU mip chain) and then creates/writes the GPU textures serially on the caller's thread.
 
 Both classes upload raw `Rgba8Unorm` (base colour: authored display values sampled raw; normal maps, masks and data: numeric values never gamma-converted) with `TEXTURE_BINDING | COPY_DST`. No compression, no texture arrays, no view formats and no other format is created; every texture is `TextureDimension::D2`, one sample, one array layer. Because both classes upload raw, filtering, blending and mip selection happen in the same display space the shader assembles in; the sRGB surface is the single conversion point.
 
@@ -519,7 +521,7 @@ light           = clamp(baseline + pools + blend, 0.10, 1.0)
 
 The bake is the same CPU code in both modes; only the storage differs, and `LightmapMode::Off` always bakes with `BakeConfig::HARD` (one visibility tap, 0.15 m prop-occlusion cell) whatever the quality level, which keeps the vertex-lit fallback identical in shape and light to the always-supported path.
 
-The atlas itself: the level build requests `LightmapBuildOptions::for_level(quality, LightmapMode::On)` when lightmaps are on (the default); the neutral bake, planner, fill and content key are shared with the rest of the engine, and the renderer restores the same `cache/lightmaps/v5-<hash>` entries (measured: cold 68 s, warm 19.8 s in a debug build). Atlas pages are raw `Rgba8Unorm` (the alpha byte is 255 and never read). `WorldVertex` carries `lightmap_uv` as `Unorm16x2` and `lightmap_page` as a plain float. `surface_light()` samples `mix(page0, page1, step(0.5, page))` only when `lightmap_enabled * (1 - step(254.5, page)) > 0.5`, then multiplies by `light_scale`; `LIGHTMAP_NONE` keeps the vertex-lit colour exactly. Sheen, reflection and emission are all scaled by that same light factor, so a dark room darkens them. A wall chart resolves its room **per texel** at the bias-shifted sample point rather than from the patch's per-run hint: abutting wall pieces coalesce into emission units whose length runs can cross a room boundary, and a single hint would make the baked light step at the arbitrary run seam instead of at the room boundary. Floors and ceilings are emitted per room and keep their exact hint. Levels: High bakes at 16 texels/m onto 1024² pages with two taps per axis and 0.075 m prop cells; Medium at 12 texels/m onto the same 1024² pages with two taps and 0.11 m cells; Low at 9 texels/m onto 512² pages with one tap and 0.15 m cells (Low and High take the validated neutral `QualityProfile` values, Medium shares Full's page shape and differs only in density). A plan/fill failure keeps the neutral build's vertex-lit mesh — only an actual atlas-upload failure rebuilds — and the failure is logged.
+The atlas itself: the level build requests `LightmapBuildOptions::for_lightmaps(lightmaps)` when the Lightmaps setting is not `Off`; the neutral bake, planner, fill and content key are shared with the rest of the engine, and the renderer restores the same `cache/lightmaps/v5-<hash>` entries (measured on Places Demo, release: an uncached Full fill is ~1.8 s inline and ~2.2 s on the worker under load; a hit is 0 ms). Atlas pages are raw `Rgba8Unorm` (the alpha byte is 255 and never read). `WorldVertex` carries `lightmap_uv` as `Unorm16x2` and `lightmap_page` as a plain float. `surface_light()` samples `mix(page0, page1, step(0.5, page))` only when `lightmap_enabled * (1 - step(254.5, page)) > 0.5`, then multiplies by `light_scale`; `LIGHTMAP_NONE` keeps the vertex-lit colour exactly. Sheen, reflection and emission are all scaled by that same light factor, so a dark room darkens them. A wall chart resolves its room **per texel** at the bias-shifted sample point rather than from the patch's per-run hint: abutting wall pieces coalesce into emission units whose length runs can cross a room boundary, and a single hint would make the baked light step at the arbitrary run seam instead of at the room boundary. Floors and ceilings are emitted per room and keep their exact hint. The Lightmaps setting bakes: Full at 16 texels/m onto 1024² pages with two taps per axis and 0.075 m prop cells; Medium at 12 texels/m onto the same 1024² pages with two taps and 0.11 m cells; Off at no atlas at all (the validated historical vertex-lit path, whose bake is always the one-tap/0.15 m `BakeConfig::HARD`). The content key follows the effective configuration, never the overall quality label, so `Low + Lightmaps Full` reuses the same Full cache entry as `High + Lightmaps Full` while Medium and Full never collide. A plan/fill failure keeps the neutral build's vertex-lit mesh — only an actual atlas-upload failure rebuilds — and the failure is logged.
 
 ### 7.5 The sheen
 
@@ -583,30 +585,57 @@ Both constants are defined once in `src/render/common/decals.rs` and applied in 
 
 ## 12. Quality levels and Texture Filtering
 
-Three runtime quality levels — **Low**, **Medium** and **High** (the default) — use the same assets, ids and level content. A level is selectable while playing; a change releases the quality-fitted textures and rebuilds the level's GPU resources from the level already resident. Texture Filtering is a separate player setting (§12.1): any level combines with any filtering option.
+Three runtime quality levels — **Low**, **Medium** and **High** (the default) — use the same assets, ids and level content. A level is selectable while playing; a change is applied as one diffed transaction (see §12.2): the level's CPU build is retained, only the quality-budget-dependent GPU resources are re-fitted or rebuilt, and an uncached lightmap atlas fills on a worker while the previous lighting keeps rendering. The player, camera and pause state are never touched.
+
+The level is also the overall preset for the three **Advanced** graphics settings. An active quality change cascades them to the preset defaults, and the player may then override each one independently; an override never changes the level's label, and there is no "Custom" level. The Graphics page keeps Bloom and VSync as ordinary top-level rows and hides the three advanced rows behind a collapsible **Advanced** group (Enter toggles it, left/right is ignored, and every newly opened settings screen starts collapsed):
+
+| Overall Quality | Texture Filtering | Lightmaps | Reflections |
+|---|---|---|---|
+| Low | Low | Off | Off |
+| Medium | Medium | Medium | Medium |
+| High (default) | High | Full | Full |
+
+The lightmap and reflection budgets are owned by the advanced settings, not the level: the table below is what the preset defaults resolve to, and Lightmaps Off / Reflections Off remove the atlas / probe and planar work entirely whatever the overall level says.
 
 | Feature | Low | Medium | High | Source |
 |---|---|---|---|---|
 | Surface / fixture / decal sheets | 256 | 512 | 1024 | `QualityLevel::budget` |
 | Emission masks | 128 | 256 | 512 | `QualityLevel::budget` |
 | Prop sheets | 128 | 256 | 256 | `QualityLevel::budget` |
-| Atlas: texels/m, page edge, padding | 9, 512, 1 | 12, 1024, 2 | 16, 1024, 2 | `QualityLevel::lightmap_config` |
-| Bake taps per axis / prop-occlusion cell | 1 / 0.15 m | 2 / 0.11 m | 2 / 0.075 m | `QualityLevel::bake_config` |
+| Atlas: texels/m, page edge, padding | 9, 512, 1 | 12, 1024, 2 | 16, 1024, 2 | `LightmapQuality::lightmap_config` |
+| Bake taps per axis / prop-occlusion cell | 1 / 0.15 m | 2 / 0.11 m | 2 / 0.075 m | `LightmapQuality::bake_config` |
 | Surface response (normal map + sheen + reflection strength) | gated off | drawn | drawn | `draws_surface_response` |
 | Scene resolution | ≤ 480 wide, aspect preserved | half the drawable, aspect preserved | drawable | `scene_target_size` |
 | Presented/resolve resolution | drawable | drawable | drawable | `target_sizes` |
-| Planar reflection | disabled | enabled | enabled | `Reflections::set_level` |
-| Probe face edge | 32 | 48 | 64 | `probe_face_size` |
+| Planar reflection | off | on | on | `ReflectionQuality::draws_planar` |
+| Probe face edge | none | 48 | 64 | `probe_face_size` |
 | Post tone knee / grade | 1.0 / none | 0.75 / none | 0.75 / 1.03, 1.02 | `PostSettings::for_level` |
 | Fog, emission and its animation, decals, UI | identical | identical | identical | shared code paths |
 
-Low and High delegate to the two-variant `QualityProfile` the lightmap planner and content key consume (`QualityLevel::profile`: Low to Low, Medium and High to Full); Medium is the intermediate level and shares Full's page shape while differing in density, tap cell and post grade. `LightmapBuildOptions::for_level` carries the level's lightmap configuration and its `BakeConfig`, so Medium and High never share a lightmap cache entry even though both hash the Full profile name into the key.
+The lightmap and bake configuration columns are the resolved preset defaults; with the Advanced settings in play the actual bake follows `LightmapQuality`, not the level. `LightmapQuality::lightmap_config`/`bake_config` carry the density, page budget, tap count and prop-occlusion cell, and `LightmapBuildOptions::for_lightmaps` is the renderer's entry point, so `Low + Lightmaps Full` bakes a Full atlas and `High + Lightmaps Off` stays vertex-lit. The content key hashes the concrete configuration and the `Full` profile name, so Medium and Full never share an atlas entry while a Full atlas baked for any overall level does.
+
+### 12.2 Live graphics reconfiguration
+
+Every graphics setter is a cheap recording: `set_quality`, `set_lightmap_quality`, `set_reflection_quality`, `set_bloom_enabled` and `set_texture_filtering` write the requested value and nothing else. `apply_graphics(&LoadedLevel)` diffs the request against what is applied and does exactly the work the difference implies, as one transaction:
+
+| Change | Work |
+|---|---|
+| Texture Filtering only | none: the recorded preset selects which bind group a draw binds at bind time |
+| Bloom only | none: the value gates the per-frame post settings |
+| Reflections only | retire/create probe cubemaps and the planar target, rebake probes, rebuild the environment bind groups |
+| Lightmaps only | one CPU build (lighting, props, plan-stamped mesh) and either a cache-hit install or a worker fill |
+| Quality only (lightmap configuration unchanged) | reuse the retained CPU build; release/re-fit the quality-budget textures and re-resolve materials, props, decals and fixtures |
+| Combined | one diff, one build, one install |
+
+The renderer retains the last completed `LevelBuild` (mesh, prop batches, baked lighting, atlas) keyed by level id and Lightmaps setting, so a texture-budget-only change never re-bakes lighting. An uncached lightmap fill is the one CPU-heavy replacement resource: `prepare_level_geometry_with_lightmaps` runs the build on the main thread and returns a Send-safe `LightmapFillRequest` (baked lighting, config, charts, page count, content key); `LightmapFillWorker` fills it on one `std::thread` with a cancellation flag checked between charts. The previous world keeps rendering every frame while the fill runs. A completion is polled non-blockingly once per frame; the atlas upload and the GPU swap happen on the main thread, and a monotonically increasing generation means a superseded result can never activate. `LightmapQuality::Off`, a plan failure and a cache hit install immediately; a new level with no previous world fills inline exactly like the historical load. The renderer owns at most one worker, and dropping it cancels and joins the thread, so shutdown is clean.
+
+Measured on Places Demo (`quality low, lightmaps off` startup, release, scripted `PLACES_BENCH_QUALITY_CYCLE=10:high`): the transition's worst main-thread frame is the 69 ms CPU build and the ~171 ms atlas install; the worker fills for ~2.2 s, during which ~480 frames are presented. The equivalent pre-diff path froze a single frame for 2053 ms.
 
 Downscaling is a load-time step (`fit_image` → `downscaled_to`) cached with the texture it produced, never a per-frame cost. Low leaves the optional surface response out and renders the 3D scene no wider than the historical 480 px reference width; Medium draws the response and renders at half the drawable; High keeps the native artwork and the drawable-sized scene: the same level, the same materials and the same ids. One deliberate resource difference: because the response is gated off before resolution, the renderer does not upload a normal-map texture at all on Low, while the rendered policy (geometric normal, no sheen) is identical; a live Low→High switch releases the level-fitted textures and re-resolves, so the map appears.
 
 ### 12.1 Texture Filtering (player option)
 
-Texture Filtering is independent of the quality level: any option combines with any level, and it changes no pixel data and no GPU resource. It selects which of the three shared world sampler presets a draw binds at bind time (§5.3).
+Texture Filtering is one of the three Advanced settings. The overall level cascades its preset (Low→Low, Medium→Medium, High→High) and an explicit choice is an independent override: any option combines with any level, and it changes no pixel data and no GPU resource. It selects which of the three shared world sampler presets a draw binds at bind time (§5.3).
 
 | Player option | Internal world filtering | Mipmaps |
 |---|---|---|
@@ -614,7 +643,7 @@ Texture Filtering is independent of the quality level: any option combines with 
 | Medium | trilinear + ~8x anisotropic | full generated chain |
 | High (default; the legacy `linear` name) | trilinear + ~16x anisotropic | full generated chain |
 
-The legacy persisted names keep loading: `linear` is High and `nearest` is Low; an empty or unknown value falls back to High.
+The legacy persisted names keep loading: `linear` is High and `nearest` is Low; an unknown value falls back to High. A missing `"texture_filtering"` key derives its preset from the saved `"quality"` level, and a value that is present is never overwritten on load — only an active quality change cascades it.
 
 - **Mipmaps are required and always present** for ordinary world sheets: every option filters `Linear`/`Linear`/`Linear` and relies on the generated chain (§5.3). No option disables mips or falls back to point sampling.
 - **Hardware fallback.** Anisotropy above 1x requires an adapter with `DownlevelFlags::ANISOTROPIC_FILTERING`. Without it the three options keep the same trilinear filtering and the anisotropy request is clamped to 1x; no device feature is requested and no option becomes unavailable. The `PLACES_VERBOSE` startup line reports the capability and the requested degrees.
@@ -649,15 +678,18 @@ Recoverable events (surface timeout, surface lost/outdated) are reported at most
 | Switch | Effect |
 |---|---|
 | `PLACES_LEVEL`, `PLACES_SPAWN`, `PLACES_CAMERA` | level, spawn and camera selection for a run |
-| `PLACES_QUALITY=low\|medium\|high` (legacy `full` = High) | quality level for one run |
-| `PLACES_NO_LIGHTMAPS=1` | force the vertex-lit build |
-| `PLACES_NO_BLOOM=1`, `PLACES_NO_REFLECTIONS=1` | disable one post/reflection stage |
+| `PLACES_QUALITY=low\|medium\|high` (legacy `full` = High) | quality level for one run (a session override: it does not cascade the advanced settings) |
+| `PLACES_NO_LIGHTMAPS=1\|off\|medium\|full` | pin the Lightmaps quality for one run (`1` forces Off) |
+| `PLACES_NO_REFLECTIONS=1\|off\|medium\|full` | pin the Reflections quality for one run (`1` forces Off) |
+| `PLACES_NO_BLOOM=1` | disable the bloom stage for one run |
 | `PLACES_CAPTURE`, `PLACES_CAPTURE_FRAME` | one-frame PNG capture path |
-| `PLACES_VERBOSE=1` | developer telemetry |
+| `PLACES_SCREEN=settings\|graphics\|advanced` | open a screen on the first frame for a capture (`advanced` expands the Graphics page's Advanced group) |
+| `PLACES_VERBOSE=1` | developer telemetry (including the summarized `[startup]` phase table after the first present) |
 | `PLACES_BENCH=1`, `PLACES_BENCH_FRAMES`, `PLACES_BENCH_WARMUP`, `PLACES_BENCH_OUT` | benchmark harness |
 | `PLACES_BENCH_NOSWAP`, `PLACES_BENCH_NORENDER`, `PLACES_BENCH_FINISH`, `PLACES_BENCH_NOCULL` | submission diagnostics |
 | `PLACES_BENCH_WINDOW_CYCLE=<frame>:resize:<w>x<h>\|minimize\|restore[,...]` | scripted live window lifecycle through the real SDL window |
-| `PLACES_BENCH_QUALITY_CYCLE=<frame>:<level>[,...]` | scripted live quality switches through the normal rebuild path (`low`/`medium`/`high`; legacy `full` = High) |
+| `PLACES_BENCH_QUALITY_CYCLE=<frame>:<level>[,...]` | scripted live quality switches through the normal rebuild path (`low`/`medium`/`high`; legacy `full` = High); cascades the advanced presets |
+| `PLACES_BENCH_GRAPHICS_CYCLE=<frame>:<setting>=<value>[,...]` | scripted live Advanced changes through the normal settings setters (`filtering=low\|medium\|high`, `lightmaps=off\|medium\|full`, `reflections=off\|medium\|full`, `bloom=on\|off`) |
 
 ## 14. Provenance and recorded parity baselines
 
@@ -704,6 +736,6 @@ The renderer's contracts are covered by in-crate tests, most of which run withou
 - **Lighting:** the sheen equation (CPU mirror), the display-space assembly order, the unlit bypass conditions, the vertex-lit build's byte-for-byte mesh, the lightmap CPU mirror of `surface_light`, the `needs_upload_fallback` rule.
 - **Reflections:** the six face directions/ups, the 90° projection with the Y flip, the planar mirror composition, `+1.2 m` bake position, nearest probe/plane rules, and the ignored GPU cube round-trip.
 - **Post/UI:** blur kernel and step, target sizes (scene = level, presented = drawable), resolve maths, the single-conversion contract, ortho corners, viewport maths, blend factors.
-- **Integration:** the world pipeline variants and their states, emissive flag propagation, material reflection-mode rules, live window and quality cycle parsing (`PLACES_BENCH_WINDOW_CYCLE`, `PLACES_BENCH_QUALITY_CYCLE`).
+- **Integration:** the world pipeline variants and their states, emissive flag propagation, material reflection-mode rules, live window and quality cycle parsing (`PLACES_BENCH_WINDOW_CYCLE`, `PLACES_BENCH_QUALITY_CYCLE`, `PLACES_BENCH_GRAPHICS_CYCLE`).
 
 Five diagnostics are intentionally ignored by default: two GPU measurements (requiring an adapter) and three developer measurement/reporting tools. They run explicitly with `cargo test --all-features --bin places -- --ignored`; see [VERIFICATION.md](VERIFICATION.md).

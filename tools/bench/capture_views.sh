@@ -6,9 +6,16 @@
 # directly comparable. Run from the repository root:
 #
 #     sh tools/bench/capture_views.sh                       # High profile
-#     PLACES_QUALITY=low sh tools/bench/capture_views.sh
+#     PLACES_QUALITY=low PLACES_NO_LIGHTMAPS=1 PLACES_NO_REFLECTIONS=1 \
+#         sh tools/bench/capture_views.sh                   # Low preset defaults
 #     PLACES_NO_BLOOM=1 sh tools/bench/capture_views.sh
 #     PLACES_NO_REFLECTIONS=1 sh tools/bench/capture_views.sh
+#
+# The overall quality level and the Advanced settings (Texture Filtering,
+# Lightmaps, Reflections) are independent: `PLACES_QUALITY` selects only the
+# level, so a Low-preset run has to pass the same advanced overrides the
+# preset table lists (Lightmaps Off, Reflections Off). The advanced settings
+# otherwise come from the state root's settings.json.
 #
 # `PLACES_BIN` overrides the binary, which is how the same view set is captured
 # from a baseline checkout for a before/after pair:

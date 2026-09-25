@@ -35,19 +35,31 @@ if [ ! -x "$BIN" ]; then
     exit 1
 fi
 
+# The overall quality level and the three Advanced settings are independent, so
+# each profile pins all four explicitly to its preset defaults (Low ->
+# low/off/off, High -> high/full/full); a bare `PLACES_QUALITY` override would
+# leave the advanced settings at the saved values.
 mkdir -p "$STATE"
-cat > "$STATE/settings.json" <<JSON
+write_state() {
+    profile=$1
+    case "$profile" in
+        low) filtering=low; lightmaps=off; reflections=off ;;
+        medium) filtering=medium; lightmaps=medium; reflections=medium ;;
+        *) filtering=high; lightmaps=full; reflections=full ;;
+    esac
+    cat > "$STATE/settings.json" <<JSON
 {
   "bindings": {
     "forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D",
     "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT"
   },
   "look_speed_h": 90.0, "look_speed_v": 60.0, "walk_speed": 3.0, "fov_degrees": 60.0,
-  "invert_look": false, "vsync": false, "texture_filtering": "high",
-  "quality": "high", "bloom": true, "reflections": true, "lightmaps": true,
+  "invert_look": false, "vsync": false, "texture_filtering": "$filtering",
+  "quality": "$profile", "bloom": true, "reflections": "$reflections", "lightmaps": "$lightmaps",
   "window_mode": "windowed", "window_width": 640, "window_height": 360
 }
 JSON
+}
 
 # Geometry: junctions, corridor, thresholds, arch, stairs, balcony, near/far.
 # Materials: linoleum, brushed metal, plastic normal map, cutout, three glass
@@ -101,6 +113,7 @@ fog_home_height:59.60,12.50,9:9,-3:
 capture_profile() {
     profile=$1
     dir=$2
+    write_state "$profile"
     mkdir -p "$dir"
     rm -f "$dir"/*.png
     : > "$dir/manifest.txt"

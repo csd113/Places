@@ -14,6 +14,7 @@
 
 use sdl3::video::Window;
 
+use super::common::api::GraphicsTransition;
 use super::common::dynamic::{DynamicScene, DynamicUpdate};
 use super::common::stats::{LevelBuildStats, RenderStats};
 use super::common::view::DrawableSize;
@@ -22,7 +23,7 @@ use super::{RenderCamera, SurfaceKind, Vertex};
 use crate::level::LevelDef;
 use crate::loader::{LoadedLevel, RawImage};
 use crate::props::PropAssetStats;
-use crate::quality::QualityLevel;
+use crate::quality::{LightmapQuality, QualityLevel, ReflectionQuality};
 
 /// The Places renderer: the wgpu implementation behind a narrow seam.
 pub struct Renderer {
@@ -75,35 +76,74 @@ impl Renderer {
 
     /// Selects the runtime quality level.
     ///
-    /// The level is applied by releasing the quality-fitted textures and
-    /// re-uploading the level.
+    /// Recording only: [`Self::apply_graphics`] re-fits the retained level's
+    /// textures at the new budget (and, when the lightmap configuration changed
+    /// in the same settings action, rebuilds the level once).
     pub const fn set_quality(&mut self, quality: QualityLevel) {
         self.renderer.set_quality(quality);
     }
 
-    /// Selects whether the next level build bakes lightmaps.
+    /// Selects the Lightmaps quality.
     ///
-    /// The value applies at the next level upload: the current frame keeps
-    /// sampling the atlas it already has.
-    pub const fn set_lightmaps_requested(&mut self, requested: bool) {
-        self.renderer.set_lightmaps_requested(requested);
+    /// Recording only: [`Self::apply_graphics`] rebuilds the CPU lighting and
+    /// mesh once for the new configuration. A cache hit activates immediately;
+    /// a miss fills on one worker thread while the previous atlas keeps
+    /// rendering, and the frame loop never blocks on it.
+    pub const fn set_lightmap_quality(&mut self, quality: LightmapQuality) {
+        self.renderer.set_lightmap_quality(quality);
+    }
+
+    /// Selects the Reflections quality.
+    ///
+    /// Recording only: [`Self::apply_graphics`] retires or creates the probe
+    /// cubemaps and the planar target, rebakes the probes and rebuilds the
+    /// environment bind groups. `Off` drops both sources and stops all capture
+    /// work.
+    pub const fn set_reflection_quality(&mut self, quality: ReflectionQuality) {
+        self.renderer.set_reflection_quality(quality);
     }
 
     /// Switches bloom on or off.
     ///
     /// The gate applies at the next frame's post settings: with bloom off no
     /// emissive or blur pass is submitted, and the bloom targets stay allocated
-    /// but unused.
+    /// but unused. No resources are rebuilt.
     pub const fn set_bloom_enabled(&mut self, enabled: bool) {
         self.renderer.set_bloom_enabled(enabled);
     }
 
-    /// Switches selective reflections on or off.
+    /// Applies every graphics setting recorded since the last call.
     ///
-    /// The gate is applied to the next frame's material modes and plane
-    /// selection.
-    pub const fn set_reflections_enabled(&mut self, enabled: bool) {
-        self.renderer.set_reflections_enabled(enabled);
+    /// This is the one entry point for a settings action: the renderer diffs
+    /// the requested configuration against the applied one and does exactly the
+    /// work the difference implies, as one transaction. A filtering-only or
+    /// bloom-only change touches no GPU resource; a quality-only change reuses
+    /// the retained CPU build; a lightmap change rebuilds the CPU level once
+    /// and defers an uncached fill to a worker.
+    ///
+    /// `loaded` is the level already resident; the game world — player,
+    /// camera, pause state — is not touched.
+    pub fn apply_graphics(&mut self, loaded: &LoadedLevel) {
+        self.renderer.apply_graphics(loaded);
+    }
+
+    /// Polls the asynchronous graphics stage, if any.
+    ///
+    /// The frame loop may call this (or rely on `render_scene`, which polls) to
+    /// install a finished background lightmap fill. It is a couple of branches
+    /// when idle.
+    pub fn advance_graphics_transition(&mut self) {
+        self.renderer.advance_graphics_transition();
+    }
+
+    /// A cheap status: whether a graphics transition is in flight.
+    ///
+    /// `Preparing("lightmaps")` means an uncached atlas is filling on a worker
+    /// while the previous configuration keeps rendering; a status hint may be
+    /// shown until it returns to `Idle`.
+    #[must_use]
+    pub const fn graphics_transition_status(&self) -> GraphicsTransition {
+        self.renderer.graphics_transition_status()
     }
 
     /// Releases texture caches that depend on the quality level.

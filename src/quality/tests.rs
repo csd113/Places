@@ -345,7 +345,7 @@ fn assert_level_decisions(
 ///
 /// This is the pure half of the runtime transition: the GPU half is
 /// `Renderer::release_profile_textures` followed by a level rebuild, which the
-/// settings layer requests through `SettingsApply::graphics_rebuild` and which
+/// settings layer requests through `SettingsApply::graphics` and which
 /// needs a GPU context to execute. If any derived decision were level-blind,
 /// the switch would be cosmetic and this test would fail.
 #[test]
@@ -512,4 +512,114 @@ fn fitting_is_deterministic_for_the_same_input() {
     let first = fit_image(&image, QualityLevel::Medium, TextureClass::Surface).into_owned();
     let second = fit_image(&image, QualityLevel::Medium, TextureClass::Surface).into_owned();
     assert_eq!(first, second);
+}
+
+/// The Advanced enums round-trip their persisted names and show the
+/// player-facing labels, with no numeric internal on the screen.
+#[test]
+fn advanced_quality_names_labels_and_parse_round_trip() {
+    for level in LightmapQuality::ALL {
+        assert_eq!(LightmapQuality::parse(level.name()), Some(level));
+        assert_eq!(
+            LightmapQuality::parse(&level.name().to_uppercase()),
+            Some(level)
+        );
+        assert_eq!(
+            LightmapQuality::parse(&format!("  {}  ", level.name())),
+            Some(level)
+        );
+        assert!(!level.label().chars().any(|ch| ch.is_ascii_digit()));
+    }
+    assert_eq!(LightmapQuality::parse("on"), None);
+    assert_eq!(LightmapQuality::parse("ultra"), None);
+
+    for level in ReflectionQuality::ALL {
+        assert_eq!(ReflectionQuality::parse(level.name()), Some(level));
+        assert_eq!(
+            ReflectionQuality::parse(&format!(" {} ", level.name().to_uppercase())),
+            Some(level)
+        );
+        assert!(!level.label().chars().any(|ch| ch.is_ascii_digit()));
+    }
+    assert_eq!(ReflectionQuality::parse("1"), None);
+    assert_eq!(ReflectionQuality::parse(""), None);
+}
+
+/// The preset table is exact: each overall level selects the documented
+/// Advanced defaults, and the defaults are themselves valid overrides.
+#[test]
+fn the_advanced_preset_table_is_exact() {
+    for (level, lightmaps, reflections) in [
+        (
+            QualityLevel::Low,
+            LightmapQuality::Off,
+            ReflectionQuality::Off,
+        ),
+        (
+            QualityLevel::Medium,
+            LightmapQuality::Medium,
+            ReflectionQuality::Medium,
+        ),
+        (
+            QualityLevel::High,
+            LightmapQuality::Full,
+            ReflectionQuality::Full,
+        ),
+    ] {
+        assert_eq!(LightmapQuality::default_for(level), lightmaps, "{level:?}");
+        assert_eq!(
+            ReflectionQuality::default_for(level),
+            reflections,
+            "{level:?}"
+        );
+    }
+    assert_eq!(LightmapQuality::DEFAULT, LightmapQuality::Full);
+    assert_eq!(ReflectionQuality::DEFAULT, ReflectionQuality::Full);
+}
+
+/// Lightmaps Off has no bake at all; Medium and Full reuse the validated level
+/// configurations, so a saved choice maps onto the same atlas the level used.
+#[test]
+fn lightmap_quality_bakes_match_the_validated_configurations() {
+    assert!(LightmapQuality::Off.is_off());
+    assert!(LightmapQuality::Off.lightmap_config().is_none());
+    assert!(LightmapQuality::Off.bake_config().is_none());
+
+    assert_eq!(
+        LightmapQuality::Medium.lightmap_config(),
+        Some(QualityLevel::Medium.lightmap_config())
+    );
+    assert_eq!(
+        LightmapQuality::Medium.bake_config(),
+        Some(QualityLevel::Medium.bake_config())
+    );
+    assert_eq!(
+        LightmapQuality::Full.lightmap_config(),
+        Some(QualityLevel::High.lightmap_config())
+    );
+    assert_eq!(
+        LightmapQuality::Full.bake_config(),
+        Some(QualityLevel::High.bake_config())
+    );
+    for level in [LightmapQuality::Medium, LightmapQuality::Full] {
+        assert_eq!(level.profile(), QualityProfile::Full);
+        assert!(!level.is_off());
+    }
+    // Medium and Full never share a cache entry: the concrete configs differ.
+    assert_ne!(
+        LightmapQuality::Medium.lightmap_config(),
+        LightmapQuality::Full.lightmap_config()
+    );
+}
+
+/// Reflections Off draws nothing; Medium and Full both draw the probes and the
+/// planar mirror.
+#[test]
+fn reflection_quality_gates_are_exact() {
+    assert!(!ReflectionQuality::Off.draws_probes());
+    assert!(!ReflectionQuality::Off.draws_planar());
+    for level in [ReflectionQuality::Medium, ReflectionQuality::Full] {
+        assert!(level.draws_probes());
+        assert!(level.draws_planar());
+    }
 }

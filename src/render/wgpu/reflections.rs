@@ -4,17 +4,17 @@
 //! Two deliberately limited sources, both opt-in per material (see
 //! [`crate::materials::reflection`]):
 //!
-//! * **Static probes.** One or two cubemaps (64-texel faces at High, 48 at
-//!   Medium, 32 at Low), baked once per level load at the centroid of the
-//!   reflective geometry that asked for one, from six 90-degree views of the
-//!   whole scene. The reference renders
+//! * **Static probes.** One or two cubemaps (64-texel faces at Reflections
+//!   Full, 48 at Medium, none at Off), baked once per level load at the
+//!   centroid of the reflective geometry that asked for one, from six
+//!   90-degree views of the whole scene. The reference renders
 //!   the six faces in the GL cube order +X/-X/+Y/-Y/+Z/-Z with the GL face-up
 //!   vectors, through `look_at_rh`/`perspective_rh_gl`.
 //! * **Planar mirrors.** A real second view of the level, mirrored through a
 //!   plane derived from the geometry itself: half the render size, its own
 //!   depth, rendered with the mirrored view-projection and a reversed front
 //!   face (the reference's `glFrontFace(GL_CW)`, which compensates for the
-//!   mirror flipping every triangle's winding).
+//!   mirror flipping every triangle's winding). Allowed on Medium and Full.
 //!
 //! This module owns the GPU resources and the pure capture maths. The renderer
 //! owns when a capture runs and which body it draws; the material modes are its
@@ -26,7 +26,7 @@
 //! values are captured and sampled back unchanged — exactly what the reference
 //! read from its RGBA8 attachments and cubemaps.
 
-use crate::quality::QualityLevel;
+use crate::quality::ReflectionQuality;
 use crate::render::common::reflections::{ReflectionPlane, mirror_matrix, planar_target_size};
 use crate::render::common::view::{DrawableSize, MAX_REFLECTION_PROBES};
 use crate::spatial::{DepthRange, Frustum};
@@ -39,20 +39,23 @@ use crate::spatial::{DepthRange, Frustum};
 /// reference's own values, and blending inside a capture behaves as GL did.
 pub const REFLECTION_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
-/// Cube face edge, in texels, at High quality.
-pub const PROBE_FACE_SIZE_HIGH: u32 = 64;
-/// Cube face edge, in texels, at Medium quality.
+/// Cube face edge, in texels, at Reflections Full.
+pub const PROBE_FACE_SIZE_FULL: u32 = 64;
+/// Cube face edge, in texels, at Reflections Medium.
 pub const PROBE_FACE_SIZE_MEDIUM: u32 = 48;
-/// Cube face edge, in texels, at Low quality.
-pub const PROBE_FACE_SIZE_LOW: u32 = 32;
 
-/// The probe face edge one quality level bakes.
+/// The probe face edge a Reflections setting bakes, or `None` for
+/// [`ReflectionQuality::Off`] (which has no probe cubemaps at all).
+///
+/// The probe resolution is deliberately independent of [`crate::quality::QualityLevel`]:
+/// `Low + Reflections Full` keeps 64-texel probes, exactly like every other
+/// combination that selects Full.
 #[must_use]
-pub const fn probe_face_size(level: QualityLevel) -> u32 {
-    match level {
-        QualityLevel::Low => PROBE_FACE_SIZE_LOW,
-        QualityLevel::Medium => PROBE_FACE_SIZE_MEDIUM,
-        QualityLevel::High => PROBE_FACE_SIZE_HIGH,
+pub const fn probe_face_size(quality: ReflectionQuality) -> Option<u32> {
+    match quality {
+        ReflectionQuality::Off => None,
+        ReflectionQuality::Medium => Some(PROBE_FACE_SIZE_MEDIUM),
+        ReflectionQuality::Full => Some(PROBE_FACE_SIZE_FULL),
     }
 }
 
@@ -377,19 +380,21 @@ impl ReflectionTargets {
     /// Creates one cubemap per wanted probe point, up to the two-probe budget.
     ///
     /// The capture position is the reference's `point + 1.2 m Y`; the face edge
-    /// follows the quality level.
+    /// follows the Reflections setting, and [`ReflectionQuality::Off`] creates
+    /// no cubemaps at all (nothing may sample a stale capture).
     #[must_use]
-    pub fn for_level(
+    pub fn for_quality(
         device: &wgpu::Device,
-        level: QualityLevel,
+        quality: ReflectionQuality,
         probe_points: &[[f32; 3]],
     ) -> Self {
-        let face_size = probe_face_size(level);
-        let probes = probe_points
-            .iter()
-            .take(MAX_REFLECTION_PROBES)
-            .map(|point| ProbeCube::create(device, probe_bake_position(*point), face_size))
-            .collect();
+        let probes = probe_face_size(quality).map_or_else(Vec::new, |face_size| {
+            probe_points
+                .iter()
+                .take(MAX_REFLECTION_PROBES)
+                .map(|point| ProbeCube::create(device, probe_bake_position(*point), face_size))
+                .collect()
+        });
         Self {
             probes,
             planar: None,
@@ -406,6 +411,16 @@ impl ReflectionTargets {
     #[must_use]
     pub const fn planar(&self) -> Option<&PlanarTarget> {
         self.planar.as_ref()
+    }
+
+    /// Drops the planar target, retiring the mirror's GPU image and depth.
+    ///
+    /// Called when the Reflections setting stops allowing the planar pass, so
+    /// a later frame cannot sample (or capture into) a stale mirror image. The
+    /// target is recreated lazily by [`Self::ensure_planar`] when the pass is
+    /// allowed again.
+    pub fn drop_planar(&mut self) {
+        self.planar = None;
     }
 
     /// Ensures the planar target exists at `size`, recreating it when the size
@@ -425,9 +440,9 @@ impl ReflectionTargets {
 
 /// The planar target size for the current render size.
 ///
-/// Low never runs the planar pass; the caller checks
-/// [`crate::render::common::reflections::Reflections::planar_wanted`] and the
-/// level gate first.
+/// A Reflections setting that does not draw the planar pass never runs it; the
+/// caller checks [`crate::render::common::reflections::Reflections::planar_wanted`]
+/// first.
 #[must_use]
 pub fn planar_size_for(render_size: DrawableSize) -> DrawableSize {
     planar_target_size(render_size)
@@ -520,10 +535,14 @@ mod tests {
     }
 
     #[test]
-    fn the_probe_face_size_follows_the_level() {
-        assert_eq!(probe_face_size(QualityLevel::High), 64);
-        assert_eq!(probe_face_size(QualityLevel::Medium), 48);
-        assert_eq!(probe_face_size(QualityLevel::Low), 32);
+    fn the_probe_face_size_follows_the_reflections_setting() {
+        assert_eq!(probe_face_size(ReflectionQuality::Full), Some(64));
+        assert_eq!(probe_face_size(ReflectionQuality::Medium), Some(48));
+        assert_eq!(probe_face_size(ReflectionQuality::Off), None);
+        // The resolution must not follow the overall quality level any more:
+        // the function does not even see it.
+        assert_eq!(PROBE_FACE_SIZE_FULL, 64);
+        assert_eq!(PROBE_FACE_SIZE_MEDIUM, 48);
     }
 
     #[test]

@@ -56,9 +56,12 @@ use game::{AppState, Game};
 use input::{InputHandler, MenuNavEvent, keycode_to_str};
 use level::WalkableFloor;
 use perf::PerfOverlay;
-use render::{DrawableSize, Renderer, Vertex};
+use render::{DrawableSize, GraphicsTransition, Renderer, Vertex};
 use settings::{Settings, WindowMode};
-use ui::{SettingsAction, SettingsPage, UiGeometryCache, UiState, activate_settings_item};
+use ui::{
+    SettingsAction, SettingsPage, UiGeometryCache, UiState, activate_settings_item,
+    activate_settings_row,
+};
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -442,20 +445,22 @@ fn create_renderer(
 ) -> Result<Renderer, String> {
     let mut renderer =
         Renderer::new(window).map_err(|e| format!("Failed to initialize the renderer: {e}"))?;
-    // The quality level decides how large a texture may reach the GPU, how the
-    // lightmap is baked and how large the scene target is, and the lightmap
-    // mode is a build-time choice, so both are applied before the first level
-    // upload rather than after it.
+    perf::startup_mark("renderer device");
+    // The requested graphics configuration is recorded before the first level
+    // upload, so the load itself bakes the right atlas, fits the right texture
+    // budgets and creates the right reflection targets. The quality level, the
+    // Lightmaps and the Reflections setting are independent (see
+    // `docs/RENDERER.md` §12), so `Low + Lightmaps Full` loads a Full atlas
+    // even though the overall level is Low.
     renderer.set_quality(settings.quality_level());
-    renderer.set_lightmaps_requested(settings.lightmaps_enabled());
-    // Bloom and reflections are independent player preferences (with their
-    // `PLACES_NO_*` startup overrides already folded in) and are applied
-    // before the first frame. Texture Filtering is recorded before the level
-    // upload too, so the load-time texture diagnostic names the preset
-    // actually in force.
+    renderer.set_lightmap_quality(settings.lightmap_quality());
+    renderer.set_reflection_quality(settings.reflection_quality());
+    // Bloom and Texture Filtering are independent player preferences too (with
+    // their `PLACES_*` startup overrides already folded in). Filtering is
+    // recorded before the level upload so the load-time texture diagnostic
+    // names the preset actually in force.
     renderer.set_bloom_enabled(settings.bloom_enabled());
-    renderer.set_reflections_enabled(settings.reflections_enabled());
-    renderer.set_texture_filtering(&settings.texture_filtering);
+    renderer.set_texture_filtering(settings.texture_filtering_preset());
     renderer.set_level(level);
     spawn_level_demonstration(&mut renderer, level);
     renderer.set_culling(!bench.no_cull());
@@ -664,6 +669,30 @@ fn apply_level_request(
     }
 }
 
+/// Opens one screen on the first frame for a capture, from `PLACES_SCREEN`.
+///
+/// Developer diagnostic like `PLACES_PAUSE`: `settings`, `graphics` or
+/// `advanced` (the Graphics page with the Advanced group expanded) opens that
+/// screen so the one-shot capture can show it without a keyboard. Inert unless
+/// the variable names a screen; it changes nothing about how a screen draws.
+fn apply_screen_request(game: &mut Game, ui_state: &mut UiState) {
+    let Ok(request) = std::env::var("PLACES_SCREEN") else {
+        return;
+    };
+    match request.trim().to_ascii_lowercase().as_str() {
+        "settings" => {
+            ui_state.settings_page = SettingsPage::Root;
+            game.set_app_state(AppState::Settings);
+        }
+        "graphics" | "advanced" => {
+            ui_state.settings_page = SettingsPage::Graphics;
+            ui_state.advanced_expanded = request.trim().eq_ignore_ascii_case("advanced");
+            game.set_app_state(AppState::Settings);
+        }
+        _ => {}
+    }
+}
+
 /// True when `PLACES_PAUSE` asks for the pause menu on the first frame.
 fn pause_requested() -> bool {
     std::env::var("PLACES_PAUSE").is_ok_and(|value| {
@@ -778,12 +807,24 @@ impl FrameLoop<'_> {
             self.settings.set_quality(level);
         }
         if self.bench.enabled()
+            && let Some(change) = self.bench.graphics_cycle_at(self.game.frame_count())
+        {
+            self.apply_bench_graphics_change(change);
+        }
+        if self.bench.enabled()
             && let Some(action) = self.bench.window_cycle_at(self.game.frame_count())
         {
             self.apply_window_action(action);
         }
         self.apply_pending_settings();
+        // An asynchronous graphics transition (an uncached lightmap fill) can
+        // finish on any frame, so the subtle status hint is refreshed every
+        // frame; it is two enum checks when nothing is in flight.
+        self.refresh_graphics_status_hint();
         self.refresh_display_status();
+        if self.game.frame_count() == 1 {
+            perf::startup_mark("input responsive");
+        }
 
         // Update player movement (only active during AppState::Playing)
         self.game
@@ -837,14 +878,55 @@ impl FrameLoop<'_> {
                 .set_swap_interval(self.settings.vsync_enabled());
             self.bench.set_reported_swap_interval(interval);
         }
-        if apply.renderer_state {
-            self.renderer
-                .set_bloom_enabled(self.settings.bloom_enabled());
-            self.renderer
-                .set_reflections_enabled(self.settings.reflections_enabled());
-        }
-        if apply.graphics_rebuild {
+        if apply.graphics {
             self.rebuild_graphics_resources();
+        }
+    }
+
+    /// Keeps the one-line "Applying ..." hint in step with the renderer.
+    ///
+    /// An uncached lightmap quality change fills on a worker while the previous
+    /// world keeps rendering; the game loop stays interactive, so a subtle
+    /// status line is the only feedback the settings screen needs. The hint is
+    /// shown only when nothing else is being reported, and it is cleared only
+    /// when it is the message still on screen, so a genuine status (a saved
+    /// binding, a load failure) is never overwritten or dropped.
+    fn refresh_graphics_status_hint(&mut self) {
+        const HINT: &str = "Applying lightmaps...";
+        match self.renderer.graphics_transition_status() {
+            GraphicsTransition::Preparing(stage) => {
+                if self.ui_state.status_message.is_none() {
+                    self.ui_state
+                        .set_status(format!("Applying {stage}..."), false);
+                }
+            }
+            GraphicsTransition::Idle => {
+                if self.ui_state.status_message.as_deref() == Some(HINT) {
+                    self.ui_state.clear_status();
+                }
+            }
+        }
+    }
+
+    /// Applies one scripted `PLACES_BENCH_GRAPHICS_CYCLE` change.
+    ///
+    /// Each entry goes through the same [`Settings`] setter the menu uses, so a
+    /// direct advanced change is an override: it never cascades the overall
+    /// quality preset, exactly as a menu change to that row would not.
+    fn apply_bench_graphics_change(&mut self, change: bench::GraphicsChange) {
+        match change {
+            bench::GraphicsChange::Filtering(name) => {
+                let _ = self.settings.set_texture_filtering(name);
+            }
+            bench::GraphicsChange::Lightmaps(quality) => {
+                let _ = self.settings.set_lightmap_quality(quality);
+            }
+            bench::GraphicsChange::Reflections(quality) => {
+                let _ = self.settings.set_reflection_quality(quality);
+            }
+            bench::GraphicsChange::Bloom(enabled) => {
+                let _ = self.settings.set_bloom(enabled);
+            }
         }
     }
 
@@ -909,37 +991,31 @@ impl FrameLoop<'_> {
         Ok(())
     }
 
-    /// Rebuilds the renderer resources the quality level and the lightmap
-    /// mode decide, from the level already resident.
+    /// Applies every changed graphics setting as one transaction.
     ///
-    /// The level changes how large a texture may reach the GPU, how the
-    /// lightmap atlas is baked and how large the scene target is, so the
-    /// GPU-side texture caches are released and the current level is
-    /// re-uploaded at the new level. The game world — player position, camera,
-    /// pause state, the `Game` struct — is not touched: this is a renderer
-    /// rebuild, not a level load.
+    /// The renderer records the requested configuration; this hands over the
+    /// level already resident and lets the renderer diff it against what is
+    /// applied. Filtering and Bloom cost no resource work, a quality change
+    /// re-fits the retained build, a Reflections change retires or creates the
+    /// probe/planar resources, and a Lightmaps change rebuilds the CPU level
+    /// once and fills an uncached atlas on a worker while the previous world
+    /// keeps rendering. The game world — player position, camera, pause state,
+    /// the `Game` struct — is not touched: this is a renderer reconfiguration,
+    /// not a level load.
     fn rebuild_graphics_resources(&mut self) {
         self.renderer.set_quality(self.settings.quality_level());
         self.renderer
-            .set_lightmaps_requested(self.settings.lightmaps_enabled());
+            .set_lightmap_quality(self.settings.lightmap_quality());
+        self.renderer
+            .set_reflection_quality(self.settings.reflection_quality());
         self.renderer
             .set_bloom_enabled(self.settings.bloom_enabled());
         self.renderer
-            .set_reflections_enabled(self.settings.reflections_enabled());
+            .set_texture_filtering(self.settings.texture_filtering_preset());
         let Some(level) = self.current_level.as_ref() else {
             return;
         };
-        self.renderer.release_profile_textures();
-        self.renderer.set_level(level);
-        crate::logging::info(format!(
-            "[settings] rebuilt GPU resources at quality '{}' (lightmaps {})",
-            self.settings.quality_level().name(),
-            if self.settings.lightmaps_enabled() {
-                "on"
-            } else {
-                "off"
-            }
-        ));
+        self.renderer.apply_graphics(level);
     }
 
     /// Refreshes the actual window/display state the Display screen reports.
@@ -1174,11 +1250,17 @@ impl FrameLoop<'_> {
                     menu_next(self.ui_state.pause_menu_idx, PAUSE_MENU_ITEM_COUNT);
             }
             (AppState::Settings | AppState::PauseSettings, true) => {
-                let count = self.ui_state.settings_page.item_count();
+                let count = self
+                    .ui_state
+                    .settings_page
+                    .item_count(self.ui_state.advanced_expanded);
                 self.ui_state.settings_idx = menu_prev(self.ui_state.settings_idx, count);
             }
             (AppState::Settings | AppState::PauseSettings, false) => {
-                let count = self.ui_state.settings_page.item_count();
+                let count = self
+                    .ui_state
+                    .settings_page
+                    .item_count(self.ui_state.advanced_expanded);
                 self.ui_state.settings_idx = menu_next(self.ui_state.settings_idx, count);
             }
             (AppState::Playing, _) => {}
@@ -1249,19 +1331,21 @@ impl FrameLoop<'_> {
     fn activate_settings(&mut self) {
         let page = self.ui_state.settings_page;
         let index = self.ui_state.settings_idx;
-        let action = activate_settings_item(
+        let action = activate_settings_row(
             page,
             index,
             self.ui_state,
             self.settings,
             self.display_status,
-            1,
         );
         self.save_settings();
         match action {
             SettingsAction::Open(next) => {
                 self.ui_state.settings_page = next;
                 self.ui_state.settings_idx = 0;
+                // The Advanced group starts collapsed on every newly opened
+                // settings screen; the expansion state is session UI only.
+                self.ui_state.advanced_expanded = false;
                 self.ui_state.clear_status();
             }
             SettingsAction::Back => {
@@ -1303,6 +1387,9 @@ impl FrameLoop<'_> {
             1 => {
                 self.ui_state.settings_page = SettingsPage::Root;
                 self.ui_state.settings_idx = 0;
+                // Every newly opened settings screen starts with the Advanced
+                // group collapsed; the state is never persisted.
+                self.ui_state.advanced_expanded = false;
                 self.goto(AppState::Settings);
             }
             2 => self.game.stop(),
@@ -1395,6 +1482,9 @@ impl FrameLoop<'_> {
             1 => {
                 self.ui_state.settings_page = SettingsPage::Root;
                 self.ui_state.settings_idx = 0;
+                // Every newly opened settings screen starts with the Advanced
+                // group collapsed; the state is never persisted.
+                self.ui_state.advanced_expanded = false;
                 self.goto(AppState::PauseSettings);
             }
             2 => self.goto(AppState::MainMenu),
@@ -1450,6 +1540,9 @@ impl FrameLoop<'_> {
             ));
         }
         let frame_render_done = Instant::now();
+        if self.game.frame_count() == 1 && !skip_render {
+            perf::startup_mark("first scene submitted");
+        }
         // Apply a changed texture filtering setting to existing GL textures
         // without re-uploading their pixel data.
         if self.settings.texture_filtering != *self.applied_filtering {
@@ -1486,11 +1579,15 @@ impl FrameLoop<'_> {
             self.renderer.finish();
         }
         let frame_ui_done = Instant::now();
+        if self.game.frame_count() == 1 {
+            perf::startup_mark("first UI submitted");
+        }
 
         if self.game.frame_count() >= self.capture_at_frame
             && let Some(path) = self.capture_path.take()
         {
             write_capture(self.renderer, &path);
+            perf::startup_mark("capture readback");
             self.game.stop();
         }
 
@@ -1500,6 +1597,12 @@ impl FrameLoop<'_> {
             self.renderer.present(self.window);
         }
         let frame_swap_done = Instant::now();
+        if self.game.frame_count() == 1 {
+            perf::startup_mark("first presented");
+            // A summarized phase table when PLACES_VERBOSE is on; a release
+            // launch with no developer switches prints nothing.
+            perf::startup_report();
+        }
 
         if self.bench.enabled() {
             self.bench.record_frame(
@@ -1527,7 +1630,7 @@ fn log_effective_settings(settings: &Settings) {
         return;
     }
     logging::info(format!(
-        "[settings] quality {} (saved {}){} | bloom {} | reflections {} | lightmaps {} | vsync {} | filtering {} | window {} {}",
+        "[settings] quality {} (saved {}){} | bloom {} | reflections {}{} | lightmaps {}{} | vsync {} | filtering {} | window {} {}",
         settings.quality_level().name(),
         settings.quality,
         if settings.quality_overridden() {
@@ -1536,10 +1639,20 @@ fn log_effective_settings(settings: &Settings) {
             ""
         },
         on_off(settings.bloom_enabled()),
-        on_off(settings.reflections_enabled()),
-        on_off(settings.lightmaps_enabled()),
+        settings.reflection_quality().name(),
+        if settings.reflection_quality_overridden() {
+            " [startup override]"
+        } else {
+            ""
+        },
+        settings.lightmap_quality().name(),
+        if settings.lightmap_quality_overridden() {
+            " [startup override]"
+        } else {
+            ""
+        },
         on_off(settings.vsync_enabled()),
-        settings.texture_filtering,
+        settings.texture_filtering_preset(),
         settings.window_mode().label(),
         display::format_resolution(settings.window_size()),
     ));
@@ -1554,6 +1667,7 @@ const fn on_off(value: bool) -> &'static str {
 fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String> {
     let package = use_package_assets();
     log_package(&package);
+    perf::startup_mark("package root");
     // The app identifier is what X11/Wayland use to associate the window with
     // Places; it must be set before `sdl3::init()`.
     sdl3::set_app_metadata(
@@ -1571,8 +1685,10 @@ fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String>
     settings.apply_startup_overrides(bench.vsync_override());
     settings.ensure_saved();
     log_effective_settings(&settings);
+    perf::startup_mark("settings");
 
     let (sdl_context, video_subsystem, window) = create_sdl_and_window(&mut settings)?;
+    perf::startup_mark("window");
     // Boot applies every setting explicitly (window, swap interval, renderer),
     // so no pending work is owed after it.
     let _ = settings.take_pending_apply();
@@ -1580,14 +1696,18 @@ fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String>
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    perf::startup_begin();
     let (sdl_context, video_subsystem, mut window, mut settings, mut bench) = bootstrap()?;
 
     let mut level_manager = loader::LevelManager::new();
     log_asset_catalog(&level_manager);
+    perf::startup_mark("asset catalog");
     let initial_level = level_manager
         .load_default()
         .map_err(|e| format!("Failed to load initial level: {e}"))?;
+    perf::startup_mark("level loaded");
     let mut renderer = create_renderer(&window, &initial_level, &settings, &bench)?;
+    perf::startup_mark("level uploaded");
     configure_vsync(&mut renderer, &mut bench, &settings);
 
     let mut event_pump = sdl_context
@@ -1597,6 +1717,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut input_handler = InputHandler::new();
     let (mut game, mut spawn_pos, mut spawn_yaw) = new_game(&initial_level);
     log_prop_usage(&renderer);
+    perf::startup_mark("game ready");
     // The current level stays resident for the session: the renderer keeps only
     // GPU state, so a live quality or lightmap change rebuilds from this
     // definition (and the session texture caches) instead of re-reading a file.
@@ -1624,6 +1745,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut state_log = open_state_log();
 
     let mut ui_state = new_ui_state(&level_manager);
+    apply_screen_request(&mut game, &mut ui_state);
     let mut perf_overlay = PerfOverlay::new();
     let mut ui_cache = UiGeometryCache::new();
     let mut ui_scratch: Vec<Vertex> = Vec::new();

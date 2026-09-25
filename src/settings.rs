@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::quality::QualityLevel;
+use crate::quality::{LightmapQuality, QualityLevel, ReflectionQuality};
 
 pub const DEFAULT_SETTINGS_PATH: &str = "settings.json";
 
@@ -294,8 +294,8 @@ impl KeyBindings {
 pub struct StartupOverrides {
     pub quality: Option<QualityLevel>,
     pub bloom: Option<bool>,
-    pub reflections: Option<bool>,
-    pub lightmaps: Option<bool>,
+    pub reflections: Option<ReflectionQuality>,
+    pub lightmaps: Option<LightmapQuality>,
     pub vsync: Option<bool>,
 }
 
@@ -304,18 +304,12 @@ pub struct StartupOverrides {
 /// The settings screen only mutates [`Settings`]; `main` consumes this record
 /// and performs the minimum work each subsystem needs. A flag is set only by a
 /// real value change, so re-selecting the current value is inert.
-// A settings change really does have four independent subsystem consequences;
-// they are not mutually exclusive states, so an enum per flag would be worse.
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct SettingsApply {
-    /// The quality level or the lightmap mode changed: the level's GPU
-    /// resources (textures, lightmaps, framebuffers) must be rebuilt while the
-    /// current game state stays untouched.
-    pub graphics_rebuild: bool,
-    /// Renderer state that reads settings directly changed (bloom,
-    /// reflections).
-    pub renderer_state: bool,
+    /// The requested graphics configuration changed (quality, filtering,
+    /// lightmaps, reflections or bloom): apply the whole graphics transaction
+    /// once, against the values in [`Settings`] at apply time.
+    pub graphics: bool,
     /// The swap interval must be re-applied to the window.
     pub vsync: bool,
     /// The window mode or resolution must be applied.
@@ -325,8 +319,7 @@ pub struct SettingsApply {
 impl SettingsApply {
     /// Every flag set, for a full restore-to-defaults.
     pub const ALL: Self = Self {
-        graphics_rebuild: true,
-        renderer_state: true,
+        graphics: true,
         vsync: true,
         window: true,
     };
@@ -334,7 +327,7 @@ impl SettingsApply {
     /// True when any subsystem has to be updated.
     #[must_use]
     pub const fn any(self) -> bool {
-        self.graphics_rebuild || self.renderer_state || self.vsync || self.window
+        self.graphics || self.vsync || self.window
     }
 }
 
@@ -344,9 +337,6 @@ impl SettingsApply {
 /// simulation and renderer read effective values through the `*_enabled`
 /// getters, and [`Self::save`] writes exactly this structure back to
 /// `settings.json` (minus the session-only [`Self::overrides`]).
-// The booleans are independent player preferences (VSync, bloom, reflections,
-// lightmaps, look inversion), not a state machine: any combination is valid.
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Settings {
     pub bindings: KeyBindings,
@@ -367,14 +357,19 @@ pub struct Settings {
     ///
     /// The three levels are independent of the quality level: any combination
     /// is valid, and only the renderer maps them onto its samplers. The legacy
-    /// names keep loading (`"linear"` is High today, `"nearest"` is Low); an
-    /// unknown value falls back to the default (High) rather than invalidating
-    /// the file.
-    #[serde(default = "default_filtering")]
+    /// names keep loading (`"linear"` is High today, `"nearest"` is Low); a
+    /// missing key derives its preset from the saved quality, and an unknown
+    /// value falls back to the default (High) rather than invalidating the
+    /// file.
+    #[serde(default = "default_advanced_quality")]
     pub texture_filtering: String,
     /// Runtime quality level: `"low"`, `"medium"` or `"high"` (the intended
     /// presentation). All three use the same assets; a lower level downscales
     /// textures, bakes a smaller lightmap and drops optional per-pixel work.
+    ///
+    /// An active [`Self::set_quality`] cascades the three Advanced settings
+    /// (Texture Filtering, Lightmaps, Reflections) to that level's preset
+    /// defaults; the player may then override each of them independently.
     #[serde(default = "default_quality")]
     pub quality: String,
     /// Draw the bloom stage, independent of the quality level. Default on.
@@ -385,18 +380,30 @@ pub struct Settings {
     /// process.
     #[serde(default = "default_bloom")]
     pub bloom: bool,
-    /// Draw reflections (static probes and the planar mirror). Default on.
+    /// Reflections quality: `"off"`, `"medium"` or `"full"`.
     ///
-    /// `PLACES_NO_REFLECTIONS=1` overrides it for one process.
-    #[serde(default = "default_reflections")]
-    pub reflections: bool,
-    /// Bake and draw static lightmaps for level geometry. Default on.
+    /// Independent of the quality level and of Lightmaps, so any combination
+    /// is valid (`Low + Reflections Full`, `High + Reflections Off`). A missing
+    /// key derives the preset from the saved quality; the legacy boolean keeps
+    /// loading (`true` is Full, `false` is Off).
+    /// `PLACES_NO_REFLECTIONS` overrides it for one process.
+    #[serde(
+        default = "default_advanced_quality",
+        deserialize_with = "deserialize_advanced_quality"
+    )]
+    pub reflections: String,
+    /// Lightmaps quality: `"off"`, `"medium"` or `"full"`.
     ///
-    /// `false` rebuilds the level through the historical vertex-lit path, which
-    /// renders exactly the pre-lightmap colours. `PLACES_NO_LIGHTMAPS=1`
+    /// Independent of the quality level and of Reflections, so any combination
+    /// is valid (`Low + Lightmaps Full`, `High + Lightmaps Off`). A missing key
+    /// derives the preset from the saved quality; the legacy boolean keeps
+    /// loading (`true` is Full, `false` is Off). `PLACES_NO_LIGHTMAPS`
     /// overrides it for one process.
-    #[serde(default = "default_lightmaps")]
-    pub lightmaps: bool,
+    #[serde(
+        default = "default_advanced_quality",
+        deserialize_with = "deserialize_advanced_quality"
+    )]
+    pub lightmaps: String,
     /// Windowed or borderless fullscreen. Persisted as `"windowed"` /
     /// `"fullscreen"`; an unknown value falls back to `"windowed"` rather than
     /// invalidating the file.
@@ -435,19 +442,19 @@ const fn default_invert_look() -> bool {
 const fn default_vsync() -> bool {
     true
 }
-fn default_filtering() -> String {
-    "high".to_string()
+/// The sentinel a missing advanced-quality key deserializes to.
+///
+/// [`Settings::sanitize`] resolves it from the saved quality level; it is
+/// never written back (a save happens after the runtime settings have been
+/// sanitized, or after an explicit setter).
+const AUTO_QUALITY: &str = "auto";
+fn default_advanced_quality() -> String {
+    AUTO_QUALITY.to_string()
 }
 fn default_quality() -> String {
     QualityLevel::DEFAULT.name().to_string()
 }
 const fn default_bloom() -> bool {
-    true
-}
-const fn default_reflections() -> bool {
-    true
-}
-const fn default_lightmaps() -> bool {
     true
 }
 fn default_window_mode() -> String {
@@ -470,11 +477,11 @@ impl Default for Settings {
             fov_degrees: default_fov(),
             invert_look: default_invert_look(),
             vsync: default_vsync(),
-            texture_filtering: default_filtering(),
+            texture_filtering: "high".to_string(),
             quality: default_quality(),
             bloom: default_bloom(),
-            reflections: default_reflections(),
-            lightmaps: default_lightmaps(),
+            reflections: ReflectionQuality::DEFAULT.name().to_string(),
+            lightmaps: LightmapQuality::DEFAULT.name().to_string(),
             window_mode: default_window_mode(),
             window_width: default_window_width(),
             window_height: default_window_height(),
@@ -495,6 +502,20 @@ fn truthy(value: &str) -> bool {
 /// Reads a `PLACES_*` switch that *disables* a feature when truthy.
 fn env_disable_override(name: &str) -> Option<bool> {
     std::env::var(name).ok().map(|value| !truthy(&value))
+}
+
+/// Reads a `PLACES_NO_*` switch that pins an advanced quality for one process.
+///
+/// A value naming a level (`off`/`medium`/`full`) selects that level exactly;
+/// any other truthy value (`1`, `true`, ...) is the documented "force off"
+/// switch, and a falsy value leaves the saved setting in charge.
+fn env_quality_override<T: Copy>(
+    name: &str,
+    off: T,
+    parse: impl Fn(&str) -> Option<T>,
+) -> Option<T> {
+    let value = std::env::var(name).ok()?;
+    parse(&value).or_else(|| truthy(&value).then_some(off))
 }
 
 /// The three player-facing Texture Filtering levels, in selector order.
@@ -534,6 +555,89 @@ pub fn texture_filtering_step(current: &str, direction: i32) -> &'static str {
     all.get(next).copied().unwrap_or(current)
 }
 
+/// The Texture Filtering preset an overall quality level selects.
+const fn texture_filtering_for(quality: QualityLevel) -> &'static str {
+    match quality {
+        QualityLevel::Low => "low",
+        QualityLevel::Medium => "medium",
+        QualityLevel::High => "high",
+    }
+}
+
+/// Resolves a persisted Texture Filtering value against the saved quality.
+///
+/// A missing key (the `auto` sentinel) derives its preset from the saved
+/// quality level; a present value is preserved, with the legacy names mapped
+/// by [`texture_filtering_name`].
+fn resolve_texture_filtering(value: &str, quality: QualityLevel) -> &'static str {
+    if value.trim().eq_ignore_ascii_case(AUTO_QUALITY) {
+        texture_filtering_for(quality)
+    } else {
+        texture_filtering_name(value)
+    }
+}
+
+/// Resolves a persisted Lightmaps value against the saved quality.
+///
+/// A missing key (the `auto` sentinel) derives its preset from the saved
+/// quality level; a present value is preserved, and an unknown value falls
+/// back to the same preset rather than invalidating the file.
+fn resolve_lightmap_quality(value: &str, quality: QualityLevel) -> LightmapQuality {
+    if value.trim().eq_ignore_ascii_case(AUTO_QUALITY) {
+        LightmapQuality::default_for(quality)
+    } else {
+        LightmapQuality::parse(value).unwrap_or_else(|| LightmapQuality::default_for(quality))
+    }
+}
+
+/// Resolves a persisted Reflections value against the saved quality.
+///
+/// A missing key (the `auto` sentinel) derives its preset from the saved
+/// quality level; a present value is preserved, and an unknown value falls
+/// back to the same preset rather than invalidating the file.
+fn resolve_reflection_quality(value: &str, quality: QualityLevel) -> ReflectionQuality {
+    if value.trim().eq_ignore_ascii_case(AUTO_QUALITY) {
+        ReflectionQuality::default_for(quality)
+    } else {
+        ReflectionQuality::parse(value).unwrap_or_else(|| ReflectionQuality::default_for(quality))
+    }
+}
+
+/// Deserializes an advanced graphics-quality value.
+///
+/// Accepts the level names and the legacy booleans (`true` is `"full"`,
+/// `false` is `"off"`), so an older settings file loads without being renamed.
+/// A `null` value reads as missing and is resolved from the saved quality by
+/// [`Settings::sanitize`].
+fn deserialize_advanced_quality<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct AdvancedQualityVisitor;
+
+    impl serde::de::Visitor<'_> for AdvancedQualityVisitor {
+        type Value = String;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("a quality name or a legacy boolean")
+        }
+
+        fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E> {
+            Ok(if value { "full" } else { "off" }.to_string())
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> {
+            Ok(value.to_string())
+        }
+
+        fn visit_unit<E>(self) -> Result<Self::Value, E> {
+            Ok(AUTO_QUALITY.to_string())
+        }
+    }
+
+    deserializer.deserialize_any(AdvancedQualityVisitor)
+}
+
 /// Previous or next index in a cyclic list, never dividing or wrapping.
 ///
 /// Used by the selectors (quality level, texture filtering, window mode) so a
@@ -561,14 +665,19 @@ impl Settings {
         self.look_speed_v = self.look_speed_v.clamp(20.0, 240.0);
         self.walk_speed = self.walk_speed.clamp(1.0, 10.0);
         self.fov_degrees = self.fov_degrees.clamp(45.0, 110.0);
-        // The legacy names keep loading and are rewritten to their current
-        // equivalents; an unknown value falls back to the default (High)
-        // rather than invalidating the file.
-        self.texture_filtering = texture_filtering_name(&self.texture_filtering).to_string();
         // An unknown level falls back to the default rather than picking a
         // tier the player did not ask for.
-        self.quality = QualityLevel::parse(&self.quality)
-            .unwrap_or_default()
+        let quality = QualityLevel::parse(&self.quality).unwrap_or_default();
+        self.quality = quality.name().to_string();
+        // The advanced settings derive from the saved quality when their key
+        // was absent from the file (`auto`); an explicit value is never
+        // overwritten here. Only an active `set_quality` cascades.
+        self.texture_filtering =
+            resolve_texture_filtering(&self.texture_filtering, quality).to_string();
+        self.lightmaps = resolve_lightmap_quality(&self.lightmaps, quality)
+            .name()
+            .to_string();
+        self.reflections = resolve_reflection_quality(&self.reflections, quality)
             .name()
             .to_string();
         // An unknown window mode falls back to windowed rather than making the
@@ -596,8 +705,16 @@ impl Settings {
                 .ok()
                 .and_then(|value| QualityLevel::parse(&value)),
             bloom: env_disable_override(NO_BLOOM_OVERRIDE_ENV),
-            reflections: env_disable_override(NO_REFLECTIONS_OVERRIDE_ENV),
-            lightmaps: env_disable_override(NO_LIGHTMAPS_OVERRIDE_ENV),
+            reflections: env_quality_override(
+                NO_REFLECTIONS_OVERRIDE_ENV,
+                ReflectionQuality::Off,
+                ReflectionQuality::parse,
+            ),
+            lightmaps: env_quality_override(
+                NO_LIGHTMAPS_OVERRIDE_ENV,
+                LightmapQuality::Off,
+                LightmapQuality::parse,
+            ),
             vsync,
         };
     }
@@ -618,12 +735,22 @@ impl Settings {
     ///
     /// Clears any startup override for this option: an explicit change in
     /// Settings outranks a launch switch.
+    ///
+    /// An active change also cascades the three Advanced settings (Texture
+    /// Filtering, Lightmaps, Reflections) to this level's preset defaults and
+    /// records one graphics apply; the player may then override any of them
+    /// independently. A `PLACES_NO_REFLECTIONS`/`PLACES_NO_LIGHTMAPS` force-off
+    /// override stays in force for the session (the effective getter still
+    /// reports it) until the player changes that option itself.
     pub fn set_quality(&mut self, level: QualityLevel) -> bool {
         let changed = self.quality_level() != level;
         self.overrides.quality = None;
         self.quality = level.name().to_string();
         if changed {
-            self.pending.graphics_rebuild = true;
+            self.texture_filtering = texture_filtering_for(level).to_string();
+            self.lightmaps = LightmapQuality::default_for(level).name().to_string();
+            self.reflections = ReflectionQuality::default_for(level).name().to_string();
+            self.pending.graphics = true;
         }
         changed
     }
@@ -658,7 +785,7 @@ impl Settings {
         self.overrides.bloom = None;
         self.bloom = enabled;
         if changed {
-            self.pending.renderer_state = true;
+            self.pending.graphics = true;
         }
         changed
     }
@@ -676,70 +803,137 @@ impl Settings {
         self.overrides.bloom.is_some()
     }
 
-    /// Whether reflections may be drawn.
-    ///
-    /// The saved `reflections` preference, with the `PLACES_NO_REFLECTIONS`
-    /// startup override applied for this process.
-    #[must_use]
-    pub fn reflections_enabled(&self) -> bool {
-        self.overrides.reflections.unwrap_or(self.reflections)
+    /// The saved quality level, ignoring any startup override.
+    fn saved_quality(&self) -> QualityLevel {
+        QualityLevel::parse(&self.quality).unwrap_or_default()
     }
 
-    /// Turns reflections on or off as a player preference.
-    pub fn set_reflections(&mut self, enabled: bool) -> bool {
-        let changed = self.reflections_enabled() != enabled;
-        self.overrides.reflections = None;
-        self.reflections = enabled;
+    /// The Texture Filtering preset in force: `"low"`, `"medium"` or `"high"`.
+    ///
+    /// A missing (`auto`) or unknown saved value resolves against the saved
+    /// quality level; the legacy names map through [`texture_filtering_name`].
+    #[must_use]
+    pub fn texture_filtering_preset(&self) -> &'static str {
+        resolve_texture_filtering(&self.texture_filtering, self.saved_quality())
+    }
+
+    /// Selects the Texture Filtering preset, canonicalising the stored value.
+    ///
+    /// A real change records one graphics apply; the caller persists the
+    /// choice. There is no startup override for this option.
+    pub fn set_texture_filtering(&mut self, filtering: &str) -> bool {
+        let next = texture_filtering_name(filtering);
+        let changed = self.texture_filtering_preset() != next;
+        self.texture_filtering = next.to_string();
         if changed {
-            self.pending.renderer_state = true;
+            self.pending.graphics = true;
         }
         changed
     }
 
-    /// Toggles reflections, returning the new effective state.
-    pub fn toggle_reflections(&mut self) -> bool {
-        let next = !self.reflections_enabled();
-        self.set_reflections(next);
-        next
+    /// The Reflections quality in force.
+    ///
+    /// The saved value, with the `PLACES_NO_REFLECTIONS` startup override
+    /// applied for this process; a missing or unknown value resolves against
+    /// the saved quality level.
+    #[must_use]
+    pub fn reflection_quality(&self) -> ReflectionQuality {
+        if let Some(overridden) = self.overrides.reflections {
+            return overridden;
+        }
+        resolve_reflection_quality(&self.reflections, self.saved_quality())
     }
 
-    /// Whether reflections are pinned by a startup override.
+    /// Whether reflections may be drawn.
+    ///
+    /// True for every quality except [`ReflectionQuality::Off`].
     #[must_use]
-    pub const fn reflections_overridden(&self) -> bool {
+    pub fn reflections_enabled(&self) -> bool {
+        self.reflection_quality().draws_probes()
+    }
+
+    /// Selects the Reflections quality.
+    ///
+    /// Clears the matching startup override, so an explicit change in Settings
+    /// outranks `PLACES_NO_REFLECTIONS`; a real change records one graphics
+    /// apply.
+    pub fn set_reflection_quality(&mut self, quality: ReflectionQuality) -> bool {
+        let changed = self.reflection_quality() != quality;
+        self.overrides.reflections = None;
+        self.reflections = quality.name().to_string();
+        if changed {
+            self.pending.graphics = true;
+        }
+        changed
+    }
+
+    /// The Reflections quality a left/right input selects next.
+    #[must_use]
+    pub fn reflection_quality_step(
+        current: ReflectionQuality,
+        direction: i32,
+    ) -> ReflectionQuality {
+        let all = ReflectionQuality::ALL;
+        let index = all.iter().position(|level| *level == current).unwrap_or(0);
+        let next = cycle_index(index, direction, all.len());
+        all.get(next).copied().unwrap_or(current)
+    }
+
+    /// Whether Reflections is pinned by a startup override.
+    #[must_use]
+    pub const fn reflection_quality_overridden(&self) -> bool {
         self.overrides.reflections.is_some()
     }
 
-    /// Whether lightmaps should be baked for level geometry.
+    /// The Lightmaps quality in force.
     ///
-    /// The saved `lightmaps` preference, with the `PLACES_NO_LIGHTMAPS`
-    /// startup override applied for this process.
+    /// The saved value, with the `PLACES_NO_LIGHTMAPS` startup override
+    /// applied for this process; a missing or unknown value resolves against
+    /// the saved quality level.
     #[must_use]
-    pub fn lightmaps_enabled(&self) -> bool {
-        self.overrides.lightmaps.unwrap_or(self.lightmaps)
+    pub fn lightmap_quality(&self) -> LightmapQuality {
+        if let Some(overridden) = self.overrides.lightmaps {
+            return overridden;
+        }
+        resolve_lightmap_quality(&self.lightmaps, self.saved_quality())
     }
 
-    /// Selects whether lightmaps are baked, rebuilding the level through the
-    /// other lighting path at the next apply.
-    pub fn set_lightmaps(&mut self, enabled: bool) -> bool {
-        let changed = self.lightmaps_enabled() != enabled;
+    /// Whether lightmaps should be baked and drawn.
+    ///
+    /// True for every quality except [`LightmapQuality::Off`].
+    #[must_use]
+    pub fn lightmaps_enabled(&self) -> bool {
+        !self.lightmap_quality().is_off()
+    }
+
+    /// Selects the Lightmaps quality, rebuilding the level's lighting at the
+    /// next apply.
+    ///
+    /// Clears the matching startup override, so an explicit change in Settings
+    /// outranks `PLACES_NO_LIGHTMAPS`; a real change records one graphics
+    /// apply.
+    pub fn set_lightmap_quality(&mut self, quality: LightmapQuality) -> bool {
+        let changed = self.lightmap_quality() != quality;
         self.overrides.lightmaps = None;
-        self.lightmaps = enabled;
+        self.lightmaps = quality.name().to_string();
         if changed {
-            self.pending.graphics_rebuild = true;
+            self.pending.graphics = true;
         }
         changed
     }
 
-    /// Toggles lightmaps, returning the new effective state.
-    pub fn toggle_lightmaps(&mut self) -> bool {
-        let next = !self.lightmaps_enabled();
-        self.set_lightmaps(next);
-        next
+    /// The Lightmaps quality a left/right input selects next.
+    #[must_use]
+    pub fn lightmap_quality_step(current: LightmapQuality, direction: i32) -> LightmapQuality {
+        let all = LightmapQuality::ALL;
+        let index = all.iter().position(|level| *level == current).unwrap_or(0);
+        let next = cycle_index(index, direction, all.len());
+        all.get(next).copied().unwrap_or(current)
     }
 
-    /// Whether lightmaps are pinned by a startup override.
+    /// Whether Lightmaps is pinned by a startup override.
     #[must_use]
-    pub const fn lightmaps_overridden(&self) -> bool {
+    pub const fn lightmap_quality_overridden(&self) -> bool {
         self.overrides.lightmaps.is_some()
     }
 

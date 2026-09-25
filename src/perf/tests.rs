@@ -2,7 +2,7 @@
 
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
-#![allow(clippy::expect_used, clippy::unwrap_used)]
+#![allow(clippy::expect_used, clippy::indexing_slicing, clippy::unwrap_used)]
 
 use super::*;
 
@@ -165,4 +165,38 @@ fn test_parse_debugfs_utilization() {
     assert_eq!(parse_debugfs_utilization("utilization=65"), Some(65.0));
     assert_eq!(parse_debugfs_utilization("UTILIZATION = 80%"), Some(80.0));
     assert_eq!(parse_debugfs_utilization("not_a_number"), None);
+}
+
+#[test]
+fn test_startup_timeline_accumulates_deltas_and_reports_once() {
+    let start = Instant::now();
+    let mut timeline = StartupTimeline::begin_at(start);
+    timeline.mark("first", start + Duration::from_millis(10));
+    timeline.mark("second", start + Duration::from_millis(35));
+
+    let lines = timeline.report_lines(start + Duration::from_millis(40));
+    assert_eq!(lines[0], "[startup] total 40.0 ms");
+    assert_eq!(lines[1], "[startup]   first: +10.0 ms (10.0 ms)");
+    assert_eq!(lines[2], "[startup]   second: +25.0 ms (35.0 ms)");
+
+    assert!(timeline.claim_report(), "the first report claims the trace");
+    assert!(
+        !timeline.claim_report(),
+        "every later report must be a no-op"
+    );
+}
+
+#[test]
+fn test_startup_timeline_capacity_is_bounded() {
+    let start = Instant::now();
+    let mut timeline = StartupTimeline::begin_at(start);
+    for _ in 0..(STARTUP_MARK_CAPACITY + 5) {
+        timeline.mark("phase", start);
+    }
+    assert_eq!(timeline.marks.len(), STARTUP_MARK_CAPACITY);
+    assert_eq!(
+        timeline.report_lines(start).len(),
+        STARTUP_MARK_CAPACITY + 1,
+        "the total line plus one line per retained mark"
+    );
 }

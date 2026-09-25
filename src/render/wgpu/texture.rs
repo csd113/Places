@@ -41,7 +41,8 @@
 //! bounded by the catalog plus the missing-texture pattern.
 
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 
 use crate::materials::{RawImage, ResolvedTexture, TextureOrigin, decode_png};
 use crate::quality::{QualityLevel, TextureClass, fit_image};
@@ -49,8 +50,18 @@ use crate::quality::{QualityLevel, TextureClass, fit_image};
 /// Bytes per RGBA8 texel.
 const RGBA_BYTES: u32 = 4;
 
+/// The same four bytes as [`RGBA_BYTES`], for texel-chunk slice arithmetic.
+const RGBA_CHANNELS: usize = 4;
+
 /// Bytes of the generated fallback of last resort (2x2 RGBA8).
 const FALLBACK_BYTES: usize = 16;
+
+/// Worker threads one texture batch may start.
+///
+/// One upload runs on a handful of sheets, so more workers than this cannot
+/// help; the bound also keeps a batch from ever taking over a many-core
+/// machine, exactly like the fixed bounds elsewhere in the engine.
+const MAX_TEXTURE_WORKERS: usize = 8;
 
 /// The shared untextured fallback, as committed artwork.
 ///
@@ -452,27 +463,28 @@ pub struct GpuTexture {
 }
 
 impl GpuTexture {
-    /// Uploads one fitted image with a CPU-generated mip chain.
+    /// Uploads one prepared CPU mip chain as a GPU texture.
     ///
-    /// `mip_levels` is explicit: ordinary sheets get
-    /// [`mip_level_count`] levels, the fallback sheet gets exactly one (the
-    /// reference never mip-chains it). Every allocated level is written before
-    /// the function returns, so no level can be sampled uninitialized.
-    fn upload(
+    /// `PreparedTexture::prepare` owns every CPU-side decision (the fit and the
+    /// chain), so it may run on a worker thread; this function touches only the
+    /// device and queue and stays on the caller's thread. Every allocated level
+    /// is written before the function returns, so no level can be sampled
+    /// uninitialized.
+    fn upload_prepared(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         layout: &wgpu::BindGroupLayout,
         samplers: &Samplers,
         upload: &TextureUpload<'_>,
     ) -> Self {
-        let image = upload.image;
+        let prepared = upload.prepared;
         let format = upload.key.semantic.format();
-        let mip_levels = upload.mip_levels.max(1);
+        let mip_levels = prepared.mip_levels.max(1);
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("places-wgpu-texture"),
             size: wgpu::Extent3d {
-                width: image.width.max(1),
-                height: image.height.max(1),
+                width: prepared.width.max(1),
+                height: prepared.height.max(1),
                 depth_or_array_layers: 1,
             },
             mip_level_count: mip_levels,
@@ -484,14 +496,13 @@ impl GpuTexture {
         });
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let mut resident_bytes = level_bytes(image.width, image.height);
-        write_mip(queue, &texture, 0, image);
-        let mut current = image.clone();
-        for level in 1..mip_levels {
-            current = halve_image(&current);
-            resident_bytes =
-                resident_bytes.saturating_add(level_bytes(current.width, current.height));
-            write_mip(queue, &texture, level, &current);
+        for (level, image) in prepared.levels.iter().enumerate() {
+            write_mip(
+                queue,
+                &texture,
+                u32::try_from(level).unwrap_or(u32::MAX),
+                image,
+            );
         }
 
         // The fallback sheet binds the reference's clamped nearest sampler in
@@ -518,8 +529,8 @@ impl GpuTexture {
             medium_bind_group,
             high_bind_group,
             meta: TextureMeta {
-                width: image.width,
-                height: image.height,
+                width: prepared.width,
+                height: prepared.height,
                 mip_levels,
                 format,
                 semantic: upload.key.semantic,
@@ -527,7 +538,7 @@ impl GpuTexture {
                 level: upload.key.level,
                 origin: upload.origin,
                 fallback: upload.fallback,
-                resident_bytes,
+                resident_bytes: prepared.resident_bytes,
             },
         }
     }
@@ -571,10 +582,74 @@ impl GpuTexture {
 /// The explicit inputs of one [`GpuTexture`] upload.
 struct TextureUpload<'a> {
     key: &'a TextureKey,
-    image: &'a RawImage,
-    mip_levels: u32,
+    prepared: &'a PreparedTexture,
     origin: TextureOrigin,
     fallback: bool,
+}
+
+/// One texture's CPU-side upload data.
+///
+/// [`Self::prepare`] owns everything the upload needs before the device is
+/// touched — the quality fit and the full box-filtered mip chain — and the
+/// result is plain owned data, so a batch can prepare several sheets on worker
+/// threads without any `Rc` or GPU handle crossing a thread.
+struct PreparedTexture {
+    /// Level-0 width in texels, after the fit.
+    width: u32,
+    /// Level-0 height in texels, after the fit.
+    height: u32,
+    /// Mip levels in [`Self::levels`].
+    mip_levels: u32,
+    /// Level 0 first, one owned image per allocated level.
+    levels: Vec<RawImage>,
+    /// Texel storage every level occupies, matching [`TextureMeta`].
+    resident_bytes: u64,
+}
+
+impl PreparedTexture {
+    /// Fits `image` for the key's class and level and generates the full CPU
+    /// mip chain.
+    ///
+    /// Pure CPU work with no shared state, so it is safe to run on a worker
+    /// thread; the result is byte-identical whether it runs there or serially.
+    fn prepare(image: &RawImage, level: QualityLevel, class: TextureClass) -> Self {
+        let fitted = fit_image(image, level, class);
+        let width = fitted.width;
+        let height = fitted.height;
+        let mip_levels = mip_level_count(width, height);
+        let mut levels: Vec<RawImage> =
+            Vec::with_capacity(usize::try_from(mip_levels).unwrap_or(0));
+        let mut resident_bytes = level_bytes(width, height);
+        levels.push(fitted.into_owned());
+        for _ in 1..mip_levels {
+            let Some(parent) = levels.last() else {
+                break;
+            };
+            let half = halve_image(parent);
+            resident_bytes = resident_bytes.saturating_add(level_bytes(half.width, half.height));
+            levels.push(half);
+        }
+        Self {
+            width,
+            height,
+            mip_levels,
+            levels,
+            resident_bytes,
+        }
+    }
+
+    /// One level exactly as given: the shared fallback sheet's contract (the
+    /// reference never mip-chains it).
+    fn single(image: RawImage) -> Self {
+        let resident_bytes = level_bytes(image.width, image.height);
+        Self {
+            width: image.width,
+            height: image.height,
+            mip_levels: 1,
+            levels: vec![image],
+            resident_bytes,
+        }
+    }
 }
 
 /// The nine shared samplers the world and every later pass use.
@@ -638,6 +713,72 @@ pub enum CacheOutcome {
     Reused,
 }
 
+/// One texture a [`TextureCache::get_or_upload_batch`] call must make resident.
+///
+/// The batch counterpart of a single upload call: the caller builds the full
+/// semantic key ([`TextureKey::new`] for a resolved material texture, or the
+/// literal fields for a clamped fixture/prop sheet — logical id, semantic,
+/// class, level and [`TextureWrap::Clamp`], exactly like
+/// [`TextureCache::get_or_upload_fitted`]), names the decoded source image and
+/// the origin that selects the cache lifetime.
+pub struct TextureUploadRequest<'a> {
+    /// The full semantic identity; the batch reuses it verbatim.
+    pub key: TextureKey,
+    /// The decoded source image the fit and the mip chain run on.
+    pub image: &'a RawImage,
+    /// Where the image came from; also its cache lifetime.
+    pub origin: TextureOrigin,
+}
+
+/// Prepares every request's CPU data in parallel, one slot per request.
+///
+/// The workers borrow only the decoded [`RawImage`]s and the key's fit
+/// parameters; `Rc` handles, cache maps and GPU state never cross a thread.
+/// Each slot is `None` only if the job was never claimed, which can only happen
+/// after a worker panic that `thread::scope` propagates anyway; the caller then
+/// falls back to the identical serial preparation.
+fn prepare_textures(requests: &[&TextureUploadRequest<'_>]) -> Vec<Option<PreparedTexture>> {
+    let jobs = requests.len();
+    let slots: Vec<Option<PreparedTexture>> = (0..jobs).map(|_| None).collect();
+    if jobs == 0 {
+        return slots;
+    }
+    let workers = std::thread::available_parallelism()
+        .map_or(1, std::num::NonZeroUsize::get)
+        .clamp(1, MAX_TEXTURE_WORKERS)
+        .min(jobs);
+    let next = AtomicUsize::new(0);
+    let slots = Mutex::new(slots);
+    std::thread::scope(|scope| {
+        for _ in 0..workers {
+            scope.spawn(|| {
+                loop {
+                    let index = next.fetch_add(1, Ordering::Relaxed);
+                    if index >= jobs {
+                        break;
+                    }
+                    let Some(request) = requests.get(index) else {
+                        break;
+                    };
+                    let prepared = PreparedTexture::prepare(
+                        request.image,
+                        request.key.level,
+                        request.key.class,
+                    );
+                    if let Ok(mut slots) = slots.lock()
+                        && let Some(slot) = slots.get_mut(index)
+                    {
+                        *slot = Some(prepared);
+                    }
+                }
+            });
+        }
+    });
+    slots
+        .into_inner()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
 /// The renderer-owned cache from semantic texture identity to GPU textures.
 ///
 /// Two lifetimes, matching the reference renderer's GL caches:
@@ -693,7 +834,7 @@ impl TextureCache {
             ],
         });
         let samplers = Samplers::new(device, anisotropy_supported);
-        let fallback = Arc::new(GpuTexture::upload(
+        let fallback = Arc::new(GpuTexture::upload_prepared(
             device,
             queue,
             &layout,
@@ -703,14 +844,13 @@ impl TextureCache {
                     logical: FALLBACK_TEXTURE_KEY.to_string(),
                     semantic: TextureSemantic::BaseColorDisplay,
                     class: TextureClass::Surface,
-                    // The fallback is 2x2 and never downscaled, so it is
+                    // The fallback sheet is never downscaled, so it is
                     // level-independent; the key only records which level's
                     // metadata describes it.
                     level: QualityLevel::DEFAULT,
                     wrap: TextureWrap::Repeat,
                 },
-                image: &fallback_white_image(),
-                mip_levels: 1,
+                prepared: &PreparedTexture::single(fallback_white_image()),
                 origin: TextureOrigin::Catalog,
                 fallback: true,
             },
@@ -823,7 +963,103 @@ impl TextureCache {
         self.get_or_upload_key(device, queue, key, image, origin)
     }
 
-    /// The shared body of both upload entry points.
+    /// Resolves many textures at once: cache hits immediately, the CPU
+    /// preparation of the misses in parallel, then one serial upload pass.
+    ///
+    /// The returned entries are aligned with `requests`, in request order. The
+    /// heavy CPU work (the quality fit and the box-filtered mip chain) is the
+    /// part that parallelizes; device object creation and
+    /// `Queue::write_texture` run here on the caller's thread, so no GPU handle
+    /// or queue is ever shared. Results are byte-identical to calling
+    /// [`Self::get_or_upload`]/[`Self::get_or_upload_fitted`] once per distinct
+    /// request in order, and a duplicate key inside one batch resolves like the
+    /// serial path: the first occurrence may upload, later occurrences reuse it.
+    #[must_use]
+    pub fn get_or_upload_batch(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        requests: &[TextureUploadRequest<'_>],
+    ) -> Vec<(CacheOutcome, Arc<GpuTexture>)> {
+        enum Plan {
+            /// Already resident: the cache handed out its `Arc`.
+            Resident(Arc<GpuTexture>),
+            /// A miss; the index of its entry in `misses`.
+            Miss(usize),
+            /// A later occurrence of a miss in this batch; the same index.
+            Duplicate(usize),
+        }
+
+        let mut plans: Vec<Plan> = Vec::with_capacity(requests.len());
+        let mut misses: Vec<&TextureUploadRequest<'_>> = Vec::new();
+        // Identity includes the lifetime: the same key can be a catalog entry
+        // and a pack entry, and those are two cache entries.
+        let mut first_pending: HashMap<(&TextureKey, bool), usize> = HashMap::new();
+        for request in requests {
+            if let Some(texture) = self.get(&request.key, request.origin).map(Arc::clone) {
+                plans.push(Plan::Resident(texture));
+                continue;
+            }
+            let identity = (&request.key, request.origin == TextureOrigin::Pack);
+            if let Some(&slot) = first_pending.get(&identity) {
+                plans.push(Plan::Duplicate(slot));
+                continue;
+            }
+            let slot = misses.len();
+            first_pending.insert(identity, slot);
+            misses.push(request);
+            plans.push(Plan::Miss(slot));
+        }
+
+        let prepared = prepare_textures(&misses);
+        crate::perf::startup_mark("textures: CPU prepare");
+
+        let mut uploaded: Vec<(CacheOutcome, Arc<GpuTexture>)> = Vec::with_capacity(misses.len());
+        for (request, slot) in misses.iter().zip(prepared) {
+            // A worker that never filled its slot (only possible if it
+            // panicked, which `thread::scope` would have propagated) falls back
+            // to the identical serial preparation rather than failing.
+            let prepared = slot.unwrap_or_else(|| {
+                PreparedTexture::prepare(request.image, request.key.level, request.key.class)
+            });
+            let texture = Arc::new(GpuTexture::upload_prepared(
+                device,
+                queue,
+                &self.layout,
+                &self.samplers,
+                &TextureUpload {
+                    key: &request.key,
+                    prepared: &prepared,
+                    origin: request.origin,
+                    fallback: false,
+                },
+            ));
+            self.map_mut(request.origin)
+                .insert(request.key.clone(), Arc::clone(&texture));
+            uploaded.push((CacheOutcome::Uploaded, texture));
+        }
+        crate::perf::startup_mark("textures: GPU upload");
+
+        plans
+            .into_iter()
+            .map(|plan| match plan {
+                Plan::Resident(texture) => (CacheOutcome::Reused, texture),
+                // A miss uploaded in this batch reports its upload; a later
+                // occurrence of the same identity is a reuse, exactly like the
+                // serial path.
+                Plan::Miss(slot) => uploaded.get(slot).map_or_else(
+                    || (CacheOutcome::Reused, self.fallback()),
+                    |entry| (entry.0, Arc::clone(&entry.1)),
+                ),
+                Plan::Duplicate(slot) => uploaded.get(slot).map_or_else(
+                    || (CacheOutcome::Reused, self.fallback()),
+                    |entry| (CacheOutcome::Reused, Arc::clone(&entry.1)),
+                ),
+            })
+            .collect()
+    }
+
+    /// The shared body of both single-texture upload entry points.
     ///
     /// The key carries the class and level the fit needs, so no caller can
     /// pass values that disagree with the cache identity.
@@ -838,17 +1074,15 @@ impl TextureCache {
         if let Some(texture) = self.get(&key, origin).map(Arc::clone) {
             return (CacheOutcome::Reused, texture);
         }
-        let fitted = fit_image(image, key.level, key.class);
-        let image: &RawImage = &fitted;
-        let texture = Arc::new(GpuTexture::upload(
+        let prepared = PreparedTexture::prepare(image, key.level, key.class);
+        let texture = Arc::new(GpuTexture::upload_prepared(
             device,
             queue,
             &self.layout,
             &self.samplers,
             &TextureUpload {
                 key: &key,
-                image,
-                mip_levels: mip_level_count(image.width, image.height),
+                prepared: &prepared,
                 origin,
                 fallback: false,
             },
@@ -930,6 +1164,13 @@ fn level_bytes(width: u32, height: u32) -> u64 {
 /// is the average of its 2x2 source block (fewer texels at an odd edge), so a
 /// power-of-two source produces the exact successive averages the reference
 /// generates. Alpha is averaged the same way and never discarded.
+///
+/// This is the startup path's hot loop (a full CPU mip chain per uploaded
+/// sheet), so it works on whole source rows: one bounds check per row and
+/// per output texel instead of an `Option`-returning lookup per source texel.
+/// The arithmetic is the same `(sum + count / 2) / count` average as before,
+/// and a short or ragged buffer yields exactly the same zeros the per-texel
+/// lookup produced.
 #[must_use]
 fn halve_image(source: &RawImage) -> RawImage {
     let width = (source.width / 2).max(1);
@@ -938,42 +1179,72 @@ fn halve_image(source: &RawImage) -> RawImage {
         return RawImage::new(1, 1, vec![255, 255, 255, 255]);
     };
     let mut rgba = vec![0u8; length];
-    for out_y in 0..height {
+
+    // Row pitches as `usize`, saturating at the (impossible for a real image)
+    // conversion limit. The checked `buffer_len` above already proved the
+    // output buffer fits; the source pitch is only used to slice.
+    let source_width = usize::try_from(source.width).unwrap_or(usize::MAX);
+    let source_height = usize::try_from(source.height).unwrap_or(usize::MAX);
+    let source_stride = source_width.saturating_mul(RGBA_CHANNELS);
+    // A zero-width source still contributed one texel per row at offset zero
+    // in the reference arithmetic, so the row window never shrinks below one
+    // texel; a real image's stride is already at least that.
+    let source_window = source_stride.max(RGBA_CHANNELS);
+    let out_width = usize::try_from(width).unwrap_or(usize::MAX);
+    let out_height = usize::try_from(height).unwrap_or(usize::MAX);
+    let out_stride = out_width.saturating_mul(RGBA_CHANNELS);
+
+    for out_y in 0..out_height {
+        let out_start = out_y.saturating_mul(out_stride);
+        let Some(out_row) = rgba.get_mut(out_start..out_start.saturating_add(out_stride)) else {
+            continue;
+        };
+        let out_texels = out_row.as_chunks_mut::<RGBA_CHANNELS>().0;
         let y0 = out_y.saturating_mul(2);
-        let y1 = y0.saturating_add(2).min(source.height.max(1));
-        for out_x in 0..width {
+        let y1 = y0.saturating_add(2).min(source_height.max(1));
+        for out_x in 0..out_width {
             let x0 = out_x.saturating_mul(2);
-            let x1 = x0.saturating_add(2).min(source.width.max(1));
+            let x1 = x0.saturating_add(2).min(source_width.max(1));
             let mut sums = [0u32; 4];
             let mut count = 0u32;
             for y in y0..y1 {
-                for x in x0..x1 {
-                    let Some(texel) = texel(source, x, y) else {
-                        continue;
-                    };
-                    for (sum, channel) in sums.iter_mut().zip(texel) {
-                        *sum = sum.saturating_add(u32::from(channel));
-                    }
+                let row_start = y.saturating_mul(source_stride);
+                let row = source.rgba.get(row_start..).map_or(&[][..], |tail| {
+                    let end = tail.len().min(source_window);
+                    tail.get(..end).unwrap_or_default()
+                });
+                let texels = row.as_chunks::<RGBA_CHANNELS>().0;
+                let Some(block) = texels.get(x0..x1.min(texels.len())) else {
+                    continue;
+                };
+                for texel in block {
+                    let [red, green, blue, alpha] = *texel;
+                    sums[0] = sums[0].saturating_add(u32::from(red));
+                    sums[1] = sums[1].saturating_add(u32::from(green));
+                    sums[2] = sums[2].saturating_add(u32::from(blue));
+                    sums[3] = sums[3].saturating_add(u32::from(alpha));
                     count = count.saturating_add(1);
                 }
             }
             if count == 0 {
                 continue;
             }
-            let Some(offset) = texel_offset(out_x, out_y, width) else {
+            let Some(slot) = out_texels.get_mut(out_x) else {
                 continue;
             };
-            for (index, sum) in sums.iter().enumerate() {
+            // `sum + count / 2` with `count <= 4` and a channel sum <= 4 * 255
+            // can never saturate or divide by zero; the checked forms are the
+            // same arithmetic the exact reference implementation used.
+            let round = |sum: u32| -> u8 {
                 let rounded = sum
                     .saturating_add(count / 2)
                     .checked_div(count)
                     .unwrap_or(0)
                     .min(u32::from(u8::MAX));
-                let value = u8::try_from(rounded).unwrap_or(u8::MAX);
-                if let Some(slot) = rgba.get_mut(offset.saturating_add(index)) {
-                    *slot = value;
-                }
-            }
+                u8::try_from(rounded).unwrap_or(u8::MAX)
+            };
+            let [red, green, blue, alpha] = sums;
+            *slot = [round(red), round(green), round(blue), round(alpha)];
         }
     }
     RawImage::new(width, height, rgba)
@@ -985,26 +1256,6 @@ fn buffer_len(width: u32, height: u32) -> Option<usize> {
         .ok()?
         .checked_mul(usize::try_from(height).ok()?)?
         .checked_mul(usize::try_from(RGBA_BYTES).ok()?)
-}
-
-/// Byte offset of texel `(x, y)` in a tightly packed RGBA8 buffer.
-fn texel_offset(x: u32, y: u32, width: u32) -> Option<usize> {
-    let row = usize::try_from(y)
-        .ok()?
-        .checked_mul(usize::try_from(width).ok()?)?
-        .checked_mul(usize::try_from(RGBA_BYTES).ok()?)?;
-    let column = usize::try_from(x)
-        .ok()?
-        .checked_mul(usize::try_from(RGBA_BYTES).ok()?)?;
-    row.checked_add(column)
-}
-
-/// The four channels of one texel, or `None` outside the image.
-fn texel(source: &RawImage, x: u32, y: u32) -> Option<[u8; 4]> {
-    let offset = texel_offset(x, y, source.width)?;
-    let end = offset.checked_add(usize::try_from(RGBA_BYTES).ok()?)?;
-    let slice = source.rgba.get(offset..end)?;
-    <[u8; 4]>::try_from(slice).ok()
 }
 
 /// Writes one mip level through the queue.
@@ -1251,6 +1502,169 @@ mod tests {
                 current.width,
                 current.height
             );
+        }
+    }
+
+    /// The original per-texel arithmetic, kept as the parity reference of the
+    /// row-slice rewrite: same 2x2 edge-clamped block, same `(sum + count/2) /
+    /// count` rounding, and the same open-coded bounds behaviour on a short or
+    /// degenerate buffer.
+    fn reference_halve(source: &RawImage) -> RawImage {
+        let width = (source.width / 2).max(1);
+        let height = (source.height / 2).max(1);
+        let mut rgba = vec![0u8; (width * height * 4) as usize];
+        for out_y in 0..height {
+            let y0 = out_y.saturating_mul(2);
+            let y1 = y0.saturating_add(2).min(source.height.max(1));
+            for out_x in 0..width {
+                let x0 = out_x.saturating_mul(2);
+                let x1 = x0.saturating_add(2).min(source.width.max(1));
+                let mut sums = [0u32; 4];
+                let mut count = 0u32;
+                for y in y0..y1 {
+                    for x in x0..x1 {
+                        let offset = ((y * source.width + x) * 4) as usize;
+                        let Some(texel) = source.rgba.get(offset..offset + 4) else {
+                            continue;
+                        };
+                        sums[0] += u32::from(texel[0]);
+                        sums[1] += u32::from(texel[1]);
+                        sums[2] += u32::from(texel[2]);
+                        sums[3] += u32::from(texel[3]);
+                        count += 1;
+                    }
+                }
+                if count == 0 {
+                    continue;
+                }
+                let offset = ((out_y * width + out_x) * 4) as usize;
+                for (index, sum) in sums.iter().enumerate() {
+                    rgba[offset + index] = u8::try_from((sum + count / 2) / count).unwrap_or(255);
+                }
+            }
+        }
+        RawImage::new(width, height, rgba)
+    }
+
+    #[test]
+    fn the_row_slice_halving_matches_the_texel_reference_on_every_shape() {
+        for width in 1..=9u32 {
+            for height in 1..=9u32 {
+                let source = image(width, height, |x, y| {
+                    [
+                        u8::try_from((x * 37 + y * 11) % 256).unwrap_or(0),
+                        u8::try_from((x * 5 + y * 29) % 256).unwrap_or(0),
+                        u8::try_from((x * 13 + y * 3) % 256).unwrap_or(0),
+                        u8::try_from((x * 7 + y * 17) % 256).unwrap_or(0),
+                    ]
+                });
+                let fast = halve_image(&source);
+                let reference = reference_halve(&source);
+                assert_eq!(fast.width, reference.width);
+                assert_eq!(fast.height, reference.height);
+                assert_eq!(fast.rgba, reference.rgba, "mismatch at {width}x{height}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_row_slice_halving_matches_the_reference_on_ragged_and_degenerate_input() {
+        // A buffer truncated mid-row must degrade exactly like the per-texel
+        // lookup did.
+        let mut source = image(5, 3, |x, y| [u8::try_from(x + y * 8).unwrap_or(0), 7, 8, 9]);
+        source.rgba.truncate(5 * 4 + 6);
+        assert_eq!(halve_image(&source).rgba, reference_halve(&source).rgba);
+
+        // Zero-size dimensions: the reference arithmetic still read offset
+        // zero, and the rewrite must agree.
+        for (width, height) in [(0, 2), (2, 0), (3, 0), (0, 0)] {
+            let degenerate = RawImage::new(width, height, vec![9, 8, 7, 6]);
+            assert_eq!(
+                halve_image(&degenerate).rgba,
+                reference_halve(&degenerate).rgba,
+                "mismatch at {width}x{height}"
+            );
+        }
+    }
+
+    #[test]
+    fn prepared_textures_match_the_serial_fit_and_chain() {
+        let source = image(300, 180, |x, y| {
+            [
+                u8::try_from((x * 3 + y) % 256).unwrap_or(0),
+                u8::try_from((x + y * 2) % 256).unwrap_or(0),
+                42,
+                u8::try_from((x + y) % 256).unwrap_or(0),
+            ]
+        });
+        for level in QualityLevel::ALL {
+            for class in [
+                TextureClass::Surface,
+                TextureClass::FixtureFace,
+                TextureClass::Prop,
+                TextureClass::EmissionMask,
+            ] {
+                let prepared = PreparedTexture::prepare(&source, level, class);
+                let fitted = fit_image(&source, level, class).into_owned();
+                let mut expected = vec![fitted.clone()];
+                for _ in 1..mip_level_count(fitted.width, fitted.height) {
+                    expected.push(halve_image(expected.last().unwrap()));
+                }
+                assert_eq!(prepared.width, fitted.width);
+                assert_eq!(prepared.height, fitted.height);
+                assert_eq!(prepared.mip_levels, u32::try_from(expected.len()).unwrap());
+                assert_eq!(prepared.levels.len(), expected.len());
+                assert_eq!(prepared.levels, expected);
+                let resident: u64 = expected
+                    .iter()
+                    .map(|image| level_bytes(image.width, image.height))
+                    .sum();
+                assert_eq!(prepared.resident_bytes, resident);
+            }
+        }
+    }
+
+    #[test]
+    fn the_parallel_preparation_matches_the_serial_chain_in_request_order() {
+        let images: Vec<RawImage> = (0..6u32)
+            .map(|index| {
+                image(23 + index, 11 + index, |x, y| {
+                    [
+                        u8::try_from((x + y).wrapping_mul(index)).unwrap_or(0),
+                        5,
+                        6,
+                        7,
+                    ]
+                })
+            })
+            .collect();
+        let requests: Vec<TextureUploadRequest<'_>> = images
+            .iter()
+            .enumerate()
+            .map(|(index, image)| TextureUploadRequest {
+                key: TextureKey {
+                    logical: format!("test:image_{index}"),
+                    semantic: TextureSemantic::BaseColorDisplay,
+                    class: TextureClass::Surface,
+                    level: QualityLevel::High,
+                    wrap: TextureWrap::Repeat,
+                },
+                image,
+                origin: TextureOrigin::Catalog,
+            })
+            .collect();
+        let refs: Vec<&TextureUploadRequest<'_>> = requests.iter().collect();
+        let prepared = prepare_textures(&refs);
+        assert_eq!(prepared.len(), requests.len());
+        for (slot, request) in prepared.iter().zip(&requests) {
+            let serial =
+                PreparedTexture::prepare(request.image, request.key.level, request.key.class);
+            let slot = slot.as_ref().expect("every request has a prepared slot");
+            assert_eq!(slot.width, serial.width);
+            assert_eq!(slot.height, serial.height);
+            assert_eq!(slot.mip_levels, serial.mip_levels);
+            assert_eq!(slot.levels, serial.levels);
+            assert_eq!(slot.resident_bytes, serial.resident_bytes);
         }
     }
 

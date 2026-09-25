@@ -40,13 +40,21 @@ impl SettingsPage {
 
     /// Number of selectable rows on this page.
     ///
-    /// Kept next to [`settings_rows`], which generates exactly this many rows;
-    /// a unit test pins the two together.
+    /// The Graphics page's Advanced group changes the count: collapsed it is
+    /// one row (`Advanced`), expanded it is that row plus Texture Filtering,
+    /// Lightmaps and Reflections. Kept next to [`settings_rows`], which
+    /// generates exactly this many rows; a unit test pins the two together.
     #[must_use]
-    pub const fn item_count(self) -> usize {
+    pub const fn item_count(self, advanced_expanded: bool) -> usize {
         match self {
             Self::Root => 5,
-            Self::Graphics => 7,
+            Self::Graphics => {
+                if advanced_expanded {
+                    8
+                } else {
+                    5
+                }
+            }
             Self::Display => 3,
             Self::Controls => 14,
         }
@@ -70,6 +78,11 @@ pub struct SettingsRow {
 pub enum SettingsRowKind {
     /// A value changed with left/right (Enter adjusts one step too).
     Value(SettingsValue),
+    /// The Graphics page's collapsible Advanced group header.
+    ///
+    /// Enter/Activate expands or collapses the group; left/right is ignored.
+    /// The expansion state is session-only UI state, never persisted.
+    Advanced,
     /// A player-rebindable gameplay binding.
     Binding(&'static str),
     /// A section entry that opens another page.
@@ -118,6 +131,12 @@ pub struct UiState {
     pub settings_idx: usize,
     /// Which Settings page is open (the root by default).
     pub settings_page: SettingsPage,
+    /// Whether the Graphics page's Advanced group is expanded.
+    ///
+    /// Session-only UI state: collapsed by default, reset whenever a Settings
+    /// screen is opened, and never persisted. The three advanced rows
+    /// (Texture Filtering, Lightmaps, Reflections) are hidden while collapsed.
+    pub advanced_expanded: bool,
     pub rebinding_action: Option<&'static str>,
     pub status_message: Option<String>,
     /// True when [`Self::status_message`] describes a failure, so screens can
@@ -166,6 +185,7 @@ fn ui_signature(
     ui_state.pause_menu_idx.hash(&mut hasher);
     ui_state.settings_idx.hash(&mut hasher);
     ui_state.settings_page.hash(&mut hasher);
+    ui_state.advanced_expanded.hash(&mut hasher);
     ui_state.rebinding_action.hash(&mut hasher);
     ui_state.status_message.as_deref().hash(&mut hasher);
     ui_state.status_is_error.hash(&mut hasher);
@@ -190,11 +210,11 @@ fn ui_signature(
     // The *effective* values: a startup override changes what the screen says.
     settings.vsync_enabled().hash(&mut hasher);
     settings.bloom_enabled().hash(&mut hasher);
-    settings.reflections_enabled().hash(&mut hasher);
-    settings.lightmaps_enabled().hash(&mut hasher);
+    settings.reflection_quality().hash(&mut hasher);
+    settings.lightmap_quality().hash(&mut hasher);
     settings.quality_level().hash(&mut hasher);
     settings.window_mode().hash(&mut hasher);
-    settings.texture_filtering.hash(&mut hasher);
+    settings.texture_filtering_preset().hash(&mut hasher);
     settings.window_size().hash(&mut hasher);
     hasher.finish()
 }
@@ -727,8 +747,8 @@ fn selector_with_override(value: &str, overridden: bool) -> String {
 pub const fn any_graphics_override(settings: &Settings) -> bool {
     settings.quality_overridden()
         || settings.bloom_overridden()
-        || settings.reflections_overridden()
-        || settings.lightmaps_overridden()
+        || settings.reflection_quality_overridden()
+        || settings.lightmap_quality_overridden()
         || settings.vsync_overridden()
 }
 
@@ -746,15 +766,18 @@ fn push_row(rows: &mut Vec<SettingsRow>, label: &str, value: String, kind: Setti
 /// This is the single source of truth for the screen: the geometry draws these
 /// rows and [`activate_settings_item`] dispatches on the same list, so the
 /// current value can never be shown without also being the value that changes.
+/// `advanced_expanded` only affects the Graphics page, whose Advanced group
+/// hides its three rows while collapsed.
 #[must_use]
 pub fn settings_rows(
     page: SettingsPage,
     settings: &Settings,
     display: &DisplayStatus,
+    advanced_expanded: bool,
 ) -> Vec<SettingsRow> {
     match page {
         SettingsPage::Root => root_rows(),
-        SettingsPage::Graphics => graphics_rows(settings),
+        SettingsPage::Graphics => graphics_rows(settings, advanced_expanded),
         SettingsPage::Display => display_rows(settings, display),
         SettingsPage::Controls => controls_rows(settings),
     }
@@ -762,7 +785,7 @@ pub fn settings_rows(
 
 /// The Settings root: one entry per section, Restore Defaults and Back.
 fn root_rows() -> Vec<SettingsRow> {
-    let mut rows = Vec::with_capacity(SettingsPage::Root.item_count());
+    let mut rows = Vec::with_capacity(SettingsPage::Root.item_count(false));
     for section in SETTINGS_SECTIONS {
         push_row(
             &mut rows,
@@ -781,9 +804,13 @@ fn root_rows() -> Vec<SettingsRow> {
     rows
 }
 
-/// Graphics: the quality level, then the independent visual toggles.
-fn graphics_rows(settings: &Settings) -> Vec<SettingsRow> {
-    let mut rows = Vec::with_capacity(SettingsPage::Graphics.item_count());
+/// Graphics: the quality level, the always-visible preferences, then the
+/// collapsible Advanced group (Texture Filtering, Lightmaps, Reflections).
+///
+/// The three advanced rows are the only place their values are offered; the
+/// strings are the player-facing labels, never an internal parameter.
+fn graphics_rows(settings: &Settings, advanced_expanded: bool) -> Vec<SettingsRow> {
+    let mut rows = Vec::with_capacity(SettingsPage::Graphics.item_count(advanced_expanded));
     push_row(
         &mut rows,
         "Graphics Quality",
@@ -804,24 +831,6 @@ fn graphics_rows(settings: &Settings) -> Vec<SettingsRow> {
     );
     push_row(
         &mut rows,
-        "Reflections",
-        selector_with_override(
-            on_off(settings.reflections_enabled()),
-            settings.reflections_overridden(),
-        ),
-        SettingsRowKind::Value(SettingsValue::Reflections),
-    );
-    push_row(
-        &mut rows,
-        "Lightmaps",
-        selector_with_override(
-            on_off(settings.lightmaps_enabled()),
-            settings.lightmaps_overridden(),
-        ),
-        SettingsRowKind::Value(SettingsValue::Lightmaps),
-    );
-    push_row(
-        &mut rows,
         "VSync",
         selector_with_override(
             on_off(settings.vsync_enabled()),
@@ -831,17 +840,43 @@ fn graphics_rows(settings: &Settings) -> Vec<SettingsRow> {
     );
     push_row(
         &mut rows,
-        "Texture Filtering",
-        selector(filtering_label(&settings.texture_filtering)),
-        SettingsRowKind::Value(SettingsValue::Filtering),
+        "Advanced",
+        if advanced_expanded { "v" } else { ">" }.to_string(),
+        SettingsRowKind::Advanced,
     );
+    if advanced_expanded {
+        push_row(
+            &mut rows,
+            "Texture Filtering",
+            selector(filtering_label(settings.texture_filtering_preset())),
+            SettingsRowKind::Value(SettingsValue::Filtering),
+        );
+        push_row(
+            &mut rows,
+            "Lightmaps",
+            selector_with_override(
+                settings.lightmap_quality().label(),
+                settings.lightmap_quality_overridden(),
+            ),
+            SettingsRowKind::Value(SettingsValue::Lightmaps),
+        );
+        push_row(
+            &mut rows,
+            "Reflections",
+            selector_with_override(
+                settings.reflection_quality().label(),
+                settings.reflection_quality_overridden(),
+            ),
+            SettingsRowKind::Value(SettingsValue::Reflections),
+        );
+    }
     push_row(&mut rows, "Back", String::new(), SettingsRowKind::Back);
     rows
 }
 
 /// Display: the window mode and, while windowed, the resolution.
 fn display_rows(settings: &Settings, display: &DisplayStatus) -> Vec<SettingsRow> {
-    let mut rows = Vec::with_capacity(SettingsPage::Display.item_count());
+    let mut rows = Vec::with_capacity(SettingsPage::Display.item_count(false));
     push_row(
         &mut rows,
         "Window Mode",
@@ -860,7 +895,7 @@ fn display_rows(settings: &Settings, display: &DisplayStatus) -> Vec<SettingsRow
 
 /// Controls: every bindable action, the control preferences and Back.
 fn controls_rows(settings: &Settings) -> Vec<SettingsRow> {
-    let mut rows = Vec::with_capacity(SettingsPage::Controls.item_count());
+    let mut rows = Vec::with_capacity(SettingsPage::Controls.item_count(false));
     for action in KeyBindings::ACTIONS {
         let key = settings.bindings.get_key(action).unwrap_or("");
         push_row(
@@ -964,7 +999,12 @@ fn settings_item_rows(
     settings: &Settings,
     display: &DisplayStatus,
 ) {
-    let rows = settings_rows(ui_state.settings_page, settings, display);
+    let rows = settings_rows(
+        ui_state.settings_page,
+        settings,
+        display,
+        ui_state.advanced_expanded,
+    );
     let start_y = 44.0;
     let line_h = 13.0;
 
@@ -1005,9 +1045,14 @@ fn settings_item_rows(
 
 /// Cycles, toggles or rebinds the selected settings row.
 ///
-/// Persisting the change is the caller's job (as is applying it to the running
-/// systems), so this stays a pure mutation of the authoritative settings.
-/// Returns what the screen should do next.
+/// `direction` is a left/right step (`-1`/`1`); `0` means Enter/Activate, which
+/// steps a selector forward, toggles the Advanced group, starts a rebind or
+/// opens a section. Persisting the change is the caller's job (as is applying
+/// it to the running systems), so this stays a pure mutation of the
+/// authoritative settings. Returns what the screen should do next.
+///
+/// The Advanced group is deliberately Enter-only: a left/right step over it is
+/// ignored.
 pub fn activate_settings_item(
     page: SettingsPage,
     idx: usize,
@@ -1016,7 +1061,7 @@ pub fn activate_settings_item(
     display: &DisplayStatus,
     direction: i32,
 ) -> SettingsAction {
-    let rows = settings_rows(page, settings, display);
+    let rows = settings_rows(page, settings, display, ui_state.advanced_expanded);
     let Some(row) = rows.get(idx) else {
         return SettingsAction::None;
     };
@@ -1034,11 +1079,37 @@ pub fn activate_settings_item(
             SettingsAction::None
         }
         SettingsRowKind::Back => SettingsAction::Back,
+        SettingsRowKind::Advanced => {
+            if direction == 0 {
+                ui_state.advanced_expanded = !ui_state.advanced_expanded;
+                // Collapsing hides the rows after the header; keep the
+                // selection on a row that still exists.
+                let count = page.item_count(ui_state.advanced_expanded);
+                ui_state.settings_idx = ui_state.settings_idx.min(count.saturating_sub(1));
+            }
+            SettingsAction::None
+        }
         SettingsRowKind::Value(value) => {
-            adjust_value(*value, ui_state, settings, display, direction);
+            let step = if direction == 0 { 1 } else { direction };
+            adjust_value(*value, ui_state, settings, display, step);
             SettingsAction::None
         }
     }
+}
+
+/// Activates the selected settings row with Enter.
+///
+/// This is the action path behind `MenuNavEvent::Activate`; it is exactly
+/// [`activate_settings_item`] with the explicit "activate, not step" direction,
+/// so the Advanced group toggles while left/right over it stays inert.
+pub fn activate_settings_row(
+    page: SettingsPage,
+    idx: usize,
+    ui_state: &mut UiState,
+    settings: &mut Settings,
+    display: &DisplayStatus,
+) -> SettingsAction {
+    activate_settings_item(page, idx, ui_state, settings, display, 0)
 }
 
 /// Applies one left/right or Enter step to an adjustable option.
@@ -1061,28 +1132,32 @@ fn adjust_value(
             ui_state.set_status(format!("Bloom {}", on_off(next).to_lowercase()), false);
         }
         SettingsValue::Reflections => {
-            let next = settings.toggle_reflections();
-            ui_state.set_status(
-                format!("Reflections {}", on_off(next).to_lowercase()),
-                false,
-            );
+            let next = Settings::reflection_quality_step(settings.reflection_quality(), direction);
+            if settings.set_reflection_quality(next) {
+                ui_state.set_status(format!("Reflections: {}", next.label()), false);
+            }
         }
         SettingsValue::Lightmaps => {
-            let next = settings.toggle_lightmaps();
-            ui_state.set_status(format!("Lightmaps {}", on_off(next).to_lowercase()), false);
+            let next = Settings::lightmap_quality_step(settings.lightmap_quality(), direction);
+            if settings.set_lightmap_quality(next) {
+                ui_state.set_status(format!("Lightmaps: {}", next.label()), false);
+            }
         }
         SettingsValue::Vsync => {
             let next = settings.toggle_vsync();
             ui_state.set_status(format!("VSync {}", on_off(next).to_lowercase()), false);
         }
         SettingsValue::Filtering => {
-            let next =
-                crate::settings::texture_filtering_step(&settings.texture_filtering, direction);
-            settings.texture_filtering = next.to_string();
-            ui_state.set_status(
-                format!("Texture filtering: {}", filtering_label(next)),
-                false,
+            let next = crate::settings::texture_filtering_step(
+                settings.texture_filtering_preset(),
+                direction,
             );
+            if settings.set_texture_filtering(next) {
+                ui_state.set_status(
+                    format!("Texture filtering: {}", filtering_label(next)),
+                    false,
+                );
+            }
         }
         SettingsValue::WindowMode => {
             let mode = settings.step_window_mode(direction);
@@ -1220,11 +1295,13 @@ mod tests {
             SettingsPage::Display,
             SettingsPage::Controls,
         ] {
-            assert_eq!(
-                settings_rows(page, &settings, &display).len(),
-                page.item_count(),
-                "{page:?} row count"
-            );
+            for advanced_expanded in [false, true] {
+                assert_eq!(
+                    settings_rows(page, &settings, &display, advanced_expanded).len(),
+                    page.item_count(advanced_expanded),
+                    "{page:?} row count (advanced_expanded = {advanced_expanded})"
+                );
+            }
         }
     }
 
@@ -1232,7 +1309,8 @@ mod tests {
     fn every_settings_row_activates_without_breaking_the_settings() {
         // Walk every page in both directions, including the binding rows
         // (which open a rebind), the value rows (which wrap), the section rows
-        // and Back. Back must be the only row that signals leaving.
+        // and Back. Back must be the only row that signals leaving. The
+        // Graphics page is walked both collapsed and expanded.
         let mut ui = UiState::new();
         let mut settings = Settings::default();
         let display = DisplayStatus::default();
@@ -1242,22 +1320,26 @@ mod tests {
             SettingsPage::Display,
             SettingsPage::Controls,
         ] {
-            for idx in 0..page.item_count() {
-                for direction in [1, -1] {
-                    let action = activate_settings_item(
-                        page,
-                        idx,
-                        &mut ui,
-                        &mut settings,
-                        &display,
-                        direction,
-                    );
-                    assert_eq!(
-                        action == SettingsAction::Back,
-                        idx == page.item_count() - 1,
-                        "page {page:?} row {idx} direction {direction} action {action:?}"
-                    );
-                    ui.cancel_rebinding();
+            for advanced_expanded in [false, true] {
+                ui.advanced_expanded = advanced_expanded;
+                let count = page.item_count(advanced_expanded);
+                for idx in 0..count {
+                    for direction in [1, -1] {
+                        let action = activate_settings_item(
+                            page,
+                            idx,
+                            &mut ui,
+                            &mut settings,
+                            &display,
+                            direction,
+                        );
+                        assert_eq!(
+                            action == SettingsAction::Back,
+                            idx == count - 1,
+                            "page {page:?} row {idx} direction {direction} action {action:?}"
+                        );
+                        ui.cancel_rebinding();
+                    }
                 }
             }
         }
@@ -1280,8 +1362,8 @@ mod tests {
             texture_filtering: "nearest".to_string(),
             quality: "low".to_string(),
             bloom: false,
-            reflections: false,
-            lightmaps: false,
+            reflections: "off".to_string(),
+            lightmaps: "off".to_string(),
             window_mode: "fullscreen".to_string(),
             window_width: 1280,
             window_height: 720,
@@ -1304,7 +1386,7 @@ mod tests {
     }
 
     #[test]
-    fn the_quality_selector_cycles_low_medium_high_and_requests_a_graphics_rebuild() {
+    fn the_quality_selector_cycles_low_medium_high_and_requests_a_graphics() {
         let mut ui = UiState::new();
         let mut settings = Settings::default();
         let display = DisplayStatus::default();
@@ -1323,7 +1405,7 @@ mod tests {
         );
         assert_eq!(settings.quality_level(), QualityLevel::Low);
         assert!(
-            settings.take_pending_apply().graphics_rebuild,
+            settings.take_pending_apply().graphics,
             "Low must rebuild the GPU resources"
         );
 
@@ -1341,7 +1423,7 @@ mod tests {
             "the player's choice is the saved value"
         );
         assert!(
-            settings.take_pending_apply().graphics_rebuild,
+            settings.take_pending_apply().graphics,
             "Medium must rebuild the GPU resources"
         );
 
@@ -1354,7 +1436,7 @@ mod tests {
             1,
         );
         assert_eq!(settings.quality_level(), QualityLevel::High);
-        assert!(settings.take_pending_apply().graphics_rebuild);
+        assert!(settings.take_pending_apply().graphics);
 
         // Left walks the other way.
         activate_settings_item(
@@ -1381,22 +1463,26 @@ mod tests {
         assert_eq!(settings.quality_level(), QualityLevel::Low);
 
         // The row shows the level, never the internal profile name.
-        let rows = settings_rows(SettingsPage::Graphics, &settings, &display);
+        let rows = settings_rows(SettingsPage::Graphics, &settings, &display, false);
         assert_eq!(rows[0].label, "Graphics Quality");
         assert_eq!(rows[0].value, "< Low >");
     }
 
-    /// The Texture Filtering selector is the second three-way selector on the
-    /// Graphics page, and choosing a value never touches Quality.
+    /// The Texture Filtering selector lives in the Advanced group, cycles
+    /// Low/Medium/High and requests the graphics transaction without touching
+    /// the overall Quality label.
     #[test]
     fn the_filtering_selector_cycles_low_medium_high_independently() {
+        /// Quality, Bloom, `VSync`, Advanced, then Filtering.
+        const FILTERING_ROW: usize = 4;
         let mut ui = UiState::new();
+        ui.advanced_expanded = true;
         let mut settings = Settings::default();
         let display = DisplayStatus::default();
 
-        let rows = settings_rows(SettingsPage::Graphics, &settings, &display);
-        assert_eq!(rows[5].label, "Texture Filtering");
-        assert_eq!(rows[5].value, "< High >");
+        let rows = settings_rows(SettingsPage::Graphics, &settings, &display, true);
+        assert_eq!(rows[FILTERING_ROW].label, "Texture Filtering");
+        assert_eq!(rows[FILTERING_ROW].value, "< High >");
 
         // High -> Low -> Medium -> High with right, and the reverse with left.
         for (direction, expected) in [
@@ -1408,7 +1494,7 @@ mod tests {
         ] {
             activate_settings_item(
                 SettingsPage::Graphics,
-                5,
+                FILTERING_ROW,
                 &mut ui,
                 &mut settings,
                 &display,
@@ -1424,13 +1510,13 @@ mod tests {
                 "quality untouched"
             );
             assert!(
-                !settings.take_pending_apply().graphics_rebuild,
-                "filtering swaps sampler handles; it never rebuilds the level"
+                settings.take_pending_apply().graphics,
+                "filtering rides the one graphics transaction"
             );
         }
         assert_eq!(ui.status_message.as_deref(), Some("Texture filtering: Low"));
-        let rows = settings_rows(SettingsPage::Graphics, &settings, &display);
-        assert_eq!(rows[5].value, "< Low >");
+        let rows = settings_rows(SettingsPage::Graphics, &settings, &display, true);
+        assert_eq!(rows[FILTERING_ROW].value, "< Low >");
         assert_eq!(rows[0].value, "< High >", "quality stayed put");
 
         // A legacy stored name steps from its current equivalent and leaves the
@@ -1466,7 +1552,7 @@ mod tests {
             1,
         );
         assert!(!settings.bloom_enabled());
-        assert!(settings.take_pending_apply().renderer_state);
+        assert!(settings.take_pending_apply().graphics);
         assert_eq!(
             settings.quality_level(),
             QualityLevel::Low,
@@ -1482,7 +1568,7 @@ mod tests {
             1,
         );
         assert!(settings.bloom_enabled(), "Bloom comes straight back on");
-        assert!(settings.take_pending_apply().renderer_state);
+        assert!(settings.take_pending_apply().graphics);
     }
 
     #[test]
@@ -1496,7 +1582,7 @@ mod tests {
         settings.overrides.quality = Some(QualityLevel::High);
         settings.overrides.bloom = Some(true);
         let display = DisplayStatus::default();
-        let rows = settings_rows(SettingsPage::Graphics, &settings, &display);
+        let rows = settings_rows(SettingsPage::Graphics, &settings, &display, false);
         assert_eq!(rows[0].value, "< High > *");
         assert_eq!(rows[1].value, "< On > *");
 
@@ -1523,7 +1609,7 @@ mod tests {
         let mut settings = Settings::default();
         settings.bindings.set_key("forward", "I").expect("rebind");
         let display = DisplayStatus::default();
-        let rows = settings_rows(SettingsPage::Controls, &settings, &display);
+        let rows = settings_rows(SettingsPage::Controls, &settings, &display, false);
         assert_eq!(rows[0].label, "Forward");
         assert_eq!(rows[0].value, "I", "the row reads the real binding");
         for action in KeyBindings::ACTIONS {
@@ -1558,10 +1644,11 @@ mod tests {
             ..DisplayStatus::default()
         };
 
-        // VSync: an immediate backend update, not a restart.
+        // VSync: an immediate backend update, not a restart. It is the third
+        // Graphics row, after Graphics Quality and Bloom.
         activate_settings_item(
             SettingsPage::Graphics,
-            4,
+            2,
             &mut ui,
             &mut settings,
             &display,
@@ -1681,7 +1768,7 @@ mod tests {
         let display = DisplayStatus::default();
         activate_settings_item(
             SettingsPage::Graphics,
-            4,
+            2,
             &mut ui,
             &mut settings,
             &display,
@@ -1693,5 +1780,152 @@ mod tests {
             !message.contains("restart"),
             "VSync applies live now: {message}"
         );
+    }
+
+    /// The Graphics page starts with the Advanced group collapsed, and the
+    /// expansion state is plain session UI state.
+    #[test]
+    fn the_advanced_group_starts_collapsed() {
+        let ui = UiState::new();
+        assert!(!ui.advanced_expanded, "collapsed by default");
+        assert_eq!(SettingsPage::Graphics.item_count(false), 5);
+        assert_eq!(SettingsPage::Graphics.item_count(true), 8);
+    }
+
+    /// Enter toggles the Advanced group; left/right over it is ignored, and the
+    /// three hidden rows appear only when expanded.
+    #[test]
+    fn enter_toggles_the_advanced_group_and_left_right_is_ignored() {
+        let mut ui = UiState::new();
+        let mut settings = Settings::default();
+        let display = DisplayStatus::default();
+
+        // Left/right over the header must not change the expansion state.
+        for direction in [-1, 1, -1] {
+            activate_settings_item(
+                SettingsPage::Graphics,
+                3,
+                &mut ui,
+                &mut settings,
+                &display,
+                direction,
+            );
+            assert!(!ui.advanced_expanded, "direction {direction} toggled it");
+        }
+        let rows = settings_rows(SettingsPage::Graphics, &settings, &display, false);
+        assert_eq!(rows[3].label, "Advanced");
+        assert_eq!(rows[3].kind, SettingsRowKind::Advanced);
+        assert_eq!(rows[3].value, ">");
+        assert_eq!(rows[4].label, "Back", "the advanced rows are hidden");
+
+        // Enter expands, and Enter again collapses.
+        assert_eq!(
+            activate_settings_row(SettingsPage::Graphics, 3, &mut ui, &mut settings, &display),
+            SettingsAction::None
+        );
+        assert!(ui.advanced_expanded);
+        assert_eq!(
+            activate_settings_row(SettingsPage::Graphics, 3, &mut ui, &mut settings, &display),
+            SettingsAction::None
+        );
+        assert!(!ui.advanced_expanded);
+    }
+
+    /// The expanded Graphics page exposes exactly the three Advanced rows, in
+    /// order, as player-facing labels and selectors with no numeric internals.
+    #[test]
+    fn the_expanded_advanced_rows_show_only_player_facing_values() {
+        let mut ui = UiState::new();
+        ui.advanced_expanded = true;
+        let settings = Settings::default();
+        let display = DisplayStatus::default();
+        let rows = settings_rows(SettingsPage::Graphics, &settings, &display, true);
+
+        let expected = [
+            ("Graphics Quality", "< High >"),
+            ("Bloom", "< On >"),
+            ("VSync", "< On >"),
+            ("Advanced", "v"),
+            ("Texture Filtering", "< High >"),
+            ("Lightmaps", "< Full >"),
+            ("Reflections", "< Full >"),
+            ("Back", ""),
+        ];
+        assert_eq!(rows.len(), expected.len());
+        for (row, (label, value)) in rows.iter().zip(expected) {
+            assert_eq!(row.label, label);
+            assert_eq!(row.value, value);
+        }
+
+        // No Graphics row may leak an internal number or implementation term;
+        // the three Advanced rows are the ones that could name a parameter.
+        for row in &rows {
+            assert!(
+                !row.value.chars().any(|ch| ch.is_ascii_digit()),
+                "{} shows a numeric internal: {}",
+                row.label,
+                row.value
+            );
+            for internal in ["anisotropy", "aniso", "mip", "atlas", "probe", "sampler"] {
+                assert!(
+                    !row.value.to_lowercase().contains(internal)
+                        && !row.label.to_lowercase().contains(internal),
+                    "{} leaks {internal}",
+                    row.label
+                );
+            }
+        }
+    }
+
+    /// The Advanced selectors are real three-way selectors: each is overridable
+    /// independently of the Quality preset.
+    #[test]
+    fn the_advanced_selectors_cycle_all_three_values() {
+        use crate::quality::{LightmapQuality, ReflectionQuality};
+
+        let mut ui = UiState::new();
+        ui.advanced_expanded = true;
+        let mut settings = Settings::default();
+        settings.set_quality(QualityLevel::Low);
+        let _ = settings.take_pending_apply();
+        let display = DisplayStatus::default();
+
+        // Low starts at Lightmaps Off; right walks Off -> Medium -> Full -> Off.
+        for (direction, expected) in [
+            (1, LightmapQuality::Medium),
+            (1, LightmapQuality::Full),
+            (1, LightmapQuality::Off),
+            (-1, LightmapQuality::Full),
+        ] {
+            activate_settings_item(
+                SettingsPage::Graphics,
+                5,
+                &mut ui,
+                &mut settings,
+                &display,
+                direction,
+            );
+            assert_eq!(settings.lightmap_quality(), expected);
+            assert_eq!(
+                settings.quality_level(),
+                QualityLevel::Low,
+                "the override never moves the quality level"
+            );
+        }
+
+        // Reflections has its own three-way selector at row 6.
+        activate_settings_item(
+            SettingsPage::Graphics,
+            6,
+            &mut ui,
+            &mut settings,
+            &display,
+            1,
+        );
+        assert_eq!(settings.reflection_quality(), ReflectionQuality::Medium);
+        assert_eq!(settings.quality_level(), QualityLevel::Low);
+        let rows = settings_rows(SettingsPage::Graphics, &settings, &display, true);
+        assert_eq!(rows[6].label, "Reflections");
+        assert_eq!(rows[6].value, "< Medium >");
     }
 }

@@ -30,7 +30,7 @@ pub use animation::{
     AnimationEffect, EmissionAnimation, MAX_ANIMATION_DEPTH, MAX_FLICKER_HZ, MAX_PULSE_HZ,
 };
 pub use api::{
-    BuildTimings, LevelBuild, LightmapBuildOptions, build_level_geometry,
+    BuildTimings, GraphicsTransition, LevelBuild, LightmapBuildOptions, build_level_geometry,
     build_level_geometry_timed, build_level_geometry_timed_with_lightmaps,
     build_level_geometry_with_assets, build_level_geometry_with_assets_and_lighting,
     build_level_geometry_with_assets_and_lighting_and_materials, build_level_geometry_with_catalog,

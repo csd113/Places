@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use crate::render::Vertex;
@@ -7,6 +8,162 @@ use crate::ui::{add_rect, draw_text};
 
 /// Update interval for the performance statistics (roughly twice per second).
 pub const PERF_UPDATE_INTERVAL: Duration = Duration::from_millis(500);
+
+// ------------------------------------------------------------- startup trace
+
+/// Maximum number of startup marks the trace keeps.
+///
+/// Startup and the first level upload record a few dozen marks; the fixed
+/// capacity keeps the trace's memory bounded even if a later code path keeps
+/// marking. Marks past the capacity are dropped.
+const STARTUP_MARK_CAPACITY: usize = 64;
+
+/// One recorded startup phase.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StartupMark {
+    /// The caller's phase label.
+    pub name: String,
+    /// Milliseconds from the trace's zero to this mark.
+    pub elapsed_ms: f64,
+    /// Milliseconds from the previous mark (or the zero) to this mark.
+    pub delta_ms: f64,
+}
+
+/// The pure startup timeline behind the process-wide trace.
+///
+/// Deliberately separate from the `PLACES_VERBOSE` gate and the global storage:
+/// the accumulation, the bounded capacity and the report format are exercised
+/// by unit tests without printing anything.
+#[derive(Debug)]
+pub struct StartupTimeline {
+    start: Instant,
+    previous: Instant,
+    marks: Vec<StartupMark>,
+    reported: bool,
+}
+
+impl StartupTimeline {
+    /// A timeline whose zero is `start`.
+    #[must_use]
+    pub const fn begin_at(start: Instant) -> Self {
+        Self {
+            start,
+            previous: start,
+            marks: Vec::new(),
+            reported: false,
+        }
+    }
+
+    /// Records one phase at `now`, dropping it once the capacity is reached.
+    pub fn mark(&mut self, name: &str, now: Instant) {
+        if self.marks.len() >= STARTUP_MARK_CAPACITY {
+            return;
+        }
+        let elapsed_ms = milliseconds(now.saturating_duration_since(self.start));
+        let delta_ms = milliseconds(now.saturating_duration_since(self.previous));
+        self.previous = now;
+        self.marks.push(StartupMark {
+            name: name.to_string(),
+            elapsed_ms,
+            delta_ms,
+        });
+    }
+
+    /// The summarized report at `now`: the total, then one line per mark.
+    #[must_use]
+    pub fn report_lines(&self, now: Instant) -> Vec<String> {
+        let total_ms = milliseconds(now.saturating_duration_since(self.start));
+        let mut lines = Vec::with_capacity(self.marks.len().saturating_add(1));
+        lines.push(format!("[startup] total {total_ms:.1} ms"));
+        for mark in &self.marks {
+            lines.push(format!(
+                "[startup]   {}: +{:.1} ms ({:.1} ms)",
+                mark.name, mark.delta_ms, mark.elapsed_ms
+            ));
+        }
+        lines
+    }
+
+    /// Claims the one report this timeline will print; `false` afterwards.
+    pub const fn claim_report(&mut self) -> bool {
+        if self.reported {
+            return false;
+        }
+        self.reported = true;
+        true
+    }
+}
+
+/// A duration in milliseconds.
+///
+/// `as_secs_f64` is exact enough for a diagnostic at any realistic uptime
+/// (sub-microsecond resolution, and years still fit comfortably in `f64`).
+fn milliseconds(duration: Duration) -> f64 {
+    duration.as_secs_f64() * 1000.0
+}
+
+/// The process-wide startup trace, created on first use.
+static STARTUP: OnceLock<Mutex<StartupTimeline>> = OnceLock::new();
+
+/// The cached `PLACES_VERBOSE` answer.
+///
+/// The switch cannot change mid-process, and a per-texture mark would
+/// otherwise re-read the environment on every call.
+fn startup_verbose() -> bool {
+    static ENABLED: OnceLock<bool> = OnceLock::new();
+    *ENABLED.get_or_init(crate::logging::verbose)
+}
+
+/// The process-wide timeline, begun at the first call that needs it.
+fn startup_timeline() -> &'static Mutex<StartupTimeline> {
+    STARTUP.get_or_init(|| Mutex::new(StartupTimeline::begin_at(Instant::now())))
+}
+
+/// Starts the developer startup trace at the process/setup start.
+///
+/// The first caller — `startup_begin` or a mark — fixes the zero; later calls
+/// keep it, so the function is idempotent. A no-op unless `PLACES_VERBOSE` is
+/// enabled, so a normal launch pays nothing.
+pub fn startup_begin() {
+    if !startup_verbose() {
+        return;
+    }
+    let _ = startup_timeline();
+}
+
+/// Records one startup phase at the current instant.
+///
+/// Prints nothing on its own; [`startup_report`] summarizes. A no-op unless
+/// `PLACES_VERBOSE` is enabled, so a normal launch never takes the lock.
+pub fn startup_mark(name: &str) {
+    if !startup_verbose() {
+        return;
+    }
+    if let Ok(mut timeline) = startup_timeline().lock() {
+        timeline.mark(name, Instant::now());
+    }
+}
+
+/// Prints the one summarized startup table; every later call does nothing.
+///
+/// The table goes through [`crate::logging::info`], so a release launch with
+/// no developer switches stays completely quiet.
+pub fn startup_report() {
+    if !startup_verbose() {
+        return;
+    }
+    let Ok(mut timeline) = startup_timeline().lock() else {
+        return;
+    };
+    if !timeline.claim_report() {
+        return;
+    }
+    let lines = timeline.report_lines(Instant::now());
+    drop(timeline);
+    for line in lines {
+        crate::logging::info(line);
+    }
+}
 
 /// Snapshot of CPU counters for calculating real utilization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

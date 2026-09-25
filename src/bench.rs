@@ -22,11 +22,21 @@
 //! * `frame_ms` — `t_begin` to `t_swap`: the complete frame including the swap.
 //! * `loop_ms` — `t_begin` of this frame to `t_begin` of the next: the real
 //!   presentation cadence, which is what an FPS counter should be derived from.
+//!
+//! Scripted live cycles drive real settings and the real window from the
+//! environment: `PLACES_BENCH_QUALITY_CYCLE` selects the overall quality
+//! preset (which cascades the Advanced settings), `PLACES_BENCH_GRAPHICS_CYCLE`
+//! changes one Advanced graphics value directly
+//! (`filtering=`, `lightmaps=`, `reflections=`, `bloom=`), and
+//! `PLACES_BENCH_WINDOW_CYCLE` performs real resize/minimize/restore calls.
+//! Every entry goes through the same `Settings` setter or window call a player
+//! action does, so a benchmark run measures the production path.
 
 use std::io::Write;
 use std::path::PathBuf;
 use std::time::Instant;
 
+use crate::quality::{LightmapQuality, ReflectionQuality};
 use crate::render::RenderStats;
 
 /// Environment switch that turns every other `PLACES_BENCH_*` option on.
@@ -44,6 +54,23 @@ const BENCH_FRAMES_ENV: &str = "PLACES_BENCH_FRAMES";
 /// renderer's normal graphics rebuild runs. Debug-only; inert unless the
 /// benchmark is enabled.
 const QUALITY_CYCLE_ENV: &str = "PLACES_BENCH_QUALITY_CYCLE";
+
+/// A scripted live Advanced-graphics change, for exercising the Graphics page's
+/// Advanced settings without a keyboard:
+/// `PLACES_BENCH_GRAPHICS_CYCLE=<frame>:<setting>=<value>[,<frame>:<setting>=<value>...]`.
+///
+/// Settings and values:
+/// * `filtering=low|medium|high`
+/// * `lightmaps=off|medium|full`
+/// * `reflections=off|medium|full`
+/// * `bloom=on|off` (`1`/`0`/`true`/`false` are accepted too)
+///
+/// For example: `3:filtering=low,6:lightmaps=full,9:reflections=off,12:bloom=off`.
+/// Each entry runs through the same `Settings` setter the menu uses when
+/// `frame_count` reaches its frame; a direct advanced change is an override and
+/// never cascades the overall quality preset. Malformed entries are ignored.
+/// Debug-only; inert unless the benchmark is enabled.
+const GRAPHICS_CYCLE_ENV: &str = "PLACES_BENCH_GRAPHICS_CYCLE";
 
 /// A scripted live window-event sequence, for the lifecycle matrix:
 /// `PLACES_BENCH_WINDOW_CYCLE=<frame>:<action>[,<frame>:<action>...]`, where
@@ -227,6 +254,55 @@ pub fn parse_window_action(value: &str) -> Option<WindowAction> {
     Some(WindowAction::Resize(width, height))
 }
 
+/// One scripted live graphics-preference change.
+///
+/// The variants mirror the Advanced settings page rows plus Bloom: each is the
+/// player-facing value, never an internal parameter.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GraphicsChange {
+    /// `filtering=<low|medium|high>`: the ordinary world Texture Filtering
+    /// preset (already canonicalized).
+    Filtering(&'static str),
+    /// `lightmaps=<off|medium|full>`.
+    Lightmaps(LightmapQuality),
+    /// `reflections=<off|medium|full>`.
+    Reflections(ReflectionQuality),
+    /// `bloom=<on|off>`.
+    Bloom(bool),
+}
+
+/// Parses one `PLACES_BENCH_GRAPHICS_CYCLE` entry, `[<setting>=<value>]`.
+///
+/// Accepts `filtering=`, `lightmaps=`, `reflections=` and `bloom=` with the
+/// documented values, case-insensitively. Anything else (including a legacy or
+/// unknown name) is `None` and is ignored by the runner, like every other
+/// malformed benchmark value.
+#[must_use]
+pub fn parse_graphics_change(value: &str) -> Option<GraphicsChange> {
+    let (setting, value) = value.split_once('=')?;
+    match setting.trim().to_ascii_lowercase().as_str() {
+        "filtering" => crate::settings::TEXTURE_FILTERING_NAMES
+            .iter()
+            .find(|name| name.eq_ignore_ascii_case(value.trim()))
+            .copied()
+            .map(GraphicsChange::Filtering),
+        "lightmaps" => LightmapQuality::parse(value).map(GraphicsChange::Lightmaps),
+        "reflections" => ReflectionQuality::parse(value).map(GraphicsChange::Reflections),
+        "bloom" => parse_on_off(value).map(GraphicsChange::Bloom),
+        _ => None,
+    }
+}
+
+/// Parses an explicit on/off value: `on`/`off`/`1`/`0`/`true`/`false`.
+#[must_use]
+pub fn parse_on_off(value: &str) -> Option<bool> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "1" | "on" | "true" | "yes" => Some(true),
+        "0" | "off" | "false" | "no" => Some(false),
+        _ => None,
+    }
+}
+
 /// Parses `yaw_degrees` or `yaw_degrees,pitch_degrees`.
 #[must_use]
 pub fn parse_camera(value: &str) -> Option<(f32, f32)> {
@@ -334,6 +410,8 @@ pub struct Bench {
     reported_swap_interval: Option<i32>,
     /// Scripted live quality switches, in ascending frame order.
     quality_cycle: Vec<(u64, crate::quality::QualityLevel)>,
+    /// Scripted live Advanced-graphics changes, in ascending frame order.
+    graphics_cycle: Vec<(u64, GraphicsChange)>,
     /// Scripted live window actions, in ascending frame order.
     window_cycle: Vec<(u64, WindowAction)>,
 }
@@ -372,6 +450,22 @@ impl Bench {
                 })
                 .unwrap_or_default();
         quality_cycle.sort_by_key(|(frame, _)| *frame);
+        let mut graphics_cycle: Vec<(u64, GraphicsChange)> = std::env::var(GRAPHICS_CYCLE_ENV)
+            .ok()
+            .map(|value| {
+                value
+                    .split(',')
+                    .filter_map(|entry| {
+                        let (frame, change) = entry.split_once(':')?;
+                        Some((
+                            frame.trim().parse::<u64>().ok()?,
+                            parse_graphics_change(change)?,
+                        ))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        graphics_cycle.sort_by_key(|(frame, _)| *frame);
         let mut window_cycle: Vec<(u64, WindowAction)> = std::env::var(WINDOW_CYCLE_ENV)
             .ok()
             .map(|value| {
@@ -398,6 +492,7 @@ impl Bench {
             frames: Vec::new(),
             reported_swap_interval: None,
             quality_cycle,
+            graphics_cycle,
             window_cycle,
         }
     }
@@ -424,6 +519,19 @@ impl Bench {
             .iter()
             .find(|(at, _)| *at == frame)
             .map(|(_, level)| *level)
+    }
+
+    /// The Advanced-graphics change a scripted cycle selects at `frame`, if any.
+    ///
+    /// Called by the frame loop next to [`Self::quality_cycle_at`]; the change
+    /// goes through the same [`crate::settings::Settings`] setters a menu row
+    /// uses, so a direct advanced change is an override, never a cascade.
+    #[must_use]
+    pub fn graphics_cycle_at(&self, frame: u64) -> Option<GraphicsChange> {
+        self.graphics_cycle
+            .iter()
+            .find(|(at, _)| *at == frame)
+            .map(|(_, change)| *change)
     }
 
     /// True when `PLACES_BENCH=1` was set, i.e. the harness should be driven.

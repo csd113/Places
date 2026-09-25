@@ -135,9 +135,19 @@ repository sources:
 - `ReflectionRouting`, `ReflectionPlane`: which material reflects from where.
 - `RenderCamera`: the frame's camera.
 - `QualityLevel` (with its two-variant `QualityProfile` content-key boundary),
-  `PostSettings`, `FogState`, `EmissionAnimation`.
+  `LightmapQuality`, `ReflectionQuality`, `PostSettings`, `FogState`,
+  `EmissionAnimation`.
 
 None of these contains a GPU handle; none is constructed by the backend.
+
+`src/settings.rs` owns the persisted player configuration and the runtime
+settings model. Overall Quality (Low / Medium / High) is the preset for the
+three Advanced settings (Texture Filtering, Lightmaps, Reflections): an active
+quality change cascades them, each may then be overridden independently, and
+Bloom and VSync are ordinary independent preferences. `main` reads the
+effective values (session-only `PLACES_*` startup overrides folded in) and
+hands them to the renderer; see [RENDERER.md](RENDERER.md) §12 for the mapping
+and §13 for the startup switches.
 
 ### What the wgpu backend owns (GPU realization)
 
@@ -198,12 +208,16 @@ The pass graph, targets and colour-space rules are detailed in
 surface is:
 
 - **Construction:** `new(window)`.
-- **Lifecycle:** `set_level`, `release_profile_textures`.
+- **Lifecycle:** `set_level` (a new level load), `release_profile_textures`.
 - **Frame inputs:** `set_drawable_size`, `render_scene(RenderCamera)`,
   `render_ui(&[Vertex])`, `finish`, `capture_default_framebuffer`, `present`.
-- **Quality and feature switches:** `set_quality`, `set_lightmaps_requested`,
-  `set_bloom_enabled`, `set_reflections_enabled`, `set_texture_filtering`,
-  `set_culling`.
+- **Quality and feature switches (recording only):** `set_quality`,
+  `set_lightmap_quality`, `set_reflection_quality`, `set_bloom_enabled`,
+  `set_texture_filtering`, `set_culling`.
+- **Graphics transaction:** `apply_graphics(&LoadedLevel)` applies the recorded
+  configuration as one diffed change (see RENDERER.md §12.2);
+  `advance_graphics_transition` / `graphics_transition_status` expose the
+  asynchronous lightmap stage.
 - **Dynamic objects:** `set_dynamic_demo`, `update_dynamic`,
   `dynamic_scene`.
 - **Diagnostics:** neutral counters and logs (`render_stats`, `level_stats`,
