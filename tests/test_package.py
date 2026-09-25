@@ -122,7 +122,7 @@ class RepositoryTests(unittest.TestCase):
 
     def test_crate_metadata_describes_places(self):
         cargo = (PACKAGE / "Cargo.toml").read_text(encoding="utf-8")
-        self.assertIn('name = "liminal-rust"', cargo)
+        self.assertIn('name = "places"', cargo)
         self.assertIn('description = "Places: a slow first-person exploration experience"', cargo)
         self.assertIn('repository = "https://github.com/csd113/Places"', cargo)
 
@@ -1119,7 +1119,7 @@ class SourceHygieneTests(unittest.TestCase):
             "| Look right | `RIGHT` |",
         ):
             self.assertIn(row, readme, f"README is missing the default row {row!r}")
-        # The previous PocketCHIP-oriented defaults must no longer be presented
+        # The previous keyboard defaults must no longer be presented
         # as the normal controls.
         for legacy in (
             "| Walk backward | `Z` |",

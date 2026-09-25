@@ -2017,7 +2017,7 @@ impl LevelManager {
         // Places Demo is always offered. When no installed `places_demo.json`
         // was discovered (no asset tree, or the installed copy is malformed),
         // the embedded copy is exposed as an ordinary entry so the Level Select
-        // menu and `LIMINAL_LEVEL=places_demo` both keep working.
+        // menu and `PLACES_LEVEL=places_demo` both keep working.
         if !discovered.iter().any(|entry| entry.id == DEMO_LEVEL_ID) {
             discovered.push(LevelEntry {
                 id: DEMO_LEVEL_ID.to_string(),

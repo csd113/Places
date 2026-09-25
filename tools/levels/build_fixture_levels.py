@@ -139,7 +139,7 @@ def showcase_level() -> Dict:
         prop("core:washing_machine", 7.1, 0.6, rotation=270.0, solid=True),
         # The loose drum sits in front of the machine's door. In the shipped
         # demo the same model is the dynamic demonstrator (see
-        # src/render/dynamic.rs); here it is an ordinary static placement, so
+        # src/render/common/dynamic.rs); here it is an ordinary static placement, so
         # the shipping tests cover its geometry, budget and lighting.
         prop("core:washer_drum", 6.57, 0.6, rotation=270.0),
     ]
@@ -148,7 +148,7 @@ def showcase_level() -> Dict:
         "format_version": 1,
         "id": "prop_showcase",
         "name": "Prop Showcase (dev)",
-        "author": "Liminal Team",
+        "author": "Places Team",
         "spawn": {"x": -7.6, "z": 1.6, "yaw_degrees": 0.0},
         "defaults": dict(DEFAULTS),
         "rooms": [west, east],
@@ -228,7 +228,7 @@ def stress_level() -> Dict:
         "format_version": 1,
         "id": "prop_stress",
         "name": "Prop Stress Test (dev)",
-        "author": "Liminal Team",
+        "author": "Places Team",
         "spawn": {"x": -11.0, "z": 0.0, "yaw_degrees": 30.0},
         "defaults": dict(DEFAULTS),
         "room": room,

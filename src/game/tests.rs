@@ -533,17 +533,17 @@ fn test_controller_traverses_the_home_split_level_both_ways() {
 /// the output path in the environment:
 ///
 /// ```text
-/// LIMINAL_STAIRS_TRACE=/abs/path/walk.csv \
-///     cargo test --bin liminal-rust capture_stairs_walk_trace -- --ignored
+/// PLACES_STAIRS_TRACE=/abs/path/walk.csv \
+///     cargo test --bin places capture_stairs_walk_trace -- --ignored
 /// ```
 ///
 /// The CSV columns are `phase,frame,x,z,eye_y,floor_y,render_y,step_dy`, and a
 /// `<path>.summary.txt` beside it reports the largest per-frame eye step of
 /// each phase against the authored riser.
 #[test]
-#[ignore = "developer diagnostic; writes a CSV when LIMINAL_STAIRS_TRACE is set"]
+#[ignore = "developer diagnostic; writes a CSV when PLACES_STAIRS_TRACE is set"]
 fn capture_stairs_walk_trace() {
-    let Ok(path) = std::env::var("LIMINAL_STAIRS_TRACE") else {
+    let Ok(path) = std::env::var("PLACES_STAIRS_TRACE") else {
         return;
     };
     let content = std::fs::read_to_string("assets/levels/places_demo.json")
@@ -664,7 +664,10 @@ fn test_controller_walks_a_staircase_smoothly_up() {
     let riser = stair.riser_height();
     let (foot_x, _x1, _z0, _z1) = stair.bounds();
     let top_x = foot_x + stair.length();
-    assert!((riser - 0.2).abs() < 1e-6, "the fixture is 10 by 0.2: {riser}");
+    assert!(
+        (riser - 0.2).abs() < 1e-6,
+        "the fixture is 10 by 0.2: {riser}"
+    );
     let settings = Settings::default();
     let input = InputState::holding(&[Control::MoveForward]);
     let frame_metres = settings.walk_speed / 60.0;

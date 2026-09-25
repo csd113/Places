@@ -1,4 +1,4 @@
-"""Tiny procedural texture painter for the liminal-rust prop pack.
+"""Tiny procedural texture painter for the places prop pack.
 
 Design goals (see ``tools/props/README.md``): 32x32 to 256x256 RGBA canvases
 (256 is the normal native prop-atlas size), no external dependencies (pure

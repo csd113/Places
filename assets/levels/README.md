@@ -2,7 +2,7 @@
 
 `places_demo.json` is the only level bundled with the game. It is discovered at
 startup, appears in the Level Select menu, and is the level the game boots into.
-Boot straight into it with `LIMINAL_LEVEL=places_demo`.
+Boot straight into it with `PLACES_LEVEL=places_demo`.
 
 `assets/levels/` is the shipped-level directory: every `*.json` here is
 packaged. Nothing here is hard-coded, so adding a file adds a menu entry and
@@ -15,7 +15,7 @@ packaged.
 
 | id | name | what it is |
 | --- | --- | --- |
-| `places_demo` | Places Demo | **The showcase.** One continuous route through everything the project does: office → doorways and windows → red stair hall → empty pool → two steps up → quiet corridor → final doorway into the unmade world. Start here. |
+| `places_demo` | Places Demo | **The showcase.** One continuous route through everything the project does: office → doorways and windows → red stair hall → empty pool → two steps up → quiet corridor → Home archway, living area and upper balcony. Start here. |
 
 ## Regression fixtures
 
@@ -48,7 +48,7 @@ directory) when you want it in Level Select:
 
 ```sh
 cp tests/fixtures/levels/home_showcase.json levels/
-LIMINAL_LEVEL=home_showcase cargo run
+PLACES_LEVEL=home_showcase cargo run
 ```
 
 ## Retired shipped levels

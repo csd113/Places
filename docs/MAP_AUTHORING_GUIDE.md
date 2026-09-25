@@ -1,5 +1,7 @@
 # Places Map Authoring Guide
 
+Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
+
 | Field | Value |
 | --- | --- |
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
@@ -72,7 +74,7 @@ When any two sources disagree, resolve in this order:
 4. **Known-good shipped content** — `assets/levels/places_demo.json`,
    `tests/fixtures/levels/*.json`.
 5. **This guide** — update it when 1–4 change.
-6. **Design documents** (e.g. `Places-resolved-design-decisions.md`) — aspirational
+6. **Design proposals** — aspirational
    only. They describe intent, not a contract, and must never be quoted as syntax.
 
 Authoritative paths:
@@ -82,14 +84,14 @@ Authoritative paths:
 | Level schema | `src/level.rs` |
 | Loader / validator | `src/loader.rs` |
 | Collision / walkable floor | `src/collision.rs`, `src/game.rs` |
-| Mesh generation | `src/render.rs`, `src/render/geometry.rs` |
-| Decals | `src/render/decals.rs`, `src/render.rs` |
-| Fixture geometry | `src/render/fixtures.rs`, `src/lighting/tuning.rs` |
-| Prop loading | `src/props.rs`, `src/gltf.rs`, `src/render/props.rs` |
+| Mesh generation | `src/render/common/mod.rs`, `src/render/common/geometry.rs` |
+| Decals | `src/render/common/decals.rs`, `src/render/common/mod.rs` |
+| Fixture geometry | `src/render/common/fixtures.rs`, `src/lighting/tuning.rs` |
+| Prop loading | `src/props.rs`, `src/gltf.rs`, `src/render/common/props.rs` |
 | Lighting bake | `src/lighting/` (bake, visibility, occlusion, lightmap) |
 | Materials / textures | `src/materials/`, `src/assets.rs` |
-| Reflections | `src/render/reflections.rs`, `src/render/renderer.rs` |
-| Post-processing / fog | `src/render/postprocess.rs`, `src/render/atmosphere.rs`, `src/render/framebuffer.rs` |
+| Reflections | `src/render/common/reflections.rs` (routing) and `src/render/opengl/reflections.rs` (probe cubemaps), `src/render/opengl/renderer.rs` |
+| Post-processing / fog | `src/render/common/postprocess.rs`, `src/render/common/atmosphere.rs`, `src/render/common/framebuffer.rs` |
 | Quality profiles / settings | `src/quality.rs`, `src/settings.rs` |
 | Catalog | `assets/catalog.json` |
 | Benchmark level | `assets/levels/places_demo.json` |
@@ -175,11 +177,11 @@ steps 14–17.
 16. **Validate assets.** Run the catalog, texture and prop checks
     ([Validation Workflow](#27-validation-workflow)).
 17. **Run tests and boot the level.** `cargo test --workspace --all-features`, then
-    `LIMINAL_LEVEL=<id> cargo run` and read the console. A level that fails validation
+    `PLACES_LEVEL=<id> cargo run` and read the console. A level that fails validation
     is reported as `[levels] skipping …` at discovery, so read the console even when
     the level is meant to appear in the menu.
 18. **Visual/render validation if available.** Screenshot with
-    `LIMINAL_CAPTURE=frame.png LIMINAL_LEVEL=<id> cargo run` and inspect: no holes, no
+    `PLACES_CAPTURE=frame.png PLACES_LEVEL=<id> cargo run` and inspect: no holes, no
     flicker, no light leaks, no floating props.
 
 **Worked example.** "An abandoned hotel with a flooded basement and dim green emergency
@@ -465,7 +467,7 @@ normally next to the asset root). Both appear in the Level Select menu.
 `tests/fixtures/levels/` is for engine regression fixtures and is never packaged.
 A level file that fails to read, parse or validate is reported at discovery as
 `[levels] skipping {path}: {reason}`, so check the console rather than assuming it is
-absent. `LIMINAL_LEVEL=<id>` boots a specific level and prints validation errors
+absent. `PLACES_LEVEL=<id>` boots a specific level and prints validation errors
 verbatim.
 
 ### Level limits
@@ -1007,7 +1009,7 @@ How the two behave:
 * **They are walking surfaces.** A ramp's height is linear along its run and a
   staircase's is one riser per tread, both measured from the containing room's
   `floor_y`. The player controller steps or slopes over them with the ordinary
-  0.4 m rule, and `LIMINAL_CAPTURE`-style inspection shows exactly what the
+  0.4 m rule, and `PLACES_CAPTURE`-style inspection shows exactly what the
   player stands on.
 * **The step rule runs per movement sub-step**, and a sub-step is at most 0.15 m,
   so the full legal range is walkable at every supported frame rate: at the
@@ -1510,8 +1512,8 @@ Shipped glass materials: `core:glass_window_clear_01`, `core:glass_window_dirty_
 ### Post-processing, fog and grading are engine-global
 
 Bloom, the tone shoulder, distance fog and the colour grade are **not level
-properties**. They are built from the quality profile (`src/render/postprocess.rs`,
-`src/render/atmosphere.rs`) and there is no level key, material field or room field
+properties**. They are built from the quality profile (`src/render/common/postprocess.rs`,
+`src/render/common/atmosphere.rs`) and there is no level key, material field or room field
 that authors them. Two consequences are still useful to a map author:
 
 * **Bloom follows emission, not brightness.** Only a surface whose material (or
@@ -1681,8 +1683,8 @@ entry.)
 | Resource | Where | Purpose |
 | --- | --- | --- |
 | Missing-texture diagnostic (64×64 magenta/black) | `src/materials/image.rs` | Visible fallback for any broken surface/decal/fixture texture. |
-| Generated decal atlas (256×256; only `core:decal_test_01`) | `src/render/decals.rs` | Internal validation marking; the external decal sheets are ordinary PNGs. |
-| White sheet (2×2) | `src/render.rs` | Untextured geometry (fixture housings, UI quads). |
+| Generated decal atlas (256×256; only `core:decal_test_01`) | `src/render/common/decals.rs` | Internal validation marking; the external decal sheets are ordinary PNGs. |
+| White sheet (2×2) | `src/render/common/mod.rs` | Untextured geometry (fixture housings, UI quads). |
 | HUD font atlas (128×64) | `src/font.rs` | Project-owned bitmap UI font. |
 | Lightmap atlas (up to two pages, quality-profile sized) | `src/lighting/lightmap/` | Baked *light data*, derived at level load from the level's own lights and geometry — the texel equivalent of the baked vertex colours it replaces. Not authored artwork, and deliberately not shipped as PNGs: it changes whenever a light, prop or surface moves, and it is regenerated (never re-saved) on load. |
 
@@ -2157,7 +2159,7 @@ storage change, not an authoring one.
 * `settings.json` carries `"lightmaps": true|false` (default `true`), exposed as
   Settings → Graphics → Lightmaps and switched live (the level's lighting is
   rebuilt from the resident definition, with the player state preserved). The
-  environment override `LIMINAL_NO_LIGHTMAPS=1` forces the historical vertex-lit
+  environment override `PLACES_NO_LIGHTMAPS=1` forces the historical vertex-lit
   path for a benchmark or A/B capture run.
 * If a bake cannot fit the page budget, or an atlas page cannot upload, the level
   rebuilds with `LightmapMode::Off` and draws exactly the old vertex-lit colours — a
@@ -2169,7 +2171,7 @@ storage change, not an authoring one.
 * Fixtures, prop placeholder boxes, decals and the dynamic object are vertex-lit:
   their colour keeps the baked light folded in, exactly as before. Glass panes and
   stairs are lightmapped like the wall around them.
-* Set `LIMINAL_DUMP_LIGHTMAPS=1` to write the baked atlas pages as PNGs under
+* Set `PLACES_DUMP_LIGHTMAPS=1` to write the baked atlas pages as PNGs under
   `target/agent-work/atlases/` for inspection.
 
 #### Static props occlude the bake
@@ -2244,7 +2246,7 @@ Four things to know:
   seconds and start at full brightness, so the first frame is always the authored
   image and the same clock reading always produces the same picture. The clock
   advances from the simulation's delta, so a later frame number does not pin the
-  phase of a running animation — only `LIMINAL_CAPTURE_FRAME=1` does.
+  phase of a running animation — only `PLACES_CAPTURE_FRAME=1` does.
 * **Subtle by default.** `depth` is how *far down* the emission goes, so a pulse
   at `0.18` is a 9 % average drop and a flicker at `0.6` stutters to 40 % about a
   tenth of the time.
@@ -2302,11 +2304,11 @@ Fixture geometry is code. To add a family, touch each of these:
    (append only; it is the sheet/pipeline slot), include it in `FixtureKind::ALL`,
    add its `FixtureProfile` (`half_width`, `half_depth`, `quads`), map its logical id
    in `fixture_profile`, and append the id to `LIGHT_FIXTURE_IDS`.
-2. `src/render/fixtures.rs` — implement the family's emitter(s): the visible face
+2. `src/render/common/fixtures.rs` — implement the family's emitter(s): the visible face
    (the fitted PNG) into the `lit` batch, and only genuine untextured body
    geometry (a can, a housing) into `housing`. The office panel has no housing:
    its sheet is the whole fixture.
-3. `src/render/geometry.rs` (`emit_fixtures`) — add the `match` arm that calls the new
+3. `src/render/common/geometry.rs` (`emit_fixtures`) — add the `match` arm that calls the new
    emitter.
 4. Add the PNG under `assets/environment/<theme>/textures/lights/` (POT, opaque,
    match the face aspect).
@@ -2794,7 +2796,7 @@ misplaced.
 **Authoring rule:** do not try to fix it from the level — there is no chart authoring
 control. Report it as an engine bug with the level id and camera position. A
 vertex-lit fallback always exists (`"lightmaps": false` in `settings.json` or
-`LIMINAL_NO_LIGHTMAPS=1`), so a map is never blocked by a bake problem.
+`PLACES_NO_LIGHTMAPS=1`), so a map is never blocked by a bake problem.
 
 ### Fixture Assigned to the Wrong Room / Storey
 
@@ -3041,10 +3043,10 @@ none of them is optional for a change that ships content.
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Strict lints (`AGENTS.md` policy) | **Yes** when code changed |
 | `python3 tools/textures/build.py --check` | Texture/decal/fixture PNGs exist, parse, ≤1024; warns >256 / non-POT | Yes when art changed |
 | `python3 tools/props/build.py --check` | Every catalogued prop GLB exists and parses, and its decoded texture memory fits the per-texture and 64 MiB pack budgets; prints bounds/budget flags | Yes when props changed |
-| `LIMINAL_LEVEL=<id> cargo run` | Boots straight into the level and prints validation errors verbatim | **Yes, once per map** |
-| `LIMINAL_CAPTURE=frame.png LIMINAL_LEVEL=<id> cargo run` | One-frame PNG capture for visual inspection (`LIMINAL_CAPTURE_FRAME=n` waits for frame n first) | Useful |
+| `PLACES_LEVEL=<id> cargo run` | Boots straight into the level and prints validation errors verbatim | **Yes, once per map** |
+| `PLACES_CAPTURE=frame.png PLACES_LEVEL=<id> cargo run` | One-frame PNG capture for visual inspection (`PLACES_CAPTURE_FRAME=n` waits for frame n first) | Useful |
 | `python3 tests/test_package.py` | Repository/package gate: shipped-level checks, texture policy, catalog validation, README hygiene | Recommended before shipping a map into `assets/levels/` |
-| `LIMINAL_DUMP_LIGHTMAPS=1 LIMINAL_LEVEL=<id> cargo run` | Writes the baked atlas pages as PNGs under `target/agent-work/atlases/` | Useful |
+| `PLACES_DUMP_LIGHTMAPS=1 PLACES_LEVEL=<id> cargo run` | Writes the baked atlas pages as PNGs under `target/agent-work/atlases/` | Useful |
 | `python3 tools/textures/seam_repair.py --check <png>` | Tiling seam metric per texture | Yes for new surface art |
 | `tools/bench/README.md` | Index of the current benchmark and capture tools — it is the authoritative, current list | Useful |
 
@@ -3080,21 +3082,21 @@ capture and diagnosis.
 
 | Switch | Effect |
 | --- | --- |
-| `LIMINAL_LEVEL=<id>` | Boot straight into a level and print its validation errors. |
-| `LIMINAL_QUALITY=full\|low` | Draw this run at the named quality profile without editing `settings.json`, so both profiles of the same level can be captured back to back. The Settings screen shows the overridden profile (marked `*`) and changing it there clears the override. |
-| `LIMINAL_CAPTURE=<file.png>` | Write one frame as a PNG and exit. |
-| `LIMINAL_CAPTURE_FRAME=<n>` | Capture frame n (1-based) instead of the first; also pins animation phase. |
-| `LIMINAL_NO_LIGHTMAPS=1` | Force the historical vertex-lit path for this run (overrides the Lightmaps setting). |
-| `LIMINAL_DUMP_LIGHTMAPS=1` | Write the baked atlas pages to `target/agent-work/atlases/`. |
-| `LIMINAL_NO_OFFSCREEN=1` | Draw the 3D scene straight into the window instead of through the offscreen target. **Not pixel-identical any more:** this path skips the planar reflection pass, the reflection-probe binds, bloom and the resolve, and it ignores the Low profile's reduced scene resolution. It exists for benchmark A/B runs and driver bring-up. |
-| `LIMINAL_NO_BLOOM=1` | Keep the resolve pass but drop the emissive bloom pass and blur for this run (overrides the Bloom setting). |
-| `LIMINAL_NO_REFLECTIONS=1` | Report every material as reflection-free: no planar pass, no probe bake, no reflection binds, for this run (overrides the Reflections setting). |
-| `LIMINAL_ASSET_ROOT=<dir>` | Override the directory that contains `assets/`. |
-| `LIMINAL_STATE_ROOT=<dir>` | Override the directory that owns `settings.json`, drop-in `levels/` and `import/`. |
-| `LIMINAL_VERBOSE=1` | Print the developer telemetry (package, asset, level-build, lighting, lightmap and framing lines). Unset, a normal run is silent; problems are still reported once each. |
+| `PLACES_LEVEL=<id>` | Boot straight into a level and print its validation errors. |
+| `PLACES_QUALITY=full\|low` | Draw this run at the named quality profile without editing `settings.json`, so both profiles of the same level can be captured back to back. The Settings screen shows the overridden profile (marked `*`) and changing it there clears the override. |
+| `PLACES_CAPTURE=<file.png>` | Write one frame as a PNG and exit. |
+| `PLACES_CAPTURE_FRAME=<n>` | Capture frame n (1-based) instead of the first; also pins animation phase. |
+| `PLACES_NO_LIGHTMAPS=1` | Force the historical vertex-lit path for this run (overrides the Lightmaps setting). |
+| `PLACES_DUMP_LIGHTMAPS=1` | Write the baked atlas pages to `target/agent-work/atlases/`. |
+| `PLACES_NO_OFFSCREEN=1` | Draw the 3D scene straight into the window instead of through the offscreen target. **Not pixel-identical any more:** this path skips the planar reflection pass, the reflection-probe binds, bloom and the resolve, and it ignores the Low profile's reduced scene resolution. It exists for benchmark A/B runs and driver bring-up. |
+| `PLACES_NO_BLOOM=1` | Keep the resolve pass but drop the emissive bloom pass and blur for this run (overrides the Bloom setting). |
+| `PLACES_NO_REFLECTIONS=1` | Report every material as reflection-free: no planar pass, no probe bake, no reflection binds, for this run (overrides the Reflections setting). |
+| `PLACES_ASSET_ROOT=<dir>` | Override the directory that contains `assets/`. |
+| `PLACES_STATE_ROOT=<dir>` | Override the directory that owns `settings.json`, drop-in `levels/` and `import/`. |
+| `PLACES_VERBOSE=1` | Print the developer telemetry (package, asset, level-build, lighting, lightmap and framing lines). Unset, a normal run is silent; problems are still reported once each. |
 
 A level that fails validation is reported at discovery
-(`[levels] skipping {path}: {reason}`). Always boot with `LIMINAL_LEVEL=<id>` to read
+(`[levels] skipping {path}: {reason}`). Always boot with `PLACES_LEVEL=<id>` to read
 the error in full.
 
 ---
@@ -3184,9 +3186,9 @@ the error in full.
 - [ ] `python3 tools/textures/build.py --check` exits 0 (new art in particular).
 - [ ] `python3 tools/props/build.py --check` exits 0 (new props in particular).
 - [ ] `cargo test --workspace --all-features` passes.
-- [ ] The level boots with `LIMINAL_LEVEL=<id>` with no validation error.
-- [ ] A capture (`LIMINAL_CAPTURE`) has been inspected if practical, at both Full and
-      `LIMINAL_QUALITY=low` if reflections or material response matter.
+- [ ] The level boots with `PLACES_LEVEL=<id>` with no validation error.
+- [ ] A capture (`PLACES_CAPTURE`) has been inspected if practical, at both Full and
+      `PLACES_QUALITY=low` if reflections or material response matter.
 
 ---
 
@@ -3197,7 +3199,7 @@ authoring. They are not invitations to change the engine as part of an authoring
 
 1. **Quality profiles apply at level load.** `settings.json`'s `quality` value is read
    when the renderer is created; changing it mid-session does not re-scale textures
-   already on the GPU. Set it, then load the level — or use `LIMINAL_QUALITY` for one
+   already on the GPU. Set it, then load the level — or use `PLACES_QUALITY` for one
    run.
 2. **Emission reaches surfaces and fixture faces, not decals.** A decal is drawn by
    its own pass, which has no emission term; an `emissive` material used as a
@@ -3221,9 +3223,9 @@ authoring. They are not invitations to change the engine as part of an authoring
    against the schema skeleton and the field tables.
 8. **Invalid levels are reported, then skipped.** Discovery logs
    `[levels] skipping {path}: {reason}`; the level is absent from the menu. Boot with
-   `LIMINAL_LEVEL=<id>` to reproduce.
+   `PLACES_LEVEL=<id>` to reproduce.
 9. **No duplicate-level-id detection.** Two files may both declare `"id": "my_level"`;
-   both appear, and `LIMINAL_LEVEL` picks the first in the deterministic menu order
+   both appear, and `PLACES_LEVEL` picks the first in the deterministic menu order
    (name, then id).
 10. **Spawn outside every room is accepted** and falls back to floor `0.0`. Check it.
 11. **`floor_patches` are dimension-unvalidated.** They are capped at 2000 entries,
@@ -3549,7 +3551,7 @@ A tube that reads bright but casts its dim pool (the demo's far corridor panel):
    uncompressed. Safe extensions: `.exe`, `.sh`, `.bat`, `.so`, `.dylib`, `.dll`,
    `.bin`, `.wasm` are skipped.
 5. Drop the `.zip` into `levels/` (or use the import flow) and boot it with
-   `LIMINAL_LEVEL=<id>`.
+   `PLACES_LEVEL=<id>`.
 
 ```json
 {
@@ -3746,8 +3748,8 @@ A new *fixture id* always needs a code mesh family (section
 
 1. Add the `FixtureKind` variant, index, profile and id mapping in
    `src/lighting/tuning.rs` (append; never reorder `index()`).
-2. Implement the emitter in `src/render/fixtures.rs` and dispatch it in
-   `src/render/geometry.rs::emit_fixtures`.
+2. Implement the emitter in `src/render/common/fixtures.rs` and dispatch it in
+   `src/render/common/geometry.rs::emit_fixtures`.
 3. Add a POT opaque face PNG under
    `assets/environment/<theme>/textures/lights/`.
 4. Add the `light` catalog entry with `model` = the PNG.

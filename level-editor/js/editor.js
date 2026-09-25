@@ -1,6 +1,6 @@
 // editor.js - Canvas interaction for the 2D plan view.
 //
-// This module only translates input into `LiminalOps` calls and preview state; all
+// This module only translates input into `PlacesOps` calls and preview state; all
 // level mutations, geometry and validation live in ops.js / model.js / geometry.js so
 // the 3D viewport, the inspector and the tests share exactly one implementation.
 //
@@ -223,7 +223,7 @@ class Editor {
       case 'light':
         return this.placeAndDrag(() => {
           const options = this.app.toolOptions;
-          const light = LiminalOps.addLight(this.app.level, {
+          const light = PlacesOps.addLight(this.app.level, {
             x: snapped.x,
             z: snapped.z,
             fixture: options.lightFixture,
@@ -239,7 +239,7 @@ class Editor {
             this.app.showPropBrowser(true);
             return null;
           }
-          const prop = LiminalOps.addProp(this.app.level, {
+          const prop = PlacesOps.addProp(this.app.level, {
             model,
             x: snapped.x,
             z: snapped.z,
@@ -249,7 +249,7 @@ class Editor {
         }, 'Add prop');
       case 'spawn':
         return this.placeAndDrag(() => {
-          LiminalOps.setSpawn(this.app.level, {
+          PlacesOps.setSpawn(this.app.level, {
             x: snapped.x,
             z: snapped.z,
             yaw_degrees: Number(this.app.toolOptions.spawnFacing) || this.app.level.spawn.yaw_degrees
@@ -269,7 +269,7 @@ class Editor {
     this.placedId = id;
     this.dragActionLabel = label;
     this.dragInitial.clear();
-    const found = LiminalOps.findObject(this.app.level, id);
+    const found = PlacesOps.findObject(this.app.level, id);
     if (found) this.dragInitial.set(id, { x: found.object.x, z: found.object.z });
     this.select(id);
     this.app.levelChanged();
@@ -290,7 +290,7 @@ class Editor {
       }
     }
 
-    const hit = LiminalOps.hitTest2D(this.app.level, this.snapPoint(this.renderer.screenToWorld(pt.x, pt.y)), this.hitTolerance(), this.app.propCatalog);
+    const hit = PlacesOps.hitTest2D(this.app.level, this.snapPoint(this.renderer.screenToWorld(pt.x, pt.y)), this.hitTolerance(), this.app.propCatalog);
     if (hit) {
       if (additive) this.select(hit.id, true);
       else if (!this.selectedIds.has(hit.id)) this.select(hit.id);
@@ -310,27 +310,27 @@ class Editor {
   }
 
   captureMoveInitial(id) {
-    const opening = LiminalOps.findOpening(this.app.level, id);
+    const opening = PlacesOps.findOpening(this.app.level, id);
     if (opening) {
       this.dragInitial.set(id, { offset: opening.opening.offset });
       return;
     }
-    const found = LiminalOps.findObject(this.app.level, id);
+    const found = PlacesOps.findObject(this.app.level, id);
     if (found) this.dragInitial.set(id, { x: found.object.x, z: found.object.z });
   }
 
   captureResizeInitial(id) {
-    const opening = LiminalOps.findOpening(this.app.level, id);
+    const opening = PlacesOps.findOpening(this.app.level, id);
     if (opening) {
       return { offset: opening.opening.offset, width: opening.opening.width, sill: opening.opening.sill, height: opening.opening.height };
     }
-    const bounds = LiminalOps.objectBounds2D(this.app.level, id, this.app.propCatalog);
+    const bounds = PlacesOps.objectBounds2D(this.app.level, id, this.app.propCatalog);
     return bounds ? { x: bounds.x, z: bounds.z, width: bounds.width, depth: bounds.depth } : null;
   }
 
   /** Size preset for a new opening, honouring the tool option bar. */
   placementSize(kind) {
-    const preset = LiminalOps.defaultOpening(kind);
+    const preset = PlacesOps.defaultOpening(kind);
     const options = this.app.toolOptions || {};
     if (kind === 'window') {
       return {
@@ -351,7 +351,7 @@ class Editor {
 
   /** Door/window: press on a wall, drag along it to set position and width. */
   beginOpeningDrag(snapped) {
-    const wall = LiminalOps.wallAtPoint(this.app.level, snapped, this.hitTolerance(0.35));
+    const wall = PlacesOps.wallAtPoint(this.app.level, snapped, this.hitTolerance(0.35));
     if (!wall) {
       this.app.updateStatus(`Click on a wall to place a ${this.currentTool}`);
       return;
@@ -359,8 +359,8 @@ class Editor {
     // The anchor matches the hover ghost (centred on the click), so a click places
     // the opening exactly where the preview showed it.
     const preset = this.placementSize(this.currentTool);
-    const clicked = this.snap(LiminalGeometry.wallProjectOffset(wall, snapped));
-    const anchor = Math.max(0, Math.min(LiminalGeometry.wallLength(wall) - preset.width, clicked - preset.width / 2));
+    const clicked = this.snap(PlacesGeometry.wallProjectOffset(wall, snapped));
+    const anchor = Math.max(0, Math.min(PlacesGeometry.wallLength(wall) - preset.width, clicked - preset.width / 2));
     this.activeOpening = { wall, kind: this.currentTool, startOffset: anchor };
     this.dragMode = 'opening';
     this.dragInitial.clear();
@@ -373,7 +373,7 @@ class Editor {
     if (!this.activeOpening) return;
     const { wall, kind, startOffset } = this.activeOpening;
     const preset = this.placementSize(kind);
-    const length = LiminalGeometry.wallLength(wall);
+    const length = PlacesGeometry.wallLength(wall);
     const start = Math.max(0, Math.min(startOffset, currentOffset));
     const end = Math.min(length, Math.max(startOffset, currentOffset));
     const width = Math.min(length, Math.max(preset.width, end - start));
@@ -383,7 +383,7 @@ class Editor {
       kind,
       width,
       offset,
-      rect: LiminalOps.openingBounds2D(wall, { offset, width })
+      rect: PlacesOps.openingBounds2D(wall, { offset, width })
     };
   }
 
@@ -419,22 +419,22 @@ class Editor {
 
     // Hover feedback for the door/window tools: show the opening before clicking.
     if ((this.currentTool === 'door' || this.currentTool === 'window') && !this.dragMode) {
-      const wall = LiminalOps.wallAtPoint(this.app.level, snapped, this.hitTolerance(0.35));
+      const wall = PlacesOps.wallAtPoint(this.app.level, snapped, this.hitTolerance(0.35));
       if (!wall) {
         if (this.preview) {
           this.preview = null;
           this.app.requestRender();
         }
       } else {
-        const preset = LiminalOps.defaultOpening(this.currentTool);
-        const offset = this.snap(LiminalGeometry.wallProjectOffset(wall, snapped) - preset.width / 2);
-        const width = Math.min(preset.width, LiminalGeometry.wallLength(wall));
-        const clamped = Math.max(0, Math.min(LiminalGeometry.wallLength(wall) - width, offset));
+        const preset = PlacesOps.defaultOpening(this.currentTool);
+        const offset = this.snap(PlacesGeometry.wallProjectOffset(wall, snapped) - preset.width / 2);
+        const width = Math.min(preset.width, PlacesGeometry.wallLength(wall));
+        const clamped = Math.max(0, Math.min(PlacesGeometry.wallLength(wall) - width, offset));
         this.preview = {
           type: 'opening',
           kind: this.currentTool,
           width,
-          rect: LiminalOps.openingBounds2D(wall, { offset: clamped, width })
+          rect: PlacesOps.openingBounds2D(wall, { offset: clamped, width })
         };
         this.app.requestRender();
       }
@@ -446,13 +446,13 @@ class Editor {
       const level = this.app.level;
       for (const [id, initial] of this.dragInitial) {
         if (initial.offset !== undefined) {
-          const opening = LiminalOps.findOpening(level, id);
+          const opening = PlacesOps.findOpening(level, id);
           if (opening) {
-            const length = LiminalGeometry.wallLength(opening.wall);
+            const length = PlacesGeometry.wallLength(opening.wall);
             opening.opening.offset = Number(Math.max(0, Math.min(length - opening.opening.width, initial.offset + dx)).toFixed(4));
           }
         } else {
-          LiminalOps.moveObjectTo(level, id, Number((initial.x + dx).toFixed(4)), Number((initial.z + dz).toFixed(4)));
+          PlacesOps.moveObjectTo(level, id, Number((initial.x + dx).toFixed(4)), Number((initial.z + dz).toFixed(4)));
         }
       }
       this.app.levelChanged();
@@ -460,7 +460,7 @@ class Editor {
     }
 
     if (this.dragMode === 'resize' && this.resizeTarget) {
-      LiminalOps.resizeObject(this.app.level, this.resizeTarget, this.activeHandle, snapped, this.resizeInitial);
+      PlacesOps.resizeObject(this.app.level, this.resizeTarget, this.activeHandle, snapped, this.resizeInitial);
       this.app.levelChanged();
       return;
     }
@@ -479,14 +479,14 @@ class Editor {
     }
 
     if (this.dragMode === 'opening' && this.activeOpening) {
-      const offset = this.snap(LiminalGeometry.wallProjectOffset(this.activeOpening.wall, snapped));
+      const offset = this.snap(PlacesGeometry.wallProjectOffset(this.activeOpening.wall, snapped));
       this.updateOpeningPreview(offset);
       this.app.requestRender();
       return;
     }
 
     if (this.dragMode === 'place' && this.placedId) {
-      LiminalOps.moveObjectTo(this.app.level, this.placedId, snapped.x, snapped.z);
+      PlacesOps.moveObjectTo(this.app.level, this.placedId, snapped.x, snapped.z);
       this.app.levelChanged();
       return;
     }
@@ -530,7 +530,7 @@ class Editor {
       if (this.marqueeBox && (Math.abs(this.marqueeBox.x2 - this.marqueeBox.x1) > 3 || Math.abs(this.marqueeBox.y2 - this.marqueeBox.y1) > 3)) {
         const w1 = this.renderer.screenToWorld(Math.min(this.marqueeBox.x1, this.marqueeBox.x2), Math.min(this.marqueeBox.y1, this.marqueeBox.y2));
         const w2 = this.renderer.screenToWorld(Math.max(this.marqueeBox.x1, this.marqueeBox.x2), Math.max(this.marqueeBox.y1, this.marqueeBox.y2));
-        const ids = LiminalOps.objectsInRect(this.app.level, {
+        const ids = PlacesOps.objectsInRect(this.app.level, {
           x: Math.min(w1.x, w2.x), z: Math.min(w1.z, w2.z),
           width: Math.abs(w2.x - w1.x), depth: Math.abs(w2.z - w1.z)
         }, this.app.propCatalog);
@@ -569,7 +569,7 @@ class Editor {
         ? { x: snapped.x - 3, z: snapped.z - 3, width: 6, depth: 6 }
         : { x: Math.min(start.x, snapped.x), z: Math.min(start.z, snapped.z), width: Math.abs(snapped.x - start.x), depth: Math.abs(snapped.z - start.z) };
       if (rect.width < 0.5 || rect.depth < 0.5) return;
-      const room = LiminalOps.createRoom(this.app.level, { ...rect, height: this.app.level.getCeilingHeight() });
+      const room = PlacesOps.createRoom(this.app.level, { ...rect, height: this.app.level.getCeilingHeight() });
       if (this.app.toolOptions.roomWalls) this.addWallsAround(rect);
       this.select(room.id);
       this.app.commit('Add room');
@@ -582,19 +582,19 @@ class Editor {
       const height = this.app.toolOptions.wallHeight; // null = full height
       let wall = null;
       if (isClick) {
-        wall = LiminalOps.createWall(this.app.level, {
+        wall = PlacesOps.createWall(this.app.level, {
           x: snapped.x - 1, z: snapped.z - thickness / 2, width: 2, depth: thickness, height
         });
       } else {
         const dx = Math.abs(snapped.x - start.x);
         const dz = Math.abs(snapped.z - start.z);
         if (dx >= dz) {
-          wall = LiminalOps.createWall(this.app.level, {
+          wall = PlacesOps.createWall(this.app.level, {
             x: Math.min(start.x, snapped.x), z: Math.min(start.z, snapped.z) - thickness / 2 + (snapped.z - start.z) / 2,
             width: dx, depth: thickness, height
           });
         } else {
-          wall = LiminalOps.createWall(this.app.level, {
+          wall = PlacesOps.createWall(this.app.level, {
             x: Math.min(start.x, snapped.x) - thickness / 2 + (snapped.x - start.x) / 2, z: Math.min(start.z, snapped.z),
             width: thickness, depth: dz, height
           });
@@ -603,7 +603,7 @@ class Editor {
       if (!wall) return;
       this.select(wall.id);
       this.app.commit('Add wall');
-      this.app.updateStatus(`Wall ${LiminalGeometry.wallLength(wall).toFixed(2)} m added`);
+      this.app.updateStatus(`Wall ${PlacesGeometry.wallLength(wall).toFixed(2)} m added`);
       return;
     }
 
@@ -614,7 +614,7 @@ class Editor {
         width: Math.abs(snapped.x - start.x), depth: Math.abs(snapped.z - start.z)
       };
       if (rect.width < 0.25 || rect.depth < 0.25) return;
-      const patch = LiminalOps.addFloorPatch(this.app.level, { ...rect, material: this.app.toolOptions.patchMaterial });
+      const patch = PlacesOps.addFloorPatch(this.app.level, { ...rect, material: this.app.toolOptions.patchMaterial });
       this.select(patch.id);
       this.app.commit('Add floor patch');
       return;
@@ -624,7 +624,7 @@ class Editor {
 
   /** Creates the four perimeter walls of a room rectangle, skipping duplicates. */
   addWallsAround(rect) {
-    LiminalOps.addWallsAroundRect(this.app.level, rect, {
+    PlacesOps.addWallsAroundRect(this.app.level, rect, {
       thickness: this.app.toolOptions.wallThickness || 0.35,
       height: this.app.level.getCeilingHeight()
     });
@@ -639,7 +639,7 @@ class Editor {
     if (!active) return;
 
     const preset = this.placementSize(active.kind);
-    const opening = LiminalOps.addOpening(active.wall, {
+    const opening = PlacesOps.addOpening(active.wall, {
       kind: active.kind,
       offset: preview ? preview.offset : this.snap(active.startOffset - preset.width / 2),
       width: preview ? preview.width : preset.width,
@@ -659,16 +659,16 @@ class Editor {
   /** Resize handles for the current selection (rectangle objects or opening jambs). */
   hitTestHandle(id, pt) {
     const level = this.app.level;
-    const opening = LiminalOps.findOpening(level, id);
+    const opening = PlacesOps.findOpening(level, id);
     const tolerance = 7;
 
     if (opening) {
       const { wall, opening: value } = opening;
-      const axis = LiminalGeometry.wallAxis(wall);
-      const thickness = LiminalGeometry.wallThickness(wall);
+      const axis = PlacesGeometry.wallAxis(wall);
+      const thickness = PlacesGeometry.wallThickness(wall);
       const mid = thickness / 2;
-      const a = LiminalGeometry.wallLocalToWorld(wall, value.offset, mid);
-      const b = LiminalGeometry.wallLocalToWorld(wall, value.offset + value.width, mid);
+      const a = PlacesGeometry.wallLocalToWorld(wall, value.offset, mid);
+      const b = PlacesGeometry.wallLocalToWorld(wall, value.offset + value.width, mid);
       const sa = this.renderer.worldToScreen(a.x, a.z);
       const sb = this.renderer.worldToScreen(b.x, b.z);
       const candidates = axis === 'x'
@@ -680,7 +680,7 @@ class Editor {
       return null;
     }
 
-    const bounds = LiminalOps.objectBounds2D(level, id, this.app.propCatalog);
+    const bounds = PlacesOps.objectBounds2D(level, id, this.app.propCatalog);
     if (!bounds) return null;
     const s = this.renderer.worldToScreen(bounds.x, bounds.z);
     const w = this.renderer.worldDistToScreen(bounds.width);

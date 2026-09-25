@@ -32,7 +32,7 @@ TARGET = {
     "core:vending_machine": 260,
     "core:water_cooler": 220,
     # Not placed by any level: the dynamic-object demonstrator (see
-    # src/render/dynamic.rs).  It spins about its vertical axis on screen, so
+    # src/render/common/dynamic.rs).  It spins about its vertical axis on screen, so
     # the mouth, rim, basket wall and lifters have to read in motion.
     "core:washer_drum": 170,
 }
@@ -760,7 +760,7 @@ def build_washing_machine(p: PropBuilder) -> None:
 def build_washer_drum(p: PropBuilder) -> None:
     """Open drum basket: shell, rim, inner wall, floor and three lifters.
 
-    The demonstrator for the dynamic-object path (`src/render/dynamic.rs`):
+    The demonstrator for the dynamic-object path (`src/render/common/dynamic.rs`):
     a level spawns it in front of a placed washing machine and turns it about
     its own vertical axis.  Because it is seen in motion from standing height,
     the paint budget goes on the parts that move -- the mouth's rim, the inner

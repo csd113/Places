@@ -2,8 +2,7 @@
 //!
 //! The renderer used to submit one draw per material for the whole level, so a
 //! camera pointed away from a prop field still paid almost the full vertex cost
-//! (measured on the historical `PocketCHIP` target: 400 chairs behind the camera
-//! cost ~28 ms against ~36 ms in front of it). This module provides the two
+//! of invisible geometry. This module provides the two
 //! pieces needed to stop that: a world-space axis-aligned bounding box per
 //! render batch, and a conservative box/frustum intersection test.
 //!
@@ -153,7 +152,7 @@ pub struct CellGrid {
 impl CellGrid {
     /// A square grid with exactly the requested cell size.
     ///
-    /// Used by the `LIMINAL_CELL_METRES` tuning override, which must be able to
+    /// Used by the `PLACES_CELL_METRES` tuning override, which must be able to
     /// sweep *outside* the adaptive range: the clamp below is only a guard
     /// against nonsense values, not a policy.
     #[must_use]

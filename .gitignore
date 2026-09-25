@@ -15,3 +15,5 @@ cache/
 import/
 levels/*.json
 levels/*.zip
+
+.pytest_cache/

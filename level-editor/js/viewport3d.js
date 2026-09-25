@@ -213,14 +213,14 @@
   // ------------------------------------------------------------- utilities
 
   function geometryAPI() {
-    if (root && root.LiminalGeometry) return root.LiminalGeometry;
-    if (typeof LiminalGeometry !== 'undefined') return LiminalGeometry;
+    if (root && root.PlacesGeometry) return root.PlacesGeometry;
+    if (typeof PlacesGeometry !== 'undefined') return PlacesGeometry;
     return null;
   }
 
   function cameraAPI() {
-    if (root && root.LiminalCamera3D) return root.LiminalCamera3D;
-    if (typeof LiminalCamera3D !== 'undefined') return LiminalCamera3D;
+    if (root && root.PlacesCamera3D) return root.PlacesCamera3D;
+    if (typeof PlacesCamera3D !== 'undefined') return PlacesCamera3D;
     return null;
   }
 

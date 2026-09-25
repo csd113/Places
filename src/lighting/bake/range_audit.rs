@@ -65,12 +65,18 @@ impl Texel {
 
     /// The value this sample would have with no static occluder in the way.
     fn open_value(&self) -> LightColor {
-        self.baseline.plus(self.pool_open).plus(self.blend).clamped(AMBIENT_LEVEL, MAX_BRIGHTNESS)
+        self.baseline
+            .plus(self.pool_open)
+            .plus(self.blend)
+            .clamped(AMBIENT_LEVEL, MAX_BRIGHTNESS)
     }
 
     /// The value the measured terms reproduce (must equal [`Self::value`]).
     fn potential(&self) -> LightColor {
-        self.baseline.plus(self.pool).plus(self.blend).clamped(AMBIENT_LEVEL, MAX_BRIGHTNESS)
+        self.baseline
+            .plus(self.pool)
+            .plus(self.blend)
+            .clamped(AMBIENT_LEVEL, MAX_BRIGHTNESS)
     }
 
     /// Light the static occluders remove from this sample, in luminance.
@@ -207,7 +213,13 @@ fn terms_at(
         return (ambient_color(), pool, LightColor::BLACK);
     };
     let baseline = lighting.baseline_in_room(room, point[0], point[2]);
-    let pool = lighting.local_light(&lighting.all_lights, Some(room), point[0], point[1], point[2]);
+    let pool = lighting.local_light(
+        &lighting.all_lights,
+        Some(room),
+        point[0],
+        point[1],
+        point[2],
+    );
     let blend = lighting.blend_delta(room, point[0], point[1], point[2]);
     (baseline, pool, blend)
 }
@@ -226,7 +238,10 @@ fn face_bias(patch: &LightmapPatch) -> [f32; 3] {
     };
     let normal = cross(patch.u_axis, patch.v_axis);
     let length = normal[0]
-        .mul_add(normal[0], normal[1].mul_add(normal[1], normal[2] * normal[2]))
+        .mul_add(
+            normal[0],
+            normal[1].mul_add(normal[1], normal[2] * normal[2]),
+        )
         .sqrt();
     if !length.is_finite() || length <= f32::EPSILON {
         return [0.0; 3];
@@ -341,7 +356,10 @@ fn decomposition_error(texels: &[Texel]) -> f32 {
         .map(|texel| {
             let a = texel.value;
             let b = texel.potential();
-            (a.r - b.r).abs().max((a.g - b.g).abs()).max((a.b - b.b).abs())
+            (a.r - b.r)
+                .abs()
+                .max((a.g - b.g).abs())
+                .max((a.b - b.b).abs())
         })
         .fold(0.0_f32, f32::max)
 }
@@ -359,7 +377,11 @@ fn decomposition_mismatch(texels: &[Texel]) -> f32 {
         .filter(|texel| {
             let a = texel.value;
             let b = texel.potential();
-            (a.r - b.r).abs().max((a.g - b.g).abs()).max((a.b - b.b).abs()) > 0.05
+            (a.r - b.r)
+                .abs()
+                .max((a.g - b.g).abs())
+                .max((a.b - b.b).abs())
+                > 0.05
         })
         .count();
     hits as f32 * 100.0 / texels.len() as f32
@@ -426,8 +448,16 @@ fn print_report(measurement: &Measurement, label: &str) {
     let shadowed_n = shadowed.len();
     println!(
         "[bake-range] occlusion_vs_clamp: texels_with_removal>=0.05={shadowed_n} mostly_hidden(<25% shows)={:.1}% invisible(<0.02 shows)={:.1}%",
-        if shadowed_n == 0 { 0.0 } else { hidden as f32 * 100.0 / shadowed_n as f32 },
-        if shadowed_n == 0 { 0.0 } else { invisible as f32 * 100.0 / shadowed_n as f32 },
+        if shadowed_n == 0 {
+            0.0
+        } else {
+            hidden as f32 * 100.0 / shadowed_n as f32
+        },
+        if shadowed_n == 0 {
+            0.0
+        } else {
+            invisible as f32 * 100.0 / shadowed_n as f32
+        },
     );
 
     let fully: Vec<&Texel> = texels
@@ -437,8 +467,11 @@ fn print_report(measurement: &Measurement, label: &str) {
         })
         .collect();
     if !fully.is_empty() {
-        let open_mean =
-            fully.iter().map(|t| t.open_value().luminance()).sum::<f32>() / fully.len() as f32;
+        let open_mean = fully
+            .iter()
+            .map(|t| t.open_value().luminance())
+            .sum::<f32>()
+            / fully.len() as f32;
         let value_mean = fully.iter().map(|t| t.value_lum()).sum::<f32>() / fully.len() as f32;
         println!(
             "[bake-range] fully_shadowed: n={} open_value_mean={open_mean:.3} shadowed_value_mean={value_mean:.3} loss={:.3} ({:.0}% of open)",
@@ -490,10 +523,7 @@ fn print_report(measurement: &Measurement, label: &str) {
         } else {
             1.0
         };
-        let mut values: Vec<f32> = texels
-            .iter()
-            .map(|t| scaled_value(t, t.pool, k))
-            .collect();
+        let mut values: Vec<f32> = texels.iter().map(|t| scaled_value(t, t.pool, k)).collect();
         let dist = Dist::of(&mut values);
         let clamp = percent(&values, |v| v >= MAX_BRIGHTNESS - 1e-3);
         let hidden = if shadowed_n == 0 {
@@ -586,8 +616,11 @@ fn baked_light_range_audit_report() {
         })
         .collect();
     assert!(fully.len() > 1000, "the demo must contain shadowed samples");
-    let open_mean =
-        fully.iter().map(|t| t.open_value().luminance()).sum::<f32>() / fully.len() as f32;
+    let open_mean = fully
+        .iter()
+        .map(|t| t.open_value().luminance())
+        .sum::<f32>()
+        / fully.len() as f32;
     let shadow_mean = fully.iter().map(|t| t.value_lum()).sum::<f32>() / fully.len() as f32;
     assert!(
         open_mean - shadow_mean > open_mean * 0.35,

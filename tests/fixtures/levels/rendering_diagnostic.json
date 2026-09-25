@@ -2,7 +2,7 @@
   "format_version": 1,
   "id": "rendering_diagnostic",
   "name": "Rendering Diagnostic",
-  "author": "Liminal Team",
+  "author": "Places Team",
   "spawn": { "x": 5.0, "z": 6.5, "yaw_degrees": 0.0 },
   "defaults": {
     "wall": "core:wallpaper_yellow_01",

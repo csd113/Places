@@ -804,7 +804,7 @@ class Level {
   }
 }
 
-// Level Validation logic mirroring liminal-rust loader.rs validate_level
+// Level Validation logic mirroring places loader.rs validate_level
 function openingLabel(kind) {
   switch (kind) {
     case 'window': return 'Window';
@@ -945,7 +945,7 @@ function validateLevel(level) {
     }
   }
 
-  // 4. Geometry limits (liminal-rust limits)
+  // 4. Geometry limits (places limits)
   if (level.rooms.length > 500) {
     errors.push(`Level contains too many rooms: ${level.rooms.length} (limit: 500)`);
   }
@@ -986,7 +986,7 @@ function validateLevel(level) {
     }
 
     // Wall openings (doors, windows, passages, vents). Messages mirror the game
-    // loader so a level the editor accepts is accepted by liminal-rust.
+    // loader so a level the editor accepts is accepted by places.
     const wallLength = Math.max(Math.abs(w.width), Math.abs(w.depth));
     (w.openings || []).forEach((o, j) => {
       const label = openingLabel(o.kind);
@@ -1029,7 +1029,7 @@ function validateLevel(level) {
     }
     // Generic light sources attached to the prop (props[].lights). Messages
     // mirror the game loader so a level the editor accepts is accepted by
-    // liminal-rust.
+    // places.
     const lights = p.lights;
     if (lights !== undefined && lights !== null) {
       if (!Array.isArray(lights)) {
@@ -1131,7 +1131,7 @@ function validateLevel(level) {
 
   // Decals: bounded size, finite placement, known surface and material.
   // Messages mirror the game loader so a level the editor accepts is accepted
-  // by liminal-rust.
+  // by places.
   const decals = level.decals || [];
   if (decals.length > DECAL_MAX_COUNT) {
     errors.push(`Level contains too many decals: ${decals.length} (limit: ${DECAL_MAX_COUNT})`);

@@ -97,7 +97,7 @@ guardrail runs and the curtain cubicle line. A dedicated regression fixture in
 step, the basin floor at -1.5 m), a corridor and a changing bay, cool round
 ceiling lights plus four wall luminaires, the patio table and two chairs, and
 the final NO DIVING decal on the deck and on the north wall. Stage it in a
-`levels/` directory to boot it with `LIMINAL_LEVEL=pool_showcase`.
+`levels/` directory to boot it with `PLACES_LEVEL=pool_showcase`.
 
 ## Decal artwork
 

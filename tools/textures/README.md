@@ -183,4 +183,4 @@ are drawn as cut-outs: the decal pass discards texels below alpha 0.5, so the
 background is alpha 0 and the artwork is the silhouette plus its plate. Fixture
 faces are fitted, not tiled: author the whole face, keep the PNG opaque, and
 match the sheet's aspect to the face the fixture maps (see the mapping table in
-`src/render/fixtures.rs`).
+`src/render/common/fixtures.rs`).

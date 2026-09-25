@@ -1,5 +1,5 @@
 [package]
-name = "liminal-rust"
+name = "places"
 version = "0.7.0"
 edition = "2024"
 rust-version = "1.91"
@@ -9,13 +9,35 @@ repository = "https://github.com/csd113/Places"
 publish = false
 
 [dependencies]
+# Safe zero-copy bytes for the small plain-data GPU structs (world vertex,
+# camera uniform). Already a transitive wgpu dependency; the derive feature
+# makes the layout contract explicit without unsafe transmutation.
+bytemuck = { version = "1.25", default-features = false, features = ["derive"] }
 glam = "0.29"
 glow = "0.16"
 png = "0.18.1"
-sdl2 = { version = "0.38", features = ["use-pkgconfig"] }
+# Blocking adapter/device initialization for the wgpu backend: two futures and
+# no async runtime.
+pollster = "1.0"
+sdl2 = { version = "0.38", features = ["use-pkgconfig", "raw-window-handle"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
+# Stage 4 wgpu bootstrap, Stage 5 world geometry. Only the native desktop
+# backend of each target is compiled: Metal on macOS, Vulkan on Linux,
+# Direct3D 12 on Windows. The GLES, WebGPU and WebGL backends stay off;
+# `render::wgpu` never falls back to GL. `wgsl` is the shader language the
+# Stage 5 world pipeline uses (Stage 4 created no shader module).
+wgpu = { version = "30.0.1", default-features = false, features = ["std", "wgsl"] }
+zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+wgpu = { version = "30.0.1", default-features = false, features = ["vulkan", "wgsl"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+wgpu = { version = "30.0.1", default-features = false, features = ["metal", "wgsl"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+wgpu = { version = "30.0.1", default-features = false, features = ["dx12", "wgsl"] }
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }

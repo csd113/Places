@@ -1,4 +1,4 @@
-"""Shared colour palette for the liminal-rust core prop pack.
+"""Shared colour palette for the places core prop pack.
 
 Every prop in the pack draws its colours from this module so the twenty
 finished assets read as one coherent, faded, institutional/domestic set at

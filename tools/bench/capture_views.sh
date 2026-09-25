@@ -6,26 +6,26 @@
 # are directly comparable. Run from the repository root:
 #
 #     sh tools/bench/capture_views.sh                       # Full profile
-#     LIMINAL_QUALITY=low sh tools/bench/capture_views.sh
-#     LIMINAL_NO_OFFSCREEN=1 sh tools/bench/capture_views.sh
-#     LIMINAL_NO_BLOOM=1 sh tools/bench/capture_views.sh
-#     LIMINAL_NO_REFLECTIONS=1 sh tools/bench/capture_views.sh
+#     PLACES_QUALITY=low sh tools/bench/capture_views.sh
+#     PLACES_NO_OFFSCREEN=1 sh tools/bench/capture_views.sh
+#     PLACES_NO_BLOOM=1 sh tools/bench/capture_views.sh
+#     PLACES_NO_REFLECTIONS=1 sh tools/bench/capture_views.sh
 #
-# `LIMINAL_BIN` overrides the binary, which is how the same view set is captured
+# `PLACES_BIN` overrides the binary, which is how the same view set is captured
 # from a baseline checkout for a before/after pair:
 #
-#     LIMINAL_BIN=target/agent-work/baseline/target/release/liminal-rust \
+#     PLACES_BIN=target/agent-work/baseline/target/release/places \
 #         sh tools/bench/capture_views.sh
 #
-# `LIMINAL_CAPTURE_DIR` overrides the output directory (default
+# `PLACES_CAPTURE_DIR` overrides the output directory (default
 # target/agent-work/captures). Files are named view_<name><suffix>.png; the
 # suffix is built from the environment so a comparison run never overwrites the
-# reference capture. `LIMINAL_BENCH_NOSWAP=1` keeps a capture from blocking on a
+# reference capture. `PLACES_BENCH_NOSWAP=1` keeps a capture from blocking on a
 # display that has gone to sleep; it does not change the pixels.
 set -eu
 
-BIN="${LIMINAL_BIN:-target/release/liminal-rust}"
-OUT="${LIMINAL_CAPTURE_DIR:-target/agent-work/captures}"
+BIN="${PLACES_BIN:-target/release/places}"
+OUT="${PLACES_CAPTURE_DIR:-target/agent-work/captures}"
 mkdir -p "$OUT"
 case "$OUT" in
     /*) OUT_ABS="$OUT" ;;
@@ -33,23 +33,23 @@ case "$OUT" in
 esac
 
 SUFFIX=""
-if [ "${LIMINAL_QUALITY:-full}" = "low" ]; then
+if [ "${PLACES_QUALITY:-full}" = "low" ]; then
     SUFFIX="${SUFFIX}_low"
 fi
-if [ "${LIMINAL_NO_OFFSCREEN:-0}" = "1" ]; then
+if [ "${PLACES_NO_OFFSCREEN:-0}" = "1" ]; then
     SUFFIX="${SUFFIX}_direct"
 fi
-if [ "${LIMINAL_NO_BLOOM:-0}" = "1" ]; then
+if [ "${PLACES_NO_BLOOM:-0}" = "1" ]; then
     SUFFIX="${SUFFIX}_nobloom"
 fi
-if [ "${LIMINAL_NO_REFLECTIONS:-0}" = "1" ]; then
+if [ "${PLACES_NO_REFLECTIONS:-0}" = "1" ]; then
     SUFFIX="${SUFFIX}_norefl"
 fi
 
 # One line per view: <name>:<spawn>:<camera yaw,pitch>:<pause>
 # `spawn` is x,z[,yaw] (or x,y,z,yaw for an elevated spot; the eye height comes
-# from the local floor) and `camera` is the `LIMINAL_CAMERA` override, which
-# needs LIMINAL_BENCH=1 to take effect. `pause` = 1 opens the pause menu.
+# from the local floor) and `camera` is the `PLACES_CAMERA` override, which
+# needs PLACES_BENCH=1 to take effect. `pause` = 1 opens the pause menu.
 VIEWS="
 spawn:::
 office:9.5,3.5,90::
@@ -69,7 +69,7 @@ wet_deck:20.5,10.0,58::
 wet_deck_shallow:20.6,-0.1,10.8,0:0,-25:
 panels_east:23.6,8.2,90::
 plastic_panel:6.0,10.5,0::
-sign_corridor:34.4,13.6,0::
+home_approach:50.8,12.6,90::
 linoleum:13.6,1.6,90::
 drum:28.4,13.6,0:0,-22:
 pause_office:9.5,3.5,90::1
@@ -85,12 +85,13 @@ pool_overview:3.0,10.0,180:135,-18:
 corridor_entry:27.5,13.0,90:90,-4:
 corridor_mid:30.5,13.0,90:90,-4:
 corridor_end:35.0,13.0,90:90,-4:
-final_doorway:31.5,13.0,90:90,-6:
-unmade_world:37.0,13.0,90:90,-4:
-unmade_back:45.0,13.0,90:270,-4:
+home_arch_entry:54.4,12.6,90:90,-2:
+home_main_north:61.0,9.4,0:0,-2:
+home_balcony_east:59.6,12.5,90:90,-6:
 ceiling_office:13.5,3.5,45:45,55:
 "
 
+failures=0
 for view in $VIEWS; do
     name="${view%%:*}"
     rest="${view#*:}"
@@ -98,18 +99,23 @@ for view in $VIEWS; do
     rest="${rest#*:}"
     camera="${rest%%:*}"
     pause="${rest#*:}"
-    set -- env LIMINAL_BENCH=1 LIMINAL_BENCH_NOSWAP=1 LIMINAL_LEVEL=places_demo
+    set -- env PLACES_BENCH=1 PLACES_BENCH_NOSWAP=1 PLACES_LEVEL=places_demo
     if [ -n "$spawn" ]; then
-        set -- "$@" LIMINAL_SPAWN="$spawn"
+        set -- "$@" PLACES_SPAWN="$spawn"
     fi
     if [ -n "$camera" ]; then
-        set -- "$@" LIMINAL_CAMERA="$camera"
+        set -- "$@" PLACES_CAMERA="$camera"
     fi
     if [ "$pause" = "1" ]; then
-        set -- "$@" LIMINAL_PAUSE=1
+        set -- "$@" PLACES_PAUSE=1
     fi
-    set -- "$@" LIMINAL_CAPTURE="$OUT_ABS/view_${name}${SUFFIX}.png" "$BIN"
-    "$@" >/dev/null 2>&1 || echo "FAILED $name" >&2
+    set -- "$@" PLACES_CAPTURE="$OUT_ABS/view_${name}${SUFFIX}.png" "$BIN"
+    if ! "$@" >/dev/null 2>&1; then
+        echo "FAILED $name" >&2
+        failures=$((failures + 1))
+    fi
 done
 
 echo "captures written to $OUT (suffix '${SUFFIX}')"
+
+[ "$failures" -eq 0 ]

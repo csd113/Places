@@ -48,7 +48,7 @@ import lights_art  # noqa: E402
 import office_art  # noqa: E402
 import pool_art  # noqa: E402
 
-# Budgets for the ES 2.0 / Mali-400 target.  256x256 is preferred; 1024x1024
+# Budgets for the current PNG loader.  256x256 is preferred; 1024x1024
 # is the hard ceiling (see the README and assets/README.md).
 PREFERRED_DIMENSION = 256
 HARD_DIMENSION = 1024

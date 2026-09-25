@@ -10,7 +10,7 @@
 //   * Screen pixels are CSS pixels with (0, 0) at the top-left.
 //   * Vector helpers take an optional `out` array; pass one to avoid allocating.
 //
-// Only the `LiminalCamera3D` namespace is attached to the window: the vector
+// Only the `PlacesCamera3D` namespace is attached to the window: the vector
 // and matrix helpers have generic names that must not shadow app globals.
 
 (function (root, factory) {
@@ -19,7 +19,7 @@
     module.exports = api;
   }
   if (root) {
-    root.LiminalCamera3D = api;
+    root.PlacesCamera3D = api;
   }
 })(typeof window !== 'undefined' ? window : null, function () {
   'use strict';

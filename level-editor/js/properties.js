@@ -188,7 +188,7 @@ class PropertiesPanel {
 
   renderLevel() {
     const level = this.app.level;
-    const stats = LiminalGeometry.levelStats(level);
+    const stats = PlacesGeometry.levelStats(level);
     const validation = validateLevel(level);
     const problemCount = validation.errors.length + validation.warnings.length;
 
@@ -286,7 +286,7 @@ class PropertiesPanel {
     if (patch) return this.renderPatch(patch);
     const decal = (level.decals || []).find(d => d.id === id);
     if (decal) return this.renderDecal(decal);
-    const openingRef = LiminalOps.findOpening(level, id);
+    const openingRef = PlacesOps.findOpening(level, id);
     if (openingRef) return this.renderOpening(openingRef.wall, openingRef.opening);
     return null;
   }
@@ -337,12 +337,12 @@ class PropertiesPanel {
   }
 
   renderWall(wall) {
-    const axis = LiminalGeometry.wallAxis(wall);
-    const length = LiminalGeometry.wallLength(wall);
-    const thickness = LiminalGeometry.wallThickness(wall);
+    const axis = PlacesGeometry.wallAxis(wall);
+    const length = PlacesGeometry.wallLength(wall);
+    const thickness = PlacesGeometry.wallThickness(wall);
     const level = this.app.level;
     const fullHeight = wall.height === null || wall.height === undefined;
-    const resolved = LiminalGeometry.wallResolvedHeight(wall, level.getCeilingHeight());
+    const resolved = PlacesGeometry.wallResolvedHeight(wall, level.getCeilingHeight());
 
     return `
       <h4>Wall</h4>
@@ -361,7 +361,7 @@ class PropertiesPanel {
       <div class="list">
         ${wall.openings.map(opening => `
           <div class="list-item">
-            <span class="grow">${this.esc(LiminalGeometry.OPENING_KINDS[opening.kind] ? LiminalGeometry.OPENING_KINDS[opening.kind].label : opening.kind)} · ${this.num(opening.width, 2)} m</span>
+            <span class="grow">${this.esc(PlacesGeometry.OPENING_KINDS[opening.kind] ? PlacesGeometry.OPENING_KINDS[opening.kind].label : opening.kind)} · ${this.num(opening.width, 2)} m</span>
             ${this.button('Edit', 'select-id', { id: opening.id }, 'btn btn-sm')}
             ${this.button('✕', 'remove-opening', { id: opening.id }, 'btn btn-sm')}
           </div>`).join('') || '<p class="hint">No openings yet. With the Door or Window tool, click this wall.</p>'}
@@ -395,16 +395,16 @@ class PropertiesPanel {
   }
 
   renderOpening(wall, opening) {
-    const length = LiminalGeometry.wallLength(wall);
+    const length = PlacesGeometry.wallLength(wall);
     const isWindow = opening.kind === 'window' || opening.kind === 'vent';
-    const preset = LiminalGeometry.OPENING_KINDS[opening.kind] || LiminalGeometry.OPENING_KINDS.door;
+    const preset = PlacesGeometry.OPENING_KINDS[opening.kind] || PlacesGeometry.OPENING_KINDS.door;
     const maxWidth = Math.max(0.2, length - opening.offset);
     return `
       <h4>${this.esc(preset.label)}</h4>
       ${this.header(`${preset.label} in wall · ${this.num(opening.width, 2)} m`, opening.kind, opening.id)}
       <div class="fields">
         ${this.field('Type', `<select data-obj="opening" data-field="kind">
-          ${Object.entries(LiminalGeometry.OPENING_KINDS).map(([kind, def]) =>
+          ${Object.entries(PlacesGeometry.OPENING_KINDS).map(([kind, def]) =>
             `<option value="${kind}"${opening.kind === kind ? ' selected' : ''}>${def.label}</option>`).join('')}
         </select>`)}
       </div>
@@ -584,7 +584,7 @@ class PropertiesPanel {
       else if (level.ceiling_lights.some(l => l.id === id)) counts.light++;
       else if (level.props.some(p => p.id === id)) counts.prop++;
       else if ((level.decals || []).some(d => d.id === id)) counts.decal++;
-      else if (LiminalOps.findOpening(level, id)) counts.opening++;
+      else if (PlacesOps.findOpening(level, id)) counts.opening++;
     }
     const summary = Object.entries(counts).filter(([, n]) => n > 0)
       .map(([kind, n]) => `${n} ${kind}${n === 1 ? '' : 's'}`).join(' · ');
@@ -620,7 +620,7 @@ class PropertiesPanel {
     if (obj === 'spawn') return level.spawn;
     const id = [...this.app.editor.selectedIds][0];
     if (obj === 'opening') {
-      const ref = LiminalOps.findOpening(level, id);
+      const ref = PlacesOps.findOpening(level, id);
       return ref ? ref.opening : null;
     }
     if (obj === 'wall') return level.walls.find(w => w.id === id);
@@ -637,8 +637,8 @@ class PropertiesPanel {
     const target = this.targetFor(obj);
     if (!target) return null;
     const wall = obj === 'wall' ? target : null;
-    if (field === 'length' && wall) return LiminalGeometry.wallLength(wall);
-    if (field === 'thickness' && wall) return LiminalGeometry.wallThickness(wall);
+    if (field === 'length' && wall) return PlacesGeometry.wallLength(wall);
+    if (field === 'thickness' && wall) return PlacesGeometry.wallThickness(wall);
     if (field === 'fullHeight' && wall) return wall.height === null || wall.height === undefined;
     if (field === 'turned') return Math.round(target.rotation_degrees / 90) % 2 !== 0 ? 1 : 0;
     if (field === 'color') return formatLightColor(target.color);
@@ -672,19 +672,19 @@ class PropertiesPanel {
     }
 
     if (field === 'fullHeight') {
-      target.height = value ? null : Math.max(0.1, LiminalGeometry.wallResolvedHeight(target, this.app.level.getCeilingHeight()));
+      target.height = value ? null : Math.max(0.1, PlacesGeometry.wallResolvedHeight(target, this.app.level.getCeilingHeight()));
     } else if (field === 'length') {
       const length = Math.max(0.05, Number(value) || 0.05);
-      const axis = LiminalGeometry.wallAxis(target);
+      const axis = PlacesGeometry.wallAxis(target);
       if (axis === 'x') target.width = length; else target.depth = length;
-      LiminalOps.clampWallOpenings(target);
+      PlacesOps.clampWallOpenings(target);
     } else if (field === 'thickness') {
       const thickness = Math.max(0.05, Number(value) || 0.05);
-      const axis = LiminalGeometry.wallAxis(target);
+      const axis = PlacesGeometry.wallAxis(target);
       if (axis === 'x') target.depth = thickness; else target.width = thickness;
     } else if (field === 'x' || field === 'z' || field === 'width' || field === 'depth') {
       target[field] = Number(value);
-      if (target.openings) LiminalOps.clampWallOpenings(target);
+      if (target.openings) PlacesOps.clampWallOpenings(target);
     } else if (field === 'turned') {
       target.rotation_degrees = value ? 90 : 0;
     } else if (field === 'color') {
@@ -703,7 +703,7 @@ class PropertiesPanel {
       target.size = size;
     } else if (field === 'kind') {
       target.kind = value;
-      const preset = LiminalGeometry.OPENING_KINDS[value];
+      const preset = PlacesGeometry.OPENING_KINDS[value];
       if (preset) {
         target.sill = preset.sill;
         target.height = preset.height;
@@ -728,10 +728,10 @@ class PropertiesPanel {
   /** Keeps openings inside their wall as the user types. */
   validateLive(target, obj) {
     if (obj !== 'opening') return;
-    const ref = LiminalOps.findOpening(this.app.level, target.id);
+    const ref = PlacesOps.findOpening(this.app.level, target.id);
     if (!ref) return;
-    const length = LiminalGeometry.wallLength(ref.wall);
-    const height = LiminalGeometry.wallResolvedHeight(ref.wall, this.app.level.getCeilingHeight());
+    const length = PlacesGeometry.wallLength(ref.wall);
+    const height = PlacesGeometry.wallResolvedHeight(ref.wall, this.app.level.getCeilingHeight());
     target.width = Math.max(0.2, Math.min(length, target.width));
     target.offset = Math.max(0, Math.min(length - target.width, target.offset));
     target.sill = Math.max(0, Math.min(Math.max(0, height - 0.2), target.sill));
@@ -788,7 +788,7 @@ class PropertiesPanel {
         app.editor.select(data.id);
         return;
       case 'select-wall': {
-        const ref = LiminalOps.findOpening(app.level, id);
+        const ref = PlacesOps.findOpening(app.level, id);
         if (ref) app.editor.select(ref.wall.id);
         return;
       }
@@ -823,7 +823,7 @@ class PropertiesPanel {
         app.commit('Set spawn facing');
         return;
       case 'remove-opening':
-        LiminalOps.removeOpening(app.level, data.id);
+        PlacesOps.removeOpening(app.level, data.id);
         app.editor.clearSelection();
         app.levelChanged();
         app.commit('Remove opening');
@@ -831,10 +831,10 @@ class PropertiesPanel {
       case 'add-opening': {
         const wall = app.level.walls.find(w => w.id === id);
         if (!wall) return;
-        const preset = LiminalOps.defaultOpening(data.kind);
-        const opening = LiminalOps.addOpening(wall, {
+        const preset = PlacesOps.defaultOpening(data.kind);
+        const opening = PlacesOps.addOpening(wall, {
           kind: data.kind,
-          offset: Math.max(0, (LiminalGeometry.wallLength(wall) - preset.width) / 2),
+          offset: Math.max(0, (PlacesGeometry.wallLength(wall) - preset.width) / 2),
           width: preset.width,
           height: preset.height,
           sill: preset.sill
@@ -862,7 +862,7 @@ class PropertiesPanel {
       case 'multi-move': {
         const dx = Number(this.container.querySelector('#multi-dx').value) || 0;
         const dz = Number(this.container.querySelector('#multi-dz').value) || 0;
-        LiminalOps.moveObjects(app.level, [...app.editor.selectedIds], dx, dz);
+        PlacesOps.moveObjects(app.level, [...app.editor.selectedIds], dx, dz);
         app.levelChanged();
         app.commit('Move selection');
         return;

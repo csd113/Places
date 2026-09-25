@@ -1941,11 +1941,8 @@ impl LevelLighting {
                 continue;
             }
             let falloff = light.falloff().factor(distance_squared.sqrt() / range);
-            let strength = LOCAL_LIGHT_STRENGTH
-                * light.intensity()
-                * light.height_factor
-                * falloff
-                * visible;
+            let strength =
+                LOCAL_LIGHT_STRENGTH * light.intensity() * light.height_factor * falloff * visible;
             sum = LightColor {
                 r: strength.mul_add(light.color().r, sum.r),
                 g: strength.mul_add(light.color().g, sum.g),

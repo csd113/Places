@@ -267,7 +267,7 @@ class Renderer {
     const ctx = this.ctx;
     for (const wall of level.walls) {
       const selected = editorState.selectedIds.has(wall.id);
-      const rects = LiminalGeometry.wallSolidRects2D(wall, defaultCeiling);
+      const rects = PlacesGeometry.wallSolidRects2D(wall, defaultCeiling);
       const raised = wall.y > 0.001;
       // Walls read as their material, so material choices are visible at a glance.
       const fill = raised
@@ -285,10 +285,10 @@ class Renderer {
       }
 
       if (this.showHeightBadges && this.zoom >= 12) {
-        const rect = LiminalGeometry.wallSolidRects2D(wall, defaultCeiling)[0];
+        const rect = PlacesGeometry.wallSolidRects2D(wall, defaultCeiling)[0];
         if (rect) {
           const s = this.worldToScreen(rect.x, rect.z);
-          const height = LiminalGeometry.wallResolvedHeight(wall, defaultCeiling);
+          const height = PlacesGeometry.wallResolvedHeight(wall, defaultCeiling);
           ctx.font = '10px ui-monospace, monospace';
           ctx.fillStyle = 'rgba(220, 200, 140, 0.8)';
           ctx.textAlign = 'center';
@@ -309,11 +309,11 @@ class Renderer {
       for (const opening of wall.openings) {
         const selected = editorState.selectedIds.has(opening.id);
         const hovered = editorState.hoverOpeningId === opening.id;
-        const rect = LiminalOps.openingBounds2D(wall, opening);
+        const rect = PlacesOps.openingBounds2D(wall, opening);
         const s = this.worldToScreen(rect.x, rect.z);
         const w = this.worldDistToScreen(rect.width);
         const h = this.worldDistToScreen(rect.depth);
-        const preset = LiminalGeometry.OPENING_KINDS[opening.kind] || LiminalGeometry.OPENING_KINDS.door;
+        const preset = PlacesGeometry.OPENING_KINDS[opening.kind] || PlacesGeometry.OPENING_KINDS.door;
         const color = `rgb(${preset.color.map(v => Math.round(v * 255)).join(',')})`;
 
         // A doorway reads as a gap in the wall; a window keeps its sill line.
@@ -325,7 +325,7 @@ class Renderer {
         ctx.fillRect(s.x, s.y, Math.max(1, w), Math.max(1, h));
         if (opening.sill > 0.01) {
           ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
-          const along = LiminalGeometry.wallAxis(wall) === 'x';
+          const along = PlacesGeometry.wallAxis(wall) === 'x';
           if (along) ctx.fillRect(s.x, s.y + h / 2 - 1, w, 2);
           else ctx.fillRect(s.x + w / 2 - 1, s.y, 2, h);
         }
@@ -386,7 +386,7 @@ class Renderer {
     for (const prop of level.props) {
       const selected = editorState.selectedIds.has(prop.id);
       const entry = catalog && typeof catalog.get === 'function' ? catalog.get(prop.model) : null;
-      const size = LiminalGeometry.propSize(prop, catalog);
+      const size = PlacesGeometry.propSize(prop, catalog);
       const s = this.worldToScreen(prop.x, prop.z);
       const w = this.worldDistToScreen(size[0]);
       const d = this.worldDistToScreen(size[2]);
@@ -482,7 +482,7 @@ class Renderer {
       const s = this.worldToScreen(rect.x, rect.z);
       const w = this.worldDistToScreen(rect.width);
       const h = this.worldDistToScreen(rect.depth);
-      const preset = LiminalGeometry.OPENING_KINDS[preview.kind] || LiminalGeometry.OPENING_KINDS.door;
+      const preset = PlacesGeometry.OPENING_KINDS[preview.kind] || PlacesGeometry.OPENING_KINDS.door;
       const color = `rgb(${preset.color.map(v => Math.round(v * 255)).join(',')})`;
       ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
       ctx.fillRect(s.x, s.y, w, h);
@@ -512,7 +512,7 @@ class Renderer {
     if (!ids || ids.size === 0) return;
 
     for (const id of ids) {
-      const bounds = LiminalOps.objectBounds2D(level, id, catalog);
+      const bounds = PlacesOps.objectBounds2D(level, id, catalog);
       if (!bounds) continue;
       const s = this.worldToScreen(bounds.x, bounds.z);
       const w = this.worldDistToScreen(bounds.width);

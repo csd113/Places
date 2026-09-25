@@ -15,13 +15,13 @@
 (function (root, factory) {
   const deps = (typeof module !== 'undefined' && module.exports)
     ? { model: require('./model.js'), geometry: require('./geometry.js') }
-    : { model: root, geometry: root.LiminalGeometry };
+    : { model: root, geometry: root.PlacesGeometry };
   const api = factory(deps.model, deps.geometry);
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = api;
   }
   if (root) {
-    root.LiminalOps = api;
+    root.PlacesOps = api;
     root.Ops = api;
   }
 })(typeof window !== 'undefined' ? window : null, function (model, geometry) {

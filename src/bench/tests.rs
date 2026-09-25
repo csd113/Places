@@ -26,6 +26,50 @@ fn parse_vsync_override_maps_human_words() {
 }
 
 #[test]
+fn parse_window_action_accepts_the_documented_set() {
+    assert_eq!(
+        parse_window_action("resize:800x450"),
+        Some(WindowAction::Resize(800, 450))
+    );
+    assert_eq!(
+        parse_window_action(" resize: 640 x 360 "),
+        Some(WindowAction::Resize(640, 360))
+    );
+    assert_eq!(
+        parse_window_action("Minimize"),
+        Some(WindowAction::Minimize)
+    );
+    assert_eq!(parse_window_action("restore"), Some(WindowAction::Restore));
+    for malformed in [
+        "",
+        "resize",
+        "resize:0x10",
+        "resize:10x0",
+        "resize:axb",
+        "maximize",
+    ] {
+        assert_eq!(parse_window_action(malformed), None, "{malformed}");
+    }
+}
+
+#[test]
+fn a_scripted_window_cycle_selects_actions_by_frame() {
+    let mut bench = Bench::new();
+    bench.window_cycle = vec![
+        (3, WindowAction::Resize(800, 450)),
+        (6, WindowAction::Minimize),
+        (9, WindowAction::Restore),
+    ];
+    assert_eq!(
+        bench.window_cycle_at(3),
+        Some(WindowAction::Resize(800, 450))
+    );
+    assert_eq!(bench.window_cycle_at(6), Some(WindowAction::Minimize));
+    assert_eq!(bench.window_cycle_at(9), Some(WindowAction::Restore));
+    assert_eq!(bench.window_cycle_at(4), None);
+}
+
+#[test]
 fn timing_summary_handles_empty_and_single_samples() {
     let empty = TimingSummary::from_samples(&mut []);
     assert_exact(empty.median_ms, 0.0);
@@ -52,7 +96,7 @@ fn timing_summary_percentiles_use_nearest_rank() {
 #[test]
 fn disabled_bench_records_nothing_and_holds_no_file() {
     let saved = std::env::var(BENCH_ENV).ok();
-    // SAFETY: no other test in this binary reads LIMINAL_BENCH.
+    // SAFETY: no other test in this binary reads PLACES_BENCH.
     unsafe { std::env::remove_var(BENCH_ENV) };
     let mut bench = Bench::new();
     assert!(!bench.enabled());
@@ -80,6 +124,8 @@ fn a_huge_warmup_counter_never_overflows_or_records() {
         last_begin: None,
         frames: Vec::new(),
         reported_swap_interval: None,
+        quality_cycle: Vec::new(),
+        window_cycle: Vec::new(),
     };
     let now = Instant::now();
     for _ in 0..3 {
@@ -103,6 +149,8 @@ fn frame_limits_and_completion_are_exact() {
         last_begin: None,
         frames: Vec::new(),
         reported_swap_interval: None,
+        quality_cycle: Vec::new(),
+        window_cycle: Vec::new(),
     };
     let now = Instant::now();
     for _ in 0..5 {

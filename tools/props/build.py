@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds and validates the liminal-rust core prop pack.
+"""Builds and validates the places core prop pack.
 
 Usage (from the Places repository root)::
 

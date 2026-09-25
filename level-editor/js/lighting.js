@@ -26,7 +26,7 @@
     module.exports = api;
   }
   if (root) {
-    root.LiminalLighting = api;
+    root.PlacesLighting = api;
   }
 })(typeof window !== 'undefined' ? window : null, function (model) {
   'use strict';

@@ -85,13 +85,13 @@ test('the full build workflow works through the real input handlers', () => {
 
   // 2. Resize it with the east handle.
   env.run(`app.setTool('select');`);
-  const bounds = env.run(`JSON.stringify(LiminalOps.objectBounds2D(app.level, ${JSON.stringify(newRoomId)}, app.propCatalog))`);
+  const bounds = env.run(`JSON.stringify(PlacesOps.objectBounds2D(app.level, ${JSON.stringify(newRoomId)}, app.propCatalog))`);
   const rect = JSON.parse(bounds);
   const east = canvasPoint(env, rect.x + rect.width, rect.z + rect.depth / 2);
   env.run(`app.editor.onMouseDown(${JSON.stringify({ type: 'mousedown', button: 0, clientX: east.x, clientY: east.y, preventDefault() {} })});`);
   mouse(env, 'mousemove', rect.x + rect.width + 4, rect.z + rect.depth / 2);
   mouse(env, 'mouseup', rect.x + rect.width + 4, rect.z + rect.depth / 2);
-  const resized = JSON.parse(env.run(`JSON.stringify(LiminalOps.objectBounds2D(app.level, ${JSON.stringify(newRoomId)}, app.propCatalog))`));
+  const resized = JSON.parse(env.run(`JSON.stringify(PlacesOps.objectBounds2D(app.level, ${JSON.stringify(newRoomId)}, app.propCatalog))`));
   assert.ok(resized.width > rect.width + 3, `room grew from ${rect.width} to ${resized.width}`);
 
   // 3. Wall tool: drag a divider inside the starter room.
@@ -112,7 +112,7 @@ test('the full build workflow works through the real input handlers', () => {
     const wall = app.level.walls.find(w => w.id === ${JSON.stringify(wallId)});
     const opening = wall.openings[0];
     return JSON.stringify({ count: wall.openings.length, kind: opening && opening.kind, width: opening && opening.width, sill: opening && opening.sill,
-      wallLength: LiminalGeometry.wallLength(wall), end: opening && opening.offset + opening.width });
+      wallLength: PlacesGeometry.wallLength(wall), end: opening && opening.offset + opening.width });
   })()`));
   assert.equal(doorInfo.count, 1);
   assert.equal(doorInfo.kind, 'door');
@@ -122,7 +122,7 @@ test('the full build workflow works through the real input handlers', () => {
 
   // 5. Window tool: click on a perimeter wall (the east wall of the starter room).
   env.run(`app.setTool('window');`);
-  const eastWall = env.run(`(() => { const wall = app.level.walls.find(w => LiminalGeometry.wallAxis(w) === 'z'); return wall.id; })()`);
+  const eastWall = env.run(`(() => { const wall = app.level.walls.find(w => PlacesGeometry.wallAxis(w) === 'z'); return wall.id; })()`);
   const eastPos = env.run(`(() => { const wall = app.level.walls.find(w => w.id === ${JSON.stringify(eastWall)});
     return JSON.stringify({ x: wall.x + wall.width / 2, z: wall.z + wall.depth / 2 }); })()`);
   const eastPoint = JSON.parse(eastPos);
@@ -277,7 +277,7 @@ test('the prop browser shows thumbnails with the colour swatch as fallback', () 
   assert.match(grid, /onerror=/, 'a missing thumbnail hides itself instead of breaking the grid');
 
   // A catalogue entry with no model has no thumbnail, but still renders.
-  env.run(`app.propCatalog = LiminalProps.PropCatalog.fromJSON({ props: [
+  env.run(`app.propCatalog = PlacesProps.PropCatalog.fromJSON({ props: [
     { id: 'pack:no_thumb', name: 'No Thumb', category: 'Other', size: [0.5, 0.5, 0.5], color: '#123456' }
   ] }); app.renderPropBrowser();`);
   const custom = env.document.getElementById('prop-grid').innerHTML;
@@ -287,7 +287,7 @@ test('the prop browser shows thumbnails with the colour swatch as fallback', () 
   assert.doesNotMatch(custom, /<img/);
 
   // A model whose thumbnail file is missing still renders the swatch behind it.
-  env.run(`app.propCatalog = LiminalProps.PropCatalog.fromJSON({ props: [
+  env.run(`app.propCatalog = PlacesProps.PropCatalog.fromJSON({ props: [
     { id: 'core:mystery', name: 'Mystery', category: 'Other', size: [0.5, 0.5, 0.5], color: '#ffffff', model: 'models/mystery.glb' }
   ] }); app.renderPropBrowser();`);
   const missing = env.document.getElementById('prop-grid').innerHTML;
@@ -306,7 +306,7 @@ test('loaded proxy geometry is handed to the viewport and marks it dirty', async
     parts: [{ shape: 'box', center: [0, 0.45, 0], size: [0.46, 0.05, 0.46], rotation: [0, 0, 0], color: '#a08a6a' }]
   };
   env.run(`window.__proxyMarks = 0; app.viewport3d = { markDirty() { window.__proxyMarks++; } };`);
-  env.run(`LiminalProps.loadPropProxies = async () => LiminalProps.PropProxies.fromJSON(${JSON.stringify(payload)});`);
+  env.run(`PlacesProps.loadPropProxies = async () => PlacesProps.PropProxies.fromJSON(${JSON.stringify(payload)});`);
   await env.run('app.loadPropProxies()');
   assert.equal(env.run('app.propProxies.size'), 1);
   assert.equal(env.run(`app.propProxies.has(${JSON.stringify(model)})`), true);
@@ -345,7 +345,7 @@ test('a click places a doorway exactly where the hover ghost was shown', () => {
 
   // Hover first: the ghost is centred on the pointer.
   const wallInfo = env.run(`(() => { const wall = app.level.walls.find(w => w.id === ${JSON.stringify(wallId)});
-    const base = LiminalGeometry.wallMinCorner(wall);
+    const base = PlacesGeometry.wallMinCorner(wall);
     return JSON.stringify({ x: base.x + 6, z: base.z + 0.175 }); })()`);
   const point = JSON.parse(wallInfo);
   mouse(env, 'mousemove', point.x, point.z);
@@ -358,7 +358,7 @@ test('a click places a doorway exactly where the hover ghost was shown', () => {
   const placed = JSON.parse(env.run(`(() => {
     const wall = app.level.walls.find(w => w.id === ${JSON.stringify(wallId)});
     const opening = wall.openings[wall.openings.length - 1];
-    return JSON.stringify({ offset: opening.offset, width: opening.width, rect: LiminalOps.openingBounds2D(wall, opening) });
+    return JSON.stringify({ offset: opening.offset, width: opening.width, rect: PlacesOps.openingBounds2D(wall, opening) });
   })()`));
   assert.equal(placed.width, ghost.width, 'the placed doorway keeps the ghost width');
   assert.deepEqual(placed.rect, ghost.rect, 'the placed doorway keeps the ghost position');

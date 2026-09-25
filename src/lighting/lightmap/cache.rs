@@ -51,7 +51,7 @@ pub const LIGHTMAP_FORMAT_VERSION: u32 = 4;
 
 /// Root of the runtime-owned on-disk cache, below the state root.
 ///
-/// The state root is the package root (or `LIMINAL_STATE_ROOT` when set), so a
+/// The state root is the package root (or `PLACES_STATE_ROOT` when set), so a
 /// packaged build caches next to its own payload instead of creating a
 /// development-flavoured `target/` directory.
 pub const LIGHTMAP_CACHE_ROOT: &str = "cache/lightmaps";

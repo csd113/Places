@@ -82,7 +82,7 @@ def write_glb(mesh, texture_png: bytes, name: str = "prop") -> bytes:
     image_view = add_view(texture_png, None)
 
     gltf: Dict[str, Any] = {
-        "asset": {"version": "2.0", "generator": "liminal-rust props toolkit (tools/props)"},
+        "asset": {"version": "2.0", "generator": "places props toolkit (tools/props)"},
         "scene": 0,
         "scenes": [{"name": name, "nodes": [0]}],
         "nodes": [{"name": name, "mesh": 0}],

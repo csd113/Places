@@ -7,29 +7,29 @@
 # script and compared view by view:
 #
 #     sh tools/bench/capture_baseline_views.sh                       # both profiles
-#     LIMINAL_BIN=target/release/places-wgpu \
-#         LIMINAL_CAPTURE_DIR=target/agent-work/wgpu sh tools/bench/capture_baseline_views.sh
-#     LIMINAL_QUALITY=low sh tools/bench/capture_baseline_views.sh   # one profile
+#     PLACES_BIN=target/release/places-wgpu \
+#         PLACES_CAPTURE_DIR=target/agent-work/wgpu sh tools/bench/capture_baseline_views.sh
+#     PLACES_QUALITY=low sh tools/bench/capture_baseline_views.sh   # one profile
 #
 # Pinned session: the script owns a scratch state root
 # (target/renderer-baseline-state/ by default) whose settings.json fixes the
 # window at 640x360 logical, which is a 1280x720 drawable on a 2x display. Every
-# view pins its spawn and camera through LIMINAL_SPAWN / LIMINAL_CAMERA, so the
+# view pins its spawn and camera through PLACES_SPAWN / PLACES_CAMERA, so the
 # same command produces the same image on any machine with the same display
 # backing scale. Delete the state root before a run to force a cold lightmap
 # bake instead of reusing the cache below it.
 #
 # Environment:
-#   LIMINAL_BIN            executable to capture (default target/release/liminal-rust)
-#   LIMINAL_CAPTURE_DIR    output root; the script writes <root>/high and <root>/low
-#   LIMINAL_QUALITY        capture only `full` or `low` instead of both
-#   LIMINAL_BASELINE_STATE scratch state root (default target/renderer-baseline-state)
+#   PLACES_BIN            executable to capture (default target/release/places)
+#   PLACES_CAPTURE_DIR    output root; the script writes <root>/high and <root>/low
+#   PLACES_QUALITY        capture only `full` or `low` instead of both
+#   PLACES_BASELINE_STATE scratch state root (default target/renderer-baseline-state)
 set -eu
 
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
-BIN="${LIMINAL_BIN:-$REPO/target/release/liminal-rust}"
-OUT="${LIMINAL_CAPTURE_DIR:-$REPO/docs/renderer-baseline}"
-STATE="${LIMINAL_BASELINE_STATE:-$REPO/target/renderer-baseline-state}"
+BIN="${PLACES_BIN:-$REPO/target/release/places}"
+OUT="${PLACES_CAPTURE_DIR:-$REPO/docs/renderer-baseline}"
+STATE="${PLACES_BASELINE_STATE:-$REPO/target/renderer-baseline-state}"
 
 if [ ! -x "$BIN" ]; then
     echo "capture_baseline_views: $BIN is not executable; run 'cargo build --release' first" >&2
@@ -56,7 +56,7 @@ JSON
 # One line per view: <name>:<spawn>:<camera>
 # `spawn` is x,z[,yaw] (three numbers drop the player onto the local floor, so
 # the Home balcony views land on the upper storey) and `camera` is the absolute
-# LIMINAL_CAMERA yaw,pitch override, which needs LIMINAL_BENCH=1.
+# PLACES_CAMERA yaw,pitch override, which needs PLACES_BENCH=1.
 VIEWS="
 reception:2.0,5.6,74::
 office:9.5,3.5,90::
@@ -98,15 +98,15 @@ capture_profile() {
         spawn="${rest%%:*}"
         rest="${rest#*:}"
         camera="${rest%%:*}"
-        set -- env LIMINAL_STATE_ROOT="$STATE" LIMINAL_BENCH=1 LIMINAL_BENCH_NOSWAP=1 \
-            LIMINAL_LEVEL=places_demo LIMINAL_QUALITY="$profile"
+        set -- env PLACES_STATE_ROOT="$STATE" PLACES_BENCH=1 PLACES_BENCH_NOSWAP=1 \
+            PLACES_LEVEL=places_demo PLACES_QUALITY="$profile"
         if [ -n "$spawn" ]; then
-            set -- "$@" LIMINAL_SPAWN="$spawn"
+            set -- "$@" PLACES_SPAWN="$spawn"
         fi
         if [ -n "$camera" ]; then
-            set -- "$@" LIMINAL_CAMERA="$camera"
+            set -- "$@" PLACES_CAMERA="$camera"
         fi
-        set -- "$@" LIMINAL_CAPTURE="$dir/${name}.png" "$BIN"
+        set -- "$@" PLACES_CAPTURE="$dir/${name}.png" "$BIN"
         if "$@" >/dev/null 2>&1; then
             printf '%s\tlevel=places_demo\tspawn=%s\tcamera=%s\tquality=%s\n' \
                 "${name}.png" "${spawn:-<level-spawn>}" "${camera:-<spawn-yaw>}" "$profile" \
@@ -124,7 +124,7 @@ capture_profile() {
 }
 
 status=0
-case "${LIMINAL_QUALITY:-both}" in
+case "${PLACES_QUALITY:-both}" in
     full)
         capture_profile full "$OUT/high" || status=1
         ;;
@@ -136,7 +136,7 @@ case "${LIMINAL_QUALITY:-both}" in
         capture_profile low "$OUT/low" || status=1
         ;;
     *)
-        echo "capture_baseline_views: LIMINAL_QUALITY must be 'full', 'low' or unset" >&2
+        echo "capture_baseline_views: PLACES_QUALITY must be 'full', 'low' or unset" >&2
         exit 2
         ;;
 esac

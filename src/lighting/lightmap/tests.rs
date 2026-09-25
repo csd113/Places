@@ -618,10 +618,9 @@ fn chart_texels_are_clamped_to_the_usable_edge() {
 /// "fitting" by accident at a trivial density.
 #[test]
 fn the_shipped_demo_fits_the_two_page_budget_at_both_profiles() {
-    let level = crate::level::LevelDef::from_json(include_str!(
-        "../../../assets/levels/places_demo.json"
-    ))
-    .expect("the shipped places_demo parses");
+    let level =
+        crate::level::LevelDef::from_json(include_str!("../../../assets/levels/places_demo.json"))
+            .expect("the shipped places_demo parses");
     for profile in crate::quality::QualityProfile::ALL {
         let config = profile.lightmap_config();
         let materials = crate::render::logical_materials(&level);
@@ -641,13 +640,16 @@ fn the_shipped_demo_fits_the_two_page_budget_at_both_profiles() {
                 build.lightmap_failure
             )
         });
-        assert!(lightmaps.chart_count() > 900, "the demo's chart set is complete");
+        assert!(
+            lightmaps.chart_count() > 900,
+            "the demo's chart set is complete"
+        );
         assert!(
             lightmaps.pages.len() <= config.max_pages,
             "{profile:?} must fit its page budget"
         );
-        let budget = u64::from(config.page_edge).pow(2)
-            * u64::try_from(lightmaps.pages.len()).unwrap_or(0);
+        let budget =
+            u64::from(config.page_edge).pow(2) * u64::try_from(lightmaps.pages.len()).unwrap_or(0);
         assert!(
             lightmaps.stats.texels as u64 * 2 > budget,
             "{profile:?} must use more than half of its budget: {} of {budget}",
@@ -674,10 +676,9 @@ fn the_shipped_demo_fits_the_two_page_budget_at_both_profiles() {
 #[ignore = "developer measurement: prints places_demo's chart statistics"]
 #[allow(clippy::print_stdout)]
 fn measure_demo_chart_statistics() {
-    let level = crate::level::LevelDef::from_json(include_str!(
-        "../../../assets/levels/places_demo.json"
-    ))
-    .expect("the shipped places_demo parses");
+    let level =
+        crate::level::LevelDef::from_json(include_str!("../../../assets/levels/places_demo.json"))
+            .expect("the shipped places_demo parses");
     // The patch set is profile-independent (the chart-span cap is shared), so
     // one successful build at Full collects the whole demo's patches.
     let materials = crate::render::logical_materials(&level);
@@ -721,7 +722,7 @@ fn measure_demo_chart_statistics() {
         }
         let edge = u64::from(config.page_edge);
         let budget = edge * edge * u64::try_from(config.max_pages).unwrap_or(1);
-        if std::env::var("LIMINAL_DUMP_CHARTS").as_deref() == Ok("1") {
+        if std::env::var("PLACES_DUMP_CHARTS").as_deref() == Ok("1") {
             let mut dump = String::new();
             for patch in &patches {
                 let (w, h) = config.chart_texels(patch);

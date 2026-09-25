@@ -39,7 +39,7 @@ use crate::materials::{
 /// i.e. the package root. Set it to pin a specific installation, to run a
 /// packaged build from an unusual directory, or to test a build against an
 /// asset tree other than the one next to the executable.
-pub const ASSET_ROOT_ENV: &str = "LIMINAL_ASSET_ROOT";
+pub const ASSET_ROOT_ENV: &str = "PLACES_ASSET_ROOT";
 
 /// Directory candidates for the shipped asset root, in search order.
 ///
@@ -59,7 +59,7 @@ pub const CATALOG_FILE_NAME: &str = "catalog.json";
 /// `levels/` and `import/` directories and the level cache. A relative value is
 /// resolved against the working directory at read time, like
 /// [`ASSET_ROOT_ENV`].
-pub const STATE_ROOT_ENV: &str = "LIMINAL_STATE_ROOT";
+pub const STATE_ROOT_ENV: &str = "PLACES_STATE_ROOT";
 
 /// The directory that owns every writable runtime file.
 ///
@@ -126,8 +126,7 @@ fall back to placeholder or diagnostic content.
 
 /// How many parent directories of the executable are searched for a package.
 ///
-/// `bin/<target-triple>/app` (the legacy installed payload) needs three;
-/// `target/release/liminal-rust` and `target/debug/deps/<test>` need two and
+/// `target/release/places` and `target/debug/deps/<test>` need two and
 /// three. A macOS `Places.app/Contents/MacOS/places` bundle is reached through
 /// its `Resources` directory instead, which is only one level up.
 const EXECUTABLE_ANCESTOR_DEPTH: usize = 3;
@@ -189,7 +188,7 @@ fn is_complete_asset_root(root: &Path) -> bool {
 /// tree, in precedence order.
 ///
 /// This is the authoritative lookup for a packaged build: the executable's own
-/// directory, its ancestors up to the legacy `bin/<target-triple>/app` depth,
+/// directory, up to three ancestors (including Cargo build/test directories),
 /// and a macOS bundle's `Contents/Resources`.
 #[must_use]
 pub fn resolved_package_roots() -> Vec<PathBuf> {

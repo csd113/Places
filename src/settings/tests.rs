@@ -21,8 +21,8 @@ fn test_default_wasd_and_arrow_bindings() {
 }
 
 /// The default action map must be exactly WASD + arrows: every key resolves
-/// to one action, no key is shared, and the previous PocketCHIP layout is
-/// not silently retained as a duplicate binding.
+/// to one action, no key is shared, and no alternative layout is silently
+/// retained as a duplicate binding.
 #[test]
 fn test_default_action_map_is_wasd_and_arrows_only() {
     let bindings = KeyBindings::default();
@@ -167,7 +167,7 @@ fn test_quality_profile_defaults_validates_and_round_trips() {
 #[test]
 fn test_settings_persistence() {
     let temp_dir = std::env::temp_dir();
-    let test_path = temp_dir.join("test_liminal_settings.json");
+    let test_path = temp_dir.join("test_places_settings.json");
 
     let settings = Settings {
         look_speed_h: 120.0,

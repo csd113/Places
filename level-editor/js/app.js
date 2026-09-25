@@ -62,8 +62,8 @@ class App {
     this.toolOptions = Object.assign({}, DEFAULT_TOOL_OPTIONS, this.readJSONPreference('toolOptions', {}));
 
     // Shared level + selection state
-    this.propCatalog = LiminalProps.PropCatalog.builtin();
-    this.propProxies = LiminalProps.PropProxies.empty();
+    this.propCatalog = PlacesProps.PropCatalog.builtin();
+    this.propProxies = PlacesProps.PropProxies.empty();
     this.activePropModel = (this.propCatalog.list[0] || {}).id || 'core:crate';
     this.propCategory = 'All';
     this.propQuery = '';
@@ -117,7 +117,7 @@ class App {
 
   readPreference(key, fallback, allowed) {
     try {
-      const value = localStorage.getItem(`liminal.${key}`);
+      const value = localStorage.getItem(`places.${key}`);
       if (value === null) return fallback;
       if (allowed && !allowed.includes(value)) return fallback;
       return value;
@@ -128,7 +128,7 @@ class App {
 
   readJSONPreference(key, fallback) {
     try {
-      const raw = localStorage.getItem(`liminal.${key}`);
+      const raw = localStorage.getItem(`places.${key}`);
       return raw ? JSON.parse(raw) : fallback;
     } catch (err) {
       return fallback;
@@ -137,7 +137,7 @@ class App {
 
   writePreference(key, value) {
     try {
-      localStorage.setItem(`liminal.${key}`, String(value));
+      localStorage.setItem(`places.${key}`, String(value));
     } catch (err) {
       /* storage may be unavailable (private mode) - preferences are optional */
     }
@@ -157,27 +157,27 @@ class App {
     });
 
     const rect = { x: -6, z: -7, width: 12, depth: 14 };
-    LiminalOps.addWallsAroundRect(level, rect, { thickness: 0.35, height: 3.5 });
+    PlacesOps.addWallsAroundRect(level, rect, { thickness: 0.35, height: 3.5 });
 
     const north = level.walls[0];   // north edge (min Z)
     const west = level.walls[2];    // west edge (min X)
     const east = level.walls[3];    // east edge (max X)
 
-    LiminalOps.addOpening(north, { kind: 'door', offset: (12.7 - 1.2) / 2, width: 1.2, height: 2.1 });
-    LiminalOps.addOpening(east, { kind: 'window', offset: 2.0, width: 1.8, height: 1.2, sill: 1.0 });
-    LiminalOps.addOpening(east, { kind: 'window', offset: 7.0, width: 1.8, height: 1.2, sill: 1.0 });
-    LiminalOps.addOpening(west, { kind: 'window', offset: 5.0, width: 1.4, height: 1.2, sill: 1.0 });
+    PlacesOps.addOpening(north, { kind: 'door', offset: (12.7 - 1.2) / 2, width: 1.2, height: 2.1 });
+    PlacesOps.addOpening(east, { kind: 'window', offset: 2.0, width: 1.8, height: 1.2, sill: 1.0 });
+    PlacesOps.addOpening(east, { kind: 'window', offset: 7.0, width: 1.8, height: 1.2, sill: 1.0 });
+    PlacesOps.addOpening(west, { kind: 'window', offset: 5.0, width: 1.4, height: 1.2, sill: 1.0 });
 
-    LiminalOps.addLight(level, { x: -3, z: -3 });
-    LiminalOps.addLight(level, { x: 3, z: -3 });
-    LiminalOps.addLight(level, { x: 0, z: 3 });
+    PlacesOps.addLight(level, { x: -3, z: -3 });
+    PlacesOps.addLight(level, { x: 3, z: -3 });
+    PlacesOps.addLight(level, { x: 0, z: 3 });
 
-    LiminalOps.addProp(level, { model: 'core:couch', x: -3.5, z: 4.2, rotation_degrees: 0 }, this.propCatalog);
-    LiminalOps.addProp(level, { model: 'core:table', x: 0, z: 2.0, rotation_degrees: 90 }, this.propCatalog);
-    LiminalOps.addProp(level, { model: 'core:cabinet', x: 5.0, z: -4.0, rotation_degrees: -90 }, this.propCatalog);
-    LiminalOps.addProp(level, { model: 'core:plant', x: -5.1, z: -6.1 }, this.propCatalog);
+    PlacesOps.addProp(level, { model: 'core:couch', x: -3.5, z: 4.2, rotation_degrees: 0 }, this.propCatalog);
+    PlacesOps.addProp(level, { model: 'core:table', x: 0, z: 2.0, rotation_degrees: 90 }, this.propCatalog);
+    PlacesOps.addProp(level, { model: 'core:cabinet', x: 5.0, z: -4.0, rotation_degrees: -90 }, this.propCatalog);
+    PlacesOps.addProp(level, { model: 'core:plant', x: -5.1, z: -6.1 }, this.propCatalog);
 
-    LiminalOps.setSpawn(level, { x: 0, z: 0, yaw_degrees: 0 });
+    PlacesOps.setSpawn(level, { x: 0, z: 0, yaw_degrees: 0 });
     return level;
   }
 
@@ -327,7 +327,7 @@ class App {
       else if (this.level.ceiling_lights.some(l => l.id === id)) label = 'Light';
       else if (this.level.props.some(p => p.id === id)) label = 'Prop';
       else if (this.level.floor_patches.some(p => p.id === id)) label = 'Floor patch';
-      else if (LiminalOps.findOpening(this.level, id)) label = 'Opening';
+      else if (PlacesOps.findOpening(this.level, id)) label = 'Opening';
       this.dom.statusSelection.textContent = label;
       return;
     }
@@ -376,7 +376,7 @@ class App {
       return;
     }
     if (this.viewMode !== '3d') {
-      const bounds = LiminalOps.objectBounds2D(this.level, ids[0], this.propCatalog);
+      const bounds = PlacesOps.objectBounds2D(this.level, ids[0], this.propCatalog);
       this.renderer.centerOn(bounds, ids.length === 1);
       this.updateZoomReadout();
     }
@@ -403,7 +403,7 @@ class App {
   viewportDragBegin() {
     this.drag3d = { ids: [...this.editor.selectedIds], initial: new Map(), totalX: 0, totalZ: 0 };
     for (const id of this.drag3d.ids) {
-      const found = LiminalOps.findObject(this.level, id);
+      const found = PlacesOps.findObject(this.level, id);
       if (found && found.object.x !== undefined) this.drag3d.initial.set(id, { x: found.object.x, z: found.object.z });
     }
   }
@@ -414,7 +414,7 @@ class App {
     this.drag3d.totalX += stepX;
     this.drag3d.totalZ += stepZ;
     for (const [id, initial] of this.drag3d.initial) {
-      LiminalOps.moveObjectTo(
+      PlacesOps.moveObjectTo(
         this.level,
         id,
         Number((initial.x + this.drag3d.totalX).toFixed(4)),
@@ -436,7 +436,7 @@ class App {
   duplicateSelection() {
     const ids = [...this.editor.selectedIds];
     if (ids.length === 0) return;
-    const newIds = LiminalOps.duplicateObjects(this.level, ids, { dx: 0.5, dz: 0.5 });
+    const newIds = PlacesOps.duplicateObjects(this.level, ids, { dx: 0.5, dz: 0.5 });
     this.editor.selectMany(newIds);
     this.levelChanged();
     this.commit('Duplicate');
@@ -446,7 +446,7 @@ class App {
   deleteSelection() {
     const ids = [...this.editor.selectedIds];
     if (ids.length === 0) return;
-    const result = LiminalOps.deleteObjects(this.level, ids);
+    const result = PlacesOps.deleteObjects(this.level, ids);
     this.editor.clearSelection();
     this.levelChanged();
     this.commit('Delete');
@@ -500,8 +500,8 @@ class App {
 
   addRoomAtCenter() {
     const center = this.viewCenter();
-    const room = LiminalOps.createRoom(this.level, { x: center.x - 4, z: center.z - 4, width: 8, depth: 8, height: this.level.getCeilingHeight() });
-    LiminalOps.addWallsAroundRect(this.level, { x: room.x, z: room.z, width: room.width, depth: room.depth }, { thickness: this.toolOptions.wallThickness });
+    const room = PlacesOps.createRoom(this.level, { x: center.x - 4, z: center.z - 4, width: 8, depth: 8, height: this.level.getCeilingHeight() });
+    PlacesOps.addWallsAroundRect(this.level, { x: room.x, z: room.z, width: room.width, depth: room.depth }, { thickness: this.toolOptions.wallThickness });
     this.editor.select(room.id);
     this.levelChanged();
     this.commit('Add room');
@@ -510,7 +510,7 @@ class App {
 
   addLightAtCenter() {
     const center = this.viewCenter();
-    const light = LiminalOps.addLight(this.level, { x: center.x, z: center.z });
+    const light = PlacesOps.addLight(this.level, { x: center.x, z: center.z });
     this.editor.select(light.id);
     this.levelChanged();
     this.commit('Add light');
@@ -518,7 +518,7 @@ class App {
 
   addWallsAroundRoom(room) {
     const rect = { x: Math.min(room.x, room.x + room.width), z: Math.min(room.z, room.z + room.depth), width: Math.abs(room.width), depth: Math.abs(room.depth) };
-    const created = LiminalOps.addWallsAroundRect(this.level, rect, { thickness: this.toolOptions.wallThickness || 0.35 });
+    const created = PlacesOps.addWallsAroundRect(this.level, rect, { thickness: this.toolOptions.wallThickness || 0.35 });
     this.levelChanged();
     if (created.length > 0) this.commit('Add walls');
     this.updateStatus(created.length > 0
@@ -530,7 +530,7 @@ class App {
     let created = 0;
     for (const room of this.level.rooms) {
       const rect = { x: Math.min(room.x, room.x + room.width), z: Math.min(room.z, room.z + room.depth), width: Math.abs(room.width), depth: Math.abs(room.depth) };
-      created += LiminalOps.addWallsAroundRect(this.level, rect, { thickness: this.toolOptions.wallThickness || 0.35 }).length;
+      created += PlacesOps.addWallsAroundRect(this.level, rect, { thickness: this.toolOptions.wallThickness || 0.35 }).length;
     }
     this.levelChanged();
     if (created > 0) this.commit('Add walls');
@@ -539,7 +539,7 @@ class App {
 
   viewCenter() {
     if (this.viewMode !== '2d' && this.editor.selectedIds.size > 0) {
-      const bounds = LiminalOps.objectBounds2D(this.level, [...this.editor.selectedIds][0], this.propCatalog);
+      const bounds = PlacesOps.objectBounds2D(this.level, [...this.editor.selectedIds][0], this.propCatalog);
       if (bounds) return { x: Math.round(bounds.x + bounds.width / 2), z: Math.round(bounds.z + bounds.depth / 2) };
     }
     return { x: Math.round(this.renderer.cameraX / 0.5) * 0.5, z: Math.round(this.renderer.cameraZ / 0.5) * 0.5 };
@@ -595,7 +595,7 @@ class App {
 
   showValidation(auto) {
     const result = validateLevel(this.level);
-    const stats = LiminalGeometry.levelStats(this.level);
+    const stats = PlacesGeometry.levelStats(this.level);
     const body = document.getElementById('validation-results');
     const modal = document.getElementById('validation-modal');
 
@@ -608,7 +608,7 @@ class App {
         <p>The game will load this level. Warnings are usually missing textures or unusual sizes.</p></div>`;
     } else {
       html += `<div class="banner err"><strong>${result.errors.length} problem${result.errors.length === 1 ? '' : 's'} to fix</strong>
-        <p>liminal-rust will refuse to load the level until these are resolved.</p></div>`;
+        <p>places will refuse to load the level until these are resolved.</p></div>`;
     }
 
     if (result.errors.length > 0) {
@@ -825,7 +825,7 @@ class App {
           ? `<img src="${thumb}" alt="" loading="lazy" onerror="this.style.display='none'">`
           : '';
         // Real asset budgets from prop_proxies.json, so the browser shows what
-        // each prop costs on the PocketCHIP instead of a hand-written guess.
+        // each prop costs in decoded runtime memory instead of a hand-written guess.
         const proxy = this.propProxies && this.propProxies.get(entry.id);
         const budget = proxy && proxy.triangles
           ? ` · ${proxy.triangles} tris`
@@ -868,7 +868,7 @@ class App {
 
   async loadPropCatalog() {
     try {
-      const catalog = await LiminalProps.loadPropCatalog();
+      const catalog = await PlacesProps.loadPropCatalog();
       if (catalog && catalog.size > 0) {
         this.propCatalog = catalog;
         const stillExists = catalog.has(this.activePropModel);
@@ -886,7 +886,7 @@ class App {
 
   async loadPropProxies() {
     try {
-      const proxies = await LiminalProps.loadPropProxies();
+      const proxies = await PlacesProps.loadPropProxies();
       if (proxies && proxies.size > 0) {
         this.propProxies = proxies;
         // The 3D mesh substitutes real part geometry, so it must be rebuilt,

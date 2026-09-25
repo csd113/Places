@@ -25,7 +25,16 @@
 use crate::test_support::{assert_exact, assert_exact_array, assert_exact_named};
 
 use super::*;
-use crate::render::decals::{DECAL_ATLAS_SIZE, generate_decal_atlas};
+use crate::level::{LevelDef, PropDef};
+use crate::lighting::LevelLighting;
+use crate::render::common::MeshPacker;
+use crate::render::common::decals::{DECAL_ATLAS_SIZE, generate_decal_atlas};
+use crate::render::common::mesh;
+use crate::render::opengl::shaders::{
+    SCENE_ATTRIB_COLOR, SCENE_ATTRIB_COUNT, SCENE_ATTRIB_HANDEDNESS, SCENE_ATTRIB_LIGHTMAP_PAGE,
+    SCENE_ATTRIB_LIGHTMAP_UV, SCENE_ATTRIB_NORMAL, SCENE_ATTRIB_POS, SCENE_ATTRIB_TANGENT,
+    SCENE_ATTRIB_UV,
+};
 
 use crate::spatial::{DepthRange, Frustum};
 
@@ -348,7 +357,7 @@ fn test_shipped_texture_assets_are_opaque_and_within_budget() {
 
 /// The renderer's shared untextured sheet comes from the committed catalog PNG.
 ///
-/// [`load_white_sheet`](super::renderer::load_white_sheet) is how startup fills
+/// [`load_white_sheet`](super::opengl::renderer::load_white_sheet) is how startup fills
 /// the fallback slot that fixture housings, plain body geometry and every
 /// otherwise-empty sampler bind; it used to be a 2x2 array generated in
 /// `src/render.rs`. Pinning the loaded payload keeps the renderer pointed at
@@ -356,7 +365,7 @@ fn test_shipped_texture_assets_are_opaque_and_within_budget() {
 /// no longer resolves to the same 2x2 opaque fill.
 #[test]
 fn the_renderers_white_sheet_loads_from_the_committed_catalog_asset() {
-    let image = super::renderer::load_white_sheet().expect("the white sheet must load");
+    let image = super::opengl::renderer::load_white_sheet().expect("the white sheet must load");
     assert_eq!(
         (image.width, image.height),
         (2, 2),
@@ -379,12 +388,30 @@ fn the_renderers_white_sheet_loads_from_the_committed_catalog_asset() {
 /// asset or become a code-generated fill.
 #[test]
 fn the_embedded_white_sheet_matches_the_committed_catalog_png() {
-    let embedded = crate::loader::decode_png(super::renderer::WHITE_SHEET_PNG)
+    let embedded = crate::loader::decode_png(super::opengl::renderer::WHITE_SHEET_PNG)
         .expect("the embedded white sheet must decode");
-    let loaded = super::renderer::load_white_sheet().expect("the catalog white sheet must load");
+    let loaded =
+        super::opengl::renderer::load_white_sheet().expect("the catalog white sheet must load");
     assert_eq!(
         embedded, loaded,
         "the embedded fallback must be the committed white sheet"
+    );
+}
+
+/// Both backends fall back to the same committed sheet.
+///
+/// Stage 6's wgpu texture cache embeds its own copy of
+/// `assets/core/textures/white_01.png` (a backend may not import its sibling).
+/// This pins the two copies to identical pixels, so the wgpu fallback can never
+/// drift from the reference sheet or silently become a generated fill.
+#[test]
+fn both_renderers_embed_the_same_white_sheet() {
+    let wgpu = super::wgpu::texture::fallback_white_image();
+    let reference =
+        super::opengl::renderer::load_white_sheet().expect("the catalog white sheet must load");
+    assert_eq!(
+        wgpu, reference,
+        "the wgpu fallback must be the reference's committed white sheet"
     );
 }
 
@@ -672,7 +699,7 @@ fn test_drawable_aspect_ratio() {
         (2560, 1440, 16.0 / 9.0),
         (3840, 2160, 16.0 / 9.0),
         (1600, 1200, 4.0 / 3.0),
-        (960, 544, 480.0 / 272.0), // Retina 2x of the PocketCHIP baseline
+        (960, 544, 480.0 / 272.0), // Retina 2x of the reference canvas baseline
     ];
     for (w, h, expected) in cases {
         let size = DrawableSize::new(w, h);
@@ -714,7 +741,7 @@ fn test_wider_displays_expand_horizontally() {
 fn test_taller_displays_preserve_horizontal_view() {
     let baseline = reference_aspect_ratio();
     let baseline_hfov = horizontal_fov_degrees(60.0, baseline);
-    // 16:10, 4:3, 3:2 and 1:1 are all narrower than PocketCHIP.
+    // 16:10, 4:3, 3:2 and 1:1 are all narrower than the reference canvas.
     for aspect in [16.0 / 10.0, 4.0 / 3.0, 3.0 / 2.0, 1.0] {
         assert!(aspect < baseline);
         let vfov = vertical_fov_for_aspect(60.0, aspect);
@@ -795,7 +822,7 @@ fn test_ui_viewport_baseline_is_identity() {
     assert_eq!(
         (vp.x, vp.y, vp.width, vp.height),
         (0, 0, 480, 272),
-        "PocketCHIP UI layout must be pixel-identical to the original"
+        "the reference canvas UI layout must be pixel-identical to the original"
     );
     assert_exact(vp.scale, 1.0);
 }
@@ -862,11 +889,11 @@ fn test_a_resize_updates_scene_and_bloom_targets() {
         Some(after)
     );
     assert_eq!(
-        super::postprocess::bloom_target_size(before),
+        super::common::postprocess::bloom_target_size(before),
         DrawableSize::new(480, 270)
     );
     assert_eq!(
-        super::postprocess::bloom_target_size(after),
+        super::common::postprocess::bloom_target_size(after),
         DrawableSize::new(640, 360)
     );
     assert!(after.ui_viewport().scale > before.ui_viewport().scale);
@@ -4314,7 +4341,7 @@ fn the_shipped_demo_and_the_rendering_fixture_resolve_their_stain_overlays() {
 
 #[test]
 fn emission_routing_follows_the_surface_kind() {
-    use crate::render::renderer::{EmissionRouting, emission_routing};
+    use crate::render::common::materials::{EmissionRouting, emission_routing};
 
     // Built surfaces take their material's emission; a light batch's sheet face
     // carries it per vertex; the fixture housing, placeholder boxes and decals
@@ -4741,7 +4768,10 @@ fn the_demo_bakes_inside_the_page_budget_on_both_profiles() {
             "{profile:?} must stay in its page budget"
         );
         assert!(
-            lightmaps.pages.iter().all(|page| page.width == config.page_edge),
+            lightmaps
+                .pages
+                .iter()
+                .all(|page| page.width == config.page_edge),
             "{profile:?} must use its own page edge"
         );
         assert!(lightmaps.chart_count() > 900, "the whole level is charted");
@@ -4839,6 +4869,7 @@ fn atlas_overflow_rebuilds_with_vertex_lighting() {
         mode: LightmapMode::On,
         config,
         profile: crate::quality::QualityProfile::Full,
+        material_only: false,
     };
     let build = build_level_geometry_timed_with_lightmaps(
         &level,
@@ -4946,10 +4977,8 @@ fn atlas_bytes_match_the_fill_pass_exactly() {
     // The atlas was baked with the active profile's bake config (soft shadows
     // and the finer prop grid on Full), so the reference fill must use exactly
     // the same one.
-    let lighting = LevelLighting::bake_with(
-        &level,
-        crate::quality::QualityProfile::Full.bake_config(),
-    );
+    let lighting =
+        LevelLighting::bake_with(&level, crate::quality::QualityProfile::Full.bake_config());
     let mut checked = 0usize;
     for (patch, chart) in &lightmaps.charts {
         let texels = crate::lighting::lightmap::fill_chart(&lighting, patch, chart);
@@ -5030,10 +5059,12 @@ fn the_dynamic_demonstration_machine_stays_a_static_prop() {
 
 // ------------------------------------------------------- material draw passes
 
-use super::renderer::{
-    BatchPass, EmissionState, MaterialRenderState, ScenePass, SurfaceState, TranslucentSource,
-    batch_pass_for, collect_translucent_draws, offscreen_plan, pack_static_batches,
+use super::common::frame::offscreen_plan;
+use super::common::materials::{
+    BatchPass, MaterialRenderState, ScenePass, TranslucentSource, batch_pass_for,
+    collect_translucent_draws,
 };
+use super::opengl::renderer::{EmissionState, SurfaceState, pack_static_batches};
 use crate::materials::{AlphaMode, MaterialAlpha};
 
 /// A minimal level with one glassed window per wall in `walls`.
@@ -5144,7 +5175,7 @@ fn the_vertex_attribute_table_wires_every_scene_attribute_in_both_layouts() {
     // grazing lobe on every surface. This test is the guard that keeps a new
     // attribute from being declared, packed and bound but never pointed at.
     for layout in [VertexLayout::Packed, VertexLayout::Exact] {
-        let table = super::renderer::scene_attribute_table(layout);
+        let table = super::opengl::renderer::scene_attribute_table(layout);
         assert_eq!(table.len(), SCENE_ATTRIB_COUNT);
         for (slot, pointer) in table.iter().enumerate() {
             assert!(
@@ -5202,7 +5233,7 @@ fn the_vertex_attribute_table_wires_every_scene_attribute_in_both_layouts() {
 
 #[test]
 fn the_post_process_fallback_is_the_historical_presentation() {
-    use super::postprocess::PostSettings;
+    use super::common::postprocess::PostSettings;
 
     // Two independent fallbacks, and both must leave a working frame.
     //
@@ -5262,7 +5293,7 @@ fn the_vertex_shader_declares_exactly_the_attributes_the_table_wires() {
     // This is the test that fails when an attribute is added to the vertex
     // stage and packed into the vertex but left out of the pointer table — the
     // defect that flattens every surface normal.
-    let declared: Vec<String> = super::view::VERTEX_SHADER_SRC
+    let declared: Vec<String> = super::opengl::shaders::VERTEX_SHADER_SRC
         .lines()
         .filter_map(|line| line.trim().strip_prefix("attribute "))
         .filter_map(|declaration| declaration.split_whitespace().nth(1))
@@ -5273,7 +5304,7 @@ fn the_vertex_shader_declares_exactly_the_attributes_the_table_wires() {
         SCENE_ATTRIB_COUNT,
         "the shader declares {declared:?}, the layout has room for {SCENE_ATTRIB_COUNT}"
     );
-    let wired = super::renderer::scene_attribute_table(VertexLayout::Packed)
+    let wired = super::opengl::renderer::scene_attribute_table(VertexLayout::Packed)
         .iter()
         .filter(|pointer| pointer.is_some())
         .count();
@@ -5310,7 +5341,7 @@ fn the_world_fragment_shader_gates_the_lightmap_reads() {
     // own page byte both have to agree before either `texture2D` runs. This is
     // the shader half of the lightmap-unit invariant; the binding half is
     // `Renderer::bind_lightmap_units`.
-    let source = super::view::fragment_shader_source(false);
+    let source = super::opengl::shaders::fragment_shader_source(false);
     let guard = source
         .find("if (lightmap_on > 0.5)")
         .expect("the atlas path must stay behind the lightmap guard");
@@ -5344,7 +5375,9 @@ fn the_world_fragment_shader_gates_the_lightmap_reads() {
 
 #[test]
 fn the_lightmap_units_cover_every_declared_atlas_sampler() {
-    use super::view::{LIGHTMAP_PAGE_SLOTS, LIGHTMAP_TEXTURE_UNIT, LIGHTMAP_TEXTURE_UNIT_1};
+    use super::opengl::shaders::{
+        LIGHTMAP_PAGE_SLOTS, LIGHTMAP_TEXTURE_UNIT, LIGHTMAP_TEXTURE_UNIT_1,
+    };
 
     // One bound unit per page, and the two constants stay adjacent: the vertex
     // page byte selects between exactly these units.
@@ -5362,7 +5395,7 @@ fn the_lightmap_units_cover_every_declared_atlas_sampler() {
     // Every declared sampler the world stage carries is bound for every world
     // draw. The lightmap pair is the one that used to be bound only once per
     // frame, so it is the one pinned here.
-    let source = super::view::fragment_shader_source(false);
+    let source = super::opengl::shaders::fragment_shader_source(false);
     let atlas_samplers = source
         .lines()
         .filter(|line| {
@@ -5425,8 +5458,8 @@ fn the_hud_surface_state_disables_every_world_term() {
     // claiming the cache is clean, which is what stops a previous frame's
     // material — an emissive fixture's vertex emission, a glass pane's opacity,
     // a panel's sheen — from leaking into the pause menu.
-    let state = super::renderer::SurfaceState::plain(fake_texture());
-    assert_eq!(state.emission, super::renderer::EmissionState::NONE);
+    let state = super::opengl::renderer::SurfaceState::plain(fake_texture());
+    assert_eq!(state.emission, super::opengl::renderer::EmissionState::NONE);
     assert!(!state.response);
     assert!(state.normal.is_none());
     assert_eq!(state.specular, [0.0; 3]);
@@ -5553,7 +5586,8 @@ fn the_demo_routes_its_reflective_materials_to_a_plane_and_a_probe() {
         LightmapMode::On,
     )
     .mesh;
-    let routing = super::reflections::routing_from_mesh(&mesh, &reflections, reflections.len());
+    let routing =
+        super::common::reflections::routing_from_mesh(&mesh, &reflections, reflections.len());
     assert_eq!(
         routing.planes.len(),
         1,
@@ -5906,7 +5940,7 @@ fn every_material_property_resolves_into_the_renderers_per_material_state() {
     let root = crate::assets::resolve_asset_root().expect("assets/ is discoverable");
     let materials = crate::materials::resolve_materials(
         &level,
-        super::api::shipped_asset_catalog(),
+        super::common::api::shipped_asset_catalog(),
         None,
         Some(&root),
         &mut cache,
@@ -5940,6 +5974,367 @@ fn every_material_property_resolves_into_the_renderers_per_material_state() {
     assert_eq!(
         normal_mapped, 2,
         "the metal and plastic panels are the demo's normal-mapped materials"
+    );
+}
+
+// ------------------------------------------------- Stage 7 material resolution
+
+/// Draw-order indices of every architectural range's vertices, so two builds
+/// can be compared vertex for vertex without depending on their range split.
+fn architectural_vertices(mesh: &LevelMesh) -> Vec<Vertex> {
+    let mut out = Vec::new();
+    for range in &mesh.ranges {
+        if !matches!(
+            range.key.kind,
+            SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall
+        ) {
+            continue;
+        }
+        for index in &range.indices {
+            if let Some(vertex) = range.vertices.get(usize::from(*index)) {
+                out.push(*vertex);
+            }
+        }
+    }
+    out
+}
+
+/// The architectural vertex colours of one build, quantised the way the GPU
+/// upload quantises them.
+fn architectural_colors(mesh: &LevelMesh) -> Vec<[u8; 4]> {
+    architectural_vertices(mesh)
+        .iter()
+        .map(|vertex| vertex.color.map(mesh::quantize_unit))
+        .collect()
+}
+
+#[test]
+fn the_material_only_build_writes_the_lightmapped_colours_without_an_atlas() {
+    use crate::quality::QualityProfile;
+
+    // The one Stage 7 rule the wgpu backend depends on: a material-only build
+    // produces the same architectural vertex colours as a lightmapped build
+    // (tint x directional face shade, no baked light) but creates no atlas.
+    let level = lit_room_level(
+        8.0,
+        6.0,
+        3.0,
+        r#"[{ "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 3.0, "brightness": 0.8 }]"#,
+    );
+    let materials = logical_materials(&level);
+    let catalog = PropCatalog::builtin();
+    let mut assets = PropAssets::default();
+
+    let lightmapped = build_level_geometry_timed_with_lightmaps(
+        &level,
+        &catalog,
+        &mut assets,
+        &materials,
+        LightmapBuildOptions::for_profile(QualityProfile::Full, LightmapMode::On),
+        None,
+    );
+    assert!(lightmapped.lightmaps.is_some(), "the reference build bakes");
+    let material_only = build_level_geometry_timed_with_lightmaps(
+        &level,
+        &catalog,
+        &mut assets,
+        &materials,
+        LightmapBuildOptions::material_colors(QualityProfile::Full),
+        None,
+    );
+    assert!(
+        material_only.lightmaps.is_none(),
+        "a material-only build must not create an atlas"
+    );
+    assert_eq!(
+        architectural_colors(&material_only.mesh),
+        architectural_colors(&lightmapped.mesh),
+        "the material factor must be exactly the lightmapped build's vertex colour"
+    );
+
+    // The historical vertex-lit build multiplies the same factor by baked
+    // light, so it must differ — proving the comparison above is not vacuous.
+    let history = build_level_geometry(&level);
+    assert_ne!(
+        architectural_colors(&history),
+        architectural_colors(&material_only.mesh),
+        "the vertex-lit build carries baked light and must differ"
+    );
+}
+
+#[test]
+fn the_material_only_build_is_identical_across_quality_profiles() {
+    use crate::quality::QualityProfile;
+
+    // The wgpu world geometry is profile-independent; a material-only build
+    // must not inherit the lightmap plan's profile-dependent chart-span caps.
+    let level = lit_room_level(
+        12.0,
+        9.0,
+        3.0,
+        r#"[{ "fixture": "core:fluorescent_panel_01", "x": 6.0, "z": 4.0, "brightness": 0.8 }]"#,
+    );
+    let materials = logical_materials(&level);
+    let catalog = PropCatalog::builtin();
+    let mut assets = PropAssets::default();
+    let full = build_level_geometry_timed_with_lightmaps(
+        &level,
+        &catalog,
+        &mut assets,
+        &materials,
+        LightmapBuildOptions::material_colors(QualityProfile::Full),
+        None,
+    );
+    let low = build_level_geometry_timed_with_lightmaps(
+        &level,
+        &catalog,
+        &mut assets,
+        &materials,
+        LightmapBuildOptions::material_colors(QualityProfile::Low),
+        None,
+    );
+    assert_eq!(full.mesh.vertex_count, low.mesh.vertex_count);
+    assert_eq!(full.mesh.index_count, low.mesh.index_count);
+    assert_eq!(
+        architectural_vertices(&full.mesh),
+        architectural_vertices(&low.mesh)
+    );
+}
+
+#[test]
+fn the_neutral_resolver_applies_material_defaults() {
+    use crate::materials::{
+        DEFAULT_ROUGHNESS, MaterialAlpha, MaterialEmission, MaterialReflection, MaterialResponse,
+        MaterialTable,
+    };
+    use crate::render::common::materials::resolve_surface_material;
+
+    let materials = MaterialRenderState {
+        texture_slots: vec![0],
+        emissions: vec![MaterialEmission::NONE],
+        responses: vec![MaterialResponse::NONE],
+        alphas: vec![MaterialAlpha::OPAQUE],
+        reflections: vec![MaterialReflection::NONE],
+    };
+    let table = MaterialTable::default();
+    let state = resolve_surface_material(
+        SurfaceKey::new(SurfaceKind::Wall, 0),
+        &materials,
+        &table,
+        true,
+    );
+    assert!(!state.response_enabled);
+    assert_eq!(state.roughness, DEFAULT_ROUGHNESS, "the legacy default");
+    assert_eq!(state.specular, [0.0; 3]);
+    assert_eq!(state.alpha, MaterialAlpha::OPAQUE);
+    assert!(!state.reflection_eligible());
+    assert_eq!(state.reflection_strength(), [0.0; 3]);
+    // A key without a material resolves the same plain state.
+    let bare = resolve_surface_material(
+        SurfaceKey::bare(SurfaceKind::Wall),
+        &materials,
+        &table,
+        true,
+    );
+    assert_eq!(bare, state);
+}
+
+#[test]
+fn the_neutral_resolver_lets_the_shine_override_win_and_keeps_the_material_otherwise() {
+    use crate::materials::{
+        MaterialAlpha, MaterialEmission, MaterialReflection, MaterialResponse, MaterialTable,
+    };
+    use crate::render::common::materials::resolve_surface_material;
+
+    let response = MaterialResponse {
+        normal: None,
+        normal_strength: 1.0,
+        specular: [0.4; 3],
+        roughness: 0.25,
+    };
+    let materials = MaterialRenderState {
+        texture_slots: vec![7],
+        emissions: vec![MaterialEmission::NONE],
+        responses: vec![response],
+        alphas: vec![MaterialAlpha::blend(0.5)],
+        reflections: vec![MaterialReflection::NONE],
+    };
+    let table = MaterialTable::default();
+
+    // No override: the material's own roughness applies and the shine override
+    // is absent from the key.
+    let base = resolve_surface_material(
+        SurfaceKey::new(SurfaceKind::Wall, 0),
+        &materials,
+        &table,
+        true,
+    );
+    assert_eq!(base.roughness, 0.25);
+    assert_eq!(base.alpha, MaterialAlpha::blend(0.5));
+    assert!(base.response_enabled);
+
+    // With an override the roughness follows the quantised shine, and every
+    // other property stays the material's.
+    let key = SurfaceKey::with_shine(SurfaceKind::Wall, 0, Some(SurfaceShine::from_unit(0.05)));
+    let overridden = resolve_surface_material(key, &materials, &table, true);
+    assert!((overridden.roughness - 0.95).abs() < f32::EPSILON);
+    assert_eq!(overridden.alpha, base.alpha);
+    assert_eq!(overridden.specular, base.specular);
+    assert_eq!(overridden.normal_strength, base.normal_strength);
+}
+
+#[test]
+fn the_neutral_resolver_zeroes_the_response_and_reflection_strength_on_a_gated_profile() {
+    use crate::materials::{
+        MaterialAlpha, MaterialEmission, MaterialReflection, MaterialResponse, MaterialTable,
+        ReflectionMode,
+    };
+    use crate::render::common::materials::resolve_surface_material;
+
+    let response = MaterialResponse {
+        normal: Some(3),
+        normal_strength: 0.4,
+        specular: [0.6; 3],
+        roughness: 0.3,
+    };
+    let materials = MaterialRenderState {
+        texture_slots: vec![1],
+        emissions: vec![MaterialEmission::NONE],
+        responses: vec![response],
+        alphas: vec![MaterialAlpha::OPAQUE],
+        reflections: vec![MaterialReflection::new(ReflectionMode::Planar, 0.8)],
+    };
+    let table = MaterialTable::default();
+
+    let enabled = resolve_surface_material(
+        SurfaceKey::new(SurfaceKind::Wall, 0),
+        &materials,
+        &table,
+        true,
+    );
+    assert!(enabled.response_enabled);
+    assert_eq!(enabled.normal, Some(3));
+    assert_eq!(enabled.specular, [0.6; 3]);
+    assert!(enabled.reflection_eligible(), "authored and weighted");
+    assert!((enabled.reflection_strength()[0] - 0.48).abs() < 1e-6);
+
+    let gated = resolve_surface_material(
+        SurfaceKey::new(SurfaceKind::Wall, 0),
+        &materials,
+        &table,
+        false,
+    );
+    assert!(!gated.response_enabled, "Low gates the response");
+    assert_eq!(gated.normal, None, "a gated profile binds no normal map");
+    assert_eq!(gated.specular, [0.0; 3], "the sheen is zeroed");
+    assert!(
+        !gated.reflection_eligible(),
+        "the zeroed sheen zeroes the reflection weight, exactly like the reference"
+    );
+    assert_eq!(gated.reflection_strength(), [0.0; 3]);
+    // The alpha, texture and mode are untouched by the response gate.
+    assert_eq!(gated.alpha, enabled.alpha);
+    assert_eq!(gated.texture, enabled.texture);
+    assert_eq!(gated.reflection.mode, ReflectionMode::Planar);
+}
+
+#[test]
+fn the_neutral_resolver_treats_a_fixture_or_decal_key_as_plain() {
+    use crate::materials::{
+        MaterialAlpha, MaterialEmission, MaterialReflection, MaterialResponse, MaterialTable,
+    };
+    use crate::render::common::materials::resolve_surface_material;
+
+    let materials = MaterialRenderState {
+        texture_slots: vec![0; 3],
+        emissions: vec![MaterialEmission::NONE; 3],
+        responses: vec![
+            MaterialResponse {
+                normal: Some(1),
+                normal_strength: 1.0,
+                specular: [1.0; 3],
+                roughness: 0.1,
+            };
+            3
+        ],
+        alphas: vec![MaterialAlpha::blend(0.5); 3],
+        reflections: vec![MaterialReflection::NONE; 3],
+    };
+    let table = MaterialTable::default();
+    for kind in [
+        SurfaceKind::Light,
+        SurfaceKind::PropFallback,
+        SurfaceKind::Decal,
+    ] {
+        let state = resolve_surface_material(SurfaceKey::new(kind, 0), &materials, &table, true);
+        assert_eq!(
+            state,
+            crate::render::common::materials::ResolvedSurfaceMaterial::plain()
+        );
+    }
+}
+
+#[test]
+fn the_surface_frame_follows_the_uv_orientation_and_flips_with_mirrored_uvs() {
+    // The tangent frame Stage 7 uploads is computed by the neutral builder from
+    // the surface's own UVs; a normal map must tilt the same way on a mirrored
+    // sheet as on the original, with the sign carried by `handedness`.
+    use crate::render::common::finish_indexed_mesh;
+    use crate::spatial::SpatialBuckets;
+
+    let level = lit_room_level(1.0, 1.0, 3.0, "[]");
+    let grid = spatial_cell_grid(&level);
+    let key = SurfaceKey::new(SurfaceKind::Wall, MATERIAL_NONE);
+    let quad = |uv: [[f32; 2]; 4]| -> Vec<Vertex> {
+        let points = [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ];
+        [0usize, 1, 2, 0, 2, 3]
+            .iter()
+            .map(|index| Vertex {
+                pos: points[*index],
+                uv: uv[*index],
+                ..Vertex::UNLIT
+            })
+            .collect()
+    };
+    let build = |uv| {
+        let mut buckets = SpatialBuckets::<SurfaceKey>::with_grid(grid);
+        buckets.add_quads(key, &quad(uv));
+        finish_indexed_mesh(buckets)
+    };
+
+    // u = +x, v = +y: normal +Z, tangent +X, bitangent +Y, handedness +1.
+    let standard = build([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]);
+    let vertex = standard.ranges[0].vertices[0];
+    let normal = glam::Vec3::from(vertex.normal);
+    let tangent = glam::Vec3::from(vertex.tangent);
+    assert!((normal - glam::Vec3::Z).length() < 1.0e-5, "{normal:?}");
+    assert!((tangent - glam::Vec3::X).length() < 1.0e-5, "{tangent:?}");
+    assert_eq!(vertex.handedness, 1.0);
+    let bitangent = normal.cross(tangent) * vertex.handedness;
+    assert!(
+        (bitangent - glam::Vec3::Y).length() < 1.0e-5,
+        "{bitangent:?}"
+    );
+
+    // u = -x: the tangent follows the UV and the handedness flips, so the
+    // reconstructed bitangent still runs along +v.
+    let mirrored = build([[0.0, 0.0], [-1.0, 0.0], [-1.0, 1.0], [0.0, 1.0]]);
+    let vertex = mirrored.ranges[0].vertices[0];
+    let tangent = glam::Vec3::from(vertex.tangent);
+    assert!(
+        (tangent - (-glam::Vec3::X)).length() < 1.0e-5,
+        "{tangent:?}"
+    );
+    assert_eq!(vertex.handedness, -1.0);
+    let bitangent = normal.cross(tangent) * vertex.handedness;
+    assert!(
+        (bitangent - glam::Vec3::Y).length() < 1.0e-5,
+        "{bitangent:?}"
     );
 }
 

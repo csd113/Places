@@ -1,8 +1,6 @@
 //! Static baked interior lighting.
 //!
-//! Places ships as a desktop game, but its lighting discipline grew up on a
-//! `PocketCHIP` (Mali-400/Lima, OpenGL ES 2.0, 480x272): there is no dynamic
-//! lighting anywhere in the render loop. Everything in this module tree runs
+//! There is no dynamic lighting loop. The static bake runs
 //! once per level load, producing one [`LightColor`] per sampled point that the
 //! geometry builder bakes into ordinary vertex colours, one channel at a time:
 //!
@@ -20,9 +18,8 @@
 //!     -> upload the same static batches as before    (crate::render)
 //! ```
 //!
-//! There is no per-frame light loop, no light texture, no extra draw call and
-//! no shader change: the renderer still draws exactly the batches it drew
-//! before, with darker or brighter vertex colours.
+//! Static world surfaces sample baked lightmap atlases; vertex colours provide
+//! the fallback. Moving objects sample the static lighting field at their position.
 //!
 //! Lighting model
 //! --------------

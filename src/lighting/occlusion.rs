@@ -1096,9 +1096,10 @@ mod tests {
         Vec<crate::lighting::LightColor>,
         Vec<[f32; 3]>,
     ) {
-        let transform = glam::Mat4::from_translation(glam::Vec3::new(prop.x, base_y + prop.y, prop.z))
-            * glam::Mat4::from_rotation_y(prop.rotation_degrees.to_radians())
-            * glam::Mat4::from_scale(glam::Vec3::splat(prop.scale));
+        let transform =
+            glam::Mat4::from_translation(glam::Vec3::new(prop.x, base_y + prop.y, prop.z))
+                * glam::Mat4::from_rotation_y(prop.rotation_degrees.to_radians())
+                * glam::Mat4::from_scale(glam::Vec3::splat(prop.scale));
         let mut shaded = Vec::new();
         let mut unshaded = Vec::new();
         let mut positions = Vec::new();
@@ -1210,7 +1211,11 @@ mod tests {
         };
         let blocked = scene(true);
         let open = scene(false);
-        assert_eq!(blocked.zone_count(), 1, "the wall must not partition the room");
+        assert_eq!(
+            blocked.zone_count(),
+            1,
+            "the wall must not partition the room"
+        );
         let point = [9.15_f32, 1.0, 6.0];
         let shaded = blocked.sample(point[0], point[1], point[2]);
         let lit = open.sample(point[0], point[1], point[2]);
@@ -1352,7 +1357,9 @@ mod tests {
     ///
     /// The receiver and cap tests below all need the real shipped assets, so
     /// the loading is shared.
-    fn demo_models(cache: &mut PropOcclusionCache) -> Vec<(String, Rc<crate::props::LoadedPropAsset>)> {
+    fn demo_models(
+        cache: &mut PropOcclusionCache,
+    ) -> Vec<(String, Rc<crate::props::LoadedPropAsset>)> {
         let level = crate::level::LevelDef::from_json(
             &std::fs::read_to_string("assets/levels/places_demo.json").expect("demo readable"),
         )
@@ -1411,8 +1418,12 @@ mod tests {
             "the coarse grid merges the two posts into one box: {coarse:?} vs {fine:?}"
         );
         // The merged coarse box spans the gap; the fine pair does not.
-        let coarse_span = coarse.iter().fold(0.0_f32, |span, b| span.max(b.max[0] - b.min[0]));
-        let fine_span = fine.iter().fold(0.0_f32, |span, b| span.max(b.max[0] - b.min[0]));
+        let coarse_span = coarse
+            .iter()
+            .fold(0.0_f32, |span, b| span.max(b.max[0] - b.min[0]));
+        let fine_span = fine
+            .iter()
+            .fold(0.0_f32, |span, b| span.max(b.max[0] - b.min[0]));
         assert!(coarse_span > fine_span, "{coarse:?} vs {fine:?}");
     }
 
@@ -1440,7 +1451,10 @@ mod tests {
                 // silhouette - never a truncated slice of the exact grid.
                 let exact = grind_model(&asset.model, cell);
                 if exact.len() < MAX_PROP_OCCLUSION_BOXES_PER_MODEL {
-                    assert_eq!(boxes, exact, "{path}: {cell} m must stay exact below the cap");
+                    assert_eq!(
+                        boxes, exact,
+                        "{path}: {cell} m must stay exact below the cap"
+                    );
                 }
                 let _ = write!(line, "  {cell:.3}:{:3}", boxes.len());
             }
@@ -1562,8 +1576,14 @@ mod tests {
             .iter()
             .map(|b| b.max[0])
             .fold(f32::NEG_INFINITY, f32::max);
-        assert!(min_x <= -1.0 + 1e-4, "the first primitive occludes: {min_x}");
-        assert!(max_x >= 1.0 - 1e-4, "the second primitive occludes: {max_x}");
+        assert!(
+            min_x <= -1.0 + 1e-4,
+            "the first primitive occludes: {min_x}"
+        );
+        assert!(
+            max_x >= 1.0 - 1e-4,
+            "the second primitive occludes: {max_x}"
+        );
     }
 
     #[test]
@@ -1629,15 +1649,12 @@ mod tests {
             [-0.5, 0.0, -0.4],
             [-0.4, 1.0, 0.5],
         )));
-        triangles.extend(triangles_of(&box_model(
-            [0.4, 0.0, -0.4],
-            [0.5, 1.0, 0.5],
-        )));
+        triangles.extend(triangles_of(&box_model([0.4, 0.0, -0.4], [0.5, 1.0, 0.5])));
         let model = model(&triangles);
         let boxes = default_boxes(&model);
-        let mouth_centre_covered = boxes.iter().any(|b| {
-            b.min[0] < 0.05 && b.max[0] > -0.05 && b.min[2] < 0.4 && b.max[2] > 0.2
-        });
+        let mouth_centre_covered = boxes
+            .iter()
+            .any(|b| b.min[0] < 0.05 && b.max[0] > -0.05 && b.min[2] < 0.4 && b.max[2] > 0.2);
         assert!(
             !mouth_centre_covered,
             "the U's mouth must stay air: {boxes:?}"
@@ -1758,8 +1775,10 @@ mod tests {
         let surfaces = crate::level::LevelSurfaces::new(&level);
         let mut loaded_cache = PropOcclusionCache::with_root("assets");
         let mut failed_cache = PropOcclusionCache::with_root("target/definitely-not-here");
-        let loaded = loaded_cache.level_occluders_with_cell(&level, &surfaces, PROP_OCCLUSION_CELL_M);
-        let failed = failed_cache.level_occluders_with_cell(&level, &surfaces, PROP_OCCLUSION_CELL_M);
+        let loaded =
+            loaded_cache.level_occluders_with_cell(&level, &surfaces, PROP_OCCLUSION_CELL_M);
+        let failed =
+            failed_cache.level_occluders_with_cell(&level, &surfaces, PROP_OCCLUSION_CELL_M);
         assert_eq!(failed.len(), 1, "one placeholder box for the one prop");
         assert!(
             loaded.len() > failed.len(),
@@ -1791,7 +1810,10 @@ mod tests {
         let fine = cache.level_occluders_with_cell(&level, &surfaces, 0.075);
         let historical = cache.level_occluders_with_cell(&level, &surfaces, 0.15);
         let fine_again = cache.level_occluders_with_cell(&level, &surfaces, 0.075);
-        assert_ne!(fine, historical, "the two cells must derive different boxes");
+        assert_ne!(
+            fine, historical,
+            "the two cells must derive different boxes"
+        );
         assert_eq!(fine, fine_again, "the cache must not serve the other cell");
         // A degenerate request is canonicalised to the historical grid.
         let degenerate = cache.level_occluders_with_cell(&level, &surfaces, f32::NAN);

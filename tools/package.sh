@@ -6,7 +6,7 @@
 # Layout produced (the assets/ + levels/ pair is the whole runtime payload):
 #
 #   <output-root>/Places/
-#       places              the executable (built as `liminal-rust`)
+#       places              the executable (built as `places`)
 #       assets/             catalog, levels, models, textures, decals
 #       levels/             level packs and drop-in custom levels
 #       README.md           the project README, for reference
@@ -18,14 +18,14 @@
 #       Contents/Resources/{assets,levels,...}
 #
 # The game resolves its asset root from the executable's own location
-# (`$LIMINAL_ASSET_ROOT`, then the executable's directory and its ancestors,
+# (`$PLACES_ASSET_ROOT`, then the executable's directory and its ancestors,
 # then a macOS bundle's Contents/Resources), so either form runs from any
 # working directory and never reads the source tree.
 set -eu
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 OUT=${1:-"$REPO/target/package"}
-BIN="$REPO/target/release/liminal-rust"
+BIN="$REPO/target/release/places"
 NAME=places
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' "$REPO/Cargo.toml" | head -1)
 
@@ -53,7 +53,7 @@ cat > "$OUT/Places.app/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key><string>$NAME</string>
-    <key>CFBundleIdentifier</key><string>io.vitrallis.liminalrust</string>
+    <key>CFBundleIdentifier</key><string>io.github.csd113.places</string>
     <key>CFBundleName</key><string>Places</string>
     <key>CFBundleDisplayName</key><string>Places</string>
     <key>CFBundlePackageType</key><string>APPL</string>

@@ -13,7 +13,7 @@ spread. Nothing outside ``target/agent-work/bench/`` is written.
 
 Usage::
 
-    python3 tools/bench/bench_local.py --binary target/release/liminal-rust \
+    python3 tools/bench/bench_local.py --binary target/release/places \
         --label current --repeat 3
 
     python3 tools/bench/bench_local.py --label current_low --quality low
@@ -58,24 +58,24 @@ def run_once(args, binary: str) -> dict:
     env = dict(os.environ)
     env.update(
         {
-            "LIMINAL_BENCH": "1",
-            "LIMINAL_BENCH_FRAMES": str(args.frames),
-            "LIMINAL_BENCH_WARMUP": str(args.warmup),
-            "LIMINAL_VSYNC": "off",
-            "LIMINAL_LEVEL": args.level,
-            "LIMINAL_CAMERA": args.camera,
+            "PLACES_BENCH": "1",
+            "PLACES_BENCH_FRAMES": str(args.frames),
+            "PLACES_BENCH_WARMUP": str(args.warmup),
+            "PLACES_VSYNC": "off",
+            "PLACES_LEVEL": args.level,
+            "PLACES_CAMERA": args.camera,
         }
     )
     if args.finish:
-        env["LIMINAL_BENCH_FINISH"] = "1"
+        env["PLACES_BENCH_FINISH"] = "1"
     if args.noswap:
-        env["LIMINAL_BENCH_NOSWAP"] = "1"
+        env["PLACES_BENCH_NOSWAP"] = "1"
     if args.quality:
-        env["LIMINAL_QUALITY"] = args.quality
+        env["PLACES_QUALITY"] = args.quality
     if args.direct:
-        env["LIMINAL_NO_OFFSCREEN"] = "1"
+        env["PLACES_NO_OFFSCREEN"] = "1"
     if args.no_lightmaps:
-        env["LIMINAL_NO_LIGHTMAPS"] = "1"
+        env["PLACES_NO_LIGHTMAPS"] = "1"
 
     try:
         result = subprocess.run(
@@ -101,7 +101,7 @@ def run_once(args, binary: str) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--binary", default=os.path.join(PACKAGE_ROOT, "target", "release", "liminal-rust"))
+    parser.add_argument("--binary", default=os.path.join(PACKAGE_ROOT, "target", "release", "places"))
     parser.add_argument("--label", default="current")
     parser.add_argument("--level", default="places_demo")
     parser.add_argument("--camera", default="74,0")

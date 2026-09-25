@@ -143,7 +143,7 @@ test('proxy geometry replaces the fallback box in the viewport mesh', () => {
       { shape: 'box', center: [0, 1.5, 0], size: [0.5, 1, 0.5], color: '#ffffff' }
     ]
   };
-  env.run(`app.propProxies = LiminalProps.PropProxies.fromJSON(${JSON.stringify(payload)});
+  env.run(`app.propProxies = PlacesProps.PropProxies.fromJSON(${JSON.stringify(payload)});
     app.levelRevision++; app.viewport3d.markDirty(); app.viewport3d.render();`);
   // One 36-vertex fallback box is replaced by two 36-vertex proxy boxes.
   assert.equal(env.run('app.viewport3d._batches.props.count'), (props - 1) * 36 + 72, 'the proxy parts are uploaded');
@@ -170,7 +170,7 @@ test('clicking in 3D selects objects and never mutates the level', () => {
   // Aim at the first prop: the camera is framed on the level, so project its centre.
   const point = env.run(`(() => {
     const prop = app.level.props[0];
-    const bounds = LiminalGeometry.objectBounds3D(app.level, prop.id, { catalog: app.propCatalog });
+    const bounds = PlacesGeometry.objectBounds3D(app.level, prop.id, { catalog: app.propCatalog });
     const camera = app.viewport3d.camera;
     const canvas = document.getElementById('canvas-3d');
     const aspect = canvas.clientWidth / canvas.clientHeight;
@@ -274,10 +274,10 @@ test('the editor survives a level with many walls and openings in 3D', () => {
   env.run(`(() => {
     const level = app.level;
     for (let i = 0; i < 40; i++) {
-      const wall = LiminalOps.createWall(level, { x: -20 + i, z: -20, width: 2, depth: 0.35 });
-      LiminalOps.addOpening(wall, { kind: 'door', offset: 0.4, width: 0.9, height: 2.1 });
-      if (i % 3 === 0) LiminalOps.addOpening(wall, { kind: 'window', offset: 1.2, width: 0.6, height: 1.0, sill: 1.0 });
-      LiminalOps.addProp(level, { model: 'core:crate', x: -20 + i, z: -18 }, app.propCatalog);
+      const wall = PlacesOps.createWall(level, { x: -20 + i, z: -20, width: 2, depth: 0.35 });
+      PlacesOps.addOpening(wall, { kind: 'door', offset: 0.4, width: 0.9, height: 2.1 });
+      if (i % 3 === 0) PlacesOps.addOpening(wall, { kind: 'window', offset: 1.2, width: 0.6, height: 1.0, sill: 1.0 });
+      PlacesOps.addProp(level, { model: 'core:crate', x: -20 + i, z: -18 }, app.propCatalog);
     }
     app.levelChanged();
   })()`);

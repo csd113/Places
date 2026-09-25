@@ -34,7 +34,7 @@ import unittest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 SMOKE_ROOT = os.path.join(ROOT, "target", "agent-work", "smoke")
-DEFAULT_BINARY = os.path.join(ROOT, "target", "release", "liminal-rust")
+DEFAULT_BINARY = os.path.join(ROOT, "target", "release", "places")
 
 
 def _display_available() -> bool:
@@ -47,7 +47,7 @@ def _clean_env() -> dict:
     env = {
         key: value
         for key, value in os.environ.items()
-        if not key.startswith("LIMINAL_")
+        if not key.startswith("PLACES_")
     }
     # Keep SDL from picking up a developer override; the smoke test wants the
     # ordinary desktop path.
@@ -65,7 +65,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
             raise unittest.SkipTest("PLACES_SKIP_SMOKE=1")
         if not os.path.isfile(cls.binary):
             raise unittest.SkipTest(
-                "no release binary at target/release/liminal-rust; "
+                "no release binary at target/release/places; "
                 "run `cargo build --release` first (or set PLACES_SMOKE_BIN)"
             )
         if not _display_available():
@@ -77,9 +77,9 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         env = _clean_env()
         env.update(
             {
-                "LIMINAL_BENCH": "1",
-                "LIMINAL_BENCH_NOSWAP": "1",
-                "LIMINAL_CAPTURE": capture,
+                "PLACES_BENCH": "1",
+                "PLACES_BENCH_NOSWAP": "1",
+                "PLACES_CAPTURE": capture,
             }
         )
         if extra_env:
@@ -123,7 +123,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         code, output = self.run_binary(
             unrelated,
             capture,
-            {"LIMINAL_LEVEL": "places_demo"},
+            {"PLACES_LEVEL": "places_demo"},
             binary=os.path.join(package, "places"),
         )
 
@@ -137,7 +137,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(unrelated, "settings.json")))
         # The shipped demo resolved its materials: no unresolved-material noise.
         self.assertNotIn("[materials]", output, output)
-        # Normal operation is quiet when LIMINAL_VERBOSE is unset.
+        # Normal operation is quiet when PLACES_VERBOSE is unset.
         for line in output.splitlines():
             self.assertFalse(
                 line.startswith(("[package]", "[props]", "[level]", "[lighting]", "[lightmaps]")),
@@ -153,7 +153,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         capture = os.path.join(runtime, "first.png")
 
         code, output = self.run_binary(
-            runtime, capture, {"LIMINAL_LEVEL": "places_demo"}, binary=binary
+            runtime, capture, {"PLACES_LEVEL": "places_demo"}, binary=binary
         )
 
         self.assertEqual(code, 0, f"empty install failed:\n{output}")
@@ -197,7 +197,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
 
         capture = os.path.join(runtime, "second.png")
         code, output = self.run_binary(
-            runtime, capture, {"LIMINAL_LEVEL": "places_demo"}, binary=binary
+            runtime, capture, {"PLACES_LEVEL": "places_demo"}, binary=binary
         )
         self.assertEqual(code, 0, output)
 
@@ -326,7 +326,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
 
         capture = os.path.join(runtime, "frame.png")
         code, output = self.run_binary(
-            runtime, capture, {"LIMINAL_LEVEL": "degraded_content"}, binary=binary
+            runtime, capture, {"PLACES_LEVEL": "degraded_content"}, binary=binary
         )
 
         self.assertEqual(code, 0, output)
@@ -345,7 +345,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         code, output = self.run_binary(
             runtime,
             capture,
-            {"LIMINAL_LEVEL": "places_demo", "LIMINAL_VERBOSE": "1"},
+            {"PLACES_LEVEL": "places_demo", "PLACES_VERBOSE": "1"},
             binary=binary,
         )
         self.assertEqual(code, 0, output)
@@ -368,7 +368,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         binary = os.path.join(runtime, "places")
         capture = os.path.join(runtime, "frame.png")
         code, output = self.run_binary(
-            runtime, capture, {"LIMINAL_LEVEL": "places_demo"}, binary=binary
+            runtime, capture, {"PLACES_LEVEL": "places_demo"}, binary=binary
         )
         self.assertEqual(code, 0, output)
         self.assertTrue(os.path.isfile(capture))

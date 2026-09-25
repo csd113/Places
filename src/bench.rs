@@ -1,10 +1,9 @@
 //! Debug-only frame telemetry and hardware benchmark harness.
 //!
-//! Everything in this module is inert unless `LIMINAL_BENCH=1` is set in the
+//! Everything in this module is inert unless `PLACES_BENCH=1` is set in the
 //! environment, so a normal release build keeps printing nothing and allocates
-//! nothing per frame. It exists because the `PocketCHIP` can only be driven over
-//! SSH: the on-screen `-` performance overlay cannot be read back, so the
-//! measurements have to come out on stdout and in a CSV file.
+//! nothing per frame. Repeatable desktop measurements are written to stdout
+//! and CSV without requiring interaction with the performance overlay.
 //!
 //! Timing is deliberately staged around `SDL_GL_SwapWindow`, because the whole
 //! point of the first phase is to find out whether the swap actually blocks on
@@ -30,34 +29,53 @@ use std::time::Instant;
 
 use crate::render::RenderStats;
 
-/// Environment switch that turns every other `LIMINAL_BENCH_*` option on.
-const BENCH_ENV: &str = "LIMINAL_BENCH";
+/// Environment switch that turns every other `PLACES_BENCH_*` option on.
+const BENCH_ENV: &str = "PLACES_BENCH";
 /// Optional CSV path; one row per recorded frame.
-const BENCH_OUT_ENV: &str = "LIMINAL_BENCH_OUT";
+const BENCH_OUT_ENV: &str = "PLACES_BENCH_OUT";
 /// Number of leading frames to discard before recording (pipeline warm-up).
-const BENCH_WARMUP_ENV: &str = "LIMINAL_BENCH_WARMUP";
+const BENCH_WARMUP_ENV: &str = "PLACES_BENCH_WARMUP";
 /// Stop the process after this many recorded frames (bounds a hardware run).
-const BENCH_FRAMES_ENV: &str = "LIMINAL_BENCH_FRAMES";
+const BENCH_FRAMES_ENV: &str = "PLACES_BENCH_FRAMES";
+/// A scripted live quality-profile switch, for the migration's runtime matrix:
+/// `PLACES_BENCH_QUALITY_CYCLE=<frame>:<profile>[,<frame>:<profile>...]`, e.g.
+/// `3:low,6:full`. Each entry selects the profile when `frame_count` reaches
+/// its frame, through the same `Settings::set_quality` path the menu uses, so
+/// the renderer's normal graphics rebuild runs. Debug-only; inert unless the
+/// benchmark is enabled.
+const QUALITY_CYCLE_ENV: &str = "PLACES_BENCH_QUALITY_CYCLE";
+
+/// A scripted live window-event sequence, for the lifecycle matrix:
+/// `PLACES_BENCH_WINDOW_CYCLE=<frame>:<action>[,<frame>:<action>...]`, where
+/// the actions are `resize:<width>x<height>`, `minimize` and `restore`, e.g.
+/// `3:resize:800x450,6:minimize,9:restore,12:resize:640x360`. Each entry asks
+/// the real SDL window to perform the action when `frame_count` reaches its
+/// frame, so the platform's own resize/minimize events (and the drawable-size
+/// changes they produce) flow through the normal frame loop — not through a
+/// target-recreation helper call. Debug-only; inert unless the benchmark is
+/// enabled.
+const WINDOW_CYCLE_ENV: &str = "PLACES_BENCH_WINDOW_CYCLE";
+
 /// Freeze the camera at `yaw_degrees[,pitch_degrees]` for a repeatable shot.
-const BENCH_CAMERA_ENV: &str = "LIMINAL_CAMERA";
+const BENCH_CAMERA_ENV: &str = "PLACES_CAMERA";
 /// `on`/`off` override for the swap interval, used only to characterise `VSync`.
-const BENCH_VSYNC_ENV: &str = "LIMINAL_VSYNC";
+const BENCH_VSYNC_ENV: &str = "PLACES_VSYNC";
 /// `1` inserts `glFinish` before the swap, splitting renderer time from
 /// presentation time unambiguously (diagnostic only).
-const BENCH_FINISH_ENV: &str = "LIMINAL_BENCH_FINISH";
+const BENCH_FINISH_ENV: &str = "PLACES_BENCH_FINISH";
 /// `1` skips scene/UI submission, leaving only the presentation path
 /// (diagnostic only: the window shows a stale frame).
-const BENCH_NORENDER_ENV: &str = "LIMINAL_BENCH_NORENDER";
+const BENCH_NORENDER_ENV: &str = "PLACES_BENCH_NORENDER";
 /// `1` skips `SDL_GL_SwapWindow` (diagnostic only: nothing is presented).
-const BENCH_NOSWAP_ENV: &str = "LIMINAL_BENCH_NOSWAP";
+const BENCH_NOSWAP_ENV: &str = "PLACES_BENCH_NOSWAP";
 /// `1` submits every batch, so the same build can measure what culling is worth.
-const BENCH_NOCULL_ENV: &str = "LIMINAL_BENCH_NOCULL";
+const BENCH_NOCULL_ENV: &str = "PLACES_BENCH_NOCULL";
 /// `1` submits flat triangle lists instead of indexed ones, so the same build can
 /// measure what indexing is worth with batching and culling held fixed.
-const BENCH_NOINDEX_ENV: &str = "LIMINAL_BENCH_NOINDEX";
+const BENCH_NOINDEX_ENV: &str = "PLACES_BENCH_NOINDEX";
 /// `1` uploads the exact 36-byte vertex layout instead of the packed 24-byte one,
 /// so the same build can measure what packing is worth.
-const BENCH_EXACT_VERTEX_ENV: &str = "LIMINAL_BENCH_EXACT_VERTEX";
+const BENCH_EXACT_VERTEX_ENV: &str = "PLACES_BENCH_EXACT_VERTEX";
 
 /// Per-frame timings, all in milliseconds.
 #[derive(Clone, Copy, Debug, Default)]
@@ -69,7 +87,7 @@ pub struct FrameTimings {
     pub loop_ms: f32,
 }
 
-/// Diagnostic submission switches parsed from the `LIMINAL_BENCH*` environment.
+/// Diagnostic submission switches parsed from the `PLACES_BENCH*` environment.
 ///
 /// Each one changes exactly one renderer decision, so one release build measures
 /// what culling, indexing, exact-vertex packing, finishing and skipping are each
@@ -106,12 +124,12 @@ impl BenchSwitches {
 
 /// Hard cap on retained frame records for an unbounded benchmark session.
 ///
-/// `LIMINAL_BENCH_FRAMES` normally ends a run; this only bounds the case where
+/// `PLACES_BENCH_FRAMES` normally ends a run; this only bounds the case where
 /// the harness is left enabled for a whole interactive session. At 60 fps the
 /// cap is a little over half an hour of recording.
 pub const MAX_RECORDED_FRAMES: usize = 120_000;
 
-/// Parsed `LIMINAL_BENCH*` environment configuration.
+/// Parsed `PLACES_BENCH*` environment configuration.
 #[derive(Clone, Debug, Default)]
 pub struct BenchConfig {
     pub enabled: bool,
@@ -125,7 +143,7 @@ pub struct BenchConfig {
 }
 
 impl BenchConfig {
-    /// Reads the `LIMINAL_BENCH*` environment. Malformed values fall back to the
+    /// Reads the `PLACES_BENCH*` environment. Malformed values fall back to the
     /// documented defaults rather than aborting a hardware run.
     pub fn from_env() -> Self {
         let enabled = env_flag(BENCH_ENV);
@@ -181,6 +199,45 @@ fn env_flag(name: &str) -> bool {
         let value = value.trim().to_ascii_lowercase();
         !matches!(value.as_str(), "" | "0" | "false" | "no" | "off")
     })
+}
+
+/// A scripted live window action for the lifecycle matrix.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WindowAction {
+    /// Resize the window to a logical size in points.
+    Resize(u32, u32),
+    /// Minimize the window (the platform's own iconify event).
+    Minimize,
+    /// Restore a minimized window.
+    Restore,
+}
+
+/// Parses one `PLACES_BENCH_WINDOW_CYCLE` action.
+///
+/// Accepts `resize:<width>x<height>` (positive integers), `minimize` and
+/// `restore`, case-insensitively. Anything else is `None` and is ignored by
+/// the runner, like every other malformed benchmark value.
+#[must_use]
+pub fn parse_window_action(value: &str) -> Option<WindowAction> {
+    let value = value.trim();
+    if value.eq_ignore_ascii_case("minimize") {
+        return Some(WindowAction::Minimize);
+    }
+    if value.eq_ignore_ascii_case("restore") {
+        return Some(WindowAction::Restore);
+    }
+    let (width, height) = value.strip_prefix("resize:")?.split_once('x')?;
+    let width = width
+        .trim()
+        .parse::<u32>()
+        .ok()
+        .filter(|value| *value > 0)?;
+    let height = height
+        .trim()
+        .parse::<u32>()
+        .ok()
+        .filter(|value| *value > 0)?;
+    Some(WindowAction::Resize(width, height))
 }
 
 /// Parses `yaw_degrees` or `yaw_degrees,pitch_degrees`.
@@ -288,6 +345,10 @@ pub struct Bench {
     frames: Vec<FrameRecord>,
     /// Swap interval actually in force, as reported by `SDL_GL_GetSwapInterval`.
     reported_swap_interval: Option<i32>,
+    /// Scripted live quality switches, in ascending frame order.
+    quality_cycle: Vec<(u64, crate::quality::QualityProfile)>,
+    /// Scripted live window actions, in ascending frame order.
+    window_cycle: Vec<(u64, WindowAction)>,
 }
 
 impl Bench {
@@ -307,6 +368,39 @@ impl Bench {
                 "frame,update_ms,render_ms,swap_ms,frame_ms,loop_ms,total_vertices,visible_vertices,culled_vertices,total_batches,visible_batches,draw_calls,vbo_bytes,index_bytes,texture_binds,material_changes,reflection_passes"
             );
         }
+        let mut quality_cycle: Vec<(u64, crate::quality::QualityProfile)> =
+            std::env::var(QUALITY_CYCLE_ENV)
+                .ok()
+                .map(|value| {
+                    value
+                        .split(',')
+                        .filter_map(|entry| {
+                            let (frame, profile) = entry.split_once(':')?;
+                            Some((
+                                frame.trim().parse::<u64>().ok()?,
+                                crate::quality::QualityProfile::parse(profile)?,
+                            ))
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+        quality_cycle.sort_by_key(|(frame, _)| *frame);
+        let mut window_cycle: Vec<(u64, WindowAction)> = std::env::var(WINDOW_CYCLE_ENV)
+            .ok()
+            .map(|value| {
+                value
+                    .split(',')
+                    .filter_map(|entry| {
+                        let (frame, action) = entry.split_once(':')?;
+                        Some((
+                            frame.trim().parse::<u64>().ok()?,
+                            parse_window_action(action)?,
+                        ))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        window_cycle.sort_by_key(|(frame, _)| *frame);
         Self {
             warmup_remaining: config.warmup_frames,
             limit_remaining: config.limit_frames,
@@ -316,10 +410,36 @@ impl Bench {
             last_begin: None,
             frames: Vec::new(),
             reported_swap_interval: None,
+            quality_cycle,
+            window_cycle,
         }
     }
 
-    /// True when `LIMINAL_BENCH=1` was set, i.e. the harness should be driven.
+    /// The window action a scripted lifecycle selects at `frame`, if any.
+    ///
+    /// Called by the frame loop next to [`Self::quality_cycle_at`], so the
+    /// action reaches the real SDL window and the normal event/drawable path.
+    #[must_use]
+    pub fn window_cycle_at(&self, frame: u64) -> Option<WindowAction> {
+        self.window_cycle
+            .iter()
+            .find(|(at, _)| *at == frame)
+            .map(|(_, action)| *action)
+    }
+
+    /// The profile a scripted quality cycle selects at `frame`, if any.
+    ///
+    /// Called by the frame loop before the pending-settings application, so a
+    /// scheduled switch goes through exactly the path a menu change does.
+    #[must_use]
+    pub fn quality_cycle_at(&self, frame: u64) -> Option<crate::quality::QualityProfile> {
+        self.quality_cycle
+            .iter()
+            .find(|(at, _)| *at == frame)
+            .map(|(_, profile)| *profile)
+    }
+
+    /// True when `PLACES_BENCH=1` was set, i.e. the harness should be driven.
     #[must_use]
     pub const fn enabled(&self) -> bool {
         self.config.enabled
@@ -331,7 +451,7 @@ impl Bench {
         self.config.camera
     }
 
-    /// Explicit swap-interval request, when `LIMINAL_VSYNC` was set.
+    /// Explicit swap-interval request, when `PLACES_VSYNC` was set.
     #[must_use]
     pub const fn vsync_override(&self) -> Option<bool> {
         self.config.vsync_override
@@ -400,7 +520,7 @@ impl Bench {
         if !self.config.enabled {
             return;
         }
-        // An unbounded run (`LIMINAL_BENCH=1` with no `LIMINAL_BENCH_FRAMES`)
+        // An unbounded run (`PLACES_BENCH=1` with no `PLACES_BENCH_FRAMES`)
         // keeps statistics for the whole session; stop retaining records once
         // the cap is reached so a long-running session cannot grow forever.
         if self.frames.len() >= MAX_RECORDED_FRAMES {
@@ -466,7 +586,7 @@ impl Bench {
         self.frames.push(FrameRecord { timings, stats });
     }
 
-    /// True once `LIMINAL_BENCH_FRAMES` frames have been recorded.
+    /// True once `PLACES_BENCH_FRAMES` frames have been recorded.
     #[must_use]
     pub fn is_complete(&self) -> bool {
         self.config.enabled && self.limit_remaining == Some(0)
@@ -495,7 +615,7 @@ impl Bench {
         let loop_ms = TimingSummary::from_samples(&mut loop_ms);
 
         let last = self.frames.last().copied().unwrap_or_default();
-        let level = std::env::var("LIMINAL_LEVEL").unwrap_or_default();
+        let level = std::env::var("PLACES_LEVEL").unwrap_or_default();
         println!(
             "BENCH_SUMMARY {{\"level\":\"{level}\",\"frames\":{},\"swap_interval\":{},\"update_mean_ms\":{:.3},\"render_mean_ms\":{:.3},\"swap_mean_ms\":{:.3},\"frame_mean_ms\":{:.3},\"loop_mean_ms\":{:.3},\"frame_median_ms\":{:.3},\"loop_median_ms\":{:.3},\"frame_p95_ms\":{:.3},\"frame_p99_ms\":{:.3},\"loop_p95_ms\":{:.3},\"loop_p99_ms\":{:.3},\"frame_min_ms\":{:.3},\"frame_max_ms\":{:.3},\"loop_min_ms\":{:.3},\"loop_max_ms\":{:.3},\"fps_median\":{:.2},\"fps_p95\":{:.2},\"fps_p99\":{:.2},\"fps_1pct_low\":{:.2},\"fps_mean\":{:.2},\"measured_fps_mean\":{:.2},\"worst_fps\":{:.2},\"total_vertices\":{},\"visible_vertices\":{},\"culled_vertices\":{},\"total_batches\":{},\"visible_batches\":{},\"draw_calls\":{},\"vbo_bytes\":{},\"index_bytes\":{},\"texture_binds\":{},\"material_changes\":{},\"reflection_passes\":{}}}",
             self.frames.len(),

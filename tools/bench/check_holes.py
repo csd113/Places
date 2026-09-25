@@ -13,7 +13,7 @@ a low threshold separates "hole" from "dark room" without flagging the many
 legitimately dim captures.
 
 The decoder is pure stdlib and handles every PNG filter, because the game's
-`LIMINAL_CAPTURE` writer uses zlib's filtered scanlines; a naive read of the
+`PLACES_CAPTURE` writer uses zlib's filtered scanlines; a naive read of the
 IDAT gives meaningless colours.
 
 Usage::

@@ -29,7 +29,7 @@
     module.exports = api;
   }
   if (root) {
-    root.LiminalProps = api;
+    root.PlacesProps = api;
     root.PropCatalog = api.PropCatalog;
     root.PropProxies = api.PropProxies;
     root.PROP_CATEGORIES = api.PROP_CATEGORIES;

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Pixel-compare rendered frames between two liminal-rust builds.
+"""Pixel-compare rendered frames between two places builds.
 
 Renderer optimisations must not change what a level looks like. The game already
-has a one-frame capture path (`LIMINAL_CAPTURE=frame.png` renders, writes and
+has a one-frame capture path (`PLACES_CAPTURE=frame.png` renders, writes and
 exits), so this script drives that from two builds and compares the results.
 
 Three numbers are reported per shot:
@@ -10,7 +10,7 @@ Three numbers are reported per shot:
 * **pixels** — every pixel whose RGBA differs at all, plus the worst channel
   delta. This is the sensitive signal: reordering or re-batching the same
   geometry must move it by zero, and it does (see
-  `notes/renderer-change-validation.md`).
+  the benchmark README).
 * **significant** — pixels whose worst channel delta exceeds `--tolerance`
   (default 24).
 * **largest** — the biggest connected group of significant pixels.
@@ -47,33 +47,31 @@ REPO = Path(__file__).resolve().parent.parent.parent
 # `prop_*`/`test_room` regression fixtures live under `tests/fixtures/levels/`;
 # the run stages them into the capture directory the same way
 # `lightmap_report.py` does, so no fixture is copied into the repository's own
-# `levels/`. The generated `bench_chairs_*` levels were retired with the
-# PocketCHIP device suite, so the shot list only names levels the repository
-# still provides.
+# `levels/`. Only shipped levels and current regression fixtures are captured.
 SHOTS: list[tuple[str, str, dict[str, str]]] = [
     # (label, level id, extra environment)
     ("places_demo_spawn", "places_demo", {}),
-    ("places_demo_side", "places_demo", {"LIMINAL_CAMERA": "90"}),
-    ("places_demo_up", "places_demo", {"LIMINAL_CAMERA": "180,20"}),
+    ("places_demo_side", "places_demo", {"PLACES_CAMERA": "90"}),
+    ("places_demo_up", "places_demo", {"PLACES_CAMERA": "180,20"}),
     # Decal viewpoints: the wall sign and the floor markings are the surfaces
     # that z-fight first, so a renderer change that breaks the decal depth
     # relationship (a base texture punching back through a marking) shows up as
     # a large component in these shots while the plain room shots stay clean.
-    ("places_demo_decal_wall", "places_demo", {"LIMINAL_SPAWN": "14.5,0.1,15.15,0"}),
+    ("places_demo_decal_wall", "places_demo", {"PLACES_SPAWN": "14.5,0.1,15.15,0"}),
     (
         "places_demo_decal_floor",
         "places_demo",
-        {"LIMINAL_SPAWN": "10.5,-0.2,11.2,0", "LIMINAL_CAMERA": "0,-40"},
+        {"PLACES_SPAWN": "10.5,-0.2,11.2,0", "PLACES_CAMERA": "0,-40"},
     ),
     (
         "places_demo_decal_grazing",
         "places_demo",
-        {"LIMINAL_SPAWN": "10.5,-1.35,15.0,0", "LIMINAL_CAMERA": "0,-2"},
+        {"PLACES_SPAWN": "10.5,-1.35,15.0,0", "PLACES_CAMERA": "0,-2"},
     ),
     ("prop_stress_spawn", "prop_stress", {}),
-    ("prop_stress_side", "prop_stress", {"LIMINAL_CAMERA": "200"}),
+    ("prop_stress_side", "prop_stress", {"PLACES_CAMERA": "200"}),
     ("prop_showcase_spawn", "prop_showcase", {}),
-    ("prop_showcase_back", "prop_showcase", {"LIMINAL_CAMERA": "0"}),
+    ("prop_showcase_back", "prop_showcase", {"PLACES_CAMERA": "0"}),
     ("test_room", "test_room", {}),
 ]
 
@@ -150,10 +148,10 @@ def capture(binary: Path, shot: tuple[str, str, str], out_dir: Path, cwd: Path) 
     command = [str(binary)]
     environment = {
         "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
-        "LIMINAL_ASSET_ROOT": str(cwd),
-        "LIMINAL_LEVEL": level,
-        "LIMINAL_CAPTURE": str(path),
-        "LIMINAL_BENCH": "0",
+        "PLACES_ASSET_ROOT": str(cwd),
+        "PLACES_LEVEL": level,
+        "PLACES_CAPTURE": str(path),
+        "PLACES_BENCH": "0",
     }
     environment.update(env)
     result = subprocess.run(
@@ -258,7 +256,7 @@ def main() -> None:
     cwd = args.levels or args.out
     cwd.mkdir(parents=True, exist_ok=True)
     if args.levels is None:
-        # The capture runs resolve their payload through LIMINAL_ASSET_ROOT, so
+        # The capture runs resolve their payload through PLACES_ASSET_ROOT, so
         # the capture directory is staged as a package root: the shipped assets
         # plus the regression fixture levels. Nothing is copied into the
         # repository's own levels/.

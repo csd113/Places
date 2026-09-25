@@ -41,7 +41,7 @@ fn test_parse_devfreq_load() {
     assert_eq!(parse_devfreq_load("45"), Some(45.0));
     assert_eq!(parse_devfreq_load(" 61% \n"), Some(61.0));
 
-    // Rockchip/Allwinner kernel format: load%@freq
+    // Vendor kernel format: load%@freq
     assert_eq!(parse_devfreq_load("72@500000000"), Some(72.0));
     assert_eq!(parse_devfreq_load("85%@600000000"), Some(85.0));
 
@@ -52,14 +52,6 @@ fn test_parse_devfreq_load() {
     // Empty / invalid
     assert_eq!(parse_devfreq_load(""), None);
     assert_eq!(parse_devfreq_load("invalid"), None);
-}
-
-#[test]
-fn test_parse_mali_utilization() {
-    assert_eq!(parse_mali_utilization("42"), Some(42.0));
-    assert_eq!(parse_mali_utilization("utilization=65"), Some(65.0));
-    assert_eq!(parse_mali_utilization("UTILIZATION = 80%"), Some(80.0));
-    assert_eq!(parse_mali_utilization("not_a_number"), None);
 }
 
 #[test]
@@ -76,9 +68,9 @@ fn test_gpu_sampler_never_uses_clock_frequency() {
     let freq_str = "500000000";
     // Directly parsing a frequency without load format produces clamped 100 or is not a load file.
     // But more importantly, sample_gpu_from_paths only looks for 'load' or 'utilization', never 'cur_freq'!
-    let temp_dir = std::env::temp_dir().join("liminal_test_gpu_no_freq");
+    let temp_dir = std::env::temp_dir().join("places_test_gpu_no_freq");
     let _ = fs::remove_dir_all(&temp_dir);
-    let devfreq_dir = temp_dir.join("devfreq/1c40000.gpu");
+    let devfreq_dir = temp_dir.join("devfreq/test.gpu");
     fs::create_dir_all(&devfreq_dir).unwrap();
 
     // Write cur_freq only (no load file)
@@ -86,7 +78,6 @@ fn test_gpu_sampler_never_uses_clock_frequency() {
 
     let sampled = sample_gpu_from_paths(
         &temp_dir.join("devfreq"),
-        &temp_dir.join("misc"),
         &temp_dir.join("drm"),
         &temp_dir.join("debug"),
     );
@@ -101,16 +92,15 @@ fn test_gpu_sampler_never_uses_clock_frequency() {
 
 #[test]
 fn test_sample_gpu_from_paths_with_mock_devfreq_load() {
-    let temp_dir = std::env::temp_dir().join("liminal_test_gpu_mock");
+    let temp_dir = std::env::temp_dir().join("places_test_gpu_mock");
     let _ = fs::remove_dir_all(&temp_dir);
-    let devfreq_dir = temp_dir.join("devfreq/1c40000.gpu");
+    let devfreq_dir = temp_dir.join("devfreq/test.gpu");
     fs::create_dir_all(&devfreq_dir).unwrap();
 
     fs::write(devfreq_dir.join("load"), "61\n").unwrap();
 
     let sampled = sample_gpu_from_paths(
         &temp_dir.join("devfreq"),
-        &temp_dir.join("misc"),
         &temp_dir.join("drm"),
         &temp_dir.join("debug"),
     );
@@ -167,4 +157,12 @@ fn test_perf_overlay_text_format_and_caching() {
         initial_count,
         "Geometry must remain cached between update intervals"
     );
+}
+
+#[test]
+fn test_parse_debugfs_utilization() {
+    assert_eq!(parse_debugfs_utilization("42"), Some(42.0));
+    assert_eq!(parse_debugfs_utilization("utilization=65"), Some(65.0));
+    assert_eq!(parse_debugfs_utilization("UTILIZATION = 80%"), Some(80.0));
+    assert_eq!(parse_debugfs_utilization("not_a_number"), None);
 }

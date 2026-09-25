@@ -261,9 +261,27 @@ fn switching_full_low_full_changes_every_derived_decision() {
 
     // Full -> Low -> Full, checking the same decisions at every stop.
     let stops = [
-        (QualityProfile::Full, 256u32, 1_024u32, true, true, 1_024u32, 2u8, 0.075f32),
+        (
+            QualityProfile::Full,
+            256u32,
+            1_024u32,
+            true,
+            true,
+            1_024u32,
+            2u8,
+            0.075f32,
+        ),
         (QualityProfile::Low, 128, 256, false, false, 512, 1, 0.15),
-        (QualityProfile::Full, 256, 1_024, true, true, 1_024, 2, 0.075),
+        (
+            QualityProfile::Full,
+            256,
+            1_024,
+            true,
+            true,
+            1_024,
+            2,
+            0.075,
+        ),
     ];
     for (profile, prop_edge, sheet_edge, response, scene_at_drawable, lightmap_page, taps, cell) in
         stops

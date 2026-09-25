@@ -56,13 +56,13 @@ use game::{AppState, Game};
 use input::{InputHandler, MenuNavEvent, keycode_to_str};
 use level::WalkableFloor;
 use perf::PerfOverlay;
-use render::{DrawableSize, Renderer, Vertex};
+use render::{DrawableSize, Renderer, RendererBackend, Vertex};
 use settings::{Settings, WindowMode};
 use ui::{SettingsAction, SettingsPage, UiGeometryCache, UiState, activate_settings_item};
 
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// How often `LIMINAL_STATE_LOG` records the player state, in frames.
+/// How often `PLACES_STATE_LOG` records the player state, in frames.
 const STATE_LOG_INTERVAL: u64 = 5;
 
 /// Items in the fixed main menu: Level Select, Settings, Exit.
@@ -88,11 +88,10 @@ const fn menu_next(index: usize, len: usize) -> usize {
     if next < len { next } else { 0 }
 }
 
-/// Prints what the level's props and baked lighting cost, so hardware runs
-/// (`PocketCHIP` over SSH) can be checked without a debugger: decoded models,
+/// Prints what the level's props and baked lighting cost: decoded models,
 /// texture memory, draw calls, level-build time and the baked room baselines.
 ///
-/// Developer telemetry: only printed when `LIMINAL_VERBOSE` is set.
+/// Developer telemetry: only printed when `PLACES_VERBOSE` is set.
 // Startup CLI output that has no logger to route through.
 #[allow(clippy::print_stdout)]
 fn log_prop_usage(renderer: &Renderer) {
@@ -167,7 +166,7 @@ fn log_prop_usage(renderer: &Renderer) {
     );
 }
 
-/// Parses `LIMINAL_SPAWN` overrides: `x,z,yaw_degrees` keeps the default eye
+/// Parses `PLACES_SPAWN` overrides: `x,z,yaw_degrees` keeps the default eye
 /// height above the local floor, `x,y,z,yaw_degrees` sets the eye explicitly.
 /// Invalid input is ignored.
 ///
@@ -189,63 +188,10 @@ fn parse_spawn_override(value: &str) -> Option<[f32; 4]> {
     }
 }
 
-/// Configures SDL OpenGL attributes before the window/context is created.
-///
-/// When `gles` is true, requests an OpenGL ES 2.0 context (`PocketCHIP` baseline);
-/// otherwise the platform default profile is used so desktop development still
-/// works. Double buffering is always requested.
-fn configure_gl_attributes(video: &VideoSubsystem, gles: bool) {
-    let attr = video.gl_attr();
-    attr.set_double_buffer(true);
-    attr.set_depth_size(24);
-    if gles {
-        attr.set_context_profile(sdl2::video::GLProfile::GLES);
-        attr.set_context_version(2, 0);
-    } else {
-        // Reset the profile for the fallback path: SDL GL attributes are sticky,
-        // so the ES request must be explicitly overridden or the retry would
-        // fail identically.
-        attr.set_context_profile(sdl2::video::GLProfile::Compatibility);
-        attr.set_context_version(2, 1);
-    }
-}
-
-/// Requests a swap interval and reports what the platform actually accepted.
-///
-/// This used to discard the result of `SDL_GL_SetSwapInterval`, which made a
-/// silently ignored `VSync` request indistinguishable from a working one. The
-/// requested interval, the call's return status and `SDL_GL_GetSwapInterval`
-/// (a fresh query of the platform, not an echo of the request) are all logged
-/// once at startup when telemetry is enabled, and the interval in force is
-/// returned for the caller.
-fn apply_swap_interval(video: &VideoSubsystem, want_vsync: bool) -> i32 {
-    let requested = if want_vsync {
-        sdl2::video::SwapInterval::VSync
-    } else {
-        sdl2::video::SwapInterval::Immediate
-    };
-    match video.gl_set_swap_interval(requested) {
-        Ok(()) => {
-            let reported = video.gl_get_swap_interval();
-            logging::info(format!(
-                "[vsync] requested {requested:?}, SDL_GL_SetSwapInterval -> Ok, SDL_GL_GetSwapInterval -> {reported:?}",
-            ));
-            reported as i32
-        }
-        Err(error) => {
-            let reported = video.gl_get_swap_interval();
-            logging::info(format!(
-                "[vsync] requested {requested:?}, SDL_GL_SetSwapInterval -> Err({error}), SDL_GL_GetSwapInterval -> {reported:?}",
-            ));
-            reported as i32
-        }
-    }
-}
-
 /// Root of the running installation.
 ///
 /// The package root is the directory that owns `assets/`. It is found through
-/// [`crate::assets::resolved_package_roots`], which searches `$LIMINAL_ASSET_ROOT`,
+/// [`crate::assets::resolved_package_roots`], which searches `$PLACES_ASSET_ROOT`,
 /// the executable's own directory (and its ancestors, covering both the flat
 /// `Places/<executable>` layout and a macOS `.app` bundle's `Resources`), and
 /// then the working directory. The compile-time crate path is a development-only
@@ -292,7 +238,7 @@ fn use_package_assets() -> PathBuf {
 
 /// Logs the resolved package directory and asset root at startup.
 ///
-/// Developer telemetry: only printed when `LIMINAL_VERBOSE` is set.
+/// Developer telemetry: only printed when `PLACES_VERBOSE` is set.
 fn log_package(package: &Path) {
     if !logging::verbose() {
         return;
@@ -333,12 +279,18 @@ fn usable_display_bounds(video: &VideoSubsystem, display_index: i32) -> (u32, u3
 /// A size that had to be reduced to fit is adopted back into `settings` (and
 /// therefore persisted and shown in Display), so the menu and the window never
 /// disagree.
-fn create_window(video: &VideoSubsystem, settings: &mut Settings) -> Result<Window, String> {
+fn create_window(
+    video: &VideoSubsystem,
+    settings: &mut Settings,
+    backend: RendererBackend,
+) -> Result<Window, String> {
     // Configure the framebuffer/context attributes *before* the OpenGL window
-    // is created. On Linux/EGL (PocketCHIP) the visual (depth buffer, double
+    // is created. On Linux/EGL the visual (depth buffer, double
     // buffering) is chosen at window creation, so setting these afterwards
-    // would have no effect.
-    configure_gl_attributes(video, true);
+    // would have no effect. The wgpu path requests no GL attributes at all.
+    if backend.uses_opengl() {
+        render::request_window_attributes(video);
+    }
 
     let requested = settings.window_size();
     let usable = usable_display_bounds(video, 0);
@@ -355,11 +307,8 @@ fn create_window(video: &VideoSubsystem, settings: &mut Settings) -> Result<Wind
 
     let build_window = || {
         let mut builder = video.window("Places", width, height);
-        builder
-            .position_centered()
-            .resizable()
-            .allow_highdpi()
-            .opengl();
+        builder.position_centered().resizable().allow_highdpi();
+        render::apply_window_flags(&mut builder, backend);
         if settings.window_mode() == WindowMode::Fullscreen {
             builder.fullscreen_desktop();
         }
@@ -368,7 +317,11 @@ fn create_window(video: &VideoSubsystem, settings: &mut Settings) -> Result<Wind
     let window = if let Ok(window) = build_window() {
         window
     } else {
-        configure_gl_attributes(video, false);
+        // The desktop compatibility attributes are an OpenGL fallback only:
+        // the wgpu path retries the same window it requested.
+        if backend.uses_opengl() {
+            render::request_fallback_window_attributes(video);
+        }
         build_window().map_err(|e| format!("Failed to create window: {e}"))?
     };
 
@@ -383,8 +336,11 @@ fn create_window(video: &VideoSubsystem, settings: &mut Settings) -> Result<Wind
     Ok(window)
 }
 
-/// Creates the SDL video subsystem and the game window.
-fn create_sdl_and_window(settings: &mut Settings) -> Result<(Sdl, VideoSubsystem, Window), String> {
+/// Creates the SDL video subsystem and the game window for `backend`.
+fn create_sdl_and_window(
+    settings: &mut Settings,
+    backend: RendererBackend,
+) -> Result<(Sdl, VideoSubsystem, Window), String> {
     let sdl_context = sdl2::init().map_err(|e| format!("Failed to init SDL2: {e}"))?;
     let video_subsystem = sdl_context
         .video()
@@ -396,7 +352,7 @@ fn create_sdl_and_window(settings: &mut Settings) -> Result<(Sdl, VideoSubsystem
     // that engages InputMethodKit (`interpretKeyEvents` on SDL's text responder).
     video_subsystem.text_input().stop();
 
-    let window = create_window(&video_subsystem, settings)?;
+    let window = create_window(&video_subsystem, settings, backend)?;
     Ok((sdl_context, video_subsystem, window))
 }
 
@@ -404,7 +360,7 @@ fn create_sdl_and_window(settings: &mut Settings) -> Result<(Sdl, VideoSubsystem
 /// declares and which environment themes organize them. Lookup itself is
 /// resolved once per level load, never per frame.
 ///
-/// Developer telemetry: only printed when `LIMINAL_VERBOSE` is set.
+/// Developer telemetry: only printed when `PLACES_VERBOSE` is set.
 fn log_asset_catalog(level_manager: &loader::LevelManager) {
     if !logging::verbose() {
         return;
@@ -451,16 +407,17 @@ fn create_renderer(
     level: &loader::LoadedLevel,
     settings: &Settings,
     bench: &Bench,
+    backend: RendererBackend,
 ) -> Result<Renderer, String> {
-    let mut renderer = Renderer::new(window, video_subsystem)
-        .map_err(|e| format!("Failed to initialize renderer: {e}"))?;
+    let mut renderer = Renderer::new(window, video_subsystem, backend)
+        .map_err(|e| format!("Failed to initialize the {} renderer: {e}", backend.name()))?;
     // The quality profile decides how large a texture may reach the GPU, and
     // the lightmap mode is a build-time choice, so both are applied before the
     // first level upload rather than after it.
     renderer.set_quality(settings.quality_profile());
     renderer.set_lightmaps_requested(settings.lightmaps_enabled());
     // Bloom and reflections are independent player preferences (with their
-    // `LIMINAL_NO_*` startup overrides already folded in) and are applied
+    // `PLACES_NO_*` startup overrides already folded in) and are applied
     // before the first frame.
     renderer.set_bloom_enabled(settings.bloom_enabled());
     renderer.set_reflections_enabled(settings.reflections_enabled());
@@ -477,16 +434,19 @@ fn create_renderer(
     Ok(renderer)
 }
 
-/// Applies the effective `VSync` setting *after* the GL context exists and is
-/// current.
+/// Applies the effective `VSync` setting through the active backend.
 ///
-/// `SDL_GL_SetSwapInterval` fails outright without a current context, which is
-/// why the request used to be dropped and the renderer's own unconditional
-/// VSync-on call won instead. The same helper is called at runtime whenever the
-/// player changes the setting, so `VSync` applies immediately instead of at the
-/// next launch.
-fn configure_vsync(video_subsystem: &VideoSubsystem, bench: &mut Bench, settings: &Settings) {
-    let swap_interval = apply_swap_interval(video_subsystem, settings.vsync_enabled());
+/// For OpenGL the request must be issued while a context is current; wgpu
+/// translates the preference into a supported presentation mode instead. The
+/// same helper is called at runtime whenever the player changes the setting,
+/// so `VSync` applies immediately instead of at the next launch.
+fn configure_vsync(
+    renderer: &mut Renderer,
+    video_subsystem: &VideoSubsystem,
+    bench: &mut Bench,
+    settings: &Settings,
+) {
+    let swap_interval = renderer.set_swap_interval(video_subsystem, settings.vsync_enabled());
     bench.set_reported_swap_interval(swap_interval);
 }
 
@@ -521,41 +481,41 @@ fn new_ui_state(level_manager: &loader::LevelManager) -> UiState {
     }
 }
 
-/// The one-shot framebuffer capture path from `LIMINAL_CAPTURE`, if set.
+/// The one-shot framebuffer capture path from `PLACES_CAPTURE`, if set.
 fn capture_path_from_env() -> Option<PathBuf> {
-    std::env::var("LIMINAL_CAPTURE")
+    std::env::var("PLACES_CAPTURE")
         .ok()
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .map(PathBuf::from)
 }
 
-/// The frame `LIMINAL_CAPTURE` should be taken on, 1-based.
+/// The frame `PLACES_CAPTURE` should be taken on, 1-based.
 ///
 /// The default is the first rendered frame, which is what every existing
-/// capture does. `LIMINAL_CAPTURE_FRAME=n` waits for frame `n` first, so a
+/// capture does. `PLACES_CAPTURE_FRAME=n` waits for frame `n` first, so a
 /// capture can show something that changes over time (the washer-drum
 /// demonstration turns as the frame loop runs) without a second launch.
 fn capture_frame_from_env() -> u64 {
-    std::env::var("LIMINAL_CAPTURE_FRAME")
+    std::env::var("PLACES_CAPTURE_FRAME")
         .ok()
         .and_then(|value| value.trim().parse::<u64>().ok())
         .filter(|frame| *frame > 0)
         .unwrap_or(1)
 }
 
-/// The parsed `LIMINAL_SPAWN` override, if set.
+/// The parsed `PLACES_SPAWN` override, if set.
 fn spawn_override_from_env() -> Option<[f32; 4]> {
-    std::env::var("LIMINAL_SPAWN")
+    std::env::var("PLACES_SPAWN")
         .ok()
         .and_then(|value| parse_spawn_override(&value))
 }
 
-/// Opens the `LIMINAL_STATE_LOG` CSV file, reporting why it cannot be used.
+/// Opens the `PLACES_STATE_LOG` CSV file, reporting why it cannot be used.
 // Startup CLI output that has no logger to route through.
 #[allow(clippy::print_stderr)]
 fn open_state_log() -> Option<std::fs::File> {
-    let path = std::env::var("LIMINAL_STATE_LOG")
+    let path = std::env::var("PLACES_STATE_LOG")
         .ok()
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())?;
@@ -563,11 +523,11 @@ fn open_state_log() -> Option<std::fs::File> {
         .create(true)
         .append(true)
         .open(&path)
-        .map_err(|error| eprintln!("LIMINAL_STATE_LOG: cannot open {path}: {error}"))
+        .map_err(|error| eprintln!("PLACES_STATE_LOG: cannot open {path}: {error}"))
         .ok()
 }
 
-/// Applies a `LIMINAL_SPAWN` override.
+/// Applies a `PLACES_SPAWN` override.
 ///
 /// A three-number override keeps the standard eye height above the local floor;
 /// a four-number one sets the eye explicitly for a shot.
@@ -593,14 +553,13 @@ fn apply_spawn_override(
     );
 }
 
-/// Boots straight into the level named by `LIMINAL_LEVEL`.
+/// Boots straight into the level named by `PLACES_LEVEL`.
 ///
-/// This is how the shipped demo and the bench levels are checked on the
-/// `PocketCHIP`, where the menu cannot be driven over SSH:
-/// `LIMINAL_LEVEL=places_demo ./liminal-rust`.
+/// Starts the shipped demo or a benchmark fixture without menu interaction:
+/// `PLACES_LEVEL=places_demo ./places`.
 ///
 /// When the request names the level that is already loaded (the ordinary
-/// `LIMINAL_LEVEL=places_demo` case), the renderer is left alone: rebuilding the
+/// `PLACES_LEVEL=places_demo` case), the renderer is left alone: rebuilding the
 /// same level would repeat the whole cold level build and lightmap bake.
 // Developer CLI output that has no logger to route through.
 #[allow(clippy::print_stdout, clippy::print_stderr)]
@@ -613,7 +572,7 @@ fn apply_level_request(
     spawn_yaw: &mut f32,
     current_level: &mut Option<loader::LoadedLevel>,
 ) {
-    let Some(requested) = std::env::var("LIMINAL_LEVEL")
+    let Some(requested) = std::env::var("PLACES_LEVEL")
         .ok()
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
@@ -630,7 +589,7 @@ fn apply_level_request(
     match index.and_then(|index| level_manager.get_entry(index).cloned()) {
         Some(entry) if entry.id == loaded_id => {
             println!(
-                "LIMINAL_LEVEL: '{}' ({}) is already the loaded level",
+                "PLACES_LEVEL: '{}' ({}) is already the loaded level",
                 entry.name, entry.id
             );
             game.set_app_state(AppState::Playing);
@@ -641,7 +600,7 @@ fn apply_level_request(
         Some(entry) => match level_manager.load_level(&entry) {
             Ok(loaded) => {
                 println!(
-                    "LIMINAL_LEVEL: loading '{}' ({}) - {} props",
+                    "PLACES_LEVEL: loading '{}' ({}) - {} props",
                     loaded.level.name,
                     loaded.level.id,
                     loaded.level.props.len()
@@ -661,7 +620,7 @@ fn apply_level_request(
                 );
                 *current_level = Some(loaded);
                 game.set_app_state(AppState::Playing);
-                // `LIMINAL_PAUSE=1` opens the pause menu on the first frame so
+                // `PLACES_PAUSE=1` opens the pause menu on the first frame so
                 // the pause UI can be captured and compared without a keyboard.
                 // It changes nothing about how the menu draws.
                 if pause_requested() {
@@ -669,11 +628,11 @@ fn apply_level_request(
                 }
             }
             Err(error) => {
-                eprintln!("LIMINAL_LEVEL: could not load '{requested}': {error}");
+                eprintln!("PLACES_LEVEL: could not load '{requested}': {error}");
             }
         },
         None => eprintln!(
-            "LIMINAL_LEVEL: no level matches '{requested}'; installed levels: {}",
+            "PLACES_LEVEL: no level matches '{requested}'; installed levels: {}",
             level_manager
                 .entries()
                 .iter()
@@ -684,9 +643,9 @@ fn apply_level_request(
     }
 }
 
-/// True when `LIMINAL_PAUSE` asks for the pause menu on the first frame.
+/// True when `PLACES_PAUSE` asks for the pause menu on the first frame.
 fn pause_requested() -> bool {
-    std::env::var("LIMINAL_PAUSE").is_ok_and(|value| {
+    std::env::var("PLACES_PAUSE").is_ok_and(|value| {
         !matches!(
             value.trim().to_ascii_lowercase().as_str(),
             "" | "0" | "false" | "off"
@@ -696,23 +655,22 @@ fn pause_requested() -> bool {
 
 /// Renders one frame of the running level to `path` as a PNG.
 ///
-/// This is the `LIMINAL_CAPTURE=frame.png` developer / hardware capture: how
-/// prop rendering is inspected on the `PocketCHIP` over SSH (or on a desktop
-/// where the window cannot be screenshotted).
+/// The `PLACES_CAPTURE=frame.png` developer path captures rendered pixels
+/// directly for reproducible visual checks.
 // CLI output that has no logger to route through.
 #[allow(clippy::print_stdout, clippy::print_stderr)]
-fn write_capture(renderer: &Renderer, path: &Path) {
+fn write_capture(renderer: &mut Renderer, path: &Path) {
     match renderer.capture_default_framebuffer() {
         Ok(image) => match loader::encode_png(&image) {
             Ok(bytes) => match std::fs::write(path, bytes) {
-                Ok(()) => println!("LIMINAL_CAPTURE: wrote {}", path.display()),
+                Ok(()) => println!("PLACES_CAPTURE: wrote {}", path.display()),
                 Err(error) => {
-                    eprintln!("LIMINAL_CAPTURE: cannot write {}: {error}", path.display());
+                    eprintln!("PLACES_CAPTURE: cannot write {}: {error}", path.display());
                 }
             },
-            Err(error) => eprintln!("LIMINAL_CAPTURE: {error}"),
+            Err(error) => eprintln!("PLACES_CAPTURE: {error}"),
         },
-        Err(error) => eprintln!("LIMINAL_CAPTURE: {error}"),
+        Err(error) => eprintln!("PLACES_CAPTURE: {error}"),
     }
 }
 
@@ -753,6 +711,9 @@ struct FrameLoop<'a> {
     /// Last `(window_w, window_h, drawable_w, drawable_h)` pair logged, so a
     /// HiDPI/backing-scale change is reported exactly once.
     last_logged_window: (u32, u32, u32, u32),
+    /// Set when the active backend reported a fatal GPU error: the loop stops
+    /// and `main` exits with this message.
+    fatal_error: Option<String>,
 }
 
 impl FrameLoop<'_> {
@@ -765,8 +726,13 @@ impl FrameLoop<'_> {
 
     /// One complete frame: input, simulation, render, present, telemetry.
     fn frame(&mut self) {
+        // A fatal GPU condition must stop the process through the normal
+        // shutdown path instead of issuing more work on a lost device.
+        if self.stop_on_fatal_renderer_error() {
+            return;
+        }
         // Frame boundary for the benchmark harness: everything from here to the
-        // end of `gl_swap_window` is one complete frame, swap included.
+        // end of the buffer swap is one complete frame, swap included.
         let frame_begin = Instant::now();
         self.game.update_timing();
         self.perf_overlay.update(self.game.delta_seconds());
@@ -780,6 +746,21 @@ impl FrameLoop<'_> {
         // Apply whatever the player changed in Settings before this frame
         // simulates or draws, then refresh what the windowing backend actually
         // did (a window change, a monitor move, a HiDPI backing-scale change).
+        // A scripted benchmark quality cycle goes through the same path, so a
+        // `Full -> Low -> Full` run exercises the renderer's real rebuild; a
+        // scripted window action goes through the real SDL window, so resize
+        // and minimize events reach the same drawable path a manual resize
+        // does.
+        if self.bench.enabled()
+            && let Some(profile) = self.bench.quality_cycle_at(self.game.frame_count())
+        {
+            self.settings.set_quality(profile);
+        }
+        if self.bench.enabled()
+            && let Some(action) = self.bench.window_cycle_at(self.game.frame_count())
+        {
+            self.apply_window_action(action);
+        }
         self.apply_pending_settings();
         self.refresh_display_status();
 
@@ -794,6 +775,20 @@ impl FrameLoop<'_> {
         let frame_update_done = Instant::now();
 
         self.render_and_present(frame_begin, frame_update_done);
+    }
+
+    /// Stops the frame loop when the active backend hit a fatal GPU error.
+    ///
+    /// The backend reported the error itself (once); this only ends the
+    /// process through the ordinary shutdown path and keeps the message for
+    /// `main` to exit with.
+    fn stop_on_fatal_renderer_error(&mut self) -> bool {
+        let Some(error) = self.renderer.fatal_error().map(str::to_string) else {
+            return false;
+        };
+        self.fatal_error = Some(error);
+        self.game.stop();
+        true
     }
 
     /// Applies the subsystem updates a settings change owes.
@@ -816,7 +811,9 @@ impl FrameLoop<'_> {
                 .set_status(format!("Could not change the window: {error}"), true);
         }
         if apply.vsync {
-            let interval = apply_swap_interval(self.video_subsystem, self.settings.vsync_enabled());
+            let interval = self
+                .renderer
+                .set_swap_interval(self.video_subsystem, self.settings.vsync_enabled());
             self.bench.set_reported_swap_interval(interval);
         }
         if apply.renderer_state {
@@ -827,6 +824,36 @@ impl FrameLoop<'_> {
         }
         if apply.graphics_rebuild {
             self.rebuild_graphics_resources();
+        }
+    }
+
+    /// Performs one scripted window action from `PLACES_BENCH_WINDOW_CYCLE`.
+    ///
+    /// The action is a real SDL window operation — `set_size`, `minimize` or
+    /// `restore` — so the platform emits its own resize/iconify events and the
+    /// normal frame loop observes the resulting drawable size. Errors are
+    /// ignored like every other benchmark override: the run continues and the
+    /// resulting drawable is whatever the window now reports.
+    fn apply_window_action(&mut self, action: bench::WindowAction) {
+        let result: Result<(), String> = match action {
+            bench::WindowAction::Resize(width, height) => self
+                .window
+                .set_size(width, height)
+                .map_err(|error| error.to_string()),
+            bench::WindowAction::Minimize => {
+                self.window.minimize();
+                Ok(())
+            }
+            bench::WindowAction::Restore => {
+                self.window.restore();
+                Ok(())
+            }
+        };
+        if let Err(error) = result {
+            crate::logging::warn_once(
+                "bench-window-cycle",
+                format!("PLACES_BENCH_WINDOW_CYCLE: window action failed: {error}"),
+            );
         }
     }
 
@@ -955,7 +982,7 @@ impl FrameLoop<'_> {
         }
     }
 
-    /// `LIMINAL_STATE_LOG=file.csv`: append the player state every few frames.
+    /// `PLACES_STATE_LOG=file.csv`: append the player state every few frames.
     ///
     /// Development diagnostics for control validation on a real machine; it
     /// never changes gameplay and is inert unless the variable is set.
@@ -1371,7 +1398,7 @@ impl FrameLoop<'_> {
                 (*self.spawn_pos, *self.spawn_yaw, 0.0)
             }
         };
-        // `LIMINAL_CAMERA=yaw[,pitch]` pins the camera so a hardware benchmark
+        // `PLACES_CAMERA=yaw[,pitch]` pins the camera so a hardware benchmark
         // measures the same view twice; it never changes gameplay.
         let (cam_yaw, cam_pitch) = match self.bench.camera_override() {
             Some((yaw, pitch)) => (yaw.to_radians(), pitch.to_radians()),
@@ -1380,8 +1407,12 @@ impl FrameLoop<'_> {
 
         let skip_render = self.bench.skip_render();
         if !skip_render {
-            self.renderer
-                .render_scene(cam_pos, cam_yaw, cam_pitch, self.settings.fov_degrees);
+            self.renderer.render_scene(render::RenderCamera::new(
+                cam_pos,
+                cam_yaw,
+                cam_pitch,
+                self.settings.fov_degrees,
+            ));
         }
         let frame_render_done = Instant::now();
         // Apply a changed texture filtering setting to existing GL textures
@@ -1403,7 +1434,7 @@ impl FrameLoop<'_> {
             APP_VERSION,
         );
         if skip_render {
-            // `LIMINAL_BENCH_NORENDER=1`: measure the presentation path alone.
+            // `PLACES_BENCH_NORENDER=1`: measure the presentation path alone.
         } else if self.perf_overlay.is_visible() {
             self.ui_scratch.clear();
             self.ui_scratch.extend_from_slice(ui_vertices);
@@ -1413,7 +1444,7 @@ impl FrameLoop<'_> {
         } else {
             self.renderer.render_ui(ui_vertices);
         }
-        // `LIMINAL_BENCH_FINISH=1`: force the GL pipeline to drain before the
+        // `PLACES_BENCH_FINISH=1`: force the GL pipeline to drain before the
         // swap timing point, so `render_ms` is renderer completion time rather
         // than "how much of the frame the driver happened to absorb".
         if self.bench.finish_before_swap() {
@@ -1428,9 +1459,11 @@ impl FrameLoop<'_> {
             self.game.stop();
         }
 
-        // Swap window buffer (double buffered, VSync synchronized)
+        // Swap window buffer (double buffered, VSync synchronized). The active
+        // backend presents: OpenGL swaps the GL window, wgpu presents its
+        // acquired surface texture.
         if !self.bench.skip_swap() {
-            self.window.gl_swap_window();
+            self.renderer.present(self.window);
         }
         let frame_swap_done = Instant::now();
 
@@ -1484,17 +1517,19 @@ const fn on_off(value: bool) -> &'static str {
 
 /// Boots SDL, points relative paths at the running installation, loads the
 /// persisted settings (with any startup overrides) and creates the window.
-fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String> {
+///
+/// `backend` was parsed before SDL started so the window can carry the flags
+/// the chosen implementation needs; the wgpu path never creates a GL context.
+fn bootstrap(
+    backend: RendererBackend,
+) -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String> {
     let package = use_package_assets();
     log_package(&package);
-    // X11 process identity, required for the App Center launcher and window
-    // managers to associate the window with this app. Kept as the historical
-    // `io.vitrallis.liminalrust` package id on purpose: it is a launcher/session
-    // key, not a display name, and changing it would orphan existing installs.
-    sdl2::hint::set("SDL_VIDEO_X11_WMCLASS", "io.vitrallis.liminalrust");
+    // Match the desktop package identity so X11 associates the window with Places.
+    sdl2::hint::set("SDL_VIDEO_X11_WMCLASS", "io.github.csd113.places");
     sdl2::hint::set("SDL_APP_NAME", "Places");
 
-    // The benchmark harness is parsed first because `LIMINAL_VSYNC` is its
+    // The benchmark harness is parsed first because `PLACES_VSYNC` is its
     // switch and has to be folded into the settings before the swap interval is
     // configured.
     let bench = Bench::new();
@@ -1503,7 +1538,7 @@ fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String>
     settings.ensure_saved();
     log_effective_settings(&settings);
 
-    let (sdl_context, video_subsystem, window) = create_sdl_and_window(&mut settings)?;
+    let (sdl_context, video_subsystem, window) = create_sdl_and_window(&mut settings, backend)?;
     // Boot applies every setting explicitly (window, swap interval, renderer),
     // so no pending work is owed after it.
     let _ = settings.take_pending_apply();
@@ -1511,16 +1546,26 @@ fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String>
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let (sdl_context, video_subsystem, mut window, mut settings, mut bench) = bootstrap()?;
+    // The temporary migration selector is read before the window exists: the
+    // OpenGL window needs GL attributes and a GL flag at creation, the wgpu
+    // window must not have them.
+    let backend = RendererBackend::from_env()?;
+    let (sdl_context, video_subsystem, mut window, mut settings, mut bench) = bootstrap(backend)?;
 
     let mut level_manager = loader::LevelManager::new();
     log_asset_catalog(&level_manager);
     let initial_level = level_manager
         .load_default()
         .map_err(|e| format!("Failed to load initial level: {e}"))?;
-    let mut renderer =
-        create_renderer(&window, &video_subsystem, &initial_level, &settings, &bench)?;
-    configure_vsync(&video_subsystem, &mut bench, &settings);
+    let mut renderer = create_renderer(
+        &window,
+        &video_subsystem,
+        &initial_level,
+        &settings,
+        &bench,
+        backend,
+    )?;
+    configure_vsync(&mut renderer, &video_subsystem, &mut bench, &settings);
 
     let mut event_pump = sdl_context
         .event_pump()
@@ -1544,13 +1589,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &mut spawn_yaw,
         &mut current_level,
     );
-    // `LIMINAL_SPAWN=x,z,yaw_degrees` (or `x,y,z,yaw_degrees`) overrides the
+    // `PLACES_SPAWN=x,z,yaw_degrees` (or `x,y,z,yaw_degrees`) overrides the
     // level's spawn point, so a hardware run can stand in front of a specific
     // prop instead of walking there with a pad.
     if let Some(spawn_override) = spawn_override_from_env() {
         apply_spawn_override(&mut game, &mut spawn_pos, &mut spawn_yaw, spawn_override);
     }
-    // `LIMINAL_STATE_LOG=file.csv` records `frame,x,y,z,yaw,pitch` while the
+    // `PLACES_STATE_LOG=file.csv` records `frame,x,y,z,yaw,pitch` while the
     // game runs, so control and movement checks can assert real input results
     // from a running build instead of inferring them from screenshots.
     let mut state_log = open_state_log();
@@ -1587,8 +1632,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         display_status: &mut display_status,
         window_apply_in_flight: false,
         last_logged_window: (0, 0, 0, 0),
+        fatal_error: None,
     };
     frame_loop.run();
+
+    if let Some(error) = frame_loop.fatal_error.take() {
+        return Err(error.into());
+    }
 
     if bench.enabled() {
         bench.finish();

@@ -17,13 +17,13 @@
 (function (root, factory) {
   const deps = (typeof module !== 'undefined' && module.exports)
     ? { lighting: require('./lighting.js') }
-    : { lighting: root ? root.LiminalLighting : null };
+    : { lighting: root ? root.PlacesLighting : null };
   const api = factory(deps.lighting);
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = api;
   }
   if (root) {
-    root.LiminalGeometry = api;
+    root.PlacesGeometry = api;
     for (const key of Object.keys(api)) root[key] = api[key];
   }
 })(typeof window !== 'undefined' ? window : null, function (lighting) {
@@ -827,7 +827,7 @@
     const z0 = light.z - halfD, z1 = light.z + halfD;
     // The face is texture-first: it carries only the fixture's neutral
     // emission strength, never the authored light colour, so the artwork keeps
-    // its own colour (see `emit_fixtures` in src/render/geometry.rs). The
+    // its own colour (see `emit_fixtures` in src/render/common/geometry.rs). The
     // authored colour still lights the room through `lighting.bakeLevelLighting`.
     const authored = light.brightness !== undefined && light.brightness !== null
       ? light.brightness

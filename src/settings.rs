@@ -5,7 +5,7 @@
 //!
 //! * the **saved values** (`settings.json`), which are what
 //!   [`Settings::save`] writes back;
-//! * the **startup overrides** (`LIMINAL_QUALITY=low`, `LIMINAL_NO_BLOOM=1`,
+//! * the **startup overrides** (`PLACES_QUALITY=low`, `PLACES_NO_BLOOM=1`,
 //!   ...), which are session-only and never persisted;
 //! * a **pending-apply** record of which subsystems a change affects, so the
 //!   menu never reaches into the renderer, the window or the level directly.
@@ -48,13 +48,13 @@ pub const MIN_WINDOW_EDGE: u32 = 320;
 pub const MAX_WINDOW_EDGE: u32 = 16_384;
 
 /// Environment override selecting the quality profile for one process.
-pub const QUALITY_OVERRIDE_ENV: &str = "LIMINAL_QUALITY";
+pub const QUALITY_OVERRIDE_ENV: &str = "PLACES_QUALITY";
 /// Environment override disabling the bloom stage for one process.
-pub const NO_BLOOM_OVERRIDE_ENV: &str = "LIMINAL_NO_BLOOM";
+pub const NO_BLOOM_OVERRIDE_ENV: &str = "PLACES_NO_BLOOM";
 /// Environment override disabling reflections for one process.
-pub const NO_REFLECTIONS_OVERRIDE_ENV: &str = "LIMINAL_NO_REFLECTIONS";
+pub const NO_REFLECTIONS_OVERRIDE_ENV: &str = "PLACES_NO_REFLECTIONS";
 /// Environment override disabling lightmap baking for one process.
-pub const NO_LIGHTMAPS_OVERRIDE_ENV: &str = "LIMINAL_NO_LIGHTMAPS";
+pub const NO_LIGHTMAPS_OVERRIDE_ENV: &str = "PLACES_NO_LIGHTMAPS";
 
 /// Keys the shell owns and a gameplay action may never bind.
 ///
@@ -135,9 +135,7 @@ impl WindowMode {
 /// Player-rebindable gameplay key bindings.
 ///
 /// The defaults are the conventional desktop layout: `W`/`A`/`S`/`D` for
-/// movement and the arrow keys for looking. The `PocketCHIP` layout (`Z`/`S`
-/// movement with `K`/`L`/`O`/`.` look) remains reachable by rebinding each
-/// action in Settings; only the defaults changed.
+/// movement and the arrow keys for looking. Each action can be rebound in Settings.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct KeyBindings {
     pub forward: String,
@@ -375,19 +373,19 @@ pub struct Settings {
     ///
     /// Bloom is a user preference, not a profile: `Full + Off` and
     /// `Low + On` are both valid. When off, the emissive pass and the blur
-    /// passes are skipped entirely. `LIMINAL_NO_BLOOM=1` overrides it for one
+    /// passes are skipped entirely. `PLACES_NO_BLOOM=1` overrides it for one
     /// process.
     #[serde(default = "default_bloom")]
     pub bloom: bool,
     /// Draw reflections (static probes and the planar mirror). Default on.
     ///
-    /// `LIMINAL_NO_REFLECTIONS=1` overrides it for one process.
+    /// `PLACES_NO_REFLECTIONS=1` overrides it for one process.
     #[serde(default = "default_reflections")]
     pub reflections: bool,
     /// Bake and draw static lightmaps for level geometry. Default on.
     ///
     /// `false` rebuilds the level through the historical vertex-lit path, which
-    /// renders exactly the pre-lightmap colours. `LIMINAL_NO_LIGHTMAPS=1`
+    /// renders exactly the pre-lightmap colours. `PLACES_NO_LIGHTMAPS=1`
     /// overrides it for one process.
     #[serde(default = "default_lightmaps")]
     pub lightmaps: bool,
@@ -478,7 +476,7 @@ impl Default for Settings {
     }
 }
 
-/// Shared truthiness rule for the `LIMINAL_*` switches.
+/// Shared truthiness rule for the `PLACES_*` switches.
 fn truthy(value: &str) -> bool {
     !matches!(
         value.trim().to_ascii_lowercase().as_str(),
@@ -486,7 +484,7 @@ fn truthy(value: &str) -> bool {
     )
 }
 
-/// Reads a `LIMINAL_*` switch that *disables* a feature when truthy.
+/// Reads a `PLACES_*` switch that *disables* a feature when truthy.
 fn env_disable_override(name: &str) -> Option<bool> {
     std::env::var(name).ok().map(|value| !truthy(&value))
 }
@@ -542,7 +540,7 @@ impl Settings {
     /// Called once at startup, before the window and renderer are created. The
     /// values are session-only and are never written back by [`Self::save`].
     /// `vsync` is passed in because the benchmark harness owns
-    /// `LIMINAL_VSYNC`, which is only honored for a benchmark run.
+    /// `PLACES_VSYNC`, which is only honored for a benchmark run.
     ///
     /// Precedence: an override beats the saved file, and an explicit change in
     /// Settings beats both (see the module documentation).
@@ -604,7 +602,7 @@ impl Settings {
 
     /// Whether the bloom stage may run.
     ///
-    /// This is the saved `bloom` preference, with the `LIMINAL_NO_BLOOM`
+    /// This is the saved `bloom` preference, with the `PLACES_NO_BLOOM`
     /// startup override applied for this process.
     #[must_use]
     pub fn bloom_enabled(&self) -> bool {
@@ -637,7 +635,7 @@ impl Settings {
 
     /// Whether reflections may be drawn.
     ///
-    /// The saved `reflections` preference, with the `LIMINAL_NO_REFLECTIONS`
+    /// The saved `reflections` preference, with the `PLACES_NO_REFLECTIONS`
     /// startup override applied for this process.
     #[must_use]
     pub fn reflections_enabled(&self) -> bool {
@@ -670,7 +668,7 @@ impl Settings {
 
     /// Whether lightmaps should be baked for level geometry.
     ///
-    /// The saved `lightmaps` preference, with the `LIMINAL_NO_LIGHTMAPS`
+    /// The saved `lightmaps` preference, with the `PLACES_NO_LIGHTMAPS`
     /// startup override applied for this process.
     #[must_use]
     pub fn lightmaps_enabled(&self) -> bool {

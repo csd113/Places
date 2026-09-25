@@ -1592,10 +1592,14 @@ impl Visibility {
         // `SEGMENT_START_EPS_M`, so the box is grown by that much.
         let (x_span_min, x_span_max) = ordered_pair(from[0], to[0]);
         let (z_span_min, z_span_max) = ordered_pair(from[2], to[2]);
-        let (x_span_min, x_span_max) =
-            (x_span_min - SEGMENT_START_EPS_M, x_span_max + SEGMENT_START_EPS_M);
-        let (z_span_min, z_span_max) =
-            (z_span_min - SEGMENT_START_EPS_M, z_span_max + SEGMENT_START_EPS_M);
+        let (x_span_min, x_span_max) = (
+            x_span_min - SEGMENT_START_EPS_M,
+            x_span_max + SEGMENT_START_EPS_M,
+        );
+        let (z_span_min, z_span_max) = (
+            z_span_min - SEGMENT_START_EPS_M,
+            z_span_max + SEGMENT_START_EPS_M,
+        );
         for entry in entries {
             if entry.near > reach {
                 break;
@@ -1646,13 +1650,25 @@ impl Visibility {
         point: [f32; 3],
         sampling: ShadowSampling,
     ) -> f32 {
-        if !centre.iter().chain(point.iter()).all(|value| value.is_finite()) {
+        if !centre
+            .iter()
+            .chain(point.iter())
+            .all(|value| value.is_finite())
+        {
             // The hard test refuses a non-finite segment as blocked; a soft one
             // must not answer "unlit" with a NaN, so it answers zero.
             return 0.0;
         }
-        let half_w = if half_w.is_finite() { half_w.max(0.0) } else { 0.0 };
-        let half_d = if half_d.is_finite() { half_d.max(0.0) } else { 0.0 };
+        let half_w = if half_w.is_finite() {
+            half_w.max(0.0)
+        } else {
+            0.0
+        };
+        let half_d = if half_d.is_finite() {
+            half_d.max(0.0)
+        } else {
+            0.0
+        };
         if sampling.is_hard() {
             let from = [
                 point[0].clamp(centre[0] - half_w, centre[0] + half_w),
@@ -1683,11 +1699,23 @@ impl Visibility {
         point: [f32; 3],
         sampling: ShadowSampling,
     ) -> f32 {
-        if !centre.iter().chain(point.iter()).all(|value| value.is_finite()) {
+        if !centre
+            .iter()
+            .chain(point.iter())
+            .all(|value| value.is_finite())
+        {
             return 0.0;
         }
-        let half_w = if half_w.is_finite() { half_w.max(0.0) } else { 0.0 };
-        let half_d = if half_d.is_finite() { half_d.max(0.0) } else { 0.0 };
+        let half_w = if half_w.is_finite() {
+            half_w.max(0.0)
+        } else {
+            0.0
+        };
+        let half_d = if half_d.is_finite() {
+            half_d.max(0.0)
+        } else {
+            0.0
+        };
         if sampling.is_hard() {
             return self.visible_fraction(site, centre, half_w, half_d, point, sampling);
         }
@@ -1732,28 +1760,24 @@ impl Visibility {
         point: [f32; 3],
         sampling: ShadowSampling,
     ) -> f32 {
-        if !centre.iter().chain(point.iter()).all(|value| value.is_finite()) {
+        if !centre.into_iter().chain(point).all(f32::is_finite) {
             return 0.0;
         }
-        let half_w = if half_w.is_finite() { half_w.max(0.0) } else { 0.0 };
-        let half_d = if half_d.is_finite() { half_d.max(0.0) } else { 0.0 };
+        let half_w = if half_w.is_finite() {
+            half_w.max(0.0)
+        } else {
+            0.0
+        };
+        let half_d = if half_d.is_finite() {
+            half_d.max(0.0)
+        } else {
+            0.0
+        };
         if sampling.is_hard() {
             return self.visible_fraction(site, centre, half_w, half_d, point, sampling);
         }
         let Some(&(start, end)) = self.ranges.get(site as usize) else {
-            // An unregistered site blocks nothing, so every exposed tap sees.
-            let mut exposed = 0.0_f32;
-            for tap in tap_table(sampling) {
-                let from = [
-                    tap.offset[0].mul_add(half_w, centre[0]),
-                    centre[1],
-                    tap.offset[1].mul_add(half_d, centre[2]),
-                ];
-                if !self.tap_is_buried(site, from) {
-                    exposed += tap.weight;
-                }
-            }
-            return if exposed <= 0.0 { 0.0 } else { 1.0 };
+            return self.unregistered_site_visibility(site, centre, half_w, half_d, sampling);
         };
         let Some(&(site_x, site_z)) = self.sites.get(site as usize) else {
             return 1.0;
@@ -1799,10 +1823,14 @@ impl Visibility {
         }
         // Every tap's start is within the emitter rectangle, so the union
         // prefilter is the rectangle's bounds around the sample point.
-        let (x_span_min, x_span_max) =
-            (x_span_min - SEGMENT_START_EPS_M, x_span_max + SEGMENT_START_EPS_M);
-        let (z_span_min, z_span_max) =
-            (z_span_min - SEGMENT_START_EPS_M, z_span_max + SEGMENT_START_EPS_M);
+        let (x_span_min, x_span_max) = (
+            x_span_min - SEGMENT_START_EPS_M,
+            x_span_max + SEGMENT_START_EPS_M,
+        );
+        let (z_span_min, z_span_max) = (
+            z_span_min - SEGMENT_START_EPS_M,
+            z_span_max + SEGMENT_START_EPS_M,
+        );
         reach = (reach.max((point[0] - site_x).hypot(point[2] - site_z))) + SEGMENT_START_EPS_M;
         let mut blocked_weight = 0.0_f32;
         for entry in entries {
@@ -1831,6 +1859,29 @@ impl Visibility {
             }
         }
         ((exposed - blocked_weight) / exposed).clamp(0.0, 1.0)
+    }
+
+    /// An unregistered site blocks nothing; only buried emitter taps are excluded.
+    fn unregistered_site_visibility(
+        &self,
+        site: u32,
+        centre: [f32; 3],
+        half_w: f32,
+        half_d: f32,
+        sampling: ShadowSampling,
+    ) -> f32 {
+        let mut exposed = 0.0_f32;
+        for tap in tap_table(sampling) {
+            let from = [
+                tap.offset[0].mul_add(half_w, centre[0]),
+                centre[1],
+                tap.offset[1].mul_add(half_d, centre[2]),
+            ];
+            if !self.tap_is_buried(site, from) {
+                exposed += tap.weight;
+            }
+        }
+        if exposed <= 0.0 { 0.0 } else { 1.0 }
     }
 
     /// True when `solid` is crossed by the segment `from`-`to`.
@@ -1882,16 +1933,14 @@ impl Visibility {
                     .walls
                     .get(index as usize)
                     .is_some_and(|wall| wall.contains(point)),
-                SolidIndex::Horizontal(index) => match self
-                    .occluders
-                    .horizontals
-                    .get(index as usize)
-                {
-                    // A floor interface has no body, so it can never contain a
-                    // tap; only a ceiling slab is solid.
-                    Some(Horizontal::Slab(slab)) => slab.contains(point),
-                    Some(Horizontal::Floor(_)) | None => false,
-                },
+                SolidIndex::Horizontal(index) => {
+                    match self.occluders.horizontals.get(index as usize) {
+                        // A floor interface has no body, so it can never contain a
+                        // tap; only a ceiling slab is solid.
+                        Some(Horizontal::Slab(slab)) => slab.contains(point),
+                        Some(Horizontal::Floor(_)) | None => false,
+                    }
+                }
                 SolidIndex::Prop(index) => self
                     .occluders
                     .props
@@ -2372,7 +2421,12 @@ mod tests {
     /// The closest point of an emitter rectangle to a sample: the historical
     /// from-point, written out independently of `visible_fraction` so the test
     /// cannot agree with a bug by construction.
-    fn closest_emitter_point(centre: [f32; 3], half_w: f32, half_d: f32, point: [f32; 3]) -> [f32; 3] {
+    fn closest_emitter_point(
+        centre: [f32; 3],
+        half_w: f32,
+        half_d: f32,
+        point: [f32; 3],
+    ) -> [f32; 3] {
         [
             point[0].clamp(centre[0] - half_w, centre[0] + half_w),
             centre[1],
@@ -2472,8 +2526,14 @@ mod tests {
 
         // Far in front of the counter: fully lit, and the hard test agrees.
         let lit = [3.0, 0.0, 1.2];
-        assert_eq!(visibility.visible_fraction(0, centre, half_w, half_d, lit, hard), 1.0);
-        assert_eq!(visibility.visible_fraction(0, centre, half_w, half_d, lit, grid), 1.0);
+        assert_eq!(
+            visibility.visible_fraction(0, centre, half_w, half_d, lit, hard),
+            1.0
+        );
+        assert_eq!(
+            visibility.visible_fraction(0, centre, half_w, half_d, lit, grid),
+            1.0
+        );
         assert_eq!(
             visibility.visible_fraction(0, centre, half_w, half_d, lit, quincunx),
             1.0
@@ -2482,7 +2542,10 @@ mod tests {
         // Behind the counter at its foot: every tap's ray is stopped by the
         // counter body, so the pool is fully blocked.
         let blocked = [3.0, 0.0, 3.35];
-        assert_eq!(visibility.visible_fraction(0, centre, half_w, half_d, blocked, grid), 0.0);
+        assert_eq!(
+            visibility.visible_fraction(0, centre, half_w, half_d, blocked, grid),
+            0.0
+        );
         assert_eq!(
             visibility.visible_fraction(0, centre, half_w, half_d, blocked, quincunx),
             0.0
@@ -2501,7 +2564,10 @@ mod tests {
             let soft = visibility.visible_fraction(0, centre, half_w, half_d, point, grid);
             let soft_quincunx =
                 visibility.visible_fraction(0, centre, half_w, half_d, point, quincunx);
-            assert!((0.0..=1.0).contains(&soft), "fraction out of range at z={z}");
+            assert!(
+                (0.0..=1.0).contains(&soft),
+                "fraction out of range at z={z}"
+            );
             assert!((0.0..=1.0).contains(&soft_quincunx));
             // Determinism: the same query twice is bit-identical.
             assert_eq!(
@@ -2535,19 +2601,26 @@ mod tests {
         let centre = [3.0, 2.5, 2.0];
         let visibility = Visibility::build(&level, &[QuerySite::new(centre[0], centre[2], 6.0)]);
         for step in 0..=60_u16 {
-            let point = [0.5 + 0.1 * f32::from(step), 0.0, 0.5 + 0.12 * f32::from(step)];
-            let hard = visibility.visible_fraction(
-                0,
-                centre,
+            let point = [
+                0.5 + 0.1 * f32::from(step),
                 0.0,
-                0.0,
-                point,
-                ShadowSampling::HARD,
-            );
+                0.5 + 0.12 * f32::from(step),
+            ];
+            let hard =
+                visibility.visible_fraction(0, centre, 0.0, 0.0, point, ShadowSampling::HARD);
             for taps in [2u8, 3, 200] {
                 assert_eq!(
                     visibility
-                        .visible_fraction(0, centre, 0.0, 0.0, point, ShadowSampling { taps_per_axis: taps })
+                        .visible_fraction(
+                            0,
+                            centre,
+                            0.0,
+                            0.0,
+                            point,
+                            ShadowSampling {
+                                taps_per_axis: taps
+                            }
+                        )
                         .to_bits(),
                     hard.to_bits(),
                     "a point emitter is hard at {taps} taps"
@@ -2569,7 +2642,9 @@ mod tests {
         let visibility = Visibility::build(&level, &[QuerySite::new(2.4, 2.0, 6.0)]);
         let lit = [3.5, 1.9, 2.0];
         for taps in [1u8, 2, 3] {
-            let sampling = ShadowSampling { taps_per_axis: taps };
+            let sampling = ShadowSampling {
+                taps_per_axis: taps,
+            };
             let fraction = visibility.visible_fraction(0, centre, half_w, half_d, lit, sampling);
             assert!(
                 (fraction - 1.0).abs() < f32::EPSILON,
@@ -2602,11 +2677,14 @@ mod tests {
     fn the_shared_walk_matches_the_per_tap_definition() {
         for level in [penumbra_room(), split_room()] {
             let centre = [3.0, 2.99, 2.0];
-            let visibility = Visibility::build(&level, &[QuerySite::new(centre[0], centre[2], 6.0)]);
+            let visibility =
+                Visibility::build(&level, &[QuerySite::new(centre[0], centre[2], 6.0)]);
             let mut checked = 0usize;
             let mut partial = 0usize;
             for taps in [2u8, 3] {
-                let sampling = ShadowSampling { taps_per_axis: taps };
+                let sampling = ShadowSampling {
+                    taps_per_axis: taps,
+                };
                 for ix in 0..=60_u16 {
                     for iz in 0..=60_u16 {
                         for iy in 0..=6_u16 {
@@ -2615,10 +2693,10 @@ mod tests {
                                 0.05 + 0.45 * f32::from(iy),
                                 0.2 + 0.13 * f32::from(iz),
                             ];
-                            let shared = visibility.visible_fraction(0, centre, 0.6, 0.3, point, sampling);
-                            let per_tap = visibility.visible_fraction_per_tap(
-                                0, centre, 0.6, 0.3, point, sampling,
-                            );
+                            let shared =
+                                visibility.visible_fraction(0, centre, 0.6, 0.3, point, sampling);
+                            let per_tap = visibility
+                                .visible_fraction_per_tap(0, centre, 0.6, 0.3, point, sampling);
                             assert_eq!(
                                 shared.to_bits(),
                                 per_tap.to_bits(),
@@ -2651,7 +2729,10 @@ mod tests {
         assert_eq!(tap_table(ShadowSampling { taps_per_axis: 200 }).len(), 9);
         for table in [&QUINCUNX_TAPS[..], &GRID_TAPS[..]] {
             let total: f32 = table.iter().map(|tap| tap.weight).sum();
-            assert!((total - 1.0).abs() < 1.0e-6, "weights must sum to one: {total}");
+            assert!(
+                (total - 1.0).abs() < 1.0e-6,
+                "weights must sum to one: {total}"
+            );
             assert!(
                 table.iter().any(|tap| tap.offset == [0.0, 0.0]),
                 "the emitter centre must be one of the taps"

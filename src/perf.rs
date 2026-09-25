@@ -96,7 +96,7 @@ impl CpuSampler {
     }
 
     pub fn sample(&mut self) -> Option<f32> {
-        // 1. First attempt reading Linux /proc/stat (PocketCHIP target platform)
+        // 1. First attempt reading Linux /proc/stat
         if let Ok(content) = fs::read_to_string(self.stat_path)
             && let Some(curr) = parse_proc_stat(&content)
         {
@@ -208,10 +208,10 @@ pub fn parse_devfreq_load(content: &str) -> Option<f32> {
     None
 }
 
-/// Parses Mali driver utilization from /sys/class/misc/mali0/device/utilization or debugfs.
+/// Parses a debugfs utilization percentage.
 /// Supports "42" or "utilization=42".
 #[must_use]
-pub fn parse_mali_utilization(content: &str) -> Option<f32> {
+pub fn parse_debugfs_utilization(content: &str) -> Option<f32> {
     for line in content.lines() {
         let trimmed = line.trim();
         if let Some((k, v)) = trimmed.split_once('=')
@@ -245,7 +245,6 @@ pub fn parse_drm_busy_percent(content: &str) -> Option<f32> {
 pub fn sample_gpu_utilization() -> Option<f32> {
     sample_gpu_from_paths(
         Path::new("/sys/class/devfreq"),
-        Path::new("/sys/class/misc"),
         Path::new("/sys/class/drm"),
         Path::new("/sys/kernel/debug"),
     )
@@ -255,20 +254,14 @@ pub fn sample_gpu_utilization() -> Option<f32> {
 #[must_use]
 pub fn sample_gpu_from_paths(
     devfreq_root: &Path,
-    misc_root: &Path,
     drm_root: &Path,
     debugfs_root: &Path,
 ) -> Option<f32> {
-    // 1. Check devfreq directory for Lima/Mali GPU entries
+    // 1. Check generic GPU devfreq entries
     if let Ok(entries) = fs::read_dir(devfreq_root) {
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_lowercase();
-            // Match GPU devfreq entries (e.g. 1c40000.gpu on Allwinner R8 / PocketCHIP, lima, mali)
-            if name.contains("gpu")
-                || name.contains("mali")
-                || name.contains("lima")
-                || name.contains("1c40000")
-            {
+            if name.contains("gpu") {
                 let load_path = entry.path().join("load");
                 if let Ok(content) = fs::read_to_string(&load_path)
                     && let Some(pct) = parse_devfreq_load(&content)
@@ -279,20 +272,7 @@ pub fn sample_gpu_from_paths(
         }
     }
 
-    // 2. Check Mali DDK misc paths
-    let mali_paths = [
-        misc_root.join("mali0/device/utilization"),
-        misc_root.join("mali/device/utilization"),
-    ];
-    for path in &mali_paths {
-        if let Ok(content) = fs::read_to_string(path)
-            && let Some(pct) = parse_mali_utilization(&content)
-        {
-            return Some(pct);
-        }
-    }
-
-    // 3. Check DRM busy percent paths
+    // 2. Check DRM busy percent paths
     let drm_paths = [
         drm_root.join("card0/device/gpu_busy_percent"),
         drm_root.join("card1/device/gpu_busy_percent"),
@@ -305,15 +285,11 @@ pub fn sample_gpu_from_paths(
         }
     }
 
-    // 4. Check debugfs utilization paths
-    let debug_paths = [
-        debugfs_root.join("mali0/utilization"),
-        debugfs_root.join("mali/utilization"),
-        debugfs_root.join("dri/0/gpu_usage"),
-    ];
+    // 3. Check debugfs utilization paths
+    let debug_paths = [debugfs_root.join("dri/0/gpu_usage")];
     for path in &debug_paths {
         if let Ok(content) = fs::read_to_string(path)
-            && let Some(pct) = parse_mali_utilization(&content)
+            && let Some(pct) = parse_debugfs_utilization(&content)
         {
             return Some(pct);
         }

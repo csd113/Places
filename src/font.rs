@@ -274,6 +274,21 @@ pub fn generate_font_atlas() -> Vec<u8> {
     data
 }
 
+/// Pixel dimensions of the atlas [`generate_font_atlas`] returns, as
+/// `(width, height)`.
+///
+/// The packing constants above stay private so the atlas layout has one
+/// definition; this accessor is the one way a renderer backend learns the
+/// texture size it must allocate and upload the generated pixels into.
+#[must_use]
+pub const fn font_atlas_dimensions() -> (u32, u32) {
+    // The atlas packing constants are private `usize`s for the generator's
+    // indexing; both are small literals (128 and 64), so the narrowing is
+    // exact on every supported target.
+    #[allow(clippy::cast_possible_truncation)]
+    (ATLAS_WIDTH as u32, ATLAS_HEIGHT as u32)
+}
+
 /// Returns the UV bounds `[u0, v0, u1, v1]` in the 128x64 font atlas for the given ASCII character.
 #[must_use]
 pub fn get_char_uv(ch: char) -> Option<[f32; 4]> {

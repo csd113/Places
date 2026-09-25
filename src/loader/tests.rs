@@ -1339,7 +1339,7 @@ fn test_custom_levels_are_discovered_and_loaded() {
     use zip::write::SimpleFileOptions;
 
     let root =
-        std::env::temp_dir().join(format!("liminal-custom-level-test-{}", std::process::id()));
+        std::env::temp_dir().join(format!("places-custom-level-test-{}", std::process::id()));
     let assets_dir = root.join("assets/levels");
     let levels_dir = root.join("levels");
     let import_dir = root.join("import");

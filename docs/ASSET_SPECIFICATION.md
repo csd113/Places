@@ -1,5 +1,7 @@
 # Places Asset Specification
 
+Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
+
 This document is the canonical specification for every visual asset Places
 draws from an image: world surface textures, decals, fixture faces, prop and
 entity textures, normal maps, emissive masks and the non-runtime imagery that
@@ -425,12 +427,12 @@ A `90°`/`270°` rotated panel placement is a **known code discrepancy**: the
 renderer swaps the face's world X/Z extents but leaves the sheet's UV axes
 fixed, so the 2:1 sheet is effectively rotated and stretched onto a 1:2 face
 rather than rotated as a sheet (contrary to the comment in
-`src/render/fixtures.rs`). No test covers rotated-panel UVs. Until that is
+`src/render/common/fixtures.rs`). No test covers rotated-panel UVs. Until that is
 resolved, do not treat the rotated placement as an additional contract for the
 artwork; keep the sheet 2:1 landscape and flag a rotated fixture for review
 (§25.1).
 
-The visible lens face is 0.4 × 0.2 m (`src/render/fixtures.rs`, pinned by
+The visible lens face is 0.4 × 0.2 m (`src/render/common/fixtures.rs`, pinned by
 test). The map guide's separate "0.4 × 0.18 m" figure for the wall luminaire
 describes the *bake's light rectangle* (`half_width: 0.20`,
 `half_depth: 0.09` in `src/lighting/tuning.rs::fixture_profile_for_kind`), not
@@ -507,7 +509,7 @@ therefore one of the three face contracts:
 | Flush mount | `home:ceiling_light_round` | 1:1 | residential ceiling lamp: a drum with a glowing diffuser disc |
 
 Adding a further fixture family is a code change (a new `FixtureKind`, profile
-and geometry in `src/lighting/tuning.rs` and `src/render/fixtures.rs`) plus an
+and geometry in `src/lighting/tuning.rs` and `src/render/common/fixtures.rs`) plus an
 asset. Do not add a fixture PNG without adding the family and its face
 contract.
 
@@ -809,10 +811,10 @@ PNGs. They are listed so no one mistakes them for assets to replace:
 | Image | Producer | Purpose |
 |---|---|---|
 | 128×64 HUD font atlas | `src/font.rs` | project-owned bitmap UI font |
-| 256×256 decal atlas (one live cell) | `src/render/decals.rs` | internal validation marking machinery |
+| 256×256 decal atlas (one live cell) | `src/render/common/decals.rs` | internal validation marking machinery |
 | 64×64 missing-texture pattern | `src/materials/image.rs` | visible fallback for a broken texture |
 | Lightmap atlas pages | `src/lighting/lightmap/` | baked light data, regenerated at level load; never a shipped asset. A developer path can dump a page as a PNG under `target/`, but that is a diagnostic capture, not an asset. |
-| Reflection probe cubemaps | `src/render/reflections.rs` | baked per level load |
+| Reflection probe cubemaps | `src/render/common/reflections.rs` (routing) and `src/render/opengl/reflections.rs` (probe cubemaps) | baked per level load |
 
 Diagnostic textures under `assets/diagnostic/textures/` are real PNGs but are
 engine test artwork: the 96×64 sheet deliberately proves arbitrary NPOT
@@ -1356,9 +1358,9 @@ without checking the implementation.
     still paints the panel at 256×128 while the shipped sheet is 1024×512; a
     plain `build.py` run skips it (dimension mismatch) and `--force` would
     downgrade the shipped artwork.
-16. **`assets/README.md` and `docs/MAP_AUTHORING_GUIDE.md` lag the shipped
-    fixture sizes** in their fixture tables (they state 256×128 for the panel).
-    This specification and `tools/textures/README.md` carry the current sizes.
+16. **Fixture painters and source images have different sizes.** The shipped
+    fluorescent panel is 1024×512; its painter remains 256×128. Consult the
+    catalog and this specification when replacing artwork.
 17. **Pack materials are richer than pack textures.** A pack's `materials.json`
     supports emissive, mask, normal, alpha and reflection fields exactly like a
     catalog definition; a `pack:` decal id, however, produces no geometry —

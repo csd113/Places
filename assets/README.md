@@ -264,7 +264,7 @@ sheet fitted once across it (no tiling). Replacing that PNG needs no Rust change
 and no recompilation.
 
 * `core:fluorescent_panel_01` — `environment/office/textures/lights/fluorescent_panel_01.png`
-  (256x128): the panel face, `u` along its 1.2 m width and `v` across its 0.6 m
+  (1024x512): the panel face, `u` along its 1.2 m width and `v` across its 0.6 m
   depth, so one texel is 4.7 mm both ways.
 * `core:pool_light_round` — `environment/pool/textures/lights/pool_light_round_01.png`
   (128x128): the diffuser seen face-on; the sheet centre is the fixture centre
@@ -570,7 +570,7 @@ went. The engine fixtures used by the test suite live in
 * `assets/levels/places_demo.json` — **the official demo and the only shipped
   level**, and the level to show someone. One continuous route: office →
   doorways and windows → red stair hall → empty pool → steps up → quiet
-  corridor → the unmade world. Run it with `LIMINAL_LEVEL=places_demo`.
+  corridor → Home living area and balcony. Run it with `PLACES_LEVEL=places_demo`.
 * `tests/fixtures/levels/prop_showcase.json` — every placeable asset placed
   once, arranged as a domestic room plus a utility room, including one crate
   deliberately sunk into the floor and a box overlapping it.
@@ -580,12 +580,12 @@ went. The engine fixtures used by the test suite live in
 * `tests/fixtures/levels/vertical_diagnostic.json` — the vertical-geometry
   fixture: an elevated room reached by a region staircase, a walkable recess
   and a blocked deep recess, a gable room with eave/ridge fixtures, RGB-lit
-  corners and decals. Run it with `LIMINAL_LEVEL=vertical_diagnostic`.
+  corners and decals. Run it with `PLACES_LEVEL=vertical_diagnostic`.
 * `tests/fixtures/levels/pool_showcase.json` — the Pool family fixture: a real
   recessed empty basin (`floor_regions`), the walk-in step, the ladder standing
   on the basin floor, the patio table and chair, modular curtains and guardrails
   (with collision), both Pool light fixtures and the external `NO DIVING` sign.
-  Run it with `LIMINAL_LEVEL=pool_showcase`.
+  Run it with `PLACES_LEVEL=pool_showcase`.
 * `tests/fixtures/levels/rendering_diagnostic.json`,
   `tests/fixtures/levels/lighting_isolation.json`,
   `tests/fixtures/levels/lighting_diagnostic.json` and
@@ -596,24 +596,18 @@ went. The engine fixtures used by the test suite live in
 The prop fixtures are generated: run `python3 tools/levels/build_fixture_levels.py`
 to rebuild them.
 
-Checks to run before shipping an asset change:
-
-```sh
-python3 tools/assets/validate.py             # catalog, resources and shipped levels
-python3 tools/textures/build.py --check      # surface PNGs and their budgets
-python3 tools/props/build.py --check         # files exist, parse and fit the budgets
-python3 tools/props/build.py --thumbs        # refresh the editor's prop thumbnails
-cargo test                                   # catalog, scale, origin, UV and batching tests
-cd level-editor && npm test                  # editor parses the proxies and draws real geometry
-```
+Before shipping an asset change, run the
+[authoritative verification procedure](../docs/VERIFICATION.md). Generation
+commands and their determinism checks are documented there separately from
+read-only validation.
 
 Useful developer-only run flags (they never affect normal play):
 
-* `LIMINAL_LEVEL=places_demo` — boot straight into a level without entering
+* `PLACES_LEVEL=places_demo` — boot straight into a level without entering
   the menu.
-* `LIMINAL_CAPTURE=frame.png` — render one frame and write it out, then exit;
+* `PLACES_CAPTURE=frame.png` — render one frame and write it out, then exit;
   this is how prop rendering is inspected on hardware without a screenshot tool.
-* `LIMINAL_SPAWN=x,z,yaw_degrees` (or `x,y,z,yaw`) — stand at a specific spot,
+* `PLACES_SPAWN=x,z,yaw_degrees` (or `x,y,z,yaw`) — stand at a specific spot,
   e.g. in front of a prop that needs a close look.
-* `LIMINAL_STATE_LOG=file.csv` — append `frame,x,y,z,yaw,pitch` every few frames
+* `PLACES_STATE_LOG=file.csv` — append `frame,x,y,z,yaw,pitch` every few frames
   so movement and control checks can assert real results from a running build.

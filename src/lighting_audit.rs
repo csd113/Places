@@ -7,8 +7,7 @@
 //! legitimately contain (huge rooms, dense fixture grids, overlapping rooms,
 //! doorways, vertically offset props) as well as the malformed-but-parseable
 //! ones, and they measure the level-build cost of representative levels against
-//! the historical PocketCHIP-class budget (Mali-400/Lima, GLES2, ~512 MB),
-//! retained as a conservative performance floor for the desktop game.
+//! conservative geometry and memory budgets for the desktop game.
 //!
 //! The benchmark half prints a compact table with
 //! `cargo test --release -- --nocapture lighting_benchmark_report`.

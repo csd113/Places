@@ -147,7 +147,7 @@ fn texel_offset(x: u32, y: u32, width: u32) -> Option<usize> {
 
 /// Encodes an 8-bit RGBA image as PNG bytes.
 ///
-/// Mirror of [`decode_png`], used by the `LIMINAL_CAPTURE` developer path so a
+/// Mirror of [`decode_png`], used by the `PLACES_CAPTURE` developer path so a
 /// rendered frame can be inspected on hardware without a screenshot tool.
 /// # Errors
 ///

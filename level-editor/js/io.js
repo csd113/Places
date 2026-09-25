@@ -129,7 +129,7 @@ class LevelIO {
       }
       const level = new Level(data);
       this.app.setLevel(level, `Open ${sourceName}`);
-      const stats = LiminalGeometry.levelStats(level);
+      const stats = PlacesGeometry.levelStats(level);
       this.app.updateStatus(`Opened ${sourceName} — ${stats.rooms} room(s), ${stats.walls} wall(s), ${stats.openings} opening(s), ${stats.props} prop(s)`);
       return true;
     } catch (err) {
@@ -202,7 +202,7 @@ class LevelIO {
       }
 
       this.app.setLevel(level, `Open pack ${file.name}`);
-      const stats = LiminalGeometry.levelStats(level);
+      const stats = PlacesGeometry.levelStats(level);
       this.app.updateStatus(`Opened ${file.name} — ${stats.rooms} room(s), ${stats.walls} wall(s), ${stats.props} prop(s)`);
       return true;
     } catch (err) {

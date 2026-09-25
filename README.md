@@ -77,6 +77,9 @@ The engine is deliberately small and the content is deliberately editable:
 
 ## Screenshots
 
+These captures show the earlier Office/Pool route. For the current Home wing
+and the complete renderer reference, see [the canonical baseline](docs/renderer-baseline/BASELINE.md).
+
 | | |
 | --- | --- |
 | ![Office](docs/screenshots/01-office.png) Office: warm fluorescent panels over carpet and printed wallpaper, with the pool windows on the right. | ![Office window](docs/screenshots/02-office-window.png) The office looks one storey down into the pool through a window aperture. |
@@ -91,21 +94,22 @@ route through everything the project currently does:
 ```text
 office reception  →  workroom  →  doorways and windows
       →  red stair hall (1.5 m down)  →  pool hall (recessed basin)
-      →  two steps up  →  quiet corridor  →  final doorway  →  the unmade world
+      →  two steps up  →  quiet corridor  →  Home archway  →  two-storey living area and balcony
 ```
 
 Walk it from the main menu, or boot straight into it:
 
 ```sh
 cargo run                                   # then: Level Select → Places Demo
-LIMINAL_LEVEL=places_demo cargo run         # straight into the demo
-LIMINAL_LEVEL=places_demo ./Places/places    # from a packaged build
+PLACES_LEVEL=places_demo cargo run         # straight into the demo
+PLACES_LEVEL=places_demo ./Places/places    # from a packaged build
 ```
 
 Route, if you want it: from the spawn, walk forward through the doorway into the
 workroom, keep straight through the second doorway and down the stairs, follow
 the passage into the pool hall, cross the deck to the far side, and take the two
-steps up into the dim corridor. The doorway at its end is the last one.
+steps up into the dim corridor, then continue through the archway into Home.
+The staircase reaches its upper balcony and bedroom.
 
 ## Controls
 
@@ -160,28 +164,15 @@ its own path and does not depend on the working directory at all.
 
 A first launch is self-initializing: the game creates the drop-in `levels/` and
 `import/` directories and writes a default `settings.json` next to its payload
-(or below `$LIMINAL_STATE_ROOT` when that is set), so nothing has to be prepared
+(or below `$PLACES_STATE_ROOT` when that is set), so nothing has to be prepared
 by hand. Places Demo is always available, even if no asset tree and no level
-files exist at all. Normal startup prints nothing; `LIMINAL_VERBOSE=1` turns the
+files exist at all. Normal startup prints nothing; `PLACES_VERBOSE=1` turns the
 developer telemetry (package/asset/level/lighting/build lines) back on for a
 run. Genuine problems — a missing asset root, a skipped level file, an
 unresolved material — are always reported, once each.
 
-Validate the project:
-
-```sh
-cargo fmt --all --check
-cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo test --workspace --all-features
-python3 tools/assets/validate.py          # catalog, resources, shipped + fixture levels
-python3 tools/textures/build.py --check   # surface, decal and fixture PNGs and their budgets
-python3 tools/props/build.py --check      # prop models exist and fit their budgets
-cargo build --release && python3 -m unittest tests.test_compiled_build
-                                          # the compiled executable: fresh install,
-                                          # packaged layout, first-run state, config
-                                          # reload, malformed content, clean exit
-cd level-editor && npm test               # the legacy level editor still parses the catalog
-```
+The authoritative verification gate is [docs/VERIFICATION.md](docs/VERIFICATION.md).
+Run `sh tools/verify.sh` from the repository root with a desktop display available.
 
 ## Distribution layout
 
@@ -213,7 +204,7 @@ tools/package.sh                  # -> target/package/Places and target/package/
 is resolved in this order and the result is printed at startup:
 
 ```text
-$LIMINAL_ASSET_ROOT                    explicit override (the directory containing assets/)
+$PLACES_ASSET_ROOT                    explicit override (the directory containing assets/)
 exe_dir, exe_dir/.. .. exe_dir/../../..   a flat install, and the legacy bin/<triple>/app layout
 exe_dir/../Resources                   a macOS .app bundle
 assets, ./assets, ../assets            the working directory (development)
@@ -226,7 +217,7 @@ rather than silently degrading. `assets/levels/` is scanned for shipped levels
 and `levels/` for drop-in ones; both appear in the same Level Select menu. The
 writable side — `settings.json`, `levels/`, `import/` and `cache/` — always
 lives below the package root (the parent of `assets/`), or below
-`$LIMINAL_STATE_ROOT` when that is set, never in whatever directory the process
+`$PLACES_STATE_ROOT` when that is set, never in whatever directory the process
 happens to be started from.
 
 ## Assets, themes and ids
@@ -362,12 +353,17 @@ a level through it drops them, so edit those as JSON.
 ## Project structure
 
 ```text
-src/                 the game crate (`liminal-rust`)
+src/                 the game crate (`places`)
     assets.rs        the catalog: ids, classes, themes, resource paths
     level.rs         the level format, geometry rules and the walkable floor
     loader.rs        level discovery, validation, packs, materials resolution
     lighting/        the bake: partition areas, baselines, fixture pools, visibility
-    render/          mesh building, packing, culling, decals, fixtures, the GL renderer
+    render/          the renderer boundary: common/ (neutral preparation),
+                     opengl/ (the complete OpenGL reference backend), wgpu/
+                     (the complete wgpu backend: device/surface lifecycle and
+                     every reference feature, Stages 4-9; validated in Stage
+                     10), the Renderer facade and the temporary
+                     PLACES_RENDERER selector
     materials/       PNG decode, texture cache, material and decal resolution
     game.rs          player state, movement and collision
     ui.rs            the menu, level select and settings screens
@@ -377,7 +373,6 @@ tools/               asset, texture, prop and level generators and validators
 level-editor/        the legacy browser level editor
 docs/screenshots/    the images in this README
 docs/renderer-baseline/  the fixed-view pre-wgpu renderer reference (High and Low)
-platforms/           historical PocketCHIP/Vitrallis packaging, not part of the desktop workflow
 ```
 
 ## Current development status
@@ -385,8 +380,8 @@ platforms/           historical PocketCHIP/Vitrallis packaging, not part of the 
 Working and shipped:
 
 * first-person exploration with collision and floor-elevation traversal;
-* two environment themes with external PNG surfaces and four external or
-  generated decal sheets;
+* three environment themes with external PNG surfaces and four external or
+  file-backed decal sheets;
 * baked RGB lighting driven by generic engine-level light sources (point,
   rectangle and line shapes) with per-light colour, intensity, range, falloff
   and enabled state; fixtures and props own lights, and neither materials nor
@@ -448,16 +443,24 @@ Known limitations, all deliberate:
   fit its page budget falls back to vertex lighting;
 * emission reaches surfaces and fixture faces; emissive decals and cone/spot
   lights are not implemented yet;
-* no animation, no skinning, no water and no swimming; the pool is empty on
-  purpose;
+* no skeletal animation, skinning, water or swimming; the pool is empty on
+  purpose. Animated emissions and the engine-spawned washing-machine drum exist;
 * the surface response is drawn at Full quality only: Low keeps the same
   materials, albedo, emission and alpha and leaves the normal/sheen term out;
-* floor regions are rectangular and flat: no ramps or sloped regions;
+* floor regions are rectangular and flat; separate `ramps` and `stairs`
+  primitives provide sloped and stepped traversal;
 * no traversal between stacked rooms, and no ceiling or floor openings;
 * decals cannot cross a floor or ceiling height change, and a gable ceiling
   takes no decals;
 * rooms and walls are axis-aligned rectangles only;
-* the legacy level editor does not preserve the vertical-geometry keys.
+* the legacy level editor does not preserve the vertical-geometry keys;
+* the wgpu renderer draws the complete reference frame — the baked lightmap
+  atlas (and the vertex-lit fallback), props, dynamics, fixtures, emission,
+  decals, probes and the planar mirror, fog, bloom/post and the HUD — with the
+  material surface response. `PLACES_RENDERER=wgpu` runs it; OpenGL remains
+  the default and the comparison reference. See
+  [docs/WGPU_STAGE9.md](docs/WGPU_STAGE9.md) and
+  [docs/WGPU_STAGE10.md](docs/WGPU_STAGE10.md).
 
 ## Rendering notes
 
@@ -480,7 +483,7 @@ display image by one fullscreen pass; the HUD is drawn afterwards, on the defaul
 framebuffer, at the drawable's own resolution, so it stays sharp and outside
 every post-processing stage. The target tracks the drawable's size and aspect
 ratio (nothing is stretched) and falls back to drawing straight into the
-framebuffer if it cannot be created — `LIMINAL_NO_OFFSCREEN=1` forces that
+framebuffer if it cannot be created — `PLACES_NO_OFFSCREEN=1` forces that
 fallback path for an A/B comparison.
 
 The resolve stage adds bloom, exposure and a subtle grade, and it is the only
@@ -492,8 +495,8 @@ world shader. Bloom is a **player setting** (Settings → Graphics → Bloom), n
 part of the quality profile, so `Full + Bloom Off` and `Low + Bloom On` are both
 valid; with Bloom off no emissive or blur pass is submitted and the bloom targets
 are released, and with `Low` plus Bloom off the resolve stage is the identity and
-presents the scene with the plain copy quad. `LIMINAL_NO_BLOOM=1` /
-`LIMINAL_NO_REFLECTIONS=1` still measure each stage alone for a benchmark run.
+presents the scene with the plain copy quad. `PLACES_NO_BLOOM=1` /
+`PLACES_NO_REFLECTIONS=1` still measure each stage alone for a benchmark run.
 
 Reflections are opt-in per material: a **probe** reads a small cubemap baked once
 per level load, a **planar** mirror draws a real second view of the level through
@@ -516,7 +519,7 @@ fixture and decal sheets up to 1024, prop sheets up to 256) and uploads shipped
 assets unchanged. **Low** uses the same assets and box-filters each one once at
 level load (sheets 256, prop sheets 128, emissive masks 128). Downscaling is a
 load-time step that is cached with the texture it produced, never a per-frame
-cost, and `"quality"` in `settings.json` (or `LIMINAL_QUALITY=full|low` for one
+cost, and `"quality"` in `settings.json` (or `PLACES_QUALITY=full|low` for one
 run) selects the profile. The profile is a selector in Settings → Graphics and
 can be changed while playing: the level's GPU textures and lightmap atlas are
 rebuilt from the level already resident, with the player, camera and game state
@@ -539,7 +542,9 @@ never have to think about:
   slope-scaled term tracks the interpolation error, which grows with the depth
   slope.
 
-Both are defined once, in `src/render/view.rs`, and applied in one place,
+Both are defined once — `DECAL_SURFACE_OFFSET_M` in
+`src/render/common/decals.rs`, `DECAL_POLYGON_OFFSET` in
+`src/render/opengl/shaders.rs` — and applied in one place,
 `render::add_decal_quad`, so a decal authored later inherits the fix
 automatically.
 
@@ -557,9 +562,8 @@ looks like:
   rooms read as coloured, so it is a re-calibration of the whole lighting and
   art set, not a correctness toggle.
 
-The investigation, the numbers and the reasoning are recorded in
-`tools/bench/notes/` detail in the changelog; the current pipeline is
-kept because it is internally consistent and calibrated as a whole.
+The current pipeline is calibrated as a whole. Historical investigations
+remain available in Git history.
 
 ## Changelog
 

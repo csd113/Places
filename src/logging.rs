@@ -3,7 +3,7 @@
 //! A normal launch of Places prints nothing beyond genuine problems: the
 //! startup telemetry (`[package]`, `[props]`, `[lighting]`, ...) and the
 //! one-line progress reports are developer output, so they are printed only
-//! when `LIMINAL_VERBOSE` is set to a true-ish value.
+//! when `PLACES_VERBOSE` is set to a true-ish value.
 //!
 //! Warnings and errors always print. A warning is deduplicated by key so a
 //! per-material or per-file loop can never flood the terminal: the first
@@ -19,21 +19,16 @@ use std::sync::{Mutex, OnceLock};
 /// Environment variable that turns developer telemetry on.
 ///
 /// Any value other than empty, `0`, `false` or `off` enables it, matching the
-/// other `LIMINAL_*` switches.
-pub const VERBOSE_ENV: &str = "LIMINAL_VERBOSE";
-
-/// Legacy alias accepted for the startup report only.
-pub const VERBOSE_ENV_ALIAS: &str = "LIMINAL_STARTUP_LOG";
+/// other `PLACES_*` switches.
+pub const VERBOSE_ENV: &str = "PLACES_VERBOSE";
 
 /// True when developer telemetry should print.
 #[must_use]
 pub fn verbose() -> bool {
-    [VERBOSE_ENV, VERBOSE_ENV_ALIAS]
-        .iter()
-        .any(|name| std::env::var(name).is_ok_and(|value| truthy(&value)))
+    std::env::var(VERBOSE_ENV).is_ok_and(|value| truthy(&value))
 }
 
-/// Shared truthiness rule for the `LIMINAL_*` switches.
+/// Shared truthiness rule for the `PLACES_*` switches.
 fn truthy(value: &str) -> bool {
     !matches!(
         value.trim().to_ascii_lowercase().as_str(),

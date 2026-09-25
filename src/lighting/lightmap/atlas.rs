@@ -177,9 +177,8 @@ impl SkylineAllocator {
             if top.saturating_add(outer_h) > edge {
                 continue;
             }
-            let better = best.is_none_or(|(best_top, best_x)| {
-                top < best_top || (top == best_top && x < best_x)
-            });
+            let better = best
+                .is_none_or(|(best_top, best_x)| top < best_top || (top == best_top && x < best_x));
             if better {
                 best = Some((top, x));
             }
@@ -197,7 +196,14 @@ impl SkylineAllocator {
             }
             if segment.x >= right {
                 if !inserted {
-                    push_merged(&mut next, Segment { x, y: new_y, width: outer_w });
+                    push_merged(
+                        &mut next,
+                        Segment {
+                            x,
+                            y: new_y,
+                            width: outer_w,
+                        },
+                    );
                     inserted = true;
                 }
                 next.push(*segment);
@@ -211,7 +217,14 @@ impl SkylineAllocator {
                 });
             }
             if !inserted {
-                push_merged(&mut next, Segment { x, y: new_y, width: outer_w });
+                push_merged(
+                    &mut next,
+                    Segment {
+                        x,
+                        y: new_y,
+                        width: outer_w,
+                    },
+                );
                 inserted = true;
             }
             if segment_right > right {
@@ -223,7 +236,14 @@ impl SkylineAllocator {
             }
         }
         if !inserted {
-            push_merged(&mut next, Segment { x, y: new_y, width: outer_w });
+            push_merged(
+                &mut next,
+                Segment {
+                    x,
+                    y: new_y,
+                    width: outer_w,
+                },
+            );
         }
         *page = next;
         Some(chart_at(page_index, x, top, width, height, padding))
@@ -231,14 +251,7 @@ impl SkylineAllocator {
 }
 
 /// The chart a placement at outer-rectangle `(x, y)` produces.
-fn chart_at(
-    page_index: usize,
-    x: u32,
-    y: u32,
-    width: u32,
-    height: u32,
-    padding: u32,
-) -> Chart {
+fn chart_at(page_index: usize, x: u32, y: u32, width: u32, height: u32, padding: u32) -> Chart {
     Chart {
         page: u16::try_from(page_index).unwrap_or(u16::MAX),
         x: x.saturating_add(padding),
@@ -533,7 +546,7 @@ pub fn page_png_bytes(page: &LightmapPage) -> Result<Vec<u8>, String> {
 
 /// Writes one page as a PNG under `path`, creating parent directories.
 ///
-/// Used by the developer atlas dump (`LIMINAL_DUMP_LIGHTMAPS=1`), which puts its
+/// Used by the developer atlas dump (`PLACES_DUMP_LIGHTMAPS=1`), which puts its
 /// files under `target/agent-work/atlases/`.
 /// # Errors
 ///

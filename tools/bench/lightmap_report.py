@@ -2,8 +2,8 @@
 """Capture and report the lighting/bake numbers one build produces.
 
 This is the measurement half of the lightmap validation: it drives the
-one-frame capture path (`LIMINAL_CAPTURE`) and the benchmark telemetry
-(`LIMINAL_BENCH=1`) over a fixed shot list, records every developer log line the
+one-frame capture path (`PLACES_CAPTURE`) and the benchmark telemetry
+(`PLACES_BENCH=1`) over a fixed shot list, records every developer log line the
 run printed, and writes a machine-readable report next to the PNGs.
 
 Nothing here changes the engine. It exists so a before/after claim about bake
@@ -11,12 +11,12 @@ time, lightmap memory, draw calls or frame time is a number in a file rather
 than an impression.
 
 Usage:
-    python3 tools/bench/lightmap_report.py --binary target/release/liminal-rust \
+    python3 tools/bench/lightmap_report.py --binary target/release/places \
         --label full --out target/agent-work/benchmarks/full
 
     # the vertex-lit control run
-    LIMINAL_NO_LIGHTMAPS=1 python3 tools/bench/lightmap_report.py \
-        --binary target/release/liminal-rust --label vertex \
+    PLACES_NO_LIGHTMAPS=1 python3 tools/bench/lightmap_report.py \
+        --binary target/release/places --label vertex \
         --out target/agent-work/benchmarks/vertex
 """
 
@@ -37,21 +37,21 @@ WORK = REPO / "target" / "agent-work" / "benchmarks"
 # the run directory's `levels/` link, exactly as the visual check does.
 SHOTS: list[tuple[str, str, dict[str, str]]] = [
     ("demo_spawn", "places_demo", {}),
-    ("demo_pool", "places_demo", {"LIMINAL_SPAWN": "3.5,9.0,0"}),
-    ("demo_far_corridor", "places_demo", {"LIMINAL_SPAWN": "40.0,13.0,90"}),
-    ("demo_office", "places_demo", {"LIMINAL_SPAWN": "4.6,5.8,0"}),
+    ("demo_pool", "places_demo", {"PLACES_SPAWN": "3.5,9.0,0"}),
+    ("demo_far_corridor", "places_demo", {"PLACES_SPAWN": "40.0,13.0,90"}),
+    ("demo_office", "places_demo", {"PLACES_SPAWN": "4.6,5.8,0"}),
     # Close-ups of prop/floor and prop/wall contact, the surfaces the baked
     # occlusion has to ground. Each looks slightly down at a placed prop.
-    ("demo_desk_contact", "places_demo", {"LIMINAL_SPAWN": "3.6,4.6,140", "LIMINAL_CAMERA": "140,-18"}),
-    ("demo_cabinet_contact", "places_demo", {"LIMINAL_SPAWN": "8.5,2.9,0", "LIMINAL_CAMERA": "0,-16"}),
-    ("demo_pool_table", "places_demo", {"LIMINAL_SPAWN": "4.0,13.6,180", "LIMINAL_CAMERA": "180,-18"}),
-    ("demo_doorway", "places_demo", {"LIMINAL_SPAWN": "9.0,3.5,0"}),
+    ("demo_desk_contact", "places_demo", {"PLACES_SPAWN": "3.6,4.6,140", "PLACES_CAMERA": "140,-18"}),
+    ("demo_cabinet_contact", "places_demo", {"PLACES_SPAWN": "8.5,2.9,0", "PLACES_CAMERA": "0,-16"}),
+    ("demo_pool_table", "places_demo", {"PLACES_SPAWN": "4.0,13.6,180", "PLACES_CAMERA": "180,-18"}),
+    ("demo_doorway", "places_demo", {"PLACES_SPAWN": "9.0,3.5,0"}),
     # The animated washer demonstration: a static washing machine with a turning
     # drum in front of its door, in the west end of the long corridor.
     ("demo_dynamic", "places_demo",
-     {"LIMINAL_SPAWN": "28.4,13.6,0", "LIMINAL_CAMERA": "0,-12"}),
+     {"PLACES_SPAWN": "28.4,13.6,0", "PLACES_CAMERA": "0,-12"}),
     ("prop_stress", "prop_stress", {}),
-    ("prop_stress_close", "prop_stress", {"LIMINAL_SPAWN": "2.0,2.0,135", "LIMINAL_CAMERA": "135,-16"}),
+    ("prop_stress_close", "prop_stress", {"PLACES_SPAWN": "2.0,2.0,135", "PLACES_CAMERA": "135,-16"}),
     ("prop_showcase", "prop_showcase", {}),
     ("test_room", "test_room", {}),
     ("lighting_diagnostic", "lighting_diagnostic", {}),
@@ -68,13 +68,13 @@ def run_shot(binary: Path, workdir: Path, level: str, env: dict[str, str], out_p
              frames: int, extra: dict[str, str]) -> tuple[int, str]:
     """Renders one frame (or runs a short benchmark) and returns its log."""
     env = dict(env)
-    env.setdefault("LIMINAL_LEVEL", level)
-    env.setdefault("LIMINAL_BENCH", "1")
-    env.setdefault("LIMINAL_BENCH_WARMUP", "2")
+    env.setdefault("PLACES_LEVEL", level)
+    env.setdefault("PLACES_BENCH", "1")
+    env.setdefault("PLACES_BENCH_WARMUP", "2")
     if frames > 1:
-        env.setdefault("LIMINAL_BENCH_OUT", str(out_png.with_suffix(".csv")))
+        env.setdefault("PLACES_BENCH_OUT", str(out_png.with_suffix(".csv")))
     else:
-        env.setdefault("LIMINAL_CAPTURE", str(out_png))
+        env.setdefault("PLACES_CAPTURE", str(out_png))
     env.update(extra)
     env.setdefault("PATH", os.environ.get("PATH", ""))
     proc = subprocess.run(
@@ -110,7 +110,7 @@ def parse_logs(text: str) -> dict[str, object]:
         out["static_vertices"] = int(m.group(1))
         out["prop_vertices"] = int(m.group(2))
     # Durations take the *largest* value in the run: the first load bakes, the
-    # LIMINAL_LEVEL load is the cache hit. Counts take the last, which is the
+    # PLACES_LEVEL load is the cache hit. Counts take the last, which is the
     # requested level.
     durations: dict[int, list[float]] = {}
     for line in out["lines"].get("level", []):
@@ -134,7 +134,7 @@ def parse_logs(text: str) -> dict[str, object]:
         out["prop_batches"] = int(m.group(1))
 
     # The reported bake time is the largest in the run: a level loads once from
-    # the menu and once from LIMINAL_LEVEL, and the second load is a cache hit
+    # the menu and once from PLACES_LEVEL, and the second load is a cache hit
     # (0 ms). `--cold` removes the cache first so this is a real bake.
     for key, pattern in (
         ("lightmap_pages", r"(\d+) page\(s\)"),
@@ -195,7 +195,7 @@ def parse_bench_csv(path: Path) -> dict[str, float]:
 def stage_run_dir(directory: Path) -> None:
     """A package root the game can boot from: the real assets plus the fixture levels.
 
-    The binary resolves its package root through `LIMINAL_ASSET_ROOT`, then
+    The binary resolves its package root through `PLACES_ASSET_ROOT`, then
     changes into it, so `assets/` and `levels/` are reached through this
     directory and nothing temporary has to be copied into the repository's own
     `levels/`.
@@ -217,19 +217,19 @@ def run_shot(binary: Path, workdir: Path, level: str, env: dict[str, str], out_p
              frames: int, extra: dict[str, str]) -> tuple[int, str]:
     """Renders one frame (or runs a short benchmark) and returns its log."""
     env = dict(env)
-    env.setdefault("LIMINAL_ASSET_ROOT", str(workdir))
-    env.setdefault("LIMINAL_LEVEL", level)
-    env.setdefault("LIMINAL_BENCH", "1")
-    env.setdefault("LIMINAL_BENCH_WARMUP", "2")
+    env.setdefault("PLACES_ASSET_ROOT", str(workdir))
+    env.setdefault("PLACES_LEVEL", level)
+    env.setdefault("PLACES_BENCH", "1")
+    env.setdefault("PLACES_BENCH_WARMUP", "2")
     # The capture is read back from the framebuffer *before* the swap, so
     # skipping the swap loses nothing and keeps a run from blocking on a window
     # server that is not completing presents (a headless or locked display).
-    env.setdefault("LIMINAL_BENCH_NOSWAP", "1")
+    env.setdefault("PLACES_BENCH_NOSWAP", "1")
     if frames > 1:
-        env.setdefault("LIMINAL_BENCH_FRAMES", str(frames))
-        env.setdefault("LIMINAL_BENCH_OUT", str(out_png.with_suffix(".csv")))
+        env.setdefault("PLACES_BENCH_FRAMES", str(frames))
+        env.setdefault("PLACES_BENCH_OUT", str(out_png.with_suffix(".csv")))
     else:
-        env.setdefault("LIMINAL_CAPTURE", str(out_png))
+        env.setdefault("PLACES_CAPTURE", str(out_png))
     env.update(extra)
     env.setdefault("PATH", os.environ.get("PATH", ""))
     proc = subprocess.run(
@@ -240,7 +240,7 @@ def run_shot(binary: Path, workdir: Path, level: str, env: dict[str, str], out_p
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--binary", default=str(REPO / "target" / "release" / "liminal-rust"))
+    parser.add_argument("--binary", default=str(REPO / "target" / "release" / "places"))
     parser.add_argument("--label", default="run")
     parser.add_argument("--out", default=None)
     parser.add_argument("--frames", type=int, default=1,
