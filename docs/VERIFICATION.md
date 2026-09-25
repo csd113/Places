@@ -6,9 +6,9 @@ removed OpenGL/GLES2 reference renderer and the complete Stage 10 dual-renderer
 state are preserved at the `renderer-gles2-reference` tag; see
 [RENDERER_REFERENCE.md](RENDERER_REFERENCE.md) and
 [WGPU_STAGE10.md](WGPU_STAGE10.md). Run from the repository root on a desktop
-session with Rust 1.91 or newer, SDL2 and pkg-config, Python 3, and Node.js
-available. macOS setup is
-`brew install sdl2 pkg-config`. Python tooling uses the standard library. No npm
+session with Rust 1.91 or newer, SDL3 (3.2 or newer), pkg-config, Python 3, and
+Node.js available. macOS setup is
+`brew install sdl3 pkg-config`. Python tooling uses the standard library. No npm
 install is required. No CI configuration is currently tracked.
 
 ```sh
@@ -32,7 +32,7 @@ python3 -m unittest tests.test_wgpu_bootstrap
 git diff --check
 ```
 
-All commands must exit zero. Compiled-build tests open real SDL windows and
+All commands must exit zero. Compiled-build tests open real SDL3 windows and
 GPU surfaces; a skipped suite is not a completed desktop gate. Rust's three intentionally
 ignored diagnostics are opt-in reports, not required tests. Texture checking
 currently emits 39 soft-budget warnings for artwork above 256 pixels; these
@@ -42,15 +42,15 @@ in ASSET_SPECIFICATION.md. The package suite intentionally exercises an invalid 
 after its successful unittest summary. This is the negative fixture in
 `test_a_broken_catalog_surfaces_in_the_validators_exit_code`, not a shipped
 asset failure. Editor tests also print `WebGL is unavailable` while testing
-the fallback with a mocked browser. The wgpu bootstrap suite opens a real SDL
+the fallback with a mocked browser. The wgpu bootstrap suite opens a real SDL3
 window on the native backend (Metal on macOS, Vulkan on Linux, Direct3D 12 on
 Windows) and fails if the adapter reports any other backend. Require the final
 test summaries to show zero failures. Other warnings require investigation.
-`clippy.toml` permits only the four unavoidable transitive duplicate crates:
-SDL2/PNG require different bitflags versions, PNG/flate2 require different
-miniz_oxide versions, the wgpu proc-macro tree uses syn 3 while serde/thiserror
-use syn 2, and wgpu-hal's hashbrown 0.17 cannot be unified with the 0.16 the
-rest of the tree selects. No general lint group is suppressed.
+`clippy.toml` permits only the three unavoidable transitive duplicate crates:
+PNG/flate2 require different miniz_oxide versions, the wgpu proc-macro tree
+uses syn 3 while serde/thiserror use syn 2, and wgpu-hal's hashbrown 0.17
+cannot be unified with the 0.16 the rest of the tree selects. No general lint
+group is suppressed.
 
 The catalog validator checks shipped and fixture levels. Rust and package tests
 cover model budgets, texture seams, schema, geometry, collision and lighting;

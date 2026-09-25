@@ -7,7 +7,7 @@
 //!
 //! See `docs/WGPU_BOOTSTRAP.md` for the policy rationale.
 
-use sdl2::video::{Window, WindowBuilder};
+use sdl3::video::Window;
 
 /// The one native desktop backend this build targets.
 ///
@@ -58,21 +58,11 @@ pub const fn native_backend_label() -> &'static str {
     }
 }
 
-/// Marks the window being built as one wgpu can present to.
-///
-/// On macOS SDL must create an `SDL_MetalView` before the raw-window-handle
-/// path can report the `NSView` wgpu's Metal backend needs; the call is a
-/// documented no-op on every other platform. No GL context flag or attribute
-/// is requested: the path never creates a GL context.
-pub fn apply_window_flags(builder: &mut WindowBuilder) {
-    builder.metal_view();
-}
-
-/// Creates the surface for a created SDL window.
+/// Creates the surface for a created SDL3 window.
 ///
 /// # Safety
 ///
-/// The returned `Surface` holds copies of the SDL window's raw OS handles and
+/// The returned `Surface` holds copies of the SDL3 window's raw OS handles and
 /// must not outlive that window. `main` upholds this invariant by construction:
 /// the renderer is a local declared after the window, so it is dropped before
 /// the window on every path (including error returns), and no frame is rendered

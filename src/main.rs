@@ -45,10 +45,10 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use glam::Vec3;
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
-use sdl2::video::{FullscreenType, Window};
-use sdl2::{EventPump, Sdl, VideoSubsystem};
+use sdl3::event::Event;
+use sdl3::keyboard::Keycode;
+use sdl3::video::{Display, FullscreenType, Window};
+use sdl3::{EventPump, Sdl, VideoSubsystem};
 
 use bench::Bench;
 use display::DisplayStatus;
@@ -259,11 +259,34 @@ fn log_package(package: &Path) {
 /// The usable work area of one display, in logical pixels.
 ///
 /// `(0, 0)` when the backend cannot report it, which the pure fitting rule
-/// treats as "unknown" rather than "nothing fits".
-fn usable_display_bounds(video: &VideoSubsystem, display_index: i32) -> (u32, u32) {
-    video
-        .display_usable_bounds(display_index)
+/// treats as "unknown" rather than "nothing fits". `Display` is a small `Copy`
+/// handle, so it is taken by value.
+fn usable_display_bounds(display: Display) -> (u32, u32) {
+    display
+        .get_usable_bounds()
         .map_or((0, 0), |rect| (rect.width(), rect.height()))
+}
+
+/// The full resolution of one display, in logical pixels.
+///
+/// `(0, 0)` when the backend cannot report it; the Display screen then shows
+/// "Follows Display" instead of a stale number.
+fn display_bounds(display: Display) -> (u32, u32) {
+    display
+        .get_bounds()
+        .map_or((0, 0), |rect| (rect.width(), rect.height()))
+}
+
+/// The window's display, falling back to the primary one.
+///
+/// SDL3 identifies displays with opaque `SDL_DisplayID`s rather than the SDL2
+/// index (`0` was "primary"); a window that cannot report its display therefore
+/// falls back explicitly, never to an invalid zero id.
+fn window_display(window: &Window, video: &VideoSubsystem) -> Option<Display> {
+    window
+        .get_display()
+        .or_else(|_| video.get_primary_display())
+        .ok()
 }
 
 /// Creates the game window from the effective display settings.
@@ -271,16 +294,18 @@ fn usable_display_bounds(video: &VideoSubsystem, display_index: i32) -> (u32, u3
 /// The window opens at the saved windowed resolution ([`crate::settings::DEFAULT_WINDOW_WIDTH`]
 /// x [`crate::settings::DEFAULT_WINDOW_HEIGHT`] on a fresh install), reduced to
 /// fit the active display's work area when necessary, or as borderless
-/// fullscreen when that is the selected mode. `allow_highdpi` keeps the drawable
-/// at the Retina backing scale; the renderer reads the drawable, never the
-/// logical size.
+/// fullscreen when that is the selected mode. `high_pixel_density` keeps the
+/// drawable at the Retina backing scale; the renderer reads the pixel size,
+/// never the logical size.
 ///
 /// A size that had to be reduced to fit is adopted back into `settings` (and
 /// therefore persisted and shown in Display), so the menu and the window never
 /// disagree.
 fn create_window(video: &VideoSubsystem, settings: &mut Settings) -> Result<Window, String> {
     let requested = settings.window_size();
-    let usable = usable_display_bounds(video, 0);
+    let usable = video
+        .get_primary_display()
+        .map_or((0, 0), usable_display_bounds);
     let (width, height) = display::fit_window_to_bounds(requested, usable);
     if (width, height) != requested {
         logging::info(format!(
@@ -293,14 +318,36 @@ fn create_window(video: &VideoSubsystem, settings: &mut Settings) -> Result<Wind
     }
 
     let mut builder = video.window("Places", width, height);
-    builder.position_centered().resizable().allow_highdpi();
-    render::apply_window_flags(&mut builder);
+    builder.position_centered().resizable().high_pixel_density();
     if settings.window_mode() == WindowMode::Fullscreen {
-        builder.fullscreen_desktop();
+        // SDL3 removed the SDL2 `SDL_WINDOW_FULLSCREEN_DESKTOP` flag: a window
+        // asked for fullscreen without an explicit display mode is borderless
+        // desktop fullscreen, which is exactly what `fullscreen_desktop()` was.
+        builder.fullscreen();
     }
     let window = builder
         .build()
         .map_err(|e| format!("Failed to create window: {e}"))?;
+
+    if settings.window_mode() == WindowMode::Fullscreen {
+        // SDL3 applies window state asynchronously: the fullscreen request made
+        // through the builder is finalized after the window exists. SDL2
+        // created the window already fullscreen, so the boot frame, the drawable
+        // the renderer configures and a first-frame capture all saw the final
+        // display-size drawable. `SDL_SyncWindow` is the documented barrier for
+        // pending window state; without it the first frames render (and a
+        // capture would take) the windowed size and the window visibly resizes
+        // once the request lands. A timed-out sync is not fatal: the request is
+        // still pending and the per-frame display poll adopts whatever the
+        // platform reports.
+        if !window.sync() {
+            logging::warn(
+                "[display] fullscreen did not finalize before the first frame; \
+                 the window will resize when the platform applies it"
+                    .to_string(),
+            );
+        }
+    }
 
     let actual = window.size();
     if settings.window_mode() == WindowMode::Windowed
@@ -315,18 +362,20 @@ fn create_window(video: &VideoSubsystem, settings: &mut Settings) -> Result<Wind
 
 /// Creates the SDL video subsystem and the game window.
 fn create_sdl_and_window(settings: &mut Settings) -> Result<(Sdl, VideoSubsystem, Window), String> {
-    let sdl_context = sdl2::init().map_err(|e| format!("Failed to init SDL2: {e}"))?;
+    let sdl_context = sdl3::init().map_err(|e| format!("Failed to init SDL3: {e}"))?;
     let video_subsystem = sdl_context
         .video()
         .map_err(|e| format!("Failed to init video subsystem: {e}"))?;
 
-    // SDL enables Unicode text input (and therefore the platform IME) implicitly
-    // as soon as the video subsystem starts. This game only consumes raw key
-    // events, never composed text, so disable it: on macOS this is the code path
-    // that engages InputMethodKit (`interpretKeyEvents` on SDL's text responder).
-    video_subsystem.text_input().stop();
-
     let window = create_window(&video_subsystem, settings)?;
+
+    // SDL2 enabled Unicode text input (and therefore the platform IME)
+    // implicitly as soon as the video subsystem started, and this game only
+    // consumes raw key events, never composed text, so the old build stopped it
+    // on macOS to keep SDL away from InputMethodKit. SDL3 starts with text
+    // input disabled and scopes it per window; stopping it explicitly keeps the
+    // old guarantee in place at no behavioural cost.
+    video_subsystem.text_input().stop(&window);
     Ok((sdl_context, video_subsystem, window))
 }
 
@@ -405,13 +454,8 @@ fn create_renderer(
 /// The renderer translates the preference into a supported presentation mode.
 /// The same helper is called at runtime whenever the player changes the
 /// setting, so `VSync` applies immediately instead of at the next launch.
-fn configure_vsync(
-    renderer: &mut Renderer,
-    video_subsystem: &VideoSubsystem,
-    bench: &mut Bench,
-    settings: &Settings,
-) {
-    let swap_interval = renderer.set_swap_interval(video_subsystem, settings.vsync_enabled());
+fn configure_vsync(renderer: &mut Renderer, bench: &mut Bench, settings: &Settings) {
+    let swap_interval = renderer.set_swap_interval(settings.vsync_enabled());
     bench.set_reported_swap_interval(swap_interval);
 }
 
@@ -777,7 +821,7 @@ impl FrameLoop<'_> {
         if apply.vsync {
             let interval = self
                 .renderer
-                .set_swap_interval(self.video_subsystem, self.settings.vsync_enabled());
+                .set_swap_interval(self.settings.vsync_enabled());
             self.bench.set_reported_swap_interval(interval);
         }
         if apply.renderer_state {
@@ -828,9 +872,17 @@ impl FrameLoop<'_> {
     /// lands on a usable window and the menu shows the real one.
     fn apply_window_settings(&mut self) -> Result<(), String> {
         if self.settings.window_mode() == WindowMode::Fullscreen {
-            return self.window.set_fullscreen(FullscreenType::Desktop);
+            // SDL3 has one fullscreen boolean; with no display mode set it is
+            // borderless desktop fullscreen (the SDL2 `FullscreenType::Desktop`
+            // behaviour Places has always used).
+            return self
+                .window
+                .set_fullscreen(true)
+                .map_err(|error| error.to_string());
         }
-        self.window.set_fullscreen(FullscreenType::Off)?;
+        self.window
+            .set_fullscreen(false)
+            .map_err(|error| error.to_string())?;
         let requested = self.settings.window_size();
         let fitted = display::fit_window_to_bounds(requested, self.display_status.usable_bounds);
         self.window
@@ -886,6 +938,11 @@ impl FrameLoop<'_> {
     fn refresh_display_status(&mut self) {
         let mode = match self.window.fullscreen_state() {
             FullscreenType::Off => WindowMode::Windowed,
+            // SDL3 has no separate desktop-fullscreen flag: a borderless
+            // desktop fullscreen window reports `True` (the crate's `Desktop`
+            // variant tests the old SDL2 flag bit, which is SDL_WINDOW_MODAL in
+            // SDL3, so it is never produced). Places only ever requests
+            // borderless desktop fullscreen, so `Off` vs not-`Off` is exact.
             FullscreenType::True | FullscreenType::Desktop => WindowMode::Fullscreen,
         };
         let window_size = self.window.size();
@@ -899,12 +956,9 @@ impl FrameLoop<'_> {
                 .adopt_window_size(window_size.0, window_size.1);
         }
         self.window_apply_in_flight = false;
-        let display_index = self.window.display_index().unwrap_or(0);
-        let usable_bounds = usable_display_bounds(self.video_subsystem, display_index);
-        let desktop_size = self
-            .video_subsystem
-            .display_bounds(display_index)
-            .map_or((0, 0), |rect| (rect.width(), rect.height()));
+        let display = window_display(self.window, self.video_subsystem);
+        let usable_bounds = display.map_or((0, 0), usable_display_bounds);
+        let desktop_size = display.map_or((0, 0), display_bounds);
         self.display_status.mode = mode;
         self.display_status.window_size = window_size;
         self.display_status.usable_bounds = if usable_bounds == (0, 0) {
@@ -917,7 +971,7 @@ impl FrameLoop<'_> {
         // Report the logical and drawable sizes (and their ratio) once per
         // change when telemetry is on: this is the line that proves the
         // renderer is using Retina pixels rather than the logical window size.
-        let (drawable_width, drawable_height) = self.window.drawable_size();
+        let (drawable_width, drawable_height) = self.window.size_in_pixels();
         let logged = (
             window_size.0,
             window_size.1,
@@ -1335,13 +1389,15 @@ impl FrameLoop<'_> {
 
     /// Draws the frame, handles the one-shot capture, presents and records it.
     fn render_and_present(&mut self, frame_begin: Instant, frame_update_done: Instant) {
-        // Use the physical drawable size, not the logical window size, so HiDPI
-        // (Retina) backing scale and monitor changes are handled automatically.
-        let (drawable_width, drawable_height) = self.window.drawable_size();
+        // Use the physical drawable size (SDL3's window size in pixels), not
+        // the logical window size, so HiDPI (Retina) backing scale and monitor
+        // changes are handled automatically.
+        let (drawable_width, drawable_height) = self.window.size_in_pixels();
         let drawable = DrawableSize::new(drawable_width, drawable_height);
 
-        // Minimized/hidden windows report a zero-sized drawable. Skip rendering to
-        // avoid invalid GL state and keep timing fresh so restoring does not jump.
+        // Minimized/hidden windows report a zero-sized drawable. Skip rendering
+        // rather than submitting a zero-sized frame, and keep timing fresh so
+        // restoring does not jump.
         if drawable.is_empty() {
             self.game.reset_timing();
             std::thread::sleep(std::time::Duration::from_millis(16));
@@ -1483,9 +1539,15 @@ const fn on_off(value: bool) -> &'static str {
 fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String> {
     let package = use_package_assets();
     log_package(&package);
-    // Match the desktop package identity so X11 associates the window with Places.
-    sdl2::hint::set("SDL_VIDEO_X11_WMCLASS", "io.github.csd113.places");
-    sdl2::hint::set("SDL_APP_NAME", "Places");
+    // SDL3 replaced the SDL2 `SDL_VIDEO_X11_WMCLASS` window-class hint with app
+    // metadata; the identifier is what X11/Wayland use to associate the window
+    // with Places. It must be set before `sdl3::init()`.
+    sdl3::set_app_metadata(
+        Some("Places"),
+        Some(APP_VERSION),
+        Some("io.github.csd113.places"),
+    )
+    .map_err(|error| format!("Failed to set app metadata: {error}"))?;
 
     // The benchmark harness is parsed first because `PLACES_VSYNC` is its
     // switch and has to be folded into the settings before the swap interval is
@@ -1512,7 +1574,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .load_default()
         .map_err(|e| format!("Failed to load initial level: {e}"))?;
     let mut renderer = create_renderer(&window, &initial_level, &settings, &bench)?;
-    configure_vsync(&mut renderer, &video_subsystem, &mut bench, &settings);
+    configure_vsync(&mut renderer, &mut bench, &settings);
 
     let mut event_pump = sdl_context
         .event_pump()

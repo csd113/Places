@@ -12,8 +12,7 @@
 //! `docs/WGPU_STAGE9.md` for the ported features and
 //! `docs/RENDERER_REFERENCE.md` for the preserved OpenGL reference.
 
-use sdl2::VideoSubsystem;
-use sdl2::video::Window;
+use sdl3::video::Window;
 
 use super::common::dynamic::{DynamicScene, DynamicUpdate};
 use super::common::stats::{LevelBuildStats, RenderStats};
@@ -33,8 +32,8 @@ pub struct Renderer {
 impl Renderer {
     /// Builds the renderer for `window`.
     ///
-    /// The window must already have been created with the flags
-    /// [`crate::render::apply_window_flags`] applies.
+    /// The window is a plain SDL3 window; the raw-window-handle path needs no
+    /// platform window flag since Stage 12.
     ///
     /// # Errors
     ///
@@ -48,9 +47,10 @@ impl Renderer {
     ///
     /// The renderer selects the supported presentation mode (Fifo/Immediate)
     /// and reconfigures; returning the interval keeps the benchmark report
-    /// meaningful.
-    pub fn set_swap_interval(&mut self, video: &VideoSubsystem, want_vsync: bool) -> i32 {
-        self.renderer.set_swap_interval(video, want_vsync)
+    /// meaningful. Presentation is wgpu's surface configuration, not an SDL
+    /// swap interval, so no SDL handle is needed here.
+    pub fn set_swap_interval(&mut self, want_vsync: bool) -> i32 {
+        self.renderer.set_swap_interval(want_vsync)
     }
 
     /// Presents the frame submitted since the last call.

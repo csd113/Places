@@ -63,10 +63,8 @@ pub use common::{
 pub(crate) use common::{MaterialLookup, SCENE_FAR_M, SCENE_NEAR_M, WallMaterialRun};
 pub use facade::Renderer;
 
-/// Applies the window flags the wgpu backend needs before the window is built.
-///
-/// The window builder is passed through the render module so `main` never names
-/// a backend module.
-pub fn apply_window_flags(builder: &mut sdl2::video::WindowBuilder) {
-    wgpu::surface::apply_window_flags(builder);
-}
+// Stage 12 removed the `render::apply_window_flags` seam with the SDL2 metal
+// view: under SDL3 the raw-window-handle implementation reports the window's
+// content view and wgpu attaches its own Metal layer, so no backend-specific
+// window flag exists to apply before the window is built. The surface creation
+// and ownership contract lives in `render::wgpu::surface`.

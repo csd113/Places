@@ -88,7 +88,7 @@ def run_once(args, binary: str) -> dict:
     except subprocess.TimeoutExpired as error:
         raise SystemExit(
             f"{binary} did not finish within {args.timeout:.0f}s"
-            " (a sleeping display can block SDL_GL_SwapWindow; try --noswap)"
+            " (a sleeping display can block SDL presentation; try --noswap)"
         ) from error
     for line in result.stdout.splitlines():
         if line.startswith("BENCH_SUMMARY "):

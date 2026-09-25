@@ -12,6 +12,9 @@ quality switch, capture, shutdown — was validated in Stage 10
 the only renderer; the `PLACES_RENDERER` selector and the OpenGL/GLES2 reference
 renderer were removed from mainline and preserved at the
 `renderer-gles2-reference` tag ([RENDERER_REFERENCE.md](RENDERER_REFERENCE.md)).
+**Stage 12 note:** the platform layer moved from SDL2 to SDL3 with no renderer
+change; see [SDL3_MIGRATION.md](SDL3_MIGRATION.md) for the crate, surface and
+behaviour evidence.
 The selector sections below are the Stage 4 record.
 
 This document is the Stage 4 record: it says what Stage 4 established, why, and
@@ -23,7 +26,7 @@ what later stages may rely on.
 |---|---|---|
 | wgpu | `30.0.1` | Latest release at implementation time; needs Rust 1.87, the workspace uses 1.91+. |
 | pollster | `1.0` | Blocks on the two wgpu futures (`request_adapter`, `request_device`) without pulling in an async runtime. |
-| sdl2 feature | `raw-window-handle` (0.6) | Implements `HasWindowHandle`/`HasDisplayHandle` for `sdl2::video::Window`; wgpu 30 uses raw-window-handle 0.6. |
+| sdl3 feature | `raw-window-handle` (0.6) | Implements `HasWindowHandle`/`HasDisplayHandle` for `sdl3::video::Window`; wgpu 30 uses raw-window-handle 0.6. Stage 12 replaced the `sdl2` crate with `sdl3` (see [SDL3_MIGRATION.md](SDL3_MIGRATION.md)). |
 
 wgpu is declared with `default-features = false` and one native desktop backend
 per target:
@@ -82,14 +85,18 @@ one; a mismatch is a hard error, never a fallback. The adapter request sets
 `force_fallback_adapter: false` (no software adapter as the normal path) and
 uses the default power preference.
 
-## 4. SDL2 surface strategy
+## 4. SDL surface strategy
 
-SDL2 remains the platform layer. The window is built with `metal_view()` on
-macOS (SDL requires an `SDL_MetalView` for its raw-window-handle implementation)
-and requests no OpenGL attributes and no `.opengl()` flag; no GL context is
-created. During the migration the selector was parsed before `SDL_CreateWindow`
-so the two paths never shared window assumptions; since Stage 11 there is only
-the wgpu window.
+SDL3 is the platform layer (Stage 12; this section records the Stage 4 design
+with the Stage 12 crate swap applied). The window is a plain SDL3 window with
+no OpenGL attributes and no `.opengl()` flag; no GL context is created. Under
+SDL2 the window also asked for an `SDL_MetalView` before it was built, because
+that was what SDL2's raw-window-handle reported on macOS. Stage 12 verified
+that `sdl3`'s raw-window-handle implementation reports the window's content
+view instead, that wgpu attaches its own Metal layer there, and that both
+configurations present identical output; the obsolete `metal_view()` call and
+the `apply_window_flags` hook around it were removed. The selector described
+in section 2 was removed in Stage 11, so there is only the wgpu window.
 
 `render::wgpu::surface::create` copies the window's raw window/display handles
 with `SurfaceTargetUnsafe::from_display_and_window` and calls
@@ -104,8 +111,8 @@ argument. The invariant is:
 
 - the renderer is a local in `main` declared **after** the SDL window, so Rust
   drops it before the window on every path, including error returns;
-- SDL's video subsystem and the window (and its `SDL_MetalView`) live for the
-  whole frame loop, which is the only time the surface is used;
+- SDL's video subsystem and the window live for the whole frame loop, which is
+  the only time the surface is used;
 - the renderer never touches the window in `Drop`.
 
 No `transmute`, no faked `'static` in the type system (the surface type is
@@ -113,6 +120,15 @@ No `transmute`, no faked `'static` in the type system (the surface type is
 above), no leaked window, and no reliance on undocumented destruction order.
 
 ## 5. Initialization order
+
+> Stage 12 record: the `PLACES_RENDERER` parse, the GL branch and the
+> metal-view window flag no longer exist. The current order is: set SDL3 app
+> metadata -> initialize SDL3 + video subsystem -> create the plain window
+> (`position_centered`, `resizable`, `high_pixel_density`, optional
+> `fullscreen`) -> optionally `SDL_SyncWindow` for a boot-time fullscreen
+> request -> create the wgpu instance and surface from the window ->
+> adapter/device/capabilities -> configure. The diagram below is the Stage 4
+> record.
 
 ```text
 parse PLACES_RENDERER

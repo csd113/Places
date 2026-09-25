@@ -7,7 +7,7 @@
 //!
 //! Stage 4 established four things before any Places content was ported:
 //!
-//! 1. SDL2 can host a wgpu surface on the intended native desktop backend;
+//! 1. SDL can host a wgpu surface on the intended native desktop backend;
 //! 2. adapter/device creation and surface configuration work;
 //! 3. the surface lifecycle (resize, minimize, restore, surface loss, device
 //!    loss) is reliable;
@@ -30,7 +30,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use sdl2::video::Window;
+use sdl3::video::Window;
 
 use super::decals::{DecalPipeline, WgpuDecals};
 use super::dynamic::{DynamicUploadContext, WgpuDynamic};
@@ -296,8 +296,9 @@ pub struct WgpuRenderer {
 impl WgpuRenderer {
     /// Creates the wgpu backend for an existing SDL window.
     ///
-    /// The window should have been built through
-    /// [`super::surface::apply_window_flags`].
+    /// The window is a plain SDL3 window: since Stage 12 the raw-window-handle
+    /// implementation reports its content view and wgpu attaches its own Metal
+    /// layer, so no backend-specific window flags are requested.
     ///
     /// # Errors
     ///
@@ -365,7 +366,7 @@ impl WgpuRenderer {
         let (planar_fallback, planar_fallback_view) = fallback_planar(&device, &queue);
         let lightmaps = LightmapAtlas::upload(&device, &queue, None);
 
-        let (width, height) = window.drawable_size();
+        let (width, height) = window.size_in_pixels();
         let drawable_size = DrawableSize::new(width, height);
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -548,7 +549,7 @@ impl WgpuRenderer {
     /// Returns the interval the presentation mode corresponds to (`1` for the
     /// synchronized FIFO path, `0` for immediate), matching the reference's
     /// reported swap interval.
-    pub fn set_swap_interval(&mut self, _video: &sdl2::VideoSubsystem, want_vsync: bool) -> i32 {
+    pub fn set_swap_interval(&mut self, want_vsync: bool) -> i32 {
         self.vsync = want_vsync;
         let mode = surface::select_present_mode(&self.capabilities, want_vsync);
         if mode != self.config.present_mode {

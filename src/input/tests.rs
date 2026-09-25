@@ -5,7 +5,7 @@
 #![allow(clippy::doc_markdown)]
 
 use super::*;
-use sdl2::keyboard::Mod;
+use sdl3::keyboard::Mod;
 
 const ALL_CONTROLS: [Control; 8] = [
     Control::MoveForward,
@@ -27,6 +27,8 @@ fn key_down(key: Keycode) -> Event {
         scancode: None,
         keymod: Mod::NOMOD,
         repeat: false,
+        which: 0,
+        raw: 0,
     }
 }
 
@@ -38,6 +40,8 @@ fn key_up(key: Keycode) -> Event {
         scancode: None,
         keymod: Mod::NOMOD,
         repeat: false,
+        which: 0,
+        raw: 0,
     }
 }
 
@@ -50,6 +54,8 @@ fn key_repeat(key: Keycode) -> Event {
         scancode: None,
         keymod: Mod::NOMOD,
         repeat: true,
+        which: 0,
+        raw: 0,
     }
 }
 

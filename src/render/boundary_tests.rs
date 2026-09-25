@@ -71,9 +71,9 @@ fn may_name_wgpu(rel: &str) -> bool {
 #[test]
 fn the_engine_bootstrap_owns_no_platform_gpu_calls() {
     // The window/context calls main used to make (`gl_swap_window`,
-    // `gl_attr`, `gl_create_context`, `.opengl()`, …) and the wgpu window flag
-    // (`metal_view`) are behind `render`: main builds a plain window and lets
-    // the facade apply the platform flags.
+    // `gl_attr`, `gl_create_context`, `.opengl()`, …) and the SDL2 macOS metal
+    // view flag (`metal_view`, removed in Stage 12 with SDL3) stay behind
+    // `render`; main builds a plain window and the facade owns the surface.
     const GPU_WINDOW_CALLS: [&str; 8] = [
         "gl_swap_window(",
         "gl_create_context(",

@@ -7,7 +7,7 @@ institutional interiors — an office that keeps going, a swimming pool that is
 closed and empty — and the building stops being finished around you. There is
 nothing to collect, fight or solve.
 
-Places is a desktop game written in Rust: `sdl2` for the window and input,
+Places is a desktop game written in Rust: `sdl3` for the window and input,
 `wgpu` (Metal on macOS, Vulkan on Linux, Direct3D 12 on Windows) and a
 baked-lighting renderer with no dynamic shadow maps. Every fixture bakes into a lightmap atlas for static geometry, props
 occlude the bake, and emission, transparency, selective reflections and a
@@ -150,10 +150,10 @@ level. See [Rendering notes](#rendering-notes) for what each option changes.
 
 ### Desktop prerequisites
 
-macOS is the development platform. You need SDL2 and `pkg-config`:
+macOS is the development platform. You need SDL3 (3.2 or newer) and `pkg-config`:
 
 ```sh
-brew install sdl2 pkg-config
+brew install sdl3 pkg-config
 cargo run
 ```
 

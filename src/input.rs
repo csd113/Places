@@ -1,5 +1,5 @@
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
+use sdl3::event::Event;
+use sdl3::keyboard::Keycode;
 
 use crate::settings::KeyBindings;
 
@@ -123,28 +123,42 @@ pub enum MenuNavEvent {
     Back,
 }
 
+/// Keys whose binding name is not SDL's own key name.
+///
+/// Every other key falls back to `Keycode::name()` uppercased; that fallback is
+/// the identity written to `settings.json` and the one `is_reserved_key`
+/// compares against. The table is explicit (rather than a wildcard match over
+/// SDL3's extensible `Keycode` enum) so a future SDL3 key constant can never be
+/// mistaken for one of these spellings.
+const KEY_NAME_OVERRIDES: [(Keycode, &str); 16] = [
+    (Keycode::Period, "."),
+    (Keycode::Minus, "-"),
+    (Keycode::Equals, "="),
+    (Keycode::Comma, ","),
+    (Keycode::Slash, "/"),
+    (Keycode::Backslash, "\\"),
+    (Keycode::Semicolon, ";"),
+    (Keycode::Return, "ENTER"),
+    (Keycode::Escape, "ESC"),
+    (Keycode::Space, "SPACE"),
+    (Keycode::Tab, "TAB"),
+    (Keycode::Backspace, "BACKSPACE"),
+    (Keycode::Up, "UP"),
+    (Keycode::Down, "DOWN"),
+    (Keycode::Left, "LEFT"),
+    (Keycode::Right, "RIGHT"),
+];
+
 /// Converts an SDL Keycode into a normalized string representation.
 #[must_use]
 pub fn keycode_to_str(key: Keycode) -> String {
-    match key {
-        Keycode::Period => ".".to_string(),
-        Keycode::Minus => "-".to_string(),
-        Keycode::Equals => "=".to_string(),
-        Keycode::Comma => ",".to_string(),
-        Keycode::Slash => "/".to_string(),
-        Keycode::Backslash => "\\".to_string(),
-        Keycode::Semicolon => ";".to_string(),
-        Keycode::Return => "ENTER".to_string(),
-        Keycode::Escape => "ESC".to_string(),
-        Keycode::Space => "SPACE".to_string(),
-        Keycode::Tab => "TAB".to_string(),
-        Keycode::Backspace => "BACKSPACE".to_string(),
-        Keycode::Up => "UP".to_string(),
-        Keycode::Down => "DOWN".to_string(),
-        Keycode::Left => "LEFT".to_string(),
-        Keycode::Right => "RIGHT".to_string(),
-        other => other.name().to_uppercase(),
-    }
+    KEY_NAME_OVERRIDES
+        .iter()
+        .find(|(candidate, _)| *candidate == key)
+        .map_or_else(
+            || key.name().to_uppercase(),
+            |(_, name)| (*name).to_string(),
+        )
 }
 
 /// Manages active input states, menu navigation, and rebinding event capture.
@@ -157,6 +171,25 @@ impl Default for InputHandler {
         Self::new()
     }
 }
+
+/// The keys that navigate menus, independent of gameplay bindings.
+///
+/// W / S or Up / Down select; A / D or Left / Right adjust; Enter activates;
+/// Escape goes back. The table is explicit rather than a wildcard match over
+/// SDL3's extensible `Keycode` enum, so a new key constant never silently
+/// gains (or loses) a menu meaning.
+const MENU_NAV_KEYS: [(Keycode, MenuNavEvent); 10] = [
+    (Keycode::W, MenuNavEvent::Up),
+    (Keycode::Up, MenuNavEvent::Up),
+    (Keycode::S, MenuNavEvent::Down),
+    (Keycode::Down, MenuNavEvent::Down),
+    (Keycode::A, MenuNavEvent::Left),
+    (Keycode::Left, MenuNavEvent::Left),
+    (Keycode::D, MenuNavEvent::Right),
+    (Keycode::Right, MenuNavEvent::Right),
+    (Keycode::Return, MenuNavEvent::Activate),
+    (Keycode::Escape, MenuNavEvent::Back),
+];
 
 impl InputHandler {
     #[must_use]
@@ -210,28 +243,23 @@ impl InputHandler {
     }
 
     /// Extracts menu navigation events independent of gameplay bindings.
-    /// W / S or Up / Down for item selection; A / D or Left / Right for
-    /// adjusting; Enter for activation; Escape for back.
+    ///
+    /// Only a first `KeyDown` (`repeat: false`) navigates; releases and OS
+    /// auto-repeat never do.
     #[must_use]
-    pub const fn poll_menu_nav_event(event: &Event) -> Option<MenuNavEvent> {
+    pub fn poll_menu_nav_event(event: &Event) -> Option<MenuNavEvent> {
         if let Event::KeyDown {
             keycode: Some(key),
             repeat: false,
             ..
         } = event
         {
-            match *key {
-                Keycode::W | Keycode::Up => Some(MenuNavEvent::Up),
-                Keycode::S | Keycode::Down => Some(MenuNavEvent::Down),
-                Keycode::A | Keycode::Left => Some(MenuNavEvent::Left),
-                Keycode::D | Keycode::Right => Some(MenuNavEvent::Right),
-                Keycode::Return => Some(MenuNavEvent::Activate),
-                Keycode::Escape => Some(MenuNavEvent::Back),
-                _ => None,
-            }
-        } else {
-            None
+            return MENU_NAV_KEYS
+                .iter()
+                .find(|(candidate, _)| candidate == key)
+                .map(|(_, nav)| *nav);
         }
+        None
     }
 }
 

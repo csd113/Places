@@ -62,7 +62,7 @@ backend module that names it.
 | `src/render/common/framebuffer.rs` | `scene_target_size` | neutral |
 | `src/render/common/stats.rs` | `LevelBuildStats`, `RenderStats` | neutral |
 | `src/render/wgpu/renderer.rs` | `WgpuRenderer`: instance/surface/device/queue, depth target, level upload, frame graph, passes, captures, lifecycle | wgpu |
-| `src/render/wgpu/surface.rs` | SDL raw-window-handle surface creation, backend policy, format/present/depth/clear policy, recovery table | wgpu |
+| `src/render/wgpu/surface.rs` | SDL3 raw-window-handle surface creation, backend policy, format/present/depth/clear policy, recovery table | wgpu |
 | `src/render/wgpu/world.rs` | World geometry and passes: GPU vertex (lightmap attributes), clip correction, pack/upload, camera uniform, world pipelines, per-draw texture and material selection, translucent ordering, emissive variants | wgpu |
 | `src/render/wgpu/texture.rs` | Texture system: semantic keys, GPU uploads, CPU mip chains, shared samplers, fallback, renderer-owned cache, clamped fitted-sheet path | wgpu |
 | `src/render/wgpu/material.rs` | Material system: material uniform/layout, identity cache, normal-map and emission-mask resolution, per-draw material slots, per-frame reflection modes and animation scales | wgpu |
@@ -170,8 +170,7 @@ surface is:
   `dynamic_scene`.
 - **Diagnostics:** neutral counters and logs (`render_stats`, `level_stats`,
   batch breakdowns, `prop_asset_stats`, `fatal_error`).
-- **Windowing hooks:** `set_swap_interval` and the free
-  `render::apply_window_flags(builder)` used while the window is built.
+- **Windowing hooks:** `set_swap_interval`.
 
 There is no GPU-device trait, no pipeline abstraction, no backend selector and
 no multi-backend command interface. The facade is exactly the lifecycle Places
@@ -183,17 +182,18 @@ uses.
   `ui`, `perf` and the lightmap chart planner so the whole pipeline speaks one
   vertex layout. It is CPU data with no GPU handle; the backend converts it at
   upload time.
-- `render::Renderer::new` takes the SDL window: the window is the surface the
+- `render::Renderer::new` takes the SDL3 window: the window is the surface the
   renderer draws into, and the windowing system is not part of the renderer
   boundary.
-- `main` reads `window.drawable_size()` and polls resize each frame; a drawable
-  size is a windowing fact, not a GPU object.
+- `main` reads `window.size_in_pixels()` and polls resize each frame; a drawable
+  pixel size is a windowing fact, not a GPU object.
 - The `render::*` re-export surface preserves the pre-Stage-3 paths
   (`render::Vertex`, `render::build_level_geometry`, …) so no unrelated source
   churn was necessary.
-- The window's platform flags (`metal_view()` on macOS) are applied through
-  `render::apply_window_flags` while the window is being built, because the
-  platform window must exist before the surface can attach to it.
+- Stage 12 removed the pre-build window-flag hook (`apply_window_flags` /
+  `metal_view()`): SDL3's raw-window-handle implementation reports the window's
+  content view and wgpu attaches its own Metal layer, so no platform window
+  flag is required. The window is built with `video.window(...)` only.
 
 ## 7. Stage history
 

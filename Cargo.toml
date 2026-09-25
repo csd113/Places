@@ -18,7 +18,12 @@ png = "0.18.1"
 # Blocking adapter/device initialization for the wgpu backend: two futures and
 # no async runtime.
 pollster = "1.0"
-sdl2 = { version = "0.38", features = ["use-pkgconfig", "raw-window-handle"] }
+# SDL3 window/input platform layer (Stage 12). sdl3-sys probes pkg-config by
+# default (Homebrew: `brew install sdl3`); `raw-window-handle` 0.6 is the same
+# version wgpu 30 uses and provides HasWindowHandle/HasDisplayHandle for the
+# window. No other SDL3 features are enabled: the renderer is wgpu, never
+# SDL_GPU/SDL_Renderer.
+sdl3 = { version = "0.20", features = ["use-pkg-config", "raw-window-handle"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Stage 4 wgpu bootstrap, Stage 5 world geometry. Only the native desktop

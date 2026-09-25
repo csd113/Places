@@ -1147,7 +1147,7 @@ class SourceHygieneTests(unittest.TestCase):
         readme = (PACKAGE / "README.md").read_text(encoding="utf-8")
         for needle in ("## Controls", "## Desktop prerequisites", "settings.json"):
             self.assertIn(needle, readme)
-        self.assertIn("SDL2", readme)
+        self.assertIn("SDL3", readme)
 
     def test_readme_documents_wasd_and_arrow_defaults(self):
         readme = (PACKAGE / "README.md").read_text(encoding="utf-8")
