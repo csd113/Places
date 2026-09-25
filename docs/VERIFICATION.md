@@ -35,7 +35,7 @@ git diff --check
 All commands must exit zero. Compiled-build tests open real SDL windows and
 GPU surfaces; a skipped suite is not a completed desktop gate. Rust's three intentionally
 ignored diagnostics are opt-in reports, not required tests. Texture checking
-currently emits 35 soft-budget warnings for artwork above 256 pixels; these
+currently emits 39 soft-budget warnings for artwork above 256 pixels; these
 are accepted shipped source sizes within the 1024-pixel hard limit, documented
 in ASSET_SPECIFICATION.md. The package suite intentionally exercises an invalid catalog and prints
 `FAIL core:couch: duplicate logical asset id` / `1 error(s), 0 warning(s)`

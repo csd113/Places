@@ -267,13 +267,13 @@ and no recompilation.
   (1024x512): the panel face, `u` along its 1.2 m width and `v` across its 0.6 m
   depth, so one texel is 4.7 mm both ways.
 * `core:pool_light_round` — `environment/pool/textures/lights/pool_light_round_01.png`
-  (128x128): the diffuser seen face-on; the sheet centre is the fixture centre
+  (1024x1024): the diffuser seen face-on; the sheet centre is the fixture centre
   and its inscribed circle is the diffuser's outer radius.
 * `core:pool_light_wall` — `environment/pool/textures/lights/pool_light_wall_01.png`
-  (128x64): the lens face, `u` across its 0.4 m width and `v` up its 0.2 m
+  (1024x512): the lens face, `u` across its 0.4 m width and `v` up its 0.2 m
   height.
 * `home:ceiling_light_round` — `environment/home/textures/lights/ceiling_light_round_01.png`
-  (256x256): the diffuser seen face-on; the sheet centre is the fixture centre
+  (1024x1024): the diffuser seen face-on; the sheet centre is the fixture centre
   and its inscribed circle is the diffuser's outer radius. The drum, its bottom
   rim and the centre boss behind the diffuser's small centre hole are
   untextured body geometry.

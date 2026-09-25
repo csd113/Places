@@ -217,12 +217,12 @@ currently nothing enforces a minimum for any class.
 | Floor surface sheet | `carpet_beige_01.png` | **1:1** | 1024×1024 (shipped) | none enforced | RGB shipped (carpet); ignored by default material | **yes, both axes** | world `(x, z)` ÷ `tile_metres` | carpet has no tint; painted at warm albedo |
 | Ceiling surface sheet | `ceiling_panel_01.png` | **1:1** | 1024×1024 (shipped) | none enforced | RGB shipped; ignored by default material | **yes, both axes** | world `(x, z)` ÷ `tile_metres` | ceiling material authors a grey tint |
 | Core shared sheet (glass/floor/wall) | `glass_clear_01.png` | **1:1** | 1024×1024 (current production); 128×128 painter output is contract-valid | none enforced | per material: `blend` glass, `cutout` grille, opaque otherwise | **yes, both axes** | world metres ÷ `tile_metres` | seam-gated with the environment set |
-| Shared white sheet | `white_01.png` | **1:1** | 2×2 (`core:tex_white_01`) | none enforced | opaque white | no | no authored UV contract: it is a flat fill bound wherever a surface is untextured | engine fallback loaded once at startup; see §12.3 |
+| Shared white sheet | `white_01.png` | **1:1** | 1024×1024 (current production); a flat fill, so any POT size is contract-valid | none enforced | opaque white | no | no authored UV contract: it is a flat fill bound wherever a surface is untextured | engine fallback loaded once at startup; see §12.3 |
 | Normal map | `normal_panel_01.png` | **1:1** | 1024×1024 (current production); 128×128 painter output is contract-valid | none enforced | alpha unused | **yes, both axes** | same UV as the albedo it augments | Surface quality class |
 | Fluorescent panel face | `fluorescent_panel_01.png` | **2:1** | 1024×512 (current production) | none enforced | ignored (face is opaque) | no | full sheet; `u` across 1.2 m width, `v` across 0.6 m depth | POT both edges; replacement must stay 2:1 |
-| Round downlight face | `pool_light_round_01.png` | **1:1** | 128×128 shipped; 256×256 or 512×512 to raise density | none enforced | ignored | no | planar; sheet centre = fixture centre; inscribed circle = diffuser radius | POT both edges |
-| Wall luminaire face | `pool_light_wall_01.png` | **2:1** | 128×64 shipped; 256×128 or 512×256 to raise density | none enforced | ignored | no | full sheet; `u` across 0.4 m width, `v` up 0.2 m height | POT both edges |
-| Flush-mount diffuser face | `ceiling_light_round_01.png` | **1:1** | 256×256 shipped | none enforced | ignored | no | planar; sheet centre = fixture centre; inscribed circle = diffuser radius (0.16 m) | POT both edges |
+| Round downlight face | `pool_light_round_01.png` | **1:1** | 1024×1024 (current production); 128×128 painter output is contract-valid | none enforced | ignored | no | planar; sheet centre = fixture centre; inscribed circle = diffuser radius | POT both edges |
+| Wall luminaire face | `pool_light_wall_01.png` | **2:1** | 1024×512 (current production); 128×64 painter output is contract-valid | none enforced | ignored | no | full sheet; `u` across 0.4 m width, `v` up 0.2 m height | POT both edges |
+| Flush-mount diffuser face | `ceiling_light_round_01.png` | **1:1** | 1024×1024 (current production); 256×256 painter output is contract-valid | none enforced | ignored | no | planar; sheet centre = fixture centre; inscribed circle = diffuser radius (0.16 m) | POT both edges |
 | Decal sheet | `no_diving_01.png` | **asset-defined**; placement must match it | 128×128 small markings; 1024×1024 hero signage | none enforced | **required cut-out**: alpha 0 background | no | full sheet fitted to the level placement's width × height | POT both edges |
 | Prop / entity texture | embedded in `chair.glb` | **model-defined** (shipped 1:1) | 256×256 native (the normal shipped size); 32/64/128 legal for lighter props | none enforced | none: props always draw opaque | no | model `TEXCOORD_0`, normalized 0..1, clamped | hard 1024 engine limit; uniform resize safe, repack is not |
 | Emissive mask | (none shipped) | **any**; must share the albedo's UV frame | ≤512 (Full budget) | none enforced | RGB sampled, alpha ignored | follows the albedo | same UV frame as the albedo | dimensions need not equal the albedo; a mask-only texture is exempt from the square-surface dimension test |
@@ -417,7 +417,7 @@ Shipped asset: `core:fluorescent_panel_01` →
 | Orientation | `v = 0` is the image's top row; the twin tubes run across the panel *width*, i.e. horizontally in the image |
 | Current asset | 1024×512 (≈1.17 mm per texel both ways) |
 | Preferred source resolution | 1024×512 |
-| Higher resolutions | allowed while 2:1 and POT both hold: 128×64 → 256×128 → 512×256 → 1024×512 are the same layout. A resolution change to a *shipped* fixture sheet also requires updating the pin in `src/loader/tests.rs::test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog`, which asserts the exact shipped dimensions and full opacity. |
+| Higher resolutions | allowed while 2:1 and POT both hold: 128×64 → 256×128 → 512×256 → 1024×512 are the same layout. `src/loader/tests.rs::test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog` pins each family's aspect, POT edges, hard limit and full opacity, so a resolution change within that contract needs no test edit. |
 | Hard maximum | 1024 per edge, so 1024×512 is the largest valid 2:1 sheet |
 | Transparency | none: no transparent padding, no cut-out, no alpha use |
 | Emissive information | embedded in the artwork's brightness only; the glow is added by the renderer, and the base texture always multiplies the emission term |
@@ -449,9 +449,9 @@ Shipped asset: `core:pool_light_round` →
 | Geometry mapping | planar diffuser ring in the fixture's own plane; the sheet centre is the fixture centre and the sheet's inscribed circle is the diffuser's outer radius (0.22 m) |
 | UV layout | `u = 0.5 + 0.5·(r/R)·cos θ`, `v = 0.5 + 0.5·(r/R)·sin θ`, with `u` along world X, `v` along world Z |
 | Orientation | concentric artwork (rings, a lamp core) lands centred on the fixture; the mapping is isotropic, so one texel covers the same distance on both in-plane axes |
-| Current asset | 128×128 |
-| Preferred source resolution | 256×256 or 512×512 to raise density |
-| Higher resolutions | allowed while 1:1 and POT hold, up to 512×512 (or 1024×1024) |
+| Current asset | 1024×1024 |
+| Preferred source resolution | 1024×1024 |
+| Higher resolutions | allowed while 1:1 and POT hold, up to 1024×1024 |
 | Transparency | none; the artwork is the diffuser face, not a cut-out |
 | Filtering / wrapping | mipmaps; `CLAMP_TO_EDGE` |
 
@@ -468,8 +468,8 @@ Shipped asset: `core:pool_light_wall` →
 | Aspect ratio | **2:1, landscape (mandatory)** |
 | Geometry mapping | the lens face is 0.4 m wide × 0.2 m tall, oriented by the placement's `rotation_degrees` around Y |
 | UV layout | `u` runs across the face width (0.4 m); `v` runs up the face height (0.2 m), bottom at `v = 0` |
-| Current asset | 128×64 |
-| Preferred source resolution | 256×128 or 512×256 to raise density |
+| Current asset | 1024×512 |
+| Preferred source resolution | 1024×512 |
 | Higher resolutions | allowed while 2:1 and POT hold, up to 1024×512 |
 | Transparency | none |
 | Filtering / wrapping | mipmaps; `CLAMP_TO_EDGE` |
@@ -485,7 +485,9 @@ Shipped asset: `home:ceiling_light_round` →
 | Geometry mapping | planar diffuser ring in the fixture's own plane, 0.07 m below the ceiling; the sheet centre is the fixture centre and the sheet's inscribed circle is the diffuser's outer radius (0.16 m) |
 | UV layout | `u = 0.5 + 0.5·(r/R)·cos θ`, `v = 0.5 + 0.5·(r/R)·sin θ`, with `u` along world X, `v` along world Z |
 | Orientation | concentric artwork (the diffuser tone and its moulded rim) lands centred on the fixture; the mapping is isotropic |
-| Current asset | 256×256 |
+| Current asset | 1024×1024 |
+| Preferred source resolution | 1024×1024 |
+| Higher resolutions | allowed while 1:1 and POT hold, up to 1024×1024 |
 | Transparency | none; the artwork is the diffuser face |
 | Filtering / wrapping | mipmaps; `CLAMP_TO_EDGE` |
 
@@ -784,11 +786,13 @@ the pack author is responsible for the same contracts.
 ### 12.3 Shared untextured white sheet
 
 `core:tex_white_01` → `assets/core/textures/white_01.png` is the renderer's
-neutral fallback sheet: a solid opaque 2×2 white fill. Fixture housings, plain
+neutral fallback sheet: a flat opaque white fill. Fixture housings, plain
 body geometry and every texture slot with nothing better to bind sample it
-(§6). It is deliberately tiny — it carries no artwork, no level references it,
-and nothing derives detail from it — so the 2×2 size is a budget choice rather
-than a UV or aspect contract; it must stay a fully opaque white fill.
+(§6). It carries no artwork, no level references it, and nothing derives
+detail from it, so its size is a budget choice rather than a UV or aspect
+contract; it must stay an opaque white fill. The shipped sheet is authored at
+the 1024 hard budget like the upgraded surface set and carries sub-1%
+dither (every channel stays within 252..=255), which reads as flat white.
 
 It is an ordinary committed catalog PNG (`asset_class: "core"`), resolved
 through `assets/catalog.json` like any other texture and loaded once at
@@ -914,7 +918,9 @@ edge budget per texture class:
 * No image class bypasses the budget. The font atlas, the decals' internal
   atlas and the lightmap pages are internal machinery, not shipped textures;
   the shared white sheet (`core:tex_white_01`, §12.3) is a catalog texture
-  loaded once at startup at 2×2, far below every budget.
+  loaded once at startup as a single un-mipped level, so its resident storage
+  is the sheet's own size (4 MiB at 1024×1024) and it is profile-independent
+  by design.
 
 ### 14.2 Why sources are kept large
 
@@ -955,8 +961,8 @@ future quality work; the hard limit exists for correctness, not as a target.
 | Core surface | square | 1024×1024 (current); 128×128 painter output is contract-valid | 1024 |
 | Normal map | square, tileable | 1024×1024 (current); 128×128 painter output is contract-valid | 1024 |
 | Fluorescent panel | 2:1, POT | 1024×512 (current production) | 1024 |
-| Round downlight | 1:1, POT | 128×128 shipped; 512×512 for density | 1024 |
-| Wall luminaire | 2:1, POT | 128×64 shipped; 512×256 for density | 1024 |
+| Round downlight | 1:1, POT | 1024×1024 (current production) | 1024 |
+| Wall luminaire | 2:1, POT | 1024×512 (current production) | 1024 |
 | Decal sheet | POT both edges, cut-out alpha | 128×128 small; 1024×1024 hero | 1024 |
 | Prop texture | model UV layout, no tiling | 256×256 native (the normal shipped size) | 1024 |
 | Emissive mask | same UV frame as albedo | ≤512 | 1024 |
@@ -1248,8 +1254,8 @@ repository):
 | Ten named surfaces' seams (independent metric) | Rust test `test_shipped_surface_textures_tile` | `cargo test` | yes |
 | Six office sheets: square, opaque, ≤1024 | Rust test `test_shipped_texture_assets_are_opaque_and_within_budget` | `cargo test` | yes |
 | **Every catalogued file-backed texture/decal/light sheet satisfies its class dimension contract (square surfaces, POT fitted sheets, hard limit)** | Rust test `every_shipped_sheet_satisfies_its_texture_kind_contract` (see below); props/entities are covered by the props tests and the GLB parser, not this test | `cargo test` | yes |
-| Shared white sheet: committed PNG, 2×2, opaque white, and what the renderer actually loads | Rust tests `assets::tests::the_shared_white_sheet_is_a_committed_opaque_white_png` and `render::tests::the_renderers_white_sheet_loads_from_the_committed_catalog_asset` | `cargo test` | yes |
-| Fixture sheets: exact shipped dimensions and fully opaque | Rust test `loader::tests::test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog` | `cargo test` | yes |
+| Shared white sheet: committed PNG, legal square POT size within the hard limit, opaque near-white, and what the renderer actually loads | Rust tests `assets::tests::the_shared_white_sheet_is_a_committed_opaque_white_png`, `render::wgpu::texture::tests::the_fallback_is_the_committed_white_sheet` and `the_embedded_fallback_is_the_committed_asset` | `cargo test` | yes |
+| Fixture sheets: family aspect, POT edges, hard limit and full opacity | Rust test `loader::tests::test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog` | `cargo test` | yes |
 | Fixture faces: POT, unique sheet, ≤1024 | `tests/test_package.py` | `python3 -m unittest tests.test_package` | yes |
 | NO DIVING sign: 1024², RGBA, transparent pixel | `tests/test_package.py` | same | yes |
 | Prop GLB: container parses, one mesh, `TEXCOORD_0` present | `tools/props/build.py --check` | `python3 tools/props/build.py --check` | yes (exit 1) for a missing or unparseable model; budgets, UV range and scale/origin are not evaluated here |

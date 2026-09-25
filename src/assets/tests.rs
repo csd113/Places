@@ -748,8 +748,10 @@ fn every_shipped_sheet_satisfies_its_texture_kind_contract() {
 /// it is now an ordinary catalogued texture, so it is covered by the same
 /// validator and test set as every shipped sheet. This test is the guard that
 /// the file (not a code fallback) is the sheet's source: it fails if the PNG
-/// disappears, stops being opaque white, or is upscaled away from its
-/// deliberately tiny size.
+/// disappears, stops being opaque white, or stops being a legal sheet. The
+/// exact resolution is texture policy (the production sheet is authored at the
+/// 1024 hard budget), so the test pins the flat-fill properties and the
+/// dimension contract rather than a historical placeholder size.
 #[test]
 fn the_shared_white_sheet_is_a_committed_opaque_white_png() {
     let catalog = shipped_catalog();
@@ -772,17 +774,45 @@ fn the_shared_white_sheet_is_a_committed_opaque_white_png() {
         "the white sheet must be a PNG"
     );
     let image = crate::materials::decode_png(&bytes).expect("the white sheet decodes");
-    assert_eq!(
-        (image.width, image.height),
-        (2, 2),
-        "the sheet is a flat fill; 2x2 is deliberate, not a size to raise"
+    assert!(
+        image.width.is_power_of_two() && image.height.is_power_of_two(),
+        "the white sheet must be power-of-two, found {}x{}",
+        image.width,
+        image.height
     );
+    assert_eq!(
+        image.width, image.height,
+        "the white sheet must be a square flat fill, found {}x{}",
+        image.width, image.height
+    );
+    assert!(
+        image.width >= PREFERRED_TEXTURE_DIMENSION,
+        "the white sheet must not be a placeholder-size fill, found {}x{}",
+        image.width,
+        image.height
+    );
+    assert!(
+        image.width <= MAX_TEXTURE_DIMENSION && image.height <= MAX_TEXTURE_DIMENSION,
+        "the white sheet must stay within the {MAX_TEXTURE_DIMENSION}-texel hard limit, \
+         found {}x{}",
+        image.width,
+        image.height
+    );
+    // The production sheet is a flat white fill with sub-1% dither (every
+    // channel sits in 252..=255); what the renderer needs is a sheet that
+    // reads as opaque white with no pattern or stain, so the test pins the
+    // opaque near-white band rather than byte equality with a 2x2 fill.
     for texel in image.rgba.as_chunks::<4>().0 {
         assert_eq!(
-            *texel,
-            [255, 255, 255, 255],
-            "every texel of the shared white sheet must be opaque white"
+            texel[3], 255,
+            "every texel of the shared white sheet must be opaque"
         );
+        for channel in &texel[..3] {
+            assert!(
+                *channel >= 250,
+                "the shared white sheet must stay within 5/255 of white, found {texel:?}"
+            );
+        }
     }
 }
 

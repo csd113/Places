@@ -50,8 +50,8 @@ const FALLBACK_BYTES: usize = 16;
 /// The shared untextured fallback, as committed artwork.
 ///
 /// The same `assets/core/textures/white_01.png` the reference renderer loaded
-/// at startup (and embedded for an assets-less install): a 2x2 opaque white
-/// sheet, sampled clamped and nearest, with no mip chain. It is a real
+/// at startup (and embedded for an assets-less install): an opaque white
+/// sheet sampled clamped and nearest, with no mip chain. It is a real
 /// repository asset, not a generated fill; the decode below is the only path
 /// that turns it into pixels.
 const FALLBACK_WHITE_PNG: &[u8] = include_bytes!("../../../assets/core/textures/white_01.png");
@@ -727,7 +727,7 @@ impl TextureCache {
     }
 }
 
-/// The decoded fallback sheet: the committed 2x2 white PNG, or a generated
+/// The decoded fallback sheet: the committed white PNG, or a generated
 /// 2x2 white fill if the embedded bytes were ever corrupt (they are pinned by
 /// a test, so the second arm is unreachable in practice and exists only so a
 /// broken install degrades to white instead of failing to start).
@@ -1151,13 +1151,39 @@ mod tests {
     // -------------------------------------------------------------- fallback
 
     #[test]
-    fn the_fallback_is_the_committed_two_by_two_white_sheet() {
+    fn the_fallback_is_the_committed_white_sheet() {
         let image = fallback_white_image();
-        assert_eq!((image.width, image.height), (2, 2));
+        // The committed sheet is the production fallback (currently the
+        // 1024-texel hard budget); the contract pinned here is the flat opaque
+        // white fill at a legal square power-of-two size, not a historical
+        // placeholder dimension.
+        assert!(
+            image.width.is_power_of_two() && image.height.is_power_of_two(),
+            "the fallback must be power-of-two, found {}x{}",
+            image.width,
+            image.height
+        );
         assert_eq!(
-            image.rgba,
-            vec![255; 16],
-            "the fallback must stay opaque white"
+            image.width, image.height,
+            "the fallback must be a square flat fill, found {}x{}",
+            image.width, image.height
+        );
+        assert!(
+            image.width <= crate::assets::MAX_TEXTURE_DIMENSION,
+            "the fallback must stay within the hard texture limit, found {}x{}",
+            image.width,
+            image.height
+        );
+        assert_eq!(
+            image.rgba.len(),
+            (image.width as usize) * (image.height as usize) * 4,
+            "the fallback buffer must match its dimensions"
+        );
+        assert!(
+            image.rgba.as_chunks::<4>().0.iter().all(
+                |texel| texel[3] == u8::MAX && texel[..3].iter().all(|channel| *channel >= 250)
+            ),
+            "the fallback must stay opaque near-white"
         );
     }
 

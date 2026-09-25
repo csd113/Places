@@ -5,7 +5,8 @@
 #![allow(
     clippy::arithmetic_side_effects,
     clippy::expect_used,
-    clippy::indexing_slicing
+    clippy::indexing_slicing,
+    clippy::panic
 )]
 
 use super::*;
@@ -294,6 +295,57 @@ fn repeated_triangle_glb(triangles: usize) -> Vec<u8> {
         length = builder.bytes().len(),
     );
     glb_container(&json, builder.bytes())
+}
+
+/// The shipped-production gate: every catalogue model must parse into real
+/// triangle geometry with a decodable texture. A model that fails here is the
+/// model the renderer silently substitutes with its placeholder box, so this
+/// test fails loudly instead of shipping boxes.
+#[test]
+fn every_shipped_prop_model_parses_as_real_geometry() {
+    let catalog = crate::loader::PropCatalog::load_default();
+    let mut assets = crate::props::PropAssets::load_default();
+    assert!(
+        assets.root().is_some(),
+        "asset directory not found; expected assets/ next to the crate"
+    );
+    let mut parsed = 0;
+    for entry in catalog.entries() {
+        let Some(model_path) = entry.model.as_deref() else {
+            continue;
+        };
+        let asset = assets
+            .resolve(model_path)
+            .unwrap_or_else(|error| panic!("{}: {error}", entry.id));
+        let model = &asset.model;
+        assert!(!model.vertices.is_empty(), "{}: no vertices", entry.id);
+        assert!(!model.indices.is_empty(), "{}: no indices", entry.id);
+        assert!(model.triangles > 0, "{}: no triangles", entry.id);
+        assert_eq!(
+            model.triangles,
+            model.indices.len() / 3,
+            "{}: triangle count must match the index list",
+            entry.id
+        );
+        assert!(
+            model
+                .indices
+                .iter()
+                .all(|index| usize::from(*index) < model.vertices.len()),
+            "{}: an index points outside the vertex list",
+            entry.id
+        );
+        assert!(
+            model.texture_count() >= 1,
+            "{}: every shipped model embeds a texture",
+            entry.id
+        );
+        parsed += 1;
+    }
+    assert!(
+        parsed >= 30,
+        "the catalogue lists only {parsed} shipped models; expected the full pack"
+    );
 }
 
 #[test]
@@ -816,6 +868,44 @@ fn rejects_malformed_assets_with_actionable_messages() {
             error.0
         );
     }
+}
+
+#[test]
+fn rejects_attribute_count_mismatches() {
+    // Every attribute accessor of a primitive must have POSITION's count
+    // (glTF 2.0). An upgraded model that leaves a stale COLOR_0 behind is
+    // exactly this defect: the reader must keep rejecting it with a message
+    // that names the mismatch instead of reading past the data.
+    let mut builder = ModelBuilder::default();
+    let positions = builder.positions(&[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]);
+    let uvs = builder.uvs(&[[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]);
+    let colors = builder.colors(&[[255, 255, 255, 255], [128, 128, 128, 255]]);
+    let indices = builder.indices(&[0, 1, 2]);
+    let mesh = format!(
+        r#"{{"primitives": [{{"attributes": {{"POSITION": {positions}, "TEXCOORD_0": {uvs}, "COLOR_0": {colors}}}, "indices": {indices}}}]}}"#
+    );
+    let json = format!(
+        r#"{{
+          "asset": {{"version": "2.0"}},
+          "scene": 0,
+          "scenes": [{{"nodes": [0]}}],
+          "nodes": [{{"mesh": 0}}],
+          "meshes": [{mesh}],
+          "accessors": [{accessors}],
+          "bufferViews": [{views}],
+          "buffers": [{{"byteLength": {length}}}]
+        }}"#,
+        accessors = builder.accessors(),
+        views = builder.buffer_views(),
+        length = builder.bytes().len(),
+    );
+    let error = parse_glb(&glb_container(&json, builder.bytes()))
+        .expect_err("a mismatched COLOR_0 count must not parse");
+    assert!(
+        error.0.contains("attribute counts differ"),
+        "the message should name the mismatch, found {:?}",
+        error.0
+    );
 }
 
 #[test]

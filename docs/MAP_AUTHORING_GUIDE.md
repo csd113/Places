@@ -1684,7 +1684,7 @@ entry.)
 | --- | --- | --- |
 | Missing-texture diagnostic (64×64 magenta/black) | `src/materials/image.rs` | Visible fallback for any broken surface/decal/fixture texture. |
 | Generated decal atlas (256×256; only `core:decal_test_01`) | `src/render/common/decals.rs` | Internal validation marking; the external decal sheets are ordinary PNGs. |
-| White sheet (2×2) | `src/render/common/mod.rs` | Untextured geometry (fixture housings, UI quads). |
+| White sheet (1024×1024 opaque white fill, file-backed) | `assets/core/textures/white_01.png` (loaded by `src/render/wgpu/texture.rs`) | Untextured geometry (fixture housings, UI quads). |
 | HUD font atlas (128×64) | `src/font.rs` | Project-owned bitmap UI font. |
 | Lightmap atlas (up to two pages, quality-profile sized) | `src/lighting/lightmap/` | Baked *light data*, derived at level load from the level's own lights and geometry — the texel equivalent of the baked vertex colours it replaces. Not authored artwork, and deliberately not shipped as PNGs: it changes whenever a light, prop or surface moves, and it is regenerated (never re-saved) on load. |
 

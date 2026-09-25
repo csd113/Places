@@ -1272,7 +1272,7 @@
       "asset_type": "texture",
       "source": "file",
       "model": "core/textures/white_01.png",
-      "description": "The shared untextured sheet: a solid opaque 2x2 white fill the renderer binds to fixture housings, plain body geometry and any texture slot with nothing better to show. Not artwork and not tileable; loaded once at renderer startup."
+      "description": "The shared untextured sheet: a flat opaque white fill the renderer binds to fixture housings, plain body geometry and any texture slot with nothing better to show. Not artwork and not tileable; loaded once at renderer startup as a single un-mipped level."
     },
     {
       "id": "home:tex_wallpaper_offwhite_01",

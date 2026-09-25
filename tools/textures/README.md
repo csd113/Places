@@ -129,7 +129,7 @@ is validated and regenerated exactly like a surface sheet.
 | `core:tex_grille_01` | `core/textures/walls/grille_01.png` | 1024x1024 | RGBA cut-out transfer grille (metal slats over transparent openings) |
 | `core:tex_normal_panel_01` | `core/textures/normals/normal_panel_01.png` | 1024x1024 | tangent-space normal map: soft moulded dimples |
 | `core:tex_normal_brushed_01` | `core/textures/normals/normal_brushed_01.png` | 1024x1024 | tangent-space normal map: fine horizontal brushing |
-| `core:tex_white_01` | `core/textures/white_01.png` | 2x2 | the shared untextured fallback sheet (solid opaque white, loaded at startup, never generated in Rust) |
+| `core:tex_white_01` | `core/textures/white_01.png` | 1024x1024 | the shared untextured fallback sheet (flat opaque white, loaded at startup as one un-mipped level, never generated in Rust) |
 | `core:tex_diagnostic_wall_01` | `diagnostic/textures/diagnostic_wall_01.png` | 128x128 | orientation-revealing, never shipped in a level |
 | `core:tex_diagnostic_floor_01` | `diagnostic/textures/diagnostic_floor_01.png` | 128x128 | orientation-revealing |
 | `core:tex_diagnostic_ceiling_01` | `diagnostic/textures/diagnostic_ceiling_01.png` | 128x128 | orientation-revealing |

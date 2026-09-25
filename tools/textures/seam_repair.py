@@ -60,6 +60,7 @@ offset, TB offset)::
     carpet_beige_01.png       32  80  12  967  765
     carpet_damp_01.png        32  80  12  184  831
     pool_tile_wall_01.png     32  64  12   64   64
+    pool_tile_basin_01.png    32  64  12  269  505
 
 Each sheet was checked against ``--report``: it passes both metric families
 with margin, the worst-case wrapped step stays at or below 40/255, and the
@@ -124,6 +125,13 @@ SHIPPED_PARAMETERS: dict[str, dict[str, int]] = {
     "pool_tile_wall_01.png": {
         "band": 64, "residual_band": 12, "radius": 32,
         "offset_lr": 64, "offset_tb": 64,
+    },
+    "pool_tile_basin_01.png": {
+        # The 1024 sheet's floor grout lines run through the half-sheet
+        # default; 269/505 are flat interior columns/rows, so the repaired
+        # wrap is an ordinary tile-interior step.
+        "band": 64, "residual_band": 12, "radius": 32,
+        "offset_lr": 269, "offset_tb": 505,
     },
 }
 GENERIC_PARAMETERS: dict[str, int | None] = {

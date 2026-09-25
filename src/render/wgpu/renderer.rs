@@ -353,7 +353,7 @@ impl WgpuRenderer {
         let device_lost = Self::watch_device_loss(&device);
 
         // Stage 6: the texture layout, samplers and fallback sheet the world
-        // draws bind. One 2x2 upload at construction; levels add their own.
+        // draws bind. One fallback upload at construction; levels add their own.
         let textures = TextureCache::new(&device, &queue);
         // Stage 7: the material bind group layout, created once and shared by
         // every pipeline rebuild and material binding.

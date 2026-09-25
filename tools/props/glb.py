@@ -289,7 +289,23 @@ def read_glb(data: bytes) -> ReadMesh:
                 colors = [tuple(list(color) + [1.0]) for color in colors]
         else:
             colors = [(1.0, 1.0, 1.0, 1.0)] * len(positions)
+        # glTF 2.0 requires every attribute accessor of a primitive to have the
+        # same count as POSITION; the runtime rejects a primitive that breaks
+        # it, so the tool validator must reject it too (a merged/upgraded model
+        # can otherwise leave a stale COLOR_0 accessor behind unnoticed).
+        if len(uvs) != len(positions):
+            raise GltfError(
+                f"POSITION has {len(positions)} vertices but TEXCOORD_0 has {len(uvs)}"
+            )
+        if len(colors) != len(positions):
+            raise GltfError(
+                f"POSITION has {len(positions)} vertices but COLOR_0 has {len(colors)}"
+            )
         indices = [int(value[0]) for value in _read_accessor(gltf, blob, primitive["indices"])] if "indices" in primitive else list(range(len(positions)))
+        if indices and (min(indices) < 0 or max(indices) >= len(positions)):
+            raise GltfError(
+                f"index {max(indices)} lies outside the primitive's {len(positions)} vertices"
+            )
 
         base = len(mesh.positions)
         mesh.positions.extend(positions)

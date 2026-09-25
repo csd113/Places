@@ -1879,27 +1879,57 @@ fn test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog() {
     }
 
     // The shipped sheets keep the aspect each face is mapped with, so nothing
-    // is stretched: the panel and the wall lens are 2:1, the round sheet 1:1.
+    // is stretched: the panel and the wall lens are 2:1, the round sheets 1:1.
+    // The exact resolution is art policy (the shipped sheets are currently
+    // authored at the 1024 hard budget), so the contract pinned here is the
+    // aspect, the power-of-two edges the mip chain needs, and the engine limit.
     let dimensions = |kind| {
         let sheet = sheet_for(kind);
         (sheet.image.width, sheet.image.height)
     };
+    let aspect = |kind| {
+        let (width, height) = dimensions(kind);
+        let divisor = gcd(width, height);
+        if divisor == 0 {
+            return (width, height);
+        }
+        (width / divisor, height / divisor)
+    };
     assert_eq!(
-        dimensions(crate::lighting::FixtureKind::FluorescentPanel),
-        (1024, 512)
+        aspect(crate::lighting::FixtureKind::FluorescentPanel),
+        (2, 1)
     );
-    assert_eq!(
-        dimensions(crate::lighting::FixtureKind::RoundRecessed),
-        (128, 128)
-    );
-    assert_eq!(
-        dimensions(crate::lighting::FixtureKind::WallSconce),
-        (128, 64)
-    );
-    assert_eq!(
-        dimensions(crate::lighting::FixtureKind::FlushMount),
-        (256, 256)
-    );
+    assert_eq!(aspect(crate::lighting::FixtureKind::RoundRecessed), (1, 1));
+    assert_eq!(aspect(crate::lighting::FixtureKind::WallSconce), (2, 1));
+    assert_eq!(aspect(crate::lighting::FixtureKind::FlushMount), (1, 1));
+    for kind in [
+        crate::lighting::FixtureKind::FluorescentPanel,
+        crate::lighting::FixtureKind::RoundRecessed,
+        crate::lighting::FixtureKind::WallSconce,
+        crate::lighting::FixtureKind::FlushMount,
+    ] {
+        let (width, height) = dimensions(kind);
+        assert!(
+            width.is_power_of_two() && height.is_power_of_two(),
+            "{kind:?}: fixture faces are drawn with mipmaps, so both edges must be \
+             powers of two, found {width}x{height}"
+        );
+        assert!(
+            width <= crate::assets::MAX_TEXTURE_DIMENSION
+                && height <= crate::assets::MAX_TEXTURE_DIMENSION,
+            "{kind:?}: fixture face {width}x{height} is over the {}x{} hard limit",
+            crate::assets::MAX_TEXTURE_DIMENSION,
+            crate::assets::MAX_TEXTURE_DIMENSION
+        );
+    }
+}
+
+/// Greatest common divisor of two non-zero sheet dimensions.
+fn gcd(mut a: u32, mut b: u32) -> u32 {
+    while b != 0 {
+        (a, b) = (b, a % b);
+    }
+    a
 }
 
 /// A fixture with no sheet to draw (an unknown id, or a `pack:` id whose pack

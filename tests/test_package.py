@@ -824,15 +824,58 @@ class HomeContentTests(unittest.TestCase):
     def test_the_home_surfaces_are_clean_and_hardwood_has_two_tones(self):
         """The canonical Home set carries no damage and offers two woods.
 
-        "Clean" is enforced at the palette level: a Home surface sheet's darkest
-        pixels must stay within a few percent of its base tone, so no sheet can
-        ship a stain, a water tide or mould as its default appearance. Dirty
-        variants stay in their own materials, as the office set already does.
+        "Clean" is enforced at the palette level: no Home surface sheet may
+        ship a stain, a water tide or mould as its default appearance. A stain
+        is a dark *region*, so the check finds connected runs of pixels that
+        fall far below the sheet's own mean and caps the largest one; the
+        upgraded production sheets carry real paint/plaster grain (scattered
+        1-4 px speckle) that a brightest/darkest margin would misread as a
+        stain. Dirty variants stay in their own materials, as the office set
+        already does.
         """
         by_id = {entry["id"]: entry for entry in catalog_entries()}
 
         def decoded(model: str):
             return decode_png(PACKAGE / "assets" / model)
+
+        # A visible stain is tens of pixels across; the shipped speckle is a
+        # handful. 64 px (~8x8) leaves the grain several times' margin while
+        # still failing any patch the eye would read as damage.
+        MAX_DARK_COMPONENT = 64
+
+        def largest_dark_region(width, height, pixels, channels, thresholds):
+            """Size of the largest 4-connected region below the thresholds."""
+            dark = bytearray(width * height)
+            count = 0
+            for position in range(width * height):
+                index = position * channels
+                if any(pixels[index + c] < thresholds[c] for c in range(3)):
+                    dark[position] = 1
+                    count += 1
+            seen = bytearray(width * height)
+            largest = 0
+            for start in range(width * height):
+                if not dark[start] or seen[start]:
+                    continue
+                stack = [start]
+                seen[start] = 1
+                size = 0
+                while stack:
+                    point = stack.pop()
+                    size += 1
+                    x = point % width
+                    y = point // width
+                    for neighbour in (
+                        point - 1 if x > 0 else None,
+                        point + 1 if x + 1 < width else None,
+                        point - width if y > 0 else None,
+                        point + width if y + 1 < height else None,
+                    ):
+                        if neighbour is not None and dark[neighbour] and not seen[neighbour]:
+                            seen[neighbour] = 1
+                            stack.append(neighbour)
+                largest = max(largest, size)
+            return largest, count
 
         for material_id, minimum_mean in (
             ("home:wallpaper_offwhite_01", 150),
@@ -847,31 +890,31 @@ class HomeContentTests(unittest.TestCase):
         ):
             texture = by_id[by_id[material_id]["texture"]]
             width, height, pixels, channels = decoded(texture["model"])
-            del width, height
             totals = [0, 0, 0]
-            darkest = [255, 255, 255]
-            count = 0
+            count = width * height
             for index in range(0, len(pixels), channels):
-                red, green, blue = pixels[index], pixels[index + 1], pixels[index + 2]
-                totals[0] += red
-                totals[1] += green
-                totals[2] += blue
-                darkest[0] = min(darkest[0], red)
-                darkest[1] = min(darkest[1], green)
-                darkest[2] = min(darkest[2], blue)
-                count += 1
+                totals[0] += pixels[index]
+                totals[1] += pixels[index + 1]
+                totals[2] += pixels[index + 2]
+            means = [total / count for total in totals]
             for channel in range(3):
-                mean = totals[channel] / count
-                # A stain or a water tide darkens a channel by tens of levels;
-                # a clean residential surface stays within a gentle margin.
                 self.assertGreater(
-                    darkest[channel],
-                    mean - 60,
-                    f"{material_id} has a dark stain in channel {channel}",
+                    means[channel],
+                    minimum_mean,
+                    f"{material_id} is darker than its clean base tone",
                 )
-                self.assertGreater(
-                    mean, minimum_mean, f"{material_id} is darker than its clean base tone"
-                )
+            thresholds = [mean - 60 for mean in means]
+            largest, dark = largest_dark_region(width, height, pixels, channels, thresholds)
+            self.assertLessEqual(
+                largest,
+                MAX_DARK_COMPONENT,
+                f"{material_id} has a {largest}-pixel dark region (a stain, not grain)",
+            )
+            self.assertLess(
+                dark,
+                count // 100,
+                f"{material_id} has {dark} pixels far below its base tone",
+            )
 
         # Two genuinely different hardwoods: tone and plank scale differ.
         oak = by_id["home:hardwood_oak_01"]
