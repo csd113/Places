@@ -1,9 +1,9 @@
 //! Stage 9 post-processing: the offscreen scene target, the emissive pass, the
 //! two bloom blurs, the resolve and the plain present copy.
 //!
-//! The reference's offscreen path (`opengl/framebuffer.rs`,
-//! `opengl/postprocess.rs`) renders the world into an RGBA8 scene texture and
-//! then turns that texture into a display image:
+//! The reference's offscreen path (preserved at the `renderer-gles2-reference`
+//! tag) renders the world into an RGBA8 scene texture and then turns that
+//! texture into a display image:
 //!
 //! ```text
 //! scene ──▶ emissive-only pass (scene size, scene depth) ──▶ blur H, blur V ──▶ bloom

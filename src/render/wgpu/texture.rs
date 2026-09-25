@@ -30,7 +30,7 @@
 //! interpretation + quality class + profile), never by material instance or
 //! draw index, so every surface that references one texture shares one GPU
 //! upload. Catalog and diagnostic textures live for the renderer's lifetime;
-//! pack textures live for one level, exactly like the OpenGL backend's caches.
+//! pack textures live for one level, exactly like the reference's caches.
 //! There is no eviction beyond those two lifetimes and no LRU: the shipped
 //! catalog holds 38 texture assets in total, so a renderer-lifetime map is
 //! bounded by the catalog plus the missing-texture pattern.
@@ -49,14 +49,14 @@ const FALLBACK_BYTES: usize = 16;
 
 /// The shared untextured fallback, as committed artwork.
 ///
-/// The same `assets/core/textures/white_01.png` the OpenGL reference renderer
-/// loads at startup (and embeds for an assets-less install): a 2x2 opaque white
+/// The same `assets/core/textures/white_01.png` the reference renderer loaded
+/// at startup (and embedded for an assets-less install): a 2x2 opaque white
 /// sheet, sampled clamped and nearest, with no mip chain. It is a real
 /// repository asset, not a generated fill; the decode below is the only path
 /// that turns it into pixels.
 const FALLBACK_WHITE_PNG: &[u8] = include_bytes!("../../../assets/core/textures/white_01.png");
 
-/// The logical id of that sheet, as the OpenGL reference names it.
+/// The logical id of that sheet in the catalog.
 const FALLBACK_TEXTURE_KEY: &str = "core:tex_white_01";
 
 /// How one GPU texture's channels are meant to be interpreted.
@@ -1163,9 +1163,8 @@ mod tests {
 
     #[test]
     fn the_embedded_fallback_is_the_committed_asset() {
-        // The same bytes the OpenGL reference renderer embeds
-        // (`render::opengl::renderer::WHITE_SHEET_PNG`); `src/render/tests.rs`
-        // pins the two constants to each other.
+        // The same bytes the preserved reference renderer embedded
+        // (`WHITE_SHEET_PNG` in its OpenGL renderer module).
         assert!(
             FALLBACK_WHITE_PNG.starts_with(b"\x89PNG\r\n\x1a\n"),
             "the fallback must be the committed PNG, not a generated fill"

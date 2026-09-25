@@ -16,8 +16,9 @@ panes, the vent grille) — through the shared Places camera, with depth testing
 per-material pipeline states and the reference's baked lighting. Lightmap
 atlases, reflections, decals, props, fixtures and UI are not ported yet.
 
-The OpenGL/GLES2 renderer remains the complete reference implementation and the
-default (`PLACES_RENDERER` unset). Stage 4's lifecycle
+**Stage 11 note:** the OpenGL/GLES2 renderer was removed from mainline and
+preserved at the `renderer-gles2-reference` tag; the wgpu renderer is now the
+only implementation. Stage 4's lifecycle
 ([WGPU_BOOTSTRAP.md](WGPU_BOOTSTRAP.md)) was reused unchanged: instance, surface,
 adapter, device, queue, presentation, resize, minimize/restore, surface-loss and
 device-loss handling needed no rework for Stage 5.

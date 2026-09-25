@@ -5,20 +5,20 @@
 //! nothing per frame. Repeatable desktop measurements are written to stdout
 //! and CSV without requiring interaction with the performance overlay.
 //!
-//! Timing is deliberately staged around `SDL_GL_SwapWindow`, because the whole
-//! point of the first phase is to find out whether the swap actually blocks on
-//! the display refresh or returns immediately:
+//! Timing is deliberately staged around presentation, because the whole
+//! point of the first phase is to find out whether presentation actually
+//! blocks on the display refresh or returns immediately:
 //!
 //! ```text
 //! t_begin ─ events + game update ─ t_update ─ scene submit ─ t_render
-//!        ─ UI submit ─ t_ui ─ SDL_GL_SwapWindow ─ t_swap ─ (next t_begin)
+//!        ─ UI submit ─ t_ui ─ present ─ t_swap ─ (next t_begin)
 //! ```
 //!
 //! * `update_ms` — event pump, menu/gameplay update, movement.
 //! * `render_ms` — `render_scene` + `render_ui`, i.e. the CPU cost of
-//!   submitting the frame (not including the swap).
-//! * `swap_ms` — time spent inside `SDL_GL_SwapWindow`. On a truly VSync-locked
-//!   presentation this is where the frame waits for the display.
+//!   submitting the frame (not including presentation).
+//! * `swap_ms` — time spent presenting. On a truly VSync-locked presentation
+//!   this is where the frame waits for the display.
 //! * `frame_ms` — `t_begin` to `t_swap`: the complete frame including the swap.
 //! * `loop_ms` — `t_begin` of this frame to `t_begin` of the next: the real
 //!   presentation cadence, which is what an FPS counter should be derived from.
@@ -60,22 +60,16 @@ const WINDOW_CYCLE_ENV: &str = "PLACES_BENCH_WINDOW_CYCLE";
 const BENCH_CAMERA_ENV: &str = "PLACES_CAMERA";
 /// `on`/`off` override for the swap interval, used only to characterise `VSync`.
 const BENCH_VSYNC_ENV: &str = "PLACES_VSYNC";
-/// `1` inserts `glFinish` before the swap, splitting renderer time from
-/// presentation time unambiguously (diagnostic only).
+/// `1` waits for submitted GPU work before the swap, splitting renderer time
+/// from presentation time unambiguously (diagnostic only).
 const BENCH_FINISH_ENV: &str = "PLACES_BENCH_FINISH";
 /// `1` skips scene/UI submission, leaving only the presentation path
 /// (diagnostic only: the window shows a stale frame).
 const BENCH_NORENDER_ENV: &str = "PLACES_BENCH_NORENDER";
-/// `1` skips `SDL_GL_SwapWindow` (diagnostic only: nothing is presented).
+/// `1` skips presentation (diagnostic only: nothing is presented).
 const BENCH_NOSWAP_ENV: &str = "PLACES_BENCH_NOSWAP";
 /// `1` submits every batch, so the same build can measure what culling is worth.
 const BENCH_NOCULL_ENV: &str = "PLACES_BENCH_NOCULL";
-/// `1` submits flat triangle lists instead of indexed ones, so the same build can
-/// measure what indexing is worth with batching and culling held fixed.
-const BENCH_NOINDEX_ENV: &str = "PLACES_BENCH_NOINDEX";
-/// `1` uploads the exact 36-byte vertex layout instead of the packed 24-byte one,
-/// so the same build can measure what packing is worth.
-const BENCH_EXACT_VERTEX_ENV: &str = "PLACES_BENCH_EXACT_VERTEX";
 
 /// Per-frame timings, all in milliseconds.
 #[derive(Clone, Copy, Debug, Default)]
@@ -90,25 +84,20 @@ pub struct FrameTimings {
 /// Diagnostic submission switches parsed from the `PLACES_BENCH*` environment.
 ///
 /// Each one changes exactly one renderer decision, so one release build measures
-/// what culling, indexing, exact-vertex packing, finishing and skipping are each
-/// worth while everything else (level build, batching, draw order, shaders) is
-/// held fixed.
+/// what culling, finishing and skipping are each worth while everything else
+/// (level build, batching, draw order, shaders) is held fixed.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct BenchSwitches(u8);
 
 impl BenchSwitches {
-    /// Call `glFinish` immediately before the swap (diagnostic).
+    /// Wait for submitted GPU work immediately before the swap (diagnostic).
     pub const FINISH_BEFORE_SWAP: Self = Self(1 << 0);
     /// Skip scene/UI submission entirely (diagnostic).
     pub const SKIP_RENDER: Self = Self(1 << 1);
-    /// Skip `SDL_GL_SwapWindow` entirely (diagnostic).
+    /// Skip presentation entirely (diagnostic).
     pub const SKIP_SWAP: Self = Self(1 << 2);
     /// Submit every batch regardless of the frustum, to measure culling's worth.
     pub const NO_CULL: Self = Self(1 << 3);
-    /// Submit flat triangle lists, to measure indexing's worth.
-    pub const NO_INDEX: Self = Self(1 << 4);
-    /// Upload the 36-byte exact vertex layout, to measure packing's worth.
-    pub const EXACT_VERTEX: Self = Self(1 << 5);
 
     /// True when every switch in `other` is set.
     #[must_use]
@@ -166,8 +155,6 @@ impl BenchConfig {
             (BENCH_NORENDER_ENV, BenchSwitches::SKIP_RENDER),
             (BENCH_NOSWAP_ENV, BenchSwitches::SKIP_SWAP),
             (BENCH_NOCULL_ENV, BenchSwitches::NO_CULL),
-            (BENCH_NOINDEX_ENV, BenchSwitches::NO_INDEX),
-            (BENCH_EXACT_VERTEX_ENV, BenchSwitches::EXACT_VERTEX),
         ] {
             if env_flag(name) {
                 switches.insert(switch);
@@ -343,7 +330,7 @@ pub struct Bench {
     recorded: u64,
     last_begin: Option<Instant>,
     frames: Vec<FrameRecord>,
-    /// Swap interval actually in force, as reported by `SDL_GL_GetSwapInterval`.
+    /// Swap interval actually in force, as reported by the presentation mode.
     reported_swap_interval: Option<i32>,
     /// Scripted live quality switches, in ascending frame order.
     quality_cycle: Vec<(u64, crate::quality::QualityProfile)>,
@@ -457,7 +444,7 @@ impl Bench {
         self.config.vsync_override
     }
 
-    /// Whether to sync the GL pipeline (via `glFinish`) before measuring the swap.
+    /// Whether to sync submitted GPU work before measuring presentation.
     #[must_use]
     pub const fn finish_before_swap(&self) -> bool {
         self.config
@@ -471,7 +458,7 @@ impl Bench {
         self.config.switches.contains(BenchSwitches::SKIP_RENDER)
     }
 
-    /// Whether `SDL_GL_SwapWindow` should be skipped for this run.
+    /// Whether presentation should be skipped for this run.
     #[must_use]
     pub const fn skip_swap(&self) -> bool {
         self.config.switches.contains(BenchSwitches::SKIP_SWAP)
@@ -481,18 +468,6 @@ impl Bench {
     #[must_use]
     pub const fn no_cull(&self) -> bool {
         self.config.switches.contains(BenchSwitches::NO_CULL)
-    }
-
-    /// Whether indexed submission should be replaced by flat triangle lists.
-    #[must_use]
-    pub const fn no_index(&self) -> bool {
-        self.config.switches.contains(BenchSwitches::NO_INDEX)
-    }
-
-    /// Whether the 36-byte exact vertex layout should be used instead of packing.
-    #[must_use]
-    pub const fn exact_vertex(&self) -> bool {
-        self.config.switches.contains(BenchSwitches::EXACT_VERTEX)
     }
 
     /// Records the swap interval the platform reports after configuration.
@@ -507,7 +482,7 @@ impl Bench {
     }
 
     /// Records one frame. `begin` must be the instant captured at the top of the
-    /// loop iteration and `swap_done` the instant `SDL_GL_SwapWindow` returned.
+    /// loop iteration and `swap_done` the instant presentation returned.
     pub fn record_frame(
         &mut self,
         begin: Instant,

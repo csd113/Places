@@ -6,8 +6,8 @@ measured directly, with no device or SSH involved. It repeats one configuration
 `--repeat` times and reports the minimum, median and maximum of every headline
 field, so a renderer change can be compared against the previous build with
 everything (level, assets, camera, frame count, swap interval) held fixed, and
-the Full / Low and offscreen / direct variants of one build can be compared with
-only that switch changed. The minimum is the run least contaminated by unrelated
+the Full / Low variants of one build can be compared with only that switch
+changed. The minimum is the run least contaminated by unrelated
 system work and is the more stable estimator; the median and maximum show the
 spread. Nothing outside ``target/agent-work/bench/`` is written.
 
@@ -17,7 +17,6 @@ Usage::
         --label current --repeat 3
 
     python3 tools/bench/bench_local.py --label current_low --quality low
-    python3 tools/bench/bench_local.py --label current_direct --direct
     python3 tools/bench/bench_local.py --label current_nolightmaps --no-lightmaps
 
 Every run is a release build of the *current* working tree unless `--binary`
@@ -72,8 +71,6 @@ def run_once(args, binary: str) -> dict:
         env["PLACES_BENCH_NOSWAP"] = "1"
     if args.quality:
         env["PLACES_QUALITY"] = args.quality
-    if args.direct:
-        env["PLACES_NO_OFFSCREEN"] = "1"
     if args.no_lightmaps:
         env["PLACES_NO_LIGHTMAPS"] = "1"
 
@@ -109,13 +106,14 @@ def main() -> int:
     parser.add_argument("--warmup", type=int, default=20)
     parser.add_argument("--repeat", type=int, default=3)
     parser.add_argument("--quality", default=None, help="full or low (default: the settings file)")
-    parser.add_argument("--direct", action="store_true", help="disable the offscreen scene path")
     parser.add_argument("--no-lightmaps", action="store_true", help="force the vertex-lit path")
-    parser.add_argument("--finish", action="store_true", help="insert glFinish before the swap")
+    parser.add_argument(
+        "--finish", action="store_true", help="wait for GPU work before the swap"
+    )
     parser.add_argument(
         "--noswap",
         action="store_true",
-        help="skip SDL_GL_SwapWindow (keeps a run from blocking on a sleeping display)",
+        help="skip presentation (keeps a run from blocking on a sleeping display)",
     )
     parser.add_argument(
         "--timeout",

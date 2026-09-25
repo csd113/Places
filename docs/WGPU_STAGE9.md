@@ -7,6 +7,10 @@ mirror, props/GLB models, dynamic objects, fixture geometry and emission, the
 emissive bloom chain and resolve, decals, fog and the renderer-owned HUD — all
 at the reference's own feature-level behaviour under both quality profiles.
 
+**Stage 11:** the OpenGL/GLES2 renderer was removed from mainline and
+preserved at the `renderer-gles2-reference` tag; the wgpu renderer described
+here is the only implementation. See [RENDERER_REFERENCE.md](RENDERER_REFERENCE.md).
+
 This document is the Stage 9 handoff. It complements
 [WGPU_LIGHTING.md](WGPU_LIGHTING.md) (Stage 8: the baked lighting model this
 stage extends to the atlas, the sheen and the display-space assembly),

@@ -6,6 +6,10 @@ this stage added no rendering feature. It built the independent parity evidence
 the migration needed, found and repaired four real ported-feature defects, and
 recorded the bounded differences that remain.
 
+**Stage 11:** the OpenGL/GLES2 renderer was removed from mainline and
+preserved at the `renderer-gles2-reference` tag; the wgpu renderer described
+here is the only implementation. See [RENDERER_REFERENCE.md](RENDERER_REFERENCE.md).
+
 Read with [WGPU_STAGE9.md](WGPU_STAGE9.md) (the feature handoff),
 [WGPU_LIGHTING.md](WGPU_LIGHTING.md), [WGPU_MATERIALS.md](WGPU_MATERIALS.md),
 [WGPU_TEXTURES.md](WGPU_TEXTURES.md), [RENDERER_BOUNDARY.md](RENDERER_BOUNDARY.md)

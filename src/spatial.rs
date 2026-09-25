@@ -469,7 +469,7 @@ impl<G: Copy + Ord + Hash> SpatialBuckets<G> {
     ///
     /// A range is flushed and a new one started whenever it would need more than
     /// [`MAX_INDEX_VERTICES`] vertices, which is what keeps the index type at
-    /// 16-bit — the only width OpenGL ES 2.0 guarantees without an extension.
+    /// 16-bit — the width this mesh format was designed around.
     pub fn drain_indexed(&mut self) -> Vec<((G, CellKey), IndexedRange)> {
         let mut keys: Vec<(G, CellKey)> = self.buckets.keys().copied().collect();
         keys.sort_unstable();

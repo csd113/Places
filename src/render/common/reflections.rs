@@ -13,8 +13,8 @@
 //!   the Full profile.
 //!
 //! This module is renderer-neutral: it decides *what* reflects and where from.
-//! The GPU resources (probe cubemaps, the planar target) live in
-//! `crate::render::opengl::reflections`.
+//! The GPU resources (probe cubemaps, the planar target) live in the wgpu
+//! renderer's reflections module (`src/render/wgpu/reflections.rs`).
 
 use super::mesh::LevelMesh;
 use super::view::{DrawableSize, MAX_REFLECTION_PROBES, PLANAR_REFLECTION_SCALE_DIVISOR};
@@ -85,12 +85,6 @@ impl ReflectionRouting {
             .copied()
             .flatten()
             .map(usize::from)
-    }
-
-    /// True when the level has anything to reflect at all.
-    #[must_use]
-    pub const fn is_empty(&self) -> bool {
-        self.planes.is_empty() && self.probe_points.is_empty()
     }
 }
 
@@ -400,20 +394,6 @@ pub fn mirror_point(normal: [f32; 3], offset: f32, point: [f32; 3]) -> [f32; 3] 
     [reflected.x, reflected.y, reflected.z]
 }
 
-/// True when a range belongs to the mirror plane currently being reflected.
-///
-/// The mirror's own surface is left out of its reflection image: it is the
-/// nearest thing to the mirrored camera, so drawing it would fill the image
-/// with the mirror's own colour instead of the room it is meant to show. This
-/// is the one deliberate exception to "nothing here culls back faces".
-#[must_use]
-pub fn is_mirror_range(routing: &ReflectionRouting, plane: Option<usize>, material: usize) -> bool {
-    let Some(plane) = plane else {
-        return false;
-    };
-    routing.plane_of(material) == Some(plane)
-}
-
 /// Size of the planar reflection target for a scene target of `scene_size`.
 #[must_use]
 #[allow(clippy::arithmetic_side_effects)] // integer division by a small constant
@@ -474,12 +454,6 @@ impl Reflections {
         self.enabled = enabled;
     }
 
-    /// Whether any reflection source may run this session.
-    #[must_use]
-    pub const fn enabled(&self) -> bool {
-        self.enabled
-    }
-
     /// Whether the profile allows the planar pass (before the gate on a
     /// visible plane). Exercised by the profile-contract test.
     #[cfg(test)]
@@ -493,21 +467,6 @@ impl Reflections {
     #[must_use]
     pub const fn planar_wanted(&self) -> bool {
         self.enabled && self.planar_enabled && !self.routing.planes.is_empty()
-    }
-
-    /// Called when the planar target cannot be created: the pass is disabled
-    /// for the session instead of being retried every frame.
-    pub const fn disable_planar(&mut self) {
-        self.planar_enabled = false;
-    }
-
-    /// How many probes the routing wants, capped by the renderer's budget.
-    #[must_use]
-    pub fn wanted_probe_count(&self) -> usize {
-        if !self.enabled {
-            return 0;
-        }
-        self.routing.probe_points.len().min(MAX_REFLECTION_PROBES)
     }
 }
 
@@ -598,24 +557,6 @@ mod tests {
                 "{twice:?} is not the identity"
             );
         }
-    }
-
-    #[test]
-    fn only_the_reflected_plane_is_left_out_of_the_reflection() {
-        let mut routing = ReflectionRouting {
-            plane_for_material: vec![None, None, None],
-            probe_for_material: vec![false; 3],
-            ..ReflectionRouting::default()
-        };
-        routing.plane_for_material[1] = Some(0);
-        routing.plane_for_material[2] = Some(1);
-
-        assert!(is_mirror_range(&routing, Some(0), 1));
-        assert!(!is_mirror_range(&routing, Some(1), 1));
-        assert!(is_mirror_range(&routing, Some(1), 2));
-        assert!(!is_mirror_range(&routing, None, 1));
-        // A material with no plane is never skipped.
-        assert!(!is_mirror_range(&routing, Some(0), 0));
     }
 
     #[test]

@@ -47,13 +47,12 @@ Flags:
 | `--label NAME` | output name; the JSON lands at `target/agent-work/bench/NAME.json` |
 | `--repeat N` | how many whole runs to take the min/median/max over (default 3) |
 | `--quality full\|low` | draw this run at the named profile without editing `settings.json` |
-| `--direct` | `PLACES_NO_OFFSCREEN=1`: draw straight into the default framebuffer |
 | `--no-lightmaps` | `PLACES_NO_LIGHTMAPS=1`: force the vertex-lit path |
 | `--binary PATH` | measure another executable (default `target/release/places`) |
 | `--level ID`, `--camera yaw[,pitch]` | the fixed scene (default `places_demo`, `74,0`) |
 | `--frames N`, `--warmup N` | recorded frames and discarded warm-up frames (default 120 / 20) |
-| `--finish` | insert `glFinish` before the swap, splitting renderer from presentation time |
-| `--noswap` | skip `SDL_GL_SwapWindow`, so a run cannot block on a display that has gone to sleep |
+| `--finish` | wait for submitted GPU work before the swap, splitting renderer from presentation time |
+| `--noswap` | skip presentation, so a run cannot block on a display that has gone to sleep |
 | `--timeout S` | seconds before one run is treated as hung (default 300) |
 
 Every run holds the level, assets, camera, frame count and swap interval fixed,
@@ -70,7 +69,6 @@ any machine and the before/after and Full/Low sets are directly comparable.
 ```sh
 sh tools/bench/capture_views.sh                            # Full profile
 PLACES_QUALITY=low sh tools/bench/capture_views.sh        # profile suffix _low
-PLACES_NO_OFFSCREEN=1 sh tools/bench/capture_views.sh     # _direct
 PLACES_NO_BLOOM=1 sh tools/bench/capture_views.sh         # _nobloom
 PLACES_NO_REFLECTIONS=1 sh tools/bench/capture_views.sh   # _norefl
 ```
@@ -128,14 +126,16 @@ python3 tools/bench/compare_baseline.py <capture-dir>   # byte equality
 `compare_captures.py` is the same comparison for two *different* renderers,
 where byte equality is not the goal: it reports each view's mean absolute
 channel difference, the share of pixels differing by more than a tolerance, and
-the maximum channel difference, so a migration's known gaps (unported geometry,
-fog, post-processing) can be quantified instead of hand-waved.
+the maximum channel difference, so a known cross-renderer gap can be quantified
+instead of hand-waved. The historical OpenGL renderer for such a comparison is
+preserved at the `renderer-gles2-reference` tag (see
+`docs/RENDERER_REFERENCE.md`).
 
 ```sh
 python3 tools/bench/compare_captures.py \
-    target/agent-work/stage8/wgpu-baseline-assets \
-    target/agent-work/stage8/opengl-vertexlit \
-    --label wgpu-stage8 opengl-vertexlit
+    target/agent-work/verify/wgpu \
+    target/agent-work/verify/reference-opengl \
+    --label wgpu reference
 ```
 
 ## Visual regression
@@ -218,12 +218,10 @@ it and allocates nothing per frame.
 | `PLACES_BENCH_FRAMES=n` | stop after `n` recorded frames and print the summary |
 | `PLACES_CAMERA=yaw[,pitch]` | pin the camera for a repeatable shot |
 | `PLACES_VSYNC=on\|off` | override the swap interval for VSync characterisation |
-| `PLACES_BENCH_FINISH=1` | `glFinish` before the swap (splits renderer from presentation time) |
+| `PLACES_BENCH_FINISH=1` | wait for submitted GPU work before the swap (splits renderer from presentation time) |
 | `PLACES_BENCH_NORENDER=1` | skip scene/UI submission (presentation-only run) |
-| `PLACES_BENCH_NOSWAP=1` | skip `SDL_GL_SwapWindow` (renderer-only run) |
+| `PLACES_BENCH_NOSWAP=1` | skip presentation (renderer-only run) |
 | `PLACES_BENCH_NOCULL=1` | submit every batch (isolates what culling is worth) |
-| `PLACES_BENCH_NOINDEX=1` | submit flat triangle lists (isolates what indexing is worth) |
-| `PLACES_BENCH_EXACT_VERTEX=1` | upload the 36-byte exact vertex layout (isolates what packing is worth) |
 | `PLACES_CELL_METRES=n` | force a uniform spatial grid instead of the adaptive one |
 | `PLACES_LEVEL=<id>` | boot straight into a level |
 | `PLACES_SPAWN=x,z[,yaw]` or `x,y,z[,yaw]` | spawn override; the 3-number form drops the player onto the local floor |
@@ -234,7 +232,6 @@ it and allocates nothing per frame.
 | `PLACES_QUALITY=full\|low` | draw this run at the named profile without editing `settings.json` |
 | `PLACES_BENCH_QUALITY_CYCLE=<frame>:<profile>[,<frame>:<profile>...]` | scripted live quality switch through the normal settings path (benchmark only) |
 | `PLACES_BENCH_WINDOW_CYCLE=<frame>:resize:<w>x<h>\|<frame>:minimize\|<frame>:restore[,...]` | scripted live window events through the real SDL window: resize, minimize, restore (benchmark only; Stage 10 lifecycle matrix) |
-| `PLACES_NO_OFFSCREEN=1` | OpenGL-only: skip the offscreen scene target and draw into the default framebuffer |
 | `PLACES_NO_BLOOM=1` | drop the emissive pass and the blur, keeping the resolve stage |
 | `PLACES_NO_REFLECTIONS=1` | report every material as reflection-free (no planar pass, no probe bake, no reflection binds) |
 | `PLACES_PAUSE=1` | open the pause menu on the first frame, so the pause UI can be captured without a keyboard |

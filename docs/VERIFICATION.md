@@ -1,10 +1,13 @@
 # Desktop verification
 
 This is the authoritative gate for the current Places desktop project: the
-complete OpenGL/GLES2 reference renderer plus the wgpu renderer
-(`PLACES_RENDERER=wgpu`, see WGPU_BOOTSTRAP.md and WGPU_WORLD_GEOMETRY.md). Run
-from the repository root on a desktop session with Rust 1.91 or newer, SDL2 and
-pkg-config, Python 3, and Node.js available. macOS setup is
+wgpu renderer (Metal on macOS, Vulkan on Linux, Direct3D 12 on Windows). The
+removed OpenGL/GLES2 reference renderer and the complete Stage 10 dual-renderer
+state are preserved at the `renderer-gles2-reference` tag; see
+[RENDERER_REFERENCE.md](RENDERER_REFERENCE.md) and
+[WGPU_STAGE10.md](WGPU_STAGE10.md). Run from the repository root on a desktop
+session with Rust 1.91 or newer, SDL2 and pkg-config, Python 3, and Node.js
+available. macOS setup is
 `brew install sdl2 pkg-config`. Python tooling uses the standard library. No npm
 install is required. No CI configuration is currently tracked.
 
@@ -29,8 +32,8 @@ python3 -m unittest tests.test_wgpu_bootstrap
 git diff --check
 ```
 
-All commands must exit zero. Compiled-build tests open real SDL/OpenGL windows;
-a skipped suite is not a completed desktop gate. Rust's three intentionally
+All commands must exit zero. Compiled-build tests open real SDL windows and
+GPU surfaces; a skipped suite is not a completed desktop gate. Rust's three intentionally
 ignored diagnostics are opt-in reports, not required tests. Texture checking
 currently emits 35 soft-budget warnings for artwork above 256 pixels; these
 are accepted shipped source sizes within the 1024-pixel hard limit, documented
@@ -75,49 +78,33 @@ editor thumbnails. PNG artwork is loaded from committed assets at runtime.
 
 ## Runtime and visual gate
 
-Launch the demo with `PLACES_LEVEL=places_demo cargo run --release`. The
-renderer is chosen at launch: `PLACES_RENDERER=wgpu` selects the complete wgpu
-renderer (the whole reference feature set — baked lightmaps, reflections,
+Launch the demo with `PLACES_LEVEL=places_demo cargo run --release`. The wgpu
+renderer draws the whole reference feature set — baked lightmaps, reflections,
 props, fixtures, emission, decals, fog, post-processing and the HUD; see
-WGPU_STAGE9.md and WGPU_STAGE10.md); `PLACES_RENDERER=opengl` (the default)
-keeps selecting the OpenGL reference. For a repeatable visual check of either
-renderer, capture the canonical 25 views in both quality profiles without
-overwriting the frozen Stage 0 images:
+WGPU_STAGE9.md and WGPU_STAGE10.md. For a repeatable visual check, capture the
+canonical 25 views in both quality profiles without overwriting the frozen
+images:
 
 ```sh
 PLACES_CAPTURE_DIR="$PWD/target/verification-captures" \
     sh tools/bench/capture_baseline_views.sh
-python3 tools/bench/compare_baseline.py target/verification-captures
 python3 tools/bench/check_holes.py target/verification-captures/high/*.png
 ```
 
-The comparison command checks each PNG against the matching `docs/renderer-baseline/{high,low}` image.
 The canonical setup is 640x360 logical pixels and requires the same 2x display
-backing scale to reproduce the tracked 1280x720 images. With an unchanged
-OpenGL renderer on the same host, every PNG should be byte-identical. Inspect
-any difference; a successful launch alone does not prove visual parity.
-The baseline document is a historical Stage 0 record: its old command names
-and recorded failures describe that commit, not today's verification gate.
-Current binaries and environment switches use `places` and `PLACES_*`.
+backing scale as the tracked 1280x720 images. `docs/renderer-baseline/` is the
+frozen **OpenGL** reference set: compare a wgpu capture against it per view with
+`compare_captures.py`, where the numbers to expect are the bounded Stage 10
+residuals (WGPU_STAGE10.md §3/§4/§12), not byte equality. Byte equality applies
+only when comparing two wgpu runs (for example a pre-change and post-change
+build).
 
-The wgpu renderer is captured with the same script and compared per view
-against the OpenGL captures of the same asset root:
-
-```sh
-PLACES_ASSET_ROOT="$PWD/target/agent-work/stage10/baseline-assets/asset-root" \
-PLACES_CAPTURE_DIR="$PWD/target/agent-work/stage10/canonical-opengl" \
-PLACES_RENDERER=opengl sh tools/bench/capture_baseline_views.sh
-PLACES_ASSET_ROOT="$PWD/target/agent-work/stage10/baseline-assets/asset-root" \
-PLACES_CAPTURE_DIR="$PWD/target/agent-work/stage10/canonical-wgpu" \
-PLACES_RENDERER=wgpu sh tools/bench/capture_baseline_views.sh
-python3 tools/bench/compare_captures.py target/agent-work/stage10/canonical-wgpu \
-    target/agent-work/stage10/canonical-opengl
-```
-
-`tools/bench/capture_expanded_views.sh` adds the Stage 10 supplementary view
-set (geometry junctions, materials, lightmaps, reflections, props, decals,
-fog, UI) for the same two-backend comparison. The expected Stage 10 bounds and
-the remaining accepted differences are in WGPU_STAGE10.md §3/§4/§12.
+The historical OpenGL reference can be captured from the preservation worktree
+(`git worktree add <dir> renderer-gles2-reference`); against that checkout's own
+committed assets, `compare_baseline.py` must still report 50/50 byte-identical
+images. `tools/bench/capture_expanded_views.sh` adds the Stage 10 supplementary
+view set (geometry junctions, materials, lightmaps, reflections, props, decals,
+fog, UI).
 
 The wgpu gate also includes `python3 -m unittest tests.test_wgpu_bootstrap`,
 which asserts the native backend (Metal on macOS, Vulkan on Linux, Direct3D 12

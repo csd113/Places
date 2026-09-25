@@ -10,7 +10,8 @@ use super::LevelDef;
 /// Authoring/build-time vertex: exact floats, easy to reason about and to audit.
 ///
 /// This is what the level builder, the lighting audit and every test work with.
-/// It is converted to [`PackedVertex`] exactly once, when a mesh is uploaded.
+/// The renderer converts it to its GPU vertex layout exactly once, when a mesh
+/// is uploaded.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vertex {
@@ -106,143 +107,14 @@ impl Vertex {
     }
 }
 
-/// GPU vertex layout: 36 bytes, with no loss of achievable output.
-///
-/// * `pos` stays `f32` — world position precision is not negotiable, since a
-///   liminal level can be over 250 m across and a centimetre of drift would move
-///   geometry through walls.
-/// * `uv` stays `f32` — texturing is where quantisation would actually show, and
-///   tiling surfaces carry world-space coordinates that reach ±130 on a level
-///   the size of the largest regression fixture.
-/// * `color` becomes normalised `RGBA8`. It is a *shade* folded into the vertex
-///   by the lighting bake, and that bake is bounded: `lighting::AMBIENT_LEVEL`
-///   is 0.10 and `MAX_BRIGHTNESS` is 1.0, so a vertex channel only ever spans
-///   [0, 1] and the smallest step is 1/255 ≈ 0.9% of the range actually used.
-///   Alpha is kept because prop models carry it from their glTF `COLOR_0`.
-/// * `normal` and `tangent` become three normalised signed bytes each. Both are
-///   unit vectors, so a byte gives about 0.8% of error — far below the shading
-///   slope a normal map can show — and axis-aligned geometry (every wall, floor
-///   and ceiling) is represented exactly.
-/// * `handedness` is one more normalised signed byte holding ±1, which keeps a
-///   mirrored UV layout from flipping the normal map's green channel.
-/// * `lightmap` becomes two normalised `u16` atlas coordinates (4 bytes) and
-///   `lightmap_page` a plain byte: 16 bits per axis resolves one quarter of a
-///   texel on a 1024-texel atlas page, so the fixed-point step is far below what
-///   the sampling filter can see.
-///
-/// `glVertexAttribPointer` with `normalized = true` and `GL_UNSIGNED_BYTE` (or
-/// `GL_BYTE`) is core OpenGL ES 2.0, so no extension or newer context is
-/// required.
-#[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct PackedVertex {
-    pub pos: [f32; 3],
-    pub uv: [f32; 2],
-    pub color: [u8; 4],
-    /// Lightmap atlas coordinates, uploaded as normalized `GL_UNSIGNED_SHORT`.
-    pub lightmap: [u16; 2],
-    /// Geometric normal, uploaded as three normalized `GL_BYTE` values.
-    pub normal: [i8; 3],
-    /// Surface tangent, uploaded as three normalized `GL_BYTE` values.
-    pub tangent: [i8; 3],
-    /// Bitangent sign, uploaded as one normalized `GL_BYTE` holding ±1.
-    pub handedness: i8,
-    /// Lightmap atlas page, uploaded as a plain `GL_UNSIGNED_BYTE`.
-    pub lightmap_page: u8,
-}
-
-/// Byte offset of each packed attribute, and the stride between vertices.
-/// Bytes one vertex occupies in the exact (unpacked) layout, as the GL stride
-/// API takes it.
-///
-/// Written out rather than derived from `size_of::<Vertex>()` so that
-/// [`VertexLayout::stride`] can stay a `const fn`; the packed-layout test keeps
-/// it equal to the struct's real size.
-pub const EXACT_VERTEX_STRIDE: i32 = 72;
-
-/// Byte offset of each scene attribute in the exact (unpacked) layout.
-///
-/// The renderer points `glVertexAttribPointer` at these, so they are part of the
-/// same contract as [`packed_layout`]: a field added to [`Vertex`] without a
-/// matching entry here would silently feed a shader attribute the wrong bytes.
-/// `exact_layout_offsets_match_the_vertex_struct` pins every one of them against
-/// `offset_of!(Vertex, ...)`, which is what makes that mistake impossible to
-/// land unnoticed.
-pub mod exact_layout {
-    /// Offset of `a_pos`, in bytes.
-    pub const POS_OFFSET: i32 = 0;
-    /// Offset of `a_color`, in bytes.
-    pub const COLOR_OFFSET: i32 = 12;
-    /// Offset of `a_uv`, in bytes.
-    pub const UV_OFFSET: i32 = 28;
-    /// Offset of `a_normal`, in bytes.
-    pub const NORMAL_OFFSET: i32 = 36;
-    /// Offset of `a_tangent`, in bytes.
-    pub const TANGENT_OFFSET: i32 = 48;
-    /// Offset of `a_handedness`, in bytes.
-    pub const HANDEDNESS_OFFSET: i32 = 60;
-    /// Offset of `a_lightmap_uv`, in bytes.
-    pub const LIGHTMAP_OFFSET: i32 = 64;
-    /// Offset of `a_lightmap_page`, in bytes.
-    pub const LIGHTMAP_PAGE_OFFSET: i32 = 68;
-}
-
-pub mod packed_layout {
-    /// Offset of `a_pos`, in bytes.
-    pub const POS_OFFSET: i32 = 0;
-    /// Offset of `a_uv`, in bytes.
-    pub const UV_OFFSET: i32 = 12;
-    /// Offset of `a_color`, in bytes.
-    pub const COLOR_OFFSET: i32 = 20;
-    /// Offset of `a_lightmap_uv`, in bytes.
-    pub const LIGHTMAP_OFFSET: i32 = 24;
-    /// Offset of `a_normal`, in bytes.
-    pub const NORMAL_OFFSET: i32 = 28;
-    /// Offset of `a_tangent`, in bytes.
-    pub const TANGENT_OFFSET: i32 = 31;
-    /// Offset of `a_handedness`, in bytes.
-    pub const HANDEDNESS_OFFSET: i32 = 34;
-    /// Offset of `a_lightmap_page`, in bytes.
-    pub const LIGHTMAP_PAGE_OFFSET: i32 = 35;
-    /// Bytes between consecutive vertices.
-    pub const STRIDE: i32 = 36;
-}
-
-impl From<&Vertex> for PackedVertex {
-    fn from(vertex: &Vertex) -> Self {
-        Self {
-            pos: vertex.pos,
-            uv: vertex.uv,
-            color: [
-                quantize_unit(vertex.color[0]),
-                quantize_unit(vertex.color[1]),
-                quantize_unit(vertex.color[2]),
-                quantize_unit(vertex.color[3]),
-            ],
-            lightmap: vertex.lightmap,
-            normal: quantize_normal(vertex.normal),
-            tangent: quantize_normal(vertex.tangent),
-            handedness: if vertex.handedness < 0.0 { -127 } else { 127 },
-            lightmap_page: vertex.lightmap_page,
-        }
-    }
-}
-
-impl From<Vertex> for PackedVertex {
-    fn from(vertex: Vertex) -> Self {
-        Self::from(&vertex)
-    }
-}
-
 /// Maps a unit-interval float to a normalised byte, rounding to nearest.
 ///
 /// The input is clamped rather than wrapped: a value outside [0, 1] (a malformed
 /// level, an over-bright hand-authored shade) must stay at the closest legal
 /// value instead of flipping to the opposite end of the range.
 ///
-/// This is the one quantiser both GPU backends use for a vertex colour: the
-/// packed OpenGL layout uploads it as a normalised unsigned byte, and the wgpu
-/// world vertex declares `Unorm8x4`, so both see exactly `byte / 255`.
+/// The wgpu world vertex declares `Unorm8x4`, so a surface sees exactly
+/// `byte / 255`.
 #[must_use]
 pub fn quantize_unit(value: f32) -> u8 {
     if value.is_nan() {
@@ -257,42 +129,6 @@ pub fn quantize_unit(value: f32) -> u8 {
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let byte = clamped.mul_add(255.0, 0.5) as u8;
     byte
-}
-
-/// Maps a unit vector to three normalised signed bytes, rounding to nearest.
-///
-/// A non-finite component becomes zero, and a vector that quantises to nothing
-/// falls back to +Z: a degenerate frame must stay a defined direction rather
-/// than a zero normal the shader would normalise into a NaN.
-#[must_use]
-fn quantize_normal(vector: [f32; 3]) -> [i8; 3] {
-    let mut packed = [0i8; 3];
-    for (slot, value) in packed.iter_mut().zip(vector) {
-        if !value.is_finite() {
-            continue;
-        }
-        // `clamp` handles the infinities by saturation; the scaled value is in
-        // [-127, 127], which an `i8` holds exactly.
-        let scaled = (value.clamp(-1.0, 1.0) * 127.0).round();
-        #[allow(clippy::cast_possible_truncation)]
-        let byte = scaled as i8;
-        *slot = byte;
-    }
-    if packed == [0i8; 3] {
-        return [0, 0, 127];
-    }
-    packed
-}
-
-/// The exact value a normalised signed byte decodes to, for tests and audits.
-#[must_use]
-pub fn dequantize_normal(byte: i8) -> f32 {
-    if byte == -128 {
-        // `-128 / 127` is the normalised decode of the one byte outside the
-        // symmetric range; clamping keeps the result inside [-1, 1].
-        return -1.0;
-    }
-    f32::from(byte) / 127.0
 }
 
 /// The exact value a normalised byte decodes to, for tests and audits.
@@ -528,8 +364,8 @@ impl SurfaceKind {
 /// Splitting each material by spatial cell keeps the draw shape (one texture,
 /// one buffer, one call per range) while letting the frustum drop whole cells.
 ///
-/// `index_range` addresses the index buffer of GPU chunk `chunk`, so the GPU
-/// reads the range through `glDrawElements` and shades only the distinct
+/// `index_range` addresses the index buffer of GPU chunk `chunk`, so a draw
+/// reads the range through its index buffer and shades only the distinct
 /// vertices in it.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct StaticBatch {
@@ -980,10 +816,10 @@ fn span_for(spans: &[Option<(i32, i32)>], kind: SurfaceKind) -> BatchRange {
 /// Packs indexed ranges into GPU buffers that stay addressable with 16-bit
 /// indices.
 ///
-/// `GL_UNSIGNED_SHORT` is the only index type OpenGL ES 2.0 guarantees without
-/// an extension, and core ES 2.0 has no `glDrawElementsBaseVertex`, so an index
-/// is always an offset into the bound vertex buffer. A level whose props expand
-/// past 65 536 vertices therefore needs several buffer pairs rather than one;
+/// The renderer-neutral mesh format is built on 16-bit indices (the historical
+/// OpenGL ES 2.0 floor, with no base-vertex offset), so an index is always an
+/// offset into the bound vertex buffer. A level whose props expand past
+/// 65 536 vertices therefore needs several buffer pairs rather than one;
 /// this helper fills them in order and re-bases each range's indices as it goes.
 #[derive(Default)]
 pub struct MeshPacker {
@@ -992,45 +828,12 @@ pub struct MeshPacker {
 
 /// One vertex/index pair, small enough for 16-bit indices.
 ///
-/// Vertices stay in the exact build representation here; the GPU layout is
-/// chosen at upload time by [`VertexLayout`].
+/// Vertices stay in the exact build representation here; the renderer chooses
+/// the GPU layout at upload time.
 #[derive(Default)]
 pub struct MeshChunk {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u16>,
-}
-
-/// Which GPU vertex layout to upload with.
-///
-/// Both layouts draw identical geometry; `Packed` is the shipping default and
-/// `Exact` exists only so the debug benchmark can measure what the 36 -> 24 byte
-/// reduction is worth on the same build, with every other variable held fixed.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum VertexLayout {
-    /// `PackedVertex`: 24 bytes per vertex, colour as normalised bytes.
-    Packed,
-    /// `Vertex`: 36 bytes per vertex, every attribute an `f32`.
-    Exact,
-}
-
-impl VertexLayout {
-    /// Bytes one vertex occupies in this layout.
-    #[must_use]
-    pub const fn stride(self) -> i32 {
-        match self {
-            Self::Packed => packed_layout::STRIDE,
-            Self::Exact => EXACT_VERTEX_STRIDE,
-        }
-    }
-
-    /// Bytes one vertex occupies on the GPU in this layout.
-    #[must_use]
-    pub const fn vertex_bytes(self) -> usize {
-        match self {
-            Self::Packed => std::mem::size_of::<PackedVertex>(),
-            Self::Exact => std::mem::size_of::<Vertex>(),
-        }
-    }
 }
 
 /// Where one packed range landed, in chunk-local coordinates.
@@ -1123,33 +926,14 @@ impl MeshPacker {
         placements
     }
 
-    /// Appends a range, expanding it into a flat triangle list first.
-    ///
-    /// Only used by the debug benchmark's `PLACES_BENCH_NOINDEX` mode, which
-    /// measures what indexed submission is worth while every other variable
-    /// (spatial batching, culling, vertex layout, draw order) is held fixed.
-    pub fn push_unindexed(&mut self, vertices: &[Vertex], indices: &[u16]) -> Vec<PackedRange> {
-        let mut flat: Vec<Vertex> = Vec::with_capacity(indices.len());
-        let mut flat_indices: Vec<u16> = Vec::with_capacity(indices.len());
-        for index in indices {
-            let Some(vertex) = vertices.get(*index as usize) else {
-                continue;
-            };
-            if flat.len() >= crate::spatial::MAX_INDEX_VERTICES {
-                break;
-            }
-            flat_indices.push(u16::try_from(flat.len()).unwrap_or(u16::MAX));
-            flat.push(*vertex);
-        }
-        self.push(&flat, &flat_indices)
-    }
-
     /// Total distinct vertices across every chunk.
+    #[cfg(test)]
     pub fn vertex_total(&self) -> usize {
         self.chunks.iter().map(|chunk| chunk.vertices.len()).sum()
     }
 
     /// Total indices across every chunk.
+    #[cfg(test)]
     pub fn index_total(&self) -> usize {
         self.chunks.iter().map(|chunk| chunk.indices.len()).sum()
     }

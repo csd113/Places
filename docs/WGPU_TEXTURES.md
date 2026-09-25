@@ -7,9 +7,9 @@ mip chains, shared samplers, deliberate sRGB/linear formats and a deterministic
 fallback. Every world draw samples its material's base-colour texture through
 the UV the Stage 5 vertex carries, and Stage 7's material stage consumes the
 same cache for normal maps through the `DataLinear` semantic this document
-reserved. The OpenGL/GLES2 renderer remains the complete reference
-implementation and the default (`PLACES_RENDERER` unset); its output is
-unchanged.
+reserved. **Stage 11 note:** the OpenGL/GLES2 renderer was removed from
+mainline and preserved at the `renderer-gles2-reference` tag; the wgpu renderer
+is now the only implementation.
 
 This document is the Stage 6 handoff. It complements
 [WGPU_BOOTSTRAP.md](WGPU_BOOTSTRAP.md) (lifecycle) and

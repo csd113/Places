@@ -86,7 +86,7 @@ impl LightmapFailure {
 
 /// Number of atlas pages the world program can sample at once.
 ///
-/// Two texture units are bound for every world draw and the vertex's page byte
+/// Both atlas pages are bound for every world draw and the vertex's page byte
 /// selects between them, so a bake that needs more than this cannot render its
 /// lightmaps correctly and must fall back to vertex lighting instead of
 /// dropping pages silently. Mirrors `render::view::LIGHTMAP_PAGE_SLOTS`.

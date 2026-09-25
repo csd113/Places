@@ -4,8 +4,14 @@ Status: **Stage 8 is implemented in the working tree; Stage 9 extended it with
 the reference lightmap atlas, reflections, props, emission, decals, post
 processing, fog and the HUD.** The wgpu world pass now
 renders the Places baked lighting model and the reference renderer's
-view-dependent sheen. It consumes the renderer-neutral bake (`src/lighting/**`)
-through the historical vertex-lit build, so the room baselines, fixture pools,
+view-dependent sheen.
+
+**Stage 11:** the OpenGL/GLES2 renderer was removed from mainline and
+preserved at the `renderer-gles2-reference` tag; the wgpu renderer described
+here is the only implementation. See [RENDERER_REFERENCE.md](RENDERER_REFERENCE.md).
+
+It consumes the renderer-neutral bake (`src/lighting/**`) through the
+historical vertex-lit build, so the room baselines, fixture pools,
 opening blends, partition and storey isolation and static-occluder shadows all
 reach the image exactly as they do in the OpenGL reference's vertex-lit mode.
 The normal atlas path, reflections, dynamic-object probes, fixtures, props and

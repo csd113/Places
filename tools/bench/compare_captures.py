@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Compare two captured view sets numerically, per view and per profile.
 
-The Stage 8 checkpoint needs the *size* of the difference between the wgpu
-renderer and the OpenGL reference, not just a byte-equality verdict: the two
-renderers deliberately differ this stage (no lightmap atlas yet, no props, no
-fixtures, no fog or post-processing). This tool reports, per view:
+Comparing two renderers (for example the preserved OpenGL reference at the
+`renderer-gles2-reference` tag against the current wgpu renderer) needs the
+*size* of the difference, not just a byte-equality verdict. This tool reports,
+per view:
 
     mean absolute difference per channel (0..255)
     the share of pixels whose worst channel differs by more than 8/255

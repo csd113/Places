@@ -1,7 +1,7 @@
 //! Neutral counters describing a level build and a submitted frame.
 //!
-//! The OpenGL backend fills these in; the benchmark harness and the developer
-//! logs read them. They contain no GPU resources, only numbers.
+//! The renderer fills these in; the benchmark harness and the developer logs
+//! read them. They contain no GPU resources, only numbers.
 
 /// Cost and shape of the last level build, split by stage so a hardware run can
 /// tell an expensive geometry bake from an expensive prop instancing pass.
@@ -71,7 +71,7 @@ pub struct RenderStats {
     pub total_batches: usize,
     /// Batches that survived culling and were submitted.
     pub visible_batches: usize,
-    /// `glDrawArrays`/`glDrawElements` calls issued for the scene.
+    /// Draw calls issued for the scene.
     pub draw_calls: usize,
     /// Draw calls the dynamic-object path submitted this frame: one per object
     /// per material, never one per vertex.
@@ -82,9 +82,9 @@ pub struct RenderStats {
     pub vbo_bytes: usize,
     /// Bytes resident in element (index) buffers.
     pub index_bytes: usize,
-    /// `glBindTexture` calls the scene and presentation passes issued. One
-    /// material change costs three (albedo, emission mask, normal map); a run
-    /// of batches that share a material costs none.
+    /// Texture binds the scene and presentation passes issued. One material
+    /// change can cost several (albedo, emission mask, normal map); a run of
+    /// batches that share a material costs none.
     pub texture_binds: usize,
     /// Surface-state changes the scene passes applied: one per material change
     /// per pass, plus the pass switches that invalidate the cache.

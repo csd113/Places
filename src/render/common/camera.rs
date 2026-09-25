@@ -1,8 +1,8 @@
 //! The camera a frame is rendered from, and its view-projection.
 //!
 //! This is renderer-neutral: position, yaw, pitch and field of view are game
-//! state, and the matrix and frustum they produce are pure maths. Both the
-//! OpenGL backend and the per-frame preparation use them.
+//! state, and the matrix and frustum they produce are pure maths. The renderer
+//! and the per-frame preparation both use them.
 
 use super::view::DrawableSize;
 use crate::spatial::{DepthRange, Frustum};

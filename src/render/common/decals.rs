@@ -35,6 +35,37 @@ use super::LevelDef;
 /// epsilon.
 pub const DECAL_SURFACE_OFFSET_M: f32 = 2.0e-4;
 
+/// Depth bias the decal pass applies, as `(factor, units)`.
+///
+/// This is the *depth-buffer* half of the decal depth solution; the geometry
+/// half is [`DECAL_SURFACE_OFFSET_M`]. The bias is negative on both terms so it
+/// pulls a decal towards the camera:
+///
+/// * `units = -4` moves a decal four depth-buffer resolution steps towards the
+///   viewer. A coplanar decal needs only a couple of steps in the ideal case,
+///   but the depth a rasteriser interpolates for two different tessellations of
+///   the *same* plane routinely disagrees by more than that: the plane
+///   coefficients are fitted from different triangles, so the error grows with
+///   the depth slope and the triangle size. Four units keeps the marking in
+///   front of its parent surface in the near and mid field.
+/// * `factor = -1.0` adds one depth-slope of bias, which is what keeps a decal
+///   winning at grazing angles and at long range, where the constant term is
+///   below the buffer's resolution. A slope-scaled term is exactly what a
+///   coplanar decoration needs: the interpolation disagreement is proportional
+///   to the depth slope too, so the bias tracks it instead of being outrun by
+///   it as the camera changes distance and angle.
+///
+/// Both are window-depth offsets, not a physical separation, so they cannot
+/// make a decal hang in the air. [`DECAL_SURFACE_OFFSET_M`] checks the rendered
+/// result's near-field ordering; this bias carries the far field and grazing
+/// angles, where no sub-millimetre physical offset is resolvable. The historical
+/// OpenGL pass fed the pair to `glPolygonOffset`; the wgpu decal pass maps it to
+/// its fixed-point depth-bias state.
+pub const DECAL_POLYGON_OFFSET: (f32, f32) = (-1.0, -4.0);
+
+/// Alpha below which the decal pass discards a decal texel.
+pub const DECAL_ALPHA_CUTOFF: f32 = 0.5;
+
 /// Generated decal sheet id for the internal validation marking.
 ///
 /// This is the only pattern the renderer still draws: it exists to exercise the

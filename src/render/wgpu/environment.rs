@@ -4,10 +4,10 @@
 //! besides the camera, the draw's base texture and its material: the baked-light
 //! switch and scale, the fog constants, the two lightmap atlas pages, the
 //! reflection probe cubemap and the planar mirror image, plus the active planar
-//! mirror's projection and plane. The reference stores every one of those as a
+//! mirror's projection and plane. The reference stored every one of those as a
 //! separate program uniform or texture unit; they are grouped here because they
-//! change on the same events (level load, resize, planar capture) and wgpu
-//! allows four bind groups.
+//! change on the same events (level load, resize, planar capture) and are read
+//! together by every world draw.
 //!
 //! Nothing here creates resources per frame. The uniform buffer is written
 //! per frame only when a planar capture is active (matrix and plane change);

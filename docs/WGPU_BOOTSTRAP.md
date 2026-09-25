@@ -8,8 +8,11 @@ that describe a clear-only frame are the Stage 4 record, and the places Stage 5
 changed them are marked. **Stage 10 note:** the backend now draws the complete
 reference frame (Stages 8-9) and its lifecycle — resize, minimize, reload,
 quality switch, capture, shutdown — was validated in Stage 10
-([WGPU_STAGE10.md](WGPU_STAGE10.md)). The OpenGL renderer remains the
-reference implementation and the default.
+([WGPU_STAGE10.md](WGPU_STAGE10.md)). **Stage 11 note:** the wgpu backend is now
+the only renderer; the `PLACES_RENDERER` selector and the OpenGL/GLES2 reference
+renderer were removed from mainline and preserved at the
+`renderer-gles2-reference` tag ([RENDERER_REFERENCE.md](RENDERER_REFERENCE.md)).
+The selector sections below are the Stage 4 record.
 
 This document is the Stage 4 record: it says what Stage 4 established, why, and
 what later stages may rely on.
@@ -41,9 +44,13 @@ to the OpenGL API is impossible by construction. `wgsl` was not enabled in
 Stage 4 (no shader module existed); **Stage 5 enabled it** for the world
 pipeline.
 
-## 2. Temporary renderer selector
+## 2. Temporary renderer selector (retired in Stage 11)
 
-`PLACES_RENDERER` chooses the implementation **once, before the SDL window is
+> Stage 11 removed `PLACES_RENDERER` together with the OpenGL renderer: the
+> engine always initializes wgpu. The subsection below records the Stage 4
+> mechanism that made the port possible.
+
+`PLACES_RENDERER` chose the implementation **once, before the SDL window was
 created**:
 
 ```text
@@ -51,23 +58,22 @@ PLACES_RENDERER=opengl   (default)  the complete reference renderer
 PLACES_RENDERER=wgpu                the Stage 4 bootstrap renderer
 ```
 
-- Unset or empty selects `opengl`.
-- Any other value fails the process with a message naming the value and the
+- Unset or empty selected `opengl`.
+- Any other value failed the process with a message naming the value and the
   accepted choices.
-- There is no UI switch, no saved setting, no runtime hot-swap and no automatic
-  fallback: `PLACES_RENDERER=wgpu` either initializes wgpu or reports why not.
+- There was no UI switch, no saved setting, no runtime hot-swap and no automatic
+  fallback: `PLACES_RENDERER=wgpu` either initialized wgpu or reported why not.
 
-This is a migration mechanism, not a player-facing feature; it is expected to
-be replaced by a permanently selected backend once the wgpu world renderer is
-complete (Stage 5+).
+This was a migration mechanism, not a player-facing feature; Stage 11 replaced
+it with the permanently selected wgpu backend.
 
 ## 3. Native backend policy
 
 | Platform | Backend | Verified |
 |---|---|---|
-| macOS | Metal | runtime (`PLACES_RENDERER=wgpu`, adapter line reports `Metal`) |
-| Linux | Vulkan | source/configuration reviewed; Stage 15 validates |
-| Windows | Direct3D 12 | source/configuration reviewed; Stage 15 validates |
+| macOS | Metal | runtime (adapter line reports `Metal`; Stage 10 parity gate) |
+| Linux | Vulkan | source/configuration reviewed; not yet executed (Stage 12 gate) |
+| Windows | Direct3D 12 | source/configuration reviewed; not yet executed (Stage 12 gate) |
 
 `render::wgpu::surface::NATIVE_BACKEND` is the single backend per target. Before
 `Instance::new`, the renderer checks that the platform has a compiled backend.
@@ -78,11 +84,12 @@ uses the default power preference.
 
 ## 4. SDL2 surface strategy
 
-SDL2 remains the platform layer. The wgpu path builds its window with
-`metal_view()` on macOS (SDL requires an `SDL_MetalView` for its
-raw-window-handle implementation) and requests **no** OpenGL attributes and no
-`.opengl()` flag; no GL context is created. `main` parses the selector before
-`SDL_CreateWindow`, so the two paths never share window assumptions.
+SDL2 remains the platform layer. The window is built with `metal_view()` on
+macOS (SDL requires an `SDL_MetalView` for its raw-window-handle implementation)
+and requests no OpenGL attributes and no `.opengl()` flag; no GL context is
+created. During the migration the selector was parsed before `SDL_CreateWindow`
+so the two paths never shared window assumptions; since Stage 11 there is only
+the wgpu window.
 
 `render::wgpu::surface::create` copies the window's raw window/display handles
 with `SurfaceTargetUnsafe::from_display_and_window` and calls
@@ -165,7 +172,7 @@ gamma-parity work is attempted here.
 
 Stage 4 never enables uncapped/tearing presentation by default, and
 `set_swap_interval` reconfigures the surface live when the player changes the
-setting, exactly as the OpenGL path reapplies `SDL_GL_SetSwapInterval`.
+setting, as the historical OpenGL path did with `SDL_GL_SetSwapInterval`.
 
 ## 8. Depth target
 
@@ -253,9 +260,10 @@ samplers and base-colour sampling (see [WGPU_TEXTURES.md](WGPU_TEXTURES.md));
 Stage 7 added the material system: resolved material states, normal maps, the
 opaque/cut-out/translucent pipelines and the material WGSL (see
 [WGPU_MATERIALS.md](WGPU_MATERIALS.md)).
-**Lighting, shadows, lightmaps, reflections, emission, props, fixtures, decals
-and UI are still absent.** `PLACES_CAPTURE` still reports that the wgpu backend
-cannot capture frames rather than writing a wrong image.
+Stages 8-9 delivered everything that was still absent at that point —
+lighting, the lightmap atlas, reflections, emission, props, fixtures, decals,
+fog, post-processing and the UI — and Stage 10 validated them; `PLACES_CAPTURE`
+reads the finished frame back.
 
 ## 14. Diagnostics
 

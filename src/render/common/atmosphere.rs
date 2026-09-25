@@ -49,14 +49,6 @@ impl FogState {
         height_gain: 0.045,
     };
 
-    /// Fog with no effect at all: what the HUD draws with.
-    pub const NONE: Self = Self {
-        color: [0.0; 3],
-        density: 0.0,
-        reference_y: 0.0,
-        height_gain: 0.0,
-    };
-
     /// The fraction of fog at `distance` metres and `height` metres.
     ///
     /// Mirrors the shader's arithmetic exactly, so a test can pin the numbers a
@@ -118,7 +110,12 @@ mod tests {
 
     #[test]
     fn a_zero_density_fog_is_exactly_off() {
-        let fog = FogState::NONE;
+        let fog = FogState {
+            color: [0.0; 3],
+            density: 0.0,
+            reference_y: 0.0,
+            height_gain: 0.0,
+        };
         assert!(close(fog.amount(1000.0, -20.0), 0.0));
     }
 

@@ -2,12 +2,11 @@
 # Captures the fixed validation views into target/agent-work/captures/.
 #
 # Every view is a fixed spawn and camera, so the same command produces the same
-# image on any machine and the before/after, Full/Low, direct and no-post runs
-# are directly comparable. Run from the repository root:
+# image on any machine and the before/after, Full/Low and no-post runs are
+# directly comparable. Run from the repository root:
 #
 #     sh tools/bench/capture_views.sh                       # Full profile
 #     PLACES_QUALITY=low sh tools/bench/capture_views.sh
-#     PLACES_NO_OFFSCREEN=1 sh tools/bench/capture_views.sh
 #     PLACES_NO_BLOOM=1 sh tools/bench/capture_views.sh
 #     PLACES_NO_REFLECTIONS=1 sh tools/bench/capture_views.sh
 #
@@ -35,9 +34,6 @@ esac
 SUFFIX=""
 if [ "${PLACES_QUALITY:-full}" = "low" ]; then
     SUFFIX="${SUFFIX}_low"
-fi
-if [ "${PLACES_NO_OFFSCREEN:-0}" = "1" ]; then
-    SUFFIX="${SUFFIX}_direct"
 fi
 if [ "${PLACES_NO_BLOOM:-0}" = "1" ]; then
     SUFFIX="${SUFFIX}_nobloom"

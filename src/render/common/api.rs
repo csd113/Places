@@ -91,9 +91,9 @@ pub struct LightmapBuildOptions {
     /// writes the material factor (tint × directional face shade) into its
     /// vertex colours, exactly the colours a lightmapped build writes.
     ///
-    /// The wgpu Stage 7 renderer consumes this: it wants the surface's material
-    /// and leaves lighting to a later stage. It must never reach the OpenGL
-    /// backend (whose vertex-lit fallback requires baked light in the colour).
+    /// The material-only renderer build consumes this: it wants the surface's
+    /// material and leaves lighting to a later stage. It must never reach the
+    /// vertex-lit fallback path (which requires baked light in the colour).
     /// When set, [`LightmapMode`] must be `Off`; the field is ignored by the
     /// atlas path.
     pub material_only: bool,

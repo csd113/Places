@@ -1,19 +1,13 @@
 //! Stage 3/4 boundary guards.
 //!
-//! Three cheap kinds of check:
+//! The checks are deliberately simple string scans over the repository
+//! sources: they fail if a wgpu type leaks out of its backend module, if the
+//! renderer-neutral layer grows a dependency on the backend, or if an engine
+//! module reaches into the backend. They are the repository-level statement of
+//! the ownership rules in `docs/RENDERER_BOUNDARY.md`.
 //!
-//! * **Source scans** that fail if a GL or wgpu type leaks out of its backend
-//!   module, if the renderer-neutral layer grows a dependency on a backend, or
-//!   if an engine module reaches into a backend. These are deliberately simple
-//!   string scans over the repository sources; they are the repository-level
-//!   statement of the ownership rules in `docs/RENDERER_BOUNDARY.md`.
-//! * **Preparation tests** for the renderer-neutral `PreparedFrame`: the
-//!   frame-level decisions (target size, nearest probe, planar plane) are
-//!   exercised without a GL context.
-//!
-//! The facade (`src/render/facade.rs`) is the one place outside a backend
-//! module that dispatches to both; the selector (`src/render/backend.rs`) names
-//! neither API.
+//! The facade (`src/render/facade.rs`) is the one place outside the backend
+//! module that names it.
 
 // Test code: unwrap/expect, indexing and permissive arithmetic are idiomatic.
 #![allow(
@@ -24,13 +18,6 @@
 )]
 
 use std::path::{Path, PathBuf};
-
-use super::common::camera::RenderCamera;
-use super::common::frame::{FrameState, PreparedFrame};
-use super::common::reflections::{ReflectionPlane, Reflections};
-use super::common::view::DrawableSize;
-use crate::quality::QualityProfile;
-use crate::spatial::Aabb;
 
 /// Repository root, from the compile-time manifest directory.
 fn repo_root() -> PathBuf {
@@ -71,17 +58,8 @@ fn all_sources() -> Vec<(String, String)> {
         .collect()
 }
 
-/// True for files allowed to name the OpenGL API: the backend itself, the
-/// in-crate test suite and these guards.
-fn may_name_gl(rel: &str) -> bool {
-    rel.starts_with("src/render/opengl/")
-        || rel == "src/render/tests.rs"
-        || rel == "src/render/boundary_tests.rs"
-}
-
-/// True for files allowed to name the wgpu API: the backend itself, the facade
-/// that dispatches to both backends, the selector's module root and the
-/// in-crate test suites.
+/// True for files allowed to name the wgpu API: the backend itself, the
+/// facade that owns it, the module root and the in-crate test suites.
 fn may_name_wgpu(rel: &str) -> bool {
     rel.starts_with("src/render/wgpu/")
         || rel == "src/render/facade.rs"
@@ -91,31 +69,12 @@ fn may_name_wgpu(rel: &str) -> bool {
 }
 
 #[test]
-fn only_the_opengl_backend_names_glow() {
-    let mut offenders = Vec::new();
-    for (rel, text) in all_sources() {
-        if may_name_gl(&rel) {
-            continue;
-        }
-        if text.contains("glow::")
-            || text.contains("use glow")
-            || text.contains("extern crate glow")
-        {
-            offenders.push(rel);
-        }
-    }
-    assert!(
-        offenders.is_empty(),
-        "GL types must stay inside render::opengl; found in: {offenders:?}"
-    );
-}
-
-#[test]
-fn the_engine_bootstrap_owns_no_gl_calls() {
+fn the_engine_bootstrap_owns_no_platform_gpu_calls() {
     // The window/context calls main used to make (`gl_swap_window`,
-    // `gl_attr`, `gl_create_context`, `gl_set_swap_interval`, …) are behind
-    // `render::opengl::context` and reached through the `render` facade.
-    const GL_CALLS: [&str; 7] = [
+    // `gl_attr`, `gl_create_context`, `.opengl()`, …) and the wgpu window flag
+    // (`metal_view`) are behind `render`: main builds a plain window and lets
+    // the facade apply the platform flags.
+    const GPU_WINDOW_CALLS: [&str; 8] = [
         "gl_swap_window(",
         "gl_create_context(",
         ".gl_attr(",
@@ -123,44 +82,20 @@ fn the_engine_bootstrap_owns_no_gl_calls() {
         "gl_get_swap_interval(",
         "gl_make_current(",
         ".opengl()",
+        ".metal_view()",
     ];
     let mut offenders = Vec::new();
     for (rel, text) in all_sources() {
-        if may_name_gl(&rel) {
+        if rel.starts_with("src/render/") {
             continue;
         }
-        if GL_CALLS.iter().any(|call| text.contains(call)) {
+        if GPU_WINDOW_CALLS.iter().any(|call| text.contains(call)) {
             offenders.push(rel);
         }
     }
     assert!(
         offenders.is_empty(),
-        "GL calls must stay inside the OpenGL backend; found in: {offenders:?}"
-    );
-}
-
-#[test]
-fn engine_modules_do_not_import_the_opengl_backend() {
-    let mut offenders = Vec::new();
-    for (rel, text) in all_sources() {
-        if may_name_gl(&rel) || rel == "src/render.rs" {
-            continue;
-        }
-        // Doc comments may *describe* the backend; code may not reach into it.
-        for line in text.lines() {
-            let trimmed = line.trim_start();
-            if trimmed.starts_with("//") {
-                continue;
-            }
-            if trimmed.contains("crate::render::opengl") || trimmed.contains("render::opengl::") {
-                offenders.push(format!("{rel}: {trimmed}"));
-                break;
-            }
-        }
-    }
-    assert!(
-        offenders.is_empty(),
-        "the OpenGL backend is reached only through render::Renderer; found in: {offenders:?}"
+        "GPU window calls must stay inside render; found in: {offenders:?}"
     );
 }
 
@@ -171,15 +106,12 @@ fn the_neutral_layer_does_not_depend_on_the_backend() {
         if !rel.starts_with("src/render/common/") {
             continue;
         }
-        if text.contains("glow::") || text.contains("wgpu::") {
+        if text.contains("wgpu::") {
             offenders.push(format!("{rel} (backend type)"));
         }
         for line in text.lines() {
             let line = line.trim_start();
-            if line.starts_with("use ")
-                && (line.contains("opengl") || line.contains("wgpu") || line.contains("glow"))
-                && !line.contains("//")
-            {
+            if line.starts_with("use ") && line.contains("wgpu") && !line.contains("//") {
                 offenders.push(format!("{rel}: {line}"));
             }
         }
@@ -214,7 +146,7 @@ fn only_the_wgpu_backend_and_facade_name_wgpu() {
 fn engine_modules_do_not_import_a_renderer_backend() {
     let mut offenders = Vec::new();
     for (rel, text) in all_sources() {
-        if may_name_gl(&rel) || may_name_wgpu(&rel) {
+        if may_name_wgpu(&rel) {
             continue;
         }
         // Doc comments may *describe* a backend; code may not reach into one.
@@ -223,11 +155,7 @@ fn engine_modules_do_not_import_a_renderer_backend() {
             if trimmed.starts_with("//") {
                 continue;
             }
-            if trimmed.contains("crate::render::opengl")
-                || trimmed.contains("render::opengl::")
-                || trimmed.contains("crate::render::wgpu")
-                || trimmed.contains("render::wgpu::")
-            {
+            if trimmed.contains("crate::render::wgpu") || trimmed.contains("render::wgpu::") {
                 offenders.push(format!("{rel}: {trimmed}"));
                 break;
             }
@@ -236,115 +164,5 @@ fn engine_modules_do_not_import_a_renderer_backend() {
     assert!(
         offenders.is_empty(),
         "backends are reached only through render::Renderer; found in: {offenders:?}"
-    );
-}
-
-/// A neutral level state with one mirror plane in front of the camera.
-fn plane_in_front() -> Reflections {
-    let mut reflections = Reflections::default();
-    reflections.routing.planes.push(ReflectionPlane {
-        normal: [0.0, 1.0, 0.0],
-        offset: 1.5,
-        bounds: Aabb {
-            min: [-4.0, -1.5, -4.0],
-            max: [4.0, -1.5, 4.0],
-        },
-    });
-    reflections
-}
-
-#[test]
-fn prepared_frame_is_none_for_an_empty_drawable() {
-    let camera = RenderCamera::new(glam::Vec3::ZERO, 0.0, 0.0, 60.0);
-    let reflections = Reflections::default();
-    let frame = PreparedFrame::plan(&FrameState {
-        camera,
-        drawable: DrawableSize::new(0, 0),
-        quality: QualityProfile::Full,
-        offscreen_enabled: true,
-        offscreen_failed: false,
-        culling: true,
-        reflections: &reflections,
-        probe_positions: &[],
-    });
-    assert!(frame.is_none(), "a zero drawable has nothing to render");
-}
-
-#[test]
-fn prepared_frame_picks_the_nearest_probe_and_the_low_cap() {
-    let camera = RenderCamera::new(glam::Vec3::ZERO, 0.0, 0.0, 60.0);
-    let reflections = Reflections::default();
-    let probes = [[40.0, 1.0, 0.0], [3.0, 1.0, 0.0]];
-    let mut frame = PreparedFrame::plan(&FrameState {
-        camera,
-        drawable: DrawableSize::new(1920, 1080),
-        quality: QualityProfile::Low,
-        offscreen_enabled: true,
-        offscreen_failed: false,
-        culling: true,
-        reflections: &reflections,
-        probe_positions: &probes,
-    })
-    .expect("a drawable plans a frame");
-
-    // The nearest probe wins; the second is nearer the origin.
-    assert_eq!(frame.probe, Some(1));
-    assert_eq!(frame.target_size, Some(DrawableSize::new(480, 270)));
-    frame.begin_scene(true, &reflections.routing);
-    assert_eq!(frame.render_size, DrawableSize::new(480, 270));
-    assert!(frame.offscreen);
-}
-
-#[test]
-fn prepared_frame_selects_the_visible_mirror_plane() {
-    let camera = RenderCamera::new(glam::Vec3::ZERO, 0.0, 0.0, 60.0);
-    let reflections = plane_in_front();
-    let mut frame = PreparedFrame::plan(&FrameState {
-        camera,
-        drawable: DrawableSize::new(1280, 720),
-        quality: QualityProfile::Full,
-        offscreen_enabled: true,
-        offscreen_failed: false,
-        culling: true,
-        reflections: &reflections,
-        probe_positions: &[],
-    })
-    .expect("a drawable plans a frame");
-    assert!(
-        frame.planar_plane.is_none(),
-        "selection happens in begin_scene"
-    );
-    frame.begin_scene(true, &reflections.routing);
-    assert_eq!(
-        frame.planar_plane,
-        Some(0),
-        "the only plane is in front of the camera and must be reflected"
-    );
-}
-
-#[test]
-fn prepared_frame_never_reflects_with_reflections_switched_off() {
-    let camera = RenderCamera::new(glam::Vec3::ZERO, 0.0, 0.0, 60.0);
-    let mut reflections = plane_in_front();
-    reflections.set_enabled(false);
-    let mut frame = PreparedFrame::plan(&FrameState {
-        camera,
-        drawable: DrawableSize::new(1280, 720),
-        quality: QualityProfile::Full,
-        offscreen_enabled: true,
-        offscreen_failed: false,
-        culling: true,
-        reflections: &reflections,
-        probe_positions: &[[1.0, 1.0, 1.0]],
-    })
-    .expect("a drawable plans a frame");
-    frame.begin_scene(true, &reflections.routing);
-    assert!(
-        frame.probe.is_none(),
-        "disabled reflections sample no probe"
-    );
-    assert!(
-        frame.planar_plane.is_none(),
-        "disabled reflections draw no plane"
     );
 }

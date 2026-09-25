@@ -16,7 +16,6 @@ pub mod camera;
 pub mod decals;
 pub mod dynamic;
 pub mod fixtures;
-pub mod frame;
 pub mod framebuffer;
 pub mod geometry;
 pub mod materials;
@@ -39,9 +38,9 @@ pub use api::{
     logical_materials,
 };
 pub use decals::{
-    DECAL_EXTERNAL_BASE, DECAL_MATERIALS, DECAL_SURFACE_OFFSET_M, DECAL_TEST_MATERIAL,
-    decal_external_sheet_ids, decal_material_slot, decal_sheet_index, decal_uv_rect,
-    decal_uv_rect_full,
+    DECAL_ALPHA_CUTOFF, DECAL_EXTERNAL_BASE, DECAL_MATERIALS, DECAL_POLYGON_OFFSET,
+    DECAL_SURFACE_OFFSET_M, DECAL_TEST_MATERIAL, decal_external_sheet_ids, decal_material_slot,
+    decal_sheet_index, decal_uv_rect, decal_uv_rect_full,
 };
 pub use dynamic::{
     DEMO_DRUM_ID, DEMO_MACHINE_ID, DEMO_SPIN_DEGREES_PER_SECOND, DynamicId, DynamicMesh,
@@ -50,12 +49,10 @@ pub use dynamic::{
 };
 use fixtures::{add_flush_mount_fixture, add_panel_fixture, add_round_fixture, add_wall_fixture};
 use geometry::build_level_geometry_mesh;
-pub use mesh::packed_layout;
 pub use mesh::{
-    BatchRange, EXACT_VERTEX_STRIDE, LIGHTMAP_NONE, LevelMesh, LevelMeshBatches, LevelMeshRange,
-    MATERIAL_NONE, MaterialIndex, MaterialSlot, PackedVertex, StaticBatch, SurfaceKey, SurfaceKind,
-    SurfaceShine, Vertex, VertexLayout, dequantize_normal, dequantize_unit, exact_layout,
-    spatial_cell_grid,
+    BatchRange, LIGHTMAP_NONE, LevelMesh, LevelMeshBatches, LevelMeshRange, MATERIAL_NONE,
+    MaterialIndex, MaterialSlot, StaticBatch, SurfaceKey, SurfaceKind, SurfaceShine, Vertex,
+    dequantize_unit, spatial_cell_grid,
 };
 pub use mesh::{MeshChunk, MeshPacker, finish_indexed_mesh};
 pub use props::PropMeshBatch;

@@ -48,8 +48,9 @@ every lighting term, lightmaps, shadows, reflection sampling/capture, planar
 reflections, fog, emission and emissive masks, decals, props, fixture
 rendering, emissive bloom, UI and post-processing. Stages 8-9 implemented all
 of them; see [WGPU_STAGE9.md](WGPU_STAGE9.md) and
-[WGPU_STAGE10.md](WGPU_STAGE10.md). The OpenGL/GLES2 renderer remains the
-reference implementation and the default (`PLACES_RENDERER` unset).
+[WGPU_STAGE10.md](WGPU_STAGE10.md). **Stage 11 note:** the OpenGL/GLES2
+renderer was removed from mainline and preserved at the `renderer-gles2-reference`
+tag; the wgpu renderer is now the only implementation.
 
 ## 2. The source material model
 

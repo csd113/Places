@@ -2,10 +2,10 @@
 //! routing and the per-material parameters derived from the resolved material
 //! table.
 //!
-//! None of this touches a GPU resource; the OpenGL backend resolves texture
-//! slots to GL objects when it binds a draw.
+//! None of this touches a GPU resource; the renderer binds the resolved
+//! texture slots to its own GPU resources when it records a draw.
 
-use super::mesh::{StaticBatch, SurfaceKey, SurfaceKind};
+use super::mesh::{SurfaceKey, SurfaceKind};
 use crate::materials::{
     AlphaMode, MaterialAlpha, MaterialEmission, MaterialReflection, MaterialResponse, MaterialTable,
 };
@@ -23,15 +23,6 @@ pub enum BatchPass {
 }
 
 impl BatchPass {
-    /// The scene program this pass draws with.
-    #[must_use]
-    pub const fn program(self) -> ScenePass {
-        match self {
-            Self::Cutout => ScenePass::Cutout,
-            Self::Opaque | Self::Translucent => ScenePass::World,
-        }
-    }
-
     /// The pass a material's alpha contract implies.
     #[must_use]
     pub const fn of(alpha: MaterialAlpha) -> Self {
@@ -75,72 +66,6 @@ pub fn batch_pass_for(
         | SurfaceKind::PropFallback
         | SurfaceKind::Decal => BatchPass::Opaque,
     }
-}
-
-/// Collects every translucent static batch that should be drawn, and sorts them
-/// back to front.
-///
-/// `pass_of` answers which pass a key belongs to (the renderer's material table
-/// answers it in the frame loop, a test answers it directly) and `visible`
-/// answers whether a batch survived culling. Sorting is by the squared distance
-/// from the camera to each batch's centre, nearest last, so a nearer translucent
-/// surface blends *over* a farther one; two surfaces at the same distance keep
-/// their build order, which is deterministic.
-pub fn collect_translucent_draws(
-    batches: &[StaticBatch],
-    pass_of: impl Fn(SurfaceKey) -> BatchPass,
-    camera: glam::Vec3,
-    visible: impl Fn(&crate::spatial::Aabb) -> bool,
-    out: &mut Vec<TranslucentDraw>,
-) {
-    out.clear();
-    for (index, batch) in batches.iter().enumerate() {
-        if batch.index_range.count <= 0 || batch.key.kind == SurfaceKind::Decal {
-            continue;
-        }
-        if pass_of(batch.key) != BatchPass::Translucent {
-            continue;
-        }
-        if !visible(&batch.bounds) {
-            continue;
-        }
-        let centre = batch.bounds.centre();
-        let delta = glam::Vec3::new(
-            centre[0] - camera.x,
-            centre[1] - camera.y,
-            centre[2] - camera.z,
-        );
-        out.push(TranslucentDraw {
-            source: TranslucentSource::Static(index),
-            distance_sq: delta.length_squared(),
-        });
-    }
-    // Farthest first: a nearer surface must blend over a farther one.
-    out.sort_by(|left, right| {
-        right
-            .distance_sq
-            .partial_cmp(&left.distance_sq)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-}
-
-/// One item of the translucent pass, resolved to the batch it draws.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct TranslucentDraw {
-    pub source: TranslucentSource,
-    /// Squared distance from the camera to the batch's centre, used to sort the
-    /// pass back to front.
-    pub distance_sq: f32,
-}
-
-/// Where one translucent draw's geometry lives.
-///
-/// Only the static world contributes translucent geometry: a prop's glTF
-/// `alphaMode` is not parsed, so every placed model draws opaque.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TranslucentSource {
-    /// Index into [`Renderer::static_batches`].
-    Static(usize),
 }
 
 /// Which emission term one static surface batch draws with.
@@ -214,8 +139,8 @@ impl MaterialRenderState {
 ///
 /// This is the Stage 7 contract: it folds the resolved material table, the
 /// surface's per-surface shine override and the active quality profile into one
-/// description, applying exactly the rules the OpenGL renderer's
-/// `static_surface_state` applies for a floor, ceiling or wall. It references
+/// description, applying exactly the rules the reference renderer's
+/// `static_surface_state` applied for a floor, ceiling or wall. It references
 /// the neutral material table by index and never names a GPU object, so both
 /// backends and the tests share it.
 ///
@@ -296,9 +221,9 @@ impl ResolvedSurfaceMaterial {
 /// vertex colour and reflection *mode* are untouched — exactly the reference's
 /// Low behaviour. The reflection strength follows the zeroed sheen.
 ///
-/// This is the one place the surface-key → material-state rules live for a
-/// renderer: the wgpu backend consumes the result directly, and the OpenGL
-/// backend's draw path applies the same rules to its own GL objects.
+/// This is the one place the surface-key → material-state rules live: the
+/// renderer consumes the result directly, and the preserved reference
+/// renderer applied the same rules to its own GL objects.
 #[must_use]
 pub fn resolve_surface_material(
     key: SurfaceKey,
@@ -347,23 +272,4 @@ pub fn resolve_surface_material(
         reflection,
         response_enabled: live,
     }
-}
-
-/// Which fragment stage one draw uses.
-///
-/// The opaque world and the alpha-tested world are two *programs*, not one
-/// branch: a `discard` in a program can disable early depth testing for every
-/// draw that uses it, and the opaque world must keep it. The index is also the
-/// slot of the program's uniform locations.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ScenePass {
-    /// The opaque/translucent world stage.
-    World,
-    /// The same stage with an alpha cut-out.
-    Cutout,
-}
-
-impl ScenePass {
-    /// Every pass, in slot order.
-    pub const ALL: [Self; 2] = [Self::World, Self::Cutout];
 }

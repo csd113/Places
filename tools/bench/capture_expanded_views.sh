@@ -2,12 +2,13 @@
 # Captures the Stage 10 expanded parity view set: targeted cameras for the
 # render features the canonical 25-view set covers only incidentally
 # (geometry junctions, materials, lightmap regions, reflections, props,
-# decals, fog and height). Meant to be captured with BOTH renderers and
-# compared view by view, exactly like capture_baseline_views.sh:
+# decals, fog and height). Meant to be captured and compared view by view,
+# exactly like capture_baseline_views.sh; the historical OpenGL reference for
+# a comparison is preserved at the `renderer-gles2-reference` tag.
 #
-#     PLACES_ASSET_ROOT=$PWD/target/agent-work/stage10/baseline-assets/asset-root \
-#     PLACES_CAPTURE_DIR=$PWD/target/agent-work/stage10/expanded-opengl \
-#     PLACES_BASELINE_STATE=$PWD/target/agent-work/stage10/state/expanded-opengl \
+#     PLACES_ASSET_ROOT=$PWD/target/agent-work/baseline-assets/asset-root \
+#     PLACES_CAPTURE_DIR=$PWD/target/agent-work/verify/expanded \
+#     PLACES_BASELINE_STATE=$PWD/target/agent-work/verify/state/expanded \
 #         sh tools/bench/capture_expanded_views.sh
 #
 # The view list is a comment-annotated superset of the canonical features; it
@@ -21,7 +22,6 @@
 #   PLACES_CAPTURE_DIR    output root; the script writes <root>/high and <root>/low
 #   PLACES_QUALITY        capture only `full` or `low` instead of both
 #   PLACES_BASELINE_STATE scratch state root
-#   PLACES_RENDERER       opengl (default) or wgpu, read by the binary
 set -eu
 
 REPO=$(cd "$(dirname "$0")/../.." && pwd)

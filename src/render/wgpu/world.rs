@@ -124,9 +124,8 @@ pub const WORLD_ATTRIB_LIGHTMAP_PAGE: u32 = 7;
 /// tangent and bitangent sign), world-space tiling UV, the material/vertex-lit
 /// colour, and the lightmap atlas address.
 ///
-/// The colour is uploaded as `Unorm8x4` through [`quantize_unit`], exactly the
-/// quantisation the OpenGL packed layout applies, so both backends multiply by
-/// the same 8-bit values. In the atlas build it is the material factor
+/// The colour is uploaded as `Unorm8x4` through [`quantize_unit`], the same
+/// quantisation the reference's packed layout applied. In the atlas build it is the material factor
 /// (`tint × directional face shade`) with no baked light; in the vertex-lit
 /// build it also carries the bake.
 ///
@@ -561,7 +560,7 @@ pub fn environment_bind_group(
 
 /// True when a renderer-neutral range belongs to the wgpu static world draw set.
 ///
-/// The rule is the OpenGL static world's own draw set: the architectural
+/// The rule is the reference static world's own draw set: the architectural
 /// families (floors, ceilings and walls, including every piece the neutral
 /// builder emits under those kinds — ramps, stairs, half walls, columns,
 /// archways, guardrails, thresholds, baseboards, reveals and window panes), the
@@ -607,7 +606,7 @@ pub struct WorldChunk {
 
 /// One drawable range inside a chunk.
 ///
-/// Mirrors the OpenGL `StaticBatch` shape (chunk plus index range) plus the
+/// Mirrors the neutral `StaticBatch` shape (chunk plus index range) plus the
 /// material-stage fields: the range's [`MaterialIndex`], its per-surface shine
 /// override and the [`BatchPass`] its alpha contract implies. Those are the
 /// same values the neutral `SurfaceKey` already carries, not a complete
@@ -643,7 +642,7 @@ pub struct WorldDraw {
 /// What one upload produced, as plain counters.
 ///
 /// The neutral mesh numbers are recorded alongside the uploaded ones so the
-/// parity of the world draw set against the OpenGL preparation can be
+/// parity of the world draw set against the neutral preparation can be
 /// asserted in tests and named in the one load-time log line.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct WorldGeometryStats {
@@ -672,7 +671,7 @@ pub struct WorldGeometryStats {
 /// GPU-free so the draw set's coverage and counts are unit-testable: the
 /// returned packer holds exactly the chunks the upload will turn into buffers,
 /// and every [`WorldDraw`] addresses one placement of one selected range. The
-/// neutral [`MeshPacker`] chunks the ranges exactly as the OpenGL upload does,
+/// neutral [`MeshPacker`] chunks the ranges exactly as the reference upload did,
 /// so an index is always 16-bit and a range can be split across chunk buffers
 /// without re-basing at draw time. An empty draw set produces no chunks and no
 /// draws, which is a valid world.

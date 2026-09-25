@@ -8,8 +8,8 @@ closed and empty — and the building stops being finished around you. There is
 nothing to collect, fight or solve.
 
 Places is a desktop game written in Rust: `sdl2` for the window and input,
-OpenGL through `glow`, and a baked-lighting renderer with no dynamic shadow
-maps. Every fixture bakes into a lightmap atlas for static geometry, props
+`wgpu` (Metal on macOS, Vulkan on Linux, Direct3D 12 on Windows) and a
+baked-lighting renderer with no dynamic shadow maps. Every fixture bakes into a lightmap atlas for static geometry, props
 occlude the bake, and emission, transparency, selective reflections and a
 restrained post-processing stage are all authored as content. Its content is
 data: levels are JSON, surfaces are PNGs, props are GLBs, and a catalog maps
@@ -359,11 +359,8 @@ src/                 the game crate (`places`)
     loader.rs        level discovery, validation, packs, materials resolution
     lighting/        the bake: partition areas, baselines, fixture pools, visibility
     render/          the renderer boundary: common/ (neutral preparation),
-                     opengl/ (the complete OpenGL reference backend), wgpu/
-                     (the complete wgpu backend: device/surface lifecycle and
-                     every reference feature, Stages 4-9; validated in Stage
-                     10), the Renderer facade and the temporary
-                     PLACES_RENDERER selector
+                     wgpu/ (the renderer: device/surface lifecycle and every
+                     reference feature), and the narrow Renderer facade
     materials/       PNG decode, texture cache, material and decal resolution
     game.rs          player state, movement and collision
     ui.rs            the menu, level select and settings screens
@@ -457,10 +454,11 @@ Known limitations, all deliberate:
 * the wgpu renderer draws the complete reference frame — the baked lightmap
   atlas (and the vertex-lit fallback), props, dynamics, fixtures, emission,
   decals, probes and the planar mirror, fog, bloom/post and the HUD — with the
-  material surface response. `PLACES_RENDERER=wgpu` runs it; OpenGL remains
-  the default and the comparison reference. See
+  material surface response. See
   [docs/WGPU_STAGE9.md](docs/WGPU_STAGE9.md) and
-  [docs/WGPU_STAGE10.md](docs/WGPU_STAGE10.md).
+  [docs/WGPU_STAGE10.md](docs/WGPU_STAGE10.md). The deleted OpenGL/GLES2
+  reference renderer is preserved at the `renderer-gles2-reference` tag; see
+  [docs/RENDERER_REFERENCE.md](docs/RENDERER_REFERENCE.md).
 
 ## Rendering notes
 
@@ -483,8 +481,7 @@ display image by one fullscreen pass; the HUD is drawn afterwards, on the defaul
 framebuffer, at the drawable's own resolution, so it stays sharp and outside
 every post-processing stage. The target tracks the drawable's size and aspect
 ratio (nothing is stretched) and falls back to drawing straight into the
-framebuffer if it cannot be created — `PLACES_NO_OFFSCREEN=1` forces that
-fallback path for an A/B comparison.
+framebuffer if the offscreen targets cannot be created.
 
 The resolve stage adds bloom, exposure and a subtle grade, and it is the only
 place a scene pixel becomes a display pixel. Bloom is drawn from the world's
@@ -542,9 +539,8 @@ never have to think about:
   slope-scaled term tracks the interpolation error, which grows with the depth
   slope.
 
-Both are defined once — `DECAL_SURFACE_OFFSET_M` in
-`src/render/common/decals.rs`, `DECAL_POLYGON_OFFSET` in
-`src/render/opengl/shaders.rs` — and applied in one place,
+Both are defined once — `DECAL_SURFACE_OFFSET_M` and `DECAL_POLYGON_OFFSET`
+in `src/render/common/decals.rs` — and applied in one place,
 `render::add_decal_quad`, so a decal authored later inherits the fix
 automatically.
 

@@ -1,11 +1,10 @@
-//! Stage 9 lightmaps: the reference's baked RGB8 atlas as wgpu resources.
+//! Lightmaps: the neutral bake's pages as wgpu resources.
 //!
-//! The OpenGL reference bakes one lightmap atlas per level load (or reuses the
-//! content-keyed cache), uploads each page as an RGB8 texture with
-//! `CLAMP_TO_EDGE`, no mip chain and the player's min/mag filtering, binds two
-//! pages on two texture units and lets the world fragment stage select between
-//! them from the vertex's page byte. This module owns the wgpu half of that
-//! contract:
+//! The atlas is baked once per level load (or reused from the content-keyed
+//! cache) and uploaded as one texture per page, clamped, with no mip chain and
+//! the player's min/mag filtering. Both pages live in the environment bind
+//! group and the world fragment stage selects between them from the vertex's
+//! page byte. This module owns that contract:
 //!
 //! * the atlas pages as raw, non-sRGB `Rgba8Unorm` textures (wgpu has no
 //!   sampleable RGB8 format; the alpha byte is filled with 255 and never read);

@@ -51,9 +51,9 @@ pub struct EmitContext<'a, 's> {
     /// still writes the material factor (tint × directional face shade) into
     /// its vertex colours, exactly as a lightmapped build's vertex colours do.
     ///
-    /// This is the Stage 7 wgpu build: the renderer consumes the material
+    /// This is the material-only build: the renderer consumes the material
     /// factor, and the lighting terms belong to a later stage. It must never
-    /// reach the OpenGL backend.
+    /// reach the vertex-lit fallback path.
     pub material_only: bool,
 }
 

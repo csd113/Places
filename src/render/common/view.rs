@@ -146,17 +146,6 @@ pub fn vertical_fov_for_aspect(configured_vertical_fov_degrees: f32, aspect: f32
         .clamp(configured_vertical_fov_degrees, MAX_VERTICAL_FOV_DEGREES)
 }
 
-/// Edge of one static reflection probe's cubemap faces, in texels, at Full.
-///
-/// A probe is deliberately small: it is an approximate, static impression of
-/// the room — the shape of the windows and the general colour of the walls —
-/// not a second view of the scene. It is baked once per level load and costs
-/// one texture read per reflective fragment at run time.
-pub const PROBE_FACE_TEXELS_FULL: u32 = 64;
-
-/// Edge of one static reflection probe's cubemap faces at Low.
-pub const PROBE_FACE_TEXELS_LOW: u32 = 32;
-
 /// Largest number of static probes the renderer bakes for one level.
 pub const MAX_REFLECTION_PROBES: usize = 2;
 

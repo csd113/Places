@@ -62,8 +62,8 @@ pub const fn native_backend_label() -> &'static str {
 ///
 /// On macOS SDL must create an `SDL_MetalView` before the raw-window-handle
 /// path can report the `NSView` wgpu's Metal backend needs; the call is a
-/// documented no-op on every other platform. No OpenGL flag or attribute is
-/// requested: the wgpu path never creates a GL context.
+/// documented no-op on every other platform. No GL context flag or attribute
+/// is requested: the path never creates a GL context.
 pub fn apply_window_flags(builder: &mut WindowBuilder) {
     builder.metal_view();
 }
@@ -221,7 +221,7 @@ pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 /// What the clear pass writes into a **raw** (non-sRGB) colour target.
 ///
 /// The reference renderer clears its non-sRGB framebuffer to the raw display
-/// value `(0.08, 0.08, 0.09)` (`opengl::renderer`) and then composites,
+/// value `(0.08, 0.08, 0.09)` (the preserved reference renderer) and then composites,
 /// blends, grades and reads that value back in display space. Every wgpu
 /// offscreen colour target is raw `Rgba8Unorm` for exactly that reason, so the
 /// scene, planar and probe clears write the raw value too — the same bytes the

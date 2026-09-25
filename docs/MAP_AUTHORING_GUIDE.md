@@ -90,7 +90,7 @@ Authoritative paths:
 | Prop loading | `src/props.rs`, `src/gltf.rs`, `src/render/common/props.rs` |
 | Lighting bake | `src/lighting/` (bake, visibility, occlusion, lightmap) |
 | Materials / textures | `src/materials/`, `src/assets.rs` |
-| Reflections | `src/render/common/reflections.rs` (routing) and `src/render/opengl/reflections.rs` (probe cubemaps), `src/render/opengl/renderer.rs` |
+| Reflections | `src/render/common/reflections.rs` (routing) and `src/render/wgpu/reflections.rs` (probe cubemaps and the planar target) |
 | Post-processing / fog | `src/render/common/postprocess.rs`, `src/render/common/atmosphere.rs`, `src/render/common/framebuffer.rs` |
 | Quality profiles / settings | `src/quality.rs`, `src/settings.rs` |
 | Catalog | `assets/catalog.json` |
@@ -3088,7 +3088,6 @@ capture and diagnosis.
 | `PLACES_CAPTURE_FRAME=<n>` | Capture frame n (1-based) instead of the first; also pins animation phase. |
 | `PLACES_NO_LIGHTMAPS=1` | Force the historical vertex-lit path for this run (overrides the Lightmaps setting). |
 | `PLACES_DUMP_LIGHTMAPS=1` | Write the baked atlas pages to `target/agent-work/atlases/`. |
-| `PLACES_NO_OFFSCREEN=1` | Draw the 3D scene straight into the window instead of through the offscreen target. **Not pixel-identical any more:** this path skips the planar reflection pass, the reflection-probe binds, bloom and the resolve, and it ignores the Low profile's reduced scene resolution. It exists for benchmark A/B runs and driver bring-up. |
 | `PLACES_NO_BLOOM=1` | Keep the resolve pass but drop the emissive bloom pass and blur for this run (overrides the Bloom setting). |
 | `PLACES_NO_REFLECTIONS=1` | Report every material as reflection-free: no planar pass, no probe bake, no reflection binds, for this run (overrides the Reflections setting). |
 | `PLACES_ASSET_ROOT=<dir>` | Override the directory that contains `assets/`. |

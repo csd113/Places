@@ -4,8 +4,8 @@
 Blender is not available in this repository's toolchain, so visual review uses
 this tiny z-buffered rasteriser instead.  It renders each shipped GLB with the
 prop's own texture and baked vertex colours, using the same unlit
-``texture * vertex colour`` model the game's GLES2 shader uses plus a neutral
-ground plane, so what you see here is what the handheld shows.
+``texture * vertex colour`` model the game's world shader uses plus a neutral
+ground plane, so what you see here is close to what the renderer draws.
 
 Nothing produced by this script is a runtime asset (thumbnails for the level
 editor's prop browser are the one deliberate exception).

@@ -24,12 +24,9 @@
 //! Nothing in the surface/device path was rewritten to make that possible.
 //!
 //! Everything wgpu-specific lives under `render::wgpu`; the engine reaches it
-//! only through `render::Renderer`. Since Stage 9 the backend draws the whole
-//! reference frame (lightmaps, reflections, props, dynamics, fixtures,
-//! emission, decals, fog, post-processing and the HUD). The only commands it
-//! deliberately does not honour are the OpenGL-only submission diagnostics
-//! (`PLACES_BENCH_NOINDEX`, `PLACES_BENCH_EXACT_VERTEX`, `PLACES_NO_OFFSCREEN`),
-//! documented in `render/facade.rs` and `docs/WGPU_STAGE10.md`.
+//! only through `render::Renderer`. The backend draws the whole reference frame
+//! (lightmaps, reflections, props, dynamics, fixtures, emission, decals, fog,
+//! post-processing and the HUD).
 
 use std::sync::{Arc, Mutex};
 
@@ -299,8 +296,8 @@ pub struct WgpuRenderer {
 impl WgpuRenderer {
     /// Creates the wgpu backend for an existing SDL window.
     ///
-    /// No OpenGL context is created or required. The window should have been
-    /// built through [`super::surface::apply_window_flags`].
+    /// The window should have been built through
+    /// [`super::surface::apply_window_flags`].
     ///
     /// # Errors
     ///
@@ -549,7 +546,7 @@ impl WgpuRenderer {
     /// Records the player's `VSync` preference and rebuilds the presentation mode.
     ///
     /// Returns the interval the presentation mode corresponds to (`1` for the
-    /// synchronized FIFO path, `0` for immediate), matching the OpenGL path's
+    /// synchronized FIFO path, `0` for immediate), matching the reference's
     /// reported swap interval.
     pub fn set_swap_interval(&mut self, _video: &sdl2::VideoSubsystem, want_vsync: bool) -> i32 {
         self.vsync = want_vsync;
@@ -675,18 +672,10 @@ impl WgpuRenderer {
         self.world_dynamic = Some(WgpuDynamic::upload(&mut ctx, &self.dynamic));
     }
 
-    /// Dynamic draw calls in the loaded level.
-    #[must_use]
-    pub fn dynamic_draw_count(&self) -> usize {
-        self.world_dynamic
-            .as_ref()
-            .map_or(0, |dynamic| dynamic.stats().draws)
-    }
-
     /// Uploads the loaded level: its baked lightmap atlas, its static world
     /// geometry, its materials and its fixture sheets.
     ///
-    /// The build is the renderer-neutral one the OpenGL path uses
+    /// The build is the renderer-neutral one the reference used
     /// ([`build_level_geometry_timed_with_lightmaps`]). With lightmaps
     /// requested (the default) it asks for `LightmapMode::On`: the CPU bake runs
     /// with the profile's shadow configuration, the static mesh carries the
@@ -1122,12 +1111,6 @@ impl WgpuRenderer {
         self.bloom_requested = enabled;
     }
 
-    /// Whether bloom is enabled.
-    #[must_use]
-    pub const fn bloom_enabled(&self) -> bool {
-        self.bloom_requested
-    }
-
     /// Records whether reflections are enabled.
     ///
     /// The player setting gates reflection sampling immediately (the next
@@ -1136,18 +1119,6 @@ impl WgpuRenderer {
     pub const fn set_reflections_enabled(&mut self, enabled: bool) {
         self.reflections_enabled = enabled;
         self.reflections.set_enabled(enabled);
-    }
-
-    /// Whether the loaded level's atlas is resident and sampled.
-    #[must_use]
-    pub const fn lightmaps_resident(&self) -> bool {
-        self.lightmaps_resident
-    }
-
-    /// The loaded level's atlas upload counters.
-    #[must_use]
-    pub const fn lightmap_stats(&self) -> super::lightmap::LightmapUploadStats {
-        self.lightmaps.stats()
     }
 
     /// Releases the renderer's profile-fitted texture cache.
@@ -1515,8 +1486,8 @@ impl WgpuRenderer {
         totals
     }
 
-    /// Encodes the world body directly into `target`, matching the reference's
-    /// `PLACES_NO_OFFSCREEN` path shape (no tone, grade or bloom).
+    /// Encodes the world body directly into `target`, without tone, grade or
+    /// bloom: the fallback when no post targets could be created.
     fn encode_direct(
         &self,
         encoder: &mut wgpu::CommandEncoder,

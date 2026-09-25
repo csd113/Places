@@ -14,10 +14,10 @@ classes of failure that only appear in a compiled build:
   skipped without a crash;
 * normal operation must be quiet: no developer telemetry on stdout.
 
-The tests need a graphical session because Places creates an SDL/OpenGL
-window; they skip themselves when no display is available or when no release
-binary has been built. Set ``PLACES_SMOKE_BIN`` to test a specific executable,
-or ``PLACES_SKIP_SMOKE=1`` to skip explicitly.
+The tests need a graphical session because Places creates an SDL window and a
+Metal/Vulkan/D3D12 surface; they skip themselves when no display is available
+or when no release binary has been built. Set ``PLACES_SMOKE_BIN`` to test a
+specific executable, or ``PLACES_SKIP_SMOKE=1`` to skip explicitly.
 
 All scratch state lives under ``target/agent-work/smoke/`` (never the system
 temporary directory), matching the repository's temporary-file rule.

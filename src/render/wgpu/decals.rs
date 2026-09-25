@@ -123,7 +123,7 @@ struct DecalChunk {
 
 /// One drawable decal range inside a chunk.
 ///
-/// Mirrors the OpenGL `StaticBatch` shape: a chunk plus an index range, the
+/// Mirrors the neutral `StaticBatch` shape: a chunk plus an index range, the
 /// range's cull bounds and its sheet. The sheet is the neutral key's material,
 /// which for a decal is the sheet index
 /// ([`crate::render::common::decal_sheet_index`]): the generated atlas or one
@@ -449,7 +449,7 @@ impl WgpuDecals {
     /// Sheet 0 is the generated atlas ([`generate_decal_atlas`], always
     /// resident); each external id the level places follows in
     /// [`decal_external_sheet_ids`] order and is decoded through the same
-    /// catalog lookup the OpenGL uploader uses. A sheet that cannot resolve
+    /// catalog lookup the texture pipeline uses. A sheet that cannot resolve
     /// draws the same magenta/black diagnostic the reference draws and reports
     /// the same one-line warning; the mapping keeps its place either way, so a
     /// later sheet's index never shifts.

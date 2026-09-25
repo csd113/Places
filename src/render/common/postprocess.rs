@@ -1,8 +1,8 @@
 //! Post-processing policy: bloom, exposure, tone and grade settings.
 //!
 //! This is renderer-neutral: the settings are authored values and the target
-//! size is arithmetic. The OpenGL backend (`opengl::postprocess`) owns the
-//! programs and targets that execute this policy.
+//! size is arithmetic. The renderer owns the programs and targets that execute
+//! this policy.
 
 use super::view::{BLOOM_SCALE_DIVISOR, DrawableSize};
 use crate::quality::QualityProfile;

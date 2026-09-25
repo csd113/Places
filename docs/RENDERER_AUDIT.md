@@ -13,7 +13,10 @@ OpenGL/GLES2 renderer, crate `places` 0.7.0.
 > Stage 3 mapping and ownership rules are in
 > [RENDERER_BOUNDARY.md](RENDERER_BOUNDARY.md). Stage 3 changed no renderer
 > behaviour, shader, asset or level format, so every behavioural finding in
-> this audit still applies — only locations and visibility changed.
+> this audit still applies — only locations and visibility changed. The
+> renderer audited here was removed from mainline in Stage 11 and preserved at
+> the `renderer-gles2-reference` tag; see
+> [RENDERER_REFERENCE.md](RENDERER_REFERENCE.md).
 
 **No renderer behavior was changed to produce this document.** This audit is
 read-only with respect to the renderer: no shader, GL state, material,

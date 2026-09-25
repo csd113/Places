@@ -30,137 +30,29 @@ use crate::lighting::LevelLighting;
 use crate::render::common::MeshPacker;
 use crate::render::common::decals::{DECAL_ATLAS_SIZE, generate_decal_atlas};
 use crate::render::common::mesh;
-use crate::render::opengl::shaders::{
-    SCENE_ATTRIB_COLOR, SCENE_ATTRIB_COUNT, SCENE_ATTRIB_HANDEDNESS, SCENE_ATTRIB_LIGHTMAP_PAGE,
-    SCENE_ATTRIB_LIGHTMAP_UV, SCENE_ATTRIB_NORMAL, SCENE_ATTRIB_POS, SCENE_ATTRIB_TANGENT,
-    SCENE_ATTRIB_UV,
-};
-
 use crate::spatial::{DepthRange, Frustum};
 
-// ------------------------------------------------------- vertex packing
+// ------------------------------------------------------- vertex quantisation
 
-#[test]
-fn the_packed_vertex_is_thirty_six_bytes_with_the_declared_layout() {
-    assert_eq!(
-        std::mem::size_of::<PackedVertex>(),
-        36,
-        "the packed scene vertex must be 36 bytes"
-    );
-    assert_eq!(std::mem::align_of::<PackedVertex>(), 4);
-    assert_eq!(packed_layout::STRIDE, 36, "stride must match the struct");
-    assert_eq!(
-        VertexLayout::Exact.stride(),
-        i32::try_from(std::mem::size_of::<Vertex>()).unwrap_or(i32::MAX),
-        "the exact layout's stride must match the struct"
-    );
-    // The offsets are what `set_packed_vertex_attributes` hands to
-    // `glVertexAttribPointer`; a struct change must move them too.
-    assert_eq!(
-        std::mem::offset_of!(PackedVertex, pos),
-        packed_layout::POS_OFFSET as usize
-    );
-    assert_eq!(
-        std::mem::offset_of!(PackedVertex, color),
-        packed_layout::COLOR_OFFSET as usize
-    );
-    assert_eq!(
-        std::mem::offset_of!(PackedVertex, uv),
-        packed_layout::UV_OFFSET as usize
-    );
-    assert_eq!(
-        std::mem::offset_of!(PackedVertex, lightmap),
-        packed_layout::LIGHTMAP_OFFSET as usize
-    );
-    assert_eq!(
-        std::mem::offset_of!(PackedVertex, lightmap_page),
-        packed_layout::LIGHTMAP_PAGE_OFFSET as usize
-    );
-    assert_eq!(
-        packed_layout::LIGHTMAP_OFFSET as usize + 4,
-        packed_layout::NORMAL_OFFSET as usize,
-        "the lightmap UV pair is two 16-bit values"
-    );
-    assert_eq!(
-        packed_layout::UV_OFFSET as usize + 2 * 4,
-        packed_layout::COLOR_OFFSET as usize,
-        "the tile UV is two f32 values"
-    );
-    assert_eq!(
-        packed_layout::COLOR_OFFSET as usize + 4,
-        packed_layout::LIGHTMAP_OFFSET as usize,
-        "colour must be four packed bytes"
-    );
-
-    // The normal frame lives between the lightmap pair and the lightmap page:
-    // normal, tangent and the bitangent sign, three normalised signed bytes
-    // each for the vectors and one more for the sign.
-    assert_eq!(
-        std::mem::offset_of!(PackedVertex, normal),
-        packed_layout::NORMAL_OFFSET as usize
-    );
-    assert_eq!(
-        std::mem::offset_of!(PackedVertex, tangent),
-        packed_layout::TANGENT_OFFSET as usize
-    );
-    assert_eq!(
-        std::mem::offset_of!(PackedVertex, handedness),
-        packed_layout::HANDEDNESS_OFFSET as usize
-    );
-    assert_eq!(
-        packed_layout::LIGHTMAP_OFFSET as usize + 4,
-        packed_layout::NORMAL_OFFSET as usize,
-        "the frame follows the lightmap pair"
-    );
-    assert_eq!(
-        packed_layout::NORMAL_OFFSET + 3,
-        packed_layout::TANGENT_OFFSET,
-        "the normal is three signed bytes"
-    );
-    assert_eq!(
-        packed_layout::TANGENT_OFFSET + 3,
-        packed_layout::HANDEDNESS_OFFSET,
-        "the tangent is three signed bytes"
-    );
-    assert_eq!(
-        packed_layout::HANDEDNESS_OFFSET + 1,
-        packed_layout::LIGHTMAP_PAGE_OFFSET,
-        "the sign is one byte and the page follows it"
-    );
-    // 36 bytes per vertex in the packed layout, 72 in the exact one: the exact
-    // layout carries the frame as three f32 vectors, the packed one as seven
-    // bytes.
-    assert_eq!(
-        std::mem::size_of::<Vertex>() - std::mem::size_of::<PackedVertex>(),
-        36
-    );
-}
-
-/// The quantisation error the packed colour can introduce, in channel units.
-fn packed_channel_error(value: f32) -> f32 {
-    let packed = PackedVertex::from(&Vertex {
-        pos: [0.0, 0.0, 0.0],
-        color: [value, value, value, value],
-        uv: [0.0, 0.0],
-        ..Vertex::UNLIT
-    });
-    (dequantize_unit(packed.color[0]) - value).abs()
+/// The quantisation error a unit-interval channel can introduce.
+fn quantised_channel_error(value: f32) -> f32 {
+    (dequantize_unit(mesh::quantize_unit(value)) - value).abs()
 }
 
 #[test]
-fn packed_colour_is_accurate_at_the_lighting_extremes_and_in_between() {
+fn the_unit_quantiser_is_accurate_at_the_lighting_extremes_and_in_between() {
     // Minimum baked lighting: the darkest a vertex can get.
-    assert!(packed_channel_error(crate::lighting::AMBIENT_LEVEL) < 0.5 / 255.0);
+    assert!(quantised_channel_error(crate::lighting::AMBIENT_LEVEL) < 0.5 / 255.0);
     // Maximum brightness.
-    assert!(packed_channel_error(crate::lighting::MAX_BRIGHTNESS) < 0.5 / 255.0);
+    assert!(quantised_channel_error(crate::lighting::MAX_BRIGHTNESS) < 0.5 / 255.0);
     // Darkest and brightest possible shades of a wall/floor tint.
-    assert!(packed_channel_error(0.0) < 1e-6);
-    assert!(packed_channel_error(1.0) < 1e-6);
+    assert!(quantised_channel_error(0.0) < 1e-6);
+    assert!(quantised_channel_error(1.0) < 1e-6);
     // A representative intermediate value, and one that lands exactly
     // between two steps (the worst case).
     for value in [0.666, 0.42, 127.5 / 255.0, 1.0 / 255.0, 0.999] {
         assert!(
-            packed_channel_error(value) <= 0.5 / 255.0 + 1e-6,
+            quantised_channel_error(value) <= 0.5 / 255.0 + 1e-6,
             "value {value} quantised by more than half a step"
         );
     }
@@ -170,7 +62,7 @@ fn packed_colour_is_accurate_at_the_lighting_extremes_and_in_between() {
         let value = crate::lighting::AMBIENT_LEVEL
             + (crate::lighting::MAX_BRIGHTNESS - crate::lighting::AMBIENT_LEVEL) * step as f32
                 / 1000.0;
-        worst = worst.max(packed_channel_error(value));
+        worst = worst.max(quantised_channel_error(value));
     }
     assert!(
         worst <= 0.5 / 255.0 + 1e-6,
@@ -179,7 +71,7 @@ fn packed_colour_is_accurate_at_the_lighting_extremes_and_in_between() {
 }
 
 #[test]
-fn packed_colour_clamps_instead_of_wrapping() {
+fn the_unit_quantiser_clamps_instead_of_wrapping() {
     // A malformed level or an over-bright authored shade must saturate, not
     // wrap to the opposite end of the range.
     for (value, expected) in [
@@ -191,108 +83,29 @@ fn packed_colour_clamps_instead_of_wrapping() {
         (f32::INFINITY, 255),
         (f32::NEG_INFINITY, 0),
     ] {
-        let packed = PackedVertex::from(&Vertex {
-            pos: [0.0, 0.0, 0.0],
-            color: [value, value, value, 1.0],
-            uv: [0.0, 0.0],
-            ..Vertex::UNLIT
-        });
         assert_eq!(
-            packed.color[0], expected,
+            mesh::quantize_unit(value),
+            expected,
             "value {value} must clamp to {expected}"
         );
     }
-    let nan = PackedVertex::from(&Vertex {
-        pos: [0.0, 0.0, 0.0],
-        color: [f32::NAN; 4],
-        uv: [0.0, 0.0],
-        ..Vertex::UNLIT
-    });
     assert_eq!(
-        nan.color,
-        [0, 0, 0, 0],
+        mesh::quantize_unit(f32::NAN),
+        0,
         "NaN must not become a bright value"
     );
 }
 
 #[test]
-fn packed_alpha_is_preserved_for_props_and_the_hud() {
+fn the_unit_quantiser_preserves_alpha_for_props_and_the_hud() {
     // Prop models carry alpha from their glTF `COLOR_0`, and the UI blends
-    // with it, so the fourth channel must survive packing.
+    // with it, so the fourth channel must survive quantisation.
     for value in [0.0f32, 0.25, 0.5, 1.0] {
-        let packed = PackedVertex::from(&Vertex {
-            pos: [0.0, 0.0, 0.0],
-            color: [1.0, 1.0, 1.0, value],
-            uv: [0.0, 0.0],
-            ..Vertex::UNLIT
-        });
         assert!(
-            (dequantize_unit(packed.color[3]) - value).abs() <= 0.5 / 255.0 + 1e-6,
-            "alpha {value} did not survive packing"
+            (dequantize_unit(mesh::quantize_unit(value)) - value).abs() <= 0.5 / 255.0 + 1e-6,
+            "alpha {value} did not survive quantisation"
         );
     }
-}
-
-#[test]
-fn packed_positions_and_uvs_are_bit_exact() {
-    // World positions and texture coordinates are not quantised at all: a
-    // 250-metre level and a world-space tiling UV both need the range.
-    let samples: [[f32; 3]; 5] = [
-        [0.0, 0.0, 0.0],
-        [-131.9975, 3.4999, 132.0001],
-        [1.0e-7, -1.0e-7, 2.5],
-        [1.0e6, -1.0e6, 0.5],
-        [-0.0, 0.1, -0.1],
-    ];
-    for pos in samples {
-        let uv = [-131.9975f32, 132.0001];
-        let vertex = Vertex {
-            pos,
-            color: [0.5, 0.5, 0.5, 1.0],
-            uv,
-            ..Vertex::UNLIT
-        };
-        let packed = PackedVertex::from(&vertex);
-        assert_eq!(packed.pos.map(f32::to_bits), pos.map(f32::to_bits));
-        assert_eq!(packed.uv.map(f32::to_bits), uv.map(f32::to_bits));
-    }
-}
-
-#[test]
-fn packing_a_whole_mesh_never_moves_geometry_or_uvs() {
-    // End-to-end over a real level: every packed vertex must agree with the
-    // build vertex it came from, bit for bit, except for the shade that is
-    // deliberately quantised.
-    let mesh = build_level_geometry(&two_cluster_level(4));
-    for range in &mesh.ranges {
-        for vertex in &range.vertices {
-            let packed = PackedVertex::from(vertex);
-            assert_exact_array(packed.pos, vertex.pos);
-            assert_exact_array(packed.uv, vertex.uv);
-            for channel in 0..4 {
-                assert!(
-                    (dequantize_unit(packed.color[channel]) - vertex.color[channel]).abs()
-                        <= 0.5 / 255.0 + 1e-6,
-                    "channel {channel} drifted: {} vs {}",
-                    dequantize_unit(packed.color[channel]),
-                    vertex.color[channel]
-                );
-            }
-        }
-    }
-}
-
-#[test]
-fn the_packed_layout_is_smaller_than_the_exact_one() {
-    let mesh = build_level_geometry(&two_cluster_level(6));
-    let packed_bytes = mesh.vertex_count * std::mem::size_of::<PackedVertex>();
-    let unpacked_bytes = mesh.vertex_count * std::mem::size_of::<Vertex>();
-    assert_eq!(packed_bytes, unpacked_bytes / 2, "72 -> 36 bytes");
-    // Indices are unchanged at two bytes each, so the packed layout still wins
-    // on the whole static buffer footprint.
-    let packed_total = packed_bytes + mesh.index_count * 2;
-    let unpacked_total = unpacked_bytes + mesh.index_count * 2;
-    assert!(packed_total < unpacked_total);
 }
 
 /// Loads one shipped texture asset from the catalog and decodes it.
@@ -353,66 +166,6 @@ fn test_shipped_texture_assets_are_opaque_and_within_budget() {
     let npot = texture_image("core:tex_diagnostic_alt_01");
     assert_eq!((npot.width, npot.height), (96, 64));
     assert_eq!(npot.rgba.len(), (96 * 64 * 4) as usize);
-}
-
-/// The renderer's shared untextured sheet comes from the committed catalog PNG.
-///
-/// [`load_white_sheet`](super::opengl::renderer::load_white_sheet) is how startup fills
-/// the fallback slot that fixture housings, plain body geometry and every
-/// otherwise-empty sampler bind; it used to be a 2x2 array generated in
-/// `src/render.rs`. Pinning the loaded payload keeps the renderer pointed at
-/// the file: a wrong catalog id, a deleted PNG or a reintroduced pixel array
-/// no longer resolves to the same 2x2 opaque fill.
-#[test]
-fn the_renderers_white_sheet_loads_from_the_committed_catalog_asset() {
-    let image = super::opengl::renderer::load_white_sheet().expect("the white sheet must load");
-    assert_eq!(
-        (image.width, image.height),
-        (2, 2),
-        "the shared sheet is the committed 2x2 fill"
-    );
-    for texel in image.rgba.as_chunks::<4>().0 {
-        assert_eq!(
-            *texel,
-            [255, 255, 255, 255],
-            "the shared sheet must stay opaque white"
-        );
-    }
-}
-
-/// The empty-install fallback is the same committed PNG, not a second source.
-///
-/// A compiled install with no `assets/` decodes the embedded copy of
-/// `assets/core/textures/white_01.png` so the renderer can start; this pins the
-/// two to the same pixels so the fallback can never drift from the catalog
-/// asset or become a code-generated fill.
-#[test]
-fn the_embedded_white_sheet_matches_the_committed_catalog_png() {
-    let embedded = crate::loader::decode_png(super::opengl::renderer::WHITE_SHEET_PNG)
-        .expect("the embedded white sheet must decode");
-    let loaded =
-        super::opengl::renderer::load_white_sheet().expect("the catalog white sheet must load");
-    assert_eq!(
-        embedded, loaded,
-        "the embedded fallback must be the committed white sheet"
-    );
-}
-
-/// Both backends fall back to the same committed sheet.
-///
-/// Stage 6's wgpu texture cache embeds its own copy of
-/// `assets/core/textures/white_01.png` (a backend may not import its sibling).
-/// This pins the two copies to identical pixels, so the wgpu fallback can never
-/// drift from the reference sheet or silently become a generated fill.
-#[test]
-fn both_renderers_embed_the_same_white_sheet() {
-    let wgpu = super::wgpu::texture::fallback_white_image();
-    let reference =
-        super::opengl::renderer::load_white_sheet().expect("the catalog white sheet must load");
-    assert_eq!(
-        wgpu, reference,
-        "the wgpu fallback must be the reference's committed white sheet"
-    );
 }
 
 /// Mean and nearest-rank p95 of a sample, sorted in place.
@@ -856,13 +609,13 @@ fn test_hidpi_1080p_window_renders_through_the_drawable_path() {
     );
 
     assert_eq!(
-        offscreen_plan(true, false, QualityProfile::Full, physical),
-        Some(physical),
+        super::common::framebuffer::scene_target_size(QualityProfile::Full, physical),
+        physical,
         "Full renders at the drawable's own resolution"
     );
     assert_eq!(
-        offscreen_plan(true, false, QualityProfile::Low, physical),
-        Some(DrawableSize::new(480, 270)),
+        super::common::framebuffer::scene_target_size(QualityProfile::Low, physical),
+        DrawableSize::new(480, 270),
         "only the documented Low profile scales the scene down"
     );
 
@@ -881,12 +634,12 @@ fn test_a_resize_updates_scene_and_bloom_targets() {
     let after = DrawableSize::new(2560, 1440);
 
     assert_eq!(
-        offscreen_plan(true, false, QualityProfile::Full, before),
-        Some(before)
+        super::common::framebuffer::scene_target_size(QualityProfile::Full, before),
+        before
     );
     assert_eq!(
-        offscreen_plan(true, false, QualityProfile::Full, after),
-        Some(after)
+        super::common::framebuffer::scene_target_size(QualityProfile::Full, after),
+        after
     );
     assert_eq!(
         super::common::postprocess::bloom_target_size(before),
@@ -5059,44 +4812,8 @@ fn the_dynamic_demonstration_machine_stays_a_static_prop() {
 
 // ------------------------------------------------------- material draw passes
 
-use super::common::frame::offscreen_plan;
-use super::common::materials::{
-    BatchPass, MaterialRenderState, ScenePass, TranslucentSource, batch_pass_for,
-    collect_translucent_draws,
-};
-use super::opengl::renderer::{EmissionState, SurfaceState, pack_static_batches};
+use super::common::materials::{BatchPass, MaterialRenderState, batch_pass_for};
 use crate::materials::{AlphaMode, MaterialAlpha};
-
-/// A minimal level with one glassed window per wall in `walls`.
-///
-/// The walls are the pool-room shape from the fixtures: a 4x4 room with two
-/// parallel Z-axis walls across it, each carrying one window with a pane.
-fn two_layer_glass_level(pane_materials: [&str; 2]) -> crate::level::LevelDef {
-    let json = format!(
-        r#"{{
-        "format_version": 1,
-        "id": "glass_layers",
-        "name": "Glass Layers",
-        "spawn": {{ "x": 2.0, "z": 2.0 }},
-        "defaults": {{ "wall": "core:wallpaper_yellow_01",
-                      "floor": "core:carpet_beige_01",
-                      "ceiling": "core:ceiling_panel_01" }},
-        "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 2.7 }} ],
-        "walls": [
-            {{ "x": 1.9, "z": 0.0, "width": 0.2, "depth": 4.0,
-               "openings": [ {{ "kind": "window", "offset": 1.0, "width": 1.2,
-                                "height": 1.0, "sill": 1.0,
-                                "glass": "{}" }} ] }},
-            {{ "x": 2.9, "z": 0.0, "width": 0.2, "depth": 4.0,
-               "openings": [ {{ "kind": "window", "offset": 1.0, "width": 1.2,
-                                "height": 1.0, "sill": 1.0,
-                                "glass": "{}" }} ] }}
-        ]
-    }}"#,
-        pane_materials[0], pane_materials[1]
-    );
-    crate::level::LevelDef::from_json(&json).expect("the synthetic glass level parses")
-}
 
 #[test]
 fn the_opaque_cutout_and_translucent_passes_are_decided_by_the_material() {
@@ -5154,109 +4871,17 @@ fn the_opaque_cutout_and_translucent_passes_are_decided_by_the_material() {
         batch_pass_for(SurfaceKind::Wall, true, Some(MaterialAlpha::blend(0.0))),
         BatchPass::Opaque
     );
-
-    // The scene program each pass uses: only the cut-out pass needs the
-    // alpha-tested stage.
-    assert_eq!(BatchPass::Opaque.program(), ScenePass::World);
-    assert_eq!(BatchPass::Translucent.program(), ScenePass::World);
-    assert_eq!(BatchPass::Cutout.program(), ScenePass::Cutout);
-}
-
-/// A `glow::Texture` handle that never reaches a GPU, for state tests.
-fn fake_texture() -> glow::Texture {
-    glow::NativeTexture(std::num::NonZeroU32::new(1).expect("1 is non-zero"))
-}
-
-#[test]
-fn the_vertex_attribute_table_wires_every_scene_attribute_in_both_layouts() {
-    // The frame attributes are the ones that were silently missing: with no
-    // pointer they read the generic default `(0, 0, 0, 1)`, which collapses
-    // `v_normal` to the zero vector and pins the view-dependent sheen at its
-    // grazing lobe on every surface. This test is the guard that keeps a new
-    // attribute from being declared, packed and bound but never pointed at.
-    for layout in [VertexLayout::Packed, VertexLayout::Exact] {
-        let table = super::opengl::renderer::scene_attribute_table(layout);
-        assert_eq!(table.len(), SCENE_ATTRIB_COUNT);
-        for (slot, pointer) in table.iter().enumerate() {
-            assert!(
-                pointer.is_some(),
-                "{layout:?} leaves attribute {slot} unwired"
-            );
-        }
-        let stride = layout.stride();
-        for pointer in table.iter().flatten() {
-            assert!(
-                pointer.components >= 1 && pointer.components <= 4,
-                "{layout:?}: {} components",
-                pointer.components
-            );
-            let size = pointer.components
-                * match pointer.gl_type {
-                    glow::FLOAT => 4,
-                    glow::UNSIGNED_SHORT => 2,
-                    _ => 1,
-                };
-            assert!(
-                pointer.offset >= 0 && pointer.offset + size <= stride,
-                "{layout:?}: a {}-component attribute at offset {} overruns the {stride}-byte stride",
-                pointer.components,
-                pointer.offset
-            );
-        }
-        let attribute = |slot: usize| table[slot].expect("wired");
-        assert_eq!(attribute(SCENE_ATTRIB_POS as usize).components, 3);
-        assert_eq!(attribute(SCENE_ATTRIB_COLOR as usize).components, 4);
-        assert_eq!(attribute(SCENE_ATTRIB_UV as usize).components, 2);
-        assert_eq!(attribute(SCENE_ATTRIB_LIGHTMAP_UV as usize).components, 2);
-        assert_eq!(attribute(SCENE_ATTRIB_LIGHTMAP_PAGE as usize).components, 1);
-        assert_eq!(attribute(SCENE_ATTRIB_NORMAL as usize).components, 3);
-        assert_eq!(attribute(SCENE_ATTRIB_TANGENT as usize).components, 3);
-        assert_eq!(attribute(SCENE_ATTRIB_HANDEDNESS as usize).components, 1);
-        let expected = match layout {
-            VertexLayout::Packed => (glow::BYTE, true),
-            VertexLayout::Exact => (glow::FLOAT, false),
-        };
-        for slot in [
-            SCENE_ATTRIB_NORMAL,
-            SCENE_ATTRIB_TANGENT,
-            SCENE_ATTRIB_HANDEDNESS,
-        ] {
-            let pointer = attribute(slot as usize);
-            assert_eq!(
-                (pointer.gl_type, pointer.normalized),
-                expected,
-                "{layout:?}: attribute {slot} has the wrong component type"
-            );
-        }
-    }
 }
 
 #[test]
 fn the_post_process_fallback_is_the_historical_presentation() {
     use super::common::postprocess::PostSettings;
 
-    // Two independent fallbacks, and both must leave a working frame.
-    //
-    // 1. No offscreen target: the scene draws straight into the default
-    //    framebuffer, so there is nothing to resolve and no post-processing
-    //    stage at all. This is the direct path and it is one env var away.
-    let drawable = DrawableSize::new(960, 544);
-    assert_eq!(
-        offscreen_plan(false, false, crate::quality::QualityProfile::Full, drawable),
-        None,
-        "the direct path must not ask for a scene target"
-    );
-    assert_eq!(
-        offscreen_plan(true, true, crate::quality::QualityProfile::Full, drawable),
-        None,
-        "a target that already failed must not be retried every frame"
-    );
-
-    // 2. Low's profile settings are the identity, so with bloom off the
-    //    renderer presents the scene with the plain copy quad instead of
-    //    resolving it. That is what keeps Low as cheap as the historical
-    //    presentation; Bloom On (an independent player choice) makes Low pay
-    //    for exactly the bloom resolve.
+    // Low's profile settings are the identity, so with bloom off the renderer
+    // presents the scene with the plain copy quad instead of resolving it.
+    // That is what keeps Low as cheap as the historical presentation; Bloom On
+    // (an independent player choice) makes Low pay for exactly the bloom
+    // resolve.
     let low = PostSettings::for_profile(crate::quality::QualityProfile::Low);
     assert!(low.is_identity(), "Low without bloom can skip the resolve");
     assert!(!low.blooms());
@@ -5285,188 +4910,6 @@ fn the_post_process_fallback_is_the_historical_presentation() {
         "the tone shoulder must leave the common range untouched: {}",
         full.tone_knee
     );
-}
-
-#[test]
-fn the_vertex_shader_declares_exactly_the_attributes_the_table_wires() {
-    // The table can only be complete if it covers everything the shader reads.
-    // This is the test that fails when an attribute is added to the vertex
-    // stage and packed into the vertex but left out of the pointer table — the
-    // defect that flattens every surface normal.
-    let declared: Vec<String> = super::opengl::shaders::VERTEX_SHADER_SRC
-        .lines()
-        .filter_map(|line| line.trim().strip_prefix("attribute "))
-        .filter_map(|declaration| declaration.split_whitespace().nth(1))
-        .map(|name| name.trim_end_matches(';').to_string())
-        .collect();
-    assert_eq!(
-        declared.len(),
-        SCENE_ATTRIB_COUNT,
-        "the shader declares {declared:?}, the layout has room for {SCENE_ATTRIB_COUNT}"
-    );
-    let wired = super::opengl::renderer::scene_attribute_table(VertexLayout::Packed)
-        .iter()
-        .filter(|pointer| pointer.is_some())
-        .count();
-    assert_eq!(
-        wired,
-        declared.len(),
-        "the shader declares {} attributes but only {wired} are wired",
-        declared.len()
-    );
-    // The four the scene programs bind by index, so a rename here is caught.
-    for expected in [
-        "a_pos",
-        "a_color",
-        "a_uv",
-        "a_lightmap_uv",
-        "a_lightmap_page",
-        "a_normal",
-        "a_tangent",
-        "a_handedness",
-    ] {
-        assert!(
-            declared.iter().any(|name| name == expected),
-            "the vertex shader no longer declares `{expected}`"
-        );
-    }
-}
-
-#[test]
-fn the_world_fragment_shader_gates_the_lightmap_reads() {
-    // The world stage declares both atlas pages for every draw, so a unit that
-    // is not complete is a driver-visible error even when the fragment would
-    // not have read it. The fragment must therefore only sample the atlas when
-    // it actually takes its light from it: the global switch and the vertex's
-    // own page byte both have to agree before either `texture2D` runs. This is
-    // the shader half of the lightmap-unit invariant; the binding half is
-    // `Renderer::bind_lightmap_units`.
-    let source = super::opengl::shaders::fragment_shader_source(false);
-    let guard = source
-        .find("if (lightmap_on > 0.5)")
-        .expect("the atlas path must stay behind the lightmap guard");
-    let page0 = source
-        .find("texture2D(u_lightmap0")
-        .expect("the first atlas page must stay declared");
-    let page1 = source
-        .find("texture2D(u_lightmap1")
-        .expect("the second atlas page must stay declared");
-    assert!(
-        guard < page0 && guard < page1,
-        "both atlas reads must happen after the guard opens"
-    );
-    assert_eq!(
-        source.matches("texture2D(u_lightmap0").count(),
-        1,
-        "the first page must be read exactly once"
-    );
-    assert_eq!(
-        source.matches("texture2D(u_lightmap1").count(),
-        1,
-        "the second page must be read exactly once"
-    );
-    // A vertex with no chart (`LIGHTMAP_NONE`, page >= 254.5) never takes the
-    // atlas path at all.
-    assert!(
-        source.contains("step(254.5, v_lightmap_page)"),
-        "the LIGHTMAP_NONE sentinel must still close the atlas path"
-    );
-}
-
-#[test]
-fn the_lightmap_units_cover_every_declared_atlas_sampler() {
-    use super::opengl::shaders::{
-        LIGHTMAP_PAGE_SLOTS, LIGHTMAP_TEXTURE_UNIT, LIGHTMAP_TEXTURE_UNIT_1,
-    };
-
-    // One bound unit per page, and the two constants stay adjacent: the vertex
-    // page byte selects between exactly these units.
-    assert_eq!(LIGHTMAP_TEXTURE_UNIT, 2, "the first atlas unit is unit 2");
-    assert_eq!(LIGHTMAP_TEXTURE_UNIT_1, LIGHTMAP_TEXTURE_UNIT + 1);
-    assert_eq!(
-        usize::try_from(LIGHTMAP_TEXTURE_UNIT_1 - LIGHTMAP_TEXTURE_UNIT).unwrap_or(0) + 1,
-        LIGHTMAP_PAGE_SLOTS,
-        "the unit pair must cover every page slot"
-    );
-    // The lighting side plans against the same bound: a bake that may need a
-    // page the renderer cannot sample must fall back, not drop it.
-    assert_eq!(LIGHTMAP_ATLAS_MAX_PAGES, LIGHTMAP_PAGE_SLOTS);
-
-    // Every declared sampler the world stage carries is bound for every world
-    // draw. The lightmap pair is the one that used to be bound only once per
-    // frame, so it is the one pinned here.
-    let source = super::opengl::shaders::fragment_shader_source(false);
-    let atlas_samplers = source
-        .lines()
-        .filter(|line| {
-            line.trim_start()
-                .starts_with("uniform sampler2D u_lightmap")
-        })
-        .count();
-    assert_eq!(
-        atlas_samplers, LIGHTMAP_PAGE_SLOTS,
-        "the world stage declares one sampler per bound atlas unit"
-    );
-}
-
-#[test]
-fn the_exact_vertex_offsets_match_the_vertex_struct() {
-    // The exact layout is the reference the packed one is measured against, so
-    // its offsets are pinned to the struct's real fields rather than to
-    // hand-written numbers.
-    let offset = |field: usize| i32::try_from(field).expect("a 72-byte vertex fits an i32");
-    assert_eq!(
-        mesh::exact_layout::POS_OFFSET,
-        offset(std::mem::offset_of!(Vertex, pos))
-    );
-    assert_eq!(
-        mesh::exact_layout::COLOR_OFFSET,
-        offset(std::mem::offset_of!(Vertex, color))
-    );
-    assert_eq!(
-        mesh::exact_layout::UV_OFFSET,
-        offset(std::mem::offset_of!(Vertex, uv))
-    );
-    assert_eq!(
-        mesh::exact_layout::NORMAL_OFFSET,
-        offset(std::mem::offset_of!(Vertex, normal))
-    );
-    assert_eq!(
-        mesh::exact_layout::TANGENT_OFFSET,
-        offset(std::mem::offset_of!(Vertex, tangent))
-    );
-    assert_eq!(
-        mesh::exact_layout::HANDEDNESS_OFFSET,
-        offset(std::mem::offset_of!(Vertex, handedness))
-    );
-    assert_eq!(
-        mesh::exact_layout::LIGHTMAP_OFFSET,
-        offset(std::mem::offset_of!(Vertex, lightmap))
-    );
-    assert_eq!(
-        mesh::exact_layout::LIGHTMAP_PAGE_OFFSET,
-        offset(std::mem::offset_of!(Vertex, lightmap_page))
-    );
-    assert_eq!(EXACT_VERTEX_STRIDE, offset(std::mem::size_of::<Vertex>()));
-}
-
-#[test]
-fn the_hud_surface_state_disables_every_world_term() {
-    // The HUD draws with the world program, so every term that program can add
-    // has to be switched off in the state it draws with. `render_ui` applies
-    // this state through the ordinary `apply_surface_state` path rather than
-    // claiming the cache is clean, which is what stops a previous frame's
-    // material — an emissive fixture's vertex emission, a glass pane's opacity,
-    // a panel's sheen — from leaking into the pause menu.
-    let state = super::opengl::renderer::SurfaceState::plain(fake_texture());
-    assert_eq!(state.emission, super::opengl::renderer::EmissionState::NONE);
-    assert!(!state.response);
-    assert!(state.normal.is_none());
-    assert_eq!(state.specular, [0.0; 3]);
-    assert_eq!(state.opacity, 1.0);
-    assert_eq!(state.reflection, crate::materials::MaterialReflection::NONE);
-    assert!(state.reflection_plane.is_none());
-    assert!(state.emission_animation.is_none());
 }
 
 #[test]
@@ -5729,119 +5172,6 @@ fn the_demo_glazes_every_window_and_classifies_the_panes_translucent() {
 }
 
 #[test]
-fn the_translucent_pass_is_sorted_back_to_front_and_skips_culled_batches() {
-    let level = shipped_demo();
-    let materials = logical_materials(&level);
-    let mesh = build_level_geometry_with_materials(&level, &materials);
-    let (_, batches) = pack_static_batches(&mesh, true);
-    assert!(!batches.is_empty(), "the demo packs into static batches");
-
-    // Every batch is translucent for this test, so the sort and the cull filter
-    // are the only things under test.
-    let camera = glam::Vec3::new(0.0, 1.6, 0.0);
-    let mut out = Vec::new();
-    collect_translucent_draws(
-        &batches,
-        |_| BatchPass::Translucent,
-        camera,
-        |_| true,
-        &mut out,
-    );
-    assert_eq!(out.len(), batches.len());
-    for pair in out.windows(2) {
-        let [first, second] = pair else {
-            continue;
-        };
-        assert!(
-            first.distance_sq >= second.distance_sq,
-            "the translucent pass must be sorted farthest-first"
-        );
-    }
-
-    // A culled batch never reaches the pass.
-    let mut kept = Vec::new();
-    collect_translucent_draws(
-        &batches,
-        |_| BatchPass::Translucent,
-        camera,
-        |bounds| bounds.centre()[0] > 0.0,
-        &mut kept,
-    );
-    let kept_count = batches
-        .iter()
-        .filter(|batch| batch.bounds.centre()[0] > 0.0)
-        .count();
-    assert_eq!(kept.len(), kept_count);
-
-    // The scratch vector is reused: collecting twice must not accumulate.
-    let mut scratch = Vec::new();
-    collect_translucent_draws(
-        &batches,
-        |_| BatchPass::Opaque,
-        camera,
-        |_| true,
-        &mut scratch,
-    );
-    assert!(scratch.is_empty(), "an opaque batch is not translucent");
-    assert_eq!(scratch.capacity(), 0);
-}
-
-#[test]
-fn two_overlapping_panes_sort_with_the_nearer_one_last() {
-    let level = two_layer_glass_level(["core:glass_window_clear_01", "core:glass_window_dirty_01"]);
-    let materials = logical_materials(&level);
-    let alphas: Vec<MaterialAlpha> = materials
-        .entries()
-        .iter()
-        .map(|entry| entry.alpha)
-        .collect();
-    let mesh = build_level_geometry_with_materials(&level, &materials);
-    let (_, batches) = pack_static_batches(&mesh, true);
-
-    let glass_keys = materials
-        .entries()
-        .iter()
-        .filter(|entry| entry.alpha.is_translucent())
-        .filter_map(|entry| {
-            materials
-                .index_of(&entry.id)
-                .map(|index| SurfaceKey::new(SurfaceKind::Wall, index))
-        });
-    assert_eq!(glass_keys.clone().count(), 2, "two distinct pane materials");
-
-    // Camera in front of both panes, near the first wall (x = 1.9).
-    let camera = glam::Vec3::new(0.5, 1.5, 3.0);
-    let mut out = Vec::new();
-    collect_translucent_draws(
-        &batches,
-        |key| {
-            let alpha = alphas.get(usize::from(key.material)).copied();
-            batch_pass_for(key.kind, key.has_material(), alpha)
-        },
-        camera,
-        |_| true,
-        &mut out,
-    );
-    assert_eq!(out.len(), 2, "both panes are in the pass");
-    let mut centres = Vec::new();
-    for item in &out {
-        let TranslucentSource::Static(index) = item.source;
-        let Some(batch) = batches.get(index) else {
-            continue;
-        };
-        centres.push((batch.key, batch.bounds.centre()[0]));
-    }
-    assert!(
-        centres[0].1 > centres[1].1,
-        "farthest pane first, nearest last: {centres:?}"
-    );
-    assert!(
-        centres[0].0.material != centres[1].0.material,
-        "the two layers are different glass materials"
-    );
-}
-
-#[test]
 fn the_cutout_and_translucent_materials_are_built_but_never_blended_together() {
     // A material that authors a cut-out keeps its geometry in the opaque pass
     // with an alpha-tested stage; only `blend` reaches the sorted pass. The two
@@ -5875,18 +5205,17 @@ fn the_cutout_and_translucent_materials_are_built_but_never_blended_together() {
 // ----------------------------------------------------------- offscreen scene
 
 #[test]
-fn the_offscreen_target_plan_follows_the_drawable_the_profile_and_its_own_failures() {
+fn the_scene_target_size_follows_the_drawable_and_the_profile() {
+    use super::common::framebuffer::scene_target_size;
+    use crate::quality::QualityProfile;
+
     let drawable = DrawableSize::new(1280, 720);
 
     // Full: the target is the drawable itself.
-    assert_eq!(
-        offscreen_plan(true, false, crate::quality::QualityProfile::Full, drawable),
-        Some(drawable)
-    );
+    assert_eq!(scene_target_size(QualityProfile::Full, drawable), drawable);
 
     // Low: a smaller target with the drawable's aspect, never an upscale.
-    let low = offscreen_plan(true, false, crate::quality::QualityProfile::Low, drawable)
-        .expect("Low still renders offscreen");
+    let low = scene_target_size(QualityProfile::Low, drawable);
     assert!(low.width < drawable.width && low.height < drawable.height);
     let drawable_aspect = f64::from(drawable.width) / f64::from(drawable.height);
     let low_aspect = f64::from(low.width) / f64::from(low.height);
@@ -5895,36 +5224,11 @@ fn the_offscreen_target_plan_follows_the_drawable_the_profile_and_its_own_failur
         "the scene target must not distort the image: {low:?}"
     );
 
-    // A target that already failed takes the direct path, as does the explicit
-    // switch, as does a minimized window.
-    assert_eq!(
-        offscreen_plan(true, true, crate::quality::QualityProfile::Full, drawable),
-        None
-    );
-    assert_eq!(
-        offscreen_plan(false, false, crate::quality::QualityProfile::Full, drawable),
-        None
-    );
-    assert_eq!(
-        offscreen_plan(
-            true,
-            false,
-            crate::quality::QualityProfile::Full,
-            DrawableSize::new(0, 0)
-        ),
-        None
-    );
-
-    // Resizing the drawable changes the planned target, which is what makes the
+    // Resizing the drawable changes the target, which is what makes the
     // renderer rebuild the offscreen attachments exactly once per size change.
-    let resized = offscreen_plan(
-        true,
-        false,
-        crate::quality::QualityProfile::Full,
-        DrawableSize::new(800, 600),
-    );
-    assert_eq!(resized, Some(DrawableSize::new(800, 600)));
-    assert_ne!(resized, Some(drawable));
+    let resized = scene_target_size(QualityProfile::Full, DrawableSize::new(800, 600));
+    assert_eq!(resized, DrawableSize::new(800, 600));
+    assert_ne!(resized, drawable);
 }
 
 #[test]
@@ -6459,24 +5763,6 @@ fn the_demos_matte_linoleum_keeps_its_probe_and_its_material_default() {
         (patch_key.roughness(entry.response.roughness) - 0.95).abs() < 1.0e-6,
         "the demo's institutional linoleum is matte"
     );
-}
-
-#[test]
-fn the_hud_and_every_plain_batch_draw_with_no_response_and_no_alpha() {
-    // The HUD's surface state: no normal map, no sheen, no emission and opaque.
-    // The UI pass sets exactly this, so a bright fixture the camera walked away
-    // from cannot leak into the text and a Low-profile gate cannot make the HUD
-    // dimmer than the scene.
-    // A stand-in texture handle: the state compares and uploads it, but this
-    // test only reads the material terms around it.
-    let stand_in = glow::NativeTexture(std::num::NonZeroU32::new(42).expect("non-zero"));
-    let state = SurfaceState::plain(stand_in);
-    assert!(!state.response);
-    assert!(state.normal.is_none());
-    assert_eq!(state.specular, [0.0; 3]);
-    assert!((state.opacity - 1.0).abs() < f32::EPSILON);
-    assert!((state.alpha_cutoff - DECAL_ALPHA_CUTOFF).abs() < f32::EPSILON);
-    assert_eq!(state.emission, EmissionState::NONE);
 }
 
 // ------------------------------------------------- generic architecture

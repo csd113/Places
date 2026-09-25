@@ -56,7 +56,7 @@ use game::{AppState, Game};
 use input::{InputHandler, MenuNavEvent, keycode_to_str};
 use level::WalkableFloor;
 use perf::PerfOverlay;
-use render::{DrawableSize, Renderer, RendererBackend, Vertex};
+use render::{DrawableSize, Renderer, Vertex};
 use settings::{Settings, WindowMode};
 use ui::{SettingsAction, SettingsPage, UiGeometryCache, UiState, activate_settings_item};
 
@@ -121,8 +121,7 @@ fn log_prop_usage(renderer: &Renderer) {
         level.surfaces_millis
     );
     println!(
-        "[spatial] {} cells: {} static batch(es) (floor {} / ceiling {} / wall {} / light {} / prop box {} / decal {}), {} prop batch(es)",
-        renderer.spatial_grid().describe(),
+        "[spatial] {} static batch(es) (floor {} / ceiling {} / wall {} / light {} / prop box {} / decal {}), {} prop batch(es)",
         renderer.static_batch_count(),
         batches[0],
         batches[1],
@@ -279,19 +278,7 @@ fn usable_display_bounds(video: &VideoSubsystem, display_index: i32) -> (u32, u3
 /// A size that had to be reduced to fit is adopted back into `settings` (and
 /// therefore persisted and shown in Display), so the menu and the window never
 /// disagree.
-fn create_window(
-    video: &VideoSubsystem,
-    settings: &mut Settings,
-    backend: RendererBackend,
-) -> Result<Window, String> {
-    // Configure the framebuffer/context attributes *before* the OpenGL window
-    // is created. On Linux/EGL the visual (depth buffer, double
-    // buffering) is chosen at window creation, so setting these afterwards
-    // would have no effect. The wgpu path requests no GL attributes at all.
-    if backend.uses_opengl() {
-        render::request_window_attributes(video);
-    }
-
+fn create_window(video: &VideoSubsystem, settings: &mut Settings) -> Result<Window, String> {
     let requested = settings.window_size();
     let usable = usable_display_bounds(video, 0);
     let (width, height) = display::fit_window_to_bounds(requested, usable);
@@ -305,25 +292,15 @@ fn create_window(
         ));
     }
 
-    let build_window = || {
-        let mut builder = video.window("Places", width, height);
-        builder.position_centered().resizable().allow_highdpi();
-        render::apply_window_flags(&mut builder, backend);
-        if settings.window_mode() == WindowMode::Fullscreen {
-            builder.fullscreen_desktop();
-        }
-        builder.build()
-    };
-    let window = if let Ok(window) = build_window() {
-        window
-    } else {
-        // The desktop compatibility attributes are an OpenGL fallback only:
-        // the wgpu path retries the same window it requested.
-        if backend.uses_opengl() {
-            render::request_fallback_window_attributes(video);
-        }
-        build_window().map_err(|e| format!("Failed to create window: {e}"))?
-    };
+    let mut builder = video.window("Places", width, height);
+    builder.position_centered().resizable().allow_highdpi();
+    render::apply_window_flags(&mut builder);
+    if settings.window_mode() == WindowMode::Fullscreen {
+        builder.fullscreen_desktop();
+    }
+    let window = builder
+        .build()
+        .map_err(|e| format!("Failed to create window: {e}"))?;
 
     let actual = window.size();
     if settings.window_mode() == WindowMode::Windowed
@@ -336,11 +313,8 @@ fn create_window(
     Ok(window)
 }
 
-/// Creates the SDL video subsystem and the game window for `backend`.
-fn create_sdl_and_window(
-    settings: &mut Settings,
-    backend: RendererBackend,
-) -> Result<(Sdl, VideoSubsystem, Window), String> {
+/// Creates the SDL video subsystem and the game window.
+fn create_sdl_and_window(settings: &mut Settings) -> Result<(Sdl, VideoSubsystem, Window), String> {
     let sdl_context = sdl2::init().map_err(|e| format!("Failed to init SDL2: {e}"))?;
     let video_subsystem = sdl_context
         .video()
@@ -352,7 +326,7 @@ fn create_sdl_and_window(
     // that engages InputMethodKit (`interpretKeyEvents` on SDL's text responder).
     video_subsystem.text_input().stop();
 
-    let window = create_window(&video_subsystem, settings, backend)?;
+    let window = create_window(&video_subsystem, settings)?;
     Ok((sdl_context, video_subsystem, window))
 }
 
@@ -403,14 +377,12 @@ fn spawn_level_demonstration(renderer: &mut Renderer, loaded: &loader::LoadedLev
 /// each worth on real hardware.
 fn create_renderer(
     window: &Window,
-    video_subsystem: &VideoSubsystem,
     level: &loader::LoadedLevel,
     settings: &Settings,
     bench: &Bench,
-    backend: RendererBackend,
 ) -> Result<Renderer, String> {
-    let mut renderer = Renderer::new(window, video_subsystem, backend)
-        .map_err(|e| format!("Failed to initialize the {} renderer: {e}", backend.name()))?;
+    let mut renderer =
+        Renderer::new(window).map_err(|e| format!("Failed to initialize the renderer: {e}"))?;
     // The quality profile decides how large a texture may reach the GPU, and
     // the lightmap mode is a build-time choice, so both are applied before the
     // first level upload rather than after it.
@@ -425,21 +397,14 @@ fn create_renderer(
     spawn_level_demonstration(&mut renderer, level);
     renderer.set_texture_filtering(&settings.texture_filtering);
     renderer.set_culling(!bench.no_cull());
-    renderer.set_indexing(!bench.no_index());
-    renderer.set_vertex_layout(if bench.exact_vertex() {
-        render::VertexLayout::Exact
-    } else {
-        render::VertexLayout::Packed
-    });
     Ok(renderer)
 }
 
-/// Applies the effective `VSync` setting through the active backend.
+/// Applies the effective `VSync` setting through the renderer.
 ///
-/// For OpenGL the request must be issued while a context is current; wgpu
-/// translates the preference into a supported presentation mode instead. The
-/// same helper is called at runtime whenever the player changes the setting,
-/// so `VSync` applies immediately instead of at the next launch.
+/// The renderer translates the preference into a supported presentation mode.
+/// The same helper is called at runtime whenever the player changes the
+/// setting, so `VSync` applies immediately instead of at the next launch.
 fn configure_vsync(
     renderer: &mut Renderer,
     video_subsystem: &VideoSubsystem,
@@ -608,7 +573,6 @@ fn apply_level_request(
                 renderer.set_level(&loaded);
                 spawn_level_demonstration(renderer, &loaded);
                 renderer.set_culling(!bench.no_cull());
-                renderer.set_indexing(!bench.no_index());
                 log_prop_usage(renderer);
                 *spawn_pos = game::spawn_position(&loaded.level);
                 *spawn_yaw = loaded.level.spawn.yaw_degrees.to_radians();
@@ -1444,7 +1408,7 @@ impl FrameLoop<'_> {
         } else {
             self.renderer.render_ui(ui_vertices);
         }
-        // `PLACES_BENCH_FINISH=1`: force the GL pipeline to drain before the
+        // `PLACES_BENCH_FINISH=1`: force submitted GPU work to drain before the
         // swap timing point, so `render_ms` is renderer completion time rather
         // than "how much of the frame the driver happened to absorb".
         if self.bench.finish_before_swap() {
@@ -1459,9 +1423,8 @@ impl FrameLoop<'_> {
             self.game.stop();
         }
 
-        // Swap window buffer (double buffered, VSync synchronized). The active
-        // backend presents: OpenGL swaps the GL window, wgpu presents its
-        // acquired surface texture.
+        // Swap window buffer (double buffered, VSync synchronized). The
+        // renderer presents its acquired surface texture.
         if !self.bench.skip_swap() {
             self.renderer.present(self.window);
         }
@@ -1517,12 +1480,7 @@ const fn on_off(value: bool) -> &'static str {
 
 /// Boots SDL, points relative paths at the running installation, loads the
 /// persisted settings (with any startup overrides) and creates the window.
-///
-/// `backend` was parsed before SDL started so the window can carry the flags
-/// the chosen implementation needs; the wgpu path never creates a GL context.
-fn bootstrap(
-    backend: RendererBackend,
-) -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String> {
+fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String> {
     let package = use_package_assets();
     log_package(&package);
     // Match the desktop package identity so X11 associates the window with Places.
@@ -1538,7 +1496,7 @@ fn bootstrap(
     settings.ensure_saved();
     log_effective_settings(&settings);
 
-    let (sdl_context, video_subsystem, window) = create_sdl_and_window(&mut settings, backend)?;
+    let (sdl_context, video_subsystem, window) = create_sdl_and_window(&mut settings)?;
     // Boot applies every setting explicitly (window, swap interval, renderer),
     // so no pending work is owed after it.
     let _ = settings.take_pending_apply();
@@ -1546,25 +1504,14 @@ fn bootstrap(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // The temporary migration selector is read before the window exists: the
-    // OpenGL window needs GL attributes and a GL flag at creation, the wgpu
-    // window must not have them.
-    let backend = RendererBackend::from_env()?;
-    let (sdl_context, video_subsystem, mut window, mut settings, mut bench) = bootstrap(backend)?;
+    let (sdl_context, video_subsystem, mut window, mut settings, mut bench) = bootstrap()?;
 
     let mut level_manager = loader::LevelManager::new();
     log_asset_catalog(&level_manager);
     let initial_level = level_manager
         .load_default()
         .map_err(|e| format!("Failed to load initial level: {e}"))?;
-    let mut renderer = create_renderer(
-        &window,
-        &video_subsystem,
-        &initial_level,
-        &settings,
-        &bench,
-        backend,
-    )?;
+    let mut renderer = create_renderer(&window, &initial_level, &settings, &bench)?;
     configure_vsync(&mut renderer, &video_subsystem, &mut bench, &settings);
 
     let mut event_pump = sdl_context

@@ -5,7 +5,7 @@ These tests prove the whole wgpu chain on the running host, not just the
 renderer logic:
 
     SDL initializes
-    -> the wgpu window is created (no OpenGL context)
+    -> the window is created with the platform flags the wgpu surface needs
     -> wgpu instance / native adapter / device / queue exist
     -> the surface is configured and the depth target exists
     -> the static world geometry is built, uploaded and drawn
@@ -15,8 +15,8 @@ renderer logic:
 They bound the run with the existing benchmark harness
 (``PLACES_BENCH=1 PLACES_BENCH_FRAMES=n``) instead of adding a public game
 feature, and they assert the adapter's reported backend so a silent fallback to
-another API cannot pass. The OpenGL path remains the default; one test pins
-that.
+another API cannot pass. The renderer is the only one: since Stage 11 there is
+no runtime backend selection.
 
 The Stage 5 tests read the one load-time world-upload diagnostic and assert
 non-empty geometry, draw ranges and a successful present. A second level is
@@ -345,7 +345,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
     # ------------------------------------------------------ Stage 4 lifecycle
 
     def test_the_wgpu_renderer_draws_the_world_and_exits_cleanly(self):
-        code, output = self.run_binary({"PLACES_RENDERER": "wgpu"})
+        code, output = self.run_binary({})
 
         self.assertEqual(code, 0, f"wgpu run failed:\n{output}")
         self.assertIn("[renderer] wgpu | adapter: ", output, output)
@@ -363,7 +363,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertGreater(int(drawable.group(2)), 0, output)
 
     def test_places_demo_uploads_non_empty_world_geometry(self):
-        code, output = self.run_binary({"PLACES_RENDERER": "wgpu"})
+        code, output = self.run_binary({})
 
         self.assertEqual(code, 0, f"wgpu run failed:\n{output}")
         uploads = self.world_uploads(output)
@@ -379,7 +379,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
     # ------------------------------------------------- Stage 6 texture system
 
     def test_places_demo_uploads_each_base_texture_once(self):
-        code, output = self.run_binary({"PLACES_RENDERER": "wgpu"})
+        code, output = self.run_binary({})
 
         self.assertEqual(code, 0, f"wgpu run failed:\n{output}")
         loads = self.texture_loads(output)
@@ -416,7 +416,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         # many frames must still show exactly one world upload and one texture
         # resolution: no per-frame decode, upload, mip generation or bind.
         code, output = self.run_binary(
-            {"PLACES_RENDERER": "wgpu", "PLACES_BENCH_FRAMES": "100"}
+            {"PLACES_BENCH_FRAMES": "100"}
         )
 
         self.assertEqual(code, 0, f"wgpu hundred-frame run failed:\n{output}")
@@ -437,7 +437,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
     # ------------------------------------------------ Stage 7 material system
 
     def test_places_demo_resolves_materials_for_every_pass(self):
-        code, output = self.run_binary({"PLACES_RENDERER": "wgpu"})
+        code, output = self.run_binary({})
 
         self.assertEqual(code, 0, f"wgpu run failed:\n{output}")
         loads = self.material_loads(output)
@@ -477,10 +477,10 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
     def test_the_quality_profile_gates_the_material_response(self):
         _full_code, full = self.run_binary(
-            {"PLACES_RENDERER": "wgpu", "PLACES_QUALITY": "full"}
+            {"PLACES_QUALITY": "full"}
         )
         _low_code, low = self.run_binary(
-            {"PLACES_RENDERER": "wgpu", "PLACES_QUALITY": "low"}
+            {"PLACES_QUALITY": "low"}
         )
 
         full_load = self.material_loads(full)[0]
@@ -504,10 +504,10 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
     def test_quality_profiles_fit_the_same_textures_to_their_budget(self):
         _full_code, full = self.run_binary(
-            {"PLACES_RENDERER": "wgpu", "PLACES_QUALITY": "full"}
+            {"PLACES_QUALITY": "full"}
         )
         _low_code, low = self.run_binary(
-            {"PLACES_RENDERER": "wgpu", "PLACES_QUALITY": "low"}
+            {"PLACES_QUALITY": "low"}
         )
 
         full_load = self.texture_loads(full)[0]
@@ -534,7 +534,6 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
         code, output = self.run_binary(
             {
-                "PLACES_RENDERER": "wgpu",
                 "PLACES_STATE_ROOT": state,
                 "PLACES_LEVEL": SECOND_LEVEL_ID,
             }
@@ -592,7 +591,6 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
         code, output = self.run_binary(
             {
-                "PLACES_RENDERER": "wgpu",
                 "PLACES_STATE_ROOT": state,
                 "PLACES_LEVEL": EMPTY_LEVEL_ID,
             }
@@ -630,7 +628,6 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
         code, output = self.run_binary(
             {
-                "PLACES_RENDERER": "wgpu",
                 "PLACES_STATE_ROOT": state,
                 "PLACES_LEVEL": NOTEXTURE_LEVEL_ID,
             }
@@ -663,7 +660,6 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
         code, output = self.run_binary(
             {
-                "PLACES_RENDERER": "wgpu",
                 "PLACES_STATE_ROOT": state,
                 "PLACES_LEVEL": MISSING_LEVEL_ID,
             }
@@ -694,7 +690,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         # The reference has no realtime lights: the bake is the lighting. The
         # one load-time lighting diagnostic must show a real bake with real
         # occluders, and the Stage 8 build must draw no lightmap atlas.
-        code, output = self.run_binary({"PLACES_RENDERER": "wgpu"})
+        code, output = self.run_binary({})
 
         self.assertEqual(code, 0, f"wgpu run failed:\n{output}")
         line = re.search(
@@ -731,7 +727,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             os.remove(capture)
 
         code, output = self.run_binary(
-            {"PLACES_RENDERER": "wgpu", "PLACES_CAPTURE": capture}
+            {"PLACES_CAPTURE": capture}
         )
 
         self.assertEqual(code, 0, f"wgpu capture run failed:\n{output}")
@@ -754,10 +750,10 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
     def test_both_quality_profiles_draw_the_same_world(self):
         full_code, full = self.run_binary(
-            {"PLACES_RENDERER": "wgpu", "PLACES_QUALITY": "full"}
+            {"PLACES_QUALITY": "full"}
         )
         low_code, low = self.run_binary(
-            {"PLACES_RENDERER": "wgpu", "PLACES_QUALITY": "low"}
+            {"PLACES_QUALITY": "low"}
         )
 
         self.assertEqual(full_code, 0, f"full-profile run failed:\n{full}")
@@ -772,29 +768,6 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         )
         self.assert_no_gpu_failure(full)
         self.assert_no_gpu_failure(low)
-
-    # --------------------------------------------------------- Stage 4 gates
-
-    def test_an_unknown_renderer_is_rejected_before_the_window(self):
-        code, output = self.run_binary({"PLACES_RENDERER": "bogus"})
-
-        self.assertNotEqual(code, 0, output)
-        self.assertIn("PLACES_RENDERER", output, output)
-        self.assertIn("bogus", output, output)
-        self.assertIn("opengl", output, output)
-        self.assertIn("wgpu", output, output)
-
-    def test_opengl_remains_the_default_renderer(self):
-        code, output = self.run_binary(
-            {
-                "PLACES_RENDERER": "",  # explicitly empty: the default
-                "PLACES_BENCH_FRAMES": "3",
-            }
-        )
-
-        self.assertEqual(code, 0, f"default run failed:\n{output}")
-        self.assertNotIn("[renderer] wgpu", output, output)
-        self.assertIn("BENCH_SUMMARY", output, output)
 
 
 if __name__ == "__main__":

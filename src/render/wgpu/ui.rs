@@ -1,7 +1,7 @@
 //! Stage 9 renderer-owned UI: the 480x272 HUD pass.
 //!
-//! The wgpu port of the OpenGL reference's `Renderer::render_ui`
-//! (`src/render/opengl/renderer.rs`): the same 480x272 reference space, the
+//! The port of the reference renderer's `Renderer::render_ui`: the same
+//! 480x272 reference space, the
 //! same world vertex layout, the same generated font atlas, the same centred
 //! uniform-scale viewport, the same straight-alpha blend and no depth test.
 //!

@@ -1,8 +1,8 @@
 //! The offscreen scene target's size policy.
 //!
 //! This is renderer-neutral: the offscreen target's *size* is a quality-profile
-//! decision derived from the drawable, not a GPU fact. The OpenGL backend owns
-//! the framebuffer itself (`opengl::framebuffer`).
+//! decision derived from the drawable, not a GPU fact. The renderer owns the
+//! framebuffer itself.
 //!
 //! `Full` renders at the drawable's own resolution; `Low` renders no wider
 //! than the authored 480-pixel reference width, never upscaling a smaller

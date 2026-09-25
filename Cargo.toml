@@ -14,7 +14,6 @@ publish = false
 # makes the layout contract explicit without unsafe transmutation.
 bytemuck = { version = "1.25", default-features = false, features = ["derive"] }
 glam = "0.29"
-glow = "0.16"
 png = "0.18.1"
 # Blocking adapter/device initialization for the wgpu backend: two futures and
 # no async runtime.
