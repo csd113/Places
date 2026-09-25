@@ -37,11 +37,11 @@ const BENCH_OUT_ENV: &str = "PLACES_BENCH_OUT";
 const BENCH_WARMUP_ENV: &str = "PLACES_BENCH_WARMUP";
 /// Stop the process after this many recorded frames (bounds a hardware run).
 const BENCH_FRAMES_ENV: &str = "PLACES_BENCH_FRAMES";
-/// A scripted live quality-profile switch, for the runtime verification matrix:
-/// `PLACES_BENCH_QUALITY_CYCLE=<frame>:<profile>[,<frame>:<profile>...]`, e.g.
-/// `3:low,6:full`. Each entry selects the profile when `frame_count` reaches
-/// its frame, through the same `Settings::set_quality` path the menu uses, so
-/// the renderer's normal graphics rebuild runs. Debug-only; inert unless the
+/// A scripted live quality-level switch, for the runtime verification matrix:
+/// `PLACES_BENCH_QUALITY_CYCLE=<frame>:<level>[,<frame>:<level>...]`, e.g.
+/// `3:low,6:high`. Each entry selects the level when `frame_count` reaches its
+/// frame, through the same `Settings::set_quality` path the menu uses, so the
+/// renderer's normal graphics rebuild runs. Debug-only; inert unless the
 /// benchmark is enabled.
 const QUALITY_CYCLE_ENV: &str = "PLACES_BENCH_QUALITY_CYCLE";
 
@@ -333,7 +333,7 @@ pub struct Bench {
     /// Swap interval actually in force, as reported by the presentation mode.
     reported_swap_interval: Option<i32>,
     /// Scripted live quality switches, in ascending frame order.
-    quality_cycle: Vec<(u64, crate::quality::QualityProfile)>,
+    quality_cycle: Vec<(u64, crate::quality::QualityLevel)>,
     /// Scripted live window actions, in ascending frame order.
     window_cycle: Vec<(u64, WindowAction)>,
 }
@@ -355,17 +355,17 @@ impl Bench {
                 "frame,update_ms,render_ms,swap_ms,frame_ms,loop_ms,total_vertices,visible_vertices,culled_vertices,total_batches,visible_batches,draw_calls,vbo_bytes,index_bytes,texture_binds,material_changes,reflection_passes"
             );
         }
-        let mut quality_cycle: Vec<(u64, crate::quality::QualityProfile)> =
+        let mut quality_cycle: Vec<(u64, crate::quality::QualityLevel)> =
             std::env::var(QUALITY_CYCLE_ENV)
                 .ok()
                 .map(|value| {
                     value
                         .split(',')
                         .filter_map(|entry| {
-                            let (frame, profile) = entry.split_once(':')?;
+                            let (frame, level) = entry.split_once(':')?;
                             Some((
                                 frame.trim().parse::<u64>().ok()?,
-                                crate::quality::QualityProfile::parse(profile)?,
+                                crate::quality::QualityLevel::parse(level)?,
                             ))
                         })
                         .collect()
@@ -414,16 +414,16 @@ impl Bench {
             .map(|(_, action)| *action)
     }
 
-    /// The profile a scripted quality cycle selects at `frame`, if any.
+    /// The level a scripted quality cycle selects at `frame`, if any.
     ///
     /// Called by the frame loop before the pending-settings application, so a
     /// scheduled switch goes through exactly the path a menu change does.
     #[must_use]
-    pub fn quality_cycle_at(&self, frame: u64) -> Option<crate::quality::QualityProfile> {
+    pub fn quality_cycle_at(&self, frame: u64) -> Option<crate::quality::QualityLevel> {
         self.quality_cycle
             .iter()
             .find(|(at, _)| *at == frame)
-            .map(|(_, profile)| *profile)
+            .map(|(_, level)| *level)
     }
 
     /// True when `PLACES_BENCH=1` was set, i.e. the harness should be driven.

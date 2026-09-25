@@ -383,9 +383,9 @@ pub struct LevelLighting {
 /// [`Self::HARD`] is the historical bake: one visibility tap per fixture (a
 /// binary shadow edge) and the historical 0.15 m prop-occlusion grid, so
 /// [`LevelLighting::bake`] keeps every value it always had. The renderer
-/// passes the active quality profile's config through
+/// passes the active quality level's config through
 /// [`LevelLighting::bake_with`], which buys the soft penumbra and the finer
-/// prop occluders on Full.
+/// prop occluders at Medium and High.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BakeConfig {
     /// How each local pool's visibility to a sample is resolved.

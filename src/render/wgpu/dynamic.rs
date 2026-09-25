@@ -22,10 +22,10 @@ use std::sync::Arc;
 use super::environment::{EnvironmentBindings, static_environment};
 use super::lightmap::LightmapAtlas;
 use super::material::{EmissionRecord, GpuMaterial};
-use super::texture::{CacheOutcome, GpuTexture, TextureCache, TextureFiltering};
+use super::texture::{CacheOutcome, GpuTexture, TextureCache};
 use super::world::{WORLD_VERTEX_STRIDE, WorldVertex};
 use crate::materials::{MaterialEmission, TextureOrigin};
-use crate::quality::{QualityProfile, TextureClass};
+use crate::quality::{QualityLevel, TextureClass};
 use crate::render::common::atmosphere::FogState;
 use crate::render::common::dynamic::{DynamicMesh, DynamicScene};
 use crate::spatial::Aabb;
@@ -100,8 +100,8 @@ pub struct WgpuDynamic {
 }
 
 /// The renderer state a dynamic upload needs: the shared texture cache, the
-/// material and environment layouts, the level's lightmap atlas, the reflection
-/// views the environment binds, and the frame's sampling choices.
+/// material and environment layouts, the level's lightmap atlas and the
+/// reflection views the environment binds.
 pub struct DynamicUploadContext<'a> {
     pub device: &'a wgpu::Device,
     pub queue: &'a wgpu::Queue,
@@ -115,8 +115,7 @@ pub struct DynamicUploadContext<'a> {
     pub planar: &'a wgpu::TextureView,
     pub probe_fallback: &'a wgpu::TextureView,
     pub planar_fallback: &'a wgpu::TextureView,
-    pub filtering: TextureFiltering,
-    pub profile: QualityProfile,
+    pub level: QualityLevel,
     pub fog: FogState,
 }
 
@@ -145,7 +144,7 @@ impl WgpuDynamic {
                     image.as_ref(),
                     TextureClass::Prop,
                     TextureOrigin::Catalog,
-                    ctx.profile,
+                    ctx.level,
                 );
                 match outcome {
                     CacheOutcome::Uploaded => {
@@ -194,7 +193,6 @@ impl WgpuDynamic {
                 ctx.planar,
                 ctx.probe_fallback,
                 ctx.planar_fallback,
-                ctx.filtering,
                 static_environment(ctx.lightmap_enabled, ctx.fog)
                     .with_model(object.transform())
                     .with_light_scale(object.light_scale()),

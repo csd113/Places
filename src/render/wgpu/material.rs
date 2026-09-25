@@ -2,8 +2,8 @@
 //!
 //! The engine resolves a level's materials into the renderer-neutral
 //! [`MaterialRenderState`] and the neutral [`ResolvedSurfaceMaterial`]; this
-//! module owns everything after that: one uniform buffer and one pair of bind
-//! groups per distinct resolved material, and the normal-map texture each
+//! module owns everything after that: one uniform buffer and three bind groups
+//! per distinct resolved material, and the normal-map texture each
 //! material binds (uploaded through the [`TextureCache`] under the
 //! `DataLinear` semantic).
 //!
@@ -21,7 +21,7 @@
 //! The cache is keyed by the resolved material identity (material index plus
 //! the surface's shine override), never by draw index or surface position, so
 //! every surface that resolves to the same material shares one GPU uniform and
-//! one pair of bind groups. Materials are created at level load, never per
+//! one set of bind groups. Materials are created at level load, never per
 //! frame.
 
 use std::collections::HashMap;
@@ -33,7 +33,7 @@ use super::texture::{
     CacheOutcome, GpuTexture, SamplerPolicy, TextureCache, TextureFiltering, TextureSemantic,
 };
 use crate::materials::MaterialTable;
-use crate::quality::QualityProfile;
+use crate::quality::QualityLevel;
 use crate::render::common::materials::{
     BatchPass, MaterialRenderState, ResolvedSurfaceMaterial, resolve_surface_material,
 };
@@ -373,10 +373,12 @@ pub struct GpuMaterial {
     /// animation writes target it.
     uniform_buffer: wgpu::Buffer,
     /// Uniform + normal texture + sampler + emission mask + sampler, with the
-    /// player's linear filtering.
-    linear_bind_group: wgpu::BindGroup,
-    /// The same with nearest filtering.
-    nearest_bind_group: wgpu::BindGroup,
+    /// Low world filtering preset.
+    low_bind_group: wgpu::BindGroup,
+    /// The same with the Medium world filtering preset.
+    medium_bind_group: wgpu::BindGroup,
+    /// The same with the High world filtering preset.
+    high_bind_group: wgpu::BindGroup,
     /// The normal-map texture, or the shared white fallback.
     _normal: Arc<GpuTexture>,
     /// The emission-mask texture, or the shared white fallback.
@@ -397,12 +399,17 @@ pub struct GpuMaterial {
 }
 
 impl GpuMaterial {
-    /// The bind group for one filtering mode.
+    /// The bind group for one filtering level.
+    ///
+    /// A material without a normal map or emission mask binds the clamped
+    /// nearest policy in all three; a material with a real map follows the
+    /// player's world preset.
     #[must_use]
     pub const fn bind_group(&self, filtering: TextureFiltering) -> &wgpu::BindGroup {
         match filtering {
-            TextureFiltering::Linear => &self.linear_bind_group,
-            TextureFiltering::Nearest => &self.nearest_bind_group,
+            TextureFiltering::Low => &self.low_bind_group,
+            TextureFiltering::Medium => &self.medium_bind_group,
+            TextureFiltering::High => &self.high_bind_group,
         }
     }
 }
@@ -527,8 +534,8 @@ pub struct WorldMaterialInputs<'a> {
     pub materials: &'a MaterialRenderState,
     /// The level's resolved material table.
     pub table: &'a MaterialTable,
-    /// The active quality profile (the response gate and the texture fit).
-    pub profile: QualityProfile,
+    /// The active quality level (the response gate and the texture fit).
+    pub level: QualityLevel,
     /// Per-material emission animations, indexed by material index.
     pub animations: &'a [Option<crate::render::common::animation::EmissionAnimation>],
     /// The level's reflection routing, for the planar/probe gates.
@@ -539,7 +546,7 @@ impl WorldMaterials {
     /// Resolves every world draw to its material, creating the GPU records the
     /// cache does not hold yet.
     ///
-    /// `inputs.profile` supplies the response gate; the neutral resolver
+    /// `inputs.level` supplies the response gate; the neutral resolver
     /// applies it to the normal map and sheen (and therefore to the reflection
     /// strength), exactly as the OpenGL draw path does. Emissions resolve the
     /// same way they do there: a floor/ceiling/wall material carries
@@ -559,7 +566,7 @@ impl WorldMaterials {
         inputs: WorldMaterialInputs<'_>,
     ) -> Self {
         let draws = inputs.draws;
-        let profile = inputs.profile;
+        let level = inputs.level;
         let mut stats = WorldMaterialStats::default();
         for draw in draws {
             match draw.pass {
@@ -571,7 +578,7 @@ impl WorldMaterials {
             }
         }
         let (keys, per_draw) = material_identities(draws);
-        let response_allowed = profile.draws_surface_response();
+        let response_allowed = level.draws_surface_response();
         let mut entries: Vec<GpuMaterial> = Vec::with_capacity(keys.len());
         let mut animations: Vec<Option<crate::render::common::animation::EmissionAnimation>> =
             Vec::with_capacity(keys.len());
@@ -631,7 +638,7 @@ impl WorldMaterials {
                     queue,
                     resolved_texture,
                     TextureSemantic::DataLinear,
-                    profile,
+                    level,
                 );
                 match outcome {
                     CacheOutcome::Uploaded => {
@@ -654,7 +661,7 @@ impl WorldMaterials {
                     queue,
                     resolved_texture,
                     TextureSemantic::DataLinear,
-                    profile,
+                    level,
                 );
                 match outcome {
                     CacheOutcome::Uploaded => {
@@ -796,12 +803,13 @@ impl WorldMaterials {
 }
 
 impl GpuMaterial {
-    /// Creates one material's uniform buffer and its two bind groups.
+    /// Creates one material's uniform buffer and its three bind groups.
     ///
     /// A material without a normal map or emission mask binds the shared white
     /// fallback with the clamped nearest sampler and the fetch gate off,
     /// exactly like the OpenGL reference; a real map follows the player's
-    /// filtering setting (its own wrap/mip policy + user filter).
+    /// filtering setting (its own wrap/mip policy + user filter) at all three
+    /// world presets.
     fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -822,40 +830,39 @@ impl GpuMaterial {
         // through `write_emission_scale`).
         queue.write_buffer(&buffer, 0, bytemuck::bytes_of(&uniform));
         // The mask gate the uniform already carries decides the sampler policy;
-        // no separate flag can disagree with it.
+        // no separate flag can disagree with it. A map-less material binds the
+        // shared fallback with the clamped nearest policy in all three slots; a
+        // real normal map or emission mask follows the player's world presets.
         let emission_bound = uniform.emission_mask_enabled > 0.5;
-        let (linear_sampler, nearest_sampler) = if normal.is_fallback() && !emission_bound {
-            (SamplerPolicy::ClampNearest, SamplerPolicy::ClampNearest)
-        } else {
-            (
-                TextureFiltering::Linear.sampler_policy(),
-                TextureFiltering::Nearest.sampler_policy(),
-            )
+        let maps_resident = !normal.is_fallback() || emission_bound;
+        let policy = |filtering: TextureFiltering| {
+            if maps_resident {
+                filtering.sampler_policy()
+            } else {
+                SamplerPolicy::ClampNearest
+            }
         };
         let normal_view = normal.view();
         let emission_view = emission.view();
-        let linear_bind_group = create_material_bind_group(
-            device,
-            layout,
-            &buffer,
-            normal_view,
-            emission_view,
-            cache,
-            linear_sampler,
-        );
-        let nearest_bind_group = create_material_bind_group(
-            device,
-            layout,
-            &buffer,
-            normal_view,
-            emission_view,
-            cache,
-            nearest_sampler,
-        );
+        let bind_group_for = |filtering: TextureFiltering| {
+            create_material_bind_group(
+                device,
+                layout,
+                &buffer,
+                normal_view,
+                emission_view,
+                cache,
+                policy(filtering),
+            )
+        };
+        let low_bind_group = bind_group_for(TextureFiltering::Low);
+        let medium_bind_group = bind_group_for(TextureFiltering::Medium);
+        let high_bind_group = bind_group_for(TextureFiltering::High);
         Self {
             uniform_buffer: buffer,
-            linear_bind_group,
-            nearest_bind_group,
+            low_bind_group,
+            medium_bind_group,
+            high_bind_group,
             _normal: Arc::clone(normal),
             _emission: Arc::clone(emission),
             emissive: uniform.emission_vertex > 0.5

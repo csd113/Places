@@ -4,9 +4,10 @@
 //! Two deliberately limited sources, both opt-in per material (see
 //! [`crate::materials::reflection`]):
 //!
-//! * **Static probes.** One or two 64-texel cubemaps (32 under Low), baked once
-//!   per level load at the centroid of the reflective geometry that asked for
-//!   one, from six 90-degree views of the whole scene. The reference renders
+//! * **Static probes.** One or two cubemaps (64-texel faces at High, 48 at
+//!   Medium, 32 at Low), baked once per level load at the centroid of the
+//!   reflective geometry that asked for one, from six 90-degree views of the
+//!   whole scene. The reference renders
 //!   the six faces in the GL cube order +X/-X/+Y/-Y/+Z/-Z with the GL face-up
 //!   vectors, through `look_at_rh`/`perspective_rh_gl`.
 //! * **Planar mirrors.** A real second view of the level, mirrored through a
@@ -25,7 +26,7 @@
 //! values are captured and sampled back unchanged — exactly what the reference
 //! read from its RGBA8 attachments and cubemaps.
 
-use crate::quality::QualityProfile;
+use crate::quality::QualityLevel;
 use crate::render::common::reflections::{ReflectionPlane, mirror_matrix, planar_target_size};
 use crate::render::common::view::{DrawableSize, MAX_REFLECTION_PROBES};
 use crate::spatial::{DepthRange, Frustum};
@@ -38,17 +39,20 @@ use crate::spatial::{DepthRange, Frustum};
 /// reference's own values, and blending inside a capture behaves as GL did.
 pub const REFLECTION_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
-/// Cube face edge, in texels, under the Full profile.
-pub const PROBE_FACE_SIZE_FULL: u32 = 64;
-/// Cube face edge, in texels, under the Low profile.
+/// Cube face edge, in texels, at High quality.
+pub const PROBE_FACE_SIZE_HIGH: u32 = 64;
+/// Cube face edge, in texels, at Medium quality.
+pub const PROBE_FACE_SIZE_MEDIUM: u32 = 48;
+/// Cube face edge, in texels, at Low quality.
 pub const PROBE_FACE_SIZE_LOW: u32 = 32;
 
-/// The probe face edge one quality profile bakes.
+/// The probe face edge one quality level bakes.
 #[must_use]
-pub const fn probe_face_size(profile: QualityProfile) -> u32 {
-    match profile {
-        QualityProfile::Full => PROBE_FACE_SIZE_FULL,
-        QualityProfile::Low => PROBE_FACE_SIZE_LOW,
+pub const fn probe_face_size(level: QualityLevel) -> u32 {
+    match level {
+        QualityLevel::Low => PROBE_FACE_SIZE_LOW,
+        QualityLevel::Medium => PROBE_FACE_SIZE_MEDIUM,
+        QualityLevel::High => PROBE_FACE_SIZE_HIGH,
     }
 }
 
@@ -372,14 +376,15 @@ pub struct ReflectionTargets {
 impl ReflectionTargets {
     /// Creates one cubemap per wanted probe point, up to the two-probe budget.
     ///
-    /// The capture position is the reference's `point + 1.2 m Y`.
+    /// The capture position is the reference's `point + 1.2 m Y`; the face edge
+    /// follows the quality level.
     #[must_use]
     pub fn for_level(
         device: &wgpu::Device,
-        profile: QualityProfile,
+        level: QualityLevel,
         probe_points: &[[f32; 3]],
     ) -> Self {
-        let face_size = probe_face_size(profile);
+        let face_size = probe_face_size(level);
         let probes = probe_points
             .iter()
             .take(MAX_REFLECTION_PROBES)
@@ -418,11 +423,11 @@ impl ReflectionTargets {
     }
 }
 
-/// The planar target size for the current render size, under `profile`.
+/// The planar target size for the current render size.
 ///
 /// Low never runs the planar pass; the caller checks
 /// [`crate::render::common::reflections::Reflections::planar_wanted`] and the
-/// profile gate first.
+/// level gate first.
 #[must_use]
 pub fn planar_size_for(render_size: DrawableSize) -> DrawableSize {
     planar_target_size(render_size)
@@ -515,9 +520,10 @@ mod tests {
     }
 
     #[test]
-    fn the_probe_face_size_follows_the_profile() {
-        assert_eq!(probe_face_size(QualityProfile::Full), 64);
-        assert_eq!(probe_face_size(QualityProfile::Low), 32);
+    fn the_probe_face_size_follows_the_level() {
+        assert_eq!(probe_face_size(QualityLevel::High), 64);
+        assert_eq!(probe_face_size(QualityLevel::Medium), 48);
+        assert_eq!(probe_face_size(QualityLevel::Low), 32);
     }
 
     #[test]

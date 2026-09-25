@@ -14,7 +14,7 @@
 //! every texture and the bind group are level/size resources.
 
 use super::lightmap::LightmapAtlas;
-use super::texture::{TextureCache, TextureFiltering};
+use super::texture::{SamplerPolicy, TextureCache};
 use super::world::{ENVIRONMENT_UNIFORM_SIZE, EnvironmentUniform, environment_bind_group};
 use crate::render::common::atmosphere::FogState;
 
@@ -114,10 +114,12 @@ impl EnvironmentBindings {
     /// `probes` is the level's probe cubemaps in bake order (at most
     /// [`crate::render::common::view::MAX_REFLECTION_PROBES`]); an empty list
     /// binds the fallback cube. `planar` is the fallback view when no mirror
-    /// target exists. The lightmap sampler follows the player's filtering
-    /// setting, exactly like the reference's `set_lightmap_filter`; the
-    /// reflection sampler is clamped linear, matching the reference's probe and
-    /// planar textures.
+    /// target exists. The lightmap sampler is the fixed
+    /// [`SamplerPolicy::ClampLinear`] policy and deliberately does **not**
+    /// follow the player's world filtering setting: the baked atlas is data,
+    /// not a minified surface, and the old `linear` lightmap sampler descriptor
+    /// is preserved exactly. The reflection sampler is the same clamped linear
+    /// policy, matching the reference's probe and planar textures.
     #[must_use]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -130,7 +132,6 @@ impl EnvironmentBindings {
         planar: &wgpu::TextureView,
         fallback_probe: &wgpu::TextureView,
         fallback_planar: &wgpu::TextureView,
-        filtering: TextureFiltering,
         uniform: EnvironmentUniform,
     ) -> Self {
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -140,8 +141,8 @@ impl EnvironmentBindings {
             mapped_at_creation: false,
         });
         queue.write_buffer(&buffer, 0, bytemuck::bytes_of(&uniform));
-        let lightmap_sampler = cache.sampler(filtering.clamp_sampler_policy());
-        let reflection_sampler = cache.sampler(super::texture::SamplerPolicy::ClampLinear);
+        let lightmap_sampler = cache.sampler(SamplerPolicy::ClampLinear);
+        let reflection_sampler = cache.sampler(SamplerPolicy::ClampLinear);
         let mut probe_bind_groups: Vec<wgpu::BindGroup> = probes
             .iter()
             .map(|probe| {

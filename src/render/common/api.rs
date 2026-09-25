@@ -87,16 +87,39 @@ pub struct LightmapBuildOptions {
     pub config: LightmapConfig,
     /// Profile the config came from; only used for the content key.
     pub profile: crate::quality::QualityProfile,
+    /// The shadow bake to run: taps and prop-occlusion cell.
+    pub bake: BakeConfig,
 }
 
 impl LightmapBuildOptions {
-    /// The options one quality profile implies for a mode.
+    /// The options one quality level implies for a mode.
+    ///
+    /// The lightmap configuration and the bake come from the level; the profile
+    /// is only the protected content-key boundary (`Medium` and `High` both map
+    /// to `Full`, and the key itself keeps their configs and bake settings
+    /// apart).
+    #[must_use]
+    pub const fn for_level(level: crate::quality::QualityLevel, mode: LightmapMode) -> Self {
+        Self {
+            mode,
+            config: level.lightmap_config(),
+            profile: level.profile(),
+            bake: level.bake_config(),
+        }
+    }
+
+    /// The options one validated profile implies for a mode.
+    ///
+    /// Kept for the callers that deliberately work at the profile boundary
+    /// (the lightmap audits and tests); the renderer always uses
+    /// [`Self::for_level`].
     #[must_use]
     pub const fn for_profile(profile: crate::quality::QualityProfile, mode: LightmapMode) -> Self {
         Self {
             mode,
             config: LightmapConfig::for_profile(profile),
             profile,
+            bake: profile.bake_config(),
         }
     }
 }
@@ -183,11 +206,11 @@ pub fn build_level_geometry_timed_with_lightmaps(
 ) -> LevelBuild {
     let started = std::time::Instant::now();
     // The vertex-lit mode is the *historical* path and must stay byte-identical
-    // to it, so it bakes with [`BakeConfig::HARD`] whatever profile is active: a
+    // to it, so it bakes with [`BakeConfig::HARD`] whatever level is active: a
     // soft-shadow, fine-occluder bake would change vertex colours that the
     // fallback contract says are the historical ones.
     let bake = match options.mode {
-        LightmapMode::On => options.profile.bake_config(),
+        LightmapMode::On => options.bake,
         LightmapMode::Off => BakeConfig::HARD,
     };
     let lighting = LevelLighting::bake_with(level, bake);
@@ -230,7 +253,7 @@ pub fn build_level_geometry_timed_with_lightmaps(
             lightmap_failure = Some(plan_failure);
         } else {
             // The key covers the level definition, the lightmap config, the
-            // quality profile, the *bake settings* (visibility taps and the
+            // quality level, the *bake settings* (visibility taps and the
             // prop-occlusion cell) and the occluder set the bake actually uses,
             // so a prop model, a light or a shadow-quality constant change
             // invalidates the cached atlas while a texture-only edit does not.

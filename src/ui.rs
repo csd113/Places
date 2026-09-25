@@ -4,7 +4,6 @@ use std::hash::{Hash, Hasher};
 use crate::display::{DisplayStatus, resolution_label, step_resolution};
 use crate::font::{get_char_uv, get_white_uv};
 use crate::game::AppState;
-use crate::quality::QualityProfile;
 use crate::render::Vertex;
 use crate::settings::{KeyBindings, Settings, WindowMode};
 
@@ -193,7 +192,7 @@ fn ui_signature(
     settings.bloom_enabled().hash(&mut hasher);
     settings.reflections_enabled().hash(&mut hasher);
     settings.lightmaps_enabled().hash(&mut hasher);
-    settings.quality_profile().hash(&mut hasher);
+    settings.quality_level().hash(&mut hasher);
     settings.window_mode().hash(&mut hasher);
     settings.texture_filtering.hash(&mut hasher);
     settings.window_size().hash(&mut hasher);
@@ -695,21 +694,16 @@ const fn on_off(value: bool) -> &'static str {
     if value { "On" } else { "Off" }
 }
 
-const fn profile_label(profile: QualityProfile) -> &'static str {
-    match profile {
-        QualityProfile::Full => "Full",
-        QualityProfile::Low => "Low",
-    }
-}
-
-// `==` on `&str` is not const-callable yet, so this cannot be `const fn`;
-// clippy's suggestion is a known false positive for this case.
-#[allow(clippy::missing_const_for_fn)]
+/// Player-facing label of a Texture Filtering value.
+///
+/// The three names are the whole vocabulary: no filtering, sampler or
+/// anisotropy term can ever reach the screen. A legacy or unknown value shows
+/// its canonical equivalent (High by default).
 fn filtering_label(mode: &str) -> &'static str {
-    if mode == "nearest" {
-        "Nearest"
-    } else {
-        "Linear"
+    match crate::settings::texture_filtering_name(mode) {
+        "low" => "Low",
+        "medium" => "Medium",
+        _ => "High",
     }
 }
 
@@ -787,14 +781,14 @@ fn root_rows() -> Vec<SettingsRow> {
     rows
 }
 
-/// Graphics: the quality profile, then the independent visual toggles.
+/// Graphics: the quality level, then the independent visual toggles.
 fn graphics_rows(settings: &Settings) -> Vec<SettingsRow> {
     let mut rows = Vec::with_capacity(SettingsPage::Graphics.item_count());
     push_row(
         &mut rows,
         "Graphics Quality",
         selector_with_override(
-            profile_label(settings.quality_profile()),
+            settings.quality_level().label(),
             settings.quality_overridden(),
         ),
         SettingsRowKind::Value(SettingsValue::GraphicsQuality),
@@ -1057,9 +1051,9 @@ fn adjust_value(
 ) {
     match value {
         SettingsValue::GraphicsQuality => {
-            let next = Settings::quality_step(settings.quality_profile(), direction);
+            let next = Settings::quality_step(settings.quality_level(), direction);
             if settings.set_quality(next) {
-                ui_state.set_status(format!("Graphics quality: {}", profile_label(next)), false);
+                ui_state.set_status(format!("Graphics quality: {}", next.label()), false);
             }
         }
         SettingsValue::Bloom => {
@@ -1082,16 +1076,11 @@ fn adjust_value(
             ui_state.set_status(format!("VSync {}", on_off(next).to_lowercase()), false);
         }
         SettingsValue::Filtering => {
-            settings.texture_filtering = if settings.texture_filtering == "linear" {
-                "nearest".to_string()
-            } else {
-                "linear".to_string()
-            };
+            let next =
+                crate::settings::texture_filtering_step(&settings.texture_filtering, direction);
+            settings.texture_filtering = next.to_string();
             ui_state.set_status(
-                format!(
-                    "Texture filtering: {}",
-                    filtering_label(&settings.texture_filtering)
-                ),
+                format!("Texture filtering: {}", filtering_label(next)),
                 false,
             );
         }
@@ -1158,6 +1147,7 @@ mod tests {
     #![allow(clippy::expect_used, clippy::indexing_slicing)]
 
     use super::*;
+    use crate::quality::QualityLevel;
     use crate::settings::SettingsApply;
     use crate::test_support::assert_exact;
 
@@ -1314,12 +1304,15 @@ mod tests {
     }
 
     #[test]
-    fn the_quality_selector_cycles_full_low_full_and_requests_a_graphics_rebuild() {
+    fn the_quality_selector_cycles_low_medium_high_and_requests_a_graphics_rebuild() {
         let mut ui = UiState::new();
         let mut settings = Settings::default();
         let display = DisplayStatus::default();
-        assert_eq!(settings.quality_profile(), QualityProfile::Full);
+        assert_eq!(settings.quality_level(), QualityLevel::High);
+        settings.sanitize();
+        assert_eq!(settings.quality, "high");
 
+        // Right walks High -> Low -> Medium -> High.
         activate_settings_item(
             SettingsPage::Graphics,
             0,
@@ -1328,7 +1321,7 @@ mod tests {
             &display,
             1,
         );
-        assert_eq!(settings.quality_profile(), QualityProfile::Low);
+        assert_eq!(settings.quality_level(), QualityLevel::Low);
         assert!(
             settings.take_pending_apply().graphics_rebuild,
             "Low must rebuild the GPU resources"
@@ -1342,9 +1335,28 @@ mod tests {
             &display,
             1,
         );
-        assert_eq!(settings.quality_profile(), QualityProfile::Full);
+        assert_eq!(settings.quality_level(), QualityLevel::Medium);
+        assert_eq!(
+            settings.quality, "medium",
+            "the player's choice is the saved value"
+        );
+        assert!(
+            settings.take_pending_apply().graphics_rebuild,
+            "Medium must rebuild the GPU resources"
+        );
+
+        activate_settings_item(
+            SettingsPage::Graphics,
+            0,
+            &mut ui,
+            &mut settings,
+            &display,
+            1,
+        );
+        assert_eq!(settings.quality_level(), QualityLevel::High);
         assert!(settings.take_pending_apply().graphics_rebuild);
 
+        // Left walks the other way.
         activate_settings_item(
             SettingsPage::Graphics,
             0,
@@ -1354,22 +1366,95 @@ mod tests {
             -1,
         );
         assert_eq!(
-            settings.quality_profile(),
-            QualityProfile::Low,
+            settings.quality_level(),
+            QualityLevel::Medium,
             "left steps back"
         );
+        activate_settings_item(
+            SettingsPage::Graphics,
+            0,
+            &mut ui,
+            &mut settings,
+            &display,
+            -1,
+        );
+        assert_eq!(settings.quality_level(), QualityLevel::Low);
+
+        // The row shows the level, never the internal profile name.
+        let rows = settings_rows(SettingsPage::Graphics, &settings, &display);
+        assert_eq!(rows[0].label, "Graphics Quality");
+        assert_eq!(rows[0].value, "< Low >");
+    }
+
+    /// The Texture Filtering selector is the second three-way selector on the
+    /// Graphics page, and choosing a value never touches Quality.
+    #[test]
+    fn the_filtering_selector_cycles_low_medium_high_independently() {
+        let mut ui = UiState::new();
+        let mut settings = Settings::default();
+        let display = DisplayStatus::default();
+
+        let rows = settings_rows(SettingsPage::Graphics, &settings, &display);
+        assert_eq!(rows[5].label, "Texture Filtering");
+        assert_eq!(rows[5].value, "< High >");
+
+        // High -> Low -> Medium -> High with right, and the reverse with left.
+        for (direction, expected) in [
+            (1, "low"),
+            (1, "medium"),
+            (1, "high"),
+            (-1, "medium"),
+            (-1, "low"),
+        ] {
+            activate_settings_item(
+                SettingsPage::Graphics,
+                5,
+                &mut ui,
+                &mut settings,
+                &display,
+                direction,
+            );
+            assert_eq!(
+                settings.texture_filtering, expected,
+                "direction {direction}"
+            );
+            assert_eq!(
+                settings.quality_level(),
+                QualityLevel::High,
+                "quality untouched"
+            );
+            assert!(
+                !settings.take_pending_apply().graphics_rebuild,
+                "filtering swaps sampler handles; it never rebuilds the level"
+            );
+        }
+        assert_eq!(ui.status_message.as_deref(), Some("Texture filtering: Low"));
+        let rows = settings_rows(SettingsPage::Graphics, &settings, &display);
+        assert_eq!(rows[5].value, "< Low >");
+        assert_eq!(rows[0].value, "< High >", "quality stayed put");
+
+        // A legacy stored name steps from its current equivalent and leaves the
+        // stored value canonical.
+        let mut legacy = Settings {
+            texture_filtering: "nearest".to_string(),
+            ..Settings::default()
+        };
+        let next = crate::settings::texture_filtering_step(&legacy.texture_filtering, 1);
+        assert_eq!(next, "medium");
+        legacy.texture_filtering = next.to_string();
+        assert_eq!(legacy.texture_filtering, "medium");
     }
 
     #[test]
-    fn bloom_toggles_immediately_and_independently_of_the_quality_profile() {
+    fn bloom_toggles_immediately_and_independently_of_the_quality_level() {
         let mut ui = UiState::new();
         let mut settings = Settings {
             quality: "low".to_string(),
             ..Settings::default()
         };
         let display = DisplayStatus::default();
-        // Low + Bloom On is representable: the profile does not own bloom.
-        assert_eq!(settings.quality_profile(), QualityProfile::Low);
+        // Low + Bloom On is representable: the level does not own bloom.
+        assert_eq!(settings.quality_level(), QualityLevel::Low);
         assert!(settings.bloom_enabled());
 
         activate_settings_item(
@@ -1383,9 +1468,9 @@ mod tests {
         assert!(!settings.bloom_enabled());
         assert!(settings.take_pending_apply().renderer_state);
         assert_eq!(
-            settings.quality_profile(),
-            QualityProfile::Low,
-            "bloom must not rewrite the quality profile"
+            settings.quality_level(),
+            QualityLevel::Low,
+            "bloom must not rewrite the quality level"
         );
 
         activate_settings_item(
@@ -1407,12 +1492,12 @@ mod tests {
             bloom: false,
             ..Settings::default()
         };
-        // A startup override selects Full + Bloom On for this process.
-        settings.overrides.quality = Some(QualityProfile::Full);
+        // A startup override selects High + Bloom On for this process.
+        settings.overrides.quality = Some(QualityLevel::High);
         settings.overrides.bloom = Some(true);
         let display = DisplayStatus::default();
         let rows = settings_rows(SettingsPage::Graphics, &settings, &display);
-        assert_eq!(rows[0].value, "< Full > *");
+        assert_eq!(rows[0].value, "< High > *");
         assert_eq!(rows[1].value, "< On > *");
 
         // An explicit change clears the override and persists the new choice.
@@ -1569,7 +1654,7 @@ mod tests {
                     false,
                 );
                 let mut settings = Settings::default();
-                settings.overrides.quality = Some(QualityProfile::Low);
+                settings.overrides.quality = Some(QualityLevel::Low);
                 let vertices =
                     build_ui_geometry(state, &ui, &settings, &DisplayStatus::default(), "9.9.9");
                 assert!(!vertices.is_empty(), "{state:?}/{page:?} drew nothing");

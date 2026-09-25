@@ -10,7 +10,7 @@
 /// This is a *reference space*, not a window size: the UI is scaled to the
 /// drawable by [`DrawableSize::ui_viewport`], and the window the game opens at
 /// is [`crate::settings::DEFAULT_WINDOW_WIDTH`] x
-/// [`crate::settings::DEFAULT_WINDOW_HEIGHT`]. The Low quality profile also
+/// [`crate::settings::DEFAULT_WINDOW_HEIGHT`]. The Low quality level also
 /// caps its internal scene width at this reference, which is the one runtime
 /// place it is used outside the UI.
 pub const UI_REFERENCE_WIDTH: u32 = 480;

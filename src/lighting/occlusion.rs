@@ -47,8 +47,8 @@
 //! Boxes come from the shipped GLB through [`crate::props::PropAssets`], the
 //! same cache the renderer uses, and are remembered per `(model path, grid
 //! cell)` in a thread-local cache ([`level_occluders_with_cell`]). Keying by
-//! the cell as well as the path is what lets a quality profile pick its own
-//! grid without ever serving the other profile's boxes: a Full/Low switch
+//! the cell as well as the path is what lets a quality level pick its own
+//! grid without ever serving another level's boxes: a quality-level switch
 //! re-derives against the newly requested cell. A missing asset root or a
 //! failed model is never an error.
 //!
@@ -579,8 +579,8 @@ fn thickened(low: f32, high: f32) -> (f32, f32) {
 /// through.
 ///
 /// The cell is part of the key because the boxes are a function of it: a
-/// Full/Low quality switch asks for a different grid and must never be served
-/// the other profile's boxes.
+/// quality-level switch asks for a different grid and must never be served
+/// another level's boxes.
 pub(super) struct PropOcclusionCache {
     catalog: crate::loader::PropCatalog,
     assets: crate::props::PropAssets,
@@ -775,10 +775,10 @@ pub(super) fn level_occluders(level: &LevelDef, surfaces: &LevelSurfaces<'_>) ->
 
 /// [`level_occluders`] with an explicit prop-occlusion grid cell, in metres.
 ///
-/// This is the entry point the profile-configured bake
+/// This is the entry point the level-configured bake
 /// (`LevelLighting::bake_with`) uses; the cache is keyed by
-/// `(model path, cell)`, so a Full/Low switch can never serve the other
-/// profile's boxes.
+/// `(model path, cell)`, so a quality-level switch can never serve another
+/// level's boxes.
 #[must_use]
 pub(super) fn level_occluders_with_cell(
     level: &LevelDef,
@@ -1793,7 +1793,8 @@ mod tests {
         // The same model at two cells: the boxes must differ (the desk's top
         // slab and leg columns resolve separately at 0.075 m), and asking for
         // the first cell again must return that cell's own result rather than
-        // the most recently derived one. This is the Full/Low staleness guard.
+        // the most recently derived one. This is the quality-level staleness
+        // guard.
         let level = crate::level::LevelDef::from_json(
             r#"{
                 "format_version": 1,

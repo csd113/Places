@@ -6,8 +6,8 @@ measured directly, with no device or SSH involved. It repeats one configuration
 `--repeat` times and reports the minimum, median and maximum of every headline
 field, so a renderer change can be compared against the previous build with
 everything (level, assets, camera, frame count, swap interval) held fixed, and
-the Full / Low variants of one build can be compared with only that switch
-changed. The minimum is the run least contaminated by unrelated
+the High / Medium / Low variants of one build can be compared with only that
+switch changed. The minimum is the run least contaminated by unrelated
 system work and is the more stable estimator; the median and maximum show the
 spread. Nothing outside ``target/agent-work/bench/`` is written.
 
@@ -17,6 +17,7 @@ Usage::
         --label current --repeat 3
 
     python3 tools/bench/bench_local.py --label current_low --quality low
+    python3 tools/bench/bench_local.py --label current_medium --quality medium
     python3 tools/bench/bench_local.py --label current_nolightmaps --no-lightmaps
 
 Every run is a release build of the *current* working tree unless `--binary`
@@ -105,7 +106,11 @@ def main() -> int:
     parser.add_argument("--frames", type=int, default=120)
     parser.add_argument("--warmup", type=int, default=20)
     parser.add_argument("--repeat", type=int, default=3)
-    parser.add_argument("--quality", default=None, help="full or low (default: the settings file)")
+    parser.add_argument(
+        "--quality",
+        default=None,
+        help="low, medium or high (default: the settings file; 'full' is the historical alias of 'high')",
+    )
     parser.add_argument("--no-lightmaps", action="store_true", help="force the vertex-lit path")
     parser.add_argument(
         "--finish", action="store_true", help="wait for GPU work before the swap"

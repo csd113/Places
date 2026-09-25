@@ -12,7 +12,7 @@ The current workflow uses the following tools:
 | --- | --- |
 | `bench_local.py` | repeats one benchmark configuration and prints min/median/max per field |
 | `capture_views.sh` | renders the fixed validation view set, one PNG per view |
-| `capture_baseline_views.sh` | renders the canonical frozen reference view set (Full and Low profiles), captured from the preserved GLES2 renderer, for comparison against a current build |
+| `capture_baseline_views.sh` | renders the canonical frozen reference view set (High and Low profiles), captured from the preserved GLES2 renderer, for comparison against a current build |
 | `capture_expanded_views.sh` | renders the supplementary capture view set (geometry, materials, lightmaps, reflections, props, decals, fog) for comparison between two builds |
 | `baseline_asset_root.sh` | builds a scratch asset root matching the committed revision, for baseline captures while the working tree's assets are mid-edit |
 | `compare_baseline.py` | checks a canonical capture directory against the frozen PNGs |
@@ -29,8 +29,8 @@ field (the minimum is the number least contaminated by unrelated system work)
 and writes the same numbers to `target/agent-work/bench/<label>.json`.
 
 ```sh
-# the Full profile, five repeats
-python3 tools/bench/bench_local.py --label current_full --repeat 5
+# the High profile, five repeats
+python3 tools/bench/bench_local.py --label current_high --repeat 5
 
 # the Low profile on the same build
 python3 tools/bench/bench_local.py --label current_low --repeat 5 --quality low
@@ -46,7 +46,7 @@ Flags:
 | --- | --- |
 | `--label NAME` | output name; the JSON lands at `target/agent-work/bench/NAME.json` |
 | `--repeat N` | how many whole runs to take the min/median/max over (default 3) |
-| `--quality full\|low` | draw this run at the named profile without editing `settings.json` |
+| `--quality low\|medium\|high` | draw this run at the named profile without editing `settings.json` (`full` is the historical alias of `high`) |
 | `--no-lightmaps` | `PLACES_NO_LIGHTMAPS=1`: force the vertex-lit path |
 | `--binary PATH` | measure another executable (default `target/release/places`) |
 | `--level ID`, `--camera yaw[,pitch]` | the fixed scene (default `places_demo`, `74,0`) |
@@ -64,10 +64,10 @@ so only the flag you changed differs between two labels.
 and post-processing shots (windows, panels, deck, sign, linoleum, pause menu)
 plus a walkthrough of the demo's route from reception through the Home wing. Each
 view nails its spawn and camera, so the same command produces the same image on
-any machine and the before/after and Full/Low sets are directly comparable.
+any machine and the before/after and High/Low sets are directly comparable.
 
 ```sh
-sh tools/bench/capture_views.sh                            # Full profile
+sh tools/bench/capture_views.sh                            # High profile
 PLACES_QUALITY=low sh tools/bench/capture_views.sh        # profile suffix _low
 PLACES_NO_BLOOM=1 sh tools/bench/capture_views.sh         # _nobloom
 PLACES_NO_REFLECTIONS=1 sh tools/bench/capture_views.sh   # _norefl
@@ -106,8 +106,9 @@ PLACES_BIN=target/release/places \
 
 The committed reference and its camera/settings manifest are documented in
 `docs/renderer-baseline/BASELINE.md`; that document is the authority on what
-each view exercises. `PLACES_QUALITY=full` and `PLACES_QUALITY=low` select one
-profile, and any other value is rejected. Delete the state root before a run to
+each view exercises. `PLACES_QUALITY=high` and `PLACES_QUALITY=low` select one
+profile (`full` is the historical alias of `high`), and any other value is
+rejected. Delete the state root before a run to
 force a cold lightmap bake rather than reusing its cache. The script's own
 default writes the frozen `docs/renderer-baseline/{high,low}` images, so a
 comparison run must set `PLACES_CAPTURE_DIR`.
@@ -230,7 +231,7 @@ it and allocates nothing per frame.
 | `PLACES_CAPTURE_FRAME=n` | which frame to capture (default 1), so a moving object can be captured mid-animation |
 | `PLACES_NO_LIGHTMAPS=1` | force the vertex-lit path for a lightmap A/B capture |
 | `PLACES_DUMP_LIGHTMAPS=1` | write baked atlas pages as PNGs under `target/agent-work/atlases/` (a fresh bake only — delete `cache/lightmaps/` first, since a cache hit writes nothing) |
-| `PLACES_QUALITY=full\|low` | draw this run at the named profile without editing `settings.json` |
+| `PLACES_QUALITY=low\|medium\|high` | draw this run at the named profile without editing `settings.json` (`full` is the historical alias of `high`) |
 | `PLACES_BENCH_QUALITY_CYCLE=<frame>:<profile>[,<frame>:<profile>...]` | scripted live quality switch through the normal settings path (benchmark only) |
 | `PLACES_BENCH_WINDOW_CYCLE=<frame>:resize:<w>x<h>\|<frame>:minimize\|<frame>:restore[,...]` | scripted live window events through the real SDL window: resize, minimize, restore (benchmark only) |
 | `PLACES_NO_BLOOM=1` | drop the emissive pass and the blur, keeping the resolve stage |

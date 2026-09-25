@@ -25,18 +25,18 @@
 //! exactly like the reference.
 //!
 //! The resolve's five parameters are authored constants
-//! ([`PostSettings`]). The engine can only produce the two quality profiles with
-//! bloom off or on, so one uniform buffer per combination is created once and
-//! [`PostProcess::encode_resolve`] selects the matching one; no buffer is ever
-//! written in the frame path, and the resolve/present pipelines only change when
-//! the surface format does.
+//! ([`PostSettings`]). The engine can only produce the three quality levels
+//! with bloom off or on, so one uniform buffer per combination is created once
+//! and [`PostProcess::encode_resolve`] selects the matching one; no buffer is
+//! ever written in the frame path, and the resolve/present pipelines only
+//! change when the surface format does.
 
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
 use super::surface::{DEPTH_FORMAT, surface_format_is_srgb};
 use crate::logging;
-use crate::quality::QualityProfile;
+use crate::quality::QualityLevel;
 use crate::render::common::framebuffer::scene_target_size;
 use crate::render::common::postprocess::{PostSettings, bloom_target_size};
 use crate::render::common::view::{DrawableSize, dimension_f32};
@@ -191,18 +191,24 @@ const POST_PARAMS_SIZE: u64 = std::mem::size_of::<PostParams>() as u64;
 /// Bytes one [`BlurParams`] occupies.
 const BLUR_PARAMS_SIZE: u64 = std::mem::size_of::<BlurParams>() as u64;
 
-/// The four parameter sets the engine can produce: the two quality profiles
+/// The six parameter sets the engine can produce: the three quality levels
 /// with bloom off and on.
 ///
-/// This is the whole space of [`PostSettings`] in the reference too
-/// (`PostSettings::for_profile` plus [`PostSettings::with_bloom`]), so one
-/// static uniform per entry covers every frame without a buffer write.
-const RESOLVE_VARIANTS: [PostSettings; 4] = [
-    PostSettings::for_profile(QualityProfile::Full).with_bloom(false),
-    PostSettings::for_profile(QualityProfile::Full).with_bloom(true),
-    PostSettings::for_profile(QualityProfile::Low).with_bloom(false),
-    PostSettings::for_profile(QualityProfile::Low).with_bloom(true),
+/// This is the whole space of [`PostSettings`] (`PostSettings::for_level` plus
+/// [`PostSettings::with_bloom`]), so one static uniform per entry covers every
+/// frame without a buffer write. Level-major order keeps each level's two slots
+/// adjacent.
+const RESOLVE_VARIANTS: [PostSettings; 6] = [
+    PostSettings::for_level(QualityLevel::Low).with_bloom(false),
+    PostSettings::for_level(QualityLevel::Low).with_bloom(true),
+    PostSettings::for_level(QualityLevel::Medium).with_bloom(false),
+    PostSettings::for_level(QualityLevel::Medium).with_bloom(true),
+    PostSettings::for_level(QualityLevel::High).with_bloom(false),
+    PostSettings::for_level(QualityLevel::High).with_bloom(true),
 ];
+
+/// Index of High's bloom-off slot in [`RESOLVE_VARIANTS`].
+const HIGH_RESOLVE_SLOT: usize = 4;
 
 /// Which fullscreen pass one frame's resolve selection records.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -242,29 +248,29 @@ fn resolve_path(settings: PostSettings, bloom_enabled: bool) -> ResolvePath {
     ResolvePath::Resolve(settings_slot(effective).unwrap_or_else(|| {
         logging::warn_once(
             "wgpu-post-settings-unmatched",
-            "[wgpu] post settings are outside the profile-derived set; using the Full profile",
+            "[wgpu] post settings are outside the level-derived set; using High",
         );
-        usize::from(effective.blooms())
+        HIGH_RESOLVE_SLOT.saturating_add(usize::from(effective.blooms()))
     }))
 }
 
-/// The target sizes one `ensure` computes for a profile and drawable.
+/// The target sizes one `ensure` computes for a level and drawable.
 ///
-/// The scene target follows the profile ([`scene_target_size`]: the drawable
-/// under Full, no wider than the reference's 480 pixels under Low); the
-/// presented image always follows the drawable. The reference's default
-/// framebuffer is drawable-sized, so its resolve, grade and the HUD all run at
-/// the drawable's resolution over a Low-resolution scene. Sizing the presented
-/// image with the scene instead would run the resolve and the HUD at 480 pixels
-/// wide under Low and then upscale them, a difference the Low menu showed
-/// clearly (measured mean 1.58 vs 0.26 at Full); the presented image is
+/// The scene target follows the level ([`scene_target_size`]: the drawable
+/// under High, half the drawable under Medium, no wider than the reference's
+/// 480 pixels under Low); the presented image always follows the drawable. The
+/// reference's default framebuffer is drawable-sized, so its resolve, grade and
+/// the HUD all run at the drawable's resolution over a smaller scene. Sizing
+/// the presented image with the scene instead would run the resolve and the HUD
+/// at the scene's resolution and then upscale them, a difference the Low menu
+/// showed clearly (measured mean 1.58 vs 0.26 at High); the presented image is
 /// therefore always the drawable.
 #[must_use]
 fn target_sizes(
-    profile: QualityProfile,
+    level: QualityLevel,
     drawable: DrawableSize,
 ) -> (DrawableSize, DrawableSize, DrawableSize) {
-    let scene = scene_target_size(profile, drawable);
+    let scene = scene_target_size(level, drawable);
     (scene, bloom_target_size(scene), drawable)
 }
 
@@ -591,23 +597,24 @@ impl PostProcess {
     }
 
     /// Ensures the scene, emissive, blur and presented targets for
-    /// `(profile, drawable)`.
+    /// `(level, drawable)`.
     ///
-    /// The scene size is [`scene_target_size`]: the drawable under `Full`, no
-    /// wider than the 480-pixel reference under `Low`, never upscaled. The
-    /// emissive image shares that size (it shares the scene depth); the blur
-    /// buffers are a quarter of it ([`bloom_target_size`]). The presented image
-    /// is the drawable: the reference's default framebuffer, where the resolve
-    /// and the HUD run at full resolution. An empty drawable drops the targets;
-    /// a size change rebuilds the whole set once. `created` is true only when
-    /// something was (re)created.
+    /// The scene size is [`scene_target_size`]: the drawable under High, half
+    /// the drawable under Medium, no wider than the 480-pixel reference under
+    /// Low, never upscaled. The emissive image shares that size (it shares the
+    /// scene depth); the blur buffers are a quarter of it
+    /// ([`bloom_target_size`]). The presented image is the drawable: the
+    /// reference's default framebuffer, where the resolve and the HUD run at
+    /// full resolution. An empty drawable drops the targets; a size change
+    /// rebuilds the whole set once. `created` is true only when something was
+    /// (re)created.
     pub fn ensure(
         &mut self,
         device: &wgpu::Device,
-        profile: QualityProfile,
+        level: QualityLevel,
         drawable: DrawableSize,
     ) -> PostTargetStats {
-        let (scene, bloom, presented) = target_sizes(profile, drawable);
+        let (scene, bloom, presented) = target_sizes(level, drawable);
         if scene.is_empty() || presented.is_empty() {
             self.targets = None;
             return PostTargetStats {
@@ -1170,15 +1177,25 @@ mod tests {
     }
 
     #[test]
-    fn target_sizes_follow_the_profile_and_never_upscale() {
+    fn target_sizes_follow_the_level_and_never_upscale() {
         let drawable = DrawableSize::new(1920, 1080);
-        // Full: the drawable itself; bloom: a quarter of it; presented: the
+        // High: the drawable itself; bloom: a quarter of it; presented: the
         // drawable (the reference's default framebuffer).
         assert_eq!(
-            target_sizes(QualityProfile::Full, drawable),
+            target_sizes(QualityLevel::High, drawable),
             (
                 DrawableSize::new(1920, 1080),
                 DrawableSize::new(480, 270),
+                DrawableSize::new(1920, 1080)
+            )
+        );
+        // Medium: half the drawable, aspect kept; bloom a quarter of the scene;
+        // the presented image stays the drawable.
+        assert_eq!(
+            target_sizes(QualityLevel::Medium, drawable),
+            (
+                DrawableSize::new(960, 540),
+                DrawableSize::new(240, 135),
                 DrawableSize::new(1920, 1080)
             )
         );
@@ -1186,16 +1203,25 @@ mod tests {
         // of it; the presented image stays the drawable, because the reference
         // resolves and draws the HUD at default-framebuffer resolution.
         assert_eq!(
-            target_sizes(QualityProfile::Low, drawable),
+            target_sizes(QualityLevel::Low, drawable),
             (
                 DrawableSize::new(480, 270),
                 DrawableSize::new(120, 67),
                 DrawableSize::new(1920, 1080)
             )
         );
-        // The reference device is its own drawable under Low.
+        // The reference device is its own drawable under Low, and Medium
+        // follows it rather than upscaling.
         assert_eq!(
-            target_sizes(QualityProfile::Low, DrawableSize::new(480, 272)),
+            target_sizes(QualityLevel::Low, DrawableSize::new(480, 272)),
+            (
+                DrawableSize::new(480, 272),
+                DrawableSize::new(120, 68),
+                DrawableSize::new(480, 272)
+            )
+        );
+        assert_eq!(
+            target_sizes(QualityLevel::Medium, DrawableSize::new(480, 272)),
             (
                 DrawableSize::new(480, 272),
                 DrawableSize::new(120, 68),
@@ -1204,7 +1230,7 @@ mod tests {
         );
         // A drawable already below the reference width is never upscaled.
         assert_eq!(
-            target_sizes(QualityProfile::Low, DrawableSize::new(320, 180)),
+            target_sizes(QualityLevel::Low, DrawableSize::new(320, 180)),
             (
                 DrawableSize::new(320, 180),
                 DrawableSize::new(80, 45),
@@ -1213,7 +1239,7 @@ mod tests {
         );
         // Tiny targets clamp each axis to one texel.
         assert_eq!(
-            target_sizes(QualityProfile::Full, DrawableSize::new(2, 3)),
+            target_sizes(QualityLevel::High, DrawableSize::new(2, 3)),
             (
                 DrawableSize::new(2, 3),
                 DrawableSize::new(1, 1),
@@ -1221,7 +1247,7 @@ mod tests {
             )
         );
         assert_eq!(
-            target_sizes(QualityProfile::Full, DrawableSize::new(0, 0)),
+            target_sizes(QualityLevel::High, DrawableSize::new(0, 0)),
             (
                 DrawableSize::new(0, 0),
                 DrawableSize::new(0, 0),
@@ -1345,34 +1371,46 @@ mod tests {
 
     #[test]
     fn identity_settings_take_the_present_copy() {
-        let full_off = PostSettings::for_profile(QualityProfile::Full).with_bloom(false);
-        let full_on = PostSettings::for_profile(QualityProfile::Full).with_bloom(true);
-        let low_off = PostSettings::for_profile(QualityProfile::Low).with_bloom(false);
-        let low_on = PostSettings::for_profile(QualityProfile::Low).with_bloom(true);
+        let high_off = PostSettings::for_level(QualityLevel::High).with_bloom(false);
+        let high_on = PostSettings::for_level(QualityLevel::High).with_bloom(true);
+        let medium_off = PostSettings::for_level(QualityLevel::Medium).with_bloom(false);
+        let medium_on = PostSettings::for_level(QualityLevel::Medium).with_bloom(true);
+        let low_off = PostSettings::for_level(QualityLevel::Low).with_bloom(false);
+        let low_on = PostSettings::for_level(QualityLevel::Low).with_bloom(true);
         // Low without bloom is the neutral type's identity, so it must take the
         // plain copy no matter what the caller believes about bloom.
         assert!(low_off.is_identity());
         assert_eq!(resolve_path(low_off, false), ResolvePath::PresentCopy);
         assert_eq!(resolve_path(low_off, true), ResolvePath::PresentCopy);
-        // Full is never an identity: it resolves, with the bloom term gated by
+        // High is never an identity: it resolves, with the bloom term gated by
         // the caller's bloom state.
-        assert_eq!(resolve_path(full_off, false), ResolvePath::Resolve(0));
-        assert_eq!(resolve_path(full_on, true), ResolvePath::Resolve(1));
-        assert_eq!(resolve_path(full_on, false), ResolvePath::Resolve(0));
+        assert_eq!(resolve_path(high_off, false), ResolvePath::Resolve(4));
+        assert_eq!(resolve_path(high_on, true), ResolvePath::Resolve(5));
+        assert_eq!(resolve_path(high_on, false), ResolvePath::Resolve(4));
+        // Medium always resolves too: the tone shoulder alone needs the pass.
+        assert_eq!(resolve_path(medium_off, false), ResolvePath::Resolve(2));
+        assert_eq!(resolve_path(medium_on, true), ResolvePath::Resolve(3));
         // Low with bloom resolves; without a valid bloom image it falls back to
         // the strength-zero Low parameters, exactly the reference's `(0.0, scene)`.
-        assert_eq!(resolve_path(low_on, true), ResolvePath::Resolve(3));
-        assert_eq!(resolve_path(low_on, false), ResolvePath::Resolve(2));
-        // The four slots really are the profile/bloom combinations, in order.
-        assert_eq!(settings_slot(full_off), Some(0));
-        assert_eq!(settings_slot(full_on), Some(1));
-        assert_eq!(settings_slot(low_off), Some(2));
-        assert_eq!(settings_slot(low_on), Some(3));
+        assert_eq!(resolve_path(low_on, true), ResolvePath::Resolve(1));
+        assert_eq!(resolve_path(low_on, false), ResolvePath::Resolve(0));
+        // The six slots really are the level/bloom combinations, in order.
+        assert_eq!(settings_slot(low_off), Some(0));
+        assert_eq!(settings_slot(low_on), Some(1));
+        assert_eq!(settings_slot(medium_off), Some(2));
+        assert_eq!(settings_slot(medium_on), Some(3));
+        assert_eq!(settings_slot(high_off), Some(4));
+        assert_eq!(settings_slot(high_on), Some(5));
+        assert_eq!(
+            HIGH_RESOLVE_SLOT,
+            settings_slot(high_off).unwrap_or(usize::MAX),
+            "the fallback slot must be High's bloom-off slot"
+        );
     }
 
     #[test]
     fn resolve_maths_mirror_the_shader() {
-        // Full's knee 0.75: identity at and below it, a shoulder above.
+        // High's knee 0.75: identity at and below it, a shoulder above.
         assert!((tone_shoulder(0.5, 0.75) - 0.5).abs() < 1.0e-6);
         assert!((tone_shoulder(0.75, 0.75) - 0.75).abs() < 1.0e-6);
         assert!((tone_shoulder(1.0, 0.75) - 0.875).abs() < 1.0e-6);
@@ -1385,7 +1423,7 @@ mod tests {
         for (actual, expected) in plain.iter().zip([0.8, 0.4, 0.2]) {
             assert!((actual - expected).abs() < 1.0e-6);
         }
-        // Full's grade: saturation away from the luma, then contrast away from
+        // High's grade: saturation away from the luma, then contrast away from
         // mid grey.
         let graded = grade([0.8, 0.4, 0.2], 1.03, 1.02);
         let expected = [0.816_08, 0.395_84, 0.185_72];

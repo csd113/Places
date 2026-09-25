@@ -3207,7 +3207,7 @@ pub const PROP_TEXTURE_NATIVE_SIZE: u32 = 256;
 ///
 /// Matches the surface decoder's [`crate::assets::MAX_TEXTURE_DIMENSION`]: a
 /// GLB may carry a texture up to the same size any other asset may, and the
-/// runtime quality profile decides what actually reaches the GPU.
+/// runtime quality level decides what actually reaches the GPU.
 pub const MAX_PROP_TEXTURE_SIZE: u32 = 1_024;
 /// Decoded RGBA8 memory one prop texture may hold at the engine ceiling.
 ///

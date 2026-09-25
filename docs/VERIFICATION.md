@@ -181,13 +181,13 @@ visual comparison diagnostics. Generated captures and reports belong under
 Live window lifetime and live quality switches can be scripted with
 benchmark-only switches. `PLACES_BENCH_WINDOW_CYCLE` drives real window events
 through the SDL window — `resize:<w>x<h>`, `minimize`, `restore` — and
-`PLACES_BENCH_QUALITY_CYCLE` switches the quality profile through the normal
-rebuild path:
+`PLACES_BENCH_QUALITY_CYCLE` switches the quality level through the normal
+rebuild path (`low` / `medium` / `high`; the legacy `full` name is High):
 
 ```sh
 PLACES_BENCH=1 PLACES_BENCH_FRAMES=34 \
 PLACES_BENCH_WINDOW_CYCLE=3:resize:800x450,6:resize:500x300,8:resize:800x450,12:minimize,16:restore,18:resize:640x360,24:resize:900x500,26:resize:640x360 \
-PLACES_BENCH_QUALITY_CYCLE=20:low,22:full \
+PLACES_BENCH_QUALITY_CYCLE=20:low,22:high \
 PLACES_LEVEL=places_demo target/release/places
 ```
 
@@ -213,12 +213,12 @@ recorded evidence, not a claim about platforms that have not been run.
   platform-layer campaign on this host.
 - Lifecycle: resize larger/smaller/rapid/repeated, minimize and restore,
   repeated level rebuilds, capture and shutdown; no validation, surface or
-  device errors. The scripted Full↔Low cycles across the quality-cycle and
+  device errors. The scripted High↔Low cycles across the quality-cycle and
   lifecycle-loop runs rebuild eight times with texture residency alternating
-  exactly between Full 188,743,640 B and Low 15,728,600 B with no growth, and
+  exactly between High 188,743,640 B and Low 15,728,600 B with no growth, and
   a separate 900-frame bounded run completes clean.
 - Release validation (final cleanup): the canonical 50-view, expanded 80-view
-  and fixed-set 76-view campaigns (UI/menu, walkthrough, Full and Low) were
+  and fixed-set 76-view campaigns (UI/menu, walkthrough, High and Low) were
   captured before and after the final cleanup and are byte-identical
   (`compare_captures.py` largest mean difference 0.000). The eight-run lifecycle
   campaign (normal and rapid resize, minimize/restore, fullscreen boot,
@@ -226,7 +226,7 @@ recorded evidence, not a claim about platforms that have not been run.
   quit-while-minimized) exits 0 in every run with no validation, surface or
   device errors; a level replacement clears the previous level's dynamic
   scene, which the bootstrap suite asserts.
-- Test gate: `cargo test --workspace --all-features` reports 979 passed /
+- Test gate: `cargo test --workspace --all-features` reports 996 passed /
   0 failed / 5 ignored (the five diagnostics in §2 pass when run explicitly),
   and `sh tools/verify.sh` is green including the real-window bootstrap and
   compiled-build suites.

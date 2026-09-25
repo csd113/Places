@@ -598,7 +598,7 @@ fn test_hidpi_uses_physical_pixels_not_logical_size() {
 /// the projection keeps the window's 16:9 aspect.
 #[test]
 fn test_hidpi_1080p_window_renders_through_the_drawable_path() {
-    use crate::quality::QualityProfile;
+    use crate::quality::QualityLevel;
 
     let logical = (1920u32, 1080u32);
     let physical = DrawableSize::new(logical.0 * 2, logical.1 * 2);
@@ -609,14 +609,19 @@ fn test_hidpi_1080p_window_renders_through_the_drawable_path() {
     );
 
     assert_eq!(
-        super::common::framebuffer::scene_target_size(QualityProfile::Full, physical),
+        super::common::framebuffer::scene_target_size(QualityLevel::High, physical),
         physical,
-        "Full renders at the drawable's own resolution"
+        "High renders at the drawable's own resolution"
     );
     assert_eq!(
-        super::common::framebuffer::scene_target_size(QualityProfile::Low, physical),
+        super::common::framebuffer::scene_target_size(QualityLevel::Medium, physical),
+        DrawableSize::new(1920, 1080),
+        "Medium caps the scene scale at one half of a large drawable"
+    );
+    assert_eq!(
+        super::common::framebuffer::scene_target_size(QualityLevel::Low, physical),
         DrawableSize::new(480, 270),
-        "only the documented Low profile scales the scene down"
+        "only the documented Low level scales the scene to the reference width"
     );
 
     // The UI viewport follows the physical drawable, not the logical window.
@@ -628,17 +633,17 @@ fn test_hidpi_1080p_window_renders_through_the_drawable_path() {
 /// without a restart.
 #[test]
 fn test_a_resize_updates_scene_and_bloom_targets() {
-    use crate::quality::QualityProfile;
+    use crate::quality::QualityLevel;
 
     let before = DrawableSize::new(1920, 1080);
     let after = DrawableSize::new(2560, 1440);
 
     assert_eq!(
-        super::common::framebuffer::scene_target_size(QualityProfile::Full, before),
+        super::common::framebuffer::scene_target_size(QualityLevel::High, before),
         before
     );
     assert_eq!(
-        super::common::framebuffer::scene_target_size(QualityProfile::Full, after),
+        super::common::framebuffer::scene_target_size(QualityLevel::High, after),
         after
     );
     assert_eq!(
@@ -4332,7 +4337,7 @@ fn a_second_instance_of_a_multi_material_prop_still_batches() {
 // ---------------------------------------------------------- lightmaps
 
 use crate::lighting::lightmap::{
-    LIGHTMAP_ATLAS_MAX_PAGES, LevelLightmaps, LightmapConfig, LightmapFailure, LightmapMode,
+    LIGHTMAP_ATLAS_MAX_PAGES, LevelLightmaps, LightmapFailure, LightmapMode,
 };
 use crate::loader::PropCatalog;
 use crate::props::PropAssets;
@@ -4341,7 +4346,7 @@ use crate::props::PropAssets;
 /// prop is a fallback box, which is irrelevant to the static chart set).
 fn lightmap_build(
     level: &LevelDef,
-    profile: crate::quality::QualityProfile,
+    quality: crate::quality::QualityLevel,
     mode: LightmapMode,
 ) -> LevelBuild {
     let materials = logical_materials(level);
@@ -4352,7 +4357,7 @@ fn lightmap_build(
         &catalog,
         &mut assets,
         &materials,
-        LightmapBuildOptions::for_profile(profile, mode),
+        LightmapBuildOptions::for_level(quality, mode),
         None,
     )
 }
@@ -4378,11 +4383,7 @@ fn vertex_in_some_chart(lightmaps: &LevelLightmaps, vertex: &Vertex) -> bool {
 #[test]
 fn the_demo_bakes_lightmaps_with_every_surface_vertex_charted() {
     let level = shipped_demo();
-    let build = lightmap_build(
-        &level,
-        crate::quality::QualityProfile::Full,
-        LightmapMode::On,
-    );
+    let build = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On);
     assert_eq!(build.lightmap_failure, None, "the demo must bake cleanly");
     let lightmaps = build
         .lightmaps
@@ -4433,7 +4434,7 @@ fn lightmaps_off_reproduces_the_historical_vertex_lit_mesh() {
     let level = shipped_demo();
     let off = lightmap_build(
         &level,
-        crate::quality::QualityProfile::Full,
+        crate::quality::QualityLevel::High,
         LightmapMode::Off,
     );
     assert!(off.lightmaps.is_none());
@@ -4447,23 +4448,21 @@ fn lightmaps_off_reproduces_the_historical_vertex_lit_mesh() {
 }
 
 #[test]
-fn full_and_low_share_the_patch_set_at_different_densities() {
+fn every_level_shares_the_patch_set_at_different_densities() {
     // The one-level/two-profiles contract, checked on the Home showcase
-    // fixture: it stays inside the two-page atlas at both densities, so this
+    // fixture: it stays inside the two-page atlas at every density, so this
     // asserts the patch set and the density, not the page budget. Places Demo
     // is checked separately below, because it has grown past the Low atlas.
     let level = fixture_level("home_showcase");
-    let full = lightmap_build(
+    let high = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On);
+    let medium = lightmap_build(
         &level,
-        crate::quality::QualityProfile::Full,
+        crate::quality::QualityLevel::Medium,
         LightmapMode::On,
     );
-    let low = lightmap_build(
-        &level,
-        crate::quality::QualityProfile::Low,
-        LightmapMode::On,
-    );
-    let full_lightmaps = full.lightmaps.as_deref().expect("full bake");
+    let low = lightmap_build(&level, crate::quality::QualityLevel::Low, LightmapMode::On);
+    let high_lightmaps = high.lightmaps.as_deref().expect("high bake");
+    let medium_lightmaps = medium.lightmaps.as_deref().expect("medium bake");
     let low_lightmaps = low.lightmaps.as_deref().expect("low bake");
     let patches = |lightmaps: &LevelLightmaps| {
         lightmaps
@@ -4481,51 +4480,62 @@ fn full_and_low_share_the_patch_set_at_different_densities() {
             .collect::<Vec<_>>()
     };
     assert_eq!(
-        patches(full_lightmaps),
+        patches(high_lightmaps),
         patches(low_lightmaps),
-        "both profiles bake the same patch set"
+        "Low and High bake the same patch set"
+    );
+    assert_eq!(
+        patches(medium_lightmaps),
+        patches(low_lightmaps),
+        "Medium bakes the same patch set"
     );
     assert!(
-        full_lightmaps.stats.texels > low_lightmaps.stats.texels,
-        "Full must bake more texels than Low"
+        high_lightmaps.stats.texels > medium_lightmaps.stats.texels,
+        "High must bake more texels than Medium"
     );
-    assert_eq!(full_lightmaps.pages[0].width, 1024);
+    assert!(
+        medium_lightmaps.stats.texels > low_lightmaps.stats.texels,
+        "Medium must bake more texels than Low"
+    );
+    assert_eq!(high_lightmaps.pages[0].width, 1024);
+    assert_eq!(medium_lightmaps.pages[0].width, 1024);
     assert_eq!(low_lightmaps.pages[0].width, 512);
 }
 
 #[test]
-fn the_demo_bakes_inside_the_page_budget_on_both_profiles() {
-    // Places Demo's chart set is the shipped level's real workload. Both
-    // profiles must bake it into their own two-page atlas: the skyline packer
-    // and the softened density were tuned exactly so `Low` no longer overflows
-    // its two 512-texel pages and fall back to vertex lighting. A profile that
-    // overflows is worse than a lower density, so this pins the shipped
-    // behaviour rather than a page count.
+fn the_demo_bakes_inside_the_page_budget_on_every_level() {
+    // Places Demo's chart set is the shipped level's real workload. Every level
+    // must bake it into its own two-page atlas: the skyline packer and the
+    // softened density were tuned exactly so `Low` no longer overflows its two
+    // 512-texel pages and fall back to vertex lighting. A level that overflows
+    // is worse than a lower density, so this pins the shipped behaviour rather
+    // than a page count.
     let level = shipped_demo();
-    for profile in [
-        crate::quality::QualityProfile::Full,
-        crate::quality::QualityProfile::Low,
+    for quality in [
+        crate::quality::QualityLevel::High,
+        crate::quality::QualityLevel::Medium,
+        crate::quality::QualityLevel::Low,
     ] {
-        let build = lightmap_build(&level, profile, LightmapMode::On);
+        let build = lightmap_build(&level, quality, LightmapMode::On);
         assert_eq!(
             build.lightmap_failure, None,
-            "{profile:?} must bake the demo cleanly"
+            "{quality:?} must bake the demo cleanly"
         );
         let lightmaps = build
             .lightmaps
             .as_deref()
-            .unwrap_or_else(|| panic!("{profile:?} must produce the atlas"));
-        let config = profile.lightmap_config();
+            .unwrap_or_else(|| panic!("{quality:?} must produce the atlas"));
+        let config = quality.lightmap_config();
         assert!(
             lightmaps.pages.len() <= config.max_pages,
-            "{profile:?} must stay in its page budget"
+            "{quality:?} must stay in its page budget"
         );
         assert!(
             lightmaps
                 .pages
                 .iter()
                 .all(|page| page.width == config.page_edge),
-            "{profile:?} must use its own page edge"
+            "{quality:?} must use its own page edge"
         );
         assert!(lightmaps.chart_count() > 900, "the whole level is charted");
     }
@@ -4539,16 +4549,8 @@ fn a_second_bake_of_the_same_level_is_bit_identical() {
         3.0,
         r#"[{ "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 3.0, "brightness": 0.8 }]"#,
     );
-    let first = lightmap_build(
-        &level,
-        crate::quality::QualityProfile::Full,
-        LightmapMode::On,
-    );
-    let second = lightmap_build(
-        &level,
-        crate::quality::QualityProfile::Full,
-        LightmapMode::On,
-    );
+    let first = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On);
+    let second = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On);
     let first_lightmaps = first.lightmaps.as_deref().expect("first bake");
     let second_lightmaps = second.lightmaps.as_deref().expect("second bake");
     assert_eq!(first_lightmaps.pages, second_lightmaps.pages);
@@ -4571,14 +4573,10 @@ fn lightmapped_vertex_colours_carry_tint_and_face_shade_only() {
         3.0,
         r#"[{ "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 3.0, "brightness": 0.1 }]"#,
     );
-    let on = lightmap_build(
-        &level,
-        crate::quality::QualityProfile::Full,
-        LightmapMode::On,
-    );
+    let on = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On);
     let off = lightmap_build(
         &level,
-        crate::quality::QualityProfile::Full,
+        crate::quality::QualityLevel::High,
         LightmapMode::Off,
     );
     let table = logical_materials(&level);
@@ -4614,14 +4612,15 @@ fn atlas_overflow_rebuilds_with_vertex_lighting() {
     let materials = logical_materials(&level);
     let catalog = PropCatalog::builtin();
     let mut assets = PropAssets::default();
-    let mut config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
+    let mut config = crate::quality::QualityLevel::High.lightmap_config();
     config.page_edge = 16;
     config.max_pages = 1;
     config.padding = 1;
     let options = LightmapBuildOptions {
         mode: LightmapMode::On,
         config,
-        profile: crate::quality::QualityProfile::Full,
+        profile: crate::quality::QualityLevel::High.profile(),
+        bake: crate::quality::QualityLevel::High.bake_config(),
     };
     let build = build_level_geometry_timed_with_lightmaps(
         &level,
@@ -4648,7 +4647,7 @@ fn every_lightmapped_vertex_uv_lands_on_its_own_chart_corner() {
         &catalog,
         &mut assets,
         &materials,
-        LightmapBuildOptions::for_profile(crate::quality::QualityProfile::Full, LightmapMode::On),
+        LightmapBuildOptions::for_level(crate::quality::QualityLevel::High, LightmapMode::On),
         None,
     );
     let lightmaps = build.lightmaps.as_deref().expect("the demo bakes");
@@ -4722,7 +4721,7 @@ fn atlas_bytes_match_the_fill_pass_exactly() {
         &catalog,
         &mut assets,
         &materials,
-        LightmapBuildOptions::for_profile(crate::quality::QualityProfile::Full, LightmapMode::On),
+        LightmapBuildOptions::for_level(crate::quality::QualityLevel::High, LightmapMode::On),
         None,
     );
     let lightmaps = build.lightmaps.as_deref().expect("demo bakes");
@@ -4730,7 +4729,7 @@ fn atlas_bytes_match_the_fill_pass_exactly() {
     // and the finer prop grid on Full), so the reference fill must use exactly
     // the same one.
     let lighting =
-        LevelLighting::bake_with(&level, crate::quality::QualityProfile::Full.bake_config());
+        LevelLighting::bake_with(&level, crate::quality::QualityLevel::High.bake_config());
     let mut checked = 0usize;
     for (patch, chart) in &lightmaps.charts {
         let texels = crate::lighting::lightmap::fill_chart(&lighting, patch, chart);
@@ -4876,38 +4875,47 @@ fn the_opaque_cutout_and_translucent_passes_are_decided_by_the_material() {
 fn the_post_process_fallback_is_the_historical_presentation() {
     use super::common::postprocess::PostSettings;
 
-    // Low's profile settings are the identity, so with bloom off the renderer
+    // Low's level settings are the identity, so with bloom off the renderer
     // presents the scene with the plain copy quad instead of resolving it.
     // That is what keeps Low as cheap as the historical presentation; Bloom On
     // (an independent player choice) makes Low pay for exactly the bloom
     // resolve.
-    let low = PostSettings::for_profile(crate::quality::QualityProfile::Low);
+    let low = PostSettings::for_level(crate::quality::QualityLevel::Low);
     assert!(low.is_identity(), "Low without bloom can skip the resolve");
     assert!(!low.blooms());
     assert!(
         low.with_bloom(true).blooms(),
         "Low + Bloom On must run the bloom path"
     );
-    let full = PostSettings::for_profile(crate::quality::QualityProfile::Full);
-    assert!(!full.is_identity(), "Full always resolves");
+    // Medium keeps the tone shoulder but not the grade: it always resolves and
+    // its grade terms are the identity.
+    let medium = PostSettings::for_level(crate::quality::QualityLevel::Medium);
+    assert!(!medium.is_identity(), "Medium always resolves the shoulder");
+    assert!(medium.tone_knee < 1.0, "Medium keeps the tone shoulder");
     assert!(
-        !full.blooms(),
-        "bloom is a separate setting, not part of the profile"
+        medium.grade_saturation == 1.0 && medium.grade_contrast == 1.0,
+        "only High grades"
+    );
+    let high = PostSettings::for_level(crate::quality::QualityLevel::High);
+    assert!(!high.is_identity(), "High always resolves");
+    assert!(
+        !high.blooms(),
+        "bloom is a separate setting, not part of the level"
     );
     assert!(
-        full.with_bloom(true).blooms(),
-        "Full + Bloom On runs the bloom path"
+        high.with_bloom(true).blooms(),
+        "High + Bloom On runs the bloom path"
     );
-    assert!(full.bloom_strength < 1.0, "bloom stays restrained");
+    assert!(high.bloom_strength < 1.0, "bloom stays restrained");
     assert!(
-        full.grade_saturation >= 1.0 && full.grade_saturation < 1.1,
+        high.grade_saturation >= 1.0 && high.grade_saturation < 1.1,
         "the grade is a trim, not a look: {}",
-        full.grade_saturation
+        high.grade_saturation
     );
     assert!(
-        (0.5..1.0).contains(&full.tone_knee),
+        (0.5..1.0).contains(&high.tone_knee),
         "the tone shoulder must leave the common range untouched: {}",
-        full.tone_knee
+        high.tone_knee
     );
 }
 
@@ -4931,12 +4939,7 @@ fn every_window_cap_spans_its_opening_in_world_space() {
         }"#,
     )
     .expect("the cap-origin fixture parses");
-    let mesh = lightmap_build(
-        &level,
-        crate::quality::QualityProfile::Full,
-        LightmapMode::On,
-    )
-    .mesh;
+    let mesh = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On).mesh;
     let wall = &level.walls[0];
     // The wall runs along z from 4.0, so its length origin is non-zero — which
     // is exactly the case a cap that forgets to translate gets wrong.
@@ -5022,12 +5025,7 @@ fn the_demo_routes_its_reflective_materials_to_a_plane_and_a_probe() {
 
     // The routing itself comes from the emitted geometry, so build the demo the
     // renderer builds and check the plane it derives.
-    let mesh = lightmap_build(
-        &level,
-        crate::quality::QualityProfile::Full,
-        LightmapMode::On,
-    )
-    .mesh;
+    let mesh = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On).mesh;
     let routing =
         super::common::reflections::routing_from_mesh(&mesh, &reflections, reflections.len());
     assert_eq!(
@@ -5115,12 +5113,7 @@ fn the_demo_glazes_every_window_and_classifies_the_panes_translucent() {
     // pane into several quads where its lightmap chart or its spatial cell
     // ends, so the count is not one per opening; the area is.) The builds are
     // the lightmapped ones, because that is what the renderer uses.
-    let mesh = lightmap_build(
-        &level,
-        crate::quality::QualityProfile::Full,
-        LightmapMode::On,
-    )
-    .mesh;
+    let mesh = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On).mesh;
     let opening_area: f32 = level
         .walls
         .iter()
@@ -5204,28 +5197,35 @@ fn the_cutout_and_translucent_materials_are_built_but_never_blended_together() {
 // ----------------------------------------------------------- offscreen scene
 
 #[test]
-fn the_scene_target_size_follows_the_drawable_and_the_profile() {
+fn the_scene_target_size_follows_the_drawable_and_the_level() {
     use super::common::framebuffer::scene_target_size;
-    use crate::quality::QualityProfile;
+    use crate::quality::QualityLevel;
 
     let drawable = DrawableSize::new(1280, 720);
 
-    // Full: the target is the drawable itself.
-    assert_eq!(scene_target_size(QualityProfile::Full, drawable), drawable);
+    // High: the target is the drawable itself.
+    assert_eq!(scene_target_size(QualityLevel::High, drawable), drawable);
+
+    // Medium: half the drawable (Low's 0.375 factor is below the floor), with
+    // the drawable's aspect, never an upscale.
+    let medium = scene_target_size(QualityLevel::Medium, drawable);
+    assert_eq!(medium, DrawableSize::new(640, 360));
 
     // Low: a smaller target with the drawable's aspect, never an upscale.
-    let low = scene_target_size(QualityProfile::Low, drawable);
-    assert!(low.width < drawable.width && low.height < drawable.height);
+    let low = scene_target_size(QualityLevel::Low, drawable);
+    assert!(low.width < medium.width && medium.width < drawable.width);
     let drawable_aspect = f64::from(drawable.width) / f64::from(drawable.height);
-    let low_aspect = f64::from(low.width) / f64::from(low.height);
-    assert!(
-        (drawable_aspect - low_aspect).abs() < 1.0e-2,
-        "the scene target must not distort the image: {low:?}"
-    );
+    for target in [low, medium] {
+        let aspect = f64::from(target.width) / f64::from(target.height);
+        assert!(
+            (drawable_aspect - aspect).abs() < 1.0e-2,
+            "the scene target must not distort the image: {target:?}"
+        );
+    }
 
     // Resizing the drawable changes the target, which is what makes the
     // renderer rebuild the offscreen attachments exactly once per size change.
-    let resized = scene_target_size(QualityProfile::Full, DrawableSize::new(800, 600));
+    let resized = scene_target_size(QualityLevel::High, DrawableSize::new(800, 600));
     assert_eq!(resized, DrawableSize::new(800, 600));
     assert_ne!(resized, drawable);
 }
@@ -5313,7 +5313,7 @@ fn architectural_colors(mesh: &LevelMesh) -> Vec<[u8; 4]> {
 
 #[test]
 fn a_lightmapped_build_keeps_its_architectural_vertex_colours_independent_of_fixture_brightness() {
-    use crate::quality::QualityProfile;
+    use crate::quality::QualityLevel;
 
     // A lightmapped build's architectural vertex colours are the material
     // factor alone (tint x directional face shade): the baked light lives in
@@ -5332,7 +5332,7 @@ fn a_lightmapped_build_keeps_its_architectural_vertex_colours_independent_of_fix
     let materials = logical_materials(&level);
     let catalog = PropCatalog::builtin();
     let mut assets = PropAssets::default();
-    let options = LightmapBuildOptions::for_profile(QualityProfile::Full, LightmapMode::On);
+    let options = LightmapBuildOptions::for_level(QualityLevel::High, LightmapMode::On);
 
     let bright = build_level_geometry_timed_with_lightmaps(
         &level,
@@ -5375,7 +5375,7 @@ fn a_lightmapped_build_keeps_its_architectural_vertex_colours_independent_of_fix
         &catalog,
         &mut assets,
         &materials,
-        LightmapBuildOptions::for_profile(QualityProfile::Full, LightmapMode::Off),
+        LightmapBuildOptions::for_level(QualityLevel::High, LightmapMode::Off),
         None,
     );
     let dim_lit = build_level_geometry_timed_with_lightmaps(
@@ -5383,7 +5383,7 @@ fn a_lightmapped_build_keeps_its_architectural_vertex_colours_independent_of_fix
         &catalog,
         &mut assets,
         &materials,
-        LightmapBuildOptions::for_profile(QualityProfile::Full, LightmapMode::Off),
+        LightmapBuildOptions::for_level(QualityLevel::High, LightmapMode::Off),
         None,
     );
     assert!(bright_lit.lightmaps.is_none());
@@ -5395,12 +5395,12 @@ fn a_lightmapped_build_keeps_its_architectural_vertex_colours_independent_of_fix
 }
 
 #[test]
-fn a_vertex_lit_build_is_identical_across_quality_profiles() {
-    use crate::quality::QualityProfile;
+fn a_vertex_lit_build_is_identical_across_quality_levels() {
+    use crate::quality::QualityLevel;
 
     // With no plan the emitters take the historical vertex-lit path, which
-    // bakes with the same `BakeConfig` whatever profile is active: Full and
-    // Low must produce identical meshes.
+    // bakes with the same `BakeConfig` whatever level is active: High, Medium
+    // and Low must produce identical meshes.
     let level = lit_room_level(
         12.0,
         9.0,
@@ -5410,29 +5410,31 @@ fn a_vertex_lit_build_is_identical_across_quality_profiles() {
     let materials = logical_materials(&level);
     let catalog = PropCatalog::builtin();
     let mut assets = PropAssets::default();
-    let full = build_level_geometry_timed_with_lightmaps(
-        &level,
-        &catalog,
-        &mut assets,
-        &materials,
-        LightmapBuildOptions::for_profile(QualityProfile::Full, LightmapMode::Off),
-        None,
-    );
-    let low = build_level_geometry_timed_with_lightmaps(
-        &level,
-        &catalog,
-        &mut assets,
-        &materials,
-        LightmapBuildOptions::for_profile(QualityProfile::Low, LightmapMode::Off),
-        None,
-    );
-    assert!(full.lightmaps.is_none() && low.lightmaps.is_none());
-    assert_eq!(full.mesh.vertex_count, low.mesh.vertex_count);
-    assert_eq!(full.mesh.index_count, low.mesh.index_count);
-    assert_eq!(
-        architectural_vertices(&full.mesh),
-        architectural_vertices(&low.mesh)
-    );
+    let mut meshes = Vec::new();
+    for quality in QualityLevel::ALL {
+        let build = build_level_geometry_timed_with_lightmaps(
+            &level,
+            &catalog,
+            &mut assets,
+            &materials,
+            LightmapBuildOptions::for_level(quality, LightmapMode::Off),
+            None,
+        );
+        assert!(build.lightmaps.is_none());
+        meshes.push(build.mesh);
+    }
+    let Some((high, rest)) = meshes.split_first() else {
+        panic!("every level built a mesh");
+    };
+    for (quality, mesh) in QualityLevel::ALL.into_iter().skip(1).zip(rest) {
+        assert_eq!(high.vertex_count, mesh.vertex_count, "{quality:?}");
+        assert_eq!(high.index_count, mesh.index_count, "{quality:?}");
+        assert_eq!(
+            architectural_vertices(high),
+            architectural_vertices(mesh),
+            "{quality:?} must bake the identical historical mesh"
+        );
+    }
 }
 
 #[test]
@@ -5809,11 +5811,7 @@ fn home_showcase() -> crate::level::LevelDef {
 #[test]
 fn test_the_home_showcase_bakes_lightmaps_with_every_surface_vertex_charted() {
     let level = home_showcase();
-    let build = lightmap_build(
-        &level,
-        crate::quality::QualityProfile::Full,
-        LightmapMode::On,
-    );
+    let build = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On);
     assert_eq!(
         build.lightmap_failure, None,
         "the showcase must bake cleanly"

@@ -49,11 +49,11 @@ TRIANGLE_REVIEW = 800
 TRIANGLE_ART_MAX = 1500
 TRIANGLE_ENGINE_MAX = 6000
 # 256x256 is the normal native prop texture size. A GLB embeds its runtime
-# atlas, and Full already samples prop sheets at 256, so shipping embedded art
-# above the native size would spend GLB bytes on pixels no profile displays.
-# Source/master artwork may still be kept larger beside the model for future
-# quality work; the renderer itself accepts GLB images up to 1024 and
-# downscales them to the active profile budget (Full 256, Low 128).
+# atlas, and High and Medium already sample prop sheets at 256, so shipping
+# embedded art above the native size would spend GLB bytes on pixels no level
+# displays. Source/master artwork may still be kept larger beside the model for
+# future quality work; the renderer itself accepts GLB images up to 1024 and
+# downscales them to the active level's budget (High/Medium 256, Low 128).
 TEXTURE_NATIVE_MAX = 256
 TEXTURE_ENGINE_MAX = 1024
 # Decoded RGBA8 memory one shipped prop texture may embed: one engine-max
@@ -212,7 +212,7 @@ def main(argv: List[str] | None = None) -> int:
                 elif width > TEXTURE_NATIVE_MAX or height > TEXTURE_NATIVE_MAX:
                     print(
                         f"warning: {entry['id']}: embedded texture is {width}x{height}, above the "
-                        f"{TEXTURE_NATIVE_MAX}px native size; Full will downsample it to "
+                        f"{TEXTURE_NATIVE_MAX}px native size; High and Medium will downsample it to "
                         f"{TEXTURE_NATIVE_MAX}"
                     )
             report.append(
@@ -338,7 +338,7 @@ def _print_report(report: List[dict]) -> None:
         f"budget: {TRIANGLE_TARGET} triangles preferred, {TRIANGLE_REVIEW} review, "
         f"{TRIANGLE_ART_MAX} shipped art max (engine {TRIANGLE_ENGINE_MAX}); "
         f"texture native {TEXTURE_NATIVE_MAX}x{TEXTURE_NATIVE_MAX} "
-        f"(engine {TEXTURE_ENGINE_MAX}, Full samples {TEXTURE_NATIVE_MAX} / Low 128); "
+        f"(engine {TEXTURE_ENGINE_MAX}, High/Medium sample {TEXTURE_NATIVE_MAX} / Low 128); "
         f"pack decoded memory <= {PACK_TEXTURE_MEMORY_MAX // (1024 * 1024)} MiB"
     )
 

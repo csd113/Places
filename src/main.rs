@@ -442,19 +442,22 @@ fn create_renderer(
 ) -> Result<Renderer, String> {
     let mut renderer =
         Renderer::new(window).map_err(|e| format!("Failed to initialize the renderer: {e}"))?;
-    // The quality profile decides how large a texture may reach the GPU, and
-    // the lightmap mode is a build-time choice, so both are applied before the
-    // first level upload rather than after it.
-    renderer.set_quality(settings.quality_profile());
+    // The quality level decides how large a texture may reach the GPU, how the
+    // lightmap is baked and how large the scene target is, and the lightmap
+    // mode is a build-time choice, so both are applied before the first level
+    // upload rather than after it.
+    renderer.set_quality(settings.quality_level());
     renderer.set_lightmaps_requested(settings.lightmaps_enabled());
     // Bloom and reflections are independent player preferences (with their
     // `PLACES_NO_*` startup overrides already folded in) and are applied
-    // before the first frame.
+    // before the first frame. Texture Filtering is recorded before the level
+    // upload too, so the load-time texture diagnostic names the preset
+    // actually in force.
     renderer.set_bloom_enabled(settings.bloom_enabled());
     renderer.set_reflections_enabled(settings.reflections_enabled());
+    renderer.set_texture_filtering(&settings.texture_filtering);
     renderer.set_level(level);
     spawn_level_demonstration(&mut renderer, level);
-    renderer.set_texture_filtering(&settings.texture_filtering);
     renderer.set_culling(!bench.no_cull());
     Ok(renderer)
 }
@@ -770,9 +773,9 @@ impl FrameLoop<'_> {
         // and minimize events reach the same drawable path a manual resize
         // does.
         if self.bench.enabled()
-            && let Some(profile) = self.bench.quality_cycle_at(self.game.frame_count())
+            && let Some(level) = self.bench.quality_cycle_at(self.game.frame_count())
         {
-            self.settings.set_quality(profile);
+            self.settings.set_quality(level);
         }
         if self.bench.enabled()
             && let Some(action) = self.bench.window_cycle_at(self.game.frame_count())
@@ -906,16 +909,17 @@ impl FrameLoop<'_> {
         Ok(())
     }
 
-    /// Rebuilds the renderer resources the quality profile and the lightmap
+    /// Rebuilds the renderer resources the quality level and the lightmap
     /// mode decide, from the level already resident.
     ///
-    /// The profile changes how large a texture may reach the GPU and how the
-    /// lightmap atlas is baked, so the GPU-side texture caches are released and
-    /// the current level is re-uploaded at the new profile. The game world —
-    /// player position, camera, pause state, the `Game` struct — is not touched:
-    /// this is a renderer rebuild, not a level load.
+    /// The level changes how large a texture may reach the GPU, how the
+    /// lightmap atlas is baked and how large the scene target is, so the
+    /// GPU-side texture caches are released and the current level is
+    /// re-uploaded at the new level. The game world — player position, camera,
+    /// pause state, the `Game` struct — is not touched: this is a renderer
+    /// rebuild, not a level load.
     fn rebuild_graphics_resources(&mut self) {
-        self.renderer.set_quality(self.settings.quality_profile());
+        self.renderer.set_quality(self.settings.quality_level());
         self.renderer
             .set_lightmaps_requested(self.settings.lightmaps_enabled());
         self.renderer
@@ -929,7 +933,7 @@ impl FrameLoop<'_> {
         self.renderer.set_level(level);
         crate::logging::info(format!(
             "[settings] rebuilt GPU resources at quality '{}' (lightmaps {})",
-            self.settings.quality_profile().name(),
+            self.settings.quality_level().name(),
             if self.settings.lightmaps_enabled() {
                 "on"
             } else {
@@ -1524,7 +1528,7 @@ fn log_effective_settings(settings: &Settings) {
     }
     logging::info(format!(
         "[settings] quality {} (saved {}){} | bloom {} | reflections {} | lightmaps {} | vsync {} | filtering {} | window {} {}",
-        settings.quality_profile().name(),
+        settings.quality_level().name(),
         settings.quality,
         if settings.quality_overridden() {
             " [startup override]"

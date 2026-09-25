@@ -14,8 +14,8 @@ def load_atlas(p, name, regions):
     width, height, pixels = decode_png(source.read_bytes())
     # 256x256 is the normal native prop-atlas size; 32/64/128 remain legal for
     # lighter props. The runtime decoder accepts up to 1024 and downscales to
-    # the active quality profile, but shipping art above the native size only
-    # wastes GLB bytes because Full samples prop sheets at 256.
+    # the active quality level, but shipping art above the native size only
+    # wastes GLB bytes because High and Medium sample prop sheets at 256.
     if (width, height) not in ((32, 32), (64, 64), (128, 128), (256, 256)) or any(
         a != 255 for a in pixels[3::4]
     ):

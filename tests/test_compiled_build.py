@@ -171,7 +171,8 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         with open(settings_path, encoding="utf-8") as handle:
             settings = json.load(handle)
         self.assertEqual(settings["bindings"]["forward"], "W")
-        self.assertEqual(settings["quality"], "full")
+        self.assertEqual(settings["quality"], "high")
+        self.assertEqual(settings["texture_filtering"], "high")
         self.assertTrue(settings["lightmaps"])
         # A missing asset root is reported exactly once, not once per caller.
         self.assertEqual(output.count("no asset root found"), 1, output)
@@ -191,7 +192,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         with open(settings_path, encoding="utf-8") as handle:
             settings = json.load(handle)
         settings["fov_degrees"] = 75.0
-        settings["texture_filtering"] = "nearest"
+        settings["texture_filtering"] = "medium"
         with open(settings_path, "w", encoding="utf-8") as handle:
             json.dump(settings, handle, indent=2)
 
@@ -204,7 +205,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         with open(settings_path, encoding="utf-8") as handle:
             reloaded = json.load(handle)
         self.assertEqual(reloaded["fov_degrees"], 75.0)
-        self.assertEqual(reloaded["texture_filtering"], "nearest")
+        self.assertEqual(reloaded["texture_filtering"], "medium")
 
     # -- 4. Malformed configuration recovers --------------------------------
 

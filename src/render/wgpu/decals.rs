@@ -14,7 +14,7 @@
 //!   [`generate_decal_atlas`], then one texture per external PNG sheet in
 //!   [`decal_external_sheet_ids`] order, each with a CPU mip chain and the
 //!   reference's REPEAT world-sheet policy, and one bind group per filtering
-//!   mode so the player's setting chooses the sampler at encode time;
+//!   level so the player's setting chooses the sampler at encode time;
 //! * the [`DecalPipeline`]: the reference's decal program, `LessEqual` depth
 //!   with writes on, [`DECAL_DEPTH_BIAS`], no culling and no blending;
 //! * [`WgpuDecals::encode`], one draw per range surviving the frame's frustum
@@ -49,7 +49,7 @@ use super::world::{
 use crate::assets::AssetCatalog;
 use crate::level::LevelDef;
 use crate::materials::RawImage;
-use crate::quality::{QualityProfile, TextureClass, fit_image};
+use crate::quality::{QualityLevel, TextureClass, fit_image};
 use crate::render::common::decals::{
     DECAL_ATLAS_SIZE, DECAL_EXTERNAL_BASE, decal_external_sheet_ids, generate_decal_atlas,
 };
@@ -388,26 +388,29 @@ impl DecalPipeline {
 }
 
 /// One uploaded decal sheet: the texture, its view and one bind group per
-/// filtering mode.
+/// filtering level.
 struct DecalSheet {
     /// Kept for ownership; the bind groups reference it.
     _texture: wgpu::Texture,
     /// Kept for ownership; the bind groups were built from it.
     _view: wgpu::TextureView,
-    /// Texture + the repeating linear sampler.
-    linear: wgpu::BindGroup,
-    /// Texture + the repeating nearest sampler.
-    nearest: wgpu::BindGroup,
+    /// Texture + the repeating Low sampler.
+    low: wgpu::BindGroup,
+    /// Texture + the repeating Medium sampler.
+    medium: wgpu::BindGroup,
+    /// Texture + the repeating High sampler.
+    high: wgpu::BindGroup,
     /// Texel storage, every mip level included.
     resident_bytes: usize,
 }
 
 impl DecalSheet {
-    /// The bind group for one filtering mode.
+    /// The bind group for one filtering level.
     const fn bind_group(&self, filtering: TextureFiltering) -> &wgpu::BindGroup {
         match filtering {
-            TextureFiltering::Linear => &self.linear,
-            TextureFiltering::Nearest => &self.nearest,
+            TextureFiltering::Low => &self.low,
+            TextureFiltering::Medium => &self.medium,
+            TextureFiltering::High => &self.high,
         }
     }
 }
@@ -458,14 +461,14 @@ impl WgpuDecals {
         sheet_layout: &wgpu::BindGroupLayout,
         textures: &TextureCache,
         inputs: DecalUploadInputs<'_>,
-        profile: QualityProfile,
+        level: QualityLevel,
     ) -> Self {
         let (packer, draws) = pack_decal_ranges(inputs.mesh);
         let mut chunks: Vec<DecalChunk> = Vec::with_capacity(packer.chunks.len());
         for chunk in &packer.chunks {
             chunks.push(upload_chunk(device, queue, chunk));
         }
-        let uploaded = upload_sheets(device, queue, sheet_layout, textures, inputs, profile);
+        let uploaded = upload_sheets(device, queue, sheet_layout, textures, inputs, level);
         let vertices: usize = chunks
             .iter()
             .map(|chunk| usize::try_from(chunk.vertex_count).unwrap_or(usize::MAX))
@@ -668,11 +671,11 @@ fn upload_sheets(
     sheet_layout: &wgpu::BindGroupLayout,
     textures: &TextureCache,
     inputs: DecalUploadInputs<'_>,
-    profile: QualityProfile,
+    level: QualityLevel,
 ) -> UploadedSheets {
     let mut sheets: Vec<DecalSheet> = Vec::new();
     // The generated atlas is a fixed 256x256 sheet and always resident, exactly
-    // as the reference creates it at startup; it is under both profiles'
+    // as the reference creates it at startup; it is under every level's
     // `DecalSheet` budget by contract.
     let atlas_size = u32::try_from(DECAL_ATLAS_SIZE).unwrap_or(0);
     let atlas = RawImage::new(atlas_size, atlas_size, generate_decal_atlas());
@@ -698,7 +701,7 @@ fn upload_sheets(
                 Rc::new(crate::materials::missing_texture())
             }
         };
-        let fitted = fit_image(image.as_ref(), profile, TextureClass::DecalSheet);
+        let fitted = fit_image(image.as_ref(), level, TextureClass::DecalSheet);
         // The diagnostic image uploads through the same path as authored
         // artwork, exactly like the reference; only the counters tell them
         // apart.
@@ -756,34 +759,37 @@ fn upload_sheet(
         resident_bytes = resident_bytes.saturating_add(level_bytes(current.width, current.height));
         write_mip(queue, &texture, level, &current);
     }
-    let linear = create_sheet_bind_group(
+    let low = create_sheet_bind_group(device, sheet_layout, &view, textures, TextureFiltering::Low);
+    let medium = create_sheet_bind_group(
         device,
         sheet_layout,
         &view,
         textures,
-        TextureFiltering::Linear,
+        TextureFiltering::Medium,
     );
-    let nearest = create_sheet_bind_group(
+    let high = create_sheet_bind_group(
         device,
         sheet_layout,
         &view,
         textures,
-        TextureFiltering::Nearest,
+        TextureFiltering::High,
     );
     DecalSheet {
         _texture: texture,
         _view: view,
-        linear,
-        nearest,
+        low,
+        medium,
+        high,
         resident_bytes,
     }
 }
 
-/// Creates the texture + sampler bind group for one filtering mode.
+/// Creates the texture + sampler bind group for one filtering level.
 ///
-/// The sampler comes from the shared texture cache's repeating pair, so a decal
-/// sheet is read with exactly the policy a world sheet is: REPEAT addressing
-/// with linear or nearest mip filtering, per the player's setting.
+/// The sampler comes from the shared texture cache's repeating presets, so a
+/// decal sheet is read with exactly the policy a world sheet is: REPEAT
+/// addressing with linear mag/min/mip and the level's anisotropy, per the
+/// player's setting.
 fn create_sheet_bind_group(
     device: &wgpu::Device,
     sheet_layout: &wgpu::BindGroupLayout,
@@ -1144,13 +1150,13 @@ mod tests {
     }
 
     #[test]
-    fn the_generated_atlas_fits_every_profile_budget() {
+    fn the_generated_atlas_fits_every_level_budget() {
         let edge = u32::try_from(DECAL_ATLAS_SIZE).unwrap();
-        for profile in QualityProfile::ALL {
+        for level in QualityLevel::ALL {
             assert!(
-                edge <= profile.budget(TextureClass::DecalSheet),
+                edge <= level.budget(TextureClass::DecalSheet),
                 "the {edge}px atlas must upload unchanged under {}",
-                profile.name()
+                level.name()
             );
         }
     }

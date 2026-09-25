@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::quality::QualityProfile;
+use crate::quality::QualityLevel;
 
 pub const DEFAULT_SETTINGS_PATH: &str = "settings.json";
 
@@ -47,7 +47,7 @@ pub const MIN_WINDOW_EDGE: u32 = 320;
 /// Largest window edge a persisted or selected size may specify.
 pub const MAX_WINDOW_EDGE: u32 = 16_384;
 
-/// Environment override selecting the quality profile for one process.
+/// Environment override selecting the quality level for one process.
 pub const QUALITY_OVERRIDE_ENV: &str = "PLACES_QUALITY";
 /// Environment override disabling the bloom stage for one process.
 pub const NO_BLOOM_OVERRIDE_ENV: &str = "PLACES_NO_BLOOM";
@@ -292,7 +292,7 @@ impl KeyBindings {
 /// the player changes that setting in the menu.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct StartupOverrides {
-    pub quality: Option<QualityProfile>,
+    pub quality: Option<QualityLevel>,
     pub bloom: Option<bool>,
     pub reflections: Option<bool>,
     pub lightmaps: Option<bool>,
@@ -309,7 +309,7 @@ pub struct StartupOverrides {
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct SettingsApply {
-    /// The quality profile or the lightmap mode changed: the level's GPU
+    /// The quality level or the lightmap mode changed: the level's GPU
     /// resources (textures, lightmaps, framebuffers) must be rebuilt while the
     /// current game state stays untouched.
     pub graphics_rebuild: bool,
@@ -363,16 +363,24 @@ pub struct Settings {
     pub invert_look: bool,
     #[serde(default = "default_vsync")]
     pub vsync: bool,
+    /// Texture Filtering preference: `"low"`, `"medium"` or `"high"`.
+    ///
+    /// The three levels are independent of the quality level: any combination
+    /// is valid, and only the renderer maps them onto its samplers. The legacy
+    /// names keep loading (`"linear"` is High today, `"nearest"` is Low); an
+    /// unknown value falls back to the default (High) rather than invalidating
+    /// the file.
     #[serde(default = "default_filtering")]
     pub texture_filtering: String,
-    /// Runtime quality profile: `"full"` (the intended presentation) or
-    /// `"low"` (the same assets, more aggressively downscaled textures).
+    /// Runtime quality level: `"low"`, `"medium"` or `"high"` (the intended
+    /// presentation). All three use the same assets; a lower level downscales
+    /// textures, bakes a smaller lightmap and drops optional per-pixel work.
     #[serde(default = "default_quality")]
     pub quality: String,
-    /// Draw the bloom stage, independent of the quality profile. Default on.
+    /// Draw the bloom stage, independent of the quality level. Default on.
     ///
-    /// Bloom is a user preference, not a profile: `Full + Off` and
-    /// `Low + On` are both valid. When off, the emissive pass and the blur
+    /// Bloom is a user preference, not a level: `High + Bloom Off` and
+    /// `Low + Bloom On` are both valid. When off, the emissive pass and the blur
     /// passes are skipped entirely. `PLACES_NO_BLOOM=1` overrides it for one
     /// process.
     #[serde(default = "default_bloom")]
@@ -428,10 +436,10 @@ const fn default_vsync() -> bool {
     true
 }
 fn default_filtering() -> String {
-    "linear".to_string()
+    "high".to_string()
 }
 fn default_quality() -> String {
-    QualityProfile::DEFAULT.name().to_string()
+    QualityLevel::DEFAULT.name().to_string()
 }
 const fn default_bloom() -> bool {
     true
@@ -489,11 +497,48 @@ fn env_disable_override(name: &str) -> Option<bool> {
     std::env::var(name).ok().map(|value| !truthy(&value))
 }
 
+/// The three player-facing Texture Filtering levels, in selector order.
+///
+/// The settings layer stores these as plain strings; the renderer owns the
+/// sampler mapping and the GPU type behind it, so nothing here imports a
+/// renderer type.
+pub const TEXTURE_FILTERING_NAMES: [&str; 3] = ["low", "medium", "high"];
+
+/// The canonical persisted name of any Texture Filtering value.
+///
+/// The three current names round-trip; the legacy names keep loading: the old
+/// `"linear"` selected what is High today, and `"nearest"` what is Low. An
+/// empty or unknown value is High, the default.
+#[must_use]
+pub fn texture_filtering_name(value: &str) -> &'static str {
+    let value = value.trim();
+    if value.eq_ignore_ascii_case("low") || value.eq_ignore_ascii_case("nearest") {
+        "low"
+    } else if value.eq_ignore_ascii_case("medium") {
+        "medium"
+    } else {
+        "high"
+    }
+}
+
+/// The Texture Filtering name a left/right input selects next.
+#[must_use]
+pub fn texture_filtering_step(current: &str, direction: i32) -> &'static str {
+    let current = texture_filtering_name(current);
+    let all = TEXTURE_FILTERING_NAMES;
+    let index = all
+        .iter()
+        .position(|name| *name == current)
+        .unwrap_or_else(|| all.len().saturating_sub(1));
+    let next = cycle_index(index, direction, all.len());
+    all.get(next).copied().unwrap_or(current)
+}
+
 /// Previous or next index in a cyclic list, never dividing or wrapping.
 ///
-/// Used by the selectors (quality profile, window mode) so a left/right input
-/// is a pure, total step. `count` is never zero in practice; the guard keeps
-/// the helper total anyway.
+/// Used by the selectors (quality level, texture filtering, window mode) so a
+/// left/right input is a pure, total step. `count` is never zero in practice;
+/// the guard keeps the helper total anyway.
 fn cycle_index(index: usize, direction: i32, count: usize) -> usize {
     if count == 0 {
         return 0;
@@ -516,12 +561,13 @@ impl Settings {
         self.look_speed_v = self.look_speed_v.clamp(20.0, 240.0);
         self.walk_speed = self.walk_speed.clamp(1.0, 10.0);
         self.fov_degrees = self.fov_degrees.clamp(45.0, 110.0);
-        if self.texture_filtering != "linear" && self.texture_filtering != "nearest" {
-            self.texture_filtering = "linear".to_string();
-        }
-        // An unknown profile falls back to the default rather than picking a
+        // The legacy names keep loading and are rewritten to their current
+        // equivalents; an unknown value falls back to the default (High)
+        // rather than invalidating the file.
+        self.texture_filtering = texture_filtering_name(&self.texture_filtering).to_string();
+        // An unknown level falls back to the default rather than picking a
         // tier the player did not ask for.
-        self.quality = QualityProfile::parse(&self.quality)
+        self.quality = QualityLevel::parse(&self.quality)
             .unwrap_or_default()
             .name()
             .to_string();
@@ -548,7 +594,7 @@ impl Settings {
         self.overrides = StartupOverrides {
             quality: std::env::var(QUALITY_OVERRIDE_ENV)
                 .ok()
-                .and_then(|value| QualityProfile::parse(&value)),
+                .and_then(|value| QualityLevel::parse(&value)),
             bloom: env_disable_override(NO_BLOOM_OVERRIDE_ENV),
             reflections: env_disable_override(NO_REFLECTIONS_OVERRIDE_ENV),
             lightmaps: env_disable_override(NO_LIGHTMAPS_OVERRIDE_ENV),
@@ -556,45 +602,42 @@ impl Settings {
         };
     }
 
-    /// The quality profile in force.
+    /// The quality level in force.
     ///
     /// The saved value, with a startup override applied for this process. An
     /// unrecognised override value is ignored, exactly like an unrecognised
-    /// settings value.
+    /// settings value; a legacy saved `"full"` reads as High.
     #[must_use]
-    pub fn quality_profile(&self) -> QualityProfile {
+    pub fn quality_level(&self) -> QualityLevel {
         self.overrides
             .quality
-            .unwrap_or_else(|| QualityProfile::parse(&self.quality).unwrap_or_default())
+            .unwrap_or_else(|| QualityLevel::parse(&self.quality).unwrap_or_default())
     }
 
-    /// Selects the quality profile and persists it as the saved value.
+    /// Selects the quality level and persists it as the saved value.
     ///
     /// Clears any startup override for this option: an explicit change in
     /// Settings outranks a launch switch.
-    pub fn set_quality(&mut self, profile: QualityProfile) -> bool {
-        let changed = self.quality_profile() != profile;
+    pub fn set_quality(&mut self, level: QualityLevel) -> bool {
+        let changed = self.quality_level() != level;
         self.overrides.quality = None;
-        self.quality = profile.name().to_string();
+        self.quality = level.name().to_string();
         if changed {
             self.pending.graphics_rebuild = true;
         }
         changed
     }
 
-    /// The quality profile a left/right input selects next.
+    /// The quality level a left/right input selects next.
     #[must_use]
-    pub fn quality_step(current: QualityProfile, direction: i32) -> QualityProfile {
-        let all = QualityProfile::ALL;
-        let index = all
-            .iter()
-            .position(|profile| *profile == current)
-            .unwrap_or(0);
+    pub fn quality_step(current: QualityLevel, direction: i32) -> QualityLevel {
+        let all = QualityLevel::ALL;
+        let index = all.iter().position(|level| *level == current).unwrap_or(0);
         let next = cycle_index(index, direction, all.len());
         all.get(next).copied().unwrap_or(current)
     }
 
-    /// Whether the quality profile is pinned by a startup override.
+    /// Whether the quality level is pinned by a startup override.
     #[must_use]
     pub const fn quality_overridden(&self) -> bool {
         self.overrides.quality.is_some()

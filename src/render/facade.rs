@@ -22,7 +22,7 @@ use super::{RenderCamera, SurfaceKind, Vertex};
 use crate::level::LevelDef;
 use crate::loader::{LoadedLevel, RawImage};
 use crate::props::PropAssetStats;
-use crate::quality::QualityProfile;
+use crate::quality::QualityLevel;
 
 /// The Places renderer: the wgpu implementation behind a narrow seam.
 pub struct Renderer {
@@ -73,11 +73,11 @@ impl Renderer {
         self.renderer.set_drawable_size(size)
     }
 
-    /// Selects the runtime quality profile.
+    /// Selects the runtime quality level.
     ///
-    /// The profile is applied by releasing the profile textures and
+    /// The level is applied by releasing the quality-fitted textures and
     /// re-uploading the level.
-    pub const fn set_quality(&mut self, quality: QualityProfile) {
+    pub const fn set_quality(&mut self, quality: QualityLevel) {
         self.renderer.set_quality(quality);
     }
 
@@ -106,15 +106,23 @@ impl Renderer {
         self.renderer.set_reflections_enabled(enabled);
     }
 
-    /// Releases texture caches that depend on the quality profile.
+    /// Releases texture caches that depend on the quality level.
     ///
-    /// A profile change drops both the persistent and the per-level caches so
-    /// the next level upload re-fits every texture at the new budget.
+    /// A level change drops both the persistent and the per-level caches so the
+    /// next level upload re-fits every texture at the new budget.
     pub fn release_profile_textures(&mut self) {
         self.renderer.release_profile_textures();
     }
 
     /// Applies the player's texture filtering preference.
+    ///
+    /// The three levels are trilinear with anisotropic filtering (`low` 4x,
+    /// `medium` 8x, `high` 16x); the legacy `linear`/`nearest` names map to
+    /// High/Low, and an empty or unknown value keeps the default (High).
+    /// Switching is live: the world, material and decal bind groups swap the
+    /// sampler handle at bind time, with no texture re-upload and no resource
+    /// rebuild. The baked lightmap atlas keeps its own fixed clamped linear
+    /// sampler and never follows this setting.
     pub fn set_texture_filtering(&mut self, mode: &str) {
         self.renderer.set_texture_filtering(mode);
     }

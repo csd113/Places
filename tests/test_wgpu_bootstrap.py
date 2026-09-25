@@ -26,7 +26,7 @@ path (upload, drop the old buffers, draw the new world) without menu input.
 The material-resolution tests read the material diagnostic and assert the
 opaque/cut-out/translucent breakdown matches the draw set, the demo's glass and
 grille are present, the response/reflection metadata follows the quality
-profile and nothing is created per frame.
+level and nothing is created per frame.
 
 The tests need a graphical session and a release binary; they skip themselves
 otherwise. All scratch state lives under ``target/agent-work/wgpu-smoke/``.
@@ -80,7 +80,7 @@ MATERIAL_LOAD = re.compile(
     r"\[wgpu\] materials: (\d+) resolved \((\d+) response, (\d+) reflection-eligible\), "
     r"(\d+) normal maps \((\d+) uploaded, (\d+) cache hits\), "
     r"(\d+) opaque / (\d+) cutout / (\d+) translucent of (\d+) draws "
-    r"\((\w+) response, (\w+) profile\)"
+    r"\((\w+) response, (\w+) level\)"
 )
 
 SECOND_LEVEL_ID = "wgpu_smoke_second"
@@ -215,7 +215,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
                 "PLACES_LEVEL": "places_demo",
                 # Pinned so a previous test's `PLACES_QUALITY=low` (persisted in
                 # the shared smoke state root) cannot leak into this run.
-                "PLACES_QUALITY": "full",
+                "PLACES_QUALITY": "high",
                 # Pin the writable state root and the swap interval: without
                 # them the binary reads the gitignored repository-root
                 # `settings.json`, whose present mode and texture filtering are
@@ -282,7 +282,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
         Fields: materials, response materials, reflection-eligible materials,
         normal maps, normal uploads, normal cache hits, opaque draws, cut-out
-        draws, translucent draws, draws, response mode, quality profile.
+        draws, translucent draws, draws, response mode, quality level.
         """
         return [
             (
@@ -316,10 +316,10 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             translucent,
             draws,
             response_mode,
-            profile,
+            level,
         ) = load
         self.assertIn(response_mode, ("enabled", "disabled"), output)
-        self.assertIn(profile, ("full", "low"), output)
+        self.assertIn(level, ("low", "medium", "high"), output)
         self.assertLessEqual(materials, draws, output)
         self.assertLessEqual(response, materials, output)
         self.assertLessEqual(reflections, response, output)
@@ -341,7 +341,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertLessEqual(uploaded, unique, output)
         self.assertLessEqual(unique, draws, output)
         self.assertLessEqual(fallbacks, draws, output)
-        self.assertIn(mode, ("linear", "nearest"), output)
+        self.assertIn(mode, ("low", "medium", "high"), output)
         if draws == 0:
             self.assertEqual((unique, uploaded, fallbacks, missing), (0, 0, 0, 0), output)
             self.assertEqual(resident, 0, output)
@@ -410,7 +410,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             uploaded, unique, "an identity is never uploaded twice on one load"
         )
         self.assertEqual(missing, 0, "the demo has no broken materials")
-        self.assertEqual(mode, "linear", "linear is the shipped default")
+        self.assertEqual(mode, "high", "high is the shipped default")
         self.assertEqual(edge, 1024, "the shipped sheets are native 1024px")
         self.assertGreater(resident, 0, output)
         self.assertLess(
@@ -466,7 +466,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             translucent,
             draws,
             response_mode,
-            profile,
+            level,
         ) = load
 
         # The demo's material-defined alpha and response must be present, not
@@ -479,23 +479,21 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertGreaterEqual(normal_maps, 2, "the metal and plastic panels")
         self.assertGreaterEqual(cutout, 1, "the demo's grille is a cut-out")
         self.assertGreaterEqual(translucent, 1, "the demo's glass panes blend")
-        self.assertEqual(response_mode, "enabled", "Full draws the surface response")
-        self.assertEqual(profile, "full", "full is the shipped default")
+        self.assertEqual(response_mode, "enabled", "High draws the surface response")
+        self.assertEqual(level, "high", "high is the shipped default")
         self.assertLess(materials, draws, "materials are shared across draws")
 
-    def test_the_quality_profile_gates_the_material_response(self):
-        _full_code, full = self.run_binary(
-            {"PLACES_QUALITY": "full"}
-        )
+    def test_the_quality_level_gates_the_material_response(self):
+        _high_code, high = self.run_binary({"PLACES_QUALITY": "high"})
         _low_code, low = self.run_binary(
             {"PLACES_QUALITY": "low"}
         )
 
-        full_load = self.material_loads(full)[0]
+        high_load = self.material_loads(high)[0]
         low_load = self.material_loads(low)[0]
-        self.assert_material_resolution_is_sane(full_load, full)
+        self.assert_material_resolution_is_sane(high_load, high)
         self.assert_material_resolution_is_sane(low_load, low)
-        self.assertEqual(full_load[10], "enabled")
+        self.assertEqual(high_load[10], "enabled")
         self.assertEqual(low_load[10], "disabled")
         self.assertEqual(low_load[11], "low")
         # The response gate zeroes the sheen and therefore the reflection
@@ -504,39 +502,37 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(low_load[1], 0, "Low draws no surface response")
         self.assertEqual(low_load[2], 0, "Low reflects nothing")
         self.assertEqual(low_load[3], 0, "Low binds no normal map")
-        self.assertEqual(full_load[6], low_load[6], "opaque draw count is profile-independent")
-        self.assertEqual(full_load[7], low_load[7], "cut-out draw count is profile-independent")
+        self.assertEqual(high_load[6], low_load[6], "opaque draw count is level-independent")
+        self.assertEqual(high_load[7], low_load[7], "cut-out draw count is level-independent")
         self.assertEqual(
-            full_load[8], low_load[8], "translucent draw count is profile-independent"
+            high_load[8], low_load[8], "translucent draw count is level-independent"
         )
 
-    def test_quality_profiles_fit_the_same_textures_to_their_budget(self):
-        _full_code, full = self.run_binary(
-            {"PLACES_QUALITY": "full"}
-        )
+    def test_quality_levels_fit_the_same_textures_to_their_budget(self):
+        _high_code, high = self.run_binary({"PLACES_QUALITY": "high"})
         _low_code, low = self.run_binary(
             {"PLACES_QUALITY": "low"}
         )
 
-        full_load = self.texture_loads(full)[0]
+        high_load = self.texture_loads(high)[0]
         low_load = self.texture_loads(low)[0]
-        self.assert_texture_resolution_is_sane(full_load, full)
+        self.assert_texture_resolution_is_sane(high_load, high)
         self.assert_texture_resolution_is_sane(low_load, low)
         self.assertEqual(
-            full_load[0], low_load[0], "both profiles use the same texture identities"
+            high_load[0], low_load[0], "both levels use the same texture identities"
         )
-        self.assertEqual(full_load[7], 1024, "Full keeps the native sheet size")
+        self.assertEqual(high_load[7], 1024, "High keeps the native sheet size")
         # Low fits every world sheet to the 256px budget. The shared fallback
-        # sheet is a profile-independent 1024 renderer-lifetime resource and is
+        # sheet is a level-independent 1024 renderer-lifetime resource and is
         # part of the draw set, so the reported maximum edge can stay 1024;
         # what must shrink is the resident texel storage. A complete
-        # 1024 -> 256 fit is a 16x texel reduction, so a quarter of Full's
+        # 1024 -> 256 fit is a 16x texel reduction, so a quarter of High's
         # total is a generous ceiling that still fails if the fit stops
         # running.
         self.assertLess(
             low_load[6] * 4,
-            full_load[6],
-            "the Low fit must reduce resident texels to a fraction of Full's",
+            high_load[6],
+            "the Low fit must reduce resident texels to a fraction of High's",
         )
 
     # ------------------------------------------------------------ level reload
@@ -640,7 +636,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(len(loads), 2, output)
         self.assertEqual(
             loads[1],
-            (0, 0, 0, 0, 0, 0, 0, 0, "linear"),
+            (0, 0, 0, 0, 0, 0, 0, 0, "high"),
             "an empty world samples no textures",
         )
         material_loads = self.material_loads(output)
@@ -763,7 +759,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertLessEqual(average, maximum)
         self.assertGreaterEqual(average, minimum)
         # The bake packs the lightmap atlas: Places Demo packs two pages at
-        # both profiles, so the diagnostic must name a real atlas.
+        # both levels, so the diagnostic must name a real atlas.
         atlas = re.search(r"\[lightmaps\] (\d+) page\(s\), (\d+) chart\(s\)", output)
         self.assertIsNotNone(atlas, f"no lightmap diagnostic:\n{output}")
         self.assertGreaterEqual(int(atlas.group(1)), 1, "the demo bakes an atlas")
@@ -795,26 +791,24 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             len(data), 8_192, "an all-one-colour image compresses far smaller"
         )
 
-    # ------------------------------------------------------------- profiles
+    # ------------------------------------------------------- quality levels
 
-    def test_both_quality_profiles_draw_the_same_world(self):
-        full_code, full = self.run_binary(
-            {"PLACES_QUALITY": "full"}
-        )
+    def test_both_quality_levels_draw_the_same_world(self):
+        high_code, high = self.run_binary({"PLACES_QUALITY": "high"})
         low_code, low = self.run_binary(
             {"PLACES_QUALITY": "low"}
         )
 
-        self.assertEqual(full_code, 0, f"full-profile run failed:\n{full}")
-        self.assertEqual(low_code, 0, f"low-profile run failed:\n{low}")
-        # The profile selects the lightmap atlas's texel density and page size;
+        self.assertEqual(high_code, 0, f"high-level run failed:\n{high}")
+        self.assertEqual(low_code, 0, f"low-level run failed:\n{low}")
+        # The level selects the lightmap atlas's texel density and page size;
         # the world draw set (geometry, ranges and chunks) stays the same.
         self.assertEqual(
-            self.world_uploads(full)[0],
+            self.world_uploads(high)[0],
             self.world_uploads(low)[0],
-            "the world draw set is profile-independent",
+            "the world draw set is level-independent",
         )
-        self.assert_no_gpu_failure(full)
+        self.assert_no_gpu_failure(high)
         self.assert_no_gpu_failure(low)
 
 

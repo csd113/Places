@@ -7,7 +7,7 @@ which direction dependencies point, how a frame flows, and the invariants the
 layout protects.
 
 - The renderer itself — lifecycle, passes, colour space, materials, lighting,
-  reflections, quality profiles and diagnostics — is documented in
+  reflections, quality levels and diagnostics — is documented in
   [RENDERER.md](RENDERER.md).
 - Verification, the platform matrix and the capture procedure are documented
   in [VERIFICATION.md](VERIFICATION.md).
@@ -134,7 +134,8 @@ repository sources:
 - `LevelMesh`, `PropMeshBatch`, `DynamicScene`: CPU geometry.
 - `ReflectionRouting`, `ReflectionPlane`: which material reflects from where.
 - `RenderCamera`: the frame's camera.
-- `QualityProfile`, `PostSettings`, `FogState`, `EmissionAnimation`.
+- `QualityLevel` (with its two-variant `QualityProfile` content-key boundary),
+  `PostSettings`, `FogState`, `EmissionAnimation`.
 
 None of these contains a GPU handle; none is constructed by the backend.
 

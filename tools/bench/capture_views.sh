@@ -5,7 +5,7 @@
 # image on any machine and the before/after, Full/Low and no-post runs are
 # directly comparable. Run from the repository root:
 #
-#     sh tools/bench/capture_views.sh                       # Full profile
+#     sh tools/bench/capture_views.sh                       # High profile
 #     PLACES_QUALITY=low sh tools/bench/capture_views.sh
 #     PLACES_NO_BLOOM=1 sh tools/bench/capture_views.sh
 #     PLACES_NO_REFLECTIONS=1 sh tools/bench/capture_views.sh
@@ -32,9 +32,15 @@ case "$OUT" in
 esac
 
 SUFFIX=""
-if [ "${PLACES_QUALITY:-full}" = "low" ]; then
-    SUFFIX="${SUFFIX}_low"
-fi
+case "${PLACES_QUALITY:-high}" in
+    low) SUFFIX="${SUFFIX}_low" ;;
+    medium) SUFFIX="${SUFFIX}_medium" ;;
+    high | full) ;;
+    *)
+        echo "capture_views: PLACES_QUALITY must be 'low', 'medium', 'high' or unset ('full' is the historical alias of 'high')" >&2
+        exit 2
+        ;;
+esac
 if [ "${PLACES_NO_BLOOM:-0}" = "1" ]; then
     SUFFIX="${SUFFIX}_nobloom"
 fi

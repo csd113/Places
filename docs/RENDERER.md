@@ -73,7 +73,7 @@ next frame:
   size == 0 -> skip acquisition entirely, keep the event loop alive
 ```
 
-A zero-sized drawable (minimized or hidden window) is not a fatal error and not a busy loop: `main` sleeps ~16 ms on those frames and the renderer configures nothing until a valid size returns. Restore is automatic — no restart, no device recreation. Under Low the scene target follows the new drawable (§12); no world buffer work is involved.
+A zero-sized drawable (minimized or hidden window) is not a fatal error and not a busy loop: `main` sleeps ~16 ms on those frames and the renderer configures nothing until a valid size returns. Restore is automatic — no restart, no device recreation. Under Low and Medium the scene target follows the new drawable (§12); no world buffer work is involved.
 
 ### 1.6 Error handling
 
@@ -97,7 +97,7 @@ Device loss: `Device::set_device_lost_callback` records the reason on a shared s
 ```text
 render_scene:
   ensure depth / pipelines / post targets / planar target
-  select planar plane (Full only) + nearest probe
+  select planar plane (Medium and High only) + nearest probe
   planar capture (mirror ranges excluded, modes zeroed, capture environment)
   update material reflection modes + environment uniforms + cameras
   encode:
@@ -107,22 +107,22 @@ render_scene:
     resolve/present   -> raw presented target
   submit
 render_ui:
-  UI blends into the raw presented target (the drawable in both profiles)
+  UI blends into the raw presented target (the drawable at every level)
   presented copied to the sRGB surface with one encode
 present: queue.present (or the acquired frame dropped under NOSWAP)
 capture: re-render the chain into presented, replay the last UI list, copy to
          the capture texture and read it back
 ```
 
-| Target | Full | Low |
-|---|---|---|
-| scene | the drawable | ≤480 px wide, aspect preserved |
-| presented / resolve | the drawable | the drawable |
-| planar reflection | half the render size, Full only | not allocated |
-| probes | up to two 64-texel cubemaps | up to two 32-texel cubemaps |
-| bloom/emissive | quarter-size raw targets | quarter-size raw targets |
+| Target | High | Medium | Low |
+|---|---|---|---|
+| scene | the drawable | half the drawable, aspect preserved | ≤480 px wide, aspect preserved |
+| presented / resolve | the drawable | the drawable | the drawable |
+| planar reflection | half the render size | half the render size | not allocated |
+| probes | up to two 64-texel cubemaps | up to two 48-texel cubemaps | up to two 32-texel cubemaps |
+| bloom/emissive | quarter-size raw targets | quarter-size raw targets | quarter-size raw targets |
 
-The resolve and HUD therefore always run at the default-framebuffer resolution; only the 3D scene is profile-sized. All post targets are recreated only when the size or profile changes, and no pipeline, texture, buffer or bind group is created per frame. The backend consumes the neutral batch classification — opaque, alpha cut-out and translucent (sorted back to front) — and the material, emission, lightmap, sheen, reflection and fog terms the neutral tables resolved; `set_level` uploads the level once, and no draw list crosses the facade while no GPU type crosses back.
+The resolve and HUD therefore always run at the default-framebuffer resolution; only the 3D scene is level-sized. All post targets are recreated only when the size or level changes, and no pipeline, texture, buffer or bind group is created per frame. The backend consumes the neutral batch classification — opaque, alpha cut-out and translucent (sorted back to front) — and the material, emission, lightmap, sheen, reflection and fog terms the neutral tables resolved; `set_level` uploads the level once, and no draw list crosses the facade while no GPU type crosses back.
 
 If the offscreen targets cannot be created (a first frame, or a failed target), the renderer draws straight into the surface framebuffer and the UI blends on the sRGB surface. That path exists for robustness only; the post path is the normal one.
 
@@ -150,7 +150,7 @@ Renderer::set_level(&LoadedLevel)                           (src/render/facade.r
         v
 WgpuRenderer::set_level                                     (src/render/wgpu/renderer.rs)
         |  build_level_geometry_timed_with_lightmaps(level, catalog, assets,
-        |      materials, LightmapBuildOptions::for_profile(quality, mode), ...)
+        |      materials, LightmapBuildOptions::for_level(quality, mode), ...)
         v
 LevelMesh { ranges: Vec<LevelMeshRange>, ... }              (src/render/common/mesh.rs)
         |  range classification + MeshPacker                (src/render/wgpu/world.rs)
@@ -167,7 +167,7 @@ WorldTextures::resolve(cache, device, queue, draws, materials, table, quality)
 WorldPipeline::encode(pass, geometry, textures, filtering, frustum, cull)
 ```
 
-The world build asks for the atlas build (`LightmapMode::On`) or the vertex-lit build (`LightmapMode::Off`) from `LightmapBuildOptions::for_profile`, exactly as the lightmaps setting requests. An empty draw set yields no buffers and no draws, which clears/presents safely.
+The world build asks for the atlas build (`LightmapMode::On`) or the vertex-lit build (`LightmapMode::Off`) from `LightmapBuildOptions::for_level`, exactly as the lightmaps setting requests. An empty draw set yields no buffers and no draws, which clears/presents safely.
 
 ### 4.2 Vertices, indices, buffers
 
@@ -254,29 +254,29 @@ WorldTextures::resolve                         src/render/wgpu/world.rs
         |  resolve_base_texture(draw, MaterialRenderState, MaterialTable)
         v
 TextureCache::get_or_upload                    src/render/wgpu/texture.rs
-        |  fit_image(image, profile, class)     src/quality.rs
+        |  fit_image(image, level, class)       src/quality.rs
         |  mip chain: halve_image() per level
         v
-GpuTexture { texture, view, 2x bind groups, meta }
+GpuTexture { texture, view, 3x bind groups, meta }
         |  bound when a run of draws shares it
         v
 world.wgsl: textureSample(base_texture, base_sampler, in.uv)
 ```
 
-The decode is `crate::materials::decode_png`, which normalizes any PNG colour type to 8-bit RGBA and caps each edge at `MAX_TEXTURE_DIMENSION` (1024); the renderer consumes the `Rc<RawImage>` the engine already decoded and never opens a file. The quality fit is `crate::quality::fit_image`, so Full keeps the native sheet and Low box-filters it to the profile budget.
+The decode is `crate::materials::decode_png`, which normalizes any PNG colour type to 8-bit RGBA and caps each edge at `MAX_TEXTURE_DIMENSION` (1024); the renderer consumes the `Rc<RawImage>` the engine already decoded and never opens a file. The quality fit is `crate::quality::fit_image`, so High keeps the native sheet while Medium and Low box-filter it to the level's budget for its class.
 
 ### 5.2 Identity, cache and lifetime
 
-`TextureKey` (`src/render/wgpu/texture.rs`) is: the logical texture id (`core:tex_wallpaper_yellow_01`; pack textures are `pack:<namespace>:<path>`), a semantic (`BaseColorDisplay` or `DataLinear`), a quality class (`Surface`, `FixtureFace`, `DecalSheet`, `Prop`, `EmissionMask`) and a quality profile (`Full`/`Low`). The semantic keeps a base-colour entry from colliding with a later normal-map use of the same source; class and profile capture every input the GPU realization depends on (the quality budget and the fitted dimensions). Nothing in the key is a material instance, draw index or pointer: two surfaces that reference the same texture share one entry, one upload and one pair of bind groups.
+`TextureKey` (`src/render/wgpu/texture.rs`) is: the logical texture id (`core:tex_wallpaper_yellow_01`; pack textures are `pack:<namespace>:<path>`), a semantic (`BaseColorDisplay` or `DataLinear`), a quality class (`Surface`, `FixtureFace`, `DecalSheet`, `Prop`, `EmissionMask`) and a quality level (`Low`/`Medium`/`High`). The semantic keeps a base-colour entry from colliding with a later normal-map use of the same source; class and level capture every input the GPU realization depends on (the quality budget and the fitted dimensions). Nothing in the key is a material instance, draw index or pointer: two surfaces that reference the same texture share one entry, one upload and one pair of bind groups.
 
-`TextureCache` is owned by `WgpuRenderer` and holds the bind group layout, the four shared samplers, two maps and the fallback:
+`TextureCache` is owned by `WgpuRenderer` and holds the bind group layout, the nine shared samplers, two maps and the fallback:
 
 | Map | Contents | Lifetime |
 |---|---|---|
 | `persistent` | catalog and missing/diagnostic textures | renderer lifetime |
 | `level` | `TextureOrigin::Pack` textures | one level (dropped by `begin_level`) |
 
-`release_profile_textures` clears both maps; the loaded level's draws keep their `Arc`s alive until `set_level` replaces them, so a frame between the release and the rebuild still draws valid resources. There is no LRU and no eviction beyond those lifetimes: the shipped catalog holds 38 texture assets, so a renderer-lifetime map is bounded, and a level can only introduce pack textures, which die at the next level. Recorded on Places Demo: a first load uploads each distinct base texture once (26 unique textures over 105 draws, 26 uploads, 0 fallbacks); a reload that references those materials uploads nothing (2 reused textures, 0 uploads, 0 fallbacks); a quality change drops both maps and the next `set_level` re-fits at the new budget (Full fits to 1024, ~145 MB resident; Low to 256, ~9 MB).
+`release_profile_textures` clears both maps; the loaded level's draws keep their `Arc`s alive until `set_level` replaces them, so a frame between the release and the rebuild still draws valid resources. There is no LRU and no eviction beyond those lifetimes: the shipped catalog holds 38 texture assets, so a renderer-lifetime map is bounded, and a level can only introduce pack textures, which die at the next level. Recorded on Places Demo: a first load uploads each distinct base texture once (26 unique textures over 105 draws, 26 uploads, 0 fallbacks); a reload that references those materials uploads nothing (2 reused textures, 0 uploads, 0 fallbacks); a quality change drops both maps and the next `set_level` re-fits at the new budget (High fits to 1024, ~145 MB resident; Medium to 512; Low to 256, ~9 MB).
 
 Both classes upload raw `Rgba8Unorm` (base colour: authored display values sampled raw; normal maps, masks and data: numeric values never gamma-converted) with `TEXTURE_BINDING | COPY_DST`. No compression, no texture arrays, no view formats and no other format is created; every texture is `TextureDimension::D2`, one sample, one array layer. Because both classes upload raw, filtering, blending and mip selection happen in the same display space the shader assembles in; the sRGB surface is the single conversion point.
 
@@ -299,16 +299,19 @@ queue.write_texture(
 
 Mip policy: `mip_level_count = floor(log2(max(width, height))) + 1`, stopping at 1x1 (1024x1024 → 11 levels, 2x2 → 2, 1x1 → 1, 96x64 → 7, 3x3 → 2). The fallback sheet is the one deliberate exception: exactly one level. No level is ever allocated and left uninitialized: `GpuTexture::upload` writes level 0 and each successive level in the same call, and `TextureMeta` records the allocated count and the resident bytes. CPU mip generation is deterministic and display-space: `halve_image` averages blocks of up to 2x2 source texels rounding to nearest, the output extent floors (`max(1, edge / 2)`) so an odd edge's final unpaired row/column is dropped (3x3 → 1x1 averages the top-left 2x2 block, not all nine texels; a constant image stays constant), alpha is averaged the same way and preserved, and no gamma conversion is applied — a deliberate parity choice, not a claim about ideal filtering. Unit tests cover exact 2x2 averages, odd edges, 1x1 idempotence, constant chains, non-square/odd dimensions and the resident byte count. The measured driver-filter consequence is in §15.
 
-Four shared samplers are created once with the device; every field is set explicitly (`compare` is always `None`, `anisotropy_clamp` always 1, `lod_min_clamp` 0, `lod_max_clamp` 32 so the chain is never cut short):
+Nine shared samplers are created once with the device; every field is set explicitly (`compare` is always `None`, `lod_min_clamp` 0, `lod_max_clamp` 32 so the chain is never cut short). The six world policies all filter `Linear`/`Linear`/`Linear` — every level of the player's **Texture Filtering** setting is trilinear, no level disables mips and none falls back to point sampling — and differ only in the requested anisotropy (Low 4x, Medium 8x, High 16x):
 
-| Policy | Address U/V/W | Mag | Min | Mip | Used by |
-|---|---|---|---|---|---|
-| `RepeatLinear` | `Repeat` | `Linear` | `Linear` | `Linear` | base colour under the `linear` setting |
-| `RepeatNearest` | `Repeat` | `Nearest` | `Nearest` | `Nearest` | base colour under the `nearest` setting |
-| `ClampNearest` | `ClampToEdge` | `Nearest` | `Nearest` | `Nearest` | the fallback sheet, the normal-map fallback, the reflection sampler's nearest mode |
-| `ClampLinear` | `ClampToEdge` | `Linear` | `Linear` | `Linear` | fitted clamp sheets (prop model sheets) under `linear`, the reflection sampler |
+| Policy | Address U/V/W | Mag | Min | Mip | Anisotropy | Used by |
+|---|---|---|---|---|---|---|
+| `RepeatLow` / `RepeatMedium` / `RepeatHigh` | `Repeat` | `Linear` | `Linear` | `Linear` | 4 / 8 / 16 | repeating world base colour at the active level |
+| `ClampLow` / `ClampMedium` / `ClampHigh` | `ClampToEdge` | `Linear` | `Linear` | `Linear` | 4 / 8 / 16 | clamped fitted sheets (prop model sheets, fixture faces, emissive masks) at the active level |
+| `RepeatNearest` | `Repeat` | `Nearest` | `Nearest` | `Nearest` | 1 | retained point-sample policy; no filtering level selects it |
+| `ClampNearest` | `ClampToEdge` | `Nearest` | `Nearest` | `Nearest` | 1 | the fallback sheet and the UI — independent of the setting |
+| `ClampLinear` | `ClampToEdge` | `Linear` | `Linear` | `Linear` | 1 | the lightmap atlas pages and the reflection targets (probe/planar) — independent of the setting |
 
-Places bakes tiling into the vertex UV (`tiled_uv` divides world coordinates by the material's `tile_metres`), so walls, floors and ceilings routinely sample with UVs far beyond one repeat. Base-colour textures therefore **repeat**, and a UV > 1 tiles instead of clamping into a stretched edge; no UV offset or scale is applied at bind time because the tiling is already in the geometry, and applying `tile_metres` again would square it. The fallback sheet clamps, and the diagnostic `core:tex_missing` sheet uses the repeating policy like any other base colour. The player's `texture_filtering` setting is applied live: `set_texture_filtering` only records the mode and each draw binds the matching bind group, so no pixel data is re-uploaded; the load-time diagnostic names the active mode.
+Anisotropy above 1 requires all three filters to be linear, which the world presets satisfy by construction; wgpu-core clamps the request to 16 and, on an adapter without `DownlevelFlags::ANISOTROPIC_FILTERING`, silently to 1. The renderer queries that flag once at startup and creates the world presets through `SamplerPolicy::effective_descriptor`: when the capability is absent the three levels keep their trilinear `Linear`/`Linear`/`Linear` filtering and clamp to 1x, and the `PLACES_VERBOSE` startup line states which happened. No device feature is requested. Ordinary world/material/decal textures keep the complete CPU mip chain (§5.3 mip policy), which is exactly what anisotropic filtering requires.
+
+Places bakes tiling into the vertex UV (`tiled_uv` divides world coordinates by the material's `tile_metres`), so walls, floors and ceilings routinely sample with UVs far beyond one repeat. Base-colour textures therefore **repeat**, and a UV > 1 tiles instead of clamping into a stretched edge; no UV offset or scale is applied at bind time because the tiling is already in the geometry, and applying `tile_metres` again would square it. The fallback sheet clamps, and the diagnostic `core:tex_missing` sheet uses the repeating policy like any other base colour. The player's `texture_filtering` setting is applied live: `set_texture_filtering` only records the level and each draw binds the matching bind group, so no pixel data is re-uploaded and the environment binding is not rebuilt (the lightmap sampler is a fixed clamped linear policy and does not follow this setting); the load-time diagnostic names the active level.
 
 ### 5.4 Fallback, bind groups and diagnostics
 
@@ -316,16 +319,16 @@ The fallback is the committed `assets/core/textures/white_01.png`. The wgpu modu
 
 A material whose *authored* texture is missing or fails to decode is a different case: the engine's resolver degrades the whole material to the 64x64 magenta/black diagnostic texture (`core:tex_missing`) and logs the error. The cache uploads that diagnostic like any other texture, and the load-time line reports those draws in its `missing` count so a broken asset is visible, not silent. The white fallback and the magenta diagnostic stay distinct.
 
-Bind groups: group 0 is the camera uniform (`@group(0) @binding(0)`); group 1 is `texture_2d<f32>` and its `sampler` (`@group(1) @binding(0)`/`(1)`). The group 1 layout is created once by `TextureCache` and shared by every world pipeline rebuild, so a changed surface format never invalidates a cached bind group. Each `GpuTexture` creates two bind groups at upload, so the player's filtering setting is a handle swap; the fallback's groups use the clamped nearest sampler. There is no bindless descriptor array, no texture array and no per-frame bind group creation, and the draw loop rebinds group 1 only when a run of draws changes texture. `WorldDraw.material` is the only material state the world draw carries: `resolve_base_texture` follows `MaterialRenderState.texture_slots[material]` into `MaterialTable::textures` for `Floor`/`Ceiling`/`Wall`, and returns `None` for `Light`, `PropFallback` and `Decal` (those index spaces belong to their own paths and must never be read as material slots).
+Bind groups: group 0 is the camera uniform (`@group(0) @binding(0)`); group 1 is `texture_2d<f32>` and its `sampler` (`@group(1) @binding(0)`/`(1)`). The group 1 layout is created once by `TextureCache` and shared by every world pipeline rebuild, so a changed surface format never invalidates a cached bind group. Each `GpuTexture` creates three bind groups at upload — one per world filtering level — so the player's setting is a handle swap; the fallback's three groups all bind the clamped nearest policy. There is no bindless descriptor array, no texture array and no per-frame bind group creation, and the draw loop rebinds group 1 only when a run of draws changes texture. `WorldDraw.material` is the only material state the world draw carries: `resolve_base_texture` follows `MaterialRenderState.texture_slots[material]` into `MaterialTable::textures` for `Floor`/`Ceiling`/`Wall`, and returns `None` for `Light`, `PropFallback` and `Decal` (those index spaces belong to their own paths and must never be read as material slots).
 
 One diagnostic line per level load (never per frame):
 
 ```text
 [wgpu] textures: 26 unique, 26 uploaded, 79 cache hits, 0 fallbacks,
-0 missing of 105 draws (145402504 bytes resident, max edge 1024px, linear filtering)
+0 missing of 105 draws (145402504 bytes resident, max edge 1024px, high filtering)
 ```
 
-`unique` counts distinct base textures the draw set uses, `uploaded` the GPU uploads this load performed, `cache hits` the lookups answered without uploading, `fallbacks` the draws sampling the fallback sheet and `missing` the draws sampling the diagnostic pattern. `RenderStats::texture_binds` reports the frame's texture bind-group changes. Known limitations, all understood: no anisotropic filtering; the fallback is a solid colour so its clamp/nearest policy is unobservable; a non-sRGB surface format would skip the final encode (§1.4); extreme minification differs by the class in §15.
+`unique` counts distinct base textures the draw set uses, `uploaded` the GPU uploads this load performed, `cache hits` the lookups answered without uploading, `fallbacks` the draws sampling the fallback sheet and `missing` the draws sampling the diagnostic pattern. `RenderStats::texture_binds` reports the frame's texture bind-group changes. Known limitations, all understood: the fallback is a solid colour so its clamp/nearest policy is unobservable; a non-sRGB surface format would skip the final encode (§1.4); extreme minification differs by the class in §15.
 
 ## 6. Materials and the surface response
 
@@ -363,7 +366,7 @@ pub struct ResolvedSurfaceMaterial {
 }
 ```
 
-The rules, in order: (1) a key without a level material, or a fixture/prop-placeholder/decal key, resolves to `ResolvedSurfaceMaterial::plain()` (fallback texture, no response, opaque, no reflection); (2) the response is live when the material authors a normal map or a sheen **and** the quality profile draws the surface response — a gated profile zeroes `specular` and hides the normal map while albedo, alpha, tint and the reflection *mode* are untouched; (3) `roughness` is the per-surface `SurfaceShine` override's inverse when one is authored, otherwise the material's resolved roughness; (4) `reflection_strength()` is `specular × reflection.strength`, so a gated profile zeroes the reflection weight with the sheen.
+The rules, in order: (1) a key without a level material, or a fixture/prop-placeholder/decal key, resolves to `ResolvedSurfaceMaterial::plain()` (fallback texture, no response, opaque, no reflection); (2) the response is live when the material authors a normal map or a sheen **and** the quality level draws the surface response — a gated level zeroes `specular` and hides the normal map while albedo, alpha, tint and the reflection *mode* are untouched; (3) `roughness` is the per-surface `SurfaceShine` override's inverse when one is authored, otherwise the material's resolved roughness; (4) `reflection_strength()` is `specular × reflection.strength`, so a gated level zeroes the reflection weight with the sheen.
 
 ### 6.2 Per-surface override precedence
 
@@ -414,18 +417,18 @@ pub struct MaterialKey {
 | 68 | `emission_scale` | `f32` | animated emission multiplier; `1.0` without an animation |
 | 72 | `_padding` | `[f32; 2]` | explicit 16-byte tail padding |
 
-Flags: bit 0 `MATERIAL_FLAG_NORMAL_ENABLED` (the normal map is bound and may be sampled), bit 1 `MATERIAL_FLAG_RESPONSE_ENABLED` (the profile draws the surface response), bit 2 `MATERIAL_FLAG_REFLECTION_ELIGIBLE` (eligible for a reflection). No other property is stored: no lights, no shadows, no lightmap pages, no probe matrices, no reflection textures. Unit tests pin the size, every offset, the flag bits and the WGSL struct order.
+Flags: bit 0 `MATERIAL_FLAG_NORMAL_ENABLED` (the normal map is bound and may be sampled), bit 1 `MATERIAL_FLAG_RESPONSE_ENABLED` (the level draws the surface response), bit 2 `MATERIAL_FLAG_REFLECTION_ELIGIBLE` (eligible for a reflection). No other property is stored: no lights, no shadows, no lightmap pages, no probe matrices, no reflection textures. Unit tests pin the size, every offset, the flag bits and the WGSL struct order.
 
 | Group | Binding | Resource | Lifetime |
 |---:|---|---|---|
 | 0 | 0 | camera uniform (view-projection, eye) | renderer |
 | 1 | 0 | base-colour texture | texture cache |
-| 1 | 1 | base-colour sampler (linear/nearest) | renderer |
+| 1 | 1 | base-colour sampler (Low/Medium/High world preset) | renderer |
 | 2 | 0 | material uniform | level |
 | 2 | 1 | normal-map texture (or the white fallback) | texture cache |
 | 2 | 2 | normal-map sampler | renderer |
 
-Group 2's layout is created once with the device and shared by every pipeline rebuild and material binding. Each `GpuMaterial` creates two bind groups at level load — one per filtering mode — so the player's filtering setting is a handle swap. No bind group, buffer or pipeline is created per frame, and the material uniform is written once at creation. A material without a normal map binds the shared white fallback with the clamped nearest sampler and bit 0 clear; a real normal map follows the player's filtering setting (repeat, mips, linear or nearest).
+Group 2's layout is created once with the device and shared by every pipeline rebuild and material binding. Each `GpuMaterial` creates three bind groups at level load — one per Texture Filtering level — so the player's setting is a handle swap. No bind group, buffer or pipeline is created per frame, and the material uniform is written once at creation. A material without a normal map or emission mask binds the shared white fallback with the clamped nearest sampler and bit 0 clear; a real map follows the player's filtering setting (repeat, mips, trilinear, 4x/8x/16x anisotropy).
 
 ### 6.4 Normal maps
 
@@ -470,7 +473,7 @@ The cut-out pass is a separate fragment entry point (`fs_cutout`) and pipeline, 
 | absent alpha fields | opaque, opacity 1, cutoff 0.5 |
 | an empty level | no materials, no draws; diagnostics report zeros |
 
-`MaterialReflection` (mode and strength) is resolved by the neutral layer; the GPU record stores `reflection_mode` and `reflection_strength = specular × authored strength`, and bit 2 of `flags` is set when the result can change a pixel. A profile that gates the response zeroes the reflection weight; the runtime reflection resources and switches are in §8.
+`MaterialReflection` (mode and strength) is resolved by the neutral layer; the GPU record stores `reflection_mode` and `reflection_strength = specular × authored strength`, and bit 2 of `flags` is set when the result can change a pixel. A level that gates the response zeroes the reflection weight; the runtime reflection resources and switches are in §8.
 
 ## 7. Lighting, lightmaps and shadows
 
@@ -507,16 +510,16 @@ opening blend   = 0.5 · smooth_falloff(d / 6) · (neighbour_baseline - own_base
 light           = clamp(baseline + pools + blend, 0.10, 1.0)
 ```
 
-`AMBIENT_LEVEL = 0.10` is the floor; an unlit room is dark by design. `BASELINE_MAX = 0.60` deliberately leaves the highlight headroom to the pools, because a pool is the only term a static occluder can remove. A room split by opaque internal walls gets one baseline per connected area, and a doorway still blends the two areas through the aperture. Floor interfaces and ceiling bodies isolate storeys, so a fixture cannot light through a slab. Pool visibility is a binary (vertex-lit) or multi-tap soft (atlas) test against the same wall solids, floor interfaces, ceiling bodies and prop-derived boxes the geometry and collision use: Full bakes with two taps per axis and 0.075 m prop-occlusion cells, Low with one tap per axis and 0.15 m. Openings transmit light through the hole they cut (the wall solid is removed); glass and grille panes do not have their own material alpha consulted, so a translucent pane transmits exactly like the opening.
+`AMBIENT_LEVEL = 0.10` is the floor; an unlit room is dark by design. `BASELINE_MAX = 0.60` deliberately leaves the highlight headroom to the pools, because a pool is the only term a static occluder can remove. A room split by opaque internal walls gets one baseline per connected area, and a doorway still blends the two areas through the aperture. Floor interfaces and ceiling bodies isolate storeys, so a fixture cannot light through a slab. Pool visibility is a binary (vertex-lit) or multi-tap soft (atlas) test against the same wall solids, floor interfaces, ceiling bodies and prop-derived boxes the geometry and collision use: High bakes with two taps per axis and 0.075 m prop-occlusion cells, Medium with two taps and 0.11 m, Low with one tap and 0.15 m. Openings transmit light through the hole they cut (the wall solid is removed); glass and grille panes do not have their own material alpha consulted, so a translucent pane transmits exactly like the opening.
 
 ### 7.4 Atlas and vertex-lit storage
 
 - **Atlas** (the default; lightmaps on): architectural vertex colours are the material factor `tint × directional face shade` with no baked light, the atlas carries the per-texel light, and `light` is the atlas sample.
 - **Vertex-lit** (`PLACES_NO_LIGHTMAPS=1`, or the atlas fallback): the bake is folded into each vertex colour by `shade(base, light) = clamp(base × light)`, every vertex carries `LIGHTMAP_NONE`, and `light` is exactly `vec3(1.0)`.
 
-The bake is the same CPU code in both modes; only the storage differs, and `LightmapMode::Off` always bakes with `BakeConfig::HARD` (one visibility tap, 0.15 m prop-occlusion cell) whatever the quality profile, which keeps the vertex-lit fallback identical in shape and light to the always-supported path.
+The bake is the same CPU code in both modes; only the storage differs, and `LightmapMode::Off` always bakes with `BakeConfig::HARD` (one visibility tap, 0.15 m prop-occlusion cell) whatever the quality level, which keeps the vertex-lit fallback identical in shape and light to the always-supported path.
 
-The atlas itself: the level build requests `LightmapBuildOptions::for_profile(quality, LightmapMode::On)` when lightmaps are on (the default); the neutral bake, planner, fill and content key are shared with the rest of the engine, and the renderer restores the same `cache/lightmaps/v5-<hash>` entries (measured: cold 68 s, warm 19.8 s in a debug build). Atlas pages are raw `Rgba8Unorm` (the alpha byte is 255 and never read). `WorldVertex` carries `lightmap_uv` as `Unorm16x2` and `lightmap_page` as a plain float. `surface_light()` samples `mix(page0, page1, step(0.5, page))` only when `lightmap_enabled * (1 - step(254.5, page)) > 0.5`, then multiplies by `light_scale`; `LIGHTMAP_NONE` keeps the vertex-lit colour exactly. Sheen, reflection and emission are all scaled by that same light factor, so a dark room darkens them. A wall chart resolves its room **per texel** at the bias-shifted sample point rather than from the patch's per-run hint: abutting wall pieces coalesce into emission units whose length runs can cross a room boundary, and a single hint would make the baked light step at the arbitrary run seam instead of at the room boundary. Floors and ceilings are emitted per room and keep their exact hint. Profiles: Full bakes at 16 texels/m onto 1024² pages with two taps per axis and 0.075 m prop cells; Low at 9 texels/m onto 512² pages with one tap per axis and 0.15 m cells (both from the neutral `QualityProfile`). A plan/fill failure keeps the neutral build's vertex-lit mesh — only an actual atlas-upload failure rebuilds — and the failure is logged.
+The atlas itself: the level build requests `LightmapBuildOptions::for_level(quality, LightmapMode::On)` when lightmaps are on (the default); the neutral bake, planner, fill and content key are shared with the rest of the engine, and the renderer restores the same `cache/lightmaps/v5-<hash>` entries (measured: cold 68 s, warm 19.8 s in a debug build). Atlas pages are raw `Rgba8Unorm` (the alpha byte is 255 and never read). `WorldVertex` carries `lightmap_uv` as `Unorm16x2` and `lightmap_page` as a plain float. `surface_light()` samples `mix(page0, page1, step(0.5, page))` only when `lightmap_enabled * (1 - step(254.5, page)) > 0.5`, then multiplies by `light_scale`; `LIGHTMAP_NONE` keeps the vertex-lit colour exactly. Sheen, reflection and emission are all scaled by that same light factor, so a dark room darkens them. A wall chart resolves its room **per texel** at the bias-shifted sample point rather than from the patch's per-run hint: abutting wall pieces coalesce into emission units whose length runs can cross a room boundary, and a single hint would make the baked light step at the arbitrary run seam instead of at the room boundary. Floors and ceilings are emitted per room and keep their exact hint. Levels: High bakes at 16 texels/m onto 1024² pages with two taps per axis and 0.075 m prop cells; Medium at 12 texels/m onto the same 1024² pages with two taps and 0.11 m cells; Low at 9 texels/m onto 512² pages with one tap and 0.15 m cells (Low and High take the validated neutral `QualityProfile` values, Medium shares Full's page shape and differs only in density). A plan/fill failure keeps the neutral build's vertex-lit mesh — only an actual atlas-upload failure rebuilds — and the failure is logged.
 
 ### 7.5 The sheen
 
@@ -533,7 +536,7 @@ if (response_enabled) {
 }
 ```
 
-There is no light direction to place a real highlight; both lobes are scaled by the `light` factor and neither invents a source. `roughness` is `1 - shine` (or the legacy authored roughness, or a per-surface shine override), the normal decode is §6.4, and the master gate is the material's response bit — cleared for a material with neither normal map nor sheen, and for the whole scene under Low.
+There is no light direction to place a real highlight; both lobes are scaled by the `light` factor and neither invents a source. `roughness` is `1 - shine` (or the legacy authored roughness, or a per-surface shine override), the normal decode is §6.4, and the master gate is the material's response bit — cleared for a material with neither normal map nor sheen, and for the whole scene under Low (Medium and High draw it).
 
 ### 7.6 Shadows
 
@@ -541,15 +544,15 @@ There is no GPU shadow system: no shadow render target, no shadow camera or proj
 
 ### 7.7 Resources
 
-No lighting resource is created per frame. The only new per-frame upload is the camera uniform (matrix **and** eye), written with `Queue::write_buffer` and skipped entirely while both are unchanged. No light buffer, light array, shadow target, shadow sampler or lighting bind group exists. Probes: at most two cubemaps (6 faces of 64²/32² raw RGBA8) baked at load (12 scene submissions). For a vertex-lit build the bake is `BakeConfig::HARD` under both profiles, so geometry and light are identical and only the response gate differs; for an atlas build the profile selects density, page size, tap count and prop-occlusion cell (§7.4).
+No lighting resource is created per frame. The only new per-frame upload is the camera uniform (matrix **and** eye), written with `Queue::write_buffer` and skipped entirely while both are unchanged. No light buffer, light array, shadow target, shadow sampler or lighting bind group exists. Probes: at most two cubemaps (6 faces of 64²/48²/32² raw RGBA8 at High/Medium/Low) baked at load (12 scene submissions). For a vertex-lit build the bake is `BakeConfig::HARD` at every level, so geometry and light are identical and only the response gate differs; for an atlas build the level selects density, page size, tap count and prop-occlusion cell (§7.4).
 
 ## 8. Reflections
 
 Reflections are opt-in per material and weighted by the sheen the material already authors, so a rough or dull surface suppresses its reflection instead of mirroring. They are a player setting (Settings → Graphics → Reflections, plus the `PLACES_NO_REFLECTIONS=1` startup override); turning them off removes the planar pass, the probe bake and the reflection texture binds from the frame without a level reload.
 
-**Probes.** Baked once per level load, after the decal upload, with the full scene body (static, props, dynamics, decals). Face size is 64 texels at Full and 32 at Low; the nearest probe to the visible reflective surface is selected per frame, and a black cube is the fallback when no probe exists. Two conventions are pinned. Face row order: a cube face captured into a render target has its first row at the top, while conventional cube-map sampling expects the captured image bottom-up, so the probe projection negates NDC `y` (storing the bottom-up image) and the capture pipeline uses the reversed front face to compensate for the winding flip. Bake position: the routing's centroid is lifted `+1.2 m` (`PROBE_LIFT_M`). Both are verified by `render::wgpu::reflections::tests::the_cube_round_trip_matches_the_reference_face_convention`, a GPU round-trip test (ignored by default) that captures a world-space quad with the real capture matrices and samples it back, checking layer selection, the `s` axis and the `t` axis.
+**Probes.** Baked once per level load, after the decal upload, with the full scene body (static, props, dynamics, decals). Face size is 64 texels at High, 48 at Medium and 32 at Low; the nearest probe to the visible reflective surface is selected per frame, and a black cube is the fallback when no probe exists. Two conventions are pinned. Face row order: a cube face captured into a render target has its first row at the top, while conventional cube-map sampling expects the captured image bottom-up, so the probe projection negates NDC `y` (storing the bottom-up image) and the capture pipeline uses the reversed front face to compensate for the winding flip. Bake position: the routing's centroid is lifted `+1.2 m` (`PROBE_LIFT_M`). Both are verified by `render::wgpu::reflections::tests::the_cube_round_trip_matches_the_reference_face_convention`, a GPU round-trip test (ignored by default) that captures a world-space quad with the real capture matrices and samples it back, checking layer selection, the `s` axis and the `t` axis.
 
-**Planar mirror.** One plane per frame (the nearest whose reflective bounds survive the cull, Full only), half the render size, its own depth, cleared to the raw clear colour. The capture skips the mirror's own static batches (`material_plane == capture_plane`), without which the deck would fill its own reflection image. Sampling uses the projected `uv`, with the `v` flipped because the capture target's first row is NDC `+y`.
+**Planar mirror.** One plane per frame (the nearest whose reflective bounds survive the cull; Medium and High only), half the render size, its own depth, cleared to the raw clear colour. The capture skips the mirror's own static batches (`material_plane == capture_plane`), without which the deck would fill its own reflection image. Sampling uses the projected `uv`, with the `v` flipped because the capture target's first row is NDC `+y`.
 
 ## 9. Props, dynamics, fixtures and emission
 
@@ -574,27 +577,50 @@ Both constants are defined once in `src/render/common/decals.rs` and applied in 
 
 **Fog** is a scalar mix in the world shader: a squared-exponential distance term with a height term, applied after emission and before the display conversion. The height contribution is capped at 12 m. Fog state (`color`, `density`, `reference_y`, `height_gain`) comes from the neutral level/atmosphere data and travels in the group-3 environment uniform.
 
-**Bloom and resolve.** The scene is drawn into an offscreen colour+depth target and resolved into the display image by one fullscreen pass. Bloom is drawn from the world's **emissive term alone** — never from brightness — so a brightly lit wall cannot glow. The emissive pass shares the scene's depth (an emissive draw that did not survive produces no pass), followed by a quarter-size two-pass 5-tap blur. The resolve adds bloom, exposure, a tone shoulder that leaves everything below 0.75 untouched, and a subtle grade; it is the only place a scene pixel becomes a display pixel. Bloom is a **player setting** (Settings → Graphics → Bloom, plus the `PLACES_NO_BLOOM=1` startup override), not part of the quality profile, so `Full + Bloom Off` and `Low + Bloom On` are both valid. With Bloom off no emissive or blur pass is submitted and the bloom targets are left allocated but unused; with `Low` plus Bloom off the resolve stage is the identity and presents the scene with the plain copy quad. The resolve and HUD run at the drawable's resolution in both profiles; the scene target is the profile-sized one (§12). The emissive and blur targets remain raw display space.
+**Bloom and resolve.** The scene is drawn into an offscreen colour+depth target and resolved into the display image by one fullscreen pass. Bloom is drawn from the world's **emissive term alone** — never from brightness — so a brightly lit wall cannot glow. The emissive pass shares the scene's depth (an emissive draw that did not survive produces no pass), followed by a quarter-size two-pass 5-tap blur. The resolve adds bloom, exposure, a tone shoulder that leaves everything below 0.75 untouched, and a subtle grade; it is the only place a scene pixel becomes a display pixel. Bloom is a **player setting** (Settings → Graphics → Bloom, plus the `PLACES_NO_BLOOM=1` startup override), not part of the quality level, so `High + Bloom Off` and `Low + Bloom On` are both valid. With Bloom off no emissive or blur pass is submitted and the bloom targets are left allocated but unused; with `Low` plus Bloom off the resolve stage is the identity and presents the scene with the plain copy quad. The resolve and HUD run at the drawable's resolution at every level; the scene target is the level-sized one (§12). The emissive and blur targets remain raw display space.
 
 **HUD.** The renderer-owned UI pass (`ui.wgsl`) draws into the raw presented target over the resolved image, at the drawable's resolution, with depth testing off and straight-alpha blending, so semi-transparent panels blend in display space. The layout is authored against a 480×272 reference canvas and scaled by `UiViewport`; the presented target is copied to the sRGB surface with one encode afterwards.
 
-## 12. Quality profiles
+## 12. Quality levels and Texture Filtering
 
-Two runtime profiles use the same assets, ids and level content. The profile is selectable while playing; a change releases the profile textures and rebuilds the level's GPU resources from the level already resident.
+Three runtime quality levels — **Low**, **Medium** and **High** (the default) — use the same assets, ids and level content. A level is selectable while playing; a change releases the quality-fitted textures and rebuilds the level's GPU resources from the level already resident. Texture Filtering is a separate player setting (§12.1): any level combines with any filtering option.
 
-| Feature | Full | Low | Source |
-|---|---|---|---|
-| Atlas: texels/m, page edge, padding | 16, 1024, 2 | 9, 512, 1 | `LightmapConfig::for_profile` |
-| Bake taps per axis / prop-occlusion cell | 2 / 0.075 m | 1 / 0.15 m | `QualityProfile::bake_config` |
-| Surface response (normal map + sheen + reflection strength) | drawn | gated off | `draws_surface_response` |
-| Scene resolution | drawable | ≤ 480 wide, aspect preserved | `scene_target_size` |
-| Presented/resolve resolution | drawable | drawable | `target_sizes` |
-| Planar reflection | enabled | disabled | `Reflections::set_profile` |
-| Probe face edge | 64 | 32 | `probe_face_size` |
-| Surface / fixture / decal sheets, masks, prop sheets | 1024 / 1024 / 1024 / 512 / 256 | 256 / 256 / 256 / 128 / 128 | `QualityProfile::budget` |
-| Fog, emission and its animation, decals, UI | identical | identical | shared code paths |
+| Feature | Low | Medium | High | Source |
+|---|---|---|---|---|
+| Surface / fixture / decal sheets | 256 | 512 | 1024 | `QualityLevel::budget` |
+| Emission masks | 128 | 256 | 512 | `QualityLevel::budget` |
+| Prop sheets | 128 | 256 | 256 | `QualityLevel::budget` |
+| Atlas: texels/m, page edge, padding | 9, 512, 1 | 12, 1024, 2 | 16, 1024, 2 | `QualityLevel::lightmap_config` |
+| Bake taps per axis / prop-occlusion cell | 1 / 0.15 m | 2 / 0.11 m | 2 / 0.075 m | `QualityLevel::bake_config` |
+| Surface response (normal map + sheen + reflection strength) | gated off | drawn | drawn | `draws_surface_response` |
+| Scene resolution | ≤ 480 wide, aspect preserved | half the drawable, aspect preserved | drawable | `scene_target_size` |
+| Presented/resolve resolution | drawable | drawable | drawable | `target_sizes` |
+| Planar reflection | disabled | enabled | enabled | `Reflections::set_level` |
+| Probe face edge | 32 | 48 | 64 | `probe_face_size` |
+| Post tone knee / grade | 1.0 / none | 0.75 / none | 0.75 / 1.03, 1.02 | `PostSettings::for_level` |
+| Fog, emission and its animation, decals, UI | identical | identical | identical | shared code paths |
 
-Downscaling is a load-time step (`fit_image` → `downscaled_to`) cached with the texture it produced, never a per-frame cost. Low leaves the optional surface response out and renders the 3D scene no wider than the historical 480 px reference width: the same level, the same materials and the same ids, with the optional per-pixel work dropped. One deliberate resource difference: because the response is gated off before resolution, the renderer does not upload a normal-map texture at all on Low, while the rendered policy (geometric normal, no sheen) is identical; a live Low→Full switch releases the profile textures and re-resolves, so the map appears.
+Low and High delegate to the two-variant `QualityProfile` the lightmap planner and content key consume (`QualityLevel::profile`: Low to Low, Medium and High to Full); Medium is the intermediate level and shares Full's page shape while differing in density, tap cell and post grade. `LightmapBuildOptions::for_level` carries the level's lightmap configuration and its `BakeConfig`, so Medium and High never share a lightmap cache entry even though both hash the Full profile name into the key.
+
+Downscaling is a load-time step (`fit_image` → `downscaled_to`) cached with the texture it produced, never a per-frame cost. Low leaves the optional surface response out and renders the 3D scene no wider than the historical 480 px reference width; Medium draws the response and renders at half the drawable; High keeps the native artwork and the drawable-sized scene: the same level, the same materials and the same ids. One deliberate resource difference: because the response is gated off before resolution, the renderer does not upload a normal-map texture at all on Low, while the rendered policy (geometric normal, no sheen) is identical; a live Low→High switch releases the level-fitted textures and re-resolves, so the map appears.
+
+### 12.1 Texture Filtering (player option)
+
+Texture Filtering is independent of the quality level: any option combines with any level, and it changes no pixel data and no GPU resource. It selects which of the three shared world sampler presets a draw binds at bind time (§5.3).
+
+| Player option | Internal world filtering | Mipmaps |
+|---|---|---|
+| Low | trilinear (linear mag/min/mip) + ~4x anisotropic | full generated chain |
+| Medium | trilinear + ~8x anisotropic | full generated chain |
+| High (default; the legacy `linear` name) | trilinear + ~16x anisotropic | full generated chain |
+
+The legacy persisted names keep loading: `linear` is High and `nearest` is Low; an empty or unknown value falls back to High.
+
+- **Mipmaps are required and always present** for ordinary world sheets: every option filters `Linear`/`Linear`/`Linear` and relies on the generated chain (§5.3). No option disables mips or falls back to point sampling.
+- **Hardware fallback.** Anisotropy above 1x requires an adapter with `DownlevelFlags::ANISOTROPIC_FILTERING`. Without it the three options keep the same trilinear filtering and the anisotropy request is clamped to 1x; no device feature is requested and no option becomes unavailable. The `PLACES_VERBOSE` startup line reports the capability and the requested degrees.
+- **Texture classes that follow it:** tiling surface sheets (base colour and material normal maps), external decal sheets, the generated decal atlas, fixture faces, prop/entity sheets and emissive masks.
+- **Texture classes that do not:** the white fallback sheet and the HUD font atlas stay clamped nearest; the lightmap atlas pages keep their fixed clamped linear sampler and are **independent of the player setting**; probe cubemaps and the planar reflection target stay clamped linear.
+- Switching is live: `WgpuRenderer::set_texture_filtering` only records the option and each draw binds the matching bind group. No texture is re-uploaded and the environment binding is not rebuilt, because the lightmap sampler no longer follows the setting.
 
 ## 13. Diagnostics and benchmark hooks
 
@@ -623,7 +649,7 @@ Recoverable events (surface timeout, surface lost/outdated) are reported at most
 | Switch | Effect |
 |---|---|
 | `PLACES_LEVEL`, `PLACES_SPAWN`, `PLACES_CAMERA` | level, spawn and camera selection for a run |
-| `PLACES_QUALITY=full\|low` | quality profile for one run |
+| `PLACES_QUALITY=low\|medium\|high` (legacy `full` = High) | quality level for one run |
 | `PLACES_NO_LIGHTMAPS=1` | force the vertex-lit build |
 | `PLACES_NO_BLOOM=1`, `PLACES_NO_REFLECTIONS=1` | disable one post/reflection stage |
 | `PLACES_CAPTURE`, `PLACES_CAPTURE_FRAME` | one-frame PNG capture path |
@@ -631,7 +657,7 @@ Recoverable events (surface timeout, surface lost/outdated) are reported at most
 | `PLACES_BENCH=1`, `PLACES_BENCH_FRAMES`, `PLACES_BENCH_WARMUP`, `PLACES_BENCH_OUT` | benchmark harness |
 | `PLACES_BENCH_NOSWAP`, `PLACES_BENCH_NORENDER`, `PLACES_BENCH_FINISH`, `PLACES_BENCH_NOCULL` | submission diagnostics |
 | `PLACES_BENCH_WINDOW_CYCLE=<frame>:resize:<w>x<h>\|minimize\|restore[,...]` | scripted live window lifecycle through the real SDL window |
-| `PLACES_BENCH_QUALITY_CYCLE=<frame>:<profile>[,...]` | scripted live quality switches through the normal rebuild path |
+| `PLACES_BENCH_QUALITY_CYCLE=<frame>:<level>[,...]` | scripted live quality switches through the normal rebuild path (`low`/`medium`/`high`; legacy `full` = High) |
 
 ## 14. Provenance and recorded parity baselines
 
@@ -641,19 +667,19 @@ The recorded comparison figures below are the current renderer measured against 
 
 | Metric | Value |
 |---|---|
-| Canonical 50-view set (25 views × Full/Low): smallest per-view mean | 0.103 (`low/drum`) |
+| Canonical 50-view set (25 views × High/Low): smallest per-view mean | 0.103 (`low/drum`) |
 | Canonical set: largest per-view mean | 0.854 (`high/pool_entry`) |
 | Canonical set: mean of the 50 view means | 0.419 |
 | Canonical set: largest share of pixels over 8 | 0.213 % (`high/office`) |
 | Canonical set: largest single channel difference | 163 (`high/pool_wide`) |
 | Views improved by more than 0.02 mean | 39/50 |
 | Views regressed by more than 0.02 mean | 0/50 |
-| Expanded campaign (40 views × Full/Low) | 80/80 captured; per-view means 0.000–0.973; hottest 80×45 block 0–3/255 |
-| Lightmap atlas pages | byte-identical between the two renderers, Full and Low |
+| Expanded campaign (40 views × High/Low) | 80/80 captured; per-view means 0.000–0.973; hottest 80×45 block 0–3/255 |
+| Lightmap atlas pages | byte-identical between the two renderers, High and Low |
 | A/B contribution correlation: planar / lightmap / probe | 0.9994 / 0.991–0.993 / 0.993–0.994 |
 | A/B contribution magnitudes (mean, max): planar / lightmap / probe / bloom | 3.931 vs 3.922, 32/32 · 5.054 vs 5.040, 49/49 · 1.062 vs 1.057, 5/5 · 0.067 vs 0.063 |
 | Places Demo draw set (canonical frame) | 118 static + 37 prop + 1 dynamic + 3 decal draws, plus the UI pass; static upload 6,411 vertices / 10,470 indices / 118 draws |
-| Lifecycle: texture residency Full / Low | 188,743,640 B / 15,728,600 B, stable across the scripted Full↔Low rebuilds |
+| Lifecycle: texture residency High / Low | 188,743,640 B / 15,728,600 B, stable across the scripted High↔Low rebuilds |
 
 The parity evidence for the preserved implementation is reproducible from the tag worktree; the procedure is in [VERIFICATION.md](VERIFICATION.md).
 
@@ -677,7 +703,7 @@ The renderer's contracts are covered by in-crate tests, most of which run withou
 - **Materials:** resolution rules, the 80-byte uniform and its flags, the display-space colour maths against every authored texel byte, normal decode, alpha classification, blend state, translucent ordering, fallbacks.
 - **Lighting:** the sheen equation (CPU mirror), the display-space assembly order, the unlit bypass conditions, the vertex-lit build's byte-for-byte mesh, the lightmap CPU mirror of `surface_light`, the `needs_upload_fallback` rule.
 - **Reflections:** the six face directions/ups, the 90° projection with the Y flip, the planar mirror composition, `+1.2 m` bake position, nearest probe/plane rules, and the ignored GPU cube round-trip.
-- **Post/UI:** blur kernel and step, target sizes (scene = profile, presented = drawable), resolve maths, the single-conversion contract, ortho corners, viewport maths, blend factors.
+- **Post/UI:** blur kernel and step, target sizes (scene = level, presented = drawable), resolve maths, the single-conversion contract, ortho corners, viewport maths, blend factors.
 - **Integration:** the world pipeline variants and their states, emissive flag propagation, material reflection-mode rules, live window and quality cycle parsing (`PLACES_BENCH_WINDOW_CYCLE`, `PLACES_BENCH_QUALITY_CYCLE`).
 
 Five diagnostics are intentionally ignored by default: two GPU measurements (requiring an adapter) and three developer measurement/reporting tools. They run explicitly with `cargo test --all-features --bin places -- --ignored`; see [VERIFICATION.md](VERIFICATION.md).

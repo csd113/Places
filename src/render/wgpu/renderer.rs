@@ -60,7 +60,7 @@ use super::world::{
 use crate::lighting::lightmap::{LightmapCache, LightmapFailure, LightmapMode};
 use crate::loader::LoadedLevel;
 use crate::logging;
-use crate::quality::{QualityProfile, TextureClass};
+use crate::quality::{QualityLevel, TextureClass};
 use crate::render::RenderCamera;
 use crate::render::common::SurfaceKind;
 use crate::render::common::Vertex;
@@ -174,7 +174,7 @@ pub struct WgpuRenderer {
     /// level.
     textures: TextureCache,
     /// The player's filtering setting, selecting the world's shared sampler at
-    /// bind time.
+    /// bind time (the lightmap sampler never follows it).
     filtering: TextureFiltering,
     /// Prop model cache used only to build the neutral level geometry.
     prop_catalog: crate::loader::PropCatalog,
@@ -259,10 +259,11 @@ pub struct WgpuRenderer {
     reflection_passes: usize,
     /// Whether the CPU frustum test is applied to the world draw ranges.
     culling: bool,
-    /// The active quality profile. The world geometry does not vary by
-    /// profile; the profile gates the surface response and fits textures.
-    /// Kept so `set_quality` is recorded and the build can name it.
-    quality: QualityProfile,
+    /// The active quality level. The world geometry does not vary by level;
+    /// the level gates the surface response, fits textures and sizes the
+    /// offscreen targets. Kept so `set_quality` is recorded and the build can
+    /// name it.
+    quality: QualityLevel,
     /// The last level upload's counters.
     level_stats: LevelBuildStats,
     /// The last submitted frame's counters.
@@ -283,7 +284,7 @@ pub struct WgpuRenderer {
     dynamic: DynamicScene,
     /// The id of the level currently resident. A `set_level` for a different
     /// level clears the neutral dynamic scene; a quality rebuild of the same
-    /// level keeps it, so its objects survive a profile change.
+    /// level keeps it, so its objects survive a quality change.
     level_id: Option<String>,
     /// The GPU side of the dynamic scene: one mesh per model, one environment
     /// per object. Built when the demo spawns, dropped with the level.
@@ -361,7 +362,14 @@ impl WgpuRenderer {
 
         // The texture layout, samplers and fallback sheet the world draws
         // bind. One fallback upload at construction; levels add their own.
-        let textures = TextureCache::new(&device, &queue);
+        // Anisotropic filtering is a downlevel capability, not a device
+        // feature: when it is absent the world presets clamp their request to
+        // 1x instead of failing.
+        let anisotropy_supported = adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(wgpu::DownlevelFlags::ANISOTROPIC_FILTERING);
+        let textures = TextureCache::new(&device, &queue, anisotropy_supported);
         // The material bind group layout, created once and shared by every
         // pipeline rebuild and material binding.
         let material_layout = material_bind_group_layout(&device);
@@ -405,7 +413,7 @@ impl WgpuRenderer {
             material_layout,
             environment_layout,
             textures,
-            filtering: TextureFiltering::Linear,
+            filtering: TextureFiltering::DEFAULT,
             prop_catalog: crate::loader::PropCatalog::load_default(),
             prop_assets: crate::props::PropAssets::load_default(),
             lightmap_cache: LightmapCache::with_disk(),
@@ -439,7 +447,7 @@ impl WgpuRenderer {
             active_probe: 0,
             reflection_passes: 0,
             culling: true,
-            quality: QualityProfile::default(),
+            quality: QualityLevel::default(),
             level_stats: LevelBuildStats::default(),
             render_stats: RenderStats::default(),
             needs_configure: !drawable_size.is_empty(),
@@ -549,6 +557,25 @@ impl WgpuRenderer {
                 self.config.format
             ));
         }
+        // What the three Texture Filtering presets request, and whether this
+        // adapter can honour it: every preset is trilinear plus anisotropy at
+        // 4x/8x/16x, and an adapter without the downlevel capability clamps to
+        // 1x while keeping the same linear levels. The active preset itself is
+        // reported by `set_texture_filtering`, which the engine applies after
+        // construction (and again on a live change).
+        let world_presets = TextureFiltering::ALL
+            .into_iter()
+            .map(|level| format!("{} {}x", level.name(), level.anisotropy()))
+            .collect::<Vec<_>>()
+            .join(" / ");
+        logging::info(format!(
+            "[wgpu] texture filtering: world presets {world_presets} requested | anisotropy {}",
+            if self.textures.anisotropy_supported() {
+                "supported"
+            } else {
+                "unsupported (world presets clamp to 1x)"
+            },
+        ));
     }
 
     /// Records the player's `VSync` preference and rebuilds the presentation mode.
@@ -673,8 +700,7 @@ impl WgpuRenderer {
             planar,
             probe_fallback: &self.probe_fallback_view,
             planar_fallback: &self.planar_fallback_view,
-            filtering: self.filtering,
-            profile: self.quality,
+            level: self.quality,
             fog: self.fog,
         };
         self.world_dynamic = Some(WgpuDynamic::upload(&mut ctx, &self.dynamic));
@@ -686,7 +712,7 @@ impl WgpuRenderer {
     /// The build is the renderer-neutral one the reference used
     /// ([`build_level_geometry_timed_with_lightmaps`]). With lightmaps
     /// requested (the default) it asks for `LightmapMode::On`: the CPU bake runs
-    /// with the profile's shadow configuration, the static mesh carries the
+    /// with the level's shadow configuration, the static mesh carries the
     /// material factor and the lightmap atlas is baked or restored from the
     /// content-keyed cache, then uploaded as the reference's RGB8 pages. A
     /// failed bake rebuilds the exact historical vertex-lit mesh, exactly like
@@ -702,7 +728,7 @@ impl WgpuRenderer {
             return;
         }
         let started = std::time::Instant::now();
-        let options = LightmapBuildOptions::for_profile(
+        let options = LightmapBuildOptions::for_level(
             self.quality,
             if self.lightmaps_requested {
                 LightmapMode::On
@@ -735,7 +761,7 @@ impl WgpuRenderer {
                 &self.prop_catalog,
                 &mut self.prop_assets,
                 &loaded.materials,
-                LightmapBuildOptions::for_profile(self.quality, LightmapMode::Off),
+                LightmapBuildOptions::for_level(self.quality, LightmapMode::Off),
                 None,
             );
             build.lightmap_failure = Some(LightmapFailure::Upload);
@@ -771,7 +797,7 @@ impl WgpuRenderer {
             .collect();
         let routing = routing_from_mesh(&build.mesh, &reflections_vec, reflections_vec.len());
         self.reflections.routing = routing;
-        self.reflections.set_profile(self.quality);
+        self.reflections.set_level(self.quality);
         // A disabled session keeps every material's mode zero; `set_enabled`
         // carries the player setting into the per-frame gate.
         self.reflections.set_enabled(self.reflections_enabled);
@@ -791,7 +817,7 @@ impl WgpuRenderer {
                 draws: world.draws(),
                 materials: &materials,
                 table: &loaded.materials,
-                profile: self.quality,
+                level: self.quality,
                 animations: &animations,
                 routing: &self.reflections.routing,
             },
@@ -935,7 +961,6 @@ impl WgpuRenderer {
             planar,
             &self.probe_fallback_view,
             &self.planar_fallback_view,
-            self.filtering,
             static_environment(self.lightmaps_resident, self.fog),
         )
     }
@@ -1051,7 +1076,7 @@ impl WgpuRenderer {
         logging::info(format!(
             "[wgpu] materials: {} resolved ({} response, {} reflection-eligible), \
              {} normal maps ({} uploaded, {} cache hits), \
-             {} opaque / {} cutout / {} translucent of {} draws ({} response, {} profile)",
+             {} opaque / {} cutout / {} translucent of {} draws ({} response, {} level)",
             material_stats.materials,
             material_stats.response_materials,
             material_stats.reflection_eligible,
@@ -1079,31 +1104,36 @@ impl WgpuRenderer {
         self.culling = enabled;
     }
 
-    /// Records the active quality profile.
+    /// Records the active quality level.
     ///
-    /// The profile is part of a texture's cache identity: it selects the edge
+    /// The level is part of a texture's cache identity: it selects the edge
     /// budget the image is fitted to when a level uploads. Recording the value
     /// alone changes no GPU state, matching the reference, whose `set_quality`
-    /// also waits for the caller to release the profile textures and re-upload
+    /// also waits for the caller to release the level's textures and re-upload
     /// the level.
-    pub const fn set_quality(&mut self, quality: QualityProfile) {
+    pub const fn set_quality(&mut self, quality: QualityLevel) {
         self.quality = quality;
     }
 
     /// Applies the player's texture filtering setting to the world.
     ///
-    /// The two modes are two shared samplers, so switching swaps which sampler
-    /// a draw's bind group holds; no pixel data is re-uploaded. The lightmap
-    /// atlas sampler follows the same setting, exactly like the reference's
-    /// `set_lightmap_filter`, so the environment binding is rebuilt when a level
-    /// is loaded. Any value but `"nearest"` means linear, like the reference.
+    /// The three presets are shared samplers, so switching swaps which sampler
+    /// a draw's bind group holds; no pixel data is re-uploaded, and the
+    /// environment binding is not rebuilt because the lightmap sampler no
+    /// longer follows this setting. The legacy `"nearest"` parses as Low and
+    /// the legacy `"linear"` as High; an empty or unknown value keeps the
+    /// default (High). A real change logs the active preset once.
     pub fn set_texture_filtering(&mut self, mode: &str) {
         let filtering = TextureFiltering::parse(mode);
         if filtering == self.filtering {
             return;
         }
         self.filtering = filtering;
-        self.refresh_environment();
+        logging::info(format!(
+            "[wgpu] texture filtering: {} active (trilinear + {}x anisotropy requested)",
+            filtering.name(),
+            filtering.anisotropy()
+        ));
     }
 
     /// Records whether the next level build should bake and sample lightmaps.
@@ -1134,7 +1164,7 @@ impl WgpuRenderer {
         self.reflections.set_enabled(enabled);
     }
 
-    /// Releases the renderer's profile-fitted texture cache.
+    /// Releases the renderer's quality-fitted texture cache.
     ///
     /// The correct caller contract is the reference's: release, then upload the
     /// current level in the same frame. The loaded level's textures stay alive
@@ -1316,7 +1346,7 @@ impl WgpuRenderer {
         }
     }
 
-    /// Ensures the offscreen post targets match the drawable and profile.
+    /// Ensures the offscreen post targets match the drawable and level.
     ///
     /// Returns true when the post chain is ready to draw. A no-op while the
     /// drawable is empty or the renderer is fatal.
@@ -1358,7 +1388,7 @@ impl WgpuRenderer {
         let Some(post) = self.post.as_ref().filter(|post| post.is_ready()) else {
             return self.encode_direct(encoder, target, frame);
         };
-        let settings = PostSettings::for_profile(self.quality).with_bloom(self.bloom_requested);
+        let settings = PostSettings::for_level(self.quality).with_bloom(self.bloom_requested);
         let mut totals = WorldDrawTotals::default();
         {
             let Some(scene_view) = post.scene_view() else {
@@ -1703,7 +1733,7 @@ impl WgpuRenderer {
         }
     }
 
-    /// The presented target's pixel size for the active profile.
+    /// The presented target's pixel size for the active level.
     ///
     /// The UI's viewport is computed against the presented target itself — the
     /// reference's default framebuffer — so the HUD renders at drawable

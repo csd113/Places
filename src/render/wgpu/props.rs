@@ -28,7 +28,7 @@ use super::material::{EmissionRecord, GpuMaterial};
 use super::texture::{CacheOutcome, GpuTexture, TextureCache};
 use super::world::{WORLD_VERTEX_STRIDE, WorldVertex};
 use crate::materials::TextureOrigin;
-use crate::quality::{QualityProfile, TextureClass};
+use crate::quality::{QualityLevel, TextureClass};
 use crate::render::common::props::PropMeshBatch;
 use crate::spatial::Aabb;
 
@@ -114,7 +114,7 @@ impl WgpuProps {
         cache: &mut TextureCache,
         material_layout: &wgpu::BindGroupLayout,
         batches: &[PropMeshBatch],
-        profile: QualityProfile,
+        level: QualityLevel,
     ) -> Self {
         let mut stats = PropGpuStats::default();
         let mut chunks: Vec<PropChunk> = Vec::new();
@@ -139,7 +139,7 @@ impl WgpuProps {
                     image.as_ref(),
                     TextureClass::Prop,
                     TextureOrigin::Catalog,
-                    profile,
+                    level,
                 );
                 match outcome {
                     CacheOutcome::Uploaded => {

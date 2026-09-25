@@ -123,37 +123,118 @@ fn test_settings_bounds_sanitization() {
     assert_exact(settings.look_speed_v, 20.0);
     assert_exact(settings.walk_speed, 10.0);
     assert_exact(settings.fov_degrees, 110.0);
-    assert_eq!(settings.texture_filtering, "linear");
+    assert_eq!(settings.texture_filtering, "high");
+}
+
+/// Texture Filtering is persisted as `"low" | "medium" | "high"`, defaults to
+/// `"high"`, keeps loading the legacy names and repairs anything unknown.
+#[test]
+fn test_texture_filtering_defaults_and_legacy_names() {
+    let default = Settings::default();
+    assert_eq!(default.texture_filtering, "high");
+    assert_eq!(TEXTURE_FILTERING_NAMES, ["low", "medium", "high"]);
+
+    // The legacy names keep loading and normalize to the current equivalents.
+    for (legacy, expected) in [
+        ("linear", "high"),
+        ("Linear", "high"),
+        ("  LINEAR  ", "high"),
+        ("nearest", "low"),
+        ("NEAREST", "low"),
+        ("", "high"),
+        ("trilinear", "high"),
+        ("bilinear_invalid", "high"),
+        ("anisotropic", "high"),
+    ] {
+        let mut settings = Settings {
+            texture_filtering: legacy.to_string(),
+            ..Default::default()
+        };
+        settings.sanitize();
+        assert_eq!(
+            settings.texture_filtering, expected,
+            "legacy/unknown value {legacy:?}"
+        );
+    }
+
+    // Every current name survives sanitizing, in any case and with padding.
+    for name in TEXTURE_FILTERING_NAMES {
+        let mut settings = Settings {
+            texture_filtering: format!("  {}  ", name.to_uppercase()),
+            ..Default::default()
+        };
+        settings.sanitize();
+        assert_eq!(settings.texture_filtering, name);
+    }
+
+    // The same repair happens on the real load path: an old settings.json with
+    // the legacy names still parses, and sanitizing rewrites them in memory.
+    let legacy_json = r#"{
+        "bindings": {
+            "forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D",
+            "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT"
+        },
+        "texture_filtering": "nearest",
+        "quality": "full"
+    }"#;
+    let mut loaded: Settings =
+        serde_json::from_str(legacy_json).expect("a legacy settings file parses");
+    loaded.sanitize();
+    assert_eq!(loaded.texture_filtering, "low");
+    assert_eq!(loaded.quality, "high");
 }
 
 #[test]
-fn test_quality_profile_defaults_validates_and_round_trips() {
-    use crate::quality::QualityProfile;
+fn test_texture_filtering_step_cycles_low_medium_high_both_ways() {
+    assert_eq!(texture_filtering_step("low", 1), "medium");
+    assert_eq!(texture_filtering_step("medium", 1), "high");
+    assert_eq!(texture_filtering_step("high", 1), "low");
+    assert_eq!(texture_filtering_step("high", -1), "medium");
+    assert_eq!(texture_filtering_step("medium", -1), "low");
+    assert_eq!(texture_filtering_step("low", -1), "high");
+    // Legacy and unknown values step from their canonical equivalent.
+    assert_eq!(texture_filtering_step("nearest", 1), "medium");
+    assert_eq!(texture_filtering_step("linear", 1), "low");
+    assert_eq!(texture_filtering_step("bogus", 1), "low");
+}
 
-    // Omitted means the default profile.
+#[test]
+fn test_quality_defaults_validates_and_round_trips() {
+    use crate::quality::QualityLevel;
+
+    // Omitted means the default level.
     let default = Settings::default();
-    assert_eq!(default.quality_profile(), QualityProfile::DEFAULT);
-    assert_eq!(default.quality, "full");
+    assert_eq!(default.quality_level(), QualityLevel::DEFAULT);
+    assert_eq!(default.quality, "high");
 
-    // An unknown profile falls back to the default rather than picking a tier.
+    // An unknown level falls back to the default rather than picking a tier.
     let mut settings = Settings {
         quality: "ultra".to_string(),
         ..Default::default()
     };
     settings.sanitize();
-    assert_eq!(settings.quality, "full");
+    assert_eq!(settings.quality, "high");
 
-    // Every real profile survives sanitizing, in any case.
-    for profile in QualityProfile::ALL {
+    // Every real level survives sanitizing, in any case.
+    for level in QualityLevel::ALL {
         let mut settings = Settings {
-            quality: profile.name().to_uppercase(),
+            quality: level.name().to_uppercase(),
             ..Default::default()
         };
         settings.sanitize();
-        assert_eq!(settings.quality_profile(), profile);
+        assert_eq!(settings.quality_level(), level);
     }
 
-    // A settings file from before profiles existed still loads.
+    // The legacy profile name is the same presentation as High today.
+    let mut legacy_full = Settings {
+        quality: "full".to_string(),
+        ..Default::default()
+    };
+    legacy_full.sanitize();
+    assert_eq!(legacy_full.quality, "high");
+    assert_eq!(legacy_full.quality_level(), QualityLevel::High);
+
+    // A settings file from before the quality field existed still loads.
     let legacy = r#"{
         "bindings": {
             "forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D",
@@ -161,7 +242,39 @@ fn test_quality_profile_defaults_validates_and_round_trips() {
         }
     }"#;
     let parsed: Settings = serde_json::from_str(legacy).expect("legacy settings parse");
-    assert_eq!(parsed.quality_profile(), QualityProfile::DEFAULT);
+    assert_eq!(parsed.quality_level(), QualityLevel::DEFAULT);
+}
+
+/// Every level and every Texture Filtering name persists through a save/load
+/// round trip unchanged.
+#[test]
+fn test_quality_and_filtering_persist_round_trip() {
+    use crate::quality::QualityLevel;
+
+    let scratch = std::path::Path::new("target/agent-work/tests/settings");
+    fs::create_dir_all(scratch).expect("scratch dir is writable");
+    let path = scratch.join("quality-filtering-round-trip.json");
+
+    for level in QualityLevel::ALL {
+        for filtering in TEXTURE_FILTERING_NAMES {
+            let settings = Settings {
+                quality: level.name().to_string(),
+                texture_filtering: filtering.to_string(),
+                ..Settings::default()
+            };
+            settings.save_to_path(&path).expect("save settings");
+            let mut loaded = Settings::load_or_default_from_path(&path);
+            loaded.sanitize();
+            assert_eq!(loaded.quality, level.name(), "quality {level:?}");
+            assert_eq!(
+                loaded.texture_filtering, filtering,
+                "filtering {filtering:?} at {level:?}"
+            );
+            assert_eq!(loaded.quality_level(), level);
+        }
+    }
+
+    let _ = fs::remove_file(path);
 }
 
 #[test]
@@ -325,7 +438,7 @@ fn test_legacy_settings_files_receive_modern_defaults() {
     }"#;
     let parsed: Settings = serde_json::from_str(legacy).expect("legacy settings parse");
     assert_exact(parsed.look_speed_h, 120.0);
-    assert_eq!(parsed.quality_profile(), QualityProfile::Low);
+    assert_eq!(parsed.quality_level(), crate::quality::QualityLevel::Low);
     assert!(parsed.bloom_enabled(), "bloom defaults on");
     assert!(parsed.reflections_enabled(), "reflections default on");
     assert!(parsed.lightmaps_enabled(), "lightmaps default on");
@@ -359,7 +472,7 @@ fn test_new_preferences_persist_round_trip() {
     assert_eq!(loaded.window_mode(), WindowMode::Fullscreen);
     assert_eq!(loaded.window_size(), (2560, 1440));
     // Unrelated values are untouched by the round trip.
-    assert_eq!(loaded.quality_profile(), QualityProfile::Full);
+    assert_eq!(loaded.quality_level(), crate::quality::QualityLevel::High);
     assert!(loaded.vsync_enabled());
 
     let _ = fs::remove_file(path);
@@ -401,6 +514,8 @@ fn test_display_values_are_sanitized() {
 /// change in Settings outranks the override and becomes the saved value.
 #[test]
 fn test_startup_overrides_outrank_saved_values_until_changed() {
+    use crate::quality::QualityLevel;
+
     let mut settings = Settings {
         quality: "full".to_string(),
         bloom: true,
@@ -410,7 +525,7 @@ fn test_startup_overrides_outrank_saved_values_until_changed() {
         ..Settings::default()
     };
     settings.overrides = StartupOverrides {
-        quality: Some(QualityProfile::Low),
+        quality: Some(QualityLevel::Low),
         bloom: Some(false),
         reflections: Some(false),
         lightmaps: Some(false),
@@ -418,7 +533,7 @@ fn test_startup_overrides_outrank_saved_values_until_changed() {
     };
 
     // The override is what the process runs with...
-    assert_eq!(settings.quality_profile(), QualityProfile::Low);
+    assert_eq!(settings.quality_level(), QualityLevel::Low);
     assert!(!settings.bloom_enabled());
     assert!(!settings.reflections_enabled());
     assert!(!settings.lightmaps_enabled());
@@ -437,10 +552,10 @@ fn test_startup_overrides_outrank_saved_values_until_changed() {
     assert!(json.contains(r#""quality":"full""#));
 
     // An explicit choice clears the override for that option only.
-    assert!(settings.set_quality(QualityProfile::Full));
-    assert_eq!(settings.quality, "full");
+    assert!(settings.set_quality(QualityLevel::High));
+    assert_eq!(settings.quality, "high");
     assert!(!settings.quality_overridden());
-    assert_eq!(settings.quality_profile(), QualityProfile::Full);
+    assert_eq!(settings.quality_level(), QualityLevel::High);
     assert!(
         settings.bloom_overridden(),
         "changing quality leaves the other overrides alone"
@@ -456,23 +571,25 @@ fn test_startup_overrides_outrank_saved_values_until_changed() {
 /// combination stays valid through a save and an apply.
 #[test]
 fn test_graphics_settings_are_independent() {
+    use crate::quality::QualityLevel;
+
     let mut settings = Settings::default();
-    assert!(settings.set_quality(QualityProfile::Low));
+    assert!(settings.set_quality(QualityLevel::Low));
     assert!(settings.set_bloom(false));
     assert!(settings.set_reflections(false));
     assert!(settings.set_lightmaps(false));
     assert!(settings.set_vsync(false));
 
-    assert_eq!(settings.quality_profile(), QualityProfile::Low);
+    assert_eq!(settings.quality_level(), QualityLevel::Low);
     assert!(!settings.bloom_enabled());
     assert!(!settings.reflections_enabled());
     assert!(!settings.lightmaps_enabled());
     assert!(!settings.vsync_enabled());
 
     // Low + Bloom On is a valid combination and comes back without touching
-    // the profile.
+    // the level.
     assert!(settings.set_bloom(true));
-    assert_eq!(settings.quality_profile(), QualityProfile::Low);
+    assert_eq!(settings.quality_level(), QualityLevel::Low);
 
     let apply = settings.take_pending_apply();
     assert!(apply.graphics_rebuild, "quality/lightmaps changed");
@@ -484,26 +601,76 @@ fn test_graphics_settings_are_independent() {
         "taking the record clears it"
     );
 
-    // The quality selector is a proper selector, not a checkbox.
+    // The quality selector is a proper selector, not a checkbox: it wraps
+    // through all three levels in both directions.
     assert_eq!(
-        Settings::quality_step(QualityProfile::Full, 1),
-        QualityProfile::Low
+        Settings::quality_step(QualityLevel::Low, 1),
+        QualityLevel::Medium
     );
     assert_eq!(
-        Settings::quality_step(QualityProfile::Low, 1),
-        QualityProfile::Full
+        Settings::quality_step(QualityLevel::Medium, 1),
+        QualityLevel::High
     );
     assert_eq!(
-        Settings::quality_step(QualityProfile::Full, -1),
-        QualityProfile::Low
+        Settings::quality_step(QualityLevel::High, 1),
+        QualityLevel::Low
     );
+    assert_eq!(
+        Settings::quality_step(QualityLevel::High, -1),
+        QualityLevel::Medium
+    );
+    assert_eq!(
+        Settings::quality_step(QualityLevel::Medium, -1),
+        QualityLevel::Low
+    );
+    assert_eq!(
+        Settings::quality_step(QualityLevel::Low, -1),
+        QualityLevel::High
+    );
+}
+
+/// Quality and Texture Filtering are independent selectors: every combination
+/// is representable, and choosing one never rewrites the other.
+#[test]
+fn test_quality_and_texture_filtering_are_independent() {
+    use crate::quality::QualityLevel;
+
+    for level in QualityLevel::ALL {
+        for filtering in TEXTURE_FILTERING_NAMES {
+            let mut settings = Settings::default();
+            let changed = settings.set_quality(level);
+            assert_eq!(
+                changed,
+                level != QualityLevel::High,
+                "only a real change reports one"
+            );
+            settings.texture_filtering = filtering.to_string();
+            assert_eq!(settings.quality_level(), level);
+            assert_eq!(settings.texture_filtering, filtering);
+        }
+    }
+
+    // Setting one leaves the other exactly as it was.
+    let mut settings = Settings {
+        texture_filtering: "low".to_string(),
+        ..Settings::default()
+    };
+    assert!(settings.set_quality(QualityLevel::Medium));
+    assert_eq!(settings.texture_filtering, "low");
+    let next = texture_filtering_step(&settings.texture_filtering, 1);
+    settings.texture_filtering = next.to_string();
+    assert_eq!(settings.quality_level(), QualityLevel::Medium);
+    assert_eq!(settings.texture_filtering, "medium");
+    let _ = settings.take_pending_apply();
 }
 
 /// Selecting the value already in force changes nothing and owes nothing.
 #[test]
 fn test_reselecting_the_same_value_is_inert() {
+    use crate::quality::QualityLevel;
+
     let mut settings = Settings::default();
-    assert!(!settings.set_quality(QualityProfile::Full));
+    assert!(!settings.set_quality(QualityLevel::High));
     assert!(!settings.set_bloom(true));
     assert!(!settings.set_reflections(true));
     assert!(!settings.set_lightmaps(true));
@@ -548,7 +715,8 @@ fn test_restore_defaults_resets_display_and_graphics() {
     settings.restore_defaults();
     assert_eq!(settings.window_size(), (1920, 1080));
     assert_eq!(settings.window_mode(), WindowMode::Windowed);
-    assert_eq!(settings.quality_profile(), QualityProfile::Full);
+    assert_eq!(settings.quality_level(), crate::quality::QualityLevel::High);
+    assert_eq!(settings.texture_filtering, "high");
     assert!(settings.bloom_enabled());
     assert!(settings.lightmaps_enabled());
     assert_eq!(settings.take_pending_apply(), SettingsApply::ALL);

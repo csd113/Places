@@ -11,8 +11,8 @@ Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Primary benchmark level | `assets/levels/places_demo.json` |
 
-> This revision describes the **current** engine: the Full/Low quality
-> profiles, the generic engine-level light model, true emissive materials,
+> This revision describes the **current** engine: the Low/Medium/High quality
+> levels, the generic engine-level light model, true emissive materials,
 > baked lightmaps, surface response, transparency/glass, the offscreen
 > presentation path, selective reflections, post-processing and animated
 > emissions. Read [Known Implementation Caveats](#known-implementation-caveats)
@@ -62,7 +62,7 @@ When any two sources disagree, resolve in this order:
    (movement and collision), `src/render/` (meshes, decals, fixtures, props,
    reflections, post-processing), `src/lighting/` (bake and lightmaps),
    `src/materials/` + `src/assets.rs` (catalog and materials),
-   `src/quality.rs` + `src/settings.rs` (profiles).
+   `src/quality.rs` + `src/settings.rs` (quality levels).
 2. **Validation and tests** — `src/loader/tests.rs`, `src/level/tests.rs`,
    `src/render/tests.rs`, `src/materials/tests.rs`, `src/assets/tests.rs`,
    `src/props/tests.rs`, `src/collision/tests.rs`, `src/game/tests.rs`,
@@ -92,7 +92,7 @@ Authoritative paths:
 | Materials / textures | `src/materials/`, `src/assets.rs` |
 | Reflections | `src/render/common/reflections.rs` (routing) and `src/render/wgpu/reflections.rs` (probe cubemaps and the planar target) |
 | Post-processing / fog | `src/render/common/postprocess.rs`, `src/render/common/atmosphere.rs`, `src/render/common/framebuffer.rs` |
-| Quality profiles / settings | `src/quality.rs`, `src/settings.rs` |
+| Quality levels / settings | `src/quality.rs`, `src/settings.rs` |
 | Catalog | `assets/catalog.json` |
 | Benchmark level | `assets/levels/places_demo.json` |
 | Regression fixtures | `tests/fixtures/levels/` |
@@ -114,10 +114,10 @@ Authoritative paths:
 | Material transparency (`alpha_mode`: `opaque` / `cutout` / `blend`, `opacity`, `alpha_cutoff`) | Implemented |
 | Opening glazing: a `glass` material fills a window, vent or door aperture with one pane | Implemented |
 | Offscreen scene rendering presented by a fullscreen quad, UI at drawable resolution | Implemented |
-| Selective reflections: per-material `reflection_mode` (`none` / `probe` / `planar`) at 64-texel probes (32 on Low) and a half-resolution planar pass | Implemented |
+| Selective reflections: per-material `reflection_mode` (`none` / `probe` / `planar`) at 64/48/32-texel probes (High/Medium/Low) and a half-resolution planar pass (Medium and High) | Implemented |
 | Restrained post-processing: emission-driven bloom, a tone shoulder, distance fog and a subtle grade, with the UI drawn outside it | Implemented (engine-global; not level-authorable) |
 | Animated emissions: `animated_emissions[]` makes a material's emission pulse or flicker, deterministically | Implemented |
-| Full / Low runtime quality profiles over the same level content | Implemented |
+| Low / Medium / High runtime quality levels over the same level content | Implemented |
 | Props/entities from GLBs by logical id, `solid` collision boxes | Implemented |
 | Multi-primitive / multi-material GLB props, embedded emissive materials, node transforms | Implemented |
 | External PNG surfaces, decals, fixture faces; catalog + themes | Implemented |
@@ -195,7 +195,8 @@ doorway) → reuse `core:carpet_damp_01` for flood-damaged surfaces (there is **
 rendering**, so "flooded" must be implied by damp/stained materials and region
 recesses) → dim green lights as ordinary ceiling fixtures with
 `"color": [0.35, 1.0, 0.45]` and low `brightness` → validate. Do **not** author a
-second variant of the level for the Low quality profile; one level is used by both.
+second variant of the level for a lower quality level; one level serves all
+three.
 
 ---
 
@@ -1353,10 +1354,10 @@ normal map, no sheen and `alpha_mode: opaque` are the defaults.
 map that cannot resolve degrades the whole material to the diagnostic texture
 (it does not silently flat-shade).
 
-**Quality profiles.** `Full` draws the response; `Low` leaves the normal-map and
-sheen terms out and keeps albedo × light × emission × alpha. Both profiles use
-the same materials and the same PNGs — the difference is one shader gate, not a
-second art set.
+**Quality levels.** `Medium` and `High` draw the response; `Low` leaves the
+normal-map and sheen terms out and keeps albedo × light × emission × alpha.
+Every level uses the same materials and the same PNGs — the difference is one
+shader gate, not a second art set.
 
 **Art direction.** A normal map on this renderer is *detail on a flat surface*,
 not a substitute for geometry: it cannot cast a shadow, it does not change the
@@ -1401,10 +1402,11 @@ Four properties are worth designing around:
   changes *where* the reflection comes from, so a matte override on a marked
   surface keeps the (now faint) probe or planar reflection rather than removing
   it.
-* **It is approximate.** A probe is a 64-texel-per-face cubemap (32 on `Low`) — the
-  shape of the room, not a second render of it — and a planar reflection is drawn at
-  half resolution. Use them where the surface should read as wet, polished or
-  mirrored, not where the player will compare the reflection with the room.
+* **It is approximate.** A probe is a 64-texel-per-face cubemap at `High` (48
+  at `Medium`, 32 at `Low`) — the shape of the room, not a second render of it —
+  and a planar reflection is drawn at half resolution. Use them where the surface
+  should read as wet, polished or mirrored, not where the player will compare the
+  reflection with the room.
 * **A planar mirror shows the room through its own surface.** The mirror plane's
   geometry is left out of the mirrored draw, so the reflected image is what the
   mirrored camera sees through the plane rather than the plane's own colour.
@@ -1431,9 +1433,10 @@ Four properties are worth designing around:
   material belongs on an axis-aligned floor, wall or ceiling pane; a probe is the
   right choice for anything else.
 
-**Quality profiles.** `Full` draws the planar pass and 64-texel probes; `Low`
-draws the probes at 32 texels and never allocates a planar target. A material
-marked `planar` simply keeps its sheen and loses the mirror image on `Low`.
+**Quality levels.** `Medium` and `High` draw the planar pass and 64/48-texel
+probes; `Low` draws the probes at 32 texels and never allocates a planar target.
+A material marked `planar` simply keeps its sheen and loses the mirror image on
+`Low`.
 
 Shipped examples: `core:pool_deck_wet_01` (`planar`, 0.4, the wet deck patch),
 `core:linoleum_polished_01` (`probe`, 0.25, the deliberately waxed end — Places
@@ -1512,7 +1515,7 @@ Shipped glass materials: `core:glass_window_clear_01`, `core:glass_window_dirty_
 ### Post-processing, fog and grading are engine-global
 
 Bloom, the tone shoulder, distance fog and the colour grade are **not level
-properties**. They are built from the quality profile (`src/render/common/postprocess.rs`,
+properties**. They are built from the quality level (`src/render/common/postprocess.rs`,
 `src/render/common/atmosphere.rs`) and there is no level key, material field or room field
 that authors them. Two consequences are still useful to a map author:
 
@@ -1522,10 +1525,11 @@ that authors them. Two consequences are still useful to a map author:
 * **Fog is depth, not weather.** The shipped density gives about 4 % at 20 m,
   15 % at 40 m and 63 % at the 100 m far plane, a little denser near the floor. It is
   most visible down a long corridor, and it never turns a room smoky.
-* `Full` draws the profile resolve (tone shoulder and grade); `Low` presents the
-  scene unfiltered and keeps only the fog, which lives in the world shader.
+* `High` draws the level resolve (tone shoulder and grade); `Medium` keeps the
+  shoulder and leaves colour alone; `Low` presents the scene unfiltered and keeps
+  only the fog, which lives in the world shader.
 * Bloom is a **player setting** (Settings → Graphics → Bloom, default on), not a
-  profile term, so both profiles can bloom. The default `Low` presents unfiltered
+  level term, so every level can bloom. The default `Low` presents unfiltered
   only when Bloom is off.
 
 ### Level packs: `materials.json`
@@ -1584,53 +1588,62 @@ listed at the end of this section — they are exceptions, not the authoring pat
 | Decal wrapping | `REPEAT` + mipmaps, but full-sheet fitted UVs, so the sheet never actually repeats. |
 | Fixture wrapping | `CLAMP_TO_EDGE` + mipmaps; the whole sheet is fitted once across the face. |
 | Alpha | Surface sheets are opaque *unless* their material authors `alpha_mode`. The base pass has blending off, so an `opaque` material's alpha channel is ignored; `cutout` discards texels below the material's cutoff and `blend` samples it. Decals are alpha cut-outs (alpha < 0.5 discarded). Fixture faces are opaque. |
-| Normal maps | A normal map is an ordinary RGB sheet in the same asset tree; the material names it with `normal_texture`. It is a *surface* texture for quality purposes (Full 1024 / Low 256), tiles like its albedo and may be hand-painted or generated. |
+| Normal maps | A normal map is an ordinary RGB sheet in the same asset tree; the material names it with `normal_texture`. It is a *surface* texture for quality purposes (High 1024 / Medium 512 / Low 256), tiles like its albedo and may be hand-painted or generated. |
 | Colour space | No gamma handling; texture × tint × baked light in display space. |
 
 Shipped Office/Pool surface sheets are intentionally 1024×1024, square, opaque;
 `python3 tools/textures/build.py --check` reports them as "over preferred" warnings by
 design. The preferred 256 px size is a budget warning, not a rejection.
 
-### Runtime quality profiles and downscaling
+### Runtime quality levels and downscaling
 
-The source PNG is *not* what necessarily reaches the GPU. Two quality profiles
-(`settings.json` → `"quality": "full" | "low"`, default `full`) decide a **runtime**
-edge budget per texture class. The profile is a selector in Settings → Graphics
-and can be changed while a level is running: the renderer releases its
-profile-dependent GPU textures and rebuilds them (plus the lightmap atlas) from
-the level already resident, so the player, camera and game state are preserved:
+The source PNG is *not* what necessarily reaches the GPU. Three quality levels
+(`settings.json` → `"quality": "low" | "medium" | "high"`, default `high`;
+the legacy `full` name still loads as `high`) decide a **runtime** edge budget
+per texture class. The level is a selector in Settings → Graphics and can be
+changed while a level is running: the renderer releases its level-dependent GPU
+textures and rebuilds them (plus the lightmap atlas) from the level already
+resident, so the player, camera and game state are preserved:
 
-| Texture class | Full (default) | Low |
-| --- | --- | --- |
-| Surface sheet | 1024 | 256 |
-| Fixture face | 1024 | 256 |
-| Decal sheet | 1024 | 256 |
-| Prop sheet (GLB) | 256 | 128 |
-| Emissive mask | 512 | 128 |
-| Lightmap atlas page | 1024, 16 texels/m | 512, 9 texels/m |
-| Shadow penumbra taps | 2 per axis (5) | 1 per axis (hard) |
-| Prop occlusion grid | 0.075 m | 0.15 m |
+| Texture class | High (default) | Medium | Low |
+| --- | --- | --- | --- |
+| Surface sheet | 1024 | 512 | 256 |
+| Fixture face | 1024 | 512 | 256 |
+| Decal sheet | 1024 | 512 | 256 |
+| Prop sheet (GLB) | 256 | 256 | 128 |
+| Emissive mask | 512 | 256 | 128 |
+| Lightmap atlas page | 1024, 16 texels/m | 1024, 12 texels/m | 512, 9 texels/m |
+| Shadow penumbra taps | 2 per axis (5) | 2 per axis (5) | 1 per axis (hard) |
+| Prop occlusion grid | 0.075 m | 0.11 m | 0.15 m |
 
-* **Full is the native Places runtime size.** Every shipped asset is already at or
-  below it, so Full uploads the decoded image unchanged — no rescaling, no visual
-  change. A native 256×256 prop sheet stays 256×256.
-* **Low uses the same assets** and box-filters each image once, at level load, to the
-  Low budget. It is not a second art library; ids, materials and geometry are
-  identical. Low is an optional quality/performance trade, never a repository asset
-  requirement.
-* Downscaling happens once per upload, never per frame, and the result is cached with
-  the texture it produced. Full and Low are deterministic: the same source always
-  produces the same runtime image.
-* The source hard limit (1024 px) is unchanged by either profile: quality only decides
-  how much of an accepted source reaches the GPU.
+* **High is the native Places runtime size.** Every shipped asset is already at
+  or below it, so High uploads the decoded image unchanged — no rescaling, no
+  visual change. A native 256×256 prop sheet stays 256×256.
+* **Medium and Low use the same assets** and box-filter each image once, at
+  level load, to the level's budget. A lower level is not a second art library;
+  ids, materials and geometry are identical. It is an optional
+  quality/performance trade, never a repository asset requirement.
+* Downscaling happens once per upload, never per frame, and the result is cached
+  with the texture it produced. Every level is deterministic: the same source
+  always produces the same runtime image.
+* The source hard limit (1024 px) is unchanged by any level: quality only
+  decides how much of an accepted source reaches the GPU.
 * The **lightmap atlas** is baked light data, not shipped artwork (see
-  [Baked lightmaps](#baked-lightmaps)): the same level bakes at the profile's density,
-  so Low needs no separate level or hand-authored lightmap set.
-* Do **not** author a separate level or asset set for Low. Both profiles run the same
-  level content.
+  [Baked lightmaps](#baked-lightmaps)): the same level bakes at the level's
+  density, so a lower level needs no separate level or hand-authored lightmap
+  set.
+* Do **not** author a separate level or asset set for a lower quality level; one
+  level serves all three.
 
-An author does not need to do anything differently for Low: ship the sane source
-size and let the engine fit it.
+An author does not need to do anything differently for Medium or Low: ship the
+sane source size and let the engine fit it.
+
+**Texture Filtering** is a separate player setting (Settings → Graphics),
+independent of the quality level: Low, Medium and High all use trilinear
+filtering with a full mip chain and request approximately 4×, 8× and 16×
+anisotropic filtering respectively. It never changes which PNG a map uses, so a
+map author needs no per-asset filtering choice (see
+[ASSET_SPECIFICATION.md](ASSET_SPECIFICATION.md) §15).
 
 ### Tiling, orientation and seams
 
@@ -2138,18 +2151,20 @@ atlas at level load, and the surface shader multiplies its texture by the atlas.
 lighting model, the fixtures and everything a map authors are unchanged — this is a
 storage change, not an authoring one.
 
-* Density follows the quality profile: **Full** bakes 16 texels per metre onto up to
-  two 1024-texel pages, **Low** bakes 9 texels per metre onto two 512-texel pages.
-  Both profiles bake the same set of surfaces; faces longer than one chart are split
+* Density follows the quality level: **High** bakes 16 texels per metre onto up to
+  two 1024-texel pages, **Medium** 12 texels per metre onto the same 1024-texel
+  pages, **Low** 9 texels per metre onto two 512-texel pages.
+  Every level bakes the same set of surfaces; faces longer than one chart are split
   automatically (chart span cap 63.75 m). The packer is a deterministic bottom-left
-  skyline, so `places_demo` fits two Full pages at 54 % data occupancy and two Low
+  skyline, so `places_demo` fits two High pages at 54 % data occupancy and two Low
   pages at 69 %.
-* Shadow softness follows the same profile: a local pool's visibility is sampled on
-  the fixture's own emitting rectangle — **Full** uses a five-tap quincunx (the
-  centre plus the four quadrant corners) and **Low** the historical single centre
-  tap — so a partially blocked pool fades over a penumbra instead of ending on a
-  hard line where the profile pays for it. `taps_per_axis == 1` is the historical
-  centre-only test, which is also what the vertex-lit fallback bakes with.
+* Shadow softness follows the same level: a local pool's visibility is sampled on
+  the fixture's own emitting rectangle — **High and Medium** use a five-tap
+  quincunx (the centre plus the four quadrant corners) and **Low** the historical
+  single centre tap — so a partially blocked pool fades over a penumbra instead of
+  ending on a hard line where the level pays for it. `taps_per_axis == 1` is the
+  historical centre-only test, which is also what the vertex-lit fallback bakes
+  with.
 * A chart's texels span their own patch: the first and last texel sit exactly on the
   patch's geometric edges. Adjacent coplanar surfaces therefore evaluate the *same*
   world point on a shared edge, so changing an albedo material across one continuous
@@ -2190,10 +2205,10 @@ storage change, not an authoring one.
 A placed prop is not air: every prop's own triangles become a small set of
 occlusion boxes for the bake, automatically and per distinct model. Nothing is
 authored and there is no per-prop occlusion flag. The boxes are ground on a
-quality-profile grid — **Full** 0.075 m, **Low** the historical 0.15 m — so Full
-resolves a finer contact silhouette and the shadow a prop throws on the floor or
-wall behind it, while Low keeps the cheaper derivation. The visible
-consequences:
+quality-level grid — **High** 0.075 m, **Medium** 0.11 m, **Low** the historical
+0.15 m — so High resolves a finer contact silhouette and the shadow a prop throws
+on the floor or wall behind it, while Medium and Low keep cheaper derivations. The
+visible consequences:
 
 * the floor under a machine, desk or couch is darker than open floor at the same
   distance from a fixture (contact darkening);
@@ -2584,9 +2599,9 @@ interiors that stop being finished around you. Keep this practical:
   office, 3.0 m in the quiet corridor and 4.2 m in the stair hall and pool.)
 * **Darkness is a tool.** Unlit rooms sit at the 0.10 ambient floor. Use fewer, dimmer
   or coloured fixtures rather than expecting global light.
-* **One level, both quality profiles.** Full and Low run the same geometry, ids,
-  materials and lights; Low lowers texture resolution, lightmap density, scene
-  resolution and surface detail. Never author a second variant.
+* **One map, every quality level.** High, Medium and Low run the same geometry,
+  ids, materials and lights; a lower level lowers texture resolution, lightmap
+  density, scene resolution and surface detail. Never author a second variant.
 
 There is still **no water rendering and no refraction**. Implied water is
 damp/damaged materials plus recessed geometry — optionally with a wet
@@ -3094,7 +3109,7 @@ capture and diagnosis.
 | Switch | Effect |
 | --- | --- |
 | `PLACES_LEVEL=<id>` | Boot straight into a level and print its validation errors. |
-| `PLACES_QUALITY=full\|low` | Draw this run at the named quality profile without editing `settings.json`, so both profiles of the same level can be captured back to back. The Settings screen shows the overridden profile (marked `*`) and changing it there clears the override. |
+| `PLACES_QUALITY=low\|medium\|high` (legacy `full` = High) | Draw this run at the named quality level without editing `settings.json`, so the same map can be captured at different levels back to back. The Settings screen shows the overridden level (marked `*`) and changing it there clears the override. |
 | `PLACES_CAPTURE=<file.png>` | Write one frame as a PNG and exit. |
 | `PLACES_CAPTURE_FRAME=<n>` | Capture frame n (1-based) instead of the first; also pins animation phase. |
 | `PLACES_NO_LIGHTMAPS=1` | Force the historical vertex-lit path for this run (overrides the Lightmaps setting). |
@@ -3197,8 +3212,9 @@ the error in full.
 - [ ] `python3 tools/props/build.py --check` exits 0 (new props in particular).
 - [ ] `cargo test --workspace --all-features` passes.
 - [ ] The level boots with `PLACES_LEVEL=<id>` with no validation error.
-- [ ] A capture (`PLACES_CAPTURE`) has been inspected if practical, at both Full and
-      `PLACES_QUALITY=low` if reflections or material response matter.
+- [ ] A capture (`PLACES_CAPTURE`) has been inspected if practical, at High and
+      at `PLACES_QUALITY=low` (and/or `medium`) if reflections or material
+      response matter.
 
 ---
 
@@ -3222,9 +3238,9 @@ authoring. They are not invitations to change the engine as part of an authoring
 4. **Cone/spot lights are not implemented.** The generic model has point, rectangle
    and line shapes; a directional light needs a response model that does not exist.
 5. **A GLB may embed larger prop textures than the shipped native size.** The
-   engine accepts up to 1024 px per edge but Full uploads a prop sheet at 256
-   and Low at 128, so the shipped toolkit stays at the 256 native size;
-   authoring bigger embedded art gains nothing under Full unless the engine's
+   engine accepts up to 1024 px per edge but High and Medium upload a prop sheet
+   at 256 and Low at 128, so the shipped toolkit stays at the 256 native size;
+   authoring bigger embedded art gains nothing under High unless the engine's
    prop budget is raised first.
 6. **`emission` on a fixture is emission only.** It never changes illumination; if a
    glowing face should also light the room, that is `brightness`/`enabled`.
@@ -3404,7 +3420,8 @@ on the room/wall/patch/region that names it (see
    for a genuinely flat, axis-aligned mirror.
 3. Add `reflection_strength` (default 0.45) only when the default reads wrong.
 4. Mark sparingly: only one planar plane is drawn per frame (extra planes take
-   turns), and `Low` drops planar reflections entirely.
+   turns), and `Low` drops planar reflections entirely (Medium and High keep
+   them).
 
 ```json
 { "id": "hotel:lobby_marble_01", "asset_class": "environment",

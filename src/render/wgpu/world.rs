@@ -16,7 +16,7 @@
 //!   architectural ranges alongside the opaque ones;
 //! * each draw carries the range's [`SurfaceShine`] override and its
 //!   [`BatchPass`]; the neutral [`resolve_surface_material`] folds the material
-//!   table, the override and the quality profile into one
+//!   table, the override and the quality level into one
 //!   [`ResolvedSurfaceMaterial`], which the [`WorldMaterials`] cache turns into
 //!   one GPU uniform and bind group per distinct identity;
 //! * normal maps are interned through the [`TextureCache`] under the
@@ -67,7 +67,7 @@ use super::material::WorldMaterials;
 use super::surface::DEPTH_FORMAT;
 use super::texture::{CacheOutcome, GpuTexture, TextureCache, TextureFiltering, TextureSemantic};
 use crate::materials::{MaterialTable, ResolvedTexture, TextureOrigin};
-use crate::quality::QualityProfile;
+use crate::quality::QualityLevel;
 use crate::render::RenderCamera;
 use crate::render::common::materials::{
     BatchPass, MaterialRenderState, batch_pass_for, resolve_surface_material,
@@ -858,7 +858,7 @@ impl WorldTextures {
         materials: &MaterialRenderState,
         table: &MaterialTable,
         fixture_sheets: &[Arc<GpuTexture>],
-        profile: QualityProfile,
+        level: QualityLevel,
     ) -> Self {
         let mut stats = WorldTextureStats {
             draws: draws.len(),
@@ -881,7 +881,7 @@ impl WorldTextures {
                     queue,
                     resolved,
                     TextureSemantic::BaseColorDisplay,
-                    profile,
+                    level,
                 );
                 match outcome {
                     CacheOutcome::Uploaded => {
@@ -2457,7 +2457,7 @@ mod tests {
     #[test]
     fn the_vertex_lit_build_matches_the_reference_mesh() {
         use crate::lighting::lightmap::LightmapMode;
-        use crate::quality::QualityProfile;
+        use crate::quality::QualityLevel;
         use crate::render::common::api::{
             LightmapBuildOptions, build_level_geometry_timed_with_lightmaps,
         };
@@ -2470,7 +2470,7 @@ mod tests {
 
         // The shipped demo takes the vertex-lit path: the baked light rides in
         // the vertex colour, and a lightmapped build is opted into explicitly.
-        let options = LightmapBuildOptions::for_profile(QualityProfile::Full, LightmapMode::Off);
+        let options = LightmapBuildOptions::for_level(QualityLevel::High, LightmapMode::Off);
         assert_eq!(options.mode, LightmapMode::Off);
 
         // Props cannot resolve (no asset root): the architecture, which is what
@@ -2505,29 +2505,29 @@ mod tests {
         compare_to_historical(&build.mesh);
 
         // Low must bake the *same* light: `LightmapMode::Off` always uses
-        // `BakeConfig::HARD` whatever the profile, so the two meshes are
+        // `BakeConfig::HARD` whatever the level, so the two meshes are
         // byte-identical and Low only drops the surface response. (An atlas
-        // build is where the profile's tap count and prop cell matter.)
+        // build is where the level's tap count and prop cell matter.)
         let mut low_assets = crate::props::PropAssets::with_root("/nonexistent-places-assets");
         let low = build_level_geometry_timed_with_lightmaps(
             &level,
             &catalog,
             &mut low_assets,
             &materials,
-            LightmapBuildOptions::for_profile(QualityProfile::Low, LightmapMode::Off),
+            LightmapBuildOptions::for_level(QualityLevel::Low, LightmapMode::Off),
             None,
         );
         compare_to_historical(&low.mesh);
         assert_eq!(
             build.mesh.vertex_count, low.mesh.vertex_count,
-            "the vertex-lit bake is profile-independent"
+            "the vertex-lit bake is level-independent"
         );
     }
 
     #[test]
     fn the_vertex_lit_bake_dims_the_material_factor_and_subdivides_the_grid() {
         use crate::lighting::lightmap::LightmapMode;
-        use crate::quality::QualityProfile;
+        use crate::quality::QualityLevel;
         use crate::render::common::api::{
             LightmapBuildOptions, build_level_geometry_timed_with_lightmaps,
         };
@@ -2543,7 +2543,7 @@ mod tests {
             &catalog,
             &mut assets,
             &materials,
-            LightmapBuildOptions::for_profile(QualityProfile::Full, LightmapMode::Off),
+            LightmapBuildOptions::for_level(QualityLevel::High, LightmapMode::Off),
             None,
         );
 
@@ -2574,7 +2574,7 @@ mod tests {
             &catalog,
             &mut assets,
             &materials,
-            LightmapBuildOptions::for_profile(QualityProfile::Full, LightmapMode::Off),
+            LightmapBuildOptions::for_level(QualityLevel::High, LightmapMode::Off),
             None,
         );
         assert!(

@@ -139,7 +139,7 @@ impl MaterialRenderState {
 ///
 /// This is the material contract every draw resolves through: it folds the
 /// resolved material table, the surface's per-surface shine override and the
-/// active quality profile into one description, applying exactly the rules the
+/// active quality level into one description, applying exactly the rules the
 /// reference renderer's `static_surface_state` applied for a floor, ceiling or
 /// wall. It references the neutral material table by index and never names a
 /// GPU object, so the renderer and the tests share it.
@@ -168,7 +168,7 @@ pub struct ResolvedSurfaceMaterial {
     /// the shader would fold it in is `specular × reflection.strength`, so the
     /// profile gate that zeroes the sheen zeroes the reflection with it.
     pub reflection: MaterialReflection,
-    /// True when the normal/sheen response is drawn: the quality profile allows
+    /// True when the normal/sheen response is drawn: the quality level allows
     /// the response and the material authors a normal map or a sheen.
     pub response_enabled: bool,
 }
@@ -215,8 +215,8 @@ impl ResolvedSurfaceMaterial {
 
 /// Resolves one static surface key to its final neutral material state.
 ///
-/// `response_allowed` is the quality profile's response gate
-/// ([`crate::quality::QualityProfile::draws_surface_response`]): with it false
+/// `response_allowed` is the active quality level's response gate
+/// ([`crate::quality::QualityLevel::draws_surface_response`]): with it false
 /// the normal map is gated off and the sheen is zeroed, but the albedo, alpha,
 /// vertex colour and reflection *mode* are untouched — exactly the reference's
 /// Low behaviour. The reflection strength follows the zeroed sheen.

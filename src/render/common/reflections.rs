@@ -3,14 +3,14 @@
 //! Two deliberately limited sources, both opt-in per material (see
 //! [`crate::materials::reflection`]):
 //!
-//! * **Static probes.** One or two 64-texel cubemaps baked once per level load
-//!   at the centroid of the reflective geometry that asked for one. Sampling a
-//!   cubemap costs one texture read, so probes stay on both quality profiles
-//!   (Low bakes 32-texel faces).
+//! * **Static probes.** One or two cubemaps baked once per level load at the
+//!   centroid of the reflective geometry that asked for one. Sampling a cubemap
+//!   costs one texture read, so probes stay on every quality level (the face
+//!   edge follows the level: 64 at High, 48 at Medium, 32 at Low).
 //! * **Planar mirrors.** A real second view of the level, mirrored through a
 //!   plane derived from the geometry itself. Only ever one plane per frame, only
 //!   when that plane's reflective batches survive the frustum test, and only on
-//!   the Full profile.
+//!   Medium and High.
 //!
 //! This module is renderer-neutral: it decides *what* reflects and where from.
 //! The GPU resources (probe cubemaps, the planar target) live in the wgpu
@@ -19,7 +19,7 @@
 use super::mesh::LevelMesh;
 use super::view::{DrawableSize, MAX_REFLECTION_PROBES, PLANAR_REFLECTION_SCALE_DIVISOR};
 use crate::materials::{MaterialReflection, ReflectionMode};
-use crate::quality::QualityProfile;
+use crate::quality::QualityLevel;
 use crate::spatial::{Aabb, Frustum};
 
 /// How far apart two probe-reflective surfaces may be and still share a probe,
@@ -417,17 +417,17 @@ pub fn planar_target_size(scene_size: DrawableSize) -> DrawableSize {
 pub struct Reflections {
     /// Where each reflective material reads from.
     pub routing: ReflectionRouting,
-    /// Whether the profile allows the planar pass at all.
+    /// Whether the level allows the planar pass at all.
     planar_enabled: bool,
     /// Whether any reflection may run this session (`PLACES_NO_REFLECTIONS`).
     enabled: bool,
 }
 
 impl Default for Reflections {
-    /// Reflections start fully enabled at `Full`'s budget: the settings and the
-    /// quality profile apply their own switches before the first frame, and
+    /// Reflections start fully enabled at High's budget: the settings and the
+    /// quality level apply their own switches before the first frame, and
     /// starting disabled would silently drop a pass that nothing re-enabled
-    /// (`set_quality` early-returns on an unchanged profile).
+    /// (`set_quality` early-returns on an unchanged level).
     fn default() -> Self {
         Self {
             routing: ReflectionRouting::default(),
@@ -438,14 +438,15 @@ impl Default for Reflections {
 }
 
 impl Reflections {
-    /// Applies the quality profile's reflection budget.
+    /// Applies the quality level's reflection budget.
     ///
     /// Low keeps the probes (they cost one texture read) and drops the planar
-    /// pass (it costs a whole extra view of the level).
-    pub const fn set_profile(&mut self, profile: QualityProfile) {
-        self.planar_enabled = match profile {
-            QualityProfile::Full => true,
-            QualityProfile::Low => false,
+    /// pass (it costs a whole extra view of the level); Medium and High both
+    /// enable it.
+    pub const fn set_level(&mut self, level: QualityLevel) {
+        self.planar_enabled = match level {
+            QualityLevel::Low => false,
+            QualityLevel::Medium | QualityLevel::High => true,
         };
     }
 
@@ -588,11 +589,18 @@ mod tests {
     }
 
     #[test]
-    fn low_disables_the_planar_pass_and_full_enables_it() {
+    fn only_low_disables_the_planar_pass() {
         let mut reflections = Reflections::default();
-        reflections.set_profile(QualityProfile::Low);
+        reflections.set_level(QualityLevel::Low);
         assert!(!reflections.planar_enabled());
-        reflections.set_profile(QualityProfile::Full);
-        assert!(reflections.planar_enabled());
+        reflections.set_level(QualityLevel::Medium);
+        assert!(
+            reflections.planar_enabled(),
+            "Medium enables the planar pass"
+        );
+        reflections.set_level(QualityLevel::Low);
+        assert!(!reflections.planar_enabled());
+        reflections.set_level(QualityLevel::High);
+        assert!(reflections.planar_enabled(), "High enables the planar pass");
     }
 }

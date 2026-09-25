@@ -49,7 +49,7 @@ pub enum ReflectionMode {
     #[default]
     None,
     /// A static cubemap baked once per level load and sampled by the reflected
-    /// view vector. Cheap enough to keep on both quality profiles.
+    /// view vector. Cheap enough to keep on every quality level.
     Probe,
     /// A real second view of the level, mirrored through the surface's own
     /// plane. Drawn once per active plane per frame and only where a material

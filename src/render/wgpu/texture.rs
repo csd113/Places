@@ -18,11 +18,15 @@
 //! * mips are generated on the CPU by a deterministic 2x2 box filter over the
 //!   raw 8-bit channels, the same arithmetic the OpenGL reference's
 //!   `glGenerateMipmap` applies to its non-sRGB `GL_RGBA` textures;
-//! * the player's filtering setting selects between two shared repeating
-//!   samplers (linear/linear/linear and nearest/nearest/nearest, exactly the
-//!   reference's `LINEAR_MIPMAP_LINEAR`/`LINEAR` and
-//!   `NEAREST_MIPMAP_NEAREST`/`NEAREST`); the fallback sheet uses the
-//!   reference's clamped nearest sampler, with no mip chain;
+//! * the player's **Texture Filtering** setting selects one of three shared
+//!   sampler presets for ordinary world sheets: Low/Medium/High request 4x/8x/
+//!   16x anisotropy and always filter linear in mag, min and mip, so every
+//!   level is trilinear plus anisotropic. No level disables mips or falls back
+//!   to point sampling; an adapter without
+//!   `DownlevelFlags::ANISOTROPIC_FILTERING` keeps the same linear levels and
+//!   clamps the request to 1x. The fallback sheet uses the reference's clamped
+//!   nearest sampler, with no mip chain; the lightmap atlas keeps its own fixed
+//!   clamped linear policy and never follows the player setting;
 //! * nothing else: the two semantics above cover every upload the cache
 //!   accepts; lightmap atlases and render targets are owned by their own
 //!   modules.
@@ -40,7 +44,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::materials::{RawImage, ResolvedTexture, TextureOrigin, decode_png};
-use crate::quality::{QualityProfile, TextureClass, fit_image};
+use crate::quality::{QualityLevel, TextureClass, fit_image};
 
 /// Bytes per RGBA8 texel.
 const RGBA_BYTES: u32 = 4;
@@ -111,14 +115,12 @@ pub enum TextureWrap {
 }
 
 impl TextureWrap {
-    /// The sampler policy for one filtering mode at this wrap.
+    /// The sampler policy for one filtering level at this wrap.
     #[must_use]
     pub const fn policy(self, filtering: TextureFiltering) -> SamplerPolicy {
-        match (self, filtering) {
-            (Self::Repeat, TextureFiltering::Linear) => SamplerPolicy::RepeatLinear,
-            (Self::Repeat, TextureFiltering::Nearest) => SamplerPolicy::RepeatNearest,
-            (Self::Clamp, TextureFiltering::Linear) => SamplerPolicy::ClampLinear,
-            (Self::Clamp, TextureFiltering::Nearest) => SamplerPolicy::ClampNearest,
+        match self {
+            Self::Repeat => filtering.sampler_policy(),
+            Self::Clamp => filtering.clamp_sampler_policy(),
         }
     }
 }
@@ -139,97 +141,145 @@ pub struct TextureKey {
     pub semantic: TextureSemantic,
     /// The quality budget the fit applies to.
     pub class: TextureClass,
-    /// The active quality profile (the fit's edge budget).
-    pub profile: QualityProfile,
+    /// The active quality level (the fit's edge budget).
+    pub level: QualityLevel,
     /// How the UVs are addressed.
     pub wrap: TextureWrap,
 }
 
 impl TextureKey {
-    /// A key for one resolved texture at one semantic and profile, repeating.
+    /// A key for one resolved texture at one semantic and level, repeating.
     #[must_use]
-    pub fn new(
-        resolved: &ResolvedTexture,
-        semantic: TextureSemantic,
-        profile: QualityProfile,
-    ) -> Self {
+    pub fn new(resolved: &ResolvedTexture, semantic: TextureSemantic, level: QualityLevel) -> Self {
         Self {
             logical: resolved.key.clone(),
             semantic,
             class: resolved.class,
-            profile,
+            level,
             wrap: TextureWrap::Repeat,
         }
     }
 }
-/// Which sampler the frame's filtering setting selects.
+/// The player's **Texture Filtering** setting for ordinary world textures.
 ///
-/// This mirrors the OpenGL reference's `set_repeat_filter`: the setting is
-/// global, so the world shares one sampler per filtering mode rather than one
-/// sampler per texture.
+/// All three levels are trilinear with anisotropic filtering; they differ only
+/// in the requested anisotropy degree (Low 4x, Medium 8x, High 16x). The
+/// setting is global, so the world shares one set of presets rather than one
+/// sampler per texture, and switching is a bind-group handle swap at bind time
+/// — no pixel data is re-uploaded.
+///
+/// Mipmaps are never disabled: every level filters linear/linear/linear, and
+/// High keeps a source sheet at its native resolution (up to
+/// [`crate::assets::MAX_TEXTURE_DIMENSION`]); mip selection handles
+/// minification. An adapter without anisotropic filtering keeps the same
+/// linear levels with a 1x clamp
+/// ([`SamplerPolicy::effective_descriptor`]).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum TextureFiltering {
-    /// `LINEAR_MIPMAP_LINEAR` minification, `LINEAR` magnification.
+    /// 4x requested anisotropy, linear mag/min/mip.
+    Low,
+    /// 8x requested anisotropy, linear mag/min/mip.
+    Medium,
+    /// The default: 16x requested anisotropy, linear mag/min/mip.
     #[default]
-    Linear,
-    /// `NEAREST_MIPMAP_NEAREST` minification, `NEAREST` magnification.
-    Nearest,
+    High,
 }
 
 impl TextureFiltering {
-    /// Parses the player-facing setting. Any value but `"nearest"` is linear,
-    /// exactly like the reference's parser (`mode != "nearest"`); the settings
-    /// loader validates the two accepted names first.
+    /// Every level, in player-facing order.
+    pub const ALL: [Self; 3] = [Self::Low, Self::Medium, Self::High];
+
+    /// The default level, and the level the legacy `"linear"` name maps to.
+    pub const DEFAULT: Self = Self::High;
+
+    /// Parses the player-facing setting.
+    ///
+    /// Surrounding whitespace is trimmed and the comparison is ASCII
+    /// case-insensitive: `"low"`, `"medium"` and `"high"` are the levels, the
+    /// legacy `"nearest"` means Low and the legacy `"linear"` means High. An
+    /// empty or unknown value keeps the default (High), like the old parser's
+    /// tolerance.
     #[must_use]
     pub fn parse(mode: &str) -> Self {
-        if mode == "nearest" {
-            Self::Nearest
+        let mode = mode.trim();
+        if mode.eq_ignore_ascii_case("low") || mode.eq_ignore_ascii_case("nearest") {
+            Self::Low
+        } else if mode.eq_ignore_ascii_case("medium") {
+            Self::Medium
         } else {
-            Self::Linear
+            Self::High
         }
     }
 
-    /// Stable name for diagnostics.
+    /// Stable name for diagnostics and persistence.
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
-            Self::Linear => "linear",
-            Self::Nearest => "nearest",
+            Self::Low => "low",
+            Self::Medium => "medium",
+            Self::High => "high",
         }
     }
 
-    /// The sampler policy this filtering mode selects for repeating textures.
+    /// The anisotropy degree this level requests.
+    #[must_use]
+    pub const fn anisotropy(self) -> u16 {
+        match self {
+            Self::Low => 4,
+            Self::Medium => 8,
+            Self::High => 16,
+        }
+    }
+
+    /// The sampler policy this level selects for repeating world textures.
     #[must_use]
     pub const fn sampler_policy(self) -> SamplerPolicy {
         match self {
-            Self::Linear => SamplerPolicy::RepeatLinear,
-            Self::Nearest => SamplerPolicy::RepeatNearest,
+            Self::Low => SamplerPolicy::RepeatLow,
+            Self::Medium => SamplerPolicy::RepeatMedium,
+            Self::High => SamplerPolicy::RepeatHigh,
         }
     }
 
-    /// The sampler policy this filtering mode selects for a clamped single-use
-    /// sheet (a prop model's own sheet, a fixture face, an emissive mask).
+    /// The sampler policy this level selects for a clamped single-use sheet
+    /// (a prop model's own sheet, a fixture face, an emissive mask).
     #[must_use]
     pub const fn clamp_sampler_policy(self) -> SamplerPolicy {
         match self {
-            Self::Linear => SamplerPolicy::ClampLinear,
-            Self::Nearest => SamplerPolicy::ClampNearest,
+            Self::Low => SamplerPolicy::ClampLow,
+            Self::Medium => SamplerPolicy::ClampMedium,
+            Self::High => SamplerPolicy::ClampHigh,
         }
     }
 }
 
-/// One shared sampler configuration. Only the four listed policies exist.
+/// One shared sampler configuration.
+///
+/// The six `Low`/`Medium`/`High` variants are the player's world presets: all
+/// three filter linear in mag, min and mip and differ only in the requested
+/// anisotropy. The remaining three policies never follow the player setting:
+/// the retained point-sample pair and the clamped linear policy shared by the
+/// lightmap atlas and the reflection targets.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SamplerPolicy {
-    /// A repeating tiling sheet with linear min/mag/mip filtering.
-    RepeatLinear,
-    /// The same sheet under the nearest filtering setting.
+    /// A repeating world sheet at the Low preset (4x requested anisotropy).
+    RepeatLow,
+    /// A repeating world sheet at the Medium preset (8x requested anisotropy).
+    RepeatMedium,
+    /// A repeating world sheet at the High preset (16x requested anisotropy).
+    RepeatHigh,
+    /// A clamped world sheet at the Low preset (4x requested anisotropy).
+    ClampLow,
+    /// A clamped world sheet at the Medium preset (8x requested anisotropy).
+    ClampMedium,
+    /// A clamped world sheet at the High preset (16x requested anisotropy).
+    ClampHigh,
+    /// The retained point-sampled repeating policy; no world preset selects it.
     RepeatNearest,
-    /// A clamped, unfiltered single-use sheet (the shared fallback).
+    /// The fallback sheet and the UI's clamped point-sampled policy.
     ClampNearest,
-    /// A clamped, linear-filtered single-use sheet: a prop model's own sheet, a
-    /// fixture face, at the player's linear setting. The reference uploads
-    /// those `CLAMP_TO_EDGE` with a mip chain, exactly like this policy.
+    /// The lightmap atlas and reflection targets' clamped linear policy
+    /// (anisotropy 1; deliberately independent of the player's world preset).
     ClampLinear,
 }
 
@@ -238,19 +288,45 @@ impl SamplerPolicy {
     #[must_use]
     pub const fn label(self) -> &'static str {
         match self {
-            Self::RepeatLinear => "places-wgpu-sampler-repeat-linear",
+            Self::RepeatLow => "places-wgpu-sampler-repeat-low",
+            Self::RepeatMedium => "places-wgpu-sampler-repeat-medium",
+            Self::RepeatHigh => "places-wgpu-sampler-repeat-high",
+            Self::ClampLow => "places-wgpu-sampler-clamp-low",
+            Self::ClampMedium => "places-wgpu-sampler-clamp-medium",
+            Self::ClampHigh => "places-wgpu-sampler-clamp-high",
             Self::RepeatNearest => "places-wgpu-sampler-repeat-nearest",
             Self::ClampNearest => "places-wgpu-sampler-clamp-nearest",
             Self::ClampLinear => "places-wgpu-sampler-clamp-linear",
         }
     }
 
+    /// The anisotropy degree this policy requests: 4/8/16 for the world
+    /// presets, 1 for every specialized policy.
+    #[must_use]
+    pub const fn requested_anisotropy(self) -> u16 {
+        match self {
+            Self::RepeatLow | Self::ClampLow => 4,
+            Self::RepeatMedium | Self::ClampMedium => 8,
+            Self::RepeatHigh | Self::ClampHigh => 16,
+            Self::RepeatNearest | Self::ClampNearest | Self::ClampLinear => 1,
+        }
+    }
+
     /// The full descriptor, every field explicit: no wgpu default is relied on.
+    ///
+    /// Anisotropy above 1 requires all three filters to be linear, which the
+    /// world presets satisfy by construction; the point-sampled and clamped
+    /// linear policies request 1.
     #[must_use]
     pub const fn descriptor(self) -> wgpu::SamplerDescriptor<'static> {
         let (address, filter, mip) = match self {
-            Self::RepeatLinear => (
+            Self::RepeatLow | Self::RepeatMedium | Self::RepeatHigh => (
                 wgpu::AddressMode::Repeat,
+                wgpu::FilterMode::Linear,
+                wgpu::MipmapFilterMode::Linear,
+            ),
+            Self::ClampLow | Self::ClampMedium | Self::ClampHigh | Self::ClampLinear => (
+                wgpu::AddressMode::ClampToEdge,
                 wgpu::FilterMode::Linear,
                 wgpu::MipmapFilterMode::Linear,
             ),
@@ -264,11 +340,6 @@ impl SamplerPolicy {
                 wgpu::FilterMode::Nearest,
                 wgpu::MipmapFilterMode::Nearest,
             ),
-            Self::ClampLinear => (
-                wgpu::AddressMode::ClampToEdge,
-                wgpu::FilterMode::Linear,
-                wgpu::MipmapFilterMode::Linear,
-            ),
         };
         wgpu::SamplerDescriptor {
             label: Some(self.label()),
@@ -281,9 +352,47 @@ impl SamplerPolicy {
             lod_min_clamp: 0.0,
             lod_max_clamp: 32.0,
             compare: None,
-            anisotropy_clamp: 1,
+            anisotropy_clamp: self.requested_anisotropy(),
             border_color: None,
         }
+    }
+
+    /// The descriptor actually handed to the device.
+    ///
+    /// A world preset on an adapter without
+    /// `DownlevelFlags::ANISOTROPIC_FILTERING` keeps its
+    /// linear/linear/linear levels and clamps the anisotropy request to 1 —
+    /// exactly what wgpu-core would silently do — so the fallback is visible in
+    /// the descriptor rather than hidden in the backend. Specialized policies
+    /// already request 1 and are unchanged either way.
+    #[must_use]
+    pub const fn effective_descriptor(
+        self,
+        anisotropy_supported: bool,
+    ) -> wgpu::SamplerDescriptor<'static> {
+        let mut descriptor = self.descriptor();
+        if !anisotropy_supported {
+            descriptor.anisotropy_clamp = 1;
+        }
+        descriptor
+    }
+}
+
+/// The policy one uploaded sheet binds with one filtering level.
+///
+/// The shared fallback is deliberately sampled clamped-nearest in every slot
+/// (it is a flat fill, so no filtering mode can change a texel); every other
+/// sheet follows its own wrap contract and the selected world preset.
+#[must_use]
+pub const fn sheet_policy(
+    wrap: TextureWrap,
+    filtering: TextureFiltering,
+    fallback: bool,
+) -> SamplerPolicy {
+    if fallback {
+        SamplerPolicy::ClampNearest
+    } else {
+        wrap.policy(filtering)
     }
 }
 
@@ -302,8 +411,8 @@ pub struct TextureMeta {
     pub semantic: TextureSemantic,
     /// The quality class whose budget fitted the image.
     pub class: TextureClass,
-    /// The profile the image was fitted for.
-    pub profile: QualityProfile,
+    /// The level the image was fitted for.
+    pub level: QualityLevel,
     /// Where the texture came from; `Pack` is the level-scoped lifetime.
     pub origin: TextureOrigin,
     /// True for the shared fallback sheet.
@@ -333,10 +442,12 @@ pub struct GpuTexture {
     _texture: wgpu::Texture,
     /// Kept for ownership; the bind groups were built from it.
     view: wgpu::TextureView,
-    /// Texture + repeating linear sampler.
-    linear_bind_group: wgpu::BindGroup,
-    /// Texture + repeating nearest sampler.
-    nearest_bind_group: wgpu::BindGroup,
+    /// Texture + the Low world sampler policy.
+    low_bind_group: wgpu::BindGroup,
+    /// Texture + the Medium world sampler policy.
+    medium_bind_group: wgpu::BindGroup,
+    /// Texture + the High world sampler policy.
+    high_bind_group: wgpu::BindGroup,
     meta: TextureMeta,
 }
 
@@ -383,36 +494,29 @@ impl GpuTexture {
             write_mip(queue, &texture, level, &current);
         }
 
-        // The fallback sheet keeps the reference's clamped nearest sampler in
-        // both slots: it is a solid fill, so the two filtering modes cannot
-        // disagree about a texel. Every other texture follows its own wrap
-        // contract and the player's filtering setting.
-        let (linear, nearest) = if upload.fallback {
-            let clamp = samplers.get(SamplerPolicy::ClampNearest);
-            let group = create_bind_group(device, layout, &view, clamp);
-            (group, create_bind_group(device, layout, &view, clamp))
-        } else {
-            (
-                create_bind_group(
-                    device,
-                    layout,
-                    &view,
-                    samplers.get(upload.key.wrap.policy(TextureFiltering::Linear)),
-                ),
-                create_bind_group(
-                    device,
-                    layout,
-                    &view,
-                    samplers.get(upload.key.wrap.policy(TextureFiltering::Nearest)),
-                ),
+        // The fallback sheet binds the reference's clamped nearest sampler in
+        // every slot: it is a solid fill, so no filtering level can disagree
+        // about a texel. Every other texture follows its own wrap contract and
+        // the three world presets, so switching levels is a bind-group handle
+        // swap with no re-upload.
+        let bind_group_for = |filtering: TextureFiltering| {
+            create_bind_group(
+                device,
+                layout,
+                &view,
+                samplers.get(sheet_policy(upload.key.wrap, filtering, upload.fallback)),
             )
         };
+        let low_bind_group = bind_group_for(TextureFiltering::Low);
+        let medium_bind_group = bind_group_for(TextureFiltering::Medium);
+        let high_bind_group = bind_group_for(TextureFiltering::High);
 
         Self {
             _texture: texture,
             view,
-            linear_bind_group: linear,
-            nearest_bind_group: nearest,
+            low_bind_group,
+            medium_bind_group,
+            high_bind_group,
             meta: TextureMeta {
                 width: image.width,
                 height: image.height,
@@ -420,7 +524,7 @@ impl GpuTexture {
                 format,
                 semantic: upload.key.semantic,
                 class: upload.key.class,
-                profile: upload.key.profile,
+                level: upload.key.level,
                 origin: upload.origin,
                 fallback: upload.fallback,
                 resident_bytes,
@@ -428,12 +532,16 @@ impl GpuTexture {
         }
     }
 
-    /// The bind group for one filtering mode.
+    /// The bind group for one filtering level.
+    ///
+    /// The fallback sheet answers the same clamped nearest policy for all
+    /// three.
     #[must_use]
     pub const fn bind_group(&self, filtering: TextureFiltering) -> &wgpu::BindGroup {
         match filtering {
-            TextureFiltering::Linear => &self.linear_bind_group,
-            TextureFiltering::Nearest => &self.nearest_bind_group,
+            TextureFiltering::Low => &self.low_bind_group,
+            TextureFiltering::Medium => &self.medium_bind_group,
+            TextureFiltering::High => &self.high_bind_group,
         }
     }
 
@@ -469,9 +577,18 @@ struct TextureUpload<'a> {
     fallback: bool,
 }
 
-/// The four shared samplers the world and every later pass use.
+/// The nine shared samplers the world and every later pass use.
+///
+/// The six world presets are created with
+/// [`SamplerPolicy::effective_descriptor`], so an adapter without anisotropic
+/// filtering gets the same linear levels at a 1x clamp.
 struct Samplers {
-    repeat_linear: wgpu::Sampler,
+    repeat_low: wgpu::Sampler,
+    repeat_medium: wgpu::Sampler,
+    repeat_high: wgpu::Sampler,
+    clamp_low: wgpu::Sampler,
+    clamp_medium: wgpu::Sampler,
+    clamp_high: wgpu::Sampler,
     repeat_nearest: wgpu::Sampler,
     clamp_nearest: wgpu::Sampler,
     clamp_linear: wgpu::Sampler,
@@ -479,10 +596,17 @@ struct Samplers {
 
 impl Samplers {
     /// Creates the shared samplers once per device.
-    fn new(device: &wgpu::Device) -> Self {
-        let create = |policy: SamplerPolicy| device.create_sampler(&policy.descriptor());
+    fn new(device: &wgpu::Device, anisotropy_supported: bool) -> Self {
+        let create = |policy: SamplerPolicy| {
+            device.create_sampler(&policy.effective_descriptor(anisotropy_supported))
+        };
         Self {
-            repeat_linear: create(SamplerPolicy::RepeatLinear),
+            repeat_low: create(SamplerPolicy::RepeatLow),
+            repeat_medium: create(SamplerPolicy::RepeatMedium),
+            repeat_high: create(SamplerPolicy::RepeatHigh),
+            clamp_low: create(SamplerPolicy::ClampLow),
+            clamp_medium: create(SamplerPolicy::ClampMedium),
+            clamp_high: create(SamplerPolicy::ClampHigh),
             repeat_nearest: create(SamplerPolicy::RepeatNearest),
             clamp_nearest: create(SamplerPolicy::ClampNearest),
             clamp_linear: create(SamplerPolicy::ClampLinear),
@@ -492,7 +616,12 @@ impl Samplers {
     /// The sampler for a policy.
     const fn get(&self, policy: SamplerPolicy) -> &wgpu::Sampler {
         match policy {
-            SamplerPolicy::RepeatLinear => &self.repeat_linear,
+            SamplerPolicy::RepeatLow => &self.repeat_low,
+            SamplerPolicy::RepeatMedium => &self.repeat_medium,
+            SamplerPolicy::RepeatHigh => &self.repeat_high,
+            SamplerPolicy::ClampLow => &self.clamp_low,
+            SamplerPolicy::ClampMedium => &self.clamp_medium,
+            SamplerPolicy::ClampHigh => &self.clamp_high,
             SamplerPolicy::RepeatNearest => &self.repeat_nearest,
             SamplerPolicy::ClampNearest => &self.clamp_nearest,
             SamplerPolicy::ClampLinear => &self.clamp_linear,
@@ -523,6 +652,9 @@ pub enum CacheOutcome {
 pub struct TextureCache {
     layout: wgpu::BindGroupLayout,
     samplers: Samplers,
+    /// Whether the adapter filters anisotropically; the world presets clamp
+    /// their request to 1x when it does not.
+    anisotropy_supported: bool,
     persistent: HashMap<TextureKey, Arc<GpuTexture>>,
     level: HashMap<TextureKey, Arc<GpuTexture>>,
     fallback: Arc<GpuTexture>,
@@ -531,10 +663,14 @@ pub struct TextureCache {
 impl TextureCache {
     /// Creates the layout, the shared samplers and the fallback sheet.
     ///
-    /// GPU work at construction is exactly one 2x2 upload; every level-scoped
-    /// texture is created later, at that level's upload.
+    /// `anisotropy_supported` is the adapter's
+    /// `DownlevelFlags::ANISOTROPIC_FILTERING` capability: when it is false the
+    /// world presets are created with their anisotropy request clamped to 1
+    /// (their linear/linear/linear filtering is unchanged). GPU work at
+    /// construction is exactly one 2x2 upload; every level-scoped texture is
+    /// created later, at that level's upload.
     #[must_use]
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, anisotropy_supported: bool) -> Self {
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("places-wgpu-texture-layout"),
             entries: &[
@@ -556,7 +692,7 @@ impl TextureCache {
                 },
             ],
         });
-        let samplers = Samplers::new(device);
+        let samplers = Samplers::new(device, anisotropy_supported);
         let fallback = Arc::new(GpuTexture::upload(
             device,
             queue,
@@ -567,7 +703,10 @@ impl TextureCache {
                     logical: FALLBACK_TEXTURE_KEY.to_string(),
                     semantic: TextureSemantic::BaseColorDisplay,
                     class: TextureClass::Surface,
-                    profile: QualityProfile::Full,
+                    // The fallback is 2x2 and never downscaled, so it is
+                    // level-independent; the key only records which level's
+                    // metadata describes it.
+                    level: QualityLevel::DEFAULT,
                     wrap: TextureWrap::Repeat,
                 },
                 image: &fallback_white_image(),
@@ -579,10 +718,20 @@ impl TextureCache {
         Self {
             layout,
             samplers,
+            anisotropy_supported,
             persistent: HashMap::new(),
             level: HashMap::new(),
             fallback,
         }
+    }
+
+    /// Whether the adapter filters anisotropically.
+    ///
+    /// False means the three world presets were created with their anisotropy
+    /// request clamped to 1x; the startup diagnostic reports it once.
+    #[must_use]
+    pub const fn anisotropy_supported(&self) -> bool {
+        self.anisotropy_supported
     }
 
     /// The texture + sampler bind group layout (pipeline group 1).
@@ -632,7 +781,7 @@ impl TextureCache {
     ///
     /// The key is the semantic identity, so fifty surfaces referencing one
     /// texture upload once; the caller only has to ask for the same
-    /// [`ResolvedTexture`] under the same semantic and profile.
+    /// [`ResolvedTexture`] under the same semantic and level.
     #[must_use]
     pub fn get_or_upload(
         &mut self,
@@ -640,9 +789,9 @@ impl TextureCache {
         queue: &wgpu::Queue,
         resolved: &ResolvedTexture,
         semantic: TextureSemantic,
-        profile: QualityProfile,
+        level: QualityLevel,
     ) -> (CacheOutcome, Arc<GpuTexture>) {
-        let key = TextureKey::new(resolved, semantic, profile);
+        let key = TextureKey::new(resolved, semantic, level);
         self.get_or_upload_key(device, queue, key, resolved.image.as_ref(), resolved.origin)
     }
 
@@ -662,13 +811,13 @@ impl TextureCache {
         image: &RawImage,
         class: TextureClass,
         origin: TextureOrigin,
-        profile: QualityProfile,
+        level: QualityLevel,
     ) -> (CacheOutcome, Arc<GpuTexture>) {
         let key = TextureKey {
             logical: logical.to_string(),
             semantic: TextureSemantic::BaseColorDisplay,
             class,
-            profile,
+            level,
             wrap: TextureWrap::Clamp,
         };
         self.get_or_upload_key(device, queue, key, image, origin)
@@ -676,7 +825,7 @@ impl TextureCache {
 
     /// The shared body of both upload entry points.
     ///
-    /// The key carries the class and profile the fit needs, so no caller can
+    /// The key carries the class and level the fit needs, so no caller can
     /// pass values that disagree with the cache identity.
     fn get_or_upload_key(
         &mut self,
@@ -689,7 +838,7 @@ impl TextureCache {
         if let Some(texture) = self.get(&key, origin).map(Arc::clone) {
             return (CacheOutcome::Reused, texture);
         }
-        let fitted = fit_image(image, key.profile, key.class);
+        let fitted = fit_image(image, key.level, key.class);
         let image: &RawImage = &fitted;
         let texture = Arc::new(GpuTexture::upload(
             device,
@@ -964,7 +1113,7 @@ mod tests {
     }
 
     #[test]
-    fn the_texture_key_separates_semantic_class_and_profile() {
+    fn the_texture_key_separates_semantic_class_and_level() {
         let resolved = ResolvedTexture {
             key: "core:tex_thing_01".to_string(),
             origin: TextureOrigin::Catalog,
@@ -974,21 +1123,20 @@ mod tests {
         let base = TextureKey::new(
             &resolved,
             TextureSemantic::BaseColorDisplay,
-            QualityProfile::Full,
+            QualityLevel::High,
         );
         assert_eq!(base.logical, "core:tex_thing_01");
         assert_ne!(
             base,
-            TextureKey::new(&resolved, TextureSemantic::DataLinear, QualityProfile::Full)
+            TextureKey::new(&resolved, TextureSemantic::DataLinear, QualityLevel::High)
         );
-        assert_ne!(
-            base,
-            TextureKey::new(
-                &resolved,
-                TextureSemantic::BaseColorDisplay,
-                QualityProfile::Low
-            )
-        );
+        for level in [QualityLevel::Medium, QualityLevel::Low] {
+            assert_ne!(
+                base,
+                TextureKey::new(&resolved, TextureSemantic::BaseColorDisplay, level),
+                "{level:?} must be part of the identity"
+            );
+        }
         let other_class = ResolvedTexture {
             class: TextureClass::EmissionMask,
             ..resolved
@@ -998,7 +1146,7 @@ mod tests {
             TextureKey::new(
                 &other_class,
                 TextureSemantic::BaseColorDisplay,
-                QualityProfile::Full
+                QualityLevel::High
             )
         );
     }
@@ -1203,105 +1351,248 @@ mod tests {
 
     // -------------------------------------------------------------- samplers
 
+    /// Every world sampler policy, in `TextureFiltering::ALL` order, at both
+    /// wraps.
+    const WORLD_POLICIES: [[SamplerPolicy; 3]; 2] = [
+        [
+            SamplerPolicy::RepeatLow,
+            SamplerPolicy::RepeatMedium,
+            SamplerPolicy::RepeatHigh,
+        ],
+        [
+            SamplerPolicy::ClampLow,
+            SamplerPolicy::ClampMedium,
+            SamplerPolicy::ClampHigh,
+        ],
+    ];
+
+    /// Every sampler policy the module defines.
+    const ALL_POLICIES: [SamplerPolicy; 9] = [
+        SamplerPolicy::RepeatLow,
+        SamplerPolicy::RepeatMedium,
+        SamplerPolicy::RepeatHigh,
+        SamplerPolicy::ClampLow,
+        SamplerPolicy::ClampMedium,
+        SamplerPolicy::ClampHigh,
+        SamplerPolicy::RepeatNearest,
+        SamplerPolicy::ClampNearest,
+        SamplerPolicy::ClampLinear,
+    ];
+
     #[test]
-    fn the_repeating_policies_repeat_and_the_fallback_policy_clamps() {
-        for policy in [SamplerPolicy::RepeatLinear, SamplerPolicy::RepeatNearest] {
+    fn the_repeating_policies_repeat_and_the_clamped_policies_clamp() {
+        for policy in [
+            SamplerPolicy::RepeatLow,
+            SamplerPolicy::RepeatMedium,
+            SamplerPolicy::RepeatHigh,
+            SamplerPolicy::RepeatNearest,
+        ] {
             let descriptor = policy.descriptor();
             assert_eq!(descriptor.address_mode_u, wgpu::AddressMode::Repeat);
             assert_eq!(descriptor.address_mode_v, wgpu::AddressMode::Repeat);
             assert_eq!(descriptor.address_mode_w, wgpu::AddressMode::Repeat);
         }
-        let clamp = SamplerPolicy::ClampNearest.descriptor();
-        assert_eq!(clamp.address_mode_u, wgpu::AddressMode::ClampToEdge);
-        assert_eq!(clamp.address_mode_v, wgpu::AddressMode::ClampToEdge);
-        assert_eq!(clamp.address_mode_w, wgpu::AddressMode::ClampToEdge);
-    }
-
-    #[test]
-    fn the_filtering_setting_selects_matching_sampler_filters() {
-        let linear = SamplerPolicy::RepeatLinear.descriptor();
-        assert_eq!(linear.mag_filter, wgpu::FilterMode::Linear);
-        assert_eq!(linear.min_filter, wgpu::FilterMode::Linear);
-        assert_eq!(linear.mipmap_filter, wgpu::MipmapFilterMode::Linear);
-
-        let nearest = SamplerPolicy::RepeatNearest.descriptor();
-        assert_eq!(nearest.mag_filter, wgpu::FilterMode::Nearest);
-        assert_eq!(nearest.min_filter, wgpu::FilterMode::Nearest);
-        assert_eq!(nearest.mipmap_filter, wgpu::MipmapFilterMode::Nearest);
-
-        // No policy uses a comparison sampler or anisotropy; the reference has
-        // neither, and base colour needs neither.
         for policy in [
-            SamplerPolicy::RepeatLinear,
-            SamplerPolicy::RepeatNearest,
+            SamplerPolicy::ClampLow,
+            SamplerPolicy::ClampMedium,
+            SamplerPolicy::ClampHigh,
             SamplerPolicy::ClampNearest,
+            SamplerPolicy::ClampLinear,
         ] {
             let descriptor = policy.descriptor();
-            assert!(descriptor.compare.is_none());
-            assert_eq!(descriptor.anisotropy_clamp, 1);
-            assert_eq!(descriptor.lod_min_clamp, 0.0);
-            assert_eq!(descriptor.lod_max_clamp, 32.0);
+            assert_eq!(descriptor.address_mode_u, wgpu::AddressMode::ClampToEdge);
+            assert_eq!(descriptor.address_mode_v, wgpu::AddressMode::ClampToEdge);
+            assert_eq!(descriptor.address_mode_w, wgpu::AddressMode::ClampToEdge);
         }
     }
 
     #[test]
-    fn the_filtering_setting_parses_like_the_reference() {
-        assert_eq!(TextureFiltering::parse("linear"), TextureFiltering::Linear);
+    fn each_filtering_level_selects_its_own_linear_policy_and_anisotropy() {
+        for (level, repeat, clamp, anisotropy) in [
+            (
+                TextureFiltering::Low,
+                SamplerPolicy::RepeatLow,
+                SamplerPolicy::ClampLow,
+                4u16,
+            ),
+            (
+                TextureFiltering::Medium,
+                SamplerPolicy::RepeatMedium,
+                SamplerPolicy::ClampMedium,
+                8u16,
+            ),
+            (
+                TextureFiltering::High,
+                SamplerPolicy::RepeatHigh,
+                SamplerPolicy::ClampHigh,
+                16u16,
+            ),
+        ] {
+            assert_eq!(level.sampler_policy(), repeat);
+            assert_eq!(level.clamp_sampler_policy(), clamp);
+            assert_eq!(level.anisotropy(), anisotropy);
+            assert_eq!(repeat.requested_anisotropy(), anisotropy);
+            assert_eq!(clamp.requested_anisotropy(), anisotropy);
+            // No level disables mips or point-samples: every world preset is
+            // linear/linear/linear plus its anisotropy request.
+            for policy in [repeat, clamp] {
+                let descriptor = policy.descriptor();
+                assert_eq!(descriptor.mag_filter, wgpu::FilterMode::Linear);
+                assert_eq!(descriptor.min_filter, wgpu::FilterMode::Linear);
+                assert_eq!(descriptor.mipmap_filter, wgpu::MipmapFilterMode::Linear);
+                assert_eq!(descriptor.anisotropy_clamp, anisotropy);
+                assert!(descriptor.compare.is_none());
+                assert_eq!(descriptor.lod_min_clamp, 0.0);
+                assert_eq!(descriptor.lod_max_clamp, 32.0);
+            }
+        }
         assert_eq!(
-            TextureFiltering::parse("nearest"),
-            TextureFiltering::Nearest
+            TextureFiltering::ALL,
+            [
+                TextureFiltering::Low,
+                TextureFiltering::Medium,
+                TextureFiltering::High
+            ]
         );
-        assert_eq!(TextureFiltering::parse(""), TextureFiltering::Linear);
-        assert_eq!(TextureFiltering::parse("bogus"), TextureFiltering::Linear);
-        assert_eq!(TextureFiltering::default(), TextureFiltering::Linear);
-        assert_eq!(
-            TextureFiltering::Linear.sampler_policy(),
-            SamplerPolicy::RepeatLinear
-        );
-        assert_eq!(
-            TextureFiltering::Nearest.sampler_policy(),
-            SamplerPolicy::RepeatNearest
-        );
+        assert_eq!(TextureFiltering::DEFAULT, TextureFiltering::High);
+        assert_eq!(TextureFiltering::default(), TextureFiltering::High);
     }
 
     #[test]
-    fn the_clamped_sheet_policies_follow_the_user_setting() {
-        // A fitted single-use sheet (prop, fixture, emissive mask) clamps in
-        // both modes, like the reference's `upload_fitted_texture`.
-        assert_eq!(
-            TextureFiltering::Linear.clamp_sampler_policy(),
-            SamplerPolicy::ClampLinear
-        );
-        assert_eq!(
-            TextureFiltering::Nearest.clamp_sampler_policy(),
-            SamplerPolicy::ClampNearest
-        );
-        let linear = SamplerPolicy::ClampLinear.descriptor();
-        assert_eq!(linear.address_mode_u, wgpu::AddressMode::ClampToEdge);
-        assert_eq!(linear.address_mode_v, wgpu::AddressMode::ClampToEdge);
-        assert_eq!(linear.mag_filter, wgpu::FilterMode::Linear);
-        assert_eq!(linear.min_filter, wgpu::FilterMode::Linear);
-        assert_eq!(linear.mipmap_filter, wgpu::MipmapFilterMode::Linear);
+    fn the_specialized_policies_never_take_a_world_preset() {
+        for policy in [
+            SamplerPolicy::RepeatNearest,
+            SamplerPolicy::ClampNearest,
+            SamplerPolicy::ClampLinear,
+        ] {
+            assert_eq!(policy.requested_anisotropy(), 1);
+            assert_eq!(policy.descriptor().anisotropy_clamp, 1);
+        }
+        let nearest = SamplerPolicy::RepeatNearest.descriptor();
+        assert_eq!(nearest.mag_filter, wgpu::FilterMode::Nearest);
+        assert_eq!(nearest.min_filter, wgpu::FilterMode::Nearest);
+        assert_eq!(nearest.mipmap_filter, wgpu::MipmapFilterMode::Nearest);
+        let clamp_linear = SamplerPolicy::ClampLinear.descriptor();
+        assert_eq!(clamp_linear.mag_filter, wgpu::FilterMode::Linear);
+        assert_eq!(clamp_linear.min_filter, wgpu::FilterMode::Linear);
+        assert_eq!(clamp_linear.mipmap_filter, wgpu::MipmapFilterMode::Linear);
+        assert_eq!(clamp_linear.address_mode_u, wgpu::AddressMode::ClampToEdge);
+        for level in TextureFiltering::ALL {
+            for policy in [level.sampler_policy(), level.clamp_sampler_policy()] {
+                assert!(
+                    !matches!(
+                        policy,
+                        SamplerPolicy::RepeatNearest
+                            | SamplerPolicy::ClampNearest
+                            | SamplerPolicy::ClampLinear
+                    ),
+                    "{} must not select the specialized {policy:?}",
+                    level.name()
+                );
+            }
+        }
     }
 
     #[test]
-    fn a_wrap_selects_the_matching_sampler_policy() {
+    fn every_policy_has_a_distinct_stable_label() {
+        let mut labels: Vec<&str> = ALL_POLICIES.iter().map(|policy| policy.label()).collect();
+        labels.sort_unstable();
+        labels.dedup();
         assert_eq!(
-            TextureWrap::Repeat.policy(TextureFiltering::Linear),
-            SamplerPolicy::RepeatLinear
+            labels.len(),
+            ALL_POLICIES.len(),
+            "two policies share a label: {labels:?}"
         );
-        assert_eq!(
-            TextureWrap::Repeat.policy(TextureFiltering::Nearest),
-            SamplerPolicy::RepeatNearest
-        );
-        assert_eq!(
-            TextureWrap::Clamp.policy(TextureFiltering::Linear),
-            SamplerPolicy::ClampLinear
-        );
-        assert_eq!(
-            TextureWrap::Clamp.policy(TextureFiltering::Nearest),
-            SamplerPolicy::ClampNearest
-        );
+        for policy in ALL_POLICIES {
+            assert!(
+                policy.label().starts_with("places-wgpu-sampler-"),
+                "unexpected label {:?}",
+                policy.label()
+            );
+        }
+    }
+
+    #[test]
+    fn an_unsupported_adapter_clamps_only_the_world_presets_to_one() {
+        for level in TextureFiltering::ALL {
+            for policy in [level.sampler_policy(), level.clamp_sampler_policy()] {
+                let requested = policy.descriptor();
+                let supported = policy.effective_descriptor(true);
+                assert_eq!(supported.anisotropy_clamp, level.anisotropy());
+                assert_eq!(supported.anisotropy_clamp, requested.anisotropy_clamp);
+                let unsupported = policy.effective_descriptor(false);
+                assert_eq!(unsupported.anisotropy_clamp, 1);
+                // The fallback keeps the same linear levels and addressing:
+                // only the anisotropy request is clamped, never the mips or the
+                // address mode.
+                assert_eq!(unsupported.mag_filter, wgpu::FilterMode::Linear);
+                assert_eq!(unsupported.min_filter, wgpu::FilterMode::Linear);
+                assert_eq!(unsupported.mipmap_filter, wgpu::MipmapFilterMode::Linear);
+                assert_eq!(unsupported.address_mode_u, requested.address_mode_u);
+                assert_eq!(unsupported.lod_max_clamp, requested.lod_max_clamp);
+            }
+        }
+        for policy in [
+            SamplerPolicy::RepeatNearest,
+            SamplerPolicy::ClampNearest,
+            SamplerPolicy::ClampLinear,
+        ] {
+            assert_eq!(policy.effective_descriptor(true).anisotropy_clamp, 1);
+            assert_eq!(policy.effective_descriptor(false).anisotropy_clamp, 1);
+        }
+    }
+
+    #[test]
+    fn the_filtering_setting_parses_the_three_levels_and_legacy_names() {
+        assert_eq!(TextureFiltering::parse("low"), TextureFiltering::Low);
+        assert_eq!(TextureFiltering::parse("medium"), TextureFiltering::Medium);
+        assert_eq!(TextureFiltering::parse("high"), TextureFiltering::High);
+        // Trimmed and ASCII case-insensitive.
+        assert_eq!(TextureFiltering::parse("  LOW "), TextureFiltering::Low);
+        assert_eq!(TextureFiltering::parse("Medium"), TextureFiltering::Medium);
+        assert_eq!(TextureFiltering::parse("\tHIGH\n"), TextureFiltering::High);
+        // Legacy settings-file names.
+        assert_eq!(TextureFiltering::parse("linear"), TextureFiltering::High);
+        assert_eq!(TextureFiltering::parse("nearest"), TextureFiltering::Low);
+        // Empty and unknown keep the default (High).
+        assert_eq!(TextureFiltering::parse(""), TextureFiltering::High);
+        assert_eq!(TextureFiltering::parse("   "), TextureFiltering::High);
+        assert_eq!(TextureFiltering::parse("bogus"), TextureFiltering::High);
+    }
+
+    #[test]
+    fn a_wrap_selects_the_matching_sampler_policy_at_every_level() {
+        for (index, level) in TextureFiltering::ALL.into_iter().enumerate() {
+            assert_eq!(TextureWrap::Repeat.policy(level), WORLD_POLICIES[0][index]);
+            assert_eq!(TextureWrap::Clamp.policy(level), WORLD_POLICIES[1][index]);
+            assert_ne!(level.sampler_policy(), level.clamp_sampler_policy());
+        }
+    }
+
+    #[test]
+    fn the_fallback_sheet_binds_the_same_clamped_nearest_policy_at_every_level() {
+        // The fallback is a flat fill: every level answers the reference's
+        // clamped nearest policy (and its one-level upload), so the player
+        // setting cannot change a fallback texel.
+        for level in TextureFiltering::ALL {
+            assert_eq!(
+                sheet_policy(TextureWrap::Repeat, level, true),
+                SamplerPolicy::ClampNearest
+            );
+            assert_eq!(
+                sheet_policy(TextureWrap::Clamp, level, true),
+                SamplerPolicy::ClampNearest
+            );
+            // Every ordinary sheet follows its own wrap contract and the level.
+            assert_eq!(
+                sheet_policy(TextureWrap::Repeat, level, false),
+                level.sampler_policy()
+            );
+            assert_eq!(
+                sheet_policy(TextureWrap::Clamp, level, false),
+                level.clamp_sampler_policy()
+            );
+        }
     }
 
     /// Measures the hardware sRGB decode plus the shader-style `linear_to_srgb`

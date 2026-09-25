@@ -23,7 +23,8 @@
 # Environment:
 #   PLACES_BIN            executable to capture (default target/release/places)
 #   PLACES_CAPTURE_DIR    output root; the script writes <root>/high and <root>/low
-#   PLACES_QUALITY        capture only `full` or `low` instead of both
+#   PLACES_QUALITY        capture only `high` or `low` instead of both
+#                         (`full` is the historical alias of `high`)
 #   PLACES_BASELINE_STATE scratch state root (default target/renderer-baseline-state)
 set -eu
 
@@ -38,8 +39,8 @@ if [ ! -x "$BIN" ]; then
 fi
 
 # The fixed canvas: 640x360 logical is a 1280x720 drawable at 2x. Everything
-# else is the shipped default presentation: Full-quality assets, lightmaps on,
-# bloom on, reflections on, linear filtering, 60 degree field of view.
+# else is the shipped default presentation: High-quality assets, lightmaps on,
+# bloom on, reflections on, High texture filtering, 60 degree field of view.
 mkdir -p "$STATE"
 cat > "$STATE/settings.json" <<JSON
 {
@@ -48,8 +49,8 @@ cat > "$STATE/settings.json" <<JSON
     "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT"
   },
   "look_speed_h": 90.0, "look_speed_v": 60.0, "walk_speed": 3.0, "fov_degrees": 60.0,
-  "invert_look": false, "vsync": false, "texture_filtering": "linear",
-  "quality": "full", "bloom": true, "reflections": true, "lightmaps": true,
+  "invert_look": false, "vsync": false, "texture_filtering": "high",
+  "quality": "high", "bloom": true, "reflections": true, "lightmaps": true,
   "window_mode": "windowed", "window_width": 640, "window_height": 360
 }
 JSON
@@ -126,18 +127,18 @@ capture_profile() {
 
 status=0
 case "${PLACES_QUALITY:-both}" in
-    full)
-        capture_profile full "$OUT/high" || status=1
+    high | full)
+        capture_profile high "$OUT/high" || status=1
         ;;
     low)
         capture_profile low "$OUT/low" || status=1
         ;;
     both)
-        capture_profile full "$OUT/high" || status=1
+        capture_profile high "$OUT/high" || status=1
         capture_profile low "$OUT/low" || status=1
         ;;
     *)
-        echo "capture_baseline_views: PLACES_QUALITY must be 'full', 'low' or unset" >&2
+        echo "capture_baseline_views: PLACES_QUALITY must be 'high', 'low' or unset ('full' is the historical alias of 'high')" >&2
         exit 2
         ;;
 esac
