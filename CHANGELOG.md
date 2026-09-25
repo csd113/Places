@@ -13,6 +13,41 @@ OpenGL/GLES2 renderer state before the desktop renderer modernization begins.
 - No wgpu migration, renderer alteration, cleanup or gameplay work is included
   in this release.
 
+## Unreleased — lighting continuity on large surfaces
+
+### Fixed
+
+- **A lighting step at a coalesced wall run's room boundary.** Wall lightmap
+  charts carried one room hint per emission strip. Abutting wall pieces coalesce
+  into units, and a unit's length run can cross a room boundary (Places Demo's
+  corridor wall is authored as pieces), so the baked light switched room at the
+  arbitrary run seam instead of at the room boundary: a 13/255 vertical step in
+  the middle of a continuous wallpapered face, repeated at every such seam — the
+  grid that appeared on long walls. Wall charts now resolve their room per texel
+  at the same bias-shifted sample point the fill already uses, so the light
+  follows the world; floors and ceilings are emitted per room and keep their
+  exact hint. Regression:
+  `a_wall_run_across_a_room_boundary_does_not_step`.
+- **A wall base one ULP below its own floor was shadowed by that floor.** A
+  floor interface's crossing test only ignored an endpoint exactly on the plane.
+  A wall base is the same world height as the floor reached through a different
+  float expression (`top + height` versus the plane's own `y`) and can round one
+  ULP below it; the interface then read the sample as crossing and deleted its
+  light, so two coplanar wall strips whose bases rounded opposite ways stepped
+  by up to 25/255 at the shared corner. A sample within one millimetre of the
+  plane now counts as a contact — only for a source above the plane, so a light
+  below still cannot light through. Regression:
+  `a_sample_an_ulp_below_its_own_floor_is_still_lit`.
+- `LIGHTMAP_FORMAT_VERSION` is 5, so both fixes invalidate any atlas baked by an
+  earlier build and force a fresh bake.
+
+### Validation
+
+- Full demo re-baked at both profiles; the canonical captures and the corridor
+  seam view were compared before/after; the lightmap-only diagnostic shows the
+  seam gone. `cargo test --workspace`, `cargo clippy --workspace --all-targets
+  --all-features -- -D warnings` and `cargo fmt --all --check` pass.
+
 ## Unreleased — Settings, display and runtime configuration
 
 Places now starts like a desktop game and its pause-menu Settings screen is the

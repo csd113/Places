@@ -116,6 +116,25 @@ const SEGMENT_CLIP_EPS: f32 = 1.0e-5;
 /// seam. The boxes below are never shrunk.
 const SEGMENT_START_EPS_M: f32 = 1.0e-3;
 
+/// How far a sample endpoint may sit from a floor interface's plane and still
+/// count as *on* the interface rather than across it, in metres.
+///
+/// A surface sample is generated on its own room's floor plane by
+/// construction, and a wall's bottom edge is the same world height reached
+/// through a different floating-point expression (`top + height` versus the
+/// plane's own `y`), so the two can differ by a few ULPs. Measured on
+/// `places_demo`: a wall base at `2.0 + -2.9` sits one ULP below a floor plane
+/// at `-0.9`, the interface's crossing test reads that as light crossing from
+/// the room into the floor, and the wall's bottom texel is shadowed by the very
+/// floor it stands on. Two coplanar wall strips whose bottoms round to opposite
+/// sides of the plane then step by up to 10% of their brightness at the shared
+/// corner. Treating a sample within this band as on the plane removes the
+/// floating-point cliff. It is the same millimetre the bake already nudges
+/// segment starts by, and no interface is thinner than a few millimetres, so no
+/// real occlusion is lost; the *source* endpoint (a light or a tap) does not get
+/// the band, so a light below a floor still cannot light through it.
+const PLANE_CONTACT_EPS_M: f32 = 1.0e-3;
+
 /// Preferred cell size of the uniform grid that answers "is this point inside a
 /// wall?" and "does a segment cross a solid near here?".
 ///
@@ -371,10 +390,18 @@ impl Plane {
     ///
     /// An endpoint exactly on the plane does not count: a surface sample lies
     /// on its own floor plane by construction, and the fixture it belongs to
-    /// must be able to light it.
+    /// must be able to light it. "Exactly" is a [`PLANE_CONTACT_EPS_M`] band
+    /// for the sample endpoint, because the mesh reaches the same world height
+    /// through a different float expression and can land a few ULPs to either
+    /// side of the plane. Only a source *above* the plane gets the band (the
+    /// side a floor surface belongs to), so a light below still cannot light
+    /// through an interface.
     fn hits(&self, from: [f32; 3], to: [f32; 3]) -> bool {
         let from_side = from[1] - self.y;
         let to_side = to[1] - self.y;
+        if from_side > 0.0 && to_side > -PLANE_CONTACT_EPS_M {
+            return false;
+        }
         if from_side * to_side >= 0.0 {
             return false;
         }
@@ -2238,6 +2265,46 @@ mod tests {
         assert!(
             visibility.occludes(0, fixture, [3.0, 3.001, 2.0]),
             "and it must still block a slanted segment that crosses it"
+        );
+    }
+
+    #[test]
+    fn a_sample_an_ulp_below_its_own_floor_is_still_lit() {
+        // A wall's bottom edge is the same world height as its room's floor
+        // reached through a different float expression (`base + height` versus
+        // the plane's own `y`), so it can land a few ULPs below the plane. The
+        // interface's contract is that a sample *on* the plane is a contact,
+        // not a crossing; without the contact band the sample was read as
+        // buried, its own floor shadowed its wall base, and two coplanar wall
+        // strips whose bases rounded to opposite sides of the plane stepped by
+        // ~25/255 at the shared corner. Places Demo's home wing carries exactly
+        // that corner.
+        let level = level(
+            r#"{
+                "format_version": 1,
+                "id": "floor_contact",
+                "name": "Floor Contact",
+                "spawn": { "x": 2.0, "z": 2.0 },
+                "rooms": [{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }]
+            }"#,
+        );
+        let visibility = Visibility::build(&level, &[]);
+        let light = [2.0, 2.5, 2.0];
+        assert!(
+            !visibility.occludes_anywhere(light, [2.0, -0.000_000_1, 2.0]),
+            "a sample one ULP below its own floor is a contact, not a crossing"
+        );
+        assert!(
+            !visibility.occludes_anywhere(light, [2.0, -0.000_5, 2.0]),
+            "the contact band covers the float error of the mesh's own height"
+        );
+        assert!(
+            visibility.occludes_anywhere(light, [2.0, -0.01, 2.0]),
+            "a sample genuinely under the floor stays shadowed by it"
+        );
+        assert!(
+            visibility.occludes_anywhere([2.0, -0.5, 2.0], [2.0, 0.000_5, 2.0]),
+            "a light below the floor still cannot light through it"
         );
     }
 

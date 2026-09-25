@@ -2156,6 +2156,17 @@ storage change, not an authoring one.
   floor changes the texture and leaves the baked illumination continuous. Charts stay
   separate wherever the lighting is genuinely discontinuous (a 90-degree corner, a
   wall, a different room).
+* A wall chart resolves its room **per texel**, not once per emitted strip. Abutting
+  wall pieces coalesce into emission units, and one unit's run can cross a room
+  boundary (two rooms sharing a corridor wall, a run through a doorway); resolving a
+  single room for the whole run would switch the baked light at the arbitrary run seam
+  rather than at the room boundary and step the brightness of a continuous face.
+  Floors and ceilings are emitted per room and keep their exact hint.
+* An interface plane (a room's floor) treats a sample within one millimetre of itself
+  as *on* the plane, not across it: the mesh reaches a wall base's height through a
+  different float expression than the plane's own `y`, so the two can differ by a
+  ULP, and without the contact band the floor shadowed its own wall base and two
+  coplanar strips whose bottoms rounded opposite ways stepped at the seam.
 * `settings.json` carries `"lightmaps": true|false` (default `true`), exposed as
   Settings → Graphics → Lightmaps and switched live (the level's lighting is
   rebuilt from the resident definition, with the player state preserved). The

@@ -47,7 +47,12 @@ use super::{
 /// * `4` — soft shadows: the local pools are gated by an emitter-area
 ///   visibility fraction and the chart density/packing changed, so every texel
 ///   value differs from a version-3 atlas.
-pub const LIGHTMAP_FORMAT_VERSION: u32 = 4;
+/// * `5` — a wall chart resolves its room per texel instead of once per
+///   emission strip, so a coalesced wall run that crosses a room boundary no
+///   longer steps its baked light at the arbitrary strip boundary. Every wall
+///   texel of a strip that spans rooms changes value, so an atlas from an older
+///   build must not be reused.
+pub const LIGHTMAP_FORMAT_VERSION: u32 = 5;
 
 /// Root of the runtime-owned on-disk cache, below the state root.
 ///

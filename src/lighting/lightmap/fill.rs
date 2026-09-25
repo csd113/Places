@@ -58,6 +58,17 @@
 //!   [`crate::lighting::LevelLighting::sample_in_room`] path instead, exactly
 //!   like the vertex bake.
 //!
+//! A wall patch's room is resolved **per texel**, not from the patch's stored
+//! hint. Abutting wall pieces coalesce into emission units, and one unit's
+//! length run can span a room boundary (two rooms sharing a corridor wall, a
+//! wall run through a doorway); a single per-run hint would make the baked
+//! light switch room at the arbitrary run seam instead of at the room
+//! boundary, and the seam would read as a lighting step in the middle of a
+//! continuous face. The per-texel containment at the bias-shifted sample point
+//! is the same resolution the vertex bake uses, so the light follows the world
+//! continuously. Floors and ceilings are emitted per room already, so their
+//! hint is exact and is kept.
+//!
 //! With both, `fill_chart` reproduces the vertex bake's values on the shipped
 //! demo where the two paths are meant to agree.
 
@@ -84,6 +95,21 @@ pub fn fill_chart(lighting: &LevelLighting, patch: &LightmapPatch, chart: &Chart
     // into the room before it measures light, so the texel grid does the same
     // along the patch normal. See `LIGHTMAP_FACE_NORMAL_BIAS_M`.
     let bias = face_normal_bias(patch);
+    // A wall face can span several coalesced wall pieces, and a coalesced unit
+    // can itself span a room boundary (two rooms sharing one corridor wall, a
+    // wall run through a doorway). The patch's room is a per-emission-strip
+    // hint: carrying it across the whole strip would resolve one room's
+    // baseline, fixture set and doorway blends for a face that really stands in
+    // two of them, and the lighting would step at the strip boundary — an
+    // arbitrary geometry seam, not a room boundary. Wall texels therefore
+    // resolve their room per texel from the (bias-shifted) sample point, the
+    // same containment the vertex bake uses, so the light follows the world
+    // continuously along the face. Floors and ceilings are emitted per room
+    // already, so their hint is exact and stays.
+    let room = match patch.kind {
+        PatchKind::Wall => None,
+        PatchKind::Floor | PatchKind::Ceiling | PatchKind::Skirt => patch.room,
+    };
     for j in 0..height {
         let v = texel_axis(j, height);
         for i in 0..width {
@@ -97,12 +123,12 @@ pub fn fill_chart(lighting: &LevelLighting, patch: &LightmapPatch, chart: &Chart
             // every sample; the fast path is exactly equivalent everywhere
             // else.
             let light = if lighting.wall_contains_point(point[0], point[2]) {
-                patch.room.map_or_else(
+                room.map_or_else(
                     || lighting.sample(point[0], point[1], point[2]),
                     |room| lighting.sample_in_room(room, point[0], point[1], point[2]),
                 )
             } else {
-                lighting.lightmap_texel(patch.room, point[0], point[1], point[2])
+                lighting.lightmap_texel(room, point[0], point[1], point[2])
             };
             texels.push([
                 light.r.clamp(AMBIENT_LEVEL, MAX_BRIGHTNESS),

@@ -266,19 +266,59 @@ fn coplanar_pairs(
             if a.0.room != b.0.room || !patches_coplanar(&a.0, &b.0) {
                 continue;
             }
-            let shared = patch_edges(&a.0).iter().any(|(ap, aq)| {
-                patch_edges(&b.0).iter().any(|(bp, bq)| {
-                    let forward = distance(*ap, *bp) + distance(*aq, *bq);
-                    let reverse = distance(*ap, *bq) + distance(*aq, *bp);
-                    forward.min(reverse) <= 1.0e-4 && distance(*ap, *aq) > 1.0e-3
-                })
-            });
-            if shared {
+            if shared_edge(&a.0, &b.0).is_some() {
                 pairs.push((a.0, a.1, b.0, b.1));
             }
         }
     }
     pairs
+}
+
+/// Every pair of coplanar, same-kind charts that share a full edge and carry
+/// two different concrete room hints.
+///
+/// This is the seam a coalesced wall run used to expose: abutting wall pieces
+/// are merged into one emission unit, the unit's run can span a room boundary,
+/// and each stamped patch then carried one of the two rooms. The fill resolves
+/// wall rooms per texel, so these pairs must still agree on their shared edge
+/// even though their stored hints differ.
+fn cross_room_pairs(
+    lightmaps: &LevelLightmaps,
+    kind: PatchKind,
+) -> Vec<(LightmapPatch, Chart, LightmapPatch, Chart)> {
+    let stamped: Vec<(LightmapPatch, Chart)> = lightmaps
+        .charts
+        .iter()
+        .copied()
+        .filter(|(patch, _)| patch.kind == kind)
+        .collect();
+    let mut pairs = Vec::new();
+    for (index, a) in stamped.iter().enumerate() {
+        for b in stamped.iter().skip(index + 1) {
+            if a.0.room.is_none() || b.0.room.is_none() || a.0.room == b.0.room {
+                continue;
+            }
+            if !patches_coplanar(&a.0, &b.0) || shared_edge(&a.0, &b.0).is_none() {
+                continue;
+            }
+            pairs.push((a.0, a.1, b.0, b.1));
+        }
+    }
+    pairs
+}
+
+/// The world start and end of the full edge two patches share, if any.
+fn shared_edge(a: &LightmapPatch, b: &LightmapPatch) -> Option<([f32; 3], [f32; 3])> {
+    for (ap, aq) in patch_edges(a) {
+        for (bp, bq) in patch_edges(b) {
+            let forward = distance(ap, bp) + distance(aq, bq);
+            let reverse = distance(ap, bq) + distance(aq, bp);
+            if forward.min(reverse) <= 1.0e-4 && distance(ap, aq) > 1.0e-3 {
+                return Some((ap, aq));
+            }
+        }
+    }
+    None
 }
 
 /// True when `point` lies on one of the patch's boundary edges.
@@ -370,16 +410,8 @@ fn measure_shared_edge(
 /// coplanar-pair search, so the measurement does not depend on which axis of
 /// the patch the seam terminates.
 fn edge_sample_point(a: &LightmapPatch, b: &LightmapPatch, t: f32) -> [f32; 3] {
-    for (ap, aq) in patch_edges(a) {
-        for (bp, bq) in patch_edges(b) {
-            let forward = distance(ap, bp) + distance(aq, bq);
-            let reverse = distance(ap, bq) + distance(aq, bp);
-            if forward.min(reverse) <= 1.0e-4 && distance(ap, aq) > 1.0e-3 {
-                return std::array::from_fn(|axis| (aq[axis] - ap[axis]).mul_add(t, ap[axis]));
-            }
-        }
-    }
-    panic!("the patches must share an edge");
+    let (start, end) = shared_edge(a, b).expect("the patches must share an edge");
+    std::array::from_fn(|axis| (end[axis] - start[axis]).mul_add(t, start[axis]))
 }
 
 /// One material boundary on one coplanar floor must not step, at both profiles.
@@ -541,4 +573,41 @@ fn a_right_angle_corner_keeps_each_faces_own_light() {
             "a corner must not be averaged: floor {true_floor:?}, wall {true_wall:?}"
         );
     }
+}
+
+/// A wall's lightmap chart must not step at a coalesced-run boundary.
+///
+/// A wall run can span a room boundary: Places Demo's corridor wall is authored
+/// as abutting pieces that resolve into emission units, and one unit's run
+/// crosses from one of the corridor's rooms into the next. When the patch
+/// carried a single room hint per run, the baked light switched room at the run
+/// seam — an arbitrary geometry boundary in the middle of a continuous face —
+/// instead of following the world. Wall charts now resolve their room per texel,
+/// so two coplanar wall charts that name different rooms must still agree along
+/// their shared edge.
+#[test]
+fn a_wall_run_across_a_room_boundary_does_not_step() {
+    let level = parse(include_str!("../../../assets/levels/places_demo.json"));
+    let build = build(&level, QualityProfile::Full);
+    assert_eq!(build.lightmap_failure, None, "the demo must bake");
+    let lightmaps = lightmaps_of(&build);
+    let pages = lightmaps.pages.as_slice();
+    let pairs = cross_room_pairs(lightmaps, PatchKind::Wall);
+    assert!(
+        !pairs.is_empty(),
+        "the demo must exercise a wall run that crosses a room boundary"
+    );
+    let mut worst = 0.0_f32;
+    for (a, chart_a, b, chart_b) in pairs {
+        let page_a = &pages[usize::from(chart_a.page)];
+        let page_b = &pages[usize::from(chart_b.page)];
+        let measured =
+            measure_shared_edge(&build.lighting, &a, &chart_a, page_a, &b, &chart_b, page_b);
+        worst = worst.max(measured.step);
+    }
+    assert!(
+        worst <= 1.0 / 255.0 + 1.0e-6,
+        "a wall run crossing a room boundary must not step (measured {:.2}/255)",
+        worst * 255.0
+    );
 }

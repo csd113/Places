@@ -145,6 +145,11 @@ pub struct LightmapPatch {
     /// World vector spanned by `v` over `0..=1`.
     pub v_axis: [f32; 3],
     /// Room hint for [`crate::lighting::LevelLighting::sample_in_room`].
+    ///
+    /// The fill uses it for floors, ceilings and skirts, which are emitted per
+    /// room and can be lit by the area they belong to. Wall charts ignore it
+    /// and resolve their room per texel, because a coalesced wall run can span
+    /// a room boundary and one hint would make the light step at the run seam.
     pub room: Option<usize>,
     /// Which static surface family this patch covers.
     pub kind: PatchKind,
