@@ -1319,18 +1319,6 @@ impl WallDef {
     pub fn length_origin(&self) -> (f32, f32) {
         self.min_corner()
     }
-
-    #[must_use]
-    pub fn to_aabb(&self) -> WallAabb {
-        let h = self.resolved_height(DEFAULT_CEILING_HEIGHT_M);
-        WallAabb::with_y(self.x, self.y, self.z, self.width, h, self.depth)
-    }
-
-    #[must_use]
-    pub fn to_aabb_with_ceiling(&self, default_ceiling: f32) -> WallAabb {
-        let h = self.resolved_height(default_ceiling);
-        WallAabb::with_y(self.x, self.y, self.z, self.width, h, self.depth)
-    }
 }
 
 /// A rectangular cutout through a wall's thickness: doorway, window, passage, vent.
@@ -2808,25 +2796,6 @@ pub struct LightFixtureDef {
     pub emission: Option<f32>,
 }
 
-impl Default for LightFixtureDef {
-    fn default() -> Self {
-        Self {
-            fixture: String::new(),
-            x: 0.0,
-            z: 0.0,
-            rotation_degrees: 0.0,
-            brightness: None,
-            color: None,
-            mount: LightMount::Ceiling,
-            y: None,
-            range: None,
-            falloff: None,
-            enabled: true,
-            emission: None,
-        }
-    }
-}
-
 impl LightFixtureDef {
     /// Authored fixture intensity, sanitised for rendering.
     ///
@@ -2959,24 +2928,6 @@ pub struct LightDef {
     /// Whether the light illuminates at all; defaults to `true`.
     #[serde(default = "default_enabled")]
     pub enabled: bool,
-}
-
-impl Default for LightDef {
-    fn default() -> Self {
-        Self {
-            shape: LightShapeKind::Point,
-            half_width: None,
-            half_depth: None,
-            length: None,
-            offset: [0.0; 3],
-            rotation_degrees: 0.0,
-            color: None,
-            intensity: None,
-            range: None,
-            falloff: None,
-            enabled: true,
-        }
-    }
 }
 
 impl LightDef {
@@ -3209,12 +3160,6 @@ pub struct AnimatedEmissionDef {
     pub phase: Option<f32>,
 }
 
-/// Number of quads the office fluorescent panel generates (its single
-/// luminous face).
-///
-/// The sheet is the whole fixture. Other fixture families declare their own
-/// budget on [`crate::lighting::FixtureProfile::quads`].
-pub const MAX_LIGHT_QUADS: u64 = 1;
 /// Number of quads a prop generates in its placeholder-box form. Real prop
 /// geometry is batched separately and bounded by [`MAX_LEVEL_PROP_VERTICES`].
 pub const MAX_PROP_QUADS: u64 = 6;
@@ -4006,7 +3951,7 @@ pub const RIM_BACKING: f32 = 0.4;
 /// values), so a formula cannot drift between the mesh and the systems that
 /// have to agree with it.
 ///
-/// Ownership follows the historical `ceiling_height_at` rule: the first room in
+/// Ownership follows the clear-ceiling query: the first room in
 /// `rooms` then `room` order whose footprint contains the point (with
 /// [`ROOM_EDGE_EPS_M`] tolerance) wins. Legacy levels therefore resolve exactly
 /// as they always did, including walls sitting on a shared room boundary.
@@ -4540,12 +4485,6 @@ impl WalkableFloor {
     #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.rooms.is_empty()
-    }
-
-    /// Number of rooms in the model.
-    #[must_use]
-    pub const fn room_count(&self) -> usize {
-        self.rooms.len()
     }
 
     /// World Y of the walkable floor at `(x, z)`, or `None` outside every room.

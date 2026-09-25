@@ -269,12 +269,6 @@ impl SurfaceShine {
     }
 }
 
-impl From<f32> for SurfaceShine {
-    fn from(shine: f32) -> Self {
-        Self::from_unit(shine)
-    }
-}
-
 /// A batch group: one surface family, the material index it binds, and any
 /// per-surface shine override.
 ///
@@ -355,28 +349,6 @@ impl SurfaceKind {
         Self::PropFallback,
         Self::Decal,
     ];
-}
-
-/// One cullable, single-draw range of static level geometry.
-///
-/// Geometry used to be one range per material for the entire level, which meant
-/// a camera looking away from a prop field still paid its full vertex cost.
-/// Splitting each material by spatial cell keeps the draw shape (one texture,
-/// one buffer, one call per range) while letting the frustum drop whole cells.
-///
-/// `index_range` addresses the index buffer of GPU chunk `chunk`, so a draw
-/// reads the range through its index buffer and shades only the distinct
-/// vertices in it.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct StaticBatch {
-    pub key: SurfaceKey,
-    /// Which 16-bit-indexable GPU buffer pair this range lives in.
-    pub chunk: usize,
-    /// Range in that chunk's index buffer.
-    pub index_range: BatchRange,
-    /// Number of distinct vertices this batch indexes.
-    pub vertex_count: i32,
-    pub bounds: crate::spatial::Aabb,
 }
 
 /// The spatial grid a level is partitioned with.
@@ -493,43 +465,6 @@ impl LevelMesh {
             );
         }
         out
-    }
-
-    /// Alias of [`LevelMesh::triangles_for`], kept for the lighting audit and
-    /// the loader's surface queries.
-    #[must_use]
-    pub fn triangles_for_family(&self, kind: SurfaceKind) -> Vec<Vertex> {
-        self.triangles_for(kind)
-    }
-
-    /// Every vertex of one material index, in draw order, regardless of which
-    /// surface family it was emitted on.
-    #[must_use]
-    pub fn triangles_for_material(&self, material: MaterialIndex) -> Vec<Vertex> {
-        let mut out = Vec::new();
-        for range in self
-            .ranges
-            .iter()
-            .filter(|range| range.key.material == material)
-        {
-            out.extend(
-                range
-                    .indices
-                    .iter()
-                    .filter_map(|index| range.vertices.get(*index as usize).copied()),
-            );
-        }
-        out
-    }
-
-    /// Indices generated for one material index.
-    #[must_use]
-    pub fn index_count_for_material(&self, material: MaterialIndex) -> usize {
-        self.ranges
-            .iter()
-            .filter(|range| range.key.material == material)
-            .map(|range| range.indices.len())
-            .sum()
     }
 
     /// Every vertex of one exact surface key, in draw order.

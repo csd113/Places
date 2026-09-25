@@ -1,16 +1,15 @@
-//! The wgpu backend: SDL surface integration, device lifecycle, and the
+//! The wgpu backend: SDL3 surface integration, device lifecycle, and the
 //! complete Places renderer.
 //!
-//! Stages 0-3 built the renderer-neutral boundary and kept the OpenGL
-//! implementation behind it. Stage 4 added the wgpu instance, surface, adapter,
-//! device, queue, surface configuration and main depth target. Stage 5 added
-//! the static Places world, Stage 6 the texture system, Stage 7 the material
-//! system and Stage 8 the baked lighting and its display-space sheen. Stage 9
-//! completed the feature migration:
+//! It owns the wgpu instance, surface, adapter, device, queue, surface
+//! configuration and main depth target, and every part of the frame:
 //!
+//! * the static Places world, textured through the base-colour, material and
+//!   baked-lighting paths; the world vertex layout, pipelines and frame encode
+//!   live in [`world`], the material records in [`material`] and the texture
+//!   cache in [`texture`];
 //! * the lightmap atlas (the reference's normal/default baked-light path),
-//!   with the neutral bake and its content-keyed disk cache shared with the
-//!   OpenGL path ([`lightmap`]);
+//!   with the neutral bake and its content-keyed disk cache ([`lightmap`]);
 //! * static reflection probes and the half-size planar mirror
 //!   ([`reflections`]), the group-3 environment binding that carries the
 //!   lightmaps, probe, planar image, fog and planar projection
@@ -26,8 +25,8 @@
 //!
 //! Colour space: every offscreen target is raw `Rgba8Unorm` and the shaders
 //! write the reference's display-space values directly, so blending, filtering
-//! and sampling match the OpenGL reference exactly; only the sRGB surface is
-//! converted, once, at the final copy. See `docs/WGPU_STAGE9.md`.
+//! and sampling match the reference exactly; only the sRGB surface is
+//! converted, once, at the final copy. See `docs/RENDERER.md`.
 //!
 //! Module list:
 //!

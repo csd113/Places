@@ -157,6 +157,20 @@ fn log_prop_usage(renderer: &Renderer) {
             ""
         }
     );
+    log_dynamic_scene(renderer);
+}
+
+/// Logs the neutral dynamic scene's size.
+///
+/// Printed at startup and after every level switch, so the demonstration
+/// objects a level spawns (and the previous level's objects being cleared) are
+/// visible in the developer telemetry.
+// Startup CLI output that has no logger to route through.
+#[allow(clippy::print_stdout)]
+fn log_dynamic_scene(renderer: &Renderer) {
+    if !logging::verbose() {
+        return;
+    }
     println!(
         "[dynamic] {} object(s): {} draw call(s), {} vertices (the demonstration path; never part of the static bake)",
         renderer.dynamic_scene().len(),
@@ -279,9 +293,9 @@ fn display_bounds(display: Display) -> (u32, u32) {
 
 /// The window's display, falling back to the primary one.
 ///
-/// SDL3 identifies displays with opaque `SDL_DisplayID`s rather than the SDL2
-/// index (`0` was "primary"); a window that cannot report its display therefore
-/// falls back explicitly, never to an invalid zero id.
+/// SDL3 identifies displays with opaque `SDL_DisplayID`s rather than a small
+/// integer index; a window that cannot report its display therefore falls back
+/// explicitly, never to an invalid zero id.
 fn window_display(window: &Window, video: &VideoSubsystem) -> Option<Display> {
     window
         .get_display()
@@ -320,9 +334,8 @@ fn create_window(video: &VideoSubsystem, settings: &mut Settings) -> Result<Wind
     let mut builder = video.window("Places", width, height);
     builder.position_centered().resizable().high_pixel_density();
     if settings.window_mode() == WindowMode::Fullscreen {
-        // SDL3 removed the SDL2 `SDL_WINDOW_FULLSCREEN_DESKTOP` flag: a window
-        // asked for fullscreen without an explicit display mode is borderless
-        // desktop fullscreen, which is exactly what `fullscreen_desktop()` was.
+        // A window asked for fullscreen without an explicit display mode is
+        // borderless desktop fullscreen.
         builder.fullscreen();
     }
     let window = builder
@@ -331,15 +344,14 @@ fn create_window(video: &VideoSubsystem, settings: &mut Settings) -> Result<Wind
 
     if settings.window_mode() == WindowMode::Fullscreen {
         // SDL3 applies window state asynchronously: the fullscreen request made
-        // through the builder is finalized after the window exists. SDL2
-        // created the window already fullscreen, so the boot frame, the drawable
-        // the renderer configures and a first-frame capture all saw the final
-        // display-size drawable. `SDL_SyncWindow` is the documented barrier for
-        // pending window state; without it the first frames render (and a
-        // capture would take) the windowed size and the window visibly resizes
-        // once the request lands. A timed-out sync is not fatal: the request is
-        // still pending and the per-frame display poll adopts whatever the
-        // platform reports.
+        // through the builder is finalized after the window exists, so the boot
+        // frame, the drawable the renderer configures and a first-frame capture
+        // would all otherwise see the windowed size. `SDL_SyncWindow` is the
+        // documented barrier for pending window state; without it the first
+        // frames render (and a capture would take) the windowed size and the
+        // window visibly resizes once the request lands. A timed-out sync is
+        // not fatal: the request is still pending and the per-frame display
+        // poll adopts whatever the platform reports.
         if !window.sync() {
             logging::warn(
                 "[display] fullscreen did not finalize before the first frame; \
@@ -369,12 +381,10 @@ fn create_sdl_and_window(settings: &mut Settings) -> Result<(Sdl, VideoSubsystem
 
     let window = create_window(&video_subsystem, settings)?;
 
-    // SDL2 enabled Unicode text input (and therefore the platform IME)
-    // implicitly as soon as the video subsystem started, and this game only
-    // consumes raw key events, never composed text, so the old build stopped it
-    // on macOS to keep SDL away from InputMethodKit. SDL3 starts with text
-    // input disabled and scopes it per window; stopping it explicitly keeps the
-    // old guarantee in place at no behavioural cost.
+    // SDL3 starts with text input disabled and scopes it per window. This
+    // game consumes only raw key events, never composed text, so stopping text
+    // input explicitly keeps the platform IME away from the keyboard path at no
+    // behavioural cost.
     video_subsystem.text_input().stop(&window);
     Ok((sdl_context, video_subsystem, window))
 }
@@ -873,8 +883,7 @@ impl FrameLoop<'_> {
     fn apply_window_settings(&mut self) -> Result<(), String> {
         if self.settings.window_mode() == WindowMode::Fullscreen {
             // SDL3 has one fullscreen boolean; with no display mode set it is
-            // borderless desktop fullscreen (the SDL2 `FullscreenType::Desktop`
-            // behaviour Places has always used).
+            // borderless desktop fullscreen, the mode Places uses.
             return self
                 .window
                 .set_fullscreen(true)
@@ -939,10 +948,11 @@ impl FrameLoop<'_> {
         let mode = match self.window.fullscreen_state() {
             FullscreenType::Off => WindowMode::Windowed,
             // SDL3 has no separate desktop-fullscreen flag: a borderless
-            // desktop fullscreen window reports `True` (the crate's `Desktop`
-            // variant tests the old SDL2 flag bit, which is SDL_WINDOW_MODAL in
-            // SDL3, so it is never produced). Places only ever requests
-            // borderless desktop fullscreen, so `Off` vs not-`Off` is exact.
+            // desktop fullscreen window reports `True`, while the crate's
+            // `Desktop` variant tests a flag bit SDL3 uses for
+            // `SDL_WINDOW_MODAL`, so it is never produced. Places only ever
+            // requests borderless desktop fullscreen, so `Off` vs not-`Off` is
+            // exact.
             FullscreenType::True | FullscreenType::Desktop => WindowMode::Fullscreen,
         };
         let window_size = self.window.size();
@@ -1324,6 +1334,7 @@ impl FrameLoop<'_> {
             Ok(loaded) => {
                 self.renderer.set_level(&loaded);
                 spawn_level_demonstration(self.renderer, &loaded);
+                log_dynamic_scene(self.renderer);
                 *self.spawn_pos = game::spawn_position(&loaded.level);
                 *self.spawn_yaw = loaded.level.spawn.yaw_degrees.to_radians();
                 self.game.reset_level(
@@ -1539,9 +1550,8 @@ const fn on_off(value: bool) -> &'static str {
 fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String> {
     let package = use_package_assets();
     log_package(&package);
-    // SDL3 replaced the SDL2 `SDL_VIDEO_X11_WMCLASS` window-class hint with app
-    // metadata; the identifier is what X11/Wayland use to associate the window
-    // with Places. It must be set before `sdl3::init()`.
+    // The app identifier is what X11/Wayland use to associate the window with
+    // Places; it must be set before `sdl3::init()`.
     sdl3::set_app_metadata(
         Some("Places"),
         Some(APP_VERSION),

@@ -372,8 +372,6 @@ pub struct LevelLighting {
     all_lights: Vec<u32>,
     /// Ceiling plane used for fixtures that no room contains.
     default_ceiling_y: f32,
-    /// Clear height used for the height factor of fixtures outside every room.
-    default_height_m: f32,
     /// Emitter taps per axis for local-pool visibility, from the bake's
     /// [`BakeConfig`]. Stored as the plain byte so the empty [`Default`] bake
     /// stays derivable; `0` and `1` are hard shadows.
@@ -1301,7 +1299,6 @@ impl LevelLighting {
             room_lights,
             all_lights,
             default_ceiling_y,
-            default_height_m,
             sampling_taps: config.sampling.taps_per_axis,
         }
     }
@@ -1613,14 +1610,6 @@ impl LevelLighting {
     #[must_use]
     pub fn wall_fixture_y(&self, x: f32, z: f32, authored: Option<f32>) -> f32 {
         resolve_wall_fixture_y(&self.rooms, x, z, authored)
-    }
-
-    /// Clear eave height of the room owning `(x, z)`, for tests and diagnostics.
-    #[must_use]
-    pub fn ceiling_height_at(&self, x: f32, z: f32) -> f32 {
-        self.room_index_at(x, z)
-            .and_then(|index| self.rooms.get(index))
-            .map_or(self.default_height_m, |info| info.height_m)
     }
 
     /// True when `(x, z)` lies inside a static wall solid, ignoring height.

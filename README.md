@@ -23,12 +23,11 @@ The engine is deliberately small and the content is deliberately editable:
 
 * **Rooms, walls and openings** are authored as rectangles in a JSON level.
   Walls can be cut with doors, windows, passages and vents.
-* **Baked RGB lighting, now as real lightmaps.** Every fixture bakes a room
-  baseline plus a local pool, exactly as before, but the result is stored per
-  *texel* in a lightmap atlas for static floors, ceilings, walls and skirts — so
-  a fixture reads as a pool of light with a soft edge instead of a plateau.
-  Coloured fixtures tint both the visible panel and the illumination. The old
-  per-vertex bake remains as an exact fallback.
+* **Baked RGB lighting stored as a lightmap atlas.** Every fixture bakes a room
+  baseline plus a local pool, stored per *texel* in an atlas for static floors,
+  ceilings, walls and skirts — so a fixture reads as a pool of light with a soft
+  edge instead of a plateau. Coloured fixtures tint both the visible panel and
+  the illumination, and the per-vertex bake remains as an exact fallback.
 * **Props occlude the light.** A placed prop's own geometry joins the bake, so
   the floor under a machine darkens, a fridge blocks the pool behind it and
   furniture grounds itself against the wall it stands on — with nothing to
@@ -41,7 +40,7 @@ The engine is deliberately small and the content is deliberately editable:
   room's footprint, each side gets its own baseline from the fixtures it can
   reach; a doorway still blends a bounded amount through its aperture, and a
   wall that stops short of the ceiling is not a partition. An open room bakes
-  exactly as it always did.
+  the same way it always did.
 * **Walls are lighting boundaries.** A fixture's light only reaches what its
   panel can see: an opaque wall blocks the pool behind it, and a doorway,
   window, passage or vent transmits light through exactly the hole it cuts.
@@ -75,10 +74,16 @@ The engine is deliberately small and the content is deliberately editable:
   `flicker`, deterministically and within a bounded depth — a backlit sign
   breathing, a tube on a failing ballast.
 
+The renderer itself is documented in [docs/RENDERER.md](docs/RENDERER.md) and
+the overall architecture in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Screenshots
 
 These captures show the earlier Office/Pool route. For the current Home wing
-and the complete renderer reference, see [the canonical baseline](docs/renderer-baseline/BASELINE.md).
+see the demo below; the complete current renderer reference is
+[docs/RENDERER.md](docs/RENDERER.md), and
+[docs/renderer-baseline/BASELINE.md](docs/renderer-baseline/BASELINE.md) is the
+frozen historical capture record of the former renderer, kept for comparison.
 
 | | |
 | --- | --- |
@@ -148,12 +153,51 @@ level. See [Rendering notes](#rendering-notes) for what each option changes.
 
 ## Build and run
 
+### Setting up
+
+Places is developed on macOS and is portable by construction: SDL3 owns the
+window, input, DPI and display layer on every target, and the build selects one
+wgpu backend from the target platform — Metal on macOS, Vulkan on Linux,
+Direct3D 12 on Windows. Nothing else in the codebase is platform-specific.
+
+The Linux and Windows instructions below are reviewed against the build
+configuration but are not executed by the project's verification host. The
+current verification status, the per-row platform matrix and the procedure used
+to fill it in are in [docs/VERIFICATION.md](docs/VERIFICATION.md).
+
+Rust 1.91 or newer is required (the project is verified on 1.98.x; edition
+2024).
+
 ### Desktop prerequisites
 
-macOS is the development platform. You need SDL3 (3.2 or newer) and `pkg-config`:
+**macOS** (the verified host). You need SDL3 (3.2 or newer) and `pkg-config`:
 
 ```sh
 brew install sdl3 pkg-config
+cargo run
+```
+
+**Linux** (reviewed, not executed on the project host). Install the SDL3
+development package, `pkg-config`, and the Vulkan loader with a driver, for
+example:
+
+```sh
+# Debian / Ubuntu
+sudo apt install libsdl3-dev pkg-config libvulkan1 mesa-vulkan-drivers
+# Fedora
+sudo dnf install SDL3-devel pkg-config vulkan-loader mesa-vulkan-drivers
+# Arch
+sudo pacman -S sdl3 pkgconf vulkan-icd-loader
+cargo run
+```
+
+**Windows** (reviewed, not executed on the project host). Install SDL3 — for
+example with vcpkg (`vcpkg install sdl3:x64-windows`) or from a prebuilt SDL3
+development package — and a C/C++ toolchain: the MSVC build tools with the C++
+workload (the `stable-msvc` Rust toolchain) or MinGW-w64. The backend is
+Direct3D 12.
+
+```powershell
 cargo run
 ```
 
@@ -223,10 +267,12 @@ happens to be started from.
 ## Assets, themes and ids
 
 `assets/catalog.json` is the authoritative registry. Levels reference **logical
-ids**, never paths, so a file can move without editing a level. There are two
-environment themes, `office` and `pool`; themes document and group content and
-never restrict placement — an Office fixture may light a Pool room and an entity
-may stand anywhere.
+ids**, never paths, so a file can move without editing a level. There are three
+environment themes — `office`, `pool` and `home` — and a theme documents and
+groups content without restricting placement: an Office fixture may light a Pool
+room, and an entity may stand anywhere. The tables below cover the Office and
+Pool families; `home:` ids (lighting, seating and kitchen content) are listed in
+the catalog itself.
 
 | Office | id |
 | --- | --- |
@@ -358,9 +404,9 @@ src/                 the game crate (`places`)
     level.rs         the level format, geometry rules and the walkable floor
     loader.rs        level discovery, validation, packs, materials resolution
     lighting/        the bake: partition areas, baselines, fixture pools, visibility
-    render/          the renderer boundary: common/ (neutral preparation),
+    render/          the renderer: common/ (renderer-neutral preparation),
                      wgpu/ (the renderer: device/surface lifecycle and every
-                     reference feature), and the narrow Renderer facade
+                     current feature), and the narrow Renderer facade
     materials/       PNG decode, texture cache, material and decal resolution
     game.rs          player state, movement and collision
     ui.rs            the menu, level select and settings screens
@@ -368,17 +414,22 @@ assets/              the shipped content (catalog, levels, models, textures, dec
 levels/              drop-in custom levels and level packs
 tools/               asset, texture, prop and level generators and validators
 level-editor/        the legacy browser level editor
+docs/                ARCHITECTURE.md, RENDERER.md, VERIFICATION.md and the guides
 docs/screenshots/    the images in this README
-docs/renderer-baseline/  the fixed-view pre-wgpu renderer reference (High and Low)
+docs/renderer-baseline/  frozen 25-view reference captures (Full and Low) and their record
 ```
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the layer diagram, the
+module map and the renderer ownership rules, and
+[docs/RENDERER.md](docs/RENDERER.md) for the renderer reference.
 
 ## Current development status
 
 Working and shipped:
 
 * first-person exploration with collision and floor-elevation traversal;
-* three environment themes with external PNG surfaces and four external or
-  file-backed decal sheets;
+* three environment themes with external PNG surfaces, three external decal
+  sheets and one generated validation marking;
 * baked RGB lighting driven by generic engine-level light sources (point,
   rectangle and line shapes) with per-light colour, intensity, range, falloff
   and enabled state; fixtures and props own lights, and neither materials nor
@@ -451,13 +502,11 @@ Known limitations, all deliberate:
   takes no decals;
 * rooms and walls are axis-aligned rectangles only;
 * the legacy level editor does not preserve the vertical-geometry keys;
-* the wgpu renderer draws the complete reference frame — the baked lightmap
-  atlas (and the vertex-lit fallback), props, dynamics, fixtures, emission,
-  decals, probes and the planar mirror, fog, bloom/post and the HUD — with the
-  material surface response. See
-  [docs/WGPU_STAGE9.md](docs/WGPU_STAGE9.md) and
-  [docs/WGPU_STAGE10.md](docs/WGPU_STAGE10.md). The deleted OpenGL/GLES2
-  reference renderer is preserved at the `renderer-gles2-reference` tag; see
+* the renderer draws the complete frame — the baked lightmap atlas (and the
+  vertex-lit fallback), props, dynamics, fixtures, emission, decals, probes and
+  the planar mirror, fog, bloom/post and the HUD — with the material surface
+  response. See [docs/RENDERER.md](docs/RENDERER.md). The former GLES2
+  renderer is preserved at the `renderer-gles2-reference` tag; see
   [docs/RENDERER_REFERENCE.md](docs/RENDERER_REFERENCE.md).
 
 ## Rendering notes
@@ -477,10 +526,10 @@ a cut-out sheet over the surface it belongs to. Lighting is computed once per
 level load, never per frame.
 
 The scene is rendered into an offscreen colour+depth target and resolved into the
-display image by one fullscreen pass; the HUD is drawn afterwards, on the default
-framebuffer, at the drawable's own resolution, so it stays sharp and outside
-every post-processing stage. The target tracks the drawable's size and aspect
-ratio (nothing is stretched) and falls back to drawing straight into the
+display image by one fullscreen pass; the HUD is drawn afterwards, into the
+presented image, at the drawable's own resolution, so it stays sharp and outside
+every post-processing stage. The targets track the drawable's size and aspect
+ratio (nothing is stretched) and fall back to drawing straight into the
 framebuffer if the offscreen targets cannot be created.
 
 The resolve stage adds bloom, exposure and a subtle grade, and it is the only
@@ -533,11 +582,10 @@ never have to think about:
   normal. That is a real geometric separation, sub-pixel at any practical
   viewing distance, so the base texture cannot win a pixel in the near and mid
   field no matter how the rasteriser fits its plane equations.
-* `DECAL_POLYGON_OFFSET` adds a `glPolygonOffset(-1, -4)` bias in the decal
-  pass, so the far field and grazing angles stay in front of the parent surface
-  after the physical offset is below the depth buffer's resolution. The
-  slope-scaled term tracks the interpolation error, which grows with the depth
-  slope.
+* `DECAL_POLYGON_OFFSET` adds a slope-scaled depth bias in the decal pass, so
+  the far field and grazing angles stay in front of the parent surface after the
+  physical offset is below the depth buffer's resolution. The slope-scaled term
+  tracks the interpolation error, which grows with the depth slope.
 
 Both are defined once — `DECAL_SURFACE_OFFSET_M` and `DECAL_POLYGON_OFFSET`
 in `src/render/common/decals.rs` — and applied in one place,
@@ -559,7 +607,8 @@ looks like:
   art set, not a correctness toggle.
 
 The current pipeline is calibrated as a whole. Historical investigations
-remain available in Git history.
+remain available in Git history. The renderer reference documents the colour
+contract in full: [docs/RENDERER.md](docs/RENDERER.md).
 
 ## Changelog
 

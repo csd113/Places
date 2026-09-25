@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use super::{
     DECAL_EXTERNAL_BASE, LIGHT_FACE_PROBE_M, LevelDef, LevelLighting, LevelMesh, LevelSurfaces,
     LightmapEmit, LitSurface, MATERIAL_NONE, MaterialIndex, MaterialLookup, MaterialSlot,
-    MaterialTable, PropDef, SkirtColors, SurfaceKey, SurfaceKind, Vertex, WALL_COINCIDENCE_EPS,
+    MaterialTable, PropDef, SurfaceKey, SurfaceKind, Vertex, WALL_COINCIDENCE_EPS,
     WALL_FACE_EAST_MULT, WALL_FACE_NORTH_MULT, WALL_FACE_SOUTH_MULT, WALL_FACE_WEST_MULT, WallAxis,
     WallCoverage, WallUnit, add_decal_quad, add_flush_mount_fixture, add_panel_fixture,
     add_prop_box, add_quad, add_round_fixture, add_wall_cross_quad, add_wall_fixture,
@@ -47,14 +47,6 @@ pub struct EmitContext<'a, 's> {
     /// every emitter must compute exactly the colours and vertices it always
     /// did.
     pub lightmap: Option<LightmapEmit<'s>>,
-    /// Material-only build: no atlas and no baked light, but every emitter
-    /// still writes the material factor (tint × directional face shade) into
-    /// its vertex colours, exactly as a lightmapped build's vertex colours do.
-    ///
-    /// This is the material-only build: the renderer consumes the material
-    /// factor, and the lighting terms belong to a later stage. It must never
-    /// reach the vertex-lit fallback path.
-    pub material_only: bool,
 }
 
 impl EmitContext<'_, '_> {
@@ -64,14 +56,13 @@ impl EmitContext<'_, '_> {
     }
 
     /// True when vertex colours carry the material factor alone (tint ×
-    /// directional face shade), with no baked light: either because a lightmap
-    /// atlas carries the light, or because this is a material-only build.
+    /// directional face shade) because the atlas carries the baked light.
     ///
     /// Every colour decision must use this; geometry shaping (chart-span caps,
-    /// merge runs) must keep using [`Self::lightmapped`] so a material-only
-    /// build merges exactly like the historical vertex-lit path.
-    pub const fn material_colors_only(&self) -> bool {
-        self.material_only || self.lightmap.is_some()
+    /// merge runs) must keep using [`Self::lightmapped`] so a build without a
+    /// plan merges exactly like the historical vertex-lit path.
+    pub const fn vertex_colors_are_material_only(&self) -> bool {
+        self.lightmap.is_some()
     }
 }
 
@@ -89,21 +80,17 @@ pub fn build_level_geometry_mesh(
         lighting,
         materials,
         None,
-        false,
     )
 }
 
-/// [`build_level_geometry_mesh`] with a lightmap plan the emitters stamp, or a
-/// material-only build.
+/// [`build_level_geometry_mesh`] with a lightmap plan the emitters stamp.
 ///
-/// With `lightmaps: None` and `material_only: false` the result is the
-/// historical vertex-lit mesh, byte for byte. With a plan every static floor,
-/// ceiling, wall and skirt quad is stamped with a chart and its vertex colour is
-/// reduced to material tint and directional face shade; the plan records one
-/// patch per quad for the fill pass. With `material_only: true` the same
-/// material colours are written with no plan and no light at all, which is the
-/// wgpu Stage 7 build. Fixtures, prop placeholder boxes and decals stay
-/// vertex-lit either way.
+/// With `lightmaps: None` the result is the historical vertex-lit mesh, byte
+/// for byte. With a plan every static floor, ceiling, wall and skirt quad is
+/// stamped with a chart and its vertex colour is reduced to material tint and
+/// directional face shade; the plan records one patch per quad for the fill
+/// pass. Fixtures, prop placeholder boxes and decals stay vertex-lit either
+/// way.
 pub fn build_level_geometry_mesh_with_lightmaps(
     level: &LevelDef,
     catalog: &crate::loader::PropCatalog,
@@ -111,7 +98,6 @@ pub fn build_level_geometry_mesh_with_lightmaps(
     lighting: &LevelLighting,
     materials: &MaterialTable,
     lightmaps: Option<&mut LightmapPlan>,
-    material_only: bool,
 ) -> LevelMesh {
     // Collect the merged room list once; geometry and ceiling lookups then
     // borrow it instead of cloning the room vector repeatedly.
@@ -143,7 +129,6 @@ pub fn build_level_geometry_mesh_with_lightmaps(
         materials: &lookup,
         coverages: &wall_layout.coverages,
         lightmap,
-        material_only,
     };
     // Emitters still write whole quads into one scratch buffer; the bucket
     // builder splits each run by spatial cell on the way into the mesh. That
@@ -234,7 +219,7 @@ fn emit_floors(
                 &grid.zs,
                 |_, _| y,
                 Some(tint),
-                context.material_colors_only(),
+                context.vertex_colors_are_material_only(),
             );
             let tile = context.materials.tile_metres(surface.key);
             scratch.clear();
@@ -265,10 +250,7 @@ fn emit_floors(
             context.level,
             context.lighting,
             context.materials,
-            SkirtColors {
-                lightmap: context.lightmap,
-                material_only: context.material_only,
-            },
+            context.lightmap,
         );
     }
 }
@@ -303,7 +285,7 @@ fn emit_ceilings(
             &zs,
             ceiling_at,
             Some(context.materials.tint(ceiling_key)),
-            context.material_colors_only(),
+            context.vertex_colors_are_material_only(),
         );
         let tile = context.materials.tile_metres(ceiling_key);
         scratch.clear();
@@ -621,7 +603,6 @@ fn emit_wall_length_face(
         context.lighting,
         context.materials.tile_metres(strip.key),
         context.lightmap,
-        context.material_only,
     );
     flush_wall_run(buckets, scratch, cursor, strip.key);
 }
@@ -786,7 +767,7 @@ fn emit_wall_slice_cap(
             (WallAxis::Z, false) => [[b1, y, a0], [b1, y, a1], [b0, y, a1], [b0, y, a0]],
         };
         let base_color = scaled_wall_color(context.materials, key, mult, grad);
-        let lightmapped = context.material_colors_only();
+        let lightmapped = context.vertex_colors_are_material_only();
         let colors = if lightmapped {
             [base_color; 4]
         } else {
@@ -1046,7 +1027,7 @@ fn emit_wall_cross_quad(
         .run_at(boundary.position, f32::midpoint(bottom, top))
         .map_or(state.wall_key, |run| run.body);
     let tile = context.materials.tile_metres(key);
-    let lightmapped = context.material_colors_only();
+    let lightmapped = context.vertex_colors_are_material_only();
     let max_span_m = context
         .lightmap
         .map_or(f32::INFINITY, |lightmap| lightmap.max_span_m);
@@ -1362,7 +1343,7 @@ fn emit_glass_panes(
             // as it crosses the wall around it) and the vertex colour is the
             // material tint alone. The vertex-lit fallback bakes the light into
             // the corners as it does everywhere else.
-            let lightmapped = context.material_colors_only();
+            let lightmapped = context.vertex_colors_are_material_only();
             let colours = if lightmapped {
                 [tint; 4]
             } else {

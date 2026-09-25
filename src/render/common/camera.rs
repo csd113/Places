@@ -41,12 +41,6 @@ impl RenderCamera {
         }
     }
 
-    /// Eye position as the plain array the shader uniforms take.
-    #[must_use]
-    pub const fn position_array(self) -> [f32; 3] {
-        [self.position.x, self.position.y, self.position.z]
-    }
-
     /// The view-projection and its matching frustum for a render size.
     ///
     /// The projection uses the *OpenGL* clip-depth convention (`z_ndc` in

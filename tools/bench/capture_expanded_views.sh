@@ -1,10 +1,10 @@
 #!/bin/sh
-# Captures the Stage 10 expanded parity view set: targeted cameras for the
-# render features the canonical 25-view set covers only incidentally
-# (geometry junctions, materials, lightmap regions, reflections, props,
-# decals, fog and height). Meant to be captured and compared view by view,
-# exactly like capture_baseline_views.sh; the historical OpenGL reference for
-# a comparison is preserved at the `renderer-gles2-reference` tag.
+# Captures the expanded parity view set: targeted cameras for the render
+# features the canonical view set covers only incidentally (geometry junctions,
+# materials, lightmap regions, reflections, props, decals, fog and height).
+# Meant to be captured and compared view by view, exactly like
+# capture_baseline_views.sh; the preserved GLES2 reference for a comparison
+# lives at the `renderer-gles2-reference` tag.
 #
 #     PLACES_ASSET_ROOT=$PWD/target/agent-work/baseline-assets/asset-root \
 #     PLACES_CAPTURE_DIR=$PWD/target/agent-work/verify/expanded \
@@ -26,8 +26,8 @@ set -eu
 
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
 BIN="${PLACES_BIN:-$REPO/target/release/places}"
-OUT="${PLACES_CAPTURE_DIR:-$REPO/target/agent-work/stage10-expanded}"
-STATE="${PLACES_BASELINE_STATE:-$REPO/target/agent-work/stage10-expanded-state}"
+OUT="${PLACES_CAPTURE_DIR:-$REPO/target/agent-work/expanded-views}"
+STATE="${PLACES_BASELINE_STATE:-$REPO/target/agent-work/expanded-views-state}"
 
 if [ ! -x "$BIN" ]; then
     echo "capture_expanded_views: $BIN is not executable; run 'cargo build --release' first" >&2

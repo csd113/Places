@@ -360,9 +360,9 @@ class CompiledBuildSmokeTests(unittest.TestCase):
     #
     # The level-load reflection-probe bake draws the world program before the
     # first frame exists. The lightmap and reflection units must already hold
-    # complete textures there: when they did not, the Apple GL driver logged
-    # "GLD_TEXTURE_INDEX_2D is unloadable ... using zero texture" and the probe
-    # bakes sampled a zero lightmap (reflections baked black).
+    # complete textures there: an incomplete binding is a wgpu validation error
+    # or a fatal device error, and the probe bakes would sample a zero lightmap
+    # (reflections baked black).
     def test_the_probe_bake_draws_with_complete_samplers(self):
         runtime = self.make_package("probe-bake")
         binary = os.path.join(runtime, "places")
@@ -372,8 +372,12 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         )
         self.assertEqual(code, 0, output)
         self.assertTrue(os.path.isfile(capture))
-        self.assertNotIn("GLD_TEXTURE_INDEX_2D", output, output)
-        self.assertNotIn("texture unloadable", output, output)
+        self.assertGreater(os.path.getsize(capture), 10_000, "capture is suspiciously small")
+        self.assertNotIn("panicked", output, output)
+        # A validation error or a fatal device error is a hard failure, not a
+        # warning to skim past.
+        self.assertNotIn("Validation Error", output, output)
+        self.assertNotIn("[wgpu] fatal device error", output, output)
 
 
 if __name__ == "__main__":

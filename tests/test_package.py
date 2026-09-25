@@ -1,8 +1,8 @@
 """Repository-level checks for Places.
 
 These run on the source tree without a GPU. They cover the shipped level files,
-the asset catalog those levels reference, the Spooner-Man entity migration and
-the crate release metadata.
+the asset catalog those levels reference, the single canonical Spooner-Man
+entity resource and the crate release metadata.
 """
 
 from __future__ import annotations
@@ -336,7 +336,7 @@ class AssetCatalogTests(unittest.TestCase):
         self.assertTrue((PACKAGE / "assets" / spooner["model"]).is_file())
         self.assertFalse(
             (PACKAGE / "assets" / "props" / "models" / "spooner-man.glb").exists(),
-            "the legacy prop copy must not survive the migration",
+            "the entity has exactly one canonical resource; no prop copy may exist",
         )
         referencing = [
             path.name
@@ -671,7 +671,7 @@ class AssetCatalogTests(unittest.TestCase):
 class EnvironmentTextureTests(unittest.TestCase):
     """Environment surfaces ship as file-backed PNG texture assets."""
 
-    LEGACY_MATERIAL_IDS = (
+    CORE_MATERIAL_IDS = (
         "core:wallpaper_yellow_01",
         "core:carpet_beige_01",
         "core:ceiling_panel_01",
@@ -745,9 +745,9 @@ class EnvironmentTextureTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def test_the_six_legacy_material_ids_still_exist(self):
+    def test_the_six_core_material_ids_still_exist(self):
         by_id = {entry["id"]: entry for entry in catalog_entries()}
-        for material_id in self.LEGACY_MATERIAL_IDS:
+        for material_id in self.CORE_MATERIAL_IDS:
             self.assertIn(material_id, by_id, f"{material_id} disappeared from the catalog")
             self.assertEqual(by_id[material_id]["asset_type"], "material", material_id)
             self.assertEqual(by_id[material_id]["source"], "definition", material_id)
@@ -772,8 +772,8 @@ class EnvironmentTextureTests(unittest.TestCase):
             self.assertGreater(height, 0, fixture["id"])
             self.assertLessEqual(width, 1024, fixture["id"])
             self.assertLessEqual(height, 1024, fixture["id"])
-            # Fixture UVs never leave the sheet, so its dimensions must both be
-            # powers of two for the ES 2.0 target.
+            # Fixture faces are fitted (their UVs never leave the sheet) and
+            # mipmapped, so both dimensions must be powers of two.
             for dimension in (width, height):
                 self.assertEqual(dimension & (dimension - 1), 0, f"{fixture['id']}: {dimension}")
 

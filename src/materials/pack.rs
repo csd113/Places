@@ -185,11 +185,6 @@ impl PackMaterials {
         self.definitions.is_empty() && self.textures.is_empty()
     }
 
-    #[must_use]
-    pub const fn definitions(&self) -> &HashMap<String, PackMaterialDef> {
-        &self.definitions
-    }
-
     /// The definition for a `pack:` material id, if the pack declares one.
     #[must_use]
     pub fn definition(&self, material_id: &str) -> Option<&PackMaterialDef> {
@@ -218,17 +213,6 @@ impl PackMaterials {
         ]
         .into_iter()
         .find(|candidate| self.lookup(candidate).is_some())
-    }
-
-    /// The raw PNG bytes behind a pack emissive mask.
-    ///
-    /// A mask is authored like `texture`: a pack-relative path that
-    /// [`Self::lookup`] normalises (so `textures/mask.png` and `mask.png` are
-    /// the same blob), or a logical catalog texture id the catalog resolves
-    /// instead of the pack. This is the pack half of that rule.
-    #[must_use]
-    pub fn mask_bytes(&self, mask: &str) -> Option<Rc<[u8]>> {
-        self.lookup(mask)
     }
 
     /// The raw PNG bytes behind a pack-relative path (or a catalog texture id
@@ -278,13 +262,6 @@ impl PackMaterials {
     #[must_use]
     pub fn cache_key(&self, path: &str) -> String {
         format!("pack:{}:{}", self.namespace, path.replace('\\', "/"))
-    }
-
-    /// Maps a session key back to the pack-relative path, when it is one of
-    /// this pack's keys.
-    #[must_use]
-    pub fn path_of_key<'a>(&self, key: &'a str) -> Option<&'a str> {
-        key.strip_prefix(&format!("pack:{}:", self.namespace))
     }
 }
 

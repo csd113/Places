@@ -36,7 +36,6 @@
 
 use super::color::LightColor;
 use super::math::{sanitize_intensity, smooth_falloff};
-use super::tuning::MAX_LIGHT_INTENSITY;
 
 /// Distance at which a light that does not author a `range` stops contributing.
 ///
@@ -395,9 +394,6 @@ impl LightSource {
     pub const fn half_extents(&self) -> (f32, f32) {
         self.shape.half_extents_rotated(self.rotation_degrees)
     }
-
-    /// The largest authored intensity the bake will honour.
-    pub const MAX_INTENSITY: f32 = MAX_LIGHT_INTENSITY;
 }
 
 #[cfg(test)]

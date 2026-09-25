@@ -87,14 +87,6 @@ impl CpuSampler {
         }
     }
 
-    #[must_use]
-    pub const fn with_path(path: &'static str) -> Self {
-        Self {
-            last_sample: None,
-            stat_path: path,
-        }
-    }
-
     pub fn sample(&mut self) -> Option<f32> {
         // 1. First attempt reading Linux /proc/stat
         if let Ok(content) = fs::read_to_string(self.stat_path)

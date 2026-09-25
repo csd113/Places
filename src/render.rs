@@ -14,12 +14,12 @@
 //!   historical reference renderer — the static world, the texture and material
 //!   systems, the baked lightmap atlas, reflection probes and the planar
 //!   mirror, props and dynamic objects, fixture emission, decals, fog, the
-//!   offscreen bloom chain and resolve, and the HUD. It consumes the same
-//!   `common` data the reference renderer did; see `docs/WGPU_STAGE9.md`.
+//!   offscreen bloom chain and resolve, and the HUD. It consumes the
+//!   renderer-neutral `common` data; see `docs/RENDERER.md`.
 //!
 //! The rest of the engine talks to rendering through the [`Renderer`] facade
 //! re-exported here; it never imports a backend module. See
-//! `docs/RENDERER_BOUNDARY.md` for the ownership rules and dependency direction
+//! `docs/ARCHITECTURE.md` for the ownership rules and dependency direction
 //! this split enforces. The deleted OpenGL/GLES2 reference renderer is
 //! preserved at the `renderer-gles2-reference` tag; see
 //! `docs/RENDERER_REFERENCE.md`.
@@ -49,8 +49,8 @@ pub use common::{
     DynamicObject, DynamicScene, DynamicSubmesh, DynamicUpdate, EmissionAnimation, LIGHTMAP_NONE,
     LevelBuild, LevelMesh, LevelMeshBatches, LevelMeshRange, LightmapBuildOptions, MATERIAL_NONE,
     MAX_ANIMATION_DEPTH, MAX_DYNAMIC_MESHES, MAX_DYNAMIC_OBJECTS, MAX_FLICKER_HZ, MAX_PULSE_HZ,
-    MaterialIndex, MaterialSlot, PROBE_EPSILON_M, PropMeshBatch, StaticBatch, SurfaceKey,
-    SurfaceKind, SurfaceShine, Vertex, build_level_geometry, build_level_geometry_timed,
+    MaterialIndex, MaterialSlot, PROBE_EPSILON_M, PropMeshBatch, SurfaceKey, SurfaceKind,
+    SurfaceShine, Vertex, build_level_geometry, build_level_geometry_timed,
     build_level_geometry_timed_with_lightmaps, build_level_geometry_with_assets,
     build_level_geometry_with_assets_and_lighting,
     build_level_geometry_with_assets_and_lighting_and_materials, build_level_geometry_with_catalog,
@@ -63,8 +63,7 @@ pub use common::{
 pub(crate) use common::{MaterialLookup, SCENE_FAR_M, SCENE_NEAR_M, WallMaterialRun};
 pub use facade::Renderer;
 
-// Stage 12 removed the `render::apply_window_flags` seam with the SDL2 metal
-// view: under SDL3 the raw-window-handle implementation reports the window's
-// content view and wgpu attaches its own Metal layer, so no backend-specific
-// window flag exists to apply before the window is built. The surface creation
-// and ownership contract lives in `render::wgpu::surface`.
+// The surface creation and ownership contract lives in `render::wgpu::surface`:
+// the raw-window-handle implementation reports the window's content view and
+// wgpu attaches its own Metal layer, so no backend-specific window flag has to
+// be applied before the window is built.

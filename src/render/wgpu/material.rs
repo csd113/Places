@@ -1,21 +1,22 @@
-//! Stage 7 GPU materials: the resolved Places material as wgpu resources.
+//! GPU materials: the resolved Places material as wgpu resources.
 //!
 //! The engine resolves a level's materials into the renderer-neutral
 //! [`MaterialRenderState`] and the neutral [`ResolvedSurfaceMaterial`]; this
 //! module owns everything after that: one uniform buffer and one pair of bind
 //! groups per distinct resolved material, and the normal-map texture each
-//! material binds (uploaded through the Stage 6 [`TextureCache`] under the
+//! material binds (uploaded through the [`TextureCache`] under the
 //! `DataLinear` semantic).
 //!
 //! Scope is deliberately the ordinary world material:
 //!
 //! * base colour, tint/vertex colour and alpha classification stay exactly the
 //!   neutral resolver's decisions (`resolve_surface_material`);
-//! * the GPU record carries only what a Stage 7 shader may consume: the sheen
+//! * the GPU record carries only what the world shader may consume: the sheen
 //!   colour, the shine-derived roughness, the normal strength and gate, the
 //!   opacity and cut-out threshold, and reflection-eligibility metadata;
 //! * nothing else: no light counts, no shadow indices, no lightmap pages, no
-//!   probe matrices, no reflection textures. Those are later stages.
+//!   probe matrices, no reflection textures — those belong to the environment
+//!   group.
 //!
 //! The cache is keyed by the resolved material identity (material index plus
 //! the surface's shine override), never by draw index or surface position, so
@@ -42,14 +43,15 @@ use crate::render::common::mesh::{MaterialIndex, SurfaceKey, SurfaceKind, Surfac
 /// may be sampled.
 pub const MATERIAL_FLAG_NORMAL_ENABLED: u32 = 1 << 0;
 /// Bit 1: the surface response is enabled for this profile (the master gate the
-/// OpenGL reference calls `u_response_enabled`). The sheen consumes it in
-/// Stage 8; the normal fetch is gated by both bits, exactly like the reference.
+/// reference calls `u_response_enabled`). The sheen consumes it; the normal
+/// fetch is gated by both bits, exactly like the reference.
 pub const MATERIAL_FLAG_RESPONSE_ENABLED: u32 = 1 << 1;
-/// Bit 2: the material is eligible to participate in a reflection once a
-/// reflection stage exists. Stage 7 records the flag; it samples nothing.
+/// Bit 2: the material is eligible to participate in a reflection. The flag
+/// records that eligibility; the reflection term itself is gated by
+/// `reflection_mode`, which a capture or a disabled player setting zeroes.
 pub const MATERIAL_FLAG_REFLECTION_ELIGIBLE: u32 = 1 << 2;
 
-/// Every flag bit Stage 7 defines. No other bit is written.
+/// Every flag bit the material path defines. No other bit is written.
 pub const MATERIAL_FLAG_MASK: u32 = MATERIAL_FLAG_NORMAL_ENABLED
     | MATERIAL_FLAG_RESPONSE_ENABLED
     | MATERIAL_FLAG_REFLECTION_ELIGIBLE;
@@ -365,7 +367,7 @@ pub fn material_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayou
 ///
 /// The normal and emission textures are kept alive alongside their bind groups
 /// so a material outlives a texture-cache release safely (the same lifetime rule
-/// the Stage 6 per-draw textures follow).
+/// the per-draw textures follow).
 pub struct GpuMaterial {
     /// Kept for ownership; the bind groups reference it, and the reflection /
     /// animation writes target it.

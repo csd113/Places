@@ -1,14 +1,14 @@
 //! Coarse spatial partitioning and view-frustum culling for static geometry.
 //!
-//! The renderer used to submit one draw per material for the whole level, so a
-//! camera pointed away from a prop field still paid almost the full vertex cost
-//! of invisible geometry. This module provides the two
-//! pieces needed to stop that: a world-space axis-aligned bounding box per
-//! render batch, and a conservative box/frustum intersection test.
+//! The renderer submits one draw per material range, so without culling a
+//! camera pointed away from a prop field would still pay almost the full vertex
+//! cost of invisible geometry. This module provides the two pieces that
+//! prevent that: a world-space axis-aligned bounding box per render batch, and
+//! a conservative box/frustum intersection test.
 //!
 //! The partitioning is deliberately simple — a uniform X/Z grid, no Y
-//! subdivision, no hierarchy, no occlusion queries, nothing beyond what OpenGL
-//! ES 2.0 needs. A cell is a column of space that covers the full height of
+//! subdivision, no hierarchy, no occlusion queries, nothing beyond what the
+//! batch draw path reads. A cell is a column of space that covers the full height of
 //! whatever stands in it, which stays correct for elevated rooms, gable
 //! ceilings and recessed floors: `LevelSurfaces` supplies the vertical extent,
 //! and batching only needs the X/Z footprint. Rooms stacked at the same X/Z
@@ -199,12 +199,6 @@ impl CellGrid {
     }
 }
 
-impl Default for CellGrid {
-    fn default() -> Self {
-        Self::uniform(SPATIAL_CELL_MIN_METRES)
-    }
-}
-
 /// Chooses the adaptive cell size for one axis of a level of this extent.
 fn adaptive_cell(extent: f32) -> f32 {
     if !extent.is_finite() || extent <= 0.0 {
@@ -300,18 +294,6 @@ impl Frustum {
                 sub(row3, row2), // far:    z_clip <=  w
             ],
         }
-    }
-
-    /// Builds a frustum from explicit planes (tests and callers that already
-    /// have them).
-    #[must_use]
-    pub const fn from_planes(planes: [[f32; 4]; 6]) -> Self {
-        Self { planes }
-    }
-
-    #[must_use]
-    pub const fn planes(&self) -> &[[f32; 4]; 6] {
-        &self.planes
     }
 
     /// Conservative box/frustum test.

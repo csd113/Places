@@ -12,10 +12,10 @@
 #     PLACES_ASSET_ROOT="$PWD/target/agent-work/baseline-assets/asset-root" \
 #         sh tools/bench/capture_baseline_views.sh
 #
-# Each capture stage should use its own scratch asset root, so the artefacts
-# of different stages never alias each other:
+# Each capture run should use its own scratch asset root, so the artefacts of
+# different runs never alias each other:
 #
-#     PLACES_BASELINE_ASSET_ROOT=target/agent-work/stage8/asset-root \
+#     PLACES_BASELINE_ASSET_ROOT=target/agent-work/reference-assets/asset-root \
 #         sh tools/bench/baseline_asset_root.sh
 #
 # Environment:

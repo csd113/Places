@@ -1,4 +1,4 @@
-//! Stage 9 props: the neutral per-model batches as wgpu buffers and materials.
+//! Props: the neutral per-model batches as wgpu buffers and materials.
 //!
 //! The renderer-neutral build (`render::common::props`) has already resolved
 //! every placed prop into world-space, per-vertex-lit geometry, one batch per
@@ -6,9 +6,8 @@
 //! uploads exactly that:
 //!
 //! * one 16-bit-indexable vertex/index buffer pair per batch;
-//! * one clamped GPU sheet per model texture, cached through the Stage 6
-//!   texture cache under `Catalog` lifetime (the reference's persistent
-//!   per-model cache);
+//! * one clamped GPU sheet per model texture, cached through the texture cache
+//!   under `Catalog` lifetime (the reference's persistent per-model cache);
 //! * one plain-opaque GPU material per distinct `(sheet, emission)` submesh,
 //!   because a prop's emission is per primitive and the model parser reads no
 //!   normal map, alpha mode or reflection contract (the reference's

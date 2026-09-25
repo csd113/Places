@@ -1,5 +1,5 @@
-//! Stage 9 post-processing: the offscreen scene target, the emissive pass, the
-//! two bloom blurs, the resolve and the plain present copy.
+//! Post-processing: the offscreen scene target, the emissive pass, the two
+//! bloom blurs, the resolve and the plain present copy.
 //!
 //! The reference's offscreen path (preserved at the `renderer-gles2-reference`
 //! tag) renders the world into an RGBA8 scene texture and then turns that
@@ -20,10 +20,9 @@
 //! display-space values — scene, presented, emissive and both blur buffers —
 //! exactly like the reference's RGBA8 attachments. The world shader writes
 //! display values directly; only the final copy to the sRGB surface converts
-//! (`srgb_to_linear` in the present entry point). Stage 9 sized the presented
-//! image with the scene target; Stage 10 makes it the drawable, so the resolve
-//! and the HUD run at default-framebuffer resolution exactly like the
-//! reference.
+//! (`srgb_to_linear` in the present entry point). The presented image is the
+//! drawable, so the resolve and the HUD run at default-framebuffer resolution
+//! exactly like the reference.
 //!
 //! The resolve's five parameters are authored constants
 //! ([`PostSettings`]). The engine can only produce the two quality profiles with
@@ -255,11 +254,11 @@ fn resolve_path(settings: PostSettings, bloom_enabled: bool) -> ResolvePath {
 /// under Full, no wider than the reference's 480 pixels under Low); the
 /// presented image always follows the drawable. The reference's default
 /// framebuffer is drawable-sized, so its resolve, grade and the HUD all run at
-/// the drawable's resolution over a Low-resolution scene. Stage 9 sized the
-/// presented image with the scene, which made both the resolve and the HUD run
-/// at 480 pixels wide under Low and then upscale; Stage 10 measured that as a
-/// feature-shaped difference on the Low menu (mean 1.58 vs 0.26 at Full) and
-/// corrected it.
+/// the drawable's resolution over a Low-resolution scene. Sizing the presented
+/// image with the scene instead would run the resolve and the HUD at 480 pixels
+/// wide under Low and then upscale them, a difference the Low menu showed
+/// clearly (measured mean 1.58 vs 0.26 at Full); the presented image is
+/// therefore always the drawable.
 #[must_use]
 fn target_sizes(
     profile: QualityProfile,
@@ -793,10 +792,9 @@ impl PostProcess {
 
     /// Copies the presented image to a **raw** target with no transfer
     /// function: the reference's own framebuffer convention, used by the
-    /// screenshot readback so the PNG carries the display-space bytes the
-    /// reference read with `glReadPixels` (Stage 10; Stage 9 encoded through
-    /// the sRGB capture texture, which added a hardware conversion to every
-    /// measured pixel).
+    /// screenshot readback so the PNG carries exactly the display-space bytes
+    /// the reference read with `glReadPixels` — an sRGB capture texture would
+    /// add a hardware conversion to every measured pixel.
     pub fn encode_present_raw_to(
         &self,
         encoder: &mut wgpu::CommandEncoder,

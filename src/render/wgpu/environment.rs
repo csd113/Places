@@ -1,4 +1,4 @@
-//! Stage 9 environment bindings: group 3's uniform and textures.
+//! Environment bindings: group 3's uniform and textures.
 //!
 //! The environment is the frame/level state the world fragment stage reads
 //! besides the camera, the draw's base texture and its material: the baked-light

@@ -461,19 +461,6 @@ fn shipped_assets() -> crate::props::PropAssets {
 }
 
 // ---------------------------------------------------------------------------
-// Aggregate counters so a benchmark run can report lighting work honestly
-// ---------------------------------------------------------------------------
-
-/// Number of light/vertex candidate evaluations the naive all-lights loop would
-/// perform for `points`. Used to quantify the effect of spatial pruning; not
-/// part of the renderer.
-#[allow(dead_code)]
-pub fn count_light_evaluations(lighting: &LevelLighting, points: &[[f32; 3]]) -> u64 {
-    let lights = lighting.lights().len() as u64;
-    points.len() as u64 * lights
-}
-
-// ---------------------------------------------------------------------------
 // Benchmark report
 // ---------------------------------------------------------------------------
 
@@ -638,32 +625,6 @@ fn opening(offset: f32, width: f32, height: f32) -> String {
     format!(
         r#"{{ "kind": "door", "offset": {offset}, "width": {width}, "height": {height}, "sill": 0.0 }}"#
     )
-}
-
-/// One long wall pierced by `count` evenly spaced doorways, in a long room.
-#[allow(dead_code)]
-fn opening_heavy_level(count: usize) -> LevelDef {
-    let length = (count as f32).mul_add(3.0, 3.0);
-    let openings: Vec<String> = (0..count)
-        .map(|index| opening((index as f32).mul_add(3.0, 1.0), 1.0, 2.1))
-        .collect();
-    parse(&format!(
-        r#"{{
-            "format_version": 1,
-            "id": "openings",
-            "name": "Openings",
-            "spawn": {{ "x": 0.0, "z": 0.0 }},
-            "rooms": [{}],
-            "walls": [{{
-                "x": -0.2, "z": 0.0, "width": 0.4, "depth": {length},
-                "height": 3.0, "openings": [{}]
-            }}],
-            "ceiling_lights": [{}]
-        }}"#,
-        room(-0.2, -1.0, length + 0.4, 20.0, 3.0),
-        openings.join(","),
-        light(length * 0.5, 9.0, None),
-    ))
 }
 
 #[test]
@@ -1414,8 +1375,8 @@ fn merged_floor_and_ceiling_quads_keep_exact_samples_and_tile_the_room() {
     for level in [fixture_level("prop_showcase"), fixture_level("prop_stress")] {
         let lighting = LevelLighting::bake(&level);
         let mesh = build_level_geometry(&level);
-        let floor = mesh.triangles_for_family(SurfaceKind::Floor);
-        let ceiling = mesh.triangles_for_family(SurfaceKind::Ceiling);
+        let floor = mesh.triangles_for(SurfaceKind::Floor);
+        let ceiling = mesh.triangles_for(SurfaceKind::Ceiling);
         assert_vertex_colors_safe(&floor);
         assert_vertex_colors_safe(&ceiling);
 

@@ -87,6 +87,7 @@ runs `--check` over every environment surface as a repository gate.
 | --- | --- |
 | `artkit.py` | the shared painting kit: `Canvas`, wrapped value noise (`hash01`, `tile_noise`, `tile_noise2`, `fbm`), `clamp`, `smoothstep`, colour mixes and the PNG writer |
 | `office_art.py` | the Office wallpaper, carpet and panel ceiling, with their damaged variants |
+| `home_art.py` | the Home wallpaper, paint, trim, hardwood, carpet, tile and ceiling sheets |
 | `pool_art.py` | the Pool deck, basin and wall tile and the sterile Pool ceiling |
 | `lights_art.py` | the visible face of every built-in light fixture: the office fluorescent diffuser, the round pool downlight and the pool wall luminaire's lens |
 | `extra_art.py` | the surface-response sheets: clear/dirty/tinted glass, a cut-out transfer grille, polished linoleum, a brushed-metal panel, a moulded-plastic panel, two tangent-space normal maps and the shared untextured white sheet |
@@ -150,10 +151,10 @@ The policy is declared in `src/assets.rs` (`ShippedTextureKind`) and mirrored by
 | hard ceiling        | 1024x1024, enforced by `--check` and by the runtime decoder |
 | decoded budget      | ≤ 4 MiB per surface sheet (one 1024x1024 RGBA8 sheet; `MAX_SURFACE_TEXTURE_BYTES`) |
 | surface sheets      | square (the renderer samples them as square `tile_metres` cells); POT preferred, not required |
-| fitted sheets       | decal sheets and fixture faces must be power-of-two (mipmapped, fitted UVs, ES 2.0) |
+| fitted sheets       | decal sheets and fixture faces must be power-of-two: they are fitted (their UVs never repeat) and mipmapped as a whole sheet, so the power-of-two dimension contract applies |
 | colour space        | 8-bit RGBA (sRGB-ish); no gamma chunk is written or handled |
 | alpha               | surfaces are opaque (alpha 255); decal sheets use alpha 0 for the cut-out |
-| non-power-of-two    | surfaces load on the Mac (the 96x64 diagnostic proves it); avoid on ES 2.0 |
+| non-power-of-two    | tiling surfaces load with either dimension (the 96x64 diagnostic proves it); fitted, mipmapped sheets must stay power-of-two |
 
 A 128x128 RGBA sheet is 64 KiB of pixels and a 1024x1024 sheet is the 4 MiB
 budget; the shipped PNGs range from a few KiB to a couple of MiB compressed.

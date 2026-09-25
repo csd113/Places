@@ -334,8 +334,8 @@ pub enum ShippedTextureKind {
     ///
     /// Surfaces are sampled as square `tile_metres` cells, so the sheet must
     /// be square: a non-square sheet would stretch. Surfaces are *not*
-    /// power-of-two constrained; the desktop GL path loads NPOT fine and POT is
-    /// only a portability preference.
+    /// power-of-two constrained; the runtime decoder and the renderer accept
+    /// NPOT, and POT is only a portability preference.
     Surface,
     /// A fitted fixture face (a light's visible artwork).
     ///
@@ -521,12 +521,6 @@ impl AssetClass {
     pub fn is_known(&self) -> bool {
         Self::KNOWN.contains(&self.0.as_str())
     }
-
-    /// True for entity assets.
-    #[must_use]
-    pub fn is_entity(&self) -> bool {
-        self.0 == Self::ENTITY
-    }
 }
 
 impl fmt::Display for AssetClass {
@@ -544,11 +538,6 @@ impl fmt::Display for AssetClass {
 pub struct AssetTheme(String);
 
 impl AssetTheme {
-    /// The initial office environment collection.
-    pub const OFFICE: &'static str = "office";
-    /// The pool environment collection, reserved for the Pool content pack.
-    pub const POOL: &'static str = "pool";
-
     /// Validates a theme identifier.
     /// # Errors
     ///
@@ -785,10 +774,6 @@ pub struct AssetCatalog {
 
 #[derive(serde::Deserialize)]
 struct CatalogFile {
-    /// Informational; the parser accepts the legacy `props` shape too.
-    #[serde(default)]
-    #[allow(dead_code)]
-    format_version: u32,
     #[serde(default)]
     themes: Vec<CatalogThemeFile>,
     #[serde(default)]
@@ -1706,23 +1691,6 @@ impl AssetCatalog {
     #[must_use]
     pub fn material_texture(&self, id: &str) -> Option<&str> {
         self.material(id)?.texture.as_deref()
-    }
-
-    /// The world metres covered by one repeat of a material's texture.
-    ///
-    /// Falls back to [`DEFAULT_TILE_METRES`] for a material that does not
-    /// author `tile_metres`, and to `None` for a non-material id.
-    #[must_use]
-    pub fn material_tile_metres(&self, id: &str) -> Option<f32> {
-        self.material(id)
-            .map(|entry| entry.tile_metres.unwrap_or(DEFAULT_TILE_METRES))
-    }
-
-    /// The static multiply tint of a material; white when it does not author one.
-    #[must_use]
-    pub fn material_tint(&self, id: &str) -> Option<[f32; 3]> {
-        self.material(id)
-            .map(|entry| entry.tint.unwrap_or([1.0, 1.0, 1.0]))
     }
 
     /// The emissive colour a material authors; `None` when it emits nothing.

@@ -1,6 +1,6 @@
-// Stage 9 world shader: the complete static Places world fragment assembly —
-// base texture, material response, baked light from the lightmap atlas (or the
-// vertex-lit fallback), emission, reflections, fog — exactly where the OpenGL
+// World shader: the complete static Places world fragment assembly — base
+// texture, material response, baked light from the lightmap atlas (or the
+// vertex-lit fallback), emission, reflections, fog — exactly where the
 // reference assembles them, in the same raw display space.
 //
 // Scope:
@@ -24,10 +24,10 @@
 //   `fs_emission_cutout`) write the emissive term alone into the raw bloom
 //   target, exactly like the reference's `u_emission_only` return.
 //
-// The light the reference's world stage uses is *baked*, not realtime: the
-// OpenGL renderer has no light selection, no light array and no shadow map.
-// Its fragment stage computes `light` from the lightmap atlas when one is
-// resident and `vec3(1.0)` otherwise. See `docs/WGPU_LIGHTING.md`.
+// The light the world stage uses is *baked*, not realtime: there is no light
+// selection, no light array and no shadow map. The fragment stage computes
+// `light` from the lightmap atlas when one is resident and `vec3(1.0)`
+// otherwise. See `docs/RENDERER.md`.
 //
 // Coordinate convention: `camera.view_projection` is the Places camera matrix
 // with the single OpenGL -> wgpu clip-space correction already applied on the
@@ -211,10 +211,9 @@ fn vs_main(vertex: WorldVertex) -> VsOut {
 // raw display space — exactly like the reference's non-sRGB framebuffer — so
 // the fragment is assembled where the reference assembled it and the sRGB
 // surface is the *only* conversion point (`srgb_to_linear` in the
-// surface-facing entry points). Stage 9 kept an sRGB texture decode plus a
-// compensating `linear_to_srgb` here; Stage 10 measured that round trip as a
-// broad +1 display level on minified surfaces (blending decoded values is a
-// convexity bias) and returned textures to raw.
+// surface-facing entry points). Sampling an sRGB texture copy and re-encoding
+// here instead would decode every filtered blend: a convexity bias measured as
+// a broad +1 display level on minified surfaces, so textures stay raw.
 fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
     let low = c / 12.92;
     let high = pow((c + 0.055) / 1.055, vec3<f32>(2.4));
@@ -238,8 +237,9 @@ fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
 // fragment stage: every fixture's contribution is already baked. A vertex with
 // no lightmap coordinates (`page >= 254.5`, the historical vertex-lit build)
 // keeps the light the bake folded into its colour, and the factor stays the
-// unit vector. Stage 10 multiplies the dynamic path's factor by the neutral
-// probe (`u_light_scale`), which is why the environment uniform carries it.
+// unit vector. The dynamic path's factor is additionally multiplied by the
+// object's neutral probe (`u_light_scale`), which is why the environment
+// uniform carries it.
 fn surface_light(in: VsOut) -> vec3<f32> {
     let lightmap_on = environment.lightmap_enabled * (1.0 - step(254.5, in.lightmap_page));
     var light = vec3<f32>(1.0);
@@ -409,7 +409,7 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     let emission = surface_emission(in, base_display);
     let lit = lit_display(base_display, in.color.rgb, light, material.emission_vertex);
     var color = fogged(lit + sheen + reflection + emission, in.world_position);
-    // The Stage 6 unlit contract: an all-white vertex colour, the unit light
+    // The unlit bypass contract: an all-white vertex colour, the unit light
     // factor, no sheen, no reflection, no emission and no fog is exactly the
     // raw base-texture sample; the assignment spells that out so the bypass
     // cannot drift from the assembled value.

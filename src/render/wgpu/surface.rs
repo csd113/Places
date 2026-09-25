@@ -1,11 +1,12 @@
 //! SDL window integration and surface policy for the wgpu backend.
 //!
-//! Everything Stage 4 decides *before* a device exists lives here: which native
-//! backend the build targets, how the SDL window becomes a `wgpu::Surface`, and
-//! the surface-format, present-mode, alpha-mode and depth-format policies. The
-//! renderer in `super::renderer` owns the live objects and the frame lifecycle.
+//! Everything the backend decides *before* a device exists lives here: which
+//! native backend the build targets, how the SDL window becomes a
+//! `wgpu::Surface`, and the surface-format, present-mode, alpha-mode and
+//! depth-format policies. The renderer in `super::renderer` owns the live
+//! objects and the frame lifecycle.
 //!
-//! See `docs/WGPU_BOOTSTRAP.md` for the policy rationale.
+//! See `docs/RENDERER.md` section 1 for the policy rationale.
 
 use sdl3::video::Window;
 
@@ -93,8 +94,8 @@ pub unsafe fn create(
 ///
 /// Places presents 8-bit colour everywhere; an sRGB surface format preserves
 /// the current presentation intent (values reaching the display are treated as
-/// sRGB, exactly like the OpenGL framebuffer). The list is short and explicit
-/// so later stages know what Stage 4 established.
+/// sRGB, exactly like the reference framebuffer). The list is short and
+/// explicit so the presentation policy is reviewable in one place.
 const PREFERRED_SURFACE_FORMATS: [wgpu::TextureFormat; 2] = [
     wgpu::TextureFormat::Bgra8UnormSrgb,
     wgpu::TextureFormat::Rgba8UnormSrgb,
@@ -107,10 +108,10 @@ const PREFERRED_SURFACE_FORMATS: [wgpu::TextureFormat; 2] = [
 /// never blocked on a hard-coded format. `None` means the surface is
 /// incompatible with the adapter.
 ///
-/// A non-sRGB fallback cannot honour the display-space contract Stage 7/8's
-/// fragment stage is built on (it writes linear values expecting the hardware
-/// to encode them), so [`surface_format_is_srgb`] reports it and the renderer
-/// logs one warning instead of presenting silently wrong colours.
+/// A non-sRGB fallback cannot honour the display-space contract the fragment
+/// stage is built on (it writes linear values expecting the hardware to encode
+/// them), so [`surface_format_is_srgb`] reports it and the renderer logs one
+/// warning instead of presenting silently wrong colours.
 #[must_use]
 pub fn select_surface_format(
     capabilities: &wgpu::SurfaceCapabilities,
@@ -126,11 +127,11 @@ pub fn select_surface_format(
 ///
 /// The world shader's display-space assembly assumes the *surface* decodes the
 /// shader's output: the surface-facing entry points convert once with
-/// `srgb_to_linear` and rely on the hardware encode. (The capture read-back no
-/// longer depends on this: since Stage 10 the post path copies the raw
-/// presented image into a raw capture texture.) An adapter that offers only a
-/// linear format cannot present the reference's display values without a shader
-/// variant, which no stage has built.
+/// `srgb_to_linear` and rely on the hardware encode. (The capture read-back
+/// does not depend on this: the post path copies the raw presented image into a
+/// raw capture texture.) An adapter that offers only a linear format cannot
+/// present the reference's display values without a shader variant, which the
+/// renderer does not build.
 #[must_use]
 pub fn surface_format_is_srgb(format: wgpu::TextureFormat) -> bool {
     format.is_srgb()
@@ -200,28 +201,27 @@ pub const fn present_mode_label(mode: wgpu::PresentMode) -> &'static str {
     }
 }
 
-/// The single main depth format the Stage 4 backend establishes.
+/// The single main depth format the backend establishes.
 ///
 /// `Depth32Float` is renderable on Metal, Vulkan and Direct3D 12 and needs no
-/// optional feature. Stage 5+ reuses this constant for the world's depth
-/// testing and for the probe/planar capture depths; there are still no shadow
-/// maps (the reference has none) and no separate depth format anywhere.
+/// optional feature. The same constant serves the world's depth testing and
+/// the probe/planar capture depths; there are no shadow maps (the reference
+/// has none) and no separate depth format anywhere.
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
 /// What the clear pass writes into a **raw** (non-sRGB) colour target.
 ///
 /// The reference renderer clears its non-sRGB framebuffer to the raw display
-/// value `(0.08, 0.08, 0.09)` (the preserved reference renderer) and then composites,
-/// blends, grades and reads that value back in display space. Every wgpu
-/// offscreen colour target is raw `Rgba8Unorm` for exactly that reason, so the
-/// scene, planar and probe clears write the raw value too — the same bytes the
-/// reference's targets hold. Stage 9 left these targets on
-/// [`CLEAR_COLOR_SRGB`], which the canonical `pool_entry` and
-/// `wet_deck_shallow` views showed as a clear-colour-shaped hole; Stage 10
-/// corrected it.
+/// value `(0.08, 0.08, 0.09)` and then composites, blends, grades and reads
+/// that value back in display space. Every wgpu offscreen colour target is raw
+/// `Rgba8Unorm` for exactly that reason, so the scene, planar and probe clears
+/// write the raw value too — the same bytes the reference's targets hold.
+/// Clearing with [`CLEAR_COLOR_SRGB`] instead would decode differently from the
+/// geometry's display-space values and show as a clear-colour-shaped hole where
+/// no geometry covers the target.
 ///
-/// The world still has no background, sky or post-processing; a later stage
-/// replaces this with the world's own background if one is ever authored.
+/// The world has no background or sky: this clear colour shows wherever no
+/// geometry covers the frame.
 pub const CLEAR_COLOR: wgpu::Color = wgpu::Color {
     r: 0.08,
     g: 0.08,
@@ -235,9 +235,8 @@ pub const CLEAR_COLOR: wgpu::Color = wgpu::Color {
 /// A written value on an sRGB attachment is linear and the hardware encodes
 /// it, so presenting the reference's raw `(0.08, 0.08, 0.09)` background
 /// requires the linear form (`srgb_to_linear(0.08) = 0.0071944`,
-/// `srgb_to_linear(0.09) = 0.0085404`, IEC 61966-2-1). Stage 8 converted the
-/// Stage 4 dark neutral to this value while all targets were sRGB; only the
-/// surface-format paths use it now.
+/// `srgb_to_linear(0.09) = 0.0085404`, IEC 61966-2-1). Only the surface-format
+/// paths use it: they must present the same background the raw targets hold.
 pub const CLEAR_COLOR_SRGB: wgpu::Color = wgpu::Color {
     r: 0.007_194_4,
     g: 0.007_194_4,
@@ -283,7 +282,7 @@ pub enum SurfaceRecovery {
 }
 
 impl SurfaceStatus {
-    /// The Stage 4 recovery policy for this observation.
+    /// The recovery policy for this observation.
     #[must_use]
     pub const fn recovery(self) -> SurfaceRecovery {
         match self {

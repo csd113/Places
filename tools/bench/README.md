@@ -12,8 +12,8 @@ The current workflow uses the following tools:
 | --- | --- |
 | `bench_local.py` | repeats one benchmark configuration and prints min/median/max per field |
 | `capture_views.sh` | renders the fixed validation view set, one PNG per view |
-| `capture_baseline_views.sh` | renders the canonical pre-wgpu baseline view set in the High and Low profiles |
-| `capture_expanded_views.sh` | renders the Stage 10 supplementary parity view set (geometry, materials, lightmaps, reflections, props, decals, fog) for the same two-backend comparison |
+| `capture_baseline_views.sh` | renders the canonical frozen reference view set (Full and Low profiles), captured from the preserved GLES2 renderer, for comparison against a current build |
+| `capture_expanded_views.sh` | renders the supplementary capture view set (geometry, materials, lightmaps, reflections, props, decals, fog) for comparison between two builds |
 | `baseline_asset_root.sh` | builds a scratch asset root matching the committed revision, for baseline captures while the working tree's assets are mid-edit |
 | `compare_baseline.py` | checks a canonical capture directory against the frozen PNGs |
 | `compare_captures.py` | reports per-view pixel-difference statistics between two capture directories |
@@ -84,13 +84,13 @@ PLACES_BIN=target/agent-work/baseline/target/release/places \
     sh tools/bench/capture_views.sh
 ```
 
-The suffix accumulates in the order low / direct / nobloom / norefl, so a
-comparison run never overwrites the reference capture.
+The suffix accumulates in the order low / nobloom / norefl, so a comparison
+run never overwrites the reference capture.
 
 ## Canonical renderer baseline
 
 `capture_baseline_views.sh` renders the smaller, curated view set that is the
-permanent pre-wgpu reference for the renderer migration, in both quality
+frozen reference for comparison against a current build, in both quality
 profiles at once. It owns its view table, a pinned `settings.json` under
 `target/renderer-baseline-state/` (a 640x360 logical window, which is a
 1280x720 drawable on a 2x display) and writes `<name>.png` plus `manifest.txt`
@@ -99,16 +99,18 @@ per profile:
 ```sh
 sh tools/bench/capture_baseline_views.sh                        # -> docs/renderer-baseline/{high,low}
 PLACES_QUALITY=low sh tools/bench/capture_baseline_views.sh    # one profile only
-PLACES_BIN=target/release/places-wgpu \
-    PLACES_CAPTURE_DIR=target/agent-work/wgpu-baseline \
-    sh tools/bench/capture_baseline_views.sh                    # a future renderer
+PLACES_BIN=target/release/places \
+    PLACES_CAPTURE_DIR=target/agent-work/baseline-current \
+    sh tools/bench/capture_baseline_views.sh                    # a comparison build
 ```
 
 The committed reference and its camera/settings manifest are documented in
 `docs/renderer-baseline/BASELINE.md`; that document is the authority on what
 each view exercises. `PLACES_QUALITY=full` and `PLACES_QUALITY=low` select one
 profile, and any other value is rejected. Delete the state root before a run to
-force a cold lightmap bake rather than reusing its cache.
+force a cold lightmap bake rather than reusing its cache. The script's own
+default writes the frozen `docs/renderer-baseline/{high,low}` images, so a
+comparison run must set `PLACES_CAPTURE_DIR`.
 
 The working tree's assets can be mid-edit while renderer work continues, in
 which case a capture legitimately differs from the committed reference. To
@@ -116,9 +118,9 @@ compare against the renderer rather than the assets, build a scratch asset tree
 from the committed revision and point the binary at it:
 
 ```sh
-PLACES_BASELINE_ASSET_ROOT=target/agent-work/stage8/asset-root \
+PLACES_BASELINE_ASSET_ROOT=target/agent-work/reference-assets/asset-root \
     sh tools/bench/baseline_asset_root.sh
-PLACES_ASSET_ROOT="$PWD/target/agent-work/stage8/asset-root" \
+PLACES_ASSET_ROOT="$PWD/target/agent-work/reference-assets/asset-root" \
     sh tools/bench/capture_baseline_views.sh
 python3 tools/bench/compare_baseline.py <capture-dir>   # byte equality
 ```
@@ -127,9 +129,8 @@ python3 tools/bench/compare_baseline.py <capture-dir>   # byte equality
 where byte equality is not the goal: it reports each view's mean absolute
 channel difference, the share of pixels differing by more than a tolerance, and
 the maximum channel difference, so a known cross-renderer gap can be quantified
-instead of hand-waved. The historical OpenGL renderer for such a comparison is
-preserved at the `renderer-gles2-reference` tag (see
-`docs/RENDERER_REFERENCE.md`).
+instead of hand-waved. The preserved GLES2 renderer for such a comparison lives
+at the `renderer-gles2-reference` tag (see `docs/RENDERER_REFERENCE.md`).
 
 ```sh
 python3 tools/bench/compare_captures.py \
@@ -231,7 +232,7 @@ it and allocates nothing per frame.
 | `PLACES_DUMP_LIGHTMAPS=1` | write baked atlas pages as PNGs under `target/agent-work/atlases/` (a fresh bake only — delete `cache/lightmaps/` first, since a cache hit writes nothing) |
 | `PLACES_QUALITY=full\|low` | draw this run at the named profile without editing `settings.json` |
 | `PLACES_BENCH_QUALITY_CYCLE=<frame>:<profile>[,<frame>:<profile>...]` | scripted live quality switch through the normal settings path (benchmark only) |
-| `PLACES_BENCH_WINDOW_CYCLE=<frame>:resize:<w>x<h>\|<frame>:minimize\|<frame>:restore[,...]` | scripted live window events through the real SDL window: resize, minimize, restore (benchmark only; Stage 10 lifecycle matrix) |
+| `PLACES_BENCH_WINDOW_CYCLE=<frame>:resize:<w>x<h>\|<frame>:minimize\|<frame>:restore[,...]` | scripted live window events through the real SDL window: resize, minimize, restore (benchmark only) |
 | `PLACES_NO_BLOOM=1` | drop the emissive pass and the blur, keeping the resolve stage |
 | `PLACES_NO_REFLECTIONS=1` | report every material as reflection-free (no planar pass, no probe bake, no reflection binds) |
 | `PLACES_PAUSE=1` | open the pause menu on the first frame, so the pause UI can be captured without a keyboard |

@@ -1,14 +1,15 @@
 #!/bin/sh
-# Captures the canonical pre-wgpu renderer baseline: the fixed view set below,
-# in the High and Low quality profiles, from Places Demo.
+# Captures the canonical frozen reference set: the fixed view set below, in the
+# High and Low quality profiles, from Places Demo.
 #
-# The permanent reference lives in docs/renderer-baseline/ (high/ and low/
-# beside BASELINE.md). A future renderer (wgpu) is captured with the same
-# script and compared view by view:
+# The frozen reference lives in docs/renderer-baseline/ (high/ and low/ beside
+# BASELINE.md). A current build is captured with the same script and compared
+# view by view, or used to refresh a comparison capture directory:
 #
 #     sh tools/bench/capture_baseline_views.sh                       # both profiles
-#     PLACES_BIN=target/release/places-wgpu \
-#         PLACES_CAPTURE_DIR=target/agent-work/wgpu sh tools/bench/capture_baseline_views.sh
+#     PLACES_BIN=target/release/places \
+#         PLACES_CAPTURE_DIR=target/agent-work/baseline-current \
+#         sh tools/bench/capture_baseline_views.sh                   # a comparison build
 #     PLACES_QUALITY=low sh tools/bench/capture_baseline_views.sh   # one profile
 #
 # Pinned session: the script owns a scratch state root

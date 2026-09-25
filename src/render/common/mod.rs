@@ -51,8 +51,8 @@ use fixtures::{add_flush_mount_fixture, add_panel_fixture, add_round_fixture, ad
 use geometry::build_level_geometry_mesh;
 pub use mesh::{
     BatchRange, LIGHTMAP_NONE, LevelMesh, LevelMeshBatches, LevelMeshRange, MATERIAL_NONE,
-    MaterialIndex, MaterialSlot, StaticBatch, SurfaceKey, SurfaceKind, SurfaceShine, Vertex,
-    dequantize_unit, spatial_cell_grid,
+    MaterialIndex, MaterialSlot, SurfaceKey, SurfaceKind, SurfaceShine, Vertex, dequantize_unit,
+    spatial_cell_grid,
 };
 pub use mesh::{MeshChunk, MeshPacker, finish_indexed_mesh};
 pub use props::PropMeshBatch;
@@ -394,8 +394,6 @@ struct WallFaceStrip<'a, Y: Fn(f32) -> f32> {
     tile_metres: f32,
     /// `None` is the historical vertex-lit path.
     lightmap: Option<LightmapEmit<'a>>,
-    /// Material-only build: no baked light, colour is the material factor.
-    material_only: bool,
 }
 
 impl<Y: Fn(f32) -> f32> WallFaceStrip<'_, Y> {
@@ -410,7 +408,7 @@ impl<Y: Fn(f32) -> f32> WallFaceStrip<'_, Y> {
     /// The vertex colour at one edge: the baked sample on the historical path,
     /// the plain shaded base when the atlas carries the light.
     fn color(&self, at: f32, y: f32, base: [f32; 3], face_room: Option<usize>) -> [f32; 3] {
-        if self.material_only || self.lightmap.is_some_and(|lightmap| lightmap.is_on()) {
+        if self.lightmap.is_some_and(|lightmap| lightmap.is_on()) {
             // The atlas carries the baked light; the vertex colour is the
             // material tint and the face's directional shade only.
             return base;
@@ -574,7 +572,6 @@ fn add_wall_length_face<'a>(
     lighting: &'a LevelLighting,
     tile_metres: f32,
     lightmap: Option<LightmapEmit<'a>>,
-    material_only: bool,
 ) {
     let strip = WallFaceStrip {
         axis,
@@ -591,7 +588,6 @@ fn add_wall_length_face<'a>(
         lighting,
         tile_metres,
         lightmap,
-        material_only,
     };
     strip.emit(vertices);
 }
@@ -2517,7 +2513,6 @@ fn emit_skirt_face(
     lighting: &LevelLighting,
     face: SkirtFace,
     lightmap: Option<LightmapEmit<'_>>,
-    material_only: bool,
 ) {
     let SkirtFace {
         axis,
@@ -2543,7 +2538,7 @@ fn emit_skirt_face(
         WallAxis::Z => (f32::midpoint(span.0, span.1), at),
     };
     let room = lighting.room_index_at_height(hint_x, f32::midpoint(low, high), hint_z);
-    let lightmapped = material_only || lightmap.is_some_and(|lightmap| lightmap.is_on());
+    let lightmapped = lightmap.is_some_and(|lightmap| lightmap.is_on());
     let max_span_m = lightmap.map_or(f32::INFINITY, |lightmap| lightmap.max_span_m);
 
     for (span_start, span_end) in split_span(span.0, span.1, max_span_m) {
@@ -2625,17 +2620,6 @@ fn region_at_cell<'a>(
 /// into the void. The face carries the region's `edge_material` when authored,
 /// otherwise the room's wall material, so transition surfaces always have a
 /// deterministic texture.
-/// How a skirt build colours its vertices: the atlas plan when this build is
-/// lightmapped, plus the material-only flag. Grouped so the skirt emitter keeps
-/// its argument count within the module's emitter convention.
-#[derive(Clone, Copy)]
-struct SkirtColors<'a> {
-    /// `None` is the historical vertex-lit path.
-    lightmap: Option<LightmapEmit<'a>>,
-    /// Material-only build: no baked light, colour is the material factor.
-    material_only: bool,
-}
-
 fn emit_floor_skirts(
     buckets: &mut crate::spatial::SpatialBuckets<SurfaceKey>,
     room: &RoomDef,
@@ -2643,7 +2627,7 @@ fn emit_floor_skirts(
     level: &LevelDef,
     lighting: &LevelLighting,
     materials: &MaterialLookup<'_>,
-    colors: SkirtColors<'_>,
+    lightmap: Option<LightmapEmit<'_>>,
 ) {
     let (cells_x, cells_z) = (grid.cells_x(), grid.cells_z());
     if cells_x == 0 || cells_z == 0 {
@@ -2658,15 +2642,7 @@ fn emit_floor_skirts(
     // signature within the module's argument budget.
     let mut scratch: Vec<Vertex> = Vec::new();
     let mut emit = |face: SkirtFace| {
-        emit_skirt_face(
-            buckets,
-            &mut scratch,
-            materials,
-            lighting,
-            face,
-            colors.lightmap,
-            colors.material_only,
-        );
+        emit_skirt_face(buckets, &mut scratch, materials, lighting, face, lightmap);
     };
 
     let region_owner = |ix: usize, iz: usize| region_at_cell(level, room, grid, ix, iz);

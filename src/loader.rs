@@ -1944,18 +1944,6 @@ impl LevelManager {
         manager
     }
 
-    /// The authoritative asset catalog (materials, textures, props, themes).
-    #[must_use]
-    pub const fn asset_catalog(&self) -> &crate::assets::AssetCatalog {
-        self.prop_catalog.assets()
-    }
-
-    /// The session texture cache, for diagnostics and tests.
-    #[must_use]
-    pub fn texture_cache(&self) -> std::cell::RefMut<'_, TextureCache> {
-        self.texture_cache.borrow_mut()
-    }
-
     #[must_use]
     pub fn entries(&self) -> &[LevelEntry] {
         &self.entries

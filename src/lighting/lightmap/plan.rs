@@ -108,12 +108,6 @@ impl LightmapPlan {
         }
     }
 
-    /// The density and page budget this plan packs against.
-    #[must_use]
-    pub const fn config(&self) -> &LightmapConfig {
-        &self.config
-    }
-
     /// Number of invisible sliver quads this plan left vertex-lit.
     ///
     /// A sliver is thinner than a lightmap texel can resolve and has no visible

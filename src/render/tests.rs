@@ -4622,7 +4622,6 @@ fn atlas_overflow_rebuilds_with_vertex_lighting() {
         mode: LightmapMode::On,
         config,
         profile: crate::quality::QualityProfile::Full,
-        material_only: false,
     };
     let build = build_level_geometry_timed_with_lightmaps(
         &level,
@@ -5281,7 +5280,7 @@ fn every_material_property_resolves_into_the_renderers_per_material_state() {
     );
 }
 
-// ------------------------------------------------- Stage 7 material resolution
+// ------------------------------------------------------ material resolution
 
 /// Draw-order indices of every architectural range's vertices, so two builds
 /// can be compared vertex for vertex without depending on their range split.
@@ -5313,65 +5312,95 @@ fn architectural_colors(mesh: &LevelMesh) -> Vec<[u8; 4]> {
 }
 
 #[test]
-fn the_material_only_build_writes_the_lightmapped_colours_without_an_atlas() {
+fn a_lightmapped_build_keeps_its_architectural_vertex_colours_independent_of_fixture_brightness() {
     use crate::quality::QualityProfile;
 
-    // The one Stage 7 rule the wgpu backend depends on: a material-only build
-    // produces the same architectural vertex colours as a lightmapped build
-    // (tint x directional face shade, no baked light) but creates no atlas.
+    // A lightmapped build's architectural vertex colours are the material
+    // factor alone (tint x directional face shade): the baked light lives in
+    // the atlas, so changing a fixture's brightness must change the atlas
+    // without touching a single vertex colour.
     let level = lit_room_level(
         8.0,
         6.0,
         3.0,
         r#"[{ "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 3.0, "brightness": 0.8 }]"#,
     );
+    let mut dim_level = level.clone();
+    for light in &mut dim_level.ceiling_lights {
+        light.brightness = Some(0.05);
+    }
     let materials = logical_materials(&level);
     let catalog = PropCatalog::builtin();
     let mut assets = PropAssets::default();
+    let options = LightmapBuildOptions::for_profile(QualityProfile::Full, LightmapMode::On);
 
-    let lightmapped = build_level_geometry_timed_with_lightmaps(
+    let bright = build_level_geometry_timed_with_lightmaps(
         &level,
         &catalog,
         &mut assets,
         &materials,
-        LightmapBuildOptions::for_profile(QualityProfile::Full, LightmapMode::On),
+        options,
         None,
     );
-    assert!(lightmapped.lightmaps.is_some(), "the reference build bakes");
-    let material_only = build_level_geometry_timed_with_lightmaps(
-        &level,
+    let dim = build_level_geometry_timed_with_lightmaps(
+        &dim_level,
         &catalog,
         &mut assets,
         &materials,
-        LightmapBuildOptions::material_colors(QualityProfile::Full),
+        options,
         None,
     );
+    let (Some(bright_atlas), Some(dim_atlas)) = (&bright.lightmaps, &dim.lightmaps) else {
+        panic!("both lightmapped builds must produce an atlas");
+    };
     assert!(
-        material_only.lightmaps.is_none(),
-        "a material-only build must not create an atlas"
+        bright_atlas.stats.charts > 0,
+        "the atlas must contain the room's charts"
+    );
+    assert_ne!(
+        bright_atlas.pages, dim_atlas.pages,
+        "the atlas carries the baked light, so fixture brightness must change it"
     );
     assert_eq!(
-        architectural_colors(&material_only.mesh),
-        architectural_colors(&lightmapped.mesh),
-        "the material factor must be exactly the lightmapped build's vertex colour"
+        architectural_colors(&bright.mesh),
+        architectural_colors(&dim.mesh),
+        "the architecture's vertex colours are lighting-independent"
     );
 
-    // The historical vertex-lit build multiplies the same factor by baked
-    // light, so it must differ — proving the comparison above is not vacuous.
-    let history = build_level_geometry(&level);
+    // The vertex-lit path folds the bake into the vertex colours, so the same
+    // brightness change must move them; that keeps the equality above from
+    // being vacuous.
+    let bright_lit = build_level_geometry_timed_with_lightmaps(
+        &level,
+        &catalog,
+        &mut assets,
+        &materials,
+        LightmapBuildOptions::for_profile(QualityProfile::Full, LightmapMode::Off),
+        None,
+    );
+    let dim_lit = build_level_geometry_timed_with_lightmaps(
+        &dim_level,
+        &catalog,
+        &mut assets,
+        &materials,
+        LightmapBuildOptions::for_profile(QualityProfile::Full, LightmapMode::Off),
+        None,
+    );
+    assert!(bright_lit.lightmaps.is_none());
     assert_ne!(
-        architectural_colors(&history),
-        architectural_colors(&material_only.mesh),
-        "the vertex-lit build carries baked light and must differ"
+        architectural_colors(&bright_lit.mesh),
+        architectural_colors(&dim_lit.mesh),
+        "the vertex-lit build carries baked light, so brightness must change it"
     );
 }
 
 #[test]
-fn the_material_only_build_is_identical_across_quality_profiles() {
+fn a_vertex_lit_build_is_identical_across_quality_profiles() {
     use crate::quality::QualityProfile;
 
-    // The wgpu world geometry is profile-independent; a material-only build
-    // must not inherit the lightmap plan's profile-dependent chart-span caps.
+    // With no plan the emitters take the historical vertex-lit path, which
+    // bakes with the same `BakeConfig` whatever profile is active: Full and
+    // Low must produce identical meshes.
     let level = lit_room_level(
         12.0,
         9.0,
@@ -5386,7 +5415,7 @@ fn the_material_only_build_is_identical_across_quality_profiles() {
         &catalog,
         &mut assets,
         &materials,
-        LightmapBuildOptions::material_colors(QualityProfile::Full),
+        LightmapBuildOptions::for_profile(QualityProfile::Full, LightmapMode::Off),
         None,
     );
     let low = build_level_geometry_timed_with_lightmaps(
@@ -5394,9 +5423,10 @@ fn the_material_only_build_is_identical_across_quality_profiles() {
         &catalog,
         &mut assets,
         &materials,
-        LightmapBuildOptions::material_colors(QualityProfile::Low),
+        LightmapBuildOptions::for_profile(QualityProfile::Low, LightmapMode::Off),
         None,
     );
+    assert!(full.lightmaps.is_none() && low.lightmaps.is_none());
     assert_eq!(full.mesh.vertex_count, low.mesh.vertex_count);
     assert_eq!(full.mesh.index_count, low.mesh.index_count);
     assert_eq!(
@@ -5580,8 +5610,8 @@ fn the_neutral_resolver_treats_a_fixture_or_decal_key_as_plain() {
 
 #[test]
 fn the_surface_frame_follows_the_uv_orientation_and_flips_with_mirrored_uvs() {
-    // The tangent frame Stage 7 uploads is computed by the neutral builder from
-    // the surface's own UVs; a normal map must tilt the same way on a mirrored
+    // The uploaded tangent frame is computed by the neutral builder from the
+    // surface's own UVs; a normal map must tilt the same way on a mirrored
     // sheet as on the original, with the sign carried by `handedness`.
     use crate::render::common::finish_indexed_mesh;
     use crate::spatial::SpatialBuckets;

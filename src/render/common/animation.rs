@@ -209,12 +209,6 @@ fn square(cycle: f32, duty: f32) -> bool {
     cycle.fract().abs() < duty
 }
 
-impl Default for EmissionAnimation {
-    fn default() -> Self {
-        Self::NONE
-    }
-}
-
 #[cfg(test)]
 mod tests {
     #![allow(clippy::float_cmp)] // the shapes are pinned by exact values

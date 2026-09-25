@@ -34,9 +34,9 @@ pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 2;
 /// neutral build has already returned the historical vertex-lit mesh with the
 /// same lighting, exactly like the reference (which does not even attempt an
 /// upload for a missing atlas). Only a built page set whose GPU atlas is not
-/// resident triggers the reference's `Upload` fallback. Stage 10 found the
-/// unconditional version of this rule re-baked `level0_pit` with
-/// `BakeConfig::HARD` and changed every vertex colour against the reference.
+/// resident triggers the reference's `Upload` fallback. Applying the rule to a
+/// plan or fill failure would re-bake the level with `BakeConfig::HARD` and
+/// change every vertex colour, so only the upload failure kind qualifies.
 #[must_use]
 pub const fn needs_upload_fallback(
     mode: crate::lighting::lightmap::LightmapMode,

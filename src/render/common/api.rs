@@ -87,16 +87,6 @@ pub struct LightmapBuildOptions {
     pub config: LightmapConfig,
     /// Profile the config came from; only used for the content key.
     pub profile: crate::quality::QualityProfile,
-    /// Material-only build: no atlas and no baked light, but every emitter
-    /// writes the material factor (tint × directional face shade) into its
-    /// vertex colours, exactly the colours a lightmapped build writes.
-    ///
-    /// The material-only renderer build consumes this: it wants the surface's
-    /// material and leaves lighting to a later stage. It must never reach the
-    /// vertex-lit fallback path (which requires baked light in the colour).
-    /// When set, [`LightmapMode`] must be `Off`; the field is ignored by the
-    /// atlas path.
-    pub material_only: bool,
 }
 
 impl LightmapBuildOptions {
@@ -107,24 +97,6 @@ impl LightmapBuildOptions {
             mode,
             config: LightmapConfig::for_profile(profile),
             profile,
-            material_only: false,
-        }
-    }
-
-    /// The material-only build: vertex colours are the material factor and no
-    /// atlas is created, baked or uploaded.
-    ///
-    /// The geometry uses the historical vertex-lit merge spans (no chart caps),
-    /// so it is profile-independent; only the colours differ from that build:
-    /// they are the lightmapped build's tint × directional face shade with no
-    /// baked light.
-    #[must_use]
-    pub const fn material_colors(profile: crate::quality::QualityProfile) -> Self {
-        Self {
-            mode: LightmapMode::Off,
-            config: LightmapConfig::for_profile(profile),
-            profile,
-            material_only: true,
         }
     }
 }
@@ -235,7 +207,6 @@ pub fn build_level_geometry_timed_with_lightmaps(
         &lighting,
         materials,
         plan.as_mut(),
-        options.material_only,
     );
     let mut surfaces_millis = elapsed_millis(started);
 
@@ -325,12 +296,8 @@ pub fn build_level_geometry_timed_with_lightmaps(
     }
 }
 
-/// Builds the static mesh for one build: stamped with the lightmap plan when
-/// one exists, with material-only colours when asked, or the historical
-/// vertex-lit mesh otherwise.
-///
-/// `material_only` is ignored when a plan exists (an atlas build's colours are
-/// already material-only), so the two modes cannot be combined by mistake.
+/// Builds the static mesh for one build: stamped with the lightmap plan when one
+/// exists, or the historical vertex-lit mesh otherwise.
 fn build_mesh_for_options(
     level: &LevelDef,
     catalog: &crate::loader::PropCatalog,
@@ -338,18 +305,8 @@ fn build_mesh_for_options(
     lighting: &LevelLighting,
     materials: &MaterialTable,
     plan: Option<&mut LightmapPlan>,
-    material_only: bool,
 ) -> LevelMesh {
-    let material_only = material_only && plan.is_none();
-    build_level_geometry_mesh_with_lightmaps(
-        level,
-        catalog,
-        fallbacks,
-        lighting,
-        materials,
-        plan,
-        material_only,
-    )
+    build_level_geometry_mesh_with_lightmaps(level, catalog, fallbacks, lighting, materials, plan)
 }
 
 /// Fills every chart of a finished plan into atlas pages.

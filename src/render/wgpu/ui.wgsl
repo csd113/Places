@@ -1,8 +1,8 @@
-// Stage 9 renderer-owned UI shader: the 480x272 HUD pass.
+// Renderer-owned UI shader: the 480x272 HUD pass.
 //
-// The wgpu port of the OpenGL reference's `render_ui`, which draws the HUD with
-// its World program reset to a neutral material state. This pipeline is that
-// neutral state made explicit instead of inherited:
+// Reproduces the reference's `render_ui`, which draws the HUD with its World
+// program reset to a neutral material state. This pipeline is that neutral
+// state made explicit instead of inherited:
 //
 // * `camera.view_projection` is the reference's orthographic projection in the
 //   480x272 UI pixel space: (0, 0) is the top-left corner and +y points down.

@@ -1,48 +1,45 @@
-//! The Stage 5 world: static Places geometry as a wgpu mesh and pipeline,
-//! textured with the Stage 6 base-colour path, the Stage 7 material system and
-//! the Stage 8 baked lighting.
+//! The static world: Places geometry as a wgpu mesh and pipeline, textured with
+//! the base-colour path, the material system and the baked lighting.
 //!
-//! This is the first Places content the wgpu backend draws. It takes the
-//! renderer-neutral [`LevelMesh`] the engine already builds for the OpenGL
-//! reference renderer, keeps the architectural ranges (floors, ceilings, walls,
-//! ramps, stairs, half walls, columns, archways, guardrails, thresholds,
-//! baseboards — every one of which the neutral builder emits as a Floor,
-//! Ceiling or Wall surface), and uploads them as 16-bit-indexable vertex/index
-//! buffer pairs. One draw is issued per packed range, exactly like the OpenGL
-//! static pass, with the same per-range frustum test.
+//! This module uploads the renderer-neutral [`LevelMesh`] the engine builds.
+//! Its draw set is every Floor, Ceiling, Wall, fixture Light and placeholder
+//! `PropFallback` range — ramps, stairs, half walls, columns, archways,
+//! guardrails, thresholds and baseboards all arrive as one of the three
+//! architectural families — packed into 16-bit-indexable vertex/index buffer
+//! pairs; decals and resolved props are drawn by their own modules. One draw is
+//! issued per packed range, with the same per-range frustum test the reference
+//! applied.
 //!
-//! Stage 6 added the range's [`MaterialIndex`] and resolved it to one base
-//! texture. Stage 7 completed the material system:
+//! Each range's [`MaterialIndex`] resolves to one base texture:
 //!
-//! * the draw set now includes the material-defined cut-out and translucent
-//!   architectural ranges (the Stage 5/6 exclusion was deliberate and is
-//!   lifted here); fixtures, placeholder prop boxes and decals stay out;
+//! * the draw set includes the material-defined cut-out and translucent
+//!   architectural ranges alongside the opaque ones;
 //! * each draw carries the range's [`SurfaceShine`] override and its
 //!   [`BatchPass`]; the neutral [`resolve_surface_material`] folds the material
 //!   table, the override and the quality profile into one
 //!   [`ResolvedSurfaceMaterial`], which the [`WorldMaterials`] cache turns into
 //!   one GPU uniform and bind group per distinct identity;
-//! * normal maps are interned through the Stage 6 [`TextureCache`] under the
+//! * normal maps are interned through the [`TextureCache`] under the
 //!   `DataLinear` semantic, with the reference's white fallback and fetch gate;
 //! * opaque, cut-out and translucent draws are submitted in the reference's
 //!   order, translucent draws sorted back to front per frame;
 //! * the WGSL reproduces the reference's display-space material multiply.
 //!
-//! Stage 8 added the lighting the reference can express without an atlas:
+//! Lighting is the reference's:
 //!
-//! * the level build is the historical vertex-lit bake, so the material factor
-//!   in the vertex colour is multiplied by the baked light and the uploaded
-//!   colour carries every room baseline, fixture pool, opening blend and
-//!   static-occluder shadow the bake produced;
+//! * the vertex-lit build stores the material factor multiplied by the baked
+//!   light in the vertex colour, so the uploaded colour carries every room
+//!   baseline, fixture pool, opening blend and static-occluder shadow the bake
+//!   produced; the lightmap-atlas build instead samples the atlas and leaves
+//!   the vertex colour at the unlit material factor;
 //! * the camera uniform carries the world-space eye, the fragment stage
 //!   computes the reference's view-dependent sheen, and `lit + sheen` is
 //!   assembled in display space before the single conversion to the sRGB
-//!   target. See [`crate::render::wgpu::world`]'s shader and
-//!   `docs/WGPU_LIGHTING.md`.
+//!   target. See `docs/RENDERER.md`.
 //!
-//! Stage 9 extended this upload and shader to the lightmap atlas, props,
-//! dynamics, fixtures, emission, decals, probes and the planar mirror; see
-//! `docs/WGPU_STAGE9.md` and the world shader's own fragment assembly.
+//! Props, dynamics, fixture emission, decals, the reflection captures and the
+//! planar mirror extend the same upload and shader; see the world shader's own
+//! fragment assembly.
 //!
 //! Coordinate convention (one place, documented, tested):
 //!
@@ -116,8 +113,8 @@ pub const WORLD_ATTRIB_LIGHTMAP_UV: u32 = 6;
 /// Lightmap page byte as a float, the reference's `a_lightmap_page`.
 pub const WORLD_ATTRIB_LIGHTMAP_PAGE: u32 = 7;
 
-/// One Stage 9 GPU world vertex: the Stage 7 material frame, the Stage 8 lit
-/// colour and the Stage 9 lightmap coordinates.
+/// One GPU world vertex: the material frame, the lit colour and the lightmap
+/// coordinates.
 ///
 /// The faithful carry of the renderer-neutral `Vertex` fields the material and
 /// lighting stages consume: world position, geometric frame (normal, UV-u
@@ -137,8 +134,8 @@ pub const WORLD_ATTRIB_LIGHTMAP_PAGE: u32 = 7;
 /// as a float (`0`/`1` select a page, `255` is `LIGHTMAP_NONE`) exactly as the
 /// un-normalized `GL_UNSIGNED_BYTE` attribute reached the reference shader.
 ///
-/// `#[repr(C)]` + `Pod` make the 64-byte stride explicit (the Stage 9
-/// lightmap attributes and the model-space position/colour/handedness tail);
+/// `#[repr(C)]` + `Pod` make the 64-byte stride explicit (the lightmap
+/// attributes and the model-space position/colour/handedness tail);
 /// the unit tests pin every offset and the vertex-buffer layout.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
@@ -262,9 +259,9 @@ pub struct WorldFrame {
 
 /// Prepares the frame's matrices from the shared Places camera.
 ///
-/// The camera and the aspect handling are the renderer-neutral Stage 3 ones
-/// ([`RenderCamera::view_projection`]); only the clip-space correction is
-/// Stage 5's.
+/// The camera and the aspect handling are renderer-neutral
+/// ([`RenderCamera::view_projection`]); this function adds only the clip-space
+/// correction.
 #[must_use]
 pub fn prepare_world_frame(camera: RenderCamera, render_size: DrawableSize) -> WorldFrame {
     let (view_projection, frustum) = camera.view_projection(render_size);
@@ -290,9 +287,9 @@ pub fn prepare_world_frame(camera: RenderCamera, render_size: DrawableSize) -> W
 /// ------------------------------------------------ 80 bytes, align 16
 /// ```
 ///
-/// The eye position is Stage 8's addition: the reference's sheen computes its
-/// view vector from `u_camera_pos - v_world_pos`, and the world fragment stage
-/// needs the same world-space camera point. `align(16)` makes the Rust layout
+/// The eye position completes the reference's sheen term: it computes its view
+/// vector from `u_camera_pos - v_world_pos`, and the world fragment stage needs
+/// the same world-space camera point. `align(16)` makes the Rust layout
 /// the WGSL uniform layout explicitly instead of relying on the default
 /// alignment of an `[[f32; 4]; 4]` array.
 #[repr(C, align(16))]
@@ -606,11 +603,11 @@ pub struct WorldChunk {
 
 /// One drawable range inside a chunk.
 ///
-/// Mirrors the neutral `StaticBatch` shape (chunk plus index range) plus the
-/// material-stage fields: the range's [`MaterialIndex`], its per-surface shine
-/// override and the [`BatchPass`] its alpha contract implies. Those are the
-/// same values the neutral `SurfaceKey` already carries, not a complete
-/// material: the renderer resolves them through the existing material table.
+/// Groups the chunk plus its index range with the material-stage fields: the
+/// range's [`MaterialIndex`], its per-surface shine override and the
+/// [`BatchPass`] its alpha contract implies. Those are the same values the
+/// neutral `SurfaceKey` already carries, not a complete material: the renderer
+/// resolves them through the existing material table.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WorldDraw {
     /// Which [`WorldChunk`] the range lives in.
@@ -1028,8 +1025,8 @@ pub struct WorldDrawTotals {
 /// The sort is stable, so equal distances keep the packed draw order — the
 /// reference's own deterministic tie-break.
 ///
-/// This is the one per-frame CPU ordering Stage 7 performs; the shipped level
-/// has a handful of translucent ranges, so the cost is a few comparisons.
+/// This is the one per-frame CPU ordering the world pass performs; the shipped
+/// level has a handful of translucent ranges, so the cost is a few comparisons.
 #[must_use]
 pub fn translucent_order(draws: &[WorldDraw], eye: glam::Vec3) -> Vec<u32> {
     let mut order: Vec<u32> = draws
@@ -1097,8 +1094,8 @@ const TRANSLUCENT_BLEND: wgpu::BlendState = wgpu::BlendState {
 /// The five material-pass pipeline variants.
 ///
 /// Declarative and GPU-free so the states are unit-testable. `cull_opaque`
-/// selects the Stage 5 main-pass opaque state (back-face culled) or the
-/// reference's capture state (no culling anywhere: `GL_CULL_FACE` is never
+/// selects the main-pass opaque state (back-face culled) or the reference's
+/// capture state (no culling anywhere: `GL_CULL_FACE` is never
 /// enabled, and a mirror or a probe face must see the same two-sided room the
 /// reference captured).
 ///
@@ -1274,11 +1271,11 @@ impl WorldPipeline {
             material_layout,
             environment_layout,
             wgpu::FrontFace::Ccw,
-            // The reference never enables `GL_CULL_FACE`; Stage 5 chose a
-            // cull-enabled opaque pass, and Stage 9 found content that is
-            // single-sided and visible from its back (a draped curtain/plane in
-            // the pool view), so the parity choice is the reference's: shade
-            // both sides everywhere. `gl_FrontFacing` flips the normal.
+            // The reference never enables `GL_CULL_FACE`, and the level holds
+            // content that is single-sided and visible from its back (a draped
+            // curtain/plane in the pool view), so the parity choice is the
+            // reference's: shade both sides everywhere. `gl_FrontFacing` flips
+            // the normal.
             false,
             // The main pipeline writes the sRGB surface.
             false,
@@ -1313,8 +1310,8 @@ impl WorldPipeline {
             label: Some("places-wgpu-world-camera-layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                // Stage 8: the fragment stage reads `camera.position` for the
-                // sheen's view vector, so the uniform is visible to both stages.
+                // The fragment stage reads `camera.position` for the sheen's
+                // view vector, so the uniform is visible to both stages.
                 visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
@@ -2458,7 +2455,7 @@ mod tests {
     // -------------------------------------------------- shipped-demo parity
 
     #[test]
-    fn the_stage8_build_carries_the_reference_vertex_lit_light() {
+    fn the_vertex_lit_build_matches_the_reference_mesh() {
         use crate::lighting::lightmap::LightmapMode;
         use crate::quality::QualityProfile;
         use crate::render::common::api::{
@@ -2471,21 +2468,16 @@ mod tests {
         let materials = logical_materials(&level);
         let catalog = crate::loader::PropCatalog::builtin();
 
-        // The one build decision Stage 8 makes: the historical vertex-lit build,
-        // not the Stage 7 material-only build. A regression to `material_colors`
-        // would silently remove every light term from the renderer.
+        // The shipped demo takes the vertex-lit path: the baked light rides in
+        // the vertex colour, and a lightmapped build is opted into explicitly.
         let options = LightmapBuildOptions::for_profile(QualityProfile::Full, LightmapMode::Off);
         assert_eq!(options.mode, LightmapMode::Off);
-        assert!(
-            !options.material_only,
-            "the baked light must ride in the vertex colour"
-        );
 
         // Props cannot resolve (no asset root): the architecture, which is what
         // this test is about, is unaffected, and the bake's prop occluders
         // degrade to the catalogue placeholders the build and the reference
         // share.
-        let mut assets = crate::props::PropAssets::with_root("/nonexistent-places-stage8");
+        let mut assets = crate::props::PropAssets::with_root("/nonexistent-places-assets");
         let build = build_level_geometry_timed_with_lightmaps(
             &level,
             &catalog,
@@ -2494,7 +2486,7 @@ mod tests {
             options,
             None,
         );
-        assert!(build.lightmaps.is_none(), "no atlas until Stage 9");
+        assert!(build.lightmaps.is_none(), "no atlas on the vertex-lit path");
         assert!(build.lightmap_failure.is_none());
 
         // Byte-for-byte the historical vertex-lit mesh the OpenGL reference
@@ -2504,10 +2496,10 @@ mod tests {
             assert_eq!(mesh.vertex_count, historical.vertex_count);
             assert_eq!(mesh.index_count, historical.index_count);
             assert_eq!(mesh.ranges.len(), historical.ranges.len());
-            for (stage8, reference) in mesh.ranges.iter().zip(historical.ranges.iter()) {
-                assert_eq!(stage8.key, reference.key);
-                assert_eq!(stage8.indices, reference.indices);
-                assert_eq!(stage8.vertices, reference.vertices);
+            for (built, reference) in mesh.ranges.iter().zip(historical.ranges.iter()) {
+                assert_eq!(built.key, reference.key);
+                assert_eq!(built.indices, reference.indices);
+                assert_eq!(built.vertices, reference.vertices);
             }
         };
         compare_to_historical(&build.mesh);
@@ -2515,9 +2507,8 @@ mod tests {
         // Low must bake the *same* light: `LightmapMode::Off` always uses
         // `BakeConfig::HARD` whatever the profile, so the two meshes are
         // byte-identical and Low only drops the surface response. (An atlas
-        // build is where the profile's tap count and prop cell matter; that is
-        // Stage 9.)
-        let mut low_assets = crate::props::PropAssets::with_root("/nonexistent-places-stage8");
+        // build is where the profile's tap count and prop cell matter.)
+        let mut low_assets = crate::props::PropAssets::with_root("/nonexistent-places-assets");
         let low = build_level_geometry_timed_with_lightmaps(
             &level,
             &catalog,
@@ -2546,7 +2537,7 @@ mod tests {
         let level = crate::level::LevelDef::from_json(json).expect("valid places_demo json");
         let materials = logical_materials(&level);
         let catalog = crate::loader::PropCatalog::builtin();
-        let mut assets = crate::props::PropAssets::with_root("/nonexistent-places-stage8");
+        let mut assets = crate::props::PropAssets::with_root("/nonexistent-places-assets");
         let build = build_level_geometry_timed_with_lightmaps(
             &level,
             &catalog,
@@ -2556,25 +2547,34 @@ mod tests {
             None,
         );
 
-        // The light is really there. The material-only build writes the
-        // tint x face shade alone, so the vertex-lit build must (a) dim most
+        // The light is really there. The vertex-lit build must (a) dim most
         // architectural vertices and (b) subdivide the lighting grid where the
         // light varies — that is how a vertex-lit bake produces a gradient at
-        // all. A regression to the Stage 7 `material_colors` build would have
-        // neither.
+        // all. The same level with every fixture at zero output bakes flat
+        // light, so it merges the same architecture into fewer ranges; that is
+        // the non-vacuous baseline for the subdivision below.
         let architectural = |mesh: &crate::render::common::LevelMesh| {
             mesh.ranges
                 .iter()
-                .filter(|range| is_world_range(range))
+                .filter(|range| {
+                    matches!(
+                        range.key.kind,
+                        SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall
+                    )
+                })
                 .count()
         };
-        let mut assets = crate::props::PropAssets::with_root("/nonexistent-places-stage8");
+        let mut unlit = level.clone();
+        for light in &mut unlit.ceiling_lights {
+            light.brightness = Some(0.0);
+        }
+        let mut assets = crate::props::PropAssets::with_root("/nonexistent-places-assets");
         let flat = build_level_geometry_timed_with_lightmaps(
-            &level,
+            &unlit,
             &catalog,
             &mut assets,
             &materials,
-            LightmapBuildOptions::material_colors(QualityProfile::Full),
+            LightmapBuildOptions::for_profile(QualityProfile::Full, LightmapMode::Off),
             None,
         );
         assert!(
@@ -2597,8 +2597,8 @@ mod tests {
         );
         // The bake's `shade` clamps every channel, and the demo is lit, so most
         // vertices sit meaningfully below the material factor alone. A build
-        // that lost the light (the Stage 7 `material_colors` regression this
-        // test guards) would have white-ish walls and no dimmed share at all.
+        // that lost the light would have white-ish walls and no dimmed share
+        // at all.
         let mut dimmed = 0usize;
         let mut strongly_dimmed = 0usize;
         for lit in &lit_vertices {
@@ -2686,7 +2686,7 @@ mod tests {
         assert_eq!(
             with_materials.index_total(),
             static_world,
-            "cut-out and translucent architecture belongs to the Stage 9 draw set"
+            "cut-out and translucent architecture belongs to the world draw set"
         );
         let translucent = real
             .iter()
@@ -2715,7 +2715,7 @@ mod tests {
         );
     }
 
-    // ------------------------------------------------- Stage 6 texture identity
+    // ---------------------------------------------- base-colour texture identity
 
     /// One synthetic world draw of the given key, through the real packer.
     fn draw_of(kind: SurfaceKind, material: MaterialIndex) -> WorldDraw {
@@ -2987,7 +2987,7 @@ mod tests {
         // conversion at the sRGB surface.
         assert!(!WORLD_SHADER_SRC.contains("fn linear_to_srgb("));
         assert!(WORLD_SHADER_SRC.contains("fn srgb_to_linear("));
-        // Stage 9 assembles the reference's
+        // The fragment assembles the reference's
         // `lit + sheen + reflection + emission`, then fog, in display space and
         // converts once, after every display-space term.
         assert!(WORLD_SHADER_SRC.contains("fn lit_display("));
@@ -3155,9 +3155,9 @@ mod tests {
 
     #[test]
     fn the_world_shader_samples_display_space_and_converts_once() {
-        // Stage 10: the base texture is raw display space (no sRGB decode), so
-        // the fragment is assembled in the reference's framebuffer space and
-        // the sRGB surface converts exactly once, at the output.
+        // The base texture is raw display space (no sRGB decode), so the
+        // fragment is assembled in the reference's framebuffer space and the
+        // sRGB surface converts exactly once, at the output.
         assert!(
             WORLD_SHADER_SRC.contains("let base_display = base.rgb;"),
             "authored texels must be sampled as display values"
@@ -3252,7 +3252,7 @@ mod tests {
         );
     }
 
-    // -------------------------------------------------- Stage 8: lighting
+    // ------------------------------------------------------------ lighting
 
     /// The CPU mirror of the reference's sheen term, for the tests below.
     ///
@@ -3277,14 +3277,14 @@ mod tests {
     }
 
     #[test]
-    fn the_world_shader_declares_the_stage9_lightmap_seam() {
+    fn the_world_shader_declares_the_lightmap_light_seam() {
         // The reference's single light expression, reproduced: the atlas is
         // sampled only when the environment switch is on and the vertex's page
         // byte is not `LIGHTMAP_NONE`; otherwise the factor is exactly one and
         // the bake's light is already in the vertex colour.
         assert!(
             WORLD_SHADER_SRC.contains("fn surface_light(in: VsOut) -> vec3<f32>"),
-            "the Stage 8 light seam must survive as the Stage 9 atlas sample"
+            "the vertex-lit light seam must survive as the lightmap-atlas sample"
         );
         for needle in [
             "environment.lightmap_enabled * (1.0 - step(254.5, in.lightmap_page))",
@@ -3296,8 +3296,8 @@ mod tests {
             assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
         }
         // The multiply happens in display space, where the reference did it,
-        // and the sheen is scaled by the same factor (so a dark room darkens
-        // the sheen, which is the Stage 9 fix).
+        // and the sheen is scaled by the same factor, so a dark room darkens
+        // the sheen.
         assert!(
             WORLD_SHADER_SRC
                 .contains("base_display * vertex_color * light * (1.0 - emission_vertex)")
@@ -3552,8 +3552,8 @@ mod tests {
 
     #[test]
     fn the_unlit_bypass_survives_only_for_a_white_vertex_unit_light_and_no_sheen() {
-        // The Stage 6 contract: a raw base-texture sample for an all-white
-        // vertex colour with the unit light and no sheen.
+        // The unlit bypass: a raw base-texture sample for an all-white vertex
+        // colour with the unit light and no sheen.
         assert!(WORLD_SHADER_SRC.contains("all(in.color.rgb >= vec3<f32>(1.0))"));
         assert!(WORLD_SHADER_SRC.contains("all(light >= vec3<f32>(1.0))"));
         assert!(WORLD_SHADER_SRC.contains("all(sheen == vec3<f32>(0.0))"));
@@ -3562,7 +3562,7 @@ mod tests {
 
     // ------------------------------------------------------------------- fog
 
-    /// The CPU mirror of `WW::fogged` (Stage 10 added the numeric pin).
+    /// The CPU mirror of `WW::fogged`, pinned to the shader's numeric response.
     #[allow(clippy::too_many_arguments)] // one formula, every uniform explicit
     fn fogged(
         color: [f32; 3],

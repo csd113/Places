@@ -223,9 +223,7 @@ def main() -> None:
     parser.add_argument(
         "--out",
         type=Path,
-        default=Path(
-            "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/opencode/visual"
-        ),
+        default=REPO / "target" / "agent-work" / "visual-check",
     )
     parser.add_argument(
         "--levels",

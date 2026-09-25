@@ -73,6 +73,9 @@ renderer works in Retina drawable pixels rather than the logical window size.
 - Update `README.md` and `docs/MAP_AUTHORING_GUIDE.md` for the sectioned
   Settings screen, the live quality/bloom/lightmap switches, the 1920×1080
   default and the override precedence.
+- **The desktop platform layer moved from SDL2 to SDL3.** The window, events,
+  input, fullscreen, DPI and display handling now use `sdl3` (SDL 3.2 or
+  newer); the bindings, settings and rendered output are unchanged.
 
 ### Fixed
 

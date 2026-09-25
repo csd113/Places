@@ -1,4 +1,4 @@
-//! Stage 6 texture infrastructure: Places image assets as wgpu GPU textures.
+//! Texture infrastructure: Places image assets as wgpu GPU textures.
 //!
 //! The engine hands this module a decoded [`RawImage`] under the same logical
 //! texture identity the OpenGL reference renderer uses; this module owns
@@ -10,11 +10,11 @@
 //! * base-colour images upload as raw `Rgba8Unorm` display values, exactly like
 //!   the reference's non-sRGB `GL_RGBA` sheets: filtering, blending and mip
 //!   selection all happen in the reference's display space, and the sRGB
-//!   surface is the single conversion point. (Stage 6-9 sampled
-//!   `Rgba8UnormSrgb` and re-encoded in the shader; Stage 10 measured the
-//!   decode/blend round trip as a convexity bias and returned to raw.) The
-//!   semantic enum still distinguishes colour from linear data textures
-//!   (normal maps, masks);
+//!   surface is the single conversion point. (An sRGB sample would make the
+//!   hardware decode each filtered blend and the shader re-encode it — a
+//!   convexity bias measured as a broad +1 display level on minified surfaces —
+//!   so the textures stay raw.) The semantic enum still distinguishes colour
+//!   from linear data textures (normal maps, masks);
 //! * mips are generated on the CPU by a deterministic 2x2 box filter over the
 //!   raw 8-bit channels, the same arithmetic the OpenGL reference's
 //!   `glGenerateMipmap` applies to its non-sRGB `GL_RGBA` textures;
@@ -23,8 +23,9 @@
 //!   reference's `LINEAR_MIPMAP_LINEAR`/`LINEAR` and
 //!   `NEAREST_MIPMAP_NEAREST`/`NEAREST`); the fallback sheet uses the
 //!   reference's clamped nearest sampler, with no mip chain;
-//! * nothing else: normal maps, lightmaps, emissive masks, decals, props and
-//!   render targets are later stages and never reach this module in Stage 6.
+//! * nothing else: the two semantics above cover every upload the cache
+//!   accepts; lightmap atlases and render targets are owned by their own
+//!   modules.
 //!
 //! The cache is keyed by semantic identity (logical texture id + colour
 //! interpretation + quality class + profile), never by material instance or
@@ -61,17 +62,16 @@ const FALLBACK_TEXTURE_KEY: &str = "core:tex_white_01";
 
 /// How one GPU texture's channels are meant to be interpreted.
 ///
-/// Stage 6 created only [`Self::BaseColorDisplay`]; Stage 7 adds the first
-/// [`Self::DataLinear`] textures (material normal maps), whose cache key and
-/// format the variant already pins.
+/// [`Self::BaseColorDisplay`] covers authored colour; [`Self::DataLinear`]
+/// covers numeric data (material normal maps, masks), whose cache key and
+/// format the variant pins.
 ///
-/// Stage 10 corrected [`Self::BaseColorDisplay`] from `Rgba8UnormSrgb` to raw
-/// `Rgba8Unorm`: the reference has no sRGB anywhere, so it filters, blends and
-/// mips authored bytes in display space. Sampling an sRGB copy made the
-/// hardware decode each filtered blend and the shader re-encode it — a
-/// convexity bias measured as a broad +1 display level on minified surfaces.
-/// Returning the texture to raw improved every canonical view; the exact
-/// per-texel decode/encode round trip itself is proven exact by
+/// Both upload raw `Rgba8Unorm`: the reference has no sRGB anywhere, so it
+/// filters, blends and mips authored bytes in display space. Sampling an sRGB
+/// copy made the hardware decode each filtered blend and the shader re-encode
+/// it — a convexity bias measured as a broad +1 display level on minified
+/// surfaces — so the textures stay raw. The exact per-texel decode/encode
+/// round trip itself is proven exact by
 /// `the_srgb_sample_round_trip_is_measured_on_this_adapter`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TextureSemantic {
@@ -218,7 +218,7 @@ impl TextureFiltering {
     }
 }
 
-/// One shared sampler configuration. Only the four Stage 6/9 uses exist.
+/// One shared sampler configuration. Only the four listed policies exist.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SamplerPolicy {
     /// A repeating tiling sheet with linear min/mag/mip filtering.
@@ -469,7 +469,7 @@ struct TextureUpload<'a> {
     fallback: bool,
 }
 
-/// The four shared samplers the Stage 6/9 world uses.
+/// The four shared samplers the world and every later pass use.
 struct Samplers {
     repeat_linear: wgpu::Sampler,
     repeat_nearest: wgpu::Sampler,
@@ -942,9 +942,9 @@ mod tests {
 
     #[test]
     fn every_semantic_samples_raw_display_space() {
-        // Stage 10: the reference has no sRGB textures, so neither does the
-        // port. The one display-to-surface conversion is the shader's
-        // `srgb_to_linear` at the final sRGB surface.
+        // The reference has no sRGB textures, so neither does the port. The
+        // one display-to-surface conversion is the shader's `srgb_to_linear`
+        // at the final sRGB surface.
         assert_eq!(
             TextureSemantic::BaseColorDisplay.format(),
             wgpu::TextureFormat::Rgba8Unorm
@@ -1307,12 +1307,12 @@ mod tests {
     /// Measures the hardware sRGB decode plus the shader-style `linear_to_srgb`
     /// encode on this adapter, byte by byte.
     ///
-    /// Stage 10 measured this after Stage 9's canonical replay left a broad
-    /// +1 residue on minified surfaces. The result (0 error for all 256 bytes
-    /// on Apple/Metal) ruled the per-texel round trip out as the cause and
-    /// pointed at *blending* decoded values: the pipeline now samples raw
+    /// This measurement was taken while the minified-surface colour residue
+    /// was under investigation. The result (0 error for all 256 bytes on
+    /// Apple/Metal) ruled the per-texel round trip out as the cause and pointed
+    /// at *blending* decoded values: the pipeline now samples raw
     /// `Rgba8Unorm`, and this test stays as the adapter-level contract that
-    /// made the repair a measurement rather than a guess.
+    /// keeps the decision a measurement rather than a guess.
     ///
     /// Ignored by default: it needs a real adapter. Run with:
     ///

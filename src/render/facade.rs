@@ -8,9 +8,9 @@
 //! and return value is engine data, never a GPU object.
 //!
 //! The facade is deliberately narrow: it is the engine/renderer seam described
-//! by `docs/RENDERER_BOUNDARY.md`, not a multi-backend abstraction. See
-//! `docs/WGPU_STAGE9.md` for the ported features and
-//! `docs/RENDERER_REFERENCE.md` for the preserved OpenGL reference.
+//! by `docs/ARCHITECTURE.md`, not a multi-backend abstraction. See
+//! `docs/RENDERER.md` for the current contracts and `docs/RENDERER_REFERENCE.md`
+//! for the preserved reference implementation.
 
 use sdl3::video::Window;
 
@@ -33,7 +33,7 @@ impl Renderer {
     /// Builds the renderer for `window`.
     ///
     /// The window is a plain SDL3 window; the raw-window-handle path needs no
-    /// platform window flag since Stage 12.
+    /// platform window flag.
     ///
     /// # Errors
     ///
@@ -91,8 +91,9 @@ impl Renderer {
 
     /// Switches bloom on or off.
     ///
-    /// The gate is applied to the next frame's post settings and releases the
-    /// bloom targets when it turns off.
+    /// The gate applies at the next frame's post settings: with bloom off no
+    /// emissive or blur pass is submitted, and the bloom targets stay allocated
+    /// but unused.
     pub const fn set_bloom_enabled(&mut self, enabled: bool) {
         self.renderer.set_bloom_enabled(enabled);
     }

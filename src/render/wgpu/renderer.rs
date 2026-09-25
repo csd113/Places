@@ -1,27 +1,29 @@
-//! The wgpu renderer: device/surface lifecycle and the world material pass.
+//! The wgpu renderer: device/surface lifecycle and the complete frame.
 //!
-//! The renderer owns the GPU side of one level: the static world vertex/index
-//! buffers and the render pipelines that draw them, on top of the Stage 4
-//! device/surface lifecycle. It never bakes lighting or builds geometry; it
-//! uploads and draws what the renderer-neutral `render::common` layer produced.
+//! The renderer owns the GPU side of one level: the device, queue and surface
+//! lifecycle, the static world vertex/index buffers and render pipelines, the
+//! texture and material caches, the lightmap atlas, the reflection targets,
+//! the props and dynamic meshes, the decal set, the post-processing chain and
+//! the HUD. It never bakes lighting or builds geometry; it uploads and draws
+//! what the renderer-neutral `render::common` layer produced.
 //!
-//! Stage 4 established four things before any Places content was ported:
+//! The lifecycle handles four things together:
 //!
-//! 1. SDL can host a wgpu surface on the intended native desktop backend;
-//! 2. adapter/device creation and surface configuration work;
+//! 1. SDL hosts a wgpu surface on the intended native desktop backend;
+//! 2. adapter/device creation and surface configuration are verified against
+//!    that backend;
 //! 3. the surface lifecycle (resize, minimize, restore, surface loss, device
-//!    loss) is reliable;
-//! 4. the Stage 3 facade can drive a second implementation without the engine
-//!    learning any wgpu vocabulary.
+//!    loss) recovers without leaking GPU objects;
+//! 4. the engine sees only the `render::Renderer` facade and never learns any
+//!    wgpu vocabulary.
 //!
-//! Stage 5 added the static world on top of exactly that lifecycle: level
-//! upload into persistent GPU buffers, the shared Places camera, one minimal
-//! WGSL pipeline, depth testing, back-face culling and indexed draws. Stage 6
-//! added the texture system, and Stage 7 the complete material system: the
-//! resolved material states, normal maps, the three material passes with the
-//! reference's alpha states and translucent ordering, and the WGSL that
-//! reproduces the reference's material colour and prepares the material normal.
-//! Nothing in the surface/device path was rewritten to make that possible.
+//! The world path uploads level geometry into persistent GPU buffers and draws
+//! it from the shared Places camera with depth testing and indexed draws; the
+//! material path resolves each draw's state, binds normal maps and runs the
+//! three material passes with the reference's alpha states and translucent
+//! ordering, with the WGSL reproducing the reference's material colour and
+//! preparing the material normal. The surface/device path is independent of
+//! that content.
 //!
 //! Everything wgpu-specific lives under `render::wgpu`; the engine reaches it
 //! only through `render::Renderer`. The backend draws the whole reference frame
@@ -114,7 +116,7 @@ enum Acquired {
 
 /// The wgpu implementation of the renderer facade.
 ///
-/// It owns the Stage 4 device/surface lifecycle and the world material passes.
+/// It owns the device/surface lifecycle and the world material passes.
 /// Field order is drop order: the surface (and its swapchain resources) drops
 /// before the device and the instance. The SDL window is never owned here; see
 /// [`surface::create`] for the lifetime invariant that keeps the raw handles
@@ -234,8 +236,8 @@ pub struct WgpuRenderer {
     /// recorded here so `set_bloom_enabled` can be applied without a rebuild,
     /// exactly like the reference's `bloom_enabled` flag.
     bloom_requested: bool,
-    /// Whether the player asked for reflections. Stage 9's probe and planar
-    /// resources arrive with `render::wgpu::reflections`; the flag is recorded
+    /// Whether the player asked for reflections. The probe and planar
+    /// resources live in `render::wgpu::reflections`; the flag is recorded
     /// here and gates the environment's reflection sampling.
     reflections_enabled: bool,
     /// The level's reflection routing and gates (neutral data).
@@ -279,6 +281,10 @@ pub struct WgpuRenderer {
     /// The neutral dynamic scene. The engine spawns its objects through
     /// `set_dynamic_demo`; the GPU side lives in `world_dynamic`.
     dynamic: DynamicScene,
+    /// The id of the level currently resident. A `set_level` for a different
+    /// level clears the neutral dynamic scene; a quality rebuild of the same
+    /// level keeps it, so its objects survive a profile change.
+    level_id: Option<String>,
     /// The GPU side of the dynamic scene: one mesh per model, one environment
     /// per object. Built when the demo spawns, dropped with the level.
     world_dynamic: Option<WgpuDynamic>,
@@ -296,9 +302,9 @@ pub struct WgpuRenderer {
 impl WgpuRenderer {
     /// Creates the wgpu backend for an existing SDL window.
     ///
-    /// The window is a plain SDL3 window: since Stage 12 the raw-window-handle
-    /// implementation reports its content view and wgpu attaches its own Metal
-    /// layer, so no backend-specific window flags are requested.
+    /// The window is a plain SDL3 window: the raw-window-handle implementation
+    /// reports its content view and wgpu attaches its own Metal layer, so no
+    /// backend-specific window flags are requested.
     ///
     /// # Errors
     ///
@@ -353,14 +359,14 @@ impl WgpuRenderer {
         })?;
         let device_lost = Self::watch_device_loss(&device);
 
-        // Stage 6: the texture layout, samplers and fallback sheet the world
-        // draws bind. One fallback upload at construction; levels add their own.
+        // The texture layout, samplers and fallback sheet the world draws
+        // bind. One fallback upload at construction; levels add their own.
         let textures = TextureCache::new(&device, &queue);
-        // Stage 7: the material bind group layout, created once and shared by
-        // every pipeline rebuild and material binding.
+        // The material bind group layout, created once and shared by every
+        // pipeline rebuild and material binding.
         let material_layout = material_bind_group_layout(&device);
-        // Stage 9: the environment layout (group 3), the reflection fallbacks
-        // and the fixture-sheet slots.
+        // The environment layout (group 3), the reflection fallbacks and the
+        // fixture-sheet slots.
         let environment_layout = environment_bind_group_layout(&device);
         let (probe_fallback, probe_fallback_view) = fallback_probe(&device);
         let (planar_fallback, planar_fallback_view) = fallback_planar(&device, &queue);
@@ -443,6 +449,7 @@ impl WgpuRenderer {
             fatal: None,
             device_lost,
             dynamic: DynamicScene::new(),
+            level_id: None,
             world_dynamic: None,
             dynamic_lighting: None,
             last_frame: None,
@@ -538,7 +545,7 @@ impl WgpuRenderer {
         if !surface::surface_format_is_srgb(self.config.format) {
             logging::warn(format!(
                 "[wgpu] surface format {:?} is not sRGB; the world shader writes display-space values \
-                 and they will be presented as if linear (Stage 7/8 colour-space contract cannot be honoured)",
+                 and they will be presented as if linear (the display-space colour contract cannot be honoured)",
                 self.config.format
             ));
         }
@@ -586,8 +593,8 @@ impl WgpuRenderer {
         true
     }
 
-    /// The current dynamic scene (Stage 5 keeps it empty: dynamic objects are
-    /// not part of the world geometry stage).
+    /// The current dynamic scene (empty until `set_dynamic_demo` spawns
+    /// objects; the static world is uploaded separately).
     #[must_use]
     pub const fn dynamic_scene(&self) -> &DynamicScene {
         &self.dynamic
@@ -718,11 +725,10 @@ impl WgpuRenderer {
         // lighting (`build.lightmaps.is_none()`), exactly like the reference,
         // which does not call `upload_level_lightmaps` for a missing atlas.
         // Rebuilding again with `LightmapMode::Off` here would re-bake with
-        // `BakeConfig::HARD` and change every vertex colour — the level0_pit
-        // divergence Stage 10 found. Only an upload failure rebuilds, and the
-        // wgpu upload cannot fail; the check stays as the reference's
-        // defensive fallback so a future failure cannot draw an atlas-less
-        // lightmapped mesh.
+        // `BakeConfig::HARD` and change every vertex colour. Only an upload
+        // failure rebuilds, and the wgpu upload cannot fail; the check stays as
+        // the reference's defensive fallback so a future failure cannot draw an
+        // atlas-less lightmapped mesh.
         if needs_upload_fallback(options.mode, build.lightmaps.is_some(), atlas.is_resident()) {
             build = build_level_geometry_timed_with_lightmaps(
                 &loaded.level,
@@ -841,9 +847,15 @@ impl WgpuRenderer {
         self.material_animations = animations;
         self.animation_seconds = 0.0;
         self.dynamic_lighting = Some(build.lighting.clone());
-        // The GPU side of the previous level's dynamic scene dies with it; the
-        // neutral scene survives a quality rebuild (the reference keeps its
-        // objects across one), so it is re-uploaded against the new resources.
+        // The GPU side of the previous level's dynamic scene dies with it. The
+        // neutral scene is level content too: a quality rebuild of the same
+        // level keeps its objects (the reference keeps them across one), but a
+        // different level must not inherit them, so a level change clears the
+        // neutral scene and it is re-uploaded against the new resources.
+        if self.level_id.as_deref() != Some(loaded.level.id.as_str()) {
+            self.dynamic.clear_all();
+            self.level_id = Some(loaded.level.id.clone());
+        }
         self.world_dynamic = None;
         self.lightmaps = atlas;
         self.environment = Some(self.create_environment());
@@ -1178,8 +1190,8 @@ impl WgpuRenderer {
     /// The world path: acquire the surface texture, clear colour and depth,
     /// then submit the uploaded world passes from the shared Places camera.
     /// The camera is prepared by the renderer-neutral
-    /// [`prepare_world_frame`]; the only Stage 5 coordinate decision is its one
-    /// clip-space correction.
+    /// [`prepare_world_frame`]; the only coordinate decision made here is its
+    /// one clip-space correction.
     #[allow(clippy::too_many_lines)] // one cohesive frame submission: prepare, encode and present
     pub fn render_scene(&mut self, camera: RenderCamera) {
         if self.check_device_lost() {
@@ -2106,9 +2118,9 @@ impl WgpuRenderer {
     /// values), so the capture re-encodes that chain — the same pipelines, bind
     /// groups, camera state and CPU frustum test the last [`Self::render_scene`]
     /// used — and copies the presented image into an offscreen `Rgba8Unorm`
-    /// capture texture with no transfer function (Stage 10; Stage 9 encoded
-    /// through an sRGB capture target and added a hardware conversion to every
-    /// measured pixel). The direct fallback renders through the surface-format
+    /// capture texture with no transfer function, so the measured pixels are
+    /// exactly the displayed values (an sRGB capture target would add a
+    /// hardware conversion to every one). The direct fallback renders through the surface-format
     /// pipeline into an sRGB capture texture instead, exactly as it presents.
     /// Rendering offscreen rather than reading the acquired surface makes both
     /// paths work with `PLACES_BENCH_NOSWAP`.
@@ -2302,7 +2314,7 @@ impl WgpuRenderer {
         }
     }
 
-    /// Applies the Stage 4 recovery policy for one non-success status.
+    /// Applies the surface recovery policy for one non-success status.
     fn recover(&mut self, status: SurfaceStatus) -> Acquired {
         match status.recovery() {
             SurfaceRecovery::Reconfigure => self.retry_after_reconfigure(),

@@ -1,8 +1,7 @@
 # Required transitive major/minor splits: PNG uses miniz_oxide 0.8 directly while
-# flate2 uses 0.9. The wgpu tree adds two more: wgpu's proc-macro dependencies
-# use syn 3 while serde/thiserror use syn 2, and wgpu-hal's hashbrown 0.17
-# cannot be unified with the 0.16 the remaining tree selects. None can be
-# unified without changing upstream dependencies. Keep every other duplicate
-# diagnostic. (Stage 12 removed the SDL2/bitflags 1 split: the SDL3 crate uses
-# the same bitflags 2 as the rest of the tree.)
+# flate2 uses 0.9. The wgpu tree adds two more: zerocopy-derive (via half and
+# naga) uses syn 2 while bytemuck_derive, serde_derive and thiserror-impl use
+# syn 3, and wgpu-hal's hashbrown 0.17 cannot be unified with the 0.16 that
+# gpu-allocator selects on the Vulkan/D3D12 targets. None can be unified without
+# changing upstream dependencies. Keep every other duplicate diagnostic.
 allowed-duplicate-crates = ["hashbrown", "miniz_oxide", "syn"]

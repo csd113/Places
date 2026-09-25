@@ -103,19 +103,6 @@ impl WallAabb {
     pub fn intersects_player_y(&self, foot_y: f32) -> bool {
         self.max_y > foot_y + self.step_up + STEP_EPS && self.min_y < foot_y + PLAYER_HEIGHT
     }
-
-    /// Checks if a 2D circle intersects this wall AABB at the player's foot Y.
-    #[must_use]
-    pub fn intersects_circle(&self, center: Vec2, radius: f32, foot_y: f32) -> bool {
-        if !self.intersects_player_y(foot_y) {
-            return false;
-        }
-        let closest_x = center.x.clamp(self.min_x, self.max_x);
-        let closest_z = center.y.clamp(self.min_z, self.max_z);
-        let diff_x = center.x - closest_x;
-        let diff_z = center.y - closest_z;
-        diff_z.mul_add(diff_z, diff_x * diff_x) < (radius * radius)
-    }
 }
 
 /// Resolves collision between player horizontal position and wall bounding boxes.

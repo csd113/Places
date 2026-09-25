@@ -1,5 +1,5 @@
-// Stage 9 decals: the reference's local surface markings, drawn as the last
-// scene pass with a depth bias.
+// Decals: the reference's local surface markings, drawn as the last scene pass
+// with a depth bias.
 //
 // The reference's decal program is its shared world vertex stage plus
 // `DECAL_FRAGMENT_SHADER_SRC`: an unlit texture multiply with an alpha cut-out,

@@ -1,4 +1,4 @@
-//! Stage 9 dynamic objects: the washer-drum demonstration on wgpu.
+//! Dynamic objects: the washer-drum demonstration on wgpu.
 //!
 //! The renderer-neutral [`DynamicScene`] owns the model-space meshes, their
 //! transforms and their baked-light probes; this module owns the GPU side,

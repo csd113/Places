@@ -4,8 +4,8 @@
 These tests prove the whole wgpu chain on the running host, not just the
 renderer logic:
 
-    SDL initializes
-    -> the window is created with the platform flags the wgpu surface needs
+    SDL3 initializes
+    -> the window is created and reports its drawable size
     -> wgpu instance / native adapter / device / queue exist
     -> the surface is configured and the depth target exists
     -> the static world geometry is built, uploaded and drawn
@@ -15,21 +15,23 @@ renderer logic:
 They bound the run with the existing benchmark harness
 (``PLACES_BENCH=1 PLACES_BENCH_FRAMES=n``) instead of adding a public game
 feature, and they assert the adapter's reported backend so a silent fallback to
-another API cannot pass. The renderer is the only one: since Stage 11 there is
-no runtime backend selection.
+another API cannot pass. wgpu is the only renderer: there is no runtime backend
+selection.
 
-The Stage 5 tests read the one load-time world-upload diagnostic and assert
+The world-upload tests read the one load-time world-upload diagnostic and assert
 non-empty geometry, draw ranges and a successful present. A second level is
 installed into a scratch state root so the same process boots Places Demo and
 then *replaces* it through ``PLACES_LEVEL``, which exercises the level-reload
 path (upload, drop the old buffers, draw the new world) without menu input.
-The Stage 7 tests read the material-resolution diagnostic and assert the
+The material-resolution tests read the material diagnostic and assert the
 opaque/cut-out/translucent breakdown matches the draw set, the demo's glass and
 grille are present, the response/reflection metadata follows the quality
 profile and nothing is created per frame.
 
 The tests need a graphical session and a release binary; they skip themselves
 otherwise. All scratch state lives under ``target/agent-work/wgpu-smoke/``.
+Every run pins ``PLACES_STATE_ROOT`` there, so a developer's gitignored
+repository-root ``settings.json`` can never decide what these tests assert.
 """
 
 from __future__ import annotations
@@ -48,21 +50,21 @@ SMOKE_ROOT = os.path.join(ROOT, "target", "agent-work", "wgpu-smoke")
 DEFAULT_BINARY = os.path.join(ROOT, "target", "release", "places")
 
 # The native backend each desktop target must report in the startup line
-# (`[renderer] wgpu | ... | backend: <Debug>`); Stage 4 accepts no other.
+# (`[renderer] wgpu | ... | backend: <Debug>`); no other backend may pass.
 EXPECTED_BACKEND = {
     "darwin": "Metal",
     "linux": "Vulkan",
     "win32": "Dx12",
 }
 
-# One load-time diagnostic names what the Stage 5 upload produced.
+# One load-time diagnostic names what the world upload produced.
 WORLD_UPLOAD = re.compile(
     r"\[wgpu\] world upload: (\d+) vertices, (\d+) indices, (\d+) draws "
     r"in (\d+) chunk"
 )
 
-# One load-time diagnostic names what the Stage 6 texture resolution produced:
-# unique textures, GPU uploads, cache hits, fallback draws, diagnostic missing
+# One load-time diagnostic names what texture resolution produced: unique
+# textures, GPU uploads, cache hits, fallback draws, diagnostic missing
 # textures / draws, resident bytes, longest edge and the filtering mode.
 TEXTURE_LOAD = re.compile(
     r"\[wgpu\] textures: (\d+) unique, (\d+) uploaded, (\d+) cache hits, "
@@ -70,10 +72,10 @@ TEXTURE_LOAD = re.compile(
     r"\((\d+) bytes resident, max edge (\d+)px, (\w+) filtering\)"
 )
 
-# One load-time diagnostic names what the Stage 7 material resolution produced:
-# distinct resolved material states (with how many carry the response and how
-# many are reflection-eligible), normal maps and their uploads, and the
-# material-defined pass breakdown of the world draw set.
+# One load-time diagnostic names what material resolution produced: distinct
+# resolved material states (with how many carry the response and how many are
+# reflection-eligible), normal maps and their uploads, and the material-defined
+# pass breakdown of the world draw set.
 MATERIAL_LOAD = re.compile(
     r"\[wgpu\] materials: (\d+) resolved \((\d+) response, (\d+) reflection-eligible\), "
     r"(\d+) normal maps \((\d+) uploaded, (\d+) cache hits\), "
@@ -140,8 +142,8 @@ def _empty_level() -> dict:
 def _notexture_level() -> dict:
     """A room whose surfaces name no material at all.
 
-    Every stage 6 draw must resolve to the shared fallback sheet; the level is
-    a valid one, not an error case.
+    Every draw must resolve to the shared fallback sheet; the level is a valid
+    one, not an error case.
     """
     return {
         "format_version": 1,
@@ -214,6 +216,12 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
                 # Pinned so a previous test's `PLACES_QUALITY=low` (persisted in
                 # the shared smoke state root) cannot leak into this run.
                 "PLACES_QUALITY": "full",
+                # Pin the writable state root and the swap interval: without
+                # them the binary reads the gitignored repository-root
+                # `settings.json`, whose present mode and texture filtering are
+                # developer state, not a contract.
+                "PLACES_STATE_ROOT": os.path.join(SMOKE_ROOT, "state"),
+                "PLACES_VSYNC": "on",
             }
         )
         if extra_env:
@@ -342,7 +350,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             self.assertGreater(resident, 0, "sampled textures must be resident")
             self.assertGreater(edge, 0, output)
 
-    # ------------------------------------------------------ Stage 4 lifecycle
+    # ------------------------------------------------------ renderer lifecycle
 
     def test_the_wgpu_renderer_draws_the_world_and_exits_cleanly(self):
         code, output = self.run_binary({})
@@ -376,7 +384,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(indices % 3, 0, "indices are whole triangles")
         self.assert_no_gpu_failure(output)
 
-    # ------------------------------------------------- Stage 6 texture system
+    # -------------------------------------------------------- texture system
 
     def test_places_demo_uploads_each_base_texture_once(self):
         code, output = self.run_binary({})
@@ -392,10 +400,10 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
         # The demo's opaque architecture samples the shipped environment
         # sheets; every unseen sheet of the world draw set uploads exactly once.
-        # Stage 9 adds the fixture-sheet family, whose sheets upload through
-        # their own (cached) path, and the placeholder-box/light-housing draws
-        # that share the fallback sheet, so the uploaded count is at most the
-        # unique count and fallbacks are legitimate here.
+        # The fixture-sheet family uploads through its own cached path, and the
+        # placeholder-box/light-housing draws share the fallback sheet, so the
+        # uploaded count is at most the unique count and fallbacks are
+        # legitimate here.
         self.assertGreaterEqual(unique, 25, output)
         self.assertGreater(uploaded, 25, "the first load uploads the world's sheets")
         self.assertLessEqual(
@@ -434,7 +442,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assert_material_resolution_is_sane(material_loads[0], output)
         self.assert_no_gpu_failure(output)
 
-    # ------------------------------------------------ Stage 7 material system
+    # ------------------------------------------------------- material system
 
     def test_places_demo_resolves_materials_for_every_pass(self):
         code, output = self.run_binary({})
@@ -531,7 +539,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             "the Low fit must reduce resident texels to a fraction of Full's",
         )
 
-    # -------------------------------------------------------- Stage 5 reload
+    # ------------------------------------------------------------ level reload
 
     def test_a_second_level_replaces_the_uploaded_world(self):
         state = os.path.join(SMOKE_ROOT, "reload-state")
@@ -562,6 +570,24 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertGreater(second[2], 0, "the second level uploads draws")
         self.assertNotEqual(
             first, second, "the second level must replace the first world"
+        )
+
+        # The demonstration objects belong to the level that spawned them: the
+        # boot demo spawns one drum, and replacing the level must clear the
+        # neutral dynamic scene instead of carrying it into the new level.
+        dynamic_lines = [
+            line for line in output.splitlines() if line.startswith("[dynamic]")
+        ]
+        self.assertEqual(
+            dynamic_lines,
+            [
+                "[dynamic] 1 object(s): 1 draw call(s), 300 vertices"
+                " (the demonstration path; never part of the static bake)",
+                "[dynamic] 0 object(s): 0 draw call(s), 0 vertices"
+                " (the demonstration path; never part of the static bake)",
+            ],
+            "the level replacement must clear the previous level's dynamic"
+            f" scene:\n{output}",
         )
 
         # One texture resolution per level load, never per frame.
@@ -706,12 +732,13 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(material_loads[1][3], 0, "and its normal map")
         self.assert_no_gpu_failure(output)
 
-    # ------------------------------------------------------ Stage 8 lighting
+    # --------------------------------------------------------- baked lighting
 
     def test_the_wgpu_build_reports_the_baked_lighting_and_its_occluders(self):
-        # The reference has no realtime lights: the bake is the lighting. The
+        # This renderer has no realtime lights: the bake is the lighting. The
         # one load-time lighting diagnostic must show a real bake with real
-        # occluders, and the Stage 8 build must draw no lightmap atlas.
+        # occluders, and the same boot must pack the lightmap atlas the world
+        # shader samples.
         code, output = self.run_binary({})
 
         self.assertEqual(code, 0, f"wgpu run failed:\n{output}")
@@ -735,7 +762,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertLessEqual(maximum, 1.0, "the bake clamps to MAX_BRIGHTNESS")
         self.assertLessEqual(average, maximum)
         self.assertGreaterEqual(average, minimum)
-        # Stage 9 builds the reference's atlas: Places Demo packs two pages at
+        # The bake packs the lightmap atlas: Places Demo packs two pages at
         # both profiles, so the diagnostic must name a real atlas.
         atlas = re.search(r"\[lightmaps\] (\d+) page\(s\), (\d+) chart\(s\)", output)
         self.assertIsNotNone(atlas, f"no lightmap diagnostic:\n{output}")
@@ -744,7 +771,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assert_no_gpu_failure(output)
 
     def test_the_wgpu_capture_writes_the_drawable_as_a_png(self):
-        capture = os.path.join(SMOKE_ROOT, "stage8-capture.png")
+        capture = os.path.join(SMOKE_ROOT, "wgpu-capture.png")
         if os.path.exists(capture):
             os.remove(capture)
 
@@ -780,9 +807,8 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
         self.assertEqual(full_code, 0, f"full-profile run failed:\n{full}")
         self.assertEqual(low_code, 0, f"low-profile run failed:\n{low}")
-        # Stage 9 builds the reference's lightmap atlas; the profile selects its
-        # texel density and page size, and the world draw set (geometry, ranges
-        # and chunks) stays the same.
+        # The profile selects the lightmap atlas's texel density and page size;
+        # the world draw set (geometry, ranges and chunks) stays the same.
         self.assertEqual(
             self.world_uploads(full)[0],
             self.world_uploads(low)[0],

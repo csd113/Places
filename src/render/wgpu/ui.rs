@@ -1,4 +1,4 @@
-//! Stage 9 renderer-owned UI: the 480x272 HUD pass.
+//! Renderer-owned UI: the 480x272 HUD pass.
 //!
 //! The port of the reference renderer's `Renderer::render_ui`: the same
 //! 480x272 reference space, the

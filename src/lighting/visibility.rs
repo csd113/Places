@@ -1535,12 +1535,6 @@ impl Visibility {
         self.occluders.fingerprint()
     }
 
-    /// Number of query sites the set was built for.
-    #[must_use]
-    pub const fn site_count(&self) -> usize {
-        self.ranges.len()
-    }
-
     /// True when `(x, z)` lies inside a solid wall, ignoring height.
     ///
     /// A room's floor and ceiling are sampled on the room's own footprint, and

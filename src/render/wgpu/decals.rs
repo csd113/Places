@@ -1,4 +1,4 @@
-//! Stage 9 decals: the reference's local surface markings.
+//! Decals: the reference's local surface markings.
 //!
 //! The OpenGL reference draws decals as the last scene pass: static
 //! `SurfaceKind::Decal` ranges through a second program
@@ -72,9 +72,8 @@ pub const DECAL_FRAGMENT_ENTRY_RAW: &str = "fs_main_raw";
 /// The format every decal sheet uploads as.
 ///
 /// Raw display space, exactly like the reference's plain `GL_RGBA` decal sheets
-/// and (since Stage 10) every other texture: the fragment multiplies the raw
-/// authored bytes and writes display-space targets directly, converting only
-/// for the sRGB surface.
+/// and every other texture: the fragment multiplies the raw authored bytes and
+/// writes display-space targets directly, converting only for the sRGB surface.
 pub const DECAL_SHEET_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
 /// Maps the reference's `glPolygonOffset(factor, units)` onto wgpu's depth bias.
@@ -123,9 +122,8 @@ struct DecalChunk {
 
 /// One drawable decal range inside a chunk.
 ///
-/// Mirrors the neutral `StaticBatch` shape: a chunk plus an index range, the
-/// range's cull bounds and its sheet. The sheet is the neutral key's material,
-/// which for a decal is the sheet index
+/// Holds the chunk plus the index range, the range's cull bounds and its sheet.
+/// The sheet is the neutral key's material, which for a decal is the sheet index
 /// ([`crate::render::common::decal_sheet_index`]): the generated atlas or one
 /// external PNG.
 struct DecalDraw {
@@ -722,9 +720,9 @@ fn upload_sheets(
 /// Uploads one sheet with a CPU mip chain and both filtering bind groups.
 ///
 /// The mip chain is the same deterministic 2x2 box filter `texture.rs` applies
-/// to the Stage 6 sheets (the two helpers are private there and duplicated
-/// here, pinned by the tests to the same arithmetic): average the raw 8-bit
-/// channels without a gamma step, stopping at 1x1.
+/// to its sheets (the two helpers are private there and duplicated here, pinned
+/// by the tests to the same arithmetic): average the raw 8-bit channels without
+/// a gamma step, stopping at 1x1.
 fn upload_sheet(
     device: &wgpu::Device,
     queue: &wgpu::Queue,

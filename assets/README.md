@@ -184,17 +184,16 @@ Texture assets are just files:
   Pool surface sheets are intentionally 1024×1024.
 * **Surface sheets are square**, because the renderer samples them as square
   `tile_metres` cells and a non-square wall/floor/ceiling sheet would stretch.
-  They are not power-of-two constrained: the desktop GL path loads NPOT fine
-  and the runtime accepts it, though POT stays preferred for the ES 2.0
-  portability target.
+  They are not power-of-two constrained: the runtime accepts any non-zero size
+  up to the ceiling. The one deliberate exception is the 96×64
+  `core:tex_diagnostic_alt_01` surface, which exists to prove the non-square,
+  non-power-of-two load path and is asserted explicitly where it is loaded.
 * **Decal sheets and fixture faces must be power-of-two** on both edges. They
-  are fitted, sampled with mipmaps and never repeat, and OpenGL ES 2.0 does not
-  guarantee NPOT + mipmapping. `tools/textures/build.py --check` reports a
-  non-POT sheet as a warning (the runtime decoder itself accepts it); the
-  shipped-asset policy in `src/assets.rs` and its tests treat it as a
-  violation. The one deliberate exception is the 96×64
-  `core:tex_diagnostic_alt_01` surface, which exists to prove the NPOT load
-  path and is asserted explicitly where it is loaded.
+  are fitted rather than tiled and sampled with mipmaps, and a power-of-two
+  extent keeps every mip level exact. `tools/textures/build.py
+  --check` reports a non-POT sheet as a warning (the runtime decoder itself
+  accepts it); the shipped-asset policy in `src/assets.rs` and its tests treat
+  it as a violation.
 * Surface textures are uploaded with `REPEAT` wrapping and mipmaps. Alpha is
   decoded and preserved, and whether it is *used* is the material's
   `alpha_mode`: `opaque` (the default) writes every texel, `cutout` discards
@@ -206,7 +205,7 @@ Texture assets are just files:
 * Fixture faces are **fitted**, not tiled: their UVs never leave the sheet, so
   they are uploaded with `CLAMP_TO_EDGE` wrapping and mipmaps. A fixture PNG
   must therefore be *complete* artwork — no bleeding margin is needed, and a
-  power-of-two size keeps the mip chain exact on the ES 2.0 target. Decal
+  power-of-two size keeps the mip chain exact. Decal
   sheets are fitted too, but are uploaded with `REPEAT` (see below).
 
 ### Decal sheets

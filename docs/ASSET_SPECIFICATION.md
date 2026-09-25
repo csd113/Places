@@ -261,7 +261,7 @@ resolution.
 | Preferred source resolution | 1024×1024 (the shipped office/pool wallpaper and tile) |
 | Soft warning threshold | above 256 px on either edge (`PREFERRED_TEXTURE_DIMENSION`); the shipped 1024² art is intentionally over it and Full uploads it unchanged |
 | Hard maximum | 1024×1024 per edge (`MAX_TEXTURE_DIMENSION`, enforced by the decoder) |
-| Power-of-two | not required for surfaces; a square NPOT sheet is policy-legal (`assets::tests`) and the 96×64 diagnostic proves non-square NPOT dimensions decode on the desktop GL path |
+| Power-of-two | not required for surfaces; a square NPOT sheet is policy-legal (`assets::tests`) and the 96×64 diagnostic proves non-square NPOT dimensions decode and upload |
 | Tileable | **yes, both axes**; seam-gated |
 | Channels | RGB or RGBA; 8-bit output |
 | Alpha | ignored unless the material authors `cutout` or `blend` |
@@ -818,7 +818,7 @@ PNGs. They are listed so no one mistakes them for assets to replace:
 | 256×256 decal atlas (one live cell) | `src/render/common/decals.rs` | internal validation marking machinery |
 | 64×64 missing-texture pattern | `src/materials/image.rs` | visible fallback for a broken texture |
 | Lightmap atlas pages | `src/lighting/lightmap/` | baked light data, regenerated at level load; never a shipped asset. A developer path can dump a page as a PNG under `target/`, but that is a diagnostic capture, not an asset. |
-| Reflection probe cubemaps | `src/render/common/reflections.rs` (routing) and `src/render/opengl/reflections.rs` (probe cubemaps) | baked per level load |
+| Reflection probe cubemaps | `src/render/common/reflections.rs` (routing) and `src/render/wgpu/reflections.rs` (probe cubemaps) | baked per level load |
 
 Diagnostic textures under `assets/diagnostic/textures/` are real PNGs but are
 engine test artwork: the 96×64 sheet deliberately proves arbitrary NPOT
@@ -949,9 +949,9 @@ future quality work; the hard limit exists for correctness, not as a target.
 * **4 MiB decoded RGBA8 per surface sheet.** One 1024×1024 sheet is exactly at
   this budget, so in practice it is implied by the edge limit.
 * Filtering: the renderer generates mipmaps for all 2D tiling and fitted
-  textures. POT edges are required for fitted sheets (fixture faces and decal
-  sheets) because the ES 2.0 target cannot mip-map NPOT textures reliably.
-  Surfaces may be square NPOT on the desktop GL path.
+  textures. Power-of-two edges are required for fitted sheets (fixture faces
+  and decal sheets) so their mip chains stay exact; they are fitted rather than
+  tiled. Surfaces tile as square cells and may be square NPOT.
 
 ### 14.4 Preferred versus mandatory resolution (per class)
 

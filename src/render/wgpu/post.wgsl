@@ -1,11 +1,10 @@
-// Stage 9 post shader: the fullscreen vertex stage shared by the two bloom
-// blurs, the resolve and the plain present copy, and their fragment stages.
+// Post shader: the fullscreen vertex stage shared by the two bloom blurs, the
+// resolve and the plain present copy, and their fragment stages.
 //
-// Ported from the OpenGL reference's `PRESENT_VERTEX_SHADER_SRC`,
-// `BLOOM_BLUR_FRAGMENT_SHADER_SRC` and `RESOLVE_FRAGMENT_SHADER_SRC`
-// (`src/render/opengl/shaders.rs`); every fragment entry point quotes the
-// reference GLSL it reproduces. Two backend conventions differ and are spelled
-// out where they are applied:
+// Reproduces the reference's `PRESENT_VERTEX_SHADER_SRC`,
+// `BLOOM_BLUR_FRAGMENT_SHADER_SRC` and `RESOLVE_FRAGMENT_SHADER_SRC`; every
+// fragment entry point quotes the reference GLSL it reproduces. Two backend
+// conventions differ and are spelled out where they are applied:
 //
 // * Colour space. The scene target is raw `Rgba8Unorm`, exactly like the
 //   reference's RGBA8 scene: the world shader writes display-space values

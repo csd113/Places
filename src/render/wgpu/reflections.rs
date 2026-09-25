@@ -1,5 +1,5 @@
-//! Stage 9 reflections: probe cubemaps, the planar mirror target and the
-//! capture matrices.
+//! Reflections: probe cubemaps, the planar mirror target and the capture
+//! matrices.
 //!
 //! Two deliberately limited sources, both opt-in per material (see
 //! [`crate::materials::reflection`]):

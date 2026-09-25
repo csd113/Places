@@ -101,14 +101,6 @@ pub const DEMO_DRUM_ID: &str = "core:washer_drum";
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DynamicId(u32);
 
-impl DynamicId {
-    /// The id's raw value, for diagnostics.
-    #[must_use]
-    pub const fn raw(self) -> u32 {
-        self.0
-    }
-}
-
 /// One primitive of a dynamic mesh: a texture slot, its emission, and its slice
 /// of the model's index list.
 ///
@@ -591,18 +583,6 @@ impl DynamicScene {
             return false;
         };
         object.emission = emission.map(MaterialEmission::sanitized);
-        true
-    }
-
-    /// Sets the yaw an object gains per second. Zero stops it where it stands.
-    pub fn set_spin(&mut self, id: DynamicId, degrees_per_second: f32) -> bool {
-        if !degrees_per_second.is_finite() {
-            return false;
-        }
-        let Some(object) = self.objects.iter_mut().find(|object| object.id == id) else {
-            return false;
-        };
-        object.spin_degrees_per_second = degrees_per_second;
         true
     }
 

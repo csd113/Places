@@ -1,19 +1,25 @@
-# Pre-wgpu renderer baseline
+# Historical renderer baseline
 
-This is the frozen reference state of the Places renderer immediately before
-the wgpu modernization began. It records what the OpenGL/GLES2 renderer built,
-tested and drew at the baseline commit, and it is the visual ground truth a
-future wgpu renderer is compared against. Nothing here was cleaned up, improved
-or re-authored: the screenshots are the current renderer's own output, captured
-through the game's documented one-frame capture path.
+This is the frozen reference state of the former Places renderer, captured
+before the wgpu renderer existed. It records what that renderer built, tested
+and drew at the baseline commit, and it is the comparison ground truth the
+captures that followed were measured against. Nothing here was cleaned up,
+improved or re-authored: the screenshots are that renderer's own output,
+captured through the game's documented one-frame capture path.
+
+The capture-time environment names in this record (the `LIMINAL_*` switches and
+the crate name `liminal-rust`) belong to the preserved implementation at the
+`renderer-gles2-reference` tag; see
+[RENDERER_REFERENCE.md](../RENDERER_REFERENCE.md). They are kept verbatim so
+the record reproduces.
 
 ## 1. Repository baseline
 
 | field | value |
 | --- | --- |
 | branch | `main` |
-| base commit | `634503fd85f5cffc0ad88bdfc20492cdad2bb543` — "major shadow rework and last code puhs before wgpu migration" |
-| working tree at capture time | clean (the Stage 0 baseline additions in this directory are commits on top of the base commit) |
+| base commit | `634503fd85f5cffc0ad88bdfc20492cdad2bb543` |
+| working tree at capture time | clean (the baseline additions in this directory are commits on top of the base commit) |
 | date | 2026-09-23 (macOS local; capture logs are timestamped 2026-09-24 UTC) |
 | crate | `liminal-rust` 0.6.0, window title "Places" |
 | renderer | OpenGL through `glow` 0.16; the context is requested as OpenGL ES 2.0 and falls back to the desktop compatibility profile (2.1) when the ES request is refused; no multisampling, no dynamic shadow maps |
@@ -39,13 +45,13 @@ Quality profiles at this commit:
 
 ## 2. Validation results
 
-Run from the repository root on the commit above. Full logs are under
-`target/migration-baseline/logs/` in the Stage 0 working tree (not committed;
-the commands below are the authoritative reproduction).
+Run from the repository root on the commit above. Full logs were kept under
+`target/migration-baseline/logs/` in the capture-time working tree (not
+committed; the commands below are the authoritative reproduction).
 
 | Check | Command | Result |
 | --- | --- | --- |
-| formatting | `cargo fmt --all --check` | **FAIL — pre-existing** (53 diffs across 10 files, all from the recent lighting/shadow work; see §6.1; `cargo clippy` and the release build are clean, and Stage 0 did not reformat anything) |
+| formatting | `cargo fmt --all --check` | **FAIL — pre-existing** (53 diffs across 10 files, all from the recent lighting/shadow work; see §6.1; `cargo clippy` and the release build are clean, and the baseline capture did not reformat anything) |
 | lints | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | PASS (exit 0, no warnings) |
 | Rust tests | `cargo test --workspace --all-features` | PASS — 842 tests: 839 passed, 0 failed, 3 ignored (157.9 s) |
 | release build | `cargo build --release` | PASS (exit 0, no warnings) |
@@ -84,8 +90,8 @@ directories outside the repository. All eight cases passed:
 
 Every run below used the release binary with a pinned scratch state root and
 the one-frame capture path (`LIMINAL_BENCH=1 LIMINAL_BENCH_NOSWAP=1
-LIMINAL_CAPTURE=...`); exit codes, output and PNGs are in the Stage 0 working
-tree under `target/migration-baseline/`.
+LIMINAL_CAPTURE=...`); exit codes, output and PNGs are in the capture-time
+working tree under `target/migration-baseline/`.
 
 * two consecutive launches of the same view produce **byte-identical** PNGs;
 * a cold lightmap bake and a warm cache hit for the same view produce
@@ -125,13 +131,13 @@ All four Python bench tools were run after the tooling relocation:
 ## 3. Python tooling organization
 
 The repository keeps all first-party Python development/build/asset/validation
-tooling under `tools/`. Stage 0 audited every tracked Python file and moved the
-one file that was still outside a purpose directory.
+tooling under `tools/`. The baseline capture work audited every tracked Python
+file and moved the one file that was still outside a purpose directory.
 
 | | count |
 | --- | --- |
-| tracked `*.py` files before Stage 0 | 34 |
-| tracked `*.py` files after Stage 0 | 34 (one moved, none added or removed) |
+| tracked `*.py` files before the relocation | 34 |
+| tracked `*.py` files after the relocation | 34 (one moved, none added or removed) |
 | under `tools/` | 32 |
 | outside `tools/` | 2 (both test suites, documented below) |
 
@@ -294,37 +300,41 @@ Storage:
 Reproduce (repository root, release binary built):
 
 ```sh
-sh tools/bench/capture_baseline_views.sh                     # both profiles
-LIMINAL_QUALITY=low sh tools/bench/capture_baseline_views.sh # one profile
-```
-
-Compare a future renderer from equivalent viewpoints:
-
-```sh
-# 1. Capture the new renderer in the same 25 views, High and Low
-LIMINAL_BIN="$PWD/target/release/places-wgpu" \
-    LIMINAL_CAPTURE_DIR="$PWD/target/agent-work/wgpu-baseline" \
+# Capture the current renderer in the same 25 views, both profiles.
+# Always set PLACES_CAPTURE_DIR: the script's default target is this frozen
+# directory, which must never be overwritten.
+PLACES_CAPTURE_DIR="$PWD/target/agent-work/baseline-compare" \
     sh tools/bench/capture_baseline_views.sh
+PLACES_QUALITY=low \
+PLACES_CAPTURE_DIR="$PWD/target/agent-work/baseline-compare-low" \
+    sh tools/bench/capture_baseline_views.sh # one profile
 
-# 2. The bench suite's own pixel gate over its 11-shot list (absolute paths)
-python3 tools/bench/visual_check.py \
-    --baseline "$PWD/target/release/liminal-rust" \
-    --current  "$PWD/target/release/places-wgpu"
+# Compare the captures against this frozen set, per view.
+python3 tools/bench/compare_captures.py \
+    target/agent-work/baseline-compare docs/renderer-baseline
 
-# 3. A shell/hole sanity check on the committed reference set
+# A shell/hole sanity check on the committed reference set.
 python3 tools/bench/check_holes.py docs/renderer-baseline/high/*.png
 ```
 
-`visual_check.py` decodes two capture sets and reports differing pixel counts,
-the affected fraction and the worst channel delta per shot. The canonical sets
-in `high/` and `low/` are paired by filename with the new renderer's output;
-treat any pixel difference against this baseline as either a known item below
-or a migration regression.
+The frozen images themselves reproduce only from the preserved implementation:
+build the `renderer-gles2-reference` tag worktree and capture there with its own
+scripts (see [RENDERER_REFERENCE.md](../RENDERER_REFERENCE.md)). Against that
+checkout's committed asset tree, `tools/bench/compare_baseline.py` reports
+50/50 byte-identical images.
+
+`compare_captures.py` decodes two capture sets and reports per-view differing
+pixel counts, the affected fraction and the worst channel delta per shot. The
+canonical sets in `high/` and `low/` are paired by filename with the captured
+output; treat any pixel difference against this baseline as either a known item
+below or the bounded difference class documented in
+[docs/RENDERER.md](../RENDERER.md) §15.
 
 ## 6. Known baseline imperfections
 
-These are present at the baseline commit. A wgpu migration must not present
-them as new regressions, and Stage 0 did not change them.
+These are present at the baseline commit. They are the preserved
+implementation's own known imperfections, listed so a later change is not
+blamed for them; the baseline capture did not change them.
 
 ### 6.1 Repository / tooling
 
@@ -336,7 +346,7 @@ them as new regressions, and Stage 0 did not change them.
    `src/render/tests.rs`), nearly all line-wrapping choices in the recent
    lighting/shadow work. `cargo clippy` and the release build are clean.
    Reformatting is a mechanical repository-cleanup change deliberately left to
-   Stage 1.
+   the later repository cleanup.
 2. **`tools/textures/build.py --check` prints 35 "over preferred 256"
    warnings.** The Office, Pool and Home surface sheets and the NO DIVING sign
    are intentionally authored at 1024x1024; the preferred size is a soft
@@ -346,26 +356,26 @@ them as new regressions, and Stage 0 did not change them.
    `unmade_world` and `unmade_back` now frame plain walls/corridor, and the
    README's demo route still describes an unmade-world ending. The canonical
    set in this directory uses the current areas instead; the stale table was
-   not rewritten in Stage 0.
+   left as it was.
 4. **No CI configuration exists**; all automated enforcement is manual
    commands, as `docs/ASSET_SPECIFICATION.md` §24 states.
 5. **`visual_check.py` needs absolute binary paths.** Its captures run with the
    staged package as their working directory, so the relative paths in
    `tools/bench/README.md`'s example (`target/release/liminal-rust`) raise
    `FileNotFoundError`; passing absolute paths works (used for §2.3). The
-   example was not corrected in Stage 0.
+   example was not corrected during the capture.
 6. **`lightmap_report.py` does not enable its own telemetry.** The
    `[level]`/`[lighting]`/`[lightmaps]`/`[spatial]` numbers it parses are only
    printed when `LIMINAL_VERBOSE=1`; run without `--env LIMINAL_VERBOSE=1` the
    report's metric fields are empty (captures still succeed, exit 0). The
-   README example does not mention the switch. Not fixed in Stage 0.
+   README example does not mention the switch; it was left as it was.
 7. **Places Demo declares two `animated_emissions` for materials no geometry
    uses.** `core:glass_sign_lit_01` and `core:glass_sign_flicker_01` appear only
    in the level's `animated_emissions` block, so the backlit-sign animation is
    dormant at this commit, and `tools/assets/validate.py` validates the
    animation schema without flagging an emission whose material is unused.
    This is content drift from the Home-wing rework, not a renderer defect; it is
-   listed so a wgpu migration does not chase a sign that never draws.
+   listed so a later renderer does not chase a sign that never draws.
 
 ### 6.2 Renderer
 
@@ -385,7 +395,8 @@ them as new regressions, and Stage 0 did not change them.
    shadows or self-occlusion.
 5. **Colour space is deliberately linear-in-display-space.** There is no
    sRGB/gamma handling; textures, tints and lighting constants were calibrated
-   together in the current space (documented in the README).
+   together in the current space (the current renderer documents the same
+   display-space policy in [RENDERER.md](../RENDERER.md) §3).
 6. **Lightmap resolution is finite.** The atlas is 2 pages / ~1.1M chart
    texels for the demo at Full; small-scale light detail is interpolated, and
    a bake that cannot fit its page budget falls back to the historical
@@ -401,7 +412,8 @@ them as new regressions, and Stage 0 did not change them.
 
 ## 7. Scope of this baseline
 
-Stage 0 added only: this document and its screenshots, the reproduction script
+The baseline capture added only: this document and its screenshots, the
+reproduction script
 `tools/bench/capture_baseline_views.sh`, the documentation references to it,
 and the relocation of `tools/generate_spooner_man.py` into `tools/props/` with
 its command references in the asset specification, the entity README and its

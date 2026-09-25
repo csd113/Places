@@ -88,17 +88,6 @@ pub struct Game {
     pub floor: WalkableFloor,
 }
 
-impl Default for Game {
-    fn default() -> Self {
-        Self::new(
-            Vec3::new(0.0, EYE_HEIGHT, 0.0),
-            0.0,
-            Vec::new(),
-            WalkableFloor::default(),
-        )
-    }
-}
-
 impl Game {
     #[must_use]
     pub fn new(
@@ -200,12 +189,6 @@ impl Game {
         self.delta_seconds
     }
 
-    /// Gameplay delta after clamping (see [`MAX_SIM_DELTA`]).
-    #[must_use]
-    pub const fn sim_delta_seconds(&self) -> f32 {
-        self.sim_delta_seconds
-    }
-
     /// Discards the accumulated frame time without advancing the simulation.
     /// Used when frames are skipped (e.g. a minimized window) so that resuming
     /// does not apply a huge delta-time step to movement or looking.
@@ -218,11 +201,6 @@ impl Game {
     #[must_use]
     pub const fn frame_count(&self) -> u64 {
         self.frame_count
-    }
-
-    /// Sets the collision walls for the current level.
-    pub fn set_walls(&mut self, walls: Vec<WallAabb>) {
-        self.walls = walls;
     }
 
     /// Updates first-person WASD movement, pitch/yaw looking, and wall collision with smooth sliding.

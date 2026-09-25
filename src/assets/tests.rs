@@ -335,7 +335,7 @@ fn every_file_asset_exists_exactly_once() {
     );
     assert!(
         !root.join("props/models/spooner-man.glb").exists(),
-        "the old assets/props/models/spooner-man.glb must not survive the migration"
+        "the removed assets/props/models/spooner-man.glb must not be present"
     );
     assert!(
         !root.join("catalog.json").is_dir() && root.join("catalog.json").is_file(),
@@ -640,13 +640,13 @@ fn shipped_texture_policy_accepts_the_upgraded_art_and_rejects_breaches() {
         .expect_err("a non-square surface must be rejected");
     assert!(error.contains("square"), "unexpected error: {error}");
 
-    // Surfaces are not power-of-two constrained: a square NPOT sheet loads on
-    // the desktop GL path and satisfies the surface contract.
+    // Surfaces are not power-of-two constrained: a square NPOT sheet loads and
+    // satisfies the surface contract.
     ShippedTextureKind::Surface
         .check_dimensions(96, 96)
         .expect("a square NPOT surface satisfies the surface contract");
 
-    // Fitted sheets are power-of-two constrained for the ES 2.0 mip chain.
+    // Fitted sheets are power-of-two constrained for an exact mip chain.
     for kind in [
         ShippedTextureKind::FixtureFace,
         ShippedTextureKind::DecalSheet,
@@ -680,7 +680,7 @@ fn shipped_texture_policy_accepts_the_upgraded_art_and_rejects_breaches() {
 /// Every shipped file-backed sheet satisfies the dimension contract of the
 /// class it draws as: surfaces are square (`tile_metres` cells are square on
 /// both axes), fitted sheets are power-of-two on both edges (mipmapped fitted
-/// sampling on the ES 2.0 target), and every sheet stays inside the decoder's
+/// sampling), and every sheet stays inside the decoder's
 /// hard edge limit.
 ///
 /// The diagnostic sheets are exempt: their whole purpose is to prove that

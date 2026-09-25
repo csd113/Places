@@ -37,7 +37,7 @@ const BENCH_OUT_ENV: &str = "PLACES_BENCH_OUT";
 const BENCH_WARMUP_ENV: &str = "PLACES_BENCH_WARMUP";
 /// Stop the process after this many recorded frames (bounds a hardware run).
 const BENCH_FRAMES_ENV: &str = "PLACES_BENCH_FRAMES";
-/// A scripted live quality-profile switch, for the migration's runtime matrix:
+/// A scripted live quality-profile switch, for the runtime verification matrix:
 /// `PLACES_BENCH_QUALITY_CYCLE=<frame>:<profile>[,<frame>:<profile>...]`, e.g.
 /// `3:low,6:full`. Each entry selects the profile when `frame_count` reaches
 /// its frame, through the same `Settings::set_quality` path the menu uses, so
@@ -473,12 +473,6 @@ impl Bench {
     /// Records the swap interval the platform reports after configuration.
     pub const fn set_reported_swap_interval(&mut self, interval: i32) {
         self.reported_swap_interval = Some(interval);
-    }
-
-    /// Number of frames still to record, or `None` for an unbounded run.
-    #[must_use]
-    pub const fn frames_remaining(&self) -> Option<u64> {
-        self.limit_remaining
     }
 
     /// Records one frame. `begin` must be the instant captured at the top of the

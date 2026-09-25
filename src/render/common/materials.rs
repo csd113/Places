@@ -137,16 +137,16 @@ impl MaterialRenderState {
 
 /// The final renderer-neutral material state one static surface draws with.
 ///
-/// This is the Stage 7 contract: it folds the resolved material table, the
-/// surface's per-surface shine override and the active quality profile into one
-/// description, applying exactly the rules the reference renderer's
-/// `static_surface_state` applied for a floor, ceiling or wall. It references
-/// the neutral material table by index and never names a GPU object, so both
-/// backends and the tests share it.
+/// This is the material contract every draw resolves through: it folds the
+/// resolved material table, the surface's per-surface shine override and the
+/// active quality profile into one description, applying exactly the rules the
+/// reference renderer's `static_surface_state` applied for a floor, ceiling or
+/// wall. It references the neutral material table by index and never names a
+/// GPU object, so the renderer and the tests share it.
 ///
 /// Fixture, prop-placeholder and decal keys never bind a level material, so
 /// they resolve to the plain state (fallback texture, no response, opaque, no
-/// reflection), which is what their own later-stage draw paths expect.
+/// reflection), which is what their own draw paths expect.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ResolvedSurfaceMaterial {
     /// Base-colour texture index into `MaterialTable::textures`, or `None` for
@@ -193,8 +193,7 @@ impl ResolvedSurfaceMaterial {
     /// The reflection strength the reference shader folds in, per channel:
     /// the material's specular colour times the authored reflection strength.
     ///
-    /// Stage 7 stores this as reflection-eligibility metadata; it is not
-    /// sampled or applied until the reflection stage.
+    /// The world shader scales every reflected sample by this value.
     #[must_use]
     pub fn reflection_strength(&self) -> [f32; 3] {
         [
@@ -206,7 +205,8 @@ impl ResolvedSurfaceMaterial {
 
     /// True when this material would participate in a reflection if one were
     /// rendered: an authored mode and strength plus a non-zero weighted
-    /// strength. Stage 11 consumes this; Stage 7 only records it.
+    /// strength. The material path records this; the reflection bindings
+    /// consume it.
     #[must_use]
     pub fn reflection_eligible(&self) -> bool {
         self.reflection.is_active() && self.reflection_strength().iter().any(|c| *c > 0.0)

@@ -230,7 +230,7 @@ fn emit_face(
             bottom_shade
         }
     });
-    let lightmapped = context.material_colors_only();
+    let lightmapped = context.vertex_colors_are_material_only();
     let colors: [[f32; 3]; 4] = if lightmapped {
         base
     } else {
@@ -452,7 +452,7 @@ fn emit_ramp_surface(
         &zs,
         y_at,
         Some(context.materials.tint(key)),
-        context.material_colors_only(),
+        context.vertex_colors_are_material_only(),
     );
     scratch.clear();
     emit_lit_surface_grid(

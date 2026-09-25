@@ -73,12 +73,6 @@ impl SkylineAllocator {
         }
     }
 
-    /// The configuration every placement is computed from.
-    #[must_use]
-    pub const fn config(&self) -> &LightmapConfig {
-        &self.config
-    }
-
     /// Number of pages opened so far.
     #[must_use]
     pub const fn page_count(&self) -> usize {
