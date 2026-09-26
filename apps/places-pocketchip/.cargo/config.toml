@@ -1,0 +1,19 @@
+# PocketCHIP target tuning.
+#
+# The device is an Allwinner R8: one Cortex-A8 core at 1.008 GHz with NEON.
+# Rust's default `armv7-unknown-linux-gnueabihf` target enables VFPv3 but leaves
+# NEON off, which costs the vertex maths, the lightmap bake and the PNG decode
+# path the one vector unit the part actually has. `cortex-a8` selects v7 + VFPv3
+# + NEON together, which is exactly this core, so nothing here is longer valid
+# on the machine it runs on.
+#
+# This is deliberately per-target rather than a global `rustflags`: a desktop
+# build of the same source for a different machine must not inherit it.
+[target.armv7-unknown-linux-gnueabihf]
+rustflags = ["-C", "target-cpu=cortex-a8"]
+
+[target.armv7-unknown-linux-gnueabi]
+rustflags = ["-C", "target-cpu=cortex-a8"]
+
+[target.aarch64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=cortex-a53"]

@@ -1,0 +1,1210 @@
+{
+  "format_version": 1,
+  "id": "prop_stress",
+  "name": "Prop Stress Test (dev)",
+  "author": "Liminal Team",
+  "spawn": {
+    "x": -11.0,
+    "z": 0.0,
+    "yaw_degrees": 30.0
+  },
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "room": {
+    "x": -12.0,
+    "z": -10.0,
+    "width": 24.0,
+    "depth": 20.0,
+    "height": 3.0
+  },
+  "walls": [
+    {
+      "x": -12.4,
+      "z": -10.4,
+      "width": 24.8,
+      "depth": 0.4,
+      "height": 3.0
+    },
+    {
+      "x": -12.4,
+      "z": 10.0,
+      "width": 24.8,
+      "depth": 0.4,
+      "height": 3.0,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 11.0,
+          "width": 1.4,
+          "height": 2.2,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": -12.4,
+      "z": -10.0,
+      "width": 0.4,
+      "depth": 20.0,
+      "height": 3.0
+    },
+    {
+      "x": 12.0,
+      "z": -10.0,
+      "width": 0.4,
+      "depth": 20.0,
+      "height": 3.0
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": -6.0,
+      "z": -4.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 6.0,
+      "z": -4.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": -6.0,
+      "z": 6.0
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 6.0,
+      "z": 6.0
+    }
+  ],
+  "props": [
+    {
+      "id": "chair_1",
+      "model": "core:chair",
+      "x": -10.0,
+      "z": -8.0,
+      "solid": true
+    },
+    {
+      "id": "chair_2",
+      "model": "core:chair",
+      "x": -8.0,
+      "z": -8.0,
+      "solid": true
+    },
+    {
+      "id": "chair_3",
+      "model": "core:chair",
+      "x": -6.0,
+      "z": -8.0,
+      "solid": true
+    },
+    {
+      "id": "chair_4",
+      "model": "core:chair",
+      "x": -4.0,
+      "z": -8.0,
+      "solid": true
+    },
+    {
+      "id": "chair_5",
+      "model": "core:chair",
+      "x": -2.0,
+      "z": -8.0,
+      "solid": true
+    },
+    {
+      "id": "chair_6",
+      "model": "core:chair",
+      "x": 0.0,
+      "z": -8.0,
+      "solid": true
+    },
+    {
+      "id": "chair_7",
+      "model": "core:chair",
+      "x": 2.0,
+      "z": -8.0,
+      "solid": true
+    },
+    {
+      "id": "chair_8",
+      "model": "core:chair",
+      "x": 4.0,
+      "z": -8.0,
+      "solid": true
+    },
+    {
+      "id": "chair_9",
+      "model": "core:chair",
+      "x": 6.0,
+      "z": -8.0,
+      "solid": true
+    },
+    {
+      "id": "chair_10",
+      "model": "core:chair",
+      "x": 8.0,
+      "z": -8.0,
+      "solid": true
+    },
+    {
+      "id": "chair_11",
+      "model": "core:chair",
+      "x": -10.0,
+      "z": -5.4,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_12",
+      "model": "core:chair",
+      "x": -8.0,
+      "z": -5.4,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_13",
+      "model": "core:chair",
+      "x": -6.0,
+      "z": -5.4,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_14",
+      "model": "core:chair",
+      "x": -4.0,
+      "z": -5.4,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_15",
+      "model": "core:chair",
+      "x": -2.0,
+      "z": -5.4,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_16",
+      "model": "core:chair",
+      "x": 0.0,
+      "z": -5.4,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_17",
+      "model": "core:chair",
+      "x": 2.0,
+      "z": -5.4,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_18",
+      "model": "core:chair",
+      "x": 4.0,
+      "z": -5.4,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_19",
+      "model": "core:chair",
+      "x": 6.0,
+      "z": -5.4,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_20",
+      "model": "core:chair",
+      "x": 8.0,
+      "z": -5.4,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_21",
+      "model": "core:chair",
+      "x": -10.0,
+      "z": -2.8,
+      "rotation_degrees": 180.0,
+      "solid": true
+    },
+    {
+      "id": "chair_22",
+      "model": "core:chair",
+      "x": -8.0,
+      "z": -2.8,
+      "rotation_degrees": 180.0,
+      "solid": true
+    },
+    {
+      "id": "chair_23",
+      "model": "core:chair",
+      "x": -6.0,
+      "z": -2.8,
+      "rotation_degrees": 180.0,
+      "solid": true
+    },
+    {
+      "id": "chair_24",
+      "model": "core:chair",
+      "x": -4.0,
+      "z": -2.8,
+      "rotation_degrees": 180.0,
+      "solid": true
+    },
+    {
+      "id": "chair_25",
+      "model": "core:chair",
+      "x": -2.0,
+      "z": -2.8,
+      "rotation_degrees": 180.0,
+      "solid": true
+    },
+    {
+      "id": "chair_26",
+      "model": "core:chair",
+      "x": 0.0,
+      "z": -2.8,
+      "rotation_degrees": 180.0,
+      "solid": true
+    },
+    {
+      "id": "chair_27",
+      "model": "core:chair",
+      "x": 2.0,
+      "z": -2.8,
+      "rotation_degrees": 180.0,
+      "solid": true
+    },
+    {
+      "id": "chair_28",
+      "model": "core:chair",
+      "x": 4.0,
+      "z": -2.8,
+      "rotation_degrees": 180.0,
+      "solid": true
+    },
+    {
+      "id": "chair_29",
+      "model": "core:chair",
+      "x": 6.0,
+      "z": -2.8,
+      "rotation_degrees": 180.0,
+      "solid": true
+    },
+    {
+      "id": "chair_30",
+      "model": "core:chair",
+      "x": 8.0,
+      "z": -2.8,
+      "rotation_degrees": 180.0,
+      "solid": true
+    },
+    {
+      "id": "chair_31",
+      "model": "core:chair",
+      "x": -10.0,
+      "z": -0.1999999999999993,
+      "rotation_degrees": 270.0,
+      "solid": true
+    },
+    {
+      "id": "chair_32",
+      "model": "core:chair",
+      "x": -8.0,
+      "z": -0.1999999999999993,
+      "rotation_degrees": 270.0,
+      "solid": true
+    },
+    {
+      "id": "chair_33",
+      "model": "core:chair",
+      "x": -6.0,
+      "z": -0.1999999999999993,
+      "rotation_degrees": 270.0,
+      "solid": true
+    },
+    {
+      "id": "chair_34",
+      "model": "core:chair",
+      "x": -4.0,
+      "z": -0.1999999999999993,
+      "rotation_degrees": 270.0,
+      "solid": true
+    },
+    {
+      "id": "chair_35",
+      "model": "core:chair",
+      "x": -2.0,
+      "z": -0.1999999999999993,
+      "rotation_degrees": 270.0,
+      "solid": true
+    },
+    {
+      "id": "chair_36",
+      "model": "core:chair",
+      "x": 0.0,
+      "z": -0.1999999999999993,
+      "rotation_degrees": 270.0,
+      "solid": true
+    },
+    {
+      "id": "chair_37",
+      "model": "core:chair",
+      "x": 2.0,
+      "z": -0.1999999999999993,
+      "rotation_degrees": 270.0,
+      "solid": true
+    },
+    {
+      "id": "chair_38",
+      "model": "core:chair",
+      "x": 4.0,
+      "z": -0.1999999999999993,
+      "rotation_degrees": 270.0,
+      "solid": true
+    },
+    {
+      "id": "chair_39",
+      "model": "core:chair",
+      "x": 6.0,
+      "z": -0.1999999999999993,
+      "rotation_degrees": 270.0,
+      "solid": true
+    },
+    {
+      "id": "chair_40",
+      "model": "core:chair",
+      "x": 8.0,
+      "z": -0.1999999999999993,
+      "rotation_degrees": 270.0,
+      "solid": true
+    },
+    {
+      "id": "chair_41",
+      "model": "core:chair",
+      "x": -10.0,
+      "z": 2.4000000000000004,
+      "solid": true
+    },
+    {
+      "id": "chair_42",
+      "model": "core:chair",
+      "x": -8.0,
+      "z": 2.4000000000000004,
+      "solid": true
+    },
+    {
+      "id": "chair_43",
+      "model": "core:chair",
+      "x": -6.0,
+      "z": 2.4000000000000004,
+      "solid": true
+    },
+    {
+      "id": "chair_44",
+      "model": "core:chair",
+      "x": -4.0,
+      "z": 2.4000000000000004,
+      "solid": true
+    },
+    {
+      "id": "chair_45",
+      "model": "core:chair",
+      "x": -2.0,
+      "z": 2.4000000000000004,
+      "solid": true
+    },
+    {
+      "id": "chair_46",
+      "model": "core:chair",
+      "x": 0.0,
+      "z": 2.4000000000000004,
+      "solid": true
+    },
+    {
+      "id": "chair_47",
+      "model": "core:chair",
+      "x": 2.0,
+      "z": 2.4000000000000004,
+      "solid": true
+    },
+    {
+      "id": "chair_48",
+      "model": "core:chair",
+      "x": 4.0,
+      "z": 2.4000000000000004,
+      "solid": true
+    },
+    {
+      "id": "chair_49",
+      "model": "core:chair",
+      "x": 6.0,
+      "z": 2.4000000000000004,
+      "solid": true
+    },
+    {
+      "id": "chair_50",
+      "model": "core:chair",
+      "x": 8.0,
+      "z": 2.4000000000000004,
+      "solid": true
+    },
+    {
+      "id": "chair_51",
+      "model": "core:chair",
+      "x": -10.0,
+      "z": 5.0,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_52",
+      "model": "core:chair",
+      "x": -8.0,
+      "z": 5.0,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_53",
+      "model": "core:chair",
+      "x": -6.0,
+      "z": 5.0,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_54",
+      "model": "core:chair",
+      "x": -4.0,
+      "z": 5.0,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_55",
+      "model": "core:chair",
+      "x": -2.0,
+      "z": 5.0,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_56",
+      "model": "core:chair",
+      "x": 0.0,
+      "z": 5.0,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_57",
+      "model": "core:chair",
+      "x": 2.0,
+      "z": 5.0,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_58",
+      "model": "core:chair",
+      "x": 4.0,
+      "z": 5.0,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_59",
+      "model": "core:chair",
+      "x": 6.0,
+      "z": 5.0,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "chair_60",
+      "model": "core:chair",
+      "x": 8.0,
+      "z": 5.0,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "desk_1",
+      "model": "core:desk",
+      "x": -9.0,
+      "z": -6.7,
+      "solid": true
+    },
+    {
+      "id": "desk_2",
+      "model": "core:desk",
+      "x": -5.0,
+      "z": -6.7,
+      "solid": true
+    },
+    {
+      "id": "desk_3",
+      "model": "core:desk",
+      "x": -1.0,
+      "z": -6.7,
+      "solid": true
+    },
+    {
+      "id": "desk_4",
+      "model": "core:desk",
+      "x": 3.0,
+      "z": -6.7,
+      "solid": true
+    },
+    {
+      "id": "desk_5",
+      "model": "core:desk",
+      "x": 7.0,
+      "z": -6.7,
+      "solid": true
+    },
+    {
+      "id": "desk_6",
+      "model": "core:desk",
+      "x": -9.0,
+      "z": -1.5,
+      "solid": true
+    },
+    {
+      "id": "desk_7",
+      "model": "core:desk",
+      "x": -5.0,
+      "z": -1.5,
+      "solid": true
+    },
+    {
+      "id": "desk_8",
+      "model": "core:desk",
+      "x": -1.0,
+      "z": -1.5,
+      "solid": true
+    },
+    {
+      "id": "desk_9",
+      "model": "core:desk",
+      "x": 3.0,
+      "z": -1.5,
+      "solid": true
+    },
+    {
+      "id": "desk_10",
+      "model": "core:desk",
+      "x": 7.0,
+      "z": -1.5,
+      "solid": true
+    },
+    {
+      "id": "desk_11",
+      "model": "core:desk",
+      "x": -9.0,
+      "z": 3.7,
+      "solid": true
+    },
+    {
+      "id": "desk_12",
+      "model": "core:desk",
+      "x": -5.0,
+      "z": 3.7,
+      "solid": true
+    },
+    {
+      "id": "desk_13",
+      "model": "core:desk",
+      "x": -1.0,
+      "z": 3.7,
+      "solid": true
+    },
+    {
+      "id": "desk_14",
+      "model": "core:desk",
+      "x": 3.0,
+      "z": 3.7,
+      "solid": true
+    },
+    {
+      "id": "desk_15",
+      "model": "core:desk",
+      "x": 7.0,
+      "z": 3.7,
+      "solid": true
+    },
+    {
+      "id": "desk_16",
+      "model": "core:desk",
+      "x": -9.0,
+      "z": 8.900000000000002,
+      "solid": true
+    },
+    {
+      "id": "desk_17",
+      "model": "core:desk",
+      "x": -5.0,
+      "z": 8.900000000000002,
+      "solid": true
+    },
+    {
+      "id": "desk_18",
+      "model": "core:desk",
+      "x": -1.0,
+      "z": 8.900000000000002,
+      "solid": true
+    },
+    {
+      "id": "desk_19",
+      "model": "core:desk",
+      "x": 3.0,
+      "z": 8.900000000000002,
+      "solid": true
+    },
+    {
+      "id": "desk_20",
+      "model": "core:desk",
+      "x": 7.0,
+      "z": 8.900000000000002,
+      "solid": true
+    },
+    {
+      "id": "crate_1",
+      "model": "core:crate",
+      "x": -11.0,
+      "z": 7.4,
+      "solid": true
+    },
+    {
+      "id": "crate_2",
+      "model": "core:crate",
+      "x": -10.38,
+      "z": 7.4,
+      "rotation_degrees": 8.0,
+      "y": -0.06,
+      "solid": true
+    },
+    {
+      "id": "crate_3",
+      "model": "core:crate",
+      "x": -9.76,
+      "z": 7.4,
+      "rotation_degrees": 16.0,
+      "y": -0.12,
+      "solid": true
+    },
+    {
+      "id": "crate_4",
+      "model": "core:crate",
+      "x": -9.14,
+      "z": 7.4,
+      "rotation_degrees": 24.0,
+      "solid": true
+    },
+    {
+      "id": "crate_5",
+      "model": "core:crate",
+      "x": -8.52,
+      "z": 7.4,
+      "rotation_degrees": 32.0,
+      "y": -0.06,
+      "solid": true
+    },
+    {
+      "id": "crate_6",
+      "model": "core:crate",
+      "x": -7.9,
+      "z": 7.4,
+      "y": -0.12,
+      "solid": true
+    },
+    {
+      "id": "crate_7",
+      "model": "core:crate",
+      "x": -11.0,
+      "z": 8.02,
+      "rotation_degrees": 8.0,
+      "solid": true
+    },
+    {
+      "id": "crate_8",
+      "model": "core:crate",
+      "x": -10.38,
+      "z": 8.02,
+      "rotation_degrees": 16.0,
+      "y": -0.06,
+      "solid": true
+    },
+    {
+      "id": "crate_9",
+      "model": "core:crate",
+      "x": -9.76,
+      "z": 8.02,
+      "rotation_degrees": 24.0,
+      "y": -0.12,
+      "solid": true
+    },
+    {
+      "id": "crate_10",
+      "model": "core:crate",
+      "x": -9.14,
+      "z": 8.02,
+      "rotation_degrees": 32.0,
+      "solid": true
+    },
+    {
+      "id": "crate_11",
+      "model": "core:crate",
+      "x": -8.52,
+      "z": 8.02,
+      "y": -0.06,
+      "solid": true
+    },
+    {
+      "id": "crate_12",
+      "model": "core:crate",
+      "x": -7.9,
+      "z": 8.02,
+      "rotation_degrees": 8.0,
+      "y": -0.12,
+      "solid": true
+    },
+    {
+      "id": "crate_13",
+      "model": "core:crate",
+      "x": -11.0,
+      "z": 8.64,
+      "rotation_degrees": 16.0,
+      "solid": true
+    },
+    {
+      "id": "crate_14",
+      "model": "core:crate",
+      "x": -10.38,
+      "z": 8.64,
+      "rotation_degrees": 24.0,
+      "y": -0.06,
+      "solid": true
+    },
+    {
+      "id": "crate_15",
+      "model": "core:crate",
+      "x": -9.76,
+      "z": 8.64,
+      "rotation_degrees": 32.0,
+      "y": -0.12,
+      "solid": true
+    },
+    {
+      "id": "crate_16",
+      "model": "core:crate",
+      "x": -9.14,
+      "z": 8.64,
+      "solid": true
+    },
+    {
+      "id": "crate_17",
+      "model": "core:crate",
+      "x": -8.52,
+      "z": 8.64,
+      "rotation_degrees": 8.0,
+      "y": -0.06,
+      "solid": true
+    },
+    {
+      "id": "crate_18",
+      "model": "core:crate",
+      "x": -7.9,
+      "z": 8.64,
+      "rotation_degrees": 16.0,
+      "y": -0.12,
+      "solid": true
+    },
+    {
+      "id": "crate_19",
+      "model": "core:crate",
+      "x": -11.0,
+      "z": 9.26,
+      "rotation_degrees": 24.0,
+      "solid": true
+    },
+    {
+      "id": "crate_20",
+      "model": "core:crate",
+      "x": -10.38,
+      "z": 9.26,
+      "rotation_degrees": 32.0,
+      "y": -0.06,
+      "solid": true
+    },
+    {
+      "id": "crate_21",
+      "model": "core:crate",
+      "x": -9.76,
+      "z": 9.26,
+      "y": -0.12,
+      "solid": true
+    },
+    {
+      "id": "crate_22",
+      "model": "core:crate",
+      "x": -9.14,
+      "z": 9.26,
+      "rotation_degrees": 8.0,
+      "solid": true
+    },
+    {
+      "id": "crate_23",
+      "model": "core:crate",
+      "x": -8.52,
+      "z": 9.26,
+      "rotation_degrees": 16.0,
+      "y": -0.06,
+      "solid": true
+    },
+    {
+      "id": "crate_24",
+      "model": "core:crate",
+      "x": -7.9,
+      "z": 9.26,
+      "rotation_degrees": 24.0,
+      "y": -0.12,
+      "solid": true
+    },
+    {
+      "id": "vending_machine_1",
+      "model": "core:vending_machine",
+      "x": -11.4,
+      "z": -9.5,
+      "solid": true
+    },
+    {
+      "id": "vending_machine_2",
+      "model": "core:vending_machine",
+      "x": -10.3,
+      "z": -9.5,
+      "solid": true
+    },
+    {
+      "id": "vending_machine_3",
+      "model": "core:vending_machine",
+      "x": -9.2,
+      "z": -9.5,
+      "solid": true
+    },
+    {
+      "id": "vending_machine_4",
+      "model": "core:vending_machine",
+      "x": -8.1,
+      "z": -9.5,
+      "solid": true
+    },
+    {
+      "id": "vending_machine_5",
+      "model": "core:vending_machine",
+      "x": -7.0,
+      "z": -9.5,
+      "solid": true
+    },
+    {
+      "id": "vending_machine_6",
+      "model": "core:vending_machine",
+      "x": -5.9,
+      "z": -9.5,
+      "solid": true
+    },
+    {
+      "id": "vending_machine_7",
+      "model": "core:vending_machine",
+      "x": -4.8,
+      "z": -9.5,
+      "solid": true
+    },
+    {
+      "id": "vending_machine_8",
+      "model": "core:vending_machine",
+      "x": -3.6999999999999993,
+      "z": -9.5,
+      "solid": true
+    },
+    {
+      "id": "washing_machine_1",
+      "model": "core:washing_machine",
+      "x": -11.4,
+      "z": 9.4,
+      "solid": true
+    },
+    {
+      "id": "washing_machine_2",
+      "model": "core:washing_machine",
+      "x": -10.5,
+      "z": 9.4,
+      "solid": true
+    },
+    {
+      "id": "washing_machine_3",
+      "model": "core:washing_machine",
+      "x": -9.6,
+      "z": 9.4,
+      "solid": true
+    },
+    {
+      "id": "washing_machine_4",
+      "model": "core:washing_machine",
+      "x": -8.7,
+      "z": 9.4,
+      "solid": true
+    },
+    {
+      "id": "washing_machine_5",
+      "model": "core:washing_machine",
+      "x": -7.800000000000001,
+      "z": 9.4,
+      "solid": true
+    },
+    {
+      "id": "washing_machine_6",
+      "model": "core:washing_machine",
+      "x": -6.9,
+      "z": 9.4,
+      "solid": true
+    },
+    {
+      "id": "water_cooler_1",
+      "model": "core:water_cooler",
+      "x": 10.6,
+      "z": -4.0,
+      "solid": true
+    },
+    {
+      "id": "water_cooler_2",
+      "model": "core:water_cooler",
+      "x": 9.9,
+      "z": -4.0,
+      "solid": true
+    },
+    {
+      "id": "water_cooler_3",
+      "model": "core:water_cooler",
+      "x": 9.2,
+      "z": -4.0,
+      "solid": true
+    },
+    {
+      "id": "water_cooler_4",
+      "model": "core:water_cooler",
+      "x": 8.5,
+      "z": -4.0,
+      "solid": true
+    },
+    {
+      "id": "water_cooler_5",
+      "model": "core:water_cooler",
+      "x": 7.8,
+      "z": -4.0,
+      "solid": true
+    },
+    {
+      "id": "water_cooler_6",
+      "model": "core:water_cooler",
+      "x": 7.1,
+      "z": -4.0,
+      "solid": true
+    },
+    {
+      "id": "lamp_1",
+      "model": "core:lamp",
+      "x": -10.4,
+      "z": 4.4
+    },
+    {
+      "id": "lamp_2",
+      "model": "core:lamp",
+      "x": -8.2,
+      "z": 4.4
+    },
+    {
+      "id": "lamp_3",
+      "model": "core:lamp",
+      "x": -6.0,
+      "z": 4.4
+    },
+    {
+      "id": "lamp_4",
+      "model": "core:lamp",
+      "x": -3.8,
+      "z": 4.4
+    },
+    {
+      "id": "lamp_5",
+      "model": "core:lamp",
+      "x": -1.5999999999999996,
+      "z": 4.4
+    },
+    {
+      "id": "lamp_6",
+      "model": "core:lamp",
+      "x": 0.5999999999999996,
+      "z": 4.4
+    },
+    {
+      "id": "lamp_7",
+      "model": "core:lamp",
+      "x": 2.8000000000000007,
+      "z": 4.4
+    },
+    {
+      "id": "lamp_8",
+      "model": "core:lamp",
+      "x": 5.000000000000002,
+      "z": 4.4
+    },
+    {
+      "id": "lamp_9",
+      "model": "core:lamp",
+      "x": 7.200000000000001,
+      "z": 4.4
+    },
+    {
+      "id": "lamp_10",
+      "model": "core:lamp",
+      "x": 9.4,
+      "z": 4.4
+    },
+    {
+      "id": "rug_1",
+      "model": "core:rug",
+      "x": -9.0,
+      "z": 0.6,
+      "rotation_degrees": 90.0
+    },
+    {
+      "id": "rug_2",
+      "model": "core:rug",
+      "x": -6.5,
+      "z": 0.6,
+      "rotation_degrees": 90.0
+    },
+    {
+      "id": "rug_3",
+      "model": "core:rug",
+      "x": -4.0,
+      "z": 0.6,
+      "rotation_degrees": 90.0
+    },
+    {
+      "id": "rug_4",
+      "model": "core:rug",
+      "x": -1.5,
+      "z": 0.6,
+      "rotation_degrees": 90.0
+    },
+    {
+      "id": "rug_5",
+      "model": "core:rug",
+      "x": 1.0,
+      "z": 0.6,
+      "rotation_degrees": 90.0
+    },
+    {
+      "id": "rug_6",
+      "model": "core:rug",
+      "x": 3.5,
+      "z": 0.6,
+      "rotation_degrees": 90.0
+    },
+    {
+      "id": "rug_7",
+      "model": "core:rug",
+      "x": 6.0,
+      "z": 0.6,
+      "rotation_degrees": 90.0
+    },
+    {
+      "id": "rug_8",
+      "model": "core:rug",
+      "x": 8.5,
+      "z": 0.6,
+      "rotation_degrees": 90.0
+    },
+    {
+      "id": "plant_1",
+      "model": "core:plant",
+      "x": -11.2,
+      "z": -2.0
+    },
+    {
+      "id": "plant_2",
+      "model": "core:plant",
+      "x": -3.799999999999999,
+      "z": -2.0
+    },
+    {
+      "id": "plant_3",
+      "model": "core:plant",
+      "x": 3.6000000000000014,
+      "z": -2.0
+    },
+    {
+      "id": "plant_4",
+      "model": "core:plant",
+      "x": 11.000000000000004,
+      "z": -2.0
+    },
+    {
+      "id": "cardboard_box_1",
+      "model": "core:cardboard_box",
+      "x": 9.6,
+      "z": -8.0
+    },
+    {
+      "id": "cardboard_box_2",
+      "model": "core:cardboard_box",
+      "x": 9.6,
+      "z": -7.38,
+      "y": -0.02
+    },
+    {
+      "id": "cardboard_box_3",
+      "model": "core:cardboard_box",
+      "x": 9.6,
+      "z": -6.76,
+      "y": -0.04
+    },
+    {
+      "id": "cardboard_box_4",
+      "model": "core:cardboard_box",
+      "x": 9.6,
+      "z": -6.140000000000001,
+      "y": -0.06
+    },
+    {
+      "id": "cardboard_box_5",
+      "model": "core:cardboard_box",
+      "x": 9.6,
+      "z": -5.52,
+      "y": -0.08
+    },
+    {
+      "id": "cardboard_box_6",
+      "model": "core:cardboard_box",
+      "x": 9.6,
+      "z": -4.9,
+      "y": -0.1
+    }
+  ]
+}
