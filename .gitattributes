@@ -1,0 +1,2 @@
+# Keep upstream license text byte-for-byte in the App Center package.
+apps/places-pocketchip/THIRD_PARTY_LICENSES.txt -whitespace

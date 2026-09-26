@@ -1,0 +1,547 @@
+{
+  "format_version": 1,
+  "id": "home_showcase",
+  "name": "Home Showcase (dev)",
+  "author": "Places",
+  "spawn": {
+    "x": 1.2,
+    "z": 1.0,
+    "yaw_degrees": 90.0
+  },
+  "defaults": {
+    "wall": "home:wallpaper_offwhite_01",
+    "floor": "home:hardwood_oak_01",
+    "ceiling": "home:ceiling_white_01"
+  },
+  "rooms": [
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 6.0,
+      "depth": 4.4,
+      "height": 3.0,
+      "material": "home:hardwood_oak_01",
+      "ceiling_material": "home:ceiling_white_01"
+    },
+    {
+      "x": 6.0,
+      "z": 0.0,
+      "width": 2.0,
+      "depth": 4.4,
+      "height": 3.0,
+      "material": "home:hardwood_walnut_02",
+      "ceiling_material": "home:ceiling_white_01"
+    },
+    {
+      "x": 6.0,
+      "z": 4.4,
+      "width": 2.0,
+      "depth": 3.6,
+      "height": 3.0,
+      "material": "home:tile_home_01",
+      "ceiling_material": "home:ceiling_plaster_01"
+    },
+    {
+      "x": 0.0,
+      "z": 4.4,
+      "width": 6.0,
+      "depth": 3.6,
+      "height": 3.0,
+      "material": "home:carpet_cream_01",
+      "ceiling_material": "home:ceiling_white_01"
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.15,
+      "z": -0.15,
+      "width": 8.3,
+      "depth": 0.3,
+      "material": "home:wallpaper_offwhite_01"
+    },
+    {
+      "x": -0.15,
+      "z": -0.15,
+      "width": 0.3,
+      "depth": 8.3,
+      "material": "home:wallpaper_offwhite_01"
+    },
+    {
+      "x": 7.85,
+      "z": -0.15,
+      "width": 0.3,
+      "depth": 8.3,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": -0.15,
+      "z": 7.85,
+      "width": 8.3,
+      "depth": 0.3,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": -0.15,
+      "z": 4.25,
+      "width": 8.3,
+      "depth": 0.3,
+      "material": "home:wallpaper_offwhite_01",
+      "faces": {
+        "south": "home:wallpaper_pattern_01"
+      },
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 2.15,
+          "width": 1.2,
+          "height": 2.1,
+          "sill": 0.0
+        },
+        {
+          "kind": "passage",
+          "offset": 6.55,
+          "width": 1.2,
+          "height": 2.1,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 5.85,
+      "z": -0.15,
+      "width": 0.3,
+      "depth": 1.85,
+      "material": "home:wallpaper_offwhite_01"
+    },
+    {
+      "x": 5.85,
+      "z": 2.9,
+      "width": 0.3,
+      "depth": 1.7,
+      "material": "home:wallpaper_offwhite_01"
+    },
+    {
+      "x": 5.85,
+      "z": 4.4,
+      "width": 0.3,
+      "depth": 3.75,
+      "material": "home:wall_paint_offwhite_01",
+      "faces": {
+        "west": "home:wallpaper_pattern_01"
+      }
+    }
+  ],
+  "archways": [
+    {
+      "x": 5.83,
+      "z": 1.6,
+      "width": 0.34,
+      "depth": 1.4,
+      "height": 3.0,
+      "opening_width": 1.0,
+      "opening_height": 2.1,
+      "arch_rise": 0.25,
+      "material": "home:wallpaper_offwhite_01",
+      "reveal_material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "floor_regions": [
+    {
+      "x": 3.6,
+      "z": 2.0,
+      "width": 1.8,
+      "depth": 2.4,
+      "offset_y": 0.75,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "ramps": [
+    {
+      "x": 4.0,
+      "z": 0.4,
+      "width": 1.0,
+      "depth": 1.6,
+      "offset_y": 0.0,
+      "rise": 0.75,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "stairs": [
+    {
+      "x": 2.2,
+      "z": 2.6,
+      "width": 1.4,
+      "depth": 1.2,
+      "offset_y": 0.0,
+      "rise": 0.75,
+      "steps": 5,
+      "material": "home:hardwood_oak_01",
+      "riser_material": "home:wall_paint_offwhite_01",
+      "side_material": "home:baseboard_white_01"
+    }
+  ],
+  "half_walls": [
+    {
+      "x": 3.6,
+      "z": 2.0,
+      "width": 0.2,
+      "depth": 0.6,
+      "height": 1.05,
+      "material": "home:wall_paint_offwhite_01",
+      "cap_material": "home:baseboard_white_01"
+    },
+    {
+      "x": 6.05,
+      "z": 6.6,
+      "width": 1.0,
+      "depth": 0.2,
+      "height": 1.05,
+      "material": "home:wall_paint_offwhite_01",
+      "cap_material": "home:baseboard_white_01"
+    }
+  ],
+  "columns": [
+    {
+      "x": 3.7,
+      "z": 2.1,
+      "width": 0.26,
+      "depth": 0.26,
+      "material": "home:wall_paint_offwhite_01",
+      "cap_material": "home:baseboard_white_01"
+    },
+    {
+      "x": 5.04,
+      "z": 2.1,
+      "width": 0.26,
+      "depth": 0.26,
+      "material": "home:wall_paint_offwhite_01",
+      "cap_material": "home:baseboard_white_01"
+    }
+  ],
+  "guardrails": [
+    {
+      "x": 5.35,
+      "z": 2.1,
+      "length": 2.2,
+      "rotation_degrees": 270.0,
+      "height": 0.95,
+      "material": "home:handrail_wood_01"
+    }
+  ],
+  "thresholds": [
+    {
+      "x": 6.0,
+      "z": 2.3,
+      "length": 1.04,
+      "thickness": 0.08,
+      "height": 0.012,
+      "rotation_degrees": 90.0,
+      "material": "home:threshold_wood_01"
+    },
+    {
+      "x": 7.0,
+      "z": 4.4,
+      "length": 1.24,
+      "thickness": 0.08,
+      "height": 0.012,
+      "material": "home:threshold_wood_01"
+    },
+    {
+      "x": 2.6,
+      "z": 4.4,
+      "length": 1.24,
+      "thickness": 0.08,
+      "height": 0.012,
+      "material": "home:threshold_wood_01"
+    }
+  ],
+  "baseboards": [
+    {
+      "x": 0.15,
+      "z": 0.15,
+      "length": 5.85,
+      "material": "home:baseboard_wood_01"
+    },
+    {
+      "x": 0.15,
+      "z": 4.4,
+      "length": 4.25,
+      "rotation_degrees": 90.0,
+      "material": "home:baseboard_wood_01"
+    },
+    {
+      "x": 0.5,
+      "z": 4.55,
+      "length": 1.5,
+      "material": "home:baseboard_white_01"
+    },
+    {
+      "x": 3.2,
+      "z": 4.55,
+      "length": 2.7,
+      "material": "home:baseboard_white_01"
+    },
+    {
+      "x": 6.15,
+      "z": 7.9,
+      "length": 3.45,
+      "rotation_degrees": 90.0,
+      "material": "home:baseboard_white_01"
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 1.4,
+      "z": 1.4,
+      "brightness": 0.4,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 4.4,
+      "z": 3.4,
+      "brightness": 0.34,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 7.0,
+      "z": 1.2,
+      "brightness": 0.34,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 7.0,
+      "z": 3.4,
+      "brightness": 0.34,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 7.0,
+      "z": 5.4,
+      "brightness": 0.38,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 7.0,
+      "z": 7.0,
+      "brightness": 0.38,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 1.6,
+      "z": 5.8,
+      "brightness": 0.4,
+      "emission": 1.0
+    },
+    {
+      "fixture": "home:ceiling_light_round",
+      "x": 4.0,
+      "z": 7.0,
+      "brightness": 0.4,
+      "emission": 1.0
+    }
+  ],
+  "props": [
+    {
+      "model": "core:couch",
+      "x": 2.6,
+      "y": 0.0,
+      "z": 0.6,
+      "rotation_degrees": 180.0,
+      "size": [
+        2.0,
+        0.9,
+        0.9
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:table",
+      "x": 2.6,
+      "y": 0.0,
+      "z": 1.9,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:lamp",
+      "x": 0.7,
+      "y": 0.0,
+      "z": 0.7,
+      "rotation_degrees": 0.0,
+      "solid": false
+    },
+    {
+      "model": "core:plant",
+      "x": 0.6,
+      "y": 0.0,
+      "z": 3.7,
+      "rotation_degrees": 0.0,
+      "solid": false
+    },
+    {
+      "model": "core:rug",
+      "x": 4.5,
+      "y": 0.0,
+      "z": 3.3,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.6,
+        0.02,
+        2.0
+      ],
+      "solid": false
+    },
+    {
+      "model": "home:cabinet_base",
+      "x": 7.55,
+      "y": 0.0,
+      "z": 5.0,
+      "rotation_degrees": 270.0,
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
+      "solid": true
+    },
+    {
+      "model": "home:cabinet_base",
+      "x": 7.55,
+      "y": 0.0,
+      "z": 5.6,
+      "rotation_degrees": 270.0,
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
+      "solid": true
+    },
+    {
+      "model": "home:cabinet_wall",
+      "x": 7.55,
+      "y": 1.45,
+      "z": 5.0,
+      "rotation_degrees": 270.0,
+      "size": [
+        0.6,
+        0.72,
+        0.33
+      ],
+      "solid": true
+    },
+    {
+      "model": "home:cabinet_wall",
+      "x": 7.55,
+      "y": 1.45,
+      "z": 5.6,
+      "rotation_degrees": 270.0,
+      "size": [
+        0.6,
+        0.72,
+        0.33
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:sink",
+      "x": 7.55,
+      "y": 0.0,
+      "z": 4.7,
+      "rotation_degrees": 270.0,
+      "size": [
+        0.6,
+        0.85,
+        0.55
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:stove",
+      "x": 7.55,
+      "y": 0.0,
+      "z": 6.3,
+      "rotation_degrees": 270.0,
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:fridge",
+      "x": 7.55,
+      "y": 0.0,
+      "z": 7.3,
+      "rotation_degrees": 270.0,
+      "size": [
+        0.7,
+        1.8,
+        0.7
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:bed",
+      "x": 1.6,
+      "y": 0.0,
+      "z": 6.4,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.4,
+        0.6,
+        2.0
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:bookshelf",
+      "x": 3.6,
+      "y": 0.0,
+      "z": 7.75,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.0,
+        1.8,
+        0.35
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:lamp",
+      "x": 5.4,
+      "y": 0.0,
+      "z": 5.0,
+      "rotation_degrees": 0.0,
+      "solid": false
+    },
+    {
+      "model": "core:chair",
+      "x": 3.0,
+      "y": 0.0,
+      "z": 5.6,
+      "rotation_degrees": 210.0,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    }
+  ]
+}

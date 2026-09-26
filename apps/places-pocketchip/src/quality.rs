@@ -1,0 +1,324 @@
+//! Full and Low runtime quality profiles.
+//!
+//! Places deliberately has exactly two quality modes — there are no
+//! hardware-specific tiers, no auto-detection and no per-setting zoo. A profile
+//! answers one question: **how much texture data may reach the GPU?**
+//!
+//! ```text
+//! source PNG (asset)  ──decode──▶  Full runtime image  ──upload──▶  GPU
+//!                     ──decode──▶  Low runtime image (more aggressively scaled)
+//! ```
+//!
+//! Both profiles use the same levels and the same source assets. Low is not a
+//! second art library: it is the same PNG, downscaled further, so the visual
+//! identity (and every id, material and fixture) stays identical.
+//!
+//! Full uploads the native artwork unchanged — a 256x256 prop atlas stays
+//! 256x256, and a 1024x1024 surface sheet stays 1024x1024. Low is an optional
+//! display-budget reduction for players who want it: sheets at 256 and prop
+//! sheets at 128, which is a 16x reduction in texel count for a sheet and a 4x
+//! reduction for a prop. It is an intentional quality/performance trade, not a
+//! hardware requirement of the desktop target, and it never changes the size
+//! of the asset stored in the repository.
+//!
+//! Texture discipline is unchanged: the decoder still refuses anything above
+//! [`crate::assets::MAX_TEXTURE_DIMENSION`], and the shipped prop art budget
+//! still caps a prop atlas at its 256x256 native size. A quality profile only
+//! decides how much of an *accepted* source reaches the GPU; it never raises
+//! the source limit.
+//!
+//! The same profile also budgets the static lightmap atlas and the baked
+//! shadow quality: `Full` bakes at 16 texels per metre onto up to two
+//! 1024-texel pages with a nine-tap penumbra, `Low` at 9 texels per metre onto
+//! two 512-texel pages with a five-tap one (see [`QualityProfile::lightmap_config`]
+//! and [`QualityProfile::shadow_taps_per_axis`]). Both profiles bake from the
+//! *same* patch set — density, page size and tap count are the differences,
+//! never a different set of surfaces — and both use the same shared chart-span
+//! cap, so the geometry splits in the same places.
+//!
+//! Downscaling happens once, at upload/level-load time, through
+//! [`crate::materials::RawImage::downscaled_to`] and is cached with the texture
+//! it produced — never per frame, and never twice for the same image. A
+//! lightmap atlas is likewise baked once per level load and cached by content
+//! key; nothing here runs per frame.
+
+/// One of Places' two runtime quality profiles.
+///
+/// `Default` follows [`QualityProfile::DEFAULT`] so that `..Default::default()`
+/// and an explicit [`QualityProfile::DEFAULT`] can never describe two different
+/// profiles.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum QualityProfile {
+    /// The full-resolution reference presentation: sheets at their native size.
+    ///
+    /// Not what the handheld ships (see [`QualityProfile::DEFAULT`]); retained
+    /// as the A/B reference a benchmark run asks for to measure what the
+    /// reduced profile actually buys.
+    Full,
+    /// The `PocketCHIP` presentation: same assets and materials, smaller sheets.
+    #[default]
+    Low,
+}
+
+/// The texture classes a quality profile budgets separately.
+///
+/// They are separate because their authored sizes and their sampling duties
+/// differ: a tiling surface sheet covers metres of wall, a fitted fixture face
+/// covers one panel, and a prop sheet covers one model.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum TextureClass {
+    /// A tiling surface sheet (wall, floor, ceiling).
+    Surface,
+    /// A fitted fixture face.
+    FixtureFace,
+    /// A decal cut-out sheet.
+    DecalSheet,
+    /// A prop model's embedded sheet.
+    Prop,
+    /// A material's emissive mask.
+    EmissionMask,
+}
+
+/// Full-quality edge budget: surfaces and fitted sheets at 1024.
+const FULL_SHEET_EDGE: u32 = 1_024;
+/// Full-quality edge budget: props at their native 256, uploaded unchanged.
+const FULL_PROP_EDGE: u32 = 256;
+/// Full-quality edge budget: emissive masks at 512.
+const FULL_MASK_EDGE: u32 = 512;
+/// Low-quality edge budget: sheets at 256.
+const LOW_SHEET_EDGE: u32 = 256;
+/// Low-quality edge budget: native props halved once, 256 -> 128.
+const LOW_PROP_EDGE: u32 = 128;
+/// Low-quality edge budget: emissive masks at 128.
+const LOW_MASK_EDGE: u32 = 128;
+
+/// Environment override pinning the sheet edge for one benchmark process.
+///
+/// `LIMINAL_TEXTURE_EDGE=128|256|512|1024` fixes what a surface, fixture face
+/// or decal sheet may reach the GPU at, so the shipped default can be chosen
+/// from measurements on the device instead of guessed. It applies to the sheet
+/// classes only: prop sheets and emissive masks keep their profile values,
+/// because they are sized from the model and the mask they belong to.
+pub const SHEET_EDGE_OVERRIDE_ENV: &str = "LIMINAL_TEXTURE_EDGE";
+
+/// The pinned sheet edge, when one is set and usable.
+fn sheet_edge_override() -> Option<u32> {
+    let raw = std::env::var(SHEET_EDGE_OVERRIDE_ENV).ok()?;
+    let edge = raw.trim().parse::<u32>().ok()?;
+    // Clamp to what the decoder is able to produce, so a nonsense value cannot
+    // request an image the loader would reject.
+    (edge > 0).then(|| edge.min(crate::assets::MAX_TEXTURE_DIMENSION))
+}
+
+impl QualityProfile {
+    /// Every profile, in report order.
+    pub const ALL: [Self; 2] = [Self::Full, Self::Low];
+
+    /// The profile a level loads with when nothing is authored.
+    ///
+    /// `PocketCHIP`: the reduced profile is the target's baseline, not an
+    /// optional downgrade. The device is a 480x272 panel driven by a
+    /// single-pixel-pipe Mali-400 MP1 with a 32 KB L2 and no swap, so the
+    /// 1024-texel surface set and the optional per-pixel material work cost
+    /// memory and bandwidth the hardware cannot spend on anything visible at
+    /// that size. `Full` is retained only as the A/B reference for a benchmark
+    /// run (`LIMINAL_QUALITY=full`); a shipping launch is `Low`.
+    pub const DEFAULT: Self = Self::Low;
+
+    /// Stable lowercase name, as written in `settings.json` and the logs.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Full => "full",
+            Self::Low => "low",
+        }
+    }
+
+    /// Parses a profile name, case-insensitively and ignoring surrounding
+    /// whitespace. Unknown names are `None` (the caller keeps its current
+    /// profile), never a silent fallback.
+    #[must_use]
+    pub fn parse(name: &str) -> Option<Self> {
+        let trimmed = name.trim();
+        Self::ALL
+            .into_iter()
+            .find(|profile| profile.name().eq_ignore_ascii_case(trimmed))
+    }
+
+    /// Largest edge length, in texels, an image of `class` may reach the GPU
+    /// with under this profile.
+    ///
+    /// The returned value is a *runtime* budget: the source PNG may legally be
+    /// larger (up to [`crate::assets::MAX_TEXTURE_DIMENSION`]) and is downscaled
+    /// once, at load time, to fit.
+    #[must_use]
+    pub fn budget(self, class: TextureClass) -> u32 {
+        // A benchmark run may pin the sheet edge to measure what a different
+        // cap costs on the real device; it is the one texture knob the
+        // PocketCHIP port tunes by measurement rather than by assumption. The
+        // override is a startup value read once per call and never consulted
+        // per frame.
+        if matches!(
+            class,
+            TextureClass::Surface | TextureClass::FixtureFace | TextureClass::DecalSheet
+        ) && let Some(edge) = sheet_edge_override()
+        {
+            return edge;
+        }
+        match (self, class) {
+            (
+                Self::Full,
+                TextureClass::Surface | TextureClass::FixtureFace | TextureClass::DecalSheet,
+            ) => FULL_SHEET_EDGE,
+            (Self::Full, TextureClass::Prop) => FULL_PROP_EDGE,
+            (Self::Full, TextureClass::EmissionMask) => FULL_MASK_EDGE,
+            (
+                Self::Low,
+                TextureClass::Surface | TextureClass::FixtureFace | TextureClass::DecalSheet,
+            ) => LOW_SHEET_EDGE,
+            (Self::Low, TextureClass::Prop) => LOW_PROP_EDGE,
+            (Self::Low, TextureClass::EmissionMask) => LOW_MASK_EDGE,
+        }
+    }
+
+    /// True when this profile drops optional per-pixel material work.
+    ///
+    /// Reserving the hook now keeps later effect work (a future reflection or
+    /// post-processing path) from having to invent its own tier names: it asks
+    /// the active profile instead.
+    #[must_use]
+    pub const fn reduces_optional_features(self) -> bool {
+        matches!(self, Self::Low)
+    }
+
+    /// True when this profile draws the optional surface response.
+    ///
+    /// The response is the normal-map perturbation and the view-dependent sheen
+    /// a material may author ([`crate::materials::response`]). Both profiles draw
+    /// the same geometry and the same albedo, emission and alpha; Low simply
+    /// leaves the response term out, which is the one per-fragment cost a
+    /// constrained GPU can drop without changing what an author authored. It is
+    /// a shader gate, not a different asset: the same PNGs and the same
+    /// materials reach the GPU under either profile.
+    #[must_use]
+    pub const fn draws_surface_response(self) -> bool {
+        matches!(self, Self::Full)
+    }
+
+    /// True when this profile renders the 3D scene at the drawable's own
+    /// resolution.
+    ///
+    /// See [`crate::render::framebuffer`]: Low renders the scene no wider than
+    /// the historical 480x272 reference width and presents it across the
+    /// drawable, trading scene pixels for performance in the optional Low
+    /// presentation.
+    #[must_use]
+    pub const fn draws_scene_at_drawable_resolution(self) -> bool {
+        matches!(self, Self::Full)
+    }
+
+    /// Emitter taps per axis for the baked local-pool visibility test.
+    ///
+    /// `1` is the historical centre-only test (a hard shadow edge), `2` the
+    /// five-tap quincunx and `3` the nine-tap 3x3 grid. See
+    /// [`crate::lighting::ShadowSampling`]: the taps average a pool's visibility
+    /// over the fixture's own emitting rectangle, so a partially blocked pool
+    /// fades over a real penumbra instead of ending on a hard line.
+    ///
+    /// The values are measured, not guessed. On the shipped demo Full's 3x3 grid
+    /// is indistinguishable from the quincunx (all 19 fixed views: 0.00 % of
+    /// pixels differ by more than 24/255, worst case 13/255) while costing 1.8x
+    /// the lightmap fill, so Full takes the quincunx. Low keeps the single
+    /// centre tap: it is the cheapest bake (one visibility test per shaded
+    /// sample, ~2.3x cheaper than Low with five taps), its 11 cm texels already
+    /// smooth the edge, and the five-tap penumbra moves at most 5.5 % of a view's
+    /// pixels there. The tap count is a *cost* tier as much as a look tier.
+    #[must_use]
+    pub const fn shadow_taps_per_axis(self) -> u8 {
+        match self {
+            Self::Full => 2,
+            Self::Low => 1,
+        }
+    }
+
+    /// Grid cell, in metres, a prop model's triangles are ground into for the
+    /// bake's occlusion boxes.
+    ///
+    /// A finer cell derives more, smaller boxes: a prop's contact shadow and
+    /// the pool it blocks follow the model more closely, at a higher bake cost
+    /// and a larger occluder set. `Full` uses 0.075 m (half the historical
+    /// grid, the finest cell the shipped models resolve without hitting the
+    /// box caps); `Low` keeps the historical 0.15 m.
+    #[must_use]
+    pub const fn prop_occlusion_cell_m(self) -> f32 {
+        match self {
+            Self::Full => 0.075,
+            Self::Low => 0.15,
+        }
+    }
+
+    /// Every shadow and lightmap setting this profile implies, in one value.
+    ///
+    /// The lightmap cache key and the bake both read this, so a density, page
+    /// or padding change can never leave the two disagreeing about which atlas
+    /// a profile describes.
+    #[must_use]
+    pub const fn lightmap_config(self) -> crate::lighting::lightmap::LightmapConfig {
+        crate::lighting::lightmap::LightmapConfig::for_profile(self)
+    }
+
+    /// The bake settings this profile implies, in the one value
+    /// [`crate::lighting::LevelLighting::bake_with`] consumes.
+    ///
+    /// This is what keeps the shadow quality differences *centralised*: a
+    /// profile answers with its tap count and prop-occlusion cell here, and
+    /// nothing else in the renderer needs to know either number.
+    #[must_use]
+    pub const fn bake_config(self) -> crate::lighting::BakeConfig {
+        crate::lighting::BakeConfig {
+            sampling: crate::lighting::ShadowSampling {
+                taps_per_axis: self.shadow_taps_per_axis(),
+            },
+            prop_occlusion_cell_m: self.prop_occlusion_cell_m(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests;
+
+/// The budget a [`TextureCache`] keeps resident for one sheet.
+///
+/// A decoded sheet is fitted to this edge as it is cached, so the session never
+/// holds pixels the runtime profile would not upload. It is the profile's
+/// surface budget on purpose: fixtures, decals and normal maps share the cache
+/// with surfaces, they all take the same edge under every profile, and the
+/// upload path re-fits per class anyway, so a mask that wants less is still
+/// reduced at upload and a Full run still keeps its 1024-texel originals.
+#[must_use]
+pub fn resident_sheet_budget(profile: QualityProfile) -> u32 {
+    profile.budget(TextureClass::Surface)
+}
+
+/// Returns the image a texture uploads with under `profile`.
+///
+/// Full keeps the decoded image exactly as it is — native 256x256 prop sheets
+/// and 1024x1024 surfaces are uploaded unchanged, with no rescale and no copy.
+/// Low box-filters it once. The caller does this at upload time and keeps the
+/// result with the texture it uploaded, so an image is never rescaled per
+/// frame, nor twice for one upload.
+///
+/// The runtime [`TextureCache`] already fit the image when it was decoded, so
+/// under the shipping profile this is a borrow and no work at all; it stays a
+/// real fit for a cache that was built without a budget (tests, tooling).
+#[must_use]
+pub fn fit_image(
+    image: &crate::materials::RawImage,
+    profile: QualityProfile,
+    class: TextureClass,
+) -> std::borrow::Cow<'_, crate::materials::RawImage> {
+    image.downscaled_to(profile.budget(class)).map_or_else(
+        || std::borrow::Cow::Borrowed(image),
+        std::borrow::Cow::Owned,
+    )
+}
