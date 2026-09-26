@@ -52,7 +52,24 @@ use super::{
 ///   longer steps its baked light at the arbitrary strip boundary. Every wall
 ///   texel of a strip that spans rooms changes value, so an atlas from an older
 ///   build must not be reused.
-pub const LIGHTMAP_FORMAT_VERSION: u32 = 5;
+/// * `6` — the page budget moved from two to four and the renderer addresses
+///   the pages as layers of one `texture_2d_array`, so the page layout and the
+///   shader's addressing contract both changed. An atlas baked by a version-5
+///   build must never be installed: its directory name carries the old `v5-`
+///   prefix, so it is not even looked up, and [`disk_load`] rejects any entry
+///   whose `meta.version` is not this number.
+/// * `7` — the lighting equation changed: the room baseline is lower, ceiling
+///   fixtures cast a directional pool (lateral falloff plus incidence, nothing
+///   above the emitter), every light adds a broad visibility-tested bounce
+///   fill, and overlaps compose by a per-channel screen instead of a summed
+///   cap. Every texel value differs from a version-6 atlas, so a version-6
+///   directory must never be read.
+/// * `8` — wall charts resolve their room exactly like the vertex bake's face
+///   sample (strict containment first, the patch's own room as the fallback),
+///   so a wall face on a shared room boundary is lit by its own room instead
+///   of whichever overlapping neighbour the loose tie-break picked. Boundary
+///   wall texels change value, so a version-7 atlas must not be reused.
+pub const LIGHTMAP_FORMAT_VERSION: u32 = 8;
 
 /// Root of the runtime-owned on-disk cache, below the state root.
 ///

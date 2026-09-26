@@ -5,7 +5,7 @@
 //! ```text
 //! add_quad(scratch, p0, p1, p2, p3)          // the historical emit call
 //!     LIGHTMAPS: LightmapPatch::from_quad(p0, p1, p2, p3)   (u = p0->p1, v = p0->p3)
-//!                SkylineAllocator::allocate(patch) -> Chart
+//!                ChartAllocator::allocate(patch) -> Chart
 //!                Vertex::lightmap = Chart::uv_at(0,0), (1,0), (1,1), (0,1)
 //!                Vertex::lightmap_page = chart.page
 //! ```
@@ -18,16 +18,17 @@
 //! quad winds `(x0,z0) -> (x1,z0) -> ...` therefore gets a texel grid aligned
 //! with the world, not a rotated one.
 //!
-//! Chart allocation is inline (one forward pass, first fit, pages in emission
-//! order) rather than deferred, because the vertices need their final UVs as
-//! they are written and a deferred pass would have to find them again after
-//! spatial bucketing and index sharing. Determinism comes from the emitter's
-//! fixed order plus the skyline allocator's placement order: the same level
-//! always produces the same charts and the same pages.
+//! Chart allocation is inline (one forward pass, best-short-side fit across the
+//! open pages, pages in emission order) rather than deferred, because the
+//! vertices need their final UVs as they are written and a deferred pass would
+//! have to find them again after spatial bucketing and index sharing.
+//! Determinism comes from the emitter's fixed order plus the allocator's
+//! placement order: the same level always produces the same charts and the
+//! same pages.
 
 use super::{
-    Chart, LightmapConfig, LightmapFailure, LightmapPage, LightmapPatch, PatchKind, PatchRejection,
-    SkylineAllocator, corners_coincident,
+    Chart, ChartAllocator, LightmapConfig, LightmapFailure, LightmapPage, LightmapPatch, PatchKind,
+    PatchRejection, corners_coincident,
 };
 use crate::render::{LIGHTMAP_NONE, Vertex};
 
@@ -88,7 +89,7 @@ impl LevelLightmaps {
 #[derive(Debug)]
 pub struct LightmapPlan {
     config: LightmapConfig,
-    allocator: SkylineAllocator,
+    allocator: ChartAllocator,
     charts: Vec<(LightmapPatch, Chart)>,
     failure: Option<LightmapFailure>,
     /// Invisible sliver quads left vertex-lit (see [`Self::slivers_skipped`]).
@@ -100,7 +101,7 @@ impl LightmapPlan {
     #[must_use]
     pub const fn new(config: LightmapConfig) -> Self {
         Self {
-            allocator: SkylineAllocator::new(config),
+            allocator: ChartAllocator::new(config),
             config,
             charts: Vec::new(),
             failure: None,
@@ -189,13 +190,13 @@ impl LightmapPlan {
             } else {
                 // A visible malformed quad: fail over to the exact vertex-lit
                 // mesh rather than drawing one unlit surface.
-                self.failure.get_or_insert(LightmapFailure::DegenerateQuad);
+                self.fail(LightmapFailure::DegenerateQuad);
             }
             return false;
         };
         let Some(chart) = self.allocator.allocate(&patch) else {
-            // `allocate` only fails on the page budget (see `SkylineAllocator`).
-            self.failure.get_or_insert(LightmapFailure::PageOverflow);
+            // `allocate` only fails on the page budget (see `ChartAllocator`).
+            self.fail(LightmapFailure::PageOverflow);
             return false;
         };
         let edge = self.config.page_edge;
@@ -221,7 +222,7 @@ impl LightmapPlan {
         let page = u8::try_from(chart.page).unwrap_or(LIGHTMAP_NONE);
         for (offset, corner) in [0usize, 1, 2, 0, 2, 3].into_iter().enumerate() {
             let Some(vertex) = vertices.get_mut(first.saturating_add(offset)) else {
-                self.failure.get_or_insert(LightmapFailure::Layout);
+                self.fail(LightmapFailure::Layout);
                 return false;
             };
             vertex.lightmap = uvs.get(corner).copied().unwrap_or([0, 0]);
@@ -229,5 +230,29 @@ impl LightmapPlan {
         }
         self.charts.push((patch, chart));
         true
+    }
+
+    /// Records the first build failure, with the capacity numbers, so a level
+    /// that loses its atlas is never silent.
+    ///
+    /// The named reason is printed once per process per failure kind: the whole
+    /// level then rebuilds with the historical vertex-lit mesh. `charts placed`
+    /// and `pages used of max_pages` make a genuine budget shortfall
+    /// distinguishable from a layout bug.
+    fn fail(&mut self, failure: LightmapFailure) {
+        if self.failure.is_none() {
+            crate::logging::warn_once(
+                format!("lightmap-plan-failure:{}", failure.name()),
+                format!(
+                    "[lightmaps] atlas plan failed ({}): {} chart(s) placed on {} of {} page(s); \
+                     rebuilding the level with vertex lighting",
+                    failure.name(),
+                    self.charts.len(),
+                    self.allocator.page_count(),
+                    self.config.max_pages,
+                ),
+            );
+        }
+        self.failure.get_or_insert(failure);
     }
 }

@@ -43,7 +43,12 @@
 //! [`crate::lighting::LevelLighting::lightmap_texel`], which is
 //! `sample_in_room` without the wall-clearing walk: a texel is generated on a
 //! surface plane, and the fast path returns exactly the same value as the
-//! vertex bake for every texel that is not buried in a wall.
+//! vertex bake for every texel that is not buried in a wall. A **wall** texel
+//! additionally resolves its room the way the vertex bake does, through
+//! [`crate::lighting::LevelLighting::sample_face`] (strict containment first,
+//! the patch's room hint with a clamped position as the fallback), because a
+//! wall face can sit exactly on a room boundary and loose containment can then
+//! pick the neighbouring room.
 //!
 //! Two details keep a *vertical* face honest, because its texels are generated
 //! exactly on a solid boundary:
@@ -59,15 +64,19 @@
 //!   like the vertex bake.
 //!
 //! A wall patch's room is resolved **per texel**, not from the patch's stored
-//! hint. Abutting wall pieces coalesce into emission units, and one unit's
-//! length run can span a room boundary (two rooms sharing a corridor wall, a
-//! wall run through a doorway); a single per-run hint would make the baked
-//! light switch room at the arbitrary run seam instead of at the room
-//! boundary, and the seam would read as a lighting step in the middle of a
-//! continuous face. The per-texel containment at the bias-shifted sample point
-//! is the same resolution the vertex bake uses, so the light follows the world
-//! continuously. Floors and ceilings are emitted per room already, so their
-//! hint is exact and is kept.
+//! hint, in exactly the way the vertex bake resolves a face sample: the strict
+//! containment at the bias-shifted point wins, and a sample that is only
+//! touching a boundary (or lying on the face of a crossing wall) falls back to
+//! the patch's own room with its position clamped into that room. Abutting wall
+//! pieces coalesce into emission units, and one unit's length run can span a
+//! room boundary; resolving only from the loose containment returned the wrong
+//! room for a whole boundary face — the atlas baked it at the neighbouring
+//! room's ambient while the vertex path lit it from its own room, which made
+//! The Pit's shaft walls near-black. The strict-first/hint-fallback order is
+//! the vertex bake's own [`crate::lighting::LevelLighting::sample_face`], so
+//! the atlas and the vertex path agree on which room a face belongs to and the
+//! light still follows the world continuously along the face. Floors and
+//! ceilings are emitted per room already, so their hint is exact and is kept.
 //!
 //! With both, `fill_chart` reproduces the vertex bake's values on the shipped
 //! demo where the two paths are meant to agree.
@@ -97,19 +106,14 @@ pub fn fill_chart(lighting: &LevelLighting, patch: &LightmapPatch, chart: &Chart
     let bias = face_normal_bias(patch);
     // A wall face can span several coalesced wall pieces, and a coalesced unit
     // can itself span a room boundary (two rooms sharing one corridor wall, a
-    // wall run through a doorway). The patch's room is a per-emission-strip
-    // hint: carrying it across the whole strip would resolve one room's
-    // baseline, fixture set and doorway blends for a face that really stands in
-    // two of them, and the lighting would step at the strip boundary — an
-    // arbitrary geometry seam, not a room boundary. Wall texels therefore
-    // resolve their room per texel from the (bias-shifted) sample point, the
-    // same containment the vertex bake uses, so the light follows the world
-    // continuously along the face. Floors and ceilings are emitted per room
-    // already, so their hint is exact and stays.
-    let room = match patch.kind {
-        PatchKind::Wall => None,
-        PatchKind::Floor | PatchKind::Ceiling | PatchKind::Skirt => patch.room,
-    };
+    // wall run through a doorway). Wall texels resolve their room exactly the
+    // way the vertex bake's `sample_face` does: strict containment first, then
+    // the patch's own room hint with the position clamped into it. Using the
+    // loose containment alone resolved a boundary face to whichever overlapping
+    // room the tie-break preferred, which could be a neighbouring room, and
+    // baked that whole face at the wrong room's light.
+    let hint = patch.room;
+    let wall = matches!(patch.kind, PatchKind::Wall);
     for j in 0..height {
         let v = texel_axis(j, height);
         for i in 0..width {
@@ -122,13 +126,15 @@ pub fn fill_chart(lighting: &LevelLighting, patch: &LightmapPatch, chart: &Chart
             // for the walked path, which is what the vertex bake applies to
             // every sample; the fast path is exactly equivalent everywhere
             // else.
-            let light = if lighting.wall_contains_point(point[0], point[2]) {
-                room.map_or_else(
+            let light = if wall {
+                lighting.sample_face(hint, point[0], point[1], point[2])
+            } else if lighting.wall_contains_point(point[0], point[2]) {
+                hint.map_or_else(
                     || lighting.sample(point[0], point[1], point[2]),
                     |room| lighting.sample_in_room(room, point[0], point[1], point[2]),
                 )
             } else {
-                lighting.lightmap_texel(room, point[0], point[1], point[2])
+                lighting.lightmap_texel(hint, point[0], point[1], point[2])
             };
             texels.push([
                 light.r.clamp(AMBIENT_LEVEL, MAX_BRIGHTNESS),
@@ -165,7 +171,7 @@ fn texel_axis(index: usize, count: usize) -> f32 {
 /// winding normal — the same normal the mesh emits, since the patch is built
 /// from the quad's own corners (`u = p0 -> p1`, `v = p0 -> p3`) and the quad
 /// always winds toward the face the room sees.
-fn face_normal_bias(patch: &LightmapPatch) -> [f32; 3] {
+pub(super) fn face_normal_bias(patch: &LightmapPatch) -> [f32; 3] {
     if !matches!(patch.kind, PatchKind::Wall | PatchKind::Skirt) {
         return [0.0; 3];
     }
@@ -409,7 +415,7 @@ mod tests {
                 let v = texel_axis(j, 2);
                 let point = patch.point_at(u, v);
                 let shifted = [point[0] + bias[0], point[1] + bias[1], point[2] + bias[2]];
-                let expected = lighting.sample_in_room(0, shifted[0], shifted[1], shifted[2]);
+                let expected = lighting.sample_face(Some(0), shifted[0], shifted[1], shifted[2]);
                 let expected = [
                     expected.r.clamp(AMBIENT_LEVEL, MAX_BRIGHTNESS),
                     expected.g.clamp(AMBIENT_LEVEL, MAX_BRIGHTNESS),
@@ -492,7 +498,7 @@ mod tests {
                 if lighting.wall_contains_point(shifted[0], shifted[2]) {
                     junction_texels += 1;
                 }
-                let expected = lighting.sample_in_room(0, shifted[0], shifted[1], shifted[2]);
+                let expected = lighting.sample_face(Some(0), shifted[0], shifted[1], shifted[2]);
                 let expected = [
                     expected.r.clamp(AMBIENT_LEVEL, MAX_BRIGHTNESS),
                     expected.g.clamp(AMBIENT_LEVEL, MAX_BRIGHTNESS),

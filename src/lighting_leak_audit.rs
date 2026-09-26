@@ -159,25 +159,57 @@ fn segment_hits_solid(solid: Solid, from: [f32; 3], to: [f32; 3]) -> bool {
     true
 }
 
-/// The exact local pool at a point: the smooth falloff of every fixture whose
-/// panel point has an unblocked segment to the point, capped like the bake.
-fn reference_pool(
+/// The exact local lighting at a point, with no visibility relaxation: the
+/// visibility-tested direct pool and bounce fill of every fixture whose
+/// emitter segment is unblocked, composed with the production screen
+/// operator. Returns `(direct, fill)` so the caller can compare the two
+/// capped terms independently.
+///
+/// This is an independent reference, not a call into the bake: it resolves
+/// the walls, floor interfaces and screen operator itself, so a bug in the
+/// production composition cannot hide behind it.
+fn reference_local(
     lighting: &LevelLighting,
     solids: &[Solid],
     interfaces: &[FloorInterface],
     x: f32,
     y: f32,
     z: f32,
-) -> [f32; 3] {
-    let mut sum = [0.0f32; 3];
+) -> ([f32; 3], [f32; 3]) {
+    let mut direct = [0.0_f32; 3];
+    let mut fill = [0.0_f32; 3];
     for light in lighting.lights() {
         let dx = ((x - light.x()).abs() - light.half_w()).max(0.0);
         let dz = ((z - light.z()).abs() - light.half_d()).max(0.0);
         let horizontal_squared = dx * dx + dz * dz;
-        let vertical = y - light.y();
+        let horizontal = horizontal_squared.sqrt();
+        let vertical = light.y() - y;
         let distance_squared = vertical.mul_add(vertical, horizontal_squared);
-        let radius_squared = 6.0 * 6.0;
-        if !distance_squared.is_finite() || distance_squared >= radius_squared {
+        if !distance_squared.is_finite() {
+            continue;
+        }
+        let distance = distance_squared.sqrt();
+        let range = light.range();
+        let fill_range = range * crate::lighting::FILL_RANGE_MULTIPLIER;
+        let direct_shape = if light.directional {
+            if vertical <= 0.0 || distance <= f32::EPSILON || horizontal >= range {
+                0.0
+            } else {
+                let lateral = 1.0 - horizontal / range;
+                let (lateral_squared, incidence) = (lateral * lateral, vertical / distance);
+                lateral_squared * incidence
+            }
+        } else if distance < range {
+            smooth_falloff(distance / range)
+        } else {
+            0.0
+        };
+        let fill_shape = if distance < fill_range {
+            smooth_falloff(distance / fill_range)
+        } else {
+            0.0
+        };
+        if direct_shape <= 0.0 && fill_shape <= 0.0 {
             continue;
         }
         let source = [
@@ -210,17 +242,35 @@ fn reference_pool(
         {
             continue;
         }
-        let falloff = smooth_falloff(distance_squared.sqrt() / 6.0);
-        let strength = 0.42 * light.intensity() * light.height_factor * falloff;
-        sum[0] += strength * light.color().r;
-        sum[1] += strength * light.color().g;
-        sum[2] += strength * light.color().b;
+        let direct_strength =
+            crate::lighting::LOCAL_LIGHT_STRENGTH * light.intensity() * light.height_factor;
+        let fill_strength =
+            crate::lighting::FILL_STRENGTH * light.intensity() * light.height_factor;
+        let color = light.color();
+        let peak = color.max_channel();
+        if !peak.is_finite() || peak <= 0.0 {
+            continue;
+        }
+        for (channel, &value) in [color.r, color.g, color.b].iter().enumerate() {
+            let direct_cap = crate::lighting::LOCAL_LIGHT_MAX * value / peak;
+            if direct_cap.is_finite()
+                && direct_cap > 0.0
+                && let Some(slot) = direct.get_mut(channel)
+            {
+                let claim = (direct_strength * direct_shape * value).min(direct_cap) / direct_cap;
+                *slot = ((direct_cap - *slot).max(0.0)).mul_add(claim, *slot);
+            }
+            let fill_cap = crate::lighting::FILL_MAX * value / peak;
+            if fill_cap.is_finite()
+                && fill_cap > 0.0
+                && let Some(slot) = fill.get_mut(channel)
+            {
+                let claim = (fill_strength * fill_shape * value).min(fill_cap) / fill_cap;
+                *slot = ((fill_cap - *slot).max(0.0)).mul_add(claim, *slot);
+            }
+        }
     }
-    [
-        sum[0].clamp(0.0, 0.45),
-        sum[1].clamp(0.0, 0.45),
-        sum[2].clamp(0.0, 0.45),
-    ]
+    (direct, fill)
 }
 
 /// Moves a sample out of a wall the same way the bake's `clear_sample` does, so
@@ -280,11 +330,20 @@ fn assert_pool_matches_reference(
     // partitioned room must be audited against the baseline it actually got.
     let baseline = lighting.baseline_in_room(room, x, z);
     let blend = lighting.opening_blend(room, x, y, z);
-    let reference = reference_pool(lighting, solids, interfaces, x, y, z);
+    let (reference_direct, reference_fill) = reference_local(lighting, solids, interfaces, x, y, z);
     for (channel, (baked, reference)) in [
-        (baked.r - baseline.r - blend.r, reference[0]),
-        (baked.g - baseline.g - blend.g, reference[1]),
-        (baked.b - baseline.b - blend.b, reference[2]),
+        (
+            baked.r - baseline.r - blend.r,
+            reference_direct[0] + reference_fill[0],
+        ),
+        (
+            baked.g - baseline.g - blend.g,
+            reference_direct[1] + reference_fill[1],
+        ),
+        (
+            baked.b - baseline.b - blend.b,
+            reference_direct[2] + reference_fill[2],
+        ),
     ]
     .into_iter()
     .enumerate()

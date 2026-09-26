@@ -413,7 +413,7 @@ fn test_architecture_stress_builds_with_bounded_geometry() {
         build.mesh.ranges.len()
     );
     assert!(
-        stats.pages <= 2,
+        stats.pages <= crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES,
         "the atlas stays in the page budget: {} pages, {} charts, {} texels",
         stats.pages,
         stats.charts,
@@ -424,10 +424,12 @@ fn test_architecture_stress_builds_with_bounded_geometry() {
         "chart count stays bounded: {}",
         stats.charts
     );
-    // A level whose architecture genuinely exceeds the two-page atlas budget
+    // A level whose architecture genuinely exceeds the four-page atlas budget
     // must degrade to vertex lighting with a named failure, not panic or drop
-    // geometry: the mesh is complete and finite, only unlit.
-    let oversized = architecture_stress_level_for(8);
+    // geometry: the mesh is complete and finite, only unlit. The 5-grid above
+    // fits the budget; the much larger 10-grid is a genuine overflow of the
+    // shipped four-page budget.
+    let oversized = architecture_stress_level_for(10);
     let materials = logical_materials(&oversized);
     let build = crate::render::build_level_geometry_timed_with_lightmaps(
         &oversized,

@@ -536,3 +536,301 @@ pub fn add_wall_fixture(
         uv[3],
     );
 }
+
+#[cfg(test)]
+mod tests {
+    // Test code: unwrap/expect, indexing, float comparison and permissive
+    // arithmetic are idiomatic in tests; the production lints stay enforced
+    // everywhere else in the crate.
+    #![allow(
+        clippy::cast_precision_loss,
+        clippy::expect_used,
+        clippy::float_cmp,
+        clippy::indexing_slicing,
+        clippy::panic,
+        clippy::suboptimal_flops
+    )]
+
+    use super::*;
+    use crate::level::LevelDef;
+    use crate::lighting::LevelLighting;
+
+    /// One room with one fixture of every built-in family.
+    fn fixture_family_level() -> LevelDef {
+        LevelDef::from_json(
+            r#"{
+                "format_version": 1,
+                "id": "fixture_alignment",
+                "name": "Fixture Alignment",
+                "spawn": { "x": 1.0, "z": 1.0 },
+                "rooms": [{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 6.0, "height": 3.0 }],
+                "ceiling_lights": [
+                    { "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 3.0 },
+                    { "fixture": "core:pool_light_round", "x": 6.0, "z": 3.0 },
+                    { "fixture": "core:pool_light_wall", "x": 10.0, "z": 3.0,
+                      "mount": "wall", "y": 1.7 },
+                    { "fixture": "home:ceiling_light_round", "x": 4.0, "z": 3.0 }
+                ]
+            }"#,
+        )
+        .expect("valid fixture alignment level")
+    }
+
+    /// Geometric normal of the first triangle of a quad run (the renderer's
+    /// front face is the winding's counter-clockwise side).
+    fn quad_normal(vertices: &[Vertex]) -> [f32; 3] {
+        let a = vertices[0].pos;
+        let b = vertices[1].pos;
+        let c = vertices[2].pos;
+        let e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+        let e2 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+        let normal = [
+            e1[1] * e2[2] - e1[2] * e2[1],
+            e1[2] * e2[0] - e1[0] * e2[2],
+            e1[0] * e2[1] - e1[1] * e2[0],
+        ];
+        let length = normal[0].hypot(normal[1]).hypot(normal[2]);
+        [normal[0] / length, normal[1] / length, normal[2] / length]
+    }
+
+    /// Centre of a vertex run.
+    fn quad_centre(vertices: &[Vertex]) -> [f32; 3] {
+        let count = vertices.len() as f32;
+        let sum = vertices.iter().fold([0.0_f32; 3], |sum, vertex| {
+            [
+                sum[0] + vertex.pos[0],
+                sum[1] + vertex.pos[1],
+                sum[2] + vertex.pos[2],
+            ]
+        });
+        [sum[0] / count, sum[1] / count, sum[2] / count]
+    }
+
+    /// The luminous faces of every ceiling family face down; the wall lens
+    /// faces its authored yaw. A mis-wound or flipped emitter would light the
+    /// back of the room while reading black from the front.
+    #[test]
+    fn every_luminous_face_points_into_its_room() {
+        const EMISSION: [f32; 3] = [0.8, 0.8, 0.8];
+        let mut lit = Vec::new();
+        let mut housing = Vec::new();
+        add_panel_fixture(&mut lit, &mut housing, 0.0, 1.2, 0.0, 0.6, 2.0, EMISSION);
+        assert_eq!(quad_normal(&lit), [0.0, -1.0, 0.0], "the panel faces down");
+
+        let mut lit = Vec::new();
+        let mut housing = Vec::new();
+        add_round_fixture(&mut lit, &mut housing, 0.0, 0.0, 2.0, 0.22, EMISSION);
+        for quad in lit.as_chunks::<6>().0 {
+            assert_eq!(
+                quad_normal(quad),
+                [0.0, -1.0, 0.0],
+                "the round ring faces down"
+            );
+        }
+
+        let mut lit = Vec::new();
+        let mut housing = Vec::new();
+        add_flush_mount_fixture(&mut lit, &mut housing, 0.0, 0.0, 2.9, 0.16, EMISSION);
+        for quad in lit.as_chunks::<6>().0 {
+            assert_eq!(
+                quad_normal(quad),
+                [0.0, -1.0, 0.0],
+                "the drum diffuser faces down"
+            );
+        }
+
+        for yaw in [0.0_f32, 90.0, 180.0, 270.0] {
+            let mut lit = Vec::new();
+            let mut housing = Vec::new();
+            add_wall_fixture(&mut lit, &mut housing, 10.0, 1.7, 3.0, yaw, EMISSION);
+            let radians = yaw.to_radians();
+            let expected = [radians.sin(), 0.0, radians.cos()];
+            let normal = quad_normal(&lit);
+            assert!(
+                (normal[0] - expected[0]).abs() < 1e-5
+                    && normal[1].abs() < 1e-5
+                    && (normal[2] - expected[2]).abs() < 1e-5,
+                "the wall lens must face its authored yaw {yaw}: {normal:?} vs {expected:?}"
+            );
+        }
+    }
+
+    /// Only the luminous face is emissive; every other vertex is genuine
+    /// housing and never carries the neutral emission value.
+    #[test]
+    fn only_the_luminous_face_is_emissive() {
+        const EMISSION: [f32; 3] = [0.8, 0.8, 0.8];
+        let is_emission = |color: [f32; 4]| color[0] == EMISSION[0];
+        let mut lit = Vec::new();
+        let mut housing = Vec::new();
+        add_panel_fixture(&mut lit, &mut housing, 0.0, 1.2, 0.0, 0.6, 2.0, EMISSION);
+        add_round_fixture(&mut lit, &mut housing, 3.0, 0.0, 2.0, 0.22, EMISSION);
+        add_flush_mount_fixture(&mut lit, &mut housing, 6.0, 0.0, 2.9, 0.16, EMISSION);
+        add_wall_fixture(&mut lit, &mut housing, 10.0, 1.7, 3.0, 90.0, EMISSION);
+        assert!(!lit.is_empty() && !housing.is_empty());
+        assert!(lit.iter().all(|vertex| is_emission(vertex.color)));
+        assert!(housing.iter().all(|vertex| !is_emission(vertex.color)));
+    }
+
+    /// The wall lens is the front face of the luminaire: its centre sits one
+    /// body depth in front of the authored point, on the wall plane. The baked
+    /// emitter that must light the room is the same face, so the two may only
+    /// differ by that body depth (the bake currently emits from the authored
+    /// point; the proposal in `bake_pool_proposal.md` moves it onto the face).
+    #[test]
+    fn the_wall_lens_sits_on_the_front_face_at_the_authored_point() {
+        const EMISSION: [f32; 3] = [0.8, 0.8, 0.8];
+        let (x, y, z, yaw) = (10.0_f32, 1.7_f32, 3.0_f32, 90.0_f32);
+        let mut lit = Vec::new();
+        let mut housing = Vec::new();
+        add_wall_fixture(&mut lit, &mut housing, x, y, z, yaw, EMISSION);
+        let centre = quad_centre(&lit);
+        let radians = yaw.to_radians();
+        let forward = [radians.sin(), 0.0, radians.cos()];
+        // The body is 0.11 m deep; the lens is its front face.
+        assert!((centre[0] - forward[0].mul_add(0.11, x)).abs() < 1e-5);
+        assert!((centre[1] - y).abs() < 1e-5);
+        assert!((centre[2] - forward[2].mul_add(0.11, z)).abs() < 1e-5);
+        let normal = quad_normal(&lit);
+        assert!(
+            (normal[0] - forward[0]).abs() < 1e-5
+                && normal[1].abs() < 1e-5
+                && (normal[2] - forward[2]).abs() < 1e-5,
+            "the wall lens faces the authored yaw: {normal:?} vs {forward:?}"
+        );
+
+        // Whatever the bake emits from, it is within one body depth of the
+        // drawn lens: a fixture cannot light the room from inside the wall.
+        let level = fixture_family_level();
+        let lighting = LevelLighting::bake(&level);
+        let wall = lighting
+            .lights()
+            .iter()
+            .find(|light| light.x() == x && light.z() == z)
+            .expect("the wall fixture baked");
+        let offset = (wall.x() - centre[0]).hypot(wall.z() - centre[2]);
+        assert!(
+            offset <= 0.12,
+            "the wall emitter is {offset} m from its drawn lens"
+        );
+    }
+
+    /// The bake's emitter plane matches the drawn luminous plane per family,
+    /// in the same horizontal footprint and with the same centre: the pool can
+    /// never sit visibly to one side of the fixture that casts it.
+    #[test]
+    fn emitter_planes_and_drawn_faces_share_their_centre_and_extents() {
+        let level = fixture_family_level();
+        let lighting = LevelLighting::bake(&level);
+        assert_eq!(lighting.lights().len(), 4);
+
+        // Panel: 1.2 x 0.6 m housing, diffuser inside it.
+        let panel = &lighting.lights()[0];
+        assert_eq!(panel.half_w(), 0.6);
+        assert_eq!(panel.half_d(), 0.3);
+        let mut lit = Vec::new();
+        let mut housing = Vec::new();
+        add_panel_fixture(
+            &mut lit,
+            &mut housing,
+            2.0 - 0.6,
+            2.0 + 0.6,
+            3.0 - 0.3,
+            3.0 + 0.3,
+            panel.y(),
+            [0.8; 3],
+        );
+        let centre = quad_centre(&lit);
+        assert!((centre[0] - panel.x()).abs() < 1e-5 && (centre[2] - panel.z()).abs() < 1e-5);
+        assert!(
+            (panel.y() - centre[1] - (PANEL_BODY_DROP_M - PANEL_LIP_M)).abs() < 1e-5,
+            "the panel emitter sits one recess (frame bottom minus lip) above its diffuser"
+        );
+
+        // Round downlight: the diffuser is the emitter plane exactly.
+        let round = &lighting.lights()[1];
+        let mut lit = Vec::new();
+        let mut housing = Vec::new();
+        add_round_fixture(
+            &mut lit,
+            &mut housing,
+            round.x(),
+            round.z(),
+            round.y(),
+            round.half_w(),
+            [0.8; 3],
+        );
+        assert_eq!(round.half_w(), round.half_d());
+        let centre = quad_centre(&lit);
+        assert!((centre[1] - round.y()).abs() < 1e-5);
+
+        // Flush mount: the drum hangs below the emitter plane by its body drop.
+        let flush = &lighting.lights()[3];
+        let mut lit = Vec::new();
+        let mut housing = Vec::new();
+        add_flush_mount_fixture(
+            &mut lit,
+            &mut housing,
+            flush.x(),
+            flush.z(),
+            flush.y(),
+            flush.half_w(),
+            [0.8; 3],
+        );
+        let centre = quad_centre(&lit);
+        let drop = flush.y() - centre[1];
+        assert!(
+            (0.05..=0.08).contains(&drop),
+            "the flush-mount diffuser hangs its drum depth below the emitter plane: {drop}"
+        );
+    }
+
+    /// One ceiling fixture of a single family in a 12 x 6 x 3 m room.
+    fn single_fixture_level(entry: &str) -> LevelDef {
+        let json = format!(
+            r#"{{
+                "format_version": 1,
+                "id": "fixture_falloff",
+                "name": "Fixture Falloff",
+                "spawn": {{ "x": 1.0, "z": 1.0 }},
+                "rooms": [{{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 6.0, "height": 3.0 }}],
+                "ceiling_lights": [{entry}]
+            }}"#
+        );
+        LevelDef::from_json(&json).expect("valid single-fixture level")
+    }
+
+    /// A fixture's pool is strongest directly under its drawn luminous face and
+    /// falls off monotonically away from it: the emitter the bake uses shares
+    /// the centre of the face the mesh draws.
+    #[test]
+    fn a_fixtures_pool_falls_off_monotonically_from_its_drawn_centre() {
+        for (entry, centre) in [
+            (
+                r#"{ "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 3.0, "brightness": 0.45 }"#,
+                (2.0_f32, 3.0_f32),
+            ),
+            (
+                r#"{ "fixture": "core:pool_light_round", "x": 6.0, "z": 3.0, "brightness": 0.45 }"#,
+                (6.0, 3.0),
+            ),
+            (
+                r#"{ "fixture": "home:ceiling_light_round", "x": 4.0, "z": 3.0, "brightness": 0.45 }"#,
+                (4.0, 3.0),
+            ),
+        ] {
+            let lighting = LevelLighting::bake(&single_fixture_level(entry));
+            let lum = |x: f32| lighting.sample_luminance(x, 0.02, centre.1);
+            let (under, one, two, three) = (
+                lum(centre.0),
+                lum(centre.0 + 1.0),
+                lum(centre.0 + 2.0),
+                lum(centre.0 + 3.0),
+            );
+            assert!(
+                under > one && one > two && two > three,
+                "{entry}: expected a monotone pool, got {under} {one} {two} {three}"
+            );
+        }
+    }
+}

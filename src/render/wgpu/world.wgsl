@@ -136,15 +136,15 @@ var emission_texture: texture_2d<f32>;
 var emission_sampler: sampler;
 
 // Group 3 is the frame/level environment: the baked-light switch and scale,
-// fog, the lightmap atlas pages, the reflection probe cubemap and the planar
-// mirror image. The fallback views keep every binding complete even when no
-// atlas or reflection is resident; the shader's switches decide what is read.
+// fog, the lightmap page array, the reflection probe cubemap and the planar
+// mirror image. The page array always has LIGHTMAP_ATLAS_MAX_PAGES layers (the
+// fallback is a 1x1 white array with the same layer count), so the binding is
+// complete even when no atlas or reflection is resident; the shader's switches
+// decide what is read.
 @group(3) @binding(0)
 var<uniform> environment: Environment;
 @group(3) @binding(1)
-var lightmap0: texture_2d<f32>;
-@group(3) @binding(2)
-var lightmap1: texture_2d<f32>;
+var lightmap_pages: texture_2d_array<f32>;
 @group(3) @binding(3)
 var lightmap_sampler: sampler;
 @group(3) @binding(4)
@@ -167,8 +167,8 @@ struct WorldVertex {
     @location(3) color: vec4<f32>,
     // Lightmap atlas UV, in `[0, 1]`, from the vertex's 16-bit fixed point.
     @location(6) lightmap_uv: vec2<f32>,
-    // Lightmap page byte as a float: 0 or 1 selects a page, 255 is
-    // `LIGHTMAP_NONE` (the vertex keeps its vertex-lit colour).
+    // Lightmap page byte as a float: 0..=3 selects the atlas array layer, 255
+    // is `LIGHTMAP_NONE` (the vertex keeps its vertex-lit colour).
     @location(7) lightmap_page: f32,
     // Unit UV-u tangent.
     @location(4) tangent: vec3<f32>,
@@ -227,26 +227,27 @@ fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
 //     float lightmap_on = u_lightmap_enabled * (1.0 - step(254.5, v_lightmap_page));
 //     vec3 light = vec3(1.0);
 //     if (lightmap_on > 0.5) {
-//         light = mix(texture2D(u_lightmap0, uv).rgb,
-//                     texture2D(u_lightmap1, uv).rgb,
-//                     step(0.5, v_lightmap_page));
+//         light = texture2D(u_lightmap0, uv).rgb;
 //     }
 //     light *= u_light_scale;
 //
-// There is no light loop, no light array and no attenuation curve in the
-// fragment stage: every fixture's contribution is already baked. A vertex with
-// no lightmap coordinates (`page >= 254.5`, the historical vertex-lit build)
-// keeps the light the bake folded into its colour, and the factor stays the
-// unit vector. The dynamic path's factor is additionally multiplied by the
-// object's neutral probe (`u_light_scale`), which is why the environment
-// uniform carries it.
+// Places binds every page as one layer of a `texture_2d_array` and selects the
+// layer from the vertex's page byte, so the same expression generalises from two
+// pages to `LIGHTMAP_ATLAS_MAX_PAGES` without a per-page branch. There is no
+// light loop, no light array and no attenuation curve in the fragment stage:
+// every fixture's contribution is already baked. A vertex with no lightmap
+// coordinates (`page >= 254.5`, the historical vertex-lit build) keeps the light
+// the bake folded into its colour, and the factor stays the unit vector. The
+// dynamic path's factor is additionally multiplied by the object's neutral probe
+// (`u_light_scale`), which is why the environment uniform carries it.
 fn surface_light(in: VsOut) -> vec3<f32> {
     let lightmap_on = environment.lightmap_enabled * (1.0 - step(254.5, in.lightmap_page));
     var light = vec3<f32>(1.0);
     if (lightmap_on > 0.5) {
-        let page0 = textureSample(lightmap0, lightmap_sampler, in.lightmap_uv).rgb;
-        let page1 = textureSample(lightmap1, lightmap_sampler, in.lightmap_uv).rgb;
-        light = mix(page0, page1, step(0.5, in.lightmap_page));
+        // The page byte is an integer carried as a float; +0.5 and truncate is
+        // the exact layer index the mesh stamped (0..=3 for a resident atlas).
+        let layer = u32(in.lightmap_page + 0.5);
+        light = textureSample(lightmap_pages, lightmap_sampler, in.lightmap_uv, layer).rgb;
     }
     return light * environment.light_scale;
 }

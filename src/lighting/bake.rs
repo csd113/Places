@@ -27,11 +27,11 @@ use super::math::{
     ceiling_height_factor, effective_power, fixture_half_extents_for, room_baseline, smooth_falloff,
 };
 use super::tuning::{
-    AMBIENT_LEVEL, CLEAR_SAMPLE_MAX_STEPS, CLEAR_SAMPLE_STEP_M, FIXTURE_DROP_M, LOCAL_LIGHT_MAX,
-    LOCAL_LIGHT_STRENGTH, MAX_BRIGHTNESS, OPENING_BLEND_RADIUS_M, OPENING_BLEND_STRENGTH,
-    OPENING_PROBE_M, OPENING_VERTICAL_FADE_M, REFERENCE_CEILING_HEIGHT_M, ROOM_EDGE_EPS_M,
-    WALL_FACE_PROBE_M, WALL_LIGHT_DEFAULT_HEIGHT_M, ZONE_PROBE_DROP_M,
-    ZONE_PROBE_MIN_ABOVE_FLOOR_M, ambient_color, fixture_profile,
+    AMBIENT_LEVEL, CLEAR_SAMPLE_MAX_STEPS, CLEAR_SAMPLE_STEP_M, FILL_MAX, FILL_RANGE_MULTIPLIER,
+    FILL_STRENGTH, FIXTURE_DROP_M, LOCAL_LIGHT_MAX, LOCAL_LIGHT_STRENGTH, MAX_BRIGHTNESS,
+    OPENING_BLEND_RADIUS_M, OPENING_BLEND_STRENGTH, OPENING_PROBE_M, OPENING_VERTICAL_FADE_M,
+    REFERENCE_CEILING_HEIGHT_M, ROOM_EDGE_EPS_M, WALL_FACE_PROBE_M, WALL_LIGHT_DEFAULT_HEIGHT_M,
+    ZONE_PROBE_DROP_M, ZONE_PROBE_MIN_ABOVE_FLOOR_M, ambient_color, fixture_profile,
 };
 use super::visibility::{Occluders, QuerySite, ShadowSampling, Visibility};
 use crate::level::{
@@ -82,11 +82,13 @@ pub struct RoomLighting {
 ///
 /// The source carries everything about *what the light is* (shape, position,
 /// colour, intensity, range, falloff, enabled). The extra fields are what the
-/// bake knows and the source does not: which room owns it, and the ceiling
-/// height correction that room applies. Visible fixture geometry is derived
-/// from the level definition, not from this record, so a light with no fixture
-/// (a prop-attached source) and a fixture with no light (an emissive-only sign)
-/// are both ordinary.
+/// bake knows and the source does not: which room owns it, the ceiling
+/// height correction that room applies, and whether the light is a recessed
+/// ceiling fixture, whose direct pool is directional (it lights what is below
+/// it, with a cosine incidence term) rather than an isotropic ball. Visible
+/// fixture geometry is derived from the level definition, not from this record,
+/// so a light with no fixture (a prop-attached source) and a fixture with no
+/// light (an emissive-only sign) are both ordinary.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BakedLight {
     /// The engine-level light source, sanitised and positioned.
@@ -95,6 +97,11 @@ pub struct BakedLight {
     pub height_factor: f32,
     /// Owning room, or `None` when no room contains the light.
     pub room: Option<usize>,
+    /// True for a ceiling-mounted fixture: its direct pool only lights samples
+    /// below the emitter and is weighted by the incidence cosine. Wall sconces
+    /// and prop-attached lights keep the historical isotropic ball, because a
+    /// horizontal cone would zero the floor beneath a sconce.
+    pub directional: bool,
 }
 
 impl BakedLight {
@@ -198,6 +205,131 @@ struct ZoneLight {
     power: LightColor,
     /// Fixtures whose emitter lies inside this area.
     fixture_count: usize,
+}
+
+/// Developer view of one connected baseline area of a room.
+///
+/// The same data [`ZoneLight`] carries, exposed read-only so the developer
+/// report and the calibration tests can print what each area of a partitioned
+/// room was actually baked from. See [`LevelLighting::zones_in_room`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ZoneLighting {
+    /// Floor area of this area, in square metres.
+    pub area_m2: f32,
+    /// Fixtures whose emitter lies inside this area.
+    pub fixture_count: usize,
+    /// Summed emitted colour of those fixtures, intensity and height factor
+    /// included.
+    pub power: LightColor,
+    /// Baked baseline illumination of this area.
+    pub baseline: LightColor,
+}
+
+/// The three additive terms of the baked model at one sample point.
+///
+/// A developer decomposition of [`LevelLighting::sample`] /
+/// [`LevelLighting::sample_in_room`]: the value the renderer stores is
+/// `clamp(baseline + pool + blend, AMBIENT_LEVEL, MAX_BRIGHTNESS)`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BakeTerms {
+    /// Room the sample resolved to, or `None` outside every room.
+    pub room: Option<usize>,
+    /// Room/area baseline at the sample position.
+    pub baseline: LightColor,
+    /// Summed visibility-tested local direct pool, screened against
+    /// [`LOCAL_LIGHT_MAX`].
+    pub pool: LightColor,
+    /// Broad bounce fill from the same lights, screened against [`FILL_MAX`].
+    pub fill: LightColor,
+    /// Bounded doorway-blend delta.
+    pub blend: LightColor,
+    /// The clamped final value the bake returns.
+    pub value: LightColor,
+}
+
+/// One fixture's contribution to a sample's local lighting, before the screen
+/// composition.
+///
+/// The bake resolves the fixture's geometry once and records both the direct
+/// pool's shape factor and the bounce fill's shape factor, so the developer
+/// decomposition and the production composition cannot drift. The production
+/// direct strength is `LOCAL_LIGHT_STRENGTH * intensity * height_factor *
+/// direct_shape * visibility`, applied to the light's own `color` per channel;
+/// the fill strength is the same with `FILL_STRENGTH` and `fill_shape`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PoolTerm {
+    /// Index into [`LevelLighting::lights`].
+    pub light: u32,
+    /// Distance from the sample to the light's emitting surface, in metres.
+    pub distance_m: f32,
+    /// Horizontal distance from the sample to the emitting footprint, in
+    /// metres (zero directly beneath it).
+    pub horizontal_m: f32,
+    /// Emitter height above the sample, in metres. Negative when the sample
+    /// is above the emitter.
+    pub vertical_m: f32,
+    /// The light's sanitised authored intensity.
+    pub intensity: f32,
+    /// Ceiling-height correction of the light's owning room.
+    pub height_factor: f32,
+    /// Fraction of the light's emitting rectangle that sees the sample.
+    pub visibility: f32,
+    /// True when this light's direct pool is directional (a ceiling fixture).
+    pub directional: bool,
+    /// Direct shape factor in `0..=1`: `lateral * incidence` for a ceiling
+    /// fixture, the authored falloff curve for an isotropic light.
+    pub direct_shape: f32,
+    /// Bounce-fill shape factor in `0..=1`: the smooth cushion at
+    /// `distance_m / fill_range`. Zero beyond the fill's reach.
+    pub fill_shape: f32,
+    /// The light's emitted colour.
+    pub color: LightColor,
+}
+
+impl PoolTerm {
+    /// One screened term, per channel, with the light's colour preserved.
+    ///
+    /// A term's channels cap at `cap * colour[channel] / max_colour`: the cap
+    /// scales with the light's own colour, so a single warm fixture reads warm
+    /// all the way to the cap and never whitens. Each channel then claims a
+    /// share of the headroom to *its own* cap, so a dim light adds its full
+    /// energy, overlaps grow monotonically and sublinearly, and every channel
+    /// depends only on its own contributions (blocking one fixture cannot
+    /// change another fixture's channel).
+    fn accumulate(pool: &mut [f32; 3], factor: f32, color: LightColor, cap: f32) {
+        if !factor.is_finite() || factor <= 0.0 || !(cap.is_finite() && cap > 0.0) {
+            return;
+        }
+        let peak = color.max_channel();
+        if !peak.is_finite() || peak <= 0.0 {
+            return;
+        }
+        for (channel, value) in [color.r, color.g, color.b].into_iter().enumerate() {
+            let channel_cap = cap * value / peak;
+            if !channel_cap.is_finite() || channel_cap <= 0.0 {
+                continue;
+            }
+            let Some(slot) = pool.get_mut(channel) else {
+                continue;
+            };
+            let claim = (factor * value).min(channel_cap) / channel_cap;
+            *slot = ((channel_cap - *slot).max(0.0)).mul_add(claim, *slot);
+        }
+    }
+
+    /// Adds this term's direct pool to the per-channel accumulators.
+    fn screen_direct(&self, pool: &mut [f32; 3], strength: f32) {
+        let factor =
+            strength * self.intensity * self.height_factor * self.direct_shape * self.visibility;
+        Self::accumulate(pool, factor, self.color, LOCAL_LIGHT_MAX);
+    }
+
+    /// Adds this term's bounce fill to the per-channel accumulators.
+    fn screen_fill(&self, pool: &mut [f32; 3], strength: f32) {
+        let factor =
+            strength * self.intensity * self.height_factor * self.fill_shape * self.visibility;
+        Self::accumulate(pool, factor, self.color, FILL_MAX);
+    }
 }
 
 /// The spatial baseline field of one partitioned room.
@@ -431,6 +563,26 @@ impl RoomLighting {
 
 /// A closed interval on the floor plane: `(min, max)`.
 type Span = (f32, f32);
+
+/// Horizontal reach of a light's bounce fill, in metres.
+///
+/// The fill is the room's first reflected light, so it is deliberately much
+/// broader than the direct pool: [`FILL_RANGE_MULTIPLIER`] times the light's
+/// own range. The multiplier is at least `1.0`, so the fill reach always
+/// covers the direct pool's reach and the candidate prefilters can use it as
+/// the single admission bound for both terms.
+fn fill_range_for(range: f32) -> f32 {
+    if !range.is_finite() {
+        return 0.0;
+    }
+    let range = range.max(0.0);
+    let multiplier = if FILL_RANGE_MULTIPLIER.is_finite() {
+        FILL_RANGE_MULTIPLIER.max(1.0)
+    } else {
+        2.0
+    };
+    range * multiplier
+}
 
 /// How far apart two spans are on one axis, or zero when they touch or overlap.
 fn interval_gap(room_span: Span, panel_span: Span) -> f32 {
@@ -695,6 +847,7 @@ fn baked_lights(
             source,
             height_factor,
             room,
+            directional: matches!(light.mount, LightMount::Ceiling),
         });
     }
 
@@ -769,6 +922,7 @@ fn baked_attached_lights(
                     source,
                     height_factor: 1.0,
                     room: None,
+                    directional: false,
                 });
                 continue;
             };
@@ -789,6 +943,7 @@ fn baked_attached_lights(
                 source,
                 height_factor,
                 room: Some(room),
+                directional: false,
             });
         }
     }
@@ -879,6 +1034,19 @@ fn cells_connected(
 /// Returns `None` for a room that stays a single connected volume, which is
 /// every unpartitioned room and therefore every level written before internal
 /// partitions mattered: such a room keeps its exact historical baseline.
+///
+/// The grid is the finer *zone* grid ([`crate::lighting::ZONE_GRID_CELL_M`]),
+/// not the light grid: a narrow air region (a 1.4 m corridor between two
+/// partition walls) must own a cell centre of its own, or the samples in it
+/// would be assigned to whichever unrelated zone's coarse cell they happened
+/// to fall in and draw a baseline seam across open floor.
+///
+/// Only cells whose centres stand in air take part in the flood fill; a cell
+/// whose centre is inside a wall is not a sampleable place and must never
+/// bridge two areas (the historical fill walked through such cells). After the
+/// fill, every wall cell inherits the zone of the nearest air cell, in a
+/// deterministic scan, so a baseline lookup on a sample that lands on a wall
+/// cell still resolves the area it borders.
 fn room_baseline_zones(
     room_index: usize,
     room: &RoomLighting,
@@ -887,8 +1055,8 @@ fn room_baseline_zones(
 ) -> Option<RoomZones> {
     let width = room.x1 - room.x0;
     let depth = room.z1 - room.z0;
-    let cells_x = super::math::light_grid_cells(width);
-    let cells_z = super::math::light_grid_cells(depth);
+    let cells_x = super::math::zone_grid_cells(width);
+    let cells_z = super::math::zone_grid_cells(depth);
     let columns = usize::try_from(cells_x).ok()?;
     let rows = usize::try_from(cells_z).ok()?;
     let cell_count = columns.checked_mul(rows)?;
@@ -898,13 +1066,34 @@ fn room_baseline_zones(
     let edges_x = crate::level::axis_positions(room.x0, width, cells_x);
     let edges_z = crate::level::axis_positions(room.z0, depth, cells_z);
 
-    let zone_of_cell = flood_fill_room(room, occluders, &edges_x, &edges_z, columns, rows);
-    let zone_count = zone_of_cell.iter().copied().max().map_or(0, |zone| {
-        usize::try_from(zone).unwrap_or(0).saturating_add(1)
-    });
+    // A cell is "air" when its own centre is not inside a wall solid. The
+    // flood fill only visits air cells, so a wall can never connect the areas
+    // on either side of it through a cell centre buried in its thickness.
+    let air: Vec<bool> = (0..cell_count)
+        .map(|cell| {
+            let (x, z) = cell_centre(&edges_x, &edges_z, columns, cell);
+            !occluders.contains_point(x, z)
+        })
+        .collect();
+    if !air.iter().any(|is_air| *is_air) {
+        return None;
+    }
+
+    let mut zone_of_cell =
+        flood_fill_room(room, occluders, &edges_x, &edges_z, &air, columns, rows);
+    let zone_count = zone_of_cell
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| air.get(*index).copied().unwrap_or(false))
+        .map(|(_, zone)| *zone)
+        .max()
+        .map_or(0, |zone| {
+            usize::try_from(zone).unwrap_or(0).saturating_add(1)
+        });
     if zone_count <= 1 {
         return None;
     }
+    inherit_wall_zones(&mut zone_of_cell, &air, columns);
 
     let mut zones: Vec<ZoneLight> = vec![
         ZoneLight {
@@ -915,7 +1104,7 @@ fn room_baseline_zones(
         };
         zone_count
     ];
-    accumulate_zone_areas(&mut zones, &zone_of_cell, &edges_x, &edges_z, columns);
+    accumulate_zone_areas(&mut zones, &zone_of_cell, &air, &edges_x, &edges_z, columns);
     accumulate_zone_power(
         &mut zones,
         &zone_of_cell,
@@ -937,15 +1126,18 @@ fn room_baseline_zones(
     })
 }
 
-/// Flood fills the cell grid across every edge no wall blocks.
+/// Flood fills the air cells across every edge no wall blocks.
 ///
-/// The scan order and neighbour order are fixed, so the component numbering is
-/// deterministic for a given level.
+/// Cells whose centres are inside a wall are never visited, and never start a
+/// component: they are not places a surface sample can stand. The scan order
+/// and neighbour order are fixed, so the component numbering is deterministic
+/// for a given level.
 fn flood_fill_room(
     room: &RoomLighting,
     occluders: &Occluders,
     edges_x: &[f32],
     edges_z: &[f32],
+    air: &[bool],
     columns: usize,
     rows: usize,
 ) -> Vec<u32> {
@@ -955,6 +1147,9 @@ fn flood_fill_room(
     let mut queue: Vec<usize> = Vec::new();
     for start in 0..cell_count {
         if zone_of_cell.get(start).copied() != Some(u32::MAX) {
+            continue;
+        }
+        if !air.get(start).copied().unwrap_or(false) {
             continue;
         }
         let zone_id = zone_count;
@@ -968,6 +1163,9 @@ fn flood_fill_room(
             let ix = cell.checked_rem(columns).unwrap_or(0);
             let iz = cell.checked_div(columns).unwrap_or(0);
             let mut visit = |neighbor: usize| {
+                if !air.get(neighbor).copied().unwrap_or(false) {
+                    return;
+                }
                 if zone_of_cell.get(neighbor).copied() != Some(u32::MAX) {
                     return;
                 }
@@ -996,10 +1194,54 @@ fn flood_fill_room(
     zone_of_cell
 }
 
-/// Adds up each connected area's floor area over the exact grid cells it owns.
+/// Gives every non-air cell the zone of the nearest air cell.
+///
+/// The search is a full deterministic scan of the air cells, taking the
+/// smallest squared centre distance and keeping the earliest air cell on a
+/// tie, so a wall cell always resolves the same area on every load. `columns`
+/// is the row stride.
+fn inherit_wall_zones(zone_of_cell: &mut [u32], air: &[bool], columns: usize) {
+    let air_cells: Vec<(usize, u32)> = zone_of_cell
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| air.get(*index).copied().unwrap_or(false))
+        .map(|(index, zone)| (index, *zone))
+        .collect();
+    if air_cells.is_empty() {
+        return;
+    }
+    for (cell, zone) in zone_of_cell.iter_mut().enumerate() {
+        if air.get(cell).copied().unwrap_or(false) {
+            continue;
+        }
+        let ix = cell.checked_rem(columns).unwrap_or(0);
+        let iz = cell.checked_div(columns).unwrap_or(0);
+        let mut best: Option<(usize, u32)> = None;
+        for (air_cell, air_zone) in &air_cells {
+            let ax = air_cell.checked_rem(columns).unwrap_or(0);
+            let az = air_cell.checked_div(columns).unwrap_or(0);
+            let dx = ix.abs_diff(ax);
+            let dz = iz.abs_diff(az);
+            let distance = dx.saturating_mul(dx).saturating_add(dz.saturating_mul(dz));
+            match best {
+                Some((best_distance, _)) if best_distance <= distance => {}
+                _ => best = Some((distance, *air_zone)),
+            }
+        }
+        if let Some((_, air_zone)) = best {
+            *zone = air_zone;
+        }
+    }
+}
+
+/// Adds up each connected area's floor area over the exact air cells it owns.
+///
+/// A cell whose centre stands in a wall is not floor: it contributes no area,
+/// so the density curve sees the area a fixture can actually light.
 fn accumulate_zone_areas(
     zones: &mut [ZoneLight],
     zone_of_cell: &[u32],
+    air: &[bool],
     edges_x: &[f32],
     edges_z: &[f32],
     columns: usize,
@@ -1014,6 +1256,9 @@ fn accumulate_zone_areas(
                 continue;
             };
             let index = iz.saturating_mul(columns).saturating_add(ix);
+            if !air.get(index).copied().unwrap_or(false) {
+                continue;
+            }
             let Some(&zone) = zone_of_cell.get(index) else {
                 continue;
             };
@@ -1027,6 +1272,10 @@ fn accumulate_zone_areas(
 
 /// Adds up each area's fixture power, in fixture order so a zone's sum is built
 /// with the same order (and `mul_add` accumulation) as the room-wide power.
+///
+/// A fixture whose own cell centre is inside a wall is assigned to the nearest
+/// air cell's area (the same inheritance [`inherit_wall_zones`] resolved), so a
+/// fixture mounted on a partition still powers the area it hangs over.
 fn accumulate_zone_power(
     zones: &mut [ZoneLight],
     zone_of_cell: &[u32],
@@ -1050,6 +1299,9 @@ fn accumulate_zone_power(
         let Some(zone) = zone_of_cell.get(index).copied() else {
             continue;
         };
+        if zone == u32::MAX {
+            continue;
+        }
         let Some(entry) = zones.get_mut(zone as usize) else {
             continue;
         };
@@ -1281,10 +1533,16 @@ impl LevelLighting {
             Vec::with_capacity(lights.len().saturating_add(blend_sites.len()));
         for light in &lights {
             let (half_w, half_d) = light.source.half_extents();
-            sites.push(QuerySite::new(
+            // The admission test measures from the emitter rectangle, so the
+            // site has to cover the rectangle's far corner too; `for_emitter`
+            // adds `hypot(half_w, half_d)` and uses the pool's full reach
+            // (the bounce fill extends past the direct range).
+            sites.push(QuerySite::for_emitter(
                 light.x(),
                 light.z(),
-                light.source.range.max(half_w).max(half_d),
+                fill_range_for(light.source.range),
+                half_w,
+                half_d,
             ));
         }
         sites.extend_from_slice(&blend_sites);
@@ -1411,15 +1669,18 @@ impl LevelLighting {
         }
         let mut best: Option<usize> = None;
         for (index, room) in rooms.iter().enumerate() {
-            let (floor, ceiling) = room.span_at(x, z);
-            if y < floor - ROOM_EDGE_EPS_M || y > ceiling + ROOM_EDGE_EPS_M {
-                continue;
-            }
+            // The footprint bounds are cheap; the ceiling profile is not.
+            // Rejecting on the footprint first keeps the per-sample room search
+            // affordable when a level has many rooms.
             if x < room.x0 - ROOM_EDGE_EPS_M
                 || x > room.x1 + ROOM_EDGE_EPS_M
                 || z < room.z0 - ROOM_EDGE_EPS_M
                 || z > room.z1 + ROOM_EDGE_EPS_M
             {
+                continue;
+            }
+            let (floor, ceiling) = room.span_at(x, z);
+            if y < floor - ROOM_EDGE_EPS_M || y > ceiling + ROOM_EDGE_EPS_M {
                 continue;
             }
             match best {
@@ -1479,15 +1740,17 @@ impl LevelLighting {
         }
         let mut best: Option<usize> = None;
         for (index, room) in self.rooms.iter().enumerate() {
-            let (floor, ceiling) = room.span_at(x, z);
-            if y < floor - ROOM_EDGE_EPS_M || y > ceiling + ROOM_EDGE_EPS_M {
-                continue;
-            }
+            // Cheap footprint bounds first: the ceiling profile is the
+            // expensive part and most rooms are outside a given sample.
             if x < room.x0 + ROOM_EDGE_EPS_M
                 || x > room.x1 - ROOM_EDGE_EPS_M
                 || z < room.z0 + ROOM_EDGE_EPS_M
                 || z > room.z1 - ROOM_EDGE_EPS_M
             {
+                continue;
+            }
+            let (floor, ceiling) = room.span_at(x, z);
+            if y < floor - ROOM_EDGE_EPS_M || y > ceiling + ROOM_EDGE_EPS_M {
                 continue;
             }
             match best {
@@ -1624,6 +1887,20 @@ impl LevelLighting {
         self.visibility.contains_point(x, z)
     }
 
+    /// The world XZ a surface sample in `room` is evaluated at, after the
+    /// wall-clearing walk of [`Self::sample_in_room`].
+    ///
+    /// Developer diagnostics only: a candidate model must be evaluated at the
+    /// same point the production model evaluates, which for a sample that
+    /// falls inside a wall is not the sample's own XZ.
+    #[must_use]
+    pub fn cleared_sample_position(&self, room: usize, x: f32, z: f32) -> (f32, f32) {
+        if self.rooms.get(room).is_none() {
+            return (x, z);
+        }
+        self.clear_sample(room, x, z)
+    }
+
     /// Moves a room surface sample out of an opaque wall it lies inside.
     ///
     /// The walk runs straight toward the middle of the room in fixed steps and
@@ -1675,8 +1952,8 @@ impl LevelLighting {
     pub fn sample(&self, x: f32, y: f32, z: f32) -> LightColor {
         Self::room_index_at_height_of(&self.rooms, x, y, z).map_or_else(
             || {
-                self.local_light(&self.all_lights, None, x, y, z)
-                    .plus(ambient_color())
+                let (direct, fill) = self.local_light(&self.all_lights, None, x, y, z);
+                ambient_color().plus(direct).plus(fill)
             },
             |index| self.sample_in_room(index, x, y, z),
         )
@@ -1696,6 +1973,113 @@ impl LevelLighting {
     #[must_use]
     pub fn sample_in_room_luminance(&self, room: usize, x: f32, y: f32, z: f32) -> f32 {
         self.sample_in_room(room, x, y, z).luminance()
+    }
+
+    /// The additive terms behind [`Self::sample`].
+    ///
+    /// The sample resolves its room by containment at its own height, exactly
+    /// like [`Self::sample`]; a sample outside every room reports the ambient
+    /// fill as its baseline, the local pools it is inside and a zero blend.
+    /// Developer diagnostics only — the render path never calls this.
+    #[must_use]
+    pub fn bake_terms(&self, x: f32, y: f32, z: f32) -> BakeTerms {
+        let room = Self::room_index_at_height_of(&self.rooms, x, y, z);
+        self.bake_terms_for(room, x, y, z)
+    }
+
+    /// The additive terms behind [`Self::sample_in_room`].
+    ///
+    /// Includes the same wall-clearing walk a real surface sample takes, so
+    /// the terms reproduce the returned [`LightColor`] exactly. A room that
+    /// does not exist falls back to [`Self::bake_terms`], mirroring
+    /// [`Self::sample_in_room`].
+    #[must_use]
+    pub fn bake_terms_in_room(&self, room: usize, x: f32, y: f32, z: f32) -> BakeTerms {
+        if self.rooms.get(room).is_none() {
+            return self.bake_terms(x, y, z);
+        }
+        self.bake_terms_for(Some(room), x, y, z)
+    }
+
+    /// Shared decomposition of the two sample paths.
+    fn bake_terms_for(&self, room: Option<usize>, x: f32, y: f32, z: f32) -> BakeTerms {
+        if !x.is_finite() || !y.is_finite() || !z.is_finite() {
+            let value = ambient_color();
+            return BakeTerms {
+                room: None,
+                baseline: value,
+                pool: LightColor::BLACK,
+                fill: LightColor::BLACK,
+                blend: LightColor::BLACK,
+                value,
+            };
+        }
+        let Some(room) = room.filter(|index| self.rooms.get(*index).is_some()) else {
+            let baseline = ambient_color();
+            let (direct, fill) = self.local_light(&self.all_lights, None, x, y, z);
+            let value = baseline
+                .plus(direct)
+                .plus(fill)
+                .clamped(AMBIENT_LEVEL, MAX_BRIGHTNESS);
+            return BakeTerms {
+                room: None,
+                baseline,
+                pool: direct,
+                fill,
+                blend: LightColor::BLACK,
+                value,
+            };
+        };
+        let (x, z) = self.clear_sample(room, x, z);
+        let baseline = self.baseline_at(room, x, z);
+        let candidates = self.room_lights.get(room).map_or(&[][..], Vec::as_slice);
+        let (pool, fill) = self.local_light(candidates, Some(room), x, y, z);
+        let blend = self.blend_delta(room, x, y, z);
+        let value = baseline
+            .plus(pool)
+            .plus(fill)
+            .plus(blend)
+            .clamped(AMBIENT_LEVEL, MAX_BRIGHTNESS);
+        BakeTerms {
+            room: Some(room),
+            baseline,
+            pool,
+            fill,
+            blend,
+            value,
+        }
+    }
+
+    /// Developer view of the connected baseline areas of one room.
+    ///
+    /// A room with no internal partition returns a single entry describing the
+    /// whole room (the exact terms [`RoomLighting::baseline`] was baked from),
+    /// so a report can print every room the same way. A partitioned room
+    /// returns one entry per area, in the bake's deterministic component
+    /// order.
+    #[must_use]
+    pub fn zones_in_room(&self, room: usize) -> Vec<ZoneLighting> {
+        let Some(info) = self.rooms.get(room) else {
+            return Vec::new();
+        };
+        let Some(zones) = self.room_zones.get(room).and_then(Option::as_ref) else {
+            return vec![ZoneLighting {
+                area_m2: info.area_m2,
+                fixture_count: info.fixture_count,
+                power: info.effective_power,
+                baseline: info.baseline,
+            }];
+        };
+        zones
+            .zones
+            .iter()
+            .map(|zone| ZoneLighting {
+                area_m2: zone.area_m2,
+                fixture_count: zone.fixture_count,
+                power: zone.power,
+                baseline: zone.baseline,
+            })
+            .collect()
     }
 
     /// Baked illumination for a point already known to belong to `room`.
@@ -1768,7 +2152,8 @@ impl LevelLighting {
             return ambient_color();
         };
         let baseline = self.baseline_at(room, x, z);
-        let mut value = baseline.plus(self.local_light(candidates, Some(room), x, y, z));
+        let (pool, fill) = self.local_light(candidates, Some(room), x, y, z);
+        let mut value = baseline.plus(pool).plus(fill);
         value = value.plus(self.blend_delta(room, x, y, z));
 
         if value.is_finite() {
@@ -1847,17 +2232,29 @@ impl LevelLighting {
         delta
     }
 
-    /// Local fixture pools at a world position: broad, smooth and bounded.
+    /// Local fixture lighting at a world position: directional direct pools
+    /// plus the broad bounce fill, both bounded.
     ///
-    /// Each fixture's contribution falls from [`LOCAL_LIGHT_STRENGTH`] at its
-    /// panel to zero at [`LOCAL_LIGHT_RADIUS_M`], scaled per channel by the
-    /// fixture's emitted colour, intensity and room ceiling-height factor. The
-    /// summed colour is capped per channel at [`LOCAL_LIGHT_MAX`] so clusters
-    /// stay in range; a fixture emits nothing at all in a channel whose colour
-    /// is zero.
+    /// A ceiling fixture's direct pool is directional: it only lights samples
+    /// below the emitter, falls as `lateral * incidence` where
+    /// `lateral = (1 - dh/range)^2` is the horizontal cushion to the emitter
+    /// rectangle and `incidence = vertical / distance` is the cosine of a
+    /// horizontal surface's view, so the floor beneath the panel is the local
+    /// maximum. A wall sconce or prop light keeps the historical isotropic
+    /// ball on its authored falloff curve. Both pool kinds are visibility
+    /// tested, and both are screened against their own caps
+    /// ([`LOCAL_LIGHT_MAX`], [`FILL_MAX`]) instead of summed and clipped, so
+    /// colour is never discarded and overlaps stay monotone.
+    ///
+    /// The bounce fill is the room's first reflected light: the same
+    /// per-fixture visibility test, an isotropic cushion out to
+    /// [`FILL_RANGE_MULTIPLIER`] times the light's range and a weaker
+    /// [`FILL_STRENGTH`], which is what gives ceilings and upper walls a
+    /// plausible halo around a recessed fixture without pretending the panel
+    /// points at them.
     ///
     /// `candidates` are indices into [`Self::lights`]; squared distances are
-    /// compared against the radius before the square root, so fixtures that
+    /// compared against the reach before the square root, so fixtures that
     /// cannot reach the sample are rejected with a couple of multiplies.
     ///
     /// `room` is the sample's own room when it has one. A fixture belonging to
@@ -1873,75 +2270,160 @@ impl LevelLighting {
         x: f32,
         y: f32,
         z: f32,
-    ) -> LightColor {
+    ) -> (LightColor, LightColor) {
         if !x.is_finite() || !y.is_finite() || !z.is_finite() {
-            return LightColor::BLACK;
+            return (LightColor::BLACK, LightColor::BLACK);
         }
-        let mut sum = LightColor::BLACK;
+        let mut direct = [0.0_f32; 3];
+        let mut fill = [0.0_f32; 3];
         for index in candidates {
-            let Some(light) = self.lights.get(*index as usize) else {
+            let Some(term) = self.pool_term_for(*index, room, x, y, z) else {
                 continue;
             };
-            if !light.is_active() {
-                continue;
-            }
-            let (half_w, half_d) = light.source.half_extents();
-            let range = light.source.range;
-            let radius_squared = range * range;
-            if let Some(sample_room) = room
-                && let Some(light_room) = light.room
-                && light_room != sample_room
-                && self.footprint_contains(light_room, x, z)
-                && !self.rooms_share_air(light_room, sample_room, x, z)
-            {
-                continue;
-            }
-            // Horizontal distance to the rotated emitter footprint.
-            let dx = ((x - light.x()).abs() - half_w).max(0.0);
-            let dz = ((z - light.z()).abs() - half_d).max(0.0);
-            let horizontal_squared = dx * dx + dz * dz;
-            if !horizontal_squared.is_finite() || horizontal_squared >= radius_squared {
-                continue;
-            }
-            // Full 3D distance to the emitter, so a wall at fixture height
-            // reads brighter than the floor below it.
-            let vertical = y - light.y();
-            let distance_squared = vertical.mul_add(vertical, horizontal_squared);
-            if !distance_squared.is_finite() || distance_squared >= radius_squared {
-                continue;
-            }
-            // Static solid visibility: a light contributes only where its
-            // emitter can actually see the sample. With
-            // [`ShadowSampling::HARD`] this is the historical test from the
-            // emitter's closest point and returns exactly 0 or 1, so the
-            // contribution is bit-identical to the historical bake; a soft
-            // sampling fades the same contribution over the penumbra.
-            let visible = self.visibility.visible_fraction(
-                *index,
-                [light.x(), light.y(), light.z()],
-                half_w,
-                half_d,
-                [x, y, z],
-                ShadowSampling {
-                    taps_per_axis: self.sampling_taps,
-                },
-            );
-            if visible <= 0.0 {
-                continue;
-            }
-            let falloff = light.falloff().factor(distance_squared.sqrt() / range);
-            let strength =
-                LOCAL_LIGHT_STRENGTH * light.intensity() * light.height_factor * falloff * visible;
-            sum = LightColor {
-                r: strength.mul_add(light.color().r, sum.r),
-                g: strength.mul_add(light.color().g, sum.g),
-                b: strength.mul_add(light.color().b, sum.b),
-            };
-            if sum.min_channel() >= LOCAL_LIGHT_MAX {
-                return LightColor::grey(LOCAL_LIGHT_MAX);
-            }
+            term.screen_direct(&mut direct, LOCAL_LIGHT_STRENGTH);
+            term.screen_fill(&mut fill, FILL_STRENGTH);
         }
-        sum.clamped(0.0, LOCAL_LIGHT_MAX)
+        (
+            LightColor::rgb(direct[0], direct[1], direct[2]),
+            LightColor::rgb(fill[0], fill[1], fill[2]),
+        )
+    }
+
+    /// One light's local term at a sample.
+    ///
+    /// `None` when the light does not contribute: inactive, outside the
+    /// pool's reach (a ceiling fixture reaches `range` horizontally, an
+    /// isotropic light `range` in 3D, and every light's bounce fill reaches
+    /// [`FILL_RANGE_MULTIPLIER`] times its range), separated by a solid slab
+    /// from an overlapping room, or fully occluded. The single place the
+    /// pool's geometry and visibility are resolved, shared by
+    /// [`Self::local_light`] and [`Self::pool_terms_in_room`], so the
+    /// production composition and its developer decomposition cannot drift.
+    fn pool_term_for(
+        &self,
+        index: u32,
+        room: Option<usize>,
+        x: f32,
+        y: f32,
+        z: f32,
+    ) -> Option<PoolTerm> {
+        let light = self.lights.get(index as usize)?;
+        if !light.is_active() {
+            return None;
+        }
+        let (half_w, half_d) = light.source.half_extents();
+        let range = light.source.range;
+        let fill_range = fill_range_for(range);
+        let reach_squared = fill_range * fill_range;
+        if let Some(sample_room) = room
+            && let Some(light_room) = light.room
+            && light_room != sample_room
+            && self.footprint_contains(light_room, x, z)
+            && !self.rooms_share_air(light_room, sample_room, x, z)
+        {
+            return None;
+        }
+        // Horizontal distance to the rotated emitter footprint. Both terms
+        // are inside this reach, so the cheap rejection is lossless.
+        let dx = ((x - light.x()).abs() - half_w).max(0.0);
+        let dz = ((z - light.z()).abs() - half_d).max(0.0);
+        let horizontal_squared = dx * dx + dz * dz;
+        if !horizontal_squared.is_finite() || horizontal_squared >= reach_squared {
+            return None;
+        }
+        let horizontal_m = horizontal_squared.sqrt();
+        // Emitter height above the sample. Positive means the sample is below
+        // the emitter; a ceiling fixture only lights what is below it.
+        let vertical = light.y() - y;
+        let distance_squared = vertical.mul_add(vertical, horizontal_squared);
+        if !distance_squared.is_finite() {
+            return None;
+        }
+        let distance_m = distance_squared.sqrt();
+        let direct_shape = if light.directional {
+            if vertical <= 0.0 || distance_m <= f32::EPSILON || horizontal_m >= range {
+                0.0
+            } else {
+                // The authored falloff names the lateral curve: the default
+                // smooth cushion, a straight line, or a flat hold to the
+                // range. Incidence always applies (it is geometry, not a
+                // curve choice).
+                let lateral = match light.falloff() {
+                    LightFalloff::Smooth => {
+                        let u = 1.0 - horizontal_m / range;
+                        u * u
+                    }
+                    LightFalloff::Linear => 1.0 - horizontal_m / range,
+                    LightFalloff::Constant => 1.0,
+                };
+                lateral * (vertical / distance_m)
+            }
+        } else if distance_m < range {
+            light.falloff().factor(distance_m / range)
+        } else {
+            0.0
+        };
+        let fill_shape = if distance_m < fill_range {
+            smooth_falloff(distance_m / fill_range)
+        } else {
+            0.0
+        };
+        if direct_shape <= 0.0 && fill_shape <= 0.0 {
+            return None;
+        }
+        // Static solid visibility: a light contributes only where its
+        // emitter can actually see the sample. With
+        // [`ShadowSampling::HARD`] this is the historical test from the
+        // emitter's closest point and returns exactly 0 or 1; a soft
+        // sampling fades the same contribution over the penumbra.
+        let visible = self.visibility.visible_fraction(
+            index,
+            [light.x(), light.y(), light.z()],
+            half_w,
+            half_d,
+            [x, y, z],
+            ShadowSampling {
+                taps_per_axis: self.sampling_taps,
+            },
+        );
+        if visible <= 0.0 {
+            return None;
+        }
+        Some(PoolTerm {
+            light: index,
+            distance_m,
+            horizontal_m,
+            vertical_m: vertical,
+            intensity: light.intensity(),
+            height_factor: light.height_factor,
+            visibility: visible,
+            directional: light.directional,
+            direct_shape,
+            fill_shape,
+            color: light.color(),
+        })
+    }
+
+    /// Every fixture term at a world position, for developer diagnostics.
+    ///
+    /// The same terms, in the same order, that [`Self::local_light`] composes
+    /// for the same `room`; a caller can re-evaluate the direct pools and the
+    /// bounce fill under candidate constants without re-baking the level. A
+    /// room that does not exist and a non-finite position both yield an empty
+    /// list.
+    #[must_use]
+    pub fn pool_terms_in_room(&self, room: Option<usize>, x: f32, y: f32, z: f32) -> Vec<PoolTerm> {
+        if !x.is_finite() || !y.is_finite() || !z.is_finite() {
+            return Vec::new();
+        }
+        let candidates: &[u32] = match room {
+            Some(room) => self.room_lights.get(room).map_or(&[], Vec::as_slice),
+            None => &self.all_lights,
+        };
+        candidates
+            .iter()
+            .filter_map(|index| self.pool_term_for(*index, room, x, y, z))
+            .collect()
     }
 
     /// True when a room's footprint contains `(x, z)`, edge tolerance included.
@@ -1985,8 +2467,11 @@ impl LevelLighting {
         let room_span_z = (room.z0 - ROOM_EDGE_EPS_M, room.z1 + ROOM_EDGE_EPS_M);
         let gap_x = interval_gap(room_span_x, panel_span_x);
         let gap_z = interval_gap(room_span_z, panel_span_z);
-        let range = light.source.range;
-        gap_x.mul_add(gap_x, gap_z * gap_z) < range * range
+        // The bounce fill reaches `FILL_RANGE_MULTIPLIER` times the light's
+        // range, so pruning has to use that reach, not the direct range: a
+        // room reached only by the fill still has to see the light.
+        let reach = fill_range_for(light.source.range);
+        gap_x.mul_add(gap_x, gap_z * gap_z) < reach * reach
     }
 
     /// Fingerprint of the whole solid set the bake tests light against.

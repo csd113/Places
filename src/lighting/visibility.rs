@@ -463,6 +463,35 @@ impl QuerySite {
     pub const fn new(x: f32, z: f32, radius: f32) -> Self {
         Self { x, z, radius }
     }
+
+    /// A fixture site whose radius covers every segment the bake can ask about.
+    ///
+    /// The bake admits a sample whose horizontal distance from the *emitter
+    /// rectangle* is below the light's range, and a tap can sit on the
+    /// emitter's far corner, `hypot(half_w, half_d)` from the fixture centre.
+    /// The pool therefore has to contain every solid within
+    /// `range + hypot(half_w, half_d)` of the centre: a wall just beyond the
+    /// range still stands between a far-corner tap and such a sample, and a
+    /// pool prefilted to `max(range, half)` would never test it.
+    #[must_use]
+    pub fn for_emitter(x: f32, z: f32, range: f32, half_w: f32, half_d: f32) -> Self {
+        let range = if range.is_finite() {
+            range.max(0.0)
+        } else {
+            0.0
+        };
+        let half_w = if half_w.is_finite() {
+            half_w.max(0.0)
+        } else {
+            0.0
+        };
+        let half_d = if half_d.is_finite() {
+            half_d.max(0.0)
+        } else {
+            0.0
+        };
+        Self::new(x, z, range + half_w.hypot(half_d))
+    }
 }
 
 /// How a local pool's visibility to a sample is sampled.
@@ -2777,6 +2806,439 @@ mod tests {
                 "the comparison grid must include a partial penumbra"
             );
         }
+    }
+
+    // ------------------------------------------------- door/vent transfer
+
+    #[test]
+    fn a_vent_transmits_through_its_hole_and_blocks_around_it() {
+        // A vent is a wall opening like any other: the wall solid is removed
+        // only over the vent's own footprint, so a pool passes through the
+        // hole while the solid beside, above and below it still blocks. This
+        // is the invariant the pool visibility shares with the wall mesh.
+        let mut level = split_room();
+        level.walls[0].openings.push(crate::level::WallOpeningDef {
+            kind: "vent".into(),
+            offset: 1.0,
+            width: 1.0,
+            height: 0.5,
+            sill: 1.5,
+            glass: None,
+            glass_shine: None,
+        });
+        let visibility = Visibility::build(&level, &[QuerySite::new(0.5, 2.0, 6.0)]);
+        // Through the vent (z 1.0..2.0, y 1.5..2.0).
+        assert!(
+            !visibility.occludes(0, [0.5, 1.7, 1.5], [3.5, 1.7, 1.5]),
+            "the vent aperture must transmit"
+        );
+        // Beside the vent in z.
+        assert!(
+            visibility.occludes(0, [0.5, 1.7, 3.0], [3.5, 1.7, 3.0]),
+            "the solid wall beside the vent must block"
+        );
+        // Above the vent (header) and below it (sill).
+        assert!(visibility.occludes(0, [0.5, 2.2, 1.5], [3.5, 2.2, 1.5]));
+        assert!(visibility.occludes(0, [0.5, 1.2, 1.5], [3.5, 1.2, 1.5]));
+    }
+
+    // -------------------------------------------------- trim is not a barrier
+
+    /// A threshold's 12 mm step shadows only the floor it physically covers:
+    /// a sample 4 cm beyond the step is fully lit. A thin occluder box for an
+    /// authored threshold would therefore change nothing outside its own
+    /// footprint — the reason thresholds and baseboards are deliberately not
+    /// pool occluders ([`Occluders::build_with`]).
+    #[test]
+    fn a_threshold_height_step_shadows_only_its_own_footprint() {
+        let level = level(
+            r#"{
+                "format_version": 1,
+                "id": "trim_threshold",
+                "name": "Trim Threshold",
+                "spawn": { "x": 1.0, "z": 2.0 },
+                "rooms": [{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 4.0, "height": 3.0 }],
+                "ceiling_lights": [
+                    { "fixture": "core:fluorescent_panel_01", "x": 0.5, "z": 2.0, "intensity": 1.0 }
+                ],
+                "half_walls": [
+                    { "x": 2.0, "z": 0.0, "width": 0.06, "depth": 4.0, "height": 0.012,
+                      "material": "core:wallpaper_yellow_01" }
+                ]
+            }"#,
+        );
+        let visibility = Visibility::build(&level, &[QuerySite::new(0.5, 2.0, 6.0)]);
+        let soft = ShadowSampling { taps_per_axis: 2 };
+        let light = [0.5, 2.99, 2.0];
+        // The fixture is west of the step; a floor sample just east of it.
+        assert_eq!(
+            visibility.visible_fraction(0, light, 0.6, 0.3, [2.1, 0.0, 2.0], soft),
+            1.0,
+            "4 cm beyond a 12 mm step the floor is fully lit"
+        );
+        assert_eq!(
+            visibility.visible_fraction(0, light, 0.6, 0.3, [2.2, 0.0, 2.0], soft),
+            1.0
+        );
+        // Under the step's own footprint the floor is covered and blocked.
+        assert_eq!(
+            visibility.visible_fraction(0, light, 0.6, 0.3, [2.005, 0.0, 2.0], soft),
+            0.0,
+            "the step's own footprint hides the floor under it"
+        );
+    }
+
+    /// A baseboard hugs its wall, so every floor point in the room is on the
+    /// fixture's side of it: the board never stands between a floor sample and
+    /// a ceiling fixture. The measurements below pin that geometry — a
+    /// baseboard occluder would only darken the floor hidden under itself —
+    /// and that its 9 cm top does not darken the floor in front of it.
+    #[test]
+    fn a_baseboard_against_its_wall_does_not_shadow_the_open_floor() {
+        let level = level(
+            r#"{
+                "format_version": 1,
+                "id": "trim_baseboard",
+                "name": "Trim Baseboard",
+                "spawn": { "x": 3.0, "z": 1.0 },
+                "rooms": [{ "x": 0.0, "z": 0.0, "width": 6.0, "depth": 4.0, "height": 3.0 }],
+                "ceiling_lights": [
+                    { "fixture": "core:fluorescent_panel_01", "x": 3.0, "z": 2.5, "intensity": 1.0 }
+                ],
+                "half_walls": [
+                    { "x": 0.0, "z": 0.2, "width": 6.0, "depth": 0.018, "height": 0.09,
+                      "material": "core:wallpaper_yellow_01" }
+                ]
+            }"#,
+        );
+        let visibility = Visibility::build(&level, &[QuerySite::new(3.0, 2.5, 6.0)]);
+        let soft = ShadowSampling { taps_per_axis: 2 };
+        let light = [3.0, 2.99, 2.5];
+        for z in [0.23_f32, 0.3, 0.5, 1.0, 2.0] {
+            assert_eq!(
+                visibility.visible_fraction(0, light, 0.6, 0.3, [3.0, 0.0, z], soft),
+                1.0,
+                "the board must not shadow floor at z={z}"
+            );
+        }
+        // Only the floor covered by the board's own footprint is blocked.
+        assert_eq!(
+            visibility.visible_fraction(0, light, 0.6, 0.3, [3.0, 0.0, 0.21], soft),
+            0.0
+        );
+    }
+
+    // -------------------------------------------------------- determinism
+
+    /// Two builds of the same level produce the same occluder set and the same
+    /// visibility answers, bit for bit: the bake's determinism contract.
+    #[test]
+    fn occluders_rebuild_deterministically() {
+        let level = penumbra_room();
+        let first = Visibility::build(&level, &[QuerySite::new(3.0, 2.0, 6.0)]);
+        let second = Visibility::build(&level, &[QuerySite::new(3.0, 2.0, 6.0)]);
+        assert_eq!(first.occluder_fingerprint(), second.occluder_fingerprint());
+        assert_eq!(first.blocker_count(), second.blocker_count());
+        let soft = ShadowSampling { taps_per_axis: 2 };
+        for ix in 0..=40_u16 {
+            for iz in 0..=40_u16 {
+                let point = [
+                    0.05 + 0.14 * f32::from(ix),
+                    0.0,
+                    0.05 + 0.19 * f32::from(iz),
+                ];
+                assert_eq!(
+                    first
+                        .visible_fraction(0, [3.0, 2.99, 2.0], 0.6, 0.3, point, soft)
+                        .to_bits(),
+                    second
+                        .visible_fraction(0, [3.0, 2.99, 2.0], 0.6, 0.3, point, soft)
+                        .to_bits(),
+                    "rebuild differs at {point:?}"
+                );
+            }
+        }
+    }
+
+    // --------------------------------------------------- contact geometry
+
+    /// A wall standing between a fixture and the floor casts its shadow from
+    /// its own base outward with no bright gap (no detached shadow) and no
+    /// acne beyond the penumbra: sweeping away from the wall, visibility is
+    /// zero at the base and never decreases outward.
+    #[test]
+    fn a_wall_shadow_starts_at_the_wall_base_and_only_brightens_outward() {
+        let level = level(
+            r#"{
+                "format_version": 1,
+                "id": "contact",
+                "name": "Contact",
+                "spawn": { "x": 0.0, "z": 0.0 },
+                "rooms": [{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 6.0, "height": 3.0 }],
+                "half_walls": [
+                    { "x": 4.0, "z": 2.0, "width": 0.2, "depth": 2.0, "height": 1.0,
+                      "material": "core:wallpaper_yellow_01" }
+                ]
+            }"#,
+        );
+        // Fixture west of the wall at (2, 2); the wall spans z 2.0..4.0. Its
+        // 1 m top lets the pool return a few metres east.
+        let visibility = Visibility::build(&level, &[QuerySite::new(2.0, 3.0, 8.0)]);
+        let soft = ShadowSampling { taps_per_axis: 3 };
+        let light = [2.0, 2.99, 3.0];
+        // Sweep east from the wall's east face (x = 4.2) at the fixture's z.
+        let mut previous = 0.0_f32;
+        let mut values = Vec::new();
+        for step in 0..=160_u16 {
+            let x = 4.2 + 0.01 * f32::from(step);
+            let value = visibility.visible_fraction(0, light, 0.6, 0.3, [x, 0.0, 3.0], soft);
+            assert!(
+                (0.0..=1.0).contains(&value),
+                "fraction out of range at {x}: {value}"
+            );
+            assert!(
+                value >= previous - 1.0e-6,
+                "visibility must not dip outward: {previous} then {value} at {x}"
+            );
+            previous = value;
+            values.push(value);
+        }
+        assert_eq!(values[0], 0.0, "the wall base itself is fully shadowed");
+        assert!(
+            *values.last().expect("non-empty") > 0.5,
+            "the shadow must end and the pool return: {values:?}"
+        );
+    }
+
+    /// The site's radius is the horizontal reach its segments can span. A wide
+    /// emitter's tap lies its half-extent *beyond* the site centre, so a
+    /// fixture whose range reaches a sample can ask about a solid up to
+    /// `range + hypot(half_w, half_d)` away; the pool must contain it.
+    #[test]
+    fn a_site_radius_covers_the_emitter_extent_beyond_the_range() {
+        // 20 x 20 m room, a solid wall at x 8.2..8.5, a 4 x 1 m panel at x=2
+        // with range 6. The sample at x=8.6 is 4.6 m beyond the panel's east
+        // edge: inside the range, so the bake asks for it.
+        let level = level(
+            r#"{
+                "format_version": 1,
+                "id": "reach",
+                "name": "Reach",
+                "spawn": { "x": 2.0, "z": 10.0 },
+                "rooms": [{ "x": 0.0, "z": 0.0, "width": 20.0, "depth": 20.0, "height": 3.0 }],
+                "walls": [
+                    { "x": 8.2, "z": 9.0, "width": 0.3, "depth": 2.0, "height": 3.0 }
+                ]
+            }"#,
+        );
+        let (half_w, half_d, range) = (2.0_f32, 0.5_f32, 6.0_f32);
+        let site = QuerySite::for_emitter(2.0, 10.0, range, half_w, half_d);
+        assert!(
+            (site.radius - (range + half_w.hypot(half_d))).abs() < 1.0e-5,
+            "the site radius must cover the emitter corner reach: {}",
+            site.radius
+        );
+        let visibility = Visibility::build(&level, &[site]);
+        // The emitter's own closest point to the sample.
+        let from = [4.0_f32, 1.5, 10.0];
+        let to = [8.6_f32, 0.1, 10.0];
+        assert!(
+            visibility.occludes(0, from, to),
+            "a wall beyond the range but within range + emitter extent must block"
+        );
+    }
+
+    /// Developer probe of the shipped Home corridor: prints the baked value and
+    /// the per-fixture visible fraction along representative lines.
+    #[test]
+    #[ignore = "developer measurement, run with --ignored --nocapture"]
+    #[allow(clippy::print_stdout, clippy::too_many_lines)] // one developer report table
+    fn measure_home_corridor_bake() {
+        let json = std::fs::read_to_string("assets/levels/places_demo.json")
+            .expect("places_demo is readable");
+        let level = LevelDef::from_json(&json).expect("places_demo parses");
+        let lit = crate::lighting::LevelLighting::bake_with(
+            &level,
+            crate::lighting::BakeConfig {
+                sampling: ShadowSampling { taps_per_axis: 2 },
+                prop_occlusion_cell_m: 0.075,
+            },
+        );
+        let corridor = lit
+            .rooms()
+            .iter()
+            .position(|room| (room.x0 - 56.7).abs() < 1e-3 && (room.z0 + 5.9).abs() < 1e-3)
+            .expect("corridor room exists");
+        let floor_y = lit.rooms()[corridor].floor_y;
+        println!(
+            "corridor room {corridor} floor_y={floor_y} baseline={:?} props={}",
+            lit.rooms()[corridor].baseline,
+            lit.summary().props
+        );
+        for (index, light) in lit.lights().iter().enumerate() {
+            if light.room == Some(corridor) {
+                let half_w = light.half_w();
+                let half_d = light.half_d();
+                println!(
+                    "  light {index:3} pos=({:.2},{:.2},{:.2}) hw={half_w:.3} hd={half_d:.3} i={:.3} hf={:.3} range={:.1} bake_radius={:.3} needed_radius={:.3}",
+                    light.x(),
+                    light.y(),
+                    light.z(),
+                    light.intensity(),
+                    light.height_factor,
+                    light.range(),
+                    light.range().max(half_w).max(half_d),
+                    light.range() + half_w.hypot(half_d),
+                );
+            }
+        }
+        let sites: Vec<QuerySite> = lit
+            .lights()
+            .iter()
+            .map(|light| {
+                QuerySite::new(
+                    light.x(),
+                    light.z(),
+                    light.range().max(light.half_w()).max(light.half_d()),
+                )
+            })
+            .collect();
+        let visibility = Visibility::build(&level, &sites);
+        let nearest = |x: f32, z: f32| -> Option<usize> {
+            let mut best: Option<(f32, usize)> = None;
+            for (index, light) in lit.lights().iter().enumerate() {
+                if light.room != Some(corridor) || !light.is_active() {
+                    continue;
+                }
+                let d = (x - light.x()).hypot(z - light.z());
+                if best.is_none_or(|(bd, _)| d < bd) {
+                    best = Some((d, index));
+                }
+            }
+            best.map(|(_, index)| index)
+        };
+        let fraction = |index: usize, x: f32, y: f32, z: f32| -> (f32, f32) {
+            let light = &lit.lights()[index];
+            let hard = visibility.visible_fraction(
+                u32::try_from(index).unwrap(),
+                [light.x(), light.y(), light.z()],
+                light.half_w(),
+                light.half_d(),
+                [x, y, z],
+                ShadowSampling::HARD,
+            );
+            let soft = visibility.visible_fraction(
+                u32::try_from(index).unwrap(),
+                [light.x(), light.y(), light.z()],
+                light.half_w(),
+                light.half_d(),
+                [x, y, z],
+                ShadowSampling { taps_per_axis: 2 },
+            );
+            (hard, soft)
+        };
+        let line = |label: &str, points: &[[f32; 3]]| {
+            println!("-- {label}");
+            for point in points {
+                let terms = lit.bake_terms_in_room(corridor, point[0], point[1], point[2]);
+                let vis = nearest(point[0], point[2]).map(|index| {
+                    let (hard, soft) = fraction(index, point[0], point[1], point[2]);
+                    format!("light{index} hard={hard:.2} soft={soft:.2}")
+                });
+                println!(
+                    "   ({:6.2},{:6.2},{:6.2}) base={:.3} pool={:.3} blend={:.3} light={:.3}  {}",
+                    point[0],
+                    point[1],
+                    point[2],
+                    terms.baseline.luminance(),
+                    terms.pool.luminance(),
+                    terms.blend.luminance(),
+                    terms.value.luminance(),
+                    vis.unwrap_or_default()
+                );
+            }
+        };
+        let mut across = Vec::new();
+        for step in 0..=30_u16 {
+            across.push([61.0, floor_y, -5.55 + 0.05 * f32::from(step)]);
+        }
+        line("south corridor floor across at x=61", &across);
+        let mut strip = Vec::new();
+        for step in 0..=20_u16 {
+            strip.push([60.35 + 0.065 * f32::from(step), floor_y, 0.5]);
+        }
+        line("strip floor across at z=0.5 (fixture 33 at 61,1)", &strip);
+        let mut base = Vec::new();
+        let mut middle = Vec::new();
+        for step in 0..=20_u16 {
+            let x = 57.5 + 0.22 * f32::from(step);
+            base.push([x, floor_y, -5.53]);
+            middle.push([x, floor_y, -5.0]);
+        }
+        line("floor 7 cm from the south wall", &base);
+        line("floor mid south corridor", &middle);
+        let mut wall = Vec::new();
+        for step in 0..=24_u16 {
+            wall.push([61.69, -0.4, -3.5 + 0.26 * f32::from(step)]);
+        }
+        line("wall 48 west face", &wall);
+        let mut strip_low = Vec::new();
+        for step in 0..=20_u16 {
+            strip_low.push([60.35 + 0.065 * f32::from(step), floor_y, -1.0]);
+        }
+        line("strip floor across at z=-1.0", &strip_low);
+        let mut under36 = Vec::new();
+        for step in 0..=24_u16 {
+            under36.push([57.4 + 0.14 * f32::from(step), floor_y, -4.9]);
+        }
+        line("floor across fixture 36", &under36);
+        let mut wall51 = Vec::new();
+        for step in 0..=24_u16 {
+            wall51.push([62.7 + 0.26 * f32::from(step), 0.4, -1.41]);
+        }
+        line("wall 51 south face", &wall51);
+        for point in [
+            [58.52_f32, -0.9, -4.9],
+            [58.66, -0.9, -4.9],
+            [58.80, -0.9, -4.9],
+            [58.24, -0.9, -4.9],
+        ] {
+            println!(
+                "-- pool terms at ({}, {}, {})",
+                point[0], point[1], point[2]
+            );
+            for term in lit.pool_terms_in_room(Some(corridor), point[0], point[1], point[2]) {
+                println!(
+                    "   light{:3} dist={:.2} dh={:.3} direct={:.3} fill={:.3} vis={:.3} i={:.2}",
+                    term.light,
+                    term.distance_m,
+                    term.horizontal_m,
+                    term.direct_shape,
+                    term.fill_shape,
+                    term.visibility,
+                    term.intensity
+                );
+            }
+        }
+        println!(
+            "partitioned={} zones={} floor zones at (61.0,0.5)={:?} (61.5,0.5)={:?}",
+            lit.is_partitioned(corridor),
+            lit.zone_count(),
+            lit.baseline_in_room(corridor, 61.0, 0.5),
+            lit.baseline_in_room(corridor, 61.5, 0.5)
+        );
+        let mut baselines = Vec::new();
+        for step in 0..=56_u16 {
+            let x = 56.7 + 0.25 * f32::from(step);
+            baselines.push(format!(
+                "{x:.2}={:.3}",
+                lit.baseline_in_room(corridor, x, 0.5).luminance()
+            ));
+        }
+        println!(
+            "corridor zone baseline along x at z=0.5: {}",
+            baselines.join(" ")
+        );
     }
 
     #[test]

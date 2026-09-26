@@ -70,8 +70,8 @@ use crate::render::common::animation::{AnimationEffect, EmissionAnimation};
 use crate::render::common::api::{
     GraphicsTransition, LevelBuild, LightmapBuildOptions, LightmapFillOutcome, LightmapFillRequest,
     LightmapFillWorker, PreparedLightmapBuild, build_level_geometry_timed_with_lightmaps,
-    dump_lightmaps_for_level, fill_lightmaps, fill_may_activate,
-    prepare_level_geometry_with_lightmaps, rebuild_vertex_lit_level,
+    dump_lightmaps_for_level, fill_lightmaps, fill_may_activate, level_content_fingerprint,
+    prepare_level_geometry_with_lightmaps, rebuild_vertex_lit_level, retained_build_matches_level,
 };
 use crate::render::common::atmosphere::FogState;
 use crate::render::common::character::CharacterScene;
@@ -353,6 +353,10 @@ pub struct WgpuRenderer {
     retained_lightmaps: LightmapQuality,
     /// The level id `retained_build` belongs to.
     retained_level_id: Option<String>,
+    /// Stable fingerprint of the level definition `retained_build` was built
+    /// from. A reload of the same id with edited content must rebuild instead
+    /// of reusing the stale build; see [`retained_build_matches_level`].
+    retained_level_fingerprint: Option<u64>,
     /// A prepared build whose atlas fill is running on [`Self::lightmap_worker`].
     staged_lightmap: Option<StagedLightmapFill>,
     /// The single live fill worker, if any. Dropping it cancels and joins.
@@ -605,6 +609,7 @@ impl WgpuRenderer {
             retained_build: None,
             retained_lightmaps: LightmapQuality::default(),
             retained_level_id: None,
+            retained_level_fingerprint: None,
             staged_lightmap: None,
             lightmap_worker: None,
             lightmap_generation: 0,
@@ -1009,8 +1014,17 @@ impl WgpuRenderer {
             return;
         }
         let requested = self.graphics_requested;
+        // A retained build may be reused only for the exact level content it was
+        // made from. The id alone is not enough: re-selecting the current level
+        // after its file was edited keeps the id, and the game resets its
+        // collision to the new definition, so a stale build would draw the old
+        // level while the player collides with the new one.
         let force = self.retained_build.is_none()
-            || self.retained_level_id.as_deref() != Some(loaded.level.id.as_str());
+            || !retained_build_matches_level(
+                self.retained_level_id.as_deref(),
+                self.retained_level_fingerprint,
+                &loaded.level,
+            );
         let delta = if force {
             GraphicsDelta::everything()
         } else {
@@ -1395,8 +1409,8 @@ impl WgpuRenderer {
         self.upload_dynamic();
     }
 
-    /// Retains the build that just became resident, keyed by its level and
-    /// lightmap configuration.
+    /// Retains the build that just became resident, keyed by its level content
+    /// (id and definition fingerprint) and lightmap configuration.
     fn retain_build(
         &mut self,
         loaded: &LoadedLevel,
@@ -1406,6 +1420,7 @@ impl WgpuRenderer {
         self.retained_build = Some(build);
         self.retained_lightmaps = lightmaps;
         self.retained_level_id = Some(loaded.level.id.clone());
+        self.retained_level_fingerprint = Some(level_content_fingerprint(&loaded.level));
     }
 
     /// Uploads (or re-uploads) one prepared CPU build as the resident world.
@@ -3479,5 +3494,119 @@ mod tests {
         assert!(delta.needs_texture_refit());
         assert!(delta.needs_gpu_work());
         assert!(!delta.is_empty());
+    }
+
+    /// The next value in each selector's order, for the matrix test.
+    fn other_quality(current: QualityLevel) -> QualityLevel {
+        match current {
+            QualityLevel::Low => QualityLevel::Medium,
+            QualityLevel::Medium => QualityLevel::High,
+            QualityLevel::High => QualityLevel::Low,
+        }
+    }
+
+    fn other_lightmaps(current: LightmapQuality) -> LightmapQuality {
+        match current {
+            LightmapQuality::Off => LightmapQuality::Medium,
+            LightmapQuality::Medium => LightmapQuality::Full,
+            LightmapQuality::Full => LightmapQuality::Off,
+        }
+    }
+
+    fn other_reflections(current: ReflectionQuality) -> ReflectionQuality {
+        match current {
+            ReflectionQuality::Off => ReflectionQuality::Medium,
+            ReflectionQuality::Medium => ReflectionQuality::Full,
+            ReflectionQuality::Full => ReflectionQuality::Off,
+        }
+    }
+
+    /// The complete override matrix: every overall level combines with every
+    /// Lightmaps, Reflections, Filtering and Bloom value, and each single-axis
+    /// change is classified exactly once. The overall level alone never asks
+    /// for a lighting rebuild; only the Lightmaps setting does.
+    #[test]
+    fn every_override_combination_is_classified_once() {
+        for quality in QualityLevel::ALL {
+            for lightmaps in LightmapQuality::ALL {
+                for reflections in ReflectionQuality::ALL {
+                    for filtering in [
+                        TextureFiltering::Low,
+                        TextureFiltering::Medium,
+                        TextureFiltering::High,
+                    ] {
+                        for bloom in [false, true] {
+                            let base = GraphicsConfig {
+                                quality,
+                                filtering,
+                                bloom,
+                                lightmaps,
+                                reflections,
+                            };
+                            assert!(base.delta_from(base).is_empty());
+
+                            // The overall level changes the texture budgets and
+                            // the scene target: a refit, never a bake.
+                            let next_quality = base.delta_from(GraphicsConfig {
+                                quality: other_quality(quality),
+                                ..base
+                            });
+                            assert!(next_quality.quality && next_quality.needs_gpu_work());
+                            assert!(!next_quality.lightmaps && !next_quality.needs_build());
+                            assert!(next_quality.needs_texture_refit());
+
+                            // Lightmaps is the only setting that re-bakes the
+                            // level and re-emits its mesh.
+                            let next_lightmaps = base.delta_from(GraphicsConfig {
+                                lightmaps: other_lightmaps(lightmaps),
+                                ..base
+                            });
+                            assert!(next_lightmaps.lightmaps && next_lightmaps.needs_build());
+                            assert!(
+                                !next_lightmaps.quality && !next_lightmaps.needs_texture_refit()
+                            );
+
+                            // Reflections and the two frame gates never rebuild
+                            // the CPU level or re-fit a texture.
+                            let next_reflections = base.delta_from(GraphicsConfig {
+                                reflections: other_reflections(reflections),
+                                ..base
+                            });
+                            assert!(
+                                next_reflections.reflections && next_reflections.needs_gpu_work()
+                            );
+                            assert!(!next_reflections.needs_build() && !next_reflections.quality);
+                            assert!(!next_reflections.needs_texture_refit());
+
+                            let next_filtering = base.delta_from(GraphicsConfig {
+                                filtering: if filtering == TextureFiltering::High {
+                                    TextureFiltering::Low
+                                } else {
+                                    TextureFiltering::High
+                                },
+                                ..base
+                            });
+                            assert!(next_filtering.filtering && !next_filtering.needs_gpu_work());
+                            assert!(
+                                !next_filtering.needs_build()
+                                    && !next_filtering.needs_texture_refit()
+                                    && !next_filtering.quality
+                            );
+
+                            let next_bloom = base.delta_from(GraphicsConfig {
+                                bloom: !bloom,
+                                ..base
+                            });
+                            assert!(next_bloom.bloom && !next_bloom.needs_gpu_work());
+                            assert!(
+                                !next_bloom.needs_build()
+                                    && !next_bloom.needs_texture_refit()
+                                    && !next_bloom.quality
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
 }

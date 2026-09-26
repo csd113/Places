@@ -7,8 +7,9 @@
 use super::color::LightColor;
 use super::tuning::{
     AMBIENT_LEVEL, BASELINE_MAX, FixtureKind, LIGHT_GRID_CELL_M, MAX_LIGHT_GRID_CELLS,
-    MAX_LIGHT_INTENSITY, MAX_WALL_LIGHT_SEGMENTS, MIN_ROOM_AREA_M2, REFERENCE_CEILING_HEIGHT_M,
-    REFERENCE_LIGHT_AREA_M2, fixture_profile_for_kind,
+    MAX_LIGHT_INTENSITY, MAX_WALL_LIGHT_SEGMENTS, MAX_ZONE_GRID_CELLS, MIN_ROOM_AREA_M2,
+    REFERENCE_CEILING_HEIGHT_M, REFERENCE_LIGHT_AREA_M2, ZONE_GRID_CELL_M,
+    fixture_profile_for_kind,
 };
 
 /// Sanitises an authored fixture intensity for baking.
@@ -200,6 +201,25 @@ pub fn light_grid_cells(extent_m: f32) -> u32 {
     // the clamp bounds the result to `1..=MAX_LIGHT_GRID_CELLS`.
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let cells = ((extent_m / LIGHT_GRID_CELL_M).ceil() as u32).clamp(1, MAX_LIGHT_GRID_CELLS);
+    cells
+}
+
+/// Number of baseline-zone grid cells along one room axis of `extent_m`.
+///
+/// The zone grid is a lookup structure, not geometry: it must be fine enough
+/// that a narrow air region owns a cell centre, so it uses its own finer cell
+/// size and a larger cap than the light grid. Always at least 1 and never more
+/// than [`MAX_ZONE_GRID_CELLS`].
+#[must_use]
+pub fn zone_grid_cells(extent_m: f32) -> u32 {
+    if !extent_m.is_finite() || extent_m <= 0.0 {
+        return 1;
+    }
+    // `extent_m` is finite and positive, so the ceiling is a finite
+    // non-negative integral value; the cast saturates rather than wraps and
+    // the clamp bounds the result to `1..=MAX_ZONE_GRID_CELLS`.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let cells = ((extent_m / ZONE_GRID_CELL_M).ceil() as u32).clamp(1, MAX_ZONE_GRID_CELLS);
     cells
 }
 

@@ -47,29 +47,26 @@ pub const MAX_BRIGHTNESS: f32 = 1.0;
 /// Largest share of [`MAX_BRIGHTNESS`] a room baseline may claim, per channel.
 ///
 /// The baseline is the room-wide *fill* every surface in a room receives; the
-/// local fixture pools are the light that actually shapes a room, and they are
-/// also the only term a static occluder can remove — every shadow in the game
-/// is a surface losing a pool. Both terms are summed and then clamped
-/// ([`MAX_BRIGHTNESS`]), so the fill has to leave the pool term room:
-/// `BASELINE_MAX + LOCAL_LIGHT_MAX` is `1.05`, and only a surface that both
-/// sits in the densest room the density curve allows *and* sees essentially
-/// the entire pool cap (directly under several overlapping fixtures) reaches
-/// that last 0.05. Everywhere else a pool's removal moves the final value by
-/// its full amount.
+/// local direct pools and the bounce fill are the light that shapes a room,
+/// and the pools are the only term a static occluder can remove — every
+/// shadow in the game is a surface losing direct light. The three caps leave
+/// the composition under `MAX_BRIGHTNESS` for all but the brightest clustered
+/// surfaces: `BASELINE_MAX + LOCAL_LIGHT_MAX + FILL_MAX` is 1.15, and the
+/// per-channel screen operators keep a single fixture or a single fill well
+/// below their caps, so only a surface inside several overlapping pools at
+/// once reaches the clamp (measured on the demo floor grid: 0.8% of texels).
 ///
-/// Measured on the shipped demo's real Full lightmap texels: with the
-/// historical full-range fill (rooms baked 0.58..0.77) 5.2% of surface texels
-/// sat at the clamp, 12.7% of the texels an occluder darkened showed no change
-/// after it, and a fully shadowed sample lost 30% of its light; with this fill
-/// nothing bakes at the clamp, 100% of what occluders remove shows, and a fully
-/// shadowed sample loses 43%. The sweep that chose 0.60 is in
-/// `bake/range_audit.rs`: the clamp damage collapses below ~0.65, while the
-/// fill still reaches two thirds of the unit range so rooms stay lit.
-///
-/// The span is not the baseline's *shape* — the density compression and the
-/// saturating curve are unchanged — only how much of the unit range the fill
-/// is allowed to occupy.
-pub const BASELINE_MAX: f32 = 0.60;
+/// The fill is deliberately the smaller shaping term: measured on the shipped
+/// demo's floor grid, the median surface sits at 0.60 (0.54 with the
+/// historical 0.60 fill) while the 5th percentile drops to 0.36, so the
+/// lit/unlit span grows from 1.50x to 2.30x without lowering the bright end.
+/// The fill must stay large enough to carry the ceilings and upper walls a
+/// recessed fixture no longer points at: at 0.22 the demo's ceilings and
+/// walls recover to within ~10% of the historical model while the pools keep
+/// their structure. The sweep that chose these values is in
+/// `lighting::tests` (`agent_a_model_candidate_sweep`); the saturating curve
+/// and the density compression are unchanged.
+pub const BASELINE_MAX: f32 = 0.52;
 
 /// Emitted colour used by fixtures that do not author one.
 ///
@@ -87,14 +84,66 @@ pub const fn ambient_color() -> LightColor {
 }
 
 /// Radius in metres over which one fixture's local pool fades to nothing.
+///
+/// This is the historical reach and stays the default `range`: the directional
+/// pool shape, not a shortened reach, is what turns the row profile around.
+/// A light may author its own `range`.
 pub const LOCAL_LIGHT_RADIUS_M: f32 = 6.0;
 
-/// Extra brightness one fixture adds directly beneath itself.
-pub const LOCAL_LIGHT_STRENGTH: f32 = 0.42;
+/// Brightness a ceiling fixture's direct pool has on the surface directly
+/// beneath its emitter.
+///
+/// A ceiling fixture's direct pool is directional: the shape is
+/// `lateral * incidence`, where `lateral = (1 - dh/range)^2` falls with the
+/// horizontal distance `dh` from the emitting rectangle and
+/// `incidence = vertical / distance` is the cosine of a horizontal surface's
+/// view. The floor beneath the panel is the local maximum; the ceiling plane
+/// the panel is recessed into gets no direct light at all (it is above the
+/// emitter). Wall sconces and prop lights keep the historical isotropic ball
+/// instead, on their own authored falloff curve.
+///
+/// The strength is calibrated so a standard office panel (`intensity`
+/// 0.6-0.7, 2.6-2.7 m ceiling) reaches the direct cap under itself while a
+/// surface outside its lateral reach gets nothing. It deliberately exceeds
+/// [`LOCAL_LIGHT_MAX`]: the cap bounds the *screen composition* of a cluster,
+/// not one fixture, so a single standard fixture cannot exceed the cap and a
+/// cluster saturates it smoothly without discarding colour.
+pub const LOCAL_LIGHT_STRENGTH: f32 = 0.60;
 
-/// Cap on the summed local fixture contribution, so a dense cluster of
-/// fixtures cannot drive a whole room to white.
+/// Cap on the screened direct-pool composition, per channel.
+///
+/// Feeds the screen operator `cap * (1 - prod(1 - min(c_i, cap) / cap))`:
+/// one fixture is the identity, overlaps grow monotonically and sublinearly,
+/// and per-channel colour is preserved (the historical sum-and-clamp replaced
+/// an overlapping cluster with flat grey).
 pub const LOCAL_LIGHT_MAX: f32 = 0.45;
+
+/// Brightness of one fixture's bounce fill at the emitter.
+///
+/// The fill is the room's first reflected light: a recessed panel does not
+/// point at its own ceiling, but the room's bounce does, so the ceiling around
+/// a fixture and the upper walls receive a broad weak halo instead of the bare
+/// ambient floor. The shape is the historical smooth cushion, isotropic, out
+/// to [`FILL_RANGE_MULTIPLIER`] times the light's range, visibility-tested
+/// like the direct pool so walls still cast.
+pub const FILL_STRENGTH: f32 = 0.26;
+
+/// Cap on the screened bounce-fill composition, per channel.
+///
+/// Picked to keep ceilings and upper walls within about a tenth of the
+/// historical model while the direct pools still own the floor structure; a
+/// smaller cap leaves rooms with fixture-light floors and unlit ceilings.
+pub const FILL_MAX: f32 = 0.26;
+
+/// How much farther than its direct `range` a light's bounce fill reaches.
+///
+/// `1.5` gives a 6 m fixture a 9 m halo — enough for the ceiling and upper
+/// walls around a fixture, which is the fill's job. The value is deliberately
+/// modest: every extra metre of fill reach multiplies the light candidates a
+/// sample must test (the per-texel bake does one visibility test per candidate),
+/// and the direct pool already carries long vertical reaches on its own. At
+/// least `1.0` so the fill can never be narrower than the direct pool.
+pub const FILL_RANGE_MULTIPLIER: f32 = 1.5;
 
 /// Radius in metres over which light leaks through a doorway or passage.
 pub const OPENING_BLEND_RADIUS_M: f32 = 6.0;
@@ -285,6 +334,24 @@ pub const LIGHT_GRID_CELL_M: f32 = 2.5;
 /// Maximum subdivisions per axis of one floor or ceiling.
 pub const MAX_LIGHT_GRID_CELLS: u32 = 12;
 
+/// Cell size of the *baseline zone* grid, in metres.
+///
+/// Zones are a lookup structure, not geometry: the area a partitioned room's
+/// baseline is resolved in. They must be fine enough that a narrow air region
+/// (a 1.4 m corridor between two partition walls) contains a cell centre of
+/// its own; at the 2.5 m light-grid cell size both neighbours' centres landed
+/// inside the walls and the corridor's samples were assigned to unrelated
+/// zones, which drew an 8% baseline seam across open floor. Half the
+/// light-grid cell guarantees any air region wider than 1.25 m owns a centre.
+pub const ZONE_GRID_CELL_M: f32 = 1.25;
+
+/// Maximum baseline-zone cells per room axis.
+///
+/// Larger than [`MAX_LIGHT_GRID_CELLS`] because the zone grid costs no
+/// geometry: 48 cells over a 60 m room still resolves zones at 1.25 m, and the
+/// flood fill and nearest-air resolution stay bounded at 48x48.
+pub const MAX_ZONE_GRID_CELLS: u32 = 48;
+
 /// Maximum segments one wall face is split into along its length.
 pub const MAX_WALL_LIGHT_SEGMENTS: u32 = 8;
 
@@ -393,3 +460,45 @@ pub(super) const MAX_PROP_OCCLUSION_BOXES_PER_LEVEL: usize = 4096;
 /// along its patch normal. The distance is shared with the vertex path so the
 /// two cannot disagree about which side of a wall face is sampled.
 pub(super) const LIGHTMAP_FACE_NORMAL_BIAS_M: f32 = ROOM_EDGE_EPS_M;
+
+/// Deterministic fingerprint of the lighting equation's constants.
+///
+/// The lightmap content key folds this in, so a recalibration of the bake
+/// (a new baseline cap, pool strength, fill strength, reach curve or doorway
+/// blend) can never silently reuse an atlas baked by the previous numbers.
+/// Structural changes that alter texel layout still raise
+/// [`crate::lighting::lightmap::LIGHTMAP_FORMAT_VERSION`]; this covers the
+/// numeric calibration the version does not describe.
+#[must_use]
+pub fn model_fingerprint() -> u64 {
+    // A tiny FNV-1a over the constants' bit patterns. Nothing here depends on
+    // call order or platform byte order beyond the explicit `to_le_bytes`.
+    fn write(hash: &mut u64, bits: u32) {
+        for byte in bits.to_le_bytes() {
+            *hash ^= u64::from(byte);
+            *hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    }
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for value in [
+        AMBIENT_LEVEL,
+        MAX_BRIGHTNESS,
+        BASELINE_MAX,
+        REFERENCE_LIGHT_AREA_M2,
+        REFERENCE_CEILING_HEIGHT_M,
+        HEIGHT_FALLOFF,
+        LOCAL_LIGHT_RADIUS_M,
+        LOCAL_LIGHT_STRENGTH,
+        LOCAL_LIGHT_MAX,
+        FILL_STRENGTH,
+        FILL_MAX,
+        FILL_RANGE_MULTIPLIER,
+        OPENING_BLEND_RADIUS_M,
+        OPENING_BLEND_STRENGTH,
+        OPENING_VERTICAL_FADE_M,
+        FIXTURE_DROP_M,
+    ] {
+        write(&mut hash, value.to_bits());
+    }
+    hash
+}

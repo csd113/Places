@@ -504,14 +504,17 @@ pub fn prepare_level_geometry_with_lightmaps(
         } else {
             // The key covers the level definition, the lightmap config, the
             // quality level, the *bake settings* (visibility taps and the
-            // prop-occlusion cell) and the occluder set the bake actually uses,
-            // so a prop model, a light or a shadow-quality constant change
-            // invalidates the cached atlas while a texture-only edit does not.
-            // See [`LevelLighting::occlusion_fingerprint`].
-            let mut extra: Vec<u8> = Vec::with_capacity(13);
+            // prop-occlusion cell), the occluder set the bake actually uses and
+            // the light-model constants the equation evaluates with, so a prop
+            // model, a light, a shadow-quality constant or a lighting-model
+            // recalibration invalidates the cached atlas while a texture-only
+            // edit does not. See [`LevelLighting::occlusion_fingerprint`] and
+            // [`crate::lighting::model_fingerprint`].
+            let mut extra: Vec<u8> = Vec::with_capacity(21);
             extra.extend_from_slice(&build.lighting.occlusion_fingerprint().to_le_bytes());
             extra.push(bake.sampling.taps_per_axis);
             extra.extend_from_slice(&bake.prop_occlusion_cell_m.to_bits().to_le_bytes());
+            extra.extend_from_slice(&crate::lighting::model_fingerprint().to_le_bytes());
             let key = content_key_with_extra(level, &options.config, options.profile, &extra);
             if let Some(cached) = cache.and_then(|cache| cache.get(&key)) {
                 build.lightmaps = Some(cached);
@@ -694,6 +697,54 @@ pub fn dump_lightmaps_for_level(level: &LevelDef, lightmaps: &LevelLightmaps) {
 #[must_use]
 pub const fn fill_may_activate(finished: u64, newest: u64) -> bool {
     finished == newest
+}
+
+/// Stable 64-bit fingerprint of a level definition's serialized content.
+///
+/// The renderer keeps one completed CPU build (`LevelBuild`) across graphics
+/// changes. Matching that build to a newly loaded definition by id alone is not
+/// enough: re-selecting the current level, or loading a level whose file was
+/// edited since the build, keeps the same id but a different definition — and
+/// the game's collision would then describe the new level while the world drew
+/// the old one. The fingerprint is the same serialized form the lightmap
+/// content key hashes, reduced with FNV-1a so the comparison is cheap and does
+/// not allocate the key string. It is stable within a process (and across
+/// processes, for the same serialization), and deliberately has no
+/// cross-version stability contract: it never reaches the disk cache.
+#[must_use]
+pub fn level_content_fingerprint(level: &LevelDef) -> u64 {
+    // `serde_json` rejects non-finite floats, which the loader already rejects
+    // in level files; a hand-built test level could still carry one, so fall
+    // back to the lossless debug form rather than hashing an empty buffer.
+    let bytes = serde_json::to_vec(level).unwrap_or_else(|_| format!("{level:?}").into_bytes());
+    fnv1a64(&bytes)
+}
+
+/// True when the retained CPU build belongs to exactly this level content.
+///
+/// See [`level_content_fingerprint`]: the id must match *and* the definition
+/// must be the one the build was made from. A mismatch makes the renderer force
+/// the full synchronous load path again instead of reusing a stale build.
+#[must_use]
+pub fn retained_build_matches_level(
+    retained_level_id: Option<&str>,
+    retained_fingerprint: Option<u64>,
+    level: &LevelDef,
+) -> bool {
+    retained_level_id == Some(level.id.as_str())
+        && retained_fingerprint == Some(level_content_fingerprint(level))
+}
+
+/// FNV-1a 64-bit over arbitrary bytes: tiny, dependency-free and stable.
+fn fnv1a64(bytes: &[u8]) -> u64 {
+    const OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
+    const PRIME: u64 = 0x0000_0100_0000_01b3;
+    let mut hash = OFFSET_BASIS;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(PRIME);
+    }
+    hash
 }
 
 /// What the renderer is doing about a graphics change, for a cheap status hint.
@@ -892,8 +943,10 @@ mod tests {
             Some(&mut cache),
         );
         let fill = prepared.fill.expect("first build owes a fill");
-        let filled = fill_lightmaps(&fill).expect("the tiny level fills");
-        cache.insert(&fill.content_key, Arc::new(filled));
+        let filled = Arc::new(fill_lightmaps(&fill).expect("the tiny level fills"));
+        let cold_pages = filled.pages.clone();
+        let cold_charts = filled.charts.clone();
+        cache.insert(&fill.content_key, Arc::clone(&filled));
 
         let mut assets = crate::props::PropAssets::default();
         let cached = prepare_level_geometry_with_lightmaps(
@@ -907,6 +960,175 @@ mod tests {
         assert!(cached.fill.is_none(), "a cache hit never owes a fill");
         let atlas = cached.build.lightmaps.expect("the hit carries its atlas");
         assert_eq!(atlas.cache_key, fill.content_key);
+        assert_eq!(
+            atlas.pages, cold_pages,
+            "a warm cache hit must serve the cold fill's pages byte for byte"
+        );
+        assert_eq!(atlas.charts, cold_charts, "charts are part of the atlas");
+    }
+
+    /// Changing only the bake settings (taps and prop-occlusion cell) must be a
+    /// new cache entry: these values change baked texels, so a warm atlas at one
+    /// setting can never answer a request at the other.
+    #[test]
+    fn a_bake_settings_change_is_a_new_cache_entry() {
+        use crate::lighting::ShadowSampling;
+
+        let level = tiny_level();
+        let materials = build_materials(&level);
+        let catalog = crate::loader::PropCatalog::builtin();
+        let cache = LightmapCache::memory_only();
+        let fine = LightmapBuildOptions::for_lightmaps(LightmapQuality::Full);
+        let mut coarse = fine;
+        coarse.bake = BakeConfig {
+            sampling: ShadowSampling { taps_per_axis: 1 },
+            prop_occlusion_cell_m: 0.15,
+        };
+        assert_eq!(fine.config, coarse.config, "only the bake settings differ");
+        assert_eq!(fine.profile, coarse.profile);
+
+        let mut assets = crate::props::PropAssets::default();
+        let mut cache = cache;
+        let fine_build = prepare_level_geometry_with_lightmaps(
+            &level,
+            &catalog,
+            &mut assets,
+            &materials,
+            fine,
+            Some(&mut cache),
+        );
+        let fine_fill = fine_build.fill.expect("the fine bake owes a fill");
+        let fine_atlas = fill_lightmaps(&fine_fill).expect("the fine bake fills");
+        cache.insert(&fine_fill.content_key, Arc::new(fine_atlas));
+
+        // The same configuration is a hit...
+        let mut assets = crate::props::PropAssets::default();
+        let hit = prepare_level_geometry_with_lightmaps(
+            &level,
+            &catalog,
+            &mut assets,
+            &materials,
+            fine,
+            Some(&mut cache),
+        );
+        assert!(hit.fill.is_none(), "the fine configuration is warm");
+
+        // ...but the coarse bake is a miss, even though the atlas config and
+        // profile are identical: the bake settings are part of the key.
+        let mut assets = crate::props::PropAssets::default();
+        let coarse_build = prepare_level_geometry_with_lightmaps(
+            &level,
+            &catalog,
+            &mut assets,
+            &materials,
+            coarse,
+            Some(&mut cache),
+        );
+        let coarse_fill = coarse_build
+            .fill
+            .expect("the coarse bake owes its own fill");
+        assert_ne!(
+            coarse_fill.content_key, fine_fill.content_key,
+            "bake taps and prop-occlusion cell must be part of the key"
+        );
+        let coarse_atlas = fill_lightmaps(&coarse_fill).expect("the coarse bake fills");
+        // The tiny fixture is unoccluded, so both bakes can resolve the same
+        // visibility fractions and their texels may agree; the key difference
+        // above is the contract. Only assert the coarse fill really produced
+        // addressable pages.
+        assert!(!coarse_atlas.pages.is_empty());
+    }
+
+    /// The renderer's vertex-lit entry point is the historical, quality-blind
+    /// path: `Lightmaps Off` from the Lightmaps setting and an Off build at any
+    /// overall level must produce the exact same mesh and lighting.
+    #[test]
+    fn the_renderer_vertex_lit_entry_point_is_quality_independent() {
+        use crate::quality::QualityLevel;
+
+        let level = tiny_level();
+        let materials = build_materials(&level);
+        let catalog = crate::loader::PropCatalog::builtin();
+        let reference = LightmapBuildOptions::for_lightmaps(LightmapQuality::Off);
+        assert_eq!(reference.mode, LightmapMode::Off);
+        assert_eq!(reference.bake, BakeConfig::HARD);
+        let mut assets = crate::props::PropAssets::default();
+        let reference_build = prepare_level_geometry_with_lightmaps(
+            &level,
+            &catalog,
+            &mut assets,
+            &materials,
+            reference,
+            None,
+        );
+        assert!(reference_build.fill.is_none(), "Off never owes a fill");
+        assert!(reference_build.build.lightmaps.is_none());
+
+        for quality in QualityLevel::ALL {
+            let options = LightmapBuildOptions::for_level(quality, LightmapMode::Off);
+            let mut assets = crate::props::PropAssets::default();
+            let build = prepare_level_geometry_with_lightmaps(
+                &level,
+                &catalog,
+                &mut assets,
+                &materials,
+                options,
+                None,
+            );
+            assert!(build.fill.is_none(), "{quality:?}");
+            assert!(build.build.lightmaps.is_none(), "{quality:?}");
+            assert_eq!(
+                build.build.mesh.ranges, reference_build.build.mesh.ranges,
+                "{quality:?} + Off must not change a single vertex"
+            );
+            assert_eq!(
+                build.build.lighting.summary(),
+                reference_build.build.lighting.summary(),
+                "{quality:?} + Off must not change the bake"
+            );
+        }
+    }
+
+    /// A retained build is reusable only for the exact level content it was
+    /// made from: the id alone is not enough, because re-loading an edited
+    /// level (or re-selecting and editing the current one) keeps the id.
+    #[test]
+    fn a_retained_build_only_matches_the_same_level_content() {
+        let level = tiny_level();
+        let same = tiny_level();
+        assert_eq!(level.id, same.id);
+        assert_eq!(
+            level_content_fingerprint(&level),
+            level_content_fingerprint(&same)
+        );
+        let fingerprint = level_content_fingerprint(&level);
+        assert!(retained_build_matches_level(
+            Some(level.id.as_str()),
+            Some(fingerprint),
+            &same
+        ));
+
+        let mut edited = level.clone();
+        if let Some(light) = edited.ceiling_lights.first_mut() {
+            light.x += 0.25;
+        }
+        assert_ne!(
+            level_content_fingerprint(&level),
+            level_content_fingerprint(&edited),
+            "a moved fixture changes the level content"
+        );
+        assert!(
+            !retained_build_matches_level(Some(level.id.as_str()), Some(fingerprint), &edited),
+            "the same id with edited content must force a rebuild"
+        );
+        assert!(
+            !retained_build_matches_level(None, None, &level),
+            "no retained build never matches"
+        );
+        assert!(
+            !retained_build_matches_level(Some("other_level"), Some(fingerprint), &level),
+            "a different level id never matches"
+        );
     }
 
     /// A pre-set cancel flag stops the fill at the first chart boundary and is

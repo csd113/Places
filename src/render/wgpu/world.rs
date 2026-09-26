@@ -136,8 +136,9 @@ pub const WORLD_ATTRIB_LIGHTMAP_PAGE: u32 = 7;
 /// coordinates, uploaded as `Unorm16x2` so the hardware expands them to
 /// `[0, 1]` exactly as `glVertexAttribPointer(..., GL_UNSIGNED_SHORT,
 /// normalized=true)` does, and `lightmap_page` is the plain page byte carried
-/// as a float (`0`/`1` select a page, `255` is `LIGHTMAP_NONE`) exactly as the
-/// un-normalized `GL_UNSIGNED_BYTE` attribute reached the reference shader.
+/// as a float (`0..=3` select the atlas array layer, `255` is `LIGHTMAP_NONE`)
+/// exactly as the un-normalized `GL_UNSIGNED_BYTE` attribute reached the
+/// reference shader.
 ///
 /// `#[repr(C)]` + `Pod` make the 64-byte stride explicit (the lightmap
 /// attributes and the model-space position/colour/handedness tail);
@@ -451,8 +452,8 @@ impl EnvironmentUniform {
 /// Bytes one environment uniform occupies.
 pub const ENVIRONMENT_UNIFORM_SIZE: u64 = std::mem::size_of::<EnvironmentUniform>() as u64;
 
-/// The group-3 bind group layout: environment uniform, the two lightmap atlas
-/// pages and their sampler, the probe cubemap, the planar mirror image and the
+/// The group-3 bind group layout: environment uniform, the lightmap page array
+/// and its sampler, the probe cubemap, the planar mirror image and the
 /// reflection sampler.
 ///
 /// Created once per renderer and shared by every world pipeline rebuild, so a
@@ -485,8 +486,10 @@ pub fn environment_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLa
                 },
                 count: None,
             },
-            texture(1, wgpu::TextureViewDimension::D2),
-            texture(2, wgpu::TextureViewDimension::D2),
+            // One `texture_2d_array` of `LIGHTMAP_ATLAS_MAX_PAGES` layers: the
+            // vertex's page byte selects the layer. Binding 2 is intentionally
+            // absent (the second page texture used to live there).
+            texture(1, wgpu::TextureViewDimension::D2Array),
             wgpu::BindGroupLayoutEntry {
                 binding: 3,
                 visibility: wgpu::ShaderStages::FRAGMENT,
@@ -507,8 +510,8 @@ pub fn environment_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLa
 
 /// Builds one group-3 bind group from the environment's textures and uniform.
 ///
-/// Every input is a view the caller keeps alive: the atlas pages, the probe
-/// cubemap and the planar mirror image. Fallback views keep every binding
+/// Every input is a view the caller keeps alive: the lightmap page array, the
+/// probe cubemap and the planar mirror image. Fallback views keep every binding
 /// complete when a resource is absent; the shader's switches decide whether
 /// they are read at all.
 #[must_use]
@@ -517,8 +520,7 @@ pub fn environment_bind_group(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
     uniform: &wgpu::Buffer,
-    lightmap0: &wgpu::TextureView,
-    lightmap1: &wgpu::TextureView,
+    lightmap_pages: &wgpu::TextureView,
     lightmap_sampler: &wgpu::Sampler,
     probe: &wgpu::TextureView,
     planar: &wgpu::TextureView,
@@ -534,11 +536,7 @@ pub fn environment_bind_group(
             },
             wgpu::BindGroupEntry {
                 binding: 1,
-                resource: wgpu::BindingResource::TextureView(lightmap0),
-            },
-            wgpu::BindGroupEntry {
-                binding: 2,
-                resource: wgpu::BindingResource::TextureView(lightmap1),
+                resource: wgpu::BindingResource::TextureView(lightmap_pages),
             },
             wgpu::BindGroupEntry {
                 binding: 3,
@@ -3401,9 +3399,8 @@ mod tests {
         );
         for needle in [
             "environment.lightmap_enabled * (1.0 - step(254.5, in.lightmap_page))",
-            "textureSample(lightmap0, lightmap_sampler, in.lightmap_uv)",
-            "textureSample(lightmap1, lightmap_sampler, in.lightmap_uv)",
-            "mix(page0, page1, step(0.5, in.lightmap_page))",
+            "let layer = u32(in.lightmap_page + 0.5);",
+            "textureSample(lightmap_pages, lightmap_sampler, in.lightmap_uv, layer)",
             "return light * environment.light_scale;",
         ] {
             assert!(WORLD_SHADER_SRC.contains(needle), "missing {needle}");
@@ -3427,10 +3424,14 @@ mod tests {
         assert!(!WORLD_SHADER_SRC.contains("texture_depth_2d"));
         assert!(!WORLD_SHADER_SRC.contains("comparison"));
         assert!(!WORLD_SHADER_SRC.contains("@group(3) @binding(7)"));
-        // The environment declares the two lightmap pages and their sampler.
-        assert!(WORLD_SHADER_SRC.contains("var lightmap0: texture_2d<f32>"));
-        assert!(WORLD_SHADER_SRC.contains("var lightmap1: texture_2d<f32>"));
+        // The environment declares the page array and its sampler at the
+        // frozen bindings: the page array at 1, the sampler at 3, and no
+        // second page binding.
+        assert!(WORLD_SHADER_SRC.contains("var lightmap_pages: texture_2d_array<f32>"));
         assert!(WORLD_SHADER_SRC.contains("var lightmap_sampler: sampler"));
+        assert!(!WORLD_SHADER_SRC.contains("var lightmap0"));
+        assert!(!WORLD_SHADER_SRC.contains("var lightmap1"));
+        assert!(!WORLD_SHADER_SRC.contains("@group(3) @binding(2)"));
     }
 
     #[test]
@@ -3464,21 +3465,31 @@ mod tests {
         assert!(WORLD_SHADER_SRC.contains("model: mat4x4<f32>"));
     }
 
-    /// A CPU mirror of the shader's `surface_light`, for the page/addressing
-    /// contract.
+    /// A CPU mirror of the shader's `surface_light`, for the layer/addressing
+    /// contract. `pages` is the array's layer list; an index outside it is not
+    /// producible by a successful plan, so the mirror keeps the unit factor
+    /// (never an undefined sample).
     fn surface_light_mirror(
         enabled: bool,
         page: f32,
-        page0: [f32; 3],
-        page1: [f32; 3],
+        pages: &[[f32; 3]],
         scale: [f32; 3],
     ) -> [f32; 3] {
         let on = if enabled { 1.0 } else { 0.0 } * if page >= 254.5 { 0.0 } else { 1.0 };
         let mut light = [1.0; 3];
         if on > 0.5 {
-            let selector = if page >= 0.5 { 1.0 } else { 0.0 };
-            for channel in 0..3 {
-                light[channel] = page0[channel] * (1.0 - selector) + page1[channel] * selector;
+            let layer = page + 0.5;
+            // Test mirror of the shader's `u32(in.lightmap_page + 0.5)`: the
+            // page byte is finite and checked non-negative, and the test only
+            // feeds page bytes in [0, 4), so the truncating cast is exact.
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            let index = if layer.is_finite() && layer >= 0.0 {
+                layer as usize
+            } else {
+                usize::MAX
+            };
+            if let Some(sampled) = pages.get(index) {
+                light = *sampled;
             }
         }
         for channel in 0..3 {
@@ -3489,30 +3500,48 @@ mod tests {
 
     #[test]
     fn the_light_seam_selects_pages_and_falls_back_like_the_reference() {
-        let page0 = [0.25, 0.5, 0.75];
-        let page1 = [0.1, 0.2, 0.3];
+        let pages = [
+            [0.25, 0.5, 0.75],
+            [0.1, 0.2, 0.3],
+            [0.4, 0.4, 0.4],
+            [0.9, 0.8, 0.7],
+        ];
         let unit = [1.0; 3];
-        // Page 0 and page 1 select their own page.
-        assert_eq!(surface_light_mirror(true, 0.0, page0, page1, unit), page0);
-        assert_eq!(surface_light_mirror(true, 1.0, page0, page1, unit), page1);
+        // Every stamped page byte selects its own array layer.
+        for (page, expected) in pages.iter().enumerate() {
+            let page_byte = f32::from(u8::try_from(page).unwrap_or(u8::MAX));
+            assert_eq!(
+                surface_light_mirror(true, page_byte, &pages, unit),
+                *expected,
+                "layer {page} must sample its own page"
+            );
+        }
         // `LIGHTMAP_NONE` (and anything >= 254.5) keeps the vertex-lit unit
         // factor, which is what makes the historical path exact.
-        assert_eq!(surface_light_mirror(true, 255.0, page0, page1, unit), unit);
+        assert_eq!(surface_light_mirror(true, 255.0, &pages, unit), unit);
         // The global switch closes the atlas for every vertex.
-        assert_eq!(surface_light_mirror(false, 0.0, page0, page1, unit), unit);
-        assert_eq!(surface_light_mirror(false, 255.0, page0, page1, unit), unit);
+        assert_eq!(surface_light_mirror(false, 0.0, &pages, unit), unit);
+        assert_eq!(surface_light_mirror(false, 255.0, &pages, unit), unit);
         // The per-object scale multiplies whichever path was taken.
         assert_eq!(
-            surface_light_mirror(true, 0.0, page0, page1, [0.5; 3]),
+            surface_light_mirror(true, 0.0, &pages, [0.5; 3]),
             [0.125, 0.25, 0.375]
         );
         assert_eq!(
-            surface_light_mirror(true, 255.0, page0, page1, [2.0; 3]),
+            surface_light_mirror(true, 1.0, &pages, [2.0; 3]),
+            [0.2, 0.4, 0.6]
+        );
+        assert_eq!(
+            surface_light_mirror(true, 255.0, &pages, [2.0; 3]),
             [2.0; 3]
         );
         // The shader source contains the exact expressions the mirror encodes.
         assert!(WORLD_SHADER_SRC.contains("step(254.5, in.lightmap_page)"));
-        assert!(WORLD_SHADER_SRC.contains("mix(page0, page1, step(0.5, in.lightmap_page))"));
+        assert!(WORLD_SHADER_SRC.contains("let layer = u32(in.lightmap_page + 0.5);"));
+        assert!(
+            WORLD_SHADER_SRC
+                .contains("textureSample(lightmap_pages, lightmap_sampler, in.lightmap_uv, layer)")
+        );
     }
 
     #[test]

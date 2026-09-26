@@ -209,7 +209,7 @@ mod tests {
         // baseline, so the isolation above is the wall's doing, not distance.
         let open_far = open.sample_in_room_luminance(0, 8.0, 0.02, 5.0);
         assert!(
-            open_far > far + 0.3,
+            open_far > far + 0.25, // fill span 0.30 after the rebalance
             "removing the wall must restore the far side: open {open_far} vs partitioned {far}"
         );
     }
@@ -282,11 +282,11 @@ mod tests {
         let left_baseline = partitioned.baseline_in_room(0, 3.5, 5.0);
         let right_baseline = partitioned.baseline_in_room(0, 6.5, 5.0);
         assert!(
-            left_baseline.r > right_baseline.r + 0.3,
+            left_baseline.r > right_baseline.r + 0.2,
             "the red area's baseline must carry the red power: {left_baseline:?} vs {right_baseline:?}"
         );
         assert!(
-            right_baseline.b > left_baseline.b + 0.3,
+            right_baseline.b > left_baseline.b + 0.2,
             "the blue area's baseline must carry the blue power: {right_baseline:?} vs {left_baseline:?}"
         );
 
@@ -349,7 +349,7 @@ mod tests {
         // Directly around the fixture its own area is bright...
         let near_fixture = lighting.sample_in_room_luminance(0, 4.6, 0.02, 5.0);
         assert!(
-            near_fixture > AMBIENT_LEVEL + 0.3,
+            near_fixture > AMBIENT_LEVEL + 0.2,
             "the fixture's own area must be bright: {near_fixture}"
         );
 
@@ -359,7 +359,7 @@ mod tests {
         let own_side = lighting.baseline_in_room(0, 4.6, 5.0).luminance();
         let behind_wall = lighting.baseline_in_room(0, 5.2, 5.0).luminance();
         assert!(
-            own_side > AMBIENT_LEVEL + 0.3,
+            own_side > AMBIENT_LEVEL + 0.2,
             "the fixture's own area keeps its power: {own_side}"
         );
         assert!(
@@ -384,8 +384,11 @@ mod tests {
         // Floor level on the far side is still lit by the room-wide baseline
         // (the 2 m wall shadows it from the pool, but not from the room).
         let far = lighting.sample_in_room_luminance(0, 8.0, 0.02, 5.0);
+        // The rebalanced fill spans [0.10, 0.40]; the stub's far side keeps
+        // the room baseline, which is well above the ambient floor but no
+        // longer 0.3 above it.
         assert!(
-            far > AMBIENT_LEVEL + 0.3,
+            far > AMBIENT_LEVEL + 0.15,
             "the far side must stay bright: {far}"
         );
 
@@ -411,7 +414,7 @@ mod tests {
         // area is connected around the wall's end.
         let behind = lighting.sample_in_room_luminance(0, 8.0, 0.02, 2.0);
         assert!(
-            behind > AMBIENT_LEVEL + 0.3,
+            behind > AMBIENT_LEVEL + 0.15,
             "the area behind the stub must keep the room baseline: {behind}"
         );
     }
@@ -456,7 +459,7 @@ mod tests {
         // The lit area keeps its own baseline, the dark area keeps ambient.
         let lit_side = lighting.baseline_in_room(0, 2.0, 5.0).luminance();
         assert!(
-            lit_side > AMBIENT_LEVEL + 0.3,
+            lit_side > AMBIENT_LEVEL + 0.2,
             "the lit area must keep its power: {lit_side}"
         );
         for (x, z) in [(5.6_f32, 2.0_f32), (5.6, 7.0)] {

@@ -388,35 +388,33 @@ fn axis_separated(
 
 /// True when the segment `a`-`b` touches the axis-aligned rectangle.
 ///
-/// A plain Liang-Barsky clip against the rectangle's four edges.
+/// A plain Liang-Barsky clip against the rectangle's four edges. A segment
+/// parallel to an edge (a zero component) is inside that edge's band whenever
+/// its coordinate lies within the rectangle's own bounds; the two bounds of the
+/// axis are tested together, because testing only one of them rejects every
+/// parallel segment whose coordinate sits inside the rectangle — the exact
+/// case of a vertical panel's X/Z projection, which is a line, not a point.
 fn segment_overlaps_rect(a: [f32; 2], b: [f32; 2], x0: f32, x1: f32, z0: f32, z1: f32) -> bool {
     let delta = [b[0] - a[0], b[1] - a[1]];
     let mut enter = 0.0_f32;
     let mut exit = 1.0_f32;
-    for (edge, bound, offset) in [
-        (-delta[0], x0, a[0]),
-        (delta[0], x1, a[0]),
-        (-delta[1], z0, a[1]),
-        (delta[1], z1, a[1]),
-    ] {
-        let distance = bound - offset;
-        if edge == 0.0 {
-            if distance < 0.0 {
+    for (step, start, low, high) in [(delta[0], a[0], x0, x1), (delta[1], a[1], z0, z1)] {
+        if step == 0.0 {
+            if start < low || start > high {
                 return false;
             }
             continue;
         }
-        let fraction = distance / edge;
-        if edge < 0.0 {
-            if fraction > exit {
-                return false;
-            }
-            enter = enter.max(fraction);
-        } else {
-            if fraction < enter {
-                return false;
-            }
-            exit = exit.min(fraction);
+        let inverse = 1.0 / step;
+        let mut near = (low - start) * inverse;
+        let mut far = (high - start) * inverse;
+        if near > far {
+            std::mem::swap(&mut near, &mut far);
+        }
+        enter = enter.max(near);
+        exit = exit.min(far);
+        if enter > exit {
+            return false;
         }
     }
     enter <= exit
@@ -1660,6 +1658,146 @@ mod tests {
         assert!(
             !mouth_centre_covered,
             "the U's mouth must stay air: {boxes:?}"
+        );
+    }
+
+    /// The raw segment/rectangle clip must treat a segment parallel to an edge
+    /// as inside that edge's band whenever its coordinate is within the
+    /// rectangle — an axis-aligned vertical panel projects to exactly such a
+    /// segment, and a one-sided parallel test dropped it.
+    #[test]
+    fn a_parallel_segment_is_inside_the_rectangle_it_lies_in() {
+        // Vertical segment at x = 0, inside x -0.5..0.5 and z -0.5..0.5.
+        assert!(segment_overlaps_rect(
+            [0.0, 0.5],
+            [0.0, 0.8],
+            -0.5,
+            0.5,
+            -0.5,
+            0.5
+        ));
+        // Horizontal segment at z = 0, inside the same rectangle.
+        assert!(segment_overlaps_rect(
+            [-0.4, 0.0],
+            [0.4, 0.0],
+            -0.5,
+            0.5,
+            -0.5,
+            0.5
+        ));
+        // The same horizontal segment outside the rectangle in z.
+        assert!(!segment_overlaps_rect(
+            [-0.4, 0.0],
+            [0.4, 0.0],
+            -0.5,
+            0.5,
+            0.1,
+            0.2
+        ));
+        // A parallel segment just outside an edge on either side is rejected.
+        assert!(!segment_overlaps_rect(
+            [0.6, 0.0],
+            [0.6, 1.0],
+            -0.5,
+            0.5,
+            -0.5,
+            0.5
+        ));
+        // A diagonal segment crossing the rectangle stays accepted, and one
+        // that misses stays rejected.
+        assert!(segment_overlaps_rect(
+            [-0.5, -0.5],
+            [0.5, 0.5],
+            -0.2,
+            0.2,
+            -0.2,
+            0.2
+        ));
+        assert!(!segment_overlaps_rect(
+            [-0.5, -0.5],
+            [-0.4, -0.4],
+            -0.2,
+            0.2,
+            -0.2,
+            0.2
+        ));
+    }
+
+    /// A thin vertical panel at an interior model coordinate must still be
+    /// ground into occluders: its X/Z projection is a line along Z, and the
+    /// grid must mark the column it actually crosses. A one-sided parallel
+    /// clip dropped exactly this panel, so a curtain, guardrail or cabinet
+    /// side inside a prop's bounds cast no shadow at all.
+    #[test]
+    fn an_axis_aligned_panel_inside_the_bounds_still_occludes() {
+        let mut triangles: Vec<[[f32; 3]; 3]> = Vec::new();
+        // Vertical quad at x = 0.45, z 0..1, y 0..1: interior of the cell
+        // x 0.35..0.5 once the block below widens the model bounds.
+        triangles.push([[0.45, 0.0, 0.0], [0.45, 0.0, 1.0], [0.45, 1.0, 1.0]]);
+        triangles.push([[0.45, 0.0, 0.0], [0.45, 1.0, 1.0], [0.45, 1.0, 0.0]]);
+        triangles.extend(triangles_of(&box_model([0.2, 0.0, 0.0], [0.3, 0.1, 0.1])));
+        let model = model(&triangles);
+        let boxes = default_boxes(&model);
+        assert!(
+            boxes.iter().any(|bounds| {
+                bounds.min[0] <= 0.45
+                    && bounds.max[0] >= 0.45
+                    && bounds.max[1] >= 0.9
+                    && bounds.min[1] <= 0.1
+            }),
+            "the interior panel's own column must be occupied: {boxes:?}"
+        );
+        // The panel must not bleed into the air behind it (it is a plane, not
+        // a solid body filling the model's depth).
+        assert!(
+            boxes.iter().all(|bounds| bounds.max[0] <= 0.51),
+            "the panel must not extend past its own cell: {boxes:?}"
+        );
+    }
+
+    /// A thin vertical panel exactly on the model's maximum coordinate must
+    /// still be marked: the old parallel clip rejected every cell whose lower
+    /// bound was below the panel's coordinate, which is every cell a
+    /// maximum-edge panel can fall in.
+    #[test]
+    fn an_axis_aligned_panel_on_the_max_edge_still_occludes() {
+        let mut triangles: Vec<[[f32; 3]; 3]> = Vec::new();
+        // Vertical quad at x = 0.5, z 0..1, y 0..1, the model's max X.
+        triangles.push([[0.5, 0.0, 0.0], [0.5, 0.0, 1.0], [0.5, 1.0, 1.0]]);
+        triangles.push([[0.5, 0.0, 0.0], [0.5, 1.0, 1.0], [0.5, 1.0, 0.0]]);
+        triangles.extend(triangles_of(&box_model([0.0, 0.0, 0.0], [0.1, 0.1, 0.1])));
+        let model = model(&triangles);
+        let boxes = default_boxes(&model);
+        assert!(
+            boxes.iter().any(|bounds| {
+                bounds.min[0] <= 0.5
+                    && bounds.max[0] >= 0.5
+                    && bounds.max[1] >= 0.9
+                    && bounds.min[1] <= 0.1
+            }),
+            "the maximum-edge panel's column must be occupied: {boxes:?}"
+        );
+    }
+
+    /// The Z-constant form of the same defect: an axis-aligned panel spanning X.
+    #[test]
+    fn a_z_axis_aligned_panel_inside_the_bounds_still_occludes() {
+        let mut triangles: Vec<[[f32; 3]; 3]> = Vec::new();
+        // Vertical quad at z = 0.45, x 0..1, y 0..1, interior once the block
+        // at z 0.2..0.3 widens the bounds.
+        triangles.push([[0.0, 0.0, 0.45], [1.0, 0.0, 0.45], [1.0, 1.0, 0.45]]);
+        triangles.push([[0.0, 0.0, 0.45], [1.0, 1.0, 0.45], [0.0, 1.0, 0.45]]);
+        triangles.extend(triangles_of(&box_model([0.0, 0.0, 0.2], [0.1, 0.1, 0.3])));
+        let model = model(&triangles);
+        let boxes = default_boxes(&model);
+        assert!(
+            boxes.iter().any(|bounds| {
+                bounds.min[2] <= 0.45
+                    && bounds.max[2] >= 0.45
+                    && bounds.max[1] >= 0.9
+                    && bounds.min[1] <= 0.1
+            }),
+            "the interior panel's own column must be occupied: {boxes:?}"
         );
     }
 

@@ -144,7 +144,10 @@ mod visibility;
 #[cfg(test)]
 mod tests;
 
-pub use bake::{BakeConfig, BakedLight, LevelLighting, LightingSummary, RoomLighting};
+pub use bake::{
+    BakeConfig, BakeTerms, BakedLight, LevelLighting, LightingSummary, PoolTerm, RoomLighting,
+    ZoneLighting,
+};
 pub use color::{LightColor, MAX_LIGHT_COLOR};
 pub use light::{
     DEFAULT_LIGHT_RANGE_M, LINE_LIGHT_HALF_THICKNESS_M, LightFalloff, LightShape, LightSource,
@@ -154,14 +157,17 @@ pub use math::{
     ceiling_height_factor, compressed_density, effective_power, fixture_half_extents,
     fixture_half_extents_for, fixture_is_turned, light_grid_cells, room_baseline,
     sanitize_intensity, saturating_brightness, smooth_falloff, wall_light_segments,
+    zone_grid_cells,
 };
 pub use tuning::{
-    AMBIENT_LEVEL, DEFAULT_LIGHT_COLOR, FIXTURE_DROP_M, FIXTURE_HALF_DEPTH_M, FIXTURE_HALF_WIDTH_M,
-    FLUSH_MOUNT_RADIUS_M, FixtureKind, FixtureProfile, HEIGHT_FALLOFF, LIGHT_FIXTURE_IDS,
-    LIGHT_GRID_CELL_M, LOCAL_LIGHT_MAX, LOCAL_LIGHT_RADIUS_M, LOCAL_LIGHT_STRENGTH, MAX_BRIGHTNESS,
-    MAX_LIGHT_GRID_CELLS, MAX_LIGHT_INTENSITY, MAX_WALL_LIGHT_SEGMENTS, MIN_ROOM_AREA_M2,
+    AMBIENT_LEVEL, DEFAULT_LIGHT_COLOR, FILL_MAX, FILL_RANGE_MULTIPLIER, FILL_STRENGTH,
+    FIXTURE_DROP_M, FIXTURE_HALF_DEPTH_M, FIXTURE_HALF_WIDTH_M, FLUSH_MOUNT_RADIUS_M, FixtureKind,
+    FixtureProfile, HEIGHT_FALLOFF, LIGHT_FIXTURE_IDS, LIGHT_GRID_CELL_M, LOCAL_LIGHT_MAX,
+    LOCAL_LIGHT_RADIUS_M, LOCAL_LIGHT_STRENGTH, MAX_BRIGHTNESS, MAX_LIGHT_GRID_CELLS,
+    MAX_LIGHT_INTENSITY, MAX_WALL_LIGHT_SEGMENTS, MAX_ZONE_GRID_CELLS, MIN_ROOM_AREA_M2,
     OPENING_BLEND_RADIUS_M, OPENING_BLEND_STRENGTH, OPENING_VERTICAL_FADE_M,
     REFERENCE_CEILING_HEIGHT_M, REFERENCE_LIGHT_AREA_M2, WALL_FACE_PROBE_M,
-    WALL_LIGHT_DEFAULT_HEIGHT_M, ambient_color, fixture_profile, fixture_profile_for_kind,
+    WALL_LIGHT_DEFAULT_HEIGHT_M, ZONE_GRID_CELL_M, ambient_color, fixture_profile,
+    fixture_profile_for_kind, model_fingerprint,
 };
 pub use visibility::{QuerySite, ShadowSampling, Visibility};

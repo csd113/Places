@@ -1799,7 +1799,7 @@ entry.)
 | Generated decal atlas (256×256; only `core:decal_test_01`) | `src/render/common/decals.rs` | Internal validation marking; the external decal sheets are ordinary PNGs. |
 | White sheet (1024×1024 opaque white fill, file-backed) | `assets/core/textures/white_01.png` (loaded by `src/render/wgpu/texture.rs`) | Untextured geometry (fixture housings, UI quads). |
 | HUD font atlas (128×64) | `src/font.rs` | Project-owned bitmap UI font. |
-| Lightmap atlas (up to two pages, quality-profile sized) | `src/lighting/lightmap/` | Baked *light data*, derived at level load from the level's own lights and geometry — the texel equivalent of the baked vertex colours it replaces. Not authored artwork, and deliberately not shipped as PNGs: it changes whenever a light, prop or surface moves, and it is regenerated (never re-saved) on load. |
+| Lightmap atlas (up to four pages, quality-profile sized) | `src/lighting/lightmap/` | Baked *light data*, derived at level load from the level's own lights and geometry — the texel equivalent of the baked vertex colours it replaces. Not authored artwork, and deliberately not shipped as PNGs: it changes whenever a light, prop or surface moves, and it is regenerated (never re-saved) on load. |
 
 Everything else the renderer draws from an image comes from a PNG under `assets/`.
 Every *surface, fixture, decal and prop texture* is still a real PNG asset under
@@ -2222,44 +2222,56 @@ or more of these sources. Adding a new glowing object never means adding a new l
 family.
 
 ```text
-sample = room/partition-area baseline
-       + visibility-tested local fixture pools
-       + doorway-blend deltas
-       clamped to [AMBIENT_LEVEL = 0.10, MAX_BRIGHTNESS = 1.0] per channel
+sample = clamp(AMBIENT_LEVEL + room/partition-area baseline
+       + visibility-tested direct pools
+       + visibility-tested bounce fill
+       + doorway-blend deltas, 0.10, 1.0)
 ```
 
 1. **Room baseline.** Each room sums `intensity × height factor × colour` over the
    fixtures it owns, spreads it over its floor area, compresses the density and maps
-   it onto `[AMBIENT_LEVEL, BASELINE_MAX = 0.60]`. The baseline is deliberately the
+   it onto `[AMBIENT_LEVEL, BASELINE_MAX = 0.52]`. The baseline is deliberately the
    *fill* level, not the highlight: it is the one term a static occluder cannot
-   remove, so capping it at 0.60 leaves the visibility-tested pools (up to +0.45)
-   room to read as light and shadow instead of pinning every surface at the clamp.
-   A room with no fixtures sits at exactly the ambient `0.10`: unlit rooms are dark
-   by design.
+   remove, so it leaves the visibility-tested direct pools room to read as light and
+   shadow instead of pinning every surface at the clamp. A room with no fixtures sits
+   at exactly the ambient `0.10`: unlit rooms are dark by design.
 2. **Partitions.** If opaque internal walls split a room's footprint into
    disconnected areas, each area gets **its own baseline** from the fixtures it can
    reach. A wall that stops short of the ceiling is not a partition; a door header
    separates while a doorway keeps a bounded blend; a window does not connect
    baselines at all. The connectivity probe runs 0.15 m below the ceiling, so a wall
    must cross more than 0.75 m into the room before it is a partition candidate.
-3. **Local fixture pools.** Each fixture adds a bounded local pool
-   (`brightness × height factor × falloff`), evaluated over the fixture's own
-   `range` (default **6 m**, clamped to `0.05`–`64` m); the summed local
-   contribution is capped per channel at `0.45`. The pool is computed from the
-   fixture's luminous rectangle or disc, so being near a bright fixture matters.
-4. **Wall-boundary occlusion.** A pool only reaches what its fixture can see: light
+3. **Local fixture pools.** Each fixture adds a bounded local pool on top of the
+   fill. A **ceiling fixture's** pool is directional: it falls with the horizontal
+   distance from the emitting rectangle (`(1 - d/range)²`), is weighted by the
+   cosine between the surface's vertical and the emitter (`vertical / distance`), and
+   only reaches samples *below* the emitter. The floor directly beneath a panel is
+   the local maximum; the ceiling the panel is recessed into receives no direct
+   light. **Wall sconces and prop-attached lights** keep the isotropic
+   `brightness × height factor × falloff` ball. Pools are capped at `0.45` per
+   channel by a screen composition, not a hard sum: a single fixture below the cap
+   adds its full energy, overlaps grow monotonically without flattening to grey, and
+   a warm fixture keeps its colour to the cap.
+4. **Bounce fill.** Every light also adds a broad, weak second pool (cap `0.26`)
+   out to 1.5 times its `range`, visibility-tested like the direct pool. This is the
+   room's first reflected light: it is what lights the ceiling around a recessed
+   fixture and the upper walls a downward pool does not point at, without inventing
+   a source or a global ceiling override.
+5. **Wall-boundary occlusion.** A pool only reaches what its fixture can see: light
    is tested against the exact wall solids. Doors, windows, passages and vents all
    transmit through exactly the hole they cut; a solid header/sill still blocks.
-5. **Doorway baseline transfer.** Only `door` and `passage` openings whose bottom
+6. **Doorway baseline transfer.** Only `door` and `passage` openings whose bottom
    reaches the lower connected floor blend a bounded amount of the neighbour's
    baseline through the aperture (radius 6 m, strength 0.5, fading over 1 m above the
    header). Windows and vents transmit pools only; they never blend baselines.
-6. **Vertical isolation.** Floors and ceilings are light boundaries: stacked rooms do
+7. **Vertical isolation.** Floors and ceilings are light boundaries: stacked rooms do
    not light each other through a slab, in brightness or colour. A raised platform or
    lowered basin inside one room volume is not a barrier, and an open side of an upper
    floor transmits normally. When rooms share a footprint, author a light `y` to pick
-   the storey.
-7. **No ambient control.** The 0.10 neutral floor is fixed; you cannot author sun,
+   the storey. A ceiling fixture's direct pool reaches the floor directly beneath it
+   whatever the ceiling height (height only enters through the ceiling-height factor),
+   so a tall space is not blacked out by the pool's radius.
+8. **No ambient control.** The 0.10 neutral floor is fixed; you cannot author sun,
    sky, a room-wide brightness or a room-wide tint. Express mood per fixture.
 
 ### Baked lightmaps
@@ -2271,12 +2283,15 @@ lighting model, the fixtures and everything a map authors are unchanged — this
 storage change, not an authoring one.
 
 * Density follows the quality level: **High** bakes 16 texels per metre onto up to
-  two 1024-texel pages, **Medium** 12 texels per metre onto the same 1024-texel
-  pages, **Low** 9 texels per metre onto two 512-texel pages.
+  four 1024-texel pages, **Medium** 12 texels per metre onto the same 1024-texel
+  pages, **Low** 9 texels per metre onto four 512-texel pages.
   Every level bakes the same set of surfaces; faces longer than one chart are split
-  automatically (chart span cap 63.75 m). The packer is a deterministic bottom-left
-  skyline, so `places_demo` fits two High pages at 54 % data occupancy and two Low
-  pages at 69 %.
+  automatically (chart span cap 63.75 m). The packer is a deterministic
+  best-short-side-fit MaxRects allocator: `places_demo` fits two High pages and
+  The Pit four, where the historical skyline packer needed five for The Pit. Four
+  pages is the renderer's sampling contract (one `texture_2d_array` whose layers the
+  vertex page byte selects), so a level that genuinely needs more keeps the
+  historical vertex-lit mesh and reports a named page-overflow failure.
 * Shadow softness follows the same level: a local pool's visibility is sampled on
   the fixture's own emitting rectangle — **High and Medium** use a five-tap
   quincunx (the centre plus the four quadrant corners) and **Low** the historical
@@ -2593,11 +2608,11 @@ name is historical; **`lights` is accepted as a serde alias** for the same array
 | `x`, `z` | number | **yes** | — | World position. Must be finite. |
 | `rotation_degrees` | number | no | `0.0` | Y rotation. Ceiling families quantise to a 0°/90° axis swap; wall fixtures rotate continuously. |
 | `brightness` | number | no | `1.0` | Alias `intensity`. Must be finite and `≥ 0`; baking clamps to `8.0`. |
-| `color` | `[r,g,b]` | no | `[1.0, 0.96, 0.88]` | Each channel `0`–`1`. Drives both the lamp face and the illumination. |
+| `color` | `[r,g,b]` | no | `[1.0, 0.96, 0.88]` | Each channel `0`–`1`. Drives the illumination only: the visible face is texture-first and the light colour never repaints the artwork. |
 | `mount` | `"ceiling"` \| `"wall"` | no | `"ceiling"` | Closed enum. Wall fixtures require `y` or the level is rejected. |
 | `y` | number | no (required for wall) | derived for ceiling | Ceiling: optional mounting world Y (also selects a storey in stacked rooms). Wall: required world Y of the fixture centre. |
-| `range` | number | no | `6.0` | Distance in metres at which this fixture's pool reaches zero; must be positive and finite; clamped to `0.05`–`64`. The falloff curve is evaluated over this range, so a shorter range is also a softer pool. |
-| `falloff` | `"smooth"` \| `"linear"` \| `"constant"` | no | `"smooth"` | Closed enum. Pool decay curve. `constant` holds full strength to `range` then stops (a deliberately hard pool). |
+| `range` | number | no | `6.0` | Reach of this fixture's pools in metres; must be positive and finite; clamped to `0.05`–`64`. A ceiling fixture's direct pool falls to zero at `range` measured horizontally from its emitting rectangle; its bounce fill reaches `1.5 × range`. A shorter range is also a softer pool. |
+| `falloff` | `"smooth"` \| `"linear"` \| `"constant"` | no | `"smooth"` | Closed enum. Lateral pool decay curve for a ceiling fixture (`smooth` = `(1 - d/range)²`), or the radial curve for a wall sconce or prop light. `constant` holds full strength to `range` then stops (a deliberately hard pool). |
 | `enabled` | boolean | no | `true` | `false` keeps the fixture's visible glow but removes **all** of its environmental illumination. |
 | `emission` | number | no | the fixture's `brightness` | Independent emissive strength of the visible face, finite, `≥ 0`, clamped to `8.0`. Lets a face read brighter (or dimmer) than the light the fixture casts. |
 | `align` | `"grid"` \| `"none"` | no | `"grid"` | Closed enum. Grid alignment snaps a fluorescent panel's centre onto its ceiling material's visible panel grid at load (see *Ceiling grid alignment* below). `"none"` keeps the authored `x`/`z` exactly. |
@@ -3394,10 +3409,7 @@ authoring. They are not invitations to change the engine as part of an authoring
    its own pass, which has no emission term; an `emissive` material used as a
    *decal sheet* will not glow. Emission on wall/floor/ceiling materials and on GLB
    prop materials works.
-3. **A light's range normalises its falloff.** `range` is the distance at which the
-   pool reaches zero *and* the span the curve is evaluated over, so halving a range
-   makes the pool both tighter and dimmer near the source. There is no separate
-   "cutoff only" mode.
+3. **A light's range normalises its falloff.** For a wall sconce or a prop light, `range` is the distance at which the radial pool reaches zero *and* the span the curve is evaluated over, so halving a range makes the pool both tighter and dimmer near the source. For a ceiling fixture, `range` is the horizontal reach of the directional pool: directly beneath the emitter the pool is at full strength whatever the ceiling height, and it falls to zero at `range` measured sideways from the emitting rectangle. There is no separate "cutoff only" mode.
 4. **Cone/spot lights are not implemented.** The generic model has point, rectangle
    and line shapes; a directional light needs a response model that does not exist.
 5. **A GLB may embed larger prop textures than the shipped native size.** The

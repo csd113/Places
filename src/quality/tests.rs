@@ -179,7 +179,12 @@ fn lightmap_configs_are_the_documented_low_medium_high_values() {
     assert_eq!(high.usable_edge(), 1_020);
 
     for config in [low, medium, high] {
-        assert_eq!(config.max_pages, 2);
+        // The page budget is the shared atlas budget (B owns the constant and
+        // its mirrored renderer copy); every level uses the same one.
+        assert_eq!(
+            config.max_pages,
+            crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES
+        );
         assert_eq!(config.bytes_per_texel, 3);
         assert_eq!(config.max_chart_span_m(), low.max_chart_span_m());
     }

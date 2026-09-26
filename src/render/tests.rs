@@ -4443,7 +4443,8 @@ fn a_second_instance_of_a_multi_material_prop_still_batches() {
 // ---------------------------------------------------------- lightmaps
 
 use crate::lighting::lightmap::{
-    LIGHTMAP_ATLAS_MAX_PAGES, LevelLightmaps, LightmapFailure, LightmapMode,
+    LIGHTMAP_ATLAS_MAX_PAGES, LevelLightmaps, LightmapCache, LightmapFailure, LightmapMode,
+    PatchKind,
 };
 use crate::loader::PropCatalog;
 use crate::props::PropAssets;
@@ -4882,6 +4883,260 @@ fn atlas_bytes_match_the_fill_pass_exactly() {
         }
     }
     assert!(checked > 100_000, "must check real texel volume: {checked}");
+}
+
+/// Atlas texel statistics for one patch kind in one room, restricted to the
+/// texels whose reconstructed world position lies inside `min..=max`.
+///
+/// Returns `(mean display byte of all channels, number of texels)`. The world
+/// position comes from the patch's own mapping (`point_at`), so the selection
+/// is the same geometry the baker evaluated, not an image-space guess. This is
+/// the renderer-level way to ask the acceptance question "is there per-texel
+/// light under the fixture?" without a GPU.
+fn atlas_texels_in_box(
+    lightmaps: &LevelLightmaps,
+    kind: PatchKind,
+    room: usize,
+    min: [f32; 3],
+    max: [f32; 3],
+) -> (f32, usize) {
+    let mut sum = 0.0_f64;
+    let mut count = 0_usize;
+    for (patch, chart) in &lightmaps.charts {
+        if patch.kind != kind || patch.room != Some(room) {
+            continue;
+        }
+        let Some(page) = lightmaps.pages.get(usize::from(chart.page)) else {
+            continue;
+        };
+        for row in 0..chart.height {
+            for column in 0..chart.width {
+                let u = (column as f32 + 0.5) / chart.width as f32;
+                let v = (row as f32 + 0.5) / chart.height as f32;
+                let point = patch.point_at(u, v);
+                if point[0] < min[0]
+                    || point[0] > max[0]
+                    || point[1] < min[1]
+                    || point[1] > max[1]
+                    || point[2] < min[2]
+                    || point[2] > max[2]
+                {
+                    continue;
+                }
+                let offset = ((chart.y + row) as usize * page.width as usize
+                    + (chart.x + column) as usize)
+                    * 3;
+                for channel in 0..3 {
+                    sum += f64::from(page.rgb[offset + channel]);
+                }
+                count += 1;
+            }
+        }
+    }
+    let mean = if count == 0 {
+        0.0
+    } else {
+        (sum / (count as f64 * 3.0)) as f32
+    };
+    (mean, count)
+}
+
+#[test]
+fn a_tall_chamber_receives_per_texel_light_from_a_directional_ceiling_fixture() {
+    // The Pit's acceptance case in miniature: a 0.45-brightness ceiling panel
+    // 17 m above the floor, exactly the tall chamber's ratio. Under the old
+    // model the pool was an isotropic ball of radius 6 m, so a 17 m ceiling
+    // could not light its own floor at all, and the whole level fell back to
+    // vertex lighting. This test pins the renderer-level atlas result:
+    //
+    //  * the floor directly beneath the panel is measurably brighter than the
+    //    floor far from every fixture (a real per-texel pool, not a flat fill);
+    //  * the ceiling right beside the panel carries the bounce fill (it is not
+    //    left at the bare ambient), while remaining dimmer than the floor the
+    //    panel actually points at (nothing above the emitter gets direct light).
+    let level = lit_room_level(
+        12.0,
+        12.0,
+        17.0,
+        r#"[{ "fixture": "core:fluorescent_panel_01", "x": 6.0, "z": 6.0, "brightness": 0.45 }]"#,
+    );
+    let build = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On);
+    assert_eq!(build.lightmap_failure, None, "the tall chamber must atlas");
+    let lightmaps = build.lightmaps.as_deref().expect("tall chamber atlas");
+
+    // Directly beneath the 1.2 x 0.6 m emitting rectangle (0..1 m box).
+    let under = atlas_texels_in_box(
+        lightmaps,
+        PatchKind::Floor,
+        0,
+        [5.0, -0.5, 5.5],
+        [7.0, 0.5, 6.5],
+    );
+    // The far corner of the room, more than 8 m from the emitter.
+    let far = atlas_texels_in_box(
+        lightmaps,
+        PatchKind::Floor,
+        0,
+        [0.0, -0.5, 0.0],
+        [2.5, 0.5, 2.5],
+    );
+    // The ceiling beside the panel, one metre off its short edge.
+    let ceiling_side = atlas_texels_in_box(
+        lightmaps,
+        PatchKind::Ceiling,
+        0,
+        [7.2, 16.5, 5.0],
+        [8.5, 17.5, 7.0],
+    );
+    // A far ceiling corner, for the ambient-only comparison.
+    let ceiling_far = atlas_texels_in_box(
+        lightmaps,
+        PatchKind::Ceiling,
+        0,
+        [0.0, 16.5, 0.0],
+        [2.5, 17.5, 2.5],
+    );
+    assert!(
+        under.1 > 100 && far.1 > 100 && ceiling_side.1 > 50 && ceiling_far.1 > 50,
+        "the boxes must sample real texels: {under:?} {far:?} {ceiling_side:?} {ceiling_far:?}"
+    );
+    assert!(
+        under.0 > far.0 + 15.0,
+        "the floor under the panel ({:.1}/255) must clearly beat the far floor ({:.1}/255): \
+         a 17 m ceiling must still pool",
+        under.0,
+        far.0
+    );
+    assert!(
+        under.0 > ceiling_side.0 + 5.0,
+        "the directional pool must not light the ceiling it is recessed into: \
+         floor under {:.1}/255 vs ceiling beside {:.1}/255",
+        under.0,
+        ceiling_side.0
+    );
+    assert!(
+        ceiling_side.0 > ceiling_far.0 + 3.0,
+        "the bounce fill must reach the ceiling beside the panel ({:.1}/255) above the \
+         far ceiling ({:.1}/255)",
+        ceiling_side.0,
+        ceiling_far.0
+    );
+    // The bare ambient is 0.10, i.e. 25.5/255; a valid bake never goes below it.
+    assert!(
+        far.0 >= 24.0,
+        "the far floor must stay readable at the ambient floor, got {:.1}/255",
+        far.0
+    );
+}
+
+#[test]
+fn a_tall_chamber_with_lightmaps_off_is_still_lit_by_its_panel() {
+    // The always-supported vertex-lit path must stay valid in the tall room:
+    // not black, not flat. The same 17 m chamber built with `LightmapMode::Off`
+    // folds the bake into vertex colours, so the floor vertices under the panel
+    // must be brighter than the far corner and every channel must stay above
+    // the ambient floor.
+    let level = lit_room_level(
+        12.0,
+        12.0,
+        17.0,
+        r#"[{ "fixture": "core:fluorescent_panel_01", "x": 6.0, "z": 6.0, "brightness": 0.45 }]"#,
+    );
+    let off = lightmap_build(
+        &level,
+        crate::quality::QualityLevel::High,
+        LightmapMode::Off,
+    );
+    let floor = off.mesh.triangles_for(SurfaceKind::Floor);
+    assert!(!floor.is_empty());
+    let planar = |v: &Vertex| (v.pos[0] - 6.0).hypot(v.pos[2] - 6.0);
+    // The room grid is coarser than the fixture footprint, so compare the
+    // brightest vertex within 3.5 m of the emitter with the brightest vertex
+    // more than 7 m away.
+    let near = floor
+        .iter()
+        .filter(|v| planar(v) <= 3.5)
+        .map(|v| v.color[0])
+        .fold(0.0_f32, f32::max);
+    let far = floor
+        .iter()
+        .filter(|v| planar(v) >= 7.0)
+        .map(|v| v.color[0])
+        .fold(0.0_f32, f32::max);
+    assert!(
+        near > far + 0.03,
+        "the vertex-lit tall room must still pool under the panel: {near:.3} vs {far:.3}"
+    );
+    for vertex in &floor {
+        assert!(
+            vertex.color.iter().take(3).all(|channel| *channel > 0.0),
+            "no floor vertex may bake to black: {:?}",
+            vertex.color
+        );
+    }
+}
+
+#[test]
+fn a_warm_lightmap_cache_reproduces_the_cold_atlas_exactly() {
+    // The renderer keeps one `LightmapCache` for the session, so a level that
+    // is re-selected or rebuilt must restore the exact atlas it baked cold —
+    // not a re-fill that could drift. Drive the public builder twice with the
+    // same cache and require the warm result to be the very allocation the
+    // cold fill produced.
+    let level = lit_room_level(
+        8.0,
+        6.0,
+        3.0,
+        r#"[{ "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 3.0, "brightness": 0.8 }]"#,
+    );
+    let materials = logical_materials(&level);
+    let catalog = PropCatalog::builtin();
+    let mut assets = PropAssets::default();
+    let options =
+        LightmapBuildOptions::for_level(crate::quality::QualityLevel::High, LightmapMode::On);
+    let mut cache = LightmapCache::memory_only();
+    let cold = build_level_geometry_timed_with_lightmaps(
+        &level,
+        &catalog,
+        &mut assets,
+        &materials,
+        options,
+        Some(&mut cache),
+    );
+    let cold_maps = cold
+        .lightmaps
+        .as_deref()
+        .expect("the cold build must fill an atlas");
+    assert_eq!(cold.lightmap_failure, None);
+    assert_eq!(cache.len(), 1, "a completed fill is cached");
+    assert!(
+        cold_maps
+            .pages
+            .iter()
+            .any(|page| page.rgb.iter().any(|b| *b != 0)),
+        "the cold atlas must carry real light"
+    );
+
+    let warm = build_level_geometry_timed_with_lightmaps(
+        &level,
+        &catalog,
+        &mut assets,
+        &materials,
+        options,
+        Some(&mut cache),
+    );
+    let warm_maps = warm.lightmaps.as_deref().expect("the warm build hits");
+    assert_eq!(warm.lightmap_failure, None);
+    assert!(
+        std::sync::Arc::ptr_eq(
+            &cold.lightmaps.clone().expect("cold arc"),
+            &warm.lightmaps.clone().expect("warm arc")
+        ),
+        "the warm build must return the cold bake's own allocation"
+    );
+    assert_eq!(cold_maps.pages, warm_maps.pages);
+    assert_eq!(cold_maps.charts, warm_maps.charts);
+    assert_eq!(cold_maps.cache_key, warm_maps.cache_key);
 }
 
 #[test]

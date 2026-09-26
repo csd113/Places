@@ -30,15 +30,16 @@
 //! the source limit.
 //!
 //! The same level also budgets the static lightmap atlas and the baked shadow
-//! quality: High bakes at 16 texels per metre onto up to two 1024-texel pages
-//! with a two-tap penumbra and 7.5 cm prop-occlusion cells, Medium at 12
-//! texels per metre onto the same pages with the same taps and 11 cm cells,
-//! and Low at 9 texels per metre onto two 512-texel pages with a single tap
-//! and 15 cm cells (see [`QualityLevel::lightmap_config`] and
-//! [`QualityLevel::shadow_taps_per_axis`]). Every level bakes from the *same*
-//! patch set — density, page size and tap count are the differences, never a
-//! different set of surfaces — and all use the same shared chart-span cap, so
-//! the geometry splits in the same places.
+//! quality: High bakes at 16 texels per metre with a two-tap penumbra and
+//! 7.5 cm prop-occlusion cells, Medium at 12 texels per metre with the same
+//! taps and 11 cm cells, and Low at 9 texels per metre at the 512-texel page
+//! size with a single tap and 15 cm cells (see
+//! [`QualityLevel::lightmap_config`] and [`QualityLevel::shadow_taps_per_axis`];
+//! the page budget itself is [`crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES`]).
+//!
+//! Every level bakes from the *same* patch set — density, page size and tap
+//! count are the differences, never a different set of surfaces — and all use
+//! the same shared chart-span cap, so the geometry splits in the same places.
 //!
 //! [`QualityProfile`] is the two-variant form of the same budgets that the
 //! lightmap content key and the protected lightmap planner consume.

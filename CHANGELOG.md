@@ -41,6 +41,72 @@ OpenGL/GLES2 renderer state before the desktop renderer modernization begins.
   automatic baseboards that stop at floor-level openings. The washing machine
   is rebuilt with a real porthole opening and its drum spins inside the cavity.
 
+## Unreleased — Lighting rework: contrast, fixtures and large-map coverage
+
+### Fixed
+
+- **The Pit (and any large level) silently fell back to vertex lighting.** The
+  atlas had a hard two-page cap and the historical skyline packer needed five
+  pages for the level's 2808 m² of floor and ceiling, so the whole map ran the
+  vertex-lit path: flat walls, a black ceiling and no per-texel pools. The atlas
+  is now one `texture_2d_array` of four pages addressed by the vertex page byte,
+  packed by a deterministic best-short-side-fit MaxRects allocator, and The Pit
+  bakes four pages with per-texel light. A level that genuinely needs more than
+  four pages still falls back with the named `PageOverflow` result.
+- **The local fixture pool was an isotropic 3-D ball.** It could not reach the
+  floor of a tall space (zero pool below ~11 m under a 17 m ceiling), lit the
+  ceiling a recessed panel points away from, made a wall at fixture height
+  brighter than the floor beneath the fixture, and made a 4 m panel row's
+  floor *maximum* the midpoint instead of under the panels. A ceiling fixture's
+  pool is now directional (`(1 - d/range)² · vertical/distance`, nothing above
+  the emitter); wall sconces and prop lights keep the isotropic ball.
+- **A summed pool cap flattened overlaps to grey.** Overlapping fixtures clamped
+  per channel and the early return replaced the colour with `grey(0.45)`. Pools
+  now compose with a per-channel screen whose caps scale with each light's
+  colour, so a warm fixture stays warm to the cap and overlaps grow
+  monotonically without discarding colour.
+- **Baseline seams on a narrow strip.** The coarse baseline-zone grid assigned
+  cells by their centres, so a 1.4 m corridor whose cell centres fell inside
+  walls stepped its baseline at the grid cut lines (measured 0.322 → 0.295 →
+  0.322 across open floor). Zones now use a finer air-aware grid.
+- **A solid just beyond a pool's reach was not tested.** The visibility query
+  site was prefilted to `range.max(half_w).max(half_d)`, but admission is
+  measured from the emitter rectangle, so occluders at
+  `range..range+hypot(half)` were skipped; the site now covers the emitter
+  extent. Axis-parallel prop-triangle panels were also not always ground into
+  occlusion boxes.
+- **Stale lighting caches could survive a recalibration.** The lightmap content
+  key now folds in a fingerprint of the lighting-model constants; the format
+  version is 7.
+
+### Changed
+
+- Room baseline is deliberately the smaller fill (cap 0.52) and every light adds
+  a broad, weak, visibility-tested bounce fill (cap 0.26, reaching 1.5 times the
+  light's range) that lights ceilings and upper walls, so lit/unlit separation
+  is stronger without a global darkening. Measured on the demo's real lightmap
+  texels: fully shadowed samples lose 50 % of their open light (was 43 %), the
+  floor mean rises 0.507 → 0.604, walls are unchanged (0.426 → 0.415) and
+  ceilings keep a graded halo (0.651 → 0.544, no longer lit by their own
+  recessed fixtures); nothing bakes at the clamp.
+- The editor's lighting preview mirrors the new equation; the parity vectors
+  were regenerated.
+- `levels/level0_pit.json` (a per-user drop-in level, not repository content):
+  the nine enabled tall-chamber panels were raised from `0.15`/`0.12` to `0.45`
+  so the chamber's fixtures actually illuminate it; the 24 disabled panels and
+  the level layout are unchanged.
+
+### Validation
+
+- `cargo test --release --workspace --all-features`: 1135 passed, 0 failed.
+- `cargo clippy --workspace --all-targets --all-features -- -D warnings` and
+  `cargo fmt --all --check`: clean.
+- Before/after manifest captures and the fixed/expanded view sets in
+  `target/agent-work/`; the scene-average display luminance is unchanged
+  (camera-fixed fifteen-view mean 104.5 → 98.3) with floors brighter and
+  genuinely unlit areas darker. Cold Full fills on the final model: Places
+  Demo 4.9 s, The Pit 7.5 s (worker-backed on live switches; warm 0 ms).
+
 ## Unreleased — lighting continuity on large surfaces
 
 ### Fixed

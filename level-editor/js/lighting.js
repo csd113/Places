@@ -9,13 +9,23 @@
 //   * room baseline = AMBIENT + (BASELINE_MAX - AMBIENT) * c, where the
 //     fixture density is logarithmically compressed and then saturated
 //     (`c = n / (1 + n)`, `n = ln(1 + density * REFERENCE_LIGHT_AREA_M2)`);
-//   * broad local fixture pools with a smooth falloff, capped per channel;
+//   * a ceiling fixture's direct pool is directional: `lateral * incidence`,
+//     where `lateral = (1 - dh/range)^2` falls with the horizontal distance to
+//     the emitting rectangle and `incidence = vertical / d3`; it only lights
+//     what is below the emitter. Wall-mounted lights keep the isotropic ball;
+//   * a broad, weak visibility-tested bounce fill (range `FILL_RANGE_MULTIPLIER`
+//     times the fixture's own range) gives ceilings and upper walls a halo;
+//   * direct and fill are each composed with the per-channel screen operator
+//     `cap * (1 - prod(1 - min(c, cap) / cap))`, so overlaps stay monotone and
+//     no colour is discarded, then summed with the baseline and clamped;
 //   * bounded blending through walk-through openings;
 //   * the same deterministic ownership rule (smallest containing room wins).
 //
 // Deliberate differences from the game: the preview works on flat-shaded quads,
-// so it is an approximation, not a pixel-exact match. It never allocates during
-// drawing and is recomputed only when the preview mesh is rebuilt.
+// so it is an approximation, not a pixel-exact match. It samples visibility
+// with one segment per light (the game's hard-sampling path) rather than the
+// quincunx emitter taps the lightmap quality profiles use. It never allocates
+// during drawing and is recomputed only when the preview mesh is rebuilt.
 
 (function (root, factory) {
   const deps = (typeof module !== 'undefined' && module.exports)
@@ -38,12 +48,17 @@
     HEIGHT_FALLOFF: 0.5,
     AMBIENT_LEVEL: 0.10,
     MAX_BRIGHTNESS: 1.0,
-    BASELINE_MAX: 0.60,
+    BASELINE_MAX: 0.52,
     MAX_LIGHT_COLOR: 1.0,
     DEFAULT_LIGHT_COLOR: [1.0, 0.96, 0.88],
     LOCAL_LIGHT_RADIUS_M: 6.0,
-    LOCAL_LIGHT_STRENGTH: 0.42,
+    MIN_LIGHT_RANGE_M: 0.05,
+    MAX_LIGHT_RANGE_M: 64.0,
+    LOCAL_LIGHT_STRENGTH: 0.60,
     LOCAL_LIGHT_MAX: 0.45,
+    FILL_STRENGTH: 0.26,
+    FILL_MAX: 0.26,
+    FILL_RANGE_MULTIPLIER: 1.5,
     OPENING_BLEND_RADIUS_M: 6.0,
     OPENING_BLEND_STRENGTH: 0.5,
     OPENING_VERTICAL_FADE_M: 1.0,
@@ -82,6 +97,21 @@
     if (Number.isNaN(value)) return 1.0;
     if (!Number.isFinite(value)) return value > 0 ? TUNING.MAX_LIGHT_INTENSITY : 0.0;
     return Math.min(Math.max(value, 0.0), TUNING.MAX_LIGHT_INTENSITY);
+  }
+
+  /** Sanitises an authored fixture range, mirroring `LightSource::sanitized`. */
+  function sanitizeRange(range) {
+    const value = Number(range);
+    if (!Number.isFinite(value)) return TUNING.LOCAL_LIGHT_RADIUS_M;
+    return Math.min(Math.max(value, TUNING.MIN_LIGHT_RANGE_M), TUNING.MAX_LIGHT_RANGE_M);
+  }
+
+  /** Sanitises an authored falloff name: unknown names are the smooth default. */
+  function normalizeFalloff(falloff) {
+    const name = String(falloff === undefined || falloff === null ? '' : falloff).toLowerCase();
+    if (name === 'linear') return 'linear';
+    if (name === 'constant') return 'constant';
+    return 'smooth';
   }
 
   /**
@@ -351,7 +381,10 @@
     const sites = lights.map((light) => ({
       x: light.x,
       z: light.z,
-      radius: Math.max(TUNING.LOCAL_LIGHT_RADIUS_M, light.halfW, light.halfD)
+      // The admission test measures from the emitter rectangle and the bounce
+      // fill reaches past the direct range, so the site covers the fill reach
+      // plus the rectangle's far corner (mirrors `QuerySite::for_emitter`).
+      radius: light.fillRange + Math.hypot(light.halfW, light.halfD)
     })).concat(blendSites.map((site) => ({ x: site.x, z: site.z, radius: site.radius })));
     const ranges = sites.map((site) => {
       const x0 = site.x - site.radius;
@@ -523,6 +556,14 @@
       const rotation = Number(light.rotation_degrees) || 0;
       const [halfW, halfD] = fixtureHalfExtents(rotation);
       const color = emittedColor(light);
+      const range = sanitizeRange(light.range);
+      // Every `ceiling_lights` entry is a ceiling fixture (directional direct
+      // pool); an authored `mount: "wall"` is the only isotropic case here.
+      // The editor does not resolve a wall fixture's world `y`, exactly as
+      // before.
+      const directional = light.mount !== 'wall';
+      const falloff = normalizeFalloff(light.falloff);
+      const fillRange = range * TUNING.FILL_RANGE_MULTIPLIER;
       if (roomIndex >= 0) {
         const power = intensity * heightFactor;
         const room = rooms[roomIndex];
@@ -540,6 +581,10 @@
         heightFactor,
         halfW,
         halfD,
+        range,
+        directional,
+        falloff,
+        fillRange,
         room: roomIndex
       });
     }
@@ -628,18 +673,70 @@
       return [targetX, targetZ];
     }
 
+    /**
+     * The visibility-tested direct pool and bounce fill at a world position.
+     *
+     * Mirrors `LevelLighting::local_light`: a ceiling fixture's direct pool is
+     * directional (`lateral * incidence`, only below the emitter), a wall
+     * light keeps the isotropic ball, and every light adds a broad weak fill
+     * out to `FILL_RANGE_MULTIPLIER` times its own range. Both terms use the
+     * same single-segment visibility test this preview has always used, and
+     * each is composed with the per-channel screen operator, so overlaps are
+     * monotone and colour survives.
+     */
     function localLight(x, y, z) {
-      if (!isFiniteNumber(x) || !isFiniteNumber(y) || !isFiniteNumber(z)) return [0, 0, 0];
-      const sum = [0, 0, 0];
+      const direct = [0, 0, 0];
+      const fill = [0, 0, 0];
+      if (!isFiniteNumber(x) || !isFiniteNumber(y) || !isFiniteNumber(z)) {
+        return { direct, fill };
+      }
+      // Per-channel screens with colour-scaled caps: a term's channels cap at
+      // `cap * colour / max_colour`, so a warm fixture keeps its ratio at the
+      // cap and each channel still depends only on its own contributions.
+      const directPool = [0, 0, 0];
+      const fillPool = [0, 0, 0];
+      const accumulate = (pool, factor, color, cap) => {
+        if (!(factor > 0) || !isFiniteNumber(factor)) return;
+        const peak = Math.max(color[0], color[1], color[2]);
+        if (!(peak > 0)) return;
+        for (let channel = 0; channel < 3; channel++) {
+          const channelCap = (cap * color[channel]) / peak;
+          if (!(channelCap > 0)) continue;
+          const claim = Math.min(factor * color[channel], channelCap) / channelCap;
+          pool[channel] += Math.max(channelCap - pool[channel], 0) * claim;
+        }
+      };
       for (let i = 0; i < lights.length; i++) {
         const light = lights[i];
         const dx = Math.max(Math.abs(x - light.x) - light.halfW, 0);
         const dz = Math.max(Math.abs(z - light.z) - light.halfD, 0);
         const horizontal = Math.sqrt(dx * dx + dz * dz);
-        if (!(horizontal < TUNING.LOCAL_LIGHT_RADIUS_M)) continue;
-        const vertical = y - light.y;
+        if (!(horizontal < light.fillRange)) continue;
+        // Positive when the sample is below the emitter; a ceiling fixture
+        // only lights what is below it.
+        const vertical = light.y - y;
         const distance = Math.sqrt(horizontal * horizontal + vertical * vertical);
-        if (!(distance < TUNING.LOCAL_LIGHT_RADIUS_M)) continue;
+        let directShape = 0;
+        if (light.directional) {
+          if (vertical > 0 && horizontal < light.range && distance > 0) {
+            let lateral;
+            if (light.falloff === 'constant') lateral = 1.0;
+            else if (light.falloff === 'linear') lateral = 1.0 - horizontal / light.range;
+            else {
+              const u = 1.0 - horizontal / light.range;
+              lateral = u * u;
+            }
+            directShape = lateral * (vertical / distance);
+          }
+        } else if (distance < light.range) {
+          if (light.falloff === 'constant') directShape = 1.0;
+          else if (light.falloff === 'linear') directShape = 1.0 - distance / light.range;
+          else directShape = smoothFalloff(distance / light.range);
+        }
+        const fillShape = distance < light.fillRange
+          ? smoothFalloff(distance / light.fillRange)
+          : 0.0;
+        if (!(directShape > 0) && !(fillShape > 0)) continue;
         // The segment starts at the closest point of the panel, exactly like
         // `LevelLighting::local_light` in the game.
         const source = [
@@ -648,16 +745,26 @@
           Math.min(Math.max(z, light.z - light.halfD), light.z + light.halfD)
         ];
         if (occludes(i, source, [x, y, z])) continue;
-        const strength = TUNING.LOCAL_LIGHT_STRENGTH * light.intensity * light.heightFactor
-          * smoothFalloff(distance / TUNING.LOCAL_LIGHT_RADIUS_M);
-        sum[0] += strength * light.color[0];
-        sum[1] += strength * light.color[1];
-        sum[2] += strength * light.color[2];
-        if (Math.min(sum[0], sum[1], sum[2]) >= TUNING.LOCAL_LIGHT_MAX) {
-          return [TUNING.LOCAL_LIGHT_MAX, TUNING.LOCAL_LIGHT_MAX, TUNING.LOCAL_LIGHT_MAX];
-        }
+        const directStrength = TUNING.LOCAL_LIGHT_STRENGTH * light.intensity * light.heightFactor;
+        const fillStrength = TUNING.FILL_STRENGTH * light.intensity * light.heightFactor;
+        accumulate(
+          directPool,
+          directStrength * directShape,
+          light.color,
+          TUNING.LOCAL_LIGHT_MAX
+        );
+        accumulate(
+          fillPool,
+          fillStrength * fillShape,
+          light.color,
+          TUNING.FILL_MAX
+        );
       }
-      return clampColor(sum, 0, TUNING.LOCAL_LIGHT_MAX);
+      for (let channel = 0; channel < 3; channel++) {
+        direct[channel] = directPool[channel];
+        fill[channel] = fillPool[channel];
+      }
+      return { direct, fill };
     }
 
     /**
@@ -701,12 +808,12 @@
       if (!isFiniteNumber(x) || !isFiniteNumber(y) || !isFiniteNumber(z)) return ambientColor();
       const info = rooms[roomIndex];
       const [clearX, clearZ] = clearSample(roomIndex, x, z);
-      const local = localLight(clearX, y, clearZ);
+      const { direct, fill } = localLight(clearX, y, clearZ);
       const delta = blendDelta(roomIndex, clearX, y, clearZ);
       const value = [
-        info.baseline[0] + local[0] + delta[0],
-        info.baseline[1] + local[1] + delta[1],
-        info.baseline[2] + local[2] + delta[2]
+        info.baseline[0] + direct[0] + fill[0] + delta[0],
+        info.baseline[1] + direct[1] + fill[1] + delta[1],
+        info.baseline[2] + direct[2] + fill[2] + delta[2]
       ];
       if (!Number.isFinite(value[0]) || !Number.isFinite(value[1]) || !Number.isFinite(value[2])) {
         return ambientColor();
@@ -717,9 +824,13 @@
     function sample(x, y, z) {
       const roomIndex = roomIndexAt(x, z);
       if (roomIndex < 0) {
-        const local = localLight(x, y, z);
+        const { direct, fill } = localLight(x, y, z);
         return clampColor(
-          [local[0] + TUNING.AMBIENT_LEVEL, local[1] + TUNING.AMBIENT_LEVEL, local[2] + TUNING.AMBIENT_LEVEL],
+          [
+            direct[0] + fill[0] + TUNING.AMBIENT_LEVEL,
+            direct[1] + fill[1] + TUNING.AMBIENT_LEVEL,
+            direct[2] + fill[2] + TUNING.AMBIENT_LEVEL
+          ],
           TUNING.AMBIENT_LEVEL,
           TUNING.MAX_BRIGHTNESS
         );
@@ -770,6 +881,8 @@
     TUNING,
     ambientColor,
     sanitizeIntensity,
+    sanitizeRange,
+    normalizeFalloff,
     sanitizeColor,
     emittedColor,
     luminance,

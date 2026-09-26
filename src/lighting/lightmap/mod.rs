@@ -23,7 +23,7 @@
 //! -------------
 //! ```text
 //! mod.rs     the frozen types shared by the emitter, the fill pass and the renderer
-//! atlas.rs   the deterministic skyline packer, atlas pages and PNG debugging
+//! atlas.rs   the deterministic MAXRECTS packer, atlas pages and PNG debugging
 //! plan.rs    the per-level plan built while the mesh is emitted
 //! fill.rs    the per-texel light evaluation, called by the atlas builder
 //! cache.rs   the deterministic content key and the level lightmap cache
@@ -40,7 +40,7 @@ mod continuity;
 #[cfg(test)]
 mod tests;
 
-pub use atlas::{LightmapAtlas, LightmapPage, SkylineAllocator, page_png_bytes, write_page_png};
+pub use atlas::{ChartAllocator, LightmapAtlas, LightmapPage, page_png_bytes, write_page_png};
 pub use cache::{LIGHTMAP_FORMAT_VERSION, LightmapCache, content_key, content_key_with_extra};
 pub use fill::fill_chart;
 pub use plan::{LevelLightmaps, LightmapMode, LightmapPlan, LightmapStats};
@@ -86,11 +86,12 @@ impl LightmapFailure {
 
 /// Number of atlas pages the world program can sample at once.
 ///
-/// Both atlas pages are bound for every world draw and the vertex's page byte
-/// selects between them, so a bake that needs more than this cannot render its
-/// lightmaps correctly and must fall back to vertex lighting instead of
-/// dropping pages silently. Mirrors `render::view::LIGHTMAP_PAGE_SLOTS`.
-pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 2;
+/// Every atlas page is one layer of the single `texture_2d_array` the world
+/// program binds, and the vertex's page byte selects the layer, so a bake that
+/// needs more than this cannot render its lightmaps correctly and must fall back
+/// to vertex lighting instead of dropping pages silently. Mirrors the
+/// renderer's own `LIGHTMAP_ATLAS_MAX_PAGES`.
+pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 4;
 
 /// Smallest axis length, in metres, a patch may have.
 ///
@@ -410,12 +411,12 @@ impl LightmapConfig {
     /// the emitter cuts the world's surfaces in exactly the same places at both
     /// densities; only chart texel counts and page usage differ.
     ///
-    /// The densities are the highest that fit the two-page budget on the
-    /// shipped demo with the skyline packer: `Full` 16 texels/m (matches the
+    /// The densities are the highest that fit the page budget on the shipped
+    /// demo with the deterministic packer: `Full` 16 texels/m (matches the
     /// shared cap exactly) and `Low` 9 texels/m, both measured on `places_demo`
-    /// at about 65% and 82% of the two-page budget respectively. A density that
-    /// does not fit the budget is worse than a lower one: the whole level falls
-    /// back to vertex lighting.
+    /// well inside the four-page budget. A density that does not fit the budget
+    /// is worse than a lower one: the whole level falls back to vertex
+    /// lighting.
     #[must_use]
     pub const fn for_profile(profile: crate::quality::QualityProfile) -> Self {
         match profile {

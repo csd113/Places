@@ -46,6 +46,7 @@
 use super::{Chart, LevelLightmaps, LightmapMode, LightmapPage, LightmapPatch, PatchKind};
 use crate::level::LevelDef;
 use crate::lighting::LevelLighting;
+use crate::lighting::tuning::LIGHTMAP_FACE_NORMAL_BIAS_M;
 use crate::loader::PropCatalog;
 use crate::props::PropAssets;
 use crate::quality::QualityProfile;
@@ -341,9 +342,45 @@ fn distance_to_segment(point: [f32; 3], a: [f32; 3], b: [f32; 3]) -> f32 {
 }
 
 /// The baked light at a world point, as the fill pass evaluates it.
-fn light_at(lighting: &LevelLighting, room: Option<usize>, point: [f32; 3]) -> [f32; 3] {
-    let light = lighting.lightmap_texel(room, point[0], point[1], point[2]);
+///
+/// `fill_chart` evaluates a vertical-face texel at the patch point nudged one
+/// [`LIGHTMAP_FACE_NORMAL_BIAS_M`] along the face normal, and sends a texel
+/// that lands inside a wall solid — a junction with a crossing wall, a
+/// floor/ceiling row buried under a wall base — through the walked
+/// `sample_in_room`/`sample` path. Wall charts also resolve their room per
+/// texel (`room = None`); floors, ceilings and skirts keep the patch hint. This
+/// helper mirrors that rule exactly, so a seam measurement compares the page
+/// against the value the fill really stored.
+fn filled_light(lighting: &LevelLighting, patch: &LightmapPatch, u: f32, v: f32) -> [f32; 3] {
+    let point = patch.point_at(u, v);
+    let bias = face_normal_bias(patch);
+    let point = [point[0] + bias[0], point[1] + bias[1], point[2] + bias[2]];
+    let room = match patch.kind {
+        PatchKind::Wall => None,
+        PatchKind::Floor | PatchKind::Ceiling | PatchKind::Skirt => patch.room,
+    };
+    let light = if lighting.wall_contains_point(point[0], point[2]) {
+        room.map_or_else(
+            || lighting.sample(point[0], point[1], point[2]),
+            |room| lighting.sample_in_room(room, point[0], point[1], point[2]),
+        )
+    } else {
+        lighting.lightmap_texel(room, point[0], point[1], point[2])
+    };
     [light.r, light.g, light.b]
+}
+
+/// The world-space nudge the fill pass applies to a vertical-face texel.
+fn face_normal_bias(patch: &LightmapPatch) -> [f32; 3] {
+    if !matches!(patch.kind, PatchKind::Wall | PatchKind::Skirt) {
+        return [0.0; 3];
+    }
+    let normal = patch_normal(patch);
+    [
+        normal[0] * LIGHTMAP_FACE_NORMAL_BIAS_M,
+        normal[1] * LIGHTMAP_FACE_NORMAL_BIAS_M,
+        normal[2] * LIGHTMAP_FACE_NORMAL_BIAS_M,
+    ]
 }
 
 /// One measured coplanar seam.
@@ -387,8 +424,8 @@ fn measure_shared_edge(
             on_patch_edge(a, a.point_at(ua, va)) && on_patch_edge(b, b.point_at(ub, vb)),
             "the sample must lie on both patches' edges"
         );
-        let true_a = light_at(lighting, a.room, a.point_at(ua, va));
-        let true_b = light_at(lighting, b.room, b.point_at(ub, vb));
+        let true_a = filled_light(lighting, a, ua, va);
+        let true_b = filled_light(lighting, b, ub, vb);
         step = step.max(max_abs(sub(rec_a, rec_b)));
         true_step = true_step.max(max_abs(sub(true_a, true_b)));
         peak = peak
@@ -552,8 +589,8 @@ fn a_right_angle_corner_keeps_each_faces_own_light() {
     let (uw, vw) = wall.local_of(corner);
     let rec_floor = reconstruct(page_floor, &floor_chart, uf, vf);
     let rec_wall = reconstruct(page_wall, &wall_chart, uw, vw);
-    let true_floor = light_at(&build.lighting, floor.room, floor.point_at(uf, vf));
-    let true_wall = light_at(&build.lighting, wall.room, wall.point_at(uw, vw));
+    let true_floor = filled_light(&build.lighting, &floor, uf, vf);
+    let true_wall = filled_light(&build.lighting, &wall, uw, vw);
     for (name, reconstructed, truth) in [
         ("floor", rec_floor, true_floor),
         ("wall", rec_wall, true_wall),

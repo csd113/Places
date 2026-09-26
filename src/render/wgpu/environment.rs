@@ -109,7 +109,7 @@ pub struct EnvironmentBindings {
 
 impl EnvironmentBindings {
     /// Creates the uniform buffer and the bind groups over the level's
-    /// lightmap pages, probe cubemaps and planar target.
+    /// lightmap page array, probe cubemaps and planar target.
     ///
     /// `probes` is the level's probe cubemaps in bake order (at most
     /// [`crate::render::common::view::MAX_REFLECTION_PROBES`]); an empty list
@@ -150,8 +150,7 @@ impl EnvironmentBindings {
                     device,
                     layout,
                     &buffer,
-                    lightmaps.page_view(0),
-                    lightmaps.page_view(1),
+                    lightmaps.view(),
                     lightmap_sampler,
                     probe,
                     planar,
@@ -164,8 +163,7 @@ impl EnvironmentBindings {
                 device,
                 layout,
                 &buffer,
-                lightmaps.page_view(0),
-                lightmaps.page_view(1),
+                lightmaps.view(),
                 lightmap_sampler,
                 fallback_probe,
                 planar,
@@ -176,8 +174,7 @@ impl EnvironmentBindings {
             device,
             layout,
             &buffer,
-            lightmaps.page_view(0),
-            lightmaps.page_view(1),
+            lightmaps.view(),
             lightmap_sampler,
             fallback_probe,
             fallback_planar,

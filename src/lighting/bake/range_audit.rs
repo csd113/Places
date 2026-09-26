@@ -37,7 +37,8 @@ use crate::lighting::color::LightColor;
 use crate::lighting::lightmap::{LightmapMode, LightmapPatch, PatchKind, fill_chart};
 use crate::lighting::tuning::LIGHTMAP_FACE_NORMAL_BIAS_M;
 use crate::lighting::{
-    AMBIENT_LEVEL, LOCAL_LIGHT_MAX, LOCAL_LIGHT_STRENGTH, MAX_BRIGHTNESS, ambient_color,
+    AMBIENT_LEVEL, FILL_MAX, FILL_RANGE_MULTIPLIER, FILL_STRENGTH, LOCAL_LIGHT_MAX,
+    LOCAL_LIGHT_STRENGTH, MAX_BRIGHTNESS, ambient_color, smooth_falloff,
 };
 use crate::quality::QualityProfile;
 use crate::render::{LightmapBuildOptions, build_level_geometry_timed_with_lightmaps};
@@ -50,10 +51,14 @@ struct Texel {
     value: LightColor,
     /// Room baseline at the texel's evaluated position.
     baseline: LightColor,
-    /// Visible local fixture pool.
+    /// Visible directional direct pool.
     pool: LightColor,
-    /// Local fixture pool with the visibility test skipped.
+    /// Visible bounce fill.
+    fill: LightColor,
+    /// Direct pool with the visibility test skipped.
     pool_open: LightColor,
+    /// Bounce fill with the visibility test skipped.
+    fill_open: LightColor,
     /// Doorway-blend delta.
     blend: LightColor,
 }
@@ -67,6 +72,7 @@ impl Texel {
     fn open_value(&self) -> LightColor {
         self.baseline
             .plus(self.pool_open)
+            .plus(self.fill_open)
             .plus(self.blend)
             .clamped(AMBIENT_LEVEL, MAX_BRIGHTNESS)
     }
@@ -75,13 +81,18 @@ impl Texel {
     fn potential(&self) -> LightColor {
         self.baseline
             .plus(self.pool)
+            .plus(self.fill)
             .plus(self.blend)
             .clamped(AMBIENT_LEVEL, MAX_BRIGHTNESS)
     }
 
-    /// Light the static occluders remove from this sample, in luminance.
+    /// Local lighting the static occluders remove from this sample, in
+    /// luminance.
     fn occluded_lum(&self) -> f32 {
-        (self.pool_open.luminance() - self.pool.luminance()).max(0.0)
+        (self.pool_open.luminance() + self.fill_open.luminance()
+            - self.pool.luminance()
+            - self.fill.luminance())
+        .max(0.0)
     }
 
     /// Of that removal, how much changes the clamped final value.
@@ -146,24 +157,32 @@ fn demo() -> LevelDef {
 
 /// Mirrors [`LevelLighting::local_light`] with the static-visibility test
 /// deliberately skipped, so the audit can measure what occluders remove.
+///
+/// Returns `(direct, fill)`: the same two screened terms the production path
+/// composes, with `visibility` forced to one. The geometry and the screen
+/// operator are duplicated here on purpose — this is the measurement's
+/// independent reference, and a shared helper would make a production bug
+/// invisible to it.
 fn pool_without_occlusion(
     lighting: &LevelLighting,
     room: Option<usize>,
     x: f32,
     y: f32,
     z: f32,
-) -> LightColor {
+) -> (LightColor, LightColor) {
     if !x.is_finite() || !y.is_finite() || !z.is_finite() {
-        return LightColor::BLACK;
+        return (LightColor::BLACK, LightColor::BLACK);
     }
-    let mut sum = LightColor::BLACK;
+    let mut remaining_direct = [1.0_f32; 3];
+    let mut remaining_fill = [1.0_f32; 3];
     for light in lighting.lights() {
         if !light.is_active() {
             continue;
         }
         let (half_w, half_d) = light.source.half_extents();
         let range = light.source.range;
-        let radius_squared = range * range;
+        let fill_range = range * FILL_RANGE_MULTIPLIER.max(1.0);
+        let reach_squared = fill_range * fill_range;
         if let Some(sample_room) = room
             && let Some(light_room) = light.room
             && light_room != sample_room
@@ -175,26 +194,64 @@ fn pool_without_occlusion(
         let dx = ((x - light.x()).abs() - half_w).max(0.0);
         let dz = ((z - light.z()).abs() - half_d).max(0.0);
         let horizontal_squared = dx * dx + dz * dz;
-        if !horizontal_squared.is_finite() || horizontal_squared >= radius_squared {
+        if !horizontal_squared.is_finite() || horizontal_squared >= reach_squared {
             continue;
         }
-        let vertical = y - light.y();
+        let horizontal = horizontal_squared.sqrt();
+        let vertical = light.y() - y;
         let distance_squared = vertical.mul_add(vertical, horizontal_squared);
-        if !distance_squared.is_finite() || distance_squared >= radius_squared {
+        if !distance_squared.is_finite() {
             continue;
         }
-        let falloff = light.falloff().factor(distance_squared.sqrt() / range);
-        let strength = LOCAL_LIGHT_STRENGTH * light.intensity() * light.height_factor * falloff;
-        sum = LightColor {
-            r: strength.mul_add(light.color().r, sum.r),
-            g: strength.mul_add(light.color().g, sum.g),
-            b: strength.mul_add(light.color().b, sum.b),
+        let distance = distance_squared.sqrt();
+        let direct_shape = if light.directional {
+            if vertical <= 0.0 || distance <= f32::EPSILON || horizontal >= range {
+                0.0
+            } else {
+                let lateral = 1.0 - horizontal / range;
+                let (lateral_squared, incidence) = (lateral * lateral, vertical / distance);
+                lateral_squared * incidence
+            }
+        } else if distance < range {
+            light.falloff().factor(distance / range)
+        } else {
+            0.0
         };
-        if sum.min_channel() >= LOCAL_LIGHT_MAX {
-            return LightColor::grey(LOCAL_LIGHT_MAX);
+        let fill_shape = if distance < fill_range {
+            smooth_falloff(distance / fill_range)
+        } else {
+            0.0
+        };
+        if direct_shape <= 0.0 && fill_shape <= 0.0 {
+            continue;
+        }
+        let color = light.color();
+        for (channel, &value) in [color.r, color.g, color.b].iter().enumerate() {
+            let direct = LOCAL_LIGHT_STRENGTH
+                * light.intensity()
+                * light.height_factor
+                * direct_shape
+                * value;
+            let direct = direct.min(LOCAL_LIGHT_MAX);
+            if let Some(slot) = remaining_direct.get_mut(channel) {
+                *slot *= 1.0 - direct / LOCAL_LIGHT_MAX;
+            }
+            let fill = FILL_STRENGTH * light.intensity() * light.height_factor * fill_shape * value;
+            let fill = fill.min(FILL_MAX);
+            if let Some(slot) = remaining_fill.get_mut(channel) {
+                *slot *= 1.0 - fill / FILL_MAX;
+            }
         }
     }
-    sum.clamped(0.0, LOCAL_LIGHT_MAX)
+    let channel = |remaining: [f32; 3], cap: f32| LightColor {
+        r: cap * (1.0 - remaining[0]),
+        g: cap * (1.0 - remaining[1]),
+        b: cap * (1.0 - remaining[2]),
+    };
+    (
+        channel(remaining_direct, LOCAL_LIGHT_MAX),
+        channel(remaining_fill, FILL_MAX),
+    )
 }
 
 /// The model terms at one evaluated surface position.
@@ -202,26 +259,59 @@ fn terms_at(
     lighting: &LevelLighting,
     room: Option<usize>,
     point: [f32; 3],
-) -> (LightColor, LightColor, LightColor) {
+) -> (LightColor, LightColor, LightColor, LightColor) {
     // A patch outside every room samples the whole-position path, which
     // resolves a room by height; mirror that here.
     let room = room
         .filter(|room| lighting.rooms().get(*room).is_some())
         .or_else(|| lighting.room_index_at_height(point[0], point[1], point[2]));
     let Some(room) = room else {
-        let pool = lighting.local_light(&lighting.all_lights, None, point[0], point[1], point[2]);
-        return (ambient_color(), pool, LightColor::BLACK);
+        let terms = lighting.pool_terms_in_room(None, point[0], point[1], point[2]);
+        let (direct, fill) = screen_terms(&terms);
+        return (ambient_color(), direct, fill, LightColor::BLACK);
     };
     let baseline = lighting.baseline_in_room(room, point[0], point[2]);
-    let pool = lighting.local_light(
-        &lighting.all_lights,
-        Some(room),
-        point[0],
-        point[1],
-        point[2],
-    );
-    let blend = lighting.blend_delta(room, point[0], point[1], point[2]);
-    (baseline, pool, blend)
+    let blend = lighting.opening_blend(room, point[0], point[1], point[2]);
+    let terms = lighting.pool_terms_in_room(Some(room), point[0], point[1], point[2]);
+    let (direct, fill) = screen_terms(&terms);
+    (baseline, direct, fill, blend)
+}
+
+/// Screens the measured terms into `(direct, fill)` with the production caps.
+fn screen_terms(terms: &[super::PoolTerm]) -> (LightColor, LightColor) {
+    let mut remaining_direct = [1.0_f32; 3];
+    let mut remaining_fill = [1.0_f32; 3];
+    for term in terms {
+        let direct = LOCAL_LIGHT_STRENGTH
+            * term.intensity
+            * term.height_factor
+            * term.direct_shape
+            * term.visibility;
+        let fill =
+            FILL_STRENGTH * term.intensity * term.height_factor * term.fill_shape * term.visibility;
+        for (channel, &value) in [term.color.r, term.color.g, term.color.b]
+            .iter()
+            .enumerate()
+        {
+            let contribution = (direct * value).min(LOCAL_LIGHT_MAX);
+            if let Some(slot) = remaining_direct.get_mut(channel) {
+                *slot *= 1.0 - contribution / LOCAL_LIGHT_MAX;
+            }
+            let contribution = (fill * value).min(FILL_MAX);
+            if let Some(slot) = remaining_fill.get_mut(channel) {
+                *slot *= 1.0 - contribution / FILL_MAX;
+            }
+        }
+    }
+    let channel = |remaining: [f32; 3], cap: f32| LightColor {
+        r: cap * (1.0 - remaining[0]),
+        g: cap * (1.0 - remaining[1]),
+        b: cap * (1.0 - remaining[2]),
+    };
+    (
+        channel(remaining_direct, LOCAL_LIGHT_MAX),
+        channel(remaining_fill, FILL_MAX),
+    )
 }
 
 /// The world-space nudge `fill_chart` applies to a patch before evaluation.
@@ -305,7 +395,7 @@ fn measure(level: &LevelDef) -> Measurement {
                     _ => (point[0], point[2]),
                 };
                 let evaluated = [px, point[1], pz];
-                let (baseline, pool, blend) = terms_at(lighting, patch.room, evaluated);
+                let (baseline, pool, fill, blend) = terms_at(lighting, patch.room, evaluated);
                 let open = pool_without_occlusion(
                     lighting,
                     patch.room,
@@ -319,7 +409,9 @@ fn measure(level: &LevelDef) -> Measurement {
                     value: LightColor::rgb(value[0], value[1], value[2]),
                     baseline,
                     pool,
-                    pool_open: open,
+                    fill,
+                    pool_open: open.0,
+                    fill_open: open.1,
                     blend,
                 });
                 index += 1;
@@ -389,17 +481,17 @@ fn decomposition_mismatch(texels: &[Texel]) -> f32 {
 
 /// The counterfactual value with the baseline's span above ambient scaled by
 /// `k`, pools and blends unchanged: the shape the rebalance is choosing.
-fn scaled_value(texel: &Texel, pool: LightColor, k: f32) -> f32 {
-    let channel = |base: f32, local: f32, blend: f32| {
+fn scaled_value(texel: &Texel, pool: LightColor, fill: LightColor, k: f32) -> f32 {
+    let channel = |base: f32, local: f32, fill: f32, blend: f32| {
         (base - AMBIENT_LEVEL)
-            .mul_add(k, AMBIENT_LEVEL + local + blend)
+            .mul_add(k, AMBIENT_LEVEL + local + fill + blend)
             .clamp(AMBIENT_LEVEL, MAX_BRIGHTNESS)
     };
     let baseline = texel.baseline;
     let blend = texel.blend;
-    let red = channel(baseline.r, pool.r, blend.r);
-    let green = channel(baseline.g, pool.g, blend.g);
-    let blue = channel(baseline.b, pool.b, blend.b);
+    let red = channel(baseline.r, pool.r, fill.r, blend.r);
+    let green = channel(baseline.g, pool.g, fill.g, blend.g);
+    let blue = channel(baseline.b, pool.b, fill.b, blend.b);
     red.mul_add(0.2126, green.mul_add(0.7152, blue * 0.0722))
         .clamp(0.0, 1.0)
 }
@@ -409,8 +501,14 @@ fn print_report(measurement: &Measurement, label: &str) {
     let count = texels.len();
     let mut value: Vec<f32> = texels.iter().map(Texel::value_lum).collect();
     let mut baseline: Vec<f32> = texels.iter().map(|t| t.baseline.luminance()).collect();
-    let mut pool: Vec<f32> = texels.iter().map(|t| t.pool.luminance()).collect();
-    let mut open_pool: Vec<f32> = texels.iter().map(|t| t.pool_open.luminance()).collect();
+    let mut pool: Vec<f32> = texels
+        .iter()
+        .map(|t| t.pool.luminance() + t.fill.luminance())
+        .collect();
+    let mut open_pool: Vec<f32> = texels
+        .iter()
+        .map(|t| t.pool_open.luminance() + t.fill_open.luminance())
+        .collect();
     let mut occluded: Vec<f32> = texels.iter().map(Texel::occluded_lum).collect();
     let mut visible: Vec<f32> = texels.iter().map(Texel::visible_occlusion_lum).collect();
     println!(
@@ -423,8 +521,8 @@ fn print_report(measurement: &Measurement, label: &str) {
     );
     Dist::of(&mut value).line("value");
     Dist::of(&mut baseline).line("baseline");
-    Dist::of(&mut pool).line("pool(visible)");
-    Dist::of(&mut open_pool).line("pool(unoccluded)");
+    Dist::of(&mut pool).line("pool+fill(visible)");
+    Dist::of(&mut open_pool).line("pool+fill(open)");
     Dist::of(&mut occluded).line("occluded_removal");
     Dist::of(&mut visible).line("visible_occlusion");
 
@@ -463,7 +561,9 @@ fn print_report(measurement: &Measurement, label: &str) {
     let fully: Vec<&Texel> = texels
         .iter()
         .filter(|t| {
-            t.pool_open.luminance() >= 0.15 && t.pool.luminance() <= 0.1 * t.pool_open.luminance()
+            t.pool_open.luminance() + t.fill_open.luminance() >= 0.15
+                && t.pool.luminance() + t.fill.luminance()
+                    <= 0.1 * (t.pool_open.luminance() + t.fill_open.luminance())
         })
         .collect();
     if !fully.is_empty() {
@@ -523,7 +623,10 @@ fn print_report(measurement: &Measurement, label: &str) {
         } else {
             1.0
         };
-        let mut values: Vec<f32> = texels.iter().map(|t| scaled_value(t, t.pool, k)).collect();
+        let mut values: Vec<f32> = texels
+            .iter()
+            .map(|t| scaled_value(t, t.pool, t.fill, k))
+            .collect();
         let dist = Dist::of(&mut values);
         let clamp = percent(&values, |v| v >= MAX_BRIGHTNESS - 1e-3);
         let hidden = if shadowed_n == 0 {
@@ -532,8 +635,8 @@ fn print_report(measurement: &Measurement, label: &str) {
             shadowed
                 .iter()
                 .filter(|t| {
-                    let open = scaled_value(t, t.pool_open, k);
-                    let value = scaled_value(t, t.pool, k);
+                    let open = scaled_value(t, t.pool_open, t.fill_open, k);
+                    let value = scaled_value(t, t.pool, t.fill, k);
                     (open - value) < 0.25 * t.occluded_lum()
                 })
                 .count() as f32
@@ -545,7 +648,10 @@ fn print_report(measurement: &Measurement, label: &str) {
         } else {
             fully
                 .iter()
-                .map(|t| scaled_value(t, t.pool_open, k) - scaled_value(t, t.pool, k))
+                .map(|t| {
+                    scaled_value(t, t.pool_open, t.fill_open, k)
+                        - scaled_value(t, t.pool, t.fill, k)
+                })
                 .sum::<f32>()
                 / fully.len() as f32
         };
@@ -554,7 +660,7 @@ fn print_report(measurement: &Measurement, label: &str) {
         } else {
             fully
                 .iter()
-                .map(|t| scaled_value(t, t.pool_open, k))
+                .map(|t| scaled_value(t, t.pool_open, t.fill_open, k))
                 .sum::<f32>()
                 / fully.len() as f32
         };
@@ -612,7 +718,9 @@ fn baked_light_range_audit_report() {
     let fully: Vec<&Texel> = texels
         .iter()
         .filter(|t| {
-            t.pool_open.luminance() >= 0.15 && t.pool.luminance() <= 0.1 * t.pool_open.luminance()
+            t.pool_open.luminance() + t.fill_open.luminance() >= 0.15
+                && t.pool.luminance() + t.fill.luminance()
+                    <= 0.1 * (t.pool_open.luminance() + t.fill_open.luminance())
         })
         .collect();
     assert!(fully.len() > 1000, "the demo must contain shadowed samples");

@@ -132,7 +132,7 @@ If the offscreen targets cannot be created (a first frame, or a failed target), 
 
 The shipped pipeline has no gamma handling of its own. Every texture uploads as raw `Rgba8Unorm`, sampling returns the authored display-space values, and the world, decal and UI shaders assemble in that same display space. The single conversion is the sRGB surface: the sRGB entry points apply the IEC 61966-2-1 transfer functions once, at the final copy, so the presented byte equals the value the shader computed.
 
-This is deliberate; the shipped artwork, the material tints and every lighting constant were calibrated together in that space. A shader-only "decode both factors, multiply, re-encode" pair is algebraically an identity and cannot change a single multiply; the place a linear pipeline genuinely differs is where the CPU bake **adds** terms (room baseline + fixture pool + doorway blend). Summing those in linear space would darken every fixture pool by roughly 17–28 % on the shipped constants and compress the channel ratios that make the coloured rooms read as coloured. The contract is: everything up to the presented target is display-space, and the sRGB surface performs the one conversion when the surface format is sRGB. A linear-only surface format is warned about and presented without that encode (§1.4).
+This is deliberate; the shipped artwork, the material tints and every lighting constant were calibrated together in that space. A shader-only "decode both factors, multiply, re-encode" pair is algebraically an identity and cannot change a single multiply; the place a linear pipeline genuinely differs is where the CPU bake **adds** terms (room baseline + directional pool + bounce fill + doorway blend). Summing those in linear space would darken every fixture pool by roughly 17–28 % on the shipped constants and compress the channel ratios that make the coloured rooms read as coloured. The contract is: everything up to the presented target is display-space, and the sRGB surface performs the one conversion when the surface format is sRGB. A linear-only surface format is warned about and presented without that encode (§1.4).
 
 The world shader has raw and sRGB entry points (`fs_main`/`fs_main_raw`, `fs_cutout`/`fs_cutout_raw`, plus the emissive variants): the raw entry points write the display-space assembly straight to a raw target, the sRGB entry points convert for the surface paths. The unlit bypass keeps a direct sample byte-exact: when the vertex colour is white, the light factor is ≥ 1 and the sheen is zero, the sampled base colour is written unchanged. Alpha never passes through the transfer functions: it is the straight scalar product `texel.a × vertex.a × opacity`.
 
@@ -504,15 +504,45 @@ A `LightSource` is a shape (`Point`, `Rect`, `Line` — a line is a thin rect), 
 Per sample point and channel:
 
 ```text
-room baseline   = clamp(0.50 · c + 0.10, 0.10, 0.60)
+room baseline   = clamp(0.42 · c + 0.10, 0.10, 0.52)
                   c = n / (1 + n), n = ln(1 + (power / area) · 500)
                   power = Σ intensity · sqrt(3.5 / ceiling_height) · colour
-local pools     = clamp(0.45, Σ 0.42 · intensity · height_factor · falloff · visibility · colour)
+direct pool     = screen(Σ per light, cap 0.45)
+                  ceiling fixtures: 0.60 · intensity · height_factor · lateral · incidence · visible
+                    lateral = (1 - horizontal/range)², incidence = vertical/distance,
+                    skipped when the sample is not below the emitter
+                  wall/prop lights: 0.60 · intensity · height_factor · falloff(d/range) · visible
+bounce fill     = screen(Σ per light, cap 0.26)
+                  0.26 · intensity · height_factor · smooth_falloff(d / (1.5·range)) · visible
 opening blend   = 0.5 · smooth_falloff(d / 6) · (neighbour_baseline - own_baseline)
-light           = clamp(baseline + pools + blend, 0.10, 1.0)
+light           = clamp(baseline + direct + fill + blend, 0.10, 1.0)
 ```
 
-`AMBIENT_LEVEL = 0.10` is the floor; an unlit room is dark by design. `BASELINE_MAX = 0.60` deliberately leaves the highlight headroom to the pools, because a pool is the only term a static occluder can remove. A room split by opaque internal walls gets one baseline per connected area, and a doorway still blends the two areas through the aperture. Floor interfaces and ceiling bodies isolate storeys, so a fixture cannot light through a slab. Pool visibility is a binary (vertex-lit) or multi-tap soft (atlas) test against the same wall solids, floor interfaces, ceiling bodies and prop-derived boxes the geometry and collision use: High bakes with two taps per axis and 0.075 m prop-occlusion cells, Medium with two taps and 0.11 m, Low with one tap and 0.15 m. Openings transmit light through the hole they cut (the wall solid is removed); glass and grille panes do not have their own material alpha consulted, so a translucent pane transmits exactly like the opening.
+`smooth_falloff(t) = (1-t)²(1+2t)`; `screen` is applied sequentially per
+light, per channel: `pool ← pool + (cap_i - pool) · min(c_i, cap_i) / cap_i`,
+with each light's channels capped at `cap · colour[channel] / max_colour`, so a
+warm fixture keeps its colour to the cap instead of whitening and every channel
+depends only on its own contributions.
+
+`AMBIENT_LEVEL = 0.10` is the floor; an unlit room is dark by design. The
+baseline is deliberately the smaller *fill*: the visibility-tested direct pool
+is the light that shapes a room and the only term a static occluder can remove,
+so the fill leaves the highlight headroom to it. The bounce fill is the room's
+first reflected light: a recessed panel does not point at its own ceiling, but
+the room's bounce does, so ceilings and upper walls receive a broad weak halo
+(0.26 cap) instead of the bare ambient. A room split by opaque internal walls
+gets one baseline per connected area, and a doorway still blends the two areas
+through the aperture. Floor interfaces and ceiling bodies isolate storeys, so a
+fixture cannot light through a slab. Pool visibility is a binary (vertex-lit)
+or multi-tap soft (atlas) test against the same wall solids, floor interfaces,
+ceiling bodies and prop-derived boxes the geometry and collision use: High
+bakes with two taps per axis and 0.075 m prop-occlusion cells, Medium with two
+taps and 0.11 m, Low with one tap and 0.15 m. Openings transmit light through
+the hole they cut (the wall solid is removed); glass and grille panes do not
+have their own material alpha consulted, so a translucent pane transmits
+exactly like the opening. A light's query site is prefilted to
+`range + hypot(half_w, half_d)` so a solid just beyond the pool's lateral reach
+still blocks a far emitter tap.
 
 ### 7.4 Atlas and vertex-lit storage
 
@@ -521,7 +551,7 @@ light           = clamp(baseline + pools + blend, 0.10, 1.0)
 
 The bake is the same CPU code in both modes; only the storage differs, and `LightmapMode::Off` always bakes with `BakeConfig::HARD` (one visibility tap, 0.15 m prop-occlusion cell) whatever the quality level, which keeps the vertex-lit fallback identical in shape and light to the always-supported path.
 
-The atlas itself: the level build requests `LightmapBuildOptions::for_lightmaps(lightmaps)` when the Lightmaps setting is not `Off`; the neutral bake, planner, fill and content key are shared with the rest of the engine, and the renderer restores the same `cache/lightmaps/v5-<hash>` entries (measured on Places Demo, release: an uncached Full fill is ~1.8 s inline and ~2.2 s on the worker under load; a hit is 0 ms). Atlas pages are raw `Rgba8Unorm` (the alpha byte is 255 and never read). `WorldVertex` carries `lightmap_uv` as `Unorm16x2` and `lightmap_page` as a plain float. `surface_light()` samples `mix(page0, page1, step(0.5, page))` only when `lightmap_enabled * (1 - step(254.5, page)) > 0.5`, then multiplies by `light_scale`; `LIGHTMAP_NONE` keeps the vertex-lit colour exactly. Sheen, reflection and emission are all scaled by that same light factor, so a dark room darkens them. A wall chart resolves its room **per texel** at the bias-shifted sample point rather than from the patch's per-run hint: abutting wall pieces coalesce into emission units whose length runs can cross a room boundary, and a single hint would make the baked light step at the arbitrary run seam instead of at the room boundary. Floors and ceilings are emitted per room and keep their exact hint. The Lightmaps setting bakes: Full at 16 texels/m onto 1024² pages with two taps per axis and 0.075 m prop cells; Medium at 12 texels/m onto the same 1024² pages with two taps and 0.11 m cells; Off at no atlas at all (the validated historical vertex-lit path, whose bake is always the one-tap/0.15 m `BakeConfig::HARD`). The content key follows the effective configuration, never the overall quality label, so `Low + Lightmaps Full` reuses the same Full cache entry as `High + Lightmaps Full` while Medium and Full never collide. A plan/fill failure keeps the neutral build's vertex-lit mesh — only an actual atlas-upload failure rebuilds — and the failure is logged.
+The atlas itself: the level build requests `LightmapBuildOptions::for_lightmaps(lightmaps)` when the Lightmaps setting is not `Off`; the neutral bake, planner, fill and content key are shared with the rest of the engine, and the renderer restores the same `cache/lightmaps/v8-<hash>` entries (measured on Places Demo, release: an uncached Full fill is ~1.7 s on the worker; a hit is 0 ms). The atlas is **one `texture_2d_array` of up to four 1024² pages** (four 512² pages at the Low profile); the vertex's `lightmap_page` byte is the layer index, so the same shader expression addresses any page count without a per-page branch. Atlas pages are raw `Rgba8Unorm` (the alpha byte is 255 and never read). `WorldVertex` carries `lightmap_uv` as `Unorm16x2` and `lightmap_page` as a plain float. `surface_light()` samples the array at the layer only when `lightmap_enabled * (1 - step(254.5, page)) > 0.5`, then multiplies by `light_scale`; `LIGHTMAP_NONE` keeps the vertex-lit colour exactly. Sheen, reflection and emission are all scaled by that same light factor, so a dark room darkens them. A wall chart resolves its room **per texel** through the same rule the vertex bake's face sampling uses: strict containment wins at the bias-shifted sample point, and a texel that only touches a boundary falls back to the patch's own room with its position clamped into it. Abutting wall pieces coalesce into emission units whose length runs can cross a room boundary, so a single per-run hint would make the baked light switch room at the arbitrary run seam; the strict-first order keeps the light following the world, while the room hint keeps a boundary face lit by the room it actually opens into instead of whichever overlapping neighbour the loose tie-break preferred (the defect that left The Pit's shaft walls at ambient). Floors and ceilings are emitted per room and keep their exact hint. The Lightmaps setting bakes: Full at 16 texels/m onto 1024² pages with two taps per axis and 0.075 m prop cells; Medium at 12 texels/m onto the same 1024² pages with two taps and 0.11 m cells; Off at no atlas at all (the validated historical vertex-lit path, whose bake is always the one-tap/0.15 m `BakeConfig::HARD`). Four pages are not merely a larger budget: the packer is a deterministic best-short-side-fit MaxRects allocator, and the shipped demo and The Pit pack into two and four pages respectively, where the pre-rework skyline allocator needed a fifth page for The Pit (recorded during the capacity change; the same level needs six 512-texel pages, so the Low profile cannot hold it). A level that genuinely needs more than four pages keeps the neutral build's vertex-lit mesh and reports the named `PageOverflow` failure — a partial or black atlas is never drawn. The content key follows the effective configuration, never the overall quality label, so `Low + Lightmaps Full` reuses the same Full cache entry as `High + Lightmaps Full` while Medium and Full never collide; it also folds in a fingerprint of the lighting model's constants (`model_fingerprint`), so recalibrating the bake invalidates cached atlases even when the level and configuration are unchanged. A plan/fill failure keeps the neutral build's vertex-lit mesh — only an actual atlas-upload failure rebuilds — and the failure is logged.
 
 ### 7.5 The sheen
 
@@ -542,11 +572,11 @@ There is no light direction to place a real highlight; both lobes are scaled by 
 
 ### 7.6 Shadows
 
-There is no GPU shadow system: no shadow render target, no shadow camera or projection matrix, no depth texture sampled as data, no comparison sampler, no PCF kernel, no caster list and no per-light shadow pass. Every shadow in Places is a surface losing a baked pool: opaque wall solids block pools with every opening kind (door, window, vent) cutting the hole it really cuts; room floors contribute zero-thickness interfaces and ceilings solid bodies, which stops light crossing a storey; each static prop's real (or placeholder) model is ground into oriented boxes that block pools and darken the prop's own contact area; alpha and blend state are never consulted, so a cut-out grille pane and a translucent glass pane transmit light exactly like the opening they fill; trim (baseboards, thresholds) does not block, while structural pieces (half walls, columns, archways, guardrails, stairs) do; dynamic objects cast no baked shadow, by design.
+There is no GPU shadow system: no shadow render target, no shadow camera or projection matrix, no depth texture sampled as data, no comparison sampler, no PCF kernel, no caster list and no per-light shadow pass. Every shadow in Places is a surface losing a baked pool: opaque wall solids block pools with every opening kind (door, window, vent) cutting the hole it really cuts; room floors contribute zero-thickness interfaces and ceilings solid bodies, which stops light crossing a storey; each static prop's real (or placeholder) model is ground into oriented boxes that block pools and darken the prop's own contact area; alpha and blend state are never consulted, so a cut-out grille pane and a translucent glass pane transmit light exactly like the opening they fill; trim (baseboards, thresholds) does not block, while structural pieces (half walls, columns, archways, guardrails, stairs) do; dynamic objects cast no baked shadow, by design. The trim exemption is geometric, not an oversight: a 12 mm threshold step shadows only the floor it covers, and a 9 cm baseboard hugs its wall so every floor point is already on the fixture's side of it — a thin occluder box would change nothing outside the board's own footprint, which the visibility tests pin (`a_threshold_height_step_shadows_only_its_own_footprint`, `a_baseboard_against_its_wall_does_not_shadow_the_open_floor`).
 
 ### 7.7 Resources
 
-No lighting resource is created per frame. The only new per-frame upload is the camera uniform (matrix **and** eye), written with `Queue::write_buffer` and skipped entirely while both are unchanged. No light buffer, light array, shadow target, shadow sampler or lighting bind group exists. Probes: at most two cubemaps (6 faces of 64²/48²/32² raw RGBA8 at High/Medium/Low) baked at load (12 scene submissions). For a vertex-lit build the bake is `BakeConfig::HARD` at every level, so geometry and light are identical and only the response gate differs; for an atlas build the level selects density, page size, tap count and prop-occlusion cell (§7.4).
+No lighting resource is created per frame. The only new per-frame upload is the camera uniform (matrix **and** eye), written with `Queue::write_buffer` and skipped entirely while both are unchanged. No light buffer, light array, shadow target, shadow sampler or lighting bind group exists. The lightmap is one level-scoped `texture_2d_array` (four 1024² RGBA8 layers at Full/Medium, four 512² layers at Low) plus a 1×1 white fallback array; both are uploaded once per bake and dropped with the level. Probes: at most two cubemaps (6 faces of 64²/48²/32² raw RGBA8 at High/Medium/Low) baked at load (12 scene submissions). For a vertex-lit build the bake is `BakeConfig::HARD` at every level, so geometry and light are identical and only the response gate differs; for an atlas build the level selects density, page size, tap count and prop-occlusion cell (§7.4).
 
 ## 8. Reflections
 
@@ -606,7 +636,7 @@ The lightmap and reflection budgets are owned by the advanced settings, not the 
 | Surface / fixture / decal sheets | 256 | 512 | 1024 | `QualityLevel::budget` |
 | Emission masks | 128 | 256 | 512 | `QualityLevel::budget` |
 | Prop sheets | 128 | 256 | 256 | `QualityLevel::budget` |
-| Atlas: texels/m, page edge, padding | 9, 512, 1 | 12, 1024, 2 | 16, 1024, 2 | `LightmapQuality::lightmap_config` |
+| Atlas: texels/m, page edge, pages, padding | 9, 512, 4, 1 | 12, 1024, 4, 2 | 16, 1024, 4, 2 | `LightmapQuality::lightmap_config` |
 | Bake taps per axis / prop-occlusion cell | 1 / 0.15 m | 2 / 0.11 m | 2 / 0.075 m | `LightmapQuality::bake_config` |
 | Surface response (normal map + sheen + reflection strength) | gated off | drawn | drawn | `draws_surface_response` |
 | Scene resolution | ≤ 480 wide, aspect preserved | half the drawable, aspect preserved | drawable | `scene_target_size` |
@@ -699,7 +729,7 @@ Recoverable events (surface timeout, surface lost/outdated) are reported at most
 
 The renderer was ported feature-for-feature from the project's former GLES2 implementation, which is preserved in Git at the `renderer-gles2-reference` tag (commit `797370e17aab1409a5de3ea70b9a68f742452`); mainline has no dependency on it, and the historical renderer audit and parity evidence live in that snapshot and in mainline Git history. See [RENDERER_REFERENCE.md](RENDERER_REFERENCE.md) for the map.
 
-The recorded comparison figures below are the current renderer measured against that preserved implementation on macOS/Metal (same asset root, 1280×720, default settings, per-pixel worst RGB channel, 0..255). They bound future regressions; a capture compared between two builds of this renderer can require byte equality instead.
+The recorded comparison figures below are the current renderer measured against that preserved implementation on macOS/Metal (same asset root, 1280×720, default settings, per-pixel worst RGB channel, 0..255). They bound future regressions; a capture compared between two builds of this renderer can require byte equality instead. **The lighting rework (four-page array atlas, directional pools and bounce fill) intentionally changes lit pixels, so the atlas/lightmap-related rows below are the pre-rework records and no longer describe the current bake; they remain the preserved implementation's comparison basis.**
 
 | Metric | Value |
 |---|---|
@@ -737,7 +767,7 @@ The renderer's contracts are covered by in-crate tests, most of which run withou
 - **Camera:** the 80-byte uniform layout, the write predicate, the sRGB clear colours against the reference display value.
 - **Textures:** key semantics, exact 2x2 and odd-edge mip averages, 1x1 idempotence, constant chains, resident bytes, sampler policies, wrap selection, the fallback's committed pixels, raw display-space sampling.
 - **Materials:** resolution rules, the 80-byte uniform and its flags, the display-space colour maths against every authored texel byte, normal decode, alpha classification, blend state, translucent ordering, fallbacks.
-- **Lighting:** the sheen equation (CPU mirror), the display-space assembly order, the unlit bypass conditions, the vertex-lit build's byte-for-byte mesh, the lightmap CPU mirror of `surface_light`, the `needs_upload_fallback` rule.
+- **Lighting:** the sheen equation (CPU mirror), the display-space assembly order, the unlit bypass conditions, the vertex-lit build's byte-for-byte mesh, the lightmap CPU mirror of `surface_light`, the `needs_upload_fallback` rule. The rework adds: the directional ceiling pool's row profile (brightest beneath the fixture), the scalar-per-channel screen with colour-scaled caps, bounce-fill energy, the query-site radius covering the emitter extent, zone-seam continuity on a narrow strip, the four-page MaxRects allocator and its fifth-page rejection, The Pit baking within the four-page budget at both profiles, a distant room leaving a lit room's light unchanged, light-order stability, baseboard/threshold non-participation, and the editor parity vectors against the Rust model.
 - **Reflections:** the six face directions/ups, the 90° projection with the Y flip, the planar mirror composition, `+1.2 m` bake position, nearest probe/plane rules, and the ignored GPU cube round-trip.
 - **Characters:** the skinning delta maths against a synthetic two-bone rig, bind-pose bounds, joint/weight parsing and malformed-skin rejection, blend-weight convergence, distance-driven walking phase, frame-rate-independent playback at 30/60/144 fps, clip name mapping and LINEAR/STEP sampling, crossfades, orthonormal finite matrices across state switches, and no per-frame reallocation.
 - **Water:** one translucent floor quad per authored volume at its surface height, the volume's opacity in the vertex alpha, no lightmap page, the `blend` material in the sorted translucent pass, and back-to-front ordering shared with the other translucent surfaces.

@@ -15,7 +15,7 @@
 
 use super::*;
 use crate::level::LevelDef;
-use crate::test_support::{assert_exact, scan};
+use crate::test_support::{assert_exact, scan, scan_below};
 
 /// One rectangular room with `lights` fixtures evenly spread across it.
 fn level_with_room(width: f32, depth: f32, height: f32, intensities: &[f32]) -> LevelDef {
@@ -299,10 +299,11 @@ fn brightness_saturates_instead_of_growing_without_bound() {
         sparse.rooms()[0].baseline
     );
     // The fill saturates towards its own ceiling rather than towards white:
-    // 200 fixtures reach 0.535 of the 0.578 the default warm colour can give
-    // at the ceiling, i.e. the curve has stopped responding to fixture count.
+    // 200 fixtures reach the 0.40 fill ceiling (`BASELINE_MAX`), where the
+    // default warm colour's luminance is about 0.37, i.e. the curve has
+    // stopped responding to fixture count.
     assert!(
-        baseline.max_channel() <= MAX_BRIGHTNESS && baseline.luminance() > 0.5,
+        baseline.max_channel() <= MAX_BRIGHTNESS && baseline.luminance() > 0.35,
         "an absurd fixture count must saturate near the fill ceiling, got {baseline:?}"
     );
     assert!(baseline.is_finite());
@@ -335,9 +336,11 @@ fn a_room_without_fixtures_is_dim_but_never_black() {
     let sample = lighting.sample(10.0, 0.0, 10.0);
     assert_eq!(sample, ambient_color());
     // A lit room of the same size is meaningfully brighter than the ambient
-    // floor, so the floor is not doing the illumination work.
+    // floor, so the floor is not doing the illumination work. The rebalanced
+    // fill spans `[0.10, 0.40]`, so the ratio follows that span rather than
+    // the historical 3x.
     let lit = LevelLighting::bake(&level_with_room(20.0, 20.0, 3.5, &[1.0]));
-    assert!(lit.rooms()[0].baseline.luminance() > sample.luminance() * 3.0);
+    assert!(lit.rooms()[0].baseline.luminance() > sample.luminance() * 2.0);
 }
 
 #[test]
@@ -785,21 +788,41 @@ fn fixture_plane_follows_the_room_ceiling() {
 
 #[test]
 fn vertically_offset_samples_follow_their_true_position() {
-    // Same (x, z), different heights: below the fixture plane the pool is
-    // weaker than right next to the panel.
+    // Samples at the same (x, z) but different heights follow the fixture's
+    // real position: directly under the emitter a horizontal surface sees the
+    // same pool at any height (the area light's result), a point one metre to
+    // the side at the emitter's own height is darker than the floor beneath
+    // (the directional lobe), and a distant point is darker still.
     let json = r#"{
         "format_version": 1,
         "id": "height_sample",
         "name": "Height Sample",
         "spawn": { "x": 0.0, "z": 0.0 },
         "rooms": [{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 }],
-        "ceiling_lights": [{ "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 5.0 }]
+        "ceiling_lights": [{
+            "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 5.0, "brightness": 0.4
+        }]
     }"#;
     let level = LevelDef::from_json(json).expect("valid json");
     let lighting = LevelLighting::bake(&level);
     let floor = lum(&lighting, 5.0, 0.0, 5.0);
-    let beside_panel = lum(&lighting, 5.0, 2.8, 5.0);
-    assert!(beside_panel > floor);
+    let just_below_panel = lum(&lighting, 5.0, 2.8, 5.0);
+    let beside_at_panel_height = lum(&lighting, 6.0, 2.8, 5.0);
+    let distant = lum(&lighting, 8.0, 0.0, 5.0);
+    assert!(
+        (just_below_panel - floor).abs() < 0.04,
+        "under the emitter the direct pool is height-independent (the bounce fill still \
+         falls with distance): {just_below_panel} vs {floor}"
+    );
+    assert!(
+        beside_at_panel_height < floor - 0.1,
+        "a sample at the emitter's height, off to the side, is weaker: \
+         {beside_at_panel_height} vs {floor}"
+    );
+    assert!(
+        distant < floor - 0.1,
+        "a distant sample is weaker than the floor beneath: {distant} vs {floor}"
+    );
 }
 
 #[test]
@@ -2256,3 +2279,1003 @@ fn lightmap_texel_with_no_room_resolves_by_containment() {
     assert_eq!(outside, lighting.sample(20.0, 0.0, 20.0));
     assert!(outside.luminance() <= AMBIENT_LEVEL + f32::EPSILON);
 }
+
+// ------------------------------------------------- developer diagnostics
+//
+// Tooling for the lighting rebalance. `lighting_developer_report` prints a
+// baked level's rooms, areas, powers, baselines and per-area baselines and
+// decomposes labelled world samples into baseline + pool + blend + final.
+// `lighting_candidate_sweep` re-evaluates the whole model under candidate
+// constants from the *measured* fixture terms, so calibration choices can be
+// compared without rebuilding. Both are developer-facing and deterministic;
+// the ignored tests at the bottom of the section write them under
+// `target/agent-work/agent-a/`.
+//
+// The decomposition is exact by construction: `bake_terms_in_room` shares the
+// production sample path, and `pool_terms_in_room` shares the production
+// per-fixture term, so the report cannot silently describe a different model.
+
+use super::bake::PoolTerm;
+use crate::quality::QualityProfile;
+
+/// `(r,g,b)` at four decimals, for the developer report.
+fn color_text(color: LightColor) -> String {
+    format!("({:.4},{:.4},{:.4})", color.r, color.g, color.b)
+}
+
+/// Sorted percentile of a sample set; `p` in `0.0..=1.0`.
+// The index is clamped to a non-negative integer no larger than `len - 1`
+// before the cast, so the truncation and sign-loss lints cannot describe a
+// possible value here.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn percentile(values: &mut [f32], p: f32) -> f32 {
+    if values.is_empty() {
+        return 0.0;
+    }
+    values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let last = values.len().saturating_sub(1);
+    let index = (p.clamp(0.0, 1.0) * last as f32).round().min(last as f32);
+    values[index as usize]
+}
+
+/// Aggregate model statistics over the floor grid of every room.
+#[derive(Default)]
+struct FloorGridStats {
+    samples: usize,
+    clamped: usize,
+    pool_hits: usize,
+    pool_mean_sum: f32,
+    values: Vec<f32>,
+}
+
+impl FloorGridStats {
+    /// Walks every room's floor on a `step_m` grid at the room's own floor
+    /// height and records the final value and pool term at each point.
+    ///
+    /// The grid is anchored half a step in from the footprint corner, so it
+    /// never sits exactly on a room boundary and always samples real floor.
+    fn collect(&mut self, lighting: &LevelLighting, step_m: f32) {
+        let step = step_m.max(0.05);
+        for (index, room) in lighting.rooms().iter().enumerate() {
+            for x in scan_below(room.x0 + step * 0.5, step, room.x1) {
+                for z in scan_below(room.z0 + step * 0.5, step, room.z1) {
+                    let terms = lighting.bake_terms_in_room(index, x, room.floor_y, z);
+                    self.samples = self.samples.saturating_add(1);
+                    if terms.value.max_channel() >= MAX_BRIGHTNESS - 1e-4 {
+                        self.clamped = self.clamped.saturating_add(1);
+                    }
+                    if terms.pool.max_channel() >= 0.05 {
+                        self.pool_hits = self.pool_hits.saturating_add(1);
+                        self.pool_mean_sum += terms.pool.luminance();
+                    }
+                    self.values.push(terms.value.luminance());
+                }
+            }
+        }
+    }
+
+    fn clamped_percent(&self) -> f32 {
+        if self.samples == 0 {
+            return 0.0;
+        }
+        self.clamped as f32 * 100.0 / self.samples as f32
+    }
+
+    fn pool_cover_percent(&self) -> f32 {
+        if self.samples == 0 {
+            return 0.0;
+        }
+        self.pool_hits as f32 * 100.0 / self.samples as f32
+    }
+
+    fn mean_pool(&self) -> f32 {
+        if self.pool_hits == 0 {
+            0.0
+        } else {
+            self.pool_mean_sum / self.pool_hits as f32
+        }
+    }
+}
+
+/// Human-readable report of one baked level: rooms, per-area baselines and the
+/// three model terms at each labelled world sample.
+///
+/// Deterministic: the same level and sample list always produce the same text.
+#[allow(clippy::too_many_lines)] // one linear report writer, not a structure
+fn lighting_developer_report(
+    level: &LevelDef,
+    label: &str,
+    samples: &[(&str, f32, f32, f32)],
+) -> String {
+    use std::fmt::Write as _;
+    let lighting = LevelLighting::bake_with(level, QualityProfile::Full.bake_config());
+    let summary = lighting.summary();
+    let mut out = String::new();
+    let _ = writeln!(out, "=== {label} ===");
+    let _ = writeln!(
+        out,
+        "rooms={} zones={} lights={} blockers={} (walls={} props={})",
+        summary.rooms,
+        summary.zones,
+        summary.lights,
+        summary.blockers,
+        summary.walls,
+        summary.props
+    );
+    let _ = writeln!(
+        out,
+        "baseline lum: min={:.4} max={:.4} mean={:.4}",
+        summary.min_baseline, summary.max_baseline, summary.average_baseline
+    );
+    for (index, room) in lighting.rooms().iter().enumerate() {
+        let _ = writeln!(
+            out,
+            "room r{index} footprint=({:.2},{:.2})..({:.2},{:.2}) area={:.2} h={:.2} floor={:.2} fixtures={} power={} baseline={} lum={:.4}",
+            room.x0,
+            room.z0,
+            room.x1,
+            room.z1,
+            room.area_m2,
+            room.height_m,
+            room.floor_y,
+            room.fixture_count,
+            color_text(room.effective_power),
+            color_text(room.baseline),
+            room.baseline.luminance()
+        );
+        let zones = lighting.zones_in_room(index);
+        for (zone_index, zone) in zones.iter().enumerate() {
+            let _ = writeln!(
+                out,
+                "  area[{zone_index}] floor_area={:.2} fixtures={} power={} baseline={} lum={:.4}",
+                zone.area_m2,
+                zone.fixture_count,
+                color_text(zone.power),
+                color_text(zone.baseline),
+                zone.baseline.luminance()
+            );
+        }
+    }
+    let _ = writeln!(out, "samples (baseline / direct / fill / blend / final):");
+    for (name, x, y, z) in samples {
+        let terms = lighting.bake_terms(*x, *y, *z);
+        let _ = writeln!(
+            out,
+            "  {name}: ({x:.2},{y:.2},{z:.2}) room={:?} baseline={} direct={} fill={} blend={} final={} lum={:.4}",
+            terms.room,
+            color_text(terms.baseline),
+            color_text(terms.pool),
+            color_text(terms.fill),
+            color_text(terms.blend),
+            color_text(terms.value),
+            terms.value.luminance()
+        );
+        for term in lighting.pool_terms_in_room(terms.room, *x, *y, *z) {
+            let _ = writeln!(
+                out,
+                "      light[{}] d={:.3} dh={:.3} dv={:.3} dir={} direct={:.4} fill={:.4} vis={:.3} i={:.3} hf={:.4} color={}",
+                term.light,
+                term.distance_m,
+                term.horizontal_m,
+                term.vertical_m,
+                term.directional,
+                term.direct_shape,
+                term.fill_shape,
+                term.visibility,
+                term.intensity,
+                term.height_factor,
+                color_text(term.color)
+            );
+        }
+        // The terms must reproduce the public sample path exactly, or the
+        // report would be describing a model that is not the one rendered.
+        let direct = lighting.sample(*x, *y, *z);
+        if direct != terms.value {
+            let _ = writeln!(
+                out,
+                "    !! decomposition mismatch: sample()={} terms={}",
+                color_text(direct),
+                color_text(terms.value)
+            );
+        }
+    }
+    let mut grid = FloorGridStats::default();
+    grid.collect(&lighting, 1.0);
+    let mut values = grid.values.clone();
+    let _ = writeln!(
+        out,
+        "floor-grid(1m): samples={} clamped={:.2}% pool>=0.05={:.1}% mean_pool={:.4} lum p05={:.4} p50={:.4} p90={:.4} max={:.4}",
+        grid.samples,
+        grid.clamped_percent(),
+        grid.pool_cover_percent(),
+        grid.mean_pool(),
+        percentile(&mut values, 0.05),
+        percentile(&mut values, 0.50),
+        percentile(&mut values, 0.90),
+        values.last().copied().unwrap_or(0.0)
+    );
+    out
+}
+
+/// One candidate calibration of the baked model, for the sweep.
+#[derive(Clone, Copy)]
+struct ModelCandidate {
+    label: &'static str,
+    /// Multiplier on the normalised fixture density before log compression.
+    density_scale: f32,
+    /// Fill ceiling of the baseline curve, per channel.
+    baseline_max: f32,
+    /// Per-fixture direct-pool strength at the emitter.
+    direct_strength: f32,
+    /// Cap on the screened direct composition, per channel.
+    direct_max: f32,
+    /// Per-fixture bounce-fill strength at the emitter.
+    fill_strength: f32,
+    /// Cap on the screened fill composition, per channel.
+    fill_max: f32,
+}
+
+/// Candidate baseline of one room area, mirroring `math::room_baseline` with
+/// the candidate's density scale and fill ceiling.
+fn candidate_baseline(power: LightColor, area_m2: f32, candidate: ModelCandidate) -> LightColor {
+    let area = if area_m2.is_finite() {
+        area_m2.max(MIN_ROOM_AREA_M2)
+    } else {
+        MIN_ROOM_AREA_M2
+    };
+    let channel = |value: f32| -> f32 {
+        let density = value.max(0.0) / area;
+        let n = (density * REFERENCE_LIGHT_AREA_M2 * candidate.density_scale).ln_1p();
+        let c = n / (1.0 + n);
+        (candidate.baseline_max - AMBIENT_LEVEL)
+            .mul_add(c, AMBIENT_LEVEL)
+            .clamp(AMBIENT_LEVEL, candidate.baseline_max)
+    };
+    LightColor {
+        r: channel(power.r),
+        g: channel(power.g),
+        b: channel(power.b),
+    }
+}
+
+/// Candidate screened `(direct, fill)` at one sample from the measured terms.
+///
+/// The candidate's strengths and caps replace the production constants; the
+/// shape factors (directional direct, isotropic fill) and the screen operator
+/// are the production ones. `ignore_visibility` drops the occlusion factor,
+/// which is how the sweep measures what occluders remove.
+fn candidate_light(
+    terms: &[PoolTerm],
+    candidate: ModelCandidate,
+    ignore_visibility: bool,
+) -> (LightColor, LightColor) {
+    let mut direct = [0.0_f32; 3];
+    let mut fill = [0.0_f32; 3];
+    for term in terms {
+        let visibility = if ignore_visibility {
+            1.0
+        } else {
+            term.visibility
+        };
+        let direct_factor = candidate.direct_strength
+            * term.intensity
+            * term.height_factor
+            * term.direct_shape
+            * visibility;
+        let fill_factor = candidate.fill_strength
+            * term.intensity
+            * term.height_factor
+            * term.fill_shape
+            * visibility;
+        let accumulate = |pool: &mut [f32; 3], factor: f32, cap: f32| {
+            if !factor.is_finite() || factor <= 0.0 || !(cap.is_finite() && cap > 0.0) {
+                return;
+            }
+            let peak = term.color.max_channel();
+            if !peak.is_finite() || peak <= 0.0 {
+                return;
+            }
+            for (channel, value) in [term.color.r, term.color.g, term.color.b]
+                .into_iter()
+                .enumerate()
+            {
+                let channel_cap = cap * value / peak;
+                if !channel_cap.is_finite() || channel_cap <= 0.0 {
+                    continue;
+                }
+                let Some(slot) = pool.get_mut(channel) else {
+                    continue;
+                };
+                let claim = (factor * value).min(channel_cap) / channel_cap;
+                *slot = ((channel_cap - *slot).max(0.0)).mul_add(claim, *slot);
+            }
+        };
+        accumulate(&mut direct, direct_factor, candidate.direct_max);
+        accumulate(&mut fill, fill_factor, candidate.fill_max);
+    }
+    (
+        LightColor::rgb(direct[0], direct[1], direct[2]),
+        LightColor::rgb(fill[0], fill[1], fill[2]),
+    )
+}
+
+/// Statistics of one candidate over every room's floor grid.
+#[derive(Default)]
+struct CandidateStats {
+    samples: usize,
+    clamped: usize,
+    pool_hits: usize,
+    pool_sum: f32,
+    values: Vec<f32>,
+    baselines: Vec<f32>,
+    shadowed: usize,
+    shadow_loss_sum: f32,
+    shadow_loss_max: f32,
+}
+
+/// Evaluates one candidate over every room floor and prints one line with the
+/// candidate's value at each labelled probe point.
+#[allow(clippy::too_many_lines)] // one candidate's sweep + probe line
+fn candidate_line(
+    lighting: &LevelLighting,
+    candidate: ModelCandidate,
+    step_m: f32,
+    probes: &[(&str, f32, f32, f32)],
+) -> String {
+    use std::fmt::Write as _;
+    let step = step_m.max(0.05);
+    let mut stats = CandidateStats::default();
+    for (index, room) in lighting.rooms().iter().enumerate() {
+        let baseline = candidate_baseline(room.effective_power, room.area_m2, candidate);
+        for x in scan_below(room.x0 + step * 0.5, step, room.x1) {
+            for z in scan_below(room.z0 + step * 0.5, step, room.z1) {
+                let terms = lighting.pool_terms_in_room(Some(index), x, room.floor_y, z);
+                let (pool, fill) = candidate_light(&terms, candidate, false);
+                let (pool_open, fill_open) = candidate_light(&terms, candidate, true);
+                let current = lighting.bake_terms_in_room(index, x, room.floor_y, z);
+                let value = baseline
+                    .plus(pool)
+                    .plus(fill)
+                    .plus(current.blend)
+                    .clamped(AMBIENT_LEVEL, MAX_BRIGHTNESS);
+                let value_open = baseline
+                    .plus(pool_open)
+                    .plus(fill_open)
+                    .plus(current.blend)
+                    .clamped(AMBIENT_LEVEL, MAX_BRIGHTNESS);
+                stats.samples = stats.samples.saturating_add(1);
+                if value.max_channel() >= MAX_BRIGHTNESS - 1e-4 {
+                    stats.clamped = stats.clamped.saturating_add(1);
+                }
+                let local = pool.plus(fill);
+                if local.max_channel() >= 0.05 {
+                    stats.pool_hits = stats.pool_hits.saturating_add(1);
+                    stats.pool_sum += local.luminance();
+                }
+                let loss = (value_open.luminance() - value.luminance()).max(0.0);
+                if loss >= 0.02 {
+                    stats.shadowed = stats.shadowed.saturating_add(1);
+                    stats.shadow_loss_sum += loss;
+                    stats.shadow_loss_max = stats.shadow_loss_max.max(loss);
+                }
+                stats.values.push(value.luminance());
+                stats.baselines.push(baseline.luminance());
+            }
+        }
+    }
+    let mut values = stats.values.clone();
+    let p05 = percentile(&mut values, 0.05);
+    let p50 = percentile(&mut values, 0.50);
+    let p90 = percentile(&mut values, 0.90);
+    let mut baselines = stats.baselines.clone();
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "[sweep {:<24}] base_max={:<4} dir={:<5}/{:<4} fill={:<5}/{:<4} | clamp={:.2}% p05={:.3} p50={:.3} p90={:.3} contrast={:.2} pool_cover={:.1}% mean_local={:.3} shadow_show={:.1}% mean_loss={:.3} max_loss={:.3} base p05..p95={:.3}..{:.3}",
+        candidate.label,
+        candidate.baseline_max,
+        candidate.direct_strength,
+        candidate.direct_max,
+        candidate.fill_strength,
+        candidate.fill_max,
+        if stats.samples == 0 {
+            0.0
+        } else {
+            stats.clamped as f32 * 100.0 / stats.samples as f32
+        },
+        p05,
+        p50,
+        p90,
+        if p05 > 1e-4 { p90 / p05 } else { 0.0 },
+        if stats.samples == 0 {
+            0.0
+        } else {
+            stats.pool_hits as f32 * 100.0 / stats.samples as f32
+        },
+        if stats.pool_hits == 0 {
+            0.0
+        } else {
+            stats.pool_sum / stats.pool_hits as f32
+        },
+        if stats.samples == 0 {
+            0.0
+        } else {
+            stats.shadowed as f32 * 100.0 / stats.samples as f32
+        },
+        if stats.shadowed == 0 {
+            0.0
+        } else {
+            stats.shadow_loss_sum / stats.shadowed as f32
+        },
+        stats.shadow_loss_max,
+        percentile(&mut baselines, 0.05),
+        percentile(&mut baselines, 0.95)
+    );
+    let mut probes_text = String::new();
+    for (name, x, y, z) in probes {
+        let current = lighting.bake_terms(*x, *y, *z);
+        let Some(room) = current.room else {
+            continue;
+        };
+        let Some(info) = lighting.rooms().get(room) else {
+            continue;
+        };
+        let baseline = candidate_baseline(info.effective_power, info.area_m2, candidate);
+        // Evaluate at the same point the production sample walks to, so a
+        // reveal texel inside a wall is compared on the model's own terms.
+        let (px, pz) = lighting.cleared_sample_position(room, *x, *z);
+        let terms = lighting.pool_terms_in_room(Some(room), px, *y, pz);
+        let (pool, fill) = candidate_light(&terms, candidate, false);
+        let value = baseline
+            .plus(pool)
+            .plus(fill)
+            .plus(current.blend)
+            .clamped(AMBIENT_LEVEL, MAX_BRIGHTNESS);
+        let _ = write!(probes_text, " {name}={:.3}", value.luminance());
+    }
+    let _ = writeln!(out, "{probes_text}");
+    out
+}
+
+/// Model candidate sweep over a level's floor grid, one line per candidate.
+fn lighting_candidate_sweep(
+    level: &LevelDef,
+    label: &str,
+    candidates: &[ModelCandidate],
+    step_m: f32,
+    probes: &[(&str, f32, f32, f32)],
+) -> String {
+    let lighting = LevelLighting::bake_with(level, QualityProfile::Full.bake_config());
+    let mut out = format!("=== candidate sweep: {label} ===\n");
+    for candidate in candidates {
+        out.push_str(&candidate_line(&lighting, *candidate, step_m, probes));
+    }
+    out
+}
+
+// The tests below are developer tools, not guards: they are ignored so a
+// normal `cargo test` neither writes files nor spends minutes building the
+// shipped levels. Run them explicitly with `--ignored`.
+
+/// Guards that the developer decomposition is the production model.
+#[test]
+fn bake_terms_reproduce_the_sample_paths() {
+    let level = two_room_level(true);
+    let lighting = LevelLighting::bake(&level);
+    for room in 0..lighting.rooms().len() {
+        let info = lighting.rooms()[room];
+        for x in scan_below(info.x0 + 0.25, 1.0, info.x1) {
+            for z in scan_below(info.z0 + 0.25, 1.0, info.z1) {
+                for y in [info.floor_y, info.floor_y + 0.8, info.floor_y + 1.6] {
+                    let terms = lighting.bake_terms_in_room(room, x, y, z);
+                    assert_eq!(
+                        terms.value,
+                        lighting.sample_in_room(room, x, y, z),
+                        "terms must reproduce sample_in_room at ({room}, {x}, {y}, {z})"
+                    );
+                    let global = lighting.bake_terms(x, y, z);
+                    assert_eq!(
+                        global.value,
+                        lighting.sample(x, y, z),
+                        "terms must reproduce sample at ({x}, {y}, {z})"
+                    );
+                    assert!(terms.value.is_valid());
+                }
+            }
+        }
+    }
+    // Outside every room the decomposition is the ambient fill plus pools.
+    let outside = lighting.bake_terms(200.0, 0.0, 200.0);
+    assert_eq!(outside.room, None);
+    assert_eq!(outside.baseline, ambient_color());
+    assert_eq!(outside.blend, LightColor::BLACK);
+    assert_eq!(outside.value, lighting.sample(200.0, 0.0, 200.0));
+}
+
+/// Guards that the per-fixture pool terms sum to the production pool term.
+#[test]
+fn pool_terms_reproduce_the_pool_cap() {
+    let level = two_room_level(true);
+    let lighting = LevelLighting::bake(&level);
+    for (x, y, z) in [
+        (2.0, 0.0, 2.0),
+        (5.0, 0.0, 5.0),
+        (8.0, 0.0, 8.0),
+        (9.9, 0.0, 5.0),
+        (10.5, 0.0, 5.0),
+        (30.0, 0.0, 2.0),
+        (2.0, 2.5, 2.0),
+        (30.0, 2.5, 2.0),
+    ] {
+        let terms = lighting.pool_terms_in_room(Some(0), x, y, z);
+        let expected = screen_terms_for_test(&terms);
+        let produced = lighting.bake_terms_in_room(0, x, y, z);
+        assert_eq!(
+            produced.pool, expected.0,
+            "direct terms must screen to the production direct pool at ({x}, {y}, {z})"
+        );
+        assert_eq!(
+            produced.fill, expected.1,
+            "fill terms must screen to the production fill at ({x}, {y}, {z})"
+        );
+    }
+}
+
+/// The screen composition, re-implemented from the public terms the way the
+/// production path composes them, so the guard above compares two independent
+/// expressions of the same equation.
+fn screen_terms_for_test(terms: &[PoolTerm]) -> (LightColor, LightColor) {
+    let mut direct = [0.0_f32; 3];
+    let mut fill = [0.0_f32; 3];
+    for term in terms {
+        let direct_factor = LOCAL_LIGHT_STRENGTH
+            * term.intensity
+            * term.height_factor
+            * term.direct_shape
+            * term.visibility;
+        let fill_factor =
+            FILL_STRENGTH * term.intensity * term.height_factor * term.fill_shape * term.visibility;
+        for (pool, factor, cap) in [
+            (&mut direct, direct_factor, LOCAL_LIGHT_MAX),
+            (&mut fill, fill_factor, FILL_MAX),
+        ] {
+            if !factor.is_finite() || factor <= 0.0 {
+                continue;
+            }
+            let peak = term.color.max_channel();
+            if !peak.is_finite() || peak <= 0.0 {
+                continue;
+            }
+            for (channel, value) in [term.color.r, term.color.g, term.color.b]
+                .into_iter()
+                .enumerate()
+            {
+                let channel_cap = cap * value / peak;
+                if !channel_cap.is_finite() || channel_cap <= 0.0 {
+                    continue;
+                }
+                let Some(slot) = pool.get_mut(channel) else {
+                    continue;
+                };
+                let claim = (factor * value).min(channel_cap) / channel_cap;
+                *slot = ((channel_cap - *slot).max(0.0)).mul_add(claim, *slot);
+            }
+        }
+    }
+    (
+        LightColor::rgb(direct[0], direct[1], direct[2]),
+        LightColor::rgb(fill[0], fill[1], fill[2]),
+    )
+}
+
+/// Guards agent C's zone-seam regression: a 1.4 m corridor between two
+/// full-depth partition walls is narrower than a light-grid cell, so with the
+/// coarse grid both neighbouring cell centres landed inside the walls and the
+/// corridor's samples were split between unrelated zones (measured 0.322 vs
+/// 0.295, an 8% step across open floor). The finer, air-aware zone grid must
+/// keep the corridor one area.
+#[test]
+fn a_narrow_corridor_keeps_one_baseline_across_the_zone_grid() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "narrow_corridor",
+            "name": "Narrow Corridor",
+            "spawn": { "x": 1.0, "z": 2.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 4.0, "height": 3.0 }],
+            "walls": [
+                { "x": 4.0, "z": 0.0, "width": 0.3, "depth": 4.0, "height": 3.0 },
+                { "x": 5.7, "z": 0.0, "width": 0.3, "depth": 4.0, "height": 3.0 }
+            ],
+            "ceiling_lights": [
+                { "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0, "intensity": 0.6 },
+                { "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 2.0, "intensity": 0.5 },
+                { "fixture": "core:fluorescent_panel_01", "x": 8.0, "z": 2.0, "intensity": 0.6 }
+            ]
+        }"#,
+    )
+    .expect("narrow corridor parses");
+    let lighting = LevelLighting::bake(&level);
+    assert!(
+        lighting.is_partitioned(0),
+        "two full-depth walls must split the room"
+    );
+    assert_eq!(lighting.zone_count(), 3, "left, corridor and right areas");
+    // Two samples 25 cm apart inside the corridor share one baseline; the
+    // historical coarse grid split them across its cell cut line.
+    let before = lighting.baseline_in_room(0, 4.75, 2.0);
+    let after = lighting.baseline_in_room(0, 5.0, 2.0);
+    assert_eq!(
+        before, after,
+        "the corridor must not step at the zone grid cut line"
+    );
+    // The corridor owns its own fixture and the side rooms keep theirs: the
+    // corridor's baseline must differ from at least one side (it is its own
+    // area), and all three are inside the fill span.
+    let left = lighting.baseline_in_room(0, 2.0, 2.0);
+    assert!(before != left, "the corridor is its own area");
+    for value in [before, after, left] {
+        assert!(
+            value.luminance() >= AMBIENT_LEVEL && value.luminance() <= super::tuning::BASELINE_MAX
+        );
+    }
+}
+
+/// Guards the developer zone view against a uniform and a partitioned room.
+#[test]
+fn zones_in_room_describes_uniform_and_partitioned_rooms() {
+    let uniform = LevelLighting::bake(&level_with_room(10.0, 10.0, 3.0, &[0.5]));
+    let zones = uniform.zones_in_room(0);
+    assert_eq!(zones.len(), 1, "an open room is one area");
+    assert!((zones[0].area_m2 - 100.0).abs() < 1e-3);
+    assert_eq!(zones[0].fixture_count, 1);
+    assert_eq!(zones[0].baseline, uniform.rooms()[0].baseline);
+    assert!(uniform.zones_in_room(7).is_empty());
+
+    // One 10 x 10 room split by a full-height wall at x = 4.9, lit only on
+    // the west side: the two areas must report their own areas, powers and
+    // baselines, and their areas must tile the room.
+    let partitioned = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "zone_report",
+            "name": "Zone Report",
+            "spawn": { "x": 2.0, "z": 5.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 }],
+            "walls": [{ "x": 4.9, "z": 0.0, "width": 0.2, "depth": 10.0, "height": 3.0 }],
+            "ceiling_lights": [{ "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 5.0 }]
+        }"#,
+    )
+    .expect("partition level parses");
+    let lighting = LevelLighting::bake(&partitioned);
+    assert!(lighting.is_partitioned(0));
+    let zones = lighting.zones_in_room(0);
+    assert_eq!(zones.len(), 2, "the wall must split the room");
+    let total: f32 = zones.iter().map(|zone| zone.area_m2).sum();
+    assert!(
+        (total - 100.0).abs() < 1.0,
+        "areas must tile the room: {total}"
+    );
+    let lit = zones
+        .iter()
+        .find(|zone| zone.fixture_count == 1)
+        .expect("one side owns the fixture");
+    let dark = zones
+        .iter()
+        .find(|zone| zone.fixture_count == 0)
+        .expect("the other side owns none");
+    assert!(
+        lit.baseline.luminance() > dark.baseline.luminance() + 0.2,
+        "a fixture's own area must beat the isolated area: {} vs {}",
+        lit.baseline.luminance(),
+        dark.baseline.luminance()
+    );
+    assert_eq!(dark.baseline, ambient_color());
+    // The zone view must agree with the per-position baseline lookup.
+    let position = if lit.area_m2 > 0.0 { 2.0 } else { 7.0 };
+    assert_eq!(
+        lighting.baseline_in_room(0, position, 5.0),
+        lit.baseline,
+        "the reported area baseline must be the sampled one"
+    );
+}
+
+/// Writes the developer report for the shipped levels.
+#[test]
+#[ignore = "developer report; writes target/agent-work/agent-a"]
+#[allow(clippy::print_stdout)] // the report path is the tool's only output
+fn agent_a_lighting_developer_report() {
+    let mut report = String::new();
+    for (path, label, samples) in [
+        (
+            "assets/levels/places_demo.json",
+            "places_demo",
+            PLACES_DEMO_SAMPLES,
+        ),
+        ("levels/level0_pit.json", "level0_pit", PIT_SAMPLES),
+    ] {
+        let content = std::fs::read_to_string(path).expect("shipped level must be readable");
+        let level = LevelDef::from_json(&content).expect("shipped level parses");
+        report.push_str(&lighting_developer_report(&level, label, samples));
+        report.push('\n');
+    }
+    // A controlled same-material ladder: one fixture with clean 0/2/4 m floor
+    // points, an open control at 4 m and a point behind a tall occluder.
+    report.push_str(&lighting_developer_report(
+        &controlled_ladder_level(),
+        "controlled_ladder",
+        CONTROLLED_SAMPLES,
+    ));
+    let path = "target/agent-work/agent-a/lighting-report.txt";
+    if let Some(parent) = std::path::Path::new(path).parent() {
+        std::fs::create_dir_all(parent).expect("report directory");
+    }
+    std::fs::write(path, report).expect("developer report written");
+    println!("wrote {path}");
+}
+
+/// Sweeps candidate model constants over the shipped levels.
+#[test]
+#[ignore = "developer report; writes target/agent-work/agent-a"]
+#[allow(clippy::print_stdout)] // the sweep path is the tool's only output
+fn agent_a_model_candidate_sweep() {
+    let mut report = String::new();
+    for (path, label, probes) in [
+        (
+            "assets/levels/places_demo.json",
+            "places_demo",
+            SWEEP_PROBES_DEMO,
+        ),
+        ("levels/level0_pit.json", "level0_pit", SWEEP_PROBES_PIT),
+    ] {
+        let content = std::fs::read_to_string(path).expect("shipped level must be readable");
+        let level = LevelDef::from_json(&content).expect("shipped level parses");
+        report.push_str(&lighting_candidate_sweep(&level, label, SWEEP, 1.0, probes));
+        report.push('\n');
+    }
+    let path = "target/agent-work/agent-a/candidate-sweep.txt";
+    if let Some(parent) = std::path::Path::new(path).parent() {
+        std::fs::create_dir_all(parent).expect("report directory");
+    }
+    std::fs::write(path, report).expect("candidate sweep written");
+    println!("wrote {path}");
+}
+
+/// Probe points the sweep reports per candidate: the same-material lit/unlit
+/// pairs (fixture / 4 m / behind an occluder) and the doorway surrounds.
+static SWEEP_PROBES_DEMO: &[(&str, f32, f32, f32)] = &[
+    ("under_f0", 2.5, 0.0, 2.2),
+    ("mid_room", 4.5, 0.0, 3.5),
+    ("far_f0", 2.5, 0.0, 6.2),
+    ("wall_west", 8.6, 1.6, 1.5),
+    ("wall_door_edge", 8.6, 1.6, 3.0),
+    ("wall_door_span", 8.6, 1.6, 4.0),
+    ("jamb_z4", 9.0, 1.2, 4.2),
+    ("header", 9.0, 2.1, 3.6),
+    ("pool_under", 3.5, -1.5, 9.0),
+    ("pool_corner", 24.5, -1.5, 18.0),
+    ("home_under", 57.7, -0.9, -3.0),
+    ("home_2m", 59.7, -0.9, -3.0),
+];
+
+/// Probes for The Pit: the tall room shaft and the gallery underpass.
+static SWEEP_PROBES_PIT: &[(&str, f32, f32, f32)] = &[
+    ("tall_floor", 61.0, -11.0, -16.0),
+    ("tall_gallery", 61.0, -8.7, -16.0),
+    ("wide_floor", 29.0, -11.0, -22.5),
+    ("gate_floor", 61.0, -11.0, -30.0),
+];
+
+/// Labelled world samples for the demo report: office pools, the doorway
+/// reveals and header, pool-deck lights and the home corridor.
+static PLACES_DEMO_SAMPLES: &[(&str, f32, f32, f32)] = &[
+    ("office_under_f0", 2.5, 0.0, 2.2),
+    ("office_2m_f0", 2.5, 0.0, 4.2),
+    ("office_4m_f0", 2.5, 0.0, 6.2),
+    ("office_under_f1", 6.5, 0.0, 2.2),
+    ("office_mid", 4.5, 0.0, 3.5),
+    ("office_wall_west", 8.6, 1.6, 3.5),
+    ("door_wall_room0", 8.6, 1.6, 2.8),
+    ("door_wall_z1.5", 8.6, 1.6, 1.5),
+    ("door_wall_z2.5", 8.6, 1.6, 2.5),
+    ("door_wall_z3.0", 8.6, 1.6, 3.0),
+    ("door_wall_z4.0", 8.6, 1.6, 4.0),
+    ("door_wall_z4.5", 8.6, 1.6, 4.5),
+    ("door_wall_z5.5", 8.6, 1.6, 5.5),
+    ("door_jamb_z4_low", 9.0, 0.4, 4.2),
+    ("door_jamb_z4", 9.0, 1.2, 4.2),
+    ("door_jamb_z4_top", 9.0, 1.9, 4.2),
+    ("door_jamb_z3", 9.0, 1.2, 3.0),
+    ("door_jamb_z4", 9.0, 1.2, 4.2),
+    ("door_header", 9.0, 2.1, 3.6),
+    ("door_wall_above_room0", 8.6, 2.4, 3.6),
+    ("door_wall_above_room1", 9.4, 2.4, 3.6),
+    ("door_room1_floor", 9.4, 0.0, 3.6),
+    ("pool_under", 3.5, -1.5, 9.0),
+    ("pool_mid", 6.25, -1.5, 9.0),
+    ("pool_dark_corner", 24.5, -1.5, 18.0),
+    ("home_under", 57.7, -0.9, -3.0),
+    ("home_2m", 59.7, -0.9, -3.0),
+    ("home_hall", 58.0, -0.9, -5.3),
+    ("office_ceil_f0", 2.5, 2.66, 2.2),
+    ("office_ceil_mid", 4.5, 2.66, 3.5),
+    ("office_ceil_plane_f0", 2.5, 2.70, 2.2),
+    ("office_ceil_plane_mid", 4.5, 2.70, 3.5),
+    ("home_ceil_under", 57.7, 1.99, -3.0),
+    ("home_ceil_mid", 59.7, 1.99, -3.0),
+    ("pool_ceil", 3.5, 2.69, 9.0),
+];
+
+/// Labelled world samples for The Pit: the tall room floor, its walls and the
+/// gallery underpass.
+static PIT_SAMPLES: &[(&str, f32, f32, f32)] = &[
+    ("pit_floor_centre", 61.0, -11.0, -16.0),
+    ("pit_floor_north", 61.0, -11.0, -30.0),
+    ("pit_gallery", 61.0, -8.7, -16.0),
+    ("pit_wide_floor", 29.0, -11.0, -22.5),
+    ("pit_shaft_top", 61.0, -3.0, -16.0),
+];
+
+/// A controlled single-fixture ladder: 12 x 12 x 3 room, one 0.6-intensity
+/// fixture at its centre and a tall occluder on the -Z axis.
+fn controlled_ladder_level() -> LevelDef {
+    LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "controlled_ladder",
+            "name": "Controlled Ladder",
+            "spawn": { "x": 6.0, "z": 6.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 3.0 }],
+            "ceiling_lights": [{ "fixture": "core:fluorescent_panel_01", "x": 6.0, "z": 2.2, "brightness": 0.6 }],
+            "props": [
+                { "model": "core:fridge", "x": 6.0, "y": 0.0, "z": 5.0, "rotation_degrees": 0.0, "scale": 1.0 },
+                { "model": "core:desk", "x": 9.5, "y": 0.0, "z": 6.0, "rotation_degrees": 0.0, "scale": 1.0 }
+            ]
+        }"#,
+    )
+    .expect("controlled ladder parses")
+}
+
+/// Samples for [`controlled_ladder_level`]: directly under the fixture, 2 m
+/// and 4 m away in open floor, and 4 m away behind the occluder.
+static CONTROLLED_SAMPLES: &[(&str, f32, f32, f32)] = &[
+    ("ladder_0m", 6.0, 0.0, 2.2),
+    ("ladder_2m", 6.0, 0.0, 4.2),
+    ("ladder_4m", 6.0, 0.0, 6.2),
+    ("ladder_open_4m", 9.4, 0.0, 2.2),
+    ("ladder_behind", 6.0, 0.0, 6.6),
+    ("ladder_corner", 0.4, 0.0, 11.6),
+];
+
+/// Candidate constants for [`agent_a_model_candidate_sweep`].
+///
+/// The first row is the historical model; the rest bracket the rebalance
+/// direction (weaker fill, stronger and steeper pools).
+static SWEEP: &[ModelCandidate] = &[
+    ModelCandidate {
+        label: "old_weights_new_shape",
+        density_scale: 1.0,
+        baseline_max: 0.60,
+        direct_strength: 0.42,
+        direct_max: 0.45,
+        fill_strength: 0.0,
+        fill_max: 0.0,
+    },
+    ModelCandidate {
+        label: "approved_fill16",
+        density_scale: 1.0,
+        baseline_max: 0.40,
+        direct_strength: 0.60,
+        direct_max: 0.45,
+        fill_strength: 0.16,
+        fill_max: 0.15,
+    },
+    ModelCandidate {
+        label: "approved_fill12",
+        density_scale: 1.0,
+        baseline_max: 0.40,
+        direct_strength: 0.60,
+        direct_max: 0.45,
+        fill_strength: 0.12,
+        fill_max: 0.12,
+    },
+    ModelCandidate {
+        label: "approved_fill18",
+        density_scale: 1.0,
+        baseline_max: 0.40,
+        direct_strength: 0.60,
+        direct_max: 0.45,
+        fill_strength: 0.18,
+        fill_max: 0.18,
+    },
+    ModelCandidate {
+        label: "fill16_base45",
+        density_scale: 1.0,
+        baseline_max: 0.45,
+        direct_strength: 0.60,
+        direct_max: 0.45,
+        fill_strength: 0.16,
+        fill_max: 0.15,
+    },
+    ModelCandidate {
+        label: "fill16_direct64",
+        density_scale: 1.0,
+        baseline_max: 0.40,
+        direct_strength: 0.64,
+        direct_max: 0.45,
+        fill_strength: 0.16,
+        fill_max: 0.15,
+    },
+    ModelCandidate {
+        label: "fill16_direct70",
+        density_scale: 1.0,
+        baseline_max: 0.40,
+        direct_strength: 0.70,
+        direct_max: 0.45,
+        fill_strength: 0.16,
+        fill_max: 0.15,
+    },
+    ModelCandidate {
+        label: "fill16_base35",
+        density_scale: 1.0,
+        baseline_max: 0.35,
+        direct_strength: 0.60,
+        direct_max: 0.45,
+        fill_strength: 0.16,
+        fill_max: 0.15,
+    },
+    ModelCandidate {
+        label: "cal_f22_b48",
+        density_scale: 1.0,
+        baseline_max: 0.48,
+        direct_strength: 0.60,
+        direct_max: 0.45,
+        fill_strength: 0.22,
+        fill_max: 0.22,
+    },
+    ModelCandidate {
+        label: "cal_f24_b48",
+        density_scale: 1.0,
+        baseline_max: 0.48,
+        direct_strength: 0.60,
+        direct_max: 0.45,
+        fill_strength: 0.24,
+        fill_max: 0.24,
+    },
+    ModelCandidate {
+        label: "cal_f24_b52",
+        density_scale: 1.0,
+        baseline_max: 0.52,
+        direct_strength: 0.60,
+        direct_max: 0.45,
+        fill_strength: 0.24,
+        fill_max: 0.24,
+    },
+    ModelCandidate {
+        label: "cal_f28_b48",
+        density_scale: 1.0,
+        baseline_max: 0.48,
+        direct_strength: 0.60,
+        direct_max: 0.45,
+        fill_strength: 0.28,
+        fill_max: 0.28,
+    },
+    ModelCandidate {
+        label: "cal_f20_b55",
+        density_scale: 1.0,
+        baseline_max: 0.55,
+        direct_strength: 0.60,
+        direct_max: 0.45,
+        fill_strength: 0.20,
+        fill_max: 0.20,
+    },
+    ModelCandidate {
+        label: "cal_f24_b44",
+        density_scale: 1.0,
+        baseline_max: 0.44,
+        direct_strength: 0.60,
+        direct_max: 0.45,
+        fill_strength: 0.24,
+        fill_max: 0.24,
+    },
+];
