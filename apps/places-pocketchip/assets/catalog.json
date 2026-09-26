@@ -1,0 +1,1649 @@
+{
+  "format_version": 2,
+  "themes": [
+    {
+      "id": "office",
+      "display_name": "Office",
+      "description": "Institutional office interiors: liminal wallpaper, carpet, panel ceilings, fluorescent light and office furniture."
+    },
+    {
+      "id": "pool",
+      "display_name": "Pool",
+      "description": "Public swimming pool interiors: pale commercial tile, a sterile ceiling, white resin furniture, privacy curtains, chrome and silver metalwork, cool light and the NO DIVING sign."
+    },
+    {
+      "id": "home",
+      "display_name": "Home",
+      "description": "Ordinary residential interiors: clean off-white wallpaper and paint, hardwood and cream carpet floors, a simple kitchen tile, painted baseboards and trim, flat and plaster ceilings, warm white flush-mount ceiling light and simple kitchen cabinetry."
+    }
+  ],
+  "assets": [
+    {
+      "id": "core:couch",
+      "display_name": "Couch",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/couch.glb",
+      "size": [
+        2.0,
+        0.9,
+        0.9
+      ],
+      "color": "#6b5f4a",
+      "category": "Furniture",
+      "solid": true
+    },
+    {
+      "id": "core:armchair",
+      "display_name": "Armchair",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/armchair.glb",
+      "size": [
+        0.9,
+        0.9,
+        0.9
+      ],
+      "color": "#7a6a55",
+      "category": "Furniture",
+      "solid": true
+    },
+    {
+      "id": "core:chair",
+      "display_name": "Chair",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/office/props/models/chair.glb",
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "color": "#6d6a63",
+      "category": "Furniture",
+      "solid": true
+    },
+    {
+      "id": "core:table",
+      "display_name": "Table",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/table.glb",
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ],
+      "color": "#6f5a41",
+      "category": "Furniture",
+      "solid": true
+    },
+    {
+      "id": "core:desk",
+      "display_name": "Desk",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/office/props/models/desk.glb",
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "color": "#3a3d42",
+      "category": "Furniture",
+      "solid": true
+    },
+    {
+      "id": "core:bookshelf",
+      "display_name": "Bookshelf",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/bookshelf.glb",
+      "size": [
+        1.0,
+        1.8,
+        0.35
+      ],
+      "color": "#57452f",
+      "category": "Furniture",
+      "solid": true
+    },
+    {
+      "id": "core:cabinet",
+      "display_name": "Cabinet",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/office/props/models/cabinet.glb",
+      "size": [
+        0.9,
+        0.85,
+        0.45
+      ],
+      "color": "#6a5c4a",
+      "category": "Furniture",
+      "solid": true
+    },
+    {
+      "id": "core:bed",
+      "display_name": "Bed",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/bed.glb",
+      "size": [
+        1.4,
+        0.55,
+        2.0
+      ],
+      "color": "#7d7568",
+      "category": "Furniture",
+      "solid": true
+    },
+    {
+      "id": "core:stove",
+      "display_name": "Stove",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/stove.glb",
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
+      "color": "#8f8a80",
+      "category": "Appliances",
+      "solid": true
+    },
+    {
+      "id": "core:sink",
+      "display_name": "Sink",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/sink.glb",
+      "size": [
+        0.6,
+        1.1,
+        0.55
+      ],
+      "color": "#9aa0a0",
+      "category": "Appliances",
+      "solid": true
+    },
+    {
+      "id": "core:fridge",
+      "display_name": "Fridge",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/fridge.glb",
+      "size": [
+        0.7,
+        1.8,
+        0.7
+      ],
+      "color": "#b8bcc0",
+      "category": "Appliances",
+      "solid": true
+    },
+    {
+      "id": "core:washing_machine",
+      "display_name": "Washing Machine",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/washing_machine.glb",
+      "size": [
+        0.6,
+        0.85,
+        0.6
+      ],
+      "color": "#a2a6aa",
+      "category": "Appliances",
+      "solid": true
+    },
+    {
+      "id": "core:washer_drum",
+      "display_name": "Washer Drum",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/washer_drum.glb",
+      "size": [
+        0.42,
+        0.3,
+        0.42
+      ],
+      "color": "#b4b8ba",
+      "category": "Appliances",
+      "solid": false,
+      "description": "Loose drum basket: the dynamic-object demonstrator, spawned and turned in front of a placed washing machine."
+    },
+    {
+      "id": "core:vending_machine",
+      "display_name": "Vending Machine",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/office/props/models/vending_machine.glb",
+      "size": [
+        1.0,
+        1.9,
+        0.8
+      ],
+      "color": "#4f5a63",
+      "category": "Appliances",
+      "solid": true
+    },
+    {
+      "id": "core:water_cooler",
+      "display_name": "Water Cooler",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/office/props/models/water_cooler.glb",
+      "size": [
+        0.35,
+        1.1,
+        0.35
+      ],
+      "color": "#8fa4ae",
+      "category": "Appliances",
+      "solid": true
+    },
+    {
+      "id": "core:pool_table",
+      "display_name": "Pool Patio Table",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_table.glb",
+      "size": [
+        0.8,
+        0.74,
+        0.8
+      ],
+      "color": "#e8e6e0",
+      "category": "Furniture",
+      "solid": true,
+      "description": "White resin patio table for the pool deck."
+    },
+    {
+      "id": "core:pool_chair",
+      "display_name": "Pool Patio Chair",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_chair.glb",
+      "size": [
+        0.52,
+        0.85,
+        0.55
+      ],
+      "color": "#e8e6e0",
+      "category": "Furniture",
+      "solid": true,
+      "description": "White resin patio chair matching the pool table."
+    },
+    {
+      "id": "core:pool_ladder",
+      "display_name": "Pool Ladder",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_ladder.glb",
+      "size": [
+        0.55,
+        2.2,
+        0.45
+      ],
+      "color": "#b9bec2",
+      "category": "Utility",
+      "solid": true,
+      "description": "Chrome pool ladder: two handrails standing on the basin floor, curving out over the deck edge, with four non-skid treads."
+    },
+    {
+      "id": "core:pool_curtain_straight",
+      "display_name": "Pool Curtain, Straight",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_curtain_straight.glb",
+      "size": [
+        1.2,
+        2.6,
+        0.22
+      ],
+      "color": "#dfe4e2",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Freestanding commercial privacy curtain module: two posts on foot plates, an extruded top track and a gathered ten-pleat panel."
+    },
+    {
+      "id": "core:pool_curtain_end",
+      "display_name": "Pool Curtain, End",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_curtain_end.glb",
+      "size": [
+        0.6,
+        2.6,
+        0.22
+      ],
+      "color": "#dfe4e2",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Half-width end module that closes a curtain run."
+    },
+    {
+      "id": "core:pool_curtain_corner",
+      "display_name": "Pool Curtain, Corner",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_curtain_corner.glb",
+      "size": [
+        0.6,
+        2.6,
+        0.6
+      ],
+      "color": "#dfe4e2",
+      "category": "Decorative",
+      "solid": false,
+      "description": "L-shaped curtain module that turns a run through 90 degrees."
+    },
+    {
+      "id": "core:pool_guardrail_straight",
+      "display_name": "Pool Guardrail, Straight",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_guardrail_straight.glb",
+      "size": [
+        2.0,
+        1.05,
+        0.08
+      ],
+      "color": "#b9bec2",
+      "category": "Utility",
+      "solid": true,
+      "description": "Two metre waist-high guardrail section: one silver top rail on three flanged posts."
+    },
+    {
+      "id": "core:pool_guardrail_end",
+      "display_name": "Pool Guardrail, End",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_guardrail_end.glb",
+      "size": [
+        0.6,
+        1.05,
+        0.08
+      ],
+      "color": "#b9bec2",
+      "category": "Utility",
+      "solid": true,
+      "description": "Short single-rail guardrail return that terminates a run."
+    },
+    {
+      "id": "core:pool_guardrail_corner",
+      "display_name": "Pool Guardrail, Corner",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/pool_guardrail_corner.glb",
+      "size": [
+        0.6,
+        1.05,
+        0.6
+      ],
+      "color": "#b9bec2",
+      "category": "Utility",
+      "solid": true,
+      "description": "L-shaped single-rail guardrail module that turns a run through 90 degrees."
+    },
+    {
+      "id": "core:crate",
+      "display_name": "Crate",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/crate.glb",
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "color": "#7a6244",
+      "category": "Utility",
+      "solid": true
+    },
+    {
+      "id": "core:cardboard_box",
+      "display_name": "Cardboard Box",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/cardboard_box.glb",
+      "size": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "color": "#a8895f",
+      "category": "Other",
+      "solid": false
+    },
+    {
+      "id": "core:plant",
+      "display_name": "Plant",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/plant.glb",
+      "size": [
+        0.4,
+        1.0,
+        0.4
+      ],
+      "color": "#4f6b43",
+      "category": "Decorative",
+      "solid": false
+    },
+    {
+      "id": "core:rug",
+      "display_name": "Rug",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/rug.glb",
+      "size": [
+        2.0,
+        0.02,
+        1.4
+      ],
+      "color": "#6d5a52",
+      "category": "Decorative",
+      "solid": false
+    },
+    {
+      "id": "core:lamp",
+      "display_name": "Floor Lamp",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/lamp.glb",
+      "size": [
+        0.35,
+        1.5,
+        0.35
+      ],
+      "color": "#8a8272",
+      "category": "Decorative",
+      "solid": false
+    },
+    {
+      "id": "core:tv",
+      "display_name": "Television",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/tv.glb",
+      "size": [
+        1.1,
+        0.7,
+        0.1
+      ],
+      "color": "#33363a",
+      "category": "Decorative",
+      "solid": false
+    },
+    {
+      "id": "core:wallpaper_yellow_01",
+      "display_name": "Yellow Wallpaper",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_wallpaper_yellow_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.85,
+        0.8,
+        0.42
+      ],
+      "description": "Maintained liminal office wallpaper."
+    },
+    {
+      "id": "core:carpet_beige_01",
+      "display_name": "Beige Carpet",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_carpet_beige_01",
+      "tile_metres": 2.0,
+      "description": "Maintained liminal office carpet."
+    },
+    {
+      "id": "core:ceiling_panel_01",
+      "display_name": "Panel Ceiling",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "core:tex_ceiling_panel_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.72,
+        0.72,
+        0.7
+      ],
+      "description": "Maintained suspended office ceiling."
+    },
+    {
+      "id": "core:wallpaper_stained_01",
+      "display_name": "Stained Wallpaper",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_wallpaper_stained_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.85,
+        0.8,
+        0.42
+      ],
+      "description": "Water-damaged office wallpaper."
+    },
+    {
+      "id": "core:carpet_damp_01",
+      "display_name": "Damp Carpet",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_carpet_damp_01",
+      "tile_metres": 2.0,
+      "description": "Water-damaged office carpet."
+    },
+    {
+      "id": "core:ceiling_stained_01",
+      "display_name": "Stained Ceiling",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "core:tex_ceiling_stained_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.72,
+        0.72,
+        0.7
+      ],
+      "description": "Water-damaged office ceiling."
+    },
+    {
+      "id": "core:pool_tile_deck_01",
+      "display_name": "Pool Deck Tile",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_pool_tile_deck_01",
+      "tile_metres": 1.5,
+      "specular": 0.22,
+      "shine": 0.3,
+      "description": "Pale commercial tile for the pool deck: glazed, so a small sheen, never a mirror."
+    },
+    {
+      "id": "core:pool_tile_basin_01",
+      "display_name": "Pool Basin Tile",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_pool_tile_basin_01",
+      "tile_metres": 1.0,
+      "specular": 0.22,
+      "shine": 0.3,
+      "description": "Smaller-format pale tile for the empty basin floor and steps: glazed, with a slight sheen."
+    },
+    {
+      "id": "core:pool_tile_wall_01",
+      "display_name": "Pool Wall Tile",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_pool_tile_wall_01",
+      "tile_metres": 1.0,
+      "specular": 0.2,
+      "shine": 0.28,
+      "description": "Commercial wall tile for the pool room and basin walls: a low glazed sheen, not a glossy panel."
+    },
+    {
+      "id": "core:pool_ceiling_01",
+      "display_name": "Pool Ceiling",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "core:tex_pool_ceiling_01",
+      "tile_metres": 2.0,
+      "description": "Sterile painted ceiling panel for the pool room."
+    },
+    {
+      "id": "core:diagnostic_wall_01",
+      "display_name": "Diagnostic Wall Material",
+      "asset_class": "diagnostic",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_diagnostic_wall_01",
+      "tile_metres": 2.0,
+      "description": "Orientation-revealing wall used by the rendering diagnostic."
+    },
+    {
+      "id": "core:diagnostic_floor_01",
+      "display_name": "Diagnostic Floor Material",
+      "asset_class": "diagnostic",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_diagnostic_floor_01",
+      "tile_metres": 2.0,
+      "description": "Orientation-revealing floor used by the rendering diagnostic."
+    },
+    {
+      "id": "core:diagnostic_ceiling_01",
+      "display_name": "Diagnostic Ceiling Material",
+      "asset_class": "diagnostic",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "core:tex_diagnostic_ceiling_01",
+      "tile_metres": 2.0,
+      "description": "Orientation-revealing ceiling used by the rendering diagnostic."
+    },
+    {
+      "id": "core:diagnostic_alt_01",
+      "display_name": "Diagnostic Alternate Material",
+      "asset_class": "diagnostic",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_diagnostic_alt_01",
+      "tile_metres": 2.0,
+      "description": "Non-power-of-two orange/cyan surface used to prove arbitrary dimensions."
+    },
+    {
+      "id": "core:diagnostic_alpha_01",
+      "display_name": "Diagnostic Alpha Material",
+      "asset_class": "diagnostic",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_diagnostic_alpha_01",
+      "tile_metres": 2.0,
+      "description": "Partly transparent surface used to prove alpha decoding."
+    },
+    {
+      "id": "core:tex_carpet_beige_01",
+      "display_name": "Beige Carpet Texture",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/office/textures/floors/carpet_beige_01.png",
+      "surface": "floor",
+      "description": "Final artwork: maintained office carpet."
+    },
+    {
+      "id": "core:tex_carpet_damp_01",
+      "display_name": "Damp Carpet Texture",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/office/textures/floors/carpet_damp_01.png",
+      "surface": "floor",
+      "description": "Final artwork: water-damaged office carpet."
+    },
+    {
+      "id": "core:tex_ceiling_panel_01",
+      "display_name": "Panel Ceiling Texture",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/office/textures/ceilings/ceiling_panel_01.png",
+      "surface": "ceiling",
+      "description": "Final artwork: maintained suspended office ceiling."
+    },
+    {
+      "id": "core:tex_ceiling_stained_01",
+      "display_name": "Stained Ceiling Texture",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/office/textures/ceilings/ceiling_stained_01.png",
+      "surface": "ceiling",
+      "description": "Final artwork: water-damaged office ceiling."
+    },
+    {
+      "id": "core:tex_diagnostic_alpha_01",
+      "display_name": "Diagnostic Alpha",
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "diagnostic/textures/diagnostic_alpha_01.png",
+      "surface": "wall",
+      "description": "RGBA diagnostic sheet with a transparent margin and a translucent ring."
+    },
+    {
+      "id": "core:tex_diagnostic_alt_01",
+      "display_name": "Diagnostic Alternate",
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "diagnostic/textures/diagnostic_alt_01.png",
+      "surface": "floor",
+      "description": "Deliberately non-power-of-two, non-square diagnostic sheet (96x64)."
+    },
+    {
+      "id": "core:tex_diagnostic_ceiling_01",
+      "display_name": "Diagnostic Ceiling",
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "diagnostic/textures/diagnostic_ceiling_01.png",
+      "surface": "ceiling",
+      "description": "Concentric-ring diagnostic sheet for ceiling orientation."
+    },
+    {
+      "id": "core:tex_diagnostic_floor_01",
+      "display_name": "Diagnostic Floor",
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "diagnostic/textures/diagnostic_floor_01.png",
+      "surface": "floor",
+      "description": "Checker-and-arrow diagnostic sheet for floor orientation."
+    },
+    {
+      "id": "core:tex_diagnostic_wall_01",
+      "display_name": "Diagnostic Wall",
+      "asset_class": "diagnostic",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "diagnostic/textures/diagnostic_wall_01.png",
+      "surface": "wall",
+      "description": "Stripe-and-arrow diagnostic sheet for wall orientation."
+    },
+    {
+      "id": "core:tex_wallpaper_stained_01",
+      "display_name": "Stained Wallpaper Texture",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/office/textures/walls/wallpaper_stained_01.png",
+      "surface": "wall",
+      "description": "Final artwork: water-damaged office wallpaper."
+    },
+    {
+      "id": "core:tex_wallpaper_yellow_01",
+      "display_name": "Yellow Wallpaper Texture",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/office/textures/walls/wallpaper_yellow_01.png",
+      "surface": "wall",
+      "description": "Final artwork: maintained liminal office wallpaper."
+    },
+    {
+      "id": "core:tex_pool_tile_deck_01",
+      "display_name": "Pool Deck Tile Texture",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/pool/textures/floors/pool_tile_deck_01.png",
+      "surface": "floor",
+      "description": "Commercial 15 cm deck tile at a 1.5 m repeat."
+    },
+    {
+      "id": "core:tex_pool_tile_basin_01",
+      "display_name": "Pool Basin Tile Texture",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/pool/textures/floors/pool_tile_basin_01.png",
+      "surface": "floor",
+      "description": "Small-format 10 cm basin tile at a 1 m repeat."
+    },
+    {
+      "id": "core:tex_pool_tile_wall_01",
+      "display_name": "Pool Wall Tile Texture",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/pool/textures/walls/pool_tile_wall_01.png",
+      "surface": "wall",
+      "description": "Commercial 10 cm wall tile at a 1 m repeat."
+    },
+    {
+      "id": "core:tex_pool_ceiling_01",
+      "display_name": "Pool Ceiling Texture",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/pool/textures/ceilings/pool_ceiling_01.png",
+      "surface": "ceiling",
+      "description": "Sterile painted ceiling panel at a 2 m repeat."
+    },
+    {
+      "id": "core:fluorescent_panel_01",
+      "display_name": "Fluorescent Panel",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "light",
+      "source": "file",
+      "model": "environment/office/textures/lights/fluorescent_panel_01.png",
+      "description": "Recessed twin-tube ceiling fixture used throughout the office interiors. The named PNG is the fixture's visible diffuser face, drawn once across the panel; the geometry stays generated."
+    },
+    {
+      "id": "core:pool_light_round",
+      "display_name": "Pool Round Light",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "light",
+      "source": "file",
+      "model": "environment/pool/textures/lights/pool_light_round_01.png",
+      "description": "Round recessed downlight for the pool room ceiling; mounts like a ceiling fixture. The named PNG is the diffuser face seen from below."
+    },
+    {
+      "id": "core:pool_light_wall",
+      "display_name": "Pool Wall Light",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "light",
+      "source": "file",
+      "model": "environment/pool/textures/lights/pool_light_wall_01.png",
+      "description": "Wall-mounted pool luminaire; author `mount: \"wall\"` and a world `y` for each placed fixture. The named PNG is the luminaire's lens face."
+    },
+    {
+      "id": "core:decal_arrow_01",
+      "display_name": "Floor Arrow",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "core/decals/arrow_01.png",
+      "description": "Floor-direction wayfinding arrow, an external PNG cut-out that can be replaced without a Rust change."
+    },
+    {
+      "id": "core:decal_stripes_01",
+      "display_name": "Hazard Stripes",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "core/decals/stripes_01.png",
+      "description": "Diagonal hazard striping, an external PNG cut-out that can be replaced without a Rust change."
+    },
+    {
+      "id": "core:decal_no_diving_01",
+      "display_name": "No Diving Sign",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "environment/pool/decals/no_diving_01.png",
+      "description": "Final pool safety sign sheet: the authoritative PNG lives under assets/ and can be replaced without a Rust change."
+    },
+    {
+      "id": "core:decal_test_01",
+      "display_name": "Validation Marking",
+      "asset_class": "diagnostic",
+      "asset_type": "decal",
+      "source": "generated",
+      "description": "Internal validation marking used by the rendering diagnostic."
+    },
+    {
+      "id": "spooner-man",
+      "display_name": "Spooner-Man",
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/spooner-man/model/spooner-man.glb",
+      "size": [
+        0.27,
+        0.39,
+        1.02
+      ],
+      "color": "#33343a",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Low-poly tuxedo cat placed through the ordinary prop placement system."
+    },
+    {
+      "id": "core:tex_glass_clear_01",
+      "display_name": "Clear Glass Texture",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "core/textures/glass/glass_clear_01.png",
+      "description": "Nearly transparent glass sheet: a faint green-grey tint and a barely-there alpha."
+    },
+    {
+      "id": "core:tex_glass_dirty_01",
+      "display_name": "Dirty Glass Texture",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "core/textures/glass/glass_dirty_01.png",
+      "description": "Unwashed glass sheet: blotchy alpha, a dried-film tint and a few drip trails."
+    },
+    {
+      "id": "core:tex_glass_tinted_01",
+      "display_name": "Tinted Glass Texture",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "core/textures/glass/glass_tinted_01.png",
+      "description": "Uniformly tinted teal glass sheet at roughly half opacity."
+    },
+    {
+      "id": "core:tex_linoleum_01",
+      "display_name": "Polished Linoleum Texture",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "floor",
+      "model": "core/textures/floors/linoleum_01.png",
+      "description": "Polished linoleum sheet: pale speckled field with faint sheet seams."
+    },
+    {
+      "id": "core:tex_metal_panel_01",
+      "display_name": "Brushed Metal Panel Texture",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "core/textures/walls/metal_panel_01.png",
+      "description": "Brushed metal sheet with a panel seam and two rivet rows."
+    },
+    {
+      "id": "core:tex_plastic_panel_01",
+      "display_name": "Plastic Panel Texture",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "core/textures/walls/plastic_panel_01.png",
+      "description": "Moulded plastic sheet: pale, near-neutral, softly periodic."
+    },
+    {
+      "id": "core:tex_normal_panel_01",
+      "display_name": "Panel Normal Map",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "core/textures/normals/normal_panel_01.png",
+      "description": "Tangent-space normal sheet with soft moulded dimples; generic detail, not aligned to any albedo."
+    },
+    {
+      "id": "core:tex_normal_brushed_01",
+      "display_name": "Brushed Normal Map",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "core/textures/normals/normal_brushed_01.png",
+      "description": "Tangent-space normal sheet with fine horizontal brushing; generic detail, not aligned to any albedo."
+    },
+    {
+      "id": "core:glass_window_clear_01",
+      "display_name": "Clear Window Glass",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_glass_clear_01",
+      "tile_metres": 2.0,
+      "alpha_mode": "blend",
+      "specular": 0.5,
+      "shine": 0.85,
+      "description": "Clear glazing for a window opening: almost no tint, a smooth glass sheen, and a transparent sheet. Author it on an opening with `glass`."
+    },
+    {
+      "id": "core:glass_window_dirty_01",
+      "display_name": "Dirty Window Glass",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_glass_dirty_01",
+      "tile_metres": 2.0,
+      "alpha_mode": "blend",
+      "specular": 0.4,
+      "shine": 0.6,
+      "description": "Unwashed window glazing: grimy alpha and a duller sheen than clean glass."
+    },
+    {
+      "id": "core:glass_tinted_01",
+      "display_name": "Tinted Glass",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_glass_tinted_01",
+      "tile_metres": 2.0,
+      "alpha_mode": "blend",
+      "specular": 0.45,
+      "shine": 0.8,
+      "description": "Tinted glazing at roughly half opacity, for observation windows between rooms."
+    },
+    {
+      "id": "core:glass_sign_lit_01",
+      "display_name": "Lit Sign Glass",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_glass_tinted_01",
+      "tile_metres": 1.0,
+      "alpha_mode": "blend",
+      "opacity": 0.88,
+      "specular": 0.35,
+      "shine": 0.6,
+      "emissive": [
+        0.86,
+        0.93,
+        1.0
+      ],
+      "emissive_intensity": 1.35,
+      "description": "Translucent backlit sign panel: a tinted sheet that emits on its own, which is what a transparent emissive material looks like."
+    },
+    {
+      "id": "core:glass_sign_flicker_01",
+      "display_name": "Failing Lit Sign Glass",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_glass_tinted_01",
+      "tile_metres": 1.0,
+      "alpha_mode": "blend",
+      "opacity": 0.88,
+      "specular": 0.35,
+      "shine": 0.6,
+      "emissive": [
+        0.95,
+        0.97,
+        1.0
+      ],
+      "emissive_intensity": 1.15,
+      "description": "A backlit sign panel on a failing ballast: the same translucent sheet as `core:glass_sign_lit_01`, driven by a level's `animated_emissions` flicker so it stutters instead of holding steady."
+    },
+    {
+      "id": "core:linoleum_polished_01",
+      "display_name": "Polished Linoleum",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_linoleum_01",
+      "tile_metres": 2.0,
+      "specular": 0.45,
+      "shine": 0.55,
+      "description": "Deliberately waxed linoleum: a buffed sheen with a faint probe reflection, the polished end of the family. Ordinary institutional floors should author `shine` 0.0-0.1 on the surface instead of using this default.",
+      "tint": [
+        0.84,
+        0.8,
+        0.7
+      ],
+      "reflection_mode": "probe",
+      "reflection_strength": 0.25
+    },
+    {
+      "id": "core:metal_brushed_01",
+      "display_name": "Brushed Metal Panel",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_metal_panel_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.9,
+        0.91,
+        0.93
+      ],
+      "specular": 0.6,
+      "specular_color": [
+        0.9,
+        0.93,
+        1.0
+      ],
+      "shine": 0.35,
+      "normal_texture": "core:tex_normal_brushed_01",
+      "normal_strength": 0.35,
+      "description": "Aged brushed metal: a cool tinted sheen, broad highlights and a faint environmental reflection plus a fine directional normal map, so it reads as metal rather than as grey paint without becoming chrome. Raise `shine` on a deliberately polished fixture.",
+      "reflection_mode": "probe",
+      "reflection_strength": 0.25
+    },
+    {
+      "id": "core:plastic_panel_01",
+      "display_name": "Moulded Plastic Panel",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_plastic_panel_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.94,
+        0.95,
+        0.96
+      ],
+      "specular": 0.3,
+      "shine": 0.4,
+      "normal_texture": "core:tex_normal_panel_01",
+      "normal_strength": 0.4,
+      "description": "Moulded plastic: a broad white sheen and soft dimples, the deliberate counterpart of the brushed metal panel. Satin plastic, not a lacquered wall."
+    },
+    {
+      "id": "core:pool_deck_wet_01",
+      "display_name": "Wet Pool Deck",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_pool_tile_deck_01",
+      "tile_metres": 1.5,
+      "tint": [
+        0.45,
+        0.5,
+        0.56
+      ],
+      "specular": 0.7,
+      "shine": 0.78,
+      "description": "Wet deck tile: the shipped deck artwork with a wet sheen and a planar reflection, so a patch of floor reads as standing water without behaving like a mirror.",
+      "reflection_mode": "planar",
+      "reflection_strength": 0.4
+    },
+    {
+      "id": "core:painting_dull_01",
+      "display_name": "Dull Painted Wall",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_wallpaper_yellow_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.8,
+        0.84,
+        0.78
+      ],
+      "specular": 0.0,
+      "shine": 0.0,
+      "description": "Flat painted wall: no sheen at all, the default for materials that author no surface-response fields. Kept explicit as the dull end of the comparison."
+    },
+    {
+      "id": "core:tex_grille_01",
+      "display_name": "Transfer Grille Texture",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "core/textures/walls/grille_01.png",
+      "description": "Alpha cut-out grille sheet: slats are solid, the openings between them are transparent."
+    },
+    {
+      "id": "core:grille_vent_01",
+      "display_name": "Transfer Grille",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_grille_01",
+      "tile_metres": 1.0,
+      "tint": [
+        0.84,
+        0.86,
+        0.9
+      ],
+      "alpha_mode": "cutout",
+      "alpha_cutoff": 0.5,
+      "specular": 0.25,
+      "shine": 0.3,
+      "description": "Painted steel transfer grille: an alpha-tested cut-out that fills an opening with slats instead of a pane."
+    },
+    {
+      "id": "core:tex_white_01",
+      "display_name": "Untextured White Sheet",
+      "asset_class": "core",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "core/textures/white_01.png",
+      "description": "The shared untextured sheet: a solid opaque 2x2 white fill the renderer binds to fixture housings, plain body geometry and any texture slot with nothing better to show. Not artwork and not tileable; loaded once at renderer startup."
+    },
+    {
+      "id": "home:tex_wallpaper_offwhite_01",
+      "display_name": "Home Off-White Wallpaper Texture",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "environment/home/textures/walls/wallpaper_offwhite_01.png",
+      "description": "Clean off-white residential wallpaper: a fine paper weave with no pattern."
+    },
+    {
+      "id": "home:tex_wallpaper_pattern_01",
+      "display_name": "Home Patterned Wallpaper Texture",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "environment/home/textures/walls/wallpaper_pattern_01.png",
+      "description": "Off-white wallpaper with one very subtle repeating motif on a 25 cm cell."
+    },
+    {
+      "id": "home:tex_wall_paint_offwhite_01",
+      "display_name": "Home Painted Wall Texture",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "environment/home/textures/walls/wall_paint_offwhite_01.png",
+      "description": "Plain painted off-white wall: a roller-stipple micro-texture, no pattern."
+    },
+    {
+      "id": "home:tex_baseboard_wood_01",
+      "display_name": "Home Wood Baseboard Texture",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "environment/home/textures/walls/baseboard_wood_01.png",
+      "description": "Residential wood skirting: horizontal grain, restrained, no damage."
+    },
+    {
+      "id": "home:tex_baseboard_white_01",
+      "display_name": "Home White Baseboard Texture",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "environment/home/textures/walls/baseboard_white_01.png",
+      "description": "Painted white skirting: smooth finish with a fine brush grain."
+    },
+    {
+      "id": "home:tex_handrail_wood_01",
+      "display_name": "Home Handrail Wood Texture",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "environment/home/textures/walls/handrail_wood_01.png",
+      "description": "Varnished handrail wood: warm, fine straight grain."
+    },
+    {
+      "id": "home:tex_threshold_wood_01",
+      "display_name": "Home Threshold Strip Texture",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "floor",
+      "model": "environment/home/textures/floors/threshold_wood_01.png",
+      "description": "Transition-strip hardwood: a warm oak tone with fine grain."
+    },
+    {
+      "id": "home:tex_hardwood_oak_01",
+      "display_name": "Home Oak Floorboard Texture",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "floor",
+      "model": "environment/home/textures/floors/hardwood_oak_01.png",
+      "description": "Finished oak floorboards, 20 cm planks, warm and clean."
+    },
+    {
+      "id": "home:tex_hardwood_walnut_02",
+      "display_name": "Home Walnut Floorboard Texture",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "floor",
+      "model": "environment/home/textures/floors/hardwood_walnut_02.png",
+      "description": "Finished walnut floorboards, 15 cm planks, darker and cooler than the oak."
+    },
+    {
+      "id": "home:tex_carpet_cream_01",
+      "display_name": "Home Cream Carpet Texture",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "floor",
+      "model": "environment/home/textures/floors/carpet_cream_01.png",
+      "description": "Clean cream short-pile carpet, no stains and no metre checker."
+    },
+    {
+      "id": "home:tex_tile_home_01",
+      "display_name": "Home Kitchen Tile Texture",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "floor",
+      "model": "environment/home/textures/floors/tile_home_01.png",
+      "description": "Simple 15 cm off-white floor tile with a fine grout line."
+    },
+    {
+      "id": "home:tex_ceiling_white_01",
+      "display_name": "Home White Ceiling Texture",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "ceiling",
+      "model": "environment/home/textures/ceilings/ceiling_white_01.png",
+      "description": "Flat white painted ceiling, near-flat with a faint roller variation."
+    },
+    {
+      "id": "home:tex_ceiling_plaster_01",
+      "display_name": "Home Plaster Ceiling Texture",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "ceiling",
+      "model": "environment/home/textures/ceilings/ceiling_plaster_01.png",
+      "description": "Fine plaster ceiling: a very light stipple, not a popcorn texture."
+    },
+    {
+      "id": "home:wallpaper_offwhite_01",
+      "display_name": "Off-White Residential Wallpaper",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "home:tex_wallpaper_offwhite_01",
+      "tile_metres": 2.0,
+      "specular": 0.0,
+      "shine": 0.12,
+      "description": "Clean canonical residential wallpaper; matte, no damage."
+    },
+    {
+      "id": "home:wallpaper_pattern_01",
+      "display_name": "Patterned Off-White Wallpaper",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "home:tex_wallpaper_pattern_01",
+      "tile_metres": 2.0,
+      "specular": 0.0,
+      "shine": 0.12,
+      "description": "The same paper in a very subtle repeating motif; still matte."
+    },
+    {
+      "id": "home:wall_paint_offwhite_01",
+      "display_name": "Off-White Painted Wall",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "home:tex_wall_paint_offwhite_01",
+      "tile_metres": 2.0,
+      "specular": 0.1,
+      "shine": 0.22,
+      "description": "Plain painted wall: distinct from wallpaper, a low satin response."
+    },
+    {
+      "id": "home:baseboard_wood_01",
+      "display_name": "Wood Baseboard",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "home:tex_baseboard_wood_01",
+      "tile_metres": 0.5,
+      "specular": 0.18,
+      "shine": 0.28,
+      "description": "Wood skirting; used on baseboard and railing trim faces."
+    },
+    {
+      "id": "home:baseboard_white_01",
+      "display_name": "White Baseboard",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "home:tex_baseboard_white_01",
+      "tile_metres": 0.5,
+      "specular": 0.14,
+      "shine": 0.22,
+      "description": "Painted white skirting for walls the wood board would not suit."
+    },
+    {
+      "id": "home:handrail_wood_01",
+      "display_name": "Handrail Wood",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "home:tex_handrail_wood_01",
+      "tile_metres": 0.4,
+      "specular": 0.25,
+      "shine": 0.35,
+      "description": "Varnished handrail and guardrail wood; a restrained satin sheen."
+    },
+    {
+      "id": "home:threshold_wood_01",
+      "display_name": "Wood Threshold Strip",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "home:tex_threshold_wood_01",
+      "tile_metres": 0.5,
+      "specular": 0.22,
+      "shine": 0.3,
+      "description": "Floor transition strip; independent of the floors it joins."
+    },
+    {
+      "id": "home:hardwood_oak_01",
+      "display_name": "Oak Hardwood Floor",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "home:tex_hardwood_oak_01",
+      "tile_metres": 1.6,
+      "specular": 0.22,
+      "shine": 0.32,
+      "description": "Primary residential hardwood: a finished warm oak floor."
+    },
+    {
+      "id": "home:hardwood_walnut_02",
+      "display_name": "Walnut Hardwood Floor",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "home:tex_hardwood_walnut_02",
+      "tile_metres": 1.2,
+      "specular": 0.2,
+      "shine": 0.3,
+      "description": "Secondary hardwood: darker walnut, a genuinely different floor."
+    },
+    {
+      "id": "home:carpet_cream_01",
+      "display_name": "Cream Carpet",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "home:tex_carpet_cream_01",
+      "tile_metres": 2.0,
+      "specular": 0.0,
+      "shine": 0.06,
+      "description": "Clean beige/cream residential carpet; matte and undamaged."
+    },
+    {
+      "id": "home:tile_home_01",
+      "display_name": "Residential Floor Tile",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "home:tex_tile_home_01",
+      "tile_metres": 1.2,
+      "specular": 0.24,
+      "shine": 0.3,
+      "description": "Simple kitchen/bathroom tile; a restrained glazed response."
+    },
+    {
+      "id": "home:ceiling_white_01",
+      "display_name": "Flat White Ceiling",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "home:tex_ceiling_white_01",
+      "tile_metres": 2.0,
+      "specular": 0.0,
+      "shine": 0.1,
+      "description": "Flat white residential ceiling."
+    },
+    {
+      "id": "home:ceiling_plaster_01",
+      "display_name": "Plaster Ceiling",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "home:tex_ceiling_plaster_01",
+      "tile_metres": 2.0,
+      "specular": 0.05,
+      "shine": 0.14,
+      "description": "Lightly textured plaster ceiling; subtle, not popcorn."
+    },
+    {
+      "id": "home:ceiling_light_round",
+      "display_name": "Round Flush-Mount Ceiling Light",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "light",
+      "source": "file",
+      "model": "environment/home/textures/lights/ceiling_light_round_01.png",
+      "description": "Ordinary circular residential flush-mount ceiling lamp: a white diffuser disc in a shallow drum body, warm white light."
+    },
+    {
+      "id": "home:cabinet_base",
+      "display_name": "Base Kitchen Cabinet",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/cabinet_base.glb",
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
+      "color": "#d8d3c8",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Off-white shaker base cabinet with a laminate countertop; 0.6 m wide so a run tiles cleanly."
+    },
+    {
+      "id": "home:cabinet_wall",
+      "display_name": "Wall Kitchen Cabinet",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/cabinet_wall.glb",
+      "size": [
+        0.6,
+        0.72,
+        0.33
+      ],
+      "color": "#ddd8ce",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Off-white wall cabinet with two doors and a slim carcass; mounts above the base cabinet."
+    }
+  ]
+}

@@ -1,0 +1,266 @@
+{
+  "format_version": 1,
+  "id": "prop_showcase",
+  "name": "Prop Showcase (dev)",
+  "author": "Liminal Team",
+  "spawn": {
+    "x": -7.6,
+    "z": 1.6,
+    "yaw_degrees": 0.0
+  },
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "rooms": [
+    {
+      "x": -12.0,
+      "z": -6.0,
+      "width": 10.0,
+      "depth": 10.0,
+      "height": 3.0
+    },
+    {
+      "x": -2.0,
+      "z": -6.0,
+      "width": 10.0,
+      "depth": 10.0,
+      "height": 3.0
+    }
+  ],
+  "walls": [
+    {
+      "x": -12.4,
+      "z": -6.4,
+      "width": 20.799999999999997,
+      "depth": 0.4,
+      "height": 3.0
+    },
+    {
+      "x": -12.4,
+      "z": 4.0,
+      "width": 20.799999999999997,
+      "depth": 0.4,
+      "height": 3.0
+    },
+    {
+      "x": -12.4,
+      "z": -6.0,
+      "width": 0.4,
+      "depth": 10.0,
+      "height": 3.0
+    },
+    {
+      "x": 8.0,
+      "z": -6.0,
+      "width": 0.4,
+      "depth": 10.0,
+      "height": 3.0
+    },
+    {
+      "x": -2.2,
+      "z": -6.0,
+      "width": 0.4,
+      "depth": 10.0,
+      "height": 3.0,
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 4.0,
+          "width": 1.4,
+          "height": 2.2,
+          "sill": 0.0
+        }
+      ]
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": -7.0,
+      "z": -1.0,
+      "intensity": 0.8
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 3.0,
+      "z": -1.0,
+      "intensity": 1.4
+    }
+  ],
+  "props": [
+    {
+      "id": "couch_1",
+      "model": "core:couch",
+      "x": -8.6,
+      "z": -4.4,
+      "solid": true
+    },
+    {
+      "id": "armchair_1",
+      "model": "core:armchair",
+      "x": -6.0,
+      "z": -4.6,
+      "rotation_degrees": 214.0,
+      "solid": true
+    },
+    {
+      "id": "rug_1",
+      "model": "core:rug",
+      "x": -7.6,
+      "z": -2.4
+    },
+    {
+      "id": "table_1",
+      "model": "core:table",
+      "x": -7.6,
+      "z": -2.4,
+      "solid": true
+    },
+    {
+      "id": "tv_1",
+      "model": "core:tv",
+      "x": -7.6,
+      "z": -5.72
+    },
+    {
+      "id": "lamp_1",
+      "model": "core:lamp",
+      "x": -10.6,
+      "z": -4.6
+    },
+    {
+      "id": "plant_1",
+      "model": "core:plant",
+      "x": -11.0,
+      "z": 2.6
+    },
+    {
+      "id": "bookshelf_1",
+      "model": "core:bookshelf",
+      "x": -3.1,
+      "z": -1.0,
+      "rotation_degrees": 270.0,
+      "solid": true
+    },
+    {
+      "id": "spooner-man_1",
+      "model": "spooner-man",
+      "x": -6.4,
+      "z": -1.2,
+      "rotation_degrees": 126.0
+    },
+    {
+      "id": "cardboard_box_1",
+      "model": "core:cardboard_box",
+      "x": -10.9,
+      "z": -5.4,
+      "rotation_degrees": 24.0
+    },
+    {
+      "id": "crate_1",
+      "model": "core:crate",
+      "x": -10.9,
+      "z": -5.4,
+      "rotation_degrees": 12.0,
+      "y": -0.12,
+      "solid": true
+    },
+    {
+      "id": "desk_1",
+      "model": "core:desk",
+      "x": 1.6,
+      "z": -4.6,
+      "solid": true
+    },
+    {
+      "id": "chair_1",
+      "model": "core:chair",
+      "x": 1.6,
+      "z": -3.2,
+      "rotation_degrees": 180.0,
+      "solid": true
+    },
+    {
+      "id": "cabinet_1",
+      "model": "core:cabinet",
+      "x": 6.6,
+      "z": -5.6,
+      "solid": true
+    },
+    {
+      "id": "bed_1",
+      "model": "core:bed",
+      "x": 4.6,
+      "z": 2.4,
+      "solid": true
+    },
+    {
+      "id": "water_cooler_1",
+      "model": "core:water_cooler",
+      "x": 2.6,
+      "z": 2.6,
+      "solid": true
+    },
+    {
+      "id": "vending_machine_1",
+      "model": "core:vending_machine",
+      "x": -1.6,
+      "z": -0.2,
+      "rotation_degrees": 90.0,
+      "solid": true
+    },
+    {
+      "id": "sink_1",
+      "model": "core:sink",
+      "x": 0.9,
+      "z": -5.7,
+      "solid": true
+    },
+    {
+      "id": "stove_1",
+      "model": "core:stove",
+      "x": 3.3,
+      "z": -5.7,
+      "solid": true
+    },
+    {
+      "id": "cabinet_base_1",
+      "model": "home:cabinet_base",
+      "x": 1.5,
+      "z": -5.7,
+      "solid": true
+    },
+    {
+      "id": "cabinet_wall_1",
+      "model": "home:cabinet_wall",
+      "x": 1.5,
+      "z": -5.835,
+      "y": 1.45,
+      "solid": true
+    },
+    {
+      "id": "fridge_1",
+      "model": "core:fridge",
+      "x": 6.4,
+      "z": -4.9,
+      "solid": true
+    },
+    {
+      "id": "washing_machine_1",
+      "model": "core:washing_machine",
+      "x": 7.1,
+      "z": 0.6,
+      "rotation_degrees": 270.0,
+      "solid": true
+    },
+    {
+      "id": "washer_drum_1",
+      "model": "core:washer_drum",
+      "x": 6.57,
+      "z": 0.6,
+      "rotation_degrees": 270.0
+    }
+  ]
+}
