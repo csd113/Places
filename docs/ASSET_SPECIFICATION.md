@@ -686,12 +686,36 @@ normal runtime texture         256x256 native
 
 The refined sign/fixture/CRT builders also load standalone PNG source atlases
 beside their GLBs. Preserve their existing region frames: stop sign uses the
-2×2 sign/pole/bracket/back layout; exit sign uses face `(0,0,192,144)`, body
-`(192,0,64,144)`, metal `(0,144,128,112)` and lamp `(128,144,128,112)` on a
-256² sheet. Globe and switch retain their three-cell 128² layouts; CRT retains
+2×2 sign/pole/bracket/back layout; the rebuilt exit sign uses face
+`(0,0,256,128)`, body `(0,128,128,128)` and metal `(128,128,128,128)` on a
+256² sheet. Its 2:1 face is recessed 6 mm into a closed bevelled housing;
+only that face uses the emissive material. Globe and switch retain their three-cell 128² layouts; CRT retains
 screen/bezel/body/panel on a 128² 2×2 sheet. The mannequin uses one opaque
 256² light-grey concrete sheet at `entities/mannequin/textures/concrete_grey_01.png`.
 These source files are embedded during export; runtime reads the GLBs.
+
+The domestic remakes in `tools/props/parts/domestic_remade.py` retain those
+atlas regions and the tableware layouts. Bed and office chair now load their
+existing embedded artwork from standalone 256² PNG sources beside their GLBs:
+`core/props/models/bed.png` (frame/mattress/linen/board) and
+`environment/office/props/models/chair.png` (shell/pad/metal/dark). These are
+unchanged extracted pixels, not newly painted textures. The switch retains its
+`toggle` clip and node names; its rocker hinge is now at `(0, 0.066, 0.022)`
+metres, with a 0.35-second, 30-degree travel. Its back remains at `z = 0`.
+
+Pool curtain and guardrail remakes load their existing 256² source PNGs beside
+all six GLBs in `environment/pool/props/models/`. The curtain atlas preserves
+cloth/post/plate/track; the rail atlas preserves post/rail/plate/spare. Their
+pixels and 2×2 region layout are unchanged. Rail axes are at 0.98 m and 0.525 m
+on every leg. Curtains use closed 2 mm cloth shells with continuous fitted UVs,
+visible track tabs and a 7.5 cm minimum floor clearance. Catalog dimensions,
+module origins and placement IDs remain unchanged.
+
+The remade rubber duck loads `environment/pool/props/models/rubber_duck.png`,
+an opaque 256² atlas retaining body/head/beak/eye in the existing 2×2 layout.
+The cells are clean yellow, lighter yellow, orange and charcoal material
+swatches; the eye silhouette comes from small closed mesh discs, not alpha.
+The atlas is embedded by `tools/props/parts/duck_remade.py` during export.
 
 ### 8.7 Model geometry conventions (for context)
 

@@ -3,24 +3,28 @@
 
 The committed ``assets/entities/spooner-man/model/spooner-man.glb`` is a
 hand-authored Blender export: one ``cat_rig`` skin (26 joints), three skinned
-primitives, three embedded textures - and no clips. Its mesh, textures, skin,
+primitives, three embedded textures. Its mesh, textures, skin,
 inverse bind matrices and node hierarchy are the canonical asset and this tool
 never rewrites them. It *appends* a small, deterministic set of animation
 clips so the engine's character path can play real poses:
 
-    idle       4.0 s loop   breathing, tail sway, a still head
-    walk       0.6 s loop   a slow diagonal-pair gait for the route speed
-    sit_down   1.6 s once   stand -> sit, holding the seated pose at the end
-    sit_idle   5.0 s loop   the seated pose with restrained breathing
-    stand_up   1.4 s once   sit -> stand
+    idle       4.0 s loop   breathing and tail sway (preserved)
+    walk       0.6 s loop   four-beat lateral-sequence feline walk
+    run        0.46s loop   paired hind push and offset fore catches
+    sit_down   1.8 s once   haunch lowering with braced front paws
+    sit_idle   5.0 s loop   folded hocks, upright chest, quiet breathing
+    stand_up   1.5 s once   rise from the same seated pose
+    pounce     1.4 s once   crouch, launch, airborne reach, landing, recovery
+
 
 The clips are authored from the rest skeleton with the same axis convention
 the engine uses at runtime (``src/render/common/character.rs``): a rotation of
 ``angle`` degrees about the model-space X (lateral) or Y (up) axis, expressed
 in the joint's parent frame, then composed with the joint's rest rotation.
 Translations are authored in model space and converted into the parent frame.
-The seated pose's pelvis height is solved against the actual skinned mesh so
-the lowest posed vertex touches the floor plane exactly.
+Legs use two-bone IK without changing bone lengths. Pose grounding is
+checked against the actual skinned mesh; pounce includes a vertical pelvis
+arc, with no horizontal root travel.
 
 Structural rules the writer guarantees, so the engine's GLB reader
 (``src/gltf.rs``) accepts the result:
@@ -57,13 +61,13 @@ GLB_PATH = os.path.join(
 )
 
 CLIP_MARKER = "places_entity_clips"
-CLIP_VERSION = 1
+CLIP_VERSION = 2
 
 CHUNK_JSON = 0x4E4F_534A
 CHUNK_BIN = 0x004E_4942
 
-# One cycle moves the front-left paw about 0.120 m over 0.6 s. The runtime
-# scales clip playback to its route speed using this measured reference.
+# One walking cycle advances the controller 0.120 m over 0.6 s. The
+# support-phase paw velocity matches this reference (68% stance duty).
 WALK_REFERENCE_SPEED = 0.20
 
 # Engine limits this tool must respect (src/level.rs).
@@ -417,28 +421,23 @@ class Model:
             self._posed_global(slot, lat, up, trans) for slot in self.joint_slots
         ]
         bind = self.read_accessor(self.skin["inverseBindMatrices"], 16)
+        # Skin matrices are pose-wide, not per-vertex. Cache them once so the
+        # animation authoring pass can check every sampled pose against the floor.
+        matrices = []
+        for slot, (rj, tj) in enumerate(joint_world):
+            r4 = [[rj[r][c] for c in range(3)] + [tj[r]] for r in range(3)] + [[0.0, 0.0, 0.0, 1.0]]
+            ib = bind[slot]
+            ib4 = [[ib[col * 4 + row] for col in range(4)] for row in range(4)]
+            matrices.append(mat_mul4(inverse, mat_mul4(r4, ib4)))
         points = []
         for raw, joints, weights in self._vertices:
             acc = [0.0, 0.0, 0.0]
-            for k in range(4):
-                weight = weights[k]
+            for k, weight in enumerate(weights):
                 if weight <= 0.0:
                     continue
-                slot = min(joints[k], len(joint_world) - 1)
-                rj, tj = joint_world[slot]
-                ib = bind[slot]
-                r4 = [[rj[r][c] for c in range(3)] + [tj[r]] for r in range(3)] + [[0.0, 0.0, 0.0, 1.0]]
-                ib4 = [
-                    [ib[col * 4 + row] for col in range(4)] for row in range(4)
-                ]
-                m2 = mat_mul4(r4, ib4)
-                m3 = mat_mul4(inverse, m2)
-                point = [
-                    sum(m3[r][c] * raw[c] for c in range(3)) + m3[r][3]
-                    for r in range(3)
-                ]
+                matrix = matrices[min(joints[k], len(matrices)-1)]
                 for d in range(3):
-                    acc[d] += weight * point[d]
+                    acc[d] += weight * (sum(matrix[d][c]*raw[c] for c in range(3)) + matrix[d][3])
             points.append(acc)
         return points
 
@@ -538,64 +537,8 @@ def invert_affine(rotation: List[List[float]], position: List[float]) -> List[Li
 # --------------------------------------------------------------------- poses
 
 
-def blended(stand: Pose, sit: Pose, t: float) -> Pose:
-    """Smoothstep blend between two poses, channel by channel."""
-    eased = t * t * (3.0 - 2.0 * t)
-    lat: Dict[str, float] = {}
-    up: Dict[str, float] = {}
-    trans: Dict[str, Sequence[float]] = {}
-    for name in set(stand[0]) | set(sit[0]):
-        lat[name] = stand[0].get(name, 0.0) + (sit[0].get(name, 0.0) - stand[0].get(name, 0.0)) * eased
-    for name in set(stand[1]) | set(sit[1]):
-        up[name] = stand[1].get(name, 0.0) + (sit[1].get(name, 0.0) - stand[1].get(name, 0.0)) * eased
-    for name in set(stand[2]) | set(sit[2]):
-        a = stand[2].get(name, (0.0, 0.0, 0.0))
-        b = sit[2].get(name, (0.0, 0.0, 0.0))
-        trans[name] = [a[i] + (b[i] - a[i]) * eased for i in range(3)]
-    return lat, up, trans
-
-
 def stand_pose() -> Pose:
     return {}, {}, {}
-
-
-# Seated pose angles, in degrees: the torso folds nose-up over the dropped
-# pelvis, both hind legs fold flat under the haunch, the front legs stay
-# planted, and the tail curls around the right flank. The pelvis height is
-# solved against the skinned mesh below; `SIT_DROP_M` is the provisional drop
-# that the solver corrects.
-SIT_LAT = {
-    "pelvis": -20.0,
-    "spine": -6.0,
-    "chest": -5.0,
-    "neck": 4.0,
-    "head": 8.0,
-    "leg_fl_upper": -7.0,
-    "leg_fl_lower": -5.0,
-    "leg_fl_paw": 0.0,
-    "leg_fr_upper": -7.0,
-    "leg_fr_lower": -5.0,
-    "leg_fr_paw": 0.0,
-    "leg_rl_upper": -45.0,
-    "leg_rl_lower": -27.0,
-    "leg_rl_paw": -12.0,
-    "leg_rr_upper": -45.0,
-    "leg_rr_lower": -27.0,
-    "leg_rr_paw": -12.0,
-}
-SIT_UP: Dict[str, float] = {}
-SIT_DROP_M = -0.1323
-
-
-def sit_pose(drop: float) -> Pose:
-    lat = dict(SIT_LAT)
-    up = dict(SIT_UP)
-    return lat, up, {"pelvis": (0.0, drop, 0.0)}
-
-
-def smoothstep(t: float) -> float:
-    t = max(0.0, min(1.0, t))
-    return t * t * (3.0 - 2.0 * t)
 
 
 def idle_pose(seconds: float, period: float, amplitude: float = 0.8) -> Pose:
@@ -631,26 +574,6 @@ def plant_front_paws(model: Model, pose: Pose, reference: Pose) -> Pose:
         current = model._posed_global(paw, lat, up, trans)[1]
         trans[upper] = tuple(target[axis] - current[axis] for axis in range(3))
     return lat, up, trans
-
-
-def walk_pose(phase: float) -> Pose:
-    """One slow diagonal-pair gait cycle; `phase` runs 0..1."""
-    lat: Dict[str, float] = {}
-    up: Dict[str, float] = {}
-    for side, pair in (("fl", 0.0), ("rr", 0.0), ("fr", 0.5), ("rl", 0.5)):
-        swing = math.sin(math.tau * (phase + pair))
-        front = side[0] == "f"
-        lat[f"leg_{side}_upper"] = swing * (24.0 if front else 19.0)
-        # Bend during the forward swing, then extend for the backward plant.
-        lift = max(0.0, swing) ** 2
-        lat[f"leg_{side}_lower"] = -lift * (14.0 if front else 17.0)
-        lat[f"leg_{side}_paw"] = -swing * 4.0 + lift * 5.0
-    for index in range(1, 9):
-        up[f"tail_0{index}"] = math.sin(math.tau * (phase + index * 0.1)) * 5.0
-    lat["head"] = math.sin(math.tau * (phase + 0.25)) * 2.0
-    up["spine"] = math.sin(math.tau * phase) * 2.0
-    bob = -(1.0 - math.cos(math.tau * 2.0 * phase)) * 0.002
-    return lat, up, {"pelvis": (0.0, bob, 0.0)}
 
 
 # -------------------------------------------------------------------- writing
@@ -692,7 +615,7 @@ def append_accessor(doc: dict, bin_parts: List[bytes], byte_length: List[int],
 
 def write_clips(model: Model, prefix_views: int, prefix_accessors: int,
                 base_bin_bytes: int) -> dict:
-    """Builds the five clips into a fresh JSON with an appended BIN region."""
+    """Builds the seven clips into a fresh JSON with an appended BIN region."""
     doc = json.loads(json.dumps(model.json))
     doc["bufferViews"] = doc["bufferViews"][:prefix_views]
     doc["accessors"] = doc["accessors"][:prefix_accessors]
@@ -701,14 +624,8 @@ def write_clips(model: Model, prefix_views: int, prefix_accessors: int,
     bin_parts: List[bytes] = [base_bin]
     byte_length = [len(base_bin)]
 
-    # Solve the seated pelvis height so the lowest posed vertex rests on y=0.
-    drop = SIT_DROP_M
-    for _ in range(3):
-        points = model.skinned_points(sit_pose(drop))
-        lowest = min(point[1] for point in points)
-        if abs(lowest) < 1.0e-4:
-            break
-        drop -= lowest
+    # Cat-specific IK and sampled ground correction now solve the seated pose.
+    drop = -0.116
 
     clips = build_clip_table(model, drop)
     animations = []
@@ -769,63 +686,25 @@ def write_clips(model: Model, prefix_views: int, prefix_accessors: int,
         "base_bin_bytes": len(base_bin),
         "base_buffer_views": prefix_views,
         "base_accessors": prefix_accessors,
-        "clips": [{"name": name, "duration": duration, "samples": len(samples)}
+        "clips": [{"name": name, "duration": duration, "samples": len(samples),
+                   "loop": name in ("idle", "walk", "run", "sit_idle"),
+                   "kind": name,
+                   "reference_speed_mps": .20 if name == "walk" else .60 if name == "run" else None}
                   for name, duration, samples in clips],
         "walk_reference_speed": WALK_REFERENCE_SPEED,
+        "run_reference_speed": 0.60,
+        "root_motion": "in_place; pounce includes a vertical pelvis arc",
     }
     return {"document": doc, "bin": b"".join(bin_parts), "drop": drop}
 
 
 def build_clip_table(model: Model, drop: float) -> List[Tuple[str, float, List[Pose]]]:
-    """The five clips as (name, duration, sampled poses)."""
+    """Seven feline clips with fixed bone lengths and grounded support paws."""
+    from cat_motion import build_cat_clips
     standing = stand_pose()
     idle = [plant_front_paws(model, idle_pose(4.0 * i / 48, 4.0), standing)
             for i in range(49)]
-    walk = [walk_pose(i / 48) for i in range(49)]
-    sit = sit_pose(drop)
-
-    def transition(amount: float) -> Pose:
-        # A small pelvis lift at mid-transition keeps the folding legs from
-        # scraping the floor while the pose interpolates.
-        lat, up, trans = blended(stand_pose(), sit, amount)
-        bump = 0.035 * math.sin(math.pi * amount) ** 2
-        trans = dict(trans)
-        base = trans.get("pelvis", (0.0, 0.0, 0.0))
-        trans["pelvis"] = (base[0], base[1] + bump, base[2])
-        return lat, up, trans
-
-    sit_down = [transition(i / 48) for i in range(49)]
-    sit_idle = []
-    for i in range(61):
-        seconds = 5.0 * i / 60
-        lat, up, _ = idle_pose(seconds, 5.0, amplitude=0.45)
-        base_lat, base_up, base_trans = sit
-        merged_lat = dict(base_lat)
-        merged_up = dict(base_up)
-        for name, value in lat.items():
-            merged_lat[name] = merged_lat.get(name, 0.0) + value
-        for name, value in up.items():
-            merged_up[name] = merged_up.get(name, 0.0) + value
-        sit_idle.append(plant_front_paws(
-            model, (merged_lat, merged_up, dict(base_trans)), sit
-        ))
-
-    def reverse_transition(amount: float) -> Pose:
-        lat, up, trans = blended(sit, stand_pose(), amount)
-        bump = 0.035 * math.sin(math.pi * amount) ** 2
-        trans = dict(trans)
-        base = trans.get("pelvis", (0.0, 0.0, 0.0))
-        trans["pelvis"] = (base[0], base[1] + bump, base[2])
-        return lat, up, trans
-
-    stand_up = [reverse_transition(i / 42) for i in range(43)]
-    return [
-        ("idle", 4.0, idle),
-        ("walk", 0.6, walk),
-        ("sit_down", 1.6, sit_down),
-        ("sit_idle", 5.0, sit_idle),
-        ("stand_up", 1.4, stand_up),
-    ]
+    return build_cat_clips(model, idle)
 
 
 def glb_document_bytes(document: dict, bin_bytes: bytes) -> bytes:
@@ -853,7 +732,7 @@ def check(model: Model) -> int:
         print("no authored clips: run tools/props/animate_spooner_man.py")
         return 1
     clips = {entry["name"]: entry for entry in marker.get("clips", [])}
-    expected = {"idle", "walk", "sit_down", "sit_idle", "stand_up"}
+    expected = {"idle", "walk", "run", "sit_down", "sit_idle", "stand_up", "pounce"}
     missing = expected - set(clips)
     if missing:
         print(f"missing clips: {', '.join(sorted(missing))}")
@@ -864,7 +743,7 @@ def check(model: Model) -> int:
         if animation is None:
             print(f"clip {name} is not in the GLB animation list")
             return 1
-        if name in {"idle", "walk", "sit_idle"}:
+        if name in {"idle", "walk", "run", "sit_idle"}:
             for channel in animation["channels"]:
                 sampler = animation["samplers"][channel["sampler"]]
                 output = model.json["accessors"][sampler["output"]]
@@ -884,7 +763,8 @@ def check(model: Model) -> int:
 
 
 def report(model: Model, drop: float) -> None:
-    print(f"seated pelvis drop: {drop:+.4f} m (solved against the skinned mesh)")
+    from cat_motion import walk_pose
+    print(f"seated authored pelvis offset: {drop:+.4f} m (per-key mesh grounding applied)")
     for name, duration, samples in build_clip_table(model, drop):
         lowest = 1e9
         highest = -1e9
@@ -893,17 +773,9 @@ def report(model: Model, drop: float) -> None:
             lowest = min(lowest, min(point[1] for point in points))
             highest = max(highest, max(point[1] for point in points))
         print(f"  {name:9s} {duration:.1f}s {len(samples):3d} keys  y [{lowest:+.3f}, {highest:+.3f}]")
-    # The slow-walk stride: how far the front-left ankle travels forward and
-    # back across the cycle. The route speed is authored to match this.
-    forwards = []
-    for i in range(24):
-        lat, up, trans = walk_pose(i / 24)
-        _matrix, position = model._posed_global(
-            model.index_of["leg_fl_paw"], lat, up, trans)
-        forwards.append(position[2])
-    stride = max(forwards) - min(forwards)
-    print(f"walk stride {stride:.3f} m per cycle -> reference speed "
-          f"{stride / 0.6:.3f} m/s")
+    print("walk: 0.20 m/s support velocity, 0.6 s cycle, 68% stance duty")
+    print("run: 0.60 m/s support velocity, 0.46 s cycle, 36% stance duty")
+    print("pounce: one-shot in place, vertical pelvis arc; no horizontal root travel")
 
 
 def main(argv: Optional[List[str]] = None) -> int:

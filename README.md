@@ -102,11 +102,20 @@ office reception  →  workroom  →  doorways and windows
       →  two steps up  →  quiet corridor  →  Home archway  →  two-storey living area and balcony
 ```
 
-Walk it from the main menu, or boot straight into it:
+`assets/levels/model_zoo.json` is the second bundled level: a large, well-lit
+pool showroom that displays **every** registered placeable model at least once,
+plus the mannequin, skeleton, rat, Spooner-Man, wall-switch, light-prop,
+table-setting, floating-duck and curved-architecture demonstrations. It is
+generated from `assets/catalog.json` by
+`python3 tools/levels/build_model_zoo.py` (with `--check`, `--stats` and
+`--workers`), so adding an asset adds a display instead of going stale.
+
+Walk the demo from the main menu, or boot straight into either level:
 
 ```sh
 cargo run                                   # then: Level Select → Places Demo
 PLACES_LEVEL=places_demo cargo run         # straight into the demo
+PLACES_LEVEL=model_zoo cargo run           # straight into the Model Zoo
 PLACES_LEVEL=places_demo ./Places/places    # from a packaged build
 ```
 
@@ -240,6 +249,7 @@ Places/
     assets/                 catalog.json, levels/, models, textures, decals
         catalog.json
         levels/places_demo.json
+        levels/model_zoo.json
         core/ environment/ entities/ diagnostic/
     levels/                 drop-in level packs (*.json and *.zip); created on first run
     import/                 files waiting to be imported; created on first run
@@ -514,6 +524,12 @@ Working and shipped:
 * props and entities placed by logical id, with authored collision boxes;
 * one official demo level, and compact regression fixtures that back the
   automated tests without shipping;
+* the generated **Model Zoo**, a bundled showroom that displays every
+  registered placeable model exactly as the catalog defines it, together with
+  the pose, route, interaction and mount demonstrations — regenerated from the
+  catalog, never hand-edited;
+* a collision index that keeps movement, support, headroom, aiming, labels and
+  entity routes bounded as a level grows past five thousand instances;
 * a clean packaged distribution and a catalog-driven content pipeline.
 
 Known limitations, all deliberate:

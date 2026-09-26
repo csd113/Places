@@ -91,7 +91,14 @@ impl LightmapFailure {
 /// needs more than this cannot render its lightmaps correctly and must fall back
 /// to vertex lighting instead of dropping pages silently. Mirrors the
 /// renderer's own `LIGHTMAP_ATLAS_MAX_PAGES`.
-pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 4;
+///
+/// Eight pages (raised from four): a 55 m × 55 m storey pair already uses most
+/// of four 1024-texel pages at Full, and the raised level caps admit maps with
+/// several such storeys. The array costs 32 MiB at Full and 8 MiB at Low, and
+/// the layers beyond the resident page count are filled white, so an unused
+/// page costs memory only. A bake that still overflows falls back to vertex
+/// lighting by name, exactly as before.
+pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 8;
 
 /// Smallest axis length, in metres, a patch may have.
 ///

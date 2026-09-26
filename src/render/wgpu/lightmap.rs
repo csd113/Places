@@ -32,8 +32,9 @@ use crate::lighting::lightmap::{LevelLightmaps, LightmapPage};
 /// One `texture_2d_array` layer per page, selected by the vertex page byte. A
 /// bake that needs more pages fails over to vertex lighting instead of dropping
 /// pages silently. Mirrors
-/// [`crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES`].
-pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 4;
+/// [`crate::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES`] (eight pages: 32 MiB
+/// at Full's 1024-texel edge, 8 MiB at Low's 512-texel edge).
+pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 8;
 
 /// Whether an On-mode build whose atlas failed to upload must be rebuilt with
 /// vertex lighting.
@@ -465,11 +466,14 @@ mod tests {
     }
 
     #[test]
-    fn the_array_contract_is_four_layers_at_every_profile() {
-        assert_eq!(LIGHTMAP_ATLAS_MAX_PAGES, 4);
+    fn the_array_contract_is_eight_layers_at_every_profile() {
+        assert_eq!(LIGHTMAP_ATLAS_MAX_PAGES, 8);
         for profile in crate::quality::QualityProfile::ALL {
             let config = profile.lightmap_config();
-            assert_eq!(config.max_pages, 4, "{profile:?} must support four pages");
+            assert_eq!(
+                config.max_pages, LIGHTMAP_ATLAS_MAX_PAGES,
+                "{profile:?} must support the shared page budget"
+            );
         }
         // Low keeps its 512-texel pages and Full its 1024-texel pages.
         assert_eq!(
@@ -492,13 +496,18 @@ mod tests {
             page(1024, 1024, vec![0; 1024 * 1024 * 3]),
             page(1024, 1024, vec![0; 1024 * 1024 * 3]),
         ])));
-        assert_eq!(stats.capacity, 4);
+        assert_eq!(stats.capacity, LIGHTMAP_ATLAS_MAX_PAGES);
         assert_eq!(stats.pages, 2);
         assert_eq!(stats.page_edge, 1024);
         assert_eq!(stats.page_texels, 2 * 1024 * 1024);
         assert_eq!(stats.resident_bytes, 2 * 1024 * 1024 * 4);
-        // The array allocates all four layers; the two unused layers are white.
-        assert_eq!(stats.array_bytes(), 4 * 1024 * 1024 * 4);
+        // The array allocates every layer; the unused layers are white.
+        #[allow(clippy::cast_precision_loss)]
+        let array = LIGHTMAP_ATLAS_MAX_PAGES as u64;
+        assert_eq!(
+            stats.array_bytes(),
+            usize::try_from(array * 1024 * 1024 * 4).unwrap()
+        );
         assert_eq!(stats.charts, 7);
         assert_eq!(stats.chart_texels, 123);
     }

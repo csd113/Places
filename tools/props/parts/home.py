@@ -465,10 +465,13 @@ def build_crt_tv(p: PropBuilder) -> None:
     p.add_note("unlit like core:tv (no emissive material, no prop light)")
 
 
+# File-backed domestic remakes; other builders remain unchanged.
+from parts import domestic_remade
+
 PROPS = {
     "home:cabinet_base": build_cabinet_base,
     "home:cabinet_wall": build_cabinet_wall,
     "home:ball_light": build_ball_light,
-    "home:wall_switch": build_wall_switch,
-    "home:crt_tv": build_crt_tv,
+    "home:wall_switch": domestic_remade.switch,
+    "home:crt_tv": domestic_remade.crt,
 }

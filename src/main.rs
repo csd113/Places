@@ -3,6 +3,7 @@ mod architecture_audit;
 pub mod assets;
 pub mod bench;
 pub mod collision;
+pub mod collision_index;
 pub mod display;
 pub mod entity;
 pub mod font;
@@ -39,6 +40,8 @@ mod surface_audit;
 #[cfg(test)]
 mod test_support;
 pub mod ui;
+#[cfg(test)]
+mod zoo_audit;
 
 use std::cmp::Ordering;
 use std::io::Write;

@@ -141,17 +141,47 @@ class RepositoryTests(unittest.TestCase):
 
 
 class ShippedLevelTests(unittest.TestCase):
-    def test_places_demo_is_the_only_bundled_level(self):
+    def test_the_shipped_levels_are_the_demo_and_the_model_zoo(self):
         shipped = {path.stem: load_level(path) for path in level_files()}
         self.assertEqual(
             set(shipped),
-            {"places_demo"},
-            "Places Demo must be the only level bundled with the game",
+            {"places_demo", "model_zoo"},
+            "Places Demo and the generated Model Zoo are the bundled levels",
         )
         demo = shipped["places_demo"]
         self.assertEqual(demo["id"], "places_demo")
         self.assertEqual(demo["name"], "Places Demo")
         self.assertEqual(demo["format_version"], 1)
+        zoo = shipped["model_zoo"]
+        self.assertEqual(zoo["id"], "model_zoo")
+        self.assertEqual(zoo["name"], "Model Zoo")
+        self.assertEqual(zoo["format_version"], 1)
+        # The zoo is generated tooling output, not hand-authored content: it
+        # must record the generator's stable instance-id namespace.
+        self.assertTrue(zoo["props"], "the zoo must display something")
+        for prop in zoo["props"]:
+            self.assertRegex(
+                prop["id"],
+                r"^zoo:[a-z0-9_.-]+:[a-z0-9_.-]+$",
+                "every zoo placement uses the generator's stable id scheme",
+            )
+
+    def test_the_model_zoo_is_current_with_its_generator(self):
+        # `--check` re-derives the level from the catalog and compares it
+        # byte-for-byte, so a catalog change cannot silently leave the zoo
+        # stale.
+        completed = subprocess.run(
+            [sys.executable, "tools/levels/build_model_zoo.py", "--check", "--quiet"],
+            cwd=PACKAGE,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            completed.returncode,
+            0,
+            f"the Model Zoo is stale: {completed.stdout}{completed.stderr}",
+        )
 
     def test_every_shipped_level_has_rooms_walls_light_and_an_inside_spawn(self):
         for path in level_files():

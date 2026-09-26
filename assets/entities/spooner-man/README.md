@@ -21,26 +21,48 @@ other prop) and re-poses every placed instance through the character path.
 
 ### Animation clips
 
-`tools/props/animate_spooner_man.py` authors five LINEAR clips into the GLB
-(it preserves the mesh, textures, hierarchy, skin and rest pose byte for byte,
-appending only new buffer views):
+`tools/props/animate_spooner_man.py` and `tools/props/cat_motion.py` author
+seven LINEAR clips into the canonical GLB. Mesh, textures, hierarchy, weights,
+inverse bind matrices, rest pose and the standing idle are preserved.
 
 | clip | duration | kind | use |
 | --- | --- | --- | --- |
-| `idle` | 4.0 s | loop | standing idle: breathing and tail sway with planted paws |
-| `walk` | 0.6 s | loop | slow diagonal-pair gait, one stride per 0.120 m |
-| `sit_down` | 1.6 s | once | stand to sit, holds the seated pose |
-| `sit_idle` | 5.0 s | loop | seated pose with restrained breathing and planted front paws |
-| `stand_up` | 1.4 s | once | sit back to stand |
+| `idle` | 4.0 s | loop | original standing breathing and tail sway |
+| `walk` | 0.6 s | loop | four-beat lateral-sequence cat walk, low paw lift |
+| `run` | 0.46 s | loop | hind push-off followed by offset foreleg catches |
+| `sit_down` | 1.8 s | once | lowers onto folded haunches while forepaws brace |
+| `sit_idle` | 5.0 s | loop | seated breathing, folded hocks, tail swept aside |
+| `stand_up` | 1.5 s | once | rises from the same seated pose |
+| `pounce` | 1.4 s | once | anticipation crouch, launch, airborne reach, foreleg landing, recovery |
 
-The walk stride was measured from the rig, so the clip plays at rate 1.0 at
-0.20 m/s and scales to the entity's route speed (0.26 m/s). Re-run the tool
-after any rig change and `--check` to verify the clip table:
+The four-beat walk places hind-left, front-left, hind-right, front-right in
+sequence. It has 68% stance duty and a 0.20 m/s reference speed. The run uses
+36% stance duty and a 0.60 m/s reference speed. Per-clip metadata stores those
+speeds, loop flags and durations; the current character renderer selects the
+run for faster `move_to` movement and scales playback to the requested speed.
+
+These are **in-place** animations: no horizontal root displacement. The pounce
+has a vertical pelvis arc; it does not propel the entity through the level or
+add attack behavior. Play it through the existing named-clip route step:
+
+```json
+{ "step": "play", "clip": "pounce", "seconds": 1.4, "loop": false }
+```
+
+Two-link leg IK preserves bone lengths and paw orientation. Transitions share
+exact endpoints; all looping clips close exactly. Ground correction is checked
+against the skinned mesh at every authored pose. The pounce starts and finishes
+in the idle stance. No new rig, textures or skin-weight edits were needed.
 
 ```sh
-python3 tools/props/animate_spooner_man.py --report
+python3 tools/props/animate_spooner_man.py            # rebuild clips only
 python3 tools/props/animate_spooner_man.py --check
+python3 tools/entities/check_clip_boundaries.py
+python3 tools/entities/validate_entities.py --glb assets/entities/spooner-man/model/spooner-man.glb --workers 2
 ```
+
+Motion previews, preservation hashes and the 60 Hz export sweep are documented
+in `docs/reports/spoonerman-cat-motion.md`.
 
 ### Skin repair (run 3)
 

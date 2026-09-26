@@ -776,7 +776,18 @@ impl SpatialHash {
 }
 
 /// The grid cells one triangle touches.
+///
+/// A triangle is filed in *every* cell its bounding box covers, not just the
+/// cell holding its centroid: a wall face can be tens of metres long (the
+/// lightmap chart cap alone allows 63.75 m), and a face centre that falls
+/// between its file cells reads as an uncovered collider face. The per-axis cap
+/// is therefore wider than any legal static triangle, and the total cap bounds
+/// the transient index a pathological level can build. A triangle that still
+/// exceeds the cap keeps the cells nearest its minimum corner; that can only
+/// lose a face *sample*, never report a false defect the geometry does not have.
 fn triangle_cells(points: [[f32; 3]; 3]) -> Vec<(i32, i32, i32)> {
+    /// Total cells one triangle may be filed in.
+    const MAX_CELLS_PER_TRIANGLE: usize = 16_384;
     let mut min = [f32::INFINITY; 3];
     let mut max = [f32::NEG_INFINITY; 3];
     for point in points {
@@ -792,7 +803,7 @@ fn triangle_cells(points: [[f32; 3]; 3]) -> Vec<(i32, i32, i32)> {
         for iy in cell_range(min[1], max[1]) {
             for iz in cell_range(min[2], max[2]) {
                 out.push((ix, iy, iz));
-                if out.len() > 64 {
+                if out.len() >= MAX_CELLS_PER_TRIANGLE {
                     return out;
                 }
             }
@@ -801,12 +812,18 @@ fn triangle_cells(points: [[f32; 3]; 3]) -> Vec<(i32, i32, i32)> {
     out
 }
 
-/// The inclusive cell indices one span touches, capped.
+/// The inclusive cell indices one span touches, capped per axis.
 fn cell_range(low: f32, high: f32) -> std::ops::RangeInclusive<i32> {
     let first = cell_index(low);
     let last = cell_index(high).max(first);
-    first..=last.min(first.saturating_add(8))
+    first..=last.min(first.saturating_add(MAX_CELLS_PER_AXIS - 1))
 }
+
+/// Cells one axis of a triangle's bounding box may span.
+///
+/// Wider than any legal static triangle (a 63.75 m lightmap chart is 65 cells),
+/// so a face centre always lands in a cell its own triangle was filed in.
+const MAX_CELLS_PER_AXIS: i32 = 256;
 
 /// Grid cell index of one world coordinate.
 fn cell_index(value: f32) -> i32 {
@@ -1113,6 +1130,17 @@ fn triangle_overlap_area(a: &Tri, b: &Tri) -> f32 {
     let (axis, _) = dominant_axis(a.normal);
     let mut subject: Vec<[f32; 2]> = project_triangle(a.points, axis);
     let mut clip: Vec<[f32; 2]> = project_triangle(b.points, axis);
+    // Both the clip intersections and the shoelace area difference products of
+    // world coordinates; at a world position of a few hundred metres those
+    // products' rounding dwarfs a real zero-area contact and the checker would
+    // report a clean joint as an overlap. Subtracting one shared local origin
+    // makes the computation translation-invariant: the same joint reports the
+    // same area at the origin and at 2 km.
+    let origin = subject.first().copied().unwrap_or([0.0, 0.0]);
+    for point in subject.iter_mut().chain(clip.iter_mut()) {
+        point[0] -= origin[0];
+        point[1] -= origin[1];
+    }
     if polygon_area(&subject) < 0.0 {
         subject.reverse();
     }
@@ -1351,15 +1379,36 @@ fn point_in_triangle(point: [f32; 3], triangle: &Tri) -> bool {
     let a = project(triangle.points[0]);
     let b = project(triangle.points[1]);
     let c = project(triangle.points[2]);
+    // Work in the triangle's own frame: the edge cross products difference
+    // products of world coordinates, so at a few hundred metres of world offset
+    // the rounding of such terms (ulp of ~50 is ~4e-6) dwarfs an exact
+    // on-edge zero. Subtracting one shared corner makes the test
+    // translation-invariant and leaves only the triangle's own size in the
+    // error term.
+    let local = |value: [f32; 2]| [value[0] - a[0], value[1] - a[1]];
+    let p = local(p);
+    let a = [0.0_f32, 0.0];
+    let b = local(b);
+    let c = local(c);
+    // The tolerance scales with the triangle's own extent: a 20 m face's cross
+    // product carries ~mlp(extent²) of rounding, and an absolute 1e-6 would
+    // reject an exactly-on-edge face centre (the ghost-collider false positive
+    // this fixes).
+    let scale = [&p, &a, &b, &c]
+        .iter()
+        .flat_map(|value| value.iter())
+        .fold(1.0_f32, |largest, value| largest.max(value.abs()));
+    let epsilon = (scale * scale).mul_add(1.0e-6, 1.0e-9);
+    // The projected cross product is the formula, not unchecked arithmetic.
+    #[allow(clippy::arithmetic_side_effects)]
     let cross = |o: [f32; 2], u: [f32; 2], v: [f32; 2]| {
-        (u[1] - o[1]).mul_add(-(v[0] - o[0]), (u[0] - o[0]) * (v[1] - o[1]))
+        (u[0] - o[0]).mul_add(v[1] - o[1], (u[1] - o[1]) * -(v[0] - o[0]))
     };
     let ab = cross(a, b, p);
     let bc = cross(b, c, p);
     let ca = cross(c, a, p);
-    let epsilon = -1.0e-6;
-    (ab >= epsilon && bc >= epsilon && ca >= epsilon)
-        || (ab <= -epsilon && bc <= -epsilon && ca <= -epsilon)
+    (ab >= -epsilon && bc >= -epsilon && ca >= -epsilon)
+        || (ab <= epsilon && bc <= epsilon && ca <= epsilon)
 }
 
 /// True when a triangle's centroid lies within a collider's face rectangle.

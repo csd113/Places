@@ -30,7 +30,7 @@
 
 use glam::{Vec2, Vec3};
 
-use crate::collision::{WallAabb, resolve_player_collision_for_body};
+use crate::collision::{WallAabb, resolve_player_collision_for_body_indexed};
 use crate::level::{LevelDef, LevelSurfaces, PROP_FALLBACK_SIZE, RouteStepDef, WalkableFloor};
 use crate::logging;
 
@@ -317,7 +317,8 @@ impl EntityRoute {
                 );
                 let travel = (speed * delta).min(distance);
                 let candidate = here + direction * travel;
-                let resolved = resolve_player_collision_for_body(
+                let resolved = resolve_player_collision_for_body_indexed(
+                    world.index,
                     candidate,
                     self.radius,
                     state.position.y,
@@ -429,6 +430,8 @@ impl EntityRoute {
 pub struct RouteWorld<'a> {
     pub walls: &'a [WallAabb],
     pub floor: &'a WalkableFloor,
+    /// The spatial index over `walls`; it narrows the candidate set only.
+    pub index: &'a crate::collision_index::CollisionIndex,
 }
 
 /// One entity's per-frame handoff to the renderer.
@@ -486,11 +489,21 @@ mod tests {
         .expect("the route test level parses")
     }
 
-    fn world_routes(level: &LevelDef) -> (EntityRoutes, Vec<WallAabb>, WalkableFloor) {
+    fn world_routes(
+        level: &LevelDef,
+    ) -> (
+        EntityRoutes,
+        Vec<WallAabb>,
+        WalkableFloor,
+        crate::collision_index::CollisionIndex,
+    ) {
+        let walls = level.collision_aabbs();
+        let index = crate::collision_index::CollisionIndex::build(&walls);
         (
             EntityRoutes::from_level(level),
-            level.collision_aabbs(),
+            walls,
             WalkableFloor::from_level(level),
+            index,
         )
     }
 
@@ -501,13 +514,14 @@ mod tests {
                 { "step": "move_to", "x": 6.0, "z": 2.0, "speed": 1.0 }
             ] }"#,
         );
-        let (routes, walls, floor) = world_routes(&level);
+        let (routes, walls, floor, index) = world_routes(&level);
         let route = routes.get("runner").expect("route resolves");
         let mut state = route.new_state();
         assert!((state.position.x - 2.0).abs() < 1e-6);
         let world = RouteWorld {
             walls: &walls,
             floor: &floor,
+            index: &index,
         };
         // Four metres at 1 m/s: four seconds of 1/60 s steps.
         for _ in 0..240 {
@@ -535,12 +549,13 @@ mod tests {
                 { "step": "move_to", "x": 30.0, "z": 2.0, "speed": 6.0 }
             ] }"#,
         );
-        let (routes, walls, floor) = world_routes(&level);
+        let (routes, walls, floor, index) = world_routes(&level);
         let route = routes.get("runner").expect("route resolves");
         let mut state = route.new_state();
         let world = RouteWorld {
             walls: &walls,
             floor: &floor,
+            index: &index,
         };
         // Ten seconds of 0.1 s frames: far past the room's 20 m edge.
         for _ in 0..100 {
@@ -571,12 +586,13 @@ mod tests {
                 { "step": "wait", "seconds": 0.25 }
             ] }"#,
         );
-        let (routes, walls, floor) = world_routes(&level);
+        let (routes, walls, floor, index) = world_routes(&level);
         let route = routes.get("runner").expect("route resolves");
         let mut state = route.new_state();
         let world = RouteWorld {
             walls: &walls,
             floor: &floor,
+            index: &index,
         };
         route.advance(&mut state, 1.0 / 60.0, &world);
         assert_eq!(
@@ -611,12 +627,13 @@ mod tests {
                 { "step": "wait", "seconds": 0.1 }
             ] }"#,
         );
-        let (routes, walls, floor) = world_routes(&level);
+        let (routes, walls, floor, index) = world_routes(&level);
         let route = routes.get("runner").expect("route resolves");
         let mut state = route.new_state();
         let world = RouteWorld {
             walls: &walls,
             floor: &floor,
+            index: &index,
         };
         // 180 degrees at 240 deg/s is 0.75 s; give it a full second.
         for _ in 0..60 {
@@ -633,12 +650,13 @@ mod tests {
                 { "step": "play", "clip": "pose_sit_chair", "seconds": 0.25 }
             ] }"#,
         );
-        let (routes, walls, floor) = world_routes(&level);
+        let (routes, walls, floor, index) = world_routes(&level);
         let route = routes.get("runner").expect("route resolves");
         let mut state = route.new_state();
         let world = RouteWorld {
             walls: &walls,
             floor: &floor,
+            index: &index,
         };
         for _ in 0..30 {
             route.advance(&mut state, 1.0 / 60.0, &world);
@@ -661,12 +679,13 @@ mod tests {
                 { "step": "move_to", "x": 3.0, "z": 2.0, "speed": 1.0 }
             ] }"#,
         );
-        let (routes, walls, floor) = world_routes(&level);
+        let (routes, walls, floor, index) = world_routes(&level);
         let route = routes.get("runner").expect("route resolves");
         let mut state = route.new_state();
         let world = RouteWorld {
             walls: &walls,
             floor: &floor,
+            index: &index,
         };
         for _ in 0..120 {
             route.advance(&mut state, 1.0 / 60.0, &world);

@@ -275,15 +275,19 @@ fn overflow_is_reported_not_hidden() {
 }
 
 #[test]
-fn four_pages_are_used_when_genuinely_needed() {
+fn the_shipped_page_budget_is_used_when_genuinely_needed() {
     let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
-    assert_eq!(config.max_pages, 4, "the shipped budget is four pages");
+    assert_eq!(
+        config.max_pages,
+        super::LIGHTMAP_ATLAS_MAX_PAGES,
+        "the shipped budget is the shared page budget"
+    );
     let mut allocator = ChartAllocator::new(config);
     let span = config.max_chart_span_m();
     // A chart at the span cap fills a page at this density, so each of the
-    // first four charts opens its own page.
+    // first `max_pages` charts opens its own page.
     let big = patch(span, span);
-    for page in 0..4usize {
+    for page in 0..config.max_pages {
         assert!(
             allocator.allocate(&big).is_some(),
             "chart {page} needs page {page}"
@@ -291,10 +295,10 @@ fn four_pages_are_used_when_genuinely_needed() {
         assert_eq!(allocator.page_count(), page + 1);
     }
     assert!(!allocator.failed());
-    // A fifth big chart exceeds the four-page budget.
+    // One more big chart exceeds the shipped budget.
     assert!(allocator.allocate(&big).is_none());
     assert!(allocator.failed());
-    assert_eq!(allocator.page_count(), 4);
+    assert_eq!(allocator.page_count(), config.max_pages);
 }
 
 #[test]
@@ -809,9 +813,16 @@ fn patch_set(lightmaps: &LevelLightmaps) -> Vec<PatchIdentity> {
 /// pins the capacity contract on a clean checkout, where the drop-in Pit is not
 /// present.
 fn large_tower_level() -> crate::level::LevelDef {
+    large_tower_level_with_storeys(2)
+}
+
+/// The same 55 m x 55 m tower with an arbitrary storey count, so the page-budget
+/// boundary can be pinned exactly (three storeys exceed four pages at Full and
+/// fit the raised eight).
+fn large_tower_level_with_storeys(storeys: u32) -> crate::level::LevelDef {
     let mut rooms: Vec<String> = Vec::new();
     let mut lights: Vec<String> = Vec::new();
-    for storey in 0..2 {
+    for storey in 0..storeys {
         let floor_y = -6.0 * storey as f32;
         rooms.push(format!(
             r#"{{"x": 0.0, "z": 0.0, "width": 55.0, "depth": 55.0, "height": 6.0, "floor_y": {floor_y}}}"#
@@ -866,30 +877,31 @@ fn build_with_config(
 }
 
 /// The capacity regression: The Pit's 2,808 m² of floor plus the same ceiling
-/// (25 rooms, 114 fixtures) exceeded the old two-page budget at Full and the
-/// whole level fell back to vertex lighting, which removed the per-texel light
-/// from every room. The shipped four-page budget must hold a level of that
-/// size, and a two-page budget must still fail over by name rather than drop
-/// pages silently.
+/// (25 rooms, 114 fixtures) exceeded the historical two-page budget at Full and
+/// the whole level fell back to vertex lighting, which removed the per-texel
+/// light from every room. The shipped budget must hold a level of that size, a
+/// two-page budget must still fail over by name rather than drop pages
+/// silently, and the 2026 raise to eight pages must hold a three-storey tower
+/// that four pages cannot.
 ///
-/// The synthetic tower pins both halves of that contract on every checkout. The
+/// The synthetic towers pin every half of that contract on each checkout. The
 /// drop-in `levels/level0_pit.json` is a per-user file that is not committed, so
 /// when it is present its real build is checked too; when it is absent the test
 /// still covers the capacity boundary.
 #[test]
-fn the_pit_bakes_into_the_four_page_budget_at_full() {
+fn the_pit_bakes_into_the_shipped_page_budget_at_full() {
     let profile = QualityProfile::Full;
     let config = profile.lightmap_config();
     assert_eq!(
-        config.max_pages, 4,
-        "the shipped profile supports four pages"
+        config.max_pages, 8,
+        "the shipped profile supports the shared eight-page budget"
     );
     assert_eq!(config.page_edge, 1024);
 
     let tower = large_tower_level();
 
     // The historical two-page budget must overflow: this is the regression the
-    // capacity raise exists for.
+    // first capacity raise exists for.
     let mut two_page = config;
     two_page.max_pages = 2;
     let overflow = build_with_config(&tower, two_page);
@@ -904,7 +916,7 @@ fn the_pit_bakes_into_the_four_page_budget_at_full() {
         "the fallback mesh is complete"
     );
 
-    // The shipped budget must hold it.
+    // The shipped budget must hold the two-storey tower too.
     let build = build_with_config(&tower, config);
     assert_eq!(
         build.lightmap_failure, None,
@@ -960,6 +972,41 @@ fn the_pit_bakes_into_the_four_page_budget_at_full() {
         highest_page + 1,
         lightmaps.pages.len(),
         "every resident layer must be referenced by a stamped chart"
+    );
+}
+
+/// The 2026 raise from four pages to eight: a third 55 m x 55 m storey must
+/// overflow the old four-page budget by name (falling back to vertex lighting),
+/// and the shipped eight-page budget must bake it with more than four pages
+/// actually resident. Without this, the raise would be an unproven constant.
+#[test]
+fn the_three_storey_tower_needs_the_raised_page_budget() {
+    let profile = QualityProfile::Full;
+    let config = profile.lightmap_config();
+    assert_eq!(config.max_pages, 8);
+    let taller = large_tower_level_with_storeys(3);
+    let mut four_page = config;
+    four_page.max_pages = 4;
+    let four = build_with_config(&taller, four_page);
+    assert_eq!(
+        four.lightmap_failure,
+        Some(super::LightmapFailure::PageOverflow),
+        "the three-storey tower must overflow a four-page budget"
+    );
+    assert!(four.lightmaps.is_none());
+    let raised = build_with_config(&taller, config);
+    assert_eq!(
+        raised.lightmap_failure, None,
+        "the eight-page budget must bake the three-storey tower"
+    );
+    let maps = raised
+        .lightmaps
+        .as_deref()
+        .unwrap_or_else(|| panic!("the three-storey tower must produce an atlas"));
+    assert!(
+        maps.pages.len() > 4,
+        "the fixture must actually need more than four pages: {} used",
+        maps.pages.len()
     );
 
     // The real drop-in level, when the user has it installed.
@@ -1111,10 +1158,12 @@ fn an_unrelated_distant_room_does_not_darken_a_lit_room() {
         .lightmaps
         .as_deref()
         .expect("the enlarged level bakes an atlas");
-    assert!(enlarged_lightmaps.pages.len() <= 4);
+    let config = QualityProfile::Full.lightmap_config();
+    assert!(enlarged_lightmaps.pages.len() <= config.max_pages);
     assert!(
-        enlarged_lightmaps.pages.len() > QualityProfile::Full.lightmap_config().max_pages / 2,
-        "the distant room must actually push past the old two-page half of the budget"
+        enlarged_lightmaps.pages.len() > 2,
+        "the distant room must actually push past the historical two-page budget: {} page(s)",
+        enlarged_lightmaps.pages.len()
     );
     let before = samples_in_first_room(&lit);
     let after = samples_in_first_room(&enlarged);

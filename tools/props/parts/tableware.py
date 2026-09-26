@@ -315,11 +315,14 @@ def build_plant_table(p: PropBuilder) -> None:
     p.add_note("seven closed folded leaf shells in two tiers; no alpha cut-outs")
 
 
+# File-backed domestic remakes; other builders remain unchanged.
+from parts import domestic_remade
+
 PROPS = {
-    "home:knife": build_knife,
-    "home:fork": build_fork,
-    "home:spoon": build_spoon,
-    "home:plate": build_plate,
-    "home:bowl": build_bowl,
+    "home:knife": domestic_remade.knife,
+    "home:fork": domestic_remade.fork,
+    "home:spoon": domestic_remade.spoon,
+    "home:plate": domestic_remade.plate,
+    "home:bowl": domestic_remade.bowl,
     "home:plant_table": build_plant_table,
 }

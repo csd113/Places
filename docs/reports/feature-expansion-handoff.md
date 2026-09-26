@@ -1,4 +1,4 @@
-# Feature-expansion handoff — Runs 01–05
+# Feature-expansion handoff — Runs 01–08
 
 This report is the running record for the numbered feature-expansion runs. It
 holds implemented behaviour, actual paths and interfaces, commands and results,
@@ -611,6 +611,14 @@ through the loader and fail safe; they are documented rather than changed.
   ceiling-vent decal with per-room ceiling tile frames and grid snapping; and
   delivered the read-only `--check-geometry` map checker with fixtures, demo
   and Pit reports (see §11).
+- Run 07+08 (combined, §12): raised every measured capacity limit behind a
+  named constant; added the collision index and made instance/route validation
+  sub-quadratic; raised the animated-character and lightmap-page budgets;
+  repaired two large-coordinate geometry-checker defects and the long-triangle
+  hash filing; added the sparse (±2 km) and dense (5000+ instance) capacity
+  fixtures and their audits; and delivered the generated, selectable Model Zoo
+  with its catalog-driven generator, cache, check mode and growth/removal
+  tests.
 
 ## 8. Run 03 — animated GLB playback and Spoonerman asset (partial)
 
@@ -1914,3 +1922,514 @@ introduce no pass-through. It confirmed the main checkout was never edited,
 committed, reset, cleaned or worktreed. Its copy predates the final baseboard
 sliver-threshold change and the fixes above, so its full-suite number is from
 that copy; the final tree's suite is in §11.9.
+
+## 12. Run 07+08 (combined) — capacity expansion and the automatic Model Zoo
+
+This section records the **combined Steps 07 + 08** requested as one run: the
+capacity work of the original Step 07 and the complete Model Zoo of the original
+Step 08, in dependency order (baseline → capacity → zoo → joint validation).
+The original Step 09 remains the separate final acceptance/cleanup run.
+
+Carried forward: every run-01..06 change and the geometry-repair/asset-polish
+passes. No worktree, branch switch, reset, clean, stash or commit was used, and
+nothing outside the Places checkout was modified. All repository edits were made
+by the lead; three read-only investigators (capacity, spatial/loading, catalog/
+layout) reported under `target/step07-08/` before any edit.
+
+### 12.1 Capacity: limits before/after
+
+Every count cap is now a named constant in `src/level.rs` (the loader's inline
+literals are gone). The "measured" column names the fixture that exercises the
+raise.
+
+| Limit | Before | After | Measured against |
+| --- | --- | --- | --- |
+| Rooms | 500 | 2000 (`MAX_LEVEL_ROOMS`) | 5001-element boundary test |
+| Walls | 5000 | 20 000 (`MAX_LEVEL_WALLS`) | `zoo_audit::the_raised_caps_accept_content_past_the_old_boundary` (5001) |
+| Ceiling lights | 5000 | 20 000 (`MAX_LEVEL_CEILING_LIGHTS`) | same boundary test (5001) |
+| Props | 5000 | 20 000 (`MAX_LEVEL_PROPS`) | same boundary test (5001) + `capacity_dense` (5 312) |
+| Distinct prop models | 256 | 1024 (`MAX_LEVEL_PROP_MODELS`) | `capacity_dense` uses all 48 + the zoo |
+| Summed prop vertices | 1 500 000 | 6 000 000 (`MAX_LEVEL_PROP_VERTICES`) | `capacity_dense` expands 3 456 087 |
+| Estimated level vertices | 2 000 000 | 8 000 000 (`MAX_LEVEL_VERTICES`) | `capacity_dense` |
+| Level JSON bytes | 8 MiB | 32 MiB (`MAX_LEVEL_JSON_BYTES`) | `capacity_dense` (1.2 MiB) |
+| Authored floor area | 1 000 000 m² | 16 000 000 m² (`MAX_LEVEL_FLOOR_AREA_M2`) | `capacity_sparse` (±2 km islands) |
+| Room width/depth | 2000 m | 8192 m (`MAX_ROOM_EXTENT_M`) | `capacity_sparse` |
+| Lightmap atlas pages | 4 | 8 (`LIGHTMAP_ATLAS_MAX_PAGES`) | `the_three_storey_tower_needs_the_raised_page_budget`; `capacity_dense` uses 4 |
+| Animated characters | 8 | 64 (`MAX_CHARACTERS`) | `capacity_dense` requests 64 (18 authored routes + field entities) |
+
+Deliberately **not** raised: decals (5000), floor regions/patches (2000), water
+(2000), ladders (256), triggers (1000), ramps/stairs (500), archways (500),
+half walls/columns/guardrails/baseboards (2000/2000/2000/2000), thresholds
+(1000), openings per wall (64), float props (32), actions per source (8),
+dynamic objects (64) and dynamic meshes (16). Each of those already sits far
+above the measured fixtures, and a raise without a witness would be an
+unverified constant; they are listed here so the next run knows they are
+unchanged rather than forgotten.
+
+### 12.2 Capacity: what actually made room
+
+Raising a constant is not capacity. Three structural changes carry the raises:
+
+* **A collision index over the level's solid boxes** (`src/collision_index.rs`).
+  A uniform X/Z grid in compressed-sparse-row form, built once per level load or
+  reset, allocation-free while a query runs, with a per-box stamp so a
+  multi-cell box is visited at most once and candidates are visited in
+  ascending box order. It replaces whole-world scans in the player's depenetration
+  (`resolve_player_collision_for_body_indexed`), support and headroom
+  (`highest_support_top_indexed`, `lowest_underside_indexed`), entity-route
+  movement (`RouteWorld.index`), interaction targeting
+  (`nearest_target_indexed`) and label occlusion
+  (`clear_line_of_sight_indexed`), and in the loader's route-path validation.
+  The cell budget (`MAX_CELLS = 2²⁰`) and the 4–64 m cell clamp bound memory on
+  a sparse world; an empty or all-malformed box set falls back to the exact
+  linear path. The old free functions are retained and tested, so the index has
+  a reference to be compared against.
+* **Instance-id and route validation made sub-quadratic** (`src/loader.rs`):
+  duplicate detection and action-target resolution are hash sets/maps, not
+  linear scans, and the route validator reuses one index built for the whole
+  level. A 20 000-prop level no longer spends seconds in `validate_instance_ids`.
+* **Dynamic character and lightmap budgets**: `MAX_CHARACTERS` is 64 with the
+  existing per-character vertex buffer (meshes, textures and materials stay
+  shared), and the lightmap atlas is an eight-layer array whose unused layers
+  are filled white (32 MiB at Full's 1024-texel edge, 8 MiB at Low's 512).
+  A bake that still overflows fails over to vertex lighting by name, exactly as
+  before.
+
+### 12.3 Capacity: fixtures and measurements
+
+Fixtures are generated by `tools/levels/build_capacity_fixtures.py` (with
+`--check`) and committed under `tests/fixtures/levels/`:
+
+| Fixture | Content | Geometry checker | Geometry check time |
+| --- | --- | --- | --- |
+| `capacity_sparse.json` | 4 rooms / 16 walls / 40 fixtures / 14 props / 1 route / 1 trigger / 1 water volume at ±2000 m | **0 errors, 0 warnings** (4 `room-leak` warnings suppressed by intent) | 0.08 s |
+| `capacity_dense.json` | 1 room (76 m × 56 m × 5.2 m) / 5312 props over all 48 models / 120 fixtures / 18 routes / 12 curved primitives / 48 decals / basin | **0 errors, 0 warnings** (1 `room-leak` suppressed) | 0.47 s |
+
+Release-build measurements (Apple M2 Pro, 12 CPUs, 16 GB, Metal; `target/release/places`):
+
+| Measurement | Demo (unchanged map) | `capacity_sparse` | `capacity_dense` | Model Zoo |
+| --- | --- | --- | --- | --- |
+| Level geometry build, cold | 443.3 ms geometry + 5 283.7 ms first fill (5 476.8 ms pre-change) | 1 570.9 ms (fill 1 534.1 ms) | 44 954.0 ms (fill 20 832.6 ms, props 19 730.4 ms) | 7 504.1 ms (fill 6 960.7 ms) |
+| Level geometry build, warm (lightmap cache hit) | 434.4 ms (fill 0.0 ms) | 34.0 ms (fill 0.0 ms) | 23 273.6 ms (fill 0.0 ms) | 591.5 ms (fill 0.0 ms) |
+| Whole-process startup with the demo cached | 930.4 ms | 918.5 ms | 45 897.8 ms | 8 466.2 ms (demo boot + zoo load, zoo atlas fresh) / 1 638.0 ms (both atlases cached) |
+| Static mesh | 7 066 verts / 122 draw ranges | 3 456 verts / 61 ranges | 11 936 verts / 103 ranges | 8 723 verts / 70 ranges |
+| Prop vertices / draws | 29 283 / 44 | 4 044 / 12 | 3 456 087 / 1 121 | 26 397 / 48 |
+| Characters | 2 | 1 | 64 (budget reached; the level places more) | 14 |
+| GPU texture residency | 194 336 044 B (unchanged from the pre-change log) | — | 6 291 448 B | 37 748 728 B |
+| Lightmap pages (of 8) / chart texels | 2 / 1 133 540 | 3 / 1 835 080 | 4 / 3 108 428 | 3 / 1 610 551 |
+
+The dense level is an interactive world once loaded: `bench_local.py` measured
+120 frames at Low profile with a 7.9–8.3 ms median frame (3.47 M drawn vertices,
+739 visible batches, 222 MB of vertex buffers) on the M2 Pro, against 3.2–4.0 ms
+median frames on Places Demo (37 350 drawn vertices, 168 batches) and 6.2 ms on
+the Model Zoo (30 224 vertices, 56 batches, one continuous view down the hall). The 45 s `capacity_dense` cold
+load is dominated by two load-time costs:
+prop vertex expansion (19.0 s for 3.4 M vertices) and the lightmap fill
+(20.4 s for 3.1 M chart texels × 120 nearby fixtures). A 240-fixture variant of
+the same hall measured 53.7 s of fill and 5 resident pages, which is why the
+page budget was raised to eight. Neither cost is per frame: the collision,
+support, headroom, aiming and route queries all run through the index, and
+`zoo_audit` pins indexed == linear over the real fixture.
+
+**Large-coordinate evidence.** The sparse fixture's islands sit at ±2000 m;
+`zoo_audit::the_sparse_capacity_fixture_works_kilometres_from_the_origin` walks
+its rat route for 600 substeps (it travels and never stalls), resolves the
+walkable floor and the shell collision in every room, and confirms the water
+volume, trigger and route all resolve. Two checker defects made the first
+±2000 m run report false positives and were repaired in this run (§12.5).
+
+**Failure behaviour.** Past the caps the loader refuses by name (e.g. `Level
+contains too many props: 20001 (limit: 20000)`); past the prop-model or
+prop-vertex budget the remaining placements draw placeholder boxes and the
+console names the budget once. A lightmap bake that still overflows falls back
+to vertex lighting and is reported. There is no unlimited setting.
+
+### 12.4 The Model Zoo
+
+`assets/levels/model_zoo.json` is a shipped, selectable level (Level Select →
+**Model Zoo**; `PLACES_LEVEL=model_zoo`). It is generated by
+`tools/levels/build_model_zoo.py` from `assets/catalog.json`; the JSON is tool
+output and is never hand-edited. Hall: 40.8 m × 51.5 m × 5.0 m of pool deck,
+pool wall tile and pool ceiling, 99 pool downlights on a 4.5 m grid, a 8 m × 6 m
+basin with water and a real ladder volume, two curved walls and two circular
+pillars in more than one material, and four ceiling-grid-snapped vent decals.
+61 placements, 10 routes.
+
+Every one of the 48 registered placeables is displayed (one display each, plus
+the extra demonstrations). The full asset → instance map is:
+
+| `core:armchair` | `zoo:core-armchair:floor` |
+| `core:bed` | `zoo:core-bed:floor` |
+| `core:bookshelf` | `zoo:core-bookshelf:floor` |
+| `core:cabinet` | `zoo:core-cabinet:floor` |
+| `core:cardboard_box` | `zoo:core-cardboard_box:floor` |
+| `core:chair` | `zoo:core-chair:floor`, `zoo:core-chair:skeleton-seat` |
+| `core:couch` | `zoo:core-couch:floor` |
+| `core:crate` | `zoo:core-crate:floor` |
+| `core:desk` | `zoo:core-desk:floor` |
+| `core:exit_sign` | `zoo:core-exit_sign:ceiling` |
+| `core:fridge` | `zoo:core-fridge:floor` |
+| `core:lamp` | `zoo:core-lamp:floor` |
+| `core:plant` | `zoo:core-plant:floor` |
+| `core:pool_chair` | `zoo:core-pool_chair:floor` |
+| `core:pool_curtain_corner` | `zoo:core-pool_curtain_corner:floor` |
+| `core:pool_curtain_end` | `zoo:core-pool_curtain_end:floor` |
+| `core:pool_curtain_straight` | `zoo:core-pool_curtain_straight:floor` |
+| `core:pool_guardrail_corner` | `zoo:core-pool_guardrail_corner:floor` |
+| `core:pool_guardrail_end` | `zoo:core-pool_guardrail_end:floor` |
+| `core:pool_guardrail_straight` | `zoo:core-pool_guardrail_straight:floor` |
+| `core:pool_ladder` | `zoo:core-pool_ladder:floor`, `zoo:core-pool_ladder:basin` |
+| `core:pool_table` | `zoo:core-pool_table:floor` |
+| `core:rubber_duck` | `zoo:core-rubber_duck:float` |
+| `core:rug` | `zoo:core-rug:floor` |
+| `core:sink` | `zoo:core-sink:floor` |
+| `core:stop_sign` | `zoo:core-stop_sign:floor` |
+| `core:stove` | `zoo:core-stove:floor` |
+| `core:table` | `zoo:core-table:floor`, `zoo:core-table:table-host`, `zoo:core-table:media-host` |
+| `core:tv` | `zoo:core-tv:wall` |
+| `core:vending_machine` | `zoo:core-vending_machine:floor` |
+| `core:washer_drum` | `zoo:core-washer_drum:floor` |
+| `core:washing_machine` | `zoo:core-washing_machine:floor` |
+| `core:water_cooler` | `zoo:core-water_cooler:floor` |
+| `home:ball_light` | `zoo:home-ball_light:ceiling` |
+| `home:bowl` | `zoo:home-bowl:table` |
+| `home:cabinet_base` | `zoo:home-cabinet_base:floor` |
+| `home:cabinet_wall` | `zoo:home-cabinet_wall:wall` |
+| `home:crt_tv` | `zoo:home-crt_tv:table` |
+| `home:fork` | `zoo:home-fork:table` |
+| `home:knife` | `zoo:home-knife:table` |
+| `home:plant_table` | `zoo:home-plant_table:table` |
+| `home:plate` | `zoo:home-plate:table` |
+| `home:spoon` | `zoo:home-spoon:table` |
+| `home:wall_switch` | `zoo:home-wall_switch:wall`, `zoo:home-wall_switch:switch-b` |
+| `mannequin` | `zoo:mannequin:pose`, `zoo:mannequin:stand`, `zoo:mannequin:arms-up`, `zoo:mannequin:arms-forward` |
+| `rat` | `zoo:rat:route`, `zoo:rat:run` |
+| `skeleton` | `zoo:skeleton:pose`, `zoo:skeleton:stand`, `zoo:skeleton:floor-sit`, `zoo:skeleton:chair-sit` |
+| `spooner-man` | `zoo:spooner-man:route`, `zoo:spooner-man:companion` |
+
+*Aliases and companions (documented, not silent exclusions):* `core:washer_drum`
+is the engine-animated part that ships inside `core:washing_machine`; the zoo
+displays the machine and a loose drum specimen. `core:pool_ladder` gets both a
+plain catalogue display and the basin display whose `ladders[]` volume is the
+real climbable one (the basin prop placement is `solid: false`, as the guide
+requires). `core:chair` and `core:table` appear more than once because the
+skeleton's chair pose and the two tabletop runs need real hosts.
+`core:decal_test_01` is a generated diagnostic marking, not an authoring asset,
+and is not displayed; the four real decal sheets are (`decal_arrow_01`,
+`decal_stripes_01`, `decal_ceiling_vent_01`, `decal_no_diving_01`). No prop or
+entity model is excluded.
+
+Required demonstrations and where they live: the three mannequin poses
+(`zoo:mannequin:stand`, `:arms-up`, `:arms-forward`, each holding its clip via a
+one-step route and replayable through its interaction); the three skeleton poses
+plus the floor and chair instances (`:stand`, `:floor-sit`, `:chair-sit` seated
+on `zoo:core-chair:skeleton-seat` at the documented offset); a walking
+(`zoo:rat:route`, 0.1985 m/s) and a running (`zoo:rat:run`, 0.5731 m/s) rat;
+two independently routed Spooner-Man instances, one running
+`walk → sit_down → sit_idle → stand_up`; two wall switches with independent
+`toggle_animation` state; the stop sign, the illuminated green exit sign and
+the hanging white ball light (each with its own authored light), the CRT on its
+media table; knife/fork/spoon/plate/bowl/plant on the place-setting table; the
+duck floating in the contained basin; the aligned vent, the curved walls and the
+circular pillars.
+
+The zoo generator:
+
+* is **catalog-driven** (one display per placeable, no hand-written inventory)
+  and re-derivable — `--check` compares byte-for-byte and exits 1 on drift with
+  the missing/extra display ids named;
+* uses **stable ids** `zoo:<catalog-id>:<role>`, derived only from the asset id
+  and the display role, so reordering the catalog array changes nothing;
+* is **deterministic**: no timestamps, no absolute paths, no worker-order
+  effects; serial and parallel runs are byte-identical (`sha256
+  c0b2b53b1528…` both ways, `--no-cache`);
+* is **bounds-aware**: bay pitch is the largest real footprint plus the 1.4 m
+  clear-aisle rule; the pose/route lane is reserved and no floor display can be
+  placed in it; the room grows a row and the fixture grid follows when content
+  grows;
+* acts on the **real animation envelope** (skinned clips sampled through the
+  entity toolkit's own skinning, 48 samples per clip) and the real rest bounds,
+  not the catalogue size alone;
+* **caches** inspection under `cache/zoo_inspection.json`, keyed per model by
+  path, size, mtime and the tool's cache version, so a changed model invalidates
+  only its own entry; `--no-cache` bypasses it.
+
+Growth/removal fixtures (`tests/test_zoo_generator.py`, eight tests, all
+passing): adding one catalog entry adds exactly one display and renumbers
+nothing; adding forty expands the hall and its lighting; removing an entry
+removes only its display and deletes no asset; reversing the catalog array moves
+no display; serial and 2-worker inspection agree on every asset; the shipped
+file is exactly what the generator produces.
+
+### 12.5 Repairs made necessary by the run
+
+1. **The geometry checker was not translation-invariant.** At ±300 m and beyond,
+   `triangle_overlap_area` reported the two triangles of one quad as overlapping
+   by up to 0.22 m² and `point_in_triangle` rejected a face centre that lay
+   exactly on a triangle edge, so long Z-axis walls were reported as
+   `ghost-collider`. Both divide/difference products of large world
+   coordinates; both were fixed with a local origin and a scale-relative
+   tolerance. The sparse fixture and a minimal probe are clean at ±2000 m, and
+   Places Demo, The Pit and every fixture's counts are unchanged.
+2. **The geometry checker's triangle spatial hash filed long triangles in only
+   the first nine cells per axis** (`cell_range` capped at `first + 8`), so a
+   20 m wall face could not be found from its own face centre. The cap is now
+   256 cells per axis (bounded by a 16 384-cell total), which is what the
+   `ghost-collider` fix needed to see the face at all.
+3. **`validate_instance_ids` was O(n²)** and each action's target lookup was a
+   linear scan; both are hash-based now, and the route validator builds one
+   collision index for the whole level instead of scanning every wall per
+   sample.
+4. **`MAX_CHARACTERS = 8` could not express the requested zoo** (three mannequin
+   poses, three skeleton poses, two rats, two Spooner-Man instances and two
+   switches are already ten); it is 64, with the historical over-budget
+   behaviour preserved (extras stay in their static bind pose and the console
+   names the budget).
+5. **The four-page lightmap budget was already tight** (The Pit uses 4 at Full);
+   the raise to eight is pinned by a new three-storey regression that fails over
+   the old four-page budget by name and bakes past four pages at the shipped
+   budget.
+
+### 12.6 Reference-map verification
+
+* **Places Demo** — geometry checker exit 0 (0 errors, the same single
+  pre-existing baseboard sliver warning, the same 2 suppressed `missing-wall`
+  warnings); the full workspace suite (which includes the ladder, Spoonerman
+  route/pose, E-label, switch, table-setting, duck-float, vent, railing and
+  pool-sheen checks) passes unchanged.
+* **The Pit** (`levels/level0_pit.json`, a user drop-in, untouched) — geometry
+  checker exit 1 with the same 16 pre-existing `duplicate-surface` errors at
+  non-coalesced wall caps recorded in §11.8 and 76 warnings (down from 98+52
+  in run 06 because the two checker false-positive classes above were repaired);
+  no new finding class appears.
+* **Every other fixture** — `test_room`, `prop_showcase`, `prop_stress`,
+  `pool_showcase`, `vertical_diagnostic`, `rendering_diagnostic`,
+  `geometry_intentional`, `lighting_isolation`, `lighting_diagnostic` and
+  `home_showcase` were re-run through the checker; only the pre-existing
+  `rendering_diagnostic` cap-overlap errors remain, and no count grew.
+
+### 12.7 Offline compute (multicore requirement)
+
+The zoo generator is the one new substantial tool. Its expensive work is
+per-asset inspection (GLB parse, rest bounds, clip metadata and the sampled
+skinned animation envelope, 48 samples per clip). It exposes `--workers N`
+(CLI precedence) and `PLACES_TOOL_WORKERS`, uses an explicit `spawn` context
+with a module-level worker function and an initializer, merges results keyed by
+asset id (never completion order) and writes the level only from the parent.
+`--workers 1` is the identical serial reference; `--workers 99` reports
+`requested 99, reduced to 12 (CPU/ceiling budget)`; the pool also reduces to the
+number of independent assets and is capped by a 96 MiB-per-worker guard. The
+shared 12-slot CPU ceiling is respected: the generator is the only heavy job
+started by this run, and it overlaps nothing.
+
+Measured on the final tree (48 assets, cold cache, identical input):
+
+| Workers | Wall time | Notes |
+| --- | --- | --- |
+| 1 (reference) | 1.58 s | serial, byte-identical output |
+| 4 | 1.19 s | 1.33× |
+| 8 | 1.20 s | same wall as 4 |
+| 12 | 1.20 s | effective 12, only 4 assets carry envelope work |
+| cache warm | 0.04 s | all 48 entries reused |
+
+The reduction is honest: 44 of the 48 models are cheap static parses (single
+digit milliseconds each), and only the four skinned entities carry a meaningful
+envelope, so the useful parallelism is bounded at four. The worker path exists
+because the corpus can grow; the algorithmic win (rest bounds from accessor
+min/max, envelopes sampled only for skinned models, per-model cache) matters
+more than the worker count, and the cache makes a no-change regeneration free.
+Identical job coverage was verified by comparing every asset's serial and
+parallel inspection dictionaries and the final level bytes.
+
+Bounded progress is flushed per asset; a worker exception propagates and no
+output file is written (the level is written once, at the end, by the parent);
+repeated invocation is idempotent; the only resources owned are the cache file
+and the output, both named.
+
+### 12.8 Tests, checks and visual evidence
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Formatting | `cargo fmt --all --check` | exit 0 |
+| Lint (strict, including the gate's `clippy::cargo` set) | `cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::cargo` | exit 0, no warnings |
+| Tests (baseline, before any edit) | `cargo test --workspace --no-fail-fast` | **1265 passed, 0 failed, 8 ignored** (485.0 s) |
+| Tests (final tree, before the concurrent model change) | `cargo test --workspace --no-fail-fast` | **1283 passed, 0 failed, 8 ignored** (476.2 s, exit 0) — 18 net tests above the 1265-test baseline, no regression |
+| Tests (re-run after the concurrent Spoonerman rebuild landed mid-suite) | `cargo test --workspace --no-fail-fast` | 1282 passed, 1 failed, 8 ignored (513.4 s). The one failure was the concurrent stream's own `gltf::tests::parses_the_shipped_spoonerman_bind_pose_and_skeleton`, whose expected clip list lagged the concurrently rebuilt GLB. This run repaired that one-line expectation (seven clips: `idle`, `walk`, `run`, `sit_down`, `sit_idle`, `stand_up`, `pounce`) and taught the zoo generator to read the new v2 clip-marker shape as well as v1; every zoo/capacity/index/lightmap test passed in the same run. |
+| Tests (final, after the concurrent-assertion repair) | `cargo test --workspace --no-fail-fast` | **1283 passed, 0 failed, 8 ignored**, exit 0 — see §12.14 |
+| New Rust regressions | `cargo test --bin places -- zoo_audit:: collision_index:: collision::tests::indexed` | 9 zoo/capacity + 7 index + 1 parity test pass |
+| Capacity fixtures | `python3 tools/levels/build_capacity_fixtures.py --check` | ok, both current |
+| Zoo generator | `python3 tools/levels/build_model_zoo.py --check` | ok, byte-identical |
+| Growth/removal | `python3 -m unittest tests.test_zoo_generator` | 8 tests, ok |
+| Packaging | `python3 -m unittest tests.test_package` | 43 tests, 1 pre-existing failure (`icon.png` 1254 px against the 512 px test limit, untouched) — including the new zoo-staleness test |
+| Geometry checker, Demo | `./target/release/places --check-geometry --level places_demo` | exit 0: 0 errors, 1 warning (the pre-existing sliver) |
+| Geometry checker, Zoo | `... --level assets/levels/model_zoo.json` | exit 0: 0 errors, 0 warnings |
+| Geometry checker, sparse | `... --level tests/fixtures/levels/capacity_sparse.json` | exit 0: 0 errors, 0 warnings |
+| Geometry checker, dense | `... --level tests/fixtures/levels/capacity_dense.json` | exit 0: 0 errors, 0 warnings |
+| Geometry checker, The Pit | `... --level levels/level0_pit.json` | exit 1: the 16 pre-existing errors, 76 warnings |
+| Zoo captures | `sh tools/bench/capture_zoo.sh target/agent-work/zoo-captures` | 10 views at High quality (spawn/overview, mannequin row, skeleton row, table, wall mounts, basin, animated lane, architecture, ceiling props, vents) |
+| Frame times, Model Zoo | `python3 tools/bench/bench_local.py --label zoo_high --level model_zoo --repeat 3` | 56 visible batches, 30 224 vertices, frame median 6.24 ms (p95 9.94 ms) |
+| Frame times, dense fixture | `python3 tools/bench/bench_local.py --label dense_low --level capacity_dense --quality low --repeat 2` | 739 batches, 3 467 831 vertices, 222 MB VBO, frame median 8.09 ms (p95 8.93 ms) |
+| Frame times, Demo (pair) | `python3 tools/bench/bench_local.py --label baseline_demo --binary target/step07-08/baseline/target/release/places --level places_demo --repeat 3` and `--label current_demo` | baseline frame median 8.15 ms (36 850 verts, 168 batches) vs current 4.02 ms (37 350 verts, 168 batches); **not a clean pair** — see below |
+
+The demo frame-time pair is not a clean before/after: the concurrent checkout
+stream (below) rebuilt `stop_sign.glb` and `exit_sign.glb` mid-run, so the
+current build draws 500 more vertices in the same view than the baseline binary
+built from `HEAD`. It shows no regression (the current build measured faster on
+this host, with identical batch and draw counts) but it does not isolate this
+run's changes, and the lightmap page budget change does not affect frame cost.
+Step 09 should re-run the pair on a quiet tree if a clean number is wanted.
+The baseline source tree and binary are preserved in scratch
+(`target/step07-08/baseline/` with `target/release/places`, built from
+`git archive HEAD`; its own `target/` caches were deleted to save disk, the
+executable still resolves its asset root from its own location).
+
+Visual evidence: `target/agent-work/zoo-captures/zoo-*.png` (10 High-quality
+frames). They show the pool hall and its downlight grid, the held mannequin and
+skeleton poses, the standing/sitting skeletons, the table setting, the wall
+switch and wall-mounted cabinet, the basin with the floating duck and the white
+tile rim, the curved walls and pillars, the exit sign and hanging ball light and
+the ceiling vent decals. A walking/running rat and the Spooner-Man sit sequence
+are route-driven and are additionally pinned by the existing route/animator
+tests; a static screenshot cannot prove motion, so no such claim is made here.
+
+### 12.9 Exact commands
+
+```sh
+# Capacity fixtures (generated; --check verifies they are current)
+python3 tools/levels/build_capacity_fixtures.py
+python3 tools/levels/build_capacity_fixtures.py --check
+
+# Model Zoo (generated; --check verifies the shipped level is current)
+python3 tools/levels/build_model_zoo.py
+python3 tools/levels/build_model_zoo.py --check
+python3 tools/levels/build_model_zoo.py --stats
+python3 tools/levels/build_model_zoo.py --workers 12 --no-cache   # byte-identical to --workers 1
+PLACES_TOOL_WORKERS=4 python3 tools/levels/build_model_zoo.py
+
+# Run the game
+cargo run                                   # Level Select -> Model Zoo
+PLACES_LEVEL=model_zoo cargo run
+PLACES_LEVEL=model_zoo PLACES_QUALITY=high ./target/release/places
+
+# Geometry validation (release binary, headless)
+./target/release/places --check-geometry --level places_demo
+./target/release/places --check-geometry --level assets/levels/model_zoo.json
+./target/release/places --check-geometry --level tests/fixtures/levels/capacity_sparse.json
+./target/release/places --check-geometry --level tests/fixtures/levels/capacity_dense.json
+./target/release/places --check-geometry --level levels/level0_pit.json --json target/agent-work/step07-08/pit.json
+
+# Zoo captures, the load/count measurement batch, and the benchmark harness
+sh tools/bench/capture_zoo.sh target/agent-work/zoo-captures
+sh tools/bench/measure_capacity.sh
+python3 tools/bench/bench_local.py --label zoo_high --level model_zoo --repeat 3
+python3 tools/bench/bench_local.py --label dense_low --level capacity_dense --quality low --repeat 3
+
+# Repository gate
+sh tools/verify.sh
+```
+
+To boot a fixture that lives outside the shipped directory, copy it into the
+drop-in `levels/` directory for the run (as the README documents for
+`home_showcase`) and remove the copy afterwards; the checks above do not need
+that.
+
+### 12.10 Remaining constraints and known issues
+
+* **The dense fixture is a load-time stress, not a playable showcase.** 44.5 s
+  cold / 24.2 s warm at Low-lightmap profile on the M2 Pro; the two costs are
+  linear in output (prop vertices × nearby fixtures, chart texels × nearby
+  fixtures). The per-frame query cost is bounded by the index. A future run that
+  wants a faster dense load should start with a spatial index over the lighting
+  candidates used by `append_instance_vertices` and a cheaper per-vertex
+  `LevelLighting::sample`; neither was necessary for the shipped zoo (8.3 s cold).
+* **`room_index_at_height_of` is still a linear room scan per lighting sample**
+  on the prop/bake path. It is cheap for the zoo and the demo (one to nine
+  rooms) and is not a per-frame cost, but a many-guest-room level would pay
+  `O(rooms)` per vertex. Recorded, not fixed.
+* **The Pit's 16 `duplicate-surface` errors** (non-coalesced wall top caps) and
+  its 76 warnings remain; the layout is a user drop-in and was not modified.
+  The same class as §11.8.
+* **Bake time is the practical ceiling on very large maps**, not memory: the
+  four-page budget was raised to eight, and a level that still overflows falls
+  back to vertex lighting by name rather than dropping pages.
+* **`MAX_CHARACTERS = 64`** is a per-frame CPU skinning budget; a level that
+  places more keeps the extras in their static bind pose and says so once. The
+  zoo uses 13; the dense fixture reaches the cap.
+* **The zoo's floor rows are deliberately generous** (4.8 m pitch). A future
+  pass that wants a tighter gallery can lower `BAY_PITCH_M` in the generator;
+  the aisle rule is expressed there, not in the level.
+* **No GPU-side frame-time comparison against the pre-change binary was made
+  in this run.** The pre-change startup log is preserved
+  (`target/step07-08/boot-run.log`, 6 569.7 ms) and the frame-time harness is
+  documented above, but a like-for-like frame-time pair on the demo was not
+  captured; the capacity evidence is structural (index vs whole-world scan) and
+  unit-level (indexed == linear over the real fixtures) rather than a
+  frame-time delta. Step 09 should capture the pair.
+* **Spooner-Man's zoo route holds its sit/stand sequence** but the renderer does
+  not feed one-shot completion back to the route (the §9.8 note); the route uses
+  explicit seconds, so the sequence is timed rather than clip-exact.
+* **The zoo is generated**: any manual edit to `assets/levels/model_zoo.json`
+  is overwritten and fails `--check`. Change the generator.
+
+### 12.11 Checkout note (concurrent work)
+
+A concurrent stream is editing this checkout during the run. It added
+`docs/reports/stop-sign-remake.md`, `docs/reports/exit-sign-remake.md`,
+`docs/reports/spoonerman-cat-motion.md` and their image directories; modified
+`tools/props/parts/signage.py`, `tools/props/animate_spooner_man.py`,
+`tools/entities/check_clip_boundaries.py`, `docs/ASSET_SPECIFICATION.md` and
+`src/gltf/tests.rs`'s subject; added `tools/props/cat_motion.py`; rebuilt
+`stop_sign.glb`, `exit_sign.glb` and `spooner-man.glb` (with new `run` and
+`pounce` clips); and filled in `docs/reports/geometry-repair/validation.txt` plus
+one line of `docs/reports/geometry-repair.md`. None of that is this run's work
+and none of it was touched, reverted or overwritten.
+
+Two consequences are recorded rather than hidden:
+
+* the concurrent Spoonerman rebuild landed **during** the last full-suite run and
+  left one assertion in their own `gltf::tests` failing (the clip list above);
+  this run's tests all passed in that same run;
+* the sign and Spoonerman rebuilds changed model bytes, so the zoo generator
+  re-inspected them. Its layout is bounds-derived, and both rebuilds kept the
+  same bounds: `python3 tools/levels/build_model_zoo.py --check` passes and the
+  level's sha256 is unchanged (`c0b2b53b1528…`). **If a future concurrent
+  rebuild changes a model's bounds, `--check` will report the zoo stale and one
+  regeneration is needed.**
+
+The working tree also carries the earlier runs' uncommitted changes, as before.
+
+### 12.12 Unexecuted checks
+
+* No interactive play-through (walking the zoo and pressing E at every display)
+  was performed; the interactions are covered by the loader/controller tests and
+  the route/animator tests, and the captures are static frames.
+* No Linux/Windows run; the project's verification host is macOS (Metal), as
+  recorded in `docs/VERIFICATION.md`.
+* `tests/test_compiled_build` and `tests/test_wgpu_bootstrap` are windowed
+  suites; they were run in the repository gate (`tools/verify.sh`) only as far
+  as this run's final check recorded (see §12.8 and the run log). Step 09 owns
+  the full gate.
+
+### 12.14 Final green run
+
+After the one-line concurrent-assertion repair above, the workspace was re-run
+end to end:
+
+```
+cargo test --workspace --no-fail-fast
+test result: ok. 1283 passed; 0 failed; 8 ignored; 0 measured; 489.83s
+EXIT=0
+```
+
+`cargo fmt --all --check`, the full strict Clippy command from `tools/verify.sh`
+and `git diff --check` are all clean on the final tree, and
+`python3 tools/assets/validate.py` reports `OK (0 warning(s))`.
+
+### 12.15 Handoff to Step 09
+
+Combined Steps 7+8 are **delivered**: the capacity raises are measured and
+pinned by `zoo_audit`, and the Model Zoo is a shipped, selectable, generated
+level that displays the complete catalogue. The original Step 09 remains the
+final acceptance/cleanup run: run `sh tools/verify.sh` end to end, capture the
+demo/zoo frame-time pair against the preserved pre-change log, walk the zoo
+interactively, and prune tests only if that is what Step 09 is asked to do.

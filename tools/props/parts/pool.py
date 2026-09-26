@@ -894,15 +894,19 @@ def build_rubber_duck(p: PropBuilder) -> None:
     p.add_note("hull and head lathes, swept tail, angled eye quads; +Z is the beak")
 
 
+# The six curtain/rail registry entries below use the file-backed remakes.
+# Their legacy builders above are retained as historical construction references.
+from parts import pool_remade, duck_remade
+
 PROPS = {
     "core:pool_table": build_pool_table,
     "core:pool_chair": build_pool_chair,
     "core:pool_ladder": build_pool_ladder,
-    "core:pool_curtain_straight": build_pool_curtain_straight,
-    "core:pool_curtain_end": build_pool_curtain_end,
-    "core:pool_curtain_corner": build_pool_curtain_corner,
-    "core:pool_guardrail_straight": build_pool_guardrail_straight,
-    "core:pool_guardrail_end": build_pool_guardrail_end,
-    "core:pool_guardrail_corner": build_pool_guardrail_corner,
-    "core:rubber_duck": build_rubber_duck,
+    "core:pool_curtain_straight": pool_remade.curtains,
+    "core:pool_curtain_end": pool_remade.curtains,
+    "core:pool_curtain_corner": pool_remade.curtains,
+    "core:pool_guardrail_straight": pool_remade.rails,
+    "core:pool_guardrail_end": pool_remade.rails,
+    "core:pool_guardrail_corner": pool_remade.rails,
+    "core:rubber_duck": duck_remade.build,
 }

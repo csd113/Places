@@ -473,8 +473,10 @@ fn test_validate_accepts_moderately_large_level() {
 
 #[test]
 fn test_validate_rejects_pathological_huge_room() {
+    // 25 000 000 m^2 of floor is past the raised 16 000 000 m^2 budget (the
+    // historical budget was 1 000 000); the rejection names the floor area.
     let level = level_from_rooms_json(
-        r#"[{ "x": 0.0, "z": 0.0, "width": 2000.0, "depth": 2000.0, "height": 3.5 }]"#,
+        r#"[{ "x": 0.0, "z": 0.0, "width": 5000.0, "depth": 5000.0, "height": 3.5 }]"#,
     );
     let err = validate_level(&level).expect_err("huge room must be rejected");
     assert!(
@@ -1452,23 +1454,21 @@ fn test_custom_levels_are_discovered_and_loaded() {
 #[test]
 fn test_the_default_level_is_the_shipped_demo() {
     let manager = LevelManager::new();
-    // The Level Select menu renders exactly this list: the demo is the only
-    // bundled (Official) entry; any drop-in levels are CustomJson/PackZip.
-    let official: Vec<&LevelEntry> = manager
+    // The Level Select menu renders exactly this list: Places Demo and the
+    // generated Model Zoo are the bundled (Official) entries; any drop-in
+    // levels are CustomJson/PackZip.
+    let mut official: Vec<&str> = manager
         .entries()
         .iter()
         .filter(|entry| entry.source_type == LevelSourceType::Official)
+        .map(|entry| entry.id.as_str())
         .collect();
+    official.sort_unstable();
     assert_eq!(
-        official.len(),
-        1,
-        "Places Demo must be the only bundled level, found {:?}",
-        official
-            .iter()
-            .map(|entry| entry.id.as_str())
-            .collect::<Vec<_>>()
+        official,
+        vec!["model_zoo", "places_demo"],
+        "the bundled levels are Places Demo and the Model Zoo"
     );
-    assert_eq!(official[0].id, "places_demo");
 
     let loaded = manager.load_default().expect("the shipped demo loads");
     assert_eq!(loaded.entry.id, "places_demo");

@@ -1,15 +1,14 @@
 """The core pack's signage: a stop sign and a luminous exit sign.
 
 Both follow the shared contract (metres, ``+Z`` facing the player, origin on
-the floor-contact/bottom point, one texture per prop) and use the block font in
-:mod:`glyphs` -- the same letterforms the external decal sheets draw -- so the
-signage reads as one institutional set.
+the floor-contact/bottom point, one texture per prop) and load file-backed
+atlases with bold, readable white lettering.
 
 The stop sign is ordinary painted sheet metal with a single opaque material.
 The exit sign is the pack's second luminous prop after the ball light: its
 green face is a separate primitives/materials group with an ``emissiveFactor``
 and ``KHR_materials_emissive_strength``, so the white EXIT lettering and arrow
-glow while the dark housing stays nearly dark. The emissive term is
+glow while the painted metal housing remains non-emissive. The emissive term is
 ``emissiveFactor * base texture``, so the painted face doubles as the emission
 mask.
 """
@@ -23,12 +22,12 @@ import palette
 from glyphs import fill_polygon, stamp_text, text_width
 from mesh import PropBuilder
 from parts.furniture import _solid, _tint
-from parts.refreshed import solid_cylinder, load_atlas_from, padded_box
+from parts.refreshed import solid_box, solid_cylinder, load_atlas_from, padded_box
 
 # Triangle aims (the pack budget in ``build.py`` is the enforced one).
 TARGET = {
     "core:stop_sign": 90,
-    "core:exit_sign": 70,
+    "core:exit_sign": 320,
 }
 
 WHITE = (247, 246, 241)
@@ -60,7 +59,7 @@ def _square_uv(x: float, y: float, width: float, rect) -> tuple[float, float]:
 
 
 def build_stop_sign(p: PropBuilder) -> None:
-    """Faded octagonal STOP plate on a galvanised pole, on two clamps.
+    """Readable octagonal STOP plate mounted in front of a galvanised pole.
 
     The octagon has horizontal top/bottom edges, so its 0.45 m
     across-flats span is exactly the catalogue width and height; its UVs map
@@ -75,18 +74,22 @@ def build_stop_sign(p: PropBuilder) -> None:
     bracket_uv = tex.uv("bracket")
     back_uv = tex.uv("back")
 
-    sign_tint = _tint(PLATE_RED, 0.90)
-    back_tint = _tint(palette.shade(PLATE_RED, 0.6), 0.55)
-    pole_tint = _tint(palette.hex_to_rgb(palette.METAL_GREY), 0.42)
-    bracket_tint = _tint(palette.hex_to_rgb(palette.METAL_DARK), 0.45)
+    # The PNG carries the finish: neutral vertex tints keep STOP and its
+    # border white instead of multiplying them by the sign's red paint.
+    sign_tint = (255, 255, 255)
+    back_tint = (235, 235, 235)
+    pole_tint = (245, 245, 245)
+    bracket_tint = (235, 235, 235)
 
-    # Pole: r 0.025, foot on y = 0, stopping inside the plate.
-    solid_cylinder(p, (0.0, 0.0, 0.0), 0.025, 1.55, segments=6, uv=pole_uv, color=pole_tint)
+    # Pole spans z=-0.030..+0.010, entirely behind the plate's rear at
+    # z=+0.024. It reaches both mounts without protruding over the plate.
+    solid_cylinder(p, (0.0, 0.0, -0.010), 0.020, 1.73,
+                   segments=8, uv=pole_uv, color=pole_tint)
 
-    # Octagon plate: flat-top eight-vertex ring, 0.035 m thick.
+    # A 6 mm metal plate, preserving the 0.45 x 1.8 x 0.06 m catalog bounds.
     radius = 0.225
     plate_y = 1.575
-    front_z, back_z = 0.0175, -0.0175
+    front_z, back_z = 0.030, 0.024
     ring_front = [
         (radius * math.cos(math.tau * index / 8 + math.pi / 8) / math.cos(math.pi / 8), plate_y + radius * math.sin(math.tau * index / 8 + math.pi / 8) / math.cos(math.pi / 8), front_z)
         for index in range(8)
@@ -107,11 +110,13 @@ def build_stop_sign(p: PropBuilder) -> None:
         p.mesh.quad(ring_front[nxt], ring_front[index], ring_back[index], ring_back[nxt],
                     back_uv, back_tint)
 
-    # Two clamps tying the plate to the pole; their depth owns the 0.06 m bbox.
-    for clamp_y in (1.42, 1.68):
-        _solid(p, (0.0, clamp_y, 0.0), (0.045, 0.022, 0.06), bracket_uv, bracket_tint, hidden=())
+    # Stand-off brackets meet the back of the plate, with a small overlap
+    # into the post for a solid connection. Nothing crosses the sign face.
+    for clamp_y in (1.43, 1.69):
+        solid_box(p, (0.0, clamp_y, 0.0165), (0.034, 0.024, 0.015),
+                  uv=bracket_uv, color=bracket_tint)
 
-    p.add_note("flat-top octagon maps its bbox square onto the painted octagon; white STOP from the shared block font")
+    p.add_note("clean file-backed STOP face; neutral metal back; rear pole with 14 mm plate clearance and two stand-offs")
     p.add_note("one opaque material; the sign does not emit")
 
 
@@ -119,54 +124,85 @@ def build_stop_sign(p: PropBuilder) -> None:
 
 
 def build_exit_sign(p: PropBuilder) -> None:
-    """Luminous EXIT sign: a green face, dark housing, two rods and a canopy.
+    """Closed bevelled housing, recessed luminous panel and attached ceiling mount.
 
-    The face is its own primitive/material group with an emissive factor, so
-    the painted green panel, white lettering and white arrow glow while the
-    housing stays dark. Oriented ``+Z``; the base (lowest geometry) is y = 0,
-    so a level authors ``y = ceiling_y - 0.57``.
+    +Z is the readable front. The full 0.45 x 0.57 x 0.08 m bounds and
+    bottom-origin placement contract remain unchanged.
     """
     source = Path(__file__).resolve().parents[3] / "assets/core/props/models/exit_sign.png"
     tex = load_atlas_from(p, source, ())
-    tex.region("face", (0, 0, 192, 144))
-    tex.region("body", (192, 0, 64, 144))
-    tex.region("metal", (0, 144, 128, 112))
-    tex.region("lamp", (128, 144, 128, 112))
-    housing = palette.mix(EXIT_GREEN, palette.hex_to_rgb(palette.ELECTRONICS_DARK), 0.62)
-
-    face_uv = tex.uv("face")
-    body_uv = tex.uv("body")
-    metal_uv = tex.uv("metal")
-    lamp_uv = tex.uv("lamp")
-
-    body_tint = _tint(housing, 0.30)
-    metal_tint = _tint(palette.hex_to_rgb(palette.METAL_GREY), 0.40)
-    lamp_tint = _tint(palette.hex_to_rgb(palette.METAL_DARK), 0.40)
+    tex.region("face", (0, 0, 256, 128))
+    tex.region("body", (0, 128, 128, 128))
+    tex.region("metal", (128, 128, 128, 128))
+    face_uv = tex.uv("face", inset=2)
+    body_uv = tex.uv("body", inset=2)
+    metal_uv = tex.uv("metal", inset=2)
 
     body_slot = p.material("sign_body")
-    face_slot = p.material("sign_face", emissive=(0.35, 1.0, 0.45), strength=1.5)
-
+    # Neutral emission keeps the white lettering white; the PNG supplies green.
+    face_slot = p.material("sign_face", emissive=(1.0, 1.0, 1.0), strength=1.0)
     p.begin_material(body_slot)
-    # Closed bevelled housing behind an inset luminous face.
-    padded_box(p, (0.0, 0.17, -0.002), (0.45, 0.34, 0.071), body_uv, bevel=0.009)
-    # Two thin rods up to the canopy plate (4-segment cylinders: 16 tris each).
+    center_y = 0.1225
+
+    def ring(width, height, corner, z):
+        x, y = width * 0.5, height * 0.5
+        return [(px, center_y + py, z) for px, py in (
+            (-x + corner, -y), (x - corner, -y), (x, -y + corner),
+            (x, y - corner), (x - corner, y), (-x + corner, y),
+            (-x, y - corner), (-x, -y + corner))]
+
+    # One continuous shell: back chamfer, side walls, front chamfer, bezel,
+    # and recessed aperture. Shared ring positions avoid cracks and overlaps.
+    rings = [
+        ring(0.438, 0.233, 0.009, -0.040),
+        ring(0.450, 0.245, 0.012, -0.034),
+        ring(0.450, 0.245, 0.012, 0.034),
+        ring(0.438, 0.233, 0.009, 0.040),
+        ring(0.414, 0.207, 0.002, 0.040),
+        ring(0.414, 0.207, 0.002, 0.034),
+    ]
+    for band, (back, front) in enumerate(zip(rings, rings[1:])):
+        for index in range(8):
+            nxt = (index + 1) % 8
+            # Restrained baked shading on the opaque shell; a darker recess
+            # makes the panel read as a separate inset piece at game distance.
+            shade = 0.72 if band == 4 else (0.80, 0.87, 0.91, 0.97, 1.0, 0.93, 0.84, 0.77)[index]
+            p.mesh.quad(back[index], back[nxt], front[nxt], front[index],
+                        uv=body_uv, color=(255, 255, 255), shade_mult=shade)
+    u0, v0, u1, v1 = body_uv
+    for index in range(8):
+        nxt = (index + 1) % 8
+        p.mesh.triangle((0.0, center_y, -0.040), rings[0][nxt], rings[0][index],
+                        [((u0 + u1) / 2, (v0 + v1) / 2), (u1, v1), (u0, v1)],
+                        (225, 225, 225))
+
+    # The canopy spans BOTH rods. Rod ends overlap their sockets inside the
+    # housing and canopy, never floating beyond the mounting plate.
     for side in (-1.0, 1.0):
-        solid_cylinder(p, (side * 0.12, 0.34, 0.0), 0.006, 0.205, segments=4, uv=metal_uv, color=metal_tint)
-    # Canopy plate: 0.16 x 0.08, its underside its own darker region.
-    _solid(
-        p,
-        (0.0, 0.555, 0.0),
-        (0.16, 0.02, 0.08),
-        {"+x": metal_uv, "-x": metal_uv, "+y": metal_uv, "-y": lamp_uv, "-z": metal_uv, "+z": metal_uv},
-        metal_tint,
-        hidden=(),
-    )
+        x = side * 0.105
+        solid_cylinder(p, (x, 0.239, 0.0), 0.005, 0.312, segments=8,
+                       uv=metal_uv, color=(245, 245, 245))
+        for y in (0.239, 0.536):
+            solid_cylinder(p, (x, y, 0.0), 0.012, 0.014, segments=6,
+                           uv=metal_uv, color=(245, 245, 245))
+    padded_box(p, (0.0, 0.558, 0.0), (0.28, 0.024, 0.075), body_uv, bevel=0.004)
 
+    # The lens closes the shell across a separate emissive material boundary.
+    # Its 2:1 dimensions match the new top-half atlas region.
     p.begin_material(face_slot)
-    p.plane((0.0, 0.17, 0.0375), (0.426, 0.316, 0.0), normal="z", uv=face_uv, color=(255, 255, 255))
+    u0, v0, u1, v1 = face_uv
+    def panel_uv(point):
+        return (u0 + (point[0] / 0.414 + 0.5) * (u1 - u0),
+                v0 + (0.5 - (point[1] - center_y) / 0.207) * (v1 - v0))
+    center = (0.0, center_y, 0.034)
+    for index in range(8):
+        nxt = (index + 1) % 8
+        points = (center, rings[-1][index], rings[-1][nxt])
+        p.mesh.triangle(*points, [panel_uv(point) for point in points], (255, 255, 255))
 
-    p.add_note("face is its own emissive material group: emissiveFactor [0.35,1.0,0.45], strength 1.5")
-    p.add_note("level owns the light: rect emitter 2 cm in front of the face (see the light-specialist report)")
+    p.add_note("closed chamfered metal housing with a 6 mm recessed 2:1 EXIT panel")
+    p.add_note("two suspension rods with sockets, attached inside a full-width ceiling canopy")
+    p.add_note("only the panel emits; level-authored lighting remains unchanged")
 
 
 PROPS = {

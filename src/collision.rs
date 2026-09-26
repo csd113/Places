@@ -172,6 +172,25 @@ pub fn highest_support_top(x: f32, z: f32, max_top: f32, walls: &[WallAabb]) -> 
     highest
 }
 
+/// [`highest_support_top`] through a spatial index.
+#[must_use]
+pub fn highest_support_top_indexed(
+    index: &crate::collision_index::CollisionIndex,
+    x: f32,
+    z: f32,
+    max_top: f32,
+    walls: &[WallAabb],
+) -> Option<f32> {
+    let mut highest: Option<f32> = None;
+    index.for_each_point(x, z, walls, |wall| {
+        if !wall.supports_center(x, z) || wall.max_y > max_top + STEP_EPS {
+            return;
+        }
+        highest = Some(highest.map_or(wall.max_y, |top| top.max(wall.max_y)));
+    });
+    highest
+}
+
 /// The lowest box underside above `above_y` whose footprint touches the disc
 /// `(x, z, radius)`.
 ///
@@ -193,6 +212,26 @@ pub fn lowest_underside(
         }
         lowest = Some(lowest.map_or(wall.min_y, |bottom| bottom.min(wall.min_y)));
     }
+    lowest
+}
+
+/// [`lowest_underside`] through a spatial index.
+#[must_use]
+pub fn lowest_underside_indexed(
+    index: &crate::collision_index::CollisionIndex,
+    x: f32,
+    z: f32,
+    radius: f32,
+    above_y: f32,
+    walls: &[WallAabb],
+) -> Option<f32> {
+    let mut lowest: Option<f32> = None;
+    index.for_each_disc(x, z, radius, walls, |wall| {
+        if !wall.overlaps_disc(x, z, radius) || wall.min_y <= above_y + STEP_EPS {
+            return;
+        }
+        lowest = Some(lowest.map_or(wall.min_y, |bottom| bottom.min(wall.min_y)));
+    });
     lowest
 }
 
@@ -277,6 +316,40 @@ pub fn resolve_player_collision_for_body(
     })
 }
 
+/// [`resolve_player_collision_for_body`] through a spatial index.
+///
+/// The index only decides *which* boxes are examined; the depenetration rule
+/// itself is [`resolve_with_band`]'s, so an indexed resolve is identical to the
+/// linear one for every position, radius and foot height.
+#[must_use]
+pub fn resolve_player_collision_for_body_indexed(
+    index: &crate::collision_index::CollisionIndex,
+    pos: Vec2,
+    radius: f32,
+    foot_y: f32,
+    body_height: f32,
+    walls: &[WallAabb],
+) -> Vec2 {
+    let mut pos = pos;
+    for _ in 0..4 {
+        let mut collided = false;
+        index.for_each_disc(pos.x, pos.y, radius, walls, |wall| {
+            if !wall.blocks_body(foot_y, body_height) {
+                return;
+            }
+            let Some(next) = depenetrate(pos, radius, wall) else {
+                return;
+            };
+            pos = next;
+            collided = true;
+        });
+        if !collided {
+            break;
+        }
+    }
+    pos
+}
+
 /// Resolves collision between player horizontal position and wall bounding boxes.
 /// Allows smooth sliding along walls and resolves corner collisions.
 ///
@@ -302,40 +375,9 @@ fn resolve_with_band(
             if !blocks(wall) {
                 continue;
             }
-            let closest_x = pos.x.clamp(wall.min_x, wall.max_x);
-            let closest_z = pos.y.clamp(wall.min_z, wall.max_z);
-            // Component-wise subtraction rather than the glam operator: the
-            // scalar operations cannot overflow and are exactly what the
-            // operator would do.
-            let diff = Vec2::new(pos.x - closest_x, pos.y - closest_z);
-            let dist_sq = diff.length_squared();
-
-            if dist_sq < radius * radius {
+            if let Some(next) = depenetrate(pos, radius, wall) {
+                pos = next;
                 collided = true;
-                if dist_sq > 1e-6 {
-                    let dist = dist_sq.sqrt();
-                    let normal = Vec2::new(diff.x / dist, diff.y / dist);
-                    let penetration = radius - dist;
-                    pos.x = normal.x.mul_add(penetration, pos.x);
-                    pos.y = normal.y.mul_add(penetration, pos.y);
-                } else {
-                    // Center is inside or exactly on the bounding box boundary.
-                    let d_left = (pos.x - wall.min_x).abs();
-                    let d_right = (wall.max_x - pos.x).abs();
-                    let d_near = (pos.y - wall.min_z).abs();
-                    let d_far = (wall.max_z - pos.y).abs();
-
-                    let min_d = d_left.min(d_right).min(d_near).min(d_far);
-                    if (min_d - d_left).abs() < 1e-5 {
-                        pos.x = wall.min_x - radius;
-                    } else if (min_d - d_right).abs() < 1e-5 {
-                        pos.x = wall.max_x + radius;
-                    } else if (min_d - d_near).abs() < 1e-5 {
-                        pos.y = wall.min_z - radius;
-                    } else {
-                        pos.y = wall.max_z + radius;
-                    }
-                }
             }
         }
         if !collided {
@@ -343,6 +385,48 @@ fn resolve_with_band(
         }
     }
     pos
+}
+
+/// One box's depenetration of a body disc, or `None` when it does not touch.
+///
+/// This is the single implementation of the contact rule the linear and
+/// indexed resolvers both use, so a widened candidate set can never change the
+/// resolved position.
+fn depenetrate(pos: Vec2, radius: f32, wall: &WallAabb) -> Option<Vec2> {
+    let closest_x = pos.x.clamp(wall.min_x, wall.max_x);
+    let closest_z = pos.y.clamp(wall.min_z, wall.max_z);
+    // Component-wise subtraction rather than the glam operator: the scalar
+    // operations cannot overflow and are exactly what the operator would do.
+    let diff = Vec2::new(pos.x - closest_x, pos.y - closest_z);
+    let dist_sq = diff.length_squared();
+    if dist_sq >= radius * radius {
+        return None;
+    }
+    if dist_sq > 1e-6 {
+        let dist = dist_sq.sqrt();
+        let normal = Vec2::new(diff.x / dist, diff.y / dist);
+        let penetration = radius - dist;
+        return Some(Vec2::new(
+            normal.x.mul_add(penetration, pos.x),
+            normal.y.mul_add(penetration, pos.y),
+        ));
+    }
+    // Centre is inside or exactly on the bounding box boundary: push out of
+    // the nearest face.
+    let d_left = (pos.x - wall.min_x).abs();
+    let d_right = (wall.max_x - pos.x).abs();
+    let d_near = (pos.y - wall.min_z).abs();
+    let d_far = (wall.max_z - pos.y).abs();
+    let min_d = d_left.min(d_right).min(d_near).min(d_far);
+    if (min_d - d_left).abs() < 1e-5 {
+        Some(Vec2::new(wall.min_x - radius, pos.y))
+    } else if (min_d - d_right).abs() < 1e-5 {
+        Some(Vec2::new(wall.max_x + radius, pos.y))
+    } else if (min_d - d_near).abs() < 1e-5 {
+        Some(Vec2::new(pos.x, wall.min_z - radius))
+    } else {
+        Some(Vec2::new(pos.x, wall.max_z + radius))
+    }
 }
 
 #[cfg(test)]

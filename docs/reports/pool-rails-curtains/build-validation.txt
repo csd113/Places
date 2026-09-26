@@ -1,0 +1,13 @@
+prop                      tris  verts       tex      glb  notes
+---------------------------------------------------------------
+core:pool_curtain_corner   564   1144   256x256    93.1k (over target)
+core:pool_curtain_end      324    664   256x256    77.1k
+core:pool_curtain_straight   612   1256   256x256   120.4k (over target)
+core:pool_guardrail_corner   308    728   256x256    66.8k
+core:pool_guardrail_end    184    432   256x256    63.7k
+core:pool_guardrail_straight   244    568   256x256    67.6k
+---------------------------------------------------------------
+total                     2236                    488.6k  (6 props, 1536.0 KiB decoded RGBA)
+budget: 500 triangles preferred, 800 review, 1500 shipped art max (engine 6000); texture native 256x256 (engine 1024, High/Medium sample 256 / Low 128); pack decoded memory <= 64 MiB
+
+6 prop(s) OK

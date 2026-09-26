@@ -82,4 +82,4 @@ Each model occupies two adjacent cells: front/top, then rear/underside. These us
 
 ## Validation
 
-See `geometry-repair/validation.txt` for commands and results. Asset format/catalog validation, source/embedded texture preservation, regression checks and the targeted engine import/budget test pass. Full workspace test results are recorded after completion.
+See `geometry-repair/validation.txt` for commands and results. Asset format/catalog validation, source/embedded texture preservation, regression checks and the targeted engine import/budget test pass. Formatting and strict Clippy pass. Full workspace tests: **1265 passed, 0 failed, 8 ignored**.

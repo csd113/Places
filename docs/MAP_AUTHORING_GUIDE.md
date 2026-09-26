@@ -562,15 +562,21 @@ verbatim.
 ### Level limits
 
 The engine enforces several independent caps. Only some of them reject a level:
-read the "Enforced as" column carefully.
+read the "Enforced as" column carefully. The 2026 capacity pass raised every
+count cap after measuring the dense fixture
+(`tests/fixtures/levels/capacity_dense.json`, 5 000+ placements, 100+ fixtures,
+64 animated characters) and the sparse fixture
+(`tests/fixtures/levels/capacity_sparse.json`, four islands at ±2 km) on the
+release build; each value is a named constant in `src/level.rs`, not an inline
+literal.
 
 | Limit | Value | Enforced as |
 | --- | --- | --- |
-| Rooms (`rooms` + legacy `room`) | ≤ 500 | Loader rejection: `Level contains too many rooms: …` |
-| Walls | ≤ 5000 | Loader rejection |
-| Ceiling lights | ≤ 5000 | Loader rejection |
-| Props | ≤ 5000 | Loader rejection |
-| Decals | ≤ 5000 | Loader rejection |
+| Rooms (`rooms` + legacy `room`) | ≤ 2000 (`MAX_LEVEL_ROOMS`) | Loader rejection: `Level contains too many rooms: …` |
+| Walls | ≤ 20 000 (`MAX_LEVEL_WALLS`) | Loader rejection |
+| Ceiling lights | ≤ 20 000 (`MAX_LEVEL_CEILING_LIGHTS`) | Loader rejection |
+| Props | ≤ 20 000 (`MAX_LEVEL_PROPS`) | Loader rejection |
+| Decals | ≤ 5000 (`MAX_LEVEL_DECALS`) | Loader rejection |
 | Decal edge (`width`, `height`) | ≤ 10 m | Loader rejection |
 | Floor regions | ≤ 2000 | Loader rejection |
 | Water volumes | ≤ 2000 | Loader rejection |
@@ -591,19 +597,31 @@ read the "Enforced as" column carefully.
 | Baseboards | ≤ 2000 | Loader rejection |
 | Floor patches | ≤ 2000 | Loader rejection |
 | Openings per wall | ≤ 64 | Loader rejection on that wall |
-| Room width/depth | ≤ 2000 m | Loader rejection per room |
-| Room height | ≤ 50 m | Loader rejection per room |
+| Room width/depth | ≤ 8192 m (`MAX_ROOM_EXTENT_M`) | Loader rejection per room |
+| Room height | ≤ 50 m (`MAX_ROOM_HEIGHT_M`) | Loader rejection per room |
 | Gable `ridge_rise` | ≤ 50 m, and > 0 | Loader rejection per room |
-| Estimated floor area | ≤ 1 000 000 m² | Loader rejection (its own estimate, computed from room rectangles) |
-| Estimated generated vertices | ≤ 2 000 000 | Loader rejection (its own upper-bound estimate) |
-| Standalone level JSON file size | ≤ 8 MiB (`8 * 1024 * 1024` bytes) | Rejected before parsing; the embedded fallback demo is exempt |
+| Estimated floor area | ≤ 16 000 000 m² (`MAX_LEVEL_FLOOR_AREA_M2`) | Loader rejection (its own estimate, computed from room rectangles) |
+| Estimated generated vertices | ≤ 8 000 000 (`MAX_LEVEL_VERTICES`) | Loader rejection (its own upper-bound estimate) |
+| Standalone level JSON file size | ≤ 32 MiB (`MAX_LEVEL_JSON_BYTES`) | Rejected before parsing; the embedded fallback demo is exempt |
 | ZIP pack: entries / entry size / total uncompressed | ≤ 500 entries / ≤ 10 MB per entry / ≤ 50 MB total | Pack rejected while reading |
-| Distinct prop models placed | ≤ 256 | **Not a rejection:** later placements draw placeholder boxes |
-| Summed prop vertices (after instancing) | ≤ 1 500 000 | **Not a rejection:** further placements draw placeholder boxes |
+| Distinct prop models placed | ≤ 1024 (`MAX_LEVEL_PROP_MODELS`) | **Not a rejection:** later placements draw placeholder boxes |
+| Summed prop vertices (after instancing) | ≤ 6 000 000 (`MAX_LEVEL_PROP_VERTICES`) | **Not a rejection:** further placements draw placeholder boxes |
 
 The prop-model caps (triangles, vertices, primitives, materials, images, texture edge)
 are listed in [Props and Models](#16-props-and-models); an over-budget *model* falls
 back to a placeholder box with a one-time `[props]` warning.
+
+**Measured behaviour at the raised limits.** The dense capacity fixture loads
+cold in ~45 s at Low-lightmap profile (about 19 s of prop expansion and 20 s of
+lightmap fill) and warm in ~24 s, and the level runs at interactive frame rates;
+the sparse fixture loads in about the same time as the demo. The per-frame cost
+of collision, support, headroom, aiming and route movement no longer scales with
+the wall count: those queries go through the collision index
+(`src/collision_index.rs`), and `zoo_audit` pins the indexed result equal to the
+linear scan over the real fixture. Notes that remain load-time costs: the
+lightmap fill is linear in chart texels × nearby fixtures, and the prop vertex
+expansion samples lighting per vertex. See the feature-expansion handoff for
+the full measurements.
 
 ---
 
@@ -3988,6 +4006,87 @@ leak check only flags escapes into the void. It sees the asset-less mesh (prop
 placeholders, no GLB interiors) and does not validate prop models, textures or
 shading. Marker files and `--json` are the reproducible localization path for
 every finding; a clean run does not prove that no geometry defect exists.
+
+---
+
+## 31. The Model Zoo and the capacity fixtures
+
+`assets/levels/model_zoo.json` is the generated showroom: one large, well-lit
+pool hall (pool deck floor, pool wall tile, pool ceiling, a grid of pool
+downlights) that displays **every registered placeable model** at least once,
+plus the demonstrations that need more than one copy. It is bundled with the
+game and appears in Level Select as **Model Zoo**.
+
+### What it demonstrates
+
+* one display of every `prop` and `entity` entry in `assets/catalog.json`,
+  grouped by display class (floor standing, wall mounted, ceiling suspended,
+  tabletop, water, posed, routed);
+* three concrete-mannequin poses (`pose_stand`, `pose_arms_up`,
+  `pose_arms_forward`) and three skeleton poses (`pose_stand`, `pose_sit_floor`,
+  `pose_sit_chair`), each held as its rest pose by a one-step route and
+  replayable through its own interaction;
+* a skeleton chair pose seated on a real `core:chair`, placed with the offset
+  documented in `assets/entities/skeleton/README.md`;
+* a walking rat and a running rat on separate routes at their measured
+  reference speeds, and two independently routed Spooner-Man instances (one runs
+  the full `walk → sit_down → sit_idle → stand_up` sequence);
+* two wall switches with independent `toggle_animation` state, plus the stop
+  sign, the illuminated green exit sign, the hanging white ball light and the
+  CRT television, each on a real mount and (for the two luminous props) with its
+  own authored light so the room actually gains light from them;
+* the table setting (knife, fork, spoon, plate, bowl and potted plant) on a real
+  `core:table`, the CRT on its own media table, and the yellow duck floating in
+  a contained basin with a real ladder volume;
+* two curved walls and two circular pillars in more than one material, and
+  ceiling vent decals snapped to the room's own panel grid.
+
+### Generating and checking it
+
+```sh
+python3 tools/levels/build_model_zoo.py              # write the level
+python3 tools/levels/build_model_zoo.py --check      # fail (exit 1) if stale
+python3 tools/levels/build_model_zoo.py --stats      # coverage + layout summary
+python3 tools/levels/build_model_zoo.py --workers 8  # bound the inspection pool
+PLACES_TOOL_WORKERS=4 python3 tools/levels/build_model_zoo.py
+```
+
+* **Catalog-driven.** The display list is derived from `assets/catalog.json` and
+  the models' real bounds; there is no hand-written inventory. Adding a catalog
+  entry adds a display on the next run, removing one removes its display, and
+  neither renumbers any other instance.
+* **Stable ids.** Every display is `zoo:<catalog-id>:<role>` (for example
+  `zoo:core-desk:floor`, `zoo:mannequin:arms-up`). Reordering the catalog array
+  changes nothing; the id is a function of the asset id and the role only.
+* **Deterministic.** No timestamps, no absolute paths, no worker-order effects:
+  serial and parallel runs write byte-identical output, and re-running with an
+  unchanged catalog is a no-op.
+* **Bounds-aware.** Floor rows are derived from the largest real footprint plus
+  the clear-aisle rule; the hall grows a row (and its fixture grid) as content
+  grows; animated displays are placed in a reserved lane so a route can never be
+  blocked by an exhibit.
+* **A real cache.** Model inspection (rest bounds, clip metadata and the sampled
+  animation envelope) is cached under `cache/zoo_inspection.json`, keyed per
+  model by path, file size and mtime plus the tool's cache version. A changed
+  model or clip invalidates only its own entry; `--no-cache` bypasses it.
+* **A real check.** `--check` re-derives the level and compares it
+  byte-for-byte, reports the missing/extra display ids when they differ, and
+  exits non-zero. `tests/test_zoo_generator.py` additionally drives the
+  generator against isolated growth and removal catalogs.
+
+### Capacity fixtures
+
+`tools/levels/build_capacity_fixtures.py` generates the two stress fixtures the
+raised limits are measured against:
+
+| Fixture | What it binds |
+| --- | --- |
+| `capacity_sparse` | Four island rooms at ±2000 m, each with fixtures, props, a decal and (in one) a water volume, a floating duck, a rat route and a reset trigger. Proves geometry, lighting, collision, triggers, routes and floats work kilometres from the origin. |
+| `capacity_dense` | 5000+ placements covering every registered model, 100+ fixtures, 18 routed entities and a real basin, in one 76 m x 56 m hall. Proves the raised instance/model/vertex/fixture budgets and gives the collision index its dense witness set. |
+
+Both are generated (with `--check`) and both must pass
+`places --check-geometry` with no errors; `src/zoo_audit.rs` pins their
+contracts in the test suite.
 
 ---
 

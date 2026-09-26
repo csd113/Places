@@ -1561,7 +1561,9 @@ fn parses_the_shipped_spoonerman_bind_pose_and_skeleton() {
         .collect();
     assert_eq!(
         names,
-        ["idle", "walk", "sit_down", "sit_idle", "stand_up"],
+        [
+            "idle", "walk", "run", "sit_down", "sit_idle", "stand_up", "pounce"
+        ],
         "the shipped rig carries the authored clips"
     );
     let skin = model.skin.as_ref().expect("skin retained");

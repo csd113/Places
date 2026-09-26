@@ -1,3 +1,12 @@
+// Test code: loose casts and permissive arithmetic are idiomatic here.
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::suboptimal_flops,
+    clippy::unwrap_used
+)]
+
 //! Unit tests for player/wall collision.
 
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
@@ -569,5 +578,100 @@ fn test_the_floating_demo_duck_has_no_collision_box() {
             "the floating duck ({}, {}) must not overlap a static collider: {aabb:?}",
             duck.x, duck.z
         );
+    }
+}
+
+/// The indexed queries must be *identical* to the linear ones, not merely
+/// similar: the index only widens the candidate set and every exact predicate
+/// still runs. A dense field of boxes with random probes at cell boundaries,
+/// inside boxes and in the void pins that.
+#[test]
+fn indexed_queries_match_the_linear_scan_for_random_probes() {
+    use crate::collision_index::CollisionIndex;
+
+    let mut boxes = Vec::new();
+    for row in 0..30 {
+        for column in 0..30 {
+            let x = row as f32 * 3.7 - 55.0;
+            let z = column as f32 * 3.1 - 55.0;
+            boxes.push(WallAabb::with_y(x, 0.0, z, 0.4, 3.0, 2.2));
+            if (row + column) % 7 == 0 {
+                boxes.push(WallAabb::with_y(x + 1.0, 1.2, z + 0.4, 1.6, 0.2, 0.9));
+            }
+        }
+    }
+    let index = CollisionIndex::build(&boxes);
+    let mut state = 0x9E37_79B9_u32;
+    let mut next = move || {
+        state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+        state
+    };
+    for _ in 0..600 {
+        let x = (next() % 14_000) as f32 / 100.0 - 70.0;
+        let z = (next() % 14_000) as f32 / 100.0 - 70.0;
+        let foot_y = (next() % 400) as f32 / 100.0 - 1.0;
+        let body = if next() % 2 == 0 {
+            PLAYER_HEIGHT
+        } else {
+            CROUCH_HEIGHT
+        };
+        let pos = Vec2::new(x, z);
+        let linear = resolve_player_collision_for_body(pos, PLAYER_RADIUS, foot_y, body, &boxes);
+        let indexed = resolve_player_collision_for_body_indexed(
+            &index,
+            pos,
+            PLAYER_RADIUS,
+            foot_y,
+            body,
+            &boxes,
+        );
+        assert_eq!(linear, indexed, "resolve at ({x}, {z}) foot {foot_y}");
+        assert_eq!(
+            highest_support_top(x, z, foot_y, &boxes),
+            highest_support_top_indexed(&index, x, z, foot_y, &boxes),
+            "support at ({x}, {z})"
+        );
+        assert_eq!(
+            lowest_underside(x, z, PLAYER_RADIUS, foot_y, &boxes),
+            lowest_underside_indexed(&index, x, z, PLAYER_RADIUS, foot_y, &boxes),
+            "underside at ({x}, {z})"
+        );
+    }
+
+    // Overlapping boxes are the case where depenetration order matters, and the
+    // index must therefore visit candidates in the same order the linear scan
+    // does: every box index ascending.
+    let mut cluster = Vec::new();
+    for row in 0..6 {
+        for column in 0..6 {
+            cluster.push(WallAabb::with_y(
+                row as f32 * 0.9 - 3.0,
+                0.0,
+                column as f32 * 0.9 - 3.0,
+                1.4,
+                2.0,
+                1.4,
+            ));
+        }
+    }
+    let cluster_index = CollisionIndex::build(&cluster);
+    for x100 in 0..70 {
+        for z100 in 0..70 {
+            let x = x100 as f32 * 0.1 - 3.5;
+            let z = z100 as f32 * 0.1 - 3.5;
+            let pos = Vec2::new(x, z);
+            assert_eq!(
+                resolve_player_collision_for_body(pos, PLAYER_RADIUS, 0.0, PLAYER_HEIGHT, &cluster),
+                resolve_player_collision_for_body_indexed(
+                    &cluster_index,
+                    pos,
+                    PLAYER_RADIUS,
+                    0.0,
+                    PLAYER_HEIGHT,
+                    &cluster,
+                ),
+                "overlapping cluster resolve at ({x}, {z})"
+            );
+        }
     }
 }

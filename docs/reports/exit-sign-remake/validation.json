@@ -1,0 +1,30 @@
+{
+  "topology": {
+    "triangles": 300,
+    "degenerate": 0,
+    "boundary_edges": 0,
+    "nonmanifold_edges": 0,
+    "inconsistent_edges": 0,
+    "flipped_triangles": 0,
+    "components": 8,
+    "contradictory_components": 0
+  },
+  "bounds": [
+    [
+      -0.22499999403953552,
+      0.0,
+      -0.03999999910593033
+    ],
+    [
+      0.22499999403953552,
+      0.5699999928474426,
+      0.03999999910593033
+    ]
+  ],
+  "texture": "256x256 opaque; embedded pixels match source",
+  "material_count": 2,
+  "emissive_material": "sign_face only",
+  "uvs": "0..1",
+  "mounting": "both rods at x=+/-0.105 lie inside canopy x=+/-0.14; socket and rod ends overlap their mounting surfaces",
+  "rust_tests": "not run"
+}

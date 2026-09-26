@@ -541,29 +541,45 @@ fn validate_header(level: &LevelDef) -> Result<(), String> {
 }
 
 /// Per-element count budgets.
+///
+/// Each of these is an authoring bound, not a format limit: the engine's data
+/// structures are `Vec`/`HashMap`-backed and the per-frame queries go through
+/// the collision index, so the caps exist to refuse a pathological or
+/// accidentally huge file before it becomes resident, not to define what fits.
+/// The values are four times the largest fixture this repository tests
+/// (`tools/levels/build_capacity_fixtures.py` authors 20 000 walls / 20 000
+/// props / 3 000 lights / 20 000 collision boxes and is measured on the
+/// release build); a level above them is genuinely outside the verified
+/// envelope rather than merely large.
 fn validate_element_limits(level: &LevelDef) -> Result<(), String> {
     let room_count = level.room_iter().count();
-    if room_count > 500 {
+    if u64::try_from(room_count).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_ROOMS {
         return Err(format!(
-            "Level contains too many rooms: {room_count} (limit: 500)"
+            "Level contains too many rooms: {room_count} (limit: {})",
+            crate::level::MAX_LEVEL_ROOMS
         ));
     }
-    if level.walls.len() > 5000 {
+    if u64::try_from(level.walls.len()).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_WALLS {
         return Err(format!(
-            "Level contains too many walls: {} (limit: 5000)",
-            level.walls.len()
+            "Level contains too many walls: {} (limit: {})",
+            level.walls.len(),
+            crate::level::MAX_LEVEL_WALLS
         ));
     }
-    if level.ceiling_lights.len() > 5000 {
+    if u64::try_from(level.ceiling_lights.len()).unwrap_or(u64::MAX)
+        > crate::level::MAX_LEVEL_CEILING_LIGHTS
+    {
         return Err(format!(
-            "Level contains too many ceiling lights: {} (limit: 5000)",
-            level.ceiling_lights.len()
+            "Level contains too many ceiling lights: {} (limit: {})",
+            level.ceiling_lights.len(),
+            crate::level::MAX_LEVEL_CEILING_LIGHTS
         ));
     }
-    if level.props.len() > 5000 {
+    if u64::try_from(level.props.len()).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_PROPS {
         return Err(format!(
-            "Level contains too many props: {} (limit: 5000)",
-            level.props.len()
+            "Level contains too many props: {} (limit: {})",
+            level.props.len(),
+            crate::level::MAX_LEVEL_PROPS
         ));
     }
     if u64::try_from(level.decals.len()).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_DECALS {
@@ -596,9 +612,15 @@ fn validate_rooms(level: &LevelDef) -> Result<(), String> {
                 "Room {i} width, depth, and height must be positive"
             ));
         }
-        if r.width > 2000.0 || r.depth > 2000.0 || r.height > 50.0 {
+        if r.width > crate::level::MAX_ROOM_EXTENT_M
+            || r.depth > crate::level::MAX_ROOM_EXTENT_M
+            || r.height > crate::level::MAX_ROOM_HEIGHT_M
+        {
             return Err(format!(
-                "Room {i} dimensions exceed maximum limits (max 2000x2000x50m)"
+                "Room {i} dimensions exceed maximum limits (max {}x{}x{}m)",
+                crate::level::MAX_ROOM_EXTENT_M,
+                crate::level::MAX_ROOM_EXTENT_M,
+                crate::level::MAX_ROOM_HEIGHT_M
             ));
         }
         // Vertical geometry: the room's floor elevation and ceiling profile.
@@ -2010,19 +2032,25 @@ fn validate_props(level: &LevelDef) -> Result<(), String> {
 /// values are named errors, as are interaction actions that reference an
 /// unknown instance or an action the engine does not implement yet.
 fn validate_instance_ids(level: &LevelDef) -> Result<(), String> {
-    let mut seen: Vec<(String, String)> = Vec::new();
+    // Instance counts reach the tens of thousands on a generated level, so
+    // uniqueness and target lookup are hash sets: a linear `contains` per
+    // instance is quadratic.
+    let mut seen: HashSet<&str> = HashSet::new();
+    let mut first: HashMap<&str, String> = HashMap::new();
 
     let prop_ids = level.prop_instance_ids();
+    let mut known: HashSet<&str> = HashSet::with_capacity(prop_ids.len());
     for (i, id) in prop_ids.iter().enumerate() {
-        validate_instance_id(&mut seen, id, &format!("Prop {i}"))?;
+        validate_instance_id(&mut seen, &mut first, id, &format!("Prop {i}"))?;
+        known.insert(id.as_str());
     }
     let light_ids = level.light_instance_ids();
     for (i, id) in light_ids.iter().enumerate() {
-        validate_instance_id(&mut seen, id, &format!("Ceiling light {i}"))?;
+        validate_instance_id(&mut seen, &mut first, id, &format!("Ceiling light {i}"))?;
     }
     let trigger_ids = level.area_trigger_instance_ids();
     for (i, id) in trigger_ids.iter().enumerate() {
-        validate_instance_id(&mut seen, id, &format!("Area trigger {i}"))?;
+        validate_instance_id(&mut seen, &mut first, id, &format!("Area trigger {i}"))?;
     }
 
     for (i, prop) in level.props.iter().enumerate() {
@@ -2057,16 +2085,17 @@ fn validate_instance_ids(level: &LevelDef) -> Result<(), String> {
             &format!("Prop {i} interaction"),
             &interaction.actions,
             prop_ids.get(i).map(String::as_str),
-            &prop_ids,
+            &known,
         )?;
     }
     Ok(())
 }
 
 /// Validates one instance id and records it for duplicate detection.
-fn validate_instance_id(
-    seen: &mut Vec<(String, String)>,
-    id: &str,
+fn validate_instance_id<'a>(
+    seen: &mut HashSet<&'a str>,
+    first: &mut HashMap<&'a str, String>,
+    id: &'a str,
     context: &str,
 ) -> Result<(), String> {
     let trimmed = id.trim();
@@ -2075,12 +2104,15 @@ fn validate_instance_id(
             "{context} id `{id}` must be a non-empty, well-formed identifier"
         ));
     }
-    if let Some((_, first)) = seen.iter().find(|(seen_id, _)| seen_id == trimmed) {
+    if !seen.insert(trimmed) {
+        let first = first
+            .get(trimmed)
+            .map_or_else(|| "an earlier instance".to_string(), String::clone);
         return Err(format!(
             "{context} id `{trimmed}` duplicates `{first}`; instance ids must be unique"
         ));
     }
-    seen.push((trimmed.to_string(), context.to_string()));
+    first.insert(trimmed, context.to_string());
     Ok(())
 }
 
@@ -2090,7 +2122,7 @@ fn validate_action_list(
     context: &str,
     actions: &[crate::level::ActionDef],
     implicit_target: Option<&str>,
-    prop_ids: &[String],
+    prop_ids: &HashSet<&str>,
 ) -> Result<(), String> {
     if actions.is_empty() {
         return Err(format!("{context} must declare at least one action"));
@@ -2114,7 +2146,7 @@ fn validate_action(
     index: usize,
     action: &crate::level::ActionDef,
     implicit_target: Option<&str>,
-    prop_ids: &[String],
+    prop_ids: &HashSet<&str>,
 ) -> Result<(), String> {
     match action {
         crate::level::ActionDef::ToggleLabel { target } => {
@@ -2130,7 +2162,7 @@ fn validate_action(
                      trigger is not a placed object with a label"
                 ));
             };
-            if !prop_ids.iter().any(|id| id == resolved) {
+            if !prop_ids.contains(resolved) {
                 return Err(format!(
                     "{context} action {index} (`toggle_label`) targets unknown instance \
                      `{resolved}`"
@@ -2156,7 +2188,7 @@ fn validate_action(
                      trigger is not a placed entity that can be posed"
                 ));
             };
-            if !prop_ids.iter().any(|id| id == resolved) {
+            if !prop_ids.contains(resolved) {
                 return Err(format!(
                     "{context} action {index} (`play_animation`) targets unknown instance \
                      `{resolved}`"
@@ -2181,7 +2213,7 @@ fn validate_action(
                      trigger is not a placed object that can be toggled"
                 ));
             };
-            if !prop_ids.iter().any(|id| id == resolved) {
+            if !prop_ids.contains(resolved) {
                 return Err(format!(
                     "{context} action {index} (`toggle_animation`) targets unknown instance \
                      `{resolved}`"
@@ -2342,7 +2374,13 @@ fn validate_routes(level: &LevelDef) -> Result<(), String> {
         return Ok(());
     }
     let ids = level.prop_instance_ids();
+    let id_index: HashMap<&str, usize> = ids
+        .iter()
+        .enumerate()
+        .map(|(index, id)| (id.as_str(), index))
+        .collect();
     let walls = level.collision_aabbs();
+    let collision_index = crate::collision_index::CollisionIndex::build(&walls);
     let floor = crate::level::WalkableFloor::from_level(level);
     let surfaces = LevelSurfaces::new(level);
     let mut seen: HashSet<String> = HashSet::new();
@@ -2356,7 +2394,7 @@ fn validate_routes(level: &LevelDef) -> Result<(), String> {
                 "Entity route {route_index} duplicates instance `{id}`"
             ));
         }
-        let Some(prop_index) = ids.iter().position(|candidate| candidate == id) else {
+        let Some(&prop_index) = id_index.get(id) else {
             return Err(format!(
                 "Entity route {route_index} targets unknown instance `{id}`"
             ));
@@ -2398,6 +2436,7 @@ fn validate_routes(level: &LevelDef) -> Result<(), String> {
             radius,
             body_height,
             &walls,
+            &collision_index,
             &floor,
         )?;
     }
@@ -2406,6 +2445,7 @@ fn validate_routes(level: &LevelDef) -> Result<(), String> {
 
 /// One route's ordered steps: finite data, real floors and clear straight
 /// segments between consecutive waypoints.
+#[allow(clippy::too_many_arguments)]
 fn validate_route_steps(
     id: &str,
     steps: &[crate::level::RouteStepDef],
@@ -2413,6 +2453,7 @@ fn validate_route_steps(
     radius: f32,
     body_height: f32,
     walls: &[crate::collision::WallAabb],
+    collision_index: &crate::collision_index::CollisionIndex,
     floor: &crate::level::WalkableFloor,
 ) -> Result<(), String> {
     let mut position = start;
@@ -2440,6 +2481,7 @@ fn validate_route_steps(
                 route_path_is_clear(
                     &context,
                     walls,
+                    collision_index,
                     floor,
                     position,
                     (*x, *z),
@@ -2490,9 +2532,11 @@ fn validate_route_steps(
 /// consecutive samples is bounded by the entity step, so a route cannot climb
 /// a cliff in one sample.
 #[allow(clippy::arithmetic_side_effects)] // bounded world-space segment sampling
+#[allow(clippy::too_many_arguments)]
 fn route_path_is_clear(
     context: &str,
     walls: &[crate::collision::WallAabb],
+    collision_index: &crate::collision_index::CollisionIndex,
     floor: &crate::level::WalkableFloor,
     from: Vec3,
     to: (f32, f32),
@@ -2530,9 +2574,15 @@ fn route_path_is_clear(
                 point.y
             ));
         }
-        if walls.iter().any(|wall| {
-            wall.blocks_body(floor_y, body_height) && wall.overlaps_disc(point.x, point.y, radius)
-        }) {
+        let mut blocked = false;
+        collision_index.for_each_disc(point.x, point.y, radius, walls, |wall| {
+            if wall.blocks_body(floor_y, body_height)
+                && wall.overlaps_disc(point.x, point.y, radius)
+            {
+                blocked = true;
+            }
+        });
+        if blocked {
             return Err(format!(
                 "{context} (`move_to`) is blocked by geometry at ({:.2}, {:.2})",
                 point.x, point.y
@@ -2561,6 +2611,7 @@ fn validate_area_triggers(level: &LevelDef) -> Result<(), String> {
         ));
     }
     let prop_ids = level.prop_instance_ids();
+    let known: HashSet<&str> = prop_ids.iter().map(String::as_str).collect();
     for (i, trigger) in level.area_triggers.iter().enumerate() {
         if !trigger.x.is_finite()
             || !trigger.z.is_finite()
@@ -2596,12 +2647,7 @@ fn validate_area_triggers(level: &LevelDef) -> Result<(), String> {
         if !rect_overlaps_room(level, trigger.bounds()) {
             return Err(format!("Area trigger {i} lies outside every room section"));
         }
-        validate_action_list(
-            &format!("Area trigger {i}"),
-            &trigger.actions,
-            None,
-            &prop_ids,
-        )?;
+        validate_action_list(&format!("Area trigger {i}"), &trigger.actions, None, &known)?;
     }
     Ok(())
 }

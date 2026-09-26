@@ -334,7 +334,7 @@
       "color": "#dfe4e2",
       "category": "Decorative",
       "solid": false,
-      "description": "Freestanding commercial privacy curtain module: two posts on foot plates, an extruded top track and a gathered ten-pleat panel."
+      "description": "Freestanding commercial privacy curtain module: two posts on foot plates, an extruded top track and a gathered pleated cloth panel."
     },
     {
       "id": "core:pool_curtain_end",
@@ -388,7 +388,7 @@
       "color": "#b9bec2",
       "category": "Utility",
       "solid": true,
-      "description": "Two metre waist-high guardrail section: one silver top rail on three flanged posts."
+      "description": "Two metre waist-high guardrail section: silver top and middle rails on three flanged posts."
     },
     {
       "id": "core:pool_guardrail_end",
@@ -406,7 +406,7 @@
       "color": "#b9bec2",
       "category": "Utility",
       "solid": true,
-      "description": "Short single-rail guardrail return that terminates a run."
+      "description": "Short two-rail guardrail return that terminates a run."
     },
     {
       "id": "core:pool_guardrail_corner",
@@ -424,7 +424,7 @@
       "color": "#b9bec2",
       "category": "Utility",
       "solid": true,
-      "description": "L-shaped single-rail guardrail module that turns a run through 90 degrees."
+      "description": "L-shaped two-rail guardrail module that turns a run through 90 degrees."
     },
     {
       "id": "core:crate",

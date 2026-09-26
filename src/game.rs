@@ -4,12 +4,13 @@ use glam::{Vec2, Vec3};
 
 use crate::collision::{
     CONTACT_EPS, CROUCH_HEIGHT, PLAYER_HEIGHT, PLAYER_RADIUS, PLAYER_STEP_HEIGHT, STEP_EPS,
-    WallAabb, highest_support_top, lowest_underside, resolve_player_collision_for_body,
-    segment_overlaps_aabb,
+    WallAabb, highest_support_top_indexed, lowest_underside_indexed,
+    resolve_player_collision_for_body_indexed, segment_overlaps_aabb,
 };
+use crate::collision_index::CollisionIndex;
 use crate::entity::{EntityFrame, EntityRoutes, PoseCue, RouteState, RouteWorld};
 use crate::input::{Control, InputState};
-use crate::interact::{Interactables, nearest_target};
+use crate::interact::{Interactables, nearest_target_indexed};
 use crate::level::{
     ActionDef, AreaTriggers, Ladder, Ladders, LevelDef, LevelSurfaces, WalkableCeiling,
     WalkableFloor, WaterSample, WaterVolumes,
@@ -361,6 +362,11 @@ pub struct Game {
     pub player_yaw: f32,
     pub player_pitch: f32,
     pub walls: Vec<WallAabb>,
+    /// The spatial index over [`Game::walls`], rebuilt whenever the wall list
+    /// is replaced. It only narrows the candidate set for movement, support,
+    /// headroom, routes and aiming; the exact predicates still decide the
+    /// answer, so its contents can never change gameplay.
+    collision_index: CollisionIndex,
     /// The level's walkable floor surfaces (rooms + local floor regions).
     pub floor: WalkableFloor,
     /// The level's walkable ceilings, sampled to clamp a jumping head.
@@ -493,6 +499,7 @@ impl Game {
             player_position: spawn_pos,
             player_yaw: spawn_yaw.rem_euclid(TWO_PI),
             player_pitch: 0.0,
+            collision_index: CollisionIndex::build(&world.walls),
             walls: world.walls,
             floor: world.floor,
             ceiling: world.ceiling,
@@ -579,6 +586,7 @@ impl Game {
     /// at the spawn and starts the run's reset counter at zero.
     pub fn reset_level(&mut self, spawn_pos: Vec3, spawn_yaw: f32, world: CollisionWorld) {
         self.walls = world.walls;
+        self.collision_index = CollisionIndex::build(&self.walls);
         self.floor = world.floor;
         self.water = world.water;
         self.ceiling = world.ceiling;
@@ -752,6 +760,7 @@ impl Game {
         let world = RouteWorld {
             walls: &self.walls,
             floor: &self.floor,
+            index: &self.collision_index,
         };
         for (route, state) in self
             .routes
@@ -1184,12 +1193,30 @@ impl Game {
     /// nearer obstruction.
     #[must_use]
     pub fn interaction_target(&self) -> Option<usize> {
-        nearest_target(
+        nearest_target_indexed(
             self.player_position,
             self.view_direction(),
             self.interactables.items(),
+            &self.collision_index,
             &self.walls,
         )
+    }
+
+    /// The spatial index over the collision walls, for the label-occlusion
+    /// pass and other callers that already hold a `Game`.
+    #[must_use]
+    pub const fn collision_index(&self) -> &CollisionIndex {
+        &self.collision_index
+    }
+
+    /// Replaces the wall set and rebuilds the index in one step.
+    ///
+    /// Any caller that edits the collision world after construction (tests and
+    /// future level mutations) must use this rather than pushing onto
+    /// [`Game::walls`], so the index can never go stale.
+    pub fn set_walls(&mut self, walls: Vec<WallAabb>) {
+        self.walls = walls;
+        self.collision_index = CollisionIndex::build(&self.walls);
     }
 
     /// The current eye direction, matching the render camera.
@@ -1535,7 +1562,8 @@ impl Game {
         let ceiling = self
             .ceiling
             .ceiling_y_at(self.player_position.x, self.player_position.z);
-        let underside = lowest_underside(
+        let underside = lowest_underside_indexed(
+            &self.collision_index,
             self.player_position.x,
             self.player_position.z,
             PLAYER_RADIUS,
@@ -1591,7 +1619,7 @@ impl Game {
             .floor
             .height_at(x, z)
             .filter(|floor| *floor <= max_top + PLAYER_STEP_HEIGHT + STEP_EPS);
-        let top = highest_support_top(x, z, max_top, &self.walls);
+        let top = highest_support_top_indexed(&self.collision_index, x, z, max_top, &self.walls);
         match (floor, top) {
             (Some(a), Some(b)) => Some(a.max(b)),
             (Some(a), None) => Some(a),
@@ -1663,7 +1691,8 @@ impl Game {
                 HorizontalMode::Swim { surface_y } => surface_y - PLAYER_STEP_HEIGHT,
             };
             let raw = Vec2::new(current_pos.x + step_delta.x, current_pos.y + step_delta.z);
-            let candidate = resolve_player_collision_for_body(
+            let candidate = resolve_player_collision_for_body_indexed(
+                &self.collision_index,
                 raw,
                 PLAYER_RADIUS,
                 foot_y,

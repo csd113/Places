@@ -1,0 +1,2511 @@
+{
+  "format_version": 1,
+  "id": "model_zoo",
+  "name": "Model Zoo",
+  "author": "Places",
+  "spawn": {
+    "x": 13.2,
+    "z": 18.7,
+    "yaw_degrees": 0.0
+  },
+  "defaults": {
+    "wall": "core:pool_tile_wall_01",
+    "floor": "core:pool_tile_deck_01",
+    "ceiling": "core:pool_ceiling_01"
+  },
+  "rooms": [
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 40.8,
+      "depth": 51.5,
+      "height": 5.0,
+      "material": "core:pool_tile_deck_01",
+      "ceiling_material": "core:pool_ceiling_01"
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.4,
+      "z": -0.4,
+      "width": 41.599999999999994,
+      "depth": 0.4,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -0.4,
+      "z": 51.5,
+      "width": 41.599999999999994,
+      "depth": 0.4,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -0.4,
+      "z": 0.0,
+      "width": 0.4,
+      "depth": 51.5,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 40.8,
+      "z": 0.0,
+      "width": 0.4,
+      "depth": 51.5,
+      "material": "core:pool_tile_wall_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 23.75,
+          "width": 4.0,
+          "height": 3.0,
+          "sill": 0.0
+        }
+      ]
+    }
+  ],
+  "floor_regions": [
+    {
+      "x": 3.6,
+      "z": 41.9,
+      "width": 8.0,
+      "depth": 6.0,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    }
+  ],
+  "water": [
+    {
+      "x": 3.6,
+      "z": 41.9,
+      "width": 8.0,
+      "depth": 6.0,
+      "surface_y": -0.2,
+      "bottom_y": -1.5,
+      "swimming": true
+    }
+  ],
+  "ladders": [
+    {
+      "x": 7.3,
+      "z": 41.6,
+      "width": 0.6,
+      "depth": 0.6,
+      "bottom_y": -1.5,
+      "top_y": 0.0,
+      "facing_degrees": 180.0
+    }
+  ],
+  "arc_walls": [
+    {
+      "x": 8.6,
+      "z": 10.1,
+      "radius": 2.4,
+      "thickness": 0.24,
+      "height": 5.0,
+      "start_degrees": 0.0,
+      "sweep_degrees": 180.0,
+      "segments": 24,
+      "material": "core:pool_tile_wall_01",
+      "inner_material": "core:pool_tile_deck_01",
+      "cap_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 17.6,
+      "z": 10.1,
+      "radius": 2.4,
+      "thickness": 0.24,
+      "height": 5.0,
+      "start_degrees": 0.0,
+      "sweep_degrees": 180.0,
+      "segments": 24,
+      "material": "core:pool_tile_wall_01",
+      "inner_material": "core:pool_tile_deck_01",
+      "cap_material": "core:pool_tile_deck_01"
+    }
+  ],
+  "pillars": [
+    {
+      "x": 33.2,
+      "z": 36.9,
+      "radius": 0.3,
+      "height": 5.0,
+      "segments": 16,
+      "material": "core:pool_tile_wall_01",
+      "cap_material": "core:pool_tile_deck_01"
+    },
+    {
+      "x": 30.2,
+      "z": 36.9,
+      "radius": 0.3,
+      "height": 5.0,
+      "segments": 16,
+      "material": "core:pool_tile_deck_01",
+      "cap_material": "core:pool_tile_deck_01"
+    }
+  ],
+  "guardrails": [],
+  "half_walls": [],
+  "ceiling_lights": [
+    {
+      "id": "zoo:light:0:0",
+      "fixture": "core:pool_light_round",
+      "x": 2.4,
+      "z": 3.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:0:1",
+      "fixture": "core:pool_light_round",
+      "x": 6.9,
+      "z": 3.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:0:2",
+      "fixture": "core:pool_light_round",
+      "x": 11.4,
+      "z": 3.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:0:3",
+      "fixture": "core:pool_light_round",
+      "x": 15.9,
+      "z": 3.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:0:4",
+      "fixture": "core:pool_light_round",
+      "x": 20.4,
+      "z": 3.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:0:5",
+      "fixture": "core:pool_light_round",
+      "x": 24.9,
+      "z": 3.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:0:6",
+      "fixture": "core:pool_light_round",
+      "x": 29.4,
+      "z": 3.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:0:7",
+      "fixture": "core:pool_light_round",
+      "x": 33.9,
+      "z": 3.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:0:8",
+      "fixture": "core:pool_light_round",
+      "x": 38.4,
+      "z": 3.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:1:0",
+      "fixture": "core:pool_light_round",
+      "x": 2.4,
+      "z": 7.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:1:1",
+      "fixture": "core:pool_light_round",
+      "x": 6.9,
+      "z": 7.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:1:2",
+      "fixture": "core:pool_light_round",
+      "x": 11.4,
+      "z": 7.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:1:3",
+      "fixture": "core:pool_light_round",
+      "x": 15.9,
+      "z": 7.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:1:4",
+      "fixture": "core:pool_light_round",
+      "x": 20.4,
+      "z": 7.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:1:5",
+      "fixture": "core:pool_light_round",
+      "x": 24.9,
+      "z": 7.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:1:6",
+      "fixture": "core:pool_light_round",
+      "x": 29.4,
+      "z": 7.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:1:7",
+      "fixture": "core:pool_light_round",
+      "x": 33.9,
+      "z": 7.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:1:8",
+      "fixture": "core:pool_light_round",
+      "x": 38.4,
+      "z": 7.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:2:0",
+      "fixture": "core:pool_light_round",
+      "x": 2.4,
+      "z": 12.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:2:1",
+      "fixture": "core:pool_light_round",
+      "x": 6.9,
+      "z": 12.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:2:2",
+      "fixture": "core:pool_light_round",
+      "x": 11.4,
+      "z": 12.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:2:3",
+      "fixture": "core:pool_light_round",
+      "x": 15.9,
+      "z": 12.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:2:4",
+      "fixture": "core:pool_light_round",
+      "x": 20.4,
+      "z": 12.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:2:5",
+      "fixture": "core:pool_light_round",
+      "x": 24.9,
+      "z": 12.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:2:6",
+      "fixture": "core:pool_light_round",
+      "x": 29.4,
+      "z": 12.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:2:7",
+      "fixture": "core:pool_light_round",
+      "x": 33.9,
+      "z": 12.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:2:8",
+      "fixture": "core:pool_light_round",
+      "x": 38.4,
+      "z": 12.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:3:0",
+      "fixture": "core:pool_light_round",
+      "x": 2.4,
+      "z": 16.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:3:1",
+      "fixture": "core:pool_light_round",
+      "x": 6.9,
+      "z": 16.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:3:2",
+      "fixture": "core:pool_light_round",
+      "x": 11.4,
+      "z": 16.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:3:3",
+      "fixture": "core:pool_light_round",
+      "x": 15.9,
+      "z": 16.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:3:4",
+      "fixture": "core:pool_light_round",
+      "x": 20.4,
+      "z": 16.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:3:5",
+      "fixture": "core:pool_light_round",
+      "x": 24.9,
+      "z": 16.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:3:6",
+      "fixture": "core:pool_light_round",
+      "x": 29.4,
+      "z": 16.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:3:7",
+      "fixture": "core:pool_light_round",
+      "x": 33.9,
+      "z": 16.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:3:8",
+      "fixture": "core:pool_light_round",
+      "x": 38.4,
+      "z": 16.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:4:0",
+      "fixture": "core:pool_light_round",
+      "x": 2.4,
+      "z": 21.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:4:1",
+      "fixture": "core:pool_light_round",
+      "x": 6.9,
+      "z": 21.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:4:2",
+      "fixture": "core:pool_light_round",
+      "x": 11.4,
+      "z": 21.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:4:3",
+      "fixture": "core:pool_light_round",
+      "x": 15.9,
+      "z": 21.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:4:4",
+      "fixture": "core:pool_light_round",
+      "x": 20.4,
+      "z": 21.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:4:5",
+      "fixture": "core:pool_light_round",
+      "x": 24.9,
+      "z": 21.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:4:6",
+      "fixture": "core:pool_light_round",
+      "x": 29.4,
+      "z": 21.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:4:7",
+      "fixture": "core:pool_light_round",
+      "x": 33.9,
+      "z": 21.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:4:8",
+      "fixture": "core:pool_light_round",
+      "x": 38.4,
+      "z": 21.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:5:0",
+      "fixture": "core:pool_light_round",
+      "x": 2.4,
+      "z": 25.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:5:1",
+      "fixture": "core:pool_light_round",
+      "x": 6.9,
+      "z": 25.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:5:2",
+      "fixture": "core:pool_light_round",
+      "x": 11.4,
+      "z": 25.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:5:3",
+      "fixture": "core:pool_light_round",
+      "x": 15.9,
+      "z": 25.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:5:4",
+      "fixture": "core:pool_light_round",
+      "x": 20.4,
+      "z": 25.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:5:5",
+      "fixture": "core:pool_light_round",
+      "x": 24.9,
+      "z": 25.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:5:6",
+      "fixture": "core:pool_light_round",
+      "x": 29.4,
+      "z": 25.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:5:7",
+      "fixture": "core:pool_light_round",
+      "x": 33.9,
+      "z": 25.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:5:8",
+      "fixture": "core:pool_light_round",
+      "x": 38.4,
+      "z": 25.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:6:0",
+      "fixture": "core:pool_light_round",
+      "x": 2.4,
+      "z": 30.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:6:1",
+      "fixture": "core:pool_light_round",
+      "x": 6.9,
+      "z": 30.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:6:2",
+      "fixture": "core:pool_light_round",
+      "x": 11.4,
+      "z": 30.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:6:3",
+      "fixture": "core:pool_light_round",
+      "x": 15.9,
+      "z": 30.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:6:4",
+      "fixture": "core:pool_light_round",
+      "x": 20.4,
+      "z": 30.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:6:5",
+      "fixture": "core:pool_light_round",
+      "x": 24.9,
+      "z": 30.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:6:6",
+      "fixture": "core:pool_light_round",
+      "x": 29.4,
+      "z": 30.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:6:7",
+      "fixture": "core:pool_light_round",
+      "x": 33.9,
+      "z": 30.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:6:8",
+      "fixture": "core:pool_light_round",
+      "x": 38.4,
+      "z": 30.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:7:0",
+      "fixture": "core:pool_light_round",
+      "x": 2.4,
+      "z": 34.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:7:1",
+      "fixture": "core:pool_light_round",
+      "x": 6.9,
+      "z": 34.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:7:2",
+      "fixture": "core:pool_light_round",
+      "x": 11.4,
+      "z": 34.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:7:3",
+      "fixture": "core:pool_light_round",
+      "x": 15.9,
+      "z": 34.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:7:4",
+      "fixture": "core:pool_light_round",
+      "x": 20.4,
+      "z": 34.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:7:5",
+      "fixture": "core:pool_light_round",
+      "x": 24.9,
+      "z": 34.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:7:6",
+      "fixture": "core:pool_light_round",
+      "x": 29.4,
+      "z": 34.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:7:7",
+      "fixture": "core:pool_light_round",
+      "x": 33.9,
+      "z": 34.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:7:8",
+      "fixture": "core:pool_light_round",
+      "x": 38.4,
+      "z": 34.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:8:0",
+      "fixture": "core:pool_light_round",
+      "x": 2.4,
+      "z": 39.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:8:1",
+      "fixture": "core:pool_light_round",
+      "x": 6.9,
+      "z": 39.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:8:2",
+      "fixture": "core:pool_light_round",
+      "x": 11.4,
+      "z": 39.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:8:3",
+      "fixture": "core:pool_light_round",
+      "x": 15.9,
+      "z": 39.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:8:4",
+      "fixture": "core:pool_light_round",
+      "x": 20.4,
+      "z": 39.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:8:5",
+      "fixture": "core:pool_light_round",
+      "x": 24.9,
+      "z": 39.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:8:6",
+      "fixture": "core:pool_light_round",
+      "x": 29.4,
+      "z": 39.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:8:7",
+      "fixture": "core:pool_light_round",
+      "x": 33.9,
+      "z": 39.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:8:8",
+      "fixture": "core:pool_light_round",
+      "x": 38.4,
+      "z": 39.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:9:0",
+      "fixture": "core:pool_light_round",
+      "x": 2.4,
+      "z": 43.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:9:1",
+      "fixture": "core:pool_light_round",
+      "x": 6.9,
+      "z": 43.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:9:2",
+      "fixture": "core:pool_light_round",
+      "x": 11.4,
+      "z": 43.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:9:3",
+      "fixture": "core:pool_light_round",
+      "x": 15.9,
+      "z": 43.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:9:4",
+      "fixture": "core:pool_light_round",
+      "x": 20.4,
+      "z": 43.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:9:5",
+      "fixture": "core:pool_light_round",
+      "x": 24.9,
+      "z": 43.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:9:6",
+      "fixture": "core:pool_light_round",
+      "x": 29.4,
+      "z": 43.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:9:7",
+      "fixture": "core:pool_light_round",
+      "x": 33.9,
+      "z": 43.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:9:8",
+      "fixture": "core:pool_light_round",
+      "x": 38.4,
+      "z": 43.75,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:10:0",
+      "fixture": "core:pool_light_round",
+      "x": 2.4,
+      "z": 48.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:10:1",
+      "fixture": "core:pool_light_round",
+      "x": 6.9,
+      "z": 48.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:10:2",
+      "fixture": "core:pool_light_round",
+      "x": 11.4,
+      "z": 48.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:10:3",
+      "fixture": "core:pool_light_round",
+      "x": 15.9,
+      "z": 48.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:10:4",
+      "fixture": "core:pool_light_round",
+      "x": 20.4,
+      "z": 48.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:10:5",
+      "fixture": "core:pool_light_round",
+      "x": 24.9,
+      "z": 48.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:10:6",
+      "fixture": "core:pool_light_round",
+      "x": 29.4,
+      "z": 48.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:10:7",
+      "fixture": "core:pool_light_round",
+      "x": 33.9,
+      "z": 48.25,
+      "brightness": 0.52
+    },
+    {
+      "id": "zoo:light:10:8",
+      "fixture": "core:pool_light_round",
+      "x": 38.4,
+      "z": 48.25,
+      "brightness": 0.52
+    }
+  ],
+  "props": [
+    {
+      "id": "zoo:core-armchair:floor",
+      "display_name": "Armchair",
+      "model": "core:armchair",
+      "x": 6.0,
+      "z": 11.5,
+      "size": [
+        0.9,
+        0.9,
+        0.9
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-bed:floor",
+      "display_name": "Bed",
+      "model": "core:bed",
+      "x": 10.8,
+      "z": 11.5,
+      "size": [
+        1.4,
+        0.55,
+        2.0
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-bookshelf:floor",
+      "display_name": "Bookshelf",
+      "model": "core:bookshelf",
+      "x": 15.6,
+      "z": 11.5,
+      "size": [
+        1.0,
+        1.8,
+        0.35
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-cabinet:floor",
+      "display_name": "Cabinet",
+      "model": "core:cabinet",
+      "x": 20.4,
+      "z": 11.5,
+      "size": [
+        0.9,
+        0.85,
+        0.45
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-cardboard_box:floor",
+      "display_name": "Cardboard Box",
+      "model": "core:cardboard_box",
+      "x": 25.2,
+      "z": 11.5,
+      "size": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-chair:floor",
+      "display_name": "Chair",
+      "model": "core:chair",
+      "x": 30.0,
+      "z": 11.5,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-couch:floor",
+      "display_name": "Couch",
+      "model": "core:couch",
+      "x": 6.0,
+      "z": 16.3,
+      "size": [
+        2.0,
+        0.9,
+        0.9
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-crate:floor",
+      "display_name": "Crate",
+      "model": "core:crate",
+      "x": 10.8,
+      "z": 16.3,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-desk:floor",
+      "display_name": "Desk",
+      "model": "core:desk",
+      "x": 15.6,
+      "z": 16.3,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-fridge:floor",
+      "display_name": "Fridge",
+      "model": "core:fridge",
+      "x": 20.4,
+      "z": 16.3,
+      "size": [
+        0.7,
+        1.8,
+        0.7
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-lamp:floor",
+      "display_name": "Floor Lamp",
+      "model": "core:lamp",
+      "x": 25.2,
+      "z": 16.3,
+      "size": [
+        0.35,
+        1.5,
+        0.35
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-plant:floor",
+      "display_name": "Plant",
+      "model": "core:plant",
+      "x": 30.0,
+      "z": 16.3,
+      "size": [
+        0.4,
+        1.0,
+        0.4
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-pool_chair:floor",
+      "display_name": "Pool Patio Chair",
+      "model": "core:pool_chair",
+      "x": 34.8,
+      "z": 16.3,
+      "size": [
+        0.52,
+        0.85,
+        0.55
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-pool_curtain_corner:floor",
+      "display_name": "Pool Curtain, Corner",
+      "model": "core:pool_curtain_corner",
+      "x": 6.0,
+      "z": 21.1,
+      "size": [
+        0.6,
+        2.6,
+        0.6
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-pool_curtain_end:floor",
+      "display_name": "Pool Curtain, End",
+      "model": "core:pool_curtain_end",
+      "x": 10.8,
+      "z": 21.1,
+      "size": [
+        0.6,
+        2.6,
+        0.22
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-pool_curtain_straight:floor",
+      "display_name": "Pool Curtain, Straight",
+      "model": "core:pool_curtain_straight",
+      "x": 15.6,
+      "z": 21.1,
+      "size": [
+        1.2,
+        2.6,
+        0.22
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-pool_guardrail_corner:floor",
+      "display_name": "Pool Guardrail, Corner",
+      "model": "core:pool_guardrail_corner",
+      "x": 20.4,
+      "z": 21.1,
+      "size": [
+        0.6,
+        1.05,
+        0.6
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-pool_guardrail_end:floor",
+      "display_name": "Pool Guardrail, End",
+      "model": "core:pool_guardrail_end",
+      "x": 25.2,
+      "z": 21.1,
+      "size": [
+        0.6,
+        1.05,
+        0.08
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-pool_guardrail_straight:floor",
+      "display_name": "Pool Guardrail, Straight",
+      "model": "core:pool_guardrail_straight",
+      "x": 30.0,
+      "z": 21.1,
+      "size": [
+        2.0,
+        1.05,
+        0.08
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-pool_ladder:floor",
+      "display_name": "Pool Ladder",
+      "model": "core:pool_ladder",
+      "x": 34.8,
+      "z": 21.1,
+      "size": [
+        0.55,
+        2.2,
+        0.45
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-pool_table:floor",
+      "display_name": "Pool Patio Table",
+      "model": "core:pool_table",
+      "x": 6.0,
+      "z": 25.9,
+      "size": [
+        0.8,
+        0.74,
+        0.8
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-rug:floor",
+      "display_name": "Rug",
+      "model": "core:rug",
+      "x": 10.8,
+      "z": 25.9,
+      "size": [
+        2.0,
+        0.02,
+        1.4
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-sink:floor",
+      "display_name": "Sink",
+      "model": "core:sink",
+      "x": 15.6,
+      "z": 25.9,
+      "size": [
+        0.6,
+        1.1,
+        0.55
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-stop_sign:floor",
+      "display_name": "Stop Sign",
+      "model": "core:stop_sign",
+      "x": 20.4,
+      "z": 25.9,
+      "size": [
+        0.45,
+        1.8,
+        0.06
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-stove:floor",
+      "display_name": "Stove",
+      "model": "core:stove",
+      "x": 25.2,
+      "z": 25.9,
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-table:floor",
+      "display_name": "Table",
+      "model": "core:table",
+      "x": 30.0,
+      "z": 25.9,
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-vending_machine:floor",
+      "display_name": "Vending Machine",
+      "model": "core:vending_machine",
+      "x": 34.8,
+      "z": 25.9,
+      "size": [
+        1.0,
+        1.9,
+        0.8
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-washer_drum:floor",
+      "display_name": "Washer Drum",
+      "model": "core:washer_drum",
+      "x": 6.0,
+      "z": 30.7,
+      "size": [
+        0.42,
+        0.3,
+        0.42
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-washing_machine:floor",
+      "display_name": "Washing Machine",
+      "model": "core:washing_machine",
+      "x": 10.8,
+      "z": 30.7,
+      "size": [
+        0.6,
+        0.85,
+        0.6
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-water_cooler:floor",
+      "display_name": "Water Cooler",
+      "model": "core:water_cooler",
+      "x": 15.6,
+      "z": 30.7,
+      "size": [
+        0.35,
+        1.1,
+        0.35
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:home-cabinet_base:floor",
+      "display_name": "Base Kitchen Cabinet",
+      "model": "home:cabinet_base",
+      "x": 20.4,
+      "z": 30.7,
+      "size": [
+        0.6,
+        0.9,
+        0.6
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:mannequin:pose",
+      "display_name": "Concrete Mannequin",
+      "model": "mannequin",
+      "x": 25.2,
+      "z": 30.7,
+      "size": [
+        0.42,
+        1.72,
+        0.305
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:skeleton:pose",
+      "display_name": "Skeleton",
+      "model": "skeleton",
+      "x": 30.0,
+      "z": 30.7,
+      "size": [
+        0.427,
+        1.72,
+        0.315
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:mannequin:stand",
+      "display_name": "Concrete Mannequin",
+      "model": "mannequin",
+      "x": 34.8,
+      "z": 30.7,
+      "size": [
+        0.42,
+        1.72,
+        0.305
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Pose",
+        "actions": [
+          {
+            "action": "play_animation",
+            "clip": "pose_stand",
+            "loop": false
+          },
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:mannequin:arms-up",
+      "display_name": "Concrete Mannequin",
+      "model": "mannequin",
+      "x": 6.0,
+      "z": 35.5,
+      "size": [
+        0.42,
+        1.72,
+        0.305
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Pose",
+        "actions": [
+          {
+            "action": "play_animation",
+            "clip": "pose_arms_up",
+            "loop": false
+          },
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:mannequin:arms-forward",
+      "display_name": "Concrete Mannequin",
+      "model": "mannequin",
+      "x": 10.8,
+      "z": 35.5,
+      "size": [
+        0.42,
+        1.72,
+        0.305
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Pose",
+        "actions": [
+          {
+            "action": "play_animation",
+            "clip": "pose_arms_forward",
+            "loop": false
+          },
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:skeleton:stand",
+      "display_name": "Skeleton",
+      "model": "skeleton",
+      "x": 15.6,
+      "z": 35.5,
+      "size": [
+        0.427,
+        1.72,
+        0.315
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Pose",
+        "actions": [
+          {
+            "action": "play_animation",
+            "clip": "pose_stand",
+            "loop": false
+          },
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:skeleton:floor-sit",
+      "display_name": "Skeleton",
+      "model": "skeleton",
+      "x": 20.4,
+      "z": 35.5,
+      "size": [
+        0.427,
+        1.72,
+        0.315
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Pose",
+        "actions": [
+          {
+            "action": "play_animation",
+            "clip": "pose_sit_floor",
+            "loop": false
+          },
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:skeleton:chair-sit",
+      "display_name": "Skeleton",
+      "model": "skeleton",
+      "x": 25.2,
+      "z": 35.505,
+      "size": [
+        0.427,
+        1.72,
+        0.315
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Pose",
+        "actions": [
+          {
+            "action": "play_animation",
+            "clip": "pose_sit_chair",
+            "loop": false
+          },
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "rotation_degrees": 180.0
+    },
+    {
+      "id": "zoo:rat:route",
+      "display_name": "Rat",
+      "model": "rat",
+      "x": 14.1,
+      "z": 42.9,
+      "size": [
+        0.095,
+        0.139,
+        0.613
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:spooner-man:route",
+      "display_name": "Spooner-Man",
+      "model": "spooner-man",
+      "x": 21.1,
+      "z": 42.9,
+      "size": [
+        0.165,
+        0.389,
+        0.626
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:rat:run",
+      "display_name": "Rat",
+      "model": "rat",
+      "x": 28.1,
+      "z": 42.9,
+      "size": [
+        0.095,
+        0.139,
+        0.613
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:spooner-man:companion",
+      "display_name": "Spooner-Man",
+      "model": "spooner-man",
+      "x": 35.1,
+      "z": 42.9,
+      "size": [
+        0.165,
+        0.389,
+        0.626
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoo:core-tv:wall",
+      "display_name": "Television",
+      "model": "core:tv",
+      "x": 18.25,
+      "z": 0.22,
+      "size": [
+        1.1,
+        0.7,
+        0.1
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "rotation_degrees": 0.0,
+      "y": 1.3
+    },
+    {
+      "id": "zoo:home-cabinet_wall:wall",
+      "display_name": "Wall Kitchen Cabinet",
+      "model": "home:cabinet_wall",
+      "x": 20.2,
+      "z": 0.22,
+      "size": [
+        0.6,
+        0.72,
+        0.33
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "rotation_degrees": 0.0,
+      "y": 1.45
+    },
+    {
+      "id": "zoo:home-wall_switch:wall",
+      "display_name": "Wall Light Switch",
+      "model": "home:wall_switch",
+      "x": 21.7,
+      "z": 0.22,
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Switch",
+        "reach": 1.6,
+        "actions": [
+          {
+            "action": "toggle_animation",
+            "clip": "toggle"
+          },
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "rotation_degrees": 0.0,
+      "y": 1.2
+    },
+    {
+      "id": "zoo:home-wall_switch:switch-b",
+      "display_name": "Wall Light Switch",
+      "model": "home:wall_switch",
+      "x": 23.0,
+      "z": 0.22,
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Switch",
+        "reach": 1.6,
+        "actions": [
+          {
+            "action": "toggle_animation",
+            "clip": "toggle"
+          },
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "rotation_degrees": 0.0,
+      "y": 1.2
+    },
+    {
+      "id": "zoo:core-exit_sign:ceiling",
+      "display_name": "Exit Sign",
+      "model": "core:exit_sign",
+      "x": 13.6,
+      "z": 45.9,
+      "size": [
+        0.45,
+        0.57,
+        0.08
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "y": 4.43,
+      "lights": [
+        {
+          "kind": "rect",
+          "offset": [
+            0.0,
+            0.0,
+            0.08
+          ],
+          "color": [
+            0.35,
+            1.0,
+            0.45
+          ],
+          "intensity": 0.55,
+          "range": 3.2,
+          "half_extent": [
+            0.22,
+            0.28
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zoo:home-ball_light:ceiling",
+      "display_name": "Hanging Ball Light",
+      "model": "home:ball_light",
+      "x": 27.2,
+      "z": 45.9,
+      "size": [
+        0.2,
+        0.8,
+        0.2
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "y": 4.2,
+      "lights": [
+        {
+          "kind": "point",
+          "offset": [
+            0.0,
+            -0.1,
+            0.0
+          ],
+          "color": [
+            1.0,
+            0.93,
+            0.82
+          ],
+          "intensity": 0.7,
+          "range": 5.0
+        }
+      ]
+    },
+    {
+      "id": "zoo:core-table:table-host",
+      "display_name": "Table",
+      "model": "core:table",
+      "x": 34.2,
+      "z": 10.3,
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:core-table:media-host",
+      "display_name": "Table",
+      "model": "core:table",
+      "x": 34.2,
+      "z": 13.7,
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-bowl:table",
+      "display_name": "Cereal Bowl",
+      "model": "home:bowl",
+      "x": 34.18,
+      "z": 10.46,
+      "size": [
+        0.15,
+        0.065,
+        0.15
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "y": 0.75,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-crt_tv:table",
+      "display_name": "CRT Television",
+      "model": "home:crt_tv",
+      "x": 34.2,
+      "z": 13.7,
+      "size": [
+        0.55,
+        0.48,
+        0.46
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "y": 0.75,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-fork:table",
+      "display_name": "Table Fork",
+      "model": "home:fork",
+      "x": 33.74,
+      "z": 10.1,
+      "size": [
+        0.026,
+        0.012,
+        0.196
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "y": 0.75,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-knife:table",
+      "display_name": "Table Knife",
+      "model": "home:knife",
+      "x": 34.02,
+      "z": 10.1,
+      "size": [
+        0.022,
+        0.016,
+        0.215
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "y": 0.75,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-plant_table:table",
+      "display_name": "Small Potted Plant",
+      "model": "home:plant_table",
+      "x": 34.72,
+      "z": 10.48,
+      "size": [
+        0.13,
+        0.28,
+        0.13
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "y": 0.75,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-plate:table",
+      "display_name": "Dinner Plate",
+      "model": "home:plate",
+      "x": 33.88,
+      "z": 10.1,
+      "size": [
+        0.22,
+        0.022,
+        0.22
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "y": 0.75,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:home-spoon:table",
+      "display_name": "Table Spoon",
+      "model": "home:spoon",
+      "x": 34.5,
+      "z": 10.06,
+      "size": [
+        0.036,
+        0.02,
+        0.185
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "y": 0.75,
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:core-rubber_duck:float",
+      "display_name": "Rubber Duck",
+      "model": "core:rubber_duck",
+      "x": 7.6,
+      "z": 44.9,
+      "size": [
+        0.1,
+        0.12,
+        0.14
+      ],
+      "solid": false,
+      "float": {
+        "draft": 0.03,
+        "bob": 0.012,
+        "bob_seconds": 2.8,
+        "heel_degrees": 6.0,
+        "heel_seconds": 3.6,
+        "phase": 0.25
+      }
+    },
+    {
+      "id": "zoo:core-pool_ladder:basin",
+      "display_name": "Pool Ladder",
+      "model": "core:pool_ladder",
+      "x": 7.25,
+      "z": 41.35,
+      "size": [
+        0.55,
+        2.2,
+        0.45
+      ],
+      "solid": false,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "rotation_degrees": 0.0
+    },
+    {
+      "id": "zoo:core-chair:skeleton-seat",
+      "display_name": "Chair",
+      "model": "core:chair",
+      "x": 25.2,
+      "z": 35.502,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Show name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      },
+      "rotation_degrees": 180.0
+    }
+  ],
+  "decals": [
+    {
+      "x": 6.6,
+      "z": 25.75,
+      "width": 0.6,
+      "height": 0.6,
+      "material": "core:decal_ceiling_vent_01",
+      "surface": "ceiling",
+      "align": "ceiling_grid"
+    },
+    {
+      "x": 12.6,
+      "z": 25.75,
+      "width": 0.6,
+      "height": 0.6,
+      "material": "core:decal_ceiling_vent_01",
+      "surface": "ceiling",
+      "align": "ceiling_grid"
+    },
+    {
+      "x": 18.6,
+      "z": 25.75,
+      "width": 0.6,
+      "height": 0.6,
+      "material": "core:decal_ceiling_vent_01",
+      "surface": "ceiling",
+      "align": "ceiling_grid"
+    },
+    {
+      "x": 24.6,
+      "z": 25.75,
+      "width": 0.6,
+      "height": 0.6,
+      "material": "core:decal_ceiling_vent_01",
+      "surface": "ceiling",
+      "align": "ceiling_grid"
+    },
+    {
+      "x": 5.6,
+      "z": 46.5,
+      "width": 1.2,
+      "height": 1.2,
+      "material": "core:decal_arrow_01",
+      "surface": "floor"
+    },
+    {
+      "x": 8.6,
+      "z": 46.5,
+      "width": 1.2,
+      "height": 1.2,
+      "material": "core:decal_arrow_01",
+      "surface": "floor"
+    }
+  ],
+  "routes": [
+    {
+      "id": "zoo:mannequin:stand",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pose_stand",
+          "seconds": 1800.0,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "zoo:mannequin:arms-up",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pose_arms_up",
+          "seconds": 1800.0,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "zoo:mannequin:arms-forward",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pose_arms_forward",
+          "seconds": 1800.0,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "zoo:skeleton:stand",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pose_stand",
+          "seconds": 1800.0,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "zoo:skeleton:floor-sit",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pose_sit_floor",
+          "seconds": 1800.0,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "zoo:skeleton:chair-sit",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pose_sit_chair",
+          "seconds": 1800.0,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "zoo:rat:route",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "walk",
+          "seconds": 1.5,
+          "loop": true
+        },
+        {
+          "step": "move_to",
+          "x": 17.3,
+          "z": 42.9,
+          "speed": 0.1985
+        },
+        {
+          "step": "play",
+          "clip": "idle",
+          "seconds": 1.0,
+          "loop": true
+        },
+        {
+          "step": "move_to",
+          "x": 14.1,
+          "z": 42.9,
+          "speed": 0.1985
+        }
+      ]
+    },
+    {
+      "id": "zoo:rat:run",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "run",
+          "seconds": 1.0,
+          "loop": true
+        },
+        {
+          "step": "move_to",
+          "x": 32.1,
+          "z": 42.9,
+          "speed": 0.5731
+        },
+        {
+          "step": "play",
+          "clip": "idle",
+          "seconds": 0.8,
+          "loop": true
+        },
+        {
+          "step": "move_to",
+          "x": 28.1,
+          "z": 42.9,
+          "speed": 0.5731
+        }
+      ]
+    },
+    {
+      "id": "zoo:spooner-man:route",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "walk",
+          "seconds": 2.0,
+          "loop": true
+        },
+        {
+          "step": "move_to",
+          "x": 23.5,
+          "z": 42.9,
+          "speed": 0.26
+        },
+        {
+          "step": "play",
+          "clip": "sit_down",
+          "seconds": 1.7,
+          "loop": false
+        },
+        {
+          "step": "wait",
+          "seconds": 1.0
+        },
+        {
+          "step": "play",
+          "clip": "sit_idle",
+          "seconds": 3.0,
+          "loop": true
+        },
+        {
+          "step": "play",
+          "clip": "stand_up",
+          "seconds": 1.5,
+          "loop": false
+        },
+        {
+          "step": "move_to",
+          "x": 21.1,
+          "z": 42.9,
+          "speed": 0.26
+        }
+      ]
+    },
+    {
+      "id": "zoo:spooner-man:companion",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "idle",
+          "seconds": 2.5,
+          "loop": true
+        },
+        {
+          "step": "face",
+          "yaw_degrees": 270.0
+        },
+        {
+          "step": "play",
+          "clip": "walk",
+          "seconds": 1.5,
+          "loop": true
+        },
+        {
+          "step": "move_to",
+          "x": 35.1,
+          "z": 44.9,
+          "speed": 0.26
+        },
+        {
+          "step": "face",
+          "yaw_degrees": 90.0
+        }
+      ]
+    }
+  ],
+  "area_triggers": [],
+  "geometry_intent": [
+    {
+      "check": "room-leak",
+      "x": 39.8,
+      "z": 22.75,
+      "width": 4.0,
+      "depth": 6.0,
+      "note": "The showroom's exit passage opens onto the void by design."
+    }
+  ]
+}

@@ -73,11 +73,16 @@ pub use crate::entity::{EntityFrame, PoseCue};
 
 /// Most characters one level may spawn.
 ///
-/// The draw path is one draw per character per primitive, so the cap keeps a
-/// pathological level from turning a batching prop field into hundreds of
-/// per-frame skins. Placements past the cap stay in the static prop path in
-/// their bind pose.
-pub const MAX_CHARACTERS: usize = 8;
+/// The draw path is one draw per character per primitive and the pose is
+/// evaluated on the CPU, so the cap bounds per-frame skinning work rather than
+/// GPU memory: each character owns only its own vertex buffer, and its mesh,
+/// textures and materials are shared. The historical cap of 8 could not place
+/// the required Model Zoo demonstrations (three mannequin poses, three skeleton
+/// poses, two rat routes, two Spooner-Man routes, and several wall switches).
+/// 64 is eight times the largest measured zoo cast; a level that places more
+/// keeps the extras in the static prop batch in their bind pose and reports the
+/// budget, exactly as before.
+pub const MAX_CHARACTERS: usize = 64;
 
 /// Time constant of the exponential state-weight approach, in seconds.
 ///

@@ -4475,10 +4475,42 @@ pub const MAX_PROP_TEXTURE_BYTES: usize =
 pub const PROP_TEXTURE_PACK_BUDGET_BYTES: usize = 64 * 1024 * 1024;
 
 /// Hard ceiling on the number of distinct prop models a single level may use.
-pub const MAX_LEVEL_PROP_MODELS: usize = 256;
+///
+/// Raised to 1024 from the historical 256: the cap is a lookup-table bound
+/// (one decoded-and-uploaded model set), not a per-frame cost, and a generated
+/// level may legitimately reference every registered model plus user imports.
+/// Like [`MAX_LEVEL_PROP_VERTICES`] this is *not* a level rejection: placements
+/// past the cap draw their placeholder boxes, exactly as they did at 256, and
+/// the level still loads and collides. The cap exists so one level's decoded
+/// model set stays bounded.
+pub const MAX_LEVEL_PROP_MODELS: usize = 1_024;
 /// Upper bound on the summed prop vertex count a level may expand into after
 /// instance transforms are baked, keeping one level's prop geometry bounded.
-pub const MAX_LEVEL_PROP_VERTICES: usize = 1_500_000;
+///
+/// Raised to 6 000 000 from the historical 1 500 000: the dense capacity
+/// fixture (`tools/levels/build_capacity_fixtures.py`, ~6 000 props) expands to
+/// about 1.9 M vertices, so this is three times the measured workload while
+/// still bounding the resident vertex data to a few hundred megabytes. The
+/// loader reports the count when a level exceeds it, and the remaining
+/// placements draw their placeholder boxes instead of disappearing.
+pub const MAX_LEVEL_PROP_VERTICES: usize = 6_000_000;
+/// Hard ceiling on the number of rooms a level may define.
+pub const MAX_LEVEL_ROOMS: u64 = 2_000;
+/// Hard ceiling on the number of walls a level may define.
+pub const MAX_LEVEL_WALLS: u64 = 20_000;
+/// Hard ceiling on the number of ceiling light fixtures a level may define.
+pub const MAX_LEVEL_CEILING_LIGHTS: u64 = 20_000;
+/// Hard ceiling on the number of placed props a level may define.
+pub const MAX_LEVEL_PROPS: u64 = 20_000;
+/// Largest room width or depth a level may author, in metres.
+///
+/// The historical cap was 2000 m. The sparse capacity fixture spans ±4 km with
+/// geometry and gameplay in every quadrant, so the cap is raised to 8192 m —
+/// still inside `f32`'s exact-integer range and far below the point where world
+/// space loses centimetre precision. A single larger room is refused by name.
+pub const MAX_ROOM_EXTENT_M: f32 = 8_192.0;
+/// Largest room clear height a level may author, in metres.
+pub const MAX_ROOM_HEIGHT_M: f32 = 50.0;
 /// Hard ceiling on the number of local floor regions a level may define.
 pub const MAX_LEVEL_FLOOR_REGIONS: u64 = 2000;
 /// Hard ceiling on the number of floor patches a level may define.
@@ -4544,18 +4576,23 @@ pub const MAX_THRESHOLD_QUADS: u64 = 5;
 pub const MAX_BASEBOARD_QUADS: u64 = 8;
 /// Hard byte ceiling on a standalone level JSON file before it is parsed.
 ///
-/// The shipped demo is about 23 KB, so this is three orders of magnitude of
-/// headroom for a hand-authored or generated level while still refusing an
-/// accidentally huge file before it is read into memory.
-pub const MAX_LEVEL_JSON_BYTES: u64 = 8 * 1024 * 1024;
+/// The shipped demo is about 62 KB and the dense capacity fixture about 5 MB,
+/// so this is ample headroom for a hand-authored or generated level while still
+/// refusing an accidentally huge file before it is read into memory. The
+/// embedded fallback demo is exempt (it is compiled in).
+pub const MAX_LEVEL_JSON_BYTES: u64 = 32 * 1024 * 1024;
 /// Sanity budget for total authored floor area, in square metres.
 ///
 /// Floor rendering no longer scales with area, but absurdly large levels still
 /// stress collision, fill rate and level-design tooling, so a generous cap is
-/// kept as a sanity guard.
-pub const MAX_LEVEL_FLOOR_AREA_M2: u64 = 1_000_000;
+/// kept as a sanity guard. 16 km² covers the sparse capacity fixture (four
+/// 4 km × 4 km quadrant rooms, ~8 km across) with headroom.
+pub const MAX_LEVEL_FLOOR_AREA_M2: u64 = 16_000_000;
 /// Sanity budget on the estimated number of generated vertices.
-pub const MAX_LEVEL_VERTICES: u64 = 2_000_000;
+///
+/// Four times the historical two million, matching the prop-vertex ceiling
+/// above; it is the loader's upper-bound estimate, not an allocation.
+pub const MAX_LEVEL_VERTICES: u64 = 8_000_000;
 
 /// Estimated generated geometry for a level, used to bound memory use before
 /// building vertex data and to reserve capacity without overallocating.

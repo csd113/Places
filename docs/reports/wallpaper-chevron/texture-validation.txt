@@ -1,0 +1,88 @@
+OK core:tex_carpet_beige_01: environment/office/textures/floors/carpet_beige_01.png 1024x1024
+OK core:tex_carpet_damp_01: environment/office/textures/floors/carpet_damp_01.png 1024x1024
+OK core:tex_ceiling_panel_01: environment/office/textures/ceilings/ceiling_panel_01.png 1024x1024
+OK core:tex_ceiling_stained_01: environment/office/textures/ceilings/ceiling_stained_01.png 1024x1024
+OK core:tex_diagnostic_alpha_01: diagnostic/textures/diagnostic_alpha_01.png 128x128
+OK core:tex_diagnostic_alt_01: diagnostic/textures/diagnostic_alt_01.png 96x64
+OK core:tex_diagnostic_ceiling_01: diagnostic/textures/diagnostic_ceiling_01.png 128x128
+OK core:tex_diagnostic_floor_01: diagnostic/textures/diagnostic_floor_01.png 128x128
+OK core:tex_diagnostic_wall_01: diagnostic/textures/diagnostic_wall_01.png 128x128
+OK core:tex_wallpaper_stained_01: environment/office/textures/walls/wallpaper_stained_01.png 1024x1024
+OK core:tex_wallpaper_yellow_01: environment/office/textures/walls/wallpaper_yellow_01.png 1024x1024
+OK core:tex_pool_tile_deck_01: environment/pool/textures/floors/pool_tile_deck_01.png 1024x1024
+OK core:tex_pool_tile_basin_01: environment/pool/textures/floors/pool_tile_basin_01.png 1024x1024
+OK core:tex_pool_tile_wall_01: environment/pool/textures/walls/pool_tile_wall_01.png 1024x1024
+OK core:tex_pool_ceiling_01: environment/pool/textures/ceilings/pool_ceiling_01.png 1024x1024
+OK core:fluorescent_panel_01: environment/office/textures/lights/fluorescent_panel_01.png 1024x512
+OK core:pool_light_round: environment/pool/textures/lights/pool_light_round_01.png 1024x1024
+OK core:pool_light_wall: environment/pool/textures/lights/pool_light_wall_01.png 1024x512
+OK core:decal_arrow_01: core/decals/arrow_01.png 128x128
+OK core:decal_stripes_01: core/decals/stripes_01.png 128x128
+OK core:decal_ceiling_vent_01: core/decals/ceiling_vent_01.png 128x128
+OK core:decal_no_diving_01: environment/pool/decals/no_diving_01.png 1024x1024
+OK core:tex_glass_clear_01: core/textures/glass/glass_clear_01.png 1024x1024
+OK core:tex_glass_dirty_01: core/textures/glass/glass_dirty_01.png 1024x1024
+OK core:tex_glass_tinted_01: core/textures/glass/glass_tinted_01.png 1024x1024
+OK core:tex_linoleum_01: core/textures/floors/linoleum_01.png 1024x1024
+OK core:tex_metal_panel_01: core/textures/walls/metal_panel_01.png 1024x1024
+OK core:tex_plastic_panel_01: core/textures/walls/plastic_panel_01.png 1024x1024
+OK core:tex_normal_panel_01: core/textures/normals/normal_panel_01.png 1024x1024
+OK core:tex_normal_brushed_01: core/textures/normals/normal_brushed_01.png 1024x1024
+OK core:tex_pool_water_01: environment/pool/textures/water/pool_water_01.png 1024x1024
+OK core:tex_grille_01: core/textures/walls/grille_01.png 1024x1024
+OK core:tex_white_01: core/textures/white_01.png 1024x1024
+OK home:tex_wallpaper_offwhite_01: environment/home/textures/walls/wallpaper_offwhite_01.png 1024x1024
+OK home:tex_wallpaper_pattern_01: environment/home/textures/walls/wallpaper_pattern_01.png 1024x1024
+OK home:tex_wall_paint_offwhite_01: environment/home/textures/walls/wall_paint_offwhite_01.png 1024x1024
+OK home:tex_baseboard_wood_01: environment/home/textures/walls/baseboard_wood_01.png 1024x1024
+OK home:tex_baseboard_white_01: environment/home/textures/walls/baseboard_white_01.png 1024x1024
+OK home:tex_handrail_wood_01: environment/home/textures/walls/handrail_wood_01.png 1024x1024
+OK home:tex_threshold_wood_01: environment/home/textures/floors/threshold_wood_01.png 1024x1024
+OK home:tex_hardwood_oak_01: environment/home/textures/floors/hardwood_oak_01.png 1024x1024
+OK home:tex_hardwood_walnut_02: environment/home/textures/floors/hardwood_walnut_02.png 1024x1024
+OK home:tex_carpet_cream_01: environment/home/textures/floors/carpet_cream_01.png 1024x1024
+OK home:tex_tile_home_01: environment/home/textures/floors/tile_home_01.png 1024x1024
+OK home:tex_ceiling_white_01: environment/home/textures/ceilings/ceiling_white_01.png 1024x1024
+OK home:tex_ceiling_plaster_01: environment/home/textures/ceilings/ceiling_plaster_01.png 1024x1024
+OK home:ceiling_light_round: environment/home/textures/lights/ceiling_light_round_01.png 1024x1024
+WARN core:tex_carpet_beige_01: 'environment/office/textures/floors/carpet_beige_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_carpet_damp_01: 'environment/office/textures/floors/carpet_damp_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_ceiling_panel_01: 'environment/office/textures/ceilings/ceiling_panel_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_ceiling_stained_01: 'environment/office/textures/ceilings/ceiling_stained_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_diagnostic_alt_01: 'diagnostic/textures/diagnostic_alt_01.png' is 96x64, not a power of two
+WARN core:tex_wallpaper_stained_01: 'environment/office/textures/walls/wallpaper_stained_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_wallpaper_yellow_01: 'environment/office/textures/walls/wallpaper_yellow_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_pool_tile_deck_01: 'environment/pool/textures/floors/pool_tile_deck_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_pool_tile_basin_01: 'environment/pool/textures/floors/pool_tile_basin_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_pool_tile_wall_01: 'environment/pool/textures/walls/pool_tile_wall_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_pool_ceiling_01: 'environment/pool/textures/ceilings/pool_ceiling_01.png' is 1024x1024, over the preferred 256x256
+WARN core:fluorescent_panel_01: 'environment/office/textures/lights/fluorescent_panel_01.png' is 1024x512, over the preferred 256x256
+WARN core:pool_light_round: 'environment/pool/textures/lights/pool_light_round_01.png' is 1024x1024, over the preferred 256x256
+WARN core:pool_light_wall: 'environment/pool/textures/lights/pool_light_wall_01.png' is 1024x512, over the preferred 256x256
+WARN core:decal_no_diving_01: 'environment/pool/decals/no_diving_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_glass_clear_01: 'core/textures/glass/glass_clear_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_glass_dirty_01: 'core/textures/glass/glass_dirty_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_glass_tinted_01: 'core/textures/glass/glass_tinted_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_linoleum_01: 'core/textures/floors/linoleum_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_metal_panel_01: 'core/textures/walls/metal_panel_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_plastic_panel_01: 'core/textures/walls/plastic_panel_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_normal_panel_01: 'core/textures/normals/normal_panel_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_normal_brushed_01: 'core/textures/normals/normal_brushed_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_pool_water_01: 'environment/pool/textures/water/pool_water_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_grille_01: 'core/textures/walls/grille_01.png' is 1024x1024, over the preferred 256x256
+WARN core:tex_white_01: 'core/textures/white_01.png' is 1024x1024, over the preferred 256x256
+WARN home:tex_wallpaper_offwhite_01: 'environment/home/textures/walls/wallpaper_offwhite_01.png' is 1024x1024, over the preferred 256x256
+WARN home:tex_wallpaper_pattern_01: 'environment/home/textures/walls/wallpaper_pattern_01.png' is 1024x1024, over the preferred 256x256
+WARN home:tex_wall_paint_offwhite_01: 'environment/home/textures/walls/wall_paint_offwhite_01.png' is 1024x1024, over the preferred 256x256
+WARN home:tex_baseboard_wood_01: 'environment/home/textures/walls/baseboard_wood_01.png' is 1024x1024, over the preferred 256x256
+WARN home:tex_baseboard_white_01: 'environment/home/textures/walls/baseboard_white_01.png' is 1024x1024, over the preferred 256x256
+WARN home:tex_handrail_wood_01: 'environment/home/textures/walls/handrail_wood_01.png' is 1024x1024, over the preferred 256x256
+WARN home:tex_threshold_wood_01: 'environment/home/textures/floors/threshold_wood_01.png' is 1024x1024, over the preferred 256x256
+WARN home:tex_hardwood_oak_01: 'environment/home/textures/floors/hardwood_oak_01.png' is 1024x1024, over the preferred 256x256
+WARN home:tex_hardwood_walnut_02: 'environment/home/textures/floors/hardwood_walnut_02.png' is 1024x1024, over the preferred 256x256
+WARN home:tex_carpet_cream_01: 'environment/home/textures/floors/carpet_cream_01.png' is 1024x1024, over the preferred 256x256
+WARN home:tex_tile_home_01: 'environment/home/textures/floors/tile_home_01.png' is 1024x1024, over the preferred 256x256
+WARN home:tex_ceiling_white_01: 'environment/home/textures/ceilings/ceiling_white_01.png' is 1024x1024, over the preferred 256x256
+WARN home:tex_ceiling_plaster_01: 'environment/home/textures/ceilings/ceiling_plaster_01.png' is 1024x1024, over the preferred 256x256
+WARN home:ceiling_light_round: 'environment/home/textures/lights/ceiling_light_round_01.png' is 1024x1024, over the preferred 256x256
+OK (47 texture(s), 40 warning(s))

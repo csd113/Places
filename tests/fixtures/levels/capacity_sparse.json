@@ -1,0 +1,834 @@
+{
+  "format_version": 1,
+  "id": "capacity_sparse",
+  "name": "Capacity: Sparse World (dev)",
+  "author": "Places Team",
+  "spawn": {
+    "x": 2000.0,
+    "z": 1994.0,
+    "yaw_degrees": 180.0
+  },
+  "defaults": {
+    "wall": "core:pool_tile_wall_01",
+    "floor": "core:pool_tile_deck_01",
+    "ceiling": "core:pool_ceiling_01"
+  },
+  "rooms": [
+    {
+      "x": 1987.0,
+      "z": 1990.0,
+      "width": 26.0,
+      "depth": 20.0,
+      "height": 4.0,
+      "material": "core:pool_tile_deck_01",
+      "ceiling_material": "core:pool_ceiling_01"
+    },
+    {
+      "x": -2013.0,
+      "z": 1990.0,
+      "width": 26.0,
+      "depth": 20.0,
+      "height": 4.0,
+      "material": "core:pool_tile_deck_01",
+      "ceiling_material": "core:pool_ceiling_01"
+    },
+    {
+      "x": -2013.0,
+      "z": -2010.0,
+      "width": 26.0,
+      "depth": 20.0,
+      "height": 4.0,
+      "material": "core:pool_tile_deck_01",
+      "ceiling_material": "core:pool_ceiling_01"
+    },
+    {
+      "x": 1987.0,
+      "z": -2010.0,
+      "width": 26.0,
+      "depth": 20.0,
+      "height": 4.0,
+      "material": "core:pool_tile_deck_01",
+      "ceiling_material": "core:pool_ceiling_01"
+    }
+  ],
+  "walls": [
+    {
+      "x": 1986.6,
+      "z": 1989.6,
+      "width": 26.8,
+      "depth": 0.4,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 12.2,
+          "width": 1.6,
+          "height": 2.2,
+          "sill": 0.0
+        }
+      ],
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 1986.6,
+      "z": 2010.0,
+      "width": 26.8,
+      "depth": 0.4,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 1986.6,
+      "z": 1990.0,
+      "width": 0.4,
+      "depth": 20.0,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 2013.0,
+      "z": 1990.0,
+      "width": 0.4,
+      "depth": 20.0,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -2013.4,
+      "z": 1989.6,
+      "width": 26.8,
+      "depth": 0.4,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 12.2,
+          "width": 1.6,
+          "height": 2.2,
+          "sill": 0.0
+        }
+      ],
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -2013.4,
+      "z": 2010.0,
+      "width": 26.8,
+      "depth": 0.4,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -2013.4,
+      "z": 1990.0,
+      "width": 0.4,
+      "depth": 20.0,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -1987.0,
+      "z": 1990.0,
+      "width": 0.4,
+      "depth": 20.0,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -2013.4,
+      "z": -2010.4,
+      "width": 26.8,
+      "depth": 0.4,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 12.2,
+          "width": 1.6,
+          "height": 2.2,
+          "sill": 0.0
+        }
+      ],
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -2013.4,
+      "z": -1990.0,
+      "width": 26.8,
+      "depth": 0.4,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -2013.4,
+      "z": -2010.0,
+      "width": 0.4,
+      "depth": 20.0,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -1987.0,
+      "z": -2010.0,
+      "width": 0.4,
+      "depth": 20.0,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 1986.6,
+      "z": -2010.4,
+      "width": 26.8,
+      "depth": 0.4,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 12.2,
+          "width": 1.6,
+          "height": 2.2,
+          "sill": 0.0
+        }
+      ],
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 1986.6,
+      "z": -1990.0,
+      "width": 26.8,
+      "depth": 0.4,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 1986.6,
+      "z": -2010.0,
+      "width": 0.4,
+      "depth": 20.0,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 2013.0,
+      "z": -2010.0,
+      "width": 0.4,
+      "depth": 20.0,
+      "material": "core:pool_tile_wall_01"
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "id": "far_light_0_0_0",
+      "fixture": "core:pool_light_round",
+      "x": 1992.0,
+      "z": 1994.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_0_0_1",
+      "fixture": "core:pool_light_round",
+      "x": 2000.0,
+      "z": 1994.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_0_0_2",
+      "fixture": "core:pool_light_round",
+      "x": 2008.0,
+      "z": 1994.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_0_1_0",
+      "fixture": "core:pool_light_round",
+      "x": 1992.0,
+      "z": 2000.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_0_1_1",
+      "fixture": "core:pool_light_round",
+      "x": 2000.0,
+      "z": 2000.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_0_1_2",
+      "fixture": "core:pool_light_round",
+      "x": 2008.0,
+      "z": 2000.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_0_2_0",
+      "fixture": "core:pool_light_round",
+      "x": 1992.0,
+      "z": 2006.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_0_2_1",
+      "fixture": "core:pool_light_round",
+      "x": 2000.0,
+      "z": 2006.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_0_2_2",
+      "fixture": "core:pool_light_round",
+      "x": 2008.0,
+      "z": 2006.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_wall_light_0",
+      "fixture": "core:pool_light_wall",
+      "x": 1987.4,
+      "z": 2000.0,
+      "y": 2.2,
+      "rotation_degrees": 90.0,
+      "brightness": 0.5
+    },
+    {
+      "id": "far_light_1_0_0",
+      "fixture": "core:pool_light_round",
+      "x": -2008.0,
+      "z": 1994.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_1_0_1",
+      "fixture": "core:pool_light_round",
+      "x": -2000.0,
+      "z": 1994.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_1_0_2",
+      "fixture": "core:pool_light_round",
+      "x": -1992.0,
+      "z": 1994.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_1_1_0",
+      "fixture": "core:pool_light_round",
+      "x": -2008.0,
+      "z": 2000.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_1_1_1",
+      "fixture": "core:pool_light_round",
+      "x": -2000.0,
+      "z": 2000.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_1_1_2",
+      "fixture": "core:pool_light_round",
+      "x": -1992.0,
+      "z": 2000.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_1_2_0",
+      "fixture": "core:pool_light_round",
+      "x": -2008.0,
+      "z": 2006.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_1_2_1",
+      "fixture": "core:pool_light_round",
+      "x": -2000.0,
+      "z": 2006.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_1_2_2",
+      "fixture": "core:pool_light_round",
+      "x": -1992.0,
+      "z": 2006.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_wall_light_1",
+      "fixture": "core:pool_light_wall",
+      "x": -2012.6,
+      "z": 2000.0,
+      "y": 2.2,
+      "rotation_degrees": 90.0,
+      "brightness": 0.5
+    },
+    {
+      "id": "far_light_2_0_0",
+      "fixture": "core:pool_light_round",
+      "x": -2008.0,
+      "z": -2006.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_2_0_1",
+      "fixture": "core:pool_light_round",
+      "x": -2000.0,
+      "z": -2006.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_2_0_2",
+      "fixture": "core:pool_light_round",
+      "x": -1992.0,
+      "z": -2006.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_2_1_0",
+      "fixture": "core:pool_light_round",
+      "x": -2008.0,
+      "z": -2000.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_2_1_1",
+      "fixture": "core:pool_light_round",
+      "x": -2000.0,
+      "z": -2000.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_2_1_2",
+      "fixture": "core:pool_light_round",
+      "x": -1992.0,
+      "z": -2000.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_2_2_0",
+      "fixture": "core:pool_light_round",
+      "x": -2008.0,
+      "z": -1994.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_2_2_1",
+      "fixture": "core:pool_light_round",
+      "x": -2000.0,
+      "z": -1994.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_2_2_2",
+      "fixture": "core:pool_light_round",
+      "x": -1992.0,
+      "z": -1994.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_wall_light_2",
+      "fixture": "core:pool_light_wall",
+      "x": -2012.6,
+      "z": -2000.0,
+      "y": 2.2,
+      "rotation_degrees": 90.0,
+      "brightness": 0.5
+    },
+    {
+      "id": "far_light_3_0_0",
+      "fixture": "core:pool_light_round",
+      "x": 1992.0,
+      "z": -2006.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_3_0_1",
+      "fixture": "core:pool_light_round",
+      "x": 2000.0,
+      "z": -2006.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_3_0_2",
+      "fixture": "core:pool_light_round",
+      "x": 2008.0,
+      "z": -2006.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_3_1_0",
+      "fixture": "core:pool_light_round",
+      "x": 1992.0,
+      "z": -2000.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_3_1_1",
+      "fixture": "core:pool_light_round",
+      "x": 2000.0,
+      "z": -2000.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_3_1_2",
+      "fixture": "core:pool_light_round",
+      "x": 2008.0,
+      "z": -2000.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_3_2_0",
+      "fixture": "core:pool_light_round",
+      "x": 1992.0,
+      "z": -1994.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_3_2_1",
+      "fixture": "core:pool_light_round",
+      "x": 2000.0,
+      "z": -1994.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_light_3_2_2",
+      "fixture": "core:pool_light_round",
+      "x": 2008.0,
+      "z": -1994.0,
+      "brightness": 0.55
+    },
+    {
+      "id": "far_wall_light_3",
+      "fixture": "core:pool_light_wall",
+      "x": 1987.4,
+      "z": -2000.0,
+      "y": 2.2,
+      "rotation_degrees": 90.0,
+      "brightness": 0.5
+    }
+  ],
+  "props": [
+    {
+      "id": "far_table_0",
+      "display_name": "Quadrant 0 Table",
+      "model": "core:pool_table",
+      "x": 1993.0,
+      "z": 2004.0,
+      "size": [
+        0.8,
+        0.74,
+        0.8
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Toggle name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "far_chair_0",
+      "model": "core:pool_chair",
+      "x": 1994.6,
+      "z": 2004.0,
+      "rotation_degrees": 270.0,
+      "size": [
+        0.52,
+        0.85,
+        0.55
+      ],
+      "solid": true
+    },
+    {
+      "id": "far_sign_0",
+      "model": "core:stop_sign",
+      "x": 1988.5,
+      "z": 1992.0,
+      "size": [
+        0.45,
+        1.8,
+        0.06
+      ],
+      "solid": true
+    },
+    {
+      "id": "far_duck",
+      "model": "core:rubber_duck",
+      "x": 2005.0,
+      "z": 2000.0,
+      "size": [
+        0.1,
+        0.12,
+        0.14
+      ],
+      "solid": false,
+      "float": {
+        "draft": 0.03,
+        "bob": 0.012,
+        "bob_seconds": 2.8,
+        "heel_degrees": 6.0,
+        "heel_seconds": 3.6,
+        "phase": 0.25
+      }
+    },
+    {
+      "id": "far_rat",
+      "model": "rat",
+      "x": 1990.0,
+      "z": 2006.0,
+      "rotation_degrees": 0.0,
+      "size": [
+        0.2,
+        0.2,
+        0.7
+      ]
+    },
+    {
+      "id": "far_table_1",
+      "display_name": "Quadrant 1 Table",
+      "model": "core:pool_table",
+      "x": -2007.0,
+      "z": 2004.0,
+      "size": [
+        0.8,
+        0.74,
+        0.8
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Toggle name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "far_chair_1",
+      "model": "core:pool_chair",
+      "x": -2005.4,
+      "z": 2004.0,
+      "rotation_degrees": 270.0,
+      "size": [
+        0.52,
+        0.85,
+        0.55
+      ],
+      "solid": true
+    },
+    {
+      "id": "far_sign_1",
+      "model": "core:stop_sign",
+      "x": -2011.5,
+      "z": 1992.0,
+      "size": [
+        0.45,
+        1.8,
+        0.06
+      ],
+      "solid": true
+    },
+    {
+      "id": "far_table_2",
+      "display_name": "Quadrant 2 Table",
+      "model": "core:pool_table",
+      "x": -2007.0,
+      "z": -1996.0,
+      "size": [
+        0.8,
+        0.74,
+        0.8
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Toggle name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "far_chair_2",
+      "model": "core:pool_chair",
+      "x": -2005.4,
+      "z": -1996.0,
+      "rotation_degrees": 270.0,
+      "size": [
+        0.52,
+        0.85,
+        0.55
+      ],
+      "solid": true
+    },
+    {
+      "id": "far_sign_2",
+      "model": "core:stop_sign",
+      "x": -2011.5,
+      "z": -2008.0,
+      "size": [
+        0.45,
+        1.8,
+        0.06
+      ],
+      "solid": true
+    },
+    {
+      "id": "far_table_3",
+      "display_name": "Quadrant 3 Table",
+      "model": "core:pool_table",
+      "x": 1993.0,
+      "z": -1996.0,
+      "size": [
+        0.8,
+        0.74,
+        0.8
+      ],
+      "solid": true,
+      "interaction": {
+        "prompt": "Toggle name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "far_chair_3",
+      "model": "core:pool_chair",
+      "x": 1994.6,
+      "z": -1996.0,
+      "rotation_degrees": 270.0,
+      "size": [
+        0.52,
+        0.85,
+        0.55
+      ],
+      "solid": true
+    },
+    {
+      "id": "far_sign_3",
+      "model": "core:stop_sign",
+      "x": 1988.5,
+      "z": -2008.0,
+      "size": [
+        0.45,
+        1.8,
+        0.06
+      ],
+      "solid": true
+    }
+  ],
+  "decals": [
+    {
+      "x": 2000.0,
+      "z": 2000.0,
+      "width": 1.2,
+      "height": 1.2,
+      "material": "core:decal_arrow_01",
+      "surface": "floor"
+    },
+    {
+      "x": -2000.0,
+      "z": 2000.0,
+      "width": 1.2,
+      "height": 1.2,
+      "material": "core:decal_arrow_01",
+      "surface": "floor"
+    },
+    {
+      "x": -2000.0,
+      "z": -2000.0,
+      "width": 1.2,
+      "height": 1.2,
+      "material": "core:decal_arrow_01",
+      "surface": "floor"
+    },
+    {
+      "x": 2000.0,
+      "z": -2000.0,
+      "width": 1.2,
+      "height": 1.2,
+      "material": "core:decal_arrow_01",
+      "surface": "floor"
+    }
+  ],
+  "water": [
+    {
+      "x": 2002.0,
+      "z": 1998.0,
+      "width": 6.0,
+      "depth": 4.0,
+      "surface_y": 0.35,
+      "bottom_y": 0.0,
+      "swimming": false
+    }
+  ],
+  "area_triggers": [
+    {
+      "id": "far_trigger",
+      "x": -2002.0,
+      "z": -2002.0,
+      "width": 4.0,
+      "depth": 4.0,
+      "actions": [
+        {
+          "action": "reset_to_start"
+        }
+      ],
+      "cooldown_seconds": 0.5
+    }
+  ],
+  "routes": [
+    {
+      "id": "far_rat",
+      "loop": true,
+      "steps": [
+        {
+          "step": "move_to",
+          "x": 1998.0,
+          "z": 2006.0,
+          "speed": 0.1985
+        },
+        {
+          "step": "wait",
+          "seconds": 0.5
+        },
+        {
+          "step": "move_to",
+          "x": 1990.0,
+          "z": 2006.0,
+          "speed": 0.5731
+        },
+        {
+          "step": "wait",
+          "seconds": 0.5
+        }
+      ]
+    }
+  ],
+  "geometry_intent": [
+    {
+      "check": "room-leak",
+      "x": 1999.0,
+      "z": 1987.4,
+      "width": 2.0,
+      "depth": 2.2,
+      "note": "The island's only doorway opens onto the void by design."
+    },
+    {
+      "check": "room-leak",
+      "x": -2001.0,
+      "z": 1987.4,
+      "width": 2.0,
+      "depth": 2.2,
+      "note": "The island's only doorway opens onto the void by design."
+    },
+    {
+      "check": "room-leak",
+      "x": -2001.0,
+      "z": -2012.6,
+      "width": 2.0,
+      "depth": 2.2,
+      "note": "The island's only doorway opens onto the void by design."
+    },
+    {
+      "check": "room-leak",
+      "x": 1999.0,
+      "z": -2012.6,
+      "width": 2.0,
+      "depth": 2.2,
+      "note": "The island's only doorway opens onto the void by design."
+    }
+  ]
+}

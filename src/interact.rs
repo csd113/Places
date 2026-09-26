@@ -394,6 +394,105 @@ pub fn nearest_target(
     best.map(|(index, _)| index)
 }
 
+/// [`nearest_target`] through the collision index.
+///
+/// Identical semantics: the index only narrows which boxes each ray examines.
+#[must_use]
+pub fn nearest_target_indexed(
+    origin: Vec3,
+    direction: Vec3,
+    items: &[Interactable],
+    index: &crate::collision_index::CollisionIndex,
+    walls: &[WallAabb],
+) -> Option<usize> {
+    if items.is_empty() || direction.length_squared() <= f32::EPSILON {
+        return None;
+    }
+    let direction = direction.normalize();
+    let mut best: Option<(usize, f32)> = None;
+    for (item_index, item) in items.iter().enumerate() {
+        if item.actions.is_empty() {
+            continue;
+        }
+        let Some(entry) = ray_aabb_entry(origin, direction, item.bounds.min, item.bounds.max)
+        else {
+            continue;
+        };
+        if entry > item.reach {
+            continue;
+        }
+        if occluded_before_indexed(
+            origin,
+            direction,
+            entry,
+            item.own_box.as_ref(),
+            index,
+            walls,
+        ) {
+            continue;
+        }
+        if best.is_none_or(|(_, best_entry)| entry < best_entry) {
+            best = Some((item_index, entry));
+        }
+    }
+    best.map(|(index, _)| index)
+}
+
+/// [`clear_line_of_sight`] through the collision index.
+#[must_use]
+#[allow(clippy::arithmetic_side_effects)] // bounded world coordinates, as above
+pub fn clear_line_of_sight_indexed(
+    origin: Vec3,
+    point: Vec3,
+    own_box: Option<&WallAabb>,
+    index: &crate::collision_index::CollisionIndex,
+    walls: &[WallAabb],
+) -> bool {
+    let delta = point - origin;
+    let length = delta.length();
+    if !length.is_finite() {
+        return false;
+    }
+    if length <= f32::EPSILON {
+        return true;
+    }
+    let direction = delta / length;
+    !occluded_before_indexed(origin, direction, length, own_box, index, walls)
+}
+
+/// True when any box except the target's own blocks the ray before `entry`,
+/// examined through the index.
+#[must_use]
+#[allow(clippy::arithmetic_side_effects)] // bounded world coordinates, as above
+fn occluded_before_indexed(
+    origin: Vec3,
+    direction: Vec3,
+    entry: f32,
+    own_box: Option<&WallAabb>,
+    index: &crate::collision_index::CollisionIndex,
+    walls: &[WallAabb],
+) -> bool {
+    #[allow(clippy::arithmetic_side_effects)]
+    let limit = entry - LABEL_OCCLUSION_EPS_M;
+    let mut occluded = false;
+    index.for_each_ray(origin, direction, entry, walls, |wall| {
+        if occluded {
+            return;
+        }
+        if own_box.is_some_and(|own| same_box(wall, own)) {
+            return;
+        }
+        let wall_min = [wall.min_x, wall.min_y, wall.min_z];
+        let wall_max = [wall.max_x, wall.max_y, wall.max_z];
+        if let Some(wall_entry) = ray_aabb_entry(origin, direction, wall_min, wall_max)
+            && wall_entry < limit
+        {
+            occluded = true;
+        }
+    });
+    occluded
+}
+
 /// True when any wall that is not the target's own collision box blocks the ray
 /// before `entry`.
 #[must_use]
@@ -490,10 +589,11 @@ pub fn append_world_labels(
         if !game.is_label_visible(index) {
             continue;
         }
-        if !clear_line_of_sight(
+        if !clear_line_of_sight_indexed(
             camera.position,
             item.anchor,
             item.own_box.as_ref(),
+            game.collision_index(),
             game.walls(),
         ) {
             continue;
@@ -789,8 +889,9 @@ mod tests {
 
         // A wall between the eye and the anchor hides both the label and the
         // now-unreachable prompt.
-        game.walls
-            .push(WallAabb::with_y(3.0, 1.0, 4.6, 0.2, 0.8, 0.8));
+        let mut blocked_walls = game.walls().to_vec();
+        blocked_walls.push(WallAabb::with_y(3.0, 1.0, 4.6, 0.2, 0.8, 0.8));
+        game.set_walls(blocked_walls);
         let mut occluded = Vec::new();
         append_world_labels(&mut occluded, &game, &camera, drawable);
         assert!(

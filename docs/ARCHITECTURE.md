@@ -97,8 +97,10 @@ where the bytes live:
 | `src/loader.rs` | Level discovery, validation, level packs, material resolution |
 | `src/lighting/` | The CPU bake: partition areas, baselines, fixture pools, visibility |
 | `src/materials/` | PNG decode, session texture cache, material and decal resolution |
-| `src/spatial/` | The spatial cell grid the batching and collision share |
+| `src/spatial/` | The spatial cell grid the batching and frustum culling share |
+| `src/collision_index.rs` | The uniform X/Z grid over the level's solid boxes, shared by movement, support, headroom, entity routes, interaction targeting, label occlusion and route validation (allocation-free queries, exact linear fallback) |
 | `src/geometry_check.rs` | The read-only map geometry checker CLI (`--check-geometry`) and its fixture suite |
+| `src/zoo_audit.rs` | The test-only contracts for the generated Model Zoo and the capacity fixtures |
 | `src/game/`, `src/game.rs` | Player state, movement, stance, ladders, swimming, area triggers and the action dispatcher |
 | `src/interact.rs` | Interaction targeting (ray/reach/occlusion), placed-instance bounds and the world-anchored label/prompt emission |
 | `src/ui.rs` | The menu, level select and settings screens |
@@ -107,7 +109,7 @@ where the bytes live:
 | `assets/levels/` | Shipped levels |
 | `levels/` | Drop-in level packs (`*.json`, `*.zip`), created on first run |
 | `cache/` | The content-keyed lightmap cache, created on demand |
-| `tools/` | Deterministic asset, texture, prop and level generators and validators |
+| `tools/` | Deterministic asset, texture, prop and level generators and validators, including `tools/levels/build_model_zoo.py` (the catalog-driven zoo generator) and `tools/levels/build_capacity_fixtures.py` |
 
 The bake lives in `src/lighting/`; the renderer never computes light. The
 renderer-neutral build in `render::common` converts the engine's `LoadedLevel`

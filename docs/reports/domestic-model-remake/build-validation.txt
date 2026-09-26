@@ -1,0 +1,17 @@
+prop                      tris  verts       tex      glb  notes
+---------------------------------------------------------------
+core:bed                   532   1152   256x256   119.8k (over target)
+core:chair                 524   1208   256x256    88.0k (over target)
+core:couch                 544   1232   256x256   178.0k (over target)
+home:bowl                  480   1000     64x64    30.8k
+home:crt_tv                516   1160   128x128    44.3k (over target)
+home:fork                  320    736     64x64    25.1k
+home:knife                 188    416     64x64    16.7k
+home:plate                 400    840     64x64    26.5k
+home:spoon                 336    736     64x64    25.1k
+home:wall_switch           232    520   128x128    26.4k
+---------------------------------------------------------------
+total                     4072                    580.8k  (10 props, 976.0 KiB decoded RGBA)
+budget: 500 triangles preferred, 800 review, 1500 shipped art max (engine 6000); texture native 256x256 (engine 1024, High/Medium sample 256 / Low 128); pack decoded memory <= 64 MiB
+
+10 prop(s) OK

@@ -34,7 +34,7 @@ def main():
         model = Model(REPO_ROOT / f'assets/entities/{name}/model/{name}.glb')
         animations = {a['name']: a for a in model.animations}
         for clip, animation in animations.items():
-            if clip not in ('sit_down', 'stand_up'):
+            if clip not in ('sit_down', 'stand_up', 'pounce'):
                 compare(model, endpoints(model, animation, False), endpoints(model, animation, True),
                         f'{name}/{clip} loop')
         for weights in model.vertex_weights:
@@ -42,7 +42,8 @@ def main():
                 raise ValueError(f'{name}: invalid skin weights')
         if name == 'spooner-man':
             for first, last in (('idle', 'sit_down'), ('sit_down', 'sit_idle'),
-                                ('sit_idle', 'stand_up'), ('stand_up', 'idle')):
+                                ('sit_idle', 'stand_up'), ('stand_up', 'idle'),
+                                ('idle', 'pounce'), ('pounce', 'idle')):
                 compare(model, endpoints(model, animations[first], True),
                         endpoints(model, animations[last], False), f'{first} -> {last}')
         print(f'{name}: {len(animations)} clips, loop/transition boundaries and skin weights OK')
