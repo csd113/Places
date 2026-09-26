@@ -135,7 +135,8 @@ impl WindowMode {
 /// Player-rebindable gameplay key bindings.
 ///
 /// The defaults are the conventional desktop layout: `W`/`A`/`S`/`D` for
-/// movement and the arrow keys for looking. Each action can be rebound in Settings.
+/// movement, the arrow keys for looking and `SPACE` to jump (and swim up).
+/// Each action can be rebound in Settings.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct KeyBindings {
     pub forward: String,
@@ -146,6 +147,12 @@ pub struct KeyBindings {
     pub look_down: String,
     pub look_left: String,
     pub look_right: String,
+    /// Jump, and swim upwards while in deep water.
+    ///
+    /// Added after the first release: a saved file without this key gets the
+    /// default rather than invalidating the whole file.
+    #[serde(default = "default_jump_binding")]
+    pub jump: String,
 }
 
 impl Default for KeyBindings {
@@ -159,8 +166,15 @@ impl Default for KeyBindings {
             look_down: "DOWN".to_string(),
             look_left: "LEFT".to_string(),
             look_right: "RIGHT".to_string(),
+            jump: default_jump_binding(),
         }
     }
+}
+
+/// The default jump binding. `SPACE` is not a menu navigation key, so it can
+/// stay a gameplay binding in every screen.
+fn default_jump_binding() -> String {
+    "SPACE".to_string()
 }
 
 impl KeyBindings {
@@ -176,6 +190,7 @@ impl KeyBindings {
             "look_down" => Some(&self.look_down),
             "look_left" => Some(&self.look_left),
             "look_right" => Some(&self.look_right),
+            "jump" => Some(&self.jump),
             _ => None,
         }
     }
@@ -194,6 +209,7 @@ impl KeyBindings {
             ("look_down", &self.look_down),
             ("look_left", &self.look_left),
             ("look_right", &self.look_right),
+            ("jump", &self.jump),
         ];
 
         for (action, bound_key) in actions {
@@ -204,8 +220,8 @@ impl KeyBindings {
         None
     }
 
-    /// The eight bindable actions, in settings-screen order.
-    pub const ACTIONS: [&'static str; 8] = [
+    /// The nine bindable actions, in settings-screen order.
+    pub const ACTIONS: [&'static str; 9] = [
         "forward",
         "strafe_left",
         "strafe_right",
@@ -214,6 +230,7 @@ impl KeyBindings {
         "look_down",
         "look_left",
         "look_right",
+        "jump",
     ];
 
     /// Rebinds an action to a new key if there is no conflict.
@@ -254,6 +271,7 @@ impl KeyBindings {
             "look_down" => self.look_down = key,
             "look_left" => self.look_left = key,
             "look_right" => self.look_right = key,
+            "jump" => self.jump = key,
             _ => return Err(format!("Unknown action: {action}")),
         }
         Ok(())
@@ -351,6 +369,11 @@ pub struct Settings {
     /// Flip the vertical look direction. Off is the historical behaviour.
     #[serde(default = "default_invert_look")]
     pub invert_look: bool,
+    /// Mouse look sensitivity: degrees of camera rotation per pixel of relative
+    /// mouse motion. Pixel motion carries no time, so the simulation applies it
+    /// without a delta-time factor; `0.12` is the fresh-install default.
+    #[serde(default = "default_mouse_sensitivity")]
+    pub mouse_sensitivity: f32,
     #[serde(default = "default_vsync")]
     pub vsync: bool,
     /// Texture Filtering preference: `"low"`, `"medium"` or `"high"`.
@@ -439,6 +462,15 @@ const fn default_fov() -> f32 {
 const fn default_invert_look() -> bool {
     false
 }
+/// Slowest selectable mouse sensitivity, in degrees per pixel.
+pub const MIN_MOUSE_SENSITIVITY: f32 = 0.02;
+/// Fastest selectable mouse sensitivity, in degrees per pixel.
+pub const MAX_MOUSE_SENSITIVITY: f32 = 1.0;
+/// Fresh-install mouse sensitivity, in degrees per pixel.
+pub const DEFAULT_MOUSE_SENSITIVITY: f32 = 0.12;
+const fn default_mouse_sensitivity() -> f32 {
+    DEFAULT_MOUSE_SENSITIVITY
+}
 const fn default_vsync() -> bool {
     true
 }
@@ -476,6 +508,7 @@ impl Default for Settings {
             walk_speed: default_walk_speed(),
             fov_degrees: default_fov(),
             invert_look: default_invert_look(),
+            mouse_sensitivity: default_mouse_sensitivity(),
             vsync: default_vsync(),
             texture_filtering: "high".to_string(),
             quality: default_quality(),
@@ -665,6 +698,14 @@ impl Settings {
         self.look_speed_v = self.look_speed_v.clamp(20.0, 240.0);
         self.walk_speed = self.walk_speed.clamp(1.0, 10.0);
         self.fov_degrees = self.fov_degrees.clamp(45.0, 110.0);
+        // A non-finite sensitivity (hand-edited memory or a future decoder)
+        // falls back to the default rather than poisoning the camera with NaN.
+        self.mouse_sensitivity = if self.mouse_sensitivity.is_finite() {
+            self.mouse_sensitivity
+                .clamp(MIN_MOUSE_SENSITIVITY, MAX_MOUSE_SENSITIVITY)
+        } else {
+            DEFAULT_MOUSE_SENSITIVITY
+        };
         // An unknown level falls back to the default rather than picking a
         // tier the player did not ask for.
         let quality = QualityLevel::parse(&self.quality).unwrap_or_default();

@@ -1073,6 +1073,22 @@ pub struct WorldDrawTotals {
     pub emissive_visible: bool,
 }
 
+impl WorldDrawTotals {
+    /// Folds another pass segment's counters in.
+    ///
+    /// The per-pass counters (`opaque_draws`, `cutout_draws`,
+    /// `translucent_draws`) stay with the class that produced them; the
+    /// splice-in paths accumulate only the totals.
+    const fn absorb(&mut self, other: Self) {
+        self.draw_calls = self.draw_calls.saturating_add(other.draw_calls);
+        self.visible_batches = self.visible_batches.saturating_add(other.visible_batches);
+        self.visible_vertices = self.visible_vertices.saturating_add(other.visible_vertices);
+        self.texture_binds = self.texture_binds.saturating_add(other.texture_binds);
+        self.material_binds = self.material_binds.saturating_add(other.material_binds);
+        self.emissive_visible |= other.emissive_visible;
+    }
+}
+
 /// The translucent draw indices, sorted back to front for one camera.
 ///
 /// Mirrors the reference's translucent pass: one item per draw (never per
@@ -1497,6 +1513,8 @@ pub struct WorldEncodeInputs<'a> {
     /// The level's live dynamic objects, drawn after the props exactly like the
     /// reference body order.
     pub dynamic: Option<&'a super::dynamic::WgpuDynamic>,
+    /// The level's live characters, drawn after the dynamics.
+    pub characters: Option<&'a super::character::WgpuCharacters>,
     /// The plane the current capture reflects, if any. Static batches whose
     /// material belongs to that plane are left out of the capture, exactly like
     /// the reference's `is_capture_mirror`.
@@ -1571,45 +1589,34 @@ impl WorldPipeline {
             totals.material_binds = totals.material_binds.saturating_add(class.material_binds);
             totals.emissive_visible |= class.emissive_visible;
             // The reference body order: static opaque, then props, then the
-            // dynamic objects, then the remaining static classes. Props and
-            // dynamic objects are opaque and follow the same pipeline, so they
-            // splice in after the opaque class.
+            // dynamic objects, then the characters, then the remaining static
+            // classes. Props, dynamic objects and characters are opaque and
+            // follow the same pipeline, so they splice in after the opaque
+            // class.
             if pass_kind == BatchPass::Opaque {
-                if let Some(props) = inputs.props {
-                    let prop_totals = self.encode_props(pass, inputs, props, false);
-                    totals.draw_calls = totals.draw_calls.saturating_add(prop_totals.draw_calls);
-                    totals.visible_batches = totals
-                        .visible_batches
-                        .saturating_add(prop_totals.visible_batches);
-                    totals.visible_vertices = totals
-                        .visible_vertices
-                        .saturating_add(prop_totals.visible_vertices);
-                    totals.texture_binds = totals
-                        .texture_binds
-                        .saturating_add(prop_totals.texture_binds);
-                    totals.material_binds = totals
-                        .material_binds
-                        .saturating_add(prop_totals.material_binds);
-                    totals.emissive_visible |= prop_totals.emissive_visible;
-                }
-                if let Some(dynamic) = inputs.dynamic {
-                    let dynamic_totals = self.encode_dynamic(pass, inputs, dynamic, false);
-                    totals.draw_calls = totals.draw_calls.saturating_add(dynamic_totals.draw_calls);
-                    totals.visible_batches = totals
-                        .visible_batches
-                        .saturating_add(dynamic_totals.visible_batches);
-                    totals.visible_vertices = totals
-                        .visible_vertices
-                        .saturating_add(dynamic_totals.visible_vertices);
-                    totals.texture_binds = totals
-                        .texture_binds
-                        .saturating_add(dynamic_totals.texture_binds);
-                    totals.material_binds = totals
-                        .material_binds
-                        .saturating_add(dynamic_totals.material_binds);
-                    totals.emissive_visible |= dynamic_totals.emissive_visible;
-                }
+                totals.absorb(self.encode_opaque_extras(pass, inputs, false));
             }
+        }
+        totals
+    }
+
+    /// Encodes the opaque extras spliced after the static opaque class, in the
+    /// reference body order: props, then dynamic objects, then characters.
+    fn encode_opaque_extras<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        inputs: WorldEncodeInputs<'a>,
+        emission_only: bool,
+    ) -> WorldDrawTotals {
+        let mut totals = WorldDrawTotals::default();
+        if let Some(props) = inputs.props {
+            totals.absorb(self.encode_props(pass, inputs, props, emission_only));
+        }
+        if let Some(dynamic) = inputs.dynamic {
+            totals.absorb(self.encode_dynamic(pass, inputs, dynamic, emission_only));
+        }
+        if let Some(characters) = inputs.characters {
+            totals.absorb(self.encode_characters(pass, inputs, characters, emission_only));
         }
         totals
     }
@@ -1698,6 +1705,89 @@ impl WorldPipeline {
         totals
     }
 
+    /// Encodes the frame's character draws.
+    ///
+    /// One draw per character per primitive, culled by the character's
+    /// world-space bounds. Each character binds its own group-3 environment,
+    /// which carries the placement matrix; its vertex buffer already holds the
+    /// CPU-skinned model-space pose, so the shader path is exactly the prop
+    /// path. `emission_only` is the emissive pass.
+    fn encode_characters<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        inputs: WorldEncodeInputs<'a>,
+        characters: &'a super::character::WgpuCharacters,
+        emission_only: bool,
+    ) -> WorldDrawTotals {
+        let mut totals = WorldDrawTotals::default();
+        if emission_only {
+            pass.set_pipeline(self.emission_pipeline_for(BatchPass::Opaque));
+        } else {
+            pass.set_pipeline(self.pipeline_for(BatchPass::Opaque));
+        }
+        pass.set_bind_group(0, &self.bind_group, &[]);
+        for character in 0..characters.character_count() {
+            let Some(bounds) = characters.world_bounds(character) else {
+                continue;
+            };
+            if inputs.cull && !inputs.frame.frustum.intersects_aabb(&bounds) {
+                continue;
+            }
+            let Some(environment) = characters.environment(character) else {
+                continue;
+            };
+            pass.set_bind_group(3, environment, &[]);
+            let mut bound_texture: Option<usize> = None;
+            let mut bound_material: Option<usize> = None;
+            let mut bound_geometry: Option<usize> = None;
+            for submesh in 0..characters.submesh_count(character) {
+                if emission_only && !characters.submesh_emissive(character, submesh) {
+                    continue;
+                }
+                totals.emissive_visible |= characters.submesh_emissive(character, submesh);
+                let Some(material_slot) = characters.material_slot(character, submesh) else {
+                    continue;
+                };
+                if bound_material != Some(material_slot) {
+                    let Some(material) = characters.material(material_slot) else {
+                        continue;
+                    };
+                    pass.set_bind_group(2, material.bind_group(inputs.filtering), &[]);
+                    totals.material_binds = totals.material_binds.saturating_add(1);
+                    bound_material = Some(material_slot);
+                }
+                if bound_texture != Some(material_slot) {
+                    let Some(texture) = characters.submesh_texture(character, submesh) else {
+                        continue;
+                    };
+                    pass.set_bind_group(1, texture.bind_group(inputs.filtering), &[]);
+                    totals.texture_binds = totals.texture_binds.saturating_add(1);
+                    bound_texture = Some(material_slot);
+                }
+                let Some((vertex_buffer, index_buffer, first_index, index_count)) =
+                    characters.geometry(character, submesh)
+                else {
+                    continue;
+                };
+                if bound_geometry != Some(character) {
+                    pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+                    pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                    bound_geometry = Some(character);
+                }
+                let Some(end) = first_index.checked_add(index_count) else {
+                    continue;
+                };
+                pass.draw_indexed(first_index..end, 0, 0..1);
+                totals.draw_calls = totals.draw_calls.saturating_add(1);
+                totals.visible_batches = totals.visible_batches.saturating_add(1);
+            }
+            totals.visible_vertices = totals
+                .visible_vertices
+                .saturating_add(characters.character_vertex_count(character));
+        }
+        totals
+    }
+
     /// The reference's `draw_emissive_body`: the same body without decals,
     /// every stage drawing only the surfaces whose material emits, into the
     /// bloom source with depth writes off and no blending. The fragment entry
@@ -1744,40 +1834,7 @@ impl WorldPipeline {
             totals.material_binds = totals.material_binds.saturating_add(class.material_binds);
             totals.emissive_visible |= class.emissive_visible;
             if pass_kind == BatchPass::Opaque {
-                if let Some(props) = inputs.props {
-                    let prop_totals = self.encode_props(pass, inputs, props, true);
-                    totals.draw_calls = totals.draw_calls.saturating_add(prop_totals.draw_calls);
-                    totals.visible_batches = totals
-                        .visible_batches
-                        .saturating_add(prop_totals.visible_batches);
-                    totals.visible_vertices = totals
-                        .visible_vertices
-                        .saturating_add(prop_totals.visible_vertices);
-                    totals.texture_binds = totals
-                        .texture_binds
-                        .saturating_add(prop_totals.texture_binds);
-                    totals.material_binds = totals
-                        .material_binds
-                        .saturating_add(prop_totals.material_binds);
-                    totals.emissive_visible |= prop_totals.emissive_visible;
-                }
-                if let Some(dynamic) = inputs.dynamic {
-                    let dynamic_totals = self.encode_dynamic(pass, inputs, dynamic, true);
-                    totals.draw_calls = totals.draw_calls.saturating_add(dynamic_totals.draw_calls);
-                    totals.visible_batches = totals
-                        .visible_batches
-                        .saturating_add(dynamic_totals.visible_batches);
-                    totals.visible_vertices = totals
-                        .visible_vertices
-                        .saturating_add(dynamic_totals.visible_vertices);
-                    totals.texture_binds = totals
-                        .texture_binds
-                        .saturating_add(dynamic_totals.texture_binds);
-                    totals.material_binds = totals
-                        .material_binds
-                        .saturating_add(dynamic_totals.material_binds);
-                    totals.emissive_visible |= dynamic_totals.emissive_visible;
-                }
+                totals.absorb(self.encode_opaque_extras(pass, inputs, true));
             }
         }
         totals

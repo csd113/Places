@@ -21,7 +21,7 @@ import argparse
 import json
 import os
 import sys
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -98,8 +98,28 @@ def model_path(entry: dict) -> str:
     return os.path.join(ASSET_ROOT, model)
 
 
-def build_one(entry: dict, build_fn) -> dict:
+def build_one(entry: dict, build_fn, force: bool = False) -> Optional[dict]:
     prop_id = entry["id"]
+    destination = model_path(entry)
+    # A hand-authored skinned/animated model must never be replaced by this
+    # toolkit's static primitive build: the shipped entity carries a real rig
+    # (see assets/entities/README.md), and overwriting it would silently drop
+    # the skin. `--force` is the explicit opt-out.
+    if not force and os.path.isfile(destination):
+        try:
+            with open(destination, "rb") as handle:
+                existing = glb.read_glb(handle.read())
+        except (OSError, glb.GltfError):
+            existing = None
+        if existing is not None and (
+            existing.json.get("skins") or existing.json.get("animations")
+        ):
+            print(
+                f"SKIP {prop_id}: {entry['model']} is a hand-authored skinned/animated "
+                "model; pass --force to overwrite it with the toolkit's static build"
+            )
+            return None
+
     size = [float(value) for value in entry["size"]]
     builder = PropBuilder(prop_id, entry_name(entry), size)
     build_fn(builder)
@@ -122,7 +142,6 @@ def build_one(entry: dict, build_fn) -> dict:
         )
 
     payload = glb.write_glb(builder.mesh, builder.tex.png_bytes(), name=prop_id.replace(":", "_"))
-    destination = model_path(entry)
     os.makedirs(os.path.dirname(destination), exist_ok=True)
     with open(destination, "wb") as handle:
         handle.write(payload)
@@ -150,6 +169,11 @@ def main(argv: List[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true", help="validate shipped GLBs without rebuilding")
     parser.add_argument("--report", action="store_true", help="print the budget report only")
     parser.add_argument("--no-proxies", action="store_true", help="skip prop_proxies.json for the editor")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="overwrite a hand-authored skinned/animated model with the toolkit's static build",
+    )
     parser.add_argument("--thumbs", action="store_true", help="also render editor thumbnails (needs preview.py)")
     args = parser.parse_args(argv)
 
@@ -253,9 +277,12 @@ def main(argv: List[str] | None = None) -> int:
             failures.append(f"{entry['id']}: no builder registered")
             continue
         try:
-            report.append(build_one(entry, build_fn))
+            built = build_one(entry, build_fn, force=args.force)
         except (ValueError, glb.GltfError) as error:
             failures.append(f"{entry['id']}: {error}")
+            continue
+        if built is not None:
+            report.append(built)
 
     # The proxy file is merged entry by entry, so a `--only` build still
     # refreshes the props it rebuilt without touching the others.

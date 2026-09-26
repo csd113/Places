@@ -5,9 +5,10 @@
 #![allow(clippy::doc_markdown)]
 
 use super::*;
+use crate::test_support::assert_exact;
 use sdl3::keyboard::Mod;
 
-const ALL_CONTROLS: [Control; 8] = [
+const ALL_CONTROLS: [Control; 9] = [
     Control::MoveForward,
     Control::MoveBackward,
     Control::StrafeLeft,
@@ -16,6 +17,7 @@ const ALL_CONTROLS: [Control; 8] = [
     Control::LookDown,
     Control::LookLeft,
     Control::LookRight,
+    Control::Jump,
 ];
 
 /// The first `KeyDown` SDL delivers for a key (OS auto-repeat comes later).
@@ -59,6 +61,20 @@ fn key_repeat(key: Keycode) -> Event {
     }
 }
 
+/// One relative mouse-motion event, as SDL3 delivers it while captured.
+fn mouse_motion(xrel: f32, yrel: f32) -> Event {
+    Event::MouseMotion {
+        timestamp: 0,
+        window_id: 0,
+        which: 0,
+        mousestate: sdl3::mouse::MouseState::from_sdl_state(0),
+        x: 0.0,
+        y: 0.0,
+        xrel,
+        yrel,
+    }
+}
+
 /// Presses `key` and asserts it engages exactly `control`, then releases it
 /// and asserts no control is left held.
 fn assert_key_drives_only(key: Keycode, control: Control, bindings: &KeyBindings) {
@@ -90,6 +106,33 @@ fn test_default_bindings_map_wasd_and_arrows() {
     assert_key_drives_only(Keycode::Right, Control::LookRight, &bindings);
     assert_key_drives_only(Keycode::Up, Control::LookUp, &bindings);
     assert_key_drives_only(Keycode::Down, Control::LookDown, &bindings);
+    assert_key_drives_only(Keycode::Space, Control::Jump, &bindings);
+}
+
+/// `SPACE` is a gameplay binding, not a menu key: holding it in the Playing
+/// state jumps while W/S/A/D keep driving both gameplay and the menus.
+#[test]
+fn space_is_a_gameplay_binding_not_a_menu_key() {
+    assert_eq!(
+        InputHandler::poll_menu_nav_event(&key_down(Keycode::Space)),
+        None
+    );
+    let bindings = KeyBindings::default();
+    let mut handler = InputHandler::new();
+    handler.handle_gameplay_event(&key_down(Keycode::W), &bindings);
+    handler.handle_gameplay_event(&key_down(Keycode::Space), &bindings);
+    assert!(handler.state().is_held(Control::MoveForward));
+    assert!(handler.state().is_held(Control::Jump));
+    handler.handle_gameplay_event(&key_up(Keycode::Space), &bindings);
+    assert!(!handler.state().is_held(Control::Jump));
+    assert!(handler.state().is_held(Control::MoveForward));
+}
+
+/// Presses and releases `Space` and asserts exactly the jump control moves.
+#[test]
+fn test_jump_binding_press_and_release() {
+    let bindings = KeyBindings::default();
+    assert_key_drives_only(Keycode::Space, Control::Jump, &bindings);
 }
 
 #[test]
@@ -251,4 +294,57 @@ fn reserved_keys_are_not_gameplay_bindings() {
     assert!(settings.bindings.set_key("forward", "-").is_err());
     assert!(settings.bindings.set_key("forward", "ESC").is_err());
     assert!(settings.bindings.set_key("forward", "Z").is_ok());
+}
+
+#[test]
+fn mouse_motion_accumulates_and_is_consumed_exactly_once() {
+    let bindings = KeyBindings::default();
+    let mut handler = InputHandler::new();
+    handler.handle_gameplay_event(&mouse_motion(12.0, -4.5), &bindings);
+    handler.handle_gameplay_event(&mouse_motion(3.5, 1.5), &bindings);
+    let (dx, dy) = handler.state_mut().take_mouse_motion();
+    assert_exact(dx, 15.5);
+    assert_exact(dy, -3.0);
+    // Consuming clears: a second take sees no motion at all.
+    let (dx, dy) = handler.state_mut().take_mouse_motion();
+    assert_exact(dx, 0.0);
+    assert_exact(dy, 0.0);
+}
+
+#[test]
+fn non_finite_mouse_motion_is_ignored() {
+    let bindings = KeyBindings::default();
+    let mut handler = InputHandler::new();
+    handler.handle_gameplay_event(&mouse_motion(f32::NAN, 4.0), &bindings);
+    let (dx, dy) = handler.state_mut().take_mouse_motion();
+    assert_exact(dx, 0.0);
+    assert_exact(dy, 4.0);
+
+    handler.handle_gameplay_event(&mouse_motion(f32::INFINITY, f32::NEG_INFINITY), &bindings);
+    let (dx, dy) = handler.state_mut().take_mouse_motion();
+    assert_exact(dx, 0.0);
+    assert_exact(dy, 0.0);
+
+    // An accumulation that would overflow to infinity is refused as well.
+    handler
+        .state_mut()
+        .accumulate_mouse_motion(f32::MAX, f32::MAX);
+    handler
+        .state_mut()
+        .accumulate_mouse_motion(f32::MAX, f32::MAX);
+    let (dx, dy) = handler.state_mut().take_mouse_motion();
+    assert!(dx.is_finite() && dy.is_finite(), "{dx} {dy}");
+}
+
+#[test]
+fn clear_gameplay_inputs_discards_mouse_motion_too() {
+    let bindings = KeyBindings::default();
+    let mut handler = InputHandler::new();
+    handler.handle_gameplay_event(&mouse_motion(5.0, 5.0), &bindings);
+    handler.handle_gameplay_event(&key_down(Keycode::W), &bindings);
+    handler.clear_gameplay_inputs();
+    assert_eq!(handler.state().held, 0);
+    let (dx, dy) = handler.state_mut().take_mouse_motion();
+    assert_exact(dx, 0.0);
+    assert_exact(dy, 0.0);
 }

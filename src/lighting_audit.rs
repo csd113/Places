@@ -786,9 +786,14 @@ fn draw_calls_do_not_scale_with_fixture_count_and_batching_is_stable() {
             );
         }
         previous_shape = Some(shape);
+        // One new-office panel is a luminous diffuser plus its generated
+        // housing, exactly as the fixture profile's quad budget declares.
+        let panel_quads =
+            i32::try_from(crate::lighting::fixture_profile("core:fluorescent_panel_01").quads)
+                .unwrap_or(i32::MAX);
         assert_eq!(
             mesh.batches.light_batch.count,
-            i32::try_from(count).unwrap_or(i32::MAX) * 6
+            i32::try_from(count).unwrap_or(i32::MAX) * panel_quads * 6
         );
     }
 }

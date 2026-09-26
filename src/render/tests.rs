@@ -296,6 +296,7 @@ fn test_shipped_surface_textures_tile() {
         ("pool_basin", "core:tex_pool_tile_basin_01"),
         ("pool_wall", "core:tex_pool_tile_wall_01"),
         ("pool_ceiling", "core:tex_pool_ceiling_01"),
+        ("pool_water", "core:tex_pool_water_01"),
     ] {
         let image = texture_image(texture);
         assert_axis_tiles(name, &image, true);
@@ -3457,8 +3458,8 @@ fn fixture_faces_carry_their_own_family_sheet_and_the_housing_stays_bare() {
     let level = fixture_family_level();
     let mesh = build_level_geometry(&level);
 
-    // The panel face is one quad, the wall luminaire's lens one quad, and the
-    // round diffuser the ten segments of its ring.
+    // The panel diffuser is one quad, the wall luminaire's lens one quad, and
+    // the round diffuser the ten segments of its ring.
     for (kind, quads) in [
         (FixtureKind::FluorescentPanel, 1),
         (FixtureKind::RoundRecessed, 10),
@@ -3473,12 +3474,12 @@ fn fixture_faces_carry_their_own_family_sheet_and_the_housing_stays_bare() {
         );
     }
 
-    // The flat metal housing keeps the bare key: the round bezel ring plus
-    // can, the wall housing's four sides, and the flush mount's drum, bottom
-    // rim and centre boss. The panel is its sheet alone, with no generated
-    // bezel beside the artwork.
+    // The flat metal housing keeps the bare key: the panel's four side walls,
+    // bottom frame and top flange (12 quads), the round bezel ring plus can
+    // (20), the wall housing's four sides, and the flush mount's drum, bottom
+    // rim and centre boss (21).
     let housing = mesh.triangles_for_key(SurfaceKey::bare(SurfaceKind::Light));
-    assert_eq!(housing.len(), (20 + 4 + 10 + 10 + 1) * 6);
+    assert_eq!(housing.len(), (12 + 20 + 4 + 10 + 10 + 1) * 6);
     let lit_plus_housing = batch_slice(&mesh, SurfaceKind::Light).len();
     assert_eq!(
         lit_plus_housing,
@@ -3499,17 +3500,17 @@ fn fixture_sheets_are_fitted_once_and_keep_their_aspect() {
     let sheet =
         |kind| mesh.triangles_for_key(SurfaceKey::new(SurfaceKind::Light, sheet_slot(kind)));
 
-    // Panel: 1.2 x 0.6 m face on a 2:1 sheet, u along the width axis.
+    // Panel: the diffuser is a 1.12 x 0.56 m 2:1 aperture inside the housing.
     let panel = sheet(FixtureKind::FluorescentPanel);
     assert_eq!(uv_bounds(&panel), (0.0, 1.0, 0.0, 1.0));
     let (x0, x1, z0, z1) = xz_bounds(&panel);
-    assert!((x1 - x0 - 1.2).abs() < 1e-5 && (z1 - z0 - 0.6).abs() < 1e-5);
     assert!(
-        ((x1 - x0) / (z1 - z0) - 2.0).abs() < 1e-5,
-        "the panel face is 2:1, so its sheet must be too"
+        (x1 - x0 - 1.12).abs() < 1e-5
+            && (z1 - z0 - 0.56).abs() < 1e-5
+            && ((x1 - x0) / (z1 - z0) - 2.0).abs() < 1e-5,
+        "the diffuser aperture is the sheet's 2:1 face inside the housing"
     );
-    // Orientation: the sheet's top row (v = 0) is the panel edge at -z, and u
-    // runs with +x. A rotation of the fixture rotates this with it.
+    // Orientation: the sheet's top row (v = 0) is the -z edge, and u runs +x.
     let corner = |x: f32, z: f32| {
         panel
             .iter()
@@ -3549,8 +3550,7 @@ fn fixture_sheets_are_fitted_once_and_keep_their_aspect() {
         let dx = vertex.pos[0] - centre_x;
         let dz = vertex.pos[2] - centre_z;
         outermost = outermost.max(dx.hypot(dz));
-        // Planar and isotropic: a square sheet covers the 0.44 m disc, so one
-        // texel is the same size on both in-plane axes.
+        // Planar and isotropic: a square sheet covers the 0.44 m disc.
         let expected = [
             (dx / radius).mul_add(0.5, 0.5),
             (dz / radius).mul_add(0.5, 0.5),
@@ -3565,23 +3565,41 @@ fn fixture_sheets_are_fitted_once_and_keep_their_aspect() {
         (outermost - radius).abs() < 1e-5,
         "the diffuser's outer edge is the sheet's inscribed circle, found {outermost}"
     );
-    // Residential flush mount: the same planar, isotropic mapping over the
-    // sheet's inscribed circle, with the diffuser inset behind the drum's rim.
-    let flush = sheet(FixtureKind::FlushMount);
-    let (fu0, fu1, fv0, fv1) = uv_bounds(&flush);
+    // The residential flush mount uses the same planar, isotropic mapping.
+    assert_flush_mount_sheet_is_planar(&sheet(FixtureKind::FlushMount));
+
+    // Orientation: every segment's UV ring winds the same way as its world
+    // ring, so no segment is mirrored; a quad chunk is [p0, p1, p2, p0, p2, p3].
+    for quad in round.as_chunks::<6>().0 {
+        let corner = |index: usize| -> [f32; 2] { [quad[index].pos[0], quad[index].pos[2]] };
+        let uv_corner = |index: usize| -> [f32; 2] { quad[index].uv };
+        let world_area = quad_area([corner(0), corner(1), corner(2), corner(5)]);
+        let uv_area = quad_area([uv_corner(0), uv_corner(1), uv_corner(2), uv_corner(5)]);
+        assert!(
+            world_area * uv_area > 0.0,
+            "a diffuser segment is mirrored: world {world_area}, uv {uv_area}"
+        );
+    }
+}
+
+/// The flush mount's diffuser samples its sheet's inscribed circle through the
+/// same planar, isotropic mapping the round downlight uses, with the diffuser
+/// inset behind the drum's rim.
+fn assert_flush_mount_sheet_is_planar(flush: &[Vertex]) {
+    let (fu0, fu1, fv0, fv1) = uv_bounds(flush);
     assert!(
         fu0 >= 0.0 && fu1 <= 1.0 && fv0 >= 0.0 && fv1 <= 1.0,
         "the flush-mount diffuser samples the sheet once"
     );
     let flush_radius = crate::lighting::FLUSH_MOUNT_RADIUS_M;
-    let (fx0, fx1, fz0, fz1) = xz_bounds(&flush);
-    let flush_centre_x = f32::midpoint(fx0, fx1);
-    let flush_centre_z = f32::midpoint(fz0, fz1);
-    let mut flush_outermost = 0.0_f32;
-    for vertex in &flush {
-        let dx = vertex.pos[0] - flush_centre_x;
-        let dz = vertex.pos[2] - flush_centre_z;
-        flush_outermost = flush_outermost.max(dx.hypot(dz));
+    let (fx0, fx1, fz0, fz1) = xz_bounds(flush);
+    let centre_x = f32::midpoint(fx0, fx1);
+    let centre_z = f32::midpoint(fz0, fz1);
+    let mut outermost = 0.0_f32;
+    for vertex in flush {
+        let dx = vertex.pos[0] - centre_x;
+        let dz = vertex.pos[2] - centre_z;
+        outermost = outermost.max(dx.hypot(dz));
         let expected = [
             (dx / flush_radius).mul_add(0.5, 0.5),
             (dz / flush_radius).mul_add(0.5, 0.5),
@@ -3595,23 +3613,109 @@ fn fixture_sheets_are_fitted_once_and_keep_their_aspect() {
     // The diffuser stops short of the fixture's outer radius by its inset, so
     // the drum's own rim shows as a ring around the glowing face.
     assert!(
-        (flush_outermost - (flush_radius - 0.012)).abs() < 1e-5,
-        "the diffuser edge is the inset radius, found {flush_outermost}"
+        (outermost - (flush_radius - 0.012)).abs() < 1e-5,
+        "the diffuser edge is the inset radius, found {outermost}"
+    );
+}
+
+/// The office panel is a real troffer: a frame and body around the diffuser,
+/// not one floating sheet. The diffuser is the only emissive face, the housing
+/// is the fixed mid grey, and the housing covers the family's full 1.2 x 0.6 m
+/// footprint while the diffuser is recessed a lip inside it.
+#[test]
+fn the_office_panel_emits_a_real_housing_and_one_emissive_diffuser() {
+    use super::common::fixtures::{
+        PANEL_BODY_DROP_M, PANEL_BORDER_DEPTH_M, PANEL_BORDER_WIDTH_M, PANEL_LIP_M,
+        add_panel_fixture,
+    };
+    const EMISSION: [f32; 3] = [0.82, 0.82, 0.82];
+    let is_emission = |color: [f32; 4]| {
+        color[0] == EMISSION[0] && color[1] == EMISSION[1] && color[2] == EMISSION[2]
+    };
+    let mut lit = Vec::new();
+    let mut housing = Vec::new();
+    add_panel_fixture(&mut lit, &mut housing, 0.0, 1.2, 0.0, 0.6, 2.0, EMISSION);
+
+    // Exactly one luminous face: the diffuser.
+    assert_eq!(lit.len(), 6, "the diffuser is one quad");
+    assert!(
+        lit.iter().all(|vertex| is_emission(vertex.color)),
+        "the diffuser carries the neutral emission"
+    );
+    let y_diffuser = 2.0 - PANEL_BODY_DROP_M + PANEL_LIP_M;
+    assert!(
+        lit.iter()
+            .all(|vertex| (vertex.pos[1] - y_diffuser).abs() < 1e-6),
+        "the diffuser is recessed above the frame's bottom"
+    );
+    let (dx0, dx1, dz0, dz1) = (
+        PANEL_BORDER_WIDTH_M,
+        1.2 - PANEL_BORDER_WIDTH_M,
+        PANEL_BORDER_DEPTH_M,
+        0.6 - PANEL_BORDER_DEPTH_M,
+    );
+    for vertex in &lit {
+        let on_corner = (vertex.pos[0] - dx0).abs() < 1e-6
+            || (vertex.pos[0] - dx1).abs() < 1e-6
+            || (vertex.pos[2] - dz0).abs() < 1e-6
+            || (vertex.pos[2] - dz1).abs() < 1e-6;
+        assert!(on_corner, "the diffuser corners are the aperture corners");
+    }
+    assert!(
+        ((dx1 - dx0) / (dz1 - dz0) - 2.0).abs() < 1e-6,
+        "the aperture keeps the sheet's 2:1 aspect"
     );
 
-    // Orientation: every segment's UV ring winds the same way as its world
-    // ring, so no segment is mirrored. A six-vertex quad chunk is
-    // [p0, p1, p2, p0, p2, p3], so its corners are indices 0, 1, 2 and 5.
-    for quad in round.as_chunks::<6>().0 {
-        let corner = |index: usize| -> [f32; 2] { [quad[index].pos[0], quad[index].pos[2]] };
-        let uv_corner = |index: usize| -> [f32; 2] { quad[index].uv };
-        let world_area = quad_area([corner(0), corner(1), corner(2), corner(5)]);
-        let uv_area = quad_area([uv_corner(0), uv_corner(1), uv_corner(2), uv_corner(5)]);
+    // The housing is never emissive and always the fixed mid grey.
+    assert_eq!(housing.len(), 12 * 6, "twelve housing quads");
+    for vertex in &housing {
+        assert!(!is_emission(vertex.color), "the housing is not emissive");
+        assert_eq!(vertex.color[0], vertex.color[1]);
         assert!(
-            world_area * uv_area > 0.0,
-            "a diffuser segment is mirrored: world {world_area}, uv {uv_area}"
+            vertex.color[0] > 0.5 && vertex.color[2] > 0.5,
+            "a mid grey housing, never black"
         );
     }
+    // Four side walls span the drop, four bottom-frame strips sit at the frame
+    // bottom and four top-flange strips close the body at the ceiling plane.
+    let y_bottom = 2.0 - PANEL_BODY_DROP_M;
+    let mut sides = 0;
+    let mut frame = 0;
+    let mut flange = 0;
+    for quad in housing.as_chunks::<6>().0 {
+        let min_y = quad
+            .iter()
+            .map(|vertex| vertex.pos[1])
+            .fold(f32::MAX, f32::min);
+        let max_y = quad
+            .iter()
+            .map(|vertex| vertex.pos[1])
+            .fold(f32::MIN, f32::max);
+        if (min_y - y_bottom).abs() < 1e-6 && (max_y - 2.0).abs() < 1e-6 {
+            sides += 1;
+        } else if (max_y - y_bottom).abs() < 1e-6 {
+            frame += 1;
+        } else if (min_y - 2.0).abs() < 1e-6 {
+            flange += 1;
+        }
+    }
+    assert_eq!(
+        (sides, frame, flange),
+        (4, 4, 4),
+        "side walls, bottom frame and top flange are all real"
+    );
+    // The housing covers the family's full outer footprint.
+    assert!(
+        housing.iter().any(|vertex| vertex.pos[0].abs() < 1e-6)
+            && housing
+                .iter()
+                .any(|vertex| (vertex.pos[0] - 1.2).abs() < 1e-6)
+            && housing.iter().any(|vertex| vertex.pos[2].abs() < 1e-6)
+            && housing
+                .iter()
+                .any(|vertex| (vertex.pos[2] - 0.6).abs() < 1e-6),
+        "the housing is the 1.2 x 0.6 m outer footprint"
+    );
 }
 
 /// Adjacent diffuser segments share their edge UVs exactly, and the ring closes
@@ -3858,7 +3962,9 @@ fn test_vertical_diagnostic_geometry_has_no_degenerate_or_misoriented_faces() {
                     assert!(n[1] < 0.0, "a ceiling triangle faces up: {n:?}");
                 }
                 SurfaceKind::Light => {
-                    assert!(n[1] < 0.0, "a fixture panel must face down: {n:?}");
+                    // The luminous sheet and the housing's frame/flange look
+                    // down; the housing's side walls are vertical, never up.
+                    assert!(n[1] <= 1e-6, "a fixture face must never look up: {n:?}");
                 }
                 _ => {}
             }
@@ -4400,9 +4506,24 @@ fn the_demo_bakes_lightmaps_with_every_surface_vertex_charted() {
 
     let mut surface_vertices = 0usize;
     let mut vertex_lit_vertices = 0usize;
+    // A water surface is deliberately vertex-lit on every build: its quad
+    // carries its baked light in the vertex colour and stays out of the atlas.
+    let water = logical_materials(&level)
+        .index_of(crate::level::DEFAULT_WATER_MATERIAL)
+        .expect("the demo's water material resolves");
     for range in &build.mesh.ranges {
         for vertex in &range.vertices {
             match range.key.kind {
+                SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall
+                    if range.key.material == water =>
+                {
+                    assert!(
+                        !vertex.is_lightmapped(),
+                        "a water volume draws vertex-lit by design"
+                    );
+                    assert_eq!(vertex.lightmap, [0, 0]);
+                    vertex_lit_vertices += 1;
+                }
                 SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall => {
                     assert!(
                         vertex.is_lightmapped(),
@@ -4651,12 +4772,19 @@ fn every_lightmapped_vertex_uv_lands_on_its_own_chart_corner() {
         None,
     );
     let lightmaps = build.lightmaps.as_deref().expect("the demo bakes");
+    // A water volume is deliberately vertex-lit: its quad carries its baked
+    // light in the vertex colour and never enters the atlas, so it is exempt
+    // from the per-vertex chart-corner mapping (its own tests cover it).
+    let water = materials
+        .index_of(crate::level::DEFAULT_WATER_MATERIAL)
+        .expect("the demo's water material resolves");
     let mut checked = 0usize;
     for range in &build.mesh.ranges {
         if !matches!(
             range.key.kind,
             SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall
-        ) {
+        ) || range.key.material == water
+        {
             continue;
         }
         for vertex in &range.vertices {
@@ -4762,7 +4890,8 @@ fn the_dynamic_demonstration_machine_stays_a_static_prop() {
     // built around as an ordinary static prop: it is baked, it occludes, it
     // collides, and it draws from the static prop batches. The drum the
     // demonstration turns is spawned by `render::dynamic` at runtime and must
-    // never appear in the level file.
+    // never appear in the level file -- and it is spawned *inside* the
+    // machine, spinning in place behind the porthole.
     let path = "assets/levels/places_demo.json";
     let content = std::fs::read_to_string(path)
         .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
@@ -4805,6 +4934,82 @@ fn the_dynamic_demonstration_machine_stays_a_static_prop() {
     assert!(
         batches.iter().any(|batch| batch.model == machine),
         "the static machine must be instanced into a static prop batch"
+    );
+}
+
+#[test]
+fn the_dynamic_demonstration_drum_spins_inside_the_static_machine() {
+    // The drum the demonstration spawns for Places Demo's machine is inside
+    // its body: the transformed bounds stay within the machine's catalogue box
+    // and behind its front panel, and the drum turns while the machine's
+    // static transform does not move.
+    let path = "assets/levels/places_demo.json";
+    let content = std::fs::read_to_string(path)
+        .unwrap_or_else(|error| panic!("{path} must be readable: {error}"));
+    let level = crate::level::LevelDef::from_json(&content)
+        .unwrap_or_else(|error| panic!("{path} must parse: {error}"));
+    let catalog = shipped_catalog();
+    let mut assets = shipped_assets();
+    let prop = level
+        .props
+        .iter()
+        .find(|prop| prop.model == crate::render::DEMO_MACHINE_ID)
+        .expect("Places Demo places the machine");
+    let size = catalog.get(crate::render::DEMO_MACHINE_ID).size;
+    let base_y = crate::level::LevelSurfaces::new(&level)
+        .floor_y_at(prop.x, prop.z)
+        .unwrap_or(0.0);
+    let mut dynamic = crate::render::DynamicScene::new();
+    assert_eq!(
+        dynamic.spawn_washer_drum_demo(&level, &catalog, &mut assets),
+        1,
+        "every placed machine gets its drum"
+    );
+    let half_width = size[0] * prop.scale * 0.5;
+    let half_depth = size[2] * prop.scale * 0.5;
+    let machine_height = size[1] * prop.scale;
+    let machine_min = [prop.x - half_width, base_y + prop.y, prop.z - half_depth];
+    let machine_max = [
+        prop.x + half_width,
+        base_y + prop.y + machine_height,
+        prop.z + half_depth,
+    ];
+    let bounds = dynamic.objects()[0].world_bounds();
+    for axis in 0..3 {
+        assert!(
+            bounds.min[axis] >= machine_min[axis] - 1e-4,
+            "the drum leaves the machine on axis {axis}: {:?} < {:?}",
+            bounds.min,
+            machine_min
+        );
+        assert!(
+            bounds.max[axis] <= machine_max[axis] + 1e-4,
+            "the drum leaves the machine on axis {axis}: {:?} > {:?}",
+            bounds.max,
+            machine_max
+        );
+    }
+    let bezel = crate::render::common::dynamic::WASHER_PORTHOLE_BEZEL_DEPTH * prop.scale;
+    let front_panel = prop.z + half_depth - bezel;
+    assert!(
+        bounds.max[2] < front_panel,
+        "the drum's mouth ({}) must stay recessed behind the machine's front panel ({front_panel})",
+        bounds.max[2]
+    );
+    let machine_matrix = crate::render::common::props::prop_instance_matrix(prop, base_y);
+    let before = dynamic.objects()[0].transform();
+    for _ in 0..60 {
+        assert_eq!(dynamic.update(1.0 / 60.0, None).moved, 1);
+    }
+    assert_ne!(
+        dynamic.objects()[0].transform(),
+        before,
+        "the drum must actually rotate inside the machine"
+    );
+    assert_eq!(
+        crate::render::common::props::prop_instance_matrix(prop, base_y),
+        machine_matrix,
+        "the machine body's static transform must never be touched"
     );
 }
 
@@ -5982,4 +6187,450 @@ fn test_the_home_showcase_draws_every_architectural_material() {
         }
     }
     assert!(seen, "the living room's baseboard must be drawn");
+}
+
+// ---------------------------------------------------------------------- water
+
+/// A minimal level with one authored water volume over a recessed basin.
+///
+/// An 8x8 m room at `floor_y: 0.0`; the basin region (1..7 on both axes) drops
+/// to -1.5, and the water surface sits at -0.15: 1.35 m over the basin floor
+/// and 0.15 m below the deck, the same relationship the demo's pool uses.
+fn water_test_level(opacity: Option<f32>, material: Option<&str>) -> LevelDef {
+    let opacity = opacity.map_or(String::new(), |value| format!(r#", "opacity": {value}"#));
+    let material = material.map_or(String::new(), |id| format!(r#", "material": "{id}""#));
+    let json = format!(
+        r#"{{
+            "format_version": 1,
+            "id": "water_test",
+            "name": "Water Test",
+            "spawn": {{ "x": 3.0, "z": 3.0 }},
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 }}],
+            "floor_regions": [
+                {{ "x": 1.0, "z": 1.0, "width": 6.0, "depth": 6.0, "offset_y": -1.5,
+                   "material": "core:pool_tile_basin_01",
+                   "edge_material": "core:pool_tile_wall_01" }}
+            ],
+            "water": [
+                {{ "x": 1.0, "z": 1.0, "width": 6.0, "depth": 6.0,
+                   "surface_y": -0.15{opacity}{material} }}
+            ]
+        }}"#
+    );
+    LevelDef::from_json(&json).expect("the water test level parses")
+}
+
+/// One authored water volume draws exactly one translucent floor quad, at its
+/// surface height, with the volume's opacity in the vertex alpha and the baked
+/// light in the vertex colour.
+#[test]
+fn a_water_volume_draws_one_translucent_surface_quad() {
+    let level = water_test_level(None, None);
+    let materials = logical_materials(&level);
+    let water = materials
+        .index_of(crate::level::DEFAULT_WATER_MATERIAL)
+        .expect("the default water material resolves through the catalog");
+    let entry = materials.entry(water).expect("water material entry");
+    assert_eq!(
+        batch_pass_for(SurfaceKind::Floor, true, Some(entry.alpha)),
+        BatchPass::Translucent,
+        "the water material's blend contract lands in the sorted pass"
+    );
+
+    let mesh = build_level_geometry(&level);
+    let key = SurfaceKey::new(SurfaceKind::Floor, water);
+    assert_eq!(mesh.index_count_for_key(key), 6, "one volume is one quad");
+    let surface = mesh.triangles_for_key(key);
+    assert_eq!(surface.len(), 6);
+    for vertex in &surface {
+        assert!(
+            (vertex.pos[1] + 0.15).abs() < 1e-6,
+            "the quad sits at surface_y, not on the basin floor: {:?}",
+            vertex.pos
+        );
+        assert!(
+            (vertex.color[3] - crate::level::DEFAULT_WATER_OPACITY).abs() < 1e-6,
+            "the vertex alpha carries the volume opacity: {:?}",
+            vertex.color
+        );
+        assert_eq!(
+            vertex.lightmap_page, LIGHTMAP_NONE,
+            "water stays out of the lightmap atlas"
+        );
+        assert_eq!(vertex.lightmap, [0, 0]);
+        // Floor winding, and the translucent pass is two-sided: the same quad
+        // is the surface seen from above and from below the waterline.
+        assert!(
+            vertex.normal[1] > 0.9,
+            "the water surface faces up: {:?}",
+            vertex.normal
+        );
+    }
+    // No side or bottom face: every water vertex is on the one surface plane,
+    // inside the volume's own footprint.
+    for vertex in &surface {
+        assert!((vertex.pos[1] + 0.15).abs() < 1e-6);
+        assert!((1.0..=7.0).contains(&vertex.pos[0]));
+        assert!((1.0..=7.0).contains(&vertex.pos[2]));
+    }
+    // World-space UVs at the material's 2 m tiling: a 6 m span is three
+    // repeats, so the sheet continues the metre grid across the volume.
+    let us: Vec<f32> = surface.iter().map(|vertex| vertex.uv[0]).collect();
+    let min = us.iter().fold(f32::INFINITY, |a, b| a.min(*b));
+    let max = us.iter().fold(f32::NEG_INFINITY, |a, b| a.max(*b));
+    assert!(
+        (max - min - 3.0).abs() < 1e-6,
+        "6 m at a 2 m repeat spans 3 UV periods: {min}..{max}"
+    );
+}
+
+/// The volume's authored material and opacity both win over the defaults.
+#[test]
+fn a_water_volume_honours_its_opacity_and_material() {
+    let level = water_test_level(Some(0.31), Some("core:glass_clear_01"));
+    let volumes = crate::level::WaterVolumes::from_level(&level);
+    assert!((volumes.volumes()[0].opacity - 0.31).abs() < 1e-6);
+
+    let materials = logical_materials(&level);
+    let glass = materials
+        .index_of("core:glass_clear_01")
+        .expect("the authored water material resolves");
+    let mesh = build_level_geometry(&level);
+    let surface = mesh.triangles_for_key(SurfaceKey::new(SurfaceKind::Floor, glass));
+    assert_eq!(surface.len(), 6, "the authored material carries the quad");
+    for vertex in &surface {
+        assert!((vertex.color[3] - 0.31).abs() < 1e-6);
+    }
+}
+
+/// The demo's pool is a real body of water: two adjacent volumes at one
+/// waterline, the basin and the submerged walk-in step.
+#[test]
+fn the_demo_authors_water_over_the_basin_and_the_walk_in_step() {
+    let level = shipped_demo();
+    let volumes = crate::level::WaterVolumes::from_level(&level);
+    assert_eq!(
+        volumes.len(),
+        2,
+        "the basin and the step are two adjacent volumes"
+    );
+
+    let basin = &volumes.volumes()[0];
+    assert_eq!(
+        (basin.x0, basin.x1, basin.z0, basin.z1),
+        (8.0, 20.0, 10.0, 16.0),
+        "the basin volume covers the demo's recessed pool region"
+    );
+    assert!((basin.surface_y + 1.65).abs() < 1e-6);
+    assert!((basin.bottom_y + 3.0).abs() < 1e-6);
+    assert!((basin.depth() - 1.35).abs() < 1e-6);
+    assert!(basin.swimming);
+    assert_eq!(basin.material_id(), crate::level::DEFAULT_WATER_MATERIAL);
+    assert!((basin.opacity - crate::level::DEFAULT_WATER_OPACITY).abs() < 1e-6);
+
+    let step = &volumes.volumes()[1];
+    assert_eq!(
+        (step.x0, step.x1, step.z0, step.z1),
+        (10.0, 16.0, 16.0, 16.9),
+        "the step volume covers the submerged walk-in step"
+    );
+    assert!((step.surface_y + 1.65).abs() < 1e-6);
+    assert!(
+        (step.bottom_y + 1.85).abs() < 1e-6,
+        "the step volume's bottom resolves to the step floor"
+    );
+    assert!((step.depth() - 0.2).abs() < 1e-6);
+
+    // The two volumes draw exactly two translucent quads.
+    let materials = logical_materials(&level);
+    let water = materials
+        .index_of(crate::level::DEFAULT_WATER_MATERIAL)
+        .expect("the demo's water material resolves");
+    let mesh = build_level_geometry(&level);
+    let key = SurfaceKey::new(SurfaceKind::Floor, water);
+    assert_eq!(mesh.index_count_for_key(key), 12, "one quad per volume");
+    let surface = mesh.triangles_for_key(key);
+    for vertex in &surface {
+        assert!((vertex.pos[1] + 1.65).abs() < 1e-6);
+        assert!((vertex.color[3] - 0.62).abs() < 1e-6);
+        assert_eq!(vertex.lightmap_page, LIGHTMAP_NONE);
+    }
+    assert!(
+        surface.iter().any(|vertex| vertex.pos[2] <= 10.0 + 1e-6),
+        "the basin quad reaches the basin's north edge"
+    );
+    assert!(
+        surface.iter().any(|vertex| vertex.pos[2] >= 16.9 - 1e-6),
+        "the step quad reaches the walk-in step's far edge"
+    );
+
+    // The packed world draws the water through the sorted translucent pass:
+    // the demo has no separate water pass and no water-specific pipeline.
+    let entry = materials.entry(water).expect("water material entry");
+    assert_eq!(
+        batch_pass_for(SurfaceKind::Floor, true, Some(entry.alpha)),
+        BatchPass::Translucent
+    );
+    let state = MaterialRenderState::from_table(&materials);
+    let (_, draws) = super::wgpu::world::pack_world_ranges(&mesh, &state);
+    assert!(
+        draws
+            .iter()
+            .any(|draw| draw.material == water && draw.pass == BatchPass::Translucent),
+        "the demo's water geometry is a translucent world draw"
+    );
+}
+
+/// Two pools far enough apart to fall in different spatial cells: the sorted
+/// translucent pass draws the farther surface first, exactly as it does for
+/// glass. Water introduces no ordering rule of its own.
+#[test]
+fn water_is_ordered_with_the_other_translucent_surfaces() {
+    use super::common::materials::MaterialRenderState;
+    use super::wgpu::world::{pack_world_ranges, translucent_order};
+
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "two_pools",
+            "name": "Two Pools",
+            "spawn": { "x": 4.0, "z": 4.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 44.0, "depth": 8.0, "height": 3.0 }],
+            "floor_regions": [
+                { "x": 2.0, "z": 2.0, "width": 6.0, "depth": 4.0, "offset_y": -0.5,
+                  "material": "core:pool_tile_basin_01",
+                  "edge_material": "core:pool_tile_wall_01" },
+                { "x": 32.0, "z": 2.0, "width": 6.0, "depth": 4.0, "offset_y": -0.5,
+                  "material": "core:pool_tile_basin_01",
+                  "edge_material": "core:pool_tile_wall_01" }
+            ],
+            "water": [
+                { "x": 2.0, "z": 2.0, "width": 6.0, "depth": 4.0, "surface_y": -0.15 },
+                { "x": 32.0, "z": 2.0, "width": 6.0, "depth": 4.0, "surface_y": -0.15 }
+            ]
+        }"#,
+    )
+    .expect("the two-pool level parses");
+
+    let materials = logical_materials(&level);
+    let water = materials
+        .index_of(crate::level::DEFAULT_WATER_MATERIAL)
+        .expect("the default water material resolves");
+    let state = MaterialRenderState::from_table(&materials);
+    let mesh = build_level_geometry(&level);
+    let (_, draws) = pack_world_ranges(&mesh, &state);
+
+    let mut west = None;
+    let mut east = None;
+    for (index, draw) in draws.iter().enumerate() {
+        if draw.material != water || draw.pass != BatchPass::Translucent {
+            continue;
+        }
+        if draw.bounds.centre()[0] < 22.0 {
+            west = Some(index);
+        } else {
+            east = Some(index);
+        }
+    }
+    let west = west.expect("the west pool is a translucent draw");
+    let east = east.expect("the east pool is a translucent draw");
+    assert_ne!(
+        west, east,
+        "the pools sit in different cells, so they stay separate draws"
+    );
+
+    // An eye on the west pool: the east pool is farther, so it blends first.
+    let eye = glam::Vec3::new(5.0, 1.0, 4.0);
+    let order = translucent_order(&draws, eye);
+    let rank = |draw: usize| {
+        order
+            .iter()
+            .position(|ordered| *ordered == u32::try_from(draw).unwrap())
+            .expect("a translucent draw is in the order")
+    };
+    assert!(
+        rank(east) < rank(west),
+        "the farther pool blends before the nearer one"
+    );
+
+    // The whole order is back to front by AABB centre distance.
+    let distance = |index: &u32| {
+        let centre = draws[usize::try_from(*index).unwrap()].bounds.centre();
+        glam::Vec3::new(centre[0] - eye.x, centre[1] - eye.y, centre[2] - eye.z).length_squared()
+    };
+    for pair in order.windows(2) {
+        assert!(
+            distance(&pair[0]) >= distance(&pair[1]) - 1e-3,
+            "translucent draws must be ordered farthest first"
+        );
+    }
+}
+
+// ------------------------------------------------------- animated characters
+
+/// A skinned prop becomes a [`CharacterScene`] entry; an unskinned one stays
+/// on the static path and is never claimed.
+#[test]
+fn a_placed_spooner_man_becomes_a_character_and_a_chair_does_not() {
+    let catalog = shipped_catalog();
+    let mut assets = shipped_assets();
+    let level = level_with_wall_and_lights(
+        "[]",
+        r#"[
+            { "model": "spooner-man", "x": 1.0, "z": 1.0, "rotation_degrees": 90.0 },
+            { "model": "core:chair", "x": 3.0, "z": 1.0 }
+        ]"#,
+        r#"[{ "fixture": "core:fluorescent_panel_01", "x": 0.0, "z": 0.0 }]"#,
+    );
+    let lighting = LevelLighting::bake(&level);
+    let scene = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
+    assert_eq!(scene.len(), 1, "only the skinned model becomes a character");
+    let character = &scene.characters()[0];
+    let model_path = catalog
+        .get("spooner-man")
+        .model
+        .expect("the shipped catalogue maps spooner-man to a model");
+    assert_eq!(character.asset().model_path, model_path);
+    assert!(character.asset().model.is_skinned());
+    assert_eq!(
+        scene.claimed_models(),
+        std::slice::from_ref(&model_path),
+        "exactly the skinned model is claimed"
+    );
+
+    // The character stands on the placement's floor point with its yaw.
+    let centre = character.transform().transform_point3(glam::Vec3::ZERO);
+    assert!((centre.x - 1.0).abs() < 1e-5 && (centre.z - 1.0).abs() < 1e-5);
+    assert!(centre.y.abs() < 1e-5, "the room floor is at y = 0");
+
+    // Baked albedo is sampled once at spawn and stays in range.
+    assert_eq!(
+        character.albedo().len(),
+        character.asset().model.vertices.len()
+    );
+    for albedo in character.albedo() {
+        for channel in albedo {
+            assert!(channel.is_finite());
+            assert!((-1e-4..=1.0 + 1e-4).contains(channel), "{albedo:?}");
+        }
+    }
+
+    // Walking advances the pose; the scene reports the moved character.
+    let mut scene = scene;
+    let update = scene.update(
+        1.0 / 60.0,
+        crate::game::LocomotionSnapshot {
+            state: crate::game::LocomotionState::Walking,
+            speed: 2.0,
+        },
+    );
+    assert_eq!(update.moved, 1);
+    assert!(
+        scene.characters()[0]
+            .animator()
+            .state_weight(crate::game::LocomotionState::Walking)
+            > 0.0
+    );
+}
+
+/// The shipped demo level places exactly one skinned prop, and the character
+/// path claims its model without touching the rest of the prop field.
+#[test]
+fn the_places_demo_level_places_one_animated_spooner_man() {
+    let content = std::fs::read_to_string("assets/levels/places_demo.json")
+        .expect("the demo level must be readable");
+    let level = LevelDef::from_json(&content).expect("the demo level parses");
+    let catalog = shipped_catalog();
+    let mut assets = shipped_assets();
+    let lighting = LevelLighting::bake(&level);
+    let scene = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
+    assert_eq!(scene.len(), 1, "the demo places one skinned character");
+    let model_path = catalog
+        .get("spooner-man")
+        .model
+        .expect("spooner-man has a model");
+    assert_eq!(scene.claimed_models(), std::slice::from_ref(&model_path));
+    let character = &scene.characters()[0];
+    let placement = level
+        .props
+        .iter()
+        .find(|prop| prop.model == "spooner-man")
+        .expect("the demo places spooner-man");
+    let centre = character.transform().transform_point3(glam::Vec3::ZERO);
+    assert!((centre.x - placement.x).abs() < 1e-5);
+    assert!((centre.z - placement.z).abs() < 1e-5);
+}
+
+/// The static prop path still bakes the bind pose of a skinned model: real
+/// geometry, one batch, and the shipped extents.
+#[test]
+fn the_static_path_still_bakes_the_spooner_man_bind_pose() {
+    let catalog = shipped_catalog();
+    let mut assets = shipped_assets();
+    let level = fixture_level("prop_showcase");
+    let (mesh, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
+    assert_eq!(
+        mesh.batches.prop_batch.count, 0,
+        "no placeholder boxes for the skinned model"
+    );
+    let spoonerman: Vec<&PropMeshBatch> = batches
+        .iter()
+        .filter(|batch| batch.model.contains("spooner-man"))
+        .collect();
+    assert_eq!(spoonerman.len(), 1, "one real batch for one placement");
+    let batch = spoonerman[0];
+    assert!(
+        batch.vertices.len() > 1_000,
+        "the cat must draw real geometry, found {} vertices",
+        batch.vertices.len()
+    );
+
+    // The batch is exactly the bind pose under the placement transform: a
+    // yaw preserves the height, and sampled vertices match the model point
+    // transformed by the same placement matrix.
+    let prop = level
+        .props
+        .iter()
+        .find(|prop| prop.model == "spooner-man")
+        .expect("the showcase places spooner-man");
+    let model_path = catalog
+        .get("spooner-man")
+        .model
+        .expect("spooner-man has a model");
+    let asset = assets.resolve(&model_path).expect("the model loads");
+    let base_y = crate::level::LevelSurfaces::new(&level)
+        .floor_y_at(prop.x, prop.z)
+        .unwrap_or(0.0);
+    let placement = crate::render::common::props::prop_instance_matrix(prop, base_y);
+    for index in [
+        0,
+        asset.model.vertices.len() / 2,
+        asset.model.vertices.len() - 1,
+    ] {
+        let source = asset.model.vertices[index].pos;
+        let posed = placement.transform_point3(glam::Vec3::new(source[0], source[1], source[2]));
+        let drawn = batch.vertices[index].pos;
+        for axis in 0..3 {
+            assert!(
+                (drawn[axis] - posed[axis]).abs() < 1e-4,
+                "vertex {index} axis {axis}: drawn {drawn:?} vs bind {posed:?}"
+            );
+        }
+    }
+    let (low, high) = bounds_of(&batch.vertices);
+    let height = high[1] - low[1];
+    assert!(
+        (height - 0.389).abs() < 0.02,
+        "the bind pose is {height:.3} m tall, expected 0.389 m"
+    );
+    assert!(
+        low[1].abs() < 0.012,
+        "the bind pose stands on y = 0, found {:.3}",
+        low[1]
+    );
+    let widest = (high[0] - low[0]).max(high[2] - low[2]);
+    assert!(
+        (0.165..0.9).contains(&widest),
+        "the rotated bind-pose footprint {widest:.3} m is not the cat's"
+    );
 }

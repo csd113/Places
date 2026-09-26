@@ -47,6 +47,7 @@ import home_art  # noqa: E402
 import lights_art  # noqa: E402
 import office_art  # noqa: E402
 import pool_art  # noqa: E402
+import water_art  # noqa: E402
 
 # Budgets for the current PNG loader.  256x256 is preferred; 1024x1024
 # is the hard ceiling (see the README and assets/README.md).
@@ -60,6 +61,7 @@ MANIFEST = {}
 for module in (
     office_art,
     pool_art,
+    water_art,
     lights_art,
     decal_art,
     diagnostic_art,

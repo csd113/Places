@@ -16,17 +16,19 @@ fn test_pitch_movement_and_clamping() {
         0.0,
         Vec::new(),
         WalkableFloor::default(),
+        WaterVolumes::default(),
+        WalkableCeiling::default(),
     );
     game.set_app_state(AppState::Playing);
     game.sim_delta_seconds = 10.0; // Large step to test pitch clamp
     let settings = Settings::default();
 
-    let input_up = InputState::holding(&[Control::LookUp]);
-    game.update_player_movement(&input_up, &settings);
+    let mut input_up = InputState::holding(&[Control::LookUp]);
+    game.update_player_movement(&mut input_up, &settings);
     assert!((game.player_pitch - MAX_PITCH).abs() < 1e-4);
 
-    let input_down = InputState::holding(&[Control::LookDown]);
-    game.update_player_movement(&input_down, &settings);
+    let mut input_down = InputState::holding(&[Control::LookDown]);
+    game.update_player_movement(&mut input_down, &settings);
     assert!((game.player_pitch - (-MAX_PITCH)).abs() < 1e-4);
 }
 
@@ -39,6 +41,8 @@ fn test_invert_look_flips_vertical_look_only() {
         0.0,
         Vec::new(),
         WalkableFloor::default(),
+        WaterVolumes::default(),
+        WalkableCeiling::default(),
     );
     game.set_app_state(AppState::Playing);
     game.sim_delta_seconds = 1.0;
@@ -47,25 +51,25 @@ fn test_invert_look_flips_vertical_look_only() {
         ..Settings::default()
     };
 
-    game.update_player_movement(&InputState::holding(&[Control::LookUp]), &settings);
+    game.update_player_movement(&mut InputState::holding(&[Control::LookUp]), &settings);
     assert!(
         game.player_pitch < 0.0,
         "inverted look up must pitch down: {}",
         game.player_pitch
     );
     game.player_pitch = 0.0;
-    game.update_player_movement(&InputState::holding(&[Control::LookDown]), &settings);
+    game.update_player_movement(&mut InputState::holding(&[Control::LookDown]), &settings);
     assert!(game.player_pitch > 0.0, "inverted look down must pitch up");
 
     // Horizontal look is not inverted by the vertical preference.
     game.player_yaw = 0.0;
-    game.update_player_movement(&InputState::holding(&[Control::LookRight]), &settings);
+    game.update_player_movement(&mut InputState::holding(&[Control::LookRight]), &settings);
     assert!(game.player_yaw > 0.0, "yaw must keep its normal direction");
 
     // And the default stays the historical non-inverted behaviour.
     let upright = Settings::default();
     game.player_pitch = 0.0;
-    game.update_player_movement(&InputState::holding(&[Control::LookUp]), &upright);
+    game.update_player_movement(&mut InputState::holding(&[Control::LookUp]), &upright);
     assert!(game.player_pitch > 0.0);
 }
 
@@ -85,6 +89,8 @@ fn test_escape_pause_toggle() {
         0.0,
         Vec::new(),
         WalkableFloor::default(),
+        WaterVolumes::default(),
+        WalkableCeiling::default(),
     );
     game.set_app_state(AppState::Playing);
     assert_eq!(game.app_state(), AppState::Playing);
@@ -105,13 +111,16 @@ fn test_paused_gameplay_does_not_move_or_turn() {
         0.0,
         Vec::new(),
         WalkableFloor::default(),
+        WaterVolumes::default(),
+        WalkableCeiling::default(),
     );
     game.set_app_state(AppState::Paused);
     game.delta_seconds = 1.0;
     let settings = Settings::default();
 
-    let input = InputState::holding(&[Control::MoveForward, Control::LookLeft, Control::LookUp]);
-    game.update_player_movement(&input, &settings);
+    let mut input =
+        InputState::holding(&[Control::MoveForward, Control::LookLeft, Control::LookUp]);
+    game.update_player_movement(&mut input, &settings);
 
     assert_eq!(game.player_position, Vec3::new(0.0, EYE_HEIGHT, 0.0));
     assert_exact(game.player_yaw, 0.0);
@@ -145,16 +154,18 @@ fn game_for(level: &LevelDef) -> Game {
         level.spawn.yaw_degrees.to_radians(),
         level.collision_aabbs(),
         WalkableFloor::from_level(level),
+        WaterVolumes::from_level(level),
+        WalkableCeiling::from_level(level),
     )
 }
 
 fn walk_forward(game: &mut Game, steps: usize) {
     let settings = Settings::default();
-    let input = InputState::holding(&[Control::MoveForward]);
+    let mut input = InputState::holding(&[Control::MoveForward]);
     game.set_app_state(AppState::Playing);
     game.sim_delta_seconds = MAX_SIM_DELTA;
     for _ in 0..steps {
-        game.update_player_movement(&input, &settings);
+        game.update_player_movement(&mut input, &settings);
     }
 }
 
@@ -267,6 +278,8 @@ fn test_menu_state_transitions() {
         0.0,
         Vec::new(),
         WalkableFloor::default(),
+        WaterVolumes::default(),
+        WalkableCeiling::default(),
     );
     assert_eq!(game.app_state(), AppState::MainMenu);
 
@@ -370,11 +383,11 @@ fn test_controller_climbs_a_maximum_slope_ramp_at_low_frame_rates() {
         walk_speed: 10.0,
         ..Settings::default()
     };
-    let input = InputState::holding(&[Control::MoveForward]);
+    let mut input = InputState::holding(&[Control::MoveForward]);
     game.set_app_state(AppState::Playing);
     game.sim_delta_seconds = MAX_SIM_DELTA;
     for _ in 0..40 {
-        game.update_player_movement(&input, &settings);
+        game.update_player_movement(&mut input, &settings);
     }
     // The climb ends one sub-step short of the ramp's top edge, because the
     // sub-step that would leave the ramp meets a 4 m drop and is refused.
@@ -450,7 +463,7 @@ fn test_controller_descends_a_maximum_slope_ramp_without_stalling() {
         walk_speed: 10.0,
         ..Settings::default()
     };
-    let input = InputState::holding(&[Control::MoveForward]);
+    let mut input = InputState::holding(&[Control::MoveForward]);
     game.set_app_state(AppState::Playing);
     game.sim_delta_seconds = MAX_SIM_DELTA;
     // A frame at 10 m/s can cover several treads' worth of height, so the
@@ -458,7 +471,7 @@ fn test_controller_descends_a_maximum_slope_ramp_without_stalling() {
     // player must never bounce back up the ramp.
     let mut previous = game.player_floor_y;
     for _ in 0..30 {
-        game.update_player_movement(&input, &settings);
+        game.update_player_movement(&mut input, &settings);
         assert!(
             game.player_floor_y <= previous + 1e-3,
             "the descent never climbs: {} then {}",
@@ -502,9 +515,9 @@ fn test_controller_traverses_the_home_split_level_both_ways() {
     game.player_yaw = (-90.0f32).to_radians();
     let mut previous = game.player_floor_y;
     let settings = Settings::default();
-    let input = InputState::holding(&[Control::MoveForward]);
+    let mut input = InputState::holding(&[Control::MoveForward]);
     for _ in 0..40 {
-        game.update_player_movement(&input, &settings);
+        game.update_player_movement(&mut input, &settings);
         assert!(
             game.player_floor_y <= previous + 1e-3,
             "descending the stairs never climbs: {} then {}",
@@ -559,7 +572,7 @@ fn capture_stairs_walk_trace() {
     game.player_yaw = 90.0_f32.to_radians();
     game.set_app_state(AppState::Playing);
     let settings = Settings::default();
-    let input = InputState::holding(&[Control::MoveForward]);
+    let mut input = InputState::holding(&[Control::MoveForward]);
     game.sim_delta_seconds = 1.0 / 60.0;
 
     let mut csv = String::from("phase,frame,x,z,eye_y,floor_y,render_y,step_dy\n");
@@ -572,7 +585,7 @@ fn capture_stairs_walk_trace() {
         }
         let frames = if phase == 0 { 110 } else { 130 };
         for frame in 0..frames {
-            game.update_player_movement(&input, &settings);
+            game.update_player_movement(&mut input, &settings);
             let x = game.player_position.x;
             let z = game.player_position.z;
             let eye = game.player_position.y;
@@ -669,7 +682,7 @@ fn test_controller_walks_a_staircase_smoothly_up() {
         "the fixture is 10 by 0.2: {riser}"
     );
     let settings = Settings::default();
-    let input = InputState::holding(&[Control::MoveForward]);
+    let mut input = InputState::holding(&[Control::MoveForward]);
     let frame_metres = settings.walk_speed / 60.0;
     // The pitch line rises one riser per tread, so a frame that moves
     // `frame_metres` along the flight changes the eye by this much.
@@ -681,7 +694,7 @@ fn test_controller_walks_a_staircase_smoothly_up() {
     let mut foot_steps = 0_u32;
     let mut on_stair = Vec::new();
     for _ in 0..140 {
-        game.update_player_movement(&input, &settings);
+        game.update_player_movement(&mut input, &settings);
         let x = game.player_position.x;
         let floor = game.player_floor_y;
         let eye = game.player_position.y;
@@ -752,7 +765,7 @@ fn test_controller_walks_a_staircase_smoothly_down() {
     let (foot_x, _x1, _z0, _z1) = stair.bounds();
     let top_x = foot_x + stair.length();
     let settings = Settings::default();
-    let input = InputState::holding(&[Control::MoveForward]);
+    let mut input = InputState::holding(&[Control::MoveForward]);
     let pitch_drop_per_frame = riser / stair.tread_depth() * settings.walk_speed / 60.0;
 
     let mut game = smooth_stairs_game(&level, top_x + 1.0, 4.0, 2.0, -90.0);
@@ -760,7 +773,7 @@ fn test_controller_walks_a_staircase_smoothly_down() {
     let mut previous_eye = game.player_position.y;
     let mut foot_steps = 0_u32;
     for _ in 0..150 {
-        game.update_player_movement(&input, &settings);
+        game.update_player_movement(&mut input, &settings);
         let x = game.player_position.x;
         let eye = game.player_position.y;
         assert_exact(eye, game.player_floor_y + EYE_HEIGHT);
@@ -919,4 +932,671 @@ fn test_controller_cannot_climb_a_tall_step_or_a_wall() {
         "the player stops at the wall face: {:?}",
         game.player_position
     );
+}
+
+// ---------------------------------------------------------------------------
+// Gravity, jumping and swimming
+// ---------------------------------------------------------------------------
+
+/// A fresh game on `level` at a known floor, walking a fixed frame delta.
+fn play_at(game: &mut Game, x: f32, floor_y: f32, z: f32, yaw_degrees: f32, delta: f32) {
+    game.set_app_state(AppState::Playing);
+    game.player_position = Vec3::new(x, floor_y + EYE_HEIGHT, z);
+    game.player_floor_y = floor_y;
+    game.grounded = true;
+    game.vertical_velocity = 0.0;
+    game.player_yaw = yaw_degrees.to_radians();
+    game.sim_delta_seconds = delta;
+}
+
+/// A 16x8 room with a deep pool (x 4..10, floor -3.0, water surface -0.5) and
+/// a wading step beside it (x 10..12, floor -0.85, the same surface).
+fn pool_level() -> LevelDef {
+    LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "pool",
+            "name": "Pool",
+            "spawn": { "x": 1.0, "z": 4.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 16.0, "depth": 8.0, "height": 6.0 },
+            "floor_regions": [
+                { "x": 4.0, "z": 1.0, "width": 6.0, "depth": 6.0, "offset_y": -3.0 },
+                { "x": 10.0, "z": 1.0, "width": 2.0, "depth": 6.0, "offset_y": -0.85 }
+            ],
+            "water": [
+                { "x": 4.0, "z": 1.0, "width": 6.0, "depth": 6.0,
+                  "surface_y": -0.5, "bottom_y": -3.0 },
+                { "x": 10.0, "z": 1.0, "width": 2.0, "depth": 6.0,
+                  "surface_y": -0.5, "bottom_y": -0.85 }
+            ]
+        }"#,
+    )
+    .expect("the pool level parses")
+}
+
+/// The owned ceiling model follows the rendered room profile, including a
+/// gable's ridge, and answers `None` outside every room.
+#[test]
+fn walkable_ceiling_follows_the_room_profile() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "gable",
+            "name": "Gable",
+            "spawn": { "x": 2.0, "z": 2.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0,
+                      "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 1.0 } }
+        }"#,
+    )
+    .expect("the gable room parses");
+    let ceiling = WalkableCeiling::from_level(&level);
+    assert_exact(ceiling.ceiling_y_at(4.0, 0.0).expect("inside"), 3.0);
+    assert_exact(ceiling.ceiling_y_at(4.0, 8.0).expect("inside"), 3.0);
+    assert_exact(ceiling.ceiling_y_at(4.0, 4.0).expect("inside"), 4.0);
+    assert_exact(ceiling.ceiling_y_at(4.0, 2.0).expect("inside"), 3.5);
+    assert!(
+        ceiling.ceiling_y_at(-5.0, 4.0).is_none(),
+        "outside every room"
+    );
+}
+
+#[test]
+fn grounded_player_never_falls_through_the_floor() {
+    let level = step_rule_level();
+    let mut game = game_for(&level);
+    play_at(&mut game, 1.0, 0.0, 4.0, 0.0, 1.0 / 60.0);
+    let settings = Settings::default();
+    let mut input = InputState::default();
+    for _ in 0..600 {
+        game.update_player_movement(&mut input, &settings);
+        assert!(game.grounded, "the player stays on the floor");
+        assert_exact(game.player_position.y, game.player_floor_y + EYE_HEIGHT);
+        assert!(game.player_floor_y.is_finite());
+        assert_exact(game.vertical_velocity, 0.0);
+    }
+}
+
+/// A legacy spawn outside every room stands on the historical floor at the
+/// spawn's own height: it never falls into the void, and a jump from it lands
+/// back on the same line.
+#[test]
+fn off_room_spawn_stands_on_the_historical_floor() {
+    let mut game = Game::new(
+        Vec3::new(2.0, EYE_HEIGHT, 3.0),
+        0.0,
+        Vec::new(),
+        WalkableFloor::default(),
+        WaterVolumes::default(),
+        WalkableCeiling::default(),
+    );
+    game.set_app_state(AppState::Playing);
+    game.sim_delta_seconds = 1.0 / 60.0;
+    let settings = Settings::default();
+    let mut input = InputState::default();
+    for _ in 0..600 {
+        game.update_player_movement(&mut input, &settings);
+        assert_exact(game.player_position.y, EYE_HEIGHT);
+    }
+    assert!(game.grounded);
+
+    let mut jump = InputState::holding(&[Control::Jump]);
+    let mut highest = game.player_position.y;
+    for _ in 0..120 {
+        game.update_player_movement(&mut jump, &settings);
+        highest = highest.max(game.player_position.y);
+    }
+    assert!(
+        highest > EYE_HEIGHT + 0.5,
+        "the jump works off-room too: {highest}"
+    );
+    assert!(game.grounded, "and it lands back on the historical floor");
+    assert_exact(game.player_position.y, EYE_HEIGHT);
+}
+
+#[test]
+fn jump_starts_only_while_grounded_and_never_double_jumps() {
+    let level = step_rule_level();
+    let mut game = game_for(&level);
+    play_at(&mut game, 1.0, 0.0, 4.0, 0.0, 1.0 / 60.0);
+    let settings = Settings::default();
+
+    // A fresh press while grounded launches.
+    let mut held = InputState::holding(&[Control::Jump]);
+    game.update_player_movement(&mut held, &settings);
+    assert!(!game.grounded);
+    assert!(game.vertical_velocity > 0.0);
+    assert_eq!(game.locomotion_snapshot().state, LocomotionState::Airborne);
+
+    // Holding the key never re-launches: the vertical speed only decreases.
+    let mut previous = game.vertical_velocity;
+    for _ in 0..30 {
+        game.update_player_movement(&mut held, &settings);
+        assert!(
+            game.vertical_velocity <= previous + 1e-6,
+            "a held jump re-launched: {previous} then {}",
+            game.vertical_velocity
+        );
+        previous = game.vertical_velocity;
+    }
+
+    // The jump lands, and the still-held key does not bounce.
+    let mut landed = false;
+    for _ in 0..300 {
+        game.update_player_movement(&mut held, &settings);
+        if game.grounded {
+            landed = true;
+            break;
+        }
+    }
+    assert!(landed, "the jump lands");
+    let floor_after_landing = game.player_floor_y;
+    game.update_player_movement(&mut held, &settings);
+    assert!(game.grounded, "a held jump does not bounce on landing");
+    assert_exact(game.player_position.y, floor_after_landing + EYE_HEIGHT);
+
+    // Releasing and pressing again mid-air is rejected.
+    let mut game = game_for(&level);
+    play_at(&mut game, 1.0, 0.0, 4.0, 0.0, 1.0 / 60.0);
+    game.update_player_movement(&mut held, &settings); // launch
+    let mut released = InputState::default();
+    game.update_player_movement(&mut released, &settings); // release
+    assert!(!game.grounded);
+    game.vertical_velocity = -1.0; // descending mid-air
+    let mut pressed = InputState::holding(&[Control::Jump]);
+    game.update_player_movement(&mut pressed, &settings);
+    assert!(
+        game.vertical_velocity < 0.0,
+        "a mid-air jump must be rejected: {}",
+        game.vertical_velocity
+    );
+}
+
+/// The apex one jump reaches at a fixed frame delta, in metres above the
+/// take-off floor.
+fn jump_apex_at(delta: f32) -> f32 {
+    let level = step_rule_level();
+    let mut game = game_for(&level);
+    play_at(&mut game, 1.0, 0.0, 4.0, 0.0, delta);
+    let settings = Settings::default();
+    let mut input = InputState::holding(&[Control::Jump]);
+    let start = game.player_floor_y;
+    let mut apex = 0.0_f32;
+    let mut left_the_floor = false;
+    for _ in 0..600 {
+        game.update_player_movement(&mut input, &settings);
+        apex = apex.max(game.player_position.y - EYE_HEIGHT - start);
+        if game.grounded {
+            if left_the_floor {
+                break;
+            }
+        } else {
+            left_the_floor = true;
+        }
+    }
+    assert!(left_the_floor, "the jump leaves the floor");
+    assert!(game.grounded, "the jump lands");
+    apex
+}
+
+/// The jump apex is the desk height at every frame rate: vertical motion runs
+/// in a fixed substep, so 30, 60 and 144 fps sample the same parabola.
+#[test]
+fn jump_apex_is_frame_rate_independent() {
+    assert_exact((2.0 * GRAVITY * JUMP_APEX_M).sqrt(), JUMP_VELOCITY);
+    // The integration step is the documented fixed step.
+    assert_exact(VERTICAL_SUBSTEP, 1.0 / 120.0);
+    let apexes = [
+        jump_apex_at(1.0 / 30.0),
+        jump_apex_at(1.0 / 60.0),
+        jump_apex_at(1.0 / 144.0),
+    ];
+    for apex in apexes {
+        assert!(
+            (0.74..=0.76).contains(&apex),
+            "the apex is the desk height: {apex}"
+        );
+    }
+    let low = apexes.iter().copied().fold(f32::INFINITY, f32::min);
+    let high = apexes.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    assert!(
+        high - low <= 0.01,
+        "the apex must not depend on the frame rate: {apexes:?}"
+    );
+}
+
+#[test]
+fn ceiling_bump_clamps_the_head_and_zeroes_upward_velocity() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "low_room",
+            "name": "Low Room",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 2.2 }
+        }"#,
+    )
+    .expect("the low room parses");
+    let mut game = game_for(&level);
+    play_at(&mut game, 4.0, 0.0, 4.0, 0.0, 1.0 / 60.0);
+    let settings = Settings::default();
+    let mut input = InputState::holding(&[Control::Jump]);
+    let max_eye = 2.2 - (PLAYER_HEIGHT - EYE_HEIGHT);
+    let mut highest = game.player_position.y;
+    let mut bumped = false;
+    for _ in 0..180 {
+        game.update_player_movement(&mut input, &settings);
+        highest = highest.max(game.player_position.y);
+        assert!(
+            game.player_position.y <= max_eye + 1e-4,
+            "the head stays under the ceiling: {}",
+            game.player_position.y
+        );
+        if game.player_position.y >= max_eye - 1e-4 {
+            bumped = true;
+            assert_exact(game.vertical_velocity, 0.0);
+        }
+    }
+    assert!(bumped, "the jump reaches the ceiling: {highest}");
+    assert_exact(highest, max_eye);
+    // With the upward velocity consumed by the bump, the player falls back and
+    // lands instead of hovering pinned to the ceiling.
+    assert!(game.grounded, "the bumped jump falls back down");
+    assert_exact(game.player_position.y, game.player_floor_y + EYE_HEIGHT);
+}
+
+/// Falling through the surface of the deep pool switches the player to
+/// swimming, and the body never sinks through the pool floor.
+#[test]
+fn falling_into_deep_water_switches_to_swimming() {
+    let level = pool_level();
+    let mut game = game_for(&level);
+    play_at(&mut game, 7.0, -3.0, 4.0, 0.0, 1.0 / 60.0);
+    game.player_position.y = 1.0;
+    game.grounded = false;
+    let settings = Settings::default();
+    let mut input = InputState::default();
+    let mut switched = false;
+    for _ in 0..300 {
+        game.update_player_movement(&mut input, &settings);
+        if game.is_swimming() && !switched {
+            switched = true;
+            assert!(!game.grounded, "the water clears the grounded flag");
+        }
+        assert!(
+            game.player_position.y >= -3.0 + SWIM_FLOOR_CLEARANCE - 1e-4,
+            "the swimmer never sinks through the pool floor: {}",
+            game.player_position.y
+        );
+    }
+    assert!(switched, "falling into the pool starts swimming");
+    assert!(game.is_underwater(), "the sunken swimmer is underwater");
+    assert_eq!(game.locomotion_snapshot().state, LocomotionState::Swimming);
+}
+
+/// Holding Jump in deep water rises to the float line and stabilizes there:
+/// the eye stays within the margin plus the deterministic bob and the vertical
+/// velocity is spent at the line.
+#[test]
+fn holding_jump_rises_to_the_float_line_and_stabilizes() {
+    let level = pool_level();
+    let mut game = game_for(&level);
+    play_at(&mut game, 7.0, -3.0, 4.0, 0.0, 1.0 / 60.0);
+    let surface = -0.5_f32;
+    let settings = Settings::default();
+    let mut input = InputState::holding(&[Control::Jump]);
+    let mut highest = game.player_position.y;
+    let mut underwater_frames = 0_u32;
+    for _ in 0..600 {
+        game.update_player_movement(&mut input, &settings);
+        assert!(game.is_swimming(), "still in the pool");
+        let eye = game.player_position.y;
+        highest = highest.max(eye);
+        assert!(
+            eye <= surface + FLOAT_EYE_MARGIN + SWIM_BOB_AMPLITUDE + 1e-4,
+            "the float line holds: {eye}"
+        );
+        if game.is_underwater() {
+            underwater_frames = underwater_frames.saturating_add(1);
+        }
+    }
+    assert!(underwater_frames > 0, "the swimmer rises through the water");
+    assert!(
+        highest >= surface + FLOAT_EYE_MARGIN - SWIM_BOB_AMPLITUDE - 1e-4,
+        "the swimmer reaches the line: {highest}"
+    );
+    assert!(
+        game.player_position.y >= surface + FLOAT_EYE_MARGIN - SWIM_BOB_AMPLITUDE - 1e-4,
+        "and stays there: {}",
+        game.player_position.y
+    );
+    assert_exact(game.vertical_velocity, 0.0);
+    assert_eq!(
+        game.locomotion_snapshot().state,
+        LocomotionState::SurfaceSwimming
+    );
+}
+
+/// Releasing Jump in deep water descends at the reduced underwater gravity
+/// until the body rests on the pool floor.
+#[test]
+fn releasing_jump_descends_in_water() {
+    let level = pool_level();
+    let mut game = game_for(&level);
+    play_at(&mut game, 7.0, -3.0, 4.0, 0.0, 1.0 / 60.0);
+    game.player_position.y = -0.35;
+    game.grounded = false;
+    let settings = Settings::default();
+    let mut input = InputState::holding(&[Control::Jump]);
+    game.update_player_movement(&mut input, &settings);
+    assert!(game.is_swimming());
+
+    let before = game.player_position.y;
+    let mut released = InputState::default();
+    let mut previous = before;
+    for _ in 0..180 {
+        game.update_player_movement(&mut released, &settings);
+        assert!(
+            game.player_position.y <= previous + 1e-4,
+            "releasing only descends: {previous} then {}",
+            game.player_position.y
+        );
+        previous = game.player_position.y;
+    }
+    assert!(
+        game.player_position.y < before - 0.3,
+        "the swimmer sinks: {before} then {}",
+        game.player_position.y
+    );
+    assert!(game.is_underwater());
+}
+
+/// Swimming to the wading step beside the pool stands the player up on it, and
+/// walking on from there is ordinary, full-speed walking.
+#[test]
+fn swimming_to_a_shallow_step_stands_up_and_walks() {
+    let level = pool_level();
+    let mut game = game_for(&level);
+    play_at(&mut game, 9.2, -3.0, 4.0, 90.0, 1.0 / 60.0);
+    game.player_position.y = -0.38;
+    game.grounded = false;
+    let settings = Settings::default();
+    let mut input = InputState::holding(&[Control::MoveForward, Control::Jump]);
+    let mut stood_up = false;
+    for _ in 0..300 {
+        game.update_player_movement(&mut input, &settings);
+        if game.grounded {
+            stood_up = true;
+            break;
+        }
+    }
+    assert!(stood_up, "the swimmer climbs out onto the step");
+    assert!(!game.is_swimming());
+    assert!(
+        (game.player_floor_y - (-0.85)).abs() < 1e-3,
+        "the exit floor is the shallow step: {}",
+        game.player_floor_y
+    );
+
+    let start_x = game.player_position.x;
+    let mut walk = InputState::holding(&[Control::MoveForward]);
+    for _ in 0..10 {
+        game.update_player_movement(&mut walk, &settings);
+        assert!(game.grounded, "the step is walked");
+        assert!(!game.is_swimming(), "the shallows never re-enter swimming");
+    }
+    assert!(
+        game.player_position.x > start_x + 0.1,
+        "the player walks on: {start_x} then {}",
+        game.player_position.x
+    );
+    assert!(
+        (game.locomotion_snapshot().speed - settings.walk_speed).abs() < 1e-2,
+        "walking out of the pool is full speed: {}",
+        game.locomotion_snapshot().speed
+    );
+}
+
+/// Shallow water (at or below `WADE_DEPTH`) is waded at the full walking speed
+/// and a jump still fires from it.
+#[test]
+fn shallow_water_is_walked_and_can_still_jump() {
+    let level = pool_level();
+    let mut game = game_for(&level);
+    play_at(&mut game, 10.4, -0.85, 4.0, 90.0, 1.0 / 60.0);
+    let settings = Settings {
+        walk_speed: 4.5,
+        ..Settings::default()
+    };
+
+    let mut idle = InputState::default();
+    game.update_player_movement(&mut idle, &settings);
+    assert!(!game.is_swimming(), "shallow water is waded");
+    assert!(!game.is_underwater());
+    assert_eq!(game.locomotion_snapshot().state, LocomotionState::Idle);
+
+    let mut walk = InputState::holding(&[Control::MoveForward]);
+    let start_x = game.player_position.x;
+    for _ in 0..5 {
+        game.update_player_movement(&mut walk, &settings);
+    }
+    let walked = game.player_position.x - start_x;
+    let expected = settings.walk_speed * (5.0 / 60.0);
+    assert!(
+        (walked - expected).abs() < 1e-3,
+        "full walk speed in the shallows: {walked} vs {expected}"
+    );
+    assert_eq!(game.locomotion_snapshot().state, LocomotionState::Walking);
+
+    // A fresh Jump press still fires while wading.
+    let mut jump = InputState::holding(&[Control::Jump]);
+    game.update_player_movement(&mut jump, &settings);
+    assert!(!game.grounded, "a wading jump leaves the floor");
+    assert!(game.vertical_velocity > 0.0);
+}
+
+#[test]
+fn locomotion_states_follow_walking_jumping_and_water() {
+    let level = pool_level();
+    let mut game = game_for(&level);
+    game.set_app_state(AppState::Playing);
+    game.sim_delta_seconds = 1.0 / 30.0;
+    let settings = Settings::default();
+
+    let mut idle = InputState::default();
+    game.update_player_movement(&mut idle, &settings);
+    assert_eq!(game.locomotion_snapshot().state, LocomotionState::Idle);
+    assert_exact(game.locomotion_snapshot().speed, 0.0);
+    assert!(!game.is_swimming() && !game.is_underwater());
+
+    let mut walk = InputState::holding(&[Control::MoveForward]);
+    game.update_player_movement(&mut walk, &settings);
+    let snapshot = game.locomotion_snapshot();
+    assert_eq!(snapshot.state, LocomotionState::Walking);
+    assert!(
+        (snapshot.speed - settings.walk_speed).abs() < 1e-3,
+        "the snapshot reports the real speed: {}",
+        snapshot.speed
+    );
+
+    let mut jump = InputState::holding(&[Control::Jump]);
+    game.update_player_movement(&mut jump, &settings);
+    assert_eq!(game.locomotion_snapshot().state, LocomotionState::Airborne);
+    assert!(!game.is_swimming());
+}
+
+/// Walking is classified by speed, not by the distance covered in one frame,
+/// so a 3 m/s walk reads `Walking` at every supported frame rate. A per-frame
+/// displacement threshold left a player at 144 fps (0.021 m/frame) classified
+/// as idle, which froze the character's gait.
+#[test]
+fn walking_is_classified_at_every_frame_rate() {
+    let level = step_rule_level();
+    let settings = Settings::default();
+    for delta in [1.0 / 30.0, 1.0 / 60.0, 1.0 / 144.0, 1.0 / 240.0] {
+        let mut game = game_for(&level);
+        play_at(&mut game, 1.0, 0.0, 4.0, 0.0, delta);
+        let mut walk = InputState::holding(&[Control::MoveForward]);
+        game.update_player_movement(&mut walk, &settings);
+        let snapshot = game.locomotion_snapshot();
+        assert_eq!(
+            snapshot.state,
+            LocomotionState::Walking,
+            "walking at {:.1} fps",
+            1.0 / delta
+        );
+        assert!(
+            (snapshot.speed - settings.walk_speed).abs() < 1e-3,
+            "the walking speed is the walk speed at {:.1} fps: {}",
+            1.0 / delta,
+            snapshot.speed
+        );
+    }
+
+    // A player the room edge refuses covers no ground and stays idle: the
+    // speed threshold does not turn collision jitter into a walk. Facing
+    // north from the room's north edge, the void refuses the step.
+    let mut game = game_for(&level);
+    play_at(&mut game, 1.0, 0.0, 0.0, 0.0, 1.0 / 144.0);
+    let mut blocked = InputState::holding(&[Control::MoveForward]);
+    for _ in 0..4 {
+        game.update_player_movement(&mut blocked, &settings);
+    }
+    assert_exact(game.locomotion_snapshot().speed, 0.0);
+    assert_eq!(
+        game.locomotion_snapshot().state,
+        LocomotionState::Idle,
+        "a blocked player is idle"
+    );
+}
+
+#[test]
+fn mouse_motion_turns_the_camera_by_sensitivity_and_is_consumed_once() {
+    let mut game = Game::new(
+        Vec3::new(0.0, EYE_HEIGHT, 0.0),
+        0.0,
+        Vec::new(),
+        WalkableFloor::default(),
+        WaterVolumes::default(),
+        WalkableCeiling::default(),
+    );
+    game.set_app_state(AppState::Playing);
+    // Pixel motion carries no time: a zero delta must still apply it.
+    game.sim_delta_seconds = 0.0;
+    let settings = Settings::default();
+    let mut input = InputState::default();
+    input.accumulate_mouse_motion(100.0, 50.0);
+    game.update_player_movement(&mut input, &settings);
+
+    let sensitivity = settings.mouse_sensitivity;
+    assert!(
+        (game.player_yaw - (100.0 * sensitivity).to_radians()).abs() < 1e-5,
+        "yaw follows the pixel scale: {}",
+        game.player_yaw
+    );
+    assert!(
+        (game.player_pitch - (-(50.0 * sensitivity).to_radians())).abs() < 1e-5,
+        "pitch follows the pixel scale: {}",
+        game.player_pitch
+    );
+
+    // Consumed exactly once: a second update with no new motion is inert.
+    let (dx, dy) = input.take_mouse_motion();
+    assert_exact(dx, 0.0);
+    assert_exact(dy, 0.0);
+    let yaw = game.player_yaw;
+    let pitch = game.player_pitch;
+    game.update_player_movement(&mut input, &settings);
+    assert_exact(game.player_yaw, yaw);
+    assert_exact(game.player_pitch, pitch);
+}
+
+#[test]
+fn mouse_motion_is_consumed_but_not_applied_outside_playing() {
+    let mut game = Game::new(
+        Vec3::new(0.0, EYE_HEIGHT, 0.0),
+        0.0,
+        Vec::new(),
+        WalkableFloor::default(),
+        WaterVolumes::default(),
+        WalkableCeiling::default(),
+    );
+    game.set_app_state(AppState::Paused);
+    let settings = Settings::default();
+    let mut input = InputState::default();
+    input.accumulate_mouse_motion(100.0, 100.0);
+    game.update_player_movement(&mut input, &settings);
+    assert_exact(game.player_yaw, 0.0);
+    assert_exact(game.player_pitch, 0.0);
+    // It is discarded, not saved for the resume.
+    let (dx, dy) = input.take_mouse_motion();
+    assert_exact(dx, 0.0);
+    assert_exact(dy, 0.0);
+}
+
+#[test]
+fn non_finite_mouse_motion_never_reaches_the_camera() {
+    let mut game = Game::new(
+        Vec3::new(0.0, EYE_HEIGHT, 0.0),
+        0.0,
+        Vec::new(),
+        WalkableFloor::default(),
+        WaterVolumes::default(),
+        WalkableCeiling::default(),
+    );
+    game.set_app_state(AppState::Playing);
+    game.sim_delta_seconds = 0.0;
+    let settings = Settings::default();
+    let mut input = InputState::default();
+    input.accumulate_mouse_motion(f32::NAN, f32::INFINITY);
+    game.update_player_movement(&mut input, &settings);
+    assert!(game.player_yaw.is_finite() && game.player_pitch.is_finite());
+    assert_exact(game.player_yaw, 0.0);
+    assert_exact(game.player_pitch, 0.0);
+}
+
+/// A basin shallower than the standing eye height still lets the swimmer
+/// submerge: the body is horizontal, so the eye reaches the pool floor
+/// clearance rather than `floor + EYE_HEIGHT`.
+#[test]
+fn a_shallow_pool_still_lets_the_swimmer_submerge() {
+    // The Places Demo's pool relationship: basin floor -3.0 and surface -1.65
+    // are 1.35 m apart, less than the 1.6 m standing eye height.
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "shallow_pool",
+            "name": "Shallow Pool",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 8.0,
+                      "height": 4.2, "floor_y": -1.5 },
+            "floor_regions": [
+                { "x": 2.0, "z": 1.0, "width": 8.0, "depth": 6.0, "offset_y": -1.5 }
+            ],
+            "water": [
+                { "x": 2.0, "z": 1.0, "width": 8.0, "depth": 6.0,
+                  "surface_y": -1.65, "bottom_y": -3.0 }
+            ]
+        }"#,
+    )
+    .expect("the shallow pool parses");
+    let mut game = game_for(&level);
+    play_at(&mut game, 6.0, -3.0, 4.0, 0.0, 1.0 / 60.0);
+    let settings = Settings::default();
+    let mut input = InputState::default();
+    let mut deepest = game.player_position.y;
+    for _ in 0..600 {
+        game.update_player_movement(&mut input, &settings);
+        deepest = deepest.min(game.player_position.y);
+        assert!(
+            game.player_position.y >= -3.0 + SWIM_FLOOR_CLEARANCE - 1e-4,
+            "the body stays above the pool floor: {}",
+            game.player_position.y
+        );
+    }
+    assert!(
+        deepest <= -1.65 - 0.4,
+        "the swimmer submerges well below the surface: {deepest}"
+    );
+    assert!(game.is_underwater(), "the sunken swimmer is underwater");
+    assert_eq!(game.locomotion_snapshot().state, LocomotionState::Swimming);
 }

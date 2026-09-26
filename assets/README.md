@@ -438,8 +438,11 @@ Baked vertex colours carry the per-face shading and contact darkening (the same
 `PROP_FACE_SHADES` the old placeholder boxes used). A prop's fragment shader is
 `texture × vertex colour` plus the material's emissive term; emission is added
 on top of the baked light and never multiplied by it, so an emissive surface
-stays bright in a dark room. Prop models keep the simple model: no normal maps,
-no alpha, no animation, no skinning, no morph targets.
+stays bright in a dark room. Prop models keep the simple material model: no
+normal maps, no alpha, no morph targets. A model may carry one skin and
+LINEAR/STEP animation clips; the static prop batch draws the bind pose, and a
+placed skinned model is posed by the character path (see
+[`entities/README.md`](entities/README.md)).
 
 Surface materials multiply the same way: the sampled texture is scaled by the
 material's `tint` and then by the baked lighting exactly like the old
@@ -508,8 +511,13 @@ model comes from elsewhere:
 * **Images**: embedded PNG bufferViews only, decoded once per distinct image.
 * Attributes: `POSITION` (required), `TEXCOORD_0` (required), `COLOR_0`
   (optional), indices 8/16/32-bit inside the 65 535-vertex cap, `mode: 4`.
-* **Rejected** with an actionable message: skins, animations, morph targets,
-  sparse accessors, external/data-URI textures, non-triangle modes, and any
+* **Skin** (at most one per model, on one mesh node): `JOINTS_0`, `WEIGHTS_0`,
+  a node hierarchy, `joints` and `inverseBindMatrices`, up to 128 joints.
+  **Animations**: LINEAR/STEP samplers for node translation/rotation/scale, up
+  to 64 clips and 4096 channels. CUBICSPLINE and morph-target weight channels
+  are rejected.
+* **Rejected** with an actionable message: morph targets, sparse accessors,
+  external/data-URI textures, non-triangle modes, CUBICSPLINE samplers, and any
   other extension.
 
 A model above the shipped art budget still loads (with a one-time warning)

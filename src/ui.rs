@@ -56,7 +56,7 @@ impl SettingsPage {
                 }
             }
             Self::Display => 3,
-            Self::Controls => 14,
+            Self::Controls => 16,
         }
     }
 }
@@ -107,6 +107,7 @@ pub enum SettingsValue {
     LookSpeedH,
     LookSpeedV,
     InvertLook,
+    MouseSensitivity,
     WalkSpeed,
     Fov,
 }
@@ -202,8 +203,10 @@ fn ui_signature(
     b.look_down.hash(&mut hasher);
     b.look_left.hash(&mut hasher);
     b.look_right.hash(&mut hasher);
+    b.jump.hash(&mut hasher);
     settings.look_speed_h.to_bits().hash(&mut hasher);
     settings.look_speed_v.to_bits().hash(&mut hasher);
+    settings.mouse_sensitivity.to_bits().hash(&mut hasher);
     settings.walk_speed.to_bits().hash(&mut hasher);
     settings.fov_degrees.to_bits().hash(&mut hasher);
     settings.invert_look.hash(&mut hasher);
@@ -907,6 +910,12 @@ fn controls_rows(settings: &Settings) -> Vec<SettingsRow> {
     }
     push_row(
         &mut rows,
+        "Mouse sensitivity",
+        selector(&format!("{:.2} deg/px", settings.mouse_sensitivity)),
+        SettingsRowKind::Value(SettingsValue::MouseSensitivity),
+    );
+    push_row(
+        &mut rows,
         "Look Speed H",
         selector(&format!("{:.0} deg/s", settings.look_speed_h)),
         SettingsRowKind::Value(SettingsValue::LookSpeedH),
@@ -1193,6 +1202,16 @@ fn adjust_value(
                 false,
             );
         }
+        SettingsValue::MouseSensitivity => {
+            step_range(
+                &mut settings.mouse_sensitivity,
+                direction,
+                MOUSE_SENSITIVITY_STEP,
+                crate::settings::MIN_MOUSE_SENSITIVITY,
+                crate::settings::MAX_MOUSE_SENSITIVITY,
+            );
+            ui_state.set_status("Mouse sensitivity updated", false);
+        }
         SettingsValue::WalkSpeed => {
             step_range(&mut settings.walk_speed, direction, 0.5, 1.5, 6.0);
             ui_state.set_status("Walk speed updated", false);
@@ -1203,6 +1222,9 @@ fn adjust_value(
         }
     }
 }
+
+/// Mouse sensitivity step per left/right input, in degrees per pixel.
+const MOUSE_SENSITIVITY_STEP: f32 = 0.02;
 
 /// Moves a scalar value one step and wraps it around `min`..=`max`.
 fn step_range(value: &mut f32, direction: i32, step: f32, min: f32, max: f32) {
@@ -1621,6 +1643,7 @@ mod tests {
         }
         // Control preferences the game actually supports are present too.
         for value in [
+            SettingsValue::MouseSensitivity,
             SettingsValue::LookSpeedH,
             SettingsValue::LookSpeedV,
             SettingsValue::InvertLook,
@@ -1633,6 +1656,81 @@ mod tests {
                 "{value:?} has no Controls row"
             );
         }
+    }
+
+    /// The Controls page gained the Jump binding and the Mouse sensitivity
+    /// preference: exactly two more rows, with the sensitivity stepping by
+    /// 0.02 degrees per pixel and never leaving its documented range.
+    #[test]
+    fn the_controls_page_shows_jump_and_mouse_sensitivity() {
+        assert_eq!(SettingsPage::Controls.item_count(false), 16);
+        let display = DisplayStatus::default();
+        let mut settings = Settings::default();
+        let rows = settings_rows(SettingsPage::Controls, &settings, &display, false);
+        assert_eq!(rows.len(), 16);
+
+        let jump = rows
+            .iter()
+            .find(|row| row.kind == SettingsRowKind::Binding("jump"))
+            .expect("a Jump binding row");
+        assert_eq!(jump.label, "Jump");
+        assert_eq!(jump.value, "SPACE");
+
+        let sensitivity_index = rows
+            .iter()
+            .position(|row| row.kind == SettingsRowKind::Value(SettingsValue::MouseSensitivity))
+            .expect("a Mouse sensitivity row");
+        assert_eq!(rows[sensitivity_index].label, "Mouse sensitivity");
+        assert_eq!(rows[sensitivity_index].value, "< 0.12 deg/px >");
+
+        // One right step is one 0.02 deg/px increment.
+        let mut ui = UiState::new();
+        activate_settings_item(
+            SettingsPage::Controls,
+            sensitivity_index,
+            &mut ui,
+            &mut settings,
+            &display,
+            1,
+        );
+        assert!(
+            (settings.mouse_sensitivity - 0.14).abs() < 1e-6,
+            "stepped to {}",
+            settings.mouse_sensitivity
+        );
+        let rows = settings_rows(SettingsPage::Controls, &settings, &display, false);
+        assert_eq!(rows[sensitivity_index].value, "< 0.14 deg/px >");
+
+        // Walking one step below the minimum wraps to the maximum, and one
+        // step above the maximum wraps back to the minimum; the value never
+        // leaves the configured range.
+        settings.mouse_sensitivity = crate::settings::MIN_MOUSE_SENSITIVITY;
+        activate_settings_item(
+            SettingsPage::Controls,
+            sensitivity_index,
+            &mut ui,
+            &mut settings,
+            &display,
+            -1,
+        );
+        assert!(
+            (settings.mouse_sensitivity - crate::settings::MAX_MOUSE_SENSITIVITY).abs() < 1e-6,
+            "stepping below the minimum wraps to the maximum: {}",
+            settings.mouse_sensitivity
+        );
+        activate_settings_item(
+            SettingsPage::Controls,
+            sensitivity_index,
+            &mut ui,
+            &mut settings,
+            &display,
+            1,
+        );
+        assert!(
+            (settings.mouse_sensitivity - crate::settings::MIN_MOUSE_SENSITIVITY).abs() < 1e-6,
+            "stepping above the maximum wraps to the minimum: {}",
+            settings.mouse_sensitivity
+        );
     }
 
     #[test]

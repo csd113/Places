@@ -13,6 +13,34 @@ OpenGL/GLES2 renderer state before the desktop renderer modernization begins.
 - No wgpu migration, renderer alteration, cleanup or gameplay work is included
   in this release.
 
+## Unreleased — movement, water, animated entities and office detail
+
+### Added
+
+- **Mouse capture and jumping.** Gameplay captures the pointer with relative
+  motion and hides the cursor; every menu and a focus loss releases it, and
+  returning to gameplay captures it again. Gravity and a frame-rate-independent
+  jump (apex 0.75 m, the office desk top) are first-class controller state,
+  with ceiling collision and stable landing. `SPACE` is the default Jump
+  binding; mouse sensitivity is a Settings → Controls value.
+- **Water volumes and swimming.** A level authors rectangular `water[]`
+  volumes with a world-space surface, material, opacity and a swimming flag.
+  The surface renders as a translucent quad in the existing sorted blend pass;
+  the controller wades, swims, rises to the surface while Jump is held, floats
+  with a small bob and stands up at shallow edges. Places Demo's pool holds
+  water 0.15 m below the deck, and the walk-in step is submerged.
+- **Animated entities.** The GLB reader accepts one skin and LINEAR/STEP
+  animation clips; a placed skinned model is posed by a CPU-skinned character
+  path whose locomotion state follows the player (idle, walking, airborne,
+  swimming). A rig without clips — Spooner-Man — uses the built-in procedural
+  gait, and Spooner-Man is placed on the Places Demo pool deck.
+- **Office detail.** Fluorescent panels are surface-mounted troffers with a
+  frame, a recessed diffuser and a real housing, aligned by default to the
+  ceiling sheet's visible panel grid (a material's `grid_metres`). Wall
+  materials may declare a `baseboard` trim material, and office walls receive
+  automatic baseboards that stop at floor-level openings. The washing machine
+  is rebuilt with a real porthole opening and its drum spins inside the cavity.
+
 ## Unreleased — lighting continuity on large surfaces
 
 ### Fixed

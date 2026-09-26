@@ -13,6 +13,7 @@ pub mod api;
 pub mod architecture;
 pub mod atmosphere;
 pub mod camera;
+pub mod character;
 pub mod decals;
 pub mod dynamic;
 pub mod fixtures;
@@ -25,6 +26,7 @@ pub mod props;
 pub mod reflections;
 pub mod stats;
 pub mod view;
+pub mod water;
 
 pub use animation::{
     AnimationEffect, EmissionAnimation, MAX_ANIMATION_DEPTH, MAX_FLICKER_HZ, MAX_PULSE_HZ,
@@ -36,6 +38,11 @@ pub use api::{
     build_level_geometry_with_assets_and_lighting_and_materials, build_level_geometry_with_catalog,
     build_level_geometry_with_catalog_and_materials, build_level_geometry_with_materials,
     logical_materials,
+};
+pub use character::{
+    BLEND_TIME_CONSTANT_S, CHARACTER_BOUNDS_EXPANSION, CHARACTER_BOUNDS_MARGIN_M, Character,
+    CharacterAnimator, CharacterScene, CharacterUpdate, IDLE_SWAY_HZ, MAX_CHARACTERS, SWIM_HZ,
+    WALK_CYCLES_PER_METRE, character_vertex,
 };
 pub use decals::{
     DECAL_ALPHA_CUTOFF, DECAL_EXTERNAL_BASE, DECAL_MATERIALS, DECAL_POLYGON_OFFSET,

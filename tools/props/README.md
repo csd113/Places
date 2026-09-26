@@ -33,6 +33,7 @@ python3 tools/props/build.py --only core:chair   # iterate on one prop
 python3 tools/props/build.py --check             # validate shipped GLBs only
 python3 tools/props/build.py --report            # budget table only
 python3 tools/props/build.py --thumbs            # refresh editor thumbnails
+python3 tools/props/build.py --force             # overwrite a hand-authored skinned model
 python3 tools/props/preview.py --all             # per-prop preview renders
 python3 tools/props/preview.py --sheet           # contact sheets for style review
 python3 tools/props/preview.py --only core:chair --out target/prop-previews
@@ -74,7 +75,10 @@ Rules the builder enforces for you: metrics are metres, `+Z` is the front, the
 mesh must be horizontally centred with its base at `y = 0`, UVs stay inside
 `0..1`, no NaNs, no zero-area triangles, and the bounding box must match the
 catalogue `size`. `build.py` additionally enforces the triangle/texture budgets
-and the "no external files" GLB profile.
+and the "no external files" GLB profile. It refuses to overwrite a target GLB
+that carries a skin or animation (`spooner-man` ships one) unless `--force` is
+passed, so an intentional hand-authored model is never replaced by a static
+primitive build by accident.
 
 Keep proportions and colour choices consistent with the rest of the pack: this
 is a muted, faded, slightly worn PS2-era institutional/domestic set, not a

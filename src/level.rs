@@ -382,6 +382,101 @@ impl FloorRegionDef {
     }
 }
 
+/// One rectangular body of water: a footprint, a horizontal surface and the
+/// vertical extent below it.
+///
+/// The volume is the authoring form of the engine's water feature. The surface
+/// is a translucent quad drawn from the `material` (default
+/// [`DEFAULT_WATER_MATERIAL`]); the same footprint and surface height are what
+/// the player controller samples to decide between walking, wading and
+/// swimming, so what an author draws is exactly what the player swims in.
+///
+/// `surface_y` is an absolute world height, like a fixture's `y`, so a pool
+/// whose water level should sit below its deck can say so directly. `bottom_y`
+/// is optional metadata for the volume's depth; the physics floor under the
+/// water is always the level's own walkable floor, so a volume never needs to
+/// describe geometry it does not own.
+///
+/// ```json
+/// { "x": 8.0, "z": 10.0, "width": 12.0, "depth": 6.0,
+///   "surface_y": -1.65, "bottom_y": -3.0 }
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WaterVolumeDef {
+    pub x: f32,
+    pub z: f32,
+    pub width: f32,
+    pub depth: f32,
+    /// World Y of the free surface.
+    pub surface_y: f32,
+    /// World Y of the volume's bottom; `None` resolves the lowest walkable
+    /// floor under the footprint and falls back to `surface_y - 2.0`.
+    #[serde(default)]
+    pub bottom_y: Option<f32>,
+    /// Surface material id; `None` uses [`DEFAULT_WATER_MATERIAL`].
+    #[serde(default)]
+    pub material: Option<String>,
+    /// Effective opacity of the surface, `0.0..=1.0`. `None` uses
+    /// [`DEFAULT_WATER_OPACITY`]; an authored value overrides the material.
+    #[serde(default)]
+    pub opacity: Option<f32>,
+    /// Whether the player swims in this volume. `false` keeps it decorative:
+    /// the surface draws and the player walks or falls through it normally.
+    #[serde(default = "default_true")]
+    pub swimming: bool,
+}
+
+const fn default_true() -> bool {
+    true
+}
+
+impl WaterVolumeDef {
+    /// Footprint as `(x0, x1, z0, z1)`, normalised.
+    #[must_use]
+    pub fn bounds(&self) -> (f32, f32, f32, f32) {
+        (
+            self.x.min(self.x + self.width),
+            self.x.max(self.x + self.width),
+            self.z.min(self.z + self.depth),
+            self.z.max(self.z + self.depth),
+        )
+    }
+
+    /// True when `(x, z)` lies inside the footprint.
+    #[must_use]
+    pub fn contains(&self, x: f32, z: f32) -> bool {
+        if !x.is_finite() || !z.is_finite() {
+            return false;
+        }
+        let (x0, x1, z0, z1) = self.bounds();
+        x >= x0 && x <= x1 && z >= z0 && z <= z1
+    }
+
+    /// Surface material id: the authored one, or [`DEFAULT_WATER_MATERIAL`].
+    #[must_use]
+    pub fn material_id(&self) -> &str {
+        self.material.as_deref().unwrap_or(DEFAULT_WATER_MATERIAL)
+    }
+
+    /// Effective surface opacity, sanitised to `0.0..=1.0`.
+    #[must_use]
+    pub const fn opacity(&self) -> f32 {
+        match self.opacity {
+            Some(opacity) if opacity.is_finite() => opacity.clamp(0.0, 1.0),
+            _ => DEFAULT_WATER_OPACITY,
+        }
+    }
+}
+
+/// The material a water volume draws with when it names none.
+pub const DEFAULT_WATER_MATERIAL: &str = "core:water_pool_01";
+
+/// Effective surface opacity of a water volume that names none.
+///
+/// Opaque enough to read as a distinct surface, translucent enough that the
+/// basin floor and walls stay visible through it.
+pub const DEFAULT_WATER_OPACITY: f32 = 0.62;
+
 /// Steepest walkable ramp slope, as rise per metre of run.
 ///
 /// The player controller moves in sub-steps of at most half a player radius and
@@ -2731,6 +2826,26 @@ pub enum LightMount {
     Wall,
 }
 
+/// How a ceiling fixture resolves its horizontal position at level load.
+///
+/// Ceiling appearance is a world-space material tile: the sheet repeats every
+/// `tile_metres` from the world origin, and the artwork paints its panel grid
+/// at `grid_metres` (four 1 m panels inside the office's 2 m tile, for
+/// example). A fluorescent panel that does not sit on the panel grid crosses
+/// the T-bar, which reads as a misplaced fitting rather than a built one — so
+/// grid alignment is the default and snaps a panel's centre to the nearest
+/// panel centre. Levels that want exact authored coordinates (an off-grid
+/// installation, a prop-backed look) author `"align": "none"`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum FixtureAlign {
+    /// Snap onto the ceiling material's tile grid (the default).
+    #[default]
+    Grid,
+    /// Keep the authored `x`/`z` exactly.
+    None,
+}
+
 /// Ceiling light fixture placement.
 ///
 /// `brightness` is the optional fixture intensity/power. It is the field the
@@ -2761,6 +2876,15 @@ pub struct LightFixtureDef {
     /// colour and the face carries only a neutral emission brightness.
     #[serde(default)]
     pub color: Option<LightColor>,
+    /// Horizontal alignment applied at load; omitted means
+    /// [`FixtureAlign::Grid`].
+    ///
+    /// Grid alignment only moves grid-panel fixtures (the office fluorescent
+    /// family) under a flat ceiling; it snaps `x`/`z` to the ceiling
+    /// material's visible panel centres and leaves every other field
+    /// untouched. See [`LevelDef::align_ceiling_fixtures`].
+    #[serde(default)]
+    pub align: FixtureAlign,
     /// Ceiling (default) or wall mounting.
     #[serde(default)]
     pub mount: LightMount,
@@ -3091,6 +3215,10 @@ pub struct LevelDef {
     /// raised platforms). Empty on every legacy level.
     #[serde(default)]
     pub floor_regions: Vec<FloorRegionDef>,
+    /// Rectangular bodies of water: surface, footprint and swimming contract.
+    /// Empty on every legacy level.
+    #[serde(default, alias = "water_volumes")]
+    pub water: Vec<WaterVolumeDef>,
     /// Straight sloped walking surfaces (ramps). Empty on every legacy level.
     #[serde(default)]
     pub ramps: Vec<RampDef>,
@@ -3194,6 +3322,17 @@ pub const MAX_PROP_MATERIALS: usize = 16;
 pub const MAX_PROP_IMAGES: usize = 16;
 /// Hard ceiling on one prop model's vertex count (16-bit indices).
 pub const MAX_PROP_VERTICES: usize = 65_535;
+/// Engine ceiling on the joints one prop model's skin may declare.
+///
+/// A production character rig is a few dozen joints; the cap exists so a
+/// pathological file cannot turn the per-frame pose evaluation into unbounded
+/// work. The character path refuses a rig above this budget by name.
+pub const MAX_PROP_JOINTS: usize = 128;
+/// Engine ceiling on the animation clips one prop model may declare.
+pub const MAX_PROP_ANIMATIONS: usize = 64;
+/// Engine ceiling on the animation channels one prop model may declare,
+/// summed over every clip.
+pub const MAX_ANIMATION_CHANNELS: usize = 4_096;
 /// The normal native edge length of a shipped prop texture.
 ///
 /// 256x256 is the standard prop atlas size, not a special high-quality
@@ -3236,6 +3375,12 @@ pub const MAX_LEVEL_FLOOR_REGIONS: u64 = 2000;
 /// A patch is a material override, not geometry, so this only bounds parse and
 /// lookup cost; it is deliberately the same order as the region budget.
 pub const MAX_LEVEL_FLOOR_PATCHES: u64 = 2000;
+/// Hard ceiling on the number of water volumes a level may define.
+///
+/// One volume draws one surface quad, so this only bounds the per-frame water
+/// sample loop and the static mesh's footprint; it matches the floor-region
+/// budget deliberately.
+pub const MAX_LEVEL_WATER_VOLUMES: u64 = 2000;
 /// Hard ceiling on the number of openings a single wall may declare.
 pub const MAX_WALL_OPENINGS: usize = 64;
 /// Hard ceiling on the number of ramps a level may define.
@@ -3320,6 +3465,59 @@ const fn clamped_ceil_u64(value: f32, max: f32) -> u64 {
     result
 }
 
+/// Distance below which a grid-aligned fixture counts as already settled: a
+/// snap that moves a centre by less than this is float residue, not a move.
+pub const ALIGN_SETTLED_EPS_M: f32 = 1.0e-4;
+
+/// The snapped centre of one grid-aligned ceiling fixture, or `None` when the
+/// fixture does not qualify for grid alignment.
+///
+/// See [`LevelDef::align_ceiling_fixtures`] for the qualification rules and the
+/// snap formula. `default_ceiling` is [`LevelDefaults::ceiling`], used when the
+/// room over the fixture does not override its ceiling material.
+fn grid_aligned_fixture_centre(
+    surfaces: &LevelSurfaces<'_>,
+    default_ceiling: &str,
+    light: &LightFixtureDef,
+    materials: &crate::materials::MaterialTable,
+) -> Option<(f32, f32)> {
+    if light.align != FixtureAlign::Grid || light.mount != LightMount::Ceiling {
+        return None;
+    }
+    if !light.x.is_finite() || !light.z.is_finite() {
+        return None;
+    }
+    if crate::lighting::fixture_profile(&light.fixture).kind
+        != crate::lighting::FixtureKind::FluorescentPanel
+    {
+        return None;
+    }
+    if !surfaces.ceiling_is_flat_at(light.x, light.z) {
+        return None;
+    }
+    let room = surfaces.room_at(light.x, light.z)?;
+    // The geometry builder resolves a room ceiling exactly this way: the
+    // room's own `ceiling_material` first, else the level default. Only the
+    // material's id matters for tiling, so the table lookup below sees the
+    // same period the ceiling mesh tiles at.
+    let material_id = room
+        .ceiling_material
+        .as_deref()
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .unwrap_or_else(|| default_ceiling.trim());
+    // The visible panel module, not the sheet repeat: a ceiling sheet may
+    // paint four 1 m panels inside a 2 m texture tile, and a fixture belongs
+    // at a panel's centre rather than on the T-bar between four of them.
+    let period = materials.entry_of(material_id)?.grid_metres;
+    if !period.is_finite() || period <= 0.0 {
+        return None;
+    }
+    let half = period * 0.5;
+    let snap = |value: f32| period.mul_add(((value - half) / period).round(), half);
+    Some((snap(light.x), snap(light.z)))
+}
+
 impl LevelDef {
     /// # Errors
     ///
@@ -3333,6 +3531,72 @@ impl LevelDef {
     /// without cloning or allocating.
     pub fn room_iter(&self) -> impl Iterator<Item = &RoomDef> {
         self.rooms.iter().chain(self.room.iter())
+    }
+
+    /// Snaps grid-aligned fluorescent panels onto their ceiling material's
+    /// world tile grid, returning how many fixture centres moved.
+    ///
+    /// A fixture qualifies when all of the following hold:
+    ///
+    /// * [`LightFixtureDef::align`] is [`FixtureAlign::Grid`] (the default);
+    /// * its family is the grid panel
+    ///   ([`crate::lighting::FixtureKind::FluorescentPanel`]) and it mounts to
+    ///   the ceiling;
+    /// * it stands inside a room whose ceiling is flat
+    ///   ([`LevelSurfaces::ceiling_is_flat_at`]) — a gable or an off-room
+    ///   fixture has no single ceiling plane to align to;
+    /// * the room's `ceiling_material` (else `defaults.ceiling`) resolves a
+    ///   positive finite `grid_metres` through `materials`, the table the
+    ///   geometry builder samples its tiling from (`grid_metres` defaults to
+    ///   the material's `tile_metres`).
+    ///
+    /// The centre snaps per axis to the nearest cell centre of the material's
+    /// world panel grid:
+    ///
+    /// ```text
+    /// snapped = ((v - T / 2) / T).round() * T + T / 2
+    /// ```
+    ///
+    /// where `T` is the material's `grid_metres` and `v` is the authored `x`
+    /// or `z`. `f32::round` is half-away-from-zero, so a value exactly on a
+    /// cell boundary deterministically moves to the higher cell. Only `x`/`z`
+    /// change; rotation, brightness, colour, range, falloff and emission are
+    /// untouched. This keeps the bake, the mesh, the fixture probe and
+    /// collision on one position: everything downstream reads the same
+    /// `ceiling_lights` array.
+    ///
+    /// Levels that author `"align": "none"` are never moved, and a level with
+    /// no ceiling material period (an unresolved or blank ceiling id) stays
+    /// exactly where it was authored.
+    pub fn align_ceiling_fixtures(&mut self, materials: &crate::materials::MaterialTable) -> usize {
+        let mut moved = 0usize;
+        let mut targets: Vec<(usize, f32, f32)> = Vec::new();
+        {
+            let surfaces = LevelSurfaces::new(self);
+            for (index, light) in self.ceiling_lights.iter().enumerate() {
+                let Some((x, z)) = grid_aligned_fixture_centre(
+                    &surfaces,
+                    &self.defaults.ceiling,
+                    light,
+                    materials,
+                ) else {
+                    continue;
+                };
+                if (x - light.x).abs() > ALIGN_SETTLED_EPS_M
+                    || (z - light.z).abs() > ALIGN_SETTLED_EPS_M
+                {
+                    moved = moved.saturating_add(1);
+                }
+                targets.push((index, x, z));
+            }
+        }
+        for (index, x, z) in targets {
+            if let Some(light) = self.ceiling_lights.get_mut(index) {
+                light.x = x;
+                light.z = z;
+            }
+        }
+        moved
     }
 
     /// Floor regions overlapping the given room, in authored order.
@@ -4559,6 +4823,287 @@ impl WalkableFloor {
             return Some(room.floor_y);
         }
         None
+    }
+}
+
+/// One room of the walkable ceiling model.
+///
+/// The room's profile maths stay in [`ceiling_y_for_volume`], so the ceiling a
+/// jumping player bumps against is by construction the same surface the mesh
+/// and the fixtures resolved.
+#[derive(Debug, Clone, PartialEq)]
+struct WalkableCeilingRoom {
+    /// Room footprint `(x0, x1, z0, z1)`, normalised.
+    bounds: (f32, f32, f32, f32),
+    floor_y: f32,
+    height: f32,
+    profile: CeilingProfileDef,
+}
+
+impl WalkableCeilingRoom {
+    /// True when `(x, z)` lies inside the footprint, with the same edge
+    /// tolerance every other surface query uses.
+    fn contains(&self, x: f32, z: f32) -> bool {
+        if !x.is_finite() || !z.is_finite() {
+            return false;
+        }
+        let (x0, x1, z0, z1) = self.bounds;
+        x >= x0 - ROOM_EDGE_EPS_M
+            && x <= x1 + ROOM_EDGE_EPS_M
+            && z >= z0 - ROOM_EDGE_EPS_M
+            && z <= z1 + ROOM_EDGE_EPS_M
+    }
+
+    /// World Y of this room's ceiling at `(x, z)`.
+    fn ceiling_y_at(&self, x: f32, z: f32) -> f32 {
+        ceiling_y_for_volume(self.bounds, self.floor_y, self.height, self.profile, x, z)
+    }
+}
+
+/// Owned, allocation-light ceiling model a controller samples while jumping.
+///
+/// It is built once per level from the same rooms and profiles
+/// [`LevelSurfaces::ceiling_y_at`] resolves against, including a gable's
+/// ridge, but borrows nothing from the definition. Unlike the borrowing query a
+/// point outside every room answers `None`: a legacy spawn or a walkable void
+/// has no ceiling to clamp against.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct WalkableCeiling {
+    rooms: Vec<WalkableCeilingRoom>,
+}
+
+impl WalkableCeiling {
+    /// Builds the ceiling model for a level.
+    #[must_use]
+    pub fn from_level(level: &LevelDef) -> Self {
+        let rooms = level
+            .room_iter()
+            .map(|room| WalkableCeilingRoom {
+                bounds: room.bounds(),
+                floor_y: if room.floor_y.is_finite() {
+                    room.floor_y
+                } else {
+                    0.0
+                },
+                height: room.height,
+                profile: room.ceiling,
+            })
+            .collect();
+        Self { rooms }
+    }
+
+    /// True when the level contains no rooms at all.
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.rooms.is_empty()
+    }
+
+    /// World Y of the ceiling over `(x, z)`, or `None` outside every room.
+    ///
+    /// The first room in level order containing the point wins, matching the
+    /// ownership rule of [`LevelSurfaces::ceiling_y_at`].
+    #[must_use]
+    pub fn ceiling_y_at(&self, x: f32, z: f32) -> Option<f32> {
+        self.rooms
+            .iter()
+            .find(|room| room.contains(x, z))
+            .map(|room| room.ceiling_y_at(x, z))
+    }
+}
+
+/// One water volume resolved against the level's floors: a footprint, a
+/// horizontal surface, a bottom and the author's material/opacity/swimming
+/// contract.
+///
+/// The bottom is resolved once, at level load: an authored `bottom_y` is kept,
+/// and an omitted one becomes the lowest walkable floor under the footprint
+/// (so a basin's water is as deep as the basin) with a `surface_y - 2.0`
+/// fallback for a volume that floats over the void. Physics always stands on
+/// the level's own walkable floor; the resolved bottom exists so authors and
+/// renders can reason about the body as a whole.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WaterVolume {
+    pub x0: f32,
+    pub x1: f32,
+    pub z0: f32,
+    pub z1: f32,
+    /// World Y of the free surface.
+    pub surface_y: f32,
+    /// World Y of the resolved bottom, always below `surface_y`.
+    pub bottom_y: f32,
+    /// Authored surface material id, or `None` for [`DEFAULT_WATER_MATERIAL`].
+    pub material: Option<String>,
+    /// Effective opacity of the surface, `0.0..=1.0`.
+    pub opacity: f32,
+    /// Whether the controller swims in this volume.
+    pub swimming: bool,
+}
+
+impl WaterVolume {
+    /// True when `(x, z)` lies inside the footprint.
+    #[must_use]
+    pub fn contains(&self, x: f32, z: f32) -> bool {
+        if !x.is_finite() || !z.is_finite() {
+            return false;
+        }
+        x >= self.x0 && x <= self.x1 && z >= self.z0 && z <= self.z1
+    }
+
+    /// Resolved depth below the surface, in metres; always positive.
+    #[must_use]
+    pub fn depth(&self) -> f32 {
+        (self.surface_y - self.bottom_y).max(0.0)
+    }
+
+    /// Surface material id: the authored one, or [`DEFAULT_WATER_MATERIAL`].
+    #[must_use]
+    pub fn material_id(&self) -> &str {
+        self.material.as_deref().unwrap_or(DEFAULT_WATER_MATERIAL)
+    }
+}
+
+/// What one point inside a water volume reports to the controller.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct WaterSample {
+    /// World Y of the free surface.
+    pub surface_y: f32,
+    /// World Y of the volume's resolved bottom.
+    pub bottom_y: f32,
+    /// Surface-to-bottom depth, in metres.
+    pub depth: f32,
+    /// Whether the volume allows swimming.
+    pub swimming: bool,
+}
+
+/// The level's water volumes, resolved once at load time.
+///
+/// Lookups are linear over the level's authored volumes (bounded by
+/// [`MAX_LEVEL_WATER_VOLUMES`]) and allocation-free, exactly like the walkable
+/// floor's room scan; a level with no `water` array is empty and every query
+/// returns `None`, which is the historical dry level.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct WaterVolumes {
+    volumes: Vec<WaterVolume>,
+}
+
+/// Points sampled per volume when resolving an omitted `bottom_y`: the centre
+/// and the four footprint corners.
+const WATER_BOTTOM_SAMPLES: [(f32, f32); 5] =
+    [(0.5, 0.5), (0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)];
+
+impl WaterVolumes {
+    /// An empty set: every query misses.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            volumes: Vec::new(),
+        }
+    }
+
+    /// Resolves every volume against the level's walkable floors.
+    #[must_use]
+    pub fn from_level(level: &LevelDef) -> Self {
+        let surfaces = LevelSurfaces::new(level);
+        let mut volumes = Vec::with_capacity(level.water.len());
+        for def in &level.water {
+            let (x0, x1, z0, z1) = def.bounds();
+            if !x0.is_finite() || !x1.is_finite() || !z0.is_finite() || !z1.is_finite() {
+                continue;
+            }
+            let surface_y = def.surface_y;
+            if !surface_y.is_finite() {
+                continue;
+            }
+            let bottom = def
+                .bottom_y
+                .filter(|value| value.is_finite())
+                .unwrap_or_else(|| {
+                    let mut lowest = f32::INFINITY;
+                    for (u, v) in WATER_BOTTOM_SAMPLES {
+                        let x = (x1 - x0).mul_add(u, x0);
+                        let z = (z1 - z0).mul_add(v, z0);
+                        if let Some(floor) = surfaces.floor_y_at(x, z) {
+                            lowest = lowest.min(floor);
+                        }
+                    }
+                    if lowest.is_finite() {
+                        lowest
+                    } else {
+                        surface_y - 2.0
+                    }
+                });
+            // A bottom at or above the surface has no body to swim in; keep it
+            // strictly below so depth() is always positive.
+            let bottom_y = if bottom < surface_y {
+                bottom
+            } else {
+                surface_y - 0.05
+            };
+            volumes.push(WaterVolume {
+                x0,
+                x1,
+                z0,
+                z1,
+                surface_y,
+                bottom_y,
+                material: def.material.clone(),
+                opacity: def.opacity(),
+                swimming: def.swimming,
+            });
+        }
+        Self { volumes }
+    }
+
+    /// True when the level defines no volumes.
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.volumes.is_empty()
+    }
+
+    /// Number of resolved volumes.
+    #[must_use]
+    pub const fn len(&self) -> usize {
+        self.volumes.len()
+    }
+
+    /// Every resolved volume, in authored order.
+    #[must_use]
+    pub fn volumes(&self) -> &[WaterVolume] {
+        &self.volumes
+    }
+
+    /// The water at `(x, z, y)`, or `None` when the point is outside every
+    /// footprint or above its surface.
+    ///
+    /// Overlapping volumes resolve like overlapping floor regions: the last one
+    /// authored wins.
+    #[must_use]
+    pub fn sample(&self, x: f32, z: f32, y: f32) -> Option<WaterSample> {
+        if !y.is_finite() {
+            return None;
+        }
+        for volume in self.volumes.iter().rev() {
+            if !volume.contains(x, z) || y > volume.surface_y {
+                continue;
+            }
+            return Some(WaterSample {
+                surface_y: volume.surface_y,
+                bottom_y: volume.bottom_y,
+                depth: volume.depth(),
+                swimming: volume.swimming,
+            });
+        }
+        None
+    }
+
+    /// World Y of the topmost surface covering `(x, z)`, ignoring height.
+    #[must_use]
+    pub fn surface_y_at(&self, x: f32, z: f32) -> Option<f32> {
+        self.volumes
+            .iter()
+            .filter(|volume| volume.contains(x, z))
+            .map(|volume| volume.surface_y)
+            .reduce(f32::max)
     }
 }
 

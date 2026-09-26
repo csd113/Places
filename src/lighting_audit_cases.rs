@@ -218,7 +218,15 @@ fn group_b_a_zero_intensity_fixture_behaves_like_no_fixture() {
         r#"{ "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 5.0, "brightness": 0.0, "color": [1.0, 0.0, 0.0] }"#,
     ));
     let mesh = build_checked(&coloured_off);
-    let panel = mesh.triangles_for(SurfaceKind::Light);
+    // Only the luminous sheet face carries the fixture's emission; the
+    // untextured housing around it stays a fixed grey.
+    let panel = mesh.triangles_for_key(crate::render::SurfaceKey::new(
+        SurfaceKind::Light,
+        crate::render::MaterialIndex::try_from(
+            crate::lighting::FixtureKind::FluorescentPanel.index(),
+        )
+        .expect("four families fit u16"),
+    ));
     assert!(!panel.is_empty(), "the fixture panel still renders");
     assert!(
         panel.iter().all(|vertex| vertex.color[0] < 0.5),
@@ -263,11 +271,15 @@ fn group_c_dense_fixture_grids_saturate_without_overflow_or_geometry_explosion()
         }
 
         // Bounded geometry: only the fixture panel batch grows with light count,
-        // and flat floor cells merge below the cell-grid bound.
+        // and flat floor cells merge below the cell-grid bound. A panel is its
+        // luminous diffuser plus the housing the fixture profile budgets.
         let mesh = build_checked(&level);
+        let panel_quads =
+            i32::try_from(crate::lighting::fixture_profile("core:fluorescent_panel_01").quads)
+                .unwrap_or(i32::MAX);
         assert_eq!(
             mesh.batches.light_batch.count,
-            i32::try_from(count).unwrap_or(i32::MAX) * 6
+            i32::try_from(count).unwrap_or(i32::MAX) * panel_quads * 6
         );
         assert!(mesh.batches.floor_batch.count <= 12 * 12 * 6);
         assert!(mesh.batches.floor_batch.count > 0);
@@ -1607,6 +1619,7 @@ fn empty_level() -> LevelDef {
         walls: Vec::new(),
         floor_patches: Vec::new(),
         floor_regions: Vec::new(),
+        water: Vec::new(),
         ramps: Vec::new(),
         stairs: Vec::new(),
         half_walls: Vec::new(),
@@ -1666,6 +1679,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         falloff: None,
         enabled: true,
         emission: None,
+        align: Default::default(),
     });
     let lighting = bake(&zero_room);
     let baseline = lighting.rooms()[0].baseline.luminance();
@@ -1762,6 +1776,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         falloff: None,
         enabled: true,
         emission: None,
+        align: Default::default(),
     });
     let lighting = bake(&lights_only);
     assert_eq!(lighting.lights().len(), 1);
@@ -1788,6 +1803,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         falloff: None,
         enabled: true,
         emission: None,
+        align: Default::default(),
     });
     let lighting = bake(&broken);
     assert!(lighting.lights().is_empty());

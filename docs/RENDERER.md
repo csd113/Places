@@ -1,6 +1,6 @@
 # Renderer
 
-Places has one renderer: wgpu 30.0.1 on Metal (macOS), Vulkan (Linux) or Direct3D 12 (Windows). It draws the complete frame — the baked-light world, props and dynamic objects, the lightmap atlas and its vertex-lit fallback, reflection probes and the planar mirror, fixture emission, decals, fog, the emissive bloom chain and resolve, and the HUD — behind the engine-facing `Renderer` facade described in [ARCHITECTURE.md](ARCHITECTURE.md). This document is the renderer reference: current contracts plus the recorded measurements that bound them. The renderer was ported from the project's earlier reference implementation; the preserved implementation and parity evidence live in Git (§14).
+Places has one renderer: wgpu 30.0.1 on Metal (macOS), Vulkan (Linux) or Direct3D 12 (Windows). It draws the complete frame — the baked-light world, props, dynamic objects, animated characters and translucent water surfaces, the lightmap atlas and its vertex-lit fallback, reflection probes and the planar mirror, fixture emission, decals, fog, the emissive bloom chain and resolve, and the HUD — behind the engine-facing `Renderer` facade described in [ARCHITECTURE.md](ARCHITECTURE.md). This document is the renderer reference: current contracts plus the recorded measurements that bound them. The renderer was ported from the project's earlier reference implementation; the preserved implementation and parity evidence live in Git (§14).
 
 ## 1. Backend policy and lifecycle
 
@@ -101,7 +101,7 @@ render_scene:
   planar capture (mirror ranges excluded, modes zeroed, capture environment)
   update material reflection modes + environment uniforms + cameras
   encode:
-    scene pass        -> raw scene target + depth  (static, props, dynamics, decals)
+    scene pass        -> raw scene target + depth  (static, props, dynamics, characters, decals)
     emissive pass     -> raw emissive target       (when an emissive draw survived)
     blur x2           -> quarter-size raw targets
     resolve/present   -> raw presented target
@@ -562,6 +562,10 @@ Reflections are opt-in per material and weighted by the sheen the material alrea
 
 **Dynamic objects.** One small model-space buffer per model, one group-3 environment per object carrying its model matrix and its baked-light probe (`light_scale`), refreshed by `update_dynamic` only when an object moves. They are opaque, outside the static batches and the bake, and cast no shadow. The washer-drum demonstration is spawned by `set_dynamic_demo` for levels that ship one.
 
+**Water surfaces.** A level's `water[]` volumes contribute one quad each at their `surface_y` into the ordinary static mesh's floor family (`render/common/water.rs`): the material's `alpha_mode: "blend"` contract puts them in the sorted back-to-front translucent pass with depth writes off and no culling, so the same quad is the surface seen from above and from below the waterline. The vertex colour carries the baked light of the corners, the vertex alpha carries the volume's authored `opacity` while the catalog material stays opaque, and the quad is never lightmapped — it stays out of the atlas and is lit by per-corner sampling, exactly like a fixture face or a glass pane. Nothing else is emitted: the basin floor and walls are the level's own room and floor-region geometry.
+
+**Characters.** A placed prop whose model carries a glTF skin is claimed by the character path instead of the static prop draw (`render/common/character.rs`): the bind pose is still baked into the ordinary prop batch (light occlusion and the shipped-asset checks are untouched) and only that model's GPU prop draws are suppressed. The neutral animator keeps one blend weight per locomotion state — the current state approaches one exponentially with a 0.18 s time constant, walking advances a gait phase per metre travelled and swimming at a fixed 1.1 Hz — and produces one model-space skinning delta per joint. The backend (`render/wgpu/character.rs`) re-skins a character's vertices on the CPU into its own `VERTEX | COPY_DST` buffer **only on the frames its pose revision changes**, draws one indexed draw per primitive after the dynamics with frustum culling, and carries the placement through a per-character group-3 environment. A rig with clips plays the clip its name maps to (`idle`, `walk`/`run`, `jump`/`air`, `swim`) and crossfades over the same time constant; a rig with no clips uses the procedural gait (classified leg pairs, tail chain and body chain). Baked light is sampled once per vertex at spawn, so a character is lit like a static prop and moves without a re-bake.
+
 **Fixtures and emission.** Fixture luminous faces are `SurfaceKind::Light` ranges with per-vertex emission; their housings draw the shared white sheet. A fixture's light remains entirely in the CPU bake — the emission term is visual only and never illuminates anything. Material emission (`emissive`, `emissive_intensity`, `emissive_mask`) is independent of environmental illumination, so a surface or fixture face can read fully bright while casting nothing, and a light can cast while nothing glows. A level can make a material's emission `pulse` or `flicker`, deterministically and within a bounded depth; the animation reaches the shader through `emission_scale`.
 
 ## 10. Decals
@@ -710,7 +714,7 @@ The recorded comparison figures below are the current renderer measured against 
 | Lightmap atlas pages | byte-identical between the two renderers, High and Low |
 | A/B contribution correlation: planar / lightmap / probe | 0.9994 / 0.991–0.993 / 0.993–0.994 |
 | A/B contribution magnitudes (mean, max): planar / lightmap / probe / bloom | 3.931 vs 3.922, 32/32 · 5.054 vs 5.040, 49/49 · 1.062 vs 1.057, 5/5 · 0.067 vs 0.063 |
-| Places Demo draw set (canonical frame) | 118 static + 37 prop + 1 dynamic + 3 decal draws, plus the UI pass; static upload 6,411 vertices / 10,470 indices / 118 draws |
+| Places Demo draw set (canonical frame, recorded before the character path) | 118 static + 37 prop + 1 dynamic + 3 decal draws, plus the UI pass; static upload 6,411 vertices / 10,470 indices / 118 draws. The demo's one skinned placement adds three character draws and suppresses those three static prop draws |
 | Lifecycle: texture residency High / Low | 188,743,640 B / 15,728,600 B, stable across the scripted High↔Low rebuilds |
 
 The parity evidence for the preserved implementation is reproducible from the tag worktree; the procedure is in [VERIFICATION.md](VERIFICATION.md).
@@ -735,6 +739,8 @@ The renderer's contracts are covered by in-crate tests, most of which run withou
 - **Materials:** resolution rules, the 80-byte uniform and its flags, the display-space colour maths against every authored texel byte, normal decode, alpha classification, blend state, translucent ordering, fallbacks.
 - **Lighting:** the sheen equation (CPU mirror), the display-space assembly order, the unlit bypass conditions, the vertex-lit build's byte-for-byte mesh, the lightmap CPU mirror of `surface_light`, the `needs_upload_fallback` rule.
 - **Reflections:** the six face directions/ups, the 90° projection with the Y flip, the planar mirror composition, `+1.2 m` bake position, nearest probe/plane rules, and the ignored GPU cube round-trip.
+- **Characters:** the skinning delta maths against a synthetic two-bone rig, bind-pose bounds, joint/weight parsing and malformed-skin rejection, blend-weight convergence, distance-driven walking phase, frame-rate-independent playback at 30/60/144 fps, clip name mapping and LINEAR/STEP sampling, crossfades, orthonormal finite matrices across state switches, and no per-frame reallocation.
+- **Water:** one translucent floor quad per authored volume at its surface height, the volume's opacity in the vertex alpha, no lightmap page, the `blend` material in the sorted translucent pass, and back-to-front ordering shared with the other translucent surfaces.
 - **Post/UI:** blur kernel and step, target sizes (scene = level, presented = drawable), resolve maths, the single-conversion contract, ortho corners, viewport maths, blend factors.
 - **Integration:** the world pipeline variants and their states, emissive flag propagation, material reflection-mode rules, live window and quality cycle parsing (`PLACES_BENCH_WINDOW_CYCLE`, `PLACES_BENCH_QUALITY_CYCLE`, `PLACES_BENCH_GRAPHICS_CYCLE`).
 

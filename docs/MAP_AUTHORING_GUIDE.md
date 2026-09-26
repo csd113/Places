@@ -123,7 +123,9 @@ Authoritative paths:
 | External PNG surfaces, decals, fixture faces; catalog + themes | Implemented |
 | Level `.zip` packs with `materials.json` and pack textures | Implemented |
 | `ceiling_lights` accepting the `lights` alias | Implemented |
-| Water, refraction/transmission, realtime dynamic lights, realtime shadow maps, skeletal animation | Not implemented |
+| Water volumes (`water[]`): a translucent surface, wading, swimming and surface swimming | Implemented (see [Water volumes](#water-volumes-wading-swimming-and-surfacing)) |
+| Water refraction/transmission, realtime dynamic lights, realtime shadow maps | Not implemented |
+| Animated entities: a placed skinned GLB follows the player's locomotion state (idle/walking/airborne/swimming); a rig with authored clips plays them, a no-clip rig uses the built-in procedural gait | Implemented (see [§16](#16-props-and-models)) |
 | Screen-space reflections; per-frame raytraced reflections; cubemap probes with realtime updates | Not implemented (static probes and one planar plane exist) |
 | Per-object transparency on GLB props (a prop's glTF `alphaMode` is not read) | Not implemented |
 | Emissive decals; per-placement emission overrides; cone/spot lights | Not implemented |
@@ -191,9 +193,11 @@ add one per the theme recipe; generic `core` props such as `core:couch`, `core:s
 one `rooms` entry at `floor_y: 0.0` for the lobby and a `floor_y: -3.0` room for the
 basement (reach it the way Places Demo reaches its stair hall: a chain of
 `floor_regions` whose offsets differ by ≤ 0.4 m, with the topmost region meeting the
-doorway) → reuse `core:carpet_damp_01` for flood-damaged surfaces (there is **no water
-rendering**, so "flooded" must be implied by damp/stained materials and region
-recesses) → dim green lights as ordinary ceiling fixtures with
+doorway) → reuse `core:carpet_damp_01` for flood-damaged surfaces, put a
+`water[]` volume over the recessed basement floor for the standing water (see
+[Water volumes](#water-volumes-wading-swimming-and-surfacing)), and keep damp
+materials for everywhere the water does not reach → dim green lights as ordinary
+ceiling fixtures with
 `"color": [0.35, 1.0, 0.45]` and low `brightness` → validate. Do **not** author a
 second variant of the level for a lower quality level; one level serves all
 three.
@@ -322,6 +326,17 @@ skeleton and the per-field tables.
     }
   ],
 
+  "water": [                               // translucent swimming volumes; no geometry
+    {
+      "x": 8.0, "z": 10.0, "width": 12.0, "depth": 6.0, // REQUIRED footprint, > 0
+      "surface_y": -1.65,                  // REQUIRED world Y of the free surface
+      "bottom_y": -3.0,                    // optional; default: the lowest floor below
+      "material": "core:water_pool_01",    // optional; default core:water_pool_01
+      "opacity": 0.62,                     // optional 0..1; default 0.62
+      "swimming": true                     // optional; false keeps it decorative
+    }
+  ],
+
   "ramps": [                               // sloped walking surfaces
     { "x": 4.0, "z": 0.4, "width": 1.0, "depth": 1.6,  // REQUIRED
       "offset_y": 0.0, "rise": 0.75,        // offset at the min corner, signed rise
@@ -404,7 +419,8 @@ skeleton and the per-field tables.
       "range": 6.0,                        // optional, default 6.0
       "falloff": "smooth",                 // optional, default "smooth"
       "enabled": true,                     // optional, default true
-      "emission": 0.7                      // optional; default = brightness
+      "emission": 0.7,                     // optional; default = brightness
+      "align": "grid"                      // optional; "grid" (default) or "none"
     }
   ],
 
@@ -485,6 +501,7 @@ read the "Enforced as" column carefully.
 | Decals | ≤ 5000 | Loader rejection |
 | Decal edge (`width`, `height`) | ≤ 10 m | Loader rejection |
 | Floor regions | ≤ 2000 | Loader rejection |
+| Water volumes | ≤ 2000 | Loader rejection |
 | Ramps | ≤ 500 | Loader rejection |
 | Staircases | ≤ 500 | Loader rejection |
 | Half walls | ≤ 2000 | Loader rejection |
@@ -959,6 +976,72 @@ The same room's walk-in step, one 0.35 m rise above the basin floor:
   patch/region edge, so materials and baked light can vary across a large room. This
   is automatic; there is nothing to author.
 
+### Water volumes: wading, swimming and surfacing
+
+`water[]` (alias `water_volumes`) authors rectangular bodies of water. The
+surface draws as a translucent quad and the player controller samples the same
+rectangle, so what is drawn is exactly what is swum in. A water volume owns
+**no geometry of its own** — the basin floor, its walls and its steps still
+come from the room and its `floor_regions`; the volume adds the waterline and
+the behaviour.
+
+```json
+"water": [
+  { "x": 8.0, "z": 10.0, "width": 12.0, "depth": 6.0,
+    "surface_y": -1.65, "bottom_y": -3.0,
+    "material": "core:water_pool_01", "opacity": 0.62, "swimming": true }
+]
+```
+
+| Field | Type | Required | Default | Constraints / semantics |
+| --- | --- | --- | --- | --- |
+| `x`, `z` | number | **yes** | — | Minimum corner of the footprint (normalised, like a region). |
+| `width`, `depth` | number | **yes** | — | `> 0`. |
+| `surface_y` | number | **yes** | — | World Y of the free surface, like a fixture's `y` — not relative to the floor. |
+| `bottom_y` | number | no | lowest walkable floor under the footprint, else `surface_y - 2.0` | World Y of the bottom. Metadata and depth reporting only; physics always stands on the walkable floor. Must be finite and strictly below `surface_y`. |
+| `material` | string | no | `core:water_pool_01` | Surface material. The default is `alpha_mode: "blend"`, so any replacement must be translucent or the water reads as a solid lid. |
+| `opacity` | number | no | `0.62` | `0.0..=1.0`; the surface's vertex alpha. The material itself stays opaque, so one material serves every volume's opacity. |
+| `swimming` | boolean | no | `true` | `false` keeps the surface decorative: the player walks or falls through it, and no swim state can trigger. |
+
+How it behaves:
+
+* **The surface** is one quad per volume at `surface_y`, drawn through the
+  material's `blend` contract in the sorted translucent pass with depth writes
+  off and two-sided, so the basin floor, its walls and the submerged ladder stay
+  visible from above and the surface is seen from underwater as well. Its UVs
+  continue the world tile grid, its colour carries the baked light of its
+  corners and it stays out of the lightmap atlas: a volume belongs to the water,
+  not to a room's chart.
+* **Wading** is the ordinary walking controller: the water at the player's feet
+  at or below `0.55 m` deep is waded at full walk speed, and a jump works
+  normally. The thresholds are shared with standing up, so a pool edge cannot
+  oscillate between walking and swimming.
+* **Swimming** starts once the water at the feet is deeper than `0.55 m`. The
+  swimmer moves at `0.55×` walk speed, the body sinks at a `0.5 m/s` terminal
+  until it rests `0.55 m` above the floor (so a `1.35 m` basin — shallower than
+  the standing eye height — still fully submerges), and holding Jump rises to
+  the float line at `surface_y + 0.12 m` with a small idle bob, where the eye
+  stays. Releasing Jump sinks again. A jump press never ground-jumps while
+  submerged.
+* **Getting out** only works where the walkable floor underfoot is within
+  `0.55 m` of the surface: the player stands up there (walking on from a
+  submerged step), and the swimming wall band sits one `0.4 m` step below the
+  surface so a ledge within a step of the waterline can be climbed. A deeper
+  rim stays solid, exactly like a floor-region rim on land.
+* **Overlapping volumes** resolve like overlapping floor regions: the last one
+  authored at a point wins.
+* **Validation**: non-finite values, a non-positive footprint, a surface at or
+  below the floor beneath it, a `bottom_y` at or above the surface, a blank
+  `material`, an `opacity` outside `0..=1`, a volume that overlaps no room, or
+  more than 2000 volumes are named errors. A volume whose surface is below the
+  floor it covers would be hidden inside the geometry, so it is rejected rather
+  than silently invisible.
+
+Places Demo's pool is two adjacent volumes at one waterline: the basin
+(`x 8..20, z 10..16`, surface `-1.65`, floor `-3.0` → 1.35 m deep) and the
+submerged walk-in step (`x 10..16, z 16..16.9`, the same surface, floor
+`-1.85` → 0.2 m of wading). Jump in from the deck, swim to the step, stand up.
+
 ### Ramps and staircases
 
 A level can author **sloped walking surfaces** (`ramps`) and **stepped walking
@@ -1108,7 +1191,24 @@ dimension; ties → X), and an archway's opening is centred on that length.
 | `archways[]` | `width`, `depth`, `height` (block), `opening_width`, `opening_height` (at the crown), `arch_rise` (`0` = flat lintel) | `material` (faces and ends), `reveal_material` (jambs and soffit) | **Solid piers and spandrel, open doorway.** Collision covers the two piers and the wall above the opening only, so the opening is never blocked. The arch itself is eight flat segments. |
 | `guardrails[]` | `length`, `height` (default 1.0), `rise` (slopes the rail; omitted follows the walkable floor), `post_spacing` (default 1.2) | `material` (rails), `post_material` (default: the rails') | **Solid barrier.** Its box spans the run from just below the base line to the top rail, so it stops the player from either side. Rail width and post section are fixed (0.07 m rail, 0.06 m post). |
 | `thresholds[]` | `length`, `thickness` (default 0.06), `height` (default 0.012) | `material` (default: the level's floor) | **No collision.** A 12 mm strip of trim; the player walks over it. The loader rejects a strip whose ends stand at different floor heights (more than 0.05 m), that lies outside every room, or that is buried in a wall solid. |
-| `baseboards[]` | `length`, `height` (default 0.09), `thickness` (default 0.018) | `material` (default: the level's wall) | **No collision.** The back face is not drawn (it is buried in the wall), and the run stands proud of the wall plane, so it never shares a plane with it. The loader rejects a board whose whole cross-section is inside a wall solid. |
+| `baseboards[]` | `length`, `height` (default 0.09), `thickness` (default 0.018) | `material` (default: the level's wall) | **No collision.** The back face is not drawn (it is buried in the wall), and the run stands proud of the wall plane, so it never shares a plane with it. The loader rejects a board whose whole cross-section is inside a wall solid. A wall material may also declare an automatic trim (see *Automatic trim* below). |
+
+**Automatic trim from the catalog.** A wall material may declare a `baseboard`
+material id in `assets/catalog.json` (section 14). At load, every wall length
+face whose resolved material declares one — the per-face `faces` override, else
+the wall's `material`, else `defaults.wall` — receives baseboard runs in that
+trim material, appended **after** any authored `baseboards`. A face qualifies
+only when it fronts one walkable floor along its whole length (sampled just
+outside the face at both inset ends, the middle and the quarter points; every
+sample must exist and agree within 0.05 m) and the wall's own base meets that
+floor within 0.05 m — a floating or half wall, or a wall along a step, is
+skipped. Each generated run is pinned to the floor it fronts, uses the default
+height and thickness, and is split around every opening whose sill reaches the
+board: a floor-level door or passage is never covered, while a window with a
+sill keeps its board. A run an authored `baseboards[]` entry already covers on
+the same plane is not generated, so hand-placed trim always wins. Author
+`baseboards` explicitly when you want a different material or height, or a run
+the automatic pass would not place.
 
 Rules that matter:
 
@@ -1825,7 +1925,9 @@ anywhere). `display_name` has a legacy alias `name`.
 | `solid` | boolean | optional | `false` | props, entities (catalog advisory; level `solid` controls collision) |
 | `surface` | string | optional | none | materials/textures; `wall`/`floor`/`ceiling` documentation/validation |
 | `texture` | string | **required for `material`** | — | materials. Logical id of a `texture` asset. Not allowed on other types. |
+| `baseboard` | string | optional | — | materials. Logical id of a `material` asset used as the automatic trim for wall faces finished with this material (section 10, *Automatic trim*). Must resolve to a declared material; a present-but-blank value is a catalog error. |
 | `tile_metres` | number | optional | `2.0` (`0.05`–`64`) | materials only |
+| `grid_metres` | number | optional | the material's `tile_metres` | materials only, `0.05`–`64`. World-space spacing of the visible panel joints when a sheet paints several panels per repeat; grid-aligned ceiling fixtures snap to its cell centres (section 21). The office ceiling declares `1.0` inside its 2 m tile. |
 | `tint` | `[r,g,b]` | optional | `[1,1,1]` (channels `0`–`1`) | materials only |
 | `emissive` | `[r,g,b]` | optional | — | materials (`0`–`1` each; the anchor of the emission group) |
 | `emissive_intensity` | number | optional | `1.0` | materials (`0`–`8`; requires `emissive`) |
@@ -1847,7 +1949,8 @@ anywhere). `display_name` has a legacy alias `name`.
 
 A material's `texture` must name a declared, file-backed `texture` asset
 (`source: "file"`, `model` ending `.png`); `emissive_mask` and `normal_texture`
-follow exactly the same rule. A material may be declared before the
+follow exactly the same rule, and a material's `baseboard` must name a declared
+`material` asset. A material may be declared before the
 texture it draws with, but never with a dangling reference: the catalog does a second
 pass after all entries exist, and any failure rejects the catalog.
 
@@ -1909,7 +2012,7 @@ new asset type is added, add a row here and update the referenced sections.
 | Asset type | Purpose | Physical resource | Placeable directly in a level? | Referenced by |
 | --- | --- | --- | --- | --- |
 | `prop` | Three-dimensional object | `model` = `.glb` under `assets/` | **Yes** — `props[].model` | levels, `prop_proxies.json` (derived) |
-| `entity` | A special placeable actor (currently `spooner-man`) | `model` = `.glb` | **Yes** — same prop pipeline | levels |
+| `entity` | A placeable character: a skinned GLB, posed every frame by the character path | `model` = `.glb` | **Yes** — same prop pipeline | levels |
 | `material` | Surface appearance definition | `source: "definition"`, no file; names a `texture` | No | `defaults`, rooms, walls/`faces`, patches, regions, opening `glass` |
 | `texture` | A surface PNG | `model` = `.png` | No | a `material`'s `texture`, `emissive_mask`, `normal_texture` |
 | `light` | A fixture's visible face PNG (the fixture's mesh family is code) | `model` = `.png` | No (levels name it in `ceiling_lights[].fixture`) | level fixture ids; `src/lighting/tuning.rs` fixture table |
@@ -1941,8 +2044,24 @@ embedded in the GLB; they are not separate catalog assets.
 * Embedded PNG images only, one decoded copy per distinct image actually used; no
   external `.bin`, no external/data-URI textures, no Draco/WebP extensions.
 * UVs must be finite and inside `-0.01..=1.01` — props use **non-tiling** UVs.
-* Still rejected (each with a descriptive message): skins, animations, morph targets,
-  sparse accessors, non-triangle primitive modes, and any extension other than
+* **Skins** (at most one per model, on one mesh node): `JOINTS_0` (8/16-bit),
+  `WEIGHTS_0` (float32 or normalised 8/16-bit), a retained node hierarchy,
+  `joints` and `inverseBindMatrices`. The static prop path bakes the bind pose,
+  so a skinned model still draws, occludes light and passes the shipped-asset
+  checks like any other prop; a **placed** skinned model is re-posed by the
+  character path. The engine ceiling is 128 joints per model.
+* **Animations** (optional): LINEAR and STEP samplers driving node translation,
+  rotation or scale; up to 64 clips and 4096 channels per model. CUBICSPLINE
+  samplers and morph-target weight channels are rejected by name. A clip whose
+  name contains `idle`, `walk`/`run`, `jump`/`air`/`fall` or `swim`
+  (case-insensitive) is assigned to that locomotion state; states without a
+  matching clip fall back to the idle clip.
+* A skinned model with **no clips** is posed by the built-in procedural
+  locomotion driver: leg pairs in a diagonal gait, a tail chain and the body
+  chain are classified by joint name. A rig the driver cannot classify stays in
+  its rest pose; entities are not required to ship clips.
+* Still rejected (each with a descriptive message): morph targets, sparse
+  accessors, non-triangle primitive modes, and any extension other than
   `KHR_materials_emissive_strength`.
 * A broken model, an over-budget model, an unknown id or a missing file never fails a
   level: it draws a placeholder box instead (see [Fallback behavior](#fallback-behavior)).
@@ -2234,8 +2353,9 @@ collision box).
 The engine has a separate render path for objects whose transform changes every
 frame — moving components that must not be re-baked, re-batched or written into
 the static lightmap. It is proven by one generated object: a `core:washer_drum`
-turning in front of every placed `core:washing_machine` (the machine itself is an
-ordinary static prop and participates in the bake).
+turning inside every placed `core:washing_machine`, behind its open porthole and
+inside the machine's cavity (the machine itself is an ordinary static prop and
+participates in the bake).
 
 * Dynamic objects are engine-created, not authored in level JSON. Placing a
   `core:washing_machine` is the only way a level influences one.
@@ -2291,7 +2411,7 @@ code**.
 
 | Fixture ID | Mount type | Visible artwork (PNG) | Shape / footprint | Important authoring notes |
 | --- | --- | --- | --- | --- |
-| `core:fluorescent_panel_01` | ceiling (default) | `environment/office/textures/lights/fluorescent_panel_01.png` (1024×512) | Rectangle 1.2 × 0.6 m (half extents 0.6 × 0.3); rotation swaps axes | The default family **and the fallback for every unknown id**. The fitted sheet is the whole visible fixture (no generated bezel beside it). Hangs 0.01 m below the local ceiling; under a gable it follows the eave/ceiling above its footprint. |
+| `core:fluorescent_panel_01` | ceiling (default) | `environment/office/textures/lights/fluorescent_panel_01.png` (1024×512) | Recessed troffer, outer footprint 1.2 × 0.6 m (half extents 0.6 × 0.3); rotation swaps axes | The default family **and the fallback for every unknown id**. A real housing frames the diffuser: side walls drop 0.045 m from the ceiling plane, a bottom frame borders the aperture, a top flange closes the body, and the fitted 2:1 sheet (aperture 1.12 × 0.56 m) is recessed 0.012 m above the frame's bottom. Only the diffuser glows; the housing is a fixed mid grey. Hangs 0.01 m below the local ceiling; under a gable it follows the eave/ceiling above its footprint. Grid alignment (section 21) snaps its centre to the ceiling material's panel grid at load by default. |
 | `core:pool_light_round` | ceiling | `environment/pool/textures/lights/pool_light_round_01.png` (128×128) | Disc, 0.44 m diameter (half extent 0.22); rotation-invariant | Round recessed downlight. Same ceiling-plane derivation as the panel. |
 | `home:ceiling_light_round` | ceiling (default) | `environment/home/textures/lights/ceiling_light_round_01.png` (256×256) | Disc, 0.32 m diameter (half extent 0.16); rotation-invariant | Round residential flush mount: a shallow white drum with a glowing diffuser disc, hanging 0.07 m below the ceiling plane. Its pool is the disc's bounding square, as with the pool downlight. |
 | `core:pool_light_wall` | **wall** — requires `"mount": "wall"` and a finite world `"y"` | `environment/pool/textures/lights/pool_light_wall_01.png` (128×64) | Rectangle 0.4 × 0.18 m (half extents 0.20 × 0.09) centred on (x, y, z) | Faces `rotation_degrees`: 0 = +Z, 90 = +X, 180 = −Z, 270 = −X. Place the point on the wall plane; the body extends ~0.11 m forward. Light is emitted from the rectangle's front. |
@@ -2335,8 +2455,9 @@ Fixture geometry is code. To add a family, touch each of these:
    in `fixture_profile`, and append the id to `LIGHT_FIXTURE_IDS`.
 2. `src/render/common/fixtures.rs` — implement the family's emitter(s): the visible face
    (the fitted PNG) into the `lit` batch, and only genuine untextured body
-   geometry (a can, a housing) into `housing`. The office panel has no housing:
-   its sheet is the whole fixture.
+   geometry (a can, a housing, a frame) into `housing`. For an example, the office
+   panel emits its diffuser into `lit` and a real troffer housing (side walls,
+   bottom frame, top flange) into `housing`.
 3. `src/render/common/geometry.rs` (`emit_fixtures`) — add the `match` arm that calls the new
    emitter.
 4. Add the PNG under `assets/environment/<theme>/textures/lights/` (POT, opaque,
@@ -2479,6 +2600,7 @@ name is historical; **`lights` is accepted as a serde alias** for the same array
 | `falloff` | `"smooth"` \| `"linear"` \| `"constant"` | no | `"smooth"` | Closed enum. Pool decay curve. `constant` holds full strength to `range` then stops (a deliberately hard pool). |
 | `enabled` | boolean | no | `true` | `false` keeps the fixture's visible glow but removes **all** of its environmental illumination. |
 | `emission` | number | no | the fixture's `brightness` | Independent emissive strength of the visible face, finite, `≥ 0`, clamped to `8.0`. Lets a face read brighter (or dimmer) than the light the fixture casts. |
+| `align` | `"grid"` \| `"none"` | no | `"grid"` | Closed enum. Grid alignment snaps a fluorescent panel's centre onto its ceiling material's visible panel grid at load (see *Ceiling grid alignment* below). `"none"` keeps the authored `x`/`z` exactly. |
 
 Ceiling fixture, office default look (Places Demo, office room with red emergency
 light):
@@ -2509,6 +2631,40 @@ Stacked-storey selection (ceiling fixtures only):
 ```json
 { "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 5.0, "y": 6.2 }
 ```
+
+### Ceiling grid alignment
+
+Ceiling artwork is a world-space tile: a ceiling material whose catalog entry
+declares `tile_metres: 2.0` repeats every 2 m from the world origin. A sheet can
+paint more than one panel per repeat — the office ceiling art is four 1 m
+panels inside its 2 m tile — so the catalog also declares the visible panel
+module as `grid_metres` (section 14), which defaults to `tile_metres` for a
+sheet that paints one panel per repeat. A fluorescent panel placed by eye often
+crosses the T-bar and reads as a fitting that was dropped in by accident.
+
+By default the loader fixes that: at load, every fluorescent panel whose
+`align` is `grid` snaps its centre to the nearest **panel** centre of the
+ceiling material above it, on both axes. The snapped position is the one the
+baked illumination, the drawn mesh, the fixture probe and collision all use —
+there is no second copy. The formula is
+
+```text
+snapped = ((v - T/2) / T).round() * T + T/2
+```
+
+where `T` is the ceiling material's `grid_metres` and `v` is the authored `x`
+or `z`; `f32::round` is half-away-from-zero, so a placement exactly on a panel
+line moves to the higher cell. Only `x`/`z` change: rotation, colour,
+brightness, range, falloff and emission are untouched.
+
+Alignment applies only to the grid-panel family under a flat ceiling, inside a
+room, with a ceiling material that resolves a positive finite `grid_metres`.
+Round downlights, gable ceilings, blank or unresolved ceiling materials and
+fixtures outside every room keep the authored position. Author `"align":
+"none"` when a panel must stay exactly where it was placed (for example, a
+deliberately skewed installation or a placement that matches a prop). A legacy
+level that never heard of the field gets the default (`grid`), and every panel
+the demo ships ends up centred in its ceiling panels.
 
 Invalid values are rejected with named messages (`Wall light {i} needs a world height
 (\`y\`)…`, `Ceiling light {i} intensity cannot be negative`, `… colour channels must be
@@ -2606,10 +2762,12 @@ interiors that stop being finished around you. Keep this practical:
   ids, materials and lights; a lower level lowers texture resolution, lightmap
   density, scene resolution and surface detail. Never author a second variant.
 
-There is still **no water rendering and no refraction**. Implied water is
-damp/damaged materials plus recessed geometry — optionally with a wet
+Water is a **volume you author** (`water[]`, see
+[Water volumes](#water-volumes-wading-swimming-and-surfacing)): a translucent
+surface plus wading and swimming, with no refraction and no transmission. Puddled
+water that the player should not swim in can instead be implied with a wet
 `floor_patches` material (`core:pool_deck_wet_01`, a near-mirror `planar` sheen over
-the dry tile) where puddled water should read. Windows may hold real glass (see
+the dry tile). Windows may hold real glass (see
 [Panes](#panes-glass-grilles-and-screens)), and a dull/dirty/clear/tinted pane is a
 material choice, not a geometry one. Static probe reflections and one planar mirror
 per frame exist and are used exactly where a material marks them; they are not a
@@ -3003,10 +3161,12 @@ POT; decals/fixtures are fitted, so author complete artwork with no bleed margin
 
 **Symptom:** `[props] prop model {path} is invalid: {reason}` and a placeholder box.
 
-**Cause:** extensions other than `KHR_materials_emissive_strength`, skins, animations,
-morph targets, sparse accessors, external textures, non-triangle primitives,
->65 535 vertices, >6000 triangles, >32 primitives, >16 materials/images, or a
-texture edge >1024.
+**Cause:** extensions other than `KHR_materials_emissive_strength`, morph targets,
+sparse accessors, external textures, non-triangle primitives, >65 535 vertices,
+>6000 triangles, >32 primitives, >16 materials/images, >1024 joints, >64 animation
+clips, >4096 animation channels, CUBICSPLINE samplers, a texture edge >1024, or a
+malformed skin (a joint slot outside the skin, a non-finite or non-positive weight
+sum, or an inverse-bind count that does not match the joint list).
 
 **Prevention:** build props with `tools/props/`, preview them, and run
 `cargo test --workspace --all-features` so the shipped-asset checks enforce the
@@ -3293,8 +3453,10 @@ authoring. They are not invitations to change the engine as part of an authoring
 19. **`props/build.py --check` enforces container validity and decoded texture
     memory but not the triangle/scale/origin art budgets**; those live in
     `cargo test`. Do not treat a clean `--check` as complete budget approval.
-20. **No water or dynamic lighting.** "Flooded" and "mood lighting" must be expressed
-    with existing materials, geometry and per-fixture colour/brightness.
+20. **Water is a volume, lighting is baked.** "Flooded" needs a `water[]` volume
+    over real recessed geometry (a volume over a flat floor reads as a puddle, not
+    a pool); "mood lighting" must be expressed with existing materials, geometry and
+    per-fixture colour/brightness. There is no dynamic lighting.
 21. **Reflections are per-material and limited.** One planar plane per frame, at most
     two probes per level, probes are static (no realtime update), and a planar material
     reused on non-planar geometry is skipped with a warning.

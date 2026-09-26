@@ -101,9 +101,11 @@ impl WgpuProps {
     /// uses through the shared texture cache.
     ///
     /// Called once per level load. A batch with no indices produces no chunk
-    /// and no draws; a texture that cannot be resolved still yields an entry
-    /// (the shared fallback), so a broken model draws white rather than
-    /// disappearing.
+    /// and no draws; a batch whose model path is in `skip_models` is skipped
+    /// entirely (the character path draws that model's animated instances, and
+    /// the static bind-pose batch must not draw underneath them); a texture
+    /// that cannot be resolved still yields an entry (the shared fallback), so
+    /// a broken model draws white rather than disappearing.
     #[must_use]
     // One cohesive level upload: batching, sheet upload, material dedupe and
     // per-submesh draws share the same counters and texture list.
@@ -114,6 +116,7 @@ impl WgpuProps {
         cache: &mut TextureCache,
         material_layout: &wgpu::BindGroupLayout,
         batches: &[PropMeshBatch],
+        skip_models: &[String],
         level: QualityLevel,
     ) -> Self {
         let mut stats = PropGpuStats::default();
@@ -124,7 +127,7 @@ impl WgpuProps {
         // Distinct material identities, keyed by (texture slot, emission).
         let mut identities: Vec<(usize, [f32; 3], Option<usize>)> = Vec::new();
         for batch in batches {
-            if batch.indices.is_empty() {
+            if batch.indices.is_empty() || skip_models.iter().any(|model| model == &batch.model) {
                 continue;
             }
             stats.batches = stats.batches.saturating_add(1);

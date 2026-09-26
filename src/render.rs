@@ -43,21 +43,23 @@ pub use common::view::{
 #[cfg(test)]
 pub(in crate::render) use common::wall_units;
 pub use common::{
-    AnimationEffect, BatchRange, BuildTimings, DECAL_ALPHA_CUTOFF, DECAL_EXTERNAL_BASE,
-    DECAL_MATERIALS, DECAL_POLYGON_OFFSET, DECAL_SURFACE_OFFSET_M, DECAL_TEST_MATERIAL,
-    DEMO_DRUM_ID, DEMO_MACHINE_ID, DEMO_SPIN_DEGREES_PER_SECOND, DynamicId, DynamicMesh,
-    DynamicObject, DynamicScene, DynamicSubmesh, DynamicUpdate, EmissionAnimation,
-    GraphicsTransition, LIGHTMAP_NONE, LevelBuild, LevelMesh, LevelMeshBatches, LevelMeshRange,
-    LightmapBuildOptions, MATERIAL_NONE, MAX_ANIMATION_DEPTH, MAX_DYNAMIC_MESHES,
-    MAX_DYNAMIC_OBJECTS, MAX_FLICKER_HZ, MAX_PULSE_HZ, MaterialIndex, MaterialSlot,
-    PROBE_EPSILON_M, PropMeshBatch, SurfaceKey, SurfaceKind, SurfaceShine, Vertex,
+    AnimationEffect, BLEND_TIME_CONSTANT_S, BatchRange, BuildTimings, CHARACTER_BOUNDS_EXPANSION,
+    CHARACTER_BOUNDS_MARGIN_M, Character, CharacterAnimator, CharacterScene, CharacterUpdate,
+    DECAL_ALPHA_CUTOFF, DECAL_EXTERNAL_BASE, DECAL_MATERIALS, DECAL_POLYGON_OFFSET,
+    DECAL_SURFACE_OFFSET_M, DECAL_TEST_MATERIAL, DEMO_DRUM_ID, DEMO_MACHINE_ID,
+    DEMO_SPIN_DEGREES_PER_SECOND, DynamicId, DynamicMesh, DynamicObject, DynamicScene,
+    DynamicSubmesh, DynamicUpdate, EmissionAnimation, GraphicsTransition, IDLE_SWAY_HZ,
+    LIGHTMAP_NONE, LevelBuild, LevelMesh, LevelMeshBatches, LevelMeshRange, LightmapBuildOptions,
+    MATERIAL_NONE, MAX_ANIMATION_DEPTH, MAX_CHARACTERS, MAX_DYNAMIC_MESHES, MAX_DYNAMIC_OBJECTS,
+    MAX_FLICKER_HZ, MAX_PULSE_HZ, MaterialIndex, MaterialSlot, PROBE_EPSILON_M, PropMeshBatch,
+    SWIM_HZ, SurfaceKey, SurfaceKind, SurfaceShine, Vertex, WALK_CYCLES_PER_METRE,
     build_level_geometry, build_level_geometry_timed, build_level_geometry_timed_with_lightmaps,
     build_level_geometry_with_assets, build_level_geometry_with_assets_and_lighting,
     build_level_geometry_with_assets_and_lighting_and_materials, build_level_geometry_with_catalog,
     build_level_geometry_with_catalog_and_materials, build_level_geometry_with_materials,
-    decal_external_sheet_ids, decal_material_slot, decal_quad_points, decal_sheet_index,
-    decal_uv_rect, decal_uv_rect_full, dequantize_unit, logical_materials, spatial_cell_grid,
-    tiled_uv,
+    character_vertex, decal_external_sheet_ids, decal_material_slot, decal_quad_points,
+    decal_sheet_index, decal_uv_rect, decal_uv_rect_full, dequantize_unit, logical_materials,
+    spatial_cell_grid, tiled_uv,
 };
 #[cfg(test)]
 pub(crate) use common::{MaterialLookup, SCENE_FAR_M, SCENE_NEAR_M, WallMaterialRun};

@@ -44,6 +44,14 @@ pub struct ResolvedMaterial {
     pub origin: TextureOrigin,
     /// World metres covered by one texture repeat.
     pub tile_metres: f32,
+    /// World metres between the visible panel joints of the sheet.
+    ///
+    /// A ceiling sheet may paint several panels per repeat (`tile_metres` is
+    /// then the repeat, and `grid_metres` the panel module). The default is
+    /// [`Self::tile_metres`], so a one-panel-per-repeat sheet needs nothing.
+    /// Grid-aligned ceiling fixtures snap to the centres of these cells, which
+    /// is what puts a troffer inside a ceiling panel instead of on its T-bar.
+    pub grid_metres: f32,
     /// Static multiply tint applied to the sampled texture.
     pub tint: [f32; 3],
     /// Lightweight surface response: optional normal map, sheen and roughness.
@@ -273,6 +281,9 @@ pub fn referenced_material_ids(level: &LevelDef) -> Vec<String> {
             push(material);
         }
     }
+    for volume in &level.water {
+        push(volume.material_id());
+    }
     push_architecture_materials(level, &mut push);
     ids
 }
@@ -341,6 +352,7 @@ fn material_base(
         texture_index: 0,
         origin,
         tile_metres,
+        grid_metres: tile_metres,
         tint,
         response: MaterialResponse::NONE,
         alpha: MaterialAlpha::OPAQUE,
@@ -364,6 +376,13 @@ impl ResolvedMaterial {
     #[must_use]
     const fn with_reflection(mut self, reflection: MaterialReflection) -> Self {
         self.reflection = reflection;
+        self
+    }
+
+    /// Overrides the visible panel-grid module the catalog authored.
+    #[must_use]
+    const fn with_grid_metres(mut self, grid_metres: f32) -> Self {
+        self.grid_metres = grid_metres;
         self
     }
 }
@@ -505,6 +524,7 @@ fn describe_catalog_material(
 ) -> ResolvedMaterial {
     let emission = catalog_emission(entry);
     let texture_id = entry.texture.clone().unwrap_or_default();
+    let grid_metres = entry.grid_metres.unwrap_or(DEFAULT_TILE_METRES);
     if texture_id.is_empty() {
         return material_base(
             id,
@@ -516,9 +536,11 @@ fn describe_catalog_material(
             Some(format!(
                 "material `{id}` declares no `texture`; using the diagnostic texture"
             )),
-        );
+        )
+        .with_grid_metres(grid_metres);
     }
     let tile_metres = entry.tile_metres.unwrap_or(DEFAULT_TILE_METRES);
+    let grid_metres = entry.grid_metres.unwrap_or(tile_metres);
     let tint = entry.tint.unwrap_or(DEFAULT_TINT);
     if catalog.texture_path(&texture_id).is_none() {
         return material_base(
@@ -531,7 +553,8 @@ fn describe_catalog_material(
             Some(format!(
                 "material `{id}` references texture `{texture_id}`, which has no PNG file in the catalog"
             )),
-        );
+        )
+        .with_grid_metres(grid_metres);
     }
     material_base(
         id,
@@ -542,6 +565,7 @@ fn describe_catalog_material(
         emission,
         None,
     )
+    .with_grid_metres(grid_metres)
     .with_surface(catalog_response(entry), catalog_alpha(entry))
     .with_reflection(catalog_reflection(entry))
 }

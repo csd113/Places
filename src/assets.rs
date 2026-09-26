@@ -689,8 +689,23 @@ pub struct AssetEntry {
     pub surface: Option<String>,
     /// Base texture asset a material draws with (`core:tex_carpet_beige_01`).
     pub texture: Option<String>,
+    /// Optional trim material this wall surface receives automatically.
+    ///
+    /// When a material author declares one, the loader's level-preparation pass
+    /// generates baseboard runs along every wall face finished with this
+    /// material that reaches a walkable floor (see the map guide's baseboard
+    /// section). `None` means the material gains no automatic trim. Only a
+    /// wall material has a meaningful use for it.
+    pub baseboard: Option<String>,
     /// World metres covered by one repeat of a material's texture.
     pub tile_metres: Option<f32>,
+    /// World metres between a sheet's visible panel joints, when the artwork
+    /// paints several panels per repeat.
+    ///
+    /// The loader uses it to snap grid-aligned ceiling fixtures to panel
+    /// centres; an absent value falls back to [`Self::tile_metres`]. Only a
+    /// ceiling material has a meaningful use for it.
+    pub grid_metres: Option<f32>,
     /// Static multiply tint the renderer applies to a material's texture.
     pub tint: Option<[f32; 3]>,
     /// Emissive colour a material's surface reads with, if the catalog authors
@@ -938,8 +953,17 @@ struct CatalogEntryFile {
     surface: Option<String>,
     #[serde(default)]
     texture: Option<String>,
+    /// Optional logical id of the trim material a wall finished with this
+    /// material receives automatically. Validated like the albedo `texture`:
+    /// only a material may declare it and the id must resolve.
+    #[serde(default)]
+    baseboard: Option<String>,
     #[serde(default)]
     tile_metres: Option<f32>,
+    /// Optional world-space panel module of the sheet; only a `material` may
+    /// declare it, and it falls back to `tile_metres`.
+    #[serde(default)]
+    grid_metres: Option<f32>,
     #[serde(default)]
     tint: Option<[f32; 3]>,
     /// Raw `emissive` channels; the exact length is validated on conversion so
@@ -1000,7 +1024,9 @@ impl CatalogEntryFile {
         let theme = parse_optional_slug(self.theme.as_deref(), "theme", &id, AssetTheme::parse)?;
         let model = self.resolve_model(&id)?;
         let texture = self.resolve_texture(&id, &asset_type)?;
+        let baseboard = self.resolve_baseboard(&id, &asset_type)?;
         let tile_metres = self.resolve_tile_metres(&id, &asset_type)?;
+        let grid_metres = self.resolve_grid_metres(&id, &asset_type)?;
         let tint = self.resolve_tint(&id, &asset_type)?;
         let source = self.resolve_source(&id, model.as_deref(), texture.as_deref())?;
         let emission = self.resolve_emissive(&id, &asset_type, source)?;
@@ -1032,7 +1058,9 @@ impl CatalogEntryFile {
                 .filter(|surface| !surface.is_empty())
                 .map(str::to_string),
             texture,
+            baseboard,
             tile_metres,
+            grid_metres,
             tint,
             emissive: emission.color,
             emissive_intensity: emission.intensity,
@@ -1146,6 +1174,39 @@ impl CatalogEntryFile {
         Ok(texture)
     }
 
+    /// The validated `baseboard` trim material a wall material names.
+    ///
+    /// A present-but-blank value is an authoring error rather than a silent
+    /// "no trim": an empty id names nothing, and the author has to see it. The
+    /// value must be a well-formed logical id; the second catalog pass checks
+    /// that it names a declared material.
+    fn resolve_baseboard(
+        &self,
+        id: &str,
+        asset_type: &AssetType,
+    ) -> Result<Option<String>, String> {
+        let Some(raw) = self.baseboard.as_deref() else {
+            return Ok(None);
+        };
+        if asset_type.as_str() != AssetType::MATERIAL {
+            return Err(format!(
+                "{id}: only a `material` asset may declare a `baseboard`"
+            ));
+        }
+        let baseboard = raw.trim();
+        if baseboard.is_empty() {
+            return Err(format!(
+                "{id}: `baseboard` must be a non-empty logical material id"
+            ));
+        }
+        if !is_valid_asset_id(baseboard) {
+            return Err(format!(
+                "{id}: baseboard `{baseboard}` is not a well-formed logical asset id"
+            ));
+        }
+        Ok(Some(baseboard.to_string()))
+    }
+
     /// The validated `tile_metres` of a material.
     fn resolve_tile_metres(&self, id: &str, asset_type: &AssetType) -> Result<Option<f32>, String> {
         let Some(value) = self.tile_metres else {
@@ -1159,6 +1220,24 @@ impl CatalogEntryFile {
         if !value.is_finite() || !(MIN_TILE_METRES..=MAX_TILE_METRES).contains(&value) {
             return Err(format!(
                 "{id}: tile_metres must be between {MIN_TILE_METRES} and {MAX_TILE_METRES} metres, found {value}"
+            ));
+        }
+        Ok(Some(value))
+    }
+
+    /// The validated `grid_metres` of a ceiling material's visible panel grid.
+    fn resolve_grid_metres(&self, id: &str, asset_type: &AssetType) -> Result<Option<f32>, String> {
+        let Some(value) = self.grid_metres else {
+            return Ok(None);
+        };
+        if asset_type.as_str() != AssetType::MATERIAL {
+            return Err(format!(
+                "{id}: only a `material` asset may declare `grid_metres`"
+            ));
+        }
+        if !value.is_finite() || !(MIN_TILE_METRES..=MAX_TILE_METRES).contains(&value) {
+            return Err(format!(
+                "{id}: grid_metres must be between {MIN_TILE_METRES} and {MAX_TILE_METRES} metres, found {value}"
             ));
         }
         Ok(Some(value))
@@ -1572,52 +1651,81 @@ impl AssetCatalog {
         // face it draws. Doing this after all entries exist means a material
         // may be declared before the texture it draws with, but never with a
         // dangling reference.
-        let entries: Vec<&AssetEntry> = catalog.entries.values().collect();
-        for entry in entries {
-            check_emissive_mask(entry, &catalog)?;
-            if entry.is_texture() && !has_png_extension(entry.model.as_deref()) {
+        check_references(&catalog)?;
+        Ok(catalog)
+    }
+}
+
+/// Checks every cross-entry reference of a parsed catalog.
+///
+/// Every texture asset names a PNG, every material's albedo (and any emissive
+/// mask) resolves to a declared, file-backed texture, and every material's
+/// `baseboard` names a declared material. Splitting this from
+/// [`AssetCatalog::from_json_str`] keeps the pass readable and lets a test
+/// exercise one reference class at a time.
+fn check_references(catalog: &AssetCatalog) -> Result<(), String> {
+    let entries: Vec<&AssetEntry> = catalog.entries.values().collect();
+    for entry in entries {
+        check_emissive_mask(entry, catalog)?;
+        if entry.is_texture() && !has_png_extension(entry.model.as_deref()) {
+            return Err(format!(
+                "{}: a texture asset must name a `.png` file, found `{}`",
+                entry.id,
+                entry.model.as_deref().unwrap_or("(no model)")
+            ));
+        }
+        if entry.is_light()
+            && entry.source == AssetSource::File
+            && !has_png_extension(entry.model.as_deref())
+        {
+            return Err(format!(
+                "{}: a file-backed light fixture must name a `.png` sheet, found `{}`",
+                entry.id,
+                entry.model.as_deref().unwrap_or("(no model)")
+            ));
+        }
+        if let Some(baseboard_id) = entry.baseboard.as_deref() {
+            let Some(baseboard) = catalog.entries.get(baseboard_id) else {
                 return Err(format!(
-                    "{}: a texture asset must name a `.png` file, found `{}`",
-                    entry.id,
-                    entry.model.as_deref().unwrap_or("(no model)")
-                ));
-            }
-            if entry.is_light()
-                && entry.source == AssetSource::File
-                && !has_png_extension(entry.model.as_deref())
-            {
-                return Err(format!(
-                    "{}: a file-backed light fixture must name a `.png` sheet, found `{}`",
-                    entry.id,
-                    entry.model.as_deref().unwrap_or("(no model)")
-                ));
-            }
-            let Some(texture_id) = entry.texture.as_deref() else {
-                continue;
-            };
-            let Some(texture) = catalog.entries.get(texture_id) else {
-                return Err(format!(
-                    "{}: material texture `{texture_id}` is not declared in the asset catalog",
+                    "{}: baseboard `{baseboard_id}` is not declared in the asset catalog",
                     entry.id
                 ));
             };
-            if !texture.is_texture() {
+            if !baseboard.is_material() {
                 return Err(format!(
-                    "{}: material texture `{texture_id}` is a `{}` asset, not a texture",
+                    "{}: baseboard `{baseboard_id}` is a `{}` asset, not a material",
                     entry.id,
-                    texture.asset_type.as_str()
-                ));
-            }
-            if texture.source != AssetSource::File {
-                return Err(format!(
-                    "{}: material texture `{texture_id}` has no PNG file to load",
-                    entry.id
+                    baseboard.asset_type.as_str()
                 ));
             }
         }
-        Ok(catalog)
+        let Some(texture_id) = entry.texture.as_deref() else {
+            continue;
+        };
+        let Some(texture) = catalog.entries.get(texture_id) else {
+            return Err(format!(
+                "{}: material texture `{texture_id}` is not declared in the asset catalog",
+                entry.id
+            ));
+        };
+        if !texture.is_texture() {
+            return Err(format!(
+                "{}: material texture `{texture_id}` is a `{}` asset, not a texture",
+                entry.id,
+                texture.asset_type.as_str()
+            ));
+        }
+        if texture.source != AssetSource::File {
+            return Err(format!(
+                "{}: material texture `{texture_id}` has no PNG file to load",
+                entry.id
+            ));
+        }
     }
+    Ok(())
+}
 
+impl AssetCatalog {
     /// Loads a catalog from `path`, returning `None` when the file is missing
     /// or invalid. Never panics.
     #[must_use]

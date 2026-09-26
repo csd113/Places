@@ -19,11 +19,12 @@ fn test_default_wasd_and_arrow_bindings() {
     assert_eq!(bindings.look_down, "DOWN");
     assert_eq!(bindings.look_left, "LEFT");
     assert_eq!(bindings.look_right, "RIGHT");
+    assert_eq!(bindings.jump, "SPACE");
 }
 
-/// The default action map must be exactly WASD + arrows: every key resolves
-/// to one action, no key is shared, and no alternative layout is silently
-/// retained as a duplicate binding.
+/// The default action map must be exactly WASD + arrows + Space: every key
+/// resolves to one action, no key is shared, and no alternative layout is
+/// silently retained as a duplicate binding.
 #[test]
 fn test_default_action_map_is_wasd_and_arrows_only() {
     let bindings = KeyBindings::default();
@@ -36,6 +37,7 @@ fn test_default_action_map_is_wasd_and_arrows_only() {
         ("look_down", "DOWN"),
         ("look_left", "LEFT"),
         ("look_right", "RIGHT"),
+        ("jump", "SPACE"),
     ];
 
     let mut bound_keys: Vec<&str> = Vec::new();
@@ -55,16 +57,7 @@ fn test_default_action_map_is_wasd_and_arrows_only() {
 
     // Legacy keys are no longer part of the default layout.
     for legacy in ["Z", "O", ".", "K", "L"] {
-        for action in [
-            "forward",
-            "backward",
-            "strafe_left",
-            "strafe_right",
-            "look_up",
-            "look_down",
-            "look_left",
-            "look_right",
-        ] {
+        for action in KeyBindings::ACTIONS {
             assert_ne!(
                 bindings.get_key(action),
                 Some(legacy),
@@ -93,6 +86,7 @@ fn test_reset_to_defaults_restores_wasd_and_arrows() {
     assert_eq!(bindings.look_down, "DOWN");
     assert_eq!(bindings.look_left, "LEFT");
     assert_eq!(bindings.look_right, "RIGHT");
+    assert_eq!(bindings.jump, "SPACE");
 }
 
 #[test]
@@ -102,10 +96,20 @@ fn test_binding_conflict_detection() {
     assert_eq!(bindings.check_conflict("forward", "A"), Some("strafe_left"));
     assert!(bindings.set_key("forward", "A").is_err());
 
+    // The jump binding participates in conflict detection like every other
+    // action: Space is taken, and binding forward to it is rejected.
+    assert_eq!(bindings.check_conflict("jump", "W"), Some("forward"));
+    assert_eq!(bindings.check_conflict("forward", "SPACE"), Some("jump"));
+    assert!(bindings.set_key("forward", "SPACE").is_err());
+    assert!(bindings.set_key("jump", "W").is_err());
+
     // Binding to an unused key like "I" must succeed
     assert_eq!(bindings.check_conflict("forward", "I"), None);
     assert!(bindings.set_key("forward", "I").is_ok());
     assert_eq!(bindings.forward, "I");
+    // And a jump rebind to an unused key succeeds too.
+    assert!(bindings.set_key("jump", "J").is_ok());
+    assert_eq!(bindings.jump, "J");
 }
 
 #[test]
@@ -115,6 +119,7 @@ fn test_settings_bounds_sanitization() {
         look_speed_v: -5.0,
         walk_speed: 50.0,
         fov_degrees: 200.0,
+        mouse_sensitivity: 9.0,
         texture_filtering: "bilinear_invalid".to_string(),
         ..Default::default()
     };
@@ -124,7 +129,38 @@ fn test_settings_bounds_sanitization() {
     assert_exact(settings.look_speed_v, 20.0);
     assert_exact(settings.walk_speed, 10.0);
     assert_exact(settings.fov_degrees, 110.0);
+    assert_exact(settings.mouse_sensitivity, MAX_MOUSE_SENSITIVITY);
     assert_eq!(settings.texture_filtering, "high");
+}
+
+/// Mouse sensitivity is a positive scalar with a documented range: a stored
+/// zero or negative value and a non-finite one both repair to a usable value.
+#[test]
+fn mouse_sensitivity_is_sanitized_into_its_documented_range() {
+    assert_exact(DEFAULT_MOUSE_SENSITIVITY, 0.12);
+    assert_exact(MIN_MOUSE_SENSITIVITY, 0.02);
+    assert_exact(MAX_MOUSE_SENSITIVITY, 1.0);
+    assert_exact(Settings::default().mouse_sensitivity, 0.12);
+
+    for (stored, expected) in [
+        (0.0, MIN_MOUSE_SENSITIVITY),
+        (-5.0, MIN_MOUSE_SENSITIVITY),
+        (0.5, 0.5),
+        (100.0, MAX_MOUSE_SENSITIVITY),
+        (f32::NAN, DEFAULT_MOUSE_SENSITIVITY),
+        (f32::INFINITY, DEFAULT_MOUSE_SENSITIVITY),
+    ] {
+        let mut settings = Settings {
+            mouse_sensitivity: stored,
+            ..Settings::default()
+        };
+        settings.sanitize();
+        assert_exact_named(
+            settings.mouse_sensitivity,
+            expected,
+            format!("stored {stored}"),
+        );
+    }
 }
 
 /// Texture Filtering is persisted as `"low" | "medium" | "high"`, defaults to
@@ -327,7 +363,8 @@ fn test_sanitize_repairs_reserved_empty_and_duplicate_bindings() {
     let raw = r#"{
         "bindings": {
             "forward": "-", "backward": "A", "strafe_left": "A", "strafe_right": "",
-            "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT"
+            "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT",
+            "jump": "W"
         }
     }"#;
     let mut settings: Settings = serde_json::from_str(raw).expect("hand-edited file parses");
@@ -344,6 +381,10 @@ fn test_sanitize_repairs_reserved_empty_and_duplicate_bindings() {
         "empty name falls back to its default"
     );
     assert_eq!(settings.bindings.look_up, "UP");
+    assert_eq!(
+        settings.bindings.jump, "SPACE",
+        "the duplicate W falls back to the jump default"
+    );
 }
 
 /// A malformed settings file is preserved as `settings.json.invalid` and the
@@ -405,6 +446,7 @@ fn test_action_labels_are_player_facing() {
     assert_eq!(action_label("forward"), "Forward");
     assert_eq!(action_label("strafe_right"), "Strafe Right");
     assert_eq!(action_label("look_up"), "Look Up");
+    assert_eq!(action_label("jump"), "Jump");
 }
 
 /// Places is a desktop game: the one authoritative fresh-install window size is
@@ -460,6 +502,12 @@ fn test_legacy_settings_files_receive_modern_defaults() {
     assert!(!parsed.invert_look, "look inversion defaults off");
     assert_eq!(parsed.window_mode(), WindowMode::Windowed);
     assert_eq!(parsed.window_size(), (1920, 1080));
+    // The jump binding and mouse sensitivity were absent from the file too.
+    assert_eq!(
+        parsed.bindings.jump, "SPACE",
+        "a missing jump key defaults on load"
+    );
+    assert_exact(parsed.mouse_sensitivity, DEFAULT_MOUSE_SENSITIVITY);
 }
 
 /// Every new preference survives a save/load round trip.
@@ -473,6 +521,11 @@ fn test_new_preferences_persist_round_trip() {
         bloom: false,
         reflections: "off".to_string(),
         invert_look: true,
+        mouse_sensitivity: 0.66,
+        bindings: KeyBindings {
+            jump: "J".to_string(),
+            ..KeyBindings::default()
+        },
         window_mode: "fullscreen".to_string(),
         window_width: 2560,
         window_height: 1440,
@@ -484,6 +537,8 @@ fn test_new_preferences_persist_round_trip() {
     assert!(!loaded.bloom_enabled());
     assert!(!loaded.reflections_enabled());
     assert!(loaded.invert_look);
+    assert_exact(loaded.mouse_sensitivity, 0.66);
+    assert_eq!(loaded.bindings.jump, "J", "the jump rebind round-trips");
     assert_eq!(loaded.window_mode(), WindowMode::Fullscreen);
     assert_eq!(loaded.window_size(), (2560, 1440));
     // Unrelated values are untouched by the round trip.
@@ -1154,4 +1209,35 @@ fn test_bench_graphics_cycle_grammar() {
             "malformed entry {malformed:?}"
         );
     }
+}
+
+/// A settings file written before the jump binding existed loads without being
+/// renamed, keeps an explicit rebind, and a missing key gets `SPACE`.
+#[test]
+fn jump_binding_serde_compatibility() {
+    let without_jump = r#"{
+        "bindings": {
+            "forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D",
+            "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT"
+        }
+    }"#;
+    let parsed: Settings = serde_json::from_str(without_jump).expect("an older file parses");
+    assert_eq!(parsed.bindings.jump, "SPACE");
+
+    let with_jump = r#"{
+        "bindings": {
+            "forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D",
+            "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT",
+            "jump": "J"
+        },
+        "mouse_sensitivity": 0.44
+    }"#;
+    let parsed: Settings = serde_json::from_str(with_jump).expect("a newer file parses");
+    assert_eq!(parsed.bindings.jump, "J");
+    assert_exact(parsed.mouse_sensitivity, 0.44);
+
+    // A round trip through serialization keeps both new fields.
+    let json = serde_json::to_string(&parsed).expect("serialize");
+    assert!(json.contains(r#""jump":"J""#), "{json}");
+    assert!(json.contains(r#""mouse_sensitivity":0.44"#), "{json}");
 }

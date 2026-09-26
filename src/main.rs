@@ -45,7 +45,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use glam::Vec3;
-use sdl3::event::Event;
+use sdl3::event::{Event, WindowEvent};
 use sdl3::keyboard::Keycode;
 use sdl3::video::{Display, FullscreenType, Window};
 use sdl3::{EventPump, Sdl, VideoSubsystem};
@@ -54,7 +54,7 @@ use bench::Bench;
 use display::DisplayStatus;
 use game::{AppState, Game};
 use input::{InputHandler, MenuNavEvent, keycode_to_str};
-use level::WalkableFloor;
+use level::{WalkableCeiling, WalkableFloor, WaterVolumes};
 use perf::PerfOverlay;
 use render::{DrawableSize, GraphicsTransition, Renderer, Vertex};
 use settings::{Settings, WindowMode};
@@ -487,6 +487,8 @@ fn new_game(level: &loader::LoadedLevel) -> (Game, Vec3, f32) {
         spawn_yaw,
         level.level.collision_aabbs(),
         WalkableFloor::from_level(&level.level),
+        WaterVolumes::from_level(&level.level),
+        WalkableCeiling::from_level(&level.level),
     );
     (game, spawn_pos, spawn_yaw)
 }
@@ -577,6 +579,8 @@ fn apply_spawn_override(
         *spawn_yaw,
         game.walls.clone(),
         game.floor.clone(),
+        game.water.clone(),
+        game.ceiling.clone(),
     );
 }
 
@@ -643,6 +647,8 @@ fn apply_level_request(
                     *spawn_yaw,
                     loaded.level.collision_aabbs(),
                     WalkableFloor::from_level(&loaded.level),
+                    WaterVolumes::from_level(&loaded.level),
+                    WalkableCeiling::from_level(&loaded.level),
                 );
                 *current_level = Some(loaded);
                 game.set_app_state(AppState::Playing);
@@ -730,6 +736,8 @@ fn write_capture(renderer: &mut Renderer, path: &Path) {
 /// frame be reviewed (and unit-tested) on its own.
 struct FrameLoop<'a> {
     window: &'a mut Window,
+    /// The SDL context, for the mouse-capture reconciliation.
+    sdl: &'a Sdl,
     video_subsystem: &'a VideoSubsystem,
     event_pump: &'a mut EventPump,
     renderer: &'a mut Renderer,
@@ -761,6 +769,10 @@ struct FrameLoop<'a> {
     /// Last `(window_w, window_h, drawable_w, drawable_h)` pair logged, so a
     /// HiDPI/backing-scale change is reported exactly once.
     last_logged_window: (u32, u32, u32, u32),
+    /// True while the window has keyboard focus; a focused window is what
+    /// allows relative mouse mode during gameplay. Starts assumed focused so a
+    /// boot straight into `PLACES_LEVEL` captures as soon as Playing begins.
+    window_focused: bool,
     /// Set when the active backend reported a fatal GPU error: the loop stops
     /// and `main` exits with this message.
     fatal_error: Option<String>,
@@ -788,6 +800,9 @@ impl FrameLoop<'_> {
         self.perf_overlay.update(self.game.delta_seconds());
 
         self.pump_events();
+        // Relative mouse mode follows the app state and window focus exactly;
+        // the reconciliation is one per frame and only calls SDL on a change.
+        self.sync_mouse_capture();
 
         if self.input_handler.quit_requested() {
             self.game.stop();
@@ -828,12 +843,16 @@ impl FrameLoop<'_> {
 
         // Update player movement (only active during AppState::Playing)
         self.game
-            .update_player_movement(self.input_handler.state(), self.settings);
+            .update_player_movement(self.input_handler.state_mut(), self.settings);
         self.log_player_state();
         // Advance the dynamic objects (the demonstration drum and any other
         // spawned object) once per frame: transform only, never a geometry or
         // lightmap rebuild.
         self.renderer.update_dynamic(self.game.delta_seconds());
+        // Animated characters follow the player's locomotion state; the
+        // renderer re-skins only the characters whose pose moved.
+        self.renderer
+            .update_characters(self.game.delta_seconds(), self.game.locomotion_snapshot());
         let frame_update_done = Instant::now();
 
         self.render_and_present(frame_begin, frame_update_done);
@@ -1125,11 +1144,41 @@ impl FrameLoop<'_> {
         }
     }
 
+    /// Reconciles SDL's relative mouse mode with the game state.
+    ///
+    /// Relative mode is on exactly while gameplay is active and the window has
+    /// focus: every menu, the pause screen and a focus loss release the cursor,
+    /// and regaining focus while Playing captures it again. The cursor is never
+    /// warped. SDL is polled for the real state rather than caching what the
+    /// last call asked for: a platform can drop relative mode on its own (a
+    /// focus change, an OS capture change), and the mode is re-asserted on the
+    /// next frame whenever it differs from the desired one.
+    fn sync_mouse_capture(&self) {
+        let desired = self.game.app_state() == AppState::Playing && self.window_focused;
+        if self.sdl.mouse().relative_mouse_mode(self.window) != desired {
+            self.sdl
+                .mouse()
+                .set_relative_mouse_mode(self.window, desired);
+        }
+    }
+
     /// Handles one SDL event; returns `false` when the pump should stop.
     fn handle_event(&mut self, event: &Event) -> bool {
         if let Event::Quit { .. } = event {
             self.game.stop();
             return false;
+        }
+
+        // Window focus is tracked before any screen-specific handling so a
+        // focus change is never swallowed by a rebind or a menu branch:
+        // `sync_mouse_capture` reconciles relative mouse mode from it.
+        if let Event::Window { win_event, .. } = event {
+            if matches!(win_event, WindowEvent::FocusLost) {
+                self.window_focused = false;
+            } else if matches!(win_event, WindowEvent::FocusGained) {
+                self.window_focused = true;
+            }
+            return true;
         }
 
         // 1. If currently waiting for key rebinding in Settings
@@ -1433,6 +1482,8 @@ impl FrameLoop<'_> {
                     *self.spawn_yaw,
                     loaded.level.collision_aabbs(),
                     WalkableFloor::from_level(&loaded.level),
+                    WaterVolumes::from_level(&loaded.level),
+                    WalkableCeiling::from_level(&loaded.level),
                 );
                 // Keep the definition resident: a live quality or lightmap
                 // change rebuilds this level's GPU resources from it.
@@ -1755,6 +1806,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut frame_loop = FrameLoop {
         window: &mut window,
+        sdl: &sdl_context,
         video_subsystem: &video_subsystem,
         event_pump: &mut event_pump,
         renderer: &mut renderer,
@@ -1777,6 +1829,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         display_status: &mut display_status,
         window_apply_in_flight: false,
         last_logged_window: (0, 0, 0, 0),
+        window_focused: true,
         fatal_error: None,
     };
     frame_loop.run();

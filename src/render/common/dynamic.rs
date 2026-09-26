@@ -25,12 +25,15 @@
 //! `Rc`-shared decoded images, so spawning a drum that is also placed statically
 //! decodes nothing twice.
 //!
-//! A transform is translation + yaw about Y + uniform scale. It is deliberately
-//! not a general matrix: a dynamic object is a rigid prop-like thing, and
-//! keeping the rotation to one axis keeps the demo, the probe maths and the
-//! tests exact. The renderer composes `view_projection * transform` into the
-//! existing `u_mvp` uniform per object, so moving an object costs one uniform
-//! upload and never touches a vertex buffer.
+//! A transform is translation + base orientation + spin about a local axis +
+//! uniform scale. It is deliberately not a general matrix: a dynamic object is
+//! a rigid prop-like thing, and the spin is a single axis-angle rotation. The
+//! base orientation reorients the whole object, so a model built mouth-up can
+//! turn about a horizontal axis; a yaw-only object (identity base, spin axis
+//! Y) keeps exactly the transform it always had. The renderer composes
+//! `view_projection * transform` into the existing `u_mvp` uniform per object,
+//! so moving an object costs one uniform upload and never touches a vertex
+//! buffer.
 //!
 //! Lighting (probe-based)
 //! ----------------------
@@ -58,7 +61,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use glam::{Mat4, Vec3};
+use glam::{Mat4, Quat, Vec3};
 
 use super::mesh::LIGHTMAP_NONE;
 use super::{LevelDef, Vertex};
@@ -93,6 +96,59 @@ pub const DEMO_MACHINE_ID: &str = "core:washing_machine";
 
 /// Catalogue id of the dynamic drum the demonstration spawns.
 pub const DEMO_DRUM_ID: &str = "core:washer_drum";
+
+/// Model-space axis an object spins about when the spawner does not name one:
+/// the local Y axis, which is the yaw-only case every pre-existing caller uses.
+const MODEL_Y_AXIS: [f32; 3] = [0.0, 1.0, 0.0];
+
+/// Shortest model-space spin axis accepted, in metres. A zero-length axis has
+/// no rotation to apply, so it is refused like any other malformed transform
+/// value rather than normalising to NaN.
+const SPIN_AXIS_EPSILON: f32 = 1e-6;
+
+/// The orientation half of an oriented spawn: the base reorientation applied
+/// after the spin, plus the model-space axis the spin turns about.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SpawnOrientation {
+    /// Orientation applied after the spin (translate × base × spin × scale).
+    pub base_rotation: Quat,
+    /// Model-space axis the spin turns about; normalised on spawn.
+    pub spin_axis: [f32; 3],
+}
+
+impl SpawnOrientation {
+    /// The yaw-only orientation [`DynamicScene::spawn`] uses: identity base,
+    /// local Y axis.
+    pub const YAW_ONLY: Self = Self {
+        base_rotation: Quat::IDENTITY,
+        spin_axis: MODEL_Y_AXIS,
+    };
+}
+
+/// Model-space height of the washing machine's porthole centre, in metres.
+///
+/// Mirrors `centre_y` in `build_washing_machine`
+/// (`tools/props/parts/appliances.py`): the drum is spawned on the porthole's
+/// axis so it turns inside the cavity the model opens behind the front panel.
+pub const WASHER_PORTHOLE_CENTRE_Y: f32 = 0.44;
+
+/// Model-space inner radius of the washing machine's porthole opening.
+///
+/// Mirrors `opening_radius` in `build_washing_machine`; the drum is scaled to
+/// pass through it with [`WASHER_DRUM_PORTHOLE_CLEARANCE`] to spare.
+pub const WASHER_PORTHOLE_OPENING_RADIUS: f32 = 0.155;
+
+/// Model-space depth of the machine's proud porthole bezel: the front ring
+/// stands this far in front of the body's front panel. Mirrors
+/// `drum_front - panel_z` in `build_washing_machine`.
+pub const WASHER_PORTHOLE_BEZEL_DEPTH: f32 = 0.03;
+
+/// Radial gap held between the drum and the porthole opening, in metres.
+pub const WASHER_DRUM_PORTHOLE_CLEARANCE: f32 = 0.005;
+
+/// How far the drum's mouth sits behind the machine's front panel, in model
+/// space: the drum is inside the body, never protruding past its surface.
+pub const WASHER_DRUM_MOUTH_RECESS: f32 = 0.02;
 
 /// Stable handle to one object inside a [`DynamicScene`].
 ///
@@ -229,6 +285,20 @@ impl DynamicMesh {
     }
 }
 
+/// Rotation matrix for one spin of `degrees` about a unit model-space `axis`.
+///
+/// The Y case is the dedicated yaw constructor every existing caller used, so
+/// their transforms are bit-for-bit what they always were; any other axis goes
+/// through the general axis-angle path.
+fn spin_matrix(axis: Vec3, degrees: f32) -> Mat4 {
+    let angle = degrees.to_radians();
+    if axis == Vec3::Y {
+        Mat4::from_rotation_y(angle)
+    } else {
+        Mat4::from_axis_angle(axis, angle)
+    }
+}
+
 /// One live dynamic object: a shared model-space mesh plus its own transform,
 /// spin and light probe.
 #[derive(Debug)]
@@ -237,7 +307,12 @@ pub struct DynamicObject {
     mesh_index: usize,
     mesh: Rc<DynamicMesh>,
     translation: Vec3,
-    yaw_degrees: f32,
+    /// Orientation applied before the spin; identity for yaw-only objects.
+    base_rotation: Quat,
+    /// Unit model-space axis the spin turns about.
+    spin_axis: Vec3,
+    /// Accumulated spin angle about [`Self::spin_axis`], in degrees.
+    spin_degrees: f32,
     scale: f32,
     spin_degrees_per_second: f32,
     emission: Option<MaterialEmission>,
@@ -271,18 +346,20 @@ impl DynamicObject {
         &self.mesh.model_path
     }
 
-    /// The object's world transform: translate × yaw × uniform scale.
+    /// The object's world transform: translate × base × spin × uniform scale.
+    ///
+    /// The spin is about [`Self::spin_axis`] in model space, then the base
+    /// rotation reorients the spun object (so a mouth-up basket pitched 90
+    /// degrees about X turns about the machine's front axis). A yaw-only
+    /// object keeps exactly the transform it always had: an identity base, a
+    /// Y axis and the dedicated `from_rotation_y` construction.
     #[must_use]
     pub fn transform(&self) -> Mat4 {
-        let rotation = Mat4::from_rotation_y(self.yaw_degrees.to_radians());
+        let spin = spin_matrix(self.spin_axis, self.spin_degrees);
+        let rotation = Mat4::from_quat(self.base_rotation).mul_mat4(&spin);
         let scale = Mat4::from_scale(Vec3::splat(self.scale));
         let translation = Mat4::from_translation(self.translation);
-        // `glam` matrix multiplication is per-element `f32` arithmetic with no
-        // overflow or panic path; clippy cannot see that through the operator
-        // impl (the same note `prop_instance_matrix` carries).
-        #[allow(clippy::arithmetic_side_effects)]
-        let transform = translation * rotation * scale;
-        transform
+        translation.mul_mat4(&rotation).mul_mat4(&scale)
     }
 
     /// The transform's translation.
@@ -291,10 +368,22 @@ impl DynamicObject {
         [self.translation.x, self.translation.y, self.translation.z]
     }
 
-    /// The transform's yaw, in degrees.
+    /// The accumulated spin angle, in degrees, about [`Self::spin_axis`].
     #[must_use]
-    pub const fn yaw_degrees(&self) -> f32 {
-        self.yaw_degrees
+    pub const fn spin_degrees(&self) -> f32 {
+        self.spin_degrees
+    }
+
+    /// The unit model-space axis this object spins about.
+    #[must_use]
+    pub const fn spin_axis(&self) -> [f32; 3] {
+        [self.spin_axis.x, self.spin_axis.y, self.spin_axis.z]
+    }
+
+    /// The orientation applied before the spin; identity for yaw-only objects.
+    #[must_use]
+    pub const fn base_rotation(&self) -> Quat {
+        self.base_rotation
     }
 
     /// The transform's uniform scale.
@@ -491,12 +580,10 @@ impl DynamicScene {
         self.meshes.len().checked_sub(1)
     }
 
-    /// Spawns one dynamic object and returns its handle.
+    /// Spawns one yaw-only dynamic object and returns its handle.
     ///
-    /// Returns `None` when the scene is full, when the model has nothing
-    /// drawable, when the mesh budget is exhausted, or when any transform value
-    /// is not finite — a malformed spawn degrades to "nothing spawned" instead
-    /// of poisoning the draw list with NaN.
+    /// The terse yaw-only spawn: identity base orientation, spin about the
+    /// model's Y axis. See [`Self::spawn_oriented`] for the general case.
     #[must_use]
     pub fn spawn(
         &mut self,
@@ -506,13 +593,56 @@ impl DynamicScene {
         scale: f32,
         spin_degrees_per_second: f32,
     ) -> Option<DynamicId> {
+        self.spawn_oriented(
+            asset,
+            translation,
+            SpawnOrientation::YAW_ONLY,
+            yaw_degrees,
+            scale,
+            spin_degrees_per_second,
+        )
+    }
+
+    /// Spawns one dynamic object with an explicit [`SpawnOrientation`], and
+    /// returns its handle.
+    ///
+    /// The orientation's `base_rotation` is applied after the spin (translate
+    /// × base × spin × scale), so a model built mouth-up can be pitched onto a
+    /// horizontal axis; its `spin_axis` is the model-space axis the object
+    /// turns about and is normalised on spawn. `spin_degrees` is the initial
+    /// angle about that axis.
+    ///
+    /// Returns `None` when the scene is full, when the model has nothing
+    /// drawable, when the mesh budget is exhausted, or when any transform
+    /// value is not finite — a malformed spawn degrades to "nothing spawned"
+    /// instead of poisoning the draw list with NaN.
+    #[must_use]
+    pub fn spawn_oriented(
+        &mut self,
+        asset: &Rc<LoadedPropAsset>,
+        translation: [f32; 3],
+        orientation: SpawnOrientation,
+        spin_degrees: f32,
+        scale: f32,
+        spin_degrees_per_second: f32,
+    ) -> Option<DynamicId> {
+        let SpawnOrientation {
+            base_rotation,
+            spin_axis,
+        } = orientation;
         if self.objects.len() >= MAX_DYNAMIC_OBJECTS
             || !translation.iter().all(|value| value.is_finite())
-            || !yaw_degrees.is_finite()
+            || !base_rotation.is_finite()
+            || !spin_axis.iter().all(|value| value.is_finite())
+            || !spin_degrees.is_finite()
             || !scale.is_finite()
             || !spin_degrees_per_second.is_finite()
             || scale <= 0.0
         {
+            return None;
+        }
+        let axis = Vec3::from(spin_axis);
+        if axis.length() < SPIN_AXIS_EPSILON {
             return None;
         }
         let mesh_index = self.mesh_for(asset)?;
@@ -524,7 +654,9 @@ impl DynamicScene {
             mesh_index,
             mesh,
             translation: Vec3::from(translation),
-            yaw_degrees,
+            base_rotation,
+            spin_axis: axis.normalize(),
+            spin_degrees,
             scale,
             spin_degrees_per_second,
             emission: None,
@@ -547,7 +679,9 @@ impl DynamicScene {
         true
     }
 
-    /// Sets an object's transform (translation, yaw about Y, uniform scale).
+    /// Sets an object's transform (translation, spin about its own axis,
+    /// uniform scale). The base orientation and spin axis are spawn-time
+    /// properties and are not changed here.
     ///
     /// Returns `false` for an unknown handle or a non-finite/negative-scale
     /// value. The probe is not re-sampled here: [`Self::update`] owns that, so
@@ -557,11 +691,11 @@ impl DynamicScene {
         &mut self,
         id: DynamicId,
         translation: [f32; 3],
-        yaw_degrees: f32,
+        spin_degrees: f32,
         scale: f32,
     ) -> bool {
         if !translation.iter().all(|value| value.is_finite())
-            || !yaw_degrees.is_finite()
+            || !spin_degrees.is_finite()
             || !scale.is_finite()
             || scale <= 0.0
         {
@@ -571,7 +705,7 @@ impl DynamicScene {
             return false;
         };
         object.translation = Vec3::from(translation);
-        object.yaw_degrees = yaw_degrees;
+        object.spin_degrees = spin_degrees;
         object.scale = scale;
         true
     }
@@ -606,7 +740,7 @@ impl DynamicScene {
         for object in &mut self.objects {
             if object.spin_degrees_per_second != 0.0 && step > 0.0 {
                 let advanced = step * object.spin_degrees_per_second;
-                object.yaw_degrees = (object.yaw_degrees + advanced).rem_euclid(360.0);
+                object.spin_degrees = (object.spin_degrees + advanced).rem_euclid(360.0);
                 update.moved = update.moved.saturating_add(1);
             }
             let Some(lighting) = lighting else {
@@ -637,14 +771,17 @@ impl DynamicScene {
         update
     }
 
-    /// Registers the dynamic drum in front of every placed washing machine.
+    /// Registers the dynamic drum inside every placed washing machine.
     ///
-    /// The washer-drum demonstration, kept deliberately small: the machine itself
-    /// stays an ordinary static level prop (baked, occluding, collidable) and
-    /// only the loose drum is dynamic. Placement is derived, not authored — the
-    /// drum stands on the floor in front of the machine's door, so moving the
-    /// machine moves the drum with no level-schema change and no editor work.
-    /// Returns how many objects were spawned.
+    /// The washer-drum demonstration, kept deliberately small: the machine
+    /// itself stays an ordinary static level prop (baked, occluding,
+    /// collidable) and only the drum is dynamic. Placement is derived, not
+    /// authored: the drum's axis is the machine's front axis through the
+    /// porthole centre, its mouth is recessed behind the front panel so it
+    /// never protrudes, and its scale keeps the basket just inside the
+    /// opening. Moving or turning the machine moves the drum with no
+    /// level-schema change and no editor work. Returns how many objects were
+    /// spawned.
     pub fn spawn_washer_drum_demo(
         &mut self,
         level: &LevelDef,
@@ -670,8 +807,19 @@ impl DynamicScene {
             }
         };
         let drum_radius = catalog.get(DEMO_DRUM_ID).size[0].max(0.0) * 0.5;
+        let drum_length = catalog.get(DEMO_DRUM_ID).size[1].max(0.0);
         let machine_depth = catalog.get(DEMO_MACHINE_ID).size[2].max(0.0);
-        let gap = 0.02;
+        // The drum is fitted to the porthole opening; a placed machine's own
+        // scale multiplies both below, so a scaled machine keeps a
+        // proportionally scaled drum.
+        let unit_drum_scale = if drum_radius > 0.0 {
+            (WASHER_PORTHOLE_OPENING_RADIUS - WASHER_DRUM_PORTHOLE_CLEARANCE).max(0.0) / drum_radius
+        } else {
+            0.0
+        };
+        if unit_drum_scale <= 0.0 {
+            return 0;
+        }
         let surfaces = LevelSurfaces::new(level);
         let mut spawned = 0usize;
         for prop in &level.props {
@@ -685,21 +833,46 @@ impl DynamicScene {
                 Some(path) if path == machine_path => {}
                 _ => continue,
             }
-            if !prop.x.is_finite() || !prop.y.is_finite() || !prop.z.is_finite() {
+            if !prop.x.is_finite()
+                || !prop.y.is_finite()
+                || !prop.z.is_finite()
+                || !prop.rotation_degrees.is_finite()
+                || !prop.scale.is_finite()
+                || prop.scale <= 0.0
+            {
                 continue;
             }
+            let machine_scale = prop.scale;
+            let drum_scale = unit_drum_scale * machine_scale;
             let yaw = prop.rotation_degrees.to_radians();
             let (sin, cos) = yaw.sin_cos();
-            let reach = machine_depth * 0.5 + drum_radius + gap;
-            // A prop at rotation 0 faces +Z, so forward is (sin, 0, cos).
-            let x = sin.mul_add(reach, prop.x);
-            let z = cos.mul_add(reach, prop.z);
-            let base_y = surfaces.floor_y_at(x, z).unwrap_or(0.0);
-            let id = self.spawn(
+            // The machine's front panel sits `bezel` behind its front-most
+            // point (catalogue depth/2); the drum's mouth is recessed again
+            // behind the panel, and the model origin used as the spawn
+            // translation is the drum's back plane, one basket length further
+            // in. A prop at rotation 0 faces +Z, so forward is (sin, 0, cos).
+            let panel_from_centre = machine_depth.mul_add(0.5, -WASHER_PORTHOLE_BEZEL_DEPTH);
+            let mouth_recess =
+                WASHER_DRUM_MOUTH_RECESS.mul_add(machine_scale, drum_length * drum_scale);
+            let along = panel_from_centre.mul_add(machine_scale, -mouth_recess);
+            let x = sin.mul_add(along, prop.x);
+            let z = cos.mul_add(along, prop.z);
+            let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
+            let y = WASHER_PORTHOLE_CENTRE_Y.mul_add(machine_scale, base_y + prop.y);
+            // R_y(rotation) * R_x(90 degrees): the mouth-up basket pitches
+            // onto the machine's horizontal front axis, then the machine's yaw
+            // aims that axis.
+            let orientation = SpawnOrientation {
+                base_rotation: Quat::from_rotation_y(yaw)
+                    .mul_quat(Quat::from_rotation_x(std::f32::consts::FRAC_PI_2)),
+                spin_axis: MODEL_Y_AXIS,
+            };
+            let id = self.spawn_oriented(
                 &drum_asset,
-                [x, base_y + prop.y, z],
-                prop.rotation_degrees,
-                1.0,
+                [x, y, z],
+                orientation,
+                0.0,
+                drum_scale,
                 DEMO_SPIN_DEGREES_PER_SECOND,
             );
             if id.is_some() {
@@ -791,6 +964,7 @@ mod tests {
             }],
             triangles: 1,
             materials: 1,
+            ..PropModel::default()
         }
     }
 
@@ -885,8 +1059,69 @@ mod tests {
         let up = transform.transform_point3(Vec3::new(0.0, 1.0, 0.0));
         assert_eq!(up, Vec3::new(1.0, 4.0, 3.0));
         assert_eq!(scene.get(id).unwrap().translation(), [1.0, 2.0, 3.0]);
-        assert_eq!(scene.get(id).unwrap().yaw_degrees(), 90.0);
+        assert_eq!(scene.get(id).unwrap().spin_degrees(), 90.0);
         assert_eq!(scene.get(id).unwrap().scale(), 2.0);
+        // The terse spawn is the yaw-only special case of the oriented one.
+        assert_eq!(scene.get(id).unwrap().base_rotation(), Quat::IDENTITY);
+        assert_eq!(scene.get(id).unwrap().spin_axis(), [0.0, 1.0, 0.0]);
+    }
+
+    #[test]
+    fn an_oriented_spawn_pitches_and_spins_about_the_named_axis() {
+        let asset = synthetic_asset(MaterialEmission::NONE);
+        let mut scene = DynamicScene::new();
+        // Pitch the triangle 90 degrees about X and spin it about its own Z:
+        // the two compose, so the spin axis in world space is the base-rotated
+        // Z (down), and a quarter turn takes the model's +X onto +Z after the
+        // pitch.
+        let orientation = SpawnOrientation {
+            base_rotation: Quat::from_rotation_x(std::f32::consts::FRAC_PI_2),
+            spin_axis: [0.0, 0.0, 3.0],
+        };
+        let id = scene
+            .spawn_oriented(&asset, [0.0; 3], orientation, 0.0, 1.0, 90.0)
+            .expect("oriented spawn");
+        assert_eq!(scene.get(id).unwrap().spin_axis(), [0.0, 0.0, 1.0]);
+        let before = scene.get(id).unwrap().transform();
+        assert_eq!(before.transform_point3(Vec3::X), Vec3::X);
+        let update = scene.update(1.0, None);
+        assert_eq!(update.moved, 1);
+        assert_eq!(scene.get(id).unwrap().spin_degrees(), 90.0);
+        let after = scene.get(id).unwrap().transform();
+        assert_ne!(before, after);
+        assert!((after.transform_point3(Vec3::X) - Vec3::Z).length() < 1e-5);
+        assert!((after.transform_vector3(Vec3::Z) - Vec3::new(0.0, -1.0, 0.0)).length() < 1e-5);
+        // Malformed orientation and axis are refused, not applied.
+        assert!(
+            scene
+                .spawn_oriented(
+                    &asset,
+                    [0.0; 3],
+                    SpawnOrientation {
+                        base_rotation: Quat::NAN,
+                        spin_axis: [0.0, 1.0, 0.0],
+                    },
+                    0.0,
+                    1.0,
+                    0.0
+                )
+                .is_none()
+        );
+        assert!(
+            scene
+                .spawn_oriented(
+                    &asset,
+                    [0.0; 3],
+                    SpawnOrientation {
+                        base_rotation: Quat::IDENTITY,
+                        spin_axis: [0.0, 0.0, 0.0],
+                    },
+                    0.0,
+                    1.0,
+                    0.0
+                )
+                .is_none()
+        );
     }
 
     #[test]
@@ -897,7 +1132,7 @@ mod tests {
         let b = scene.spawn(&asset, [1.0, 0.0, 0.0], 0.0, 1.0, 0.0).unwrap();
         assert!(scene.set_transform(a, [4.0, 5.0, 6.0], 180.0, 3.0));
         assert_eq!(scene.get(a).unwrap().translation(), [4.0, 5.0, 6.0]);
-        assert_eq!(scene.get(a).unwrap().yaw_degrees(), 180.0);
+        assert_eq!(scene.get(a).unwrap().spin_degrees(), 180.0);
         assert_eq!(scene.get(b).unwrap().translation(), [1.0, 0.0, 0.0]);
         assert!(scene.set_transform(b, [1.0, 0.0, 0.0], 0.0, 0.5));
         assert_eq!(scene.get(b).unwrap().scale(), 0.5);
@@ -909,7 +1144,7 @@ mod tests {
     }
 
     #[test]
-    fn spinning_advances_the_yaw_and_wraps_deterministically() {
+    fn spinning_advances_the_default_yaw_and_wraps_deterministically() {
         let asset = synthetic_asset(MaterialEmission::NONE);
         let mut scene = DynamicScene::new();
         let id = scene
@@ -917,14 +1152,14 @@ mod tests {
             .unwrap();
         let update = scene.update(1.0, None);
         assert_eq!(update.moved, 1);
-        assert_eq!(scene.get(id).unwrap().yaw_degrees(), 2.0);
+        assert_eq!(scene.get(id).unwrap().spin_degrees(), 2.0);
         let update = scene.update(0.5, None);
         assert_eq!(update.moved, 1);
-        assert_eq!(scene.get(id).unwrap().yaw_degrees(), 8.0);
+        assert_eq!(scene.get(id).unwrap().spin_degrees(), 8.0);
         // A non-finite delta is inert.
         let update = scene.update(f32::NAN, None);
         assert_eq!(update.moved, 0);
-        assert_eq!(scene.get(id).unwrap().yaw_degrees(), 8.0);
+        assert_eq!(scene.get(id).unwrap().spin_degrees(), 8.0);
     }
 
     // ------------------------------------------------------------------ probes
@@ -1066,6 +1301,7 @@ mod tests {
                 submeshes: Vec::new(),
                 triangles: 0,
                 materials: 0,
+                ..PropModel::default()
             },
         });
         let mut scene = DynamicScene::new();
@@ -1114,7 +1350,7 @@ mod tests {
     // --------------------------------------------------- demonstration plumbing
 
     #[test]
-    fn the_demo_places_the_drum_in_front_of_the_machines_door() {
+    fn the_demo_places_the_drum_inside_the_machines_cavity() {
         let level = demo_level();
         let (catalog, mut assets) = washers();
         let mut scene = DynamicScene::new();
@@ -1122,13 +1358,39 @@ mod tests {
             scene.spawn_washer_drum_demo(&level, &catalog, &mut assets),
             1
         );
+        let drum_size = catalog.get(DEMO_DRUM_ID).size;
+        let machine_depth = catalog.get(DEMO_MACHINE_ID).size[2];
+        // The machine is at (3, 0.45) facing +Z, 0.6 m deep. Its front panel
+        // is 0.03 m behind the front-most point, the mouth is recessed 0.02 m
+        // behind that, and the 0.3 m basket is scaled to fit the opening:
+        // 0.15/0.21, so the model origin (the drum's back plane) lands at
+        // 0.45 + 0.27 - 0.02 - 0.214... = 0.4857 at the porthole's 0.44 m
+        // height, and the mouth sits at exactly 0.7.
         let drum = scene.objects()[0].transform();
-        // The machine is at (3, 0.45) facing +Z, is 0.6 m deep and the drum is
-        // 0.42 m across, so the drum centre lands at 0.45 + 0.3 + 0.21 + 0.02.
-        let position = drum.transform_point3(Vec3::ZERO);
-        assert!((position.x - 3.0).abs() < 1e-6);
-        assert!((position.z - 0.98).abs() < 1e-6);
-        assert!((position.y - 0.0).abs() < 1e-6);
+        let origin = drum.transform_point3(Vec3::ZERO);
+        assert!((origin.x - 3.0).abs() < 1e-5);
+        assert!((origin.y - WASHER_PORTHOLE_CENTRE_Y).abs() < 1e-5);
+        assert!((origin.z - 0.485_714_3).abs() < 1e-5);
+        // The axis is the machine's front, and the mouth faces it. (The
+        // transform's linear part carries the drum's scale, so normalize.)
+        let axis = drum.transform_vector3(Vec3::Y).normalize();
+        assert!(axis.x.abs() < 1e-5, "axis {axis:?}");
+        assert!(axis.y.abs() < 1e-5, "axis {axis:?}");
+        assert!((axis.z - 1.0).abs() < 1e-5, "axis {axis:?}");
+        let mouth = drum.transform_point3(Vec3::new(0.0, drum_size[1], 0.0));
+        let front_panel = machine_depth.mul_add(0.5, 0.45 - WASHER_PORTHOLE_BEZEL_DEPTH);
+        assert!(
+            mouth.z < front_panel,
+            "the drum's mouth (z={}) must be recessed behind the machine's \
+             front panel (z={front_panel})",
+            mouth.z
+        );
+        // The basket is just inside the opening: its radius is the opening
+        // minus the clearance, so it can spin without touching the cavity.
+        let basket_radius = drum_size[0] * 0.5 * scene.objects()[0].scale();
+        let wanted = WASHER_PORTHOLE_OPENING_RADIUS - WASHER_DRUM_PORTHOLE_CLEARANCE;
+        assert!((basket_radius - wanted).abs() < 1e-6);
+        assert_eq!(scene.objects()[0].spin_axis(), MODEL_Y_AXIS);
         assert_eq!(
             scene.objects()[0].spin_degrees_per_second(),
             DEMO_SPIN_DEGREES_PER_SECOND
@@ -1158,10 +1420,116 @@ mod tests {
             scene.spawn_washer_drum_demo(&level, &catalog, &mut assets),
             1
         );
-        // At 90 degrees the machine faces +X: the drum sits east of it.
-        let position = scene.objects()[0].transform().transform_point3(Vec3::ZERO);
-        assert!((position.x - 3.53).abs() < 1e-5);
-        assert!((position.z - 3.0).abs() < 1e-5);
+        // At 90 degrees the machine faces +X: the drum's back plane is 0.0357
+        // east of the machine centre and its axis points +X.
+        let drum = scene.objects()[0].transform();
+        let origin = drum.transform_point3(Vec3::ZERO);
+        assert!((origin.x - 3.035_714_3).abs() < 1e-5);
+        assert!((origin.z - 3.0).abs() < 1e-5);
+        let axis = drum.transform_vector3(Vec3::Y).normalize();
+        assert!((axis.x - 1.0).abs() < 1e-5, "axis {axis:?}");
+        assert!(axis.y.abs() < 1e-5, "axis {axis:?}");
+        assert!(axis.z.abs() < 1e-5, "axis {axis:?}");
+    }
+
+    #[test]
+    fn the_demo_scales_the_drum_with_the_machine() {
+        let level = level_from(
+            r#"{
+                "format_version": 1,
+                "id": "dynamic_test_scaled",
+                "name": "Scaled",
+                "spawn": { "x": 2.0, "z": 2.0 },
+                "rooms": [ { "x": 0.0, "z": 0.0, "width": 6.0, "depth": 6.0, "height": 2.7 } ],
+                "walls": [],
+                "ceiling_lights": [],
+                "props": [
+                    { "model": "core:washing_machine", "x": 3.0, "z": 3.0,
+                      "scale": 2.0, "size": [0.6, 0.85, 0.6], "solid": true }
+                ]
+            }"#,
+        );
+        let (catalog, mut assets) = washers();
+        let mut scene = DynamicScene::new();
+        assert_eq!(
+            scene.spawn_washer_drum_demo(&level, &catalog, &mut assets),
+            1
+        );
+        // The drum's radius, recess and porthole height all follow the machine
+        // scale, so a doubled machine gets a doubled drum.
+        let object = &scene.objects()[0];
+        let opening = WASHER_PORTHOLE_OPENING_RADIUS - WASHER_DRUM_PORTHOLE_CLEARANCE;
+        let wanted_radius = opening * 2.0;
+        let basket_radius = catalog.get(DEMO_DRUM_ID).size[0] * 0.5 * object.scale();
+        assert!((basket_radius - wanted_radius).abs() < 1e-5);
+        let origin = object.transform().transform_point3(Vec3::ZERO);
+        let wanted_height = WASHER_PORTHOLE_CENTRE_Y * 2.0;
+        assert!((origin.y - wanted_height).abs() < 1e-5);
+        assert!((origin.z - 3.071_428_6).abs() < 1e-5);
+    }
+
+    #[test]
+    fn the_demo_drum_spins_inside_a_stationary_machine_body() {
+        let level = demo_level();
+        let (catalog, mut assets) = washers();
+        let mut scene = DynamicScene::new();
+        assert_eq!(
+            scene.spawn_washer_drum_demo(&level, &catalog, &mut assets),
+            1
+        );
+        let id = scene.objects()[0].id();
+        let prop = &level.props[0];
+        let base_y = LevelSurfaces::new(&level)
+            .floor_y_at(prop.x, prop.z)
+            .unwrap_or(0.0);
+        // The machine body never moves: its static instance transform is the
+        // level's, and the demonstration only ever adds a dynamic drum.
+        let machine_before = super::super::props::prop_instance_matrix(prop, base_y);
+        // The machine's catalogue box (rotation 0, scale 1 in this level).
+        let size = catalog.get(DEMO_MACHINE_ID).size;
+        let machine_min = [
+            size[0].mul_add(-0.5, prop.x),
+            base_y + prop.y,
+            size[2].mul_add(-0.5, prop.z),
+        ];
+        let machine_max = [
+            size[0].mul_add(0.5, prop.x),
+            base_y + prop.y + size[1],
+            size[2].mul_add(0.5, prop.z),
+        ];
+        let first = scene.get(id).unwrap().transform();
+        let centre = scene.get(id).unwrap().centre();
+        let mut previous = first;
+        for _ in 0..120 {
+            assert_eq!(scene.update(1.0 / 60.0, None).moved, 1);
+            let current = scene.get(id).unwrap().transform();
+            // The body of the transform is different every frame: it spins.
+            assert_ne!(current, previous);
+            previous = current;
+            // A spin about its own axis moves no point of the axis, so the
+            // drum's centre -- and its probe point -- never moves.
+            assert_eq!(scene.get(id).unwrap().centre(), centre);
+            // And the whole drum stays inside the machine's catalogue box.
+            let bounds = scene.get(id).unwrap().world_bounds();
+            for axis in 0..3 {
+                assert!(
+                    bounds.min[axis] >= machine_min[axis] - 1e-5,
+                    "drum leaves the machine on axis {axis}: {:?} < {:?}",
+                    bounds.min,
+                    machine_min
+                );
+                assert!(
+                    bounds.max[axis] <= machine_max[axis] + 1e-5,
+                    "drum leaves the machine on axis {axis}: {:?} > {:?}",
+                    bounds.max,
+                    machine_max
+                );
+            }
+        }
+        assert_eq!(
+            super::super::props::prop_instance_matrix(prop, base_y),
+            machine_before
+        );
     }
 
     #[test]

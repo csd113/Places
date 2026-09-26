@@ -394,8 +394,10 @@ fn test_architecture_stress_builds_with_bounded_geometry() {
         build.mesh.vertex_count,
         estimate.total_vertices
     );
-    // Batches are per material and spatial cell, not per piece: 500+ pieces of
-    // nine materials stay far below one batch per piece.
+    // Batches are per material and spatial cell, not per piece: hundreds of
+    // pieces of nine materials stay far below one batch per piece. The panel
+    // fixtures now carry a real housing, which adds cells but not draws per
+    // piece, so three pieces per range is the measured ceiling.
     let piece_count = level.ramps.len()
         + level.stairs.len()
         + level.half_walls.len()
@@ -406,7 +408,7 @@ fn test_architecture_stress_builds_with_bounded_geometry() {
         + level.baseboards.len();
     assert!(piece_count >= 200, "the stress level is architecture-heavy");
     assert!(
-        build.mesh.ranges.len() < piece_count / 4,
+        build.mesh.ranges.len() < piece_count / 3,
         "batches batch: {} ranges for {piece_count} pieces",
         build.mesh.ranges.len()
     );
@@ -1292,6 +1294,60 @@ fn test_the_shipped_demo_emits_no_zero_area_triangles() {
         degenerate.len(),
         degenerate.first()
     );
+}
+
+/// Loader preparation only adds trim and snaps panels onto their ceiling grid,
+/// so the *prepared* demo is held to the same contract as the authored one: it
+/// still validates and still emits no zero-area triangle. This is the check
+/// that generated baseboard runs and the panel housing join real geometry
+/// without defects.
+#[test]
+fn test_the_prepared_demo_validates_and_emits_no_zero_area_triangles() {
+    let catalog = crate::assets::AssetCatalog::load_default();
+    let mut level = parse(include_str!("../assets/levels/places_demo.json"));
+    let authored_baseboards = level.baseboards.len();
+    crate::loader::prepare_level(&mut level, &catalog, None);
+    assert!(
+        level.baseboards.len() > authored_baseboards,
+        "the office walls gain automatic baseboard runs"
+    );
+    crate::loader::validate_level(&level).expect("the prepared demo still validates");
+
+    let materials = logical_materials(&level);
+    let mesh = build_level_geometry_with_materials(&level, &materials);
+    let triangles = emitted_triangles(&mesh);
+    assert!(!triangles.is_empty(), "the prepared demo emits geometry");
+    let degenerate: Vec<[[f32; 3]; 3]> = triangles
+        .iter()
+        .filter(|triangle| triangle.world_area <= 1.0e-9)
+        .map(|triangle| triangle.points)
+        .collect();
+    assert!(
+        degenerate.is_empty(),
+        "the prepared demo emits {} zero-area triangle(s), first at {:?}",
+        degenerate.len(),
+        degenerate.first()
+    );
+
+    // The generated office trim is real, drawn geometry at its floors.
+    let index = materials
+        .index_of("core:baseboard_office_01")
+        .expect("the generated trim material resolves");
+    let mut trim_triangles = 0;
+    for triangle in &triangles {
+        if triangle.material != index {
+            continue;
+        }
+        trim_triangles += 1;
+        for point in triangle.points {
+            let on_a_floor = [0.0_f32, -0.9, -1.5].iter().any(|floor| {
+                point[1] >= floor - 1.0e-3
+                    && point[1] <= floor + crate::level::BASEBOARD_DEFAULT_HEIGHT_M + 1.0e-3
+            });
+            assert!(on_a_floor, "office trim floating at y {}", point[1]);
+        }
+    }
+    assert!(trim_triangles > 0, "the office trim is drawn");
 }
 
 /// Each primitive's documented bounds are enforced exactly, and malformed

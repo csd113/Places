@@ -6,8 +6,10 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use zip::ZipArchive;
 
+use crate::assets::AssetCatalog;
 use crate::level::{
-    LevelDef, LevelSurfaces, MAX_LEVEL_FLOOR_AREA_M2, MAX_LEVEL_VERTICES, WALL_SLICE_EPS, WallAxis,
+    BASEBOARD_DEFAULT_HEIGHT_M, BASEBOARD_DEFAULT_THICKNESS_M, BaseboardDef, LevelDef,
+    LevelSurfaces, MAX_LEVEL_FLOOR_AREA_M2, MAX_LEVEL_VERTICES, WALL_SLICE_EPS, WallAxis, WallDef,
     wall_solid_slices_profiled,
 };
 use crate::materials::{MaterialTable, PackMaterials, load_png_relative, resolve_materials};
@@ -440,6 +442,7 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_rooms(level)?;
     validate_surface_shine(level)?;
     validate_floor_regions(level)?;
+    validate_water(level)?;
     validate_walls(level)?;
     validate_architecture(level)?;
     validate_ceiling_lights(level)?;
@@ -729,6 +732,96 @@ fn validate_floor_regions(level: &LevelDef) -> Result<(), String> {
         }
         if !overlaps_room {
             return Err(format!("Floor region {i} lies outside every room section"));
+        }
+    }
+    Ok(())
+}
+
+/// Rectangular water volumes: position, size, surface, material and depth.
+///
+/// A volume whose surface sits at or below the floor beneath it is a typo the
+/// author has to see (the water would be hidden inside the geometry), so the
+/// walkable floor is sampled inside the footprint and compared against the
+/// authored surface. A volume that overlaps no room is rejected like a floor
+/// region that overlaps none.
+fn validate_water(level: &LevelDef) -> Result<(), String> {
+    if u64::try_from(level.water.len()).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_WATER_VOLUMES
+    {
+        return Err(format!(
+            "Level contains too many water volumes: {} (limit: {})",
+            level.water.len(),
+            crate::level::MAX_LEVEL_WATER_VOLUMES
+        ));
+    }
+    let surfaces = crate::level::LevelSurfaces::new(level);
+    for (i, volume) in level.water.iter().enumerate() {
+        if !volume.x.is_finite()
+            || !volume.z.is_finite()
+            || !volume.width.is_finite()
+            || !volume.depth.is_finite()
+            || !volume.surface_y.is_finite()
+        {
+            return Err(format!(
+                "Water volume {i} position, size, and surface must be finite numbers"
+            ));
+        }
+        if volume.width <= 0.0 || volume.depth <= 0.0 {
+            return Err(format!("Water volume {i} width and depth must be positive"));
+        }
+        if volume
+            .material
+            .as_deref()
+            .is_some_and(|material| material.trim().is_empty())
+        {
+            return Err(format!(
+                "Water volume {i} material must be a non-empty id when specified"
+            ));
+        }
+        if let Some(opacity) = volume.opacity
+            && (!opacity.is_finite() || !(0.0..=1.0).contains(&opacity))
+        {
+            return Err(format!(
+                "Water volume {i} opacity must be a finite number between 0.0 and 1.0"
+            ));
+        }
+        if let Some(bottom) = volume.bottom_y
+            && (!bottom.is_finite() || bottom >= volume.surface_y)
+        {
+            return Err(format!(
+                "Water volume {i} bottom_y must be finite and below its surface_y"
+            ));
+        }
+
+        let (x0, x1, z0, z1) = volume.bounds();
+        let mut overlaps_room = false;
+        let mut samples: [(f32, f32); 5] = [
+            (f32::midpoint(x0, x1), f32::midpoint(z0, z1)),
+            (x0, z0),
+            (x1, z0),
+            (x1, z1),
+            (x0, z1),
+        ];
+        // Inset the corner samples so a volume that shares an edge with a room
+        // boundary is not rejected by floating-point noise on the seam.
+        for (x, z) in &mut samples {
+            *x = x.clamp(x0 + 1.0e-3, x1 - 1.0e-3);
+            *z = z.clamp(z0 + 1.0e-3, z1 - 1.0e-3);
+        }
+        for (x, z) in samples {
+            let Some(floor) = surfaces.floor_y_at(x, z) else {
+                continue;
+            };
+            overlaps_room = true;
+            if floor > volume.surface_y + 1.0e-2 {
+                return Err(format!(
+                    "Water volume {i} surface ({:.2} m) is below the floor at ({x:.2}, {z:.2}) \
+                     ({floor:.2} m); raise surface_y above the floor it covers",
+                    volume.surface_y
+                ));
+            }
+        }
+        if !overlaps_room {
+            return Err(format!("Water volume {i} lies outside every room section"));
         }
     }
     Ok(())
@@ -1872,6 +1965,354 @@ fn resolve_fixture_sheet(
     }))
 }
 
+// ---------------------------------------------------------------------------
+// Level preparation
+// ---------------------------------------------------------------------------
+
+/// Distance a baseboard floor probe stands off the wall's face, in metres.
+const BASEBOARD_FLOOR_PROBE_M: f32 = 0.05;
+/// How far floor samples along one face may differ and still be one floor.
+const BASEBOARD_FLOOR_AGREEMENT_M: f32 = 0.05;
+/// How far a wall's own base may sit from the floor it fronts, in metres.
+const BASEBOARD_BASE_AGREEMENT_M: f32 = 0.05;
+/// Fractions along a face at which its walkable floor is sampled: both ends
+/// inset, the middle and the quarter points, so a floor change anywhere along
+/// the run is seen.
+const BASEBOARD_FLOOR_FRACTIONS: [f32; 5] = [0.02, 0.25, 0.5, 0.75, 0.98];
+/// Plane separation under which two baseboard runs count as the same plane.
+const BASEBOARD_SAME_PLANE_M: f32 = 1.0e-3;
+/// Run overlap under which two collinear runs do not suppress each other.
+const BASEBOARD_OVERLAP_M: f32 = 1.0e-3;
+
+/// One wall length face a baseboard run can sit on: the face's `faces` name,
+/// the run's start point on the face, and the run's yaw.
+///
+/// The direction and across vectors follow [`BaseboardDef::direction`] and
+/// [`BaseboardDef::across`] exactly, so a generated run and the emitter agree
+/// on which way the board faces.
+#[derive(Clone, Copy)]
+struct BaseboardFace {
+    name: &'static str,
+    start: (f32, f32),
+    rotation_degrees: f32,
+}
+
+impl BaseboardFace {
+    /// Run direction as an `(x, z)` unit vector; 0 runs +X.
+    fn direction(self) -> (f32, f32) {
+        let radians = self.rotation_degrees.to_radians();
+        (radians.cos(), -radians.sin())
+    }
+
+    /// Across-the-board direction as an `(x, z)` unit vector, pointing out of
+    /// the wall's face into the room.
+    fn across(self) -> (f32, f32) {
+        let radians = self.rotation_degrees.to_radians();
+        (radians.sin(), radians.cos())
+    }
+}
+
+/// The one load-time preparation pass, run after validation and before the
+/// decoded material table is built.
+///
+/// It applies every catalog-driven adjustment that the bake, mesh, collision
+/// and fixture probe must all see:
+///
+/// * grid-aligns fluorescent panels onto their ceiling material's world tile
+///   grid ([`LevelDef::align_ceiling_fixtures`]); and
+/// * generates the automatic baseboard runs a wall material declares through
+///   the catalog's `baseboard` field.
+///
+/// `materials` starts as a **logical** table: alignment only needs
+/// `tile_metres`, which is already final before images decode, and the
+/// baseboard pass only needs the catalog. The caller resolves the full decoded
+/// table *after* this pass, so a generated run's trim material is part of the
+/// renderer's material table even when no authored trim uses it.
+pub(crate) fn prepare_level(
+    level: &mut LevelDef,
+    catalog: &AssetCatalog,
+    pack: Option<&PackMaterials>,
+) {
+    let materials = MaterialTable::logical(level, catalog, pack);
+    level.align_ceiling_fixtures(&materials);
+    generate_automatic_baseboards(level, catalog);
+}
+
+/// Generates the baseboard runs every wall face's resolved material declares
+/// through its catalog `baseboard`, appending them after the authored runs so
+/// the existing joint trimming lets authored trim win. Returns how many runs
+/// were generated.
+///
+/// A face qualifies when it is finished with a material whose catalog entry
+/// declares `baseboard`, it fronts one walkable floor along its whole length
+/// (samples just outside the face at both inset ends, the middle and the
+/// quarter points all exist and agree within
+/// [`BASEBOARD_FLOOR_AGREEMENT_M`]), and the wall's own base meets that floor
+/// (within [`BASEBOARD_BASE_AGREEMENT_M`]). Each run is split around every
+/// opening whose sill reaches the board's height, pinned to the floor it
+/// fronts, and skipped when it would be buried in a crossing wall or when an
+/// authored run already covers the same plane and span.
+fn generate_automatic_baseboards(level: &mut LevelDef, catalog: &AssetCatalog) -> usize {
+    let authored_count = level.baseboards.len();
+    let mut generated: Vec<BaseboardDef> = Vec::new();
+    let mut remaining = crate::level::MAX_LEVEL_BASEBOARDS
+        .saturating_sub(u64::try_from(authored_count).unwrap_or(u64::MAX));
+    {
+        let surfaces = LevelSurfaces::new(level);
+        // `authored_count` was captured from this same array, so the prefix is
+        // always present; the empty fallback only satisfies the no-slicing rule.
+        let authored = level.baseboards.get(..authored_count).unwrap_or_default();
+        for wall in &level.walls {
+            if remaining == 0 {
+                break;
+            }
+            generate_wall_baseboards(
+                level,
+                &surfaces,
+                wall,
+                catalog,
+                authored,
+                &mut generated,
+                &mut remaining,
+            );
+        }
+    }
+    let count = generated.len();
+    level.baseboards.append(&mut generated);
+    count
+}
+
+/// Generates the runs for one wall's two length faces: the per-wall half of
+/// [`generate_automatic_baseboards`], which owns the shared budget and output.
+fn generate_wall_baseboards(
+    level: &LevelDef,
+    surfaces: &LevelSurfaces<'_>,
+    wall: &WallDef,
+    catalog: &AssetCatalog,
+    authored: &[BaseboardDef],
+    generated: &mut Vec<BaseboardDef>,
+    remaining: &mut u64,
+) {
+    let (x0, x1) = (
+        wall.x.min(wall.x + wall.width),
+        wall.x.max(wall.x + wall.width),
+    );
+    let (z0, z1) = (
+        wall.z.min(wall.z + wall.depth),
+        wall.z.max(wall.z + wall.depth),
+    );
+    let length = wall.length();
+    if !length.is_finite() || length <= 0.0 {
+        return;
+    }
+    // Deterministic order: the + face then the - face. An X-axis wall's + face
+    // is south (normal +Z), a Z-axis wall's is east (+X).
+    let faces: [BaseboardFace; 2] = match wall.axis() {
+        WallAxis::X => [
+            BaseboardFace {
+                name: "south",
+                start: (x0, z1),
+                rotation_degrees: 0.0,
+            },
+            BaseboardFace {
+                name: "north",
+                start: (x1, z0),
+                rotation_degrees: 180.0,
+            },
+        ],
+        WallAxis::Z => [
+            BaseboardFace {
+                name: "east",
+                start: (x1, z1),
+                rotation_degrees: 90.0,
+            },
+            BaseboardFace {
+                name: "west",
+                start: (x0, z0),
+                rotation_degrees: 270.0,
+            },
+        ],
+    };
+    for face in faces {
+        if *remaining == 0 {
+            return;
+        }
+        let material = wall
+            .face_ref(face.name)
+            .map_or(level.defaults.wall.as_str(), |reference| reference.id);
+        let Some(baseboard) = catalog
+            .material(material)
+            .and_then(|entry| entry.baseboard.as_deref())
+        else {
+            continue;
+        };
+        let Some(floor) = baseboard_face_floor(surfaces, wall, face, length) else {
+            continue;
+        };
+        let (dx, dz) = face.direction();
+        let along_positive = {
+            let (ax, az) = match wall.axis() {
+                WallAxis::X => (1.0, 0.0),
+                WallAxis::Z => (0.0, 1.0),
+            };
+            dx.mul_add(ax, dz * az) > 0.0
+        };
+        for (low, high) in baseboard_segments(wall, length, along_positive) {
+            let run = BaseboardDef {
+                x: dx.mul_add(low, face.start.0),
+                z: dz.mul_add(low, face.start.1),
+                length: high - low,
+                rotation_degrees: face.rotation_degrees,
+                height: BASEBOARD_DEFAULT_HEIGHT_M,
+                thickness: BASEBOARD_DEFAULT_THICKNESS_M,
+                y: Some(floor),
+                material: Some(baseboard.to_string()),
+                shine: None,
+            };
+            if baseboard_run_is_hidden(level, &run) {
+                continue;
+            }
+            if authored_run_suppresses(surfaces, authored, &run) {
+                continue;
+            }
+            generated.push(run);
+            *remaining = remaining.saturating_sub(1);
+            if *remaining == 0 {
+                return;
+            }
+        }
+    }
+}
+
+/// The walkable floor one face fronts, when the whole run fronts a single
+/// floor that the wall's own base meets.
+fn baseboard_face_floor(
+    surfaces: &LevelSurfaces<'_>,
+    wall: &WallDef,
+    face: BaseboardFace,
+    length: f32,
+) -> Option<f32> {
+    let (dx, dz) = face.direction();
+    let (ax, az) = face.across();
+    let mut floor: Option<f32> = None;
+    for fraction in BASEBOARD_FLOOR_FRACTIONS {
+        let along = length * fraction;
+        let x = dx.mul_add(along, ax.mul_add(BASEBOARD_FLOOR_PROBE_M, face.start.0));
+        let z = dz.mul_add(along, az.mul_add(BASEBOARD_FLOOR_PROBE_M, face.start.1));
+        let sample = surfaces.floor_y_at(x, z)?;
+        if floor.is_some_and(|previous| (sample - previous).abs() > BASEBOARD_FLOOR_AGREEMENT_M) {
+            return None;
+        }
+        floor = Some(sample);
+    }
+    let floor = floor?;
+    // The wall's own base is its absolute world `y`; a non-finite value falls
+    // back to the room floor under the footprint centre.
+    let base = if wall.y.is_finite() {
+        wall.y
+    } else {
+        surfaces
+            .floor_y_at(
+                f32::midpoint(wall.x, wall.x + wall.width),
+                f32::midpoint(wall.z, wall.z + wall.depth),
+            )
+            .unwrap_or(0.0)
+    };
+    ((base - floor).abs() <= BASEBOARD_BASE_AGREEMENT_M).then_some(floor)
+}
+
+/// The run spans of one face with every floor-reaching opening removed.
+///
+/// `along_positive` says whether the face's run direction is the wall's own
+/// positive length axis; the other faces measure their span from the far end.
+/// Spans ascend along the run.
+fn baseboard_segments(wall: &WallDef, length: f32, along_positive: bool) -> Vec<(f32, f32)> {
+    let mut spans = vec![(0.0, length)];
+    for opening in &wall.openings {
+        if !opening.sill.is_finite() || opening.sill > BASEBOARD_DEFAULT_HEIGHT_M + 1.0e-3 {
+            continue;
+        }
+        let (low, high) = if along_positive {
+            (opening.offset, opening.end())
+        } else {
+            (length - opening.end(), length - opening.offset)
+        };
+        let low = low.max(0.0);
+        let high = high.min(length);
+        if high <= low {
+            continue;
+        }
+        let mut next: Vec<(f32, f32)> = Vec::new();
+        for (span_low, span_high) in spans {
+            if high <= span_low || low >= span_high {
+                next.push((span_low, span_high));
+                continue;
+            }
+            if low > span_low {
+                next.push((span_low, low));
+            }
+            if high < span_high {
+                next.push((high, span_high));
+            }
+        }
+        spans = next;
+    }
+    spans.retain(|(low, high)| high - low > BASEBOARD_OVERLAP_M);
+    spans.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+    spans
+}
+
+/// True when a run's midpoint lies inside a wall solid: a perpendicular wall
+/// crossing the face would hide the board there, so the segment is skipped.
+fn baseboard_run_is_hidden(level: &LevelDef, run: &BaseboardDef) -> bool {
+    let (x, z) = run.point_at(0.5, run.thickness() * 0.5);
+    let y = run
+        .height()
+        .mul_add(0.5, run.base_y(&LevelSurfaces::new(level)));
+    point_buried_in_wall(level, x, z, y).is_some()
+}
+
+/// True when an authored run already lies on this run's plane and overlaps its
+/// span, in which case the authored board owns the face and the generated run
+/// is skipped.
+fn authored_run_suppresses(
+    surfaces: &LevelSurfaces<'_>,
+    authored: &[BaseboardDef],
+    run: &BaseboardDef,
+) -> bool {
+    let (rdx, rdz) = run.direction();
+    let (rax, raz) = run.across();
+    let base = run.base_y(surfaces);
+    for other in authored {
+        let (odx, odz) = other.direction();
+        if rdx.mul_add(odx, rdz * odz).abs() < 0.999 {
+            continue;
+        }
+        if (other.base_y(surfaces) - base).abs() > BASEBOARD_SAME_PLANE_M {
+            continue;
+        }
+        let rel_x = run.x - other.x;
+        let rel_z = run.z - other.z;
+        if rax.mul_add(rel_x, raz * rel_z).abs() > BASEBOARD_SAME_PLANE_M {
+            continue;
+        }
+        // Project the generated run's interval onto the authored run's own axis
+        // so the two orientations compare in one frame.
+        let start = odx.mul_add(rel_x, odz * rel_z);
+        let end = run.length.mul_add(rdx.mul_add(odx, rdz * odz), start);
+        let (run_low, run_high) = if start <= end {
+            (start, end)
+        } else {
+            (end, start)
+        };
+        let overlap = run_high.min(other.length) - run_low.max(0.0);
+        if overlap > BASEBOARD_OVERLAP_M {
+            return true;
+        }
+    }
+    false
+}
+
 /// Unified level loader and package manager.
 pub struct LevelManager {
     assets_dir: PathBuf,
@@ -2086,9 +2527,10 @@ impl LevelManager {
             // Direct fallback: the embedded demo JSON still resolves its
             // materials through the shipped catalog (and degrades loudly to the
             // diagnostic texture when no assets are installed at all).
-            let level = LevelDef::from_json(FALLBACK_DEMO_JSON)
+            let mut level = LevelDef::from_json(FALLBACK_DEMO_JSON)
                 .map_err(|e| format!("Failed to parse embedded Places Demo: {e}"))?;
             validate_level(&level)?;
+            prepare_level(&mut level, self.prop_catalog.assets(), None);
             let materials = self.resolve_level_materials(&level, None);
             let light_sheets = self.resolve_level_fixture_sheets(&level, None);
             Ok(LoadedLevel {
@@ -2168,9 +2610,10 @@ impl LevelManager {
             LevelSourceType::Official | LevelSourceType::CustomJson => {
                 let content = Self::read_standalone_level(&entry.path)?;
 
-                let level = LevelDef::from_json(&content)
+                let mut level = LevelDef::from_json(&content)
                     .map_err(|e| format!("JSON parse error in {}: {e}", entry.path.display()))?;
                 validate_level(&level)?;
+                prepare_level(&mut level, self.prop_catalog.assets(), None);
                 let materials = self.resolve_level_materials(&level, None);
                 let light_sheets = self.resolve_level_fixture_sheets(&level, None);
 
@@ -2182,9 +2625,10 @@ impl LevelManager {
                 })
             }
             LevelSourceType::Embedded => {
-                let level = LevelDef::from_json(FALLBACK_DEMO_JSON)
+                let mut level = LevelDef::from_json(FALLBACK_DEMO_JSON)
                     .map_err(|e| format!("Failed to parse the embedded Places Demo: {e}"))?;
                 validate_level(&level)?;
+                prepare_level(&mut level, self.prop_catalog.assets(), None);
                 let materials = self.resolve_level_materials(&level, None);
                 let light_sheets = self.resolve_level_fixture_sheets(&level, None);
 
@@ -2199,7 +2643,7 @@ impl LevelManager {
                 let file = fs::File::open(&entry.path)
                     .map_err(|e| format!("Failed to open {}: {e}", entry.path.display()))?;
                 let pack = extract_zip(file)?;
-                let level = LevelDef::from_json(&pack.level_json)
+                let mut level = LevelDef::from_json(&pack.level_json)
                     .map_err(|e| format!("Invalid level.json in {}: {e}", entry.path.display()))?;
                 validate_level(&level)?;
 
@@ -2207,6 +2651,11 @@ impl LevelManager {
                     entry.path.to_string_lossy().to_string(),
                     pack.materials_json.as_deref(),
                     pack.textures,
+                );
+                prepare_level(
+                    &mut level,
+                    self.prop_catalog.assets(),
+                    Some(&pack_materials),
                 );
                 let materials = self.resolve_level_materials(&level, Some(&pack_materials));
                 let light_sheets = self.resolve_level_fixture_sheets(&level, Some(&pack_materials));

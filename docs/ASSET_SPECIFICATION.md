@@ -219,7 +219,7 @@ currently nothing enforces a minimum for any class.
 | Core shared sheet (glass/floor/wall) | `glass_clear_01.png` | **1:1** | 1024×1024 (current production); 128×128 painter output is contract-valid | none enforced | per material: `blend` glass, `cutout` grille, opaque otherwise | **yes, both axes** | world metres ÷ `tile_metres` | seam-gated with the environment set |
 | Shared white sheet | `white_01.png` | **1:1** | 1024×1024 (current production); a flat fill, so any POT size is contract-valid | none enforced | opaque white | no | no authored UV contract: it is a flat fill bound wherever a surface is untextured | engine fallback loaded once at startup; see §12.3 |
 | Normal map | `normal_panel_01.png` | **1:1** | 1024×1024 (current production); 128×128 painter output is contract-valid | none enforced | alpha unused | **yes, both axes** | same UV as the albedo it augments | Surface quality class |
-| Fluorescent panel face | `fluorescent_panel_01.png` | **2:1** | 1024×512 (current production) | none enforced | ignored (face is opaque) | no | full sheet; `u` across 1.2 m width, `v` across 0.6 m depth | POT both edges; replacement must stay 2:1 |
+| Fluorescent panel face | `fluorescent_panel_01.png` | **2:1** | 1024×512 (current production) | none enforced | ignored (face is opaque) | no | full sheet fit to the 1.12 × 0.56 m diffuser aperture; `u` across the width, `v` across the depth | POT both edges; replacement must stay 2:1 |
 | Round downlight face | `pool_light_round_01.png` | **1:1** | 1024×1024 (current production); 128×128 painter output is contract-valid | none enforced | ignored | no | planar; sheet centre = fixture centre; inscribed circle = diffuser radius | POT both edges |
 | Wall luminaire face | `pool_light_wall_01.png` | **2:1** | 1024×512 (current production); 128×64 painter output is contract-valid | none enforced | ignored | no | full sheet; `u` across 0.4 m width, `v` up 0.2 m height | POT both edges |
 | Flush-mount diffuser face | `ceiling_light_round_01.png` | **1:1** | 1024×1024 (current production); 256×256 painter output is contract-valid | none enforced | ignored | no | planar; sheet centre = fixture centre; inscribed circle = diffuser radius (0.16 m) | POT both edges |
@@ -385,13 +385,13 @@ no lighting information; its job is the fixture's appearance (diffuser, lens,
 housing trim on the luminous face). There is no separate emissive map for a
 fixture face.
 
-A fixture's **housing** (the office panel has none; the round and wall fixtures'
-bezel, can and drum do) is ordinary body geometry drawn through the shared
-untextured white sheet (`core:tex_white_01`, §12.3) with the profile's flat
-authored shade. It is deliberately
-untextured: the housing is metal/plastic body geometry, not artwork, and a
-theme that wants patterned housing would introduce a fitted body sheet the way
-the luminous face already is one. The texture-first contract therefore covers
+A fixture's **housing** (the office panel's frame and body; the round and wall
+fixtures' bezel, can and drum) is ordinary body geometry drawn through the
+shared untextured white sheet (`core:tex_white_01`, §12.3) with the profile's
+flat authored shade. It is deliberately untextured: the housing is
+metal/plastic body geometry, not artwork, and a theme that wants patterned
+housing would introduce a fitted body sheet the way the luminous face already
+is one. The texture-first contract therefore covers
 everything a player reads as the fixture's *artwork* — the diffuser, lens or
 panel face — and the round Home flush mount in particular draws its whole
 visible face, rim line and centre structure from
@@ -412,10 +412,10 @@ Shipped asset: `core:fluorescent_panel_01` →
 | Property | Value |
 |---|---|
 | Aspect ratio | **2:1, landscape (mandatory)** |
-| Geometry mapping | the face is a 1.2 m × 0.6 m rectangle (width along world X, depth along world Z) |
-| UV layout | `u` spans the 1.2 m width (`u = 0` at min X, `u = 1` at max X); `v` spans the 0.6 m depth (`v = 0` at min Z / the −Z edge, `v = 1` at max Z) |
+| Geometry mapping | the sheet is fitted to the diffuser aperture: a 1.12 m × 0.56 m rectangle inset inside the fixture's 1.2 × 0.6 m troffer footprint (width along world X, depth along world Z), recessed 0.012 m above the frame's bottom |
+| UV layout | `u` spans the 1.12 m aperture width (`u = 0` at min X, `u = 1` at max X); `v` spans the 0.56 m depth (`v = 0` at min Z / the −Z edge, `v = 1` at max Z) |
 | Orientation | `v = 0` is the image's top row; the twin tubes run across the panel *width*, i.e. horizontally in the image |
-| Current asset | 1024×512 (≈1.17 mm per texel both ways) |
+| Current asset | 1024×512 (≈1.09 mm per texel both ways) |
 | Preferred source resolution | 1024×512 |
 | Higher resolutions | allowed while 2:1 and POT both hold: 128×64 → 256×128 → 512×256 → 1024×512 are the same layout. `src/loader/tests.rs::test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog` pins each family's aspect, POT edges, hard limit and full opacity, so a resolution change within that contract needs no test edit. |
 | Hard maximum | 1024 per edge, so 1024×512 is the largest valid 2:1 sheet |
@@ -423,14 +423,21 @@ Shipped asset: `core:fluorescent_panel_01` →
 | Emissive information | embedded in the artwork's brightness only; the glow is added by the renderer, and the base texture always multiplies the emission term |
 | Filtering / wrapping | mipmaps; `CLAMP_TO_EDGE` |
 
+The 1.2 × 0.6 m outer footprint is the *housing*: four untextured side walls
+drop 0.045 m from the ceiling plane, a bottom frame borders the diffuser on all
+four sides, a top flange closes the body and the diffuser sits 0.012 m recessed
+above the frame's bottom. Only the fitted sheet glows; the housing is a fixed
+mid grey and carries no artwork.
+
 A `90°`/`270°` rotated panel placement is a **known code discrepancy**: the
 renderer swaps the face's world X/Z extents but leaves the sheet's UV axes
-fixed, so the 2:1 sheet is effectively rotated and stretched onto a 1:2 face
-rather than rotated as a sheet (contrary to the comment in
-`src/render/common/fixtures.rs`). No test covers rotated-panel UVs. Until that is
+fixed, so the sheet is effectively rotated and stretched onto a roughly 1:2
+aperture (0.52 × 1.16 m) rather than rotated as a sheet (contrary to the comment
+in `src/render/common/fixtures.rs`). No test covers rotated-panel UVs. Until that is
 resolved, do not treat the rotated placement as an additional contract for the
 artwork; keep the sheet 2:1 landscape and flag a rotated fixture for review
-(§25.1).
+(§25.1). An unrotated panel is exactly isotropic: the 1.12 × 0.56 m aperture
+shows 1.09 mm per texel in both directions at 1024×512.
 
 The visible lens face is 0.4 × 0.2 m (`src/render/common/fixtures.rs`, pinned by
 test). The map guide's separate "0.4 × 0.18 m" figure for the wall luminaire
@@ -505,7 +512,7 @@ therefore one of the three face contracts:
 
 | Family | Example id | Face aspect | Placement notes |
 |---|---|---|---|
-| Fluorescent panel | `core:fluorescent_panel_01` | 2:1 | ceiling panel; `rotation_degrees` turns the panel |
+| Fluorescent panel | `core:fluorescent_panel_01` | 2:1 | ceiling troffer: the sheet is fitted to the inset diffuser inside a grey frame; `rotation_degrees` turns the panel |
 | Round recessed | `core:pool_light_round` | 1:1 | ceiling downlight |
 | Wall luminaire | `core:pool_light_wall` | 2:1 | needs `"mount": "wall"` and a world `"y"` |
 | Flush mount | `home:ceiling_light_round` | 1:1 | residential ceiling lamp: a drum with a glowing diffuser disc |
@@ -562,8 +569,11 @@ respect. They are not tiles: they are fitted to a model's own UV map.
 
 * Models are self-contained binary glTF 2.0 files (`.glb`), read by
   `src/gltf.rs`. The supported subset is deliberately narrow: triangles only,
-  `POSITION`, `TEXCOORD_0` and optional `COLOR_0`, 16/32-bit indices, no skins,
-  no morph targets, no animation.
+  `POSITION`, `TEXCOORD_0` and optional `COLOR_0`, 16/32-bit indices, optional
+  skins (`JOINTS_0`/`WEIGHTS_0`, one skin per model) and optional LINEAR/STEP
+  animation clips, no morph targets. A skinned model's static prop batch draws
+  its bind pose; a placed skinned model is re-posed every frame by the
+  character path (see [MAP_AUTHORING_GUIDE.md §16](../MAP_AUTHORING_GUIDE.md#16-props-and-models)).
 * **Textures are embedded PNG bufferViews inside the GLB.** External images
   and `data:` URIs are rejected with the message "external or data-URI images
   are not supported; embed the PNG in the GLB". A `.png` file next to a model

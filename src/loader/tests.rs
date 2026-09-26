@@ -64,6 +64,7 @@ fn test_validate_level_success() {
         }],
         floor_patches: vec![],
         floor_regions: vec![],
+        water: vec![],
         ramps: vec![],
         stairs: vec![],
         half_walls: vec![],
@@ -98,6 +99,7 @@ fn test_validate_level_invalid_version() {
         walls: vec![],
         floor_patches: vec![],
         floor_regions: vec![],
+        water: vec![],
         ramps: vec![],
         stairs: vec![],
         half_walls: vec![],
@@ -187,6 +189,7 @@ fn test_validate_level_preserves_overlapping_geometry() {
         ],
         floor_patches: vec![],
         floor_regions: vec![],
+        water: vec![],
         ramps: vec![],
         stairs: vec![],
         half_walls: vec![],
@@ -312,6 +315,7 @@ fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
         walls: vec![],
         floor_patches: vec![],
         floor_regions: vec![],
+        water: vec![],
         ramps: vec![],
         stairs: vec![],
         half_walls: vec![],
@@ -2183,4 +2187,365 @@ fn test_validate_rejects_malformed_trim_and_rails() {
     )
     .expect_err("a 1.5 m skirting board is not trim");
     assert!(error.contains("height"), "{error}");
+}
+
+#[test]
+fn test_validate_water_accepts_a_valid_volume_and_rejects_bad_ones() {
+    let json = |water: &str| -> String {
+        format!(
+            r#"{{
+                "format_version": 1,
+                "id": "water_gate",
+                "name": "Water Gate",
+                "spawn": {{ "x": 1.0, "z": 1.0 }},
+                "room": {{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }},
+                "water": [{water}]
+            }}"#
+        )
+    };
+    let parse = |water: &str| LevelDef::from_json(&json(water)).expect("water json parses");
+
+    let valid = parse(r#"{ "x": 1.0, "z": 1.0, "width": 2.0, "depth": 2.0, "surface_y": 0.5 }"#);
+    validate_level(&valid).expect("a surface above the floor is valid");
+
+    let buried = parse(r#"{ "x": 1.0, "z": 1.0, "width": 2.0, "depth": 2.0, "surface_y": -0.5 }"#);
+    let error = validate_level(&buried).expect_err("a surface below the floor is rejected");
+    assert!(error.contains("below the floor"), "{error}");
+
+    let outside =
+        parse(r#"{ "x": 30.0, "z": 30.0, "width": 2.0, "depth": 2.0, "surface_y": -0.5 }"#);
+    let error = validate_level(&outside).expect_err("a volume outside every room is rejected");
+    assert!(error.contains("outside every room"), "{error}");
+
+    let bad_opacity = parse(
+        r#"{ "x": 1.0, "z": 1.0, "width": 2.0, "depth": 2.0, "surface_y": -0.5, "opacity": 1.5 }"#,
+    );
+    let error = validate_level(&bad_opacity).expect_err("opacity outside 0..=1 is rejected");
+    assert!(error.contains("opacity"), "{error}");
+
+    let bad_bottom = parse(
+        r#"{ "x": 1.0, "z": 1.0, "width": 2.0, "depth": 2.0, "surface_y": -0.5, "bottom_y": 0.0 }"#,
+    );
+    let error = validate_level(&bad_bottom).expect_err("a bottom above the surface is rejected");
+    assert!(error.contains("bottom_y"), "{error}");
+
+    let zero_width =
+        parse(r#"{ "x": 1.0, "z": 1.0, "width": 0.0, "depth": 2.0, "surface_y": -0.5 }"#);
+    let error = validate_level(&zero_width).expect_err("a zero-width volume is rejected");
+    assert!(error.contains("width and depth"), "{error}");
+}
+
+// ------------------------------------------------- level preparation (Agent C)
+
+/// A synthetic catalog with an office-flavoured wall material declaring a
+/// baseboard, a plain wall material without one, and the trim material itself.
+fn baseboard_catalog() -> crate::assets::AssetCatalog {
+    crate::assets::AssetCatalog::from_json_str(
+        r#"{
+            "format_version": 2,
+            "assets": [
+                { "id": "test:tex_wall", "asset_class": "environment",
+                  "asset_type": "texture", "source": "file",
+                  "model": "test/wall.png", "surface": "wall" },
+                { "id": "test:tex_trim", "asset_class": "environment",
+                  "asset_type": "texture", "source": "file",
+                  "model": "test/trim.png", "surface": "wall" },
+                { "id": "test:trim", "asset_class": "environment",
+                  "asset_type": "material", "source": "definition",
+                  "surface": "wall", "texture": "test:tex_trim",
+                  "tile_metres": 2.0 },
+                { "id": "test:wall", "asset_class": "environment",
+                  "asset_type": "material", "source": "definition",
+                  "surface": "wall", "texture": "test:tex_wall",
+                  "tile_metres": 2.0, "baseboard": "test:trim" },
+                { "id": "test:plain_wall", "asset_class": "environment",
+                  "asset_type": "material", "source": "definition",
+                  "surface": "wall", "texture": "test:tex_wall",
+                  "tile_metres": 2.0 }
+            ]
+        }"#,
+    )
+    .expect("synthetic baseboard catalog parses")
+}
+
+/// One 5 x 5 m room and one X-axis wall spanning its south edge, with a door
+/// and a window, plus whatever extra JSON the caller needs.
+fn baseboard_level(extra: &str) -> LevelDef {
+    let separator = if extra.trim().is_empty() { "" } else { "," };
+    LevelDef::from_json(&format!(
+        r#"{{
+            "format_version": 1,
+            "id": "baseboard_prep",
+            "name": "Baseboard Prep",
+            "spawn": {{ "x": 2.5, "z": 2.5 }},
+            "defaults": {{ "wall": "test:plain_wall", "floor": "test:plain_wall",
+                           "ceiling": "test:plain_wall" }},
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 5.0, "depth": 5.0, "height": 3.0 }}],
+            "walls": [{{
+                "x": 0.0, "z": 0.0, "width": 5.0, "depth": 0.3,
+                "material": "test:wall",
+                "openings": [
+                    {{ "kind": "door", "offset": 1.0, "width": 1.0, "height": 2.1, "sill": 0.0 }},
+                    {{ "kind": "window", "offset": 3.5, "width": 1.0, "height": 1.2, "sill": 1.0 }}
+                ]
+            }}]
+            {separator}{extra}
+        }}"#
+    ))
+    .expect("baseboard preparation level parses")
+}
+
+/// A face whose material declares a baseboard gains runs along the room-facing
+/// side only, split around a floor-reaching door while a window with a sill
+/// keeps its board.
+#[test]
+fn test_prepare_level_generates_office_baseboards_around_floor_openings() {
+    let mut level = baseboard_level("");
+    let catalog = baseboard_catalog();
+    prepare_level(&mut level, &catalog, None);
+
+    let generated: Vec<&crate::level::BaseboardDef> = level
+        .baseboards
+        .iter()
+        .filter(|board| board.material.as_deref() == Some("test:trim"))
+        .collect();
+    assert_eq!(generated.len(), 2, "one run per side of the door");
+    // The +Z face fronts the room: rotation 0 runs +X from the wall's face.
+    let first = generated[0];
+    assert_exact(first.x, 0.0);
+    assert_exact(first.z, 0.3);
+    assert_exact(first.length, 1.0);
+    assert_exact(first.rotation_degrees, 0.0);
+    assert_eq!(first.y, Some(0.0));
+    assert_exact(first.height, crate::level::BASEBOARD_DEFAULT_HEIGHT_M);
+    assert_exact(first.thickness, crate::level::BASEBOARD_DEFAULT_THICKNESS_M);
+    let second = generated[1];
+    assert_exact(second.x, 2.0);
+    assert_exact(second.z, 0.3);
+    assert_exact(second.length, 3.0);
+    assert!(
+        generated.iter().all(|board| board.rotation_degrees == 0.0),
+        "the -Z face fronts no room and must not be trimmed: {generated:?}"
+    );
+    // The generated boards satisfy the authored contract.
+    validate_level(&level).expect("the prepared level still validates");
+}
+
+/// A wall facing no room gains nothing, and the trim material itself must not
+/// leak onto faces finished with a material that declares no baseboard.
+#[test]
+fn test_prepare_level_skips_faces_that_front_no_walkable_floor() {
+    let mut level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "baseboard_void",
+            "name": "Baseboard Void",
+            "spawn": { "x": 2.5, "z": 2.5 },
+            "defaults": { "wall": "test:wall", "floor": "test:wall", "ceiling": "test:wall" },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 5.0, "depth": 5.0, "height": 3.0 }],
+            "walls": [{ "x": 20.0, "z": 20.0, "width": 5.0, "depth": 0.3 }]
+        }"#,
+    )
+    .expect("void wall level parses");
+    let catalog = baseboard_catalog();
+    prepare_level(&mut level, &catalog, None);
+    assert!(
+        level.baseboards.is_empty(),
+        "a wall over the void gets no trim: {:?}",
+        level.baseboards
+    );
+
+    // A face whose resolved material has no `baseboard` gains nothing either.
+    let mut plain = baseboard_level("");
+    plain.walls[0].material = Some("test:plain_wall".to_string());
+    let count_before = plain.baseboards.len();
+    prepare_level(&mut plain, &catalog, None);
+    assert_eq!(plain.baseboards.len(), count_before);
+}
+
+/// An authored run on the same plane suppresses the generated one, exactly so
+/// the Home wing's hand-placed trim is never duplicated.
+#[test]
+fn test_prepare_level_lets_an_authored_run_suppress_the_generated_one() {
+    let mut authored = baseboard_level("");
+    authored.baseboards.push(crate::level::BaseboardDef {
+        x: 0.0,
+        z: 0.3,
+        length: 5.0,
+        rotation_degrees: 0.0,
+        height: crate::level::BASEBOARD_DEFAULT_HEIGHT_M,
+        thickness: crate::level::BASEBOARD_DEFAULT_THICKNESS_M,
+        y: Some(0.0),
+        material: Some("test:trim".to_string()),
+        shine: None,
+    });
+    let catalog = baseboard_catalog();
+    prepare_level(&mut authored, &catalog, None);
+    assert_eq!(
+        authored.baseboards.len(),
+        1,
+        "the authored run owns the face; no generated duplicate"
+    );
+    assert_exact(authored.baseboards[0].length, 5.0);
+}
+
+/// A floor that changes along the run is not one floor: the wall fronts a step
+/// or a recessed area, and trim is skipped rather than floated over the edge.
+#[test]
+fn test_prepare_level_skips_a_face_whose_floor_changes_along_the_run() {
+    let mut level = baseboard_level(
+        r#""floor_regions": [{ "x": 0.0, "z": 0.0, "width": 2.5, "depth": 5.0,
+                               "offset_y": -0.5, "material": "test:plain_wall",
+                               "edge_material": "test:plain_wall" }]"#,
+    );
+    let catalog = baseboard_catalog();
+    prepare_level(&mut level, &catalog, None);
+    assert!(
+        level
+            .baseboards
+            .iter()
+            .all(|board| board.material.as_deref() != Some("test:trim")),
+        "a stepped floor gets no generated trim: {:?}",
+        level.baseboards
+    );
+}
+
+/// The shipped demo is prepared before materials decode: its office and stair
+/// hall walls gain office trim, its 13 fluorescent panels end on cell centres,
+/// and the authored Home runs are untouched.
+#[test]
+fn test_prepared_demo_aligns_panels_and_gains_office_baseboards() {
+    let raw = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+        .expect("places_demo parses");
+    let manager = LevelManager::new();
+    let loaded = manager.load_default().expect("the demo loads");
+    let prepared = &loaded.level;
+
+    assert!(
+        validate_level(prepared).is_ok(),
+        "the prepared level still satisfies the authored contract"
+    );
+
+    // Every fluorescent panel lands on a panel centre of its ceiling material's
+    // visible grid (the office art paints four 1 m panels inside its 2 m
+    // repeat); there are 13, including the stair-hall reds and the east
+    // corridor strip.
+    let panels: Vec<&crate::level::LightFixtureDef> = prepared
+        .ceiling_lights
+        .iter()
+        .filter(|light| {
+            crate::lighting::fixture_profile(&light.fixture).kind
+                == crate::lighting::FixtureKind::FluorescentPanel
+        })
+        .collect();
+    assert_eq!(panels.len(), 13, "the demo's panel count");
+    let surfaces = LevelSurfaces::new(prepared);
+    for light in panels {
+        let room = surfaces
+            .room_at(light.x, light.z)
+            .unwrap_or_else(|| panic!("panel at ({}, {}) is inside a room", light.x, light.z));
+        let material_id = room
+            .ceiling_material
+            .as_deref()
+            .map(str::trim)
+            .filter(|id| !id.is_empty())
+            .unwrap_or_else(|| prepared.defaults.ceiling.trim());
+        let period = loaded
+            .materials
+            .entry_of(material_id)
+            .unwrap_or_else(|| panic!("ceiling material `{material_id}` resolved"))
+            .grid_metres;
+        assert!(period.is_finite() && period > 0.0);
+        let half = period * 0.5;
+        for value in [light.x, light.z] {
+            let snapped = period.mul_add(((value - half) / period).round(), half);
+            assert!(
+                (value - snapped).abs() < 1e-4,
+                "panel at ({}, {}) is off its {period} m grid",
+                light.x,
+                light.z
+            );
+        }
+    }
+
+    // The office baseboard material resolved into the renderer's table, and
+    // every run appended by preparation names it.
+    assert!(
+        loaded
+            .materials
+            .index_of("core:baseboard_office_01")
+            .is_some()
+    );
+    let generated = &prepared.baseboards[raw.baseboards.len()..];
+    assert!(
+        !generated.is_empty(),
+        "the office walls gain automatic trim"
+    );
+    for board in generated {
+        assert_eq!(
+            board.material.as_deref(),
+            Some("core:baseboard_office_01"),
+            "a generated run uses the office trim"
+        );
+        assert!(board.y.is_some(), "a generated run is pinned to its floor");
+    }
+    // The Home wing's authored runs are untouched: same entry, same position,
+    // same material, and no generated run names a Home trim material.
+    assert_eq!(
+        prepared.baseboards.len(),
+        raw.baseboards.len() + generated.len()
+    );
+    for (before, after) in raw.baseboards.iter().zip(prepared.baseboards.iter()) {
+        assert_eq!(before.material, after.material);
+        assert_exact(before.x, after.x);
+        assert_exact(before.z, after.z);
+        assert_exact(before.length, after.length);
+        assert_eq!(before.y, after.y);
+    }
+    for board in generated {
+        assert!(
+            !board
+                .material
+                .as_deref()
+                .is_some_and(|id| id.starts_with("home:")),
+            "Home walls keep only their authored runs"
+        );
+    }
+}
+
+/// The prepared demo's office trim is real geometry: the trim material has
+/// ranges, and every one of its vertices sits at one of the floors the boards
+/// were pinned to.
+#[test]
+fn test_prepared_demo_baseboard_geometry_sits_at_floor_level() {
+    let manager = LevelManager::new();
+    let loaded = manager.load_default().expect("the demo loads");
+    let prepared = &loaded.level;
+    let materials = crate::render::logical_materials(prepared);
+    let index = materials
+        .index_of("core:baseboard_office_01")
+        .expect("the trim material is referenced by generated runs");
+    let mesh = crate::render::build_level_geometry_with_materials(prepared, &materials);
+
+    let mut ranges = 0;
+    let mut vertices = 0;
+    for range in mesh.ranges.iter().filter(|range| {
+        range.key.kind == crate::render::SurfaceKind::Wall && range.key.material == index
+    }) {
+        ranges += 1;
+        for vertex in &range.vertices {
+            vertices += 1;
+            let at_a_floor = [0.0_f32, -0.9, -1.5].iter().any(|floor| {
+                vertex.pos[1] >= floor - 1.0e-3
+                    && vertex.pos[1] <= floor + crate::level::BASEBOARD_DEFAULT_HEIGHT_M + 1.0e-3
+            });
+            assert!(
+                at_a_floor,
+                "office trim vertex at y {} is not on a floor band",
+                vertex.pos[1]
+            );
+        }
+    }
+    assert!(ranges > 0, "the office trim emits real ranges");
+    assert!(vertices > 0);
 }

@@ -168,6 +168,7 @@ fn test_estimate_geometry_saturates_on_extreme_input() {
         walls: Vec::new(),
         floor_patches: Vec::new(),
         floor_regions: Vec::new(),
+        water: Vec::new(),
         ramps: Vec::new(),
         stairs: Vec::new(),
         half_walls: Vec::new(),
@@ -1131,4 +1132,296 @@ fn test_architecture_solids_cover_walls_piers_rails_and_not_trim() {
         .find(|solid| (solid.min[0] - 5.0).abs() < 1e-4)
         .expect("the half wall is a solid box");
     assert_exact(half_wall.max[1], 1.05);
+}
+
+#[test]
+fn test_water_volumes_resolve_surface_bottom_and_legacy_default() {
+    let legacy = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "dry",
+            "name": "Dry",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }
+        }"#,
+    )
+    .expect("legacy level");
+    assert!(legacy.water.is_empty(), "legacy levels stay dry");
+    let dry = WaterVolumes::from_level(&legacy);
+    assert!(dry.is_empty());
+    assert!(dry.sample(1.0, 1.0, -50.0).is_none());
+
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "wet",
+            "name": "Wet",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [
+                { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 },
+                { "x": 0.0, "z": 8.0, "width": 8.0, "depth": 4.0, "height": 3.0, "floor_y": -2.0 }
+            ],
+            "floor_regions": [
+                { "x": 1.0, "z": 8.0, "width": 6.0, "depth": 4.0, "offset_y": -1.0 }
+            ],
+            "water": [
+                { "x": 1.0, "z": 8.0, "width": 6.0, "depth": 4.0, "surface_y": -1.75,
+                  "material": "core:water_pool_01", "opacity": 0.4 }
+            ]
+        }"#,
+    )
+    .expect("water level");
+    let volumes = WaterVolumes::from_level(&level);
+    assert_eq!(volumes.len(), 1);
+    let volume = &volumes.volumes()[0];
+    assert_exact(volume.surface_y, -1.75);
+    assert_exact(volume.bottom_y, -3.0);
+    assert_exact(volume.depth(), 1.25);
+    assert_exact(volume.opacity, 0.4);
+    assert_eq!(volume.material_id(), "core:water_pool_01");
+    assert!(volume.swimming);
+
+    let sample = volumes.sample(4.0, 10.0, -2.5).expect("submerged point");
+    assert_exact(sample.surface_y, -1.75);
+    assert_exact(sample.bottom_y, -3.0);
+    assert!(
+        volumes.sample(4.0, 10.0, -1.0).is_none(),
+        "above the surface"
+    );
+    assert!(
+        volumes.sample(7.5, 10.0, -2.5).is_none(),
+        "outside the footprint"
+    );
+    assert!(
+        volumes.sample(4.0, 10.0, -1.75).is_some(),
+        "the surface itself is water"
+    );
+}
+
+// ------------------------------------------------------- fixture grid alignment
+
+/// A synthetic catalog with a 2 m and a 1 m ceiling material, enough to resolve
+/// a logical material table without touching the filesystem.
+fn alignment_catalog() -> crate::assets::AssetCatalog {
+    crate::assets::AssetCatalog::from_json_str(
+        r#"{
+            "format_version": 2,
+            "assets": [
+                { "id": "test:tex_ceiling", "asset_class": "environment",
+                  "asset_type": "texture", "source": "file",
+                  "model": "test/ceiling.png", "surface": "ceiling" },
+                { "id": "test:ceiling_2m", "asset_class": "environment",
+                  "asset_type": "material", "source": "definition",
+                  "surface": "ceiling", "texture": "test:tex_ceiling",
+                  "tile_metres": 2.0 },
+                { "id": "test:ceiling_1m", "asset_class": "environment",
+                  "asset_type": "material", "source": "definition",
+                  "surface": "ceiling", "texture": "test:tex_ceiling",
+                  "tile_metres": 1.0 },
+                { "id": "test:ceiling_2m_grid1m", "asset_class": "environment",
+                  "asset_type": "material", "source": "definition",
+                  "surface": "ceiling", "texture": "test:tex_ceiling",
+                  "tile_metres": 2.0, "grid_metres": 1.0 }
+            ]
+        }"#,
+    )
+    .expect("synthetic alignment catalog parses")
+}
+
+fn alignment_table(level: &LevelDef) -> crate::materials::MaterialTable {
+    crate::materials::MaterialTable::logical(level, &alignment_catalog(), None)
+}
+
+/// A flat 10 x 10 m room with a 2 m ceiling grid and one fixture.
+fn alignment_level(fixture: &str, ceiling_material: &str, ceiling: &str) -> LevelDef {
+    LevelDef::from_json(&format!(
+        r#"{{
+            "format_version": 1,
+            "id": "align",
+            "name": "Align",
+            "spawn": {{ "x": 2.0, "z": 2.0 }},
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0,
+                         "height": 3.0, "ceiling_material": "{ceiling_material}",
+                         "ceiling": {ceiling} }}],
+            "ceiling_lights": [{fixture}]
+        }}"#
+    ))
+    .expect("alignment level parses")
+}
+
+/// A 2 m panel ceiling snaps the fixture centre to the nearest cell centre on
+/// both axes, and nothing but `x`/`z` changes.
+#[test]
+fn test_grid_alignment_snaps_a_fluorescent_panel_to_cell_centres() {
+    let mut level = alignment_level(
+        r#"{ "fixture": "core:fluorescent_panel_01", "x": 2.5, "z": 2.2,
+             "rotation_degrees": 90.0, "brightness": 0.34, "emission": 1.0,
+             "color": [1.0, 0.2, 0.15] }"#,
+        "test:ceiling_2m",
+        r#"{ "kind": "flat" }"#,
+    );
+    let moved = level.align_ceiling_fixtures(&alignment_table(&level));
+    assert_eq!(moved, 1, "one panel was off its ceiling grid");
+    let light = &level.ceiling_lights[0];
+    assert_exact(light.x, 3.0);
+    assert_exact(light.z, 3.0);
+    // Everything else is untouched.
+    assert_exact(light.rotation_degrees, 90.0);
+    assert_eq!(light.brightness, Some(0.34));
+    assert_eq!(light.emission, Some(1.0));
+    assert_eq!(
+        light.color,
+        Some(crate::lighting::LightColor::rgb(1.0, 0.2, 0.15))
+    );
+}
+
+/// `"align": "none"` is honoured exactly; a fixture already on a cell centre
+/// does not count as moved.
+#[test]
+fn test_grid_alignment_none_keeps_the_authored_position() {
+    let mut level = alignment_level(
+        r#"{ "fixture": "core:fluorescent_panel_01", "x": 2.5, "z": 2.2,
+             "align": "none" }"#,
+        "test:ceiling_2m",
+        r#"{ "kind": "flat" }"#,
+    );
+    assert_eq!(level.align_ceiling_fixtures(&alignment_table(&level)), 0);
+    assert_exact(level.ceiling_lights[0].x, 2.5);
+    assert_exact(level.ceiling_lights[0].z, 2.2);
+
+    let mut settled = alignment_level(
+        r#"{ "fixture": "core:fluorescent_panel_01", "x": 3.0, "z": 3.0 }"#,
+        "test:ceiling_2m",
+        r#"{ "kind": "flat" }"#,
+    );
+    assert_eq!(
+        settled.align_ceiling_fixtures(&alignment_table(&settled)),
+        0
+    );
+    assert_exact(settled.ceiling_lights[0].x, 3.0);
+}
+
+/// Round downlights are not grid panels, and a gable ceiling has no single
+/// plane or grid to align to.
+#[test]
+fn test_grid_alignment_leaves_round_downlights_and_gable_ceilings_alone() {
+    let mut round = alignment_level(
+        r#"{ "fixture": "core:pool_light_round", "x": 2.5, "z": 2.2 }"#,
+        "test:ceiling_2m",
+        r#"{ "kind": "flat" }"#,
+    );
+    assert_eq!(round.align_ceiling_fixtures(&alignment_table(&round)), 0);
+    assert_exact(round.ceiling_lights[0].x, 2.5);
+
+    let mut gable = alignment_level(
+        r#"{ "fixture": "core:fluorescent_panel_01", "x": 2.5, "z": 2.2 }"#,
+        "test:ceiling_2m",
+        r#"{ "kind": "gable", "ridge": "x", "ridge_rise": 2.0 }"#,
+    );
+    assert_eq!(gable.align_ceiling_fixtures(&alignment_table(&gable)), 0);
+    assert_exact(gable.ceiling_lights[0].x, 2.5);
+    assert_exact(gable.ceiling_lights[0].z, 2.2);
+}
+
+/// No resolvable ceiling material period means no grid: a blank default and a
+/// fixture outside every room both stay exactly where they were authored.
+#[test]
+fn test_grid_alignment_without_a_ceiling_period_stays_put() {
+    let mut blank = level_from_json_with_defaults(
+        r#"{ "wall": "test:ceiling_2m", "floor": "test:ceiling_2m", "ceiling": "" }"#,
+        r#"{ "fixture": "core:fluorescent_panel_01", "x": 2.5, "z": 2.2 }"#,
+    );
+    assert_eq!(blank.align_ceiling_fixtures(&alignment_table(&blank)), 0);
+    assert_exact(blank.ceiling_lights[0].x, 2.5);
+    assert_exact(blank.ceiling_lights[0].z, 2.2);
+
+    let mut outside = alignment_level(
+        r#"{ "fixture": "core:fluorescent_panel_01", "x": 25.0, "z": 25.0 }"#,
+        "test:ceiling_2m",
+        r#"{ "kind": "flat" }"#,
+    );
+    assert_eq!(
+        outside.align_ceiling_fixtures(&alignment_table(&outside)),
+        0
+    );
+    assert_exact(outside.ceiling_lights[0].x, 25.0);
+}
+
+/// The returned count is the number of fixtures whose centre actually moved,
+/// and every qualifying panel snaps to a cell centre of its own period.
+#[test]
+fn test_grid_alignment_counts_and_periods_match() {
+    let mut level = alignment_level(
+        r#"{ "fixture": "core:fluorescent_panel_01", "x": 2.5, "z": 2.2 }
+           ,{ "fixture": "core:fluorescent_panel_01", "x": 3.0, "z": 3.0 }
+           ,{ "fixture": "core:pool_light_round", "x": 6.5, "z": 5.4 }
+           ,{ "fixture": "core:fluorescent_panel_01", "x": 6.5, "z": 5.4, "align": "none" }"#,
+        "test:ceiling_2m",
+        r#"{ "kind": "flat" }"#,
+    );
+    let moved = level.align_ceiling_fixtures(&alignment_table(&level));
+    assert_eq!(moved, 1, "only the off-grid default-aligned panel moves");
+    assert_exact(level.ceiling_lights[0].x, 3.0);
+    assert_exact(level.ceiling_lights[0].z, 3.0);
+    assert_exact(level.ceiling_lights[2].x, 6.5);
+    assert_exact(level.ceiling_lights[3].x, 6.5);
+
+    let mut one_metre = alignment_level(
+        r#"{ "fixture": "core:fluorescent_panel_01", "x": 2.5, "z": 2.2 }"#,
+        "test:ceiling_1m",
+        r#"{ "kind": "flat" }"#,
+    );
+    assert_eq!(
+        one_metre.align_ceiling_fixtures(&alignment_table(&one_metre)),
+        1
+    );
+    // A 1 m grid's cell centres are the half-metre marks.
+    assert_exact(one_metre.ceiling_lights[0].x, 2.5);
+    assert_exact(one_metre.ceiling_lights[0].z, 2.5);
+}
+
+/// A level with an authored `defaults` block and one fixture.
+fn level_from_json_with_defaults(defaults: &str, fixture: &str) -> LevelDef {
+    LevelDef::from_json(&format!(
+        r#"{{
+            "format_version": 1,
+            "id": "align_defaults",
+            "name": "Align Defaults",
+            "spawn": {{ "x": 2.0, "z": 2.0 }},
+            "defaults": {defaults},
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0,
+                         "height": 3.0 }}],
+            "ceiling_lights": [{fixture}]
+        }}"#
+    ))
+    .expect("defaults alignment level parses")
+}
+
+/// A ceiling sheet that paints four 1 m panels inside a 2 m texture repeat
+/// aligns fixtures to panel centres, not to the sheet's repeat centres.
+#[test]
+fn test_grid_alignment_uses_the_panel_module_not_the_sheet_repeat() {
+    let mut level = alignment_level(
+        r#"{ "fixture": "core:fluorescent_panel_01", "x": 2.5, "z": 2.2 }"#,
+        "test:ceiling_2m_grid1m",
+        r#"{ "kind": "flat" }"#,
+    );
+    let moved = level.align_ceiling_fixtures(&alignment_table(&level));
+    assert_eq!(moved, 1, "the panel moves from the T-bar to a panel centre");
+    // Panel centres are the half-metre marks, not odd metres.
+    assert_exact(level.ceiling_lights[0].x, 2.5);
+    assert_exact(level.ceiling_lights[0].z, 2.5);
+
+    // A fixture already on a panel centre does not count as moved.
+    let mut settled = alignment_level(
+        r#"{ "fixture": "core:fluorescent_panel_01", "x": 4.5, "z": 5.5 }"#,
+        "test:ceiling_2m_grid1m",
+        r#"{ "kind": "flat" }"#,
+    );
+    assert_eq!(
+        settled.align_ceiling_fixtures(&alignment_table(&settled)),
+        0
+    );
+    assert_exact(settled.ceiling_lights[0].x, 4.5);
+    assert_exact(settled.ceiling_lights[0].z, 5.5);
 }

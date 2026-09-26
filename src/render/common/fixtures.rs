@@ -12,9 +12,13 @@
 //! sheet is fitted once across the face it belongs to; nothing here tiles, and
 //! the renderer uploads the sheets clamped for exactly that reason.
 //!
-//! * **Panel.** `u` runs along the panel's 1.2 m width axis and `v` across its
-//!   0.6 m depth axis, so a 2:1 sheet shows 1.17 mm per texel in both
-//!   directions at 1024x512. A rotated fixture rotates the sheet with it.
+//! * **Panel.** `u` runs along the panel's 1.12 m diffuser width axis and `v`
+//!   across its 0.56 m depth axis, so a 2:1 sheet shows 1.09 mm per texel in
+//!   both directions at 1024x512. The border between the diffuser and the
+//!   outer 1.2 x 0.6 m footprint is the housing frame, not artwork. A rotated
+//!   fixture swaps the aperture's world X/Z extents but leaves these UV axes
+//!   fixed, so the sheet is not rotated with it (see the asset specification's
+//!   rotated-panel note).
 //! * **Round diffuser.** Planar, in the fixture's own plane: the sheet centre
 //!   is the fixture centre and the sheet's inscribed circle is the diffuser's
 //!   outer radius. A 128x128 sheet therefore shows 3.9 mm per texel.
@@ -22,10 +26,13 @@
 //!   so the sheet's aspect matches the face exactly.
 //!
 //! The *housing* — the round can and bezel ring, the wall fixture's top,
-//! bottom and ends — is genuine body geometry and stays untextured: it draws
-//! its flat authored metal colour through the shared white sheet. The office
-//! panel has no housing at all: its whole visible fixture is the fitted sheet,
-//! which is why nothing is drawn beside the panel artwork.
+//! bottom and ends, and the office panel's frame and body — is genuine body
+//! geometry and stays untextured: it draws its flat authored metal colour
+//! through the shared white sheet. The office panel is a real recessed
+//! troffer: four housing side walls drop from the ceiling plane, a bottom
+//! frame borders the aperture, a top flange closes the housing and the fitted
+//! sheet is recessed a lip above the frame's bottom, so nothing but the
+//! diffuser glows and the fixture reads with a frame and real depth.
 //!
 //! A luminous face's vertex colour is a *neutral* emission strength, never the
 //! placed light's colour: the sheet defines the fixture's visible appearance,
@@ -40,13 +47,56 @@ use super::{Vertex, add_quad_flat};
 /// below (`[low-v, low-u]` first), and `v = 0` is the image's top row.
 const SHEET_UV: [[f32; 2]; 4] = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
 
-/// Emits the office fluorescent panel's luminous face into `lit`, facing down
-/// into the room.
+/// How far the office panel's housing drops below the ceiling plane, in metres.
+pub const PANEL_BODY_DROP_M: f32 = 0.045;
+/// How far the panel's diffuser sits recessed above its frame's bottom, in m.
+pub const PANEL_LIP_M: f32 = 0.012;
+/// Bottom-frame border along the panel's 1.2 m width axis, in metres.
+pub const PANEL_BORDER_WIDTH_M: f32 = 0.04;
+/// Bottom-frame border along the panel's 0.6 m depth axis, in metres.
 ///
-/// The fitted sheet is the whole fixture: no generated strip, frame or bezel
-/// is drawn beside it, so the panel's visible appearance is exactly its PNG.
+/// The border widths are chosen so the aperture keeps the fixture sheet's 2:1
+/// aspect exactly: `1.2 - 2*0.04` by `0.6 - 2*0.02` is `1.12 x 0.56`.
+pub const PANEL_BORDER_DEPTH_M: f32 = 0.02;
+/// Paint of the panel's untextured housing; a mid grey, never black.
+const PANEL_HOUSING_COLOR: [f32; 3] = [0.62, 0.62, 0.60];
+
+/// One down-facing housing quad at a constant `y`, in the same winding as the
+/// luminous panel face.
+fn panel_down_quad(housing: &mut Vec<Vertex>, x0: f32, x1: f32, z0: f32, z1: f32, y: f32) {
+    add_quad_flat(
+        housing,
+        [x0, y, z0],
+        [x1, y, z0],
+        [x1, y, z1],
+        [x0, y, z1],
+        PANEL_HOUSING_COLOR,
+        SHEET_UV[0],
+        SHEET_UV[1],
+        SHEET_UV[2],
+        SHEET_UV[3],
+    );
+}
+
+/// Emits the office fluorescent panel's troffer: its luminous diffuser into
+/// `lit`, and its housing into `housing`.
+///
+/// The outer footprint is the family's 1.2 x 0.6 m rectangle, hanging just
+/// below the ceiling plane at `y`. The housing is a real shallow body: four
+/// side walls drop to [`PANEL_BODY_DROP_M`], a bottom frame borders the
+/// aperture, and a top flange closes the body at the ceiling plane. The
+/// diffuser samples the whole fitted sheet ([`SHEET_UV`]) once, recessed
+/// [`PANEL_LIP_M`] above the frame's bottom; its aperture is inset by
+/// [`PANEL_BORDER_WIDTH_M`] across the width axis and
+/// [`PANEL_BORDER_DEPTH_M`] across the depth one, so the 2:1 sheet fits the
+/// aperture exactly. `emission` is the diffuser's neutral emission strength;
+/// the housing is always its fixed mid grey.
+// The emitter takes the panel's two world extents, the housing sinks and the
+// emission separately; bundling them would add a type used by one call site.
+#[allow(clippy::too_many_arguments)]
 pub fn add_panel_fixture(
     lit: &mut Vec<Vertex>,
+    housing: &mut Vec<Vertex>,
     x0: f32,
     x1: f32,
     z0: f32,
@@ -54,12 +104,81 @@ pub fn add_panel_fixture(
     y: f32,
     emission: [f32; 3],
 ) {
+    let y_bottom = y - PANEL_BODY_DROP_M;
+    let dx0 = x0 + PANEL_BORDER_WIDTH_M;
+    let dx1 = x1 - PANEL_BORDER_WIDTH_M;
+    let dz0 = z0 + PANEL_BORDER_DEPTH_M;
+    let dz1 = z1 - PANEL_BORDER_DEPTH_M;
+    // The body's four outer side walls, drawn outward from the ceiling plane
+    // down to the frame.
     add_quad_flat(
-        lit,
+        housing,
+        [x1, y_bottom, z0],
+        [x0, y_bottom, z0],
         [x0, y, z0],
         [x1, y, z0],
+        PANEL_HOUSING_COLOR,
+        SHEET_UV[0],
+        SHEET_UV[1],
+        SHEET_UV[2],
+        SHEET_UV[3],
+    );
+    add_quad_flat(
+        housing,
+        [x0, y_bottom, z1],
+        [x1, y_bottom, z1],
         [x1, y, z1],
         [x0, y, z1],
+        PANEL_HOUSING_COLOR,
+        SHEET_UV[0],
+        SHEET_UV[1],
+        SHEET_UV[2],
+        SHEET_UV[3],
+    );
+    add_quad_flat(
+        housing,
+        [x0, y_bottom, z0],
+        [x0, y_bottom, z1],
+        [x0, y, z1],
+        [x0, y, z0],
+        PANEL_HOUSING_COLOR,
+        SHEET_UV[0],
+        SHEET_UV[1],
+        SHEET_UV[2],
+        SHEET_UV[3],
+    );
+    add_quad_flat(
+        housing,
+        [x1, y_bottom, z1],
+        [x1, y_bottom, z0],
+        [x1, y, z0],
+        [x1, y, z1],
+        PANEL_HOUSING_COLOR,
+        SHEET_UV[0],
+        SHEET_UV[1],
+        SHEET_UV[2],
+        SHEET_UV[3],
+    );
+    // The bottom frame: four full-width/full-depth border strips that tile the
+    // ring around the diffuser aperture without overlapping each other.
+    panel_down_quad(housing, x0, x1, z0, dz0, y_bottom);
+    panel_down_quad(housing, x0, x1, dz1, z1, y_bottom);
+    panel_down_quad(housing, x0, dx0, dz0, dz1, y_bottom);
+    panel_down_quad(housing, dx1, x1, dz0, dz1, y_bottom);
+    // The top flange: the same ring at the ceiling plane, reaching in to the
+    // aperture edge so the body is closed and the recess has a ceiling.
+    panel_down_quad(housing, x0, x1, z0, dz0, y);
+    panel_down_quad(housing, x0, x1, dz1, z1, y);
+    panel_down_quad(housing, x0, dx0, dz0, dz1, y);
+    panel_down_quad(housing, dx1, x1, dz0, dz1, y);
+    // The diffuser: the fitted sheet, once, recessed above the frame's bottom.
+    let y_diffuser = y_bottom + PANEL_LIP_M;
+    add_quad_flat(
+        lit,
+        [dx0, y_diffuser, dz0],
+        [dx1, y_diffuser, dz0],
+        [dx1, y_diffuser, dz1],
+        [dx0, y_diffuser, dz1],
         emission,
         SHEET_UV[0],
         SHEET_UV[1],

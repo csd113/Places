@@ -228,7 +228,7 @@
       "color": "#b4b8ba",
       "category": "Appliances",
       "solid": false,
-      "description": "Loose drum basket: the dynamic-object demonstrator, spawned and turned in front of a placed washing machine."
+      "description": "Loose drum basket: the dynamic-object demonstrator, spawned and turned inside a placed washing machine's cavity, behind the porthole."
     },
     {
       "id": "core:vending_machine",
@@ -531,6 +531,7 @@
       "source": "definition",
       "surface": "wall",
       "texture": "core:tex_wallpaper_yellow_01",
+      "baseboard": "core:baseboard_office_01",
       "tile_metres": 2.0,
       "tint": [
         0.85,
@@ -561,6 +562,7 @@
       "surface": "ceiling",
       "texture": "core:tex_ceiling_panel_01",
       "tile_metres": 2.0,
+      "grid_metres": 1.0,
       "tint": [
         0.72,
         0.72,
@@ -577,6 +579,7 @@
       "source": "definition",
       "surface": "wall",
       "texture": "core:tex_wallpaper_stained_01",
+      "baseboard": "core:baseboard_office_01",
       "tile_metres": 2.0,
       "tint": [
         0.85,
@@ -584,6 +587,25 @@
         0.42
       ],
       "description": "Water-damaged office wallpaper."
+    },
+    {
+      "id": "core:baseboard_office_01",
+      "display_name": "Office Baseboard",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_wallpaper_yellow_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.58,
+        0.55,
+        0.28
+      ],
+      "specular": 0.18,
+      "shine": 0.3,
+      "description": "Office skirting trim: the maintained yellow wallpaper, darkened into a trim tint and given a modest satin sheen. Drawn by the automatic baseboard runs office wall materials receive."
     },
     {
       "id": "core:carpet_damp_01",
@@ -607,6 +629,7 @@
       "surface": "ceiling",
       "texture": "core:tex_ceiling_stained_01",
       "tile_metres": 2.0,
+      "grid_metres": 1.0,
       "tint": [
         0.72,
         0.72,
@@ -958,9 +981,9 @@
       "source": "file",
       "model": "entities/spooner-man/model/spooner-man.glb",
       "size": [
-        0.27,
-        0.39,
-        1.02
+        0.165,
+        0.389,
+        0.626
       ],
       "color": "#33343a",
       "category": "Decorative",
@@ -1216,6 +1239,38 @@
       "description": "Wet deck tile: the shipped deck artwork with a wet sheen and a planar reflection, so a patch of floor reads as standing water without behaving like a mirror.",
       "reflection_mode": "planar",
       "reflection_strength": 0.4
+    },
+    {
+      "id": "core:water_pool_01",
+      "display_name": "Pool Water",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "core:tex_pool_water_01",
+      "tile_metres": 2.0,
+      "tint": [
+        0.84,
+        0.93,
+        1.0
+      ],
+      "specular": 0.45,
+      "shine": 0.7,
+      "alpha_mode": "blend",
+      "opacity": 1.0,
+      "description": "Translucent pool water for authored water volumes: the volume's own opacity rides in the surface's vertex alpha, so the material stays fully opaque (opacity 1.0) and one material serves every pool. Modest sheen only; water never reflects as a mirror."
+    },
+    {
+      "id": "core:tex_pool_water_01",
+      "display_name": "Pool Water Texture",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environment/pool/textures/water/pool_water_01.png",
+      "surface": "floor",
+      "description": "Tileable pale pool water at a 2 m repeat: soft multi-scale caustics over a faint diagonal ripple. Drawn only by the water surface."
     },
     {
       "id": "core:painting_dull_01",

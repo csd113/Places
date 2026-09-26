@@ -3,9 +3,9 @@
 ### an experience
 
 A slow first-person exploration game. You walk through quiet, over-lit
-institutional interiors — an office that keeps going, a swimming pool that is
-closed and empty — and the building stops being finished around you. There is
-nothing to collect, fight or solve.
+institutional interiors — an office that keeps going, a swimming pool that has
+been closed for years — and the building stops being finished around you. There
+is nothing to collect, fight or solve.
 
 Places is a desktop game written in Rust: `sdl3` for the window and input,
 `wgpu` (Metal on macOS, Vulkan on Linux, Direct3D 12 on Windows) and a
@@ -125,7 +125,7 @@ Settings is organized into three sections — **Graphics**, **Display** and
 **Controls** — reached from either the main menu or the pause menu, so the game
 can be reconfigured without leaving a level.
 
-Gameplay defaults (all eight movement bindings can be changed in Settings →
+Gameplay defaults (all nine movement bindings can be changed in Settings →
 Controls; `Restore Defaults` puts them back):
 
 | Action | Key |
@@ -134,12 +134,19 @@ Controls; `Restore Defaults` puts them back):
 | Walk backward | `S` |
 | Strafe left | `A` |
 | Strafe right | `D` |
+| Jump / swim up | `SPACE` |
 | Look up | `UP` |
 | Look down | `DOWN` |
 | Look left | `LEFT` |
 | Look right | `RIGHT` |
+| Mouse look | mouse movement (sensitivity in Settings → Controls) |
 | Pause menu | `ESC` (fixed) |
 | Performance overlay | `-` (fixed, hidden by default) |
+
+Gameplay captures the mouse to the window with relative motion and hides the
+pointer; the system cursor is never warped. Opening any menu — including the
+pause menu — releases it, returning to gameplay captures it again, and losing
+window focus releases it until focus comes back.
 
 Graphics and display preferences, custom bindings, look speed, walk speed,
 field of view and look inversion are saved to `settings.json` in the package
@@ -387,9 +394,16 @@ Notable supported details:
   is walk-through whatever the kind is.
 * **Walls are not generated from rooms.** An unenclosed room shows the void
   through the gap, so shell every room you want to walk inside of.
-* **A walkable step is 0.4 m.** A larger height difference is solid from the
-  lower side and cannot be walked off from the upper side, which is what makes
-  region staircases and pool basins safe without any falling physics.
+* **A walkable step is 0.4 m.** While grounded, a larger height difference is
+  solid from the lower side and cannot be walked off from the upper side; a
+  jump can clear it, and gravity takes over from there. A jump rises 0.75 m —
+  the top of the office desk — at every supported frame rate, and a fall lands
+  on the walkable floor rather than passing through it.
+* **Water is a level primitive.** A `water` volume is a rectangle with a
+  surface height; the surface draws as a translucent member of the sorted
+  blend pass, and the controller wades, swims and surfaces through the same
+  rectangle the renderer draws. Holding Jump in deep water rises to the
+  surface and holds there; releasing it sinks again.
 * **Ceilings** are flat by default; `{"kind": "gable", "ridge": "x",
   "ridge_rise": 2.0}` adds a pitched ceiling, and gable-end walls follow the
   slope unless they author their own height.
@@ -430,7 +444,10 @@ module map and the renderer ownership rules, and
 
 Working and shipped:
 
-* first-person exploration with collision and floor-elevation traversal;
+* first-person exploration with collision, floor-elevation traversal, gravity
+  and a frame-rate-independent jump;
+* proper mouse capture with relative look, released by any menu or focus loss
+  and re-captured on return (keyboard-only play is unaffected);
 * three environment themes with external PNG surfaces, three external decal
   sheets and one generated validation marking;
 * baked RGB lighting driven by generic engine-level light sources (point,
@@ -441,8 +458,15 @@ Working and shipped:
   exact vertex-lit fallback, and a deterministic content-keyed cache;
 * automatic static-prop occlusion (contact darkening, blocked pools, grounded
   corners) derived from each placed model's own triangles;
-* a separate dynamic-object render path proven by a turning washing-machine
-  drum in Places Demo;
+* a separate dynamic-object render path proven by the washing-machine drum
+  turning inside the appliance in Places Demo;
+* reusable water volumes with a translucent surface and wading/swimming/
+  surface states, authored in the level JSON and sampled by both the renderer
+  and the controller;
+* skinned entity models through the normal asset pipeline: the Spoonerman rig
+  renders with its skeleton, and its locomotion pose follows the player's
+  idle / walking / airborne / swimming state, with glTF animation clips played
+  when a model provides them;
 * true material emission (`emissive`, `emissive_intensity`, `emissive_mask`),
   independent of environmental illumination: a surface or fixture face can read
   fully bright while casting nothing, and a light can cast while nothing glows;
@@ -495,8 +519,10 @@ Known limitations, all deliberate:
   fit its page budget falls back to vertex lighting;
 * emission reaches surfaces and fixture faces; emissive decals and cone/spot
   lights are not implemented yet;
-* no skeletal animation, skinning, water or swimming; the pool is empty on
-  purpose. Animated emissions and the engine-spawned washing-machine drum exist;
+* the Spoonerman entity's rig ships without animation clips, so its locomotion
+  poses are generated by a small rig-convention driver rather than authored
+  animation; a model that does ship clips plays them through the same state
+  machine. Animated emissions and the engine-spawned washing-machine drum exist;
 * the surface response is drawn at Full quality only: Low keeps the same
   materials, albedo, emission and alpha and leaves the normal/sheen term out;
 * floor regions are rectangular and flat; separate `ramps` and `stairs`

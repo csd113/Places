@@ -8,7 +8,11 @@ supports and the validator enforces:
 * ``POSITION`` (float32 vec3), ``TEXCOORD_0`` (float32 vec2),
   ``COLOR_0`` (normalized uint8 vec4) and 16-bit triangle indices;
 * a CLAMP_TO_EDGE sampler with mipmapped linear filtering;
-* no glTF extensions, no skins, no morph targets, no animation.
+* no glTF extensions and no morph targets. Skins and animation clips are read
+  through to the mesh data unchanged: the runtime poses a placed skinned or
+  animated model through its character path, so the validator must accept the
+  same container the loader does (the Rust loader's shipped-asset test is the
+  authority on the skin/animation structure itself).
 
 The reader exists so tools (the preview renderer, tests) can round-trip the
 same files without pulling in a third-party glTF library.
@@ -259,11 +263,11 @@ def read_glb(data: bytes) -> ReadMesh:
     mesh.json = gltf
     mesh.extensions_used = list(gltf.get("extensionsUsed", []))
 
-    if "skins" in gltf:
-        raise GltfError("skinned meshes are not supported by the prop pipeline")
-    if gltf.get("animations"):
-        raise GltfError("animated glTF assets are not supported by the prop pipeline")
-
+    # A skinned or animated model is a supported placed asset: the static prop
+    # path bakes the bind pose and the runtime re-poses the placement through
+    # the character path (see docs/MAP_AUTHORING_GUIDE.md, "Props and Models").
+    # Its skin and clips are validated by the Rust loader, not duplicated here;
+    # this reader only expands the primitive mesh data the budgets are about.
     meshes = gltf.get("meshes", [])
     if len(meshes) != 1:
         raise GltfError(f"expected exactly one mesh, found {len(meshes)}")

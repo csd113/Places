@@ -14,8 +14,9 @@
 //!   ([`reflections`]), the group-3 environment binding that carries the
 //!   lightmaps, probe, planar image, fog and planar projection
 //!   ([`environment`]);
-//! * props/GLB models ([`props`]) and dynamic objects with their per-object
-//!   baked-light probes ([`dynamic`]);
+//! * props/GLB models ([`props`]), dynamic objects with their per-object
+//!   baked-light probes ([`dynamic`]) and skinned characters with
+//!   per-character CPU-skinned vertex buffers ([`character`]);
 //! * fixture geometry and emission through the world draw set;
 //! * the offscreen scene target, emissive bloom pass, two separable blurs and
 //!   the resolve grade plus the plain present copy ([`postprocess`]);
@@ -43,6 +44,7 @@
 //! * [`texture`] — the texture cache, samplers and fallback sheet;
 //! * [`surface`] — SDL raw-window-handle surface creation and recovery.
 
+pub mod character;
 pub mod decals;
 pub mod dynamic;
 pub mod environment;

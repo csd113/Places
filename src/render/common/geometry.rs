@@ -136,9 +136,14 @@ pub fn build_level_geometry_mesh_with_lightmaps(
     let mut scratch: Vec<Vertex> = Vec::new();
     let mut buckets = SpatialBuckets::<SurfaceKey>::with_grid(spatial_cell_grid(level));
 
-    // 1. Floors, 2. ceilings, 3. walls, 4. fixtures, 5. prop fallbacks and
-    //    6. decals, in the order they are drawn.
+    // 1. Floors (and the water surfaces that share their family), 2. ceilings,
+    //    3. walls, 4. fixtures, 5. prop fallbacks and 6. decals, in the order
+    //    they are drawn.
     emit_floors(&context, &mut buckets, &mut scratch, &rooms);
+    // One translucent surface quad per authored water volume, in the floor
+    // family: the material's `blend` contract puts it in the sorted
+    // translucent pass, and the volume's opacity rides in the vertex alpha.
+    super::water::emit_water(&context, &mut buckets, &mut scratch);
     emit_ceilings(&context, &mut buckets, &mut scratch, &rooms);
     emit_walls(&context, &wall_layout.units, &mut buckets, &mut scratch);
     // Generic architectural pieces: ramps, staircases, half walls, columns,
@@ -1146,9 +1151,9 @@ fn nearest_cross_sides(
 /// A light batch carries the family's fixture-sheet slot
 /// ([`crate::lighting::FixtureKind::index`]) so the renderer binds the PNG that
 /// catalog declares as that fixture's visible face. The flat metal housing
-/// (the round bezel and can, the wall housing) keeps the bare key: it draws
-/// its authored shade through the shared white sheet. The panel has no
-/// housing: its sheet is the whole fixture.
+/// (the round bezel and can, the wall housing, and the office panel's frame
+/// and body) keeps the bare key: it draws its authored shade through the
+/// shared white sheet.
 fn emit_fixtures(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -1199,7 +1204,7 @@ fn emit_fixtures(
                 let x1 = light.x + half_w;
                 let z0 = light.z - half_d;
                 let z1 = light.z + half_d;
-                add_panel_fixture(scratch, x0, x1, z0, z1, y, face_emission);
+                add_panel_fixture(scratch, &mut housing, x0, x1, z0, z1, y, face_emission);
             }
             crate::lighting::FixtureKind::RoundRecessed => {
                 add_round_fixture(
@@ -1235,9 +1240,9 @@ fn emit_fixtures(
                 );
             }
         }
-        // The luminous faces bind the family's sheet; the housing (empty for
-        // the panel) binds the family's own bare key, which draws the
-        // untextured white sheet.
+        // The luminous faces bind the family's sheet; the housing (empty only
+        // for a family that generates none) binds the family's own bare key,
+        // which draws the untextured white sheet.
         let sheet = MaterialIndex::try_from(profile.kind.index()).unwrap_or(MATERIAL_NONE);
         buckets.add_quads(SurfaceKey::new(SurfaceKind::Light, sheet), scratch);
         buckets.add_quads(SurfaceKey::bare(SurfaceKind::Light), &housing);

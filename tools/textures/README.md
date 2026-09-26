@@ -89,6 +89,7 @@ runs `--check` over every environment surface as a repository gate.
 | `office_art.py` | the Office wallpaper, carpet and panel ceiling, with their damaged variants |
 | `home_art.py` | the Home wallpaper, paint, trim, hardwood, carpet, tile and ceiling sheets |
 | `pool_art.py` | the Pool deck, basin and wall tile and the sterile Pool ceiling |
+| `water_art.py` | the Pool water surface: a tileable pale sheet with multi-scale caustics and a faint diagonal ripple |
 | `lights_art.py` | the visible face of every built-in light fixture: the office fluorescent diffuser, the round pool downlight and the pool wall luminaire's lens |
 | `extra_art.py` | the surface-response sheets: clear/dirty/tinted glass, a cut-out transfer grille, polished linoleum, a brushed-metal panel, a moulded-plastic panel, two tangent-space normal maps and the shared untextured white sheet |
 | `decal_art.py` | the final Pool **NO DIVING** sign sheet (RGBA, transparent background) |
@@ -115,6 +116,7 @@ is validated and regenerated exactly like a surface sheet.
 | `core:tex_pool_tile_basin_01` | `environment/pool/textures/floors/pool_tile_basin_01.png` | 1024x1024 | 10 cm basin tile, 1 m repeat |
 | `core:tex_pool_tile_wall_01` | `environment/pool/textures/walls/pool_tile_wall_01.png` | 1024x1024 | 10 cm wall tile, 1 m repeat |
 | `core:tex_pool_ceiling_01` | `environment/pool/textures/ceilings/pool_ceiling_01.png` | 1024x1024 | sterile painted panels, 2 m repeat |
+| `core:tex_pool_water_01` | `environment/pool/textures/water/pool_water_01.png` | 1024x1024 | pale translucent pool water, 2 m repeat: the surface of authored `water` volumes |
 | `core:fluorescent_panel_01` | `environment/office/textures/lights/fluorescent_panel_01.png` | 1024x512 | the office panel's twin-tube diffuser face (a fixture, not a tiling surface) |
 | `core:pool_light_round` | `environment/pool/textures/lights/pool_light_round_01.png` | 128x128 | the round downlight's diffuser, seen face-on |
 | `core:pool_light_wall` | `environment/pool/textures/lights/pool_light_wall_01.png` | 128x64 | the wall luminaire's ribbed lens face |

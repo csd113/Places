@@ -843,6 +843,31 @@
       "comment": "The walkable second floor and balcony: walnut boards 2.6 m above the lower floor, reached by the staircase at its west end."
     }
   ],
+  "water": [
+    {
+      "x": 8.0,
+      "z": 10.0,
+      "width": 12.0,
+      "depth": 6.0,
+      "surface_y": -1.65,
+      "bottom_y": -3.0,
+      "material": "core:water_pool_01",
+      "opacity": 0.62,
+      "swimming": true,
+      "comment": "The basin's water: the surface sits 0.15 m below the deck (the deck is at -1.5, the basin floor at -3.0), and the bottom is authored because the deepest floor under the footprint is a real recess, not an accident."
+    },
+    {
+      "x": 10.0,
+      "z": 16.0,
+      "width": 6.0,
+      "depth": 0.9,
+      "surface_y": -1.65,
+      "material": "core:water_pool_01",
+      "opacity": 0.62,
+      "swimming": true,
+      "comment": "The submerged walk-in step shares the basin's waterline, one volume because the step deck between them is above the surface; its bottom resolves to the step floor at -1.85, so wading here is 0.2 m deep."
+    }
+  ],
   "ceiling_lights": [
     {
       "fixture": "core:fluorescent_panel_01",
@@ -1940,6 +1965,14 @@
       "z": 1.0,
       "rotation_degrees": 0.0,
       "solid": false
+    },
+    {
+      "model": "spooner-man",
+      "x": 5.6,
+      "y": 0.0,
+      "z": 8.4,
+      "rotation_degrees": 90.0,
+      "comment": "Spooner-Man on the pool deck: an animated entity whose locomotion pose follows the player's state."
     }
   ],
   "decals": [

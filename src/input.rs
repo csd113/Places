@@ -25,6 +25,8 @@ pub enum Control {
     LookLeft,
     /// Yaw the camera right.
     LookRight,
+    /// Jump, and swim upwards while in deep water.
+    Jump,
 }
 
 impl Control {
@@ -39,25 +41,32 @@ impl Control {
             Self::LookDown => 1 << 5,
             Self::LookLeft => 1 << 6,
             Self::LookRight => 1 << 7,
+            Self::Jump => 1 << 8,
         }
     }
 }
 
-/// Raw input state representing gameplay movement and camera looking.
+/// Raw input state representing gameplay movement, camera looking and the
+/// accumulated relative mouse motion.
 ///
-/// The eight movement and look controls are independent bits rather than eight
-/// separate `bool` fields: they are all set and cleared by the same binding
-/// lookup, and the whole state is copied every frame. `quit_requested` stays a
-/// named field because the game flips it itself instead of holding a key.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+/// The nine movement, look and jump controls are independent bits rather than
+/// nine separate `bool` fields: they are all set and cleared by the same
+/// binding lookup, and the whole held state is copied every frame.
+/// `quit_requested` stays a named field because the game flips it itself
+/// instead of holding a key. Relative mouse motion accumulates in pixels and is
+/// consumed once per simulation update.
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct InputState {
     held: u16,
     pub quit_requested: bool,
+    /// Accumulated relative mouse motion, in pixels, since the last consume.
+    mouse_dx: f32,
+    mouse_dy: f32,
 }
 
 impl InputState {
     /// The control the binding called `name` holds, or `None` when `name` is
-    /// not one of the movement or look bindings.
+    /// not one of the movement, look or jump bindings.
     fn binding_control(bindings: &KeyBindings, name: &str) -> Option<Control> {
         if name == bindings.forward {
             Some(Control::MoveForward)
@@ -75,6 +84,8 @@ impl InputState {
             Some(Control::LookLeft)
         } else if name == bindings.look_right {
             Some(Control::LookRight)
+        } else if name == bindings.jump {
+            Some(Control::Jump)
         } else {
             None
         }
@@ -89,15 +100,38 @@ impl InputState {
         }
     }
 
-    /// Releases every held control, leaving the overlay and quit flags alone.
+    /// Releases every held control and discards pending mouse motion, leaving
+    /// the quit flag alone.
     const fn release_all(&mut self) {
         self.held = 0;
+        self.mouse_dx = 0.0;
+        self.mouse_dy = 0.0;
     }
 
     /// True while `control` is held.
     #[must_use]
     pub const fn is_held(self, control: Control) -> bool {
         self.held & control.bit() != 0
+    }
+
+    /// Accumulates one relative mouse-motion event's pixel deltas.
+    ///
+    /// A non-finite delta is ignored and an accumulation that would overflow to
+    /// infinity is refused, so the camera can never acquire a NaN or an
+    /// infinite turn from a broken platform event.
+    pub const fn accumulate_mouse_motion(&mut self, dx: f32, dy: f32) {
+        self.mouse_dx = accumulate_axis(self.mouse_dx, dx);
+        self.mouse_dy = accumulate_axis(self.mouse_dy, dy);
+    }
+
+    /// Returns the accumulated relative mouse motion in pixels and clears it,
+    /// so one event's motion can be applied exactly once.
+    #[must_use]
+    pub const fn take_mouse_motion(&mut self) -> (f32, f32) {
+        let motion = (self.mouse_dx, self.mouse_dy);
+        self.mouse_dx = 0.0;
+        self.mouse_dy = 0.0;
+        motion
     }
 
     /// State with every listed control held, for tests that drive the player
@@ -110,6 +144,16 @@ impl InputState {
         }
         state
     }
+}
+
+/// Adds one finite mouse delta to an accumulated axis, refusing any sum that
+/// leaves the finite range.
+const fn accumulate_axis(current: f32, delta: f32) -> f32 {
+    if !delta.is_finite() {
+        return current;
+    }
+    let sum = current + delta;
+    if sum.is_finite() { sum } else { current }
 }
 
 /// Menu navigation events independent of user-rebindable gameplay controls.
@@ -204,6 +248,13 @@ impl InputHandler {
         &self.state
     }
 
+    /// Mutable access to the held state, for the simulation that consumes the
+    /// accumulated mouse motion each frame.
+    #[must_use]
+    pub const fn state_mut(&mut self) -> &mut InputState {
+        &mut self.state
+    }
+
     #[must_use]
     pub const fn quit_requested(&self) -> bool {
         self.state.quit_requested
@@ -215,6 +266,10 @@ impl InputHandler {
 
     /// Handles gameplay events using active `KeyBindings`.
     pub fn handle_gameplay_event(&mut self, event: &Event, bindings: &KeyBindings) {
+        if let Event::MouseMotion { xrel, yrel, .. } = event {
+            self.state.accumulate_mouse_motion(*xrel, *yrel);
+            return;
+        }
         if let Event::Quit { .. } = event {
             self.state.quit_requested = true;
             return;

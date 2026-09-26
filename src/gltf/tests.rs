@@ -5,6 +5,7 @@
 #![allow(
     clippy::arithmetic_side_effects,
     clippy::expect_used,
+    clippy::float_cmp,
     clippy::indexing_slicing,
     clippy::panic
 )]
@@ -209,6 +210,71 @@ impl ModelBuilder {
 
     fn png(&mut self, png: &[u8]) -> usize {
         self.add_view(png, None)
+    }
+
+    /// Four unsigned-byte joint slots per vertex.
+    fn joints_u8(&mut self, joints: &[[u8; 4]]) -> usize {
+        let bytes: Vec<u8> = joints.iter().flatten().copied().collect();
+        let view = self.add_view(&bytes, Some(34962));
+        self.add_accessor(view, COMPONENT_UBYTE, joints.len(), "VEC4", false)
+    }
+
+    /// Four float32 joint weights per vertex.
+    fn weights_f32(&mut self, weights: &[[f32; 4]]) -> usize {
+        let mut bytes = Vec::new();
+        for weight in weights {
+            for value in weight {
+                bytes.extend_from_slice(&value.to_le_bytes());
+            }
+        }
+        let view = self.add_view(&bytes, Some(34962));
+        self.add_accessor(view, COMPONENT_FLOAT, weights.len(), "VEC4", false)
+    }
+
+    /// Column-major 4x4 matrices, one accessor element each.
+    fn mat4s(&mut self, matrices: &[[f32; 16]]) -> usize {
+        let mut bytes = Vec::new();
+        for matrix in matrices {
+            for value in matrix {
+                bytes.extend_from_slice(&value.to_le_bytes());
+            }
+        }
+        let view = self.add_view(&bytes, None);
+        self.add_accessor(view, COMPONENT_FLOAT, matrices.len(), "MAT4", false)
+    }
+
+    /// Float32 SCALAR values (animation keyframe times).
+    fn scalars(&mut self, values: &[f32]) -> usize {
+        let mut bytes = Vec::new();
+        for value in values {
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        let view = self.add_view(&bytes, None);
+        self.add_accessor(view, COMPONENT_FLOAT, values.len(), "SCALAR", false)
+    }
+
+    /// Float32 VEC3 values (animation translation/scale keys).
+    fn vec3s(&mut self, values: &[[f32; 3]]) -> usize {
+        let mut bytes = Vec::new();
+        for value in values {
+            for component in value {
+                bytes.extend_from_slice(&component.to_le_bytes());
+            }
+        }
+        let view = self.add_view(&bytes, None);
+        self.add_accessor(view, COMPONENT_FLOAT, values.len(), "VEC3", false)
+    }
+
+    /// Float32 VEC4 values (animation rotation keys).
+    fn vec4s(&mut self, values: &[[f32; 4]]) -> usize {
+        let mut bytes = Vec::new();
+        for value in values {
+            for component in value {
+                bytes.extend_from_slice(&component.to_le_bytes());
+            }
+        }
+        let view = self.add_view(&bytes, None);
+        self.add_accessor(view, COMPONENT_FLOAT, values.len(), "VEC4", false)
     }
 
     fn buffer_views(&self) -> String {
@@ -831,14 +897,50 @@ fn rejects_malformed_assets_with_actionable_messages() {
             "extensions",
         ),
         (
-            "skinned mesh",
-            r#"{"asset":{"version":"2.0"},"skins":[{}],"meshes":[{"primitives":[]}]}"#,
-            "skinned",
+            "skin without joints",
+            r#"{"asset":{"version":"2.0"},
+                "scene":0,
+                "scenes":[{"nodes":[0]}],
+                "nodes":[{"mesh":0,"skin":0}],
+                "skins":[{}],
+                "meshes":[{"primitives":[{"attributes":{"POSITION":0,"TEXCOORD_0":1,"JOINTS_0":2,"WEIGHTS_0":3},"indices":4}]}],
+                "accessors":[
+                    {"bufferView":0,"componentType":5126,"count":1,"type":"VEC3"},
+                    {"bufferView":1,"componentType":5126,"count":1,"type":"VEC2"},
+                    {"bufferView":2,"componentType":5121,"count":1,"type":"VEC4"},
+                    {"bufferView":3,"componentType":5126,"count":1,"type":"VEC4"},
+                    {"bufferView":4,"componentType":5123,"count":3,"type":"SCALAR"}
+                ],
+                "bufferViews":[
+                    {"buffer":0,"byteOffset":0,"byteLength":12},
+                    {"buffer":0,"byteOffset":16,"byteLength":8},
+                    {"buffer":0,"byteOffset":24,"byteLength":4},
+                    {"buffer":0,"byteOffset":32,"byteLength":16},
+                    {"buffer":0,"byteOffset":48,"byteLength":6}
+                ],
+                "buffers":[{"byteLength":64}]}"#,
+            "joint",
         ),
         (
-            "animated asset",
-            r#"{"asset":{"version":"2.0"},"animations":[{}],"meshes":[{"primitives":[]}]}"#,
-            "animated",
+            "animation without channels",
+            r#"{"asset":{"version":"2.0"},
+                "scene":0,
+                "scenes":[{"nodes":[0]}],
+                "nodes":[{"mesh":0}],
+                "meshes":[{"primitives":[{"attributes":{"POSITION":0,"TEXCOORD_0":1},"indices":2}]}],
+                "accessors":[
+                    {"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},
+                    {"bufferView":1,"componentType":5126,"count":3,"type":"VEC2"},
+                    {"bufferView":2,"componentType":5123,"count":3,"type":"SCALAR"}
+                ],
+                "bufferViews":[
+                    {"buffer":0,"byteOffset":0,"byteLength":36},
+                    {"buffer":0,"byteOffset":36,"byteLength":24},
+                    {"buffer":0,"byteOffset":60,"byteLength":6}
+                ],
+                "buffers":[{"byteLength":68}],
+                "animations":[{"samplers":[]}]}"#,
+            "channel",
         ),
         (
             "morph targets",
@@ -847,7 +949,7 @@ fn rejects_malformed_assets_with_actionable_messages() {
         ),
     ];
     for (label, json, expected) in json_cases {
-        let bytes = glb_container(json, b"\0\0\0\0");
+        let bytes = glb_container(json, &[0u8; 128]);
         let error = parse_glb(&bytes).expect_err(&format!("{label} must not parse"));
         assert!(
             error.0.to_lowercase().contains(expected),
@@ -1080,4 +1182,405 @@ fn rejects_truncated_and_oversized_containers() {
     declared_too_long[8..12].copy_from_slice(&u32::MAX.to_le_bytes());
     let error = parse_glb(&declared_too_long).expect_err("oversized header");
     assert!(error.0.contains("exceeds"), "{}", error.0);
+}
+
+// ------------------------------------------------------------------- skins
+
+/// Column-major translation matrix, the layout glTF stores accessors in.
+fn translation_columns(x: f32, y: f32, z: f32) -> [f32; 16] {
+    [
+        1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, x, y, z, 1.0,
+    ]
+}
+
+const IDENTITY_COLUMNS: [f32; 16] = [
+    1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+];
+
+/// A skinned two-bone triangle with an offset mesh node.
+///
+/// The mesh node sits at `+10x`, `bone_a` at `+1y` and `bone_b` at `+2y`. The
+/// first joint's inverse bind matrix is the exact inverse of `bone_a`, so its
+/// combined matrix is `translate(-10, 0, 0)`; the second joint's is identity,
+/// so its combined matrix is `translate(-10, 2, 0)`. That makes the bind pose
+/// (`meshInverseGlobal * jointGlobal * inverseBind * p`) depend on both the
+/// mesh-node inverse and the weight blend, which the assertions below pin.
+fn skinned_triangle_document(
+    joints: &[[u8; 4]; 3],
+    weights: &[[f32; 4]; 3],
+    inverse_bind: &[[f32; 16]],
+    animations_json: &str,
+) -> Vec<u8> {
+    let mut builder = ModelBuilder::default();
+    let positions = builder.positions(&[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]);
+    let uvs = builder.uvs(&[[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]);
+    let joint_accessor = builder.joints_u8(joints);
+    let weight_accessor = builder.weights_f32(weights);
+    let indices = builder.indices(&[0, 1, 2]);
+    let ibm_accessor = builder.mat4s(inverse_bind);
+    let json = format!(
+        r#"{{
+          "asset": {{"version": "2.0"}},
+          "scene": 0,
+          "scenes": [{{"nodes": [0]}}],
+          "nodes": [
+            {{"name": "rig", "children": [1, 2, 3]}},
+            {{"name": "bone_a", "translation": [0.0, 1.0, 0.0]}},
+            {{"name": "bone_b", "translation": [0.0, 2.0, 0.0]}},
+            {{"name": "mesh_node", "mesh": 0, "skin": 0, "translation": [10.0, 0.0, 0.0]}}
+          ],
+          "skins": [{{
+            "name": "test_rig",
+            "joints": [1, 2],
+            "inverseBindMatrices": {ibm_accessor}
+          }}],
+          "meshes": [{{"primitives": [{{
+            "attributes": {{
+              "POSITION": {positions},
+              "TEXCOORD_0": {uvs},
+              "JOINTS_0": {joint_accessor},
+              "WEIGHTS_0": {weight_accessor}
+            }},
+            "indices": {indices}
+          }}]}}],
+          "accessors": [{accessors}],
+          "bufferViews": [{views}],
+          "buffers": [{{"byteLength": {length}}}]{animations_json}
+        }}"#,
+        accessors = builder.accessors(),
+        views = builder.buffer_views(),
+        length = builder.bytes().len(),
+    );
+    glb_container(&json, builder.bytes())
+}
+
+/// The default well-formed skinned fixture.
+fn default_skinned_document() -> Vec<u8> {
+    skinned_triangle_document(
+        &[[0, 1, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0]],
+        &[
+            [0.5, 0.5, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0],
+            [0.25, 0.75, 0.0, 0.0],
+        ],
+        &[translation_columns(0.0, -1.0, 0.0), IDENTITY_COLUMNS],
+        "",
+    )
+}
+
+#[test]
+fn parses_a_skinned_model_into_bind_pose_geometry_and_a_retained_rig() {
+    let model = parse_glb(&default_skinned_document()).expect("skinned fixture parses");
+    assert!(model.is_skinned());
+    assert_eq!(model.triangles, 1);
+    assert_eq!(model.joints.len(), model.vertices.len());
+    assert_eq!(model.weights.len(), model.vertices.len());
+
+    let skin = model.skin.as_ref().expect("skin retained");
+    assert_eq!(skin.joints, vec![1, 2]);
+    assert_eq!(skin.inverse_bind.len(), 2);
+    assert_eq!(skin.mesh_node, Some(3));
+    assert_eq!(
+        skin.root,
+        Some(0),
+        "the topmost ancestor of the first joint"
+    );
+    assert_eq!(skin.nodes.len(), 4);
+    assert_eq!(skin.nodes[0].name, "rig");
+    assert_eq!(skin.nodes[0].children, vec![1, 2, 3]);
+    assert_eq!(skin.nodes[1].name, "bone_a");
+    assert_eq!(skin.nodes[1].parent, Some(0));
+    assert_eq!(skin.nodes[3].name, "mesh_node");
+    assert_eq!(skin.nodes[3].translation, [10.0, 0.0, 0.0]);
+
+    // Bind-pose positions: mesh inverse * joint global * IBM * p, blended.
+    let positions: Vec<[f32; 3]> = model.vertices.iter().map(|vertex| vertex.pos).collect();
+    let expected = [[-10.0, 1.0, 0.0], [-9.0, 2.0, 0.0], [-10.0, 2.5, 0.0]];
+    for (position, expected) in positions.iter().zip(expected.iter()) {
+        for axis in 0..3 {
+            assert!(
+                (position[axis] - expected[axis]).abs() < 1e-5,
+                "bind position {position:?} != {expected:?}"
+            );
+        }
+    }
+    // Weight columns are renormalised and stored parallel to the vertices.
+    assert_eq!(model.joints[1], [1, 0, 0, 0]);
+    assert_eq!(model.weights[0], [0.5, 0.5, 0.0, 0.0]);
+    assert_eq!(model.weights[2], [0.25, 0.75, 0.0, 0.0]);
+    let (low, high) = model.bounds().expect("skinned bounds");
+    assert!(
+        (low[0] + 10.0).abs() < 1e-5 && (high[0] + 9.0).abs() < 1e-5,
+        "{low:?} {high:?}"
+    );
+    assert!(
+        (low[1] - 1.0).abs() < 1e-5 && (high[1] - 2.5).abs() < 1e-5,
+        "{low:?} {high:?}"
+    );
+    assert!(model.animations.is_empty());
+}
+
+#[test]
+fn parses_animation_clips_with_linear_and_step_samplers() {
+    let mut builder = ModelBuilder::default();
+    let positions = builder.positions(&[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]);
+    let uvs = builder.uvs(&[[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]);
+    let joints = builder.joints_u8(&[[0, 0, 0, 0]; 3]);
+    let weights = builder.weights_f32(&[[1.0, 0.0, 0.0, 0.0]; 3]);
+    let indices = builder.indices(&[0, 1, 2]);
+    let ibm = builder.mat4s(&[translation_columns(0.0, -1.0, 0.0)]);
+    let translation_times = builder.scalars(&[0.0, 0.5, 1.0]);
+    let translation_values = builder.vec3s(&[[0.0, 1.0, 0.0], [0.0, 1.5, 0.0], [0.0, 2.0, 0.0]]);
+    let rotation_times = builder.scalars(&[0.0, 1.0]);
+    let rotation_values = builder.vec4s(&[
+        [0.0, 0.0, 0.0, 1.0],
+        [
+            0.0,
+            0.0,
+            std::f32::consts::FRAC_1_SQRT_2,
+            std::f32::consts::FRAC_1_SQRT_2,
+        ],
+    ]);
+    let animations_json = format!(
+        r#",
+          "animations": [{{
+            "name": "WalkCycle",
+            "channels": [
+              {{"sampler": 0, "target": {{"node": 1, "path": "translation"}}}},
+              {{"sampler": 1, "target": {{"node": 1, "path": "rotation"}}}}
+            ],
+            "samplers": [
+              {{"input": {translation_times}, "output": {translation_values}, "interpolation": "LINEAR"}},
+              {{"input": {rotation_times}, "output": {rotation_values}, "interpolation": "STEP"}}
+            ]
+          }}]"#
+    );
+    let json = format!(
+        r#"{{
+          "asset": {{"version": "2.0"}},
+          "scene": 0,
+          "scenes": [{{"nodes": [0]}}],
+          "nodes": [
+            {{"name": "rig", "children": [1, 2]}},
+            {{"name": "bone_a", "translation": [0.0, 1.0, 0.0]}},
+            {{"name": "mesh_node", "mesh": 0, "skin": 0}}
+          ],
+          "skins": [{{"joints": [1], "inverseBindMatrices": {ibm}}}],
+          "meshes": [{{"primitives": [{{
+            "attributes": {{"POSITION": {positions}, "TEXCOORD_0": {uvs}, "JOINTS_0": {joints}, "WEIGHTS_0": {weights}}},
+            "indices": {indices}
+          }}]}}],
+          "accessors": [{accessors}],
+          "bufferViews": [{views}],
+          "buffers": [{{"byteLength": {length}}}]{animations_json}
+        }}"#,
+        accessors = builder.accessors(),
+        views = builder.buffer_views(),
+        length = builder.bytes().len(),
+    );
+    let model = parse_glb(&glb_container(&json, builder.bytes())).expect("animated skin parses");
+    assert!(model.is_skinned());
+    assert_eq!(model.animations.len(), 1);
+    let animation = &model.animations[0];
+    assert_eq!(animation.name, "WalkCycle");
+    assert!((animation.duration - 1.0).abs() < 1e-6);
+    assert_eq!(animation.channels.len(), 2);
+
+    let translation = &animation.channels[0];
+    assert_eq!(translation.node, 1);
+    assert_eq!(translation.path, AnimationPath::Translation);
+    assert_eq!(translation.interpolation, AnimationInterpolation::Linear);
+    assert_eq!(translation.times, vec![0.0, 0.5, 1.0]);
+    assert_eq!(
+        translation.values,
+        vec![0.0, 1.0, 0.0, 0.0, 1.5, 0.0, 0.0, 2.0, 0.0]
+    );
+
+    let rotation = &animation.channels[1];
+    assert_eq!(rotation.path, AnimationPath::Rotation);
+    assert_eq!(rotation.interpolation, AnimationInterpolation::Step);
+    assert_eq!(rotation.times, vec![0.0, 1.0]);
+    assert_eq!(
+        rotation.values.len(),
+        8,
+        "a rotation channel has 4 floats per key"
+    );
+}
+
+#[test]
+fn rejects_malformed_skins_and_animation_samplers() {
+    // A vertex whose weights are all zero has no pose to evaluate.
+    let zero_weights = skinned_triangle_document(
+        &[[0, 1, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0]],
+        &[
+            [0.0, 0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+        ],
+        &[translation_columns(0.0, -1.0, 0.0), IDENTITY_COLUMNS],
+        "",
+    );
+    let error = parse_glb(&zero_weights).expect_err("zero weights must fail");
+    assert!(error.0.contains("sums to zero"), "{}", error.0);
+
+    // A joint slot outside the skin's joint list is malformed.
+    let bad_joint = skinned_triangle_document(
+        &[[0, 7, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0]],
+        &[
+            [0.5, 0.5, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0],
+            [0.25, 0.75, 0.0, 0.0],
+        ],
+        &[translation_columns(0.0, -1.0, 0.0), IDENTITY_COLUMNS],
+        "",
+    );
+    let error = parse_glb(&bad_joint).expect_err("out-of-range joints must fail");
+    assert!(error.0.contains("outside the skin"), "{}", error.0);
+
+    // A non-finite weight is refused before it can poison a pose.
+    let non_finite = skinned_triangle_document(
+        &[[0, 1, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0]],
+        &[
+            [f32::NAN, 1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+        ],
+        &[translation_columns(0.0, -1.0, 0.0), IDENTITY_COLUMNS],
+        "",
+    );
+    let error = parse_glb(&non_finite).expect_err("non-finite weights must fail");
+    assert!(error.0.contains("non-finite"), "{}", error.0);
+
+    // The inverse bind list must match the joint list one for one.
+    let short_ibm = skinned_triangle_document(
+        &[[0, 1, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0]],
+        &[
+            [0.5, 0.5, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0],
+            [0.25, 0.75, 0.0, 0.0],
+        ],
+        &[translation_columns(0.0, -1.0, 0.0)],
+        "",
+    );
+    let error = parse_glb(&short_ibm).expect_err("an IBM count mismatch must fail");
+    assert!(error.0.contains("inverse bind matrices"), "{}", error.0);
+
+    // JOINTS_0/WEIGHTS_0 without a skin are malformed glTF.
+    let mut builder = ModelBuilder::default();
+    let positions = builder.positions(&[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]);
+    let uvs = builder.uvs(&[[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]);
+    let joints = builder.joints_u8(&[[0, 0, 0, 0]; 3]);
+    let weights = builder.weights_f32(&[[1.0, 0.0, 0.0, 0.0]; 3]);
+    let indices = builder.indices(&[0, 1, 2]);
+    let json = format!(
+        r#"{{
+          "asset": {{"version": "2.0"}},
+          "scene": 0,
+          "scenes": [{{"nodes": [0]}}],
+          "nodes": [{{"mesh": 0}}],
+          "meshes": [{{"primitives": [{{
+            "attributes": {{"POSITION": {positions}, "TEXCOORD_0": {uvs}, "JOINTS_0": {joints}, "WEIGHTS_0": {weights}}},
+            "indices": {indices}
+          }}]}}],
+          "accessors": [{accessors}],
+          "bufferViews": [{views}],
+          "buffers": [{{"byteLength": {length}}}]
+        }}"#,
+        accessors = builder.accessors(),
+        views = builder.buffer_views(),
+        length = builder.bytes().len(),
+    );
+    let error = parse_glb(&glb_container(&json, builder.bytes()))
+        .expect_err("joint attributes without a skin must fail");
+    assert!(error.0.contains("no skin"), "{}", error.0);
+
+    // CUBICSPLINE samplers are refused by name.
+    let (json, binary) = animated_triangle_document();
+    let json = json.replace(
+        r#""interpolation": "STEP""#,
+        r#""interpolation": "CUBICSPLINE""#,
+    );
+    let error =
+        parse_glb(&glb_container(&json, &binary)).expect_err("CUBICSPLINE samplers must fail");
+    assert!(error.0.contains("CUBICSPLINE"), "{}", error.0);
+}
+
+/// The animated fixture's JSON and binary, exposed so one test can mutate the
+/// interpolation string.
+fn animated_triangle_document() -> (String, Vec<u8>) {
+    let mut builder = ModelBuilder::default();
+    let positions = builder.positions(&[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]);
+    let uvs = builder.uvs(&[[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]);
+    let joints = builder.joints_u8(&[[0, 0, 0, 0]; 3]);
+    let weights = builder.weights_f32(&[[1.0, 0.0, 0.0, 0.0]; 3]);
+    let indices = builder.indices(&[0, 1, 2]);
+    let ibm = builder.mat4s(&[translation_columns(0.0, -1.0, 0.0)]);
+    let times = builder.scalars(&[0.0, 1.0]);
+    let values = builder.vec4s(&[[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]]);
+    let json = format!(
+        r#"{{
+          "asset": {{"version": "2.0"}},
+          "scene": 0,
+          "scenes": [{{"nodes": [0]}}],
+          "nodes": [
+            {{"name": "rig", "children": [1, 2]}},
+            {{"name": "bone_a", "translation": [0.0, 1.0, 0.0]}},
+            {{"name": "mesh_node", "mesh": 0, "skin": 0}}
+          ],
+          "skins": [{{"joints": [1], "inverseBindMatrices": {ibm}}}],
+          "meshes": [{{"primitives": [{{
+            "attributes": {{"POSITION": {positions}, "TEXCOORD_0": {uvs}, "JOINTS_0": {joints}, "WEIGHTS_0": {weights}}},
+            "indices": {indices}
+          }}]}}],
+          "accessors": [{accessors}],
+          "bufferViews": [{views}],
+          "buffers": [{{"byteLength": {length}}}],
+          "animations": [{{
+            "name": "Idle",
+            "channels": [{{"sampler": 0, "target": {{"node": 1, "path": "rotation"}}}}],
+            "samplers": [{{"input": {times}, "output": {values}, "interpolation": "STEP"}}]
+          }}]
+        }}"#,
+        accessors = builder.accessors(),
+        views = builder.buffer_views(),
+        length = builder.bytes().len(),
+    );
+    (json, builder.bytes().to_vec())
+}
+
+/// The shipped Spoonerman rig: the parser must keep its bind pose and retain
+/// the skeleton with no clips.
+#[test]
+fn parses_the_shipped_spoonerman_bind_pose_and_skeleton() {
+    const SPOONERMAN_GLB: &[u8] =
+        include_bytes!("../../assets/entities/spooner-man/model/spooner-man.glb");
+    let model = parse_glb(SPOONERMAN_GLB).expect("shipped spooner-man.glb must parse");
+    assert!(model.is_skinned());
+    assert_eq!(model.animations.len(), 0, "the shipped rig has no clips");
+    let skin = model.skin.as_ref().expect("skin retained");
+    assert_eq!(skin.joints.len(), 26);
+    assert_eq!(skin.inverse_bind.len(), 26);
+    assert_eq!(skin.nodes.len(), 28);
+    assert_eq!(model.joints.len(), model.vertices.len());
+    assert_eq!(model.weights.len(), model.vertices.len());
+    for (joints, weights) in model.joints.iter().zip(model.weights.iter()) {
+        let sum: f32 = weights.iter().sum();
+        assert!(
+            (sum - 1.0).abs() < 1e-4,
+            "weights must be normalised: {weights:?}"
+        );
+        assert!(
+            joints
+                .iter()
+                .all(|slot| usize::from(*slot) < skin.joints.len()),
+            "joint slot outside the rig: {joints:?}"
+        );
+    }
+    let (low, high) = model.bounds().expect("bind-pose bounds");
+    let expected_low = [-0.0825_f32, 0.0, -0.2967];
+    let expected_high = [0.0825_f32, 0.389, 0.329];
+    for axis in 0..3 {
+        assert!((low[axis] - expected_low[axis]).abs() < 2e-3, "{low:?}");
+        assert!((high[axis] - expected_high[axis]).abs() < 2e-3, "{high:?}");
+    }
 }

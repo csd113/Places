@@ -34,6 +34,7 @@ use std::sync::{Arc, Mutex};
 
 use sdl3::video::Window;
 
+use super::character::{CharacterUploadContext, WgpuCharacters};
 use super::decals::{DecalPipeline, WgpuDecals};
 use super::dynamic::{DynamicUploadContext, WgpuDynamic};
 use super::environment::{
@@ -57,6 +58,7 @@ use super::world::{
     WgpuWorldGeometry, WorldDrawTotals, WorldPipeline, WorldTextures,
     environment_bind_group_layout, prepare_world_frame,
 };
+use crate::game::LocomotionSnapshot;
 use crate::lighting::lightmap::{LightmapCache, LightmapFailure, LightmapMode};
 use crate::loader::LoadedLevel;
 use crate::logging;
@@ -72,6 +74,7 @@ use crate::render::common::api::{
     prepare_level_geometry_with_lightmaps, rebuild_vertex_lit_level,
 };
 use crate::render::common::atmosphere::FogState;
+use crate::render::common::character::CharacterScene;
 use crate::render::common::dynamic::{DynamicScene, DynamicUpdate};
 use crate::render::common::materials::MaterialRenderState;
 use crate::render::common::postprocess::PostSettings;
@@ -461,6 +464,13 @@ pub struct WgpuRenderer {
     /// The GPU side of the dynamic scene: one mesh per model, one environment
     /// per object. Built when the demo spawns, dropped with the level.
     world_dynamic: Option<WgpuDynamic>,
+    /// The neutral character scene: every placed skinned prop, its animator
+    /// and its baked per-vertex albedo. Rebuilt on level install and graphics
+    /// changes; advanced by `update_characters`.
+    characters: CharacterScene,
+    /// The GPU side of the character scene: shared index buffers, one mutable
+    /// skinned vertex buffer per character and one environment per character.
+    world_characters: Option<WgpuCharacters>,
     /// The level's CPU bake, kept for the dynamic objects' light probes. The
     /// static path needs it only while building; a moving object samples it as
     /// it moves, exactly like the reference.
@@ -639,6 +649,8 @@ impl WgpuRenderer {
             dynamic: DynamicScene::new(),
             level_id: None,
             world_dynamic: None,
+            characters: CharacterScene::new(),
+            world_characters: None,
             dynamic_lighting: None,
             last_frame: None,
             adapter_info,
@@ -889,6 +901,87 @@ impl WgpuRenderer {
             fog: self.fog,
         };
         self.world_dynamic = Some(WgpuDynamic::upload(&mut ctx, &self.dynamic));
+    }
+
+    /// Advances every character's pose and uploads the characters that moved.
+    ///
+    /// The neutral scene evaluates the blend weights, gait phase and clip
+    /// crossfade; the GPU side re-skins only the characters whose pose
+    /// revision changed and writes their vertex buffers. A still character
+    /// writes nothing. Returns how many characters moved this pass.
+    pub fn update_characters(
+        &mut self,
+        delta_seconds: f32,
+        locomotion: LocomotionSnapshot,
+    ) -> usize {
+        let update = self.characters.update(delta_seconds, locomotion);
+        if let Some(characters) = self.world_characters.as_mut() {
+            characters.sync(&self.queue, &self.characters);
+        }
+        update.moved
+    }
+
+    /// The number of live characters in the current level.
+    #[must_use]
+    pub const fn character_count(&self) -> usize {
+        self.characters.len()
+    }
+
+    /// The character scene, for diagnostics and tests.
+    #[must_use]
+    pub const fn character_scene(&self) -> &CharacterScene {
+        &self.characters
+    }
+
+    /// Uploads the current neutral character scene's GPU resources.
+    ///
+    /// Called from `install_level` after the probe bake (and after the neutral
+    /// scene was rebuilt), and again after a reflection-only change: a
+    /// character's group-3 environment samples the probe cubemaps, so it must
+    /// not be bound while those are being captured.
+    fn upload_characters_gpu(&mut self) {
+        if self.check_device_lost() {
+            self.world_characters = None;
+            return;
+        }
+        if self.characters.is_empty() {
+            self.world_characters = None;
+            return;
+        }
+        let probe_views: Vec<&wgpu::TextureView> = self
+            .reflection_targets
+            .probes()
+            .iter()
+            .map(ProbeCube::view)
+            .collect();
+        // The dynamic upload's fallback-planar rule applies unchanged: a
+        // character is drawn inside the planar capture, and an environment
+        // bound to the live planar target would sample the texture it renders
+        // into.
+        let planar = &self.planar_fallback_view;
+        let mut ctx = CharacterUploadContext {
+            device: &self.device,
+            queue: &self.queue,
+            cache: &mut self.textures,
+            material_layout: &self.material_layout,
+            environment_layout: &self.environment_layout,
+            lightmaps: &self.lightmaps,
+            lightmap_enabled: self.lightmaps_resident,
+            probes: &probe_views,
+            planar,
+            probe_fallback: &self.probe_fallback_view,
+            planar_fallback: &self.planar_fallback_view,
+            level: self.quality,
+            fog: self.fog,
+        };
+        self.world_characters = Some(WgpuCharacters::upload(&mut ctx, &self.characters));
+        if let Some(characters) = self.world_characters.as_ref() {
+            let stats = characters.stats();
+            logging::info(format!(
+                "[wgpu] characters: {} character(s), {} mesh(es), {} draw(s), {} vertices",
+                stats.characters, stats.meshes, stats.draws, stats.vertices
+            ));
+        }
     }
 
     /// Applies every recorded graphics setting in one transaction.
@@ -1298,6 +1391,7 @@ impl WgpuRenderer {
         }
         self.environment = Some(self.create_environment());
         self.bake_reflection_probes();
+        self.upload_characters_gpu();
         self.upload_dynamic();
     }
 
@@ -1422,12 +1516,25 @@ impl WgpuRenderer {
             },
         );
         self.log_level_resolution(&world, &world_textures, &world_materials);
+        // Claim every placed skinned prop for the character path before the
+        // static prop upload: the GPU prop batches of a claimed model are
+        // suppressed so the bind pose and the animated pose never draw on top
+        // of each other. The neutral batches stay in `build`, so the lightmap
+        // bake and its occlusion are untouched.
+        self.characters = CharacterScene::spawn_characters(
+            &loaded.level,
+            &self.prop_catalog,
+            &mut self.prop_assets,
+            &build.lighting,
+        );
+        let claimed_characters = self.characters.claimed_models().to_vec();
         let world_props = WgpuProps::upload(
             &self.device,
             &self.queue,
             &mut self.textures,
             &self.material_layout,
             &build.batches,
+            &claimed_characters,
             self.quality,
         );
         let prop_stats = world_props.stats();
@@ -1482,6 +1589,10 @@ impl WgpuRenderer {
             self.level_id = Some(loaded.level.id.clone());
         }
         self.world_dynamic = None;
+        // The previous level's (or previous quality's) character GPU state is
+        // dropped before the probe bake so the bake cannot draw stale
+        // characters; `upload_characters_gpu` rebuilds it after the probes.
+        self.world_characters = None;
         self.environment = Some(self.create_environment());
         self.world = Some(world);
         self.world_props = Some(world_props);
@@ -1495,6 +1606,12 @@ impl WgpuRenderer {
         // its decals are all resident: six full scene submissions per probe,
         // exactly like the reference's `bake_reflection_probes`.
         self.bake_reflection_probes();
+        // Characters and dynamic objects upload after the probe bake for the
+        // same reason: their group-3 environments sample the probe cubemaps,
+        // and binding those while they are being captured is a validation
+        // error. A quality rebuild keeps the neutral character scene; the GPU
+        // side is re-uploaded against the new level resources.
+        self.upload_characters_gpu();
         // A quality rebuild keeps the neutral dynamic scene; re-upload it
         // against the new level resources so no draw references a stale
         // resource (the reference's own rebuild leaves stale handles and is
@@ -2082,6 +2199,7 @@ impl WgpuRenderer {
                 environment: environment.bind_group_for_probe(self.active_probe),
                 props: self.world_props.as_ref(),
                 dynamic: self.world_dynamic.as_ref(),
+                characters: self.world_characters.as_ref(),
                 capture_plane: None,
                 filtering: self.filtering,
                 frame,
@@ -2116,6 +2234,7 @@ impl WgpuRenderer {
                 environment: environment.bind_group_for_probe(self.active_probe),
                 props: self.world_props.as_ref(),
                 dynamic: self.world_dynamic.as_ref(),
+                characters: self.world_characters.as_ref(),
                 capture_plane: None,
                 filtering: self.filtering,
                 frame,
@@ -2202,6 +2321,7 @@ impl WgpuRenderer {
                     environment: environment.bind_group_for_probe(self.active_probe),
                     props: self.world_props.as_ref(),
                     dynamic: self.world_dynamic.as_ref(),
+                    characters: self.world_characters.as_ref(),
                     capture_plane: None,
                     filtering: self.filtering,
                     frame,
@@ -2521,6 +2641,7 @@ impl WgpuRenderer {
                             environment: environment.capture_bind_group(),
                             props: self.world_props.as_ref(),
                             dynamic: self.world_dynamic.as_ref(),
+                            characters: self.world_characters.as_ref(),
                             capture_plane: None,
                             filtering: self.filtering,
                             frame: &world_frame,
@@ -2652,6 +2773,7 @@ impl WgpuRenderer {
                     environment: environment.capture_bind_group(),
                     props: self.world_props.as_ref(),
                     dynamic: self.world_dynamic.as_ref(),
+                    characters: self.world_characters.as_ref(),
                     capture_plane: Some(plane_index),
                     filtering: self.filtering,
                     frame: &capture_frame,

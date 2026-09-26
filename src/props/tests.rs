@@ -326,6 +326,7 @@ fn synthetic_model(triangles: usize, textures: &[(u32, u32)]) -> PropModel {
         }],
         triangles,
         materials: 1,
+        ..PropModel::default()
     }
 }
 

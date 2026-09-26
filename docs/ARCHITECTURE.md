@@ -20,8 +20,8 @@ level / world / gameplay / spatial / materials / lighting / camera
                          ▼
               render::common  —  renderer-neutral preparation
         geometry emitters, meshes, material draw state, reflection
-        routing and mirror maths, fog, animation, camera/view maths,
-        target-size policy
+        routing and mirror maths, fog, emission animation, water
+        surfaces, character posing, camera/view maths, target-size policy
                          │
                          ▼
               render::Renderer  —  the facade the engine talks to
@@ -60,7 +60,7 @@ backend module that names it.
 | `src/render/common/mod.rs` | Emitters and level-build helpers (`tiled_uv`, wall/floor emitters, decal quads, `MaterialLookup`) | preparation |
 | `src/render/common/api.rs` | `build_level_geometry*` entry points and lighting/atlas build | preparation |
 | `src/render/common/mesh.rs` | `Vertex`, `LevelMesh`, chunk packing, unit quantisation | preparation (CPU layout) |
-| `src/render/common/geometry.rs`, `architecture.rs`, `fixtures.rs`, `props.rs`, `decals.rs`, `dynamic.rs`, `animation.rs`, `atmosphere.rs` | Geometry emission, prop instancing, decals, dynamic objects, emission animation, fog; the shared decal constants | preparation |
+| `src/render/common/geometry.rs`, `architecture.rs`, `fixtures.rs`, `props.rs`, `character.rs`, `water.rs`, `decals.rs`, `dynamic.rs`, `animation.rs`, `atmosphere.rs` | Geometry emission, prop instancing, skinned-character posing, water surfaces, decals, dynamic objects, emission animation, fog; the shared decal constants | preparation |
 | `src/render/common/view.rs` | `DrawableSize`, `UiViewport`, FOV and viewport maths, value-only budgets | preparation |
 | `src/render/common/camera.rs` | `RenderCamera` and its view-projection/frustum | preparation |
 | `src/render/common/materials.rs` | `MaterialRenderState`, `BatchPass`, `EmissionRouting`, resolved surface materials | preparation |
@@ -78,6 +78,7 @@ backend module that names it.
 | `src/render/wgpu/reflections.rs` | Reflections: probe cubemaps (face convention), planar target, capture maths and the GPU round-trip orientation test | backend |
 | `src/render/wgpu/props.rs` | Props: neutral prop batches as GPU buffers, clamped model sheets and plain-opaque emission materials | backend |
 | `src/render/wgpu/dynamic.rs` | Dynamics: model-space meshes and per-object environments carrying `u_model` and the baked-light probe | backend |
+| `src/render/wgpu/character.rs` | Characters: shared index buffers, one mutable CPU-skinned vertex buffer and environment per character, plain-opaque submesh materials | backend |
 | `src/render/wgpu/decals.rs`, `decals.wgsl` | Decals: generated atlas and external sheets, the depth-biased pass and its cut-out fragment | backend |
 | `src/render/wgpu/postprocess.rs`, `post.wgsl` | Post: raw scene/presented targets, shared-depth emissive pass, two-pass blur, resolve/present copy | backend |
 | `src/render/wgpu/ui.rs`, `ui.wgsl` | HUD: the 480x272 reference UI pass over the presented image | backend |
@@ -131,7 +132,7 @@ repository sources:
 
 - `LevelDef`, `LoadedLevel`, `MaterialTable` and its resolved materials.
 - `LevelLighting`, lightmap pages and their content keys.
-- `LevelMesh`, `PropMeshBatch`, `DynamicScene`: CPU geometry.
+- `LevelMesh`, `PropMeshBatch`, `DynamicScene`, `CharacterScene`: CPU geometry.
 - `ReflectionRouting`, `ReflectionPlane`: which material reflects from where.
 - `RenderCamera`: the frame's camera.
 - `QualityLevel` (with its two-variant `QualityProfile` content-key boundary),
@@ -183,10 +184,10 @@ These stay private to the backend module; nothing above names them.
 2. reflects the active plane and bakes/samples the probes selected from the
    neutral routing (`nearest_visible_reflection_plane`, per-material reflection
    modes), reusing the targets only while their size and profile hold;
-3. draws the static world, props, dynamics, fixtures and decals through the
-   neutral `BatchPass` classification — opaque, alpha cut-out and translucent
-   (sorted back to front) — with the material, emission, lightmap, sheen,
-   reflection and fog terms the neutral table resolved;
+3. draws the static world, props, dynamics, characters, fixtures and decals
+   through the neutral `BatchPass` classification — opaque, alpha cut-out and
+   translucent (sorted back to front) — with the material, emission, lightmap,
+   sheen, reflection and fog terms the neutral table resolved;
 4. captures the emissive term, blurs it and resolves the scene into the
    presented image; the presented target is the drawable in both profiles;
 5. `render_ui` then draws the 480x272 HUD over the presented image, and
@@ -220,6 +221,8 @@ surface is:
   asynchronous lightmap stage.
 - **Dynamic objects:** `set_dynamic_demo`, `update_dynamic`,
   `dynamic_scene`.
+- **Animated characters:** `update_characters(delta_seconds,
+  LocomotionSnapshot)`, `character_count`, `character_scene`.
 - **Diagnostics:** neutral counters and logs (`render_stats`, `level_stats`,
   batch breakdowns, `prop_asset_stats`, `fatal_error`).
 - **Windowing hooks:** `set_swap_interval`.

@@ -911,6 +911,7 @@ mod tests {
             }],
             triangles: triangles.len(),
             materials: 1,
+            ..PropModel::default()
         }
     }
 
@@ -1569,6 +1570,7 @@ mod tests {
             ],
             triangles: 4,
             materials: 2,
+            ..PropModel::default()
         };
         let boxes = default_boxes(&model);
         let min_x = boxes.iter().map(|b| b.min[0]).fold(f32::INFINITY, f32::min);
@@ -1690,6 +1692,7 @@ mod tests {
             submeshes: Vec::new(),
             triangles: 0,
             materials: 0,
+            ..PropModel::default()
         };
         assert!(default_boxes(&empty).is_empty());
         assert!(default_boxes(&model(&[])).is_empty());

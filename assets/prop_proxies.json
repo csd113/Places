@@ -5452,10 +5452,10 @@
         }
       ],
       "texture": [
-        128,
-        128
+        256,
+        256
       ],
-      "triangles": 126
+      "triangles": 140
     },
     "core:water_cooler": {
       "bounds_max": [

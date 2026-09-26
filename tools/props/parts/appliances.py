@@ -32,8 +32,9 @@ TARGET = {
     "core:vending_machine": 260,
     "core:water_cooler": 220,
     # Not placed by any level: the dynamic-object demonstrator (see
-    # src/render/common/dynamic.rs).  It spins about its vertical axis on screen, so
-    # the mouth, rim, basket wall and lifters have to read in motion.
+    # src/render/common/dynamic.rs).  It spins about its own axis inside a
+    # placed washing machine's cavity, so the mouth, rim, basket wall and
+    # lifters have to read in motion through the porthole.
     "core:washer_drum": 170,
 }
 
@@ -80,33 +81,38 @@ def _wear(tex, name, *, seed=0, streaks=GRIME_STREAKS, rust=RUST_SPOTS):
         )
 
 
-def _porthole(p: PropBuilder, centre, radius: float, glass_radius: float, glass_z: float, front: float,
-              segments: int, rim_uv, glass_uv, rim_color, glass_color) -> None:
-    """Low-segment drum door: outer wall, front ring, inner wall, glass disc.
+def _porthole(p: PropBuilder, centre, radius: float, opening_radius: float, panel_z: float,
+              front: float, back: float, segments: int, rim_uv, interior_uv,
+              rim_color, interior_color) -> None:
+    """Drum door with a real opening: bezel wall, front ring and interior barrel.
 
-    ``centre`` is (x, y) on the machine's front; ``front`` is the z of the
-    drum's outer ring and of the prop's front-most point; ``glass_z`` the
-    recessed z of the glass.  Hand-built (rather than ``p.cylinder``) because
-    the cylinder's caps all share three UVs and would smear the glass texture.
+    ``centre`` is (x, y) on the machine's front; ``panel_z`` is the plane of
+    the front panel the bezel meets, ``front`` the z of the rim's front ring
+    (the prop's front-most point) and ``back`` the z of the cavity's back
+    wall.  The interior wall runs unbroken from the opening to that back wall,
+    so the porthole is a genuine recess the dynamic drum sits inside, not a
+    painted disc in front of a sealed body.  Hand-built (rather than
+    ``p.cylinder``) because the cylinder's caps all share three UVs and would
+    smear the interior texture.
     """
     cx, cy = centre
     angles = [math.tau * index / segments for index in range(segments)]
     rim = [(cx + math.cos(a) * radius, cy + math.sin(a) * radius) for a in angles]
-    inner = [(cx + math.cos(a) * glass_radius, cy + math.sin(a) * glass_radius) for a in angles]
+    inner = [(cx + math.cos(a) * opening_radius, cy + math.sin(a) * opening_radius) for a in angles]
 
     for index in range(segments):
         other = (index + 1) % segments
-        # Outer wall of the drum, shaded like the toolkit's cylinders.
+        # Bezel wall, shaded like the toolkit's cylinders, panel to front ring.
         p.mesh.quad(
-            (rim[index][0], rim[index][1], glass_z),
-            (rim[other][0], rim[other][1], glass_z),
+            (rim[index][0], rim[index][1], panel_z),
+            (rim[other][0], rim[other][1], panel_z),
             (rim[other][0], rim[other][1], front),
             (rim[index][0], rim[index][1], front),
             uv=rim_uv,
             color=rim_color,
             shade_mult=0.74 + 0.26 * (0.5 + 0.5 * math.cos(angles[index] - 0.9)),
         )
-        # Front ring, proud of the glass.
+        # Front ring, proud of the opening.
         p.mesh.quad(
             (inner[index][0], inner[index][1], front),
             (rim[index][0], rim[index][1], front),
@@ -116,34 +122,35 @@ def _porthole(p: PropBuilder, centre, radius: float, glass_radius: float, glass_
             color=rim_color,
             shade_mult=FACE_SHADE["+z"],
         )
-        # Inner wall, facing the drum's axis so the door reads as a recess.
+        # Interior barrel, facing the drum's axis so the opening reads deep.
         p.mesh.quad(
-            (inner[other][0], inner[other][1], glass_z),
-            (inner[index][0], inner[index][1], glass_z),
+            (inner[other][0], inner[other][1], back),
+            (inner[index][0], inner[index][1], back),
             (inner[index][0], inner[index][1], front),
             (inner[other][0], inner[other][1], front),
-            uv=rim_uv,
-            color=palette.shade(rim_color, 0.82),
+            uv=interior_uv,
+            color=interior_color,
+            shade_mult=0.80 + 0.14 * (0.5 + 0.5 * math.cos(angles[index] + 1.6)),
         )
 
-    # Glass: a fan whose vertices are mapped around the inscribed circle, so
-    # the painted door graphics stay concentric instead of smearing.
-    u0, v0, u1, v1 = glass_uv
+    # Cavity back wall: a fan whose vertices are mapped around the inscribed
+    # circle, so any painted wear stays concentric instead of smearing.
+    u0, v0, u1, v1 = interior_uv
     cu, cv = (u0 + u1) * 0.5, (v0 + v1) * 0.5
     ru, rv = (u1 - u0) * 0.5, (v1 - v0) * 0.5
     for index in range(segments):
         other = (index + 1) % segments
         p.mesh.triangle(
-            (cx, cy, glass_z),
-            (inner[index][0], inner[index][1], glass_z),
-            (inner[other][0], inner[other][1], glass_z),
+            (cx, cy, back),
+            (inner[index][0], inner[index][1], back),
+            (inner[other][0], inner[other][1], back),
             [
                 (cu, cv),
                 (cu + ru * math.cos(angles[index]), cv - rv * math.sin(angles[index])),
                 (cu + ru * math.cos(angles[other]), cv - rv * math.sin(angles[other])),
             ],
-            glass_color,
-            shade_mult=FACE_SHADE["+z"] * 0.8,
+            interior_color,
+            shade_mult=FACE_SHADE["+z"] * 0.6,
         )
 
 
@@ -650,12 +657,19 @@ def build_fridge(p: PropBuilder) -> None:
 
 
 def build_washing_machine(p: PropBuilder) -> None:
-    """Front loader: box body, 8-segment porthole with a recessed glass, rail."""
+    """Front loader with a real porthole opening, interior cavity and rail.
+
+    The front panel is a frame around the opening and the body carries a
+    cylindrical cavity behind it, so the dynamic drum that
+    ``src/render/common/dynamic.rs`` spawns inside the machine is visible
+    through the porthole instead of a painted, opaque glass disc.
+    """
     width, height, depth = p.size
+    half_w = width * 0.5
     half_d = depth * 0.5
 
-    tex = p.set_texture(128, seed=59)
-    tex.auto("front", "strip", "rim", "glass")
+    tex = p.set_texture(256, seed=59)
+    tex.auto("front", "strip", "rim", "interior")
 
     metal = palette.shade(
         palette.mix(palette.hex_to_rgb(palette.METAL_GREY), palette.hex_to_rgb(palette.PLASTIC_WHITE), 0.30), 0.95
@@ -663,7 +677,9 @@ def build_washing_machine(p: PropBuilder) -> None:
     metal_light = palette.shade(metal, 1.06)
     metal_dark = palette.shade(metal, 0.62)
     rim_color = palette.shade(metal, 0.8)
-    glass = palette.shade(palette.hex_to_rgb(palette.GLASS_TINT), 0.85)
+    interior = palette.shade(
+        palette.mix(palette.hex_to_rgb(palette.METAL_DARK), palette.hex_to_rgb(palette.SCREEN_DARK), 0.42), 0.9
+    )
     dark = palette.hex_to_rgb(palette.ELECTRONICS_DARK)
 
     # --- texture: body front (visible as a ring around the drum) -----------
@@ -687,27 +703,35 @@ def build_washing_machine(p: PropBuilder) -> None:
     _paint(tex, "rim", rim_color, seed=4, grain_density=0.3, grain_alpha=20)
     _wear(tex, "rim", seed=5, rust=1, streaks=2)
 
-    # --- texture: porthole glass (mapped as a disc) --------------------------
-    # Concentric solid discs: the rim catches light, the middle is the drum
-    # mouth.  Texels are painted lighter than the vertex colour on purpose --
-    # the shader multiplies the two, so a "dark glass" albedo ends up black.
-    glass_dark = palette.hex_to_rgb(palette.SCREEN_DARK)
-    glass_light = palette.hex_to_rgb(palette.GLASS_TINT)
-    glass_mid = palette.mix(glass_dark, glass_light, 0.55)
-    tex.fill("glass", glass_mid, jitter=6, seed=6)
-    tex.dots("glass", glass_light, [(0.5, 0.5)], radius=30)
-    tex.dots("glass", glass_mid, [(0.5, 0.5)], radius=25)
-    tex.dots("glass", glass_dark, [(0.5, 0.52)], radius=20)
-    tex.band("glass", glass_dark, 0.28, 0.4, alpha=50)
-    tex.spots("glass", glass_light, count=3, seed=7, radius=3, alpha=60)
+    # --- texture: drum cavity (mapped as a disc) ----------------------------
+    # The dark steel the drum turns inside, seen through the opening.  Texels
+    # are painted lighter than the vertex colour on purpose -- the shader
+    # multiplies the two, so a "dark cavity" albedo ends up black.
+    cavity_dark = palette.hex_to_rgb(palette.SCREEN_DARK)
+    cavity_light = palette.hex_to_rgb(palette.METAL_DARK)
+    cavity_mid = palette.mix(cavity_dark, cavity_light, 0.5)
+    tex.fill("interior", cavity_mid, jitter=5, seed=6)
+    tex.dots("interior", palette.shade(cavity_light, 1.1), [(0.5, 0.5)], radius=30)
+    tex.dots("interior", cavity_mid, [(0.5, 0.5)], radius=22)
+    tex.dots("interior", cavity_dark, [(0.5, 0.52)], radius=16)
+    tex.band("interior", cavity_dark, 0.28, 0.4, alpha=50)
+    tex.spots("interior", palette.shade(cavity_mid, 0.7), count=3, seed=7, radius=3, alpha=60)
 
     # --- geometry -----------------------------------------------------------
-    drum_radius = 0.215
-    drum_front = half_d
-    body_front = drum_front - 0.03
+    # The dynamic path mirrors these numbers (WASHER_PORTHOLE_* in
+    # src/render/common/dynamic.rs) to size and place the drum inside the
+    # cavity; keep the two in step when the opening moves.
+    drum_radius = 0.215      # outer radius of the porthole bezel
+    opening_radius = 0.155   # inner radius of the opening; the dynamic drum is
+                             # scaled to fit just inside it
+    drum_front = half_d      # the bezel's front ring is the prop's front point
+    panel_z = drum_front - 0.03
     body = depth - 0.03
     body_top = height - 0.05
     centre_y = 0.44
+    cavity_back = -0.02      # back wall of the drum cavity
+    panel_bottom = 0.04
+    panel_top = body_top
 
     p.box(
         (0.0, 0.02, -0.025),
@@ -716,42 +740,108 @@ def build_washing_machine(p: PropBuilder) -> None:
         color=palette.shade(metal_dark, 0.8),
         proxy=False,
     )
+    # Body: the front face is omitted; the panel around the porthole below
+    # supplies it, with a genuine opening into the cavity.
     p.box(
-        (0.0, 0.04 + (body_top - 0.04) * 0.5, (body_front - half_d) * 0.5),
-        (width, body_top - 0.04, body),
-        uv={"+z": tex.uv("front"), "-z": tex.uv("rim"), "+y": tex.uv("front"),
+        (0.0, panel_bottom + (panel_top - panel_bottom) * 0.5, (panel_z - half_d) * 0.5),
+        (width, panel_top - panel_bottom, body),
+        uv={"+z": None, "-z": tex.uv("rim"), "+y": tex.uv("front"),
             "-y": None, "+x": tex.uv("front"), "-x": tex.uv("front")},
         color=metal,
     )
     p.box(
-        (0.0, body_top + 0.025, (body_front - half_d) * 0.5 + 0.005),
+        (0.0, body_top + 0.025, (panel_z - half_d) * 0.5 + 0.005),
         (width - 0.03, height - body_top, body - 0.05),
         uv={"+z": tex.uv("front"), "-z": tex.uv("rim"), "+y": tex.uv("front"),
             "-y": None, "+x": tex.uv("front"), "-x": tex.uv("front")},
         color=metal_light,
     )
-    # The glass must sit in front of the body's front face, or the opaque body
-    # panel would occlude the whole porthole.
-    _porthole(p, (0.0, centre_y), drum_radius, 0.155, body_front + 0.012, drum_front, 8,
-              tex.uv("rim"), tex.uv("glass"), rim_color, glass)
+    # Front panel: a frame around the opening instead of a solid face.  The
+    # left and right piers run the full height and the head and sill close the
+    # gaps above and below the octagon; two triangles per corner fill the
+    # square-minus-circle remainder.  UVs continue the old full-face mapping,
+    # so the painted metal reads exactly where it did before.
+    u0, v0, u1, v1 = tex.uv("front")
+
+    def panel_uv(x: float, y: float) -> tuple[float, float]:
+        return (
+            u0 + (x + half_w) / width * (u1 - u0),
+            v1 + (y - panel_bottom) / (panel_top - panel_bottom) * (v0 - v1),
+        )
+
+    # The removed front face carried the body box's floor-contact shading;
+    # reuse it so the elevation does not brighten when it becomes strips.
+    panel_ao = 1.0 - p.ao_strength * max(0.0, 1.0 - panel_bottom / p.ao_height)
+
+    def panel_quad(points) -> None:
+        p.mesh.quad(
+            *[(x, y, panel_z) for x, y in points],
+            uv=[panel_uv(x, y) for x, y in points],
+            color=metal,
+            shade_mult=FACE_SHADE["+z"],
+            ao=panel_ao,
+        )
+
+    octagon = [
+        (math.cos(math.tau * index / 8) * drum_radius,
+         centre_y + math.sin(math.tau * index / 8) * drum_radius)
+        for index in range(8)
+    ]
+    panel_quad([(-half_w, panel_bottom), (-drum_radius, panel_bottom),
+                (-drum_radius, panel_top), (-half_w, panel_top)])
+    panel_quad([(drum_radius, panel_bottom), (half_w, panel_bottom),
+                (half_w, panel_top), (drum_radius, panel_top)])
+    panel_quad([(-drum_radius, panel_bottom), (drum_radius, panel_bottom),
+                (drum_radius, centre_y - drum_radius), (-drum_radius, centre_y - drum_radius)])
+    panel_quad([(-drum_radius, centre_y + drum_radius), (drum_radius, centre_y + drum_radius),
+                (drum_radius, panel_top), (-drum_radius, panel_top)])
+    # Each corner piece spans three octagon vertices -- diagonal, one axis,
+    # the corner, the other axis -- and both triangles wind to +Z, so the
+    # traversal must run counter-clockwise seen from the front. The top-right
+    # piece is the mirror of the other three, so its two axis vertices swap:
+    # diagonal 1 -> axis 0 -> corner -> axis 2, not 1 -> 2 -> corner -> 0.
+    corners = (
+        (1, 0, 2, 1.0, 1.0),
+        (3, 2, 4, -1.0, 1.0),
+        (5, 4, 6, -1.0, -1.0),
+        (7, 6, 0, 1.0, -1.0),
+    )
+    for diagonal, first_axis, second_axis, sx, sy in corners:
+        corner = (sx * drum_radius, centre_y + sy * drum_radius)
+        for points in (
+            (octagon[diagonal], octagon[first_axis], corner),
+            (octagon[diagonal], corner, octagon[second_axis]),
+        ):
+            p.mesh.triangle(
+                *[(x, y, panel_z) for x, y in points],
+                [panel_uv(x, y) for x, y in points],
+                metal,
+                shade_mult=FACE_SHADE["+z"],
+                ao=panel_ao,
+            )
+    _porthole(p, (0.0, centre_y), drum_radius, opening_radius, panel_z, drum_front,
+              cavity_back, 8, tex.uv("rim"), tex.uv("interior"), rim_color, interior)
     # Control rail above the drum, with a detergent drawer and one dial.
     p.box(
-        (0.0, 0.73, body_front + 0.01),
+        (0.0, 0.73, panel_z + 0.01),
         (width - 0.06, 0.13, 0.02),
         uv={"+z": tex.uv("strip"), "-z": None, "+y": tex.uv("rim"), "-y": None,
             "+x": tex.uv("rim"), "-x": tex.uv("rim")},
         color=palette.shade(metal, 0.9),
     )
     p.box(
-        (-0.13, 0.73, body_front + 0.025),
+        (-0.13, 0.73, panel_z + 0.025),
         (0.15, 0.09, 0.01),
         uv=tex.uv("rim"),
         color=metal_light,
         proxy=False,
     )
-    p.cylinder((0.19, 0.73, body_front + 0.015), 0.022, 0.015, segments=6, axis="z",
+    p.cylinder((0.19, 0.73, panel_z + 0.015), 0.022, 0.015, segments=6, axis="z",
                side_uv=tex.uv("rim"), cap_uv=tex.uv("rim"), color=dark)
-    p.add_note("8-segment porthole with a recessed, radially mapped glass; control rail with drawer and dial")
+    p.add_note(
+        "front panel is a frame around an open 8-segment porthole (inner radius 0.155) into a drum cavity; "
+        "control rail with drawer and dial"
+    )
 
 
 # --------------------------------------------------------------- washer drum
@@ -761,12 +851,14 @@ def build_washer_drum(p: PropBuilder) -> None:
     """Open drum basket: shell, rim, inner wall, floor and three lifters.
 
     The demonstrator for the dynamic-object path (`src/render/common/dynamic.rs`):
-    a level spawns it in front of a placed washing machine and turns it about
-    its own vertical axis.  Because it is seen in motion from standing height,
-    the paint budget goes on the parts that move -- the mouth's rim, the inner
-    wall and the drum floor -- and on three lifters, which are what make the
-    rotation legible at all.  It stands on its base like a basket lifted out of
-    the machine, so its local Y axis is the spin axis the transform applies.
+    a level spawns it inside a placed washing machine's cavity and turns it
+    about its own axis, which the dynamic transform aligns with the machine's
+    front (the basket is modelled mouth-up, so the mouth faces the door once
+    the transform pitches it 90 degrees).  Because it is seen in motion through
+    the porthole, the paint budget goes on the parts that move -- the mouth's
+    rim, the inner wall and the drum floor -- and on three lifters, which are
+    what make the rotation legible at all.  It is modelled standing on its base
+    like a basket, so its local Y axis is the spin axis the transform applies.
     """
     width, height, _depth = p.size
     radius = width * 0.5
@@ -805,8 +897,8 @@ def build_washer_drum(p: PropBuilder) -> None:
                  radius=1, alpha=120)
     # One asymmetrically painted service panel, on the +Z world side at spawn:
     # the drum turns about its own axis, so a single marked segment is what
-    # makes the rotation legible from outside; the rest of the shell's detail
-    # is 12-fold symmetric. u = 0.25 is the model's front.
+    # makes the rotation legible through the porthole; the rest of the shell's
+    # detail is 12-fold symmetric. u = 0.25 is the model's front.
     tex.bar("shell", palette.shade(steel, 0.72), (0.222, 0.06, 0.278, 0.94), alpha=150)
     tex.scribble("shell", palette.shade(steel_dark, 0.7), (0.228, 0.30, 0.272, 0.46),
                  seed=8, text_blocks=1, alpha=170)

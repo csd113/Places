@@ -15,11 +15,13 @@
 use sdl3::video::Window;
 
 use super::common::api::GraphicsTransition;
+use super::common::character::CharacterScene;
 use super::common::dynamic::{DynamicScene, DynamicUpdate};
 use super::common::stats::{LevelBuildStats, RenderStats};
 use super::common::view::DrawableSize;
 use super::wgpu::WgpuRenderer;
 use super::{RenderCamera, SurfaceKind, Vertex};
+use crate::game::LocomotionSnapshot;
 use crate::level::LevelDef;
 use crate::loader::{LoadedLevel, RawImage};
 use crate::props::PropAssetStats;
@@ -183,6 +185,32 @@ impl Renderer {
     /// Advances the dynamic objects by `delta_seconds`.
     pub fn update_dynamic(&mut self, delta_seconds: f32) -> DynamicUpdate {
         self.renderer.update_dynamic(delta_seconds)
+    }
+
+    /// Advances every animated character's pose and re-uploads the ones that
+    /// moved.
+    ///
+    /// `locomotion` is the player's state for this frame; each character's
+    /// blend weights and phase follow it. Returns how many characters moved
+    /// (and were therefore re-skinned and uploaded this frame).
+    pub fn update_characters(
+        &mut self,
+        delta_seconds: f32,
+        locomotion: LocomotionSnapshot,
+    ) -> usize {
+        self.renderer.update_characters(delta_seconds, locomotion)
+    }
+
+    /// The number of live animated characters in the current level.
+    #[must_use]
+    pub const fn character_count(&self) -> usize {
+        self.renderer.character_count()
+    }
+
+    /// The current character scene, for the developer log.
+    #[must_use]
+    pub const fn character_scene(&self) -> &CharacterScene {
+        self.renderer.character_scene()
     }
 
     /// The current dynamic scene, for the developer log.
