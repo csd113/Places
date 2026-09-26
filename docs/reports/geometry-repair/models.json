@@ -1,0 +1,1026 @@
+[
+  {
+    "file": "assets/core/props/models/armchair.glb",
+    "changed": false,
+    "triangles_before": 368,
+    "triangles_after": 368,
+    "vertices_before": 816,
+    "vertices_after": 816,
+    "bounds": [
+      [
+        -0.44999998807907104,
+        0.0,
+        -0.44999998807907104
+      ],
+      [
+        0.44999998807907104,
+        0.8999999761581421,
+        0.44999998807907104
+      ]
+    ],
+    "topology": {
+      "triangles": 368,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 14,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "01ad0cc3f44dfb4a33fa35c4446b8cf4c3959141676d20b7489075aaaa172eeb",
+    "sha256": "e570029129c2ce1c134dd836b96b15a76ac78f109b4c5115491573cdc466890a"
+  },
+  {
+    "file": "assets/core/props/models/bed.glb",
+    "changed": true,
+    "triangles_before": 230,
+    "triangles_after": 276,
+    "vertices_before": 460,
+    "vertices_after": 552,
+    "bounds": [
+      [
+        -0.699999988079071,
+        0.0,
+        -1.0
+      ],
+      [
+        0.699999988079071,
+        0.550000011920929,
+        1.0
+      ]
+    ],
+    "topology": {
+      "triangles": 276,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 4,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 23,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "9a4b57a4eea1ddf6492c740be44abd9a05a1ea8193afdeb0ffc7ab902402f5ec",
+    "sha256": "97035be0a95cd60aa771992f65209c6887c1274da0ba158bf424d936a7a6d97c"
+  },
+  {
+    "file": "assets/core/props/models/bookshelf.glb",
+    "changed": false,
+    "triangles_before": 180,
+    "triangles_after": 180,
+    "vertices_before": 360,
+    "vertices_after": 360,
+    "bounds": [
+      [
+        -0.5,
+        0.0,
+        -0.17499999701976776
+      ],
+      [
+        0.5,
+        1.7999999523162842,
+        0.17499999701976776
+      ]
+    ],
+    "topology": {
+      "triangles": 180,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 15,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "3430fa93e3d26a8815dfd7483a38d0f71a8e7103a5c0ded2e213766298f85fd9",
+    "sha256": "4dca810c4b388e78e2007381ac64101a25523f98355c6004d6b4d7d8ac63fa98"
+  },
+  {
+    "file": "assets/core/props/models/cardboard_box.glb",
+    "changed": false,
+    "triangles_before": 12,
+    "triangles_after": 12,
+    "vertices_before": 24,
+    "vertices_after": 24,
+    "bounds": [
+      [
+        -0.25,
+        0.0,
+        -0.25
+      ],
+      [
+        0.25,
+        0.5,
+        0.25
+      ]
+    ],
+    "topology": {
+      "triangles": 12,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "53e1fa345c17bb7140ddce4f43a0bb55602e3621f321db62a5d36e200ee98d6b",
+    "sha256": "aaa4d59106ac3b0df681b172caf033d8d5e74cc5e08578a81bcbb639bcaba642"
+  },
+  {
+    "file": "assets/core/props/models/couch.glb",
+    "changed": false,
+    "triangles_before": 588,
+    "triangles_after": 588,
+    "vertices_before": 1296,
+    "vertices_after": 1296,
+    "bounds": [
+      [
+        -1.0,
+        0.0,
+        -0.44999998807907104
+      ],
+      [
+        1.0,
+        0.8999999761581421,
+        0.44999998807907104
+      ]
+    ],
+    "topology": {
+      "triangles": 588,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 19,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "74b0165a3c969f5fd02aa3d64903d248f49b4ea52761bc971d038d85be70abab",
+    "sha256": "1b49bfe35ef6a673792654865b21707160a216c7ba949979b947542cda354c09"
+  },
+  {
+    "file": "assets/core/props/models/crate.glb",
+    "changed": true,
+    "triangles_before": 60,
+    "triangles_after": 60,
+    "vertices_before": 120,
+    "vertices_after": 118,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.30000001192092896
+      ],
+      [
+        0.30000001192092896,
+        0.6000000238418579,
+        0.30000001192092896
+      ]
+    ],
+    "topology": {
+      "triangles": 60,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 4,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 5,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "ecbd034be97507259e44f71798751752886e2997de65dd0036573522202442ba",
+    "sha256": "9cbb8c14beb15d922b6beedf5e57997fe467e642cffa2b5b55a985153d9b907a"
+  },
+  {
+    "file": "assets/core/props/models/fridge.glb",
+    "changed": false,
+    "triangles_before": 108,
+    "triangles_after": 108,
+    "vertices_before": 216,
+    "vertices_after": 216,
+    "bounds": [
+      [
+        -0.3499999940395355,
+        0.0,
+        -0.3499999940395355
+      ],
+      [
+        0.3499999940395355,
+        1.7999999523162842,
+        0.3499999940395355
+      ]
+    ],
+    "topology": {
+      "triangles": 108,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 9,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "ec11b149f6573abae253b96cfeba2f16befa21dbba14cc6471ba4070dc10ce96",
+    "sha256": "a24e261f9f454a7c5312a93bee77723785d6b4028daf6ae1896a0c34bf80bc43"
+  },
+  {
+    "file": "assets/core/props/models/lamp.glb",
+    "changed": false,
+    "triangles_before": 448,
+    "triangles_after": 448,
+    "vertices_before": 1024,
+    "vertices_after": 1024,
+    "bounds": [
+      [
+        -0.17499999701976776,
+        0.0,
+        -0.17499999701976776
+      ],
+      [
+        0.17499999701976776,
+        1.5,
+        0.17499999701976776
+      ]
+    ],
+    "topology": {
+      "triangles": 448,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 5,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "21257ed7cbe02d3fe8bab6d864e3328b5d9c23d4671ef444dabcc44fef5908a2",
+    "sha256": "95e0a2d8218b480e3782724ba4fafd73d45e8b52e182732c061b4e9d556dad0b"
+  },
+  {
+    "file": "assets/core/props/models/plant.glb",
+    "changed": false,
+    "triangles_before": 512,
+    "triangles_after": 512,
+    "vertices_before": 1168,
+    "vertices_after": 1168,
+    "bounds": [
+      [
+        -0.19200000166893005,
+        0.0,
+        -0.19200000166893005
+      ],
+      [
+        0.19200000166893005,
+        0.9953814148902893,
+        0.19200000166893005
+      ]
+    ],
+    "topology": {
+      "triangles": 512,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 17,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "4d2f0e20baf33fe5c26a56c62167b1b1ba44754d3766775abeccd0e8a6639c35",
+    "sha256": "0e51e054b9629c5cdc700d2813b9d1fba8bad1b1158d5be39da9038692907ffb"
+  },
+  {
+    "file": "assets/core/props/models/rug.glb",
+    "changed": false,
+    "triangles_before": 12,
+    "triangles_after": 12,
+    "vertices_before": 24,
+    "vertices_after": 24,
+    "bounds": [
+      [
+        -1.0,
+        0.0,
+        -0.699999988079071
+      ],
+      [
+        1.0,
+        0.019999999552965164,
+        0.699999988079071
+      ]
+    ],
+    "topology": {
+      "triangles": 12,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 1,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "4ca865758d7eee0e0ff7a230f1fd00cd7742c12f3c016b6245d903c96e0f929b",
+    "sha256": "4c4e9f1fcc5e2845700583222c6f1bcb799647b6c6cdf72441ff8245cad6b144"
+  },
+  {
+    "file": "assets/core/props/models/sink.glb",
+    "changed": true,
+    "triangles_before": 208,
+    "triangles_after": 230,
+    "vertices_before": 446,
+    "vertices_after": 435,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.2750000059604645
+      ],
+      [
+        0.30000001192092896,
+        1.100000023841858,
+        0.2750000059604645
+      ]
+    ],
+    "topology": {
+      "triangles": 230,
+      "degenerate": 0,
+      "boundary_edges": 7,
+      "nonmanifold_edges": 1,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 13,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "1d9783825147485ee5b8f796a4a104b91cd26f82dbc75dd324076c2f99668e11",
+    "sha256": "ae63a79a38235a22b26a8baaf997be079c9986984788e85a46544ddb7848c5ae"
+  },
+  {
+    "file": "assets/core/props/models/stove.glb",
+    "changed": true,
+    "triangles_before": 126,
+    "triangles_after": 144,
+    "vertices_before": 272,
+    "vertices_after": 286,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.30000001192092896
+      ],
+      [
+        0.30000001192092896,
+        0.8999999761581421,
+        0.30000001192092896
+      ]
+    ],
+    "topology": {
+      "triangles": 144,
+      "degenerate": 0,
+      "boundary_edges": 4,
+      "nonmanifold_edges": 4,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 12,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "82f466a6fcb0a535668f4f5d0cc88fb1257780613827759e5af10c90ce06a229",
+    "sha256": "31a920efa4088203f7d63472bcbfa74dc9ded621a1e81f72bc0d1fa2cc0f2568"
+  },
+  {
+    "file": "assets/core/props/models/table.glb",
+    "changed": false,
+    "triangles_before": 136,
+    "triangles_after": 136,
+    "vertices_before": 304,
+    "vertices_after": 304,
+    "bounds": [
+      [
+        -0.699999988079071,
+        0.0,
+        -0.4000000059604645
+      ],
+      [
+        0.699999988079071,
+        0.75,
+        0.4000000059604645
+      ]
+    ],
+    "topology": {
+      "triangles": 136,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 10,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "c0db48c631d14d9beb930634ff5aacbe92a94fcb122332469ecc19add7cd925d",
+    "sha256": "ed06e40ff27d66d9c9d264084e1372dc5172e2ad97d913879576303af56a3214"
+  },
+  {
+    "file": "assets/core/props/models/tv.glb",
+    "changed": true,
+    "triangles_before": 68,
+    "triangles_after": 86,
+    "vertices_before": 136,
+    "vertices_after": 164,
+    "bounds": [
+      [
+        -0.550000011920929,
+        0.0,
+        -0.05000000074505806
+      ],
+      [
+        0.550000011920929,
+        0.699999988079071,
+        0.05000000074505806
+      ]
+    ],
+    "topology": {
+      "triangles": 86,
+      "degenerate": 0,
+      "boundary_edges": 4,
+      "nonmanifold_edges": 4,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 8,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "93af3e7c4cfaa74bd20b4759672d5666e2cb15994d6b2a46b8320b43bae16433",
+    "sha256": "03e18985897c70093d40e3ee76ce9343df5872349700888a190d10809ae92fcd"
+  },
+  {
+    "file": "assets/core/props/models/washer_drum.glb",
+    "changed": true,
+    "triangles_before": 144,
+    "triangles_after": 154,
+    "vertices_before": 300,
+    "vertices_after": 289,
+    "bounds": [
+      [
+        -0.20999999344348907,
+        0.0,
+        -0.20999999344348907
+      ],
+      [
+        0.20999999344348907,
+        0.30000001192092896,
+        0.20999999344348907
+      ]
+    ],
+    "topology": {
+      "triangles": 154,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 4,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "d0b93920f55a0e2cff614c258906dab5fd90b44615b08bbade73a1ca05c7d837",
+    "sha256": "570eb5aa9a9be9062bdfb261dfb0758fb11c6e072d56c10a657322e521555d0a"
+  },
+  {
+    "file": "assets/core/props/models/washing_machine.glb",
+    "changed": true,
+    "triangles_before": 140,
+    "triangles_after": 150,
+    "vertices_before": 302,
+    "vertices_after": 278,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.30000001192092896
+      ],
+      [
+        0.30000001192092896,
+        0.8500000238418579,
+        0.30000001192092896
+      ]
+    ],
+    "topology": {
+      "triangles": 150,
+      "degenerate": 0,
+      "boundary_edges": 26,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 64,
+      "components": 9,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "303570383d163595e36b8b50788953c4742b48458c787a8906fa8a573a6d53ef",
+    "sha256": "5196226df15ce8cf22d21e0642ed764793ea1953feb10c3d2e7efd121561dcb8"
+  },
+  {
+    "file": "assets/environment/home/props/models/cabinet_base.glb",
+    "changed": false,
+    "triangles_before": 102,
+    "triangles_after": 102,
+    "vertices_before": 177,
+    "vertices_after": 177,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.30000001192092896
+      ],
+      [
+        0.30000001192092896,
+        0.8999999761581421,
+        0.30000001192092896
+      ]
+    ],
+    "topology": {
+      "triangles": 102,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 7,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "d51c8547602d8a0bc71e70d1e9182327c91baf3115a57a12964da1d745861f28",
+    "sha256": "f4dae2f985b8b939ec76cbcff58768877b757c61c70ba1262dc1c4831f2e3c6d"
+  },
+  {
+    "file": "assets/environment/home/props/models/cabinet_wall.glb",
+    "changed": false,
+    "triangles_before": 70,
+    "triangles_after": 70,
+    "vertices_before": 125,
+    "vertices_after": 125,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.16500000655651093
+      ],
+      [
+        0.30000001192092896,
+        0.7200000286102295,
+        0.16500000655651093
+      ]
+    ],
+    "topology": {
+      "triangles": 70,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 5,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "884e00b979a2a83b191c8198e5e8bb629b6219f53d0c7f403dd7abb26d18d6fa",
+    "sha256": "cfb92b4b43c71d77fd1efb064adcd76d9e468903adbaabfa1f1a6f7e7ce977d6"
+  },
+  {
+    "file": "assets/environment/office/props/models/cabinet.glb",
+    "changed": false,
+    "triangles_before": 192,
+    "triangles_after": 192,
+    "vertices_before": 388,
+    "vertices_after": 388,
+    "bounds": [
+      [
+        -0.44999998807907104,
+        0.0,
+        -0.22499999403953552
+      ],
+      [
+        0.44999998807907104,
+        0.8500000238418579,
+        0.22499999403953552
+      ]
+    ],
+    "topology": {
+      "triangles": 192,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 12,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "d69b0cfb15d03f2392d942665f278e61ccd875700525c2a416715542007e7407",
+    "sha256": "9c1238692ad5d642dc6f66299843e13dfa878c969cb3f2c1d95a620cd8722312"
+  },
+  {
+    "file": "assets/environment/office/props/models/chair.glb",
+    "changed": false,
+    "triangles_before": 392,
+    "triangles_after": 392,
+    "vertices_before": 774,
+    "vertices_after": 774,
+    "bounds": [
+      [
+        -0.245428204536438,
+        0.0,
+        -0.2505754232406616
+      ],
+      [
+        0.245428204536438,
+        0.9022333025932312,
+        0.25600001215934753
+      ]
+    ],
+    "topology": {
+      "triangles": 392,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 19,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "134e4bbf6a8f4c4ebc005d794eb131c0d75cd4f8de29f4ac1375e8d42203d951",
+    "sha256": "7e0c7e2919e6bcc1934ac9e7a8aa6502b2a985bdbd5a0ff7ea05b2bfd732e492"
+  },
+  {
+    "file": "assets/environment/office/props/models/desk.glb",
+    "changed": false,
+    "triangles_before": 96,
+    "triangles_after": 96,
+    "vertices_before": 174,
+    "vertices_after": 174,
+    "bounds": [
+      [
+        -0.800000011920929,
+        0.0,
+        -0.3499999940395355
+      ],
+      [
+        0.800000011920929,
+        0.75,
+        0.3499999940395355
+      ]
+    ],
+    "topology": {
+      "triangles": 96,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 7,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "eba14e1134d812c756dfcd290a572e26cd3ff1e5f4d1fd6ff06ada9b2d617eda",
+    "sha256": "e879914c9e0e7d09935c4ed36e937726eb203d7b7ce960a1a38887b6d4cf029b"
+  },
+  {
+    "file": "assets/environment/office/props/models/vending_machine.glb",
+    "changed": true,
+    "triangles_before": 106,
+    "triangles_after": 110,
+    "vertices_before": 209,
+    "vertices_after": 215,
+    "bounds": [
+      [
+        -0.5,
+        0.0,
+        -0.4000000059604645
+      ],
+      [
+        0.5,
+        1.899999976158142,
+        0.4000000059604645
+      ]
+    ],
+    "topology": {
+      "triangles": 110,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 2,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 9,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "75b612933753da17042b4485c809bfb2a36bcf1470eef860e388210d91e5af88",
+    "sha256": "7106db8d9b2c8faba0bceedbb4931c925e8548a5acc86a5704d3aac93b411fea"
+  },
+  {
+    "file": "assets/environment/office/props/models/water_cooler.glb",
+    "changed": true,
+    "triangles_before": 192,
+    "triangles_after": 206,
+    "vertices_before": 398,
+    "vertices_after": 321,
+    "bounds": [
+      [
+        -0.17499999701976776,
+        0.0,
+        -0.17499999701976776
+      ],
+      [
+        0.17499999701976776,
+        1.100000023841858,
+        0.17499999701976776
+      ]
+    ],
+    "topology": {
+      "triangles": 206,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 7,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "57267f824a68033025209ee6466d3671a76a39a5477b09b21eac00cda8e8828c",
+    "sha256": "138964ab227376334d09ce4401a127027a204512f8f359654deff5285c3fbbb6"
+  },
+  {
+    "file": "assets/environment/pool/props/models/pool_chair.glb",
+    "changed": true,
+    "triangles_before": 216,
+    "triangles_after": 218,
+    "vertices_before": 468,
+    "vertices_after": 443,
+    "bounds": [
+      [
+        -0.25999999046325684,
+        0.0,
+        -0.27309852838516235
+      ],
+      [
+        0.25999999046325684,
+        0.8517055511474609,
+        0.2730979919433594
+      ]
+    ],
+    "topology": {
+      "triangles": 218,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 16,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "95d5e4b16c89bb9caf8cbd7944579afc8d8c36b909032ac85c309746e4f8c768",
+    "sha256": "049bc33a38f24d72e2e76b7d03cf5a08d687659ed918fef660405c1a9144e623"
+  },
+  {
+    "file": "assets/environment/pool/props/models/pool_curtain_corner.glb",
+    "changed": true,
+    "triangles_before": 202,
+    "triangles_after": 218,
+    "vertices_before": 420,
+    "vertices_after": 394,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.30000001192092896
+      ],
+      [
+        0.30000001192092896,
+        2.5999999046325684,
+        0.30000001192092896
+      ]
+    ],
+    "topology": {
+      "triangles": 218,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 34,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 20,
+      "components": 30,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "5c6b4d17d18b4accab1fdd2adf65373c868820ce21bdf97b782734fc4d57a601",
+    "sha256": "623137d26ee49a837f0316462c161861c86cd86f19a0e1fd21a84ef15b3fedab"
+  },
+  {
+    "file": "assets/environment/pool/props/models/pool_curtain_end.glb",
+    "changed": true,
+    "triangles_before": 130,
+    "triangles_after": 142,
+    "vertices_before": 276,
+    "vertices_after": 262,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.11100000143051147
+      ],
+      [
+        0.30000001192092896,
+        2.5999999046325684,
+        0.10999999940395355
+      ]
+    ],
+    "topology": {
+      "triangles": 142,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 21,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 12,
+      "components": 17,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "fdcb14b185c50c47ad90350b1817ff0c143bffea72db65c5a65519177e2db461",
+    "sha256": "32b574546bb8fe74b2ff096380e9757eb9712d660f49599705f02dd974426261"
+  },
+  {
+    "file": "assets/environment/pool/props/models/pool_curtain_straight.glb",
+    "changed": true,
+    "triangles_before": 258,
+    "triangles_after": 284,
+    "vertices_before": 548,
+    "vertices_after": 524,
+    "bounds": [
+      [
+        -0.6000000238418579,
+        0.0,
+        -0.11100000143051147
+      ],
+      [
+        0.6000000238418579,
+        2.5999999046325684,
+        0.10999999940395355
+      ]
+    ],
+    "topology": {
+      "triangles": 284,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 44,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 20,
+      "components": 34,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "b53538d1561f0784b572d0f3f0472962ab4c8ac6c8f855793b656283cba36be1",
+    "sha256": "6273d9ce19c159188dc8220b76a043bf29fa9f7b4136c2a0ed56270e03bb31bb"
+  },
+  {
+    "file": "assets/environment/pool/props/models/pool_guardrail_corner.glb",
+    "changed": true,
+    "triangles_before": 262,
+    "triangles_after": 262,
+    "vertices_before": 592,
+    "vertices_after": 522,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.30000001192092896
+      ],
+      [
+        0.30000001192092896,
+        1.0499999523162842,
+        0.30000001192092896
+      ]
+    ],
+    "topology": {
+      "triangles": 262,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 24,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 14,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "1278ca92bbdaa754e27ac383b1db411d1b8ebe3ca75b7d013cd217ffe196852e",
+    "sha256": "ea5f1ce69d0e43c15882206a930fab18c2aa49ccea2a9935967f0ae0f2f4da19"
+  },
+  {
+    "file": "assets/environment/pool/props/models/pool_guardrail_end.glb",
+    "changed": true,
+    "triangles_before": 164,
+    "triangles_after": 164,
+    "vertices_before": 368,
+    "vertices_after": 326,
+    "bounds": [
+      [
+        -0.30000001192092896,
+        0.0,
+        -0.03999999910593033
+      ],
+      [
+        0.30000001192092896,
+        1.0499999523162842,
+        0.03999999910593033
+      ]
+    ],
+    "topology": {
+      "triangles": 164,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 16,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 9,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "9c1e8450a5f9c2cb0427de76e39d02ea8adc036af1ae69b6699a37ecf27448ad",
+    "sha256": "4442b4c41fe9bb19fc3b2210b4721a042dfede9c870bd0addd5b368287bbb64d"
+  },
+  {
+    "file": "assets/environment/pool/props/models/pool_guardrail_straight.glb",
+    "changed": true,
+    "triangles_before": 230,
+    "triangles_after": 230,
+    "vertices_before": 512,
+    "vertices_after": 456,
+    "bounds": [
+      [
+        -1.0,
+        0.0,
+        -0.03999999910593033
+      ],
+      [
+        1.0,
+        1.0499999523162842,
+        0.03999999910593033
+      ]
+    ],
+    "topology": {
+      "triangles": 230,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 24,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 13,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "f87407af687f430adfac8fba7e80cd4e16ac54fbf958fcf9870a2a7c1ccf3e24",
+    "sha256": "174e4cda1558480c07999dbb822cf2a55ef8d1d7237399c25bf343fdbdfadc35"
+  },
+  {
+    "file": "assets/environment/pool/props/models/pool_ladder.glb",
+    "changed": true,
+    "triangles_before": 464,
+    "triangles_after": 472,
+    "vertices_before": 944,
+    "vertices_after": 676,
+    "bounds": [
+      [
+        -0.27900001406669617,
+        0.0,
+        -0.2280000001192093
+      ],
+      [
+        0.27900001406669617,
+        2.200000047683716,
+        0.22599999606609344
+      ]
+    ],
+    "topology": {
+      "triangles": 472,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 12,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "73134f82307faf80b1014975335a8065537dcb352b5bc023bdc7b49cae5e0456",
+    "sha256": "26331190c5757ed7503d5fb52cf4f3dc872066bc80496b721033b7a80744199d"
+  },
+  {
+    "file": "assets/environment/pool/props/models/pool_table.glb",
+    "changed": true,
+    "triangles_before": 174,
+    "triangles_after": 176,
+    "vertices_before": 380,
+    "vertices_after": 360,
+    "bounds": [
+      [
+        -0.4000000059604645,
+        0.0,
+        -0.4000000059604645
+      ],
+      [
+        0.4000000059604645,
+        0.7400000095367432,
+        0.4000000059604645
+      ]
+    ],
+    "topology": {
+      "triangles": 176,
+      "degenerate": 0,
+      "boundary_edges": 0,
+      "nonmanifold_edges": 0,
+      "inconsistent_edges": 0,
+      "flipped_triangles": 0,
+      "components": 14,
+      "contradictory_components": 0
+    },
+    "embedded_png_sha256": "6fd4b9aeeaa242ba15f64d1d5c459660207721d44a1dd4ef4ce25ab40de643e5",
+    "sha256": "6e4c2f7cd386c77d85bdaf0eabc70f0a2764d13a0f740b1d486c8c6000a93d42"
+  }
+]
