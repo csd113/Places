@@ -15,7 +15,7 @@
 use sdl3::video::Window;
 
 use super::common::api::GraphicsTransition;
-use super::common::character::CharacterScene;
+use super::common::character::{CharacterScene, EntityFrame};
 use super::common::dynamic::{DynamicScene, DynamicUpdate};
 use super::common::stats::{LevelBuildStats, RenderStats};
 use super::common::view::DrawableSize;
@@ -187,18 +187,27 @@ impl Renderer {
         self.renderer.update_dynamic(delta_seconds)
     }
 
+    /// Spawns every placed prop that authors `float` on its water surface.
+    pub fn set_floating_props(&mut self, level: &LevelDef) -> usize {
+        self.renderer.set_floating_props(level)
+    }
+
     /// Advances every animated character's pose and re-uploads the ones that
     /// moved.
     ///
     /// `locomotion` is the player's state for this frame; each character's
-    /// blend weights and phase follow it. Returns how many characters moved
-    /// (and were therefore re-skinned and uploaded this frame).
+    /// blend weights and phase follow it unless `frames` addresses that
+    /// character by instance id (a route's live transform and pose cue). The
+    /// caller owns the frame list ([`crate::game::Game::entity_frames`]).
+    /// Returns how many characters moved (and were therefore re-skinned).
     pub fn update_characters(
         &mut self,
         delta_seconds: f32,
         locomotion: LocomotionSnapshot,
+        frames: &[EntityFrame],
     ) -> usize {
-        self.renderer.update_characters(delta_seconds, locomotion)
+        self.renderer
+            .update_characters(delta_seconds, locomotion, frames)
     }
 
     /// The number of live animated characters in the current level.

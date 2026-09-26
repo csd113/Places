@@ -264,3 +264,42 @@ ART["core:decal_stripes_01"] = {
     "build": build_stripes,
     "kind": "decal",
 }
+
+
+# --------------------------------------------------------------- ceiling vent
+#
+# A low-poly ceiling supply/extract grille: a flat sheet the ceiling decal pass
+# cuts out and lifts 0.2 mm off the ceiling plane. Flat blocks and two-tone
+# louvres keep the vocabulary of the other low-poly sheets, and the square
+# silhouette is what "one vent per ceiling tile" snaps to. Alpha 0 outside the
+# plate, so the ceiling art shows through between the slats.
+
+VENT_FRAME = (188, 190, 186)
+VENT_FRAME_HIGHLIGHT = (208, 210, 206)
+VENT_FRAME_SHADOW = (158, 160, 158)
+VENT_RECESS = (64, 66, 68)
+VENT_SLAT = (172, 174, 170)
+VENT_SLAT_EDGE = (104, 106, 104)
+VENT_SCREW = (128, 130, 128)
+
+
+def build_ceiling_vent() -> Canvas:
+    """Load the authored square cut-out; never regenerate its artwork."""
+    from pathlib import Path
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "props"))
+    from tex import decode_png
+    source = Path(__file__).resolve().parents[2] / "assets/core/decals/ceiling_vent_01.png"
+    width, height, pixels = decode_png(source.read_bytes())
+    if (width, height) != (128, 128):
+        raise ValueError("ceiling vent must retain its 128x128 contract")
+    canvas = Canvas(width, height, fill=CLEAR)
+    canvas.pixels[:] = pixels
+    return canvas
+
+
+ART["core:decal_ceiling_vent_01"] = {
+    "model": "core/decals/ceiling_vent_01.png",
+    "build": build_ceiling_vent,
+    "kind": "decal",
+}

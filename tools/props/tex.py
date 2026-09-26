@@ -162,6 +162,21 @@ class Texture:
 
     # ---------------------------------------------------------------- pixels
 
+    def set(self, x: int, y: int, rgb, alpha: int = 255) -> None:
+        """Absolute-pixel plot, matching ``artkit.Canvas.set`` for shared glyphs."""
+        self._put(x, y, (int(round(rgb[0])), int(round(rgb[1])), int(round(rgb[2]))), alpha)
+
+    def rect(self, x0: int, y0: int, x1: int, y1: int, rgb, alpha: int = 255) -> None:
+        """Filled inclusive rectangle, matching ``artkit.Canvas.rect``.
+
+        Both coordinates are absolute canvas pixels (not region fractions), so
+        the shared block font and polygon painter can draw on a prop texture
+        exactly as they draw on a decal sheet.
+        """
+        for y in range(max(0, y0), min(self.height - 1, y1) + 1):
+            for x in range(max(0, x0), min(self.width - 1, x1) + 1):
+                self.set(x, y, rgb, alpha)
+
     def _put(self, x: int, y: int, color: Color, alpha: int = 255, blend: float = 1.0) -> None:
         if x < 0 or y < 0 or x >= self.width or y >= self.height:
             return

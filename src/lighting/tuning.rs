@@ -72,8 +72,7 @@ pub const BASELINE_MAX: f32 = 0.52;
 ///
 /// A restrained, slightly aged institutional fluorescent: warm enough to read
 /// as artificial light, far from a saturated yellow. Centralised here so the
-/// level schema, the bake and its local pools cannot drift apart;
-/// `level-editor/js/lighting.js` mirrors this constant for the preview. The
+/// level schema, the bake and its local pools cannot drift apart. The
 /// fixture's visible face is texture-first and never consumes this colour.
 pub const DEFAULT_LIGHT_COLOR: LightColor = LightColor::rgb(1.0, 0.96, 0.88);
 

@@ -179,9 +179,9 @@ pub fn ceiling_y_for_volume(
 /// `material` and `ceiling_material` are the object-level material overrides
 /// (individual surface override -> object-level material -> level default
 /// material). Both are optional: an omitted value keeps the
-/// level's `defaults.floor` / `defaults.ceiling`. The level editor authors these
-/// exact keys, so a single room's floor or ceiling can be damp or stained
-/// without changing the whole level.
+/// level's `defaults.floor` / `defaults.ceiling`. The per-room keys let a
+/// single room's floor or ceiling be damp or
+/// stained without changing the whole level.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoomDef {
     #[serde(default)]
@@ -212,9 +212,71 @@ pub struct RoomDef {
     /// Per-surface shine override for [`Self::ceiling_material`].
     #[serde(default)]
     pub ceiling_shine: Option<f32>,
+    /// Local origin `[x, z]` of this room's ceiling tile pattern, in world
+    /// X/Z. Omitted means the world origin, which is how every legacy level
+    /// tiles its ceiling artwork.
+    ///
+    /// The ceiling material still tiles in world-scale metres; this only moves
+    /// the phase of the pattern (and with `ceiling_tile_rotation_degrees`, its
+    /// orientation), which is what lets a room with its own ceiling module
+    /// place its tiles and decals without a global grid assumption.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ceiling_tile_origin: Option<[f32; 2]>,
+    /// Rotation of this room's ceiling tile pattern about
+    /// [`Self::ceiling_tile_origin`], in degrees, in the level's own yaw sense
+    /// (0 keeps the pattern axis-aligned; +90 turns it a quarter turn).
+    /// Omitted means `0.0`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ceiling_tile_rotation_degrees: Option<f32>,
 }
 
 impl RoomDef {
+    /// The room's ceiling tile frame: `(origin_x, origin_z, rotation_degrees)`,
+    /// sanitised to the world origin / zero rotation when unauthored or
+    /// non-finite.
+    #[must_use]
+    pub const fn ceiling_tile_frame(&self) -> (f32, f32, f32) {
+        let (origin_x, origin_z) = match self.ceiling_tile_origin {
+            Some([x, z]) if x.is_finite() && z.is_finite() => (x, z),
+            _ => (0.0, 0.0),
+        };
+        let rotation = match self.ceiling_tile_rotation_degrees {
+            Some(rotation) if rotation.is_finite() => rotation,
+            _ => 0.0,
+        };
+        (origin_x, origin_z, rotation)
+    }
+
+    /// World `(x, z)` expressed in this room's ceiling tile space, in metres:
+    /// the ceiling emitter tiles `tiled_uv(local_x, local_z, tile)`, and
+    /// ceiling decal snapping uses the same coordinates so the two agree.
+    #[must_use]
+    pub fn ceiling_tile_local(&self, x: f32, z: f32) -> (f32, f32) {
+        let (origin_x, origin_z, rotation) = self.ceiling_tile_frame();
+        if rotation == 0.0 {
+            return (x - origin_x, z - origin_z);
+        }
+        let radians = (-rotation).to_radians();
+        let (sin, cos) = radians.sin_cos();
+        let (dx, dz) = (x - origin_x, z - origin_z);
+        (dz.mul_add(sin, cos * dx), dz.mul_add(cos, -(sin * dx)))
+    }
+
+    /// The world `(x, z)` of a point given in this room's ceiling tile space.
+    #[must_use]
+    pub fn ceiling_tile_world(&self, local_x: f32, local_z: f32) -> (f32, f32) {
+        let (origin_x, origin_z, rotation) = self.ceiling_tile_frame();
+        if rotation == 0.0 {
+            return (origin_x + local_x, origin_z + local_z);
+        }
+        let radians = rotation.to_radians();
+        let (sin, cos) = radians.sin_cos();
+        (
+            local_z.mul_add(sin, cos * local_x) + origin_x,
+            local_z.mul_add(cos, -(sin * local_x)) + origin_z,
+        )
+    }
+
     /// This room's floor material reference, if it overrides the level default.
     #[must_use]
     pub fn floor_ref(&self) -> Option<MaterialRef<'_>> {
@@ -476,6 +538,332 @@ pub const DEFAULT_WATER_MATERIAL: &str = "core:water_pool_01";
 /// Opaque enough to read as a distinct surface, translucent enough that the
 /// basin floor and walls stay visible through it.
 pub const DEFAULT_WATER_OPACITY: f32 = 0.62;
+
+/// A climbable ladder volume.
+///
+/// The ladder is authored as the space the player climbs through, not as the
+/// prop's render mesh: a footprint, a bottom and a top world Y, and the yaw the
+/// climber faces while climbing. The controller attaches when the player's
+/// cylinder overlaps the footprint, the player is on the ladder's approach side
+/// (behind the facing direction) and movement input points along `facing`; it
+/// then climbs while that input is held. There is no climb key.
+///
+/// `facing_degrees` uses the same convention as camera yaw: `0` climbs towards
+/// `-Z`, `90` towards `+X`, `180` towards `+Z`, `270` towards `-X`. The
+/// default `0` means "climb towards -Z".
+///
+/// ```json
+/// { "x": 19.35, "z": 11.7, "width": 0.55, "depth": 0.6,
+///   "bottom_y": -3.0, "top_y": -1.5, "facing_degrees": 90.0 }
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LadderDef {
+    pub x: f32,
+    pub z: f32,
+    pub width: f32,
+    pub depth: f32,
+    /// World Y of the lowest climbable point (usually the floor at the base).
+    pub bottom_y: f32,
+    /// World Y the feet reach at the top (usually the exit surface's height).
+    pub top_y: f32,
+    /// Yaw the climber faces while climbing, in degrees.
+    #[serde(default)]
+    pub facing_degrees: f32,
+}
+
+impl LadderDef {
+    /// Footprint as `(x0, x1, z0, z1)`, normalised.
+    #[must_use]
+    pub fn bounds(&self) -> (f32, f32, f32, f32) {
+        (
+            self.x.min(self.x + self.width),
+            self.x.max(self.x + self.width),
+            self.z.min(self.z + self.depth),
+            self.z.max(self.z + self.depth),
+        )
+    }
+}
+
+/// One map-authored action the interaction dispatcher can perform.
+///
+/// Actions are a closed, typed set — never an unrestricted script. They are
+/// authored inside a placed object's `interaction` or an area trigger's
+/// `actions` array and executed in order by the single
+/// [`crate::interact`]-side dispatcher. An unknown `action` tag is a JSON
+/// parse error, and an action that the engine does not implement yet is a
+/// named validation error, so a map can never load with a silently ignored
+/// effect.
+///
+/// ```json
+/// { "action": "toggle_label" }
+/// { "action": "toggle_label", "target": "spooner_man" }
+/// { "action": "reset_to_start" }
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "action", rename_all = "snake_case")]
+pub enum ActionDef {
+    /// Show or hide the floating display name of `target` (or of the acting
+    /// instance, for a placed object's own interaction).
+    ToggleLabel {
+        /// Instance id of the object whose label toggles. Omitted means the
+        /// instance that owns the interaction.
+        #[serde(default)]
+        target: Option<String>,
+    },
+    /// Return the player to the level's authored spawn and re-arm triggers.
+    ResetToStart,
+    /// Play a named animation clip on a placed entity instance.
+    ///
+    /// The target must be a placed prop/entity; omitted means the acting
+    /// instance. A pose/one-shot clip (the default) holds its last pose until
+    /// another action or a reset replaces it — a route step does **not** clear
+    /// an override; `loop` keeps it cycling.
+    PlayAnimation {
+        /// Instance id of the actor; omitted means the acting instance.
+        #[serde(default)]
+        target: Option<String>,
+        /// Clip name the animation system plays.
+        #[serde(default)]
+        clip: Option<String>,
+        /// Repeat the clip instead of holding its last pose.
+        #[serde(default, rename = "loop")]
+        looped: bool,
+    },
+    /// Move a named clip of a placed prop to the opposite end of its timeline.
+    ///
+    /// The clip is *scrubbed*, not played: the runtime eases its time toward
+    /// one end at a constant rate, so pressing again mid-movement reverses
+    /// from the current pose without snapping or restarting at an endpoint.
+    /// It is the map-authored way to drive a rigid prop animation — a wall
+    /// switch, a lever, a hatch — because it composes with other actions,
+    /// carries no global state, and one press moves exactly one instance.
+    ///
+    /// The target's clip must run from one rest position at `t = 0` to the
+    /// other at `t = duration`; the runtime flips between those two ends.
+    ToggleAnimation {
+        /// Instance id of the actor; omitted means the acting instance.
+        #[serde(default)]
+        target: Option<String>,
+        /// Clip name the toggle scrubs.
+        #[serde(default)]
+        clip: Option<String>,
+    },
+    /// Reserved for the audio route; rejected by validation until an audio
+    /// subsystem exists.
+    PlayAudio {
+        /// Instance id of the sound source; omitted means the acting instance.
+        #[serde(default)]
+        target: Option<String>,
+        /// Sound asset id the future audio system should play.
+        #[serde(default)]
+        sound: Option<String>,
+    },
+}
+
+impl ActionDef {
+    /// The serialized tag of this action, for diagnostics.
+    #[must_use]
+    pub const fn kind(&self) -> &'static str {
+        match self {
+            Self::ToggleLabel { .. } => "toggle_label",
+            Self::ResetToStart => "reset_to_start",
+            Self::PlayAnimation { .. } => "play_animation",
+            Self::ToggleAnimation { .. } => "toggle_animation",
+            Self::PlayAudio { .. } => "play_audio",
+        }
+    }
+
+    /// The explicit target this action names, if any.
+    #[must_use]
+    pub fn target(&self) -> Option<&str> {
+        match self {
+            Self::ToggleLabel { target }
+            | Self::PlayAnimation { target, .. }
+            | Self::ToggleAnimation { target, .. }
+            | Self::PlayAudio { target, .. } => target.as_deref(),
+            Self::ResetToStart => None,
+        }
+    }
+}
+
+/// Largest number of actions one placed object or one area trigger may
+/// declare.
+///
+/// A bound, not a tuning knob: composition is allowed, but one press can never
+/// fan out into unbounded work, and validation names the limit.
+pub const MAX_ACTIONS_PER_SOURCE: usize = 8;
+
+/// One placed object's map-authored interaction: the prompt shown when it is
+/// aimed at, an optional reach override, and the actions one press performs.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PropInteractionDef {
+    /// Prompt line shown while the object is the current target. Defaults to
+    /// [`DEFAULT_INTERACTION_PROMPT`].
+    #[serde(default)]
+    pub prompt: Option<String>,
+    /// Interaction reach in metres. Defaults to
+    /// [`crate::interact::DEFAULT_INTERACTION_REACH_M`]; the loader caps it at
+    /// [`crate::interact::MAX_INTERACTION_REACH_M`].
+    #[serde(default)]
+    pub reach: Option<f32>,
+    /// The actions one press performs, in order.
+    #[serde(default)]
+    pub actions: Vec<ActionDef>,
+}
+
+/// Prompt shown for an interaction that names none.
+pub const DEFAULT_INTERACTION_PROMPT: &str = "Interact";
+
+/// One authored area trigger.
+///
+/// The trigger volume is an axis-aligned box: a rectangular `(x, z)` footprint
+/// and a vertical `bottom_y..top_y` band. The controller tests the player's
+/// feet against it and, on the frame they first enter (including a swept
+/// crossing while falling fast), runs the actions once. Leaving the volume
+/// re-arms it; `cooldown_seconds` bounds how often it can fire and `once` makes
+/// it fire at most once per run.
+///
+/// ```json
+/// { "id": "pit_hole_1", "x": 9.6, "z": -26.2, "width": 1.6, "depth": 1.6,
+///   "bottom_y": -3.2, "top_y": -0.05,
+///   "actions": [{ "action": "reset_to_start" }],
+///   "cooldown_seconds": 0.5 }
+/// ```
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AreaTriggerDef {
+    /// Stable instance id. Omitted means the deterministic default
+    /// `trigger_<n>` with `n` the 1-based authored position.
+    #[serde(default)]
+    pub id: Option<String>,
+    #[serde(default)]
+    pub x: f32,
+    #[serde(default)]
+    pub z: f32,
+    pub width: f32,
+    pub depth: f32,
+    /// Lowest world Y of the volume. Omitted resolves the walkable floor under
+    /// the footprint centre (`0.0` outside every room).
+    #[serde(default)]
+    pub bottom_y: Option<f32>,
+    /// Highest world Y of the volume. Omitted resolves
+    /// `bottom_y + DEFAULT_TRIGGER_HEIGHT_M`.
+    #[serde(default)]
+    pub top_y: Option<f32>,
+    /// The actions the trigger runs on entry, in order.
+    #[serde(default)]
+    pub actions: Vec<ActionDef>,
+    /// Seconds after a fire before the trigger can fire again.
+    #[serde(default)]
+    pub cooldown_seconds: f32,
+    /// Fire at most once per run; a reset re-arms it.
+    #[serde(default)]
+    pub once: bool,
+}
+
+impl AreaTriggerDef {
+    /// Footprint as `(x0, x1, z0, z1)`, normalised.
+    #[must_use]
+    pub fn bounds(&self) -> (f32, f32, f32, f32) {
+        (
+            self.x.min(self.x + self.width),
+            self.x.max(self.x + self.width),
+            self.z.min(self.z + self.depth),
+            self.z.max(self.z + self.depth),
+        )
+    }
+
+    /// Resolved vertical bounds: authored values, or the level floor under the
+    /// footprint centre plus [`DEFAULT_TRIGGER_HEIGHT_M`].
+    #[must_use]
+    pub fn resolved_y_bounds(&self, level: &LevelDef) -> (f32, f32) {
+        let (x0, x1, z0, z1) = self.bounds();
+        let floor = LevelSurfaces::new(level)
+            .floor_y_at(f32::midpoint(x0, x1), f32::midpoint(z0, z1))
+            .unwrap_or(0.0);
+        let bottom = self.bottom_y.filter(|y| y.is_finite()).unwrap_or(floor);
+        let top = self
+            .top_y
+            .filter(|y| y.is_finite())
+            .unwrap_or(bottom + DEFAULT_TRIGGER_HEIGHT_M);
+        (bottom, top)
+    }
+}
+
+/// Default height of an area trigger whose `top_y` is omitted, in metres.
+pub const DEFAULT_TRIGGER_HEIGHT_M: f32 = 2.0;
+
+/// One authored animation route for a placed entity instance.
+///
+/// A route is a bounded, ordered list of steps the runtime plays through
+/// against the collision world: walk to a waypoint, turn, wait, or play a
+/// clip. Routes are authored by placed-instance id, exactly like interactions
+/// and labels, so two copies of one model run independently.
+///
+/// ```json
+/// { "id": "rat_1", "loop": true,
+///   "steps": [
+///     { "step": "move_to", "x": 18.0, "z": 6.0, "speed": 0.35 },
+///     { "step": "move_to", "x": 22.0, "z": 9.0, "speed": 1.2 },
+///     { "step": "wait", "seconds": 1.0 }
+///   ] }
+/// ```
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EntityRouteDef {
+    /// Instance id of the placed prop/entity this route drives. Required: a
+    /// route with no id could never resolve to a character.
+    #[serde(default)]
+    pub id: String,
+    /// Restart from step 0 after the last step completes.
+    #[serde(default, rename = "loop")]
+    pub looped: bool,
+    /// The steps, in order; between 1 and [`MAX_ROUTE_STEPS`].
+    pub steps: Vec<RouteStepDef>,
+}
+
+/// One step of an [`EntityRouteDef`].
+///
+/// The JSON tag is `step`, so an unknown step kind is a parse error and a
+/// malformed step can never be silently skipped.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "step", rename_all = "snake_case")]
+pub enum RouteStepDef {
+    /// Walk in a straight line to a floor waypoint at `speed` m/s.
+    MoveTo { x: f32, z: f32, speed: f32 },
+    /// Turn in place to `yaw_degrees` (0 faces `+Z`, matching placements).
+    Face { yaw_degrees: f32 },
+    /// Stand still for `seconds`.
+    Wait { seconds: f32 },
+    /// Play a named clip for `seconds`; `loop` repeats it, otherwise a
+    /// one-shot holds its last pose.
+    Play {
+        clip: String,
+        seconds: f32,
+        #[serde(default, rename = "loop")]
+        looped: bool,
+    },
+}
+
+/// Hard ceiling on the routes one level may declare.
+///
+/// A route drives one placed entity through a bounded step list; the runtime
+/// samples them per frame, so this is an authoring bound rather than a
+/// rendering budget.
+pub const MAX_LEVEL_ROUTES: u64 = 256;
+/// Largest number of steps one route may declare.
+///
+/// The bound keeps one route a short authored sequence, never an open-ended
+/// script.
+pub const MAX_ROUTE_STEPS: usize = 64;
+/// Fastest authored route speed, in metres per second.
+///
+/// The character path re-skins on the CPU and the animation stride is tuned
+/// for walking and running; a faster route would be a teleporting prop, not a
+/// creature, so the loader refuses it.
+pub const MAX_ROUTE_SPEED_MPS: f32 = 6.0;
+/// Longest authored wait, in seconds.
+pub const MAX_ROUTE_WAIT_SECONDS: f32 = 3600.0;
+/// Longest authored clip playback, in seconds.
+pub const MAX_ROUTE_PLAY_SECONDS: f32 = 3600.0;
 
 /// Steepest walkable ramp slope, as rise per metre of run.
 ///
@@ -1812,6 +2200,533 @@ impl ColumnDef {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Round architecture: arc walls and circular pillars
+// ---------------------------------------------------------------------------
+
+/// Default tessellation of a full 360° round primitive, in segments.
+///
+/// Deliberately matching the fixed archway vocabulary: low-poly, smooth
+/// enough to read as a curve and cheap enough for the baked lightmap.
+pub const ROUND_SEGMENTS_DEFAULT: u32 = 24;
+/// Fewest segments a round primitive may declare.
+pub const ROUND_SEGMENTS_MIN: u32 = 3;
+/// Most segments a round primitive may declare.
+pub const ROUND_SEGMENTS_MAX: u32 = 128;
+/// Default wall thickness of an arc wall, in metres.
+pub const DEFAULT_ARC_WALL_THICKNESS_M: f32 = 0.3;
+/// Default sweep of an arc wall, in degrees.
+pub const DEFAULT_ARC_SWEEP_DEGREES: f32 = 90.0;
+/// How many axis-aligned collision sub-boxes each rendered arc wall segment
+/// contributes.
+///
+/// An AABB around a curved segment over-covers its ring at the diagonals;
+/// splitting the segment keeps that slack to a few centimetres while collision
+/// still comes from the same radii, base and top the emitter draws.
+pub const ARC_COLLISION_STEPS: usize = 4;
+/// Hard ceiling on the number of arc walls a level may define.
+pub const MAX_LEVEL_ARC_WALLS: u64 = 1000;
+/// Hard ceiling on the number of circular pillars a level may define.
+pub const MAX_LEVEL_PILLARS: u64 = 2000;
+
+/// World `(x, z)` of a point at `angle_degrees` around `(origin_x, origin_z)`.
+///
+/// The angle uses the level's compass yaw convention: `0` points −Z (north)
+/// from the origin, `+90` points +X (east), `+180` +Z (south). Increasing
+/// angles therefore sweep north → east → south → west seen from above.
+#[must_use]
+pub fn round_point(origin_x: f32, origin_z: f32, radius: f32, angle_degrees: f32) -> (f32, f32) {
+    let radians = angle_degrees.to_radians();
+    (
+        radius.mul_add(radians.sin(), origin_x),
+        (-radius).mul_add(radians.cos(), origin_z),
+    )
+}
+
+/// The segment count a round primitive resolves to.
+///
+/// The authored count when it is inside the supported range, otherwise a
+/// default that follows the sweep so a small arc stays cheap and a full ring
+/// stays smooth.
+#[must_use]
+pub fn round_segments_for(sweep_degrees: f32, authored: Option<u32>) -> u32 {
+    if let Some(segments) = authored
+        && (ROUND_SEGMENTS_MIN..=ROUND_SEGMENTS_MAX).contains(&segments)
+    {
+        return segments;
+    }
+    let sweep = if sweep_degrees.is_finite() {
+        sweep_degrees.abs()
+    } else {
+        360.0
+    };
+    let fraction = sweep / 360.0;
+    let desired = fraction.mul_add(
+        f32::from(u16::try_from(ROUND_SEGMENTS_DEFAULT).unwrap_or(u16::MAX)),
+        0.0,
+    );
+    let max = f32::from(u16::try_from(ROUND_SEGMENTS_MAX).unwrap_or(u16::MAX));
+    let count = clamped_ceil_u64(desired, max);
+    u32::try_from(count.clamp(u64::from(ROUND_SEGMENTS_MIN), u64::from(ROUND_SEGMENTS_MAX)))
+        .unwrap_or(ROUND_SEGMENTS_DEFAULT)
+}
+
+/// Clips a convex polygon in plan to the horizontal band `z ∈ [z0, z1]`.
+///
+/// Sutherland–Hodgman against the two horizontal planes; used by a circular
+/// pillar's collision derivation so each row box is the exact plan extent of
+/// the rendered polygon inside that row.
+fn clip_polygon_to_z_band(points: &[(f32, f32)], z0: f32, z1: f32) -> Vec<(f32, f32)> {
+    let clip = |points: &[(f32, f32)], above: bool, plane: f32| -> Vec<(f32, f32)> {
+        let inside = |z: f32| if above { z >= plane } else { z <= plane };
+        let mut out = Vec::with_capacity(points.len().saturating_add(1));
+        for (a, b) in points.iter().zip(points.iter().cycle().skip(1)) {
+            let a_in = inside(a.1);
+            let b_in = inside(b.1);
+            if a_in {
+                out.push(*a);
+            }
+            if a_in != b_in {
+                let t = (plane - a.1) / (b.1 - a.1);
+                out.push((t.mul_add(b.0 - a.0, a.0), plane));
+            }
+        }
+        out
+    };
+    let band = clip(points, true, z0);
+    if band.len() < 3 {
+        return Vec::new();
+    }
+    clip(&band, false, z1)
+}
+
+/// A data-authored arc wall: a curved wall slab on a circular plan.
+///
+/// The piece is placed by the **centre of its circle** (`x`, `z`), like a
+/// pillar, and spans `start_degrees` .. `start_degrees + sweep_degrees` around
+/// that centre at the **centreline radius**. Its solid is the ring between
+/// `radius - thickness/2` and `radius + thickness/2`, `height` metres above its
+/// base. Any catalog material id may be named; the inner face (concave, facing
+/// the circle's centre), the outer face (convex), the top/bottom caps and the
+/// two radial ends each take their own optional override, all falling back to
+/// `material`.
+///
+/// Geometry, collision and the lightmap occluders are generated from the same
+/// interpretation: the renderer draws the resolved segments and the collision
+/// uses the same segment boxes, so a curved wall is exactly as solid as it
+/// looks and never a rectangle around its bounding circle. See
+/// [`ArcWallDef::collision_boxes`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArcWallDef {
+    /// World X of the arc circle's centre.
+    pub x: f32,
+    /// World Z of the arc circle's centre.
+    pub z: f32,
+    /// Centreline radius, in metres (`> 0`).
+    pub radius: f32,
+    /// Absolute world Y of the wall base. Omitted means the walkable floor
+    /// under the arc's mid-span centreline point.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub y: Option<f32>,
+    /// Wall thickness across the ring, in metres (`> 0`, `< 2 × radius`).
+    #[serde(default = "default_arc_wall_thickness")]
+    pub thickness: f32,
+    /// Height above the base; omitted follows the local ceiling at every
+    /// segment, exactly like a wall without an authored height.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<f32>,
+    /// Compass angle of the wall's first end, in degrees (0 = north, +90 =
+    /// east).
+    #[serde(default)]
+    pub start_degrees: f32,
+    /// Signed sweep around the circle in degrees; positive sweeps
+    /// north → east → south → west. Non-zero, at most 360.
+    #[serde(default = "default_arc_sweep_degrees")]
+    pub sweep_degrees: f32,
+    /// Tessellation across the whole sweep; defaults to a 24-segment full
+    /// circle scaled to the sweep. Between 3 and 128 when authored.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub segments: Option<u32>,
+    /// Face material for both length faces, the caps and the ends; falls back
+    /// to `defaults.wall`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub material: Option<String>,
+    /// Per-surface shine override for [`Self::material`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shine: Option<f32>,
+    /// Material of the concave inner face; falls back to [`Self::material`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inner_material: Option<String>,
+    /// Per-surface shine override for [`Self::inner_material`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inner_shine: Option<f32>,
+    /// Material of the convex outer face; falls back to [`Self::material`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outer_material: Option<String>,
+    /// Per-surface shine override for [`Self::outer_material`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outer_shine: Option<f32>,
+    /// Material of the top cap; falls back to [`Self::material`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cap_material: Option<String>,
+    /// Per-surface shine override for [`Self::cap_material`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cap_shine: Option<f32>,
+    /// Material of the two radial ends; falls back to [`Self::material`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_material: Option<String>,
+    /// Per-surface shine override for [`Self::end_material`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_shine: Option<f32>,
+}
+
+const fn default_arc_wall_thickness() -> f32 {
+    DEFAULT_ARC_WALL_THICKNESS_M
+}
+
+const fn default_arc_sweep_degrees() -> f32 {
+    DEFAULT_ARC_SWEEP_DEGREES
+}
+
+impl ArcWallDef {
+    /// Radius of the concave face.
+    #[must_use]
+    pub fn inner_radius(&self) -> f32 {
+        self.thickness.mul_add(-0.5, self.radius)
+    }
+
+    /// Radius of the convex face.
+    #[must_use]
+    pub fn outer_radius(&self) -> f32 {
+        self.thickness.mul_add(0.5, self.radius)
+    }
+
+    /// Segment count this arc resolves to.
+    #[must_use]
+    pub fn resolved_segments(&self) -> u32 {
+        round_segments_for(self.sweep_degrees, self.segments)
+    }
+
+    /// True when the arc closes on itself: a full ring with no radial ends.
+    #[must_use]
+    pub fn is_full_ring(&self) -> bool {
+        self.sweep_degrees.is_finite() && self.sweep_degrees.abs() >= 360.0 - 1.0e-3
+    }
+
+    /// World `(x, z)` of the centreline at `fraction` of the sweep.
+    #[must_use]
+    pub fn centreline_point(&self, fraction: f32) -> (f32, f32) {
+        let angle = self
+            .sweep_degrees
+            .mul_add(fraction.clamp(0.0, 1.0), self.start_degrees);
+        round_point(self.x, self.z, self.radius, angle)
+    }
+
+    /// World Y of the base, resolved against the level's floors when the level
+    /// does not author one.
+    #[must_use]
+    pub fn base_y(&self, surfaces: &LevelSurfaces<'_>) -> f32 {
+        if let Some(y) = self.y.filter(|value| value.is_finite()) {
+            return y;
+        }
+        let (x, z) = self.centreline_point(0.5);
+        surfaces.floor_y_at(x, z).unwrap_or(0.0)
+    }
+
+    /// World Y of the wall's top at `(x, z)`: the authored height, else the
+    /// local ceiling, with the historical fallback height when the ceiling is
+    /// unusable.
+    #[must_use]
+    pub fn top_y_at(&self, surfaces: &LevelSurfaces<'_>, x: f32, z: f32) -> f32 {
+        let base = self.base_y(surfaces);
+        if let Some(height) = self
+            .height
+            .filter(|value| value.is_finite() && *value > 0.0)
+        {
+            return base + height;
+        }
+        let ceiling = surfaces.ceiling_y_at(x, z);
+        if ceiling.is_finite() && ceiling > base {
+            ceiling
+        } else {
+            base + DEFAULT_CEILING_HEIGHT_M
+        }
+    }
+
+    /// The arc's solid as one collision box per rendered segment.
+    ///
+    /// This is the same interpretation the emitter draws: the segment's four
+    /// plan corners at the inner and outer radius, from the wall base to the
+    /// segment's top. A curved wall therefore blocks where it is drawn — it is
+    /// never one oversized rectangle around the whole sweep.
+    #[must_use]
+    pub fn collision_boxes(&self, surfaces: &LevelSurfaces<'_>) -> Vec<ArchitectureBox> {
+        let segments = self.resolved_segments();
+        let inner = self.inner_radius();
+        let outer = self.outer_radius();
+        let base = self.base_y(surfaces);
+        let count = f32::from(u16::try_from(segments).unwrap_or(u16::MAX));
+        let steps = f32::from(u16::try_from(ARC_COLLISION_STEPS).unwrap_or(u16::MAX));
+        let mut boxes = Vec::with_capacity(
+            usize::try_from(segments)
+                .unwrap_or(0)
+                .saturating_mul(ARC_COLLISION_STEPS),
+        );
+        for index in 0..segments {
+            let index_f = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+            for step in 0..ARC_COLLISION_STEPS {
+                let step_f = f32::from(u16::try_from(step).unwrap_or(u16::MAX));
+                let f0 = (index_f + step_f / steps) / count;
+                let last = index.saturating_add(1) >= segments
+                    && step.saturating_add(1) >= ARC_COLLISION_STEPS;
+                let f1 = if last {
+                    1.0
+                } else {
+                    (index_f + (step_f + 1.0) / steps) / count
+                };
+                let a0 = self.sweep_degrees.mul_add(f0, self.start_degrees);
+                let a1 = self.sweep_degrees.mul_add(f1, self.start_degrees);
+                let corners = [
+                    round_point(self.x, self.z, inner, a0),
+                    round_point(self.x, self.z, outer, a0),
+                    round_point(self.x, self.z, outer, a1),
+                    round_point(self.x, self.z, inner, a1),
+                ];
+                let (min_x, max_x) = corners
+                    .iter()
+                    .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), (x, _)| {
+                        (lo.min(*x), hi.max(*x))
+                    });
+                let (min_z, max_z) = corners
+                    .iter()
+                    .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), (_, z)| {
+                        (lo.min(*z), hi.max(*z))
+                    });
+                let (x0, z0) = round_point(self.x, self.z, self.radius, a0);
+                let (x1, z1) = round_point(self.x, self.z, self.radius, a1);
+                let top = self
+                    .top_y_at(surfaces, x0, z0)
+                    .max(self.top_y_at(surfaces, x1, z1));
+                if let Some(boxed) =
+                    ArchitectureBox::from_corners([min_x, base, min_z], [max_x, top, max_z])
+                {
+                    boxes.push(boxed);
+                }
+            }
+        }
+        boxes
+    }
+
+    /// Material reference of the inner (concave) face.
+    #[must_use]
+    pub fn inner_ref(&self) -> Option<MaterialRef<'_>> {
+        self.inner_material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.inner_shine))
+            .or_else(|| self.material_ref())
+    }
+
+    /// Material reference of the outer (convex) face.
+    #[must_use]
+    pub fn outer_ref(&self) -> Option<MaterialRef<'_>> {
+        self.outer_material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.outer_shine))
+            .or_else(|| self.material_ref())
+    }
+
+    /// Material reference of the top cap.
+    #[must_use]
+    pub fn cap_ref(&self) -> Option<MaterialRef<'_>> {
+        self.cap_material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.cap_shine))
+            .or_else(|| self.material_ref())
+    }
+
+    /// Material reference of the radial ends.
+    #[must_use]
+    pub fn end_ref(&self) -> Option<MaterialRef<'_>> {
+        self.end_material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.end_shine))
+            .or_else(|| self.material_ref())
+    }
+
+    /// Body material reference, if it overrides `defaults.wall`.
+    #[must_use]
+    pub fn material_ref(&self) -> Option<MaterialRef<'_>> {
+        self.material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.shine))
+    }
+}
+
+/// A data-authored circular pillar: a solid round post.
+///
+/// Placed by its centre `(x, z)` with a solid radius. `height` is authored or
+/// follows the local clear ceiling, exactly like a square `columns[]` entry,
+/// and the body, cap and any visible bottom take ordinary material ids. The
+/// rendered polygon is the same one collision and the lightmap occluders use:
+/// [`PillarDef::collision_boxes`] decomposes it into z-rows, so the piece
+/// never collides as one oversized square around its bounding circle.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PillarDef {
+    /// World X of the pillar's centre.
+    pub x: f32,
+    /// World Z of the pillar's centre.
+    pub z: f32,
+    /// Solid radius, in metres (`> 0`).
+    pub radius: f32,
+    /// Absolute world Y of the base. Omitted means the walkable floor under
+    /// the centre.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub y: Option<f32>,
+    /// Height above the base; omitted means the local clear ceiling.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<f32>,
+    /// Tessellation of the full circle; defaults to
+    /// [`ROUND_SEGMENTS_DEFAULT`]. Between 3 and 128 when authored.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub segments: Option<u32>,
+    /// Body material id; falls back to `defaults.wall`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub material: Option<String>,
+    /// Per-surface shine override for [`Self::material`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shine: Option<f32>,
+    /// Top cap material id; falls back to [`Self::material`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cap_material: Option<String>,
+    /// Per-surface shine override for [`Self::cap_material`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cap_shine: Option<f32>,
+}
+
+impl PillarDef {
+    /// Segment count this pillar resolves to.
+    #[must_use]
+    pub fn resolved_segments(&self) -> u32 {
+        round_segments_for(360.0, self.segments)
+    }
+
+    /// The rendered polygon's world `(x, z)` vertices, in sweep order.
+    #[must_use]
+    pub fn polygon_points(&self) -> Vec<(f32, f32)> {
+        let segments = self.resolved_segments();
+        let count = f32::from(u16::try_from(segments).unwrap_or(u16::MAX));
+        (0..segments)
+            .map(|index| {
+                let index_f = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+                let angle = 360.0 * (index_f / count);
+                round_point(self.x, self.z, self.radius, angle)
+            })
+            .collect()
+    }
+
+    /// World Y of the base, resolved against the level's floors when the level
+    /// does not author one.
+    #[must_use]
+    pub fn base_y(&self, surfaces: &LevelSurfaces<'_>) -> f32 {
+        if let Some(y) = self.y.filter(|value| value.is_finite()) {
+            return y;
+        }
+        surfaces.floor_y_at(self.x, self.z).unwrap_or(0.0)
+    }
+
+    /// World Y of the pillar's top: the authored height, else the local clear
+    /// ceiling.
+    #[must_use]
+    pub fn top_y(&self, surfaces: &LevelSurfaces<'_>) -> f32 {
+        let base = self.base_y(surfaces);
+        if let Some(height) = self
+            .height
+            .filter(|value| value.is_finite() && *value > 0.0)
+        {
+            return base + height;
+        }
+        let ceiling = surfaces.ceiling_y_at(self.x, self.z);
+        if ceiling.is_finite() && ceiling > base {
+            ceiling
+        } else {
+            base + DEFAULT_CEILING_HEIGHT_M
+        }
+    }
+
+    /// The pillar's solid as one collision box per horizontal row of its
+    /// rendered polygon, each row split at its midpoint.
+    ///
+    /// Rows are cut at the polygon's own vertex heights and their midpoints;
+    /// each box spans the polygon's full plan extent inside its row, so the
+    /// union covers the drawn polygon exactly (plus a sliver bounded by the
+    /// row size), supports a player standing on the top anywhere over the
+    /// pillar, and never becomes a square around the whole disc.
+    #[must_use]
+    pub fn collision_boxes(&self, surfaces: &LevelSurfaces<'_>) -> Vec<ArchitectureBox> {
+        let points = self.polygon_points();
+        let base = self.base_y(surfaces);
+        let top = self.top_y(surfaces);
+        let mut zs: Vec<f32> = points.iter().map(|(_, z)| *z).collect();
+        zs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        zs.dedup_by(|a, b| (*a - *b).abs() <= 1.0e-4);
+        // Split every row at its midpoint: the AABB of a polygon row is loosest
+        // where the polygon narrows fastest, and halving the row halves that
+        // slack while roughly doubling the (cheap) box count.
+        let mut levels: Vec<f32> = Vec::with_capacity(zs.len().saturating_mul(2));
+        for pair in zs.windows(2) {
+            if let (Some(low), Some(high)) = (pair.first(), pair.get(1)) {
+                levels.push(*low);
+                levels.push(f32::midpoint(*low, *high));
+            }
+        }
+        if let Some(last) = zs.last() {
+            levels.push(*last);
+        }
+        let zs = levels;
+        let mut boxes = Vec::with_capacity(zs.len().saturating_sub(1));
+        for pair in zs.windows(2) {
+            let (z0, z1) = match (pair.first(), pair.get(1)) {
+                (Some(z0), Some(z1)) => (*z0, *z1),
+                _ => continue,
+            };
+            if z1 - z0 <= 1.0e-5 {
+                continue;
+            }
+            let clipped = clip_polygon_to_z_band(&points, z0, z1);
+            if clipped.len() < 3 {
+                continue;
+            }
+            let (min_x, max_x) = clipped
+                .iter()
+                .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), (x, _)| {
+                    (lo.min(*x), hi.max(*x))
+                });
+            if let Some(boxed) = ArchitectureBox::from_corners([min_x, base, z0], [max_x, top, z1])
+            {
+                boxes.push(boxed);
+            }
+        }
+        boxes
+    }
+
+    /// Body material reference, if it overrides `defaults.wall`.
+    #[must_use]
+    pub fn material_ref(&self) -> Option<MaterialRef<'_>> {
+        self.material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.shine))
+    }
+
+    /// Cap material reference: its own, else the body's.
+    #[must_use]
+    pub fn cap_ref(&self) -> Option<MaterialRef<'_>> {
+        self.cap_material
+            .as_deref()
+            .map(|id| MaterialRef::with_shine(id, self.cap_shine))
+            .or_else(|| self.material_ref())
+    }
+}
+
 /// A reusable archway: a wall block with a centred opening capped by an arch.
 ///
 /// The footprint is the whole block (placed by minimum corner like a wall).
@@ -2765,6 +3680,46 @@ impl DecalSurface {
     }
 }
 
+/// How a ceiling decal resolves its horizontal position at level load.
+///
+/// Ceiling artwork is a world-space material tile, but the tile frame is not
+/// necessarily the world origin: a room may author its own
+/// `ceiling_tile_origin` and `ceiling_tile_rotation_degrees`, and this enum is
+/// how a decal opts into that frame. New decals default to `None`, so every
+/// legacy placement keeps its authored coordinates and rotation exactly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum DecalAlign {
+    /// Keep the authored `x`/`z` and rotation exactly (the default).
+    #[default]
+    None,
+    /// Snap the centre onto the nearest ceiling tile centre of the ceiling
+    /// material above the decal, in that room's ceiling tile frame, and
+    /// compose the room's tile rotation into the decal's in-plane rotation.
+    /// Only meaningful for `surface: "ceiling"`; every other surface keeps the
+    /// authored coordinates.
+    CeilingGrid,
+}
+
+impl DecalAlign {
+    /// True for the default, so serde can skip the key.
+    #[must_use]
+    pub const fn is_none(self) -> bool {
+        matches!(self, Self::None)
+    }
+}
+
+/// `skip_serializing_if` helper: the default align is never written, so a
+/// legacy level's serialized content stays byte-identical.
+///
+/// Takes a reference because that is serde's `skip_serializing_if` contract;
+/// the type is a one-byte enum, and the signature is not ours to choose.
+#[must_use]
+#[allow(clippy::trivially_copy_pass_by_ref)]
+const fn decal_align_is_none(align: &DecalAlign) -> bool {
+    align.is_none()
+}
+
 /// Largest decal edge the loader accepts, in metres.
 ///
 /// Decals are surface decoration, not architecture; anything larger than a
@@ -2800,6 +3755,10 @@ pub struct DecalDef {
     /// Decal sheet id, e.g. `core:decal_test_01`.
     pub material: String,
     pub surface: DecalSurface,
+    /// How the decal resolves its horizontal position. See [`DecalAlign`];
+    /// omitted keeps the historical authored coordinates.
+    #[serde(default, skip_serializing_if = "decal_align_is_none")]
+    pub align: DecalAlign,
 }
 
 impl DecalDef {
@@ -2848,10 +3807,9 @@ pub enum FixtureAlign {
 
 /// Ceiling light fixture placement.
 ///
-/// `brightness` is the optional fixture intensity/power. It is the field the
-/// level editor already authors and writes, so it stays the canonical key; the
-/// more descriptive `intensity` spelling is accepted as an alias so levels
-/// written from the design notes load unchanged. Omitted means `1.0`.
+/// `brightness` is the optional fixture intensity/power and stays the
+/// canonical key; the more descriptive `intensity` spelling is accepted as an
+/// alias so levels written from the design notes load unchanged. Omitted means `1.0`.
 ///
 /// `color` is the optional emitted light colour as an `[r, g, b]` array of
 /// `0.0..=1.0` fractions. It drives the coloured illumination the bake applies
@@ -2861,6 +3819,14 @@ pub enum FixtureAlign {
 /// implied.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LightFixtureDef {
+    /// Stable per-instance id, distinct from the shared `fixture` catalog id.
+    ///
+    /// Omitted means the deterministic default `<fixture short name>_<n>`,
+    /// counted like [`PropDef::id`]. Currently used for identity, duplicate
+    /// validation and future action targets; no implemented action drives a
+    /// fixture yet.
+    #[serde(default)]
+    pub id: Option<String>,
     pub fixture: String,
     pub x: f32,
     pub z: f32,
@@ -3146,6 +4112,17 @@ const fn default_prop_scale() -> f32 {
 /// A placed prop / furniture / appliance instance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PropDef {
+    /// Stable per-instance id, distinct from the shared `model`/catalog id.
+    ///
+    /// Omitted means the deterministic default `<model short name>_<n>`, where
+    /// `n` counts placements sharing that short name in array order (so the
+    /// first `core:plant` is `plant_1`). An explicit id wins and must be unique
+    /// across the level's whole instance-id namespace.
+    #[serde(default)]
+    pub id: Option<String>,
+    /// Name shown by a `toggle_label` action. Omitted means the `model` id.
+    #[serde(default)]
+    pub display_name: Option<String>,
     /// Registry identifier, e.g. "core:couch". Resolved through the prop catalog.
     pub model: String,
     #[serde(default)]
@@ -3168,6 +4145,10 @@ pub struct PropDef {
     /// When true the prop blocks the player (axis-aligned box from position/size). Defaults to false.
     #[serde(default)]
     pub solid: bool,
+    /// Map-authored interaction: E in reach runs these actions on this instance.
+    /// Omitted means the prop is scenery and cannot be interacted with.
+    #[serde(default)]
+    pub interaction: Option<PropInteractionDef>,
     /// Generic light sources this object owns, positioned in its local frame.
     ///
     /// Zero by default: an object glows only through its material unless a
@@ -3175,6 +4156,53 @@ pub struct PropDef {
     /// category decides whether it lights a room.
     #[serde(default)]
     pub lights: Vec<LightDef>,
+    /// Bounded, water-driven motion for a prop that floats (a pool toy, a
+    /// buoy). Omitted means the prop stands where it was placed.
+    #[serde(default)]
+    pub float: Option<PropFloatDef>,
+}
+
+/// Bounded, water-driven motion of a floating prop.
+///
+/// The prop follows the water surface at its authored `(x, z)` with no
+/// horizontal drift; `bob` and `heel` are authored amplitudes, never
+/// accumulated deltas, and the level validator proves the whole swept
+/// footprint stays inside one water volume, so the hull can never touch the
+/// rim. State is per instance: each placed float owns its own phase.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct PropFloatDef {
+    /// Metres of hull below the waterline at rest. Required, `> 0`.
+    #[serde(default)]
+    pub draft: f32,
+    /// Peak vertical displacement above/below the calm waterline, metres.
+    #[serde(default)]
+    pub bob: f32,
+    /// Bob period, seconds; defaults to [`DEFAULT_FLOAT_PERIOD_S`].
+    #[serde(default = "default_float_period")]
+    pub bob_seconds: f32,
+    /// Peak roll about the model's forward axis, degrees.
+    #[serde(default)]
+    pub heel_degrees: f32,
+    /// Heel period, seconds; defaults to [`DEFAULT_FLOAT_PERIOD_S`].
+    #[serde(default = "default_float_period")]
+    pub heel_seconds: f32,
+    /// Phase offset in `0..=1`. Omitted uses a deterministic golden-ratio
+    /// phase per placement, so two floats never bob in lockstep.
+    #[serde(default)]
+    pub phase: Option<f32>,
+}
+
+/// Default period of a float's authored bob and heel, in seconds.
+pub const DEFAULT_FLOAT_PERIOD_S: f32 = 2.4;
+
+/// Largest heel a floating prop may author, in degrees.
+pub const MAX_FLOAT_HEEL_DEGREES: f32 = 45.0;
+
+/// Largest number of floating props one level may declare.
+pub const MAX_LEVEL_FLOAT_PROPS: usize = 32;
+
+const fn default_float_period() -> f32 {
+    DEFAULT_FLOAT_PERIOD_S
 }
 
 impl PropDef {
@@ -3191,8 +4219,54 @@ impl PropDef {
     }
 }
 
-/// Level schema supporting both single rooms and multiple connected room
-/// sections.
+/// One intent annotation for the map geometry checker.
+///
+/// A plan rectangle where a named **heuristic** finding is deliberate — an
+/// open-plan edge between two rooms, a carpet hole, a pit — and must not be
+/// reported. The checker reads these; the runtime ignores them. An annotation
+/// never suppresses a confirmed defect and only covers its own rectangle.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GeometryIntentDef {
+    /// Check id to suppress (`room-leak`, `missing-wall`, `ghost-collider`,
+    /// `curve-coarse`, ...); omitted suppresses every heuristic check inside
+    /// the rectangle.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub check: Option<String>,
+    /// Minimum corner of the annotation's footprint, like a wall.
+    pub x: f32,
+    pub z: f32,
+    pub width: f32,
+    pub depth: f32,
+    /// Why the space is intentional. Free text for the report.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+}
+
+impl GeometryIntentDef {
+    /// Footprint `(x0, x1, z0, z1)`, normalised.
+    #[must_use]
+    pub fn bounds(&self) -> (f32, f32, f32, f32) {
+        (
+            self.x.min(self.x + self.width),
+            self.x.max(self.x + self.width),
+            self.z.min(self.z + self.depth),
+            self.z.max(self.z + self.depth),
+        )
+    }
+
+    /// True when this annotation covers `(x, z)` for `check`.
+    #[must_use]
+    pub fn covers(&self, check: &str, x: f32, z: f32) -> bool {
+        let (x0, x1, z0, z1) = self.bounds();
+        x >= x0
+            && x <= x1
+            && z >= z0
+            && z <= z1
+            && self.check.as_deref().is_none_or(|name| name == check)
+    }
+}
+
+/// The level definition: rooms, geometry, props, fixtures and interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDef {
     pub format_version: u32,
@@ -3219,6 +4293,10 @@ pub struct LevelDef {
     /// Empty on every legacy level.
     #[serde(default, alias = "water_volumes")]
     pub water: Vec<WaterVolumeDef>,
+    /// Climbable ladder volumes: footprint, vertical reach and the direction
+    /// the climber faces. Empty on every legacy level.
+    #[serde(default)]
+    pub ladders: Vec<LadderDef>,
     /// Straight sloped walking surfaces (ramps). Empty on every legacy level.
     #[serde(default)]
     pub ramps: Vec<RampDef>,
@@ -3232,6 +4310,12 @@ pub struct LevelDef {
     /// Solid square or rectangular columns/posts.
     #[serde(default)]
     pub columns: Vec<ColumnDef>,
+    /// Data-authored arc (curved) walls on a circular plan.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub arc_walls: Vec<ArcWallDef>,
+    /// Solid circular pillars.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pillars: Vec<PillarDef>,
     /// Arched openings through a wall block.
     #[serde(default)]
     pub archways: Vec<ArchwayDef>,
@@ -3259,6 +4343,14 @@ pub struct LevelDef {
     /// Placed props / furniture / appliances.
     #[serde(default)]
     pub props: Vec<PropDef>,
+    /// Authored area triggers: entering the volume runs its actions once.
+    /// Empty on every legacy level.
+    #[serde(default)]
+    pub area_triggers: Vec<AreaTriggerDef>,
+    /// Authored movement/pose routes for placed entities, keyed by instance
+    /// id. Empty on every legacy level.
+    #[serde(default)]
+    pub routes: Vec<EntityRouteDef>,
     /// Surfaces whose *emission* moves over time: a breathing illuminated sign,
     /// a failing tube. Empty on every level that does not ask for one.
     ///
@@ -3267,6 +4359,15 @@ pub struct LevelDef {
     /// the room exactly as it was baked.
     #[serde(default)]
     pub animated_emissions: Vec<AnimatedEmissionDef>,
+    /// One intent annotation for the map geometry checker.
+    ///
+    /// A plan rectangle where a named **heuristic** finding is deliberate — an
+    /// open-plan edge between two rooms, a carpet hole, a pit — and must not be
+    /// reported. The checker reads these; the runtime ignores them. An
+    /// annotation never suppresses a confirmed defect and only covers its own
+    /// rectangle.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub geometry_intent: Vec<GeometryIntentDef>,
 }
 
 /// One animated emission a level declares, by material id.
@@ -3333,6 +4434,16 @@ pub const MAX_PROP_ANIMATIONS: usize = 64;
 /// Engine ceiling on the animation channels one prop model may declare,
 /// summed over every clip.
 pub const MAX_ANIMATION_CHANNELS: usize = 4_096;
+/// Engine ceiling on the morph targets one prop primitive may declare.
+///
+/// Morph deltas are stored parallel to the model's vertices, so the cap keeps
+/// a pathological file from multiplying the vertex arrays without bound.
+pub const MAX_PROP_MORPH_TARGETS: usize = 32;
+/// Engine ceiling on the morph targets one model may declare in total.
+///
+/// Deltas are stored parallel to the model's vertices, so the total cap (not
+/// the per-primitive one) bounds the memory a morph-heavy asset can demand.
+pub const MAX_PROP_MORPH_TARGETS_PER_MODEL: usize = 128;
 /// The normal native edge length of a shipped prop texture.
 ///
 /// 256x256 is the standard prop atlas size, not a special high-quality
@@ -3381,6 +4492,18 @@ pub const MAX_LEVEL_FLOOR_PATCHES: u64 = 2000;
 /// sample loop and the static mesh's footprint; it matches the floor-region
 /// budget deliberately.
 pub const MAX_LEVEL_WATER_VOLUMES: u64 = 2000;
+/// Hard ceiling on the number of ladders a level may define.
+///
+/// Ladders are sampled linearly by the controller like water volumes, and they
+/// do not draw geometry of their own (the visual ladder is a prop), so this is
+/// a generous authoring bound rather than a rendering budget.
+pub const MAX_LEVEL_LADDERS: u64 = 256;
+/// Hard ceiling on the number of area triggers a level may define.
+///
+/// Triggers are sampled linearly by the controller (a swept box test per
+/// frame), do not draw geometry and are not in the collision world, so this is
+/// an authoring bound, not a rendering budget.
+pub const MAX_LEVEL_AREA_TRIGGERS: u64 = 1000;
 /// Hard ceiling on the number of openings a single wall may declare.
 pub const MAX_WALL_OPENINGS: usize = 64;
 /// Hard ceiling on the number of ramps a level may define.
@@ -3515,7 +4638,57 @@ fn grid_aligned_fixture_centre(
     }
     let half = period * 0.5;
     let snap = |value: f32| period.mul_add(((value - half) / period).round(), half);
-    Some((snap(light.x), snap(light.z)))
+    // Snap in the room's own ceiling tile frame, so a room that authored an
+    // origin/rotation is honoured; an unauthored frame is the world origin at
+    // zero rotation, which is exactly the historical formula.
+    let (local_x, local_z) = room.ceiling_tile_local(light.x, light.z);
+    Some(room.ceiling_tile_world(snap(local_x), snap(local_z)))
+}
+
+/// The snapped centre of one `align: "ceiling_grid"` ceiling decal, or `None`
+/// when the decal does not qualify for grid alignment.
+///
+/// Qualification mirrors the fixture rule: a flat ceiling, inside a room whose
+/// resolved ceiling material declares a positive finite period, and a finite
+/// authored centre. The snap period is the material's visible panel module
+/// (`grid_metres`, falling back to `tile_metres` when the sheet paints one
+/// panel per repeat), and the snapped position is a panel **centre** in the
+/// room's ceiling tile frame.
+fn ceiling_grid_decal_centre(
+    surfaces: &LevelSurfaces<'_>,
+    default_ceiling: &str,
+    decal: &DecalDef,
+    materials: &crate::materials::MaterialTable,
+) -> Option<(f32, f32)> {
+    if decal.surface != DecalSurface::Ceiling || !decal.x.is_finite() || !decal.z.is_finite() {
+        return None;
+    }
+    if !surfaces.ceiling_is_flat_at(decal.x, decal.z) {
+        return None;
+    }
+    let room = surfaces.room_at(decal.x, decal.z)?;
+    let material_id = room
+        .ceiling_material
+        .as_deref()
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .unwrap_or_else(|| default_ceiling.trim());
+    let entry = materials.entry_of(material_id)?;
+    // The visible panel module, which falls back to the sheet repeat for a
+    // sheet that paints one panel per tile; a vent should sit inside one
+    // panel, not straddle the T-bar between four.
+    let period = if entry.grid_metres.is_finite() && entry.grid_metres > 0.0 {
+        entry.grid_metres
+    } else {
+        entry.tile_metres
+    };
+    if !period.is_finite() || period <= 0.0 {
+        return None;
+    }
+    let half = period * 0.5;
+    let snap = |value: f32| period.mul_add(((value - half) / period).round(), half);
+    let (local_x, local_z) = room.ceiling_tile_local(decal.x, decal.z);
+    Some(room.ceiling_tile_world(snap(local_x), snap(local_z)))
 }
 
 impl LevelDef {
@@ -3531,6 +4704,90 @@ impl LevelDef {
     /// without cloning or allocating.
     pub fn room_iter(&self) -> impl Iterator<Item = &RoomDef> {
         self.rooms.iter().chain(self.room.iter())
+    }
+
+    /// Stable per-instance id for every placed prop, in array order.
+    ///
+    /// An authored `id` wins (trimmed). Otherwise the default is
+    /// `<model short name>_<n>`, where the short name is the text after the
+    /// last `:` and `n` counts, in array order, the placements that do not
+    /// author an id — `<short>_<n>` is the same shape the level tooling
+    /// writes. Deterministic for a given document, never derived from time,
+    /// randomness or a mutable object's model filename.
+    #[must_use]
+    pub fn prop_instance_ids(&self) -> Vec<String> {
+        let mut counters: HashMap<&str, usize> = HashMap::new();
+        self.props
+            .iter()
+            .map(|prop| {
+                if let Some(id) = prop
+                    .id
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|id| !id.is_empty())
+                {
+                    return id.to_string();
+                }
+                let short = prop.model.rsplit(':').next().unwrap_or(&prop.model);
+                let count = counters.entry(short).or_insert(0);
+                *count = count.saturating_add(1);
+                format!("{short}_{count}")
+            })
+            .collect()
+    }
+
+    /// Stable per-instance id for every light fixture, in array order.
+    ///
+    /// Same scheme as [`Self::prop_instance_ids`], counting per fixture short
+    /// name. Fixtures are identity only today: no implemented action drives
+    /// one, but the id is stable for references.
+    #[must_use]
+    pub fn light_instance_ids(&self) -> Vec<String> {
+        let mut counters: HashMap<&str, usize> = HashMap::new();
+        self.ceiling_lights
+            .iter()
+            .map(|fixture| {
+                if let Some(id) = fixture
+                    .id
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|id| !id.is_empty())
+                {
+                    return id.to_string();
+                }
+                let short = fixture
+                    .fixture
+                    .rsplit(':')
+                    .next()
+                    .unwrap_or(&fixture.fixture);
+                let count = counters.entry(short).or_insert(0);
+                *count = count.saturating_add(1);
+                format!("{short}_{count}")
+            })
+            .collect()
+    }
+
+    /// Stable per-instance id for every area trigger, in array order.
+    ///
+    /// An authored `id` wins; otherwise `trigger_<n>` with `n` the 1-based
+    /// authored position.
+    #[must_use]
+    pub fn area_trigger_instance_ids(&self) -> Vec<String> {
+        self.area_triggers
+            .iter()
+            .enumerate()
+            .map(|(index, trigger)| {
+                trigger
+                    .id
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|id| !id.is_empty())
+                    .map_or_else(
+                        || format!("trigger_{}", index.saturating_add(1)),
+                        str::to_string,
+                    )
+            })
+            .collect()
     }
 
     /// Snaps grid-aligned fluorescent panels onto their ceiling material's
@@ -3599,6 +4856,72 @@ impl LevelDef {
         moved
     }
 
+    /// Snaps every `align: "ceiling_grid"` ceiling decal onto its ceiling's
+    /// tile grid, in the room's own tile frame. Returns how many decals moved.
+    ///
+    /// A decal qualifies when it is a ceiling decal on a flat ceiling, inside a
+    /// room whose resolved ceiling material declares a positive finite period
+    /// (its visible panel module, falling back to the sheet repeat). The snap
+    /// formula is the light-fixture one applied in the room's ceiling tile
+    /// frame (origin and rotation), so a rotated or offset grid places its
+    /// decals on its own panels rather than on an assumed global grid. The in-plane rotation composition happens at
+    /// emission ([`Self::ceiling_decal_rotation`]), so this pass is idempotent
+    /// and the authored rotation is never rewritten.
+    pub fn snap_ceiling_decals(&mut self, materials: &crate::materials::MaterialTable) -> usize {
+        let mut moved = 0usize;
+        let mut targets: Vec<(usize, f32, f32)> = Vec::new();
+        {
+            let surfaces = LevelSurfaces::new(self);
+            for (index, decal) in self.decals.iter().enumerate() {
+                if decal.align != DecalAlign::CeilingGrid {
+                    continue;
+                }
+                let Some((x, z)) =
+                    ceiling_grid_decal_centre(&surfaces, &self.defaults.ceiling, decal, materials)
+                else {
+                    continue;
+                };
+                if (x - decal.x).abs() > ALIGN_SETTLED_EPS_M
+                    || (z - decal.z).abs() > ALIGN_SETTLED_EPS_M
+                {
+                    moved = moved.saturating_add(1);
+                }
+                targets.push((index, x, z));
+            }
+        }
+        for (index, x, z) in targets {
+            if let Some(decal) = self.decals.get_mut(index) {
+                decal.x = x;
+                decal.z = z;
+            }
+        }
+        moved
+    }
+
+    /// The in-plane rotation one decal draws with.
+    ///
+    /// A `ceiling_grid` decal composes the ceiling tile frame's own rotation
+    /// with its authored `rotation_degrees`, so vents stay square to a rotated
+    /// tile grid; every other decal draws its authored value. Composition lives
+    /// here rather than in [`Self::snap_ceiling_decals`] so the snap pass is
+    /// idempotent and the level file keeps the author's intent.
+    #[must_use]
+    pub fn ceiling_decal_rotation(&self, decal: &DecalDef) -> f32 {
+        if decal.align != DecalAlign::CeilingGrid
+            || decal.surface != DecalSurface::Ceiling
+            || !decal.rotation_degrees.is_finite()
+        {
+            return decal.rotation_degrees;
+        }
+        let surfaces = LevelSurfaces::new(self);
+        surfaces
+            .room_at(decal.x, decal.z)
+            .map_or(decal.rotation_degrees, |room| {
+                let (_, _, rotation) = room.ceiling_tile_frame();
+                decal.rotation_degrees + rotation
+            })
+    }
+
     /// Floor regions overlapping the given room, in authored order.
     ///
     /// A region is not scoped to one room: like a material-only floor patch it
@@ -3665,6 +4988,12 @@ impl LevelDef {
                 boxes.push(boxed);
             }
         }
+        for piece in &self.arc_walls {
+            boxes.extend(piece.collision_boxes(&surfaces));
+        }
+        for piece in &self.pillars {
+            boxes.extend(piece.collision_boxes(&surfaces));
+        }
         for piece in &self.archways {
             boxes.extend(piece.solid_boxes(&surfaces));
         }
@@ -3727,6 +5056,18 @@ impl LevelDef {
         }
         for _ in &self.columns {
             wall_quads = wall_quads.saturating_add(MAX_COLUMN_QUADS);
+        }
+        for piece in &self.arc_walls {
+            let segments = u64::from(piece.resolved_segments());
+            let ends = if piece.is_full_ring() { 0 } else { 2 };
+            wall_quads = wall_quads
+                .saturating_add(segments.saturating_mul(4))
+                .saturating_add(ends);
+        }
+        for piece in &self.pillars {
+            wall_quads = wall_quads
+                .saturating_add(u64::from(piece.resolved_segments()))
+                .saturating_add(2);
         }
         for _ in &self.archways {
             wall_quads = wall_quads.saturating_add(
@@ -5104,6 +6445,307 @@ impl WaterVolumes {
             .filter(|volume| volume.contains(x, z))
             .map(|volume| volume.surface_y)
             .reduce(f32::max)
+    }
+
+    /// True when some volume contains the whole horizontal disc of `radius`
+    /// around `(x, z)`.
+    ///
+    /// This is the containment guarantee behind a floating prop: the authored
+    /// footprint (plus its heel excursion) must fit inside one basin, so the
+    /// hull can never poke through a rim, whatever the phase.
+    #[must_use]
+    pub fn contains_disc(&self, x: f32, z: f32, radius: f32) -> bool {
+        if !x.is_finite() || !z.is_finite() || !radius.is_finite() || radius < 0.0 {
+            return false;
+        }
+        self.volumes.iter().any(|volume| {
+            x - radius >= volume.x0
+                && x + radius <= volume.x1
+                && z - radius >= volume.z0
+                && z + radius <= volume.z1
+        })
+    }
+}
+
+/// One ladder resolved against the level, ready for the controller.
+///
+/// The facing vector is the direction the climber moves while climbing, in the
+/// same convention as player movement: `(sin(yaw), -cos(yaw))` in `(x, z)`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Ladder {
+    pub x0: f32,
+    pub x1: f32,
+    pub z0: f32,
+    pub z1: f32,
+    pub bottom_y: f32,
+    pub top_y: f32,
+    pub facing_x: f32,
+    pub facing_z: f32,
+}
+
+impl Ladder {
+    /// The footprint's centre `(x, z)`.
+    #[must_use]
+    pub const fn center(&self) -> (f32, f32) {
+        (
+            f32::midpoint(self.x0, self.x1),
+            f32::midpoint(self.z0, self.z1),
+        )
+    }
+
+    /// True when the player's disc at `(x, z)` touches the footprint.
+    #[must_use]
+    pub fn overlaps_disc(&self, x: f32, z: f32, radius: f32) -> bool {
+        let closest_x = x.clamp(self.x0, self.x1);
+        let closest_z = z.clamp(self.z0, self.z1);
+        let dx = x - closest_x;
+        let dz = z - closest_z;
+        dx.mul_add(dx, dz * dz) < radius * radius
+    }
+
+    /// True when the player is on the approach side of the ladder: the side the
+    /// climber comes from, opposite the climb direction.
+    ///
+    /// Incidental contact from the exit side never attaches: a player standing
+    /// on the deck beyond the ladder is past its centre along `facing`.
+    #[must_use]
+    pub fn approach_side(&self, x: f32, z: f32) -> bool {
+        let (cx, cz) = self.center();
+        (x - cx).mul_add(self.facing_x, (z - cz) * self.facing_z) <= 0.0
+    }
+
+    /// True when the body spanning `[eye - body_height, eye]` overlaps the
+    /// ladder's authored vertical reach.
+    #[must_use]
+    pub fn overlaps_body_y(&self, eye: f32, body_height: f32) -> bool {
+        eye > self.bottom_y && eye - body_height < self.top_y
+    }
+
+    /// The component of a movement direction along the climb direction.
+    ///
+    /// The direction need not be normalised; the caller normalises once. A
+    /// positive value means "climb up", negative "climb down".
+    #[must_use]
+    pub fn climb_intent(&self, dir_x: f32, dir_z: f32) -> f32 {
+        dir_x.mul_add(self.facing_x, dir_z * self.facing_z)
+    }
+}
+
+/// The level's ladders, resolved once at load time.
+///
+/// Lookups are linear over the authored list, like the water volumes; a level
+/// with no `ladders` array is empty and every query misses.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Ladders {
+    ladders: Vec<Ladder>,
+}
+
+impl Ladders {
+    /// An empty set: every query misses.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            ladders: Vec::new(),
+        }
+    }
+
+    /// Resolves every authored ladder.
+    #[must_use]
+    pub fn from_level(level: &LevelDef) -> Self {
+        let mut ladders = Vec::with_capacity(level.ladders.len());
+        for def in &level.ladders {
+            let (x0, x1, z0, z1) = def.bounds();
+            if !x0.is_finite()
+                || !x1.is_finite()
+                || !z0.is_finite()
+                || !z1.is_finite()
+                || !def.bottom_y.is_finite()
+                || !def.top_y.is_finite()
+                || def.top_y <= def.bottom_y
+            {
+                continue;
+            }
+            let yaw = if def.facing_degrees.is_finite() {
+                def.facing_degrees.to_radians()
+            } else {
+                0.0
+            };
+            ladders.push(Ladder {
+                x0,
+                x1,
+                z0,
+                z1,
+                bottom_y: def.bottom_y,
+                top_y: def.top_y,
+                facing_x: yaw.sin(),
+                facing_z: -yaw.cos(),
+            });
+        }
+        Self { ladders }
+    }
+
+    /// True when the level defines no ladders.
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.ladders.is_empty()
+    }
+
+    /// Number of resolved ladders.
+    #[must_use]
+    pub const fn len(&self) -> usize {
+        self.ladders.len()
+    }
+
+    /// The ladder at `index`, if it exists.
+    #[must_use]
+    pub fn get(&self, index: usize) -> Option<&Ladder> {
+        self.ladders.get(index)
+    }
+
+    /// The first ladder whose footprint the disc at `(x, z)` touches.
+    #[must_use]
+    pub fn overlapping(&self, x: f32, z: f32, radius: f32) -> Option<usize> {
+        self.ladders
+            .iter()
+            .position(|ladder| ladder.overlaps_disc(x, z, radius))
+    }
+}
+
+/// One area trigger resolved against the level, ready for the controller.
+///
+/// The volume is an axis-aligned box. The controller tests the player's feet
+/// point against it each update and also tests the frame's swept feet segment,
+/// so a fast fall through a thin trigger band still counts as an entry.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AreaTrigger {
+    /// Resolved instance id (authored, or `trigger_<n>`).
+    pub id: String,
+    pub x0: f32,
+    pub x1: f32,
+    pub z0: f32,
+    pub z1: f32,
+    pub bottom_y: f32,
+    pub top_y: f32,
+    /// Actions run on entry, in order.
+    pub actions: Vec<ActionDef>,
+    pub cooldown_seconds: f32,
+    pub once: bool,
+}
+
+impl AreaTrigger {
+    /// True when the point `(x, z, y)` lies inside the volume.
+    #[must_use]
+    pub fn contains(&self, x: f32, z: f32, y: f32) -> bool {
+        x.is_finite()
+            && z.is_finite()
+            && y.is_finite()
+            && x >= self.x0
+            && x <= self.x1
+            && z >= self.z0
+            && z <= self.z1
+            && y >= self.bottom_y
+            && y <= self.top_y
+    }
+
+    /// The vertical band as a min/max pair, used by the swept test.
+    #[must_use]
+    pub const fn y_bounds(&self) -> (f32, f32) {
+        (self.bottom_y, self.top_y)
+    }
+}
+
+/// The level's area triggers, resolved once at load time.
+///
+/// Lookups are linear over the authored list, like water volumes and ladders;
+/// a level with no `area_triggers` array is empty and every query misses.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct AreaTriggers {
+    triggers: Vec<AreaTrigger>,
+}
+
+impl AreaTriggers {
+    /// An empty set: no trigger ever fires.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            triggers: Vec::new(),
+        }
+    }
+
+    /// Resolves every authored trigger, assigning deterministic default ids and
+    /// vertical bounds. Malformed entries are skipped exactly like water
+    /// volumes and ladders; a loaded level has already been validated.
+    #[must_use]
+    pub fn from_level(level: &LevelDef) -> Self {
+        let mut triggers = Vec::with_capacity(level.area_triggers.len());
+        for (index, def) in level.area_triggers.iter().enumerate() {
+            let (x0, x1, z0, z1) = def.bounds();
+            if !x0.is_finite()
+                || !x1.is_finite()
+                || !z0.is_finite()
+                || !z1.is_finite()
+                || !def.width.is_finite()
+                || !def.depth.is_finite()
+                || def.width <= 0.0
+                || def.depth <= 0.0
+            {
+                continue;
+            }
+            let (bottom_y, top_y) = def.resolved_y_bounds(level);
+            if !bottom_y.is_finite() || !top_y.is_finite() || top_y <= bottom_y {
+                continue;
+            }
+            let cooldown = if def.cooldown_seconds.is_finite() {
+                def.cooldown_seconds.max(0.0)
+            } else {
+                0.0
+            };
+            triggers.push(AreaTrigger {
+                id: def
+                    .id
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|id| !id.is_empty())
+                    .map_or_else(
+                        || format!("trigger_{}", index.saturating_add(1)),
+                        str::to_string,
+                    ),
+                x0,
+                x1,
+                z0,
+                z1,
+                bottom_y,
+                top_y,
+                actions: def.actions.clone(),
+                cooldown_seconds: cooldown,
+                once: def.once,
+            });
+        }
+        Self { triggers }
+    }
+
+    /// True when the level defines no triggers.
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.triggers.is_empty()
+    }
+
+    /// Number of resolved triggers.
+    #[must_use]
+    pub const fn len(&self) -> usize {
+        self.triggers.len()
+    }
+
+    /// Every resolved trigger, in authored order.
+    #[must_use]
+    pub fn triggers(&self) -> &[AreaTrigger] {
+        &self.triggers
+    }
+
+    /// The trigger at `index`, if it exists.
+    #[must_use]
+    pub fn get(&self, index: usize) -> Option<&AreaTrigger> {
+        self.triggers.get(index)
     }
 }
 

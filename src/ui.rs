@@ -56,7 +56,7 @@ impl SettingsPage {
                 }
             }
             Self::Display => 3,
-            Self::Controls => 16,
+            Self::Controls => 18,
         }
     }
 }
@@ -204,6 +204,8 @@ fn ui_signature(
     b.look_left.hash(&mut hasher);
     b.look_right.hash(&mut hasher);
     b.jump.hash(&mut hasher);
+    b.crouch.hash(&mut hasher);
+    b.interact.hash(&mut hasher);
     settings.look_speed_h.to_bits().hash(&mut hasher);
     settings.look_speed_v.to_bits().hash(&mut hasher);
     settings.mouse_sensitivity.to_bits().hash(&mut hasher);
@@ -1014,8 +1016,11 @@ fn settings_item_rows(
         display,
         ui_state.advanced_expanded,
     );
-    let start_y = 44.0;
-    let line_h = 13.0;
+    // The Controls page gained a row per binding over time (Jump, Crouch,
+    // Interact); 11 px keeps the 18-row page inside the 272 px reference frame
+    // and clear of the footnote line.
+    let start_y = 40.0;
+    let line_h = 11.0;
 
     for (i, row) in rows.iter().enumerate() {
         let y = row_y(i, line_h, start_y);
@@ -1663,11 +1668,11 @@ mod tests {
     /// 0.02 degrees per pixel and never leaving its documented range.
     #[test]
     fn the_controls_page_shows_jump_and_mouse_sensitivity() {
-        assert_eq!(SettingsPage::Controls.item_count(false), 16);
+        assert_eq!(SettingsPage::Controls.item_count(false), 18);
         let display = DisplayStatus::default();
         let mut settings = Settings::default();
         let rows = settings_rows(SettingsPage::Controls, &settings, &display, false);
-        assert_eq!(rows.len(), 16);
+        assert_eq!(rows.len(), 18);
 
         let jump = rows
             .iter()
@@ -1675,6 +1680,20 @@ mod tests {
             .expect("a Jump binding row");
         assert_eq!(jump.label, "Jump");
         assert_eq!(jump.value, "SPACE");
+
+        let crouch = rows
+            .iter()
+            .find(|row| row.kind == SettingsRowKind::Binding("crouch"))
+            .expect("a Crouch binding row beside the movement bindings");
+        assert_eq!(crouch.label, "Crouch");
+        assert_eq!(crouch.value, "C");
+
+        let interact = rows
+            .iter()
+            .find(|row| row.kind == SettingsRowKind::Binding("interact"))
+            .expect("an Interact binding row beside the movement bindings");
+        assert_eq!(interact.label, "Interact");
+        assert_eq!(interact.value, "E");
 
         let sensitivity_index = rows
             .iter()

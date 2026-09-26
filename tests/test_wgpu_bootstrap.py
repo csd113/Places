@@ -569,15 +569,16 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         )
 
         # The demonstration objects belong to the level that spawned them: the
-        # boot demo spawns one drum, and replacing the level must clear the
-        # neutral dynamic scene instead of carrying it into the new level.
+        # boot demo spawns the drum plus the floating rubber duck (run 05), and
+        # replacing the level must clear the neutral dynamic scene instead of
+        # carrying it into the new level.
         dynamic_lines = [
             line for line in output.splitlines() if line.startswith("[dynamic]")
         ]
         self.assertEqual(
             dynamic_lines,
             [
-                "[dynamic] 1 object(s): 1 draw call(s), 300 vertices"
+                "[dynamic] 2 object(s): 2 draw call(s), 772 vertices"
                 " (the demonstration path; never part of the static bake)",
                 "[dynamic] 0 object(s): 0 draw call(s), 0 vertices"
                 " (the demonstration path; never part of the static bake)",

@@ -44,8 +44,8 @@ def wall(x, z, width, depth, height=WALL_HEIGHT, openings=None) -> Dict:
 
 def prop(model, x, z, rotation=0.0, y=0.0, scale=1.0, solid=None, size=None) -> Dict:
     entry: Dict = {"model": model, "x": x, "z": z}
-    # Deterministic ids keep the fixture levels diffable and let the editor's 3D
-    # viewport tag (and pick) each placement without inventing ids on load.
+    # Deterministic ids keep the fixture levels diffable and tag (and pick)
+    # each placement without inventing ids on load.
     if rotation:
         entry["rotation_degrees"] = rotation
     if y:
@@ -118,6 +118,12 @@ def showcase_level() -> Dict:
         prop("core:bookshelf", -3.1, -1.0, rotation=270.0, solid=True),
         # spooner-man: the only non-catalogue-namespaced prop id in the game.
         prop("spooner-man", -6.4, -1.2, rotation=126.0),
+        # Run-04 entities: a rat, a pose mannequin and an articulated skeleton
+        # in their bind poses (the entity showcase fixture drives their routes
+        # and pose selection).
+        prop("rat", -9.4, 2.2, rotation=20.0),
+        prop("mannequin", -4.4, 3.0, rotation=200.0),
+        prop("skeleton", -0.4, 2.4, rotation=180.0),
         # intentional clipping: a crate sunk into the floor and a box
         # overlapping it. Both are legal and must never be "fixed".
         prop("core:cardboard_box", -10.9, -5.4, rotation=24.0),
@@ -142,6 +148,22 @@ def showcase_level() -> Dict:
         # src/render/common/dynamic.rs); here it is an ordinary static placement, so
         # the shipping tests cover its geometry, budget and lighting.
         prop("core:washer_drum", 6.57, 0.6, rotation=270.0),
+        # --- run-05 props: signs, domestic lamp/switch/CRT, table setting ---
+        # The showcase places every catalogue placeable exactly once (see
+        # src/render/tests.rs); the demo places the light props and the duck
+        # with their real lighting and float behaviour.
+        prop("core:stop_sign", -3.6, 1.4, rotation=20.0, solid=True),
+        prop("core:exit_sign", 3.0, 1.5, y=2.43, rotation=180.0),
+        prop("home:ball_light", 6.2, 2.2, y=2.2),
+        prop("home:wall_switch", -5.0, -6.0, y=1.2),
+        prop("home:crt_tv", -9.4, -1.6, rotation=30.0, solid=True),
+        prop("home:plate", -7.2, -2.4, y=0.75),
+        prop("home:fork", -7.2, -2.55, y=0.75, rotation=90.0),
+        prop("home:knife", -7.2, -2.25, y=0.75, rotation=90.0),
+        prop("home:spoon", -6.95, -2.4, y=0.75, rotation=90.0),
+        prop("home:bowl", -8.0, -2.4, y=0.75),
+        prop("home:plant_table", -7.6, -2.15, y=0.75),
+        prop("core:rubber_duck", 5.6, -1.6, rotation=200.0),
     ]
 
     return {
@@ -249,7 +271,7 @@ def assign_prop_ids(level: Dict) -> None:
         short = prop_entry["model"].split(":")[-1]
         counters[short] = counters.get(short, 0) + 1
         prop_entry["id"] = f"{short}_{counters[short]}"
-        # Keep the id first so the files read like the editor writes them.
+        # Keep the id first so the files read consistently.
         ordered = {"id": prop_entry.pop("id")}
         ordered.update(prop_entry)
         prop_entry.clear()

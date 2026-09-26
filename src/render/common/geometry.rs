@@ -304,7 +304,14 @@ fn emit_ceilings(
                 ceiling: true,
                 region: None,
             },
-            |x, z| tiled_uv(x, z, tile),
+            // The ceiling tiles in the room's own tile frame (world origin at
+            // zero rotation unless the room authors one), so a room with its
+            // own ceiling module keeps its phase and a decal snapping to the
+            // same grid lands exactly on the tiles that are drawn.
+            |x, z| {
+                let (local_x, local_z) = room.ceiling_tile_local(x, z);
+                tiled_uv(local_x, local_z, tile)
+            },
             PatchKind::Ceiling,
             Some(room_index),
             context.lightmap,
@@ -1441,7 +1448,14 @@ fn emit_decals(
             decal_uv_rect_full()
         };
         scratch.clear();
-        add_decal_quad(scratch, decal, context.surfaces, context.lighting, uv);
+        add_decal_quad(
+            scratch,
+            decal,
+            context.surfaces,
+            context.lighting,
+            uv,
+            context.level.ceiling_decal_rotation(decal),
+        );
         if !scratch.is_empty() {
             let Some(material) = MaterialIndex::try_from(sheet).ok() else {
                 continue;

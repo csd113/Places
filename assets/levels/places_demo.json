@@ -868,6 +868,18 @@
       "comment": "The submerged walk-in step shares the basin's waterline, one volume because the step deck between them is above the surface; its bottom resolves to the step floor at -1.85, so wading here is 0.2 m deep."
     }
   ],
+  "ladders": [
+    {
+      "x": 19.35,
+      "z": 11.7,
+      "width": 0.6,
+      "depth": 0.6,
+      "bottom_y": -3.0,
+      "top_y": -1.5,
+      "facing_degrees": 90.0,
+      "comment": "The basin's chrome ladder at the east rim: the climb volume hugs the prop's west face, from the basin floor to the deck (-1.5). facing_degrees 90 is the +X the swimmer faces while climbing; the deck beyond the rim is the exit, so the climb tops out level with the real floor and no rim is crossed."
+    }
+  ],
   "ceiling_lights": [
     {
       "fixture": "core:fluorescent_panel_01",
@@ -1315,6 +1327,8 @@
   ],
   "props": [
     {
+      "id": "front_desk",
+      "display_name": "Front Desk",
       "model": "core:desk",
       "x": 4.6,
       "y": 0.0,
@@ -1325,7 +1339,15 @@
         0.75,
         0.7
       ],
-      "solid": true
+      "solid": true,
+      "interaction": {
+        "prompt": "Toggle name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
     },
     {
       "model": "core:chair",
@@ -1341,6 +1363,8 @@
       "solid": true
     },
     {
+      "id": "water_cooler",
+      "display_name": "Water Cooler",
       "model": "core:water_cooler",
       "x": 0.6,
       "y": 0.0,
@@ -1351,7 +1375,15 @@
         1.1,
         0.35
       ],
-      "solid": true
+      "solid": true,
+      "interaction": {
+        "prompt": "Toggle name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
     },
     {
       "model": "core:cabinet",
@@ -1494,7 +1526,17 @@
         0.85,
         0.55
       ],
-      "solid": true
+      "solid": true,
+      "id": "pool_chair_north",
+      "display_name": "Pool Chair",
+      "interaction": {
+        "prompt": "Toggle name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
     },
     {
       "model": "core:pool_chair",
@@ -1507,7 +1549,17 @@
         0.85,
         0.55
       ],
-      "solid": true
+      "solid": true,
+      "id": "pool_chair_south",
+      "display_name": "Pool Chair",
+      "interaction": {
+        "prompt": "Toggle name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
     },
     {
       "model": "core:pool_ladder",
@@ -1520,7 +1572,8 @@
         2.2,
         0.55
       ],
-      "solid": true
+      "solid": false,
+      "comment": "Climbable, not a wall: the matching ladders[] volume owns the climb, and the generic solid box would block the swimmer's approach and the top exit."
     },
     {
       "model": "core:pool_guardrail_end",
@@ -1942,12 +1995,22 @@
       "solid": true
     },
     {
+      "id": "home_plant",
+      "display_name": "Potted Plant",
       "model": "core:plant",
       "x": 58.3,
       "y": 0.0,
       "z": 11.5,
       "rotation_degrees": 0.0,
-      "solid": false
+      "solid": false,
+      "interaction": {
+        "prompt": "Toggle name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
     },
     {
       "model": "core:plant",
@@ -1967,12 +2030,177 @@
       "solid": false
     },
     {
+      "id": "spooner_man",
+      "display_name": "Spooner-Man",
       "model": "spooner-man",
       "x": 5.6,
       "y": 0.0,
       "z": 8.4,
       "rotation_degrees": 90.0,
-      "comment": "Spooner-Man on the pool deck: an animated entity whose locomotion pose follows the player's state."
+      "size": [0.7, 1.8, 0.7],
+      "comment": "Spooner-Man on the pool deck: an animated entity whose locomotion pose follows the player's state. The authored size is the aim/label bound, not collision (the entity is not solid).",
+      "interaction": {
+        "prompt": "Toggle name",
+        "actions": [
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "kitchen_switch",
+      "display_name": "Kitchen Light Switch",
+      "model": "home:wall_switch",
+      "x": 58.3,
+      "y": 1.2,
+      "z": 8.47,
+      "rotation_degrees": 270.0,
+      "size": [0.18, 0.18, 0.1],
+      "solid": false,
+      "comment": "Mounted on the west face of the kitchen-opening column, 1.2 m above the floor. E flips the lever (toggle_animation) and toggles this instance's name label in one batch; the lever is a rigid node clip scrubbed toward the opposite end, so a second press mid-move reverses from the current pose and only this instance moves.",
+      "interaction": {
+        "prompt": "Switch",
+        "reach": 1.6,
+        "actions": [
+          {
+            "action": "toggle_animation",
+            "clip": "toggle"
+          },
+          {
+            "action": "toggle_label"
+          }
+        ]
+      }
+    },
+    {
+      "id": "kitchen_pendant",
+      "display_name": "Hanging Ball Light",
+      "model": "home:ball_light",
+      "x": 56.0,
+      "y": 4.473,
+      "z": 7.6,
+      "rotation_degrees": 0.0,
+      "size": [0.24, 0.24, 0.24],
+      "solid": false,
+      "comment": "The cord's rose meets the gable ceiling at world 4.373 over the kitchen table, so the orb hangs 0.80 m down. The owned point light sits 0.02 m below the orb underside, clear of the lamp's own baked occlusion volume.",
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [0.0, -0.02, 0.0],
+          "intensity": 0.55,
+          "range": 5.0,
+          "falloff": "smooth",
+          "color": [1.0, 0.93, 0.82],
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "id": "corridor_exit_sign",
+      "display_name": "Exit Sign",
+      "model": "core:exit_sign",
+      "x": 52.6,
+      "y": 2.43,
+      "z": 13.0,
+      "rotation_degrees": 270.0,
+      "size": [0.45, 0.4, 0.2],
+      "solid": false,
+      "comment": "Hangs from the east corridor's 2.1 m ceiling where the corridor meets the Home wing. The luminous green face owns a small rect light 0.02 m in front of it, so the sign really casts green into the corridor.",
+      "lights": [
+        {
+          "shape": "rect",
+          "half_width": 0.16,
+          "half_depth": 0.015,
+          "offset": [0.0, 0.17, 0.058],
+          "rotation_degrees": 0.0,
+          "intensity": 0.55,
+          "range": 3.5,
+          "falloff": "smooth",
+          "color": [0.25, 0.95, 0.38],
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "id": "kitchen_plate_west",
+      "model": "home:plate",
+      "x": 55.55,
+      "y": 0.75,
+      "z": 7.6,
+      "rotation_degrees": 0.0,
+      "size": [0.22, 0.022, 0.22],
+      "solid": false
+    },
+    {
+      "id": "kitchen_fork_west",
+      "model": "home:fork",
+      "x": 55.55,
+      "y": 0.75,
+      "z": 7.44,
+      "rotation_degrees": 90.0,
+      "size": [0.026, 0.012, 0.196],
+      "solid": false
+    },
+    {
+      "id": "kitchen_knife_west",
+      "model": "home:knife",
+      "x": 55.55,
+      "y": 0.75,
+      "z": 7.76,
+      "rotation_degrees": 90.0,
+      "size": [0.022, 0.016, 0.215],
+      "solid": false
+    },
+    {
+      "id": "kitchen_plate_east",
+      "model": "home:plate",
+      "x": 56.45,
+      "y": 0.75,
+      "z": 7.6,
+      "rotation_degrees": 0.0,
+      "size": [0.22, 0.022, 0.22],
+      "solid": false
+    },
+    {
+      "id": "kitchen_fork_east",
+      "model": "home:fork",
+      "x": 56.45,
+      "y": 0.75,
+      "z": 7.76,
+      "rotation_degrees": 270.0,
+      "size": [0.026, 0.012, 0.196],
+      "solid": false
+    },
+    {
+      "id": "kitchen_knife_east",
+      "model": "home:knife",
+      "x": 56.45,
+      "y": 0.75,
+      "z": 7.44,
+      "rotation_degrees": 270.0,
+      "size": [0.022, 0.016, 0.215],
+      "solid": false
+    },
+    {
+      "id": "pool_duck",
+      "display_name": "Rubber Duck",
+      "model": "core:rubber_duck",
+      "x": 10.5,
+      "y": 0.0,
+      "z": 10.4,
+      "rotation_degrees": 180.0,
+      "size": [0.1, 0.12, 0.14],
+      "solid": false,
+      "comment": "Floats in the pool basin 0.4 m off the north rim, beak toward the deck. `y` is only the dry fallback; the float component owns the height: base = surface -1.65 - draft 0.03 + bob.",
+      "float": {
+        "draft": 0.03,
+        "bob": 0.012,
+        "bob_seconds": 2.8,
+        "heel_degrees": 6.0,
+        "heel_seconds": 3.6,
+        "phase": 0.0
+      }
     }
   ],
   "decals": [
@@ -2005,6 +2233,59 @@
       "rotation_degrees": 90.0,
       "material": "core:decal_stripes_01",
       "surface": "floor"
+    },
+    {
+      "x": 8.35,
+      "y": 0.0,
+      "z": 5.35,
+      "width": 0.6,
+      "height": 0.6,
+      "material": "core:decal_ceiling_vent_01",
+      "surface": "ceiling",
+      "align": "ceiling_grid",
+      "comment": "Office vent: authored slightly off-grid on purpose, the loader snaps it to the 1 m ceiling panel centre at (8.5, 5.5)."
+    },
+    {
+      "x": 17.5,
+      "y": 0.0,
+      "z": 4.5,
+      "width": 0.6,
+      "height": 0.6,
+      "material": "core:decal_ceiling_vent_01",
+      "surface": "ceiling",
+      "align": "ceiling_grid"
+    },
+    {
+      "x": 44.5,
+      "y": 0.0,
+      "z": 12.5,
+      "width": 0.6,
+      "height": 0.6,
+      "material": "core:decal_ceiling_vent_01",
+      "surface": "ceiling",
+      "align": "ceiling_grid",
+      "comment": "Corridor vent on the stained panel ceiling."
+    },
+    {
+      "x": 23.0,
+      "y": -1.5,
+      "z": 9.0,
+      "width": 0.6,
+      "height": 0.6,
+      "material": "core:decal_ceiling_vent_01",
+      "surface": "ceiling",
+      "align": "ceiling_grid",
+      "comment": "Pool hall vent: this ceiling sheet paints one 2 m panel per tile, so its centres are whole metres."
+    },
+    {
+      "x": 61.0,
+      "y": -0.9,
+      "z": -1.0,
+      "width": 0.6,
+      "height": 0.6,
+      "material": "core:decal_ceiling_vent_01",
+      "surface": "ceiling",
+      "align": "ceiling_grid"
     }
   ],
   "animated_emissions": [
@@ -2099,17 +2380,17 @@
     {
       "x": 55.5,
       "z": 13.07,
-      "length": 2.5,
+      "length": 2.1875,
       "rotation_degrees": 0.0,
       "height": 0.95,
       "post_spacing": 1.2,
       "material": "home:handrail_wood_01",
-      "comment": "Handrail up the flight's near side, following the nosings."
+      "comment": "Handrail up the flight's near side: the run spans the first nosing to the last (2.1875 m, not the flight's 2.5 m footprint), so its base line is exactly the nosing line and the posts stay planted."
     },
     {
       "x": 55.5,
       "z": 14.13,
-      "length": 2.5,
+      "length": 2.1875,
       "rotation_degrees": 0.0,
       "height": 0.95,
       "post_spacing": 1.2,
@@ -2630,6 +2911,17 @@
       "material": "home:baseboard_white_01",
       "y": -0.9,
       "rotation_degrees": 90.0
+    }
+  ],
+
+  "geometry_intent": [
+    {
+      "check": "missing-wall",
+      "x": 68.9,
+      "z": 2.7,
+      "width": 1.75,
+      "depth": 0.6,
+      "note": "The corridor loop's return leg opens into the stair hall at this corner; the gap is the intended route between the two rooms, not a missing wall."
     }
   ]
 }

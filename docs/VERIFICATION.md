@@ -10,8 +10,6 @@ recorded in the matrix in §7.
 - Rust 1.91 or newer (the project is verified on 1.98.x).
 - SDL3 3.2 or newer and `pkg-config`.
 - Python 3 (standard library only; no `pip install`).
-- Node.js for the level-editor tests (no `npm install` needed; the editor's
-  tests run from their committed lockfile).
 - A working native GPU driver for the platform's backend.
 
 Per platform:
@@ -40,7 +38,6 @@ python3 tools/assets/validate.py
 python3 tools/textures/build.py --check
 python3 tools/props/build.py --check
 python3 -m unittest tests.test_package
-(cd level-editor && npm test)
 cargo build --release
 python3 -m unittest tests.test_compiled_build
 python3 -m unittest tests.test_wgpu_bootstrap
@@ -50,6 +47,20 @@ git diff --check
 All commands must exit zero. Compiled-build tests open real SDL3 windows and
 GPU surfaces; a skipped suite is not a completed desktop gate. Require the final
 test summaries to show zero failures; other warnings require investigation.
+
+The map geometry checker is a manual, read-only gate over one level (its
+behaviour is also pinned by the `geometry_check::tests` fixture suite):
+
+```sh
+cargo run --release -- --check-geometry --level places_demo
+cargo run --release -- --check-geometry --level levels/level0_pit.json \
+    --json target/pit-geometry.json --markers-obj target/pit-markers.obj
+```
+
+It exits `0` when the level has no confirmed defects and `1` when it does
+(`--strict` also fails on warnings); `2` means the level could not be read or
+parsed. See `docs/MAP_AUTHORING_GUIDE.md` §30 for every check, the intent
+annotations and the honest limitations.
 
 Alongside the gate, the GPU diagnostics run explicitly (they are ignored by
 default because they need an adapter or write measurement files):
@@ -75,8 +86,6 @@ Expected, understood output noise:
   after its successful unittest summary. This is the negative fixture in
   `test_a_broken_catalog_surfaces_in_the_validators_exit_code`, not a shipped
   asset failure.
-- Editor tests print `WebGL is unavailable` while testing the fallback with a
-  mocked browser.
 - The wgpu bootstrap suite opens a real SDL3 window on the native backend
   (Metal on macOS, Vulkan on Linux, Direct3D 12 on Windows) and fails if the
   adapter reports any other backend.
@@ -109,9 +118,7 @@ files in place. Review generated changes; a second run must leave those outputs
 identical. The texture generator skips shipped images whose dimensions differ
 from its placeholder painter. Never use `--force` as a validation step. Use
 `python3 tools/props/generate_spooner_man.py` for the documented entity-only
-workflow, and `python3 tools/props/build.py --thumbs` when intentionally
-updating editor thumbnails. PNG artwork is loaded from committed assets at
-runtime.
+workflow. PNG artwork is loaded from committed assets at runtime.
 
 ## 4. Runtime and visual gate
 
@@ -280,7 +287,7 @@ python3 -m unittest tests.test_wgpu_bootstrap
 PLACES_LEVEL=places_demo PLACES_VERBOSE=1 target/release/places
 #    -> "[renderer] wgpu | adapter: ... | backend: Vulkan|Dx12 | ..."
 
-# 2. Full gate (fmt, clippy, tests, asset/texture/prop/package/editor/compiled-build).
+# 2. Full gate (fmt, clippy, tests, asset/texture/prop/package/compiled-build).
 sh tools/verify.sh
 
 # 3. Canonical and expanded captures (never into docs/renderer-baseline/).

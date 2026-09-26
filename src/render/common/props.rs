@@ -208,6 +208,13 @@ pub fn resolve_prop_instances<'a>(
     let mut busy_vertices = 0usize;
 
     for prop in &level.props {
+        // A floating prop is drawn by the dynamic path at the water surface,
+        // not by the static batch at its dry authored position, and it is not
+        // a placeholder box either: the dynamic spawn reports its own asset
+        // failure.
+        if prop.float.is_some() {
+            continue;
+        }
         let entry = catalog.get(&prop.model);
         let Some(model_path) = entry.model.clone() else {
             fallbacks.push(prop);

@@ -165,8 +165,7 @@ def build_plant(p: PropBuilder) -> None:
                side_uv=tex.uv("pot", inset=2), cap_uv=tex.uv("pot", inset=2), color=pot)
     # Closed soil insert intersects the pot cap; no floating open disc.
     solid_cylinder(p, (0.0, pot_height - 0.003, 0.0), 0.14, 0.0045,
-                   segments=12, uv=tex.uv("soil", inset=2), color=soil, shades=False,
-                   proxy=False)
+                   segments=12, uv=tex.uv("soil", inset=2), color=soil, shades=False)
 
     # --- geometry: trunk ----------------------------------------------------
     # A bare standard stem long enough to show below the lowest leaf: the
@@ -294,9 +293,6 @@ def build_lamp(p: PropBuilder) -> None:
         p.mesh.quad(ib0, ib1, it1, it0, uv=tex.uv("inner", inset=2), color=(210, 210, 210))
         p.mesh.quad(ot1, ot0, it0, it1, uv=tex.uv("shade", inset=2), color=shade)
         p.mesh.quad(ob0, ob1, ib1, ib0, uv=tex.uv("shade", inset=2), color=(220, 220, 220))
-    p.mesh.parts.append({"shape": "cylinder", "axis": "y", "base": [0.0, shade_bottom, 0.0],
-                         "radius": shade_radius, "height": shade_top - shade_bottom,
-                         "segments": segments, "taper": shade_taper, "color": "#ddd2b9"})
     p.add_note("shade is fabric and geometry only; the lamp emits no light")
 
 
@@ -387,7 +383,7 @@ def build_tv(p: PropBuilder) -> None:
     p.box((0.0, 0.015, -0.005), (0.42, 0.03, size[2] - 0.02), uv=tex.uv("body"),
           color=_tint(dark, 0.35))
     p.box((0.0, 0.06, -0.005), (0.14, 0.06, 0.06), uv=tex.uv("body"),
-          color=_tint(case_dark, 0.5), proxy=False)
+          color=_tint(case_dark, 0.5))
     # Housing behind the bezel, with the vented back on its rear face.
     p.box((0.0, (panel_bottom + panel_top) * 0.5, half_d - bezel_d - box_d * 0.5),
           (size[0] - 0.04, panel_top - panel_bottom - 0.02, box_d),

@@ -1,0 +1,116 @@
+[
+  {
+    "model": "assets/entities/spooner-man/model/spooner-man.glb",
+    "sha256": "cea946eb436366ac12a456a252af46ab59c4bd6553605f4127456268a1e8631f",
+    "source_pngs": [
+      "assets/entities/spooner-man/textures/spooner_man_00.png",
+      "assets/entities/spooner-man/textures/spooner_man_01.png",
+      "assets/entities/spooner-man/textures/spooner_man_02.png"
+    ]
+  },
+  {
+    "model": "assets/entities/rat/model/rat.glb",
+    "sha256": "81ec999b0dd69a64fc7fcca9fbb06556e07a51d36f784dc4ec2fe51e56125254",
+    "source_pngs": [
+      "assets/entities/rat/textures/rat_fur_01.png"
+    ]
+  },
+  {
+    "model": "assets/entities/skeleton/model/skeleton.glb",
+    "sha256": "ae550e413905065cd7f5471612af10a5be5577b1f6974dcf8dd8247ef6e31486",
+    "source_pngs": [
+      "assets/entities/skeleton/textures/bone_01.png"
+    ]
+  },
+  {
+    "model": "assets/entities/mannequin/model/mannequin.glb",
+    "sha256": "e2094828aabc61730431999e01b7a396c9a43ee8931bea418d63fc4222e2ab84",
+    "source_pngs": [
+      "assets/entities/mannequin/textures/concrete_grey_01.png"
+    ]
+  },
+  {
+    "model": "assets/environment/pool/props/models/rubber_duck.glb",
+    "sha256": "a37e24100b02945c1abe5dda8a0812ba274df42b393c3e388e6adfe12546aa99",
+    "source_pngs": [
+      "assets/environment/pool/props/models/rubber_duck.png"
+    ]
+  },
+  {
+    "model": "assets/environment/home/props/models/ball_light.glb",
+    "sha256": "e031d80f461aaacf8720b25fe422e9f10e97297e82567e003f5510122fa85b9a",
+    "source_pngs": [
+      "assets/environment/home/props/models/ball_light.png"
+    ]
+  },
+  {
+    "model": "assets/environment/home/props/models/wall_switch.glb",
+    "sha256": "13f55e0a26d5a645bc9b3ffe2f7111cb0df410e3f30329ce71e8efee3d6ed8b1",
+    "source_pngs": [
+      "assets/environment/home/props/models/wall_switch.png"
+    ]
+  },
+  {
+    "model": "assets/environment/home/props/models/knife.glb",
+    "sha256": "54bf4614f2827f05633a3df4113496aaaa36fb52bcf7d305a31cb7b3f94fca53",
+    "source_pngs": [
+      "assets/environment/home/props/models/knife.png"
+    ]
+  },
+  {
+    "model": "assets/environment/home/props/models/crt_tv.glb",
+    "sha256": "bba0894f5591228fc31ebb98b488cc9151f46ed606bacb10210484ce16388617",
+    "source_pngs": [
+      "assets/environment/home/props/models/crt_tv.png"
+    ]
+  },
+  {
+    "model": "assets/environment/home/props/models/plate.glb",
+    "sha256": "80a20bf98da116c9398f739400def2e46dc6e5b9122c1ccbeae4f7c3a91a6e4d",
+    "source_pngs": [
+      "assets/environment/home/props/models/plate.png"
+    ]
+  },
+  {
+    "model": "assets/environment/home/props/models/fork.glb",
+    "sha256": "f24470040771b5ed0b5fb4249c7171f3a180d1611fe93fccd9dd08a7d9b8e8e3",
+    "source_pngs": [
+      "assets/environment/home/props/models/fork.png"
+    ]
+  },
+  {
+    "model": "assets/environment/home/props/models/spoon.glb",
+    "sha256": "21ffc0bf39a9bccc131698cf4747785b025b47f813a4f4831e730033d5747ec0",
+    "source_pngs": [
+      "assets/environment/home/props/models/spoon.png"
+    ]
+  },
+  {
+    "model": "assets/environment/home/props/models/bowl.glb",
+    "sha256": "d332b9c62d0712640875fc5950789154590f127a880c057f165767e16738665d",
+    "source_pngs": [
+      "assets/environment/home/props/models/bowl.png"
+    ]
+  },
+  {
+    "model": "assets/environment/home/props/models/plant_table.glb",
+    "sha256": "151deedcf118dc22c141956f2cb1304a93a1891cc67b9da719fbb240761facbe",
+    "source_pngs": [
+      "assets/environment/home/props/models/plant_table.png"
+    ]
+  },
+  {
+    "model": "assets/core/props/models/stop_sign.glb",
+    "sha256": "e4c693e6a328d3e1b3b8b408c3aa9521669bddbdf09dabb20c3b5cb8c136f5ee",
+    "source_pngs": [
+      "assets/core/props/models/stop_sign.png"
+    ]
+  },
+  {
+    "model": "assets/core/props/models/exit_sign.glb",
+    "sha256": "64b6cb51ba1e4e0fb06aaad50ac8e57cceffe64a2c4bb84c647e78fa87d19090",
+    "source_pngs": [
+      "assets/core/props/models/exit_sign.png"
+    ]
+  }
+]

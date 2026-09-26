@@ -9,8 +9,14 @@ from mesh import FACE_KEYS, FACE_SHADE, _rotate
 from tex import decode_png
 
 
-def load_atlas(p, name, regions):
-    source = Path(__file__).resolve().parents[3] / "assets/core/props/models" / (name + ".png")
+def load_atlas_from(p, source: Path, regions):
+    """Load an opaque square source PNG from an explicit path into ``p``.
+
+    The themed packs keep their committed source art beside their GLBs (for
+    example ``assets/environment/home/props/models/plate.png``), so the loader
+    takes the path rather than a name; :func:`load_atlas` is the core-pack
+    shorthand that resolves the name under ``assets/core/props/models``.
+    """
     width, height, pixels = decode_png(source.read_bytes())
     # 256x256 is the normal native prop-atlas size; 32/64/128 remain legal for
     # lighter props. The runtime decoder accepts up to 1024 and downscales to
@@ -28,6 +34,11 @@ def load_atlas(p, name, regions):
     if regions:
         tex.auto(*regions)
     return tex
+
+
+def load_atlas(p, name, regions):
+    source = Path(__file__).resolve().parents[3] / "assets/core/props/models" / (name + ".png")
+    return load_atlas_from(p, source, regions)
 
 
 def orient_outward(mesh, start, center):
@@ -63,8 +74,6 @@ def solid_box(p, center, size, **kwargs):
                     x, _, z = p.mesh.positions[i]
                     p.mesh.uvs[i] = (u0 + ((x - center[0]) / size[0] + 0.5) * (u1 - u0),
                                     v0 + ((z - center[2]) / size[2] + 0.5) * (v1 - v0))
-    if kwargs.get("proxy", True):
-        proxy_color(p, kwargs["uv"], kwargs.get("color", (255, 255, 255)))
 
 
 def solid_cylinder(p, base, radius, height, **kwargs):
@@ -75,20 +84,15 @@ def solid_cylinder(p, base, radius, height, **kwargs):
     center = list(base)
     center[axis] += height * 0.5
     orient_outward(p.mesh, start, center)
-    if kwargs.get("proxy", True):
-        proxy_color(p, kwargs.get("uv") or kwargs["side_uv"], kwargs.get("color", (255, 255, 255)))
 
 
-def proxy_color(p, uv, color):
-    """Colour the most recent untextured editor proxy from its atlas region."""
-    if isinstance(uv, dict):
-        uv = uv.get("+z") or next(value for value in uv.values() if value is not None)
-    u0, v0, u1, v1 = uv
-    samples = [p.tex.pixels[(y * p.tex.width + x) * 4:(y * p.tex.width + x) * 4 + 3]
-               for y in range(int(v0 * p.tex.height), int(v1 * p.tex.height))
-               for x in range(int(u0 * p.tex.width), int(u1 * p.tex.width))]
-    rgb = tuple(round(sum(pixel[c] for pixel in samples) / len(samples) * color[c] / 255) for c in range(3))
-    p.mesh.parts[-1]["color"] = "#%02x%02x%02x" % rgb
+def outward_lathe(p, base, profile, **kwargs):
+    """Opt-in corrected winding for the legacy Y-axis surface of revolution."""
+    start = len(p.mesh.indices)
+    p.lathe(base, profile, **kwargs)
+    if kwargs.get("axis", "y") == "y":
+        for index in range(start, len(p.mesh.indices), 3):
+            p.mesh.indices[index + 1], p.mesh.indices[index + 2] = p.mesh.indices[index + 2], p.mesh.indices[index + 1]
 
 
 def padded_box(p, center, size, uv, bevel=0.025, rotation=(0.0, 0.0, 0.0)):
@@ -146,6 +150,3 @@ def padded_box(p, center, size, uv, bevel=0.025, rotation=(0.0, 0.0, 0.0)):
             face([(low, a), (high, a), (high, b), (low, b)])
     for signs in product((-1, 1), repeat=3):
         face([(signs, axis) for axis in range(3)])
-    p.mesh.parts.append({"shape": "box", "center": list(center), "size": list(size),
-                         "rotation": list(rotation), "color": "#ffffff"})
-    proxy_color(p, uv, (255, 255, 255))

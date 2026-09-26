@@ -205,8 +205,12 @@ fn shipped_prop_assets_match_the_catalogue_and_budgets() {
     // object are allowlisted explicitly instead of raising the global limit.
     // spooner-man is a tuxedo cat: a recognisable creature needs a head,
     // legs, a tail and readable markings, so he sits above the 800-triangle
-    // review threshold and well under the 1500 hard ceiling.
-    let detailed_props = ["spooner-man"];
+    // review threshold and well under the 1500 hard ceiling. The run-04
+    // entities are the same case: a readable human mannequin, a rat with
+    // four articulated legs and a tail, and an articulated skeleton all need
+    // anatomy no box-shaped prop has (1130 / 856 / 1352 triangles, all under
+    // the 1500 shipped-art ceiling).
+    let detailed_props = ["spooner-man", "mannequin", "rat", "skeleton"];
     let over_review: Vec<(String, usize)> = entries
         .iter()
         .filter_map(|entry| entry.model.as_deref().map(|path| (entry.id.clone(), path)))

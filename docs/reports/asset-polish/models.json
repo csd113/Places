@@ -1,0 +1,118 @@
+[
+  {
+    "file": "assets/entities/spooner-man/model/spooner-man.glb",
+    "triangles": 1380,
+    "joints": 26,
+    "clips": [
+      "idle",
+      "walk",
+      "sit_down",
+      "sit_idle",
+      "stand_up"
+    ]
+  },
+  {
+    "file": "assets/entities/rat/model/rat.glb",
+    "triangles": 1428,
+    "joints": 25,
+    "clips": [
+      "idle",
+      "walk",
+      "run"
+    ]
+  },
+  {
+    "file": "assets/entities/skeleton/model/skeleton.glb",
+    "triangles": 1488,
+    "joints": 24,
+    "clips": [
+      "pose_stand",
+      "pose_sit_floor",
+      "pose_sit_chair"
+    ]
+  },
+  {
+    "file": "assets/entities/mannequin/model/mannequin.glb",
+    "triangles": 1370,
+    "joints": 23,
+    "clips": [
+      "pose_stand",
+      "pose_arms_up",
+      "pose_arms_forward"
+    ]
+  },
+  {
+    "file": "assets/environment/pool/props/models/rubber_duck.glb",
+    "triangles": 332,
+    "joints": 0,
+    "clips": []
+  },
+  {
+    "file": "assets/environment/home/props/models/ball_light.glb",
+    "triangles": 258,
+    "joints": 0,
+    "clips": []
+  },
+  {
+    "file": "assets/environment/home/props/models/wall_switch.glb",
+    "triangles": 164,
+    "joints": 0,
+    "clips": [
+      "toggle"
+    ]
+  },
+  {
+    "file": "assets/environment/home/props/models/knife.glb",
+    "triangles": 98,
+    "joints": 0,
+    "clips": []
+  },
+  {
+    "file": "assets/environment/home/props/models/crt_tv.glb",
+    "triangles": 246,
+    "joints": 0,
+    "clips": []
+  },
+  {
+    "file": "assets/environment/home/props/models/plate.glb",
+    "triangles": 256,
+    "joints": 0,
+    "clips": []
+  },
+  {
+    "file": "assets/environment/home/props/models/fork.glb",
+    "triangles": 308,
+    "joints": 0,
+    "clips": []
+  },
+  {
+    "file": "assets/environment/home/props/models/spoon.glb",
+    "triangles": 232,
+    "joints": 0,
+    "clips": []
+  },
+  {
+    "file": "assets/environment/home/props/models/bowl.glb",
+    "triangles": 256,
+    "joints": 0,
+    "clips": []
+  },
+  {
+    "file": "assets/environment/home/props/models/plant_table.glb",
+    "triangles": 326,
+    "joints": 0,
+    "clips": []
+  },
+  {
+    "file": "assets/core/props/models/stop_sign.glb",
+    "triangles": 80,
+    "joints": 0,
+    "clips": []
+  },
+  {
+    "file": "assets/core/props/models/exit_sign.glb",
+    "triangles": 90,
+    "joints": 0,
+    "clips": []
+  }
+]

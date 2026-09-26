@@ -231,7 +231,6 @@ def build_stove(p: PropBuilder) -> None:
         (width - 0.06, plinth_h, cabinet_depth - 0.05),
         uv=tex.uv("side"),
         color=plinth_color,
-        proxy=False,  # the plinth sits inside the body silhouette
     )
     p.box(
         (0.0, plinth_h + (rail_bottom - plinth_h) * 0.5, hob_z),
@@ -254,7 +253,6 @@ def build_stove(p: PropBuilder) -> None:
         (width - 0.08, 0.03, 0.015),
         uv=tex.uv("side"),
         color=palette.hex_to_rgb(palette.CHROME),
-        proxy=False,
     )
     # Drawer seam under the door.
     p.box(
@@ -262,7 +260,6 @@ def build_stove(p: PropBuilder) -> None:
         (width - 0.06, 0.07, 0.02),
         uv=tex.uv("side"),
         color=palette.shade(metal, 1.02),
-        proxy=False,
     )
     # Knob rail: the slab under the hob carries the controls and four knobs.
     p.box(
@@ -282,7 +279,6 @@ def build_stove(p: PropBuilder) -> None:
             side_uv=tex.uv("side"),
             cap_uv=tex.uv("side"),
             color=knob,
-            proxy=False,
         )
     # Hob decal 2.5 mm above the slab: 2 triangles buy the burner layout with
     # the intuitive plan mapping instead of the box top's rotated UVs.
@@ -386,7 +382,6 @@ def build_sink(p: PropBuilder) -> None:
         (width - 0.03, plinth_h, kick_front - kick_back),
         uv=tex.uv("frame"),
         color=palette.shade(steel_dark, 0.75),
-        proxy=False,
     )
     p.box(
         (0.0, (plinth_h + cabinet_top) * 0.5, (carcass_front + carcass_back) * 0.5),
@@ -408,7 +403,6 @@ def build_sink(p: PropBuilder) -> None:
             (0.018, 0.12, 0.012),
             uv=tex.uv("side"),
             color=chrome,
-            proxy=False,
         )
     p.box(
         (0.0, counter_top + 0.035, -half_d + 0.0125),
@@ -575,18 +569,7 @@ def build_sink(p: PropBuilder) -> None:
     p.tube((0.0, post_top - 0.02, -0.17), (0.0, post_top - 0.05, -0.06), 0.016, segments=6,
            uv=tex.uv("side"), color=chrome)
     p.cylinder((-0.04, post_top - 0.06, -0.17), 0.009, 0.08, segments=4, axis="x",
-               side_uv=tex.uv("side"), cap_uv=tex.uv("side"), color=chrome, proxy=False)
-    # Editor proxy: the hand-built slab is not a box() call, so register its
-    # coarse mass for the derived preview geometry.
-    p.mesh.parts.append(
-        {
-            "shape": "box",
-            "center": [0.0, (counter_bottom + counter_top) * 0.5, 0.0],
-            "size": [width, counter_h, depth],
-            "rotation": [0.0, 0.0, 0.0],
-            "color": "#a6aeaf",
-        }
-    )
+               side_uv=tex.uv("side"), cap_uv=tex.uv("side"), color=chrome)
     p.add_note("deck top at 0.90 m (the Home cabinet run's counter plane); slab and bowl are two closed shells: rolled rim, sloped walls, floor and drain")
 
 
@@ -613,7 +596,6 @@ def build_fridge(p: PropBuilder) -> None:
         (width - 0.04, plinth_h, depth - 0.08),
         uv=tex.uv("side", inset=2),
         color=palette.shade(metal_dark, 0.85),
-        proxy=False,
     )
     solid_box(p,
         (0.0, plinth_h + (height - plinth_h) * 0.5, (body_front - half_d) * 0.5),
@@ -648,7 +630,6 @@ def build_fridge(p: PropBuilder) -> None:
             (0.04, 0.07, 0.025),
             uv=tex.uv("side", inset=2),
             color=palette.shade(metal, 0.7),
-            proxy=False,
         )
     p.add_note("freezer/fridge split is a modelled door seam plus painted gaskets; handles are 2 cm bars")
 
@@ -738,7 +719,6 @@ def build_washing_machine(p: PropBuilder) -> None:
         (width - 0.06, 0.04, body - 0.06),
         uv=tex.uv("rim"),
         color=palette.shade(metal_dark, 0.8),
-        proxy=False,
     )
     # Body: the front face is omitted; the panel around the porthole below
     # supplies it, with a genuine opening into the cavity.
@@ -834,7 +814,6 @@ def build_washing_machine(p: PropBuilder) -> None:
         (0.15, 0.09, 0.01),
         uv=tex.uv("rim"),
         color=metal_light,
-        proxy=False,
     )
     p.cylinder((0.19, 0.73, panel_z + 0.015), 0.022, 0.015, segments=6, axis="z",
                side_uv=tex.uv("rim"), cap_uv=tex.uv("rim"), color=dark)
@@ -1016,21 +995,7 @@ def build_washer_drum(p: PropBuilder) -> None:
             uv=lifter_uv,
             color=steel_light,
             rotation=(0.0, 90.0 - angle, 0.0),
-            proxy=False,  # internal: the shell proxy already covers the silhouette
         )
-    # The editor's derived preview only needs the outer mass.
-    p.mesh.parts.append(
-        {
-            "shape": "cylinder",
-            "axis": "y",
-            "base": [0.0, 0.0, 0.0],
-            "radius": round(radius, 4),
-            "height": round(height, 4),
-            "segments": segments,
-            "taper": 1.0,
-            "color": "#b0b4b6",
-        }
-    )
     p.add_note("open basket: rim, inner wall, ribbed floor and three lifters; only the shell is a straight cylinder")
 
 
@@ -1127,7 +1092,6 @@ def build_vending_machine(p: PropBuilder) -> None:
         (width - 0.08, 0.09, body - 0.08),
         uv=tex.uv("trim"),
         color=palette.shade(metal_dark, 0.8),
-        proxy=False,
     )
     p.box(
         (0.0, height * 0.5, middle),
@@ -1240,7 +1204,6 @@ def build_water_cooler(p: PropBuilder) -> None:
         (width - 0.05, plinth_h, cabinet_depth - 0.03),
         uv=tex.uv("side"),
         color=plinth_color,
-        proxy=False,
     )
     p.box(
         (0.0, plinth_h + (cabinet_top - plinth_h) * 0.5, -0.01),
@@ -1316,7 +1279,7 @@ def build_water_cooler(p: PropBuilder) -> None:
         p.cylinder((sx * 0.055, 0.50, cabinet_front), 0.019, taps, segments=6, axis="z",
                    side_uv=tex.uv("side"), cap_uv=tex.uv("side"), color=palette.hex_to_rgb(palette.CHROME))
     p.box((0.0, 0.42, cabinet_front + taps * 0.5), (0.15, 0.014, taps),
-          uv=tex.uv("side"), color=palette.hex_to_rgb(palette.CHROME), proxy=False)
+          uv=tex.uv("side"), color=palette.hex_to_rgb(palette.CHROME))
     p.add_note("bottle translucency is a painted gradient on an 8-segment taper; taps are geometry")
 
 

@@ -827,7 +827,15 @@ pub fn build_level_geometry_with_catalog_and_materials(
     materials: &MaterialTable,
 ) -> LevelMesh {
     let lighting = LevelLighting::bake(level);
-    let fallbacks: Vec<&PropDef> = level.props.iter().collect();
+    // The asset-less path draws every prop as its placeholder box, but a
+    // floating prop has no static box: its geometry lives in the dynamic
+    // scene's float lane, so drawing a box on the basin floor would disagree
+    // with the drawn float and leak into the vertex-lit parity checks.
+    let fallbacks: Vec<&PropDef> = level
+        .props
+        .iter()
+        .filter(|prop| prop.float.is_none())
+        .collect();
     build_level_geometry_mesh(level, catalog, &fallbacks, &lighting, materials)
 }
 

@@ -25,9 +25,11 @@
 use crate::test_support::{assert_exact, assert_exact_array, assert_exact_named};
 
 use super::*;
+use crate::game::LocomotionSnapshot;
 use crate::level::{LevelDef, PropDef};
 use crate::lighting::LevelLighting;
 use crate::render::common::MeshPacker;
+use crate::render::common::character::PoseCue;
 use crate::render::common::decals::{DECAL_ATLAS_SIZE, generate_decal_atlas};
 use crate::render::common::mesh;
 use crate::spatial::{DepthRange, Frustum};
@@ -1673,6 +1675,9 @@ fn placeholder_prop_boxes_receive_the_environment_lighting() {
     let mut level = level;
     level.props = vec![
         PropDef {
+            id: None,
+            display_name: None,
+            interaction: None,
             model: "core:crate".into(),
             x: 10.0,
             y: 0.0,
@@ -1682,8 +1687,12 @@ fn placeholder_prop_boxes_receive_the_environment_lighting() {
             size: Some([1.0, 1.0, 1.0]),
             solid: false,
             lights: Vec::new(),
+            float: None,
         },
         PropDef {
+            id: None,
+            display_name: None,
+            interaction: None,
             model: "core:crate".into(),
             x: 1.0,
             y: 0.0,
@@ -1693,6 +1702,7 @@ fn placeholder_prop_boxes_receive_the_environment_lighting() {
             size: Some([1.0, 1.0, 1.0]),
             solid: false,
             lights: Vec::new(),
+            float: None,
         },
     ];
     let mesh = build_level_geometry(&level);
@@ -1732,6 +1742,9 @@ fn vertically_offset_props_sample_their_true_world_position() {
         r#"[{ "fixture": "core:fluorescent_panel_01", "x": 10.0, "z": 10.0 }]"#,
     );
     let base = PropDef {
+        id: None,
+        display_name: None,
+        interaction: None,
         model: "core:crate".into(),
         x: 10.0,
         y: 0.0,
@@ -1741,6 +1754,7 @@ fn vertically_offset_props_sample_their_true_world_position() {
         size: Some([1.0, 1.0, 1.0]),
         solid: false,
         lights: Vec::new(),
+        float: None,
     };
     let mut raised = base.clone();
     raised.y = 2.0;
@@ -2734,6 +2748,7 @@ fn decal_rotation_is_a_pure_in_plane_spin() {
         rotation_degrees: 0.0,
         material: "core:decal_test_01".into(),
         surface: crate::level::DecalSurface::WallSouth,
+        align: crate::level::DecalAlign::None,
     };
     let quarter = crate::level::DecalDef {
         rotation_degrees: 90.0,
@@ -2794,6 +2809,7 @@ fn malformed_decals_never_emit_geometry() {
                 rotation_degrees: 0.0,
                 material: DECAL_TEST_MATERIAL.into(),
                 surface: crate::level::DecalSurface::WallSouth,
+                align: crate::level::DecalAlign::None,
             }
         },
         crate::level::DecalDef {
@@ -2807,6 +2823,7 @@ fn malformed_decals_never_emit_geometry() {
                 rotation_degrees: 0.0,
                 material: DECAL_TEST_MATERIAL.into(),
                 surface: crate::level::DecalSurface::Floor,
+                align: crate::level::DecalAlign::None,
             }
         },
         crate::level::DecalDef {
@@ -2820,6 +2837,7 @@ fn malformed_decals_never_emit_geometry() {
                 rotation_degrees: f32::INFINITY,
                 material: DECAL_TEST_MATERIAL.into(),
                 surface: crate::level::DecalSurface::Floor,
+                align: crate::level::DecalAlign::None,
             }
         },
     ] {
@@ -6778,6 +6796,7 @@ fn a_placed_spooner_man_becomes_a_character_and_a_chair_does_not() {
             state: crate::game::LocomotionState::Walking,
             speed: 2.0,
         },
+        &[],
     );
     assert_eq!(update.moved, 1);
     assert!(
@@ -6790,8 +6809,13 @@ fn a_placed_spooner_man_becomes_a_character_and_a_chair_does_not() {
 
 /// The shipped demo level places exactly one skinned prop, and the character
 /// path claims its model without touching the rest of the prop field.
+///
+/// The demo now places two animated props: the skinned Spooner-Man and the
+/// rigid (skinless) kitchen wall switch. Each is claimed once, by its own
+/// model, and the skinned one is the only character running the locomotion
+/// driver.
 #[test]
-fn the_places_demo_level_places_one_animated_spooner_man() {
+fn the_places_demo_level_places_its_animated_props_once() {
     let content = std::fs::read_to_string("assets/levels/places_demo.json")
         .expect("the demo level must be readable");
     let level = LevelDef::from_json(&content).expect("the demo level parses");
@@ -6799,13 +6823,50 @@ fn the_places_demo_level_places_one_animated_spooner_man() {
     let mut assets = shipped_assets();
     let lighting = LevelLighting::bake(&level);
     let scene = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
-    assert_eq!(scene.len(), 1, "the demo places one skinned character");
-    let model_path = catalog
-        .get("spooner-man")
+    assert_eq!(scene.len(), 2, "the demo places two animated props");
+    let mut ids: Vec<&str> = scene
+        .characters()
+        .iter()
+        .filter_map(|character| character.instance_id())
+        .collect();
+    ids.sort_unstable();
+    assert_eq!(ids, ["kitchen_switch", "spooner_man"]);
+    let skinned: Vec<&Character> = scene
+        .characters()
+        .iter()
+        .filter(|character| character.asset().model.is_skinned())
+        .collect();
+    assert_eq!(skinned.len(), 1, "one skinned character");
+    assert!(
+        !skinned[0].animator().is_rigid(),
+        "the skinned character runs the locomotion driver"
+    );
+    let rigid: Vec<&Character> = scene
+        .characters()
+        .iter()
+        .filter(|character| character.animator().is_rigid())
+        .collect();
+    assert_eq!(rigid.len(), 1, "one rigid animated prop");
+    assert_eq!(rigid[0].instance_id(), Some("kitchen_switch"));
+
+    // Both claimed models are suppressed from the static batch: exactly the
+    // two models that every placement of is a character.
+    let mut claimed: Vec<&str> = scene.claimed_models().iter().map(String::as_str).collect();
+    claimed.sort_unstable();
+    let spooner = catalog.get("spooner-man").model.expect("spooner-man model");
+    let switch = catalog
+        .get("home:wall_switch")
         .model
-        .expect("spooner-man has a model");
-    assert_eq!(scene.claimed_models(), std::slice::from_ref(&model_path));
-    let character = &scene.characters()[0];
+        .expect("wall switch model");
+    let mut expected = vec![spooner.as_str(), switch.as_str()];
+    expected.sort_unstable();
+    assert_eq!(claimed, expected);
+
+    let character = scene
+        .characters()
+        .iter()
+        .find(|character| character.instance_id() == Some("spooner_man"))
+        .expect("spooner-man is claimed");
     let placement = level
         .props
         .iter()
@@ -6888,4 +6949,597 @@ fn the_static_path_still_bakes_the_spooner_man_bind_pose() {
         (0.165..0.9).contains(&widest),
         "the rotated bind-pose footprint {widest:.3} m is not the cat's"
     );
+}
+
+/// Two placed instances of one skinned model follow independent entity frames:
+/// each takes its own live transform and cue, and a frame-less pass does not
+/// disturb either.
+#[test]
+fn two_placed_characters_follow_independent_entity_frames() {
+    use crate::render::common::character::{EntityFrame, PoseCue};
+
+    let catalog = shipped_catalog();
+    let mut assets = shipped_assets();
+    let level = level_with_wall_and_lights(
+        "[]",
+        r#"[
+            { "id": "cat_a", "model": "spooner-man", "x": 1.0, "z": 1.0 },
+            { "id": "cat_b", "model": "spooner-man", "x": 3.0, "z": 1.0,
+              "rotation_degrees": 90.0 }
+        ]"#,
+        r#"[{ "fixture": "core:fluorescent_panel_01", "x": 0.0, "z": 0.0 }]"#,
+    );
+    let lighting = LevelLighting::bake(&level);
+    let mut scene = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
+    assert_eq!(scene.len(), 2, "both placements are characters");
+    assert_eq!(scene.characters()[0].instance_id(), Some("cat_a"));
+    assert_eq!(scene.characters()[1].instance_id(), Some("cat_b"));
+
+    let frames = vec![
+        EntityFrame {
+            instance_id: "cat_a".into(),
+            transform: Some((glam::Vec3::new(5.0, 0.0, 2.0), std::f32::consts::FRAC_PI_2)),
+            cue: PoseCue::Walk { speed_mps: 0.5 },
+        },
+        EntityFrame {
+            instance_id: "cat_b".into(),
+            transform: Some((glam::Vec3::new(2.0, 0.0, 4.0), 0.0)),
+            cue: PoseCue::Clip {
+                name: "sit_idle".into(),
+                once: false,
+                paused: false,
+            },
+        },
+    ];
+    let update = scene.update(
+        1.0 / 60.0,
+        crate::game::LocomotionSnapshot::default(),
+        &frames,
+    );
+    assert!(update.moved >= 1, "a cued pose change counts as moved");
+
+    let a = scene
+        .characters()
+        .iter()
+        .find(|character| character.instance_id() == Some("cat_a"))
+        .expect("cat_a");
+    let centre = a.transform().transform_point3(glam::Vec3::ZERO);
+    assert!((centre.x - 5.0).abs() < 1e-5 && (centre.z - 2.0).abs() < 1e-5);
+    let b = scene
+        .characters()
+        .iter()
+        .find(|character| character.instance_id() == Some("cat_b"))
+        .expect("cat_b");
+    let centre = b.transform().transform_point3(glam::Vec3::ZERO);
+    assert!((centre.x - 2.0).abs() < 1e-5 && (centre.z - 4.0).abs() < 1e-5);
+    assert_ne!(
+        a.world_bounds().min,
+        b.world_bounds().min,
+        "each live transform gets its own culling bounds"
+    );
+
+    // A frame-less pass keeps both transforms (the id lookup, not the player
+    // state, decides who moves).
+    let (a_transform, b_transform) = (a.transform(), b.transform());
+    scene.update(1.0 / 60.0, crate::game::LocomotionSnapshot::default(), &[]);
+    let a = scene
+        .characters()
+        .iter()
+        .find(|character| character.instance_id() == Some("cat_a"))
+        .expect("cat_a");
+    let b = scene
+        .characters()
+        .iter()
+        .find(|character| character.instance_id() == Some("cat_b"))
+        .expect("cat_b");
+    assert_eq!(a.transform(), a_transform);
+    assert_eq!(b.transform(), b_transform);
+}
+
+/// Resolves one shipped entity GLB for the character-cue tests.
+fn shipped_entity(path: &str) -> std::rc::Rc<crate::props::LoadedPropAsset> {
+    let mut assets = shipped_assets();
+    assets
+        .resolve(path)
+        .unwrap_or_else(|error| panic!("{path}: {error}"))
+}
+
+/// The joint slot whose skin node is named `name`.
+fn entity_joint_slot(model: &crate::gltf::PropModel, name: &str) -> Option<usize> {
+    let skin = model.skin.as_ref()?;
+    skin.joints.iter().position(|joint| {
+        skin.nodes
+            .get(usize::from(*joint))
+            .is_some_and(|node| node.name == name)
+    })
+}
+
+/// Sum of `vertex`'s skin weights over `slots`.
+fn entity_weights_on(model: &crate::gltf::PropModel, vertex: usize, slots: &[usize]) -> f32 {
+    model.joints[vertex]
+        .iter()
+        .zip(model.weights[vertex].iter())
+        .filter(|(slot, _)| slots.contains(&usize::from(**slot)))
+        .map(|(_, weight)| *weight)
+        .sum()
+}
+
+/// Every vertex skinned with the animator's current pose.
+fn entity_posed(
+    animator: &crate::render::common::character::CharacterAnimator,
+    model: &crate::gltf::PropModel,
+) -> Vec<[f32; 3]> {
+    (0..model.vertices.len())
+        .map(|vertex| {
+            animator.skin_position(
+                model.joints[vertex],
+                model.weights[vertex],
+                model.vertices[vertex].pos,
+            )
+        })
+        .collect()
+}
+
+/// Drives one held pose cue for 1.5 s of 60 Hz frames (the crossfade settles).
+fn entity_hold(animator: &mut crate::render::common::character::CharacterAnimator, name: &str) {
+    use crate::render::common::character::PoseCue;
+    let cue = PoseCue::Clip {
+        name: name.to_string(),
+        once: true,
+        paused: false,
+    };
+    for _ in 0..90 {
+        animator.update_cued(1.0 / 60.0, &cue);
+    }
+}
+
+/// The low/high y of `vertices` in one posed frame.
+fn entity_lowest(posed: &[[f32; 3]], vertices: &[usize]) -> f32 {
+    vertices
+        .iter()
+        .map(|vertex| posed[*vertex][1])
+        .fold(f32::MAX, f32::min)
+}
+
+/// The shipped mannequin's three pose clips drive the real character animator:
+/// selecting a pose through the cue path moves the hand vertices into the arm
+/// pose and keeps the feet grounded, and the bind-equivalent `pose_stand`
+/// returns to the rest silhouette.
+#[test]
+fn the_shipped_mannequin_selects_its_poses_through_cues() {
+    use crate::render::common::character::CharacterAnimator;
+
+    let asset = shipped_entity("entities/mannequin/model/mannequin.glb");
+    let model = &asset.model;
+    assert!(model.is_skinned());
+    let names: Vec<&str> = model
+        .animations
+        .iter()
+        .map(|animation| animation.name.as_str())
+        .collect();
+    assert_eq!(names, ["pose_stand", "pose_arms_up", "pose_arms_forward"]);
+    for animation in &model.animations {
+        assert!(animation.looped, "a pose is a hold");
+        assert_eq!(animation.kind.as_deref(), Some("pose"));
+        assert!(animation.reference_speed_mps.is_none());
+    }
+
+    let hand_slots: Vec<usize> = ["hand_l", "hand_r"]
+        .iter()
+        .filter_map(|name| entity_joint_slot(model, name))
+        .collect();
+    assert_eq!(hand_slots.len(), 2);
+    let hand_vertices: Vec<usize> = (0..model.vertices.len())
+        .filter(|vertex| entity_weights_on(model, *vertex, &hand_slots) > 0.5)
+        .collect();
+    assert!(!hand_vertices.is_empty(), "the rig has hand geometry");
+    let highest = |posed: &[[f32; 3]]| {
+        hand_vertices
+            .iter()
+            .map(|vertex| posed[*vertex][1])
+            .fold(f32::MIN, f32::max)
+    };
+    let furthest = |posed: &[[f32; 3]]| {
+        hand_vertices
+            .iter()
+            .map(|vertex| posed[*vertex][2])
+            .fold(f32::MIN, f32::max)
+    };
+
+    let mut animator = CharacterAnimator::new(model).expect("animator");
+    entity_hold(&mut animator, "pose_arms_up");
+    let arms_up = entity_posed(&animator, model);
+    assert!(
+        highest(&arms_up) > 2.0,
+        "the raised hands clear the head: {} m",
+        highest(&arms_up)
+    );
+    let lowest = arms_up
+        .iter()
+        .map(|position| position[1])
+        .fold(f32::MAX, f32::min);
+    assert!(lowest > -0.01, "the feet stay on the floor: {lowest} m");
+
+    entity_hold(&mut animator, "pose_arms_forward");
+    let forward = entity_posed(&animator, model);
+    assert!(
+        furthest(&forward) > 0.55,
+        "the extended hands reach forward: {} m",
+        furthest(&forward)
+    );
+
+    entity_hold(&mut animator, "pose_stand");
+    let stand = entity_posed(&animator, model);
+    assert!(
+        highest(&stand) < 1.0,
+        "the standing pose drops the arms: {} m",
+        highest(&stand)
+    );
+    for (vertex, position) in stand.iter().enumerate() {
+        let bind = model.vertices[vertex].pos;
+        let moved = (position[0] - bind[0])
+            .abs()
+            .max((position[1] - bind[1]).abs())
+            .max((position[2] - bind[2]).abs());
+        assert!(moved < 0.02, "pose_stand matches the bind pose: {moved}");
+    }
+}
+
+/// The shipped rat declares its measured stride speeds, and the real
+/// character animator drives its paw geometry through walk and run cues with
+/// the feet staying on the floor.
+#[test]
+fn the_shipped_rat_walks_and_runs_with_declared_reference_speeds() {
+    use crate::render::common::character::{CharacterAnimator, PoseCue};
+
+    let asset = shipped_entity("entities/rat/model/rat.glb");
+    let model = &asset.model;
+    let names: Vec<(&str, Option<&str>)> = model
+        .animations
+        .iter()
+        .map(|animation| (animation.name.as_str(), animation.kind.as_deref()))
+        .collect();
+    assert_eq!(
+        names,
+        vec![
+            ("idle", Some("idle")),
+            ("walk", Some("walk")),
+            ("run", Some("run")),
+        ]
+    );
+    let reference = |name: &str| -> Option<f32> {
+        model
+            .animations
+            .iter()
+            .find(|animation| animation.name == name)
+            .and_then(|animation| animation.reference_speed_mps)
+    };
+    let walk_reference = reference("walk").expect("the walk declares its speed");
+    let run_reference = reference("run").expect("the run declares its speed");
+    assert!((walk_reference - 0.1985).abs() < 1.0e-3, "{walk_reference}");
+    assert!((run_reference - 0.5731).abs() < 1.0e-3, "{run_reference}");
+    for animation in &model.animations {
+        assert!(animation.looped, "every rat clip loops");
+    }
+
+    let paw_weight = |vertex: usize| -> f32 {
+        let skin = model.skin.as_ref().expect("skin");
+        model.joints[vertex]
+            .iter()
+            .zip(model.weights[vertex].iter())
+            .filter(|(slot, _)| {
+                skin.nodes
+                    .get(usize::from(**slot))
+                    .is_some_and(|node| node.name.ends_with("_paw"))
+            })
+            .map(|(_, weight)| *weight)
+            .sum()
+    };
+    let paw_vertices: Vec<usize> = (0..model.vertices.len())
+        .filter(|vertex| paw_weight(*vertex) > 0.5)
+        .collect();
+    assert!(paw_vertices.len() >= 20, "real paw geometry");
+
+    let mut animator = CharacterAnimator::new(model).expect("animator");
+    let drive = |animator: &mut CharacterAnimator, cue: PoseCue| -> (f32, f32) {
+        let mut lowest = f32::MAX;
+        let mut highest_paw_lift = f32::MIN;
+        for _ in 0..90 {
+            animator.update_cued(1.0 / 60.0, &cue);
+            let posed = entity_posed(animator, model);
+            lowest = lowest.min(posed.iter().map(|point| point[1]).fold(f32::MAX, f32::min));
+            highest_paw_lift = highest_paw_lift.max(
+                paw_vertices
+                    .iter()
+                    .map(|vertex| posed[*vertex][1])
+                    .fold(f32::MIN, f32::max),
+            );
+        }
+        (lowest, highest_paw_lift)
+    };
+
+    let (walk_low, walk_paw) = drive(
+        &mut animator,
+        PoseCue::Walk {
+            speed_mps: walk_reference,
+        },
+    );
+    assert!(
+        walk_low > -0.02,
+        "the walk never sinks through: {walk_low} m"
+    );
+    assert!(walk_paw > 0.01, "a walking paw lifts off: {walk_paw} m");
+    let (run_low, run_paw) = drive(
+        &mut animator,
+        PoseCue::Walk {
+            speed_mps: run_reference,
+        },
+    );
+    assert!(run_low > -0.02, "the run never sinks through: {run_low} m");
+    assert!(
+        run_paw > walk_paw,
+        "the run lifts the paws higher: {run_paw} vs {walk_paw} m"
+    );
+}
+
+/// The shipped skeleton's rig and poses work through the real character
+/// animator: the chair sit puts the pelvis at seat height, the floor sit drops
+/// it to the floor, and the soles stay on the ground in every pose.
+#[test]
+fn the_shipped_skeleton_sits_through_its_pose_cues() {
+    use crate::render::common::character::CharacterAnimator;
+
+    let asset = shipped_entity("entities/skeleton/model/skeleton.glb");
+    let model = &asset.model;
+    let names: Vec<&str> = model
+        .animations
+        .iter()
+        .map(|animation| animation.name.as_str())
+        .collect();
+    assert_eq!(names, ["pose_stand", "pose_sit_floor", "pose_sit_chair"]);
+    for animation in &model.animations {
+        assert!(animation.looped);
+        assert_eq!(animation.kind.as_deref(), Some("pose"));
+    }
+
+    let sole_slots: Vec<usize> = ["foot_l", "foot_r", "toe_l", "toe_r"]
+        .iter()
+        .filter_map(|name| entity_joint_slot(model, name))
+        .collect();
+    let pelvis_slot = entity_joint_slot(model, "pelvis").expect("pelvis");
+    let head_slot = entity_joint_slot(model, "head").expect("head");
+    let sole_vertices: Vec<usize> = (0..model.vertices.len())
+        .filter(|vertex| entity_weights_on(model, *vertex, &sole_slots) > 0.5)
+        .collect();
+    let pelvis_vertices: Vec<usize> = (0..model.vertices.len())
+        .filter(|vertex| entity_weights_on(model, *vertex, &[pelvis_slot]) > 0.3)
+        .collect();
+    let head_vertices: Vec<usize> = (0..model.vertices.len())
+        .filter(|vertex| entity_weights_on(model, *vertex, &[head_slot]) > 0.5)
+        .collect();
+    assert!(sole_vertices.len() > 20 && !pelvis_vertices.is_empty());
+
+    let mut animator = CharacterAnimator::new(model).expect("animator");
+    let bounds = |animator: &mut CharacterAnimator, name: &str| -> (f32, f32, f32, f32) {
+        entity_hold(animator, name);
+        let posed = entity_posed(animator, model);
+        (
+            posed.iter().map(|point| point[1]).fold(f32::MAX, f32::min),
+            entity_lowest(&posed, &sole_vertices),
+            entity_lowest(&posed, &pelvis_vertices),
+            entity_lowest(&posed, &head_vertices),
+        )
+    };
+
+    let (lowest, sole, pelvis, _) = bounds(&mut animator, "pose_stand");
+    assert!(lowest > -0.02, "standing sinks through the floor: {lowest}");
+    assert!((-0.02..=0.02).contains(&sole), "standing soles: {sole}");
+    assert!((0.8..=1.0).contains(&pelvis), "standing pelvis: {pelvis}");
+
+    let (lowest, sole, pelvis, floor_head) = bounds(&mut animator, "pose_sit_floor");
+    assert!(lowest > -0.02, "the floor sit sinks through: {lowest}");
+    assert!((-0.02..=0.02).contains(&sole), "floor sit soles: {sole}");
+    assert!((0.0..=0.15).contains(&pelvis), "floor sit pelvis: {pelvis}");
+
+    let (lowest, sole, pelvis, chair_head) = bounds(&mut animator, "pose_sit_chair");
+    assert!(lowest > -0.02, "the chair sit sinks through: {lowest}");
+    assert!((-0.02..=0.02).contains(&sole), "chair sit soles: {sole}");
+    assert!(
+        (0.40..=0.50).contains(&pelvis),
+        "chair sit pelvis: {pelvis}"
+    );
+    assert!(
+        chair_head > floor_head + 0.3,
+        "the chair sit keeps the head above the floor sit: {chair_head} vs {floor_head}"
+    );
+}
+
+/// The Run 05 demo duck's authored placement: non-solid, sized, floating in the
+/// demo pool (water surface -1.65 m, basin x 8..20, z 10..16).
+const DEMO_DUCK: &str = r#"{ "model": "core:rubber_duck", "x": 10.5, "z": 10.4,
+    "rotation_degrees": 180.0, "size": [0.10, 0.12, 0.14], "solid": false,
+    "float": { "draft": 0.03, "bob": 0.012, "bob_seconds": 2.4,
+               "heel_degrees": 3.0, "heel_seconds": 3.1 } }"#;
+
+/// A 24x24 m basin room carrying the demo pool's water (8..20 x 10..16 at
+/// -1.65 m) and the given props JSON, for the Run 05 float render tests.
+fn duck_pool_level(props_json: &str) -> LevelDef {
+    let json = format!(
+        r#"{{
+            "format_version": 1,
+            "id": "float_render_test",
+            "name": "Float Render Test",
+            "spawn": {{ "x": 1.0, "z": 1.0 }},
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 24.0, "depth": 24.0,
+                         "height": 3.5, "floor_y": -3.0 }}],
+            "water": [{{ "x": 8.0, "z": 10.0, "width": 12.0, "depth": 6.0,
+                         "surface_y": -1.65, "bottom_y": -3.0 }}],
+            "props": {props_json}
+        }}"#
+    );
+    LevelDef::from_json(&json).expect("the duck pool level parses")
+}
+
+/// The static prop path skips a floating placement entirely — no real batch and
+/// no placeholder box — while a static placement of the same model in the same
+/// level still batches exactly once.
+#[test]
+fn a_floating_prop_is_skipped_by_the_static_path_and_never_drops_a_box() {
+    let catalog = shipped_catalog();
+    let mut assets = shipped_assets();
+    let static_twin = r#"{ "model": "core:rubber_duck", "x": 2.0, "z": 2.0,
+                          "size": [0.10, 0.12, 0.14], "solid": false }"#;
+    let level = duck_pool_level(&format!("[{DEMO_DUCK}, {static_twin}]"));
+
+    let (mesh, batches) = build_level_geometry_with_assets(&level, &catalog, &mut assets);
+    assert_eq!(
+        mesh.batches.prop_batch.count, 0,
+        "a float must never fall back to a placeholder box"
+    );
+    assert_eq!(batches.len(), 1, "only the static twin batches");
+    let duck_model = catalog
+        .get("core:rubber_duck")
+        .model
+        .expect("the shipped catalogue maps the duck");
+    assert_eq!(batches[0].model, duck_model);
+
+    // Exactly one instance's worth of vertices: the float did not sneak into
+    // the batch beside the static twin. A single-placement level is the
+    // reference.
+    let single_level = duck_pool_level(&format!("[{static_twin}]"));
+    let (_, single_batches) =
+        build_level_geometry_with_assets(&single_level, &catalog, &mut assets);
+    assert_eq!(single_batches.len(), 1);
+    assert_eq!(
+        batches[0].vertices.len(),
+        single_batches[0].vertices.len(),
+        "the batch holds one placement, not two"
+    );
+
+    // The batch's bounds sit at the static twin (2, 2), never at the floating
+    // duck (10.5, 10.4).
+    let centre = batches[0].bounds.centre();
+    assert!((centre[0] - 2.0).abs() < 0.2, "batch centre {centre:?}");
+    assert!((centre[2] - 2.0).abs() < 0.2, "batch centre {centre:?}");
+}
+
+/// A floating prop owns no character: the duck's scenery model spawns no
+/// `CharacterScene` entry under its instance id and claims no model.
+#[test]
+fn a_floating_duck_never_becomes_a_character() {
+    let catalog = shipped_catalog();
+    let mut assets = shipped_assets();
+    let level = duck_pool_level(&format!("[{DEMO_DUCK}]"));
+    let lighting = LevelLighting::bake(&level);
+    let scene = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
+
+    let ids = level.prop_instance_ids();
+    let duck_id = ids.first().expect("the duck has an instance id");
+    assert_eq!(duck_id, "rubber_duck_1", "the only prop's default id");
+    assert!(
+        scene
+            .characters()
+            .iter()
+            .all(|character| character.instance_id() != Some(duck_id.as_str())),
+        "the floating duck must not spawn a character"
+    );
+    assert!(scene.is_empty(), "no other prop can spawn one either");
+    assert!(scene.claimed_models().is_empty());
+}
+
+/// Run 05: a scrub cue eases a clip's time toward one end and re-targets from
+/// the current pose, so the wall switch's lever reverses mid-move instead of
+/// snapping or restarting at an endpoint. The lever is the switch model's
+/// single animated joint; its delta rotation is the observable pose.
+#[test]
+fn a_scrub_cue_reverses_from_the_current_pose_and_holds_its_ends() {
+    let bytes = std::fs::read("assets/environment/home/props/models/wall_switch.glb")
+        .expect("the shipped wall switch is readable");
+    let model = crate::gltf::parse_glb(&bytes).expect("the wall switch parses");
+    let mut animator = CharacterAnimator::new(&model).expect("a rigid animator");
+    assert!(animator.is_rigid(), "the switch is posed rigidly");
+    let pivot = 1usize;
+    let angle = |animator: &CharacterAnimator| -> f32 {
+        let delta = animator.joint_delta(pivot).expect("the pivot joint exists");
+        let (_, rotation, _) = delta.to_scale_rotation_translation();
+        2.0 * rotation.w.clamp(-1.0, 1.0).acos().to_degrees()
+    };
+    let cue = |target: f32| PoseCue::Scrub {
+        name: "toggle".into(),
+        target,
+    };
+    let half_traverse = crate::render::common::character::SCRUB_TRAVERSE_SECONDS * 0.5;
+    animator.update_cued(half_traverse, &cue(1.0));
+    let half = angle(&animator);
+    assert!(half > 0.5 && half < 29.5, "mid-travel pose: {half}");
+    // A second press mid-travel reverses from the current pose: the angle
+    // falls and never jumps to an endpoint.
+    animator.update_cued(0.05, &cue(0.0));
+    let reversed = angle(&animator);
+    assert!(
+        reversed < half && reversed > 0.0,
+        "the reversal continues from the current pose: {half} -> {reversed}"
+    );
+    // Reach the rest end and hold there.
+    for _ in 0..20 {
+        animator.update_cued(0.05, &cue(0.0));
+    }
+    assert!(
+        angle(&animator) < 0.05,
+        "the rest end holds: {}",
+        angle(&animator)
+    );
+    assert!(animator.take_cue_finished(), "arrival is reported once");
+    // Then the far end, and hold.
+    for _ in 0..20 {
+        animator.update_cued(0.05, &cue(1.0));
+    }
+    let far = angle(&animator);
+    assert!((far - 30.0).abs() < 0.5, "the far end holds: {far}");
+    assert!(animator.take_cue_finished(), "arrival is reported once");
+}
+
+/// Run 05: an idle rigid prop holds its bind pose. It has no locomotion state,
+/// so the character path must not loop its non-locomotion clip.
+#[test]
+fn an_idle_rigid_prop_holds_its_bind_pose() {
+    let bytes = std::fs::read("assets/environment/home/props/models/wall_switch.glb")
+        .expect("the shipped wall switch is readable");
+    let model = crate::gltf::parse_glb(&bytes).expect("the wall switch parses");
+    let catalog = shipped_catalog();
+    let mut assets = shipped_assets();
+    let level = duck_pool_level(
+        r#"[{ "id": "hall_switch", "model": "home:wall_switch", "x": 2.0, "z": 2.0,
+              "size": [0.18, 0.18, 0.1] }]"#,
+    );
+    let lighting = LevelLighting::bake(&level);
+    let mut scene = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
+    assert_eq!(scene.len(), 1, "the switch is claimed as a rigid character");
+    let character = scene.characters().first().expect("one character");
+    assert!(character.animator().is_rigid());
+    let pivot = 1usize;
+    let before = character
+        .animator()
+        .joint_delta(pivot)
+        .expect("the pivot joint exists");
+    scene.update(
+        1.0,
+        LocomotionSnapshot {
+            state: crate::game::LocomotionState::Walking,
+            speed: 2.0,
+        },
+        &[],
+    );
+    let after = scene
+        .characters()
+        .first()
+        .expect("one character")
+        .animator()
+        .joint_delta(pivot)
+        .expect("the pivot joint exists");
+    assert_eq!(
+        before, after,
+        "an idle rigid prop holds its rest pose instead of looping its clip"
+    );
+    let _ = model;
 }

@@ -26,7 +26,7 @@ check.
 
 | id | name | what depends on it |
 | --- | --- | --- |
-| `test_room` | Test Room | The minimal single-room sample with a door and a window, used by the loader, renderer and level-editor round-trip tests. |
+| `test_room` | Test Room | The minimal single-room sample with a door and a window, used by the loader and renderer round-trip tests. |
 | `prop_showcase` | Prop Showcase (dev) | `test_showcase_level_collision_matches_the_solid_flags` and `the_showcase_level_renders_every_core_prop_with_real_geometry`. |
 | `prop_stress` | Prop Stress Test (dev) | `the_stress_level_batches_repeats_into_one_draw_per_model_and_cell` — ~150 repeated placements across nine models. |
 | `pool_showcase` | Pool Showcase | The Pool-family geometry and collision checks in `src/render/tests.rs` and `tests/test_package.py`. |

@@ -4,7 +4,7 @@ The canonical id is ``spooner-man`` (hyphen), matching `assets/catalog.json`
 and every level that places him; the underscore spelling is only this Python
 module's name. This module builds the toolkit's **static** cat: one mesh, one
 material, one 256x256 texture. The shipped entity is a hand-authored Blender
-export that carries a real 26-joint skin and no clips (see
+export that carries a real 26-joint skin and five authored clips (see
 `assets/entities/spooner-man/README.md`); the toolkit refuses to overwrite it
 unless `--force` is passed.
 
@@ -251,20 +251,10 @@ def build_spooner_man(p: PropBuilder) -> None:
         rotation=math.pi / 2,
         cap_start=False,
         cap_end=False,
-        proxy=False,
     )
     for index in range(neck_start, len(p.mesh.positions)):
         x, y, z = p.mesh.positions[index]
         p.mesh.positions[index] = (x, y + neck_rise * (z - neck_base_z) / neck_length, z)
-    # The editor's coarse proxy follows the same rising centreline.
-    for (start, radius_start), (end, radius_end) in zip(neck_profile, neck_profile[1:]):
-        p.mesh.parts.append({
-            "shape": "tube",
-            "start": [0.0, neck_base_y + neck_rise * start / neck_length, neck_base_z + start],
-            "end": [0.0, neck_base_y + neck_rise * end / neck_length, neck_base_z + end],
-            "radius": (radius_start + radius_end) * 0.5,
-            "color": "#2f3034",
-        })
 
     face_index_start = len(p.mesh.indices)
 
@@ -330,7 +320,6 @@ def build_spooner_man(p: PropBuilder) -> None:
             rotation=math.pi / 2,
             cap_start=False,
             cap_end=False,
-            proxy=False,
         )
         # The upper foreleg leans back/inward into the shoulder, while the
         # ankle stays over the forward-facing paw. Bury its open top ring in
@@ -339,14 +328,6 @@ def build_spooner_man(p: PropBuilder) -> None:
             x, y, z = p.mesh.positions[index]
             shoulder = max(0.0, (y - 0.142) / 0.068)
             p.mesh.positions[index] = (x - side * 0.012 * shoulder, y, z - 0.040 * shoulder)
-        elbow = [side * FRONT_LEG_X, 0.142, PAW_FRONT_Z]
-        p.mesh.parts.extend([
-            {"shape": "tube", "start": [side * FRONT_LEG_X, 0.030, PAW_FRONT_Z],
-             "end": elbow, "radius": 0.034, "color": "#2f3034"},
-            {"shape": "tube", "start": elbow,
-             "end": [side * (FRONT_LEG_X - 0.012), 0.210, PAW_FRONT_Z - 0.040],
-             "radius": 0.046, "color": "#2f3034"},
-        ])
         # Facing +Z, anatomical right is -X. Mirror the band's UVs as well
         # so its white inner panel still joins the belly on the inward side.
         rear_uv = tex.uv("ring_leg" if side < 0 else "leg", inset=0.5)
@@ -366,7 +347,6 @@ def build_spooner_man(p: PropBuilder) -> None:
         )
 
     # --- paws: forward-facing toes with heels enclosing the ankle --------
-    dark_parts = len(p.mesh.parts)
     for side in (-1.0, 1.0):
         for leg_x, leg_z in ((FRONT_LEG_X, PAW_FRONT_Z), (REAR_LEG_X, PAW_REAR_Z)):
             p.lathe(
@@ -381,7 +361,6 @@ def build_spooner_man(p: PropBuilder) -> None:
             )
 
     # --- tail: rearward with a gentle rise, as in the side reference ------
-    paw_parts = len(p.mesh.parts)
     p.tube_path(
         points=[
             (0.000, 0.258, -0.300),
@@ -404,16 +383,6 @@ def build_spooner_man(p: PropBuilder) -> None:
         "low-poly tuxedo cat: lathe torso/head/legs, swept-tube tail, "
         "tuxedo markings painted into one 256x256 texture"
     )
-
-    # The editor's proxy geometry is a flat-coloured approximation, so give the
-    # parts the cat's coat colours (white socks, black elsewhere) instead of the
-    # neutral tint the real mesh needs: the preview then reads as spooner-man.
-    for part in p.mesh.parts[:dark_parts]:
-        part["color"] = "#2f3034"
-    for part in p.mesh.parts[dark_parts:paw_parts]:
-        part["color"] = "#e8e5dd"
-    for part in p.mesh.parts[paw_parts:]:
-        part["color"] = "#2f3034"
 
     # His tail reaches further back than his nose reaches forward, so centre the
     # bounding box on the origin as the pack requires while keeping the natural

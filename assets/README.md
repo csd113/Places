@@ -38,7 +38,6 @@ python3 tools/assets/validate.py             # catalog, resources, shipped level
 python3 tools/textures/build.py --check      # surface PNGs exist, parse and fit their budget
 python3 tools/props/build.py --check         # prop models exist and fit their budgets
 cargo test
-cd level-editor && npm test
 ```
 
 ## The catalog
@@ -379,7 +378,6 @@ regeneration can never silently replace the shipped art.
 ```
 assets/
   catalog.json                     authoritative registry
-  prop_proxies.json                derived editor previews (never hand-edited)
   README.md                        this document
   levels/                          shipped levels (assets referenced by id)
   environment/
@@ -395,7 +393,8 @@ assets/
       textures/ceilings/*.png      sterile ceiling
       decals/no_diving_01.png      the final safety sign (RGBA cut-out)
   core/props/models/*.glb          shared/generic props
-  entities/spooner-man/model/spooner-man.glb
+  entities/<id>/model/<id>.glb     entities (embedded textures)
+  entities/<id>/textures/*.png     entity source artwork (embedded at build time)
   diagnostic/
     textures/*.png                 architecture-test artwork (orientation, alpha, NPOT)
 ```
@@ -412,7 +411,7 @@ what the runtime reads, so files may move freely as long as the catalog follows.
   the couch seat all face `+Z` at `rotation_degrees = 0`.
 * A model's bounding box must match the catalog `size` within
   `max(2 cm, 6 % of the axis)`; `tools/props/build.py` fails otherwise.
-* `size` is the catalog's rendering/editor box. A level's **collision** box is
+* `size` is the catalog's rendering box. A level's **collision** box is
   the prop's own `size` (plus its `scale`) when authored, and the neutral
   `PROP_FALLBACK_SIZE` (0.6 x 0.9 x 0.6 m) when it is not — the catalog size is
   never collision-tested, and props are never tested against their render mesh.
@@ -545,7 +544,7 @@ sheets and fixture faces load external PNGs.
 6. `python3 tools/props/preview.py --only core:your_prop` and look at
    `target/prop-previews/your_prop.png` before trusting it.
 7. `python3 tools/assets/validate.py`, `python3 tools/textures/build.py
-   --check`, `cargo test` and `cd level-editor && npm test`.
+   --check` and `cargo test`.
 
 Nothing here is required at runtime: the game loads ordinary packaged GLBs and
 PNGs.
@@ -593,6 +592,23 @@ went. The engine fixtures used by the test suite live in
   on the basin floor, the patio table and chair, modular curtains and guardrails
   (with collision), both Pool light fixtures and the external `NO DIVING` sign.
   Run it with `PLACES_LEVEL=pool_showcase`.
+* The shipped Places Demo's pool ladder is authored as a `ladders[]` climb
+  volume at the prop's face (basin floor to deck) rather than a solid prop box;
+  see the Pool ladder entry in `docs/MAP_AUTHORING_GUIDE.md`.
+* The demo's interactable props (front desk, water cooler, pool chairs,
+  Spooner-Man, a potted plant) author `id`, `display_name` and an
+  `interaction` that toggles their floating label with `E`; the two pool chairs
+  are separate instances of one model. See
+  `docs/MAP_AUTHORING_GUIDE.md` §29.
+* `tests/fixtures/levels/entity_showcase.json` — the run-04 entity fixture:
+  two independently routed rats (walk and run at their measured reference
+  speeds), a mannequin cycling its three poses, a skeleton cycling its chair
+  and floor sits beside a real `core:chair`, and label interactions on every
+  entity. Run it with `PLACES_LEVEL=entity_showcase` (dev fixtures are not
+  packaged).
+* The Pit's 15 carpet holes each author a `reset_to_start` `area_triggers[]`
+  volume so a fall returns the player to the authored spawn; the carpet between
+  the holes stays safe.
 * `tests/fixtures/levels/rendering_diagnostic.json`,
   `tests/fixtures/levels/lighting_isolation.json`,
   `tests/fixtures/levels/lighting_diagnostic.json` and

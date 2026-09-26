@@ -2168,7 +2168,7 @@ impl LevelLighting {
     /// This is the exchange between the areas on either side of a walk-through
     /// opening, isolated from the area's own baseline and fixture pools: a delta
     /// that is negative on the brighter side and positive on the dimmer one. It
-    /// is exposed for the editor parity mirror, the developer log and the
+    /// is exposed for the developer log and the
     /// doorway regression tests, which need to prove the blending is bounded,
     /// symmetric and blind to opaque walls without the local pools moving
     /// underneath the measurement.

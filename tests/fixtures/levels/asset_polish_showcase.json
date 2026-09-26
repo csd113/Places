@@ -1,0 +1,317 @@
+{
+  "format_version": 1,
+  "id": "asset_polish_showcase",
+  "name": "Asset Polish Showcase",
+  "author": "Places",
+  "defaults": {
+    "wall": "home:wall_paint_offwhite_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "spawn": {
+    "x": 6.0,
+    "z": 2.0,
+    "yaw_degrees": 180.0
+  },
+  "rooms": [
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 12.0,
+      "depth": 12.0,
+      "height": 3.2
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 3.0,
+      "z": 3.0,
+      "brightness": 0.7
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 3.0,
+      "z": 9.0,
+      "brightness": 0.7
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 9.0,
+      "z": 3.0,
+      "brightness": 0.7
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 9.0,
+      "z": 9.0,
+      "brightness": 0.7
+    }
+  ],
+  "props": [
+    {
+      "model": "core:stop_sign",
+      "x": 1.2,
+      "z": 4.0,
+      "y": 0,
+      "size": [
+        0.45,
+        1.8,
+        0.06
+      ],
+      "solid": false,
+      "rotation_degrees": 180.0
+    },
+    {
+      "model": "core:exit_sign",
+      "x": 6.0,
+      "z": 6.0,
+      "y": 2.63,
+      "size": [
+        0.45,
+        0.57,
+        0.08
+      ],
+      "solid": false,
+      "rotation_degrees": 180.0
+    },
+    {
+      "model": "home:ball_light",
+      "x": 8.0,
+      "z": 4.5,
+      "y": 2.4,
+      "size": [
+        0.2,
+        0.8,
+        0.2
+      ],
+      "solid": false,
+      "rotation_degrees": 180.0
+    },
+    {
+      "model": "home:wall_switch",
+      "x": 6.0,
+      "z": 11.78,
+      "y": 1.15,
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "rotation_degrees": 180.0
+    },
+    {
+      "model": "home:crt_tv",
+      "x": 8.0,
+      "z": 4.5,
+      "y": 0.75,
+      "size": [
+        0.55,
+        0.48,
+        0.46
+      ],
+      "solid": false,
+      "rotation_degrees": 180.0
+    },
+    {
+      "model": "home:knife",
+      "x": 3.78,
+      "z": 4.5,
+      "y": 0.75,
+      "size": [
+        0.022,
+        0.016,
+        0.215
+      ],
+      "solid": false,
+      "rotation_degrees": 180.0
+    },
+    {
+      "model": "home:fork",
+      "x": 4.22,
+      "z": 4.5,
+      "y": 0.75,
+      "size": [
+        0.026,
+        0.012,
+        0.196
+      ],
+      "solid": false,
+      "rotation_degrees": 180.0
+    },
+    {
+      "model": "home:spoon",
+      "x": 3.65,
+      "z": 4.5,
+      "y": 0.75,
+      "size": [
+        0.036,
+        0.02,
+        0.185
+      ],
+      "solid": false,
+      "rotation_degrees": 180.0
+    },
+    {
+      "model": "home:plate",
+      "x": 4.0,
+      "z": 4.5,
+      "y": 0.75,
+      "size": [
+        0.22,
+        0.022,
+        0.22
+      ],
+      "solid": false,
+      "rotation_degrees": 180.0
+    },
+    {
+      "model": "home:bowl",
+      "x": 4.3,
+      "z": 4.72,
+      "y": 0.75,
+      "size": [
+        0.15,
+        0.065,
+        0.15
+      ],
+      "solid": false,
+      "rotation_degrees": 180.0
+    },
+    {
+      "model": "home:plant_table",
+      "x": 8.42,
+      "z": 4.65,
+      "y": 0.75,
+      "size": [
+        0.13,
+        0.28,
+        0.13
+      ],
+      "solid": false,
+      "rotation_degrees": 180.0
+    },
+    {
+      "model": "core:rubber_duck",
+      "x": 7.6,
+      "z": 4.4,
+      "y": 0.75,
+      "size": [
+        0.1,
+        0.12,
+        0.14
+      ],
+      "solid": false,
+      "rotation_degrees": 180.0
+    },
+    {
+      "model": "core:table",
+      "x": 4.0,
+      "z": 4.5,
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:table",
+      "x": 8.0,
+      "z": 4.5,
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ],
+      "solid": true
+    }
+  ],
+  "arc_walls": [
+    {
+      "x": 3.0,
+      "z": 9.0,
+      "y": 0.0,
+      "radius": 2.0,
+      "thickness": 0.24,
+      "height": 2.8,
+      "start_degrees": 0.0,
+      "sweep_degrees": 90.0,
+      "segments": 12,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 8.5,
+      "z": 9.0,
+      "y": 0.0,
+      "radius": 2.0,
+      "thickness": 0.24,
+      "height": 2.8,
+      "start_degrees": 0.0,
+      "sweep_degrees": 180.0,
+      "segments": 24,
+      "material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "pillars": [
+    {
+      "x": 1.0,
+      "z": 6.0,
+      "y": 0.0,
+      "radius": 0.3,
+      "height": 2.8,
+      "segments": 16,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 11.0,
+      "z": 6.0,
+      "y": 0.0,
+      "radius": 0.3,
+      "height": 2.8,
+      "segments": 16,
+      "material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "decals": [
+    {
+      "x": 6.0,
+      "z": 5.0,
+      "width": 0.6,
+      "height": 0.6,
+      "material": "core:decal_ceiling_vent_01",
+      "surface": "ceiling"
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.1,
+      "z": -0.1,
+      "width": 12.2,
+      "depth": 0.2,
+      "height": 3.2
+    },
+    {
+      "x": -0.1,
+      "z": 11.9,
+      "width": 12.2,
+      "depth": 0.2,
+      "height": 3.2
+    },
+    {
+      "x": -0.1,
+      "z": 0.1,
+      "width": 0.2,
+      "depth": 11.8,
+      "height": 3.2
+    },
+    {
+      "x": 11.9,
+      "z": 0.1,
+      "width": 0.2,
+      "depth": 11.8,
+      "height": 3.2
+    }
+  ]
+}

@@ -22,6 +22,7 @@
     clippy::panic,
     clippy::suboptimal_flops,
     clippy::too_many_lines,
+    clippy::redundant_closure_for_method_calls,
     clippy::unwrap_used
 )]
 
@@ -1069,6 +1070,13 @@ fn test_every_material_bearing_field_is_discovered() {
                                "end_material": "{SENTINEL}", "cap_material": "{SENTINEL}" }} ],
             "columns": [ {{ "x": 20.0, "z": 4.0, "width": 0.3, "depth": 0.3,
                            "material": "{SENTINEL}", "cap_material": "{SENTINEL}" }} ],
+            "arc_walls": [ {{ "x": 36.0, "z": 3.0, "radius": 1.0,
+                             "start_degrees": 0.0, "sweep_degrees": 90.0,
+                             "material": "{SENTINEL}", "inner_material": "{SENTINEL}",
+                             "outer_material": "{SENTINEL}", "cap_material": "{SENTINEL}",
+                             "end_material": "{SENTINEL}" }} ],
+            "pillars": [ {{ "x": 38.0, "z": 3.0, "radius": 0.3,
+                           "material": "{SENTINEL}", "cap_material": "{SENTINEL}" }} ],
             "archways": [ {{ "x": 24.0, "z": 3.0, "width": 0.3, "depth": 1.4,
                             "height": 2.6, "opening_width": 1.0, "opening_height": 2.0,
                             "arch_rise": 0.2, "material": "{SENTINEL}",
@@ -1103,6 +1111,11 @@ fn test_every_material_bearing_field_is_discovered() {
     let mut sentinels = sentinel_keys(&value);
     sentinels.sort();
     let expected = vec![
+        ".arc_walls[0].cap_material",
+        ".arc_walls[0].end_material",
+        ".arc_walls[0].inner_material",
+        ".arc_walls[0].material",
+        ".arc_walls[0].outer_material",
         ".archways[0].material",
         ".archways[0].reveal_material",
         ".baseboards[0].material",
@@ -1120,6 +1133,8 @@ fn test_every_material_bearing_field_is_discovered() {
         ".half_walls[0].cap_material",
         ".half_walls[0].end_material",
         ".half_walls[0].material",
+        ".pillars[0].cap_material",
+        ".pillars[0].material",
         ".ramps[0].edge_material",
         ".ramps[0].material",
         ".rooms[0].ceiling_material",
@@ -2500,4 +2515,225 @@ fn test_archway_soffit_shading_follows_the_segment_slope() {
             );
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Run 06: arc-wall and pillar UVs
+// ---------------------------------------------------------------------------
+
+/// A full-ring arc wall tiles by arc length on each of its own faces, never by
+/// one stretched copy of the sheet around the circumference; its top cap uses
+/// the world plan mapping like any other horizontal surface.
+#[test]
+fn test_arc_wall_uvs_tile_by_arc_length_at_world_scale() {
+    const CENTRE_X: f32 = 10.0;
+    const CENTRE_Z: f32 = 10.0;
+    const RADIUS: f32 = 3.0;
+    const HEIGHT: f32 = 2.0;
+    let level = parse(
+        r#"{
+            "format_version": 1,
+            "id": "arc_uv",
+            "name": "Arc Uv",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 20.0, "depth": 20.0, "height": 4.0 },
+            "arc_walls": [
+                { "x": 10.0, "z": 10.0, "radius": 3.0, "thickness": 0.3,
+                  "sweep_degrees": 360.0, "segments": 24, "height": 2.0,
+                  "material": "core:pool_tile_wall_01" }
+            ],
+            "ceiling_lights": [
+                { "fixture": "core:fluorescent_panel_01", "x": 10.0, "z": 10.0 }
+            ]
+        }"#,
+    );
+    let materials = logical_materials(&level);
+    let material = materials.index_of("core:pool_tile_wall_01").expect("tile");
+    let tile = materials
+        .entry_of("core:pool_tile_wall_01")
+        .expect("tile")
+        .tile_metres;
+    let mesh = build_level_geometry_with_materials(&level, &materials);
+    let mut side_vertices = 0;
+    let mut cap_vertices = 0;
+    for range in &mesh.ranges {
+        if range.key.kind != crate::render::SurfaceKind::Wall || range.key.material != material {
+            continue;
+        }
+        for vertex in &range.vertices {
+            let [x, y, z] = vertex.pos;
+            let dx = x - CENTRE_X;
+            let dz = z - CENTRE_Z;
+            let distance = dx.hypot(dz);
+            if !(RADIUS - 0.16..=RADIUS + 0.16).contains(&distance) {
+                continue;
+            }
+            // The top and bottom ring caps map to world plan coordinates.
+            if (vertex.uv[0] * tile - x).abs() < 0.02 && (vertex.uv[1] * tile - z).abs() < 0.02 {
+                cap_vertices += 1;
+                continue;
+            }
+            side_vertices += 1;
+            // Compass angle from the ring's north point (0 = -Z), matching the
+            // level's angle convention; u is the arc length on this face.
+            let angle = dx.atan2(-dz).rem_euclid(std::f32::consts::TAU);
+            let arc_length = angle * distance;
+            let circumference = std::f32::consts::TAU * distance;
+            let measured = vertex.uv[0].abs() * tile;
+            // The ring's closing seam carries the full circumference on one
+            // side and zero on the other; both are the same world point.
+            let error = (measured - arc_length)
+                .abs()
+                .min((measured - arc_length - circumference).abs())
+                .min((measured - arc_length + circumference).abs());
+            assert!(
+                error < 0.02,
+                "vertex at ({x:.2}, {y:.2}, {z:.2}) has u {measured:.4} m, expected arc length {arc_length:.4} m",
+            );
+            assert!(
+                (vertex.uv[1].abs() * tile - (HEIGHT - y)).abs() < 0.02,
+                "vertex at ({x:.2}, {y:.2}, {z:.2}) has v {:.4} m, expected height offset {:.4} m",
+                vertex.uv[1].abs() * tile,
+                HEIGHT - y
+            );
+        }
+    }
+    assert!(
+        side_vertices >= 24 * 4,
+        "the ring's two faces are emitted: {side_vertices}"
+    );
+    assert!(
+        cap_vertices >= 24 * 2,
+        "the ring's caps use the plan mapping: {cap_vertices}"
+    );
+}
+
+/// Arc-wall radial end caps face out of the slab for both sweep signs; a
+/// negative (counter-clockwise) sweep must not mirror its ends inward.
+#[test]
+fn test_arc_end_caps_face_outward_for_both_sweep_signs() {
+    // Both arcs run from angle 90 to the same end direction of travel, so
+    // their end caps both face -X; the start caps face opposite the travel
+    // direction at the start, which the sweep sign flips.
+    for (sweep, start_expected, end_expected) in [
+        (90.0_f32, [0.0, 0.0, -1.0], [-1.0, 0.0, 0.0]),
+        (-90.0_f32, [0.0, 0.0, 1.0], [-1.0, 0.0, 0.0]),
+    ] {
+        let level = parse(&format!(
+            r#"{{
+                "format_version": 1,
+                "id": "arc_ends_{sweep}",
+                "name": "Arc Ends",
+                "spawn": {{ "x": 1.0, "z": 1.0 }},
+                "room": {{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 }},
+                "arc_walls": [
+                    {{ "x": 4.0, "z": 4.0, "radius": 2.0, "thickness": 0.3,
+                       "start_degrees": 90.0, "sweep_degrees": {sweep},
+                       "height": 2.0, "segments": 16,
+                       "material": "core:metal_brushed_01" }}
+                ],
+                "ceiling_lights": [
+                    {{ "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 4.0 }}
+                ]
+            }}"#
+        ));
+        let materials = logical_materials(&level);
+        let material = materials.index_of("core:metal_brushed_01").expect("metal");
+        let mesh = build_level_geometry_with_materials(&level, &materials);
+        // The start point sits at angle 90, the end at 90 + sweep; each end
+        // cap is the rectangle in the plane perpendicular to the run tangent
+        // at that point. A triangle belongs to an end when every corner is
+        // within the cap's thickness of the point's plane and of the point.
+        let start_point = [6.0_f32, 0.0, 4.0];
+        let end_angle = 90.0 + sweep;
+        let end_point = [
+            4.0 + 2.0 * end_angle.to_radians().sin(),
+            0.0,
+            4.0 - 2.0 * end_angle.to_radians().cos(),
+        ];
+        let start_tangent = [0.0_f32, 1.0];
+        let end_tangent = [end_angle.to_radians().cos(), end_angle.to_radians().sin()];
+        let on_cap = |point: [f32; 3], centre: [f32; 3], tangent: [f32; 2]| {
+            let dx = point[0] - centre[0];
+            let dz = point[2] - centre[2];
+            let depth = dx * tangent[0] + dz * tangent[1];
+            let across = -dx * tangent[1] + dz * tangent[0];
+            depth.abs() < 1.0e-4 && across.abs() <= 0.15 + 1.0e-4
+        };
+        let mut start_alignment = 0.0_f32;
+        let mut end_alignment = 0.0_f32;
+        for triangle in emitted_triangles(&mesh) {
+            if triangle.material != material {
+                continue;
+            }
+            let normal = triangle_normal(triangle.points);
+            if triangle
+                .points
+                .iter()
+                .all(|point| on_cap(*point, start_point, start_tangent))
+            {
+                start_alignment += triangle.world_area
+                    * (normal[0] * start_expected[0] + normal[2] * start_expected[2]);
+            }
+            if triangle
+                .points
+                .iter()
+                .all(|point| on_cap(*point, end_point, end_tangent))
+            {
+                end_alignment += triangle.world_area
+                    * (normal[0] * end_expected[0] + normal[2] * end_expected[2]);
+            }
+        }
+        assert!(
+            start_alignment > 0.1,
+            "sweep {sweep}: the start end cap must face {start_expected:?}, alignment {start_alignment}"
+        );
+        assert!(
+            end_alignment > 0.1,
+            "sweep {sweep}: the end end cap must face {end_expected:?}, alignment {end_alignment}"
+        );
+    }
+}
+
+/// The shipped demo's stair handrails follow the flight's nosing line: both
+/// run first-nosing to last-nosing, their resolved slope equals the stair
+/// pitch, and every sample sits on the nosing line rather than a shallower
+/// endpoint interpolation.
+#[test]
+fn test_the_demo_stair_handrails_follow_the_nosing_line() {
+    let level = parse(include_str!("../assets/levels/places_demo.json"));
+    let surfaces = LevelSurfaces::new(&level);
+    let stair = &level.stairs[0];
+    let stair_surface = crate::level::StairSurface::new(stair);
+    // Eight steps over a 2.5 m flight: the last nosing is seven treads along.
+    let expected_run = stair.length() * 7.0 / 8.0;
+    for index in [0usize, 1] {
+        let rail = &level.guardrails[index];
+        assert!(
+            (rail.length - expected_run).abs() < 1.0e-3,
+            "rail {index} must run first nosing to last nosing ({} vs {expected_run})",
+            rail.length
+        );
+        let pitch = stair.rise() / stair.length();
+        let resolved = rail.resolved_rise(&surfaces) / rail.length;
+        assert!(
+            (resolved - pitch).abs() < 1.0e-3,
+            "rail {index} slope {resolved} must equal the stair pitch {pitch}"
+        );
+        for sample in 0..=40 {
+            let fraction = sample as f32 / 40.0;
+            let (x, z) = rail.point_at(fraction, 0.0);
+            let floor = surfaces
+                .room_floor_y_at(x, z)
+                .expect("the rail is in a room");
+            let nosing = floor + stair_surface.pitch_offset_at(x, z);
+            let base = rail.base_y_at(&surfaces, fraction);
+            assert!(
+                (base - nosing).abs() < 1.0e-3,
+                "rail {index} sample {sample}: base {base} is off the nosing line {nosing}"
+            );
+        }
+    }
+    // The emitter's own post-position rule (no crowded pair, both runs end on
+    // a post) is pinned by `render::common::architecture`'s unit test.
 }

@@ -60,13 +60,16 @@ use super::Vertex;
 use super::mesh::LIGHTMAP_NONE;
 use super::props::{prop_instance_matrix, transform_bounds};
 use crate::game::{LocomotionSnapshot, LocomotionState};
-use crate::gltf::{
-    AnimationInterpolation, PropAnimation, PropAnimationChannel, PropNode, PropSkin,
-};
+use crate::gltf::{AnimationInterpolation, PropAnimation, PropNode, PropSkin};
 use crate::level::LevelSurfaces;
 use crate::lighting::LevelLighting;
 use crate::props::{LoadedPropAsset, PropAssets};
 use crate::spatial::Aabb;
+
+/// Explicit per-entity pose requests live on the gameplay side
+/// ([`crate::entity::PoseCue`]); a character can be addressed by its placed
+/// instance id so routes and interactions drive it.
+pub use crate::entity::{EntityFrame, PoseCue};
 
 /// Most characters one level may spawn.
 ///
@@ -82,6 +85,15 @@ pub const MAX_CHARACTERS: usize = 8;
 /// within 1% after ~4.6 time constants. The same constant crossfades clips.
 pub const BLEND_TIME_CONSTANT_S: f32 = 0.18;
 
+/// Wall-clock seconds a scrub cue takes to travel the full length of its clip.
+///
+/// A scrub cue eases the clip time toward its authored target at a constant
+/// clip-time rate, so a reversal mid-travel retargets from the current pose
+/// with no snap and no restart, and the authored easing in the clip's own keys
+/// is preserved. The rate is normalised per clip, so a rigid prop's toggle
+/// takes this long whatever the clip's authored duration.
+pub const SCRUB_TRAVERSE_SECONDS: f32 = 0.35;
+
 /// Walking cycle length: one full gait cycle per this many metres travelled.
 pub const WALK_CYCLES_PER_METRE: f32 = 0.9;
 
@@ -96,6 +108,22 @@ pub const BREATH_HZ: f32 = 0.22;
 
 /// Absolute margin added to a character's culling bounds, in metres.
 pub const CHARACTER_BOUNDS_MARGIN_M: f32 = 0.05;
+
+/// The speed the shipped `walk` clip is authored for, in metres per second.
+///
+/// One gait cycle covers a fixed stride at this speed, so an entity route that
+/// walks at this speed plays the clip at rate 1.0 with no foot sliding;
+/// `tools/props/animate_spooner_man.py --report` prints the measured stride
+/// and the matching speed. A clip that declares its own reference speed in
+/// `asset.extras.places_entity_clips` overrides this fallback.
+pub const WALK_REFERENCE_SPEED_MPS: f32 = 0.26;
+
+/// Fallback reference speed of a `run` clip that declares none, in m/s.
+pub const RUN_REFERENCE_SPEED_MPS: f32 = 1.2;
+
+/// Requested speed at which `Walk` prefers the `run` clip, as a multiple of
+/// the walk clip's reference speed.
+pub const RUN_GAIT_MULTIPLIER: f32 = 1.5;
 
 /// Relative margin added to a character's culling bounds.
 ///
@@ -232,6 +260,234 @@ struct Channel {
     interpolation: AnimationInterpolation,
     times: Vec<f32>,
     values: Vec<f32>,
+    values_per_key: usize,
+}
+
+impl Channel {
+    /// Builds a playback channel from one parsed channel.
+    fn from_channel(channel: &crate::gltf::PropAnimationChannel) -> Self {
+        Self {
+            path: channel.path,
+            interpolation: channel.interpolation,
+            times: channel.times.clone(),
+            values: channel.values.clone(),
+            values_per_key: channel.values_per_key,
+        }
+    }
+
+    /// Value tuples stored per keyframe (three for CUBICSPLINE).
+    const fn tuples_per_key(&self) -> usize {
+        match self.interpolation {
+            AnimationInterpolation::CubicSpline => 3,
+            AnimationInterpolation::Linear | AnimationInterpolation::Step => 1,
+        }
+    }
+
+    /// The tuple index that holds the key's value (CUBICSPLINE stores the
+    /// in-tangent first).
+    const fn value_tuple(&self) -> usize {
+        match self.interpolation {
+            AnimationInterpolation::CubicSpline => 1,
+            AnimationInterpolation::Linear | AnimationInterpolation::Step => 0,
+        }
+    }
+
+    /// Samples one component of the channel at `time`.
+    ///
+    /// STEP holds the previous key, LINEAR interpolates, and CUBICSPLINE
+    /// evaluates the spec's Hermite form with the key's out-tangent and the
+    /// next key's in-tangent scaled by the key interval. Before the first and
+    /// after the last timestamp the channel holds that key's value.
+    #[allow(clippy::arithmetic_side_effects)] // bounded keyframe arithmetic
+    fn sample_component(&self, time: f32, component: usize) -> Option<f32> {
+        let (index, blend) = self.key_at(time)?;
+        let stride = self.values_per_key;
+        let tuples = self.tuples_per_key();
+        let value_tuple = self.value_tuple();
+        let tuple_base = |key: usize, tuple: usize| {
+            key.saturating_mul(stride)
+                .saturating_mul(tuples)
+                .saturating_add(tuple.saturating_mul(stride))
+                .saturating_add(component)
+        };
+        match self.interpolation {
+            AnimationInterpolation::Step => {
+                self.values.get(tuple_base(index, value_tuple)).copied()
+            }
+            AnimationInterpolation::Linear => {
+                let a = self.values.get(tuple_base(index, value_tuple)).copied()?;
+                if blend <= 0.0 {
+                    return Some(a);
+                }
+                let next = index.saturating_add(1);
+                let b = self.values.get(tuple_base(next, value_tuple)).copied()?;
+                Some((b - a).mul_add(blend, a))
+            }
+            AnimationInterpolation::CubicSpline => {
+                let v0 = self.values.get(tuple_base(index, 1)).copied()?;
+                let m0 = self
+                    .values
+                    .get(tuple_base(index, 2))
+                    .copied()
+                    .unwrap_or(0.0);
+                if blend <= 0.0 {
+                    return Some(v0);
+                }
+                let next = index.saturating_add(1);
+                let v1 = self.values.get(tuple_base(next, 1)).copied()?;
+                let m1 = self.values.get(tuple_base(next, 0)).copied().unwrap_or(0.0);
+                let delta = self
+                    .times
+                    .get(next)
+                    .zip(self.times.get(index))
+                    .map_or(0.0, |(end, start)| (end - start).max(0.0));
+                let t = blend;
+                let t2 = t * t;
+                let t3 = t2 * t;
+                let h00 = (2.0f32).mul_add(t3, (-3.0f32).mul_add(t2, 1.0));
+                let h10 = t3 + (-2.0f32).mul_add(t2, t);
+                let h01 = (-2.0f32).mul_add(t3, 3.0 * t2);
+                let h11 = t3 - t2;
+                Some(h11.mul_add(
+                    delta * m1,
+                    h01.mul_add(v1, h10.mul_add(delta * m0, h00 * v0)),
+                ))
+            }
+        }
+    }
+
+    /// Samples one rotation key at `time`.
+    ///
+    /// LINEAR rotations use spherical interpolation with the shortest arc (the
+    /// glTF recommendation); STEP holds and CUBICSPLINE evaluates the Hermite
+    /// form component-wise, then normalizes. A degenerate result keeps the
+    /// caller's current rotation.
+    fn sample_rotation(&self, time: f32) -> Option<Quat> {
+        let (index, blend) = self.key_at(time)?;
+        let read = |key: usize, tuple: usize| -> Quat {
+            let base = key
+                .saturating_mul(self.values_per_key)
+                .saturating_mul(self.tuples_per_key())
+                .saturating_add(tuple.saturating_mul(self.values_per_key));
+            Quat::from_xyzw(
+                self.values.get(base).copied().unwrap_or(0.0),
+                self.values
+                    .get(base.saturating_add(1))
+                    .copied()
+                    .unwrap_or(0.0),
+                self.values
+                    .get(base.saturating_add(2))
+                    .copied()
+                    .unwrap_or(0.0),
+                self.values
+                    .get(base.saturating_add(3))
+                    .copied()
+                    .unwrap_or(1.0),
+            )
+        };
+        let finished = match self.interpolation {
+            AnimationInterpolation::Step => read(index, self.value_tuple()),
+            AnimationInterpolation::Linear => {
+                let a = read(index, self.value_tuple());
+                if blend <= 0.0 {
+                    a
+                } else {
+                    let b = read(index.saturating_add(1), self.value_tuple());
+                    a.slerp(b, blend)
+                }
+            }
+            AnimationInterpolation::CubicSpline => Quat::from_xyzw(
+                self.sample_component(time, 0)?,
+                self.sample_component(time, 1)?,
+                self.sample_component(time, 2)?,
+                self.sample_component(time, 3)?,
+            ),
+        };
+        if finished.length_squared() > f32::EPSILON {
+            Some(finished.normalize())
+        } else {
+            None
+        }
+    }
+
+    /// Samples one key at `time` and writes it into the node's local pose, or
+    /// into the morph weight slice for a `weights` channel.
+    fn apply(
+        &self,
+        time: f32,
+        pose: &mut LocalTrs,
+        morphs: &mut [f32],
+        morph_range: Option<(usize, usize)>,
+    ) {
+        let read = |component: usize| self.sample_component(time, component).unwrap_or(0.0);
+        match self.path {
+            crate::gltf::AnimationPath::Translation => {
+                pose.translation = Vec3::new(read(0), read(1), read(2));
+            }
+            crate::gltf::AnimationPath::Scale => {
+                pose.scale = Vec3::new(read(0), read(1), read(2));
+            }
+            crate::gltf::AnimationPath::Rotation => {
+                if let Some(quat) = self.sample_rotation(time) {
+                    pose.rotation = quat;
+                }
+            }
+            crate::gltf::AnimationPath::Weights => {
+                let Some((start, count)) = morph_range else {
+                    return;
+                };
+                for index in 0..count {
+                    if let Some(slot) = morphs.get_mut(start.saturating_add(index)) {
+                        *slot = read(index);
+                    }
+                }
+            }
+        }
+    }
+
+    /// The bracketing key index at `time` and the interpolation factor towards
+    /// the next key (always 0 for STEP or the last key).
+    fn key_at(&self, time: f32) -> Option<(usize, f32)> {
+        if self.times.is_empty() {
+            return None;
+        }
+        if time <= *self.times.first()? {
+            return Some((0, 0.0));
+        }
+        let last = self.times.len().saturating_sub(1);
+        if time >= *self.times.get(last)? {
+            return Some((last, 0.0));
+        }
+        // `partition_point` returns the first index whose time is greater than
+        // `time`; the key before it brackets the sample.
+        let after = self.times.partition_point(|key| *key <= time);
+        let index = after.saturating_sub(1).min(last);
+        let blend = match self.interpolation {
+            AnimationInterpolation::Step => 0.0,
+            AnimationInterpolation::Linear | AnimationInterpolation::CubicSpline => {
+                let start = *self.times.get(index)?;
+                let end = *self.times.get(index.saturating_add(1))?;
+                if end > start {
+                    ((time - start) / (end - start)).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                }
+            }
+        };
+        Some((index, blend))
+    }
+}
+
+/// The per-model morph defaults and node ranges one clip sample needs.
+struct MorphRig<'a> {
+    defaults: &'a [f32],
+    ranges: &'a [(u16, u16, u16)],
+}
+
+/// The pose and morph buffers one clip sample writes into.
+struct SampleTargets<'a> {
+    pose: &'a mut [LocalTrs],
+    morphs: &'a mut [f32],
 }
 
 /// One clip's channels grouped by target node.
@@ -345,140 +601,102 @@ impl Clip {
         }
     }
 
-    /// Samples the clip at local time `time` into per-node local poses that
-    /// start from the rest pose.
-    fn sample(&self, rig: &Rig, time: f32, out: &mut [LocalTrs]) {
+    /// Samples the clip at `time` into per-node local poses that start from
+    /// the rest pose, plus the clip's morph weights. `looping` wraps the time;
+    /// a one-shot clamps it to the clip's end so the last pose is held.
+    fn sample(
+        &self,
+        rig: &Rig,
+        morph: &MorphRig<'_>,
+        time: f32,
+        looping: bool,
+        out: &mut SampleTargets<'_>,
+    ) {
         for (node, pose) in rig.nodes.iter().enumerate() {
-            let Some(slot) = out.get_mut(node) else {
+            let Some(slot) = out.pose.get_mut(node) else {
                 continue;
             };
             *slot = LocalTrs::from_node(pose);
         }
+        for (slot, default) in out.morphs.iter_mut().zip(morph.defaults.iter()) {
+            *slot = *default;
+        }
+        let time = if time.is_finite() { time } else { 0.0 };
         let local_time = if self.duration > 0.0 {
-            time.rem_euclid(self.duration)
+            if looping {
+                time.rem_euclid(self.duration)
+            } else {
+                time.clamp(0.0, self.duration)
+            }
         } else {
             0.0
         };
         for (node, node_channels) in self.channels.iter().enumerate() {
-            let Some(slot) = out.get_mut(node) else {
+            let Some(slot) = out.pose.get_mut(node) else {
                 continue;
             };
+            let morph_range = u16::try_from(node).ok().and_then(|node| {
+                morph
+                    .ranges
+                    .iter()
+                    .find(|(candidate, _, count)| *candidate == node && *count > 0)
+                    .map(|(_, start, count)| (usize::from(*start), usize::from(*count)))
+            });
             for channel in node_channels {
-                channel.apply(local_time, slot);
+                channel.apply(local_time, slot, out.morphs, morph_range);
             }
         }
     }
-}
-
-impl Channel {
-    fn from_channel(channel: &PropAnimationChannel) -> Self {
-        Self {
-            path: channel.path,
-            interpolation: channel.interpolation,
-            times: channel.times.clone(),
-            values: channel.values.clone(),
-        }
-    }
-
-    /// Samples one key at `time` and writes it into the node's local pose.
-    fn apply(&self, time: f32, pose: &mut LocalTrs) {
-        let stride = self.path.stride();
-        let Some((index, blend)) = self.key_at(time) else {
-            return;
-        };
-        let Some(first) = self.values.get(index.saturating_mul(stride)..) else {
-            return;
-        };
-        let second = if blend > 0.0 {
-            let start = index.saturating_add(1).saturating_mul(stride);
-            self.values.get(start..)
-        } else {
-            None
-        };
-        match self.path {
-            crate::gltf::AnimationPath::Translation => {
-                let a = vec3_at(first);
-                let b = second.map_or(a, vec3_at);
-                pose.translation = a.lerp(b, blend);
-            }
-            crate::gltf::AnimationPath::Scale => {
-                let a = vec3_at(first);
-                let b = second.map_or(a, vec3_at);
-                pose.scale = a.lerp(b, blend);
-            }
-            crate::gltf::AnimationPath::Rotation => {
-                let a = quat_at(first);
-                let b = second.map_or(a, quat_at);
-                pose.rotation = a.slerp(b, blend).normalize();
-            }
-        }
-    }
-
-    /// The key index at `time` and the interpolation factor towards the next
-    /// key (always 0 for a STEP channel or the last key).
-    fn key_at(&self, time: f32) -> Option<(usize, f32)> {
-        if self.times.is_empty() {
-            return None;
-        }
-        if time <= *self.times.first()? {
-            return Some((0, 0.0));
-        }
-        let last = self.times.len().saturating_sub(1);
-        if time >= *self.times.get(last)? {
-            return Some((last, 0.0));
-        }
-        // `partition_point` returns the first index whose time is greater than
-        // `time`; the key before it brackets the sample.
-        let after = self.times.partition_point(|key| *key <= time);
-        let index = after.saturating_sub(1).min(last);
-        let blend = match self.interpolation {
-            AnimationInterpolation::Step => 0.0,
-            AnimationInterpolation::Linear => {
-                let start = *self.times.get(index)?;
-                let end = *self.times.get(index.saturating_add(1))?;
-                if end > start {
-                    ((time - start) / (end - start)).clamp(0.0, 1.0)
-                } else {
-                    0.0
-                }
-            }
-        };
-        Some((index, blend))
-    }
-}
-
-/// Reads a `vec3` value at the start of a channel's value slice.
-fn vec3_at(values: &[f32]) -> Vec3 {
-    Vec3::new(
-        values.first().copied().unwrap_or(0.0),
-        values.get(1).copied().unwrap_or(0.0),
-        values.get(2).copied().unwrap_or(0.0),
-    )
-}
-
-/// Reads a `vec4` value at the start of a channel's value slice.
-fn quat_at(values: &[f32]) -> Quat {
-    Quat::from_xyzw(
-        values.first().copied().unwrap_or(0.0),
-        values.get(1).copied().unwrap_or(0.0),
-        values.get(2).copied().unwrap_or(0.0),
-        values.get(3).copied().unwrap_or(1.0),
-    )
 }
 
 impl Rig {
     /// Builds the retained rig from one model's skin.
     fn new(skin: &PropSkin) -> Option<Self> {
-        let node_count = skin.nodes.len();
+        Self::assemble(
+            skin.nodes.clone(),
+            skin.joints.clone(),
+            skin.root,
+            skin.mesh_node,
+        )
+    }
+
+    /// Builds a rig for a rigid animated model (clips, no skin): every node is
+    /// its own one-joint chain, so a vertex bound to node `i` follows that
+    /// node's animated global transform.
+    fn new_rigid(nodes: &[PropNode]) -> Option<Self> {
+        if nodes.is_empty() {
+            return None;
+        }
+        let joints: Vec<u16> = (0..nodes.len())
+            .filter_map(|index| u16::try_from(index).ok())
+            .collect();
+        if joints.len() != nodes.len() {
+            return None;
+        }
+        let root = nodes
+            .iter()
+            .position(|node| node.parent.is_none())
+            .and_then(|index| u16::try_from(index).ok());
+        Self::assemble(nodes.to_vec(), joints, root, None)
+    }
+
+    /// Shared rig construction for a skin or a rigid node hierarchy.
+    fn assemble(
+        nodes: Vec<PropNode>,
+        joints: Vec<u16>,
+        root: Option<u16>,
+        mesh_node: Option<u16>,
+    ) -> Option<Self> {
+        let node_count = nodes.len();
         if node_count == 0 {
             return None;
         }
-        let parent: Vec<Option<u16>> = skin.nodes.iter().map(|node| node.parent).collect();
+        let parent: Vec<Option<u16>> = nodes.iter().map(|node| node.parent).collect();
         let order = topological_order(&parent)?;
         let mut rest_global: Vec<Mat4> = vec![Mat4::IDENTITY; node_count];
         for node in &order {
             let index = usize::from(*node);
-            let local = skin.nodes.get(index).map(PropNode::local_transform)?;
+            let local = nodes.get(index).map(PropNode::local_transform)?;
             let global = parent
                 .get(index)
                 .copied()
@@ -494,8 +712,8 @@ impl Rig {
                 *slot = global;
             }
         }
-        let mut joint_rest_inverse: Vec<Mat4> = Vec::with_capacity(skin.joints.len());
-        for joint in &skin.joints {
+        let mut joint_rest_inverse: Vec<Mat4> = Vec::with_capacity(joints.len());
+        for joint in &joints {
             let global = rest_global.get(usize::from(*joint)).copied()?;
             let determinant = global.determinant();
             let inverse = if determinant.is_finite() && determinant.abs() > 1.0e-12 {
@@ -506,7 +724,7 @@ impl Rig {
             joint_rest_inverse.push(inverse);
         }
         let mut pose: Vec<NodePose> = Vec::with_capacity(node_count);
-        for (index, node) in skin.nodes.iter().enumerate() {
+        for (index, node) in nodes.iter().enumerate() {
             let parent_rotation =
                 parent
                     .get(index)
@@ -542,23 +760,22 @@ impl Rig {
             pose.push(node_pose);
         }
         // A rig with no node named like a body still gets a bob carrier: the
-        // skin's root, whose parent is by definition the outermost node, so the
+        // rig's root, whose parent is by definition the outermost node, so the
         // character's up axis is its parent-space Y.
         if !pose.iter().any(|node| node.body)
-            && let Some(root) = skin.root
+            && let Some(root) = root
             && let Some(slot) = pose.get_mut(usize::from(root))
         {
             slot.body = true;
             slot.up_in_parent = Vec3::Y;
         }
-        let mesh_node = skin.mesh_node;
         Some(Self {
-            nodes: skin.nodes.clone(),
+            nodes,
             order,
             parent,
             rest_global,
             joint_rest_inverse,
-            joint_nodes: skin.joints.clone(),
+            joint_nodes: joints,
             mesh_node,
             pose,
         })
@@ -670,6 +887,12 @@ pub struct Character {
     /// to the model's `vertices`.
     albedo: Vec<[f32; 4]>,
     world_bounds: Aabb,
+    /// Placed-instance id, so a route or an interaction can address this
+    /// character. `None` for a placement outside the prop id namespace.
+    instance_id: Option<String>,
+    /// Uniform placement scale, retained so a live pose change composes the
+    /// same transform the static prop path did.
+    scale: f32,
 }
 
 impl Character {
@@ -686,6 +909,12 @@ impl Character {
         self.transform
     }
 
+    /// The placed-instance id this character is keyed by, if any.
+    #[must_use]
+    pub fn instance_id(&self) -> Option<&str> {
+        self.instance_id.as_deref()
+    }
+
     /// The pose evaluator.
     #[must_use]
     pub const fn animator(&self) -> &CharacterAnimator {
@@ -695,6 +924,18 @@ impl Character {
     /// Mutable access to the pose evaluator.
     pub const fn animator_mut(&mut self) -> &mut CharacterAnimator {
         &mut self.animator
+    }
+
+    /// Moves the character to a live base position and yaw (radians).
+    ///
+    /// Rebuilds the same placement matrix `prop_instance_matrix` produced and
+    /// recomputes the conservative world bounds, so culling follows the
+    /// character. The mesh vertices are model-space and are unaffected.
+    pub fn set_pose(&mut self, position: Vec3, yaw: f32) {
+        let rotation = Quat::from_rotation_y(yaw);
+        self.transform =
+            Mat4::from_scale_rotation_translation(Vec3::splat(self.scale), rotation, position);
+        self.world_bounds = character_bounds(&self.asset, &self.transform);
     }
 
     /// Model-space albedo x baked light per vertex.
@@ -770,13 +1011,19 @@ impl CharacterScene {
         lighting: &LevelLighting,
     ) -> Self {
         let surfaces = LevelSurfaces::new(level);
+        let instance_ids = level.prop_instance_ids();
         let mut characters: Vec<Character> = Vec::new();
         // Insertion-ordered placement counts per model path, so
         // `claimed_models` is deterministic.
         let mut order: Vec<String> = Vec::new();
         let mut placements: HashMap<String, (usize, usize)> = HashMap::new();
         let mut overflow_reported = false;
-        for prop in &level.props {
+        for (prop_index, prop) in level.props.iter().enumerate() {
+            // A floating prop is drawn and moved by the dynamic float path;
+            // even a skinned model must never ride both lanes.
+            if prop.float.is_some() {
+                continue;
+            }
             let entry = catalog.get(&prop.model);
             let Some(model_path) = entry.model.clone() else {
                 continue;
@@ -809,7 +1056,7 @@ impl CharacterScene {
                     continue;
                 }
             };
-            if !asset.model.is_skinned() {
+            if !asset.model.is_animatable() {
                 continue;
             }
             let Some(animator) = CharacterAnimator::new(&asset.model) else {
@@ -819,12 +1066,19 @@ impl CharacterScene {
             let transform = prop_instance_matrix(prop, base_y);
             let albedo = sample_albedo(&asset, &transform, lighting);
             let world_bounds = character_bounds(&asset, &transform);
+            let instance_id = instance_ids
+                .get(prop_index)
+                .map(|id| id.trim())
+                .filter(|id| !id.is_empty())
+                .map(str::to_string);
             characters.push(Character {
                 asset,
                 transform,
                 animator,
                 albedo,
                 world_bounds,
+                instance_id,
+                scale: prop.scale,
             });
             if let Some(counts) = placements.get_mut(&model_path) {
                 counts.1 = counts.1.saturating_add(1);
@@ -845,15 +1099,59 @@ impl CharacterScene {
     }
 
     /// Advances every character's pose by `delta_seconds`.
-    pub fn update(&mut self, delta_seconds: f32, snapshot: LocomotionSnapshot) -> CharacterUpdate {
+    ///
+    /// A character addressed by an [`EntityFrame`] follows that frame: the
+    /// route's live transform (when it moved) and its pose cue. Characters
+    /// with no frame keep following the player's locomotion snapshot, so a
+    /// level that authors no routes behaves exactly as before.
+    pub fn update(
+        &mut self,
+        delta_seconds: f32,
+        snapshot: LocomotionSnapshot,
+        frames: &[EntityFrame],
+    ) -> CharacterUpdate {
         let mut moved = 0usize;
         for character in &mut self.characters {
-            if character.animator.update(delta_seconds, snapshot) {
+            let frame = character
+                .instance_id
+                .as_deref()
+                .and_then(|id| frames.iter().find(|frame| frame.instance_id == id));
+            let changed = match frame {
+                Some(frame) => {
+                    if let Some((position, yaw)) = frame.transform
+                        && !transforms_agree(character.transform, position, character.scale, yaw)
+                    {
+                        character.set_pose(position, yaw);
+                    }
+                    character.animator.update_cued(delta_seconds, &frame.cue)
+                }
+                // A rigid prop has no locomotion state to drive: until an
+                // action cues it, it holds the bind pose it was spawned in.
+                None if character.animator.is_rigid() => false,
+                None => character.animator.update(delta_seconds, snapshot),
+            };
+            if changed {
                 moved = moved.saturating_add(1);
             }
         }
         CharacterUpdate { moved }
     }
+}
+
+/// True when a placement matrix already matches a live pose within a
+/// sub-millimetre, so a still route does not rebuild bounds every frame.
+fn transforms_agree(transform: Mat4, position: Vec3, scale: f32, yaw: f32) -> bool {
+    let expected = Mat4::from_scale_rotation_translation(
+        Vec3::splat(scale),
+        Quat::from_rotation_y(yaw),
+        position,
+    );
+    let current: [f32; 16] = transform.to_cols_array();
+    let expected: [f32; 16] = expected.to_cols_array();
+    current
+        .iter()
+        .zip(expected.iter())
+        .all(|(a, b)| (a - b).abs() <= 1.0e-4)
 }
 
 /// True when a placement's transform values can be composed safely.
@@ -916,6 +1214,10 @@ fn character_bounds(asset: &LoadedPropAsset, transform: &Mat4) -> Aabb {
 /// Frame-rate-independent playback and skinning for one skinned model.
 pub struct CharacterAnimator {
     rig: Rig,
+    /// True for a clips-only model posed through the node hierarchy (a rigid
+    /// prop). A rigid animator ignores the locomotion snapshot: with no pose
+    /// cue it holds its current pose.
+    rigid: bool,
     /// Blend weight per locomotion state; the current state approaches one and
     /// the others approach zero.
     weights: [f32; STATE_COUNT],
@@ -925,6 +1227,34 @@ pub struct CharacterAnimator {
     /// Free-running seconds, for idle sway and breathing.
     clock: f32,
     clips: Option<ClipPlayer>,
+    /// Clip name to index, lower-cased; empty when the rig has no clips.
+    named: Vec<(String, usize)>,
+    /// Explicit clip playback (entity routes) overriding the locomotion
+    /// states while a cue is set.
+    cue: Option<CueState>,
+    /// The clip, time and one-shot flag the active cue crossfaded from.
+    cue_previous: Option<(usize, f32, bool)>,
+    /// True while the first cue crossfades from the pre-cue pose buffers.
+    cue_from_pose: bool,
+    /// Seconds since the active cue started its crossfade.
+    cue_fade: f32,
+    /// True once a one-shot cue reached its last key; consumed by the caller.
+    cue_finished: bool,
+    /// The speed the walk clip is authored for, in metres per second.
+    ///
+    /// Kept as the fallback for an asset whose clips carry no declared
+    /// reference speed; a declared per-clip value (from
+    /// `asset.extras.places_entity_clips`) always wins.
+    walk_reference_speed: f32,
+    /// Per declared clip, the stride's authored ground speed, parallel to the
+    /// model's `animations`.
+    clip_reference_speeds: Vec<Option<f32>>,
+    /// Current morph weights, parallel to the model's morph targets.
+    morphs: Vec<f32>,
+    /// Default morph weights, restored before each sample.
+    morph_defaults: Vec<f32>,
+    /// Per node morph ranges, for `weights` channels.
+    morph_ranges: Vec<(u16, u16, u16)>,
     /// Current local pose per node.
     pose: Vec<LocalTrs>,
     /// Current global transform per node.
@@ -934,15 +1264,54 @@ pub struct CharacterAnimator {
     /// Crossfade scratch per node, only allocated for a rig with clips.
     clip_a: Vec<LocalTrs>,
     clip_b: Vec<LocalTrs>,
+    /// Morph weight scratch for the crossfade.
+    morph_a: Vec<f32>,
+    morph_b: Vec<f32>,
     revision: u64,
 }
 
+/// What one explicit cue resolved to.
+struct CueState {
+    clip: usize,
+    time: f32,
+    once: bool,
+    paused: bool,
+    finished: bool,
+    /// Clip-time target of a scrub cue, in the clip's own seconds. While set,
+    /// the cue eases `time` toward it instead of advancing.
+    scrub: Option<f32>,
+}
+
+/// The clip-time a scrub cue eases toward, or `None` for a playing cue.
+fn scrub_target_for(cue: &PoseCue, duration: f32) -> Option<f32> {
+    match cue {
+        PoseCue::Scrub { target, .. } => {
+            let fraction = if target.is_finite() {
+                target.clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            Some(duration * fraction)
+        }
+        PoseCue::Idle | PoseCue::Walk { .. } | PoseCue::Clip { .. } => None,
+    }
+}
+
 impl CharacterAnimator {
-    /// Builds an animator for a skinned model, or `None` when it has no skin.
+    /// Builds an animator for a skinned or rigidly animated model, or `None`
+    /// when the model has nothing the character path can pose.
+    ///
+    /// A model with clips but no skin is posed *rigidly*: every node is a
+    /// one-joint chain (see [`Rig::new_rigid`]). A rigid animator is driven by
+    /// explicit pose cues only — it never runs the locomotion or procedural
+    /// driver, so an idle prop holds its bind pose instead of looping a
+    /// non-locomotion clip.
     #[must_use]
     pub fn new(model: &crate::gltf::PropModel) -> Option<Self> {
-        let skin = model.skin.as_ref()?;
-        let rig = Rig::new(skin)?;
+        let (rig, rigid) = match model.skin.as_ref() {
+            Some(skin) => (Rig::new(skin)?, false),
+            None => (Rig::new_rigid(&model.nodes)?, true),
+        };
         let node_count = rig.nodes.len();
         let clips = ClipPlayer::new(&model.animations, node_count);
         let mut pose: Vec<LocalTrs> = Vec::with_capacity(node_count);
@@ -976,17 +1345,45 @@ impl CharacterAnimator {
         if let Some(slot) = weights.get_mut(IDLE) {
             *slot = 1.0;
         }
+        let named: Vec<(String, usize)> = model
+            .animations
+            .iter()
+            .enumerate()
+            .map(|(index, animation)| (animation.name.to_ascii_lowercase(), index))
+            .collect();
+        let clip_reference_speeds: Vec<Option<f32>> = model
+            .animations
+            .iter()
+            .map(|animation| animation.reference_speed_mps)
+            .collect();
+        let morph_count = model.morph_targets.len();
+        let morph_defaults = model.morph_weights.clone();
+        let morph_ranges = model.mesh_morph_ranges.clone();
         Some(Self {
             rig,
+            rigid,
             weights,
             phase: 0.0,
             clock: 0.0,
             clips,
+            named,
+            cue: None,
+            cue_previous: None,
+            cue_from_pose: false,
+            cue_fade: 1.0,
+            cue_finished: false,
+            walk_reference_speed: WALK_REFERENCE_SPEED_MPS,
+            clip_reference_speeds,
+            morphs: vec![0.0; morph_count],
+            morph_defaults,
+            morph_ranges,
             pose,
             node_globals: vec![Mat4::IDENTITY; node_count],
             deltas,
             clip_a,
             clip_b,
+            morph_a: vec![0.0; morph_count],
+            morph_b: vec![0.0; morph_count],
             revision: 0,
         })
     }
@@ -1049,43 +1446,87 @@ impl CharacterAnimator {
         if !moved {
             return false;
         }
-        if let Some(clips) = self.clips.as_mut() {
-            let fade = clips.advance(step, state);
-            let active_index = clips.active;
-            let previous_index = clips.previous;
-            let Some(active) = clips.clips.get(active_index) else {
-                return false;
-            };
-            if self.rig.nodes.is_empty() {
-                return false;
-            }
-            active.sample(&self.rig, self.clock, &mut self.clip_a);
-            let fade = match previous_index.and_then(|index| clips.clips.get(index)) {
-                Some(previous) => {
-                    previous.sample(&self.rig, self.clock, &mut self.clip_b);
-                    fade
-                }
-                None => 1.0,
-            };
-            if fade < 0.999 {
-                for (node, (previous, active)) in self
-                    .pose
-                    .iter_mut()
-                    .zip(self.clip_b.iter().zip(self.clip_a.iter()))
-                {
-                    *node = previous.blend(*active, fade);
-                }
-            } else {
-                for (node, active) in self.pose.iter_mut().zip(self.clip_a.iter()) {
-                    *node = *active;
-                }
-            }
-        } else {
-            self.apply_procedural_pose();
+        if !self.sample_locomotion_clips(step, state) {
+            return false;
         }
         self.compose_globals();
         self.compute_deltas();
         self.revision = self.revision.wrapping_add(1);
+        true
+    }
+
+    /// Samples the locomotion state's clip pair into the pose buffers.
+    ///
+    /// Returns false when the rig cannot produce a clip pose; a rig with no
+    /// clips falls back to the procedural driver and always succeeds.
+    fn sample_locomotion_clips(&mut self, step: f32, state: usize) -> bool {
+        let Some(clips) = self.clips.as_mut() else {
+            self.apply_procedural_pose();
+            return true;
+        };
+
+        let fade = clips.advance(step, state);
+        let active_index = clips.active;
+        let previous_index = clips.previous;
+        let Some(active) = clips.clips.get(active_index) else {
+            return false;
+        };
+        if self.rig.nodes.is_empty() {
+            return false;
+        }
+        active.sample(
+            &self.rig,
+            &MorphRig {
+                defaults: &self.morph_defaults,
+                ranges: &self.morph_ranges,
+            },
+            self.clock,
+            true,
+            &mut SampleTargets {
+                pose: &mut self.clip_a,
+                morphs: &mut self.morph_a,
+            },
+        );
+        let fade = match previous_index.and_then(|index| clips.clips.get(index)) {
+            Some(previous) => {
+                previous.sample(
+                    &self.rig,
+                    &MorphRig {
+                        defaults: &self.morph_defaults,
+                        ranges: &self.morph_ranges,
+                    },
+                    self.clock,
+                    true,
+                    &mut SampleTargets {
+                        pose: &mut self.clip_b,
+                        morphs: &mut self.morph_b,
+                    },
+                );
+                fade
+            }
+            None => 1.0,
+        };
+        if fade < 0.999 {
+            for (node, (previous, active)) in self
+                .pose
+                .iter_mut()
+                .zip(self.clip_b.iter().zip(self.clip_a.iter()))
+            {
+                *node = previous.blend(*active, fade);
+            }
+            for (slot, (previous, active)) in self
+                .morphs
+                .iter_mut()
+                .zip(self.morph_b.iter().zip(self.morph_a.iter()))
+            {
+                *slot = (*active - *previous).mul_add(fade, *previous);
+            }
+        } else {
+            for (node, active) in self.pose.iter_mut().zip(self.clip_a.iter()) {
+                *node = *active;
+            }
+            self.morphs.copy_from_slice(&self.morph_a);
+        }
         true
     }
 
@@ -1163,6 +1604,312 @@ impl CharacterAnimator {
             self.clip_a.capacity(),
             self.clip_b.capacity(),
         ]
+    }
+
+    /// The clip index whose lower-cased name matches `name`, if any.
+    #[must_use]
+    pub fn clip_index(&self, name: &str) -> Option<usize> {
+        let name = name.to_ascii_lowercase();
+        self.named
+            .iter()
+            .find(|(candidate, _)| candidate == &name)
+            .map(|(_, index)| *index)
+    }
+
+    /// True while an explicit pose cue overrides the locomotion states.
+    #[must_use]
+    pub const fn has_pose_cue(&self) -> bool {
+        self.cue.is_some()
+    }
+
+    /// True for a clips-only rigid model (no skin). A rigid animator is posed
+    /// only by explicit cues and otherwise holds its current pose.
+    #[must_use]
+    pub const fn is_rigid(&self) -> bool {
+        self.rigid
+    }
+
+    /// Consumes the one-shot completion of the active cue.
+    pub const fn take_cue_finished(&mut self) -> bool {
+        let finished = self.cue_finished;
+        self.cue_finished = false;
+        finished
+    }
+
+    /// The current morph weight delta over the model's default, for one target.
+    #[must_use]
+    pub fn morph_weight_delta(&self, index: usize) -> f32 {
+        self.morphs.get(index).copied().unwrap_or(0.0)
+            - self.morph_defaults.get(index).copied().unwrap_or(0.0)
+    }
+
+    /// Advances an explicit pose cue and returns whether the pose changed.
+    ///
+    /// A cue change crossfades from the previous clip's current time over the
+    /// same time constant the locomotion states use, so a transition starts
+    /// from the current pose. One-shot clips hold their last key and report
+    /// completion through [`Self::take_cue_finished`].
+    #[allow(clippy::arithmetic_side_effects)] // bounded pose arithmetic
+    pub fn update_cued(&mut self, delta_seconds: f32, cue: &PoseCue) -> bool {
+        let Some(clips) = self.clips.as_ref() else {
+            return false;
+        };
+        if self.rig.nodes.is_empty() {
+            return false;
+        }
+        // A typo'd clip name falls back to the first clip; say so once rather
+        // than silently playing the wrong pose.
+        if let Some(name) = cue.clip_name()
+            && self.clip_index(name).is_none()
+        {
+            crate::logging::warn_once(
+                format!("entity-clip-missing:{name}"),
+                format!("[characters] no clip named `{name}`; playing the first clip instead"),
+            );
+        }
+        let step = if delta_seconds.is_finite() {
+            delta_seconds.max(0.0)
+        } else {
+            0.0
+        };
+        let (clip, once, paused, rate) = self.resolve_cue(cue);
+        let Some(active_clip) = clips.clips.get(clip) else {
+            return false;
+        };
+        let duration = active_clip.duration;
+        let scrub_target = scrub_target_for(cue, duration);
+        let changed = self
+            .cue
+            .as_ref()
+            .is_none_or(|state| state.clip != clip || state.once != once);
+        if changed {
+            // A crossfade always starts from what is currently on screen: the
+            // previous cue's pose, or the pre-cue pose for the first cue.
+            self.cue_previous = self
+                .cue
+                .as_ref()
+                .map(|state| (state.clip, state.time, state.once));
+            self.cue_from_pose = self.cue.is_none();
+            self.cue = Some(CueState {
+                clip,
+                time: 0.0,
+                once,
+                paused,
+                finished: false,
+                scrub: scrub_target,
+            });
+            self.cue_fade = 0.0;
+            self.cue_finished = false;
+        } else if let Some(state) = self.cue.as_mut() {
+            state.paused = paused;
+            state.scrub = scrub_target;
+        }
+        let Some(state) = self.cue.as_mut() else {
+            return false;
+        };
+        if let Some(target) = scrub_target {
+            // Ease toward the target at a constant clip-time rate. A new
+            // target mid-travel simply reverses the direction from wherever
+            // the pose currently is: no restart at an endpoint, no snap.
+            let speed = if duration > 0.0 {
+                duration / SCRUB_TRAVERSE_SECONDS
+            } else {
+                0.0
+            };
+            let travel = step * speed;
+            let next = if state.time < target {
+                (state.time + travel).min(target)
+            } else if state.time > target {
+                (state.time - travel).max(target)
+            } else {
+                target
+            };
+            state.time = next;
+            if (state.time - target).abs() <= f32::EPSILON {
+                if !state.finished {
+                    state.finished = true;
+                    self.cue_finished = true;
+                }
+            } else {
+                // A scrub in flight is not finished, so a lever retargeted
+                // after an earlier arrival reports the new arrival too.
+                state.finished = false;
+            }
+        } else if !state.paused && step > 0.0 {
+            state.time += step * rate;
+            if state.once && state.time >= duration {
+                state.time = duration;
+                if !state.finished {
+                    state.finished = true;
+                    self.cue_finished = true;
+                }
+            } else if !state.once && duration > 0.0 {
+                // A looping cue's clock stays bounded over long sessions.
+                state.time = state.time.rem_euclid(duration);
+            }
+        }
+        if self.cue_previous.is_some() {
+            self.cue_fade = (self.cue_fade + step).max(0.0);
+        }
+        if !self.sample_active_cue() {
+            return false;
+        }
+        self.compose_globals();
+        self.compute_deltas();
+        self.revision = self.revision.wrapping_add(1);
+        true
+    }
+
+    /// Restarts the active cue at time zero (a one-shot replay hook).
+    pub const fn restart_cue(&mut self) {
+        if let Some(state) = self.cue.as_mut() {
+            state.time = 0.0;
+            state.finished = false;
+            self.cue_finished = false;
+        }
+    }
+
+    /// Resolves a pose cue to `(clip, once, paused, time rate)`.
+    ///
+    /// * `Idle` uses the `idle` clip.
+    /// * `Walk { speed }` picks `run` when the rig has one and the requested
+    ///   speed is at least [`RUN_GAIT_MULTIPLIER`] times the walk clip's
+    ///   reference speed; otherwise `walk`. Either clip plays at
+    ///   `speed / its_own_reference_speed`, and a clip with no declared
+    ///   reference falls back to the engine constants, so the shipped
+    ///   Spoonerman keeps its 0.26 m/s walk.
+    /// * `Clip { name, .. }` looks the name up case-insensitively.
+    fn resolve_cue(&self, cue: &PoseCue) -> (usize, bool, bool, f32) {
+        match cue {
+            PoseCue::Idle => (self.clip_index("idle").unwrap_or(0), false, false, 1.0),
+            PoseCue::Walk { speed_mps } => {
+                let speed = if speed_mps.is_finite() {
+                    speed_mps.max(0.0)
+                } else {
+                    0.0
+                };
+                let walk_index = self.clip_index("walk").unwrap_or(0);
+                let walk_reference = self
+                    .clip_reference_speeds
+                    .get(walk_index)
+                    .copied()
+                    .flatten()
+                    .unwrap_or(self.walk_reference_speed);
+                if let Some(run_index) = self.clip_index("run")
+                    && speed >= walk_reference * RUN_GAIT_MULTIPLIER
+                {
+                    let run_reference = self
+                        .clip_reference_speeds
+                        .get(run_index)
+                        .copied()
+                        .flatten()
+                        .unwrap_or(RUN_REFERENCE_SPEED_MPS);
+                    return (
+                        run_index,
+                        false,
+                        false,
+                        (speed / run_reference).clamp(0.05, 4.0),
+                    );
+                }
+                (
+                    walk_index,
+                    false,
+                    false,
+                    (speed / walk_reference).clamp(0.05, 4.0),
+                )
+            }
+            PoseCue::Clip { name, once, paused } => {
+                (self.clip_index(name).unwrap_or(0), *once, *paused, 1.0)
+            }
+            // A scrub cue never advances on its own: `update_cued` eases its
+            // time toward the authored fraction instead.
+            PoseCue::Scrub { name, .. } => (self.clip_index(name).unwrap_or(0), true, false, 1.0),
+        }
+    }
+
+    /// Samples the active cue (and its crossfade source) into the pose buffers.
+    fn sample_active_cue(&mut self) -> bool {
+        let Some(clips) = self.clips.as_ref() else {
+            return false;
+        };
+        let Some(state) = self.cue.as_ref() else {
+            return false;
+        };
+        let clip = state.clip;
+        let time = state.time;
+        let once = state.once;
+        let fade = 1.0 - (-self.cue_fade / BLEND_TIME_CONSTANT_S).exp();
+        if fade >= 0.999 {
+            self.cue_previous = None;
+        }
+        let previous = self
+            .cue_previous
+            .and_then(|(index, previous_time, was_once)| {
+                clips
+                    .clips
+                    .get(index)
+                    .map(|clip| (clip, previous_time, was_once))
+            });
+        let Some(active) = clips.clips.get(clip) else {
+            return false;
+        };
+        if self.cue_from_pose && fade < 0.999 {
+            // Freeze the pre-cue pose as the crossfade source.
+            self.clip_b.copy_from_slice(&self.pose);
+            self.morph_b.copy_from_slice(&self.morphs);
+        }
+        active.sample(
+            &self.rig,
+            &MorphRig {
+                defaults: &self.morph_defaults,
+                ranges: &self.morph_ranges,
+            },
+            time,
+            !once,
+            &mut SampleTargets {
+                pose: &mut self.clip_a,
+                morphs: &mut self.morph_a,
+            },
+        );
+        if let Some((previous, previous_time, was_once)) = previous {
+            previous.sample(
+                &self.rig,
+                &MorphRig {
+                    defaults: &self.morph_defaults,
+                    ranges: &self.morph_ranges,
+                },
+                previous_time,
+                // A held one-shot must keep its last key; a looping clip wraps.
+                !was_once,
+                &mut SampleTargets {
+                    pose: &mut self.clip_b,
+                    morphs: &mut self.morph_b,
+                },
+            );
+            for (node, (previous, active)) in self
+                .pose
+                .iter_mut()
+                .zip(self.clip_b.iter().zip(self.clip_a.iter()))
+            {
+                *node = previous.blend(*active, fade);
+            }
+            for (slot, (previous, active)) in self
+                .morphs
+                .iter_mut()
+                .zip(self.morph_b.iter().zip(self.morph_a.iter()))
+            {
+                *slot = (*active - *previous).mul_add(fade, *previous);
+            }
+        } else {
+            for (node, active) in self.pose.iter_mut().zip(self.clip_a.iter()) {
+                *node = *active;
+            }
+            self.morphs.copy_from_slice(&self.morph_a);
+        }
+        if fade >= 0.999 {
+            self.cue_from_pose = false;
+        }
+        true
     }
 
     /// Writes the procedural locomotion pose from the state weights.
@@ -1440,7 +2187,7 @@ mod tests {
     )]
 
     use super::*;
-    use crate::gltf::{AnimationPath, PropModel, PropNode, PropSkin};
+    use crate::gltf::{AnimationPath, PropAnimationChannel, PropModel, PropNode, PropSkin};
 
     /// A synthetic three-node rig: a body, a front-left leg and a tail, with
     /// one vertex skinned to all three.
@@ -1497,10 +2244,11 @@ mod tests {
             skin: Some(PropSkin {
                 joints: vec![0, 1, 2],
                 inverse_bind: vec![Mat4::IDENTITY; 3],
-                nodes,
+                nodes: nodes.clone(),
                 root: Some(0),
                 mesh_node: Some(0),
             }),
+            nodes,
             joints: vec![[0, 1, 2, 0]; 3],
             weights: vec![
                 [0.4, 0.3, 0.3, 0.0],
@@ -1508,6 +2256,9 @@ mod tests {
                 [0.0, 0.5, 0.5, 0.0],
             ],
             animations,
+            morph_targets: Vec::new(),
+            morph_weights: Vec::new(),
+            mesh_morph_ranges: Vec::new(),
         }
     }
 
@@ -1643,6 +2394,9 @@ mod tests {
     #[test]
     fn clip_sampling_interpolates_linearly_and_holds_step_keys() {
         let linear = PropAnimation {
+            looped: true,
+            reference_speed_mps: None,
+            kind: None,
             name: "Walk".to_string(),
             duration: 1.0,
             channels: vec![PropAnimationChannel {
@@ -1651,9 +2405,13 @@ mod tests {
                 interpolation: AnimationInterpolation::Linear,
                 times: vec![0.0, 1.0],
                 values: vec![0.0, 0.0, 0.0, 0.0, 10.0, 0.0],
+                values_per_key: 3,
             }],
         };
         let step = PropAnimation {
+            looped: true,
+            reference_speed_mps: None,
+            kind: None,
             name: "Idle".to_string(),
             duration: 1.0,
             channels: vec![PropAnimationChannel {
@@ -1662,6 +2420,7 @@ mod tests {
                 interpolation: AnimationInterpolation::Step,
                 times: vec![0.0, 1.0],
                 values: vec![5.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                values_per_key: 3,
             }],
         };
         let model = rigged_model(vec![linear, step]);
@@ -1672,24 +2431,66 @@ mod tests {
         player.previous = None;
         player.elapsed = BLEND_TIME_CONSTANT_S;
         let mut out: Vec<LocalTrs> = animator.rig.nodes.iter().map(LocalTrs::from_node).collect();
-        player.clips[0].sample(&animator.rig, 0.5, &mut out);
+        player.clips[0].sample(
+            &animator.rig,
+            &MorphRig {
+                defaults: &[],
+                ranges: &[],
+            },
+            0.5,
+            true,
+            &mut SampleTargets {
+                pose: &mut out,
+                morphs: &mut [],
+            },
+        );
         assert!((out[1].translation.y - 5.0).abs() < 1e-6, "{:?}", out[1]);
         // STEP holds the previous key until the next one arrives.
-        player.clips[1].sample(&animator.rig, 0.5, &mut out);
+        player.clips[1].sample(
+            &animator.rig,
+            &MorphRig {
+                defaults: &[],
+                ranges: &[],
+            },
+            0.5,
+            true,
+            &mut SampleTargets {
+                pose: &mut out,
+                morphs: &mut [],
+            },
+        );
         assert!((out[1].translation.x - 5.0).abs() < 1e-6, "{:?}", out[1]);
         // The wrapper wraps time past the duration: 1.5 s is 0.5 s again.
-        player.clips[0].sample(&animator.rig, 1.5, &mut out);
+        player.clips[0].sample(
+            &animator.rig,
+            &MorphRig {
+                defaults: &[],
+                ranges: &[],
+            },
+            1.5,
+            true,
+            &mut SampleTargets {
+                pose: &mut out,
+                morphs: &mut [],
+            },
+        );
         assert!((out[1].translation.y - 5.0).abs() < 1e-6, "{:?}", out[1]);
     }
 
     #[test]
     fn a_clipped_rig_maps_states_to_clips_by_name() {
         let idle = PropAnimation {
+            looped: true,
+            reference_speed_mps: None,
+            kind: None,
             name: "CatIdle".to_string(),
             duration: 1.0,
             channels: Vec::new(),
         };
         let walk = PropAnimation {
+            looped: true,
+            reference_speed_mps: None,
+            kind: None,
             name: "cat_walk_cycle".to_string(),
             duration: 1.0,
             channels: Vec::new(),
@@ -1707,6 +2508,9 @@ mod tests {
     #[test]
     fn a_state_change_crossfades_between_clips() {
         let constant = |name: &str, y: f32| PropAnimation {
+            looped: true,
+            reference_speed_mps: None,
+            kind: None,
             name: name.to_string(),
             duration: 1.0,
             channels: vec![PropAnimationChannel {
@@ -1715,6 +2519,7 @@ mod tests {
                 interpolation: AnimationInterpolation::Linear,
                 times: vec![0.0, 1.0],
                 values: vec![0.0, y, 0.0, 0.0, y, 0.0],
+                values_per_key: 3,
             }],
         };
         // The leg's rest translation is (0, -1, 0); the idle clip holds it and
@@ -1784,5 +2589,397 @@ mod tests {
                 assert!((value - if value == 1.0 { 1.0 } else { 0.0 }).abs() < 1e-6);
             }
         }
+    }
+
+    /// CUBICSPLINE evaluates the spec's Hermite form, including the tangent
+    /// terms, and clamps outside the key range.
+    #[test]
+    fn cubic_spline_sampling_hits_endpoints_tangents_and_midpoints() {
+        let channel = PropAnimationChannel {
+            node: 1,
+            path: AnimationPath::Translation,
+            interpolation: AnimationInterpolation::CubicSpline,
+            times: vec![0.0, 1.0],
+            // Per key: in-tangent, value, out-tangent.
+            // key 0: v0 = (0,0,0), out m0 = (2,0,0); key 1: v1 = (10,0,0)
+            values: vec![
+                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0,
+                0.0, 0.0,
+            ],
+            values_per_key: 3,
+        };
+        let sampled = Channel::from_channel(&channel);
+        // Hermite: h00*0 + h10*1*2 + h01*10 + h11*1*0 = 5 + 0.25 at t = 0.5.
+        let mid = sampled.sample_component(0.5, 0).expect("mid sample");
+        assert!((mid - 5.25).abs() < 1e-4, "cubic midpoint: {mid}");
+        assert!((sampled.sample_component(0.0, 0).expect("start") - 0.0).abs() < 1e-6);
+        assert!((sampled.sample_component(1.0, 0).expect("end") - 10.0).abs() < 1e-6);
+        // Timestamps outside the key range clamp to the nearest key.
+        assert!((sampled.sample_component(-3.0, 0).expect("before") - 0.0).abs() < 1e-6);
+        assert!((sampled.sample_component(9.0, 0).expect("after") - 10.0).abs() < 1e-6);
+    }
+
+    /// An explicit one-shot cue holds its last pose and reports completion
+    /// exactly once; a paused cue freezes its time and pose.
+    #[test]
+    fn explicit_clips_hold_once_pause_and_resume() {
+        let clip = PropAnimation {
+            looped: true,
+            reference_speed_mps: None,
+            kind: None,
+            name: "sit_down".to_string(),
+            duration: 1.0,
+            channels: vec![PropAnimationChannel {
+                node: 1,
+                path: AnimationPath::Translation,
+                interpolation: AnimationInterpolation::Linear,
+                times: vec![0.0, 1.0],
+                values: vec![0.0, 0.0, 0.0, 0.0, 5.0, 0.0],
+                values_per_key: 3,
+            }],
+        };
+        let model = rigged_model(vec![clip]);
+        let mut animator = CharacterAnimator::new(&model).expect("cue animator");
+        let cue = PoseCue::Clip {
+            name: "sit_down".to_string(),
+            once: true,
+            paused: false,
+        };
+        animator.update_cued(0.5, &cue);
+        assert!(!animator.take_cue_finished(), "not finished mid-clip");
+        animator.update_cued(0.6, &cue);
+        assert!(animator.take_cue_finished(), "finished at the last key");
+        assert!(!animator.take_cue_finished(), "completion is consumed once");
+        // The held pose is the clip's final translation.
+        let held = animator
+            .joint_delta(1)
+            .expect("delta")
+            .transform_point3(Vec3::ZERO);
+        // The delta is the animated translation (5) minus the rest (-1).
+        assert!((held.y - 6.0).abs() < 1e-3, "held pose: {held:?}");
+        // A paused cue keeps its time: once the crossfade has settled, further
+        // steps leave the pose untouched.
+        let paused = PoseCue::Clip {
+            name: "sit_down".to_string(),
+            once: false,
+            paused: true,
+        };
+        for _ in 0..60 {
+            animator.update_cued(1.0 / 30.0, &paused);
+        }
+        let first = animator
+            .joint_delta(1)
+            .expect("delta")
+            .transform_point3(Vec3::ZERO);
+        animator.update_cued(2.0, &paused);
+        let second = animator
+            .joint_delta(1)
+            .expect("delta")
+            .transform_point3(Vec3::ZERO);
+        assert!(
+            (first - second).length() < 1e-6,
+            "a paused cue must not advance: {first:?} vs {second:?}"
+        );
+        assert!(animator.has_pose_cue());
+    }
+
+    /// A `weights` animation channel drives the model's morph target weights,
+    /// and the default weight is restored before every sample.
+    #[test]
+    fn morph_weight_channels_animate_the_target_weights() {
+        let mut model = rigged_model(vec![PropAnimation {
+            looped: true,
+            reference_speed_mps: None,
+            kind: None,
+            name: "wave".to_string(),
+            duration: 1.0,
+            channels: vec![PropAnimationChannel {
+                node: 0,
+                path: AnimationPath::Weights,
+                interpolation: AnimationInterpolation::Linear,
+                times: vec![0.0, 1.0],
+                values: vec![0.0, 1.0],
+                values_per_key: 1,
+            }],
+        }]);
+        model.morph_targets = vec![crate::gltf::PropMorphTarget {
+            position: vec![[0.0, 0.25, 0.0]; 3],
+            normal: Vec::new(),
+            tangent: Vec::new(),
+        }];
+        model.morph_weights = vec![0.0];
+        model.mesh_morph_ranges = vec![(0, 0, 1)];
+        let animator = CharacterAnimator::new(&model).expect("morph animator");
+        let clips = animator.clips.as_ref().expect("clips");
+        let mut out: Vec<LocalTrs> = animator.rig.nodes.iter().map(LocalTrs::from_node).collect();
+        let mut morphs = vec![0.0f32];
+        clips.clips[0].sample(
+            &animator.rig,
+            &MorphRig {
+                defaults: &model.morph_weights,
+                ranges: &model.mesh_morph_ranges,
+            },
+            0.5,
+            true,
+            &mut SampleTargets {
+                pose: &mut out,
+                morphs: &mut morphs,
+            },
+        );
+        assert!(
+            (morphs[0] - 0.5).abs() < 1e-5,
+            "half-way weight: {morphs:?}"
+        );
+        clips.clips[0].sample(
+            &animator.rig,
+            &MorphRig {
+                defaults: &model.morph_weights,
+                ranges: &model.mesh_morph_ranges,
+            },
+            1.0,
+            false,
+            &mut SampleTargets {
+                pose: &mut out,
+                morphs: &mut morphs,
+            },
+        );
+        assert!((morphs[0] - 1.0).abs() < 1e-5, "end weight: {morphs:?}");
+        // A looping sample wraps: 1.25 s is 0.25 s again.
+        clips.clips[0].sample(
+            &animator.rig,
+            &MorphRig {
+                defaults: &model.morph_weights,
+                ranges: &model.mesh_morph_ranges,
+            },
+            1.25,
+            true,
+            &mut SampleTargets {
+                pose: &mut out,
+                morphs: &mut morphs,
+            },
+        );
+        assert!(
+            (morphs[0] - 0.25).abs() < 1e-5,
+            "wrapped weight: {morphs:?}"
+        );
+    }
+
+    /// Switching from a held one-shot to a loop starts the crossfade from the
+    /// held last pose, not from the loop's first frame.
+    #[test]
+    fn a_one_shot_holds_its_last_pose_while_the_next_cue_fades_in() {
+        let sit = PropAnimation {
+            looped: true,
+            reference_speed_mps: None,
+            kind: None,
+            name: "sit_down".to_string(),
+            duration: 1.0,
+            channels: vec![PropAnimationChannel {
+                node: 1,
+                path: AnimationPath::Translation,
+                interpolation: AnimationInterpolation::Linear,
+                times: vec![0.0, 1.0],
+                values: vec![0.0, -1.0, 0.0, 0.0, 4.0, 0.0],
+                values_per_key: 3,
+            }],
+        };
+        let idle = PropAnimation {
+            looped: true,
+            reference_speed_mps: None,
+            kind: None,
+            name: "idle".to_string(),
+            duration: 2.0,
+            channels: vec![PropAnimationChannel {
+                node: 1,
+                path: AnimationPath::Translation,
+                interpolation: AnimationInterpolation::Linear,
+                times: vec![0.0, 1.0],
+                values: vec![0.0, -1.0, 0.0, 0.0, -1.0, 0.0],
+                values_per_key: 3,
+            }],
+        };
+        let model = rigged_model(vec![sit, idle]);
+        let mut animator = CharacterAnimator::new(&model).expect("cue animator");
+        let once = PoseCue::Clip {
+            name: "sit_down".to_string(),
+            once: true,
+            paused: false,
+        };
+        animator.update_cued(2.0, &once);
+        assert!(animator.take_cue_finished());
+        let held = animator
+            .joint_delta(1)
+            .expect("delta")
+            .transform_point3(Vec3::ZERO);
+        assert!((held.y - 5.0).abs() < 1e-3, "held pose: {held:?}");
+        // The first frame of the loop cue keeps the held pose (fade from the
+        // current pose, no frame-0 snap).
+        animator.update_cued(0.0, &PoseCue::Idle);
+        let frozen = animator
+            .joint_delta(1)
+            .expect("delta")
+            .transform_point3(Vec3::ZERO);
+        assert!(
+            (frozen - held).length() < 1e-4,
+            "no frame-0 jump: {frozen:?} vs {held:?}"
+        );
+        // After the fade the idle pose is reached.
+        for _ in 0..120 {
+            animator.update_cued(1.0 / 60.0, &PoseCue::Idle);
+        }
+        let settled = animator
+            .joint_delta(1)
+            .expect("delta")
+            .transform_point3(Vec3::ZERO);
+        assert!(settled.length() < 1e-3, "settled idle pose: {settled:?}");
+    }
+
+    /// Completion never leaks across a cue change, and `restart_cue` replays a
+    /// finished one-shot.
+    #[test]
+    fn cue_completion_does_not_leak_and_can_restart() {
+        let clip = PropAnimation {
+            looped: true,
+            reference_speed_mps: None,
+            kind: None,
+            name: "sit_down".to_string(),
+            duration: 1.0,
+            channels: vec![PropAnimationChannel {
+                node: 1,
+                path: AnimationPath::Translation,
+                interpolation: AnimationInterpolation::Linear,
+                times: vec![0.0, 1.0],
+                values: vec![0.0, -1.0, 0.0, 0.0, 4.0, 0.0],
+                values_per_key: 3,
+            }],
+        };
+        let idle = PropAnimation {
+            looped: true,
+            reference_speed_mps: None,
+            kind: None,
+            name: "idle".to_string(),
+            duration: 2.0,
+            channels: Vec::new(),
+        };
+        let model = rigged_model(vec![clip, idle]);
+        let mut animator = CharacterAnimator::new(&model).expect("cue animator");
+        let once = PoseCue::Clip {
+            name: "sit_down".to_string(),
+            once: true,
+            paused: false,
+        };
+        animator.update_cued(2.0, &once);
+        // Finish without consuming, then change cues: the stale flag is gone.
+        animator.update_cued(0.0, &PoseCue::Idle);
+        assert!(!animator.take_cue_finished(), "completion must not leak");
+        // Replay the same one-shot through the explicit restart hook.
+        animator.update_cued(0.0, &once);
+        animator.restart_cue();
+        animator.update_cued(0.5, &once);
+        assert!(!animator.take_cue_finished(), "restarted clip is mid-way");
+        animator.update_cued(1.0, &once);
+        assert!(
+            animator.take_cue_finished(),
+            "restarted clip completes again"
+        );
+    }
+
+    /// LINEAR rotation keys slerp along the shortest arc instead of
+    /// component-wise lerping the long way round.
+    #[test]
+    fn linear_rotation_keys_take_the_shortest_arc() {
+        let channel = PropAnimationChannel {
+            node: 1,
+            path: AnimationPath::Rotation,
+            interpolation: AnimationInterpolation::Linear,
+            times: vec![0.0, 1.0],
+            // 270 degrees about +X: (sin 135, 0, 0, cos 135).
+            values: vec![
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                std::f32::consts::FRAC_1_SQRT_2,
+                0.0,
+                0.0,
+                -std::f32::consts::FRAC_1_SQRT_2,
+            ],
+            values_per_key: 4,
+        };
+        let sampled = Channel::from_channel(&channel);
+        let mid = sampled.sample_rotation(0.5).expect("mid rotation");
+        // The shortest arc from 0 to 270 degrees is -90 degrees, so the
+        // midpoint is -45 degrees about +X: x = sin(-22.5 degrees).
+        assert!(
+            (mid.x - (-0.382_683_43)).abs() < 1e-3 && mid.w > 0.92,
+            "shortest-arc slerp: {mid:?}"
+        );
+    }
+
+    /// One clip that keys a single node, for cue-resolution tests.
+    fn named_clip(name: &str, reference_speed_mps: Option<f32>) -> PropAnimation {
+        PropAnimation {
+            name: name.to_string(),
+            duration: 1.0,
+            channels: vec![PropAnimationChannel {
+                node: 1,
+                path: AnimationPath::Rotation,
+                interpolation: AnimationInterpolation::Linear,
+                times: vec![0.0, 1.0],
+                values: vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+                values_per_key: 4,
+            }],
+            looped: true,
+            reference_speed_mps,
+            kind: None,
+        }
+    }
+
+    /// A walk cue follows the clips' own declared reference speeds: the run
+    /// clip takes over above the gait threshold and each clip plays at
+    /// `speed / reference` with no foot sliding.
+    #[test]
+    fn a_walk_cue_uses_declared_reference_speeds_and_prefers_run() {
+        let model = rigged_model(vec![
+            named_clip("walk", Some(0.35)),
+            named_clip("run", Some(1.2)),
+            named_clip("idle", None),
+        ]);
+        let animator = CharacterAnimator::new(&model).expect("rig animator");
+        let walk = animator.clip_index("walk").expect("walk clip");
+        let run = animator.clip_index("run").expect("run clip");
+
+        let (clip, once, paused, rate) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.35 });
+        assert_eq!((clip, once, paused), (walk, false, false));
+        assert!((rate - 1.0).abs() < 1e-5, "walk at its reference: {rate}");
+
+        let (clip, _, _, rate) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 0.6 });
+        assert_eq!(
+            clip, run,
+            "above 1.5x the walk reference, the run gait plays"
+        );
+        assert!(
+            (rate - 0.5).abs() < 1e-5,
+            "run at half its reference: {rate}"
+        );
+
+        let (clip, _, _, rate) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 1.2 });
+        assert_eq!(clip, run);
+        assert!((rate - 1.0).abs() < 1e-5, "run at its reference: {rate}");
+
+        // A rig with no run clip keeps the walk clip at any speed.
+        let walk_only = rigged_model(vec![named_clip("walk", Some(0.35))]);
+        let animator = CharacterAnimator::new(&walk_only).expect("rig animator");
+        let (clip, _, _, rate) = animator.resolve_cue(&PoseCue::Walk { speed_mps: 1.4 });
+        assert_eq!(clip, 0);
+        assert!((rate - 4.0).abs() < 1e-5, "the rate clamps at 4x: {rate}");
+
+        // A clip with no declared reference keeps the historical constant.
+        let legacy = rigged_model(vec![named_clip("walk", None)]);
+        let animator = CharacterAnimator::new(&legacy).expect("rig animator");
+        let (_, _, _, rate) = animator.resolve_cue(&PoseCue::Walk {
+            speed_mps: WALK_REFERENCE_SPEED_MPS,
+        });
+        assert!((rate - 1.0).abs() < 1e-5, "legacy walk reference: {rate}");
     }
 }

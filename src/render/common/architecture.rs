@@ -33,8 +33,9 @@ use super::{
     shade, stamp_lightmap_quad, tiled_uv,
 };
 use crate::level::{
-    ArchwayDef, BaseboardDef, ColumnDef, GuardrailDef, HalfWallDef, LevelDef, LevelSurfaces,
-    MaterialRef, RampDef, StairDef, ThresholdDef, WallAxis, axis_positions,
+    ArcWallDef, ArchwayDef, BaseboardDef, ColumnDef, GuardrailDef, HalfWallDef, LevelDef,
+    LevelSurfaces, MaterialRef, PillarDef, RampDef, StairDef, ThresholdDef, WallAxis,
+    axis_positions, round_point, wall_solid_slices_profiled,
 };
 use crate::lighting::light_grid_cells;
 use crate::lighting::lightmap::PatchKind;
@@ -104,6 +105,12 @@ pub fn emit_architecture(
     for piece in &context.level.columns {
         emit_column(context, buckets, scratch, piece);
     }
+    for piece in &context.level.arc_walls {
+        emit_arc_wall(context, buckets, scratch, piece);
+    }
+    for piece in &context.level.pillars {
+        emit_pillar(context, buckets, scratch, piece);
+    }
     for piece in &context.level.archways {
         emit_archway(context, buckets, scratch, piece);
     }
@@ -134,6 +141,21 @@ fn cross(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
 /// The dot product of two world vectors.
 fn dot(a: [f32; 3], b: [f32; 3]) -> f32 {
     a[2].mul_add(b[2], a[1].mul_add(b[1], a[0] * b[0]))
+}
+
+/// `a - b` as a plain `[f32; 3]`.
+fn sub3(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+    [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+}
+
+/// The unit vector along `value`, or `[0, 1, 0]` for a degenerate one.
+fn normalized3(value: [f32; 3]) -> [f32; 3] {
+    let length_sq = dot(value, value);
+    if !length_sq.is_finite() || length_sq <= 1.0e-12 {
+        return [0.0, 1.0, 0.0];
+    }
+    let inverse = 1.0 / length_sq.sqrt();
+    [value[0] * inverse, value[1] * inverse, value[2] * inverse]
 }
 
 /// The normal of a quad wound `p0 -> p1 -> p2`.
@@ -1237,6 +1259,487 @@ fn emit_column(
     emit_box(context, buckets, scratch, (boxed.min, boxed.max), keys);
 }
 
+/// The resolved material keys of one arc wall or pillar.
+#[derive(Clone, Copy)]
+struct RoundKeys {
+    /// The concave face of an arc wall (facing the circle's centre).
+    inner: SurfaceKey,
+    /// The convex face of an arc wall, or the body of a pillar.
+    outer: SurfaceKey,
+    /// The top cap.
+    cap: SurfaceKey,
+    /// The radial end faces of an arc wall (unused for a full ring).
+    end: SurfaceKey,
+}
+
+/// Emits one data-authored arc wall: its two curved faces, its ring caps and
+/// its radial ends.
+///
+/// The piece is drawn exactly as [`crate::level::ArcWallDef::collision_boxes`]
+/// interprets it: the same resolved segment count, the same inner/outer radii,
+/// the same base and the same per-segment top. Each segment is a whole quad, so
+/// winding, lightmap charts and the baked shading follow the ordinary face
+/// rules. UVs are world-scale: `u` is the arc length travelled along each
+/// face's own circumference and `v` is height, so a texture never stretches
+/// around the sweep.
+#[allow(clippy::too_many_lines)] // one curved solid's full face set, kept in one place
+fn emit_arc_wall(
+    context: &EmitContext<'_, '_>,
+    buckets: &mut SpatialBuckets<SurfaceKey>,
+    scratch: &mut Vec<Vertex>,
+    piece: &ArcWallDef,
+) {
+    if !piece.x.is_finite()
+        || !piece.z.is_finite()
+        || !piece.radius.is_finite()
+        || !piece.thickness.is_finite()
+        || !piece.start_degrees.is_finite()
+        || !piece.sweep_degrees.is_finite()
+    {
+        return;
+    }
+    let inner_radius = piece.inner_radius();
+    let outer_radius = piece.outer_radius();
+    if piece.radius <= 0.0
+        || piece.thickness <= 0.0
+        || inner_radius <= 0.0
+        || piece.sweep_degrees.abs() <= 1.0e-3
+    {
+        return;
+    }
+    let segments = piece.resolved_segments();
+    let base = piece.base_y(context.surfaces);
+    let keys = RoundKeys {
+        inner: wall_key(context, piece.inner_ref()),
+        outer: wall_key(context, piece.outer_ref()),
+        cap: wall_key(context, piece.cap_ref()),
+        end: wall_key(context, piece.end_ref()),
+    };
+    let authored_height = piece
+        .height
+        .is_some_and(|height| height.is_finite() && height > 0.0);
+    let full_ring = piece.is_full_ring();
+    let count = f32::from(u16::try_from(segments).unwrap_or(u16::MAX));
+    for index in 0..segments {
+        let index_f = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+        let fraction0 = index_f / count;
+        let fraction1 = if index.saturating_add(1) >= segments {
+            1.0
+        } else {
+            (index_f + 1.0) / count
+        };
+        let a0 = piece.sweep_degrees.mul_add(fraction0, piece.start_degrees);
+        let a1 = piece.sweep_degrees.mul_add(fraction1, piece.start_degrees);
+        let (mx, mz) = piece.centreline_point(f32::midpoint(fraction0, fraction1));
+        let top_mid = piece.top_y_at(context.surfaces, mx, mz);
+        if base + 1.0e-3 >= top_mid {
+            continue;
+        }
+        let arc0 = piece.sweep_degrees.to_radians() * fraction0;
+        let arc1 = piece.sweep_degrees.to_radians() * fraction1;
+        let (bx, bz) = round_point(piece.x, piece.z, piece.radius, a0);
+        let (b1x, b1z) = round_point(piece.x, piece.z, piece.radius, a1);
+        // The top follows the ceiling per segment end when no height is
+        // authored (a wall without a height climbs a gable), so both ends are
+        // resolved from their own position rather than one shared plane.
+        let (top0, top1) = if authored_height {
+            (top_mid, top_mid)
+        } else {
+            (
+                piece.top_y_at(context.surfaces, bx, bz),
+                piece.top_y_at(context.surfaces, b1x, b1z),
+            )
+        };
+        let ceiling_mid = context.surfaces.ceiling_y_at(mx, mz);
+        let tile_outer = context.materials.tile_metres(keys.outer);
+        let tile_inner = context.materials.tile_metres(keys.inner);
+
+        // The convex outer face.
+        let p_out0 = round_point(piece.x, piece.z, outer_radius, a0);
+        let p_out1 = round_point(piece.x, piece.z, outer_radius, a1);
+        let mut points = [
+            [p_out0.0, base, p_out0.1],
+            [p_out1.0, base, p_out1.1],
+            [p_out1.0, top1, p_out1.1],
+            [p_out0.0, top0, p_out0.1],
+        ];
+        let mut uv = [
+            tiled_uv(-outer_radius * arc0, top0 - base, tile_outer),
+            tiled_uv(-outer_radius * arc1, top0 - base, tile_outer),
+            tiled_uv(-outer_radius * arc1, top0 - top1, tile_outer),
+            tiled_uv(-outer_radius * arc0, 0.0, tile_outer),
+        ];
+        let mut top = [false, false, true, true];
+        let normal = outer_normal(a0, a1);
+        orient(&mut points, &mut uv, &mut top, normal);
+        emit_face(
+            context,
+            buckets,
+            scratch,
+            ArchitectureFace {
+                points,
+                uv,
+                top,
+                normal,
+                vertical: true,
+                up: false,
+                key: keys.outer,
+                kind: PatchKind::Wall,
+            },
+        );
+
+        // The concave inner face.
+        let p_in0 = round_point(piece.x, piece.z, inner_radius, a0);
+        let p_in1 = round_point(piece.x, piece.z, inner_radius, a1);
+        let mut points = [
+            [p_in0.0, base, p_in0.1],
+            [p_in1.0, base, p_in1.1],
+            [p_in1.0, top1, p_in1.1],
+            [p_in0.0, top0, p_in0.1],
+        ];
+        let mut uv = [
+            tiled_uv(inner_radius * arc0, top0 - base, tile_inner),
+            tiled_uv(inner_radius * arc1, top0 - base, tile_inner),
+            tiled_uv(inner_radius * arc1, top0 - top1, tile_inner),
+            tiled_uv(inner_radius * arc0, 0.0, tile_inner),
+        ];
+        let mut top = [false, false, true, true];
+        let normal = inner_normal(a0, a1);
+        orient(&mut points, &mut uv, &mut top, normal);
+        emit_face(
+            context,
+            buckets,
+            scratch,
+            ArchitectureFace {
+                points,
+                uv,
+                top,
+                normal,
+                vertical: true,
+                up: false,
+                key: keys.inner,
+                kind: PatchKind::Wall,
+            },
+        );
+
+        // The ring caps. The top cap is skipped whenever it lands on the
+        // ceiling plane exactly — including an authored height equal to the
+        // ceiling height — so it never fights the ceiling; a wall authored
+        // above or clearly below the ceiling keeps its cap.
+        let cap_tile = context.materials.tile_metres(keys.cap);
+        if (top_mid - ceiling_mid).abs() > FLUSH_EPS_M {
+            let mut points = [
+                [p_in0.0, top0, p_in0.1],
+                [p_in1.0, top1, p_in1.1],
+                [p_out1.0, top1, p_out1.1],
+                [p_out0.0, top0, p_out0.1],
+            ];
+            let mut uv = points.map(|point| tiled_uv(point[0], point[2], cap_tile));
+            let mut top = [false; 4];
+            orient(&mut points, &mut uv, &mut top, [0.0, 1.0, 0.0]);
+            emit_face(
+                context,
+                buckets,
+                scratch,
+                ArchitectureFace {
+                    points,
+                    uv,
+                    top,
+                    normal: [0.0, 1.0, 0.0],
+                    vertical: false,
+                    up: true,
+                    key: keys.cap,
+                    kind: PatchKind::Wall,
+                },
+            );
+        }
+        let (probe_floor_x, probe_floor_z) =
+            round_point(piece.x, piece.z, piece.radius, f32::midpoint(a0, a1));
+        let floor = context
+            .surfaces
+            .floor_y_at(probe_floor_x, probe_floor_z)
+            .unwrap_or(base);
+        if base > floor + 0.02 {
+            let mut points = [
+                [p_in0.0, base, p_in0.1],
+                [p_out0.0, base, p_out0.1],
+                [p_out1.0, base, p_out1.1],
+                [p_in1.0, base, p_in1.1],
+            ];
+            let mut uv = points.map(|point| tiled_uv(point[0], point[2], cap_tile));
+            let mut top = [false; 4];
+            orient(&mut points, &mut uv, &mut top, [0.0, -1.0, 0.0]);
+            emit_face(
+                context,
+                buckets,
+                scratch,
+                ArchitectureFace {
+                    points,
+                    uv,
+                    top,
+                    normal: [0.0, -1.0, 0.0],
+                    vertical: false,
+                    up: false,
+                    key: keys.cap,
+                    kind: PatchKind::Wall,
+                },
+            );
+        }
+    }
+
+    // The two radial ends: real faces that close the slab, so the wall reads
+    // as solid from either end. A full ring has none. The end plane's outward
+    // normal is the run tangent with the sweep's own sign, so a negative
+    // (counter-clockwise) sweep faces its ends out the same way a positive one
+    // does.
+    if !full_ring {
+        let end_tile = context.materials.tile_metres(keys.end);
+        let (start_x, start_z) = piece.centreline_point(0.0);
+        let (end_x, end_z) = piece.centreline_point(1.0);
+        let start_top = piece.top_y_at(context.surfaces, start_x, start_z);
+        let end_top = piece.top_y_at(context.surfaces, end_x, end_z);
+        let sweep_sign = if piece.sweep_degrees < 0.0 { -1.0 } else { 1.0 };
+        let tangent = |angle_degrees: f32| {
+            let radians = angle_degrees.to_radians();
+            [radians.cos(), 0.0, radians.sin()]
+        };
+        let start_tangent = tangent(piece.start_degrees);
+        let end_tangent = tangent(piece.start_degrees + piece.sweep_degrees);
+        let start_expected = [
+            -sweep_sign * start_tangent[0],
+            0.0,
+            -sweep_sign * start_tangent[2],
+        ];
+        let end_expected = [
+            sweep_sign * end_tangent[0],
+            0.0,
+            sweep_sign * end_tangent[2],
+        ];
+        for (angle, top, expected, reversed) in [
+            (piece.start_degrees, start_top, start_expected, false),
+            (
+                piece.start_degrees + piece.sweep_degrees,
+                end_top,
+                end_expected,
+                true,
+            ),
+        ] {
+            let inner = round_point(piece.x, piece.z, inner_radius, angle);
+            let outer = round_point(piece.x, piece.z, outer_radius, angle);
+            let (low, high) = if reversed {
+                (outer, inner)
+            } else {
+                (inner, outer)
+            };
+            let mut points = [
+                [low.0, base, low.1],
+                [high.0, base, high.1],
+                [high.0, top, high.1],
+                [low.0, top, low.1],
+            ];
+            let mut uv = [
+                tiled_uv(0.0, top - base, end_tile),
+                tiled_uv(outer_radius - inner_radius, top - base, end_tile),
+                tiled_uv(outer_radius - inner_radius, 0.0, end_tile),
+                tiled_uv(0.0, 0.0, end_tile),
+            ];
+            let mut top_flags = [false, false, true, true];
+            orient(&mut points, &mut uv, &mut top_flags, expected);
+            emit_face(
+                context,
+                buckets,
+                scratch,
+                ArchitectureFace {
+                    points,
+                    uv,
+                    top: top_flags,
+                    normal: expected,
+                    vertical: true,
+                    up: false,
+                    key: keys.end,
+                    kind: PatchKind::Wall,
+                },
+            );
+        }
+    }
+}
+
+/// Outward radial normal of one arc segment, in world space.
+fn outer_normal(a0: f32, a1: f32) -> [f32; 3] {
+    let mid = f32::midpoint(a0, a1).to_radians();
+    [mid.sin(), 0.0, -mid.cos()]
+}
+
+/// Inward radial normal of one arc segment, in world space.
+fn inner_normal(a0: f32, a1: f32) -> [f32; 3] {
+    let outward = outer_normal(a0, a1);
+    [-outward[0], 0.0, -outward[2]]
+}
+
+/// Emits one data-authored circular pillar: its segmented body, its top cap
+/// and (when it stands clear of the floor) its bottom cap.
+#[allow(clippy::too_many_lines)] // one solid's body and its two caps, kept in one place
+fn emit_pillar(
+    context: &EmitContext<'_, '_>,
+    buckets: &mut SpatialBuckets<SurfaceKey>,
+    scratch: &mut Vec<Vertex>,
+    piece: &PillarDef,
+) {
+    if !piece.x.is_finite() || !piece.z.is_finite() || !piece.radius.is_finite() {
+        return;
+    }
+    if piece.radius <= 0.0 {
+        return;
+    }
+    let segments = piece.resolved_segments();
+    let base = piece.base_y(context.surfaces);
+    let top = piece.top_y(context.surfaces);
+    if top <= base + 1.0e-3 {
+        return;
+    }
+    let body_key = wall_key(context, piece.material_ref());
+    let cap_key = wall_key(context, piece.cap_ref());
+    let tile = context.materials.tile_metres(body_key);
+    let cap_tile = context.materials.tile_metres(cap_key);
+    let count = f32::from(u16::try_from(segments).unwrap_or(u16::MAX));
+    for index in 0..segments {
+        let index_f = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+        let fraction0 = index_f / count;
+        let fraction1 = if index.saturating_add(1) >= segments {
+            1.0
+        } else {
+            (index_f + 1.0) / count
+        };
+        let a0 = 360.0 * fraction0;
+        let a1 = 360.0 * fraction1;
+        let arc0 = fraction0 * std::f32::consts::TAU;
+        let arc1 = fraction1 * std::f32::consts::TAU;
+        let p0 = round_point(piece.x, piece.z, piece.radius, a0);
+        let p1 = round_point(piece.x, piece.z, piece.radius, a1);
+        let mut points = [
+            [p0.0, base, p0.1],
+            [p1.0, base, p1.1],
+            [p1.0, top, p1.1],
+            [p0.0, top, p0.1],
+        ];
+        let mut uv = [
+            tiled_uv(-piece.radius * arc0, top - base, tile),
+            tiled_uv(-piece.radius * arc1, top - base, tile),
+            tiled_uv(-piece.radius * arc1, 0.0, tile),
+            tiled_uv(-piece.radius * arc0, 0.0, tile),
+        ];
+        let mut top_flags = [false, false, true, true];
+        let normal = pillar_normal(a0, a1);
+        orient(&mut points, &mut uv, &mut top_flags, normal);
+        emit_face(
+            context,
+            buckets,
+            scratch,
+            ArchitectureFace {
+                points,
+                uv,
+                top: top_flags,
+                normal,
+                vertical: true,
+                up: false,
+                key: body_key,
+                kind: PatchKind::Wall,
+            },
+        );
+    }
+
+    // The caps: a fan of triangles from the centre to each rim edge. The top
+    // cap is skipped only when an unheighted pillar meets its ceiling exactly.
+    // A cap flush with the ceiling is skipped even when the height was
+    // authored as the ceiling height: an exact plane match would fight the
+    // ceiling surface (the square-column rule).
+    let ceiling = context.surfaces.ceiling_y_at(piece.x, piece.z);
+    if (top - ceiling).abs() > FLUSH_EPS_M {
+        for index in 0..segments {
+            let index_f = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+            let fraction0 = index_f / count;
+            let fraction1 = if index.saturating_add(1) >= segments {
+                1.0
+            } else {
+                (index_f + 1.0) / count
+            };
+            let p0 = round_point(piece.x, piece.z, piece.radius, 360.0 * fraction0);
+            let p1 = round_point(piece.x, piece.z, piece.radius, 360.0 * fraction1);
+            let mut points = [
+                [piece.x, top, piece.z],
+                [piece.x, top, piece.z],
+                [p1.0, top, p1.1],
+                [p0.0, top, p0.1],
+            ];
+            let mut uv = points.map(|point| tiled_uv(point[0], point[2], cap_tile));
+            let mut top_flags = [false; 4];
+            orient(&mut points, &mut uv, &mut top_flags, [0.0, 1.0, 0.0]);
+            emit_face(
+                context,
+                buckets,
+                scratch,
+                ArchitectureFace {
+                    points,
+                    uv,
+                    top: top_flags,
+                    normal: [0.0, 1.0, 0.0],
+                    vertical: false,
+                    up: true,
+                    key: cap_key,
+                    kind: PatchKind::Wall,
+                },
+            );
+        }
+    }
+    let floor = context
+        .surfaces
+        .floor_y_at(piece.x, piece.z)
+        .unwrap_or(base);
+    if base > floor + 0.02 {
+        for index in 0..segments {
+            let index_f = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+            let fraction0 = index_f / count;
+            let fraction1 = if index.saturating_add(1) >= segments {
+                1.0
+            } else {
+                (index_f + 1.0) / count
+            };
+            let p0 = round_point(piece.x, piece.z, piece.radius, 360.0 * fraction0);
+            let p1 = round_point(piece.x, piece.z, piece.radius, 360.0 * fraction1);
+            let mut points = [
+                [piece.x, base, piece.z],
+                [p0.0, base, p0.1],
+                [p1.0, base, p1.1],
+                [piece.x, base, piece.z],
+            ];
+            let mut uv = points.map(|point| tiled_uv(point[0], point[2], cap_tile));
+            let mut top_flags = [false; 4];
+            orient(&mut points, &mut uv, &mut top_flags, [0.0, -1.0, 0.0]);
+            emit_face(
+                context,
+                buckets,
+                scratch,
+                ArchitectureFace {
+                    points,
+                    uv,
+                    top: top_flags,
+                    normal: [0.0, -1.0, 0.0],
+                    vertical: false,
+                    up: false,
+                    key: cap_key,
+                    kind: PatchKind::Wall,
+                },
+            );
+        }
+    }
+}
+
+/// Outward radial normal of one pillar segment, in world space.
+fn pillar_normal(a0: f32, a1: f32) -> [f32; 3] {
+    let mid = f32::midpoint(a0, a1).to_radians();
+    [mid.sin(), 0.0, -mid.cos()]
+}
+
 /// The resolved frame of one archway, shared by its sub-emitters.
 struct ArchwayFrame {
     axis: WallAxis,
@@ -1723,20 +2226,15 @@ fn emit_guardrail(
     }
 
     // Posts, from the base line to the underside of the top rail.
+    //
+    // Positions are resolved before any post is emitted, because a short
+    // remainder must move the last regular post onto the run's end rather than
+    // add a second post a few centimetres behind it — the doubled end post a
+    // 2.5 m run at 1.2 m spacing used to draw at the stair head.
     let spacing = rail.post_spacing();
     let post_half = crate::level::GUARDRAIL_POST_SIZE_M * 0.5;
     let post_top_at = |along: f32| base_at(along) + top_height - top_thickness;
-    let mut previous = f32::NEG_INFINITY;
-    for index in 0..=512u32 {
-        let along = u32_to_f32(index) * spacing;
-        if along > run + 1e-3 {
-            break;
-        }
-        let at = along.min(run);
-        if at - previous < post_half {
-            continue;
-        }
-        previous = at;
+    for at in guardrail_post_positions(run, spacing, post_half) {
         emit_post(
             context,
             buckets,
@@ -1750,20 +2248,43 @@ fn emit_guardrail(
             post_half,
         );
     }
-    if run - previous > post_half {
-        emit_post(
-            context,
-            buckets,
-            scratch,
-            post_key,
-            post_tile,
-            &frame,
-            run,
-            base_at(run),
-            post_top_at(run),
-            post_half,
-        );
+}
+
+/// The post positions of one guardrail run, resolved before any post is
+/// emitted.
+///
+/// Every `post_spacing` from the start, then the run's end when that leaves a
+/// real gap; when the remainder is shorter than a quarter bay (floored at two
+/// post widths), the last regular post moves onto the run's end instead, so a
+/// 2.5 m run at 1.2 m spacing no longer draws a doubled end post.
+fn guardrail_post_positions(run: f32, spacing: f32, post_half: f32) -> Vec<f32> {
+    let mut positions: Vec<f32> = Vec::with_capacity(64);
+    for index in 0..=512u32 {
+        let along = u32_to_f32(index) * spacing;
+        if along > run + 1e-3 {
+            break;
+        }
+        let at = along.min(run);
+        if positions
+            .last()
+            .is_none_or(|previous| at - previous >= post_half)
+        {
+            positions.push(at);
+        }
     }
+    if let Some(last) = positions.last().copied()
+        && last < run - 1.0e-3
+    {
+        let crowded = (spacing * 0.25).max(post_half * 2.0);
+        if run - last < crowded {
+            if let Some(slot) = positions.last_mut() {
+                *slot = run;
+            }
+        } else if run - last > post_half {
+            positions.push(run);
+        }
+    }
+    positions
 }
 
 /// Emits one rail of a guardrail run: its top, its two sides and its two ends.
@@ -1786,6 +2307,24 @@ fn emit_rail_run(
     if top_at(0.0) - bottom_at(0.0) <= 1e-4 && top_at(run) - bottom_at(run) <= 1e-4 {
         return;
     }
+    // The rail's faces follow the run's true 3D length, not its plan length:
+    // on a stair handrail the sloped face is ~20% longer than its footprint,
+    // and stretching one wood texture along it is exactly the UV sheen the
+    // handrail repair removes.
+    let slope = if run > 1.0e-6 {
+        (top_at(run) - top_at(0.0)) / run
+    } else {
+        0.0
+    };
+    let run_scale = slope.mul_add(slope, 1.0).sqrt();
+    // The top face's own normal, tilted by the run's slope; a level rail gets
+    // exactly `[0, 1, 0]` back.
+    let top_normal = {
+        let origin = frame.point(0.0, 0.0, top_at(0.0));
+        let along_vec = sub3(frame.point(run, 0.0, top_at(run)), origin);
+        let across_vec = sub3(frame.point(0.0, 1.0, top_at(0.0)), origin);
+        normalized3(cross(across_vec, along_vec))
+    };
     // The top face: along the run, across the rail's width.
     let top_locals = [
         [0.0, -half_width, top_at(0.0)],
@@ -1793,7 +2332,7 @@ fn emit_rail_run(
         [run, half_width, top_at(run)],
         [0.0, half_width, top_at(0.0)],
     ];
-    let top_uv = top_locals.map(|[along, across, _]| tiled_uv(along, across, tile));
+    let top_uv = top_locals.map(|[along, across, _]| tiled_uv(along * run_scale, across, tile));
     emit_local_face(
         context,
         buckets,
@@ -1803,7 +2342,7 @@ fn emit_rail_run(
         frame,
         top_locals,
         top_uv,
-        [0.0, 1.0, 0.0],
+        top_normal,
         false,
         true,
     );
@@ -1816,7 +2355,7 @@ fn emit_rail_run(
             [run, side * half_width, top_at(run)],
             [0.0, side * half_width, top_at(0.0)],
         ];
-        let uv = locals.map(|[along, _, y]| tiled_uv(along, top_at(along) - y, tile));
+        let uv = locals.map(|[along, _, y]| tiled_uv(along * run_scale, top_at(along) - y, tile));
         emit_local_face(
             context,
             buckets,
@@ -2049,6 +2588,95 @@ fn emit_threshold(
             false,
         );
     }
+}
+
+/// True when a baseboard run's end face butts flush against a perpendicular
+/// wall's face, so the wall itself closes the end and the end face must not be
+/// drawn.
+///
+/// The end plane is perpendicular to the run. A wall whose *length face* lies
+/// on that plane (its thickness plane for the perpendicular axis), whose
+/// length span covers the board's thickness at the end, and whose solid covers
+/// the board's height there, has its own face exactly where the end face would
+/// go; skipping the end face is what keeps the two off the same plane.
+fn baseboard_end_flush_with_wall(
+    context: &EmitContext<'_, '_>,
+    board: &BaseboardDef,
+    base: f32,
+    start: bool,
+) -> bool {
+    let (px, pz) = if start {
+        (board.x, board.z)
+    } else {
+        board.point_at(1.0, 0.0)
+    };
+    if !px.is_finite() || !pz.is_finite() {
+        return false;
+    }
+    let top = base + board.height();
+    if top <= base {
+        return false;
+    }
+    let (dx, _) = board.direction();
+    let (ax, az) = board.across();
+    let thickness = board.thickness();
+    let run_along_x = dx.abs() >= 0.5;
+    // The end face's cross-section spans the board's thickness across the run.
+    let cross = if run_along_x { az } else { ax };
+    for wall in &context.level.walls {
+        let (min_x, max_x) = (
+            wall.x.min(wall.x + wall.width),
+            wall.x.max(wall.x + wall.width),
+        );
+        let (min_z, max_z) = (
+            wall.z.min(wall.z + wall.depth),
+            wall.z.max(wall.z + wall.depth),
+        );
+        let (t0, t1) = match wall.axis() {
+            WallAxis::X => (min_z, max_z),
+            WallAxis::Z => (min_x, max_x),
+        };
+        // The end plane is x = px for an X-run, z = pz for a Z-run; only a
+        // perpendicular wall owns a length face on it.
+        let (span_low, span_high, end_point) = if run_along_x {
+            if wall.axis() != WallAxis::Z {
+                continue;
+            }
+            if (px - t0).abs() > 0.01 && (px - t1).abs() > 0.01 {
+                continue;
+            }
+            let (_, origin_z) = wall.length_origin();
+            (origin_z, origin_z + wall.length(), pz)
+        } else {
+            if wall.axis() != WallAxis::X {
+                continue;
+            }
+            if (pz - t0).abs() > 0.01 && (pz - t1).abs() > 0.01 {
+                continue;
+            }
+            let (origin_x, _) = wall.length_origin();
+            (origin_x, origin_x + wall.length(), px)
+        };
+        let cross_low = end_point.min(cross.mul_add(thickness, end_point));
+        let cross_high = end_point.max(cross.mul_add(thickness, end_point));
+        if cross_low < span_low - 0.01 || cross_high > span_high + 0.01 {
+            continue;
+        }
+        let breaks = context.surfaces.wall_profile_breaks(wall);
+        let clear = |offset: f32| context.surfaces.clear_ceiling_height_along(wall, offset);
+        let covered = wall_solid_slices_profiled(wall, clear, &breaks)
+            .iter()
+            .any(|slice| {
+                slice.start <= end_point - span_low + 0.01
+                    && slice.end >= end_point - span_low - 0.01
+                    && slice.bottom <= base + 0.01
+                    && slice.top >= top - 0.01
+            });
+        if covered {
+            return true;
+        }
+    }
+    false
 }
 
 /// One half-plane in a baseboard run's local `(along, across)` frame.
@@ -2344,9 +2972,11 @@ fn emit_baseboard(
             }
         }
     }
-    // Slivers below a square millimetre are float residue of the subtraction,
-    // not trim: dropping them keeps the mesh free of near-degenerate triangles.
-    cap_pieces.retain(|piece| polygon_area(piece) > 1.0e-6);
+    // Slivers below a few square millimetres are float residue of the
+    // subtraction, not trim: dropping them keeps the mesh free of
+    // near-degenerate triangles (the corner of an 18 mm board's cap is still
+    // tens of square millimetres, so no real trim piece is lost).
+    cap_pieces.retain(|piece| polygon_area(piece) > 1.0e-5);
 
     // The front face: the run's full length minus every covered interval.
     let mut spans: Vec<(f32, f32)> = vec![(0.0, run)];
@@ -2401,7 +3031,7 @@ fn emit_baseboard(
         };
         let mut previous = first;
         for point in iter {
-            if triangle_area_2d(first, previous, *point) > 1.0e-6 {
+            if triangle_area_2d(first, previous, *point) > 1.0e-5 {
                 let [fx, fz] = first;
                 let [px, pz] = previous;
                 let [qx, qz] = *point;
@@ -2425,9 +3055,12 @@ fn emit_baseboard(
         }
     }
 
-    // The ends, unless the joint's other run already closes them.
+    // The ends, unless the joint's other run already closes them or the end
+    // butts flush against a perpendicular wall's face — drawing the end face
+    // there would put a second surface on the wall's own plane, which is
+    // exactly the coplanar fight the checker flags.
     for (at, sign, trimmed) in [(0.0f32, -1.0f32, trim_start), (run, 1.0f32, trim_end)] {
-        if trimmed {
+        if trimmed || baseboard_end_flush_with_wall(context, board, base, at == 0.0) {
             continue;
         }
         let locals = [
@@ -2472,4 +3105,46 @@ fn triangle_area_2d(a: [f32; 2], b: [f32; 2], c: [f32; 2]) -> f32 {
     let [bx, by] = b;
     let [cx, cy] = c;
     ((cx - ax).mul_add(-(by - ay), (bx - ax) * (cy - ay))).abs() * 0.5
+}
+
+#[cfg(test)]
+mod tests {
+    // Test code: exact float compares are idiomatic here (the crate's
+    // production lints stay enforced above).
+    #![allow(clippy::float_cmp)]
+
+    use super::guardrail_post_positions;
+
+    /// The post-position rule: an even run keeps both end posts, a short
+    /// remainder moves the last regular post onto the end instead of drawing a
+    /// crowded pair, and a stub run keeps one post at each end when they are
+    /// far enough apart.
+    #[test]
+    fn guardrail_posts_are_even_and_never_crowded() {
+        let post_half = 0.03_f32;
+        // Exact division: both ends carry a post.
+        assert_eq!(
+            guardrail_post_positions(3.6, 1.2, post_half),
+            vec![0.0, 1.2, 2.4, 3.6]
+        );
+        // The shipped stair rails: 2.1875 m at 1.2 m spacing ends on its own
+        // post, with the remainder almost a full bay.
+        assert_eq!(
+            guardrail_post_positions(2.1875, 1.2, post_half),
+            vec![0.0, 1.2, 2.1875]
+        );
+        // The old doubled-post case: 2.5 m at 1.2 m spacing has a 0.1 m
+        // remainder, so the 2.4 m post becomes the 2.5 m end post.
+        assert_eq!(
+            guardrail_post_positions(2.5, 1.2, post_half),
+            vec![0.0, 1.2, 2.5]
+        );
+        // A 0.55 m landing rail keeps both of its posts (0.55 m apart).
+        assert_eq!(
+            guardrail_post_positions(0.55, 1.2, post_half),
+            vec![0.0, 0.55]
+        );
+        // A degenerate run still gets a single start post.
+        assert_eq!(guardrail_post_positions(0.0, 1.2, post_half), vec![0.0]);
+    }
 }

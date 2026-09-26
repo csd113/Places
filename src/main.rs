@@ -4,10 +4,13 @@ pub mod assets;
 pub mod bench;
 pub mod collision;
 pub mod display;
+pub mod entity;
 pub mod font;
 pub mod game;
+pub mod geometry_check;
 pub mod gltf;
 pub mod input;
+pub mod interact;
 pub mod level;
 pub mod lighting;
 #[cfg(test)]
@@ -18,8 +21,6 @@ mod lighting_audit_cases;
 mod lighting_isolation;
 #[cfg(test)]
 mod lighting_leak_audit;
-#[cfg(test)]
-mod lighting_parity;
 #[cfg(test)]
 mod lighting_partition_audit;
 #[cfg(test)]
@@ -52,9 +53,8 @@ use sdl3::{EventPump, Sdl, VideoSubsystem};
 
 use bench::Bench;
 use display::DisplayStatus;
-use game::{AppState, Game};
+use game::{AppState, CollisionWorld, Game};
 use input::{InputHandler, MenuNavEvent, keycode_to_str};
-use level::{WalkableCeiling, WalkableFloor, WaterVolumes};
 use perf::PerfOverlay;
 use render::{DrawableSize, GraphicsTransition, Renderer, Vertex};
 use settings::{Settings, WindowMode};
@@ -428,6 +428,10 @@ fn spawn_level_demonstration(renderer: &mut Renderer, loaded: &loader::LoadedLev
     if loaded.level.id == loader::DEMO_LEVEL_ID {
         renderer.set_dynamic_demo(&loaded.level);
     }
+    // Floating props are level content, not a demonstration: every level that
+    // authors `float` gets them, and the spawn is idempotent. It runs after
+    // the demo spawn because that one clears the whole dynamic scene first.
+    renderer.set_floating_props(&loaded.level);
 }
 
 /// Builds the renderer for the initial level and applies the persisted texture
@@ -485,10 +489,7 @@ fn new_game(level: &loader::LoadedLevel) -> (Game, Vec3, f32) {
     let game = Game::new(
         spawn_pos,
         spawn_yaw,
-        level.level.collision_aabbs(),
-        WalkableFloor::from_level(&level.level),
-        WaterVolumes::from_level(&level.level),
-        WalkableCeiling::from_level(&level.level),
+        CollisionWorld::from_level(&level.level),
     );
     (game, spawn_pos, spawn_yaw)
 }
@@ -574,14 +575,7 @@ fn apply_spawn_override(
     };
     *spawn_pos = Vec3::new(x, eye_y, z);
     *spawn_yaw = yaw.to_radians();
-    game.reset_level(
-        *spawn_pos,
-        *spawn_yaw,
-        game.walls.clone(),
-        game.floor.clone(),
-        game.water.clone(),
-        game.ceiling.clone(),
-    );
+    game.reset_level(*spawn_pos, *spawn_yaw, game.collision_world());
 }
 
 /// Boots straight into the level named by `PLACES_LEVEL`.
@@ -645,10 +639,7 @@ fn apply_level_request(
                 game.reset_level(
                     *spawn_pos,
                     *spawn_yaw,
-                    loaded.level.collision_aabbs(),
-                    WalkableFloor::from_level(&loaded.level),
-                    WaterVolumes::from_level(&loaded.level),
-                    WalkableCeiling::from_level(&loaded.level),
+                    CollisionWorld::from_level(&loaded.level),
                 );
                 *current_level = Some(loaded);
                 game.set_app_state(AppState::Playing);
@@ -845,17 +836,58 @@ impl FrameLoop<'_> {
         self.game
             .update_player_movement(self.input_handler.state_mut(), self.settings);
         self.log_player_state();
+        // One press is one interaction: consume the edge the movement update
+        // latched, resolve the object under the crosshair and run its
+        // map-authored actions. `window_focused` gates the key the same way it
+        // gates relative mouse mode.
+        let interact_pressed = self.game.take_interact_press();
+        if interact_pressed && self.window_focused {
+            self.dispatch_interaction();
+        }
         // Advance the dynamic objects (the demonstration drum and any other
         // spawned object) once per frame: transform only, never a geometry or
         // lightmap rebuild.
         self.renderer.update_dynamic(self.game.delta_seconds());
-        // Animated characters follow the player's locomotion state; the
-        // renderer re-skins only the characters whose pose moved.
-        self.renderer
-            .update_characters(self.game.delta_seconds(), self.game.locomotion_snapshot());
+        // Animated characters follow the player's locomotion state unless a
+        // map-authored route or interaction addresses them by instance id
+        // (`game.entity_frames()`); the renderer re-skins only the characters
+        // whose pose moved.
+        self.renderer.update_characters(
+            self.game.delta_seconds(),
+            self.game.locomotion_snapshot(),
+            self.game.entity_frames(),
+        );
         let frame_update_done = Instant::now();
 
         self.render_and_present(frame_begin, frame_update_done);
+    }
+
+    /// Runs the current interaction and reports what it did.
+    ///
+    /// The dispatcher itself is engine state ([`Game`]); this only narrates
+    /// the outcome to the developer log, and never reaches into the renderer.
+    fn dispatch_interaction(&mut self) {
+        let Some(report) = self.game.dispatch_interaction() else {
+            return;
+        };
+        if report.player_reset {
+            crate::logging::info("[interact] reset_to_start: returned to the authored spawn");
+        } else if report.labels_toggled() > 0 {
+            let verb = if report.labels_shown > 0 {
+                "shown"
+            } else {
+                "hidden"
+            };
+            crate::logging::info(format!("[interact] label {verb}"));
+        } else if report.animations_started > 0 {
+            crate::logging::info("[interact] animation cue set");
+        } else if report.unsupported > 0 {
+            crate::logging::warn(
+                "[interact] action is not implemented; validation should have rejected it",
+            );
+        } else if report.missing_targets > 0 {
+            crate::logging::warn("[interact] action target names no placed instance");
+        }
     }
 
     /// Stops the frame loop when the active backend hit a fatal GPU error.
@@ -1175,6 +1207,10 @@ impl FrameLoop<'_> {
         if let Event::Window { win_event, .. } = event {
             if matches!(win_event, WindowEvent::FocusLost) {
                 self.window_focused = false;
+                // A key released while another window had focus may never
+                // deliver its KeyUp. Releasing everything keeps a held Jump,
+                // Crouch or Interact from surviving the refocus.
+                self.input_handler.clear_gameplay_inputs();
             } else if matches!(win_event, WindowEvent::FocusGained) {
                 self.window_focused = true;
             }
@@ -1480,10 +1516,7 @@ impl FrameLoop<'_> {
                 self.game.reset_level(
                     *self.spawn_pos,
                     *self.spawn_yaw,
-                    loaded.level.collision_aabbs(),
-                    WalkableFloor::from_level(&loaded.level),
-                    WaterVolumes::from_level(&loaded.level),
-                    WalkableCeiling::from_level(&loaded.level),
+                    CollisionWorld::from_level(&loaded.level),
                 );
                 // Keep the definition resident: a live quality or lightmap
                 // change rebuilds this level's GPU resources from it.
@@ -1540,6 +1573,57 @@ impl FrameLoop<'_> {
             }
             2 => self.goto(AppState::MainMenu),
             _ => {}
+        }
+    }
+
+    /// Submits the UI pass: cached menu/settings geometry, the debug overlay
+    /// when visible, and — while playing — the world-anchored interaction
+    /// labels and the aimed-at prompt through the same text pipeline.
+    fn submit_ui(
+        &mut self,
+        drawable: DrawableSize,
+        cam_pos: Vec3,
+        cam_yaw: f32,
+        cam_pitch: f32,
+        skip_render: bool,
+    ) {
+        if skip_render {
+            // `PLACES_BENCH_NORENDER=1`: measure the presentation path alone.
+            return;
+        }
+        let ui_vertices = self.ui_cache.get(
+            self.game.app_state(),
+            self.ui_state,
+            self.settings,
+            self.display_status,
+            APP_VERSION,
+        );
+        // Labels are only appended while actually playing, never in a menu or a
+        // pause; the overlay is appended on demand.
+        let show_labels = self.game.app_state() == AppState::Playing;
+        if show_labels || self.perf_overlay.is_visible() {
+            self.ui_scratch.clear();
+            self.ui_scratch.extend_from_slice(ui_vertices);
+            if show_labels {
+                interact::append_world_labels(
+                    self.ui_scratch,
+                    self.game,
+                    &render::RenderCamera::new(
+                        cam_pos,
+                        cam_yaw,
+                        cam_pitch,
+                        self.settings.fov_degrees,
+                    ),
+                    drawable,
+                );
+            }
+            if self.perf_overlay.is_visible() {
+                self.ui_scratch
+                    .extend_from_slice(self.perf_overlay.cached_vertices());
+            }
+            self.renderer.render_ui(self.ui_scratch);
+        } else {
+            self.renderer.render_ui(ui_vertices);
         }
     }
 
@@ -1604,25 +1688,9 @@ impl FrameLoop<'_> {
         }
 
         // Menu/settings UI geometry is cached and only rebuilt when its inputs
-        // change. The (debug) performance overlay is appended on demand.
-        let ui_vertices = self.ui_cache.get(
-            self.game.app_state(),
-            self.ui_state,
-            self.settings,
-            self.display_status,
-            APP_VERSION,
-        );
-        if skip_render {
-            // `PLACES_BENCH_NORENDER=1`: measure the presentation path alone.
-        } else if self.perf_overlay.is_visible() {
-            self.ui_scratch.clear();
-            self.ui_scratch.extend_from_slice(ui_vertices);
-            self.ui_scratch
-                .extend_from_slice(self.perf_overlay.cached_vertices());
-            self.renderer.render_ui(self.ui_scratch);
-        } else {
-            self.renderer.render_ui(ui_vertices);
-        }
+        // change. Floating interaction labels and the aimed-at prompt are
+        // appended to the same submission.
+        self.submit_ui(drawable, cam_pos, cam_yaw, cam_pitch, skip_render);
         // `PLACES_BENCH_FINISH=1`: force submitted GPU work to drain before the
         // swap timing point, so `render_ms` is renderer completion time rather
         // than "how much of the frame the driver happened to absorb".
@@ -1747,6 +1815,14 @@ fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String>
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // The geometry checker is a headless CLI mode: it must run before any SDL
+    // or wgpu bootstrap, and it exits the process with its own status.
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    match geometry_check::options_from_args(&args) {
+        Ok(Some(options)) => return geometry_check::main(&options),
+        Ok(None) => {}
+        Err(error) => geometry_check::exit_usage(&error),
+    }
     perf::startup_begin();
     let (sdl_context, video_subsystem, mut window, mut settings, mut bench) = bootstrap()?;
 

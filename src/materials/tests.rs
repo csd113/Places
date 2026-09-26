@@ -3,6 +3,7 @@
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
 #![allow(
+    clippy::suboptimal_flops,
     clippy::case_sensitive_file_extension_comparisons,
     clippy::expect_used,
     clippy::indexing_slicing,
@@ -1339,5 +1340,66 @@ fn the_shipped_glass_and_response_materials_resolve_with_their_pngs() {
                 "{material} ships a normal map"
             );
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Run 06: pool tile sheen
+// ---------------------------------------------------------------------------
+
+/// The pool tile materials carry the raised restrained sheen: a specular
+/// strength at the top of the glazed-tile band and a shine that leaves the
+/// surface glossy but never mirror-like, with the texture art and tiling
+/// untouched.
+#[test]
+fn pool_tiles_keep_a_restrained_visible_sheen() {
+    let level = level_from(
+        r#"{
+            "format_version": 1,
+            "id": "pool_sheen",
+            "name": "Pool Sheen",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [
+                { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0,
+                  "material": "core:pool_tile_deck_01",
+                  "ceiling_material": "core:pool_ceiling_01" }
+            ],
+            "floor_regions": [
+                { "x": 2.0, "z": 2.0, "width": 4.0, "depth": 4.0, "offset_y": -1.0,
+                  "material": "core:pool_tile_basin_01",
+                  "edge_material": "core:pool_tile_wall_01" }
+            ],
+            "walls": [
+                { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 0.3,
+                  "material": "core:pool_tile_wall_01" }
+            ]
+        }"#,
+    );
+    let materials = crate::render::logical_materials(&level);
+    for (id, tile) in [
+        ("core:pool_tile_deck_01", 1.5),
+        ("core:pool_tile_basin_01", 1.0),
+        ("core:pool_tile_wall_01", 1.0),
+    ] {
+        let entry = materials.entry_of(id).expect(id);
+        assert!(
+            entry.response.specular[0] >= 0.28 && entry.response.specular[0] <= 0.32,
+            "{id} specular {} must stay in the restrained glazed-tile band",
+            entry.response.specular[0]
+        );
+        assert!(
+            (entry.response.roughness - 0.6).abs() < 1.0e-3,
+            "{id} roughness {} must match shine 0.4",
+            entry.response.roughness
+        );
+        assert!(
+            entry.response.roughness > 0.0,
+            "{id} must never become a mirror through shine alone"
+        );
+        assert_eq!(entry.tile_metres, tile, "{id} tiling unchanged");
+        assert!(
+            entry.reflection.mode == crate::materials::MaterialReflection::NONE.mode,
+            "{id} keeps no reflection mode"
+        );
     }
 }

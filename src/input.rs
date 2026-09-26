@@ -27,6 +27,10 @@ pub enum Control {
     LookRight,
     /// Jump, and swim upwards while in deep water.
     Jump,
+    /// Toggle the crouched stance (press to change, not hold).
+    Crouch,
+    /// Act on the object the player is looking at (press once, not hold).
+    Interact,
 }
 
 impl Control {
@@ -42,6 +46,8 @@ impl Control {
             Self::LookLeft => 1 << 6,
             Self::LookRight => 1 << 7,
             Self::Jump => 1 << 8,
+            Self::Crouch => 1 << 9,
+            Self::Interact => 1 << 10,
         }
     }
 }
@@ -49,8 +55,8 @@ impl Control {
 /// Raw input state representing gameplay movement, camera looking and the
 /// accumulated relative mouse motion.
 ///
-/// The nine movement, look and jump controls are independent bits rather than
-/// nine separate `bool` fields: they are all set and cleared by the same
+/// The movement, look, jump, crouch and interact controls are independent bits
+/// rather than separate `bool` fields: they are all set and cleared by the same
 /// binding lookup, and the whole held state is copied every frame.
 /// `quit_requested` stays a named field because the game flips it itself
 /// instead of holding a key. Relative mouse motion accumulates in pixels and is
@@ -86,6 +92,10 @@ impl InputState {
             Some(Control::LookRight)
         } else if name == bindings.jump {
             Some(Control::Jump)
+        } else if name == bindings.crouch {
+            Some(Control::Crouch)
+        } else if name == bindings.interact {
+            Some(Control::Interact)
         } else {
             None
         }

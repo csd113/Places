@@ -385,7 +385,7 @@ Every override resolves at geometry-build time into the neutral `SurfaceKey { ki
 | `floor_patches[]` + `shine` | Floor | latest patch wins |
 | `floor_regions[]` + `shine` | Floor | regions win over patches |
 | `floor_regions[].edge_material` + `edge_shine` | Wall | transition skirts |
-| ramp / stair / half wall / column / archway / guardrail / threshold / baseboard `material` + `shine`, plus each piece's end/cap/riser/side/post/reveal fields | Floor or Wall as documented in [MAP_AUTHORING_GUIDE.md](MAP_AUTHORING_GUIDE.md) | the piece's own override wins; a piece with a different material but no own shine keeps that material's default |
+| ramp / stair / half wall / column / archway / arc wall / pillar / guardrail / threshold / baseboard `material` + `shine`, plus each piece's end/cap/riser/side/post/reveal/inner/outer fields | Floor or Wall as documented in [MAP_AUTHORING_GUIDE.md](MAP_AUTHORING_GUIDE.md) | the piece's own override wins; a piece with a different material but no own shine keeps that material's default |
 
 Two surfaces with the same material and different shine resolve to different GPU material states; two surfaces with the same `(kind, material, shine)` share one uniform and one pair of bind groups.
 
@@ -596,6 +596,22 @@ Reflections are opt-in per material and weighted by the sheen the material alrea
 
 **Characters.** A placed prop whose model carries a glTF skin is claimed by the character path instead of the static prop draw (`render/common/character.rs`): the bind pose is still baked into the ordinary prop batch (light occlusion and the shipped-asset checks are untouched) and only that model's GPU prop draws are suppressed. The neutral animator keeps one blend weight per locomotion state — the current state approaches one exponentially with a 0.18 s time constant, walking advances a gait phase per metre travelled and swimming at a fixed 1.1 Hz — and produces one model-space skinning delta per joint. The backend (`render/wgpu/character.rs`) re-skins a character's vertices on the CPU into its own `VERTEX | COPY_DST` buffer **only on the frames its pose revision changes**, draws one indexed draw per primitive after the dynamics with frustum culling, and carries the placement through a per-character group-3 environment. A rig with clips plays the clip its name maps to (`idle`, `walk`/`run`, `jump`/`air`, `swim`) and crossfades over the same time constant; a rig with no clips uses the procedural gait (classified leg pairs, tail chain and body chain). Baked light is sampled once per vertex at spawn, so a character is lit like a static prop and moves without a re-bake.
 
+**Entity cues, live transforms and routes.** A map-authored route or a
+`play_animation` action addresses a character by its placed-instance id
+(`entity::EntityFrame`). `CharacterScene::update(delta, locomotion, frames)`
+matches frames to characters and then calls `CharacterAnimator::update_cued`
+instead of the locomotion driver: the cue (`Idle`, `Walk { speed_mps }` or
+`Clip { name, once, paused }`) crossfades from whatever pose is on screen, a
+one-shot holds its last key, and a walk/run cue plays the named clip at
+`speed / reference_speed_mps` from `asset.extras.places_entity_clips` (falling
+back to `WALK_REFERENCE_SPEED_MPS` / `RUN_REFERENCE_SPEED_MPS`), preferring
+`run` above 1.5× the walk reference. A frame may also carry a live
+`(position, yaw)`: `Character::set_pose` rebuilds the placement matrix,
+recomputes the conservative culling bounds, and `WgpuCharacters::sync` rewrites
+that character's group-3 environment matrix and bounds while only re-skinning
+the vertices whose pose revision changed. Characters with no frame keep
+following the player's locomotion snapshot, exactly as before.
+
 **Fixtures and emission.** Fixture luminous faces are `SurfaceKind::Light` ranges with per-vertex emission; their housings draw the shared white sheet. A fixture's light remains entirely in the CPU bake — the emission term is visual only and never illuminates anything. Material emission (`emissive`, `emissive_intensity`, `emissive_mask`) is independent of environmental illumination, so a surface or fixture face can read fully bright while casting nothing, and a light can cast while nothing glows. A level can make a material's emission `pulse` or `flicker`, deterministically and within a bounded depth; the animation reaches the shader through `emission_scale`.
 
 ## 10. Decals
@@ -767,7 +783,7 @@ The renderer's contracts are covered by in-crate tests, most of which run withou
 - **Camera:** the 80-byte uniform layout, the write predicate, the sRGB clear colours against the reference display value.
 - **Textures:** key semantics, exact 2x2 and odd-edge mip averages, 1x1 idempotence, constant chains, resident bytes, sampler policies, wrap selection, the fallback's committed pixels, raw display-space sampling.
 - **Materials:** resolution rules, the 80-byte uniform and its flags, the display-space colour maths against every authored texel byte, normal decode, alpha classification, blend state, translucent ordering, fallbacks.
-- **Lighting:** the sheen equation (CPU mirror), the display-space assembly order, the unlit bypass conditions, the vertex-lit build's byte-for-byte mesh, the lightmap CPU mirror of `surface_light`, the `needs_upload_fallback` rule. The rework adds: the directional ceiling pool's row profile (brightest beneath the fixture), the scalar-per-channel screen with colour-scaled caps, bounce-fill energy, the query-site radius covering the emitter extent, zone-seam continuity on a narrow strip, the four-page MaxRects allocator and its fifth-page rejection, The Pit baking within the four-page budget at both profiles, a distant room leaving a lit room's light unchanged, light-order stability, baseboard/threshold non-participation, and the editor parity vectors against the Rust model.
+- **Lighting:** the sheen equation (CPU mirror), the display-space assembly order, the unlit bypass conditions, the vertex-lit build's byte-for-byte mesh, the lightmap CPU mirror of `surface_light`, the `needs_upload_fallback` rule. The rework adds: the directional ceiling pool's row profile (brightest beneath the fixture), the scalar-per-channel screen with colour-scaled caps, bounce-fill energy, the query-site radius covering the emitter extent, zone-seam continuity on a narrow strip, the four-page MaxRects allocator and its fifth-page rejection, The Pit baking within the four-page budget at both profiles, a distant room leaving a lit room's light unchanged, light-order stability, baseboard/threshold non-participation.
 - **Reflections:** the six face directions/ups, the 90° projection with the Y flip, the planar mirror composition, `+1.2 m` bake position, nearest probe/plane rules, and the ignored GPU cube round-trip.
 - **Characters:** the skinning delta maths against a synthetic two-bone rig, bind-pose bounds, joint/weight parsing and malformed-skin rejection, blend-weight convergence, distance-driven walking phase, frame-rate-independent playback at 30/60/144 fps, clip name mapping and LINEAR/STEP sampling, crossfades, orthonormal finite matrices across state switches, and no per-frame reallocation.
 - **Water:** one translucent floor quad per authored volume at its surface height, the volume's opacity in the vertex alpha, no lightmap page, the `blend` material in the sorted translucent pass, and back-to-front ordering shared with the other translucent surfaces.

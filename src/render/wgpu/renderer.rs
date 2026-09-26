@@ -74,7 +74,7 @@ use crate::render::common::api::{
     prepare_level_geometry_with_lightmaps, rebuild_vertex_lit_level, retained_build_matches_level,
 };
 use crate::render::common::atmosphere::FogState;
-use crate::render::common::character::CharacterScene;
+use crate::render::common::character::{CharacterScene, EntityFrame};
 use crate::render::common::dynamic::{DynamicScene, DynamicUpdate};
 use crate::render::common::materials::MaterialRenderState;
 use crate::render::common::postprocess::PostSettings;
@@ -834,6 +834,9 @@ impl WgpuRenderer {
         if delta_seconds.is_finite() && delta_seconds > 0.0 {
             self.animation_seconds += delta_seconds;
         }
+        // Floats ride an absolute clock before the spin/probe pass, so a
+        // moved float's probe is sampled at this frame's surface pose.
+        self.dynamic.update_floats(self.animation_seconds);
         let update = self
             .dynamic
             .update(delta_seconds, self.dynamic_lighting.as_ref());
@@ -862,6 +865,27 @@ impl WgpuRenderer {
             self.dynamic
                 .spawn_washer_drum_demo(level, &self.prop_catalog, &mut self.prop_assets);
         if spawned > 0 {
+            self.upload_dynamic();
+        }
+        spawned
+    }
+
+    /// Spawns every placed prop that authors `float` on its water surface.
+    ///
+    /// Runs for every level (a float is a level-authored prop, not a
+    /// demonstration), clears any previous float set first so it is idempotent
+    /// across level reloads, and uploads when anything changed. Returns how
+    /// many floats spawned.
+    pub fn set_floating_props(&mut self, level: &crate::level::LevelDef) -> usize {
+        if self.check_device_lost() {
+            return 0;
+        }
+        let before = self.dynamic.float_count();
+        self.dynamic.clear_floats();
+        let spawned =
+            self.dynamic
+                .spawn_floating_props(level, &self.prop_catalog, &mut self.prop_assets);
+        if spawned > 0 || before > 0 {
             self.upload_dynamic();
         }
         spawned
@@ -912,14 +936,16 @@ impl WgpuRenderer {
     ///
     /// The neutral scene evaluates the blend weights, gait phase and clip
     /// crossfade; the GPU side re-skins only the characters whose pose
-    /// revision changed and writes their vertex buffers. A still character
-    /// writes nothing. Returns how many characters moved this pass.
+    /// revision changed and writes their vertex buffers and live transforms.
+    /// A still character writes nothing. Returns how many characters moved
+    /// this pass.
     pub fn update_characters(
         &mut self,
         delta_seconds: f32,
         locomotion: LocomotionSnapshot,
+        frames: &[EntityFrame],
     ) -> usize {
-        let update = self.characters.update(delta_seconds, locomotion);
+        let update = self.characters.update(delta_seconds, locomotion, frames);
         if let Some(characters) = self.world_characters.as_mut() {
             characters.sync(&self.queue, &self.characters);
         }

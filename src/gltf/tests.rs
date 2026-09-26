@@ -13,6 +13,7 @@
 use super::*;
 use crate::level::PROP_TRIANGLE_BUDGET;
 use crate::materials::MAX_EMISSION_INTENSITY;
+use crate::test_support::assert_exact;
 
 /// A real, shipped prop asset: the parser must accept what the toolkit writes.
 const CHAIR_GLB: &[u8] = include_bytes!("../../assets/environment/office/props/models/chair.glb");
@@ -943,9 +944,9 @@ fn rejects_malformed_assets_with_actionable_messages() {
             "channel",
         ),
         (
-            "morph targets",
-            r#"{"asset":{"version":"2.0"},"meshes":[{"primitives":[{"targets":[{}]}]}]}"#,
-            "morph",
+            "a glTF 1.0 asset version",
+            r#"{"asset":{"version":"1.0"},"meshes":[{"primitives":[{"attributes":{"POSITION":0,"TEXCOORD_0":1},"indices":2}]}]}"#,
+            "2.0",
         ),
     ];
     for (label, json, expected) in json_cases {
@@ -1494,15 +1495,12 @@ fn rejects_malformed_skins_and_animation_samplers() {
         .expect_err("joint attributes without a skin must fail");
     assert!(error.0.contains("no skin"), "{}", error.0);
 
-    // CUBICSPLINE samplers are refused by name.
+    // Unknown interpolations are refused by name.
     let (json, binary) = animated_triangle_document();
-    let json = json.replace(
-        r#""interpolation": "STEP""#,
-        r#""interpolation": "CUBICSPLINE""#,
-    );
+    let json = json.replace(r#""interpolation": "STEP""#, r#""interpolation": "COSINE""#);
     let error =
-        parse_glb(&glb_container(&json, &binary)).expect_err("CUBICSPLINE samplers must fail");
-    assert!(error.0.contains("CUBICSPLINE"), "{}", error.0);
+        parse_glb(&glb_container(&json, &binary)).expect_err("unknown interpolation must fail");
+    assert!(error.0.contains("COSINE"), "{}", error.0);
 }
 
 /// The animated fixture's JSON and binary, exposed so one test can mutate the
@@ -1548,21 +1546,54 @@ fn animated_triangle_document() -> (String, Vec<u8>) {
     (json, builder.bytes().to_vec())
 }
 
-/// The shipped Spoonerman rig: the parser must keep its bind pose and retain
-/// the skeleton with no clips.
+/// The shipped Spoonerman rig: the parser must keep its bind pose, retain the
+/// skeleton and expose the authored locomotion/sit clips.
 #[test]
 fn parses_the_shipped_spoonerman_bind_pose_and_skeleton() {
     const SPOONERMAN_GLB: &[u8] =
         include_bytes!("../../assets/entities/spooner-man/model/spooner-man.glb");
     let model = parse_glb(SPOONERMAN_GLB).expect("shipped spooner-man.glb must parse");
     assert!(model.is_skinned());
-    assert_eq!(model.animations.len(), 0, "the shipped rig has no clips");
+    let names: Vec<&str> = model
+        .animations
+        .iter()
+        .map(|animation| animation.name.as_str())
+        .collect();
+    assert_eq!(
+        names,
+        ["idle", "walk", "sit_down", "sit_idle", "stand_up"],
+        "the shipped rig carries the authored clips"
+    );
     let skin = model.skin.as_ref().expect("skin retained");
     assert_eq!(skin.joints.len(), 26);
     assert_eq!(skin.inverse_bind.len(), 26);
     assert_eq!(skin.nodes.len(), 28);
     assert_eq!(model.joints.len(), model.vertices.len());
     assert_eq!(model.weights.len(), model.vertices.len());
+    // The repaired bind keeps the paw geometry on the leg chains; without the
+    // repair under 2% of the vertex weight reaches a leg bone.
+    let leg_weight: f32 = model
+        .joints
+        .iter()
+        .zip(model.weights.iter())
+        .map(|(joints, weights)| {
+            joints
+                .iter()
+                .zip(weights.iter())
+                .filter(|(slot, _)| {
+                    skin.nodes
+                        .get(usize::from(**slot))
+                        .is_some_and(|node| node.name.starts_with("leg_"))
+                })
+                .map(|(_, weight)| *weight)
+                .sum::<f32>()
+        })
+        .sum();
+    let total: f32 = model.weights.iter().flatten().sum();
+    assert!(
+        leg_weight / total > 0.25,
+        "leg bones must carry the paw geometry: {leg_weight} of {total}"
+    );
     for (joints, weights) in model.joints.iter().zip(model.weights.iter()) {
         let sum: f32 = weights.iter().sum();
         assert!(
@@ -1583,4 +1614,92 @@ fn parses_the_shipped_spoonerman_bind_pose_and_skeleton() {
         assert!((low[axis] - expected_low[axis]).abs() < 2e-3, "{low:?}");
         assert!((high[axis] - expected_high[axis]).abs() < 2e-3, "{high:?}");
     }
+}
+
+/// A missing or malformed `places_entity_clips` marker never fails a model:
+/// every clip keeps its defaults (looping, no declared reference speed), and a
+/// well-formed entry applies case-insensitively.
+#[test]
+fn a_missing_or_malformed_clip_marker_keeps_the_clip_defaults() {
+    let mut animations = vec![PropAnimation {
+        name: "walk".to_string(),
+        duration: 1.0,
+        channels: Vec::new(),
+        looped: true,
+        reference_speed_mps: None,
+        kind: None,
+    }];
+    // No marker at all.
+    apply_clip_metadata(
+        &serde_json::json!({ "asset": { "version": "2.0" } }),
+        &mut animations,
+    );
+    assert!(animations[0].looped);
+    assert!(animations[0].reference_speed_mps.is_none());
+    // A malformed marker: wrong types, a non-string name and an unknown clip.
+    let malformed = serde_json::json!({
+        "asset": { "extras": { "places_entity_clips": {
+            "walk_reference_speed": "fast",
+            "clips": [
+                { "name": "run", "loop": "yes", "reference_speed_mps": "quick" },
+                { "name": 7 }
+            ]
+        } } }
+    });
+    apply_clip_metadata(&malformed, &mut animations);
+    assert!(animations[0].looped, "a malformed entry changes nothing");
+    assert!(animations[0].reference_speed_mps.is_none());
+    // A well-formed entry matches by name, case-insensitively.
+    let valid = serde_json::json!({
+        "asset": { "extras": { "places_entity_clips": {
+            "clips": [
+                { "name": "WALK", "loop": false, "reference_speed_mps": 0.3, "kind": "walk" }
+            ]
+        } } }
+    });
+    apply_clip_metadata(&valid, &mut animations);
+    assert!(!animations[0].looped);
+    assert_eq!(animations[0].reference_speed_mps, Some(0.3));
+    assert_eq!(animations[0].kind.as_deref(), Some("walk"));
+}
+
+/// Run 05: a model that declares clips but no skin parses as a *rigid*
+/// animated prop. Every primitive is bound to its owning node with weight one,
+/// so the character path can pose the node hierarchy (the wall switch's lever).
+#[test]
+fn an_animated_unskinned_prop_parses_as_a_rigid_animated_model() {
+    let bytes = std::fs::read("assets/environment/home/props/models/wall_switch.glb")
+        .expect("the shipped wall switch is readable");
+    let model = parse_glb(&bytes).expect("the wall switch parses");
+    assert!(!model.is_skinned(), "the switch has no skin");
+    assert!(model.is_animated(), "the switch declares a clip");
+    assert!(model.is_animatable(), "a rigid animated prop is animatable");
+    assert_eq!(model.nodes.len(), 3, "plate, pivot and rocker nodes");
+    assert_eq!(
+        model.joints.len(),
+        model.vertices.len(),
+        "every vertex is bound"
+    );
+    assert_eq!(model.weights.len(), model.vertices.len());
+    // Primitive 0 is the plate on node 0, primitive 1 the rocker on node 2;
+    // the pivot node carries no mesh.
+    for (joint, weight) in model.joints.iter().zip(model.weights.iter()) {
+        assert!(
+            joint[0] == 0 || joint[0] == 2,
+            "a vertex binds to its own mesh node: {joint:?}"
+        );
+        assert_exact(weight[0], 1.0);
+        assert_exact(weight[1], 0.0);
+    }
+    let toggle = model
+        .animations
+        .iter()
+        .find(|clip| clip.name == "toggle")
+        .expect("the toggle clip ships");
+    assert!(
+        (toggle.duration - 0.35).abs() < 1.0e-4,
+        "the clip is 0.35 s: {}",
+        toggle.duration
+    );
+    assert!(!toggle.channels.is_empty());
 }

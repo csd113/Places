@@ -461,3 +461,113 @@ fn test_a_rim_blocks_cliffs_but_never_a_walkable_step() {
     assert!(wall.intersects_player_y(0.4));
     assert!(!wall.intersects_player_y(0.75));
 }
+
+/// Ray/AABB slab maths: face entry, inside-origin entry at zero, a miss and a
+/// parallel ray outside the slab.
+#[test]
+fn test_ray_aabb_entry_hits_faces_and_misses_cleanly() {
+    let min = [-1.0, 0.0, -1.0];
+    let max = [1.0, 2.0, 1.0];
+
+    // Straight at the near face from -Z.
+    let entry = ray_aabb_entry(Vec3::new(0.0, 1.0, -5.0), Vec3::Z, min, max)
+        .expect("the ray hits the near face");
+    assert!((entry - 4.0).abs() < 1e-5, "entry at the face: {entry}");
+
+    // From inside: entry is zero.
+    let inside =
+        ray_aabb_entry(Vec3::new(0.0, 1.0, 0.0), Vec3::Z, min, max).expect("inside is a hit");
+    assert!(inside.abs() < 1e-6);
+
+    // Parallel and outside the slab.
+    assert!(ray_aabb_entry(Vec3::new(2.0, 1.0, -5.0), Vec3::Z, min, max).is_none());
+    // Pointing away.
+    assert!(ray_aabb_entry(Vec3::new(0.0, 1.0, -5.0), Vec3::NEG_Z, min, max).is_none());
+    // Parallel and inside the slab.
+    assert!(ray_aabb_entry(Vec3::new(0.0, 1.0, 0.0), Vec3::X, min, max).is_some());
+    // Non-finite input never hits.
+    assert!(
+        ray_aabb_entry(Vec3::new(f32::NAN, 1.0, 0.0), Vec3::Z, min, max).is_none(),
+        "a NaN origin cannot produce a hit"
+    );
+}
+
+/// A swept segment catches a crossing a point test would miss: a fast fall
+/// moves from above a thin band to below it in one step.
+#[test]
+fn test_segment_overlaps_aabb_catches_fast_thin_crossings() {
+    let min = [-0.5, -0.05, -0.5];
+    let max = [0.5, 0.0, 0.5];
+    // One frame of a 30 m/s fall: 3.1 m moved, band 5 cm tall.
+    let from = Vec3::new(0.0, 3.0, 0.0);
+    let to = Vec3::new(0.0, -0.1, 0.0);
+    assert!(
+        segment_overlaps_aabb(from, to, min, max),
+        "the fall crosses the band"
+    );
+    // Both endpoints on the same side: no crossing.
+    assert!(!segment_overlaps_aabb(
+        Vec3::new(0.0, 3.0, 0.0),
+        Vec3::new(0.0, 0.5, 0.0),
+        min,
+        max
+    ));
+    // Horizontal crossing through a thin wall volume.
+    assert!(segment_overlaps_aabb(
+        Vec3::new(-2.0, -0.02, 0.0),
+        Vec3::new(2.0, -0.02, 0.0),
+        min,
+        max
+    ));
+    // A parallel pass outside the footprint.
+    assert!(!segment_overlaps_aabb(
+        Vec3::new(-2.0, -0.02, 3.0),
+        Vec3::new(2.0, -0.02, 3.0),
+        min,
+        max
+    ));
+    // A degenerate segment is a point test.
+    assert!(segment_overlaps_aabb(
+        Vec3::new(0.0, -0.02, 0.0),
+        Vec3::new(0.0, -0.02, 0.0),
+        min,
+        max
+    ));
+}
+
+/// The shipped Places Demo, parsed from the repository level file (the same
+/// shape as `demo_level()` in `src/game/tests.rs`).
+fn demo_level() -> LevelDef {
+    let content = std::fs::read_to_string("assets/levels/places_demo.json")
+        .expect("the Places demo level is present");
+    LevelDef::from_json(&content).expect("the Places demo parses")
+}
+
+/// A floating prop leaves no collision box where it floats: the demo duck's
+/// whole footprint is clear of every wall, rim and solid in the shipped demo.
+#[test]
+fn test_the_floating_demo_duck_has_no_collision_box() {
+    let level = demo_level();
+    let duck = level
+        .props
+        .iter()
+        .find(|prop| prop.model == "core:rubber_duck")
+        .expect("the shipped demo places the floating duck");
+    assert!(duck.float.is_some(), "the demo duck rides the pool water");
+    assert!(!duck.solid, "validation requires a float to be non-solid");
+
+    let [width, _height, depth] = duck.resolved_size(crate::level::PROP_FALLBACK_SIZE);
+    let half_x = width * 0.5;
+    let half_z = depth * 0.5;
+    for aabb in level.collision_aabbs() {
+        let overlaps = duck.x + half_x > aabb.min_x
+            && duck.x - half_x < aabb.max_x
+            && duck.z + half_z > aabb.min_z
+            && duck.z - half_z < aabb.max_z;
+        assert!(
+            !overlaps,
+            "the floating duck ({}, {}) must not overlap a static collider: {aabb:?}",
+            duck.x, duck.z
+        );
+    }
+}

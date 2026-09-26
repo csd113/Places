@@ -14,6 +14,7 @@
     clippy::redundant_clone,
     clippy::too_many_lines,
     clippy::uninlined_format_args,
+    clippy::suboptimal_flops,
     clippy::unwrap_used
 )]
 
@@ -25,6 +26,7 @@ use std::io::Cursor;
 #[test]
 fn test_validate_level_success() {
     let level = LevelDef {
+        routes: Vec::new(),
         format_version: 1,
         id: "test_level".into(),
         name: "Test Level".into(),
@@ -42,6 +44,8 @@ fn test_validate_level_success() {
             shine: None,
             ceiling_material: None,
             ceiling_shine: None,
+            ceiling_tile_origin: None,
+            ceiling_tile_rotation_degrees: None,
         }],
         spawn: crate::level::SpawnDef {
             x: 5.0,
@@ -65,6 +69,7 @@ fn test_validate_level_success() {
         floor_patches: vec![],
         floor_regions: vec![],
         water: vec![],
+        ladders: vec![],
         ramps: vec![],
         stairs: vec![],
         half_walls: vec![],
@@ -76,7 +81,11 @@ fn test_validate_level_success() {
         ceiling_lights: vec![],
         decals: Vec::new(),
         props: vec![],
+        area_triggers: Vec::new(),
         animated_emissions: Vec::new(),
+        arc_walls: Vec::new(),
+        pillars: Vec::new(),
+        geometry_intent: Vec::new(),
     };
     assert!(validate_level(&level).is_ok());
 }
@@ -84,6 +93,7 @@ fn test_validate_level_success() {
 #[test]
 fn test_validate_level_invalid_version() {
     let level = LevelDef {
+        routes: Vec::new(),
         format_version: 2,
         id: "test".into(),
         name: "Test".into(),
@@ -100,6 +110,7 @@ fn test_validate_level_invalid_version() {
         floor_patches: vec![],
         floor_regions: vec![],
         water: vec![],
+        ladders: vec![],
         ramps: vec![],
         stairs: vec![],
         half_walls: vec![],
@@ -111,7 +122,11 @@ fn test_validate_level_invalid_version() {
         ceiling_lights: vec![],
         decals: Vec::new(),
         props: vec![],
+        area_triggers: Vec::new(),
         animated_emissions: Vec::new(),
+        arc_walls: Vec::new(),
+        pillars: Vec::new(),
+        geometry_intent: Vec::new(),
     };
     assert!(validate_level(&level).is_err());
 }
@@ -120,6 +135,7 @@ fn test_validate_level_invalid_version() {
 fn test_validate_level_preserves_overlapping_geometry() {
     // Overlapping walls and rooms are explicitly legal
     let level = LevelDef {
+        routes: Vec::new(),
         format_version: 1,
         id: "overlap".into(),
         name: "Overlap".into(),
@@ -138,6 +154,8 @@ fn test_validate_level_preserves_overlapping_geometry() {
                 shine: None,
                 ceiling_material: None,
                 ceiling_shine: None,
+                ceiling_tile_origin: None,
+                ceiling_tile_rotation_degrees: None,
             },
             RoomDef {
                 ceiling: crate::level::CeilingProfileDef::Flat,
@@ -151,6 +169,8 @@ fn test_validate_level_preserves_overlapping_geometry() {
                 shine: None,
                 ceiling_material: None,
                 ceiling_shine: None,
+                ceiling_tile_origin: None,
+                ceiling_tile_rotation_degrees: None,
             },
         ],
         spawn: crate::level::SpawnDef {
@@ -190,6 +210,7 @@ fn test_validate_level_preserves_overlapping_geometry() {
         floor_patches: vec![],
         floor_regions: vec![],
         water: vec![],
+        ladders: vec![],
         ramps: vec![],
         stairs: vec![],
         half_walls: vec![],
@@ -201,7 +222,11 @@ fn test_validate_level_preserves_overlapping_geometry() {
         ceiling_lights: vec![],
         decals: Vec::new(),
         props: vec![],
+        area_triggers: Vec::new(),
         animated_emissions: Vec::new(),
+        arc_walls: Vec::new(),
+        pillars: Vec::new(),
+        geometry_intent: Vec::new(),
     };
     assert!(validate_level(&level).is_ok());
 }
@@ -293,6 +318,7 @@ fn test_zip_level_pack_extraction() {
 #[test]
 fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
     let level = LevelDef {
+        routes: Vec::new(),
         format_version: 1,
         id: "fallback_test".into(),
         name: "Fallback Test".into(),
@@ -316,6 +342,7 @@ fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
         floor_patches: vec![],
         floor_regions: vec![],
         water: vec![],
+        ladders: vec![],
         ramps: vec![],
         stairs: vec![],
         half_walls: vec![],
@@ -327,7 +354,11 @@ fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
         ceiling_lights: vec![],
         decals: Vec::new(),
         props: vec![],
+        area_triggers: Vec::new(),
         animated_emissions: Vec::new(),
+        arc_walls: Vec::new(),
+        pillars: Vec::new(),
+        geometry_intent: Vec::new(),
     };
 
     // No custom textures supplied: the two `pack:` materials resolve to the
@@ -529,6 +560,8 @@ fn test_validate_rejects_non_finite_room_elevation() {
             shine: None,
             ceiling_material: None,
             ceiling_shine: None,
+            ceiling_tile_origin: None,
+            ceiling_tile_rotation_degrees: None,
         });
         level
     };
@@ -573,6 +606,8 @@ fn test_validate_rejects_impossible_gable_definitions() {
         shine: None,
         ceiling_material: None,
         ceiling_shine: None,
+        ceiling_tile_origin: None,
+        ceiling_tile_rotation_degrees: None,
     });
     let err = validate_level(&level).expect_err("NaN ridge must be rejected");
     assert!(err.contains("ridge rise"), "unexpected error: {err}");
@@ -1301,6 +1336,10 @@ fn test_the_official_demo_exercises_every_showcased_feature() {
         decals.contains(&"core:decal_stripes_01"),
         "the demo marks the step up with the external hazard sheet"
     );
+    assert!(
+        decals.contains(&"core:decal_ceiling_vent_01"),
+        "the demo places the external ceiling-vent sheet"
+    );
 
     // The spawn is inside a room, so the first frame is never the void.
     let spawn = &level.spawn;
@@ -1329,9 +1368,10 @@ fn test_the_official_demo_exercises_every_showcased_feature() {
         sheets,
         vec![
             "core:decal_no_diving_01".to_string(),
-            "core:decal_stripes_01".to_string()
+            "core:decal_stripes_01".to_string(),
+            "core:decal_ceiling_vent_01".to_string()
         ],
-        "both decal sheets the demo places resolve as external PNG artwork"
+        "every decal sheet the demo places resolves as external PNG artwork"
     );
 }
 
@@ -1460,7 +1500,7 @@ fn test_ceiling_light_intensity_is_optional_and_sanitized() {
     assert_eq!(omitted.ceiling_lights[0].brightness, None);
     assert_exact(omitted.ceiling_lights[0].intensity(), 1.0);
 
-    // The editor's `brightness` key and the `intensity` alias both load.
+    // The `brightness` key and the `intensity` alias both load.
     let both = LevelDef::from_json(&base(
         r#"[
             { "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0, "brightness": 0.8 },
@@ -1547,7 +1587,7 @@ fn test_ceiling_light_colour_is_optional_validated_and_round_trips() {
         crate::lighting::LightColor::rgb(0.0, 0.0, 1.0)
     );
 
-    // Serialisation round trip: the array shape survives editor saves.
+    // Serialisation round trip: the array shape survives a save round trip.
     let json = serde_json::to_value(&explicit).expect("level serialises");
     let restored: LevelDef = serde_json::from_value(json).expect("level deserialises");
     assert_eq!(
@@ -2235,6 +2275,71 @@ fn test_validate_water_accepts_a_valid_volume_and_rejects_bad_ones() {
     assert!(error.contains("width and depth"), "{error}");
 }
 
+/// Ladders validate like water volumes: a real room overlap, positive
+/// footprint, finite reach and a top above the bottom; the shipped demo's own
+/// ladder passes and resolves to the +X climb direction.
+#[test]
+fn test_validate_ladders_accepts_the_demo_and_rejects_bad_reach() {
+    let demo = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+        .expect("the Places demo parses");
+    validate_level(&demo).expect("the shipped demo validates");
+    assert_eq!(demo.ladders.len(), 1, "the demo authors its pool ladder");
+    let ladders = crate::level::Ladders::from_level(&demo);
+    assert_eq!(ladders.len(), 1);
+    let ladder = ladders.get(0).expect("one resolved ladder");
+    assert!(
+        ladder.facing_x > 0.99 && ladder.facing_z.abs() < 0.01,
+        "facing 90 degrees climbs towards +X"
+    );
+    assert!(ladder.approach_side(19.0, 12.0), "the water side attaches");
+    assert!(
+        !ladder.approach_side(20.5, 12.0),
+        "the deck side never attaches"
+    );
+    assert!(ladder.overlaps_disc(19.6, 12.0, 0.3));
+
+    let json = |ladders: &str| -> String {
+        format!(
+            r#"{{
+                "format_version": 1,
+                "id": "ladder_gate",
+                "name": "Ladder Gate",
+                "spawn": {{ "x": 1.0, "z": 1.0 }},
+                "room": {{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }},
+                "ladders": [{ladders}]
+            }}"#
+        )
+    };
+    let parse = |ladders: &str| LevelDef::from_json(&json(ladders)).expect("ladder json parses");
+
+    let valid = parse(
+        r#"{ "x": 1.0, "z": 1.0, "width": 0.6, "depth": 0.6,
+             "bottom_y": 0.0, "top_y": 1.5, "facing_degrees": 0.0 }"#,
+    );
+    validate_level(&valid).expect("a valid ladder passes");
+
+    let inverted = parse(
+        r#"{ "x": 1.0, "z": 1.0, "width": 0.6, "depth": 0.6,
+             "bottom_y": 1.5, "top_y": 0.0 }"#,
+    );
+    let error = validate_level(&inverted).expect_err("a top below the bottom is rejected");
+    assert!(error.contains("top_y"), "{error}");
+
+    let zero_width = parse(
+        r#"{ "x": 1.0, "z": 1.0, "width": 0.0, "depth": 0.6,
+             "bottom_y": 0.0, "top_y": 1.5 }"#,
+    );
+    let error = validate_level(&zero_width).expect_err("a zero-width ladder is rejected");
+    assert!(error.contains("width and depth"), "{error}");
+
+    let outside = parse(
+        r#"{ "x": 30.0, "z": 30.0, "width": 0.6, "depth": 0.6,
+             "bottom_y": 0.0, "top_y": 1.5 }"#,
+    );
+    let error = validate_level(&outside).expect_err("a ladder outside every room is rejected");
+    assert!(error.contains("outside every room"), "{error}");
+}
+
 // ------------------------------------------------- level preparation (Agent C)
 
 /// A synthetic catalog with an office-flavoured wall material declaring a
@@ -2548,4 +2653,709 @@ fn test_prepared_demo_baseboard_geometry_sits_at_floor_level() {
     }
     assert!(ranges > 0, "the office trim emits real ranges");
     assert!(vertices > 0);
+}
+
+// ---------------------------------------------------------------------------
+// Run 02: instance identity, actions and area triggers
+// ---------------------------------------------------------------------------
+
+/// A room plus arbitrary area-trigger JSON, for validation tests.
+fn level_with_triggers_json(triggers_json: &str) -> LevelDef {
+    let json = format!(
+        r#"{{
+            "format_version": 1,
+            "id": "triggers_test",
+            "name": "Triggers Test",
+            "spawn": {{ "x": 0.0, "z": 0.0 }},
+            "room": {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 }},
+            "area_triggers": {triggers_json}
+        }}"#
+    );
+    LevelDef::from_json(&json).expect("valid json")
+}
+
+/// The positive path: authored ids, a self-targeted label toggle, a
+/// cross-target toggle and a reset trigger all validate, and the resolved
+/// interactables carry the authored names and actions.
+#[test]
+fn test_validate_accepts_ids_interactions_and_area_triggers() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "interactions",
+            "name": "Interactions",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 },
+            "props": [
+                { "id": "cooler", "display_name": "Water Cooler",
+                  "model": "core:water_cooler", "x": 1.0, "z": 1.0,
+                  "interaction": { "prompt": "Toggle name",
+                                   "actions": [{ "action": "toggle_label" }] } },
+                { "model": "core:plant", "x": 2.0, "z": 2.0,
+                  "interaction": { "reach": 3.0,
+                                   "actions": [
+                                       { "action": "toggle_label", "target": "cooler" },
+                                       { "action": "reset_to_start" }
+                                   ] } }
+            ],
+            "area_triggers": [
+                { "id": "hole", "x": 1.0, "z": 1.0, "width": 2.0, "depth": 2.0,
+                  "bottom_y": -2.0, "top_y": 0.0,
+                  "actions": [{ "action": "reset_to_start" }],
+                  "cooldown_seconds": 0.5, "once": true }
+            ]
+        }"#,
+    )
+    .expect("the interaction level parses");
+    validate_level(&level).expect("valid ids, targets and trigger");
+
+    let items = crate::interact::Interactables::from_level(&level);
+    assert_eq!(items.len(), 2);
+    let cooler = items.get(0).expect("the cooler interactable");
+    assert_eq!(cooler.id, "cooler");
+    assert_eq!(cooler.display_name, "Water Cooler");
+    assert_eq!(cooler.prompt, "Toggle name");
+    assert!((cooler.reach - crate::interact::DEFAULT_INTERACTION_REACH_M).abs() < 1e-6);
+    let plant = items.get(1).expect("the plant interactable");
+    assert_eq!(
+        plant.id, "plant_1",
+        "the default id is stable and model-scoped"
+    );
+    assert!((plant.reach - 3.0).abs() < 1e-6);
+    assert_eq!(plant.actions.len(), 2, "action composition is preserved");
+}
+
+/// Duplicate and malformed instance ids are named errors; the default scheme
+/// is included in the uniqueness set, so an authored `chair_2` cannot collide
+/// with the second defaulted chair.
+#[test]
+fn test_validate_rejects_duplicate_and_malformed_instance_ids() {
+    let duplicate = level_with_props_json(
+        r#"[{ "id": "same", "model": "core:chair", "x": 1.0, "z": 1.0 },
+            { "id": "same", "model": "core:chair", "x": 2.0, "z": 1.0 }]"#,
+    );
+    let err = validate_level(&duplicate).expect_err("duplicate ids are invalid");
+    assert!(err.contains("duplicates"), "unexpected error: {err}");
+    assert!(err.contains("same"), "the error names the id: {err}");
+
+    let default_collision = level_with_props_json(
+        r#"[{ "id": "chair_1", "model": "core:chair", "x": 1.0, "z": 1.0 },
+            { "model": "core:chair", "x": 2.0, "z": 1.0 }]"#,
+    );
+    let err =
+        validate_level(&default_collision).expect_err("an authored id cannot shadow a default id");
+    assert!(err.contains("chair_1"), "the error names the id: {err}");
+
+    let malformed =
+        level_with_props_json(r#"[{ "id": "bad id", "model": "core:chair", "x": 1.0, "z": 1.0 }]"#);
+    let err = validate_level(&malformed).expect_err("a spaced id is malformed");
+    assert!(err.contains("well-formed"), "unexpected error: {err}");
+}
+
+/// `toggle_label` must name a placed instance that exists; an area trigger
+/// cannot be its own label target.
+#[test]
+fn test_validate_rejects_unknown_or_missing_label_targets() {
+    let unknown = level_with_props_json(
+        r#"[{ "model": "core:plant", "x": 1.0, "z": 1.0,
+             "interaction": { "actions": [{ "action": "toggle_label", "target": "ghost" }] } }]"#,
+    );
+    let err = validate_level(&unknown).expect_err("an unknown target is invalid");
+    assert!(
+        err.contains("unknown instance `ghost`"),
+        "unexpected error: {err}"
+    );
+
+    let trigger_without_target = level_with_triggers_json(
+        r#"[{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0,
+             "actions": [{ "action": "toggle_label" }] }]"#,
+    );
+    let err =
+        validate_level(&trigger_without_target).expect_err("a trigger has no label of its own");
+    assert!(err.contains("needs a `target`"), "unexpected error: {err}");
+}
+
+/// The reserved audio route is rejected by name: a map can never load with a
+/// silently ignored effect, and the error says exactly what is missing. The
+/// animation route is implemented and validates its clip and target instead.
+#[test]
+fn test_validate_rejects_unimplemented_audio_and_checks_animation_actions() {
+    let audio = level_with_props_json(
+        r#"[{ "model": "core:plant", "x": 1.0, "z": 1.0,
+             "interaction": { "actions": [{ "action": "play_audio", "sound": "beep" }] } }]"#,
+    );
+    let err = validate_level(&audio).expect_err("reserved actions must not load");
+    assert!(
+        err.contains("play_audio") && err.contains("not implemented"),
+        "the error names play_audio: {err}"
+    );
+
+    // A placed prop's own interaction may pose itself.
+    let playable = level_with_props_json(
+        r#"[{ "id": "mannequin_1", "model": "core:plant", "x": 1.0, "z": 1.0,
+             "interaction": { "actions": [
+                { "action": "play_animation", "clip": "arms_up" } ] } }]"#,
+    );
+    validate_level(&playable).expect("play_animation is implemented");
+
+    // A blank clip name is refused by name.
+    let missing_clip = level_with_props_json(
+        r#"[{ "model": "core:plant", "x": 1.0, "z": 1.0,
+             "interaction": { "actions": [{ "action": "play_animation" }] } }]"#,
+    );
+    let err = validate_level(&missing_clip).expect_err("clip is required");
+    assert!(err.contains("needs a clip name"), "unexpected error: {err}");
+
+    // An unknown target is refused with the id in the message.
+    let unknown_target = level_with_props_json(
+        r#"[{ "model": "core:plant", "x": 1.0, "z": 1.0,
+             "interaction": { "actions": [
+                { "action": "play_animation", "target": "ghost", "clip": "idle" } ] } }]"#,
+    );
+    let err = validate_level(&unknown_target).expect_err("the target must resolve");
+    assert!(err.contains("ghost"), "unexpected error: {err}");
+
+    // A trigger has no implicit actor: an explicit target is required.
+    let trigger_without_target = level_with_triggers_json(
+        r#"[{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0,
+             "actions": [{ "action": "play_animation", "clip": "idle" }] }]"#,
+    );
+    let err = validate_level(&trigger_without_target)
+        .expect_err("a trigger has no entity of its own to pose");
+    assert!(err.contains("needs a `target`"), "unexpected error: {err}");
+}
+
+/// Area triggers are checked like water and ladders: positive footprint, real
+/// vertical band, non-negative cooldown, in-room, bounded and non-empty.
+#[test]
+fn test_validate_rejects_malformed_area_triggers() {
+    let cases = [
+        (
+            r#"[{ "x": 1.0, "z": 1.0, "width": 0.0, "depth": 1.0,
+                 "actions": [{ "action": "reset_to_start" }] }]"#,
+            "width and depth must be positive",
+        ),
+        (
+            r#"[{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0,
+                 "bottom_y": 1.0, "top_y": 0.5,
+                 "actions": [{ "action": "reset_to_start" }] }]"#,
+            "must be above its bottom_y",
+        ),
+        (
+            r#"[{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0,
+                 "cooldown_seconds": -1.0,
+                 "actions": [{ "action": "reset_to_start" }] }]"#,
+            "cannot be negative",
+        ),
+        (
+            r#"[{ "x": 1.0, "z": 1.0, "width": 1.0, "depth": 1.0, "actions": [] }]"#,
+            "must declare at least one action",
+        ),
+        (
+            r#"[{ "x": 40.0, "z": 40.0, "width": 1.0, "depth": 1.0,
+                 "actions": [{ "action": "reset_to_start" }] }]"#,
+            "lies outside every room section",
+        ),
+    ];
+    for (json, expected) in cases {
+        let level = level_with_triggers_json(json);
+        let err = validate_level(&level).expect_err("the trigger must be rejected");
+        assert!(err.contains(expected), "expected `{expected}` in: {err}");
+    }
+}
+
+/// Composition is bounded: more than [`crate::level::MAX_ACTIONS_PER_SOURCE`]
+/// actions on one source is a named error rather than unbounded dispatch.
+#[test]
+fn test_validate_rejects_too_many_actions_on_one_source() {
+    let actions: Vec<&str> = (0..=crate::level::MAX_ACTIONS_PER_SOURCE)
+        .map(|_| r#"{ "action": "reset_to_start" }"#)
+        .collect();
+    let level = level_with_props_json(&format!(
+        r#"[{{ "model": "core:plant", "x": 1.0, "z": 1.0,
+             "interaction": {{ "actions": [{}] }} }}]"#,
+        actions.join(",")
+    ));
+    let err = validate_level(&level).expect_err("an oversized batch is invalid");
+    assert!(err.contains("the limit is"), "unexpected error: {err}");
+}
+
+/// Legacy maps carry no new keys: they validate, resolve no interactables and
+/// no triggers, and their props still receive deterministic ids for later
+/// reference without changing any rendered or simulated behaviour.
+#[test]
+fn test_legacy_maps_load_without_interactions_or_triggers() {
+    let level = level_with_props_json(
+        r#"[{ "model": "core:chair", "x": 1.0, "z": 1.0 },
+            { "model": "core:chair", "x": 2.0, "z": 1.0 }]"#,
+    );
+    validate_level(&level).expect("a legacy prop list is still valid");
+    assert!(
+        crate::interact::Interactables::from_level(&level).is_empty(),
+        "scenery without an interaction is not aimable"
+    );
+    assert!(
+        crate::level::AreaTriggers::from_level(&level).is_empty(),
+        "a legacy level has no triggers"
+    );
+    assert_eq!(level.prop_instance_ids(), vec!["chair_1", "chair_2"]);
+
+    // The shipped demo's demo interactions resolve and validate.
+    let manager = LevelManager::new();
+    let loaded = manager.load_default().expect("the demo loads");
+    let interactables = crate::interact::Interactables::from_level(&loaded.level);
+    assert!(
+        interactables.len() >= 5,
+        "the demo authors several label interactions: {}",
+        interactables.len()
+    );
+    assert!(interactables.index_of("spooner_man").is_some());
+    assert!(interactables.index_of("pool_chair_north").is_some());
+    assert!(interactables.index_of("pool_chair_south").is_some());
+}
+
+/// A `toggle_label` target may name a prop with no interaction of its own; the
+/// target joins the resolved set as a label-only instance. Only an unknown id
+/// is an error.
+#[test]
+fn test_validate_accepts_a_label_only_target() {
+    let level = level_with_props_json(
+        r#"[
+            { "id": "lamp", "display_name": "Lamp", "model": "core:lamp",
+              "x": 1.0, "z": 1.0 },
+            { "id": "switch", "display_name": "Switch", "model": "core:switch",
+              "x": 2.0, "z": 1.0,
+              "interaction": { "actions": [{ "action": "toggle_label", "target": "lamp" }] } }
+        ]"#,
+    );
+    validate_level(&level).expect("a label-only target is valid");
+    let items = crate::interact::Interactables::from_level(&level);
+    let lamp = items.index_of("lamp").expect("the target is resolved");
+    assert!(
+        items.get(lamp).expect("lamp").actions.is_empty(),
+        "a label-only target is not aimable"
+    );
+    assert!(items.index_of("switch").is_some());
+}
+
+/// A level with a prop and a set of routes, plus a wall at x = 5..5.2 that
+/// splits the room so blocked paths are expressible.
+fn level_with_routes_json(props_json: &str, routes_json: &str) -> LevelDef {
+    let json = format!(
+        r#"{{
+            "format_version": 1,
+            "id": "routes_test",
+            "name": "Routes Test",
+            "spawn": {{ "x": 1.0, "z": 1.0 }},
+            "room": {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 }},
+            "walls": [{{ "x": 5.0, "z": 0.0, "width": 0.2, "depth": 10.0, "height": 3.5 }}],
+            "props": {props_json},
+            "routes": {routes_json}
+        }}"#
+    );
+    LevelDef::from_json(&json).expect("valid json")
+}
+
+#[test]
+fn test_validate_accepts_a_clear_entity_route() {
+    let level = level_with_routes_json(
+        r#"[{ "id": "runner", "model": "core:crate", "x": 2.0, "z": 2.0,
+             "size": [0.4, 0.4, 0.4] }]"#,
+        r#"[{ "id": "runner", "loop": true, "steps": [
+            { "step": "move_to", "x": 4.0, "z": 2.0, "speed": 0.5 },
+            { "step": "face", "yaw_degrees": 180.0 },
+            { "step": "wait", "seconds": 1.0 },
+            { "step": "play", "clip": "idle", "seconds": 2.0, "loop": true }
+        ] }]"#,
+    );
+    validate_level(&level).expect("a clear route validates");
+}
+
+#[test]
+fn test_validate_rejects_malformed_entity_routes() {
+    let props = r#"[{ "id": "runner", "model": "core:crate", "x": 2.0, "z": 2.0,
+                     "size": [0.4, 0.4, 0.4] },
+                    { "id": "solid_runner", "model": "core:crate", "x": 3.0, "z": 3.0,
+                      "size": [0.4, 0.4, 0.4], "solid": true }]"#;
+    let cases = [
+        (
+            r#"[{ "id": "ghost", "steps": [
+                { "step": "wait", "seconds": 1.0 } ] }]"#,
+            "unknown instance",
+        ),
+        (r#"[{ "id": "runner", "steps": [] }]"#, "declares no steps"),
+        (
+            r#"[{ "id": "runner", "steps": [
+                { "step": "wait", "seconds": 1.0 } ] },
+                { "id": "runner", "steps": [
+                { "step": "wait", "seconds": 1.0 } ] }]"#,
+            "duplicates instance",
+        ),
+        (
+            r#"[{ "id": "runner", "steps": [
+                { "step": "move_to", "x": 40.0, "z": 2.0, "speed": 0.5 } ] }]"#,
+            "not on",
+        ),
+        (
+            r#"[{ "id": "runner", "steps": [
+                { "step": "move_to", "x": 8.0, "z": 2.0, "speed": 0.5 } ] }]"#,
+            "blocked by geometry",
+        ),
+        (
+            r#"[{ "id": "runner", "steps": [
+                { "step": "move_to", "x": 4.0, "z": 2.0, "speed": 0.0 } ] }]"#,
+            "speed must be between",
+        ),
+        (
+            r#"[{ "id": "runner", "steps": [
+                { "step": "move_to", "x": 4.0, "z": 2.0, "speed": 99.0 } ] }]"#,
+            "speed must be between",
+        ),
+        (
+            r#"[{ "id": "runner", "steps": [
+                { "step": "wait", "seconds": 0.0 } ] }]"#,
+            "seconds must be between",
+        ),
+        (
+            r#"[{ "id": "runner", "steps": [
+                { "step": "play", "clip": "", "seconds": 1.0 } ] }]"#,
+            "needs a clip name",
+        ),
+        (
+            r#"[{ "id": "solid_runner", "steps": [
+                { "step": "wait", "seconds": 1.0 } ] }]"#,
+            "solid: true",
+        ),
+    ];
+    for (routes, expected) in cases {
+        let level = level_with_routes_json(props, routes);
+        let err = validate_level(&level).expect_err(&format!("must reject: {routes}"));
+        assert!(err.contains(expected), "expected {expected:?} in {err:?}");
+    }
+
+    // Duplicate route ids are refused with the id in the message.
+    let duplicate = level_with_routes_json(
+        props,
+        r#"[{ "id": "runner", "steps": [{ "step": "wait", "seconds": 1.0 }] },
+             { "id": "runner", "steps": [{ "step": "wait", "seconds": 1.0 }] }]"#,
+    );
+    let err = validate_level(&duplicate).expect_err("duplicate routes are refused");
+    assert!(err.contains("duplicates instance `runner`"), "{err}");
+}
+
+/// The runtime's minimum movement-disc radius is the validator's minimum too,
+/// so a tiny prop can never pass validation and then stall on a wall the map
+/// did not clear.
+#[test]
+fn validate_routes_uses_the_runtime_minimum_disc_radius() {
+    let level = level_with_routes_json(
+        r#"[{ "id": "tiny", "model": "core:crate", "x": 2.0, "z": 2.0,
+             "size": [0.02, 0.02, 0.02] }]"#,
+        r#"[{ "id": "tiny", "steps": [
+            { "step": "move_to", "x": 2.5, "z": 2.0, "speed": 0.5 } ] }]"#,
+    );
+    validate_level(&level).expect("a tiny prop's route validates");
+    let routes = crate::entity::EntityRoutes::from_level(&level);
+    let route = routes.get("tiny").expect("the route resolves");
+    assert!(
+        (route.radius - crate::entity::ENTITY_MIN_RADIUS_M).abs() < 1.0e-6,
+        "the runtime disc uses the shared minimum: {}",
+        route.radius
+    );
+}
+
+/// The Run 05 demo duck, exactly as the shipped demo authors it: the pool
+/// surface is at -1.65 m and the duck floats inside the basin's
+/// 8..20 x 10..16 footprint.
+const DEMO_DUCK_FLOAT: &str = r#"{ "model": "core:rubber_duck", "x": 10.5, "z": 10.4,
+    "rotation_degrees": 180.0, "size": [0.10, 0.12, 0.14], "solid": false,
+    "float": { "draft": 0.03, "bob": 0.012, "bob_seconds": 2.4,
+               "heel_degrees": 3.0, "heel_seconds": 3.1 } }"#;
+
+/// A 24x24 m basin room carrying the demo pool's water (8..20 x 10..16 at
+/// -1.65 m, floor -3.0) and one authored prop, plus optional routes.
+fn float_level_with_routes(prop_json: &str, routes_json: &str) -> LevelDef {
+    let json = format!(
+        r#"{{
+            "format_version": 1,
+            "id": "float_test",
+            "name": "Float Test",
+            "spawn": {{ "x": 1.0, "z": 1.0 }},
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 24.0, "depth": 24.0,
+                         "height": 3.5, "floor_y": -3.0 }}],
+            "water": [{{ "x": 8.0, "z": 10.0, "width": 12.0, "depth": 6.0,
+                         "surface_y": -1.65, "bottom_y": -3.0 }}],
+            "props": [{prop_json}],
+            "routes": {routes_json}
+        }}"#
+    );
+    LevelDef::from_json(&json).expect("the float test level parses")
+}
+
+/// [`float_level_with_routes`] with no routes.
+fn float_level(prop_json: &str) -> LevelDef {
+    float_level_with_routes(prop_json, "[]")
+}
+
+/// The float block of the level's only prop, for case construction.
+fn float_mut(level: &mut LevelDef) -> &mut crate::level::PropFloatDef {
+    level.props[0]
+        .float
+        .as_mut()
+        .expect("the test level's only prop floats")
+}
+
+/// The demo duck validates, the swept disc really is inside the basin, and the
+/// contract's inclusive boundaries (bob at half the height, heel at the cap,
+/// phase at both ends) are accepted.
+#[test]
+fn test_validate_accepts_the_demo_duck_and_the_contract_boundaries() {
+    let level = float_level(DEMO_DUCK_FLOAT);
+    validate_level(&level).expect("the demo duck validates");
+
+    // The duck sits 0.4 m from the north rim with a ~0.089 m swept radius.
+    let water = crate::level::WaterVolumes::from_level(&level);
+    assert!(water.contains_disc(10.5, 10.4, 0.09));
+
+    // A minimal block only has to name its draft: zero bob and zero heel are
+    // the default calm float.
+    let minimal = float_level(
+        r#"{ "model": "core:rubber_duck", "x": 10.5, "z": 10.4,
+             "size": [0.10, 0.12, 0.14], "solid": false,
+             "float": { "draft": 0.03 } }"#,
+    );
+    validate_level(&minimal).expect("a minimal float block validates");
+
+    // The inclusive boundaries are valid: bob == 0.5 * height and
+    // heel == MAX_FLOAT_HEEL_DEGREES are "at most", phase 0.0 and 1.0 are
+    // inside the closed range.
+    let mut boundary = level;
+    {
+        let float = float_mut(&mut boundary);
+        float.bob = 0.06;
+        float.heel_degrees = crate::level::MAX_FLOAT_HEEL_DEGREES;
+        float.phase = Some(1.0);
+    }
+    validate_level(&boundary).expect("the inclusive float boundaries are valid");
+    let mut zero_phase = float_level(DEMO_DUCK_FLOAT);
+    float_mut(&mut zero_phase).phase = Some(0.0);
+    validate_level(&zero_phase).expect("phase 0 is valid");
+}
+
+/// Every broken clause of the float contract is a named validation error.
+#[test]
+fn test_validate_rejects_malformed_float_props() {
+    let base = float_level(DEMO_DUCK_FLOAT);
+    validate_level(&base).expect("the unmodified demo duck validates");
+
+    let mut solid = base.clone();
+    solid.props[0].solid = true;
+    let mut size_missing = base.clone();
+    size_missing.props[0].size = None;
+    let mut draft_zero = base.clone();
+    float_mut(&mut draft_zero).draft = 0.0;
+    let mut draft_negative = base.clone();
+    float_mut(&mut draft_negative).draft = -0.03;
+    let mut draft_at_height = base.clone();
+    float_mut(&mut draft_at_height).draft = 0.12;
+    let mut bob_over = base.clone();
+    float_mut(&mut bob_over).bob = 0.060_001;
+    let mut heel_over = base.clone();
+    float_mut(&mut heel_over).heel_degrees = crate::level::MAX_FLOAT_HEEL_DEGREES + 1.0;
+    let mut bob_period_zero = base.clone();
+    float_mut(&mut bob_period_zero).bob_seconds = 0.0;
+    let mut heel_period_negative = base.clone();
+    float_mut(&mut heel_period_negative).heel_seconds = -2.4;
+    let mut phase_over = base.clone();
+    float_mut(&mut phase_over).phase = Some(1.5);
+    let mut phase_under = base.clone();
+    float_mut(&mut phase_under).phase = Some(-0.25);
+
+    let cases = [
+        ("solid float", solid, "solid: false"),
+        ("missing size", size_missing, "must author `size`"),
+        ("draft == 0", draft_zero, "draft must be"),
+        ("draft < 0", draft_negative, "draft must be"),
+        ("draft == height", draft_at_height, "draft must be"),
+        ("bob > half height", bob_over, "bob must be"),
+        ("heel > cap", heel_over, "heel_degrees must be"),
+        ("bob_seconds == 0", bob_period_zero, "bob_seconds must be"),
+        (
+            "heel_seconds < 0",
+            heel_period_negative,
+            "heel_seconds must be",
+        ),
+        ("phase > 1", phase_over, "phase must be"),
+        ("phase < 0", phase_under, "phase must be"),
+    ];
+    for (label, level, expected) in cases {
+        let err = validate_level(&level).expect_err(label);
+        assert!(
+            err.contains(expected),
+            "{label}: expected {expected:?} in {err:?}"
+        );
+    }
+
+    // A float whose swept footprint pokes through the rim is refused: at
+    // x = 8.02 the ~0.089 m swept radius leaves the basin.
+    let mut at_rim = base.clone();
+    at_rim.props[0].x = 8.02;
+    let err = validate_level(&at_rim).expect_err("a disc off the rim is refused");
+    assert!(
+        err.contains("must be fully inside a water volume"),
+        "unexpected rim error: {err}"
+    );
+}
+
+/// A floating prop cannot also be addressed by an entity route.
+#[test]
+fn test_validate_rejects_a_route_on_a_floating_prop() {
+    let level = float_level_with_routes(
+        DEMO_DUCK_FLOAT,
+        r#"[{ "id": "rubber_duck_1", "steps": [{ "step": "wait", "seconds": 1.0 }] }]"#,
+    );
+    let err = validate_level(&level).expect_err("a float cannot be routed");
+    assert!(
+        err.contains("is addressed by a route"),
+        "unexpected route error: {err}"
+    );
+}
+
+/// The shipped demo stays valid with its duck, and the duck is the non-solid,
+/// sized float the contract requires.
+#[test]
+fn test_the_shipped_demo_duck_validates() {
+    let level = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+        .expect("the Places demo parses");
+    validate_level(&level).expect("the shipped demo validates with its duck");
+    let duck = level
+        .props
+        .iter()
+        .find(|prop| prop.model == "core:rubber_duck")
+        .expect("the shipped demo places the floating duck");
+    assert!(duck.float.is_some(), "the demo duck authors a float block");
+    assert!(!duck.solid, "a float cannot be solid");
+    assert!(duck.size.is_some(), "a float must author its size");
+}
+
+// ---------------------------------------------------------------------------
+// Run 06: round-architecture validation diagnostics
+// ---------------------------------------------------------------------------
+
+/// Parses a level JSON with a `base` room and the given extra geometry blocks,
+/// then validates it.
+fn validate_with(extra: &str) -> Result<(), String> {
+    let json = format!(
+        r#"{{
+            "format_version": 1,
+            "id": "round_validation",
+            "name": "Round Validation",
+            "spawn": {{ "x": 1.0, "z": 1.0 }},
+            "room": {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0 }},
+            {extra}
+        }}"#
+    );
+    let level = LevelDef::from_json(&json).expect("the round validation document parses");
+    validate_level(&level)
+}
+
+#[test]
+fn test_round_dimension_diagnostics_name_the_constraint() {
+    let cases: [(&str, &str); 9] = [
+        (
+            r#""arc_walls": [{ "x": 5.0, "z": 5.0, "radius": 0.0 }]"#,
+            "radius must be positive",
+        ),
+        (
+            r#""arc_walls": [{ "x": 5.0, "z": 5.0, "radius": 0.5, "thickness": 1.0 }]"#,
+            "thinner than twice its radius",
+        ),
+        (
+            r#""arc_walls": [{ "x": 5.0, "z": 5.0, "radius": 1.0, "sweep_degrees": 0.0 }]"#,
+            "sweep must be a non-zero angle",
+        ),
+        (
+            r#""arc_walls": [{ "x": 5.0, "z": 5.0, "radius": 1.0, "sweep_degrees": 400.0 }]"#,
+            "sweep must be a non-zero angle",
+        ),
+        (
+            r#""arc_walls": [{ "x": 5.0, "z": 5.0, "radius": 1.0, "segments": 2 }]"#,
+            "segments must be between",
+        ),
+        (
+            r#""arc_walls": [{ "x": 5.0, "z": 5.0, "radius": 1.0, "height": 0.0 }]"#,
+            "height must be a positive finite number",
+        ),
+        (
+            r#""arc_walls": [{ "x": 5.0, "z": 5.0, "radius": 1.0, "material": "  " }]"#,
+            "materials must be non-empty",
+        ),
+        (
+            r#""pillars": [{ "x": 5.0, "z": 5.0, "radius": -1.0 }]"#,
+            "radius must be positive",
+        ),
+        (
+            r#""pillars": [{ "x": 5.0, "z": 5.0, "radius": 0.5, "segments": 200 }]"#,
+            "segments must be between",
+        ),
+    ];
+    for (extra, expected) in cases {
+        let error = validate_with(extra).expect_err(&format!("{extra} must be rejected"));
+        assert!(
+            error.contains(expected),
+            "unexpected diagnostic for {extra}: {error}"
+        );
+    }
+}
+
+#[test]
+fn test_valid_round_primitives_pass_validation() {
+    validate_with(
+        r#""arc_walls": [
+            { "x": 5.0, "z": 5.0, "radius": 2.0, "thickness": 0.3,
+              "start_degrees": 45.0, "sweep_degrees": 360.0, "segments": 32,
+              "material": "core:wallpaper_stained_01",
+              "inner_material": "core:pool_tile_wall_01",
+              "outer_material": "core:wallpaper_yellow_01",
+              "cap_material": "core:baseboard_office_01",
+              "end_material": "core:baseboard_office_01" }
+        ],
+        "pillars": [
+            { "x": 2.0, "z": 2.0, "radius": 0.3, "height": 2.4, "segments": 12 },
+            { "x": 7.0, "z": 7.0, "radius": 0.25 }
+        ]"#,
+    )
+    .expect("well-formed curves validate");
+}
+
+#[test]
+fn test_ceiling_tile_frame_validation() {
+    let bad_origin = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "bad_frame",
+            "name": "Bad Frame",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0,
+                      "ceiling_tile_origin": [null, 0.0] } ]
+        }"#,
+    );
+    assert!(bad_origin.is_err(), "a null origin is a parse error");
+    let mut level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "frame",
+            "name": "Frame",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 } ]
+        }"#,
+    )
+    .expect("the frame document parses");
+    level.rooms[0].ceiling_tile_origin = Some([f32::NAN, 0.0]);
+    let error = validate_level(&level).expect_err("a non-finite origin is rejected");
+    assert!(error.contains("ceiling tile origin"), "{error}");
+    level.rooms[0].ceiling_tile_origin = Some([0.0, 0.0]);
+    level.rooms[0].ceiling_tile_rotation_degrees = Some(f32::INFINITY);
+    let error = validate_level(&level).expect_err("a non-finite rotation is rejected");
+    assert!(error.contains("ceiling tile rotation"), "{error}");
 }

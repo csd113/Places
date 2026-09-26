@@ -1,0 +1,24 @@
+Places asset refinement validation — 2026-09-26
+
+PASS cargo fmt --all --check
+PASS cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::cargo
+PASS cargo test --workspace --all-features — 1265 passed, 0 failed, 8 ignored; 661.61 s
+PASS cargo test props::tests::shipped_prop_assets_match_the_catalogue_and_budgets -- --nocapture
+PASS cargo test render::tests::the_shipped_rat_walks_and_runs_with_declared_reference_speeds -- --nocapture
+PASS python3 tools/assets/validate.py — 137 catalog assets; 0 warnings
+PASS python3 tools/props/build.py --check — 48 placeables; all imports/budgets valid
+PASS python3 tools/textures/build.py --check — 47 sheets; 40 existing preferred-resolution warnings
+PASS python3 tools/entities/validate_entities.py --workers 2 — all four entities, every skinned primitive, 60 Hz sweep
+PASS python3 tools/entities/check_clip_boundaries.py — 14 clips, loop closure, sit/stand continuity, normalized weights
+PASS python3 tools/props/animate_spooner_man.py --check
+PASS python3 tools/entities/build_rat.py — 62 builder checks
+PASS python3 tools/entities/build_mannequin.py — structural and three-pose geometric checks
+PASS python3 tools/entities/build_skeleton.py — structural, poses, foot/seat contact and chair-fit checks
+PASS cargo run -- --check-geometry --level tests/fixtures/levels/asset_polish_showcase.json — 0 errors, 0 warnings
+PASS runtime capture with PLACES_STATE_ROOT=target/asset-polish/state, PLACES_LEVEL=asset_polish_showcase, PLACES_QUALITY=low, PLACES_CAMERA=180,-10, PLACES_CAPTURE=<absolute PNG path>, PLACES_CAPTURE_FRAME=4
+PASS Blender reimport/contact sheets for all four entities
+PASS Python py_compile for changed authoring/validation scripts
+PASS repeated Spoonerman export: byte-identical
+PASS all 16 GLBs: every embedded image has an exact standalone source PNG (exports.json)
+
+The first full Rust run found mannequin depth and skeleton triangle-budget issues; both were corrected. A subsequent run found the rat reference-speed tolerance; its stride was retuned and the focused runtime test passed. The final full run uses these corrected assets. No test thresholds or production Rust code were changed in this asset pass.

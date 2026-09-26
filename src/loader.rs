@@ -1,10 +1,12 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::{Read, Seek};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use zip::ZipArchive;
+
+use glam::Vec3;
 
 use crate::assets::AssetCatalog;
 use crate::level::{
@@ -443,11 +445,16 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_surface_shine(level)?;
     validate_floor_regions(level)?;
     validate_water(level)?;
+    validate_ladders(level)?;
     validate_walls(level)?;
     validate_architecture(level)?;
     validate_ceiling_lights(level)?;
     validate_props(level)?;
     validate_prop_lights(level)?;
+    validate_instance_ids(level)?;
+    validate_area_triggers(level)?;
+    validate_routes(level)?;
+    validate_floats(level)?;
     validate_decals(level)?;
     validate_decal_surfaces(level)?;
     validate_animated_emissions(level)?;
@@ -622,6 +629,22 @@ fn validate_rooms(level: &LevelDef) -> Result<(), String> {
                 ));
             }
         }
+        // The optional ceiling tile frame: a non-finite origin or rotation
+        // would make every ceiling UV and decal snap on that room undefined.
+        if let Some([tile_x, tile_z]) = r.ceiling_tile_origin
+            && (!tile_x.is_finite() || !tile_z.is_finite())
+        {
+            return Err(format!(
+                "Room {i} ceiling tile origin must be finite world coordinates"
+            ));
+        }
+        if r.ceiling_tile_rotation_degrees
+            .is_some_and(|rotation| !rotation.is_finite())
+        {
+            return Err(format!(
+                "Room {i} ceiling tile rotation must be a finite number of degrees"
+            ));
+        }
     }
     Ok(())
 }
@@ -667,6 +690,17 @@ fn validate_surface_shine(level: &LevelDef) -> Result<(), String> {
     for (i, region) in level.floor_regions.iter().enumerate() {
         check(&format!("Floor region {i} floor"), region.shine)?;
         check(&format!("Floor region {i} edge"), region.edge_shine)?;
+    }
+    for (i, piece) in level.arc_walls.iter().enumerate() {
+        check(&format!("Arc wall {i}"), piece.shine)?;
+        check(&format!("Arc wall {i} inner"), piece.inner_shine)?;
+        check(&format!("Arc wall {i} outer"), piece.outer_shine)?;
+        check(&format!("Arc wall {i} cap"), piece.cap_shine)?;
+        check(&format!("Arc wall {i} end"), piece.end_shine)?;
+    }
+    for (i, piece) in level.pillars.iter().enumerate() {
+        check(&format!("Pillar {i}"), piece.shine)?;
+        check(&format!("Pillar {i} cap"), piece.cap_shine)?;
     }
     Ok(())
 }
@@ -802,10 +836,14 @@ fn validate_water(level: &LevelDef) -> Result<(), String> {
             (x0, z1),
         ];
         // Inset the corner samples so a volume that shares an edge with a room
-        // boundary is not rejected by floating-point noise on the seam.
+        // boundary is not rejected by floating-point noise on the seam. The
+        // inset is scaled down for a very small footprint so the clamp bounds
+        // can never invert (which would panic).
+        let inset_x = 1.0e-3_f32.min((x1 - x0) * 0.25);
+        let inset_z = 1.0e-3_f32.min((z1 - z0) * 0.25);
         for (x, z) in &mut samples {
-            *x = x.clamp(x0 + 1.0e-3, x1 - 1.0e-3);
-            *z = z.clamp(z0 + 1.0e-3, z1 - 1.0e-3);
+            *x = x.clamp(x0 + inset_x, x1 - inset_x);
+            *z = z.clamp(z0 + inset_z, z1 - inset_z);
         }
         for (x, z) in samples {
             let Some(floor) = surfaces.floor_y_at(x, z) else {
@@ -827,6 +865,74 @@ fn validate_water(level: &LevelDef) -> Result<(), String> {
     Ok(())
 }
 
+/// Climbable ladder volumes: finite footprint and reach, positive size, top
+/// above bottom, and a footprint that overlaps a room section.
+///
+/// A ladder is the space the player climbs through, not the prop that draws the
+/// rails, so the checks mirror the water volumes: the footprint must be real
+/// geometry the player can reach, and a top at or below the bottom is a typo
+/// the author has to see rather than an inert climb volume.
+fn validate_ladders(level: &LevelDef) -> Result<(), String> {
+    if u64::try_from(level.ladders.len()).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_LADDERS {
+        return Err(format!(
+            "Level contains too many ladders: {} (limit: {})",
+            level.ladders.len(),
+            crate::level::MAX_LEVEL_LADDERS
+        ));
+    }
+    let surfaces = crate::level::LevelSurfaces::new(level);
+    for (i, ladder) in level.ladders.iter().enumerate() {
+        if !ladder.x.is_finite()
+            || !ladder.z.is_finite()
+            || !ladder.width.is_finite()
+            || !ladder.depth.is_finite()
+            || !ladder.bottom_y.is_finite()
+            || !ladder.top_y.is_finite()
+            || !ladder.facing_degrees.is_finite()
+        {
+            return Err(format!(
+                "Ladder {i} position, size, reach and facing must be finite numbers"
+            ));
+        }
+        if ladder.width <= 0.0 || ladder.depth <= 0.0 {
+            return Err(format!("Ladder {i} width and depth must be positive"));
+        }
+        if ladder.top_y <= ladder.bottom_y {
+            return Err(format!(
+                "Ladder {i} top_y ({:.2} m) must be above its bottom_y ({:.2} m)",
+                ladder.top_y, ladder.bottom_y
+            ));
+        }
+        let (x0, x1, z0, z1) = ladder.bounds();
+        let mut overlaps_room = false;
+        let mut samples: [(f32, f32); 5] = [
+            (f32::midpoint(x0, x1), f32::midpoint(z0, z1)),
+            (x0, z0),
+            (x1, z0),
+            (x1, z1),
+            (x0, z1),
+        ];
+        // The inset is scaled down for a very small footprint so the clamp
+        // bounds can never invert (which would panic).
+        let inset_x = 1.0e-3_f32.min((x1 - x0) * 0.25);
+        let inset_z = 1.0e-3_f32.min((z1 - z0) * 0.25);
+        for (x, z) in &mut samples {
+            *x = x.clamp(x0 + inset_x, x1 - inset_x);
+            *z = z.clamp(z0 + inset_z, z1 - inset_z);
+        }
+        for (x, z) in samples {
+            if surfaces.floor_y_at(x, z).is_some() {
+                overlaps_room = true;
+                break;
+            }
+        }
+        if !overlaps_room {
+            return Err(format!("Ladder {i} lies outside every room section"));
+        }
+    }
+    Ok(())
+}
+
 /// The generic architectural pieces: ramps, staircases, half walls, columns,
 /// archways, guardrails, thresholds and baseboards.
 ///
@@ -840,6 +946,8 @@ fn validate_architecture(level: &LevelDef) -> Result<(), String> {
     validate_stairs(level)?;
     validate_half_walls(level)?;
     validate_columns(level)?;
+    validate_arc_walls(level)?;
+    validate_pillars(level)?;
     validate_archways(level)?;
     validate_guardrails(level)?;
     validate_thresholds(level)?;
@@ -1136,6 +1244,142 @@ fn validate_columns(level: &LevelDef) -> Result<(), String> {
         {
             return Err(format!(
                 "Column {i} materials must be non-empty ids when specified"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Arc walls: a curved solid slab whose radii, sweep and tessellation are all
+/// usable, with named diagnostics for every degenerate dimension.
+fn validate_arc_walls(level: &LevelDef) -> Result<(), String> {
+    if u64::try_from(level.arc_walls.len()).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_ARC_WALLS
+    {
+        return Err(format!(
+            "Level contains too many arc walls: {} (limit: {})",
+            level.arc_walls.len(),
+            crate::level::MAX_LEVEL_ARC_WALLS
+        ));
+    }
+    for (i, piece) in level.arc_walls.iter().enumerate() {
+        if !piece.x.is_finite()
+            || !piece.z.is_finite()
+            || !piece.radius.is_finite()
+            || !piece.thickness.is_finite()
+        {
+            return Err(format!(
+                "Arc wall {i} centre, radius and thickness must be finite numbers"
+            ));
+        }
+        if piece.radius <= 0.0 {
+            return Err(format!(
+                "Arc wall {i} radius must be positive (found {})",
+                piece.radius
+            ));
+        }
+        if piece.thickness <= 0.0 || piece.thickness >= piece.radius * 2.0 {
+            return Err(format!(
+                "Arc wall {i} thickness must be positive and thinner than twice its radius \
+                 (radius {}, thickness {})",
+                piece.radius, piece.thickness
+            ));
+        }
+        if !piece.start_degrees.is_finite() || !piece.sweep_degrees.is_finite() {
+            return Err(format!(
+                "Arc wall {i} start and sweep angles must be finite numbers"
+            ));
+        }
+        if piece.sweep_degrees.abs() <= 1.0e-3 || piece.sweep_degrees.abs() > 360.0 + 1.0e-3 {
+            return Err(format!(
+                "Arc wall {i} sweep must be a non-zero angle up to 360 degrees (found {})",
+                piece.sweep_degrees
+            ));
+        }
+        if let Some(segments) = piece.segments
+            && !(crate::level::ROUND_SEGMENTS_MIN..=crate::level::ROUND_SEGMENTS_MAX)
+                .contains(&segments)
+        {
+            return Err(format!(
+                "Arc wall {i} segments must be between {} and {}, found {segments}",
+                crate::level::ROUND_SEGMENTS_MIN,
+                crate::level::ROUND_SEGMENTS_MAX
+            ));
+        }
+        if let Some(height) = piece.height
+            && (!height.is_finite() || height <= 0.0)
+        {
+            return Err(format!(
+                "Arc wall {i} height must be a positive finite number when authored"
+            ));
+        }
+        if piece.y.is_some_and(|y| !y.is_finite()) {
+            return Err(format!(
+                "Arc wall {i} base height must be a finite number when authored"
+            ));
+        }
+        if blank_material(piece.material.as_deref())
+            || blank_material(piece.inner_material.as_deref())
+            || blank_material(piece.outer_material.as_deref())
+            || blank_material(piece.cap_material.as_deref())
+            || blank_material(piece.end_material.as_deref())
+        {
+            return Err(format!(
+                "Arc wall {i} materials must be non-empty ids when specified"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Circular pillars: a solid round post with a usable radius, height and
+/// tessellation.
+fn validate_pillars(level: &LevelDef) -> Result<(), String> {
+    if u64::try_from(level.pillars.len()).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_PILLARS {
+        return Err(format!(
+            "Level contains too many pillars: {} (limit: {})",
+            level.pillars.len(),
+            crate::level::MAX_LEVEL_PILLARS
+        ));
+    }
+    for (i, piece) in level.pillars.iter().enumerate() {
+        if !piece.x.is_finite() || !piece.z.is_finite() || !piece.radius.is_finite() {
+            return Err(format!(
+                "Pillar {i} centre and radius must be finite numbers"
+            ));
+        }
+        if piece.radius <= 0.0 {
+            return Err(format!(
+                "Pillar {i} radius must be positive (found {})",
+                piece.radius
+            ));
+        }
+        if let Some(segments) = piece.segments
+            && !(crate::level::ROUND_SEGMENTS_MIN..=crate::level::ROUND_SEGMENTS_MAX)
+                .contains(&segments)
+        {
+            return Err(format!(
+                "Pillar {i} segments must be between {} and {}, found {segments}",
+                crate::level::ROUND_SEGMENTS_MIN,
+                crate::level::ROUND_SEGMENTS_MAX
+            ));
+        }
+        if let Some(height) = piece.height
+            && (!height.is_finite() || height <= 0.0)
+        {
+            return Err(format!(
+                "Pillar {i} height must be a positive finite number when authored"
+            ));
+        }
+        if piece.y.is_some_and(|y| !y.is_finite()) {
+            return Err(format!(
+                "Pillar {i} base height must be a finite number when authored"
+            ));
+        }
+        if blank_material(piece.material.as_deref())
+            || blank_material(piece.cap_material.as_deref())
+        {
+            return Err(format!(
+                "Pillar {i} materials must be non-empty ids when specified"
             ));
         }
     }
@@ -1758,6 +2002,610 @@ fn validate_props(level: &LevelDef) -> Result<(), String> {
     Ok(())
 }
 
+/// Stable instance identities and the map-authored actions that reference them.
+///
+/// Placed props, light fixtures and area triggers share one id namespace per
+/// level. An id is authored or deterministically defaulted (see
+/// [`crate::level::LevelDef::prop_instance_ids`]); duplicates and malformed
+/// values are named errors, as are interaction actions that reference an
+/// unknown instance or an action the engine does not implement yet.
+fn validate_instance_ids(level: &LevelDef) -> Result<(), String> {
+    let mut seen: Vec<(String, String)> = Vec::new();
+
+    let prop_ids = level.prop_instance_ids();
+    for (i, id) in prop_ids.iter().enumerate() {
+        validate_instance_id(&mut seen, id, &format!("Prop {i}"))?;
+    }
+    let light_ids = level.light_instance_ids();
+    for (i, id) in light_ids.iter().enumerate() {
+        validate_instance_id(&mut seen, id, &format!("Ceiling light {i}"))?;
+    }
+    let trigger_ids = level.area_trigger_instance_ids();
+    for (i, id) in trigger_ids.iter().enumerate() {
+        validate_instance_id(&mut seen, id, &format!("Area trigger {i}"))?;
+    }
+
+    for (i, prop) in level.props.iter().enumerate() {
+        if let Some(name) = prop.display_name.as_deref()
+            && name.trim().is_empty()
+        {
+            return Err(format!(
+                "Prop {i} display_name must not be blank when specified"
+            ));
+        }
+        let Some(interaction) = &prop.interaction else {
+            continue;
+        };
+        if let Some(prompt) = interaction.prompt.as_deref()
+            && prompt.trim().is_empty()
+        {
+            return Err(format!(
+                "Prop {i} interaction prompt must not be blank when specified"
+            ));
+        }
+        if let Some(reach) = interaction.reach
+            && !(reach.is_finite()
+                && reach > 0.0
+                && reach <= crate::interact::MAX_INTERACTION_REACH_M)
+        {
+            return Err(format!(
+                "Prop {i} interaction reach ({reach:?} m) must be between 0 and {} metres",
+                crate::interact::MAX_INTERACTION_REACH_M
+            ));
+        }
+        validate_action_list(
+            &format!("Prop {i} interaction"),
+            &interaction.actions,
+            prop_ids.get(i).map(String::as_str),
+            &prop_ids,
+        )?;
+    }
+    Ok(())
+}
+
+/// Validates one instance id and records it for duplicate detection.
+fn validate_instance_id(
+    seen: &mut Vec<(String, String)>,
+    id: &str,
+    context: &str,
+) -> Result<(), String> {
+    let trimmed = id.trim();
+    if !crate::assets::is_valid_asset_id(trimmed) {
+        return Err(format!(
+            "{context} id `{id}` must be a non-empty, well-formed identifier"
+        ));
+    }
+    if let Some((_, first)) = seen.iter().find(|(seen_id, _)| seen_id == trimmed) {
+        return Err(format!(
+            "{context} id `{trimmed}` duplicates `{first}`; instance ids must be unique"
+        ));
+    }
+    seen.push((trimmed.to_string(), context.to_string()));
+    Ok(())
+}
+
+/// One source's action list: bounded, non-empty and composed only of
+/// implemented actions with resolvable targets.
+fn validate_action_list(
+    context: &str,
+    actions: &[crate::level::ActionDef],
+    implicit_target: Option<&str>,
+    prop_ids: &[String],
+) -> Result<(), String> {
+    if actions.is_empty() {
+        return Err(format!("{context} must declare at least one action"));
+    }
+    if actions.len() > crate::level::MAX_ACTIONS_PER_SOURCE {
+        return Err(format!(
+            "{context} declares {} actions; the limit is {}",
+            actions.len(),
+            crate::level::MAX_ACTIONS_PER_SOURCE
+        ));
+    }
+    for (j, action) in actions.iter().enumerate() {
+        validate_action(context, j, action, implicit_target, prop_ids)?;
+    }
+    Ok(())
+}
+
+/// One action: implemented, and every explicit target resolvable.
+fn validate_action(
+    context: &str,
+    index: usize,
+    action: &crate::level::ActionDef,
+    implicit_target: Option<&str>,
+    prop_ids: &[String],
+) -> Result<(), String> {
+    match action {
+        crate::level::ActionDef::ToggleLabel { target } => {
+            if target.as_deref().is_some_and(|raw| raw.trim().is_empty()) {
+                return Err(format!(
+                    "{context} action {index} (`toggle_label`) target must not be blank"
+                ));
+            }
+            let explicit = target.as_deref().map(str::trim).filter(|id| !id.is_empty());
+            let Some(resolved) = explicit.or(implicit_target) else {
+                return Err(format!(
+                    "{context} action {index} (`toggle_label`) needs a `target`: an area \
+                     trigger is not a placed object with a label"
+                ));
+            };
+            if !prop_ids.iter().any(|id| id == resolved) {
+                return Err(format!(
+                    "{context} action {index} (`toggle_label`) targets unknown instance \
+                     `{resolved}`"
+                ));
+            }
+        }
+        crate::level::ActionDef::ResetToStart => {}
+        crate::level::ActionDef::PlayAnimation { target, clip, .. } => {
+            if target.as_deref().is_some_and(|raw| raw.trim().is_empty()) {
+                return Err(format!(
+                    "{context} action {index} (`play_animation`) target must not be blank"
+                ));
+            }
+            if clip.as_deref().map(str::trim).is_none_or(str::is_empty) {
+                return Err(format!(
+                    "{context} action {index} (`play_animation`) needs a clip name"
+                ));
+            }
+            let explicit = target.as_deref().map(str::trim).filter(|id| !id.is_empty());
+            let Some(resolved) = explicit.or(implicit_target) else {
+                return Err(format!(
+                    "{context} action {index} (`play_animation`) needs a `target`: an area \
+                     trigger is not a placed entity that can be posed"
+                ));
+            };
+            if !prop_ids.iter().any(|id| id == resolved) {
+                return Err(format!(
+                    "{context} action {index} (`play_animation`) targets unknown instance \
+                     `{resolved}`"
+                ));
+            }
+        }
+        crate::level::ActionDef::ToggleAnimation { target, clip } => {
+            if target.as_deref().is_some_and(|raw| raw.trim().is_empty()) {
+                return Err(format!(
+                    "{context} action {index} (`toggle_animation`) target must not be blank"
+                ));
+            }
+            if clip.as_deref().map(str::trim).is_none_or(str::is_empty) {
+                return Err(format!(
+                    "{context} action {index} (`toggle_animation`) needs a clip name"
+                ));
+            }
+            let explicit = target.as_deref().map(str::trim).filter(|id| !id.is_empty());
+            let Some(resolved) = explicit.or(implicit_target) else {
+                return Err(format!(
+                    "{context} action {index} (`toggle_animation`) needs a `target`: an area \
+                     trigger is not a placed object that can be toggled"
+                ));
+            };
+            if !prop_ids.iter().any(|id| id == resolved) {
+                return Err(format!(
+                    "{context} action {index} (`toggle_animation`) targets unknown instance \
+                     `{resolved}`"
+                ));
+            }
+        }
+        crate::level::ActionDef::PlayAudio { .. } => {
+            return Err(format!(
+                "{context} action {index} (`{}`) is not implemented yet; it is reserved as \
+                 a documented integration point and a map must not load with a silent no-op",
+                action.kind()
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Floating props: a floating hull cannot be solid, its authored motion must
+/// be finite and bounded, it cannot also be routed, and its whole swept
+/// footprint must sit inside one water volume.
+///
+/// The containment rule is what keeps a float off the rim: the level proves at
+/// load that even at the heel's extreme the silhouette (half-diagonal plus the
+/// heel's horizontal excursion) fits inside the basin rectangle, so the
+/// runtime update has no horizontal freedom to misuse.
+fn validate_floats(level: &LevelDef) -> Result<(), String> {
+    let float_count = level
+        .props
+        .iter()
+        .filter(|prop| prop.float.is_some())
+        .count();
+    if float_count > crate::level::MAX_LEVEL_FLOAT_PROPS {
+        return Err(format!(
+            "Level declares {float_count} floating props; the limit is {}",
+            crate::level::MAX_LEVEL_FLOAT_PROPS
+        ));
+    }
+    if float_count == 0 {
+        return Ok(());
+    }
+    let water = crate::level::WaterVolumes::from_level(level);
+    let ids = level.prop_instance_ids();
+    for (index, prop) in level.props.iter().enumerate() {
+        let Some(float) = prop.float.as_ref() else {
+            continue;
+        };
+        let context = format!("Float prop {index} (`{}`)", prop.model);
+        let (width, height, depth) = validate_float_fields(&context, prop, float)?;
+        if let Some(id) = ids.get(index)
+            && level.routes.iter().any(|route| route.id.trim() == id)
+        {
+            return Err(format!(
+                "{context} is addressed by a route; a floating prop cannot be routed"
+            ));
+        }
+        let half_diagonal = 0.5 * width.hypot(depth);
+        let heel_excursion = 0.5 * height * float.heel_degrees.to_radians().sin();
+        let radius = half_diagonal + heel_excursion;
+        if !water.contains_disc(prop.x, prop.z, radius) {
+            return Err(format!(
+                "{context} must be fully inside a water volume: its swept footprint \
+                 (radius {radius:.3} m) is not contained at ({}, {})",
+                prop.x, prop.z
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// One float prop's own fields: solid/footprint/motion bounds.
+///
+/// Returns the scaled `(width, height, depth)` the containment rule needs.
+fn validate_float_fields(
+    context: &str,
+    prop: &crate::level::PropDef,
+    float: &crate::level::PropFloatDef,
+) -> Result<(f32, f32, f32), String> {
+    if prop.solid {
+        return Err(format!(
+            "{context} must set `solid: false`: a floating hull cannot leave a static collider"
+        ));
+    }
+    if !prop.x.is_finite() || !prop.z.is_finite() || !prop.scale.is_finite() || prop.scale <= 0.0 {
+        return Err(format!(
+            "{context} position and scale must be finite and its scale positive"
+        ));
+    }
+    let Some(size) = prop.size else {
+        return Err(format!(
+            "{context} must author `size`: the float contract is validated against its footprint"
+        ));
+    };
+    if size.iter().any(|value| !value.is_finite() || *value <= 0.0) {
+        return Err(format!(
+            "{context} size must be three positive finite numbers"
+        ));
+    }
+    let width = size[0] * prop.scale;
+    let height = size[1] * prop.scale;
+    let depth = size[2] * prop.scale;
+    if !float.draft.is_finite() || float.draft <= 0.0 || float.draft >= height {
+        return Err(format!(
+            "{context} draft must be a finite number above 0 and below its height ({height} m)"
+        ));
+    }
+    if !float.bob.is_finite() || float.bob < 0.0 || float.bob > 0.5 * height {
+        return Err(format!(
+            "{context} bob must be finite, 0 or positive, and at most half its height"
+        ));
+    }
+    if !float.bob_seconds.is_finite() || float.bob_seconds <= 0.0 {
+        return Err(format!(
+            "{context} bob_seconds must be a positive finite number"
+        ));
+    }
+    if !float.heel_degrees.is_finite()
+        || !(0.0..=crate::level::MAX_FLOAT_HEEL_DEGREES).contains(&float.heel_degrees)
+    {
+        return Err(format!(
+            "{context} heel_degrees must be finite, 0 or positive, and at most {}",
+            crate::level::MAX_FLOAT_HEEL_DEGREES
+        ));
+    }
+    if !float.heel_seconds.is_finite() || float.heel_seconds <= 0.0 {
+        return Err(format!(
+            "{context} heel_seconds must be a positive finite number"
+        ));
+    }
+    if let Some(phase) = float.phase
+        && (!phase.is_finite() || !(0.0..=1.0).contains(&phase))
+    {
+        return Err(format!(
+            "{context} phase must be a finite number between 0.0 and 1.0"
+        ));
+    }
+    Ok((width, height, depth))
+}
+
+/// Authored entity routes: unique resolving ids, bounded step lists and
+/// every waypoint finite, walkable and reachable in a straight line at the
+/// entity's own body size.
+///
+/// A route is a promise that a character can actually walk it, so the checks
+/// mirror the runtime: the waypoint must sit on a real walkable surface, each
+/// straight segment must stay on the floor without a step taller than the
+/// entity can climb, and no wall may block the body anywhere along it. A
+/// `solid: true` prop is refused because its own collision box would block
+/// its first step.
+fn validate_routes(level: &LevelDef) -> Result<(), String> {
+    if u64::try_from(level.routes.len()).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_ROUTES {
+        return Err(format!(
+            "Level contains too many entity routes: {} (limit: {})",
+            level.routes.len(),
+            crate::level::MAX_LEVEL_ROUTES
+        ));
+    }
+    if level.routes.is_empty() {
+        return Ok(());
+    }
+    let ids = level.prop_instance_ids();
+    let walls = level.collision_aabbs();
+    let floor = crate::level::WalkableFloor::from_level(level);
+    let surfaces = LevelSurfaces::new(level);
+    let mut seen: HashSet<String> = HashSet::new();
+    for (route_index, route) in level.routes.iter().enumerate() {
+        let id = route.id.trim();
+        if id.is_empty() {
+            return Err(format!("Entity route {route_index} names no instance id"));
+        }
+        if !seen.insert(id.to_string()) {
+            return Err(format!(
+                "Entity route {route_index} duplicates instance `{id}`"
+            ));
+        }
+        let Some(prop_index) = ids.iter().position(|candidate| candidate == id) else {
+            return Err(format!(
+                "Entity route {route_index} targets unknown instance `{id}`"
+            ));
+        };
+        if route.steps.is_empty() {
+            return Err(format!("Entity route `{id}` declares no steps"));
+        }
+        if route.steps.len() > crate::level::MAX_ROUTE_STEPS {
+            return Err(format!(
+                "Entity route `{id}` declares {} steps; the limit is {}",
+                route.steps.len(),
+                crate::level::MAX_ROUTE_STEPS
+            ));
+        }
+        let Some(prop) = level.props.get(prop_index) else {
+            continue;
+        };
+        if prop.solid {
+            return Err(format!(
+                "Entity route `{id}` drives a `solid: true` prop; its own collision box \
+                 would block every step. Make the entity non-solid."
+            ));
+        }
+        let size = prop.resolved_size(crate::level::PROP_FALLBACK_SIZE);
+        // Validation uses the *wider* axis, clamped to the same minimum the
+        // runtime disc uses, so an elongated body can never overlap a wall the
+        // runtime disc would miss and a tiny prop's floor still fits.
+        let radius = (size[0].max(size[2]) * 0.5).max(crate::entity::ENTITY_MIN_RADIUS_M);
+        let body_height = size[1].max(0.05);
+        let position = Vec3::new(
+            prop.x,
+            surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0) + prop.y,
+            prop.z,
+        );
+        validate_route_steps(
+            id,
+            &route.steps,
+            position,
+            radius,
+            body_height,
+            &walls,
+            &floor,
+        )?;
+    }
+    Ok(())
+}
+
+/// One route's ordered steps: finite data, real floors and clear straight
+/// segments between consecutive waypoints.
+fn validate_route_steps(
+    id: &str,
+    steps: &[crate::level::RouteStepDef],
+    start: Vec3,
+    radius: f32,
+    body_height: f32,
+    walls: &[crate::collision::WallAabb],
+    floor: &crate::level::WalkableFloor,
+) -> Result<(), String> {
+    let mut position = start;
+    for (step_index, step) in steps.iter().enumerate() {
+        let context = format!("Entity route `{id}` step {step_index}");
+        match step {
+            crate::level::RouteStepDef::MoveTo { x, z, speed } => {
+                if !x.is_finite() || !z.is_finite() || !speed.is_finite() {
+                    return Err(format!(
+                        "{context} (`move_to`) position and speed must be finite"
+                    ));
+                }
+                if *speed <= 0.0 || *speed > crate::level::MAX_ROUTE_SPEED_MPS {
+                    return Err(format!(
+                        "{context} (`move_to`) speed must be between 0 and {} m/s",
+                        crate::level::MAX_ROUTE_SPEED_MPS
+                    ));
+                }
+                let Some(waypoint_y) = floor.walk_height_at(*x, *z) else {
+                    return Err(format!(
+                        "{context} (`move_to`) waypoint ({x:.2}, {z:.2}) is not on \
+                         any walkable floor"
+                    ));
+                };
+                route_path_is_clear(
+                    &context,
+                    walls,
+                    floor,
+                    position,
+                    (*x, *z),
+                    radius,
+                    body_height,
+                )?;
+                position = Vec3::new(*x, waypoint_y, *z);
+            }
+            crate::level::RouteStepDef::Face { yaw_degrees } => {
+                if !yaw_degrees.is_finite() {
+                    return Err(format!("{context} (`face`) yaw must be finite"));
+                }
+            }
+            crate::level::RouteStepDef::Wait { seconds } => {
+                if !seconds.is_finite()
+                    || *seconds <= 0.0
+                    || *seconds > crate::level::MAX_ROUTE_WAIT_SECONDS
+                {
+                    return Err(format!(
+                        "{context} (`wait`) seconds must be between 0 and {}",
+                        crate::level::MAX_ROUTE_WAIT_SECONDS
+                    ));
+                }
+            }
+            crate::level::RouteStepDef::Play { clip, seconds, .. } => {
+                if clip.trim().is_empty() {
+                    return Err(format!("{context} (`play`) needs a clip name"));
+                }
+                if !seconds.is_finite()
+                    || *seconds <= 0.0
+                    || *seconds > crate::level::MAX_ROUTE_PLAY_SECONDS
+                {
+                    return Err(format!(
+                        "{context} (`play`) seconds must be between 0 and {}",
+                        crate::level::MAX_ROUTE_PLAY_SECONDS
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// True when a straight route segment stays clear of walls and floor breaks.
+///
+/// The segment is sampled every 10 cm; each sample must rest on a walkable
+/// floor, and no wall may block the body there. The height change between
+/// consecutive samples is bounded by the entity step, so a route cannot climb
+/// a cliff in one sample.
+#[allow(clippy::arithmetic_side_effects)] // bounded world-space segment sampling
+fn route_path_is_clear(
+    context: &str,
+    walls: &[crate::collision::WallAabb],
+    floor: &crate::level::WalkableFloor,
+    from: Vec3,
+    to: (f32, f32),
+    radius: f32,
+    body_height: f32,
+) -> Result<(), String> {
+    const SAMPLE_M: f32 = 0.1;
+    let start = glam::Vec2::new(from.x, from.z);
+    let end = glam::Vec2::new(to.0, to.1);
+    let delta = end - start;
+    let distance = delta.length();
+    if !distance.is_finite() {
+        return Err(format!("{context} (`move_to`) segment is not finite"));
+    }
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let samples = ((distance / SAMPLE_M).ceil() as u32).max(1);
+    let mut previous_y = from.y;
+    for index in 0..=samples {
+        #[allow(clippy::cast_precision_loss)]
+        let t = index as f32 / samples as f32;
+        let point = start + delta * t;
+        let Some(floor_y) = floor.walk_height_at(point.x, point.y) else {
+            return Err(format!(
+                "{context} (`move_to`) crosses off the walkable floor at \
+                 ({:.2}, {:.2})",
+                point.x, point.y
+            ));
+        };
+        if (floor_y - previous_y).abs() > crate::entity::ENTITY_STEP_HEIGHT_M + 1.0e-3 {
+            return Err(format!(
+                "{context} (`move_to`) steps more than {:.2} m at ({:.2}, {:.2}); \
+                 the entity cannot climb it",
+                crate::entity::ENTITY_STEP_HEIGHT_M,
+                point.x,
+                point.y
+            ));
+        }
+        if walls.iter().any(|wall| {
+            wall.blocks_body(floor_y, body_height) && wall.overlaps_disc(point.x, point.y, radius)
+        }) {
+            return Err(format!(
+                "{context} (`move_to`) is blocked by geometry at ({:.2}, {:.2})",
+                point.x, point.y
+            ));
+        }
+        previous_y = floor_y;
+    }
+    Ok(())
+}
+
+/// Authored area triggers: count, geometry, vertical bounds, cooldown and
+/// actions.
+///
+/// A trigger is a real volume with an effect, so the checks mirror the water
+/// volumes and ladders: the footprint must be finite and positive, the resolved
+/// top strictly above the resolved bottom, the cooldown finite and not
+/// negative, and the actions implemented with resolvable targets.
+fn validate_area_triggers(level: &LevelDef) -> Result<(), String> {
+    if u64::try_from(level.area_triggers.len()).unwrap_or(u64::MAX)
+        > crate::level::MAX_LEVEL_AREA_TRIGGERS
+    {
+        return Err(format!(
+            "Level contains too many area triggers: {} (limit: {})",
+            level.area_triggers.len(),
+            crate::level::MAX_LEVEL_AREA_TRIGGERS
+        ));
+    }
+    let prop_ids = level.prop_instance_ids();
+    for (i, trigger) in level.area_triggers.iter().enumerate() {
+        if !trigger.x.is_finite()
+            || !trigger.z.is_finite()
+            || !trigger.width.is_finite()
+            || !trigger.depth.is_finite()
+            || !trigger.cooldown_seconds.is_finite()
+        {
+            return Err(format!(
+                "Area trigger {i} position, size and cooldown must be finite numbers"
+            ));
+        }
+        if trigger.width <= 0.0 || trigger.depth <= 0.0 {
+            return Err(format!("Area trigger {i} width and depth must be positive"));
+        }
+        if trigger.cooldown_seconds < 0.0 {
+            return Err(format!(
+                "Area trigger {i} cooldown_seconds cannot be negative"
+            ));
+        }
+        for (name, value) in [("bottom_y", trigger.bottom_y), ("top_y", trigger.top_y)] {
+            if value.is_some_and(|value| !value.is_finite()) {
+                return Err(format!(
+                    "Area trigger {i} {name} must be a finite number when specified"
+                ));
+            }
+        }
+        let (bottom, top) = trigger.resolved_y_bounds(level);
+        if !bottom.is_finite() || !top.is_finite() || top <= bottom {
+            return Err(format!(
+                "Area trigger {i} top_y ({top:.2} m) must be above its bottom_y ({bottom:.2} m)"
+            ));
+        }
+        if !rect_overlaps_room(level, trigger.bounds()) {
+            return Err(format!("Area trigger {i} lies outside every room section"));
+        }
+        validate_action_list(
+            &format!("Area trigger {i}"),
+            &trigger.actions,
+            None,
+            &prop_ids,
+        )?;
+    }
+    Ok(())
+}
+
 /// Decal transforms, sizes and material ids.
 fn validate_decals(level: &LevelDef) -> Result<(), String> {
     for (i, decal) in level.decals.iter().enumerate() {
@@ -2035,6 +2883,7 @@ pub(crate) fn prepare_level(
 ) {
     let materials = MaterialTable::logical(level, catalog, pack);
     level.align_ceiling_fixtures(&materials);
+    level.snap_ceiling_decals(&materials);
     generate_automatic_baseboards(level, catalog);
 }
 

@@ -20,11 +20,13 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use glam::Mat4;
+
 use super::environment::{EnvironmentBindings, static_environment};
 use super::lightmap::LightmapAtlas;
 use super::material::{EmissionRecord, GpuMaterial};
 use super::texture::{CacheOutcome, GpuTexture, TextureCache};
-use super::world::{WORLD_VERTEX_STRIDE, WorldVertex};
+use super::world::{EnvironmentUniform, WORLD_VERTEX_STRIDE, WorldVertex};
 use crate::materials::TextureOrigin;
 use crate::quality::{QualityLevel, TextureClass};
 use crate::render::common::atmosphere::FogState;
@@ -63,13 +65,18 @@ struct CharacterSubmeshGpu {
 struct CharacterGpu {
     /// Slot into [`WgpuCharacters::meshes`].
     mesh: usize,
+    /// Slot into the scene's character list. `upload` may skip a character
+    /// whose mesh cannot be uploaded, so this is not always a 1:1 identity.
+    scene_slot: usize,
     /// This character's mutable, CPU-skinned vertex buffer.
     vertex_buffer: wgpu::Buffer,
     /// This character's environment binding: placement matrix only.
     environment: EnvironmentBindings,
     /// The animator revision the vertex buffer currently holds.
     uploaded_revision: u64,
-    /// World-space culling bounds from the spawn.
+    /// The placement matrix the environment uniform currently holds.
+    uploaded_transform: Mat4,
+    /// World-space culling bounds from the last applied transform.
     world_bounds: Aabb,
 }
 
@@ -103,6 +110,10 @@ pub struct WgpuCharacters {
     /// Shared sheet bound by a submesh whose material declares no texture, so
     /// an untextured primitive still draws instead of disappearing.
     fallback: Option<Arc<GpuTexture>>,
+    /// The level's environment constants with a neutral model matrix; a live
+    /// transform rewrites one character's uniform from this template. `None`
+    /// until a scene is uploaded.
+    environment_template: Option<EnvironmentUniform>,
     stats: CharacterGpuStats,
     /// Reused CPU skinning target; capacity covers the largest character.
     scratch: Vec<WorldVertex>,
@@ -141,6 +152,7 @@ impl WgpuCharacters {
             return value;
         }
         value.fallback = Some(ctx.cache.fallback());
+        value.environment_template = Some(static_environment(ctx.lightmap_enabled, ctx.fog));
         let widest = scene
             .characters()
             .iter()
@@ -149,7 +161,7 @@ impl WgpuCharacters {
             .unwrap_or(0);
         value.scratch.reserve(widest);
         let mut mesh_index_by_path: HashMap<String, usize> = HashMap::new();
-        for character in scene.characters() {
+        for (scene_slot, character) in scene.characters().iter().enumerate() {
             let model_path = character.asset().model_path.clone();
             let mesh_index = if let Some(index) = mesh_index_by_path.get(&model_path).copied() {
                 index
@@ -192,9 +204,11 @@ impl WgpuCharacters {
                 .write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&value.scratch));
             value.characters.push(CharacterGpu {
                 mesh: mesh_index,
+                scene_slot,
                 vertex_buffer,
                 environment,
                 uploaded_revision: character.animator().revision(),
+                uploaded_transform: character.transform(),
                 world_bounds: character.world_bounds(),
             });
         }
@@ -367,16 +381,26 @@ impl WgpuCharacters {
             .sum();
     }
 
-    /// Re-skins and re-uploads every character whose pose revision changed.
+    /// Re-skins and re-uploads every character whose pose revision changed,
+    /// and rewrites the environment matrix of every character whose route
+    /// moved it.
     ///
-    /// Called once per frame; a character whose pose did not change writes
+    /// Called once per frame; a still character with a settled pose writes
     /// nothing.
     pub fn sync(&mut self, queue: &wgpu::Queue, scene: &CharacterScene) -> usize {
         let mut uploaded = 0usize;
-        for (slot, gpu) in self.characters.iter_mut().enumerate() {
-            let Some(character) = scene.characters().get(slot) else {
+        for gpu in &mut self.characters {
+            let Some(character) = scene.characters().get(gpu.scene_slot) else {
                 continue;
             };
+            if character.transform() != gpu.uploaded_transform {
+                if let Some(template) = self.environment_template {
+                    gpu.environment
+                        .update(queue, template.with_model(character.transform()));
+                }
+                gpu.uploaded_transform = character.transform();
+                gpu.world_bounds = character.world_bounds();
+            }
             if character.animator().revision() == gpu.uploaded_revision {
                 continue;
             }

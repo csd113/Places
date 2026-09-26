@@ -48,9 +48,11 @@ Construction conventions
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 import palette
 from mesh import FACE_KEYS, PropBuilder
+from parts.refreshed import load_atlas_from, outward_lathe
 
 # ---------------------------------------------------------------- budgets
 #
@@ -69,6 +71,7 @@ TARGETS = {
     "core:pool_guardrail_straight": 220,
     "core:pool_guardrail_end": 160,
     "core:pool_guardrail_corner": 240,
+    "core:rubber_duck": 208,
 }
 
 # ------------------------------------------------------------------ palette
@@ -198,7 +201,7 @@ def _rake(p: PropBuilder, first_vertex: int, pivot, degrees: float) -> None:
 
 
 def _taper_block(p: PropBuilder, base, widths, height: float, uv, color, *,
-                 rake: float = 0.0, proxy: bool = True) -> None:
+                 rake: float = 0.0) -> None:
     """A tapered four-sided block: the moulded-resin leg / stile primitive.
 
     ``widths`` is ``(bottom, top)`` measured across the flats; the 4-segment
@@ -217,7 +220,6 @@ def _taper_block(p: PropBuilder, base, widths, height: float, uv, color, *,
         uv=uv,
         cap_uv=uv,
         color=color,
-        proxy=not rake,
     )
     if rake:
         # A raked leg is cut square at the floor: without this the tilted foot
@@ -232,23 +234,6 @@ def _taper_block(p: PropBuilder, base, widths, height: float, uv, color, *,
         for index in foot:
             x, _, z = p.mesh.positions[index]
             p.mesh.positions[index] = (x, 0.0, z)
-        if proxy:
-            # The lathe's own cylinder proxy cannot express the rake, so emit a
-            # tube proxy (the editor supports arbitrary orientation) instead.
-            radians = math.radians(rake)
-            lean = math.sin(radians) * height
-            p.mesh.parts.append({
-                "shape": "tube",
-                "start": [round(base[0], 4), round(base[1], 4), round(base[2] - lean, 4)],
-                "end": [round(base[0], 4), round(base[1] + height * math.cos(radians), 4),
-                        round(base[2], 4)],
-                "radius": round((bottom + top) * 0.25, 4),
-                "color": _hex(color),
-            })
-
-
-def _hex(color) -> str:
-    return "#%02x%02x%02x" % tuple(max(0, min(255, int(channel))) for channel in color)
 
 
 # ----------------------------------------------------------------- painting
@@ -362,7 +347,6 @@ def _panel(p: PropBuilder, axis: str, span, hang: float, depth: float, folds: in
     """
     start, end = span
     distance = end - start
-    length = abs(distance)
     closed = [start + distance * (index / folds) for index in range(folds + 1)]
     fan_height = min(PANEL_FAN, (PANEL_TOP - PANEL_BOTTOM) * 0.5)
     body_top = PANEL_TOP - fan_height
@@ -388,24 +372,6 @@ def _panel(p: PropBuilder, axis: str, span, hang: float, depth: float, folds: in
             back = (corners[1], corners[0], corners[3], corners[2])
             for face in (corners, back):
                 p.mesh.quad(*face, uv=rect, color=color, shade_mult=mult, ao=1.0)
-
-    # One coarse proxy for the whole panel: the editor needs the mass, not the
-    # pleats.
-    middle = start + distance * 0.5
-    height = PANEL_TOP - PANEL_BOTTOM
-    if axis == "x":
-        center = (middle, (PANEL_TOP + PANEL_BOTTOM) * 0.5, hang + depth * 0.5)
-        size = (length, height, depth)
-    else:
-        center = (hang + depth * 0.5, (PANEL_TOP + PANEL_BOTTOM) * 0.5, middle)
-        size = (depth, height, length)
-    p.mesh.parts.append({
-        "shape": "box",
-        "center": [round(value, 4) for value in center],
-        "size": [round(value, 4) for value in size],
-        "rotation": [0.0, 0.0, 0.0],
-        "color": _hex(color),
-    })
 
 
 def _band(axis: str, a: float, b: float, low: float, high: float,
@@ -870,6 +836,64 @@ def build_pool_guardrail_corner(p: PropBuilder) -> None:
     p.add_note("shared corner post; one waist-high rail per leg; flanges flush at the ends")
 
 
+# --------------------------------------------------------------- rubber duck
+
+DUCK_MODEL_DIR = Path(__file__).resolve().parents[3] / "assets/environment/pool/props/models"
+
+
+def build_rubber_duck(p: PropBuilder) -> None:
+    """Rubber duck: a yellow hull and head, an orange beak and painted eyes.
+
+    The origin is the bottom of the hull and ``+Z`` is the beak, so a level
+    can place the duck on water and float it at its authored draft.  The hull
+    and head are eight-sided lathes, the tail a short swept taper and the eyes
+    two angled quads sampling a black-pupil atlas cell; the whole read has to
+    survive at 480x272, so the beak and eye contrast carry it.
+    """
+    tex = load_atlas_from(p, DUCK_MODEL_DIR / "rubber_duck.png",
+                          ("body", "head", "beak", "eye"))
+    duck_yellow = palette.mix(palette.hex_to_rgb("#f2c422"),
+                              palette.hex_to_rgb(palette.PLASTIC_WHITE), 0.30)
+    head_yellow = palette.shade(duck_yellow, 1.04)
+    beak_orange = palette.mix(palette.hex_to_rgb("#e8912a"),
+                              palette.hex_to_rgb(palette.PLASTIC_WHITE), 0.18)
+    eye_tint = palette.mix((26, 26, 30), palette.hex_to_rgb(palette.PLASTIC_WHITE), 0.15)
+
+    body_uv = tex.uv("body")
+    head_uv = tex.uv("head")
+    beak_uv = tex.uv("beak")
+    eye_uv = tex.uv("eye")
+
+    # Hull: five rings, widest a third of the way up; the Z ellipse makes the
+    # 0.10 m hull 0.12 m long with its flat base cap on y = 0.
+    body_profile = ((0.000, 0.008), (0.012, 0.040), (0.038, 0.050), (0.062, 0.042), (0.078, 0.020))
+    outward_lathe(p, (0.0, 0.0, 0.0), body_profile, segments=8, ellipse=(1.0, 1.2), uv=body_uv,
+            cap_uv=body_uv, color=duck_yellow)
+    # Head: a four-ring ball rising to the catalogue height.
+    head_profile = ((0.057, 0.010), (0.071, 0.026), (0.093, 0.028), (0.110, 0.024), (0.119, 0.014))
+    outward_lathe(p, (0.0, 0.0, 0.028), head_profile, segments=8, uv=head_uv, cap_uv=head_uv,
+            color=head_yellow)
+    # Beak: a six-sided flattened cone whose base is buried in the head.
+    outward_lathe(p, (0.0, 0.086, 0.040), ((0.000, 0.015), (0.022, 0.017), (0.030, 0.011)), segments=6, axis="z",
+            ellipse=(1.0, 0.32), uv=beak_uv, cap_uv=beak_uv, color=beak_orange)
+    # Tail: a short swept taper rising from the back of the hull.
+    p.tube_path([(0.0, 0.042, -0.045), (0.0, 0.062, -0.058), (0.0, 0.078, -0.070)],
+                radii=[0.020, 0.010, 0.003], segments=6, uv=body_uv, color=duck_yellow,
+                cap_start=True, cap_end=True)
+    # Low relief folded wings, closed shells following the hull.
+    for side in (-1.0, 1.0):
+        outward_lathe(p, (side * 0.038, 0.041, -0.026),
+                ((0.0, 0.003), (0.020, 0.018), (0.045, 0.013), (0.055, 0.003)),
+                segments=6, axis="z", ellipse=(0.48, 0.75), uv=body_uv,
+                color=(255, 246, 216))
+    # Eyes: small quads on the head's front quarter, angled outwards.
+    for sx in (-1.0, 1.0):
+        p.plane((sx * 0.0145, 0.098, 0.0490), (0.012, 0.010, 0.0), uv=eye_uv, color=eye_tint,
+                normal="z", rotation=(0.0, sx * 35.0, 0.0))
+    p.mesh.normalize_origin()
+    p.add_note("hull and head lathes, swept tail, angled eye quads; +Z is the beak")
+
+
 PROPS = {
     "core:pool_table": build_pool_table,
     "core:pool_chair": build_pool_chair,
@@ -880,4 +904,5 @@ PROPS = {
     "core:pool_guardrail_straight": build_pool_guardrail_straight,
     "core:pool_guardrail_end": build_pool_guardrail_end,
     "core:pool_guardrail_corner": build_pool_guardrail_corner,
+    "core:rubber_duck": build_rubber_duck,
 }

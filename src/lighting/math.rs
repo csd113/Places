@@ -56,7 +56,7 @@ pub fn effective_power(intensity: f32, ceiling_height_m: f32) -> f32 {
 /// The canonical rule shared by baked lighting and fixture geometry: rounding
 /// the authored rotation to the nearest whole degree and testing it against
 /// 180 keeps a `90` panel turned, a `180` panel back to default, and fractional
-/// rotations identical in both places. The level editor mirrors this rule.
+/// rotations identical in both places.
 #[must_use]
 pub const fn fixture_is_turned(rotation_degrees: f32) -> bool {
     if !rotation_degrees.is_finite() {

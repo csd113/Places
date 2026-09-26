@@ -1,0 +1,39 @@
+{
+  "arc_walls": [
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "y": 0.0,
+      "radius": 2.0,
+      "thickness": 0.24,
+      "height": 2.8,
+      "start_degrees": 0.0,
+      "sweep_degrees": 90.0,
+      "segments": 12,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "y": 0.0,
+      "radius": 2.0,
+      "thickness": 0.24,
+      "height": 2.8,
+      "start_degrees": 0.0,
+      "sweep_degrees": 180.0,
+      "segments": 24,
+      "material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "pillars": [
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "y": 0.0,
+      "radius": 0.3,
+      "height": 2.8,
+      "segments": 16,
+      "material": "home:wall_paint_offwhite_01"
+    }
+  ]
+}

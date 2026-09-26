@@ -20,10 +20,12 @@ fn test_default_wasd_and_arrow_bindings() {
     assert_eq!(bindings.look_left, "LEFT");
     assert_eq!(bindings.look_right, "RIGHT");
     assert_eq!(bindings.jump, "SPACE");
+    assert_eq!(bindings.crouch, "C");
+    assert_eq!(bindings.interact, "E");
 }
 
-/// The default action map must be exactly WASD + arrows + Space: every key
-/// resolves to one action, no key is shared, and no alternative layout is
+/// The default action map must be exactly WASD + arrows + Space + C + E: every
+/// key resolves to one action, no key is shared, and no alternative layout is
 /// silently retained as a duplicate binding.
 #[test]
 fn test_default_action_map_is_wasd_and_arrows_only() {
@@ -38,6 +40,8 @@ fn test_default_action_map_is_wasd_and_arrows_only() {
         ("look_left", "LEFT"),
         ("look_right", "RIGHT"),
         ("jump", "SPACE"),
+        ("crouch", "C"),
+        ("interact", "E"),
     ];
 
     let mut bound_keys: Vec<&str> = Vec::new();
@@ -87,6 +91,8 @@ fn test_reset_to_defaults_restores_wasd_and_arrows() {
     assert_eq!(bindings.look_left, "LEFT");
     assert_eq!(bindings.look_right, "RIGHT");
     assert_eq!(bindings.jump, "SPACE");
+    assert_eq!(bindings.crouch, "C");
+    assert_eq!(bindings.interact, "E");
 }
 
 #[test]
@@ -110,6 +116,23 @@ fn test_binding_conflict_detection() {
     // And a jump rebind to an unused key succeeds too.
     assert!(bindings.set_key("jump", "J").is_ok());
     assert_eq!(bindings.jump, "J");
+
+    // Crouch participates in the same conflict rules as the movement keys.
+    assert_eq!(bindings.check_conflict("crouch", "I"), Some("forward"));
+    assert_eq!(bindings.check_conflict("forward", "C"), Some("crouch"));
+    assert!(bindings.set_key("crouch", "I").is_err());
+    assert!(bindings.set_key("crouch", "V").is_ok());
+    assert_eq!(bindings.crouch, "V");
+
+    // Interact participates too: E is taken by default, and after a rebind the
+    // old key is free again. (Forward was rebound to I above, so the current
+    // binding is what conflicts.)
+    assert_eq!(bindings.check_conflict("interact", "I"), Some("forward"));
+    assert_eq!(bindings.check_conflict("forward", "E"), Some("interact"));
+    assert!(bindings.set_key("forward", "E").is_err());
+    assert!(bindings.set_key("interact", "F").is_ok());
+    assert_eq!(bindings.interact, "F");
+    assert_eq!(bindings.check_conflict("forward", "E"), None);
 }
 
 #[test]
@@ -447,6 +470,7 @@ fn test_action_labels_are_player_facing() {
     assert_eq!(action_label("strafe_right"), "Strafe Right");
     assert_eq!(action_label("look_up"), "Look Up");
     assert_eq!(action_label("jump"), "Jump");
+    assert_eq!(action_label("interact"), "Interact");
 }
 
 /// Places is a desktop game: the one authoritative fresh-install window size is
@@ -507,6 +531,14 @@ fn test_legacy_settings_files_receive_modern_defaults() {
         parsed.bindings.jump, "SPACE",
         "a missing jump key defaults on load"
     );
+    assert_eq!(
+        parsed.bindings.crouch, "C",
+        "a missing crouch key defaults to C without invalidating the file"
+    );
+    assert_eq!(
+        parsed.bindings.interact, "E",
+        "a missing interact key defaults to E without invalidating the file"
+    );
     assert_exact(parsed.mouse_sensitivity, DEFAULT_MOUSE_SENSITIVITY);
 }
 
@@ -524,6 +556,7 @@ fn test_new_preferences_persist_round_trip() {
         mouse_sensitivity: 0.66,
         bindings: KeyBindings {
             jump: "J".to_string(),
+            crouch: "X".to_string(),
             ..KeyBindings::default()
         },
         window_mode: "fullscreen".to_string(),
@@ -539,6 +572,10 @@ fn test_new_preferences_persist_round_trip() {
     assert!(loaded.invert_look);
     assert_exact(loaded.mouse_sensitivity, 0.66);
     assert_eq!(loaded.bindings.jump, "J", "the jump rebind round-trips");
+    assert_eq!(
+        loaded.bindings.crouch, "X",
+        "the crouch rebind round-trips through the same mechanism"
+    );
     assert_eq!(loaded.window_mode(), WindowMode::Fullscreen);
     assert_eq!(loaded.window_size(), (2560, 1440));
     // Unrelated values are untouched by the round trip.
@@ -1240,4 +1277,82 @@ fn jump_binding_serde_compatibility() {
     let json = serde_json::to_string(&parsed).expect("serialize");
     assert!(json.contains(r#""jump":"J""#), "{json}");
     assert!(json.contains(r#""mouse_sensitivity":0.44"#), "{json}");
+}
+
+/// A settings file written before the interact binding existed loads without
+/// being renamed, keeps an explicit rebind, and a missing key gets `E`.
+#[test]
+fn interact_binding_serde_compatibility() {
+    let without_interact = r#"{
+        "bindings": {
+            "forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D",
+            "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT",
+            "jump": "SPACE", "crouch": "C"
+        }
+    }"#;
+    let parsed: Settings = serde_json::from_str(without_interact).expect("an older file parses");
+    assert_eq!(parsed.bindings.interact, "E");
+    assert_eq!(parsed.bindings.crouch, "C", "customized keys are untouched");
+
+    let with_interact = r#"{
+        "bindings": {
+            "forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D",
+            "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT",
+            "jump": "SPACE", "crouch": "C", "interact": "Q"
+        }
+    }"#;
+    let parsed: Settings = serde_json::from_str(with_interact).expect("a newer file parses");
+    assert_eq!(parsed.bindings.interact, "Q");
+
+    let json = serde_json::to_string(&parsed).expect("serialize");
+    assert!(json.contains(r#""interact":"Q""#), "{json}");
+}
+
+/// Migrating to the `E` default never overwrites a binding the player
+/// customized: if `E` is already taken, Interact is left unbound for the
+/// Controls screen instead of sharing a key that the input lookup would
+/// silently shadow.
+#[test]
+fn interact_migration_never_overwrites_a_customized_e_binding() {
+    let customized = r#"{
+        "bindings": {
+            "forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D",
+            "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT",
+            "jump": "E", "crouch": "C"
+        }
+    }"#;
+    let mut parsed: Settings = serde_json::from_str(customized).expect("the file parses");
+    parsed.bindings.sanitize();
+    assert_eq!(
+        parsed.bindings.jump, "E",
+        "the player's customized jump binding is preserved"
+    );
+    assert_eq!(
+        parsed.bindings.get_key("interact"),
+        Some(""),
+        "Interact stays unbound rather than shadowing jump's E"
+    );
+
+    // The player can rebind it normally from the Controls screen.
+    parsed
+        .bindings
+        .set_key("interact", "F")
+        .expect("an unused key binds");
+    assert_eq!(parsed.bindings.interact, "F");
+
+    // With the key free, the migration lands on E as documented.
+    let mut plain: Settings =
+        serde_json::from_str(without_interact_bindings()).expect("the file parses");
+    plain.bindings.sanitize();
+    assert_eq!(plain.bindings.interact, "E");
+}
+
+/// JSON for a pre-Interact settings file with no customized bindings.
+fn without_interact_bindings() -> &'static str {
+    r#"{
+        "bindings": {
+            "forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D",
+            "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT"
+        }
+    }"#
 }

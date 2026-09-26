@@ -2,7 +2,11 @@
 
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
-#![allow(clippy::expect_used, clippy::indexing_slicing)]
+#![allow(
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::suboptimal_flops
+)]
 
 use super::*;
 use crate::test_support::{assert_exact, assert_exact_named};
@@ -141,6 +145,7 @@ fn test_estimate_geometry_scales_with_rooms_not_area() {
 fn test_estimate_geometry_saturates_on_extreme_input() {
     // Direct construction with absurd dimensions must not overflow or panic.
     let level = LevelDef {
+        routes: Vec::new(),
         format_version: 1,
         id: "extreme".into(),
         name: "Extreme".into(),
@@ -158,6 +163,8 @@ fn test_estimate_geometry_saturates_on_extreme_input() {
             shine: None,
             ceiling_material: None,
             ceiling_shine: None,
+            ceiling_tile_origin: None,
+            ceiling_tile_rotation_degrees: None,
         }],
         spawn: SpawnDef {
             x: 0.0,
@@ -169,6 +176,7 @@ fn test_estimate_geometry_saturates_on_extreme_input() {
         floor_patches: Vec::new(),
         floor_regions: Vec::new(),
         water: Vec::new(),
+        ladders: Vec::new(),
         ramps: Vec::new(),
         stairs: Vec::new(),
         half_walls: Vec::new(),
@@ -180,7 +188,11 @@ fn test_estimate_geometry_saturates_on_extreme_input() {
         decals: Vec::new(),
         ceiling_lights: Vec::new(),
         props: Vec::new(),
+        area_triggers: Vec::new(),
         animated_emissions: Vec::new(),
+        arc_walls: Vec::new(),
+        pillars: Vec::new(),
+        geometry_intent: Vec::new(),
     };
     let estimate = level.estimate_geometry();
     // Values are clamped before multiplication, so no wrap-around occurs and
@@ -1424,4 +1436,480 @@ fn test_grid_alignment_uses_the_panel_module_not_the_sheet_repeat() {
     );
     assert_exact(settled.ceiling_lights[0].x, 4.5);
     assert_exact(settled.ceiling_lights[0].z, 5.5);
+}
+
+// ---------------------------------------------------------------------------
+// Run 02: instance identity, actions and area triggers
+// ---------------------------------------------------------------------------
+
+/// Actions are a closed, internally tagged set: a known tag parses to its
+/// variant, an unknown tag is a parse error (never an ignored key), and a
+/// round-trip preserves the authored shape.
+#[test]
+fn test_action_defs_parse_as_tagged_objects() {
+    let toggle: ActionDef =
+        serde_json::from_str(r#"{ "action": "toggle_label" }"#).expect("toggle_label parses");
+    assert_eq!(toggle, ActionDef::ToggleLabel { target: None });
+    assert_eq!(toggle.kind(), "toggle_label");
+    assert_eq!(toggle.target(), None);
+
+    let targeted: ActionDef =
+        serde_json::from_str(r#"{ "action": "toggle_label", "target": "plant_1" }"#)
+            .expect("a targeted toggle parses");
+    assert_eq!(
+        targeted,
+        ActionDef::ToggleLabel {
+            target: Some("plant_1".into())
+        }
+    );
+    assert_eq!(targeted.target(), Some("plant_1"));
+
+    let reset: ActionDef =
+        serde_json::from_str(r#"{ "action": "reset_to_start" }"#).expect("reset_to_start parses");
+    assert_eq!(reset, ActionDef::ResetToStart);
+
+    // The reserved integration points parse so validation can name them; they
+    // are not implemented and must never load silently.
+    let audio: ActionDef = serde_json::from_str(r#"{ "action": "play_audio", "sound": "beep" }"#)
+        .expect("the reserved audio action parses");
+    assert_eq!(audio.kind(), "play_audio");
+    let animation: ActionDef =
+        serde_json::from_str(r#"{ "action": "play_animation", "clip": "wave" }"#)
+            .expect("the reserved animation action parses");
+    assert_eq!(animation.kind(), "play_animation");
+
+    assert!(
+        serde_json::from_str::<ActionDef>(r#"{ "action": "launch_missiles" }"#).is_err(),
+        "an unknown action is a parse error, not an ignored key"
+    );
+
+    // The serialized form keeps the tag and its fields.
+    let serialized = serde_json::to_string(&targeted).expect("serialize");
+    assert!(serialized.contains("\"action\":\"toggle_label\""));
+    assert!(serialized.contains("\"target\":\"plant_1\""));
+}
+
+/// Instance ids are authored when present, deterministic when not: the default
+/// counts placements per model short name in array order.
+#[test]
+fn test_prop_instance_ids_default_deterministically() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "ids",
+            "name": "Ids",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 },
+            "props": [
+                { "model": "core:chair", "x": 1.0, "z": 1.0 },
+                { "id": "nook_chair", "model": "core:chair", "x": 2.0, "z": 1.0 },
+                { "model": "core:chair", "x": 3.0, "z": 1.0 },
+                { "model": "core:plant", "x": 4.0, "z": 1.0 }
+            ]
+        }"#,
+    )
+    .expect("the id level parses");
+    assert_eq!(
+        level.prop_instance_ids(),
+        vec!["chair_1", "nook_chair", "chair_2", "plant_1"]
+    );
+    // Deterministic across parses: the same document yields the same ids.
+    assert_eq!(
+        level.prop_instance_ids(),
+        level.prop_instance_ids(),
+        "id resolution never depends on call order"
+    );
+
+    let light_level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "light_ids",
+            "name": "Light Ids",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 },
+            "ceiling_lights": [
+                { "fixture": "core:fluorescent_panel_01", "x": 1.0, "z": 1.0 },
+                { "fixture": "core:fluorescent_panel_01", "x": 3.0, "z": 1.0 }
+            ]
+        }"#,
+    )
+    .expect("the light level parses");
+    assert_eq!(
+        light_level.light_instance_ids(),
+        vec!["fluorescent_panel_01_1", "fluorescent_panel_01_2"]
+    );
+}
+
+/// Area triggers resolve authored ids, default ids, authored vertical bounds
+/// and floor-derived bounds, and `contains` is a real volume test.
+#[test]
+fn test_area_triggers_resolve_ids_and_bounds() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "triggers",
+            "name": "Triggers",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0,
+                      "floor_y": -1.0 },
+            "floor_regions": [
+                { "x": 6.0, "z": 6.0, "width": 2.0, "depth": 2.0, "offset_y": -1.0 }
+            ],
+            "area_triggers": [
+                { "id": "authored", "x": 1.0, "z": 1.0, "width": 2.0, "depth": 2.0,
+                  "bottom_y": -1.0, "top_y": -0.1,
+                  "actions": [{ "action": "reset_to_start" }] },
+                { "x": 6.0, "z": 6.0, "width": 2.0, "depth": 2.0,
+                  "actions": [{ "action": "reset_to_start" }] }
+            ]
+        }"#,
+    )
+    .expect("the trigger level parses");
+    assert_eq!(
+        level.area_trigger_instance_ids(),
+        vec!["authored", "trigger_2"]
+    );
+
+    let triggers = AreaTriggers::from_level(&level);
+    assert_eq!(triggers.len(), 2);
+    let first = triggers.get(0).expect("the authored trigger");
+    assert_eq!(first.id, "authored");
+    assert!((first.bottom_y - (-1.0)).abs() < 1e-6);
+    assert!((first.top_y - (-0.1)).abs() < 1e-6);
+    assert!(first.contains(1.5, 1.5, -0.5));
+    assert!(!first.contains(1.5, 3.5, -0.5));
+    assert!(!first.contains(1.5, 1.5, -1.2));
+
+    // The second trigger's vertical bounds default to the floor under its
+    // centre (the recess at -2.0) plus the documented 2.0 m height.
+    let second = triggers.get(1).expect("the defaulted trigger");
+    assert!(
+        (second.bottom_y - (-2.0)).abs() < 1e-6,
+        "{}",
+        second.bottom_y
+    );
+    assert!((second.top_y - 0.0).abs() < 1e-6, "{}", second.top_y);
+}
+
+/// A trigger with an inverted authored band or malformed size is skipped at
+/// resolution time, exactly like a malformed water volume or ladder; the
+/// loader rejects it before a real level ever reaches here.
+#[test]
+fn test_malformed_area_triggers_are_skipped_at_resolution() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "bad_triggers",
+            "name": "Bad Triggers",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 },
+            "area_triggers": [
+                { "x": 1.0, "z": 1.0, "width": 0.0, "depth": 1.0,
+                  "bottom_y": 0.0, "top_y": 1.0,
+                  "actions": [{ "action": "reset_to_start" }] },
+                { "x": 2.0, "z": 2.0, "width": 1.0, "depth": 1.0,
+                  "bottom_y": 1.0, "top_y": 0.0,
+                  "actions": [{ "action": "reset_to_start" }] },
+                { "x": 3.0, "z": 3.0, "width": 1.0, "depth": 1.0,
+                  "bottom_y": 0.0, "top_y": 1.0,
+                  "actions": [{ "action": "reset_to_start" }] }
+            ]
+        }"#,
+    )
+    .expect("the malformed trigger level parses");
+    let triggers = AreaTriggers::from_level(&level);
+    assert_eq!(triggers.len(), 1, "only the last trigger is well formed");
+    assert_eq!(triggers.get(0).expect("one trigger").id, "trigger_3");
+}
+
+/// A `float` block is optional decoration on the prop schema: every old map
+/// keeps parsing with no float at all, and a block that only names what it
+/// changes fills the rest in from [`DEFAULT_FLOAT_PERIOD_S`].
+#[test]
+fn test_prop_float_is_optional_and_defaults_fill_in() {
+    // An untouched prop schema: no `float` key anywhere.
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "float_defaults",
+            "name": "Float Defaults",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 },
+            "props": [
+                { "model": "core:chair", "x": 1.0, "z": 1.0 },
+                { "model": "core:rubber_duck", "x": 2.0, "z": 2.0 }
+            ]
+        }"#,
+    )
+    .expect("a level without floats still parses");
+    assert!(level.props[0].float.is_none(), "an old map stays unchanged");
+    assert!(level.props[1].float.is_none());
+
+    // A float block only has to name what it changes: the periods fall back to
+    // the shared default and the phase stays unauthored.
+    let float: PropFloatDef =
+        serde_json::from_str(r#"{ "draft": 0.03, "bob": 0.012, "heel_degrees": 3.0 }"#)
+            .expect("a partial float block parses");
+    assert_exact(float.draft, 0.03);
+    assert_exact(float.bob, 0.012);
+    assert_exact(float.heel_degrees, 3.0);
+    assert_exact(float.bob_seconds, DEFAULT_FLOAT_PERIOD_S);
+    assert_exact(float.heel_seconds, DEFAULT_FLOAT_PERIOD_S);
+    assert_eq!(float.phase, None);
+
+    // The same defaults apply when the block is parsed inside a level.
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "float_defaults",
+            "name": "Float Defaults",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 },
+            "props": [
+                { "model": "core:rubber_duck", "x": 2.0, "z": 2.0,
+                  "float": { "draft": 0.03 } }
+            ]
+        }"#,
+    )
+    .expect("a level with a float block parses");
+    let block = level.props[0].float.expect("the float block parsed");
+    assert_exact(block.bob_seconds, DEFAULT_FLOAT_PERIOD_S);
+    assert_exact(block.heel_seconds, DEFAULT_FLOAT_PERIOD_S);
+    assert_eq!(block.phase, None);
+}
+
+/// `contains_disc` proves the swept-footprint guarantee a float relies on:
+/// one volume must contain the whole disc, and the boundary itself is inside.
+#[test]
+fn test_water_contains_disc_requires_one_volume_to_hold_the_whole_disc() {
+    // Two adjacent 10x10 basins sharing the x = 10 seam, so the "one volume"
+    // half of the rule is testable.
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "disc_test",
+            "name": "Disc Test",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "water": [
+                { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "surface_y": 1.0 },
+                { "x": 10.0, "z": 0.0, "width": 10.0, "depth": 10.0, "surface_y": 1.0 }
+            ]
+        }"#,
+    )
+    .expect("the disc test level parses");
+    let water = WaterVolumes::from_level(&level);
+    assert_eq!(water.len(), 2);
+
+    // A disc well inside one basin.
+    assert!(water.contains_disc(5.0, 5.0, 4.0));
+    // A radius exactly touching an edge and a corner is still contained...
+    assert!(water.contains_disc(4.5, 5.0, 4.5), "edge-touching disc");
+    assert!(water.contains_disc(4.5, 4.5, 4.5), "corner-touching disc");
+    // ... and one hair more is not: the containment is inclusive at the rim.
+    assert!(!water.contains_disc(4.5, 5.0, 4.5 + 1e-5));
+
+    // A disc that straddles the seam between two volumes is contained by
+    // neither the left nor the right volume, however much water it covers.
+    assert!(!water.contains_disc(10.0, 5.0, 0.5));
+    // A disc that starts exactly on the seam belongs to the second volume.
+    assert!(water.contains_disc(10.5, 5.0, 0.5));
+
+    // Outside every footprint, an oversized disc, the empty set and malformed
+    // input never contain.
+    assert!(!water.contains_disc(20.5, 5.0, 0.4));
+    assert!(!water.contains_disc(5.0, 5.0, 5.01));
+    assert!(!WaterVolumes::new().contains_disc(5.0, 5.0, 0.5));
+    assert!(!water.contains_disc(f32::NAN, 5.0, 1.0));
+    assert!(!water.contains_disc(5.0, f32::NAN, 1.0));
+    assert!(!water.contains_disc(5.0, 5.0, f32::NAN));
+    assert!(!water.contains_disc(5.0, 5.0, -1.0));
+}
+
+// ---------------------------------------------------------------------------
+// Run 06: round architecture and the ceiling tile frame
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_round_primitives_parse_with_sensible_defaults() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "round_parse",
+            "name": "Round Parse",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0 },
+            "arc_walls": [
+                { "x": 5.0, "z": 5.0, "radius": 2.0 }
+            ],
+            "pillars": [
+                { "x": 3.0, "z": 3.0, "radius": 0.4 }
+            ]
+        }"#,
+    )
+    .expect("round primitives parse");
+    let arc = &level.arc_walls[0];
+    assert_exact(arc.thickness, DEFAULT_ARC_WALL_THICKNESS_M);
+    assert_exact(arc.sweep_degrees, DEFAULT_ARC_SWEEP_DEGREES);
+    assert_exact(arc.start_degrees, 0.0);
+    assert!(arc.segments.is_none());
+    // A 90 degree default sweep resolves to a quarter of the 24-segment ring.
+    assert_eq!(arc.resolved_segments(), 6);
+    assert!(!arc.is_full_ring());
+    assert_exact(arc.inner_radius(), 2.0 - DEFAULT_ARC_WALL_THICKNESS_M * 0.5);
+    assert_exact(arc.outer_radius(), 2.0 + DEFAULT_ARC_WALL_THICKNESS_M * 0.5);
+
+    let pillar = &level.pillars[0];
+    assert_eq!(pillar.resolved_segments(), ROUND_SEGMENTS_DEFAULT);
+    assert_eq!(pillar.polygon_points().len(), 24);
+    assert_eq!(round_segments_for(360.0, Some(4)), 4);
+    assert_eq!(round_segments_for(360.0, Some(2)), ROUND_SEGMENTS_DEFAULT);
+    assert_eq!(
+        round_segments_for(360.0, Some(1024)),
+        ROUND_SEGMENTS_DEFAULT
+    );
+    // A full ring has no ends; a quarter arc does.
+    let mut ring = arc.clone();
+    ring.sweep_degrees = 360.0;
+    assert!(ring.is_full_ring());
+    assert_eq!(ring.resolved_segments(), 24);
+}
+
+#[test]
+fn test_ceiling_tile_frame_round_trips_and_rotates() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "tile_frame",
+            "name": "Tile Frame",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [
+                { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0,
+                  "ceiling_tile_origin": [1.0, 2.0],
+                  "ceiling_tile_rotation_degrees": 90.0 }
+            ]
+        }"#,
+    )
+    .expect("the tile frame parses");
+    let room = &level.rooms[0];
+    let (origin_x, origin_z, rotation) = room.ceiling_tile_frame();
+    assert_exact(origin_x, 1.0);
+    assert_exact(origin_z, 2.0);
+    assert_exact(rotation, 90.0);
+    // Rotation is about the origin in the (x, z) plane; the round trip is exact.
+    let (local_x, local_z) = room.ceiling_tile_local(3.25, 1.75);
+    assert!((local_x - 0.25).abs() < 1.0e-4, "local x {local_x}");
+    assert!((local_z - 2.25).abs() < 1.0e-4, "local z {local_z}");
+    let (world_x, world_z) = room.ceiling_tile_world(local_x, local_z);
+    assert!((world_x - 3.25).abs() < 1.0e-4, "world x {world_x}");
+    assert!((world_z - 1.75).abs() < 1.0e-4, "world z {world_z}");
+    // A lattice point of the rotated frame is a fixed point of the frame.
+    let (fixed_x, fixed_z) = room.ceiling_tile_world(-1.5, 2.5);
+    let (back_x, back_z) = room.ceiling_tile_local(fixed_x, fixed_z);
+    assert!((back_x + 1.5).abs() < 1.0e-4, "fixed local x {back_x}");
+    assert!((back_z - 2.5).abs() < 1.0e-4, "fixed local z {back_z}");
+}
+
+#[test]
+fn test_ceiling_uvs_follow_the_room_tile_frame() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "tile_uv",
+            "name": "Tile Uv",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [
+                { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0,
+                  "ceiling_tile_origin": [1.0, 2.0],
+                  "ceiling_tile_rotation_degrees": 90.0 }
+            ],
+            "ceiling_lights": [
+                { "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 4.0 }
+            ]
+        }"#,
+    )
+    .expect("the tiled level parses");
+    let room = &level.rooms[0];
+    let materials = crate::render::logical_materials(&level);
+    let tile = materials
+        .entry_of("core:ceiling_panel_01")
+        .expect("the default ceiling")
+        .tile_metres;
+    let mesh = crate::render::build_level_geometry_with_materials(&level, &materials);
+    let mut checked = 0;
+    let mut differs_from_world_tiling = false;
+    for range in &mesh.ranges {
+        if range.key.kind != crate::render::SurfaceKind::Ceiling {
+            continue;
+        }
+        for vertex in &range.vertices {
+            let (x, z) = (vertex.pos[0], vertex.pos[2]);
+            let expected = room.ceiling_tile_local(x, z);
+            assert_exact_named(
+                vertex.uv[0],
+                crate::render::tiled_uv(expected.0, expected.1, tile)[0],
+                "ceiling u",
+            );
+            assert_exact_named(
+                vertex.uv[1],
+                crate::render::tiled_uv(expected.0, expected.1, tile)[1],
+                "ceiling v",
+            );
+            if (vertex.uv[0] - x / tile).abs() > 1.0e-3 || (vertex.uv[1] - z / tile).abs() > 1.0e-3
+            {
+                differs_from_world_tiling = true;
+            }
+            checked += 1;
+        }
+    }
+    assert!(checked > 0, "the ceiling emitted vertices");
+    assert!(
+        differs_from_world_tiling,
+        "the authored frame must move the ceiling UVs off the world grid"
+    );
+}
+
+#[test]
+fn test_ceiling_grid_decals_snap_in_the_rooms_own_frame() {
+    let mut level = LevelDef::from_json(
+        r#"{
+            "format_version": 1,
+            "id": "tile_decal",
+            "name": "Tile Decal",
+            "spawn": { "x": 0.0, "z": 0.0 },
+            "rooms": [
+                { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0,
+                  "ceiling_tile_origin": [1.0, 2.0],
+                  "ceiling_tile_rotation_degrees": 90.0 }
+            ],
+            "decals": [
+                { "x": 3.4, "y": 0.0, "z": 2.2, "width": 0.6, "height": 0.6,
+                  "material": "core:decal_ceiling_vent_01", "surface": "ceiling",
+                  "align": "ceiling_grid" },
+                { "x": 4.0, "y": 0.0, "z": 4.0, "width": 0.6, "height": 0.6,
+                  "material": "core:decal_ceiling_vent_01", "surface": "ceiling" }
+            ]
+        }"#,
+    )
+    .expect("the decal level parses");
+    let materials = crate::render::logical_materials(&level);
+    let moved = level.snap_ceiling_decals(&materials);
+    assert_eq!(moved, 1, "only the aligned decal moves");
+    // Unaligned decal: authored exactly, no rotation composition.
+    assert_exact(level.decals[1].x, 4.0);
+    assert_exact(level.decals[1].z, 4.0);
+    assert_exact(level.ceiling_decal_rotation(&level.decals[1]), 0.0);
+    // Aligned decal: snapped to a lattice point of the rotated frame and its
+    // rotation composed with the room's.
+    let snapped = &level.decals[0];
+    let (local_x, local_z) = level.rooms[0].ceiling_tile_local(snapped.x, snapped.z);
+    for value in <[f32; 2]>::from((local_x, local_z)) {
+        let remainder = (value - 0.5).round();
+        assert!(
+            (value - (remainder + 0.5)).abs() < 1.0e-3,
+            "snapped local {value} is not a 1 m panel centre"
+        );
+    }
+    assert_exact(level.ceiling_decal_rotation(snapped), 90.0);
+    // The pass is idempotent: snapping again moves nothing.
+    assert_eq!(level.snap_ceiling_decals(&materials), 0);
 }

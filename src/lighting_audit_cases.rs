@@ -1633,6 +1633,7 @@ fn group_o_fixtures_outside_rooms_are_defined_and_isolated() {
 
 fn empty_level() -> LevelDef {
     LevelDef {
+        routes: Vec::new(),
         format_version: 1,
         id: "empty".into(),
         name: "Empty".into(),
@@ -1649,6 +1650,7 @@ fn empty_level() -> LevelDef {
         floor_patches: Vec::new(),
         floor_regions: Vec::new(),
         water: Vec::new(),
+        ladders: Vec::new(),
         ramps: Vec::new(),
         stairs: Vec::new(),
         half_walls: Vec::new(),
@@ -1660,7 +1662,11 @@ fn empty_level() -> LevelDef {
         decals: Vec::new(),
         ceiling_lights: Vec::new(),
         props: Vec::new(),
+        area_triggers: Vec::new(),
         animated_emissions: Vec::new(),
+        arc_walls: Vec::new(),
+        pillars: Vec::new(),
+        geometry_intent: Vec::new(),
     }
 }
 
@@ -1694,8 +1700,11 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         shine: None,
         ceiling_material: None,
         ceiling_shine: None,
+        ceiling_tile_origin: None,
+        ceiling_tile_rotation_degrees: None,
     });
     zero_room.ceiling_lights.push(LightFixtureDef {
+        id: None,
         fixture: "core:fluorescent_panel_01".into(),
         x: 5.0,
         z: 5.0,
@@ -1750,6 +1759,8 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         shine: None,
         ceiling_material: None,
         ceiling_shine: None,
+        ceiling_tile_origin: None,
+        ceiling_tile_rotation_degrees: None,
     };
     duplicate.ceiling_lights[0].x = 1.0e30 + 5.0;
     duplicate.ceiling_lights[0].z = -1.0e30 + 5.0;
@@ -1765,6 +1776,9 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     // A level containing only props (no rooms at all).
     let props_only = LevelDef {
         props: vec![PropDef {
+            id: None,
+            display_name: None,
+            interaction: None,
             model: "core:chair".into(),
             x: 1.0,
             y: 0.0,
@@ -1774,6 +1788,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
             size: None,
             solid: false,
             lights: Vec::new(),
+            float: None,
         }],
         ..empty.clone()
     };
@@ -1793,6 +1808,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     // A level with nothing but a ceiling fixture list.
     let mut lights_only = empty.clone();
     lights_only.ceiling_lights.push(LightFixtureDef {
+        id: None,
         fixture: "core:fluorescent_panel_01".into(),
         x: 0.0,
         z: 0.0,
@@ -1820,6 +1836,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     // Non-finite fixtures are dropped, not propagated.
     let mut broken = empty;
     broken.ceiling_lights.push(LightFixtureDef {
+        id: None,
         fixture: "core:fluorescent_panel_01".into(),
         x: f32::INFINITY,
         z: 0.0,

@@ -8,19 +8,22 @@ prop is documented with:
     python3 tools/props/generate_spooner_man.py
 
 It builds the toolkit's *static* low-poly cat from
-(`tools/props/parts/spooner_man.py`), refreshes the derived editor proxy file
-and thumbnails, and prints the asset's budget report. Blender is deliberately
-not part of this: the pack has a Blender-free generator, and nothing here
-becomes a runtime dependency.
+(`tools/props/parts/spooner_man.py`), and prints the asset's budget report.
+Blender is deliberately not part of this: the pack has a Blender-free
+generator, and nothing here becomes a runtime dependency.
 
 The shipped entity is a hand-authored skinned Blender export and is the
 canonical asset (see `assets/entities/spooner-man/README.md`); this generator
 refuses to overwrite it unless `--force` is passed, because its static cat has
-no skeleton and would silently drop the character rig.
+no skeleton and would silently drop the character rig and its authored clips.
+
+The clips themselves are authored separately by
+`tools/props/animate_spooner_man.py`, which preserves the shipped mesh, texture
+and rig bytes and appends only animation data.
 
 To regenerate *every* prop instead:
 
-    python3 tools/props/build.py --thumbs
+    python3 tools/props/build.py
 """
 
 from __future__ import annotations
@@ -38,9 +41,7 @@ def main() -> int:
     import build  # noqa: PLC0415 - the toolkit lives in a sibling directory
 
     print("generating spooner-man via tools/props/build.py")
-    # `--only` rebuilds just this prop while still merging its entry into the
-    # shared editor proxy file, and `--thumbs` refreshes its browser preview.
-    return build.main(["--only", "spooner-man", "--thumbs"])
+    return build.main(["--only", "spooner-man"])
 
 
 if __name__ == "__main__":

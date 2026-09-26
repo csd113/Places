@@ -647,9 +647,9 @@
       "surface": "floor",
       "texture": "core:tex_pool_tile_deck_01",
       "tile_metres": 1.5,
-      "specular": 0.22,
-      "shine": 0.3,
-      "description": "Pale commercial tile for the pool deck: glazed, so a small sheen, never a mirror."
+      "specular": 0.3,
+      "shine": 0.4,
+      "description": "Pale commercial tile for the pool deck: glazed, so a restrained visible sheen, never a mirror."
     },
     {
       "id": "core:pool_tile_basin_01",
@@ -661,9 +661,9 @@
       "surface": "floor",
       "texture": "core:tex_pool_tile_basin_01",
       "tile_metres": 1.0,
-      "specular": 0.22,
-      "shine": 0.3,
-      "description": "Smaller-format pale tile for the empty basin floor and steps: glazed, with a slight sheen."
+      "specular": 0.3,
+      "shine": 0.4,
+      "description": "Smaller-format pale tile for the empty basin floor and steps: glazed, with a restrained visible sheen."
     },
     {
       "id": "core:pool_tile_wall_01",
@@ -675,9 +675,9 @@
       "surface": "wall",
       "texture": "core:tex_pool_tile_wall_01",
       "tile_metres": 1.0,
-      "specular": 0.2,
-      "shine": 0.28,
-      "description": "Commercial wall tile for the pool room and basin walls: a low glazed sheen, not a glossy panel."
+      "specular": 0.3,
+      "shine": 0.4,
+      "description": "Commercial wall tile for the pool room and basin walls: a restrained glazed sheen, not a glossy panel."
     },
     {
       "id": "core:pool_ceiling_01",
@@ -953,6 +953,15 @@
       "source": "file",
       "model": "core/decals/stripes_01.png",
       "description": "Diagonal hazard striping, an external PNG cut-out that can be replaced without a Rust change."
+    },
+    {
+      "id": "core:decal_ceiling_vent_01",
+      "display_name": "Ceiling Vent",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "core/decals/ceiling_vent_01.png",
+      "description": "Low-poly ceiling supply grille, an external PNG cut-out sized to sit centred on one 0.6 m ceiling tile."
     },
     {
       "id": "core:decal_no_diving_01",
@@ -1699,6 +1708,269 @@
       "category": "Furniture",
       "solid": true,
       "description": "Off-white wall cabinet with two doors and a slim carcass; mounts above the base cabinet."
+    },
+    {
+      "id": "mannequin",
+      "display_name": "Concrete Mannequin",
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/mannequin/model/mannequin.glb",
+      "size": [
+        0.42,
+        1.72,
+        0.305
+      ],
+      "color": "#a8a7a1",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Grey concrete artist's lay figure with three selectable poses on one rig (pose_stand, pose_arms_up, pose_arms_forward)."
+    },
+    {
+      "id": "rat",
+      "display_name": "Rat",
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/rat/model/rat.glb",
+      "size": [
+        0.095,
+        0.139,
+        0.613
+      ],
+      "color": "#6b5a4a",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Low-poly rat with articulated legs, paws and a five-segment tail; looping idle/walk/run clips with measured reference speeds (0.199 m/s walk, 0.573 m/s run)."
+    },
+    {
+      "id": "skeleton",
+      "display_name": "Skeleton",
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/skeleton/model/skeleton.glb",
+      "size": [
+        0.4266,
+        1.72,
+        0.315
+      ],
+      "color": "#d8d2b8",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Low-poly articulated skeleton prop with a real animation rig and three held poses (pose_stand, pose_sit_floor, pose_sit_chair); the chair pose fits the 0.45 m seat of core:chair."
+    },
+    {
+      "id": "core:stop_sign",
+      "display_name": "Stop Sign",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/stop_sign.glb",
+      "size": [
+        0.45,
+        1.8,
+        0.06
+      ],
+      "color": "#a8453a",
+      "category": "Utility",
+      "solid": true
+    },
+    {
+      "id": "core:exit_sign",
+      "display_name": "Exit Sign",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "core/props/models/exit_sign.glb",
+      "size": [
+        0.45,
+        0.57,
+        0.08
+      ],
+      "color": "#2f7a3f",
+      "category": "Utility",
+      "solid": false
+    },
+    {
+      "id": "home:ball_light",
+      "display_name": "Hanging Ball Light",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/ball_light.glb",
+      "size": [
+        0.2,
+        0.8,
+        0.2
+      ],
+      "color": "#e6e2d8",
+      "category": "Decorative",
+      "solid": false
+    },
+    {
+      "id": "home:wall_switch",
+      "display_name": "Wall Light Switch",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/wall_switch.glb",
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "color": "#ddd8ce",
+      "category": "Utility",
+      "solid": false
+    },
+    {
+      "id": "home:crt_tv",
+      "display_name": "CRT Television",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/crt_tv.glb",
+      "size": [
+        0.55,
+        0.48,
+        0.46
+      ],
+      "color": "#6b6558",
+      "category": "Decorative",
+      "solid": true
+    },
+    {
+      "id": "home:knife",
+      "display_name": "Table Knife",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/knife.glb",
+      "size": [
+        0.022,
+        0.016,
+        0.215
+      ],
+      "color": "#c9c9c6",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Table knife with a tapered steel blade and a dark riveted handle; the blade end faces +Z in a place setting."
+    },
+    {
+      "id": "home:fork",
+      "display_name": "Table Fork",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/fork.glb",
+      "size": [
+        0.026,
+        0.012,
+        0.196
+      ],
+      "color": "#c9c9c6",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Four-tine table fork with a steel head and a dark riveted handle; the tines face +Z in a place setting."
+    },
+    {
+      "id": "home:spoon",
+      "display_name": "Table Spoon",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/spoon.glb",
+      "size": [
+        0.036,
+        0.02,
+        0.185
+      ],
+      "color": "#c9c9c6",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Table spoon with a shallow eight-sided steel bowl and a dark riveted handle; the bowl faces +Z in a place setting."
+    },
+    {
+      "id": "home:plate",
+      "display_name": "Dinner Plate",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/plate.glb",
+      "size": [
+        0.22,
+        0.022,
+        0.22
+      ],
+      "color": "#e8e6df",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Porcelain dinner plate; floats on the tabletop at any placement."
+    },
+    {
+      "id": "home:bowl",
+      "display_name": "Cereal Bowl",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/bowl.glb",
+      "size": [
+        0.15,
+        0.065,
+        0.15
+      ],
+      "color": "#e8e6df",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Porcelain cereal bowl with a rolled rim; sized for the home tabletop."
+    },
+    {
+      "id": "home:plant_table",
+      "display_name": "Small Potted Plant",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/home/props/models/plant_table.glb",
+      "size": [
+        0.13,
+        0.28,
+        0.13
+      ],
+      "color": "#5a7a4a",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Small potted table plant: a glazed ten-sided pot, soil and seven folded leaves on a short stem; roughly half the height of the floor plant."
+    },
+    {
+      "id": "core:rubber_duck",
+      "display_name": "Rubber Duck",
+      "asset_class": "environment",
+      "theme": "pool",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environment/pool/props/models/rubber_duck.glb",
+      "size": [
+        0.1,
+        0.12,
+        0.14
+      ],
+      "color": "#f2c422",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Yellow rubber duck with an orange beak and painted eyes; the beak end faces +Z and a `float` block lets it ride the pool surface."
     }
   ]
 }

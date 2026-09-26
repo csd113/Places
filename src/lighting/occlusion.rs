@@ -109,12 +109,13 @@ pub(super) struct ModelOcclusion {
 
 /// True when a placed prop is static geometry for the baked lighting.
 ///
-/// Every level `props` entry is static: dynamic objects are a separate
-/// renderer-side scene, not level props. Naming the classification here keeps
-/// a future dynamic source from leaking into the occluder builder.
+/// Every level `props` entry is static except a floating prop: a float is
+/// drawn by the dynamic scene at the water surface, and the dynamic path is
+/// documented invisible to the baker, so baking it at its dry authored
+/// position would make the bake disagree with what is drawn.
 #[must_use]
-pub(super) const fn prop_is_static(_prop: &PropDef) -> bool {
-    true
+pub(super) const fn prop_is_static(prop: &PropDef) -> bool {
+    prop.float.is_none()
 }
 
 /// Occlusion boxes for one model, derived from its real triangles, at an
@@ -1601,6 +1602,9 @@ mod tests {
             (5.5, 0.2, -7.25, -45.0, 0.75),
         ] {
             let prop = crate::level::PropDef {
+                id: None,
+                display_name: None,
+                interaction: None,
                 model: "test".into(),
                 x,
                 y,
@@ -1610,6 +1614,7 @@ mod tests {
                 size: None,
                 solid: false,
                 lights: Vec::new(),
+                float: None,
             };
             let base_y = 0.35_f32;
             let transform = glam::Mat4::from_translation(glam::Vec3::new(x, base_y + y, z))

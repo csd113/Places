@@ -198,7 +198,7 @@ def _build_seating(p: PropBuilder, seats: int) -> None:
                   (arm_width, arm_top - 0.32, 0.77), uv=body_uv, color=white)
         solid_cylinder(p, (sx * arm_x, arm_top, -0.34), radius, 0.76,
                        segments=12, axis="z", side_uv=body_uv, cap_uv=body_uv,
-                       color=white, proxy=False)
+                       color=white)
     for index in range(seats):
         cx = (index - 1) * 0.56 if sofa else 0.0
         cushion_width = 0.535 if sofa else 0.58
@@ -384,10 +384,6 @@ def build_table(p: PropBuilder) -> None:
     for sx in (-1.0, 1.0):
         box((sx * (size[0] * 0.5 - 0.095), 0.638, 0.0), (0.03, 0.07, size[2] - 0.18), uv=apron_uv,
             color=(255, 255, 255))
-    # Editor proxies have no texture, so give them the atlas's average oak tone.
-    oak = tuple(sum(pixels[channel::4]) // (width * height) for channel in range(3))
-    for part in p.mesh.parts:
-        part["color"] = "#%02x%02x%02x" % oak
     p.add_note("closed slab and frame, four downward-tapered square legs, four aprons; file-backed oak atlas")
 
 

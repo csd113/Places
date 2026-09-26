@@ -13,16 +13,19 @@
 //!   ceilings in [`crate::level`], each primitive keeping its own material;
 //! * `POSITION` (float32), `TEXCOORD_0` (float32 or normalised integer),
 //!   `COLOR_0` (optional; float32 or normalised integer), 16/32-bit indices;
-//! * `mode: 4` (triangles) only, no morph targets;
+//! * `mode: 4` (triangles) only;
+//! * optional morph targets (`POSITION` required, `NORMAL`/`TANGENT`
+//!   optional) with their default weights; the bind-pose bake includes the
+//!   defaults and the runtime can animate the weights;
 //! * one skin per model: `JOINTS_0` (8/16-bit) and `WEIGHTS_0` (float32 or
 //!   normalised 8/16-bit) per vertex, a retained node hierarchy, the joint
 //!   list and the inverse bind matrices. A skinned primitive's `vertices`
 //!   positions are baked to the bind pose, so the static prop path draws the
 //!   rest pose unchanged; the raw skin data stays on the model for the
 //!   character path;
-//! * `animations` (LINEAR and STEP samplers) retained as named clips with
-//!   per-node translation/rotation/scale channels; CUBICSPLINE samplers and
-//!   morph-target weight channels are rejected by name;
+//! * `animations` retained as named clips with per-node translation/rotation/
+//!   scale channels and morph-weight channels; STEP, LINEAR and CUBICSPLINE
+//!   samplers are all sampled by the character path;
 //! * up to [`crate::level::MAX_PROP_IMAGES`] PNG images embedded in
 //!   bufferViews (self-contained, no external files or data URIs), each
 //!   distinct image decoded once for the model;
@@ -30,10 +33,12 @@
 //!   `KHR_materials_emissive_strength` extension - the only glTF extension
 //!   this reader understands.
 //!
-//! Everything else - morph targets, external or data-URI images, sparse
-//! accessors, texture transforms and every other extension - produces a
-//! descriptive [`GltfError`] so a malformed asset degrades into the loader's
-//! placeholder box instead of panicking or looping.
+//! Everything else - sparse accessors, external or data-URI images, per-node
+//! morph-weight overrides, a second used skin, texture transforms and every
+//! extension except `KHR_materials_emissive_strength` - produces a descriptive
+//! [`GltfError`] so a malformed asset degrades into the loader's placeholder
+//! box instead of panicking or looping. See the module tests and the handoff
+//! report for the exact supported/unsupported feature table.
 
 use std::collections::{HashMap, HashSet};
 
@@ -41,8 +46,8 @@ use glam::{Mat4, Quat, Vec3};
 
 use crate::level::{
     MAX_ANIMATION_CHANNELS, MAX_PROP_ANIMATIONS, MAX_PROP_IMAGES, MAX_PROP_JOINTS,
-    MAX_PROP_MATERIALS, MAX_PROP_PRIMITIVES, MAX_PROP_TEXTURE_SIZE, MAX_PROP_TRIANGLES,
-    MAX_PROP_VERTICES,
+    MAX_PROP_MATERIALS, MAX_PROP_MORPH_TARGETS, MAX_PROP_MORPH_TARGETS_PER_MODEL,
+    MAX_PROP_PRIMITIVES, MAX_PROP_TEXTURE_SIZE, MAX_PROP_TRIANGLES, MAX_PROP_VERTICES,
 };
 use crate::loader::RawImage;
 use crate::materials::MaterialEmission;
@@ -180,15 +185,20 @@ pub enum AnimationPath {
     Translation,
     Rotation,
     Scale,
+    /// The model's morph-target weights, in target order.
+    Weights,
 }
 
 impl AnimationPath {
-    /// Values per keyframe: 3 for translation/scale, 4 for rotation.
+    /// Values per keyframe for a transform path: 3 for translation/scale,
+    /// 4 for rotation. Morph weights carry one value per morph target, so
+    /// their width comes from the channel, not from the path.
     #[must_use]
     pub const fn stride(self) -> usize {
         match self {
             Self::Translation | Self::Scale => 3,
             Self::Rotation => 4,
+            Self::Weights => 1,
         }
     }
 }
@@ -198,6 +208,9 @@ impl AnimationPath {
 pub enum AnimationInterpolation {
     Linear,
     Step,
+    /// Cubic Hermite between keys: each keyframe stores an in-tangent, the
+    /// value and an out-tangent (glTF CUBICSPLINE).
+    CubicSpline,
 }
 
 /// One sampled animation channel: a node, a transform path and its keys.
@@ -209,8 +222,13 @@ pub struct PropAnimationChannel {
     pub interpolation: AnimationInterpolation,
     /// Keyframe times, strictly increasing and finite.
     pub times: Vec<f32>,
-    /// Keyframe values, `times.len() * path.stride()` floats.
+    /// Keyframe values, `times.len() * values_per_key` floats. For
+    /// CUBICSPLINE every key contributes three tuples (in-tangent, value,
+    /// out-tangent), so this is `times.len() * values_per_key * 3`.
     pub values: Vec<f32>,
+    /// Values per key for a transform path (translation/scale 3, rotation 4)
+    /// or the morph-target count for [`AnimationPath::Weights`].
+    pub values_per_key: usize,
 }
 
 impl PropAnimationChannel {
@@ -218,6 +236,23 @@ impl PropAnimationChannel {
     #[must_use]
     pub fn duration(&self) -> f32 {
         self.times.last().copied().unwrap_or(0.0)
+    }
+
+    /// Value tuples stored per keyframe: three for a CUBICSPLINE channel,
+    /// one otherwise.
+    #[must_use]
+    pub const fn tuples_per_key(&self) -> usize {
+        match self.interpolation {
+            AnimationInterpolation::CubicSpline => 3,
+            AnimationInterpolation::Linear | AnimationInterpolation::Step => 1,
+        }
+    }
+
+    /// The keyframe's stored value tuple offset, in floats.
+    #[must_use]
+    pub const fn value_offset(&self, key: usize) -> usize {
+        key.saturating_mul(self.values_per_key)
+            .saturating_mul(self.tuples_per_key())
     }
 }
 
@@ -228,6 +263,37 @@ pub struct PropAnimation {
     /// The clip's last keyframe time, in seconds.
     pub duration: f32,
     pub channels: Vec<PropAnimationChannel>,
+    /// Whether the asset authors this clip as a loop. Defaults to `true` (a
+    /// looping clip); the runtime's explicit cue/route flags always win, so
+    /// this is the documented default for a map that does not state one.
+    pub looped: bool,
+    /// Ground speed this clip's stride is authored for, in metres per second.
+    ///
+    /// A walk or run clip declares it in `asset.extras.places_entity_clips`,
+    /// measured from the mesh at build time; the runtime plays the clip at
+    /// `route_speed / reference_speed` so the feet do not slide.
+    pub reference_speed_mps: Option<f32>,
+    /// The asset's own label for the clip (`walk`, `run`, `idle`, `pose`, ...).
+    pub kind: Option<String>,
+}
+
+/// One morph target's per-vertex deltas, parallel to [`PropModel::vertices`].
+///
+/// A vertex outside the mesh that declared the target keeps a zero delta, so
+/// one target applies to the whole model's vertex list. Positions are already
+/// in model space (mesh-local deltas passed through the node transform or the
+/// rest skinning), so the runtime adds them to a baked vertex without another
+/// transform. Normals and tangents are retained for completeness; the
+/// vertex-lit character path bakes light into the albedo and does not consume
+/// them.
+#[derive(Clone, Debug, Default)]
+pub struct PropMorphTarget {
+    /// Per-vertex position deltas.
+    pub position: Vec<[f32; 3]>,
+    /// Per-vertex normal deltas, empty when the target stores none.
+    pub normal: Vec<[f32; 3]>,
+    /// Per-vertex tangent deltas (`xyzw`, `w` handedness), empty when absent.
+    pub tangent: Vec<[f32; 4]>,
 }
 
 /// A decoded, ready-to-render prop model.
@@ -264,12 +330,39 @@ pub struct PropModel {
     /// is unskinned. Every vertex of a skinned primitive is renormalised to
     /// sum to one.
     pub weights: Vec<[f32; 4]>,
+    /// Morph targets in first-visit order; every target's delta arrays are
+    /// parallel to `vertices` (zero outside the primitive that declared it).
+    pub morph_targets: Vec<PropMorphTarget>,
+    /// Default morph weights, parallel to `morph_targets`: the primitive's
+    /// `weights`, else the mesh's, else zero. The bind-pose bake already
+    /// includes them, so the runtime applies `(current - default)`.
+    pub morph_weights: Vec<f32>,
+    /// Per mesh-visit morph range: `(node index, first target, target count)`.
+    /// A `weights` animation channel targeting that node drives this range.
+    pub mesh_morph_ranges: Vec<(u16, u16, u16)>,
     /// The model's animation clips, in asset order. Empty when it declares
     /// none.
     pub animations: Vec<PropAnimation>,
+    /// The retained node hierarchy, present when the model declares a skin or
+    /// animation clips; empty for a purely static model.
+    ///
+    /// A model that declares animation clips but no skin is a *rigid* animated
+    /// prop: each primitive's vertices are bound one-to-one to their owning
+    /// node (weight 1 against that node's joint slot), so the character path
+    /// poses the node hierarchy without a skin. The wall switch is the shipped
+    /// example.
+    pub nodes: Vec<PropNode>,
 }
 
 impl PropModel {
+    /// The morph range one node's mesh owns, when it has morph targets.
+    #[must_use]
+    pub fn morph_range_for_node(&self, node: u16) -> Option<(usize, usize)> {
+        self.mesh_morph_ranges
+            .iter()
+            .find(|(candidate, _, count)| *candidate == node && *count > 0)
+            .map(|(_, start, count)| (usize::from(*start), usize::from(*count)))
+    }
     /// Axis-aligned model-space bounds, or `None` for an empty mesh.
     #[must_use]
     pub fn bounds(&self) -> Option<([f32; 3], [f32; 3])> {
@@ -297,6 +390,20 @@ impl PropModel {
     pub const fn is_skinned(&self) -> bool {
         self.skin.is_some()
     }
+
+    /// True when the model declares animation clips and a retained node
+    /// hierarchy, so its nodes can be posed even without a skin.
+    #[must_use]
+    pub const fn is_animated(&self) -> bool {
+        !self.animations.is_empty() && !self.nodes.is_empty()
+    }
+
+    /// True when the character path can pose this model: a skin, or a rigid
+    /// node hierarchy driven by clips.
+    #[must_use]
+    pub const fn is_animatable(&self) -> bool {
+        self.is_skinned() || self.is_animated()
+    }
 }
 
 // ------------------------------------------------------------------- parsing
@@ -321,15 +428,22 @@ pub fn parse_glb(bytes: &[u8]) -> Result<PropModel, GltfError> {
     for root in scene_roots(&json)? {
         doc.traverse_node(root, Mat4::IDENTITY, &mut Vec::new())?;
     }
+    doc.finish_morphs();
     let triangles = validate_mesh(&doc.vertices, &doc.indices)?;
     let animations = parse_animations(&json, &binary)?;
     // Joint and weight arrays are parallel to `vertices`. A rigged document
-    // that never uses a skin has nothing for the character path to claim, so
-    // its placeholder entries are dropped.
-    if doc.skin.is_none() {
+    // that binds nothing to a node has nothing for the character path to
+    // claim, so its placeholder entries are dropped. A rigid animated model
+    // binds every primitive to its owning node, so its arrays are kept.
+    if doc.skin.is_none() && !doc.rigid_animation {
         doc.joints = Vec::new();
         doc.weights = Vec::new();
     }
+    let nodes = doc
+        .rig
+        .as_ref()
+        .map(|rig| rig.nodes.clone())
+        .unwrap_or_default();
     Ok(PropModel {
         vertices: doc.vertices,
         indices: doc.indices,
@@ -340,7 +454,11 @@ pub fn parse_glb(bytes: &[u8]) -> Result<PropModel, GltfError> {
         skin: doc.skin,
         joints: doc.joints,
         weights: doc.weights,
+        morph_targets: doc.morph_targets,
+        morph_weights: doc.morph_weights,
+        mesh_morph_ranges: doc.mesh_morph_ranges,
         animations,
+        nodes,
     })
 }
 
@@ -349,7 +467,7 @@ pub fn parse_glb(bytes: &[u8]) -> Result<PropModel, GltfError> {
 /// Returns the number of declared materials on success.
 fn validate_document_root(json: &serde_json::Value) -> Result<usize, GltfError> {
     validate_extensions(json)?;
-    validate_morph_targets(json)?;
+    validate_asset_version(json)?;
 
     let materials = list_len(json, "materials");
     if materials > MAX_PROP_MATERIALS {
@@ -437,35 +555,21 @@ fn reject_unknown_extensions(value: &serde_json::Value) -> Result<(), GltfError>
     Ok(())
 }
 
-/// Rejects morph-target data on any mesh, primitive or node.
-fn validate_morph_targets(json: &serde_json::Value) -> Result<(), GltfError> {
-    if let Some(meshes) = json.get("meshes").and_then(|value| value.as_array()) {
-        for mesh in meshes {
-            if mesh.get("weights").is_some() {
-                return Err(morph_targets_error());
-            }
-            let Some(primitives) = mesh.get("primitives").and_then(|value| value.as_array()) else {
-                continue;
-            };
-            for primitive in primitives {
-                if primitive.get("targets").is_some() {
-                    return Err(morph_targets_error());
-                }
-            }
-        }
+/// Requires the glTF 2.0 asset declaration.
+fn validate_asset_version(json: &serde_json::Value) -> Result<(), GltfError> {
+    match json
+        .get("asset")
+        .and_then(|asset| asset.get("version"))
+        .and_then(|value| value.as_str())
+    {
+        Some("2.0") => Ok(()),
+        Some(other) => Err(GltfError::new(format!(
+            "asset.version '{other}' is not glTF 2.0"
+        ))),
+        None => Err(GltfError::new(
+            "asset.version is missing; the file is not a glTF 2.0 asset",
+        )),
     }
-    if let Some(nodes) = json.get("nodes").and_then(|value| value.as_array()) {
-        for node in nodes {
-            if node.get("weights").is_some() {
-                return Err(morph_targets_error());
-            }
-        }
-    }
-    Ok(())
-}
-
-fn morph_targets_error() -> GltfError {
-    GltfError::new("morph targets are not supported; prop models must be static")
 }
 
 /// Indices of the nodes a scene walk starts from.
@@ -556,6 +660,16 @@ impl Default for ResolvedMaterial {
     }
 }
 
+/// The per-mesh context one primitive read needs.
+struct PrimitiveRequest<'a> {
+    transform: &'a Mat4,
+    mesh_index: usize,
+    node_index: usize,
+    node_skin: Option<usize>,
+    mesh_weights: &'a [f32],
+    target_base: usize,
+}
+
 /// One GLB document mid-assembly, with the caches that keep resolution
 /// single-shot: textures decode once per distinct image, materials resolve
 /// once, and the traversal counters cap the scene graph.
@@ -578,12 +692,26 @@ struct Doc<'a> {
     /// or animations; static models keep the historical flattening and drop
     /// it.
     rig: Option<Rig>,
+    /// True for a document that declares animation clips but no skin: every
+    /// unskinned primitive is bound to its owning node with weight one, so the
+    /// character path poses the node hierarchy rigidly.
+    rigid_animation: bool,
     /// The model's single resolved skin, set by the first skinned primitive.
     skin: Option<PropSkin>,
     /// Per-vertex joint slots and weights, parallel to `vertices`; empty for
     /// an unskinned model.
     joints: Vec<[u16; 4]>,
     weights: Vec<[f32; 4]>,
+    /// Morph targets in first-visit order (assembled after the traversal).
+    morph_targets: Vec<PropMorphTarget>,
+    /// Default morph weights, parallel to `morph_targets`.
+    morph_weights: Vec<f32>,
+    /// Per mesh-visit morph range: node index, first target, target count.
+    mesh_morph_ranges: Vec<(u16, u16, u16)>,
+    /// Per-primitive transformed deltas awaiting assembly into
+    /// `morph_targets`: vertex base, global target base, per-target default
+    /// weights and the deltas.
+    morph_chunks: Vec<(usize, usize, Vec<f32>, Vec<PropMorphTarget>)>,
 }
 
 impl<'a> Doc<'a> {
@@ -605,6 +733,7 @@ impl<'a> Doc<'a> {
         } else {
             None
         };
+        let rigid_animation = json.get("skins").is_none() && json.get("animations").is_some();
         Ok(Self {
             json,
             binary,
@@ -618,10 +747,76 @@ impl<'a> Doc<'a> {
             primitives_seen: 0,
             node_visits: 0,
             rig,
+            rigid_animation,
             skin: None,
             joints: Vec::new(),
             weights: Vec::new(),
+            morph_targets: Vec::new(),
+            morph_weights: Vec::new(),
+            mesh_morph_ranges: Vec::new(),
+            morph_chunks: Vec::new(),
         })
+    }
+
+    /// Assembles per-primitive morph deltas into model-parallel target arrays.
+    ///
+    /// Each chunk's deltas are parallel to the primitive's own vertices; a
+    /// target array spans every model vertex, with zeros outside the primitive
+    /// that declared it. Targets are grouped per mesh visit, so a mesh used by
+    /// two nodes keeps independent ranges for each node's weights channel.
+    fn finish_morphs(&mut self) {
+        let target_count = self
+            .mesh_morph_ranges
+            .iter()
+            .map(|(_, _, count)| usize::from(*count))
+            .sum();
+        if target_count == 0 {
+            return;
+        }
+        let vertex_count = self.vertices.len();
+        let mut targets: Vec<PropMorphTarget> = (0..target_count)
+            .map(|_| PropMorphTarget {
+                position: vec![[0.0; 3]; vertex_count],
+                normal: Vec::new(),
+                tangent: Vec::new(),
+            })
+            .collect();
+        let mut weights = vec![0.0f32; target_count];
+        for (vertex_base, target_base, defaults, chunk) in &self.morph_chunks {
+            for (index, deltas) in chunk.iter().enumerate() {
+                let target_index = target_base.saturating_add(index);
+                let Some(default) = weights.get_mut(target_index) else {
+                    continue;
+                };
+                *default = defaults.get(index).copied().unwrap_or(0.0);
+                let Some(slot) = targets.get_mut(target_index) else {
+                    continue;
+                };
+                if !deltas.normal.is_empty() && slot.normal.is_empty() {
+                    slot.normal = vec![[0.0; 3]; vertex_count];
+                }
+                if !deltas.tangent.is_empty() && slot.tangent.is_empty() {
+                    slot.tangent = vec![[0.0; 4]; vertex_count];
+                }
+                for (vertex, delta) in deltas.position.iter().enumerate() {
+                    if let Some(entry) = slot.position.get_mut(vertex_base.saturating_add(vertex)) {
+                        *entry = *delta;
+                    }
+                }
+                for (vertex, delta) in deltas.normal.iter().enumerate() {
+                    if let Some(entry) = slot.normal.get_mut(vertex_base.saturating_add(vertex)) {
+                        *entry = *delta;
+                    }
+                }
+                for (vertex, delta) in deltas.tangent.iter().enumerate() {
+                    if let Some(entry) = slot.tangent.get_mut(vertex_base.saturating_add(vertex)) {
+                        *entry = *delta;
+                    }
+                }
+            }
+        }
+        self.morph_targets = targets;
+        self.morph_weights = weights;
     }
 
     /// True when the document declares a skin or animations and therefore
@@ -731,6 +926,44 @@ impl<'a> Doc<'a> {
             .get("primitives")
             .and_then(|value| value.as_array())
             .ok_or_else(|| GltfError::new(format!("mesh {mesh_index} has no primitives")))?;
+        let node = self
+            .json
+            .get("nodes")
+            .and_then(|value| value.as_array())
+            .and_then(|nodes| nodes.get(node_index))
+            .ok_or_else(|| GltfError::new(format!("node {node_index} does not exist")))?;
+        if let Some(node_weights) = node.get("weights") {
+            if !node_weights
+                .as_array()
+                .is_some_and(|values| values.iter().all(serde_json::Value::is_f64))
+            {
+                return Err(GltfError::new(format!(
+                    "node {node_index} has malformed `weights`"
+                )));
+            }
+            return Err(GltfError::new(format!(
+                "node {node_index} overrides morph weights per node; \
+                 per-node weight overrides are not supported"
+            )));
+        }
+        let mesh_weights: Vec<f32> = match mesh.get("weights") {
+            Some(values) => values
+                .as_array()
+                .ok_or_else(|| GltfError::new("mesh `weights` must be an array"))?
+                .iter()
+                .map(|value| {
+                    json_f32(value).ok_or_else(|| GltfError::new("mesh `weights` must be numbers"))
+                })
+                .collect::<Result<Vec<f32>, _>>()?,
+            None => Vec::new(),
+        };
+        let target_base = self
+            .mesh_morph_ranges
+            .iter()
+            .map(|(_, start, count)| usize::from(*start).saturating_add(usize::from(*count)))
+            .max()
+            .unwrap_or(0);
+        let mut target_count: Option<usize> = None;
         for primitive in primitives {
             self.primitives_seen = self.primitives_seen.saturating_add(1);
             if self.primitives_seen > MAX_PROP_PRIMITIVES {
@@ -739,20 +972,54 @@ impl<'a> Doc<'a> {
                      the engine ceiling is {MAX_PROP_PRIMITIVES}"
                 )));
             }
-            self.read_primitive(primitive, transform, mesh_index, node_index, node_skin)?;
+            let request = PrimitiveRequest {
+                transform,
+                mesh_index,
+                node_index,
+                node_skin,
+                mesh_weights: &mesh_weights,
+                target_base,
+            };
+            let targets = self.read_primitive(primitive, &request)?;
+            match target_count {
+                None => target_count = Some(targets),
+                Some(previous) if previous != targets => {
+                    return Err(GltfError::new(format!(
+                        "mesh {mesh_index} primitives declare different morph target \
+                         counts ({previous} and {targets}); all primitives of a mesh \
+                         must agree"
+                    )));
+                }
+                Some(_) => {}
+            }
         }
+        let count = target_count.unwrap_or(0);
+        let total_targets = target_base.saturating_add(count);
+        if total_targets > MAX_PROP_MORPH_TARGETS_PER_MODEL {
+            return Err(GltfError::new(format!(
+                "prop model declares {total_targets} morph targets; \
+                 the engine ceiling is {MAX_PROP_MORPH_TARGETS_PER_MODEL}"
+            )));
+        }
+        self.mesh_morph_ranges.push((
+            u16::try_from(node_index)
+                .map_err(|_| GltfError::new("node index does not fit in 16 bits"))?,
+            u16::try_from(target_base)
+                .map_err(|_| GltfError::new("morph target index does not fit in 16 bits"))?,
+            u16::try_from(count)
+                .map_err(|_| GltfError::new("morph target count does not fit in 16 bits"))?,
+        ));
         Ok(())
     }
 
     /// Reads one primitive's vertices and triangle indices into the model.
+    ///
+    /// Returns the primitive's morph-target count.
     fn read_primitive(
         &mut self,
         primitive: &serde_json::Value,
-        transform: &Mat4,
-        mesh_index: usize,
-        node_index: usize,
-        node_skin: Option<usize>,
-    ) -> Result<(), GltfError> {
+        request: &PrimitiveRequest<'_>,
+    ) -> Result<usize, GltfError> {
         let mode = primitive
             .get("mode")
             .and_then(json_u32)
@@ -762,21 +1029,28 @@ impl<'a> Doc<'a> {
                 "primitive mode {mode} is not TRIANGLES (4)"
             )));
         }
-        let attributes = read_attributes(self.json, self.binary, primitive, mesh_index)?;
+        let attributes = read_attributes(
+            self.json,
+            self.binary,
+            primitive,
+            request.mesh_index,
+            request.mesh_weights,
+        )?;
+        let target_count = attributes.targets.len();
         let vertex_count = attributes.positions.len();
         let material = match primitive.get("material") {
             Some(value) => json_usize(value).ok_or_else(|| {
                 GltfError::new(format!(
-                    "mesh {mesh_index} has a primitive with a non-numeric material index"
+                    "mesh {} has a primitive with a non-numeric material index",
+                    request.mesh_index
                 ))
             })?,
             None => self.default_material_index,
         };
         let resolved = self.resolve_material(material)?;
-
         let local_indices = primitive_indices(self.json, self.binary, primitive, vertex_count)?;
         if local_indices.is_empty() {
-            return Ok(());
+            return Ok(target_count);
         }
         if local_indices.len() % 3 != 0 {
             return Err(GltfError::new(
@@ -792,50 +1066,8 @@ impl<'a> Doc<'a> {
                  the engine ceiling is {MAX_PROP_VERTICES}"
             )));
         }
-
         let base = self.vertices.len();
-        // Skin pairing: a glTF node declares one skin and then every primitive
-        // of the mesh it references must supply JOINTS_0 and WEIGHTS_0; a
-        // primitive with joint attributes but no skin is malformed.
-        let skinned = if node_skin.is_some() {
-            if attributes.joints.is_none() || attributes.weights.is_none() {
-                return Err(GltfError::new(format!(
-                    "mesh {mesh_index} has a skinned primitive with no \
-                     JOINTS_0/WEIGHTS_0 attributes"
-                )));
-            }
-            true
-        } else {
-            if attributes.joints.is_some() || attributes.weights.is_some() {
-                return Err(GltfError::new(format!(
-                    "mesh {mesh_index} has a primitive with JOINTS_0/WEIGHTS_0 \
-                     but no skin"
-                )));
-            }
-            false
-        };
-        if skinned {
-            let skin_index = node_skin
-                .ok_or_else(|| GltfError::new(format!("mesh {mesh_index} references no skin")))?;
-            let skin_matrices = self.resolve_primitive_skin(skin_index, node_index)?;
-            append_skinned_vertices(
-                &mut self.vertices,
-                &mut self.joints,
-                &mut self.weights,
-                &attributes,
-                &skin_matrices,
-                resolved.color,
-            )?;
-        } else {
-            append_vertices(&mut self.vertices, &attributes, transform, resolved.color)?;
-            if self.is_rigged() {
-                // Keep the joint/weight arrays parallel to `vertices`; a
-                // rigid primitive inside a rigged document stays at its bind
-                // pose (zero weights).
-                self.joints.resize(self.vertices.len(), [0; 4]);
-                self.weights.resize(self.vertices.len(), [0.0; 4]);
-            }
-        }
+        self.assemble_primitive(primitive, request, &attributes, resolved, target_count)?;
         let first_index = u32::try_from(self.indices.len())
             .map_err(|_| GltfError::new("prop model index buffer does not fit in 32 bits"))?;
         append_indices(&mut self.indices, &local_indices, base, vertex_count)?;
@@ -854,6 +1086,96 @@ impl<'a> Doc<'a> {
                  the engine ceiling is {MAX_PROP_TRIANGLES}"
             )));
         }
+        Ok(target_count)
+    }
+
+    /// Appends one primitive's vertices and records its morph-target chunk.
+    fn assemble_primitive(
+        &mut self,
+        primitive: &serde_json::Value,
+        request: &PrimitiveRequest<'_>,
+        attributes: &PrimitiveAttributes,
+        resolved: ResolvedMaterial,
+        target_count: usize,
+    ) -> Result<(), GltfError> {
+        let base = self.vertices.len();
+        // Skin pairing: a glTF node declares one skin and then every primitive
+        // of the mesh it references must supply JOINTS_0 and WEIGHTS_0; a
+        // primitive with joint attributes but no skin is malformed.
+        let skinned = if request.node_skin.is_some() {
+            if attributes.joints.is_none() || attributes.weights.is_none() {
+                return Err(GltfError::new(format!(
+                    "mesh {} has a skinned primitive with no \
+                     JOINTS_0/WEIGHTS_0 attributes",
+                    request.mesh_index
+                )));
+            }
+            true
+        } else {
+            if attributes.joints.is_some() || attributes.weights.is_some() {
+                return Err(GltfError::new(format!(
+                    "mesh {} has a primitive with JOINTS_0/WEIGHTS_0 \
+                     but no skin",
+                    request.mesh_index
+                )));
+            }
+            false
+        };
+        let chunk = if skinned {
+            let skin_index = request.node_skin.ok_or_else(|| {
+                GltfError::new(format!("mesh {} references no skin", request.mesh_index))
+            })?;
+            let skin_matrices = self.resolve_primitive_skin(skin_index, request.node_index)?;
+            append_skinned_vertices(
+                &mut self.vertices,
+                &mut self.joints,
+                &mut self.weights,
+                attributes,
+                &skin_matrices,
+                resolved.color,
+            )?
+        } else {
+            let chunk = append_vertices(
+                &mut self.vertices,
+                attributes,
+                request.transform,
+                resolved.color,
+            )?;
+            if self.rigid_animation {
+                // A rigid animated model binds each primitive to the node that
+                // carries it: joint slot = node index, weight one. The
+                // character path's delta `nodeGlobal * nodeRestInverse` then
+                // moves exactly that node's vertices.
+                let node = u16::try_from(request.node_index)
+                    .map_err(|_| GltfError::new("node index does not fit in 16 bits"))?;
+                self.joints.resize(self.vertices.len(), [0; 4]);
+                self.weights.resize(self.vertices.len(), [0.0; 4]);
+                for index in base..self.vertices.len() {
+                    if let Some(slot) = self.joints.get_mut(index) {
+                        *slot = [node, 0, 0, 0];
+                    }
+                    if let Some(slot) = self.weights.get_mut(index) {
+                        *slot = [1.0, 0.0, 0.0, 0.0];
+                    }
+                }
+            } else if self.is_rigged() {
+                // Keep the joint/weight arrays parallel to `vertices`; a
+                // rigid primitive inside a skinned document stays at its bind
+                // pose (zero weights).
+                self.joints.resize(self.vertices.len(), [0; 4]);
+                self.weights.resize(self.vertices.len(), [0.0; 4]);
+            }
+            chunk
+        };
+        if target_count > 0 {
+            self.morph_chunks.push((
+                base,
+                request.target_base,
+                attributes.morph_defaults.clone(),
+                chunk,
+            ));
+        }
+        let _ = primitive;
         Ok(())
     }
 
@@ -1398,14 +1720,11 @@ fn parse_inverse_bind(
     index: usize,
     joint_count: usize,
 ) -> Result<Vec<Mat4>, GltfError> {
-    let accessor = skin_json
-        .get("inverseBindMatrices")
-        .and_then(json_usize)
-        .ok_or_else(|| {
-            GltfError::new(format!(
-                "skin {index} has no inverseBindMatrices; a skinned model needs bind matrices"
-            ))
-        })?;
+    let Some(accessor) = skin_json.get("inverseBindMatrices").and_then(json_usize) else {
+        // The spec makes `inverseBindMatrices` optional: without them every
+        // joint's inverse bind is the identity.
+        return Ok(vec![Mat4::IDENTITY; joint_count]);
+    };
     let raw_matrices = read_vec(json, binary, accessor, 16).map_err(|error| {
         GltfError::new(format!(
             "skin {index} inverseBindMatrices is invalid: {}",
@@ -1450,8 +1769,9 @@ fn topmost_ancestor(index: usize, nodes: &[PropNode]) -> Option<u16> {
 
 /// Parses every animation clip in the document.
 ///
-/// Only LINEAR and STEP samplers are accepted; CUBICSPLINE and morph-target
-/// weight channels are refused by name. Every channel is validated up front
+/// STEP, LINEAR and CUBICSPLINE transform channels and morph-weight channels
+/// are all retained; unknown interpolations, unknown paths and mismatched
+/// tuple counts are rejected by name. Every channel is validated up front
 /// (strictly increasing finite times, finite values, matching counts) so the
 /// sampler can index it without further checks.
 fn parse_animations(
@@ -1515,9 +1835,66 @@ fn parse_animations(
             name,
             duration,
             channels,
+            looped: true,
+            reference_speed_mps: None,
+            kind: None,
         });
     }
+    apply_clip_metadata(json, &mut animations);
     Ok(animations)
+}
+
+/// Applies the `asset.extras.places_entity_clips` marker to parsed clips.
+///
+/// The marker is optional application data, so a malformed or missing marker
+/// never fails the model: every clip keeps its defaults (looping, no declared
+/// reference speed). A marker entry is matched by name, case-insensitively.
+fn apply_clip_metadata(json: &serde_json::Value, animations: &mut [PropAnimation]) {
+    let Some(marker) = json
+        .get("asset")
+        .and_then(|asset| asset.get("extras"))
+        .and_then(|extras| extras.get("places_entity_clips"))
+    else {
+        return;
+    };
+    // The run-03 spooner-man marker carries the walk reference speed at the
+    // top level; a per-clip entry overrides it.
+    let marker_walk_speed = marker
+        .get("walk_reference_speed")
+        .and_then(json_f32)
+        .filter(|value| value.is_finite() && *value > 0.0);
+    let Some(clips) = marker.get("clips").and_then(|value| value.as_array()) else {
+        return;
+    };
+    for entry in clips {
+        let Some(name) = entry.get("name").and_then(|value| value.as_str()) else {
+            continue;
+        };
+        let Some(animation) = animations
+            .iter_mut()
+            .find(|animation| animation.name.eq_ignore_ascii_case(name))
+        else {
+            continue;
+        };
+        if let Some(looped) = entry.get("loop").and_then(serde_json::Value::as_bool) {
+            animation.looped = looped;
+        }
+        let speed = entry
+            .get("reference_speed_mps")
+            .and_then(json_f32)
+            .filter(|value| value.is_finite() && *value > 0.0);
+        animation.reference_speed_mps = speed.or_else(|| {
+            if animation.name.eq_ignore_ascii_case("walk") {
+                marker_walk_speed
+            } else {
+                None
+            }
+        });
+        animation.kind = entry
+            .get("kind")
+            .and_then(|value| value.as_str())
+            .map(str::to_string);
+    }
 }
 
 /// Parses and validates one animation channel.
@@ -1541,21 +1918,11 @@ fn parse_animation_channel(
             "animation channel targets node {node}, which does not exist"
         )));
     }
-    let path = match target.get("path").and_then(|value| value.as_str()) {
-        Some("translation") => AnimationPath::Translation,
-        Some("rotation") => AnimationPath::Rotation,
-        Some("scale") => AnimationPath::Scale,
-        Some("weights") => {
-            return Err(GltfError::new(
-                "morph-target animation channels are not supported",
-            ));
-        }
-        Some(other) => {
-            return Err(GltfError::new(format!(
-                "animation path '{other}' is not supported"
-            )));
-        }
-        None => return Err(GltfError::new("animation channel target has no path")),
+    let path = parse_animation_path(target)?;
+    let morph_count = if path == AnimationPath::Weights {
+        morph_target_count(json, node)?
+    } else {
+        0
     };
     let sampler_index = channel
         .get("sampler")
@@ -1566,53 +1933,49 @@ fn parse_animation_channel(
             "animation channel references sampler {sampler_index}, which does not exist"
         ))
     })?;
-    let interpolation = match sampler
-        .get("interpolation")
-        .and_then(|value| value.as_str())
-    {
-        None | Some("LINEAR") => AnimationInterpolation::Linear,
-        Some("STEP") => AnimationInterpolation::Step,
-        Some("CUBICSPLINE") => {
-            return Err(GltfError::new(
-                "CUBICSPLINE animation samplers are not supported; \
-                 use LINEAR or STEP",
-            ));
-        }
-        Some(other) => {
-            return Err(GltfError::new(format!(
-                "animation interpolation '{other}' is not supported"
-            )));
+    let interpolation = parse_animation_interpolation(sampler)?;
+    let times = parse_animation_times(json, binary, sampler, animation_index)?;
+    let values_per_key = match path {
+        AnimationPath::Translation | AnimationPath::Scale => 3,
+        AnimationPath::Rotation => 4,
+        AnimationPath::Weights => morph_count,
+    };
+    // The output accessor's element width is the path's component count for a
+    // transform (SCALAR components for weights).
+    let element_width = match path {
+        AnimationPath::Weights => 1,
+        AnimationPath::Translation | AnimationPath::Rotation | AnimationPath::Scale => {
+            values_per_key
         }
     };
-    let times = parse_animation_times(json, binary, sampler, animation_index)?;
-    let stride = path.stride();
     let output_accessor = sampler
         .get("output")
         .and_then(json_usize)
         .ok_or_else(|| GltfError::new("animation sampler has no output accessor"))?;
-    let output_view = accessor_view(json, binary, output_accessor, stride)?;
+    let output_view = accessor_view(json, binary, output_accessor, element_width)?;
     if output_view.component_type != COMPONENT_FLOAT {
         return Err(GltfError::new("animation sampler values must be float32"));
     }
-    let raw_values = read_vec(json, binary, output_accessor, stride)?;
-    if raw_values.len() != times.len() {
+    let raw_values = read_vec(json, binary, output_accessor, element_width)?;
+    let tuples_per_key = match interpolation {
+        AnimationInterpolation::CubicSpline => 3,
+        AnimationInterpolation::Linear | AnimationInterpolation::Step => 1,
+    };
+    let rows_per_key = times.len().saturating_mul(tuples_per_key).saturating_mul(
+        if path == AnimationPath::Weights {
+            morph_count
+        } else {
+            1
+        },
+    );
+    if raw_values.len() != rows_per_key {
         return Err(GltfError::new(format!(
-            "animation sampler has {} keyframes but {} value tuples",
+            "animation sampler has {} keyframes and {} value rows, expected {rows_per_key}",
             times.len(),
             raw_values.len()
         )));
     }
-    let mut values: Vec<f32> = Vec::with_capacity(raw_values.len().saturating_mul(stride));
-    for raw in &raw_values {
-        for value in raw {
-            if !value.is_finite() {
-                return Err(GltfError::new(
-                    "animation sampler contains a non-finite value",
-                ));
-            }
-            values.push(*value);
-        }
-    }
+    let values = flatten_animation_values(&raw_values, values_per_key)?;
     Ok(PropAnimationChannel {
         node: u16::try_from(node)
             .map_err(|_| GltfError::new("animation node index does not fit in 16 bits"))?,
@@ -1620,7 +1983,111 @@ fn parse_animation_channel(
         interpolation,
         times,
         values,
+        values_per_key,
     })
+}
+
+/// The transform path one channel targets.
+fn parse_animation_path(target: &serde_json::Value) -> Result<AnimationPath, GltfError> {
+    match target.get("path").and_then(|value| value.as_str()) {
+        Some("translation") => Ok(AnimationPath::Translation),
+        Some("rotation") => Ok(AnimationPath::Rotation),
+        Some("scale") => Ok(AnimationPath::Scale),
+        Some("weights") => Ok(AnimationPath::Weights),
+        Some(other) => Err(GltfError::new(format!(
+            "animation path '{other}' is not supported"
+        ))),
+        None => Err(GltfError::new("animation channel target has no path")),
+    }
+}
+
+/// The interpolation one sampler declares (LINEAR when omitted).
+fn parse_animation_interpolation(
+    sampler: &serde_json::Value,
+) -> Result<AnimationInterpolation, GltfError> {
+    match sampler
+        .get("interpolation")
+        .and_then(|value| value.as_str())
+    {
+        None | Some("LINEAR") => Ok(AnimationInterpolation::Linear),
+        Some("STEP") => Ok(AnimationInterpolation::Step),
+        Some("CUBICSPLINE") => Ok(AnimationInterpolation::CubicSpline),
+        Some(other) => Err(GltfError::new(format!(
+            "animation interpolation '{other}' is not supported"
+        ))),
+    }
+}
+
+/// The morph-target count of the mesh a `weights` channel targets.
+fn morph_target_count(json: &serde_json::Value, node: usize) -> Result<usize, GltfError> {
+    let nodes = json
+        .get("nodes")
+        .and_then(|value| value.as_array())
+        .ok_or_else(|| GltfError::new("file has no nodes"))?;
+    let node = nodes
+        .get(node)
+        .ok_or_else(|| GltfError::new("animation weight channel targets a missing node"))?;
+    let mesh_index = node
+        .get("mesh")
+        .and_then(json_usize)
+        .ok_or_else(|| GltfError::new("animation weight channel targets a node with no mesh"))?;
+    let meshes = json
+        .get("meshes")
+        .and_then(|value| value.as_array())
+        .ok_or_else(|| GltfError::new("file has no meshes"))?;
+    let mesh = meshes
+        .get(mesh_index)
+        .ok_or_else(|| GltfError::new("animation weight channel targets a missing mesh"))?;
+    let count = mesh
+        .get("primitives")
+        .and_then(|value| value.as_array())
+        .and_then(|primitives| primitives.first())
+        .and_then(|primitive| primitive.get("targets"))
+        .and_then(|value| value.as_array())
+        .map_or(0, std::vec::Vec::len);
+    if count == 0 {
+        return Err(GltfError::new(
+            "animation weight channel targets a mesh with no morph targets",
+        ));
+    }
+    Ok(count)
+}
+
+/// Flattens raw key tuple rows into `values_per_key` floats per row.
+fn flatten_animation_values(
+    raw_values: &[Vec<f32>],
+    values_per_key: usize,
+) -> Result<Vec<f32>, GltfError> {
+    let mut values: Vec<f32> = Vec::with_capacity(raw_values.len().saturating_mul(values_per_key));
+    for raw in raw_values {
+        if raw.len() == values_per_key {
+            for value in raw {
+                if !value.is_finite() {
+                    return Err(GltfError::new(
+                        "animation sampler contains a non-finite value",
+                    ));
+                }
+                values.push(*value);
+            }
+        } else if raw.len() == 1 {
+            let value = raw
+                .first()
+                .copied()
+                .ok_or_else(|| GltfError::new("animation weight tuple declares no components"))?;
+            if !value.is_finite() {
+                return Err(GltfError::new(
+                    "animation sampler contains a non-finite value",
+                ));
+            }
+            values.push(value);
+        } else {
+            return Err(GltfError::new(format!(
+                "animation sampler tuple has {} components, expected {values_per_key}",
+                raw.len()
+            )));
+        }
+    }
+    Ok(values)
 }
 
 /// Reads and validates a sampler's keyframe times: float32, finite and
@@ -1679,6 +2146,10 @@ struct PrimitiveAttributes {
     joints: Option<Vec<[u16; 4]>>,
     /// `WEIGHTS_0` joint weights, when the primitive declares them.
     weights: Option<Vec<[f32; 4]>>,
+    /// Morph-target deltas in mesh space, in `primitive.targets` order.
+    targets: Vec<PropMorphTarget>,
+    /// Default morph weights: `primitive.weights`, else the mesh's, else zero.
+    morph_defaults: Vec<f32>,
 }
 
 /// Reads one primitive's `POSITION`, `TEXCOORD_0`, `COLOR_0` and optional
@@ -1693,6 +2164,7 @@ fn read_attributes(
     binary: &[u8],
     primitive: &serde_json::Value,
     mesh_index: usize,
+    mesh_weights: &[f32],
 ) -> Result<PrimitiveAttributes, GltfError> {
     let attributes = primitive
         .get("attributes")
@@ -1745,13 +2217,140 @@ fn read_attributes(
             "POSITION, JOINTS_0 and WEIGHTS_0 attribute counts differ",
         ));
     }
+    let targets = read_morph_targets(json, binary, primitive, mesh_index)?;
+    let mut defaults: Vec<f32> = match primitive.get("weights") {
+        Some(values) => values
+            .as_array()
+            .ok_or_else(|| GltfError::new("primitive `weights` must be an array"))?
+            .iter()
+            .map(|value| {
+                json_f32(value)
+                    .ok_or_else(|| GltfError::new("primitive `weights` must contain numbers"))
+            })
+            .collect::<Result<Vec<f32>, _>>()?,
+        None => mesh_weights.to_vec(),
+    };
+    if defaults.is_empty() {
+        defaults = vec![0.0; targets.len()];
+    }
+    if defaults.len() != targets.len() {
+        return Err(GltfError::new(format!(
+            "primitive declares {} morph weights but {} targets",
+            defaults.len(),
+            targets.len()
+        )));
+    }
+    for value in &defaults {
+        if !value.is_finite() {
+            return Err(GltfError::new(
+                "morph-target default weights must be finite",
+            ));
+        }
+    }
     Ok(PrimitiveAttributes {
         positions,
         uvs,
         colors,
         joints,
         weights,
+        targets,
+        morph_defaults: defaults,
     })
+}
+
+/// Reads one primitive's `targets`: POSITION is required per target, NORMAL
+/// and TANGENT are optional. Every delta list matches the primitive's vertex
+/// count and must be finite.
+fn read_morph_targets(
+    json: &serde_json::Value,
+    binary: &[u8],
+    primitive: &serde_json::Value,
+    mesh_index: usize,
+) -> Result<Vec<PropMorphTarget>, GltfError> {
+    let Some(list) = primitive.get("targets").and_then(|value| value.as_array()) else {
+        return Ok(Vec::new());
+    };
+    if list.len() > MAX_PROP_MORPH_TARGETS {
+        return Err(GltfError::new(format!(
+            "primitive declares {} morph targets; the engine ceiling is {MAX_PROP_MORPH_TARGETS}",
+            list.len()
+        )));
+    }
+    let vertex_count = read_vec(
+        json,
+        binary,
+        attribute(
+            primitive
+                .get("attributes")
+                .and_then(|value| value.as_object())
+                .ok_or_else(|| GltfError::new("primitive has no attributes"))?,
+            "POSITION",
+        )?,
+        3,
+    )?
+    .len();
+    let mut targets = Vec::with_capacity(list.len());
+    for target in list {
+        let Some(object) = target.as_object() else {
+            return Err(GltfError::new("a morph target must be an object"));
+        };
+        let Some(position_value) = object.get("POSITION") else {
+            return Err(GltfError::new(
+                "morph target has no POSITION deltas; POSITION is required",
+            ));
+        };
+        let position = read_vec(
+            json,
+            binary,
+            accessor_index(position_value, "morph POSITION")?,
+            3,
+        )?;
+        if position.len() != vertex_count {
+            return Err(GltfError::new(format!(
+                "morph POSITION has {} deltas for {vertex_count} vertices",
+                position.len()
+            )));
+        }
+        let normal = match object.get("NORMAL") {
+            Some(value) => {
+                let rows = read_vec(json, binary, accessor_index(value, "morph NORMAL")?, 3)?;
+                if rows.len() != vertex_count {
+                    return Err(GltfError::new("morph NORMAL delta count mismatch"));
+                }
+                rows
+            }
+            None => Vec::new(),
+        };
+        let tangent = match object.get("TANGENT") {
+            Some(value) => {
+                let rows = read_vec(json, binary, accessor_index(value, "morph TANGENT")?, 4)?;
+                if rows.len() != vertex_count {
+                    return Err(GltfError::new("morph TANGENT delta count mismatch"));
+                }
+                rows
+            }
+            None => Vec::new(),
+        };
+        let convert3 = |rows: Vec<Vec<f32>>| -> Result<Vec<[f32; 3]>, GltfError> {
+            rows.iter().map(|row| components::<3>(row)).collect()
+        };
+        let convert4 = |rows: Vec<Vec<f32>>| -> Result<Vec<[f32; 4]>, GltfError> {
+            rows.iter().map(|row| components::<4>(row)).collect()
+        };
+        let position = convert3(position)?;
+        for delta in &position {
+            if !delta.iter().all(|value| value.is_finite()) {
+                return Err(GltfError::new("morph POSITION contains a non-finite delta"));
+            }
+        }
+        targets.push(PropMorphTarget {
+            position,
+            normal: convert3(normal)?,
+            tangent: convert4(tangent)?,
+        });
+    }
+    let _ = mesh_index;
+    Ok(targets)
 }
 
 /// Reads `JOINTS_0`: four unsigned byte or unsigned short joint slots per
@@ -1882,21 +2481,31 @@ fn primitive_indices(
 }
 
 /// Appends one primitive's transformed vertices, with the material colour
-/// multiplied into every baked vertex colour.
+/// multiplied into every baked vertex colour and the default morph weights
+/// already applied. Returns the transformed morph-target deltas in model space.
 fn append_vertices(
     vertices: &mut Vec<PropVertex>,
     attributes: &PrimitiveAttributes,
     transform: &Mat4,
     color: [f32; 4],
-) -> Result<(), GltfError> {
-    let positions = &attributes.positions;
-    for ((position, uv), vertex_color) in positions
+) -> Result<Vec<PropMorphTarget>, GltfError> {
+    for (index, ((position, uv), vertex_color)) in attributes
+        .positions
         .iter()
         .zip(attributes.uvs.iter())
         .zip(attributes.colors.iter())
+        .enumerate()
     {
         let [x, y, z]: [f32; 3] = components(position)?;
-        let point = transform.transform_point3(Vec3::new(x, y, z));
+        let mut point = Vec3::new(x, y, z);
+        for (weight, target) in attributes.morph_defaults.iter().zip(&attributes.targets) {
+            if *weight != 0.0
+                && let Some(delta) = target.position.get(index)
+            {
+                point = Vec3::from(*delta).mul_add(Vec3::splat(*weight), point);
+            }
+        }
+        let point = transform.transform_point3(point);
         let [red, green, blue, alpha]: [f32; 4] = components(vertex_color)?;
         vertices.push(PropVertex {
             pos: [point.x, point.y, point.z],
@@ -1909,7 +2518,45 @@ fn append_vertices(
             uv: components(uv)?,
         });
     }
-    Ok(())
+    Ok(transform_morphs_static(attributes, transform))
+}
+
+/// Transforms an unskinned primitive's morph deltas into model space.
+fn transform_morphs_static(
+    attributes: &PrimitiveAttributes,
+    transform: &Mat4,
+) -> Vec<PropMorphTarget> {
+    attributes
+        .targets
+        .iter()
+        .map(|target| PropMorphTarget {
+            position: target
+                .position
+                .iter()
+                .map(|delta| {
+                    let point = transform.transform_vector3(Vec3::from(*delta));
+                    [point.x, point.y, point.z]
+                })
+                .collect(),
+            normal: target
+                .normal
+                .iter()
+                .map(|delta| {
+                    let vector = transform.transform_vector3(Vec3::from(*delta));
+                    [vector.x, vector.y, vector.z]
+                })
+                .collect(),
+            tangent: target
+                .tangent
+                .iter()
+                .map(|delta| {
+                    let vector =
+                        transform.transform_vector3(Vec3::new(delta[0], delta[1], delta[2]));
+                    [vector[0], vector[1], vector[2], delta[3]]
+                })
+                .collect(),
+        })
+        .collect()
 }
 
 /// Appends one skinned primitive's vertices, baked to the bind pose.
@@ -1928,7 +2575,7 @@ fn append_skinned_vertices(
     attributes: &PrimitiveAttributes,
     skin_matrices: &[Mat4],
     color: [f32; 4],
-) -> Result<(), GltfError> {
+) -> Result<Vec<PropMorphTarget>, GltfError> {
     let (Some(raw_joints), Some(raw_weights)) =
         (attributes.joints.as_ref(), attributes.weights.as_ref())
     else {
@@ -1937,15 +2584,24 @@ fn append_skinned_vertices(
         ));
     };
     let joint_total = u16::try_from(skin_matrices.len()).unwrap_or(u16::MAX);
-    for (((position, uv), vertex_color), (joint_slots, weight_values)) in attributes
+    let mut normalized_weights: Vec<[f32; 4]> = Vec::with_capacity(raw_weights.len());
+    for (index, (((position, uv), vertex_color), (joint_slots, weight_values))) in attributes
         .positions
         .iter()
         .zip(attributes.uvs.iter())
         .zip(attributes.colors.iter())
         .zip(raw_joints.iter().zip(raw_weights.iter()))
+        .enumerate()
     {
         let [x, y, z]: [f32; 3] = components(position)?;
-        let point = Vec3::new(x, y, z);
+        let mut point = Vec3::new(x, y, z);
+        for (weight, target) in attributes.morph_defaults.iter().zip(&attributes.targets) {
+            if *weight != 0.0
+                && let Some(delta) = target.position.get(index)
+            {
+                point = Vec3::from(*delta).mul_add(Vec3::splat(*weight), point);
+            }
+        }
         let mut sum = 0.0f32;
         for (slot, weight) in joint_slots.iter().zip(weight_values.iter()) {
             if *slot >= joint_total {
@@ -1978,6 +2634,7 @@ fn append_skinned_vertices(
                 blended += matrix.transform_point3(point) * normalized_weight;
             }
         }
+        normalized_weights.push(normalized);
         let [red, green, blue, alpha]: [f32; 4] = components(vertex_color)?;
         vertices.push(PropVertex {
             pos: [blended.x, blended.y, blended.z],
@@ -1992,7 +2649,100 @@ fn append_skinned_vertices(
         joints.push(*joint_slots);
         weights.push(normalized);
     }
-    Ok(())
+    // Deltas skin exactly like positions (the skinning transform is linear),
+    // so a runtime weight change can be added to a baked vertex directly.
+    let transformed = attributes
+        .targets
+        .iter()
+        .map(|target| skin_morph_target(target, raw_joints, &normalized_weights, skin_matrices))
+        .collect();
+    Ok(transformed)
+}
+
+/// Skins one morph target's deltas through the rest skinning matrices.
+fn skin_morph_target(
+    target: &PropMorphTarget,
+    raw_joints: &[[u16; 4]],
+    normalized_weights: &[[f32; 4]],
+    skin_matrices: &[Mat4],
+) -> PropMorphTarget {
+    let position = target
+        .position
+        .iter()
+        .enumerate()
+        .map(|(index, delta)| {
+            skin_vector(
+                Vec3::from(*delta),
+                index,
+                raw_joints,
+                normalized_weights,
+                skin_matrices,
+            )
+        })
+        .collect();
+    let normal = target
+        .normal
+        .iter()
+        .enumerate()
+        .map(|(index, delta)| {
+            skin_vector(
+                Vec3::from(*delta),
+                index,
+                raw_joints,
+                normalized_weights,
+                skin_matrices,
+            )
+        })
+        .collect();
+    let tangent = target
+        .tangent
+        .iter()
+        .enumerate()
+        .map(|(index, delta)| {
+            let vector = skin_vector(
+                Vec3::new(delta[0], delta[1], delta[2]),
+                index,
+                raw_joints,
+                normalized_weights,
+                skin_matrices,
+            );
+            [vector[0], vector[1], vector[2], delta[3]]
+        })
+        .collect();
+    PropMorphTarget {
+        position,
+        normal,
+        tangent,
+    }
+}
+
+/// Skins one delta vector with the vertex's joint weights.
+fn skin_vector(
+    delta: Vec3,
+    index: usize,
+    raw_joints: &[[u16; 4]],
+    normalized_weights: &[[f32; 4]],
+    skin_matrices: &[Mat4],
+) -> [f32; 3] {
+    let mut blended = Vec3::ZERO;
+    if let Some(normalized) = normalized_weights.get(index) {
+        for (slot, weight) in raw_joints
+            .get(index)
+            .into_iter()
+            .flat_map(|slots| slots.iter())
+            .zip(normalized.iter())
+        {
+            if *weight <= 0.0 {
+                continue;
+            }
+            if let Some(matrix) = skin_matrices.get(usize::from(*slot)) {
+                blended = matrix
+                    .transform_vector3(delta)
+                    .mul_add(Vec3::splat(*weight), blended);
+            }
+        }
+    }
+    [blended.x, blended.y, blended.z]
 }
 
 /// Appends one primitive's indices, offset by the vertices already assembled.
@@ -2055,6 +2805,14 @@ fn node_transform(node: &serde_json::Value, index: usize) -> Result<Mat4, GltfEr
             None => [1.0; 3],
         };
         let rotation = Quat::from_xyzw(rotation[0], rotation[1], rotation[2], rotation[3]);
+        // glTF rotations must be unit quaternions; a malformed export can ship
+        // a near-zero quaternion, which would collapse the node's geometry.
+        if rotation.length_squared() <= f32::EPSILON {
+            return Err(GltfError::new(format!(
+                "node {index} rotation is not a unit quaternion"
+            )));
+        }
+        let rotation = rotation.normalize();
         Mat4::from_scale_rotation_translation(Vec3::from(scale), rotation, Vec3::from(translation))
     };
     for value in transform.to_cols_array() {

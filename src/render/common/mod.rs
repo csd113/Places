@@ -1777,14 +1777,29 @@ const DECAL_HORIZONTAL_LIGHT_PROBE_M: f32 = 0.05;
 /// placement or size is not finite; the loader rejects those, but the builder
 /// must never emit a NaN vertex.
 #[must_use]
-#[allow(clippy::arithmetic_side_effects)] // glam vector math is float-only and cannot overflow or panic
 pub fn decal_quad_points(decal: &crate::level::DecalDef) -> Option<[[f32; 3]; 4]> {
+    decal_quad_points_rotated(decal, decal.rotation_degrees)
+}
+
+/// [`decal_quad_points`] with an explicit in-plane rotation.
+///
+/// The level's ceiling-tile frame can add its own rotation to a decal that
+/// opted into `align: "ceiling_grid"`. The composition happens here, at
+/// emission, rather than being written back into the decal, so snapping stays
+/// idempotent and the authored value is never lost. Every other caller keeps
+/// [`decal_quad_points`] and the authored rotation.
+#[must_use]
+#[allow(clippy::arithmetic_side_effects)] // glam vector math is float-only and cannot overflow or panic
+pub fn decal_quad_points_rotated(
+    decal: &crate::level::DecalDef,
+    rotation_degrees: f32,
+) -> Option<[[f32; 3]; 4]> {
     if !decal.x.is_finite()
         || !decal.y.is_finite()
         || !decal.z.is_finite()
         || !decal.width.is_finite()
         || !decal.height.is_finite()
-        || !decal.rotation_degrees.is_finite()
+        || !rotation_degrees.is_finite()
         || decal.width <= 0.0
         || decal.height <= 0.0
     {
@@ -1805,7 +1820,7 @@ pub fn decal_quad_points(decal: &crate::level::DecalDef) -> Option<[[f32; 3]; 4]
         return None;
     }
 
-    let (sin, cos) = decal.rotation_degrees.to_radians().sin_cos();
+    let (sin, cos) = rotation_degrees.to_radians().sin_cos();
     let u_axis = tangent * cos + bitangent * sin;
     let v_axis = -tangent * sin + bitangent * cos;
 
@@ -1862,8 +1877,9 @@ fn add_decal_quad(
     surfaces: &LevelSurfaces<'_>,
     lighting: &LevelLighting,
     uv: [[f32; 2]; 4],
+    rotation_degrees: f32,
 ) {
-    let Some(mut points) = decal_quad_points(decal) else {
+    let Some(mut points) = decal_quad_points_rotated(decal, rotation_degrees) else {
         return;
     };
     let surface_y = |point: [f32; 3]| -> f32 {

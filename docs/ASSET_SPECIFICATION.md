@@ -5,8 +5,7 @@ Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 This document is the canonical specification for every visual asset Places
 draws from an image: world surface textures, decals, fixture faces, prop and
 entity textures, normal maps, emissive masks and the non-runtime imagery that
-ships with the repository (editor thumbnails, the app icon, documentation
-screenshots).
+ships with the repository (the app icon, documentation screenshots).
 
 It is written for two audiences:
 
@@ -69,12 +68,11 @@ introducing it.
    Do not paint textures in Rust, in shaders, in embedded pixel arrays or in
    draw commands, and do not synthesize a missing texture on demand when the
    application or a level loads. The shared untextured white sheet is a real
-   committed PNG like every other texture (`core:tex_white_01`, §12.3). The
+   committed PNG like every other texture (`core:tex_white_01`, §12.2). The
    few images the engine still generates (the HUD font atlas, the internal
    decal atlas, the missing-texture diagnostic, lightmap atlases and reflection
-   probes) are internal machinery, listed in §12.4, and are not an authoring
-   path. The level editor paints its own preview tiles in JavaScript; those are
-   previews, not runtime assets, and are outside this policy.
+   probes) are internal machinery, listed in §12.3, and are not an authoring
+   path.
 
 3. **PNG is the only raster format the runtime accepts.** The decoder
    signature-checks every texture and rejects anything that is not a PNG
@@ -133,7 +131,6 @@ introducing it.
 ```
 assets/
   catalog.json                       authoritative registry of logical assets
-  prop_proxies.json                  derived editor preview geometry (never hand-edited)
   README.md                          asset-system documentation
   levels/                            shipped level files (assets referenced by id)
   core/                              generic, theme-independent content
@@ -144,7 +141,7 @@ assets/
       floors/*.png                   generic floor sheets
       walls/*.png                    generic wall sheets
       normals/*.png                  tangent-space normal maps
-      white_01.png                   shared untextured fallback sheet (§12.3)
+      white_01.png                   shared untextured fallback sheet (§12.2)
   environment/
     <theme>/                         one directory per theme: office, pool, home
       props/models/*.glb             theme props (embedded textures)
@@ -163,7 +160,6 @@ assets/
 Non-runtime imagery elsewhere:
 
 ```
-level-editor/assets/thumbs/*.png     editor prop thumbnails (generated)
 docs/screenshots/*.png               documentation captures
 icon.png                             application icon
 ```
@@ -217,7 +213,7 @@ currently nothing enforces a minimum for any class.
 | Floor surface sheet | `carpet_beige_01.png` | **1:1** | 1024×1024 (shipped) | none enforced | RGB shipped (carpet); ignored by default material | **yes, both axes** | world `(x, z)` ÷ `tile_metres` | carpet has no tint; painted at warm albedo |
 | Ceiling surface sheet | `ceiling_panel_01.png` | **1:1** | 1024×1024 (shipped) | none enforced | RGB shipped; ignored by default material | **yes, both axes** | world `(x, z)` ÷ `tile_metres` | ceiling material authors a grey tint |
 | Core shared sheet (glass/floor/wall) | `glass_clear_01.png` | **1:1** | 1024×1024 (current production); 128×128 painter output is contract-valid | none enforced | per material: `blend` glass, `cutout` grille, opaque otherwise | **yes, both axes** | world metres ÷ `tile_metres` | seam-gated with the environment set |
-| Shared white sheet | `white_01.png` | **1:1** | 1024×1024 (current production); a flat fill, so any POT size is contract-valid | none enforced | opaque white | no | no authored UV contract: it is a flat fill bound wherever a surface is untextured | engine fallback loaded once at startup; see §12.3 |
+| Shared white sheet | `white_01.png` | **1:1** | 1024×1024 (current production); a flat fill, so any POT size is contract-valid | none enforced | opaque white | no | no authored UV contract: it is a flat fill bound wherever a surface is untextured | engine fallback loaded once at startup; see §12.2 |
 | Normal map | `normal_panel_01.png` | **1:1** | 1024×1024 (current production); 128×128 painter output is contract-valid | none enforced | alpha unused | **yes, both axes** | same UV as the albedo it augments | Surface quality class |
 | Fluorescent panel face | `fluorescent_panel_01.png` | **2:1** | 1024×512 (current production) | none enforced | ignored (face is opaque) | no | full sheet fit to the 1.12 × 0.56 m diffuser aperture; `u` across the width, `v` across the depth | POT both edges; replacement must stay 2:1 |
 | Round downlight face | `pool_light_round_01.png` | **1:1** | 1024×1024 (current production); 128×128 painter output is contract-valid | none enforced | ignored | no | planar; sheet centre = fixture centre; inscribed circle = diffuser radius | POT both edges |
@@ -228,7 +224,6 @@ currently nothing enforces a minimum for any class.
 | Emissive mask | (none shipped) | **any**; must share the albedo's UV frame | ≤512 (High budget) | none enforced | RGB sampled, alpha ignored | follows the albedo | same UV frame as the albedo | dimensions need not equal the albedo; a mask-only texture is exempt from the square-surface dimension test |
 | Level-pack texture | `textures/*.png` in a `.zip` pack | 1:1 for tiling surfaces | any | none enforced | per pack material | yes for surface materials | same surface UV rules | no tooling validates pack contents |
 | Diagnostic texture | `diagnostic_alt_01.png` | deliberately varied (96×64) | n/a | n/a | deliberately varied | n/a | not used by any shipped level | test artwork only |
-| Editor thumbnail | `thumbs/desk.png` | 1:1 | 64×64 | 64×64 (generator) | RGBA, transparent background | no | n/a | generated by `tools/props/preview.py` |
 | Application icon | `icon.png` | 1:1 | ≤512 | — | RGBA | no | n/a | non-interlaced; asserted by `tests/test_package.py` |
 | Documentation capture | `docs/screenshots/01-office.png` | 30:17 (960×544) | 960×544 | — | frame image | no | n/a | docs only |
 
@@ -387,7 +382,7 @@ fixture face.
 
 A fixture's **housing** (the office panel's frame and body; the round and wall
 fixtures' bezel, can and drum) is ordinary body geometry drawn through the
-shared untextured white sheet (`core:tex_white_01`, §12.3) with the profile's
+shared untextured white sheet (`core:tex_white_01`, §12.2) with the profile's
 flat authored shade. It is deliberately untextured: the housing is
 metal/plastic body geometry, not artwork, and a theme that wants patterned
 housing would introduce a fitted body sheet the way the luminous face already
@@ -554,6 +549,15 @@ The shipped sign's contract is additionally pinned by tests: it is 1024×1024,
 PNG colour type 6 (RGBA), and contains at least one fully transparent pixel.
 A replacement must keep those properties.
 
+The **ceiling vent** (`core:decal_ceiling_vent_01`) is a square 128×128
+cut-out sheet with a pale bevelled plate, dark recess, five horizontal louvres
+and four corner fixings. Keep its square aspect, upright grille orientation
+and transparent margin. Place at 0.6 m × 0.6 m; `align: "ceiling_grid"` centres
+it within a ceiling panel. The authored PNG is the source of truth;
+`tools/textures/decal_art.py::build_ceiling_vent` loads it without repainting.
+`python3 tools/textures/build.py --only core:decal_ceiling_vent_01` round-trips
+that artwork and validates it.
+
 A new decal sheet does not need to be square, but it does need POT edges, an
 alpha cut-out and a level placement whose width/height match its proportions.
 If in doubt, author square artwork and place it square.
@@ -654,8 +658,19 @@ normal runtime texture         256x256 native
   material's emissive term on top, never multiplied by the baked light.
 * An `emissiveTexture` is sampled with the *same* `TEXCOORD_0` as the base
   texture and only its RGB is used. It must therefore use the same UV frame as
-  the base map. No shipped model declares emission; the path is exercised by
-  tests.
+  the base map.
+
+* The shipped `core:exit_sign` and `home:ball_light` are the first models to
+  author `emissiveFactor` (plus `KHR_materials_emissive_strength`) on a
+  separate material slot: the green sign face and the orb glow. Their
+  *illumination* is authored separately in the level (`props[].lights`),
+  because a material never lights a room; disabling the level light leaves the
+  glowing face unchanged and removes the pool.
+* A model may declare animation clips without a skin (`home:wall_switch`): it
+  parses as a rigid animated prop, every primitive is bound to its owning node
+  with weight one, and the character path poses it. See
+  [MAP_AUTHORING_GUIDE.md section 16](../MAP_AUTHORING_GUIDE.md#16-props-and-models).
+
 
 ### 8.6 Replacing a model texture
 
@@ -667,9 +682,16 @@ normal runtime texture         256x256 native
 * The repository's regeneration path is the toolkit:
   `python3 tools/props/build.py --only <id>` (or
   `python3 tools/props/generate_spooner_man.py`). It validates UV bounds, scale,
-  origin, triangle and texture budgets, and writes
-  `assets/prop_proxies.json`. Refresh editor thumbnails with `--thumbs`
-  afterwards.
+  origin, triangle and texture budgets.
+
+The refined sign/fixture/CRT builders also load standalone PNG source atlases
+beside their GLBs. Preserve their existing region frames: stop sign uses the
+2×2 sign/pole/bracket/back layout; exit sign uses face `(0,0,192,144)`, body
+`(192,0,64,144)`, metal `(0,144,128,112)` and lamp `(128,144,128,112)` on a
+256² sheet. Globe and switch retain their three-cell 128² layouts; CRT retains
+screen/bezel/body/panel on a 128² 2×2 sheet. The mannequin uses one opaque
+256² light-grey concrete sheet at `entities/mannequin/textures/concrete_grey_01.png`.
+These source files are embedded during export; runtime reads the GLBs.
 
 ### 8.7 Model geometry conventions (for context)
 
@@ -776,24 +798,14 @@ the pack author is responsible for the same contracts.
 
 ## 12. Non-runtime imagery
 
-### 12.1 Editor prop thumbnails
-
-* `level-editor/assets/thumbs/<short-name>.png`, one per placeable catalog
-  entry, 64×64, RGBA with a transparent background.
-* Generated by `tools/props/preview.py` and refreshed with
-  `python3 tools/props/build.py --thumbs`.
-* The editor test (`level-editor/tests/prop-assets.test.mjs`) fails if a
-  thumbnail is missing; it checks existence and the PNG signature, not the
-  64×64 size (that is a property of the generator). Staleness is not detected.
-
-### 12.2 Application icon and documentation screenshots
+### 12.1 Application icon and documentation screenshots
 
 * `icon.png`: PNG, square, RGBA, non-interlaced, ≤512 px; asserted by
   `tests/test_package.py`.
 * `docs/screenshots/*.png`: 960×544 documentation captures. Not runtime
   assets; no contract beyond being still frames.
 
-### 12.3 Shared untextured white sheet
+### 12.2 Shared untextured white sheet
 
 `core:tex_white_01` → `assets/core/textures/white_01.png` is the renderer's
 neutral fallback sheet: a flat opaque white fill. Fixture housings, plain
@@ -817,7 +829,7 @@ A theme that wants patterned fixture housing would introduce a fitted body
 sheet the way the luminous face already is one — the white sheet itself is not
 an authoring target.
 
-### 12.4 Internal generated images (not authoring paths)
+### 12.3 Internal generated images (not authoring paths)
 
 These images are produced by the engine and are deliberately not shipped as
 PNGs. They are listed so no one mistakes them for assets to replace:
@@ -851,7 +863,7 @@ are excluded from shipped levels and from the dimension-contract test below.
 * fixture faces (fitted, `CLAMP_TO_EDGE`);
 * decal sheets (fitted cut-out);
 * prop and entity textures (model UVs, `CLAMP_TO_EDGE`);
-* editor thumbnails, icon, screenshots and diagnostic sheets.
+* icon, screenshots and diagnostic sheets.
 
 Measurement, when needed:
 
@@ -929,7 +941,7 @@ a runtime edge budget per texture class:
   set.**
 * No image class bypasses the budget. The font atlas, the decals' internal
   atlas and the lightmap pages are internal machinery, not shipped textures;
-  the shared white sheet (`core:tex_white_01`, §12.3) is a catalog texture
+  the shared white sheet (`core:tex_white_01`, §12.2) is a catalog texture
   loaded once at startup as a single un-mipped level, so its resident storage
   is the sheet's own size (4 MiB at 1024×1024) and it is level-independent
   by design.
@@ -978,7 +990,6 @@ future quality work; the hard limit exists for correctness, not as a target.
 | Decal sheet | POT both edges, cut-out alpha | 128×128 small; 1024×1024 hero | 1024 |
 | Prop texture | model UV layout, no tiling | 256×256 native (the normal shipped size) | 1024 |
 | Emissive mask | same UV frame as albedo | ≤512 | 1024 |
-| Editor thumbnail | 64×64 | 64×64 | — |
 
 **No minimum source resolution is enforced anywhere.** The soft "preferred
 256" value is an *upper* warning threshold, not a floor. If a class's practical
@@ -1277,7 +1288,6 @@ repository):
 | Prop GLB: UVs 0..1, triangle/vertex/texture budgets, scale/origin, PNG ≤1024 | Rust `props::tests`; runtime parser | `cargo test` | yes |
 | Prop art budgets (triangles, native 256 px texture, 64 MiB decoded pack budget) | Rust `props::tests::shipped_prop_assets_match_the_catalogue_and_budgets` and its policy tests | `cargo test` | yes |
 | Prop GLB decoded texture memory (per-texture and pack total) | `tools/props/build.py --check` | `python3 tools/props/build.py --check` | yes (exit 1) |
-| Editor thumbnails exist for every prop | Node test `level-editor/tests/prop-assets.test.mjs` | `cd level-editor && npm test` | yes |
 | Model textures: embedded PNG only, ≤1024, UV bounds | `src/gltf.rs` parser (runtime) + `cargo test` | game run / `cargo test` | fallback box / test failure |
 
 The strengthened Rust test added with this specification
@@ -1368,11 +1378,7 @@ without checking the implementation.
     the exact dimensions of the three shipped fixture sheets and that every
     texel is opaque. Raising a shipped fixture's resolution requires updating
     that pin; the component itself is otherwise resolution-independent.
-13. **The level editor paints its own preview textures.** The editor's 3D
-    viewport generates wall/floor/ceiling preview tiles in JavaScript
-    (`level-editor/js/viewport3d.js`). They are previews, not runtime assets,
-    and are outside this specification; the game never loads them.
-14. **`tools/props/build.py --check` has a narrower scope than the build
+13. **`tools/props/build.py --check` has a narrower scope than the build
     path.** `--check` parses the GLB container only; UV range, budgets,
     scale and origin are enforced by the Rust tests and by the runtime parser.
 15. **Fixture painters lag the shipped sheets.** `tools/textures/lights_art.py`
@@ -1420,17 +1426,11 @@ cargo test --workspace render::tests::test_shipped
 cargo test --workspace props::tests::shipped_prop_assets
 ```
 
-Editor assets (Node.js):
-
-```sh
-cd level-editor && npm test
-```
-
 Regeneration paths (only when intentionally changing artwork):
 
 ```sh
 python3 tools/textures/build.py [--only <id>] [--force --only <id>]   # surface/decal/fixture PNGs
-python3 tools/props/build.py [--only <id>] [--thumbs]                 # prop GLBs + editor thumbnails
+python3 tools/props/build.py [--only <id>]                          # prop GLBs
 python3 tools/props/generate_spooner_man.py                           # the entity
 ```
 

@@ -71,6 +71,38 @@ MAX_LIGHT_INTENSITY = 8.0
 # the engine (mirrors src/materials/emission.rs).
 MAX_EMISSION_INTENSITY = 8.0
 
+# Map-authored actions: the closed set the engine parses, and the subset it
+# implements. The reserved tags are rejected by name, not silently ignored.
+ACTION_TAGS = (
+    "toggle_label",
+    "reset_to_start",
+    "play_animation",
+    "toggle_animation",
+    "play_audio",
+)
+IMPLEMENTED_ACTIONS = (
+    "toggle_label",
+    "reset_to_start",
+    "play_animation",
+    "toggle_animation",
+)
+
+# Mirrors src/level.rs: a float's motion is bounded and must be contained by
+# the water volume it rides.
+MAX_LEVEL_FLOAT_PROPS = 32
+MAX_FLOAT_HEEL_DEGREES = 45.0
+# Bounds mirror src/level.rs (MAX_ACTIONS_PER_SOURCE, MAX_LEVEL_AREA_TRIGGERS,
+# MAX_LEVEL_ROUTES, MAX_ROUTE_STEPS, MAX_ROUTE_SPEED_MPS, MAX_ROUTE_WAIT_SECONDS,
+# MAX_ROUTE_PLAY_SECONDS) and src/interact.rs (MAX_INTERACTION_REACH_M).
+MAX_ACTIONS_PER_SOURCE = 8
+MAX_AREA_TRIGGERS = 1000
+MAX_INTERACTION_REACH_M = 4.0
+MAX_ENTITY_ROUTES = 256
+MAX_ROUTE_STEPS = 64
+MAX_ROUTE_SPEED_MPS = 6.0
+MAX_ROUTE_SECONDS = 3600.0
+ROUTE_STEP_TAGS = ("move_to", "face", "wait", "play")
+
 _SLUG = re.compile(r"^[a-z][a-z0-9_-]*$")
 _ASSET_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:_-]*$")
 
@@ -752,6 +784,15 @@ def validate_surface_shine(level: dict, where: str, errors: list[str]) -> None:
     for index, rail in enumerate(level.get("guardrails") or []):
         checks.append((f"{where}: guardrail {index} shine", rail.get("shine")))
         checks.append((f"{where}: guardrail {index} post_shine", rail.get("post_shine")))
+    for index, piece in enumerate(level.get("arc_walls") or []):
+        checks.append((f"{where}: arc wall {index} shine", piece.get("shine")))
+        checks.append((f"{where}: arc wall {index} inner_shine", piece.get("inner_shine")))
+        checks.append((f"{where}: arc wall {index} outer_shine", piece.get("outer_shine")))
+        checks.append((f"{where}: arc wall {index} cap_shine", piece.get("cap_shine")))
+        checks.append((f"{where}: arc wall {index} end_shine", piece.get("end_shine")))
+    for index, piece in enumerate(level.get("pillars") or []):
+        checks.append((f"{where}: pillar {index} shine", piece.get("shine")))
+        checks.append((f"{where}: pillar {index} cap_shine", piece.get("cap_shine")))
     for index, strip in enumerate(level.get("thresholds") or []):
         checks.append((f"{where}: threshold {index} shine", strip.get("shine")))
     for index, board in enumerate(level.get("baseboards") or []):
@@ -771,12 +812,14 @@ def validate_architecture(level: dict, where: str, errors: list[str]) -> None:
     negative one, a non-number — with the piece named.
     """
     positive = ("width", "depth", "length", "height", "rise", "steps", "opening_width",
-                "opening_height", "thickness")
+                "opening_height", "thickness", "radius", "segments")
     pieces = (
         ("ramps", "ramp", ("width", "depth", "rise")),
         ("stairs", "staircase", ("width", "depth", "rise", "steps")),
         ("half_walls", "half wall", ("width", "depth", "height")),
         ("columns", "column", ("width", "depth")),
+        ("arc_walls", "arc wall", ("radius",)),
+        ("pillars", "pillar", ("radius",)),
         ("archways", "archway", ("width", "depth", "height", "opening_width", "opening_height")),
         ("guardrails", "guardrail", ("length",)),
         ("thresholds", "threshold", ("length",)),
@@ -808,6 +851,28 @@ def validate_architecture(level: dict, where: str, errors: list[str]) -> None:
                 value = piece.get(field)
                 if value is not None and is_finite_number(value) and float(value) < 0.0:
                     errors.append(f"{entry_where}: {field} cannot be negative")
+            if key == "arc_walls":
+                thickness = piece.get("thickness")
+                radius = piece.get("radius")
+                if (
+                    is_finite_number(thickness)
+                    and is_finite_number(radius)
+                    and float(thickness) >= 2.0 * float(radius)
+                ):
+                    errors.append(
+                        f"{entry_where}: thickness must be thinner than twice the radius"
+                    )
+                segments = piece.get("segments")
+                if segments is not None and (
+                    not isinstance(segments, int) or not 3 <= segments <= 128
+                ):
+                    errors.append(f"{entry_where}: segments must be an integer between 3 and 128")
+            if key == "pillars":
+                segments = piece.get("segments")
+                if segments is not None and (
+                    not isinstance(segments, int) or not 3 <= segments <= 128
+                ):
+                    errors.append(f"{entry_where}: segments must be an integer between 3 and 128")
 
 
 def wall_touches_any_room(level: dict, wall: dict, epsilon: float = 0.05) -> bool:
@@ -845,6 +910,398 @@ def wall_touches_any_room(level: dict, wall: dict, epsilon: float = 0.05) -> boo
     return False
 
 
+def _resolve_prop_ids(level: dict) -> List[str]:
+    """The engine's per-instance prop ids: authored wins, else `<model>_<n>`.
+
+    Mirrors ``LevelDef::prop_instance_ids``: the counter counts placements that
+    do not author an id, per model short name, in array order.
+    """
+    counters: dict = {}
+    ids: List[str] = []
+    for prop in level.get("props") or []:
+        authored = prop.get("id")
+        if isinstance(authored, str) and authored.strip():
+            ids.append(authored.strip())
+            continue
+        short = str(prop.get("model", "")).rsplit(":", 1)[-1] or "prop"
+        counters[short] = counters.get(short, 0) + 1
+        ids.append(f"{short}_{counters[short]}")
+    return ids
+
+
+def validate_interactions(level: dict, where: str, errors: List[str]) -> None:
+    """Instance ids, prop interactions, area triggers and entity routes.
+
+    Mirrors the Rust loader's rules so a level that passes this validator
+    cannot surprise the engine: well-formed unique ids, 1..8 typed actions with
+    resolvable targets, implemented actions only, and real trigger volumes. The
+    reserved ``play_audio`` tag is rejected by name rather than silently
+    ignored; ``play_animation`` is implemented and checked like ``toggle_label``.
+    """
+    prop_ids = _resolve_prop_ids(level)
+    seen: dict = {}
+    for index, prop_id in enumerate(prop_ids):
+        if not _ASSET_ID.match(prop_id):
+            errors.append(f"{where}: prop {index} id '{prop_id}' must be a well-formed identifier")
+        elif prop_id in seen:
+            errors.append(f"{where}: prop {index} id '{prop_id}' duplicates {seen[prop_id]}")
+        else:
+            seen[prop_id] = f"prop {index}"
+    for index, prop in enumerate(level.get("props") or []):
+        name = prop.get("display_name")
+        if name is not None and (not isinstance(name, str) or not name.strip()):
+            errors.append(f"{where}: prop {index} display_name must not be blank")
+    trigger_ids = []
+    for index, trigger in enumerate(level.get("area_triggers") or []):
+        authored = trigger.get("id")
+        trigger_id = (
+            authored.strip()
+            if isinstance(authored, str) and authored.strip()
+            else f"trigger_{index + 1}"
+        )
+        trigger_ids.append(trigger_id)
+        if not _ASSET_ID.match(trigger_id):
+            errors.append(f"{where}: area trigger {index} id '{trigger_id}' must be a well-formed identifier")
+        elif trigger_id in seen:
+            errors.append(f"{where}: area trigger {index} id '{trigger_id}' duplicates {seen[trigger_id]}")
+        else:
+            seen[trigger_id] = f"area trigger {index}"
+    for index, fixture in enumerate(level.get("ceiling_lights") or []):
+        authored = fixture.get("id")
+        if authored is None:
+            continue
+        fixture_id = str(authored).strip()
+        if not _ASSET_ID.match(fixture_id):
+            errors.append(f"{where}: ceiling light {index} id '{fixture_id}' must be a well-formed identifier")
+        elif fixture_id in seen:
+            errors.append(f"{where}: ceiling light {index} id '{fixture_id}' duplicates {seen[fixture_id]}")
+        else:
+            seen[fixture_id] = f"ceiling light {index}"
+
+    actions_by_source = [
+        (f"prop {index} interaction", prop.get("interaction"), prop_ids[index])
+        for index, prop in enumerate(level.get("props") or [])
+        if prop.get("interaction") is not None
+    ]
+    actions_by_source.extend(
+        (f"area trigger {index}", trigger, None)
+        for index, trigger in enumerate(level.get("area_triggers") or [])
+    )
+    for source, definition, implicit_target in actions_by_source:
+        if not isinstance(definition, dict):
+            errors.append(f"{where}: {source} must be an object")
+            continue
+        reach = definition.get("reach")
+        if reach is not None and (
+            not is_finite_number(reach) or reach <= 0.0 or reach > MAX_INTERACTION_REACH_M
+        ):
+            errors.append(f"{where}: {source} reach must be a finite number in (0, {MAX_INTERACTION_REACH_M}]")
+        actions = definition.get("actions")
+        if not isinstance(actions, list) or not actions:
+            errors.append(f"{where}: {source} must declare 1..{MAX_ACTIONS_PER_SOURCE} actions")
+            continue
+        if len(actions) > MAX_ACTIONS_PER_SOURCE:
+            errors.append(f"{where}: {source} declares {len(actions)} actions; the limit is {MAX_ACTIONS_PER_SOURCE}")
+        for action_index, action in enumerate(actions):
+            if not isinstance(action, dict):
+                errors.append(f"{where}: {source} action {action_index} must be an object")
+                continue
+            tag = action.get("action")
+            if tag not in ACTION_TAGS:
+                errors.append(
+                    f"{where}: {source} action {action_index} has unknown action '{tag}'"
+                )
+            elif tag not in IMPLEMENTED_ACTIONS:
+                errors.append(
+                    f"{where}: {source} action {action_index} ('{tag}') is not implemented yet"
+                )
+            elif tag == "toggle_label":
+                target = action.get("target")
+                resolved = target.strip() if isinstance(target, str) and target.strip() else implicit_target
+                if not resolved:
+                    errors.append(f"{where}: {source} action {action_index} ('toggle_label') needs a target")
+                elif resolved not in prop_ids:
+                    errors.append(
+                        f"{where}: {source} action {action_index} ('toggle_label') targets unknown instance '{resolved}'"
+                    )
+            elif tag == "play_animation":
+                target = action.get("target")
+                if isinstance(target, str) and not target.strip():
+                    errors.append(
+                        f"{where}: {source} action {action_index} ('play_animation') target must not be blank"
+                    )
+                resolved = target.strip() if isinstance(target, str) and target.strip() else implicit_target
+                if not resolved:
+                    errors.append(
+                        f"{where}: {source} action {action_index} ('play_animation') needs a target"
+                    )
+                elif resolved not in prop_ids:
+                    errors.append(
+                        f"{where}: {source} action {action_index} ('play_animation') targets unknown instance '{resolved}'"
+                    )
+                clip = action.get("clip")
+                if not isinstance(clip, str) or not clip.strip():
+                    errors.append(
+                        f"{where}: {source} action {action_index} ('play_animation') needs a clip name"
+                    )
+                looped = action.get("loop", False)
+                if not isinstance(looped, bool):
+                    errors.append(
+                        f"{where}: {source} action {action_index} ('play_animation') loop must be a boolean"
+                    )
+            elif tag == "toggle_animation":
+                target = action.get("target")
+                if isinstance(target, str) and not target.strip():
+                    errors.append(
+                        f"{where}: {source} action {action_index} ('toggle_animation') target must not be blank"
+                    )
+                resolved = target.strip() if isinstance(target, str) and target.strip() else implicit_target
+                if not resolved:
+                    errors.append(
+                        f"{where}: {source} action {action_index} ('toggle_animation') needs a target"
+                    )
+                elif resolved not in prop_ids:
+                    errors.append(
+                        f"{where}: {source} action {action_index} ('toggle_animation') targets unknown instance '{resolved}'"
+                    )
+                clip = action.get("clip")
+                if not isinstance(clip, str) or not clip.strip():
+                    errors.append(
+                        f"{where}: {source} action {action_index} ('toggle_animation') needs a clip name"
+                    )
+
+    triggers = level.get("area_triggers") or []
+    if isinstance(triggers, list) and len(triggers) > MAX_AREA_TRIGGERS:
+        errors.append(f"{where}: too many area triggers ({len(triggers)}; limit {MAX_AREA_TRIGGERS})")
+    for index, trigger in enumerate(triggers if isinstance(triggers, list) else []):
+        if not isinstance(trigger, dict):
+            errors.append(f"{where}: area trigger {index} must be an object")
+            continue
+        width = trigger.get("width")
+        depth = trigger.get("depth")
+        if not is_finite_number(width) or not is_finite_number(depth) or width <= 0.0 or depth <= 0.0:
+            errors.append(f"{where}: area trigger {index} width and depth must be positive numbers")
+        cooldown = trigger.get("cooldown_seconds", 0.0)
+        if not is_finite_number(cooldown) or cooldown < 0.0:
+            errors.append(f"{where}: area trigger {index} cooldown_seconds must be a finite number >= 0")
+        bottom = trigger.get("bottom_y")
+        top = trigger.get("top_y")
+        if bottom is not None and not is_finite_number(bottom):
+            errors.append(f"{where}: area trigger {index} bottom_y must be a finite number")
+        if top is not None and not is_finite_number(top):
+            errors.append(f"{where}: area trigger {index} top_y must be a finite number")
+        if is_finite_number(bottom) and is_finite_number(top) and top <= bottom:
+            errors.append(f"{where}: area trigger {index} top_y must be above its bottom_y")
+        if is_finite_number(width) and is_finite_number(depth) and width > 0.0 and depth > 0.0:
+            footprint = {
+                "x": trigger.get("x", 0.0),
+                "z": trigger.get("z", 0.0),
+                "width": width,
+                "depth": depth,
+            }
+            if not wall_touches_any_room(level, footprint):
+                errors.append(f"{where}: area trigger {index} lies outside every room section")
+
+    validate_entity_routes(level, where, errors, prop_ids)
+
+
+def validate_floats(level: dict, where: str, errors: List[str]) -> None:
+    """Mirrors ``loader::validate_floats``: a floating prop cannot be solid, its
+    authored motion must be finite and bounded, it cannot be routed, and its
+    whole swept footprint must sit inside one water volume.
+
+    The containment rule is what keeps a float off the rim: the half-diagonal
+    of the authored footprint plus the heel's horizontal excursion must fit
+    inside the basin rectangle, so no phase or frame can push the hull through
+    the skirt.
+    """
+    props = level.get("props") or []
+    if not isinstance(props, list):
+        return
+    floats = [
+        (index, prop)
+        for index, prop in enumerate(props)
+        if isinstance(prop, dict) and prop.get("float") is not None
+    ]
+    if not floats:
+        return
+    if len(floats) > MAX_LEVEL_FLOAT_PROPS:
+        errors.append(
+            f"{where}: {len(floats)} floating props; the limit is {MAX_LEVEL_FLOAT_PROPS}"
+        )
+    volumes = []
+    for volume in level.get("water") or []:
+        if not isinstance(volume, dict):
+            continue
+        x, z = volume.get("x", 0.0), volume.get("z", 0.0)
+        width, depth = volume.get("width"), volume.get("depth")
+        if (
+            is_finite_number(x)
+            and is_finite_number(z)
+            and is_finite_number(width)
+            and is_finite_number(depth)
+            and width > 0.0
+            and depth > 0.0
+        ):
+            volumes.append(
+                (min(x, x + width), max(x, x + width), min(z, z + depth), max(z, z + depth))
+            )
+    route_ids = {
+        str(route.get("id")).strip()
+        for route in (level.get("routes") or [])
+        if isinstance(route, dict) and route.get("id")
+    }
+    prop_ids = _resolve_prop_ids(level)
+    for index, prop in floats:
+        context = f"{where}: float prop {index} ('{prop.get('model')}')"
+        if prop.get("solid") is True:
+            errors.append(
+                f"{context} must set solid: false; a floating hull cannot leave a static collider"
+            )
+        definition = prop.get("float")
+        if not isinstance(definition, dict):
+            errors.append(f"{context} float must be an object")
+            continue
+        x, z = prop.get("x", 0.0), prop.get("z", 0.0)
+        scale = prop.get("scale", 1.0)
+        size = prop.get("size")
+        if not is_finite_number(x) or not is_finite_number(z) or not is_finite_number(scale) or scale <= 0.0:
+            errors.append(f"{context} position and scale must be finite and its scale positive")
+            continue
+        if not isinstance(size, list) or len(size) != 3 or not all(
+            is_finite_number(value) and value > 0.0 for value in size
+        ):
+            errors.append(
+                f"{context} must author size: the float contract is validated against its footprint"
+            )
+            continue
+        draft = definition.get("draft", 0.0)
+        bob = definition.get("bob", 0.0)
+        heel = definition.get("heel_degrees", 0.0)
+        bob_seconds = definition.get("bob_seconds", 2.4)
+        heel_seconds = definition.get("heel_seconds", 2.4)
+        phase = definition.get("phase")
+        height = size[1] * scale
+        width = size[0] * scale
+        depth = size[2] * scale
+        if not is_finite_number(draft) or draft <= 0.0 or draft >= height:
+            errors.append(
+                f"{context} draft must be finite, above 0 and below its height ({height:.3f} m)"
+            )
+        if not is_finite_number(bob) or bob < 0.0 or bob > 0.5 * height:
+            errors.append(f"{context} bob must be finite, >= 0 and at most half its height")
+        if not is_finite_number(bob_seconds) or bob_seconds <= 0.0:
+            errors.append(f"{context} bob_seconds must be a positive finite number")
+        if (
+            not is_finite_number(heel)
+            or heel < 0.0
+            or heel > MAX_FLOAT_HEEL_DEGREES
+        ):
+            errors.append(
+                f"{context} heel_degrees must be finite, >= 0 and at most {MAX_FLOAT_HEEL_DEGREES}"
+            )
+        if not is_finite_number(heel_seconds) or heel_seconds <= 0.0:
+            errors.append(f"{context} heel_seconds must be a positive finite number")
+        if phase is not None and (not is_finite_number(phase) or not 0.0 <= phase <= 1.0):
+            errors.append(f"{context} phase must be a finite number between 0.0 and 1.0")
+        instance_id = prop_ids[index] if index < len(prop_ids) else None
+        if instance_id and instance_id in route_ids:
+            errors.append(f"{context} is addressed by a route; a floating prop cannot be routed")
+        if not all(is_finite_number(value) for value in (draft, bob, heel)):
+            continue
+        half_diagonal = 0.5 * math.hypot(width, depth)
+        heel_excursion = 0.5 * height * math.sin(math.radians(heel))
+        radius = half_diagonal + heel_excursion
+        contained = any(
+            x - radius >= x0 and x + radius <= x1 and z - radius >= z0 and z + radius <= z1
+            for (x0, x1, z0, z1) in volumes
+        )
+        if not contained:
+            errors.append(
+                f"{context} must be fully inside a water volume: its swept footprint "
+                f"(radius {radius:.3f} m) is not contained at ({x}, {z})"
+            )
+
+
+def validate_entity_routes(level: dict, where: str, errors: List[str], prop_ids: List[str]) -> None:
+    """Authored entity routes: resolving unique ids and bounded, typed steps.
+
+    Mirrors the Rust loader's structural rules (``loader::validate_routes``):
+    a route must name a placed instance, carry 1..MAX_ROUTE_STEPS known step
+    kinds with finite bounded numbers and a non-blank clip name. Floor and wall
+    geometry along the path is checked only by the Rust loader, which samples
+    the real walkable surface; this validator keeps the schema honest so a
+    malformed map never reaches the engine.
+    """
+    routes = level.get("routes") or []
+    if not isinstance(routes, list):
+        errors.append(f"{where}: routes must be an array")
+        return
+    if len(routes) > MAX_ENTITY_ROUTES:
+        errors.append(f"{where}: too many entity routes ({len(routes)}; limit {MAX_ENTITY_ROUTES})")
+    seen_routes: set[str] = set()
+    for index, route in enumerate(routes):
+        if not isinstance(route, dict):
+            errors.append(f"{where}: entity route {index} must be an object")
+            continue
+        route_id = route.get("id")
+        if not isinstance(route_id, str) or not route_id.strip():
+            errors.append(f"{where}: entity route {index} names no instance id")
+            continue
+        route_id = route_id.strip()
+        if route_id in seen_routes:
+            errors.append(f"{where}: entity route {index} duplicates instance '{route_id}'")
+        seen_routes.add(route_id)
+        if route_id not in prop_ids:
+            errors.append(f"{where}: entity route {index} targets unknown instance '{route_id}'")
+        looped = route.get("loop", False)
+        if not isinstance(looped, bool):
+            errors.append(f"{where}: entity route {index} loop must be a boolean")
+        steps = route.get("steps")
+        if not isinstance(steps, list) or not steps:
+            errors.append(f"{where}: entity route '{route_id}' declares no steps")
+            continue
+        if len(steps) > MAX_ROUTE_STEPS:
+            errors.append(
+                f"{where}: entity route '{route_id}' declares {len(steps)} steps; limit {MAX_ROUTE_STEPS}"
+            )
+        for step_index, step in enumerate(steps):
+            source = f"entity route '{route_id}' step {step_index}"
+            if not isinstance(step, dict):
+                errors.append(f"{where}: {source} must be an object")
+                continue
+            tag = step.get("step")
+            if tag not in ROUTE_STEP_TAGS:
+                errors.append(f"{where}: {source} has unknown step '{tag}'")
+                continue
+            if tag == "move_to":
+                for key in ("x", "z", "speed"):
+                    if not is_finite_number(step.get(key)):
+                        errors.append(f"{where}: {source} ('move_to') {key} must be a finite number")
+                speed = step.get("speed")
+                if is_finite_number(speed) and not 0.0 < speed <= MAX_ROUTE_SPEED_MPS:
+                    errors.append(
+                        f"{where}: {source} ('move_to') speed must be in (0, {MAX_ROUTE_SPEED_MPS}]"
+                    )
+            elif tag == "face":
+                if not is_finite_number(step.get("yaw_degrees")):
+                    errors.append(f"{where}: {source} ('face') yaw_degrees must be a finite number")
+            elif tag == "wait":
+                seconds = step.get("seconds")
+                if not is_finite_number(seconds) or not 0.0 < seconds <= MAX_ROUTE_SECONDS:
+                    errors.append(f"{where}: {source} ('wait') seconds must be in (0, {MAX_ROUTE_SECONDS}]")
+            elif tag == "play":
+                clip = step.get("clip")
+                if not isinstance(clip, str) or not clip.strip():
+                    errors.append(f"{where}: {source} ('play') needs a clip name")
+                seconds = step.get("seconds")
+                if not is_finite_number(seconds) or not 0.0 < seconds <= MAX_ROUTE_SECONDS:
+                    errors.append(f"{where}: {source} ('play') seconds must be in (0, {MAX_ROUTE_SECONDS}]")
+                looped = step.get("loop", False)
+                if not isinstance(looped, bool):
+                    errors.append(f"{where}: {source} ('play') loop must be a boolean")
+
+
 def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> Tuple[List[str], List[str]]:
     """Returns ``(errors, warnings)`` for every shipped level, drop-in level and fixture.
 
@@ -875,7 +1332,7 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
             relative = os.path.relpath(path, PACKAGE_ROOT)
             # Optional schema: a fixture may be switched off without losing its
             # visible glow, and a prop may own generic light sources. Both are
-            # validated with the same rules the editor and the engine enforce.
+            # validated with the same rules the engine enforces.
             for index, light in enumerate(level.get("ceiling_lights") or []):
                 where = f"{relative}: ceiling light {index}"
                 if "enabled" in light and not isinstance(light.get("enabled"), bool):
@@ -909,6 +1366,8 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
                     errors.extend(light_errors)
                     warnings.extend(light_warnings)
             validate_animated_emissions(level, relative, errors)
+            validate_interactions(level, relative, errors)
+            validate_floats(level, relative, errors)
             validate_surface_shine(level, relative, errors)
             validate_architecture(level, relative, errors)
             rooms = list(level.get("rooms") or [])

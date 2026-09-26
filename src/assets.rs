@@ -680,7 +680,7 @@ pub struct AssetEntry {
     pub source: AssetSource,
     /// Canonical resource path relative to the asset root, for file assets.
     pub model: Option<String>,
-    /// Catalogue box size and editor/collision metadata for placeable assets.
+    /// Catalogue box size and collision metadata for placeable assets.
     pub size: Option<[f32; 3]>,
     pub color: Option<[f32; 3]>,
     pub category: Option<String>,

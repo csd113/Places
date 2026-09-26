@@ -153,6 +153,20 @@ pub struct KeyBindings {
     /// default rather than invalidating the whole file.
     #[serde(default = "default_jump_binding")]
     pub jump: String,
+    /// Toggle crouching (a press toggles the stance; holding does not repeat).
+    ///
+    /// Added after the first release, like `jump`: a saved file without this
+    /// key gets the `C` default.
+    #[serde(default = "default_crouch_binding")]
+    pub crouch: String,
+    /// Interact with the object in reach (press once; holding does not
+    /// repeat).
+    ///
+    /// Added after the first release, like `jump` and `crouch`: a saved file
+    /// without this key gets the `E` default without rewriting any binding the
+    /// player customized.
+    #[serde(default = "default_interact_binding")]
+    pub interact: String,
 }
 
 impl Default for KeyBindings {
@@ -167,6 +181,8 @@ impl Default for KeyBindings {
             look_left: "LEFT".to_string(),
             look_right: "RIGHT".to_string(),
             jump: default_jump_binding(),
+            crouch: default_crouch_binding(),
+            interact: default_interact_binding(),
         }
     }
 }
@@ -175,6 +191,22 @@ impl Default for KeyBindings {
 /// stay a gameplay binding in every screen.
 fn default_jump_binding() -> String {
     "SPACE".to_string()
+}
+
+/// The default crouch binding: `C` is beside the WASD movement keys and is not
+/// a menu navigation key or a reserved shell key.
+fn default_crouch_binding() -> String {
+    "C".to_string()
+}
+
+/// The default interact binding: `E` is beside the WASD movement keys and is
+/// not a menu navigation key or a reserved shell key. A settings file written
+/// before Interact existed has no `interact` key, so serde supplies this
+/// default without touching any customized binding; if `E` is already taken by
+/// a customized binding, [`KeyBindings::sanitize`] leaves Interact unbound
+/// rather than overwriting the player's choice.
+fn default_interact_binding() -> String {
+    "E".to_string()
 }
 
 impl KeyBindings {
@@ -191,6 +223,8 @@ impl KeyBindings {
             "look_left" => Some(&self.look_left),
             "look_right" => Some(&self.look_right),
             "jump" => Some(&self.jump),
+            "crouch" => Some(&self.crouch),
+            "interact" => Some(&self.interact),
             _ => None,
         }
     }
@@ -210,6 +244,8 @@ impl KeyBindings {
             ("look_left", &self.look_left),
             ("look_right", &self.look_right),
             ("jump", &self.jump),
+            ("crouch", &self.crouch),
+            ("interact", &self.interact),
         ];
 
         for (action, bound_key) in actions {
@@ -220,8 +256,8 @@ impl KeyBindings {
         None
     }
 
-    /// The nine bindable actions, in settings-screen order.
-    pub const ACTIONS: [&'static str; 9] = [
+    /// The eleven bindable actions, in settings-screen order.
+    pub const ACTIONS: [&'static str; 11] = [
         "forward",
         "strafe_left",
         "strafe_right",
@@ -231,6 +267,8 @@ impl KeyBindings {
         "look_left",
         "look_right",
         "jump",
+        "crouch",
+        "interact",
     ];
 
     /// Rebinds an action to a new key if there is no conflict.
@@ -272,6 +310,8 @@ impl KeyBindings {
             "look_left" => self.look_left = key,
             "look_right" => self.look_right = key,
             "jump" => self.jump = key,
+            "crouch" => self.crouch = key,
+            "interact" => self.interact = key,
             _ => return Err(format!("Unknown action: {action}")),
         }
         Ok(())
@@ -282,18 +322,25 @@ impl KeyBindings {
     /// A hand-edited or corrupted `settings.json` can contain an empty name, a
     /// reserved key or two actions sharing one key. Each bad entry falls back
     /// to its default independently, in a fixed order, so loading is
-    /// deterministic and a valid file is never altered.
+    /// deterministic and a valid file is never altered. When an action's
+    /// default is itself already taken — an old file that customized `jump` to
+    /// `E` before Interact existed, for example — the action is left unbound
+    /// rather than overwriting the existing binding or leaving a duplicate the
+    /// input lookup would silently shadow; the player can rebind it in
+    /// Controls.
     pub fn sanitize(&mut self) {
         let defaults = Self::default();
         let mut used: Vec<String> = Vec::new();
         for action in Self::ACTIONS {
             let current = self.get_key(action).map_or("", str::trim);
             let fallback = defaults.get_key(action).unwrap_or("");
-            let key = if current.is_empty()
-                || is_reserved_key(current)
-                || used.iter().any(|seen| seen == &current.to_uppercase())
-            {
-                fallback.to_string()
+            let taken = |key: &str| used.iter().any(|seen| seen == &key.to_uppercase());
+            let key = if current.is_empty() || is_reserved_key(current) || taken(current) {
+                if taken(fallback) {
+                    String::new()
+                } else {
+                    fallback.to_string()
+                }
             } else {
                 current.to_uppercase()
             };

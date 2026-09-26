@@ -1,7 +1,21 @@
-use glam::Vec2;
+use glam::{Vec2, Vec3};
 
 pub const PLAYER_RADIUS: f32 = 0.30;
 pub const PLAYER_HEIGHT: f32 = 1.8;
+
+/// Crouched body height: exactly half the standing height.
+///
+/// The crouch stance shrinks the collision cylinder to this height and its eye
+/// offset proportionally (see `game::CROUCH_EYE_HEIGHT`), so a crouched player
+/// can pass under geometry a standing player cannot.
+pub const CROUCH_HEIGHT: f32 = PLAYER_HEIGHT * 0.5;
+
+/// How far a box's face must overlap the body before it counts as blocking.
+///
+/// A box whose underside is exactly at head height is the ceiling the player
+/// was just clamped under, not a wall to push against; the tolerance keeps the
+/// vertical clamp and the horizontal band from fighting at the contact plane.
+pub const CONTACT_EPS: f32 = 1e-4;
 
 /// Largest vertical discontinuity the player walks up or down without
 /// stopping, in metres.
@@ -103,6 +117,164 @@ impl WallAabb {
     pub fn intersects_player_y(&self, foot_y: f32) -> bool {
         self.max_y > foot_y + self.step_up + STEP_EPS && self.min_y < foot_y + PLAYER_HEIGHT
     }
+
+    /// The stance-aware blocking rule: true when a body whose feet stand at
+    /// `foot_y` with height `body_height` overlaps this box.
+    ///
+    /// Identical to [`Self::intersects_player_y`] except for the body height, so
+    /// a crouched player passes under a header a standing player hits. A box
+    /// whose underside sits exactly at the head does not block: the vertical
+    /// pass clamps the head to that plane, and re-reading it as a wall would
+    /// push the player sideways out of the opening.
+    #[must_use]
+    pub fn blocks_body(&self, foot_y: f32, body_height: f32) -> bool {
+        self.max_y > foot_y + self.step_up + STEP_EPS
+            && self.min_y + CONTACT_EPS < foot_y + body_height
+    }
+
+    /// True when the horizontal disc of radius `radius` centred at `(x, z)`
+    /// touches this box's footprint.
+    #[must_use]
+    pub fn overlaps_disc(&self, x: f32, z: f32, radius: f32) -> bool {
+        let closest_x = x.clamp(self.min_x, self.max_x);
+        let closest_z = z.clamp(self.min_z, self.max_z);
+        let dx = x - closest_x;
+        let dz = z - closest_z;
+        dx.mul_add(dx, dz * dz) < radius * radius
+    }
+
+    /// True when the point `(x, z)` lies over this box's footprint.
+    ///
+    /// Standing on a box top requires the centre of mass over it, not merely
+    /// the disc touching: a player falling past a 9 cm ledge lip must fall,
+    /// and a player who has walked half off a prop must fall too.
+    #[must_use]
+    pub fn supports_center(&self, x: f32, z: f32) -> bool {
+        x >= self.min_x && x <= self.max_x && z >= self.min_z && z <= self.max_z
+    }
+}
+
+/// The highest walkable top under `(x, z)`: a box whose footprint contains the
+/// centre and whose top is not above `max_top`.
+///
+/// This is the extra support the vertical pass lands on, alongside the level's
+/// walkable floor, and is what makes a solid prop or a wall top landable. The
+/// centre containment keeps a thin ledge lip from catching a falling player.
+#[must_use]
+pub fn highest_support_top(x: f32, z: f32, max_top: f32, walls: &[WallAabb]) -> Option<f32> {
+    let mut highest: Option<f32> = None;
+    for wall in walls {
+        if !wall.supports_center(x, z) || wall.max_y > max_top + STEP_EPS {
+            continue;
+        }
+        highest = Some(highest.map_or(wall.max_y, |top| top.max(wall.max_y)));
+    }
+    highest
+}
+
+/// The lowest box underside above `above_y` whose footprint touches the disc
+/// `(x, z, radius)`.
+///
+/// This is head collision against frames, headers and prop undersides; the room
+/// ceiling is added by the caller. A box that starts at or below the feet is
+/// the surface being stood next to, not an overhead.
+#[must_use]
+pub fn lowest_underside(
+    x: f32,
+    z: f32,
+    radius: f32,
+    above_y: f32,
+    walls: &[WallAabb],
+) -> Option<f32> {
+    let mut lowest: Option<f32> = None;
+    for wall in walls {
+        if !wall.overlaps_disc(x, z, radius) || wall.min_y <= above_y + STEP_EPS {
+            continue;
+        }
+        lowest = Some(lowest.map_or(wall.min_y, |bottom| bottom.min(wall.min_y)));
+    }
+    lowest
+}
+
+/// One axis of the slab test: the ray's `[t_enter, t_exit]` span on `[lo, hi]`.
+///
+/// A direction component within [`f32::EPSILON`] of zero is treated as
+/// parallel: the ray can only intersect when its origin already lies inside the
+/// slab, which the caller expresses as an infinite span. Non-finite origins and
+/// directions are rejected by the public entry points before this runs.
+fn slab_axis(o: f32, d: f32, lo: f32, hi: f32) -> Option<(f32, f32)> {
+    if d.abs() <= f32::EPSILON {
+        return (o >= lo && o <= hi).then_some((f32::NEG_INFINITY, f32::INFINITY));
+    }
+    let inv = 1.0 / d;
+    let a = (lo - o) * inv;
+    let b = (hi - o) * inv;
+    Some(if a <= b { (a, b) } else { (b, a) })
+}
+
+/// Entry distance of a ray into an axis-aligned box, or `None` when it misses.
+///
+/// The ray is `origin + t * direction` with `t >= 0`; the returned `t` is the
+/// first intersection with `[min, max]`, and `0.0` when the origin is already
+/// inside. Non-finite inputs miss. This is the shared primitive behind
+/// interaction targeting, its occlusion test and the swept area-trigger test.
+#[must_use]
+pub fn ray_aabb_entry(origin: Vec3, direction: Vec3, min: [f32; 3], max: [f32; 3]) -> Option<f32> {
+    if !origin.is_finite() || !direction.is_finite() {
+        return None;
+    }
+    let [min_x, min_y, min_z] = min;
+    let [max_x, max_y, max_z] = max;
+    let mut t_enter = 0.0_f32;
+    let mut t_exit = f32::INFINITY;
+    for (o, d, lo, hi) in [
+        (origin.x, direction.x, min_x, max_x),
+        (origin.y, direction.y, min_y, max_y),
+        (origin.z, direction.z, min_z, max_z),
+    ] {
+        let (near, far) = slab_axis(o, d, lo, hi)?;
+        t_enter = t_enter.max(near);
+        t_exit = t_exit.min(far);
+        if t_enter > t_exit {
+            return None;
+        }
+    }
+    Some(t_enter)
+}
+
+/// True when the swept segment `from -> to` touches the axis-aligned box.
+///
+/// This is the crossing test for area triggers: a player falling fast can move
+/// several metres in one frame, so testing only the endpoint against a thin
+/// volume would skip a real crossing. A degenerate segment is a point test.
+#[must_use]
+pub fn segment_overlaps_aabb(from: Vec3, to: Vec3, min: [f32; 3], max: [f32; 3]) -> bool {
+    // Vec3 subtraction is component-wise bounded float arithmetic; the lint
+    // cannot see that through the operator impl.
+    #[allow(clippy::arithmetic_side_effects)]
+    let delta = to - from;
+    if !delta.is_finite() {
+        return false;
+    }
+    ray_aabb_entry(from, delta, min, max).is_some_and(|t| t <= 1.0)
+}
+
+/// Resolves horizontal collision for a body of the given height.
+///
+/// See [`resolve_player_collision`]; this is the stance-aware entry point the
+/// controller uses so a crouched body passes under geometry a standing one
+/// cannot.
+#[must_use]
+pub fn resolve_player_collision_for_body(
+    pos: Vec2,
+    radius: f32,
+    foot_y: f32,
+    body_height: f32,
+    walls: &[WallAabb],
+) -> Vec2 {
+    resolve_with_band(pos, radius, walls, |wall| {
+        wall.blocks_body(foot_y, body_height)
+    })
 }
 
 /// Resolves collision between player horizontal position and wall bounding boxes.
@@ -113,16 +285,21 @@ impl WallAabb {
 /// are considered, which is what keeps collision on an elevated floor working
 /// exactly like collision on the global floor.
 #[must_use]
-pub fn resolve_player_collision(
+pub fn resolve_player_collision(pos: Vec2, radius: f32, foot_y: f32, walls: &[WallAabb]) -> Vec2 {
+    resolve_player_collision_for_body(pos, radius, foot_y, PLAYER_HEIGHT, walls)
+}
+
+/// The shared depenetration loop behind both public resolvers.
+fn resolve_with_band(
     mut pos: Vec2,
     radius: f32,
-    foot_y: f32,
     walls: &[WallAabb],
+    blocks: impl Fn(&WallAabb) -> bool,
 ) -> Vec2 {
     for _ in 0..4 {
         let mut collided = false;
         for wall in walls {
-            if !wall.intersects_player_y(foot_y) {
+            if !blocks(wall) {
                 continue;
             }
             let closest_x = pos.x.clamp(wall.min_x, wall.max_x);

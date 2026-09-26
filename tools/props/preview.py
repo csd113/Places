@@ -7,8 +7,7 @@ prop's own texture and baked vertex colours, using the same unlit
 ``texture * vertex colour`` model the game's world shader uses plus a neutral
 ground plane, so what you see here is close to what the renderer draws.
 
-Nothing produced by this script is a runtime asset (thumbnails for the level
-editor's prop browser are the one deliberate exception).
+Nothing produced by this script is a runtime asset.
 
 Usage (from the Places repository root)::
 
@@ -114,7 +113,7 @@ def make_camera(low, high, width: int, height: int, direction=(0.85, 0.62, 1.0),
     forward = tuple(center[i] - origin[i] for i in range(3))
     length = math.sqrt(sum(value * value for value in forward))
     forward = tuple(value / length for value in forward)
-    right = (forward[2], 0.0, -forward[0])
+    right = (-forward[2], 0.0, forward[0])
     right_length = math.sqrt(sum(value * value for value in right)) or 1.0
     right = tuple(value / right_length for value in right)
     up = (
@@ -122,7 +121,6 @@ def make_camera(low, high, width: int, height: int, direction=(0.85, 0.62, 1.0),
         right[2] * forward[0] - right[0] * forward[2],
         right[0] * forward[1] - right[1] * forward[0],
     )
-    up = tuple(-value for value in up)
     focal = (height * 0.5) / math.tan(math.radians(fov_degrees) * 0.5)
     return {
         "origin": origin,
@@ -280,33 +278,11 @@ def catalog_order() -> List[str]:
     return [entry["id"] for entry in _placeable_entries(catalog)]
 
 
-def render_thumbnails(ids: Sequence[str], out_dir: str, size: int = 64) -> None:
-    """Small prop-browser thumbnails for the level editor (the only shipped previews)."""
-    os.makedirs(out_dir, exist_ok=True)
-    models = catalogue_models()
-    for prop_id in ids:
-        path = models.get(prop_id)
-        if not path or not os.path.exists(path):
-            continue
-        pixels = render_prop_file(path, size, size, direction=(0.9, 0.5, 1.0), ground=False)
-        # Transparent background so the browser can show its own swatch colour.
-        cleaned = bytearray(pixels)
-        for index in range(size * size):
-            offset = index * 4
-            r, g, b = cleaned[offset], cleaned[offset + 1], cleaned[offset + 2]
-            if abs(r - 26) < 4 and abs(g - 27) < 4 and abs(b - 30) < 5:
-                cleaned[offset + 3] = 0
-        filename = prop_id.split(":")[-1] + ".png"
-        with open(os.path.join(out_dir, filename), "wb") as handle:
-            handle.write(write_png(size, size, bytes(cleaned)))
-
-
 def main(argv: List[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--only", nargs="*", default=None, help="prop ids to render")
     parser.add_argument("--all", action="store_true", help="render every catalogue prop")
     parser.add_argument("--sheet", action="store_true", help="write contact sheets instead of single files")
-    parser.add_argument("--thumbs", action="store_true", help="write 64x64 level-editor thumbnails")
     parser.add_argument("--out", default=os.path.join(APP_ROOT, "target", "prop-previews"))
     parser.add_argument("--width", type=int, default=240)
     parser.add_argument("--height", type=int, default=180)
@@ -324,8 +300,6 @@ def main(argv: List[str] | None = None) -> int:
         return 1
 
     os.makedirs(args.out, exist_ok=True)
-    if args.thumbs:
-        render_thumbnails(ids, os.path.join(APP_ROOT, "level-editor", "assets", "thumbs"))
 
     cells: List[tuple[int, int, bytes]] = []
     for prop_id in ids:

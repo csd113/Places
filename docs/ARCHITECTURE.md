@@ -93,12 +93,14 @@ where the bytes live:
 | Path | Purpose |
 |---|---|
 | `src/assets.rs` | The catalog: logical ids, classes, themes, resource paths, size policy |
-| `src/level.rs` | The level format, geometry rules and the walkable floor |
+| `src/level.rs` | The level format, geometry rules, the walkable floor, water volumes and ladders |
 | `src/loader.rs` | Level discovery, validation, level packs, material resolution |
 | `src/lighting/` | The CPU bake: partition areas, baselines, fixture pools, visibility |
 | `src/materials/` | PNG decode, session texture cache, material and decal resolution |
 | `src/spatial/` | The spatial cell grid the batching and collision share |
-| `src/game/`, `src/game.rs` | Player state, movement and collision |
+| `src/geometry_check.rs` | The read-only map geometry checker CLI (`--check-geometry`) and its fixture suite |
+| `src/game/`, `src/game.rs` | Player state, movement, stance, ladders, swimming, area triggers and the action dispatcher |
+| `src/interact.rs` | Interaction targeting (ray/reach/occlusion), placed-instance bounds and the world-anchored label/prompt emission |
 | `src/ui.rs` | The menu, level select and settings screens |
 | `assets/catalog.json` | The authoritative registry mapping every logical id to a file, material or generated resource |
 | `assets/environment/**`, `assets/core/**`, `assets/entities/**` | Shipped surfaces, decals, fixture faces, props and entity models (PNG/GLB) |
@@ -140,6 +142,94 @@ repository sources:
   `EmissionAnimation`.
 
 None of these contains a GPU handle; none is constructed by the backend.
+
+### Interaction identity and action contracts
+
+Run 02's interaction layer is engine data plus one dispatcher; the renderer only
+receives text vertices.
+
+- **Identity is per placed instance, never per model.** `LevelDef::prop_instance_ids`
+  resolves each prop's `id` (authored, else deterministic `<model-short>_<n>`;
+  fixtures and triggers have their own defaulted ids). All run state is keyed by
+  that instance id or by placed-instance index — never by `model`, catalog id or
+  filename. Two placements of one model are two independent instances.
+- **`interact::Interactables`** is resolved once per level load from
+  `LevelDef` + `LevelSurfaces`: every prop with a non-empty `interaction` (an
+  aimable `Interactable { id, display_name, prompt, reach, anchor, bounds,
+  own_box, actions }`) plus every prop named as an explicit `toggle_label`
+  target (a label-only instance with empty `actions`, never aimable). The
+  target set and the aimable set therefore resolve identically at validation
+  time and at runtime.
+  `anchor`/`bounds` come from the same `PropDef::resolved_size` contract as
+  collision (the authored `size` or `[0.6, 0.9, 0.6]`, scaled).
+- **`Game` is the dispatcher.** `Game::interaction_target()` resolves the aimed
+  instance (stance-aware eye, per-instance reach, collision-world occlusion);
+  `Game::take_interact_press()` consumes the latched key edge;
+  `Game::dispatch_interaction()` runs the target's batch and returns a
+  `DispatchReport`; `Game::dispatch_actions(&[ActionDef], actor)` is the single
+  entry point both interactions and triggers call. `ActionDef` is the closed,
+  typed action set: `ToggleLabel { target }`, `ResetToStart`,
+  `PlayAnimation { target, clip }`, `PlayAudio { target, sound }`. Dispatch is
+  bounded (`MAX_ACTIONS_PER_SOURCE`) and a `ResetToStart` ends its batch.
+- **Label state** is a per-interactable `Vec<bool>` in `Game`
+  (`is_label_visible(index)`); it is cleared by a level load and preserved by
+  `reset_to_spawn`.
+- **`reset_to_start`** is `Game::reset_to_spawn`: authored spawn and yaw, level
+  pitch, zeroed velocity/accumulator, cleared water/ladder/stance state,
+  held-key latches suppressed until release, and every trigger re-seeded from the
+  new position.
+- **`AreaTriggers`** resolves the map's `area_triggers[]` into id'd boxes;
+  `Game::update_triggers(from_feet)` runs enter semantics with a swept segment,
+  cooldown, `once`, at most one batch per frame, and a pending flag so a later
+  trigger crossed in the same frame is deferred instead of lost.
+- **Presentation** is `interact::append_world_labels(vertices, game, camera,
+  drawable)`: world anchors projected into the 480x272 reference space and drawn
+  with the existing `ui::draw_text`/`render_ui` pipeline. Labels respect
+  occlusion through `collision::ray_aabb_entry`; there is no second text
+  renderer.
+
+**Animation, routes and live anchors (runs 03–04).** `play_animation` is
+implemented. The contract is:
+
+- **Cues.** `entity::PoseCue` is the one pose vocabulary: `Idle`,
+  `Walk { speed_mps }` and `Clip { name, once, paused }`. It lives on the
+  gameplay side, and `render::common::character` re-exports it, so `game` and
+  `render` share it without a dependency cycle. `CharacterAnimator::update_cued`
+  crossfades cues from the current pose over `BLEND_TIME_CONSTANT_S`; a one-shot
+  cue holds its last key.
+- **Clip metadata.** A GLB may carry `asset.extras.places_entity_clips` with a
+  `clips` array (`name`, `loop`, `reference_speed_mps`, `kind`). The importer
+  applies it per clip (`PropAnimation::{looped, reference_speed_mps, kind}`).
+  `PoseCue::Walk` picks `run` when the rig has one and the requested speed is at
+  least 1.5× the walk clip's reference speed, then plays the chosen clip at
+  `speed / its_reference_speed`, so a route speed and the authored stride agree
+  and the feet do not slide. Missing metadata falls back to
+  `WALK_REFERENCE_SPEED_MPS` / `RUN_REFERENCE_SPEED_MPS`.
+- **Routes.** `level::EntityRouteDef` (`id`, `loop`, `steps[]` of
+  `move_to`/`face`/`wait`/`play`) resolves into `entity::EntityRoutes`
+  (`CollisionWorld::routes`, built by `CollisionWorld::from_level`).
+  `Game` owns the parallel `Vec<RouteState>`; `Game::update_entities` advances
+  every route in fixed 1/60 s substeps against the same `walls`/`floor` the
+  player uses, refusing steps taller than `ENTITY_STEP_HEIGHT_M` and stalling
+  (once-reported) on a wall or a void instead of tunnelling. `Game::entity_frames()`
+  publishes one `EntityFrame { instance_id, Option<(position, yaw)>, cue }` per
+  moving/addressed entity; `App` passes it to
+  `Renderer::update_characters(delta, locomotion, frames)` and
+  `CharacterScene::update` matches frames to characters by instance id. A
+  character with no frame keeps following the player's locomotion snapshot.
+- **Per-instance selection.** `Game::dispatch_actions` `PlayAnimation` sets a
+  per-instance override cue (one-shot by default, `loop: true` to cycle) that
+  wins over that route's own cue until another override or a reset replaces it.
+- **Live anchors.** `Game::sync_routed_interactables` republishes every routed
+  entity's `Interactable.anchor`/`bounds` from the authored rest values plus the
+  spawn-relative offset, so aiming and floating labels follow a moving entity
+  with no parallel identity and no accumulated drift.
+- **Reset.** `reset_to_spawn` re-seeds every route at its authored spawn and
+  clears overrides, so a reset is coherent for the whole level.
+
+The earlier extension note stands for audio only: `play_audio` parses and
+validates-*fail*, and `DispatchReport.unsupported` is the runtime safety net for
+programmatic calls.
 
 `src/settings.rs` owns the persisted player configuration and the runtime
 settings model. Overall Quality (Low / Medium / High) is the preset for the
@@ -291,8 +381,7 @@ sdl3::set_app_metadata(
 ```
 
 before `sdl3::init()`. The identifier `io.github.csd113.places` is the desktop
-bundle and X11 app id. Environment switches use the `PLACES_*` prefix, and the
-browser editor's globals and storage keys use `places.*`. Telemetry is generic
+bundle and X11 app id. Environment switches use the `PLACES_*` prefix. Telemetry is generic
 and portable: there are no device-specific GPU probes; the remaining readings
 are Linux devfreq/DRM and macOS CPU counters.
 

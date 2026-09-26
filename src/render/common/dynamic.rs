@@ -65,7 +65,7 @@ use glam::{Mat4, Quat, Vec3};
 
 use super::mesh::LIGHTMAP_NONE;
 use super::{LevelDef, Vertex};
-use crate::level::LevelSurfaces;
+use crate::level::{LevelSurfaces, WaterVolumes};
 use crate::lighting::LevelLighting;
 use crate::materials::MaterialEmission;
 use crate::props::{LoadedPropAsset, PropAssets};
@@ -319,6 +319,51 @@ pub struct DynamicObject {
     light_scale: [f32; 3],
     probe_position: [f32; 3],
     probe_valid: bool,
+    /// Authored water-driven motion, for a floating prop. `None` for an
+    /// ordinary spinning object.
+    float: Option<FloatMotion>,
+}
+
+/// One floating object's authored motion, resolved from the level once.
+///
+/// The motion has no horizontal freedom: the object stays at its authored
+/// `(x, z)` and its height is a pure function of the water surface, the
+/// authored draft and the bob phase, so per-frame integration can never drift.
+/// Validation proves the swept footprint stays inside the water volume.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FloatMotion {
+    /// Authored world X/Z the object floats at.
+    anchor: Vec3,
+    /// Fallback height when no water is found under the anchor.
+    dry_y: f32,
+    draft: f32,
+    bob_amplitude: f32,
+    /// Bob angular rate, radians per second.
+    bob_rate: f32,
+    heel_amplitude: f32,
+    /// Heel angular rate, radians per second.
+    heel_rate: f32,
+    /// Phase offset, radians.
+    phase: f32,
+}
+
+impl FloatMotion {
+    /// The object's translation at `seconds`: the water surface under the
+    /// anchor (or the dry fallback), minus the draft, plus the bob.
+    #[must_use]
+    fn translation_at(&self, seconds: f32, water: &WaterVolumes) -> Vec3 {
+        let bob = self.bob_amplitude * (seconds.mul_add(self.bob_rate, self.phase)).sin();
+        let surface = water
+            .surface_y_at(self.anchor.x, self.anchor.z)
+            .unwrap_or(self.dry_y);
+        Vec3::new(self.anchor.x, surface - self.draft + bob, self.anchor.z)
+    }
+
+    /// The object's heel angle at `seconds`, in degrees about its local Z.
+    #[must_use]
+    fn heel_at(&self, seconds: f32) -> f32 {
+        self.heel_amplitude * (seconds.mul_add(self.heel_rate, self.phase)).sin()
+    }
 }
 
 impl DynamicObject {
@@ -412,6 +457,12 @@ impl DynamicObject {
         self.emission.unwrap_or(submesh.emission)
     }
 
+    /// The authored float motion, or `None` for an ordinary dynamic object.
+    #[must_use]
+    pub const fn float(&self) -> Option<&FloatMotion> {
+        self.float.as_ref()
+    }
+
     /// The cached baked-light probe.
     #[must_use]
     pub const fn light_scale(&self) -> [f32; 3] {
@@ -467,6 +518,9 @@ pub struct DynamicScene {
     /// registration). The renderer compares it to decide when to re-upload.
     revision: u64,
     next_id: u32,
+    /// The water volumes floating props ride, resolved once when they spawn.
+    /// Empty for a scene with no floats.
+    water: WaterVolumes,
 }
 
 impl DynamicScene {
@@ -553,7 +607,133 @@ impl DynamicScene {
         self.objects.clear();
         self.meshes.clear();
         self.mesh_index_by_path.clear();
+        self.water = WaterVolumes::new();
         self.bump();
+    }
+
+    /// Number of live floating objects.
+    #[must_use]
+    pub fn float_count(&self) -> usize {
+        self.objects
+            .iter()
+            .filter(|object| object.float.is_some())
+            .count()
+    }
+
+    /// Removes every floating object, keeping ordinary dynamic objects.
+    ///
+    /// Spawning floats is idempotent: a re-run clears the previous set first,
+    /// so a level reload or a demonstration respawn cannot duplicate them.
+    pub fn clear_floats(&mut self) {
+        let before = self.objects.len();
+        self.objects.retain(|object| object.float.is_none());
+        self.water = WaterVolumes::new();
+        if self.objects.len() != before {
+            self.bump();
+        }
+    }
+
+    /// Spawns one floating object per placed prop that authors `float`.
+    ///
+    /// The model resolves through the shared [`PropAssets`] cache, so a duck
+    /// model is decoded once for every placement. A prop whose model cannot
+    /// resolve is reported once and skipped, exactly like the static path's
+    /// fallback; validation makes that unreachable for a shipped level.
+    /// Returns the number of floats spawned.
+    pub fn spawn_floating_props(
+        &mut self,
+        level: &LevelDef,
+        catalog: &crate::loader::PropCatalog,
+        assets: &mut PropAssets,
+    ) -> usize {
+        let water = WaterVolumes::from_level(level);
+        let surfaces = LevelSurfaces::new(level);
+        let mut spawned = 0usize;
+        for (index, prop) in level.props.iter().enumerate() {
+            let Some(float) = prop.float.as_ref() else {
+                continue;
+            };
+            if !prop.x.is_finite() || !prop.y.is_finite() || !prop.z.is_finite() {
+                continue;
+            }
+            let Some(model_path) = catalog
+                .get(&prop.model)
+                .model
+                .filter(|path| !path.is_empty())
+            else {
+                continue;
+            };
+            let asset = match assets.resolve(&model_path) {
+                Ok(asset) => asset,
+                Err(error) => {
+                    assets.report_failure(&model_path, &error);
+                    continue;
+                }
+            };
+            let dry_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0) + prop.y;
+            let phase = float.phase.map_or_else(
+                || {
+                    // Deterministic per-placement phase: consecutive floats
+                    // land on different points of the cycle with no random
+                    // source and no cross-instance state.
+                    let seed = u16::try_from(index).unwrap_or(u16::MAX);
+                    (f32::from(seed) * 0.618_034_f32).fract() * std::f32::consts::TAU
+                },
+                |authored| authored * std::f32::consts::TAU,
+            );
+            let motion = FloatMotion {
+                anchor: Vec3::new(prop.x, 0.0, prop.z),
+                dry_y,
+                draft: float.draft,
+                bob_amplitude: float.bob,
+                bob_rate: std::f32::consts::TAU / float.bob_seconds,
+                heel_amplitude: float.heel_degrees,
+                heel_rate: std::f32::consts::TAU / float.heel_seconds,
+                phase,
+            };
+            if self
+                .spawn_floating(&asset, motion, &water, prop.rotation_degrees, prop.scale)
+                .is_some()
+            {
+                spawned = spawned.saturating_add(1);
+            }
+        }
+        if spawned > 0 {
+            self.water = water;
+        }
+        spawned
+    }
+
+    /// Advances every floating object to `seconds` on its authored cycle.
+    ///
+    /// `seconds` is an absolute animation clock, not a per-frame delta: the
+    /// pose is a pure function of time, so the motion cannot drift, cannot
+    /// accumulate error and is identical at any frame rate. Returns how many
+    /// objects moved.
+    pub fn update_floats(&mut self, seconds: f32) -> usize {
+        if self.water.is_empty() {
+            return 0;
+        }
+        let seconds = if seconds.is_finite() { seconds } else { 0.0 };
+        let water = self.water.clone();
+        let mut moved = 0usize;
+        for object in &mut self.objects {
+            let Some(float) = object.float else {
+                continue;
+            };
+            let translation = float.translation_at(seconds, &water);
+            let heel = float.heel_at(seconds);
+            let changed = (object.translation.x - translation.x).abs() > f32::EPSILON
+                || (object.translation.y - translation.y).abs() > f32::EPSILON
+                || (object.translation.z - translation.z).abs() > f32::EPSILON
+                || (object.spin_degrees - heel).abs() > f32::EPSILON;
+            object.translation = translation;
+            object.spin_degrees = heel;
+            if changed {
+                moved = moved.saturating_add(1);
+            }
+        }
+        moved
     }
 
     const fn bump(&mut self) {
@@ -663,8 +843,43 @@ impl DynamicScene {
             light_scale: [1.0; 3],
             probe_position: [f32::NAN; 3],
             probe_valid: false,
+            float: None,
         });
         self.bump();
+        Some(id)
+    }
+
+    /// Spawns one floating prop at its water surface.
+    ///
+    /// The object is a normal dynamic object (shared mesh, transform-only
+    /// updates) with a [`FloatMotion`]: `base_rotation` aims the model by its
+    /// authored yaw, the spin axis is the model's local Z (its forward axis),
+    /// and the spin angle is the authored heel. Returns the handle, or `None`
+    /// when the scene is full or the model has nothing drawable.
+    #[must_use]
+    pub fn spawn_floating(
+        &mut self,
+        asset: &Rc<LoadedPropAsset>,
+        motion: FloatMotion,
+        water: &WaterVolumes,
+        yaw_degrees: f32,
+        scale: f32,
+    ) -> Option<DynamicId> {
+        let translation = motion.translation_at(0.0, water);
+        let id = self.spawn_oriented(
+            asset,
+            [translation.x, translation.y, translation.z],
+            SpawnOrientation {
+                base_rotation: Quat::from_rotation_y(yaw_degrees.to_radians()),
+                spin_axis: [0.0, 0.0, 1.0],
+            },
+            motion.heel_at(0.0),
+            scale,
+            0.0,
+        )?;
+        if let Some(object) = self.objects.iter_mut().find(|object| object.id == id) {
+            object.float = Some(motion);
+        }
         Some(id)
     }
 
@@ -780,7 +995,7 @@ impl DynamicScene {
     /// porthole centre, its mouth is recessed behind the front panel so it
     /// never protrudes, and its scale keeps the basket just inside the
     /// opening. Moving or turning the machine moves the drum with no
-    /// level-schema change and no editor work. Returns how many objects were
+    /// level-schema change. Returns how many objects were
     /// spawned.
     pub fn spawn_washer_drum_demo(
         &mut self,
@@ -1591,5 +1806,237 @@ mod tests {
         assert_eq!(lighting.summary().blockers, blockers);
         assert_eq!(level.props.len(), 1);
         assert_eq!(scene.draw_count(), 1);
+    }
+
+    /// The Run 05 duck pool as a standalone level: a room whose floor is the basin
+    /// bottom, the demo pool's water (8..20 x 10..16 at -1.65 m) and one duck with
+    /// the demo duck's authored float block. The duck is placement 0, so its
+    /// default golden-ratio phase is exactly zero.
+    fn duck_level() -> LevelDef {
+        level_from(
+            r#"{
+            "format_version": 1,
+            "id": "float_test",
+            "name": "Float Test",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 24.0, "depth": 24.0,
+                         "height": 3.5, "floor_y": -3.0 } ],
+            "water": [ { "x": 8.0, "z": 10.0, "width": 12.0, "depth": 6.0,
+                         "surface_y": -1.65, "bottom_y": -3.0 } ],
+            "props": [
+                { "model": "core:rubber_duck", "x": 10.5, "z": 10.4,
+                  "rotation_degrees": 180.0, "size": [0.10, 0.12, 0.14],
+                  "solid": false,
+                  "float": { "draft": 0.03, "bob": 0.012, "bob_seconds": 2.4,
+                             "heel_degrees": 3.0, "heel_seconds": 3.1 } }
+            ]
+        }"#,
+        )
+    }
+
+    /// One placed float spawns exactly one dynamic object at the water surface: at
+    /// t = 0 the duck sits at `surface - draft` (placement 0's default phase is
+    /// exactly zero), spins about its local Z, and keeps the authored yaw as its
+    /// base rotation.
+    #[test]
+    fn a_floating_duck_spawns_at_the_water_surface_at_rest() {
+        let level = duck_level();
+        let (catalog, mut assets) = washers();
+        let mut scene = DynamicScene::new();
+        assert_eq!(scene.spawn_floating_props(&level, &catalog, &mut assets), 1);
+        assert_eq!(scene.len(), 1);
+        assert_eq!(scene.float_count(), 1);
+
+        let duck = scene.objects().first().expect("the duck spawned");
+        // -1.65 f32 - 0.03 f32 rounds exactly to the -1.68 literal, and the zero
+        // phase makes the bob exactly zero at t = 0.
+        assert_eq!(duck.translation(), [10.5, -1.68, 10.4]);
+        assert!(duck.float().is_some(), "the object carries float motion");
+        assert_eq!(duck.spin_axis(), [0.0, 0.0, 1.0]);
+        assert_eq!(
+            duck.base_rotation(),
+            Quat::from_rotation_y(180.0_f32.to_radians())
+        );
+        assert_eq!(duck.spin_degrees(), 0.0);
+    }
+
+    /// Across a full authored cycle the duck's pose is bounded by its envelope: it
+    /// never drifts in x/z, its height stays within `surface - draft +/- bob`, its
+    /// spin stays within +/-heel, and its world bounds stay inside the basin.
+    #[test]
+    fn a_floating_ducks_pose_stays_inside_its_envelope_all_cycle() {
+        let level = duck_level();
+        let (catalog, mut assets) = washers();
+        let mut scene = DynamicScene::new();
+        assert_eq!(scene.spawn_floating_props(&level, &catalog, &mut assets), 1);
+        let id = scene.objects().first().expect("the duck spawned").id();
+        let water = WaterVolumes::from_level(&level);
+        let surface = water
+            .surface_y_at(10.5, 10.4)
+            .expect("the duck floats on water");
+        let rest_y = surface - 0.03;
+        let mut max_bob = 0.0_f32;
+        let mut max_heel = 0.0_f32;
+        // Ten samples per bob period across both periods (2.4 s and 3.1 s).
+        for step in 0..=620 {
+            let seconds = step as f32 * 0.01;
+            scene.update_floats(seconds);
+            let duck = scene.get(id).expect("the duck stays live");
+            let [x, y, z] = duck.translation();
+            assert_eq!(x, 10.5, "a float never drifts in x");
+            assert_eq!(z, 10.4, "a float never drifts in z");
+            let bob = (y - rest_y).abs();
+            assert!(bob <= 0.012 + 1e-6, "bob {bob} at {seconds} s");
+            let heel = duck.spin_degrees().abs();
+            assert!(heel <= 3.0 + 1e-6, "heel {heel} at {seconds} s");
+            max_bob = max_bob.max(bob);
+            max_heel = max_heel.max(heel);
+            // The whole swept hull stays inside the basin rectangle.
+            let bounds = duck.world_bounds();
+            assert!(
+                bounds.min[0] >= 8.0 && bounds.max[0] <= 20.0,
+                "x bounds leave the basin at {seconds} s: {bounds:?}"
+            );
+            assert!(
+                bounds.min[2] >= 10.0 && bounds.max[2] <= 16.0,
+                "z bounds leave the basin at {seconds} s: {bounds:?}"
+            );
+        }
+        // Both amplitudes are really exercised, not just bounded.
+        assert!(max_bob > 0.011, "the bob reaches its amplitude: {max_bob}");
+        assert!(max_heel > 2.9, "the heel reaches its amplitude: {max_heel}");
+    }
+
+    /// Two floats with different authored phases are at different heights at the
+    /// same instant: the motion is per instance, never one shared clock phase.
+    #[test]
+    fn two_floats_with_different_phases_bob_independently() {
+        let level = level_from(
+            r#"{
+            "format_version": 1,
+            "id": "two_ducks",
+            "name": "Two Ducks",
+            "spawn": { "x": 1.0, "z": 1.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 24.0, "depth": 24.0,
+                         "height": 3.5, "floor_y": -3.0 } ],
+            "water": [ { "x": 8.0, "z": 10.0, "width": 12.0, "depth": 6.0,
+                         "surface_y": -1.65, "bottom_y": -3.0 } ],
+            "props": [
+                { "id": "duck_rest", "model": "core:rubber_duck", "x": 10.5, "z": 10.4,
+                  "size": [0.10, 0.12, 0.14], "solid": false,
+                  "float": { "draft": 0.03, "bob": 0.012, "bob_seconds": 2.4,
+                             "heel_degrees": 3.0, "heel_seconds": 3.1, "phase": 0.0 } },
+                { "id": "duck_half", "model": "core:rubber_duck", "x": 12.0, "z": 12.0,
+                  "size": [0.10, 0.12, 0.14], "solid": false,
+                  "float": { "draft": 0.03, "bob": 0.012, "bob_seconds": 2.4,
+                             "heel_degrees": 3.0, "heel_seconds": 3.1, "phase": 0.5 } }
+            ]
+        }"#,
+        );
+        let (catalog, mut assets) = washers();
+        let mut scene = DynamicScene::new();
+        assert_eq!(scene.spawn_floating_props(&level, &catalog, &mut assets), 2);
+        assert_eq!(scene.float_count(), 2);
+
+        // A quarter of the bob period in: phase 0 is at its peak while phase 0.5 is
+        // at its trough, so the two can never report the same height.
+        scene.update_floats(0.6);
+        let first = scene
+            .objects()
+            .first()
+            .expect("the first duck")
+            .translation()[1];
+        let second = scene
+            .objects()
+            .get(1)
+            .expect("the second duck")
+            .translation()[1];
+        assert!(
+            (first - second).abs() > 0.02,
+            "phases must not move in lockstep: {first} vs {second}"
+        );
+    }
+
+    /// `spawn_floating_props` plus `clear_floats` is the reload path: a respawn
+    /// replaces the float set instead of stacking, and ordinary dynamic objects are
+    /// never touched.
+    #[test]
+    fn clearing_and_respawning_floats_is_idempotent() {
+        let level = duck_level();
+        let (catalog, mut assets) = washers();
+        let mut scene = DynamicScene::new();
+        assert_eq!(scene.spawn_floating_props(&level, &catalog, &mut assets), 1);
+
+        // Keep one ordinary dynamic object beside the duck: clearing floats must
+        // leave it alone.
+        let drum_path = catalog
+            .get(DEMO_DRUM_ID)
+            .model
+            .expect("the drum model path");
+        let drum_asset = assets.resolve(&drum_path).expect("the drum loads");
+        let drum = scene
+            .spawn(&drum_asset, [1.0, 0.5, 1.0], 0.0, 1.0, 0.0)
+            .expect("the ordinary object spawns");
+        assert_eq!(scene.len(), 2);
+        assert_eq!(scene.float_count(), 1);
+
+        scene.clear_floats();
+        assert_eq!(scene.float_count(), 0);
+        assert_eq!(scene.len(), 1, "the drum survives the float clear");
+        assert!(scene.get(drum).is_some());
+
+        assert_eq!(scene.spawn_floating_props(&level, &catalog, &mut assets), 1);
+        assert_eq!(scene.float_count(), 1, "the float count stays at one");
+        assert_eq!(scene.len(), 2);
+
+        // A second reload round is the same story: the count never grows.
+        scene.clear_floats();
+        assert_eq!(scene.spawn_floating_props(&level, &catalog, &mut assets), 1);
+        assert_eq!(scene.float_count(), 1);
+    }
+
+    /// A level with no `float` block spawns no floating objects, and updating an
+    /// empty float set is inert.
+    #[test]
+    fn a_level_without_floats_spawns_none() {
+        let level = demo_level();
+        let (catalog, mut assets) = washers();
+        let mut scene = DynamicScene::new();
+        assert_eq!(scene.spawn_floating_props(&level, &catalog, &mut assets), 0);
+        assert!(scene.is_empty());
+        assert_eq!(scene.float_count(), 0);
+        assert_eq!(scene.update_floats(1.0), 0);
+    }
+
+    /// A non-finite clock is read as zero, not as a freeze and never as NaN: the
+    /// float snaps back to its t = 0 pose and stays finite.
+    #[test]
+    fn a_non_finite_clock_is_read_as_zero() {
+        let level = duck_level();
+        let (catalog, mut assets) = washers();
+        let mut scene = DynamicScene::new();
+        assert_eq!(scene.spawn_floating_props(&level, &catalog, &mut assets), 1);
+        let id = scene.objects().first().expect("the duck spawned").id();
+
+        scene.update_floats(0.0);
+        let rest = scene.get(id).expect("the duck is live").translation();
+        let rest_heel = scene.get(id).expect("the duck is live").spin_degrees();
+
+        scene.update_floats(1.0);
+        assert_ne!(scene.get(id).expect("the duck is live").translation(), rest);
+
+        assert_eq!(scene.update_floats(f32::NAN), 1, "NaN reads as t = 0");
+        let duck = scene.get(id).expect("the duck is live");
+        assert_eq!(duck.translation(), rest);
+        assert_eq!(duck.spin_degrees(), rest_heel);
+        assert!(duck.translation().iter().all(|value| value.is_finite()));
+
+        scene.update_floats(1.0);
+        assert_eq!(
+            scene.update_floats(f32::INFINITY),
+            1,
+            "infinity reads as t = 0"
+        );
+        assert_eq!(scene.get(id).expect("the duck is live").translation(), rest);
     }
 }

@@ -1,0 +1,173 @@
+{
+  "format_version": 1,
+  "id": "geometry_intentional",
+  "name": "Curved Geometry and Intentional Openings",
+  "author": "Places",
+  "spawn": { "x": 2.0, "z": 6.0, "yaw_degrees": 0.0 },
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "rooms": [
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 10.0,
+      "depth": 12.0,
+      "height": 3.0,
+      "ceiling_tile_origin": [0.75, 0.25],
+      "ceiling_tile_rotation_degrees": 90.0
+    },
+    {
+      "x": 10.0,
+      "z": 0.0,
+      "width": 6.0,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:linoleum_polished_01"
+    },
+    {
+      "x": 10.0,
+      "z": 12.0,
+      "width": 6.0,
+      "depth": 2.0,
+      "height": 2.6,
+      "material": "core:carpet_damp_01"
+    }
+  ],
+  "walls": [
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 16.0,
+      "depth": 0.3,
+      "height": 3.0,
+      "material": "core:wallpaper_yellow_01",
+      "openings": [
+        { "kind": "window", "offset": 12.0, "width": 1.4, "height": 0.6, "sill": 1.6 }
+      ]
+    },
+    {
+      "x": 0.0,
+      "z": 11.7,
+      "width": 12.0,
+      "depth": 0.3,
+      "height": 3.0,
+      "material": "core:wallpaper_yellow_01"
+    },
+    { "x": 10.0, "z": 13.7, "width": 6.0, "depth": 0.3, "height": 2.6 },
+    { "x": 0.0, "z": 0.0, "width": 0.3, "depth": 12.0, "height": 3.0 },
+    {
+      "x": 15.7,
+      "z": 0.0,
+      "width": 0.3,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:wallpaper_yellow_01",
+      "openings": [
+        { "kind": "vent", "offset": 8.0, "width": 0.8, "height": 0.4, "sill": 2.3 }
+      ]
+    },
+    { "x": 15.7, "z": 12.0, "width": 0.3, "depth": 2.0, "height": 2.6 },
+    { "x": 10.0, "z": 12.0, "width": 0.3, "depth": 2.0, "height": 2.6 },
+    {
+      "x": 10.0,
+      "z": 0.0,
+      "width": 0.3,
+      "depth": 12.0,
+      "height": 3.0,
+      "material": "core:wallpaper_stained_01",
+      "openings": [
+        { "kind": "passage", "offset": 2.0, "width": 2.4, "height": 2.2, "sill": 0.0 }
+      ]
+    }
+  ],
+  "arc_walls": [
+    {
+      "x": 14.0,
+      "z": 4.0,
+      "radius": 1.0,
+      "thickness": 0.24,
+      "height": 2.2,
+      "start_degrees": 180.0,
+      "sweep_degrees": 180.0,
+      "segments": 16,
+      "material": "core:wallpaper_stained_01",
+      "inner_material": "core:pool_tile_wall_01",
+      "cap_material": "core:baseboard_office_01"
+    }
+  ],
+  "pillars": [
+    {
+      "x": 3.5,
+      "z": 8.5,
+      "radius": 0.4,
+      "segments": 24,
+      "height": 3.0,
+      "material": "core:pool_tile_wall_01",
+      "cap_material": "core:baseboard_office_01"
+    },
+    {
+      "x": 12.8,
+      "z": 8.5,
+      "radius": 0.25,
+      "segments": 12,
+      "height": 0.9,
+      "material": "core:metal_brushed_01"
+    },
+    {
+      "x": 8.0,
+      "z": 2.0,
+      "radius": 0.3,
+      "segments": 24,
+      "height": 2.4,
+      "material": "core:wallpaper_stained_01"
+    },
+    {
+      "x": 12.0,
+      "z": 11.0,
+      "radius": 0.5,
+      "segments": 24,
+      "height": 2.0,
+      "material": "core:linoleum_polished_01"
+    }
+  ],
+  "decals": [
+    {
+      "x": 12.4,
+      "y": 0.0,
+      "z": 3.2,
+      "width": 0.6,
+      "height": 0.6,
+      "material": "core:decal_ceiling_vent_01",
+      "surface": "ceiling",
+      "align": "ceiling_grid"
+    },
+    {
+      "x": 3.25,
+      "y": 0.0,
+      "z": 3.75,
+      "width": 0.6,
+      "height": 0.6,
+      "material": "core:decal_ceiling_vent_01",
+      "surface": "ceiling",
+      "align": "ceiling_grid"
+    }
+  ],
+  "ceiling_lights": [
+    { "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 6.0, "brightness": 0.6 },
+    { "fixture": "core:fluorescent_panel_01", "x": 13.0, "z": 6.0, "brightness": 0.6 },
+    { "fixture": "core:fluorescent_panel_01", "x": 13.0, "z": 13.0, "brightness": 0.4, "y": 2.5 }
+  ],
+  "geometry_intent": [
+    {
+      "check": "missing-wall",
+      "x": 11.8,
+      "z": 11.6,
+      "width": 4.4,
+      "depth": 0.8,
+      "note": "The bay opens into the main eastern room along a 4 m edge; the gap is the intended route between the two spaces, not a missing wall."
+    }
+  ]
+}

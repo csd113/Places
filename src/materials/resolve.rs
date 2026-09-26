@@ -318,6 +318,21 @@ fn push_architecture_materials(level: &LevelDef, push: &mut impl FnMut(&str)) {
     for piece in &level.columns {
         push_all([piece.material.as_ref(), piece.cap_material.as_ref(), None]);
     }
+    for piece in &level.arc_walls {
+        push_all([
+            piece.material.as_ref(),
+            piece.inner_material.as_ref(),
+            piece.outer_material.as_ref(),
+        ]);
+        push_all([
+            piece.cap_material.as_ref(),
+            piece.end_material.as_ref(),
+            None,
+        ]);
+    }
+    for piece in &level.pillars {
+        push_all([piece.material.as_ref(), piece.cap_material.as_ref(), None]);
+    }
     for piece in &level.archways {
         push_all([
             piece.material.as_ref(),

@@ -125,7 +125,7 @@ Settings is organized into three sections — **Graphics**, **Display** and
 **Controls** — reached from either the main menu or the pause menu, so the game
 can be reconfigured without leaving a level.
 
-Gameplay defaults (all nine movement bindings can be changed in Settings →
+Gameplay defaults (all eleven bindings can be changed in Settings →
 Controls; `Restore Defaults` puts them back):
 
 | Action | Key |
@@ -135,6 +135,8 @@ Controls; `Restore Defaults` puts them back):
 | Strafe left | `A` |
 | Strafe right | `D` |
 | Jump / swim up | `SPACE` |
+| Crouch (toggle) | `C` |
+| Interact (press once) | `E` |
 | Look up | `UP` |
 | Look down | `DOWN` |
 | Look left | `LEFT` |
@@ -394,24 +396,38 @@ Notable supported details:
   is walk-through whatever the kind is.
 * **Walls are not generated from rooms.** An unenclosed room shows the void
   through the gap, so shell every room you want to walk inside of.
-* **A walkable step is 0.4 m.** While grounded, a larger height difference is
-  solid from the lower side and cannot be walked off from the upper side; a
-  jump can clear it, and gravity takes over from there. A jump rises 0.75 m —
-  the top of the office desk — at every supported frame rate, and a fall lands
-  on the walkable floor rather than passing through it.
+* **A walkable step is 0.4 m.** While grounded, a larger rise is refused, but a
+  drop of any size is walked off and becomes a real fall: ledges, pool decks
+  and floor holes all lose support, and a jump can clear a step and gravity
+  takes over from there. A standing jump rises 0.85 m — the 0.75 m office desk
+  top plus 0.10 m of clearance — at every supported frame rate, and a fall
+  lands on the walkable floor or a solid prop top rather than passing through
+  it.
 * **Water is a level primitive.** A `water` volume is a rectangle with a
   surface height; the surface draws as a translucent member of the sorted
   blend pass, and the controller wades, swims and surfaces through the same
   rectangle the renderer draws. Holding Jump in deep water rises to the
   surface and holds there; releasing it sinks again.
+* **Ladders are a level primitive.** A `ladders` volume is the space the
+  climber moves through: a footprint, a bottom and top world Y and the yaw the
+  climber faces. Walking into the climbable face with movement intent attaches
+  the player (no key), holding forward climbs, releasing holds, backing away
+  or jumping detaches, and the climb tops out onto the real floor at `top_y`.
+  The visual rails are a prop; the ladder volume is what the controller uses.
+* **Crouching halves the body.** `C` toggles a 0.9 m stance with a 0.8 m eye
+  offset; the feet stay anchored, and standing up is refused when a ceiling,
+  frame or prop underside is in the way.
+* **Objects and volumes can act.** Props and entities opt into a map-authored
+  `interaction`; looking at one and pressing `E` (rebindable) runs a bounded,
+  typed action batch — `toggle_label` floats a display name over that placed
+  instance alone, and `reset_to_start` returns the player to the level's spawn.
+  `area_triggers[]` adds enter volumes with swept fast-fall detection, cooldowns
+  and `once`; the Pit's carpet holes use them. Every placed instance has a
+  stable id, so two copies of one model stay independent. Animation and audio
+  actions are reserved and rejected by validation until they exist.
 * **Ceilings** are flat by default; `{"kind": "gable", "ridge": "x",
   "ridge_rise": 2.0}` adds a pitched ceiling, and gable-end walls follow the
   slope unless they author their own height.
-
-The bundled editor under `level-editor/` is a browser tool that writes the same
-format. It predates the vertical-geometry keys and does not author, preview or
-preserve `floor_y`, `floor_regions`, `ceiling` or wall `y`/`mount`; saving such
-a level through it drops them, so edit those as JSON.
 
 ## Project structure
 
@@ -430,7 +446,6 @@ src/                 the game crate (`places`)
 assets/              the shipped content (catalog, levels, models, textures, decals)
 levels/              drop-in custom levels and level packs
 tools/               asset, texture, prop and level generators and validators
-level-editor/        the legacy browser level editor
 docs/                ARCHITECTURE.md, RENDERER.md, VERIFICATION.md and the guides
 docs/screenshots/    the images in this README
 docs/renderer-baseline/  frozen 25-view reference captures (Full and Low) and their record
@@ -531,7 +546,6 @@ Known limitations, all deliberate:
 * decals cannot cross a floor or ceiling height change, and a gable ceiling
   takes no decals;
 * rooms and walls are axis-aligned rectangles only;
-* the legacy level editor does not preserve the vertical-geometry keys;
 * the renderer draws the complete frame — the baked lightmap atlas (and the
   vertex-lit fallback), props, dynamics, fixtures, emission, decals, probes and
   the planar mirror, fog, bloom/post and the HUD — with the material surface

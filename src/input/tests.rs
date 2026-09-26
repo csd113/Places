@@ -2,13 +2,13 @@
 
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
-#![allow(clippy::doc_markdown)]
+#![allow(clippy::doc_markdown, clippy::expect_used)]
 
 use super::*;
 use crate::test_support::assert_exact;
 use sdl3::keyboard::Mod;
 
-const ALL_CONTROLS: [Control; 9] = [
+const ALL_CONTROLS: [Control; 11] = [
     Control::MoveForward,
     Control::MoveBackward,
     Control::StrafeLeft,
@@ -18,6 +18,8 @@ const ALL_CONTROLS: [Control; 9] = [
     Control::LookLeft,
     Control::LookRight,
     Control::Jump,
+    Control::Crouch,
+    Control::Interact,
 ];
 
 /// The first `KeyDown` SDL delivers for a key (OS auto-repeat comes later).
@@ -107,6 +109,24 @@ fn test_default_bindings_map_wasd_and_arrows() {
     assert_key_drives_only(Keycode::Up, Control::LookUp, &bindings);
     assert_key_drives_only(Keycode::Down, Control::LookDown, &bindings);
     assert_key_drives_only(Keycode::Space, Control::Jump, &bindings);
+    assert_key_drives_only(Keycode::C, Control::Crouch, &bindings);
+    assert_key_drives_only(Keycode::E, Control::Interact, &bindings);
+}
+
+/// `E` is a gameplay binding, not a menu key: it never navigates a menu and
+/// engages only Interact while held.
+#[test]
+fn e_is_a_gameplay_binding_not_a_menu_key() {
+    assert_eq!(
+        InputHandler::poll_menu_nav_event(&key_down(Keycode::E)),
+        None
+    );
+    let bindings = KeyBindings::default();
+    let mut handler = InputHandler::new();
+    handler.handle_gameplay_event(&key_down(Keycode::E), &bindings);
+    assert!(handler.state().is_held(Control::Interact));
+    handler.handle_gameplay_event(&key_up(Keycode::E), &bindings);
+    assert!(!handler.state().is_held(Control::Interact));
 }
 
 /// `SPACE` is a gameplay binding, not a menu key: holding it in the Playing
@@ -347,4 +367,29 @@ fn clear_gameplay_inputs_discards_mouse_motion_too() {
     let (dx, dy) = handler.state_mut().take_mouse_motion();
     assert_exact(dx, 0.0);
     assert_exact(dy, 0.0);
+}
+
+/// A rebound interact key drives only Interact, OS auto-repeat never re-fires
+/// the held bit, and releasing all gameplay inputs (pause, focus loss, level
+/// load) drops a held Interact.
+#[test]
+fn interact_rebinding_repeat_suppression_and_release_all() {
+    let mut bindings = KeyBindings::default();
+    bindings
+        .set_key("interact", "F")
+        .expect("F is unused by default");
+    assert_key_drives_only(Keycode::F, Control::Interact, &bindings);
+    // E is no longer bound to anything after the rebind.
+    let mut handler = InputHandler::new();
+    handler.handle_gameplay_event(&key_down(Keycode::E), &bindings);
+    assert_eq!(handler.state().held, 0, "the old key is unbound");
+
+    handler.handle_gameplay_event(&key_down(Keycode::F), &bindings);
+    handler.handle_gameplay_event(&key_repeat(Keycode::F), &bindings);
+    assert!(handler.state().is_held(Control::Interact));
+    handler.clear_gameplay_inputs();
+    assert!(
+        !handler.state().is_held(Control::Interact),
+        "pause/focus/level-load release clears a held interact"
+    );
 }

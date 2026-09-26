@@ -81,7 +81,6 @@ def build_crate(p: PropBuilder) -> None:
                 size=(batten * 2.0, size[1], batten * 2.0),
                 uv=tex.uv("wood"),
                 color=batten_color,
-                proxy=False,  # battens sit inside the crate silhouette
             )
     p.add_note("texture-driven slats; four corner battens for silhouette")
 

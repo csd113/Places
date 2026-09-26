@@ -1,7 +1,7 @@
 //! Unit tests for the baked lighting model.
 //!
 //! They exercise the module through its public surface plus the pure helpers,
-//! which is exactly what the geometry emitter and the editor mirror use.
+//! which is exactly what the geometry emitter uses.
 
 // Test code: unwrap/expect, indexing, loose casts and permissive arithmetic are idiomatic in tests;
 // the production lints stay enforced everywhere else in the crate.
@@ -3279,3 +3279,80 @@ static SWEEP: &[ModelCandidate] = &[
         fill_max: 0.24,
     },
 ];
+
+/// Run 05: the demo's exit sign and hanging ball light really illuminate the
+/// rooms, and the illumination comes from their authored lights rather than
+/// from their emissive materials: disabling the lights leaves only the room's
+/// own fixtures while the glowing faces are unchanged.
+#[test]
+fn the_demo_exit_sign_and_ball_light_really_illuminate() {
+    let level = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+        .expect("the shipped demo parses");
+    let lighting = LevelLighting::bake(&level);
+    // The exit sign hangs at (52.6, 13.0) with its green face toward -X; the
+    // emitter sits 0.058 m in front of the face at world y 1.70. Sample half a
+    // metre in front, above the corridor floor.
+    let exit = lighting.sample(52.0, 1.0, 13.0);
+    assert!(
+        exit.g > exit.r && exit.g > exit.b,
+        "the exit sign casts green: {exit:?}"
+    );
+    // The pendant hangs over the kitchen table (56.0, 7.6); its point light is
+    // 0.02 m below the orb underside at world y 3.553. Sample the tabletop.
+    let pendant = lighting.sample(56.0, -0.14, 7.6);
+
+    let mut dark = level.clone();
+    for prop in &mut dark.props {
+        for light in &mut prop.lights {
+            light.enabled = false;
+        }
+    }
+    let dark_lighting = LevelLighting::bake(&dark);
+    let exit_dark = dark_lighting.sample(52.0, 1.0, 13.0);
+    let pendant_dark = dark_lighting.sample(56.0, -0.14, 7.6);
+    assert!(
+        exit.g > exit_dark.g + 0.02,
+        "the sign's light adds green to the room: {exit:?} vs {exit_dark:?}"
+    );
+    assert!(
+        pendant.r > pendant_dark.r + 0.02,
+        "the lamp adds light to the table: {pendant:?} vs {pendant_dark:?}"
+    );
+    assert!(
+        pendant.r > pendant.b,
+        "the lamp's pool is warm white: {pendant:?}"
+    );
+
+    // The emitters ride the prop transform and are attached on the right side
+    // of their bodies: the sign's rect sits 0.058 m in front of its green face
+    // (rotation 270 turns +Z to -X), so a point in front of the face gains more
+    // green than a point behind the housing, and the lamp's point sits 0.02 m
+    // below the orb, so the table below gains more than the air above the orb.
+    let sign_front = lighting.sample(52.0, 1.7, 13.0);
+    let sign_behind = lighting.sample(53.2, 1.7, 13.0);
+    assert!(
+        sign_front.g > sign_behind.g + 0.02,
+        "the sign lights the side its face looks into: {sign_front:?} vs {sign_behind:?}"
+    );
+    let lamp_below = lighting.sample(56.0, 3.0, 7.6);
+    let lamp_above = lighting.sample(56.0, 4.1, 7.6);
+    assert!(
+        lamp_below.r > lamp_above.r + 0.02,
+        "the lamp hangs below its orb: {lamp_below:?} vs {lamp_above:?}"
+    );
+
+    // The contribution survives the player quality tiers: every profile bakes
+    // the same generic light sources, so High's soft multi-tap visibility
+    // (and its finer prop-occlusion grid) still shows both pools.
+    let soft = LevelLighting::bake_with(&level, crate::quality::QualityLevel::High.bake_config());
+    let soft_exit = soft.sample(52.0, 1.0, 13.0);
+    let soft_pendant = soft.sample(56.0, -0.14, 7.6);
+    assert!(
+        soft_exit.g > soft_exit.r && soft_exit.g > soft_exit.b,
+        "High still bakes the sign green: {soft_exit:?}"
+    );
+    assert!(
+        soft_pendant.r > soft_pendant.b,
+        "High still bakes the lamp warm: {soft_pendant:?}"
+    );
+}

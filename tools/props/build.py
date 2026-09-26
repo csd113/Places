@@ -21,14 +21,12 @@ import argparse
 import json
 import os
 import sys
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 ASSET_ROOT = os.path.join(APP_ROOT, "assets")
 CATALOG_PATH = os.path.join(ASSET_ROOT, "catalog.json")
-PROXY_PATH = os.path.join(ASSET_ROOT, "prop_proxies.json")
-THUMB_DIR = os.path.join(APP_ROOT, "level-editor", "assets", "thumbs")
 
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.dirname(HERE))
@@ -43,7 +41,7 @@ from mesh import PropBuilder  # noqa: E402
 # (PROP_TRIANGLE_BUDGET / PROP_TEXTURE_NATIVE_SIZE / MAX_PROP_TEXTURE_SIZE name
 # the same art budgets: 1500 triangles and a 256 px native texture; the engine
 # accepts 6000 triangles and 1024 px textures, downscaled at runtime). Mirrored
-# by the Rust budget suite (src/props/tests.rs) and the editor tests.
+# by the Rust budget suite (src/props/tests.rs).
 TRIANGLE_TARGET = 500
 TRIANGLE_REVIEW = 800
 TRIANGLE_ART_MAX = 1500
@@ -98,20 +96,37 @@ def model_path(entry: dict) -> str:
     return os.path.join(ASSET_ROOT, model)
 
 
+def _toolkit_authored(document: dict) -> bool:
+    """True when a GLB carries the toolkit's own asset marker.
+
+    ``write_glb`` stamps ``asset.extras.places_props_toolkit`` on every model
+    that uses its extended path (materials, nodes or animations), so the build
+    guard can allow rebuilding the wall switch while still refusing to
+    overwrite a foreign skinned/animated entity.
+    """
+    asset = document.get("asset")
+    if not isinstance(asset, dict):
+        return False
+    extras = asset.get("extras")
+    return isinstance(extras, dict) and extras.get("places_props_toolkit") == 1
+
+
 def build_one(entry: dict, build_fn, force: bool = False) -> Optional[dict]:
     prop_id = entry["id"]
     destination = model_path(entry)
     # A hand-authored skinned/animated model must never be replaced by this
     # toolkit's static primitive build: the shipped entity carries a real rig
     # (see assets/entities/README.md), and overwriting it would silently drop
-    # the skin. `--force` is the explicit opt-out.
+    # the skin. A toolkit-authored animated model (the wall switch) marks its
+    # asset, so its own builder may rebuild it. `--force` is the explicit
+    # opt-out.
     if not force and os.path.isfile(destination):
         try:
             with open(destination, "rb") as handle:
                 existing = glb.read_glb(handle.read())
         except (OSError, glb.GltfError):
             existing = None
-        if existing is not None and (
+        if existing is not None and not _toolkit_authored(existing.json) and (
             existing.json.get("skins") or existing.json.get("animations")
         ):
             print(
@@ -141,7 +156,13 @@ def build_one(entry: dict, build_fn, force: bool = False) -> Optional[dict]:
             f"(the engine accepts up to {TEXTURE_ENGINE_MAX} and downscales at runtime)"
         )
 
-    payload = glb.write_glb(builder.mesh, builder.tex.png_bytes(), name=prop_id.replace(":", "_"))
+    payload = glb.write_glb(
+        builder.mesh,
+        builder.tex.png_bytes(),
+        name=prop_id.replace(":", "_"),
+        nodes=builder.nodes,
+        animations=builder.clips,
+    )
     os.makedirs(os.path.dirname(destination), exist_ok=True)
     with open(destination, "wb") as handle:
         handle.write(payload)
@@ -158,7 +179,6 @@ def build_one(entry: dict, build_fn, force: bool = False) -> Optional[dict]:
         "bytes": len(payload),
         "bounds_min": [round(value, 3) for value in low],
         "bounds_max": [round(value, 3) for value in high],
-        "parts": builder.mesh.parts,
         "notes": builder.notes,
     }
 
@@ -168,13 +188,11 @@ def main(argv: List[str] | None = None) -> int:
     parser.add_argument("--only", nargs="*", default=None, help="build just these prop ids")
     parser.add_argument("--check", action="store_true", help="validate shipped GLBs without rebuilding")
     parser.add_argument("--report", action="store_true", help="print the budget report only")
-    parser.add_argument("--no-proxies", action="store_true", help="skip prop_proxies.json for the editor")
     parser.add_argument(
         "--force",
         action="store_true",
         help="overwrite a hand-authored skinned/animated model with the toolkit's static build",
     )
-    parser.add_argument("--thumbs", action="store_true", help="also render editor thumbnails (needs preview.py)")
     args = parser.parse_args(argv)
 
     catalog = load_catalog()
@@ -251,7 +269,6 @@ def main(argv: List[str] | None = None) -> int:
                     "bytes": len(data),
                     "bounds_min": [round(value, 3) for value in low],
                     "bounds_max": [round(value, 3) for value in high],
-                    "parts": [],
                     "notes": [],
                 }
             )
@@ -284,52 +301,13 @@ def main(argv: List[str] | None = None) -> int:
         if built is not None:
             report.append(built)
 
-    # The proxy file is merged entry by entry, so a `--only` build still
-    # refreshes the props it rebuilt without touching the others.
-    if not args.no_proxies and report:
-        write_proxies(catalog, report, only=args.only)
-
     _print_report(report)
-    if args.thumbs and report:
-        import preview
-
-        preview.render_thumbnails([item["id"] for item in report], THUMB_DIR)
     for failure in failures:
         print(f"FAIL {failure}")
     if failures:
         return 1
     print(f"\n{len(report)} prop(s) OK")
     return 0
-
-
-def write_proxies(catalog: dict, report: List[dict], only: List[str] | None = None) -> None:
-    """Writes the editor's derived proxy geometry (never hand-maintained)."""
-    existing: Dict[str, dict] = {}
-    if os.path.exists(PROXY_PATH):
-        with open(PROXY_PATH, "r", encoding="utf-8") as handle:
-            existing = json.load(handle).get("props", {})
-
-    names = {entry["id"]: entry_name(entry) for entry in catalog_placeables(catalog)}
-    for item in report:
-        existing[item["id"]] = {
-            "name": names.get(item["id"], item["name"]),
-            "model": item["model"],
-            "triangles": item["triangles"],
-            "texture": item["texture"],
-            "bounds_min": item["bounds_min"],
-            "bounds_max": item["bounds_max"],
-            "parts": item["parts"],
-        }
-
-    payload = {
-        "format_version": 1,
-        "generated_by": "tools/props/build.py",
-        "note": "Derived from the shipped GLB meshes; do not edit by hand.",
-        "props": existing,
-    }
-    with open(PROXY_PATH, "w", encoding="utf-8") as handle:
-        json.dump(payload, handle, indent=2, sort_keys=True)
-        handle.write("\n")
 
 
 def _print_report(report: List[dict]) -> None:

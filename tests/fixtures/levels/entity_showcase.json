@@ -1,0 +1,118 @@
+{
+  "format_version": 1,
+  "id": "entity_showcase",
+  "name": "Entity Showcase",
+  "author": "Places",
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "spawn": { "x": 12.0, "z": 2.0, "yaw_degrees": 180.0 },
+  "rooms": [
+    { "x": 0.0, "z": 0.0, "width": 24.0, "depth": 18.0, "height": 4.0 }
+  ],
+  "walls": [
+    { "x": 10.9, "z": 10.0, "width": 0.2, "depth": 8.0, "height": 4.0 }
+  ],
+  "ceiling_lights": [
+    { "fixture": "core:fluorescent_panel_01", "x": 6.0, "z": 4.0 },
+    { "fixture": "core:fluorescent_panel_01", "x": 6.0, "z": 9.0 },
+    { "fixture": "core:fluorescent_panel_01", "x": 18.0, "z": 4.0 },
+    { "fixture": "core:fluorescent_panel_01", "x": 18.0, "z": 9.0 },
+    { "fixture": "core:fluorescent_panel_01", "x": 18.0, "z": 15.0 },
+    { "fixture": "core:fluorescent_panel_01", "x": 6.0, "z": 15.0 }
+  ],
+  "props": [
+    {
+      "id": "rat_a", "display_name": "Rat A", "model": "rat",
+      "x": 7.0, "z": 6.0, "rotation_degrees": 0.0,
+      "size": [0.3, 0.25, 0.7], "solid": false,
+      "interaction": { "prompt": "Toggle name",
+                       "actions": [{ "action": "toggle_label" }] }
+    },
+    {
+      "id": "rat_b", "display_name": "Rat B", "model": "rat",
+      "x": 14.0, "z": 12.0, "rotation_degrees": 0.0,
+      "size": [0.3, 0.25, 0.7], "solid": false,
+      "interaction": { "prompt": "Toggle name",
+                       "actions": [{ "action": "toggle_label" }] }
+    },
+    {
+      "id": "mannequin_pose", "display_name": "Pose Mannequin",
+      "model": "mannequin",
+      "x": 11.6, "z": 14.0, "rotation_degrees": 180.0,
+      "size": [0.42, 1.72, 0.31], "solid": false,
+      "interaction": { "prompt": "Stand",
+                       "actions": [{ "action": "play_animation",
+                                     "clip": "pose_stand" }] }
+    },
+    {
+      "id": "chair", "model": "core:chair",
+      "x": 16.0, "z": 13.0, "rotation_degrees": 180.0,
+      "size": [0.5, 0.9, 0.5], "solid": true
+    },
+    {
+      "id": "skeleton_chair", "display_name": "Seated Skeleton",
+      "model": "skeleton",
+      "x": 16.0, "z": 12.9975, "rotation_degrees": 180.0,
+      "size": [0.43, 1.72, 0.32], "solid": false,
+      "interaction": { "prompt": "Stand up",
+                       "actions": [{ "action": "play_animation",
+                                     "clip": "pose_stand" }] }
+    },
+    {
+      "id": "skeleton_floor", "display_name": "Floor Skeleton",
+      "model": "skeleton",
+      "x": 20.5, "z": 15.0, "rotation_degrees": 140.0,
+      "size": [0.43, 1.72, 0.32], "solid": false,
+      "interaction": { "prompt": "Stand up",
+                       "actions": [{ "action": "play_animation",
+                                     "clip": "pose_stand" }] }
+    }
+  ],
+  "routes": [
+    {
+      "id": "rat_a", "loop": true,
+      "steps": [
+        { "step": "move_to", "x": 9.0, "z": 6.0, "speed": 0.198 },
+        { "step": "move_to", "x": 9.0, "z": 8.0, "speed": 0.198 },
+        { "step": "move_to", "x": 5.0, "z": 8.0, "speed": 0.573 },
+        { "step": "move_to", "x": 5.0, "z": 6.0, "speed": 0.573 },
+        { "step": "wait", "seconds": 0.5 },
+        { "step": "play", "clip": "idle", "seconds": 1.0, "loop": true }
+      ]
+    },
+    {
+      "id": "rat_b", "loop": true,
+      "steps": [
+        { "step": "move_to", "x": 19.0, "z": 12.0, "speed": 0.573 },
+        { "step": "move_to", "x": 19.0, "z": 15.0, "speed": 0.198 },
+        { "step": "move_to", "x": 14.0, "z": 15.0, "speed": 0.573 },
+        { "step": "move_to", "x": 14.0, "z": 12.0, "speed": 0.198 }
+      ]
+    },
+    {
+      "id": "mannequin_pose", "loop": true,
+      "steps": [
+        { "step": "play", "clip": "pose_arms_up", "seconds": 2.0 },
+        { "step": "play", "clip": "pose_arms_forward", "seconds": 2.0 },
+        { "step": "play", "clip": "pose_stand", "seconds": 2.0 }
+      ]
+    },
+    {
+      "id": "skeleton_chair", "loop": true,
+      "steps": [
+        { "step": "play", "clip": "pose_sit_chair", "seconds": 3.0 },
+        { "step": "play", "clip": "pose_stand", "seconds": 2.0 }
+      ]
+    },
+    {
+      "id": "skeleton_floor", "loop": true,
+      "steps": [
+        { "step": "play", "clip": "pose_sit_floor", "seconds": 3.0 },
+        { "step": "play", "clip": "pose_stand", "seconds": 2.0 }
+      ]
+    }
+  ]
+}

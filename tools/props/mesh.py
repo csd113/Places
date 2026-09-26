@@ -11,11 +11,6 @@ conventions while building, so a broken prop fails loudly instead of shipping:
 * ``+Z`` is the prop's front (fridge doors, TV screen, vending machine panel);
 * triangles face outwards (counter-clockwise seen from outside);
 * one texture, one material, no alpha.
-
-Each primitive also records a coarse "proxy" part (box/cylinder + colour) that
-is exported for the level editor's 3D preview, so the editor always shows a
-lightweight approximation *derived from the real asset* rather than a
-hand-maintained duplicate.
 """
 
 from __future__ import annotations
@@ -67,8 +62,12 @@ class Mesh:
         self.colors: list[tuple[int, int, int]] = []
         self.uvs: list[tuple[float, float]] = []
         self.indices: list[int] = []
-        # Coarse parts for the editor's 3D proxy geometry.
-        self.parts: list[dict] = []
+        # Material/primitive tagging. A model that registers no material and
+        # no submesh keeps the legacy single-material GLB layout exactly.
+        self.materials: list[dict] = []
+        self.submeshes: list[dict] = []
+        self._triangle_materials: list[int] = []
+        self._active_material = 0
 
     # ------------------------------------------------------------ primitives
 
@@ -95,12 +94,14 @@ class Mesh:
             base += 1
         start = len(self.positions) - 4
         self.indices += [start, start + 1, start + 2, start, start + 2, start + 3]
+        self._record_triangles(2)
 
     def triangle(self, p0, p1, p2, uvs, color: Color, shade_mult: float = 1.0, ao: float = 1.0) -> None:
         for point, uv in zip((p0, p1, p2), uvs):
             self._add_vertex(point, color, uv, shade_mult, ao)
         start = len(self.positions) - 3
         self.indices += [start, start + 1, start + 2]
+        self._record_triangles(1)
 
     def box(
         self,
@@ -112,7 +113,6 @@ class Mesh:
         shade: bool = True,
         rotation: Sequence[float] | None = None,
         ao: float = 1.0,
-        proxy: bool = True,
     ) -> None:
         """Axis-aligned box, optionally rotated about its centre.
 
@@ -152,17 +152,6 @@ class Mesh:
                 points.append((cx + local[0], cy + local[1], cz + local[2]))
             self.quad(*points, uv=uv_rect, color=face_color, shade_mult=multiplier, ao=ao)
 
-        if proxy:
-            self.parts.append(
-                {
-                    "shape": "box",
-                    "center": [round(float(value), 4) for value in (cx, cy, cz)],
-                    "size": [round(float(value), 4) for value in size],
-                    "rotation": [round(float(value), 2) for value in (rotation or (0.0, 0.0, 0.0))],
-                    "color": _hex(color),
-                }
-            )
-
     def cylinder(
         self,
         base: Sequence[float],
@@ -179,7 +168,6 @@ class Mesh:
         taper: float = 1.0,
         rotation: float = 0.0,
         shade_override: float = 1.0,
-        proxy: bool = True,
         bottom: bool = False,
         ao: float = 1.0,
     ) -> None:
@@ -258,22 +246,8 @@ class Mesh:
                     ao=ao,
                 )
 
-        if proxy:
-            self.parts.append(
-                {
-                    "shape": "cylinder",
-                    "axis": axis,
-                    "base": [round(float(value), 4) for value in (bx, by, bz)],
-                    "radius": round(float(radius), 4),
-                    "height": round(float(height), 4),
-                    "segments": int(segments),
-                    "taper": round(float(taper), 3),
-                    "color": _hex(color),
-                }
-            )
-
     def tube(self, start, end, radius: float, segments: int = 6, uv: UV | None = None,
-             color: Color = (255, 255, 255), proxy: bool = True, ao: float = 1.0) -> None:
+             color: Color = (255, 255, 255), ao: float = 1.0) -> None:
         """Straight pipe between two arbitrary points (faucets, lamp stems)."""
         sx, sy, sz = (float(value) for value in start)
         ex, ey, ez = (float(value) for value in end)
@@ -345,17 +319,6 @@ class Mesh:
                 else:
                     self.triangle(center, ring1, ring0, _cap_uvs(rect), shade(color, 0.7), shade_mult=0.7, ao=ao)
 
-        if proxy:
-            self.parts.append(
-                {
-                    "shape": "tube",
-                    "start": [round(sx, 4), round(sy, 4), round(sz, 4)],
-                    "end": [round(ex, 4), round(ey, 4), round(ez, 4)],
-                    "radius": round(radius, 4),
-                    "color": _hex(color),
-                }
-            )
-
     def lathe(
         self,
         base: Sequence[float],
@@ -370,7 +333,6 @@ class Mesh:
         cap_end: bool = True,
         rotation: float = 0.0,
         ellipse: Sequence[float] = (1.0, 1.0),
-        proxy: bool = True,
         ao: float = 1.0,
     ) -> None:
         """Surface of revolution from a list of ``(along, radius)`` rings.
@@ -466,21 +428,6 @@ class Mesh:
                 )
             del angle0, angle1
 
-        if proxy:
-            radii = [float(entry[1]) for entry in profile]
-            self.parts.append(
-                {
-                    "shape": "cylinder",
-                    "axis": axis,
-                    "base": [round(bx, 4), round(by, 4), round(bz, 4)],
-                    "radius": round(max(radii), 4),
-                    "height": round(abs(float(last[0]) - float(first[0])), 4),
-                    "segments": int(segments),
-                    "taper": round(radii[-1] / max(1e-6, radii[0]), 3),
-                    "color": _hex(color),
-                }
-            )
-
     def tube_path(
         self,
         points: Sequence[Sequence[float]],
@@ -491,7 +438,6 @@ class Mesh:
         shades: bool = True,
         cap_start: bool = False,
         cap_end: bool = True,
-        proxy: bool = True,
         ao: float = 1.0,
     ) -> None:
         """Tapered tube swept along a polyline (a tail, a hose, a curved pipe).
@@ -581,21 +527,8 @@ class Mesh:
                     ao=ao,
                 )
 
-        if proxy:
-            for index in range(len(path) - 1):
-                start, end = path[index], path[index + 1]
-                self.parts.append(
-                    {
-                        "shape": "tube",
-                        "start": [round(value, 4) for value in start],
-                        "end": [round(value, 4) for value in end],
-                        "radius": round((radius_list[index] + radius_list[index + 1]) * 0.5, 4),
-                        "color": _hex(color),
-                    }
-                )
-
     def plane(self, center, size, uv: UV, color: Color, shade_mult: float = 1.0, normal: str = "y",
-              rotation: Sequence[float] | None = None, proxy: bool = False, ao: float = 1.0) -> None:
+              rotation: Sequence[float] | None = None, ao: float = 1.0) -> None:
         """Single outward-facing quad (rugs, screens, panels)."""
         cx, cy, cz = (float(value) for value in center)
         sx, sy, sz = (float(value) for value in size)
@@ -641,18 +574,95 @@ class Mesh:
                 for p in corners
             ]
         self.quad(*corners, uv=uv, color=color, shade_mult=shade_mult, ao=ao)
-        if proxy:
-            self.parts.append(
-                {
-                    "shape": "plane",
-                    "center": [round(cx, 4), round(cy, 4), round(cz, 4)],
-                    "size": [round(sx, 4), round(sy, 4), round(sz, 4)],
-                    "normal": normal,
-                    "color": _hex(color),
-                }
-            )
+
+    # ------------------------------------------------------------- materials
+    #
+    # A prop with two materials (a luminous face, a glowing orb) tags each
+    # primitive run with a material slot; ``glb.write_glb`` turns every
+    # contiguous run into one glTF primitive. Models that never call these keep
+    # an empty slot list and the legacy one-material output byte-for-byte.
+
+    def material(self, name: str, emissive=None, strength: float = 1.0, color=None) -> int:
+        """Registers (or returns) a material slot.
+
+        ``emissive`` is an RGB triple in 0..1, ``strength`` the
+        ``KHR_materials_emissive_strength`` multiplier and ``color`` an
+        0..255 RGB triple written as ``baseColorFactor``. Re-registering an
+        identical name returns its slot; re-registering it differently is a
+        builder bug and raises.
+        """
+        slot = {
+            "name": str(name),
+            "emissive": None if emissive is None else tuple(float(value) for value in emissive),
+            "strength": float(strength),
+            "color": None if color is None else tuple(color),
+        }
+        for index, existing in enumerate(self.materials):
+            if existing["name"] == slot["name"]:
+                if existing != slot:
+                    raise ValueError(f"material {name!r} is already registered with different properties")
+                return index
+        self.materials.append(slot)
+        return len(self.materials) - 1
+
+    def begin_material(self, slot: int) -> None:
+        """Draws subsequent primitives with material ``slot`` (see :meth:`material`)."""
+        if slot < 0 or slot >= len(self.materials):
+            raise ValueError(f"material slot {slot} is not registered; call material() first")
+        self._active_material = slot
+
+    def begin_mesh(self, name: str) -> None:
+        """Starts a named glTF mesh; every subsequent primitive belongs to it.
+
+        The default (never called) is one mesh covering the whole prop. The
+        wall switch uses two meshes so its rocker can hang off its own node.
+        """
+        marker = str(name)
+        if any(existing["name"] == marker for existing in self.submeshes):
+            raise ValueError(f"submesh {name!r} is declared twice")
+        self.submeshes.append({"name": marker, "first_index": len(self.indices)})
+
+    def primitive_groups(self) -> list[dict]:
+        """One entry per non-empty submesh, each with its contiguous draw runs.
+
+        Returns ``[{"name": str | None, "groups": [{"first_index",
+        "index_count", "material"}]}]``. Without submesh markers the whole prop
+        is one unnamed mesh, so a single-material model reads as one primitive.
+        """
+        marks = sorted(self.submeshes, key=lambda marker: marker["first_index"])
+        ranges: list[tuple[str | None, int, int]] = []
+        for index, marker in enumerate(marks):
+            start = marker["first_index"]
+            end = marks[index + 1]["first_index"] if index + 1 < len(marks) else len(self.indices)
+            if start % 3 != 0 or end % 3 != 0:
+                raise ValueError("submesh boundaries must fall on triangle boundaries")
+            if end > start:
+                ranges.append((marker["name"], start, end))
+        if not ranges:
+            ranges = [(None, 0, len(self.indices))]
+
+        return [
+            {"name": name, "groups": self.groups_for_range(start, end)}
+            for name, start, end in ranges
+        ]
+
+    def groups_for_range(self, start: int, end: int) -> list[dict]:
+        """Contiguous same-material draw runs inside an index range."""
+        groups: list[dict] = []
+        triangle = start // 3
+        total = len(self.indices) // 3
+        while triangle < end // 3:
+            slot = self._triangle_materials[triangle] if triangle < total else 0
+            run_start = triangle * 3
+            while triangle < end // 3 and (self._triangle_materials[triangle] if triangle < total else 0) == slot:
+                triangle += 1
+            groups.append({"first_index": run_start, "index_count": triangle * 3 - run_start, "material": slot})
+        return groups
 
     # -------------------------------------------------------------- internals
+
+    def _record_triangles(self, count: int) -> None:
+        self._triangle_materials.extend([self._active_material] * count)
 
     def _add_vertex(self, point, color: Color, uv: tuple[float, float], shade_mult: float, ao: float) -> None:
         x, y, z = (float(value) for value in point)
@@ -673,21 +683,13 @@ class Mesh:
         return len(self.positions)
 
     def translate(self, offset: Sequence[float]) -> None:
-        """Shifts every vertex and every recorded proxy part by ``offset``."""
+        """Shifts every vertex by ``offset``."""
         dx, dy, dz = (float(value) for value in offset)
         if dx == 0.0 and dy == 0.0 and dz == 0.0:
             return
         self.positions = [
             (x + dx, y + dy, z + dz) for (x, y, z) in self.positions
         ]
-        for part in self.parts:
-            for key in ("center", "base", "start", "end"):
-                if key in part:
-                    part[key] = [
-                        round(part[key][0] + dx, 4),
-                        round(part[key][1] + dy, 4),
-                        round(part[key][2] + dz, 4),
-                    ]
 
     def normalize_origin(self) -> tuple[float, float, float]:
         """Puts the mesh on the pack's origin convention and reports the shift.
@@ -696,7 +698,7 @@ class Mesh:
         whose silhouette is deliberately asymmetric (a cat's tail reaches much
         further back than its nose reaches forward) builds in its natural
         coordinates and then calls this, so the placement origin is still the
-        bounding-box centre that levels, the editor and collision all assume.
+        bounding-box centre that levels and collision all assume.
         """
         low, high = self.bounds()
         offset = (
@@ -780,7 +782,7 @@ class PropBuilder:
 
     ``size`` is always the catalogue ``size`` (the generator reads
     ``assets/catalog.json``), so a prop cannot silently drift from the
-    registry that levels and the editor resolve against.
+    registry that levels and the engine resolve against.
     """
 
     def __init__(self, prop_id: str, name: str, size: Sequence[float], tex_size: int = 64, seed: int = 1,
@@ -795,6 +797,11 @@ class PropBuilder:
         self.ao_strength = ao_strength
         self.ao_height = ao_height
         self.notes: list[str] = []
+        # Rigid node/clip authoring for models with a moving part (the wall
+        # switch). ``write_glb`` reads them; a prop that sets neither keeps the
+        # legacy single-node output exactly.
+        self.nodes: list[dict] = []
+        self.clips: list[dict] = []
 
     # Convenience passthroughs so prop modules read naturally.
     @property
@@ -860,6 +867,47 @@ class PropBuilder:
         self.tex = Texture(size, seed=seed if seed is not None else _stable_seed(self.id))
         return self.tex
 
+    # ------------------------------------------------ multi-material / rigging
+
+    def material(self, name: str, **properties) -> int:
+        """Registers a material slot on the mesh (see :meth:`Mesh.material`)."""
+        return self.mesh.material(name, **properties)
+
+    def begin_material(self, slot: int) -> None:
+        """Tags subsequent primitives with a registered material slot."""
+        self.mesh.begin_material(slot)
+
+    def begin_mesh(self, name: str) -> None:
+        """Starts a named glTF mesh (a node's drawable geometry)."""
+        self.mesh.begin_mesh(name)
+
+    def node(self, name: str, *, mesh: str | None = None, translation=None, rotation=None,
+             scale=None, matrix=None, children=None) -> int:
+        """Appends a glTF node and returns its index.
+
+        ``mesh`` names a mesh started with :meth:`begin_mesh`. Node indices are
+        positional, so a child is referenced by the index returned here.
+        """
+        node: dict = {"name": str(name)}
+        if mesh is not None:
+            node["mesh"] = str(mesh)
+        if matrix is not None:
+            node["matrix"] = [float(value) for value in matrix]
+        if translation is not None:
+            node["translation"] = [float(value) for value in translation]
+        if rotation is not None:
+            node["rotation"] = [float(value) for value in rotation]
+        if scale is not None:
+            node["scale"] = [float(value) for value in scale]
+        if children is not None:
+            node["children"] = [int(index) for index in children]
+        self.nodes.append(node)
+        return len(self.nodes) - 1
+
+    def clip(self, name: str, channels: list[dict]) -> None:
+        """Appends a LINEAR animation clip: one dict per node channel."""
+        self.clips.append({"name": str(name), "channels": channels})
+
 
 def _cap_uvs(rect: UV) -> list[tuple[float, float]]:
     u0, v0, u1, v1 = rect
@@ -908,10 +956,6 @@ def _path_directions(path):
 
 def _subtract(a, b):
     return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
-
-
-def _hex(color: Color) -> str:
-    return "#%02x%02x%02x" % (int(color[0]), int(color[1]), int(color[2]))
 
 
 def _stable_seed(text: str) -> int:

@@ -7,7 +7,7 @@ Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
 | Level format version documented | `1` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
-| Verification | Re-verified against the working tree at version 0.6.0 plus the Home theme and generic architectural pieces. No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
+| Verification | Re-verified against the working tree at version 0.7.0 (runs 01–06: interactions and triggers, animated entities and props, floating props, curved architecture, the ceiling tile frame and the geometry checker). No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Primary benchmark level | `assets/levels/places_demo.json` |
 
@@ -67,7 +67,7 @@ When any two sources disagree, resolve in this order:
    `src/render/tests.rs`, `src/materials/tests.rs`, `src/assets/tests.rs`,
    `src/props/tests.rs`, `src/collision/tests.rs`, `src/game/tests.rs`,
    `src/lighting/tests.rs`, and the audit modules under `src/` (`surface_audit.rs`,
-   `lighting_audit*.rs`, `lighting_isolation.rs`, `lighting_parity.rs`,
+   `lighting_audit*.rs`, `lighting_isolation.rs`,
    `lighting_partition_audit.rs`, `lighting_vertical_audit.rs`). Tests pin the
    accepted contract.
 3. **Asset catalog** — `assets/catalog.json`, plus `assets/README.md`.
@@ -124,6 +124,10 @@ Authoritative paths:
 | Level `.zip` packs with `materials.json` and pack textures | Implemented |
 | `ceiling_lights` accepting the `lights` alias | Implemented |
 | Water volumes (`water[]`): a translucent surface, wading, swimming and surface swimming | Implemented (see [Water volumes](#water-volumes-wading-swimming-and-surfacing)) |
+| Ladder volumes (`ladders[]`): walking into the face climbs without a key, with release, backing away, jump, obstruction and top-landing rules | Implemented (see [Ladders](#ladders)) |
+| Stable per-instance ids, map-authored object interactions (E), floating labels, reset-to-start | Implemented (see [§29](#29-interactions-labels-and-area-triggers)) |
+| Area trigger volumes (`area_triggers[]`): enter semantics, swept fast-fall crossings, cooldowns, `once`, typed action batches | Implemented (see [§29](#29-interactions-labels-and-area-triggers)) |
+| Animation and audio actions (`play_animation`, `play_audio`) | Not implemented: validation rejects them by name; documented run-3/audio integration point |
 | Water refraction/transmission, realtime dynamic lights, realtime shadow maps | Not implemented |
 | Animated entities: a placed skinned GLB follows the player's locomotion state (idle/walking/airborne/swimming); a rig with authored clips plays them, a no-clip rig uses the built-in procedural gait | Implemented (see [§16](#16-props-and-models)) |
 | Screen-space reflections; per-frame raytraced reflections; cubemap probes with realtime updates | Not implemented (static probes and one planar plane exist) |
@@ -131,6 +135,11 @@ Authoritative paths:
 | Emissive decals; per-placement emission overrides; cone/spot lights | Not implemented |
 | Authoring a normal map from a level (a level names a material, and the material owns the map) | Implemented (via the catalog) |
 | Sloped floors (`ramps`), staircases (`stairs`), half walls, columns, archways, guardrails, thresholds, baseboards | Implemented |
+| Data-authored arc (curved) walls (`arc_walls[]`) and circular pillars (`pillars[]`), with per-primitive tessellation, per-face materials and segment-derived collision | Implemented (see [§10](#10-floors-elevation-and-vertical-geometry)) |
+| A read-only geometry checker CLI (`--check-geometry`) over the engine's own authored/generated geometry | Implemented (see [§31](#30-the-map-geometry-checker)) |
+| Per-room ceiling tile frame (`ceiling_tile_origin`, `ceiling_tile_rotation_degrees`) for offset/rotated ceiling patterns and decal snapping | Implemented |
+| Decal grid snapping (`decals[].align: "ceiling_grid"`) onto the ceiling's own panel module | Implemented |
+| Narrow intent annotations for the checker (`geometry_intent[]`) | Implemented (see [§31](#30-the-map-geometry-checker)) |
 | Ceiling/floor openings; traversal between stacked storeys | Not implemented |
 | Room-wide brightness/tint modifiers; non-fixture decor meshes beyond props | Not implemented |
 | WebP or formats other than PNG; arbitrary structural meshes | Not implemented |
@@ -282,7 +291,9 @@ skeleton and the per-field tables.
       "material": "core:carpet_beige_01",  // optional, default defaults.floor
       "shine": 0.0,                        // optional 0..1; default = material's own
       "ceiling_material": "core:ceiling_panel_01", // optional, default defaults.ceiling
-      "ceiling_shine": 0.0                 // optional 0..1; default = material's own
+      "ceiling_shine": 0.0,                // optional 0..1; default = material's own
+      "ceiling_tile_origin": [0.75, 0.25], // optional local phase of the ceiling tile pattern (world x/z)
+      "ceiling_tile_rotation_degrees": 90.0 // optional rotation of the ceiling tile pattern
     }
   ],
 
@@ -337,6 +348,15 @@ skeleton and the per-field tables.
     }
   ],
 
+  "ladders": [                             // climbable volumes; the prop draws the rails
+    {
+      "x": 19.35, "z": 11.7, "width": 0.6, "depth": 0.6, // REQUIRED footprint, > 0
+      "bottom_y": -3.0,                    // REQUIRED lowest climbable world Y
+      "top_y": -1.5,                       // REQUIRED exit world Y, above bottom_y
+      "facing_degrees": 90.0               // optional; climb yaw, default 0 (towards -Z)
+    }
+  ],
+
   "ramps": [                               // sloped walking surfaces
     { "x": 4.0, "z": 0.4, "width": 1.0, "depth": 1.6,  // REQUIRED
       "offset_y": 0.0, "rise": 0.75,        // offset at the min corner, signed rise
@@ -367,6 +387,27 @@ skeleton and the per-field tables.
       "height": null,                      // default: floor to local ceiling
       "material": "home:wall_paint_offwhite_01",
       "cap_material": "home:baseboard_white_01" }
+  ],
+
+  "arc_walls": [                           // curved wall slabs, placed by circle centre
+    { "x": 14.0, "z": 4.0, "radius": 1.0,   // centreline radius
+      "thickness": 0.24,                    // ring thickness (default 0.3)
+      "height": 2.2,                        // omitted follows the local ceiling
+      "start_degrees": 180.0, "sweep_degrees": 180.0, // compass angles, + = N→E→S→W
+      "segments": 16,                       // default: 24 per full circle, scaled to the sweep
+      "material": "core:wallpaper_stained_01",
+      "inner_material": "core:pool_tile_wall_01", // optional concave face
+      "cap_material": "core:baseboard_office_01"  // optional top/bottom caps
+      // end_material overrides the two radial ends; any catalog material is valid
+    }
+  ],
+
+  "pillars": [                             // solid circular pillars, placed by centre
+    { "x": 3.5, "z": 8.5, "radius": 0.4,
+      "height": 3.0,                        // omitted follows the local ceiling
+      "segments": 24,                       // default 24
+      "material": "core:pool_tile_wall_01",
+      "cap_material": "core:baseboard_office_01" }
   ],
 
   "archways": [                            // wall block with an arched opening
@@ -404,6 +445,7 @@ skeleton and the per-field tables.
       "width": 0.9, "height": 0.9,         // REQUIRED, > 0, <= 10
       "rotation_degrees": 0.0,             // optional, default 0.0
       "material": "core:decal_no_diving_01",  // REQUIRED
+      "align": "ceiling_grid",             // optional; snap a ceiling decal to the ceiling's panel grid
       "surface": "floor" }                 // REQUIRED enum
   ],
 
@@ -426,12 +468,21 @@ skeleton and the per-field tables.
 
   "props": [
     {
+      "id": "front_desk",                 // optional; stable per-instance id (default <model>_<n>)
+      "display_name": "Front Desk",       // optional; label text for toggle_label (default model id)
       "model": "core:desk",                // REQUIRED
       "x": 2.0, "y": 0.0, "z": 5.0,        // optional, default 0.0; y is floor-relative
       "rotation_degrees": 0.0,             // optional, default 0.0
       "scale": 1.0,                        // optional, default 1.0, must be > 0
       "size": [1.6, 0.75, 0.7],            // optional [w,h,d]; collision box, x scale
       "solid": true,                       // optional, default false
+      "interaction": {                     // optional; E in reach runs these actions once
+        "prompt": "Toggle name",           // optional; shown while aimed at
+        "reach": 2.5,                      // optional; 0..4.0 m, default 2.5
+        "actions": [                       // REQUIRED, 1..8 actions, in order
+          { "action": "toggle_label" }
+        ]
+      },
       "lights": [                          // optional, default []; max 8 per prop
         {
           "shape": "rect",                 // optional; default "point"
@@ -449,6 +500,21 @@ skeleton and the per-field tables.
     }
   ],
 
+  "area_triggers": [                       // optional; enter volumes, run actions once
+    {
+      "id": "pit_hole_1",                  // optional; default trigger_<n> (1-based)
+      "x": 9.6, "z": -26.2,                // optional; footprint MIN corner, default 0
+      "width": 1.6, "depth": 1.6,          // REQUIRED, > 0
+      "bottom_y": -3.2,                    // optional; default floor under the centre
+      "top_y": -0.05,                      // optional; default bottom_y + 2.0
+      "actions": [                         // REQUIRED, 1..8 actions, in order
+        { "action": "reset_to_start" }
+      ],
+      "cooldown_seconds": 0.5,             // optional, default 0.0; >= 0
+      "once": false                        // optional, default false; reset re-arms it
+    }
+  ],
+
   "animated_emissions": [
     {
       "material": "core:glass_sign_lit_01",  // REQUIRED
@@ -457,6 +523,12 @@ skeleton and the per-field tables.
       "depth": 0.18,                       // optional; effect default when absent
       "phase": 0.0                         // optional, default 0.0
     }
+  ],
+
+  "geometry_intent": [                     // optional; narrow checker annotations
+    { "check": "missing-wall",             // optional check id; omitted covers every heuristic check
+      "x": 11.8, "z": 11.6, "width": 4.4, "depth": 0.8,   // plan rectangle, min corner
+      "note": "Intended open route between the two spaces." }
   ]
 }
 ```
@@ -502,10 +574,17 @@ read the "Enforced as" column carefully.
 | Decal edge (`width`, `height`) | ≤ 10 m | Loader rejection |
 | Floor regions | ≤ 2000 | Loader rejection |
 | Water volumes | ≤ 2000 | Loader rejection |
+| Ladders | ≤ 256 | Loader rejection |
+| Area triggers | ≤ 1000 | Loader rejection |
+| Actions per interaction or trigger | ≤ 8 | Loader rejection |
+| Authored interaction reach | ≤ 4.0 m | Loader rejection |
 | Ramps | ≤ 500 | Loader rejection |
 | Staircases | ≤ 500 | Loader rejection |
 | Half walls | ≤ 2000 | Loader rejection |
 | Columns | ≤ 2000 | Loader rejection |
+| Arc walls | ≤ 1000 | Loader rejection |
+| Circular pillars | ≤ 2000 | Loader rejection |
+| Round-primitive `segments` | 3–128 | Loader rejection per primitive |
 | Archways | ≤ 500 | Loader rejection |
 | Guardrails | ≤ 2000 | Loader rejection |
 | Thresholds | ≤ 1000 | Loader rejection |
@@ -924,13 +1003,16 @@ Rules that matter:
 
 ### The walkable step rule
 
-**A height change of at most 0.4 m is walked instantly; a larger change is a solid
-rim** — solid from the lower side, and refused from the upper side. Staircases are
+**A rise of more than 0.4 m is refused; a drop of any size is walked off and
+becomes a real fall** — ledges, pool decks and floor holes all lose support, so
+treat every rill and drop-off as one the player can fall into. Staircases are
 chains of floor regions whose consecutive offsets differ by ≤ 0.4 m (Places Demo
-stair: 1.5 → 1.2 → 0.9 → 0.6 → 0.3 risers). This is what makes pool basins safe
-without fall physics. The rim's blocking face sits on the region boundary; the
-collider is a thin box extending 0.4 m under the higher floor so a sub-stepped move
-cannot tunnel through it.
+stair: 1.5 → 1.2 → 0.9 → 0.6 → 0.3 risers), and each rise is climbed instantly.
+The rim's blocking face sits on the region boundary; the collider is a thin box
+extending 0.4 m under the higher floor so a sub-stepped move cannot tunnel
+through it. The player is supported by the walkable floor, a solid prop's top
+and the historical world floor at `y = 0` outside every room — never by an
+invisible floor at their last known height.
 
 A rim **only ever blocks a change the player could not otherwise take**: it carries
 the walkable step as headroom, so a player already within 0.4 m of the rim's top
@@ -961,8 +1043,10 @@ The same room's walk-in step, one 0.35 m rise above the basin floor:
 * **Partial elevation** uses `floor_regions`; a recess is a negative `offset_y`, a
   platform is positive. A pool basin is a deep negative region in a room whose floor
   is already lowered.
-* **Transitions** are either ≤ 0.4 m steps (walkable) or solid rims. There are no
-  ramps or sloped regions.
+* **Transitions** are either ≤ 0.4 m risers (walkable up and down) or solid
+  rims that can be walked off from above and fallen from; the drop below a rim
+  is not an invisible floor. There are no ramps or sloped regions outside
+  `ramps[]`.
 * **Stacked/vertically overlapping rooms are supported geometrically** (different
   `floor_y` over the same footprint) and are sealed from each other for lighting,
   but there is **no vertical traversal**: no stairs between storeys beyond the 0.4 m
@@ -983,7 +1067,9 @@ surface draws as a translucent quad and the player controller samples the same
 rectangle, so what is drawn is exactly what is swum in. A water volume owns
 **no geometry of its own** — the basin floor, its walls and its steps still
 come from the room and its `floor_regions`; the volume adds the waterline and
-the behaviour.
+the behaviour. A prop that authors `float` (section 19) rides the same
+resolved surface, and the level validator proves its whole swept footprint
+stays inside one volume.
 
 ```json
 "water": [
@@ -1014,20 +1100,28 @@ How it behaves:
   not to a room's chart.
 * **Wading** is the ordinary walking controller: the water at the player's feet
   at or below `0.55 m` deep is waded at full walk speed, and a jump works
-  normally. The thresholds are shared with standing up, so a pool edge cannot
-  oscillate between walking and swimming.
-* **Swimming** starts once the water at the feet is deeper than `0.55 m`. The
-  swimmer moves at `0.55×` walk speed, the body sinks at a `0.5 m/s` terminal
-  until it rests `0.55 m` above the floor (so a `1.35 m` basin — shallower than
-  the standing eye height — still fully submerges), and holding Jump rises to
-  the float line at `surface_y + 0.12 m` with a small idle bob, where the eye
-  stays. Releasing Jump sinks again. A jump press never ground-jumps while
-  submerged.
-* **Getting out** only works where the walkable floor underfoot is within
-  `0.55 m` of the surface: the player stands up there (walking on from a
-  submerged step), and the swimming wall band sits one `0.4 m` step below the
-  surface so a ledge within a step of the waterline can be climbed. A deeper
-  rim stays solid, exactly like a floor-region rim on land.
+  normally. A standing player also keeps wading where the water is deeper than
+  that but the eye is still above the swim band (see below), so shallow basins
+  read as chest-deep walking rather than floating.
+* **Swimming** starts once the water at the feet is deeper than `0.55 m` **and**
+  the eye is at or below the surface's swim band (`surface_y + 0.37 m`: the
+  float margin plus the surface-swim margin). The band is what stops a fall
+  from switching to swimming while the body is still in the air above the pool.
+  The swimmer moves at `0.55×` walk speed, the body sinks at a `0.5 m/s`
+  terminal until it rests `0.55 m` above the floor (so a `1.35 m` basin —
+  shallower than the standing eye height — still fully submerges), and holding
+  Jump rises to the float line at `surface_y + 0.12 m` with a small idle bob,
+  where the eye stays. Releasing Jump sinks again. A jump press never
+  ground-jumps while submerged.
+* **Getting out** only works where standing leaves the eye above the swim band:
+  the walkable floor underfoot must be within `EXIT_DEPTH` of the surface —
+  `1.23 m` standing (`1.6 − 0.37`), `0.43 m` crouched — and the eye must be
+  near the top of the water. Because the threshold is derived from the band, a
+  stand-up can never immediately re-enter swimming and a pool edge cannot
+  oscillate; the player stands up on the submerged step or the shallow floor.
+  The swimming wall band sits one `0.4 m` step below the surface so a ledge
+  within a step of the waterline can be climbed. A deeper rim stays solid,
+  exactly like a floor-region rim on land.
 * **Overlapping volumes** resolve like overlapping floor regions: the last one
   authored at a point wins.
 * **Validation**: non-finite values, a non-positive footprint, a surface at or
@@ -1040,7 +1134,61 @@ How it behaves:
 Places Demo's pool is two adjacent volumes at one waterline: the basin
 (`x 8..20, z 10..16`, surface `-1.65`, floor `-3.0` → 1.35 m deep) and the
 submerged walk-in step (`x 10..16, z 16..16.9`, the same surface, floor
-`-1.85` → 0.2 m of wading). Jump in from the deck, swim to the step, stand up.
+`-1.85` → 0.2 m of wading). Jump in from the deck, swim to the step, stand up,
+or climb the chrome ladder at the east rim.
+
+### Ladders
+
+`ladders[]` authors **climbable volumes**. The volume is the space the climber
+moves through, not the rails: the visual rails stay a `core:pool_ladder` prop,
+and the level authors the volume that matches them. A level with no `ladders`
+array has no climbable geometry, exactly as before.
+
+```json
+"ladders": [
+  { "x": 19.35, "z": 11.7, "width": 0.6, "depth": 0.6,
+    "bottom_y": -3.0, "top_y": -1.5, "facing_degrees": 90.0 }
+]
+```
+
+| Field | Type | Required | Default | Constraints / semantics |
+| --- | --- | --- | --- | --- |
+| `x`, `z` | number | **yes** | — | Minimum corner of the climb volume's footprint (normalised, like a region). |
+| `width`, `depth` | number | **yes** | — | `> 0`. |
+| `bottom_y` | number | **yes** | — | World Y of the lowest climbable point, usually the floor at the base. Must be finite. |
+| `top_y` | number | **yes** | — | World Y the feet reach at the top, usually the exit surface's own height. Must be finite and strictly above `bottom_y`. |
+| `facing_degrees` | number | no | `0.0` | The yaw the climber faces while climbing, in the same convention as `spawn.yaw_degrees`: `0` climbs towards `-Z`, `90` towards `+X`, `180` towards `+Z`, `270` towards `-X`. Must be finite. |
+
+How it behaves:
+
+* **Attachment needs movement intent.** The player's cylinder must overlap the
+  footprint, be behind the ladder's centre along `facing` (the approach side),
+  and be pressing movement whose direction points along `facing`. There is no
+  climb key: walking into the climbable face is the input. Contact from the exit
+  side never attaches, so a player on the deck beyond the ladder is not pulled
+  upward.
+* **Climbing is collision-checked.** Holding the toward input rises at `2.2 m/s`
+  and sideways movement keeps the ordinary wall/rim collision, so a rim between
+  the climb volume and the deck stays solid until the feet reach `top_y`.
+  Releasing the key holds position; backing away or pressing Jump detaches
+  (Jump launches with the ordinary jump velocity); an overhead clamps the rise
+  and the player stays attached below it.
+* **The top lands on a real floor.** When the feet reach `top_y` and the
+  walkable floor within a step is a real surface (the deck), the player steps
+  onto it as a normal grounded transition. Author `top_y` at the exit surface's
+  height; a `top_y` below a step edge can still be exited by jumping.
+* **The prop must not be a wall.** A ladder prop authored `"solid": true` gives
+  the whole rails bounding box a generic collision box, which blocks both the
+  water approach and the deck exit. Author the prop `"solid": false` and let
+  the `ladders[]` volume own the climb; Places Demo does.
+* **Validation**: non-finite values, a non-positive footprint, a top at or below
+  the bottom, a volume that overlaps no room, or more than 256 ladders are
+  named errors.
+
+Places Demo's ladder hugs the prop's west face at the east rim of the basin
+(`x 19.35..19.95, z 11.7..12.3`, basin floor `-3.0` to deck `-1.5`, climbing
+towards `+X`). A swimmer approaches from the water, holds forward, and tops out
+on the deck at `-1.5`.
 
 ### Ramps and staircases
 
@@ -1249,6 +1397,92 @@ Rules that matter:
   above the treads; the same is true beside a ramp. Author `rise` (with `y`) to
   pin an explicit line, such as a level landing rail on sloping ground. Posts
   stay vertical and the barrier box follows the slope.
+
+---
+
+### Arc walls and circular pillars
+
+Two data-authored primitives cover the curved vocabulary without any code
+change: an **arc wall** is a curved slab on a circular plan, a **circular
+pillar** a solid round post. Both are placed by the **centre of their circle**
+(not a corner), take any catalog material id, and are tessellated into flat
+segments the way the archway is.
+
+```json
+"arc_walls": [
+  { "x": 14.0, "z": 4.0, "radius": 1.0, "thickness": 0.24,
+    "height": 2.2, "start_degrees": 180.0, "sweep_degrees": 180.0,
+    "segments": 16,
+    "material": "core:wallpaper_stained_01",
+    "inner_material": "core:pool_tile_wall_01",
+    "cap_material": "core:baseboard_office_01",
+    "end_material": "core:baseboard_office_01" }
+],
+"pillars": [
+  { "x": 3.5, "z": 8.5, "radius": 0.4, "height": 3.0, "segments": 24,
+    "material": "core:pool_tile_wall_01",
+    "cap_material": "core:baseboard_office_01" }
+]
+```
+
+| Field (arc wall) | Type | Required | Default | Semantics |
+| --- | --- | --- | --- | --- |
+| `x`, `z` | number | **yes** | — | Centre of the arc's circle, world coordinates. |
+| `radius` | number | **yes** | — | Centreline radius, `> 0`. |
+| `thickness` | number | no | `0.3` | Ring thickness across the radius; `> 0` and `< 2 × radius` (`inner_radius` must stay positive). |
+| `y` | number | no | walkable floor under the arc's mid-span centreline | Absolute world Y of the base. |
+| `height` | number | no | local clear ceiling per segment | Height above the base; authored is rigid, exactly like a wall's. |
+| `start_degrees` | number | no | `0.0` | Compass angle of the first end (0 = north, +90 = east). |
+| `sweep_degrees` | number | no | `90.0` | Signed sweep; positive runs north → east → south → west. Non-zero, `≤ 360`. |
+| `segments` | integer | no | 24 per full circle, scaled to the sweep | Tessellation across the whole sweep, 3–128. |
+| `material` | string | no | `defaults.wall` | Face material for both length faces, caps and ends. |
+| `inner_material`, `outer_material`, `cap_material`, `end_material` | string | no | `material` | Per-face overrides (concave face, convex face, top/bottom caps, the two radial ends). |
+| `shine` (+ the four face `_shine` keys) | number | no | material default | Per-surface glossiness `0.0`–`1.0`. |
+
+| Field (pillar) | Type | Required | Default | Semantics |
+| --- | --- | --- | --- | --- |
+| `x`, `z` | number | **yes** | — | Centre, world coordinates. |
+| `radius` | number | **yes** | — | Solid radius, `> 0`; the pillar is solid to its axis. |
+| `y` | number | no | walkable floor under the centre | Absolute world Y of the base. |
+| `height` | number | no | local clear ceiling | Height above the base. |
+| `segments` | integer | no | `24` | Tessellation of the full circle, 3–128. |
+| `material`, `cap_material` | string | no | `defaults.wall` / `material` | Body and top cap. |
+| `shine`, `cap_shine` | number | no | material default | Per-surface glossiness. |
+
+Rules that matter:
+
+* **Angles are compass yaw.** `start_degrees` is the direction from the centre
+  to the arc's first end; increasing angles sweep clockwise seen from above
+  (north → east → south → west), matching prop and guardrail yaw. A
+  `sweep_degrees` of exactly `360` (or `-360`) is a full ring: it closes on
+  itself and emits no end caps.
+* **Degenerate dimensions are rejected by name**: a non-positive radius, a
+  thickness at or above twice the radius, a zero or over-full sweep, a
+  `segments` outside 3–128, a non-positive authored height and blank material
+  ids each produce a `Arc wall {i} …` / `Pillar {i} …` error at load.
+* **Texture coordinates tile at the material's world scale.** `u` is the arc
+  length along each face's own circumference (the concave face uses its own
+  smaller radius, so nothing is stretched around the sweep) and `v` is height;
+  caps use the ordinary world plan mapping. Assign any catalog material —
+  including tiled, glossy or normal-mapped ones — and it behaves exactly as it
+  does on a flat wall.
+* **Collision is derived from the same geometry.** An arc wall contributes a
+  short run of AABBs per rendered segment (its ring band), and a pillar
+  contributes horizontal rows of its rendered polygon; neither ever falls back
+  to one rectangle around the whole circle. A curved wall is exactly as
+  passable as it looks, and a pillar's collision follows its silhouette. The
+  baked lighting occluders use the same solids, so curves cast real baked
+  shadows.
+* **The tops are landable** where they are exposed: a low pillar or arc wall
+  supports the player, and a pillar whose top meets the ceiling skips its cap
+  so it never fights the ceiling plane.
+* **No decals on curved faces.** Decals are planar quads; a decal placed over a
+  curved wall would float or clip. Use a curved primitive's own per-face
+  materials instead, or place a decal on a flat wall/ceiling/floor nearby.
+* **Tessellation is the visual and collision budget.** The default 24-segment
+  full circle reads smoothly at room scale; the checker reports a `curve-coarse`
+  warning when a primitive's sagitta exceeds 2 cm, and `segments` up to 128 are
+  accepted.
 
 ---
 
@@ -1919,8 +2153,8 @@ anywhere). `display_name` has a legacy alias `name`.
 | `asset_type` | string | **required** | — | all. Shipped: `prop`, `entity`, `material`, `texture`, `light`, `decal`. |
 | `source` | `"file"` \| `"definition"` \| `"generated"` | optional | inferred: `texture` → `definition`; else `model` → `file`; else `generated` | all. `file` requires a `model`; `generated` must not declare one; `definition` requires a `texture` and must not declare a `model`. |
 | `model` | string | type-specific | — | Resource path **relative to `assets/`**. `.glb` for props/entities; `.png` for file textures, file decals and file lights. Rejected if absolute, backslashed or containing `..`/empty components. |
-| `size` | `[w,h,d]` | optional (validator requires it for placeables) | invalid values dropped; runtime fallback `[0.6, 0.9, 0.6]` | props, entities. Used by editor/placeholder boxes; a level's own `size` overrides it for collision. |
-| `color` | `"#rrggbb"` | optional | `#8a8a8a` | props, entities (placeholder box + editor) |
+| `size` | `[w,h,d]` | optional (validator requires it for placeables) | invalid values dropped; runtime fallback `[0.6, 0.9, 0.6]` | props, entities. Used by placeholder boxes; a level's own `size` overrides it for collision. |
+| `color` | `"#rrggbb"` | optional | `#8a8a8a` | props, entities (placeholder box) |
 | `category` | string | optional | `"Other"` | props, entities (organizational) |
 | `solid` | boolean | optional | `false` | props, entities (catalog advisory; level `solid` controls collision) |
 | `surface` | string | optional | none | materials/textures; `wall`/`floor`/`ceiling` documentation/validation |
@@ -2011,7 +2245,7 @@ new asset type is added, add a row here and update the referenced sections.
 
 | Asset type | Purpose | Physical resource | Placeable directly in a level? | Referenced by |
 | --- | --- | --- | --- | --- |
-| `prop` | Three-dimensional object | `model` = `.glb` under `assets/` | **Yes** — `props[].model` | levels, `prop_proxies.json` (derived) |
+| `prop` | Three-dimensional object | `model` = `.glb` under `assets/` | **Yes** — `props[].model` | levels |
 | `entity` | A placeable character: a skinned GLB, posed every frame by the character path | `model` = `.glb` | **Yes** — same prop pipeline | levels |
 | `material` | Surface appearance definition | `source: "definition"`, no file; names a `texture` | No | `defaults`, rooms, walls/`faces`, patches, regions, opening `glass` |
 | `texture` | A surface PNG | `model` = `.png` | No | a `material`'s `texture`, `emissive_mask`, `normal_texture` |
@@ -2112,6 +2346,24 @@ Missing/malformed GLB, over-budget mesh, more than 256 distinct models, or exhau
 the level prop-vertex budget → placeholder box plus a one-time `[props]` warning where
 a file was involved. `solid` is never affected by any of this.
 
+
+### Rigid animated props (clips without a skin)
+
+A model may declare `animations` and a node hierarchy **without** a `skins`
+array. It then parses as a *rigid* animated prop: every primitive is bound to
+the node that carries it with weight one, and the character path poses those
+nodes directly (no joint weights, no skin). `home:wall_switch` is the shipped
+example — a plate node, a pivot node and a rocker node with one LINEAR rotation
+clip named `toggle` whose first key is the bind pose and whose last key is the
+other position.
+
+A rigid prop is driven **only by an explicit action**: it never runs the
+locomotion states, so an untouched switch holds its bind pose instead of
+looping its clip. Use `toggle_animation` (section 29) to ease its clip to
+either end. A model is claimed as a character, so it does not occlude the bake
+and it counts against the level's animated-character budget
+(`MAX_CHARACTERS`, 8 per level).
+
 ### Adding a New Prop
 
 1. Build the model with the Python toolkit (the intended route):
@@ -2129,7 +2381,6 @@ a file was involved. `solid` is never affected by any of this.
    python3 tools/assets/validate.py
    cargo test --workspace --all-features
    ```
-6. Refresh editor thumbnails if you want them (toolkit flag in `tools/props/README.md`).
 
 A hand-authored GLB is accepted by the runtime if it satisfies the profile above, but
 the default `cargo test` run enforces the origin/scale/budget conventions for every
@@ -2156,6 +2407,7 @@ fights its parent surface. Do not author epsilon offsets or per-decal depth tric
 | `rotation_degrees` | number | no | `0.0` | In-plane rotation about the surface normal. |
 | `material` | string | **yes** | — | A catalog `decal` id. |
 | `surface` | enum | **yes** | — | `floor`, `ceiling`, `wall_north`, `wall_south`, `wall_west`, `wall_east`. An unknown value is a JSON parse error. |
+| `align` | enum | no | `"none"` | `none` keeps the authored centre and rotation. `ceiling_grid` snaps a **ceiling** decal's centre to the nearest panel centre of the ceiling material above it, in the room's own ceiling tile frame, and composes that frame's rotation into the decal's in-plane rotation. The panel module is the material's `grid_metres`, falling back to `tile_metres` when the sheet paints one panel per repeat. Ignored on every other surface, and on a decal that is not inside a room or whose ceiling material resolves no positive period. |
 
 Rules:
 
@@ -2176,6 +2428,15 @@ Use a decal when you need a **local marking on an existing surface**: signs, arr
 hazard bands, stains that must be a specific shape. Use a material change (patch or
 region) when the whole surface area changes appearance, and use geometry when the
 object has depth.
+
+**Ceiling vents.** `core:decal_ceiling_vent_01` is a low-poly ceiling grille sheet
+(0.6 m square) meant for `surface: "ceiling"` with `align: "ceiling_grid"`. It
+snaps to one ceiling panel and composes the room's tile rotation, so it sits
+square on the drawn pattern instead of straddling a T-bar. Its footprint must
+fit inside a panel: on a sheet whose visible panel module is 1 m, keep the sheet
+at or under ~0.8 m; on a 2 m module it can be larger. A vent is ordinary decal
+artwork — alpha cut-out, no emission, no light — and never changes the ceiling
+geometry.
 
 ### Adding a New Decal
 
@@ -2486,9 +2747,7 @@ Fixture geometry is code. To add a family, touch each of these:
    `src/lighting/tests.rs` (footprint/mount cases).
 7. If the toolkit should generate the art: add a painter to
    `tools/textures/lights_art.py` and run the texture check.
-8. If the editor should author/preview it: update `level-editor/js/lighting.js`,
-   `model.js` and `app.js` (the editor currently mirrors only the office panel).
-9. Validate: `python3 tools/textures/build.py --check`,
+8. Validate: `python3 tools/textures/build.py --check`,
    `python3 tools/assets/validate.py`,
    `cargo clippy --workspace --all-targets --all-features -- -D warnings`,
    `cargo test --workspace --all-features`.
@@ -2505,18 +2764,35 @@ Exact level syntax (all fields verified against `src/level.rs::PropDef`):
 
 ```jsonc
 {
+  "id": "front_desk",            // optional. Stable per-instance id; default <model>_<n>.
+  "display_name": "Front Desk",  // optional. toggle_label text; default the model id.
   "model": "core:desk",          // REQUIRED. Logical catalog id. Unknown ids render a placeholder box.
   "x": 4.6, "y": 0.0, "z": 5.8,  // optional, default 0. y is an offset ABOVE the local walkable floor.
   "rotation_degrees": 180.0,     // optional Y rotation; model +Z faces this way at 0.
   "scale": 1.0,                  // optional, default 1.0, must be > 0. Scales model and explicit size.
   "size": [1.6, 0.75, 0.7],      // optional [w,h,d] metres for collision/placeholder.
   "solid": true,                 // optional, default false. Only this flag creates collision.
-  "lights": []                   // optional 0..8 generic light sources, see section 21.
+  "interaction": {               // optional. E in reach runs the actions once (see §29).
+    "prompt": "Toggle name",     // optional; shown while aimed at; default "Interact".
+    "reach": 2.5,                // optional; 0..4.0 m; default 2.5.
+    "actions": [{ "action": "toggle_label" }]  // REQUIRED, 1..8, in order.
+  },
+  "lights": [],                  // optional 0..8 generic light sources, see section 21.
+  "float": { ... }               // optional water-driven motion, see the field table.
 }
 ```
 
 Semantics:
 
+* **`id` is a per-placement identity, not an asset id.** It names *this* placed
+  instance for interactions, action targets and duplicate validation, and has
+  nothing to do with `model`/catalog ids. Omitted, the deterministic default is
+  `<model short name>_<n>` where `n` counts the placements of that short name that
+  do not author an id, in array order. Ids are unique across props, light fixtures
+  and area triggers; a duplicate or malformed id is a named load error. Never key
+  external state on `model`: two copies of one model are two instances.
+* `display_name` is the floating label text a `toggle_label` action shows. It is
+  map-authored; the model id is the fallback when omitted.
 * `y` is **not absolute world Y**: `base_y = walkable floor at (x,z) + y`. A negative
   `y` deliberately sinks a prop into the floor and is never corrected. On a room with
   `floor_y: -1.5`, a prop at `y: 0` stands on that room's floor.
@@ -2524,6 +2800,13 @@ Semantics:
   The catalog `size` is never used for collision. A solid prop that should block like
   its picture must author `size`. Validation rejects non-positive/non-finite `size`
   and `scale`.
+* A solid prop's box is **landable on top and blocking underneath**: the sides stop
+  a walking player, a fall lands on the top (if the player's centre is over the
+  box), and a jump under a raised prop bumps its underside. A prop authored above
+  the floor (`y: 1.0` with a small `size[1]`) is a beam a crouched 0.9 m body fits
+  under and a standing or jumping one does not.
+* A **climbable ladder prop should be `solid: false`** with a matching `ladders[]`
+  volume: the generic box would block the climb approach and the top exit.
 * The collision box is **axis-aligned and does not rotate**. For a 90°/270° rotated
   solid prop, author the x/z-extents swapped.
 * Rotation does rotate the rendered model around Y.
@@ -2537,6 +2820,9 @@ Semantics:
   non-solid prop still occludes, because the occlusion comes from the drawn
   geometry. See [Static props occlude the bake](#static-props-occlude-the-bake).
 
+| `float` | object | no | — | Water-driven motion for a floating prop: `{ "draft": 0.03, "bob": 0.012, "bob_seconds": 2.8, "heel_degrees": 6.0, "heel_seconds": 3.6, "phase": 0.0 }`. The prop is drawn by the dynamic path on the water surface, at `surface_y - draft + bob · sin(...)`, with **no horizontal drift**; `heel_degrees` rolls it about its own forward axis. It must be `solid: false`, author `size`, sit fully inside one water volume once the swept footprint (half-diagonal plus the heel's excursion) is added, and it cannot be routed. `phase` is `0..=1`; omitted, a deterministic per-placement phase keeps two floats out of lockstep. |
+
+
 Known-valid examples:
 
 ```json
@@ -2549,8 +2835,8 @@ Known-valid examples:
   "size": [2.0, 1.05, 0.08], "solid": true }
 ```
 
-A deliberate sunken prop (from the generated prop showcase fixture; the `id` key shown
-there is an ignored extra — do not copy it):
+A deliberate sunken prop (from the generated prop showcase fixture; its `id` is a
+fixture-generated instance id, which the engine now reads):
 
 ```json
 { "model": "core:crate", "x": -10.9, "z": -5.4, "rotation_degrees": 12.0,
@@ -2680,6 +2966,28 @@ fixtures outside every room keep the authored position. Author `"align":
 deliberately skewed installation or a placement that matches a prop). A legacy
 level that never heard of the field gets the default (`grid`), and every panel
 the demo ships ends up centred in its ceiling panels.
+
+### The room's own ceiling tile frame
+
+Ceiling artwork normally tiles from the world origin, but a room may author a
+local phase and rotation for its ceiling pattern:
+
+```json
+{ "x": 10.0, "z": 0.0, "width": 6.0, "depth": 12.0, "height": 3.0,
+  "ceiling_tile_origin": [0.75, 0.25], "ceiling_tile_rotation_degrees": 90.0 }
+```
+
+* `ceiling_tile_origin` is a world `[x, z]` point that becomes the pattern's
+  local origin; omitted means the world origin.
+* `ceiling_tile_rotation_degrees` rotates the pattern about that origin.
+  Omitted means `0`.
+
+The frame changes only the ceiling material's texture phase/orientation, never
+the room's geometry or the floor. It is also the frame the light-fixture snap
+(above) and `decals[].align: "ceiling_grid"` resolve in, so a room with an
+offset or rotated module keeps its fixtures and vents on its own tiles instead
+of an assumed global grid. Both fields are ignored by levels that do not author
+them.
 
 Invalid values are rejected with named messages (`Wall light {i} needs a world height
 (\`y\`)…`, `Ceiling light {i} intensity cannot be negative`, `… colour channels must be
@@ -3249,6 +3557,7 @@ none of them is optional for a change that ships content.
 | `python3 tools/props/build.py --check` | Every catalogued prop GLB exists and parses, and its decoded texture memory fits the per-texture and 64 MiB pack budgets; prints bounds/budget flags | Yes when props changed |
 | `PLACES_LEVEL=<id> cargo run` | Boots straight into the level and prints validation errors verbatim | **Yes, once per map** |
 | `PLACES_CAPTURE=frame.png PLACES_LEVEL=<id> cargo run` | One-frame PNG capture for visual inspection (`PLACES_CAPTURE_FRAME=n` waits for frame n first) | Useful |
+| `cargo run --release -- --check-geometry --level <path-or-id>` | The read-only map geometry checker: confirmed defects and heuristic warnings over the engine's own geometry and collision interpretation (§30) | Recommended for every map change |
 | `python3 tests/test_package.py` | Repository/package gate: shipped-level checks, texture policy, catalog validation, README hygiene | Recommended before shipping a map into `assets/levels/` |
 | `PLACES_DUMP_LIGHTMAPS=1 PLACES_LEVEL=<id> cargo run` | Writes the baked atlas pages as PNGs under `target/agent-work/atlases/` | Useful |
 | `python3 tools/textures/seam_repair.py --check <png>` | Tiling seam metric per texture | Yes for new surface art |
@@ -3390,9 +3699,295 @@ the error in full.
 - [ ] `python3 tools/props/build.py --check` exits 0 (new props in particular).
 - [ ] `cargo test --workspace --all-features` passes.
 - [ ] The level boots with `PLACES_LEVEL=<id>` with no validation error.
+- [ ] `--check-geometry` reports no confirmed defects; every remaining heuristic
+      warning is either repaired or covered by a narrow `geometry_intent`
+      annotation with a note (§30).
 - [ ] A capture (`PLACES_CAPTURE`) has been inspected if practical, at High and
       at `PLACES_QUALITY=low` (and/or `medium`) if reflections or material
       response matter.
+
+---
+
+## 29. Interactions, Labels, Area Triggers and Entity Routes
+
+Runs 02–04 added one typed interaction layer for placed objects, one area-trigger
+primitive and one entity-route runtime. All three dispatch the same closed set of
+actions; none is a scripting engine. Identity, actions, routes and reset
+semantics are documented here; every field is verified against `src/level.rs`
+(`PropInteractionDef`, `ActionDef`, `AreaTriggerDef`, `EntityRouteDef`) and
+`src/interact.rs` / `src/entity.rs`.
+
+### Instance identity
+
+Every prop may author `id`; every light fixture accepts `id` too (identity only
+today). Authored or default, ids must be well-formed
+(`[A-Za-z0-9:._-]`, no leading `:`) and unique across **props, fixtures and area
+triggers** in one level. The deterministic default for a prop is
+`<model short name>_<n>`; for a fixture, `<fixture short name>_<n>`; for a trigger,
+`trigger_<n>` (1-based authored position). Two copies of one model therefore get
+two ids (`plant_1`, `plant_2`) and independent state.
+
+### Actions
+
+An interaction or trigger runs 1..8 actions in order. The accepted actions are:
+
+| Action | Fields | Effect |
+| --- | --- | --- |
+| `toggle_label` | `target` (optional) | Show/hide the floating display name of the named prop instance (whether or not it has its own interaction). Omitted `target` means the acting prop itself. |
+| `reset_to_start` | — | Return the player to the level's authored spawn (see below). Also returns routed entities to their spawns and clears pose overrides. Stops the rest of the batch. |
+| `play_animation` | `target`, `clip`, `loop` (optional) | Play `clip` on the named entity; omitted `target` means the acting prop. A one-shot (the default) holds its last pose; `loop: true` repeats it. The override wins over the entity's own route cue until another action or a reset replaces it. |
+| `toggle_animation` | `target` (optional), `clip` (required) | Ease the named clip of the target instance toward the opposite end of its timeline (`t = 0` to `t = duration`). Presses repeat: a second press mid-move reverses from the current pose rather than snapping or restarting. The full traverse takes 0.35 s whatever the clip's authored length, and every instance keeps its own target. |
+| `play_audio` | `target`, `sound` | **Not implemented.** There is no audio subsystem; validation rejects it by name. |
+
+An unknown `action` tag is a JSON parse error. `toggle_label` targets must name a
+placed prop (labels exist only on placed objects; a targeted prop does not need
+an interaction of its own — it becomes a label-only target), and a missing or
+unknown target or a trigger with no `target` is a named validation error.
+`play_animation` follows the same target rule and additionally requires a
+non-blank `clip`. Dispatch is bounded: at most one trigger batch runs per frame,
+and a reset ends its batch (the remaining actions do not run).
+
+### Object interactions
+
+A prop with an `interaction` is aimable:
+
+* The player looks at it and presses **E** (rebindable in Settings > Controls).
+* Targeting uses the actual eye position (a crouched player aims from the crouched
+  eye), a per-instance `reach` (default 2.5 m, maximum 4.0 m) and the collision
+  world as occluders: no interaction through a wall or with an object hidden
+  behind a nearer solid.
+* One press is one interaction: the key edge is latched, so holding E never
+  repeats; menus, pause and lost focus do not latch.
+* `toggle_label` shows or hides a floating display name above *that placed
+  instance only*. State is per instance, so the other copy of the same model is
+  untouched; reloading a level hides every label again, while `reset_to_start`
+  keeps them (a label is a view toggle, not movement state).
+* Labels are drawn with the existing UI text pipeline, projected from the object's
+  world anchor, clamped to the viewport and hidden when occlusion blocks the line
+  of sight. Entities such as `spooner-man` use the same path.
+
+The aimable bound is the same contract as collision: the authored `size` (scaled)
+or the standard `[0.6, 0.9, 0.6]` prop box — never the catalogue size. Author
+`size` on an interactable whose rendered model is much taller or wider than that
+box (the demo's `spooner_man` authors `[0.7, 1.8, 0.7]`) so the crosshair covers
+the object, not just its feet.
+
+A routed entity's label anchor and aim bound follow it: the controller republishes
+them from the authored rest values plus the live offset every frame, so E and the
+floating name track a character that walks away.
+
+### Entity routes
+
+A `routes[]` entry drives **one placed skinned entity** (a prop whose catalogue
+model carries a glTF skin) through a short authored sequence. Routes are keyed by
+the placed instance id, so two copies of a model run independently:
+
+```jsonc
+{
+  "id": "rat_1",                 // REQUIRED: a placed prop instance id
+  "loop": true,                  // optional, default false: restart after the last step
+  "steps": [                     // REQUIRED, 1..64
+    { "step": "move_to", "x": 18.0, "z": 6.0, "speed": 0.35 },
+    { "step": "move_to", "x": 22.0, "z": 9.0, "speed": 1.2 },
+    { "step": "face", "yaw_degrees": 90.0 },
+    { "step": "wait", "seconds": 1.0 },
+    { "step": "play", "clip": "idle", "seconds": 2.0, "loop": true }
+  ]
+}
+```
+
+* `move_to` walks in a straight line to a waypoint at `speed` m/s (0 < speed <= 6).
+  The runtime follows the walkable floor, refuses a step taller than 0.3 m and
+  stalls (reported once in the console) if a wall, a drop or the void blocks it —
+  it never tunnels or teleports. Validation samples the whole straight segment at
+  the entity's own footprint and refuses a waypoint off the floor or a path
+  through geometry.
+* `face` turns in place at 240 deg/s; `wait` stands still.
+* `play` plays a named clip for `seconds`, then advances. The GLB's own clip
+  metadata (`asset.extras.places_entity_clips`) records each clip's loop flag and
+  the ground speed its stride is authored for; `move_to` uses it so the walk/run
+  cycle matches the route speed with no foot sliding.
+* The entity must be **non-solid**: a `solid: true` prop's own box would block its
+  first step and is a named validation error.
+* A route `id` must name a placed prop and be unique among routes. Waypoints must
+  sit on a real walkable surface of the level.
+
+Entity sizes, forward axis and stride speeds come from the asset's own README
+(see `assets/entities/<id>/README.md`); the fixtures under
+`tests/fixtures/levels/` demonstrate walk, run, pose selection and two
+independent instances.
+
+### Area triggers
+
+```jsonc
+{
+  "id": "pit_hole_1",              // optional; default trigger_<n>
+  "x": 9.6, "z": -26.2,            // optional; footprint MIN corner, default 0
+  "width": 1.6, "depth": 1.6,      // REQUIRED, > 0
+  "bottom_y": -3.2,                // optional; default the walkable floor under the centre
+  "top_y": -0.05,                  // optional; default bottom_y + 2.0
+  "actions": [{ "action": "reset_to_start" }],  // REQUIRED, 1..8
+  "cooldown_seconds": 0.5,         // optional, default 0.0; >= 0
+  "once": false                    // optional, default false
+}
+```
+
+Semantics:
+
+* **Enter, not overlap.** The trigger fires on the first frame the player's feet
+  are inside the volume, or when the frame's swept feet segment crosses it, so a
+  fast fall through a thin band still counts. Standing inside never re-fires;
+  leaving re-arms.
+* `cooldown_seconds` bounds a re-entry; `once` makes a trigger fire at most once
+  per run (a `reset_to_start` re-arms it).
+* `reset_to_start` returns the player to the authored spawn and facing, clears
+  velocity, stance, ladder and water state, and re-seeds every trigger from the
+  new position, so a teleport never activates the volumes between the old and new
+  positions and a spawn inside a volume never loops.
+* At most one trigger batch runs per frame; if the frame crosses more than one
+  volume, the later entries are deferred to following frames rather than run in
+  the same frame, so one reset can never chain into another volume immediately.
+* The footprint must overlap a room; the resolved `top_y` must be above
+  `bottom_y`. Both are named validation errors otherwise.
+
+### Places Demo examples
+
+The shipped demo authors real interactions; use them as the reference (all in
+`assets/levels/places_demo.json`):
+
+```json
+{ "id": "water_cooler", "display_name": "Water Cooler", "model": "core:water_cooler",
+  "x": 0.6, "y": 0.0, "z": 0.6, "rotation_degrees": 90.0,
+  "size": [0.35, 1.1, 0.35], "solid": true,
+  "interaction": { "prompt": "Toggle name",
+                   "actions": [{ "action": "toggle_label" }] } }
+```
+
+```json
+{ "id": "pool_chair_north", "display_name": "Pool Chair", "model": "core:pool_chair",
+  "x": 4.0, "y": 0.0, "z": 14.7, "rotation_degrees": 0.0,
+  "size": [0.52, 0.85, 0.55], "solid": true,
+  "interaction": { "prompt": "Toggle name",
+                   "actions": [{ "action": "toggle_label" }] } }
+```
+
+```json
+{ "id": "spooner_man", "display_name": "Spooner-Man", "model": "spooner-man",
+  "x": 5.6, "y": 0.0, "z": 8.4, "rotation_degrees": 90.0,
+  "size": [0.7, 1.8, 0.7],
+  "interaction": { "prompt": "Toggle name",
+                   "actions": [{ "action": "toggle_label" }] } }
+```
+
+
+A wall switch composes the lever with the instance-local label in one batch —
+the switch does not lose either behaviour:
+
+```json
+{ "id": "kitchen_switch", "display_name": "Kitchen Light Switch",
+  "model": "home:wall_switch", "x": 58.3, "y": 1.2, "z": 8.47,
+  "rotation_degrees": 270.0, "size": [0.18, 0.18, 0.1], "solid": false,
+  "interaction": { "prompt": "Switch", "reach": 1.6,
+                   "actions": [{ "action": "toggle_animation", "clip": "toggle" },
+                               { "action": "toggle_label" }] } }
+```
+
+`reset_to_start` returns every toggle to its rest end (`t = 0`) rather than
+dropping it, so a reset switch does not keep the pose its last press left it
+in.
+
+`Level 0: The Pit` authors one `reset_to_start` trigger inside each of the 15
+carpet holes (the recessed 1.6x1.6 `floor_regions` at `offset_y: -3.2`):
+
+```json
+{ "id": "pit_hole_1", "x": 9.6, "z": -26.2, "width": 1.6, "depth": 1.6,
+  "bottom_y": -3.2, "top_y": -0.05,
+  "actions": [{ "action": "reset_to_start" }], "cooldown_seconds": 0.5 }
+```
+
+The `top_y` sits 5 cm below the hall floor so standing on the carpet beside a
+hole never counts as an entry; the bottom reaches the hole floor so any fall
+crosses the band.
+
+---
+
+## 30. The Map Geometry Checker
+
+`places --check-geometry` is a read-only CLI over the same interpretation the
+game builds: it parses and validates a level, runs the same preparation pass
+(fixture snapping, ceiling-decal snapping, automatic baseboards), emits the
+static mesh and derives collision, then reports what is measurably wrong.
+
+```text
+# Human report (errors and warnings)
+cargo run --release -- --check-geometry --level assets/levels/places_demo.json
+
+# Machine-readable report and marker files
+cargo run --release -- --check-geometry --level levels/level0_pit.json \
+    --json target/report.json \
+    --markers target/markers.json \
+    --markers-obj target/markers.obj
+
+# Warnings fail the run too (for CI)
+cargo run --release -- --check-geometry --level places_demo --strict
+```
+
+| Flag | Meaning |
+| --- | --- |
+| `--level <path-or-id>` | A level JSON path, `places_demo`, or a drop-in id under `levels/`. |
+| `--json <path>` | Writes the machine-readable report (format `places-geometry-check`, version 1). |
+| `--markers <path>` | Writes marker anchors as JSON. |
+| `--markers-obj <path>` | Writes a small cross per finding as an OBJ, for visual localization. |
+| `--strict` | Treat warnings as a failing status. |
+| `--quiet` | Human report lists errors only. |
+
+Exit statuses: **0** no confirmed defects, **1** confirmed defects (or any
+warning with `--strict`), **2** usage or file/parse failure.
+
+Each finding names its check, severity, element id, message and a world
+position. Checks include:
+
+| Check | Severity | What it proves |
+| --- | --- | --- |
+| `level-invalid` | error | The loader rejected the level; the reason is quoted. |
+| `degenerate-face` | error | A zero-area or repeated-corner triangle in the emitted mesh. |
+| `non-finite-vertex` | error | A generated position, uv, colour or frame is not finite. |
+| `duplicate-surface` | error | Two coplanar triangles (over 10 cm²) overlap, e.g. duplicated trim. |
+| `coplanar-sliver` | warning | A sub-10 cm² overlap sliver at a joint; reported, not hidden. |
+| `reversed-face` | warning | Two coplanar faces overlap with opposite normals; could be a genuine reversal or a legitimate back-to-back pair (two stacked walls' caps share a junction plane, and the checker cannot tell them apart without solid semantics). |
+| `overlap-emission` | warning | Two rooms' floors/ceilings share a plane (intentional overlaps emit both). |
+| `collision-duplicate` | error | Two authored solids share an identical collision box. |
+| `collision-mismatch` | error | An authored solid is missing from the engine's collision set. |
+| `ghost-collider` | warning | A surface-tight rectangular collider (a wall slice, half wall, column or archway) with no mesh surface on any face. Guardrails (their barrier box deliberately reaches below the rails) and curved primitives (whose row AABBs over-cover by construction) are exempt. |
+| `opening-overlap` | error | Two openings in one wall overlap; they resolve as one merged hole. |
+| `opening-unused` | warning | An opening does not intersect the wall solid; it cuts nothing. |
+| `curved-invalid` | error | A degenerate arc wall/pillar (radius, thickness, sweep, segments). |
+| `curved-collision-gap` | error | Collision does not cover the drawn curved polygon. |
+| `curved-collision-overshoot` | error | Collision reaches grossly past the drawn curve. Only checked on a curve whose tessellation is already fine (sagitta ≤ 2 cm); a coarse tessellation gets the actionable `curve-coarse` warning instead, because its AABB slack follows from the tessellation itself. |
+| `curve-coarse` | warning | A curve's tessellation leaves a sagitta above 2 cm. |
+| `missing-wall` | warning | A room perimeter run has no wall solid and no authored opening. |
+| `room-leak` | warning | A room's walkable space reaches the *void* (outside every room). |
+| `spawn-outside-room` | warning | The spawn is outside every room (the floor falls back to y = 0). |
+
+**Intent annotations.** A heuristic warning that is deliberate is suppressed by
+a narrow `geometry_intent[]` rectangle with the check id and a note — never by
+widening a threshold or suppressing a check globally. Errors are never
+suppressed:
+
+```json
+"geometry_intent": [
+  { "check": "missing-wall", "x": 68.9, "z": 2.7, "width": 1.75, "depth": 0.6,
+    "note": "The corridor loop's return leg opens into the stair hall here." }
+]
+```
+
+**Honest limitations.** The checker reads the level geometry, not the rendered
+image. It is not a watertightness proof: intentional doorways, windows,
+stair openings, pools, carpet holes and open-plan edges are legitimate, and the
+leak check only flags escapes into the void. It sees the asset-less mesh (prop
+placeholders, no GLB interiors) and does not validate prop models, textures or
+shading. Marker files and `--json` are the reproducible localization path for
+every finding; a clean run does not prove that no geometry defect exists.
 
 ---
 
@@ -3450,28 +4045,36 @@ authoring. They are not invitations to change the engine as part of an authoring
     honours it for storey selection; `src/materials/reflection.rs`'s module comment
     shows a nested `"reflection": {"mode": …}` catalog form while the catalog uses the
     flat `reflection_mode`/`reflection_strength` fields.
-16. **Legacy level editor is stale for vertical and architectural keys.**
-    `level-editor/js/` does not model `floor_y`, `floor_regions`, `ceiling` profiles,
-    fixture `mount`/`y`, or any of `ramps`, `stairs`, `half_walls`, `columns`,
-    `archways`, `guardrails`, `thresholds` and `baseboards`, and it defaults a missing
-    room `height` to 3.5 (the engine default is 4.0). Prefer editing JSON directly for
-    those features.
-17. **Tooling vs runtime strictness.** The Rust runtime is permissive (unknown
+16. **Tooling vs runtime strictness.** The Rust runtime is permissive (unknown
     class/type, missing `model`, invalid `size`, unknown fixture/prop ids degrade);
     `tools/assets/validate.py` is strict and fails. Pass the tool, not the runtime
     fallback.
-18. **Generated fixture quirk:** `tests/fixtures/levels/prop_showcase.json` (generated)
-    carries an `id` key on props that the level schema ignores. Do not copy it.
-19. **`props/build.py --check` enforces container validity and decoded texture
+17. **Generated fixture quirk:** `tests/fixtures/levels/prop_showcase.json` (generated)
+    carries `id` keys on props; instance ids are now part of the schema and are read,
+    but do not treat the generated file as an authoring reference.
+18. **`props/build.py --check` enforces container validity and decoded texture
     memory but not the triangle/scale/origin art budgets**; those live in
     `cargo test`. Do not treat a clean `--check` as complete budget approval.
-20. **Water is a volume, lighting is baked.** "Flooded" needs a `water[]` volume
+19. **Water is a volume, lighting is baked.** "Flooded" needs a `water[]` volume
     over real recessed geometry (a volume over a flat floor reads as a puddle, not
     a pool); "mood lighting" must be expressed with existing materials, geometry and
     per-fixture colour/brightness. There is no dynamic lighting.
-21. **Reflections are per-material and limited.** One planar plane per frame, at most
+20. **Reflections are per-material and limited.** One planar plane per frame, at most
     two probes per level, probes are static (no realtime update), and a planar material
     reused on non-planar geometry is skipped with a warning.
+21. **Animation and audio actions are not implemented.** `play_animation` and
+    `play_audio` parse but validation rejects them by name; no level can load with
+    them, and nothing plays silently. The typed dispatcher and its `ActionDef` enum
+    are the documented integration point for the animation run and a future audio
+    subsystem.
+22. **An interaction's aimable bound uses the same size contract as collision.**
+    It is the level `size` (or `[0.6, 0.9, 0.6]`), scaled — never the catalog size.
+    A small prop with no authored `size` is aimable as a standard box, so a map that
+    needs a precise aim target authors `size`.
+23. **An older engine build ignores the new keys entirely** (`id`, `display_name`,
+    `interaction`, `area_triggers`): unknown keys are skipped, so a map that relies
+    on them loses its interactions and triggers without an error on that build. The
+    current build validates them strictly.
 
 ---
 

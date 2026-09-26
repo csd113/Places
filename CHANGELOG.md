@@ -1,3 +1,96 @@
+## Unreleased — run-06 curved geometry, visual repairs and the geometry checker
+
+### Added
+
+- `arc_walls[]` and `pillars[]`: data-authored curved walls and circular
+  pillars with any catalog material, optional per-face overrides
+  (`inner_material`, `outer_material`, `cap_material`, `end_material`), a
+  configurable 3–128 segment tessellation, world-scale tiling UVs, correct
+  caps/ends/frames and collision derived from the drawn segments.
+- `places --check-geometry`: a read-only CLI that runs the loader, the level
+  preparation pass, the static emitter and the collision derivation, then
+  reports confirmed defects and heuristic warnings with ids, coordinates,
+  machine-readable JSON and marker files (`--json`, `--markers`,
+  `--markers-obj`; exit statuses 0/1/2).
+- `geometry_intent[]`: narrow per-rectangle annotations that suppress a named
+  heuristic warning (never a confirmed defect) with a note.
+- Per-room ceiling tile frames (`ceiling_tile_origin`,
+  `ceiling_tile_rotation_degrees`) honoured by ceiling UVs, fixture snapping
+  and decal snapping.
+- `decals[].align: "ceiling_grid"` and the `core:decal_ceiling_vent_01`
+  128×128 low-poly ceiling-vent decal, placed on five demo ceilings.
+- Geometry-checker fixtures: `geometry_broken` (planted defects),
+  `geometry_intentional` (curved geometry, rotated/offset ceiling grid and an
+  annotated open bay) and the invalid-curve fixture under
+  `tests/fixtures/levels/invalid/`.
+
+### Fixed
+
+- The demo's stair handrails now run first-nosing to last-nosing, so their base
+  line is the nosing line instead of a shallower interpolation; their posts no
+  longer float above or sink into the flight.
+- A guardrail run that does not divide evenly by its post spacing now moves its
+  last regular post to the run's end instead of drawing a doubled end post.
+- Sloped guardrail rails tile along their true 3D length (no ~20% stretch) and
+  their top face carries its real tilted normal.
+- Arc-wall radial end caps face out for negative (counter-clockwise) sweeps as
+  well as positive ones.
+- Automatic baseboards no longer draw an end face flush against a perpendicular
+  wall's face, removing the coplanar overlaps the checker found at inside
+  corners, and their cap/fan sliver guard drops sub-10 mm² trim residue so no
+  near-degenerate cap triangles reach the mesh.
+- Pool deck/basin/wall tile sheen raised through the existing response system
+  (`specular` 0.3, `shine` 0.4): a restrained, visible sheen with the artwork
+  and seamless tiling unchanged.
+
+## Unreleased — run-05 props, luminous signs, the toggle action and floating props
+
+### Added
+
+- Twelve new low-poly assets, all registered, built and placed: `core:stop_sign`,
+  `core:exit_sign`, `home:ball_light`, `home:wall_switch`, `home:crt_tv`,
+  `home:knife`, `home:fork`, `home:spoon`, `home:plate`, `home:bowl`,
+  `home:plant_table` and the pool's `core:rubber_duck`.
+- `toggle_animation`, a map-authored action that eases a placed prop's named
+  clip toward the opposite end of its timeline and re-targets from the current
+  pose, so a wall switch reverses mid-move and every switch moves on its own.
+- Rigid (skinless) animated prop playback: a model that declares clips and a
+  node hierarchy is posed by the character path, one node per primitive.
+- Floating props: a per-prop `float` block (draft, bob, heel, phase) rides the
+  water surface with no horizontal drift, bounded by level validation to stay
+  inside its basin; the pool's rubber duck is the shipped example.
+- Emissive prop material slots (`KHR_materials_emissive_strength`) for the exit
+  sign's face and the ball light's orb, with their real light contributions
+  authored as `props[].lights`.
+- Places Demo place settings at both kitchen seats, a reachable kitchen switch,
+  a green exit sign in the east corridor and a pendant over the table.
+
+## Unreleased — retire the legacy level editor
+
+The bundled browser level editor (`level-editor/`) is retired and removed.
+The result is an editor-free game repository; a replacement is a separate,
+future effort.
+
+### Removed
+
+- `level-editor/` (editor shell, JS implementation, vendored JSZip, Node
+  test suites, generated thumbnails, `package.json` and its user guide).
+- `assets/prop_proxies.json` and its writers (`tools/props/build.py`
+  `--no-proxies`/`--thumbs`, `tools/props/preview.py --thumbs`, the
+  `Mesh.parts` proxy metadata, `tools/entities/build_editor_assets.py`).
+- `src/lighting_parity.rs`, whose only subject was the deleted JS lighting
+  mirror; `src/lighting/tests.rs` keeps the behaviour coverage.
+- The editor step from `tools/verify.sh` and the editor references from the
+  README, `assets/README.md`, `docs/VERIFICATION.md`,
+  `docs/MAP_AUTHORING_GUIDE.md` and `docs/ASSET_SPECIFICATION.md`.
+
+### Preserved
+
+- The game, SDL3/wgpu renderer, level format, levels, catalog, models,
+  textures, GLB/level validation tooling and every headless authoring
+  workflow (`tools/props`, `tools/textures`, `tools/entities`,
+  `tools/levels`, `tools/assets`).
+
 ## 0.7.0 — 2026-09-23
 
 Final pre-wgpu baseline release. This preserves the last validated Places
@@ -12,6 +105,130 @@ OpenGL/GLES2 renderer state before the desktop renderer modernization begins.
   profiles.
 - No wgpu migration, renderer alteration, cleanup or gameplay work is included
   in this release.
+
+## Unreleased — entity routes, pose selection and the run-04 entities
+
+### Added
+
+- **Map-authored entity routes.** `routes[]` drives a placed skinned entity by
+  its instance id through `move_to` / `face` / `wait` / `play` steps, with a
+  route-level `loop`. The runtime advances fixed 1/60 s substeps against the
+  same walls/floor the player uses, refuses steps over 0.3 m and stalls in
+  place (reported once) instead of tunnelling when a wall or a drop blocks the
+  path. Validation samples every straight segment at the entity's own
+  footprint and refuses off-floor waypoints, blocked paths, a `solid: true`
+  prop and any malformed/non-finite step.
+- **Pose and clip selection.** `play_animation` is implemented: a placed
+  prop's interaction or an area trigger sets a per-instance cue
+  (`clip`, `loop`), which wins over that entity's route cue. One typed
+  `entity::PoseCue` (`Idle`, `Walk { speed_mps }`, `Clip { … }`) is shared by
+  the gameplay runtime and the character renderer; clips crossfade from
+  whatever pose is on screen and a one-shot holds its last key.
+- **Live entity transforms.** `Game::entity_frames()` publishes each moving or
+  addressed entity's position, yaw and cue; `CharacterScene::update` matches
+  frames by instance id, applies the live transform, recomputes culling
+  bounds and rewrites that character's group-3 environment matrix, while only
+  re-skinning vertices whose pose revision changed. A routed entity's
+  interactable anchor and aim bounds follow it, so labels and `E` keep
+  working; `reset_to_start` returns every route to its spawn and clears pose
+  overrides.
+- **Stride-aware playback.** A GLB may record per-clip metadata in
+  `asset.extras.places_entity_clips` (`loop`, `reference_speed_mps`, `kind`).
+  A `Walk` cue picks `run` once the route speed reaches 1.5× the walk
+  reference and plays each clip at `speed / reference_speed`, so authored
+  routes do not slide their feet.
+- **Rat, concrete mannequin and articulated skeleton entities** (with the
+  Spooner-Man cat): the rat has articulated legs, paws and a five-segment tail
+  with looping idle/walk/run clips at measured 0.199 / 0.573 m/s; the
+  mannequin selects standing, arms-up and arms-forward poses on one 23-joint
+  rig; the skeleton has a 24-joint rig and standing, floor-sitting and
+  0.45 m-chair-sitting poses. All are catalogued, in the prop showcase, the
+  editor proxies/thumbnails and the `entity_showcase` dev fixture.
+- **Entity toolkit** (`tools/entities/`): a pure-Python rigged-GLB writer
+  (`rig.py`), the three build scripts, a spawn-pool skinning/contact sweep
+  (`validate_entities.py`, `--workers N` / `PLACES_TOOL_WORKERS`) and a
+  Blender contact-sheet renderer (`render_contact_sheets.py`) that reimports
+  the shipped GLBs and renders front/side/three-quarter cells per pose.
+
+### Notes
+
+- The editor's `spooner-man` proxy still described an older static model
+  (0.272 m wide against the current 0.165 m catalog box); it and the editor's
+  built-in catalog mirror are regenerated from the shipped catalog as part of
+  this run.
+
+## Unreleased — map-authored interactions and area triggers
+
+### Added
+
+- **Stable per-instance identity.** Placed props and entities may author `id`
+  (default `<model short name>_<n>`, deterministic); light fixtures and area
+  triggers have their own defaulted ids. Ids are unique across the level's
+  instance namespace and validated; mutable run state is never keyed by model
+  or catalog id, so two copies of one model stay independent.
+- **Object interactions.** `props[].interaction` gives a placed prop or entity
+  an `E` interaction: `prompt`, an optional `reach` (default 2.5 m, max 4.0 m)
+  and 1..8 typed actions. Targeting uses the stance-aware eye, the collision
+  world as occluders and one latched press per key edge; menus, pause and lost
+  focus never fire it. `E` is a rebindable binding beside Crouch; old settings
+  files migrate to `E` without overwriting a customized binding.
+- **Floating labels.** `toggle_label` shows or hides a display name above the
+  target instance only. Labels are projected through the existing UI text
+  pipeline, respect occlusion and viewport bounds, follow entities such as
+  Spooner-Man, clear on level load and survive `reset_to_start`.
+- **Area triggers.** `area_triggers[]` volumes fire on enter — including a
+  swept fast-fall crossing — with leaving re-arm, `cooldown_seconds`, `once`,
+  bounded/deferred dispatch and full validation. `reset_to_start` returns the
+  player to the authored spawn and facing, clears velocity, water, ladder and
+  stance state, suppresses held keys until release and re-seeds every trigger
+  so a teleport never sweeps the volumes in between.
+- **The Pit.** Every one of the 15 carpet holes in Level 0 has a reset trigger
+  inside it; walking on the surrounding carpet stays safe.
+
+### Notes
+
+- `play_animation` and `play_audio` are reserved action names: they parse, but
+  validation rejects them with a named error until the animation run and a
+  future audio subsystem implement them. Nothing plays silently.
+
+## Unreleased — player controller repair: falling, prop tops, ladders, crouch
+
+### Changed
+
+- **World units and gravity.** One world unit stays one metre; the controller
+  now applies the physical 9.8 m/s^2 downward acceleration in fixed 1/120 s
+  substeps, and the standing jump is sized from the measured 0.75 m office desk
+  top: an 0.85 m apex (0.10 m of clearance), `JUMP_VELOCITY ≈ 4.0817 m/s`. The
+  0.4 m automatic step height is unchanged.
+- **Real falls replace the invisible last floor.** A rise larger than a step is
+  still refused, but a drop of any size is walked off: ledges, the demo pool
+  deck and recessed floor holes lose support and fall. Landing resolves against
+  the rendered walkable floor, solid prop tops and the historical world floor at
+  `y = 0` outside every room — never against the player's last known height.
+- **Prop tops are landable; frames and undersides block.** Solid prop boxes and
+  wall tops support a falling player whose centre is over them and block a
+  rising head (door headers, window frames, raised props), which also removes
+  the historical forward teleport when jumping through a doorway. A depenetration
+  deeper than the player radius is treated as a blocked step instead of a snap.
+
+### Added
+
+- **Crouching.** `C` toggles a crouched stance whose collision body is exactly
+  half the standing height (0.9 m) with a 0.8 m eye offset; the feet stay
+  anchored, standing up is clearance-checked against ceilings and overhead
+  boxes, and a blocked uncrouch leaves the player crouched and unmoved. The
+  binding is rebindable and persists like the other movement keys.
+- **Ladders.** A new `ladders[]` level primitive (footprint, `bottom_y`,
+  `top_y`, `facing_degrees`) is climbable with movement intent alone: no climb
+  key. Releasing holds position, backing away or jumping detaches, an overhead
+  clamps the rise, and reaching `top_y` steps onto the real floor at that
+  height. Places Demo's pool ladder is repaired with a matching climb volume at
+  its west face and a non-solid prop, so a swimmer can climb from the basin to
+  the deck without E or a teleport through the rim.
+- **Stance-aware water transitions.** The swim pose's buoyancy stays separate
+  from the land eye offset, so crouching while swimming moves nothing; wading
+  and standing up use the current stance's eye offset, and exiting shallow
+  water is headroom-checked.
 
 ## Unreleased — movement, water, animated entities and office detail
 

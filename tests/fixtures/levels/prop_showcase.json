@@ -152,6 +152,27 @@
       "rotation_degrees": 126.0
     },
     {
+      "id": "rat_1",
+      "model": "rat",
+      "x": -9.4,
+      "z": 2.2,
+      "rotation_degrees": 20.0
+    },
+    {
+      "id": "mannequin_1",
+      "model": "mannequin",
+      "x": -4.4,
+      "z": 3.0,
+      "rotation_degrees": 200.0
+    },
+    {
+      "id": "skeleton_1",
+      "model": "skeleton",
+      "x": -0.4,
+      "z": 2.4,
+      "rotation_degrees": 180.0
+    },
+    {
       "id": "cardboard_box_1",
       "model": "core:cardboard_box",
       "x": -10.9,
@@ -261,6 +282,96 @@
       "x": 6.57,
       "z": 0.6,
       "rotation_degrees": 270.0
+    },
+    {
+      "id": "stop_sign_1",
+      "model": "core:stop_sign",
+      "x": -3.6,
+      "z": 1.4,
+      "rotation_degrees": 20.0,
+      "solid": true
+    },
+    {
+      "id": "exit_sign_1",
+      "model": "core:exit_sign",
+      "x": 3.0,
+      "z": 1.5,
+      "rotation_degrees": 180.0,
+      "y": 2.43
+    },
+    {
+      "id": "ball_light_1",
+      "model": "home:ball_light",
+      "x": 6.2,
+      "z": 2.2,
+      "y": 2.2
+    },
+    {
+      "id": "wall_switch_1",
+      "model": "home:wall_switch",
+      "x": -5.0,
+      "z": -6.0,
+      "y": 1.2
+    },
+    {
+      "id": "crt_tv_1",
+      "model": "home:crt_tv",
+      "x": -9.4,
+      "z": -1.6,
+      "rotation_degrees": 30.0,
+      "solid": true
+    },
+    {
+      "id": "plate_1",
+      "model": "home:plate",
+      "x": -7.2,
+      "z": -2.4,
+      "y": 0.75
+    },
+    {
+      "id": "fork_1",
+      "model": "home:fork",
+      "x": -7.2,
+      "z": -2.55,
+      "rotation_degrees": 90.0,
+      "y": 0.75
+    },
+    {
+      "id": "knife_1",
+      "model": "home:knife",
+      "x": -7.2,
+      "z": -2.25,
+      "rotation_degrees": 90.0,
+      "y": 0.75
+    },
+    {
+      "id": "spoon_1",
+      "model": "home:spoon",
+      "x": -6.95,
+      "z": -2.4,
+      "rotation_degrees": 90.0,
+      "y": 0.75
+    },
+    {
+      "id": "bowl_1",
+      "model": "home:bowl",
+      "x": -8.0,
+      "z": -2.4,
+      "y": 0.75
+    },
+    {
+      "id": "plant_table_1",
+      "model": "home:plant_table",
+      "x": -7.6,
+      "z": -2.15,
+      "y": 0.75
+    },
+    {
+      "id": "rubber_duck_1",
+      "model": "core:rubber_duck",
+      "x": 5.6,
+      "z": -1.6,
+      "rotation_degrees": 200.0
     }
   ]
 }
