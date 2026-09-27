@@ -438,7 +438,8 @@ pub fn nearest_target_indexed(
     best.map(|(index, _)| index)
 }
 
-/// [`clear_line_of_sight`] through the collision index.
+/// True when the indexed collision world leaves the finite sight line from
+/// `origin` to `point` clear, excluding the target's own collision box.
 #[must_use]
 #[allow(clippy::arithmetic_side_effects)] // bounded world coordinates, as above
 pub fn clear_line_of_sight_indexed(
@@ -536,34 +537,6 @@ fn same_box(a: &WallAabb, b: &WallAabb) -> bool {
         && close(a.max_y, b.max_y)
         && close(a.min_z, b.min_z)
         && close(a.max_z, b.max_z)
-}
-
-/// True when nothing in the collision world blocks the sight line from
-/// `origin` to `point`.
-///
-/// Used for floating labels: a name behind a wall is hidden rather than drawn
-/// through it. The target's own collision box (`own_box`) is excluded exactly as
-/// in [`nearest_target`].
-#[must_use]
-#[allow(clippy::arithmetic_side_effects)]
-pub fn clear_line_of_sight(
-    origin: Vec3,
-    point: Vec3,
-    own_box: Option<&WallAabb>,
-    walls: &[WallAabb],
-) -> bool {
-    // A finite delta length with bounded world coordinates: the subtraction,
-    // length and normalisation are the formula, not unchecked arithmetic.
-    let delta = point - origin;
-    let length = delta.length();
-    if !length.is_finite() {
-        return false;
-    }
-    if length <= f32::EPSILON {
-        return true;
-    }
-    let direction = delta / length;
-    !occluded_before(origin, direction, length, own_box, walls)
 }
 
 /// Appends the floating display names of every toggled-on instance and the

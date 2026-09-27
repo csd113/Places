@@ -60,6 +60,12 @@ def hash01(x: int, y: int, seed: int) -> float:
     return (h & 0x00FFFFFF) / 16777216.0
 
 
+# Lattice corners repeat across thousands of pixels. Cache only those bounded
+# integer lookups; per-pixel grain continues to use uncached hash01.
+from functools import lru_cache
+lattice_hash01 = lru_cache(maxsize=65536)(hash01)
+
+
 def tile_noise(x: int, y: int, size: int, period: int, seed: int) -> float:
     """Tileable value noise in [0, 1] over a ``size`` square, wrapped at ``period``."""
     period = max(1, period)
@@ -76,10 +82,10 @@ def tile_noise(x: int, y: int, size: int, period: int, seed: int) -> float:
     iy0 = int(y0) % period
     ix1 = (int(x0) + 1) % period
     iy1 = (int(y0) + 1) % period
-    v00 = hash01(ix0, iy0, seed)
-    v10 = hash01(ix1, iy0, seed)
-    v01 = hash01(ix0, iy1, seed)
-    v11 = hash01(ix1, iy1, seed)
+    v00 = lattice_hash01(ix0, iy0, seed)
+    v10 = lattice_hash01(ix1, iy0, seed)
+    v01 = lattice_hash01(ix0, iy1, seed)
+    v11 = lattice_hash01(ix1, iy1, seed)
     top = v00 + (v10 - v00) * sx
     bottom = v01 + (v11 - v01) * sx
     return top + (bottom - top) * sy

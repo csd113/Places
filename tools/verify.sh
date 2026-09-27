@@ -8,6 +8,7 @@ python3 tools/assets/validate.py
 python3 tools/textures/build.py --check
 python3 tools/props/build.py --check
 python3 -m unittest tests.test_package
+python3 -m unittest tests.test_tool_execution tests.test_zoo_generator
 cargo build --release
 python3 -m unittest tests.test_compiled_build
 python3 -m unittest tests.test_wgpu_bootstrap

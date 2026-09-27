@@ -7354,7 +7354,7 @@ fn the_shipped_skeleton_sits_through_its_pose_cues() {
     );
 }
 
-/// The Run 05 demo duck's authored placement: non-solid, sized, floating in the
+/// The demo duck's authored placement: non-solid, sized, floating in the
 /// demo pool (water surface -1.65 m, basin x 8..20, z 10..16).
 const DEMO_DUCK: &str = r#"{ "model": "core:rubber_duck", "x": 10.5, "z": 10.4,
     "rotation_degrees": 180.0, "size": [0.10, 0.12, 0.14], "solid": false,
@@ -7362,7 +7362,7 @@ const DEMO_DUCK: &str = r#"{ "model": "core:rubber_duck", "x": 10.5, "z": 10.4,
                "heel_degrees": 3.0, "heel_seconds": 3.1 } }"#;
 
 /// A 24x24 m basin room carrying the demo pool's water (8..20 x 10..16 at
-/// -1.65 m) and the given props JSON, for the Run 05 float render tests.
+/// -1.65 m) and the given props JSON, for the float render tests.
 fn duck_pool_level(props_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
@@ -7447,7 +7447,7 @@ fn a_floating_duck_never_becomes_a_character() {
     assert!(scene.claimed_models().is_empty());
 }
 
-/// Run 05: a scrub cue eases a clip's time toward one end and re-targets from
+/// a scrub cue eases a clip's time toward one end and re-targets from
 /// the current pose, so the wall switch's lever reverses mid-move instead of
 /// snapping or restarting at an endpoint. The lever is the switch model's
 /// single animated joint; its delta rotation is the observable pose.
@@ -7499,7 +7499,7 @@ fn a_scrub_cue_reverses_from_the_current_pose_and_holds_its_ends() {
     assert!(animator.take_cue_finished(), "arrival is reported once");
 }
 
-/// Run 05: an idle rigid prop holds its bind pose. It has no locomotion state,
+/// an idle rigid prop holds its bind pose. It has no locomotion state,
 /// so the character path must not loop its non-locomotion clip.
 #[test]
 fn an_idle_rigid_prop_holds_its_bind_pose() {

@@ -2543,7 +2543,7 @@ fn route_path_is_clear(
     radius: f32,
     body_height: f32,
 ) -> Result<(), String> {
-    const SAMPLE_M: f32 = 0.1;
+    const SAMPLE_M: f32 = 0.02;
     let start = glam::Vec2::new(from.x, from.z);
     let end = glam::Vec2::new(to.0, to.1);
     let delta = end - start;
@@ -2565,7 +2565,9 @@ fn route_path_is_clear(
                 point.x, point.y
             ));
         };
-        if (floor_y - previous_y).abs() > crate::entity::ENTITY_STEP_HEIGHT_M + 1.0e-3 {
+        if (floor_y - previous_y).abs()
+            > crate::entity::ENTITY_STEP_HEIGHT_M + crate::collision::STEP_EPS
+        {
             return Err(format!(
                 "{context} (`move_to`) steps more than {:.2} m at ({:.2}, {:.2}); \
                  the entity cannot climb it",

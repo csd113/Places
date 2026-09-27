@@ -1642,7 +1642,7 @@ fn a_shallow_pool_still_lets_the_swimmer_submerge() {
 }
 
 // ---------------------------------------------------------------------------
-// Run 01: ledge falls, prop tops, doorways, stance, water and ladders
+// ledge falls, prop tops, doorways, stance, water and ladders
 // ---------------------------------------------------------------------------
 
 /// The shipped Places Demo, parsed from the repository level file.
@@ -2568,7 +2568,7 @@ fn stance_changes_on_stairs_in_air_and_on_ladders_anchor_the_feet() {
 }
 
 // ---------------------------------------------------------------------------
-// Run 02: interactions, labels and area triggers
+// interactions, labels and area triggers
 // ---------------------------------------------------------------------------
 
 /// A 20x20 room with two aimable plants on one clear line of sight, plus an
@@ -3874,7 +3874,7 @@ fn switch_level() -> LevelDef {
     .expect("the switch level parses")
 }
 
-/// Run 05: one press flips exactly one switch's lever target, composes with the
+/// one press flips exactly one switch's lever target, composes with the
 /// label toggle in the same batch, and leaves the other switch untouched.
 #[test]
 fn toggle_animation_flips_one_instance_and_composes_with_a_label() {
@@ -3983,7 +3983,7 @@ fn toggle_animation_flips_one_instance_and_composes_with_a_label() {
     );
 }
 
-/// Run 05: a toggle needs a clip name and a target that resolves on its own.
+/// a toggle needs a clip name and a target that resolves on its own.
 #[test]
 fn toggle_animation_rejects_a_missing_clip_or_target() {
     let level = switch_level();
@@ -4008,7 +4008,7 @@ fn toggle_animation_rejects_a_missing_clip_or_target() {
     assert_eq!(game.animation_override("switch_a"), None);
 }
 
-/// Run 05: a reset returns every switch to its rest end while a playing
+/// a reset returns every switch to its rest end while a playing
 /// animation override is still cleared.
 #[test]
 fn reset_retargets_toggles_to_rest_and_clears_playing_animations() {
@@ -4055,4 +4055,119 @@ fn reset_retargets_toggles_to_rest_and_clears_playing_animations() {
         None,
         "a playing animation override is cleared by the reset"
     );
+}
+
+#[test]
+fn demo_spoonerman_completes_six_seated_destinations_without_blocking() {
+    let level = LevelDef::from_json(include_str!("../../assets/levels/places_demo.json"))
+        .expect("demo parses");
+    let mut game = game_for(&level);
+    game.set_app_state(AppState::Playing);
+    game.sim_delta_seconds = MAX_SIM_DELTA;
+    let settings = Settings::default();
+    let mut visited = std::collections::HashSet::new();
+    let mut destinations = Vec::new();
+    let mut previous = 0;
+    let mut completed = false;
+    for _ in 0..30_000 {
+        game.update_player_movement(&mut InputState::default(), &settings);
+        let state = game.route_state("spooner_man").expect("demo route");
+        assert!(
+            !state.blocked,
+            "blocked at step {}: {:?}",
+            state.step, state.position
+        );
+        if state.cue.clip_name() == Some("sit_idle") && visited.insert(state.step) {
+            destinations.push(state.position);
+        }
+        if state.step < previous {
+            completed = true;
+            break;
+        }
+        previous = state.step;
+    }
+    assert!(completed, "route did not loop; reached step {previous}");
+    assert_eq!(visited.len(), 6, "six distinct seated destinations");
+    for (x, z) in [
+        (5.6, 8.4),
+        (13.0, 3.6),
+        (4.0, 3.6),
+        (29.5, 13.2),
+        (56.0, 6.5),
+        (60.5, 12.5),
+    ] {
+        assert!(
+            destinations
+                .iter()
+                .any(|point| (point.x - x).abs() < 0.05 && (point.z - z).abs() < 0.05),
+            "missing seated destination ({x}, {z})"
+        );
+    }
+}
+
+#[test]
+fn gameplay_consumes_fast_taps_once_without_a_held_frame() {
+    use crate::input::InputHandler;
+    use sdl3::event::Event;
+    use sdl3::keyboard::{Keycode, Mod};
+
+    fn tap(handler: &mut InputHandler, key: Keycode, settings: &Settings) {
+        for event in [
+            Event::KeyDown {
+                timestamp: 0,
+                window_id: 0,
+                keycode: Some(key),
+                scancode: None,
+                keymod: Mod::NOMOD,
+                repeat: false,
+                which: 0,
+                raw: 0,
+            },
+            Event::KeyUp {
+                timestamp: 0,
+                window_id: 0,
+                keycode: Some(key),
+                scancode: None,
+                keymod: Mod::NOMOD,
+                repeat: false,
+                which: 0,
+                raw: 0,
+            },
+        ] {
+            handler.handle_gameplay_event(&event, &settings.bindings);
+        }
+    }
+
+    let mut game = game_for(&step_rule_level());
+    play_at(&mut game, 1.0, 0.0, 4.0, 0.0, 1.0 / 60.0);
+    let settings = Settings::default();
+    let mut handler = InputHandler::new();
+    for crouched in [true, false] {
+        tap(&mut handler, Keycode::C, &settings);
+        game.update_player_movement(handler.state_mut(), &settings);
+        assert_eq!(game.is_crouched(), crouched);
+        game.update_player_movement(handler.state_mut(), &settings);
+        assert_eq!(game.is_crouched(), crouched, "one tap is one toggle");
+    }
+    for _ in 0..2 {
+        tap(&mut handler, Keycode::E, &settings);
+        game.update_player_movement(handler.state_mut(), &settings);
+        assert!(game.take_interact_press());
+        game.update_player_movement(handler.state_mut(), &settings);
+        assert!(!game.take_interact_press());
+    }
+    game.set_app_state(AppState::Paused);
+    tap(&mut handler, Keycode::E, &settings);
+    game.update_player_movement(handler.state_mut(), &settings);
+    game.set_app_state(AppState::Playing);
+    game.update_player_movement(handler.state_mut(), &settings);
+    assert!(
+        !game.take_interact_press(),
+        "paused taps cannot leak into play"
+    );
+    game.sim_delta_seconds = 1.0 / 60.0;
+    tap(&mut handler, Keycode::Space, &settings);
+    game.update_player_movement(handler.state_mut(), &settings);
+    assert!(game.vertical_velocity > 0.0, "a short jump tap still jumps");
+    assert!(!game.grounded);
 }

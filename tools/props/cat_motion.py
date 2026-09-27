@@ -156,13 +156,39 @@ def pounce_pose(model, phase):
     return grounded(model,solve_legs(model,pose,feet))
 
 
-def build_cat_clips(model, standing_idle):
-    walk=[walk_pose(model,i/48) for i in range(49)]
-    run=[run_pose(model,i/48) for i in range(49)]
-    down=[seated_pose(model,ease(i/72)) for i in range(73)]
-    seated=[seated_pose(model,1,math.sin(math.tau*i/90)) for i in range(91)]
-    up=[seated_pose(model,1-ease(i/60)) for i in range(61)]
-    pounce=[pounce_pose(model,i/96) for i in range(97)]
+_MODEL = None
+
+
+def _init_model(model):
+    global _MODEL
+    _MODEL = model
+
+
+def _clip_job(kind):
+    model = _MODEL
+    if kind == "walk":
+        return [walk_pose(model, i/48) for i in range(49)]
+    if kind == "run":
+        return [run_pose(model, i/48) for i in range(49)]
+    if kind == "down":
+        return [seated_pose(model, ease(i/72)) for i in range(73)]
+    if kind == "seated":
+        return [seated_pose(model, 1, math.sin(math.tau*i/90)) for i in range(91)]
+    if kind == "up":
+        return [seated_pose(model, 1-ease(i/60)) for i in range(61)]
+    if kind == "pounce":
+        return [pounce_pose(model, i/96) for i in range(97)]
+    raise ValueError(f"unknown clip job: {kind}")
+
+
+def build_cat_clips(model, standing_idle, workers=1):
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from execution import ordered_map
+    walk, run, down, seated, up, pounce = ordered_map(
+        _clip_job, ["walk", "run", "down", "seated", "up", "pounce"], workers,
+        initializer=_init_model, initargs=(model,), progress="clips")
     # Force exact exported boundaries, including zero-rotation bind stance.
     rest=({}, {}, {})
     down[0]=up[-1]=pounce[0]=pounce[-1]=rest

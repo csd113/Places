@@ -147,7 +147,7 @@ None of these contains a GPU handle; none is constructed by the backend.
 
 ### Interaction identity and action contracts
 
-Run 02's interaction layer is engine data plus one dispatcher; the renderer only
+The interaction layer is engine data plus one dispatcher; the renderer only
 receives text vertices.
 
 - **Identity is per placed instance, never per model.** `LevelDef::prop_instance_ids`
@@ -171,7 +171,8 @@ receives text vertices.
   `DispatchReport`; `Game::dispatch_actions(&[ActionDef], actor)` is the single
   entry point both interactions and triggers call. `ActionDef` is the closed,
   typed action set: `ToggleLabel { target }`, `ResetToStart`,
-  `PlayAnimation { target, clip }`, `PlayAudio { target, sound }`. Dispatch is
+  `PlayAnimation { target, clip, looped }`, `ToggleAnimation { target, clip }`,
+  `PlayAudio { target, sound }`. Dispatch is
   bounded (`MAX_ACTIONS_PER_SOURCE`) and a `ResetToStart` ends its batch.
 - **Label state** is a per-interactable `Vec<bool>` in `Game`
   (`is_label_visible(index)`); it is cleared by a level load and preserved by
@@ -190,11 +191,12 @@ receives text vertices.
   occlusion through `collision::ray_aabb_entry`; there is no second text
   renderer.
 
-**Animation, routes and live anchors (runs 03–04).** `play_animation` is
+**Animation, routes and live anchors.** `play_animation` is
 implemented. The contract is:
 
 - **Cues.** `entity::PoseCue` is the one pose vocabulary: `Idle`,
-  `Walk { speed_mps }` and `Clip { name, once, paused }`. It lives on the
+  `Walk { speed_mps }`, `Clip { name, once, paused }` and
+  `Scrub { name, target }`. It lives on the
   gameplay side, and `render::common::character` re-exports it, so `game` and
   `render` share it without a dependency cycle. `CharacterAnimator::update_cued`
   crossfades cues from the current pose over `BLEND_TIME_CONSTANT_S`; a one-shot

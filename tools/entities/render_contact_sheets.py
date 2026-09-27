@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import multiprocessing
+from concurrent.futures import ThreadPoolExecutor
 import os
 import shutil
 import struct
@@ -33,6 +33,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import threading
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -41,6 +42,9 @@ if str(REPO_ROOT / "tools" / "props") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "tools" / "props"))
 
 from tex import decode_png, write_png  # noqa: E402  (tools/props on sys.path)
+
+sys.path.insert(0, str(REPO_ROOT / "tools"))
+from execution import worker_count, atomic_write
 
 DEFAULT_ASSETS = (
     "assets/entities/rat/model/rat.glb",
@@ -212,13 +216,28 @@ def clip_table(glb: Path) -> List[dict]:
     return clips
 
 
+_PROCESS_LOCK = threading.Lock()
+_PROCESSES = set()
+_CANCELLED = threading.Event()
+
+
+def _cancel_owned():
+    with _PROCESS_LOCK:
+        _CANCELLED.set()
+        for process in _PROCESSES:
+            if process.poll() is None:
+                process.terminate()
+
+
 def render_asset(task: Tuple[str, str, int, int, int, int, List[str], int]) -> dict:
     glb, out_dir, workers_threads, samples, cell, frames_per_clip, views, _worker = task
     glb_path = Path(glb)
     scratch = Path(out_dir) / "cells" / glb_path.stem
     scratch.mkdir(parents=True, exist_ok=True)
     clips = clip_table(glb_path)
-    script = Path(tempfile.mkstemp(prefix="places_entity_", suffix=".py", dir=scratch)[1])
+    descriptor, script_path = tempfile.mkstemp(prefix="places_entity_", suffix=".py", dir=scratch)
+    os.close(descriptor)
+    script = Path(script_path)
     script.write_text(BLENDER_SCRIPT)
     arguments = {
         "glb": str(glb_path),
@@ -231,6 +250,7 @@ def render_asset(task: Tuple[str, str, int, int, int, int, List[str], int]) -> d
     }
     binary = blender_binary()
     if binary is None:
+        script.unlink(missing_ok=True)
         return {"asset": str(glb_path), "ok": False, "error": "Blender not found", "images": {}}
     command = [
         binary,
@@ -238,13 +258,32 @@ def render_asset(task: Tuple[str, str, int, int, int, int, List[str], int]) -> d
         "--factory-startup",
         "--threads",
         str(workers_threads),
+        "--python-exit-code",
+        "1",
         "--python",
         str(script),
         "--",
         json.dumps(arguments),
     ]
     started = time.perf_counter()
-    completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    try:
+        with _PROCESS_LOCK:
+            if _CANCELLED.is_set():
+                raise RuntimeError("render cancelled")
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            _PROCESSES.add(process)
+        try:
+            stdout, stderr = process.communicate()
+            completed = subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+        except BaseException:
+            process.kill()
+            process.wait()
+            raise
+        finally:
+            with _PROCESS_LOCK:
+                _PROCESSES.discard(process)
+    finally:
+        script.unlink(missing_ok=True)
     elapsed = time.perf_counter() - started
     images: Dict[str, List[str]] = {}
     for clip in clips:
@@ -253,7 +292,9 @@ def render_asset(task: Tuple[str, str, int, int, int, int, List[str], int]) -> d
                 path = scratch / f"{clip['name']}__{view}__{index}.png"
                 if path.is_file():
                     images.setdefault(clip["name"], []).append(str(path))
-    ok = bool(images) and "CONTACT_SHEET_OK" in completed.stdout
+    expected = sum(max(1, frames_per_clip if clip["duration"] > 0 else 1) * len(views) for clip in clips)
+    ok = (completed.returncode == 0 and sum(map(len, images.values())) == expected
+          and expected > 0 and "CONTACT_SHEET_OK" in completed.stdout)
     return {
         "asset": str(glb_path),
         "ok": ok,
@@ -304,7 +345,7 @@ def compose_sheet(asset: str, images: Dict[str, List[str]], views: Sequence[str]
             canvas[destination : destination + cell * 4] = rgba[source : source + cell * 4]
     sheet_path = out / f"{Path(asset).stem}_contact_sheet.png"
     sheet_path.parent.mkdir(parents=True, exist_ok=True)
-    sheet_path.write_bytes(write_png(sheet_width, sheet_height, bytes(canvas)))
+    atomic_write(sheet_path, write_png(sheet_width, sheet_height, bytes(canvas)))
     return sheet_path
 
 
@@ -337,12 +378,19 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--out", default=DEFAULT_OUT)
     args = parser.parse_args(argv)
 
+    _CANCELLED.clear()
     assets = [Path(path) for path in (args.glb or DEFAULT_ASSETS)]
     missing = [str(path) for path in assets if not path.is_file()]
     if missing:
         raise SystemExit("missing entity GLB(s): " + ", ".join(missing))
     workers, note = parse_workers(args.workers)
-    effective = min(workers, len(assets))
+    if min(args.blender_threads, args.samples, args.cell, args.frames_per_clip) < 1 or not args.views:
+        parser.error("threads, samples, cell, frames and views must be positive/nonempty")
+    if len({asset.stem for asset in assets}) != len(assets):
+        parser.error("asset stems must be distinct to keep output names unambiguous")
+    budget = worker_count()
+    args.blender_threads = min(args.blender_threads, budget)
+    effective = min(workers, len(assets), max(1, budget // args.blender_threads))
     print(
         f"[entities] render: {len(assets)} asset(s), workers={effective} ({note}; "
         f"blender threads={args.blender_threads}), {args.cell}px x {args.cell}px"
@@ -369,23 +417,27 @@ def main(argv: Optional[List[str]] = None) -> int:
     if effective <= 1:
         results = [render_asset(task) for task in tasks]
     else:
-        context = multiprocessing.get_context("spawn")
-        with context.Pool(processes=effective) as pool:
-            results = pool.map(render_asset, tasks)
+        # Python threads only orchestrate independent native Blender processes.
+        with ThreadPoolExecutor(max_workers=effective) as pool:
+            try:
+                results = list(pool.map(render_asset, tasks))
+            except BaseException:
+                _cancel_owned()
+                raise
     elapsed = time.perf_counter() - started
-    failures = 0
-    for result in results:
-        if not result["ok"]:
-            failures += 1
+    failed = [result for result in results if not result["ok"]]
+    if failed:
+        for result in failed:
             print(f"[entities] FAILED {result['asset']}: {result.get('error')}")
-            continue
+        return 1
+    for result in results:
         sheet = compose_sheet(result["asset"], result["images"], args.views, args.cell, Path(args.out))
         print(
             f"[entities] {Path(result['asset']).name}: {sum(len(v) for v in result['images'].values())} "
             f"cell(s), {result['seconds']:.2f} s -> {sheet}"
         )
     print(f"[entities] render done in {elapsed:.2f} s wall")
-    return 1 if failures else 0
+    return 0
 
 
 if __name__ == "__main__":

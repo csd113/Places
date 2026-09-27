@@ -127,7 +127,7 @@ Authoritative paths:
 | Ladder volumes (`ladders[]`): walking into the face climbs without a key, with release, backing away, jump, obstruction and top-landing rules | Implemented (see [Ladders](#ladders)) |
 | Stable per-instance ids, map-authored object interactions (E), floating labels, reset-to-start | Implemented (see [§29](#29-interactions-labels-and-area-triggers)) |
 | Area trigger volumes (`area_triggers[]`): enter semantics, swept fast-fall crossings, cooldowns, `once`, typed action batches | Implemented (see [§29](#29-interactions-labels-and-area-triggers)) |
-| Animation and audio actions (`play_animation`, `play_audio`) | Not implemented: validation rejects them by name; documented run-3/audio integration point |
+| Animation actions (`play_animation`, `toggle_animation`) | Implemented per instance; see §29. `play_audio` is rejected because audio is unsupported. |
 | Water refraction/transmission, realtime dynamic lights, realtime shadow maps | Not implemented |
 | Animated entities: a placed skinned GLB follows the player's locomotion state (idle/walking/airborne/swimming); a rig with authored clips plays them, a no-clip rig uses the built-in procedural gait | Implemented (see [§16](#16-props-and-models)) |
 | Screen-space reflections; per-frame raytraced reflections; cubemap probes with realtime updates | Not implemented (static probes and one planar plane exist) |
@@ -2348,8 +2348,8 @@ an unknown id) and the level keeps working.
 | Prop texture | **256×256 native** (the normal shipped size; 32/64/128 legal for lighter props); engine ceiling 1024 (`MAX_PROP_TEXTURE_SIZE`), downscaled to the runtime budget at upload |
 | Prop pack decoded memory | 64 MiB (`PROP_TEXTURE_PACK_BUDGET_BYTES`); the current pack is under 4 MiB |
 | Materials per prop | one per primitive; a multi-material model costs one draw range per material per batch |
-| Distinct models per level | 256 (fallback boxes beyond it) |
-| Summed baked prop vertices per level | 1 500 000 (fallback boxes beyond it) |
+| Distinct models per level | 1024 (fallback boxes beyond it) |
+| Summed baked prop vertices per level | 6 000 000 (fallback boxes beyond it) |
 
 The GLB tools in `tools/props/` emit and enforce the art budget; follow it. A model
 above the art budget may still load if the engine ceiling allows it, but it does not
@@ -2360,7 +2360,7 @@ budget helpers and the preview/build commands are documented in `tools/props/REA
 
 Unknown catalog id → placeholder box (neutral size fallback `[0.6, 0.9, 0.6]` m, but
 the catalog `size` is used for the placeholder when the level does not author one).
-Missing/malformed GLB, over-budget mesh, more than 256 distinct models, or exhausting
+Missing/malformed GLB, over-budget mesh, more than 1024 distinct models, or exhausting
 the level prop-vertex budget → placeholder box plus a one-time `[props]` warning where
 a file was involved. `solid` is never affected by any of this.
 
@@ -2380,7 +2380,7 @@ locomotion states, so an untouched switch holds its bind pose instead of
 looping its clip. Use `toggle_animation` (section 29) to ease its clip to
 either end. A model is claimed as a character, so it does not occlude the bake
 and it counts against the level's animated-character budget
-(`MAX_CHARACTERS`, 8 per level).
+(`MAX_CHARACTERS`, 64 per level).
 
 ### Adding a New Prop
 
@@ -3728,7 +3728,7 @@ the error in full.
 
 ## 29. Interactions, Labels, Area Triggers and Entity Routes
 
-Runs 02–04 added one typed interaction layer for placed objects, one area-trigger
+The runtime provides one typed interaction layer for placed objects, one area-trigger
 primitive and one entity-route runtime. All three dispatch the same closed set of
 actions; none is a scripting engine. Identity, actions, routes and reset
 semantics are documented here; every field is verified against `src/level.rs`
@@ -3766,6 +3766,10 @@ non-blank `clip`. Dispatch is bounded: at most one trigger batch runs per frame,
 and a reset ends its batch (the remaining actions do not run).
 
 ### Object interactions
+
+E (interact) and C (crouch) can be rebound in Settings > Controls and persist in
+`settings.json`. C toggles a 0.9 m body with a 0.8 m eye height. Standing is
+blocked while the standing body would overlap an overhead obstacle.
 
 A prop with an `interaction` is aimable:
 
@@ -4095,10 +4099,7 @@ contracts in the test suite.
 These are current, documented limitations or in-flight conditions that affect map
 authoring. They are not invitations to change the engine as part of an authoring task.
 
-1. **Quality profiles apply at level load.** `settings.json`'s `quality` value is read
-   when the renderer is created; changing it mid-session does not re-scale textures
-   already on the GPU. Set it, then load the level — or use `PLACES_QUALITY` for one
-   run.
+1. **Quality settings apply live.** Graphics changes rebuild affected GPU resources and use the lightmap cache or background bake where needed. `PLACES_QUALITY` selects a profile for one run.
 2. **Emission reaches surfaces and fixture faces, not decals.** A decal is drawn by
    its own pass, which has no emission term; an `emissive` material used as a
    *decal sheet* will not glow. Emission on wall/floor/ceiling materials and on GLB
@@ -4161,11 +4162,7 @@ authoring. They are not invitations to change the engine as part of an authoring
 20. **Reflections are per-material and limited.** One planar plane per frame, at most
     two probes per level, probes are static (no realtime update), and a planar material
     reused on non-planar geometry is skipped with a warning.
-21. **Animation and audio actions are not implemented.** `play_animation` and
-    `play_audio` parse but validation rejects them by name; no level can load with
-    them, and nothing plays silently. The typed dispatcher and its `ActionDef` enum
-    are the documented integration point for the animation run and a future audio
-    subsystem.
+21. **Audio actions remain unsupported.** Validation rejects `play_audio` by name. `play_animation` and `toggle_animation` dispatch real per-instance animation through the entity runtime.
 22. **An interaction's aimable bound uses the same size contract as collision.**
     It is the level `size` (or `[0.6, 0.9, 0.6]`), scaled — never the catalog size.
     A small prop with no authored `size` is aimable as a standard box, so a map that

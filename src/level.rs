@@ -6174,6 +6174,11 @@ impl WalkableFloor {
             {
                 continue;
             }
+            // Edge tolerance belongs to room selection. Clamp surface samples to
+            // that room so a region ending at the shared edge cannot disappear
+            // in the epsilon strip and briefly expose the lower base floor.
+            let x = x.clamp(room.x0, room.x1);
+            let z = z.clamp(room.z0, room.z1);
             if let Some(ramp) = room
                 .ramps
                 .iter()

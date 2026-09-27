@@ -37,6 +37,13 @@ CATALOG_PATH = os.path.join(ASSET_ROOT, "catalog.json")
 PLACEABLE_TYPES = ("prop", "entity")
 
 
+# Direct script execution and imported test modules share the same helper.
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from execution import ordered_map, worker_count, atomic_write
+
+
 def _placeable_entries(catalog: dict) -> List[dict]:
     entries = catalog.get("assets")
     if entries is None:
@@ -278,6 +285,10 @@ def catalog_order() -> List[str]:
     return [entry["id"] for entry in _placeable_entries(catalog)]
 
 
+def _render_job(job):
+    return render_prop_file(*job)
+
+
 def main(argv: List[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--only", nargs="*", default=None, help="prop ids to render")
@@ -286,7 +297,12 @@ def main(argv: List[str] | None = None) -> int:
     parser.add_argument("--out", default=os.path.join(APP_ROOT, "target", "prop-previews"))
     parser.add_argument("--width", type=int, default=240)
     parser.add_argument("--height", type=int, default=180)
+    parser.add_argument("--workers", type=int, help="CPU workers (default: automatic, at most 12)")
     args = parser.parse_args(argv)
+    try:
+        worker_count(args.workers)
+    except ValueError as error:
+        parser.error(str(error))
 
     models = catalogue_models()
     order = catalog_order()
@@ -299,21 +315,31 @@ def main(argv: List[str] | None = None) -> int:
         print("no props to render")
         return 1
 
+    for prop_id in ids:
+        filename = prop_id.split(":")[-1]
+        if filename in ("", ".", "..") or Path(filename).name != filename or "\\" in filename:
+            parser.error(f"unsafe output name for catalog id: {prop_id!r}")
+    if args.width < 1 or args.height < 1:
+        parser.error("preview dimensions must be positive")
     os.makedirs(args.out, exist_ok=True)
 
-    cells: List[tuple[int, int, bytes]] = []
+    available = []
     for prop_id in ids:
         path = models[prop_id]
         if not os.path.exists(path):
             print(f"skip {prop_id}: {path} is missing (run tools/props/build.py)")
             continue
-        pixels = render_prop_file(path, args.width, args.height)
+        available.append(prop_id)
+    rendered = ordered_map(_render_job,
+                           [(models[key], args.width, args.height) for key in available],
+                           args.workers, progress="preview")
+    cells: List[tuple[int, int, bytes]] = []
+    for prop_id, pixels in zip(available, rendered):
         if args.sheet:
             cells.append((args.width, args.height, pixels))
         else:
             filename = prop_id.split(":")[-1] + ".png"
-            with open(os.path.join(args.out, filename), "wb") as handle:
-                handle.write(write_png(args.width, args.height, pixels))
+            atomic_write(os.path.join(args.out, filename), write_png(args.width, args.height, pixels))
             print(f"rendered {os.path.join(args.out, filename)}")
 
     if args.sheet and cells:
@@ -321,8 +347,7 @@ def main(argv: List[str] | None = None) -> int:
             chunk = cells[index : index + 10]
             width, height, pixels = compose_sheet(chunk, columns=5)
             path = os.path.join(args.out, f"sheet_{index // 10 + 1}.png")
-            with open(path, "wb") as handle:
-                handle.write(write_png(width, height, pixels))
+            atomic_write(path, write_png(width, height, pixels))
             print(f"rendered {path}")
     return 0
 

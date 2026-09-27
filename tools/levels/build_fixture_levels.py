@@ -148,7 +148,7 @@ def showcase_level() -> Dict:
         # src/render/common/dynamic.rs); here it is an ordinary static placement, so
         # the shipping tests cover its geometry, budget and lighting.
         prop("core:washer_drum", 6.57, 0.6, rotation=270.0),
-        # --- run-05 props: signs, domestic lamp/switch/CRT, table setting ---
+        # --- props: signs, domestic lamp/switch/CRT, table setting ---
         # The showcase places every catalogue placeable exactly once (see
         # src/render/tests.rs); the demo places the light props and the duck
         # with their real lighting and float behaviour.

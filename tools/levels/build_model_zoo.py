@@ -287,18 +287,18 @@ def usable_cpu_count() -> int:
 
 
 def parse_worker_count(requested: Optional[str]) -> Tuple[int, str]:
-    raw = requested if requested is not None else os.environ.get("PLACES_TOOL_WORKERS")
-    if raw in (None, ""):
-        return min(CPU_CEILING, usable_cpu_count()), "automatic"
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from execution import worker_count
     try:
-        value = int(str(raw).strip())
-    except ValueError:
-        raise SystemExit(f"--workers must be an integer, got {raw!r}") from None
-    if value < 1:
-        raise SystemExit(f"--workers must be >= 1, got {value}")
-    if value > CPU_CEILING:
-        return CPU_CEILING, f"requested {value}, reduced to {CPU_CEILING} (CPU/ceiling budget)"
-    return value, "requested"
+        count = worker_count(requested)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+    if requested is None:
+        return count, "automatic"
+    if count < int(requested):
+        return count, f"requested {requested}, reduced to {count} (CPU/allocation budget)"
+    return count, "requested"
+
 
 
 _worker_paths: Sequence[str] = ()

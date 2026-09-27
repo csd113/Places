@@ -3280,7 +3280,7 @@ static SWEEP: &[ModelCandidate] = &[
     },
 ];
 
-/// Run 05: the demo's exit sign and hanging ball light really illuminate the
+/// the demo's exit sign and hanging ball light really illuminate the
 /// rooms, and the illumination comes from their authored lights rather than
 /// from their emissive materials: disabling the lights leaves only the room's
 /// own fixtures while the glowing faces are unchanged.

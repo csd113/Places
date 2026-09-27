@@ -1,0 +1,208 @@
+{
+  "args": {
+    "binary": "/Users/connordawkins/Documents/GitHub/Places/target/release/places",
+    "label": "run09_capacity_dense_high",
+    "level": "capacity_dense",
+    "camera": "74,0",
+    "frames": 120,
+    "warmup": 20,
+    "repeat": 3,
+    "quality": "high",
+    "no_lightmaps": false,
+    "finish": false,
+    "noswap": false,
+    "timeout": 300.0
+  },
+  "runs": [
+    {
+      "level": "capacity_dense",
+      "frames": 120,
+      "swap_interval": 0,
+      "update_mean_ms": 3.497,
+      "render_mean_ms": 4.84,
+      "swap_mean_ms": 0.016,
+      "frame_mean_ms": 8.353,
+      "loop_mean_ms": 8.334,
+      "frame_median_ms": 7.83,
+      "loop_median_ms": 7.83,
+      "frame_p95_ms": 14.481,
+      "frame_p99_ms": 16.236,
+      "loop_p95_ms": 14.482,
+      "loop_p99_ms": 16.236,
+      "frame_min_ms": 4.303,
+      "frame_max_ms": 17.009,
+      "loop_min_ms": 4.303,
+      "loop_max_ms": 17.01,
+      "fps_median": 127.72,
+      "fps_p95": 69.05,
+      "fps_p99": 61.59,
+      "fps_1pct_low": 61.59,
+      "fps_mean": 119.99,
+      "measured_fps_mean": 119.72,
+      "worst_fps": 58.79,
+      "total_vertices": 4110101,
+      "visible_vertices": 2573463,
+      "culled_vertices": 1536638,
+      "total_batches": 1224,
+      "visible_batches": 739,
+      "draw_calls": 739,
+      "vbo_bytes": 263046464,
+      "index_bytes": 11940432,
+      "texture_binds": 651,
+      "material_changes": 672,
+      "reflection_passes": 0
+    },
+    {
+      "level": "capacity_dense",
+      "frames": 120,
+      "swap_interval": 0,
+      "update_mean_ms": 3.494,
+      "render_mean_ms": 4.492,
+      "swap_mean_ms": 0.015,
+      "frame_mean_ms": 8.001,
+      "loop_mean_ms": 7.949,
+      "frame_median_ms": 7.886,
+      "loop_median_ms": 7.863,
+      "frame_p95_ms": 13.41,
+      "frame_p99_ms": 16.91,
+      "loop_p95_ms": 13.41,
+      "loop_p99_ms": 16.91,
+      "frame_min_ms": 4.201,
+      "frame_max_ms": 18.043,
+      "loop_min_ms": 4.201,
+      "loop_max_ms": 18.045,
+      "fps_median": 127.18,
+      "fps_p95": 74.57,
+      "fps_p99": 59.13,
+      "fps_1pct_low": 59.13,
+      "fps_mean": 125.79,
+      "measured_fps_mean": 124.98,
+      "worst_fps": 55.42,
+      "total_vertices": 4110101,
+      "visible_vertices": 2573463,
+      "culled_vertices": 1536638,
+      "total_batches": 1224,
+      "visible_batches": 739,
+      "draw_calls": 739,
+      "vbo_bytes": 263046464,
+      "index_bytes": 11940432,
+      "texture_binds": 651,
+      "material_changes": 672,
+      "reflection_passes": 0
+    },
+    {
+      "level": "capacity_dense",
+      "frames": 120,
+      "swap_interval": 0,
+      "update_mean_ms": 3.468,
+      "render_mean_ms": 4.329,
+      "swap_mean_ms": 0.015,
+      "frame_mean_ms": 7.811,
+      "loop_mean_ms": 7.786,
+      "frame_median_ms": 7.3,
+      "loop_median_ms": 7.3,
+      "frame_p95_ms": 13.713,
+      "frame_p99_ms": 15.576,
+      "loop_p95_ms": 13.713,
+      "loop_p99_ms": 15.577,
+      "frame_min_ms": 4.295,
+      "frame_max_ms": 18.529,
+      "loop_min_ms": 4.295,
+      "loop_max_ms": 18.53,
+      "fps_median": 136.98,
+      "fps_p95": 72.92,
+      "fps_p99": 64.2,
+      "fps_1pct_low": 64.2,
+      "fps_mean": 128.44,
+      "measured_fps_mean": 128.02,
+      "worst_fps": 53.97,
+      "total_vertices": 4110101,
+      "visible_vertices": 2573463,
+      "culled_vertices": 1536638,
+      "total_batches": 1224,
+      "visible_batches": 739,
+      "draw_calls": 739,
+      "vbo_bytes": 263046464,
+      "index_bytes": 11940432,
+      "texture_binds": 651,
+      "material_changes": 672,
+      "reflection_passes": 0
+    }
+  ],
+  "summary": {
+    "render_mean_ms": {
+      "min": 4.329,
+      "median": 4.492,
+      "max": 4.84
+    },
+    "frame_median_ms": {
+      "min": 7.3,
+      "median": 7.83,
+      "max": 7.886
+    },
+    "frame_p95_ms": {
+      "min": 13.41,
+      "median": 13.713,
+      "max": 14.481
+    },
+    "loop_median_ms": {
+      "min": 7.3,
+      "median": 7.83,
+      "max": 7.863
+    },
+    "swap_mean_ms": {
+      "min": 0.015,
+      "median": 0.015,
+      "max": 0.016
+    },
+    "draw_calls": {
+      "min": 739,
+      "median": 739,
+      "max": 739
+    },
+    "visible_batches": {
+      "min": 739,
+      "median": 739,
+      "max": 739
+    },
+    "total_vertices": {
+      "min": 4110101,
+      "median": 4110101,
+      "max": 4110101
+    },
+    "vbo_bytes": {
+      "min": 263046464,
+      "median": 263046464,
+      "max": 263046464
+    },
+    "index_bytes": {
+      "min": 11940432,
+      "median": 11940432,
+      "max": 11940432
+    },
+    "texture_binds": {
+      "min": 651,
+      "median": 651,
+      "max": 651
+    },
+    "material_changes": {
+      "min": 672,
+      "median": 672,
+      "max": 672
+    }
+  },
+  "median": {
+    "render_mean_ms": 4.492,
+    "frame_median_ms": 7.83,
+    "frame_p95_ms": 13.713,
+    "loop_median_ms": 7.83,
+    "swap_mean_ms": 0.015,
+    "draw_calls": 739,
+    "visible_batches": 739,
+    "total_vertices": 4110101,
+    "vbo_bytes": 263046464,
+    "index_bytes": 11940432,
+    "texture_binds": 651,
+    "material_changes": 672
+  }
+}

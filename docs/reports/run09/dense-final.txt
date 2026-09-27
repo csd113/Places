@@ -1,0 +1,22 @@
+PLACES_LEVEL: loading 'Capacity: Dense Content (dev)' (capacity_dense) - 5312 props
+[characters] the level places more than 64 skinned characters; the rest stay in their static bind pose
+PLACES_CAPTURE: wrote /Users/connordawkins/Documents/GitHub/Places/target/run09/dense-final.png
+BENCH_SUMMARY {"level":"capacity_dense","frames":4,"swap_interval":1,"update_mean_ms":9.128,"render_mean_ms":4.928,"swap_mean_ms":140.180,"frame_mean_ms":154.236,"loop_mean_ms":19.276,"frame_median_ms":30.021,"loop_median_ms":30.021,"frame_p95_ms":569.862,"frame_p99_ms":569.862,"loop_p95_ms":30.022,"loop_p99_ms":30.022,"frame_min_ms":7.742,"frame_max_ms":569.862,"loop_min_ms":7.743,"loop_max_ms":30.022,"fps_median":33.31,"fps_p95":33.31,"fps_p99":33.31,"fps_1pct_low":33.31,"fps_mean":51.88,"measured_fps_mean":6.48,"worst_fps":33.31,"total_vertices":4110101,"visible_vertices":160,"culled_vertices":4109941,"total_batches":1224,"visible_batches":12,"draw_calls":12,"vbo_bytes":263046464,"index_bytes":11940432,"texture_binds":4,"material_changes":3,"reflection_passes":0}
+       56.37 real        55.37 user         1.05 sys
+          1508818944  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+               99207  page reclaims
+                   7  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                  25  voluntary context switches
+                5130  involuntary context switches
+        965310794958  instructions retired
+        190661305438  cycles elapsed
+          2000652280  peak memory footprint

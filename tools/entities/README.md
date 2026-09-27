@@ -86,3 +86,6 @@ per-worker memory guard (every reduction is printed with its reason).
 3. `python3 tools/entities/build_<id>.py && python3 tools/entities/rig.py
    --check <glb> && python3 tools/entities/validate_entities.py` and then run
    the workspace checks.
+
+Worker controls, baseline comparisons, and the complete first-party inventory are
+documented in [Offline Python tooling](../../docs/OFFLINE_TOOLING.md).

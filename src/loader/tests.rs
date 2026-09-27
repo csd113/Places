@@ -2340,7 +2340,7 @@ fn test_validate_ladders_accepts_the_demo_and_rejects_bad_reach() {
     assert!(error.contains("outside every room"), "{error}");
 }
 
-// ------------------------------------------------- level preparation (Agent C)
+// ------------------------------------------------- level preparation
 
 /// A synthetic catalog with an office-flavoured wall material declaring a
 /// baseboard, a plain wall material without one, and the trim material itself.
@@ -2656,7 +2656,7 @@ fn test_prepared_demo_baseboard_geometry_sits_at_floor_level() {
 }
 
 // ---------------------------------------------------------------------------
-// Run 02: instance identity, actions and area triggers
+// instance identity, actions and area triggers
 // ---------------------------------------------------------------------------
 
 /// A room plus arbitrary area-trigger JSON, for validation tests.
@@ -3064,7 +3064,7 @@ fn validate_routes_uses_the_runtime_minimum_disc_radius() {
     );
 }
 
-/// The Run 05 demo duck, exactly as the shipped demo authors it: the pool
+/// The demo duck, exactly as the shipped demo authors it: the pool
 /// surface is at -1.65 m and the duck floats inside the basin's
 /// 8..20 x 10..16 footprint.
 const DEMO_DUCK_FLOAT: &str = r#"{ "model": "core:rubber_duck", "x": 10.5, "z": 10.4,
@@ -3239,7 +3239,7 @@ fn test_the_shipped_demo_duck_validates() {
 }
 
 // ---------------------------------------------------------------------------
-// Run 06: round-architecture validation diagnostics
+// round-architecture validation diagnostics
 // ---------------------------------------------------------------------------
 
 /// Parses a level JSON with a `base` room and the given extra geometry blocks,

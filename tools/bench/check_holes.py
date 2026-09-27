@@ -37,6 +37,13 @@ import sys
 import zlib
 
 
+# Direct script execution and imported test modules share the same helper.
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from execution import ordered_map, worker_count
+
+
 def read_png(path: str) -> tuple[int, int, int, bytes]:
     """Decodes an 8-bit PNG (any filter, RGB/RGBA/gray/palette) to raw pixels."""
     with open(path, "rb") as handle:
@@ -125,6 +132,14 @@ def collect(paths: list[str]) -> list[str]:
     return found
 
 
+def _check_job(job):
+    path, threshold, step = job
+    try:
+        return near_black_fraction(path, threshold, step), None
+    except (OSError, ValueError, zlib.error) as error:
+        return None, str(error)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("paths", nargs="+", help="capture PNGs, directories or globs")
@@ -138,17 +153,26 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-fraction", type=float, default=0.05, help="fail above this dark fraction")
     parser.add_argument("--json", metavar="FILE", help="also write the per-capture results as JSON")
     parser.add_argument("--quiet", action="store_true", help="only print failures")
+    parser.add_argument("--workers", type=int, help="CPU workers (default: automatic, at most 12)")
     args = parser.parse_args(argv)
+    try:
+        worker_count(args.workers)
+    except ValueError as error:
+        parser.error(str(error))
 
     results = []
     failed = 0
-    for path in collect(args.paths):
-        try:
-            fraction, dark, total = near_black_fraction(path, args.threshold, args.step)
-        except (OSError, ValueError, zlib.error) as error:
+    if args.step < 1:
+        parser.error("--step must be positive")
+    paths = collect(args.paths)
+    checked = ordered_map(_check_job, [(path, args.threshold, args.step) for path in paths],
+                          args.workers, progress="holes")
+    for path, (result, error) in zip(paths, checked):
+        if error is not None:
             print(f"FAIL {path}: {error}")
             failed += 1
             continue
+        fraction, dark, total = result
         results.append({"path": path, "fraction": round(fraction, 4), "dark": dark, "sampled": total})
         if fraction > args.max_fraction:
             failed += 1

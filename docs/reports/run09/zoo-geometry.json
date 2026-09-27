@@ -1,0 +1,20 @@
+{
+  "findings": [],
+  "format": "places-geometry-check",
+  "level": {
+    "id": "model_zoo",
+    "source": "assets/levels/model_zoo.json",
+    "validated": true
+  },
+  "markers": [],
+  "summary": {
+    "checks": {},
+    "errors": 0,
+    "findings": 0,
+    "suppressed": {
+      "room-leak": 1
+    },
+    "warnings": 0
+  },
+  "version": 1
+}

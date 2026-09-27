@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -179,7 +180,8 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
 
     def test_worker_reduction_and_requested_counts(self):
         workers, note = zoo.parse_worker_count("99")
-        self.assertEqual(workers, zoo.CPU_CEILING)
+        self.assertEqual(workers, min(zoo.CPU_CEILING, zoo.usable_cpu_count(),
+                                      int(os.environ.get("PLACES_TOOL_WORKERS", "12"))))
         self.assertIn("reduced", note)
         workers, note = zoo.parse_worker_count("1")
         self.assertEqual(workers, 1)

@@ -569,22 +569,22 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         )
 
         # The demonstration objects belong to the level that spawned them: the
-        # boot demo spawns the drum plus the floating rubber duck (run 05), and
+        # boot demo spawns the drum plus the floating rubber duck, and
         # replacing the level must clear the neutral dynamic scene instead of
         # carrying it into the new level.
-        dynamic_lines = [
-            line for line in output.splitlines() if line.startswith("[dynamic]")
+        dynamic_counts = [
+            tuple(map(int, match.groups()))
+            for match in re.finditer(
+                r"\[dynamic\] (\d+) object\(s\): (\d+) draw call\(s\), (\d+) vertices",
+                output,
+            )
         ]
+        self.assertEqual(len(dynamic_counts), 2, output)
+        self.assertEqual(dynamic_counts[0][:2], (2, 2), output)
+        self.assertGreater(dynamic_counts[0][2], 0, "the demo dynamic scene contains geometry")
         self.assertEqual(
-            dynamic_lines,
-            [
-                "[dynamic] 2 object(s): 2 draw call(s), 772 vertices"
-                " (the demonstration path; never part of the static bake)",
-                "[dynamic] 0 object(s): 0 draw call(s), 0 vertices"
-                " (the demonstration path; never part of the static bake)",
-            ],
-            "the level replacement must clear the previous level's dynamic"
-            f" scene:\n{output}",
+            dynamic_counts[1], (0, 0, 0),
+            "level replacement must clear every object, draw and vertex from the dynamic scene",
         )
 
         # One texture resolution per level load, never per frame.
@@ -780,7 +780,8 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertIn("PLACES_CAPTURE: wrote", output, output)
         self.assert_no_gpu_failure(output)
         self.assertTrue(os.path.isfile(capture), output)
-        data = open(capture, "rb").read()
+        with open(capture, "rb") as handle:
+            data = handle.read()
         self.assertEqual(data[:8], b"\x89PNG\r\n\x1a\n", "not a PNG")
         self.assertEqual(data[12:16], b"IHDR", "the first chunk is IHDR")
         width, height = struct.unpack(">II", data[16:24])

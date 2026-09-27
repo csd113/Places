@@ -10,8 +10,10 @@ import sys
 import tempfile
 
 
-def union_surface(mesh, parts):
+def union_surface(mesh, parts, workers=None):
     from mesh import Mesh
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from execution import worker_count
     blender = shutil.which('blender')
     if blender is None:
         raise RuntimeError('Rebuilding rat geometry requires Blender on PATH')
@@ -19,7 +21,7 @@ def union_surface(mesh, parts):
         path = Path(temporary) / 'surface.json'
         path.write_text(json.dumps(dict(positions=mesh.positions, indices=mesh.indices,
                                        uvs=mesh.uvs, colors=mesh.colors, parts=parts)))
-        subprocess.run([blender, '--background', '--factory-startup', '--python-exit-code', '1', '--python',
+        subprocess.run([blender, '--background', '--factory-startup', '--threads', str(worker_count(workers)), '--python-exit-code', '1', '--python',
                         str(Path(__file__).resolve()), '--', str(path)], check=True,
                        stderr=subprocess.STDOUT)
         data = json.loads(path.read_text())

@@ -169,6 +169,13 @@ class PngImage:
         self.ancillary = ancillary
 
 
+# Direct script execution and imported test modules share the same helper.
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from execution import ordered_map, worker_count, atomic_write
+
+
 def _chunk(tag: bytes, payload: bytes) -> bytes:
     return (
         struct.pack(">I", len(payload))
@@ -275,12 +282,11 @@ def read_png(path: str) -> PngImage:
     return PngImage(width, height, colour_type, pixels, ancillary)
 
 
-def write_png(path: str, image: PngImage) -> None:
+def encode_png(image: PngImage) -> bytes:
     """Re-encodes with a deterministic Paeth filter and zlib level 9.
 
     Ancillary chunks are copied through in their original order, the colour
-    type and dimensions are preserved.  The write goes through a sibling
-    temporary file so a failure cannot leave a truncated texture behind.
+    type and dimensions are preserved. No files are written here.
     """
     width, height, channels = image.width, image.height, image.channels
     stride = width * channels
@@ -303,14 +309,12 @@ def write_png(path: str, image: PngImage) -> None:
         body += _chunk(tag, payload)
     body += _chunk(b"IDAT", zlib.compress(bytes(raw), 9))
     body += _chunk(b"IEND", b"")
-    temporary = f"{path}.seam_repair_tmp"
-    try:
-        with open(temporary, "wb") as handle:
-            handle.write(PNG_SIGNATURE + body)
-        os.replace(temporary, path)
-    finally:
-        if os.path.exists(temporary):
-            os.remove(temporary)
+    return PNG_SIGNATURE + body
+
+
+def write_png(path: str, image: PngImage) -> None:
+    """Atomically publish the deterministic encoding, preserving file mode."""
+    atomic_write(path, encode_png(image))
 
 
 # ---------------------------------------------------------------------- metric
@@ -662,6 +666,31 @@ def _print_report(path: str, image: PngImage) -> tuple[bool, list[str]]:
     return passes, reasons
 
 
+def _image_job(job):
+    path, mode, params = job
+    # Do not raise SystemExit in a pool worker: it would abandon its result.
+    try:
+        image = read_png(path)
+        if mode == "report":
+            import io
+            import contextlib
+            stream = io.StringIO()
+            with contextlib.redirect_stdout(stream):
+                _print_report(path, image)
+            return None, None, None, stream.getvalue()
+        before, reasons = file_verdict(measure(image.pixels, image.width, image.height, image.channels))
+        if mode == "check":
+            return None, before, reasons, None
+        pixels = repair(image.pixels, image.width, image.height, image.channels,
+                        params["radius"], params["band"], params["residual_band"],
+                        params["offset_lr"], params["offset_tb"])
+        output = PngImage(image.width, image.height, image.colour_type, pixels, image.ancillary)
+        after, reasons = file_verdict(measure(pixels, image.width, image.height, image.channels))
+        return encode_png(output), after, reasons, before
+    except (OSError, ValueError, zlib.error) as error:
+        raise ValueError(f"FAIL {path}: {error}") from error
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -677,7 +706,12 @@ def main(argv: list[str] | None = None) -> int:
         "--offset", type=int, nargs="+", metavar="PIXELS",
         help="roll distance: one value for both axes or two (left-right, top-bottom)",
     )
+    parser.add_argument("--workers", type=int, help="CPU workers (default: automatic, at most 12)")
     args = parser.parse_args(argv)
+    try:
+        worker_count(args.workers)
+    except ValueError as error:
+        parser.error(str(error))
     if args.offset is not None and len(args.offset) not in (1, 2):
         parser.error("--offset takes one or two values")
     for name in ("band", "residual_band", "radius"):
@@ -689,46 +723,32 @@ def main(argv: list[str] | None = None) -> int:
 
     total = 0
     failures = 0
-    for path in args.report if args.report else (args.check if args.check else args.repair):
-        image = _load(path)
+    paths = args.report or args.check or args.repair
+    if args.repair and len({os.path.realpath(path) for path in paths}) != len(paths):
+        parser.error("repair paths must be distinct")
+    mode_name = "report" if args.report else ("check" if args.check else "repair")
+    jobs = [(path, mode_name, _parameters(path, args)) for path in paths]
+    try:
+        results = ordered_map(_image_job, jobs, args.workers, automatic=4, progress="seams")
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        return 1
+    for (path, _, params), (image, passes, reasons, detail) in zip(jobs, results):
         if args.report:
-            _print_report(path, image)
+            print(detail, end="")
             continue
-        if args.check:
-            passes, reasons = file_verdict(measure(image.pixels, image.width, image.height, image.channels))
+        if args.repair:
+            atomic_write(path, image)
+            print(
+                f"{'REPAIRED' if passes else 'REPAIRED (still failing)'} {path} "
+                f"band={params['band']} residual_band={params['residual_band']} radius={params['radius']} "
+                f"offset={params['offset_lr']}/{params['offset_tb']} "
+                f"before={'PASS' if detail else 'FAIL'} after={'PASS' if passes else 'FAIL'}"
+            )
+        else:
             print(f"{'PASS' if passes else 'FAIL'} {path}")
-            for reason in reasons:
-                print(f"  - {reason}")
-            total += 1
-            failures += 0 if passes else 1
-            continue
-
-        params = _parameters(path, args)
-        before, _ = file_verdict(measure(image.pixels, image.width, image.height, image.channels))
-        repaired = repair(
-            image.pixels,
-            image.width,
-            image.height,
-            image.channels,
-            params["radius"],
-            params["band"],
-            params["residual_band"],
-            params["offset_lr"],
-            params["offset_tb"],
-        )
-        write_png(path, PngImage(image.width, image.height, image.colour_type, repaired, image.ancillary))
-        after_image = _load(path)
-        after, reasons = file_verdict(
-            measure(after_image.pixels, after_image.width, after_image.height, after_image.channels)
-        )
         total += 1
-        failures += 0 if after else 1
-        print(
-            f"{'REPAIRED' if after else 'REPAIRED (still failing)'} {path} "
-            f"band={params['band']} residual_band={params['residual_band']} radius={params['radius']} "
-            f"offset={params['offset_lr']}/{params['offset_tb']} "
-            f"before={'PASS' if before else 'FAIL'} after={'PASS' if after else 'FAIL'}"
-        )
+        failures += 0 if passes else 1
         for reason in reasons:
             print(f"  - {reason}")
     if args.check or args.repair:

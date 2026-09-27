@@ -27,6 +27,10 @@ import struct
 import sys
 import zlib
 
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from execution import ordered_map, worker_count, atomic_write
+
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -66,8 +70,7 @@ def write_glb(path: str, document: dict, binary: bytearray) -> None:
     out += json_bytes
     out += struct.pack("<I4s", len(binary), b"BIN\x00")
     out += binary
-    with open(path, "wb") as handle:
-        handle.write(out)
+    atomic_write(path, out)
 
 
 def decode_png(data: bytes) -> tuple[int, int, bytearray]:
@@ -152,20 +155,19 @@ def encode_png(width: int, height: int, rgba: bytes) -> bytes:
     )
 
 
-def box_downsample(width: int, height: int, rgba: bytearray, size: int) -> tuple[int, int, bytearray]:
-    """Fractional box-filter down to exactly ``size`` on the longest edge.
+_RESIZE_INPUT = None
 
-    Integer stride dropping would round a 1254 px edge down to 250 and lose the
-    native 256 size; the fractional filter keeps the aspect ratio, the power-of-
-    two target and every source pixel's contribution.
-    """
-    if width <= size and height <= size:
-        return width, height, rgba
-    scale = max(width, height) / size
-    out_w = max(1, round(width / scale))
-    out_h = max(1, round(height / scale))
-    out = bytearray(out_w * out_h * 4)
-    for y in range(out_h):
+
+def _resize_init(width, height, rgba, out_w, out_h):
+    global _RESIZE_INPUT
+    _RESIZE_INPUT = width, height, rgba, out_w, out_h
+
+
+def _resize_rows(bounds):
+    width, height, rgba, out_w, out_h = _RESIZE_INPUT
+    start, end = bounds
+    out = bytearray(out_w * (end - start) * 4)
+    for y in range(start, end):
         y0 = y * height / out_h
         y1 = (y + 1) * height / out_h
         sy0, sy1 = int(y0), max(int(y0) + 1, min(height, int(y1 + 0.999999)))
@@ -183,17 +185,38 @@ def box_downsample(width: int, height: int, rgba: bytearray, size: int) -> tuple
                     sums[1] += rgba[base + 1]
                     sums[2] += rgba[base + 2]
                     sums[3] += rgba[base + 3]
-            dst = (y * out_w + x) * 4
+            dst = ((y - start) * out_w + x) * 4
             for channel in range(4):
                 out[dst + channel] = sums[channel] // count
-    return out_w, out_h, out
+    return out
+
+
+def box_downsample(width: int, height: int, rgba: bytearray, size: int, workers=1) -> tuple[int, int, bytearray]:
+    """Preserve the original box sample coverage and integer rounding exactly."""
+    if min(width, height, size) < 1 or len(rgba) != width * height * 4:
+        raise ValueError("positive dimensions and matching RGBA data required")
+    if width <= size and height <= size:
+        return width, height, rgba
+    scale = max(width, height) / size
+    out_w, out_h = max(1, round(width / scale)), max(1, round(height / scale))
+    count = worker_count(workers, out_h)
+    # Substantial row bands; input is sent only once to each worker initializer.
+    band = max(1, (out_h + count - 1) // count)
+    chunks = ordered_map(_resize_rows, [(y, min(y + band, out_h)) for y in range(0, out_h, band)],
+                         count, initializer=_resize_init, initargs=(width, height, rgba, out_w, out_h))
+    return out_w, out_h, bytearray().join(chunks)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("model", help="GLB file to rewrite in place")
     parser.add_argument("--size", type=int, default=256, help="target longest edge (default 256)")
+    parser.add_argument("--workers", type=int, help="CPU workers for output row bands")
     args = parser.parse_args()
+    try:
+        workers = worker_count(args.workers)
+    except ValueError as error:
+        parser.error(str(error))
     if args.size <= 0:
         raise SystemExit("--size must be positive")
 
@@ -220,7 +243,7 @@ def main() -> int:
         offset = view.get("byteOffset", 0)
         original = bytes(binary[offset : offset + view["byteLength"]])
         width, height, rgba = decode_png(original)
-        new_w, new_h, new_rgba = box_downsample(width, height, rgba, args.size)
+        new_w, new_h, new_rgba = box_downsample(width, height, rgba, args.size, workers)
         if (new_w, new_h) == (width, height):
             continue
         replacements[view_index] = encode_png(new_w, new_h, new_rgba)

@@ -57,7 +57,6 @@ DEFAULT_ASSETS = (
 )
 
 # Engine ceilings, mirrored from src/gltf.rs / src/level.rs.
-MAX_WORKERS_CEILING = 12
 SAMPLES_PER_SECOND = 60.0
 FRAME_CHUNK = 16
 # One loaded entity is small; 64 MiB of accumulated per-worker arrays is a
@@ -86,20 +85,18 @@ def usable_cpu_count() -> int:
 
 
 def parse_worker_count(requested: Optional[str]) -> Tuple[int, str]:
-    """Resolves the requested worker count and explains any reduction."""
-    raw = requested if requested is not None else os.environ.get("PLACES_TOOL_WORKERS")
-    ceiling = min(MAX_WORKERS_CEILING, usable_cpu_count())
-    if raw is None or str(raw).strip() == "":
-        return ceiling, f"automatic: min(12, {usable_cpu_count()} usable CPUs)"
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from execution import worker_count
     try:
-        value = int(str(raw).strip())
-    except ValueError:
-        raise SystemExit(f"--workers must be an integer, got {raw!r}")
-    if value < 1:
-        raise SystemExit(f"--workers must be >= 1, got {value}")
-    if value > ceiling:
-        return ceiling, f"requested {value}, reduced to {ceiling} (CPU/ceiling budget)"
-    return value, "requested"
+        count = worker_count(requested)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+    if requested is None:
+        return count, "automatic"
+    if count < int(requested):
+        return count, f"requested {requested}, reduced to {count} (CPU/allocation budget)"
+    return count, "requested"
+
 
 
 # ------------------------------------------------------------------- reading

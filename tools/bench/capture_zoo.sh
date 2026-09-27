@@ -10,6 +10,7 @@ run() {
     name=$1
     spawn=$2
     camera=${3:-}
+    PLACES_BENCH=1 \
     PLACES_QUALITY=$QUALITY \
     PLACES_LEVEL=model_zoo \
     PLACES_SPAWN="$spawn" \

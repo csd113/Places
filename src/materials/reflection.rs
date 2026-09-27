@@ -26,8 +26,8 @@
 //!   inspection. They exist to make a wet floor and a mirror read as wet and
 //!   mirrored.
 //!
-//! Marking is done in the catalog: `"reflection": {"mode": "planar",
-//! "strength": 0.55}`. Nothing in a level file changes, and a material used on
+//! Marking is done in the catalog: `"reflection_mode": "planar",
+//! "reflection_strength": 0.55`. Nothing in a level file changes, and a material used on
 //! two different planes (a wall panel reused on the floor) is resolved per
 //! batch at build time by the renderer, which derives the plane from the
 //! geometry actually emitted.

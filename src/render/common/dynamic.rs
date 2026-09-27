@@ -1808,7 +1808,7 @@ mod tests {
         assert_eq!(scene.draw_count(), 1);
     }
 
-    /// The Run 05 duck pool as a standalone level: a room whose floor is the basin
+    /// The demo duck pool as a standalone level: a room whose floor is the basin
     /// bottom, the demo pool's water (8..20 x 10..16 at -1.65 m) and one duck with
     /// the demo duck's authored float block. The duck is placement 0, so its
     /// default golden-ratio phase is exactly zero.

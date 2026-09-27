@@ -333,7 +333,9 @@ impl EntityRoute {
                     self.block(state, "the path leaves every walkable floor");
                     return;
                 };
-                if (floor_y - state.position.y).abs() > ENTITY_STEP_HEIGHT_M {
+                if (floor_y - state.position.y).abs()
+                    > ENTITY_STEP_HEIGHT_M + crate::collision::STEP_EPS
+                {
                     self.block(state, "the path steps further than the entity can climb");
                     return;
                 }
@@ -540,6 +542,44 @@ mod tests {
             state.position
         );
         assert!((state.position.y - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn nominal_step_rounding_is_tolerated_but_larger_steps_block() {
+        for (rise, blocked) in [(0.3, false), (0.31, true)] {
+            let mut level = level_with_route(
+                r#"{ "id": "runner", "steps": [
+                    { "step": "move_to", "x": 6.0, "z": 2.0, "speed": 1.0 },
+                    { "step": "move_to", "x": 2.0, "z": 2.0, "speed": 1.0 }
+                ] }"#,
+            );
+            level.room.as_mut().expect("room").floor_y = -1.2;
+            level.floor_regions.push(
+                serde_json::from_value(serde_json::json!({
+                    "x": 4.0, "z": 0.0, "width": 4.0, "depth": 4.0, "offset_y": rise
+                }))
+                .expect("region"),
+            );
+            let (routes, walls, floor, index) = world_routes(&level);
+            let route = routes.get("runner").expect("route");
+            let mut state = route.new_state();
+            let world = RouteWorld {
+                walls: &walls,
+                floor: &floor,
+                index: &index,
+            };
+            for _ in 0..600 {
+                route.advance(&mut state, 1.0 / 60.0, &world);
+            }
+            assert_eq!(state.blocked, blocked);
+            if !blocked {
+                assert!(
+                    (state.position.x - 2.0).abs() < 0.05,
+                    "returned down the step"
+                );
+                assert!((state.position.y + 1.2).abs() < 1.0e-5);
+            }
+        }
     }
 
     #[test]

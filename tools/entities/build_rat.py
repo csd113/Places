@@ -439,7 +439,7 @@ def _add_ear(mesh: Mesh, tex: Texture, side: float, ear_pos: Sequence[float]) ->
 WHITE_TINT = (255, 255, 255)
 
 
-def build_mesh(tex: Texture, kness: Dict[str, Tuple[float, float, float]]) -> Tuple[Mesh, Dict[str, Tuple[int, int]]]:
+def build_mesh(tex: Texture, kness: Dict[str, Tuple[float, float, float]], workers=None) -> Tuple[Mesh, Dict[str, Tuple[int, int]]]:
     """Builds the whole rat mesh, recording each vertex range by part name."""
     mesh = Mesh()
     parts: Dict[str, Tuple[int, int]] = {}
@@ -608,7 +608,7 @@ def build_mesh(tex: Texture, kness: Dict[str, Tuple[float, float, float]]) -> Tu
     mark("tail", start)
 
     from rat_surface import union_surface
-    return union_surface(mesh, parts)
+    return union_surface(mesh, parts, workers)
 
 
 # ---------------------------------------------------------------------------
@@ -2055,13 +2055,13 @@ def write_report(
 # ---------------------------------------------------------------------------
 
 
-def build(out_path: Path, *, preview: bool) -> int:
+def build(out_path: Path, *, preview: bool, workers=None) -> int:
     texture = build_texture()
     kness = {
         leg: rest_knee(HIP_POS[leg], ANKLE_POS[leg], SLACK, KNEE_FORWARD[leg])
         for leg in LEG_ORDER
     }
-    mesh, parts = build_mesh(texture, kness)
+    mesh, parts = build_mesh(texture, kness, workers)
     shift = mesh.normalize_origin()
     rig, anchors = build_rig(shift, kness)
     for leg in LEG_ORDER:
@@ -2189,7 +2189,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                         help="also write the optional software preview PNG under target/")
     parser.add_argument("--check", action="store_true",
                         help="verify an existing GLB/report inputs instead of rebuilding")
+    parser.add_argument("--workers", type=int, help="native Blender CPU allocation")
     args = parser.parse_args(argv)
+    sys.path.insert(0, str(REPO_ROOT / "tools"))
+    from execution import worker_count
+    try:
+        workers = worker_count(args.workers)
+    except ValueError as error:
+        parser.error(str(error))
 
     out_path = Path(args.out)
     if not out_path.is_absolute():
@@ -2202,7 +2209,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         texture_path = REPO_ROOT / TEXTURE_DIR / TEXTURE_NAME
         texture = build_texture()
         kness = {leg: rest_knee(HIP_POS[leg], ANKLE_POS[leg], SLACK, KNEE_FORWARD[leg]) for leg in LEG_ORDER}
-        mesh, parts = build_mesh(texture, kness)
+        mesh, parts = build_mesh(texture, kness, workers)
         mesh.normalize_origin()
         verification = verify_model(out_path, {
             leg: parts[f"leg_{leg}_paw"] for leg in LEG_ORDER
@@ -2213,7 +2220,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"{len(verification['checks'])} checks, {len(verification['problems'])} problems")
         return 1 if verification["problems"] else 0
 
-    return build(out_path, preview=args.preview)
+    return build(out_path, preview=args.preview, workers=workers)
 
 
 if __name__ == "__main__":

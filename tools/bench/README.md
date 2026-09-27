@@ -255,3 +255,6 @@ BENCH_SUMMARY {"level":...,"frames":...,"swap_interval":...,"loop_median_ms":...
 cadence including the swap. `frame_ms` is begin-of-frame to end-of-swap. FPS
 figures in the summary are always derived from `loop_ms`, never from a count of
 renderer submissions.
+
+Worker controls, baseline comparisons, and the complete first-party inventory are
+documented in [Offline Python tooling](../../docs/OFFLINE_TOOLING.md).

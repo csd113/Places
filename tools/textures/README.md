@@ -187,3 +187,6 @@ background is alpha 0 and the artwork is the silhouette plus its plate. Fixture
 faces are fitted, not tiled: author the whole face, keep the PNG opaque, and
 match the sheet's aspect to the face the fixture maps (see the mapping table in
 `src/render/common/fixtures.rs`).
+
+Worker controls, baseline comparisons, and the complete first-party inventory are
+documented in [Offline Python tooling](../../docs/OFFLINE_TOOLING.md).

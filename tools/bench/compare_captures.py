@@ -20,6 +20,13 @@ import zlib
 from pathlib import Path
 
 
+# Direct script execution and imported test modules share the same helper.
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from execution import ordered_map, worker_count
+
+
 def read_png(path: Path) -> tuple[int, int, bytes]:
     """Minimal PNG reader for 8-bit RGB/RGBA files, no external deps."""
     data = path.read_bytes()
@@ -114,6 +121,15 @@ def compare(left: Path, right: Path, tolerance: int) -> tuple[float, float, int,
     return total / pixels, over / pixels * 100.0, worst, pixels
 
 
+def _compare_job(job):
+    profile, left, right, tolerance = job
+    try:
+        mean, over, worst, pixels = compare(left, right, tolerance)
+    except SystemExit as error:
+        raise ValueError(str(error)) from error
+    return mean, profile, left.name, over, worst, pixels
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("left", type=Path)
@@ -121,8 +137,13 @@ def main() -> int:
     parser.add_argument("--label", nargs=2, default=["left", "right"])
     parser.add_argument("--tolerance", type=int, default=8)
     parser.add_argument("--top", type=int, default=100)
+    parser.add_argument("--workers", type=int, help="CPU workers (default: automatic, at most 12)")
     args = parser.parse_args()
-    rows = []
+    try:
+        worker_count(args.workers)
+    except ValueError as error:
+        parser.error(str(error))
+    jobs = []
     for profile in ("high", "low"):
         left_dir = args.left / profile
         right_dir = args.right / profile
@@ -134,8 +155,11 @@ def main() -> int:
             if not right.exists():
                 print(f"MISSING {profile}/{path.name}")
                 continue
-            mean, over, worst, pixels = compare(path, right, args.tolerance)
-            rows.append((mean, profile, path.name, over, worst, pixels))
+            jobs.append((profile, path, right, args.tolerance))
+    try:
+        rows = ordered_map(_compare_job, jobs, args.workers, progress="compare")
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     rows.sort(reverse=True)
     print(f"# {args.label[0]} vs {args.label[1]} — per-channel |difference| in 0..255")
     for mean, profile, name, over, worst, pixels in rows:

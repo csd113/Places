@@ -4,7 +4,7 @@ The canonical id is ``spooner-man`` (hyphen), matching `assets/catalog.json`
 and every level that places him; the underscore spelling is only this Python
 module's name. This module builds the toolkit's **static** cat: one mesh, one
 material, one 256x256 texture. The shipped entity is a hand-authored Blender
-export that carries a real 26-joint skin and five authored clips (see
+export that carries a real 26-joint skin and authored animation clips (see
 `assets/entities/spooner-man/README.md`); the toolkit refuses to overwrite it
 unless `--force` is passed.
 

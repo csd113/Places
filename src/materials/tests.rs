@@ -1344,7 +1344,7 @@ fn the_shipped_glass_and_response_materials_resolve_with_their_pngs() {
 }
 
 // ---------------------------------------------------------------------------
-// Run 06: pool tile sheen
+// pool tile sheen
 // ---------------------------------------------------------------------------
 
 /// The pool tile materials carry the raised restrained sheen: a specular

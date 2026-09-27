@@ -1665,7 +1665,7 @@ fn a_missing_or_malformed_clip_marker_keeps_the_clip_defaults() {
     assert_eq!(animations[0].kind.as_deref(), Some("walk"));
 }
 
-/// Run 05: a model that declares clips but no skin parses as a *rigid*
+/// a model that declares clips but no skin parses as a *rigid*
 /// animated prop. Every primitive is bound to its owning node with weight one,
 /// so the character path can pose the node hierarchy (the wall switch's lever).
 #[test]
@@ -1704,4 +1704,26 @@ fn an_animated_unskinned_prop_parses_as_a_rigid_animated_model() {
         toggle.duration
     );
     assert!(!toggle.channels.is_empty());
+}
+
+#[test]
+fn morph_tangent_deltas_are_vec3_without_handedness() {
+    let json = serde_json::json!({
+        "bufferViews": [{"buffer": 0, "byteLength": 12}],
+        "accessors": [
+            {"bufferView": 0, "componentType": 5126, "count": 1, "type": "VEC3"},
+            {"bufferView": 0, "componentType": 5126, "count": 1, "type": "VEC3"}
+        ]
+    });
+    let binary: Vec<u8> = [1.0_f32, 2.0, 3.0]
+        .into_iter()
+        .flat_map(f32::to_le_bytes)
+        .collect();
+    let primitive = serde_json::json!({"attributes": {"POSITION": 0},
+        "targets": [{"POSITION": 0, "NORMAL": 0, "TANGENT": 1}]});
+    let targets = read_morph_targets(&json, &binary, &primitive, 0).expect("valid VEC3 morphs");
+    assert_eq!(targets[0].tangent, vec![[1.0, 2.0, 3.0, 0.0]]);
+    let mut invalid = json;
+    invalid["accessors"][1]["type"] = serde_json::json!("VEC4");
+    assert!(read_morph_targets(&invalid, &binary, &primitive, 0).is_err());
 }

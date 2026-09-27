@@ -194,3 +194,6 @@ instead of overlapping cushion slabs. Twelve-segment arm rolls smooth the
 silhouette. The armchair is 368 triangles; the couch is 588, above the 500
 preferred target but below the 800 review threshold. Original catalogue
 bounds and floor-contact origins are retained.
+
+Worker controls, baseline comparisons, and the complete first-party inventory are
+documented in [Offline Python tooling](../../docs/OFFLINE_TOOLING.md).

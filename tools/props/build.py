@@ -67,6 +67,11 @@ PACK_TEXTURE_MEMORY_MAX = 64 * 1024 * 1024
 PLACEABLE_TYPES = ("prop", "entity")
 
 
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from execution import ordered_map, worker_count, atomic_write
+
+
 def load_catalog() -> dict:
     with open(CATALOG_PATH, "r", encoding="utf-8") as handle:
         return json.load(handle)
@@ -93,7 +98,10 @@ def model_path(entry: dict) -> str:
     model = entry.get("model")
     if not model:
         raise SystemExit(f"{entry['id']}: catalogue entry has no model path")
-    return os.path.join(ASSET_ROOT, model)
+    destination = Path(ASSET_ROOT) / model
+    if not destination.resolve().is_relative_to(Path(ASSET_ROOT).resolve()):
+        raise SystemExit(f"{entry['id']}: model path escapes assets/")
+    return str(destination)
 
 
 def _toolkit_authored(document: dict) -> bool:
@@ -111,7 +119,7 @@ def _toolkit_authored(document: dict) -> bool:
     return isinstance(extras, dict) and extras.get("places_props_toolkit") == 1
 
 
-def build_one(entry: dict, build_fn, force: bool = False) -> Optional[dict]:
+def build_one(entry: dict, build_fn, force: bool = False, *, publish=True) -> Optional[dict]:
     prop_id = entry["id"]
     destination = model_path(entry)
     # A hand-authored skinned/animated model must never be replaced by this
@@ -163,9 +171,8 @@ def build_one(entry: dict, build_fn, force: bool = False) -> Optional[dict]:
         nodes=builder.nodes,
         animations=builder.clips,
     )
-    os.makedirs(os.path.dirname(destination), exist_ok=True)
-    with open(destination, "wb") as handle:
-        handle.write(payload)
+    if publish:
+        atomic_write(destination, payload)
 
     low, high = builder.mesh.bounds()
     return {
@@ -180,7 +187,21 @@ def build_one(entry: dict, build_fn, force: bool = False) -> Optional[dict]:
         "bounds_min": [round(value, 3) for value in low],
         "bounds_max": [round(value, 3) for value in high],
         "notes": builder.notes,
+        **({"payload": payload} if not publish else {}),
     }
+
+
+def _build_job(job):
+    import contextlib
+    import io
+    entry, force = job
+    output = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(output):
+            result = build_one(entry, parts.collect()[entry["id"]], force, publish=False)
+        return result, output.getvalue(), None
+    except (ValueError, glb.GltfError, SystemExit) as error:
+        return None, output.getvalue(), f"{entry['id']}: {error}"
 
 
 def main(argv: List[str] | None = None) -> int:
@@ -193,7 +214,12 @@ def main(argv: List[str] | None = None) -> int:
         action="store_true",
         help="overwrite a hand-authored skinned/animated model with the toolkit's static build",
     )
+    parser.add_argument("--workers", type=int, help="CPU workers for independent prop builds")
     args = parser.parse_args(argv)
+    try:
+        worker_count(args.workers)
+    except ValueError as error:
+        parser.error(str(error))
 
     catalog = load_catalog()
     entries = catalog_placeables(catalog)
@@ -205,11 +231,11 @@ def main(argv: List[str] | None = None) -> int:
             for entry in entries
             if entry.get("model") and (not args.only or entry["id"] in args.only)
         ]
-        missing = [entry["id"] for entry in buildable if entry["id"] not in registry]
+        missing = [entry["id"] for entry in buildable if entry["id"] not in registry
+                   and not (entry["id"] in {"mannequin", "rat", "skeleton"}
+                            and os.path.isfile(model_path(entry)))]
         if missing:
-            raise SystemExit(
-                "no builder registered for: " + ", ".join(missing) + " (add it to tools/props/parts/*.py)"
-            )
+            raise SystemExit("no builder or shipped model for: " + ", ".join(missing))
         extra = [prop_id for prop_id in registry if prop_id not in {entry["id"] for entry in entries}]
         if extra:
             print(f"warning: builders registered but not in the catalogue: {', '.join(sorted(extra))}")
@@ -283,23 +309,31 @@ def main(argv: List[str] | None = None) -> int:
             print(f"FAIL {failure}")
         return 1 if failures else 0
 
+    selected = []
     for entry in entries:
         if args.only and entry["id"] not in args.only:
+            continue
+        if entry["id"] not in registry:
+            print(f"skip {entry['id']}: maintained by its entity generator")
             continue
         if not entry.get("model"):
             print(f"skip {entry['id']}: catalogue entry declares no model")
             continue
-        build_fn = registry.get(entry["id"])
-        if build_fn is None:
-            failures.append(f"{entry['id']}: no builder registered")
-            continue
-        try:
-            built = build_one(entry, build_fn, force=args.force)
-        except (ValueError, glb.GltfError) as error:
-            failures.append(f"{entry['id']}: {error}")
-            continue
-        if built is not None:
+        selected.append(entry)
+    destinations = [model_path(entry) for entry in selected]
+    if len(set(destinations)) != len(destinations):
+        raise SystemExit("selected models must have distinct output paths")
+    results = ordered_map(_build_job, [(entry, args.force) for entry in selected],
+                          args.workers, progress="props")
+    for built, output, failure in results:
+        print(output, end="")
+        if failure:
+            failures.append(failure)
+        elif built is not None:
             report.append(built)
+    if not failures:
+        for built in report:
+            atomic_write(os.path.join(ASSET_ROOT, built["model"]), built.pop("payload"))
 
     _print_report(report)
     for failure in failures:

@@ -11,6 +11,9 @@ import json
 import math
 from pathlib import Path
 import struct
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from execution import ordered_map, worker_count, atomic_write
 
 import glb
 from geometry import boundary_loops, inspect, _cross, _sub, _dot
@@ -217,7 +220,7 @@ def encode(document, blob, positions, uvs, colors, indices):
     return struct.pack('<III',glb.GLB_MAGIC,2,28+len(payload)+len(newblob))+struct.pack('<II',len(payload),glb.CHUNK_JSON)+payload+struct.pack('<II',len(newblob),glb.CHUNK_BIN)+newblob
 
 
-def process(path, apply):
+def process(path, apply, *, proposed=False):
     raw=path.read_bytes();n=struct.unpack_from('<I',raw,12)[0]
     document=json.loads(raw[20:20+n]);blob=bytearray(raw[28+n:])
     if document.get('skins') or document.get('animations') or len(document['meshes'])!=1 or len(document['meshes'][0]['primitives'])!=1:
@@ -267,19 +270,35 @@ def process(path, apply):
         output=encode(document,blob,positions,uvs,colors,indices)
         checked=glb.read_glb(output)
         if checked.texture_png != mesh.texture_png:raise ValueError('texture bytes changed')
-        if apply:path.write_bytes(output)
+        if apply:atomic_write(path, output)
     else:output=raw
     return {'file':str(path.relative_to(ROOT)),'changed':bool(changes),'changes':changes,
             'before':before,'after':inspect(positions,indices),
             'embedded_png_sha256':hashlib.sha256(mesh.texture_png).hexdigest(),
-            'sha256':hashlib.sha256(output).hexdigest()}
+            'sha256':hashlib.sha256(output).hexdigest(),
+            **({'payload':output,'original':hashlib.sha256(raw).hexdigest()} if proposed else {})}
+
+
+def _process_job(path):
+    return process(path, False, proposed=True)
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--apply',action='store_true');parser.add_argument('--report',type=Path)
+    parser.add_argument("--workers",type=int,help="CPU workers for model audits")
     args=parser.parse_args()
-    rows=[process(p,args.apply) for p in sorted((ROOT/'assets').rglob('*.glb')) if p.stem in NAMES]
+    try: worker_count(args.workers)
+    except ValueError as error: parser.error(str(error))
+    paths=[p for p in sorted((ROOT/'assets').rglob('*.glb')) if p.stem in NAMES]
+    rows=ordered_map(_process_job,paths,args.workers,automatic=8,progress="geometry")
+    if args.apply:
+        for path,row in zip(paths,rows):
+            if hashlib.sha256(path.read_bytes()).hexdigest()!=row['original']:
+                raise ValueError(f'{path}: changed during audit; no repairs published')
+    for path,row in zip(paths,rows):
+        payload=row.pop('payload');row.pop('original')
+        if args.apply and row['changed']:atomic_write(path,payload)
     if args.report:
         args.report.parent.mkdir(parents=True,exist_ok=True);args.report.write_text(json.dumps(rows,indent=2)+'\n')
     for row in rows:print(Path(row['file']).stem, '; '.join(row['changes']) or 'inspected; no repair needed')

@@ -64,25 +64,6 @@ LOG_TAGS = ("level", "lighting", "lightmap", "spatial", "props", "fixtures", "de
 NUMBER = r"(-?\d+(?:\.\d+)?)"
 
 
-def run_shot(binary: Path, workdir: Path, level: str, env: dict[str, str], out_png: Path,
-             frames: int, extra: dict[str, str]) -> tuple[int, str]:
-    """Renders one frame (or runs a short benchmark) and returns its log."""
-    env = dict(env)
-    env.setdefault("PLACES_LEVEL", level)
-    env.setdefault("PLACES_BENCH", "1")
-    env.setdefault("PLACES_BENCH_WARMUP", "2")
-    if frames > 1:
-        env.setdefault("PLACES_BENCH_OUT", str(out_png.with_suffix(".csv")))
-    else:
-        env.setdefault("PLACES_CAPTURE", str(out_png))
-    env.update(extra)
-    env.setdefault("PATH", os.environ.get("PATH", ""))
-    proc = subprocess.run(
-        [str(binary)], cwd=workdir, env=env, capture_output=True, text=True, check=False
-    )
-    return proc.returncode, proc.stdout + proc.stderr
-
-
 def parse_logs(text: str) -> dict[str, object]:
     """Extracts the numbers the developer log already prints.
 

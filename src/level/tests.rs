@@ -1439,7 +1439,7 @@ fn test_grid_alignment_uses_the_panel_module_not_the_sheet_repeat() {
 }
 
 // ---------------------------------------------------------------------------
-// Run 02: instance identity, actions and area triggers
+// instance identity, actions and area triggers
 // ---------------------------------------------------------------------------
 
 /// Actions are a closed, internally tagged set: a known tag parses to its
@@ -1726,7 +1726,7 @@ fn test_water_contains_disc_requires_one_volume_to_hold_the_whole_disc() {
 }
 
 // ---------------------------------------------------------------------------
-// Run 06: round architecture and the ceiling tile frame
+// round architecture and the ceiling tile frame
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -1912,4 +1912,25 @@ fn test_ceiling_grid_decals_snap_in_the_rooms_own_frame() {
     assert_exact(level.ceiling_decal_rotation(snapped), 90.0);
     // The pass is idempotent: snapping again moves nothing.
     assert_eq!(level.snap_ceiling_decals(&materials), 0);
+}
+
+#[test]
+fn raised_region_keeps_its_height_through_the_room_edge_tolerance() {
+    let level = LevelDef::from_json(
+        r#"{
+        "format_version": 1, "id": "join", "name": "Join", "spawn": {"x": 1, "z": 1},
+        "rooms": [
+            {"x": 0, "z": 0, "width": 4, "depth": 4, "height": 3, "floor_y": -1.5},
+            {"x": 4, "z": 0, "width": 4, "depth": 4, "height": 3, "floor_y": -0.9}
+        ],
+        "floor_regions": [{"x": 2, "z": 0, "width": 2, "depth": 4, "offset_y": 0.6}]
+    }"#,
+    )
+    .expect("joined rooms");
+    let floor = WalkableFloor::from_level(&level);
+    for x in [3.99, 4.0, 4.0001, 4.001, 4.01] {
+        for y in [floor.height_at(x, 2.0), floor.walk_height_at(x, 2.0)] {
+            assert!((y.expect("floor") + 0.9).abs() < 1.0e-5, "join at {x}");
+        }
+    }
 }

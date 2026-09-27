@@ -38,6 +38,7 @@ python3 tools/assets/validate.py
 python3 tools/textures/build.py --check
 python3 tools/props/build.py --check
 python3 -m unittest tests.test_package
+python3 -m unittest tests.test_tool_execution tests.test_zoo_generator
 cargo build --release
 python3 -m unittest tests.test_compiled_build
 python3 -m unittest tests.test_wgpu_bootstrap
@@ -69,7 +70,7 @@ default because they need an adapter or write measurement files):
 cargo test --all-features --bin places -- --ignored
 ```
 
-The five intentionally ignored diagnostics are: the reflection cube round-trip
+The eight intentionally ignored diagnostics include: the reflection cube round-trip
 orientation test and the sRGB sample round-trip measurement (both need a GPU
 adapter), the lighting parity-vector regeneration, the stair-trace CSV
 developer diagnostic, and the lightmap chart-statistics measurement. They are

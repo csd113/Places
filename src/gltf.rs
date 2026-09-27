@@ -292,7 +292,7 @@ pub struct PropMorphTarget {
     pub position: Vec<[f32; 3]>,
     /// Per-vertex normal deltas, empty when the target stores none.
     pub normal: Vec<[f32; 3]>,
-    /// Per-vertex tangent deltas (`xyzw`, `w` handedness), empty when absent.
+    /// Per-vertex tangent deltas (`xyz`, with zero `w` padding), empty when absent.
     pub tangent: Vec<[f32; 4]>,
 }
 
@@ -415,7 +415,7 @@ impl PropModel {
 /// Returns a [`GltfError`] naming the first problem found: a container that is
 /// not a self-contained glTF 2.0 GLB, a document feature the prop renderer
 /// cannot draw (extensions other than `KHR_materials_emissive_strength`,
-/// morph targets, CUBICSPLINE animation samplers), a malformed scene graph (a
+/// sparse accessors), a malformed scene graph (a
 /// cycle, dangling node or non-finite transform), a malformed skin (an
 /// out-of-range joint slot, a non-finite or non-positive weight, an inverse
 /// bind count that does not match the joint list), a mesh outside the prop
@@ -2323,7 +2323,7 @@ fn read_morph_targets(
         };
         let tangent = match object.get("TANGENT") {
             Some(value) => {
-                let rows = read_vec(json, binary, accessor_index(value, "morph TANGENT")?, 4)?;
+                let rows = read_vec(json, binary, accessor_index(value, "morph TANGENT")?, 3)?;
                 if rows.len() != vertex_count {
                     return Err(GltfError::new("morph TANGENT delta count mismatch"));
                 }
@@ -2334,8 +2334,10 @@ fn read_morph_targets(
         let convert3 = |rows: Vec<Vec<f32>>| -> Result<Vec<[f32; 3]>, GltfError> {
             rows.iter().map(|row| components::<3>(row)).collect()
         };
-        let convert4 = |rows: Vec<Vec<f32>>| -> Result<Vec<[f32; 4]>, GltfError> {
-            rows.iter().map(|row| components::<4>(row)).collect()
+        let convert_tangent = |rows: Vec<Vec<f32>>| -> Result<Vec<[f32; 4]>, GltfError> {
+            rows.iter()
+                .map(|row| components::<3>(row).map(|[x, y, z]| [x, y, z, 0.0]))
+                .collect()
         };
         let position = convert3(position)?;
         for delta in &position {
@@ -2346,7 +2348,7 @@ fn read_morph_targets(
         targets.push(PropMorphTarget {
             position,
             normal: convert3(normal)?,
-            tangent: convert4(tangent)?,
+            tangent: convert_tangent(tangent)?,
         });
     }
     let _ = mesh_index;

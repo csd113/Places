@@ -57,13 +57,16 @@ impl Control {
 ///
 /// The movement, look, jump, crouch and interact controls are independent bits
 /// rather than separate `bool` fields: they are all set and cleared by the same
-/// binding lookup, and the whole held state is copied every frame.
+/// binding lookup. Rising edges survive a release until the next gameplay
+/// frame, so short taps cannot disappear between event polling and simulation.
 /// `quit_requested` stays a named field because the game flips it itself
 /// instead of holding a key. Relative mouse motion accumulates in pixels and is
 /// consumed once per simulation update.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct InputState {
     held: u16,
+    /// Rising edges retained until one gameplay frame consumes them.
+    pressed: u16,
     pub quit_requested: bool,
     /// Accumulated relative mouse motion, in pixels, since the last consume.
     mouse_dx: f32,
@@ -104,6 +107,9 @@ impl InputState {
     /// Presses or releases one held control.
     const fn set_held(&mut self, control: Control, pressed: bool) {
         if pressed {
+            if self.held & control.bit() == 0 {
+                self.pressed |= control.bit();
+            }
             self.held |= control.bit();
         } else {
             self.held &= !control.bit();
@@ -114,6 +120,7 @@ impl InputState {
     /// the quit flag alone.
     const fn release_all(&mut self) {
         self.held = 0;
+        self.pressed = 0;
         self.mouse_dx = 0.0;
         self.mouse_dy = 0.0;
     }
@@ -122,6 +129,16 @@ impl InputState {
     #[must_use]
     pub const fn is_held(self, control: Control) -> bool {
         self.held & control.bit() != 0
+    }
+
+    /// True when a physical press arrived since the previous gameplay frame,
+    /// including a press released before that frame began.
+    pub(crate) const fn was_pressed(self, control: Control) -> bool {
+        self.pressed & control.bit() != 0
+    }
+
+    pub(crate) const fn clear_presses(&mut self) {
+        self.pressed = 0;
     }
 
     /// Accumulates one relative mouse-motion event's pixel deltas.
@@ -150,7 +167,7 @@ impl InputState {
     pub(crate) fn holding(controls: &[Control]) -> Self {
         let mut state = Self::default();
         for control in controls {
-            state.set_held(*control, true);
+            state.held |= control.bit();
         }
         state
     }

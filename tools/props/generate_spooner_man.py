@@ -16,6 +16,9 @@ The shipped entity is a hand-authored skinned Blender export and is the
 canonical asset (see `assets/entities/spooner-man/README.md`); this generator
 refuses to overwrite it unless `--force` is passed, because its static cat has
 no skeleton and would silently drop the character rig and its authored clips.
+The legacy static builder also fails the current canonical size contract;
+--force bypasses only the rig guard, never dimensional validation. Use the
+authored model and the animation tool below for supported canonical updates.
 
 The clips themselves are authored separately by
 `tools/props/animate_spooner_man.py`, which preserves the shipped mesh, texture
@@ -41,7 +44,7 @@ def main() -> int:
     import build  # noqa: PLC0415 - the toolkit lives in a sibling directory
 
     print("generating spooner-man via tools/props/build.py")
-    return build.main(["--only", "spooner-man"])
+    return build.main(["--only", "spooner-man", *sys.argv[1:]])
 
 
 if __name__ == "__main__":

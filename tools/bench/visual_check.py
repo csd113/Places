@@ -38,6 +38,9 @@ import sys
 import zlib
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from execution import ordered_map, worker_count
+
 REPO = Path(__file__).resolve().parent.parent.parent
 
 # One shot per camera state worth protecting: interiors, prop-heavy rooms,
@@ -142,22 +145,26 @@ def read_png(path: Path) -> tuple[int, int, bytes]:
     return width, height, bytes(out)
 
 
-def capture(binary: Path, shot: tuple[str, str, str], out_dir: Path, cwd: Path) -> Path:
+def capture(binary: Path, shot: tuple[str, str, dict[str, str]], out_dir: Path, cwd: Path) -> Path:
     label, level, env = shot
+    binary, out_dir, cwd = binary.resolve(), out_dir.resolve(), cwd.resolve()
     path = out_dir / f"{binary.name}__{label}.png"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path.unlink(missing_ok=True)
     command = [str(binary)]
     environment = {
         "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
         "PLACES_ASSET_ROOT": str(cwd),
         "PLACES_LEVEL": level,
+        "PLACES_STATE_ROOT": str(out_dir / "state"),
         "PLACES_CAPTURE": str(path),
-        "PLACES_BENCH": "0",
+        "PLACES_BENCH": "1",
     }
     environment.update(env)
     result = subprocess.run(
         command, cwd=cwd, env=environment, capture_output=True, text=True, timeout=180
     )
-    if not path.exists():
+    if result.returncode != 0 or not path.exists():
         raise SystemExit(f"{label}: no capture produced\n{result.stdout}\n{result.stderr}")
     return path
 
@@ -216,6 +223,13 @@ def compare(
     return differing, significant, largest, differing / total, float(worst)
 
 
+def _compare_job(job):
+    try:
+        return compare(*job)
+    except SystemExit as error:
+        raise ValueError(str(error)) from error
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline", type=Path, required=True)
@@ -249,7 +263,12 @@ def main() -> None:
         action="store_true",
         help="fail on any differing pixel, not just significant ones",
     )
+    parser.add_argument("--workers", type=int, help="offline image comparison workers; captures stay serial")
     args = parser.parse_args()
+    try:
+        worker_count(args.workers)
+    except ValueError as error:
+        parser.error(str(error))
 
     cwd = args.levels or args.out
     cwd.mkdir(parents=True, exist_ok=True)
@@ -276,17 +295,22 @@ def main() -> None:
         f"{'significant':>12} {'largest':>8}  (tolerance {args.tolerance}, "
         f"max component {args.max_component})"
     )
+    jobs = []
     for shot in SHOTS:
         try:
-            base = capture(args.baseline, shot, args.out, cwd)
-            curr = capture(args.current, shot, args.out, cwd)
+            base = capture(args.baseline, shot, args.out / "baseline", cwd)
+            curr = capture(args.current, shot, args.out / "current", cwd)
         except SystemExit as error:
             print(f"{shot[0]:<26} capture failed: {error}")
             failures += 1
             continue
-        differing, significant, largest, fraction, worst = compare(
-            base, curr, args.tolerance
-        )
+        jobs.append((shot[0], base, curr))
+    try:
+        comparisons = ordered_map(_compare_job, [(base, curr, args.tolerance) for _, base, curr in jobs],
+                                  args.workers, progress="visual")
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+    for (name, _, _), (differing, significant, largest, fraction, worst) in zip(jobs, comparisons):
         if args.strict:
             failed = differing > 0
         else:
@@ -298,7 +322,7 @@ def main() -> None:
         else:
             flag = ""
         print(
-            f"{shot[0]:<26} {differing:>9} {fraction * 100:>7.3f}% {worst:>6.0f} "
+            f"{name:<26} {differing:>9} {fraction * 100:>7.3f}% {worst:>6.0f} "
             f"{significant:>12} {largest:>8}{flag}"
         )
         if failed:

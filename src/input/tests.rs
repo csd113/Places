@@ -148,13 +148,6 @@ fn space_is_a_gameplay_binding_not_a_menu_key() {
     assert!(handler.state().is_held(Control::MoveForward));
 }
 
-/// Presses and releases `Space` and asserts exactly the jump control moves.
-#[test]
-fn test_jump_binding_press_and_release() {
-    let bindings = KeyBindings::default();
-    assert_key_drives_only(Keycode::Space, Control::Jump, &bindings);
-}
-
 #[test]
 fn test_legacy_default_keys_no_longer_drive_controls() {
     let bindings = KeyBindings::default();
@@ -392,4 +385,27 @@ fn interact_rebinding_repeat_suppression_and_release_all() {
         !handler.state().is_held(Control::Interact),
         "pause/focus/level-load release clears a held interact"
     );
+}
+
+#[test]
+fn a_complete_tap_retains_one_press_until_consumed_or_cleared() {
+    let bindings = KeyBindings::default();
+    for (key, control) in [
+        (Keycode::C, Control::Crouch),
+        (Keycode::E, Control::Interact),
+        (Keycode::Space, Control::Jump),
+    ] {
+        let mut handler = InputHandler::new();
+        handler.handle_gameplay_event(&key_down(key), &bindings);
+        handler.handle_gameplay_event(&key_up(key), &bindings);
+        assert!(!handler.state().is_held(control));
+        assert!(handler.state().was_pressed(control));
+        handler.state_mut().clear_presses();
+        assert!(!handler.state().was_pressed(control));
+        handler.handle_gameplay_event(&key_repeat(key), &bindings);
+        assert!(!handler.state().was_pressed(control));
+        handler.handle_gameplay_event(&key_down(key), &bindings);
+        handler.clear_gameplay_inputs();
+        assert!(!handler.state().was_pressed(control));
+    }
 }

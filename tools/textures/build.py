@@ -77,6 +77,13 @@ for module in (
 # ---------------------------------------------------------------- validation
 
 
+# Direct script execution and imported test modules share the same helper.
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from execution import ordered_map, worker_count, atomic_write
+
+
 def is_power_of_two(value: int) -> bool:
     return value > 0 and (value & (value - 1)) == 0
 
@@ -167,13 +174,23 @@ def validate_textures(
 # ---------------------------------------------------------------------- main
 
 
+def _paint(texture_id):
+    canvas = MANIFEST[texture_id]["build"]()
+    return canvas.width, canvas.height, write_png(canvas.width, canvas.height, canvas.rgba())
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check", action="store_true", help="validate the shipped PNGs without regenerating them")
     parser.add_argument("--only", nargs="+", metavar="ID", help="regenerate only these logical texture ids")
     parser.add_argument("--force", action="store_true", help="allow a painter to overwrite a sheet whose shipped dimensions differ from its painter's")
     parser.add_argument("--quiet", action="store_true", help="only print problems")
+    parser.add_argument("--workers", type=int, help="CPU workers (default: automatic, at most 12)")
     args = parser.parse_args(argv)
+    try:
+        worker_count(args.workers)
+    except ValueError as error:
+        parser.error(str(error))
 
     selected = sorted(MANIFEST)
     if args.only:
@@ -186,11 +203,11 @@ def main(argv: list[str] | None = None) -> int:
 
     skipped = 0
     if not args.check:
-        for texture_id in selected:
+        painted = ordered_map(_paint, selected, args.workers, progress="textures")
+        for texture_id, (width, height, png) in zip(selected, painted):
             entry = MANIFEST[texture_id]
             path = os.path.join(ASSET_ROOT, entry["model"])
-            canvas = entry["build"]()
-            seed_size = (canvas.width, canvas.height)
+            seed_size = (width, height)
             if os.path.isfile(path) and not args.force:
                 try:
                     shipped_size = read_png_dimensions(path)
@@ -208,10 +225,9 @@ def main(argv: list[str] | None = None) -> int:
                     )
                     continue
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "wb") as handle:
-                handle.write(write_png(canvas.width, canvas.height, canvas.rgba()))
+            atomic_write(path, png)
             if not args.quiet:
-                print(f"wrote assets/{entry['model']} ({canvas.width}x{canvas.height})")
+                print(f"wrote assets/{entry['model']} ({width}x{height})")
 
     errors, warnings, report = validate_textures()
     if not args.quiet:

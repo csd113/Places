@@ -2521,7 +2521,7 @@ fn test_archway_soffit_shading_follows_the_segment_slope() {
 }
 
 // ---------------------------------------------------------------------------
-// Run 06: arc-wall and pillar UVs
+// arc-wall and pillar UVs
 // ---------------------------------------------------------------------------
 
 /// A full-ring arc wall tiles by arc length on each of its own faces, never by

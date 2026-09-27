@@ -614,7 +614,7 @@ def append_accessor(doc: dict, bin_parts: List[bytes], byte_length: List[int],
 
 
 def write_clips(model: Model, prefix_views: int, prefix_accessors: int,
-                base_bin_bytes: int) -> dict:
+                base_bin_bytes: int, workers=1) -> dict:
     """Builds the seven clips into a fresh JSON with an appended BIN region."""
     doc = json.loads(json.dumps(model.json))
     doc["bufferViews"] = doc["bufferViews"][:prefix_views]
@@ -627,7 +627,7 @@ def write_clips(model: Model, prefix_views: int, prefix_accessors: int,
     # Cat-specific IK and sampled ground correction now solve the seated pose.
     drop = -0.116
 
-    clips = build_clip_table(model, drop)
+    clips = build_clip_table(model, drop, workers)
     animations = []
     total_channels = 0
     for name, duration, samples in clips:
@@ -698,13 +698,13 @@ def write_clips(model: Model, prefix_views: int, prefix_accessors: int,
     return {"document": doc, "bin": b"".join(bin_parts), "drop": drop}
 
 
-def build_clip_table(model: Model, drop: float) -> List[Tuple[str, float, List[Pose]]]:
+def build_clip_table(model: Model, drop: float, workers=1) -> List[Tuple[str, float, List[Pose]]]:
     """Seven feline clips with fixed bone lengths and grounded support paws."""
     from cat_motion import build_cat_clips
     standing = stand_pose()
     idle = [plant_front_paws(model, idle_pose(4.0 * i / 48, 4.0), standing)
             for i in range(49)]
-    return build_cat_clips(model, idle)
+    return build_cat_clips(model, idle, workers)
 
 
 def glb_document_bytes(document: dict, bin_bytes: bytes) -> bytes:
@@ -787,9 +787,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--repair-skin", action="store_true",
                         help="force a skin-weight rebind even if the current "
                              "weights look healthy")
+    parser.add_argument("--workers", type=int, default=None, help="clip baking CPU workers")
     args = parser.parse_args(argv)
+    sys.path.insert(0, os.path.join(REPO_ROOT, "tools"))
+    from execution import worker_count, atomic_write
+    try:
+        workers = worker_count(args.workers, 6)
+    except ValueError as error:
+        parser.error(str(error))
 
-    model = Model(GLB_PATH)
+    from animate_spooner_man import Model as ImportableModel
+    model = ImportableModel(GLB_PATH)
     marker = (model.json.get("asset", {}).get("extras") or {}).get(CLIP_MARKER)
     if args.check:
         return check(model)
@@ -815,7 +823,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     prefix_accessors = (int(marker["base_accessors"]) if marker
                         else len(model.json.get("accessors") or []))
     base_bin_bytes = (int(marker["base_bin_bytes"]) if marker else len(model.bin))
-    built = write_clips(model, prefix_views, prefix_accessors, base_bin_bytes)
+    built = write_clips(model, prefix_views, prefix_accessors, base_bin_bytes, workers)
     document, payload, drop = built["document"], built["bin"], built["drop"]
     # The marker must not deny a repair the file still contains: a re-run over
     # healthy weights keeps the previous "repaired" record.
@@ -831,8 +839,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.report:
         report(model, drop)
     encoded = glb_document_bytes(document, payload)
-    with open(GLB_PATH, "wb") as handle:
-        handle.write(encoded)
+    atomic_write(GLB_PATH, encoded)
     channels = sum(len(animation["channels"]) for animation in document["animations"])
     print(f"wrote {len(encoded)} bytes ({channels} channels, "
           f"{len(document['animations'])} clips) to {os.path.relpath(GLB_PATH, REPO_ROOT)}")

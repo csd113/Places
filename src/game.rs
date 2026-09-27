@@ -925,13 +925,15 @@ impl Game {
         // The frame's relative motion is always consumed, even while paused or
         // in a menu, so motion collected around a pause is never applied later.
         let motion = input.take_mouse_motion();
+        let frame_input = *input;
+        input.clear_presses();
 
         // While paused or in menus, do not update player movement or looking
         if self.app_state != AppState::Playing {
             return;
         }
 
-        let trigger_origin = self.update_playing_frame(input, settings, motion);
+        let trigger_origin = self.update_playing_frame(&frame_input, settings, motion);
         self.update_triggers(trigger_origin);
         self.update_entities();
     }
@@ -987,7 +989,7 @@ impl Game {
         // and a landing (or a stand-up out of water) while holding never
         // bounces.
         let jump_held = input.is_held(Control::Jump);
-        let jump_pressed = jump_held && !self.jump_latched;
+        let jump_pressed = input.was_pressed(Control::Jump) || (jump_held && !self.jump_latched);
         if !jump_held {
             self.jump_latched = false;
         } else if jump_pressed {
@@ -1147,7 +1149,7 @@ impl Game {
     /// Toggles the crouch request on the rising edge of the bound key.
     fn update_crouch(&mut self, input: &InputState) {
         let held = input.is_held(Control::Crouch);
-        let pressed = held && !self.crouch_latched;
+        let pressed = input.was_pressed(Control::Crouch) || (held && !self.crouch_latched);
         if !held {
             self.crouch_latched = false;
         } else if pressed {
@@ -1166,7 +1168,7 @@ impl Game {
     /// the frame are final.
     const fn update_interact(&mut self, input: &InputState) {
         let held = input.is_held(Control::Interact);
-        let pressed = held && !self.interact_latched;
+        let pressed = input.was_pressed(Control::Interact) || (held && !self.interact_latched);
         if !held {
             self.interact_latched = false;
         } else if pressed {

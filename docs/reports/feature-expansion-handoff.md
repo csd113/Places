@@ -2433,3 +2433,512 @@ level that displays the complete catalogue. The original Step 09 remains the
 final acceptance/cleanup run: run `sh tools/verify.sh` end to end, capture the
 demo/zoo frame-time pair against the preserved pre-change log, walk the zoo
 interactively, and prune tests only if that is what Step 09 is asked to do.
+
+## 13. Run 09 — integrated acceptance and offline-tooling upgrade
+
+This run works in the same checkout, with no branch/worktree changes, commits,
+pushes, releases or editor work. Initial `git status --short` was empty. Concurrent
+wallpaper work subsequently changed `tools/textures/office_art.py` and
+`docs/ASSET_SPECIFICATION.md`; those changes are preserved and are not attributed
+to this run. The working-tree Python sources and representative assets were copied
+before tool edits to `target/run09/baseline/`, including the original icon.
+
+### 13.1 Review roles actually run
+
+Read-only subagents performed test audit, dead-code review, documentation/comment
+review, gameplay/content acceptance, tooling inventory/performance investigation,
+parallel-execution design review, and independent correctness/benchmark review.
+Roles were sequenced over three subagents. The lead applied every repository edit
+and executed integration/benchmarks. No agent wrote repository files or ran a
+competing heavy computation. All reviewers completed.
+
+### 13.2 Integrated repairs
+
+* The demo previously had **no Spoonerman route** despite later generic route
+  integration. `assets/levels/places_demo.json` now authors a looping 0.2 m/s route
+  with six sit-down / 5 s seated wait / stand-up destinations: pool deck, east
+  office, west office, laundry, kitchen and balcony. The historical original
+  coordinates were not retained in the repository; these are concrete destinations
+  in the actual current demo. The original mesh/rig/appearance is unchanged.
+  The route stays inside the 64-step schema budget and uses existing runtime
+  primitives. Kitchen spoons and a bowl complete the existing table setting.
+* The full-route gameplay regression exposed a numeric mismatch: loader route
+  validation tolerated nominal 0.3 m rises but runtime did not. Both now use
+  `collision::STEP_EPS`; nominal 0.3 m ascents/descents pass, 0.31 m still blocks.
+* Room-edge tolerance could sample outside a raised region at a room join and
+  briefly reveal the lower room base. `WalkableFloor::resolve_height_at` clamps
+  surface sampling to its selected room. A raised-landing join regression pins
+  stepped and smooth floor queries across the seam. This is a general floor fix,
+  not a demo exception.
+* Route validation's 0.1 m samples could jump from floor to beyond the first
+  stair nosing and falsely reject the same route the controller traversed.
+  Samples are now 0.02 m; the actual demo route validates and traverses fully.
+* GLTF morph tangent deltas are VEC3, not VEC4. The importer reads three components
+  and retains zero internal fourth-component padding (handedness has no delta).
+  A known-answer regression accepts VEC3 and rejects malformed VEC4 input.
+* `icon.png` exceeded its explicit 512 px contract at 1254². Native deterministic
+  resize produced a 512² PNG; both images were visually inspected. No image
+  baseline hashes were accepted or changed.
+
+### 13.3 Test pruning and retired code
+
+Exactly one Rust test was pruned: `input::tests::test_jump_binding_press_and_release`.
+Its call to `assert_key_drives_only(Space, Jump, default)` is already present in
+`test_default_bindings_map_wasd_and_arrows`; the helper checks press, exclusivity
+against every other control, and release. The mixed held-key regression remains.
+No failing/edge-case test was weakened. The single-hole Pit airborne test remains
+alongside all-hole reset coverage because they protect different behavior.
+
+Removed unused `interact::clear_line_of_sight` (no callers; indexed label path is
+active), transferring its contract to `clear_line_of_sight_indexed`. Retained
+linear collision/target routines used by parity tests. Removed the first, shadowed
+`run_shot` definition in `tools/bench/lightmap_report.py`; the effective implementation
+is unchanged. Standalone PocketCHIP code and platform/runtime paths remain intact.
+Numbered provenance prefixes and agent names were removed from relevant active
+comments; historical records remain here. Current docs now correctly describe
+animation actions, curves, live quality changes, 1024 models / 6 million prop
+vertices / 64 animated instances / eight lightmap pages and persistent E/C controls.
+
+### 13.4 Tooling implementation and inventory
+
+[OFFLINE_TOOLING.md](../OFFLINE_TOOLING.md) inventories every one of the 64 existing
+first-party Python files, plus the three new execution/test/benchmark files. It
+records entry points, consumers, dependencies, outputs and A–E classifications.
+No dependencies were added. `sitsearch.py` is missing from the authorized checkout
+and target search; historical solve numbers cannot be revalidated. The explicitly
+retired editor helper remains removed.
+
+Implemented spawn-based batches for prop previews/builds, texture painters and seam
+processing, geometry audit/repair proposals, Spoonerman clip baking, image capture
+analysis and GLB texture resize row bands. Existing entity/zoo worker controls now
+honor the shared inherited allocation. Blender Boolean threading is explicit;
+contact-sheet native-process budgets multiply correctly and own their temporary
+scripts and child cleanup. A shared helper caps CPUs/jobs/allocation at 12, bounds
+pending jobs and orders results deterministically. Atomic output publication
+preserves existing file permissions. Workers never mutate production assets.
+
+Original, updated serial and parallel runs execute in copied trees. The CLI benchmark
+records full startup/merge/export costs and exact hashes; profiler times are kept
+separate. No search candidates, resolution, clip samples or quality tolerances were
+reduced. Expensive performance checks are separate from the ordinary fast unittest
+suite. See the measured results and final gate record below.
+
+### 13.5 Explicit acceptance matrix
+
+“Unit” means the named source-level regression executes the behavior; “content”
+means inspected actual authored data/assets. Neither alone proves a human visual
+play-through. Final command outcomes and capture evidence are recorded separately.
+
+| Requested behavior | Implementation / acceptance evidence | Remaining limits |
+| --- | --- | --- |
+| Natural ledge falls at 9.8 m/s² | `src/game.rs`, deep-edge and demo-deck fall regressions | Native feel requires play-through |
+| Desk-height jump and prop-top landing | `standing_jump_lands_on_the_demo_desk_top`, collision support tests | Unit evidence |
+| Doorway continuity and low-ceiling head blocking | Controller doorway/ceiling suite; `WalkableCeiling` | Unit evidence |
+| Smooth stair joins | Demo hall/balcony controller test; new region-edge regression; nominal-step test | Route validation sampling also repaired |
+| Water body/eye consistency and held jump surfacing | Wading stance, deck-to-pool fall and swim/surface regressions | Unit evidence |
+| Attached ladder, movement intent, safe exit/release | Actual demo ladder and climb/back-away/jump/obstruction tests | Unit evidence |
+| Half-height crouch and blocked uncrouch | Stance body/eye and ceiling tests; native C toggles eye 0.7 → -0.1 → 0.7 | Blocked uncrouch covered by unit regression |
+| Persistent rebindable E/C | Input/settings round trips and control defaults; Controls UI | Settings preserved via isolated state roots |
+| Nearby look-at interaction and occlusion | `src/interact.rs`, nearest-target and indexed parity tests | No through-wall action path introduced |
+| Duplicate props and independent labels/actions | Per-instance identity, label and switch regressions | Existing instance IDs retained |
+| Moving Spoonerman label and action composition | Live-anchor route test; actual demo label interaction and authored route | Static captures cannot prove motion |
+| Crossing/re-arm, every Pit hole and safe reset | Swept trigger tests, all 15 hole reset simulations, separate airborne hole test | Pit geometric findings remain separately reported |
+| Real animation dispatch / honest audio | `play_animation`/`toggle_animation` dispatch tests; loader rejects `play_audio` | Audio subsystem absent, explicitly unsupported |
+| GLB hierarchy/skin/STEP/LINEAR/CUBICSPLINE/morph | Importer/animator suites; VEC3 tangent repair and known-answer test | Normals/tangents retained; vertex-lit path does not consume them |
+| Independent instance playback and animated bounds | Character scene/animator tests; actual GLB envelopes in zoo inspection | CPU animation cap is 64; extras retain bind pose with diagnostic |
+| Shadow/reflection deformation | Renderer includes deformed characters in planar passes | Dynamic shadows unsupported; static probes do not update per frame |
+| Spoonerman full slow route with six sit/wait/stand stops | New full demo runtime loop test, six explicit destination positions, 0.2 m/s | Timed route clips; no completion feedback from renderer |
+| Rat walking/running | Actual GLB: 25 joints, idle/walk/run; independent rat route and stride checks | Native motion review recorded separately |
+| Mannequin three poses | Actual GLB: 23 joints, stand/arms-up/arms-forward; render pose tests | Content and unit evidence |
+| Articulated skeleton three poses, hips/knees/feet | Actual GLB: 24 joints, stand/floor-sit/chair-sit; pose/deformation tests | Content and unit evidence |
+| Stop and green illuminated Exit signs | Catalog/GLBs, demo/zoo placements, sign light sample test | Existing approved assets preserved |
+| White hanging ball light | GLB, authored point light, warm tabletop illumination regression | Bowl moved clear of light-sampling patch; test unchanged |
+| Continuously moving switch, reversal and isolation | Rigid node clip, scrub action and independent instance tests | No global toggle state |
+| CRT, knife/fork/spoon/plate/bowl/plant | Actual catalog and GLBs; zoo catalog coverage; demo table now includes spoon/bowl | No asset regeneration published |
+| Floating yellow duck | Actual demo/zoo water placement, floating transform tests | Dynamic bobbing is existing runtime behavior |
+| Vent-grid alignment, pool sheen and railings | Loader/render/material fixtures and real map/catalog metadata | Current captures recorded below |
+| Round walls/pillars, differing materials, collision and UVs | Arc/pillar geometry/collision/UV tests; actual zoo exhibits | Intentional openings remain authored |
+| Larger map/model capacities | Sparse/dense fixtures, collision index parity, raised atlas/model/vertex tests | Dense startup remains a practical cost |
+| Non-destructive geometry checker | Read-only checker on demo/Pit/zoo, report paths below | Pit pre-existing cap overlaps are not deleted or hidden |
+| Selectable complete Model Zoo | Catalog-driven generation, stable `zoo:<id>:<role>`, growth/removal/lighting and package tests | Zoo remains generated; modify generator rather than file |
+| Zoo idempotence and packaging | Byte checks plus serial/parallel inspections and native level selection | Final commands below |
+
+### 13.6 Preliminary gate findings and corrections
+
+The first integrated gate was interrupted after route validation failures made its
+result already non-green; it is not counted as a completed run. A new floor fixture
+also initially omitted required `spawn`; the fixture was corrected, not its assertion.
+The next complete Rust run reported **1285 passed, 1 failed, 8 ignored** in 468.50 s.
+The single failure was the unchanged tabletop lamp regression: the new bowl shadowed
+its exact sample point. The bowl now sits at `(56, 7.35)` on the same table instead of
+`(56, 7.6)`. The unchanged lamp test passes after that placement correction. This
+failure is an introduced content regression that was repaired, not a pre-existing
+failure relabeled as harmless. Final gates below supersede these preliminary results.
+
+The offline texture profile also identified avoidable repeated work: 16,384
+representative value-noise samples made 65,536 identical-corner hash calls, consuming
+0.037 of 0.058 instrumented seconds. `artkit.lattice_hash01` now caches only lattice
+corners with a 65,536-entry bound; per-pixel grain hashes remain uncached. Home wood
+streaks use the same cache. The first full updated-serial texture run is 87.79 s
+versus original runs of 182.74/183.62 s, with all 81 PNG hashes identical (this count
+includes unchanged input PNGs). Full multi-worker results follow below.
+
+### 13.7 Measured offline tooling results
+
+Host: native macOS, Python 3.13.5, 12 available CPUs, 16 GiB RAM. Tools ran
+sequentially, without concurrent Cargo builds. Each cell is the median of two
+complete CLI invocations in freshly copied baseline trees; source baseline is the
+pre-edit working tree, not Git HEAD. Exact output hashes matched original outputs
+and all updated worker counts. Entity JSON excludes only elapsed/allocation metadata
+and normalizes the scratch root. No quality tolerance was widened.
+
+| Workload | Original s | Updated 1 s | 4 s | 8 s | 12 s |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 48 prop preview PNGs | 4.694 | 4.569 | 1.611 | 0.988 | 0.856 |
+| Full texture generation (81 PNG hash coverage) | 183.179 | 88.462 | 31.643 | 21.334 | 15.151 |
+| Four prop builds | 0.308 | 0.326 | 0.309 | 0.309 | 0.311 |
+| Six Spoonerman clips | 5.750 | 5.921 | 2.346 | 1.850 | 1.834 |
+| Geometry repair, injected reversed triangle, RSS sampled | 0.345 | 0.380 | 0.280 | 0.257 | 0.312 |
+| Rat Blender Boolean/export | 2.660 | 2.217 | 2.205 | 2.220 | 2.213 |
+| Entity sampled validation | 1.067 | 5.341 | 1.603 | 1.084 | 1.103 |
+| Zoo generation, no cache | 1.720 | 2.141 | 1.713 | 1.719 | 1.715 |
+| Four PNG seam repairs, RSS sampled | 1.854 | 1.592 | 0.629 | 0.621 | 0.629 |
+| Embedded 1254→256 PNG resize, RSS sampled | 2.122 | 2.080 | 1.914 | 1.874 | 1.909 |
+| Four capture hole checks, RSS sampled | 0.285 | 0.277 | 0.218 | 0.221 | 0.223 |
+| Eight capture comparisons, RSS sampled | 0.924 | 0.892 | 0.362 | 0.326 | 0.307 |
+
+Requested counts are capped by distinct jobs: clips use at most six workers;
+seams/hole checks at most four. Texture acceleration is 2.07× from eliminating
+repeated hashes, then 5.84× from process parallelism: combined 12.09× versus the
+original, not a claim of 12× parallel scaling. Previews improve 5.48×; clip export
+3.14×. Four tiny prop builds show no meaningful speedup. Rat warm runs remain
+about 2.2 s: the first original run included cold Blender startup (3.105 s), so
+its median is not evidence of a native-thread speedup. Entity/zoo paths were
+already parallel; their original automatic mode is not a serial baseline.
+
+Eight workers were chosen for automatic geometry audit based on both no-op and
+actual-repair measurements. Seams remain automatically capped at four for memory;
+8/12 requests use the same four jobs. Differences of a few hundredths of a second
+on tiny tasks are not treated as robust scaling evidence. Twelve workers remain
+useful for full texture and preview workloads. No full-scale missing historical
+mesh solve was performed: `sitsearch.py` is unavailable within authorized scope.
+
+The sampled full benchmark process tree peaked at 867 MiB RSS (sum includes shared
+pages); texture generation reached roughly 1,067% CPU while completing distinct
+jobs. Sampling is observational, not a precise allocation profiler. Separately
+sampled maxima: repair 366 MiB, seams 328 MiB, resize 276 MiB, hole checks 138 MiB,
+comparisons 240 MiB. RSS-sampled timings include `ps` observer overhead. Ordinary
+benchmarks include startup, serialization, merge, and export, not only inner loops.
+No checkpoints were added to these bounded, seconds-to-minutes workflows; there
+is no available hours-long solver to retrofit or interrupted user solve.
+
+Evidence: `target/run09/tool-bench/results.json`,
+`tool-bench-expanded/results.json`, `tool-bench-images-final/results.json`,
+`tool-bench-metrics-final/results.json`, and `process-tree-samples.json` under the
+same directory. The expanded harness first stopped on the seam check's legitimate
+exit 1, then explicitly compared matching baseline/current exit statuses. Its RSS
+mode initially mixed stderr progress into stdout; separate streams repaired that
+harness defect and the hole/comparison workloads were repeated successfully.
+
+The capture comparison wrapper also had a genuine pre-existing false-pass path:
+two binaries named `places` overwrote the same PNG. Baseline/current captures now
+use separate directories, relative CLI paths resolve before changing cwd, stale
+captures are removed, nonzero process exits fail, and state is isolated. A real
+CLI regression uses two same-named binaries producing different known pixels and
+requires all eleven shots to fail strict comparison. No reference PNG was updated.
+
+Durable measurement data is also stored in `docs/reports/run09-tooling-results.json`.
+`target/run09/` contains disposable pre-edit snapshots, isolated regenerated outputs
+and raw logs; none of the production tooling fixes live only there. `cargo clean`
+removes those scratch inputs/logs. To repeat an original-versus-updated comparison,
+preserve the relevant original working-tree source/assets before modifying them and
+pass that snapshot to `tools/bench/check_tool_parallelism.py --baseline ... --out ...`.
+The ordinary serial/parallel known-answer suite needs no historical snapshot.
+
+### 13.8 Final validation record
+
+The final `sh tools/verify.sh` run passed formatting and strict Clippy:
+`cargo fmt --all --check` and
+`cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::cargo`.
+`cargo test --workspace --all-features` passed **1,286 tests, 0 failed, 8 ignored**
+in 491.22 s. All requested edge-case regressions remain, including collision,
+water/ladder/stance, Pit resets, malformed assets/settings, rendering/materials,
+animations and per-instance isolation. No ignored diagnostic was newly ignored.
+The fast Python tooling/zoo suite passed **23 tests** in 6.183 s, including deliberate
+worker/initializer failure, interruption cleanup, invalid inputs, deterministic
+uneven batches, known-answer pixel/resize checks, and capture-output isolation.
+The intentional failing-initializer traceback in its log is test input, not a test failure.
+
+The native wgpu suite initially found a second, independently reproduced **pre-existing**
+failure: `test_a_second_level_replaces_the_uploaded_world` hard-coded 772 dynamic
+vertices, while the preserved pre-run release binary and pre-edit source/assets
+both report 1,537. Running that original test against the preserved original build
+reproduced the same assertion (`target/run09/wgpu-baseline-failure.log`). No image
+baseline is involved. The test now requires exactly two demo objects and two draws,
+nonempty starting geometry, and exactly zero objects/draws/vertices after replacement;
+its independent world replacement, texture-cache reuse and material checks remain.
+The model-space vertex-count regression in `src/render/common/dynamic.rs` still
+compares against the actual imported mesh. This replaces a brittle asset-detail
+assertion with the behavior the integration test protects; the test was not deleted.
+The aggregate gate stopped at this last suite, so its initial exit is recorded as
+failure rather than rewritten as success. The corrected suite is rerun separately
+below; Rust source, formatting, Clippy and release build are unchanged by that test fix.
+
+Additional native gates: catalog validation passed (137 assets, 48 placeable,
+3 themes, no warnings); texture check passed (47 sheets, 40 preferred-size warnings);
+48 GLBs passed prop validation; 43 packaging tests passed; all 8 compiled-build
+macOS tests passed; the corrected wgpu suite passed all 14 tests in 40.676 s.
+The expanded known-pixel capture CLI test exercises workers 1, 4 and 12, eleven
+same-named distinct captures, and a same-image passing control. Camera-based capture
+wrappers now enable `PLACES_BENCH=1`, as required by the existing camera-override
+interface. Previously their pitch overrides were silently inactive.
+
+Unchanged-tool functional checks ran against copied inputs: geometry unit fixtures,
+rig self-test, all four entity clip-boundary/skin audits, ten-model domestic audit,
+capacity fixture check, fixture regeneration twice with byte equality, mannequin
+and skeleton generation followed by actual GLB rig reimport, full prop generation
+and GLB checks, full current texture generation/header checks, catalog validation,
+and sampled entity validation all passed. Full generation exercises their mesh,
+geometry, GLB, palette, glyph, texture, painter and builder library consumers.
+The current texture smoke includes the user's concurrent office-painter edits;
+the original-versus-updated performance comparison intentionally holds that painter
+at its preserved baseline version. PocketChip catalog/tests passed separately.
+Frozen-image comparator self-check passed all 25 High and 25 Low references without
+modifying any image. It validates the comparator, not current-vs-historical visuals.
+
+One legacy tooling limitation remains explicit (inventory class E): forcing the
+static fallback cat fails the current canonical catalog's width check (0.273 m
+versus 0.165 m, existing 0.020 m tolerance). The normal wrapper safely skips the
+approved rig; forced validation exits 1 before publication. No tolerance was relaxed
+and no approved asset was replaced. `animate_spooner_man.py` is the supported
+canonical animation path and passed exact original/serial/parallel export checks.
+The guarded static wrapper's limitation is now documented at its entry point.
+
+Contact-sheet revalidation with **one native Blender thread** per process passed
+exact PNG equality for original, updated 1, 4, 8 and 12 requested workers (only three
+independent assets exist). Detailed repeated timings are preserved in the durable
+JSON. Earlier two-thread measurements are not mislabeled a one-CPU reference.
+Contact-sheet worker failures prevent final-sheet publication; temporary scripts
+are cleaned even when Blender is unavailable; parent PNG replacement is atomic.
+
+Native High benchmarks used the same 3024×1676 drawable, camera 74°, 120 measured
+frames, 20 warmup frames, three repeats, VSync off and isolated state. Median across
+runs: demo frame median **7.096 ms**, p95 **15.128 ms**, 170 draws; zoo frame median
+**7.648 ms**, p95 **14.446 ms**, 56 draws. Draw counts reflect these specific cameras.
+These are current-build comparisons, not an isolated before/after optimization claim.
+Full per-run values are `docs/reports/run09/places_demo-high-benchmark.json` and
+`model_zoo-high-benchmark.json`. Native captures and all eight compiled-install tests
+exercise Metal; Docker compilation alone is never counted as native visual evidence.
+
+Geometry commands (all read-only):
+```sh
+./target/release/places --check-geometry --level places_demo --json target/run09/demo-geometry.json
+./target/release/places --check-geometry --level levels/level0_pit.json --json target/run09/pit-geometry.json
+./target/release/places --check-geometry --level assets/levels/model_zoo.json --json target/run09/zoo-geometry.json
+python3 tools/levels/build_model_zoo.py --check --no-cache --workers 1
+python3 tools/levels/build_model_zoo.py --check --no-cache --workers 4
+python3 tools/levels/build_model_zoo.py --check --no-cache --workers 8
+python3 tools/levels/build_model_zoo.py --check --no-cache --workers 12
+python3 tools/levels/build_capacity_fixtures.py --check
+```
+Demo exits 0 with one 0.00031 m² joint-sliver warning; zoo exits 0 with no findings.
+Pit exits 1 with its existing 16 duplicate-surface errors and 76 warnings. Its
+intentional openings and user-authored layout were not deleted or hidden. Durable
+JSON reports live beside the benchmark files. All four no-cache zoo worker counts
+and capacity check pass; generated zoo bytes remain current and deterministic.
+
+### 13.9 Live-input defect found during acceptance
+
+A packaged native macOS run received Escape correctly but dropped short C presses.
+Inspection confirmed that a KeyDown and KeyUp consumed in the same SDL poll left only
+`held = false`; the gameplay edge detector never saw the tap. `InputState` now retains
+rising edges until one gameplay frame consumes them. Crouch, interact and jump use
+those edges in addition to their existing held-key latches. Holding still does not
+repeat; OS repeats are ignored; focus/pause/level input clearing drops pending presses;
+paused simulation consumes queued presses so they cannot leak on resume. Movement,
+continuous looking and held-jump swimming retain their existing held-state behavior.
+No rebind names or saved settings schema changed.
+
+Two new regressions pass before the final rerun: an SDL KeyDown/KeyUp pair retains
+one edge and clears safely; an actual InputHandler→Game test toggles C twice, fires
+E once per tap, rejects paused input leakage, and launches a jump despite no held
+frame. Existing held-key/reset/water/ladder tests remain in the full gate. The earlier
+1,286-test result predates these two tests; the final result below supersedes it.
+
+
+### 13.10 Final integrated gates and native acceptance
+
+The final `sh tools/verify.sh` exited **0** after the short-tap fix. It ran
+`cargo fmt --all --check`, strict all-feature/all-target Clippy (including
+`-D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::cargo`),
+`cargo test --workspace --all-features` (**1,288 passed, 8 ignored**, 470.06 s),
+catalog/texture/48-GLB checks, 43 packaging tests, 23 tooling/zoo tests,
+`cargo build --release`, 8 native compiled-build tests, 14 wgpu tests and
+`git diff --check`. The full final log is [preserved](run09/verify-input-final.txt).
+Earlier failed attempts above remain history, not the final gate result.
+
+The rebuilt packaged macOS app received short C presses and changed eye height
+0.7 → -0.1 → 0.7; [the compact CSV-derived record](run09/native-input-height-transitions.json)
+preserves those transitions. At the kitchen switch, short E presses displayed then
+removed its independent name label. That interaction check used an explicit 0.39 m
+eye-height diagnostic spawn to align the target; it is not a full walking acceptance
+session. Screenshots were inspected in the live UI, but no video was recorded.
+The app was quit afterwards; isolated state roots preserved existing user settings.
+The full six-stop route was executed by the runtime regression, not watched for its
+entire slow native duration. Manual controller feel and a complete human play-through
+remain unverified.
+
+Docker ARM64 Linux checks passed in the existing `places-stage13-linux:arm64` image.
+The final current-source command `cargo test --workspace --all-features --bin places --
+entity:: game:: input:: settings:: gltf::` passed **175 tests, 1 ignored**, followed by
+`cargo build --bin places`. [Final output](run09/linux-input-final.txt). The earlier
+same-run Linux checks also passed tooling tests and asset/demo/zoo validation, and
+an Xvfb software-rendered Low capture was inspected: [Linux demo](run09/linux-demo.png).
+Its `XDG_RUNTIME_DIR` warning did not prevent capture. That graphical capture preceded
+the input-only fix; it is not native macOS evidence or a Linux performance result.
+No Windows native environment was available.
+
+Final native High measurements use 3024×1676, camera yaw 74°, VSync off, 120 measured
+frames after 20 warmup frames, three repetitions, serial execution. Medians across runs:
+
+| Level | Frame median ms | Frame p95 ms | Draws | Load + four-frame capture elapsed s | Capture-process peak RSS MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Demo | 6.901 | 13.550 | 170 | 1.49 | 701.3 |
+| Model Zoo, 61 props | 7.327 | 14.368 | 56 | 14.45 | 761.4 |
+| Dense fixture, 5,312 props | 7.830 | 13.713 | 739 | 56.37 | 1438.9 |
+
+The last two columns come from `/usr/bin/time -l` around separate four-frame captures,
+not a first-interactive-frame timer; camera views differ from the performance sweep.
+OS caches were not flushed, so these are observed startup/load costs, not controlled
+cold-cache measurements. Dense content imports 4,110,101 vertices; beyond 64 animated
+characters it explicitly reports bind-pose fallback. Peak process footprints were
+961,627,600 / 989,349,328 / 2,000,652,280 bytes respectively. These measurements do not
+claim an optimization speedup. Durable per-run benchmark JSON and timing logs are in
+`docs/reports/run09/`; they supersede the preliminary frame numbers in §13.8.
+
+Reproduction (run from the checkout; output/state paths are disposable):
+```sh
+cargo run --release
+PLACES_LEVEL=model_zoo cargo run --release
+python3 tools/levels/build_model_zoo.py --workers 12
+python3 tools/levels/build_model_zoo.py --check --no-cache --workers 12
+sh tools/bench/capture_zoo.sh target/run09/zoo-final
+PLACES_STATE_ROOT="$PWD/target/run09/native-state" python3 tools/bench/bench_local.py --label run09_places_demo_final_high --level places_demo --quality high --repeat 3
+PLACES_STATE_ROOT="$PWD/target/run09/native-state" python3 tools/bench/bench_local.py --label run09_model_zoo_final_high --level model_zoo --quality high --repeat 3
+# Copy tests/fixtures/levels/capacity_dense.json into the isolated state's levels/ first.
+PLACES_STATE_ROOT="$PWD/target/run09/expanded-state" python3 tools/bench/bench_local.py --label run09_capacity_dense_high --level capacity_dense --quality high --repeat 3
+python3 tools/bench/check_tool_parallelism.py --baseline target/run09/baseline --out target/run09/recheck
+```
+The last command requires a preserved **pre-edit working-tree** source/input snapshot;
+it cannot reconstruct that baseline after `cargo clean`. All implemented fixes live
+in durable `src/`, `tools/`, `tests/` and project data. No production fix depends on
+scratch scripts in `target/`. The 67-file inventory, benchmark driver, regression tests,
+measured results and selected captures survive `cargo clean`.
+
+Inspected final native captures include the round pillar's tiled UVs, hanging ball
+light and green spill, all three skeleton poses, and ceiling vents/grid:
+[architecture](run09/zoo-07-architecture.png),
+[ceiling props](run09/zoo-08-ceiling-props.png),
+[vents](run09/zoo-09-ceiling-vents.png). Earlier table/duck/route-lane captures remain
+in the report directory. Static images do not verify motion or full interaction timing. The expanded fixture
+was also visually inspected: [dense content](run09/dense-content.png). The kitchen
+view shows the bowl and two plate settings but the railing obscures near-table
+cutlery; this capture alone does not verify every utensil placement.
+
+Remaining acceptance limits are explicit: Pit still has 16 existing geometry errors
+and 76 warnings; the legacy forced static-cat builder is invalid for the current
+canonical dimensions; the referenced historical solver is missing; audio and dynamic
+shadow casting remain unsupported and static reflection probes do not animate.
+No requested assets/features were deleted to hide those limits. Production asset PNGs
+and GLBs remain byte-identical to the preserved start of this run. No image baseline
+was accepted or changed. The user's concurrent `docs/ASSET_SPECIFICATION.md` and
+`tools/textures/office_art.py` edits were preserved and are excluded from this run's
+ownership. No commits, pushes, releases or branch/worktree changes were made.
+
+### 13.11 Changed-path inventory
+
+The following paths were edited/added by this run (including durable evidence files).
+Concurrent user edits named above are intentionally excluded.
+
+- `README.md`
+- `assets/levels/places_demo.json`
+- `docs/ARCHITECTURE.md`
+- `docs/MAP_AUTHORING_GUIDE.md`
+- `docs/OFFLINE_TOOLING.md`
+- `docs/RENDERER.md`
+- `docs/VERIFICATION.md`
+- `docs/reports/feature-expansion-handoff.md`
+- `docs/reports/run09-tooling-results.json`
+- `docs/reports/run09/capacity_dense-high-benchmark.json`
+- `docs/reports/run09/demo-geometry.json`
+- `docs/reports/run09/dense-final.txt`
+- `docs/reports/run09/kitchen-final.txt`
+- `docs/reports/run09/linux-demo.png`
+- `docs/reports/run09/linux-input-final.txt`
+- `docs/reports/run09/model_zoo-high-benchmark.json`
+- `docs/reports/run09/native-input-height-transitions.json`
+- `docs/reports/run09/pit-geometry.json`
+- `docs/reports/run09/places_demo-high-benchmark.json`
+- `docs/reports/run09/tool-functional-checks.json`
+- `docs/reports/run09/verify-input-final.txt`
+- `docs/reports/run09/zoo-00-overview.png`
+- `docs/reports/run09/zoo-03-table-setting.png`
+- `docs/reports/run09/zoo-06-animated-lane.png`
+- `docs/reports/run09/zoo-07-architecture.png`
+- `docs/reports/run09/zoo-08-ceiling-props.png`
+- `docs/reports/run09/zoo-09-ceiling-vents.png`
+- `docs/reports/run09/zoo-geometry.json`
+- `docs/reports/run09/zoo-memory.txt`
+- `icon.png`
+- `src/architecture_audit.rs`
+- `src/entity.rs`
+- `src/game.rs`
+- `src/game/tests.rs`
+- `src/gltf.rs`
+- `src/gltf/tests.rs`
+- `src/input.rs`
+- `src/input/tests.rs`
+- `src/interact.rs`
+- `src/level.rs`
+- `src/level/tests.rs`
+- `src/lighting/tests.rs`
+- `src/loader.rs`
+- `src/loader/tests.rs`
+- `src/materials/reflection.rs`
+- `src/materials/tests.rs`
+- `src/render/common/dynamic.rs`
+- `src/render/tests.rs`
+- `tests/test_tool_execution.py`
+- `tests/test_wgpu_bootstrap.py`
+- `tests/test_zoo_generator.py`
+- `tools/bench/README.md`
+- `tools/bench/capture_zoo.sh`
+- `tools/bench/check_holes.py`
+- `tools/bench/check_tool_parallelism.py`
+- `tools/bench/compare_captures.py`
+- `tools/bench/lightmap_report.py`
+- `tools/bench/visual_check.py`
+- `tools/entities/README.md`
+- `tools/entities/build_rat.py`
+- `tools/entities/rat_surface.py`
+- `tools/entities/render_contact_sheets.py`
+- `tools/entities/validate_entities.py`
+- `tools/execution.py`
+- `tools/levels/build_fixture_levels.py`
+- `tools/levels/build_model_zoo.py`
+- `tools/props/README.md`
+- `tools/props/animate_spooner_man.py`
+- `tools/props/build.py`
+- `tools/props/cat_motion.py`
+- `tools/props/generate_spooner_man.py`
+- `tools/props/parts/spooner_man.py`
+- `tools/props/preview.py`
+- `tools/props/repair_geometry.py`
+- `tools/props/resize_embedded_textures.py`
+- `tools/textures/README.md`
+- `tools/textures/artkit.py`
+- `tools/textures/build.py`
+- `tools/textures/home_art.py`
+- `tools/textures/seam_repair.py`
+- `tools/verify.sh`
+- `docs/reports/run09/dense-content.png`

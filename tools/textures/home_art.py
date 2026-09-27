@@ -40,6 +40,7 @@ from artkit import (
     Canvas,
     fbm,
     hash01,
+    lattice_hash01,
     smoothstep,
     tile_noise,
 )
@@ -99,10 +100,10 @@ def _streak(x: int, y: float, cell_x: int, cell_y: int, seed: int) -> float:
     ix1 = (x0 + 1) % nx
     iy0 = y0 % ny
     iy1 = (y0 + 1) % ny
-    v00 = hash01(ix0, iy0, seed)
-    v10 = hash01(ix1, iy0, seed)
-    v01 = hash01(ix0, iy1, seed)
-    v11 = hash01(ix1, iy1, seed)
+    v00 = lattice_hash01(ix0, iy0, seed)
+    v10 = lattice_hash01(ix1, iy0, seed)
+    v01 = lattice_hash01(ix0, iy1, seed)
+    v11 = lattice_hash01(ix1, iy1, seed)
     top = v00 + (v10 - v00) * sx
     bottom = v01 + (v11 - v01) * sx
     return top + (bottom - top) * sy
