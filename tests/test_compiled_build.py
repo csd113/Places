@@ -256,11 +256,11 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         os.makedirs(levels, exist_ok=True)
 
         with open(os.path.join(levels, "broken.json"), "w", encoding="utf-8") as handle:
-            handle.write('{ "format_version": 1, ')  # truncated JSON
+            handle.write('{ "format_version": 2, ')  # truncated JSON
         with open(os.path.join(levels, "bad_geometry.json"), "w", encoding="utf-8") as handle:
             json.dump(
                 {
-                    "format_version": 1,
+                    "format_version": 2,
                     "id": "bad_geometry",
                     "name": "Bad Geometry",
                     "spawn": {"x": 0.0, "z": 0.0},
@@ -291,7 +291,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         levels = os.path.join(runtime, "levels")
         os.makedirs(levels, exist_ok=True)
         level = {
-            "format_version": 1,
+            "format_version": 2,
             "id": "degraded_content",
             "name": "Degraded Content",
             "spawn": {"x": 2.0, "z": 2.0, "yaw_degrees": 0.0},

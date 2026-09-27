@@ -1650,6 +1650,22 @@ impl Game {
         true
     }
 
+    /// Every switchable fixture's current state, in fixture order.
+    ///
+    /// Used after a level commit or a graphics rebuild: the renderer's bake is
+    /// rebuilt from the authored states, so the run's live states are pushed
+    /// again to keep a rebuild from silently turning a switched-off light back
+    /// on.
+    #[must_use]
+    pub fn light_states(&self) -> Vec<(usize, bool)> {
+        self.fixtures
+            .iter()
+            .enumerate()
+            .filter(|(_, fixture)| fixture.switchable)
+            .map(|(index, fixture)| (index, fixture.enabled))
+            .collect()
+    }
+
     /// Drains the fixture switches whose state changed since the last call.
     ///
     /// The frame loop hands these to the renderer, which owns the lightmap

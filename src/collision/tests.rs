@@ -708,3 +708,66 @@ fn indexed_queries_match_the_linear_scan_for_random_probes() {
         }
     }
 }
+
+/// A glazed opening marked `solid` is a physical pane: it blocks the player
+/// exactly where it renders, while `solid: false` leaves a passable hole. The
+/// pane's material being transparent has no bearing on collision.
+#[test]
+fn a_solid_glass_opening_blocks_and_a_visual_pane_does_not() {
+    let level = crate::level::LevelDef::from_json(
+        r#"{
+            "format_version": 2,
+            "id": "glass_collision",
+            "name": "Glass Collision",
+            "spawn": { "x": 2.0, "z": 2.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 6.0, "height": 3.0 } ],
+            "walls": [
+                { "x": 4.0, "z": 0.0, "width": 0.3, "depth": 6.0,
+                  "openings": [
+                      { "kind": "window", "offset": 1.0, "width": 1.6, "height": 2.2,
+                        "sill": 0.0, "glass": "core:glass_window_clear_01", "solid": true },
+                      { "kind": "window", "offset": 3.4, "width": 1.6, "height": 2.2,
+                        "sill": 0.0, "glass": "core:glass_tinted_01", "solid": false }
+                  ] }
+            ]
+        }"#,
+    )
+    .expect("the glass level parses");
+    crate::loader::validate_level(&level).expect("the glass level validates");
+    let aabbs = level.collision_aabbs();
+
+    // The solid pane sits at x ≈ 4.15, spanning the first opening's z range.
+    let solid_pane = aabbs.iter().find(|a| {
+        a.min_x > 4.0 && a.max_x < 4.3 && a.min_z >= 0.9 && a.max_z <= 2.7 && a.min_y < 0.1
+    });
+    assert!(
+        solid_pane.is_some(),
+        "the solid pane must contribute collision: {aabbs:?}"
+    );
+    // The visual-only pane contributes nothing at its own z range.
+    let visual_pane = aabbs.iter().any(|a| {
+        a.min_x > 4.0 && a.max_x < 4.3 && a.min_z >= 3.3 && a.max_z <= 5.1 && a.min_y < 0.1
+    });
+    assert!(
+        !visual_pane,
+        "a visual-only pane must not collide: {aabbs:?}"
+    );
+
+    // A body overlapping the solid pane is pushed out of it; the same body in
+    // the visual opening's plane is untouched because nothing collides there.
+    let solid_resolved = resolve_player_collision(Vec2::new(4.15, 1.8), PLAYER_RADIUS, 0.0, &aabbs);
+    // The pane's physical slab is 0.06 m thick, centred on the wall plane:
+    // the body ends at least a radius clear of whichever face it exits.
+    assert!(
+        solid_resolved.x <= 4.12 - PLAYER_RADIUS + 1.0e-3
+            || solid_resolved.x >= 4.18 + PLAYER_RADIUS - 1.0e-3,
+        "the solid pane pushes the body out: {solid_resolved:?}"
+    );
+    let visual_resolved =
+        resolve_player_collision(Vec2::new(4.15, 4.2), PLAYER_RADIUS, 0.0, &aabbs);
+    assert_eq!(
+        visual_resolved,
+        Vec2::new(4.15, 4.2),
+        "the visual-only opening has no collider at all"
+    );
+}

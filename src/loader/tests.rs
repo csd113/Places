@@ -3390,3 +3390,41 @@ fn test_ceiling_tile_frame_validation() {
     let error = validate_level(&level).expect_err("a non-finite rotation is rejected");
     assert!(error.contains("ceiling tile rotation"), "{error}");
 }
+
+/// Every checked-in level parses and validates against the one final schema.
+///
+/// This is the repository-content gate: a map that still used a removed field
+/// or action would fail here, so no level can be left on an obsolete
+/// development format. The deliberately invalid checker fixture under
+/// `tests/fixtures/levels/invalid/` is not part of the playable set and is
+/// exercised by the geometry checker instead.
+#[test]
+fn every_checked_in_level_parses_and_validates_against_the_final_schema() {
+    let mut checked = 0_usize;
+    for directory in ["assets/levels", "levels", "tests/fixtures/levels"] {
+        let entries =
+            std::fs::read_dir(directory).unwrap_or_else(|e| panic!("read {directory}: {e}"));
+        for entry in entries {
+            let path = entry.expect("directory entry").path();
+            if path.extension().and_then(std::ffi::OsStr::to_str) != Some("json") {
+                continue;
+            }
+            let content = std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+            let level =
+                LevelDef::from_json(&content).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+            assert_eq!(
+                level.format_version,
+                crate::level::LEVEL_FORMAT_VERSION,
+                "{} must use the current format",
+                path.display()
+            );
+            validate_level(&level).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+            checked = checked.saturating_add(1);
+        }
+    }
+    assert!(
+        checked >= 20,
+        "expected every checked-in level, found {checked}"
+    );
+}

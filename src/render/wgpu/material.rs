@@ -83,7 +83,7 @@ pub const MATERIAL_FLAG_MASK: u32 = MATERIAL_FLAG_NORMAL_ENABLED
 pub struct MaterialUniform {
     /// Sheen colour; zero for a material without one.
     pub specular: [f32; 3],
-    /// Shader-facing roughness (`1 - shine`, or the authored legacy value).
+    /// Shader-facing roughness (`1 - shine`).
     pub roughness: f32,
     /// Multiplier applied to the decoded normal's `xy`.
     pub normal_strength: f32,

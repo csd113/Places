@@ -1060,13 +1060,13 @@ fn intensities_multiply_the_authored_colour_per_channel() {
 }
 
 #[test]
-fn legacy_levels_without_a_colour_use_the_documented_default() {
-    // Every shipped level omits `color`; they must load unchanged and bake
-    // the restrained warm default rather than turning white or black.
-    let legacy = r#"{
+fn levels_without_a_colour_use_the_documented_default() {
+    // Every shipped level omits `color`; they must bake the restrained warm
+    // default rather than turning white or black.
+    let omitted = r#"{
         "format_version": 2,
-        "id": "legacy",
-        "name": "Legacy",
+        "id": "default_colour",
+        "name": "Default Colour",
         "spawn": { "x": 0.0, "z": 0.0 },
         "rooms": [{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 3.0 }],
         "ceiling_lights": [
@@ -1074,7 +1074,7 @@ fn legacy_levels_without_a_colour_use_the_documented_default() {
             { "fixture": "core:fluorescent_panel_01", "x": 9.0, "z": 9.0, "brightness": 0.75 }
         ]
     }"#;
-    let level = LevelDef::from_json(legacy).expect("legacy level parses");
+    let level = LevelDef::from_json(omitted).expect("default-colour level parses");
     assert_eq!(level.ceiling_lights[0].color, None);
     assert_eq!(level.ceiling_lights[0].emitted_color(), DEFAULT_LIGHT_COLOR);
     let lighting = LevelLighting::bake(&level);
@@ -1082,7 +1082,7 @@ fn legacy_levels_without_a_colour_use_the_documented_default() {
     let baseline = lighting.rooms()[0].baseline;
     assert!(
         baseline.r > baseline.b && baseline.b >= AMBIENT_LEVEL,
-        "legacy lights must bake the warm default, got {baseline:?}"
+        "a colourless fixture must bake the warm default, got {baseline:?}"
     );
     let sample = lighting.sample(3.0, 0.0, 3.0);
     assert!(sample.r > sample.b);

@@ -363,7 +363,8 @@
       "height": 4.2,
       "material": "core:wallpaper_yellow_01",
       "faces": {
-        "west": "core:pool_tile_wall_01"
+        "west": "core:pool_tile_wall_01",
+        "east": "home:sauna_wood_01"
       },
       "openings": [
         {
@@ -381,7 +382,8 @@
       "width": 7.0,
       "depth": 0.3,
       "y": -0.9,
-      "height": 3.0
+      "height": 3.0,
+      "material": "home:sauna_wood_01"
     },
     {
       "x": 26.15,
@@ -389,7 +391,8 @@
       "width": 7.0,
       "depth": 0.3,
       "y": -0.9,
-      "height": 3.0
+      "height": 3.0,
+      "material": "home:sauna_wood_01"
     },
     {
       "x": 32.85,
@@ -406,7 +409,10 @@
           "height": 2.2,
           "sill": 0.0
         }
-      ]
+      ],
+      "faces": {
+        "west": "home:sauna_wood_01"
+      }
     },
     {
       "x": 32.85,
@@ -1975,16 +1981,17 @@
     },
     {
       "model": "core:washing_machine",
-      "x": 28.4,
+      "x": 34.4,
       "y": 0.0,
-      "z": 11.45,
-      "rotation_degrees": 0.0,
+      "z": 14.3,
+      "rotation_degrees": 180.0,
       "size": [
         0.6,
         0.85,
         0.6
       ],
-      "solid": true
+      "solid": true,
+      "comment": "Moved onto the utility corridor's south wall so the sauna stands alone; the drum demonstration follows the machine."
     },
     {
       "model": "core:pool_table",

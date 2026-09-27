@@ -4153,9 +4153,25 @@ own labelling):
 
 ### Multi-action switch (door + label + light)
 
-One press can compose several actions in order. The demo's `hall_switch` plays
-the lever clip, drives the door and toggles the door's floating label; if a
-switchable fixture were wired in, the same batch could toggle it too:
+One press can compose several actions in order. The demo's `sauna_switch` plays
+the lever clip, toggles its switchable lamp and drives the sauna door in one
+batch; the corridor's `hall_switch` does the same for the hall door and its
+floating label:
+
+```json
+{ "id": "sauna_switch", "display_name": "Sauna Switch",
+  "model": "home:wall_switch", "x": 26.16, "y": 1.2, "z": 12.2,
+  "rotation_degrees": 90.0, "size": [0.18, 0.18, 0.1], "solid": false,
+  "interaction": { "prompt": "Sauna switch", "reach": 1.6,
+                   "actions": [{ "action": "toggle_animation", "clip": "toggle" },
+                               { "action": "toggle", "target": "sauna_light" },
+                               { "action": "toggle", "target": "sauna_door" }] } }
+```
+
+```json
+{ "fixture": "core:fluorescent_panel_01", "id": "sauna_light",
+  "x": 31.0, "z": 13.0, "brightness": 0.9, "switchable": true }
+```
 
 ```json
 { "id": "hall_switch", "display_name": "Hall Light Switch",
@@ -4164,13 +4180,7 @@ switchable fixture were wired in, the same batch could toggle it too:
   "interaction": { "prompt": "Hall switch", "reach": 1.6,
                    "actions": [{ "action": "toggle_animation", "clip": "toggle" },
                                { "action": "toggle", "target": "hall_door" },
-                               { "action": "toggle_label", "target": "hall_door" },
-                               { "action": "toggle", "target": "hall_light" }] } }
-```
-
-```json
-{ "fixture": "core:fluorescent_panel_01", "id": "hall_light",
-  "x": 60.3, "z": 3.0, "brightness": 0.6, "switchable": true }
+                               { "action": "toggle_label", "target": "hall_door" }] } }
 ```
 
 ### Triggered door (externally controlled)

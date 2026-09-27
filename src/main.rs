@@ -2053,6 +2053,14 @@ impl FrameLoop<'_> {
             }
             self.ready_frames = 0;
         }
+        // A commit or a graphics rebuild re-bakes the authored fixture states;
+        // push the run's live switch states again so a rebuild can never
+        // silently turn a switched-off light back on. An unchanged state is a
+        // comparison and no GPU work.
+        let light_states = self.game.light_states();
+        if !light_states.is_empty() {
+            self.renderer.apply_light_toggles(&light_states);
+        }
         // A graphics-only rebuild replaces the resident resources in place: it
         // is the same visited world, so it emits no new scene-presented signal
         // and does not restart the ready-frame/capture counter. A real level

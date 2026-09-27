@@ -2219,7 +2219,8 @@ impl WallDef {
 /// A rectangular cutout through a wall's thickness: doorway, window, passage, vent.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WallOpeningDef {
-    /// Opening type: "door", "window", "passage", "vent" (unknown kinds are allowed for forward compatibility).
+    /// Opening type: "door", "window", "passage" or "vent". An unknown kind loads
+    /// as a generic opening, so a future kind never breaks an older fixture.
     #[serde(default = "default_opening_kind")]
     pub kind: String,
     /// Distance in metres along the wall's length axis from the wall's length origin to the opening's near edge.

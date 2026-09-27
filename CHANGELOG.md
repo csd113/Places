@@ -1,3 +1,61 @@
+## Unreleased — final architecture: doors, interactions, effects and content cutover
+
+### Added
+
+- `doors[]` in the level schema: a shared door system (`src/door.rs` plus
+  `src/render/common/doors.rs`) with `closed`/`opening`/`open`/`closing`
+  states, per-door swing/speed/initial state, manual or externally controlled
+  interaction, obstruction handling (`stop`/`reverse`) and an oriented leaf
+  collider that the drawn slab and the player collision both read from one
+  angle. Two visual kinds: the white interior leaf with a round brass handle,
+  and the sauna leaf (cedar stiles and rails around a real glass panel).
+- Map-wired actions `open`, `close` and `toggle` with stable entity ids across
+  props, lights, doors and triggers; load-time validation of duplicate ids,
+  unknown targets and action/target mismatches.
+- Switchable light fixtures (`"switchable": true`): a switch can toggle a
+  fixture's illumination and its own luminous face. The toggle is exact and
+  local — a switchable fixture is excluded from its room's baked baseline, and
+  a switch re-fills only the charts its pool reaches, re-uploading just those
+  pages.
+- Renderer effects: `effects[]` steam emitters (`src/render/common/effects.rs`,
+  `src/render/wgpu/effects.rs`) — a bounded, deterministic billboard plume with
+  a new `core:steam_01` blended material.
+- Solid glazing: an opening with `glass` may author `"solid": true`, separating
+  render transparency from physical collision; every shipped window is solid.
+- New door, sauna, brass and steam assets, and demonstration content in
+  `places_demo` (hall/sauna/study doors, hall and sauna switches, sauna room,
+  steam) and `level0_pit` (a trigger-driven gate).
+- Curved geometry: smooth radial pillar/arc-wall normals with shared ring
+  vertices, and per-segment cylinder occluders for round contact shadows.
+- Tests: doors (state machine, collider tracking, obstruction), trigger wiring
+  (ids, duplicates, unknown targets, multiple actions, light toggles), player
+  prop landing, crouch smoothing, water exit, glass collision, switchable
+  fixture routing and lightmap refill exactness.
+
+### Changed
+
+- Level `format_version` is **2**: the singular `room` key and the `lights`,
+  `water_volumes`, fixture-`intensity` and material-`roughness` aliases were
+  removed rather than migrated; every checked-in map, fixture, generator and
+  validator emits the final schema directly.
+- Crouching eases the camera over ~0.15 s while the collider shrinks
+  immediately; standing is clearance-checked.
+- Swimming can climb out onto a low pool edge (bounded to 0.5 m at the
+  surface), and the surface no longer oscillates.
+- Walking on solid prop tops resolves the actual support under the player, so
+  landing on a table no longer leaves the body embedded.
+- Asset catalogs and settings no longer accept the legacy `props` array,
+  `name` fallback, `roughness` or the `full`/`linear`/`nearest` persisted names.
+- Asset tooling: the obsolete static Spooner-Man builder and the dead pool
+  curtain/rail/duck builders were deleted; the surviving pool builders and the
+  shipped entity rig are unchanged.
+
+### Removed
+
+- All development-era compatibility paths: old map-parser forms, catalog
+  aliases, the legacy quality/filtering names, dead prop builders, and the
+  tests and documentation that described them.
+
 ## Unreleased — capacity expansion and the Model Zoo (combined steps 07+08)
 
 ### Added

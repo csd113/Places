@@ -4887,3 +4887,122 @@ fn a_switch_toggles_a_switchable_light_fixture() {
         crate::loader::validate_level(&bad_level).expect_err("a fixed fixture is not toggleable");
     assert!(error.contains("always_on"), "{error}");
 }
+
+/// A closed door blocks the player, an open one lets them through, and the
+/// same door can be driven by a switch's declarative action batch.
+#[test]
+fn a_door_blocks_the_player_when_closed_and_passes_when_open() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 2,
+            "id": "door_collision",
+            "name": "Door Collision",
+            "spawn": { "x": 4.0, "z": 2.0, "yaw_degrees": 180.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
+            "doors": [
+                { "id": "barrier", "x": 2.0, "y": 0.0, "z": 4.0,
+                  "rotation_degrees": 0.0, "width": 4.0, "height": 2.2,
+                  "thickness": 0.06, "open_direction": "right",
+                  "swing_degrees": 90.0, "initial_state": "closed",
+                  "manual_interaction": false }
+            ],
+            "props": [
+                { "id": "gate_switch", "model": "home:wall_switch", "x": 0.6, "y": 1.2, "z": 4.0,
+                  "solid": false,
+                  "interaction": { "prompt": "Gate", "actions": [
+                      { "action": "open", "target": "barrier" } ] } }
+            ]
+        }"#,
+    )
+    .expect("the door collision level parses");
+    crate::loader::validate_level(&level).expect("the door collision level validates");
+    let mut game = game_for(&level);
+    game.set_app_state(AppState::Playing);
+
+    // Walk into the closed leaf: the player stops at it, never through it.
+    walk_forward(&mut game, 120);
+    assert!(
+        game.player_position.z < 4.0,
+        "the closed door blocks passage: z={}",
+        game.player_position.z
+    );
+    assert!(game.grounded);
+
+    // A switch drives it: the action batch opens the leaf, and the frames
+    // after it advance the hinge.
+    let actions = game
+        .interactables()
+        .items()
+        .iter()
+        .find(|item| item.id == "gate_switch")
+        .expect("the switch is aimable")
+        .actions
+        .clone();
+    let report = game.dispatch_actions(&actions, None);
+    assert_eq!(report.doors_acted, 1, "the switch opened the door");
+    assert_eq!(game.doors().get(0).expect("door").phase().name(), "opening");
+    let settings = Settings::default();
+    let mut idle = InputState::default();
+    for _ in 0..80 {
+        game.update_player_movement(&mut idle, &settings);
+    }
+    assert_eq!(game.doors().get(0).expect("door").phase().name(), "open");
+    assert!((game.doors().get(0).expect("door").angle().abs() - 90.0).abs() < 1.0e-3);
+
+    // The open leaf lies along +Z from the hinge at x = 2, clear of the
+    // player's lane at x = 4: they walk through.
+    walk_forward(&mut game, 120);
+    assert!(
+        game.player_position.z > 5.0,
+        "the open door lets the player through: z={}",
+        game.player_position.z
+    );
+}
+
+/// A manually interactable door is an aimable interactable: interaction
+/// dispatch toggles it, and an externally controlled door is not aimable.
+#[test]
+fn a_manual_door_is_an_interaction_target_and_an_external_one_is_not() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 2,
+            "id": "door_interaction",
+            "name": "Door Interaction",
+            "spawn": { "x": 4.0, "z": 2.0, "yaw_degrees": 180.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
+            "doors": [
+                { "id": "manual_door", "x": 3.0, "z": 3.2, "rotation_degrees": 0.0,
+                  "width": 1.2, "height": 2.1, "open_direction": "left" },
+                { "id": "external_door", "x": 5.5, "z": 3.2, "rotation_degrees": 0.0,
+                  "width": 1.2, "height": 2.1, "manual_interaction": false }
+            ]
+        }"#,
+    )
+    .expect("the door interaction level parses");
+    crate::loader::validate_level(&level).expect("the door interaction level validates");
+    let mut game = game_for(&level);
+    let ids: Vec<&str> = game
+        .interactables()
+        .items()
+        .iter()
+        .map(|item| item.id.as_str())
+        .collect();
+    assert!(ids.contains(&"manual_door"));
+    assert!(!ids.contains(&"external_door"));
+
+    // Aim at the manual door and interact: it starts opening and its prompt
+    // turns into the closing prompt once it is open.
+    let index = game
+        .interactables()
+        .index_of("manual_door")
+        .expect("manual door target");
+    let actions = game
+        .interactables()
+        .get(index)
+        .expect("target")
+        .actions
+        .clone();
+    let report = game.dispatch_actions(&actions, Some(index));
+    assert_eq!(report.doors_acted, 1);
+    assert_eq!(game.doors().get(0).expect("door").phase().name(), "opening");
+}

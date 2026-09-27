@@ -2116,8 +2116,7 @@ impl WgpuRenderer {
     ///
     /// The three presets are shared samplers, so switching swaps which sampler
     /// a draw's bind group holds; no pixel data is re-uploaded, no bind group
-    /// is rebuilt, and the environment binding does not follow it. The legacy
-    /// `"nearest"` parses as Low and the legacy `"linear"` as High; an empty or
+    /// is rebuilt, and the environment binding does not follow it. An empty or
     /// unknown value keeps the default (High). A real change logs the active
     /// preset once and is otherwise zero-work — the recorded value is applied
     /// at bind time.

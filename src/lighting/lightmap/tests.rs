@@ -1499,9 +1499,9 @@ fn disk_cache_ignores_interrupted_publication_and_preserves_the_previous_entry()
             .pages,
         atlas.pages
     );
-    std::fs::create_dir_all(root.join("legacy")).expect("old directory");
-    std::fs::write(root.join("legacy/meta.json"), b"{}").expect("old metadata");
-    assert!(super::cache::disk_load(&root, "legacy").is_none());
+    std::fs::create_dir_all(root.join("stale")).expect("stale directory");
+    std::fs::write(root.join("stale/meta.json"), b"{}").expect("stale metadata");
+    assert!(super::cache::disk_load(&root, "stale").is_none());
     let _ = std::fs::remove_dir_all(&root);
 }
 

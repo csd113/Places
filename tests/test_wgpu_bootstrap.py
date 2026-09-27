@@ -119,7 +119,7 @@ def _write_level(root: str, level: dict) -> None:
 def _second_level() -> dict:
     """A small but real level: one room with a floor, ceiling and walls."""
     return {
-        "format_version": 1,
+        "format_version": 2,
         "id": SECOND_LEVEL_ID,
         "name": "wgpu Smoke Second",
         "author": "wgpu runtime smoke test",
@@ -133,7 +133,7 @@ def _second_level() -> dict:
 def _empty_level() -> dict:
     """A valid level that emits no static world geometry at all."""
     return {
-        "format_version": 1,
+        "format_version": 2,
         "id": EMPTY_LEVEL_ID,
         "name": "wgpu Smoke Empty",
         "author": "wgpu runtime smoke test",
@@ -148,7 +148,7 @@ def _notexture_level() -> dict:
     one, not an error case.
     """
     return {
-        "format_version": 1,
+        "format_version": 2,
         "id": NOTEXTURE_LEVEL_ID,
         "name": "wgpu Smoke No Texture",
         "author": "wgpu runtime smoke test",
@@ -167,7 +167,7 @@ def _missing_level() -> dict:
     must still upload and present, with the missing count reported.
     """
     return {
-        "format_version": 1,
+        "format_version": 2,
         "id": MISSING_LEVEL_ID,
         "name": "wgpu Smoke Missing",
         "author": "wgpu runtime smoke test",

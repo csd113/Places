@@ -1191,7 +1191,7 @@ class SourceHygieneTests(unittest.TestCase):
             self.assertIn(row, readme, f"README is missing the default row {row!r}")
         # The previous keyboard defaults must no longer be presented
         # as the normal controls.
-        for legacy in (
+        for old_row in (
             "| Walk backward | `Z` |",
             "| Strafe right | `S` |",
             "| Look up | `O` |",
@@ -1199,7 +1199,7 @@ class SourceHygieneTests(unittest.TestCase):
             "| Look left | `K` |",
             "| Look right | `L` |",
         ):
-            self.assertNotIn(legacy, readme, f"README still lists the old row {legacy!r}")
+            self.assertNotIn(old_row, readme, f"README still lists the old row {old_row!r}")
 
 
 if __name__ == "__main__":
