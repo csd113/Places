@@ -25,7 +25,7 @@ level / world / gameplay / spatial / materials / lighting / camera
                          │
                          ▼
               render::Renderer  —  the facade the engine talks to
-        lifecycle + per-frame methods only: new / set_level / quality and
+        lifecycle + per-frame methods only: new / prepared installation / quality and
         feature switches / render_scene(camera) / render_ui / capture /
         present / finish; all parameters and return values are engine
         data, never GPU objects
@@ -95,6 +95,7 @@ where the bytes live:
 | `src/assets.rs` | The catalog: logical ids, classes, themes, resource paths, size policy |
 | `src/level.rs` | The level format, geometry rules, the walkable floor, water volumes and ladders |
 | `src/loader.rs` | Level discovery, validation, level packs, material resolution |
+| `src/loading.rs` | Serialized CPU preparation, cancellation, immutable prepared-build cache |
 | `src/lighting/` | The CPU bake: partition areas, baselines, fixture pools, visibility |
 | `src/materials/` | PNG decode, session texture cache, material and decal resolution |
 | `src/spatial/` | The spatial cell grid the batching and frustum culling share |
@@ -231,9 +232,8 @@ implemented. The contract is:
 - **Reset.** `reset_to_spawn` re-seeds every route at its authored spawn and
   clears overrides, so a reset is coherent for the whole level.
 
-The earlier extension note stands for audio only: `play_audio` parses and
-validates-*fail*, and `DispatchReport.unsupported` is the runtime safety net for
-programmatic calls.
+`play_audio` parses but is rejected by level validation.
+`DispatchReport.unsupported` reports unsupported programmatic calls at runtime.
 
 `src/settings.rs` owns the persisted player configuration and the runtime
 settings model. Overall Quality (Low / Medium / High) is the preset for the
@@ -303,16 +303,17 @@ The pass graph, targets and colour-space rules are detailed in
 surface is:
 
 - **Construction:** `new(window)`.
-- **Lifecycle:** `set_level` (a new level load), `release_profile_textures`.
+- **Lifecycle:** `install_prepared`, `advance_prepared_install`,
+  `cancel_prepared_install` stage and commit worker-prepared worlds.
+  `release_profile_textures` retires quality-fitted resources.
 - **Frame inputs:** `set_drawable_size`, `render_scene(RenderCamera)`,
   `render_ui(&[Vertex])`, `finish`, `capture_default_framebuffer`, `present`.
 - **Quality and feature switches (recording only):** `set_quality`,
   `set_lightmap_quality`, `set_reflection_quality`, `set_bloom_enabled`,
   `set_texture_filtering`, `set_culling`.
-- **Graphics transaction:** `apply_graphics(&LoadedLevel)` applies the recorded
-  configuration as one diffed change (see RENDERER.md §12.2);
-  `advance_graphics_transition` / `graphics_transition_status` expose the
-  asynchronous lightmap stage.
+- **Graphics transaction:** `apply_frame_graphics` applies changes that do not
+  require CPU preparation. Level and lightmap replacements use the loading
+  worker and staged GPU installation (see RENDERER.md §12.2).
 - **Dynamic objects:** `set_dynamic_demo`, `update_dynamic`,
   `dynamic_scene`.
 - **Animated characters:** `update_characters(delta_seconds,
@@ -324,6 +325,24 @@ surface is:
 There is no GPU-device trait, no pipeline abstraction, no backend selector and
 no multi-backend command interface. The facade is exactly the lifecycle Places
 uses.
+
+### Loading ownership
+
+The event loop creates the window and renderer before requesting the initial
+world. `loading::Loader` owns one serialized worker for level/asset reads,
+geometry and lighting preparation, atlas fill/cache I/O, collision and character
+setup. Requests carry generations; superseded work is cancelled cooperatively
+and cannot commit. The event loop polls completion without joining the worker
+and continues presenting the loading UI or previous world.
+
+Prepared geometry is shared through `Arc<LevelBuild>`. A worker-owned LRU is
+bounded by entry count and retained-data bytes, with keys covering the level,
+logical materials, prop catalog/model inputs and effective lightmap quality.
+Collision and character playback state are created for each request. GPU work
+stays on the main thread: installation advances through upload phases, then
+commits the completed world. Cancellation discards pending installation and
+preserves the active world. A phase can still contain an indivisible expensive
+GPU operation; staging is not a hard per-frame latency guarantee.
 
 ### Documented, intentional coupling
 
@@ -489,3 +508,11 @@ The former GLES2 renderer is preserved in Git at the
 `renderer-gles2-reference` tag (commit
 `797370e17aab1409a5de3ea70b9a68f742452`). Mainline does not depend on it; see
 [RENDERER_REFERENCE.md](RENDERER_REFERENCE.md) for the map to the snapshot.
+
+Runtime atlas filling uses at most three scoped chart producers, capped below
+available CPU count to leave room for the event loop. Each has one queued result
+and one active chart; the preparation worker packs results in original chart order.
+Cancellation is checked per texel row. Receivers are dropped before joins on errors
+and cancellation so blocked senders can exit. Inline/headless bakes and ordinary
+unit-test invocations remain serial; explicit parity tests exercise the bounded
+parallel path. This avoids multiplying chart pools across concurrently running tests.

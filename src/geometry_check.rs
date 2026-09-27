@@ -41,7 +41,7 @@
 //! Exit statuses: `0` no confirmed defects, `1` confirmed defects, `2` usage or
 //! file/parse failure.
 
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
@@ -1005,13 +1005,11 @@ impl Checker<'_> {
             ];
             planes.entry(key).or_default().push(index);
         }
-        let mut reported: HashSet<(usize, usize)> = HashSet::new();
+        // Each triangle belongs to exactly one bucket and slot pairs occur
+        // once. Recording all visited pairs would retain quadratic memory.
         for bucket in planes.values() {
             for (slot, first) in bucket.iter().enumerate() {
                 for second in bucket.iter().skip(slot.saturating_add(1)) {
-                    if !reported.insert((*first.min(second), *first.max(second))) {
-                        continue;
-                    }
                     let (Some(a), Some(b)) = (triangles.get(*first), triangles.get(*second)) else {
                         continue;
                     };

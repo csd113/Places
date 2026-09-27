@@ -1,0 +1,43 @@
+{
+  "findings": [
+    {
+      "check": "coplanar-sliver",
+      "id": "Wall m32",
+      "message": "a 0.00031 m² coplanar overlap sliver at a joint (a at 6.28,0.09,0.16; b at 0.16,0.09,2.28)",
+      "position": [
+        6.2833333015441895,
+        0.09000000357627869,
+        0.16200001537799835
+      ],
+      "severity": "Warning"
+    }
+  ],
+  "format": "places-geometry-check",
+  "level": {
+    "id": "places_demo",
+    "source": "assets/levels/places_demo.json",
+    "validated": true
+  },
+  "markers": [
+    {
+      "x": 6.2833333015441895,
+      "y": 0.09000000357627869,
+      "z": 0.16200001537799835
+    }
+  ],
+  "summary": {
+    "checks": {
+      "coplanar-sliver": {
+        "errors": 0,
+        "warnings": 1
+      }
+    },
+    "errors": 0,
+    "findings": 1,
+    "suppressed": {
+      "missing-wall": 6
+    },
+    "warnings": 1
+  },
+  "version": 1
+}

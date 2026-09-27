@@ -1,0 +1,1 @@
+[{"after": "ready:wgpu_smoke_second", "delay_ms": 0, "action": {"kind": "load", "level": "capacity_dense"}}, {"after": "upload:capacity_dense", "delay_ms": 0, "action": {"kind": "escape"}}, {"after": "upload:capacity_dense", "delay_ms": 500, "action": {"kind": "quit"}}]

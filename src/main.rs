@@ -27,6 +27,7 @@ mod lighting_partition_audit;
 #[cfg(test)]
 mod lighting_vertical_audit;
 pub mod loader;
+mod loading;
 pub mod logging;
 pub mod materials;
 pub mod perf;
@@ -446,7 +447,6 @@ fn spawn_level_demonstration(renderer: &mut Renderer, loaded: &loader::LoadedLev
 /// each worth on real hardware.
 fn create_renderer(
     window: &Window,
-    level: &loader::LoadedLevel,
     settings: &Settings,
     bench: &Bench,
 ) -> Result<Renderer, String> {
@@ -468,8 +468,6 @@ fn create_renderer(
     // names the preset actually in force.
     renderer.set_bloom_enabled(settings.bloom_enabled());
     renderer.set_texture_filtering(settings.texture_filtering_preset());
-    renderer.set_level(level);
-    spawn_level_demonstration(&mut renderer, level);
     renderer.set_culling(!bench.no_cull());
     Ok(renderer)
 }
@@ -482,19 +480,6 @@ fn create_renderer(
 fn configure_vsync(renderer: &mut Renderer, bench: &mut Bench, settings: &Settings) {
     let swap_interval = renderer.set_swap_interval(settings.vsync_enabled());
     bench.set_reported_swap_interval(swap_interval);
-}
-
-/// Creates the player state, the camera and the spawn from a level's spawn
-/// point.
-fn new_game(level: &loader::LoadedLevel) -> (Game, Vec3, f32) {
-    let spawn_pos = game::spawn_position(&level.level);
-    let spawn_yaw = level.level.spawn.yaw_degrees.to_radians();
-    let game = Game::new(
-        spawn_pos,
-        spawn_yaw,
-        CollisionWorld::from_level(&level.level),
-    );
-    (game, spawn_pos, spawn_yaw)
 }
 
 /// Display names of the installed levels, in discovery order.
@@ -581,94 +566,6 @@ fn apply_spawn_override(
     game.reset_level(*spawn_pos, *spawn_yaw, game.collision_world());
 }
 
-/// Boots straight into the level named by `PLACES_LEVEL`.
-///
-/// Starts the shipped demo or a benchmark fixture without menu interaction:
-/// `PLACES_LEVEL=places_demo ./places`.
-///
-/// When the request names the level that is already loaded (the ordinary
-/// `PLACES_LEVEL=places_demo` case), the renderer is left alone: rebuilding the
-/// same level would repeat the whole cold level build and lightmap bake.
-// Developer CLI output that has no logger to route through.
-#[allow(clippy::print_stdout, clippy::print_stderr)]
-fn apply_level_request(
-    level_manager: &loader::LevelManager,
-    renderer: &mut Renderer,
-    game: &mut Game,
-    bench: &Bench,
-    spawn_pos: &mut Vec3,
-    spawn_yaw: &mut f32,
-    current_level: &mut Option<loader::LoadedLevel>,
-) {
-    let Some(requested) = std::env::var("PLACES_LEVEL")
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-    else {
-        return;
-    };
-    let loaded_id = current_level
-        .as_ref()
-        .map_or("", |level| level.entry.id.as_str());
-    let index = level_manager
-        .entries()
-        .iter()
-        .position(|entry| entry.id == requested || entry.name.eq_ignore_ascii_case(&requested));
-    match index.and_then(|index| level_manager.get_entry(index).cloned()) {
-        Some(entry) if entry.id == loaded_id => {
-            println!(
-                "PLACES_LEVEL: '{}' ({}) is already the loaded level",
-                entry.name, entry.id
-            );
-            game.set_app_state(AppState::Playing);
-            if pause_requested() {
-                game.set_app_state(AppState::Paused);
-            }
-        }
-        Some(entry) => match level_manager.load_level(&entry) {
-            Ok(loaded) => {
-                println!(
-                    "PLACES_LEVEL: loading '{}' ({}) - {} props",
-                    loaded.level.name,
-                    loaded.level.id,
-                    loaded.level.props.len()
-                );
-                renderer.set_level(&loaded);
-                spawn_level_demonstration(renderer, &loaded);
-                renderer.set_culling(!bench.no_cull());
-                log_prop_usage(renderer);
-                *spawn_pos = game::spawn_position(&loaded.level);
-                *spawn_yaw = loaded.level.spawn.yaw_degrees.to_radians();
-                game.reset_level(
-                    *spawn_pos,
-                    *spawn_yaw,
-                    CollisionWorld::from_level(&loaded.level),
-                );
-                *current_level = Some(loaded);
-                game.set_app_state(AppState::Playing);
-                // `PLACES_PAUSE=1` opens the pause menu on the first frame so
-                // the pause UI can be captured and compared without a keyboard.
-                // It changes nothing about how the menu draws.
-                if pause_requested() {
-                    game.set_app_state(AppState::Paused);
-                }
-            }
-            Err(error) => {
-                eprintln!("PLACES_LEVEL: could not load '{requested}': {error}");
-            }
-        },
-        None => eprintln!(
-            "PLACES_LEVEL: no level matches '{requested}'; installed levels: {}",
-            level_manager
-                .entries()
-                .iter()
-                .map(|entry| entry.id.as_str())
-                .collect::<Vec<_>>()
-                .join(", ")
-        ),
-    }
-}
-
 /// Opens one screen on the first frame for a capture, from `PLACES_SCREEN`.
 ///
 /// Developer diagnostic like `PLACES_PAUSE`: `settings`, `graphics` or
@@ -728,6 +625,26 @@ fn write_capture(renderer: &mut Renderer, path: &Path) {
 ///
 /// Grouping them keeps `main` a readable setup sequence and lets each step of a
 /// frame be reviewed (and unit-tested) on its own.
+#[derive(Clone, Copy)]
+enum LoadIntent {
+    Background,
+    Play,
+    Graphics,
+}
+
+struct PendingCommit {
+    id: u64,
+    loaded: loader::LoadedLevel,
+    collision: CollisionWorld,
+    intent: LoadIntent,
+}
+
+#[derive(Default)]
+struct PresentationState {
+    has_presented: bool,
+    pending_scene: Option<u64>,
+}
+
 struct FrameLoop<'a> {
     window: &'a mut Window,
     /// The SDL context, for the mouse-capture reconciliation.
@@ -770,6 +687,19 @@ struct FrameLoop<'a> {
     /// Set when the active backend reported a fatal GPU error: the loop stops
     /// and `main` exits with this message.
     fatal_error: Option<String>,
+    loader: loading::Loader,
+    load_intent: Option<LoadIntent>,
+    pending_commit: Option<PendingCommit>,
+    load_source: Option<loading::Source>,
+    load_generation: u64,
+    load_return_state: AppState,
+    load_phase: Option<loading::Phase>,
+    launch_overrides: bool,
+    ready_frames: u64,
+    presentation: PresentationState,
+    trace: perf::loading::LoadTrace,
+    actions: Option<perf::actions::Actions>,
+    applied_graphics_settings: Settings,
 }
 
 impl FrameLoop<'_> {
@@ -778,6 +708,56 @@ impl FrameLoop<'_> {
         while self.game.is_running() {
             self.frame();
         }
+        self.loader.shutdown();
+        if let Some(actions) = &mut self.actions {
+            actions.shutdown();
+        }
+        self.trace
+            .record("shutdown_requested", self.load_generation, "");
+        while !self.loader.is_finished()
+            || self
+                .actions
+                .as_ref()
+                .is_some_and(|actions| !actions.is_finished())
+        {
+            self.pump_events();
+            if self.fatal_error.is_some() {
+                std::thread::sleep(std::time::Duration::from_millis(16));
+                continue;
+            }
+            self.game.reset_timing();
+            self.ui_state
+                .set_status("Stopping level preparation...".to_string(), false);
+            let (width, height) = self.window.size_in_pixels();
+            self.renderer
+                .set_drawable_size(DrawableSize::new(width, height));
+            self.renderer.render_scene(render::RenderCamera::new(
+                *self.spawn_pos,
+                *self.spawn_yaw,
+                0.0,
+                self.settings.fov_degrees,
+            ));
+            let vertices = self.ui_cache.get(
+                AppState::MainMenu,
+                self.ui_state,
+                self.settings,
+                self.display_status,
+                APP_VERSION,
+            );
+            self.renderer.render_ui(vertices);
+            self.renderer.present(self.window);
+            std::thread::sleep(std::time::Duration::from_millis(16));
+        }
+        if let Err(error) = self.loader.join_finished() {
+            self.fatal_error = Some(error);
+        }
+        if let Some(actions) = &mut self.actions
+            && let Err(error) = actions.join_finished()
+        {
+            self.fatal_error = Some(error);
+        }
+        self.trace
+            .record("shutdown_complete", self.load_generation, "");
     }
 
     /// One complete frame: input, simulation, render, present, telemetry.
@@ -793,7 +773,11 @@ impl FrameLoop<'_> {
         self.game.update_timing();
         self.perf_overlay.update(self.game.delta_seconds());
 
+        self.trace.record("event_pump", self.load_generation, "");
         self.pump_events();
+        if !self.game.is_running() {
+            return;
+        }
         // Relative mouse mode follows the app state and window focus exactly;
         // the reconciliation is one per frame and only calls SDL on a change.
         self.sync_mouse_capture();
@@ -811,21 +795,34 @@ impl FrameLoop<'_> {
         // and minimize events reach the same drawable path a manual resize
         // does.
         if self.bench.enabled()
-            && let Some(level) = self.bench.quality_cycle_at(self.game.frame_count())
+            && self.load_intent.is_none()
+            && self.current_level.is_some()
+            && let Some(level) = self
+                .bench
+                .quality_cycle_at(self.ready_frames.saturating_add(1))
         {
             self.settings.set_quality(level);
         }
         if self.bench.enabled()
-            && let Some(change) = self.bench.graphics_cycle_at(self.game.frame_count())
+            && self.load_intent.is_none()
+            && self.current_level.is_some()
+            && let Some(change) = self
+                .bench
+                .graphics_cycle_at(self.ready_frames.saturating_add(1))
         {
             self.apply_bench_graphics_change(change);
         }
         if self.bench.enabled()
-            && let Some(action) = self.bench.window_cycle_at(self.game.frame_count())
+            && self.load_intent.is_none()
+            && self.current_level.is_some()
+            && let Some(action) = self
+                .bench
+                .window_cycle_at(self.ready_frames.saturating_add(1))
         {
             self.apply_window_action(action);
         }
         self.apply_pending_settings();
+        self.advance_loading();
         // An asynchronous graphics transition (an uncached lightmap fill) can
         // finish on any frame, so the subtle status hint is refreshed every
         // frame; it is two enum checks when nothing is in flight.
@@ -835,6 +832,11 @@ impl FrameLoop<'_> {
             perf::startup_mark("input responsive");
         }
 
+        if self.load_intent.is_some() && self.game.app_state() == AppState::Playing {
+            self.game.set_app_state(AppState::Paused);
+            self.input_handler.clear_gameplay_inputs();
+            self.game.reset_timing();
+        }
         // Update player movement (only active during AppState::Playing)
         self.game
             .update_player_movement(self.input_handler.state_mut(), self.settings);
@@ -1066,10 +1068,20 @@ impl FrameLoop<'_> {
             .set_bloom_enabled(self.settings.bloom_enabled());
         self.renderer
             .set_texture_filtering(self.settings.texture_filtering_preset());
-        let Some(level) = self.current_level.as_ref() else {
+        if self.load_intent.is_none() && self.renderer.apply_frame_graphics() {
+            self.applied_graphics_settings = self.settings.clone();
+            return;
+        }
+        let source = self.load_source.clone().or_else(|| {
+            self.current_level
+                .as_ref()
+                .map(|level| loading::Source::Retained(Box::new(level.clone())))
+        });
+        let Some(source) = source else {
             return;
         };
-        self.renderer.apply_graphics(level);
+        let intent = self.load_intent.unwrap_or(LoadIntent::Graphics);
+        self.request_load(source, intent);
     }
 
     /// Refreshes the actual window/display state the Display screen reports.
@@ -1124,6 +1136,13 @@ impl FrameLoop<'_> {
         );
         if logged != self.last_logged_window {
             self.last_logged_window = logged;
+            self.trace.record(
+                "window_size_observed",
+                self.load_generation,
+                &serde_json::json!({"logical":[window_size.0,window_size.1],
+                    "drawable":[drawable_width,drawable_height]})
+                .to_string(),
+            );
             logging::info(format!(
                 "[window] logical {}x{} | drawable {}x{} pixels | backing scale {:.1}x{}",
                 window_size.0,
@@ -1189,7 +1208,9 @@ impl FrameLoop<'_> {
     /// focus change, an OS capture change), and the mode is re-asserted on the
     /// next frame whenever it differs from the desired one.
     fn sync_mouse_capture(&self) {
-        let desired = self.game.app_state() == AppState::Playing && self.window_focused;
+        let desired = self.load_intent.is_none()
+            && self.game.app_state() == AppState::Playing
+            && self.window_focused;
         if self.sdl.mouse().relative_mouse_mode(self.window) != desired {
             self.sdl
                 .mouse()
@@ -1197,8 +1218,96 @@ impl FrameLoop<'_> {
         }
     }
 
+    fn handle_scripted_action(&mut self, received: perf::actions::Received) -> bool {
+        self.trace.record(
+            "action",
+            self.load_generation,
+            &serde_json::json!({
+                "id": received.id, "kind": format!("{:?}", received.action),
+                "latency_ms": received.latency.as_secs_f64() * 1000.0,
+            })
+            .to_string(),
+        );
+        match received.action {
+            perf::actions::Action::Load { level } => {
+                if let Some(index) = self
+                    .level_manager
+                    .entries()
+                    .iter()
+                    .position(|entry| entry.id == level)
+                {
+                    self.load_level_at(index);
+                } else {
+                    self.fatal_error = Some(format!("Script requested unknown level {level}"));
+                    self.game.stop();
+                }
+            }
+            perf::actions::Action::Escape {} => {
+                self.handle_event(&Event::KeyDown {
+                    timestamp: 0,
+                    window_id: self.window.id(),
+                    keycode: Some(Keycode::Escape),
+                    scancode: None,
+                    keymod: sdl3::keyboard::Mod::NOMOD,
+                    repeat: false,
+                    which: 0,
+                    raw: 0,
+                });
+                self.handle_event(&Event::KeyUp {
+                    timestamp: 0,
+                    window_id: self.window.id(),
+                    keycode: Some(Keycode::Escape),
+                    scancode: None,
+                    keymod: sdl3::keyboard::Mod::NOMOD,
+                    repeat: false,
+                    which: 0,
+                    raw: 0,
+                });
+            }
+            perf::actions::Action::Resize { width, height } => {
+                if let Err(error) = self.window.set_size(width, height) {
+                    self.fatal_error = Some(error.to_string());
+                    self.game.stop();
+                }
+            }
+            perf::actions::Action::Quality { level } => {
+                if let Some(quality) = quality::QualityLevel::parse(&level) {
+                    self.settings.set_quality(quality);
+                }
+            }
+            perf::actions::Action::Lightmaps { quality } => {
+                if let Some(quality) = quality::LightmapQuality::parse(&quality) {
+                    self.settings.set_lightmap_quality(quality);
+                }
+            }
+            perf::actions::Action::Focus { focused } => {
+                return self.handle_event(&Event::Window {
+                    timestamp: 0,
+                    window_id: self.window.id(),
+                    win_event: if focused {
+                        WindowEvent::FocusGained
+                    } else {
+                        WindowEvent::FocusLost
+                    },
+                });
+            }
+            perf::actions::Action::Quit {} => {
+                return self.handle_event(&Event::Quit { timestamp: 0 });
+            }
+        }
+        self.game.is_running()
+    }
+
     /// Handles one SDL event; returns `false` when the pump should stop.
     fn handle_event(&mut self, event: &Event) -> bool {
+        if let Some(received) = self
+            .actions
+            .as_ref()
+            .and_then(|actions| actions.receive(event))
+        {
+            return self.handle_scripted_action(received);
+        }
+
         if let Event::Quit { .. } = event {
             self.game.stop();
             return false;
@@ -1217,6 +1326,20 @@ impl FrameLoop<'_> {
             } else if matches!(win_event, WindowEvent::FocusGained) {
                 self.window_focused = true;
             }
+            return true;
+        }
+
+        if self.load_intent.is_some()
+            && matches!(
+                event,
+                Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    repeat: false,
+                    ..
+                }
+            )
+        {
+            self.cancel_loading();
             return true;
         }
 
@@ -1456,6 +1579,15 @@ impl FrameLoop<'_> {
     /// and "Load failed: ..." would appear in Settings, because one `UiState`
     /// field backs every screen's status line.
     fn goto(&mut self, state: AppState) {
+        if self.load_intent.is_some() && state == AppState::Playing {
+            return;
+        }
+        if self.load_intent.is_some() && state == AppState::MainMenu {
+            self.cancel_loading();
+        }
+        if matches!(self.load_intent, Some(LoadIntent::Graphics)) {
+            self.load_return_state = state;
+        }
         if self.game.app_state() != state {
             self.ui_state.clear_status();
         }
@@ -1504,36 +1636,276 @@ impl FrameLoop<'_> {
         }
     }
 
-    /// Loads the level at `index` and drops the player into it.
+    /// Queues a level without blocking event dispatch.
     fn load_level_at(&mut self, index: usize) {
-        let Some(entry) = self.level_manager.get_entry(index) else {
-            return;
+        if let Some(entry) = self.level_manager.get_entry(index).cloned() {
+            self.request_load(loading::Source::Entry(entry), LoadIntent::Play);
+        }
+    }
+
+    fn request_load(&mut self, source: loading::Source, intent: LoadIntent) {
+        let level_id = source.level_id().to_string();
+        let request = loading::Request {
+            source: source.clone(),
+            lightmaps: self.settings.lightmap_quality(),
         };
-        match self.level_manager.load_level(entry) {
-            Ok(loaded) => {
-                self.renderer.set_level(&loaded);
-                spawn_level_demonstration(self.renderer, &loaded);
-                log_dynamic_scene(self.renderer);
-                *self.spawn_pos = game::spawn_position(&loaded.level);
-                *self.spawn_yaw = loaded.level.spawn.yaw_degrees.to_radians();
-                self.game.reset_level(
-                    *self.spawn_pos,
-                    *self.spawn_yaw,
-                    CollisionWorld::from_level(&loaded.level),
-                );
-                // Keep the definition resident: a live quality or lightmap
-                // change rebuilds this level's GPU resources from it.
-                *self.current_level = Some(loaded);
+        match self.loader.request(request) {
+            Ok(id) => {
+                if self.load_intent.is_none() {
+                    self.load_return_state = self.game.app_state();
+                }
+                self.renderer.cancel_prepared_install();
+                self.pending_commit = None;
+                self.load_generation = id;
+                self.load_intent = Some(intent);
+                self.load_source = Some(source);
+                self.load_phase = None;
+                if self.game.app_state() == AppState::Playing {
+                    self.game.set_app_state(AppState::Paused);
+                }
                 self.input_handler.clear_gameplay_inputs();
-                self.ui_state.clear_status();
-                self.game.set_app_state(AppState::Playing);
-            }
-            Err(err) => {
-                crate::logging::warn(format!("[levels] {} failed to load: {err}", entry.name));
+                self.game.reset_timing();
                 self.ui_state
-                    .set_status(format!("Could not load {}: {err}", entry.name), true);
+                    .set_status("Preparing level... Esc to cancel".to_string(), false);
+                self.trace.record("request", id, &level_id);
+                if let Some(actions) = &self.actions
+                    && let Err(error) = actions.notify(&format!("request:{level_id}"))
+                {
+                    self.fatal_error = Some(error);
+                    self.game.stop();
+                }
+            }
+            Err(error) => self.ui_state.set_status(error, true),
+        }
+    }
+
+    fn restore_applied_graphics(&mut self) {
+        if self.current_level.is_none() {
+            return;
+        }
+        let previous = &self.applied_graphics_settings;
+        self.settings.quality.clone_from(&previous.quality);
+        self.settings
+            .texture_filtering
+            .clone_from(&previous.texture_filtering);
+        self.settings.lightmaps.clone_from(&previous.lightmaps);
+        self.settings.reflections.clone_from(&previous.reflections);
+        self.settings.bloom = previous.bloom;
+        self.settings.overrides.quality = previous.overrides.quality;
+        self.settings.overrides.lightmaps = previous.overrides.lightmaps;
+        self.settings.overrides.reflections = previous.overrides.reflections;
+        self.settings.overrides.bloom = previous.overrides.bloom;
+        self.settings.pending.graphics = false;
+        self.renderer.set_quality(self.settings.quality_level());
+        self.renderer
+            .set_lightmap_quality(self.settings.lightmap_quality());
+        self.renderer
+            .set_reflection_quality(self.settings.reflection_quality());
+        self.renderer
+            .set_bloom_enabled(self.settings.bloom_enabled());
+        self.renderer
+            .set_texture_filtering(self.settings.texture_filtering_preset());
+        let _ = self.renderer.apply_frame_graphics();
+        self.save_settings();
+    }
+
+    fn cancel_loading(&mut self) {
+        self.loader.cancel();
+        self.trace
+            .record("cancel_disposal_begin", self.load_generation, "");
+        self.renderer.cancel_prepared_install();
+        self.pending_commit = None;
+        self.trace
+            .record("cancel_disposal_end", self.load_generation, "");
+        self.restore_applied_graphics();
+        self.load_intent = None;
+        self.load_source = None;
+        self.load_phase = None;
+        self.launch_overrides = false;
+        self.input_handler.clear_gameplay_inputs();
+        self.game.reset_timing();
+        self.game.set_app_state(self.load_return_state);
+        self.ui_state.clear_status();
+        self.trace.record("cancel", self.load_generation, "");
+        self.trace_world("load_cancelled");
+    }
+
+    fn advance_loading(&mut self) {
+        if let Some((id, result)) = self.loader.poll() {
+            match result {
+                Ok(prepared) => {
+                    let Some(intent) = self.load_intent else {
+                        return;
+                    };
+                    self.trace
+                        .record("cpu_ready", id, &prepared.loaded.level.id);
+                    if prepared.lightmaps != self.settings.lightmap_quality() {
+                        if let Some(source) = self.load_source.clone() {
+                            self.request_load(source, intent);
+                        }
+                        return;
+                    }
+                    self.trace.record("preparation_result", id, &serde_json::json!({
+                        "level": prepared.loaded.level.id, "wall_ms": prepared.preparation_millis,
+                        "cache_hit": prepared.cache_hit,
+                        "lighting_ms": if prepared.cache_hit { 0.0 } else { prepared.build.timings.lighting_millis },
+                        "props_ms": if prepared.cache_hit { 0.0 } else { prepared.build.timings.props_millis },
+                        "surfaces_ms": if prepared.cache_hit { 0.0 } else { prepared.build.timings.surfaces_millis },
+                        "atlas_ms": if prepared.cache_hit { 0.0 } else { prepared.build.lightmap_millis },
+                        "retained_bytes": prepared.build.retained_bytes(),
+                    }).to_string());
+                    let loading::PreparedWorld {
+                        loaded,
+                        build,
+                        collision,
+                        characters,
+                        assets,
+                        ..
+                    } = prepared;
+                    self.renderer.install_prepared(
+                        &loaded,
+                        build,
+                        assets,
+                        characters,
+                        matches!(intent, LoadIntent::Graphics),
+                    );
+                    self.pending_commit = Some(PendingCommit {
+                        id,
+                        loaded,
+                        collision,
+                        intent,
+                    });
+                    if let Err(error) = self.notify_upload() {
+                        self.fatal_error = Some(error);
+                        self.game.stop();
+                        return;
+                    }
+                }
+                Err(error) => {
+                    if let (Some(actions), Some(source)) = (&self.actions, &self.load_source)
+                        && let Err(notify_error) =
+                            actions.notify(&format!("failed:{}", source.level_id()))
+                    {
+                        self.fatal_error = Some(notify_error);
+                        self.game.stop();
+                    }
+                    self.restore_applied_graphics();
+                    self.load_intent = None;
+                    self.load_source = None;
+                    self.game.set_app_state(self.load_return_state);
+                    self.input_handler.clear_gameplay_inputs();
+                    self.game.reset_timing();
+                    self.trace_world("load_recovered");
+                    self.trace.record("failed", id, &error);
+                    self.ui_state
+                        .set_status(format!("Could not load level: {error}"), true);
+                }
             }
         }
+        if self.pending_commit.is_some() {
+            self.trace
+                .record("upload_step_begin", self.load_generation, "");
+            let committed = self.renderer.advance_prepared_install();
+            self.trace
+                .record("upload_step_end", self.load_generation, "");
+            if committed {
+                self.commit_loaded_world();
+            }
+        }
+        let phase = self.loader.phase();
+        if phase != self.load_phase {
+            self.load_phase = phase;
+            if let Some(phase) = phase {
+                let label = match phase {
+                    loading::Phase::Queued => "Waiting for previous preparation",
+                    loading::Phase::Reading => "Reading level and assets",
+                    loading::Phase::Geometry => "Preparing geometry and lighting",
+                    loading::Phase::Lightmaps => "Filling lightmaps",
+                    loading::Phase::Collision => "Preparing collision",
+                    loading::Phase::Characters => "Preparing characters",
+                    loading::Phase::Ready => "Uploading level",
+                };
+                self.ui_state
+                    .set_status(format!("{label}... Esc to cancel"), false);
+                self.trace.record("phase", self.load_generation, label);
+            }
+        }
+    }
+
+    fn notify_upload(&mut self) -> Result<(), String> {
+        self.ui_state
+            .set_status("Uploading level... Esc to cancel".to_string(), false);
+        if let (Some(actions), Some(pending)) = (&self.actions, &self.pending_commit) {
+            actions.notify(&format!("upload:{}", pending.loaded.level.id))
+        } else {
+            Ok(())
+        }
+    }
+
+    fn trace_world(&mut self, event: &str) {
+        let (renderer_level, renderer_quality, renderer_lightmaps) =
+            self.renderer.installed_identity();
+        let position = self.game.player_position.to_array();
+        self.trace.record(event, self.load_generation, &serde_json::json!({
+            "current_level_id": self.current_level.as_ref().map(|loaded| loaded.level.id.as_str()),
+            "renderer_level_id": renderer_level,
+            "walls": self.game.walls().len(), "interactables": self.game.interactables().len(),
+            "routes": self.game.routes().len(), "triggers": self.game.triggers().len(),
+            "characters": self.renderer.character_count(), "dynamic_objects": self.renderer.dynamic_scene().len(),
+            "player_position": position, "quality": self.settings.quality_level().name(),
+            "lightmaps": self.settings.lightmap_quality().name(), "reflections": self.settings.reflection_quality().name(),
+            "renderer_quality": renderer_quality.name(), "renderer_lightmaps": renderer_lightmaps.name(),
+            "bloom": self.settings.bloom_enabled(), "window_focused": self.window_focused,
+        }).to_string());
+    }
+
+    fn commit_loaded_world(&mut self) {
+        let Some(PendingCommit {
+            id,
+            loaded,
+            collision,
+            intent,
+        }) = self.pending_commit.take()
+        else {
+            return;
+        };
+        self.trace.record("gpu_ready", id, &loaded.level.id);
+        logging::info(format!("[loading] committed {}", loaded.level.id));
+        self.load_intent = None;
+        if matches!(intent, LoadIntent::Graphics) {
+            self.game.set_app_state(self.load_return_state);
+        } else {
+            spawn_level_demonstration(self.renderer, &loaded);
+            *self.spawn_pos = game::spawn_position(&loaded.level);
+            *self.spawn_yaw = loaded.level.spawn.yaw_degrees.to_radians();
+            self.game
+                .reset_level(*self.spawn_pos, *self.spawn_yaw, collision);
+            if matches!(intent, LoadIntent::Play) {
+                self.game.set_app_state(AppState::Playing);
+            }
+            self.ready_frames = 0;
+        }
+        self.presentation.pending_scene = Some(self.load_generation);
+        self.applied_graphics_settings = self.settings.clone();
+        log_prop_usage(self.renderer);
+        *self.current_level = Some(loaded);
+        self.load_source = None;
+        self.load_phase = None;
+        self.ui_state.clear_status();
+        self.input_handler.clear_gameplay_inputs();
+        self.game.reset_timing();
+        if self.launch_overrides {
+            self.launch_overrides = false;
+            if let Some(spawn) = spawn_override_from_env() {
+                apply_spawn_override(self.game, self.spawn_pos, self.spawn_yaw, spawn);
+            }
+            if matches!(intent, LoadIntent::Play) && pause_requested() {
+                self.game.set_app_state(AppState::Paused);
+            }
+            apply_screen_request(self.game, self.ui_state);
+        }
+        self.trace_world("world_committed");
+        self.trace.record("ready", id, "");
     }
 
     /// Imports packs waiting in the import folders and refreshes the level list.
@@ -1630,6 +2002,47 @@ impl FrameLoop<'_> {
         }
     }
 
+    fn notify_presented(&mut self, ready: bool, presented: bool) {
+        if ready
+            && presented
+            && let Some(generation) = self.presentation.pending_scene.take()
+            && let Some(loaded) = self.current_level.as_ref()
+        {
+            self.trace
+                .record("scene_presented", generation, &loaded.level.id);
+        }
+        if ready
+            && self.ready_frames == 1
+            && let Some(loaded) = self.current_level.as_ref()
+            && let Some(actions) = &self.actions
+            && let Err(error) = actions.notify(&format!("ready:{}", loaded.level.id))
+        {
+            self.fatal_error = Some(error);
+            self.game.stop();
+        }
+        if let Some(actions) = &mut self.actions
+            && let Err(error) = actions.join_finished()
+        {
+            self.fatal_error = Some(error);
+            self.game.stop();
+        }
+    }
+
+    /// Presents or yields when the native surface is temporarily unavailable.
+    fn present_frame(&mut self, frame_begin: Instant) -> bool {
+        let presented = !self.bench.skip_swap() && self.renderer.present(self.window);
+        if !self.bench.skip_swap() && !presented {
+            // An occluded surface can reject acquisition immediately despite
+            // a nonzero drawable and VSync. Yield instead of spinning until
+            // the window becomes available; successful frames keep VSync pacing.
+            let pause = std::time::Duration::from_millis(16).saturating_sub(frame_begin.elapsed());
+            if !pause.is_zero() {
+                std::thread::sleep(pause);
+            }
+        }
+        presented
+    }
+
     /// Draws the frame, handles the one-shot capture, presents and records it.
     fn render_and_present(&mut self, frame_begin: Instant, frame_update_done: Instant) {
         // Use the physical drawable size (SDL3's window size in pixels), not
@@ -1679,7 +2092,7 @@ impl FrameLoop<'_> {
         }
         let frame_render_done = Instant::now();
         if self.game.frame_count() == 1 && !skip_render {
-            perf::startup_mark("first scene submitted");
+            perf::startup_mark("first scene attempted");
         }
         // Apply a changed texture filtering setting to existing GL textures
         // without re-uploading their pixel data.
@@ -1702,10 +2115,19 @@ impl FrameLoop<'_> {
         }
         let frame_ui_done = Instant::now();
         if self.game.frame_count() == 1 {
-            perf::startup_mark("first UI submitted");
+            perf::startup_mark("first UI attempted");
         }
 
-        if self.game.frame_count() >= self.capture_at_frame
+        let ready = self.current_level.is_some() && self.load_intent.is_none();
+        if ready {
+            self.ready_frames = self.ready_frames.saturating_add(1);
+        }
+        if ready
+            && self
+                .actions
+                .as_ref()
+                .is_none_or(perf::actions::Actions::complete)
+            && self.ready_frames >= self.capture_at_frame
             && let Some(path) = self.capture_path.take()
         {
             write_capture(self.renderer, &path);
@@ -1715,18 +2137,27 @@ impl FrameLoop<'_> {
 
         // Swap window buffer (double buffered, VSync synchronized). The
         // renderer presents its acquired surface texture.
-        if !self.bench.skip_swap() {
-            self.renderer.present(self.window);
-        }
+        let presented = self.present_frame(frame_begin);
         let frame_swap_done = Instant::now();
-        if self.game.frame_count() == 1 {
+        self.notify_presented(ready, presented);
+        self.trace.record(
+            if presented {
+                "present"
+            } else {
+                "surface_not_presented"
+            },
+            self.load_generation,
+            if ready { "ready" } else { "loading" },
+        );
+        if presented && !self.presentation.has_presented {
+            self.presentation.has_presented = true;
             perf::startup_mark("first presented");
             // A summarized phase table when PLACES_VERBOSE is on; a release
             // launch with no developer switches prints nothing.
             perf::startup_report();
         }
 
-        if self.bench.enabled() {
+        if self.bench.enabled() && ready {
             self.bench.record_frame(
                 frame_begin,
                 frame_update_done,
@@ -1735,7 +2166,12 @@ impl FrameLoop<'_> {
                 frame_swap_done,
                 self.renderer.render_stats(),
             );
-            if self.bench.is_complete() {
+            if self.bench.is_complete()
+                && self
+                    .actions
+                    .as_ref()
+                    .is_none_or(perf::actions::Actions::complete)
+            {
                 self.bench.finish();
                 self.game.stop();
             }
@@ -1817,6 +2253,35 @@ fn bootstrap() -> Result<(Sdl, VideoSubsystem, Window, Settings, Bench), String>
     Ok((sdl_context, video_subsystem, window, settings, bench))
 }
 
+fn initial_level(level_manager: &loader::LevelManager) -> (Option<loader::LevelEntry>, bool) {
+    let requested = std::env::var("PLACES_LEVEL")
+        .ok()
+        .filter(|value| !value.trim().is_empty());
+    let initial_entry = requested
+        .as_ref()
+        .and_then(|requested| {
+            level_manager.entries().iter().find(|entry| {
+                entry.id == requested.trim() || entry.name.eq_ignore_ascii_case(requested.trim())
+            })
+        })
+        .or_else(|| {
+            level_manager
+                .entries()
+                .iter()
+                .find(|entry| entry.id == loader::DEMO_LEVEL_ID)
+        })
+        .cloned();
+    let direct = requested.as_ref().is_some_and(|requested| {
+        initial_entry.as_ref().is_some_and(|entry| {
+            entry.id == requested.trim() || entry.name.eq_ignore_ascii_case(requested.trim())
+        })
+    });
+    if requested.is_some() && !direct {
+        logging::warn("Requested level was not found; loading Places Demo");
+    }
+    (initial_entry, direct)
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // The geometry checker is a headless CLI mode: it must run before any SDL
     // or wgpu bootstrap, and it exits the process with its own status.
@@ -1826,49 +2291,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(None) => {}
         Err(error) => geometry_check::exit_usage(&error),
     }
+    let mut trace = perf::loading::LoadTrace::new();
+    trace.record("entry", 0, "");
     perf::startup_begin();
     let (sdl_context, video_subsystem, mut window, mut settings, mut bench) = bootstrap()?;
 
     let mut level_manager = loader::LevelManager::new();
     log_asset_catalog(&level_manager);
     perf::startup_mark("asset catalog");
-    let initial_level = level_manager
-        .load_default()
-        .map_err(|e| format!("Failed to load initial level: {e}"))?;
-    perf::startup_mark("level loaded");
-    let mut renderer = create_renderer(&window, &initial_level, &settings, &bench)?;
-    perf::startup_mark("level uploaded");
+    let mut renderer = create_renderer(&window, &settings, &bench)?;
     configure_vsync(&mut renderer, &mut bench, &settings);
+    trace.record("window_ready", 0, "");
 
     let mut event_pump = sdl_context
         .event_pump()
         .map_err(|e| format!("Failed to init event pump: {e}"))?;
 
+    let action_events = sdl_context.event().map_err(|error| error.to_string())?;
+    let actions = perf::actions::Actions::from_env(&action_events, window.id())?;
     let mut input_handler = InputHandler::new();
-    let (mut game, mut spawn_pos, mut spawn_yaw) = new_game(&initial_level);
-    log_prop_usage(&renderer);
-    perf::startup_mark("game ready");
-    // The current level stays resident for the session: the renderer keeps only
-    // GPU state, so a live quality or lightmap change rebuilds from this
-    // definition (and the session texture caches) instead of re-reading a file.
-    let mut current_level = Some(initial_level);
+    let mut spawn_pos = Vec3::ZERO;
+    let mut spawn_yaw = 0.0;
+    let mut game = Game::new(spawn_pos, spawn_yaw, CollisionWorld::default());
+    let mut current_level = None;
     let mut display_status = DisplayStatus::default();
-
-    apply_level_request(
-        &level_manager,
-        &mut renderer,
-        &mut game,
-        &bench,
-        &mut spawn_pos,
-        &mut spawn_yaw,
-        &mut current_level,
-    );
-    // `PLACES_SPAWN=x,z,yaw_degrees` (or `x,y,z,yaw_degrees`) overrides the
-    // level's spawn point, so a hardware run can stand in front of a specific
-    // prop instead of walking there with a pad.
-    if let Some(spawn_override) = spawn_override_from_env() {
-        apply_spawn_override(&mut game, &mut spawn_pos, &mut spawn_yaw, spawn_override);
-    }
+    let (initial_entry, direct) = initial_level(&level_manager);
+    let loader = loading::Loader::new(loader::LevelManager::new())?;
     // `PLACES_STATE_LOG=file.csv` records `frame,x,y,z,yaw,pitch` while the
     // game runs, so control and movement checks can assert real input results
     // from a running build instead of inferring them from screenshots.
@@ -1883,6 +2331,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut capture_path = capture_path_from_env();
     let capture_at_frame = capture_frame_from_env();
 
+    let applied_graphics_settings = settings.clone();
     let mut frame_loop = FrameLoop {
         window: &mut window,
         sdl: &sdl_context,
@@ -1910,7 +2359,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         last_logged_window: (0, 0, 0, 0),
         window_focused: true,
         fatal_error: None,
+        loader,
+        load_intent: None,
+        pending_commit: None,
+        load_source: None,
+        load_generation: 0,
+        load_return_state: AppState::MainMenu,
+        load_phase: None,
+        launch_overrides: true,
+        ready_frames: 0,
+        presentation: PresentationState::default(),
+        trace,
+        actions,
+        applied_graphics_settings,
     };
+    frame_loop.request_load(
+        initial_entry.map_or(loading::Source::Default, loading::Source::Entry),
+        if direct {
+            LoadIntent::Play
+        } else {
+            LoadIntent::Background
+        },
+    );
     frame_loop.run();
 
     if let Some(error) = frame_loop.fatal_error.take() {

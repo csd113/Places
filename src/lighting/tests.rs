@@ -2282,14 +2282,14 @@ fn lightmap_texel_with_no_room_resolves_by_containment() {
 
 // ------------------------------------------------- developer diagnostics
 //
-// Tooling for the lighting rebalance. `lighting_developer_report` prints a
+// Lighting calibration diagnostics. `lighting_developer_report` prints a
 // baked level's rooms, areas, powers, baselines and per-area baselines and
 // decomposes labelled world samples into baseline + pool + blend + final.
 // `lighting_candidate_sweep` re-evaluates the whole model under candidate
 // constants from the *measured* fixture terms, so calibration choices can be
 // compared without rebuilding. Both are developer-facing and deterministic;
 // the ignored tests at the bottom of the section write them under
-// `target/agent-work/agent-a/`.
+// `target/diagnostics/lighting/`.
 //
 // The decomposition is exact by construction: `bake_terms_in_room` shares the
 // production sample path, and `pool_terms_in_room` shares the production
@@ -2868,7 +2868,7 @@ fn screen_terms_for_test(terms: &[PoolTerm]) -> (LightColor, LightColor) {
     )
 }
 
-/// Guards agent C's zone-seam regression: a 1.4 m corridor between two
+/// Guards against a zone seam: a 1.4 m corridor between two
 /// full-depth partition walls is narrower than a light-grid cell, so with the
 /// coarse grid both neighbouring cell centres landed inside the walls and the
 /// corridor's samples were split between unrelated zones (measured 0.322 vs
@@ -2982,9 +2982,9 @@ fn zones_in_room_describes_uniform_and_partitioned_rooms() {
 
 /// Writes the developer report for the shipped levels.
 #[test]
-#[ignore = "developer report; writes target/agent-work/agent-a"]
+#[ignore = "developer report; writes target/diagnostics/lighting"]
 #[allow(clippy::print_stdout)] // the report path is the tool's only output
-fn agent_a_lighting_developer_report() {
+fn write_lighting_developer_report() {
     let mut report = String::new();
     for (path, label, samples) in [
         (
@@ -3006,7 +3006,7 @@ fn agent_a_lighting_developer_report() {
         "controlled_ladder",
         CONTROLLED_SAMPLES,
     ));
-    let path = "target/agent-work/agent-a/lighting-report.txt";
+    let path = "target/diagnostics/lighting/lighting-report.txt";
     if let Some(parent) = std::path::Path::new(path).parent() {
         std::fs::create_dir_all(parent).expect("report directory");
     }
@@ -3016,9 +3016,9 @@ fn agent_a_lighting_developer_report() {
 
 /// Sweeps candidate model constants over the shipped levels.
 #[test]
-#[ignore = "developer report; writes target/agent-work/agent-a"]
+#[ignore = "developer report; writes target/diagnostics/lighting"]
 #[allow(clippy::print_stdout)] // the sweep path is the tool's only output
-fn agent_a_model_candidate_sweep() {
+fn write_lighting_candidate_sweep() {
     let mut report = String::new();
     for (path, label, probes) in [
         (
@@ -3033,7 +3033,7 @@ fn agent_a_model_candidate_sweep() {
         report.push_str(&lighting_candidate_sweep(&level, label, SWEEP, 1.0, probes));
         report.push('\n');
     }
-    let path = "target/agent-work/agent-a/candidate-sweep.txt";
+    let path = "target/diagnostics/lighting/candidate-sweep.txt";
     if let Some(parent) = std::path::Path::new(path).parent() {
         std::fs::create_dir_all(parent).expect("report directory");
     }
@@ -3147,7 +3147,7 @@ static CONTROLLED_SAMPLES: &[(&str, f32, f32, f32)] = &[
     ("ladder_corner", 0.4, 0.0, 11.6),
 ];
 
-/// Candidate constants for [`agent_a_model_candidate_sweep`].
+/// Candidate constants for [`write_lighting_candidate_sweep`].
 ///
 /// The first row is the historical model; the rest bracket the rebalance
 /// direction (weaker fill, stronger and steeper pools).

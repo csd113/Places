@@ -2,8 +2,9 @@
 //!
 //! Levels reference assets by logical id (`core:chair`, `spooner-man`); the
 //! asset catalog maps that id to a canonical resource path below the asset root
-//! (`assets/`). This module resolves those paths, parses each GLB exactly once,
-//! and keeps the decoded model (vertices, indices, textures) behind an `Rc` so
+//! (`assets/`). This module resolves those paths and parses each GLB once
+//! while its request dependency is retained, and keeps the decoded model
+//! (vertices, indices, textures) behind an `Arc` so
 //! twenty placed chairs share one CPU copy and one GPU texture upload per
 //! texture the model uses.
 //!
@@ -16,7 +17,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::gltf::{GltfError, PropModel, parse_glb};
 use crate::level::{
@@ -95,10 +96,11 @@ pub struct PropAssetStats {
 }
 
 /// Cache of parsed prop models keyed by their catalogue model path.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct PropAssets {
+    inputs: HashMap<String, ModelInput>,
     root: Option<PathBuf>,
-    models: HashMap<String, Result<Rc<LoadedPropAsset>, String>>,
+    models: HashMap<String, Result<Arc<LoadedPropAsset>, String>>,
     /// Model paths that already produced a fallback, so the renderer logs each
     /// broken asset exactly once instead of once per placement.
     reported_failures: Vec<String>,
@@ -107,13 +109,64 @@ pub struct PropAssets {
     reported_budget_warnings: Vec<String>,
 }
 
+pub(crate) type ModelInput = Result<Arc<[u8]>, String>;
+
 impl PropAssets {
+    /// Snapshots each used file once per preparation, including failures. Exact byte
+    /// comparison detects edits even when length and modification time are unchanged.
+    pub(crate) fn refresh_inputs(&mut self, paths: &[String]) -> Vec<(String, ModelInput)> {
+        self.retain_request_paths(paths);
+        paths
+            .iter()
+            .map(|path| {
+                let input = self.read_input(path);
+                if let Some(previous) = self.inputs.get(path)
+                    && previous == &input
+                {
+                    // Retain one byte snapshot across prepared keys and parsed
+                    // assets; the fresh read is needed only to detect edits.
+                    return (path.clone(), previous.clone());
+                }
+                self.models.remove(path);
+                self.reported_failures.retain(|old| old != path);
+                self.reported_budget_warnings.retain(|old| old != path);
+                self.inputs.insert(path.clone(), input.clone());
+                (path.clone(), input)
+            })
+            .collect()
+    }
+
+    /// The prepared-build LRU retains geometry across visits. This parsing
+    /// cache retains only this request's inputs, avoiding cumulative clones of
+    /// unrelated models into every prepared world.
+    fn retain_request_paths(&mut self, paths: &[String]) {
+        let used: std::collections::HashSet<&str> = paths.iter().map(String::as_str).collect();
+        self.inputs.retain(|path, _| used.contains(path.as_str()));
+        self.models.retain(|path, _| used.contains(path.as_str()));
+        self.reported_failures
+            .retain(|path| used.contains(path.as_str()));
+        self.reported_budget_warnings
+            .retain(|path| used.contains(path.as_str()));
+    }
+
+    fn read_input(&self, model_path: &str) -> ModelInput {
+        let root = self
+            .root
+            .as_ref()
+            .ok_or_else(|| "no asset directory found (expected assets/)".to_string())?;
+        let full_path = root.join(model_path);
+        fs::read(&full_path)
+            .map(Arc::from)
+            .map_err(|error| format!("cannot read prop model {}: {error}", full_path.display()))
+    }
+
     /// Creates a cache using the standard asset search order.
     #[must_use]
     pub fn load_default() -> Self {
         Self {
             root: resolve_prop_root(),
             models: HashMap::new(),
+            inputs: HashMap::new(),
             reported_failures: Vec::new(),
             reported_budget_warnings: Vec::new(),
         }
@@ -124,6 +177,7 @@ impl PropAssets {
         Self {
             root: Some(root.into()),
             models: HashMap::new(),
+            inputs: HashMap::new(),
             reported_failures: Vec::new(),
             reported_budget_warnings: Vec::new(),
         }
@@ -144,7 +198,7 @@ impl PropAssets {
     ///
     /// Returns a message when the model file is missing, is not a valid GLB, or
     /// exceeds the prop engine ceilings.
-    pub fn resolve(&mut self, model_path: &str) -> Result<Rc<LoadedPropAsset>, String> {
+    pub fn resolve(&mut self, model_path: &str) -> Result<Arc<LoadedPropAsset>, String> {
         if let Some(cached) = self.models.get(model_path) {
             return cached.clone();
         }
@@ -158,17 +212,14 @@ impl PropAssets {
         result
     }
 
-    fn load(&self, model_path: &str) -> Result<Rc<LoadedPropAsset>, String> {
-        let root = self
-            .root
-            .as_ref()
-            .ok_or_else(|| "no asset directory found (expected assets/)".to_string())?;
-        let full_path = root.join(model_path);
-        let bytes = fs::read(&full_path)
-            .map_err(|error| format!("cannot read prop model {}: {error}", full_path.display()))?;
+    fn load(&self, model_path: &str) -> Result<Arc<LoadedPropAsset>, String> {
+        let bytes = match self.inputs.get(model_path) {
+            Some(input) => input.clone()?,
+            None => self.read_input(model_path)?,
+        };
         let model = parse_glb(&bytes)
             .map_err(|error: GltfError| format!("prop model {model_path} is invalid: {error}"))?;
-        Ok(Rc::new(LoadedPropAsset {
+        Ok(Arc::new(LoadedPropAsset {
             model_path: model_path.to_string(),
             model,
         }))

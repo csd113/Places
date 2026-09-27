@@ -1,0 +1,77 @@
+{
+  "max_event_gap_ms": 124.905709,
+  "p99_event_gap_ms": 0.013834000000088054,
+  "action_latencies_ms": [
+    0.002666,
+    14.820291,
+    0.0035
+  ],
+  "disposal_ms": 0.925083000001905,
+  "phases": [
+    {
+      "event": "phase",
+      "detail": "Reading level and assets",
+      "elapsed_ms": 143.012584
+    },
+    {
+      "event": "phase",
+      "detail": "Preparing geometry and lighting",
+      "elapsed_ms": 165.30070899999998
+    },
+    {
+      "event": "phase",
+      "detail": "Filling lightmaps",
+      "elapsed_ms": 165.697167
+    },
+    {
+      "event": "phase",
+      "detail": "Waiting for previous preparation",
+      "elapsed_ms": 191.101959
+    },
+    {
+      "event": "phase",
+      "detail": "Reading level and assets",
+      "elapsed_ms": 191.127375
+    },
+    {
+      "event": "phase",
+      "detail": "Preparing geometry and lighting",
+      "elapsed_ms": 261.783
+    },
+    {
+      "event": "phase",
+      "detail": "Filling lightmaps",
+      "elapsed_ms": 6615.675084
+    },
+    {
+      "event": "phase",
+      "detail": "Preparing collision",
+      "elapsed_ms": 23426.784959
+    },
+    {
+      "event": "phase",
+      "detail": "Preparing characters",
+      "elapsed_ms": 23427.515541999997
+    },
+    {
+      "event": "phase",
+      "detail": "Uploading level",
+      "elapsed_ms": 28025.024041999997
+    },
+    {
+      "event": "cancel",
+      "detail": "",
+      "elapsed_ms": 28041.359459
+    },
+    {
+      "event": "shutdown_requested",
+      "detail": "",
+      "elapsed_ms": 28529.065584
+    },
+    {
+      "event": "shutdown_complete",
+      "detail": "",
+      "elapsed_ms": 28547.117084
+    }
+  ]
+}

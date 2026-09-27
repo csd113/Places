@@ -14,7 +14,7 @@
 //!     ↓                  catalog `model` path, relative to the asset root
 //! external PNG           environment/office/textures/floors/carpet_beige_01.png
 //!     ↓                  decoded once per session ([`TextureCache`])
-//! decoded image          Rc<RawImage>, uploaded to one GPU texture per level
+//! decoded image          Arc<RawImage>, uploaded to one GPU texture per level
 //! ```
 //!
 //! Ids are stable and physical paths are not: moving a PNG between directories

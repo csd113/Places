@@ -1,0 +1,54 @@
+[package] /Users/connordawkins/Documents/GitHub/Places (assets: /Users/connordawkins/Documents/GitHub/Places/assets/levels)
+[package] asset root: /Users/connordawkins/Documents/GitHub/Places/assets
+[settings] quality high (saved high) [startup override] | bloom on | reflections full | lightmaps full | vsync on | filtering high | window Windowed 640 x 360
+[assets] 48 placeable asset(s) of 137 catalog entries; themes: office, pool, home
+[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720
+[wgpu] texture filtering: world presets low 4x / medium 8x / high 16x requested | anisotropy supported
+[window] logical 640x360 | drawable 1280x720 pixels | backing scale 2.0x
+[wgpu] world pipeline for surface format Bgra8UnormSrgb
+[wgpu] post targets: scene 1280x720, bloom 320x180, presented 1280x720
+[startup] total 174.7 ms
+[startup]   package root: +0.1 ms (0.1 ms)
+[startup]   settings: +0.2 ms (0.3 ms)
+[startup]   window: +104.1 ms (104.3 ms)
+[startup]   asset catalog: +8.4 ms (112.7 ms)
+[startup]   renderer device: +9.0 ms (121.7 ms)
+[startup]   input responsive: +40.8 ms (162.5 ms)
+[startup]   first scene submitted: +12.2 ms (174.7 ms)
+[startup]   first UI submitted: +0.0 ms (174.7 ms)
+[startup]   first presented: +0.0 ms (174.7 ms)
+[loading] prepared-cache miss level=capacity_dense
+[characters] the level places more than 64 skinned characters; the rest stay in their static bind pose
+[lightmaps] atlas array: 4 of 8 layer(s) resident, 1024-texel edge, 16777216 bytes of page data (33554432 bytes allocated)
+[wgpu] world upload: 11744 vertices, 24528 indices, 103 draws in 1 chunk(s) (neutral mesh: 11936 vertices, 24816 indices, 115 ranges)
+[wgpu] textures: 6 unique, 5 uploaded, 50 cache hits, 24 fallbacks, 0 missing of 103 draws (37748728 bytes resident, max edge 1024px, high filtering)
+[wgpu] materials: 8 resolved (5 response, 0 reflection-eligible), 0 normal maps (0 uploaded, 0 cache hits), 102 opaque / 0 cutout / 1 translucent of 103 draws (enabled response, high level)
+[wgpu] decals: 12 draw(s), 1 chunk(s), 2 sheet(s) (1 external, 0 diagnostic)
+[wgpu] characters: 64 character(s), 5 mesh(es), 101 draw(s), 147316 vertices
+[loading] committed capacity_dense
+[props] 48 models cached (0 failed), 17748 triangles, 10784 KiB of textures, 1121 draw call(s)
+[level] 11936 static vertices, 4098357 prop vertices, 1121 prop draw call(s), built in 0.1 ms (lighting 28.3 + props 6255.8 + surfaces 6.0)
+[spatial] 103 static batch(es) (floor 7 / ceiling 2 / wall 46 / light 48 / prop box 0 / decal 0), 1121 prop batch(es)
+[lighting] baked 1 room(s) / 1 baseline area(s) from 120 fixture(s): 714 wall + 183 slab + 4096 prop blocker(s), baselines 0.38..0.38 (avg 0.38)
+[lightmaps] 4 page(s), 487 chart(s), 3108428 chart texels, 4194304 page texels (12288 KiB), filled in 0.0 ms
+[dynamic] 0 object(s): 0 draw call(s), 0 vertices (the demonstration path; never part of the static bake)
+BENCH_SUMMARY {"level":"capacity_dense","frames":4,"swap_interval":1,"update_mean_ms":7.242,"render_mean_ms":3.445,"swap_mean_ms":0.032,"frame_mean_ms":10.718,"loop_mean_ms":13.415,"frame_median_ms":10.178,"loop_median_ms":18.216,"frame_p95_ms":18.216,"frame_p99_ms":18.216,"loop_p95_ms":18.245,"loop_p99_ms":18.245,"frame_min_ms":7.016,"frame_max_ms":18.216,"loop_min_ms":7.018,"loop_max_ms":18.245,"fps_median":54.90,"fps_p95":54.81,"fps_p99":54.81,"fps_1pct_low":54.81,"fps_mean":74.54,"measured_fps_mean":93.30,"worst_fps":54.81,"total_vertices":4110101,"visible_vertices":2560097,"culled_vertices":1550004,"total_batches":1224,"visible_batches":732,"draw_calls":732,"vbo_bytes":263046464,"index_bytes":11940432,"texture_binds":645,"material_changes":666,"reflection_passes":0}
+BENCH_SUMMARY {"level":"capacity_dense","frames":4,"swap_interval":1,"update_mean_ms":7.242,"render_mean_ms":3.445,"swap_mean_ms":0.032,"frame_mean_ms":10.718,"loop_mean_ms":13.415,"frame_median_ms":10.178,"loop_median_ms":18.216,"frame_p95_ms":18.216,"frame_p99_ms":18.216,"loop_p95_ms":18.245,"loop_p99_ms":18.245,"frame_min_ms":7.016,"frame_max_ms":18.216,"loop_min_ms":7.018,"loop_max_ms":18.245,"fps_median":54.90,"fps_p95":54.81,"fps_p99":54.81,"fps_1pct_low":54.81,"fps_mean":74.54,"measured_fps_mean":93.30,"worst_fps":54.81,"total_vertices":4110101,"visible_vertices":2560097,"culled_vertices":1550004,"total_batches":1224,"visible_batches":732,"draw_calls":732,"vbo_bytes":263046464,"index_bytes":11940432,"texture_binds":645,"material_changes":666,"reflection_passes":0}
+       11.37 real        11.13 user         0.95 sys
+           704528384  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+               69223  page reclaims
+                  73  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   0  voluntary context switches
+               55404  involuntary context switches
+        189539218617  instructions retired
+         40101301740  cycles elapsed
+          1145554432  peak memory footprint

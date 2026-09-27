@@ -975,7 +975,9 @@ fn places_demo_doorway_thresholds_are_owned_once() {
     let level = parse(include_str!("../assets/levels/places_demo.json"));
     let mesh = shipped_mesh(&level);
     let all = triangles(&mesh);
-    assert_no_coincident_architecture_overlaps(&all, "places_demo doorways");
+    // The full coplanar-pair audit runs in
+    // `the_shipped_demo_has_no_coincident_architecture_surfaces`; this test
+    // additionally checks exact ownership and materials at doorway probes.
 
     // The two doorways whose sills used to duplicate the floor plane: the
     // stair door at x = 19 between the offices and the stair hall, and the

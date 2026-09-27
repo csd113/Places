@@ -1,3 +1,5 @@
+pub(crate) mod loading;
+
 use std::fs;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
@@ -619,3 +621,5 @@ impl PerfOverlay {
 
 #[cfg(test)]
 mod tests;
+
+pub(crate) mod actions;

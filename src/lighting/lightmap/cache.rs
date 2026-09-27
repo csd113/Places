@@ -5,7 +5,7 @@
 //! those inputs to one stable string:
 //!
 //! ```text
-//! v1-<64-bit FNV-1a hash of>
+//! v<format>-<64-bit FNV-1a hash of>
 //!     format version
 //!     quality profile name
 //!     every lightmap config field (density, page edge, budget, padding)
@@ -23,9 +23,11 @@
 //! The cache is deliberately allowed to fail silently: it is an optimisation,
 //! and a read-only or full filesystem must never break a level load.
 
-use std::collections::HashMap;
+use std::collections::VecDeque;
+use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::{
     LIGHTMAP_ATLAS_MAX_PAGES, LevelLightmaps, LightmapConfig, LightmapPage, LightmapStats,
@@ -69,7 +71,9 @@ use super::{
 ///   so a wall face on a shared room boundary is lit by its own room instead
 ///   of whichever overlapping neighbour the loose tie-break picked. Boundary
 ///   wall texels change value, so a version-7 atlas must not be reused.
-pub const LIGHTMAP_FORMAT_VERSION: u32 = 8;
+/// * `9` — fully occluded wall length faces no longer receive charts; the
+///   atlas topology changes while visible lighting and quality stay unchanged.
+pub const LIGHTMAP_FORMAT_VERSION: u32 = 10;
 
 /// Root of the runtime-owned on-disk cache, below the state root.
 ///
@@ -78,22 +82,23 @@ pub const LIGHTMAP_FORMAT_VERSION: u32 = 8;
 /// development-flavoured `target/` directory.
 pub const LIGHTMAP_CACHE_ROOT: &str = "cache/lightmaps";
 
-/// One serialised cache directory: the key, the page edge and the charts.
+/// Bounded metadata inside one checksummed storage envelope.
 #[derive(serde::Serialize, serde::Deserialize)]
 struct DiskMeta {
     version: u32,
     edge: u32,
+    key: String,
     charts: Vec<(super::LightmapPatch, super::Chart)>,
 }
 
 /// Process-level memory cache plus an optional on-disk store.
 ///
 /// A hit is returned as the exact `Arc` the bake produced, so a level switch
-/// costs no copy of the pages. The renderer owns one instance for the session;
+/// costs no copy of the pages. The preparation worker owns the session cache;
 /// tests use [`LightmapCache::memory_only`].
 #[derive(Debug, Default)]
 pub struct LightmapCache {
-    entries: HashMap<String, Arc<LevelLightmaps>>,
+    entries: VecDeque<(String, Arc<LevelLightmaps>)>,
     disk: bool,
 }
 
@@ -108,9 +113,9 @@ impl LightmapCache {
     /// A cache that also reads and writes `cache/lightmaps/` below the state
     /// root.
     #[must_use]
-    pub fn with_disk() -> Self {
+    pub const fn with_disk() -> Self {
         Self {
-            entries: HashMap::new(),
+            entries: VecDeque::new(),
             disk: true,
         }
     }
@@ -133,8 +138,11 @@ impl LightmapCache {
     /// that does not parse, does not match the format version, or does not
     /// describe a self-consistent page set is rejected as a miss.
     pub fn get(&mut self, key: &str) -> Option<Arc<LevelLightmaps>> {
-        if let Some(lightmaps) = self.entries.get(key) {
-            return Some(Arc::clone(lightmaps));
+        if let Some(index) = self.entries.iter().position(|(entry, _)| entry == key) {
+            let entry = self.entries.remove(index)?;
+            let lightmaps = Arc::clone(&entry.1);
+            self.entries.push_back(entry);
+            return Some(lightmaps);
         }
         if !self.disk {
             return None;
@@ -142,20 +150,43 @@ impl LightmapCache {
         let root = crate::assets::state_path(LIGHTMAP_CACHE_ROOT);
         let lightmaps = disk_load(&root, key)?;
         let lightmaps = Arc::new(lightmaps);
-        self.entries.insert(key.to_string(), Arc::clone(&lightmaps));
+        self.retain(key, Arc::clone(&lightmaps));
         Some(lightmaps)
     }
 
     /// Stores a freshly baked atlas under its content key.
     ///
-    /// Memory always receives it; the disk store is best-effort and ignored
+    /// Memory retains it within its LRU budget; the disk store is best-effort and ignored
     /// when unavailable.
     pub fn insert(&mut self, key: &str, lightmaps: Arc<LevelLightmaps>) {
+        if !key_is_safe(key) || lightmaps.cache_key != key {
+            return;
+        }
         if self.disk {
             let root = crate::assets::state_path(LIGHTMAP_CACHE_ROOT);
             disk_store(&root, key, &lightmaps);
         }
-        self.entries.insert(key.to_string(), lightmaps);
+        self.retain(key, lightmaps);
+    }
+
+    /// Retains at most four atlases and 128 MiB; callers holding an Arc keep
+    /// their active world valid even when its reusable cache entry is evicted.
+    fn retain(&mut self, key: &str, lightmaps: Arc<LevelLightmaps>) {
+        self.entries.retain(|(entry, _)| entry != key);
+        let incoming = retained_bytes(&lightmaps);
+        if incoming > MAX_MEMORY_BYTES {
+            return;
+        }
+        while self.entries.len() >= MAX_MEMORY_ENTRIES
+            || self.entries.iter().fold(incoming, |bytes, (_, entry)| {
+                bytes.saturating_add(retained_bytes(entry))
+            }) > MAX_MEMORY_BYTES
+        {
+            if self.entries.pop_front().is_none() {
+                return;
+            }
+        }
+        self.entries.push_back((key.to_string(), lightmaps));
     }
 
     /// Drops every in-memory entry (the disk store, if any, is left alone).
@@ -254,93 +285,250 @@ fn key_is_safe(key: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'))
 }
 
-/// Reads one cached atlas from `root/key`, rejecting anything inconsistent.
-pub(super) fn disk_load(root: &Path, key: &str) -> Option<LevelLightmaps> {
-    if !key_is_safe(key) {
+/// Storage framing is independent of the lighting algorithm/content-key version.
+/// Old multi-file directories are deliberately cache misses.
+const STORAGE_VERSION: u32 = 1;
+const STORAGE_MAGIC: [u8; 8] = *b"PLCLMAP1";
+const HEADER_BYTES: u64 = 40;
+const MAX_META_BYTES: usize = 8 * 1_024 * 1_024;
+const MAX_CACHE_PAGE_EDGE: u32 = 2_048;
+const MAX_MEMORY_ENTRIES: usize = 4;
+const MAX_MEMORY_BYTES: usize = 128 * 1_024 * 1_024;
+static NEXT_TEMP_FILE: AtomicU64 = AtomicU64::new(0);
+
+/// Lengths are checked before allocating or reading variable-size data.
+struct DiskLayout {
+    edge: u32,
+    page_count: usize,
+    page_bytes: usize,
+    meta_bytes: usize,
+}
+
+impl DiskLayout {
+    fn new(edge: u32, page_count: usize, meta_bytes: usize) -> Option<Self> {
+        if edge == 0
+            || edge > MAX_CACHE_PAGE_EDGE
+            || page_count == 0
+            || page_count > LIGHTMAP_ATLAS_MAX_PAGES
+            || meta_bytes == 0
+            || meta_bytes > MAX_META_BYTES
+        {
+            return None;
+        }
+        let edge_size = usize::try_from(edge).ok()?;
+        Some(Self {
+            edge,
+            page_count,
+            page_bytes: edge_size.checked_mul(edge_size)?.checked_mul(3)?,
+            meta_bytes,
+        })
+    }
+
+    fn file_bytes(&self) -> Option<u64> {
+        let payload = self.page_bytes.checked_mul(self.page_count)?;
+        HEADER_BYTES.checked_add(u64::try_from(payload.checked_add(self.meta_bytes)?).ok()?)
+    }
+
+    fn prefix(&self) -> Option<Vec<u8>> {
+        let mut bytes = Vec::with_capacity(32);
+        bytes.extend_from_slice(&STORAGE_MAGIC);
+        bytes.extend_from_slice(&STORAGE_VERSION.to_le_bytes());
+        bytes.extend_from_slice(&LIGHTMAP_FORMAT_VERSION.to_le_bytes());
+        bytes.extend_from_slice(&self.edge.to_le_bytes());
+        bytes.extend_from_slice(&u32::try_from(self.page_count).ok()?.to_le_bytes());
+        bytes.extend_from_slice(&u64::try_from(self.meta_bytes).ok()?.to_le_bytes());
+        Some(bytes)
+    }
+}
+
+fn read_u32(file: &mut std::fs::File) -> Option<u32> {
+    let mut bytes = [0; 4];
+    file.read_exact(&mut bytes).ok()?;
+    Some(u32::from_le_bytes(bytes))
+}
+
+fn read_u64(file: &mut std::fs::File) -> Option<u64> {
+    let mut bytes = [0; 8];
+    file.read_exact(&mut bytes).ok()?;
+    Some(u64::from_le_bytes(bytes))
+}
+
+fn read_layout(file: &mut std::fs::File) -> Option<(DiskLayout, u64)> {
+    let mut magic = [0; 8];
+    file.read_exact(&mut magic).ok()?;
+    if magic != STORAGE_MAGIC
+        || read_u32(file)? != STORAGE_VERSION
+        || read_u32(file)? != LIGHTMAP_FORMAT_VERSION
+    {
         return None;
     }
-    let dir = root.join(key);
-    let meta: DiskMeta =
-        serde_json::from_slice(&std::fs::read(dir.join("meta.json")).ok()?).ok()?;
-    if meta.version != LIGHTMAP_FORMAT_VERSION || meta.edge == 0 {
+    let edge = read_u32(file)?;
+    let count = usize::try_from(read_u32(file)?).ok()?;
+    let metadata = usize::try_from(read_u64(file)?).ok()?;
+    let checksum = read_u64(file)?;
+    let layout = DiskLayout::new(edge, count, metadata)?;
+    if file.metadata().ok()?.len() != layout.file_bytes()? {
         return None;
     }
-    let edge = usize::try_from(meta.edge).ok()?;
-    let page_bytes = edge.checked_mul(edge)?.checked_mul(3)?;
-    let raw = std::fs::read(dir.join("pages.bin")).ok()?;
-    if page_bytes == 0 || !raw.len().is_multiple_of(page_bytes) {
-        return None;
-    }
-    let page_count = raw.len().checked_div(page_bytes)?;
-    if page_count == 0 || page_count > LIGHTMAP_ATLAS_MAX_PAGES {
-        return None;
-    }
-    let mut pages = Vec::with_capacity(page_count);
-    for chunk in raw.chunks_exact(page_bytes) {
-        pages.push(LightmapPage {
-            width: meta.edge,
-            height: meta.edge,
-            rgb: chunk.to_vec(),
-        });
-    }
+    Some((layout, checksum))
+}
+
+fn valid_charts(meta: &DiskMeta, page_count: usize) -> Option<usize> {
     let mut texels = 0usize;
-    for (_, chart) in &meta.charts {
-        if !chart_fits(meta.edge, chart) || usize::from(chart.page) >= page_count {
+    for (patch, chart) in &meta.charts {
+        if !chart_fits(meta.edge, chart)
+            || usize::from(chart.page) >= page_count
+            || !patch
+                .origin
+                .iter()
+                .chain(&patch.u_axis)
+                .chain(&patch.v_axis)
+                .all(|value| value.is_finite())
+        {
             return None;
         }
         texels = texels.checked_add(chart_texels(chart)?)?;
     }
-    let stats = LightmapStats {
-        charts: meta.charts.len(),
-        pages: page_count,
-        texels,
-        page_texels: page_count.checked_mul(edge.checked_mul(edge)?)?,
-        bake_millis: 0.0,
-        cache_hit: true,
-    };
+    Some(texels)
+}
+
+/// Reads a complete bounded envelope, checking every byte before returning it.
+/// FNV detects accidental corruption; it is not an authentication mechanism.
+pub(super) fn disk_load(root: &Path, key: &str) -> Option<LevelLightmaps> {
+    if !key_is_safe(key) {
+        return None;
+    }
+    let mut file = std::fs::File::open(root.join(format!("{key}.lmc"))).ok()?;
+    let (layout, checksum) = read_layout(&mut file)?;
+    let mut hash = Fnv1a::new();
+    hash.write(&layout.prefix()?);
+    let mut metadata = vec![0; layout.meta_bytes];
+    file.read_exact(&mut metadata).ok()?;
+    hash.write(&metadata);
+    let meta: DiskMeta = serde_json::from_slice(&metadata).ok()?;
+    if meta.version != LIGHTMAP_FORMAT_VERSION || meta.edge != layout.edge || meta.key != key {
+        return None;
+    }
+    let texels = valid_charts(&meta, layout.page_count)?;
+    let mut pages = Vec::with_capacity(layout.page_count);
+    for _ in 0..layout.page_count {
+        let mut rgb = vec![0; layout.page_bytes];
+        file.read_exact(&mut rgb).ok()?;
+        hash.write(&rgb);
+        pages.push(LightmapPage {
+            width: layout.edge,
+            height: layout.edge,
+            rgb,
+        });
+    }
+    let mut trailing = [0];
+    if hash.finish() != checksum || file.read(&mut trailing).ok()? != 0 {
+        return None;
+    }
     Some(LevelLightmaps {
+        stats: LightmapStats {
+            charts: meta.charts.len(),
+            pages: layout.page_count,
+            texels,
+            page_texels: layout
+                .page_bytes
+                .checked_div(3)?
+                .checked_mul(layout.page_count)?,
+            bake_millis: 0.0,
+            cache_hit: true,
+        },
         pages,
         charts: meta.charts,
-        stats,
         cache_key: key.to_string(),
     })
 }
 
-/// Writes one atlas to `root/key`. Failures are ignored by design.
+/// Publishes only a fully written file. Concurrent readers see the previous
+/// complete entry or its replacement; a crash before rename leaves a miss or
+/// the old entry. Abandoned temporary files are never considered for reads.
 pub(super) fn disk_store(root: &Path, key: &str, lightmaps: &LevelLightmaps) {
-    if !key_is_safe(key) {
+    if !key_is_safe(key) || lightmaps.cache_key != key {
         return;
     }
     let Some(edge) = lightmaps.pages.first().map(|page| page.width) else {
         return;
     };
-    if lightmaps
-        .pages
-        .iter()
-        .any(|page| page.width != edge || page.height != edge)
+    // Bound serialization as well as decoding: every chart occupies at least
+    // one byte in JSON, and this cap also bounds the temporary chart clone.
+    if lightmaps.charts.len()
+        > MAX_META_BYTES
+            .checked_div(std::mem::size_of::<(super::LightmapPatch, super::Chart)>())
+            .unwrap_or(0)
     {
         return;
     }
     let meta = DiskMeta {
         version: LIGHTMAP_FORMAT_VERSION,
         edge,
+        key: key.to_string(),
         charts: lightmaps.charts.clone(),
     };
-    let Ok(meta_bytes) = serde_json::to_vec(&meta) else {
+    let Ok(metadata) = serde_json::to_vec(&meta) else {
         return;
     };
-    let dir = root.join(key);
-    if std::fs::create_dir_all(&dir).is_err() {
+    let Some(layout) = DiskLayout::new(edge, lightmaps.pages.len(), metadata.len()) else {
+        return;
+    };
+    if valid_charts(&meta, layout.page_count).is_none()
+        || lightmaps.pages.iter().any(|page| {
+            page.width != edge || page.height != edge || page.rgb.len() != layout.page_bytes
+        })
+    {
         return;
     }
-    let mut pages: Vec<u8> = Vec::new();
+    let Some(prefix) = layout.prefix() else {
+        return;
+    };
+    let mut hash = Fnv1a::new();
+    hash.write(&prefix);
+    hash.write(&metadata);
     for page in &lightmaps.pages {
-        pages.extend_from_slice(&page.rgb);
+        hash.write(&page.rgb);
     }
-    if std::fs::write(dir.join("meta.json"), meta_bytes).is_err() {
+    if std::fs::create_dir_all(root).is_err() {
         return;
     }
-    let _ = std::fs::write(dir.join("pages.bin"), pages);
+    let temporary = root.join(format!(
+        ".{key}.{}-{}.tmp",
+        std::process::id(),
+        NEXT_TEMP_FILE.fetch_add(1, Ordering::Relaxed)
+    ));
+    let Ok(mut file) = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+    else {
+        return;
+    };
+    let written = (|| -> std::io::Result<()> {
+        file.write_all(&prefix)?;
+        file.write_all(&hash.finish().to_le_bytes())?;
+        file.write_all(&metadata)?;
+        for page in &lightmaps.pages {
+            file.write_all(&page.rgb)?;
+        }
+        file.sync_all()
+    })();
+    drop(file);
+    if written.is_ok() {
+        let _ = std::fs::rename(&temporary, root.join(format!("{key}.lmc")));
+    }
+    let _ = std::fs::remove_file(temporary);
+}
+
+fn retained_bytes(lightmaps: &LevelLightmaps) -> usize {
+    lightmaps.pages.iter().fold(
+        lightmaps
+            .charts
+            .capacity()
+            .saturating_mul(std::mem::size_of::<(super::LightmapPatch, super::Chart)>()),
+        |bytes, page| bytes.saturating_add(page.rgb.capacity()),
+    )
 }
 
 /// True when one chart's data rectangle lies inside a square page.

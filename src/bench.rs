@@ -671,9 +671,7 @@ impl Bench {
 
     /// Writes the run summary to stdout as a single `BENCH_SUMMARY {...}` line.
     /// Called once, when the run ends.
-    // The benchmark report is the harness's entire purpose on a headless
-    // device (the on-screen overlay cannot be read over SSH) and has no logger
-    // to route through.
+    // The benchmark harness consumes this machine-readable stdout record.
     #[allow(clippy::print_stdout)]
     pub fn finish(&mut self) {
         if !self.config.enabled || self.frames.is_empty() {

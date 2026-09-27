@@ -151,17 +151,24 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         binary = os.path.join(runtime, "places")
         shutil.copy2(self.binary, binary)
         capture = os.path.join(runtime, "first.png")
+        trace = os.path.join(runtime, "loading.jsonl")
 
         code, output = self.run_binary(
-            runtime, capture, {"PLACES_LEVEL": "places_demo"}, binary=binary
+            runtime,
+            capture,
+            {"PLACES_LEVEL": "places_demo", "PLACES_LOAD_TRACE": trace},
+            binary=binary,
         )
 
         self.assertEqual(code, 0, f"empty install failed:\n{output}")
         self.assertTrue(os.path.isfile(capture))
-        self.assertIn(
-            "'Places Demo' (places_demo)",
-            output,
-            "the embedded demo must be selectable by id with no asset tree",
+        with open(trace, encoding="utf-8") as handle:
+            events = [json.loads(line) for line in handle if line.strip()]
+        self.assertEqual(
+            [json.loads(event["detail"])["current_level_id"]
+             for event in events if event["event"] == "world_committed"],
+            ["places_demo"],
+            "the embedded demo must be committed and captured with no asset tree",
         )
         self.assertTrue(os.path.isdir(os.path.join(runtime, "levels")), "levels/ not created")
         self.assertTrue(os.path.isdir(os.path.join(runtime, "import")), "import/ not created")
@@ -351,8 +358,7 @@ class CompiledBuildSmokeTests(unittest.TestCase):
         )
         self.assertEqual(code, 0, output)
         self.assertTrue(
-            "loading 'Places Demo'" in output
-            or "'Places Demo' (places_demo) is already the loaded level" in output,
+            "[loading] committed places_demo" in output,
             "the demo must load by id",
         )
         self.assertTrue(os.path.isfile(capture))

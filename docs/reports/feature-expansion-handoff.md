@@ -2942,3 +2942,34 @@ Concurrent user edits named above are intentionally excluded.
 - `tools/textures/seam_repair.py`
 - `tools/verify.sh`
 - `docs/reports/run09/dense-content.png`
+
+## September 2026 desktop cleanup and loading correction
+
+The integrated corrective pass removed `apps/places-pocketchip` and its exclusive
+implementation, tooling and test contracts. Earlier entries retaining that package
+are historical; the current desktop verification path does not include it. Its
+removal saves no measured desktop-suite execution time. Shared regression contracts
+remain, including six geometry tests relocated into the desktop implementation.
+
+Loading now uses one bounded preparation coordinator, immutable content-dependent
+cache identities, transactional world installation, responsive event processing,
+and at most three atlas-fill workers. Direct level selection avoids first preparing
+the demo. Runtime work was reduced through conservative lighting indexes and shared
+source-position lighting samples. No quality tier, production asset or map was
+reduced, and no Cargo dependency/profile change was needed.
+
+Controlled already-built release process time improved from 29.337 to 15.957 seconds
+for cold normal startup and from 78.992 to 27.839 seconds for the dense fixture.
+Unoptimized debug startup improved from 346.570 to 181.764 seconds cold. Loading
+feedback and full readiness are reported separately. These are one-pair observations
+with isolated application caches; OS/GPU caches were not purged.
+
+See [desktop-cleanup-and-loading.md](desktop-cleanup-and-loading.md) for the final
+verification outcome, exact measurement scope, known acceptance limits, cache
+contracts, and links to durable machine-readable evidence and changed-file inventory.
+No manual walkthrough or unavailable platform runtime check is claimed.
+
+Final status: stopped at the user's request. The last complete Rust/native suites
+passed, but a later occluded-surface pacing correction is not fully validated;
+strict Clippy currently reports a 101-line function against the 100-line limit.
+See the stopped-status section in the corrective report before continuing.

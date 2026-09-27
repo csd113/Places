@@ -14,7 +14,7 @@
 //! times it is placed — a field of vending machines still batches. A single
 //! primitive model behaves exactly as it always has: one range, one draw.
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use super::{LevelDef, LevelLighting, LevelSurfaces, PropDef, Vertex, spatial_cell_grid};
 use crate::materials::MaterialEmission;
@@ -43,7 +43,7 @@ pub struct PropSubmeshBatch {
 /// load time and appended here, so the renderer binds one buffer per model and
 /// draws each of its primitives once for every instance in the batch. The
 /// decoded model itself is parsed once and shared through
-/// [`crate::props::PropAssets`], and its images are shared through [`Rc`], so a
+/// [`crate::props::PropAssets`], and its images are shared through [`Arc`], so a
 /// model placed in twenty cells still has one decoded copy per texture.
 #[derive(Clone, Debug)]
 pub struct PropMeshBatch {
@@ -52,7 +52,7 @@ pub struct PropMeshBatch {
     /// Every texture the model uses, indexed by [`PropSubmeshBatch::texture`]
     /// and by [`MaterialEmission::mask`]. Shared with every other batch of the
     /// same model.
-    pub textures: Vec<Rc<crate::loader::RawImage>>,
+    pub textures: Vec<Arc<crate::loader::RawImage>>,
     /// One entry per primitive of the model, in index-buffer order. Primitives
     /// that draw nothing are absent, so a batch with an empty `indices` has no
     /// submeshes either.
@@ -81,13 +81,15 @@ pub struct PropMeshBatch {
 /// one call: instance order never leaks into the draw calls.
 struct BatchBuilder {
     model: String,
-    textures: Vec<Rc<crate::loader::RawImage>>,
+    textures: Vec<Arc<crate::loader::RawImage>>,
     primitives: Vec<PrimitiveBuilder>,
     vertices: Vec<Vertex>,
     bounds: crate::spatial::Aabb,
     /// Total indices accumulated, so a new instance can be rejected before it
     /// writes anything it cannot finish.
     index_count: usize,
+    lighting_sources: Vec<usize>,
+    sampled_light: Vec<crate::lighting::LightColor>,
 }
 
 struct PrimitiveBuilder {
@@ -100,7 +102,7 @@ impl BatchBuilder {
     fn new(
         model_path: &str,
         model: &crate::gltf::PropModel,
-        textures: Vec<Rc<crate::loader::RawImage>>,
+        textures: Vec<Arc<crate::loader::RawImage>>,
     ) -> Self {
         Self {
             model: model_path.to_string(),
@@ -117,6 +119,8 @@ impl BatchBuilder {
             vertices: Vec::with_capacity(model.vertices.len()),
             bounds: crate::spatial::Aabb::EMPTY,
             index_count: 0,
+            lighting_sources: lighting_sources(&model.vertices),
+            sampled_light: Vec::with_capacity(model.vertices.len()),
         }
     }
 
@@ -135,7 +139,14 @@ impl BatchBuilder {
         lighting: &LevelLighting,
     ) {
         let model = &asset.model;
-        append_instance_vertices(&mut self.vertices, transform, &model.vertices, lighting);
+        append_instance_vertices(
+            &mut self.vertices,
+            transform,
+            &model.vertices,
+            lighting,
+            &self.lighting_sources,
+            &mut self.sampled_light,
+        );
         let base =
             u16::try_from(self.vertices.len().saturating_sub(model.vertices.len())).unwrap_or(0);
         for (slot, submesh) in model.submeshes.iter().enumerate() {
@@ -203,7 +214,7 @@ pub fn resolve_prop_instances<'a>(
     // Keyed by (model, cell): one drawable range per model per spatial cell.
     let mut index_by_batch: HashMap<(String, crate::spatial::CellKey), usize> = HashMap::new();
     let mut models_seen: HashSet<String> = HashSet::new();
-    let mut textures_by_model: HashMap<String, Vec<Rc<crate::loader::RawImage>>> = HashMap::new();
+    let mut textures_by_model: HashMap<String, Vec<Arc<crate::loader::RawImage>>> = HashMap::new();
     let mut fallbacks: Vec<&'a PropDef> = Vec::new();
     let mut busy_vertices = 0usize;
 
@@ -276,7 +287,7 @@ pub fn resolve_prop_instances<'a>(
                 models_seen.insert(model_path.clone());
                 let textures = textures_by_model
                     .entry(model_path.clone())
-                    .or_insert_with(|| asset.model.textures.iter().cloned().map(Rc::new).collect())
+                    .or_insert_with(|| asset.model.textures.iter().cloned().map(Arc::new).collect())
                     .clone();
                 let builder = BatchBuilder::new(&model_path, &asset.model, textures);
                 if !builder.has_room_for(&asset.model) {
@@ -302,9 +313,20 @@ pub fn resolve_prop_instances<'a>(
     (batches, fallbacks)
 }
 
+/// UV seams and hard edges duplicate positions. Share only their light sample;
+/// colours, UVs, vertex order and per-placement transforms remain independent.
+fn lighting_sources(vertices: &[crate::gltf::PropVertex]) -> Vec<usize> {
+    let mut first = std::collections::HashMap::with_capacity(vertices.len());
+    vertices
+        .iter()
+        .enumerate()
+        .map(|(index, vertex)| *first.entry(vertex.pos.map(f32::to_bits)).or_insert(index))
+        .collect()
+}
+
 /// Transforms and lights one instance's model vertices.
 ///
-/// Every distinct model vertex is transformed and lit exactly once per
+/// Every model vertex is transformed, and equal positions share lighting per
 /// placement, and the environment is baked into the instance's colour: the same
 /// model in a dark corner and under a fixture still shares one batch, but is no
 /// longer uniformly lit.
@@ -313,11 +335,20 @@ fn append_instance_vertices(
     model: &glam::Mat4,
     source: &[crate::gltf::PropVertex],
     lighting: &LevelLighting,
+    representatives: &[usize],
+    samples: &mut Vec<crate::lighting::LightColor>,
 ) {
-    for vertex in source {
+    samples.clear();
+    batch.reserve(source.len());
+    for (index, vertex) in source.iter().enumerate() {
         let position =
             model.transform_point3(glam::Vec3::new(vertex.pos[0], vertex.pos[1], vertex.pos[2]));
-        let light = lighting.sample(position.x, position.y, position.z);
+        let light = representatives
+            .get(index)
+            .and_then(|first| samples.get(*first))
+            .copied()
+            .unwrap_or_else(|| lighting.sample(position.x, position.y, position.z));
+        samples.push(light);
         batch.push(Vertex {
             pos: [position.x, position.y, position.z],
             color: [
@@ -372,4 +403,55 @@ pub fn prop_instance_matrix(prop: &PropDef, base_y: f32) -> glam::Mat4 {
     #[allow(clippy::arithmetic_side_effects)]
     let transform = translation * rotation * scale;
     transform
+}
+
+#[cfg(test)]
+mod lighting_reuse_tests {
+    use super::{LevelLighting, append_instance_vertices, lighting_sources};
+
+    #[test]
+    fn seam_vertices_keep_exact_colours_and_uvs_across_instances() -> Result<(), String> {
+        let level = crate::level::LevelDef::from_json(include_str!(
+            "../../../tests/fixtures/levels/test_room.json"
+        ))
+        .map_err(|error| error.to_string())?;
+        let lighting = LevelLighting::bake(&level);
+        let mut assets = crate::props::PropAssets::load_default();
+        let asset = assets.resolve("environment/office/props/models/chair.glb")?;
+        let source = &asset.model.vertices;
+        let shared = lighting_sources(source);
+        let independent: Vec<usize> = (0..source.len()).collect();
+        assert_ne!(
+            shared, independent,
+            "fixture must exercise duplicated positions"
+        );
+        let mut reused_samples = Vec::new();
+        for position in [glam::Vec3::ZERO, glam::Vec3::new(2.0, 0.3, 1.0)] {
+            let transform = glam::Mat4::from_scale_rotation_translation(
+                glam::Vec3::splat(1.25),
+                glam::Quat::from_rotation_y(0.73),
+                position,
+            );
+            let mut actual = Vec::new();
+            let mut reference = Vec::new();
+            append_instance_vertices(
+                &mut actual,
+                &transform,
+                source,
+                &lighting,
+                &shared,
+                &mut reused_samples,
+            );
+            append_instance_vertices(
+                &mut reference,
+                &transform,
+                source,
+                &lighting,
+                &independent,
+                &mut Vec::new(),
+            );
+            assert_eq!(actual, reference);
+        }
+        Ok(())
+    }
 }

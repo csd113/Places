@@ -1,0 +1,58 @@
+   Compiling places v0.7.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.46s
+     Running unittests src/main.rs (target/debug/deps/places-febb7d61995c3093)
+
+running 1 test
+test perf::actions::tests::script_validation_is_bounded_and_strict ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1331 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/main.rs (target/debug/deps/places-febb7d61995c3093)
+
+running 1 test
+test render::wgpu::world::tests::a_shipped_material_resolves_through_its_texture_slot ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1331 filtered out; finished in 3.42s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running unittests src/main.rs (target/debug/deps/places-febb7d61995c3093)
+
+running 1 test
+test architecture_audit::test_z_axis_and_floating_box_caps_face_out_of_their_solid ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1331 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running unittests src/main.rs (target/debug/deps/places-febb7d61995c3093)
+
+running 1 test
+test render::tests::wall_reveals_and_ends_face_out_of_the_solid_on_both_axes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1331 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running unittests src/main.rs (target/debug/deps/places-febb7d61995c3093)
+
+running 1 test
+test lighting_isolation::emitted_wall_faces_are_lit_by_the_room_they_open_into ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1331 filtered out; finished in 0.03s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running unittests src/main.rs (target/debug/deps/places-febb7d61995c3093)
+
+running 1 test
+test architecture_audit::test_stair_faces_wind_out_of_their_solid_on_both_axes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1331 filtered out; finished in 0.00s
+
+   Compiling places v0.7.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.84s
+     Running unittests src/main.rs (target/debug/deps/places-febb7d61995c3093)
+
+running 1 test
+test architecture_audit::test_ramp_faces_wind_out_of_their_solid_in_every_orientation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1331 filtered out; finished in 0.01s
+

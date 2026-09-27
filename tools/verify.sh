@@ -5,10 +5,10 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::cargo
 cargo test --workspace --all-features
 python3 tools/assets/validate.py
-python3 tools/textures/build.py --check
+# The package suite executes the texture CLI --check once.
 python3 tools/props/build.py --check
 python3 -m unittest tests.test_package
-python3 -m unittest tests.test_tool_execution tests.test_zoo_generator
+python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness
 cargo build --release
 python3 -m unittest tests.test_compiled_build
 python3 -m unittest tests.test_wgpu_bootstrap

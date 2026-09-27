@@ -1,8 +1,7 @@
 //! Dynamic objects: the washer-drum demonstration on wgpu.
 //!
 //! The renderer-neutral [`DynamicScene`] owns the model-space meshes, their
-//! transforms and their baked-light probes; this module owns the GPU side,
-//! exactly mirroring the reference's dynamic path:
+//! transforms and their baked-light probes; this module owns the GPU side:
 //!
 //! * one vertex/index buffer pair per distinct model (model space, uploaded
 //!   once; the colour is albedo/tint only, never a baked light);
@@ -14,7 +13,7 @@
 //!   lit coherently without touching its vertex buffer.
 //!
 //! Nothing here is created per frame: `sync` writes the small per-object
-//! uniforms (the reference writes the same values per object per frame) and
+//! uniforms and
 //! reuses the buffers, materials and bind groups uploaded with the level.
 
 use std::sync::Arc;

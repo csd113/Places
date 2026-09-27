@@ -93,6 +93,27 @@ use crate::lighting::{AMBIENT_LEVEL, LevelLighting, MAX_BRIGHTNESS};
 /// so a malformed patch degrades to vertex lighting instead of a black level.
 #[must_use]
 pub fn fill_chart(lighting: &LevelLighting, patch: &LightmapPatch, chart: &Chart) -> Vec<[f32; 3]> {
+    fill_chart_with_cancel(lighting, patch, chart, None)
+}
+
+/// Runtime fill with a cancellation check before each texel row. A cancelled
+/// chart returns no texels; the caller maps the flag to a cancelled outcome.
+#[must_use]
+pub fn fill_chart_cancellable(
+    lighting: &LevelLighting,
+    patch: &LightmapPatch,
+    chart: &Chart,
+    cancel: &std::sync::atomic::AtomicBool,
+) -> Vec<[f32; 3]> {
+    fill_chart_with_cancel(lighting, patch, chart, Some(cancel))
+}
+
+fn fill_chart_with_cancel(
+    lighting: &LevelLighting,
+    patch: &LightmapPatch,
+    chart: &Chart,
+    cancel: Option<&std::sync::atomic::AtomicBool>,
+) -> Vec<[f32; 3]> {
     let width = usize::try_from(chart.width).unwrap_or(0);
     let height = usize::try_from(chart.height).unwrap_or(0);
     let mut texels: Vec<[f32; 3]> = Vec::with_capacity(width.saturating_mul(height));
@@ -115,6 +136,9 @@ pub fn fill_chart(lighting: &LevelLighting, patch: &LightmapPatch, chart: &Chart
     let hint = patch.room;
     let wall = matches!(patch.kind, PatchKind::Wall);
     for j in 0..height {
+        if cancel.is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Relaxed)) {
+            return Vec::new();
+        }
         let v = texel_axis(j, height);
         for i in 0..width {
             let u = texel_axis(i, width);

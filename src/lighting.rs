@@ -138,6 +138,7 @@ mod light;
 pub mod lightmap;
 mod math;
 mod occlusion;
+pub(crate) use occlusion::set_preparation_assets;
 mod tuning;
 mod visibility;
 

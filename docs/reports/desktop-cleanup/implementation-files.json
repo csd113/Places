@@ -1,0 +1,1129 @@
+{
+  "comparison": "preserved working-tree baseline; excludes unchanged user edits and raw evidence",
+  "files": [
+    {
+      "path": "apps/places-pocketchip/.cargo/config.toml",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/CHANGELOG.md",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/Cargo.lock",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/Cargo.toml",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/LICENSE",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/README.md",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/THIRD_PARTY_LICENSES.txt",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/app.toml",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/README.md",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/catalog.json",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/README.md",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/decals/arrow_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/decals/stripes_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/armchair.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/armchair.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/bed.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/bookshelf.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/bookshelf.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/cardboard_box.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/couch.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/couch.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/crate.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/fridge.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/fridge.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/lamp.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/lamp.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/plant.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/plant.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/rug.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/rug.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/sink.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/stove.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/table.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/table.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/tv.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/washer_drum.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/props/models/washing_machine.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/textures/floors/linoleum_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/textures/glass/glass_clear_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/textures/glass/glass_dirty_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/textures/glass/glass_tinted_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/textures/normals/normal_brushed_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/textures/normals/normal_panel_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/textures/walls/grille_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/textures/walls/metal_panel_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/textures/walls/plastic_panel_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/core/textures/white_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/diagnostic/README.md",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/diagnostic/textures/diagnostic_alpha_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/diagnostic/textures/diagnostic_alt_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/diagnostic/textures/diagnostic_ceiling_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/diagnostic/textures/diagnostic_floor_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/diagnostic/textures/diagnostic_wall_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/entities/README.md",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/entities/spooner-man/README.md",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/entities/spooner-man/model/spooner-man.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/README.md",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/home/props/models/cabinet_base.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/home/props/models/cabinet_wall.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/home/textures/ceilings/ceiling_plaster_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/home/textures/ceilings/ceiling_white_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/home/textures/floors/carpet_cream_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/home/textures/floors/hardwood_oak_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/home/textures/floors/hardwood_walnut_02.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/home/textures/floors/threshold_wood_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/home/textures/floors/tile_home_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/home/textures/lights/ceiling_light_round_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/home/textures/walls/baseboard_white_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/home/textures/walls/baseboard_wood_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/home/textures/walls/handrail_wood_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/home/textures/walls/wall_paint_offwhite_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/home/textures/walls/wallpaper_offwhite_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/home/textures/walls/wallpaper_pattern_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/office/README.md",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/office/props/models/cabinet.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/office/props/models/chair.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/office/props/models/desk.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/office/props/models/vending_machine.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/office/props/models/water_cooler.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/office/textures/ceilings/ceiling_panel_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/office/textures/ceilings/ceiling_stained_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/office/textures/floors/carpet_beige_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/office/textures/floors/carpet_damp_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/office/textures/lights/fluorescent_panel_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/office/textures/walls/wallpaper_stained_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/office/textures/walls/wallpaper_yellow_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/pool/README.md",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/pool/decals/no_diving_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/pool/props/models/pool_chair.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/pool/props/models/pool_curtain_corner.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/pool/props/models/pool_curtain_end.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/pool/props/models/pool_curtain_straight.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/pool/props/models/pool_guardrail_corner.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/pool/props/models/pool_guardrail_end.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/pool/props/models/pool_guardrail_straight.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/pool/props/models/pool_ladder.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/pool/props/models/pool_table.glb",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/pool/textures/ceilings/pool_ceiling_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/pool/textures/floors/pool_tile_basin_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/pool/textures/floors/pool_tile_deck_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/pool/textures/lights/pool_light_round_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/pool/textures/lights/pool_light_wall_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/environment/pool/textures/walls/pool_tile_wall_01.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/levels/README.md",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/levels/places_demo.json",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/assets/prop_proxies.json",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/bin/armv7-unknown-linux-gnueabihf/app",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/icon.png",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/levels/README.md",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/architecture_audit.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/assets.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/assets/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/bench.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/bench/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/collision.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/collision/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/display.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/font.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/font/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/game.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/game/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/gltf.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/gltf/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/input.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/input/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/level.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/level/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting/bake.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting/bake/range_audit.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting/color.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting/light.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting/light/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting/lightmap/atlas.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting/lightmap/cache.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting/lightmap/continuity.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting/lightmap/fill.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting/lightmap/mod.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting/lightmap/plan.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting/lightmap/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting/math.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting/occlusion.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting/tuning.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting/visibility.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting_audit.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting_audit_cases.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting_isolation.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting_leak_audit.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting_parity.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting_partition_audit.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/lighting_vertical_audit.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/loader.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/loader/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/logging.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/main.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/materials.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/materials/decal.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/materials/emission.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/materials/emission/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/materials/image.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/materials/image/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/materials/pack.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/materials/reflection.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/materials/resolve.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/materials/response.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/materials/response/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/materials/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/perf.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/perf/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/props.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/props/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/quality.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/quality/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/render.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/render/animation.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/render/api.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/render/architecture.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/render/atmosphere.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/render/decals.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/render/dynamic.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/render/fixtures.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/render/geometry.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/render/mesh.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/render/prop_atlas.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/render/prop_atlas/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/render/props.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/render/renderer.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/render/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/render/view.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/settings.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/settings/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/spatial.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/spatial/tests.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/surface_audit.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/test_support.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/src/ui.rs",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/tests/fixtures/levels/home_showcase.json",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/tests/fixtures/levels/lighting_diagnostic.json",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/tests/fixtures/levels/lighting_isolation.json",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/tests/fixtures/levels/pool_showcase.json",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/tests/fixtures/levels/prop_showcase.json",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/tests/fixtures/levels/prop_stress.json",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/tests/fixtures/levels/rendering_diagnostic.json",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/tests/fixtures/levels/test_room.json",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/tests/fixtures/levels/vertical_diagnostic.json",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/tests/test_assets.py",
+      "status": "deleted"
+    },
+    {
+      "path": "apps/places-pocketchip/tools/assets/validate.py",
+      "status": "deleted"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "status": "modified"
+    },
+    {
+      "path": "docs/OFFLINE_TOOLING.md",
+      "status": "modified"
+    },
+    {
+      "path": "docs/RENDERER.md",
+      "status": "modified"
+    },
+    {
+      "path": "docs/VERIFICATION.md",
+      "status": "modified"
+    },
+    {
+      "path": "docs/reports/desktop-cleanup-and-loading.md",
+      "status": "added"
+    },
+    {
+      "path": "docs/reports/feature-expansion-handoff.md",
+      "status": "modified"
+    },
+    {
+      "path": "src/architecture_audit.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/bench.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/geometry_check.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/level.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/lighting.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/lighting/bake.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/lighting/bake/range_audit.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/lighting/light/tests.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/lighting/lightmap/atlas.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/lighting/lightmap/cache.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/lighting/lightmap/fill.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/lighting/lightmap/mod.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/lighting/lightmap/tests.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/lighting/occlusion.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/lighting/tests.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/lighting/tuning.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/lighting/visibility.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/lighting_audit.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/lighting_isolation.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/loader.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/loader/tests.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/loading.rs",
+      "status": "added"
+    },
+    {
+      "path": "src/loading/cache_tests.rs",
+      "status": "added"
+    },
+    {
+      "path": "src/main.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/materials.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/materials/decal.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/materials/image.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/materials/image/tests.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/materials/pack.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/materials/resolve.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/materials/tests.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/perf.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/perf/actions.rs",
+      "status": "added"
+    },
+    {
+      "path": "src/perf/loading.rs",
+      "status": "added"
+    },
+    {
+      "path": "src/props.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/props/tests.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/common/api.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/common/architecture.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/common/character.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/common/dynamic.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/common/geometry.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/common/mesh.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/common/mod.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/common/props.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/facade.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/tests.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/wgpu/character.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/wgpu/decals.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/wgpu/dynamic.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/wgpu/mod.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/wgpu/postprocess.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/wgpu/props.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/wgpu/renderer.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/wgpu/texture.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/wgpu/ui.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/render/wgpu/world.rs",
+      "status": "modified"
+    },
+    {
+      "path": "src/surface_audit.rs",
+      "status": "modified"
+    },
+    {
+      "path": "tests/test_bench_metrics.py",
+      "status": "added"
+    },
+    {
+      "path": "tests/test_compiled_build.py",
+      "status": "modified"
+    },
+    {
+      "path": "tests/test_lightmap_harness.py",
+      "status": "added"
+    },
+    {
+      "path": "tests/test_wgpu_bootstrap.py",
+      "status": "modified"
+    },
+    {
+      "path": "tests/test_zoo_generator.py",
+      "status": "modified"
+    },
+    {
+      "path": "tools/bench/check_tool_parallelism.py",
+      "status": "modified"
+    },
+    {
+      "path": "tools/bench/lightmap_report.py",
+      "status": "modified"
+    },
+    {
+      "path": "tools/bench/loading.py",
+      "status": "added"
+    },
+    {
+      "path": "tools/verify.sh",
+      "status": "modified"
+    }
+  ]
+}

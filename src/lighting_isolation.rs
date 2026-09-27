@@ -449,13 +449,16 @@ fn emitted_wall_faces_are_lit_by_the_room_they_open_into() {
             (47.9..=60.0).contains(&x) && z.abs() < 1e-3
         })
         .collect();
+    // The perpendicular partition occupies x=47.8..48.2 at z=0, so the
+    // north wall's x=48..48.2 face is buried and omitted. Check the exact
+    // first exposed corner, where the red wall begins at x=48.2.
     let at_boundary = diag_walls
         .iter()
-        .filter(|vertex| vertex.pos[0] <= 48.1)
+        .filter(|vertex| (vertex.pos[0] - 48.2).abs() < 1e-3)
         .count();
     let red_at_boundary = diag_walls
         .iter()
-        .filter(|vertex| vertex.pos[0] <= 48.1 && vertex.color[0] > vertex.color[2])
+        .filter(|vertex| (vertex.pos[0] - 48.2).abs() < 1e-3 && vertex.color[0] > vertex.color[2])
         .count();
     assert!(
         at_boundary > 0,

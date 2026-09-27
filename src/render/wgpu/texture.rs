@@ -1,44 +1,24 @@
 //! Texture infrastructure: Places image assets as wgpu GPU textures.
 //!
-//! The engine hands this module a decoded [`RawImage`] under the same logical
-//! texture identity the OpenGL reference renderer uses; this module owns
-//! everything after that: the GPU texture, its mip chain, its view, the shared
-//! samplers and the one texture + sampler bind group a draw binds.
+//! The engine hands this module decoded [`RawImage`] data with a source/content
+//! identity. The cache owns GPU textures, mip chains, views and shared samplers.
 //!
-//! Scope is deliberately the ordinary base-colour path:
+//! Base-colour images upload as raw `Rgba8Unorm` display values. Filtering,
+//! blending and CPU mip generation operate on those raw channels; the final
+//! surface path performs the display encoding. Normal maps and masks also use
+//! raw channels, with a separate data semantic. CPU mips use deterministic box
+//! averaging without a gamma conversion.
 //!
-//! * base-colour images upload as raw `Rgba8Unorm` display values, exactly like
-//!   the reference's non-sRGB `GL_RGBA` sheets: filtering, blending and mip
-//!   selection all happen in the reference's display space, and the sRGB
-//!   surface is the single conversion point. (An sRGB sample would make the
-//!   hardware decode each filtered blend and the shader re-encode it — a
-//!   convexity bias measured as a broad +1 display level on minified surfaces —
-//!   so the textures stay raw.) The semantic enum still distinguishes colour
-//!   from linear data textures (normal maps, masks);
-//! * mips are generated on the CPU by a deterministic 2x2 box filter over the
-//!   raw 8-bit channels, the same arithmetic the OpenGL reference's
-//!   `glGenerateMipmap` applies to its non-sRGB `GL_RGBA` textures;
-//! * the player's **Texture Filtering** setting selects one of three shared
-//!   sampler presets for ordinary world sheets: Low/Medium/High request 4x/8x/
-//!   16x anisotropy and always filter linear in mag, min and mip, so every
-//!   level is trilinear plus anisotropic. No level disables mips or falls back
-//!   to point sampling; an adapter without
-//!   `DownlevelFlags::ANISOTROPIC_FILTERING` keeps the same linear levels and
-//!   clamps the request to 1x. The fallback sheet uses the reference's clamped
-//!   nearest sampler, with no mip chain; the lightmap atlas keeps its own fixed
-//!   clamped linear policy and never follows the player setting;
-//! * nothing else: the two semantics above cover every upload the cache
-//!   accepts; lightmap atlases and render targets are owned by their own
-//!   modules.
+//! Texture Filtering selects shared Low/Medium/High world samplers requesting
+//! 4x/8x/16x anisotropy with linear magnification, minification and mip filtering.
+//! Unsupported anisotropy clamps to 1x. The white fallback stays clamped nearest
+//! with one mip; lightmaps use their own fixed clamped linear sampler.
 //!
-//! The cache is keyed by semantic identity (logical texture id + colour
-//! interpretation + quality class + profile), never by material instance or
-//! draw index, so every surface that references one texture shares one GPU
-//! upload. Catalog and diagnostic textures live for the renderer's lifetime;
-//! pack textures live for one level, exactly like the reference's caches.
-//! There is no eviction beyond those two lifetimes and no LRU: the shipped
-//! catalog holds 38 texture assets in total, so a renderer-lifetime map is
-//! bounded by the catalog plus the missing-texture pattern.
+//! Identity includes source/content revision, semantic, quality class and
+//! quality level. Repeated uses share an upload. Pack entries are level-scoped;
+//! prior catalog/model entries have bounded retention at the next upload.
+//! Active worlds keep independent `Arc`s. Lightmap atlases and render targets
+//! are owned by their own modules.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -134,6 +114,29 @@ impl TextureWrap {
             Self::Clamp => filtering.clamp_sampler_policy(),
         }
     }
+}
+
+/// Embedded sheets have no standalone PNG identity after GLB decoding. Hash
+/// exact dimensions and pixels once per model upload, never during drawing.
+pub(super) fn image_content_key(logical: &str, image: &RawImage) -> String {
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for byte in image
+        .width
+        .to_le_bytes()
+        .into_iter()
+        .chain(image.height.to_le_bytes())
+        .chain(image.rgba.iter().copied())
+    {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("{logical}#rgba-v1-{hash:016x}")
+}
+
+fn revision_source(key: &str) -> Option<&str> {
+    key.rsplit_once("#png-v1-")
+        .or_else(|| key.rsplit_once("#rgba-v1-"))
+        .map(|(source, _)| source)
 }
 
 /// The identity of one cache entry: the same source image can legitimately need
@@ -592,7 +595,7 @@ struct TextureUpload<'a> {
 /// [`Self::prepare`] owns everything the upload needs before the device is
 /// touched — the quality fit and the full box-filtered mip chain — and the
 /// result is plain owned data, so a batch can prepare several sheets on worker
-/// threads without any `Rc` or GPU handle crossing a thread.
+/// threads without any `Arc` or GPU handle crossing a thread.
 struct PreparedTexture {
     /// Level-0 width in texels, after the fit.
     width: u32,
@@ -657,6 +660,7 @@ impl PreparedTexture {
 /// The six world presets are created with
 /// [`SamplerPolicy::effective_descriptor`], so an adapter without anisotropic
 /// filtering gets the same linear levels at a 1x clamp.
+#[derive(Clone)]
 struct Samplers {
     repeat_low: wgpu::Sampler,
     repeat_medium: wgpu::Sampler,
@@ -733,7 +737,7 @@ pub struct TextureUploadRequest<'a> {
 /// Prepares every request's CPU data in parallel, one slot per request.
 ///
 /// The workers borrow only the decoded [`RawImage`]s and the key's fit
-/// parameters; `Rc` handles, cache maps and GPU state never cross a thread.
+/// parameters; `Arc` handles, cache maps and GPU state never cross a thread.
 /// Each slot is `None` only if the job was never claimed, which can only happen
 /// after a worker panic that `thread::scope` propagates anyway; the caller then
 /// falls back to the identical serial preparation.
@@ -781,15 +785,16 @@ fn prepare_textures(requests: &[&TextureUploadRequest<'_>]) -> Vec<Option<Prepar
 
 /// The renderer-owned cache from semantic texture identity to GPU textures.
 ///
-/// Two lifetimes, matching the reference renderer's GL caches:
+/// Two retention policies:
 ///
-/// * catalog and diagnostic textures persist for the renderer's lifetime, so
-///   switching back to a level reuses them;
+/// * catalog and diagnostic textures retain bounded prior-upload data, so
+///   switching back can reuse them;
 /// * pack textures (`TextureOrigin::Pack`) are dropped at the next level
 ///   upload, because a pack is owned by one level.
 ///
 /// The fallback sheet, the bind group layout and the samplers are created once
 /// and never dropped until the renderer is.
+#[derive(Clone)]
 pub struct TextureCache {
     layout: wgpu::BindGroupLayout,
     samplers: Samplers,
@@ -899,10 +904,35 @@ impl TextureCache {
     /// Drops the previous level's pack textures.
     ///
     /// Called once per level upload, before the new level resolves its
-    /// textures; catalog entries survive, exactly like the reference's
-    /// persistent caches.
+    /// textures; prior catalog entries are retained within a bounded budget.
     pub fn begin_level(&mut self) {
         self.level.clear();
+        self.trim_retained(256, 256 * 1024 * 1024);
+    }
+
+    /// Bounds old cache references before upload, never between draws or
+    /// sheets of the same upload. Active worlds retain independent Arcs.
+    fn trim_retained(&mut self, max_entries: usize, max_bytes: u64) {
+        let mut bytes = self.persistent.values().fold(0_u64, |total, image| {
+            total.saturating_add(image.meta().resident_bytes)
+        });
+        if self.persistent.len() <= max_entries && bytes <= max_bytes {
+            return;
+        }
+        let mut candidates: Vec<_> = self
+            .persistent
+            .iter()
+            .map(|(key, image)| (key.clone(), image.meta().resident_bytes))
+            .collect();
+        // Debug identity is only an eviction tie-break, never a texture key.
+        candidates.sort_by_cached_key(|(key, size)| (std::cmp::Reverse(*size), format!("{key:?}")));
+        for (key, size) in candidates {
+            if self.persistent.len() <= max_entries && bytes <= max_bytes {
+                break;
+            }
+            self.persistent.remove(&key);
+            bytes = bytes.saturating_sub(size);
+        }
     }
 
     /// Drops every profile-fitted texture.
@@ -996,6 +1026,7 @@ impl TextureCache {
         // and a pack entry, and those are two cache entries.
         let mut first_pending: HashMap<(&TextureKey, bool), usize> = HashMap::new();
         for request in requests {
+            self.retire_prior_revision(&request.key, request.origin);
             if let Some(texture) = self.get(&request.key, request.origin).map(Arc::clone) {
                 plans.push(Plan::Resident(texture));
                 continue;
@@ -1071,6 +1102,7 @@ impl TextureCache {
         image: &RawImage,
         origin: TextureOrigin,
     ) -> (CacheOutcome, Arc<GpuTexture>) {
+        self.retire_prior_revision(&key, origin);
         if let Some(texture) = self.get(&key, origin).map(Arc::clone) {
             return (CacheOutcome::Reused, texture);
         }
@@ -1089,6 +1121,17 @@ impl TextureCache {
         ));
         self.map_mut(origin).insert(key, Arc::clone(&texture));
         (CacheOutcome::Uploaded, texture)
+    }
+
+    /// Cache eviction never invalidates the Arcs held by a resident world.
+    fn retire_prior_revision(&mut self, key: &TextureKey, origin: TextureOrigin) {
+        let Some(source) = revision_source(&key.logical) else {
+            return;
+        };
+        self.map_mut(origin).retain(|stored, _| {
+            stored.logical == key.logical
+                || revision_source(&stored.logical).is_none_or(|previous| previous != source)
+        });
     }
 
     /// The cached entry for a key under the lifetime its origin implies.
@@ -1369,7 +1412,7 @@ mod tests {
             key: "core:tex_thing_01".to_string(),
             origin: TextureOrigin::Catalog,
             class: TextureClass::Surface,
-            image: std::rc::Rc::new(image(1, 1, |_, _| [1, 2, 3, 4])),
+            image: std::sync::Arc::new(image(1, 1, |_, _| [1, 2, 3, 4])),
         };
         let base = TextureKey::new(
             &resolved,
@@ -2208,5 +2251,25 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             worst <= 1,
             "the hardware sRGB decode must invert the IEC encode within one byte: {errors:?}"
         );
+    }
+}
+
+#[cfg(test)]
+mod image_identity_tests {
+    use super::{RawImage, image_content_key, revision_source};
+
+    #[test]
+    fn embedded_identity_tracks_dimensions_and_every_channel() {
+        let first = RawImage::new(2, 1, vec![1, 2, 3, 4, 5, 6, 7, 8]);
+        let changed = RawImage::new(2, 1, vec![1, 2, 3, 4, 5, 6, 7, 9]);
+        let reshaped = RawImage::new(1, 2, first.rgba.clone());
+        let key = image_content_key("prop:model:0", &first);
+        assert_eq!(key, image_content_key("prop:model:0", &first));
+        assert_ne!(key, image_content_key("prop:model:0", &changed));
+        assert_ne!(key, image_content_key("prop:model:0", &reshaped));
+        assert_ne!(key, image_content_key("prop:model:1", &first));
+        assert_eq!(revision_source(&key), Some("prop:model:0"));
+        assert_eq!(revision_source("core:wall#png-v1-abc"), Some("core:wall"));
+        assert_eq!(revision_source("diagnostic"), None);
     }
 }

@@ -52,7 +52,7 @@
 //! inverse-bind matrix and no raw position needed at runtime.
 
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use glam::{Mat4, Quat, Vec3};
 
@@ -885,7 +885,7 @@ fn tail_index(name: &str) -> u8 {
 /// One character: a placement, a shared model, its animator and its baked
 /// per-vertex albedo.
 pub struct Character {
-    asset: Rc<LoadedPropAsset>,
+    asset: Arc<LoadedPropAsset>,
     transform: Mat4,
     animator: CharacterAnimator,
     /// Model-space albedo with the baked light sampled once at spawn, parallel
@@ -903,7 +903,7 @@ pub struct Character {
 impl Character {
     /// The shared decoded model.
     #[must_use]
-    pub const fn asset(&self) -> &Rc<LoadedPropAsset> {
+    pub const fn asset(&self) -> &Arc<LoadedPropAsset> {
         &self.asset
     }
 
@@ -998,6 +998,26 @@ impl CharacterScene {
     #[must_use]
     pub fn claimed_models(&self) -> &[String] {
         &self.claimed_models
+    }
+
+    /// Keeps live pose/cue playback across a graphics-only rebuild while
+    /// retaining the newly prepared per-vertex lighting. Identity is per
+    /// placement; a changed model keeps its new animator instead of applying
+    /// incompatible rig state from the previous asset.
+    pub fn inherit_playback_from(&mut self, previous: &mut Self) {
+        for character in &mut self.characters {
+            let Some(id) = character.instance_id.as_deref() else {
+                continue;
+            };
+            let Some(old) = previous.characters.iter_mut().find(|old| {
+                old.instance_id.as_deref() == Some(id) && Arc::ptr_eq(&old.asset, &character.asset)
+            }) else {
+                continue;
+            };
+            std::mem::swap(&mut character.animator, &mut old.animator);
+            character.transform = old.transform;
+            character.world_bounds = old.world_bounds;
+        }
     }
 
     /// Claims every placed prop whose resolved model carries a skin.

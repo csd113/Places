@@ -599,23 +599,52 @@ fn emit_wall_length_face(
     strip: WallLengthFace,
     top_at: impl Fn(f32) -> f32,
 ) {
-    add_wall_length_face(
-        scratch,
-        state.axis,
-        strip.l0,
-        strip.l1,
-        strip.face,
-        strip.normal,
-        strip.bottom,
-        top_at,
-        strip.bottom_shade,
-        strip.top_shade,
-        strip.reversed,
-        strip.flip_u,
-        context.lighting,
-        context.materials.tile_metres(strip.key),
-        context.lightmap,
-    );
+    // A perpendicular partition can cover an entire length-face strip. Such
+    // a strip has no visible room-facing surface and must not acquire its own
+    // chart or room hint. Keep partial-height overlaps unchanged here so their
+    // authored face gradient and sloped ceiling profile are preserved.
+    let intervals = if state.wall.height.is_some() {
+        let axis = match state.axis {
+            WallAxis::X => WallAxis::Z,
+            WallAxis::Z => WallAxis::X,
+        };
+        // Sample on the outward side. A solid behind the face does not hide
+        // it; only one that reaches into the half-space seen by the viewer can.
+        let probe = strip.normal.mul_add(WALL_COINCIDENCE_EPS * 2.0, strip.face);
+        let top = top_at(strip.l0).max(top_at(strip.l1));
+        let covered: Vec<_> = cross_section_covered(context.coverages, axis, probe, &state.members)
+            .into_iter()
+            .filter(|(_, _, bottom, ceiling)| {
+                *bottom <= strip.bottom + WALL_COINCIDENCE_EPS
+                    && *ceiling >= top - WALL_COINCIDENCE_EPS
+            })
+            .collect();
+        subtract_rectangles((strip.l0, strip.l1, strip.bottom, top), &covered)
+            .into_iter()
+            .map(|(lo, hi, _, _)| (lo, hi))
+            .collect()
+    } else {
+        vec![(strip.l0, strip.l1)]
+    };
+    for (start, end) in intervals {
+        add_wall_length_face(
+            scratch,
+            state.axis,
+            start,
+            end,
+            strip.face,
+            strip.normal,
+            strip.bottom,
+            &top_at,
+            strip.bottom_shade,
+            strip.top_shade,
+            strip.reversed,
+            strip.flip_u,
+            context.lighting,
+            context.materials.tile_metres(strip.key),
+            context.lightmap,
+        );
+    }
     flush_wall_run(buckets, scratch, cursor, strip.key);
 }
 

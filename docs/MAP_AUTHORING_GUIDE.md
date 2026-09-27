@@ -3872,6 +3872,20 @@ Semantics:
 * The footprint must overlap a room; the resolved `top_y` must be above
   `bottom_y`. Both are named validation errors otherwise.
 
+### Places Demo maintenance notes
+
+The Home loop uses four contiguous narrow room footprints, with 1.4 m clear
+corridors, 2.5 m ceilings and sparse warm fixtures. Only the three internal
+room junctions carry `missing-wall` intent; the exterior remains enclosed.
+The kitchen knee walls and posts use joined `walls` so the wall union removes
+internal faces, with all four pieces aligned to a 0.26 m module. The pool
+passage west jamb meets the stair-hall partition face at x = 19.15 m.
+The curtain-side wet area uses narrow adjoining floor patches to form an
+irregular connected outline. All retain `core:pool_deck_wet_01`, the existing
+world-aligned tile artwork, sheen and live planar reflection.
+The cat starts walking immediately at 0.32 m/s and retains its six seated
+stops across the level. The existing reflection tests continue to exercise the shipped wet surface.
+
 ### Places Demo examples
 
 The shipped demo authors real interactions; use them as the reference (all in

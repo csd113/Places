@@ -1174,13 +1174,19 @@ pub(in crate::render) fn cross_section_covered(
         if !on_plane {
             continue;
         }
-        let across = if coverage.axis == axis {
-            coverage.thickness
-        } else {
-            coverage.length
-        };
-        for (_, _, bottom, top) in &coverage.solids {
-            covered.push((across.0, across.1, *bottom, *top));
+        for &(start, end, bottom, top) in &coverage.solids {
+            let across = if coverage.axis == axis {
+                if at < start - WALL_COINCIDENCE_EPS || at > end + WALL_COINCIDENCE_EPS {
+                    continue;
+                }
+                coverage.thickness
+            } else {
+                // A perpendicular wall only covers its solid slices, never
+                // the openings between them. Using its full length hides
+                // exposed jambs and lets the camera see inside the wall.
+                (start, end)
+            };
+            covered.push((across.0, across.1, bottom, top));
         }
     }
     covered
@@ -1613,9 +1619,9 @@ fn add_wall_cross_quad(
             ([t0, top, at], corners[3]),
         ),
     };
-    // Forward order faces the positive length direction, reversed the negative
-    // one, so every cross-section face looks out of the solid it belongs to.
-    let order = if facing_positive {
+    // Forward order faces -X for a Z/Y section and +Z for an X/Y section.
+    // Select the outward winding while carrying each corner's color and UV.
+    let order = if facing_positive == (axis == WallAxis::Z) {
         [a, b, c, d]
     } else {
         [b, a, d, c]
@@ -2785,4 +2791,37 @@ fn flush_wall_run(
     }
     buckets.add_quads(key, scratch.get(*cursor..).unwrap_or_default());
     *cursor = scratch.len();
+}
+
+#[cfg(test)]
+mod wall_coverage_tests {
+    use super::{WallAxis, WallCoverage, cross_section_covered};
+
+    fn doorway() -> WallCoverage {
+        WallCoverage {
+            index: 0,
+            axis: WallAxis::X,
+            length: (0.0, 4.0),
+            thickness: (0.0, 0.3),
+            solids: vec![
+                (0.0, 1.0, 0.0, 3.0),
+                (1.0, 3.0, 2.1, 3.0),
+                (3.0, 4.0, 0.0, 3.0),
+            ],
+        }
+    }
+
+    #[test]
+    fn perpendicular_doorway_keeps_the_open_aperture_out_of_coverage() {
+        let wall = doorway();
+        let expected = wall.solids.clone();
+        let covered = cross_section_covered(&[wall], WallAxis::Z, 0.15, &[]);
+        assert_eq!(covered, expected);
+    }
+
+    #[test]
+    fn parallel_doorway_covers_only_the_header_at_the_opening() {
+        let covered = cross_section_covered(&[doorway()], WallAxis::X, 2.0, &[]);
+        assert_eq!(covered, vec![(0.0, 0.3, 2.1, 3.0)]);
+    }
 }

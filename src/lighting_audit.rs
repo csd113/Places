@@ -716,9 +716,7 @@ fn budget_estimate_bounds_generated_geometry_for_opening_heavy_walls() {
 }
 
 #[test]
-fn budget_estimate_is_tight_enough_to_not_over_reserve_wildly() {
-    // The estimate is also the reservation size, so a representative level must
-    // not over-reserve by an order of magnitude.
+fn geometry_storage_does_not_over_reserve_wildly() {
     let level = shipped_demo();
     let estimate = level.estimate_geometry();
     let mesh = build_level_geometry(&level);
@@ -726,14 +724,33 @@ fn budget_estimate_is_tight_enough_to_not_over_reserve_wildly() {
         estimate.total_vertices >= mesh.vertex_count as u64,
         "estimate must bound the build"
     );
-    // Indexing removes roughly a third of the submitted vertices (four corners
-    // per quad instead of six, plus shared edges), so the estimate is now a
-    // looser *upper bound* than it was. It still must not over-reserve wildly.
-    let ratio = estimate.total_vertices as f64 / mesh.vertex_count as f64;
-    assert!(
-        ratio < 6.0,
-        "the demo estimate {ratio:.2}x the real geometry is too loose"
-    );
+    // The loader estimate bounds the unmerged grid; flat-span merging can
+    // legitimately make it much larger than the indexed mesh. It is not a
+    // reservation. Protect actual retained storage against over-allocation.
+    for (label, capacity, count) in [
+        (
+            "vertices",
+            mesh.ranges
+                .iter()
+                .map(|range| range.vertices.capacity())
+                .sum::<usize>(),
+            mesh.vertex_count,
+        ),
+        (
+            "indices",
+            mesh.ranges
+                .iter()
+                .map(|range| range.indices.capacity())
+                .sum::<usize>(),
+            mesh.index_count,
+        ),
+    ] {
+        assert!(count > 0, "the demo must contain {label}");
+        assert!(
+            capacity < count.saturating_mul(6),
+            "demo {label} capacity {capacity} for {count} entries over-reserves wildly"
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------

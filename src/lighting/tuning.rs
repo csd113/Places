@@ -64,7 +64,7 @@ pub const MAX_BRIGHTNESS: f32 = 1.0;
 /// recessed fixture no longer points at: at 0.22 the demo's ceilings and
 /// walls recover to within ~10% of the historical model while the pools keep
 /// their structure. The sweep that chose these values is in
-/// `lighting::tests` (`agent_a_model_candidate_sweep`); the saturating curve
+/// `lighting::tests` (`write_lighting_candidate_sweep`); the saturating curve
 /// and the density compression are unchanged.
 pub const BASELINE_MAX: f32 = 0.52;
 

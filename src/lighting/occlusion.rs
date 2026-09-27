@@ -74,7 +74,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 #[cfg(test)]
 use std::path::PathBuf;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use super::tuning::{
     MAX_PROP_OCCLUSION_BOXES_PER_LEVEL, MAX_PROP_OCCLUSION_BOXES_PER_MODEL, PROP_OCCLUSION_CELL_M,
@@ -583,7 +583,7 @@ fn thickened(low: f32, high: f32) -> (f32, f32) {
 pub(super) struct PropOcclusionCache {
     catalog: crate::loader::PropCatalog,
     assets: crate::props::PropAssets,
-    models: HashMap<(String, u32), Rc<ModelOcclusion>>,
+    models: HashMap<(String, u32), Arc<ModelOcclusion>>,
 }
 
 impl PropOcclusionCache {
@@ -681,10 +681,10 @@ impl PropOcclusionCache {
 
     /// The derived occlusion of one model path at one grid cell, loaded and
     /// cached on demand.
-    fn model_occlusion(&mut self, model_path: &str, cell_m: f32) -> Rc<ModelOcclusion> {
+    fn model_occlusion(&mut self, model_path: &str, cell_m: f32) -> Arc<ModelOcclusion> {
         let key = (model_path.to_string(), cell_key(cell_m));
         if let Some(cached) = self.models.get(&key) {
-            return Rc::clone(cached);
+            return Arc::clone(cached);
         }
         let occlusion = match self.assets.resolve(model_path) {
             Ok(asset) => ModelOcclusion {
@@ -697,8 +697,8 @@ impl PropOcclusionCache {
                 ModelOcclusion::default()
             }
         };
-        let occlusion = Rc::new(occlusion);
-        self.models.insert(key, Rc::clone(&occlusion));
+        let occlusion = Arc::new(occlusion);
+        self.models.insert(key, Arc::clone(&occlusion));
         occlusion
     }
 }
@@ -751,12 +751,27 @@ fn push_placeholder_occluder(
 // The process-wide cache the bake resolves prop occluders through.
 //
 // Thread-local rather than global because `crate::props::PropAssets` shares
-// decoded models through `Rc`. Each thread parses a given model once; the bake
+// decoded models through `Arc`. Each thread parses a given model once; the bake
 // result depends only on the level and the shipped assets, never on the order
 // threads happened to touch it.
 thread_local! {
     static PROP_OCCLUSIONS: RefCell<PropOcclusionCache> =
         RefCell::new(PropOcclusionCache::new());
+}
+
+/// Shares the exact request's immutable model inputs with the lighting bake.
+/// Derived boxes are request-local; an edited model can never reuse stale boxes.
+pub fn set_preparation_assets(
+    catalog: crate::loader::PropCatalog,
+    assets: crate::props::PropAssets,
+) {
+    PROP_OCCLUSIONS.with(|cache| {
+        *cache.borrow_mut() = PropOcclusionCache {
+            catalog,
+            assets,
+            models: HashMap::new(),
+        };
+    });
 }
 
 /// World-space occluders for every static prop of one level at the historical
@@ -1359,7 +1374,7 @@ mod tests {
     /// the loading is shared.
     fn demo_models(
         cache: &mut PropOcclusionCache,
-    ) -> Vec<(String, Rc<crate::props::LoadedPropAsset>)> {
+    ) -> Vec<(String, Arc<crate::props::LoadedPropAsset>)> {
         let level = crate::level::LevelDef::from_json(
             &std::fs::read_to_string("assets/levels/places_demo.json").expect("demo readable"),
         )

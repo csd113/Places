@@ -1476,6 +1476,23 @@ pub struct Visibility {
 }
 
 impl Visibility {
+    /// Resident vector allocations owned by this immutable visibility field.
+    #[must_use]
+    pub(super) fn retained_heap_bytes(&self) -> usize {
+        [
+            allocation_bytes(&self.pool),
+            allocation_bytes(&self.ranges),
+            allocation_bytes(&self.sites),
+            allocation_bytes(&self.occluders.walls),
+            allocation_bytes(&self.occluders.horizontals),
+            allocation_bytes(&self.occluders.props),
+            allocation_bytes(&self.occluders.wall_grid.ranges),
+            allocation_bytes(&self.occluders.wall_grid.items),
+        ]
+        .into_iter()
+        .fold(0_usize, usize::saturating_add)
+    }
+
     /// Builds the solid set from a level's geometry, plus one query site per
     /// light or opening that needs a visibility answer.
     #[must_use]
@@ -2027,6 +2044,11 @@ fn solid_order(a: SolidIndex, b: SolidIndex) -> std::cmp::Ordering {
             std::cmp::Ordering::Greater
         }
     }
+}
+
+/// Vec capacity is required here: a slice omits allocated unused elements.
+const fn allocation_bytes<T>(values: &Vec<T>) -> usize {
+    values.capacity().saturating_mul(std::mem::size_of::<T>())
 }
 
 #[cfg(test)]

@@ -17,7 +17,7 @@ use crate::lighting::BakeConfig;
 use crate::lighting::lightmap::{
     Chart, LevelLightmaps, LightmapAtlas, LightmapCache, LightmapConfig, LightmapFailure,
     LightmapMode, LightmapPatch, LightmapPlan, LightmapStats, content_key_with_extra, fill_chart,
-    write_page_png,
+    fill_chart_cancellable, write_page_png,
 };
 
 /// Builds the level mesh with real prop geometry where possible, plus one
@@ -191,6 +191,58 @@ pub struct LevelBuild {
     pub lightmap_millis: f64,
 }
 
+impl LevelBuild {
+    /// Conservative retained data size. Shared images are counted once within
+    /// this build; shared atlases across cache entries may be counted twice.
+    #[must_use]
+    pub fn retained_bytes(&self) -> usize {
+        let mut bytes = std::mem::size_of::<Self>()
+            .saturating_add(std::mem::size_of::<usize>().saturating_mul(2))
+            .saturating_add(allocation_bytes(&self.mesh.ranges))
+            .saturating_add(allocation_bytes(&self.batches))
+            .saturating_add(self.lighting.retained_heap_bytes());
+        for range in &self.mesh.ranges {
+            bytes = bytes
+                .saturating_add(allocation_bytes(&range.vertices))
+                .saturating_add(allocation_bytes(&range.indices));
+        }
+        let mut images = std::collections::HashSet::new();
+        for batch in &self.batches {
+            bytes = bytes
+                .saturating_add(batch.model.capacity())
+                .saturating_add(allocation_bytes(&batch.vertices))
+                .saturating_add(allocation_bytes(&batch.indices))
+                .saturating_add(allocation_bytes(&batch.submeshes))
+                .saturating_add(allocation_bytes(&batch.textures));
+            for image in &batch.textures {
+                if images.insert(Arc::as_ptr(image)) {
+                    bytes = bytes
+                        .saturating_add(std::mem::size_of_val(image.as_ref()))
+                        .saturating_add(std::mem::size_of::<usize>().saturating_mul(2))
+                        .saturating_add(image.rgba.capacity());
+                }
+            }
+        }
+        if let Some(atlas) = &self.lightmaps {
+            bytes = bytes
+                .saturating_add(std::mem::size_of_val(atlas.as_ref()))
+                .saturating_add(std::mem::size_of::<usize>().saturating_mul(2))
+                .saturating_add(allocation_bytes(&atlas.pages))
+                .saturating_add(allocation_bytes(&atlas.charts))
+                .saturating_add(atlas.cache_key.capacity());
+            for page in &atlas.pages {
+                bytes = bytes.saturating_add(page.rgb.capacity());
+            }
+        }
+        bytes
+    }
+}
+
+/// Vec capacity is required here: a slice omits allocated unused elements.
+const fn allocation_bytes<T>(values: &Vec<T>) -> usize {
+    values.capacity().saturating_mul(std::mem::size_of::<T>())
+}
+
 /// [`build_level_geometry_with_assets_and_lighting`], also reporting how the
 /// build time splits between the lighting bake, prop instancing and static
 /// surface emission.
@@ -230,9 +282,8 @@ pub fn build_level_geometry_timed(
 
 /// A finished CPU level build that may still owe its lightmap fill.
 ///
-/// This is the renderer's split point for a non-blocking lightmap change: the
-/// lighting bake, prop instancing and the plan-stamped mesh run on the main
-/// thread, and only the per-texel fill can be deferred. `fill` is `None`
+/// The loader prepares lighting, props, and the plan-stamped mesh on its
+/// worker before completing the cancellable per-texel fill. `fill` is `None`
 /// exactly when the build is complete — a cache hit, [`LightmapMode::Off`], or
 /// a plan failure that already fell back to the historical vertex-lit mesh.
 pub struct PreparedLightmapBuild {
@@ -248,9 +299,8 @@ pub struct PreparedLightmapBuild {
 /// It carries everything [`fill_chart`] reads and nothing else: the baked
 /// lighting (shared, immutable), the atlas configuration, the plan's charts
 /// and page count, and the deterministic content key the result must be cached
-/// under. The renderer hands one of these to a worker thread and keeps drawing
-/// the previous atlas until the result arrives, so an uncached Full bake no
-/// longer freezes a frame.
+/// under. The loader executes the request on its preparation worker while
+/// the renderer keeps drawing the resident world.
 #[derive(Clone, Debug)]
 pub struct LightmapFillRequest {
     /// The baked lighting every texel samples.
@@ -278,81 +328,6 @@ pub enum LightmapFillOutcome {
     Cancelled,
 }
 
-/// One live lightmap fill on a background thread.
-///
-/// The renderer owns at most one: starting a new fill supersedes the previous
-/// worker, and dropping this value cancels and joins it, so no fill can outlive
-/// the renderer and shutdown is clean. The thread is a plain `std::thread`
-/// (there is no async runtime), and its only work is the per-chart fill; the
-/// cancellation check runs between charts, which bounds a supersede's join to
-/// one chart's fill.
-pub struct LightmapFillWorker {
-    cancel: Arc<AtomicBool>,
-    receiver: std::sync::mpsc::Receiver<LightmapFillOutcome>,
-    handle: Option<std::thread::JoinHandle<()>>,
-}
-
-impl LightmapFillWorker {
-    /// Starts one worker filling `request`.
-    ///
-    /// Returns `None` when the operating system refuses a thread; the caller
-    /// then fills inline, which costs one blocking frame but still applies the
-    /// setting instead of leaving it half applied.
-    #[must_use]
-    pub fn spawn(request: LightmapFillRequest) -> Option<Self> {
-        let cancel = Arc::new(AtomicBool::new(false));
-        let flag = Arc::clone(&cancel);
-        let (sender, receiver) = std::sync::mpsc::channel();
-        let handle = std::thread::Builder::new()
-            .name("places-lightmap-fill".to_string())
-            .spawn(move || {
-                let outcome = fill_lightmaps_cancellable(&request, &flag);
-                // A closed receiver means the renderer already superseded this
-                // request; there is nothing to report it to.
-                let _ = sender.send(outcome);
-            })
-            .ok()?;
-        Some(Self {
-            cancel,
-            receiver,
-            handle: Some(handle),
-        })
-    }
-
-    /// Non-blockingly takes the finished outcome, if the fill has completed.
-    ///
-    /// A disconnected channel (the worker dropped its sender without sending,
-    /// which cannot happen in the current body) reads as
-    /// [`LightmapFillOutcome::Cancelled`], so a broken worker can never
-    /// activate a result.
-    #[must_use]
-    pub fn try_take(&mut self) -> Option<LightmapFillOutcome> {
-        match self.receiver.try_recv() {
-            Ok(outcome) => Some(outcome),
-            Err(std::sync::mpsc::TryRecvError::Empty) => None,
-            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                Some(LightmapFillOutcome::Cancelled)
-            }
-        }
-    }
-
-    /// Asks the worker to stop at the next chart boundary.
-    pub fn cancel(&self) {
-        self.cancel.store(true, Ordering::Relaxed);
-    }
-}
-
-impl Drop for LightmapFillWorker {
-    /// Cancels the fill and joins the thread: an atlas fill can never outlive
-    /// the renderer that asked for it.
-    fn drop(&mut self) {
-        self.cancel();
-        if let Some(handle) = self.handle.take() {
-            let _ = handle.join();
-        }
-    }
-}
-
 /// Fills one request to completion on the calling thread.
 ///
 /// This is the inline path (and the tests' reference): the same body the worker
@@ -369,11 +344,11 @@ pub fn fill_lightmaps(request: &LightmapFillRequest) -> Result<LevelLightmaps, L
 
 /// The worker's body: [`fill_lightmaps`] with a cancellation check between
 /// charts, reported as [`LightmapFillOutcome::Cancelled`] when the flag was set.
-fn fill_lightmaps_cancellable(
+pub fn fill_lightmaps_cancellable(
     request: &LightmapFillRequest,
     cancel: &AtomicBool,
 ) -> LightmapFillOutcome {
-    match bake_request(request, Some(cancel)) {
+    match bake_request_with_workers(request, Some(cancel), runtime_fill_workers()) {
         Ok(lightmaps) if !cancel.load(Ordering::Relaxed) => LightmapFillOutcome::Filled(lightmaps),
         Ok(_) => LightmapFillOutcome::Cancelled,
         Err(_) if cancel.load(Ordering::Relaxed) => LightmapFillOutcome::Cancelled,
@@ -391,18 +366,44 @@ fn bake_request(
     request: &LightmapFillRequest,
     cancel: Option<&AtomicBool>,
 ) -> Result<LevelLightmaps, LightmapFailure> {
+    bake_request_with_workers(request, cancel, 1)
+}
+
+/// Ordinary tests and inline bakes remain serial. The runtime loader owns the
+/// only outer preparation worker; leave one logical CPU for UI/event handling.
+fn runtime_fill_workers() -> usize {
+    if cfg!(test) {
+        return 1;
+    }
+    let available = std::thread::available_parallelism()
+        .map_or(1, |count| count.get().saturating_sub(1).clamp(1, 3));
+    if std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+        && let Ok(value) = std::env::var("PLACES_LIGHTMAP_WORKERS")
+    {
+        if let Ok(requested @ 1..=3) = value.parse::<usize>() {
+            return requested.min(available);
+        }
+        crate::logging::warn("PLACES_LIGHTMAP_WORKERS must be 1, 2 or 3; using available workers");
+    }
+    available
+}
+
+fn bake_request_with_workers(
+    request: &LightmapFillRequest,
+    cancel: Option<&AtomicBool>,
+    workers: usize,
+) -> Result<LevelLightmaps, LightmapFailure> {
     let started = std::time::Instant::now();
-    let atlas = LightmapAtlas::bake(
-        &request.config,
-        request.page_count,
-        &request.charts,
-        |patch, chart| {
-            if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
-                return Vec::new();
-            }
-            fill_chart(&request.lighting, patch, chart)
-        },
-    )?;
+    crate::logging::info(format_args!(
+        "[lightmaps] fill workers={} charts={}",
+        workers.clamp(1, 3).min(request.charts.len().max(1)),
+        request.charts.len()
+    ));
+    let atlas = if let Some(cancel) = cancel.filter(|_| workers > 1 && request.charts.len() > 1) {
+        bake_atlas_parallel(request, cancel, workers)?
+    } else {
+        bake_atlas_serial(request, cancel)?
+    };
     let mut texels = 0usize;
     for (_, chart) in &request.charts {
         let width = usize::try_from(chart.width).unwrap_or(0);
@@ -424,6 +425,122 @@ fn bake_request(
         stats,
         cache_key: request.content_key.clone(),
     })
+}
+
+/// Fills and packs in chart order; the parallel consumer uses this same atlas
+/// writer so texel encoding, gutter writes and overlap order cannot differ.
+fn bake_atlas_serial(
+    request: &LightmapFillRequest,
+    cancel: Option<&AtomicBool>,
+) -> Result<LightmapAtlas, LightmapFailure> {
+    LightmapAtlas::bake(
+        &request.config,
+        request.page_count,
+        &request.charts,
+        |patch, chart| {
+            if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
+                Vec::new()
+            } else {
+                cancel.map_or_else(
+                    || fill_chart(&request.lighting, patch, chart),
+                    |flag| fill_chart_cancellable(&request.lighting, patch, chart, flag),
+                )
+            }
+        },
+    )
+}
+
+/// At most three producers, each with one queued chart and one in progress.
+/// Fixed strides let the consumer receive in source order without a growing
+/// reorder buffer. At 1024 squared texels, six RGB-float chart buffers require
+/// at most 72 MiB beyond the atlas and the consumer's current chart.
+/// Dropping every receiver before joining unblocks all senders
+/// on cancellation, validation failure or partial thread-spawn failure.
+fn bake_atlas_parallel(
+    request: &LightmapFillRequest,
+    cancel: &AtomicBool,
+    workers: usize,
+) -> Result<LightmapAtlas, LightmapFailure> {
+    if cancel.load(Ordering::Relaxed) {
+        return Err(LightmapFailure::FillSize);
+    }
+    LightmapAtlas::validate_layout(&request.config, request.page_count, &request.charts)?;
+    let workers = workers.clamp(1, 3).min(request.charts.len());
+    if workers <= 1 {
+        return bake_atlas_serial(request, Some(cancel));
+    }
+    let result = std::thread::scope(|scope| {
+        let mut receivers = Vec::with_capacity(workers);
+        let mut handles = Vec::with_capacity(workers);
+        for worker in 0..workers {
+            let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+            let spawned = std::thread::Builder::new()
+                .name(format!("lightmap-chart-{worker}"))
+                .spawn_scoped(scope, move || {
+                    for (patch, chart) in request.charts.iter().skip(worker).step_by(workers) {
+                        if cancel.load(Ordering::Relaxed) {
+                            break;
+                        }
+                        let colors =
+                            fill_chart_cancellable(&request.lighting, patch, chart, cancel);
+                        if cancel.load(Ordering::Relaxed) || sender.send(colors).is_err() {
+                            break;
+                        }
+                    }
+                });
+            match spawned {
+                Ok(handle) => {
+                    handles.push(handle);
+                    receivers.push(receiver);
+                }
+                Err(error) => {
+                    crate::logging::warn(format!(
+                        "[lightmaps] chart worker unavailable: {error}; using serial fill"
+                    ));
+                    drop(receiver);
+                    drop(receivers);
+                    join_fill_workers(handles);
+                    return None;
+                }
+            }
+        }
+        let mut next = 0_usize;
+        let atlas = LightmapAtlas::bake(
+            &request.config,
+            request.page_count,
+            &request.charts,
+            |_, _| {
+                if cancel.load(Ordering::Relaxed) {
+                    return Vec::new();
+                }
+                let slot = next.checked_rem(workers).unwrap_or(0);
+                next = next.saturating_add(1);
+                receivers
+                    .get(slot)
+                    .and_then(|receiver| receiver.recv().ok())
+                    .unwrap_or_default()
+            },
+        );
+        drop(receivers);
+        if join_fill_workers(handles) {
+            Some(atlas)
+        } else {
+            // A worker that panicked cannot supply a complete chart.
+            Some(Err(LightmapFailure::FillSize))
+        }
+    });
+    result.unwrap_or_else(|| bake_atlas_serial(request, Some(cancel)))
+}
+
+fn join_fill_workers(handles: Vec<std::thread::ScopedJoinHandle<'_, ()>>) -> bool {
+    let mut complete = true;
+    for handle in handles {
+        if handle.join().is_err() {
+            crate::logging::warn("[lightmaps] chart worker panicked; rejecting incomplete fill");
+            complete = false;
+        }
+    }
+    complete
 }
 
 /// [`build_level_geometry_timed_with_lightmaps`] up to, but not including, the
@@ -688,69 +805,9 @@ pub fn dump_lightmaps_for_level(level: &LevelDef, lightmaps: &LevelLightmaps) {
     dump_lightmaps_if_requested(level, lightmaps);
 }
 
-/// Whether a finished fill stamped `finished` may activate.
-///
-/// The renderer gives every lightmap request a monotonically increasing
-/// generation and only installs the newest one, so a superseded worker whose
-/// result raced its own cancellation can never replace the world. The policy
-/// is a free function so it is unit-testable without a GPU device.
-#[must_use]
-pub const fn fill_may_activate(finished: u64, newest: u64) -> bool {
-    finished == newest
-}
-
-/// Stable 64-bit fingerprint of a level definition's serialized content.
-///
-/// The renderer keeps one completed CPU build (`LevelBuild`) across graphics
-/// changes. Matching that build to a newly loaded definition by id alone is not
-/// enough: re-selecting the current level, or loading a level whose file was
-/// edited since the build, keeps the same id but a different definition — and
-/// the game's collision would then describe the new level while the world drew
-/// the old one. The fingerprint is the same serialized form the lightmap
-/// content key hashes, reduced with FNV-1a so the comparison is cheap and does
-/// not allocate the key string. It is stable within a process (and across
-/// processes, for the same serialization), and deliberately has no
-/// cross-version stability contract: it never reaches the disk cache.
-#[must_use]
-pub fn level_content_fingerprint(level: &LevelDef) -> u64 {
-    // `serde_json` rejects non-finite floats, which the loader already rejects
-    // in level files; a hand-built test level could still carry one, so fall
-    // back to the lossless debug form rather than hashing an empty buffer.
-    let bytes = serde_json::to_vec(level).unwrap_or_else(|_| format!("{level:?}").into_bytes());
-    fnv1a64(&bytes)
-}
-
-/// True when the retained CPU build belongs to exactly this level content.
-///
-/// See [`level_content_fingerprint`]: the id must match *and* the definition
-/// must be the one the build was made from. A mismatch makes the renderer force
-/// the full synchronous load path again instead of reusing a stale build.
-#[must_use]
-pub fn retained_build_matches_level(
-    retained_level_id: Option<&str>,
-    retained_fingerprint: Option<u64>,
-    level: &LevelDef,
-) -> bool {
-    retained_level_id == Some(level.id.as_str())
-        && retained_fingerprint == Some(level_content_fingerprint(level))
-}
-
-/// FNV-1a 64-bit over arbitrary bytes: tiny, dependency-free and stable.
-fn fnv1a64(bytes: &[u8]) -> u64 {
-    const OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
-    const PRIME: u64 = 0x0000_0100_0000_01b3;
-    let mut hash = OFFSET_BASIS;
-    for byte in bytes {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(PRIME);
-    }
-    hash
-}
-
 /// What the renderer is doing about a graphics change, for a cheap status hint.
 ///
-/// `Preparing` names the stage in progress — today only `"lightmaps"`, the one
-/// asynchronous stage — so the game loop can show a subtle "Applying..."
+/// `Preparing` names the GPU preparation stage so the game loop can show a status
 /// message without any expensive query. The previous configuration keeps
 /// rendering throughout a `Preparing` transition.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -902,13 +959,12 @@ mod tests {
         assert!(prepared.build.lightmaps.is_none(), "uncached build");
         let fill = prepared.fill.expect("an uncached build owes a fill");
 
-        let mut worker = LightmapFillWorker::spawn(fill.clone()).expect("a worker thread");
-        let outcome = loop {
-            if let Some(outcome) = worker.try_take() {
-                break outcome;
-            }
-            std::thread::yield_now();
-        };
+        let outcome = std::thread::scope(|scope| {
+            scope
+                .spawn(|| fill_lightmaps_cancellable(&fill, &AtomicBool::new(false)))
+                .join()
+                .expect("the cancellable fill thread completed")
+        });
         let LightmapFillOutcome::Filled(worker_atlas) = outcome else {
             panic!("the worker fill produced {outcome:?}");
         };
@@ -1097,45 +1153,88 @@ mod tests {
         }
     }
 
-    /// A retained build is reusable only for the exact level content it was
-    /// made from: the id alone is not enough, because re-loading an edited
-    /// level (or re-selecting and editing the current one) keeps the id.
     #[test]
-    fn a_retained_build_only_matches_the_same_level_content() {
-        let level = tiny_level();
-        let same = tiny_level();
-        assert_eq!(level.id, same.id);
+    fn bounded_chart_workers_match_serial_atlas_and_handle_cancellation() {
+        let mut level = tiny_level();
+        level.walls =
+            serde_json::from_str(r#"[{"x":1.0,"z":1.0,"width":4.0,"depth":0.2,"height":2.0}]"#)
+                .expect("vertical faces exercise all three chart producers");
+        let materials = build_materials(&level);
+        let mut assets = crate::props::PropAssets::default();
+        let prepared = prepare_level_geometry_with_lightmaps(
+            &level,
+            &crate::loader::PropCatalog::builtin(),
+            &mut assets,
+            &materials,
+            LightmapBuildOptions::for_lightmaps(LightmapQuality::Full),
+            None,
+        );
+        let request = prepared.fill.expect("uncached tiny plan");
+        assert!(request.charts.len() > 3);
+        let serial = fill_lightmaps(&request).expect("serial fill");
+        let (patch, chart) = request.charts.first().expect("chart");
         assert_eq!(
-            level_content_fingerprint(&level),
-            level_content_fingerprint(&same)
+            fill_chart_cancellable(&request.lighting, patch, chart, &AtomicBool::new(false)),
+            fill_chart(&request.lighting, patch, chart)
         );
-        let fingerprint = level_content_fingerprint(&level);
-        assert!(retained_build_matches_level(
-            Some(level.id.as_str()),
-            Some(fingerprint),
-            &same
-        ));
-
-        let mut edited = level.clone();
-        if let Some(light) = edited.ceiling_lights.first_mut() {
-            light.x += 0.25;
+        assert!(
+            fill_chart_cancellable(&request.lighting, patch, chart, &AtomicBool::new(true))
+                .is_empty()
+        );
+        for workers in [2, 3] {
+            let parallel =
+                super::bake_request_with_workers(&request, Some(&AtomicBool::new(false)), workers)
+                    .expect("parallel fill");
+            assert_eq!(parallel.pages, serial.pages);
+            assert_eq!(parallel.charts, serial.charts);
+            assert_eq!(parallel.cache_key, serial.cache_key);
+            assert_eq!(parallel.stats.texels, serial.stats.texels);
+            assert_eq!(parallel.stats.page_texels, serial.stats.page_texels);
+            assert_eq!(
+                super::bake_atlas_parallel(&request, &AtomicBool::new(true), workers).err(),
+                Some(LightmapFailure::FillSize)
+            );
         }
-        assert_ne!(
-            level_content_fingerprint(&level),
-            level_content_fingerprint(&edited),
-            "a moved fixture changes the level content"
+        assert_invalid_parallel_layouts(request);
+    }
+
+    fn assert_invalid_parallel_layouts(mut invalid: LightmapFillRequest) {
+        // Every layout is rejected before any producer starts, including a
+        // huge chart that would request an unsafe allocation if filled first.
+        let original = invalid.charts.first().expect("chart").1;
+        for (width, height, page) in [
+            (u32::MAX, original.height, original.page),
+            (original.width, u32::MAX, original.page),
+            (0, original.height, original.page),
+            (original.width, original.height, u16::MAX),
+        ] {
+            let chart = &mut invalid.charts.first_mut().expect("chart").1;
+            chart.width = width;
+            chart.height = height;
+            chart.page = page;
+            assert_eq!(
+                LightmapAtlas::validate_layout(
+                    &invalid.config,
+                    invalid.page_count,
+                    &invalid.charts
+                ),
+                Err(LightmapFailure::Layout)
+            );
+            assert_eq!(
+                super::bake_atlas_parallel(&invalid, &AtomicBool::new(false), 3).err(),
+                Some(LightmapFailure::Layout)
+            );
+        }
+        invalid.charts.first_mut().expect("chart").1 = original;
+        invalid.config.page_edge = 0;
+        assert_eq!(
+            super::bake_atlas_parallel(&invalid, &AtomicBool::new(false), 3).err(),
+            Some(LightmapFailure::InvalidConfig)
         );
-        assert!(
-            !retained_build_matches_level(Some(level.id.as_str()), Some(fingerprint), &edited),
-            "the same id with edited content must force a rebuild"
-        );
-        assert!(
-            !retained_build_matches_level(None, None, &level),
-            "no retained build never matches"
-        );
-        assert!(
-            !retained_build_matches_level(Some("other_level"), Some(fingerprint), &level),
-            "a different level id never matches"
+        invalid.config.page_edge = u32::MAX;
+        assert_eq!(
+            super::bake_atlas_parallel(&invalid, &AtomicBool::new(false), 3).err(),
+            Some(LightmapFailure::InvalidConfig)
         );
     }
 
@@ -1159,37 +1258,6 @@ mod tests {
         let cancel = AtomicBool::new(true);
         let outcome = fill_lightmaps_cancellable(&fill, &cancel);
         assert!(matches!(outcome, LightmapFillOutcome::Cancelled));
-    }
-
-    /// Dropping a worker cancels it and joins the thread; the test itself
-    /// proves the shutdown returns (a leaked thread would hang the suite).
-    #[test]
-    fn dropping_a_worker_cancels_and_joins() {
-        let level = tiny_level();
-        let materials = build_materials(&level);
-        let catalog = crate::loader::PropCatalog::builtin();
-        let mut assets = crate::props::PropAssets::default();
-        let prepared = prepare_level_geometry_with_lightmaps(
-            &level,
-            &catalog,
-            &mut assets,
-            &materials,
-            LightmapBuildOptions::for_lightmaps(LightmapQuality::Full),
-            None,
-        );
-        let fill = prepared.fill.expect("uncached build owes a fill");
-        let worker = LightmapFillWorker::spawn(fill).expect("a worker thread");
-        worker.cancel();
-        drop(worker);
-    }
-
-    /// Only the newest generation may activate; a superseded result is
-    /// discarded even if it finished.
-    #[test]
-    fn only_the_newest_generation_may_activate() {
-        assert!(fill_may_activate(7, 7));
-        assert!(!fill_may_activate(6, 7), "an older fill must not activate");
-        assert!(!fill_may_activate(8, 7), "a future id is not the newest");
     }
 
     /// The worker's request is `Send` (and the lighting `Send + Sync`), which

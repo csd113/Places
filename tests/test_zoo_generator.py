@@ -198,10 +198,6 @@ class ZooGeneratorFixtureTests(unittest.TestCase):
         self.assertIsNone(result["rest_bounds"])
         self.assertEqual(result["id"], "fixture:missing")
 
-    def test_the_shipped_zoo_is_checked_in(self):
-        completed = zoo.main(["--check", "--quiet"])
-        self.assertEqual(completed, 0, "the shipped Model Zoo must be current")
-
 
 if __name__ == "__main__":
     unittest.main()

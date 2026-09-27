@@ -234,8 +234,7 @@ fn a_black_light_is_inactive() {
 // evaluated independently, with visibility assumed clear (true away from the
 // scene's own walls), so a difference between the two columns is a
 // bake/runtime interpretation mismatch, not a falloff curve. The `n` column is
-// the same scene under the proposal in
-// `target/agent-work/agent-d/bake_pool_proposal.md`: horizontal distance,
+// the same scene evaluated using horizontal distance,
 // `(1 - t)^2` lateral curve, a downward incidence term, and saturating
 // composition instead of the hard cap (see `audit_proposed_pool`).
 //

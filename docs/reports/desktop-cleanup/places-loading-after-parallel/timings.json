@@ -1,0 +1,4585 @@
+{
+  "binary": "/Users/connordawkins/Documents/GitHub/Places/target/release/places",
+  "binary_sha256": "7fb23273d3baad6e4d139d20e66f2a4b8a3cd53039d4465ab088616f54a7c67b",
+  "root": "/Users/connordawkins/Documents/GitHub/Places",
+  "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+  "cache_definition": "application only; OS/GPU caches untouched",
+  "runs": [
+    {
+      "level": "menu",
+      "repeat": 0,
+      "cache": "cold",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Users/connordawkins/Documents/GitHub/Places/target/release/places"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-after-parallel/menu-0-state",
+        "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LOAD_TRACE": "/private/tmp/places-loading-after-parallel/menu-0-cold.jsonl"
+      },
+      "exit_code": 0,
+      "process_seconds": 15.956669375009369,
+      "peak_rss_bytes": 688209920,
+      "requested_level_found": true,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.4,
+          "elapsed_ms": 0.4
+        },
+        {
+          "name": "settings",
+          "delta_ms": 1.8,
+          "elapsed_ms": 2.2
+        },
+        {
+          "name": "window",
+          "delta_ms": 130.7,
+          "elapsed_ms": 132.9
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 9.3,
+          "elapsed_ms": 142.2
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 12.5,
+          "elapsed_ms": 154.7
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 41.7,
+          "elapsed_ms": 196.4
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 16.9,
+          "elapsed_ms": 213.2
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 213.3
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 213.3
+        }
+      ],
+      "log": "menu-0-cold.log",
+      "lightmap_workers": 3,
+      "trace_error": null,
+      "trace_available": true,
+      "loading_windows_ms": [
+        [
+          162.751958,
+          15605.926458
+        ]
+      ],
+      "first_present_ms": 213.664,
+      "first_ready_present_ms": 15605.926458,
+      "event_pump_gaps": {
+        "count": 1841,
+        "p50_ms": 8.31866699999955,
+        "p95_ms": 8.827124999999796,
+        "p99_ms": 8.924834000001283,
+        "max_ms": 162.74550000000002,
+        "initial_wait_ms": 162.74550000000002,
+        "includes_initial_interval": true
+      },
+      "loading_event_pump_gaps": {
+        "count": 1839,
+        "p50_ms": 8.31866699999955,
+        "p95_ms": 8.827166999999463,
+        "p99_ms": 8.924834000001283,
+        "max_ms": 162.74550000000002
+      },
+      "present_gaps": {
+        "count": 1841,
+        "p50_ms": 8.318374999998923,
+        "p95_ms": 8.823791000000256,
+        "p99_ms": 8.924250000000029,
+        "max_ms": 213.628292,
+        "initial_wait_ms": 213.628292,
+        "includes_initial_interval": true
+      },
+      "loading_present_gaps": {
+        "count": 1838,
+        "p50_ms": 8.318374999998923,
+        "p95_ms": 8.82708300000013,
+        "p99_ms": 8.924250000000029,
+        "max_ms": 213.628292
+      },
+      "input_latency": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "max_ms": null
+      },
+      "trace": "menu-0-cold.jsonl",
+      "lifecycle": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.035708,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 155.121417,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 162.751958,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 192.319083,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 196.71875,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "Preparing geometry and lighting",
+          "elapsed_ms": 589.972458,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Filling lightmaps",
+          "elapsed_ms": 1081.9150829999999,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Preparing characters",
+          "elapsed_ms": 15406.838375,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 15456.900667,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":14301.3205,\"cache_hit\":false,\"level\":\"places_demo\",\"lighting_ms\":24.273583000000002,\"props_ms\":407.014167,\"retained_bytes\":23259547,\"surfaces_ms\":54.614291,\"wall_ms\":15290.322791999999}",
+          "elapsed_ms": 15456.943208,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15456.9855,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15462.866375000001,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15465.329125,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15465.646958000001,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15473.497125,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15534.864708000001,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15535.277708000001,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15545.70775,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15546.633625,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15550.830708,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15551.150458,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15555.700625,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15556.727,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15560.955667,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15565.062083,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15569.366917,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15573.62975,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15577.688167,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15581.953375,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15602.621708,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 15602.623417,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":2,\"current_level_id\":\"places_demo\",\"dynamic_objects\":2,\"interactables\":7,\"lightmaps\":\"full\",\"player_position\":[2.0,1.600000023841858,5.599999904632568],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"places_demo\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":1,\"triggers\":0,\"walls\":375,\"window_focused\":true}",
+          "elapsed_ms": 15604.878458,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15604.883958,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 15605.926458,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15623.2415,
+          "event": "shutdown_requested",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15649.87325,
+          "event": "shutdown_complete",
+          "request": 1
+        }
+      ]
+    },
+    {
+      "level": "menu",
+      "repeat": 0,
+      "cache": "warm",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Users/connordawkins/Documents/GitHub/Places/target/release/places"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-after-parallel/menu-0-state",
+        "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LOAD_TRACE": "/private/tmp/places-loading-after-parallel/menu-0-warm.jsonl"
+      },
+      "exit_code": 0,
+      "process_seconds": 1.2939685409655795,
+      "peak_rss_bytes": 682016768,
+      "requested_level_found": true,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.3
+        },
+        {
+          "name": "window",
+          "delta_ms": 104.0,
+          "elapsed_ms": 104.3
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.3,
+          "elapsed_ms": 112.6
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 8.6,
+          "elapsed_ms": 121.3
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 39.0,
+          "elapsed_ms": 160.3
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 12.5,
+          "elapsed_ms": 172.8
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 172.8
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 172.8
+        }
+      ],
+      "log": "menu-0-warm.log",
+      "lightmap_workers": null,
+      "trace_error": null,
+      "trace_available": true,
+      "loading_windows_ms": [
+        [
+          128.766583,
+          1203.3795830000001
+        ]
+      ],
+      "first_present_ms": 172.880541,
+      "first_ready_present_ms": 1203.3795830000001,
+      "event_pump_gaps": {
+        "count": 119,
+        "p50_ms": 8.312457999999992,
+        "p95_ms": 12.241250000000036,
+        "p99_ms": 61.662833999999975,
+        "max_ms": 128.77783300000002,
+        "initial_wait_ms": 128.77783300000002,
+        "includes_initial_interval": true
+      },
+      "loading_event_pump_gaps": {
+        "count": 117,
+        "p50_ms": 8.312584000000015,
+        "p95_ms": 12.241250000000036,
+        "p99_ms": 61.662833999999975,
+        "max_ms": 128.77783300000002
+      },
+      "present_gaps": {
+        "count": 119,
+        "p50_ms": 8.311874999999986,
+        "p95_ms": 8.886750000000006,
+        "p99_ms": 61.66229099999987,
+        "max_ms": 172.876958,
+        "initial_wait_ms": 172.876958,
+        "includes_initial_interval": true
+      },
+      "loading_present_gaps": {
+        "count": 116,
+        "p50_ms": 8.311874999999986,
+        "p95_ms": 8.886750000000006,
+        "p99_ms": 61.66229099999987,
+        "max_ms": 172.876958
+      },
+      "input_latency": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "max_ms": null
+      },
+      "trace": "menu-0-warm.jsonl",
+      "lifecycle": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.003583,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 121.331625,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 128.766583,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 157.952875,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 160.321791,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "Preparing geometry and lighting",
+          "elapsed_ms": 514.65275,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Preparing characters",
+          "elapsed_ms": 1006.2256659999999,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 1055.9235410000001,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"places_demo\",\"lighting_ms\":24.385082999999998,\"props_ms\":405.090583,\"retained_bytes\":23338587,\"surfaces_ms\":54.306667000000004,\"wall_ms\":924.962917}",
+          "elapsed_ms": 1055.9702909999999,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1056.0078330000001,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1061.812375,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1064.6391660000002,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1064.958875,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1072.599041,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1133.834416,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1134.286041,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1144.9925,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1146.524,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1150.919875,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1151.259416,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1155.750166,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1156.393708,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1160.618958,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1164.6392910000002,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1169.004541,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1173.2495000000001,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1177.2815830000002,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1181.2687500000002,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1200.291291,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 1200.292833,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":2,\"current_level_id\":\"places_demo\",\"dynamic_objects\":2,\"interactables\":7,\"lightmaps\":\"full\",\"player_position\":[2.0,1.600000023841858,5.599999904632568],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"places_demo\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":1,\"triggers\":0,\"walls\":375,\"window_focused\":true}",
+          "elapsed_ms": 1202.189583,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1202.194333,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 1203.3795830000001,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1214.706583,
+          "event": "shutdown_requested",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1240.802166,
+          "event": "shutdown_complete",
+          "request": 1
+        }
+      ]
+    },
+    {
+      "level": "places_demo",
+      "repeat": 0,
+      "cache": "cold",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Users/connordawkins/Documents/GitHub/Places/target/release/places"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-after-parallel/places_demo-0-state",
+        "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "places_demo",
+        "PLACES_LOAD_TRACE": "/private/tmp/places-loading-after-parallel/places_demo-0-cold.jsonl"
+      },
+      "exit_code": 0,
+      "process_seconds": 15.703615959035233,
+      "peak_rss_bytes": 686063616,
+      "requested_level_found": true,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.1
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "window",
+          "delta_ms": 112.2,
+          "elapsed_ms": 112.4
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.4,
+          "elapsed_ms": 120.8
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 8.9,
+          "elapsed_ms": 129.7
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 36.3,
+          "elapsed_ms": 166.0
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 12.6,
+          "elapsed_ms": 178.7
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 178.7
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 178.7
+        }
+      ],
+      "log": "places_demo-0-cold.log",
+      "lightmap_workers": 3,
+      "trace_error": null,
+      "trace_available": true,
+      "loading_windows_ms": [
+        [
+          137.770875,
+          15599.613583
+        ]
+      ],
+      "first_present_ms": 178.756125,
+      "first_ready_present_ms": 15599.613583,
+      "event_pump_gaps": {
+        "count": 1846,
+        "p50_ms": 8.320333000001483,
+        "p95_ms": 8.830665999999837,
+        "p99_ms": 8.903458999999998,
+        "max_ms": 137.782459,
+        "initial_wait_ms": 137.782459,
+        "includes_initial_interval": true
+      },
+      "loading_event_pump_gaps": {
+        "count": 1844,
+        "p50_ms": 8.320333000001483,
+        "p95_ms": 8.830665999999837,
+        "p99_ms": 8.903458999999998,
+        "max_ms": 137.782459
+      },
+      "present_gaps": {
+        "count": 1846,
+        "p50_ms": 8.320084000000861,
+        "p95_ms": 8.829041999999845,
+        "p99_ms": 8.903458000000683,
+        "max_ms": 178.752917,
+        "initial_wait_ms": 178.752917,
+        "includes_initial_interval": true
+      },
+      "loading_present_gaps": {
+        "count": 1843,
+        "p50_ms": 8.320084000000861,
+        "p95_ms": 8.829041999999845,
+        "p99_ms": 8.903458000000683,
+        "max_ms": 178.752917
+      },
+      "input_latency": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "max_ms": null
+      },
+      "trace": "places_demo-0-cold.jsonl",
+      "lifecycle": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.003208,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 129.765167,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 137.770875,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 165.967875,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 166.05183300000002,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "Preparing geometry and lighting",
+          "elapsed_ms": 518.304667,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Filling lightmaps",
+          "elapsed_ms": 1001.949833,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Preparing characters",
+          "elapsed_ms": 15402.037875,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 15452.010667,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":14384.246041,\"cache_hit\":false,\"level\":\"places_demo\",\"lighting_ms\":24.103583,\"props_ms\":405.35262500000005,\"retained_bytes\":23259547,\"surfaces_ms\":54.222167,\"wall_ms\":15312.809458}",
+          "elapsed_ms": 15452.062124999999,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15452.112958000002,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15458.154499999999,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15460.443583,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15460.734125,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15468.173458000001,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15529.508249999999,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15529.954333,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15540.678208,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15542.336625,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15546.70525,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15546.953875,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15551.577500000001,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15551.920125,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15556.286625,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15560.406167,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15564.814875,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15568.6605,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15572.74825,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15577.166083,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15596.651,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 15596.652667,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":2,\"current_level_id\":\"places_demo\",\"dynamic_objects\":2,\"interactables\":7,\"lightmaps\":\"full\",\"player_position\":[2.0,1.600000023841858,5.599999904632568],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"places_demo\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":1,\"triggers\":0,\"walls\":375,\"window_focused\":true}",
+          "elapsed_ms": 15598.619666999999,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15598.624708,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 15599.613583,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15618.776875,
+          "event": "shutdown_requested",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 15644.838667,
+          "event": "shutdown_complete",
+          "request": 1
+        }
+      ]
+    },
+    {
+      "level": "places_demo",
+      "repeat": 0,
+      "cache": "warm",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Users/connordawkins/Documents/GitHub/Places/target/release/places"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-after-parallel/places_demo-0-state",
+        "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "places_demo",
+        "PLACES_LOAD_TRACE": "/private/tmp/places-loading-after-parallel/places_demo-0-warm.jsonl"
+      },
+      "exit_code": 0,
+      "process_seconds": 1.308544208004605,
+      "peak_rss_bytes": 682278912,
+      "requested_level_found": true,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.1
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "window",
+          "delta_ms": 107.4,
+          "elapsed_ms": 107.6
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.7,
+          "elapsed_ms": 116.3
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 9.2,
+          "elapsed_ms": 125.4
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 38.5,
+          "elapsed_ms": 164.0
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 12.5,
+          "elapsed_ms": 176.5
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 176.5
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 176.5
+        }
+      ],
+      "log": "places_demo-0-warm.log",
+      "lightmap_workers": null,
+      "trace_error": null,
+      "trace_available": true,
+      "loading_windows_ms": [
+        [
+          133.28075,
+          1217.989542
+        ]
+      ],
+      "first_present_ms": 176.544125,
+      "first_ready_present_ms": 1217.989542,
+      "event_pump_gaps": {
+        "count": 121,
+        "p50_ms": 8.3118750000001,
+        "p95_ms": 8.991541999999981,
+        "p99_ms": 61.625,
+        "max_ms": 133.292042,
+        "initial_wait_ms": 133.292042,
+        "includes_initial_interval": true
+      },
+      "loading_event_pump_gaps": {
+        "count": 119,
+        "p50_ms": 8.31595900000002,
+        "p95_ms": 12.319959000000154,
+        "p99_ms": 61.625,
+        "max_ms": 133.292042
+      },
+      "present_gaps": {
+        "count": 121,
+        "p50_ms": 8.308834000000047,
+        "p95_ms": 8.93574999999987,
+        "p99_ms": 61.62412500000005,
+        "max_ms": 176.540375,
+        "initial_wait_ms": 176.540375,
+        "includes_initial_interval": true
+      },
+      "loading_present_gaps": {
+        "count": 118,
+        "p50_ms": 8.311874999999986,
+        "p95_ms": 8.992458999999997,
+        "p99_ms": 61.62412500000005,
+        "max_ms": 176.540375
+      },
+      "input_latency": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "max_ms": null
+      },
+      "trace": "places_demo-0-warm.jsonl",
+      "lifecycle": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.0037500000000000003,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 125.494292,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 133.28075,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 161.93574999999998,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 163.961209,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "Preparing geometry and lighting",
+          "elapsed_ms": 520.9404589999999,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Preparing characters",
+          "elapsed_ms": 1021.1907090000001,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 1071.328917,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"places_demo\",\"lighting_ms\":24.35625,\"props_ms\":409.372083,\"retained_bytes\":23338587,\"surfaces_ms\":54.564208,\"wall_ms\":934.685125}",
+          "elapsed_ms": 1071.385,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1071.4190839999999,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1077.282417,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1079.681584,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1079.9469589999999,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1087.927584,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1149.1511249999999,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1149.57825,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1160.2356249999998,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1161.884209,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1166.140875,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1166.483792,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1170.999292,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1171.338792,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1175.853542,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1179.4715,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1183.8654589999999,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1187.8011669999999,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1191.806625,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1196.020959,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1215.133167,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 1215.1345840000001,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":2,\"current_level_id\":\"places_demo\",\"dynamic_objects\":2,\"interactables\":7,\"lightmaps\":\"full\",\"player_position\":[2.0,1.600000023841858,5.599999904632568],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"places_demo\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":1,\"triggers\":0,\"walls\":375,\"window_focused\":true}",
+          "elapsed_ms": 1217.044042,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1217.058417,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 1217.989542,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1229.459125,
+          "event": "shutdown_requested",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1255.760542,
+          "event": "shutdown_complete",
+          "request": 1
+        }
+      ]
+    },
+    {
+      "level": "model_zoo",
+      "repeat": 0,
+      "cache": "cold",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Users/connordawkins/Documents/GitHub/Places/target/release/places"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-after-parallel/model_zoo-0-state",
+        "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "model_zoo",
+        "PLACES_LOAD_TRACE": "/private/tmp/places-loading-after-parallel/model_zoo-0-cold.jsonl"
+      },
+      "exit_code": 0,
+      "process_seconds": 6.491502209042665,
+      "peak_rss_bytes": 260947968,
+      "requested_level_found": true,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.3
+        },
+        {
+          "name": "window",
+          "delta_ms": 144.8,
+          "elapsed_ms": 145.1
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.2,
+          "elapsed_ms": 153.3
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 9.0,
+          "elapsed_ms": 162.3
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 37.1,
+          "elapsed_ms": 199.4
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 11.9,
+          "elapsed_ms": 211.4
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 211.4
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 211.4
+        }
+      ],
+      "log": "model_zoo-0-cold.log",
+      "lightmap_workers": 3,
+      "trace_error": null,
+      "trace_available": true,
+      "loading_windows_ms": [
+        [
+          170.063542,
+          6345.894917
+        ]
+      ],
+      "first_present_ms": 211.471667,
+      "first_ready_present_ms": 6345.894917,
+      "event_pump_gaps": {
+        "count": 739,
+        "p50_ms": 8.32425000000012,
+        "p95_ms": 8.856291000000283,
+        "p99_ms": 8.966542000000118,
+        "max_ms": 170.07325,
+        "initial_wait_ms": 170.07325,
+        "includes_initial_interval": true
+      },
+      "loading_event_pump_gaps": {
+        "count": 737,
+        "p50_ms": 8.324375000000146,
+        "p95_ms": 8.856291000000283,
+        "p99_ms": 8.966542000000118,
+        "max_ms": 170.07325
+      },
+      "present_gaps": {
+        "count": 739,
+        "p50_ms": 8.324207999999999,
+        "p95_ms": 8.85208400000056,
+        "p99_ms": 8.963791999999557,
+        "max_ms": 211.46725,
+        "initial_wait_ms": 211.46725,
+        "includes_initial_interval": true
+      },
+      "loading_present_gaps": {
+        "count": 736,
+        "p50_ms": 8.324207999999999,
+        "p95_ms": 8.85208400000056,
+        "p99_ms": 8.963791999999557,
+        "max_ms": 211.46725
+      },
+      "input_latency": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "max_ms": null
+      },
+      "trace": "model_zoo-0-cold.jsonl",
+      "lifecycle": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.004417,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 162.407292,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "model_zoo",
+          "elapsed_ms": 170.063542,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 199.349875,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 199.468125,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "Preparing geometry and lighting",
+          "elapsed_ms": 244.991375,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Filling lightmaps",
+          "elapsed_ms": 402.2235,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Preparing characters",
+          "elapsed_ms": 6068.61325,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "model_zoo",
+          "elapsed_ms": 6252.432125,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":5646.502791,\"cache_hit\":false,\"level\":\"model_zoo\",\"lighting_ms\":26.502834,\"props_ms\":126.679667,\"retained_bytes\":26865273,\"surfaces_ms\":1.942708,\"wall_ms\":6081.942167}",
+          "elapsed_ms": 6252.478417,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6252.5125419999995,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6258.885042,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6260.866292000001,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6261.203541999999,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6269.0935420000005,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6283.8199589999995,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6284.228959,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6284.419917,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6286.347459,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6290.908209,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6293.797792,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6298.149292,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6302.610209,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6307.028709,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6310.89225,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6315.213834,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6319.073834,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6323.46525,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6327.538584,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6331.624417000001,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6335.8829590000005,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6343.887542,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "model_zoo",
+          "elapsed_ms": 6343.888917,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":14,\"current_level_id\":\"model_zoo\",\"dynamic_objects\":1,\"interactables\":60,\"lightmaps\":\"full\",\"player_position\":[13.199999809265137,1.600000023841858,18.700000762939453],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"model_zoo\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":10,\"triggers\":0,\"walls\":376,\"window_focused\":true}",
+          "elapsed_ms": 6344.695875,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6344.701542,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "model_zoo",
+          "elapsed_ms": 6345.894917,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6368.938417,
+          "event": "shutdown_requested",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 6395.219875000001,
+          "event": "shutdown_complete",
+          "request": 1
+        }
+      ]
+    },
+    {
+      "level": "model_zoo",
+      "repeat": 0,
+      "cache": "warm",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Users/connordawkins/Documents/GitHub/Places/target/release/places"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-after-parallel/model_zoo-0-state",
+        "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "model_zoo",
+        "PLACES_LOAD_TRACE": "/private/tmp/places-loading-after-parallel/model_zoo-0-warm.jsonl"
+      },
+      "exit_code": 0,
+      "process_seconds": 0.7840625410317443,
+      "peak_rss_bytes": 260177920,
+      "requested_level_found": true,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.3
+        },
+        {
+          "name": "window",
+          "delta_ms": 111.8,
+          "elapsed_ms": 112.1
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.4,
+          "elapsed_ms": 120.5
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 9.3,
+          "elapsed_ms": 129.8
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 36.6,
+          "elapsed_ms": 166.4
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 13.0,
+          "elapsed_ms": 179.4
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 179.4
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 179.4
+        }
+      ],
+      "log": "model_zoo-0-warm.log",
+      "lightmap_workers": null,
+      "trace_error": null,
+      "trace_available": true,
+      "loading_windows_ms": [
+        [
+          137.689583,
+          665.92075
+        ]
+      ],
+      "first_present_ms": 179.462083,
+      "first_ready_present_ms": 665.92075,
+      "event_pump_gaps": {
+        "count": 61,
+        "p50_ms": 8.300292000000013,
+        "p95_ms": 15.58679200000006,
+        "p99_ms": 137.716458,
+        "max_ms": 137.716458,
+        "initial_wait_ms": 137.716458,
+        "includes_initial_interval": true
+      },
+      "loading_event_pump_gaps": {
+        "count": 59,
+        "p50_ms": 8.301332999999943,
+        "p95_ms": 24.23995899999997,
+        "p99_ms": 137.716458,
+        "max_ms": 137.716458
+      },
+      "present_gaps": {
+        "count": 61,
+        "p50_ms": 8.293165999999985,
+        "p95_ms": 9.248041999999941,
+        "p99_ms": 179.45433300000002,
+        "max_ms": 179.45433300000002,
+        "initial_wait_ms": 179.45433300000002,
+        "includes_initial_interval": true
+      },
+      "loading_present_gaps": {
+        "count": 58,
+        "p50_ms": 8.300291000000016,
+        "p95_ms": 15.586415999999986,
+        "p99_ms": 179.45433300000002,
+        "max_ms": 179.45433300000002
+      },
+      "input_latency": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "max_ms": null
+      },
+      "trace": "model_zoo-0-warm.jsonl",
+      "lifecycle": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.00775,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 129.866916,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "model_zoo",
+          "elapsed_ms": 137.689583,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 166.35370799999998,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 166.425541,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "Preparing geometry and lighting",
+          "elapsed_ms": 210.64266600000002,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Preparing characters",
+          "elapsed_ms": 381.645375,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "model_zoo",
+          "elapsed_ms": 573.33375,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"model_zoo\",\"lighting_ms\":26.511208,\"props_ms\":127.60825000000001,\"retained_bytes\":26872233,\"surfaces_ms\":1.966958,\"wall_ms\":428.5555}",
+          "elapsed_ms": 573.3829999999999,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 573.415583,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 581.137875,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 581.8686250000001,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 582.196083,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 589.765583,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 604.99325,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 605.368208,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 605.5320830000001,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 607.508875,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 611.910583,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 615.540916,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 619.98775,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 623.6369579999999,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 628.041875,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 631.864958,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 636.205708,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 640.141166,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 644.517083,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 648.3953329999999,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 652.424125,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 656.697833,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 663.945916,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "model_zoo",
+          "elapsed_ms": 663.946916,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":14,\"current_level_id\":\"model_zoo\",\"dynamic_objects\":1,\"interactables\":60,\"lightmaps\":\"full\",\"player_position\":[13.199999809265137,1.600000023841858,18.700000762939453],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"model_zoo\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":10,\"triggers\":0,\"walls\":376,\"window_focused\":true}",
+          "elapsed_ms": 664.769583,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 664.774708,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "model_zoo",
+          "elapsed_ms": 665.92075,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 689.863083,
+          "event": "shutdown_requested",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 716.777416,
+          "event": "shutdown_complete",
+          "request": 1
+        }
+      ]
+    },
+    {
+      "level": "level0_pit",
+      "repeat": 0,
+      "cache": "cold",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Users/connordawkins/Documents/GitHub/Places/target/release/places"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-after-parallel/level0_pit-0-state",
+        "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "level0_pit",
+        "PLACES_LOAD_TRACE": "/private/tmp/places-loading-after-parallel/level0_pit-0-cold.jsonl"
+      },
+      "exit_code": 0,
+      "process_seconds": 3.5503698749816976,
+      "peak_rss_bytes": 235814912,
+      "requested_level_found": true,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.1
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "window",
+          "delta_ms": 110.6,
+          "elapsed_ms": 110.8
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.2,
+          "elapsed_ms": 119.1
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 8.6,
+          "elapsed_ms": 127.7
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 39.4,
+          "elapsed_ms": 167.0
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 11.7,
+          "elapsed_ms": 178.7
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 178.8
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 178.8
+        }
+      ],
+      "log": "level0_pit-0-cold.log",
+      "lightmap_workers": 3,
+      "trace_error": null,
+      "trace_available": true,
+      "loading_windows_ms": [
+        [
+          135.63345800000002,
+          3435.566625
+        ]
+      ],
+      "first_present_ms": 178.815,
+      "first_ready_present_ms": 3435.566625,
+      "event_pump_gaps": {
+        "count": 394,
+        "p50_ms": 8.311083000000053,
+        "p95_ms": 8.838000000000022,
+        "p99_ms": 16.873041000000285,
+        "max_ms": 135.646083,
+        "initial_wait_ms": 135.646083,
+        "includes_initial_interval": true
+      },
+      "loading_event_pump_gaps": {
+        "count": 392,
+        "p50_ms": 8.311083000000053,
+        "p95_ms": 8.838000000000022,
+        "p99_ms": 16.873041000000285,
+        "max_ms": 135.646083
+      },
+      "present_gaps": {
+        "count": 394,
+        "p50_ms": 8.309707999999773,
+        "p95_ms": 8.836415999999986,
+        "p99_ms": 8.949415999999928,
+        "max_ms": 178.81125,
+        "initial_wait_ms": 178.81125,
+        "includes_initial_interval": true
+      },
+      "loading_present_gaps": {
+        "count": 391,
+        "p50_ms": 8.309834000000137,
+        "p95_ms": 8.836415999999986,
+        "p99_ms": 8.949415999999928,
+        "max_ms": 178.81125
+      },
+      "input_latency": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "max_ms": null
+      },
+      "trace": "level0_pit-0-cold.jsonl",
+      "lifecycle": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.0037500000000000003,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 127.708875,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "level0_pit",
+          "elapsed_ms": 135.63345800000002,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 166.97983299999999,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 167.049958,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "Preparing geometry and lighting",
+          "elapsed_ms": 235.69479199999998,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Filling lightmaps",
+          "elapsed_ms": 302.033792,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "level0_pit",
+          "elapsed_ms": 3385.573708,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":3057.396792,\"cache_hit\":false,\"level\":\"level0_pit\",\"lighting_ms\":4.589041,\"props_ms\":47.415125,\"retained_bytes\":19286753,\"surfaces_ms\":10.671875,\"wall_ms\":3243.409375}",
+          "elapsed_ms": 3385.6054169999998,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 3385.639708,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 3392.9658329999997,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 3394.0265419999996,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 3394.4600830000004,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 3402.221208,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 3418.744375,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 3419.1130420000004,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 3419.288292,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 3420.2252080000003,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 3424.3035,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 3427.447875,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 3431.0368329999997,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "level0_pit",
+          "elapsed_ms": 3431.038,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":0,\"current_level_id\":\"level0_pit\",\"dynamic_objects\":0,\"interactables\":0,\"lightmaps\":\"full\",\"player_position\":[10.5,1.600000023841858,10.0],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"level0_pit\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":0,\"triggers\":15,\"walls\":673,\"window_focused\":true}",
+          "elapsed_ms": 3431.127208,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 3431.1348329999996,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "level0_pit",
+          "elapsed_ms": 3435.566625,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 3460.304792,
+          "event": "shutdown_requested",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 3486.8363750000003,
+          "event": "shutdown_complete",
+          "request": 1
+        }
+      ]
+    },
+    {
+      "level": "level0_pit",
+      "repeat": 0,
+      "cache": "warm",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Users/connordawkins/Documents/GitHub/Places/target/release/places"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-after-parallel/level0_pit-0-state",
+        "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "level0_pit",
+        "PLACES_LOAD_TRACE": "/private/tmp/places-loading-after-parallel/level0_pit-0-warm.jsonl"
+      },
+      "exit_code": 0,
+      "process_seconds": 0.4940624589798972,
+      "peak_rss_bytes": 228278272,
+      "requested_level_found": true,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.1
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.3
+        },
+        {
+          "name": "window",
+          "delta_ms": 101.3,
+          "elapsed_ms": 101.6
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.2,
+          "elapsed_ms": 109.8
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 9.1,
+          "elapsed_ms": 118.9
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 36.1,
+          "elapsed_ms": 155.0
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 12.6,
+          "elapsed_ms": 167.6
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 167.6
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 167.6
+        }
+      ],
+      "log": "level0_pit-0-warm.log",
+      "lightmap_workers": null,
+      "trace_error": null,
+      "trace_available": true,
+      "loading_windows_ms": [
+        [
+          126.84175,
+          357.46299999999997
+        ]
+      ],
+      "first_present_ms": 167.66525,
+      "first_ready_present_ms": 357.46299999999997,
+      "event_pump_gaps": {
+        "count": 26,
+        "p50_ms": 8.321834000000024,
+        "p95_ms": 40.854457999999994,
+        "p99_ms": 126.85974999999999,
+        "max_ms": 126.85974999999999,
+        "initial_wait_ms": 126.85974999999999,
+        "includes_initial_interval": true
+      },
+      "loading_event_pump_gaps": {
+        "count": 24,
+        "p50_ms": 8.330499999999972,
+        "p95_ms": 40.854457999999994,
+        "p99_ms": 126.85974999999999,
+        "max_ms": 126.85974999999999
+      },
+      "present_gaps": {
+        "count": 26,
+        "p50_ms": 8.32170800000003,
+        "p95_ms": 21.71670800000001,
+        "p99_ms": 167.66187499999998,
+        "max_ms": 167.66187499999998,
+        "initial_wait_ms": 167.66187499999998,
+        "includes_initial_interval": true
+      },
+      "loading_present_gaps": {
+        "count": 23,
+        "p50_ms": 8.330417000000011,
+        "p95_ms": 21.71670800000001,
+        "p99_ms": 167.66187499999998,
+        "max_ms": 167.66187499999998
+      },
+      "input_latency": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "max_ms": null
+      },
+      "trace": "level0_pit-0-warm.jsonl",
+      "lifecycle": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.003375,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 118.98174999999999,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "level0_pit",
+          "elapsed_ms": 126.84175,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 154.949375,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 155.01720799999998,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "Preparing geometry and lighting",
+          "elapsed_ms": 231.985083,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "level0_pit",
+          "elapsed_ms": 307.233791,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"level0_pit\",\"lighting_ms\":4.740458,\"props_ms\":47.568291,\"retained_bytes\":19354593,\"surfaces_ms\":10.753667,\"wall_ms\":179.854541}",
+          "elapsed_ms": 307.281708,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 307.311833,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 315.11825,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 315.657333,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 316.00966600000004,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 324.05850000000004,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 338.755,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 339.097416,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 339.278791,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 341.503166,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 345.976125,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 348.831666,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 351.67199999999997,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "level0_pit",
+          "elapsed_ms": 351.672958,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":0,\"current_level_id\":\"level0_pit\",\"dynamic_objects\":0,\"interactables\":0,\"lightmaps\":\"full\",\"player_position\":[10.5,1.600000023841858,10.0],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"level0_pit\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":0,\"triggers\":15,\"walls\":673,\"window_focused\":true}",
+          "elapsed_ms": 351.758333,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 351.7645,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "level0_pit",
+          "elapsed_ms": 357.46299999999997,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 382.4265,
+          "event": "shutdown_requested",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 408.65475000000004,
+          "event": "shutdown_complete",
+          "request": 1
+        }
+      ]
+    },
+    {
+      "level": "capacity_sparse",
+      "repeat": 0,
+      "cache": "cold",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Users/connordawkins/Documents/GitHub/Places/target/release/places"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-after-parallel/capacity_sparse-0-state",
+        "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "capacity_sparse",
+        "PLACES_LOAD_TRACE": "/private/tmp/places-loading-after-parallel/capacity_sparse-0-cold.jsonl"
+      },
+      "exit_code": 0,
+      "process_seconds": 1.0002837920328602,
+      "peak_rss_bytes": 210550784,
+      "requested_level_found": true,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.1
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.3
+        },
+        {
+          "name": "window",
+          "delta_ms": 106.9,
+          "elapsed_ms": 107.2
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.3,
+          "elapsed_ms": 115.4
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 8.9,
+          "elapsed_ms": 124.3
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 40.2,
+          "elapsed_ms": 164.5
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 12.6,
+          "elapsed_ms": 177.1
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 177.1
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 177.1
+        }
+      ],
+      "log": "capacity_sparse-0-cold.log",
+      "lightmap_workers": 3,
+      "trace_error": null,
+      "trace_available": true,
+      "loading_windows_ms": [
+        [
+          132.328416,
+          902.554458
+        ]
+      ],
+      "first_present_ms": 177.16579099999998,
+      "first_ready_present_ms": 902.554458,
+      "event_pump_gaps": {
+        "count": 90,
+        "p50_ms": 8.306749999999965,
+        "p95_ms": 8.949542000000065,
+        "p99_ms": 132.34866699999998,
+        "max_ms": 132.34866699999998,
+        "initial_wait_ms": 132.34866699999998,
+        "includes_initial_interval": true
+      },
+      "loading_event_pump_gaps": {
+        "count": 88,
+        "p50_ms": 8.309583000000003,
+        "p95_ms": 8.949542000000065,
+        "p99_ms": 132.34866699999998,
+        "max_ms": 132.34866699999998
+      },
+      "present_gaps": {
+        "count": 90,
+        "p50_ms": 8.306874999999991,
+        "p95_ms": 8.909000000000106,
+        "p99_ms": 177.16224999999997,
+        "max_ms": 177.16224999999997,
+        "initial_wait_ms": 177.16224999999997,
+        "includes_initial_interval": true
+      },
+      "loading_present_gaps": {
+        "count": 87,
+        "p50_ms": 8.308833000000021,
+        "p95_ms": 8.909000000000106,
+        "p99_ms": 177.16224999999997,
+        "max_ms": 177.16224999999997
+      },
+      "input_latency": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "max_ms": null
+      },
+      "trace": "capacity_sparse-0-cold.jsonl",
+      "lifecycle": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.003541,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 124.402833,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "capacity_sparse",
+          "elapsed_ms": 132.328416,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 164.47441600000002,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 164.552,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "Preparing geometry and lighting",
+          "elapsed_ms": 195.103083,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Filling lightmaps",
+          "elapsed_ms": 210.653208,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Preparing characters",
+          "elapsed_ms": 851.7328749999999,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "capacity_sparse",
+          "elapsed_ms": 860.62775,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":622.163,\"cache_hit\":false,\"level\":\"capacity_sparse\",\"lighting_ms\":2.971209,\"props_ms\":7.482625,\"retained_bytes\":11674625,\"surfaces_ms\":0.8679169999999999,\"wall_ms\":721.480542}",
+          "elapsed_ms": 860.6448330000001,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 860.6643750000001,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 867.281666,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 869.100375,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 869.2659160000001,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 877.3140000000001,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 893.3345830000001,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 893.647416,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 893.7809159999999,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 894.900625,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 899.17225,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "capacity_sparse",
+          "elapsed_ms": 899.173458,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":1,\"current_level_id\":\"capacity_sparse\",\"dynamic_objects\":1,\"interactables\":4,\"lightmaps\":\"full\",\"player_position\":[2000.0,1.600000023841858,1994.0],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"capacity_sparse\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":1,\"triggers\":1,\"walls\":36,\"window_focused\":true}",
+          "elapsed_ms": 899.964875,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 899.969666,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "capacity_sparse",
+          "elapsed_ms": 902.554458,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 926.8831250000001,
+          "event": "shutdown_requested",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 952.234083,
+          "event": "shutdown_complete",
+          "request": 1
+        }
+      ]
+    },
+    {
+      "level": "capacity_sparse",
+      "repeat": 0,
+      "cache": "warm",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Users/connordawkins/Documents/GitHub/Places/target/release/places"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-after-parallel/capacity_sparse-0-state",
+        "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "capacity_sparse",
+        "PLACES_LOAD_TRACE": "/private/tmp/places-loading-after-parallel/capacity_sparse-0-warm.jsonl"
+      },
+      "exit_code": 0,
+      "process_seconds": 0.3752082920400426,
+      "peak_rss_bytes": 200065024,
+      "requested_level_found": true,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.1
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.3
+        },
+        {
+          "name": "window",
+          "delta_ms": 118.1,
+          "elapsed_ms": 118.3
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.0,
+          "elapsed_ms": 126.4
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 8.9,
+          "elapsed_ms": 135.3
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 37.0,
+          "elapsed_ms": 172.2
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 12.4,
+          "elapsed_ms": 184.7
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 184.7
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 184.7
+        }
+      ],
+      "log": "capacity_sparse-0-warm.log",
+      "lightmap_workers": null,
+      "trace_error": null,
+      "trace_available": true,
+      "loading_windows_ms": [
+        [
+          143.054083,
+          274.66312500000004
+        ]
+      ],
+      "first_present_ms": 184.74687500000002,
+      "first_ready_present_ms": 274.66312500000004,
+      "event_pump_gaps": {
+        "count": 14,
+        "p50_ms": 7.7114999999999725,
+        "p95_ms": 143.065583,
+        "p99_ms": 143.065583,
+        "max_ms": 143.065583,
+        "initial_wait_ms": 143.065583,
+        "includes_initial_interval": true
+      },
+      "loading_event_pump_gaps": {
+        "count": 12,
+        "p50_ms": 7.7114999999999725,
+        "p95_ms": 143.065583,
+        "p99_ms": 143.065583,
+        "max_ms": 143.065583
+      },
+      "present_gaps": {
+        "count": 14,
+        "p50_ms": 7.712459000000024,
+        "p95_ms": 184.74287500000003,
+        "p99_ms": 184.74287500000003,
+        "max_ms": 184.74287500000003,
+        "initial_wait_ms": 184.74287500000003,
+        "includes_initial_interval": true
+      },
+      "loading_present_gaps": {
+        "count": 11,
+        "p50_ms": 7.712459000000024,
+        "p95_ms": 184.74287500000003,
+        "p99_ms": 184.74287500000003,
+        "max_ms": 184.74287500000003
+      },
+      "input_latency": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "max_ms": null
+      },
+      "trace": "capacity_sparse-0-warm.jsonl",
+      "lifecycle": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.004,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 135.340791,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "capacity_sparse",
+          "elapsed_ms": 143.054083,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 172.169625,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 172.263,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "Preparing geometry and lighting",
+          "elapsed_ms": 205.784416,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "capacity_sparse",
+          "elapsed_ms": 232.16675,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"capacity_sparse\",\"lighting_ms\":2.9319580000000003,\"props_ms\":7.537459,\"retained_bytes\":11678145,\"surfaces_ms\":0.812041,\"wall_ms\":87.907709}",
+          "elapsed_ms": 232.212958,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 232.234416,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 239.74912500000002,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 241.255041,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 241.434208,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 248.951583,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 264.723416,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 265.06233299999997,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 265.19237499999997,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 266.400958,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 270.703708,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "capacity_sparse",
+          "elapsed_ms": 270.70558300000005,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":1,\"current_level_id\":\"capacity_sparse\",\"dynamic_objects\":1,\"interactables\":4,\"lightmaps\":\"full\",\"player_position\":[2000.0,1.600000023841858,1994.0],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"capacity_sparse\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":1,\"triggers\":1,\"walls\":36,\"window_focused\":true}",
+          "elapsed_ms": 271.552333,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 271.55804099999995,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "capacity_sparse",
+          "elapsed_ms": 274.66312500000004,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 298.805541,
+          "event": "shutdown_requested",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 325.222916,
+          "event": "shutdown_complete",
+          "request": 1
+        }
+      ]
+    },
+    {
+      "level": "capacity_dense",
+      "repeat": 0,
+      "cache": "cold",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Users/connordawkins/Documents/GitHub/Places/target/release/places"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-after-parallel/capacity_dense-0-state",
+        "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "capacity_dense",
+        "PLACES_LOAD_TRACE": "/private/tmp/places-loading-after-parallel/capacity_dense-0-cold.jsonl"
+      },
+      "exit_code": 0,
+      "process_seconds": 27.838576124981046,
+      "peak_rss_bytes": 705429504,
+      "requested_level_found": true,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.1
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "window",
+          "delta_ms": 115.7,
+          "elapsed_ms": 115.9
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.3,
+          "elapsed_ms": 124.3
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 9.0,
+          "elapsed_ms": 133.2
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 37.0,
+          "elapsed_ms": 170.2
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 12.2,
+          "elapsed_ms": 182.4
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 182.5
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 182.5
+        }
+      ],
+      "log": "capacity_dense-0-cold.log",
+      "lightmap_workers": 3,
+      "trace_error": null,
+      "trace_available": true,
+      "loading_windows_ms": [
+        [
+          141.2545,
+          27698.316958
+        ]
+      ],
+      "first_present_ms": 182.50775,
+      "first_ready_present_ms": 27698.316958,
+      "event_pump_gaps": {
+        "count": 3303,
+        "p50_ms": 8.320417000000816,
+        "p95_ms": 8.827083000000584,
+        "p99_ms": 8.914999999997235,
+        "max_ms": 141.26641600000002,
+        "initial_wait_ms": 141.26641600000002,
+        "includes_initial_interval": true
+      },
+      "loading_event_pump_gaps": {
+        "count": 3301,
+        "p50_ms": 8.320417000000816,
+        "p95_ms": 8.82666700000118,
+        "p99_ms": 8.912750000001324,
+        "max_ms": 141.26641600000002
+      },
+      "present_gaps": {
+        "count": 3303,
+        "p50_ms": 8.320625000003929,
+        "p95_ms": 8.82683299999917,
+        "p99_ms": 8.912750000001324,
+        "max_ms": 182.504125,
+        "initial_wait_ms": 182.504125,
+        "includes_initial_interval": true
+      },
+      "loading_present_gaps": {
+        "count": 3300,
+        "p50_ms": 8.320625000003929,
+        "p95_ms": 8.826334000001225,
+        "p99_ms": 8.911708000003273,
+        "max_ms": 182.504125
+      },
+      "input_latency": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "max_ms": null
+      },
+      "trace": "capacity_dense-0-cold.jsonl",
+      "lifecycle": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.003625,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 133.300291,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "capacity_dense",
+          "elapsed_ms": 141.2545,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 170.166666,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 170.24283300000002,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "Preparing geometry and lighting",
+          "elapsed_ms": 222.41245800000002,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Filling lightmaps",
+          "elapsed_ms": 6555.109082999999,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Preparing characters",
+          "elapsed_ms": 22955.513916,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "capacity_dense",
+          "elapsed_ms": 27363.869749999998,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":16374.739208,\"cache_hit\":false,\"level\":\"capacity_dense\",\"lighting_ms\":28.970542,\"props_ms\":6290.596375,\"retained_bytes\":437866986,\"surfaces_ms\":5.815167000000001,\"wall_ms\":27217.970542}",
+          "elapsed_ms": 27363.923166,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27364.16025,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27372.242791,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27372.521249999998,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27372.925708,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27380.562958,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27394.580291000002,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27394.889666000003,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27395.044541,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27397.519666,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27401.991625000002,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27405.52,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27409.91275,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27414.037582999998,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27418.719290999998,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27422.232458,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27426.773875,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27430.5865,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27435.002208,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27438.479541,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27442.749125,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27447.357708,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27451.4685,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27455.682708,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27459.695041,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27463.758291000002,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27467.768833000002,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27472.194208,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27476.235208,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27480.545166,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27484.576291,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27489.397624999998,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27493.461666000003,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27497.211457999998,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27501.279625,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27505.408458,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27509.455583000003,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27514.030291000003,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27518.386208,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27522.218916,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27526.227375000002,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27530.792208000003,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27534.952583,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27538.765458,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27542.841207999998,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27547.522582999998,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27551.569375,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27555.581166,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27559.592583,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27563.918583,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27567.931583,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27572.202208,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27576.206541,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27580.983083,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27585.136250000003,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27588.8965,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27592.985083,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27597.391625,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27601.5135,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27605.997416000002,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27610.016333,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27614.1695,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27618.395791000003,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27622.443790999998,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27626.977875,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27630.77375,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27634.820458,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27639.024708,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27643.351916,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27647.471458,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27651.568583,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27655.763166,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27659.899416,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27664.162874999998,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27668.350707999998,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27672.342083,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27676.450332999997,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27680.826708,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27695.539707999997,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "capacity_dense",
+          "elapsed_ms": 27695.541083,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":64,\"current_level_id\":\"capacity_dense\",\"dynamic_objects\":0,\"interactables\":18,\"lightmaps\":\"full\",\"player_position\":[-35.0,1.600000023841858,-25.0],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"capacity_dense\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":18,\"triggers\":0,\"walls\":3688,\"window_focused\":true}",
+          "elapsed_ms": 27695.729666,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27695.735041,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "capacity_dense",
+          "elapsed_ms": 27698.316958,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27723.049666000003,
+          "event": "shutdown_requested",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 27748.498666,
+          "event": "shutdown_complete",
+          "request": 1
+        }
+      ]
+    },
+    {
+      "level": "capacity_dense",
+      "repeat": 0,
+      "cache": "warm",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Users/connordawkins/Documents/GitHub/Places/target/release/places"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-after-parallel/capacity_dense-0-state",
+        "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "capacity_dense",
+        "PLACES_LOAD_TRACE": "/private/tmp/places-loading-after-parallel/capacity_dense-0-warm.jsonl"
+      },
+      "exit_code": 0,
+      "process_seconds": 11.417678707977757,
+      "peak_rss_bytes": 704528384,
+      "requested_level_found": true,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.1
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.3
+        },
+        {
+          "name": "window",
+          "delta_ms": 104.1,
+          "elapsed_ms": 104.3
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.4,
+          "elapsed_ms": 112.7
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 9.0,
+          "elapsed_ms": 121.7
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 40.8,
+          "elapsed_ms": 162.5
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 12.2,
+          "elapsed_ms": 174.7
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 174.7
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 174.7
+        }
+      ],
+      "log": "capacity_dense-0-warm.log",
+      "lightmap_workers": null,
+      "trace_error": null,
+      "trace_available": true,
+      "loading_windows_ms": [
+        [
+          129.395042,
+          11261.042625
+        ]
+      ],
+      "first_present_ms": 174.793792,
+      "first_ready_present_ms": 11261.042625,
+      "event_pump_gaps": {
+        "count": 1332,
+        "p50_ms": 8.319042000000081,
+        "p95_ms": 8.829249999999774,
+        "p99_ms": 8.910833999998431,
+        "max_ms": 129.41191700000002,
+        "initial_wait_ms": 129.41191700000002,
+        "includes_initial_interval": true
+      },
+      "loading_event_pump_gaps": {
+        "count": 1330,
+        "p50_ms": 8.319042000000081,
+        "p95_ms": 8.828792000000021,
+        "p99_ms": 8.903250000000014,
+        "max_ms": 129.41191700000002
+      },
+      "present_gaps": {
+        "count": 1332,
+        "p50_ms": 8.31866700000137,
+        "p95_ms": 8.829165999999987,
+        "p99_ms": 8.90304199999997,
+        "max_ms": 174.790334,
+        "initial_wait_ms": 174.790334,
+        "includes_initial_interval": true
+      },
+      "loading_present_gaps": {
+        "count": 1329,
+        "p50_ms": 8.318999999999505,
+        "p95_ms": 8.828958000000057,
+        "p99_ms": 8.902082999999948,
+        "max_ms": 174.790334
+      },
+      "input_latency": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "max_ms": null
+      },
+      "trace": "capacity_dense-0-warm.jsonl",
+      "lifecycle": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.003458,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 121.74537500000001,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "capacity_dense",
+          "elapsed_ms": 129.395042,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 162.453917,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 162.53358300000002,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "Preparing geometry and lighting",
+          "elapsed_ms": 204.801458,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Preparing characters",
+          "elapsed_ms": 6526.065875,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "capacity_dense",
+          "elapsed_ms": 10926.144792000001,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"capacity_dense\",\"lighting_ms\":28.336167,\"props_ms\":6255.754417,\"retained_bytes\":437868986,\"surfaces_ms\":5.979291,\"wall_ms\":10796.697166}",
+          "elapsed_ms": 10926.193041999999,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10926.498042000001,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10934.576375,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10934.830708,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10935.3415,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10942.844208,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10956.81825,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10957.122333000001,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10957.297,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10959.611499999999,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10963.964958,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10967.8465,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10972.200042,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10976.231208,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10980.841917,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10984.295042,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10988.686749999999,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10992.949417,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 10997.418542,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11001.222583,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11005.391667,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11009.577917,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11013.626291999999,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11017.467667,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11021.496875,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11026.379667000001,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11030.387125000001,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11034.558417,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11038.594667,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11042.651333,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11046.791417,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11051.106083,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11055.201042,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11059.700167,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11063.873417,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11067.975667,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11071.990708,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11076.510667,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11080.531708,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11084.628042,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11088.687125,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11092.948208,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11096.962292,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11101.205333,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11105.214792,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11109.521542,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11113.738792,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11117.746208,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11121.850208,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11126.5625,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11130.578375000001,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11134.703333,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11138.755458,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11142.97825,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11147.082583,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11151.410458,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11155.46575,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11159.798167,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11163.838249999999,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11167.975999999999,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11172.014667,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11176.315499999999,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11180.372292,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11184.563375,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11188.939832999999,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11193.123792,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11197.148708,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11201.375708,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11205.618833,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11209.746208,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11213.796291999999,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11218.034292,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11222.108499999998,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11226.381041999999,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11230.425416999999,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11234.511167,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11238.533625,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11242.835958,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11258.304624999999,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "capacity_dense",
+          "elapsed_ms": 11258.306958000001,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":64,\"current_level_id\":\"capacity_dense\",\"dynamic_objects\":0,\"interactables\":18,\"lightmaps\":\"full\",\"player_position\":[-35.0,1.600000023841858,-25.0],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"capacity_dense\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":18,\"triggers\":0,\"walls\":3688,\"window_focused\":true}",
+          "elapsed_ms": 11258.495083,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11258.500333,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "capacity_dense",
+          "elapsed_ms": 11261.042625,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11285.81375,
+          "event": "shutdown_requested",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 11311.054417,
+          "event": "shutdown_complete",
+          "request": 1
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+[{"after": "request:places_demo", "delay_ms": 2000, "action": {"kind": "escape"}}, {"after": "request:places_demo", "delay_ms": 2500, "action": {"kind": "quit"}}]

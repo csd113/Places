@@ -6,11 +6,11 @@
 //! parse.
 
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::assets::DEFAULT_TILE_METRES;
 
-use super::image::{RawImage, TextureCache, decode_png};
+use super::image::{RawImage, TextureCache, texture_content_key};
 use super::{
     DEFAULT_EMISSION_INTENSITY, DEFAULT_REFLECTION_STRENGTH, DEFAULT_TINT, MAX_EMISSION_INTENSITY,
     MaterialAlpha, MaterialEmission, MaterialReflection, MaterialResponse, ReflectionMode,
@@ -158,7 +158,7 @@ pub struct PackMaterials {
     namespace: String,
     definitions: HashMap<String, PackMaterialDef>,
     /// Raw PNG bytes keyed by the alias paths the pack extractor registered.
-    textures: HashMap<String, Rc<[u8]>>,
+    textures: HashMap<String, Arc<[u8]>>,
 }
 
 impl PackMaterials {
@@ -170,7 +170,7 @@ impl PackMaterials {
     pub fn new(
         namespace: impl Into<String>,
         materials_json: Option<&str>,
-        textures: HashMap<String, Rc<[u8]>>,
+        textures: HashMap<String, Arc<[u8]>>,
     ) -> Self {
         Self {
             namespace: namespace.into(),
@@ -218,13 +218,13 @@ impl PackMaterials {
     /// The raw PNG bytes behind a pack-relative path (or a catalog texture id
     /// the pack reuses), with the pack's own alias rules.
     #[must_use]
-    pub fn lookup(&self, path: &str) -> Option<Rc<[u8]>> {
+    pub fn lookup(&self, path: &str) -> Option<Arc<[u8]>> {
         let normalized = path.replace('\\', "/");
         let file_name = normalized.rsplit('/').next().unwrap_or(&normalized);
         self.textures
             .get(&normalized)
             .or_else(|| self.textures.get(file_name))
-            .map(Rc::clone)
+            .map(Arc::clone)
     }
 
     /// Decodes one pack texture through the session cache.
@@ -232,17 +232,14 @@ impl PackMaterials {
         &self,
         cache: &mut TextureCache,
         path: &str,
-    ) -> Result<(Rc<RawImage>, String), String> {
-        let key = self.cache_key(path);
-        if let Some(image) = cache.get(&key) {
-            return Ok((image, key));
-        }
+    ) -> Result<(Arc<RawImage>, String), String> {
         let bytes = self
             .lookup(path)
             .ok_or_else(|| format!("`{path}` is not present in the pack"))?;
-        let image = decode_png(&bytes).map_err(|error| format!("`{path}`: {error}"))?;
-        let image = cache.insert(key.clone(), image);
-        Ok((image, key))
+        let logical = format!("pack:{}:{}", self.namespace, path.replace('\\', "/"));
+        cache
+            .decode_encoded(&logical, &bytes)
+            .map_err(|error| format!("`{path}`: {error}"))
     }
 
     /// Decodes one pack texture into the session cache.
@@ -254,14 +251,18 @@ impl PackMaterials {
         &self,
         cache: &mut TextureCache,
         path: &str,
-    ) -> Result<Rc<RawImage>, String> {
+    ) -> Result<Arc<RawImage>, String> {
         self.decode_cached(cache, path).map(|(image, _key)| image)
     }
 
     /// The session-unique cache/dedupe key of one pack texture.
     #[must_use]
     pub fn cache_key(&self, path: &str) -> String {
-        format!("pack:{}:{}", self.namespace, path.replace('\\', "/"))
+        let logical = format!("pack:{}:{}", self.namespace, path.replace('\\', "/"));
+        self.lookup(path).map_or_else(
+            || logical.clone(),
+            |bytes| texture_content_key(&logical, &bytes),
+        )
     }
 }
 

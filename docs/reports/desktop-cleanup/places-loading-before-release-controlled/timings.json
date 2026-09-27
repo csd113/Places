@@ -1,0 +1,1603 @@
+{
+  "binary": "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/places-release",
+  "binary_sha256": "47950d0c89821370b5ed3cd12cd86c370425bddd5a8ce7f9c57e54b09e8af056",
+  "root": "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv",
+  "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+  "cache_definition": "application only; OS/GPU caches untouched",
+  "runs": [
+    {
+      "level": "menu",
+      "repeat": 0,
+      "cache": "cold",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/places-release"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-before-release-controlled/menu-0-state",
+        "PLACES_ASSET_ROOT": "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0"
+      },
+      "exit_code": 0,
+      "process_seconds": 29.336968625022564,
+      "peak_rss_bytes": 744095744,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.3
+        },
+        {
+          "name": "window",
+          "delta_ms": 109.0,
+          "elapsed_ms": 109.2
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 7.9,
+          "elapsed_ms": 117.2
+        },
+        {
+          "name": "level loaded",
+          "delta_ms": 299.3,
+          "elapsed_ms": 416.5
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 9.2,
+          "elapsed_ms": 425.7
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 28513.5,
+          "elapsed_ms": 28939.3
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.1,
+          "elapsed_ms": 28939.4
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 28939.4
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 20.1,
+          "elapsed_ms": 28959.5
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 24.2,
+          "elapsed_ms": 28983.8
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 28983.8
+        },
+        {
+          "name": "level uploaded",
+          "delta_ms": 104.5,
+          "elapsed_ms": 29088.3
+        },
+        {
+          "name": "game ready",
+          "delta_ms": 1.8,
+          "elapsed_ms": 29090.1
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 30.3,
+          "elapsed_ms": 29120.4
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 4.3,
+          "elapsed_ms": 29124.7
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 29124.7
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 29124.7
+        }
+      ],
+      "log": "menu-0-cold.log"
+    },
+    {
+      "level": "menu",
+      "repeat": 0,
+      "cache": "warm",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/places-release"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-before-release-controlled/menu-0-state",
+        "PLACES_ASSET_ROOT": "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0"
+      },
+      "exit_code": 0,
+      "process_seconds": 2.226276334025897,
+      "peak_rss_bytes": 738410496,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.1
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.3
+        },
+        {
+          "name": "window",
+          "delta_ms": 103.7,
+          "elapsed_ms": 103.9
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 7.9,
+          "elapsed_ms": 111.8
+        },
+        {
+          "name": "level loaded",
+          "delta_ms": 305.0,
+          "elapsed_ms": 416.8
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 8.8,
+          "elapsed_ms": 425.6
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 1524.6,
+          "elapsed_ms": 1950.2
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.1,
+          "elapsed_ms": 1950.3
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 1950.4
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 19.8,
+          "elapsed_ms": 1970.2
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 23.7,
+          "elapsed_ms": 1993.9
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 1993.9
+        },
+        {
+          "name": "level uploaded",
+          "delta_ms": 102.3,
+          "elapsed_ms": 2096.2
+        },
+        {
+          "name": "game ready",
+          "delta_ms": 1.8,
+          "elapsed_ms": 2098.0
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 29.5,
+          "elapsed_ms": 2127.5
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 4.0,
+          "elapsed_ms": 2131.5
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2131.5
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2131.5
+        }
+      ],
+      "log": "menu-0-warm.log"
+    },
+    {
+      "level": "places_demo",
+      "repeat": 0,
+      "cache": "cold",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/places-release"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-before-release-controlled/places_demo-0-state",
+        "PLACES_ASSET_ROOT": "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "places_demo"
+      },
+      "exit_code": 0,
+      "process_seconds": 29.19118070905097,
+      "peak_rss_bytes": 743014400,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.3
+        },
+        {
+          "name": "window",
+          "delta_ms": 104.1,
+          "elapsed_ms": 104.3
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.2,
+          "elapsed_ms": 112.5
+        },
+        {
+          "name": "level loaded",
+          "delta_ms": 304.1,
+          "elapsed_ms": 416.6
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 8.4,
+          "elapsed_ms": 425.0
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 28456.1,
+          "elapsed_ms": 28881.1
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.1,
+          "elapsed_ms": 28881.3
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 28881.3
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 19.7,
+          "elapsed_ms": 28901.0
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 23.2,
+          "elapsed_ms": 28924.3
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 28924.3
+        },
+        {
+          "name": "level uploaded",
+          "delta_ms": 102.5,
+          "elapsed_ms": 29026.8
+        },
+        {
+          "name": "game ready",
+          "delta_ms": 1.9,
+          "elapsed_ms": 29028.6
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 32.6,
+          "elapsed_ms": 29061.3
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 4.2,
+          "elapsed_ms": 29065.5
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 29065.5
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 29065.5
+        }
+      ],
+      "log": "places_demo-0-cold.log"
+    },
+    {
+      "level": "places_demo",
+      "repeat": 0,
+      "cache": "warm",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/places-release"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-before-release-controlled/places_demo-0-state",
+        "PLACES_ASSET_ROOT": "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "places_demo"
+      },
+      "exit_code": 0,
+      "process_seconds": 2.250110124994535,
+      "peak_rss_bytes": 738476032,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.3
+        },
+        {
+          "name": "window",
+          "delta_ms": 111.5,
+          "elapsed_ms": 111.8
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.1,
+          "elapsed_ms": 119.9
+        },
+        {
+          "name": "level loaded",
+          "delta_ms": 307.9,
+          "elapsed_ms": 427.8
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 8.5,
+          "elapsed_ms": 436.3
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 1524.9,
+          "elapsed_ms": 1961.2
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.1,
+          "elapsed_ms": 1961.3
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 1961.3
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 21.3,
+          "elapsed_ms": 1982.7
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 25.1,
+          "elapsed_ms": 2007.8
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2007.8
+        },
+        {
+          "name": "level uploaded",
+          "delta_ms": 108.3,
+          "elapsed_ms": 2116.1
+        },
+        {
+          "name": "game ready",
+          "delta_ms": 1.9,
+          "elapsed_ms": 2118.1
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 32.0,
+          "elapsed_ms": 2150.1
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 4.0,
+          "elapsed_ms": 2154.1
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2154.1
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2154.1
+        }
+      ],
+      "log": "places_demo-0-warm.log"
+    },
+    {
+      "level": "model_zoo",
+      "repeat": 0,
+      "cache": "cold",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/places-release"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-before-release-controlled/model_zoo-0-state",
+        "PLACES_ASSET_ROOT": "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "model_zoo"
+      },
+      "exit_code": 0,
+      "process_seconds": 37.01040162501158,
+      "peak_rss_bytes": 812171264,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.3
+        },
+        {
+          "name": "window",
+          "delta_ms": 107.6,
+          "elapsed_ms": 107.9
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 7.9,
+          "elapsed_ms": 115.8
+        },
+        {
+          "name": "level loaded",
+          "delta_ms": 303.5,
+          "elapsed_ms": 419.2
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 8.6,
+          "elapsed_ms": 427.8
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 28681.9,
+          "elapsed_ms": 29109.7
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.1,
+          "elapsed_ms": 29109.8
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 29109.8
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 20.1,
+          "elapsed_ms": 29129.9
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 23.8,
+          "elapsed_ms": 29153.7
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 29153.7
+        },
+        {
+          "name": "level uploaded",
+          "delta_ms": 103.3,
+          "elapsed_ms": 29257.0
+        },
+        {
+          "name": "game ready",
+          "delta_ms": 1.8,
+          "elapsed_ms": 29258.9
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 7424.7,
+          "elapsed_ms": 36683.5
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.1,
+          "elapsed_ms": 36683.7
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 36683.7
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 0.0,
+          "elapsed_ms": 36683.7
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 0.0,
+          "elapsed_ms": 36683.7
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 36683.7
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 223.8,
+          "elapsed_ms": 36907.5
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 8.1,
+          "elapsed_ms": 36915.5
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 36915.5
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 36915.5
+        }
+      ],
+      "log": "model_zoo-0-cold.log"
+    },
+    {
+      "level": "model_zoo",
+      "repeat": 0,
+      "cache": "warm",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/places-release"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-before-release-controlled/model_zoo-0-state",
+        "PLACES_ASSET_ROOT": "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "model_zoo"
+      },
+      "exit_code": 0,
+      "process_seconds": 2.8405526659917086,
+      "peak_rss_bytes": 805879808,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.4
+        },
+        {
+          "name": "window",
+          "delta_ms": 107.4,
+          "elapsed_ms": 107.8
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 7.8,
+          "elapsed_ms": 115.7
+        },
+        {
+          "name": "level loaded",
+          "delta_ms": 306.4,
+          "elapsed_ms": 422.1
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 8.4,
+          "elapsed_ms": 430.5
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 1523.8,
+          "elapsed_ms": 1954.3
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.2,
+          "elapsed_ms": 1954.4
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 1954.4
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 19.7,
+          "elapsed_ms": 1974.2
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 24.8,
+          "elapsed_ms": 1999.0
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 1999.0
+        },
+        {
+          "name": "level uploaded",
+          "delta_ms": 105.2,
+          "elapsed_ms": 2104.2
+        },
+        {
+          "name": "game ready",
+          "delta_ms": 1.8,
+          "elapsed_ms": 2106.0
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 398.8,
+          "elapsed_ms": 2504.8
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.2,
+          "elapsed_ms": 2504.9
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2505.0
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2505.0
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2505.0
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2505.0
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 232.3,
+          "elapsed_ms": 2737.2
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 4.0,
+          "elapsed_ms": 2741.2
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2741.2
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2741.2
+        }
+      ],
+      "log": "model_zoo-0-warm.log"
+    },
+    {
+      "level": "level0_pit",
+      "repeat": 0,
+      "cache": "cold",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/places-release"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-before-release-controlled/level0_pit-0-state",
+        "PLACES_ASSET_ROOT": "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "level0_pit"
+      },
+      "exit_code": 0,
+      "process_seconds": 29.333670583029743,
+      "peak_rss_bytes": 741588992,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.1
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "window",
+          "delta_ms": 108.0,
+          "elapsed_ms": 108.2
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.0,
+          "elapsed_ms": 116.2
+        },
+        {
+          "name": "level loaded",
+          "delta_ms": 315.1,
+          "elapsed_ms": 431.3
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 10.1,
+          "elapsed_ms": 441.4
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 28641.1,
+          "elapsed_ms": 29082.5
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.1,
+          "elapsed_ms": 29082.6
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 29082.6
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 21.6,
+          "elapsed_ms": 29104.2
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 29.3,
+          "elapsed_ms": 29133.5
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 29133.5
+        },
+        {
+          "name": "level uploaded",
+          "delta_ms": 107.9,
+          "elapsed_ms": 29241.4
+        },
+        {
+          "name": "game ready",
+          "delta_ms": 1.8,
+          "elapsed_ms": 29243.3
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 27.4,
+          "elapsed_ms": 29270.7
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 3.8,
+          "elapsed_ms": 29274.5
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 29274.5
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 29274.5
+        }
+      ],
+      "log": "level0_pit-0-cold.log"
+    },
+    {
+      "level": "level0_pit",
+      "repeat": 0,
+      "cache": "warm",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/places-release"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-before-release-controlled/level0_pit-0-state",
+        "PLACES_ASSET_ROOT": "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "level0_pit"
+      },
+      "exit_code": 0,
+      "process_seconds": 2.3032523749861866,
+      "peak_rss_bytes": 739901440,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.3
+        },
+        {
+          "name": "window",
+          "delta_ms": 100.9,
+          "elapsed_ms": 101.2
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 7.9,
+          "elapsed_ms": 109.1
+        },
+        {
+          "name": "level loaded",
+          "delta_ms": 316.1,
+          "elapsed_ms": 425.2
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 9.0,
+          "elapsed_ms": 434.2
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 1588.4,
+          "elapsed_ms": 2022.6
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.2,
+          "elapsed_ms": 2022.7
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2022.8
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 23.8,
+          "elapsed_ms": 2046.6
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 28.5,
+          "elapsed_ms": 2075.2
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2075.2
+        },
+        {
+          "name": "level uploaded",
+          "delta_ms": 109.3,
+          "elapsed_ms": 2184.5
+        },
+        {
+          "name": "game ready",
+          "delta_ms": 1.9,
+          "elapsed_ms": 2186.4
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 35.1,
+          "elapsed_ms": 2221.5
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 4.1,
+          "elapsed_ms": 2225.6
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2225.6
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2225.6
+        }
+      ],
+      "log": "level0_pit-0-warm.log"
+    },
+    {
+      "level": "capacity_sparse",
+      "repeat": 0,
+      "cache": "cold",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/places-release"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-before-release-controlled/capacity_sparse-0-state",
+        "PLACES_ASSET_ROOT": "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "capacity_sparse"
+      },
+      "exit_code": 0,
+      "process_seconds": 31.195895709039178,
+      "peak_rss_bytes": 785235968,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.3
+        },
+        {
+          "name": "window",
+          "delta_ms": 125.3,
+          "elapsed_ms": 125.6
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.3,
+          "elapsed_ms": 133.9
+        },
+        {
+          "name": "level loaded",
+          "delta_ms": 310.2,
+          "elapsed_ms": 444.1
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 9.1,
+          "elapsed_ms": 453.2
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 28879.0,
+          "elapsed_ms": 29332.2
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.1,
+          "elapsed_ms": 29332.3
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 29332.3
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 21.1,
+          "elapsed_ms": 29353.4
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 25.1,
+          "elapsed_ms": 29378.5
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 29378.5
+        },
+        {
+          "name": "level uploaded",
+          "delta_ms": 105.6,
+          "elapsed_ms": 29484.1
+        },
+        {
+          "name": "game ready",
+          "delta_ms": 1.8,
+          "elapsed_ms": 29485.9
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 1544.2,
+          "elapsed_ms": 31030.1
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.1,
+          "elapsed_ms": 31030.1
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 31030.1
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 0.0,
+          "elapsed_ms": 31030.1
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 0.0,
+          "elapsed_ms": 31030.1
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 31030.1
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 31.9,
+          "elapsed_ms": 31062.1
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 6.9,
+          "elapsed_ms": 31069.0
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 31069.0
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 31069.0
+        }
+      ],
+      "log": "capacity_sparse-0-cold.log"
+    },
+    {
+      "level": "capacity_sparse",
+      "repeat": 0,
+      "cache": "warm",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/places-release"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-before-release-controlled/capacity_sparse-0-state",
+        "PLACES_ASSET_ROOT": "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "capacity_sparse"
+      },
+      "exit_code": 0,
+      "process_seconds": 2.2994416669826023,
+      "peak_rss_bytes": 785989632,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.4
+        },
+        {
+          "name": "window",
+          "delta_ms": 108.2,
+          "elapsed_ms": 108.6
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.3,
+          "elapsed_ms": 116.9
+        },
+        {
+          "name": "level loaded",
+          "delta_ms": 310.5,
+          "elapsed_ms": 427.4
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 9.4,
+          "elapsed_ms": 436.8
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 1539.4,
+          "elapsed_ms": 1976.2
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.1,
+          "elapsed_ms": 1976.4
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 1976.4
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 21.2,
+          "elapsed_ms": 1997.6
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 23.7,
+          "elapsed_ms": 2021.3
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2021.3
+        },
+        {
+          "name": "level uploaded",
+          "delta_ms": 103.9,
+          "elapsed_ms": 2125.2
+        },
+        {
+          "name": "game ready",
+          "delta_ms": 1.9,
+          "elapsed_ms": 2127.2
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 27.0,
+          "elapsed_ms": 2154.2
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.1,
+          "elapsed_ms": 2154.3
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2154.3
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2154.3
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2154.3
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2154.3
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 33.4,
+          "elapsed_ms": 2187.7
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 3.6,
+          "elapsed_ms": 2191.3
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2191.3
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 2191.3
+        }
+      ],
+      "log": "capacity_sparse-0-warm.log"
+    },
+    {
+      "level": "capacity_dense",
+      "repeat": 0,
+      "cache": "cold",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/places-release"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-before-release-controlled/capacity_dense-0-state",
+        "PLACES_ASSET_ROOT": "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "capacity_dense"
+      },
+      "exit_code": 0,
+      "process_seconds": 78.99235724995378,
+      "peak_rss_bytes": 1498349568,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.1
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "window",
+          "delta_ms": 101.5,
+          "elapsed_ms": 101.7
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 7.9,
+          "elapsed_ms": 109.6
+        },
+        {
+          "name": "level loaded",
+          "delta_ms": 305.4,
+          "elapsed_ms": 415.1
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 9.0,
+          "elapsed_ms": 424.0
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 29029.0,
+          "elapsed_ms": 29453.0
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.1,
+          "elapsed_ms": 29453.1
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 29453.2
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 22.3,
+          "elapsed_ms": 29475.4
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 25.3,
+          "elapsed_ms": 29500.7
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 29500.7
+        },
+        {
+          "name": "level uploaded",
+          "delta_ms": 105.7,
+          "elapsed_ms": 29606.5
+        },
+        {
+          "name": "game ready",
+          "delta_ms": 1.7,
+          "elapsed_ms": 29608.2
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 44719.2,
+          "elapsed_ms": 74327.4
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.2,
+          "elapsed_ms": 74327.6
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 74327.6
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 0.0,
+          "elapsed_ms": 74327.6
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 0.0,
+          "elapsed_ms": 74327.6
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 74327.6
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 4563.2,
+          "elapsed_ms": 78890.7
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 9.5,
+          "elapsed_ms": 78900.2
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 78900.2
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 78900.2
+        }
+      ],
+      "log": "capacity_dense-0-cold.log"
+    },
+    {
+      "level": "capacity_dense",
+      "repeat": 0,
+      "cache": "warm",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/places-release"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-before-release-controlled/capacity_dense-0-state",
+        "PLACES_ASSET_ROOT": "/private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LEVEL": "capacity_dense"
+      },
+      "exit_code": 0,
+      "process_seconds": 30.929035499983,
+      "peak_rss_bytes": 1483259904,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.2
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.3,
+          "elapsed_ms": 0.5
+        },
+        {
+          "name": "window",
+          "delta_ms": 100.8,
+          "elapsed_ms": 101.3
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.7,
+          "elapsed_ms": 110.0
+        },
+        {
+          "name": "level loaded",
+          "delta_ms": 311.5,
+          "elapsed_ms": 421.5
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 8.5,
+          "elapsed_ms": 430.0
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 1522.4,
+          "elapsed_ms": 1952.4
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.1,
+          "elapsed_ms": 1952.5
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 1952.5
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 21.0,
+          "elapsed_ms": 1973.6
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 25.2,
+          "elapsed_ms": 1998.8
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 1998.8
+        },
+        {
+          "name": "level uploaded",
+          "delta_ms": 106.0,
+          "elapsed_ms": 2104.8
+        },
+        {
+          "name": "game ready",
+          "delta_ms": 1.8,
+          "elapsed_ms": 2106.6
+        },
+        {
+          "name": "world geometry: pack",
+          "delta_ms": 23855.0,
+          "elapsed_ms": 25961.6
+        },
+        {
+          "name": "world geometry: GPU upload",
+          "delta_ms": 0.3,
+          "elapsed_ms": 25961.9
+        },
+        {
+          "name": "world textures: plan",
+          "delta_ms": 0.0,
+          "elapsed_ms": 25961.9
+        },
+        {
+          "name": "textures: CPU prepare",
+          "delta_ms": 0.0,
+          "elapsed_ms": 25961.9
+        },
+        {
+          "name": "textures: GPU upload",
+          "delta_ms": 0.0,
+          "elapsed_ms": 25961.9
+        },
+        {
+          "name": "world textures: batch",
+          "delta_ms": 0.0,
+          "elapsed_ms": 25961.9
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 4716.3,
+          "elapsed_ms": 30678.2
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 13.1,
+          "elapsed_ms": 30691.3
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 30691.3
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 30691.3
+        }
+      ],
+      "log": "capacity_dense-0-warm.log"
+    }
+  ]
+}

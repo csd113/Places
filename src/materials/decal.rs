@@ -6,11 +6,11 @@
 //! session into the same cache.
 
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::assets::AssetCatalog;
 
-use super::image::{RawImage, TextureCache, load_png_relative};
+use super::image::{RawImage, TextureCache};
 
 /// One external (PNG-backed) decal sheet a level places.
 ///
@@ -22,10 +22,10 @@ use super::image::{RawImage, TextureCache, load_png_relative};
 pub struct ResolvedDecalSheet {
     /// Logical decal asset id, exactly as the level writes it.
     pub material: String,
-    /// Texture cache key (the PNG path relative to the asset root).
+    /// Texture cache key (the PNG path and encoded-content fingerprint).
     pub key: String,
     /// Decoded pixels, shared with the session cache.
-    pub image: Rc<RawImage>,
+    pub image: Arc<RawImage>,
 }
 
 /// Resolves one decal sheet asset to its decoded PNG.
@@ -61,20 +61,12 @@ pub fn resolve_decal_sheet(
             "decal `{material_id}` must name a `.png` sheet, found `{path}`"
         ));
     }
-    let key = path.to_string();
-    if let Some(image) = cache.get(&key) {
-        return Ok(ResolvedDecalSheet {
-            material: material_id.to_string(),
-            key,
-            image,
-        });
-    }
     let Some(root) = asset_root else {
         return Err(format!("decal `{material_id}`: the asset root is missing"));
     };
-    let image =
-        load_png_relative(root, &key).map_err(|error| format!("decal `{material_id}`: {error}"))?;
-    let image = cache.insert(key.clone(), image);
+    let (image, key) = cache
+        .load_relative(root, path, path)
+        .map_err(|error| format!("decal `{material_id}`: {error}"))?;
     Ok(ResolvedDecalSheet {
         material: material_id.to_string(),
         key,

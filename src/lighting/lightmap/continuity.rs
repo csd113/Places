@@ -635,16 +635,20 @@ fn a_wall_run_across_a_room_boundary_does_not_step() {
         "the demo must exercise a wall run that crosses a room boundary"
     );
     let mut worst = 0.0_f32;
+    let mut worst_pair = None;
     for (a, chart_a, b, chart_b) in pairs {
         let page_a = &pages[usize::from(chart_a.page)];
         let page_b = &pages[usize::from(chart_b.page)];
         let measured =
             measure_shared_edge(&build.lighting, &a, &chart_a, page_a, &b, &chart_b, page_b);
-        worst = worst.max(measured.step);
+        if measured.step > worst {
+            worst = measured.step;
+            worst_pair = Some((a, b));
+        }
     }
     assert!(
         worst <= 1.0 / 255.0 + 1.0e-6,
-        "a wall run crossing a room boundary must not step (measured {:.2}/255)",
+        "a wall run crossing a room boundary must not step (measured {:.2}/255): {worst_pair:?}",
         worst * 255.0
     );
 }

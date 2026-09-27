@@ -20,9 +20,9 @@ selection.
 
 The world-upload tests read the one load-time world-upload diagnostic and assert
 non-empty geometry, draw ranges and a successful present. A second level is
-installed into a scratch state root so the same process boots Places Demo and
-then *replaces* it through ``PLACES_LEVEL``, which exercises the level-reload
-path (upload, drop the old buffers, draw the new world) without menu input.
+installed into a scratch state root. A scripted SDL request after the demo
+presents exercises actual level replacement and resource reuse. Direct launch
+separately proves that no intermediate demo world is prepared.
 The material-resolution tests read the material diagnostic and assert the
 opaque/cut-out/translucent breakdown matches the draw set, the demo's glass and
 grille are present, the response/reflection metadata follows the quality
@@ -43,6 +43,8 @@ import shutil
 import struct
 import subprocess
 import sys
+import threading
+import time
 import unittest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -181,6 +183,96 @@ def _missing_level() -> dict:
     }
 
 
+def _run_with_rss(command, *, cwd, env, timeout, report_path):
+    """Coarse RSS evidence for functional action tests, not a startup benchmark.
+
+    The directly launched game's PID includes its Rust threads. Descendant
+    process memory and allocator/GPU residency are not measured. Sampled RSS
+    is not the operating system's whole-run peak.
+    """
+    ps = shutil.which("ps") if sys.platform in {"darwin", "linux"} else None
+    report = {"platform": sys.platform, "interval_seconds": 0.5,
+              "measurement": "owned game process RSS; ps KiB converted to bytes",
+              "limitations": ["coarse samples can miss peaks and short final worlds",
+                              "excludes child processes and GPU allocations",
+                              "adds subprocess overhead; functional acceptance evidence only"],
+              "supported": ps is not None, "samples": [], "sampling_errors": []}
+    started = time.monotonic()
+    trace_path = env.get("PLACES_LOAD_TRACE")
+
+    def observed_phase():
+        latest = None
+        if trace_path:
+            try:
+                with open(trace_path, encoding="utf-8") as stream:
+                    for line in stream:
+                        try:
+                            record = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        if record.get("event") in {"request", "world_committed", "failed", "cancel"}:
+                            latest = record
+            except FileNotFoundError:
+                pass
+        return latest
+
+    def sample(process, label):
+        if ps is None or process.poll() is not None:
+            return False
+        try:
+            measured = subprocess.run([ps, "-o", "rss=", "-p", str(process.pid)],
+                                      capture_output=True, text=True, timeout=2, check=False)
+            value = measured.stdout.strip()
+            if measured.returncode != 0 or not value:
+                return False  # The process can terminate between poll and ps.
+            rss = int(value)
+            if rss < 0:
+                raise ValueError("negative ps RSS")
+            report["samples"].append({"elapsed_ms": (time.monotonic() - started) * 1000,
+                                      "rss_bytes": rss * 1024, "sample": label,
+                                      "observed_phase": observed_phase()})
+            return True
+        except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+            if len(report["sampling_errors"]) < 8:
+                report["sampling_errors"].append(str(error))
+            return False
+
+    def terminate_owned(process):
+        if process.poll() is None:
+            process.terminate()
+        try:
+            return process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            return process.communicate()
+
+    process = subprocess.Popen(command, cwd=cwd, env=env, stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT, text=True)
+    deadline = started + timeout
+    try:
+        while True:
+            sample(process, "before_wait")  # Includes one sample before first communicate.
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                output, _ = terminate_owned(process)
+                raise subprocess.TimeoutExpired(command, timeout, output=output)
+            try:
+                output, _ = process.communicate(timeout=min(0.5, remaining))
+                report["final_sample_available"] = sample(process, "after_exit")
+                return subprocess.CompletedProcess(command, process.returncode, output)
+            except subprocess.TimeoutExpired:
+                continue
+    finally:
+        if process.poll() is None:
+            terminate_owned(process)
+        report["process_seconds"] = time.monotonic() - started
+        report["max_sampled_rss_bytes"] = max((sample["rss_bytes"] for sample in report["samples"]), default=None)
+        report.setdefault("final_sample_available", False)
+        with open(report_path, "w", encoding="utf-8") as stream:
+            json.dump(report, stream, indent=2)
+            stream.write("\n")
+
+
 class WgpuRuntimeSmokeTests(unittest.TestCase):
     binary = DEFAULT_BINARY
     backend = "unsupported"
@@ -204,8 +296,14 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             )
         os.makedirs(SMOKE_ROOT, exist_ok=True)
 
-    def run_binary(self, extra_env=None, timeout=240):
+    def run_binary(self, extra_env=None, timeout=240, *, memory_report=None):
         """Runs a bounded frame loop and returns (exit_code, combined_output)."""
+        if not extra_env or "PLACES_STATE_ROOT" not in extra_env:
+            # Reset preferences only; retain this test-owned root's caches.
+            # Explicit fixture roots retain their intentionally authored settings.
+            settings = os.path.join(SMOKE_ROOT, "state", "settings.json")
+            if os.path.exists(settings):
+                os.remove(settings)
         env = _clean_env()
         env.update(
             {
@@ -226,6 +324,10 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         )
         if extra_env:
             env.update(extra_env)
+        if memory_report is not None:
+            result = _run_with_rss([self.binary], cwd=ROOT, env=env, timeout=timeout,
+                                   report_path=memory_report)
+            return result.returncode, result.stdout
         result = subprocess.run(
             [self.binary],
             cwd=ROOT,
@@ -537,27 +639,357 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
     # ------------------------------------------------------------ level reload
 
+    def run_loading_actions(self, name, levels, initial, actions, *, corrupt_on_request=None, extra_env=None):
+        """Runs real worker/event processing; only an owned scratch input may be corrupted."""
+        state = os.path.join(SMOKE_ROOT, name)
+        shutil.rmtree(state, ignore_errors=True)
+        for level in levels:
+            _write_level(state, level)
+        script = os.path.join(state, "actions.json")
+        trace = os.path.join(state, "trace.jsonl")
+        with open(script, "w", encoding="utf-8") as stream:
+            json.dump(actions, stream)
+        stop = threading.Event()
+        changed = threading.Event()
+        observer_errors = []
+
+        def corrupt_after_request():
+            # Request records are flushed. Mutation follows discovery and
+            # precedes the injected worker delay's end, exercising load failure.
+            while not stop.wait(0.01):
+                try:
+                    with open(trace, encoding="utf-8") as stream:
+                        lines = stream.readlines()
+                except FileNotFoundError:
+                    continue
+                except OSError as error:
+                    observer_errors.append(str(error))
+                    return
+                for line in lines:
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue  # A final line may still be flushing.
+                    if event["event"] == "request" and event["detail"] == corrupt_on_request:
+                        try:
+                            path = os.path.join(state, "levels", f"{corrupt_on_request}.json")
+                            with open(path, "w", encoding="utf-8") as stream:
+                                stream.write('{"format_version":')
+                        except OSError as error:
+                            observer_errors.append(str(error))
+                        else:
+                            changed.set()
+                        return
+
+        observer = None
+        if corrupt_on_request is not None:
+            self.assertIn(corrupt_on_request, [level["id"] for level in levels])
+            observer = threading.Thread(target=corrupt_after_request, name="owned-level-corruption")
+            observer.start()
+        try:
+            code, output = self.run_binary({
+                "PLACES_STATE_ROOT": state,
+                "PLACES_LEVEL": initial,
+                "PLACES_BENCH_ACTIONS": script,
+                "PLACES_LOAD_TRACE": trace,
+                "PLACES_PREPARE_DELAY_MS": "1500",
+                **(extra_env or {}),
+            }, timeout=240, memory_report=os.path.join(state, "memory-samples.json"))
+        finally:
+            stop.set()
+            if observer is not None:
+                observer.join(timeout=2)
+                self.assertFalse(observer.is_alive(), "owned trace observer must terminate")
+        self.assertFalse(observer_errors, observer_errors)
+        if corrupt_on_request is not None:
+            self.assertTrue(changed.is_set(), "test never reached its post-discovery mutation")
+        self.assertEqual(code, 0, output)
+        self.assert_no_gpu_failure(output)
+        with open(trace, encoding="utf-8") as stream:
+            events = [json.loads(line) for line in stream]
+        self.assertTrue(events, "native trace is required")
+        self.assertEqual(events[-1]["event"], "shutdown_complete")
+        self.assertEqual(sum(event["event"] == "shutdown_requested" for event in events), 1)
+        self.assertEqual(sum(event["event"] == "shutdown_complete" for event in events), 1)
+        received = [json.loads(event["detail"]) for event in events if event["event"] == "action"]
+        self.assertEqual([action["id"] for action in received], list(range(len(actions))))
+        latencies = [action["latency_ms"] for action in received]
+        self.assertTrue(all(value >= 0 for value in latencies))
+        # Store measurements rather than making timing-dependent pass thresholds.
+        with open(os.path.join(state, "action-latencies.json"), "w", encoding="utf-8") as stream:
+            json.dump({"latency_ms": latencies, "max_latency_ms": max(latencies, default=0)}, stream)
+        for scene in (event for event in events if event["event"] == "scene_presented"):
+            self.assertTrue(any(event["event"] == "gpu_ready"
+                                and event["request"] == scene["request"]
+                                and event["detail"] == scene["detail"]
+                                and event["elapsed_ms"] <= scene["elapsed_ms"]
+                                for event in events), "a scene must follow its matching world commit")
+        return events, output
+
+    def test_cancel_after_cpu_acceptance_keeps_previous_world_and_retry_commits(self):
+        first = _second_level()
+        second = _second_level()
+        second["id"] = "wgpu_smoke_upload_cancel"
+        second["name"] = "Upload Cancellation"
+        second["rooms"][0]["width"] = 6.0
+        anchor = f"upload:{second['id']}"
+        events, _ = self.run_loading_actions("cancel-upload-state", [first, second], first["id"], [
+            {"after": f"ready:{first['id']}", "delay_ms": 0,
+             "action": {"kind": "load", "level": second["id"]}},
+            {"after": anchor, "delay_ms": 0, "action": {"kind": "escape"}},
+            {"after": anchor, "delay_ms": 150,
+             "action": {"kind": "load", "level": second["id"]}},
+        ], extra_env={"PLACES_PAUSE": "1"})
+        requests = [event for event in events if event["event"] == "request"]
+        self.assertEqual([event["detail"] for event in requests],
+                         [first["id"], second["id"], second["id"]])
+        cancelled_id = requests[1]["request"]
+        cancelled = next(event for event in events if event["event"] == "cancel")
+        self.assertEqual(cancelled["request"], cancelled_id)
+        self.assertTrue(any(event["event"] == "cpu_ready" and event["request"] == cancelled_id
+                            and event["elapsed_ms"] <= cancelled["elapsed_ms"] for event in events),
+                        "cancel must exercise an accepted CPU world")
+        self.assertTrue(any(event["event"] == "upload_step_end" and event["request"] == cancelled_id
+                            and event["elapsed_ms"] <= cancelled["elapsed_ms"] for event in events),
+                        "cancel must exercise staged GPU resources")
+        self.assertFalse(any(event["event"] in ("gpu_ready", "scene_presented")
+                             and event["request"] == cancelled_id for event in events))
+        commits = [event for event in events if event["event"] == "world_committed"]
+        self.assertEqual([event["request"] for event in commits],
+                         [requests[0]["request"], requests[2]["request"]])
+        before = json.loads(commits[0]["detail"])
+        after = json.loads(next(event["detail"] for event in events if event["event"] == "load_cancelled"))
+        for snapshot in (before, after, json.loads(commits[-1]["detail"])):
+            self.assert_world_snapshot_consistent(snapshot)
+        for field in ["current_level_id", "renderer_level_id", "player_position", "walls", "interactables",
+                      "routes", "triggers", "characters", "dynamic_objects", "quality", "lightmaps"]:
+            self.assertEqual(after[field], before[field], f"cancellation changed resident {field}")
+        disposal = {event["event"]: event["elapsed_ms"] for event in events
+                    if event["request"] == cancelled_id
+                    and event["event"] in ("cancel_disposal_begin", "cancel_disposal_end")}
+        self.assertEqual(len(disposal), 2, "record the actual synchronous disposal interval")
+        duration = disposal["cancel_disposal_end"] - disposal["cancel_disposal_begin"]
+        self.assertGreaterEqual(duration, 0)
+        with open(os.path.join(SMOKE_ROOT, "cancel-upload-state", "disposal-duration.json"),
+                  "w", encoding="utf-8") as stream:
+            json.dump({"disposal_ms": duration}, stream)
+
+    def test_loading_resize_cancel_and_retry_process_real_events(self):
+        anchor = f"request:{SECOND_LEVEL_ID}"
+        events, _ = self.run_loading_actions("cancel-retry-state", [_second_level()], SECOND_LEVEL_ID, [
+            {"after": anchor, "delay_ms": 100, "action": {"kind": "resize", "width": 800, "height": 450}},
+            {"after": anchor, "delay_ms": 250, "action": {"kind": "escape"}},
+            {"after": anchor, "delay_ms": 400, "action": {"kind": "load", "level": SECOND_LEVEL_ID}},
+        ])
+        requests = [event for event in events if event["event"] == "request"]
+        self.assertEqual([event["detail"] for event in requests], [SECOND_LEVEL_ID] * 2)
+        cancelled = [event for event in events if event["event"] == "cancel"]
+        self.assertEqual([event["request"] for event in cancelled], [requests[0]["request"]])
+        commits = [event for event in events if event["event"] == "gpu_ready"]
+        self.assertEqual([event["request"] for event in commits], [requests[1]["request"]])
+        self.assertTrue(any(event["event"] == "present" and event["detail"] == "loading"
+                            and requests[0]["elapsed_ms"] < event["elapsed_ms"] < cancelled[0]["elapsed_ms"]
+                            for event in events), "the real window must present while preparation is blocked")
+        sizes = [json.loads(event["detail"]) for event in events if event["event"] == "window_size_observed"]
+        self.assertTrue(any(size["logical"] == [800, 450] and all(value > 0 for value in size["drawable"])
+                            for size in sizes), "observe the actual native resized window")
+        self.assertEqual([event["detail"] for event in events if event["event"] == "scene_presented"],
+                         [SECOND_LEVEL_ID])
+
+    def test_quit_during_preparation_joins_owned_work_without_committing(self):
+        events, _ = self.run_loading_actions("quit-loading-state", [_second_level()], SECOND_LEVEL_ID, [
+            {"after": f"request:{SECOND_LEVEL_ID}", "delay_ms": 150, "action": {"kind": "quit"}},
+        ])
+        self.assertEqual(sum(event["event"] == "request" for event in events), 1)
+        self.assertFalse(any(event["event"] in {"cpu_ready", "gpu_ready", "scene_presented"} for event in events))
+        self.assertTrue(any(event["event"] == "present" and event["detail"] == "loading" for event in events))
+
+    def test_rapid_level_request_commits_only_latest_generation(self):
+        second = _second_level()
+        third = _second_level()
+        third["id"], third["name"] = "wgpu_smoke_third", "wgpu Smoke Third"
+        third["spawn"]["x"] = 3.0
+        events, _ = self.run_loading_actions("supersede-state", [second, third], SECOND_LEVEL_ID, [
+            {"after": f"request:{SECOND_LEVEL_ID}", "delay_ms": 150,
+             "action": {"kind": "load", "level": third["id"]}},
+        ])
+        requests = [event for event in events if event["event"] == "request"]
+        self.assertEqual([event["detail"] for event in requests], [SECOND_LEVEL_ID, third["id"]])
+        self.assertLess(requests[0]["request"], requests[1]["request"])
+        for phase in ["cpu_ready", "gpu_ready", "scene_presented"]:
+            self.assertEqual([(event["request"], event["detail"]) for event in events if event["event"] == phase],
+                             [(requests[1]["request"], third["id"])])
+
+    def test_failed_request_preserves_previous_world_and_allows_retry(self):
+        # Requires the failed:<id> action anchor, emitted after recovery state is installed.
+        good = _second_level()
+        good["id"], good["name"] = "wgpu_smoke_good", "wgpu Smoke Good"
+        events, _ = self.run_loading_actions("failure-retry-state", [_second_level(), good], good["id"], [
+            {"after": f"ready:{good['id']}", "delay_ms": 0,
+             "action": {"kind": "load", "level": SECOND_LEVEL_ID}},
+            {"after": f"failed:{SECOND_LEVEL_ID}", "delay_ms": 50,
+             "action": {"kind": "load", "level": good["id"]}},
+        ], corrupt_on_request=SECOND_LEVEL_ID)
+        requests = [event for event in events if event["event"] == "request"]
+        self.assertEqual([event["detail"] for event in requests], [good["id"], SECOND_LEVEL_ID, good["id"]])
+        failures = [event for event in events if event["event"] == "failed"]
+        self.assertEqual([event["request"] for event in failures], [requests[1]["request"]])
+        self.assertLess(failures[0]["elapsed_ms"], requests[2]["elapsed_ms"])
+        self.assertEqual([event["detail"] for event in events if event["event"] == "gpu_ready"], [good["id"]] * 2)
+        self.assertEqual([event["detail"] for event in events if event["event"] == "scene_presented"], [good["id"]] * 2)
+        self.assertTrue(any(event["event"] == "present"
+                            and failures[0]["elapsed_ms"] < event["elapsed_ms"] < requests[2]["elapsed_ms"]
+                            for event in events), "the previous world/menu must still render after failure")
+        commits = [json.loads(event["detail"]) for event in events if event["event"] == "world_committed"]
+        recovered = [json.loads(event["detail"]) for event in events if event["event"] == "load_recovered"]
+        self.assertEqual(len(recovered), 1)
+        self.assertEqual(len(commits), 2)
+        self.assert_world_snapshot_consistent(recovered[0])
+        for field in ["current_level_id", "renderer_level_id", "walls", "interactables", "routes",
+                      "triggers", "characters", "dynamic_objects", "player_position", "quality",
+                      "lightmaps", "reflections", "renderer_quality", "renderer_lightmaps", "bloom"]:
+            self.assertEqual(recovered[0][field], commits[0][field], f"failed load changed valid world {field}")
+
+    def assert_world_snapshot_consistent(self, snapshot):
+        self.assertEqual(snapshot["current_level_id"], snapshot["renderer_level_id"])
+        self.assertEqual(snapshot["quality"], snapshot["renderer_quality"])
+        self.assertEqual(snapshot["lightmaps"], snapshot["renderer_lightmaps"])
+
+    def test_graphics_changes_during_preparation_commit_only_latest_low_full(self):
+        anchor = f"request:{SECOND_LEVEL_ID}"
+        events, _ = self.run_loading_actions("pending-quality-state", [_second_level()], SECOND_LEVEL_ID, [
+            {"after": anchor, "delay_ms": 100, "action": {"kind": "quality", "level": "low"}},
+            {"after": anchor, "delay_ms": 250, "action": {"kind": "lightmaps", "quality": "full"}},
+            {"after": anchor, "delay_ms": 400, "action": {"kind": "focus", "focused": False}},
+            {"after": anchor, "delay_ms": 550, "action": {"kind": "focus", "focused": True}},
+        ])
+        requests = [event for event in events if event["event"] == "request"]
+        self.assertGreaterEqual(len(requests), 2, "effective graphics change must supersede pending configuration")
+        committed = [event for event in events if event["event"] == "world_committed"]
+        self.assertEqual(len(committed), 1, "no obsolete quality world may activate")
+        self.assertEqual(committed[0]["request"], requests[-1]["request"])
+        snapshot = json.loads(committed[0]["detail"])
+        self.assert_world_snapshot_consistent(snapshot)
+        self.assertEqual(snapshot["current_level_id"], SECOND_LEVEL_ID)
+        self.assertEqual(snapshot["quality"].lower(), "low")
+        self.assertEqual(snapshot["lightmaps"].lower(), "full", "explicit lightmaps override survives preset")
+        self.assertTrue(snapshot["window_focused"], "the injected refocus event reaches normal handling")
+        self.assertEqual([event["request"] for event in events if event["event"] == "scene_presented"],
+                         [requests[-1]["request"]])
+
+    def test_graphics_only_rebuild_preserves_nondefault_player_and_entity_world(self):
+        # Use the existing authored fixture unchanged, so preservation includes real
+        # character/interaction/route counts instead of only an empty room.
+        with open(os.path.join(ROOT, "tests", "fixtures", "levels", "entity_showcase.json"),
+                  encoding="utf-8") as stream:
+            level = json.load(stream)
+        anchor = f"ready:{level['id']}"
+        events, _ = self.run_loading_actions("graphics-preserve-state", [level], level["id"], [
+            {"after": anchor, "delay_ms": 0, "action": {"kind": "quality", "level": "low"}},
+        ], extra_env={"PLACES_SPAWN": "13,2,180", "PLACES_PAUSE": "1"})
+        commits = [json.loads(event["detail"]) for event in events if event["event"] == "world_committed"]
+        self.assertEqual(len(commits), 2)
+        before, after = commits
+        for snapshot in commits:
+            self.assert_world_snapshot_consistent(snapshot)
+        self.assertGreater(before["characters"], 0)
+        self.assertGreater(before["interactables"], 0)
+        self.assertGreater(before["routes"], 0)
+        self.assertEqual(before["player_position"][0], 13.0, "exercise a player away from authored spawn")
+        for field in ["current_level_id", "renderer_level_id", "player_position", "walls", "interactables",
+                      "routes", "triggers", "characters", "dynamic_objects"]:
+            self.assertEqual(after[field], before[field], f"graphics-only rebuild changed {field}")
+        self.assertEqual(after["quality"].lower(), "low")
+        self.assertNotEqual(before["quality"], after["quality"])
+        # A graphics rebuild preserves gameplay timing ownership: it is not a
+        # fresh level visit and must not restart the ready-frame/capture counter.
+        self.assertEqual(sum(event["event"] == "scene_presented" for event in events), 1)
+
+    def test_repeated_visits_reuse_prepared_geometry_but_reset_new_world_spawn(self):
+        with open(os.path.join(ROOT, "tests", "fixtures", "levels", "entity_showcase.json"),
+                  encoding="utf-8") as stream:
+            first = json.load(stream)
+        second = _second_level()
+        events, output = self.run_loading_actions("repeat-visits-state", [first, second], first["id"], [
+            {"after": f"ready:{first['id']}", "delay_ms": 0,
+             "action": {"kind": "load", "level": second["id"]}},
+            {"after": f"ready:{second['id']}", "delay_ms": 0,
+             "action": {"kind": "load", "level": first["id"]}},
+        ], extra_env={"PLACES_SPAWN": "13,2,180", "PLACES_PAUSE": "1"})
+        self.assertIn(f"[loading] prepared-cache hit level={first['id']}", output)
+        commits = [json.loads(event["detail"]) for event in events if event["event"] == "world_committed"]
+        self.assertEqual([snapshot["current_level_id"] for snapshot in commits],
+                         [first["id"], second["id"], first["id"]])
+        for snapshot in commits:
+            self.assert_world_snapshot_consistent(snapshot)
+        before, middle, returned = commits
+        self.assertEqual(before["player_position"][0], 13.0)
+        self.assertEqual(middle["player_position"][0], second["spawn"]["x"])
+        self.assertEqual(returned["player_position"][0], first["spawn"]["x"])
+        self.assertEqual(returned["player_position"][2], first["spawn"]["z"])
+        self.assertNotEqual(returned["player_position"], before["player_position"],
+                            "cached geometry must not retain the prior player's runtime spawn override")
+        self.assertGreater(before["characters"], 0)
+        self.assertEqual(middle["characters"], 0, "other level must not inherit characters")
+        self.assertEqual(middle["interactables"], 0, "other level must not inherit actions")
+        for field in ["walls", "interactables", "routes", "triggers", "characters", "dynamic_objects",
+                      "quality", "lightmaps", "reflections", "bloom"]:
+            self.assertEqual(returned[field], before[field], f"returning level changed {field}")
+        self.assertEqual([event["detail"] for event in events if event["event"] == "scene_presented"],
+                         [first["id"], second["id"], first["id"]])
+
+    def test_direct_launch_prepares_only_the_requested_world(self):
+        state = os.path.join(SMOKE_ROOT, "direct-state")
+        shutil.rmtree(state, ignore_errors=True)
+        _write_level(state, _second_level())
+        trace = os.path.join(state, "trace.jsonl")
+        code, output = self.run_binary({"PLACES_STATE_ROOT": state,
+                                       "PLACES_LEVEL": SECOND_LEVEL_ID,
+                                       "PLACES_LOAD_TRACE": trace})
+        self.assertEqual(code, 0, output)
+        self.assertEqual(len(self.world_uploads(output)), 1, output)
+        with open(trace, encoding="utf-8") as stream:
+            events = [json.loads(line) for line in stream]
+        self.assertEqual([event["detail"] for event in events
+                          if event["event"] == "cpu_ready"], [SECOND_LEVEL_ID])
+        self.assertEqual([event["detail"] for event in events
+                          if event["event"] == "gpu_ready"], [SECOND_LEVEL_ID])
+        self.assertTrue(any(event["event"] == "present" and event["detail"] == "ready"
+                            for event in events))
+        self.assert_no_gpu_failure(output)
+
     def test_a_second_level_replaces_the_uploaded_world(self):
         state = os.path.join(SMOKE_ROOT, "reload-state")
         shutil.rmtree(state, ignore_errors=True)
         _write_level(state, _second_level())
 
+        script = os.path.join(state, "actions.json")
+        trace = os.path.join(state, "trace.jsonl")
+        with open(script, "w", encoding="utf-8") as stream:
+            json.dump([{"after": "ready:places_demo", "delay_ms": 0,
+                        "action": {"kind": "load", "level": SECOND_LEVEL_ID}}], stream)
         code, output = self.run_binary(
             {
                 "PLACES_STATE_ROOT": state,
-                "PLACES_LEVEL": SECOND_LEVEL_ID,
+                "PLACES_LEVEL": "places_demo",
+                "PLACES_BENCH_ACTIONS": script,
+                "PLACES_LOAD_TRACE": trace,
             }
         )
 
         self.assertEqual(code, 0, f"wgpu reload run failed:\n{output}")
-        self.assertIn(
-            f"PLACES_LEVEL: loading 'wgpu Smoke Second' ({SECOND_LEVEL_ID})",
-            output,
-            output,
-        )
+        with open(trace, encoding="utf-8") as stream:
+            events = [json.loads(line) for line in stream]
+        self.assertEqual([event["detail"] for event in events
+                          if event["event"] == "gpu_ready"],
+                         ["places_demo", SECOND_LEVEL_ID])
+        action = next(event for event in events if event["event"] == "action")
+        self.assertTrue(any(event["event"] == "present" and event["detail"] == "ready"
+                            and event["elapsed_ms"] <= action["elapsed_ms"] for event in events),
+                        "the demo must actually present before requesting replacement")
         uploads = self.world_uploads(output)
         self.assertEqual(
-            len(uploads), 2, f"boot demo then the requested level:\n{output}"
+            len(uploads), 2, f"present demo then request replacement:\n{output}"
         )
         first, second = uploads
         self.assertGreater(first[2], 0, "the boot level uploads draws")
@@ -627,24 +1059,24 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
         self.assertEqual(code, 0, f"wgpu empty-level run failed:\n{output}")
         uploads = self.world_uploads(output)
-        self.assertEqual(len(uploads), 2, output)
+        self.assertEqual(len(uploads), 1, output)
         self.assertEqual(
-            uploads[1],
+            uploads[0],
             (0, 0, 0, 0),
             "a level with no architecture must upload nothing and not panic",
         )
         loads = self.texture_loads(output)
-        self.assertEqual(len(loads), 2, output)
+        self.assertEqual(len(loads), 1, output)
         self.assertEqual(
-            loads[1],
+            loads[0],
             (0, 0, 0, 0, 0, 0, 0, 0, "high"),
             "an empty world samples no textures",
         )
         material_loads = self.material_loads(output)
-        self.assertEqual(len(material_loads), 2, output)
-        self.assert_material_resolution_is_sane(material_loads[1], output)
+        self.assertEqual(len(material_loads), 1, output)
+        self.assert_material_resolution_is_sane(material_loads[0], output)
         self.assertEqual(
-            material_loads[1][:10],
+            material_loads[0][:10],
             (0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
             "an empty world resolves no materials and draws nothing",
         )
@@ -664,8 +1096,8 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
         self.assertEqual(code, 0, f"wgpu no-texture run failed:\n{output}")
         loads = self.texture_loads(output)
-        self.assertEqual(len(loads), 2, output)
-        unique, uploaded, _hits, fallbacks, missing, draws, resident, edge, _mode = loads[1]
+        self.assertEqual(len(loads), 1, output)
+        unique, uploaded, _hits, fallbacks, missing, draws, resident, edge, _mode = loads[0]
         self.assertEqual(unique, 0, "a material-less level resolves no base texture")
         self.assertEqual(uploaded, 0, "the fallback is uploaded once at startup")
         self.assertEqual(fallbacks, draws, "every draw samples the fallback sheet")
@@ -692,10 +1124,10 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         # Every draw resolves the plain material state: no response, no normal
         # map, all opaque.
         material_loads = self.material_loads(output)
-        self.assertEqual(len(material_loads), 2, output)
-        self.assert_material_resolution_is_sane(material_loads[1], output)
-        self.assertEqual(material_loads[1][1:4], (0, 0, 0), output)
-        self.assertEqual(material_loads[1][7:9], (0, 0), "no cut-out or translucent range")
+        self.assertEqual(len(material_loads), 1, output)
+        self.assert_material_resolution_is_sane(material_loads[0], output)
+        self.assertEqual(material_loads[0][1:4], (0, 0, 0), output)
+        self.assertEqual(material_loads[0][7:9], (0, 0), "no cut-out or translucent range")
         self.assert_no_gpu_failure(output)
 
     def test_an_unknown_material_resolves_to_the_diagnostic_texture(self):
@@ -712,8 +1144,8 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
         self.assertEqual(code, 0, f"wgpu missing-material run failed:\n{output}")
         loads = self.texture_loads(output)
-        self.assertEqual(len(loads), 2, output)
-        unique, uploaded, _hits, fallbacks, missing, draws, _resident, edge, _mode = loads[1]
+        self.assertEqual(len(loads), 1, output)
+        unique, uploaded, _hits, fallbacks, missing, draws, _resident, edge, _mode = loads[0]
         self.assertEqual(unique, 1, "every broken material shares one diagnostic sheet")
         self.assertEqual(uploaded, 1, output)
         self.assertEqual(fallbacks, 0, "a broken material still names a texture")
@@ -723,10 +1155,10 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         # The diagnostic material is opaque and carries no response, so the
         # degraded whole-material rule is visible in the material line.
         material_loads = self.material_loads(output)
-        self.assertEqual(len(material_loads), 2, output)
-        self.assert_material_resolution_is_sane(material_loads[1], output)
-        self.assertEqual(material_loads[1][1], 0, "a broken material loses its response")
-        self.assertEqual(material_loads[1][3], 0, "and its normal map")
+        self.assertEqual(len(material_loads), 1, output)
+        self.assert_material_resolution_is_sane(material_loads[0], output)
+        self.assertEqual(material_loads[0][1], 0, "a broken material loses its response")
+        self.assertEqual(material_loads[0][3], 0, "and its normal map")
         self.assert_no_gpu_failure(output)
 
     # --------------------------------------------------------- baked lighting

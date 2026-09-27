@@ -4595,7 +4595,7 @@ pub const MAX_LEVEL_FLOOR_AREA_M2: u64 = 16_000_000;
 pub const MAX_LEVEL_VERTICES: u64 = 8_000_000;
 
 /// Estimated generated geometry for a level, used to bound memory use before
-/// building vertex data and to reserve capacity without overallocating.
+/// building vertex data. This conservative upper bound is not a reservation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct GeometryEstimate {
     pub floor_area_m2: u64,

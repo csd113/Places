@@ -751,8 +751,8 @@ fn span_for(spans: &[Option<(i32, i32)>], kind: SurfaceKind) -> BatchRange {
 /// Packs indexed ranges into GPU buffers that stay addressable with 16-bit
 /// indices.
 ///
-/// The renderer-neutral mesh format is built on 16-bit indices (the historical
-/// OpenGL ES 2.0 floor, with no base-vertex offset), so an index is always an
+/// The renderer-neutral mesh format uses 16-bit indices without a base-vertex
+/// offset, so an index is always an
 /// offset into the bound vertex buffer. A level whose props expand past
 /// 65 536 vertices therefore needs several buffer pairs rather than one;
 /// this helper fills them in order and re-bases each range's indices as it goes.

@@ -4487,6 +4487,21 @@ fn lightmap_build(
     )
 }
 
+/// One immutable real demo build per quality. Assertions borrow the complete
+/// result; tests that vary inputs, exercise cache behavior, or compare repeated
+/// builds continue to construct independent worlds.
+fn demo_lightmap_build(quality: crate::quality::QualityLevel) -> &'static LevelBuild {
+    static HIGH: std::sync::OnceLock<LevelBuild> = std::sync::OnceLock::new();
+    static MEDIUM: std::sync::OnceLock<LevelBuild> = std::sync::OnceLock::new();
+    static LOW: std::sync::OnceLock<LevelBuild> = std::sync::OnceLock::new();
+    let slot = match quality {
+        crate::quality::QualityLevel::High => &HIGH,
+        crate::quality::QualityLevel::Medium => &MEDIUM,
+        crate::quality::QualityLevel::Low => &LOW,
+    };
+    slot.get_or_init(|| lightmap_build(&shipped_demo(), quality, LightmapMode::On))
+}
+
 /// True when a lightmapped vertex's quantised atlas UV lies inside one of the
 /// charts on its page.
 fn vertex_in_some_chart(lightmaps: &LevelLightmaps, vertex: &Vertex) -> bool {
@@ -4508,7 +4523,7 @@ fn vertex_in_some_chart(lightmaps: &LevelLightmaps, vertex: &Vertex) -> bool {
 #[test]
 fn the_demo_bakes_lightmaps_with_every_surface_vertex_charted() {
     let level = shipped_demo();
-    let build = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On);
+    let build = demo_lightmap_build(crate::quality::QualityLevel::High);
     assert_eq!(build.lightmap_failure, None, "the demo must bake cleanly");
     let lightmaps = build
         .lightmaps
@@ -4644,19 +4659,14 @@ fn every_level_shares_the_patch_set_at_different_densities() {
 
 #[test]
 fn the_demo_bakes_inside_the_page_budget_on_every_level() {
-    // Places Demo's chart set is the shipped level's real workload. Every level
-    // must bake it into its own two-page atlas: the skyline packer and the
-    // softened density were tuned exactly so `Low` no longer overflows its two
-    // 512-texel pages and fall back to vertex lighting. A level that overflows
-    // is worse than a lower density, so this pins the shipped behaviour rather
-    // than a page count.
-    let level = shipped_demo();
+    // Every quality must chart the real shipped workload within its configured
+    // page budget, without falling back to vertex lighting.
     for quality in [
         crate::quality::QualityLevel::High,
         crate::quality::QualityLevel::Medium,
         crate::quality::QualityLevel::Low,
     ] {
-        let build = lightmap_build(&level, quality, LightmapMode::On);
+        let build = demo_lightmap_build(quality);
         assert_eq!(
             build.lightmap_failure, None,
             "{quality:?} must bake the demo cleanly"
@@ -4780,16 +4790,7 @@ fn atlas_overflow_rebuilds_with_vertex_lighting() {
 fn every_lightmapped_vertex_uv_lands_on_its_own_chart_corner() {
     let level = shipped_demo();
     let materials = logical_materials(&level);
-    let catalog = PropCatalog::builtin();
-    let mut assets = PropAssets::default();
-    let build = build_level_geometry_timed_with_lightmaps(
-        &level,
-        &catalog,
-        &mut assets,
-        &materials,
-        LightmapBuildOptions::for_level(crate::quality::QualityLevel::High, LightmapMode::On),
-        None,
-    );
+    let build = demo_lightmap_build(crate::quality::QualityLevel::High);
     let lightmaps = build.lightmaps.as_deref().expect("the demo bakes");
     // A water volume is deliberately vertex-lit: its quad carries its baked
     // light in the vertex colour and never enters the atlas, so it is exempt
@@ -4860,17 +4861,7 @@ fn every_lightmapped_vertex_uv_lands_on_its_own_chart_corner() {
 #[test]
 fn atlas_bytes_match_the_fill_pass_exactly() {
     let level = shipped_demo();
-    let materials = logical_materials(&level);
-    let catalog = PropCatalog::builtin();
-    let mut assets = PropAssets::default();
-    let build = build_level_geometry_timed_with_lightmaps(
-        &level,
-        &catalog,
-        &mut assets,
-        &materials,
-        LightmapBuildOptions::for_level(crate::quality::QualityLevel::High, LightmapMode::On),
-        None,
-    );
+    let build = demo_lightmap_build(crate::quality::QualityLevel::High);
     let lightmaps = build.lightmaps.as_deref().expect("demo bakes");
     // The atlas was baked with the active profile's bake config (soft shadows
     // and the finer prop grid on Full), so the reference fill must use exactly
@@ -5503,9 +5494,9 @@ fn the_demo_routes_its_reflective_materials_to_a_plane_and_a_probe() {
 
     // The routing itself comes from the emitted geometry, so build the demo the
     // renderer builds and check the plane it derives.
-    let mesh = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On).mesh;
+    let mesh = &demo_lightmap_build(crate::quality::QualityLevel::High).mesh;
     let routing =
-        super::common::reflections::routing_from_mesh(&mesh, &reflections, reflections.len());
+        super::common::reflections::routing_from_mesh(mesh, &reflections, reflections.len());
     assert_eq!(
         routing.planes.len(),
         1,
@@ -5591,7 +5582,7 @@ fn the_demo_glazes_every_window_and_classifies_the_panes_translucent() {
     // pane into several quads where its lightmap chart or its spatial cell
     // ends, so the count is not one per opening; the area is.) The builds are
     // the lightmapped ones, because that is what the renderer uses.
-    let mesh = lightmap_build(&level, crate::quality::QualityLevel::High, LightmapMode::On).mesh;
+    let mesh = &demo_lightmap_build(crate::quality::QualityLevel::High).mesh;
     let opening_area: f32 = level
         .walls
         .iter()
@@ -7037,7 +7028,7 @@ fn two_placed_characters_follow_independent_entity_frames() {
 }
 
 /// Resolves one shipped entity GLB for the character-cue tests.
-fn shipped_entity(path: &str) -> std::rc::Rc<crate::props::LoadedPropAsset> {
+fn shipped_entity(path: &str) -> std::sync::Arc<crate::props::LoadedPropAsset> {
     let mut assets = shipped_assets();
     assets
         .resolve(path)
@@ -7542,4 +7533,341 @@ fn an_idle_rigid_prop_holds_its_bind_pose() {
         "an idle rigid prop holds its rest pose instead of looping its clip"
     );
     let _ = model;
+}
+
+fn triangle_normal(a: &Vertex, b: &Vertex, c: &Vertex) -> [f32; 3] {
+    let edge_a = [
+        b.pos[0] - a.pos[0],
+        b.pos[1] - a.pos[1],
+        b.pos[2] - a.pos[2],
+    ];
+    let edge_b = [
+        c.pos[0] - a.pos[0],
+        c.pos[1] - a.pos[1],
+        c.pos[2] - a.pos[2],
+    ];
+    let normal = [
+        edge_a[1].mul_add(edge_b[2], -(edge_a[2] * edge_b[1])),
+        edge_a[2].mul_add(edge_b[0], -(edge_a[0] * edge_b[2])),
+        edge_a[0].mul_add(edge_b[1], -(edge_a[1] * edge_b[0])),
+    ];
+    let length = normal[2]
+        .mul_add(
+            normal[2],
+            normal[1].mul_add(normal[1], normal[0] * normal[0]),
+        )
+        .sqrt();
+    [normal[0] / length, normal[1] / length, normal[2] / length]
+}
+
+fn triangle_normals(mesh: &LevelMesh, kind: SurfaceKind) -> Vec<([f32; 3], [[f32; 3]; 3])> {
+    mesh.triangles_for(kind)
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .map(|triangle| {
+            let positions = [triangle[0].pos, triangle[1].pos, triangle[2].pos];
+            (
+                triangle_normal(&triangle[0], &triangle[1], &triangle[2]),
+                positions,
+            )
+        })
+        .collect()
+}
+
+fn has_triangle_facing(
+    triangles: &[([f32; 3], [[f32; 3]; 3])],
+    axis: usize,
+    plane: f32,
+    sign: f32,
+) -> bool {
+    triangles.iter().any(|(normal, positions)| {
+        positions
+            .iter()
+            .all(|point| (point[axis] - plane).abs() < 1e-3)
+            && normal[axis] * sign > 0.99
+    })
+}
+
+#[test]
+fn wall_reveals_and_ends_face_out_of_the_solid_on_both_axes() {
+    // A wall with a door in it: the two jambs must face into the opening, the
+    // two end caps must face out of the wall, and the header must face the
+    // room below it. The expectation must hold whichever axis the wall's
+    // length runs along, because the level format supports both and a sign
+    // case that only suits one axis leaves the other axis' reveals
+    // back-facing: invisible while culling is off, a hole the moment it is on.
+    for axis in [crate::level::WallAxis::X, crate::level::WallAxis::Z] {
+        let (width, depth) = match axis {
+            crate::level::WallAxis::X => (10.0, 0.4),
+            crate::level::WallAxis::Z => (0.4, 10.0),
+        };
+        let json = format!(
+            r#"{{
+                "format_version": 1,
+                "id": "winding_test",
+                "name": "Winding Test",
+                "spawn": {{ "x": 0.0, "z": 0.0 }},
+                "room": {{ "x": -5.0, "z": -5.0, "width": 10.0, "depth": 10.0, "height": 3.5 }},
+                "walls": [{{
+                    "x": -5.0, "z": -5.0, "width": {width}, "depth": {depth}, "height": 3.5,
+                    "openings": [{{ "kind": "door", "offset": 4.0, "width": 1.0, "height": 2.1 }}]
+                }}]
+            }}"#
+        );
+        let level = LevelDef::from_json(&json).expect("valid json");
+        let mesh = build_level_geometry(&level);
+        let triangles = triangle_normals(&mesh, SurfaceKind::Wall);
+        // The wall runs from `low` to `high` along its length axis; the door
+        // cuts `near` to `far`.
+        let (axis_index, low, high, near, far) = match axis {
+            crate::level::WallAxis::X => (0usize, -5.0f32, 5.0f32, -1.0f32, 0.0f32),
+            crate::level::WallAxis::Z => (2usize, -5.0f32, 5.0f32, -1.0f32, 0.0f32),
+        };
+        let axis_name = match axis {
+            crate::level::WallAxis::X => "X",
+            crate::level::WallAxis::Z => "Z",
+        };
+        assert!(
+            has_triangle_facing(&triangles, axis_index, low, -1.0),
+            "the {axis_name}-axis wall's start cap must face out along -{axis_name}"
+        );
+        assert!(
+            has_triangle_facing(&triangles, axis_index, high, 1.0),
+            "the {axis_name}-axis wall's end cap must face out along +{axis_name}"
+        );
+        assert!(
+            has_triangle_facing(&triangles, axis_index, near, 1.0),
+            "the {axis_name}-axis wall's first jamb must face into the opening"
+        );
+        assert!(
+            has_triangle_facing(&triangles, axis_index, far, -1.0),
+            "the {axis_name}-axis wall's second jamb must face into the opening"
+        );
+        assert!(
+            has_triangle_facing(&triangles, 1, 2.1, -1.0),
+            "the {axis_name}-axis wall's header must face down into the room"
+        );
+    }
+}
+
+#[test]
+fn a_wall_end_abutting_an_opening_keeps_its_exposed_reveal() {
+    // Wall A runs north-south and ends where wall B (east-west) begins. Wall B
+    // has a doorway that cuts past A's thickness, so a strip of A's end face
+    // shows *through* B's doorway. The end must be emitted there: suppressing
+    // it because B's footprint merely touches the plane leaves a void in the
+    // doorway, visible only once back faces are culled.
+    let json = r#"{
+        "format_version": 1,
+        "id": "abutting_opening",
+        "name": "Abutting Opening",
+        "spawn": { "x": 1.0, "z": 1.0 },
+        "room": { "x": -2.0, "z": -2.0, "width": 12.0, "depth": 14.0, "height": 3.0 },
+        "walls": [
+            { "x": 0.0, "z": 0.0, "width": 0.3, "depth": 4.0, "height": 2.7 },
+            { "x": 0.0, "z": 4.0, "width": 6.0, "depth": 0.3, "height": 2.7,
+              "openings": [ { "kind": "door", "offset": 0.15, "width": 2.0, "height": 2.1 } ] }
+        ]
+    }"#;
+    let level = LevelDef::from_json(json).expect("valid json");
+    let mesh = build_level_geometry(&level);
+    let triangles = triangle_normals(&mesh, SurfaceKind::Wall);
+    // Wall A's end cap faces +Z on the plane z = 4.0. Its exposed strip is the
+    // part of A's thickness east of B's doorway edge at x = 0.15.
+    let exposed = triangles.iter().any(|(normal, positions)| {
+        normal[2] > 0.99
+            && positions
+                .iter()
+                .all(|point| (point[2] - 4.0).abs() < 1.0e-3)
+            && positions.iter().any(|point| point[0] > 0.15 + 1.0e-3)
+    });
+    assert!(
+        exposed,
+        "the end face must show through the doorway, not be suppressed"
+    );
+    // The covered strip (x < 0.15) must stay suppressed: wall B's own face
+    // already draws that plane.
+    let covered = triangles.iter().any(|(normal, positions)| {
+        normal[2] > 0.99
+            && positions
+                .iter()
+                .all(|point| (point[2] - 4.0).abs() < 1.0e-3 && point[0] < 0.15 + 1.0e-3)
+    });
+    assert!(
+        !covered,
+        "the part of the end behind wall B's solid must remain suppressed"
+    );
+}
+
+#[test]
+fn placeholder_prop_box_faces_point_out_of_the_box() {
+    let level = lit_room_level(10.0, 10.0, 3.0, "[]");
+    let mut level = level;
+    level.props = vec![PropDef {
+        id: None,
+        display_name: None,
+        interaction: None,
+        float: None,
+        model: "core:crate".into(),
+        x: 2.0,
+        y: 0.25,
+        z: 3.0,
+        rotation_degrees: 30.0,
+        scale: 1.0,
+        size: Some([1.0, 1.5, 2.0]),
+        solid: false,
+        lights: Vec::new(),
+    }];
+    let mesh = build_level_geometry(&level);
+    // The box centre: the authored position plus half the resolved size along
+    // Y (the fallback's own placement rule).
+    let centre = [2.0f32, 0.25 + 0.75, 3.0];
+    let triangles = triangle_normals(&mesh, SurfaceKind::PropFallback);
+    assert!(!triangles.is_empty(), "the placeholder box must be emitted");
+    for (normal, corners) in triangles {
+        let centroid = [
+            (corners[0][0] + corners[1][0] + corners[2][0]) / 3.0,
+            (corners[0][1] + corners[1][1] + corners[2][1]) / 3.0,
+            (corners[0][2] + corners[1][2] + corners[2][2]) / 3.0,
+        ];
+        let outward = [
+            centroid[0] - centre[0],
+            centroid[1] - centre[1],
+            centroid[2] - centre[2],
+        ];
+        let dot = normal[2].mul_add(
+            outward[2],
+            normal[1].mul_add(outward[1], normal[0].mul_add(outward[0], 0.0)),
+        );
+        assert!(
+            dot > 0.0,
+            "a placeholder box face must point out of the box, normal {normal:?} at {centroid:?}"
+        );
+    }
+}
+
+#[test]
+fn graphics_rebuild_preserves_each_characters_live_playback_by_instance_id() {
+    use crate::render::common::character::{EntityFrame, PoseCue};
+    let catalog = shipped_catalog();
+    let mut assets = shipped_assets();
+    let mut level = level_with_wall_and_lights(
+        "[]",
+        r#"[
+            { "id": "cat_a", "model": "spooner-man", "x": 1.0, "z": 1.0 },
+            { "id": "cat_b", "model": "spooner-man", "x": 3.0, "z": 1.0 }
+        ]"#,
+        r#"[{ "fixture": "core:fluorescent_panel_01", "x": 0.0, "z": 0.0 }]"#,
+    );
+    let lighting = LevelLighting::bake(&level);
+    let mut live = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
+    let frames = [
+        EntityFrame {
+            instance_id: "cat_a".into(),
+            transform: Some((glam::Vec3::new(5.0, 0.0, 2.0), 0.4)),
+            cue: PoseCue::Walk { speed_mps: 0.5 },
+        },
+        EntityFrame {
+            instance_id: "cat_b".into(),
+            transform: Some((glam::Vec3::new(2.0, 0.0, 4.0), 1.2)),
+            cue: PoseCue::Walk { speed_mps: 0.9 },
+        },
+    ];
+    for _ in 0..10 {
+        live.update(
+            0.05,
+            LocomotionSnapshot {
+                state: crate::game::LocomotionState::Walking,
+                speed: 0.5,
+            },
+            &frames,
+        );
+    }
+    let expected: Vec<_> = live
+        .characters()
+        .iter()
+        .map(|character| {
+            (
+                character.instance_id().expect("placed id").to_string(),
+                character.transform(),
+                character.animator().phase(),
+                character.animator().revision(),
+            )
+        })
+        .collect();
+    assert!(expected.iter().all(|(_, _, _, revision)| *revision > 1));
+    // Reordered placements must still inherit their own playback, never the
+    // other copy's transform or animation clock.
+    level.props.reverse();
+    let mut prepared = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
+    let new_albedos: Vec<_> = prepared
+        .characters()
+        .iter()
+        .map(|character| character.albedo().to_vec())
+        .collect();
+    prepared.inherit_playback_from(&mut live);
+    for (character, albedo) in prepared.characters().iter().zip(new_albedos) {
+        let (_, transform, phase, revision) = expected
+            .iter()
+            .find(|(id, _, _, _)| Some(id.as_str()) == character.instance_id())
+            .expect("matching placement");
+        assert_eq!(character.transform(), *transform);
+        assert_exact(character.animator().phase(), *phase);
+        assert_eq!(character.animator().revision(), *revision);
+        assert_eq!(
+            character.albedo(),
+            albedo,
+            "newly prepared lighting remains installed"
+        );
+    }
+}
+
+#[test]
+fn a_full_height_partition_does_not_emit_the_wall_face_hidden_behind_it() {
+    let level = LevelDef::from_json(
+        r#"{
+        "format_version":1, "id":"hidden_length_face", "name":"Hidden length face",
+        "spawn":{"x":1,"z":1},
+        "room":{"x":0,"z":0,"width":10,"depth":10,"height":3},
+        "walls":[
+            {"x":0,"z":6,"width":8,"depth":0.3,"height":3},
+            {"x":3,"z":0,"width":0.3,"depth":6,"height":3}
+        ]
+    }"#,
+    )
+    .expect("partition fixture parses");
+    let mesh = build_level_geometry(&level);
+    let triangles = triangle_normals(&mesh, SurfaceKind::Wall);
+    let on_plane =
+        |points: &[[f32; 3]; 3], z: f32| points.iter().all(|point| (point[2] - z).abs() < 1.0e-4);
+    let crosses_partition = |points: &[[f32; 3]; 3]| {
+        let lo = points
+            .iter()
+            .map(|point| point[0])
+            .fold(f32::INFINITY, f32::min);
+        let hi = points
+            .iter()
+            .map(|point| point[0])
+            .fold(f32::NEG_INFINITY, f32::max);
+        lo < 3.3 - 1.0e-4 && hi > 3.0 + 1.0e-4
+    };
+    assert!(
+        !triangles.iter().any(|(normal, points)| normal[2] < -0.99
+            && on_plane(points, 6.0)
+            && crosses_partition(points)),
+        "the partition hides the entire north-face strip"
+    );
+    assert!(
+        triangles.iter().any(|(normal, points)| normal[2] > 0.99
+            && on_plane(points, 6.3)
+            && crosses_partition(points)),
+        "the opposite face stays visible and must remain"
+    );
+    assert!(
+        triangles
+            .iter()
+            .any(|(normal, points)| normal[2] < -0.99 && on_plane(points, 6.0)),
+        "uncovered north-face spans remain"
+    );
 }

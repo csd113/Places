@@ -46,6 +46,45 @@ impl Renderer {
         WgpuRenderer::new(window).map(|renderer| Self { renderer })
     }
 
+    /// Applies sampler/post gates without rebuilding the world.
+    pub fn apply_frame_graphics(&mut self) -> bool {
+        self.renderer.apply_frame_graphics()
+    }
+
+    /// Identity and effective preparation quality of the resident world.
+    pub fn installed_identity(
+        &self,
+    ) -> (
+        Option<&str>,
+        crate::quality::QualityLevel,
+        crate::quality::LightmapQuality,
+    ) {
+        self.renderer.installed_identity()
+    }
+
+    /// Installs a complete CPU bundle prepared by the loading worker.
+    pub fn install_prepared(
+        &mut self,
+        loaded: &LoadedLevel,
+        build: std::sync::Arc<super::LevelBuild>,
+        assets: crate::props::PropAssets,
+        characters: CharacterScene,
+        preserve_playback: bool,
+    ) {
+        self.renderer
+            .install_prepared(loaded, build, assets, characters, preserve_playback);
+    }
+
+    /// Advances bounded GPU preparation; true only once the whole world is installed.
+    pub fn advance_prepared_install(&mut self) -> bool {
+        self.renderer.advance_prepared_install()
+    }
+
+    /// Discards an upload superseded by a newer request.
+    pub fn cancel_prepared_install(&mut self) {
+        self.renderer.cancel_prepared_install();
+    }
+
     /// Applies the player's `VSync` preference and reports the interval in force.
     ///
     /// The renderer selects the supported presentation mode (Fifo/Immediate)
@@ -57,8 +96,8 @@ impl Renderer {
     }
 
     /// Presents the frame submitted since the last call.
-    pub fn present(&mut self, window: &Window) {
-        self.renderer.present(window);
+    pub fn present(&mut self, window: &Window) -> bool {
+        self.renderer.present(window)
     }
 
     /// A fatal GPU error that stopped the renderer, if any.
@@ -114,35 +153,9 @@ impl Renderer {
         self.renderer.set_bloom_enabled(enabled);
     }
 
-    /// Applies every graphics setting recorded since the last call.
-    ///
-    /// This is the one entry point for a settings action: the renderer diffs
-    /// the requested configuration against the applied one and does exactly the
-    /// work the difference implies, as one transaction. A filtering-only or
-    /// bloom-only change touches no GPU resource; a quality-only change reuses
-    /// the retained CPU build; a lightmap change rebuilds the CPU level once
-    /// and defers an uncached fill to a worker.
-    ///
-    /// `loaded` is the level already resident; the game world — player,
-    /// camera, pause state — is not touched.
-    pub fn apply_graphics(&mut self, loaded: &LoadedLevel) {
-        self.renderer.apply_graphics(loaded);
-    }
-
-    /// Polls the asynchronous graphics stage, if any.
-    ///
-    /// The frame loop may call this (or rely on `render_scene`, which polls) to
-    /// install a finished background lightmap fill. It is a couple of branches
-    /// when idle.
-    pub fn advance_graphics_transition(&mut self) {
-        self.renderer.advance_graphics_transition();
-    }
-
     /// A cheap status: whether a graphics transition is in flight.
     ///
-    /// `Preparing("lightmaps")` means an uncached atlas is filling on a worker
-    /// while the previous configuration keeps rendering; a status hint may be
-    /// shown until it returns to `Idle`.
+    /// GPU resources are prepared while the previous world keeps rendering.
     #[must_use]
     pub const fn graphics_transition_status(&self) -> GraphicsTransition {
         self.renderer.graphics_transition_status()
@@ -167,14 +180,6 @@ impl Renderer {
     /// sampler and never follows this setting.
     pub fn set_texture_filtering(&mut self, mode: &str) {
         self.renderer.set_texture_filtering(mode);
-    }
-
-    /// Uploads a loaded level.
-    ///
-    /// The renderer uploads the renderer-neutral geometry, props, dynamics,
-    /// fixtures, decals, the lightmap atlas and the reflection probes.
-    pub fn set_level(&mut self, loaded: &LoadedLevel) {
-        self.renderer.set_level(loaded);
     }
 
     /// Spawns the level's dynamic demonstration objects.

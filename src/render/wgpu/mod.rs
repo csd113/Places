@@ -8,7 +8,7 @@
 //!   baked-lighting paths; the world vertex layout, pipelines and frame encode
 //!   live in [`world`], the material records in [`material`] and the texture
 //!   cache in [`texture`];
-//! * the lightmap atlas (the reference's normal/default baked-light path),
+//! * the lightmap atlas,
 //!   with the neutral bake and its content-keyed disk cache ([`lightmap`]);
 //! * static reflection probes and the half-size planar mirror
 //!   ([`reflections`]), the group-3 environment binding that carries the
@@ -20,13 +20,13 @@
 //! * fixture geometry and emission through the world draw set;
 //! * the offscreen scene target, emissive bloom pass, two separable blurs and
 //!   the resolve grade plus the plain present copy ([`postprocess`]);
-//! * decals with the reference's depth bias ([`decals`]);
+//! * depth-biased decals ([`decals`]);
 //! * fog inside the world shader, and the 480x272 renderer-owned HUD
 //!   ([`ui`]).
 //!
 //! Colour space: every offscreen target is raw `Rgba8Unorm` and the shaders
-//! write the reference's display-space values directly, so blending, filtering
-//! and sampling match the reference exactly; only the sRGB surface is
+//! write display-space values directly for blending, filtering and sampling;
+//! only the sRGB surface is
 //! converted, once, at the final copy. See `docs/RENDERER.md`.
 //!
 //! Module list:

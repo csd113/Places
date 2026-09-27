@@ -14,7 +14,7 @@
 //! value does not move is the failure mode this audit exists to catch.
 //!
 //! Run with:
-//! `cargo test --release -- --nocapture baked_light_range_audit_report`
+//! `PLACES_LIGHTING_AUDIT_REPORT=1 cargo test --release -- --nocapture baked_light_range_audit_report`
 
 // Test code: printing, indexing and permissive float comparison are idiomatic
 // here; the production lints stay enforced everywhere else in the crate.
@@ -41,7 +41,7 @@ use crate::lighting::{
     LOCAL_LIGHT_STRENGTH, MAX_BRIGHTNESS, ambient_color, smooth_falloff,
 };
 use crate::quality::QualityProfile;
-use crate::render::{LightmapBuildOptions, build_level_geometry_timed_with_lightmaps};
+use crate::render::{LightmapBuildOptions, prepare_level_geometry_with_lightmaps};
 
 /// One measured lightmap texel and the model terms behind its value.
 #[derive(Clone, Copy)]
@@ -361,7 +361,7 @@ fn measure(level: &LevelDef) -> Measurement {
     let catalog = crate::loader::PropCatalog::load_default();
     let mut assets = crate::props::PropAssets::load_default();
     let materials = crate::render::logical_materials(level);
-    let build = build_level_geometry_timed_with_lightmaps(
+    let prepared = prepare_level_geometry_with_lightmaps(
         level,
         &catalog,
         &mut assets,
@@ -369,12 +369,22 @@ fn measure(level: &LevelDef) -> Measurement {
         LightmapBuildOptions::for_profile(QualityProfile::Full, LightmapMode::On),
         None,
     );
-    let lighting = &build.lighting;
-    let lightmaps = build
-        .lightmaps
-        .as_deref()
-        .expect("the demo must bake lightmaps");
-    let mut texels = Vec::new();
+    // The audit consumes floating-point fill values, not encoded atlas pages.
+    // Plan once and fill each chart once; the separate atlas-byte regression
+    // protects packing/encoding without baking an unused copy here.
+    let lighting = &prepared.build.lighting;
+    let lightmaps = prepared
+        .fill
+        .as_ref()
+        .expect("the demo must plan lightmaps");
+    let capacity = lightmaps.charts.iter().fold(0_usize, |count, (_, chart)| {
+        count.saturating_add(
+            usize::try_from(chart.width)
+                .unwrap_or(0)
+                .saturating_mul(usize::try_from(chart.height).unwrap_or(0)),
+        )
+    });
+    let mut texels = Vec::with_capacity(capacity);
     for (patch, chart) in &lightmaps.charts {
         let values = fill_chart(lighting, patch, chart);
         let bias = face_bias(patch);
@@ -435,7 +445,7 @@ fn measure(level: &LevelDef) -> Measurement {
     Measurement {
         texels,
         rooms,
-        charts: lightmaps.chart_count(),
+        charts: lightmaps.charts.len(),
         lights: summary.lights,
         zones: summary.zones,
     }
@@ -687,12 +697,16 @@ fn print_report(measurement: &Measurement, label: &str) {
 fn baked_light_range_audit_report() {
     let level = demo();
     let measurement = measure(&level);
-    print_report(&measurement, "places_demo");
-    print!("[bake-range] rooms:");
-    for (index, area, fixtures, baseline) in &measurement.rooms {
-        print!(" r{index}(area={area:.0},fx={fixtures},base={baseline:.3})");
+    // Sorting distributions and hypothetical recalibration reports is useful
+    // when requested, but has no bearing on the full-resolution assertions.
+    if std::env::var("PLACES_LIGHTING_AUDIT_REPORT").as_deref() == Ok("1") {
+        print_report(&measurement, "places_demo");
+        print!("[bake-range] rooms:");
+        for (index, area, fixtures, baseline) in &measurement.rooms {
+            print!(" r{index}(area={area:.0},fx={fixtures},base={baseline:.3})");
+        }
+        println!();
     }
-    println!();
 
     // Regression thresholds. These are the calibrated shape of the rebalanced
     // model; a change that re-saturates the bake or re-hides the occlusion must

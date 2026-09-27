@@ -1,0 +1,9 @@
+   Compiling places v0.7.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `release` profile [optimized] target(s) in 1m 54s
+     Running unittests src/main.rs (target/release/deps/places-c54e1952be0ab729)
+
+running 1 test
+test lighting::lightmap::continuity::a_wall_run_across_a_room_boundary_does_not_step ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1328 filtered out; finished in 26.10s
+

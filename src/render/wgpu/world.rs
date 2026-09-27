@@ -2936,7 +2936,16 @@ mod tests {
         let carpet_texture =
             resolve_base_texture(&draw_of(SurfaceKind::Floor, carpet), &materials, &table)
                 .expect("the carpet floor resolves");
-        assert_eq!(carpet_texture.key, "core:tex_carpet_beige_01");
+        let logical = "core:tex_carpet_beige_01";
+        let path = catalog.texture_path(logical).expect("carpet PNG path");
+        let (expected_image, expected_key) = decode_cache
+            .load_relative(&root, path, logical)
+            .expect("carpet PNG decodes");
+        assert_eq!(carpet_texture.key, expected_key);
+        assert!(std::sync::Arc::ptr_eq(
+            &carpet_texture.image,
+            &expected_image
+        ));
 
         // Two materials that share one sheet resolve to the same texture.
         let deck = table.index_of("core:pool_tile_deck_01").expect("deck");
@@ -3131,7 +3140,7 @@ mod tests {
                 && !WORLD_SHADER_SRC.contains("light_count")
                 && !WORLD_SHADER_SRC.contains("array<Light")
                 && !WORLD_SHADER_SRC.contains("PointLight"),
-            "the reference has no realtime light array; the port must not invent one"
+            "world lighting is baked; the shader must not contain a realtime light array"
         );
         // The reflection sampling is the reference's: one probe cubemap sample
         // and one planar projection, both under the material's reflect mode.

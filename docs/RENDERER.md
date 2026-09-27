@@ -122,7 +122,7 @@ capture: re-render the chain into presented, replay the last UI list, copy to
 | probes | up to two 64-texel cubemaps | up to two 48-texel cubemaps | up to two 32-texel cubemaps |
 | bloom/emissive | quarter-size raw targets | quarter-size raw targets | quarter-size raw targets |
 
-The resolve and HUD therefore always run at the default-framebuffer resolution; only the 3D scene is level-sized. All post targets are recreated only when the size or level changes, and no pipeline, texture, buffer or bind group is created per frame. The backend consumes the neutral batch classification — opaque, alpha cut-out and translucent (sorted back to front) — and the material, emission, lightmap, sheen, reflection and fog terms the neutral tables resolved; `set_level` uploads the level once, and no draw list crosses the facade while no GPU type crosses back.
+The resolve and HUD therefore always run at the default-framebuffer resolution; only the 3D scene is level-sized. All post targets are recreated only when the size or level changes, and no pipeline, texture, buffer or bind group is created per frame. The backend consumes the neutral batch classification — opaque, alpha cut-out and translucent (sorted back to front) — and the material, emission, lightmap, sheen, reflection and fog terms the neutral tables resolved; prepared installation uploads the level once, and no draw list crosses the facade while no GPU type crosses back.
 
 If the offscreen targets cannot be created (a first frame, or a failed target), the renderer draws straight into the surface framebuffer and the UI blends on the sRGB surface. That path exists for robustness only; the post path is the normal one.
 
@@ -146,13 +146,15 @@ Clear and background values: raw targets clear to the reference display value `(
 LevelDef (src/level.rs)
         |  LoadedLevel { level, materials, ... }             (src/loader.rs)
         v
-Renderer::set_level / apply_graphics(&LoadedLevel)          (src/render/facade.rs)
+loading::Loader worker                                    (src/loading.rs)
+        |  resolve assets, prepare geometry/lighting, restore or fill atlas
+        |  reuse matching immutable build from bounded worker cache
         v
-WgpuRenderer::apply_graphics                                (src/render/wgpu/renderer.rs)
-        |  a level load forces the full build; a settings change diffs and
-        |  reuses the retained build when the lightmap configuration is unchanged
-        |  build_level_geometry_timed_with_lightmaps(level, catalog, assets,
-        |      materials, LightmapBuildOptions::for_lightmaps(lightmaps), ...)
+PreparedWorld { build: Arc<LevelBuild>, collision, characters, ... }
+        |  nonblocking completion poll, reject superseded generations
+        v
+Renderer::install_prepared / advance_prepared_install      (src/render/facade.rs)
+        |  staged GPU work on the main thread
         v
 LevelMesh { ranges: Vec<LevelMeshRange>, ... }              (src/render/common/mesh.rs)
         |  range classification + MeshPacker                (src/render/wgpu/world.rs)
@@ -192,7 +194,7 @@ One interleaved vertex buffer, stride 64, step mode `Vertex`. `WORLD_VERTEX_STRI
 
 Indices are `IndexFormat::Uint16`. The neutral `MeshPacker` chunks the draw set so an index never exceeds 65 536 vertices; a range larger than one chunk is split and each placement becomes its own draw, so no base-vertex offset is ever needed, there is no conversion to `Uint32`, and therefore no overflow case. The benchmark's indexing/vertex-layout submission switches are accepted and ignored: the renderer always submits indexed 16-bit geometry.
 
-`WgpuWorldGeometry` owns `Vec<WorldChunk>` (one `vertex_buffer`, one `index_buffer`, counts) and `Vec<WorldDraw>` (`chunk`, `index_start`, `index_count`, `vertex_count`, `bounds`, `kind`, the range's `material` key, its `shine` override and its `pass`). Usage: `VERTEX | COPY_DST` and `INDEX | COPY_DST`. Buffers are persistent across frames and rebuilt only by `set_level`; replacing the geometry releases the previous level's buffers, so a level reload is the same path. An empty level (or one whose architecture is entirely excluded) uploads nothing and still clears/presents.
+`WgpuWorldGeometry` owns `Vec<WorldChunk>` (one `vertex_buffer`, one `index_buffer`, counts) and `Vec<WorldDraw>` (`chunk`, `index_start`, `index_count`, `vertex_count`, `bounds`, `kind`, the range's `material` key, its `shine` override and its `pass`). Usage: `VERTEX | COPY_DST` and `INDEX | COPY_DST`. Buffers are persistent across frames and replaced only when a prepared installation commits; replacing the geometry releases the previous level's buffers, so a level reload is the same path. An empty level (or one whose architecture is entirely excluded) uploads nothing and still clears/presents.
 
 ### 4.3 Camera uniform
 
@@ -250,7 +252,7 @@ level material id / pack material
         |  (engine)
         v
 LoadedLevel.materials : MaterialTable          src/materials/resolve.rs
-        |  ResolvedTexture { key, origin, class, image: Rc<RawImage> }
+        |  ResolvedTexture { key, origin, class, image: Arc<RawImage> }
         v
 WorldTextures::resolve                         src/render/wgpu/world.rs
         |  resolve_base_texture(draw, MaterialRenderState, MaterialTable)
@@ -265,20 +267,33 @@ GpuTexture { texture, view, 3x bind groups, meta }
 world.wgsl: textureSample(base_texture, base_sampler, in.uv)
 ```
 
-The decode is `crate::materials::decode_png`, which normalizes any PNG colour type to 8-bit RGBA and caps each edge at `MAX_TEXTURE_DIMENSION` (1024); the renderer consumes the `Rc<RawImage>` the engine already decoded and never opens a file. The quality fit is `crate::quality::fit_image`, so High keeps the native sheet while Medium and Low box-filter it to the level's budget for its class.
+The decode is `crate::materials::decode_png`, which normalizes any PNG colour type to 8-bit RGBA and caps each edge at `MAX_TEXTURE_DIMENSION` (1024); the renderer consumes the `Arc<RawImage>` the engine already decoded and never opens a file. The quality fit is `crate::quality::fit_image`, so High keeps the native sheet while Medium and Low box-filter it to the level's budget for its class.
 
 ### 5.2 Identity, cache and lifetime
 
-`TextureKey` (`src/render/wgpu/texture.rs`) is: the logical texture id (`core:tex_wallpaper_yellow_01`; pack textures are `pack:<namespace>:<path>`), a semantic (`BaseColorDisplay` or `DataLinear`), a quality class (`Surface`, `FixtureFace`, `DecalSheet`, `Prop`, `EmissionMask`) and a quality level (`Low`/`Medium`/`High`). The semantic keeps a base-colour entry from colliding with a later normal-map use of the same source; class and level capture every input the GPU realization depends on (the quality budget and the fitted dimensions). Nothing in the key is a material instance, draw index or pointer: two surfaces that reference the same texture share one entry, one upload and one pair of bind groups.
+`TextureKey` (`src/render/wgpu/texture.rs`) is: the source identity plus a content revision (`#png-v1-<hash>` for encoded PNGs, `#rgba-v1-<hash>` for decoded model images), a semantic (`BaseColorDisplay` or `DataLinear`), a quality class (`Surface`, `FixtureFace`, `DecalSheet`, `Prop`, `EmissionMask`) and a quality level (`Low`/`Medium`/`High`). The semantic keeps a base-colour entry from colliding with a later normal-map use of the same source; class and level capture every input the GPU realization depends on (the quality budget and the fitted dimensions). Nothing in the key is a material instance, draw index or pointer: two surfaces that reference the same texture share one entry, one upload and one set of filtering bind groups.
 
 `TextureCache` is owned by `WgpuRenderer` and holds the bind group layout, the nine shared samplers, two maps and the fallback:
 
 | Map | Contents | Lifetime |
 |---|---|---|
-| `persistent` | catalog and missing/diagnostic textures | renderer lifetime |
+| `persistent` | catalog, model and missing/diagnostic textures | prior-upload retention bounded at the next upload |
 | `level` | `TextureOrigin::Pack` textures | one level (dropped by `begin_level`) |
 
-`release_profile_textures` clears both maps; the loaded level's draws keep their `Arc`s alive until the replacement is installed, so a frame between the release and the re-resolve still draws valid resources. There is no LRU and no eviction beyond those lifetimes: the shipped catalog holds 38 texture assets, so a renderer-lifetime map is bounded, and a level can only introduce pack textures, which die at the next level. Recorded on Places Demo: a first load uploads each distinct base texture once (34 unique, 30 uploads, 59 cache hits, 11 fallbacks, 188,743,640 B resident at High); a reload that references those materials reuses them; a quality change releases and re-fits the profile-fitted textures at the new budget (High fits to 1024, Medium to 512, Low to 256) without re-baking lighting when the Lightmaps setting is unchanged. `WorldTextures::resolve` prepares the distinct misses in parallel (fit plus the full CPU mip chain) and then creates/writes the GPU textures serially on the caller's thread.
+`release_profile_textures` clears both maps. `begin_level` clears pack entries
+and trims prior persistent entries to 256 entries and 256 MiB of mip texel
+storage, evicting the largest optional entries first. This is a retention
+budget, not a cap on the resources a valid active level can use: no eviction
+happens between that upload's sheets. Old content revisions are removed when
+the same source changes. Active and pending worlds keep their own `Arc`s, so
+cache eviction cannot invalidate their draws. The CPU image cache applies the
+same entry/decoded-byte retention limits before a level resolves its materials;
+prop parsing retains the current request's model dependency set.
+
+`WorldTextures::resolve` prepares distinct misses in parallel (quality fit and
+CPU mip chains), then creates and writes GPU textures serially on the caller's
+thread. Matching content, semantic, class and quality reuse resident entries.
+
 
 Both classes upload raw `Rgba8Unorm` (base colour: authored display values sampled raw; normal maps, masks and data: numeric values never gamma-converted) with `TEXTURE_BINDING | COPY_DST`. No compression, no texture arrays, no view formats and no other format is created; every texture is `TextureDimension::D2`, one sample, one array layer. Because both classes upload raw, filtering, blending and mip selection happen in the same display space the shader assembles in; the sRGB surface is the single conversion point.
 
@@ -551,7 +566,7 @@ still blocks a far emitter tap.
 
 The bake is the same CPU code in both modes; only the storage differs, and `LightmapMode::Off` always bakes with `BakeConfig::HARD` (one visibility tap, 0.15 m prop-occlusion cell) whatever the quality level, which keeps the vertex-lit fallback identical in shape and light to the always-supported path.
 
-The atlas itself: the level build requests `LightmapBuildOptions::for_lightmaps(lightmaps)` when the Lightmaps setting is not `Off`; the neutral bake, planner, fill and content key are shared with the rest of the engine, and the renderer restores the same `cache/lightmaps/v8-<hash>` entries (measured on Places Demo, release: an uncached Full fill is ~1.7 s on the worker; a hit is 0 ms). The atlas is **one `texture_2d_array` of up to eight 1024² pages** (eight 512² pages at the Low profile); the vertex's `lightmap_page` byte is the layer index, so the same shader expression addresses any page count without a per-page branch. Atlas pages are raw `Rgba8Unorm` (the alpha byte is 255 and never read). `WorldVertex` carries `lightmap_uv` as `Unorm16x2` and `lightmap_page` as a plain float. `surface_light()` samples the array at the layer only when `lightmap_enabled * (1 - step(254.5, page)) > 0.5`, then multiplies by `light_scale`; `LIGHTMAP_NONE` keeps the vertex-lit colour exactly. Sheen, reflection and emission are all scaled by that same light factor, so a dark room darkens them. A wall chart resolves its room **per texel** through the same rule the vertex bake's face sampling uses: strict containment wins at the bias-shifted sample point, and a texel that only touches a boundary falls back to the patch's own room with its position clamped into it. Abutting wall pieces coalesce into emission units whose length runs can cross a room boundary, so a single per-run hint would make the baked light switch room at the arbitrary run seam; the strict-first order keeps the light following the world, while the room hint keeps a boundary face lit by the room it actually opens into instead of whichever overlapping neighbour the loose tie-break preferred (the defect that left The Pit's shaft walls at ambient). Floors and ceilings are emitted per room and keep their exact hint. The Lightmaps setting bakes: Full at 16 texels/m onto 1024² pages with two taps per axis and 0.075 m prop cells; Medium at 12 texels/m onto the same 1024² pages with two taps and 0.11 m cells; Off at no atlas at all (the validated historical vertex-lit path, whose bake is always the one-tap/0.15 m `BakeConfig::HARD`). The page budget is eight; the packer is a deterministic best-short-side-fit MaxRects allocator, and the shipped demo and The Pit pack into two and four pages respectively, where the pre-rework skyline allocator needed a fifth page for The Pit (recorded during the capacity change; the same level needs six 512-texel pages, which the expanded Low page budget can hold). A level that genuinely needs more than eight pages keeps the neutral build's vertex-lit mesh and reports the named `PageOverflow` failure — a partial or black atlas is never drawn. The content key follows the effective configuration, never the overall quality label, so `Low + Lightmaps Full` reuses the same Full cache entry as `High + Lightmaps Full` while Medium and Full never collide; it also folds in a fingerprint of the lighting model's constants (`model_fingerprint`), so recalibrating the bake invalidates cached atlases even when the level and configuration are unchanged. A plan/fill failure keeps the neutral build's vertex-lit mesh — only an actual atlas-upload failure rebuilds — and the failure is logged.
+The atlas itself: the level build requests `LightmapBuildOptions::for_lightmaps(lightmaps)` when the Lightmaps setting is not `Off`; the neutral bake, planner, fill and content key are shared with the rest of the engine, and the loading worker restores versioned `cache/lightmaps/v10-<hash>.lmc` entries. Each entry is a bounded, checksummed envelope published by same-directory atomic rename. The atlas is **one `texture_2d_array` of up to eight 1024² pages** (eight 512² pages at the Low profile); the vertex's `lightmap_page` byte is the layer index, so the same shader expression addresses any page count without a per-page branch. Atlas pages are raw `Rgba8Unorm` (the alpha byte is 255 and never read). `WorldVertex` carries `lightmap_uv` as `Unorm16x2` and `lightmap_page` as a plain float. `surface_light()` samples the array at the layer only when `lightmap_enabled * (1 - step(254.5, page)) > 0.5`, then multiplies by `light_scale`; `LIGHTMAP_NONE` keeps the vertex-lit colour exactly. Sheen, reflection and emission are all scaled by that same light factor, so a dark room darkens them. A wall chart resolves its room **per texel** through the same rule the vertex bake's face sampling uses: strict containment wins at the bias-shifted sample point, and a texel that only touches a boundary falls back to the patch's own room with its position clamped into it. Abutting wall pieces coalesce into emission units whose length runs can cross a room boundary, so a single per-run hint would make the baked light switch room at the arbitrary run seam; the strict-first order keeps the light following the world, while the room hint keeps a boundary face lit by the room it actually opens into instead of whichever overlapping neighbour the loose tie-break preferred (the defect that left The Pit's shaft walls at ambient). Floors and ceilings are emitted per room and keep their exact hint. The Lightmaps setting bakes: Full at 16 texels/m onto 1024² pages with two taps per axis and 0.075 m prop cells; Medium at 12 texels/m onto the same 1024² pages with two taps and 0.11 m cells; Off at no atlas at all (the validated historical vertex-lit path, whose bake is always the one-tap/0.15 m `BakeConfig::HARD`). The page budget is eight; the packer is a deterministic best-short-side-fit MaxRects allocator, and the shipped demo and The Pit pack into two and four pages respectively, where the pre-rework skyline allocator needed a fifth page for The Pit (recorded during the capacity change; the same level needs six 512-texel pages, which the expanded Low page budget can hold). A level that genuinely needs more than eight pages keeps the neutral build's vertex-lit mesh and reports the named `PageOverflow` failure — a partial or black atlas is never drawn. The content key follows the effective configuration, never the overall quality label, so `Low + Lightmaps Full` reuses the same Full cache entry as `High + Lightmaps Full` while Medium and Full never collide; it also folds in a fingerprint of the lighting model's constants (`model_fingerprint`), so recalibrating the bake invalidates cached atlases even when the level and configuration are unchanged. A plan/fill failure keeps the neutral build's vertex-lit mesh — only an actual atlas-upload failure rebuilds — and the failure is logged.
 
 ### 7.5 The sheen
 
@@ -576,7 +591,7 @@ There is no GPU shadow system: no shadow render target, no shadow camera or proj
 
 ### 7.7 Resources
 
-No lighting resource is created per frame. The only new per-frame upload is the camera uniform (matrix **and** eye), written with `Queue::write_buffer` and skipped entirely while both are unchanged. No light buffer, light array, shadow target, shadow sampler or lighting bind group exists. The lightmap is one level-scoped `texture_2d_array` (four 1024² RGBA8 layers at Full/Medium, four 512² layers at Low) plus a 1×1 white fallback array; both are uploaded once per bake and dropped with the level. Probes: at most two cubemaps (6 faces of 64²/48²/32² raw RGBA8 at High/Medium/Low) baked at load (12 scene submissions). For a vertex-lit build the bake is `BakeConfig::HARD` at every level, so geometry and light are identical and only the response gate differs; for an atlas build the level selects density, page size, tap count and prop-occlusion cell (§7.4).
+No lighting resource is created per frame. The only new per-frame upload is the camera uniform (matrix **and** eye), written with `Queue::write_buffer` and skipped entirely while both are unchanged. No light buffer, light array, shadow target, shadow sampler or lighting bind group exists. The lightmap is one level-scoped `texture_2d_array` (up to eight RGBA8 layers; the effective lightmap configuration determines page dimensions) plus a 1×1 white fallback array; both are uploaded once per bake and dropped with the level. Probes: at most two cubemaps (6 faces of 64²/48²/32² raw RGBA8 at High/Medium/Low) baked at load (12 scene submissions). For a vertex-lit build the bake is `BakeConfig::HARD` at every level, so geometry and light are identical and only the response gate differs; for an atlas build the level selects density, page size, tap count and prop-occlusion cell (§7.4).
 
 ## 8. Reflections
 
@@ -666,20 +681,40 @@ The lightmap and bake configuration columns are the resolved preset defaults; wi
 
 ### 12.2 Live graphics reconfiguration
 
-Every graphics setter is a cheap recording: `set_quality`, `set_lightmap_quality`, `set_reflection_quality`, `set_bloom_enabled` and `set_texture_filtering` write the requested value and nothing else. `apply_graphics(&LoadedLevel)` diffs the request against what is applied and does exactly the work the difference implies, as one transaction:
+Every graphics setter is a cheap recording: `set_quality`, `set_lightmap_quality`, `set_reflection_quality`, `set_bloom_enabled` and `set_texture_filtering` write the requested value and nothing else. The event loop diffs requested and applied settings. `apply_frame_graphics` handles frame-only changes; changes requiring a prepared world use the loading worker and staged installation:
 
 | Change | Work |
 |---|---|
 | Texture Filtering only | none: the recorded preset selects which bind group a draw binds at bind time |
 | Bloom only | none: the value gates the per-frame post settings |
 | Reflections only | retire/create probe cubemaps and the planar target, rebake probes, rebuild the environment bind groups |
-| Lightmaps only | one CPU build (lighting, props, plan-stamped mesh) and either a cache-hit install or a worker fill |
-| Quality only (lightmap configuration unchanged) | reuse the retained CPU build; release/re-fit the quality-budget textures and re-resolve materials, props, decals and fixtures |
-| Combined | one diff, one build, one install |
+| Lightmaps only | worker prepared-build lookup; on a miss prepare geometry/lighting and restore or fill the atlas, then stage GPU installation |
+| Quality only (lightmap configuration unchanged) | reuse a matching immutable prepared build when retained; fit/upload resources for the new GPU quality budget |
+| Combined | one latest request and one completed installation |
 
-The renderer retains the last completed `LevelBuild` (mesh, prop batches, baked lighting, atlas) keyed by level id and Lightmaps setting, so a texture-budget-only change never re-bakes lighting. An uncached lightmap fill is the one CPU-heavy replacement resource: `prepare_level_geometry_with_lightmaps` runs the build on the main thread and returns a Send-safe `LightmapFillRequest` (baked lighting, config, charts, page count, content key); `LightmapFillWorker` fills it on one `std::thread` with a cancellation flag checked between charts. The previous world keeps rendering every frame while the fill runs. A completion is polled non-blockingly once per frame; the atlas upload and the GPU swap happen on the main thread, and a monotonically increasing generation means a superseded result can never activate. `LightmapQuality::Off`, a plan failure and a cache hit install immediately; a new level with no previous world fills inline exactly like the historical load. The renderer owns at most one worker, and dropping it cancels and joins the thread, so shutdown is clean.
+Startup, level changes and CPU-dependent graphics changes use `loading::Loader`.
+Its single worker reads level/assets, prepares geometry and lighting, restores
+or fills lightmaps, and builds collision and character state. The main thread
+continues polling events and presenting the loading UI or previous world.
+Generation checks reject superseded results, and cancellation is cooperative
+between preparation stages and lightmap charts.
 
-Measured on Places Demo (`quality low, lightmaps off` startup, release, scripted `PLACES_BENCH_QUALITY_CYCLE=10:high`): the transition's worst main-thread frame is the 69 ms CPU build and the ~171 ms atlas install; the worker fills for ~2.2 s, during which ~480 frames are presented. The equivalent pre-diff path froze a single frame for 2053 ms.
+The renderer retains an `Arc<LevelBuild>`; the worker also retains an LRU of up
+to three immutable builds within a 192 MiB retained-data budget. Keys include
+actual level/material/catalog/model inputs and effective Lightmaps quality.
+Oversized builds remain usable but are not retained in that cache. A cache hit
+reuses geometry, lighting and atlas data; collision and character playback state
+are still prepared for the request. File-backed texture revisions use content
+keys so changed pixels cannot reuse an older GPU upload.
+
+GPU ownership remains on the main thread. `install_prepared` starts a pending
+installation and `advance_prepared_install` advances its upload phases; prop
+batches are processed with a cooperative time budget. Only a completed
+installation replaces the active world. Cancellation discards pending resources.
+Individual atlas uploads, material preparation, character uploads and final
+reflection setup can still take longer than a frame; this lifecycle does not
+promise a hard latency bound. Measurements belong in dated reports, not this
+execution contract.
 
 Downscaling is a load-time step (`fit_image` → `downscaled_to`) cached with the texture it produced, never a per-frame cost. Low leaves the optional surface response out and renders the 3D scene no wider than the historical 480 px reference width; Medium draws the response and renders at half the drawable; High keeps the native artwork and the drawable-sized scene: the same level, the same materials and the same ids. One deliberate resource difference: because the response is gated off before resolution, the renderer does not upload a normal-map texture at all on Low, while the rendered policy (geometric normal, no sheen) is identical; a live Low→High switch releases the level-fitted textures and re-resolves, so the map appears.
 

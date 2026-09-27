@@ -139,3 +139,34 @@ fn a_fully_transparent_decal_sheet_keeps_its_alpha_when_scaled() {
         .count();
     assert!(opaque <= 1, "one opaque texel stays at most one");
 }
+
+#[test]
+fn retention_budget_releases_only_cache_ownership() {
+    let mut cache = TextureCache::new();
+    let active = cache.insert("large", coordinate_image(4));
+    let small = cache.insert("small", coordinate_image(1));
+    cache
+        .revisions
+        .insert("source".to_string(), "large".to_string());
+    cache.trim_retained(1, small.rgba.capacity());
+    assert_eq!(cache.len(), 1);
+    assert!(cache.get("source").is_none());
+    assert!(Arc::ptr_eq(
+        &small,
+        &cache.get("small").expect("small retained")
+    ));
+    assert_eq!(active.rgba.len(), 64, "active image remains usable");
+    cache.trim_retained(0, 0);
+    assert!(cache.is_empty());
+    assert!(cache.revisions.is_empty());
+    assert_eq!(small.rgba.len(), 4);
+}
+
+#[test]
+fn retention_budget_preserves_under_budget_deduplication() {
+    let mut cache = TextureCache::new();
+    let image = cache.insert("sheet", coordinate_image(1));
+    cache.trim_retained(1, image.rgba.capacity());
+    assert!(Arc::ptr_eq(&image, &cache.get("sheet").expect("retained")));
+    assert_eq!(cache.decoded_count(), 1);
+}

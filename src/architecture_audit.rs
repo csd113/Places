@@ -2740,3 +2740,252 @@ fn test_the_demo_stair_handrails_follow_the_nosing_line() {
     // The emitter's own post-position rule (no crowded pair, both runs end on
     // a post) is pinned by `render::common::architecture`'s unit test.
 }
+
+/// A Z-axis box's top cap must face up and a floating box's underside must
+/// face down. The horizontal-quad helper and the box's bottom cap are separate
+/// paths, and either one transposed would face into the solid: invisible while
+/// culling is off, a missing surface the moment it is on.
+#[test]
+fn test_z_axis_and_floating_box_caps_face_out_of_their_solid() {
+    let level = parse(
+        r#"{
+            "format_version": 1,
+            "id": "z_caps",
+            "name": "Z Caps",
+            "spawn": { "x": 0.5, "z": 0.5 },
+            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 },
+            "half_walls": [
+                { "x": 1.0, "z": 1.0, "width": 0.2, "depth": 2.0, "height": 1.0,
+                  "material": "core:wallpaper_yellow_01",
+                  "cap_material": "core:metal_brushed_01" },
+                { "x": 5.0, "z": 1.0, "width": 0.2, "depth": 2.0, "height": 1.0, "y": 1.0,
+                  "material": "core:wallpaper_yellow_01",
+                  "cap_material": "core:metal_brushed_01" }
+            ]
+        }"#,
+    );
+    let materials = logical_materials(&level);
+    let mesh = build_level_geometry_with_materials(&level, &materials);
+    let chrome = materials.index_of("core:metal_brushed_01").expect("metal");
+    let body = materials
+        .index_of("core:wallpaper_yellow_01")
+        .expect("wallpaper");
+    let mut top_area = 0.0f32;
+    let mut bottom_area = 0.0f32;
+    for triangle in emitted_triangles(&mesh) {
+        let normal = triangle_normal(triangle.points);
+        let in_first = triangle
+            .points
+            .iter()
+            .all(|point| (point[0] - 1.1).abs() < 0.11 && (point[2] - 2.0).abs() < 1.01);
+        let in_second = triangle
+            .points
+            .iter()
+            .all(|point| (point[0] - 5.1).abs() < 0.11 && (point[2] - 2.0).abs() < 1.01);
+        if triangle.material == chrome && normal[1] > 0.99 && in_first {
+            top_area += triangle.world_area;
+        }
+        // The floating box's underside carries the body material and sits at
+        // its authored base plane.
+        if triangle.material == body
+            && normal[1] < -0.99
+            && in_second
+            && triangle
+                .points
+                .iter()
+                .all(|point| (point[1] - 1.0).abs() < 1.0e-4)
+        {
+            bottom_area += triangle.world_area;
+        }
+    }
+    assert!(
+        (top_area - 0.2 * 2.0).abs() < 1.0e-3,
+        "the Z-axis box's top cap must face up: {top_area}"
+    );
+    assert!(
+        (bottom_area - 0.2 * 2.0).abs() < 1.0e-3,
+        "the floating box's underside must face down: {bottom_area}"
+    );
+}
+
+/// Every face of a ramp wedge winds out of its solid, for both wall axes and
+/// both rise signs.
+///
+/// The side and end faces are built from per-axis local orders and normalised
+/// by `orient`, so a transposed corner table would leave one orientation's
+/// faces pointing into the ramp — invisible while culling is off, a hole the
+/// moment it is on.
+#[test]
+fn test_ramp_faces_wind_out_of_their_solid_in_every_orientation() {
+    let cases: [(f32, f32, f32, f32, f32); 4] = [
+        (2.0, 2.0, 4.0, 1.0, 1.2),  // +X run, rising
+        (2.0, 2.0, 4.0, 1.0, -1.2), // +X run, falling
+        (2.0, 2.0, 1.0, 4.0, 1.2),  // +Z run, rising
+        (2.0, 2.0, 1.0, 4.0, -1.2), // +Z run, falling
+    ];
+    for (x, z, width, depth, rise) in cases {
+        let level = ramp_level(&ramp(x, z, width, depth, 0.0, rise));
+        let mesh = build_level_geometry_with_materials(&level, &logical_materials(&level));
+        let (x0, x1, z0, z1) = (x, x + width, z, z + depth);
+        // An interior point of the wedge, just above its lowest floor line.
+        let interior = [
+            f32::midpoint(x0, x1),
+            rise.min(0.0) + 0.02,
+            f32::midpoint(z0, z1),
+        ];
+        let lowest = rise.min(0.0) - 1.0e-3;
+        let mut faces = 0usize;
+        let mut seen = 0usize;
+        let mut seen_min = f32::INFINITY;
+        let mut seen_max = f32::NEG_INFINITY;
+        for triangle in emitted_triangles(&mesh) {
+            let in_area = triangle.points.iter().all(|point| {
+                point[0] > x0 - 1.0e-3
+                    && point[0] < x1 + 1.0e-3
+                    && point[2] > z0 - 1.0e-3
+                    && point[2] < z1 + 1.0e-3
+            });
+            if in_area {
+                seen += 1;
+                for point in &triangle.points {
+                    seen_min = seen_min.min(point[1]);
+                    seen_max = seen_max.max(point[1]);
+                }
+            }
+            let in_footprint = triangle.points.iter().all(|point| {
+                point[0] > x0 - 1.0e-3
+                    && point[0] < x1 + 1.0e-3
+                    && point[2] > z0 - 1.0e-3
+                    && point[2] < z1 + 1.0e-3
+                    && point[1] >= lowest
+            });
+            if !in_footprint {
+                continue;
+            }
+            let normal = triangle_normal(triangle.points);
+            // The room floor at y = 0 may run under the flight. It is the only
+            // horizontal face on that plane; a falling ramp's own top is
+            // tilted and never mistaken for it.
+            let horizontal = normal[1] > 0.99;
+            let on_floor_plane =
+                horizontal && triangle.points.iter().all(|point| point[1].abs() < 1.0e-3);
+            if on_floor_plane {
+                continue;
+            }
+            let centroid = [
+                (triangle.points[0][0] + triangle.points[1][0] + triangle.points[2][0]) / 3.0,
+                (triangle.points[0][1] + triangle.points[1][1] + triangle.points[2][1]) / 3.0,
+                (triangle.points[0][2] + triangle.points[1][2] + triangle.points[2][2]) / 3.0,
+            ];
+            let outward = [
+                centroid[0] - interior[0],
+                centroid[1] - interior[1],
+                centroid[2] - interior[2],
+            ];
+            let dot = normal[2].mul_add(
+                outward[2],
+                normal[1].mul_add(outward[1], normal[0].mul_add(outward[0], 0.0)),
+            );
+            assert!(
+                dot >= -1.0e-4,
+                "a ramp face points into the wedge (rise {rise}): normal {normal:?} at {centroid:?}"
+            );
+            faces += 1;
+        }
+        assert!(
+            faces >= 5,
+            "the ramp emits its top, sides and ends: {faces} face(s), rise {rise}, \
+             seen {seen} y {seen_min}..{seen_max}"
+        );
+    }
+}
+
+/// Every face of a staircase winds out of its solid on both wall axes: treads
+/// up, risers back down the flight, side panels outward and the head landing
+/// forward. Tread and riser areas are exact, so a single reversed face family
+/// changes the totals by whole quads rather than staying hidden in a count.
+#[test]
+fn test_stair_faces_wind_out_of_their_solid_on_both_axes() {
+    for axis in [WallAxis::X, WallAxis::Z] {
+        let (width, depth) = match axis {
+            WallAxis::X => (4.0f32, 2.0f32),
+            WallAxis::Z => (2.0f32, 4.0f32),
+        };
+        let (x, z, rise, steps) = (2.0f32, 2.0f32, 1.5f32, 5u32);
+        let level = stair_level(&stair(x, z, width, depth, 0.0, rise, steps));
+        let authored_steps = level.stairs[0].step_count();
+        let authored_rise = level.stairs[0].rise();
+        let mesh = build_level_geometry_with_materials(&level, &logical_materials(&level));
+        let (axis_index, across_index) = match axis {
+            WallAxis::X => (0usize, 2usize),
+            WallAxis::Z => (2usize, 0usize),
+        };
+        let across = match axis {
+            WallAxis::X => depth,
+            WallAxis::Z => width,
+        };
+        let along = match axis {
+            WallAxis::X => width,
+            WallAxis::Z => depth,
+        };
+        let (x0, x1, z0, z1) = (x, x + width, z, z + depth);
+        let mut tread = 0.0f32;
+        let mut riser = 0.0f32;
+        let mut landing = 0.0f32;
+        let mut side_positive = 0.0f32;
+        let mut side_negative = 0.0f32;
+        let (mut n_tread, mut n_riser, mut n_landing, mut n_side) =
+            (0usize, 0usize, 0usize, 0usize);
+        for triangle in emitted_triangles(&mesh) {
+            let in_footprint = triangle.points.iter().all(|point| {
+                point[0] > x0 - 1.0e-3
+                    && point[0] < x1 + 1.0e-3
+                    && point[2] > z0 - 1.0e-3
+                    && point[2] < z1 + 1.0e-3
+                    && point[1] >= -1.0e-3
+            });
+            if !in_footprint {
+                continue;
+            }
+            let normal = triangle_normal(triangle.points);
+            if normal[1] > 0.99 {
+                // The room floor under the flight sits at y = 0.
+                if triangle.points.iter().all(|point| point[1] > 1.0e-3) {
+                    tread += triangle.world_area;
+                    n_tread += 1;
+                }
+            } else if normal[axis_index] < -0.99 {
+                riser += triangle.world_area;
+                n_riser += 1;
+            } else if normal[axis_index] > 0.99 {
+                landing += triangle.world_area;
+                n_landing += 1;
+            } else if normal[across_index] > 0.99 {
+                side_positive += triangle.world_area;
+                n_side += 1;
+            } else if normal[across_index] < -0.99 {
+                side_negative += triangle.world_area;
+                n_side += 1;
+            } else {
+                panic!("a stair face must be axis aligned, got {normal:?}");
+            }
+        }
+        assert!(
+            (tread - along * across).abs() < 1.0e-3,
+            "the treads cover the footprint exactly ({axis:?}): {tread} n={n_tread}"
+        );
+        assert!(
+            (riser - across * rise).abs() < 1.0e-3,
+            "the risers face back down the flight ({axis:?}): {riser} n={n_riser} \
+             authored steps={authored_steps} rise={authored_rise}"
+        );
+        assert!(
+            (landing - across * rise).abs() < 1.0e-3,
+            "the head landing faces forward ({axis:?}): {landing} n={n_landing}"
+        );
+        assert!(
+            side_positive > 0.0 && (side_positive - side_negative).abs() < 1.0e-3,
+            "both side panels face outward ({axis:?}): {side_positive} vs {side_negative} n={n_side}"
+        );
+    }
+}

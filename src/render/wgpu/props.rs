@@ -7,18 +7,17 @@
 //!
 //! * one 16-bit-indexable vertex/index buffer pair per batch;
 //! * one clamped GPU sheet per model texture, cached through the texture cache
-//!   under `Catalog` lifetime (the reference's persistent per-model cache);
+//!   under the bounded `Catalog` retention policy;
 //! * one plain-opaque GPU material per distinct `(sheet, emission)` submesh,
 //!   because a prop's emission is per primitive and the model parser reads no
-//!   normal map, alpha mode or reflection contract (the reference's
-//!   `SurfaceState::plain`);
+//!   normal map, alpha mode or reflection contract;
 //! * one draw per submesh, culled by the batch bounds.
 //!
 //! Props are opaque by construction (`common::materials::batch_pass_for` maps
 //! `PropFallback` and every non-architectural family to the opaque pass), and
 //! their light is already in the vertex colour, so the frame path draws them
 //! with the ordinary pipeline between the static opaque pass and the cut-out
-//! pass — exactly the reference's body order. Nothing here runs per frame: the
+//! pass. GPU resources are prepared at installation: the
 //! buffers, textures and materials are level resources; only the draws' light
 //! scale and reflection gates change, and both are the materials' business.
 
@@ -96,6 +95,174 @@ pub struct WgpuProps {
     stats: PropGpuStats,
 }
 
+/// Accumulates one world's prop resources in draw order across frame budgets.
+///
+/// The caller owns the batch cursor and retains this builder until every batch
+/// has been visited. Material identities persist across calls, so splitting the
+/// upload cannot change deduplication, ordering, or accounting.
+pub struct PropUpload {
+    props: WgpuProps,
+    identities: Vec<(usize, [f32; 3], Option<usize>)>,
+    skip_models: Vec<String>,
+    image_keys: std::collections::HashMap<(String, usize), ImageIdentity>,
+    level: QualityLevel,
+}
+
+/// Kept only while an upload is assembled; cloned batches share the same image.
+struct ImageIdentity {
+    image: Arc<crate::loader::RawImage>,
+    key: String,
+}
+
+impl PropUpload {
+    pub(crate) fn new(skip_models: &[String], level: QualityLevel) -> Self {
+        Self {
+            props: WgpuProps {
+                chunks: Vec::new(),
+                draws: Vec::new(),
+                materials: Vec::new(),
+                textures: Vec::new(),
+                stats: PropGpuStats::default(),
+            },
+            identities: Vec::new(),
+            skip_models: skip_models.to_vec(),
+            image_keys: std::collections::HashMap::new(),
+            level,
+        }
+    }
+
+    /// Visits one batch, including skipped and empty batches. The caller may
+    /// stop between calls without exposing a partially installed world.
+    #[allow(clippy::too_many_lines)] // one batch shares sheet slots, material identities and counters
+    pub(crate) fn push_batch(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        cache: &mut TextureCache,
+        material_layout: &wgpu::BindGroupLayout,
+        batch: &PropMeshBatch,
+    ) {
+        if batch.indices.is_empty() || self.skip_models.iter().any(|model| model == &batch.model) {
+            return;
+        }
+        let WgpuProps {
+            stats,
+            chunks,
+            draws,
+            materials,
+            textures,
+        } = &mut self.props;
+        let identities = &mut self.identities;
+        let level = self.level;
+        stats.batches = stats.batches.saturating_add(1);
+        // The model's sheets, once per texture list entry.
+        let texture_base = textures.len();
+        for (index, image) in batch.textures.iter().enumerate() {
+            let identity = self
+                .image_keys
+                .entry((batch.model.clone(), index))
+                .or_insert_with(|| ImageIdentity {
+                    image: Arc::clone(image),
+                    key: super::texture::image_content_key(
+                        &format!("prop:{}:{index}", batch.model),
+                        image,
+                    ),
+                });
+            if !Arc::ptr_eq(&identity.image, image) {
+                identity.image = Arc::clone(image);
+                identity.key = super::texture::image_content_key(
+                    &format!("prop:{}:{index}", batch.model),
+                    image,
+                );
+            }
+            let logical = &identity.key;
+            let (outcome, texture) = cache.get_or_upload_fitted(
+                device,
+                queue,
+                logical,
+                image.as_ref(),
+                TextureClass::Prop,
+                TextureOrigin::Catalog,
+                level,
+            );
+            match outcome {
+                CacheOutcome::Uploaded => {
+                    stats.texture_uploads = stats.texture_uploads.saturating_add(1);
+                }
+                CacheOutcome::Reused => {
+                    stats.texture_cache_hits = stats.texture_cache_hits.saturating_add(1);
+                }
+            }
+            stats.resident_bytes = stats.resident_bytes.saturating_add(
+                usize::try_from(texture.meta().resident_bytes).unwrap_or(usize::MAX),
+            );
+            textures.push(texture);
+        }
+        let chunk = WgpuProps::upload_batch(device, queue, batch);
+        let chunk_index = chunks.len();
+        stats.vertices = stats
+            .vertices
+            .saturating_add(usize::try_from(chunk.vertex_count).unwrap_or(usize::MAX));
+        stats.indices = stats
+            .indices
+            .saturating_add(usize::try_from(chunk.index_count).unwrap_or(usize::MAX));
+        chunks.push(chunk);
+        for submesh in &batch.submeshes {
+            if submesh.index_count == 0 {
+                continue;
+            }
+            let texture = texture_base
+                .saturating_add(usize::from(submesh.texture.unwrap_or(0)))
+                .min(textures.len().saturating_sub(1));
+            let mask = submesh
+                .emission
+                .mask
+                .and_then(|index| usize::from(index).checked_add(texture_base))
+                .filter(|index| *index < textures.len());
+            let record = EmissionRecord::material(submesh.emission, mask.is_some());
+            let identity = (texture, record.color, mask);
+            let material = identities
+                .iter()
+                .position(|existing| *existing == identity)
+                .unwrap_or_else(|| {
+                    let mask_texture = mask
+                        .and_then(|index| textures.get(index).cloned())
+                        .unwrap_or_else(|| cache.fallback());
+                    let gpu = GpuMaterial::plain_emissive(
+                        device,
+                        queue,
+                        material_layout,
+                        cache,
+                        &mask_texture,
+                        record,
+                    );
+                    materials.push(gpu);
+                    identities.push(identity);
+                    materials.len().saturating_sub(1)
+                });
+            draws.push(PropDraw {
+                chunk: chunk_index,
+                index_start: submesh.first_index,
+                index_count: submesh.index_count,
+                vertex_count: chunks
+                    .get(chunk_index)
+                    .map_or(0, |chunk| chunk.vertex_count),
+                bounds: batch.bounds,
+                texture,
+                material,
+                emissive: record.is_emissive(),
+            });
+        }
+    }
+
+    /// Consumes the completed accumulator; no GPU submission or wait occurs here.
+    pub(crate) fn finish(mut self) -> WgpuProps {
+        self.props.stats.chunks = self.props.chunks.len();
+        self.props.stats.draws = self.props.draws.len();
+        self.props
+    }
+}
+
 impl WgpuProps {
     /// Uploads every batch of one neutral build, uploading the model sheets it
     /// uses through the shared texture cache.
@@ -107,9 +274,6 @@ impl WgpuProps {
     /// that cannot be resolved still yields an entry (the shared fallback), so
     /// a broken model draws white rather than disappearing.
     #[must_use]
-    // One cohesive level upload: batching, sheet upload, material dedupe and
-    // per-submesh draws share the same counters and texture list.
-    #[allow(clippy::too_many_lines)]
     pub fn upload(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -119,109 +283,11 @@ impl WgpuProps {
         skip_models: &[String],
         level: QualityLevel,
     ) -> Self {
-        let mut stats = PropGpuStats::default();
-        let mut chunks: Vec<PropChunk> = Vec::new();
-        let mut draws: Vec<PropDraw> = Vec::new();
-        let mut materials: Vec<GpuMaterial> = Vec::new();
-        let mut textures: Vec<Arc<GpuTexture>> = Vec::new();
-        // Distinct material identities, keyed by (texture slot, emission).
-        let mut identities: Vec<(usize, [f32; 3], Option<usize>)> = Vec::new();
+        let mut upload = PropUpload::new(skip_models, level);
         for batch in batches {
-            if batch.indices.is_empty() || skip_models.iter().any(|model| model == &batch.model) {
-                continue;
-            }
-            stats.batches = stats.batches.saturating_add(1);
-            // The model's sheets, once per texture list entry.
-            let texture_base = textures.len();
-            for (index, image) in batch.textures.iter().enumerate() {
-                let logical = format!("prop:{}:{}", batch.model, index);
-                let (outcome, texture) = cache.get_or_upload_fitted(
-                    device,
-                    queue,
-                    &logical,
-                    image.as_ref(),
-                    TextureClass::Prop,
-                    TextureOrigin::Catalog,
-                    level,
-                );
-                match outcome {
-                    CacheOutcome::Uploaded => {
-                        stats.texture_uploads = stats.texture_uploads.saturating_add(1);
-                    }
-                    CacheOutcome::Reused => {
-                        stats.texture_cache_hits = stats.texture_cache_hits.saturating_add(1);
-                    }
-                }
-                stats.resident_bytes = stats.resident_bytes.saturating_add(
-                    usize::try_from(texture.meta().resident_bytes).unwrap_or(usize::MAX),
-                );
-                textures.push(texture);
-            }
-            let chunk = Self::upload_batch(device, queue, batch);
-            let chunk_index = chunks.len();
-            stats.vertices = stats
-                .vertices
-                .saturating_add(usize::try_from(chunk.vertex_count).unwrap_or(usize::MAX));
-            stats.indices = stats
-                .indices
-                .saturating_add(usize::try_from(chunk.index_count).unwrap_or(usize::MAX));
-            chunks.push(chunk);
-            for submesh in &batch.submeshes {
-                if submesh.index_count == 0 {
-                    continue;
-                }
-                let texture = texture_base
-                    .saturating_add(usize::from(submesh.texture.unwrap_or(0)))
-                    .min(textures.len().saturating_sub(1));
-                let mask = submesh
-                    .emission
-                    .mask
-                    .and_then(|index| usize::from(index).checked_add(texture_base))
-                    .filter(|index| *index < textures.len());
-                let record = EmissionRecord::material(submesh.emission, mask.is_some());
-                let identity = (texture, record.color, mask);
-                let material = identities
-                    .iter()
-                    .position(|existing| *existing == identity)
-                    .unwrap_or_else(|| {
-                        let mask_texture = mask
-                            .and_then(|index| textures.get(index).cloned())
-                            .unwrap_or_else(|| cache.fallback());
-                        let gpu = GpuMaterial::plain_emissive(
-                            device,
-                            queue,
-                            material_layout,
-                            cache,
-                            &mask_texture,
-                            record,
-                        );
-                        materials.push(gpu);
-                        identities.push(identity);
-                        materials.len().saturating_sub(1)
-                    });
-                draws.push(PropDraw {
-                    chunk: chunk_index,
-                    index_start: submesh.first_index,
-                    index_count: submesh.index_count,
-                    vertex_count: chunks
-                        .get(chunk_index)
-                        .map_or(0, |chunk| chunk.vertex_count),
-                    bounds: batch.bounds,
-                    texture,
-                    material,
-                    emissive: record.is_emissive(),
-                });
-            }
+            upload.push_batch(device, queue, cache, material_layout, batch);
         }
-        stats.chunks = chunks.len();
-        stats.draws = draws.len();
-        Self {
-            chunks,
-            draws,
-            materials,
-            textures,
-            stats,
-        }
+        upload.finish()
     }
 
     /// Uploads one batch's vertices and indices.

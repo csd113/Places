@@ -35,15 +35,16 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery -D clippy::cargo
 cargo test --workspace --all-features
 python3 tools/assets/validate.py
-python3 tools/textures/build.py --check
 python3 tools/props/build.py --check
 python3 -m unittest tests.test_package
-python3 -m unittest tests.test_tool_execution tests.test_zoo_generator
+python3 -m unittest tests.test_tool_execution tests.test_zoo_generator tests.test_bench_metrics tests.test_lightmap_harness
 cargo build --release
 python3 -m unittest tests.test_compiled_build
 python3 -m unittest tests.test_wgpu_bootstrap
 git diff --check
 ```
+
+The package suite runs the texture CLI `--check`; the gate does not invoke it twice.
 
 All commands must exit zero. Compiled-build tests open real SDL3 windows and
 GPU surfaces; a skipped suite is not a completed desktop gate. Require the final
@@ -303,3 +304,28 @@ PLACES_CAPTURE_DIR=$PWD/target/verification/expanded \
 
 There is no renderer selector: the build always initializes wgpu on the
 platform's native backend and fails fast if that adapter is absent.
+
+## Loading lifecycle measurements
+
+`python3 tools/bench/loading.py --binary target/release/places --out /tmp/places-loading-check`
+runs the already-built game serially with isolated cold/warm application state,
+pinned resolution/quality/camera, phase logs and monotonic JSONL traces. The output
+directory must be new. This does not purge OS, driver or user caches. Use the same
+command with `target/debug/places` to measure debug runtime separately from builds.
+
+`PLACES_LOAD_TRACE=/absolute/path/trace.jsonl` opts into request, preparation,
+upload, world-commit, event-pump and present records. The harness includes initial
+setup in whole-process gaps, reports loading intervals separately, and leaves
+unavailable baseline samples null. Input latency is enqueue-to-handling latency,
+not physical input-device latency.
+
+Native smoke tests exercise the real SDL loop with `PLACES_BENCH_ACTIONS` JSON and
+`PLACES_PREPARE_DELAY_MS` (only honored with `PLACES_BENCH=1`). Bounded action scripts
+anchor to `start`, `request:<id>`, `upload:<id>`, `ready:<id>` or `failed:<id>`.
+Each anchor denotes its first occurrence; `upload` follows accepted CPU preparation
+and precedes staged GPU completion. Tests cover cancellation before and after that
+boundary, retry, supersession, failure recovery, quality changes and repeated visits.
+Their timing observations are saved as evidence rather than tight unit-test limits.
+Optional RSS sampling in action tests is coarse process memory, excludes GPU/child
+allocations and may miss peaks; it is separate from the startup harness's whole-run
+`/usr/bin/time` peak on macOS.

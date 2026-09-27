@@ -1,0 +1,67 @@
+{
+  "platform": "darwin",
+  "interval_seconds": 0.5,
+  "measurement": "owned game process RSS; ps KiB converted to bytes",
+  "limitations": [
+    "coarse samples can miss peaks and short final worlds",
+    "excludes child processes and GPU allocations",
+    "adds subprocess overhead; functional acceptance evidence only"
+  ],
+  "supported": true,
+  "samples": [
+    {
+      "elapsed_ms": 5.04420802462846,
+      "rss_bytes": 32768,
+      "sample": "before_wait",
+      "observed_phase": null
+    },
+    {
+      "elapsed_ms": 510.2163749979809,
+      "rss_bytes": 105873408,
+      "sample": "before_wait",
+      "observed_phase": {
+        "detail": "wgpu_smoke_second",
+        "elapsed_ms": 166.996791,
+        "event": "request",
+        "request": 1
+      }
+    },
+    {
+      "elapsed_ms": 1020.1362909865566,
+      "rss_bytes": 109068288,
+      "sample": "before_wait",
+      "observed_phase": {
+        "detail": "wgpu_smoke_second",
+        "elapsed_ms": 426.14404099999996,
+        "event": "request",
+        "request": 3
+      }
+    },
+    {
+      "elapsed_ms": 1530.176708009094,
+      "rss_bytes": 109182976,
+      "sample": "before_wait",
+      "observed_phase": {
+        "detail": "wgpu_smoke_second",
+        "elapsed_ms": 426.14404099999996,
+        "event": "request",
+        "request": 3
+      }
+    },
+    {
+      "elapsed_ms": 2040.5430410173722,
+      "rss_bytes": 109297664,
+      "sample": "before_wait",
+      "observed_phase": {
+        "detail": "wgpu_smoke_second",
+        "elapsed_ms": 426.14404099999996,
+        "event": "request",
+        "request": 3
+      }
+    }
+  ],
+  "sampling_errors": [],
+  "final_sample_available": false,
+  "process_seconds": 2.440330957993865,
+  "max_sampled_rss_bytes": 109297664
+}

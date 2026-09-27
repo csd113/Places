@@ -275,6 +275,33 @@ pub struct LightmapAtlas {
 }
 
 impl LightmapAtlas {
+    /// Checks layout before any parallel producer can allocate chart colors.
+    /// This uses the serial writer's arithmetic and rectangle checks without
+    /// allocating page pixels or invoking a fill callback.
+    /// # Errors
+    /// Returns `PageOverflow`, `InvalidConfig` or `Layout` for invalid inputs.
+    pub fn validate_layout(
+        config: &LightmapConfig,
+        page_count: usize,
+        charts: &[(LightmapPatch, Chart)],
+    ) -> Result<(), LightmapFailure> {
+        validated_page_buffer_len(config, page_count)?;
+        let page = LightmapPage {
+            width: config.page_edge,
+            height: config.page_edge,
+            rgb: Vec::new(),
+        };
+        for (_, chart) in charts {
+            if usize::from(chart.page) >= page_count
+                || chart_texel_count(chart).is_none()
+                || !chart_fits_page(chart, &page)
+            {
+                return Err(LightmapFailure::Layout);
+            }
+        }
+        Ok(())
+    }
+
     /// Fills every chart and dilates its gutter into a set of atlas pages.
     ///
     /// `page_count` is the packer's page count. `fill` receives one patch and
@@ -296,13 +323,7 @@ impl LightmapAtlas {
         charts: &[(LightmapPatch, Chart)],
         mut fill: impl FnMut(&LightmapPatch, &Chart) -> Vec<[f32; 3]>,
     ) -> Result<Self, LightmapFailure> {
-        if page_count > config.max_pages {
-            return Err(LightmapFailure::PageOverflow);
-        }
-        if config.page_edge == 0 || config.usable_edge() == 0 {
-            return Err(LightmapFailure::InvalidConfig);
-        }
-        let buffer_len = page_buffer_len(config.page_edge)?;
+        let buffer_len = validated_page_buffer_len(config, page_count)?;
         let mut pages: Vec<LightmapPage> = (0..page_count)
             .map(|_| LightmapPage {
                 width: config.page_edge,
@@ -354,6 +375,20 @@ impl LightmapAtlas {
     pub const fn page_count(&self) -> usize {
         self.pages.len()
     }
+}
+
+/// Shared configuration validation for preflight and serial atlas writing.
+fn validated_page_buffer_len(
+    config: &LightmapConfig,
+    page_count: usize,
+) -> Result<usize, LightmapFailure> {
+    if page_count > config.max_pages {
+        return Err(LightmapFailure::PageOverflow);
+    }
+    if config.page_edge == 0 || config.usable_edge() == 0 {
+        return Err(LightmapFailure::InvalidConfig);
+    }
+    page_buffer_len(config.page_edge)
 }
 
 /// Bytes one RGB8 page of `edge` texels occupies, when addressable.

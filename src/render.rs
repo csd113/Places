@@ -10,8 +10,7 @@
 //!   owns the wgpu renderer and exposes the engine's operations; the engine
 //!   never imports a backend module.
 //! - [`wgpu`] — the wgpu implementation: the instance, surface, adapter,
-//!   device, queue and depth target, plus every rendering feature of the
-//!   historical reference renderer — the static world, the texture and material
+//!   device, queue and depth target, plus the static world, texture and material
 //!   systems, the baked lightmap atlas, reflection probes and the planar
 //!   mirror, props and dynamic objects, fixture emission, decals, fog, the
 //!   offscreen bloom chain and resolve, and the HUD. It consumes the
@@ -20,9 +19,7 @@
 //! The rest of the engine talks to rendering through the [`Renderer`] facade
 //! re-exported here; it never imports a backend module. See
 //! `docs/ARCHITECTURE.md` for the ownership rules and dependency direction
-//! this split enforces. The deleted OpenGL/GLES2 reference renderer is
-//! preserved at the `renderer-gles2-reference` tag; see
-//! `docs/RENDERER_REFERENCE.md`.
+//! this split enforces.
 
 #[cfg(test)]
 mod boundary_tests;
@@ -34,6 +31,10 @@ mod wgpu;
 
 #[cfg(test)]
 pub(in crate::render) use common::WallUnit;
+pub(crate) use common::api::{
+    LightmapFillOutcome, dump_lightmaps_for_level, fill_lightmaps_cancellable,
+    prepare_level_geometry_with_lightmaps, rebuild_vertex_lit_level,
+};
 pub use common::camera::RenderCamera;
 pub use common::stats::{LevelBuildStats, RenderStats};
 pub use common::view::{

@@ -1,0 +1,62 @@
+[package] /private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv (assets: /private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/assets/levels)
+[package] asset root: /private/var/folders/sl/yxxj_m9n37sgntkntqw0x8yw0000gn/T/places-desktop-baseline-zlkc5twv/assets
+[settings] quality high (saved high) [startup override] | bloom on | reflections full | lightmaps full | vsync on | filtering high | window Windowed 640 x 360
+[assets] 48 placeable asset(s) of 137 catalog entries; themes: office, pool, home
+[renderer] wgpu | adapter: Apple M2 Pro | backend: Metal | device type: IntegratedGpu | surface format: Bgra8UnormSrgb | present mode: Fifo | alpha mode: Opaque | depth format: Depth32Float | drawable: 1280x720
+[wgpu] texture filtering: world presets low 4x / medium 8x / high 16x requested | anisotropy supported
+[lightmaps] atlas array: 2 of 8 layer(s) resident, 1024-texel edge, 8388608 bytes of page data (33554432 bytes allocated)
+[wgpu] world upload: 7256 vertices, 11730 indices, 122 draws in 1 chunk(s) (neutral mesh: 7284 vertices, 11772 indices, 128 ranges)
+[wgpu] textures: 35 unique, 31 uploaded, 60 cache hits, 13 fallbacks, 0 missing of 122 draws (194336044 bytes resident, max edge 1024px, high filtering)
+[wgpu] materials: 39 resolved (23 response, 4 reflection-eligible), 3 normal maps (2 uploaded, 1 cache hits), 116 opaque / 1 cutout / 5 translucent of 122 draws (enabled response, high level)
+[wgpu] world pipeline for surface format Bgra8UnormSrgb
+[wgpu] decals: 6 draw(s), 1 chunk(s), 4 sheet(s) (3 external, 0 diagnostic)
+[wgpu] reflection probes: 2 probe(s), 12 face(s), face edge 64px
+[wgpu] characters: 2 character(s), 2 mesh(es), 5 draw(s), 3549 vertices
+[settings] graphics applied: quality 'high', lightmaps 'full', reflections 'full', filtering 'high', bloom on
+[props] 38 models cached (0 failed), 12042 triangles, 8656 KiB of textures, 44 draw call(s)
+[level] 7284 static vertices, 36007 prop vertices, 44 prop draw call(s), built in 28630.8 ms (lighting 24.6 + props 1420.9 + surfaces 50.8)
+[spatial] 122 static batch(es) (floor 24 / ceiling 11 / wall 56 / light 31 / prop box 0 / decal 0), 44 prop batch(es)
+[lighting] baked 11 room(s) / 11 baseline area(s) from 42 fixture(s): 92 wall + 8829 slab + 588 prop blocker(s), baselines 0.32..0.41 (avg 0.38)
+[lightmaps] 2 page(s), 1104 chart(s), 1086975 chart texels, 2097152 page texels (6144 KiB), filled in 26994.3 ms
+[dynamic] 2 object(s): 2 draw call(s), 1537 vertices (the demonstration path; never part of the static bake)
+[window] logical 640x360 | drawable 1280x720 pixels | backing scale 2.0x
+[wgpu] post targets: scene 1280x720, bloom 320x180, presented 1280x720
+[startup] total 29124.7 ms
+[startup]   package root: +0.2 ms (0.2 ms)
+[startup]   settings: +0.1 ms (0.3 ms)
+[startup]   window: +109.0 ms (109.2 ms)
+[startup]   asset catalog: +7.9 ms (117.2 ms)
+[startup]   level loaded: +299.3 ms (416.5 ms)
+[startup]   renderer device: +9.2 ms (425.7 ms)
+[startup]   world geometry: pack: +28513.5 ms (28939.3 ms)
+[startup]   world geometry: GPU upload: +0.1 ms (28939.4 ms)
+[startup]   world textures: plan: +0.0 ms (28939.4 ms)
+[startup]   textures: CPU prepare: +20.1 ms (28959.5 ms)
+[startup]   textures: GPU upload: +24.2 ms (28983.8 ms)
+[startup]   world textures: batch: +0.0 ms (28983.8 ms)
+[startup]   level uploaded: +104.5 ms (29088.3 ms)
+[startup]   game ready: +1.8 ms (29090.1 ms)
+[startup]   input responsive: +30.3 ms (29120.4 ms)
+[startup]   first scene submitted: +4.3 ms (29124.7 ms)
+[startup]   first UI submitted: +0.0 ms (29124.7 ms)
+[startup]   first presented: +0.0 ms (29124.7 ms)
+BENCH_SUMMARY {"level":"","frames":4,"swap_interval":1,"update_mean_ms":14.334,"render_mean_ms":29.713,"swap_mean_ms":0.012,"frame_mean_ms":44.060,"loop_mean_ms":51.984,"frame_median_ms":34.595,"loop_median_ms":34.706,"frame_p95_ms":136.522,"frame_p99_ms":136.522,"loop_p95_ms":136.522,"loop_p99_ms":136.522,"frame_min_ms":2.112,"frame_max_ms":136.522,"loop_min_ms":2.113,"loop_max_ms":136.522,"fps_median":28.81,"fps_p95":7.32,"fps_p99":7.32,"fps_1pct_low":7.32,"fps_mean":19.24,"measured_fps_mean":22.70,"worst_fps":7.32,"total_vertices":44800,"visible_vertices":44875,"culled_vertices":0,"total_batches":168,"visible_batches":167,"draw_calls":167,"vbo_bytes":2867200,"index_bytes":128592,"texture_binds":85,"material_changes":85,"reflection_passes":4}
+BENCH_SUMMARY {"level":"","frames":4,"swap_interval":1,"update_mean_ms":14.334,"render_mean_ms":29.713,"swap_mean_ms":0.012,"frame_mean_ms":44.060,"loop_mean_ms":51.984,"frame_median_ms":34.595,"loop_median_ms":34.706,"frame_p95_ms":136.522,"frame_p99_ms":136.522,"loop_p95_ms":136.522,"loop_p99_ms":136.522,"frame_min_ms":2.112,"frame_max_ms":136.522,"loop_min_ms":2.113,"loop_max_ms":136.522,"fps_median":28.81,"fps_p95":7.32,"fps_p99":7.32,"fps_1pct_low":7.32,"fps_mean":19.24,"measured_fps_mean":22.70,"worst_fps":7.32,"total_vertices":44800,"visible_vertices":44875,"culled_vertices":0,"total_batches":168,"visible_batches":167,"draw_calls":167,"vbo_bytes":2867200,"index_bytes":128592,"texture_binds":85,"material_changes":85,"reflection_passes":4}
+       29.31 real        28.78 user         0.49 sys
+           744095744  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+               47121  page reclaims
+                  55  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                  47  voluntary context switches
+                2458  involuntary context switches
+        445634952515  instructions retired
+         99683497776  cycles elapsed
+           970982816  peak memory footprint

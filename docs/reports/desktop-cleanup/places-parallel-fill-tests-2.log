@@ -1,0 +1,29 @@
+   Compiling places v0.7.0 (/Users/connordawkins/Documents/GitHub/Places)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.82s
+     Running unittests src/main.rs (target/debug/deps/places-febb7d61995c3093)
+
+running 1 test
+test render::common::api::tests::bounded_chart_workers_match_serial_atlas_and_handle_cancellation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1331 filtered out; finished in 0.58s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running unittests src/main.rs (target/debug/deps/places-febb7d61995c3093)
+
+running 5 tests
+test loading::cache_tests::byte_budget_evicts_old_builds_and_oversized_entries_are_not_retained ... ok
+test loading::cache_tests::cache_hits_reuse_the_exact_build_and_lru_eviction_keeps_displayed_arcs_alive ... ok
+test loading::cache_tests::cancelled_preparation_keeps_displayed_weak_identity_without_retaining_geometry ... ok
+test loading::cache_tests::definition_lightmap_mode_and_root_change_the_prepared_identity ... ok
+test loading::cache_tests::only_used_model_bytes_invalidate_and_missing_restored_inputs_change_identity ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 1327 filtered out; finished in 0.01s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running unittests src/main.rs (target/debug/deps/places-febb7d61995c3093)
+
+running 1 test
+test lighting::bake::room_index_tests::nonfinite_room_bounds_keep_linear_candidates_above_index_threshold ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1331 filtered out; finished in 0.00s
+

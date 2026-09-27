@@ -36,7 +36,7 @@
 //! the other.
 
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use glam::Mat4;
 
@@ -698,7 +698,7 @@ fn upload_sheets(
                     format!("[decals] {error}; drawing the diagnostic sheet instead"),
                 );
                 diagnostics = diagnostics.saturating_add(1);
-                Rc::new(crate::materials::missing_texture())
+                Arc::new(crate::materials::missing_texture())
             }
         };
         let fitted = fit_image(image.as_ref(), level, TextureClass::DecalSheet);

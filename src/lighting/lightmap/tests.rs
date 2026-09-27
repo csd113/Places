@@ -621,7 +621,7 @@ fn disk_cache_round_trips_a_page_set() {
 fn the_format_version_is_current_and_is_part_of_every_key_prefix() {
     // The value itself is pinned by the cache module's version notes; the
     // contract under test is that the key carries it.
-    assert_eq!(LIGHTMAP_FORMAT_VERSION, 8);
+    assert_eq!(LIGHTMAP_FORMAT_VERSION, 10);
     let level = crate::level::LevelDef::from_json(
         r#"{
             "format_version": 1,
@@ -674,22 +674,21 @@ fn disk_load_rejects_a_mismatched_format_version() {
         super::cache::disk_load(&root, &key).is_some(),
         "the current-version entry loads"
     );
-    let meta_path = root.join(&key).join("meta.json");
-    let meta = std::fs::read_to_string(&meta_path).expect("meta is written");
-    let old = meta.replacen(
-        &format!("\"version\":{LIGHTMAP_FORMAT_VERSION}"),
-        &format!("\"version\":{}", LIGHTMAP_FORMAT_VERSION - 1),
-        1,
+    let envelope_path = root.join(format!("{key}.lmc"));
+    let original = std::fs::read(&envelope_path).expect("envelope is written");
+    let mut obsolete = original.clone();
+    // Storage framing and semantic lighting version are separate fields.
+    obsolete[12..16].copy_from_slice(&(LIGHTMAP_FORMAT_VERSION - 1).to_le_bytes());
+    assert_ne!(
+        original, obsolete,
+        "the envelope records the current version"
     );
-    assert_ne!(meta, old, "the meta must record the current version");
-    std::fs::write(&meta_path, &old).expect("the old meta is written");
+    std::fs::write(&envelope_path, obsolete).expect("old version is written");
     assert!(
         super::cache::disk_load(&root, &key).is_none(),
-        "a version-5 meta must be rejected as a miss"
+        "an older semantic version must be rejected as a miss"
     );
-    // Restoring the current version makes the same bytes load again, so the
-    // rejection is the version gate and not a malformed fixture.
-    std::fs::write(&meta_path, &meta).expect("the current meta is restored");
+    std::fs::write(&envelope_path, original).expect("current version is restored");
     assert!(super::cache::disk_load(&root, &key).is_some());
     let _ = std::fs::remove_dir_all(&root);
 }
@@ -1368,4 +1367,159 @@ fn measure_demo_chart_statistics() {
             ),
         }
     }
+}
+
+fn cache_fixture(key: &str, value: u8) -> LevelLightmaps {
+    LevelLightmaps {
+        pages: vec![LightmapPage {
+            width: 4,
+            height: 4,
+            rgb: vec![value; 48],
+        }],
+        charts: vec![(
+            patch(1.0, 1.0),
+            Chart {
+                page: 0,
+                x: 0,
+                y: 0,
+                width: 4,
+                height: 4,
+            },
+        )],
+        stats: LightmapStats::default(),
+        cache_key: key.to_string(),
+    }
+}
+
+#[test]
+fn memory_cache_evicts_the_least_recently_used_entry_without_invalidating_owners() {
+    let mut cache = LightmapCache::memory_only();
+    let first = std::sync::Arc::new(cache_fixture("first", 1));
+    cache.insert("first", std::sync::Arc::clone(&first));
+    for key in ["second", "third", "fourth"] {
+        cache.insert(key, std::sync::Arc::new(cache_fixture(key, 2)));
+    }
+    assert!(cache.get("first").is_some());
+    cache.insert("fifth", std::sync::Arc::new(cache_fixture("fifth", 5)));
+    assert_eq!(cache.len(), 4);
+    assert!(cache.get("second").is_none());
+    assert!(std::sync::Arc::ptr_eq(
+        &first,
+        &cache.get("first").expect("recent entry")
+    ));
+    for key in ["sixth", "seventh", "eighth", "ninth"] {
+        cache.insert(key, std::sync::Arc::new(cache_fixture(key, 3)));
+    }
+    assert!(cache.get("first").is_none());
+    assert_eq!(
+        first.pages[0].rgb,
+        vec![1; 48],
+        "the active owner survives eviction"
+    );
+}
+
+#[test]
+fn disk_cache_rejects_equal_length_corruption_and_rebuilds() {
+    let root = std::path::PathBuf::from("target/diagnostics/cache-corruption-test");
+    let _ = std::fs::remove_dir_all(&root);
+    let atlas = cache_fixture("corruption", 7);
+    super::cache::disk_store(&root, &atlas.cache_key, &atlas);
+    let path = root.join("corruption.lmc");
+    let original = std::fs::read(&path).expect("stored envelope");
+    let mut damaged = original.clone();
+    *damaged.last_mut().expect("page byte") ^= 1;
+    std::fs::write(&path, &damaged).expect("same-sized corruption");
+    assert!(super::cache::disk_load(&root, &atlas.cache_key).is_none());
+    super::cache::disk_store(&root, &atlas.cache_key, &atlas);
+    assert_eq!(
+        super::cache::disk_load(&root, &atlas.cache_key)
+            .expect("rebuilt")
+            .pages,
+        atlas.pages
+    );
+    std::fs::write(&path, &original[..original.len() - 1]).expect("truncated envelope");
+    assert!(super::cache::disk_load(&root, &atlas.cache_key).is_none());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn disk_cache_rejects_oversized_headers_and_wrong_keys_before_reading_payloads() {
+    let root = std::path::PathBuf::from("target/diagnostics/cache-bounds-test");
+    let _ = std::fs::remove_dir_all(&root);
+    let atlas = cache_fixture("bounded", 9);
+    super::cache::disk_store(&root, &atlas.cache_key, &atlas);
+    let path = root.join("bounded.lmc");
+    let original = std::fs::read(&path).expect("stored envelope");
+    for range in [16..20, 20..24, 24..32] {
+        let mut oversized = original.clone();
+        oversized[range].fill(255);
+        std::fs::write(&path, oversized).expect("oversized declared length");
+        assert!(super::cache::disk_load(&root, &atlas.cache_key).is_none());
+    }
+    std::fs::write(root.join("different.lmc"), &original).expect("renamed cache bytes");
+    assert!(super::cache::disk_load(&root, "different").is_none());
+    assert!(super::cache::disk_load(&root, "../bounded").is_none());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn disk_cache_ignores_interrupted_publication_and_preserves_the_previous_entry() {
+    let root = std::path::PathBuf::from("target/diagnostics/cache-interrupted-test");
+    let _ = std::fs::remove_dir_all(&root);
+    let atlas = cache_fixture("published", 2);
+    super::cache::disk_store(&root, &atlas.cache_key, &atlas);
+    std::fs::write(root.join(".published.123-4.tmp"), b"unfinished").expect("interrupted writer");
+    std::fs::write(root.join(".missing.123-5.tmp"), b"unfinished").expect("unpublished entry");
+    assert_eq!(
+        super::cache::disk_load(&root, "published")
+            .expect("previous complete entry")
+            .pages,
+        atlas.pages
+    );
+    assert!(super::cache::disk_load(&root, "missing").is_none());
+    let mut invalid = atlas.clone();
+    invalid.pages[0].rgb.pop();
+    super::cache::disk_store(&root, "published", &invalid);
+    assert_eq!(
+        super::cache::disk_load(&root, "published")
+            .expect("invalid replacement refused")
+            .pages,
+        atlas.pages
+    );
+    invalid = atlas.clone();
+    invalid.charts[0].1.page = u16::MAX;
+    super::cache::disk_store(&root, "published", &invalid);
+    assert_eq!(
+        super::cache::disk_load(&root, "published")
+            .expect("invalid chart refused")
+            .pages,
+        atlas.pages
+    );
+    std::fs::create_dir_all(root.join("legacy")).expect("old directory");
+    std::fs::write(root.join("legacy/meta.json"), b"{}").expect("old metadata");
+    assert!(super::cache::disk_load(&root, "legacy").is_none());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn disk_cache_failure_is_a_miss_and_does_not_break_the_memory_store() {
+    let root = std::path::PathBuf::from("target/diagnostics/cache-unavailable-test");
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("fixture directory");
+    let blocked = root.join("file-not-directory");
+    std::fs::write(&blocked, b"occupied").expect("blocked directory");
+    let atlas = std::sync::Arc::new(cache_fixture("valid", 1));
+    super::cache::disk_store(&blocked, "valid", &atlas);
+    assert!(super::cache::disk_load(&blocked, "valid").is_none());
+    let mut memory = LightmapCache::memory_only();
+    memory.insert("valid", std::sync::Arc::clone(&atlas));
+    assert!(std::sync::Arc::ptr_eq(
+        &memory.get("valid").expect("memory remains usable"),
+        &atlas
+    ));
+    assert_eq!(
+        std::fs::read(blocked).expect("existing file preserved"),
+        b"occupied"
+    );
+    let _ = std::fs::remove_dir_all(&root);
 }

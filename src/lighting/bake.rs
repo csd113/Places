@@ -478,6 +478,150 @@ impl OpeningBlend {
     }
 }
 
+/// Conservative XZ candidates in original room order. Quantile boundaries keep
+/// the fixed 16-by-16 table useful for sparse layouts without coordinate casts.
+#[derive(Clone, Debug, Default)]
+struct RoomIndex {
+    x_edges: Vec<f32>,
+    z_edges: Vec<f32>,
+    cells: Vec<Vec<usize>>,
+}
+
+impl RoomIndex {
+    fn new(rooms: &[RoomLighting]) -> Self {
+        if rooms.len() <= 8
+            || rooms.iter().any(|room| {
+                [room.x0, room.x1, room.z0, room.z1]
+                    .iter()
+                    .any(|bound| !bound.is_finite())
+            })
+        {
+            return Self {
+                cells: vec![(0..rooms.len()).collect()],
+                ..Self::default()
+            };
+        }
+        let edges = |values: Vec<f32>| {
+            let mut values = values;
+            values.sort_by(f32::total_cmp);
+            (1_usize..16)
+                .filter_map(|step| values.get(values.len().saturating_mul(step) / 16).copied())
+                .collect::<Vec<_>>()
+        };
+        let x_edges = edges(rooms.iter().map(|room| room.x0 - ROOM_EDGE_EPS_M).collect());
+        let z_edges = edges(rooms.iter().map(|room| room.z0 - ROOM_EDGE_EPS_M).collect());
+        let mut cells = vec![Vec::new(); 256];
+        for (index, room) in rooms.iter().enumerate() {
+            let x0 = x_edges.partition_point(|edge| *edge <= room.x0 - ROOM_EDGE_EPS_M);
+            let x1 = x_edges.partition_point(|edge| *edge <= room.x1 + ROOM_EDGE_EPS_M);
+            let z0 = z_edges.partition_point(|edge| *edge <= room.z0 - ROOM_EDGE_EPS_M);
+            let z1 = z_edges.partition_point(|edge| *edge <= room.z1 + ROOM_EDGE_EPS_M);
+            for z in z0..=z1 {
+                for x in x0..=x1 {
+                    if let Some(cell) = cells.get_mut(z.saturating_mul(16).saturating_add(x)) {
+                        cell.push(index);
+                    }
+                }
+            }
+        }
+        Self {
+            x_edges,
+            z_edges,
+            cells,
+        }
+    }
+
+    fn candidates(&self, x: f32, z: f32) -> &[usize] {
+        if !x.is_finite() || !z.is_finite() {
+            return &[];
+        }
+        let cell = if self.cells.len() <= 1 {
+            0
+        } else {
+            let x = self.x_edges.partition_point(|edge| *edge <= x);
+            let z = self.z_edges.partition_point(|edge| *edge <= z);
+            z.saturating_mul(16).saturating_add(x)
+        };
+        self.cells.get(cell).map_or(&[], Vec::as_slice)
+    }
+}
+
+/// Global light candidates; each bucket preserves source order so screen
+/// composition remains bit-identical after exact room membership filtering.
+#[derive(Clone, Debug, Default)]
+struct LightIndex {
+    x_edges: Vec<f32>,
+    z_edges: Vec<f32>,
+    cells: Vec<Vec<u32>>,
+}
+
+impl LightIndex {
+    fn new(lights: &[BakedLight]) -> Self {
+        if lights.len() <= 8 {
+            return Self {
+                cells: vec![
+                    (0..lights.len())
+                        .filter_map(|index| u32::try_from(index).ok())
+                        .collect(),
+                ],
+                ..Self::default()
+            };
+        }
+        let edges = |mut values: Vec<f32>| {
+            values.sort_by(f32::total_cmp);
+            (1_usize..16)
+                .filter_map(|step| values.get(values.len().saturating_mul(step) / 16).copied())
+                .collect::<Vec<_>>()
+        };
+        let x_edges = edges(lights.iter().map(BakedLight::x).collect());
+        let z_edges = edges(lights.iter().map(BakedLight::z).collect());
+        let mut cells = vec![Vec::new(); 256];
+        for (index, light) in lights.iter().enumerate() {
+            let Ok(index) = u32::try_from(index) else {
+                continue;
+            };
+            let (half_w, half_d) = light.source.half_extents();
+            let reach = fill_range_for(light.source.range);
+            // Expand for the rounding of subtraction in pool_term_for. This
+            // only admits extra candidates; the original test still decides.
+            let axis = |center: f32, half: f32| {
+                let extent = half + reach;
+                let guard = ((center.abs() + extent) * f32::EPSILON).mul_add(8.0, f32::EPSILON);
+                (center - extent - guard, center + extent + guard)
+            };
+            let (min_x, max_x) = axis(light.x(), half_w);
+            let (min_z, max_z) = axis(light.z(), half_d);
+            let x0 = x_edges.partition_point(|edge| *edge <= min_x);
+            let x1 = x_edges.partition_point(|edge| *edge <= max_x);
+            let z0 = z_edges.partition_point(|edge| *edge <= min_z);
+            let z1 = z_edges.partition_point(|edge| *edge <= max_z);
+            for z in z0..=z1 {
+                for x in x0..=x1 {
+                    if let Some(cell) = cells.get_mut(z.saturating_mul(16).saturating_add(x)) {
+                        cell.push(index);
+                    }
+                }
+            }
+        }
+        Self {
+            x_edges,
+            z_edges,
+            cells,
+        }
+    }
+
+    fn candidates(&self, x: f32, z: f32) -> &[u32] {
+        let cell = if self.cells.len() <= 1 {
+            0
+        } else {
+            let x = self.x_edges.partition_point(|edge| *edge <= x);
+            let z = self.z_edges.partition_point(|edge| *edge <= z);
+            z.saturating_mul(16).saturating_add(x)
+        };
+        self.cells.get(cell).map_or(&[], Vec::as_slice)
+    }
+}
+
 /// Fully baked static lighting for one level.
 ///
 /// Cheap to keep resident (a few dozen bytes per room and fixture) and sampled
@@ -485,7 +629,9 @@ impl OpeningBlend {
 #[derive(Clone, Debug, Default)]
 pub struct LevelLighting {
     rooms: Vec<RoomLighting>,
+    room_index: RoomIndex,
     lights: Vec<BakedLight>,
+    light_index: LightIndex,
     /// Per room, the opening links that blend neighbouring light into it.
     blends: Vec<Vec<OpeningBlend>>,
     /// Per room, the spatial baseline field when opaque walls split the room
@@ -1459,6 +1605,49 @@ fn opening_blends(
 }
 
 impl LevelLighting {
+    /// Resident vector allocations; used to bound immutable prepared-build reuse.
+    #[must_use]
+    pub(crate) fn retained_heap_bytes(&self) -> usize {
+        let flat = [
+            allocation_bytes(&self.rooms),
+            allocation_bytes(&self.lights),
+            allocation_bytes(&self.blends),
+            allocation_bytes(&self.room_zones),
+            allocation_bytes(&self.room_lights),
+            allocation_bytes(&self.all_lights),
+            allocation_bytes(&self.room_index.x_edges),
+            allocation_bytes(&self.room_index.z_edges),
+            allocation_bytes(&self.room_index.cells),
+            allocation_bytes(&self.light_index.x_edges),
+            allocation_bytes(&self.light_index.z_edges),
+            allocation_bytes(&self.light_index.cells),
+            self.visibility.retained_heap_bytes(),
+        ]
+        .into_iter()
+        .fold(0_usize, usize::saturating_add);
+        let nested = self
+            .blends
+            .iter()
+            .map(allocation_bytes)
+            .chain(self.room_lights.iter().map(allocation_bytes))
+            .chain(self.room_index.cells.iter().map(allocation_bytes))
+            .chain(self.light_index.cells.iter().map(allocation_bytes))
+            .fold(flat, usize::saturating_add);
+        self.room_zones
+            .iter()
+            .flatten()
+            .fold(nested, |bytes, zones| {
+                [
+                    allocation_bytes(&zones.edges_x),
+                    allocation_bytes(&zones.edges_z),
+                    allocation_bytes(&zones.zone_of_cell),
+                    allocation_bytes(&zones.zones),
+                ]
+                .into_iter()
+                .fold(bytes, usize::saturating_add)
+            })
+    }
+
     /// Bakes room baselines, fixture pools and opening blends from a level.
     ///
     /// Malformed data never panics and never yields NaN: non-finite fixtures are
@@ -1549,7 +1738,9 @@ impl LevelLighting {
         let visibility = Visibility::build_with_occluders(occluders, &sites);
 
         Self {
+            room_index: RoomIndex::new(&rooms),
             rooms,
+            light_index: LightIndex::new(&lights),
             lights,
             blends,
             room_zones,
@@ -1621,7 +1812,7 @@ impl LevelLighting {
     /// helper used for lighting, so fixtures are never double counted.
     #[must_use]
     pub fn room_index_at(&self, x: f32, z: f32) -> Option<usize> {
-        Self::room_index_of(&self.rooms, x, z)
+        self.indexed_room(x, None, z, false)
     }
 
     fn room_index_of(rooms: &[RoomLighting], x: f32, z: f32) -> Option<usize> {
@@ -1660,9 +1851,11 @@ impl LevelLighting {
     /// [`Self::sample`] uses.
     #[must_use]
     pub fn room_index_at_height(&self, x: f32, y: f32, z: f32) -> Option<usize> {
-        Self::room_index_at_height_of(&self.rooms, x, y, z)
+        self.indexed_room(x, Some(y), z, false)
+            .or_else(|| y.is_finite().then(|| self.room_index_at(x, z)).flatten())
     }
 
+    #[cfg(test)]
     fn room_index_at_height_of(rooms: &[RoomLighting], x: f32, y: f32, z: f32) -> Option<usize> {
         if !x.is_finite() || !y.is_finite() || !z.is_finite() {
             return None;
@@ -1705,9 +1898,10 @@ impl LevelLighting {
     /// happened to prefer.
     #[must_use]
     pub fn room_index_strict_at(&self, x: f32, z: f32) -> Option<usize> {
-        Self::room_index_strict_of(&self.rooms, x, z)
+        self.indexed_room(x, None, z, true)
     }
 
+    #[cfg(test)]
     fn room_index_strict_of(rooms: &[RoomLighting], x: f32, z: f32) -> Option<usize> {
         if !x.is_finite() || !z.is_finite() {
             return None;
@@ -1735,23 +1929,35 @@ impl LevelLighting {
     /// [`Self::room_index_strict_at`] restricted to rooms whose air volume
     /// contains `y`, for surfaces in a stacked building.
     fn room_index_strict_at_height(&self, x: f32, y: f32, z: f32) -> Option<usize> {
-        if !x.is_finite() || !y.is_finite() || !z.is_finite() {
+        self.indexed_room(x, Some(y), z, true)
+    }
+
+    fn indexed_room(&self, x: f32, y: Option<f32>, z: f32, strict: bool) -> Option<usize> {
+        if !x.is_finite() || !z.is_finite() || y.is_some_and(|value| !value.is_finite()) {
             return None;
         }
+        let margin = if strict {
+            -ROOM_EDGE_EPS_M
+        } else {
+            ROOM_EDGE_EPS_M
+        };
         let mut best: Option<usize> = None;
-        for (index, room) in self.rooms.iter().enumerate() {
-            // Cheap footprint bounds first: the ceiling profile is the
-            // expensive part and most rooms are outside a given sample.
-            if x < room.x0 + ROOM_EDGE_EPS_M
-                || x > room.x1 - ROOM_EDGE_EPS_M
-                || z < room.z0 + ROOM_EDGE_EPS_M
-                || z > room.z1 - ROOM_EDGE_EPS_M
+        for &index in self.room_index.candidates(x, z) {
+            let Some(room) = self.rooms.get(index) else {
+                continue;
+            };
+            if x < room.x0 - margin
+                || x > room.x1 + margin
+                || z < room.z0 - margin
+                || z > room.z1 + margin
             {
                 continue;
             }
-            let (floor, ceiling) = room.span_at(x, z);
-            if y < floor - ROOM_EDGE_EPS_M || y > ceiling + ROOM_EDGE_EPS_M {
-                continue;
+            if let Some(y) = y {
+                let (floor, ceiling) = room.span_at(x, z);
+                if y < floor - ROOM_EDGE_EPS_M || y > ceiling + ROOM_EDGE_EPS_M {
+                    continue;
+                }
             }
             match best {
                 Some(current)
@@ -1950,7 +2156,7 @@ impl LevelLighting {
     /// pools they are inside.
     #[must_use]
     pub fn sample(&self, x: f32, y: f32, z: f32) -> LightColor {
-        Self::room_index_at_height_of(&self.rooms, x, y, z).map_or_else(
+        self.room_index_at_height(x, y, z).map_or_else(
             || {
                 let (direct, fill) = self.local_light(&self.all_lights, None, x, y, z);
                 ambient_color().plus(direct).plus(fill)
@@ -1983,7 +2189,7 @@ impl LevelLighting {
     /// Developer diagnostics only — the render path never calls this.
     #[must_use]
     pub fn bake_terms(&self, x: f32, y: f32, z: f32) -> BakeTerms {
-        let room = Self::room_index_at_height_of(&self.rooms, x, y, z);
+        let room = self.room_index_at_height(x, y, z);
         self.bake_terms_for(room, x, y, z)
     }
 
@@ -2276,7 +2482,16 @@ impl LevelLighting {
         }
         let mut direct = [0.0_f32; 3];
         let mut fill = [0.0_f32; 3];
-        for index in candidates {
+        let spatial = self.light_index.candidates(x, z);
+        let use_spatial = spatial.len() < candidates.len();
+        let selected = if use_spatial { spatial } else { candidates };
+        for index in selected {
+            // room_light_candidates and all_lights are sorted source indices.
+            // Keep their exact membership even when a neighbouring room's
+            // light occupies this spatial bucket.
+            if use_spatial && candidates.binary_search(index).is_err() {
+                continue;
+            }
             let Some(term) = self.pool_term_for(*index, room, x, y, z) else {
                 continue;
             };
@@ -2535,3 +2750,274 @@ impl LevelLighting {
 /// the guard that keeps the model from drifting back into saturation.
 #[cfg(test)]
 mod range_audit;
+
+#[cfg(test)]
+mod room_index_tests {
+    use super::{
+        CeilingProfileDef, LevelLighting, LightColor, ROOM_EDGE_EPS_M, RoomIndex, RoomLighting,
+        WallAxis,
+    };
+
+    const fn room(x: f32, z: f32, y: f32, size: f32) -> RoomLighting {
+        RoomLighting {
+            x0: x,
+            x1: x + size,
+            z0: z,
+            z1: z + size,
+            floor_y: y,
+            height_m: 3.0,
+            profile: CeilingProfileDef::Flat,
+            area_m2: size * size,
+            fixture_count: 0,
+            effective_power: LightColor::BLACK,
+            baseline: LightColor::BLACK,
+        }
+    }
+
+    fn check(rooms: Vec<RoomLighting>) {
+        let lighting = LevelLighting {
+            room_index: RoomIndex::new(&rooms),
+            rooms,
+            ..LevelLighting::default()
+        };
+        let mut coordinates = vec![-1000.0, 1000.0, f32::NAN, f32::INFINITY, f32::NEG_INFINITY];
+        for room in &lighting.rooms {
+            for edge in [room.x0, room.x1, room.z0, room.z1] {
+                coordinates.extend([edge - ROOM_EDGE_EPS_M, edge, edge + ROOM_EDGE_EPS_M]);
+            }
+        }
+        coordinates.sort_by(f32::total_cmp);
+        coordinates.dedup_by(|a, b| a.to_bits() == b.to_bits());
+        for &x in &coordinates {
+            for &z in &coordinates {
+                assert_eq!(
+                    lighting.room_index_at(x, z),
+                    LevelLighting::room_index_of(&lighting.rooms, x, z)
+                );
+                assert_eq!(
+                    lighting.room_index_strict_at(x, z),
+                    LevelLighting::room_index_strict_of(&lighting.rooms, x, z)
+                );
+                for y in [-1.0, 0.0, 1.5, 3.0, 4.5, 6.0, 9.0, f32::NAN] {
+                    assert_eq!(
+                        lighting.room_index_at_height(x, y, z),
+                        LevelLighting::room_index_at_height_of(&lighting.rooms, x, y, z)
+                    );
+                    let expected = lighting
+                        .rooms
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, room)| {
+                            let (floor, ceiling) = room.span_at(x, z);
+                            x.is_finite()
+                                && y.is_finite()
+                                && z.is_finite()
+                                && x >= room.x0 + ROOM_EDGE_EPS_M
+                                && x <= room.x1 - ROOM_EDGE_EPS_M
+                                && z >= room.z0 + ROOM_EDGE_EPS_M
+                                && z <= room.z1 - ROOM_EDGE_EPS_M
+                                && y >= floor - ROOM_EDGE_EPS_M
+                                && y <= ceiling + ROOM_EDGE_EPS_M
+                        })
+                        .min_by(|(a, left), (b, right)| {
+                            left.area_m2.total_cmp(&right.area_m2).then(a.cmp(b))
+                        })
+                        .map(|(index, _)| index);
+                    assert_eq!(lighting.room_index_strict_at_height(x, y, z), expected);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn nonfinite_room_bounds_keep_linear_candidates_above_index_threshold() {
+        for invalid in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+            for bound in 0..4 {
+                let mut rooms = (0_u16..9)
+                    .map(|index| room(f32::from(index) * 10.0, 0.0, 0.0, 6.0))
+                    .collect::<Vec<_>>();
+                if let Some(room) = rooms.first_mut() {
+                    match bound {
+                        0 => room.x0 = invalid,
+                        1 => room.x1 = invalid,
+                        2 => room.z0 = invalid,
+                        _ => room.z1 = invalid,
+                    }
+                }
+                let lighting = LevelLighting {
+                    room_index: RoomIndex::new(&rooms),
+                    rooms,
+                    ..LevelLighting::default()
+                };
+                assert_eq!(lighting.room_index.cells.len(), 1);
+                let all: Vec<_> = (0..lighting.rooms.len()).collect();
+                for (x, z) in [(-1000.0, 3.0), (3.0, 3.0), (83.0, 3.0), (3.0, 1000.0)] {
+                    assert_eq!(lighting.room_index.candidates(x, z), all.as_slice());
+                    assert_eq!(
+                        lighting.room_index_at(x, z),
+                        LevelLighting::room_index_of(&lighting.rooms, x, z)
+                    );
+                    assert_eq!(
+                        lighting.room_index_strict_at(x, z),
+                        LevelLighting::room_index_strict_of(&lighting.rooms, x, z)
+                    );
+                    for y in [-1.0, 1.5, 6.0] {
+                        assert_eq!(
+                            lighting.room_index_at_height(x, y, z),
+                            LevelLighting::room_index_at_height_of(&lighting.rooms, x, y, z)
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn spatial_room_queries_match_linear_reference() {
+        check(Vec::new());
+        check(vec![room(-2.0, -2.0, 0.0, 4.0)]);
+        let mut rooms = (0_u16..100)
+            .map(|index| {
+                room(
+                    f32::from(index % 10) * 10.0,
+                    f32::from(index / 10) * 10.0,
+                    0.0,
+                    6.0,
+                )
+            })
+            .collect::<Vec<_>>();
+        rooms.extend([
+            room(0.0, 0.0, 0.0, 6.0),
+            room(1.0, 1.0, 0.0, 2.0),
+            room(0.0, 0.0, 3.0, 6.0),
+        ]);
+        if let Some(room) = rooms.first_mut() {
+            room.profile = CeilingProfileDef::Gable {
+                ridge: WallAxis::X,
+                ridge_rise: 2.0,
+            };
+        }
+        check(rooms);
+    }
+}
+
+#[cfg(test)]
+mod light_index_tests {
+    use super::{
+        CeilingProfileDef, LevelDef, LevelLighting, LightColor, LightFalloff, LightIndex,
+        LightMount, WallAxis, fill_range_for,
+    };
+
+    const fn bits(color: LightColor) -> [u32; 3] {
+        [color.r.to_bits(), color.g.to_bits(), color.b.to_bits()]
+    }
+
+    fn fixture() -> Result<LevelDef, String> {
+        let mut level =
+            LevelDef::from_json(include_str!("../../tests/fixtures/levels/test_room.json"))
+                .map_err(|error| error.to_string())?;
+        let fixture = level
+            .ceiling_lights
+            .first()
+            .cloned()
+            .ok_or("fixture has no light")?;
+        let room = level.room.clone().ok_or("fixture has no room")?;
+        level.room = None;
+        level.rooms = vec![room.clone(), room.clone(), room];
+        if let Some(room) = level.rooms.get_mut(1) {
+            room.floor_y = 4.0;
+            room.ceiling = CeilingProfileDef::Gable {
+                ridge: WallAxis::X,
+                ridge_rise: 2.0,
+            };
+        }
+        if let Some(room) = level.rooms.get_mut(2) {
+            room.x = -1.0;
+            room.z = -1.0;
+            room.width = 2.0;
+            room.depth = 2.0;
+        }
+        level.ceiling_lights = (0_u16..100)
+            .map(|index| {
+                let mut light = fixture.clone();
+                light.id = None;
+                light.x = f32::from(index % 10) * 5.0 - 25.0;
+                light.z = f32::from(index / 10) * 5.0 - 25.0;
+                light.y = Some(if index % 3 == 0 { 6.5 } else { 2.5 });
+                light.range = Some(1.0 + f32::from(index % 7));
+                light.rotation_degrees = if index % 2 == 0 { 90.0 } else { 0.0 };
+                light.mount = if index % 4 == 0 {
+                    LightMount::Wall
+                } else {
+                    LightMount::Ceiling
+                };
+                light.falloff = Some(match index % 3 {
+                    0 => LightFalloff::Constant,
+                    1 => LightFalloff::Linear,
+                    _ => LightFalloff::Smooth,
+                });
+                light.enabled = index % 9 != 0;
+                light
+            })
+            .collect();
+        Ok(level)
+    }
+
+    #[test]
+    fn spatial_light_samples_match_full_candidates_exactly() -> Result<(), String> {
+        let level = fixture()?;
+        for count in [0, 1, 100] {
+            let mut selected = level.clone();
+            selected.ceiling_lights.truncate(count);
+            let indexed = LevelLighting::bake(&selected);
+            let mut reference = indexed.clone();
+            reference.light_index = LightIndex {
+                cells: vec![indexed.all_lights.clone()],
+                ..LightIndex::default()
+            };
+            let mut points = Vec::new();
+            for x in -8_i16..=8 {
+                for z in -8_i16..=8 {
+                    points.push((f32::from(x) * 3.0, f32::from(z) * 3.0));
+                }
+            }
+            for light in &indexed.lights {
+                let (half_w, half_d) = light.source.half_extents();
+                let reach = fill_range_for(light.source.range);
+                for edge in [light.x() - half_w - reach, light.x() + half_w + reach] {
+                    points.extend([
+                        (edge.next_down(), light.z()),
+                        (edge, light.z()),
+                        (edge.next_up(), light.z()),
+                    ]);
+                }
+                points.push((light.x(), light.z() + half_d + reach));
+            }
+            points.extend([(f32::NAN, 0.0), (0.0, f32::INFINITY), (10000.0, -10000.0)]);
+            for (x, z) in points {
+                for y in [-1.0, 0.0, 1.5, 3.5, 4.0, 6.0, 8.0, f32::NAN] {
+                    assert_eq!(
+                        bits(indexed.sample(x, y, z)),
+                        bits(reference.sample(x, y, z))
+                    );
+                    for room in [None, Some(0), Some(1), Some(2)] {
+                        assert_eq!(
+                            bits(indexed.sample_face(room, x, y, z)),
+                            bits(reference.sample_face(room, x, y, z))
+                        );
+                        assert_eq!(
+                            bits(indexed.lightmap_texel(room, x, y, z)),
+                            bits(reference.lightmap_texel(room, x, y, z))
+                        );
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Vec capacity is required here: a slice omits allocated unused elements.
+const fn allocation_bytes<T>(values: &Vec<T>) -> usize {
+    values.capacity().saturating_mul(std::mem::size_of::<T>())
+}

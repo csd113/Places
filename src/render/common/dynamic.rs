@@ -22,7 +22,7 @@
 //! [`DynamicMesh`] per distinct model. A mesh is the *same*
 //! [`crate::props::LoadedPropAsset`] the static prop path resolves, converted
 //! once into render vertices in **model space**; its textures are the same
-//! `Rc`-shared decoded images, so spawning a drum that is also placed statically
+//! `Arc`-shared decoded images, so spawning a drum that is also placed statically
 //! decodes nothing twice.
 //!
 //! A transform is translation + base orientation + spin about a local axis +
@@ -59,7 +59,7 @@
 //!   object moved.
 
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use glam::{Mat4, Quat, Vec3};
 
@@ -194,7 +194,7 @@ pub struct DynamicMesh {
     pub submeshes: Vec<DynamicSubmesh>,
     /// Decoded textures, indexed by [`DynamicSubmesh::texture`] and by
     /// [`MaterialEmission::mask`]. Shared with the model's other users.
-    pub textures: Vec<Rc<crate::loader::RawImage>>,
+    pub textures: Vec<Arc<crate::loader::RawImage>>,
     /// Model-space bounds, for frustum culling and probe placement.
     pub bounds: Aabb,
     /// Model-space centre: the transformed probe point of every instance.
@@ -265,7 +265,7 @@ impl DynamicMesh {
             vertices,
             indices: asset.model.indices.clone(),
             submeshes,
-            textures: asset.model.textures.iter().cloned().map(Rc::new).collect(),
+            textures: asset.model.textures.iter().cloned().map(Arc::new).collect(),
             bounds,
             centre,
         })
@@ -305,7 +305,7 @@ fn spin_matrix(axis: Vec3, degrees: f32) -> Mat4 {
 pub struct DynamicObject {
     id: DynamicId,
     mesh_index: usize,
-    mesh: Rc<DynamicMesh>,
+    mesh: Arc<DynamicMesh>,
     translation: Vec3,
     /// Orientation applied before the spin; identity for yaw-only objects.
     base_rotation: Quat,
@@ -375,7 +375,7 @@ impl DynamicObject {
 
     /// The shared model-space mesh this object draws.
     #[must_use]
-    pub const fn mesh(&self) -> &Rc<DynamicMesh> {
+    pub const fn mesh(&self) -> &Arc<DynamicMesh> {
         &self.mesh
     }
 
@@ -512,7 +512,7 @@ pub struct DynamicUpdate {
 #[derive(Debug, Default)]
 pub struct DynamicScene {
     objects: Vec<DynamicObject>,
-    meshes: Vec<Rc<DynamicMesh>>,
+    meshes: Vec<Arc<DynamicMesh>>,
     mesh_index_by_path: HashMap<String, usize>,
     /// Bumped on every structural change (spawn, despawn, clear, mesh
     /// registration). The renderer compares it to decide when to re-upload.
@@ -550,7 +550,7 @@ impl DynamicScene {
 
     /// The distinct meshes this scene draws, in first-spawn order.
     #[must_use]
-    pub fn meshes(&self) -> &[Rc<DynamicMesh>] {
+    pub fn meshes(&self) -> &[Arc<DynamicMesh>] {
         &self.meshes
     }
 
@@ -745,14 +745,14 @@ impl DynamicScene {
     /// Registration is keyed by the model path, so two objects using the same
     /// model share one mesh — and one GPU buffer — even when they were resolved
     /// separately.
-    fn mesh_for(&mut self, asset: &Rc<LoadedPropAsset>) -> Option<usize> {
+    fn mesh_for(&mut self, asset: &Arc<LoadedPropAsset>) -> Option<usize> {
         if let Some(index) = self.mesh_index_by_path.get(&asset.model_path).copied() {
             return Some(index);
         }
         if self.meshes.len() >= MAX_DYNAMIC_MESHES {
             return None;
         }
-        let mesh = Rc::new(DynamicMesh::from_asset(asset)?);
+        let mesh = Arc::new(DynamicMesh::from_asset(asset)?);
         self.mesh_index_by_path
             .insert(mesh.model_path.clone(), self.meshes.len());
         self.meshes.push(mesh);
@@ -767,7 +767,7 @@ impl DynamicScene {
     #[must_use]
     pub fn spawn(
         &mut self,
-        asset: &Rc<LoadedPropAsset>,
+        asset: &Arc<LoadedPropAsset>,
         translation: [f32; 3],
         yaw_degrees: f32,
         scale: f32,
@@ -799,7 +799,7 @@ impl DynamicScene {
     #[must_use]
     pub fn spawn_oriented(
         &mut self,
-        asset: &Rc<LoadedPropAsset>,
+        asset: &Arc<LoadedPropAsset>,
         translation: [f32; 3],
         orientation: SpawnOrientation,
         spin_degrees: f32,
@@ -859,7 +859,7 @@ impl DynamicScene {
     #[must_use]
     pub fn spawn_floating(
         &mut self,
-        asset: &Rc<LoadedPropAsset>,
+        asset: &Arc<LoadedPropAsset>,
         motion: FloatMotion,
         water: &WaterVolumes,
         yaw_degrees: f32,
@@ -1183,8 +1183,8 @@ mod tests {
         }
     }
 
-    fn synthetic_asset(emission: MaterialEmission) -> Rc<LoadedPropAsset> {
-        Rc::new(LoadedPropAsset {
+    fn synthetic_asset(emission: MaterialEmission) -> Arc<LoadedPropAsset> {
+        Arc::new(LoadedPropAsset {
             model_path: "core/test_triangle.glb".to_string(),
             model: synthetic_model(emission),
         })
@@ -1225,14 +1225,14 @@ mod tests {
             .expect("second spawn");
         assert_eq!(scene.len(), 2);
         assert_eq!(scene.mesh_count(), 1);
-        assert!(Rc::ptr_eq(
+        assert!(Arc::ptr_eq(
             scene.get(first).unwrap().mesh(),
             scene.get(second).unwrap().mesh()
         ));
         // The shared mesh is the same decode the static prop path uses: the
-        // asset cache hands back one `Rc` for one model path.
+        // asset cache hands back one `Arc` for one model path.
         let again = assets.resolve(&path).expect("cached resolve");
-        assert!(Rc::ptr_eq(&asset, &again));
+        assert!(Arc::ptr_eq(&asset, &again));
         assert_eq!(scene.vertex_count(), 2 * asset.model.vertices.len());
     }
 
@@ -1244,7 +1244,7 @@ mod tests {
         let first = assets.resolve(&machine).expect("static resolve");
         let second = assets.resolve(&machine).expect("dynamic resolve");
         assert!(
-            Rc::ptr_eq(&first, &second),
+            Arc::ptr_eq(&first, &second),
             "the prop asset cache must hand out one decode per model path"
         );
         // ... and the demo spawns the drum, not the machine.
@@ -1486,7 +1486,7 @@ mod tests {
     fn distinct_mesh_budget_is_enforced_and_meshes_stay_registered() {
         let mut scene = DynamicScene::new();
         for index in 0..=MAX_DYNAMIC_MESHES {
-            let asset = Rc::new(LoadedPropAsset {
+            let asset = Arc::new(LoadedPropAsset {
                 model_path: format!("core/test_{index}.glb"),
                 model: synthetic_model(MaterialEmission::NONE),
             });
@@ -1507,7 +1507,7 @@ mod tests {
 
     #[test]
     fn a_model_with_nothing_drawable_never_spawns() {
-        let asset = Rc::new(LoadedPropAsset {
+        let asset = Arc::new(LoadedPropAsset {
             model_path: "core/empty.glb".to_string(),
             model: PropModel {
                 vertices: Vec::new(),

@@ -7,12 +7,12 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::assets::{AssetCatalog, DEFAULT_TILE_METRES};
 use crate::level::LevelDef;
 
-use super::image::{RawImage, TextureCache, load_png_relative, missing_texture};
+use super::image::{RawImage, TextureCache, missing_texture};
 use super::pack::PackMaterials;
 use super::{
     DEFAULT_EMISSION_INTENSITY, DEFAULT_REFLECTION_STRENGTH, DEFAULT_TINT, MISSING_TEXTURE_KEY,
@@ -70,7 +70,7 @@ pub struct ResolvedMaterial {
     pub emission: MaterialEmission,
     /// The decoded image; `None` only for catalog-only logical tables used by
     /// geometry tests that do not render.
-    pub image: Option<Rc<RawImage>>,
+    pub image: Option<Arc<RawImage>>,
     /// Where the surface's reflection image comes from, and how strong it is.
     ///
     /// [`MaterialReflection::NONE`] for every material that does not author a
@@ -90,7 +90,7 @@ pub struct ResolvedTexture {
     /// An albedo sheet is sized for a tiling surface; an emissive mask is a
     /// separate, usually smaller image, and Low may scale it harder.
     pub class: crate::quality::TextureClass,
-    pub image: Rc<RawImage>,
+    pub image: Arc<RawImage>,
 }
 
 /// Every material a level references, resolved to images and render parameters.
@@ -210,7 +210,7 @@ fn intern_texture(
     key: String,
     origin: TextureOrigin,
     class: crate::quality::TextureClass,
-    image: Rc<RawImage>,
+    image: Arc<RawImage>,
 ) -> u16 {
     if let Some(index) = textures.iter().position(|texture| texture.key == key) {
         return u16::try_from(index).unwrap_or(u16::MAX);
@@ -732,26 +732,23 @@ fn resolve_authored_image(
     cache: &mut TextureCache,
     pack: Option<&PackMaterials>,
     asset_root: Option<&Path>,
-) -> Result<(String, TextureOrigin, Rc<RawImage>), String> {
+) -> Result<(String, TextureOrigin, Arc<RawImage>), String> {
     match texture {
-        AuthoredTexture::Catalog { texture_id, path } => {
-            if let Some(image) = cache.get(&texture_id) {
-                return Ok((texture_id, TextureOrigin::Catalog, image));
-            }
-            match asset_root {
-                Some(root) => load_png_relative(root, &path)
+        AuthoredTexture::Catalog { texture_id, path } => asset_root.map_or_else(
+            || {
+                Err(format!(
+                    "material `{material_id}` {field} `{texture_id}`: the asset root is missing"
+                ))
+            },
+            |root| {
+                cache
+                    .load_relative(root, &path, &texture_id)
                     .map_err(|error| {
                         format!("material `{material_id}` {field} `{texture_id}`: {error}")
                     })
-                    .map(|image| {
-                        let image = cache.insert(texture_id.clone(), image);
-                        (texture_id, TextureOrigin::Catalog, image)
-                    }),
-                None => Err(format!(
-                    "material `{material_id}` {field} `{texture_id}`: the asset root is missing"
-                )),
-            }
-        }
+                    .map(|(image, key)| (key, TextureOrigin::Catalog, image))
+            },
+        ),
         AuthoredTexture::Pack { path } => pack.map_or_else(
             || {
                 Err(format!(
@@ -778,7 +775,7 @@ fn resolve_authored_image(
 fn fall_back_to_missing(
     entry: &mut ResolvedMaterial,
     textures: &mut Vec<ResolvedTexture>,
-    missing: &Rc<RawImage>,
+    missing: &Arc<RawImage>,
     error: String,
 ) {
     let texture_index = intern_texture(
@@ -786,11 +783,11 @@ fn fall_back_to_missing(
         MISSING_TEXTURE_KEY.to_string(),
         TextureOrigin::Missing,
         crate::quality::TextureClass::Surface,
-        Rc::clone(missing),
+        Arc::clone(missing),
     );
     entry.texture_key = MISSING_TEXTURE_KEY.to_string();
     entry.origin = TextureOrigin::Missing;
-    entry.image = Some(Rc::clone(missing));
+    entry.image = Some(Arc::clone(missing));
     entry.texture_index = texture_index;
     entry.error = Some(error);
     entry.emission = MaterialEmission::NONE;
@@ -818,7 +815,7 @@ pub fn resolve_materials(
     cache: &mut TextureCache,
 ) -> MaterialTable {
     let mut table = MaterialTable::logical(level, catalog, pack);
-    let missing = Rc::new(missing_texture());
+    let missing = Arc::new(missing_texture());
     // Split the borrow so an entry can be updated while the shared texture list
     // is interned into.
     let MaterialTable {
@@ -851,7 +848,7 @@ struct ResolveContext<'a> {
 fn resolve_entry(
     entry: &mut ResolvedMaterial,
     textures: &mut Vec<ResolvedTexture>,
-    missing: &Rc<RawImage>,
+    missing: &Arc<RawImage>,
     context: &ResolveContext<'_>,
     cache: &mut TextureCache,
 ) {
@@ -863,7 +860,7 @@ fn resolve_entry(
     let origin = entry.origin;
     let key = entry.texture_key.clone();
 
-    let image = match decode_albedo(entry, origin, &key, context, cache) {
+    let (image, resolved_key) = match decode_albedo(entry, origin, &key, context, cache) {
         Ok(image) => image,
         Err(error) => {
             fall_back_to_missing(entry, textures, missing, error);
@@ -905,7 +902,7 @@ fn resolve_entry(
 
     let texture_index = intern_texture(
         textures,
-        key,
+        resolved_key,
         origin,
         crate::quality::TextureClass::Surface,
         image.clone(),
@@ -945,36 +942,31 @@ fn decode_albedo(
     key: &str,
     context: &ResolveContext<'_>,
     cache: &mut TextureCache,
-) -> Result<Rc<RawImage>, String> {
+) -> Result<(Arc<RawImage>, String), String> {
     let ResolveContext {
         catalog,
         pack,
         asset_root,
     } = *context;
     match origin {
-        TextureOrigin::Catalog => cache.get(key).map_or_else(
-            || match (asset_root, catalog.texture_path(key)) {
-                (Some(root), Some(path)) => match load_png_relative(root, path) {
-                    Ok(image) => Ok(cache.insert(key.to_string(), image)),
-                    Err(error) => Err(format!("material `{}` texture `{key}`: {error}", entry.id)),
-                },
-                (None, _) => Err(format!(
-                    "material `{}` texture `{key}`: the asset root is missing",
-                    entry.id
-                )),
-                (_, None) => Err(format!(
-                    "material `{}` texture `{key}`: no PNG path in the catalog",
-                    entry.id
-                )),
-            },
-            Ok,
-        ),
+        TextureOrigin::Catalog => match (asset_root, catalog.texture_path(key)) {
+            (Some(root), Some(path)) => cache
+                .load_relative(root, path, key)
+                .map_err(|error| format!("material `{}` texture `{key}`: {error}", entry.id)),
+            (None, _) => Err(format!(
+                "material `{}` texture `{key}`: the asset root is missing",
+                entry.id
+            )),
+            (_, None) => Err(format!(
+                "material `{}` texture `{key}`: no PNG path in the catalog",
+                entry.id
+            )),
+        },
         TextureOrigin::Pack => {
             let unresolved = key.starts_with("pack:unresolved:");
             match pack {
                 Some(pack) if !unresolved => pack
                     .decode_cached(cache, key)
-                    .map(|(image, _key)| image)
                     .map_err(|error| format!("material `{}`: {error}", entry.id)),
                 _ => Err(entry.error.clone().unwrap_or_else(|| {
                     format!("material `{}` has no resolvable pack texture", entry.id)
@@ -986,7 +978,7 @@ fn decode_albedo(
 }
 
 /// Builds the error of an entry that was already known to be missing.
-fn return_error(error: Option<&str>, id: &str) -> Result<Rc<RawImage>, String> {
+fn return_error(error: Option<&str>, id: &str) -> Result<(Arc<RawImage>, String), String> {
     Err(error.map_or_else(
         || format!("material `{id}` could not be resolved"),
         str::to_string,

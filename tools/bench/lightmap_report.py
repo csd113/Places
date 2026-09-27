@@ -65,13 +65,19 @@ NUMBER = r"(-?\d+(?:\.\d+)?)"
 
 
 def parse_logs(text: str) -> dict[str, object]:
-    """Extracts the numbers the developer log already prints.
-
-    A run loads the default level first and then the requested one, so every
-    pattern takes its *last* match: the numbers reported are the requested
-    level's, not the menu's first boot.
-    """
-    out: dict[str, object] = {"lines": {}}
+    """Report one committed world; never mix another level's timings and counts."""
+    commits = list(re.finditer(r"^\[loading\] committed (.+)$", text, re.MULTILINE))
+    level_id = commits[-1].group(1) if commits else None
+    # Only a matching dependency check BEFORE this commit belongs to it.
+    # A later cancelled preparation must not relabel the resident world's hit.
+    prefix = text[:commits[-1].start()] if commits else text
+    cache = re.findall(r"^\[loading\] prepared-cache (hit|miss) level=(.+)$", prefix, re.MULTILINE)
+    cache = [record for record in cache if level_id is None or record[1] == level_id]
+    if commits:
+        text = text[commits[-1].start():]
+    out: dict[str, object] = {"lines": {}, "level_id": level_id}
+    if cache:
+        out["prepared_cache"] = cache[-1][0]
     for line in text.splitlines():
         if not line.startswith("["):
             continue
@@ -85,14 +91,13 @@ def parse_logs(text: str) -> dict[str, object]:
                 found = match
         return found
 
-    joined = "\n".join(str(line) for line in out["lines"].get("level", []))
     m = last(r"(\d+) static vertices, (\d+) prop vertices", "level")
     if m:
         out["static_vertices"] = int(m.group(1))
         out["prop_vertices"] = int(m.group(2))
-    # Durations take the *largest* value in the run: the first load bakes, the
-    # PLACES_LEVEL load is the cache hit. Counts take the last, which is the
-    # requested level.
+    # All metrics belong to this one committed world. These renderer logs
+    # retain original build-phase costs on an in-process cache hit; lifecycle
+    # traces from loading.py separately measure actual request work and latency.
     durations: dict[int, list[float]] = {}
     for line in out["lines"].get("level", []):
         match = re.search(
@@ -105,7 +110,7 @@ def parse_logs(text: str) -> dict[str, object]:
     for key, slot in (("build_ms", 0), ("lighting_ms", 1), ("props_ms", 2), ("surfaces_ms", 3)):
         values = durations.get(slot)
         if values:
-            out[key] = max(values)
+            out[key] = values[-1]
 
     m = last(r"(\d+) static batch\(es\)", "spatial")
     if m:
@@ -114,9 +119,6 @@ def parse_logs(text: str) -> dict[str, object]:
     if m:
         out["prop_batches"] = int(m.group(1))
 
-    # The reported bake time is the largest in the run: a level loads once from
-    # the menu and once from PLACES_LEVEL, and the second load is a cache hit
-    # (0 ms). `--cold` removes the cache first so this is a real bake.
     for key, pattern in (
         ("lightmap_pages", r"(\d+) page\(s\)"),
         ("lightmap_charts", r"(\d+) chart\(s\)"),
@@ -131,7 +133,7 @@ def parse_logs(text: str) -> dict[str, object]:
             for match in re.finditer(pattern, str(line))
         ]
         if found:
-            value = max(found) if key == "lightmap_bake_ms" else found[-1]
+            value = found[-1]
             out[key] = int(value) if value.is_integer() else value
     if last(r"fallback: vertex lighting", "lightmaps"):
         out["lightmap_fallback"] = 1
@@ -149,7 +151,6 @@ def parse_logs(text: str) -> dict[str, object]:
         out["baseline_min"] = float(m.group(1))
         out["baseline_max"] = float(m.group(2))
         out["baseline_avg"] = float(m.group(3))
-    del joined
     return out
 
 
@@ -197,7 +198,18 @@ def stage_run_dir(directory: Path) -> None:
 def run_shot(binary: Path, workdir: Path, level: str, env: dict[str, str], out_png: Path,
              frames: int, extra: dict[str, str]) -> tuple[int, str]:
     """Renders one frame (or runs a short benchmark) and returns its log."""
-    env = dict(env)
+    workdir = workdir.resolve()
+    out_png = out_png.resolve()
+    # Preserve native display/library environment and the documented external
+    # graphics controls, but not an inherited level/capture/state request.
+    controls = {"PLACES_QUALITY", "PLACES_NO_BLOOM", "PLACES_NO_REFLECTIONS",
+                "PLACES_NO_LIGHTMAPS", "PLACES_VSYNC"}
+    inherited = {key: value for key, value in os.environ.items()
+                 if not key.startswith("PLACES_") or key in controls}
+    inherited.update(env)
+    env = inherited
+    env.setdefault("PLACES_VERBOSE", "1")
+    env.setdefault("PLACES_STATE_ROOT", str(workdir))
     env.setdefault("PLACES_ASSET_ROOT", str(workdir))
     env.setdefault("PLACES_LEVEL", level)
     env.setdefault("PLACES_BENCH", "1")
@@ -212,7 +224,15 @@ def run_shot(binary: Path, workdir: Path, level: str, env: dict[str, str], out_p
     else:
         env.setdefault("PLACES_CAPTURE", str(out_png))
     env.update(extra)
-    env.setdefault("PATH", os.environ.get("PATH", ""))
+    if frames > 1:
+        # Capture the last measured frame, after the requested warmup. A capture
+        # at frame one would terminate before the benchmark recorded samples.
+        measured = int(env["PLACES_BENCH_FRAMES"])
+        warmup = int(env["PLACES_BENCH_WARMUP"])
+        if measured < 1 or warmup < 0:
+            raise ValueError("benchmark frame count must be positive and warmup nonnegative")
+        env.setdefault("PLACES_CAPTURE", str(out_png))
+        env.setdefault("PLACES_CAPTURE_FRAME", str(measured + warmup))
     proc = subprocess.run(
         [str(binary)], cwd=workdir, env=env, capture_output=True, text=True, check=False
     )
@@ -235,14 +255,28 @@ def main() -> int:
                         help="working directory to run from (default: a staged dir "
                              "under target/agent-work/benchmarks)")
     args = parser.parse_args()
+    if args.frames < 1:
+        parser.error("--frames must be positive")
+    extra: dict[str, str] = {}
+    for item in args.env:
+        key, separator, value = item.partition("=")
+        if not separator or not key:
+            parser.error("--env requires KEY=VALUE")
+        extra[key] = value
 
     binary = Path(args.binary).resolve()
     if not binary.is_file():
         print(f"no such binary: {binary}", file=sys.stderr)
         return 2
-    out_dir = Path(args.out) if args.out else WORK / args.label
+    out_dir = (Path(args.out) if args.out else WORK / args.label).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
-    run_dir = Path(args.run_dir) if args.run_dir else WORK / f"run-{args.label}"
+    run_dir = (Path(args.run_dir) if args.run_dir else WORK / f"run-{args.label}").resolve()
+    if args.cold and "PLACES_STATE_ROOT" in extra:
+        requested_state = Path(extra["PLACES_STATE_ROOT"])
+        if not requested_state.is_absolute():
+            requested_state = run_dir / requested_state
+        if requested_state.resolve() != run_dir:
+            parser.error("--cold requires PLACES_STATE_ROOT to match --run-dir; external state is untouched")
     stage_run_dir(run_dir)
     if args.cold:
         cache = run_dir / "cache" / "lightmaps"
@@ -254,11 +288,6 @@ def main() -> int:
                     entry.rmdir()
             cache.rmdir()
             print(f"cleared {cache}")
-
-    extra: dict[str, str] = {}
-    for item in args.env:
-        key, _, value = item.partition("=")
-        extra[key] = value
 
     wanted = {name.strip() for name in args.shots.split(",") if name.strip()}
     report: dict[str, object] = {"label": args.label, "binary": str(binary), "shots": {}}
@@ -275,7 +304,23 @@ def main() -> int:
         parsed.update(parse_bench_csv(png.with_suffix(".csv")))
         (out_dir / f"{name}.log").write_text(log)
         report["shots"][name] = parsed
+        errors = []
         if code != 0:
+            errors.append(f"process exited with {code}")
+        required = ("build_ms", "static_vertices", "prop_vertices")
+        missing = [key for key in required if key not in parsed]
+        if missing:
+            errors.append("missing required telemetry: " + ", ".join(missing))
+        if "PLACES_LEVEL" not in extra and parsed.get("level_id") != level:
+            errors.append(f"expected committed level {level}, got {parsed.get('level_id')}")
+        # Explicit output overrides keep their CLI behavior. Verify default
+        # destinations, which are the files this report itself references.
+        if "PLACES_CAPTURE" not in extra and not parsed["png_bytes"]:
+            errors.append("capture PNG was not produced")
+        if args.frames > 1 and "PLACES_BENCH_OUT" not in extra and not parsed.get("frames"):
+            errors.append("benchmark CSV contained no measured frames")
+        parsed["errors"] = errors
+        if errors:
             failures += 1
         print(f"{name:22} exit={code} build={parsed.get('build_ms', '?')}ms "
               f"static={parsed.get('static_vertices', '?')} v "

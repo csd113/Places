@@ -290,7 +290,7 @@ fn assets_are_shared_between_instances() {
         .resolve("environment/office/props/models/chair.glb")
         .expect("chair loads");
     assert!(
-        Rc::ptr_eq(&first, &second),
+        Arc::ptr_eq(&first, &second),
         "identical models must share one decoded copy"
     );
     assert_eq!(assets.stats().models_loaded, 1);
@@ -419,4 +419,188 @@ fn a_pathological_texture_pack_is_still_rejected() {
         !pack_texture_budget_exceeded(PROP_TEXTURE_PACK_BUDGET_BYTES),
         "the budget itself must be accepted"
     );
+}
+// These tiny GLBs contain geometry only.
+fn refresh_triangle_glb(extent: f32) -> Vec<u8> {
+    let mut binary = Vec::new();
+    for point in [[0.0_f32, 0.0, 0.0], [extent, 0.0, 0.0], [0.0, 1.0, 0.0]] {
+        for coordinate in point {
+            binary.extend_from_slice(&coordinate.to_le_bytes());
+        }
+    }
+    for uv in [[0.0_f32, 0.0], [1.0, 0.0], [0.0, 1.0]] {
+        for coordinate in uv {
+            binary.extend_from_slice(&coordinate.to_le_bytes());
+        }
+    }
+    for index in [0_u16, 1, 2] {
+        binary.extend_from_slice(&index.to_le_bytes());
+    }
+    while !binary.len().is_multiple_of(4) {
+        binary.push(0);
+    }
+    let mut json = br#"{"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],"nodes":[{"mesh":0}],"meshes":[{"primitives":[{"attributes":{"POSITION":0,"TEXCOORD_0":1},"indices":2}]}],"buffers":[{"byteLength":68}],"bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":36},{"buffer":0,"byteOffset":36,"byteLength":24},{"buffer":0,"byteOffset":60,"byteLength":6}],"accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},{"bufferView":1,"componentType":5126,"count":3,"type":"VEC2"},{"bufferView":2,"componentType":5123,"count":3,"type":"SCALAR"}]}"#.to_vec();
+    while !json.len().is_multiple_of(4) {
+        json.push(b' ');
+    }
+    let total = 28_usize
+        .saturating_add(json.len())
+        .saturating_add(binary.len());
+    let mut output = Vec::new();
+    for word in [
+        0x4654_6c67_u32,
+        2,
+        u32::try_from(total).expect("tiny GLB length"),
+        u32::try_from(json.len()).expect("tiny JSON length"),
+        0x4e4f_534a,
+    ] {
+        output.extend_from_slice(&word.to_le_bytes());
+    }
+    output.extend_from_slice(&json);
+    output.extend_from_slice(
+        &u32::try_from(binary.len())
+            .expect("tiny binary length")
+            .to_le_bytes(),
+    );
+    output.extend_from_slice(&0x004e_4942_u32.to_le_bytes());
+    output.extend_from_slice(&binary);
+    output
+}
+
+#[test]
+fn refreshed_prop_inputs_preserve_shared_models_and_replace_changed_or_restored_files() {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    struct Cleanup(std::path::PathBuf);
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    let scratch = Cleanup(std::env::temp_dir().join(format!(
+        "places-prop-refresh-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    )));
+    std::fs::create_dir(&scratch.0).expect("isolated fixture directory");
+    let path = scratch.0.join("used.glb");
+    let original = refresh_triangle_glb(1.0);
+    let changed = refresh_triangle_glb(2.0);
+    assert_eq!(original.len(), changed.len());
+    std::fs::write(&path, &original).expect("write tiny GLB");
+    let modified = std::fs::metadata(&path)
+        .expect("metadata")
+        .modified()
+        .expect("mtime");
+    let paths = ["used.glb".to_string()];
+    let mut assets = PropAssets::with_root(&scratch.0);
+    assets.refresh_inputs(&paths);
+    let first = assets.resolve("used.glb").expect("parse first triangle");
+    assert_eq!(first.model.triangles, 1);
+    assets.refresh_inputs(&paths);
+    let hit = assets
+        .resolve("used.glb")
+        .expect("reuse unchanged triangle");
+    assert!(Arc::ptr_eq(&first, &hit));
+
+    std::fs::write(
+        scratch.0.join("unrelated.glb"),
+        b"different unrelated bytes",
+    )
+    .expect("unrelated edit");
+    assets.refresh_inputs(&paths);
+    assert!(Arc::ptr_eq(
+        &first,
+        &assets.resolve("used.glb").expect("unchanged used model")
+    ));
+
+    std::fs::write(&path, &changed).expect("edit used triangle");
+    std::fs::File::options()
+        .write(true)
+        .open(&path)
+        .expect("file")
+        .set_times(std::fs::FileTimes::new().set_modified(modified))
+        .expect("restore mtime");
+    assert_eq!(
+        std::fs::metadata(&path)
+            .expect("metadata")
+            .modified()
+            .expect("mtime"),
+        modified
+    );
+    assets.refresh_inputs(&paths);
+    let second = assets.resolve("used.glb").expect("parse modified triangle");
+    assert!(!Arc::ptr_eq(&first, &second));
+    assert!(
+        first
+            .model
+            .vertices
+            .iter()
+            .any(|vertex| vertex.pos[0].to_bits() == 1.0_f32.to_bits())
+    );
+    assert!(
+        second
+            .model
+            .vertices
+            .iter()
+            .any(|vertex| vertex.pos[0].to_bits() == 2.0_f32.to_bits())
+    );
+    assert!(
+        !first
+            .model
+            .vertices
+            .iter()
+            .any(|vertex| vertex.pos[0].to_bits() == 2.0_f32.to_bits()),
+        "live old model immutable"
+    );
+
+    std::fs::remove_file(&path).expect("remove used file");
+    assets.refresh_inputs(&paths);
+    assert!(
+        assets.resolve("used.glb").is_err(),
+        "missing file must not return stale parsed asset"
+    );
+    std::fs::write(&path, &original).expect("restore used file");
+    assets.refresh_inputs(&paths);
+    let restored = assets
+        .resolve("used.glb")
+        .expect("recover previously failed input");
+    assert!(!Arc::ptr_eq(&second, &restored));
+    assert!(
+        restored
+            .model
+            .vertices
+            .iter()
+            .any(|vertex| vertex.pos[0].to_bits() == 1.0_f32.to_bits())
+    );
+    assert!(
+        !restored
+            .model
+            .vertices
+            .iter()
+            .any(|vertex| vertex.pos[0].to_bits() == 2.0_f32.to_bits())
+    );
+}
+
+#[test]
+fn request_retention_removes_unrelated_inputs_and_failures() {
+    let mut assets = PropAssets::default();
+    for path in ["used", "old"] {
+        assets
+            .inputs
+            .insert(path.to_string(), Err("missing".to_string()));
+        assets
+            .models
+            .insert(path.to_string(), Err("missing".to_string()));
+        assets.reported_failures.push(path.to_string());
+        assets.reported_budget_warnings.push(path.to_string());
+    }
+    assets.retain_request_paths(&["used".to_string()]);
+    assert_eq!(assets.inputs.len(), 1);
+    assert!(assets.inputs.contains_key("used"));
+    assert_eq!(assets.models.len(), 1);
+    assert_eq!(assets.reported_failures, ["used"]);
+    assert_eq!(assets.reported_budget_warnings, ["used"]);
+    assets.retain_request_paths(&[]);
+    assert!(assets.inputs.is_empty());
+    assert!(assets.models.is_empty());
 }

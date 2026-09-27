@@ -2,7 +2,7 @@
 """Compare preserved working-tree tooling with serial/parallel updated CLIs.
 
 Requires a source+assets snapshot made BEFORE edits. Runs only isolated copies.
-Usage: python3 tools/bench/check_tool_parallelism.py --baseline target/run09/baseline
+Usage: python3 tools/bench/check_tool_parallelism.py --baseline /path/to/preserved-baseline
 Timings include process startup, serialization, merging and output writes.
 """
 import argparse

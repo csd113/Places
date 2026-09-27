@@ -42,7 +42,7 @@ mod tests;
 
 pub use atlas::{ChartAllocator, LightmapAtlas, LightmapPage, page_png_bytes, write_page_png};
 pub use cache::{LIGHTMAP_FORMAT_VERSION, LightmapCache, content_key, content_key_with_extra};
-pub use fill::fill_chart;
+pub use fill::{fill_chart, fill_chart_cancellable};
 pub use plan::{LevelLightmaps, LightmapMode, LightmapPlan, LightmapStats};
 
 /// Why a lightmap build did not produce a usable atlas.

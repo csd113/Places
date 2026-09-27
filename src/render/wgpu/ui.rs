@@ -1,13 +1,11 @@
 //! Renderer-owned UI: the 480x272 HUD pass.
 //!
-//! The port of the reference renderer's `Renderer::render_ui`: the same
-//! 480x272 reference space, the
-//! same world vertex layout, the same generated font atlas, the same centred
-//! uniform-scale viewport, the same straight-alpha blend and no depth test.
+//! The HUD uses a 480x272 reference space, shared world vertex layout,
+//! font atlas, centred uniform-scale viewport, straight-alpha blend
+//! and no depth test.
 //!
-//! The reference draws the HUD with its World program reset to a neutral
-//! material state; this module is that state made explicit instead of
-//! inherited: one pipeline whose fragment stage is exactly
+//! A dedicated pipeline keeps the HUD's neutral material state independent
+//! of the scene passes. Its fragment stage is exactly
 //! `tex_color * v_color` in raw display space (the presented target is raw; the
 //! surface-facing fallback entry point converts once with `srgb_to_linear`),
 //! one font texture uploaded once, and one draw call per submission. The UI vertex list is the

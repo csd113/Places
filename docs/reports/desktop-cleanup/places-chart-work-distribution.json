@@ -1,0 +1,188 @@
+[
+  {
+    "level": "model_zoo-0-state",
+    "charts": 169,
+    "texels": 1610551,
+    "stride": [
+      617155,
+      211516,
+      781880
+    ],
+    "greedy": [
+      516483,
+      577660,
+      516408
+    ],
+    "largest": [
+      538072,
+      438163,
+      72072,
+      65920,
+      65920,
+      53280,
+      53280,
+      53280
+    ],
+    "stride_max_over_ideal": 1.456,
+    "analytical_bounded_schedule_pixel_cost": {
+      "stride": 1153739,
+      "greedy": 1337243,
+      "caveat": "Analytical model only: unit texel cost, instantaneous consumer, one queued and one active chart per producer; not a measured time."
+    }
+  },
+  {
+    "level": "menu-0-state",
+    "charts": 1060,
+    "texels": 1074844,
+    "stride": [
+      308565,
+      399778,
+      366501
+    ],
+    "greedy": [
+      358429,
+      357920,
+      358495
+    ],
+    "largest": [
+      79872,
+      28628,
+      28016,
+      20480,
+      20480,
+      19008,
+      19008,
+      18432
+    ],
+    "stride_max_over_ideal": 1.116,
+    "analytical_bounded_schedule_pixel_cost": {
+      "stride": 509816,
+      "greedy": 548046,
+      "caveat": "Analytical model only: unit texel cost, instantaneous consumer, one queued and one active chart per producer; not a measured time."
+    }
+  },
+  {
+    "level": "capacity_sparse-0-state",
+    "charts": 84,
+    "texels": 1835080,
+    "stride": [
+      626440,
+      654592,
+      554048
+    ],
+    "greedy": [
+      612370,
+      612370,
+      610340
+    ],
+    "largest": [
+      133120,
+      133120,
+      133120,
+      133120,
+      133120,
+      133120,
+      133120,
+      133120
+    ],
+    "stride_max_over_ideal": 1.07,
+    "analytical_bounded_schedule_pixel_cost": {
+      "stride": 729288,
+      "greedy": 789232,
+      "caveat": "Analytical model only: unit texel cost, instantaneous consumer, one queued and one active chart per producer; not a measured time."
+    }
+  },
+  {
+    "level": "places_demo-0-state",
+    "charts": 1060,
+    "texels": 1074844,
+    "stride": [
+      308565,
+      399778,
+      366501
+    ],
+    "greedy": [
+      358429,
+      357920,
+      358495
+    ],
+    "largest": [
+      79872,
+      28628,
+      28016,
+      20480,
+      20480,
+      19008,
+      19008,
+      18432
+    ],
+    "stride_max_over_ideal": 1.116,
+    "analytical_bounded_schedule_pixel_cost": {
+      "stride": 509816,
+      "greedy": 548046,
+      "caveat": "Analytical model only: unit texel cost, instantaneous consumer, one queued and one active chart per producer; not a measured time."
+    }
+  },
+  {
+    "level": "level0_pit-0-state",
+    "charts": 1200,
+    "texels": 3215492,
+    "stride": [
+      841792,
+      1231628,
+      1142072
+    ],
+    "greedy": [
+      1071845,
+      1071824,
+      1071823
+    ],
+    "largest": [
+      71680,
+      71576,
+      71576,
+      71576,
+      71576,
+      69920,
+      69920,
+      69920
+    ],
+    "stride_max_over_ideal": 1.149,
+    "analytical_bounded_schedule_pixel_cost": {
+      "stride": 1267958,
+      "greedy": 1315370,
+      "caveat": "Analytical model only: unit texel cost, instantaneous consumer, one queued and one active chart per producer; not a measured time."
+    }
+  },
+  {
+    "level": "capacity_dense-0-state",
+    "charts": 487,
+    "texels": 3108428,
+    "stride": [
+      1149674,
+      555934,
+      1402820
+    ],
+    "greedy": [
+      993024,
+      1122436,
+      992968
+    ],
+    "largest": [
+      908544,
+      681408,
+      200704,
+      181888,
+      136416,
+      77448,
+      77448,
+      77448
+    ],
+    "stride_max_over_ideal": 1.354,
+    "analytical_bounded_schedule_pixel_cost": {
+      "stride": 1903706,
+      "greedy": 2174037,
+      "caveat": "Analytical model only: unit texel cost, instantaneous consumer, one queued and one active chart per producer; not a measured time."
+    }
+  }
+]

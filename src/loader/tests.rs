@@ -959,7 +959,7 @@ fn test_extract_zip_shares_texture_blobs_between_aliases() {
     let bare = pack.textures.get("wall.png").expect("bare name alias");
     assert_eq!(&**full, b"PAYLOAD");
     // Aliases must reference the same physical allocation.
-    assert!(Rc::ptr_eq(full, bare));
+    assert!(Arc::ptr_eq(full, bare));
 }
 
 fn level_with_opening_json(opening_json: &str) -> LevelDef {
@@ -1906,7 +1906,11 @@ fn test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog() {
             sheet.kind
         );
         assert!(
-            sheet.key.to_ascii_lowercase().ends_with(".png") && !sheet.key.starts_with("assets/"),
+            sheet
+                .key
+                .split_once("#png-v1-")
+                .is_some_and(|(source, _)| source.to_ascii_lowercase().ends_with(".png")
+                    && !source.starts_with("assets/")),
             "{:?}: the key is the catalog-relative PNG path, found `{}`",
             sheet.kind,
             sheet.key

@@ -15,7 +15,7 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use super::*;
 use crate::assets::{
@@ -182,7 +182,7 @@ fn cache_decodes_each_key_once_and_reuses_the_buffer() {
     assert!(cache.get("core:tex_a").is_none());
     let first = cache.insert("core:tex_a", RawImage::new(1, 1, vec![1, 2, 3, 4]));
     let second = cache.get("core:tex_a").expect("cached");
-    assert!(Rc::ptr_eq(&first, &second), "the same buffer is shared");
+    assert!(Arc::ptr_eq(&first, &second), "the same buffer is shared");
     assert_eq!(cache.decoded_count(), 1);
     assert_eq!(cache.len(), 1);
 }
@@ -408,8 +408,8 @@ fn pack_materials_parse_both_shapes_and_decode_from_pack_bytes() {
     ))
     .expect("encode");
     let mut textures = HashMap::new();
-    textures.insert("textures/wall.png".to_string(), Rc::from(png.clone()));
-    textures.insert("wall.png".to_string(), Rc::<[u8]>::from(png.clone()));
+    textures.insert("textures/wall.png".to_string(), Arc::from(png.clone()));
+    textures.insert("wall.png".to_string(), Arc::<[u8]>::from(png.clone()));
     let json = r#"{
         "materials": {
             "pack:wall": { "texture": "textures/wall.png", "tile_metres": 3.0,
@@ -672,9 +672,12 @@ fn emissive_catalog_material_resolves_colour_intensity_and_shared_mask() {
         "the mask is a separate texture"
     );
     let mask = &table.textures()[mask_index as usize];
-    assert_eq!(mask.key, "core:tex_mask");
+    assert_eq!(
+        mask.key.split_once("#png-v1-").map(|(source, _)| source),
+        Some("core:tex_mask")
+    );
     assert_eq!(mask.origin, TextureOrigin::Catalog);
-    assert!(Rc::ptr_eq(
+    assert!(Arc::ptr_eq(
         &mask.image,
         &cache.get("core:tex_mask").expect("the mask decoded once")
     ));
@@ -757,9 +760,9 @@ fn missing_emissive_mask_falls_back_to_the_diagnostic_texture() {
 fn pack_material_emission_resolves_pack_local_and_catalog_masks() {
     let albedo = encode_png(&RawImage::new(2, 2, vec![1; 16])).expect("encode albedo");
     let mask = encode_png(&RawImage::new(1, 1, vec![10, 20, 30, 255])).expect("encode mask");
-    let mut textures: HashMap<String, Rc<[u8]>> = HashMap::new();
-    textures.insert("textures/wall.png".to_string(), Rc::from(albedo));
-    textures.insert("textures/glow_mask.png".to_string(), Rc::from(mask));
+    let mut textures: HashMap<String, Arc<[u8]>> = HashMap::new();
+    textures.insert("textures/wall.png".to_string(), Arc::from(albedo));
+    textures.insert("textures/glow_mask.png".to_string(), Arc::from(mask));
     let json = r#"{
         "materials": {
             "pack:glow": { "texture": "textures/wall.png", "emissive": [0.5, 0.25, 0.0],
@@ -784,8 +787,11 @@ fn pack_material_emission_resolves_pack_local_and_catalog_masks() {
     assert_eq!(glow.emission.effective_color(), [1.5, 0.75, 0.0]);
     let local_mask = glow.emission.mask.expect("pack-local mask");
     assert_eq!(
-        table.textures()[local_mask as usize].key,
-        "pack:unit_pack:textures/glow_mask.png"
+        table.textures()[local_mask as usize]
+            .key
+            .split_once("#png-v1-")
+            .map(|(source, _)| source),
+        Some("pack:unit_pack:textures/glow_mask.png")
     );
     assert_eq!(
         table.textures()[local_mask as usize].origin,
@@ -796,8 +802,11 @@ fn pack_material_emission_resolves_pack_local_and_catalog_masks() {
     assert_eq!(builtin.emission.intensity, DEFAULT_EMISSION_INTENSITY);
     let catalog_mask = builtin.emission.mask.expect("catalog mask");
     assert_eq!(
-        table.textures()[catalog_mask as usize].key,
-        "core:tex_ceiling_panel_01"
+        table.textures()[catalog_mask as usize]
+            .key
+            .split_once("#png-v1-")
+            .map(|(source, _)| source),
+        Some("core:tex_ceiling_panel_01")
     );
     assert_eq!(
         table.textures()[catalog_mask as usize].origin,
@@ -906,7 +915,10 @@ fn a_normal_map_resolves_into_the_texture_table_at_its_authored_strength() {
     let normal = gloss.response.normal.expect("a normal texture index");
     assert_ne!(normal, gloss.texture_index, "the map is its own texture");
     let texture = &table.textures()[normal as usize];
-    assert_eq!(texture.key, "core:tex_normal");
+    assert_eq!(
+        texture.key.split_once("#png-v1-").map(|(source, _)| source),
+        Some("core:tex_normal")
+    );
     assert_eq!(texture.origin, TextureOrigin::Catalog);
 
     // A sheen without a normal map is a sheen only.
@@ -1242,9 +1254,9 @@ fn a_normal_map_that_cannot_resolve_degrades_the_whole_material() {
 fn pack_materials_may_author_response_and_alpha_fields() {
     let albedo = encode_png(&RawImage::new(2, 2, vec![9; 16])).expect("encode albedo");
     let normal = encode_png(&RawImage::new(1, 1, vec![128, 128, 255, 255])).expect("encode normal");
-    let mut textures: HashMap<String, Rc<[u8]>> = HashMap::new();
-    textures.insert("textures/wall.png".to_string(), Rc::from(albedo));
-    textures.insert("textures/bump.png".to_string(), Rc::from(normal));
+    let mut textures: HashMap<String, Arc<[u8]>> = HashMap::new();
+    textures.insert("textures/wall.png".to_string(), Arc::from(albedo));
+    textures.insert("textures/bump.png".to_string(), Arc::from(normal));
     let json = r#"{
         "materials": {
             "pack:glass": { "texture": "textures/wall.png", "alpha_mode": "blend",
@@ -1266,8 +1278,11 @@ fn pack_materials_may_author_response_and_alpha_fields() {
     assert!(glass.response.has_sheen());
     let normal = glass.response.normal.expect("pack normal index");
     assert_eq!(
-        table.textures()[normal as usize].key,
-        "pack:response_pack:textures/bump.png"
+        table.textures()[normal as usize]
+            .key
+            .split_once("#png-v1-")
+            .map(|(source, _)| source),
+        Some("pack:response_pack:textures/bump.png")
     );
     assert_eq!(
         table.textures()[normal as usize].origin,

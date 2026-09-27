@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::{Read, Seek};
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 use zip::ZipArchive;
 
 use glam::Vec3;
@@ -14,7 +14,7 @@ use crate::level::{
     LevelSurfaces, MAX_LEVEL_FLOOR_AREA_M2, MAX_LEVEL_VERTICES, WALL_SLICE_EPS, WallAxis, WallDef,
     wall_solid_slices_profiled,
 };
-use crate::materials::{MaterialTable, PackMaterials, load_png_relative, resolve_materials};
+use crate::materials::{MaterialTable, PackMaterials, resolve_materials};
 
 /// Re-exported so the rest of the crate keeps its historical import paths.
 pub use crate::materials::{RawImage, TextureCache, decode_png, encode_png, parse_materials_json};
@@ -90,6 +90,7 @@ pub struct LevelEntry {
 /// drawing the shared untextured white sheet.
 #[derive(Clone, Debug)]
 pub struct LoadedLevel {
+    pub catalog: Arc<PropCatalog>,
     pub level: LevelDef,
     pub materials: MaterialTable,
     pub light_sheets: Vec<ResolvedFixtureSheet>,
@@ -112,7 +113,7 @@ pub struct ResolvedFixtureSheet {
     /// Where the sheet came from; decides its GPU lifetime.
     pub origin: crate::materials::TextureOrigin,
     /// Decoded pixels, shared with the session cache.
-    pub image: Rc<RawImage>,
+    pub image: Arc<RawImage>,
 }
 
 /// Raw contents extracted safely from a ZIP level pack.
@@ -124,7 +125,7 @@ pub struct ResolvedFixtureSheet {
 pub struct RawPackContents {
     pub level_json: String,
     pub materials_json: Option<String>,
-    pub textures: HashMap<String, Rc<[u8]>>,
+    pub textures: HashMap<String, Arc<[u8]>>,
 }
 
 /// Reads and parses only the `level.json` entry from a ZIP pack without
@@ -245,12 +246,12 @@ pub fn extract_zip<R: Read + Seek>(reader: R) -> Result<RawPackContents, String>
                 .is_some_and(|extension| extension.eq_ignore_ascii_case("png"))
         {
             // Share one physical buffer across every alias key.
-            let blob: Rc<[u8]> = Rc::from(bytes);
-            pack.textures.insert(normalized.clone(), Rc::clone(&blob));
+            let blob: Arc<[u8]> = Arc::from(bytes);
+            pack.textures.insert(normalized.clone(), Arc::clone(&blob));
             if let Some(tex_sub) = normalized.split("textures/").nth(1) {
                 pack.textures
-                    .insert(format!("textures/{tex_sub}"), Rc::clone(&blob));
-                pack.textures.insert(tex_sub.to_string(), Rc::clone(&blob));
+                    .insert(format!("textures/{tex_sub}"), Arc::clone(&blob));
+                pack.textures.insert(tex_sub.to_string(), Arc::clone(&blob));
             }
             pack.textures.insert(file_name.to_string(), blob);
         }
@@ -2837,25 +2838,17 @@ fn resolve_fixture_sheet(
     let Some(path) = catalog.fixture_sheet_path(fixture_id) else {
         return Ok(None);
     };
-    if let Some(image) = cache.get(path) {
-        return Ok(Some(ResolvedFixtureSheet {
-            kind,
-            key: path.to_string(),
-            origin: crate::materials::TextureOrigin::Catalog,
-            image,
-        }));
-    }
     let Some(root) = asset_root else {
         return Err(format!(
             "fixture `{fixture_id}` sheet `{path}`: the asset root is missing"
         ));
     };
-    let image = load_png_relative(root, path)
+    let (image, key) = cache
+        .load_relative(root, path, path)
         .map_err(|error| format!("fixture `{fixture_id}` sheet `{path}`: {error}"))?;
-    let image = cache.insert(path.to_string(), image);
     Ok(Some(ResolvedFixtureSheet {
         kind,
-        key: path.to_string(),
+        key,
         origin: crate::materials::TextureOrigin::Catalog,
         image,
     }))
@@ -3287,6 +3280,11 @@ impl LevelManager {
         &self.entries
     }
 
+    /// Refreshes authoring metadata before a new explicit disk load.
+    pub(crate) fn refresh_catalog(&mut self) {
+        self.prop_catalog = PropCatalog::load_default();
+    }
+
     /// Prop catalog used to resolve placed props.
     #[must_use]
     pub const fn prop_catalog(&self) -> &PropCatalog {
@@ -3431,6 +3429,7 @@ impl LevelManager {
             let materials = self.resolve_level_materials(&level, None);
             let light_sheets = self.resolve_level_fixture_sheets(&level, None);
             Ok(LoadedLevel {
+                catalog: Arc::new(self.prop_catalog.clone()),
                 level,
                 materials,
                 light_sheets,
@@ -3454,6 +3453,7 @@ impl LevelManager {
     ) -> MaterialTable {
         let root = crate::assets::resolve_asset_root();
         let mut cache = self.texture_cache.borrow_mut();
+        cache.begin_level();
         let table = resolve_materials(
             level,
             self.prop_catalog.assets(),
@@ -3515,6 +3515,7 @@ impl LevelManager {
                 let light_sheets = self.resolve_level_fixture_sheets(&level, None);
 
                 Ok(LoadedLevel {
+                    catalog: Arc::new(self.prop_catalog.clone()),
                     level,
                     materials,
                     light_sheets,
@@ -3530,6 +3531,7 @@ impl LevelManager {
                 let light_sheets = self.resolve_level_fixture_sheets(&level, None);
 
                 Ok(LoadedLevel {
+                    catalog: Arc::new(self.prop_catalog.clone()),
                     level,
                     materials,
                     light_sheets,
@@ -3558,6 +3560,7 @@ impl LevelManager {
                 let light_sheets = self.resolve_level_fixture_sheets(&level, Some(&pack_materials));
 
                 Ok(LoadedLevel {
+                    catalog: Arc::new(self.prop_catalog.clone()),
                     level,
                     materials,
                     light_sheets,

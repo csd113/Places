@@ -232,7 +232,10 @@ impl WgpuCharacters {
         }
         let mut textures: Vec<Arc<GpuTexture>> = Vec::with_capacity(model.textures.len());
         for (index, image) in model.textures.iter().enumerate() {
-            let logical = format!("character:{}:{}", asset.model_path, index);
+            let logical = super::texture::image_content_key(
+                &format!("character:{}:{index}", asset.model_path),
+                image,
+            );
             let (outcome, texture) = ctx.cache.get_or_upload_fitted(
                 ctx.device,
                 ctx.queue,

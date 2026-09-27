@@ -158,7 +158,7 @@ fn normalized3(value: [f32; 3]) -> [f32; 3] {
     [value[0] * inverse, value[1] * inverse, value[2] * inverse]
 }
 
-/// The normal of a quad wound `p0 -> p1 -> p2`.
+/// The normal of the first non-degenerate triangle in the quad's winding.
 fn quad_normal(points: [[f32; 3]; 4]) -> [f32; 3] {
     let edge_a = [
         points[1][0] - points[0][0],
@@ -170,7 +170,15 @@ fn quad_normal(points: [[f32; 3]; 4]) -> [f32; 3] {
         points[2][1] - points[0][1],
         points[2][2] - points[0][2],
     ];
-    cross(edge_a, edge_b)
+    let normal = cross(edge_a, edge_b);
+    // A falling ramp can repeat p1 == p2 where its upper edge meets the
+    // bottom. Orient the surviving p0-p2-p3 triangle before folding the face;
+    // a zero first triangle must not mask an inward winding.
+    if normal.iter().all(|component| component.abs() <= 0.0) {
+        cross(edge_b, sub3(points[3], points[0]))
+    } else {
+        normal
+    }
 }
 
 /// Reverses a quad's winding when it points against `expected`, carrying every
@@ -343,7 +351,7 @@ fn horizontal_quad(
     let (b0, b1) = across;
     let points: [[f32; 3]; 4] = match axis {
         WallAxis::X => [[a0, y, b1], [a1, y, b1], [a1, y, b0], [a0, y, b0]],
-        WallAxis::Z => [[b1, y, a0], [b1, y, a1], [b0, y, a1], [b0, y, a0]],
+        WallAxis::Z => [[b1, y, a0], [b0, y, a0], [b0, y, a1], [b1, y, a1]],
     };
     let uvs = points.map(uv);
     (points, uvs)
@@ -1152,9 +1160,12 @@ fn emit_box_caps(
         );
     }
     if let Some(bottom) = keys.bottom {
-        let (points, uv) = horizontal_quad(WallAxis::X, (x0, x1), (z0, z1), y0, |point| {
+        let (mut points, mut uv) = horizontal_quad(WallAxis::X, (x0, x1), (z0, z1), y0, |point| {
             tiled_uv(point[0], point[2], tile)
         });
+        // The helper faces upward; reverse the underside and its attached UVs.
+        points.swap(1, 3);
+        uv.swap(1, 3);
         emit_face(
             context,
             buckets,
@@ -3022,9 +3033,37 @@ fn emit_baseboard(
         );
     }
 
-    // The cap: each remaining convex piece as its own fan (a corner trim leaves
-    // a triangle or a quad; a both-ends trim can leave two pieces).
+    // Keep a parallelogram cap in one chart. Triangulating it creates unused
+    // chart regions beyond each triangle and introduces a diagonal lighting
+    // interpolation boundary across an otherwise continuous strip.
+    // Irregular clipped pieces still need the triangle fan below.
     for piece in &cap_pieces {
+        if let [p0, p1, p2, p3] = piece.as_slice() {
+            let parallelogram = p0
+                .iter()
+                .zip(p1)
+                .zip(p2)
+                .zip(p3)
+                .all(|(((&a, &b), &c), &d)| ((b - a) + (d - c)).abs() <= 1.0e-6);
+            if parallelogram {
+                let locals = [*p0, *p1, *p2, *p3].map(|[along, across]| [along, across, top]);
+                let uv = locals.map(|[along, across, _]| tiled_uv(along, across, tile));
+                emit_local_face(
+                    context,
+                    buckets,
+                    scratch,
+                    key,
+                    PatchKind::Wall,
+                    &frame,
+                    locals,
+                    uv,
+                    [0.0, 1.0, 0.0],
+                    false,
+                    true,
+                );
+                continue;
+            }
+        }
         let mut iter = piece.iter();
         let Some(first) = iter.next().copied() else {
             continue;

@@ -2,13 +2,13 @@
 //!
 //! Everything here is about bytes: turning a PNG on disk into an 8-bit RGBA
 //! buffer, drawing the one diagnostic pattern every resolution failure shares,
-//! and decoding each logical texture exactly once per session.
+//! and sharing decoded content within a level and bounded session retention.
 
 use std::collections::HashMap;
 use std::fs;
 use std::io::Cursor;
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::assets::MAX_TEXTURE_DIMENSION;
 
@@ -299,16 +299,17 @@ pub fn missing_texture() -> RawImage {
     RawImage::new(size, size, rgba)
 }
 
-/// Session cache of decoded images, keyed by logical texture id.
+/// Session cache of decoded images, keyed by encoded content and source identity.
 ///
-/// The cache is what guarantees "one decode per texture per session": a level
-/// that uses a texture in twenty rooms decodes it once, and switching back to a
-/// level never touches the disk again. GPU textures are owned separately by the
+/// The cache shares a decode across a level and retains bounded prior images: a level
+/// that uses a texture in twenty rooms decodes unchanged bytes once. Resolution
+/// rereads files to detect content changes without relying on timestamps. GPU textures are owned separately by the
 /// renderer, which uploads each distinct entry once per level.
 #[derive(Default, Debug)]
 pub struct TextureCache {
-    images: HashMap<String, Rc<RawImage>>,
+    images: HashMap<String, Arc<RawImage>>,
     decodes: usize,
+    revisions: HashMap<String, String>,
 }
 
 impl TextureCache {
@@ -317,18 +318,100 @@ impl TextureCache {
         Self::default()
     }
 
+    /// Bounds optional retention before a new level resolves its images.
+    /// No eviction happens during that level's material/fixture resolution.
+    pub fn begin_level(&mut self) {
+        self.trim_retained(256, 256 * 1024 * 1024);
+    }
+
+    fn trim_retained(&mut self, max_entries: usize, max_bytes: usize) {
+        let mut bytes = self.images.values().fold(0_usize, |total, image| {
+            total.saturating_add(image.rgba.capacity())
+        });
+        if self.images.len() <= max_entries && bytes <= max_bytes {
+            return;
+        }
+        // Retire the largest optional allocations first, with stable ties.
+        let mut candidates: Vec<_> = self
+            .images
+            .iter()
+            .map(|(key, image)| (key.clone(), image.rgba.capacity()))
+            .collect();
+        candidates.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+        for (key, size) in candidates {
+            if self.images.len() <= max_entries && bytes <= max_bytes {
+                break;
+            }
+            self.images.remove(&key);
+            bytes = bytes.saturating_sub(size);
+        }
+        self.revisions
+            .retain(|_, key| self.images.contains_key(key));
+    }
+
     /// Inserts a freshly decoded image, returning the shared handle.
-    pub fn insert(&mut self, key: impl Into<String>, image: RawImage) -> Rc<RawImage> {
-        let image = Rc::new(image);
-        self.images.insert(key.into(), Rc::clone(&image));
+    pub fn insert(&mut self, key: impl Into<String>, image: RawImage) -> Arc<RawImage> {
+        let image = Arc::new(image);
+        self.images.insert(key.into(), Arc::clone(&image));
         self.decodes = self.decodes.saturating_add(1);
         image
     }
 
     /// The cached image for a key, if it was decoded before.
     #[must_use]
-    pub fn get(&self, key: &str) -> Option<Rc<RawImage>> {
-        self.images.get(key).map(Rc::clone)
+    pub fn get(&self, key: &str) -> Option<Arc<RawImage>> {
+        self.images
+            .get(key)
+            .or_else(|| {
+                self.revisions
+                    .get(key)
+                    .and_then(|current| self.images.get(current))
+            })
+            .map(Arc::clone)
+    }
+
+    /// Reads the current encoded bytes before consulting the decoded cache.
+    /// Resolution calls this per referenced image, never per rendered instance.
+    /// # Errors
+    /// Returns a read or PNG decode error, without substituting an older image.
+    pub fn load_relative(
+        &mut self,
+        root: &Path,
+        relative: &str,
+        logical: &str,
+    ) -> Result<(Arc<RawImage>, String), String> {
+        let path = root.join(relative);
+        let bytes = fs::read(&path)
+            .map_err(|error| format!("cannot read `{}`: {error}", path.display()))?;
+        self.decode_encoded(logical, &bytes)
+            .map_err(|error| format!("`{}`: {error}", path.display()))
+    }
+
+    /// Reuses only identical encoded content and retires older cached revisions.
+    /// Live tables keep their own Arc, so refreshing cannot mutate an old world.
+    /// # Errors
+    /// Returns the PNG decoder error for the current bytes.
+    pub fn decode_encoded(
+        &mut self,
+        logical: &str,
+        bytes: &[u8],
+    ) -> Result<(Arc<RawImage>, String), String> {
+        let key = texture_content_key(logical, bytes);
+        if self
+            .revisions
+            .get(logical)
+            .is_some_and(|previous| previous != &key)
+            && let Some(previous) = self.revisions.remove(logical)
+        {
+            self.images.remove(&previous);
+        }
+        if let Some(image) = self.images.get(&key) {
+            return Ok((Arc::clone(image), key));
+        }
+        let decoded = decode_png(bytes)?;
+        let image = self.insert(key.clone(), decoded);
+        self.revisions.insert(logical.to_string(), key.clone());
+        Ok((image, key))
     }
 
     /// Number of successful decodes this session (tests and diagnostics).
@@ -352,9 +435,107 @@ impl TextureCache {
     /// Drops every cached image (developer tooling and tests).
     pub fn clear(&mut self) {
         self.images.clear();
+        self.revisions.clear();
         self.decodes = 0;
     }
 }
 
 #[cfg(test)]
 mod tests;
+
+/// Encoded-content identity shared by CPU decoding and GPU texture lookup.
+pub(super) fn texture_content_key(logical: &str, bytes: &[u8]) -> String {
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("{logical}#png-v1-{hash:016x}")
+}
+
+#[cfg(test)]
+mod content_revision_tests {
+    use super::{RawImage, TextureCache, encode_png, texture_content_key};
+    use std::sync::Arc;
+
+    #[test]
+    fn encoded_changes_replace_cache_revision_without_mutating_old_owner() -> Result<(), String> {
+        let first = encode_png(&RawImage::new(1, 1, vec![1, 2, 3, 255]))?;
+        let second = encode_png(&RawImage::new(1, 1, vec![7, 8, 9, 255]))?;
+        let mut cache = TextureCache::new();
+        let (old, old_key) = cache.decode_encoded("same", &first)?;
+        let (reused, same_key) = cache.decode_encoded("same", &first)?;
+        assert!(Arc::ptr_eq(&old, &reused));
+        assert_eq!(old_key, same_key);
+        let (current, new_key) = cache.decode_encoded("same", &second)?;
+        assert_ne!(old_key, new_key);
+        assert_eq!(new_key, texture_content_key("same", &second));
+        assert_eq!(current.rgba, [7, 8, 9, 255]);
+        assert_eq!(old.rgba, [1, 2, 3, 255]);
+        assert!(cache.get(&old_key).is_none());
+        assert_eq!(cache.len(), 1);
+        assert_eq!(cache.decoded_count(), 2);
+        assert!(cache.decode_encoded("same", b"broken PNG").is_err());
+        assert!(cache.get("same").is_none());
+        assert_eq!(current.rgba, [7, 8, 9, 255]);
+        Ok(())
+    }
+
+    #[test]
+    fn same_pack_path_with_new_bytes_uses_new_cpu_and_gpu_identity() -> Result<(), String> {
+        let first = encode_png(&RawImage::new(1, 1, vec![10, 20, 30, 255]))?;
+        let second = encode_png(&RawImage::new(1, 1, vec![30, 20, 10, 255]))?;
+        let pack = |bytes: Vec<u8>| {
+            crate::materials::PackMaterials::new(
+                "same.zip",
+                None,
+                std::collections::HashMap::from([(
+                    "textures/wall.png".to_string(),
+                    Arc::<[u8]>::from(bytes),
+                )]),
+            )
+        };
+        let original = pack(first);
+        let updated = pack(second);
+        let mut cache = TextureCache::new();
+        let old = original.decode_texture(&mut cache, "textures/wall.png")?;
+        let new = updated.decode_texture(&mut cache, "textures/wall.png")?;
+        assert_ne!(
+            original.cache_key("textures/wall.png"),
+            updated.cache_key("textures/wall.png")
+        );
+        assert_ne!(old.rgba, new.rgba);
+        assert_eq!(cache.len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn replacing_file_bytes_refreshes_without_timestamp_identity() -> Result<(), String> {
+        let root =
+            std::env::temp_dir().join(format!("places-texture-content-{}", std::process::id()));
+        std::fs::create_dir_all(&root).map_err(|error| error.to_string())?;
+        let path = root.join("source.png");
+        let run = (|| {
+            let first = encode_png(&RawImage::new(1, 1, vec![1, 2, 3, 255]))?;
+            let second = encode_png(&RawImage::new(1, 1, vec![7, 8, 9, 255]))?;
+            std::fs::write(&path, &first).map_err(|error| error.to_string())?;
+            let modified = std::fs::metadata(&path)
+                .and_then(|meta| meta.modified())
+                .map_err(|error| error.to_string())?;
+            let mut cache = TextureCache::new();
+            let (_, before) = cache.load_relative(&root, "source.png", "logical")?;
+            std::fs::write(&path, &second).map_err(|error| error.to_string())?;
+            std::fs::File::options()
+                .write(true)
+                .open(&path)
+                .and_then(|file| file.set_times(std::fs::FileTimes::new().set_modified(modified)))
+                .map_err(|error| error.to_string())?;
+            let (image, after) = cache.load_relative(&root, "source.png", "logical")?;
+            assert_ne!(before, after);
+            assert_eq!(image.rgba, [7, 8, 9, 255]);
+            Ok(())
+        })();
+        let _ = std::fs::remove_dir_all(root);
+        run
+    }
+}

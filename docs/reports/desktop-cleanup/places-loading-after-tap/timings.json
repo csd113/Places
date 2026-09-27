@@ -1,0 +1,687 @@
+{
+  "binary": "/Users/connordawkins/Documents/GitHub/Places/target/release/places",
+  "binary_sha256": "2517c2b0ed3b63d7e031473067cb071e91bfca1f11953a78b4027badeff6bc2a",
+  "root": "/Users/connordawkins/Documents/GitHub/Places",
+  "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+  "cache_definition": "application only; OS/GPU caches untouched",
+  "runs": [
+    {
+      "level": "menu",
+      "repeat": 0,
+      "cache": "cold",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Users/connordawkins/Documents/GitHub/Places/target/release/places"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-after-tap/menu-0-state",
+        "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LOAD_TRACE": "/private/tmp/places-loading-after-tap/menu-0-cold.jsonl"
+      },
+      "exit_code": 0,
+      "process_seconds": 28.524049457977526,
+      "peak_rss_bytes": 690880512,
+      "requested_level_found": true,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.5,
+          "elapsed_ms": 0.5
+        },
+        {
+          "name": "settings",
+          "delta_ms": 2.0,
+          "elapsed_ms": 2.5
+        },
+        {
+          "name": "window",
+          "delta_ms": 121.6,
+          "elapsed_ms": 124.1
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 9.8,
+          "elapsed_ms": 133.9
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 11.5,
+          "elapsed_ms": 145.4
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 40.4,
+          "elapsed_ms": 185.7
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 17.0,
+          "elapsed_ms": 202.8
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 202.8
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 202.8
+        }
+      ],
+      "log": "menu-0-cold.log",
+      "trace_error": null,
+      "trace_available": true,
+      "loading_windows_ms": [
+        [
+          153.344875,
+          28161.495416
+        ]
+      ],
+      "first_present_ms": 203.266,
+      "first_ready_present_ms": 28161.495416,
+      "event_pump_gaps": {
+        "count": 3348,
+        "p50_ms": 8.334416999998211,
+        "p95_ms": 8.718041000000085,
+        "p99_ms": 8.875249999999141,
+        "max_ms": 153.32779200000002,
+        "initial_wait_ms": 153.32779200000002,
+        "includes_initial_interval": true
+      },
+      "loading_event_pump_gaps": {
+        "count": 3346,
+        "p50_ms": 8.334416999998211,
+        "p95_ms": 8.717875000000276,
+        "p99_ms": 8.8732919999984,
+        "max_ms": 153.32779200000002
+      },
+      "present_gaps": {
+        "count": 3348,
+        "p50_ms": 8.334332999999788,
+        "p95_ms": 8.717334000000847,
+        "p99_ms": 8.872957999999926,
+        "max_ms": 203.224042,
+        "initial_wait_ms": 203.224042,
+        "includes_initial_interval": true
+      },
+      "loading_present_gaps": {
+        "count": 3345,
+        "p50_ms": 8.334333999999217,
+        "p95_ms": 8.717249999998785,
+        "p99_ms": 8.870041000000128,
+        "max_ms": 203.224042
+      },
+      "input_latency": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "max_ms": null
+      },
+      "trace": "menu-0-cold.jsonl",
+      "lifecycle": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.041958,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 145.83458299999998,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 153.344875,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 186.046333,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 186.155416,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "Preparing geometry and lighting",
+          "elapsed_ms": 546.733416,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Filling lightmaps",
+          "elapsed_ms": 1087.911208,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Preparing characters",
+          "elapsed_ms": 27954.8235,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 28004.783333,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":26849.026417,\"cache_hit\":false,\"level\":\"places_demo\",\"lighting_ms\":24.108833,\"props_ms\":454.02433399999995,\"retained_bytes\":23261075,\"surfaces_ms\":54.497625,\"wall_ms\":27846.389416}",
+          "elapsed_ms": 28004.821165999998,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28004.858958,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28010.623916,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28013.390666,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28013.643,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28021.561625000002,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28085.555666,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28085.977124999998,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28096.875208,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28097.926625,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28102.378416,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28106.788375,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28111.381083,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28113.138124999998,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28117.68975,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28121.245083,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28125.581790999997,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28129.556666,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28133.631416,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28137.946750000003,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28158.293083,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 28158.294458,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":2,\"current_level_id\":\"places_demo\",\"dynamic_objects\":2,\"interactables\":7,\"lightmaps\":\"full\",\"player_position\":[2.0,1.600000023841858,5.599999904632568],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"places_demo\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":1,\"triggers\":0,\"walls\":375,\"window_focused\":true}",
+          "elapsed_ms": 28160.569083,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28160.577541,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 28161.495416,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28179.906708000002,
+          "event": "shutdown_requested",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 28205.216582999998,
+          "event": "shutdown_complete",
+          "request": 1
+        }
+      ]
+    },
+    {
+      "level": "menu",
+      "repeat": 0,
+      "cache": "warm",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Users/connordawkins/Documents/GitHub/Places/target/release/places"
+      ],
+      "environment": {
+        "PLACES_STATE_ROOT": "/private/tmp/places-loading-after-tap/menu-0-state",
+        "PLACES_ASSET_ROOT": "/Users/connordawkins/Documents/GitHub/Places/assets",
+        "PLACES_VERBOSE": "1",
+        "PLACES_BENCH": "1",
+        "PLACES_BENCH_FRAMES": "4",
+        "PLACES_BENCH_WARMUP": "0",
+        "PLACES_VSYNC": "on",
+        "PLACES_QUALITY": "high",
+        "PLACES_CAMERA": "74,0",
+        "PLACES_LOAD_TRACE": "/private/tmp/places-loading-after-tap/menu-0-warm.jsonl"
+      },
+      "exit_code": 0,
+      "process_seconds": 1.3189585829968564,
+      "peak_rss_bytes": 682590208,
+      "requested_level_found": true,
+      "startup": [
+        {
+          "name": "package root",
+          "delta_ms": 0.1,
+          "elapsed_ms": 0.1
+        },
+        {
+          "name": "settings",
+          "delta_ms": 0.2,
+          "elapsed_ms": 0.3
+        },
+        {
+          "name": "window",
+          "delta_ms": 107.4,
+          "elapsed_ms": 107.7
+        },
+        {
+          "name": "asset catalog",
+          "delta_ms": 8.3,
+          "elapsed_ms": 116.0
+        },
+        {
+          "name": "renderer device",
+          "delta_ms": 8.9,
+          "elapsed_ms": 124.8
+        },
+        {
+          "name": "input responsive",
+          "delta_ms": 38.3,
+          "elapsed_ms": 163.1
+        },
+        {
+          "name": "first scene submitted",
+          "delta_ms": 12.2,
+          "elapsed_ms": 175.3
+        },
+        {
+          "name": "first UI submitted",
+          "delta_ms": 0.0,
+          "elapsed_ms": 175.3
+        },
+        {
+          "name": "first presented",
+          "delta_ms": 0.0,
+          "elapsed_ms": 175.3
+        }
+      ],
+      "log": "menu-0-warm.log",
+      "trace_error": null,
+      "trace_available": true,
+      "loading_windows_ms": [
+        [
+          132.68420799999998,
+          1224.726083
+        ]
+      ],
+      "first_present_ms": 175.326875,
+      "first_ready_present_ms": 1224.726083,
+      "event_pump_gaps": {
+        "count": 122,
+        "p50_ms": 8.32670900000005,
+        "p95_ms": 10.306333000000222,
+        "p99_ms": 61.06970799999999,
+        "max_ms": 132.695667,
+        "initial_wait_ms": 132.695667,
+        "includes_initial_interval": true
+      },
+      "loading_event_pump_gaps": {
+        "count": 120,
+        "p50_ms": 8.32670900000005,
+        "p95_ms": 8.916874999999976,
+        "p99_ms": 61.06970799999999,
+        "max_ms": 132.695667
+      },
+      "present_gaps": {
+        "count": 122,
+        "p50_ms": 8.324541999999951,
+        "p95_ms": 8.916290999999973,
+        "p99_ms": 61.0687919999998,
+        "max_ms": 175.323709,
+        "initial_wait_ms": 175.323709,
+        "includes_initial_interval": true
+      },
+      "loading_present_gaps": {
+        "count": 119,
+        "p50_ms": 8.326750000000061,
+        "p95_ms": 8.916290999999973,
+        "p99_ms": 61.0687919999998,
+        "max_ms": 175.323709
+      },
+      "input_latency": {
+        "count": 0,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "max_ms": null
+      },
+      "trace": "menu-0-warm.jsonl",
+      "lifecycle": [
+        {
+          "detail": "",
+          "elapsed_ms": 0.003166,
+          "event": "entry",
+          "request": 0
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 124.887833,
+          "event": "window_ready",
+          "request": 0
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 132.68420799999998,
+          "event": "request",
+          "request": 1
+        },
+        {
+          "detail": "Reading level and assets",
+          "elapsed_ms": 162.121333,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "{\"drawable\":[1280,720],\"logical\":[640,360]}",
+          "elapsed_ms": 163.106125,
+          "event": "window_size_observed",
+          "request": 1
+        },
+        {
+          "detail": "Preparing geometry and lighting",
+          "elapsed_ms": 510.20233299999995,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "Preparing characters",
+          "elapsed_ms": 1026.90225,
+          "event": "phase",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 1077.336541,
+          "event": "cpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"atlas_ms\":0.0,\"cache_hit\":false,\"level\":\"places_demo\",\"lighting_ms\":24.475167,\"props_ms\":417.548584,\"retained_bytes\":23340115,\"surfaces_ms\":54.583375000000004,\"wall_ms\":937.390375}",
+          "elapsed_ms": 1077.39,
+          "event": "preparation_result",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1077.4265,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1083.403291,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1085.8515,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1086.114,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1093.69775,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1154.424166,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1154.7895409999999,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1165.3624579999998,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1166.0947079999999,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1170.4127500000002,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1170.746875,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1175.234791,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1177.197625,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1181.457083,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1185.325333,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1189.750125,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1193.96425,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1198.045333,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1202.4795,
+          "event": "upload_step_begin",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1221.7713749999998,
+          "event": "upload_step_end",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 1221.772916,
+          "event": "gpu_ready",
+          "request": 1
+        },
+        {
+          "detail": "{\"bloom\":true,\"characters\":2,\"current_level_id\":\"places_demo\",\"dynamic_objects\":2,\"interactables\":7,\"lightmaps\":\"full\",\"player_position\":[2.0,1.600000023841858,5.599999904632568],\"quality\":\"high\",\"reflections\":\"full\",\"renderer_level_id\":\"places_demo\",\"renderer_lightmaps\":\"full\",\"renderer_quality\":\"high\",\"routes\":1,\"triggers\":0,\"walls\":375,\"window_focused\":true}",
+          "elapsed_ms": 1223.6746249999999,
+          "event": "world_committed",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1223.6921249999998,
+          "event": "ready",
+          "request": 1
+        },
+        {
+          "detail": "places_demo",
+          "elapsed_ms": 1224.726083,
+          "event": "scene_presented",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1243.755875,
+          "event": "shutdown_requested",
+          "request": 1
+        },
+        {
+          "detail": "",
+          "elapsed_ms": 1269.1435,
+          "event": "shutdown_complete",
+          "request": 1
+        }
+      ]
+    }
+  ]
+}
