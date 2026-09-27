@@ -32,8 +32,9 @@ The demo is the technical reference for the door and effect authoring contract:
 - `sauna_door` — a sauna leaf (`kind: sauna`): cedar stiles and rails around a
   clear glass panel, with a wooden round handle.
 - `study_door` — an externally controlled door (`manual_interaction: false`)
-  that starts open and is moved only by a map action, so it is never an
-  interaction target.
+  that starts open and is moved only by map actions, so it is never an
+  interaction target; the `study_door_approach` and `study_door_return` area
+  triggers open it from either side.
 - `sauna_steam_a` / `sauna_steam_b` — `effects[]` steam emitters inside the
   sauna; presentation-only, bounded particle plumes.
 - the windows and the transfer grille — `glass` panes that also author

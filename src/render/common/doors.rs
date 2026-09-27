@@ -104,7 +104,7 @@ pub fn build_door_models(def: &DoorDef, materials: &MaterialTable) -> Option<Doo
     };
 
     let mut frame_mesh = MeshBuilder::default();
-    push_frame(&mut frame_mesh, def);
+    push_frame(&mut frame_mesh, def, frame.tile);
     let mut leaf_mesh = MeshBuilder::default();
     match def.kind {
         DoorKind::Interior => push_interior_leaf(&mut leaf_mesh, def, slab.tile, handle.tile),
@@ -332,7 +332,7 @@ impl MeshBuilder {
 
 /// The static three-piece frame around a doorway.
 #[allow(clippy::arithmetic_side_effects)] // bounded door dimensions
-fn push_frame(builder: &mut MeshBuilder, def: &DoorDef) {
+fn push_frame(builder: &mut MeshBuilder, def: &DoorDef, tile: f32) {
     let half = def.thickness.mul_add(0.5, FRAME_PROUD_M);
     let height = def.height + FRAME_HEAD_M;
     let width = def.width;
@@ -341,21 +341,21 @@ fn push_frame(builder: &mut MeshBuilder, def: &DoorDef) {
         [-FRAME_WIDTH_M, 0.0, -half],
         [FRAME_WIDTH_M, height, half],
         0,
-        0.5,
+        tile,
     );
     // Latch jamb.
     builder.push_box(
         [width - FRAME_WIDTH_M, 0.0, -half],
         [width + FRAME_WIDTH_M, height, half],
         0,
-        0.5,
+        tile,
     );
     // Head, between the jambs so no face is coplanar with one.
     builder.push_box(
         [FRAME_WIDTH_M, def.height - FRAME_WIDTH_M, -half],
         [width - FRAME_WIDTH_M, height, half],
         0,
-        0.5,
+        tile,
     );
 }
 

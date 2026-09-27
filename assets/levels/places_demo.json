@@ -3856,5 +3856,37 @@
       "drift": 0.2,
       "lifetime_seconds": 3.6
     }
+  ],
+  "area_triggers": [
+    {
+      "id": "study_door_approach",
+      "x": 63.3,
+      "z": 4.5,
+      "width": 1.2,
+      "depth": 1.2,
+      "actions": [
+        {
+          "action": "open",
+          "target": "study_door"
+        }
+      ],
+      "cooldown_seconds": 1.0,
+      "comment": "Opens the externally controlled study door as the player approaches from the living room."
+    },
+    {
+      "id": "study_door_return",
+      "x": 65.5,
+      "z": 4.5,
+      "width": 1.2,
+      "depth": 1.2,
+      "actions": [
+        {
+          "action": "open",
+          "target": "study_door"
+        }
+      ],
+      "cooldown_seconds": 1.0,
+      "comment": "Opens it again from the study side, so the room is never sealed."
+    }
   ]
 }
