@@ -104,7 +104,9 @@ MAX_ACTIONS_PER_SOURCE = 8
 MAX_AREA_TRIGGERS = 1000
 MAX_INTERACTION_REACH_M = 4.0
 MAX_ENTITY_ROUTES = 256
-MAX_LEVEL_DOORS = 256
+# Mirrors src/level.rs: two dynamic objects per door against the renderer's
+# MAX_DYNAMIC_OBJECTS budget, leaving room for floats and demonstration objects.
+MAX_LEVEL_DOORS = 24
 DEFAULT_STEAM_MATERIAL = "core:steam_01"
 MAX_LEVEL_EFFECTS = 64
 MAX_EFFECT_PARTICLES = 128

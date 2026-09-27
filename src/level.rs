@@ -1194,7 +1194,13 @@ pub fn fixture_face_material_index(
 }
 
 /// Hard cap on the doors one level may declare.
-pub const MAX_LEVEL_DOORS: u64 = 256;
+///
+/// A door draws its frame and its leaf as two dynamic objects (the moving
+/// geometry path), and one level's dynamic scene is bounded by
+/// [`crate::render::MAX_DYNAMIC_OBJECTS`]. This cap reserves room in that
+/// budget for the level's other dynamic content (floating props, the
+/// demonstration drum) while keeping a door-heavy level's draw count sane.
+pub const MAX_LEVEL_DOORS: u64 = 24;
 /// Largest door dimension (width, height or thickness) in metres.
 pub const MAX_DOOR_DIMENSION_M: f32 = 12.0;
 /// Smallest meaningful opening swing, in degrees.

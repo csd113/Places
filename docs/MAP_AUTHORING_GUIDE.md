@@ -622,7 +622,7 @@ literal.
 | Floor regions | ≤ 2000 | Loader rejection |
 | Water volumes | ≤ 2000 | Loader rejection |
 | Ladders | ≤ 256 | Loader rejection |
-| Doors (`doors[]`) | ≤ 256 (`MAX_LEVEL_DOORS`) | Loader rejection |
+| Doors (`doors[]`) | ≤ 24 (`MAX_LEVEL_DOORS`) | Loader rejection; two dynamic objects per door share the renderer budget |
 | Door swing | 5–179° (`MIN_DOOR_SWING_DEGREES`, `MAX_DOOR_SWING_DEGREES`) | Loader rejection per door |
 | Door angular speed | 0 < speed ≤ 720°/s (`MAX_DOOR_SPEED_DEGREES`) | Loader rejection per door |
 | Door width/height/thickness | each ≤ 12 m (`MAX_DOOR_DIMENSION_M`) | Loader rejection per door |
