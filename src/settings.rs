@@ -426,11 +426,9 @@ pub struct Settings {
     /// Texture Filtering preference: `"low"`, `"medium"` or `"high"`.
     ///
     /// The three levels are independent of the quality level: any combination
-    /// is valid, and only the renderer maps them onto its samplers. The legacy
-    /// names keep loading (`"linear"` is High today, `"nearest"` is Low); a
-    /// missing key derives its preset from the saved quality, and an unknown
-    /// value falls back to the default (High) rather than invalidating the
-    /// file.
+    /// is valid, and only the renderer maps them onto its samplers. A missing
+    /// key derives its preset from the saved quality, and an unknown value
+    /// falls back to the default (High) rather than invalidating the file.
     #[serde(default = "default_advanced_quality")]
     pub texture_filtering: String,
     /// Runtime quality level: `"low"`, `"medium"` or `"high"` (the intended
@@ -454,8 +452,7 @@ pub struct Settings {
     ///
     /// Independent of the quality level and of Lightmaps, so any combination
     /// is valid (`Low + Reflections Full`, `High + Reflections Off`). A missing
-    /// key derives the preset from the saved quality; the legacy boolean keeps
-    /// loading (`true` is Full, `false` is Off).
+    /// key derives the preset from the saved quality.
     /// `PLACES_NO_REFLECTIONS` overrides it for one process.
     #[serde(
         default = "default_advanced_quality",
@@ -466,8 +463,7 @@ pub struct Settings {
     ///
     /// Independent of the quality level and of Reflections, so any combination
     /// is valid (`Low + Lightmaps Full`, `High + Lightmaps Off`). A missing key
-    /// derives the preset from the saved quality; the legacy boolean keeps
-    /// loading (`true` is Full, `false` is Off). `PLACES_NO_LIGHTMAPS`
+    /// derives the preset from the saved quality. `PLACES_NO_LIGHTMAPS`
     /// overrides it for one process.
     #[serde(
         default = "default_advanced_quality",
@@ -607,13 +603,11 @@ pub const TEXTURE_FILTERING_NAMES: [&str; 3] = ["low", "medium", "high"];
 
 /// The canonical persisted name of any Texture Filtering value.
 ///
-/// The three current names round-trip; the legacy names keep loading: the old
-/// `"linear"` selected what is High today, and `"nearest"` what is Low. An
-/// empty or unknown value is High, the default.
+/// The three names round-trip. An empty or unknown value is High, the default.
 #[must_use]
 pub fn texture_filtering_name(value: &str) -> &'static str {
     let value = value.trim();
-    if value.eq_ignore_ascii_case("low") || value.eq_ignore_ascii_case("nearest") {
+    if value.eq_ignore_ascii_case("low") {
         "low"
     } else if value.eq_ignore_ascii_case("medium") {
         "medium"
@@ -647,8 +641,8 @@ const fn texture_filtering_for(quality: QualityLevel) -> &'static str {
 /// Resolves a persisted Texture Filtering value against the saved quality.
 ///
 /// A missing key (the `auto` sentinel) derives its preset from the saved
-/// quality level; a present value is preserved, with the legacy names mapped
-/// by [`texture_filtering_name`].
+/// quality level; a present value is preserved through
+/// [`texture_filtering_name`].
 fn resolve_texture_filtering(value: &str, quality: QualityLevel) -> &'static str {
     if value.trim().eq_ignore_ascii_case(AUTO_QUALITY) {
         texture_filtering_for(quality)
@@ -685,10 +679,8 @@ fn resolve_reflection_quality(value: &str, quality: QualityLevel) -> ReflectionQ
 
 /// Deserializes an advanced graphics-quality value.
 ///
-/// Accepts the level names and the legacy booleans (`true` is `"full"`,
-/// `false` is `"off"`), so an older settings file loads without being renamed.
-/// A `null` value reads as missing and is resolved from the saved quality by
-/// [`Settings::sanitize`].
+/// Accepts the level names as written. A `null` value reads as missing and is
+/// resolved from the saved quality by [`Settings::sanitize`].
 fn deserialize_advanced_quality<'de, D>(deserializer: D) -> Result<String, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -699,11 +691,7 @@ where
         type Value = String;
 
         fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            formatter.write_str("a quality name or a legacy boolean")
-        }
-
-        fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E> {
-            Ok(if value { "full" } else { "off" }.to_string())
+            formatter.write_str("a quality name")
         }
 
         fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> {
@@ -811,7 +799,7 @@ impl Settings {
     ///
     /// The saved value, with a startup override applied for this process. An
     /// unrecognised override value is ignored, exactly like an unrecognised
-    /// settings value; a legacy saved `"full"` reads as High.
+    /// settings value, which falls back to the default level.
     #[must_use]
     pub fn quality_level(&self) -> QualityLevel {
         self.overrides
@@ -899,7 +887,7 @@ impl Settings {
     /// The Texture Filtering preset in force: `"low"`, `"medium"` or `"high"`.
     ///
     /// A missing (`auto`) or unknown saved value resolves against the saved
-    /// quality level; the legacy names map through [`texture_filtering_name`].
+    /// quality level through [`texture_filtering_name`].
     #[must_use]
     pub fn texture_filtering_preset(&self) -> &'static str {
         resolve_texture_filtering(&self.texture_filtering, self.saved_quality())

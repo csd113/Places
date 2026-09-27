@@ -414,11 +414,11 @@ fn pack_materials_parse_both_shapes_and_decode_from_pack_bytes() {
         "materials": {
             "pack:wall": { "texture": "textures/wall.png", "tile_metres": 3.0,
                            "tint": [0.5, 0.5, 0.5] },
-            "pack:legacy": "textures/wall.png"
+            "pack:plain": "textures/wall.png"
         }
     }"#;
     let pack = PackMaterials::new("unit_pack", Some(json), textures);
-    let level = basic_level("pack:wall", "pack:legacy", "pack:wall");
+    let level = basic_level("pack:wall", "pack:plain", "pack:wall");
     let catalog = AssetCatalog::builtin();
     let mut cache = TextureCache::new();
     let table = resolve_materials(&level, &catalog, Some(&pack), None, &mut cache);
@@ -842,11 +842,11 @@ fn response_catalog() -> AssetCatalog {
               "source": "definition", "texture": "core:tex_albedo" },
             { "id": "core:mat_gloss", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_albedo",
-              "specular": 0.5, "roughness": 0.15,
+              "specular": 0.5, "shine": 0.85,
               "normal_texture": "core:tex_normal", "normal_strength": 0.75 },
             { "id": "core:mat_metal", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_albedo",
-              "specular": 0.6, "specular_color": [0.5, 0.25, 0.1], "roughness": 0.3 },
+              "specular": 0.6, "specular_color": [0.5, 0.25, 0.1], "shine": 0.7 },
             { "id": "core:mat_glass", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_normal",
               "alpha_mode": "blend", "opacity": 0.5 },
@@ -946,8 +946,8 @@ fn specular_strength_and_colour_are_the_product_the_shader_uploads() {
 }
 
 #[test]
-fn roughness_defaults_and_out_of_range_values_are_clamped_by_the_catalog() {
-    // A sheen with no authored roughness keeps the documented default.
+fn sheen_without_an_authored_glossiness_keeps_the_documented_default() {
+    // A sheen with no authored glossiness keeps the documented default.
     let json = r##"{
         "assets": [
             { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
@@ -965,26 +965,12 @@ fn roughness_defaults_and_out_of_range_values_are_clamped_by_the_catalog() {
     let sheen = table.entry_of("core:mat_sheen").expect("sheen");
     assert!((sheen.response.roughness - DEFAULT_ROUGHNESS).abs() < f32::EPSILON);
     assert!(sheen.response.has_sheen());
-
-    // A roughness outside 0..1 is a catalog error, not a silent clamp.
-    let bad = r##"{
-        "assets": [
-            { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
-              "source": "file",
-              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
-            { "id": "core:mat_bad", "asset_class": "environment", "asset_type": "material",
-              "source": "definition", "texture": "core:tex_albedo", "roughness": 4.0 }
-        ]
-    }"##;
-    let error = AssetCatalog::from_json_str(bad).expect_err("roughness 4.0 must be rejected");
-    assert!(error.contains("roughness"), "{error}");
 }
 
 // ------------------------------------------------- shine
 
-/// A synthetic catalog exercising `shine` (and its legacy inverse
-/// `roughness`). Every texture path is shipped artwork, so the test needs no
-/// new asset files.
+/// A synthetic catalog exercising `shine`. Every texture path is shipped
+/// artwork, so the test needs no new asset files.
 fn shine_catalog() -> AssetCatalog {
     let json = r##"{
         "assets": [
@@ -1000,9 +986,6 @@ fn shine_catalog() -> AssetCatalog {
             { "id": "core:mat_waxed", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_albedo",
               "specular": 0.4, "shine": 0.5 },
-            { "id": "core:mat_legacy", "asset_class": "environment", "asset_type": "material",
-              "source": "definition", "texture": "core:tex_albedo",
-              "specular": 0.4, "roughness": 0.25 },
             { "id": "core:mat_mirror", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_albedo",
               "specular": 0.9, "shine": 1.0,
@@ -1025,8 +1008,6 @@ fn resolved_shine_table() -> MaterialTable {
                           "ceiling": "core:mat_waxed" },
             "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 } ],
             "floor_patches": [
-                { "x": 0.0, "z": 0.0, "width": 1.0, "depth": 1.0,
-                  "material": "core:mat_legacy" },
                 { "x": 1.0, "z": 0.0, "width": 1.0, "depth": 1.0,
                   "material": "core:mat_mirror" }
             ]
@@ -1039,7 +1020,7 @@ fn resolved_shine_table() -> MaterialTable {
 }
 
 #[test]
-fn shine_is_the_author_facing_spelling_and_roughness_is_its_inverse() {
+fn shine_resolves_to_its_inverse_roughness() {
     let table = resolved_shine_table();
     let matte = table.entry_of("core:mat_matte").expect("matte");
     assert!((matte.response.roughness - 1.0).abs() < f32::EPSILON);
@@ -1057,16 +1038,6 @@ fn shine_is_the_author_facing_spelling_and_roughness_is_its_inverse() {
         assert!((shine_from_roughness(roughness_from_shine(shine)) - shine).abs() < 1.0e-6);
     }
     assert!((DEFAULT_SHINE - (1.0 - DEFAULT_ROUGHNESS)).abs() < f32::EPSILON);
-}
-
-#[test]
-fn a_legacy_roughness_material_keeps_its_exact_roughness() {
-    // Catalogs authored before `shine` exist must render exactly as they did:
-    // `roughness` is still accepted verbatim.
-    let table = resolved_shine_table();
-    let legacy = table.entry_of("core:mat_legacy").expect("legacy");
-    assert!((legacy.response.roughness - 0.25).abs() < f32::EPSILON);
-    assert!(legacy.response.has_sheen());
 }
 
 #[test]
@@ -1091,25 +1062,6 @@ fn shine_outside_the_unit_range_is_a_named_catalog_error() {
 }
 
 #[test]
-fn authoring_both_shine_and_roughness_is_a_named_catalog_error() {
-    let json = r##"{
-        "assets": [
-            { "id": "core:tex_albedo", "asset_class": "environment", "asset_type": "texture",
-              "source": "file",
-              "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
-            { "id": "core:mat_both", "asset_class": "environment", "asset_type": "material",
-              "source": "definition", "texture": "core:tex_albedo",
-              "shine": 0.4, "roughness": 0.6 }
-        ]
-    }"##;
-    let error = AssetCatalog::from_json_str(json).expect_err("both spellings must be rejected");
-    assert!(
-        error.contains("shine") && error.contains("roughness"),
-        "{error}"
-    );
-}
-
-#[test]
 fn a_shiny_material_is_not_a_mirror_without_a_reflection_mode() {
     // Shine shapes the sheen; it must never switch the reflection on. A
     // `shine: 1.0` material with no `reflection_mode` reflects nothing, and a
@@ -1131,22 +1083,20 @@ fn a_shiny_material_is_not_a_mirror_without_a_reflection_mode() {
 }
 
 #[test]
-fn pack_materials_accept_shine_and_prefer_it_over_roughness() {
-    // A pack may use the author-facing spelling, the legacy one, or both; the
-    // author-facing one wins so an upgraded pack cannot keep the old value.
+fn pack_materials_accept_shine() {
+    // A pack authors the same `shine` field the catalog uses.
     let json = r#"{
         "materials": {
             "pack:matte": { "texture": "textures/wall.png", "specular": 0.4, "shine": 0.0 },
-            "pack:legacy": { "texture": "textures/wall.png", "specular": 0.4, "roughness": 0.2 },
-            "pack:both": { "texture": "textures/wall.png", "specular": 0.4,
-                           "shine": 0.5, "roughness": 0.9 }
+            "pack:satin": { "texture": "textures/wall.png", "specular": 0.4, "shine": 0.5 },
+            "pack:gloss": { "texture": "textures/wall.png", "specular": 0.4, "shine": 0.8 }
         }
     }"#;
     let definitions = parse_materials_json(Some(json));
     let response = |id: &str| definitions.get(id).expect(id).response();
     assert!((response("pack:matte").roughness - 1.0).abs() < f32::EPSILON);
-    assert!((response("pack:legacy").roughness - 0.2).abs() < f32::EPSILON);
-    assert!((response("pack:both").roughness - 0.5).abs() < f32::EPSILON);
+    assert!((response("pack:satin").roughness - 0.5).abs() < f32::EPSILON);
+    assert!((response("pack:gloss").roughness - 0.2).abs() < f32::EPSILON);
 
     // An out-of-range pack value is discarded, exactly like every other
     // malformed pack field: the documented default stays in place.
@@ -1227,7 +1177,7 @@ fn a_normal_map_that_cannot_resolve_degrades_the_whole_material() {
               "model": "environment/office/textures/ceilings/ceiling_panel_01.png" },
             { "id": "core:mat_broken", "asset_class": "environment", "asset_type": "material",
               "source": "definition", "texture": "core:tex_albedo",
-              "specular": 0.5, "roughness": 0.2,
+              "specular": 0.5, "shine": 0.8,
               "normal_texture": "core:tex_nowhere" }
         ]
     }"##;
@@ -1260,7 +1210,7 @@ fn pack_materials_may_author_response_and_alpha_fields() {
     let json = r#"{
         "materials": {
             "pack:glass": { "texture": "textures/wall.png", "alpha_mode": "blend",
-                            "opacity": 0.35, "specular": 0.4, "roughness": 0.2,
+                            "opacity": 0.35, "specular": 0.4, "shine": 0.8,
                             "normal_texture": "textures/bump.png", "normal_strength": 1.5 }
         }
     }"#;
@@ -1333,7 +1283,7 @@ fn the_shipped_glass_and_response_materials_resolve_with_their_pngs() {
             panic!("{material} must be a shipped material");
         });
         // Only a translucent shipped material has to author the mode: an opaque
-        // one that authors nothing keeps the legacy opaque default.
+        // one that authors nothing keeps the opaque default.
         if authors_mode {
             assert_eq!(entry.alpha_mode.as_deref(), Some(mode.name()), "{material}");
         }

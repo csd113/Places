@@ -15,12 +15,12 @@ fn same(left: f32, right: f32) -> bool {
 }
 
 #[test]
-fn default_response_is_inactive_and_matches_the_legacy_look() {
+fn default_response_is_inactive_and_matches_the_flat_look() {
     let response = MaterialResponse::default();
     assert!(!response.is_active());
     assert!(!response.has_normal());
     assert!(!response.has_sheen());
-    // A legacy material carries no sheen and no normal map, so the draw path
+    // A response-free material carries no sheen and no normal map, so the draw path
     // uploads the neutral state and adds nothing to the lit pixel.
     assert!(same_color(response.specular, [0.0; 3]));
     assert!(response.normal.is_none());
@@ -103,7 +103,7 @@ fn alpha_classification_separates_the_three_passes() {
 }
 
 #[test]
-fn opaque_alpha_is_the_legacy_state() {
+fn opaque_alpha_is_the_default_state() {
     let alpha = MaterialAlpha::default();
     assert_eq!(alpha.mode, AlphaMode::Opaque);
     assert!(!alpha.is_translucent());

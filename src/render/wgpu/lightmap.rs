@@ -181,7 +181,7 @@ pub fn upload_stats(lightmaps: Option<&LevelLightmaps>) -> LightmapUploadStats {
 /// four-layer view when no atlas is resident.
 pub struct LightmapAtlas {
     /// The resident page array; `None` on the vertex-lit path.
-    _pages: Option<wgpu::Texture>,
+    pages: Option<wgpu::Texture>,
     /// The page array's view, `None` when no atlas is resident.
     view: Option<wgpu::TextureView>,
     /// The 1x1 white fallback, kept alive for its view.
@@ -241,7 +241,7 @@ impl LightmapAtlas {
             ));
         }
         Self {
-            _pages: pages,
+            pages,
             view,
             _fallback: fallback,
             fallback_view,
@@ -298,6 +298,56 @@ impl LightmapAtlas {
         );
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         (texture, view)
+    }
+
+    /// Re-uploads the given atlas pages from a re-filled CPU copy.
+    ///
+    /// A runtime light switch re-fills exactly the charts a fixture influences
+    /// and re-uploads only their pages; this is the GPU half of that, and it
+    /// allocates nothing per call. Returns whether anything was written: a
+    /// vertex-lit atlas (no page array) and an out-of-range page are no-ops, so
+    /// a toggle can never corrupt a fallback binding.
+    #[must_use]
+    pub fn rewrite_pages(&self, queue: &wgpu::Queue, pages: &[u16], cpu: &LevelLightmaps) -> bool {
+        let Some(texture) = self.pages.as_ref() else {
+            return false;
+        };
+        let capacity = u16::try_from(LIGHTMAP_ATLAS_MAX_PAGES).unwrap_or(u16::MAX);
+        let mut wrote = false;
+        for page_index in pages {
+            if *page_index >= capacity {
+                continue;
+            }
+            let Some(page) = cpu.pages.get(usize::from(*page_index)) else {
+                continue;
+            };
+            let rgba = page_rgba8(page);
+            queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d {
+                        x: 0,
+                        y: 0,
+                        z: u32::from(*page_index),
+                    },
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &rgba,
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(page.width.saturating_mul(4)),
+                    rows_per_image: Some(page.height),
+                },
+                wgpu::Extent3d {
+                    width: page.width,
+                    height: page.height,
+                    depth_or_array_layers: 1,
+                },
+            );
+            wrote = true;
+        }
+        wrote
     }
 
     /// Creates the four-layer page array and writes the resident pages into
@@ -462,6 +512,7 @@ mod tests {
                 ..crate::lighting::lightmap::LightmapStats::default()
             },
             cache_key: "v6-test".to_string(),
+            padding: 2,
         }
     }
 

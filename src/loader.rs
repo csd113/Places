@@ -107,6 +107,12 @@ pub struct LoadedLevel {
 pub struct ResolvedFixtureSheet {
     /// Family the sheet draws.
     pub kind: crate::lighting::FixtureKind,
+    /// Fixture-face material index this entry fills.
+    ///
+    /// A family sheet fills its family's slot; a switchable fixture's own face
+    /// fills its private slot after
+    /// [`crate::level::FIXTURE_SWITCHABLE_MATERIAL_BASE`].
+    pub slot: u16,
     /// Session-unique decode/dedupe key: the catalog PNG path, or the pack's own
     /// `pack:<namespace>:<path>` key.
     pub key: String,
@@ -318,9 +324,8 @@ impl PropCatalog {
 
     /// Parses an asset catalog document into the placement view.
     ///
-    /// Accepts the generalized `assets` shape and the legacy `props` shape.
-    /// Entries without an `id` are skipped in the legacy shape; duplicate
-    /// logical ids are rejected.
+    /// The document's one entry collection is `assets`; duplicate logical ids
+    /// are rejected.
     /// # Errors
     ///
     /// Returns a message when the document is not valid JSON, when an id is
@@ -2216,7 +2221,9 @@ fn validate_action(
                      trigger is not a placed object with a label"
                 ));
             };
-            if !prop_ids.contains(resolved) {
+            // A label belongs to any interactable: a placed prop/entity or a
+            // door leaf.
+            if !prop_ids.contains(resolved) && !targets.doors.contains(resolved) {
                 return Err(format!(
                     "{context} action {index} (`toggle_label`) targets unknown instance \
                      `{resolved}`"
@@ -2824,7 +2831,8 @@ fn validate_door_fields(i: usize, door: &crate::level::DoorDef) -> Result<(), St
             crate::level::MAX_DOOR_SWING_DEGREES
         ));
     }
-    if door.open_speed_degrees <= 0.0 || door.open_speed_degrees > crate::level::MAX_DOOR_SPEED_DEGREES
+    if door.open_speed_degrees <= 0.0
+        || door.open_speed_degrees > crate::level::MAX_DOOR_SPEED_DEGREES
     {
         return Err(format!(
             "Door {i} open_speed_degrees must be between 0 and {}",
@@ -2845,9 +2853,7 @@ fn validate_door_fields(i: usize, door: &crate::level::DoorDef) -> Result<(), St
         return Err(format!("Door {i} prompt must not be blank when specified"));
     }
     if let Some(reach) = door.reach
-        && !(reach.is_finite()
-            && reach > 0.0
-            && reach <= crate::interact::MAX_INTERACTION_REACH_M)
+        && !(reach.is_finite() && reach > 0.0 && reach <= crate::interact::MAX_INTERACTION_REACH_M)
     {
         return Err(format!(
             "Door {i} interaction reach ({reach:?} m) must be between 0 and {} metres",
@@ -2874,7 +2880,10 @@ fn validate_door_leaf_is_clear(
     let samples = [
         (door.x, door.z),
         (dx.mul_add(half, door.x), dz.mul_add(half, door.z)),
-        (dx.mul_add(door.width, door.x), dz.mul_add(door.width, door.z)),
+        (
+            dx.mul_add(door.width, door.x),
+            dz.mul_add(door.width, door.z),
+        ),
     ];
     for (sx, sz) in samples {
         for solid in solids {
@@ -2904,7 +2913,10 @@ fn validate_effects(level: &LevelDef) -> Result<(), String> {
         ));
     }
     for (i, effect) in level.effects.iter().enumerate() {
-        if !effect.kind.eq_ignore_ascii_case(crate::level::EFFECT_KIND_STEAM) {
+        if !effect
+            .kind
+            .eq_ignore_ascii_case(crate::level::EFFECT_KIND_STEAM)
+        {
             return Err(format!(
                 "Effect {i} has unknown kind `{}`; expected `{}`",
                 effect.kind,
@@ -2923,7 +2935,8 @@ fn validate_effects(level: &LevelDef) -> Result<(), String> {
         {
             return Err(format!("Effect {i} parameters must be finite numbers"));
         }
-        if effect.width <= 0.0 || effect.depth <= 0.0 || effect.height <= 0.0 || effect.size <= 0.0 {
+        if effect.width <= 0.0 || effect.depth <= 0.0 || effect.height <= 0.0 || effect.size <= 0.0
+        {
             return Err(format!(
                 "Effect {i} width, depth, height and size must be positive"
             ));
@@ -3079,23 +3092,54 @@ pub fn resolve_fixture_sheets(
     cache: &mut TextureCache,
 ) -> Vec<ResolvedFixtureSheet> {
     let root = crate::assets::resolve_asset_root();
-    let mut sheets: Vec<ResolvedFixtureSheet> = Vec::new();
-    for light in &level.ceiling_lights {
+    // Resolve one sheet per family used, then one per switchable fixture (its
+    // own face), each at the material index the geometry emitter assigns it.
+    let mut family_sheets: Vec<Option<ResolvedFixtureSheet>> =
+        vec![None; crate::lighting::FixtureKind::ALL.len()];
+    let mut switchable: Vec<ResolvedFixtureSheet> = Vec::new();
+    for (fixture_index, light) in level.ceiling_lights.iter().enumerate() {
         let kind = crate::lighting::fixture_profile(&light.fixture).kind;
-        if sheets.iter().any(|sheet| sheet.kind == kind) {
-            continue;
-        }
-        match resolve_fixture_sheet(&light.fixture, kind, catalog, pack, root.as_deref(), cache) {
-            Ok(Some(sheet)) => sheets.push(sheet),
-            Ok(None) => {}
+        let source = match resolve_fixture_sheet(
+            &light.fixture,
+            kind,
+            catalog,
+            pack,
+            root.as_deref(),
+            cache,
+        ) {
+            Ok(Some(mut sheet)) => {
+                sheet.slot = crate::level::fixture_face_material_index(
+                    fixture_index,
+                    light.switchable,
+                    kind,
+                );
+                Some(sheet)
+            }
+            Ok(None) => None,
             Err(error) => {
                 crate::logging::warn_once(
                     format!("fixture-sheet:{}:{error}", light.fixture),
                     format!("[fixtures] {error}; drawing the untextured sheet instead"),
                 );
+                None
+            }
+        };
+        if light.switchable {
+            if let Some(sheet) = source {
+                switchable.push(sheet);
+            }
+        } else if source.is_some() {
+            // The shared family sheet: first authored fixture of the family wins.
+            let slot = crate::level::fixture_face_material_index(fixture_index, false, kind);
+            if let Some(existing) = family_sheets.get_mut(usize::from(slot))
+                && existing.is_none()
+            {
+                *existing = source;
             }
         }
     }
+    let mut sheets: Vec<ResolvedFixtureSheet> = family_sheets.into_iter().flatten().collect();
+    sheets.extend(switchable);
     sheets
 }
 
@@ -3127,6 +3171,7 @@ fn resolve_fixture_sheet(
             .map_err(|error| format!("fixture `{fixture_id}`: {error}"))?;
         return Ok(Some(ResolvedFixtureSheet {
             kind,
+            slot: 0,
             key,
             origin: crate::materials::TextureOrigin::Pack,
             image,
@@ -3146,6 +3191,7 @@ fn resolve_fixture_sheet(
         .map_err(|error| format!("fixture `{fixture_id}` sheet `{path}`: {error}"))?;
     Ok(Some(ResolvedFixtureSheet {
         kind,
+        slot: 0,
         key,
         origin: crate::materials::TextureOrigin::Catalog,
         image,

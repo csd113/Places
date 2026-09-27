@@ -66,6 +66,7 @@ TILE_BASE = (238.0, 236.0, 230.0)       # off-white residential floor tile
 TILE_GROUT = (221.0, 219.0, 214.0)      # the 2 px grout line
 CEILING_WHITE = (246.0, 245.0, 242.0)   # flat painted ceiling
 CEILING_PLASTER = (244.0, 243.0, 239.0)  # fine skim plaster, a shade warmer
+SAUNA_BASE = (198.0, 158.0, 106.0)      # light thermowood cedar, tint-free
 
 # --------------------------------------------------------------- primitives
 
@@ -271,6 +272,57 @@ def build_wall_paint_offwhite() -> Canvas:
     for y in range(SIZE):
         for x in range(SIZE):
             canvas.set(x, y, _paint_rgb(x, y))
+    return canvas
+
+
+# ------------------------------------------------------------------- doors
+
+
+def build_door_white() -> Canvas:
+    """White painted door stock: a smooth finish with a faint vertical brush.
+
+    The panel relief is geometry on the leaf, not paint, so the sheet stays a
+    plain painted surface that tiles invisibly wherever a face samples it.
+    """
+    canvas = Canvas(SIZE, SIZE)
+    for y in range(SIZE):
+        for x in range(SIZE):
+            warp = (_streak(x, y, 512, 256, 511) - 0.5) * 1.2
+            brush = _streak(x + warp, y, 8, 384, 512) - 0.5
+            fine = hash01(x, y, 513) - 0.5
+            tone = 1.0 + brush * 0.008 + fine * 0.005
+            canvas.set(
+                x,
+                y,
+                (
+                    BASEBOARD_WHITE[0] * tone,
+                    BASEBOARD_WHITE[1] * tone,
+                    BASEBOARD_WHITE[2] * tone,
+                ),
+            )
+    return canvas
+
+
+def build_sauna_wood() -> Canvas:
+    """Light sauna cedar: narrow vertical boards, soft even grain.
+
+    Sauna panelling is thin vertical boards. The grain runs the long axis
+    (vertically), and each joint sits at a board boundary offset half a board
+    from the wrapped sheet edge, so no joint falls on the seam: the tile joins
+    mid-board with a continuous tone.
+    """
+    canvas = Canvas(SIZE, SIZE)
+    board = SIZE // 8
+    joint = board // 2
+    for y in range(SIZE):
+        for x in range(SIZE):
+            grain = _streak(y, x, 512, 16, 521) - 0.5
+            fine = hash01(x, y, 522) - 0.5
+            tone = 1.0 + grain * 0.05 + fine * 0.012
+            colour = [SAUNA_BASE[0] * tone, SAUNA_BASE[1] * tone, SAUNA_BASE[2] * tone]
+            if (x - joint) % board == 0:
+                colour = [channel * 0.88 for channel in colour]
+            canvas.set(x, y, colour)
     return canvas
 
 
@@ -659,5 +711,13 @@ ART = {
     "home:tex_ceiling_plaster_01": {
         "model": "environment/home/textures/ceilings/ceiling_plaster_01.png",
         "build": build_ceiling_plaster,
+    },
+    "home:tex_door_white_01": {
+        "model": "environment/home/textures/doors/door_white_01.png",
+        "build": build_door_white,
+    },
+    "home:tex_sauna_wood_01": {
+        "model": "environment/home/textures/doors/sauna_wood_01.png",
+        "build": build_sauna_wood,
     },
 }

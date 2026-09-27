@@ -385,7 +385,7 @@ fn the_dense_capacity_fixture_holds_and_collides_at_scale() {
     let level = capacity("capacity_dense");
     assert!(
         level.props.len() > 5_000,
-        "the dense fixture must exceed the historical 5000-prop cap; found {}",
+        "the dense fixture must exceed the old 5000-prop cap; found {}",
         level.props.len()
     );
     let models: HashSet<&String> = level.props.iter().map(|prop| &prop.model).collect();
@@ -495,7 +495,7 @@ fn the_sparse_capacity_fixture_works_kilometres_from_the_origin() {
 
 #[test]
 fn the_raised_caps_accept_content_past_the_old_boundary() {
-    // The historical loader caps were 500 rooms / 5000 walls / 5000 lights /
+    // The old loader caps were 500 rooms / 5000 walls / 5000 lights /
     // 5000 props. A level one past each boundary must load and collide; the
     // raised caps are only real if the engine actually handles them.
     let mut rooms: Vec<String> = Vec::new();

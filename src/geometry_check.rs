@@ -2478,12 +2478,37 @@ mod tests {
             "a 24-segment pillar should decompose into several rows, got {}",
             boxes.len()
         );
+        // The ring decomposition: one box per rendered segment sub-step per
+        // radial band, so no box spans a row of the plan. A 24-segment pillar's
+        // 15-degree segments split into 3-degree sub-steps, which keeps every
+        // diagonal corner within a few percent of the radius.
+        let segments = usize::try_from(pillar.resolved_segments()).unwrap_or(0);
+        let ring_boxes = segments.saturating_mul(crate::level::PILLAR_COLLISION_BANDS);
+        assert!(ring_boxes > 0, "the fixture pillar resolves segments");
+        assert!(
+            boxes.len() >= ring_boxes,
+            "one ring box per rendered segment per band at least, got {}",
+            boxes.len()
+        );
+        assert_eq!(
+            boxes.len() % ring_boxes,
+            0,
+            "the collision ring is a whole number of boxes per segment"
+        );
         let full_square = (pillar.radius * 2.0) * (pillar.radius * 2.0);
         for boxed in &boxes {
             let area = (boxed.max[0] - boxed.min[0]) * (boxed.max[2] - boxed.min[2]);
             assert!(
                 area < full_square * 0.6,
                 "no collision row may be a square around the whole pillar (area {area:.3} of {full_square:.3})"
+            );
+            // A round-plan box is a narrow wedge: it never reaches across the
+            // disc on *both* axes, which is what keeps the baked shadow round.
+            let width = boxed.max[0] - boxed.min[0];
+            let depth = boxed.max[2] - boxed.min[2];
+            assert!(
+                width.min(depth) <= pillar.radius * 0.6,
+                "a ring box must be a wedge, not a row: {width:.3} x {depth:.3}"
             );
             for corner in footprint_corners(boxed) {
                 let distance = (corner[0] - pillar.x).hypot(corner[1] - pillar.z);
@@ -2494,6 +2519,10 @@ mod tests {
                 );
             }
         }
+        assert!(
+            covered_by_boxes(&boxes, pillar.x, 1.0, pillar.z),
+            "the ring must cover the centre so the cap stands on it"
+        );
         for (x, z) in pillar.polygon_points() {
             assert!(
                 covered_by_boxes(&boxes, x, 1.0, z),

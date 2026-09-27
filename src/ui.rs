@@ -818,7 +818,7 @@ const fn on_off(value: bool) -> &'static str {
 /// Player-facing label of a Texture Filtering value.
 ///
 /// The three names are the whole vocabulary: no filtering, sampler or
-/// anisotropy term can ever reach the screen. A legacy or unknown value shows
+/// anisotropy term can ever reach the screen. An unknown value shows
 /// its canonical equivalent (High by default).
 fn filtering_label(mode: &str) -> &'static str {
     match crate::settings::texture_filtering_name(mode) {
@@ -1672,16 +1672,16 @@ mod tests {
         assert_eq!(rows[FILTERING_ROW].value, "< Low >");
         assert_eq!(rows[0].value, "< High >", "quality stayed put");
 
-        // A legacy stored name steps from its current equivalent and leaves the
-        // stored value canonical.
-        let mut legacy = Settings {
-            texture_filtering: "nearest".to_string(),
+        // An unknown stored name resolves to the default before stepping, and
+        // the stored value is rewritten to the canonical name.
+        let mut unknown = Settings {
+            texture_filtering: "bogus".to_string(),
             ..Settings::default()
         };
-        let next = crate::settings::texture_filtering_step(&legacy.texture_filtering, 1);
-        assert_eq!(next, "medium");
-        legacy.texture_filtering = next.to_string();
-        assert_eq!(legacy.texture_filtering, "medium");
+        let next = crate::settings::texture_filtering_step(&unknown.texture_filtering, 1);
+        assert_eq!(next, "low");
+        unknown.texture_filtering = next.to_string();
+        assert_eq!(unknown.texture_filtering, "low");
     }
 
     #[test]

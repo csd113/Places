@@ -22,7 +22,7 @@ contiguous material run, TRS node hierarchies and LINEAR/STEP animation clips.
 Each primitive carries its own compacted POSITION/TEXCOORD_0/COLOR_0 arrays —
 only the vertices its own indices reference — so a multi-material model never
 repeats a shared vertex list per primitive. A model that supplies none of the
-extended inputs keeps the legacy one-primitive output byte-for-byte.
+extended inputs keeps the one-primitive output byte-for-byte.
 
 Shipped users:
 

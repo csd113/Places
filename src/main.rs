@@ -179,8 +179,9 @@ fn log_dynamic_scene(renderer: &Renderer) {
     if !logging::verbose() {
         return;
     }
+    let (doors, doors_drawn) = renderer.door_render_counts();
     println!(
-        "[dynamic] {} object(s): {} draw call(s), {} vertices (the demonstration path; never part of the static bake)",
+        "[dynamic] {} object(s): {} draw call(s), {} vertices (the demonstration path; never part of the static bake); doors: {doors_drawn}/{doors}",
         renderer.dynamic_scene().len(),
         renderer.dynamic_scene().draw_count(),
         renderer.dynamic_scene().vertex_count()
@@ -437,6 +438,10 @@ fn spawn_level_demonstration(renderer: &mut Renderer, loaded: &loader::LoadedLev
     // authors `float` gets them, and the spawn is idempotent. It runs after
     // the demo spawn because that one clears the whole dynamic scene first.
     renderer.set_floating_props(&loaded.level);
+    // Ambient effects are level content too: the install already built the
+    // steam plumes from the resolved material table, and this idempotent call
+    // is the engine's explicit hand-off.
+    renderer.set_level_effects(&loaded.level);
 }
 
 /// Builds the renderer for the initial level and applies the persisted texture
@@ -890,6 +895,17 @@ impl FrameLoop<'_> {
         let interact_pressed = self.game.take_interact_press();
         if interact_pressed && self.window_focused {
             self.dispatch_interaction();
+        }
+        // Door leaves follow the gameplay state: the drawn slab and the
+        // physical collider read the same angle, so a door can never stop the
+        // player where it is not drawn.
+        self.renderer.sync_doors(self.game.doors());
+        // Fixture switches are gameplay state too: hand the renderer any state
+        // that changed this frame (usually none) so it can re-light the
+        // affected charts and scale the fixture's own face emission.
+        let light_toggles = self.game.take_light_toggles();
+        if !light_toggles.is_empty() {
+            self.renderer.apply_light_toggles(&light_toggles);
         }
         // Advance the dynamic objects (the demonstration drum and any other
         // spawned object) once per frame: transform only, never a geometry or

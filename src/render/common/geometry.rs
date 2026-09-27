@@ -8,16 +8,16 @@ use std::cell::RefCell;
 
 use super::{
     DECAL_EXTERNAL_BASE, LIGHT_FACE_PROBE_M, LevelDef, LevelLighting, LevelMesh, LevelSurfaces,
-    LightmapEmit, LitSurface, MATERIAL_NONE, MaterialIndex, MaterialLookup, MaterialSlot,
-    MaterialTable, PropDef, SurfaceKey, SurfaceKind, Vertex, WALL_COINCIDENCE_EPS,
-    WALL_FACE_EAST_MULT, WALL_FACE_NORTH_MULT, WALL_FACE_SOUTH_MULT, WALL_FACE_WEST_MULT, WallAxis,
-    WallCoverage, WallUnit, add_decal_quad, add_flush_mount_fixture, add_panel_fixture,
-    add_prop_box, add_quad, add_round_fixture, add_wall_cross_quad, add_wall_fixture,
-    add_wall_length_face, cross_section_covered, decal_sheet_index, decal_uv_rect,
-    decal_uv_rect_full, emit_floor_skirts, emit_lit_surface_grid, finish_indexed_mesh,
-    floor_surfaces, flush_wall_run, interval_symmetric_difference, lit_corners, lit_surface_grid,
-    room_is_tessellatable, shade, spatial_cell_grid, split_rect, stamp_lightmap_quad,
-    subtract_rectangles, tiled_uv, wall_layout, wall_vertical_extent,
+    LightmapEmit, LitSurface, MaterialIndex, MaterialLookup, MaterialSlot, MaterialTable, PropDef,
+    SurfaceKey, SurfaceKind, Vertex, WALL_COINCIDENCE_EPS, WALL_FACE_EAST_MULT,
+    WALL_FACE_NORTH_MULT, WALL_FACE_SOUTH_MULT, WALL_FACE_WEST_MULT, WallAxis, WallCoverage,
+    WallUnit, add_decal_quad, add_flush_mount_fixture, add_panel_fixture, add_prop_box, add_quad,
+    add_round_fixture, add_wall_cross_quad, add_wall_fixture, add_wall_length_face,
+    cross_section_covered, decal_sheet_index, decal_uv_rect, decal_uv_rect_full, emit_floor_skirts,
+    emit_lit_surface_grid, finish_indexed_mesh, floor_surfaces, flush_wall_run,
+    interval_symmetric_difference, lit_corners, lit_surface_grid, room_is_tessellatable, shade,
+    spatial_cell_grid, split_rect, stamp_lightmap_quad, subtract_rectangles, tiled_uv, wall_layout,
+    wall_vertical_extent,
 };
 use crate::level::{RoomDef, WallDef, WallSlice};
 use crate::lighting::lightmap::{LightmapPlan, PatchKind};
@@ -1196,7 +1196,7 @@ fn emit_fixtures(
     scratch: &mut Vec<Vertex>,
 ) {
     let mut housing: Vec<Vertex> = Vec::new();
-    for light in &context.level.ceiling_lights {
+    for (fixture_index, light) in context.level.ceiling_lights.iter().enumerate() {
         if !light.x.is_finite() || !light.z.is_finite() {
             continue;
         }
@@ -1279,7 +1279,14 @@ fn emit_fixtures(
         // The luminous faces bind the family's sheet; the housing (empty only
         // for a family that generates none) binds the family's own bare key,
         // which draws the untextured white sheet.
-        let sheet = MaterialIndex::try_from(profile.kind.index()).unwrap_or(MATERIAL_NONE);
+        // A family sheet is shared by every fixture of the family; a
+        // switchable fixture gets its own slot so its face can turn off
+        // without touching another fixture's material.
+        let sheet = MaterialIndex::from(crate::level::fixture_face_material_index(
+            fixture_index,
+            light.switchable,
+            profile.kind,
+        ));
         buckets.add_quads(SurfaceKey::new(SurfaceKind::Light, sheet), scratch);
         buckets.add_quads(SurfaceKey::bare(SurfaceKind::Light), &housing);
     }

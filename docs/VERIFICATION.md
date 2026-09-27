@@ -61,7 +61,7 @@ cargo run --release -- --check-geometry --level levels/level0_pit.json \
 
 It exits `0` when the level has no confirmed defects and `1` when it does
 (`--strict` also fails on warnings); `2` means the level could not be read or
-parsed. See `docs/MAP_AUTHORING_GUIDE.md` §30 for every check, the intent
+parsed. See `docs/MAP_AUTHORING_GUIDE.md` §31 for every check, the intent
 annotations and the honest limitations.
 
 Alongside the gate, the GPU diagnostics run explicitly (they are ignored by
@@ -196,7 +196,7 @@ Live window lifetime and live quality switches can be scripted with
 benchmark-only switches. `PLACES_BENCH_WINDOW_CYCLE` drives real window events
 through the SDL window — `resize:<w>x<h>`, `minimize`, `restore` —
 `PLACES_BENCH_QUALITY_CYCLE` switches the overall quality level through the
-normal rebuild path (`low` / `medium` / `high`; the legacy `full` name is High),
+normal rebuild path (`low` / `medium` / `high`),
 and `PLACES_BENCH_GRAPHICS_CYCLE` changes one Advanced graphics setting at a
 time through the same setters the menu uses (`filtering=low|medium|high`,
 `lightmaps=off|medium|full`, `reflections=off|medium|full`, `bloom=on|off`):

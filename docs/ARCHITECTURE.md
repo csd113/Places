@@ -21,7 +21,8 @@ level / world / gameplay / spatial / materials / lighting / camera
               render::common  —  renderer-neutral preparation
         geometry emitters, meshes, material draw state, reflection
         routing and mirror maths, fog, emission animation, water
-        surfaces, character posing, camera/view maths, target-size policy
+        surfaces, door model builds, character posing, camera/view maths,
+        target-size policy
                          │
                          ▼
               render::Renderer  —  the facade the engine talks to
@@ -34,7 +35,7 @@ level / world / gameplay / spatial / materials / lighting / camera
               render::wgpu  —  the renderer
         instance, surface, adapter, device, queue, depth target, world
         buffers and pipelines, texture cache, material cache, lightmap
-        atlas, reflection probes and planar target, props/dynamics,
+        atlas, reflection probes and planar target, props/dynamics/effects,
         decals, post-processing, HUD, capture
                          │
                          ▼
@@ -60,7 +61,7 @@ backend module that names it.
 | `src/render/common/mod.rs` | Emitters and level-build helpers (`tiled_uv`, wall/floor emitters, decal quads, `MaterialLookup`) | preparation |
 | `src/render/common/api.rs` | `build_level_geometry*` entry points and lighting/atlas build | preparation |
 | `src/render/common/mesh.rs` | `Vertex`, `LevelMesh`, chunk packing, unit quantisation | preparation (CPU layout) |
-| `src/render/common/geometry.rs`, `architecture.rs`, `fixtures.rs`, `props.rs`, `character.rs`, `water.rs`, `decals.rs`, `dynamic.rs`, `animation.rs`, `atmosphere.rs` | Geometry emission, prop instancing, skinned-character posing, water surfaces, decals, dynamic objects, emission animation, fog; the shared decal constants | preparation |
+| `src/render/common/geometry.rs`, `architecture.rs`, `fixtures.rs`, `props.rs`, `character.rs`, `water.rs`, `decals.rs`, `dynamic.rs`, `doors.rs`, `effects.rs`, `animation.rs`, `atmosphere.rs` | Geometry emission, prop instancing, skinned-character posing, water surfaces, decals, dynamic objects, code-built door models, the bounded steam plume model, emission animation, fog; the shared decal constants | preparation |
 | `src/render/common/view.rs` | `DrawableSize`, `UiViewport`, FOV and viewport maths, value-only budgets | preparation |
 | `src/render/common/camera.rs` | `RenderCamera` and its view-projection/frustum | preparation |
 | `src/render/common/materials.rs` | `MaterialRenderState`, `BatchPass`, `EmissionRouting`, resolved surface materials | preparation |
@@ -78,6 +79,7 @@ backend module that names it.
 | `src/render/wgpu/reflections.rs` | Reflections: probe cubemaps (face convention), planar target, capture maths and the GPU round-trip orientation test | backend |
 | `src/render/wgpu/props.rs` | Props: neutral prop batches as GPU buffers, clamped model sheets and plain-opaque emission materials | backend |
 | `src/render/wgpu/dynamic.rs` | Dynamics: model-space meshes and per-object environments carrying `u_model` and the baked-light probe | backend |
+| `src/render/wgpu/effects.rs`, `effects.wgsl` | Ambient effects: pre-sized steam billboard buffers, one draw per distinct effect material, straight-alpha blending with depth writes off | backend |
 | `src/render/wgpu/character.rs` | Characters: shared index buffers, one mutable CPU-skinned vertex buffer and environment per character, plain-opaque submesh materials | backend |
 | `src/render/wgpu/decals.rs`, `decals.wgsl` | Decals: generated atlas and external sheets, the depth-biased pass and its cut-out fragment | backend |
 | `src/render/wgpu/postprocess.rs`, `post.wgsl` | Post: raw scene/presented targets, shared-depth emissive pass, two-pass blur, resolve/present copy | backend |
@@ -93,7 +95,7 @@ where the bytes live:
 | Path | Purpose |
 |---|---|
 | `src/assets.rs` | The catalog: logical ids, classes, themes, resource paths, size policy |
-| `src/level.rs` | The level format, geometry rules, the walkable floor, water volumes and ladders |
+| `src/level.rs` | The level format, geometry rules, the walkable floor, water volumes, ladders, doors and effect emitters |
 | `src/loader.rs` | Level discovery, validation, level packs, material resolution |
 | `src/loading.rs` | Serialized CPU preparation, cancellation, immutable prepared-build cache |
 | `src/lighting/` | The CPU bake: partition areas, baselines, fixture pools, visibility |
@@ -102,8 +104,9 @@ where the bytes live:
 | `src/collision_index.rs` | The uniform X/Z grid over the level's solid boxes, shared by movement, support, headroom, entity routes, interaction targeting, label occlusion and route validation (allocation-free queries, exact linear fallback) |
 | `src/geometry_check.rs` | The read-only map geometry checker CLI (`--check-geometry`) and its fixture suite |
 | `src/zoo_audit.rs` | The test-only contracts for the generated Model Zoo and the capacity fixtures |
-| `src/game/`, `src/game.rs` | Player state, movement, stance, ladders, swimming, area triggers and the action dispatcher |
-| `src/interact.rs` | Interaction targeting (ray/reach/occlusion), placed-instance bounds and the world-anchored label/prompt emission |
+| `src/game/`, `src/game.rs` | Player state, movement, stance, ladders, swimming, doors, area triggers and the action dispatcher |
+| `src/door.rs` | Door runtimes: the closed/opening/open/closing phase machine, current angle and collider pose, the id→index map action and interaction dispatch resolve against, and per-level reset/advance |
+| `src/interact.rs` | Interaction targeting (ray/reach/occlusion), placed-instance bounds, door aim bounds and the world-anchored label/prompt emission |
 | `src/ui.rs` | The menu, level select and settings screens |
 | `assets/catalog.json` | The authoritative registry mapping every logical id to a file, material or generated resource |
 | `assets/environment/**`, `assets/core/**`, `assets/entities/**` | Shipped surfaces, decals, fixture faces, props and entity models (PNG/GLB) |
@@ -152,19 +155,25 @@ The interaction layer is engine data plus one dispatcher; the renderer only
 receives text vertices.
 
 - **Identity is per placed instance, never per model.** `LevelDef::prop_instance_ids`
-  resolves each prop's `id` (authored, else deterministic `<model-short>_<n>`;
-  fixtures and triggers have their own defaulted ids). All run state is keyed by
-  that instance id or by placed-instance index — never by `model`, catalog id or
-  filename. Two placements of one model are two independent instances.
+  resolves each prop's `id` (authored, else deterministic `<model-short>_<n>`);
+  fixtures, doors and triggers resolve their own ids into the same
+  per-level namespace (a duplicate across any of the four is a load error). All
+  run state is keyed by that instance id or by placed-instance index — never by
+  `model`, catalog id or filename. Two placements of one model are two
+  independent instances.
 - **`interact::Interactables`** is resolved once per level load from
-  `LevelDef` + `LevelSurfaces`: every prop with a non-empty `interaction` (an
-  aimable `Interactable { id, display_name, prompt, reach, anchor, bounds,
-  own_box, actions }`) plus every prop named as an explicit `toggle_label`
-  target (a label-only instance with empty `actions`, never aimable). The
+  `LevelDef` + `LevelSurfaces` + `Doors`: every prop with a non-empty
+  `interaction` (an aimable `Interactable { id, display_name, prompt, reach,
+  anchor, bounds, own_box, actions }`), every prop named as an explicit
+  `toggle_label` target (a label-only instance with empty `actions`, never
+  aimable), and every door whose `manual_interaction` is true (an aimable
+  instance carrying the leaf's live `door_index`, collider bounds and
+  phase-dependent prompt). The
   target set and the aimable set therefore resolve identically at validation
   time and at runtime.
   `anchor`/`bounds` come from the same `PropDef::resolved_size` contract as
-  collision (the authored `size` or `[0.6, 0.9, 0.6]`, scaled).
+  collision (the authored `size` or `[0.6, 0.9, 0.6]`, scaled); a door's
+  aim bound is republished from its live collider as the leaf swings.
 - **`Game` is the dispatcher.** `Game::interaction_target()` resolves the aimed
   instance (stance-aware eye, per-instance reach, collision-world occlusion);
   `Game::take_interact_press()` consumes the latched key edge;
@@ -173,14 +182,33 @@ receives text vertices.
   entry point both interactions and triggers call. `ActionDef` is the closed,
   typed action set: `ToggleLabel { target }`, `ResetToStart`,
   `PlayAnimation { target, clip, looped }`, `ToggleAnimation { target, clip }`,
+  `OpenDoor { target }`, `CloseDoor { target }`, `Toggle { target }`,
   `PlayAudio { target, sound }`. Dispatch is
   bounded (`MAX_ACTIONS_PER_SOURCE`) and a `ResetToStart` ends its batch.
+  Targets are validated at load: a duplicate id, an unknown target and an
+  action/target combination that is not supported (for example `open` on a light
+  fixture) are named errors, never silently ignored.
+- **`door::Doors`** owns one `DoorRuntime` per authored leaf: the phase
+  (`closed`/`opening`/`open`/`closing`), the current angle, the obstruction
+  policy (`stop` holds and resumes; `reverse` flips once per obstruction) and
+  the collider derived from the current pose. `Doors::request_open`/
+  `request_close`/`toggle` are what the action dispatcher calls; the angle and
+  the collider are read from the same runtime, and `reset_to_spawn` restores
+  every leaf to its authored `initial_state`.
+- **Effects** (`level::EffectDef`) are presentation-only emitters. The neutral
+  `render::common::effects::EffectScene` resolves one scene per level from
+  `effects[]` and the level's resolved material table (the same resolution a
+  door's sheet uses), evaluates every particle as a pure function of the
+  animation clock, and hands the backend a fixed, material-grouped billboard
+  list; `render::wgpu::effects` owns the pre-sized GPU buffers and the blended
+  pass. No collision, occlusion or bake term is derived from an effect.
 - **Label state** is a per-interactable `Vec<bool>` in `Game`
   (`is_label_visible(index)`); it is cleared by a level load and preserved by
   `reset_to_spawn`.
 - **`reset_to_start`** is `Game::reset_to_spawn`: authored spawn and yaw, level
   pitch, zeroed velocity/accumulator, cleared water/ladder/stance state,
-  held-key latches suppressed until release, and every trigger re-seeded from the
+  every door returned to its authored `initial_state`, held-key latches
+  suppressed until release, and every trigger re-seeded from the
   new position.
 - **`AreaTriggers`** resolves the map's `area_triggers[]` into id'd boxes;
   `Game::update_triggers(from_feet)` runs enter semantics with a swept segment,
@@ -278,7 +306,8 @@ These stay private to the backend module; nothing above names them.
 2. reflects the active plane and bakes/samples the probes selected from the
    neutral routing (`nearest_visible_reflection_plane`, per-material reflection
    modes), reusing the targets only while their size and profile hold;
-3. draws the static world, props, dynamics, characters, fixtures and decals
+3. draws the static world, props, dynamics (including the level's door frames
+   and leaves), characters, fixtures and decals
    through the neutral `BatchPass` classification — opaque, alpha cut-out and
    translucent (sorted back to front) — with the material, emission, lightmap,
    sheen, reflection and fog terms the neutral table resolved;
@@ -314,8 +343,8 @@ surface is:
 - **Graphics transaction:** `apply_frame_graphics` applies changes that do not
   require CPU preparation. Level and lightmap replacements use the loading
   worker and staged GPU installation (see RENDERER.md §12.2).
-- **Dynamic objects:** `set_dynamic_demo`, `update_dynamic`,
-  `dynamic_scene`.
+- **Dynamic objects and effects:** `set_dynamic_demo`, `update_dynamic`,
+  `dynamic_scene`, `sync_doors`, `set_level_effects`.
 - **Animated characters:** `update_characters(delta_seconds,
   LocomotionSnapshot)`, `character_count`, `character_scene`.
 - **Diagnostics:** neutral counters and logs (`render_stats`, `level_stats`,

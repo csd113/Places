@@ -656,9 +656,9 @@ fn occluded_before_indexed(
 ) -> bool {
     #[allow(clippy::arithmetic_side_effects)]
     let limit = entry - LABEL_OCCLUSION_EPS_M;
-    if nearest_door_entry(doors, origin, direction, limit).is_some_and(|(index, _)| {
-        own.own_door != Some(index)
-    }) {
+    if nearest_door_entry(doors, origin, direction, limit)
+        .is_some_and(|(index, _)| own.own_door != Some(index))
+    {
         return true;
     }
     let mut occluded = false;

@@ -90,8 +90,6 @@ cargo test
 
 Only `id`, `asset_class` and `asset_type` are required. Missing optional fields
 inherit neutral fallbacks, and unknown future fields are ignored by this build.
-The loader also accepts the legacy `props` array from the old flat registry, so
-older tooling keeps parsing.
 
 ### Identity (`id`)
 
@@ -161,7 +159,7 @@ replaced or the file moved without touching a level.
   image becomes external.
 * `"tint"` — three channels in `0..1` multiplied into the sampled texture
   (default `[1, 1, 1]`). The built-in office surfaces use it to keep their
-  historical look: wallpaper `[0.85, 0.80, 0.42]`, ceiling
+  authored look: wallpaper `[0.85, 0.80, 0.42]`, ceiling
   `[0.72, 0.72, 0.70]`.
 * `"surface"` — `wall`, `floor` or `ceiling`, documentation/validation only.
   The geometry being emitted decides which surface family a material draws on;
@@ -309,10 +307,10 @@ Put the PNGs under `textures/` next to `level.json` and map material ids in
 }
 ```
 
-* The string form (`"pack:wall": "textures/my_wall.png"`) still parses, so old
-  packs keep working.
+* The object form is `{ "texture": …, "tile_metres": …, "tint": … }`; the string
+  form is the texture path shorthand.
 * A `pack:` material with no mapping falls back to `textures/<name>.png` inside
-  the pack, as before.
+  the pack.
 * A mapping may name a logical catalog texture id (anything with a `:`) to
   reuse shipped artwork; the pack's own `tile_metres`/`tint` still apply.
 * Pack textures are decoded with the pack's namespace in the cache key, so two
@@ -399,8 +397,9 @@ assets/
     textures/*.png                 architecture-test artwork (orientation, alpha, NPOT)
 ```
 
-Directory neatness is the lowest priority behind compatibility: the catalog is
-what the runtime reads, so files may move freely as long as the catalog follows.
+Directory neatness is the lowest priority behind the catalog contract: the
+catalog is what the runtime reads, so files may move freely as long as the
+catalog follows.
 
 ## Prop and entity conventions
 
@@ -427,14 +426,14 @@ what the runtime reads, so files may move freely as long as the catalog follows.
 | budget     | value                                                      |
 | ---------- | ---------------------------------------------------------- |
 | triangles  | 50–500 preferred, ≤800 acceptable, **1500 shipped art budget** (`tools/props` refuses to build above it); the engine loads up to 6000 with an art-budget warning, and a model above 6000 falls back to a placeholder box |
-| prop texture | **256×256 native** (the normal shipped size; 32/64/128 remain legal for lighter props); the engine accepts up to 1024×1024 and downscales to the runtime quality budget (Full 256, Low 128) at upload. The whole shipped pack decodes to under 4 MiB against a 64 MiB desktop pack budget |
-| surface texture | Office/Pool sheets are intentionally 1024×1024 (square, opaque); 256×256 soft tooling preference, 1024×1024 hard load ceiling, ≤4 MiB decoded per sheet. Full uploads them unchanged; Low downscales to 256 |
+| prop texture | **256×256 native** (the normal shipped size; 32/64/128 remain legal for lighter props); the engine accepts up to 1024×1024 and downscales to the runtime quality budget (High/Medium 256, Low 128) at upload. The whole shipped pack decodes to under 4 MiB against a 64 MiB desktop pack budget |
+| surface texture | Office/Pool sheets are intentionally 1024×1024 (square, opaque); 256×256 soft tooling preference, 1024×1024 hard load ceiling, ≤4 MiB decoded per sheet. High uploads them unchanged; Medium and Low downscale to 512 and 256 |
 | materials  | one material per primitive; a multi-material model costs one draw range per material per batch |
 | primitives / materials / images per model | 32 / 16 / 16 |
 | draw calls | one per model primitive per spatial batch (instances are baked) |
 
-Baked vertex colours carry the per-face shading and contact darkening (the same
-`PROP_FACE_SHADES` the old placeholder boxes used). A prop's fragment shader is
+Baked vertex colours carry the per-face shading and contact darkening (the shared
+`PROP_FACE_SHADES` constants). A prop's fragment shader is
 `texture × vertex colour` plus the material's emissive term; emission is added
 on top of the baked light and never multiplied by it, so an emissive surface
 stays bright in a dark room. Prop models keep the simple material model: no
@@ -444,36 +443,63 @@ placed skinned model is posed by the character path (see
 [`entities/README.md`](entities/README.md)).
 
 Surface materials multiply the same way: the sampled texture is scaled by the
-material's `tint` and then by the baked lighting exactly like the old
-code-generated sheets, so RGB lighting keeps working on external artwork. On top
-of that base the catalog may author, per material:
+material's `tint` and then by the baked lighting across the artwork, so RGB
+lighting keeps working on external artwork. On top of that base the catalog may
+author, per material:
 
 * `emissive`, `emissive_intensity` and `emissive_mask` (a texture id) —
   **visual** brightness only, illuminating nothing around it;
 * `normal_texture` (a texture id) and `normal_strength` (`0.0..=2.0`) — a
   tangent-space normal map that perturbs the shading normal;
 * `specular` (a white strength, or `specular_color` for a tinted sheen) and
-  `shine` (`0.0` matte .. `1.0` extremely glossy; the legacy `roughness` inverse
-  is still accepted) — a view-dependent sheen added on top of the baked light,
-  never a realtime light, and never a mirror;
+  `shine` (`0.0` matte .. `1.0` extremely glossy) — a view-dependent sheen added
+  on top of the baked light, never a realtime light, and never a mirror;
 * `alpha_mode` (`opaque`, `cutout` or `blend`), with `alpha_cutoff` and
   `opacity` — how the sampled texture's alpha combines with the framebuffer;
 * `reflection_mode` (`none`, `probe` or `planar`) and `reflection_strength` — a
   selective image of the room, weighted by the material's own specular and
   shine, and blurred/dimmed as the shine drops.
 
-A material that authors none of these draws exactly as it did before they
-existed: they add terms to the baked lighting model, they never replace it.
+A material that authors none of these fields is a plain opaque surface: the
+optional terms add to the baked lighting model, they never replace it.
+
+### Door and effect assets
+
+The door leaves the level draws are built in code from catalog materials by
+[`DoorDef`](../src/level.rs) kind, so a door needs no prop model and no GLB.
+The `home:` theme ships the door surfaces; the brass handle ships under `core:`:
+
+| Material id | Texture id | Used by | Notes |
+| --- | --- | --- | --- |
+| `home:door_white_01` | `home:tex_door_white_01` | interior door leaf | Satin white door paint (`tile_metres: 0.5`); the leaf builds two raised panels per face |
+| `home:sauna_wood_01` | `home:tex_sauna_wood_01` | sauna stiles, rails and handle | Light cedar boards (`tile_metres: 0.6`), a restrained satin sheen |
+| `home:baseboard_white_01` | `home:tex_baseboard_white_01` | interior door frame | Painted white skirting shared with the baseboards |
+| `home:baseboard_wood_01` | `home:tex_baseboard_wood_01` | sauna door frame | The same wood skirting the baseboards use |
+| `core:metal_brass_01` | `core:tex_metal_brass_01` | interior door handle | Polished brass (`tile_metres: 0.25`), high shine without a planar mirror |
+| `core:glass_window_clear_01` | `core:tex_glass_clear_01` | sauna leaf glass panel | Transparent `blend` glass; also the solid clear glazing of a window opening |
+| `core:steam_01` | `core:tex_steam_01` | steam effect billboards | Soft low-opacity `blend` puff (`tile_metres: 0.5`); the default for `effects[]` |
+
+The default material set per door kind is declared in `src/level.rs`
+(`door_materials`): `interior` uses `home:door_white_01` /
+`home:baseboard_white_01` / `core:metal_brass_01`, and `sauna` uses
+`home:sauna_wood_01` / `home:baseboard_wood_01` / `home:sauna_wood_01` with the
+clear glass panel.
+
+`effects[]` steam emitters draw bounded billboards through the effects pass
+(`src/render/common/effects.rs` models the plume; `src/render/wgpu/effects.rs` owns
+the GPU buffers and the blended pass). An omitted `material` uses `core:steam_01`
+(`DEFAULT_STEAM_MATERIAL` in `src/level.rs`).
 
 ### Runtime quality profiles
 
-`settings.json` selects `"quality": "full"` (default) or `"low"`. Both use the
-same assets: Full uploads shipped textures at their native size (surfaces and
-fitted sheets 1024, prop sheets 256, emissive masks 512) with no resampling,
-and Low box-filters each one once at level load (surfaces/fixtures/decals to
-256, prop sheets to 128, emissive masks to 128). Low is an optional
-quality/performance trade, not a hardware requirement. Sources are never
-re-authored for Low, and the source hard limit (1024 px) is unchanged.
+`settings.json` selects `"quality": "low" | "medium" | "high"` (default
+`"high"`). All three use the same assets: High uploads shipped textures at their
+native size (surfaces and fitted sheets 1024, prop sheets 256, emissive masks
+512) with no resampling; Medium box-filters surfaces/fixtures/decals to 512,
+prop sheets to 256 and emissive masks to 256; Low downscales them to 256, 128
+and 128. Low and Medium are an optional quality/performance trade, not a
+hardware requirement. Sources are never re-authored for a lower profile, and the
+source hard limit (1024 px) is unchanged.
 
 ## PNG conventions for surface textures
 
@@ -489,7 +515,7 @@ re-authored for Low, and the source hard limit (1024 px) is unchanged.
   `tile_metres` tall; the phase is anchored to the wall top.
 * **Floor/ceiling orientation**: image `x` maps to world `+X` and image `y`
   maps to world `+Z`, so an image authored map-style reads with north (`-Z`) up.
-* **Colour space**: no gamma handling. The historical sheets were authored pale
+* **Colour space**: no gamma handling. The shipped sheets are authored pale
   because the material tint and the baked lighting multiply into them; author
   with that in mind or set the tint for your material.
 
@@ -521,7 +547,7 @@ model comes from elsewhere:
 
 A model above the shipped art budget still loads (with a one-time warning)
 unless it crosses the engine ceiling, in which case the prop falls back to its
-placeholder box exactly as before.
+placeholder box.
 
 Props keep their textures embedded in the GLB: only level surfaces, decal
 sheets and fixture faces load external PNGs.

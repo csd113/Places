@@ -102,6 +102,13 @@ pub struct BakedLight {
     /// and prop-attached lights keep the historical isotropic ball, because a
     /// horizontal cone would zero the floor beneath a sconce.
     pub directional: bool,
+    /// Index into the level's `props` of the prop this light is attached to,
+    /// or `None` for a ceiling or wall fixture.
+    ///
+    /// A prop-attached light is the source, so [`crate::lighting::Visibility`]
+    /// exempts it from the occlusion boxes derived from its own prop's model;
+    /// the light still sees every other solid, including other props.
+    pub owner_prop: Option<usize>,
 }
 
 impl BakedLight {
@@ -648,6 +655,9 @@ pub struct LevelLighting {
     room_lights: Vec<Vec<u32>>,
     /// Every fixture index, for samples outside all rooms.
     all_lights: Vec<u32>,
+    /// Per ceiling fixture, the light index it baked into, or `None` for a
+    /// fixture with a non-finite position (which casts nothing).
+    fixture_lights: Vec<Option<usize>>,
     /// Ceiling plane used for fixtures that no room contains.
     default_ceiling_y: f32,
     /// Emitter taps per axis for local-pool visibility, from the bake's
@@ -913,6 +923,7 @@ fn baked_lights(
     surfaces: Option<&LevelSurfaces<'_>>,
     default_height_m: f32,
     default_ceiling_y: f32,
+    fixture_lights: &mut [Option<usize>],
 ) -> Vec<BakedLight> {
     let attached = level
         .props
@@ -921,7 +932,7 @@ fn baked_lights(
         .sum::<usize>();
     let mut lights: Vec<BakedLight> =
         Vec::with_capacity(level.ceiling_lights.len().saturating_add(attached));
-    for light in &level.ceiling_lights {
+    for (fixture_index, light) in level.ceiling_lights.iter().enumerate() {
         if !light.x.is_finite() || !light.z.is_finite() {
             continue;
         }
@@ -982,18 +993,27 @@ fn baked_lights(
             // Ownership is recorded for every owned light, active or not: the
             // count describes the room's fixtures, exactly as it always has.
             info.fixture_count = info.fixture_count.saturating_add(1);
-            if source.enabled {
+            // A switchable fixture contributes no room baseline: the baseline is
+            // a bake-time aggregate of always-on illumination, while a
+            // switchable fixture is a local pool that comes and goes. Excluding
+            // it keeps a runtime toggle exact (the room's aggregate never needs
+            // re-deriving) and local (only its own pool's charts change).
+            if source.enabled && !light.switchable {
                 let power = effective_power(intensity, height_m);
                 info.effective_power.r = power.mul_add(color.r, info.effective_power.r);
                 info.effective_power.g = power.mul_add(color.g, info.effective_power.g);
                 info.effective_power.b = power.mul_add(color.b, info.effective_power.b);
             }
         }
+        if let Some(slot) = fixture_lights.get_mut(fixture_index) {
+            *slot = Some(lights.len());
+        }
         lights.push(BakedLight {
             source,
             height_factor,
             room,
             directional: matches!(light.mount, LightMount::Ceiling),
+            owner_prop: None,
         });
     }
 
@@ -1025,7 +1045,7 @@ fn baked_attached_lights(
     default_height_m: f32,
 ) -> Vec<BakedLight> {
     let mut lights: Vec<BakedLight> = Vec::new();
-    for prop in &level.props {
+    for (prop_index, prop) in level.props.iter().enumerate() {
         if prop.lights.is_empty()
             || !prop.x.is_finite()
             || !prop.y.is_finite()
@@ -1069,6 +1089,7 @@ fn baked_attached_lights(
                     height_factor: 1.0,
                     room: None,
                     directional: false,
+                    owner_prop: Some(prop_index),
                 });
                 continue;
             };
@@ -1090,6 +1111,7 @@ fn baked_attached_lights(
                 height_factor,
                 room: Some(room),
                 directional: false,
+                owner_prop: Some(prop_index),
             });
         }
     }
@@ -1683,6 +1705,7 @@ impl LevelLighting {
         // prop geometry uses; a level that attaches no lights to props (which is
         // every level authored before the generic model existed) skips building
         // that lookup entirely and bakes exactly as it always did.
+        let mut fixture_lights: Vec<Option<usize>> = vec![None; level.ceiling_lights.len()];
         let lights = if level.props.iter().any(|prop| !prop.lights.is_empty()) {
             let surfaces = LevelSurfaces::new(level);
             baked_lights(
@@ -1691,9 +1714,17 @@ impl LevelLighting {
                 Some(&surfaces),
                 default_height_m,
                 default_ceiling_y,
+                &mut fixture_lights,
             )
         } else {
-            baked_lights(level, &mut rooms, None, default_height_m, default_ceiling_y)
+            baked_lights(
+                level,
+                &mut rooms,
+                None,
+                default_height_m,
+                default_ceiling_y,
+                &mut fixture_lights,
+            )
         };
 
         // A room split by internal walls gets one baseline per connected area;
@@ -1726,13 +1757,16 @@ impl LevelLighting {
             // site has to cover the rectangle's far corner too; `for_emitter`
             // adds `hypot(half_w, half_d)` and uses the pool's full reach
             // (the bounce fill extends past the direct range).
-            sites.push(QuerySite::for_emitter(
-                light.x(),
-                light.z(),
-                fill_range_for(light.source.range),
-                half_w,
-                half_d,
-            ));
+            sites.push(
+                QuerySite::for_emitter(
+                    light.x(),
+                    light.z(),
+                    fill_range_for(light.source.range),
+                    half_w,
+                    half_d,
+                )
+                .with_owner_prop(light.owner_prop),
+            );
         }
         sites.extend_from_slice(&blend_sites);
         let visibility = Visibility::build_with_occluders(occluders, &sites);
@@ -1747,6 +1781,7 @@ impl LevelLighting {
             visibility,
             room_lights,
             all_lights,
+            fixture_lights,
             default_ceiling_y,
             sampling_taps: config.sampling.taps_per_axis,
         }
@@ -1762,6 +1797,35 @@ impl LevelLighting {
     #[must_use]
     pub fn lights(&self) -> &[BakedLight] {
         &self.lights
+    }
+
+    /// The light index one ceiling fixture baked into, if it casts light.
+    ///
+    /// `fixture_index` is the fixture's position in the level's
+    /// `ceiling_lights` array; `None` means the fixture has a non-finite
+    /// position (loader-rejected, so unreachable for a loaded level).
+    #[must_use]
+    pub fn fixture_light_index(&self, fixture_index: usize) -> Option<usize> {
+        self.fixture_lights.get(fixture_index).copied().flatten()
+    }
+
+    /// Enables or disables one baked light at runtime.
+    ///
+    /// Returns whether the state changed. A disabled light contributes nothing
+    /// to any later sample, so the caller re-fills the charts within its reach
+    /// ([`crate::lighting::lightmap::LevelLightmaps::refill_light`]) and
+    /// re-uploads them. Only a `switchable` fixture is a valid target: its
+    /// contribution is a local pool, never part of a room baseline, so the
+    /// change is confined to its own reach.
+    pub fn set_light_enabled(&mut self, light_index: usize, enabled: bool) -> bool {
+        let Some(light) = self.lights.get_mut(light_index) else {
+            return false;
+        };
+        if light.source.enabled == enabled {
+            return false;
+        }
+        light.source.enabled = enabled;
+        true
     }
 
     /// Number of connected baseline areas across every room. Equals the room

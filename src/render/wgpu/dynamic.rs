@@ -27,6 +27,7 @@ use crate::materials::{MaterialEmission, TextureOrigin};
 use crate::quality::{QualityLevel, TextureClass};
 use crate::render::common::atmosphere::FogState;
 use crate::render::common::dynamic::{DynamicMesh, DynamicScene};
+use crate::render::common::materials::BatchPass;
 use crate::spatial::Aabb;
 
 /// One distinct model uploaded in model space.
@@ -48,6 +49,10 @@ struct DynamicSubmeshGpu {
     texture: usize,
     /// This primitive's own emission, before any object override.
     emission: MaterialEmission,
+    /// The material's alpha contract.
+    alpha: crate::materials::MaterialAlpha,
+    /// The draw pass the alpha contract puts this primitive in.
+    pass: BatchPass,
     /// Index into the mesh's texture list of the emission mask, if authored.
     mask: Option<usize>,
     first_index: u32,
@@ -163,6 +168,8 @@ impl WgpuDynamic {
                     texture: usize::from(submesh.texture.unwrap_or(0))
                         .min(textures.len().saturating_sub(1)),
                     emission: submesh.emission,
+                    alpha: submesh.alpha,
+                    pass: BatchPass::of(submesh.alpha),
                     mask: submesh
                         .emission
                         .mask
@@ -208,13 +215,14 @@ impl WgpuDynamic {
                     .and_then(|index| mesh.textures.get(index).cloned());
                 let record = EmissionRecord::material(emission, mask_texture.is_some());
                 let mask = mask_texture.unwrap_or_else(|| ctx.cache.fallback());
-                value.materials.push(GpuMaterial::plain_emissive(
+                value.materials.push(GpuMaterial::plain_with_alpha(
                     ctx.device,
                     ctx.queue,
                     ctx.material_layout,
                     ctx.cache,
                     &mask,
                     record,
+                    submesh.alpha,
                 ));
                 materials.push(value.materials.len().saturating_sub(1));
                 emissive.push(record.is_emissive());
@@ -382,6 +390,14 @@ impl WgpuDynamic {
     #[must_use]
     pub const fn object_count(&self) -> usize {
         self.objects.len()
+    }
+
+    /// The draw pass one object's submesh belongs to.
+    #[must_use]
+    pub fn submesh_pass(&self, object: usize, submesh: usize) -> Option<BatchPass> {
+        let object = self.objects.get(object)?;
+        let mesh = self.meshes.get(object.mesh)?;
+        mesh.submeshes.get(submesh).map(|submesh| submesh.pass)
     }
 
     /// True when the object's submesh emits.

@@ -2,7 +2,7 @@
 //!
 //! A pack's `materials.json` is authored data, not catalog data: it names PNG
 //! bytes inside the pack (or a logical catalog texture) and may override the
-//! tiling period and tint. Both the historical string form and the object form
+//! tiling period and tint. Both the string shorthand and the object form
 //! parse.
 
 use std::collections::HashMap;
@@ -18,7 +18,7 @@ use super::{
 
 /// One material a pack's `materials.json` declares.
 ///
-/// Both the historical string form (`"pack:wall": "textures/wall.png"`) and the
+/// Both the string shorthand (`"pack:wall": "textures/wall.png"`) and the
 /// object form (`{"texture": ..., "tile_metres": ..., "tint": [...]}`) parse.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PackMaterialDef {
@@ -41,8 +41,6 @@ pub struct PackMaterialDef {
     pub specular_color: Option<[f32; 3]>,
     /// Author-facing glossiness, `0.0` matte .. `1.0` extremely glossy.
     pub shine: Option<f32>,
-    /// Legacy inverse of [`Self::shine`]; `shine` wins when both are authored.
-    pub roughness: Option<f32>,
     /// `none` | `probe` | `planar`. Absent means no reflection at all.
     pub reflection_mode: Option<String>,
     /// `0.0..=1.0`; `None` keeps [`DEFAULT_REFLECTION_STRENGTH`].
@@ -89,17 +87,16 @@ impl PackMaterialDef {
     /// The normal map is left `None` here for the same reason as the emissive
     /// mask: it is a texture-table index the resolver fills in. A pack that
     /// authors neither a normal map nor a sheen gets [`MaterialResponse::NONE`],
-    /// which is exactly a legacy flat-shaded surface.
+    /// the flat default surface.
     #[must_use]
     pub fn response(&self) -> MaterialResponse {
         let sheen = self.specular.unwrap_or(0.0);
         let specular = self
             .specular_color
             .map_or([sheen; 3], |color| color.map(|channel| channel * sheen));
-        let roughness = self.shine.map_or_else(
-            || self.roughness.unwrap_or(super::DEFAULT_ROUGHNESS),
-            super::roughness_from_shine,
-        );
+        let roughness = self
+            .shine
+            .map_or(super::DEFAULT_ROUGHNESS, super::roughness_from_shine);
         MaterialResponse {
             normal: None,
             normal_strength: self
@@ -193,7 +190,7 @@ impl PackMaterials {
 
     /// The texture path a `pack:` material id resolves to.
     ///
-    /// A declared definition wins; otherwise the historical direct-name
+    /// A declared definition wins; otherwise the direct-name
     /// candidates apply. A match is only returned when the pack actually
     /// carries bytes for the path.
     #[must_use]
@@ -270,11 +267,11 @@ impl PackMaterials {
 ///
 /// Accepts `{"materials": {...}}` and a flat object, with string values
 /// (`"pack:wall": "textures/wall.png"`) or objects carrying `texture`/`file`/
-/// `diffuse`, plus the optional `tile_metres`, `tint`, `emissive`,
-/// `emissive_intensity`, `emissive_mask`, `shine` (and its legacy inverse
-/// `roughness`) fields. Unknown fields are ignored and malformed values fall
-/// back to the defaults, so an older or newer pack keeps loading. The string
-/// shorthand is emission-free by construction.
+/// plus the optional `tile_metres`, `tint`, `emissive`,
+/// `emissive_intensity`, `emissive_mask` and `shine` fields. Unknown fields are
+/// ignored and malformed values fall back to the defaults, so a pack written
+/// against a different engine revision keeps loading. The string shorthand is
+/// emission-free by construction.
 #[must_use]
 pub fn parse_materials_json(json_str: Option<&str>) -> HashMap<String, PackMaterialDef> {
     let mut result = HashMap::new();
@@ -301,12 +298,7 @@ pub fn parse_materials_json(json_str: Option<&str>) -> HashMap<String, PackMater
                 ..PackMaterialDef::default()
             }
         } else {
-            let Some(path) = value
-                .get("texture")
-                .or_else(|| value.get("file"))
-                .or_else(|| value.get("diffuse"))
-                .and_then(|texture| texture.as_str())
-            else {
+            let Some(path) = value.get("texture").and_then(|texture| texture.as_str()) else {
                 continue;
             };
             PackMaterialDef {
@@ -333,7 +325,6 @@ pub fn parse_materials_json(json_str: Option<&str>) -> HashMap<String, PackMater
                 specular: value.get("specular").and_then(parse_unit_number),
                 specular_color: value.get("specular_color").and_then(parse_unit_rgb),
                 shine: value.get("shine").and_then(parse_unit_number),
-                roughness: value.get("roughness").and_then(parse_unit_number),
                 alpha_mode: value
                     .get("alpha_mode")
                     .and_then(|mode| mode.as_str())

@@ -25,6 +25,15 @@ pub const EYE_HEIGHT: f32 = 1.6;
 /// matching the crouched body height being half the standing height.
 pub const CROUCH_EYE_HEIGHT: f32 = EYE_HEIGHT * 0.5;
 
+/// Seconds the animated eye offset takes to travel between the standing and
+/// crouched offsets.
+///
+/// The transition rate is the full offset difference divided by this time, so
+/// a crouch or stand always takes the same wall-clock time regardless of the
+/// frame rate. The collision body still switches instantly (see
+/// `Game::body_height`); only the camera eases.
+pub const CROUCH_TRANSITION_SECONDS: f32 = 0.15;
+
 pub const MAX_PITCH: f32 = 1.4835; // ~85 degrees in radians
 
 /// Downward acceleration applied to the vertical velocity while airborne, in
@@ -113,6 +122,17 @@ const SWIM_BAND_MARGIN: f32 = SURFACE_SWIM_EYE_MARGIN + FLOAT_EYE_MARGIN;
 /// How far below the water surface the eye may be and still stand up, in
 /// metres.
 const EXIT_EYE_MARGIN: f32 = 0.6;
+
+/// How far above the water surface a floor may be and still be a bounded
+/// water exit, in metres.
+///
+/// The swimming horizontal step may cross onto a real walkable floor whose
+/// top is at most this far above the free surface, and the stand-up path
+/// accepts it, so a pool deck slightly above the waterline is climbable.
+/// Anything higher is a wall: this is not general climbing. Real walls and
+/// solid props never carry this allowance (only floor rims do), so a solid
+/// barrier at the water's edge still blocks.
+pub const WATER_EXIT_STEP_M: f32 = 0.5;
 
 /// Eye height above which the swimming pose is the surface pose, in metres.
 const SURFACE_SWIM_EYE_MARGIN: f32 = 0.25;
@@ -280,8 +300,7 @@ impl CollisionWorld {
 /// The spawn is resolved against the *actual* walkable floor under it — a room
 /// base elevation plus any floor region — so a player is never left beneath an
 /// elevated floor, embedded in one, or floating above a recessed region. A
-/// spawn outside every room (which legacy levels are allowed to have) falls
-/// back to the historical world floor at `0.0`.
+/// spawn outside every room falls back to the global ground plane at `0.0`.
 #[must_use]
 pub fn spawn_position(level: &LevelDef) -> Vec3 {
     let floor_y = LevelSurfaces::new(level)
@@ -291,7 +310,7 @@ pub fn spawn_position(level: &LevelDef) -> Vec3 {
 }
 
 /// Eye Y for a world position: the walkable floor under it plus the standard
-/// eye height, falling back to the historical world floor at `0.0` outside
+/// eye height, falling back to the global ground plane at `0.0` outside
 /// every room.
 #[must_use]
 pub fn spawn_eye_y(floor: &WalkableFloor, x: f32, z: f32) -> f32 {
@@ -400,9 +419,26 @@ pub struct Game {
     /// Clamped delta used for gameplay simulation (see [`MAX_SIM_DELTA`]).
     sim_delta_seconds: f32,
     frame_count: u64,
-    /// World Y of the eye. `feet_y() + eye_offset()` while grounded and while
-    /// walking; off that line while airborne, swimming or climbing.
+    /// World Y of the rendered eye: exactly `feet_y + eye_offset_current`.
+    ///
+    /// Kept as a public field for the camera and tests. Every mutator in the
+    /// controller preserves the invariant; the buoyant swim pose moves the eye
+    /// and derives the feet, every other state moves the feet and derives the
+    /// eye.
     pub player_position: Vec3,
+    /// Authoritative world Y of the player's physical feet.
+    ///
+    /// The vertical simulation advances this value: falling, landing, walking
+    /// and climbing all reason about the feet, and the rendered eye follows
+    /// through [`Self::eye_offset_current`]. It is the single source of truth
+    /// the old `player_position.y - eye_offset()` derivations read.
+    feet_y: f32,
+    /// The animated eye offset above the feet, in metres.
+    ///
+    /// Starts at [`EYE_HEIGHT`] and eases toward the current stance's offset at
+    /// the fixed [`CROUCH_TRANSITION_SECONDS`] rate; the collision body uses
+    /// the target stance immediately (`Game::body_height`).
+    eye_offset_current: f32,
     /// World Y of the walkable floor the player is standing on: the pitch line
     /// across a staircase, the exact rendered surface everywhere else (see
     /// [`crate::level::WalkableFloor::walk_height_at`]). This is the value
@@ -549,6 +585,19 @@ enum StepOutcome {
     Void,
 }
 
+/// The walking support under one candidate position, relative to the surface
+/// currently underfoot.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct WalkSupport {
+    /// World Y of the surface the foot lands on: the walking floor or a solid
+    /// top, whichever is higher.
+    surface_y: f32,
+    /// True when the surface is more than a walkable step below
+    /// `current_surface`: the step is accepted and loses support at the end of
+    /// the sweep (the existing ledge fall).
+    dropped: bool,
+}
+
 impl Game {
     #[must_use]
     pub fn new(spawn_pos: Vec3, spawn_yaw: f32, world: CollisionWorld) -> Self {
@@ -565,6 +614,8 @@ impl Game {
             frame_count: 0,
             player_floor_y: spawn_pos.y - EYE_HEIGHT,
             player_position: spawn_pos,
+            feet_y: spawn_pos.y - EYE_HEIGHT,
+            eye_offset_current: EYE_HEIGHT,
             player_yaw: spawn_yaw.rem_euclid(TWO_PI),
             player_pitch: 0.0,
             collision_index: CollisionIndex::build(&world.walls),
@@ -652,7 +703,7 @@ impl Game {
     /// level.
     ///
     /// The player spawns grounded when a walkable floor exists under the spawn
-    /// point; outside every room a legacy spawn settles on the historical floor
+    /// point; outside every room a spawn settles on the global ground plane
     /// at its own height on the first update. Vertical velocity starts at zero,
     /// the jump and crouch latches are released, and the stance returns to
     /// standing. A fresh level also clears every label, re-seeds trigger states
@@ -726,6 +777,8 @@ impl Game {
     fn clear_run_state(&mut self, spawn_pos: Vec3, spawn_yaw: f32, suppress_held: bool) {
         self.player_floor_y = spawn_pos.y - EYE_HEIGHT;
         self.player_position = spawn_pos;
+        self.feet_y = spawn_pos.y - EYE_HEIGHT;
+        self.eye_offset_current = EYE_HEIGHT;
         self.player_yaw = spawn_yaw.rem_euclid(TWO_PI);
         self.player_pitch = 0.0;
         self.vertical_velocity = 0.0;
@@ -756,7 +809,7 @@ impl Game {
     /// before it fires. That is what stops a reset to a spawn inside a volume
     /// from looping immediately.
     fn seed_trigger_states(&mut self, spawn_pos: Vec3) {
-        let feet_y = spawn_pos.y - EYE_HEIGHT;
+        let feet_y = self.feet_y;
         self.trigger_states.clear();
         self.trigger_states.reserve(self.triggers.len());
         for trigger in self.triggers.triggers() {
@@ -766,6 +819,26 @@ impl Game {
                 fired_once: false,
                 pending: false,
             });
+        }
+    }
+
+    /// Re-baselines every trigger's `inside` flag at the player's feet without
+    /// touching cooldowns, `once` latches or pending entries.
+    ///
+    /// Used when the body's reference feet move without locomotion (the swim
+    /// stance animation): the volume the player is now in becomes the new
+    /// baseline, so the change itself is never reported as a swept entry. A
+    /// real trigger entry is still detected from the baseline at the frame's
+    /// start to the feet at its end.
+    fn reseed_trigger_inside(&mut self) {
+        let feet_y = self.feet_y;
+        let (x, z) = (self.player_position.x, self.player_position.z);
+        for (state, trigger) in self
+            .trigger_states
+            .iter_mut()
+            .zip(self.triggers.triggers().iter())
+        {
+            state.inside = trigger.contains(x, z, feet_y);
         }
     }
 
@@ -968,21 +1041,84 @@ impl Game {
     }
 
     /// Collision cylinder height for the current stance, in metres.
+    ///
+    /// The target stance owns the body immediately: crouching shrinks the
+    /// collider on the press frame, so the transition is always safe.
     #[must_use]
     pub const fn body_height(&self) -> f32 {
         self.stance.height()
     }
 
-    /// Eye offset above the feet for the current stance, in metres.
+    /// The animated eye offset above the feet, in metres.
+    ///
+    /// Eases toward the current stance's offset at the
+    /// [`CROUCH_TRANSITION_SECONDS`] rate; equal to the stance's offset at the
+    /// ends of the transition.
     #[must_use]
     pub const fn eye_offset(&self) -> f32 {
-        self.stance.eye_offset()
+        self.eye_offset_current
     }
 
-    /// World Y of the feet for the current eye position and stance.
+    /// World Y of the player's physical feet: the authoritative vertical
+    /// coordinate, with the rendered eye always `feet_y() + eye_offset()`.
     #[must_use]
-    pub fn feet_y(&self) -> f32 {
-        self.player_position.y - self.eye_offset()
+    pub const fn feet_y(&self) -> f32 {
+        self.feet_y
+    }
+
+    /// Writes the rendered eye back onto the invariant line.
+    fn sync_eye(&mut self) {
+        self.player_position.y = self.feet_y + self.eye_offset_current;
+    }
+
+    /// Derives the physical feet from the buoyant eye while swimming.
+    fn sync_feet(&mut self) {
+        self.feet_y = self.player_position.y - self.eye_offset_current;
+    }
+
+    /// Moves the physical feet to `feet_y`, deriving the rendered eye.
+    fn set_feet_y(&mut self, feet_y: f32) {
+        self.feet_y = feet_y;
+        self.sync_eye();
+    }
+
+    /// Moves the buoyant eye to `eye_y`, deriving the physical feet.
+    fn set_eye_y(&mut self, eye_y: f32) {
+        self.player_position.y = eye_y;
+        self.sync_feet();
+    }
+
+    /// Eases the animated eye offset toward the current stance's offset and
+    /// keeps the rendered eye and the physical feet on the invariant line.
+    ///
+    /// On land and on a ladder the feet are the anchor: the camera settles
+    /// onto the crouched or standing eye line while the feet stay put. While
+    /// swimming the buoyant eye is the anchor (the float pose is independent
+    /// of the stance), so the offset moves the virtual feet instead. That
+    /// offset-driven foot movement is not locomotion, so the trigger baseline
+    /// is re-seeded and a stance change can never fabricate an entry.
+    fn advance_eye_offset(&mut self, delta: f32) {
+        let target = self.stance.eye_offset();
+        let remaining = target - self.eye_offset_current;
+        let mut changed = false;
+        if remaining != 0.0 {
+            changed = true;
+            let rate = (EYE_HEIGHT - CROUCH_EYE_HEIGHT) / CROUCH_TRANSITION_SECONDS;
+            let step = (rate * delta).min(remaining.abs());
+            if step >= remaining.abs() {
+                self.eye_offset_current = target;
+            } else {
+                self.eye_offset_current = remaining.signum().mul_add(step, self.eye_offset_current);
+            }
+        }
+        if self.swimming {
+            self.sync_feet();
+            if changed {
+                self.reseed_trigger_inside();
+            }
+        } else {
+            self.sync_eye();
+        }
     }
 
     /// Updates first-person movement, look, jumping, crouching, interaction
@@ -1035,9 +1171,11 @@ impl Game {
         let delta = self.sim_delta_seconds;
         self.update_look(input, settings, motion, delta);
 
-        // Stance changes anchor the feet and are clearance-checked before the
-        // frame's movement, so the body height used for collision is current.
+        // Stance changes own the collision body before the frame's movement,
+        // and the animated eye offset eases toward the new target before the
+        // trigger origin is captured, so the stance anchor is never swept.
         self.update_crouch(input);
+        self.advance_eye_offset(delta);
         // The Interact latch is an edge exactly like Jump and Crouch: one press
         // is one interaction, and a held key never repeats.
         self.update_interact(input);
@@ -1089,16 +1227,16 @@ impl Game {
         // Deep water at the feet decides this frame's horizontal mode and
         // speed; the post-move sample decides the vertical behaviour.
         let feet = self.feet_y();
-        let sample = self
+        let before_sample = self
             .water
             .sample(self.player_position.x, self.player_position.z, feet);
-        let wet = self.is_deep_water(sample);
+        let wet = self.is_deep_water(before_sample);
 
         let previous = Vec2::new(self.player_position.x, self.player_position.z);
         if move_dir.length_squared() > 0.0 {
             let mode = if wet {
                 HorizontalMode::Swim {
-                    surface_y: sample.map_or(feet, |s| s.surface_y),
+                    surface_y: before_sample.map_or(feet, |s| s.surface_y),
                 }
             } else if self.grounded {
                 HorizontalMode::Walk
@@ -1116,20 +1254,28 @@ impl Game {
             previous.distance(Vec2::new(self.player_position.x, self.player_position.z));
 
         // The water at the post-move position decides the vertical behaviour.
-        let feet = self.feet_y();
-        let sample = self
-            .water
-            .sample(self.player_position.x, self.player_position.z, feet);
-        let swimming_now = self.is_deep_water(sample);
+        // Leaving the swim state is keyed on the *depth* under the player, not
+        // on the eye band: while deep water remains, a swimmer whose eye rises
+        // above the band (a cold surface, a pulled-up pose) keeps the state
+        // instead of leaving it, zeroing the velocity and re-entering next
+        // frame. The eye band is only the entry gate.
+        let after_sample = self.water.sample(
+            self.player_position.x,
+            self.player_position.z,
+            self.feet_y(),
+        );
+        let deep_under = self.deep_water_under(after_sample);
 
-        if self.swimming && swimming_now {
-            if let Some(sample) = sample {
+        if self.swimming && deep_under {
+            if let Some(sample) = after_sample {
                 self.swim_vertical(sample, jump_held);
             }
         } else if self.swimming {
-            // The water ended or became shallow under the player.
-            self.leave_water(sample);
-        } else if swimming_now {
+            // The water ended or became shallow under the player. When the
+            // volume ends exactly at a platform edge, the surface they were
+            // floating at (the pre-move sample) is the exit reference.
+            self.leave_water(after_sample.or(before_sample));
+        } else if self.is_deep_water(after_sample) {
             // Entering deep water: the swimmer keeps no carry-over velocity and
             // rises to the float line on the next hold.
             self.swimming = true;
@@ -1137,7 +1283,7 @@ impl Game {
             self.climbing = None;
             self.vertical_velocity = 0.0;
             self.vertical_accumulator = 0.0;
-            if let Some(sample) = sample {
+            if let Some(sample) = after_sample {
                 self.swim_vertical(sample, jump_held);
             }
         } else {
@@ -1179,14 +1325,24 @@ impl Game {
     ///
     /// The eye band is what lets a climber release a ladder above the waterline
     /// and jump clear instead of being dragged back down to the float line by
-    /// the feet-deep sample, while a floating or sinking swimmer (eye inside
-    /// the band) keeps the swim state.
+    /// the feet-deep sample. It is the *entry* gate only: once swimming, the
+    /// state is held while deep water remains under the player
+    /// ([`Self::deep_water_under`]).
     fn is_deep_water(&self, sample: Option<WaterSample>) -> bool {
-        sample.is_some_and(|sample| {
-            sample.swimming
-                && sample.surface_y - self.feet_y() > WADE_DEPTH
-                && self.player_position.y <= sample.surface_y + SWIM_BAND_MARGIN
-        })
+        self.deep_water_under(sample)
+            && sample
+                .is_some_and(|sample| self.player_position.y <= sample.surface_y + SWIM_BAND_MARGIN)
+    }
+
+    /// True when the sample's swimming volume is deeper than [`WADE_DEPTH`] at
+    /// the player's feet, regardless of where the eye is.
+    ///
+    /// This is the swim *state* test: while deep water remains under the
+    /// player, leaving the state merely because the eye rose above the float
+    /// band would zero the velocity and re-enter on the next frame.
+    fn deep_water_under(&self, sample: Option<WaterSample>) -> bool {
+        sample
+            .is_some_and(|sample| sample.swimming && sample.surface_y - self.feet_y() > WADE_DEPTH)
     }
 
     /// Applies keyboard and mouse camera rotation for one frame.
@@ -1463,10 +1619,7 @@ impl Game {
             let changed = match request {
                 DoorRequest::Open => self.doors.request_open(target),
                 DoorRequest::Close => self.doors.request_close(target),
-                DoorRequest::Toggle => self
-                    .doors
-                    .get_mut(index)
-                    .is_some_and(DoorRuntime::toggle),
+                DoorRequest::Toggle => self.doors.get_mut(index).is_some_and(DoorRuntime::toggle),
             };
             if changed {
                 report.actions_run = report.actions_run.saturating_add(1);
@@ -1831,22 +1984,20 @@ impl Game {
         }
     }
 
-    /// Crouches, or stands back up when there is headroom.
+    /// Toggles the requested stance.
     ///
-    /// A stance change anchors the feet by shifting the eye by the offset
-    /// difference, so the body never gains or loses height for free. Standing
-    /// is refused (and the player remains crouched) when the current stance's
-    /// head would meet a ceiling, a frame or a prop underside.
+    /// The target stance owns the collision body immediately: crouching
+    /// shrinks the body on the press frame (always safe), and standing is
+    /// refused (and the player remains crouched) when the standing head would
+    /// meet a ceiling, a frame or a prop underside at the current feet. The
+    /// animated eye offset eases toward the new target afterwards (see
+    /// `Game::advance_eye_offset`); nothing moves here.
     fn toggle_stance(&mut self) {
         let target = self.stance.next();
-        if target == Stance::Standing && !self.head_clear_for(self.feet_y(), PLAYER_HEIGHT) {
+        if target == Stance::Standing && !self.head_clear_for(self.feet_y, PLAYER_HEIGHT) {
             return;
         }
-        let previous = self.stance.eye_offset();
         self.stance = target;
-        if !self.swimming {
-            self.player_position.y += self.stance.eye_offset() - previous;
-        }
     }
 
     /// The lowest overhead limit above `feet`: the room ceiling or a box
@@ -1901,9 +2052,9 @@ impl Game {
             .is_none_or(|limit| limit >= feet + height - STEP_EPS)
     }
 
-    /// The highest support at `(x, z)` whose top is not above `max_top`: the
-    /// rendered walkable floor, a solid prop or architecture top, or the
-    /// historical world floor outside every room.
+    /// The highest support at `(x, z)` within a walkable step of `max_top`:
+    /// the rendered walkable floor, a solid prop or architecture top, or the
+    /// global ground plane outside every room.
     ///
     /// Landing resolves against the *rendered* floor (`height_at`), not the
     /// staircase pitch line: a falling player lands on the tread underfoot.
@@ -1911,8 +2062,14 @@ impl Game {
     /// player is actually walking, so an airborne player is never pulled up
     /// onto a staircase.
     ///
+    /// The [`PLAYER_STEP_HEIGHT`] allowance is shared by the floor and the
+    /// solid tops: a descending player whose feet are within one walkable step
+    /// of a prop top lands *on* the top (a bounded step-up of at most one step,
+    /// never a teleport) instead of sinking past the side. The final landing
+    /// check still requires the feet to have actually reached the support.
+    ///
     /// The world-floor fallback only applies at or above Y 0 and exists for
-    /// legacy levels whose spawn sits outside every room. It is never the
+    /// a spawn outside every room. It is never the
     /// player's last floor: a fall under an open hole keeps falling past the
     /// hole's rim instead of stopping on an invisible plane.
     fn support_at(&self, x: f32, z: f32, max_top: f32) -> Option<f32> {
@@ -1938,17 +2095,55 @@ impl Game {
         }
     }
 
+    /// The walking support at `(x, z)` relative to the surface currently
+    /// underfoot: the rendered walkable floor or a solid prop/architecture
+    /// top, whichever is higher, under the same step rule landing uses.
+    ///
+    /// A support above `current_surface + PLAYER_STEP_HEIGHT + STEP_EPS` is out
+    /// of reach and returns `None` (the caller refuses the step: a cliff, a
+    /// wall or a table side). Anything at or below is returned; one more than
+    /// a step below `current_surface` is marked `dropped`, which loses support
+    /// at the end of the sweep. Outside every room with no solid top underfoot
+    /// the query returns `None`, preserving the historical void semantics (no
+    /// invisible world floor appears under a walking player).
+    ///
+    /// The returned surface is the *walking* surface: on a staircase it is the
+    /// pitch line through the nosings, everywhere else the rendered surface.
+    /// A solid top always wins when it is higher, so a player on a table walks
+    /// on the table, never on the room floor beneath it.
+    fn walking_support_at(&self, x: f32, z: f32, current_surface: f32) -> Option<WalkSupport> {
+        let floor_ceiling = current_surface + PLAYER_STEP_HEIGHT + STEP_EPS;
+        let floor = self
+            .floor
+            .height_at(x, z)
+            .filter(|floor| *floor <= floor_ceiling);
+        let top =
+            highest_support_top_indexed(&self.collision_index, x, z, current_surface, &self.walls);
+        let surface_y = match (floor, top) {
+            (Some(floor), Some(top)) if top > floor => top,
+            (Some(floor), _) => self.floor.walk_height_at(x, z).unwrap_or(floor),
+            (None, Some(top)) => top,
+            (None, None) => return None,
+        };
+        Some(WalkSupport {
+            surface_y,
+            dropped: surface_y < current_surface - PLAYER_STEP_HEIGHT - STEP_EPS,
+        })
+    }
+
     /// Moves the player horizontally with the sub-stepped collision rule of the
-    /// given mode, updating `player_floor_y` and (while walking) the eye line.
+    /// given mode, updating `player_floor_y` and (while walking) the feet line.
     ///
     /// Walking keeps the historical step rule for *rises*: a rise larger than
     /// [`PLAYER_STEP_HEIGHT`] is refused, so a cliff, a wall and a tall
     /// obstacle stay impassable. A *drop* of any size is walked off instead of
     /// refused: the player crosses the boundary, loses support and falls from
-    /// the ledge. The height applied while still supported is the walking
-    /// surface: identical to the rendered floor on ramps, regions and room
-    /// floors, but the line through a staircase's nosings rather than the
-    /// individual treads.
+    /// the ledge. Rises and drops reason about the highest support under the
+    /// candidate — the rendered floor or a solid prop top — so walking on a
+    /// table stays on the table and stepping off its edge is a real fall. The
+    /// height applied while still supported is the walking surface: identical
+    /// to the rendered floor on ramps, regions and room floors, but the line
+    /// through a staircase's nosings rather than the individual treads.
     ///
     /// The step rule runs *per sub-step* (each at most half a player radius,
     /// 0.15 m): at the loader's maximum ramp slope a sub-step rises at most
@@ -1985,14 +2180,21 @@ impl Game {
         let mut lost_support = false;
         // The airborne wall band follows the live foot height, which does not
         // change during a horizontal sweep: vertical motion runs after it.
-        let live_feet = self.player_position.y - self.eye_offset();
+        let live_feet = self.feet_y;
         let body_height = self.body_height();
 
         for _ in 0..steps {
             let foot_y = match mode {
                 HorizontalMode::Walk => current_floor,
                 HorizontalMode::Airborne => live_feet,
-                HorizontalMode::Swim { surface_y } => surface_y - PLAYER_STEP_HEIGHT,
+                // Real rims carry the walkable step as headroom, so raising the
+                // band by the difference between the water-exit allowance and
+                // that step lets a rim whose top is within
+                // [`WATER_EXIT_STEP_M`] of the surface through, while a real
+                // wall or prop (no `step_up`) still blocks.
+                HorizontalMode::Swim { surface_y } => {
+                    surface_y + (WATER_EXIT_STEP_M - PLAYER_STEP_HEIGHT)
+                }
             };
             let raw = Vec2::new(current_pos.x + step_delta.x, current_pos.y + step_delta.z);
             let candidate = resolve_player_collision_with_doors(
@@ -2011,9 +2213,7 @@ impl Game {
                 break;
             }
             let outcome = match mode {
-                HorizontalMode::Walk => {
-                    self.walk_step(current_pos, current_floor, candidate, on_a_floor)
-                }
+                HorizontalMode::Walk => self.walk_step(current_floor, candidate, on_a_floor),
                 HorizontalMode::Airborne => self.airborne_step(candidate, live_feet),
                 HorizontalMode::Swim { surface_y } => self.swim_step(candidate, surface_y),
             };
@@ -2039,49 +2239,27 @@ impl Game {
                 self.vertical_velocity = 0.0;
                 self.vertical_accumulator = 0.0;
             } else {
-                // Maintain grounded eye height regardless of pitch.
-                self.player_position.y = self.player_floor_y + self.eye_offset();
+                // Maintain the grounded line regardless of pitch: the feet
+                // stand on the walking surface and the eye follows.
+                self.set_feet_y(self.player_floor_y);
             }
         }
     }
 
-    /// Resolves one walking sub-step: rises stay bounded by the step rule, a
-    /// drop of any size is accepted and reported as lost support.
-    fn walk_step(
-        &self,
-        from: Vec2,
-        current_floor: f32,
-        candidate: Vec2,
-        on_a_floor: bool,
-    ) -> StepOutcome {
-        let current_rendered = self
-            .floor
-            .height_at(from.x, from.y)
-            .unwrap_or(current_floor);
-        match self.floor.height_at(candidate.x, candidate.y) {
-            Some(y) if y <= current_rendered + PLAYER_STEP_HEIGHT + STEP_EPS => {
-                // Stand on the walking surface. It equals the rendered floor
-                // everywhere except on a staircase, where it is within one
-                // riser of it by construction.
-                let floor = self
-                    .floor
-                    .walk_height_at(candidate.x, candidate.y)
-                    .unwrap_or(y);
-                StepOutcome::Accepted {
-                    floor,
-                    dropped: current_rendered - y > PLAYER_STEP_HEIGHT + STEP_EPS,
-                }
-            }
-            Some(_) => StepOutcome::Refused,
-            None => {
-                // Outside every room: keep the historical freedom to walk over
-                // the void, but never step off a real floor into it.
-                if on_a_floor {
-                    StepOutcome::Refused
-                } else {
-                    StepOutcome::Void
-                }
-            }
+    /// Resolves one walking sub-step through [`Self::walking_support_at`]:
+    /// rises stay bounded by the step rule (a floor, a prop top or a wall
+    /// within one walkable step is stepped onto), a drop of any size is
+    /// accepted and reported as lost support, and the void keeps its
+    /// historical rule: crossable only when the player was not on a real
+    /// floor.
+    fn walk_step(&self, current_surface: f32, candidate: Vec2, on_a_floor: bool) -> StepOutcome {
+        match self.walking_support_at(candidate.x, candidate.y, current_surface) {
+            Some(support) => StepOutcome::Accepted {
+                floor: support.surface_y,
+                dropped: support.dropped,
+            },
+            None if on_a_floor => StepOutcome::Refused,
+            None => StepOutcome::Void,
         }
     }
 
@@ -2101,12 +2279,23 @@ impl Game {
         }
     }
 
-    /// Resolves one swimming sub-step: any floor at or below the surface is
-    /// reachable, a floor above it is a ledge the swimmer cannot cross, and the
-    /// void is open water.
+    /// Resolves one swimming sub-step: any real walkable floor at or below the
+    /// surface is reachable, and while the eye is near the surface a floor up
+    /// to [`WATER_EXIT_STEP_M`] above it is too — that is the bounded step-up
+    /// onto a pool deck. A higher floor is a ledge the swimmer cannot cross,
+    /// the allowance never applies deep underwater, and the void is open water.
+    ///
+    /// Only the walkable floor is considered: a solid prop or wall is never a
+    /// water exit, and the wall pass (which real solids always block) is what
+    /// keeps a barrier at the water's edge solid.
     fn swim_step(&self, candidate: Vec2, surface_y: f32) -> StepOutcome {
+        let ceiling = if self.player_position.y >= surface_y - EXIT_EYE_MARGIN {
+            surface_y + WATER_EXIT_STEP_M
+        } else {
+            surface_y
+        };
         match self.floor.height_at(candidate.x, candidate.y) {
-            Some(y) if y <= surface_y + STEP_EPS => StepOutcome::Accepted {
+            Some(y) if y <= ceiling + STEP_EPS => StepOutcome::Accepted {
                 floor: self
                     .floor
                     .walk_height_at(candidate.x, candidate.y)
@@ -2123,7 +2312,7 @@ impl Game {
     /// while airborne.
     fn land_vertical(&mut self, jump_pressed: bool) {
         if self.grounded {
-            self.player_position.y = self.player_floor_y + self.eye_offset();
+            self.set_feet_y(self.player_floor_y);
             self.vertical_velocity = 0.0;
             self.vertical_accumulator = 0.0;
             if !jump_pressed {
@@ -2158,10 +2347,12 @@ impl Game {
 
     /// Advances the airborne player by exactly one fixed vertical substep.
     ///
-    /// The position uses the average of the substep's start and end velocities
-    /// (the trapezoidal form), which reproduces the exact ballistic parabola at
-    /// every substep boundary: the apex is therefore frame-rate independent
-    /// rather than depending on where a frame boundary lands.
+    /// The feet are the integrated coordinate; the rendered eye is always
+    /// `feet + eye_offset_current`. The position uses the average of the
+    /// substep's start and end velocities (the trapezoidal form), which
+    /// reproduces the exact ballistic parabola at every substep boundary: the
+    /// apex is therefore frame-rate independent rather than depending on where
+    /// a frame boundary lands.
     ///
     /// The head is clamped by the room ceiling and by every overhead box
     /// (headers, frames, prop undersides) above the feet, consuming the upward
@@ -2171,41 +2362,41 @@ impl Game {
     /// Returns what the substep resolved to: still airborne, landed, or a
     /// ceiling bump.
     fn integrate_vertical_substep(&mut self) -> VerticalStep {
-        let eye_offset = self.eye_offset();
         let height = self.body_height();
-        let start_feet = self.player_position.y - eye_offset;
+        let start_feet = self.feet_y;
         let next_velocity = GRAVITY.mul_add(-VERTICAL_SUBSTEP, self.vertical_velocity);
         let rise = f32::midpoint(self.vertical_velocity, next_velocity) * VERTICAL_SUBSTEP;
         self.vertical_velocity = next_velocity;
-        let mut eye = self.player_position.y + rise;
+        let mut feet = self.feet_y + rise;
         let mut bumped = false;
 
-        // Ceiling and overhead boxes: the top of the head is what bumps, and
-        // the upward velocity is consumed by the impact instead of being
-        // applied again. Clamping a hair under the limit keeps the horizontal
-        // pass from re-reading the same box as a wall at the contact plane.
+        // Ceiling and overhead boxes: the top of the head (`feet + height`) is
+        // what bumps, and the upward velocity is consumed by the impact instead
+        // of being applied again. Clamping a hair under the limit keeps the
+        // horizontal pass from re-reading the same box as a wall at the
+        // contact plane.
         if let Some(limit) = self.head_limit(start_feet)
-            && eye > limit - (height - eye_offset) - CONTACT_EPS
+            && feet + height > limit - CONTACT_EPS
         {
-            eye = limit - (height - eye_offset) - CONTACT_EPS;
+            feet = limit - height - CONTACT_EPS;
             if self.vertical_velocity > 0.0 {
                 self.vertical_velocity = 0.0;
                 bumped = true;
             }
         }
-        self.player_position.y = eye;
+        self.set_feet_y(feet);
 
         // Landing: only while descending, on the highest support under the
-        // centre that was not above the feet at the substep's start. Outside
-        // every room the historical world floor stands in at Y 0, so a legacy
-        // off-room spawn never falls forever, but a hole in a real room has no
-        // invisible floor.
+        // centre that is not above the feet at the substep's start by more than
+        // the shared walkable step. Outside every room the global ground
+        // plane stands in at Y 0, so an off-room spawn never falls
+        // forever, but a hole in a real room has no invisible floor.
         if self.vertical_velocity <= 0.0
             && let Some(support) =
                 self.support_at(self.player_position.x, self.player_position.z, start_feet)
-            && eye - eye_offset <= support + STEP_EPS
+            && feet <= support + STEP_EPS
         {
-            self.player_position.y = support + eye_offset;
+            self.set_feet_y(support);
             self.player_floor_y = support;
             self.vertical_velocity = 0.0;
             self.grounded = true;
@@ -2241,23 +2432,23 @@ impl Game {
             self.bob_phase = SWIM_BOB_SPEED.mul_add(delta, self.bob_phase) % TWO_PI;
             let float_line = surface_y + FLOAT_EYE_MARGIN;
             let risen = SWIM_RISE_SPEED.mul_add(delta, self.player_position.y);
-            self.player_position.y = if risen >= float_line {
+            self.set_eye_y(if risen >= float_line {
                 SWIM_BOB_AMPLITUDE.mul_add(self.bob_phase.sin(), float_line)
             } else {
                 risen
-            };
+            });
             self.vertical_velocity = 0.0;
         } else {
             let next = SWIM_GRAVITY
                 .mul_add(delta, self.vertical_velocity)
                 .max(-SWIM_SINK_TERMINAL);
-            self.player_position.y = next.mul_add(delta, self.player_position.y);
+            self.set_eye_y(next.mul_add(delta, self.player_position.y));
             self.vertical_velocity = next;
         }
 
         // The body can rest on the pool floor but never sink through it.
         if self.player_position.y <= min_eye {
-            self.player_position.y = min_eye;
+            self.set_eye_y(min_eye);
             self.vertical_velocity = 0.0;
         }
 
@@ -2269,27 +2460,28 @@ impl Game {
             let head_offset = self.body_height() - self.eye_offset();
             let max_eye = limit - head_offset - CONTACT_EPS;
             if self.player_position.y > max_eye {
-                self.player_position.y = max_eye;
+                self.set_eye_y(max_eye);
                 if self.vertical_velocity > 0.0 {
                     self.vertical_velocity = 0.0;
                 }
             }
         }
 
-        // Exit: the walkable floor is within standing depth of the surface,
-        // the eye is near the top of the water and the stance's body fits
-        // above the floor. The exited feet are shallow enough that
-        // [`WADE_DEPTH`] cannot immediately re-enter swimming, so a pool edge
-        // never oscillates.
+        // Exit: the walkable floor is shallow enough to stand on, at most one
+        // bounded water-exit step above the surface (so a slightly raised deck
+        // is climbable but a high wall is not), the eye is near the top of the
+        // water and the stance's body fits above the floor. The exited feet
+        // are shallow enough that [`WADE_DEPTH`] cannot immediately re-enter
+        // swimming, so a pool edge never oscillates.
         let can_stand = floor.is_some_and(|support| {
-            support <= surface_y + STEP_EPS
+            support <= surface_y + WATER_EXIT_STEP_M + STEP_EPS
                 && surface_y - support <= self.stand_depth_limit()
                 && self.player_position.y >= surface_y - EXIT_EYE_MARGIN
                 && self.head_clear_for(support, self.body_height())
         });
         if let Some(support) = floor.filter(|_| can_stand) {
             self.player_floor_y = support;
-            self.player_position.y = support + self.eye_offset();
+            self.set_feet_y(support);
             self.vertical_velocity = 0.0;
             self.grounded = true;
             self.swimming = false;
@@ -2305,12 +2497,17 @@ impl Game {
     /// The swimmer's eye is not a standing eye height above anything: it is
     /// buoyed near the surface, and its virtual feet can sit below the pool
     /// floor. The exit therefore only re-derives the standing body when there
-    /// is somewhere coherent to put it: the water is shallow enough to stand
-    /// in, the eye is near the surface, and the stance's body fits under the
-    /// local ceiling. When the body's virtual feet are inside the floor (a
-    /// submerged volume boundary) it stands on the floor if the clearance
-    /// allows; otherwise the water under it can no longer be swum and the
-    /// player is simply airborne, falling from the eye line they had.
+    /// is somewhere coherent to put it: the support is at most one bounded
+    /// water-exit step above the surface (or below it, within standing depth),
+    /// the eye is near the surface, and the stance's body fits under the local
+    /// ceiling. The `sample` may be the pre-move sample: when the water volume
+    /// ends exactly at a platform edge, the surface the swimmer was floating at
+    /// is the exit reference.
+    ///
+    /// When the body's virtual feet are inside the floor (a submerged volume
+    /// boundary) it stands on the floor if the clearance allows; otherwise the
+    /// water under it can no longer be swum and the player is simply airborne,
+    /// falling from the eye line they had.
     fn leave_water(&mut self, sample: Option<WaterSample>) {
         self.swimming = false;
         self.bob_phase = 0.0;
@@ -2319,28 +2516,28 @@ impl Game {
             .walk_height_at(self.player_position.x, self.player_position.z);
         let surface = sample.map(|sample| sample.surface_y);
         let can_stand = floor.zip(surface).is_some_and(|(support, surface)| {
-            support <= surface + STEP_EPS
+            support <= surface + WATER_EXIT_STEP_M + STEP_EPS
                 && surface - support <= self.stand_depth_limit()
                 && self.player_position.y >= surface - EXIT_EYE_MARGIN
                 && self.head_clear_for(support, self.body_height())
         });
         if let Some(support) = floor.filter(|_| can_stand) {
             self.player_floor_y = support;
-            self.player_position.y = support + self.eye_offset();
+            self.set_feet_y(support);
             self.vertical_velocity = 0.0;
             self.grounded = true;
             return;
         }
         if let Some(support) = floor {
             self.player_floor_y = support;
-            if self.player_position.y - self.eye_offset() < support - STEP_EPS {
+            if self.feet_y < support - STEP_EPS {
                 // The virtual feet are inside the floor. Leaving the water must
                 // not leave the body embedded in it: stand on the floor when
                 // the stance fits, otherwise stay swimming until the player
                 // moves somewhere with headroom (never pushed through a box to
                 // make standing possible).
                 if self.head_clear_for(support, self.body_height()) {
-                    self.player_position.y = support + self.eye_offset();
+                    self.set_feet_y(support);
                     self.vertical_velocity = 0.0;
                     self.grounded = true;
                     return;
@@ -2450,9 +2647,8 @@ impl Game {
                 HorizontalMode::Airborne,
             );
         }
-        let eye_offset = self.eye_offset();
         let height = self.body_height();
-        let feet = self.player_position.y - eye_offset;
+        let feet = self.feet_y;
         let mut target = if along > LADDER_INTENT_THRESHOLD {
             LADDER_CLIMB_SPEED.mul_add(delta, feet).min(ladder.top_y)
         } else {
@@ -2465,7 +2661,8 @@ impl Game {
         }
         // An obstruction or a clamp never pushes the climber down: holding the
         // current height is the worst case.
-        self.player_position.y = target.min(ladder.top_y).max(feet) + eye_offset;
+        let target = target.min(ladder.top_y).max(feet);
+        self.set_feet_y(target);
         self.vertical_velocity = 0.0;
         self.vertical_accumulator = 0.0;
 
@@ -2480,8 +2677,8 @@ impl Game {
             && (support - target).abs() <= PLAYER_STEP_HEIGHT + STEP_EPS
             && self.head_clear_for(support, height)
         {
-            self.player_position.y = support + eye_offset;
             self.player_floor_y = support;
+            self.set_feet_y(support);
             self.grounded = true;
             self.swimming = false;
             self.climbing = None;

@@ -36,6 +36,7 @@
 //! * [`reflections`] — probe cubemaps, the planar target and capture maths;
 //! * [`props`] — the neutral prop batches as GPU buffers and materials;
 //! * [`dynamic`] — the dynamic-object meshes and per-object environments;
+//! * [`effects`] — the ambient effect billboards (steam plumes);
 //! * [`decals`] — the decal sheets, geometry and pass;
 //! * [`postprocess`] — scene/presented/emissive/blur targets and the resolve;
 //! * [`ui`] — the renderer-owned HUD pass;
@@ -47,6 +48,7 @@
 pub mod character;
 pub mod decals;
 pub mod dynamic;
+pub mod effects;
 pub mod environment;
 pub mod lightmap;
 pub mod material;

@@ -2072,31 +2072,114 @@ fn a_prop_against_a_wall_still_occludes() {
 
 #[test]
 fn a_props_own_light_lights_around_its_body() {
-    // A vending machine with a front-mounted rect light: the floor in front of
-    // the panel is lit by the prop's own pool, while the machine body blocks
-    // the same pool from reaching the floor behind it.
-    let lighting = bake_scene(
-        12.0,
-        12.0,
-        &[],
-        &[r#"{ "model": "core:vending_machine", "x": 5.0, "z": 5.0,
+    // A vending machine with a front-mounted rect light: the emitter is the
+    // source, so the machine's own housing must not occlude it — exactly as a
+    // ceiling fixture is never occluded by its own housing. The floor in front
+    // of the panel and the floor behind the machine are both inside the pool;
+    // only *other* geometry may cast a shadow.
+    let with_light = r#"{ "model": "core:vending_machine", "x": 5.0, "z": 5.0,
                 "lights": [ { "shape": "rect", "half_width": 0.4, "half_depth": 0.05,
                                "offset": [0.0, 1.2, 0.5], "intensity": 1.0, "range": 5.0,
                                "color": [0.6, 0.8, 1.0] } ] }"#
-            .to_string()],
-    );
+        .to_string();
+    let lighting = bake_scene(12.0, 12.0, &[], std::slice::from_ref(&with_light));
     assert_eq!(lighting.lights().len(), 1, "one prop light bakes");
     let front = lighting.sample_in_room(0, 5.0, 0.6, 7.0);
     let back = lighting.sample_in_room(0, 5.0, 0.6, 3.0);
     assert!(
-        front.luminance() > back.luminance(),
-        "the prop body must block its own light behind it: {} vs {}",
-        front.luminance(),
-        back.luminance()
-    );
-    assert!(
         front.luminance() > lighting.rooms()[0].baseline.luminance() + 1e-4,
         "the pool must reach the floor in front of the panel"
+    );
+    // The machine's own boxes must not stand between the emitter and the floor
+    // behind it: the pool term there is fully visible, not a body shadow.
+    let behind_terms = lighting.pool_terms_in_room(Some(0), 5.0, 0.6, 3.0);
+    assert!(
+        behind_terms.iter().any(|term| term.visibility > 0.9),
+        "the prop's own light must not be blocked by its own body: {behind_terms:?}"
+    );
+    let unlit = bake_scene(
+        12.0,
+        12.0,
+        &[],
+        &[prop_at("core:vending_machine", 5.0, 5.0)],
+    );
+    let back_open = unlit.sample_in_room(0, 5.0, 0.6, 3.0);
+    assert!(
+        back.luminance() > back_open.luminance() + 0.02,
+        "the pool must actually brighten the floor behind the machine: {} vs {}",
+        back.luminance(),
+        back_open.luminance()
+    );
+}
+
+/// A light attached to one prop still treats every *other* prop body as an
+/// occluder: only the owning prop's own boxes are exempt.
+#[test]
+fn a_light_attached_to_another_prop_still_sees_this_prop_as_an_occluder() {
+    // The emitter belongs to the desk at (4, 6); the vending machine at (6, 6)
+    // stands between it and the floor sample at (8, 6).
+    let emitter = r#"{ "model": "core:desk", "x": 4.0, "z": 6.0,
+            "lights": [ { "shape": "point", "offset": [0.0, 1.2, 0.0],
+                           "intensity": 1.0, "range": 6.0 } ] }"#
+        .to_string();
+    let with_body = bake_scene(
+        12.0,
+        12.0,
+        &[],
+        &[emitter.clone(), prop_at("core:vending_machine", 6.0, 6.0)],
+    );
+    let without_body = bake_scene(12.0, 12.0, &[], &[emitter]);
+    let blocked = with_body.sample_in_room(0, 8.0, 0.0, 6.0);
+    let open = without_body.sample_in_room(0, 8.0, 0.0, 6.0);
+    assert!(
+        open.luminance() > blocked.luminance() + 0.02,
+        "a different prop must still occlude the attached light: {open:?} vs {blocked:?}"
+    );
+}
+
+/// A hanging globe's own light reaches the ceiling above it.
+///
+/// The emitter sits just under the orb, inside the lamp's own occlusion volume;
+/// with the self-exemption the own housing no longer blocks the upward rays, so
+/// the ceiling above the lamp gains light compared with the same room without
+/// the authored light. The room's ceiling slab is never exempt: an emitter
+/// placed above the ceiling plane still lights nothing below it.
+#[test]
+fn a_props_own_light_reaches_the_ceiling_above_it() {
+    let lamp = |y: f32| {
+        format!(
+            r#"{{ "model": "home:ball_light", "x": 6.0, "z": 6.0, "y": {y},
+                 "lights": [ {{ "shape": "point", "offset": [0.0, -0.02, 0.0],
+                                "intensity": 1.0, "range": 6.0 }} ] }}"#
+        )
+    };
+    // The orb hangs 1.4 m up, its emitter just under it, well below the 3 m
+    // ceiling.
+    let lit = bake_scene(12.0, 12.0, &[], &[lamp(1.4)]);
+    let unlit = bake_scene(12.0, 12.0, &[], &[prop_at("home:ball_light", 6.0, 6.0)]);
+    let above = lit.sample_in_room(0, 6.0, 3.0, 6.0);
+    let above_dark = unlit.sample_in_room(0, 6.0, 3.0, 6.0);
+    assert!(
+        above.luminance() > above_dark.luminance() + 0.02,
+        "the lamp must raise the ceiling luminance above it: {} vs {}",
+        above.luminance(),
+        above_dark.luminance()
+    );
+    // The ray to the ceiling is genuinely unoccluded, not merely brighter from
+    // the room baseline: the light's pool term is fully visible there.
+    let terms = lit.pool_terms_in_room(Some(0), 6.0, 3.0, 6.0);
+    assert!(
+        terms.iter().any(|term| term.visibility > 0.9),
+        "the lamp's own orb must not block the pool from reaching the ceiling: {terms:?}"
+    );
+
+    // A lamp above the ceiling plane still lights nothing below it: the
+    // ceiling slab is not part of the self-exemption.
+    let above_ceiling = bake_scene(12.0, 12.0, &[], &[lamp(3.6)]);
+    let floor_terms = above_ceiling.pool_terms_in_room(Some(0), 6.0, 0.05, 6.0);
+    assert!(
+        floor_terms.iter().all(|term| term.visibility <= 1e-4),
+        "a light above the ceiling plane must stay blocked: {floor_terms:?}"
     );
 }
 
@@ -3326,8 +3409,10 @@ fn the_demo_exit_sign_and_ball_light_really_illuminate() {
     // The emitters ride the prop transform and are attached on the right side
     // of their bodies: the sign's rect sits 0.058 m in front of its green face
     // (rotation 270 turns +Z to -X), so a point in front of the face gains more
-    // green than a point behind the housing, and the lamp's point sits 0.02 m
-    // below the orb, so the table below gains more than the air above the orb.
+    // green than a point behind the housing. The lamp's own orb is exempt from
+    // its own light (the emitter is the source), so the air above it gains the
+    // pool as well, unlike the old faceted behaviour where the housing blocked
+    // every upward ray.
     let sign_front = lighting.sample(52.0, 1.7, 13.0);
     let sign_behind = lighting.sample(53.2, 1.7, 13.0);
     assert!(
@@ -3339,6 +3424,13 @@ fn the_demo_exit_sign_and_ball_light_really_illuminate() {
     assert!(
         lamp_below.r > lamp_above.r + 0.02,
         "the lamp hangs below its orb: {lamp_below:?} vs {lamp_above:?}"
+    );
+    // Above the orb the light is the lamp's own, unblocked by its housing: the
+    // same point loses it entirely when the authored light is disabled.
+    let lamp_above_dark = dark_lighting.sample(56.0, 4.1, 7.6);
+    assert!(
+        lamp_above.r > lamp_above_dark.r + 0.02,
+        "the orb must not block its own light upward: {lamp_above:?} vs {lamp_above_dark:?}"
     );
 
     // The contribution survives the player quality tiers: every profile bakes

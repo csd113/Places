@@ -1050,6 +1050,16 @@
       "description": "Brushed metal sheet with a panel seam and two rivet rows."
     },
     {
+      "id": "core:tex_metal_brass_01",
+      "display_name": "Brass Texture",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "core/textures/metal/brass_01.png",
+      "description": "Warm brass with a fine circular polish; the material carries the highlight."
+    },
+    {
       "id": "core:tex_plastic_panel_01",
       "display_name": "Plastic Panel Texture",
       "asset_class": "environment",
@@ -1209,6 +1219,19 @@
       "reflection_strength": 0.25
     },
     {
+      "id": "core:metal_brass_01",
+      "display_name": "Brass",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "core:tex_metal_brass_01",
+      "tile_metres": 0.25,
+      "specular": 0.8,
+      "shine": 0.85,
+      "description": "Polished brass for door furniture; high shine without a planar mirror."
+    },
+    {
       "id": "core:plastic_panel_01",
       "display_name": "Moulded Plastic Panel",
       "asset_class": "environment",
@@ -1328,6 +1351,27 @@
       "specular": 0.25,
       "shine": 0.3,
       "description": "Painted steel transfer grille: an alpha-tested cut-out that fills an opening with slats instead of a pane."
+    },
+    {
+      "id": "core:tex_steam_01",
+      "display_name": "Steam Puff Texture",
+      "asset_class": "core",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "core/textures/effects/steam_01.png",
+      "description": "Soft white-grey wispy puff with an alpha falloff to every edge; sampled by steam effect billboards at the effect material's `tile_metres`."
+    },
+    {
+      "id": "core:steam_01",
+      "display_name": "Steam",
+      "asset_class": "core",
+      "asset_type": "material",
+      "source": "definition",
+      "texture": "core:tex_steam_01",
+      "tile_metres": 0.5,
+      "alpha_mode": "blend",
+      "opacity": 0.4,
+      "description": "Ambient steam: a soft white-grey puff at low opacity, no tint, no emission and no reflection. The default material for `effects[]` steam plumes."
     },
     {
       "id": "core:tex_white_01",
@@ -1480,6 +1524,28 @@
       "surface": "ceiling",
       "model": "environment/home/textures/ceilings/ceiling_plaster_01.png",
       "description": "Fine plaster ceiling: a very light stipple, not a popcorn texture."
+    },
+    {
+      "id": "home:tex_sauna_wood_01",
+      "display_name": "Home Sauna Wood Texture",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "environment/home/textures/doors/sauna_wood_01.png",
+      "description": "Light cedar sauna boards: narrow vertical staves with soft even grain."
+    },
+    {
+      "id": "home:tex_door_white_01",
+      "display_name": "Home White Door Texture",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "environment/home/textures/doors/door_white_01.png",
+      "description": "White painted door stock: a smooth finish with a faint vertical brush."
     },
     {
       "id": "home:wallpaper_offwhite_01",
@@ -1662,6 +1728,34 @@
       "specular": 0.05,
       "shine": 0.14,
       "description": "Lightly textured plaster ceiling; subtle, not popcorn."
+    },
+    {
+      "id": "home:sauna_wood_01",
+      "display_name": "Sauna Cedar",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "home:tex_sauna_wood_01",
+      "tile_metres": 0.6,
+      "specular": 0.2,
+      "shine": 0.3,
+      "description": "Light cedar for sauna doors and benches; a restrained satin sheen."
+    },
+    {
+      "id": "home:door_white_01",
+      "display_name": "White Painted Door",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "home:tex_door_white_01",
+      "tile_metres": 0.5,
+      "specular": 0.25,
+      "shine": 0.35,
+      "description": "Satin white door paint; the default interior door leaf and frame finish."
     },
     {
       "id": "home:ceiling_light_round",

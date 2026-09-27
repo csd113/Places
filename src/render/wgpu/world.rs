@@ -1595,6 +1595,18 @@ impl WorldPipeline {
                 totals.absorb(self.encode_opaque_extras(pass, inputs, false));
             }
         }
+        // Blended dynamic primitives (a moving glass panel) draw after the
+        // sorted static translucent surfaces, with depth writes off and depth
+        // testing against the opaque pass.
+        if let Some(dynamic) = inputs.dynamic {
+            totals.absorb(self.encode_dynamic(
+                pass,
+                inputs,
+                dynamic,
+                false,
+                BatchPass::Translucent,
+            ));
+        }
         totals
     }
 
@@ -1611,7 +1623,13 @@ impl WorldPipeline {
             totals.absorb(self.encode_props(pass, inputs, props, emission_only));
         }
         if let Some(dynamic) = inputs.dynamic {
-            totals.absorb(self.encode_dynamic(pass, inputs, dynamic, emission_only));
+            totals.absorb(self.encode_dynamic(
+                pass,
+                inputs,
+                dynamic,
+                emission_only,
+                BatchPass::Opaque,
+            ));
         }
         if let Some(characters) = inputs.characters {
             totals.absorb(self.encode_characters(pass, inputs, characters, emission_only));
@@ -1619,26 +1637,29 @@ impl WorldPipeline {
         totals
     }
 
-    /// Encodes the frame's dynamic-object draws.
+    /// Encodes the dynamic submeshes that belong to one draw pass.
     ///
     /// One draw per object per primitive, culled by the object's world bounds
     /// (the reference culls the dynamic path the same way). Each object binds
     /// its own group-3 environment, which carries its model matrix and its
     /// per-frame baked-light probe; the material and texture come from the
     /// shared mesh and the object's own material slots. `emission_only` is the
-    /// emissive pass.
+    /// emissive pass; `wanted` selects the alpha class, so a blended dynamic
+    /// primitive draws in the translucent pass after the static translucent
+    /// surfaces, with depth writes off.
     fn encode_dynamic<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
         inputs: WorldEncodeInputs<'a>,
         dynamic: &'a super::dynamic::WgpuDynamic,
         emission_only: bool,
+        wanted: BatchPass,
     ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
         if emission_only {
-            pass.set_pipeline(self.emission_pipeline_for(BatchPass::Opaque));
+            pass.set_pipeline(self.emission_pipeline_for(wanted));
         } else {
-            pass.set_pipeline(self.pipeline_for(BatchPass::Opaque));
+            pass.set_pipeline(self.pipeline_for(wanted));
         }
         pass.set_bind_group(0, &self.bind_group, &[]);
         for object in 0..dynamic.object_count() {
@@ -1656,6 +1677,9 @@ impl WorldPipeline {
             let mut bound_material: Option<usize> = None;
             let mut bound_geometry: Option<(usize, usize)> = None;
             for submesh in 0..dynamic.submesh_count(object) {
+                if dynamic.submesh_pass(object, submesh) != Some(wanted) {
+                    continue;
+                }
                 if emission_only && !dynamic.submesh_emissive(object, submesh) {
                     continue;
                 }
@@ -1834,6 +1858,11 @@ impl WorldPipeline {
             if pass_kind == BatchPass::Opaque {
                 totals.absorb(self.encode_opaque_extras(pass, inputs, true));
             }
+        }
+        // A blended dynamic primitive can still emit; its emissive draw joins
+        // the bloom source after the static translucent emission.
+        if let Some(dynamic) = inputs.dynamic {
+            totals.absorb(self.encode_dynamic(pass, inputs, dynamic, true, BatchPass::Translucent));
         }
         totals
     }

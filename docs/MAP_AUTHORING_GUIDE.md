@@ -5,9 +5,9 @@ Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 | Field | Value |
 | --- | --- |
 | Document status | **Canonical / living.** Update it whenever the authoring contract changes (see [Maintaining This Guide](#maintaining-this-guide)). |
-| Level format version documented | `1` (`format_version` in every level JSON) |
+| Level format version documented | `2` (`format_version` in every level JSON) |
 | Asset catalog format version documented | `2` (`format_version` in `assets/catalog.json`) |
-| Verification | Re-verified against the working tree at version 0.7.0 (runs 01–06: interactions and triggers, animated entities and props, floating props, curved architecture, the ceiling tile frame and the geometry checker). No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
+| Verification | Re-verified against the working tree at version 0.7.0 (runs 01–06: interactions and triggers, animated entities and props, floating props, curved architecture, the ceiling tile frame, the geometry checker, plus the door/switch/effect review). No commit SHA is pinned: the body was checked line-by-line against `src/level.rs`, `src/loader.rs`, `src/geometry_check.rs`, `src/assets.rs`, `src/materials/`, `src/render/`, `src/lighting/`, `assets/catalog.json`, `assets/levels/places_demo.json` and `tests/fixtures/levels/*.json`. |
 | Checks that must pass before a code or asset change ships | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace --all-features`; `python3 tools/assets/validate.py`; `python3 tools/textures/build.py --check`; `python3 tools/props/build.py --check` (see [Validation Workflow](#27-validation-workflow) for what each proves) |
 | Primary benchmark level | `assets/levels/places_demo.json` |
 
@@ -59,7 +59,8 @@ When any two sources disagree, resolve in this order:
 
 1. **Runtime implementation** — `src/level.rs` (level schema and geometry rules),
    `src/loader.rs` (validation, discovery, packs), `src/game.rs` / `src/collision.rs`
-   (movement and collision), `src/render/` (meshes, decals, fixtures, props,
+   (movement and collision), `src/door.rs` (door state and collision pose),
+   `src/render/` (meshes, decals, fixtures, props, doors,
    reflections, post-processing), `src/lighting/` (bake and lightmaps),
    `src/materials/` + `src/assets.rs` (catalog and materials),
    `src/quality.rs` + `src/settings.rs` (quality levels).
@@ -84,6 +85,8 @@ Authoritative paths:
 | Level schema | `src/level.rs` |
 | Loader / validator | `src/loader.rs` |
 | Collision / walkable floor | `src/collision.rs`, `src/game.rs` |
+| Door state / collision pose | `src/door.rs` |
+| Door geometry | `src/render/common/doors.rs` |
 | Mesh generation | `src/render/common/mod.rs`, `src/render/common/geometry.rs` |
 | Decals | `src/render/common/decals.rs`, `src/render/common/mod.rs` |
 | Fixture geometry | `src/render/common/fixtures.rs`, `src/lighting/tuning.rs` |
@@ -107,12 +110,14 @@ Authoritative paths:
 | Baked lightmaps for static world geometry (floors, ceilings, walls, reveals, skirts), with the baked-vertex path as the exact fallback | Implemented |
 | Baked vertex lighting, 3 fixture families, per-light colour/intensity/range/falloff, partitions, vertical isolation | Implemented |
 | Static props occlude baked light (contact darkening, blocked pools), derived from the placed model's own triangles | Implemented |
-| A separate dynamic-object render path (per-frame transforms, no rebuild of static geometry or lightmaps) | Implemented (one engine-created demonstration object; not authorable from a level) |
+| A separate dynamic-object render path (per-frame transforms, no rebuild of static geometry or lightmaps) | Implemented (authorable `doors[]` leaves plus one engine-created drum demonstration) |
 | Generic engine-level lights (point / rect / line) owned by fixtures and props | Implemented |
 | Material emission (`emissive`, `emissive_intensity`, `emissive_mask`) and per-fixture `emission` | Implemented |
-| Material surface response (`normal_texture`, `normal_strength`, `specular`, `specular_color`, `shine`; legacy `roughness`) | Implemented |
+| Material surface response (`normal_texture`, `normal_strength`, `specular`, `specular_color`, `shine`) | Implemented |
 | Material transparency (`alpha_mode`: `opaque` / `cutout` / `blend`, `opacity`, `alpha_cutoff`) | Implemented |
-| Opening glazing: a `glass` material fills a window, vent or door aperture with one pane | Implemented |
+| Opening glazing: a `glass` material fills a window, vent or door aperture with one pane; `solid: true` makes the pane a physical slab | Implemented |
+| Map-wired door actions (`open`, `close`, `toggle`, switchable light fixtures) | Implemented (see [§30](#30-doors-switches-and-effects)) |
+| Presentation-only ambient effects (`effects[]`, steam) | Implemented (see [§30](#30-doors-switches-and-effects)) |
 | Offscreen scene rendering presented by a fullscreen quad, UI at drawable resolution | Implemented |
 | Selective reflections: per-material `reflection_mode` (`none` / `probe` / `planar`) at 64/48/32-texel probes (High/Medium/Low) and a half-resolution planar pass (Medium and High) | Implemented |
 | Restrained post-processing: emission-driven bloom, a tone shoulder, distance fog and a subtle grade, with the UI drawn outside it | Implemented (engine-global; not level-authorable) |
@@ -122,7 +127,7 @@ Authoritative paths:
 | Multi-primitive / multi-material GLB props, embedded emissive materials, node transforms | Implemented |
 | External PNG surfaces, decals, fixture faces; catalog + themes | Implemented |
 | Level `.zip` packs with `materials.json` and pack textures | Implemented |
-| `ceiling_lights` accepting the `lights` alias | Implemented |
+| Door leaves (`doors[]`): interior and sauna kinds, state machine, obstruction handling, manual interaction, externally controlled | Implemented (see [§30](#30-doors-switches-and-effects)) |
 | Water volumes (`water[]`): a translucent surface, wading, swimming and surface swimming | Implemented (see [Water volumes](#water-volumes-wading-swimming-and-surfacing)) |
 | Ladder volumes (`ladders[]`): walking into the face climbs without a key, with release, backing away, jump, obstruction and top-landing rules | Implemented (see [Ladders](#ladders)) |
 | Stable per-instance ids, map-authored object interactions (E), floating labels, reset-to-start | Implemented (see [§29](#29-interactions-labels-and-area-triggers)) |
@@ -136,10 +141,10 @@ Authoritative paths:
 | Authoring a normal map from a level (a level names a material, and the material owns the map) | Implemented (via the catalog) |
 | Sloped floors (`ramps`), staircases (`stairs`), half walls, columns, archways, guardrails, thresholds, baseboards | Implemented |
 | Data-authored arc (curved) walls (`arc_walls[]`) and circular pillars (`pillars[]`), with per-primitive tessellation, per-face materials and segment-derived collision | Implemented (see [§10](#10-floors-elevation-and-vertical-geometry)) |
-| A read-only geometry checker CLI (`--check-geometry`) over the engine's own authored/generated geometry | Implemented (see [§31](#30-the-map-geometry-checker)) |
+| A read-only geometry checker CLI (`--check-geometry`) over the engine's own authored/generated geometry | Implemented (see [§32](#31-the-map-geometry-checker)) |
 | Per-room ceiling tile frame (`ceiling_tile_origin`, `ceiling_tile_rotation_degrees`) for offset/rotated ceiling patterns and decal snapping | Implemented |
 | Decal grid snapping (`decals[].align: "ceiling_grid"`) onto the ceiling's own panel module | Implemented |
-| Narrow intent annotations for the checker (`geometry_intent[]`) | Implemented (see [§31](#30-the-map-geometry-checker)) |
+| Narrow intent annotations for the checker (`geometry_intent[]`) | Implemented (see [§32](#31-the-map-geometry-checker)) |
 | Ceiling/floor openings; traversal between stacked storeys | Not implemented |
 | Room-wide brightness/tint modifiers; non-fixture decor meshes beyond props | Not implemented |
 | WebP or formats other than PNG; arbitrary structural meshes | Not implemented |
@@ -260,15 +265,16 @@ Consequences to internalise:
 
 A complete level is one JSON object. This is a **readable subset** of the format that
 shows the shape and the common fields; the complete field-by-field contract is in the
-tables of sections 6–10, 16, 17 and 19–21, and the skeleton below names every current
-field at least once (the legacy `room` key is covered in prose below it). Unknown keys
+tables of sections 6–10, 16, 17 and 19–21, plus doors, switches and effects in
+[§30](#30-doors-switches-and-effects), and the skeleton below names every current
+field at least once. Unknown keys
 are **silently ignored** (the structs do not use
 `deny_unknown_fields`), so a typo disappears without an error; diff against the
 skeleton and the per-field tables.
 
 ```jsonc
 {
-  "format_version": 1,                     // REQUIRED. Must be exactly 1.
+  "format_version": 2,                     // REQUIRED. Must be exactly 2.
   "id": "my_level",                        // REQUIRED. Non-empty; menu key.
   "name": "My Level",                      // REQUIRED. Non-empty; display name.
   "author": "",                            // optional, default "".
@@ -314,7 +320,8 @@ skeleton and the per-field tables.
           "height": 2.1,                   // REQUIRED
           "sill": 0.0,                     // optional, default 0.0
           "glass": "core:glass_window_clear_01",  // optional; absent = bare hole
-          "glass_shine": 0.2               // optional 0..1 for the pane
+          "glass_shine": 0.2,              // optional 0..1 for the pane
+          "solid": true                    // optional, default false; true = the pane blocks the player (requires glass)
         }
       ]
     }
@@ -449,12 +456,12 @@ skeleton and the per-field tables.
       "surface": "floor" }                 // REQUIRED enum
   ],
 
-  "ceiling_lights": [                      // ALL fixtures, ceiling and wall; alias: "lights"
+  "ceiling_lights": [                      // ALL fixtures, ceiling and wall
     {
       "fixture": "core:pool_light_wall",   // REQUIRED
       "x": 0.15, "z": 13.0,                // REQUIRED
       "rotation_degrees": 90.0,            // optional, default 0.0
-      "brightness": 0.7,                   // optional; alias "intensity"; default 1.0
+      "brightness": 0.7,                   // optional; default 1.0
       "color": [0.55, 0.78, 1.0],          // optional; default [1.0, 0.96, 0.88]
       "mount": "wall",                     // optional; default "ceiling"
       "y": 1.9,                            // REQUIRED when mount is "wall"
@@ -462,6 +469,7 @@ skeleton and the per-field tables.
       "falloff": "smooth",                 // optional, default "smooth"
       "enabled": true,                     // optional, default true
       "emission": 0.7,                     // optional; default = brightness
+      "switchable": true,                  // optional, default false; a `toggle` action may drive it
       "align": "grid"                      // optional; "grid" (default) or "none"
     }
   ],
@@ -491,12 +499,48 @@ skeleton and the per-field tables.
           "offset": [0.0, 0.9, 0.3],       // optional, default [0, 0, 0]
           "rotation_degrees": 0.0,         // optional, default 0.0
           "color": [0.55, 0.78, 1.0],      // optional; default [1.0, 0.96, 0.88]
-          "intensity": 0.15,               // optional; alias "brightness"; default 1.0
+          "intensity": 0.15,               // optional; default 1.0
           "range": 3.0,                    // optional, default 6.0
           "falloff": "smooth",             // optional, default "smooth"
           "enabled": true                  // optional, default true
         }
       ]
+    }
+  ],
+
+  "doors": [                               // optional; interactive leaves, see §30
+    {
+      "id": "hall_door",                   // REQUIRED; unique across props/lights/doors/triggers
+      "x": 60.3, "y": 0.0, "z": 3.0,       // hinge edge; y is above the walkable floor
+      "rotation_degrees": 0.0,             // yaw of the closed leaf; 0 runs toward +X, 90 toward -Z
+      "width": 1.4, "height": 2.1,         // REQUIRED; leaf size in metres
+      "thickness": 0.045,                  // optional; default 0.045
+      "open_direction": "left",            // optional; "left" (default) or "right"
+      "swing_degrees": 90.0,               // optional; default 90, 5..179
+      "open_speed_degrees": 120.0,         // optional; default 120, 0..720
+      "close_speed_degrees": null,         // optional; default = open speed
+      "initial_state": "closed",           // optional; "closed" (default) or "open"
+      "manual_interaction": true,          // optional; default true (false = externally controlled)
+      "prompt": "Hall door",               // optional; default "Open"/"Close" by phase
+      "reach": 2.5,                        // optional; >= 0, <= 4.0 m
+      "obstruction": "stop",               // optional; "stop" (default) or "reverse"
+      "kind": "interior",                  // optional; "interior" (default) or "sauna"
+      "material": null, "frame_material": null, "handle_material": null  // optional overrides
+    }
+  ],
+
+  "effects": [                             // optional; presentation-only emitters, see §30
+    {
+      "id": "sauna_steam_a",               // optional; diagnostics only
+      "kind": "steam",                     // REQUIRED; only "steam"
+      "x": 31.0, "y": 0.0, "z": 12.6,      // optional; y is above the walkable floor
+      "width": 0.9, "depth": 0.6,          // optional footprint, default 0.8 each
+      "height": 1.5,                       // optional plume height, default 1.6
+      "count": 20,                         // optional particle count, default 24, <= 128
+      "size": 0.34,                        // optional billboard size, default 0.35
+      "drift": 0.16,                       // optional horizontal wander, default 0.0
+      "lifetime_seconds": 3.2,             // optional, default 3.0, <= 60
+      "material": null                     // optional; default core:steam_01
     }
   ],
 
@@ -533,10 +577,6 @@ skeleton and the per-field tables.
 }
 ```
 
-Two collections are merged/legacy and should not be used in new maps except for
-compatibility: `room` (a single `RoomDef`, resolved **after** the `rooms` array) and
-the catalog's legacy `props` array (see [Asset Catalog](#14-asset-catalog)).
-
 **Warning — the `defaults` gotcha.** If the `defaults` key is absent entirely, the
 engine uses `core:wallpaper_yellow_01` / `core:carpet_beige_01` /
 `core:ceiling_panel_01`. If you author `defaults`, author **all three keys**: each
@@ -545,7 +585,8 @@ missing key becomes the empty string, and an empty material id resolves to the
 
 **Closed enums vs free strings.** Serde rejects the whole document at parse time when a
 *closed enum* field has an unknown value: `ceiling.kind`, `ridge`, `mount`, `falloff`,
-`shape` (prop light), and decal `surface`. Free strings are validated later by the
+`shape` (prop light), door `open_direction` / `initial_state` / `obstruction` / `kind`,
+and decal `surface`. Free strings are validated later by the
 loader or the renderer: opening `kind` (unknown names load), animated-emission
 `effect` (unknown names are a named validation error), and all logical asset ids.
 A misspelled enum is a parse error, not a silently ignored key.
@@ -572,7 +613,7 @@ literal.
 
 | Limit | Value | Enforced as |
 | --- | --- | --- |
-| Rooms (`rooms` + legacy `room`) | ≤ 2000 (`MAX_LEVEL_ROOMS`) | Loader rejection: `Level contains too many rooms: …` |
+| Rooms (`rooms`) | ≤ 2000 (`MAX_LEVEL_ROOMS`) | Loader rejection: `Level contains too many rooms: …` |
 | Walls | ≤ 20 000 (`MAX_LEVEL_WALLS`) | Loader rejection |
 | Ceiling lights | ≤ 20 000 (`MAX_LEVEL_CEILING_LIGHTS`) | Loader rejection |
 | Props | ≤ 20 000 (`MAX_LEVEL_PROPS`) | Loader rejection |
@@ -581,6 +622,12 @@ literal.
 | Floor regions | ≤ 2000 | Loader rejection |
 | Water volumes | ≤ 2000 | Loader rejection |
 | Ladders | ≤ 256 | Loader rejection |
+| Doors (`doors[]`) | ≤ 256 (`MAX_LEVEL_DOORS`) | Loader rejection |
+| Door swing | 5–179° (`MIN_DOOR_SWING_DEGREES`, `MAX_DOOR_SWING_DEGREES`) | Loader rejection per door |
+| Door angular speed | 0 < speed ≤ 720°/s (`MAX_DOOR_SPEED_DEGREES`) | Loader rejection per door |
+| Door width/height/thickness | each ≤ 12 m (`MAX_DOOR_DIMENSION_M`) | Loader rejection per door |
+| Effects (`effects[]`) | ≤ 64 (`MAX_LEVEL_EFFECTS`) | Loader rejection |
+| Effect particles (`count`) | 1–128 (`MAX_EFFECT_PARTICLES`) | Loader rejection per effect |
 | Area triggers | ≤ 1000 | Loader rejection |
 | Actions per interaction or trigger | ≤ 8 | Loader rejection |
 | Authored interaction reach | ≤ 4.0 m | Loader rejection |
@@ -629,7 +676,7 @@ the full measurements.
 
 | Field | Type | Required | Default | Notes |
 | --- | --- | --- | --- | --- |
-| `format_version` | integer | **yes** | — | Must be `1`; anything else is rejected: `Unsupported level format_version: {v} (expected 1)`. |
+| `format_version` | integer | **yes** | — | Must be `2`; anything else is rejected: `Unsupported level format_version: {v} (expected 2)`. |
 | `id` | string | **yes** | — | Non-empty after trim. Not checked for uniqueness across files (see caveats). |
 | `name` | string | **yes** | — | Non-empty after trim. |
 | `author` | string | no | `""` | Display metadata only. |
@@ -641,7 +688,7 @@ Known-valid header (from Places Demo):
 
 ```json
 {
-  "format_version": 1,
+  "format_version": 2,
   "id": "places_demo",
   "name": "Places Demo",
   "author": "Places",
@@ -726,7 +773,7 @@ Overlapping rooms are legal and sometimes intentional (they are how stacked stor
 and vertical features are built). Two different ownership rules apply:
 
 * **Geometry, collision and the walkable floor** use the **first room in resolution
-  order** (`rooms` order, then the legacy `room` entry) whose footprint contains the
+  order** (`rooms` order) whose footprint contains the
   point (0.01 m tolerance). If several rooms overlap, the earlier one wins.
 * **Baked lighting** uses the **smallest-area** room at that point when no height hint
   is authored; an authored light `y` first picks the room whose vertical air volume
@@ -856,13 +903,14 @@ are the same rectangle; `kind` only changes labels and one lighting behavior.
 
 | Field | Type | Required | Default | Semantics |
 | --- | --- | --- | --- | --- |
-| `kind` | string | no | `"door"` | Free string; documented spellings `door`, `window`, `passage`, `vent`. Unknown strings load (forward compatibility) but are not doors for lighting. |
+| `kind` | string | no | `"door"` | Free string; documented spellings `door`, `window`, `passage`, `vent`. Unknown strings load but are not doors for lighting. |
 | `offset` | number | **yes** | — | Distance along the wall's length axis from the min corner to the opening's near edge; `≥ 0`. |
 | `width` | number | **yes** | — | Cut width along the wall; `> 0`; `offset + width ≤ length` (tolerance 1e-3) or the level is rejected. |
 | `height` | number | **yes** | — | Cut height above the sill; `> 0`. |
 | `sill` | number | no | `0.0` | Bottom edge above the wall's base (`wall.y`); `≥ 0`. `0.0` reaches the floor. |
-| `glass` | string | no | — | Material id of a pane filling the aperture. Absent (or blank) = the historical bare hole. See [Panes](#panes-glass-grilles-and-screens). |
+| `glass` | string | no | — | Material id of a pane filling the aperture. Absent (or blank) = a bare hole. See [Panes](#panes-glass-grilles-and-screens). |
 | `glass_shine` | number | no | material default | Per-surface glossiness (`0`–`1`) for the `glass` pane. |
+| `solid` | boolean | no | `false` | Whether the glazed opening **physically blocks the player**. `true` requires `glass` (an invisible solid barrier is a wall, not an opening) and adds a thin collision slab at the pane's plane; `false` is a purely visual pane. Rendering transparency and collision are independent: the transparent blend pass never decides whether the pane stops a body. |
 
 ```text
    X-axis wall: footprint (x .. x+width) by (z .. z+depth)
@@ -886,6 +934,11 @@ bounded **doorway baseline light blend** between the connected rooms, but only w
 opening's bottom reaches the lower of the two connected floors
 (`wall.y + sill <= min(floor of both sides) + 1e-3`). A raised-sill door on a raised
 wall base does not blend.
+
+A walk-through `door` or `passage` opening is also the aperture an interactive
+`doors[]` leaf fills;
+size the opening for the leaf and place the leaf by its hinge
+(see [§30](#30-doors-switches-and-effects)).
 
 ```json
 { "kind": "door", "offset": 2.85, "width": 1.2, "height": 2.1, "sill": 0.0 }
@@ -912,11 +965,13 @@ brightness.
 ```
 
 A window with `glass` really is glazed, which is the usual way a Places room gets
-a window you can look *through* rather than *into*:
+a window you can look *through* rather than *into*. A shipped window also authors
+`"solid": true`, so the pane blocks the player as a physical slab while still
+drawing transparently:
 
 ```json
 { "kind": "window", "offset": 1.65, "width": 3.2, "height": 1.3, "sill": 1.7,
-  "glass": "core:glass_window_dirty_01" }
+  "glass": "core:glass_window_dirty_01", "solid": true }
 ```
 
 ### Passage
@@ -947,7 +1002,13 @@ low service openings.
   the sill to match the intended walking surface.
 * **Collision follows the solid slices.** Every opening removes exactly its
   rectangle from the wall solid; headers never block a walking player, and a sill
-  above foot height blocks. There is no separate collision toggle.
+  above foot height blocks. A glazed opening that authors `"solid": true` adds
+  the pane's own thin slab (60 mm) back into collision, so a sealed window or
+  glass wall blocks the whole opening while a `solid: false` pane stays
+  walk-through.
+* **A window's interior must be authored.** Whether glazed or open, an aperture
+  looks through to whatever geometry is behind it; there is no automatic
+  backing.
 * **Lighting transmits pools through every kind of hole**, but only `door`/`passage`
   openings whose bottom reaches the lower floor blend baselines; `window` and `vent`
   never do.
@@ -1080,7 +1141,7 @@ The same room's walk-in step, one 0.35 m rise above the basin floor:
 
 ### Water volumes: wading, swimming and surfacing
 
-`water[]` (alias `water_volumes`) authors rectangular bodies of water. The
+`water[]` authors rectangular bodies of water. The
 surface draws as a translucent quad and the player controller samples the same
 rectangle, so what is drawn is exactly what is swum in. A water volume owns
 **no geometry of its own** — the basin floor, its walls and its steps still
@@ -1524,7 +1585,7 @@ catalog (with the asset id in the message), not just the field.
 | Field | Type | Default | Range / rule | Behaviour when omitted |
 | --- | --- | --- | --- | --- |
 | `texture` | string | — | **Required** for a `material`. A logical `texture` id that must resolve to a file-backed `.png`. Only a `material` may declare it. | A material without it is a catalog error. |
-| `tile_metres` | number | `2.0` | `0.05`–`64`. World metres covered by one repeat, both directions. Only a material may declare it. | Uses `2.0`, the historical sheet size. |
+| `tile_metres` | number | `2.0` | `0.05`–`64`. World metres covered by one repeat, both directions. Only a material may declare it. | Uses `2.0`, the standard sheet size. |
 | `tint` | `[r,g,b]` | `[1,1,1]` | Each channel `0.0`–`1.0`. Static multiply on the sampled texture. Only a material may declare it. | White; no tint. |
 | `surface` | string | none | `wall`, `floor` or `ceiling`. Documentation/validation only; geometry decides which family a material draws on, so any material may legally be used on any surface. | No surface tag. |
 | `emissive` | `[r,g,b]` | none | Each channel `0.0`–`1.0`. Adds an emissive term on top of baked light. Only a `material` `definition` may declare emission. | The surface does not emit. |
@@ -1534,8 +1595,7 @@ catalog (with the asset id in the message), not just the field.
 | `normal_strength` | number | `1.0` | `0.0`–`2.0`. Multiplies the decoded map's `xy`. Asserting it without `normal_texture` is a catalog error. | `1.0`. |
 | `specular` | number | `0.0` | `0.0`–`1.0`. Sheen strength: how much light the surface catches. `0.0` is the default flat look, and no `shine` value can switch a sheen on. | No sheen. |
 | `specular_color` | `[r,g,b]` | white | Each channel `0.0`–`1.0`. Sheen colour; it does **not** require `specular`. With `specular: 0` the whole sheen term is zero, so the colour has no visible effect. | White sheen. |
-| `shine` | number | `0.4` | `0.0`–`1.0`. Glossiness: `0.0` matte, `0.25` slight sheen, `0.5` semi-gloss, `0.75` polished, `1.0` extremely glossy. Shapes both the sheen and the reflection; a material with `specular: 0` never sheens at any shine. **Not a mirror** — a mirror is `reflection_mode: planar`. | The legacy `roughness` if authored, else `0.4`. |
-| `roughness` | number | — | Legacy inverse of `shine` (`roughness = 1 - shine`), kept so catalogs authored before `shine` existed load unchanged. Author **either** field, not both; authoring both is a catalog error. | Prefer `shine`. |
+| `shine` | number | `0.4` | `0.0`–`1.0`. Glossiness: `0.0` matte, `0.25` slight sheen, `0.5` semi-gloss, `0.75` polished, `1.0` extremely glossy. Shapes both the sheen and the reflection; a material with `specular: 0` never sheens at any shine. **Not a mirror** — a mirror is `reflection_mode: planar`. | `0.4`. |
 | `alpha_mode` | string | `opaque` (absent) | `opaque`, `cutout` or `blend`. An unknown value is a catalog error. | `opaque`. |
 | `opacity` | number | `1.0` | `0.0`–`1.0`. Multiplies the sampled alpha. Requires an explicit `alpha_mode`; only changes the image for `blend`, and shifts the threshold for `cutout`. | `1.0`. |
 | `alpha_cutoff` | number | `0.5` | `0.0`–`1.0`. Alpha below which a texel is discarded. Requires an explicit `alpha_mode`; only `cutout` uses it. | `0.5`. |
@@ -1562,6 +1622,9 @@ Where a level can name a material (all resolved at load):
   `columns[].material` / `.cap_material`, `archways[].material` /
   `.reveal_material`, `guardrails[].material` / `.post_material`,
   `thresholds[].material`, `baseboards[].material`
+* `doors[].material` / `.frame_material` / `.handle_material` (each kind has its
+  own defaults; see [§30](#30-doors-switches-and-effects))
+* `effects[].material` (the steam billboard sheet)
 
 Every one of those carriers takes an optional per-surface `shine` override as a
 sibling key, so a level can change how glossy **one surface** is without a new
@@ -1821,6 +1884,13 @@ Consequences worth knowing:
 * Decals are unaffected: they are their own pass with a cut-out and a depth bias,
   authored as decal sheets (section 17), not as materials.
 * A `blend` material with `opacity: 0` is invisible and is skipped entirely.
+* **Rendering transparency and physical collision are independent.** A material's
+  `alpha_mode` decides only how the surface is drawn; whether a glazed opening
+  stops the player is the opening's own `solid` flag. `"solid": true` on an
+  opening with `glass` adds the pane's thin collision slab, while a
+  `solid: false` pane is a pure visual surface — each combination (opaque solid
+  panel, walk-through glass, solid glass, cut-out walk-through grille) is
+  legal and explicit.
 * Transparency is alpha blending, not refraction: nothing bends, and the lighting
   bake still treats the aperture as an open hole (see the glazing note below).
 * GLB props are always drawn opaque: a prop's glTF `alphaMode` is not read. Only
@@ -1848,10 +1918,12 @@ one surface at the wall's centre plane. It is what turns "a hole in a wall" into
   seen from both sides. It is **not lightmapped**: its four corners sample the
   baked light directly and fold it into the vertex colour, like a fixture face or a
   prop.
-* Collision still follows the wall's solid slices (a raised window still blocks),
-  and the lighting bake still transmits through the aperture as an open hole —
-  glass does not darken the room behind it. Tint the glass to imply that in the
-  artwork.
+* Collision follows the wall's solid slices (a raised window still blocks) plus
+  the opening's own `solid` flag: a glazed opening with `"solid": true` adds the
+  pane's thin slab, so glass can be a real barrier; the default `false` keeps a
+  pane walk-through. The lighting bake still transmits through the aperture as an
+  open hole — glass does not darken the room behind it. Tint the glass to imply
+  that in the artwork.
 * Any alpha mode works. `blend` gives real glass; `cutout` gives a grille,
   mesh or screen with holes in it (`core:grille_vent_01` is a transfer grille,
   authored on a `vent` opening above Places Demo's office door); `opaque` gives a
@@ -1896,15 +1968,15 @@ is emission-free and has no response/alpha fields) or an object:
 
 | Key | Meaning |
 | --- | --- |
-| `texture` (aliases `file`, `diffuse`) | Pack-relative path or a logical catalog texture id. Required on the object form. |
+| `texture` | Pack-relative path or a logical catalog texture id. Required on the object form. |
 | `tile_metres`, `tint` | As in the catalog; malformed values are discarded and the default applies. |
 | `emissive`, `emissive_intensity`, `emissive_mask` | As in the catalog; the mask may be a pack path or a catalog texture id. |
 | `normal_texture`, `normal_strength` | As in the catalog; pack path or catalog texture id. |
-| `specular`, `specular_color`, `shine` (and the legacy `roughness`) | As in the catalog; `shine` wins if both are present. |
+| `specular`, `specular_color`, `shine` | As in the catalog. |
 | `alpha_mode`, `opacity`, `alpha_cutoff` | As in the catalog. |
 | `reflection_mode`, `reflection_strength` | Accepted, but see the limitation below. |
 
-A texture path inside the pack is looked up with tolerant aliasing
+A texture path inside the pack is looked up tolerantly
 (`textures/<name>.png`, `<name>.png`, `textures/<name>`, `<name>`), so a pack may lay
 its files out either way. Unknown keys are ignored and malformed values fall back to
 defaults; malformed `materials.json` yields no definitions at all (the pack's
@@ -1950,8 +2022,8 @@ design. The preferred 256 px size is a budget warning, not a rejection.
 ### Runtime quality levels and downscaling
 
 The source PNG is *not* what necessarily reaches the GPU. Three quality levels
-(`settings.json` → `"quality": "low" | "medium" | "high"`, default `high`;
-the legacy `full` name still loads as `high`) decide a **runtime** edge budget
+(`settings.json` → `"quality": "low" | "medium" | "high"`, default `high`)
+decide a **runtime** edge budget
 per texture class. The level is a selector in Settings → Graphics and can be
 changed while a level is running: the renderer releases its level-dependent GPU
 textures and rebuilds them (plus the lightmap atlas) from the level already
@@ -2158,14 +2230,14 @@ never paths; the catalog maps an id to its class, theme, type and resource.
 Only `id`, `asset_class` and `asset_type` are required on an entry. Unknown JSON
 fields are ignored; a JSON *type* error in a field like `size` or `tint` rejects the
 whole document. `format_version` is parsed and currently ignored (no version check
-anywhere). `display_name` has a legacy alias `name`.
+anywhere).
 
 ### Entry field reference
 
 | Field | Type | Requirement | Default / fallback | Applies to |
 | --- | --- | --- | --- | --- |
 | `id` | string | **required** | — | all. Non-empty; characters `[A-Za-z0-9:_.-]`, may not start with `:`. Duplicates are a catalog error. |
-| `display_name` | string | optional | legacy `name`, then the id | all |
+| `display_name` | string | optional | the id | all |
 | `asset_class` | string | **required** | — | all. Validated lower-case slug; shipped: `environment`, `entity`, `core`, `diagnostic`. Unknown classes parse in Rust but fail `validate.py`. |
 | `theme` | string | optional | none (generic) | all. Organizational only; must be a declared theme to satisfy `validate.py`. |
 | `asset_type` | string | **required** | — | all. Shipped: `prop`, `entity`, `material`, `texture`, `light`, `decal`. |
@@ -2188,8 +2260,7 @@ anywhere). `display_name` has a legacy alias `name`.
 | `normal_strength` | number | optional | `1.0` | materials (`0`–`2`; requires `normal_texture`) |
 | `specular` | number | optional | `0.0` | materials (`0`–`1`): sheen strength |
 | `specular_color` | `[r,g,b]` | optional | white | materials (`0`–`1` each; does not require `specular`, and has no visible effect without it) |
-| `shine` | number | optional | legacy `roughness`, else `0.4` | materials (`0`–`1`): `0` matte, `0.5` semi-gloss, `1` extremely glossy. Not a mirror. |
-| `roughness` | number | optional | — | materials (`0`–`1`): legacy inverse of `shine`; author either one, never both |
+| `shine` | number | optional | `0.4` | materials (`0`–`1`): `0` matte, `0.5` semi-gloss, `1` extremely glossy. Not a mirror. |
 | `alpha_mode` | string | optional | `opaque` | materials: `opaque` / `cutout` / `blend` |
 | `opacity` | number | optional | `1.0` | materials (`0`–`1`; requires an explicit `alpha_mode`) |
 | `alpha_cutoff` | number | optional | `0.5` | materials (`0`–`1`; requires an explicit `alpha_mode`; only `cutout` uses it) |
@@ -2206,10 +2277,8 @@ follow exactly the same rule, and a material's `baseboard` must name a declared
 texture it draws with, but never with a dangling reference: the catalog does a second
 pass after all entries exist, and any failure rejects the catalog.
 
-The loader also accepts the legacy `props` array (old flat registry) and merges it
-with `assets`; new content should use `assets` only. A legacy `props` entry may omit
-`asset_class`/`asset_type` (defaulted to `environment`/`prop`) and an entry with an
-empty id is skipped.
+`assets` is the one catalog collection: every entry declares `asset_class` and
+`asset_type`, and duplicate ids are a catalog error.
 
 ### Field examples
 
@@ -2596,7 +2665,7 @@ storage change, not an authoring one.
   ULP, and without the contact band the floor shadowed its own wall base and two
   coplanar strips whose bottoms rounded opposite ways stepped at the seam.
 * `settings.json` carries `"lightmaps": "off"|"medium"|"full"` (default
-  `"full"`; a legacy `true`/`false` still loads as Full/Off), exposed as
+  `"full"`), exposed as
   Settings → Graphics → Lightmaps and switched live (the level's lighting is
   rebuilt from the resident definition, with the player state preserved; an
   uncached atlas fills on a worker while the previous lighting keeps
@@ -2610,7 +2679,8 @@ storage change, not an authoring one.
   so the plan leaves that quad vertex-lit and reports it in the `[lightmaps]` line
   (`left N sub-texel sliver quad(s) vertex-lit`) while the rest of the level keeps its
   atlas. A visible malformed quad (a bow-tie) still fails the build over.
-* Fixtures, prop placeholder boxes, decals and the dynamic object are vertex-lit:
+* Fixtures, prop placeholder boxes, decals and dynamic objects (door leaves and
+  the washer drum) are vertex-lit:
   their colour keeps the baked light folded in, exactly as before. Glass panes and
   stairs are lightmapped like the wall around them.
 * Set `PLACES_DUMP_LIGHTMAPS=1` to write the baked atlas pages as PNGs under
@@ -2636,26 +2706,29 @@ visible consequences:
 * a prop's own `lights[]` still cast normally, and are themselves blocked by the
   prop body.
 
-Nothing about the level format changed for this, so no existing map needs an
-edit. Two consequences to expect when reviewing an existing map: a fixture that
-was previously lighting straight through a machine now does not, and a prop that
+Two consequences matter when placing props: a fixture never lights straight
+through a machine, and a prop that
 is *not* solid still occludes light (occlusion follows the drawn model, not the
 collision box).
 
-#### Dynamic objects (engine-created demonstration)
+#### Dynamic objects
 
 The engine has a separate render path for objects whose transform changes every
 frame — moving components that must not be re-baked, re-batched or written into
-the static lightmap. It is proven by one generated object: a `core:washer_drum`
-turning inside every placed `core:washing_machine`, behind its open porthole and
-inside the machine's cavity (the machine itself is an ordinary static prop and
-participates in the bake).
+the static lightmap. A level authors its own moving solids as doors: see
+[§30](#30-doors-switches-and-effects). The path is also proven by one generated
+object: a `core:washer_drum` turning inside every placed `core:washing_machine`,
+behind its open porthole and inside the machine's cavity (the machine itself is
+an ordinary static prop and participates in the bake).
 
-* Dynamic objects are engine-created, not authored in level JSON. Placing a
+* **Door leaves** are authored in level JSON, carry their own collision and are
+  the level's only map-authored movable solids.
+* The **washer-drum demonstration** is engine-created: placing a
   `core:washing_machine` is the only way a level influences one.
-* They are lit by a single probe of the static bake at their current position
-  (no shadows, no realtime lights).
-* Moving one never rebuilds geometry, batches or lightmaps.
+* Dynamic objects are lit by a single probe of the static bake at their current
+  position (no shadows, no realtime lights).
+* Moving one never rebuilds geometry, batches or lightmaps, and a door leaf casts
+  no baked shadow.
 
 ### Animated emissions
 
@@ -2806,8 +2879,9 @@ Semantics:
   instance for interactions, action targets and duplicate validation, and has
   nothing to do with `model`/catalog ids. Omitted, the deterministic default is
   `<model short name>_<n>` where `n` counts the placements of that short name that
-  do not author an id, in array order. Ids are unique across props, light fixtures
-  and area triggers; a duplicate or malformed id is a named load error. Never key
+  do not author an id, in array order. Ids are unique across props, light
+  fixtures, doors and area triggers; a duplicate or malformed id is a named load
+  error. Never key
   external state on `model`: two copies of one model are two instances.
 * `display_name` is the floating label text a `toggle_label` action shows. It is
   map-authored; the model id is the fallback when omitted.
@@ -2903,15 +2977,15 @@ Known-valid examples:
 
 ## 21. Light Placement
 
-All fixtures — ceiling and wall — live in the level's `ceiling_lights` array. The key
-name is historical; **`lights` is accepted as a serde alias** for the same array.
+All fixtures — ceiling and wall — live in the level's `ceiling_lights` array.
 
 | Field | Type | Required | Default | Semantics |
 | --- | --- | --- | --- | --- |
 | `fixture` | string | **yes** | — | Fixture id from the catalog/registry. Unknown ids render and bake as the office panel with the untextured sheet. |
+| `id` | string | no | `<fixture short name>_<n>` | Stable instance id for `toggle` actions (see §30) and duplicate validation. |
 | `x`, `z` | number | **yes** | — | World position. Must be finite. |
 | `rotation_degrees` | number | no | `0.0` | Y rotation. Ceiling families quantise to a 0°/90° axis swap; wall fixtures rotate continuously. |
-| `brightness` | number | no | `1.0` | Alias `intensity`. Must be finite and `≥ 0`; baking clamps to `8.0`. |
+| `brightness` | number | no | `1.0` | Must be finite and `≥ 0`; baking clamps to `8.0`. |
 | `color` | `[r,g,b]` | no | `[1.0, 0.96, 0.88]` | Each channel `0`–`1`. Drives the illumination only: the visible face is texture-first and the light colour never repaints the artwork. |
 | `mount` | `"ceiling"` \| `"wall"` | no | `"ceiling"` | Closed enum. Wall fixtures require `y` or the level is rejected. |
 | `y` | number | no (required for wall) | derived for ceiling | Ceiling: optional mounting world Y (also selects a storey in stacked rooms). Wall: required world Y of the fixture centre. |
@@ -2919,6 +2993,7 @@ name is historical; **`lights` is accepted as a serde alias** for the same array
 | `falloff` | `"smooth"` \| `"linear"` \| `"constant"` | no | `"smooth"` | Closed enum. Lateral pool decay curve for a ceiling fixture (`smooth` = `(1 - d/range)²`), or the radial curve for a wall sconce or prop light. `constant` holds full strength to `range` then stops (a deliberately hard pool). |
 | `enabled` | boolean | no | `true` | `false` keeps the fixture's visible glow but removes **all** of its environmental illumination. |
 | `emission` | number | no | the fixture's `brightness` | Independent emissive strength of the visible face, finite, `≥ 0`, clamped to `8.0`. Lets a face read brighter (or dimmer) than the light the fixture casts. |
+| `switchable` | boolean | no | `false` | Marks the fixture as externally controllable: a `{"action":"toggle","target":"<id>"}` action may switch it on and off at runtime (see §30). A switchable fixture is excluded from its room's baked baseline and contributes only its local pool; toggling re-fills exactly the affected lightmap charts, and its visible face turns off with it. Leave it `false` unless a map action drives it, because a toggle costs a re-bake. |
 | `align` | `"grid"` \| `"none"` | no | `"grid"` | Closed enum. Grid alignment snaps a fluorescent panel's centre onto its ceiling material's visible panel grid at load (see *Ceiling grid alignment* below). `"none"` keeps the authored `x`/`z` exactly. |
 
 Ceiling fixture, office default look (Places Demo, office room with red emergency
@@ -2981,9 +3056,9 @@ room, with a ceiling material that resolves a positive finite `grid_metres`.
 Round downlights, gable ceilings, blank or unresolved ceiling materials and
 fixtures outside every room keep the authored position. Author `"align":
 "none"` when a panel must stay exactly where it was placed (for example, a
-deliberately skewed installation or a placement that matches a prop). A legacy
-level that never heard of the field gets the default (`grid`), and every panel
-the demo ships ends up centred in its ceiling panels.
+deliberately skewed installation or a placement that matches a prop). An omitted
+`align` gets the default (`grid`), and every panel the demo ships ends up centred
+in its ceiling panels.
 
 ### The room's own ceiling tile frame
 
@@ -3053,7 +3128,7 @@ prop. It then casts light through exactly the same engine path as a fixture.
 | `offset` | `[x, y, z]` | no | `[0, 0, 0]` | Centre of the emitter in the object's local frame; scaled with the object. A JSON array of exactly three finite numbers. |
 | `rotation_degrees` | number | no | `0.0` | Yaw of the emitter relative to the object. |
 | `color` | `[r, g, b]` | no | `[1.0, 0.96, 0.88]` | Each channel `0`–`1`. |
-| `intensity` | number | no | `1.0` | Alias `brightness`; finite, `≥ 0`; clamped to `8.0` while baking. |
+| `intensity` | number | no | `1.0` | Finite, `≥ 0`; clamped to `8.0` while baking. |
 | `range` | number | no | `6.0` | Pool radius in metres, positive and finite; clamped to `0.05`–`64`. |
 | `falloff` | `"smooth"` \| `"linear"` \| `"constant"` | no | `"smooth"` | Closed enum. Pool decay curve. |
 | `enabled` | boolean | no | `true` | `false` casts nothing. |
@@ -3294,16 +3369,15 @@ brightness.
 should light. A fixture outside a room still lights the space it can see; fixtures
 outside every room are defined but isolated.
 
-### A Prop That Used To Be Lit Through Now Shadows
+### A Prop That Shadows the Light Behind It
 
-**Symptom:** after upgrading, a floor or wall behind a machine/cabinet is darker than
-it used to be, and the object looks grounded instead of floating.
+**Symptom:** a floor or wall behind a machine/cabinet is darker than the open floor
+beside it; the object looks grounded instead of floating.
 
-**Cause:** this is intended. Static props occlude baked light, derived from the
-rendered model. A prop that stood in front of a fixture was previously lit as if it
-were air.
+**Cause:** intended. Static props occlude baked light, derived from the
+rendered model: a prop standing in front of a fixture shadows what is behind it.
 
-**Authoring rule:** nothing to change — it is the desired result. If a space is now
+**Authoring rule:** it is the desired result. If a space reads
 too dark, add or brighten a fixture on the side that needs the light rather than
 removing the prop. Note that a *non-solid* prop occludes too: occlusion follows the
 drawn model, not the collision box.
@@ -3468,7 +3542,7 @@ an entry, and `validate.py` proves it. Run it before declaring the map finished.
 **Symptom:** the catalog refuses to load
 (`duplicate asset id \`{id}\` in the asset catalog`) or tooling fails.
 
-**Prevention:** ids are globally unique across `assets` and the legacy `props` array.
+**Prevention:** ids are globally unique across the catalog's `assets` entries.
 Grep the catalog before adding.
 
 ### Wrong Asset Type
@@ -3575,7 +3649,7 @@ none of them is optional for a change that ships content.
 | `python3 tools/props/build.py --check` | Every catalogued prop GLB exists and parses, and its decoded texture memory fits the per-texture and 64 MiB pack budgets; prints bounds/budget flags | Yes when props changed |
 | `PLACES_LEVEL=<id> cargo run` | Boots straight into the level and prints validation errors verbatim | **Yes, once per map** |
 | `PLACES_CAPTURE=frame.png PLACES_LEVEL=<id> cargo run` | One-frame PNG capture for visual inspection (`PLACES_CAPTURE_FRAME=n` waits for frame n first) | Useful |
-| `cargo run --release -- --check-geometry --level <path-or-id>` | The read-only map geometry checker: confirmed defects and heuristic warnings over the engine's own geometry and collision interpretation (§30) | Recommended for every map change |
+| `cargo run --release -- --check-geometry --level <path-or-id>` | The read-only map geometry checker: confirmed defects and heuristic warnings over the engine's own geometry and collision interpretation (§31) | Recommended for every map change |
 | `python3 tests/test_package.py` | Repository/package gate: shipped-level checks, texture policy, catalog validation, README hygiene | Recommended before shipping a map into `assets/levels/` |
 | `PLACES_DUMP_LIGHTMAPS=1 PLACES_LEVEL=<id> cargo run` | Writes the baked atlas pages as PNGs under `target/agent-work/atlases/` | Useful |
 | `python3 tools/textures/seam_repair.py --check <png>` | Tiling seam metric per texture | Yes for new surface art |
@@ -3597,13 +3671,16 @@ dangling level reference.
   the canonical `spooner-man`, and the numeric ranges listed in
   [Asset Catalog](#14-asset-catalog);
 * levels: every referenced asset id is declared (defaults, rooms, regions, walls,
-  faces, opening `glass`, patches, decals, fixtures, props, animated-emission
-  materials), prop lights and fixture pool/emission fields, animated-emission schema,
+  faces, opening `glass`, patches, decals, fixtures, props, door material defaults
+  and overrides, effect materials, animated-emission
+  materials), prop lights and fixture pool/emission fields, door and effect
+  field/limit checks, animated-emission schema,
   and a warning when a wall touches no room.
 
 Only the Rust loader enforces: format version, identity, spawn finiteness, room/
 wall/region/opening dimensions and bounds, floor-region containment and eave rule,
-prop/light/decal schemas, the geometry budgets, limits and caps, gable rules, decal
+prop/light/decal/door/effect schemas, a door's closed-leaf-versus-solid check,
+the geometry budgets, limits and caps, gable rules, decal
 surface rules, and the walkable/collision behaviour. Boot the level to prove those.
 
 ### Environment switches
@@ -3614,7 +3691,7 @@ capture and diagnosis.
 | Switch | Effect |
 | --- | --- |
 | `PLACES_LEVEL=<id>` | Boot straight into a level and print its validation errors. |
-| `PLACES_QUALITY=low\|medium\|high` (legacy `full` = High) | Draw this run at the named quality level without editing `settings.json`, so the same map can be captured at different levels back to back. The Settings screen shows the overridden level (marked `*`) and changing it there clears the override. |
+| `PLACES_QUALITY=low\|medium\|high` | Draw this run at the named quality level without editing `settings.json`, so the same map can be captured at different levels back to back. The Settings screen shows the overridden level (marked `*`) and changing it there clears the override. |
 | `PLACES_CAPTURE=<file.png>` | Write one frame as a PNG and exit. |
 | `PLACES_CAPTURE_FRAME=<n>` | Capture frame n (1-based) instead of the first; also pins animation phase. |
 | `PLACES_NO_LIGHTMAPS=1` | Force the historical vertex-lit path for this run (overrides the Lightmaps setting). |
@@ -3698,8 +3775,26 @@ the error in full.
       it must cast nothing at all, `enabled: false`).
 - [ ] Emissive surfaces read bright in dark areas without brightening their neighbours.
 - [ ] Animated emissions name materials the level actually uses.
-- [ ] New props that shadow a previously lit area are intentional; the space still
+- [ ] New props that shadow a lit area are intentional; the space still
       reads with the contact darkening.
+
+### Doors and effects
+
+- [ ] Every `doors[]` leaf sits at a hinge with a floor under it, and the wall it
+      fills authors a matching `kind: door` opening (same offset/width/height).
+- [ ] Each door's id is unique across props, lights, doors and triggers; every
+      switch and trigger target resolves.
+- [ ] `open_direction`, `swing_degrees` and `obstruction` match the room: the leaf
+      opens into the intended side and never rakes a wall or a static prop.
+- [ ] Door prompts, reach and `manual_interaction` match intent: an externally
+      controlled door is not also an interaction target.
+- [ ] All glazing that should block the player authors `"solid": true`; a
+      decorative pane that should stay walk-through is deliberate.
+- [ ] Switchable fixtures (`switchable: true`) are only the ones a map action
+      drives; every other fixture leaves the flag false.
+- [ ] `effects[]` emitters sit in the space they belong to, use a sensible
+      `count`/`size`/`lifetime_seconds`, and are not expected to block or light
+      anything.
 
 ### Assets
 
@@ -3719,7 +3814,7 @@ the error in full.
 - [ ] The level boots with `PLACES_LEVEL=<id>` with no validation error.
 - [ ] `--check-geometry` reports no confirmed defects; every remaining heuristic
       warning is either repaired or covered by a narrow `geometry_intent`
-      annotation with a note (§30).
+      annotation with a note (§31).
 - [ ] A capture (`PLACES_CAPTURE`) has been inspected if practical, at High and
       at `PLACES_QUALITY=low` (and/or `medium`) if reflections or material
       response matter.
@@ -3737,12 +3832,14 @@ semantics are documented here; every field is verified against `src/level.rs`
 
 ### Instance identity
 
-Every prop may author `id`; every light fixture accepts `id` too (identity only
-today). Authored or default, ids must be well-formed
-(`[A-Za-z0-9:._-]`, no leading `:`) and unique across **props, fixtures and area
+Every prop may author `id`; every light fixture and door accepts `id` too, and
+area triggers default one. Authored or default, ids must be well-formed
+(`[A-Za-z0-9:._-]`, no leading `:`) and unique across **props, fixtures, doors
+and area
 triggers** in one level. The deterministic default for a prop is
 `<model short name>_<n>`; for a fixture, `<fixture short name>_<n>`; for a trigger,
-`trigger_<n>` (1-based authored position). Two copies of one model therefore get
+`trigger_<n>` (1-based authored position); a door's `id` is required. Two copies
+of one model therefore get
 two ids (`plant_1`, `plant_2`) and independent state.
 
 ### Actions
@@ -3752,9 +3849,12 @@ An interaction or trigger runs 1..8 actions in order. The accepted actions are:
 | Action | Fields | Effect |
 | --- | --- | --- |
 | `toggle_label` | `target` (optional) | Show/hide the floating display name of the named prop instance (whether or not it has its own interaction). Omitted `target` means the acting prop itself. |
-| `reset_to_start` | — | Return the player to the level's authored spawn (see below). Also returns routed entities to their spawns and clears pose overrides. Stops the rest of the batch. |
+| `reset_to_start` | — | Return the player to the level's authored spawn (see below). Also returns routed entities to their spawns, clears pose overrides and returns every door to its authored `initial_state`. Stops the rest of the batch. |
 | `play_animation` | `target`, `clip`, `loop` (optional) | Play `clip` on the named entity; omitted `target` means the acting prop. A one-shot (the default) holds its last pose; `loop: true` repeats it. The override wins over the entity's own route cue until another action or a reset replaces it. |
 | `toggle_animation` | `target` (optional), `clip` (required) | Ease the named clip of the target instance toward the opposite end of its timeline (`t = 0` to `t = duration`). Presses repeat: a second press mid-move reverses from the current pose rather than snapping or restarting. The full traverse takes 0.35 s whatever the clip's authored length, and every instance keeps its own target. |
+| `open` | `target` (required) | Drive the named door leaf toward its open end (no-op at or already moving toward open). |
+| `close` | `target` (required) | Drive the named door leaf toward its closed end. |
+| `toggle` | `target` (required) | Flip a door between its two ends mid-travel included, or flip a `switchable: true` light fixture between enabled and disabled. |
 | `play_audio` | `target`, `sound` | **Not implemented.** There is no audio subsystem; validation rejects it by name. |
 
 An unknown `action` tag is a JSON parse error. `toggle_label` targets must name a
@@ -3762,8 +3862,13 @@ placed prop (labels exist only on placed objects; a targeted prop does not need
 an interaction of its own — it becomes a label-only target), and a missing or
 unknown target or a trigger with no `target` is a named validation error.
 `play_animation` follows the same target rule and additionally requires a
-non-blank `clip`. Dispatch is bounded: at most one trigger batch runs per frame,
-and a reset ends its batch (the remaining actions do not run).
+non-blank `clip`. `open`/`close` require a door id; `toggle` requires a door id
+or a switchable fixture id, and any other target or an action/target mismatch is
+a named validation error. Dispatch is bounded: at most one trigger batch runs per
+frame, and a reset ends its batch (the remaining actions do not run).
+
+The door and effect authoring contract — every field, the required wall opening,
+and complete examples — is [§30](#30-doors-switches-and-effects).
 
 ### Object interactions
 
@@ -3771,7 +3876,9 @@ E (interact) and C (crouch) can be rebound in Settings > Controls and persist in
 `settings.json`. C toggles a 0.9 m body with a 0.8 m eye height. Standing is
 blocked while the standing body would overlap an overhead obstacle.
 
-A prop with an `interaction` is aimable:
+A prop with an `interaction` is aimable, and so is every door with
+`manual_interaction: true` (its prompt follows the leaf's phase unless the door
+authors its own):
 
 * The player looks at it and presses **E** (rebindable in Settings > Controls).
 * Targeting uses the actual eye position (a crouched player aims from the crouched
@@ -3947,7 +4054,243 @@ crosses the band.
 
 ---
 
-## 30. The Map Geometry Checker
+## 30. Doors, Switches and Effects
+
+A door is a single movable leaf with its own state machine, collision and action
+surface; `effects[]` adds presentation-only ambient emitters. Every field below is
+verified against `src/level.rs` (`DoorDef`, `EffectDef`, `ActionDef`),
+`src/loader.rs` (`validate_doors`, `validate_effects`, `validate_action_list`) and
+`src/door.rs`.
+
+### Doors
+
+A door is placed by its **hinge edge**. `(x, y, z)` is the bottom of the hinge
+jamb: `x`/`z` are the hinge's world position and `y` is the leaf bottom **above the
+walkable floor under the hinge** (like a prop's `y`, not a wall's absolute base).
+`rotation_degrees` aims the **closed leaf**: `0` runs toward `+X`, `90` toward
+`-Z`. The leaf extends `width` metres from the hinge along that direction, is
+`height` metres tall and `thickness` metres thick.
+
+The wall opening the leaf fills is authored **separately on the wall**, exactly
+like any other aperture: a walk-through opening (`"kind": "door"`, or
+`"passage"` where the map already labels a wide connection) whose `offset`,
+`width` and `height` match the leaf. The loader proves the closed leaf does not
+start inside solid geometry (hinge, centre and latch edge are sampled) and that
+the hinge stands where the walkable floor resolves; a leaf in a wall or floating
+over the void is a named error.
+
+| Field | Type | Required | Default | Semantics |
+| --- | --- | --- | --- | --- |
+| `id` | string | **yes** | — | Stable entity id. Must be unique across props, light fixtures, doors and area triggers; a duplicate or malformed id is a load error. |
+| `x`, `z` | number | **yes** | — | World X/Z of the hinge edge. The hinge must sit over a walkable floor. |
+| `y` | number | no | `0.0` | Leaf bottom above the walkable floor under the hinge. |
+| `rotation_degrees` | number | no | `0.0` | Yaw of the closed leaf: `0` runs toward `+X`, `90` toward `-Z`. |
+| `width` | number | **yes** | — | Leaf width from the hinge to the latch edge, `> 0`, `≤ 12` m. |
+| `height` | number | **yes** | — | Leaf height, `> 0`, `≤ 12` m. |
+| `thickness` | number | no | `0.045` | Leaf thickness, `> 0`, `≤ 12` m. |
+| `open_direction` | `"left"` \| `"right"` | no | `"left"` | Which way the leaf swings about the hinge (seen from above with the closed leaf running hinge→latch). `left` is a positive rotation, `right` negative. |
+| `swing_degrees` | number | no | `90.0` | Opening angle, `5`–`179`; a negative value means the opposite swing. |
+| `open_speed_degrees` | number | no | `120.0` | Angular speed while opening, in degrees/second, `> 0`, `≤ 720`. |
+| `close_speed_degrees` | number | no | `open_speed_degrees` | Angular speed while closing. |
+| `initial_state` | `"closed"` \| `"open"` | no | `"closed"` | Start at angle 0 or at the full swing. |
+| `manual_interaction` | boolean | no | `true` | `false` marks an externally controlled door: it moves only when a map action drives it and is never an interaction target. |
+| `prompt` | string | no | `"Open"`/`"Close"` by phase | Interaction prompt shown while the leaf is the target. |
+| `reach` | number | no | `2.5` | Interaction reach in metres; `> 0`, `≤ 4.0`. |
+| `obstruction` | `"stop"` \| `"reverse"` | no | `"stop"` | What the sweep does when it meets the player or solid geometry. `stop` holds and resumes when clear; `reverse` flips direction once per obstruction (a 0.4 s guard stops chatter). |
+| `kind` | `"interior"` \| `"sauna"` | no | `"interior"` | Visual build (see below). |
+| `material`, `frame_material`, `handle_material` | string | no | kind defaults | Per-door material overrides for the leaf, the static frame and the handle. |
+
+Two kinds ship:
+
+* **`interior`** — a white painted leaf with two raised panels per face and a
+  round brass handle on both sides. Defaults: `home:door_white_01` leaf,
+  `home:baseboard_white_01` frame, `core:metal_brass_01` handle.
+* **`sauna`** — cedar stiles and rails around a clear glass panel, with a wooden
+  round handle. Defaults: `home:sauna_wood_01` leaf and handle,
+  `home:baseboard_wood_01` frame; the panel is
+  `core:glass_window_clear_01` and draws in the blended pass.
+
+The leaf's collider follows the same angle the renderer draws, so what stops the
+player and what is seen can never disagree. A resting leaf costs nothing; only a
+moving leaf is advanced. `reset_to_start` returns every door to its authored
+`initial_state`.
+
+### Wiring doors and lights
+
+Doors are driven by the same typed action set as props and triggers (§29). A
+door's own interaction (the default, with `manual_interaction: true`) toggles it
+on a press; any prop's `interaction.actions` or an `area_triggers[].actions`
+batch may also drive it:
+
+| Action | Effect |
+| --- | --- |
+| `open` | Drive the target door to its open end. |
+| `close` | Drive the target door to its closed end. |
+| `toggle` | Flip a door between its ends, mid-travel included; on a `switchable` light fixture, flip it between enabled and disabled. |
+| `reset_to_start` | Return every door to its authored `initial_state` (and ends the batch). |
+
+A `ceiling_lights` entry with `"switchable": true` becomes a valid `toggle`
+target. Targets are validated at load: a duplicate id, an unknown target, or an
+action/target combination that is not supported (`open` on a light fixture, for
+example) is a named error. At most 8 actions run per source.
+
+### Interactive door
+
+The demo's `hall_door` (Places Demo): a white interior leaf the player opens with
+`E`. Its wall authors a matching walk-through opening (a `passage` in the demo's
+own labelling):
+
+```json
+{ "id": "hall_door", "x": 60.3, "y": 0.0, "z": 3.0,
+  "rotation_degrees": 0.0, "width": 1.4, "height": 2.1, "thickness": 0.045,
+  "open_direction": "left", "swing_degrees": 90.0, "open_speed_degrees": 130.0,
+  "initial_state": "closed", "manual_interaction": true, "prompt": "Hall door" }
+```
+
+```json
+{ "kind": "passage", "offset": 7.3, "width": 1.4, "height": 2.1, "sill": 0.0 }
+```
+
+### Multi-action switch (door + label + light)
+
+One press can compose several actions in order. The demo's `hall_switch` plays
+the lever clip, drives the door and toggles the door's floating label; if a
+switchable fixture were wired in, the same batch could toggle it too:
+
+```json
+{ "id": "hall_switch", "display_name": "Hall Light Switch",
+  "model": "home:wall_switch", "x": 60.3, "y": 1.2, "z": 3.2,
+  "rotation_degrees": 180.0, "size": [0.18, 0.18, 0.1], "solid": false,
+  "interaction": { "prompt": "Hall switch", "reach": 1.6,
+                   "actions": [{ "action": "toggle_animation", "clip": "toggle" },
+                               { "action": "toggle", "target": "hall_door" },
+                               { "action": "toggle_label", "target": "hall_door" },
+                               { "action": "toggle", "target": "hall_light" }] } }
+```
+
+```json
+{ "fixture": "core:fluorescent_panel_01", "id": "hall_light",
+  "x": 60.3, "z": 3.0, "brightness": 0.6, "switchable": true }
+```
+
+### Triggered door (externally controlled)
+
+`levels/level0_pit.json` authors the `pit_gate` leaf with
+`manual_interaction: false`, so it is never an interaction target, and drives it
+from two area triggers: one opens it as the player approaches, the other closes
+it once they are through.
+
+```json
+{ "id": "pit_gate", "x": 17.7, "y": 0.0, "z": -16.0,
+  "rotation_degrees": 0.0, "width": 1.6, "height": 2.2, "thickness": 0.045,
+  "open_direction": "left", "swing_degrees": 92.0, "open_speed_degrees": 110.0,
+  "initial_state": "closed", "manual_interaction": false }
+```
+
+```json
+{ "id": "pit_gate_approach", "x": 17.0, "z": -14.8, "width": 3.0, "depth": 0.5,
+  "bottom_y": 0.0, "top_y": 2.0,
+  "actions": [{ "action": "open", "target": "pit_gate" }],
+  "cooldown_seconds": 1.0 }
+```
+
+```json
+{ "id": "pit_gate_passed", "x": 17.0, "z": -16.6, "width": 3.0, "depth": 0.4,
+  "bottom_y": 0.0, "top_y": 2.0,
+  "actions": [{ "action": "close", "target": "pit_gate" }],
+  "cooldown_seconds": 1.5 }
+```
+
+### Externally controlled door (initially open)
+
+The demo's `study_door` starts open, only a map action moves it, and its
+`prompt` is omitted because it is never aimed at:
+
+```json
+{ "id": "study_door", "x": 64.85, "y": 0.0, "z": 5.8,
+  "rotation_degrees": 90.0, "width": 1.4, "height": 2.1, "thickness": 0.045,
+  "open_direction": "right", "swing_degrees": 88.0,
+  "initial_state": "open", "manual_interaction": false }
+```
+
+### Sauna door
+
+The demo's `sauna_door` authors `"kind": "sauna"`; the cedar/glass build and its
+default materials come from the kind, and the leaf still needs its matching wall
+opening:
+
+```json
+{ "id": "sauna_door", "x": 26.08, "y": 0.0, "z": 12.5,
+  "rotation_degrees": 270.0, "width": 1.6, "height": 2.1, "thickness": 0.05,
+  "open_direction": "left", "swing_degrees": 95.0, "open_speed_degrees": 90.0,
+  "initial_state": "closed", "manual_interaction": true, "kind": "sauna",
+  "prompt": "Sauna door" }
+```
+
+### Effects: steam
+
+`effects[]` is presentation only: an effect never collides, never occludes and
+never contributes light to the bake. The only kind is `steam`, a bounded plume of
+drifting translucent billboards. `x`/`z` position the emitter, `y` is its base
+above the walkable floor, `width`/`depth` are its footprint, `height` is the
+plume's rise, `count` is the particle budget, `size` the billboard size, `drift`
+the horizontal wander, `lifetime_seconds` how long one particle takes to cross
+the plume, and `material` the billboard's material (omitted means the engine's
+steam default, `core:steam_01`).
+
+| Field | Type | Required | Default | Semantics |
+| --- | --- | --- | --- | --- |
+| `kind` | string | **yes** | — | Only `steam`; any other kind is a named validation error. |
+| `id` | string | no | — | Diagnostics only. |
+| `x`, `z` | number | no | `0.0` | World position. Must be finite. |
+| `y` | number | no | `0.0` | Emitter base above the walkable floor under `(x, z)`. |
+| `width`, `depth` | number | no | `0.8` | Emitter footprint, `> 0`. |
+| `height` | number | no | `1.6` | Plume height above the emitter, `> 0`. |
+| `count` | integer | no | `24` | Particle budget, `1`–`128`. |
+| `size` | number | no | `0.35` | Billboard size in metres, `> 0`. |
+| `drift` | number | no | `0.0` | Horizontal wander amplitude, `≥ 0`. |
+| `lifetime_seconds` | number | no | `3.0` | Seconds one particle takes to cross the plume, `> 0`, `≤ 60`. |
+| `material` | string | no | `core:steam_01` | Material id for the billboards. |
+
+Two steam emitters in the demo's sauna:
+
+```json
+"effects": [
+  { "id": "sauna_steam_a", "kind": "steam", "x": 31.0, "y": 0.0, "z": 12.6,
+    "width": 0.9, "depth": 0.6, "height": 1.5,
+    "count": 20, "size": 0.34, "drift": 0.16, "lifetime_seconds": 3.2 },
+  { "id": "sauna_steam_b", "kind": "steam", "x": 31.0, "y": 0.0, "z": 13.6,
+    "width": 0.9, "depth": 0.6, "height": 1.7,
+    "count": 24, "size": 0.38, "drift": 0.2, "lifetime_seconds": 3.6 }
+]
+```
+
+A level may declare at most 64 effects, and each effect at most 128 particles.
+Do not expect an effect to hide anything behind it, to block a route or to
+brighten a room.
+
+### Solid glass
+
+A `glass` opening may also author `"solid": true`: the pane then blocks the
+player as a thin collision slab while still drawing in the transparent blend
+pass. Rendering transparency and physical collision are independent — the
+material's `alpha_mode` never decides collision, and `solid` never changes how the
+pane draws. `solid: true` requires `glass` (an invisible solid barrier is a wall,
+not an opening). All shipped windows and the transfer grille
+author `solid: true`; a purely decorative pane leaves the default `false`.
+
+```json
+{ "kind": "window", "offset": 3.05, "width": 2.2, "height": 1.4, "sill": 1.7,
+  "glass": "core:glass_tinted_01", "solid": true }
+```
+
+A solid pane is the right way to close a window or a glass partition; a
+walk-through pane is the right way to read a doorway as glazed without blocking
+the route.
+
+---
+
+## 31. The Map Geometry Checker
 
 `places --check-geometry` is a read-only CLI over the same interpretation the
 game builds: it parses and validates a level, runs the same preparation pass
@@ -4027,7 +4370,7 @@ every finding; a clean run does not prove that no geometry defect exists.
 
 ---
 
-## 31. The Model Zoo and the capacity fixtures
+## 32. The Model Zoo and the capacity fixtures
 
 `assets/levels/model_zoo.json` is the generated showroom: one large, well-lit
 pool hall (pool deck floor, pool wall tile, pool ceiling, a grid of pool
@@ -4149,42 +4492,32 @@ authoring. They are not invitations to change the engine as part of an authoring
     point and ignores `half_width`/`half_depth`/`length`. `tools/assets/validate.py`
     currently infers a shape from those fields, so a level can pass the tool and
     still bake as a point; author `shape` explicitly.
-14. **Dynamic objects are not authorable.** The only dynamic object is the engine's
-    demonstration drum spawned by placing `core:washing_machine`; a level cannot place
-    or drive one.
-15. **Documentation drift in shipped docs** (recorded here so agents trust the code):
-    the prop exceedance allowlist lives in `src/props/tests.rs`, not
-    `src/props.rs`;
-    `src/level.rs`'s `y` comment says a ceiling fixture's `y` is ignored, but the bake
-    honours it for storey selection; `src/materials/reflection.rs`'s module comment
-    shows a nested `"reflection": {"mode": …}` catalog form while the catalog uses the
-    flat `reflection_mode`/`reflection_strength` fields.
+14. **Beyond `doors[]`, dynamic objects are engine-created.** A level authors its
+    moving leaves as doors; the washer-drum demonstration is spawned by placing
+    `core:washing_machine` and cannot be placed or driven directly.
+15. **Documentation drift in shipped sources** (recorded here so agents trust the
+    code): `src/level.rs`'s `y` comment says a ceiling fixture's `y` is ignored,
+    but the bake honours it for storey selection.
 16. **Tooling vs runtime strictness.** The Rust runtime is permissive (unknown
     class/type, missing `model`, invalid `size`, unknown fixture/prop ids degrade);
     `tools/assets/validate.py` is strict and fails. Pass the tool, not the runtime
     fallback.
-17. **Generated fixture quirk:** `tests/fixtures/levels/prop_showcase.json` (generated)
-    carries `id` keys on props; instance ids are now part of the schema and are read,
-    but do not treat the generated file as an authoring reference.
-18. **`props/build.py --check` enforces container validity and decoded texture
+17. **`props/build.py --check` enforces container validity and decoded texture
     memory but not the triangle/scale/origin art budgets**; those live in
     `cargo test`. Do not treat a clean `--check` as complete budget approval.
-19. **Water is a volume, lighting is baked.** "Flooded" needs a `water[]` volume
+18. **Water is a volume, lighting is baked.** "Flooded" needs a `water[]` volume
     over real recessed geometry (a volume over a flat floor reads as a puddle, not
     a pool); "mood lighting" must be expressed with existing materials, geometry and
     per-fixture colour/brightness. There is no dynamic lighting.
-20. **Reflections are per-material and limited.** One planar plane per frame, at most
+19. **Reflections are per-material and limited.** One planar plane per frame, at most
     two probes per level, probes are static (no realtime update), and a planar material
     reused on non-planar geometry is skipped with a warning.
-21. **Audio actions remain unsupported.** Validation rejects `play_audio` by name. `play_animation` and `toggle_animation` dispatch real per-instance animation through the entity runtime.
-22. **An interaction's aimable bound uses the same size contract as collision.**
+20. **Audio actions remain unsupported.** Validation rejects `play_audio` by name. `play_animation` and `toggle_animation` dispatch real per-instance animation through the entity runtime.
+21. **An interaction's aimable bound uses the same size contract as collision.**
     It is the level `size` (or `[0.6, 0.9, 0.6]`), scaled — never the catalog size.
     A small prop with no authored `size` is aimable as a standard box, so a map that
-    needs a precise aim target authors `size`.
-23. **An older engine build ignores the new keys entirely** (`id`, `display_name`,
-    `interaction`, `area_triggers`): unknown keys are skipped, so a map that relies
-    on them loses its interactions and triggers without an error on that build. The
-    current build validates them strictly.
+    needs a precise aim target authors `size`. A manually interactable door's aim
+    bound follows its live collider as the leaf swings.
 
 ---
 
@@ -4241,6 +4574,31 @@ No decals on this ceiling; walls may omit `height` to follow the slope.
 ```json
 { "kind": "door", "offset": 1.2, "width": 1.2, "height": 2.1, "sill": 0.0 }
 ```
+
+## Add an interactive door
+
+1. Author the wall opening first: a `kind: "door"` opening sized for the leaf
+   (see above).
+2. Place the leaf by its **hinge** (see [§30](#30-doors-switches-and-effects)):
+   `x`/`z` at the hinge jamb, `y` above the local walkable floor,
+   `rotation_degrees` aiming the closed leaf (`0` = +X, `90` = −Z).
+3. Give it a unique `id`; author `prompt`/`reach` if the defaults do not fit.
+4. Check the swing clears the room: `open_direction` and `swing_degrees` decide
+   which side the leaf moves to.
+
+```json
+{ "id": "office_door", "x": 2.0, "y": 0.0, "z": 0.15,
+  "rotation_degrees": 0.0, "width": 0.9, "height": 2.1,
+  "open_direction": "left", "swing_degrees": 90.0, "prompt": "Office door" }
+```
+
+```json
+{ "kind": "door", "offset": 1.55, "width": 0.9, "height": 2.1, "sill": 0.0 }
+```
+
+For a sauna leaf, add `"kind": "sauna"`; for an externally controlled door, add
+`"manual_interaction": false` and drive it with `open`/`close`/`toggle` actions
+from a switch or an area trigger.
 
 ## Add a window
 
@@ -4456,6 +4814,21 @@ A tube that reads bright but casts its dim pool (the demo's far corridor panel):
   { "material": "core:glass_sign_lit_01", "effect": "pulse",
     "hz": 0.09, "depth": 0.18, "phase": 0.0 }
 ]
+```
+
+## Emit steam
+
+1. Place the emitter at the source: `x`/`z` in world space, `y` above the local
+   walkable floor.
+2. Size the plume with `width`/`depth`/`height`; tune the density with `count`
+   and `size`.
+3. Keep it presentational: an effect never blocks, hides or lights anything (see
+   [§30](#30-doors-switches-and-effects)).
+
+```json
+{ "kind": "steam", "x": 31.0, "y": 0.0, "z": 12.6,
+  "width": 0.9, "depth": 0.6, "height": 1.5,
+  "count": 20, "size": 0.34, "drift": 0.16, "lifetime_seconds": 3.2 }
 ```
 
 ## Package a level as a `.zip` pack
@@ -4705,7 +5078,9 @@ when adding or changing:
 
 * level fields, collections, defaults, or validation limits;
 * geometry types (rooms, walls, profiles, patches, regions);
-* opening types or opening behavior;
+* opening types or opening behavior, including `glass` and `solid`;
+* door kinds, door fields, door actions or switchable fixtures;
+* effect kinds or effect fields;
 * texture kinds, formats, size rules or wrapping;
 * material properties or resolution behavior;
 * asset classes, asset types, catalog fields or catalog validation;

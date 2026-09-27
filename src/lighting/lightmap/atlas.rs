@@ -268,10 +268,50 @@ fn chart_at(page_index: usize, x: u32, y: u32, width: u32, height: u32, padding:
 /// A baked set of atlas pages: one RGB8 buffer per page, gutter-dilated.
 ///
 /// Built once per level load, after the fill pass produced every chart's
-/// texels. The renderer uploads each page once and never touches it again.
+/// texels. The renderer uploads each page once; a runtime light switch rewrites
+/// a chart through [`LightmapPage::rewrite_chart`] and re-uploads that page.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LightmapAtlas {
     pages: Vec<LightmapPage>,
+}
+
+impl LightmapPage {
+    /// Rewrites one chart's texels in place and re-dilates its gutter.
+    ///
+    /// `colors` must hold `chart.width * chart.height` RGB triples, row-major,
+    /// exactly like [`LightmapAtlas::bake`]'s fill. Used by the runtime light
+    /// switch: a switchable fixture's charts are re-filled with the light's new
+    /// state and written back without rebuilding the whole atlas.
+    /// # Errors
+    ///
+    /// Returns [`LightmapFailure::Layout`] when the chart does not fit the page
+    /// or its row/column arithmetic overflows, and
+    /// [`LightmapFailure::FillSize`] when `colors` has the wrong length.
+    pub fn rewrite_chart(
+        &mut self,
+        chart: &Chart,
+        colors: &[[f32; 3]],
+        padding: u32,
+    ) -> Result<(), LightmapFailure> {
+        if !chart_fits_page(chart, self) {
+            return Err(LightmapFailure::Layout);
+        }
+        let Some(expected) = chart_texel_count(chart) else {
+            return Err(LightmapFailure::Layout);
+        };
+        if colors.len() != expected {
+            return Err(LightmapFailure::FillSize);
+        }
+        if !colors
+            .iter()
+            .all(|color| color.iter().all(|value| value.is_finite()))
+        {
+            return Err(LightmapFailure::FillNonFinite);
+        }
+        write_chart(self, chart, colors)?;
+        dilate(self, chart, padding);
+        Ok(())
+    }
 }
 
 impl LightmapAtlas {

@@ -149,7 +149,7 @@ fn space_is_a_gameplay_binding_not_a_menu_key() {
 }
 
 #[test]
-fn test_legacy_default_keys_no_longer_drive_controls() {
+fn old_non_wasd_keys_do_not_drive_controls() {
     let bindings = KeyBindings::default();
 
     // The pre-WASD layout: Z = backward plus O/./K/L for looking.

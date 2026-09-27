@@ -1,6 +1,6 @@
 # Renderer
 
-Places has one renderer: wgpu 30.0.1 on Metal (macOS), Vulkan (Linux) or Direct3D 12 (Windows). It draws the complete frame — the baked-light world, props, dynamic objects, animated characters and translucent water surfaces, the lightmap atlas and its vertex-lit fallback, reflection probes and the planar mirror, fixture emission, decals, fog, the emissive bloom chain and resolve, and the HUD — behind the engine-facing `Renderer` facade described in [ARCHITECTURE.md](ARCHITECTURE.md). This document is the renderer reference: current contracts plus the recorded measurements that bound them. The renderer was ported from the project's earlier reference implementation; the preserved implementation and parity evidence live in Git (§14).
+Places has one renderer: wgpu 30.0.1 on Metal (macOS), Vulkan (Linux) or Direct3D 12 (Windows). It draws the complete frame — the baked-light world, props, dynamic objects (including door leaves), animated characters, translucent water surfaces and steam effect billboards, the lightmap atlas and its vertex-lit fallback, reflection probes and the planar mirror, fixture emission, decals, fog, the emissive bloom chain and resolve, and the HUD — behind the engine-facing `Renderer` facade described in [ARCHITECTURE.md](ARCHITECTURE.md). This document is the renderer reference: current contracts plus the recorded measurements that bound them. The renderer was ported from the project's earlier reference implementation; the preserved implementation and parity evidence live in Git (§14).
 
 ## 1. Backend policy and lifecycle
 
@@ -101,7 +101,7 @@ render_scene:
   planar capture (mirror ranges excluded, modes zeroed, capture environment)
   update material reflection modes + environment uniforms + cameras
   encode:
-    scene pass        -> raw scene target + depth  (static, props, dynamics, characters, decals)
+    scene pass        -> raw scene target + depth  (static, props, dynamics, characters, decals, then effects)
     emissive pass     -> raw emissive target       (when an emissive draw survived)
     blur x2           -> quarter-size raw targets
     resolve/present   -> raw presented target
@@ -358,15 +358,15 @@ A level references material ids; the engine resolves them through the catalog (o
 | base texture | catalog/pack `texture` | the diagnostic magenta pattern when unresolved | base-colour sample |
 | tint | catalog/pack `tint` | `[1,1,1]` | the level build bakes it into the vertex colour |
 | `tile_metres` | catalog/pack | 2.0 m | the build's world UVs |
-| `shine` | catalog/pack | `DEFAULT_ROUGHNESS = 0.6` internally | sheen, reflection |
-| legacy `roughness` | catalog/pack | — | kept verbatim as the internal roughness |
+| `shine` | catalog/pack | `0.4` (`DEFAULT_ROUGHNESS = 0.6` internally) | sheen, reflection |
 | `specular` / `specular_color` | catalog/pack | none / white | sheen colour |
 | `normal_texture`, `normal_strength` | catalog/pack | none / 1.0 (cap 2.0) | material normal |
 | `alpha_mode`, `opacity`, `alpha_cutoff` | catalog/pack | opaque / 1.0 / 0.5 | pass classification, alpha |
 | `reflection_mode`, `reflection_strength` | catalog/pack | none / 0.45 | reflection eligibility and weight |
 | `emissive`, `emissive_intensity`, `emissive_mask` | catalog/pack | none | emission term and masks |
 
-`shine` is the author's glossiness (`0.0` matte, `1.0` extremely glossy); the engine stores its inverse, `roughness = 1 - shine`. The catalog rejects authoring both `shine` and `roughness`; a pack accepts both and lets `shine` win.
+`shine` is the author's glossiness (`0.0` matte, `1.0` extremely glossy); the
+engine stores the shader-facing inverse, `roughness = 1 - shine`.
 
 `render::common::materials::resolve_surface_material(key, materials, table, response_allowed)` is the one renderer-neutral resolution rule. For a Floor, Ceiling or Wall key it produces:
 
@@ -421,7 +421,7 @@ pub struct MaterialKey {
 | Offset | Field | Type | Meaning |
 |---:|---|---|---|
 | 0 | `specular` | `vec3<f32>` | sheen colour |
-| 12 | `roughness` | `f32` | `1 - shine`, or the legacy value |
+| 12 | `roughness` | `f32` | `1 - shine` |
 | 16 | `normal_strength` | `f32` | normal-map `xy` scale |
 | 20 | `alpha_cutoff` | `f32` | cut-out discard threshold |
 | 24 | `opacity` | `f32` | alpha multiplier |
@@ -486,7 +486,7 @@ The cut-out pass is a separate fragment entry point (`fs_cutout`) and pipeline, 
 | material with no normal map | white fallback bound, fetch gate off, geometric normal |
 | declared-but-unresolvable normal map | whole material degrades to the diagnostic, response cleared |
 | stale normal index | the fallback is bound with the gate off; never an undefined sample |
-| legacy material with no shine | no sheen (`specular = 0`), roughness 0.6, no reflection |
+| material with no shine | no sheen (`specular = 0`), roughness 0.6, no reflection |
 | absent alpha fields | opaque, opacity 1, cutoff 0.5 |
 | an empty level | no materials, no draws; diagnostics report zeros |
 
@@ -583,7 +583,10 @@ if (response_enabled) {
 }
 ```
 
-There is no light direction to place a real highlight; both lobes are scaled by the `light` factor and neither invents a source. `roughness` is `1 - shine` (or the legacy authored roughness, or a per-surface shine override), the normal decode is §6.4, and the master gate is the material's response bit — cleared for a material with neither normal map nor sheen, and for the whole scene under Low (Medium and High draw it).
+There is no light direction to place a real highlight; both lobes are scaled by the `light` factor and neither invents a source. `roughness` is `1 - shine` (or a per-surface shine override), the normal decode
+is §6.4, and the master gate is the material's response bit — cleared for a
+material with neither normal map nor sheen, and for the whole scene under Low
+(Medium and High draw it).
 
 ### 7.6 Shadows
 
@@ -601,11 +604,17 @@ Reflections are opt-in per material and weighted by the sheen the material alrea
 
 **Planar mirror.** One plane per frame (the nearest whose reflective bounds survive the cull; Medium and High only), half the render size, its own depth, cleared to the raw clear colour. The capture skips the mirror's own static batches (`material_plane == capture_plane`), without which the deck would fill its own reflection image. Sampling uses the projected `uv`, with the `v` flipped because the capture target's first row is NDC `+y`.
 
-## 9. Props, dynamics, fixtures and emission
+## 9. Props, dynamics, doors, fixtures and emission
 
 **Props / GLB models.** The neutral build's `PropMeshBatch` list is uploaded verbatim: world-space, per-vertex-lit vertices, one draw per primitive, model sheets through the texture cache with clamp wrap and the player's filter. Materials are plain-opaque with the primitive's emission (and its mask); props never use normal maps, alpha modes or reflections.
 
-**Dynamic objects.** One small model-space buffer per model, one group-3 environment per object carrying its model matrix and its baked-light probe (`light_scale`), refreshed by `update_dynamic` only when an object moves. They are opaque, outside the static batches and the bake, and cast no shadow. The washer-drum demonstration is spawned by `set_dynamic_demo` for levels that ship one.
+**Dynamic objects.** One small model-space buffer per model, one group-3 environment per object carrying its model matrix and its baked-light probe (`light_scale`), refreshed only when an object moves. Opaque dynamic primitives splice in after the static opaque class; a dynamic submesh may instead declare a **blended** alpha contract, in which case it draws after the sorted static translucent surfaces, with depth writes off and depth testing against the opaque pass, so a moving glass pane composites over the static world. Dynamic objects are outside the static batches and the bake and cast no shadow. The engine's washer-drum demonstration is spawned by `set_dynamic_demo` for levels that ship one.
+
+**Doors.** A level's `doors[]` frame and leaf are built in code (`render/common/doors.rs`) as ordinary `PropModel`s on the dynamic path and synced from `door::Doors` every frame: the leaf's transform and its `DoorCollider` are derived from the same runtime angle, so the drawn slab and the physical stop can never disagree. The interior leaf is a white painted slab with two raised panels per face and a round brass handle on both sides; the sauna leaf is cedar stiles and rails around a clear glass panel. The sauna panel is the blended dynamic submesh: it is drawn after the sorted static translucent surfaces, exactly like any other dynamic blend. A door's textures resolve through the level's `MaterialTable` from its authored material ids or its kind defaults.
+
+**Effects (steam).** An `effects[]` entry contributes no collision, no occlusion and no bake term; it is a bounded plume of blended billboards. The neutral `EffectScene` (`render/common/effects.rs`) resolves one scene per level from the level's `MaterialTable` (the same material resolution a door uses) and evaluates every particle's position, size and alpha as a **pure function of the animation clock** — the scene stores no particle state, so two frames at the same clock produce byte-identical vertices and the motion cannot accumulate at any frame rate. Particles are bounded inside their emitter's own volume (`x`/`z` within half the footprint plus `drift`, `y` between the base and base + `height`).
+
+The backend (`render/wgpu/effects.rs`) allocates **one vertex/index buffer pair sized once to the level schema's worst case** (64 emitters × 128 particles = 8192 billboards, 32768 vertices, 49152 indices), writes only the used vertex range per frame, and draws one contiguous range per distinct effect material in deterministic emitter order. The pass is straight-alpha (`SrcAlpha`/`OneMinusSrcAlpha`) with `LessEqual` depth testing and **depth writes off**, no culling; it runs after the decals over the finished world body, depth-testing against it and not ordered against the world's own translucent draws. Billboards are **not** sorted back to front (a soft plume a few tens of centimetres deep cannot show the order), are **not** captured into the reflection probes or the planar mirror, and never contribute to baked light. A level with no effects costs nothing; the load-time line reports emitters, particles, draws and sheets.
 
 **Water surfaces.** A level's `water[]` volumes contribute one quad each at their `surface_y` into the ordinary static mesh's floor family (`render/common/water.rs`): the material's `alpha_mode: "blend"` contract puts them in the sorted back-to-front translucent pass with depth writes off and no culling, so the same quad is the surface seen from above and from below the waterline. The vertex colour carries the baked light of the corners, the vertex alpha carries the volume's authored `opacity` while the catalog material stays opaque, and the quad is never lightmapped — it stays out of the atlas and is lit by per-corner sampling, exactly like a fixture face or a glass pane. Nothing else is emitted: the basin floor and walls are the level's own room and floor-region geometry.
 
@@ -675,7 +684,7 @@ The lightmap and reflection budgets are owned by the advanced settings, not the 
 | Planar reflection | off | on | on | `ReflectionQuality::draws_planar` |
 | Probe face edge | none | 48 | 64 | `probe_face_size` |
 | Post tone knee / grade | 1.0 / none | 0.75 / none | 0.75 / 1.03, 1.02 | `PostSettings::for_level` |
-| Fog, emission and its animation, decals, UI | identical | identical | identical | shared code paths |
+| Fog, emission and its animation, decals, effects, UI | identical | identical | identical | shared code paths |
 
 The lightmap and bake configuration columns are the resolved preset defaults; with the Advanced settings in play the actual bake follows `LightmapQuality`, not the level. `LightmapQuality::lightmap_config`/`bake_config` carry the density, page budget, tap count and prop-occlusion cell, and `LightmapBuildOptions::for_lightmaps` is the renderer's entry point, so `Low + Lightmaps Full` bakes a Full atlas and `High + Lightmaps Off` stays vertex-lit. The content key hashes the concrete configuration and the `Full` profile name, so Medium and Full never share an atlas entry while a Full atlas baked for any overall level does.
 
@@ -726,9 +735,11 @@ Texture Filtering is one of the three Advanced settings. The overall level casca
 |---|---|---|
 | Low | trilinear (linear mag/min/mip) + ~4x anisotropic | full generated chain |
 | Medium | trilinear + ~8x anisotropic | full generated chain |
-| High (default; the legacy `linear` name) | trilinear + ~16x anisotropic | full generated chain |
+| High (default) | trilinear + ~16x anisotropic | full generated chain |
 
-The legacy persisted names keep loading: `linear` is High and `nearest` is Low; an unknown value falls back to High. A missing `"texture_filtering"` key derives its preset from the saved `"quality"` level, and a value that is present is never overwritten on load — only an active quality change cascades it.
+A missing `"texture_filtering"` key derives its preset from the saved
+`"quality"` level, and a value that is present is never overwritten on load:
+only an active quality change cascades it. An unknown value falls back to High.
 
 - **Mipmaps are required and always present** for ordinary world sheets: every option filters `Linear`/`Linear`/`Linear` and relies on the generated chain (§5.3). No option disables mips or falls back to point sampling.
 - **Hardware fallback.** Anisotropy above 1x requires an adapter with `DownlevelFlags::ANISOTROPIC_FILTERING`. Without it the three options keep the same trilinear filtering and the anisotropy request is clamped to 1x; no device feature is requested and no option becomes unavailable. The `PLACES_VERBOSE` startup line reports the capability and the requested degrees.
@@ -753,6 +764,7 @@ Load-time lines (never per frame) cover the world upload, textures, materials an
 [wgpu] world pipeline for surface format <format>
 [wgpu] textures: ...
 [wgpu] materials: ...
+[wgpu] effects: E emitter(s), P particle(s), D draw(s), T sheet(s) (U uploaded, C cached)
 [wgpu] post targets: scene 480x270 ... presented 1280x720 ...
 ```
 
@@ -763,7 +775,7 @@ Recoverable events (surface timeout, surface lost/outdated) are reported at most
 | Switch | Effect |
 |---|---|
 | `PLACES_LEVEL`, `PLACES_SPAWN`, `PLACES_CAMERA` | level, spawn and camera selection for a run |
-| `PLACES_QUALITY=low\|medium\|high` (legacy `full` = High) | quality level for one run (a session override: it does not cascade the advanced settings) |
+| `PLACES_QUALITY=low\|medium\|high` | quality level for one run (a session override: it does not cascade the advanced settings) |
 | `PLACES_NO_LIGHTMAPS=1\|off\|medium\|full` | pin the Lightmaps quality for one run (`1` forces Off) |
 | `PLACES_NO_REFLECTIONS=1\|off\|medium\|full` | pin the Reflections quality for one run (`1` forces Off) |
 | `PLACES_NO_BLOOM=1` | disable the bloom stage for one run |
@@ -773,7 +785,7 @@ Recoverable events (surface timeout, surface lost/outdated) are reported at most
 | `PLACES_BENCH=1`, `PLACES_BENCH_FRAMES`, `PLACES_BENCH_WARMUP`, `PLACES_BENCH_OUT` | benchmark harness |
 | `PLACES_BENCH_NOSWAP`, `PLACES_BENCH_NORENDER`, `PLACES_BENCH_FINISH`, `PLACES_BENCH_NOCULL` | submission diagnostics |
 | `PLACES_BENCH_WINDOW_CYCLE=<frame>:resize:<w>x<h>\|minimize\|restore[,...]` | scripted live window lifecycle through the real SDL window |
-| `PLACES_BENCH_QUALITY_CYCLE=<frame>:<level>[,...]` | scripted live quality switches through the normal rebuild path (`low`/`medium`/`high`; legacy `full` = High); cascades the advanced presets |
+| `PLACES_BENCH_QUALITY_CYCLE=<frame>:<level>[,...]` | scripted live quality switches through the normal rebuild path (`low`/`medium`/`high`); cascades the advanced presets |
 | `PLACES_BENCH_GRAPHICS_CYCLE=<frame>:<setting>=<value>[,...]` | scripted live Advanced changes through the normal settings setters (`filtering=low\|medium\|high`, `lightmaps=off\|medium\|full`, `reflections=off\|medium\|full`, `bloom=on\|off`) |
 
 ## 14. Provenance and recorded parity baselines
@@ -822,6 +834,8 @@ The renderer's contracts are covered by in-crate tests, most of which run withou
 - **Reflections:** the six face directions/ups, the 90° projection with the Y flip, the planar mirror composition, `+1.2 m` bake position, nearest probe/plane rules, and the ignored GPU cube round-trip.
 - **Characters:** the skinning delta maths against a synthetic two-bone rig, bind-pose bounds, joint/weight parsing and malformed-skin rejection, blend-weight convergence, distance-driven walking phase, frame-rate-independent playback at 30/60/144 fps, clip name mapping and LINEAR/STEP sampling, crossfades, orthonormal finite matrices across state switches, and no per-frame reallocation.
 - **Water:** one translucent floor quad per authored volume at its surface height, the volume's opacity in the vertex alpha, no lightmap page, the `blend` material in the sorted translucent pass, and back-to-front ordering shared with the other translucent surfaces.
+- **Doors:** the interior and sauna model builds (panel counts, static frame versus moving leaf, the sauna glass submesh's blended contract), the closed/opening/open/closing phase machine, the angle-to-collider maths, `stop`/`reverse` obstruction handling and reset-to-authored-state, and dynamic draw order (a blended dynamic submesh after the sorted static translucent surfaces).
+- **Effects:** particle poses as a pure function of the clock (byte-identical vertices at the same clock), bounds inside the emitter volume, the exact per-level particle/vertex/index budgets, deterministic material grouping and one draw per distinct effect material, the default steam material resolving through the table, and the blended depth-testing/no-depth-write pass state.
 - **Post/UI:** blur kernel and step, target sizes (scene = level, presented = drawable), resolve maths, the single-conversion contract, ortho corners, viewport maths, blend factors.
 - **Integration:** the world pipeline variants and their states, emissive flag propagation, material reflection-mode rules, live window and quality cycle parsing (`PLACES_BENCH_WINDOW_CYCLE`, `PLACES_BENCH_QUALITY_CYCLE`, `PLACES_BENCH_GRAPHICS_CYCLE`).
 

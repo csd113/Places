@@ -274,8 +274,8 @@ pub enum GraphicsChange {
 /// Parses one `PLACES_BENCH_GRAPHICS_CYCLE` entry, `[<setting>=<value>]`.
 ///
 /// Accepts `filtering=`, `lightmaps=`, `reflections=` and `bloom=` with the
-/// documented values, case-insensitively. Anything else (including a legacy or
-/// unknown name) is `None` and is ignored by the runner, like every other
+/// documented values, case-insensitively. Anything else (an unknown name
+/// included) is `None` and is ignored by the runner, like every other
 /// malformed benchmark value.
 #[must_use]
 pub fn parse_graphics_change(value: &str) -> Option<GraphicsChange> {

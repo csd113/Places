@@ -73,7 +73,7 @@ use super::{
 ///   wall texels change value, so a version-7 atlas must not be reused.
 /// * `9` — fully occluded wall length faces no longer receive charts; the
 ///   atlas topology changes while visible lighting and quality stay unchanged.
-pub const LIGHTMAP_FORMAT_VERSION: u32 = 10;
+pub const LIGHTMAP_FORMAT_VERSION: u32 = 11;
 
 /// Root of the runtime-owned on-disk cache, below the state root.
 ///
@@ -89,6 +89,9 @@ struct DiskMeta {
     edge: u32,
     key: String,
     charts: Vec<(super::LightmapPatch, super::Chart)>,
+    /// Gutter width around every chart, so a runtime light switch can
+    /// re-dilate the charts it rewrites.
+    padding: u32,
 }
 
 /// Process-level memory cache plus an optional on-disk store.
@@ -437,6 +440,7 @@ pub(super) fn disk_load(root: &Path, key: &str) -> Option<LevelLightmaps> {
             bake_millis: 0.0,
             cache_hit: true,
         },
+        padding: meta.padding,
         pages,
         charts: meta.charts,
         cache_key: key.to_string(),
@@ -467,6 +471,7 @@ pub(super) fn disk_store(root: &Path, key: &str, lightmaps: &LevelLightmaps) {
         edge,
         key: key.to_string(),
         charts: lightmaps.charts.clone(),
+        padding: lightmaps.padding,
     };
     let Ok(metadata) = serde_json::to_vec(&meta) else {
         return;

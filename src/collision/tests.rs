@@ -581,6 +581,39 @@ fn test_the_floating_demo_duck_has_no_collision_box() {
     }
 }
 
+/// The landing support query shares the floor's walkable-step allowance: a
+/// solid top within one [`PLAYER_STEP_HEIGHT`] above the reference is a
+/// landable support, and the allowance is strictly bounded.
+#[test]
+fn highest_support_top_allows_one_walkable_step() {
+    use crate::collision_index::CollisionIndex;
+
+    let boxes = vec![WallAabb::with_y(0.0, 0.0, 0.0, 1.0, 0.75, 1.0)];
+    let index = CollisionIndex::build(&boxes);
+    for (x, z) in [(0.5_f32, 0.5_f32), (0.0, 0.0), (1.0, 1.0)] {
+        // Within one step below the top: the top is a landable support.
+        let max_top = 0.75 - PLAYER_STEP_HEIGHT;
+        assert_eq!(
+            highest_support_top(x, z, max_top, &boxes),
+            Some(0.75),
+            "a top one step above {max_top} is landable"
+        );
+        assert_eq!(
+            highest_support_top_indexed(&index, x, z, max_top, &boxes),
+            Some(0.75)
+        );
+        // More than one step below it: out of reach, no support at all.
+        let max_top = 0.75 - PLAYER_STEP_HEIGHT - 0.01;
+        assert_eq!(highest_support_top(x, z, max_top, &boxes), None);
+        assert_eq!(
+            highest_support_top_indexed(&index, x, z, max_top, &boxes),
+            None
+        );
+        // Off the footprint the centre containment refuses the top.
+        assert_eq!(highest_support_top(2.0, z, 1.0, &boxes), None);
+    }
+}
+
 /// The indexed queries must be *identical* to the linear ones, not merely
 /// similar: the index only widens the candidate set and every exact predicate
 /// still runs. A dense field of boxes with random probes at cell boundaries,

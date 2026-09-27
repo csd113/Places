@@ -79,19 +79,16 @@ def load_catalog() -> dict:
 
 def catalog_placeables(catalog: dict) -> List[dict]:
     """The placeable (prop/entity) entries the toolkit builds and validates."""
-    entries = catalog.get("assets")
-    if entries is None:
-        entries = catalog.get("props", [])
     return [
         entry
-        for entry in entries
-        if entry.get("asset_type", "prop") in PLACEABLE_TYPES
+        for entry in catalog.get("assets", [])
+        if entry.get("asset_type") in PLACEABLE_TYPES
     ]
 
 
 def entry_name(entry: dict) -> str:
-    """The human-readable name, accepting the legacy ``name`` spelling."""
-    return entry.get("display_name") or entry.get("name") or entry["id"]
+    """The entry's human-readable display name, else its id."""
+    return entry.get("display_name") or entry["id"]
 
 
 def model_path(entry: dict) -> str:

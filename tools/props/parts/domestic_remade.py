@@ -1,6 +1,6 @@
 """Domestic prop remakes: closed low-poly forms, existing file-backed palettes.
 
-Only the named builders opt in; unrelated legacy props retain their authoring.
+Only the named builders opt in; unrelated props retain their authoring.
 """
 import math
 from pathlib import Path

@@ -321,21 +321,15 @@ impl QualityLevel {
     /// Parses a level name, case-insensitively and ignoring surrounding
     /// whitespace.
     ///
-    /// The legacy `"full"` profile name means [`Self::High`]; any other unknown
-    /// name is `None` (the caller decides whether to keep its current level or
-    /// fall back to the default), never a silent surprise here.
+    /// An unknown name is `None` (the caller decides whether to keep its
+    /// current level or fall back to the default), never a silent surprise
+    /// here.
     #[must_use]
     pub fn parse(name: &str) -> Option<Self> {
         let trimmed = name.trim();
-        if let Some(level) = Self::ALL
+        Self::ALL
             .into_iter()
             .find(|level| level.name().eq_ignore_ascii_case(trimmed))
-        {
-            return Some(level);
-        }
-        trimmed
-            .eq_ignore_ascii_case(QualityProfile::Full.name())
-            .then_some(Self::High)
     }
 
     /// The validated profile this level maps onto at the protected lightmap

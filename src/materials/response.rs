@@ -25,7 +25,7 @@
 //! ```
 //!
 //! Three properties, each optional and each with a default that reproduces the
-//! legacy flat-shaded look exactly:
+//! flat default look exactly:
 //!
 //! * **Normal map** ([`MaterialResponse::normal`]) — an optional texture whose
 //!   texels perturb the shading normal, plus a strength multiplier. Absent (the
@@ -202,7 +202,7 @@ impl MaterialResponse {
     ///
     /// A response without a normal map and without a sheen is exactly
     /// [`MaterialResponse::NONE`], so the draw path can skip its uniform work
-    /// (and its normal-map texture fetch) for every legacy material.
+    /// (and its normal-map texture fetch) for every material without a response.
     #[must_use]
     pub fn is_active(&self) -> bool {
         self.has_normal() || self.has_sheen()

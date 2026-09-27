@@ -28,9 +28,9 @@
 
 use super::geometry::{EmitContext, WALL_BOTTOM_GRADIENT, WALL_TOP_GRADIENT};
 use super::{
-    LitSurface, MaterialSlot, SurfaceKey, Vertex, WALL_FACE_EAST_MULT, WALL_FACE_NORTH_MULT,
-    WALL_FACE_SOUTH_MULT, WALL_FACE_WEST_MULT, add_quad, emit_lit_surface_grid, lit_surface_grid,
-    shade, stamp_lightmap_quad, tiled_uv,
+    LitSurface, MaterialSlot, SMOOTH_NORMAL, SurfaceKey, Vertex, WALL_FACE_EAST_MULT,
+    WALL_FACE_NORTH_MULT, WALL_FACE_SOUTH_MULT, WALL_FACE_WEST_MULT, add_quad,
+    emit_lit_surface_grid, lit_surface_grid, shade, stamp_lightmap_quad, tiled_uv,
 };
 use crate::level::{
     ArcWallDef, ArchwayDef, BaseboardDef, ColumnDef, GuardrailDef, HalfWallDef, LevelDef,
@@ -232,6 +232,34 @@ fn emit_face(
     scratch: &mut Vec<Vertex>,
     face: ArchitectureFace,
 ) {
+    emit_face_inner(context, buckets, scratch, face, false);
+}
+
+/// Emits one face of a smooth round body.
+///
+/// Exactly [`emit_face`], but the quad's vertices carry [`SMOOTH_NORMAL`]: the
+/// frame pass resolves their normal from every vertex coincident with the ring
+/// position instead of from this segment's own flat face, so a segmented
+/// cylinder shades as one curved surface. The emitter must reuse one ring
+/// position for the two segments that meet there (see `emit_pillar` and
+/// `emit_arc_wall`), which is what makes the coincidence exact.
+fn emit_smooth_face(
+    context: &EmitContext<'_, '_>,
+    buckets: &mut SpatialBuckets<SurfaceKey>,
+    scratch: &mut Vec<Vertex>,
+    face: ArchitectureFace,
+) {
+    emit_face_inner(context, buckets, scratch, face, true);
+}
+
+/// The shared body of [`emit_face`] and [`emit_smooth_face`].
+fn emit_face_inner(
+    context: &EmitContext<'_, '_>,
+    buckets: &mut SpatialBuckets<SurfaceKey>,
+    scratch: &mut Vec<Vertex>,
+    face: ArchitectureFace,
+    smooth: bool,
+) {
     let mult = if face.vertical {
         face_mult(face.normal)
     } else if face.up {
@@ -282,6 +310,13 @@ fn emit_face(
         scratch, points[0], colors[0], uv[0], points[1], colors[1], uv[1], points[2], colors[2],
         uv[2], points[3], colors[3], uv[3],
     );
+    if smooth {
+        // `scratch` was cleared above, so these are exactly this quad's six
+        // vertices: mark the whole quad for ring-averaged normals.
+        for vertex in scratch.iter_mut() {
+            vertex.normal = SMOOTH_NORMAL;
+        }
+    }
     let room = if context.lightmapped() {
         let centre = [
             (face.points[0][0] + face.points[1][0] + face.points[2][0] + face.points[3][0]) * 0.25,
@@ -1290,7 +1325,10 @@ struct RoundKeys {
 /// interprets it: the same resolved segment count, the same inner/outer radii,
 /// the same base and the same per-segment top. Each segment is a whole quad, so
 /// winding, lightmap charts and the baked shading follow the ordinary face
-/// rules. UVs are world-scale: `u` is the arc length travelled along each
+/// rules; the two curved faces are emitted as smooth faces whose ring positions
+/// are shared between adjacent segments, so the frame pass resolves one
+/// continuous radial normal along the sweep. The caps and radial ends stay
+/// flat-shaded. UVs are world-scale: `u` is the arc length travelled along each
 /// face's own circumference and `v` is height, so a texture never stretches
 /// around the sweep.
 #[allow(clippy::too_many_lines)] // one curved solid's full face set, kept in one place
@@ -1331,6 +1369,30 @@ fn emit_arc_wall(
         .is_some_and(|height| height.is_finite() && height > 0.0);
     let full_ring = piece.is_full_ring();
     let count = f32::from(u16::try_from(segments).unwrap_or(u16::MAX));
+    // One position per segment boundary, resolved once and reused by both
+    // segments that meet there, so the two vertices of a boundary are
+    // bit-identical in position (each still carries its own lightmap chart).
+    // A full ring closes on its first position, wrapping exactly at its seam.
+    let ring_len = usize::try_from(segments)
+        .unwrap_or(0)
+        .saturating_add(usize::from(!full_ring))
+        .max(1);
+    let ring_point = |radius: f32, index: usize| -> (f32, f32) {
+        let index_f = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+        let angle = piece
+            .sweep_degrees
+            .mul_add(index_f / count, piece.start_degrees);
+        round_point(piece.x, piece.z, radius, angle)
+    };
+    let centre_ring: Vec<(f32, f32)> = (0..ring_len)
+        .map(|index| ring_point(piece.radius, index))
+        .collect();
+    let inner_ring: Vec<(f32, f32)> = (0..ring_len)
+        .map(|index| ring_point(inner_radius, index))
+        .collect();
+    let outer_ring: Vec<(f32, f32)> = (0..ring_len)
+        .map(|index| ring_point(outer_radius, index))
+        .collect();
     for index in 0..segments {
         let index_f = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
         let fraction0 = index_f / count;
@@ -1348,8 +1410,17 @@ fn emit_arc_wall(
         }
         let arc0 = piece.sweep_degrees.to_radians() * fraction0;
         let arc1 = piece.sweep_degrees.to_radians() * fraction1;
-        let (bx, bz) = round_point(piece.x, piece.z, piece.radius, a0);
-        let (b1x, b1z) = round_point(piece.x, piece.z, piece.radius, a1);
+        let here = usize::try_from(index).unwrap_or(0);
+        let next = {
+            let candidate = here.saturating_add(1);
+            if candidate >= ring_len {
+                candidate.saturating_sub(ring_len)
+            } else {
+                candidate
+            }
+        };
+        let (bx, bz) = centre_ring.get(here).copied().unwrap_or((piece.x, piece.z));
+        let (b1x, b1z) = centre_ring.get(next).copied().unwrap_or((bx, bz));
         // The top follows the ceiling per segment end when no height is
         // authored (a wall without a height climbs a gable), so both ends are
         // resolved from their own position rather than one shared plane.
@@ -1366,8 +1437,8 @@ fn emit_arc_wall(
         let tile_inner = context.materials.tile_metres(keys.inner);
 
         // The convex outer face.
-        let p_out0 = round_point(piece.x, piece.z, outer_radius, a0);
-        let p_out1 = round_point(piece.x, piece.z, outer_radius, a1);
+        let p_out0 = outer_ring.get(here).copied().unwrap_or((piece.x, piece.z));
+        let p_out1 = outer_ring.get(next).copied().unwrap_or(p_out0);
         let mut points = [
             [p_out0.0, base, p_out0.1],
             [p_out1.0, base, p_out1.1],
@@ -1383,7 +1454,7 @@ fn emit_arc_wall(
         let mut top = [false, false, true, true];
         let normal = outer_normal(a0, a1);
         orient(&mut points, &mut uv, &mut top, normal);
-        emit_face(
+        emit_smooth_face(
             context,
             buckets,
             scratch,
@@ -1400,8 +1471,8 @@ fn emit_arc_wall(
         );
 
         // The concave inner face.
-        let p_in0 = round_point(piece.x, piece.z, inner_radius, a0);
-        let p_in1 = round_point(piece.x, piece.z, inner_radius, a1);
+        let p_in0 = inner_ring.get(here).copied().unwrap_or((piece.x, piece.z));
+        let p_in1 = inner_ring.get(next).copied().unwrap_or(p_in0);
         let mut points = [
             [p_in0.0, base, p_in0.1],
             [p_in1.0, base, p_in1.1],
@@ -1417,7 +1488,7 @@ fn emit_arc_wall(
         let mut top = [false, false, true, true];
         let normal = inner_normal(a0, a1);
         orient(&mut points, &mut uv, &mut top, normal);
-        emit_face(
+        emit_smooth_face(
             context,
             buckets,
             scratch,
@@ -1587,8 +1658,13 @@ fn inner_normal(a0: f32, a1: f32) -> [f32; 3] {
     [-outward[0], 0.0, -outward[2]]
 }
 
-/// Emits one data-authored circular pillar: its segmented body, its top cap
-/// and (when it stands clear of the floor) its bottom cap.
+/// Emits one data-authored circular pillar: its smooth segmented body, its top
+/// cap and (when it stands clear of the floor) its bottom cap.
+///
+/// The body's ring positions are resolved once per segment vertex and reused by
+/// the two segments that meet there, and its faces are emitted as smooth faces,
+/// so the frame pass resolves one continuous radial normal around the
+/// circumference instead of a flat normal per facet. The caps stay flat-shaded.
 #[allow(clippy::too_many_lines)] // one solid's body and its two caps, kept in one place
 fn emit_pillar(
     context: &EmitContext<'_, '_>,
@@ -1613,6 +1689,18 @@ fn emit_pillar(
     let tile = context.materials.tile_metres(body_key);
     let cap_tile = context.materials.tile_metres(cap_key);
     let count = f32::from(u16::try_from(segments).unwrap_or(u16::MAX));
+    // One ring position per rendered segment vertex, resolved once and reused
+    // by both segments that meet there. The two vertices are otherwise
+    // separate (each carries its own lightmap chart), but they are bit-identical
+    // in position, which is exactly what lets the frame pass average their
+    // normals into one smooth radial frame.
+    let ring: Vec<(f32, f32)> = (0..segments)
+        .map(|index| {
+            let index_f = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+            round_point(piece.x, piece.z, piece.radius, 360.0 * (index_f / count))
+        })
+        .collect();
+    let ring_len = ring.len().max(1);
     for index in 0..segments {
         let index_f = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
         let fraction0 = index_f / count;
@@ -1625,8 +1713,22 @@ fn emit_pillar(
         let a1 = 360.0 * fraction1;
         let arc0 = fraction0 * std::f32::consts::TAU;
         let arc1 = fraction1 * std::f32::consts::TAU;
-        let p0 = round_point(piece.x, piece.z, piece.radius, a0);
-        let p1 = round_point(piece.x, piece.z, piece.radius, a1);
+        // The last segment closes on the ring's first position, so the seam
+        // carries the exact same point on both sides while its tile UV still
+        // ends at the full circumference.
+        let next = {
+            let candidate = usize::try_from(index).unwrap_or(0).saturating_add(1);
+            if candidate >= ring_len {
+                candidate.saturating_sub(ring_len)
+            } else {
+                candidate
+            }
+        };
+        let p0 = ring
+            .get(usize::try_from(index).unwrap_or(0))
+            .copied()
+            .unwrap_or((piece.x, piece.z));
+        let p1 = ring.get(next).copied().unwrap_or(p0);
         let mut points = [
             [p0.0, base, p0.1],
             [p1.0, base, p1.1],
@@ -1642,7 +1744,7 @@ fn emit_pillar(
         let mut top_flags = [false, false, true, true];
         let normal = pillar_normal(a0, a1);
         orient(&mut points, &mut uv, &mut top_flags, normal);
-        emit_face(
+        emit_smooth_face(
             context,
             buckets,
             scratch,

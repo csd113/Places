@@ -723,14 +723,9 @@ pub struct AssetEntry {
     /// Sheen strength (white) and, optionally, an explicit sheen colour.
     pub specular: Option<f32>,
     pub specular_color: Option<[f32; 3]>,
-    /// Author-facing glossiness, `0.0` matte .. `1.0` extremely glossy.
-    ///
-    /// The preferred spelling; the engine stores `roughness = 1 - shine`.
+    /// Author-facing glossiness, `0.0` matte .. `1.0` extremely glossy; the
+    /// engine stores `roughness = 1 - shine`.
     pub shine: Option<f32>,
-    /// Legacy inverse of [`Self::shine`], `0.0` mirror-tight .. `1.0` fully
-    /// matte. Still accepted so catalogs authored before `shine` keep loading;
-    /// authoring both fields is a catalog error.
-    pub roughness: Option<f32>,
     /// `opaque` (default), `cutout` or `blend`.
     pub alpha_mode: Option<String>,
     /// Multiplier applied to a blended material's sampled alpha.
@@ -780,7 +775,7 @@ impl AssetEntry {
     }
 }
 
-/// Parsed `assets/catalog.json`, or the legacy `props.json` shape.
+/// Parsed `assets/catalog.json`.
 #[derive(Debug, Clone, Default)]
 pub struct AssetCatalog {
     entries: HashMap<String, AssetEntry>,
@@ -793,9 +788,6 @@ struct CatalogFile {
     themes: Vec<CatalogThemeFile>,
     #[serde(default)]
     assets: Vec<CatalogEntryFile>,
-    /// Legacy `props.json` shape (`format_version: 1`). New catalogs use `assets`.
-    #[serde(default)]
-    props: Vec<CatalogEntryFile>,
 }
 
 #[derive(serde::Deserialize)]
@@ -804,8 +796,6 @@ struct CatalogThemeFile {
     id: String,
     #[serde(default)]
     display_name: String,
-    #[serde(default)]
-    name: String,
     #[serde(default)]
     description: String,
 }
@@ -915,7 +905,6 @@ struct ValidatedResponse {
     specular: Option<f32>,
     specular_color: Option<[f32; 3]>,
     shine: Option<f32>,
-    roughness: Option<f32>,
     alpha_mode: Option<String>,
     opacity: Option<f32>,
     alpha_cutoff: Option<f32>,
@@ -929,8 +918,6 @@ struct CatalogEntryFile {
     id: String,
     #[serde(default)]
     display_name: String,
-    #[serde(default)]
-    name: String,
     #[serde(default)]
     asset_class: Option<String>,
     #[serde(default)]
@@ -975,7 +962,7 @@ struct CatalogEntryFile {
     #[serde(default)]
     emissive_mask: Option<String>,
     /// Surface response: an optional normal map with a strength, a sheen
-    /// strength/colour and a roughness.
+    /// strength/colour and a glossiness.
     #[serde(default)]
     normal_texture: Option<String>,
     #[serde(default)]
@@ -984,12 +971,10 @@ struct CatalogEntryFile {
     specular: Option<f32>,
     #[serde(default)]
     specular_color: Option<Vec<f32>>,
-    /// Author-facing glossiness; the shader-facing `roughness` is its inverse
-    /// and stays accepted for catalogs authored before `shine` existed.
+    /// Author-facing glossiness; the shader-facing `roughness` is its inverse.
     #[serde(default)]
     shine: Option<f32>,
-    #[serde(default)]
-    roughness: Option<f32>,
+
     /// Alpha: `opaque` | `cutout` | `blend`, plus the opacity multiplier and
     /// the cut-out threshold.
     #[serde(default)]
@@ -1013,14 +998,11 @@ struct CatalogEntryFile {
 }
 
 impl CatalogEntryFile {
-    /// Converts one file entry. `legacy` entries come from the `props` array and
-    /// default their class/type; `assets` entries must declare them.
-    fn convert(&self, legacy: bool) -> Result<Option<AssetEntry>, String> {
-        let Some(id) = self.logical_id(legacy)? else {
-            return Ok(None);
-        };
-        let asset_class = self.resolve_class(&id, legacy)?;
-        let asset_type = self.resolve_type(&id, legacy)?;
+    /// Converts one catalog entry; every entry declares its class and type.
+    fn convert(&self) -> Result<AssetEntry, String> {
+        let id = self.logical_id()?;
+        let asset_class = self.resolve_class(&id)?;
+        let asset_type = self.resolve_type(&id)?;
         let theme = parse_optional_slug(self.theme.as_deref(), "theme", &id, AssetTheme::parse)?;
         let model = self.resolve_model(&id)?;
         let texture = self.resolve_texture(&id, &asset_type)?;
@@ -1034,7 +1016,7 @@ impl CatalogEntryFile {
         let size = self
             .size
             .filter(|size| size.iter().all(|value| value.is_finite() && *value > 0.0));
-        Ok(Some(AssetEntry {
+        Ok(AssetEntry {
             display_name: self.resolved_display_name(&id),
             id,
             asset_class,
@@ -1070,7 +1052,6 @@ impl CatalogEntryFile {
             specular: response.specular,
             specular_color: response.specular_color,
             shine: response.shine,
-            roughness: response.roughness,
             alpha_mode: response.alpha_mode,
             opacity: response.opacity,
             alpha_cutoff: response.alpha_cutoff,
@@ -1089,17 +1070,13 @@ impl CatalogEntryFile {
                 .filter(|description| !description.is_empty())
                 .map(str::to_string),
             tags: self.tags.clone(),
-        }))
+        })
     }
 
-    /// Trims and validates the logical id; `Ok(None)` for a legacy entry that
-    /// declares none.
-    fn logical_id(&self, legacy: bool) -> Result<Option<String>, String> {
+    /// Trims and validates the logical id.
+    fn logical_id(&self) -> Result<String, String> {
         let id = self.id.trim().to_string();
         if id.is_empty() {
-            if legacy {
-                return Ok(None);
-            }
             return Err("asset entry with an empty id".to_string());
         }
         if !is_valid_asset_id(&id) {
@@ -1107,23 +1084,21 @@ impl CatalogEntryFile {
                 "asset id `{id}` is malformed; ids are names such as `core:chair` or `spooner-man`"
             ));
         }
-        Ok(Some(id))
+        Ok(id)
     }
 
-    /// The asset class, defaulting to the legacy environment for `props` data.
-    fn resolve_class(&self, id: &str, legacy: bool) -> Result<AssetClass, String> {
+    /// The asset class.
+    fn resolve_class(&self, id: &str) -> Result<AssetClass, String> {
         match self.asset_class.as_deref().map(str::trim) {
             Some(class) if !class.is_empty() => AssetClass::parse(class),
-            _ if legacy => AssetClass::parse(AssetClass::ENVIRONMENT),
             _ => Err(format!("{id}: missing `asset_class`")),
         }
     }
 
-    /// The asset type, defaulting to the legacy prop for `props` data.
-    fn resolve_type(&self, id: &str, legacy: bool) -> Result<AssetType, String> {
+    /// The asset type.
+    fn resolve_type(&self, id: &str) -> Result<AssetType, String> {
         match self.asset_type.as_deref().map(str::trim) {
             Some(asset_type) if !asset_type.is_empty() => AssetType::parse(asset_type),
-            _ if legacy => AssetType::parse(AssetType::PROP),
             _ => Err(format!("{id}: missing `asset_type`")),
         }
     }
@@ -1341,8 +1316,8 @@ impl CatalogEntryFile {
 
     /// Validates the surface-response, alpha and reflection fields.
     ///
-    /// A material that declares none of them renders as a legacy flat-shaded
-    /// material: no normal map, no sheen and opaque. Every authored value is
+    /// A material that declares none of them renders as the flat default
+    /// surface: no normal map, no sheen and opaque. Every authored value is
     /// range-checked here so a malformed entry is a named catalog error rather
     /// than a silently different surface.
     fn resolve_response(
@@ -1368,7 +1343,6 @@ impl CatalogEntryFile {
             && self.specular.is_none()
             && self.specular_color.is_none()
             && self.shine.is_none()
-            && self.roughness.is_none()
             && alpha_mode.is_none()
             && self.opacity.is_none()
             && self.alpha_cutoff.is_none()
@@ -1381,7 +1355,6 @@ impl CatalogEntryFile {
                 specular: None,
                 specular_color: None,
                 shine: None,
-                roughness: None,
                 alpha_mode: None,
                 opacity: None,
                 alpha_cutoff: None,
@@ -1392,15 +1365,9 @@ impl CatalogEntryFile {
         if asset_type.as_str() != AssetType::MATERIAL || source != AssetSource::Definition {
             return Err(format!(
                 "{id}: only a `material` `definition` asset may declare surface-response \
-                 (`normal_texture`, `normal_strength`, `specular`, `specular_color`, `shine`, \
-                 `roughness`), alpha (`alpha_mode`, `opacity`, `alpha_cutoff`) or a \
+                 (`normal_texture`, `normal_strength`, `specular`, `specular_color`, `shine`), \
+                 alpha (`alpha_mode`, `opacity`, `alpha_cutoff`) or a \
                  reflection (`reflection_mode`, `reflection_strength`) field"
-            ));
-        }
-        if self.shine.is_some() && self.roughness.is_some() {
-            return Err(format!(
-                "{id}: author either `shine` or `roughness`, not both; `shine` is the \
-                 author-facing spelling (`roughness` is its inverse)"
             ));
         }
         if let Some(texture) = &normal_texture
@@ -1437,8 +1404,6 @@ impl CatalogEntryFile {
                 .map_err(|field| format!("{id}: {field}"))?,
             specular_color,
             shine: unit_number(self.shine, "shine").map_err(|field| format!("{id}: {field}"))?,
-            roughness: unit_number(self.roughness, "roughness")
-                .map_err(|field| format!("{id}: {field}"))?,
             alpha_mode,
             opacity: unit_number(self.opacity, "opacity")
                 .map_err(|field| format!("{id}: {field}"))?,
@@ -1497,18 +1462,13 @@ impl CatalogEntryFile {
         Ok(source)
     }
 
-    /// The human-readable name: `display_name`, then the legacy `name`, then
-    /// the logical id.
+    /// The human-readable name: `display_name`, else the logical id.
     fn resolved_display_name(&self, id: &str) -> String {
         let display = self.display_name.trim();
-        if !display.is_empty() {
-            return display.to_string();
-        }
-        let legacy_name = self.name.trim();
-        if legacy_name.is_empty() {
+        if display.is_empty() {
             id.to_string()
         } else {
-            legacy_name.to_string()
+            display.to_string()
         }
     }
 }
@@ -1584,9 +1544,9 @@ impl AssetCatalog {
 
     /// Parses a catalog document.
     ///
-    /// Accepts the current `assets` array and the legacy `props` array so old
-    /// tooling keeps working. Duplicate logical ids are rejected: two entries
-    /// claiming `spooner-man` is a catalog error, never last-one-wins.
+    /// The document's one entry collection is `assets`. Duplicate logical ids
+    /// are rejected: two entries claiming `spooner-man` is a catalog error,
+    /// never last-one-wins.
     /// # Errors
     ///
     /// Returns a message when the document is not valid JSON, when a logical id
@@ -1610,12 +1570,7 @@ impl AssetCatalog {
             let display_name = {
                 let display = theme.display_name.trim();
                 if display.is_empty() {
-                    let legacy = theme.name.trim();
-                    if legacy.is_empty() {
-                        id.to_string()
-                    } else {
-                        legacy.to_string()
-                    }
+                    id.to_string()
                 } else {
                     display.to_string()
                 }
@@ -1627,15 +1582,8 @@ impl AssetCatalog {
             });
         }
 
-        for (entry, legacy) in file
-            .assets
-            .iter()
-            .map(|entry| (entry, false))
-            .chain(file.props.iter().map(|entry| (entry, true)))
-        {
-            let Some(entry) = entry.convert(legacy)? else {
-                continue;
-            };
+        for entry in &file.assets {
+            let entry = entry.convert()?;
             if catalog.entries.contains_key(&entry.id) {
                 return Err(format!(
                     "duplicate asset id `{}` in the asset catalog",

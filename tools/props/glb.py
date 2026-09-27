@@ -63,7 +63,7 @@ def _align(value: int, alignment: int = 4) -> int:
 
 
 def _write_single_glb(mesh, texture_png: bytes, name: str = "prop") -> bytes:
-    """The legacy single-node/single-primitive/single-material writer.
+    """The single-node/single-primitive/single-material writer.
 
     Kept verbatim as the default path of :func:`write_glb` so every existing
     builder keeps byte-identical output.
@@ -318,7 +318,7 @@ def _write_extended_glb(mesh, texture_png: bytes, name: str, materials: List[dic
     if not roots:
         raise GltfError("node hierarchy has no root node (cycle?)")
 
-    # Binary layout: mesh data first (the legacy order), then animation data.
+    # Binary layout: mesh data first (the header order), then animation data.
     # Every primitive carries its own compacted vertex arrays (only the
     # vertices its indices reference, in first-use order), so a vertex the
     # model does not draw is never shipped and the runtime's per-primitive

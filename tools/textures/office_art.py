@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Office surface artwork: wallpaper, carpet and panel ceiling PNGs.
 
-Wallpaper loads its authored PNGs; carpet and ceiling retain their legacy painters;
+Wallpaper loads its authored PNGs; carpet and ceiling use their own painters;
 ``ART`` maps the logical texture id to its catalog
 ``model`` path and painter, which ``build.py`` merges into the manifest.
 

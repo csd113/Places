@@ -417,7 +417,7 @@ def build_sink(p: PropBuilder) -> None:
     # hangs under it as a closed vessel whose rolled rim stands 6 mm proud of
     # the deck and 2 mm wider than the opening, its walls stepping 45 mm inward
     # over the 0.186 m drop to the floor.  Every edge of both shells is shared
-    # by exactly two quads and both wind outwards (unlike the legacy
+    # by exactly two quads and both wind outwards (unlike the older
     # `Mesh.box`, whose +X/-X faces wind inwards; see
     # `parts/refreshed.py::orient_outward`), so a winding/manifold audit has
     # something exact to prove.

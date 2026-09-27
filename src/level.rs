@@ -192,8 +192,8 @@ pub struct RoomDef {
     pub depth: f32,
     #[serde(default = "default_ceiling_height")]
     pub height: f32,
-    /// World Y of this room's floor plane. Omitted means `0.0`, the historical
-    /// global floor, so legacy levels load unchanged.
+    /// World Y of this room's floor plane. Omitted means `0.0`, the level's
+    /// global ground plane.
     #[serde(default)]
     pub floor_y: f32,
     /// Ceiling profile. Omitted means `Flat` at `floor_y + height`.
@@ -213,8 +213,7 @@ pub struct RoomDef {
     #[serde(default)]
     pub ceiling_shine: Option<f32>,
     /// Local origin `[x, z]` of this room's ceiling tile pattern, in world
-    /// X/Z. Omitted means the world origin, which is how every legacy level
-    /// tiles its ceiling artwork.
+    /// X/Z. Omitted means the world origin, the unshifted tile frame.
     ///
     /// The ceiling material still tiles in world-scale metres; this only moves
     /// the phase of the pattern (and with `ceiling_tile_rotation_degrees`, its
@@ -659,12 +658,14 @@ pub enum ActionDef {
         sound: Option<String>,
     },
     /// Drive a door to its open end. Target must be a door entity id.
+    #[serde(rename = "open")]
     OpenDoor {
         /// Door entity id. Required: a door action without a target does not
         /// identify which leaf to move.
         target: String,
     },
     /// Drive a door to its closed end. Target must be a door entity id.
+    #[serde(rename = "close")]
     CloseDoor {
         /// Door entity id. Required.
         target: String,
@@ -883,7 +884,11 @@ pub const SAUNA_DOOR_GLASS_MATERIAL: &str = "core:glass_window_clear_01";
 /// model needs: every rotated corner is inside the box, so the player can never
 /// clip a corner the model shows.
 #[must_use]
-fn rotated_half_extents_local(half_width: f32, half_depth: f32, rotation_degrees: f32) -> (f32, f32) {
+fn rotated_half_extents_local(
+    half_width: f32,
+    half_depth: f32,
+    rotation_degrees: f32,
+) -> (f32, f32) {
     let (sin, cos) = rotation_degrees.to_radians().sin_cos();
     let sin = sin.abs();
     let cos = cos.abs();
@@ -1154,6 +1159,39 @@ pub const MAX_LEVEL_EFFECTS: usize = 64;
 /// pane is a zero-thickness surface, so the physical slab needs a small,
 /// invisible depth to be a stable collider.
 pub const OPENING_GLASS_THICKNESS_M: f32 = 0.06;
+
+/// First material index a switchable fixture's luminous face uses.
+///
+/// A fixture face normally binds its family's shared sheet material, because
+/// every fixture of one family draws identically. A `switchable` fixture needs
+/// its face to turn off on its own, so it gets its own material identity in a
+/// slot after the family sheets; see [`fixture_face_material_index`].
+///
+/// Equal to the fixture family count (asserted by a test so the two tables
+/// cannot drift).
+pub const FIXTURE_SWITCHABLE_MATERIAL_BASE: u16 = 4;
+
+/// Material index of one ceiling fixture's luminous face.
+///
+/// `fixture_index` is the fixture's position in `ceiling_lights`; a
+/// non-switchable fixture uses its family's shared sheet (every fixture of the
+/// family draws one material), while a switchable fixture gets the stable slot
+/// `FIXTURE_SWITCHABLE_MATERIAL_BASE + fixture_index`, so its runtime on/off
+/// state never touches another fixture's face. The fixture-sheet table the
+/// renderer uploads is padded to cover every index this returns.
+#[must_use]
+pub fn fixture_face_material_index(
+    fixture_index: usize,
+    switchable: bool,
+    kind: crate::lighting::FixtureKind,
+) -> u16 {
+    if switchable {
+        FIXTURE_SWITCHABLE_MATERIAL_BASE
+            .saturating_add(u16::try_from(fixture_index).unwrap_or(u16::MAX))
+    } else {
+        u16::try_from(kind.index()).unwrap_or(0)
+    }
+}
 
 /// Hard cap on the doors one level may declare.
 pub const MAX_LEVEL_DOORS: u64 = 256;
@@ -2608,6 +2646,26 @@ pub const DEFAULT_ARC_SWEEP_DEGREES: f32 = 90.0;
 /// splitting the segment keeps that slack to a few centimetres while collision
 /// still comes from the same radii, base and top the emitter draws.
 pub const ARC_COLLISION_STEPS: usize = 4;
+/// How many concentric radial bands a circular pillar's collision ring is
+/// split into.
+///
+/// One axis-aligned box per rendered segment sub-step per band, so the
+/// collision and occluder silhouette follows the tessellated polygon instead
+/// of spanning a full-width row. Together the bands cover the whole disc (the
+/// innermost starts at the centre), which is what supports a player standing
+/// anywhere on the cap, while every box stays within the polygon's own sagitta
+/// of the circle at the rim.
+pub const PILLAR_COLLISION_BANDS: usize = 2;
+/// Largest angular span one pillar collision box may cover, in degrees.
+///
+/// A single axis-aligned box around a wedge over-covers at the box's diagonal
+/// corners: the corner that combines one boundary's greatest X extent with the
+/// other's greatest Z extent reaches about `radius * (1 + 0.0086 * span)` at
+/// 45 degrees. Keeping every sub-step at no more than three degrees bounds
+/// that slack to under three percent of the radius — tighter than the row
+/// decomposition it replaced — and never emits more than a couple of hundred
+/// boxes per pillar whatever the tessellation.
+pub const PILLAR_COLLISION_MAX_SPAN_DEGREES: f32 = 3.0;
 /// Hard ceiling on the number of arc walls a level may define.
 pub const MAX_LEVEL_ARC_WALLS: u64 = 1000;
 /// Hard ceiling on the number of circular pillars a level may define.
@@ -2653,35 +2711,6 @@ pub fn round_segments_for(sweep_degrees: f32, authored: Option<u32>) -> u32 {
     let count = clamped_ceil_u64(desired, max);
     u32::try_from(count.clamp(u64::from(ROUND_SEGMENTS_MIN), u64::from(ROUND_SEGMENTS_MAX)))
         .unwrap_or(ROUND_SEGMENTS_DEFAULT)
-}
-
-/// Clips a convex polygon in plan to the horizontal band `z ∈ [z0, z1]`.
-///
-/// Sutherland–Hodgman against the two horizontal planes; used by a circular
-/// pillar's collision derivation so each row box is the exact plan extent of
-/// the rendered polygon inside that row.
-fn clip_polygon_to_z_band(points: &[(f32, f32)], z0: f32, z1: f32) -> Vec<(f32, f32)> {
-    let clip = |points: &[(f32, f32)], above: bool, plane: f32| -> Vec<(f32, f32)> {
-        let inside = |z: f32| if above { z >= plane } else { z <= plane };
-        let mut out = Vec::with_capacity(points.len().saturating_add(1));
-        for (a, b) in points.iter().zip(points.iter().cycle().skip(1)) {
-            let a_in = inside(a.1);
-            let b_in = inside(b.1);
-            if a_in {
-                out.push(*a);
-            }
-            if a_in != b_in {
-                let t = (plane - a.1) / (b.1 - a.1);
-                out.push((t.mul_add(b.0 - a.0, a.0), plane));
-            }
-        }
-        out
-    };
-    let band = clip(points, true, z0);
-    if band.len() < 3 {
-        return Vec::new();
-    }
-    clip(&band, false, z1)
 }
 
 /// A data-authored arc wall: a curved wall slab on a circular plan.
@@ -2952,8 +2981,9 @@ impl ArcWallDef {
 /// follows the local clear ceiling, exactly like a square `columns[]` entry,
 /// and the body, cap and any visible bottom take ordinary material ids. The
 /// rendered polygon is the same one collision and the lightmap occluders use:
-/// [`PillarDef::collision_boxes`] decomposes it into z-rows, so the piece
-/// never collides as one oversized square around its bounding circle.
+/// [`PillarDef::collision_boxes`] decomposes it into a ring of per-segment
+/// radial-band boxes, so the piece never collides as one oversized square
+/// around its bounding circle and a baked shadow around it stays round.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PillarDef {
     /// World X of the pillar's centre.
@@ -3037,57 +3067,102 @@ impl PillarDef {
         }
     }
 
-    /// The pillar's solid as one collision box per horizontal row of its
-    /// rendered polygon, each row split at its midpoint.
+    /// The pillar's solid as one collision box per rendered segment sub-step
+    /// per concentric radial band.
     ///
-    /// Rows are cut at the polygon's own vertex heights and their midpoints;
-    /// each box spans the polygon's full plan extent inside its row, so the
-    /// union covers the drawn polygon exactly (plus a sliver bounded by the
-    /// row size), supports a player standing on the top anywhere over the
-    /// pillar, and never becomes a square around the whole disc.
+    /// The bands tile the disc, so their union covers the drawn polygon
+    /// (including the centre, which supports a player standing on the cap) and
+    /// no box ever spans a full-width row of the plan. Each rendered segment
+    /// is split until its sub-steps are no wider than
+    /// [`PILLAR_COLLISION_MAX_SPAN_DEGREES`], which keeps every diagonal box
+    /// corner within a fraction of a percent of the radius — so the collision
+    /// and occluder silhouette reads round instead of square, and a baked
+    /// shadow around the pillar stays round too. The same decomposition is what
+    /// [`LevelDef::architecture_solids`] hands the lighting bake.
     #[must_use]
     pub fn collision_boxes(&self, surfaces: &LevelSurfaces<'_>) -> Vec<ArchitectureBox> {
         let points = self.polygon_points();
+        let len = points.len();
+        if len < 3 {
+            return Vec::new();
+        }
         let base = self.base_y(surfaces);
         let top = self.top_y(surfaces);
-        let mut zs: Vec<f32> = points.iter().map(|(_, z)| *z).collect();
-        zs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        zs.dedup_by(|a, b| (*a - *b).abs() <= 1.0e-4);
-        // Split every row at its midpoint: the AABB of a polygon row is loosest
-        // where the polygon narrows fastest, and halving the row halves that
-        // slack while roughly doubling the (cheap) box count.
-        let mut levels: Vec<f32> = Vec::with_capacity(zs.len().saturating_mul(2));
-        for pair in zs.windows(2) {
-            if let (Some(low), Some(high)) = (pair.first(), pair.get(1)) {
-                levels.push(*low);
-                levels.push(f32::midpoint(*low, *high));
-            }
-        }
-        if let Some(last) = zs.last() {
-            levels.push(*last);
-        }
-        let zs = levels;
-        let mut boxes = Vec::with_capacity(zs.len().saturating_sub(1));
-        for pair in zs.windows(2) {
-            let (z0, z1) = match (pair.first(), pair.get(1)) {
-                (Some(z0), Some(z1)) => (*z0, *z1),
-                _ => continue,
+        let segments = self.resolved_segments();
+        let count = f32::from(u16::try_from(segments).unwrap_or(u16::MAX));
+        let band_count = f32::from(u16::try_from(PILLAR_COLLISION_BANDS).unwrap_or(u16::MAX));
+        // A whole segment spans `360 / segments` degrees; each is split again
+        // until every sub-step is at most `PILLAR_COLLISION_MAX_SPAN_DEGREES`.
+        let segment_span = 360.0 / count;
+        let steps = u32::try_from(clamped_ceil_u64(
+            segment_span / PILLAR_COLLISION_MAX_SPAN_DEGREES,
+            64.0,
+        ))
+        .unwrap_or(1)
+        .max(1);
+        let steps_f = f32::from(u16::try_from(steps).unwrap_or(u16::MAX));
+        let mut boxes = Vec::with_capacity(
+            len.saturating_mul(PILLAR_COLLISION_BANDS)
+                .saturating_mul(usize::try_from(steps).unwrap_or(1)),
+        );
+        for (index, start) in points.iter().enumerate() {
+            let next = if index.saturating_add(1) >= len {
+                0
+            } else {
+                index.saturating_add(1)
             };
-            if z1 - z0 <= 1.0e-5 {
+            let Some(end) = points.get(next) else {
                 continue;
-            }
-            let clipped = clip_polygon_to_z_band(&points, z0, z1);
-            if clipped.len() < 3 {
-                continue;
-            }
-            let (min_x, max_x) = clipped
-                .iter()
-                .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), (x, _)| {
-                    (lo.min(*x), hi.max(*x))
-                });
-            if let Some(boxed) = ArchitectureBox::from_corners([min_x, base, z0], [max_x, top, z1])
-            {
-                boxes.push(boxed);
+            };
+            let index_f = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+            for step in 0..steps {
+                let step_fraction = f32::from(u16::try_from(step).unwrap_or(u16::MAX));
+                let fraction0 = (index_f + step_fraction / steps_f) / count;
+                let fraction1 = (index_f + (step_fraction + 1.0) / steps_f) / count;
+                let angle0 = 360.0 * fraction0;
+                let angle1 = 360.0 * fraction1;
+                let first_step = step == 0;
+                let last_step = step.saturating_add(1) >= steps;
+                for band in 0..PILLAR_COLLISION_BANDS {
+                    let band_f = f32::from(u16::try_from(band).unwrap_or(u16::MAX));
+                    let inner_radius = self.radius * (band_f / band_count);
+                    let outer_radius = self.radius * ((band_f + 1.0) / band_count);
+                    // The outermost band's first and last corners are exactly
+                    // the polygon's own vertices, so the coverage test and the
+                    // drawn edge agree to the last bit; interior sub-step
+                    // boundaries reuse the same angles at both radii.
+                    let outer = band.saturating_add(1) >= PILLAR_COLLISION_BANDS;
+                    let corner_start = if outer && first_step {
+                        *start
+                    } else {
+                        round_point(self.x, self.z, outer_radius, angle0)
+                    };
+                    let corner_end = if outer && last_step {
+                        *end
+                    } else {
+                        round_point(self.x, self.z, outer_radius, angle1)
+                    };
+                    let inner_start = round_point(self.x, self.z, inner_radius, angle0);
+                    let inner_end = round_point(self.x, self.z, inner_radius, angle1);
+                    let corners = [inner_start, corner_start, corner_end, inner_end];
+                    let min_x = corners
+                        .iter()
+                        .fold(f32::INFINITY, |low, corner| low.min(corner.0));
+                    let max_x = corners
+                        .iter()
+                        .fold(f32::NEG_INFINITY, |high, corner| high.max(corner.0));
+                    let min_z = corners
+                        .iter()
+                        .fold(f32::INFINITY, |low, corner| low.min(corner.1));
+                    let max_z = corners
+                        .iter()
+                        .fold(f32::NEG_INFINITY, |high, corner| high.max(corner.1));
+                    if let Some(boxed) =
+                        ArchitectureBox::from_corners([min_x, base, min_z], [max_x, top, max_z])
+                    {
+                        boxes.push(boxed);
+                    }
+                }
             }
         }
         boxes
@@ -4069,8 +4144,8 @@ impl DecalSurface {
 /// Ceiling artwork is a world-space material tile, but the tile frame is not
 /// necessarily the world origin: a room may author its own
 /// `ceiling_tile_origin` and `ceiling_tile_rotation_degrees`, and this enum is
-/// how a decal opts into that frame. New decals default to `None`, so every
-/// legacy placement keeps its authored coordinates and rotation exactly.
+/// how a decal opts into that frame. The default `None` keeps the authored
+/// coordinates and rotation exactly.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum DecalAlign {
@@ -4094,7 +4169,7 @@ impl DecalAlign {
 }
 
 /// `skip_serializing_if` helper: the default align is never written, so a
-/// legacy level's serialized content stays byte-identical.
+/// round-tripped level keeps its serialized content byte-identical.
 ///
 /// Takes a reference because that is serde's `skip_serializing_if` contract;
 /// the type is a one-byte enum, and the signature is not ours to choose.
@@ -4155,9 +4230,8 @@ impl DecalDef {
 
 /// Where a light fixture is mounted inside its room.
 ///
-/// The level key is `ceiling_lights` for compatibility with existing levels;
-/// it holds every fixture, including wall-mounted ones, which author
-/// `"mount": "wall"` plus a world-space `y`.
+/// The level's `ceiling_lights` array holds every fixture, including
+/// wall-mounted ones, which author `"mount": "wall"` plus a world-space `y`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum LightMount {
@@ -4518,8 +4592,8 @@ pub struct PropDef {
     pub x: f32,
     /// Vertical offset of the prop's base above the local walkable floor (the
     /// containing room's `floor_y` plus any floor region). Negative values sink
-    /// the prop into the floor (intentional). Because the floor of a legacy
-    /// room is at world Y `0.0`, this was always absolute world Y in practice.
+    /// the prop into the floor (intentional). A room whose floor is at world
+    /// Y `0.0` makes this the prop's absolute world Y.
     #[serde(default)]
     pub y: f32,
     #[serde(default)]
@@ -5757,10 +5831,7 @@ impl LevelDef {
 /// opening's rectangle. An opening without `glass`, or with `solid: false`, is
 /// the bare hole.
 #[must_use]
-fn opening_glass_collider(
-    wall: &WallDef,
-    opening: &WallOpeningDef,
-) -> Option<WallAabb> {
+fn opening_glass_collider(wall: &WallDef, opening: &WallOpeningDef) -> Option<WallAabb> {
     if !opening.solid || opening.glass_material().is_none() {
         return None;
     }
@@ -6083,10 +6154,9 @@ pub const RIM_BACKING: f32 = 0.4;
 /// values), so a formula cannot drift between the mesh and the systems that
 /// have to agree with it.
 ///
-/// Ownership follows the clear-ceiling query: the first room in
-/// `rooms` then `room` order whose footprint contains the point (with
-/// [`ROOM_EDGE_EPS_M`] tolerance) wins. Legacy levels therefore resolve exactly
-/// as they always did, including walls sitting on a shared room boundary.
+/// Ownership follows the clear-ceiling query: the first room in `rooms` order
+/// whose footprint contains the point (with [`ROOM_EDGE_EPS_M`] tolerance)
+/// wins, including walls sitting on a shared room boundary.
 #[derive(Debug, Clone)]
 pub struct LevelSurfaces<'a> {
     rooms: Vec<&'a RoomDef>,
@@ -6738,8 +6808,8 @@ impl WalkableCeilingRoom {
 /// It is built once per level from the same rooms and profiles
 /// [`LevelSurfaces::ceiling_y_at`] resolves against, including a gable's
 /// ridge, but borrows nothing from the definition. Unlike the borrowing query a
-/// point outside every room answers `None`: a legacy spawn or a walkable void
-/// has no ceiling to clamp against.
+/// point outside every room answers `None`: an off-room spawn or a walkable
+/// void has no ceiling to clamp against.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct WalkableCeiling {
     rooms: Vec<WalkableCeilingRoom>,

@@ -2611,6 +2611,266 @@ fn test_arc_wall_uvs_tile_by_arc_length_at_world_scale() {
     );
 }
 
+/// Builds a level's mesh with the lightmap plan on, so every emitted quad keeps
+/// its own chart and the coincident ring vertices of a curved body stay
+/// separate — exactly the path the smooth frame resolution exists for. A
+/// vertex-lit build would deduplicate those vertices and hide a regression.
+fn lightmapped_mesh(level: &LevelDef) -> crate::render::LevelMesh {
+    let catalog = crate::loader::PropCatalog::builtin();
+    let materials = logical_materials(level);
+    let mut assets = crate::props::PropAssets::default();
+    let prepared = crate::render::prepare_level_geometry_with_lightmaps(
+        level,
+        &catalog,
+        &mut assets,
+        &materials,
+        crate::render::LightmapBuildOptions::for_lightmaps(crate::quality::LightmapQuality::Full),
+        None,
+    );
+    assert_eq!(
+        prepared.build.lightmap_failure, None,
+        "the test level must plan its lightmaps"
+    );
+    assert!(
+        prepared.fill.is_some(),
+        "the test level owes a lightmap fill"
+    );
+    prepared.build.mesh
+}
+
+/// The three components of one world normal as a unit-checked vector.
+fn unit_normal(normal: [f32; 3], context: &str) -> [f32; 3] {
+    let length = normal[0].hypot(normal[1]).hypot(normal[2]);
+    assert!(
+        (length - 1.0).abs() <= 1.0e-3,
+        "{context}: normal {normal:?} has length {length}"
+    );
+    normal
+}
+
+/// Buckets mesh vertices by their exact world position and returns
+/// `(position, normals)` per bucket, in first-seen order.
+fn normals_by_position(vertices: &[crate::render::Vertex]) -> Vec<([f32; 3], Vec<[f32; 3]>)> {
+    let mut buckets: Vec<([f32; 3], Vec<[f32; 3]>)> = Vec::new();
+    for vertex in vertices {
+        let position = [vertex.pos[0], vertex.pos[1], vertex.pos[2]];
+        if let Some(bucket) = buckets.iter_mut().find(|(known, _)| {
+            (known[0] - position[0]).abs() < 1.0e-5
+                && (known[1] - position[1]).abs() < 1.0e-5
+                && (known[2] - position[2]).abs() < 1.0e-5
+        }) {
+            bucket.1.push(vertex.normal);
+        } else {
+            buckets.push((position, vec![vertex.normal]));
+        }
+    }
+    buckets
+}
+
+/// A circular pillar's body is one smooth cylinder: each segment's ring
+/// position is shared with its neighbour (the lightmap charts keep the
+/// vertices apart), every normal is a unit radial direction, and the normals
+/// progress around the ring and across the closing seam by exactly one
+/// segment step.
+#[test]
+fn test_pillar_body_normals_are_smooth_radial_and_seamless() {
+    const CENTRE_X: f32 = 8.0;
+    const CENTRE_Z: f32 = 8.0;
+    const RADIUS: f32 = 1.0;
+    const HEIGHT: f32 = 2.0;
+    const SEGMENTS: u32 = 24;
+    let level = parse(&format!(
+        r#"{{
+            "format_version": 2,
+            "id": "pillar_normals",
+            "name": "Pillar Normals",
+            "spawn": {{ "x": 1.0, "z": 1.0 }},
+            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 16.0, "depth": 16.0, "height": 4.0 }} ],
+            "pillars": [
+                {{ "x": {CENTRE_X}, "z": {CENTRE_Z}, "radius": {RADIUS},
+                   "segments": {SEGMENTS}, "height": {HEIGHT},
+                   "material": "core:pool_tile_wall_01" }}
+            ],
+            "ceiling_lights": [
+                {{ "fixture": "core:fluorescent_panel_01", "x": {CENTRE_X}, "z": {CENTRE_Z} }}
+            ]
+        }}"#
+    ));
+    let materials = logical_materials(&level);
+    let material = materials.index_of("core:pool_tile_wall_01").expect("body");
+    let mesh = lightmapped_mesh(&level);
+
+    let mut body: Vec<crate::render::Vertex> = Vec::new();
+    for range in &mesh.ranges {
+        if range.key.kind != crate::render::SurfaceKind::Wall || range.key.material != material {
+            continue;
+        }
+        for vertex in &range.vertices {
+            let dx = vertex.pos[0] - CENTRE_X;
+            let dz = vertex.pos[2] - CENTRE_Z;
+            let distance = dx.hypot(dz);
+            // The caps are flat-shaded: only the vertical ring is in scope.
+            if vertex.normal[1].abs() > 0.5 {
+                continue;
+            }
+            assert!(
+                (distance - RADIUS).abs() <= 1.0e-3,
+                "a body vertex must sit on the drawn ring: ({}, {}, {}) at {distance}",
+                vertex.pos[0],
+                vertex.pos[1],
+                vertex.pos[2]
+            );
+            body.push(*vertex);
+        }
+    }
+    assert!(
+        body.len() >= usize::try_from(SEGMENTS).unwrap_or(0) * 4,
+        "the ring's two rows are emitted: {}",
+        body.len()
+    );
+
+    // Every normal is unit length and points radially out of the pillar axis.
+    for vertex in &body {
+        let normal = unit_normal(vertex.normal, "pillar body");
+        let dx = vertex.pos[0] - CENTRE_X;
+        let dz = vertex.pos[2] - CENTRE_Z;
+        let distance = dx.hypot(dz);
+        assert!(distance > 0.0);
+        let radial = [dx / distance, 0.0, dz / distance];
+        let dot = normal[0] * radial[0] + normal[2] * radial[2];
+        assert!(
+            dot > 0.999,
+            "a pillar body normal must be radial: {normal:?} against {radial:?} (dot {dot})"
+        );
+    }
+
+    // The ring positions are shared: every boundary position carries the two
+    // vertices its two segments emitted at each of the two rows, so a plain
+    // index-sharing count proves adjacent segments meet without a position gap.
+    let buckets = normals_by_position(&body);
+    assert_eq!(
+        buckets.len(),
+        usize::try_from(SEGMENTS).unwrap_or(0) * 2,
+        "one shared position per segment boundary per row"
+    );
+    for (position, normals) in &buckets {
+        assert_eq!(
+            normals.len(),
+            2,
+            "position {position:?} must be shared by two adjacent segments"
+        );
+    }
+
+    // The normals progress around the ring — including across the closing
+    // seam — by exactly one segment step, so the seam is not a duplicated or
+    // shifted direction.
+    let mut angles: Vec<f32> = buckets
+        .iter()
+        .map(|(_, normals)| {
+            let mean = normals.iter().fold([0.0_f32; 3], |sum, normal| {
+                [sum[0] + normal[0], sum[1] + normal[1], sum[2] + normal[2]]
+            });
+            mean[0].atan2(-mean[2]).rem_euclid(std::f32::consts::TAU)
+        })
+        .collect();
+    angles.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    // The base and top rows carry the same two normals at each boundary, so
+    // the angle sequence collapses back to one entry per ring position.
+    angles.dedup_by(|a, b| (*a - *b).abs() <= 1.0e-3);
+    assert_eq!(
+        angles.len(),
+        usize::try_from(SEGMENTS).unwrap_or(0),
+        "one distinct normal per ring position"
+    );
+    let step = std::f32::consts::TAU / f32::from(u16::try_from(SEGMENTS).unwrap_or(u16::MAX));
+    for (index, angle) in angles.iter().enumerate() {
+        let next = angles
+            .get(index.saturating_add(1))
+            .copied()
+            .unwrap_or(angles[0] + std::f32::consts::TAU);
+        assert!(
+            (next - angle - step).abs() <= 1.0e-3,
+            "ring normals must step by {step}: {angle} -> {next}"
+        );
+    }
+}
+
+/// An arc wall's inner and outer faces are smooth radial surfaces along the
+/// sweep: unit normals pointing away from (outer) and toward (inner) the
+/// circle's centre, continuous across the ring's closing seam.
+#[test]
+fn test_arc_wall_faces_have_smooth_radial_normals() {
+    const CENTRE_X: f32 = 8.0;
+    const CENTRE_Z: f32 = 8.0;
+    const RADIUS: f32 = 2.0;
+    const THICKNESS: f32 = 0.4;
+    const SEGMENTS: u32 = 24;
+    let level = parse(&format!(
+        r#"{{
+            "format_version": 2,
+            "id": "arc_normals",
+            "name": "Arc Normals",
+            "spawn": {{ "x": 1.0, "z": 1.0 }},
+            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 16.0, "depth": 16.0, "height": 4.0 }} ],
+            "arc_walls": [
+                {{ "x": {CENTRE_X}, "z": {CENTRE_Z}, "radius": {RADIUS},
+                   "thickness": {THICKNESS}, "sweep_degrees": 360.0,
+                   "segments": {SEGMENTS}, "height": 2.0,
+                   "material": "core:pool_tile_wall_01" }}
+            ],
+            "ceiling_lights": [
+                {{ "fixture": "core:fluorescent_panel_01", "x": {CENTRE_X}, "z": {CENTRE_Z} }}
+            ]
+        }}"#
+    ));
+    let materials = logical_materials(&level);
+    let material = materials.index_of("core:pool_tile_wall_01").expect("body");
+    let mesh = lightmapped_mesh(&level);
+    let inner = RADIUS - THICKNESS * 0.5;
+    let outer = RADIUS + THICKNESS * 0.5;
+    let mut faces = 0usize;
+    for range in &mesh.ranges {
+        if range.key.kind != crate::render::SurfaceKind::Wall || range.key.material != material {
+            continue;
+        }
+        for vertex in &range.vertices {
+            // Skip the flat caps and ends: only the two curved faces matter.
+            if vertex.normal[1].abs() > 0.5 {
+                continue;
+            }
+            let dx = vertex.pos[0] - CENTRE_X;
+            let dz = vertex.pos[2] - CENTRE_Z;
+            let distance = dx.hypot(dz);
+            let outward = if (distance - outer).abs() <= 0.05 {
+                true
+            } else if (distance - inner).abs() <= 0.05 {
+                false
+            } else {
+                continue;
+            };
+            let normal = unit_normal(vertex.normal, "arc face");
+            let radial = [dx / distance, 0.0, dz / distance];
+            let dot = normal[0] * radial[0] + normal[2] * radial[2];
+            if outward {
+                assert!(
+                    dot > 0.999,
+                    "the convex face normal must point outward: {normal:?} against {radial:?} (dot {dot})"
+                );
+            } else {
+                assert!(
+                    dot < -0.999,
+                    "the concave face normal must point inward: {normal:?} against {radial:?} (dot {dot})"
+                );
+            }
+            faces = faces.saturating_add(1);
+        }
+    }
+    assert!(
+        faces >= usize::try_from(SEGMENTS).unwrap_or(0) * 4,
+        "both curved faces of the ring are smooth: {faces}"
+    );
+}
+
 /// Arc-wall radial end caps face out of the slab for both sweep signs; a
 /// negative (counter-clockwise) sweep must not mirror its ends inward.
 #[test]

@@ -155,16 +155,19 @@ impl WallAabb {
 }
 
 /// The highest walkable top under `(x, z)`: a box whose footprint contains the
-/// centre and whose top is not above `max_top`.
+/// centre and whose top is not more than one walkable step above `max_top`.
 ///
 /// This is the extra support the vertical pass lands on, alongside the level's
 /// walkable floor, and is what makes a solid prop or a wall top landable. The
-/// centre containment keeps a thin ledge lip from catching a falling player.
+/// [`PLAYER_STEP_HEIGHT`] allowance matches the floor's: a descending player
+/// whose feet are within one step of a prop top lands *on* the top (a bounded
+/// step-up of at most one step) instead of sinking past the side. The centre
+/// containment keeps a thin ledge lip from catching a falling player.
 #[must_use]
 pub fn highest_support_top(x: f32, z: f32, max_top: f32, walls: &[WallAabb]) -> Option<f32> {
     let mut highest: Option<f32> = None;
     for wall in walls {
-        if !wall.supports_center(x, z) || wall.max_y > max_top + STEP_EPS {
+        if !wall.supports_center(x, z) || wall.max_y > max_top + PLAYER_STEP_HEIGHT + STEP_EPS {
             continue;
         }
         highest = Some(highest.map_or(wall.max_y, |top| top.max(wall.max_y)));
@@ -183,7 +186,7 @@ pub fn highest_support_top_indexed(
 ) -> Option<f32> {
     let mut highest: Option<f32> = None;
     index.for_each_point(x, z, walls, |wall| {
-        if !wall.supports_center(x, z) || wall.max_y > max_top + STEP_EPS {
+        if !wall.supports_center(x, z) || wall.max_y > max_top + PLAYER_STEP_HEIGHT + STEP_EPS {
             return;
         }
         highest = Some(highest.map_or(wall.max_y, |top| top.max(wall.max_y)));

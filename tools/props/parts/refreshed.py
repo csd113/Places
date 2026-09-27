@@ -1,6 +1,6 @@
 """Opt-in closed primitives and file-backed atlases for refreshed props.
 
-Shared legacy mesh generators are unchanged; only callers opt into these fixes.
+Shared mesh generators are unchanged; only callers opt into these fixes.
 """
 from pathlib import Path
 from itertools import product
@@ -87,7 +87,7 @@ def solid_cylinder(p, base, radius, height, **kwargs):
 
 
 def outward_lathe(p, base, profile, **kwargs):
-    """Opt-in corrected winding for the legacy Y-axis surface of revolution."""
+    """Opt-in corrected winding for the Y-axis surface of revolution."""
     start = len(p.mesh.indices)
     p.lathe(base, profile, **kwargs)
     if kwargs.get("axis", "y") == "y":

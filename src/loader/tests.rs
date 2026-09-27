@@ -531,8 +531,8 @@ fn vertical_level(room_extra: &str, level_extra: &str) -> LevelDef {
 }
 
 #[test]
-fn test_validate_accepts_legacy_and_vertical_rooms() {
-    // Legacy: no elevation, no profile.
+fn test_validate_accepts_flat_and_vertical_rooms() {
+    // Flat: no elevation, no profile.
     assert!(validate_level(&vertical_level("", "")).is_ok());
     // Elevated with a gable ceiling and a recessed region.
     let level = vertical_level(
@@ -664,7 +664,7 @@ fn shine_level(value: &str) -> LevelDef {
 }
 
 #[test]
-fn test_validate_accepts_a_legacy_level_without_any_shine() {
+fn test_validate_accepts_a_level_without_any_shine() {
     // The shipped shape: no `shine` key anywhere. Every override is `None`.
     let level = vertical_level("", "");
     assert!(validate_level(&level).is_ok());
@@ -1143,10 +1143,12 @@ fn test_parse_hex_color() {
 fn test_prop_catalog_from_json_str() {
     let json = r##"{
         "format_version": 2,
-        "props": [
-            { "id": "core:couch", "name": "Couch", "category": "Furniture",
-              "size": [2.0, 0.9, 0.9], "color": "#6b5f4a", "model": null, "solid": true },
-            { "id": "core:lamp" }
+        "assets": [
+            { "id": "core:couch", "display_name": "Couch", "asset_class": "core",
+              "asset_type": "prop", "category": "Furniture",
+              "size": [2.0, 0.9, 0.9], "color": "#6b5f4a", "solid": true },
+            { "id": "core:lamp", "asset_class": "core",
+              "asset_type": "prop" }
         ]
     }"##;
     let catalog = PropCatalog::from_json_str(json).expect("valid catalog");
@@ -1558,7 +1560,7 @@ fn test_ceiling_light_colour_is_optional_validated_and_round_trips() {
         )
     };
 
-    // Omitted colour: legacy levels keep loading and emit the documented
+    // Omitted colour: the fixture keeps loading and emits the documented
     // restrained warm default.
     let omitted = LevelDef::from_json(&base(
         r#"[{ "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0 }]"#,
@@ -1870,7 +1872,8 @@ fn test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog() {
             "rooms": [{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 6.0, "height": 3.0 }],
             "ceiling_lights": [
                 { "fixture": "core:pool_light_round", "x": 2.0, "z": 2.0 },
-                { "fixture": "core:pool_light_round", "x": 4.0, "z": 2.0 },
+                { "fixture": "core:pool_light_round", "x": 4.0, "z": 2.0,
+                  "id": "switchable_round", "switchable": true },
                 { "fixture": "core:pool_light_wall", "x": 6.0, "z": 2.0,
                   "mount": "wall", "y": 1.7, "rotation_degrees": 180.0 },
                 { "fixture": "core:fluorescent_panel_01", "x": 8.0, "z": 2.0 },
@@ -1883,17 +1886,31 @@ fn test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog() {
     let mut cache = TextureCache::new();
     let sheets = resolve_fixture_sheets(&level, &catalog, None, &mut cache);
 
-    // One sheet per family, in the level's first-use order; the second round
-    // fixture adds nothing.
+    // One sheet per family (in family-slot order), plus one private slot for
+    // the switchable fixture. The second round fixture adds nothing to the
+    // family sheet.
     let kinds: Vec<crate::lighting::FixtureKind> = sheets.iter().map(|sheet| sheet.kind).collect();
     assert_eq!(
         kinds,
         [
+            crate::lighting::FixtureKind::FluorescentPanel,
             crate::lighting::FixtureKind::RoundRecessed,
             crate::lighting::FixtureKind::WallSconce,
-            crate::lighting::FixtureKind::FluorescentPanel,
             crate::lighting::FixtureKind::FlushMount,
+            crate::lighting::FixtureKind::RoundRecessed,
         ]
+    );
+    let slots: Vec<u16> = sheets.iter().map(|sheet| sheet.slot).collect();
+    assert_eq!(
+        slots,
+        [
+            0,
+            1,
+            2,
+            3,
+            crate::level::FIXTURE_SWITCHABLE_MATERIAL_BASE + 1,
+        ],
+        "the switchable fixture owns the private slot for its array position"
     );
 
     let sheet_for = |kind| {
@@ -2717,7 +2734,8 @@ fn test_validate_accepts_ids_interactions_and_area_triggers() {
     .expect("the interaction level parses");
     validate_level(&level).expect("valid ids, targets and trigger");
 
-    let items = crate::interact::Interactables::from_level(&level, &crate::door::Doors::from_level(&level));
+    let items =
+        crate::interact::Interactables::from_level(&level, &crate::door::Doors::from_level(&level));
     assert_eq!(items.len(), 2);
     let cooler = items.get(0).expect("the cooler interactable");
     assert_eq!(cooler.id, "cooler");
@@ -2888,30 +2906,34 @@ fn test_validate_rejects_too_many_actions_on_one_source() {
     assert!(err.contains("the limit is"), "unexpected error: {err}");
 }
 
-/// Legacy maps carry no new keys: they validate, resolve no interactables and
-/// no triggers, and their props still receive deterministic ids for later
+/// A level with no interaction content validates, resolves no interactables
+/// and no triggers, and its props still receive deterministic ids for later
 /// reference without changing any rendered or simulated behaviour.
 #[test]
-fn test_legacy_maps_load_without_interactions_or_triggers() {
+fn test_levels_load_without_interactions_or_triggers() {
     let level = level_with_props_json(
         r#"[{ "model": "core:chair", "x": 1.0, "z": 1.0 },
             { "model": "core:chair", "x": 2.0, "z": 1.0 }]"#,
     );
-    validate_level(&level).expect("a legacy prop list is still valid");
+    validate_level(&level).expect("a prop list is still valid");
     assert!(
-        crate::interact::Interactables::from_level(&level, &crate::door::Doors::from_level(&level)).is_empty(),
+        crate::interact::Interactables::from_level(&level, &crate::door::Doors::from_level(&level))
+            .is_empty(),
         "scenery without an interaction is not aimable"
     );
     assert!(
         crate::level::AreaTriggers::from_level(&level).is_empty(),
-        "a legacy level has no triggers"
+        "the level has no triggers"
     );
     assert_eq!(level.prop_instance_ids(), vec!["chair_1", "chair_2"]);
 
     // The shipped demo's demo interactions resolve and validate.
     let manager = LevelManager::new();
     let loaded = manager.load_default().expect("the demo loads");
-    let interactables = crate::interact::Interactables::from_level(&loaded.level, &crate::door::Doors::from_level(&loaded.level));
+    let interactables = crate::interact::Interactables::from_level(
+        &loaded.level,
+        &crate::door::Doors::from_level(&loaded.level),
+    );
     assert!(
         interactables.len() >= 5,
         "the demo authors several label interactions: {}",
@@ -2937,7 +2959,8 @@ fn test_validate_accepts_a_label_only_target() {
         ]"#,
     );
     validate_level(&level).expect("a label-only target is valid");
-    let items = crate::interact::Interactables::from_level(&level, &crate::door::Doors::from_level(&level));
+    let items =
+        crate::interact::Interactables::from_level(&level, &crate::door::Doors::from_level(&level));
     let lamp = items.index_of("lamp").expect("the target is resolved");
     assert!(
         items.get(lamp).expect("lamp").actions.is_empty(),

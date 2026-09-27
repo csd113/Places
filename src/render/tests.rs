@@ -2092,8 +2092,9 @@ fn test_prop_catalog_supplies_size_and_colour() {
     let catalog = crate::loader::PropCatalog::from_json_str(
         r##"{
             "format_version": 2,
-            "props": [{
-                "id": "core:test_prop", "name": "Test Prop", "category": "Decorative",
+            "assets": [{
+                "id": "core:test_prop", "display_name": "Test Prop",
+                "asset_class": "core", "asset_type": "prop", "category": "Decorative",
                 "size": [1.0, 2.0, 0.5], "color": "#804020", "solid": false
             }]
         }"##,
@@ -2462,8 +2463,9 @@ fn a_broken_model_falls_back_to_the_placeholder_box_without_panicking() {
     let catalog = crate::loader::PropCatalog::from_json_str(
         r##"{
             "format_version": 2,
-            "props": [{
-                "id": "core:broken", "name": "Broken", "category": "Other",
+            "assets": [{
+                "id": "core:broken", "display_name": "Broken",
+                "asset_class": "core", "asset_type": "prop", "category": "Other",
                 "size": [0.5, 1.0, 0.5], "color": "#808080",
                 "model": "models/does_not_exist.glb"
             }]
@@ -4372,8 +4374,9 @@ fn multi_material_scene() -> (
     let catalog = crate::loader::PropCatalog::from_json_str(&format!(
         r##"{{
             "format_version": 2,
-            "props": [{{
-                "id": "core:test_multimat", "name": "Test Multimat", "category": "Decorative",
+            "assets": [{{
+                "id": "core:test_multimat", "display_name": "Test Multimat",
+                "asset_class": "core", "asset_type": "prop", "category": "Decorative",
                 "model": "{model_path}", "size": [1.0, 0.2, 2.0],
                 "color": "#808080", "solid": false
             }}]
@@ -5929,7 +5932,7 @@ fn the_neutral_resolver_applies_material_defaults() {
         true,
     );
     assert!(!state.response_enabled);
-    assert_eq!(state.roughness, DEFAULT_ROUGHNESS, "the legacy default");
+    assert_eq!(state.roughness, DEFAULT_ROUGHNESS, "the flat default");
     assert_eq!(state.specular, [0.0; 3]);
     assert_eq!(state.alpha, MaterialAlpha::OPAQUE);
     assert!(!state.reflection_eligible());
@@ -6801,10 +6804,9 @@ fn a_placed_spooner_man_becomes_a_character_and_a_chair_does_not() {
 /// The shipped demo level places exactly one skinned prop, and the character
 /// path claims its model without touching the rest of the prop field.
 ///
-/// The demo now places two animated props: the skinned Spooner-Man and the
-/// rigid (skinless) kitchen wall switch. Each is claimed once, by its own
-/// model, and the skinned one is the only character running the locomotion
-/// driver.
+/// The demo places four animatable props: the skinned Spooner-Man and three
+/// rigid (skinless) wall switches. Each is claimed once, by its own model, and
+/// the skinned one is the only character running the locomotion driver.
 #[test]
 fn the_places_demo_level_places_its_animated_props_once() {
     let content = std::fs::read_to_string("assets/levels/places_demo.json")
@@ -6814,14 +6816,22 @@ fn the_places_demo_level_places_its_animated_props_once() {
     let mut assets = shipped_assets();
     let lighting = LevelLighting::bake(&level);
     let scene = CharacterScene::spawn_characters(&level, &catalog, &mut assets, &lighting);
-    assert_eq!(scene.len(), 2, "the demo places two animated props");
+    assert_eq!(scene.len(), 4, "the demo places four animatable props");
     let mut ids: Vec<&str> = scene
         .characters()
         .iter()
         .filter_map(|character| character.instance_id())
         .collect();
     ids.sort_unstable();
-    assert_eq!(ids, ["kitchen_switch", "spooner_man"]);
+    assert_eq!(
+        ids,
+        [
+            "hall_switch",
+            "kitchen_switch",
+            "sauna_switch",
+            "spooner_man"
+        ]
+    );
     let skinned: Vec<&Character> = scene
         .characters()
         .iter()
@@ -6837,11 +6847,23 @@ fn the_places_demo_level_places_its_animated_props_once() {
         .iter()
         .filter(|character| character.animator().is_rigid())
         .collect();
-    assert_eq!(rigid.len(), 1, "one rigid animated prop");
-    assert_eq!(rigid[0].instance_id(), Some("kitchen_switch"));
+    assert_eq!(rigid.len(), 3, "three rigid animated props");
+    let mut rigid_ids: Vec<Option<&str>> = rigid
+        .iter()
+        .map(|character| character.instance_id())
+        .collect();
+    rigid_ids.sort_unstable();
+    assert_eq!(
+        rigid_ids,
+        [
+            Some("hall_switch"),
+            Some("kitchen_switch"),
+            Some("sauna_switch")
+        ]
+    );
 
-    // Both claimed models are suppressed from the static batch: exactly the
-    // two models that every placement of is a character.
+    // The claimed models are suppressed from the static batch: exactly the
+    // models every placement of which is a character.
     let mut claimed: Vec<&str> = scene.claimed_models().iter().map(String::as_str).collect();
     claimed.sort_unstable();
     let spooner = catalog.get("spooner-man").model.expect("spooner-man model");
@@ -7869,5 +7891,41 @@ fn a_full_height_partition_does_not_emit_the_wall_face_hidden_behind_it() {
             .iter()
             .any(|(normal, points)| normal[2] < -0.99 && on_plane(points, 6.0)),
         "uncovered north-face spans remain"
+    );
+}
+
+/// A switchable fixture's luminous face is a distinct draw from its family's
+/// shared sheet, so a runtime toggle can size exactly that fixture's material.
+#[test]
+fn a_switchable_fixture_owns_its_luminous_face_material() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 2,
+            "id": "switchable_faces",
+            "name": "Switchable Faces",
+            "spawn": { "x": 2.0, "z": 2.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 8.0, "height": 3.0 } ],
+            "ceiling_lights": [
+                { "fixture": "core:fluorescent_panel_01", "x": 3.0, "z": 3.0 },
+                { "id": "switched", "fixture": "core:fluorescent_panel_01",
+                  "x": 7.0, "z": 3.0, "switchable": true }
+            ]
+        }"#,
+    )
+    .expect("the switchable-fixture level parses");
+    let mesh = build_level_geometry(&level);
+    let materials: Vec<u16> = mesh
+        .ranges
+        .iter()
+        .filter(|range| range.key.kind == SurfaceKind::Light)
+        .map(|range| range.key.material)
+        .collect();
+    assert!(
+        materials.contains(&0),
+        "the plain fixture still draws its family sheet: {materials:?}"
+    );
+    assert!(
+        materials.contains(&(crate::level::FIXTURE_SWITCHABLE_MATERIAL_BASE + 1)),
+        "the switchable fixture draws its own face slot: {materials:?}"
     );
 }

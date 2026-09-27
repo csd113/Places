@@ -278,26 +278,6 @@ fn malformed_catalog_entries_are_rejected_with_a_useful_message() {
 }
 
 #[test]
-fn legacy_props_shaped_catalog_still_parses() {
-    let json = r##"{
-        "format_version": 2,
-        "props": [
-            { "id": "core-crate", "name": "Legacy Crate", "category": "Utility",
-              "size": [0.6, 0.6, 0.6], "color": "#7a6244", "model": "models/crate.glb", "solid": true },
-            { "id": "core:nameless" }
-        ]
-    }"##;
-    let catalog = AssetCatalog::from_json_str(json).expect("the legacy shape parses");
-    assert_eq!(catalog.len(), 2);
-    let legacy = catalog.get("core-crate").expect("legacy id");
-    assert_eq!(legacy.display_name, "Legacy Crate");
-    assert_eq!(legacy.asset_class.as_str(), AssetClass::ENVIRONMENT);
-    assert_eq!(legacy.asset_type.as_str(), AssetType::PROP);
-    assert!(legacy.theme.is_none());
-    assert!(legacy.is_placeable());
-}
-
-#[test]
 fn every_file_asset_exists_exactly_once() {
     let catalog = shipped_catalog();
     let root = resolve_asset_root().expect("assets/ is discoverable");
@@ -328,7 +308,7 @@ fn every_file_asset_exists_exactly_once() {
         );
     }
 
-    // One canonical Spooner-Man resource: no duplicate legacy copy remains.
+    // One canonical Spooner-Man resource: no duplicate copy remains.
     assert_eq!(
         claimed["entities/spooner-man/model/spooner-man.glb"],
         "spooner-man"
@@ -453,14 +433,14 @@ fn renderer_and_catalog_agree_on_surface_and_decal_ids() {
             material.id
         );
     }
-    for legacy in [
+    for stable_id in [
         "core:wallpaper_yellow_01",
         "core:carpet_beige_01",
         "core:ceiling_panel_01",
     ] {
         assert!(
-            catalog.contains(legacy),
-            "{legacy} must stay a stable catalogued material id"
+            catalog.contains(stable_id),
+            "{stable_id} must stay a stable catalogued material id"
         );
     }
 
@@ -918,12 +898,12 @@ fn catalog_rejects_non_finite_emission_values() {
 
     let mut file: CatalogFile = serde_json::from_str(&json).expect("catalog JSON parses");
     file.assets[2].emissive_intensity = Some(f32::NAN);
-    let error = file.assets[2].convert(false).expect_err("NaN intensity");
+    let error = file.assets[2].convert().expect_err("NaN intensity");
     assert!(error.contains("emissive_intensity"), "error: {error}");
 
     let mut file: CatalogFile = serde_json::from_str(&json).expect("catalog JSON parses");
     file.assets[2].emissive = Some(vec![f32::INFINITY, 0.0, 0.0]);
-    let error = file.assets[2].convert(false).expect_err("infinite channel");
+    let error = file.assets[2].convert().expect_err("infinite channel");
     assert!(error.contains("emissive"), "error: {error}");
 }
 

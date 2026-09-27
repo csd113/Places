@@ -102,11 +102,8 @@ def load_level(path: Path) -> dict:
 
 
 def rooms_of(level: dict) -> list[dict]:
-    """Every room section, merging the single-room and multi-room spellings."""
-    rooms = list(level.get("rooms", []))
-    if level.get("room"):
-        rooms.append(level["room"])
-    return rooms
+    """Every room section of the level's single `rooms` array."""
+    return list(level.get("rooms", []))
 
 
 class RepositoryTests(unittest.TestCase):
@@ -151,11 +148,11 @@ class ShippedLevelTests(unittest.TestCase):
         demo = shipped["places_demo"]
         self.assertEqual(demo["id"], "places_demo")
         self.assertEqual(demo["name"], "Places Demo")
-        self.assertEqual(demo["format_version"], 1)
+        self.assertEqual(demo["format_version"], 2)
         zoo = shipped["model_zoo"]
         self.assertEqual(zoo["id"], "model_zoo")
         self.assertEqual(zoo["name"], "Model Zoo")
-        self.assertEqual(zoo["format_version"], 1)
+        self.assertEqual(zoo["format_version"], 2)
         # The zoo is generated tooling output, not hand-authored content: it
         # must record the generator's stable instance-id namespace.
         self.assertTrue(zoo["props"], "the zoo must display something")
@@ -278,7 +275,7 @@ class ShippedLevelTests(unittest.TestCase):
         for path in level_files():
             level = load_level(path)
             for light in level["ceiling_lights"]:
-                brightness = light.get("brightness", light.get("intensity"))
+                brightness = light.get("brightness")
                 if brightness is None:
                     continue
                 self.assertGreaterEqual(brightness, 0.0)
@@ -448,7 +445,7 @@ class AssetCatalogTests(unittest.TestCase):
         # A minimal level that uses every new field: a ceiling fixture switched
         # off, and rect/point/line prop lights with the documented defaults.
         level = {
-            "format_version": 1,
+            "format_version": 2,
             "id": "schema_probe",
             "name": "Schema Probe",
             "spawn": {"x": 0.0, "z": 0.0, "yaw_degrees": 0.0},
@@ -476,7 +473,7 @@ class AssetCatalogTests(unittest.TestCase):
                             "falloff": "smooth",
                             "enabled": True,
                         },
-                        {"shape": "point", "brightness": 0.5},
+                        {"shape": "point", "intensity": 0.5},
                         {"shape": "line", "length": 1.2, "falloff": "linear", "enabled": False},
                         {"color": [1.0, 0.9, 0.8]},  # no shape and no dimensions: a point
                     ],
@@ -552,7 +549,7 @@ class AssetCatalogTests(unittest.TestCase):
             if enabled != "__missing__":
                 ceiling["enabled"] = enabled
             return {
-                "format_version": 1,
+                "format_version": 2,
                 "id": "light_probe",
                 "name": "Light Probe",
                 "spawn": {"x": 0.0, "z": 0.0, "yaw_degrees": 0.0},
@@ -615,7 +612,7 @@ class AssetCatalogTests(unittest.TestCase):
             ceiling = {"fixture": "core:fluorescent_panel_01", "x": 0.0, "z": 0.0}
             ceiling.update(fields)
             return {
-                "format_version": 1,
+                "format_version": 2,
                 "id": "fixture_probe",
                 "name": "Fixture Probe",
                 "spawn": {"x": 0.0, "z": 0.0, "yaw_degrees": 0.0},
@@ -649,7 +646,7 @@ class AssetCatalogTests(unittest.TestCase):
     def test_the_validator_checks_per_surface_shine(self):
         def level_with(**fields):
             level = {
-                "format_version": 1,
+                "format_version": 2,
                 "id": "shine_probe",
                 "name": "Shine Probe",
                 "spawn": {"x": 0.0, "z": 0.0, "yaw_degrees": 0.0},

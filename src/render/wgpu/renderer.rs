@@ -37,6 +37,7 @@ use sdl3::video::Window;
 use super::character::{CharacterUploadContext, WgpuCharacters};
 use super::decals::{DecalPipeline, WgpuDecals};
 use super::dynamic::{DynamicUploadContext, WgpuDynamic};
+use super::effects::{EffectsPipeline, WgpuEffects};
 use super::environment::{
     EnvironmentBindings, fallback_planar, fallback_probe, static_environment,
 };
@@ -72,7 +73,8 @@ use crate::render::common::api::{
 };
 use crate::render::common::atmosphere::FogState;
 use crate::render::common::character::{CharacterScene, EntityFrame};
-use crate::render::common::dynamic::{DynamicScene, DynamicUpdate};
+use crate::render::common::dynamic::{DynamicId, DynamicScene, DynamicUpdate, SpawnOrientation};
+use crate::render::common::effects::EffectScene;
 use crate::render::common::materials::MaterialRenderState;
 use crate::render::common::postprocess::PostSettings;
 use crate::render::common::reflections::{
@@ -80,6 +82,35 @@ use crate::render::common::reflections::{
 };
 use crate::render::common::stats::{LevelBuildStats, RenderStats};
 use crate::render::common::view::DrawableSize;
+
+/// Where one installed door stands: its hinge and closed-leaf yaw.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct DoorPlacement {
+    /// World position of the leaf's bottom hinge edge.
+    hinge: [f32; 3],
+    /// Yaw of the closed leaf, in degrees.
+    yaw_degrees: f32,
+}
+
+/// One switchable fixture's runtime bindings.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct SwitchableLight {
+    /// The fixture's position in the level's `ceiling_lights` array.
+    fixture_index: usize,
+    /// The light it baked into.
+    light_index: usize,
+    /// The material slot of its luminous face, for the on/off emission write.
+    material_slot: usize,
+}
+
+/// The dynamic object handles one door draws.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct DoorDraw {
+    /// The static frame's object, spawned once per install.
+    frame: Option<DynamicId>,
+    /// The moving leaf's object, transformed every frame.
+    leaf: Option<DynamicId>,
+}
 
 /// The size-dependent depth attachment for the current drawable.
 ///
@@ -443,8 +474,21 @@ pub struct WgpuRenderer {
     /// Filled by wgpu's device-lost callback on whichever thread reports it.
     device_lost: Arc<Mutex<Option<String>>>,
     /// The neutral dynamic scene. The engine spawns its objects through
-    /// `set_dynamic_demo`; the GPU side lives in `world_dynamic`.
+    /// `set_dynamic_demo` and the level's doors through `spawn_doors`; the GPU
+    /// side lives in `world_dynamic`.
     dynamic: DynamicScene,
+    /// The installed level's doors: their placement and code-built models.
+    /// Built at level install, consumed by [`Self::spawn_doors`] whenever the
+    /// neutral scene is cleared (a level change or a demo respawn).
+    door_sources: Vec<(DoorPlacement, crate::render::common::doors::DoorModels)>,
+    /// The live dynamic objects one door draws: its static frame and its leaf.
+    door_objects: Vec<DoorDraw>,
+    /// Every switchable fixture's runtime bindings: the baked light it drives
+    /// and the material slot of its luminous face.
+    switchable_lights: Vec<SwitchableLight>,
+    /// The CPU atlas pages, kept so a light switch can re-fill the charts the
+    /// fixture influences and re-upload only their pages.
+    lightmap_cpu: Option<crate::lighting::lightmap::LevelLightmaps>,
     /// The id of the level currently resident. Installing a different
     /// level clears the neutral dynamic scene; a quality rebuild of the same
     /// level keeps it, so its objects survive a quality change.
@@ -452,6 +496,18 @@ pub struct WgpuRenderer {
     /// The GPU side of the dynamic scene: one mesh per model, one environment
     /// per object. Built when the demo spawns, dropped with the level.
     world_dynamic: Option<WgpuDynamic>,
+    /// The installed level's ambient effect emitters. Built at level install
+    /// from the level and its resolved material table; dropped when the level
+    /// changes.
+    effects: EffectScene,
+    /// The GPU side of the effect scene: buffers sized to the level budget and
+    /// one uploaded sheet per distinct effect material. Dropped with the
+    /// level.
+    world_effects: Option<WgpuEffects>,
+    /// The effect billboard pipeline for the configured surface format.
+    effects_pipeline: Option<EffectsPipeline>,
+    /// The effect billboard pipeline for the offscreen scene format.
+    effects_scene_pipeline: Option<EffectsPipeline>,
     /// The neutral character scene: every placed skinned prop, its animator
     /// and its baked per-vertex albedo. Rebuilt on level install and graphics
     /// changes; advanced by `update_characters`.
@@ -631,6 +687,14 @@ impl WgpuRenderer {
             fatal: None,
             device_lost,
             dynamic: DynamicScene::new(),
+            effects: EffectScene::new(),
+            world_effects: None,
+            effects_pipeline: None,
+            effects_scene_pipeline: None,
+            door_sources: Vec::new(),
+            door_objects: Vec::new(),
+            switchable_lights: Vec::new(),
+            lightmap_cpu: None,
             level_id: None,
             world_dynamic: None,
             characters: CharacterScene::new(),
@@ -815,6 +879,11 @@ impl WgpuRenderer {
         // Floats ride an absolute clock before the spin/probe pass, so a
         // moved float's probe is sampled at this frame's surface pose.
         self.dynamic.update_floats(self.animation_seconds);
+        // Ambient effects ride the same absolute clock: a particle's pose is a
+        // pure function of it, so this only records the time and reports which
+        // emitters advanced. Their billboards are synced in `render_scene`,
+        // where the frame's camera exists.
+        self.effects.update(self.animation_seconds);
         let update = self
             .dynamic
             .update(delta_seconds, self.dynamic_lighting.as_ref());
@@ -838,14 +907,223 @@ impl WgpuRenderer {
             return 0;
         }
         self.dynamic.clear_all();
+        self.door_objects.clear();
         self.world_dynamic = None;
+        // The wipe removed every door object too; respawn them from the
+        // models the install already built, so a demonstration level keeps its
+        // doors.
+        self.spawn_doors();
         let spawned =
             self.dynamic
                 .spawn_washer_drum_demo(level, &self.prop_catalog, &mut self.prop_assets);
-        if spawned > 0 {
-            self.upload_dynamic();
-        }
+        self.upload_dynamic();
         spawned
+    }
+
+    /// Builds and records the installed level's door models.
+    ///
+    /// Runs once per level install, where the resolved material table (and so
+    /// every door texture) is available. Placement is resolved here too: the
+    /// hinge's base height is the walkable floor under it, the same surface the
+    /// physical collider uses.
+    fn prepare_door_sources(
+        &mut self,
+        level: &crate::level::LevelDef,
+        materials: &crate::materials::MaterialTable,
+    ) {
+        self.door_sources.clear();
+        self.door_objects.clear();
+        if level.doors.is_empty() {
+            return;
+        }
+        for def in &level.doors {
+            let Some(models) = crate::render::common::doors::build_door_models(def, materials)
+            else {
+                logging::warn(format!(
+                    "[doors] `{}` has an unresolved door material; the leaf will not draw",
+                    def.id
+                ));
+                continue;
+            };
+            let hinge = [def.x, def.base_y(level), def.z];
+            if !hinge.iter().all(|value| value.is_finite()) {
+                continue;
+            }
+            self.door_sources.push((
+                DoorPlacement {
+                    hinge,
+                    yaw_degrees: def.rotation_degrees,
+                },
+                models,
+            ));
+        }
+    }
+
+    /// Spawns one frame object and one leaf object per installed door.
+    ///
+    /// Idempotent: any previous door objects are despawned first, so this can
+    /// run after a scene wipe without duplicating anything.
+    fn spawn_doors(&mut self) {
+        if self.door_sources.is_empty() {
+            return;
+        }
+        if self.door_objects.len() == self.door_sources.len() {
+            // Already spawned against the current scene.
+            return;
+        }
+        for draw in self.door_objects.drain(..) {
+            if let Some(id) = draw.frame {
+                self.dynamic.despawn(id);
+            }
+            if let Some(id) = draw.leaf {
+                self.dynamic.despawn(id);
+            }
+        }
+        for (index, (placement, models)) in self.door_sources.iter().enumerate() {
+            let orientation = SpawnOrientation {
+                base_rotation: glam::Quat::from_rotation_y(placement.yaw_degrees.to_radians()),
+                spin_axis: [0.0, 1.0, 0.0],
+            };
+            let frame_key = format!("door:frame:{index}");
+            let leaf_key = format!("door:leaf:{index}");
+            let frame = self
+                .dynamic
+                .register_model(
+                    &frame_key,
+                    &models.frame,
+                    models.textures.clone(),
+                    &models.alphas,
+                )
+                .and_then(|mesh| {
+                    self.dynamic
+                        .spawn_registered(mesh, placement.hinge, orientation, 0.0, 1.0)
+                });
+            let leaf = self
+                .dynamic
+                .register_model(
+                    &leaf_key,
+                    &models.leaf,
+                    models.textures.clone(),
+                    &models.alphas,
+                )
+                .and_then(|mesh| {
+                    self.dynamic
+                        .spawn_registered(mesh, placement.hinge, orientation, 0.0, 1.0)
+                });
+            self.door_objects.push(DoorDraw { frame, leaf });
+        }
+    }
+
+    /// Republishes every door leaf's angle from the gameplay state.
+    ///
+    /// Called once per frame after movement and actions; the drawn slab and the
+    /// physical collider both read [`crate::door::DoorRuntime::angle`], so the
+    /// two can never disagree. A still door writes the same transform it
+    /// already has, which the environment uniform comparison skips.
+    pub fn sync_doors(&mut self, doors: &crate::door::Doors) {
+        if self.door_objects.is_empty() || doors.is_empty() {
+            return;
+        }
+        for (slot, door) in doors.iter().enumerate() {
+            let Some(draw) = self.door_objects.get(slot) else {
+                continue;
+            };
+            let Some(leaf) = draw.leaf else {
+                continue;
+            };
+            let hinge = [door.def.x, door.base_y(), door.def.z];
+            self.dynamic.set_transform(leaf, hinge, door.angle(), 1.0);
+        }
+    }
+
+    /// How many doors the installed level draws, and how many spawned.
+    #[must_use]
+    pub const fn door_render_counts(&self) -> (usize, usize) {
+        (self.door_sources.len(), self.door_objects.len())
+    }
+
+    /// Records every switchable fixture's runtime bindings for this install.
+    ///
+    /// The face slot comes from the uploaded draw set and materials: a
+    /// switchable fixture owns its own `Light` draw (its private material
+    /// index), so the material entry that draw uses is exactly the uniform the
+    /// on/off write targets.
+    fn prepare_switchable_lights(&mut self, level: &crate::level::LevelDef) {
+        self.switchable_lights.clear();
+        let Some(lighting) = self.dynamic_lighting.as_ref() else {
+            return;
+        };
+        let (Some(world), Some(materials)) = (self.world.as_ref(), self.world_materials.as_ref())
+        else {
+            return;
+        };
+        for (fixture_index, fixture) in level.ceiling_lights.iter().enumerate() {
+            if !fixture.switchable {
+                continue;
+            }
+            let Some(light_index) = lighting.fixture_light_index(fixture_index) else {
+                continue;
+            };
+            let kind = crate::lighting::fixture_profile(&fixture.fixture).kind;
+            let face_material =
+                crate::level::fixture_face_material_index(fixture_index, true, kind);
+            let Some(material_slot) = world
+                .draws()
+                .iter()
+                .position(|draw| draw.kind == SurfaceKind::Light && draw.material == face_material)
+                .and_then(|draw_index| materials.slot_for_draw(draw_index))
+            else {
+                continue;
+            };
+            self.switchable_lights.push(SwitchableLight {
+                fixture_index,
+                light_index,
+                material_slot,
+            });
+        }
+    }
+
+    /// Applies the frame's fixture switches: illumination and face emission.
+    ///
+    /// A switchable fixture is excluded from its room's baked baseline, so
+    /// toggling it re-fills exactly the charts its pool reaches and
+    /// re-uploads only their pages; its luminous face is scaled by the same
+    /// state, so a light that is off does not keep glowing. Both writes are
+    /// bounded by one fixture's reach and one material uniform, and an empty
+    /// list costs nothing.
+    pub fn apply_light_toggles(&mut self, toggles: &[(usize, bool)]) {
+        if toggles.is_empty() || self.switchable_lights.is_empty() {
+            return;
+        }
+        for (fixture_index, enabled) in toggles {
+            let Some(binding) = self
+                .switchable_lights
+                .iter()
+                .find(|binding| binding.fixture_index == *fixture_index)
+                .copied()
+            else {
+                continue;
+            };
+            // 1. The material uniform: the face's emission scale.
+            if let Some(materials) = self.world_materials.as_mut() {
+                let scale = if *enabled { 1.0 } else { 0.0 };
+                materials.set_emission_scale(&self.queue, binding.material_slot, scale);
+            }
+            // 2. The baked light and the charts its pool reaches.
+            let Some(lighting) = self.dynamic_lighting.as_mut() else {
+                continue;
+            };
+            if !lighting.set_light_enabled(binding.light_index, *enabled) {
+                continue;
+            }
+            let Some(cpu) = self.lightmap_cpu.as_mut() else {
+                continue;
+            };
+            let pages = cpu.refill_light(lighting, binding.light_index);
+            if !pages.is_empty() {
+                let _ = self.lightmaps.rewrite_pages(&self.queue, &pages, cpu);
+            }
+        }
     }
 
     /// Spawns every placed prop that authors `float` on its water surface.
@@ -867,6 +1145,63 @@ impl WgpuRenderer {
             self.upload_dynamic();
         }
         spawned
+    }
+
+    /// Installs (or re-installs) the level's ambient effect emitters.
+    ///
+    /// The level install already builds the neutral scene from the resolved
+    /// material table — the only place that table exists — and uploads it, so
+    /// this engine-facing hand-off is **idempotent**: for the installed level
+    /// it uploads the GPU side only when it is missing, and any other level is
+    /// ignored because the install path owns it. Returns the number of live
+    /// emitters.
+    pub fn set_level_effects(&mut self, level: &crate::level::LevelDef) -> usize {
+        if self.check_device_lost() {
+            return 0;
+        }
+        if self.level_id.as_deref() != Some(level.id.as_str()) {
+            return 0;
+        }
+        if self.world_effects.is_none() && !self.effects.is_empty() {
+            self.upload_effects();
+        }
+        self.effects.len()
+    }
+
+    /// Uploads the effect scene's GPU buffers and sheets.
+    ///
+    /// Called once per level install, and again on a quality rebuild of the
+    /// same level because a quality change refits the texture cache. The
+    /// neutral scene is level content and survives a quality rebuild; the GPU
+    /// side is always rebuilt against the resources just installed.
+    fn upload_effects(&mut self) {
+        if self.check_device_lost() {
+            self.world_effects = None;
+            return;
+        }
+        if self.effects.is_empty() {
+            self.world_effects = None;
+            return;
+        }
+        let effects = WgpuEffects::upload(
+            &self.device,
+            &self.queue,
+            &mut self.textures,
+            &self.effects,
+            self.quality,
+        );
+        let stats = effects.stats();
+        logging::info(format!(
+            "[wgpu] effects: {} emitter(s), {} particle(s), {} draw(s), {} sheet(s) \
+             ({} uploaded, {} cached)",
+            stats.emitters,
+            stats.particles,
+            stats.draws.max(1),
+            self.effects.textures().len(),
+            stats.texture_uploads,
+            stats.texture_cache_hits,
+        ));
+        self.world_effects = Some(effects);
     }
 
     /// Uploads the dynamic scene's GPU meshes, materials and environments.
@@ -1486,8 +1821,19 @@ impl WgpuRenderer {
         // neutral scene and it is re-uploaded against the new resources.
         if self.level_id.as_deref() != Some(loaded.level.id.as_str()) {
             self.dynamic.clear_all();
+            self.effects.clear_all();
+            self.world_effects = None;
             self.level_id = Some(loaded.level.id.clone());
+            // The door models need the resolved material table, which is only
+            // in scope here; they are kept for `spawn_doors`, which re-runs
+            // whenever the neutral scene is wiped (a demo respawn).
+            self.prepare_door_sources(&loaded.level, &loaded.materials);
+            // The effect emitters resolve through the same table: their images,
+            // tiling and opacity are level-scoped, so they are built here and
+            // dropped at the next level change.
+            self.effects = EffectScene::build(&loaded.level, &loaded.materials);
         }
+        self.spawn_doors();
         self.world_dynamic = None;
         // The previous level's (or previous quality's) character GPU state is
         // dropped before the probe bake so the bake cannot draw stale
@@ -1498,6 +1844,13 @@ impl WgpuRenderer {
         self.world_props = Some(world_props);
         self.world_textures = Some(world_textures);
         self.world_materials = Some(world_materials);
+        // Runtime light switches: the CPU atlas pages (so a switch can re-fill
+        // just the charts a fixture reaches) and each switchable fixture's
+        // bindings, refreshed with every install. This runs after the world and
+        // its materials exist, because the face slot is a property of the
+        // uploaded draw set.
+        self.lightmap_cpu = build.lightmaps.as_deref().cloned();
+        self.prepare_switchable_lights(&loaded.level);
         // The decal pass runs inside the scene body, so its pipeline (and the
         // reflection-format one) must exist before any probe bake.
         self.ensure_world_pipeline();
@@ -1515,6 +1868,10 @@ impl WgpuRenderer {
         // against the new level resources so no draw references a stale
         // resource.
         self.upload_dynamic();
+        // The effect scene rides the same lifecycle: its GPU buffers and
+        // sheets are rebuilt against the resources just installed, while the
+        // neutral emitters survive a quality rebuild of the same level.
+        self.upload_effects();
         self.installed_quality = self.quality;
         build
     }
@@ -1612,14 +1969,23 @@ impl WgpuRenderer {
         loaded: &LoadedLevel,
         quality: QualityLevel,
     ) -> Vec<Arc<super::texture::GpuTexture>> {
+        // Family sheets occupy the first slots; a switchable fixture's own
+        // face occupies a private slot after them, so its runtime on/off
+        // state never touches another fixture's material.
         let families = crate::lighting::FixtureKind::ALL.len();
+        let highest = loaded
+            .light_sheets
+            .iter()
+            .map(|sheet| usize::from(sheet.slot))
+            .max()
+            .map_or(families, |slot| slot.saturating_add(1));
         let mut slots: Vec<std::sync::Arc<super::texture::GpuTexture>> =
-            Vec::with_capacity(families);
-        for _ in 0..families {
+            Vec::with_capacity(highest);
+        for _ in 0..highest {
             slots.push(textures.fallback());
         }
         for sheet in &loaded.light_sheets {
-            let Some(slot) = slots.get_mut(sheet.kind.index()) else {
+            let Some(slot) = slots.get_mut(usize::from(sheet.slot)) else {
                 continue;
             };
             let (_, texture) = textures.get_or_upload_fitted(
@@ -1954,6 +2320,23 @@ impl WgpuRenderer {
         if let Some(pipeline) = self.decal_scene_pipeline.as_mut() {
             pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
         }
+        if let Some(pipeline) = self.effects_pipeline.as_mut() {
+            pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
+        }
+        if let Some(pipeline) = self.effects_scene_pipeline.as_mut() {
+            pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
+        }
+        // The effect billboards face this frame's camera, so they are synced
+        // here, where the prepared frame and the neutral scene are both in
+        // scope. The vertex buffers are pre-sized; this writes only the used
+        // range.
+        if let Some(effects) = self.world_effects.as_mut() {
+            effects.sync(
+                &self.queue,
+                &self.effects,
+                [frame.eye.x, frame.eye.y, frame.eye.z],
+            );
+        }
         self.ensure_post_targets();
         self.last_frame = Some(frame);
         // A frame whose present was skipped (`PLACES_BENCH_NOSWAP`) must not
@@ -2160,7 +2543,40 @@ impl WgpuRenderer {
                 .texture_binds
                 .saturating_add(decal_totals.texture_binds);
         }
+        // Ambient effects blend over the finished world body, depth-testing
+        // against it with depth writes off. Drawn after the decals: a decal
+        // writes depth, so a plume behind one is correctly occluded, and a
+        // plume in front of one blends over it. Effects are not captured into
+        // the reflection probes or the planar mirror, and they are not ordered
+        // against the world's own translucent draws (see the effects module's
+        // draw-order note).
+        self.encode_effects(pass, self.effects_scene_pipeline.as_ref(), &mut totals);
         totals
+    }
+
+    /// Encodes the effect pass and folds its counters into `totals`.
+    ///
+    /// `pipeline` must match the pass's colour format (the offscreen scene
+    /// target or the main surface). The encode itself is one draw per distinct
+    /// effect material over the pre-sized vertex/index buffers.
+    fn encode_effects<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        pipeline: Option<&'a EffectsPipeline>,
+        totals: &mut WorldDrawTotals,
+    ) {
+        let (Some(effects), Some(pipeline)) = (self.world_effects.as_ref(), pipeline) else {
+            return;
+        };
+        let effect_totals = effects.encode(pass, pipeline, self.filtering);
+        totals.draw_calls = totals.draw_calls.saturating_add(effect_totals.draws);
+        totals.visible_batches = totals.visible_batches.saturating_add(effect_totals.draws);
+        totals.visible_vertices = totals
+            .visible_vertices
+            .saturating_add(effect_totals.vertices);
+        totals.texture_binds = totals
+            .texture_binds
+            .saturating_add(effect_totals.texture_binds);
     }
 
     /// Encodes the world body directly into `target`, without tone, grade or
@@ -2247,6 +2663,7 @@ impl WgpuRenderer {
                     .texture_binds
                     .saturating_add(decal_totals.texture_binds);
             }
+            self.encode_effects(&mut pass, self.effects_pipeline.as_ref(), &mut totals);
         }
         totals
     }
@@ -2291,6 +2708,20 @@ impl WgpuRenderer {
             super::reflections::REFLECTION_FORMAT,
         ));
         self.decal_scene_pipeline = Some(DecalPipeline::new(&self.device, SCENE_FORMAT));
+        // The effect billboards run in the same colour+depth passes as the
+        // world (the main surface and the offscreen scene target), with the
+        // shared texture-cache layout as group 1, so every uploaded effect
+        // sheet binds unchanged.
+        self.effects_pipeline = Some(EffectsPipeline::new(
+            &self.device,
+            self.config.format,
+            self.textures.layout(),
+        ));
+        self.effects_scene_pipeline = Some(EffectsPipeline::new(
+            &self.device,
+            SCENE_FORMAT,
+            self.textures.layout(),
+        ));
         // The offscreen post chain: the scene target's format equals the
         // reflection format, the emissive target is raw, and the resolve and
         // present pipelines write the surface format.

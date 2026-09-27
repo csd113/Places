@@ -36,6 +36,13 @@ demonstrate rather than procedures:
     shipped texture and loaded by the renderer at startup, never generated in
     Rust.
 
+``core:tex_steam_01``
+    Ambient steam: one soft white-grey wispy puff with an alpha falloff that
+    reaches zero at every edge, so a billboard fades out instead of ending on a
+    hard square and the sheet repeats without a visible join.  Authored for the
+    ``effects[]`` steam plumes; sampled at the effect material's
+    ``tile_metres``.
+
 Painting rules match the rest of the texture set: deterministic helpers only,
 no randomness, no clock, no external images, and every pattern period divides
 the sheet so the sheet tiles.
@@ -45,7 +52,7 @@ from __future__ import annotations
 
 import math
 
-from artkit import Canvas, clamp, fbm, tile_noise, tile_noise2
+from artkit import Canvas, clamp, fbm, mix_rgb, smoothstep, tile_noise, tile_noise2
 
 SIZE = 128
 
@@ -66,6 +73,11 @@ METAL_SEAM = (104.0, 108.0, 116.0)
 
 PLASTIC_BASE = (206.0, 208.0, 204.0)
 PLASTIC_TONE = 0.96
+
+# Warm brass for the door handle: a lit metal needs its albedo, and the
+# material's shine carries the highlight.
+BRASS_BASE = (186.0, 142.0, 66.0)
+BRASS_TONE = (1.04, 1.0, 0.92)
 
 
 def _wrap(value: int, period: int) -> int:
@@ -289,6 +301,41 @@ def _normal_canvas(heights: list[float], strength: float) -> Canvas:
     return canvas
 
 
+def build_brass() -> Canvas:
+    """Brass: warm gold with a fine circular polish and low tone variation.
+
+    The polish is two wrapped noise scales; nothing here paints a highlight —
+    the material's shine and specular response do that — so the sheet stays a
+    clean albedo that reads as metal under the baked light.
+    """
+    canvas = Canvas(
+        SIZE,
+        SIZE,
+        (
+            int(BRASS_BASE[0] * BRASS_TONE[0]),
+            int(BRASS_BASE[1] * BRASS_TONE[1]),
+            int(BRASS_BASE[2] * BRASS_TONE[2]),
+            255,
+        ),
+    )
+    for y in range(SIZE):
+        for x in range(SIZE):
+            broad = tile_noise(x, y, SIZE, 64, 61)
+            fine = tile_noise(x, y, SIZE, 16, 67)
+            factor = 0.94 + 0.08 * broad + 0.04 * fine
+            canvas.set(
+                x,
+                y,
+                (
+                    BRASS_BASE[0] * factor * BRASS_TONE[0],
+                    BRASS_BASE[1] * factor * BRASS_TONE[1],
+                    BRASS_BASE[2] * factor * BRASS_TONE[2],
+                ),
+                255,
+            )
+    return canvas
+
+
 def build_normal_panel() -> Canvas:
     """Soft moulded dimples: a broad bump field, no hard edges."""
     heights = _height_field(
@@ -322,6 +369,48 @@ def build_normal_brushed() -> Canvas:
     """Fine horizontal brushing: periodic grooving along y, constant along x."""
     heights = _height_field(lambda _x, y: _brush_line(y))
     return _normal_canvas(heights, strength=1.7)
+
+
+# ------------------------------------------------------------------- steam
+
+# One 256 px puff, the preferred sheet size.  It is sampled by a billboard,
+# never tiled across a surface, but its alpha still reaches zero at all four
+# edges so a repeat would join cleanly.
+STEAM_SIZE = 256
+STEAM_BASE = (244.0, 246.0, 248.0)
+STEAM_TONE = (214.0, 218.0, 222.0)
+
+
+def build_steam() -> Canvas:
+    """A soft white-grey wispy puff with an alpha falloff to every edge.
+
+    The silhouette is a radial falloff (zero at the sheet's edge midpoint, so
+    the corners are already empty) modulated by two wrapped noise octaves, so
+    the puff reads as a wispy cloud rather than a ball.  RGB stays near-white
+    with a faint cool grey in the thin edges; the alpha channel is the shape.
+    """
+    canvas = Canvas(STEAM_SIZE, STEAM_SIZE, (238, 240, 243, 0))
+    for y in range(STEAM_SIZE):
+        for x in range(STEAM_SIZE):
+            u = (x + 0.5) / STEAM_SIZE - 0.5
+            v = (y + 0.5) / STEAM_SIZE - 0.5
+            # 0 at the centre, 1 at an edge midpoint, >1 in a corner.
+            radius = math.sqrt(u * u + v * v) * 2.0
+            edge = 1.0 - smoothstep(radius, 0.28, 1.0)
+            wisp = (
+                tile_noise(x, y, STEAM_SIZE, 64, 91) * 0.55
+                + tile_noise(x, y, STEAM_SIZE, 128, 97) * 0.45
+            )
+            # Keep the middle dense and let the noise thin the fringe, so the
+            # puff's soft edge is irregular instead of a perfect circle.
+            puff = clamp(edge * (0.55 + 0.75 * wisp), 0.0, 1.0)
+            canvas.set(
+                x,
+                y,
+                mix_rgb(STEAM_TONE, STEAM_BASE, wisp),
+                int(round(255.0 * puff)),
+            )
+    return canvas
 
 
 # ------------------------------------------------------------- white sheet
@@ -361,6 +450,10 @@ ART = {
         "model": "core/textures/walls/metal_panel_01.png",
         "build": build_metal_panel,
     },
+    "core:tex_metal_brass_01": {
+        "model": "core/textures/metal/brass_01.png",
+        "build": build_brass,
+    },
     "core:tex_plastic_panel_01": {
         "model": "core/textures/walls/plastic_panel_01.png",
         "build": build_plastic_panel,
@@ -380,5 +473,9 @@ ART = {
     "core:tex_white_01": {
         "model": "core/textures/white_01.png",
         "build": build_white,
+    },
+    "core:tex_steam_01": {
+        "model": "core/textures/effects/steam_01.png",
+        "build": build_steam,
     },
 }

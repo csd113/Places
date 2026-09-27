@@ -79,12 +79,18 @@ ACTION_TAGS = (
     "play_animation",
     "toggle_animation",
     "play_audio",
+    "open",
+    "close",
+    "toggle",
 )
 IMPLEMENTED_ACTIONS = (
     "toggle_label",
     "reset_to_start",
     "play_animation",
     "toggle_animation",
+    "open",
+    "close",
+    "toggle",
 )
 
 # Mirrors src/level.rs: a float's motion is bounded and must be contained by
@@ -98,6 +104,10 @@ MAX_ACTIONS_PER_SOURCE = 8
 MAX_AREA_TRIGGERS = 1000
 MAX_INTERACTION_REACH_M = 4.0
 MAX_ENTITY_ROUTES = 256
+MAX_LEVEL_DOORS = 256
+DEFAULT_STEAM_MATERIAL = "core:steam_01"
+MAX_LEVEL_EFFECTS = 64
+MAX_EFFECT_PARTICLES = 128
 MAX_ROUTE_STEPS = 64
 MAX_ROUTE_SPEED_MPS = 6.0
 MAX_ROUTE_SECONDS = 3600.0
@@ -113,18 +123,15 @@ def load_catalog(path: str = CATALOG_PATH) -> dict:
 
 
 def catalog_entries(catalog: dict) -> List[dict]:
-    """Every entry, accepting the legacy ``props`` array for old tooling."""
-    entries = catalog.get("assets")
-    if entries is None:
-        entries = catalog.get("props", [])
-    return list(entries)
+    """Every entry of the catalog's single ``assets`` array."""
+    return list(catalog.get("assets", []))
 
 
 def placeable_entries(catalog: dict) -> List[dict]:
     return [
         entry
         for entry in catalog_entries(catalog)
-        if entry.get("asset_type", "prop") in PLACEABLE_TYPES
+        if entry.get("asset_type") in PLACEABLE_TYPES
     ]
 
 
@@ -245,7 +252,7 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
             errors.append(f"themes: duplicate theme id '{theme_id}'")
             continue
         theme_ids.append(theme_id)
-        if not str(theme.get("display_name") or theme.get("name") or "").strip():
+        if not str(theme.get("display_name") or "").strip():
             warnings.append(f"themes: '{theme_id}' has no display_name")
     for required in sorted(BUILTIN_THEMES):
         if required not in theme_ids:
@@ -384,7 +391,6 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
         specular = entry.get("specular")
         specular_color = entry.get("specular_color")
         shine = entry.get("shine")
-        roughness = entry.get("roughness")
         alpha_mode = entry.get("alpha_mode")
         opacity = entry.get("opacity")
         alpha_cutoff = entry.get("alpha_cutoff")
@@ -398,7 +404,6 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
                 "specular",
                 "specular_color",
                 "shine",
-                "roughness",
                 "alpha_mode",
                 "opacity",
                 "alpha_cutoff",
@@ -433,15 +438,6 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
                 not is_finite_number(shine) or not 0.0 <= shine <= 1.0
             ):
                 errors.append(f"{where}: shine must be a number between 0 and 1")
-            if roughness is not None and (
-                not is_finite_number(roughness) or not 0.0 <= roughness <= 1.0
-            ):
-                errors.append(f"{where}: roughness must be a number between 0 and 1")
-            if shine is not None and roughness is not None:
-                errors.append(
-                    f"{where}: author either shine or roughness, not both "
-                    "(shine is the author-facing spelling; roughness is its inverse)"
-                )
             if alpha_mode is not None:
                 mode = str(alpha_mode).strip().lower()
                 if mode not in ("opaque", "cutout", "blend"):
@@ -603,7 +599,7 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
                 errors.append(f"spooner-man: canonical resource '{model}' is missing")
             duplicate = os.path.join(asset_root, "props", "models", "spooner-man.glb")
             if os.path.isfile(duplicate):
-                errors.append("spooner-man: a duplicate legacy copy exists at assets/props/models/spooner-man.glb")
+                errors.append("spooner-man: a duplicate copy exists at assets/props/models/spooner-man.glb")
         if spooner.get("theme") is not None:
             errors.append("spooner-man: an entity must not carry an environment theme")
 
@@ -616,10 +612,7 @@ def level_ids(level: dict):
     for key in ("wall", "floor", "ceiling"):
         if defaults.get(key):
             yield str(defaults[key]), f"defaults.{key}"
-    # Both spellings: `rooms` is the list, `room` an optional single room.
     rooms = list(level.get("rooms") or [])
-    if level.get("room"):
-        rooms.append(level["room"])
     for room in rooms:
         if room.get("material"):
             yield str(room["material"]), "room floor material"
@@ -695,6 +688,99 @@ def level_ids(level: dict):
     for index, animation in enumerate(level.get("animated_emissions") or []):
         if animation.get("material"):
             yield str(animation["material"]).strip(), f"animated_emissions[{index}] material"
+    for index, door in enumerate(level.get("doors") or []):
+        kind = str(door.get("kind", "interior"))
+        defaults = {
+            "interior": ("home:door_white_01", "home:baseboard_white_01", "core:metal_brass_01", None),
+            "sauna": ("home:sauna_wood_01", "home:baseboard_wood_01", "home:sauna_wood_01", "core:glass_window_clear_01"),
+        }.get(kind)
+        if defaults is None:
+            continue
+        for key, default in zip(("material", "frame_material", "handle_material", "glass"), defaults):
+            if key == "glass" and default is None:
+                continue
+            author = door.get(key)
+            if isinstance(author, str) and author.strip():
+                yield author.strip(), f"door {index} {key}"
+            elif default is not None:
+                yield default, f"door {index} default {key}"
+    for index, effect in enumerate(level.get("effects") or []):
+        material = effect.get("material")
+        yield (
+            str(material).strip() if isinstance(material, str) and material.strip() else DEFAULT_STEAM_MATERIAL,
+            f"effects[{index}] material",
+        )
+
+
+def validate_doors(level: dict, where: str, errors: list[str]) -> None:
+    """Doors: count, finite geometry, positive dimensions and a legal kind.
+
+    Mirrors the Rust loader's `validate_doors` field rules; the closed-leaf
+    solid test is only meaningful with the collision geometry, which this
+    tooling mirror does not build.
+    """
+    doors = level.get("doors")
+    if doors is None:
+        return
+    if not isinstance(doors, list):
+        errors.append(f"{where}: doors must be an array")
+        return
+    if len(doors) > MAX_LEVEL_DOORS:
+        errors.append(f"{where}: too many doors ({len(doors)}; limit {MAX_LEVEL_DOORS})")
+    for index, door in enumerate(doors):
+        if not isinstance(door, dict):
+            errors.append(f"{where}: door {index} must be an object")
+            continue
+        for key in ("x", "y", "z", "rotation_degrees", "width", "height", "thickness",
+                    "swing_degrees", "open_speed_degrees"):
+            value = door.get(key)
+            if value is not None and not is_finite_number(value):
+                errors.append(f"{where}: door {index} {key} must be a finite number")
+        width = door.get("width")
+        height = door.get("height")
+        thickness = door.get("thickness", 0.045)
+        if not (is_finite_number(width) and width > 0.0 and is_finite_number(height) and height > 0.0):
+            errors.append(f"{where}: door {index} width and height must be positive numbers")
+        if is_finite_number(thickness) and thickness <= 0.0:
+            errors.append(f"{where}: door {index} thickness must be positive")
+        kind = door.get("kind", "interior")
+        if kind not in ("interior", "sauna"):
+            errors.append(f"{where}: door {index} kind must be 'interior' or 'sauna'")
+        direction = door.get("open_direction", "left")
+        if direction not in ("left", "right"):
+            errors.append(f"{where}: door {index} open_direction must be 'left' or 'right'")
+        state = door.get("initial_state", "closed")
+        if state not in ("closed", "open"):
+            errors.append(f"{where}: door {index} initial_state must be 'closed' or 'open'")
+        obstruction = door.get("obstruction", "stop")
+        if obstruction not in ("stop", "reverse"):
+            errors.append(f"{where}: door {index} obstruction must be 'stop' or 'reverse'")
+
+
+def validate_effects(level: dict, where: str, errors: list[str]) -> None:
+    """Effects: count, kind, finite bounds and a bounded particle budget."""
+    effects = level.get("effects")
+    if effects is None:
+        return
+    if not isinstance(effects, list):
+        errors.append(f"{where}: effects must be an array")
+        return
+    if len(effects) > MAX_LEVEL_EFFECTS:
+        errors.append(f"{where}: too many effects ({len(effects)}; limit {MAX_LEVEL_EFFECTS})")
+    for index, effect in enumerate(effects):
+        if not isinstance(effect, dict):
+            errors.append(f"{where}: effect {index} must be an object")
+            continue
+        kind = effect.get("kind")
+        if kind != "steam":
+            errors.append(f"{where}: effect {index} kind must be 'steam', found '{kind}'")
+        for key in ("x", "y", "z", "width", "depth", "height", "size", "drift", "lifetime_seconds"):
+            value = effect.get(key)
+            if value is not None and not is_finite_number(value):
+                errors.append(f"{where}: effect {index} {key} must be a finite number")
+        count = effect.get("count", 24)
+        if not isinstance(count, int) or not 1 <= count <= MAX_EFFECT_PARTICLES:
+            errors.append(f"{where}: effect {index} count must be 1..{MAX_EFFECT_PARTICLES}")
 
 
 def validate_animated_emissions(level: dict, where: str, errors: list[str]) -> None:
@@ -746,8 +832,6 @@ def validate_surface_shine(level: dict, where: str, errors: list[str]) -> None:
     defaults = level.get("defaults") or {}
     checks = [(f"{where}: defaults.{key}", defaults.get(key)) for key in ("wall_shine", "floor_shine", "ceiling_shine")]
     rooms = list(level.get("rooms") or [])
-    if level.get("room"):
-        rooms.append(level["room"])
     for index, room in enumerate(rooms):
         checks.append((f"{where}: room {index} shine", room.get("shine")))
         checks.append((f"{where}: room {index} ceiling_shine", room.get("ceiling_shine")))
@@ -895,8 +979,6 @@ def wall_touches_any_room(level: dict, wall: dict, epsilon: float = 0.05) -> boo
     x0, x1 = wx - epsilon, wx + ww + epsilon
     z0, z1 = wz - epsilon, wz + wd + epsilon
     rooms = list(level.get("rooms") or [])
-    if level.get("room"):
-        rooms.append(level["room"])
     for room in rooms:
         try:
             rx = float(room.get("x", 0.0))
@@ -939,7 +1021,34 @@ def validate_interactions(level: dict, where: str, errors: List[str]) -> None:
     ignored; ``play_animation`` is implemented and checked like ``toggle_label``.
     """
     prop_ids = _resolve_prop_ids(level)
+    doors = level.get("doors") or []
+    door_ids: List[str] = []
+    for index, door in enumerate(doors if isinstance(doors, list) else []):
+        if not isinstance(door, dict):
+            errors.append(f"{where}: door {index} must be an object")
+            continue
+        authored = door.get("id")
+        door_id = str(authored).strip() if isinstance(authored, str) else ""
+        if not door_id:
+            errors.append(f"{where}: door {index} needs an id")
+            continue
+        door_ids.append(door_id)
+    switchable_lights = [
+        str(fixture["id"]).strip()
+        for fixture in level.get("ceiling_lights") or []
+        if isinstance(fixture, dict)
+        and fixture.get("switchable")
+        and isinstance(fixture.get("id"), str)
+        and str(fixture["id"]).strip()
+    ]
     seen: dict = {}
+    for index, door_id in enumerate(door_ids):
+        if not _ASSET_ID.match(door_id):
+            errors.append(f"{where}: door {index} id '{door_id}' must be a well-formed identifier")
+        elif door_id in seen:
+            errors.append(f"{where}: door {index} id '{door_id}' duplicates {seen[door_id]}")
+        else:
+            seen[door_id] = f"door {index}"
     for index, prop_id in enumerate(prop_ids):
         if not _ASSET_ID.match(prop_id):
             errors.append(f"{where}: prop {index} id '{prop_id}' must be a well-formed identifier")
@@ -1020,7 +1129,7 @@ def validate_interactions(level: dict, where: str, errors: List[str]) -> None:
                 resolved = target.strip() if isinstance(target, str) and target.strip() else implicit_target
                 if not resolved:
                     errors.append(f"{where}: {source} action {action_index} ('toggle_label') needs a target")
-                elif resolved not in prop_ids:
+                elif resolved not in prop_ids and resolved not in door_ids:
                     errors.append(
                         f"{where}: {source} action {action_index} ('toggle_label') targets unknown instance '{resolved}'"
                     )
@@ -1068,6 +1177,29 @@ def validate_interactions(level: dict, where: str, errors: List[str]) -> None:
                 if not isinstance(clip, str) or not clip.strip():
                     errors.append(
                         f"{where}: {source} action {action_index} ('toggle_animation') needs a clip name"
+                    )
+            elif tag in ("open", "close"):
+                target = action.get("target")
+                resolved = target.strip() if isinstance(target, str) else ""
+                if not resolved:
+                    errors.append(
+                        f"{where}: {source} action {action_index} ('{tag}') needs a door target"
+                    )
+                elif resolved not in door_ids:
+                    errors.append(
+                        f"{where}: {source} action {action_index} ('{tag}') targets unknown door '{resolved}'"
+                    )
+            elif tag == "toggle":
+                target = action.get("target")
+                resolved = target.strip() if isinstance(target, str) else ""
+                if not resolved:
+                    errors.append(
+                        f"{where}: {source} action {action_index} ('toggle') needs a target"
+                    )
+                elif resolved not in door_ids and resolved not in switchable_lights:
+                    errors.append(
+                        f"{where}: {source} action {action_index} ('toggle') targets '{resolved}', "
+                        "which is not a door or a switchable light fixture"
                     )
 
     triggers = level.get("area_triggers") or []
@@ -1367,12 +1499,12 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
                     warnings.extend(light_warnings)
             validate_animated_emissions(level, relative, errors)
             validate_interactions(level, relative, errors)
+            validate_doors(level, relative, errors)
+            validate_effects(level, relative, errors)
             validate_floats(level, relative, errors)
             validate_surface_shine(level, relative, errors)
             validate_architecture(level, relative, errors)
             rooms = list(level.get("rooms") or [])
-            if level.get("room"):
-                rooms.append(level["room"])
             if rooms:
                 for index, wall in enumerate(level.get("walls") or []):
                     if wall_touches_any_room(level, wall):

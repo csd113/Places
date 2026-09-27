@@ -65,9 +65,10 @@ use glam::{Mat4, Quat, Vec3};
 
 use super::mesh::LIGHTMAP_NONE;
 use super::{LevelDef, Vertex};
+use crate::gltf::PropModel;
 use crate::level::{LevelSurfaces, WaterVolumes};
 use crate::lighting::LevelLighting;
-use crate::materials::MaterialEmission;
+use crate::materials::{MaterialAlpha, MaterialEmission};
 use crate::props::{LoadedPropAsset, PropAssets};
 use crate::spatial::Aabb;
 
@@ -157,12 +158,15 @@ pub const WASHER_DRUM_MOUTH_RECESS: f32 = 0.02;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DynamicId(u32);
 
-/// One primitive of a dynamic mesh: a texture slot, its emission, and its slice
-/// of the model's index list.
+/// One primitive of a dynamic mesh: a texture slot, its emission, its alpha
+/// contract and its slice of the model's index list.
 ///
 /// Exactly [`crate::render::PropMeshBatch`]'s submesh shape, minus the
 /// pre-transformed vertices: the renderer reuses its material/emission routing
-/// unchanged, so a dynamic object never grows a second material system.
+/// unchanged, so a dynamic object never grows a second material system. The
+/// alpha contract is what lets a code-built object (a sauna door's glass panel)
+/// draw in the sorted translucent pass: a moving transparent surface is a
+/// normal material property, not a special case.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DynamicSubmesh {
     /// Index into [`DynamicMesh::textures`], or `None` for an untextured
@@ -170,6 +174,8 @@ pub struct DynamicSubmesh {
     pub texture: Option<u16>,
     /// The material's own emission.
     pub emission: MaterialEmission,
+    /// The material's alpha contract: opaque, cut-out or blended.
+    pub alpha: MaterialAlpha,
     /// First index into [`DynamicMesh::indices`].
     pub first_index: u32,
     /// Number of indices in this submesh.
@@ -211,11 +217,31 @@ impl DynamicMesh {
     /// and no material to route.
     #[must_use]
     pub fn from_asset(asset: &LoadedPropAsset) -> Option<Self> {
-        if asset.model.submeshes.is_empty() || asset.model.indices.is_empty() {
+        let textures: Vec<Arc<crate::loader::RawImage>> =
+            asset.model.textures.iter().cloned().map(Arc::new).collect();
+        // A GLB primitive's alpha mode is not imported yet, so every imported
+        // primitive is opaque; a code-built model names its own contracts.
+        let alphas: Vec<MaterialAlpha> = vec![MaterialAlpha::OPAQUE; asset.model.submeshes.len()];
+        Self::from_model(asset.model_path.clone(), &asset.model, textures, &alphas)
+    }
+
+    /// Builds the model-space mesh for a model the engine itself authored.
+    ///
+    /// `textures` are the decoded images the model's submeshes index, and
+    /// `alphas[i]` is submesh `i`'s alpha contract (out-of-range entries are
+    /// opaque). This is the constructor for code-built geometry — sauna door
+    /// leaves and frames — and shares every downstream path with a GLB prop.
+    #[must_use]
+    pub fn from_model(
+        model_path: String,
+        model: &PropModel,
+        textures: Vec<Arc<crate::loader::RawImage>>,
+        alphas: &[MaterialAlpha],
+    ) -> Option<Self> {
+        if model.submeshes.is_empty() || model.indices.is_empty() {
             return None;
         }
-        let vertices: Vec<Vertex> = asset
-            .model
+        let vertices: Vec<Vertex> = model
             .vertices
             .iter()
             .map(|vertex| Vertex {
@@ -229,14 +255,15 @@ impl DynamicMesh {
                 ..Vertex::UNLIT
             })
             .collect();
-        let submeshes: Vec<DynamicSubmesh> = asset
-            .model
+        let submeshes: Vec<DynamicSubmesh> = model
             .submeshes
             .iter()
-            .filter(|submesh| submesh.index_count > 0)
-            .map(|submesh| DynamicSubmesh {
+            .enumerate()
+            .filter(|(_, submesh)| submesh.index_count > 0)
+            .map(|(index, submesh)| DynamicSubmesh {
                 texture: submesh.texture,
                 emission: submesh.emission,
+                alpha: alphas.get(index).copied().unwrap_or(MaterialAlpha::OPAQUE),
                 first_index: submesh.first_index,
                 index_count: submesh.index_count,
             })
@@ -244,7 +271,7 @@ impl DynamicMesh {
         if submeshes.is_empty() {
             return None;
         }
-        let bounds = match asset.model.bounds() {
+        let bounds = match model.bounds() {
             Some((low, high)) => Aabb {
                 min: low,
                 max: high,
@@ -261,11 +288,11 @@ impl DynamicMesh {
             [0.0, 0.0, 0.0]
         };
         Some(Self {
-            model_path: asset.model_path.clone(),
+            model_path,
             vertices,
-            indices: asset.model.indices.clone(),
+            indices: model.indices.clone(),
             submeshes,
-            textures: asset.model.textures.iter().cloned().map(Arc::new).collect(),
+            textures,
             bounds,
             centre,
         })
@@ -758,6 +785,88 @@ impl DynamicScene {
         self.meshes.push(mesh);
         self.bump();
         self.meshes.len().checked_sub(1)
+    }
+
+    /// Registers a code-built model under `key`, returning its mesh index.
+    ///
+    /// Registration is idempotent: an already-registered key returns the
+    /// existing mesh, so respawning a level's doors after a quality rebuild
+    /// shares the geometry instead of duplicating it. `alphas[i]` is submesh
+    /// `i`'s alpha contract.
+    pub fn register_model(
+        &mut self,
+        key: &str,
+        model: &PropModel,
+        textures: Vec<Arc<crate::loader::RawImage>>,
+        alphas: &[MaterialAlpha],
+    ) -> Option<usize> {
+        if let Some(index) = self.mesh_index_by_path.get(key).copied() {
+            return Some(index);
+        }
+        if self.meshes.len() >= MAX_DYNAMIC_MESHES {
+            return None;
+        }
+        let mesh = Arc::new(DynamicMesh::from_model(
+            key.to_string(),
+            model,
+            textures,
+            alphas,
+        )?);
+        self.mesh_index_by_path
+            .insert(mesh.model_path.clone(), self.meshes.len());
+        self.meshes.push(mesh);
+        self.bump();
+        self.meshes.len().checked_sub(1)
+    }
+
+    /// Spawns one object that draws an already-registered mesh.
+    ///
+    /// The same transform contract as [`Self::spawn_oriented`], but keyed by a
+    /// mesh index from [`Self::register_model`] instead of a resolved asset.
+    #[must_use]
+    pub fn spawn_registered(
+        &mut self,
+        mesh_index: usize,
+        translation: [f32; 3],
+        orientation: SpawnOrientation,
+        spin_degrees: f32,
+        scale: f32,
+    ) -> Option<DynamicId> {
+        if self.objects.len() >= MAX_DYNAMIC_OBJECTS
+            || !translation.iter().all(|value| value.is_finite())
+            || !orientation.base_rotation.is_finite()
+            || !orientation.spin_axis.iter().all(|value| value.is_finite())
+            || !spin_degrees.is_finite()
+            || !scale.is_finite()
+            || scale <= 0.0
+        {
+            return None;
+        }
+        let axis = Vec3::from(orientation.spin_axis);
+        if axis.length() < SPIN_AXIS_EPSILON {
+            return None;
+        }
+        let mesh = self.meshes.get(mesh_index)?.clone();
+        let id = DynamicId(self.next_id);
+        self.next_id = self.next_id.wrapping_add(1);
+        self.objects.push(DynamicObject {
+            id,
+            mesh_index,
+            mesh,
+            translation: Vec3::from(translation),
+            base_rotation: orientation.base_rotation,
+            spin_axis: axis.normalize(),
+            spin_degrees,
+            scale,
+            spin_degrees_per_second: 0.0,
+            emission: None,
+            light_scale: [1.0; 3],
+            probe_position: [f32::NAN; 3],
+            probe_valid: false,
+            float: None,
+        });
+        self.bump();
+        Some(id)
     }
 
     /// Spawns one yaw-only dynamic object and returns its handle.

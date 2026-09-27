@@ -55,8 +55,8 @@
       "depth": 4.0,
       "height": 3.0,
       "floor_y": -0.9,
-      "material": "core:carpet_beige_01",
-      "ceiling_material": "core:ceiling_panel_01"
+      "material": "home:sauna_wood_01",
+      "ceiling_material": "home:ceiling_plaster_01"
     },
     {
       "x": 33.0,
@@ -1595,12 +1595,15 @@
       "x": 31.0,
       "z": 13.0,
       "rotation_degrees": 0.0,
-      "brightness": 0.28,
+      "brightness": 0.9,
       "color": [
-        0.96,
-        0.96,
-        0.93
-      ]
+        1.0,
+        0.88,
+        0.7
+      ],
+      "id": "sauna_light",
+      "switchable": true,
+      "comment": "Sauna lamp. Switchable: it contributes a local pool only (never a room baseline), so toggling it re-fills just its own lightmap charts and turns its face off through the same switch that drives the sauna door."
     },
     {
       "fixture": "core:fluorescent_panel_01",
@@ -2725,6 +2728,107 @@
         "heel_seconds": 3.6,
         "phase": 0.0
       }
+    },
+    {
+      "id": "sauna_bench_a",
+      "display_name": "Sauna Bench",
+      "model": "home:cabinet_base",
+      "x": 30.0,
+      "y": 0.0,
+      "z": 11.7,
+      "rotation_degrees": 0.0,
+      "scale": 0.5,
+      "size": [
+        0.3,
+        0.45,
+        0.3
+      ],
+      "solid": true,
+      "comment": "Sauna bench pair: a plain low box in the sauna corner, at the far end from the door."
+    },
+    {
+      "id": "sauna_bench_b",
+      "display_name": "Sauna Bench",
+      "model": "home:cabinet_base",
+      "x": 30.0,
+      "y": 0.0,
+      "z": 14.4,
+      "rotation_degrees": 0.0,
+      "scale": 0.5,
+      "size": [
+        0.3,
+        0.45,
+        0.3
+      ],
+      "solid": true
+    },
+    {
+      "id": "hall_switch",
+      "display_name": "Hall Light Switch",
+      "model": "home:wall_switch",
+      "x": 60.3,
+      "y": 1.2,
+      "z": 3.2,
+      "rotation_degrees": 180.0,
+      "size": [
+        0.18,
+        0.18,
+        0.1
+      ],
+      "solid": false,
+      "comment": "On the living-room face of the corridor wall, beside the hall door. One press flips the lever and toggles the door (and the door label).",
+      "interaction": {
+        "prompt": "Hall switch",
+        "reach": 1.6,
+        "actions": [
+          {
+            "action": "toggle_animation",
+            "clip": "toggle"
+          },
+          {
+            "action": "toggle",
+            "target": "hall_door"
+          },
+          {
+            "action": "toggle_label",
+            "target": "hall_door"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sauna_switch",
+      "display_name": "Sauna Switch",
+      "model": "home:wall_switch",
+      "x": 26.16,
+      "y": 1.2,
+      "z": 12.2,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.18,
+        0.18,
+        0.1
+      ],
+      "solid": false,
+      "comment": "Beside the sauna door, facing into the sauna. Drives the sauna leaf through the same declarative action wiring as every other switch.",
+      "interaction": {
+        "prompt": "Sauna switch",
+        "reach": 1.6,
+        "actions": [
+          {
+            "action": "toggle_animation",
+            "clip": "toggle"
+          },
+          {
+            "action": "toggle",
+            "target": "sauna_light"
+          },
+          {
+            "action": "toggle",
+            "target": "sauna_door"
+          }
+        ]
+      }
     }
   ],
   "decals": [
@@ -3660,6 +3764,90 @@
           "seconds": 1.5
         }
       ]
+    }
+  ],
+  "doors": [
+    {
+      "id": "hall_door",
+      "x": 60.3,
+      "y": 0.0,
+      "z": 3.0,
+      "rotation_degrees": 0.0,
+      "width": 1.4,
+      "height": 2.1,
+      "thickness": 0.045,
+      "open_direction": "left",
+      "swing_degrees": 90.0,
+      "open_speed_degrees": 130.0,
+      "initial_state": "closed",
+      "manual_interaction": true,
+      "prompt": "Hall door",
+      "comment": "White interior door in the corridor-to-living-room passage (wall 35). Left swing opens into the corridor; the wall switch beside it also drives it."
+    },
+    {
+      "id": "sauna_door",
+      "x": 26.08,
+      "y": 0.0,
+      "z": 12.5,
+      "rotation_degrees": 270.0,
+      "width": 1.6,
+      "height": 2.1,
+      "thickness": 0.05,
+      "open_direction": "left",
+      "swing_degrees": 95.0,
+      "open_speed_degrees": 90.0,
+      "initial_state": "open",
+      "manual_interaction": true,
+      "kind": "sauna",
+      "prompt": "Sauna door",
+      "comment": "Sauna leaf in the pool-deck doorway (wall 14): wooden stiles, a glass panel and a wooden handle, driven by the shared door system."
+    },
+    {
+      "id": "study_door",
+      "x": 64.85,
+      "y": 0.0,
+      "z": 5.8,
+      "rotation_degrees": 90.0,
+      "width": 1.4,
+      "height": 2.1,
+      "thickness": 0.045,
+      "open_direction": "right",
+      "swing_degrees": 88.0,
+      "initial_state": "open",
+      "manual_interaction": false,
+      "prompt": null,
+      "comment": "Externally controlled door: it starts open and only a map action moves it, so it is never an interaction target."
+    }
+  ],
+  "effects": [
+    {
+      "id": "sauna_steam_a",
+      "kind": "steam",
+      "x": 31.0,
+      "y": 0.0,
+      "z": 12.6,
+      "width": 0.9,
+      "depth": 0.6,
+      "height": 1.5,
+      "count": 20,
+      "size": 0.34,
+      "drift": 0.16,
+      "lifetime_seconds": 3.2,
+      "comment": "Light haze rising off the bench corner."
+    },
+    {
+      "id": "sauna_steam_b",
+      "kind": "steam",
+      "x": 31.0,
+      "y": 0.0,
+      "z": 13.6,
+      "width": 0.9,
+      "depth": 0.6,
+      "height": 1.7,
+      "count": 24,
+      "size": 0.38,
+      "drift": 0.2,
+      "lifetime_seconds": 3.6
     }
   ]
 }

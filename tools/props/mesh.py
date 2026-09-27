@@ -63,7 +63,7 @@ class Mesh:
         self.uvs: list[tuple[float, float]] = []
         self.indices: list[int] = []
         # Material/primitive tagging. A model that registers no material and
-        # no submesh keeps the legacy single-material GLB layout exactly.
+        # no submesh keeps the single-material GLB layout exactly.
         self.materials: list[dict] = []
         self.submeshes: list[dict] = []
         self._triangle_materials: list[int] = []
@@ -580,7 +580,7 @@ class Mesh:
     # A prop with two materials (a luminous face, a glowing orb) tags each
     # primitive run with a material slot; ``glb.write_glb`` turns every
     # contiguous run into one glTF primitive. Models that never call these keep
-    # an empty slot list and the legacy one-material output byte-for-byte.
+    # an empty slot list and the one-material output byte-for-byte.
 
     def material(self, name: str, emissive=None, strength: float = 1.0, color=None) -> int:
         """Registers (or returns) a material slot.
@@ -799,7 +799,7 @@ class PropBuilder:
         self.notes: list[str] = []
         # Rigid node/clip authoring for models with a moving part (the wall
         # switch). ``write_glb`` reads them; a prop that sets neither keeps the
-        # legacy single-node output exactly.
+        # single-node output exactly.
         self.nodes: list[dict] = []
         self.clips: list[dict] = []
 

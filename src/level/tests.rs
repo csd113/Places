@@ -500,17 +500,17 @@ fn test_collision_aabbs_include_solid_props_only() {
 // ------------------------------------------------------- vertical geometry
 
 #[test]
-fn test_legacy_room_gets_zero_elevation_flat_ceiling_and_the_new_default_height() {
+fn test_a_room_without_elevation_gets_flat_ceiling_and_the_default_height() {
     let level = LevelDef::from_json(
         r#"{
             "format_version": 2,
-            "id": "legacy",
-            "name": "Legacy",
+            "id": "minimal_room",
+            "name": "Minimal Room",
             "spawn": { "x": 0.0, "z": 0.0 },
             "rooms": [ { "x": -6.0, "z": -6.0, "width": 12.0, "depth": 12.0 } ]
         }"#,
     )
-    .expect("legacy json");
+    .expect("minimal room json");
     let room = level.room_iter().next().expect("one room");
     assert_exact(room.height, DEFAULT_CEILING_HEIGHT_M);
     assert_exact(room.floor_y, 0.0);
@@ -1148,8 +1148,8 @@ fn test_architecture_solids_cover_walls_piers_rails_and_not_trim() {
 }
 
 #[test]
-fn test_water_volumes_resolve_surface_bottom_and_legacy_default() {
-    let legacy = LevelDef::from_json(
+fn test_water_volumes_resolve_surface_bottom_and_the_dry_default() {
+    let dry_level = LevelDef::from_json(
         r#"{
             "format_version": 2,
             "id": "dry",
@@ -1158,9 +1158,12 @@ fn test_water_volumes_resolve_surface_bottom_and_legacy_default() {
             "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 } ]
         }"#,
     )
-    .expect("legacy level");
-    assert!(legacy.water.is_empty(), "legacy levels stay dry");
-    let dry = WaterVolumes::from_level(&legacy);
+    .expect("dry level");
+    assert!(
+        dry_level.water.is_empty(),
+        "a level with no water volumes is dry"
+    );
+    let dry = WaterVolumes::from_level(&dry_level);
     assert!(dry.is_empty());
     assert!(dry.sample(1.0, 1.0, -50.0).is_none());
 
@@ -1934,4 +1937,31 @@ fn raised_region_keeps_its_height_through_the_room_edge_tolerance() {
             assert!((y.expect("floor") + 0.9).abs() < 1.0e-5, "join at {x}");
         }
     }
+}
+
+#[test]
+fn the_switchable_fixture_material_base_starts_after_the_family_sheets() {
+    // The fixture-face slot table is `families ++ switchable fixtures`; if a
+    // family were added without moving the base, a switchable fixture would
+    // overwrite a family's sheet.
+    assert_eq!(
+        usize::from(crate::level::FIXTURE_SWITCHABLE_MATERIAL_BASE),
+        crate::lighting::FixtureKind::ALL.len()
+    );
+    assert_eq!(
+        crate::level::fixture_face_material_index(
+            0,
+            false,
+            crate::lighting::FixtureKind::WallSconce
+        ),
+        u16::try_from(crate::lighting::FixtureKind::WallSconce.index()).expect("fits")
+    );
+    assert_eq!(
+        crate::level::fixture_face_material_index(
+            7,
+            true,
+            crate::lighting::FixtureKind::WallSconce
+        ),
+        crate::level::FIXTURE_SWITCHABLE_MATERIAL_BASE + 7
+    );
 }

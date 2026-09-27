@@ -32,9 +32,6 @@ fn names_round_trip_and_parse_is_forgiving_about_case() {
             Some(level)
         );
     }
-    // The legacy profile name is the same presentation as High today.
-    assert_eq!(QualityLevel::parse("full"), Some(QualityLevel::High));
-    assert_eq!(QualityLevel::parse("FULL"), Some(QualityLevel::High));
     assert_eq!(QualityLevel::parse(""), None);
     assert_eq!(QualityLevel::parse("ultra"), None);
 }

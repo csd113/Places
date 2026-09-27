@@ -1698,7 +1698,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         ceiling_tile_rotation_degrees: None,
     });
     zero_room.ceiling_lights.push(LightFixtureDef {
-                switchable: false,
+        switchable: false,
         id: None,
         fixture: "core:fluorescent_panel_01".into(),
         x: 5.0,
@@ -1805,7 +1805,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     // A level with nothing but a ceiling fixture list.
     let mut lights_only = empty.clone();
     lights_only.ceiling_lights.push(LightFixtureDef {
-                switchable: false,
+        switchable: false,
         id: None,
         fixture: "core:fluorescent_panel_01".into(),
         x: 0.0,
@@ -1834,7 +1834,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     // Non-finite fixtures are dropped, not propagated.
     let mut broken = empty;
     broken.ceiling_lights.push(LightFixtureDef {
-                switchable: false,
+        switchable: false,
         id: None,
         fixture: "core:fluorescent_panel_01".into(),
         x: f32::INFINITY,
@@ -1968,22 +1968,22 @@ fn group_q_mixed_colours_stay_distinct_and_bounded() {
 }
 
 #[test]
-fn group_q_legacy_and_explicit_default_colours_bake_identically() {
+fn group_q_default_and_explicit_colours_bake_identically() {
     // Existing levels omit `color`; making the default explicit must not change
     // a single channel of the bake.
-    let legacy = coloured_room_json("[1.0, 0.96, 0.88]", 14.0, 3.5);
+    let omitted = coloured_room_json("[1.0, 0.96, 0.88]", 14.0, 3.5);
     let implicit = parse(&level_json(
         &room(0.0, 0.0, 14.0, 14.0, 3.5),
         &light(7.0, 7.0, Some(1.0)),
     ));
-    let a = bake(&legacy);
+    let a = bake(&omitted);
     let b = bake(&implicit);
     assert_eq!(a.rooms(), b.rooms());
     for point in [[1.0, 0.0, 1.0], [7.0, 0.0, 7.0], [13.0, 2.5, 13.0]] {
         assert_exact_named(
             a.sample(point[0], point[1], point[2]).luminance(),
             b.sample(point[0], point[1], point[2]).luminance(),
-            "legacy default colour",
+            "omitted default colour",
         );
     }
 }

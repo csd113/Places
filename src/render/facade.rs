@@ -172,8 +172,8 @@ impl Renderer {
     /// Applies the player's texture filtering preference.
     ///
     /// The three levels are trilinear with anisotropic filtering (`low` 4x,
-    /// `medium` 8x, `high` 16x); the legacy `linear`/`nearest` names map to
-    /// High/Low, and an empty or unknown value keeps the default (High).
+    /// `medium` 8x, `high` 16x). An empty or unknown value keeps the default
+    /// (High).
     /// Switching is live: the world, material and decal bind groups swap the
     /// sampler handle at bind time, with no texture re-upload and no resource
     /// rebuild. The baked lightmap atlas keeps its own fixed clamped linear
@@ -192,9 +192,42 @@ impl Renderer {
         self.renderer.update_dynamic(delta_seconds)
     }
 
+    /// Republishes every door leaf's angle from the gameplay state.
+    ///
+    /// The drawn slab and the physical collider read the same door angle, so
+    /// this is the one hand-off that keeps them in agreement.
+    pub fn sync_doors(&mut self, doors: &crate::door::Doors) {
+        self.renderer.sync_doors(doors);
+    }
+
+    /// Applies this frame's fixture switches: illumination and face emission.
+    ///
+    /// The gameplay side owns the switch state; the renderer re-fills the
+    /// fixture's lightmap charts, re-uploads their pages and scales its face
+    /// emission, so a light that is off neither illuminates nor glows.
+    pub fn apply_light_toggles(&mut self, toggles: &[(usize, bool)]) {
+        self.renderer.apply_light_toggles(toggles);
+    }
+
+    /// The installed level's door count and the number that spawned to draw.
+    #[must_use]
+    pub const fn door_render_counts(&self) -> (usize, usize) {
+        self.renderer.door_render_counts()
+    }
+
     /// Spawns every placed prop that authors `float` on its water surface.
     pub fn set_floating_props(&mut self, level: &LevelDef) -> usize {
         self.renderer.set_floating_props(level)
+    }
+
+    /// Installs (or re-installs) the level's ambient effect emitters.
+    ///
+    /// Idempotent: the level install already built and uploaded the steam
+    /// plumes from the resolved material table; this call re-uploads only if
+    /// the GPU side is missing and ignores a level other than the installed
+    /// one. Returns the number of live emitters.
+    pub fn set_level_effects(&mut self, level: &LevelDef) -> usize {
+        self.renderer.set_level_effects(level)
     }
 
     /// Advances every animated character's pose and re-uploads the ones that

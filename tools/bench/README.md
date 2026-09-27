@@ -46,7 +46,7 @@ Flags:
 | --- | --- |
 | `--label NAME` | output name; the JSON lands at `target/agent-work/bench/NAME.json` |
 | `--repeat N` | how many whole runs to take the min/median/max over (default 3) |
-| `--quality low\|medium\|high` | draw this run at the named profile without editing `settings.json` (`full` is the historical alias of `high`) |
+| `--quality low\|medium\|high` | draw this run at the named profile without editing `settings.json` |
 | `--no-lightmaps` | `PLACES_NO_LIGHTMAPS=1`: force the vertex-lit path |
 | `--binary PATH` | measure another executable (default `target/release/places`) |
 | `--level ID`, `--camera yaw[,pitch]` | the fixed scene (default `places_demo`, `74,0`) |
@@ -107,7 +107,7 @@ PLACES_BIN=target/release/places \
 The committed reference and its camera/settings manifest are documented in
 `docs/renderer-baseline/BASELINE.md`; that document is the authority on what
 each view exercises. `PLACES_QUALITY=high` and `PLACES_QUALITY=low` select one
-profile (`full` is the historical alias of `high`), and any other value is
+profile, and any other value is
 rejected. Delete the state root before a run to
 force a cold lightmap bake rather than reusing its cache. The script's own
 default writes the frozen `docs/renderer-baseline/{high,low}` images, so a
@@ -231,7 +231,7 @@ it and allocates nothing per frame.
 | `PLACES_CAPTURE_FRAME=n` | which frame to capture (default 1), so a moving object can be captured mid-animation |
 | `PLACES_NO_LIGHTMAPS=1` | force the vertex-lit path for a lightmap A/B capture |
 | `PLACES_DUMP_LIGHTMAPS=1` | write baked atlas pages as PNGs under `target/agent-work/atlases/` (a fresh bake only — delete `cache/lightmaps/` first, since a cache hit writes nothing) |
-| `PLACES_QUALITY=low\|medium\|high` | draw this run at the named profile without editing `settings.json` (`full` is the historical alias of `high`) |
+| `PLACES_QUALITY=low\|medium\|high` | draw this run at the named profile without editing `settings.json` |
 | `PLACES_BENCH_QUALITY_CYCLE=<frame>:<profile>[,<frame>:<profile>...]` | scripted live quality switch through the normal settings path (benchmark only) |
 | `PLACES_BENCH_WINDOW_CYCLE=<frame>:resize:<w>x<h>\|<frame>:minimize\|<frame>:restore[,...]` | scripted live window events through the real SDL window: resize, minimize, restore (benchmark only) |
 | `PLACES_NO_BLOOM=1` | drop the emissive pass and the blur, keeping the resolve stage |

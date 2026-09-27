@@ -775,6 +775,33 @@ impl WorldMaterials {
         self.per_draw.get(draw_index).copied()
     }
 
+    /// Writes one material entry's emission scale, for a switchable fixture.
+    ///
+    /// A switchable fixture owns its own material identity (its luminous face
+    /// is a distinct draw), so this scales exactly that fixture's emission: `1`
+    /// is on and `0` is off. Returns whether the write changed the applied
+    /// value; an entry with an emission animation is skipped, because
+    /// [`Self::update_animations`] owns that scale.
+    pub fn set_emission_scale(&mut self, queue: &wgpu::Queue, slot: usize, scale: f32) -> bool {
+        if self.animations.get(slot).is_some_and(Option::is_some) {
+            return false;
+        }
+        let scale = if scale.is_finite() {
+            scale.clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let Some(entry) = self.entries.get_mut(slot) else {
+            return false;
+        };
+        if (entry.applied_scale - scale).abs() <= f32::EPSILON {
+            return false;
+        }
+        entry.applied_scale = scale;
+        entry.write_emission_scale(queue, scale);
+        true
+    }
+
     /// The GPU material of one entry index.
     #[must_use]
     pub fn entry(&self, slot: usize) -> Option<&GpuMaterial> {
@@ -913,11 +940,36 @@ impl GpuMaterial {
         emission_texture: &Arc<GpuTexture>,
         record: EmissionRecord,
     ) -> Self {
-        let uniform = MaterialUniform::from_state_with_emission(
-            &ResolvedSurfaceMaterial::plain(),
-            false,
+        Self::plain_with_alpha(
+            device,
+            queue,
+            layout,
+            cache,
+            emission_texture,
             record,
-        );
+            crate::materials::MaterialAlpha::OPAQUE,
+        )
+    }
+
+    /// [`Self::plain_emissive`] with an explicit alpha contract.
+    ///
+    /// The dynamic path uses this for a submesh whose material blends (a sauna
+    /// door's glass panel): the uniform carries the mode/opacity the world
+    /// shader and the translucent pipeline expect, while everything else stays
+    /// the plain prop state.
+    #[must_use]
+    pub fn plain_with_alpha(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        layout: &wgpu::BindGroupLayout,
+        cache: &TextureCache,
+        emission_texture: &Arc<GpuTexture>,
+        record: EmissionRecord,
+        alpha: crate::materials::MaterialAlpha,
+    ) -> Self {
+        let mut state = ResolvedSurfaceMaterial::plain();
+        state.alpha = alpha;
+        let uniform = MaterialUniform::from_state_with_emission(&state, false, record);
         let fallback = cache.fallback();
         Self::new(
             device,

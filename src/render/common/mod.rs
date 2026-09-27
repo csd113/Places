@@ -15,7 +15,9 @@ pub mod atmosphere;
 pub mod camera;
 pub mod character;
 pub mod decals;
+pub mod doors;
 pub mod dynamic;
+pub mod effects;
 pub mod fixtures;
 pub mod framebuffer;
 pub mod geometry;
@@ -58,8 +60,8 @@ use fixtures::{add_flush_mount_fixture, add_panel_fixture, add_round_fixture, ad
 use geometry::build_level_geometry_mesh;
 pub use mesh::{
     BatchRange, LIGHTMAP_NONE, LevelMesh, LevelMeshBatches, LevelMeshRange, MATERIAL_NONE,
-    MaterialIndex, MaterialSlot, SurfaceKey, SurfaceKind, SurfaceShine, Vertex, dequantize_unit,
-    spatial_cell_grid,
+    MaterialIndex, MaterialSlot, SMOOTH_NORMAL, SurfaceKey, SurfaceKind, SurfaceShine, Vertex,
+    dequantize_unit, spatial_cell_grid,
 };
 pub use mesh::{MeshChunk, MeshPacker, finish_indexed_mesh};
 pub use props::PropMeshBatch;

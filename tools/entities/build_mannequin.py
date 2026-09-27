@@ -242,7 +242,7 @@ def build_body(mesh: Mesh, tex: Texture) -> List[Tuple[str, int, int]]:
         first_index = len(mesh.indices)
         fn(*args, **kwargs)
         if fn in (mesh.lathe, mesh.cylinder):
-            # The legacy Y-axis primitives wind inward; opt in locally so
+            # The shared Y-axis primitives wind inward; opt in locally so
             # concrete casts have outward normals in other glTF consumers too.
             for index in range(first_index, len(mesh.indices), 3):
                 mesh.indices[index + 1], mesh.indices[index + 2] = mesh.indices[index + 2], mesh.indices[index + 1]

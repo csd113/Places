@@ -1001,6 +1001,9 @@ fn places_demo_doorway_thresholds_are_owned_once() {
     let pool_deck = materials
         .index_of("core:pool_tile_deck_01")
         .expect("pool deck");
+    let sauna_wood = materials
+        .index_of("home:sauna_wood_01")
+        .expect("sauna wood");
     let floor_material_at = |x: f32, z: f32| {
         all.iter()
             .find(|t| t.kind == SurfaceKind::Floor && covers_xz(t, x, z))
@@ -1009,7 +1012,8 @@ fn places_demo_doorway_thresholds_are_owned_once() {
     assert_eq!(floor_material_at(18.9, 0.9), Some(beige));
     assert_eq!(floor_material_at(19.1, 0.9), Some(damp));
     assert_eq!(floor_material_at(25.9, 13.3), Some(pool_deck));
-    assert_eq!(floor_material_at(26.1, 13.3), Some(beige));
+    // East of the pool-deck doorway is the sauna room's cedar floor.
+    assert_eq!(floor_material_at(26.1, 13.3), Some(sauna_wood));
 }
 
 #[test]

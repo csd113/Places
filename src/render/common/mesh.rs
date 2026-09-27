@@ -5,6 +5,8 @@
 //! texture a batch binds, the cullable mesh, and the packer that turns it into
 //! 16-bit-indexable buffers.
 
+use std::collections::HashMap;
+
 use super::LevelDef;
 
 /// Authoring/build-time vertex: exact floats, easy to reason about and to audit.
@@ -49,6 +51,20 @@ pub struct Vertex {
 /// use the vertex colour's baked light instead", which is what makes the
 /// fallback per-vertex rather than per-draw.
 pub const LIGHTMAP_NONE: u8 = u8::MAX;
+
+/// Sentinel normal marking a vertex whose normal must be resolved from its
+/// coincident neighbours instead of from its own faces.
+///
+/// A round body (a pillar or an arc wall) is emitted one segment per quad, and
+/// each segment carries its own lightmap chart, so adjacent segments cannot
+/// share a vertex: the chart coordinates differ. Marking the body's vertices
+/// with this sentinel lets [`finish_indexed_mesh`] average every coincident
+/// vertex's geometric normal *across ranges* (a body can straddle spatial
+/// cells), which is what turns the segment ring into one smooth radial
+/// surface. No sentinel ever reaches a draw call — every frame is resolved
+/// before the mesh is packed — and [`Vertex::UNLIT`] keeps a real `[0, 0, 1]`
+/// normal, so only an emitter that explicitly asks for smoothing can set one.
+pub const SMOOTH_NORMAL: [f32; 3] = [0.0; 3];
 
 impl Vertex {
     /// A vertex with no lightmap coordinates: the historical vertex-lit vertex.
@@ -547,13 +563,17 @@ pub fn finish_indexed_mesh(mut buckets: crate::spatial::SpatialBuckets<SurfaceKe
     let mut virtual_index = 0i32;
     let mut vertex_count = 0usize;
     let mut index_count = 0usize;
+    // Vertices that asked for their normal to be averaged from coincident
+    // neighbours are resolved after every range's geometric normals are known,
+    // because one smooth body can be split over several spatial cells.
+    let mut smooth: Vec<SmoothVertex> = Vec::new();
 
     for ((key, _cell), range) in drained {
         if range.indices.is_empty() {
             continue;
         }
         let mut vertices = range.vertices;
-        compute_surface_frames(&mut vertices, &range.indices);
+        compute_surface_frames(&mut vertices, &range.indices, ranges.len(), &mut smooth);
         let index_len = i32::try_from(range.indices.len()).unwrap_or(i32::MAX);
         let span_end = virtual_index.saturating_add(index_len);
         if let Some(slot) = spans.get_mut(key.kind as usize) {
@@ -573,6 +593,8 @@ pub fn finish_indexed_mesh(mut buckets: crate::spatial::SpatialBuckets<SurfaceKe
         });
     }
     drop(buckets);
+
+    resolve_smooth_vertices(&mut ranges, &smooth);
 
     batches.floor_batch = span_for(&spans, SurfaceKind::Floor);
     batches.ceiling_batch = span_for(&spans, SurfaceKind::Ceiling);
@@ -600,7 +622,10 @@ pub fn finish_indexed_mesh(mut buckets: crate::spatial::SpatialBuckets<SurfaceKe
 /// * **Normal** is the area-weighted average of the adjacent triangle normals.
 ///   The builder emits each quad with its own four vertices, so a planar quad
 ///   resolves to exactly its geometric normal, and a curved patch (a gable
-///   slope, a prop box face) smooths within its own patch only.
+///   slope, a prop box face) smooths within its own patch only. A vertex the
+///   emitter marked [`SMOOTH_NORMAL`] is deferred instead: its normal is
+///   resolved across every range after the geometric pass, from its coincident
+///   ring vertices ([`resolve_smooth_vertices`]).
 /// * **Tangent** is the UV-space `u` derivative, Gram-Schmidt-orthogonalised
 ///   against the normal, which is what a normal map needs to be oriented with
 ///   the surface's own tiling.
@@ -610,7 +635,12 @@ pub fn finish_indexed_mesh(mut buckets: crate::spatial::SpatialBuckets<SurfaceKe
 ///
 /// Degenerate triangles and degenerate UVs are skipped rather than propagated:
 /// a vertex that ends up with no usable frame keeps a defined, unit-length one.
-fn compute_surface_frames(vertices: &mut [Vertex], indices: &[u16]) {
+fn compute_surface_frames(
+    vertices: &mut [Vertex],
+    indices: &[u16],
+    range: usize,
+    smooth: &mut Vec<SmoothVertex>,
+) {
     let count = vertices.len();
     let mut normals = vec![[0.0f32; 3]; count];
     let mut tangents = vec![[0.0f32; 3]; count];
@@ -669,27 +699,118 @@ fn compute_surface_frames(vertices: &mut [Vertex], indices: &[u16]) {
     }
 
     for (index, vertex) in vertices.iter_mut().enumerate() {
-        let normal = normals
-            .get(index)
-            .copied()
-            .and_then(normalize3)
-            .unwrap_or([0.0, 0.0, 1.0]);
-        let raw_tangent = tangents.get(index).copied().unwrap_or_default();
-        // Gram-Schmidt: the component along the normal is not part of the
-        // surface's tangent plane.
-        let projected = sub3(raw_tangent, scale3(normal, dot3(normal, raw_tangent)));
-        let tangent = normalize3(projected)
-            .or_else(|| normalize3(cross3([0.0, 1.0, 0.0], normal)))
-            .or_else(|| normalize3(cross3([1.0, 0.0, 0.0], normal)))
-            .unwrap_or([1.0, 0.0, 0.0]);
-        let handedness = match bitangents.get(index).copied().and_then(normalize3) {
-            Some(bitangent) if dot3(cross3(normal, tangent), bitangent) < 0.0 => -1.0,
-            Some(_) | None => 1.0,
-        };
+        if vertex.normal == SMOOTH_NORMAL {
+            // Defer: the final normal is the average over coincident ring
+            // vertices, which is only known once every range is accumulated.
+            // Each vertex contributes its *own* flat face direction as a unit
+            // vector, because the quad's diagonal split gives one row's corners
+            // two triangles and the other row's one: without normalising first,
+            // a ring vertex would be weighted towards whichever segment owns
+            // the diagonal, and the smooth normal would leave the radial line.
+            smooth.push(SmoothVertex {
+                range,
+                vertex: index,
+                position: position_key(vertex.pos),
+                normal: normals
+                    .get(index)
+                    .copied()
+                    .and_then(normalize3)
+                    .unwrap_or_default(),
+                tangent: tangents.get(index).copied().unwrap_or_default(),
+                bitangent: bitangents.get(index).copied().unwrap_or_default(),
+            });
+            continue;
+        }
+        let (normal, tangent, handedness) = resolve_frame(
+            normals.get(index).copied().unwrap_or_default(),
+            tangents.get(index).copied().unwrap_or_default(),
+            bitangents.get(index).copied().unwrap_or_default(),
+        );
         vertex.normal = normal;
         vertex.tangent = tangent;
         vertex.handedness = handedness;
     }
+}
+
+/// One vertex whose normal is resolved by averaging, rather than from its own
+/// faces: where it lives and the raw frame its own triangles produced.
+#[derive(Clone, Copy)]
+struct SmoothVertex {
+    /// Range index, so the resolved frame can be written back.
+    range: usize,
+    /// Vertex index inside that range.
+    vertex: usize,
+    /// Exact position bits: the grouping key of coincident ring vertices.
+    position: [u32; 3],
+    normal: [f32; 3],
+    tangent: [f32; 3],
+    bitangent: [f32; 3],
+}
+
+/// The exact-bit grouping key of a world position.
+fn position_key(position: [f32; 3]) -> [u32; 3] {
+    position.map(f32::to_bits)
+}
+
+/// Resolves every deferred smooth vertex from the vertices coincident with it,
+/// in every range of the mesh.
+///
+/// A round body's ring position is produced once by the emitter and reused by
+/// both segments that meet there, so the coincident vertices differ only in
+/// their lightmap chart. Summing the raw normals of exactly those vertices
+/// gives the area-weighted ring normal (the two segments' flat normals average
+/// to the radial one), while a box corner — whose coincident faces meet at a
+/// large angle and which never carries the sentinel — stays faceted. Tangent
+/// and handedness are then resolved against the smoothed normal.
+fn resolve_smooth_vertices(ranges: &mut [LevelMeshRange], smooth: &[SmoothVertex]) {
+    if smooth.is_empty() {
+        return;
+    }
+    // The summation order is the deferred order (range order, then vertex
+    // order), so the result is deterministic and independent of the map's
+    // internal layout.
+    let mut sums: HashMap<[u32; 3], [f32; 3]> = HashMap::new();
+    for entry in smooth {
+        let sum = sums.entry(entry.position).or_insert([0.0; 3]);
+        add3_assign(sum, entry.normal);
+    }
+    for entry in smooth {
+        let summed = sums.get(&entry.position).copied().unwrap_or(entry.normal);
+        let (normal, tangent, handedness) = resolve_frame(summed, entry.tangent, entry.bitangent);
+        let vertex = ranges
+            .get_mut(entry.range)
+            .and_then(|range| range.vertices.get_mut(entry.vertex));
+        if let Some(vertex) = vertex {
+            vertex.normal = normal;
+            vertex.tangent = tangent;
+            vertex.handedness = handedness;
+        }
+    }
+}
+
+/// Resolves one vertex's final frame from its accumulated raw triangle frame.
+///
+/// `raw_normal` is the accumulated geometric normal, or the smooth average for
+/// a deferred vertex; the tangent is projected onto the plane the normal
+/// defines, so a smoothed normal never leaves a stale out-of-plane tangent.
+fn resolve_frame(
+    raw_normal: [f32; 3],
+    raw_tangent: [f32; 3],
+    raw_bitangent: [f32; 3],
+) -> ([f32; 3], [f32; 3], f32) {
+    let normal = normalize3(raw_normal).unwrap_or([0.0, 0.0, 1.0]);
+    // Gram-Schmidt: the component along the normal is not part of the
+    // surface's tangent plane.
+    let projected = sub3(raw_tangent, scale3(normal, dot3(normal, raw_tangent)));
+    let tangent = normalize3(projected)
+        .or_else(|| normalize3(cross3([0.0, 1.0, 0.0], normal)))
+        .or_else(|| normalize3(cross3([1.0, 0.0, 0.0], normal)))
+        .unwrap_or([1.0, 0.0, 0.0]);
+    let handedness = match normalize3(raw_bitangent) {
+        Some(bitangent) if dot3(cross3(normal, tangent), bitangent) < 0.0 => -1.0,
+        Some(_) | None => 1.0,
+    };
+    (normal, tangent, handedness)
 }
 
 /// `a - b`.

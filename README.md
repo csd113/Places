@@ -271,7 +271,7 @@ is resolved in this order and the result is printed at startup:
 
 ```text
 $PLACES_ASSET_ROOT                    explicit override (the directory containing assets/)
-exe_dir, exe_dir/.. .. exe_dir/../../..   a flat install, and the legacy bin/<triple>/app layout
+exe_dir, exe_dir/.. .. exe_dir/../../..   a flat install, and an older bin/<triple>/app layout
 exe_dir/../Resources                   a macOS .app bundle
 assets, ./assets, ../assets            the working directory (development)
 $CARGO_MANIFEST_DIR/assets             development builds only, never a release binary
@@ -507,9 +507,9 @@ Working and shipped:
 * an offscreen scene path: the 3D scene renders into a colour+depth target and
   is presented to the window by a fullscreen quad, with the UI still drawn at
   the drawable's own resolution;
-* Full and Low runtime quality profiles that use the same assets, with Low
-  downscaling textures once at level load and the profile switchable while
-  playing;
+* Three runtime quality profiles (High, Medium, Low) that use the same assets,
+  with lower levels downscaling textures once at level load and the profile
+  switchable while playing;
 * a sectioned pause-menu Settings screen (Graphics, Display, Controls) backed by
   one runtime settings state, with Graphics Quality, Bloom, VSync and the
   Advanced group (Texture Filtering, Lightmaps, Reflections) applying
@@ -628,7 +628,7 @@ same assets and box-filters each one once at level load (sheets 256, prop sheets
 128, emissive masks 128) and renders the scene no wider than the historical 480
 px reference width. Downscaling is a load-time step that is cached with the
 texture it produced, never a per-frame cost, and `"quality"` in `settings.json`
-(or `PLACES_QUALITY=low|medium|high`, legacy `full` = High, for one run) selects
+(or `PLACES_QUALITY=low|medium|high` for one run) selects
 the level. The level is a selector in Settings → Graphics and can be changed
 while playing: the change is applied as one diffed transaction, the resident
 level's CPU build is retained, and only the resources the change actually needs

@@ -424,6 +424,7 @@ fn bake_request_with_workers(
         charts: request.charts.clone(),
         stats,
         cache_key: request.content_key.clone(),
+        padding: request.config.padding,
     })
 }
 

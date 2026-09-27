@@ -59,13 +59,13 @@ fn test_default_action_map_is_wasd_and_arrows_only() {
     };
     assert_eq!(unique.len(), bound_keys.len(), "duplicate default keys");
 
-    // Legacy keys are no longer part of the default layout.
-    for legacy in ["Z", "O", ".", "K", "L"] {
+    // The old non-WASD layout is not part of the default bindings.
+    for old_key in ["Z", "O", ".", "K", "L"] {
         for action in KeyBindings::ACTIONS {
             assert_ne!(
                 bindings.get_key(action),
-                Some(legacy),
-                "legacy key {legacy} is still the default for {action}"
+                Some(old_key),
+                "old key {old_key} is still the default for {action}"
             );
         }
     }
@@ -187,33 +187,30 @@ fn mouse_sensitivity_is_sanitized_into_its_documented_range() {
 }
 
 /// Texture Filtering is persisted as `"low" | "medium" | "high"`, defaults to
-/// `"high"`, keeps loading the legacy names and repairs anything unknown.
+/// `"high"` and repairs anything unknown to the default.
 #[test]
-fn test_texture_filtering_defaults_and_legacy_names() {
+fn test_texture_filtering_defaults_and_unknown_values() {
     let default = Settings::default();
     assert_eq!(default.texture_filtering, "high");
     assert_eq!(TEXTURE_FILTERING_NAMES, ["low", "medium", "high"]);
 
-    // The legacy names keep loading and normalize to the current equivalents.
-    for (legacy, expected) in [
-        ("linear", "high"),
-        ("Linear", "high"),
-        ("  LINEAR  ", "high"),
-        ("nearest", "low"),
-        ("NEAREST", "low"),
-        ("", "high"),
-        ("trilinear", "high"),
-        ("bilinear_invalid", "high"),
-        ("anisotropic", "high"),
+    // An unknown or empty value resolves to High, the default.
+    for value in [
+        "",
+        "  ",
+        "trilinear",
+        "bilinear_invalid",
+        "anisotropic",
+        "FULL",
     ] {
         let mut settings = Settings {
-            texture_filtering: legacy.to_string(),
+            texture_filtering: value.to_string(),
             ..Default::default()
         };
         settings.sanitize();
         assert_eq!(
-            settings.texture_filtering, expected,
-            "legacy/unknown value {legacy:?}"
+            settings.texture_filtering, "high",
+            "unknown value {value:?}"
         );
     }
 
@@ -227,20 +224,20 @@ fn test_texture_filtering_defaults_and_legacy_names() {
         assert_eq!(settings.texture_filtering, name);
     }
 
-    // The same repair happens on the real load path: an old settings.json with
-    // the legacy names still parses, and sanitizing rewrites them in memory.
-    let legacy_json = r#"{
+    // The same repair happens on the real load path: an unrecognised stored
+    // value parses and is rewritten to the canonical name in memory.
+    let unknown_json = r#"{
         "bindings": {
             "forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D",
             "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT"
         },
-        "texture_filtering": "nearest",
-        "quality": "full"
+        "texture_filtering": "unrecognised",
+        "quality": "ultra"
     }"#;
     let mut loaded: Settings =
-        serde_json::from_str(legacy_json).expect("a legacy settings file parses");
+        serde_json::from_str(unknown_json).expect("the settings file parses");
     loaded.sanitize();
-    assert_eq!(loaded.texture_filtering, "low");
+    assert_eq!(loaded.texture_filtering, "high");
     assert_eq!(loaded.quality, "high");
 }
 
@@ -252,9 +249,7 @@ fn test_texture_filtering_step_cycles_low_medium_high_both_ways() {
     assert_eq!(texture_filtering_step("high", -1), "medium");
     assert_eq!(texture_filtering_step("medium", -1), "low");
     assert_eq!(texture_filtering_step("low", -1), "high");
-    // Legacy and unknown values step from their canonical equivalent.
-    assert_eq!(texture_filtering_step("nearest", 1), "medium");
-    assert_eq!(texture_filtering_step("linear", 1), "low");
+    // An unknown value steps from the default (High).
     assert_eq!(texture_filtering_step("bogus", 1), "low");
 }
 
@@ -285,23 +280,23 @@ fn test_quality_defaults_validates_and_round_trips() {
         assert_eq!(settings.quality_level(), level);
     }
 
-    // The legacy profile name is the same presentation as High today.
-    let mut legacy_full = Settings {
-        quality: "full".to_string(),
+    // An unrecognised quality name resolves to the default level.
+    let mut unknown = Settings {
+        quality: "ultra".to_string(),
         ..Default::default()
     };
-    legacy_full.sanitize();
-    assert_eq!(legacy_full.quality, "high");
-    assert_eq!(legacy_full.quality_level(), QualityLevel::High);
+    unknown.sanitize();
+    assert_eq!(unknown.quality, "high");
+    assert_eq!(unknown.quality_level(), QualityLevel::High);
 
-    // A settings file from before the quality field existed still loads.
-    let legacy = r#"{
+    // A settings file without the quality field still loads on defaults.
+    let minimal = r#"{
         "bindings": {
             "forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D",
             "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT"
         }
     }"#;
-    let parsed: Settings = serde_json::from_str(legacy).expect("legacy settings parse");
+    let parsed: Settings = serde_json::from_str(minimal).expect("settings parse");
     assert_eq!(parsed.quality_level(), QualityLevel::DEFAULT);
 }
 
@@ -491,11 +486,11 @@ fn test_the_default_window_is_1920x1080() {
     );
 }
 
-/// A settings file written before bloom, invert-look and the window fields
-/// existed still loads, with every missing field defaulted.
+/// A settings file that omits bloom, invert-look and the window fields still
+/// loads, with every missing field defaulted.
 #[test]
-fn test_legacy_settings_files_receive_modern_defaults() {
-    let legacy = r#"{
+fn test_settings_files_without_newer_fields_receive_defaults() {
+    let minimal = r#"{
         "bindings": {
             "forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D",
             "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT"
@@ -503,7 +498,7 @@ fn test_legacy_settings_files_receive_modern_defaults() {
         "look_speed_h": 120.0,
         "quality": "low"
     }"#;
-    let parsed: Settings = serde_json::from_str(legacy).expect("legacy settings parse");
+    let parsed: Settings = serde_json::from_str(minimal).expect("settings parse");
     assert_exact(parsed.look_speed_h, 120.0);
     assert_eq!(parsed.quality_level(), crate::quality::QualityLevel::Low);
     assert!(parsed.bloom_enabled(), "bloom defaults on");
@@ -1030,8 +1025,8 @@ fn test_advanced_overrides_persist_round_trip() {
     let _ = fs::remove_file(path);
 }
 
-/// A file that predates the Advanced keys derives all three from its saved
-/// quality; the legacy name `full` means High.
+/// A file that omits the Advanced keys derives all three from its saved
+/// quality.
 #[test]
 fn test_missing_advanced_keys_derive_from_the_saved_quality() {
     use crate::quality::QualityLevel;
@@ -1058,13 +1053,6 @@ fn test_missing_advanced_keys_derive_from_the_saved_quality() {
             LightmapQuality::Full,
             ReflectionQuality::Full,
         ),
-        (
-            "full",
-            QualityLevel::High,
-            "high",
-            LightmapQuality::Full,
-            ReflectionQuality::Full,
-        ),
     ] {
         let mut settings: Settings =
             serde_json::from_str(&settings_json(&format!(r#""quality": "{quality}""#)))
@@ -1085,83 +1073,30 @@ fn test_missing_advanced_keys_derive_from_the_saved_quality() {
     }
 }
 
-/// The legacy booleans map `true` to Full and `false` to Off, and an explicit
-/// legacy value beats the derivation from the saved quality.
+/// A valid settings file is not renamed to `.invalid`: only a file that cannot
+/// be parsed is preserved aside.
 #[test]
-fn test_legacy_boolean_advanced_values_map_to_full_and_off() {
-    let mut settings: Settings = serde_json::from_str(&settings_json(
-        r#""quality": "low", "lightmaps": true, "reflections": false"#,
-    ))
-    .expect("a legacy settings file parses");
-    settings.sanitize();
-    assert_eq!(
-        settings.lightmap_quality(),
-        LightmapQuality::Full,
-        "an explicit legacy true is Full even under Low"
-    );
-    assert_eq!(
-        settings.reflection_quality(),
-        ReflectionQuality::Off,
-        "an explicit legacy false is Off"
-    );
-
-    // The same file under High maps identically.
-    let mut high: Settings = serde_json::from_str(&settings_json(
-        r#""quality": "high", "lightmaps": false, "reflections": true"#,
-    ))
-    .expect("a legacy settings file parses");
-    high.sanitize();
-    assert_eq!(high.lightmap_quality(), LightmapQuality::Off);
-    assert_eq!(high.reflection_quality(), ReflectionQuality::Full);
-}
-
-/// A legacy `texture_filtering` value is preserved while the missing Advanced
-/// keys derive from the saved quality: `nearest` is Low, `linear` is High.
-#[test]
-fn test_legacy_filtering_is_preserved_while_missing_advanced_keys_derive() {
-    let mut nearest: Settings = serde_json::from_str(&settings_json(
-        r#""quality": "medium", "texture_filtering": "nearest""#,
-    ))
-    .expect("a legacy settings file parses");
-    nearest.sanitize();
-    assert_eq!(nearest.texture_filtering, "low");
-    assert_eq!(nearest.texture_filtering_preset(), "low");
-    assert_eq!(nearest.lightmap_quality(), LightmapQuality::Medium);
-    assert_eq!(nearest.reflection_quality(), ReflectionQuality::Medium);
-
-    let mut linear: Settings = serde_json::from_str(&settings_json(
-        r#""quality": "low", "texture_filtering": "linear""#,
-    ))
-    .expect("a legacy settings file parses");
-    linear.sanitize();
-    assert_eq!(linear.texture_filtering, "high");
-    assert_eq!(linear.texture_filtering_preset(), "high");
-}
-
-/// A valid older file is not renamed to `.invalid`: only a file that cannot be
-/// parsed is preserved aside.
-#[test]
-fn test_a_valid_older_advanced_file_is_not_renamed() {
+fn test_a_valid_settings_file_is_not_renamed() {
     use crate::quality::QualityLevel;
 
     let scratch = std::path::Path::new("target/agent-work/tests/settings");
     fs::create_dir_all(scratch).expect("scratch dir is writable");
-    let path = scratch.join("legacy-valid.json");
-    let invalid = scratch.join("legacy-valid.json.invalid");
+    let path = scratch.join("valid-advanced.json");
+    let invalid = scratch.join("valid-advanced.json.invalid");
     let _ = fs::remove_file(&invalid);
     fs::write(
         &path,
         settings_json(
-            r#""quality": "medium", "texture_filtering": "linear", "lightmaps": true, "reflections": false"#,
+            r#""quality": "medium", "texture_filtering": "high", "lightmaps": "full", "reflections": "off""#,
         ),
     )
-    .expect("write the older file");
+    .expect("write the file");
 
     let loaded = Settings::load_or_default_reporting(&path);
-    assert!(path.exists(), "a valid older file stays in place");
+    assert!(path.exists(), "a valid file stays in place");
     assert!(!invalid.exists(), "it must not be renamed to .invalid");
     assert_eq!(loaded.quality_level(), QualityLevel::Medium);
-    assert_eq!(loaded.texture_filtering_preset(), "high", "legacy linear");
+    assert_eq!(loaded.texture_filtering_preset(), "high");
     assert_eq!(loaded.lightmap_quality(), LightmapQuality::Full);
     assert_eq!(loaded.reflection_quality(), ReflectionQuality::Off);
 
@@ -1228,8 +1163,8 @@ fn test_bench_graphics_cycle_grammar() {
         parse_graphics_change("bloom=1"),
         Some(GraphicsChange::Bloom(true))
     );
-    // Unknown settings, values and legacy names are ignored rather than
-    // silently mapped onto a player-facing preset.
+    // Unknown settings and values are ignored rather than silently mapped
+    // onto a player-facing preset.
     for malformed in [
         "filtering=nearest",
         "filtering=ultra",
@@ -1251,7 +1186,7 @@ fn test_bench_graphics_cycle_grammar() {
 /// A settings file written before the jump binding existed loads without being
 /// renamed, keeps an explicit rebind, and a missing key gets `SPACE`.
 #[test]
-fn jump_binding_serde_compatibility() {
+fn a_missing_jump_binding_defaults_on_load() {
     let without_jump = r#"{
         "bindings": {
             "forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D",
@@ -1282,7 +1217,7 @@ fn jump_binding_serde_compatibility() {
 /// A settings file written before the interact binding existed loads without
 /// being renamed, keeps an explicit rebind, and a missing key gets `E`.
 #[test]
-fn interact_binding_serde_compatibility() {
+fn a_missing_interact_binding_defaults_on_load() {
     let without_interact = r#"{
         "bindings": {
             "forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D",
@@ -1308,12 +1243,12 @@ fn interact_binding_serde_compatibility() {
     assert!(json.contains(r#""interact":"Q""#), "{json}");
 }
 
-/// Migrating to the `E` default never overwrites a binding the player
-/// customized: if `E` is already taken, Interact is left unbound for the
-/// Controls screen instead of sharing a key that the input lookup would
+/// Defaulting a missing Interact binding never overwrites a binding the
+/// player customized: if `E` is already taken, Interact is left unbound for
+/// the Controls screen instead of sharing a key that the input lookup would
 /// silently shadow.
 #[test]
-fn interact_migration_never_overwrites_a_customized_e_binding() {
+fn a_missing_interact_binding_never_overwrites_a_customized_e_binding() {
     let customized = r#"{
         "bindings": {
             "forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D",
@@ -1340,14 +1275,14 @@ fn interact_migration_never_overwrites_a_customized_e_binding() {
         .expect("an unused key binds");
     assert_eq!(parsed.bindings.interact, "F");
 
-    // With the key free, the migration lands on E as documented.
+    // With the key free, the missing binding defaults to E as documented.
     let mut plain: Settings =
         serde_json::from_str(without_interact_bindings()).expect("the file parses");
     plain.bindings.sanitize();
     assert_eq!(plain.bindings.interact, "E");
 }
 
-/// JSON for a pre-Interact settings file with no customized bindings.
+/// JSON for a settings file without an Interact binding, nothing customized.
 fn without_interact_bindings() -> &'static str {
     r#"{
         "bindings": {

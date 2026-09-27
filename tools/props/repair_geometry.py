@@ -198,7 +198,7 @@ def encode(document, blob, positions, uvs, colors, indices):
     for semantic,data,fmt,component,kind in values:
         replace(primitive['attributes'][semantic],data,fmt,component,kind,34962)
     replace(primitive['indices'],[(i,) for i in indices],'H',5123,'SCALAR',34963)
-    # Drop now-unreferenced legacy accessors before packing, too.
+    # Drop now-unreferenced accessors before packing, too.
     used_accessors = sorted(set(primitive['attributes'].values()) | {primitive['indices']})
     accessor_map = {old:new for new,old in enumerate(used_accessors)}
     document['accessors'] = [document['accessors'][i] for i in used_accessors]

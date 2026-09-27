@@ -456,12 +456,26 @@ pub struct QuerySite {
     pub x: f32,
     pub z: f32,
     pub radius: f32,
+    /// Index into the level's `props` of the prop that owns this site's
+    /// emitter, when the site belongs to a prop-attached light.
+    ///
+    /// A prop-attached light is the source, so the boxes derived from its own
+    /// prop's model must not occlude it — exactly as a ceiling fixture is never
+    /// occluded by its own housing ([`Occluders::build_with`] records which
+    /// boxes each prop contributed). Doorway blends and ceiling fixtures leave
+    /// this `None` and see every solid.
+    pub owner_prop: Option<usize>,
 }
 
 impl QuerySite {
     #[must_use]
     pub const fn new(x: f32, z: f32, radius: f32) -> Self {
-        Self { x, z, radius }
+        Self {
+            x,
+            z,
+            radius,
+            owner_prop: None,
+        }
     }
 
     /// A fixture site whose radius covers every segment the bake can ask about.
@@ -490,7 +504,20 @@ impl QuerySite {
         } else {
             0.0
         };
-        Self::new(x, z, range + half_w.hypot(half_d))
+        Self {
+            x,
+            z,
+            radius: range + half_w.hypot(half_d),
+            owner_prop: None,
+        }
+    }
+
+    /// This site with the prop that owns its emitter, for the attached-light
+    /// self-exemption.
+    #[must_use]
+    pub const fn with_owner_prop(mut self, owner: Option<usize>) -> Self {
+        self.owner_prop = owner;
+        self
     }
 }
 
@@ -958,6 +985,10 @@ pub(super) struct Occluders {
     /// Walls only: the uniform grid behind point containment and the
     /// partition-connectivity segment queries.
     wall_grid: PointGrid,
+    /// `(start, end)` into [`Self::props`] of every level prop's own occluder
+    /// boxes, by prop index. Empty when the level places no props with attached
+    /// lights, which is when the ranges are never asked for.
+    prop_ranges: Vec<(u32, u32)>,
 }
 
 impl Occluders {
@@ -1001,12 +1032,24 @@ impl Occluders {
         } else {
             super::occlusion::level_occluders_with_cell(level, &surfaces, cell_m)
         };
+        let prop_ranges = prop_occluder_ranges(level, &surfaces, cell_m, props.len());
         Self {
             wall_grid: PointGrid::build(&walls, 0),
             walls,
             horizontals,
             props,
+            prop_ranges,
         }
+    }
+
+    /// The box range in [`Self::props`] one level prop contributed, or `None`
+    /// when that prop has no recorded range.
+    #[must_use]
+    fn prop_range(&self, owner: usize) -> Option<(u32, u32)> {
+        self.prop_ranges
+            .get(owner)
+            .copied()
+            .filter(|(start, end)| end > start)
     }
 
     /// Number of static prop occluder boxes.
@@ -1152,7 +1195,10 @@ impl Occluders {
     #[must_use]
     pub(super) fn fingerprint(&self) -> u64 {
         let mut hash = 0xcbf2_9ce4_8422_2325_u64;
-        hash_bytes(&mut hash, b"occluders-v1");
+        // v2: the set is the same, but the bake now exempts a prop-attached
+        // light from its own prop's boxes. The version seed keeps an atlas
+        // cached under the old query semantics from being reused.
+        hash_bytes(&mut hash, b"occluders-v2");
         hash_u64(
             &mut hash,
             u64::try_from(self.walls.len()).unwrap_or(u64::MAX),
@@ -1196,6 +1242,54 @@ impl Occluders {
         }
         hash
     }
+}
+
+/// Box ranges in [`Occluders::props`] per level prop index, for the
+/// attached-light self-exemption.
+///
+/// The occluder derivation returns one flat list in level prop order and does
+/// not tag boxes with their owning instance. The bake needs that grouping to
+/// keep a prop-attached light from being occluded by its own body, so the
+/// deterministic derivation is re-run on progressively truncated prop lists —
+/// walking owners from the last to the first, so a single clone of the level
+/// only ever shrinks. This is exact by construction: each call is the same
+/// classifier that produced the full list, evaluated on a prefix of the same
+/// props, so the counts cannot drift from the real boxes. A level with no
+/// attached lights pays nothing.
+fn prop_occluder_ranges(
+    level: &LevelDef,
+    surfaces: &LevelSurfaces<'_>,
+    cell_m: f32,
+    box_count: usize,
+) -> Vec<(u32, u32)> {
+    let mut ranges = vec![(0u32, 0u32); level.props.len()];
+    let owners: Vec<usize> = level
+        .props
+        .iter()
+        .enumerate()
+        .filter_map(|(index, prop)| (!prop.lights.is_empty()).then_some(index))
+        .collect();
+    if owners.is_empty() {
+        return ranges;
+    }
+    let mut prefix = level.clone();
+    for owner in owners.into_iter().rev() {
+        prefix.props.truncate(owner.saturating_add(1));
+        let after = super::occlusion::level_occluders_with_cell(&prefix, surfaces, cell_m)
+            .len()
+            .min(box_count);
+        prefix.props.truncate(owner);
+        let before = super::occlusion::level_occluders_with_cell(&prefix, surfaces, cell_m)
+            .len()
+            .min(box_count);
+        if let Some(slot) = ranges.get_mut(owner) {
+            *slot = (
+                u32::try_from(before.min(after)).unwrap_or(u32::MAX),
+                u32::try_from(after.max(before)).unwrap_or(u32::MAX),
+            );
+        }
+    }
+    ranges
 }
 
 /// FNV-1a step over raw bytes.
@@ -1486,6 +1580,7 @@ impl Visibility {
             allocation_bytes(&self.occluders.walls),
             allocation_bytes(&self.occluders.horizontals),
             allocation_bytes(&self.occluders.props),
+            allocation_bytes(&self.occluders.prop_ranges),
             allocation_bytes(&self.occluders.wall_grid.ranges),
             allocation_bytes(&self.occluders.wall_grid.items),
         ]
@@ -1519,6 +1614,14 @@ impl Visibility {
                 let radius = site.radius.max(0.0);
                 let (x0, x1) = (site.x - radius, site.x + radius);
                 let (z0, z1) = (site.z - radius, site.z + radius);
+                // A prop-attached light is the source: the boxes derived from
+                // its own prop's model never stand between it and a sample,
+                // exactly as a ceiling fixture is never occluded by its own
+                // housing. Every other solid — including other props — still
+                // casts its shadow.
+                let own_prop = site
+                    .owner_prop
+                    .and_then(|owner| occluders.prop_range(owner));
                 for (index, wall) in occluders.walls.iter().enumerate() {
                     if wall.overlaps_footprint(x0, x1, z0, z1) {
                         let (fx0, fx1, fz0, fz1) = wall.footprint();
@@ -1540,10 +1643,14 @@ impl Visibility {
                     }
                 }
                 for (index, prop) in occluders.props.iter().enumerate() {
+                    let slot = u32::try_from(index).unwrap_or(u32::MAX);
+                    if own_prop.is_some_and(|(start, end)| slot >= start && slot < end) {
+                        continue;
+                    }
                     if prop.overlaps_footprint(x0, x1, z0, z1) {
                         let (fx0, fx1, fz0, fz1) = prop.footprint();
                         pool.push(SiteSolid {
-                            solid: SolidIndex::Prop(u32::try_from(index).unwrap_or(u32::MAX)),
+                            solid: SolidIndex::Prop(slot),
                             near: prop.footprint_distance(site.x, site.z),
                             bounds: (fx0, fx1, fz0, fz1).into(),
                         });

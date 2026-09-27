@@ -570,6 +570,7 @@ fn memory_cache_returns_the_same_allocation_and_clears() {
         charts: Vec::new(),
         stats: LightmapStats::default(),
         cache_key: "key".to_string(),
+        padding: 2,
     });
     assert!(cache.get("key").is_none());
     cache.insert("key", std::sync::Arc::clone(&lightmaps));
@@ -602,6 +603,7 @@ fn disk_cache_round_trips_a_page_set() {
         charts: vec![(patch(1.0, 1.0), chart)],
         stats: LightmapStats::default(),
         cache_key: "v1-test-key".to_string(),
+        padding: 1,
     };
     super::cache::disk_store(&root, &lightmaps.cache_key, &lightmaps);
     let loaded = super::cache::disk_load(&root, &lightmaps.cache_key).expect("disk round trip");
@@ -621,7 +623,7 @@ fn disk_cache_round_trips_a_page_set() {
 fn the_format_version_is_current_and_is_part_of_every_key_prefix() {
     // The value itself is pinned by the cache module's version notes; the
     // contract under test is that the key carries it.
-    assert_eq!(LIGHTMAP_FORMAT_VERSION, 10);
+    assert_eq!(LIGHTMAP_FORMAT_VERSION, 11);
     let level = crate::level::LevelDef::from_json(
         r#"{
             "format_version": 2,
@@ -668,6 +670,7 @@ fn disk_load_rejects_a_mismatched_format_version() {
         charts: vec![(patch(1.0, 1.0), chart)],
         stats: LightmapStats::default(),
         cache_key: key.clone(),
+        padding: 2,
     };
     super::cache::disk_store(&root, &key, &lightmaps);
     assert!(
@@ -1388,6 +1391,7 @@ fn cache_fixture(key: &str, value: u8) -> LevelLightmaps {
         )],
         stats: LightmapStats::default(),
         cache_key: key.to_string(),
+        padding: 2,
     }
 }
 
@@ -1522,4 +1526,80 @@ fn disk_cache_failure_is_a_miss_and_does_not_break_the_memory_store() {
         b"occupied"
     );
     let _ = std::fs::remove_dir_all(&root);
+}
+
+/// One room with one ceiling fixture at the given brightness, baked.
+fn refill_lighting(brightness: f32) -> crate::lighting::LevelLighting {
+    let level = crate::level::LevelDef::from_json(&format!(
+        r#"{{
+            "format_version": 2,
+            "id": "refill_light",
+            "name": "Refill Light",
+            "spawn": {{ "x": 5.0, "z": 5.0 }},
+            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 }} ],
+            "ceiling_lights": [
+                {{ "fixture": "core:fluorescent_panel_01", "x": 5.0, "z": 5.0,
+                   "brightness": {brightness} }}
+            ]
+        }}"#
+    ))
+    .expect("the refill test level parses");
+    crate::lighting::LevelLighting::bake(&level)
+}
+
+/// A one-chart atlas filled from `lighting`.
+fn refill_lightmaps(
+    config: &LightmapConfig,
+    lighting: &crate::lighting::LevelLighting,
+) -> (LevelLightmaps, Vec<(LightmapPatch, Chart)>) {
+    let mut allocator = ChartAllocator::new(*config);
+    let patch = patch(6.0, 6.0);
+    let chart = allocator.allocate(&patch).expect("one chart fits");
+    let charts = vec![(patch, chart)];
+    let atlas = LightmapAtlas::bake(config, allocator.page_count(), &charts, |patch, chart| {
+        super::fill_chart(lighting, patch, chart)
+    })
+    .expect("the atlas bakes");
+    (
+        LevelLightmaps {
+            pages: atlas.into_pages(),
+            charts: charts.clone(),
+            stats: LightmapStats::default(),
+            cache_key: "refill-test".to_string(),
+            padding: config.padding,
+        },
+        charts,
+    )
+}
+
+#[test]
+fn refilling_a_light_reproduces_a_full_bake_of_its_new_state() {
+    let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
+    let on = refill_lighting(1.0);
+    let off = refill_lighting(0.0);
+    let (mut lightmaps, _) = refill_lightmaps(&config, &on);
+    // The off-state bake is the reference the refill must reproduce exactly,
+    // gutter included.
+    let (reference, _) = refill_lightmaps(&config, &off);
+
+    let dirty = lightmaps.refill_light(&off, 0);
+    assert!(!dirty.is_empty(), "the fixture's chart must be re-filled");
+    assert_eq!(dirty, vec![0], "one chart lives on page zero");
+    assert_eq!(lightmaps.pages, reference.pages);
+
+    // Refilling again with the same state is idempotent and still marks the
+    // page (the caller re-uploads it only when it toggled).
+    let again = lightmaps.refill_light(&off, 0);
+    assert_eq!(again, vec![0]);
+    assert_eq!(lightmaps.pages, reference.pages);
+}
+
+#[test]
+fn refilling_an_unknown_light_touches_nothing() {
+    let config = LightmapConfig::for_profile(crate::quality::QualityProfile::Full);
+    let on = refill_lighting(1.0);
+    let (mut lightmaps, _) = refill_lightmaps(&config, &on);
+    let before = lightmaps.pages.clone();
+    assert!(lightmaps.refill_light(&on, 99).is_empty());
+    assert_eq!(lightmaps.pages, before);
 }

@@ -112,7 +112,6 @@ E = entity toolkit, B = Blender. No third-party Python packages are required.
 | `tools/props/animate_spooner_man.py` | Canonical cat clip baking and --check | S/P; guarded canonical GLB | A; six spawn clip jobs, parent export |
 | `tools/props/build.py` | Catalog prop build/check; verify.sh and authoring | S/P; catalog GLBs | A build jobs; D cheap checks |
 | `tools/props/cat_motion.py` | IK and grounded clip sampling; animation baker | S/P; pose arrays | A; initialized model per worker |
-| `tools/props/generate_spooner_man.py` | Static fallback wrapper; documented CLI | S/P; guarded cat GLB | D/E; guard-only legacy wrapper; forwards flags, forced static fallback fails current size contract |
 | `tools/props/geometry.py` | Adjacency/winding; builders and repair | S; audit/mesh arrays | D; near-linear bounded meshes |
 | `tools/props/glb.py` | GLB codec; builders/previews/validators | S; bytes and model arrays | D; bounded format operations |
 | `tools/props/glyphs.py` | Font/polygon painter; signs/decals | S; pixels | D; small glyph work |
@@ -129,7 +128,6 @@ E = entity toolkit, B = Blender. No third-party Python packages are required.
 | `tools/props/parts/pool_remade.py` | pool remade builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
 | `tools/props/parts/refreshed.py` | refreshed builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
 | `tools/props/parts/signage.py` | signage builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
-| `tools/props/parts/spooner_man.py` | spooner man builders; prop build registry | S/P; mesh/texture buffers | E; legacy static cat has obsolete dimensions; protected shipped rig remains canonical |
 | `tools/props/parts/tableware.py` | tableware builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
 | `tools/props/parts/utility.py` | utility builders; prop build registry | S/P; mesh/texture buffers | D individually; A through parent build batches |
 | `tools/props/preview.py` | Software raster previews; authoring/skeleton | S/P; PNG/contact sheets | A; per-model spawn jobs |

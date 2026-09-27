@@ -204,7 +204,11 @@ impl DoorRuntime {
     /// either holds (`stop`) or flips direction once-per-obstruction
     /// (`reverse`); the collider is never advanced into the obstruction, so the
     /// player is never pushed or trapped by a closing leaf.
-    pub fn advance(&mut self, delta: f32, mut blocked: impl FnMut(&DoorCollider) -> bool) -> DoorStep {
+    pub fn advance(
+        &mut self,
+        delta: f32,
+        mut blocked: impl FnMut(&DoorCollider) -> bool,
+    ) -> DoorStep {
         let mut step = DoorStep::default();
         if !delta.is_finite() || delta <= 0.0 || !self.phase.is_moving() {
             return step;
@@ -441,7 +445,9 @@ mod tests {
 
     #[test]
     fn an_initially_open_door_starts_at_its_swing() {
-        let level = level_with_doors(&door_json(r#", "open_direction": "left", "initial_state": "open""#));
+        let level = level_with_doors(&door_json(
+            r#", "open_direction": "left", "initial_state": "open""#,
+        ));
         let doors = Doors::from_level(&level);
         assert_eq!(doors.get(0).expect("door").phase(), DoorPhase::Open);
         assert!((doors.get(0).expect("door").angle() - 90.0).abs() < 1e-3);
@@ -450,7 +456,9 @@ mod tests {
 
     #[test]
     fn a_blocked_leaf_holds_and_resumes_when_clear() {
-        let level = level_with_doors(&door_json(r#", "open_direction": "left", "obstruction": "stop""#));
+        let level = level_with_doors(&door_json(
+            r#", "open_direction": "left", "obstruction": "stop""#,
+        ));
         let mut doors = Doors::from_level(&level);
         doors.get_mut(0).expect("door").request_open();
         // Block every step: the angle must not advance.
@@ -466,7 +474,9 @@ mod tests {
 
     #[test]
     fn a_reversing_leaf_flips_direction_once_per_obstruction() {
-        let level = level_with_doors(&door_json(r#", "open_direction": "left", "obstruction": "reverse""#));
+        let level = level_with_doors(&door_json(
+            r#", "open_direction": "left", "obstruction": "reverse""#,
+        ));
         let mut doors = Doors::from_level(&level);
         doors.get_mut(0).expect("door").request_open();
         doors.advance(0.25, |_, _| true);

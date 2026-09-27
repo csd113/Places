@@ -45,13 +45,10 @@ from execution import ordered_map, worker_count, atomic_write
 
 
 def _placeable_entries(catalog: dict) -> List[dict]:
-    entries = catalog.get("assets")
-    if entries is None:
-        entries = catalog.get("props", [])
     return [
         entry
-        for entry in entries
-        if entry.get("asset_type", "prop") in PLACEABLE_TYPES
+        for entry in catalog.get("assets", [])
+        if entry.get("asset_type") in PLACEABLE_TYPES
     ]
 
 BACKGROUND_TOP = (26, 27, 30)

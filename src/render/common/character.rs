@@ -3000,11 +3000,11 @@ mod tests {
         assert!((rate - 4.0).abs() < 1e-5, "the rate clamps at 4x: {rate}");
 
         // A clip with no declared reference keeps the historical constant.
-        let legacy = rigged_model(vec![named_clip("walk", None)]);
-        let animator = CharacterAnimator::new(&legacy).expect("rig animator");
+        let single_clip = rigged_model(vec![named_clip("walk", None)]);
+        let animator = CharacterAnimator::new(&single_clip).expect("rig animator");
         let (_, _, _, rate) = animator.resolve_cue(&PoseCue::Walk {
             speed_mps: WALK_REFERENCE_SPEED_MPS,
         });
-        assert!((rate - 1.0).abs() < 1e-5, "legacy walk reference: {rate}");
+        assert!((rate - 1.0).abs() < 1e-5, "walk reference: {rate}");
     }
 }

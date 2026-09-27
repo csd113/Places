@@ -203,20 +203,18 @@ impl TextureFiltering {
     /// Every level, in player-facing order.
     pub const ALL: [Self; 3] = [Self::Low, Self::Medium, Self::High];
 
-    /// The default level, and the level the legacy `"linear"` name maps to.
+    /// The default level.
     pub const DEFAULT: Self = Self::High;
 
     /// Parses the player-facing setting.
     ///
     /// Surrounding whitespace is trimmed and the comparison is ASCII
-    /// case-insensitive: `"low"`, `"medium"` and `"high"` are the levels, the
-    /// legacy `"nearest"` means Low and the legacy `"linear"` means High. An
-    /// empty or unknown value keeps the default (High), like the old parser's
-    /// tolerance.
+    /// case-insensitive: `"low"`, `"medium"` and `"high"` are the levels. An
+    /// empty or unknown value keeps the default (High).
     #[must_use]
     pub fn parse(mode: &str) -> Self {
         let mode = mode.trim();
-        if mode.eq_ignore_ascii_case("low") || mode.eq_ignore_ascii_case("nearest") {
+        if mode.eq_ignore_ascii_case("low") {
             Self::Low
         } else if mode.eq_ignore_ascii_case("medium") {
             Self::Medium
@@ -2000,7 +1998,7 @@ mod tests {
     }
 
     #[test]
-    fn the_filtering_setting_parses_the_three_levels_and_legacy_names() {
+    fn the_filtering_setting_parses_the_three_levels() {
         assert_eq!(TextureFiltering::parse("low"), TextureFiltering::Low);
         assert_eq!(TextureFiltering::parse("medium"), TextureFiltering::Medium);
         assert_eq!(TextureFiltering::parse("high"), TextureFiltering::High);
@@ -2008,9 +2006,6 @@ mod tests {
         assert_eq!(TextureFiltering::parse("  LOW "), TextureFiltering::Low);
         assert_eq!(TextureFiltering::parse("Medium"), TextureFiltering::Medium);
         assert_eq!(TextureFiltering::parse("\tHIGH\n"), TextureFiltering::High);
-        // Legacy settings-file names.
-        assert_eq!(TextureFiltering::parse("linear"), TextureFiltering::High);
-        assert_eq!(TextureFiltering::parse("nearest"), TextureFiltering::Low);
         // Empty and unknown keep the default (High).
         assert_eq!(TextureFiltering::parse(""), TextureFiltering::High);
         assert_eq!(TextureFiltering::parse("   "), TextureFiltering::High);
