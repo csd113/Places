@@ -1033,8 +1033,9 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             first, second, "the second level must replace the first world"
         )
 
-        # The demonstration objects belong to the level that spawned them: the
-        # boot demo spawns the drum plus the floating rubber duck, and
+        # The demonstration objects and the level's door leaves/frames belong to
+        # the level that spawned them: the boot demo spawns the drum, the
+        # floating rubber duck and three doors (frame + leaf each), and
         # replacing the level must clear the neutral dynamic scene instead of
         # carrying it into the new level.
         dynamic_counts = [
@@ -1045,7 +1046,11 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             )
         ]
         self.assertEqual(len(dynamic_counts), 2, output)
-        self.assertEqual(dynamic_counts[0][:2], (2, 2), output)
+        self.assertEqual(
+            dynamic_counts[0][:2],
+            (8, 12),
+            "the demo's drum, floating duck, three door frames and three door leaves",
+        )
         self.assertGreater(dynamic_counts[0][2], 0, "the demo dynamic scene contains geometry")
         self.assertEqual(
             dynamic_counts[1], (0, 0, 0),

@@ -358,11 +358,10 @@ impl EffectScene {
     /// Empties the emitters but keeps the resolved materials, mirroring
     /// [`DynamicScene::clear`](crate::render::common::dynamic::DynamicScene::clear).
     ///
-    /// The engine currently rebuilds a scene wholesale on every level change
-    /// ([`Self::clear_all`]); this half of the pair exists so a caller that
-    /// wants to clear only the emitters (a debug toggle, a future level
-    /// reload) has the same shape as the dynamic scene.
-    #[allow(dead_code)] // mirror API of `DynamicScene`, exercised by the tests
+    /// The engine rebuilds a scene wholesale on every level change
+    /// ([`Self::clear_all`]); this half of the pair stays for the tests that
+    /// exercise "emitters gone, textures kept" independently of the loader.
+    #[cfg(test)]
     pub fn clear(&mut self) {
         if self.emitters.is_empty() {
             return;
