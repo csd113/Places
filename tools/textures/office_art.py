@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Office surface artwork: wallpaper, carpet and panel ceiling PNGs.
 
-The three surface families and their two wear states each have one painter;
+Wallpaper loads its authored PNGs; carpet and ceiling retain their legacy painters;
 ``ART`` maps the logical texture id to its catalog
 ``model`` path and painter, which ``build.py`` merges into the manifest.
 
@@ -125,47 +125,30 @@ def wallpaper_rgb(x: int, y: int) -> tuple[float, float, float]:
     )
 
 
-def build_wallpaper_yellow() -> Canvas:
-    canvas = Canvas(SIZE, SIZE)
-    for y in range(SIZE):
-        for x in range(SIZE):
-            canvas.set(x, y, wallpaper_rgb(x, y))
+def _load_wallpaper(name: str) -> Canvas:
+    """Preserve the authored chevron PNG, including when build uses --force."""
+    from pathlib import Path
+    from seam_repair import read_png
+
+    source = Path(__file__).resolve().parents[2] / "assets/environment/office/textures/walls" / name
+    image = read_png(str(source))
+    if (image.width, image.height) != (1024, 1024):
+        raise ValueError("office wallpaper must retain its 1024x1024 contract")
+    canvas = Canvas(image.width, image.height)
+    for i in range(image.width * image.height):
+        start = i * image.channels
+        canvas.pixels[i*4:i*4+3] = image.pixels[start:start+3]
+        if image.channels == 4:
+            canvas.pixels[i*4+3] = image.pixels[start+3]
     return canvas
+
+
+def build_wallpaper_yellow() -> Canvas:
+    return _load_wallpaper("wallpaper_yellow_01.png")
 
 
 def build_wallpaper_stained() -> Canvas:
-    """The same printed paper with restrained water damage.
-
-    Broad damp fields cross the sheet and a few narrow runs follow the paper
-    down the repeat.  The runs sample an anisotropic noise field (fine in x,
-    coarse in y), so every run has its own length instead of the whole sheet
-    sharing one vertical mask.  Damp paper darkens and loses its yellow,
-    picking up a rusty grey-brown, but the print still reads through it.
-    """
-    canvas = Canvas(SIZE, SIZE)
-    for y in range(SIZE):
-        for x in range(SIZE):
-            r, g, b = wallpaper_rgb(x, y)
-            damp = _wet_mask(x, y, 2, 4, 9, 101)
-            # A run is a narrow column mask times a two-dimensional length
-            # mask, so neighbouring runs stop at different heights instead of
-            # sharing one sheet-wide vertical extent.
-            column = tile_noise(x, 0, SIZE, 16, 103)
-            length = fbm(x, y, SIZE, 2, 5, 11, 107)
-            run = smoothstep(column, 0.86, 0.95) * smoothstep(length, 0.36, 0.52)
-            darken = 1.0 - 0.040 * damp - 0.045 * run
-            mix = clamp(0.30 * damp + 0.30 * run, 0.0, 0.38)
-            fade = 1.0 - 0.05 * (damp + run)
-            canvas.set(
-                x,
-                y,
-                (
-                    STAIN_PAPER[0] * mix + r * darken * (1.0 - mix),
-                    STAIN_PAPER[1] * mix + g * darken * (1.0 - mix),
-                    STAIN_PAPER[2] * mix + b * darken * (1.0 - mix) * fade,
-                ),
-            )
-    return canvas
+    return _load_wallpaper("wallpaper_stained_01.png")
 
 
 # ------------------------------------------------------------------- carpet
