@@ -23,7 +23,8 @@
 
 use glam::Vec3;
 
-use crate::collision::{WallAabb, ray_aabb_entry};
+use crate::collision::{DoorCollider, WallAabb, nearest_door_entry, ray_aabb_entry};
+use crate::door::{DoorPhase, Doors};
 use crate::game::Game;
 use crate::level::{
     ActionDef, DEFAULT_INTERACTION_PROMPT, LevelDef, LevelSurfaces, PROP_FALLBACK_SIZE,
@@ -96,9 +97,84 @@ pub struct Interactable {
     /// The instance's own collision box when it is a solid prop, so occlusion
     /// never treats the target as its own blocker. `None` for non-solid props.
     pub own_box: Option<WallAabb>,
+    /// For a door target: the door's index in [`Doors`], so the aim ray never
+    /// treats the target leaf as its own occluder.
+    pub door_index: Option<usize>,
     /// Actions one press performs, in order. Empty for a label-only target that
     /// another instance toggles.
     pub actions: Vec<ActionDef>,
+}
+
+/// The live pose a door publishes into its interaction entry each frame.
+///
+/// The aim bound must follow the leaf as it swings: a door's closed box and its
+/// open box share almost no volume, so a static bound would let the player aim
+/// at a door that is no longer there (or miss one that is).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct InteractableSync {
+    /// World-space bounds of the current leaf.
+    pub bounds: Aabb,
+    /// World-space label anchor (top centre of the leaf).
+    pub anchor: Vec3,
+}
+
+impl InteractableSync {
+    /// The live pose of one door collider.
+    #[must_use]
+    pub fn from_door_collider(collider: &DoorCollider) -> Self {
+        let (hx, hz) = (collider.hinge_x, collider.hinge_z);
+        let (dx, dz) = (collider.dir_x, collider.dir_z);
+        let half_thickness = collider.thickness * 0.5;
+        let (nx, nz) = (-dz * half_thickness, dx * half_thickness);
+        let end_x = (collider.width).mul_add(dx, hx);
+        let end_z = (collider.width).mul_add(dz, hz);
+        #[allow(clippy::arithmetic_side_effects)] // bounded world coordinates
+        let corners = [
+            (hx + nx, hz + nz),
+            (end_x + nx, end_z + nz),
+            (end_x - nx, end_z - nz),
+            (hx - nx, hz - nz),
+        ];
+        let mut min_x = f32::INFINITY;
+        let mut max_x = f32::NEG_INFINITY;
+        let mut min_z = f32::INFINITY;
+        let mut max_z = f32::NEG_INFINITY;
+        for (x, z) in corners {
+            min_x = min_x.min(x);
+            max_x = max_x.max(x);
+            min_z = min_z.min(z);
+            max_z = max_z.max(z);
+        }
+        let top = collider.hinge_y + collider.height;
+        Self {
+            bounds: Aabb {
+                min: [min_x, collider.hinge_y, min_z],
+                max: [max_x, top, max_z],
+            },
+            anchor: Vec3::new(
+                f32::midpoint(min_x, max_x),
+                top + LABEL_HEIGHT_MARGIN_M,
+                f32::midpoint(min_z, max_z),
+            ),
+        }
+    }
+}
+
+/// The prompt a manually interactable door shows while closed.
+pub const DOOR_PROMPT_OPEN: &str = "Open";
+/// The prompt a manually interactable door shows while open.
+pub const DOOR_PROMPT_CLOSE: &str = "Close";
+
+/// The phase-dependent prompt for one door.
+#[must_use]
+pub fn door_prompt(phase: DoorPhase, authored: Option<&str>) -> String {
+    if let Some(prompt) = authored.map(str::trim).filter(|prompt| !prompt.is_empty()) {
+        return prompt.to_string();
+    }
+    match phase {
+        DoorPhase::Closed | DoorPhase::Closing => DOOR_PROMPT_OPEN.to_string(),
+        DoorPhase::Open | DoorPhase::Opening => DOOR_PROMPT_CLOSE.to_string(),
+    }
 }
 
 /// Every target instance named anywhere in the level, trimmed.
@@ -135,7 +211,10 @@ fn referenced_targets(level: &LevelDef) -> Vec<String> {
                 | ActionDef::ToggleAnimation {
                     target: Some(target),
                     ..
-                } => Some(target),
+                }
+                | ActionDef::OpenDoor { target }
+                | ActionDef::CloseDoor { target }
+                | ActionDef::Toggle { target } => Some(target),
                 ActionDef::ToggleLabel { target: None }
                 | ActionDef::PlayAnimation { target: None, .. }
                 | ActionDef::ToggleAnimation { target: None, .. }
@@ -172,8 +251,8 @@ impl Interactables {
         Self { items: Vec::new() }
     }
 
-    /// Resolves every aimable prop and every prop referenced as a label/cue
-    /// target.
+    /// Resolves every aimable prop, every prop referenced as a label/cue
+    /// target, and every manually interactable door.
     ///
     /// Bounds use the same size contract as collision
     /// ([`crate::level::PropDef::resolved_size`] against
@@ -182,7 +261,7 @@ impl Interactables {
     /// `size`, exactly as it does to block correctly. Malformed entries are
     /// skipped; a loaded level has already been validated.
     #[must_use]
-    pub fn from_level(level: &LevelDef) -> Self {
+    pub fn from_level(level: &LevelDef, doors: &Doors) -> Self {
         let surfaces = LevelSurfaces::new(level);
         let ids = level.prop_instance_ids();
         let referenced = referenced_targets(level);
@@ -265,10 +344,37 @@ impl Interactables {
                 bounds,
                 size,
                 own_box,
+                door_index: None,
                 actions: actions.map_or_else(Vec::new, <[ActionDef]>::to_vec),
             });
         }
+        items.extend(door_interactables(doors));
         Self { items }
+    }
+
+    /// Republishes a door target's live aim bound, anchor and phase prompt.
+    ///
+    /// `door_index` identifies the door and `phase` decides the default prompt;
+    /// the bounds and anchor come from the leaf's current collider.
+    pub fn sync_door(
+        &mut self,
+        door_index: usize,
+        collider: &DoorCollider,
+        phase: DoorPhase,
+        authored_prompt: Option<&str>,
+    ) -> bool {
+        let sync = InteractableSync::from_door_collider(collider);
+        let Some(item) = self
+            .items
+            .iter_mut()
+            .find(|item| item.door_index == Some(door_index))
+        else {
+            return false;
+        };
+        item.bounds = sync.bounds;
+        item.anchor = sync.anchor;
+        item.prompt = door_prompt(phase, authored_prompt);
+        true
     }
 
     /// True when no placed object declares an interaction.
@@ -337,6 +443,45 @@ impl Interactables {
     }
 }
 
+/// The interaction entries for a level's manually interactable doors.
+///
+/// Only a leaf that authors `manual_interaction` joins the aimable set; an
+/// externally controlled door is still an action target, but the player cannot
+/// open it by looking at it. Each entry's live bound, anchor and prompt are
+/// republished as the leaf swings (see [`Interactables::sync_door`]).
+#[must_use]
+fn door_interactables(doors: &Doors) -> Vec<Interactable> {
+    let mut items = Vec::new();
+    for (door_index, door) in doors.iter().enumerate() {
+        if !door.def.manual_interaction {
+            continue;
+        }
+        let sync = InteractableSync::from_door_collider(&door.collider());
+        let reach = door
+            .def
+            .reach
+            .filter(|reach| reach.is_finite() && *reach > 0.0)
+            .map_or(DEFAULT_INTERACTION_REACH_M, |reach| {
+                reach.min(MAX_INTERACTION_REACH_M)
+            });
+        items.push(Interactable {
+            id: door.def.id.clone(),
+            display_name: door.def.id.clone(),
+            prompt: door_prompt(door.phase(), door.def.prompt.as_deref()),
+            reach,
+            anchor: sync.anchor,
+            bounds: sync.bounds,
+            size: [door.def.width, door.def.height, door.def.thickness],
+            own_box: None,
+            door_index: Some(door_index),
+            actions: vec![ActionDef::Toggle {
+                target: door.def.id.clone(),
+            }],
+        });
+    }
+    items
+}
+
 /// The axis-aligned half-extents of a yaw-rotated rectangle, in `(x, z)`.
 ///
 /// The interaction bound is conservative: rotating the model can only grow its
@@ -367,6 +512,7 @@ pub fn nearest_target(
     direction: Vec3,
     items: &[Interactable],
     walls: &[WallAabb],
+    doors: &[DoorCollider],
 ) -> Option<usize> {
     if items.is_empty() || direction.length_squared() <= f32::EPSILON {
         return None;
@@ -384,7 +530,15 @@ pub fn nearest_target(
         if entry > item.reach {
             continue;
         }
-        if occluded_before(origin, direction, entry, item.own_box.as_ref(), walls) {
+        if occluded_before(
+            origin,
+            direction,
+            entry,
+            item.own_box.as_ref(),
+            item.door_index,
+            walls,
+            doors,
+        ) {
             continue;
         }
         if best.is_none_or(|(_, best_entry)| entry < best_entry) {
@@ -394,9 +548,11 @@ pub fn nearest_target(
     best.map(|(index, _)| index)
 }
 
-/// [`nearest_target`] through the collision index.
+/// [`nearest_target`] through the collision index and the door leaves.
 ///
-/// Identical semantics: the index only narrows which boxes each ray examines.
+/// Identical semantics: the index only narrows which boxes each ray examines,
+/// and the target's own collision body (a solid prop's box or the door's own
+/// leaf) never occludes its own entry.
 #[must_use]
 pub fn nearest_target_indexed(
     origin: Vec3,
@@ -404,6 +560,7 @@ pub fn nearest_target_indexed(
     items: &[Interactable],
     index: &crate::collision_index::CollisionIndex,
     walls: &[WallAabb],
+    doors: &[DoorCollider],
 ) -> Option<usize> {
     if items.is_empty() || direction.length_squared() <= f32::EPSILON {
         return None;
@@ -425,9 +582,13 @@ pub fn nearest_target_indexed(
             origin,
             direction,
             entry,
-            item.own_box.as_ref(),
+            OwnBody {
+                own_box: item.own_box.as_ref(),
+                own_door: item.door_index,
+            },
             index,
             walls,
+            doors,
         ) {
             continue;
         }
@@ -438,16 +599,27 @@ pub fn nearest_target_indexed(
     best.map(|(index, _)| index)
 }
 
-/// True when the indexed collision world leaves the finite sight line from
-/// `origin` to `point` clear, excluding the target's own collision box.
+/// A target's own collision body, which never occludes its own entry.
+#[derive(Clone, Copy)]
+struct OwnBody<'a> {
+    /// A solid prop's own box, if the target is one.
+    own_box: Option<&'a WallAabb>,
+    /// The target door's leaf index, if the target is a door.
+    own_door: Option<usize>,
+}
+
+/// True when the collision world leaves the finite sight line from `origin` to
+/// `point` clear, excluding the target's own collision body.
 #[must_use]
 #[allow(clippy::arithmetic_side_effects)] // bounded world coordinates, as above
 pub fn clear_line_of_sight_indexed(
     origin: Vec3,
     point: Vec3,
     own_box: Option<&WallAabb>,
+    own_door: Option<usize>,
     index: &crate::collision_index::CollisionIndex,
     walls: &[WallAabb],
+    doors: &[DoorCollider],
 ) -> bool {
     let delta = point - origin;
     let length = delta.length();
@@ -458,29 +630,43 @@ pub fn clear_line_of_sight_indexed(
         return true;
     }
     let direction = delta / length;
-    !occluded_before_indexed(origin, direction, length, own_box, index, walls)
+    !occluded_before_indexed(
+        origin,
+        direction,
+        length,
+        OwnBody { own_box, own_door },
+        index,
+        walls,
+        doors,
+    )
 }
 
-/// True when any box except the target's own blocks the ray before `entry`,
-/// examined through the index.
+/// True when any box or door leaf except the target's own blocks the ray
+/// before `entry`, examined through the index.
 #[must_use]
 #[allow(clippy::arithmetic_side_effects)] // bounded world coordinates, as above
 fn occluded_before_indexed(
     origin: Vec3,
     direction: Vec3,
     entry: f32,
-    own_box: Option<&WallAabb>,
+    own: OwnBody<'_>,
     index: &crate::collision_index::CollisionIndex,
     walls: &[WallAabb],
+    doors: &[DoorCollider],
 ) -> bool {
     #[allow(clippy::arithmetic_side_effects)]
     let limit = entry - LABEL_OCCLUSION_EPS_M;
+    if nearest_door_entry(doors, origin, direction, limit).is_some_and(|(index, _)| {
+        own.own_door != Some(index)
+    }) {
+        return true;
+    }
     let mut occluded = false;
     index.for_each_ray(origin, direction, entry, walls, |wall| {
         if occluded {
             return;
         }
-        if own_box.is_some_and(|own| same_box(wall, own)) {
+        if own.own_box.is_some_and(|own_box| same_box(wall, own_box)) {
             return;
         }
         let wall_min = [wall.min_x, wall.min_y, wall.min_z];
@@ -494,20 +680,27 @@ fn occluded_before_indexed(
     occluded
 }
 
-/// True when any wall that is not the target's own collision box blocks the ray
-/// before `entry`.
+/// True when any wall or door leaf that is not the target's own collision body
+/// blocks the ray before `entry`.
 #[must_use]
 fn occluded_before(
     origin: Vec3,
     direction: Vec3,
     entry: f32,
     own_box: Option<&WallAabb>,
+    own_door: Option<usize>,
     walls: &[WallAabb],
+    doors: &[DoorCollider],
 ) -> bool {
     // Float comparison against a fixed tolerance; no overflow path exists for
     // bounded world coordinates.
     #[allow(clippy::arithmetic_side_effects)]
     let limit = entry - LABEL_OCCLUSION_EPS_M;
+    if nearest_door_entry(doors, origin, direction, limit)
+        .is_some_and(|(index, _)| own_door != Some(index))
+    {
+        return true;
+    }
     for wall in walls {
         if own_box.is_some_and(|own| same_box(wall, own)) {
             continue;
@@ -566,8 +759,10 @@ pub fn append_world_labels(
             camera.position,
             item.anchor,
             item.own_box.as_ref(),
+            item.door_index,
             game.collision_index(),
             game.walls(),
+            game.door_colliders(),
         ) {
             continue;
         }
@@ -693,11 +888,11 @@ mod tests {
     fn test_level() -> LevelDef {
         LevelDef::from_json(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "interact_render",
                 "name": "Interact Render",
                 "spawn": { "x": 2.0, "z": 5.0 },
-                "room": { "x": 0.0, "z": 0.0, "width": 20.0, "depth": 20.0, "height": 4.0 },
+                "rooms": [ { "x": 0.0, "z": 0.0, "width": 20.0, "depth": 20.0, "height": 4.0 } ],
                 "props": [
                     { "id": "plant", "display_name": "Test Plant", "model": "core:plant",
                       "x": 4.6, "z": 5.0, "size": [0.6, 1.8, 0.6], "solid": true,
@@ -761,24 +956,24 @@ mod tests {
         let items = game.interactables().items();
         let origin = game.player_position;
         let direction = game.view_direction();
-        assert_eq!(nearest_target(origin, direction, items, &[]), Some(0));
+        assert_eq!(nearest_target(origin, direction, items, &[], &[]), Some(0));
 
         // Looking backwards misses.
         assert_eq!(
-            nearest_target(origin, -direction, items, &[]),
+            nearest_target(origin, -direction, items, &[], &[]),
             None,
             "the target is only in front"
         );
 
         // A wall between the eye and the target occludes it.
         let wall = WallAabb::with_y(3.0, 1.0, 4.6, 0.2, 0.8, 0.8);
-        assert_eq!(nearest_target(origin, direction, items, &[wall]), None);
+        assert_eq!(nearest_target(origin, direction, items, &[wall], &[]), None);
 
         // The target's own solid collision box (an exact match) never
         // self-occludes.
         let own = WallAabb::with_y(4.3, 0.0, 4.7, 0.6, 1.8, 0.6);
         assert_eq!(
-            nearest_target(origin, direction, items, &[own]),
+            nearest_target(origin, direction, items, &[own], &[]),
             Some(0),
             "the target's own collision box must not self-occlude"
         );
@@ -787,7 +982,7 @@ mod tests {
         // real obstruction, not the target's own box.
         let barrier = WallAabb::with_y(4.2, 0.0, 4.7, 0.3, 1.2, 0.6);
         assert_eq!(
-            nearest_target(origin, direction, items, &[barrier]),
+            nearest_target(origin, direction, items, &[barrier], &[]),
             None,
             "a barrier overlapping the target's bounds still occludes"
         );
@@ -799,7 +994,7 @@ mod tests {
         let pitch = (target_y - crouched.y).atan2(flat);
         let low_direction = view_direction(std::f32::consts::FRAC_PI_2, pitch);
         assert_eq!(
-            nearest_target(crouched, low_direction, items, &[wall]),
+            nearest_target(crouched, low_direction, items, &[wall], &[]),
             Some(0),
             "a crouched eye clears a high obstruction"
         );

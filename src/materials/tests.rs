@@ -30,7 +30,7 @@ fn level_from(json: &str) -> LevelDef {
 fn basic_level(wall: &str, floor: &str, ceiling: &str) -> LevelDef {
     level_from(&format!(
         r##"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "material_test", "name": "Material Test",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
             "defaults": {{ "wall": "{wall}", "floor": "{floor}", "ceiling": "{ceiling}" }},
@@ -333,7 +333,7 @@ fn material_id_in_the_wrong_type_is_reported() {
 fn referenced_ids_are_deterministic_and_cover_faces_patches_and_regions() {
     let level = level_from(
         r##"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "scan_test", "name": "Scan Test",
             "spawn": { "x": 0.0, "z": 0.0 },
             "defaults": { "wall": "w", "floor": "f", "ceiling": "c" },
@@ -868,7 +868,7 @@ fn response_catalog() -> AssetCatalog {
 /// all of them: `defaults` carries three and the floor patches the rest.
 fn resolved_response_table() -> MaterialTable {
     let level_json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "response_level",
         "name": "Response Level",
         "spawn": { "x": 1.0, "z": 1.0 },
@@ -1019,7 +1019,7 @@ fn shine_catalog() -> AssetCatalog {
 fn resolved_shine_table() -> MaterialTable {
     let level = level_from(
         r##"{
-            "format_version": 1, "id": "shine", "name": "Shine",
+            "format_version": 2, "id": "shine", "name": "Shine",
             "spawn": { "x": 0.0, "z": 0.0 },
             "defaults": { "wall": "core:mat_matte", "floor": "core:mat_gloss",
                           "ceiling": "core:mat_waxed" },
@@ -1293,7 +1293,7 @@ fn pack_materials_may_author_response_and_alpha_fields() {
 #[test]
 fn opening_glass_materials_are_referenced_by_the_material_scan() {
     let level_json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "glass_scan",
         "name": "Glass Scan",
         "spawn": { "x": 1.0, "z": 1.0 },
@@ -1370,7 +1370,7 @@ fn the_shipped_glass_and_response_materials_resolve_with_their_pngs() {
 fn pool_tiles_keep_a_restrained_visible_sheen() {
     let level = level_from(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "pool_sheen",
             "name": "Pool Sheen",
             "spawn": { "x": 1.0, "z": 1.0 },

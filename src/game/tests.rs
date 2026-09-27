@@ -120,11 +120,11 @@ fn test_paused_gameplay_does_not_move_or_turn() {
 fn step_rule_level() -> LevelDef {
     LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "steps",
             "name": "Steps",
             "spawn": { "x": 1.0, "z": 4.0, "yaw_degrees": 90.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 20.0, "depth": 8.0, "height": 4.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 20.0, "depth": 8.0, "height": 4.0 } ],
             "floor_regions": [
                 { "x": 3.0, "z": 2.0, "width": 2.0, "depth": 4.0, "offset_y": -0.3 },
                 { "x": 8.0, "z": 2.0, "width": 2.0, "depth": 4.0, "offset_y": -1.5 },
@@ -158,12 +158,12 @@ fn walk_forward(game: &mut Game, steps: usize) {
 fn test_spawn_position_resolves_the_local_floor() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "elevated_spawn",
             "name": "Elevated Spawn",
             "spawn": { "x": 4.0, "z": 4.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0,
-                      "height": 3.0, "floor_y": 2.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0,
+                      "height": 3.0, "floor_y": 2.0 } ],
             "floor_regions": [
                 { "x": 3.0, "z": 3.0, "width": 4.0, "depth": 4.0, "offset_y": -0.5 }
             ]
@@ -292,11 +292,11 @@ fn test_controller_walks_off_a_deep_edge_and_falls() {
 fn test_controller_cannot_walk_off_the_last_floor_into_the_void() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "open_edge",
             "name": "Open Edge",
             "spawn": { "x": 1.0, "z": 4.0, "yaw_degrees": 90.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 8.0, "height": 3.0 }
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 8.0, "height": 3.0 } ]
         }"#,
     )
     .expect("open edge json");
@@ -395,11 +395,11 @@ fn test_controller_climbs_the_home_staircase_and_the_ramp() {
 fn test_controller_climbs_a_maximum_slope_ramp_at_low_frame_rates() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "max_slope",
             "name": "Max Slope",
             "spawn": { "x": 0.5, "z": 0.5 },
-            "room": { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 4.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 4.0 } ],
             "ramps": [
                 { "x": 5.0, "z": 4.0, "width": 1.2, "depth": 2.0, "rise": 4.0 }
             ]
@@ -453,12 +453,12 @@ fn test_controller_climbs_an_exact_limit_riser_at_an_elevated_floor() {
     for floor_y in [0.3f32, 1.7, 10.3, 100.1] {
         let level = LevelDef::from_json(&format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "limit_riser",
                 "name": "Limit Riser",
                 "spawn": {{ "x": 0.5, "z": 0.5 }},
-                "room": {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0,
-                           "height": 4.0, "floor_y": {floor_y} }},
+                "rooms": [{{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0,
+                           "height": 4.0, "floor_y": {floor_y} }}],
                 "stairs": [
                     {{ "x": 4.0, "z": 2.0, "width": 1.0, "depth": 3.0,
                        "rise": 1.2, "steps": 3 }}
@@ -489,11 +489,11 @@ fn test_controller_climbs_an_exact_limit_riser_at_an_elevated_floor() {
 fn test_controller_descends_a_maximum_slope_ramp_without_stalling() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "max_slope_down",
             "name": "Max Slope Down",
             "spawn": { "x": 0.5, "z": 0.5 },
-            "room": { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 6.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 6.0 } ],
             "floor_regions": [
                 { "x": 5.0, "z": 6.0, "width": 1.2, "depth": 2.0, "offset_y": 4.0 }
             ],
@@ -686,11 +686,11 @@ fn capture_stairs_walk_trace() {
 fn smooth_stairs_level() -> LevelDef {
     LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "smooth_stairs",
             "name": "Smooth Stairs",
             "spawn": { "x": 2.0, "z": 4.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 20.0, "depth": 8.0, "height": 4.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 20.0, "depth": 8.0, "height": 4.0 } ],
             "stairs": [
                 { "x": 8.0, "z": 3.0, "width": 3.0, "depth": 2.0,
                   "rise": 2.0, "steps": 10 }
@@ -876,11 +876,11 @@ fn test_walk_surface_stays_between_the_treads_it_connects() {
     for (x, z, width, depth, offset_y, rise) in cases {
         let level = LevelDef::from_json(&format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "stair_sandwich",
                 "name": "Stair Sandwich",
                 "spawn": {{ "x": 0.5, "z": 0.5 }},
-                "room": {{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 6.0 }},
+                "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 6.0 }} ],
                 "stairs": [
                     {{ "x": {x}, "z": {z}, "width": {width}, "depth": {depth},
                        "offset_y": {offset_y}, "rise": {rise}, "steps": 6 }}
@@ -932,11 +932,11 @@ fn test_walk_surface_stays_between_the_treads_it_connects() {
 fn test_controller_cannot_climb_a_tall_step_or_a_wall() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "no_climb",
             "name": "No Climb",
             "spawn": { "x": 1.0, "z": 1.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 24.0, "depth": 8.0, "height": 4.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 24.0, "depth": 8.0, "height": 4.0 } ],
             "floor_regions": [
                 { "x": 6.0, "z": 0.0, "width": 2.0, "depth": 8.0, "offset_y": 0.5 }
             ],
@@ -1003,11 +1003,11 @@ fn play_at(game: &mut Game, x: f32, floor_y: f32, z: f32, yaw_degrees: f32, delt
 fn pool_level() -> LevelDef {
     LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "pool",
             "name": "Pool",
             "spawn": { "x": 1.0, "z": 4.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 16.0, "depth": 8.0, "height": 6.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 16.0, "depth": 8.0, "height": 6.0 } ],
             "floor_regions": [
                 { "x": 4.0, "z": 1.0, "width": 6.0, "depth": 6.0, "offset_y": -3.0 },
                 { "x": 10.0, "z": 1.0, "width": 2.0, "depth": 6.0, "offset_y": -0.85 }
@@ -1029,12 +1029,12 @@ fn pool_level() -> LevelDef {
 fn walkable_ceiling_follows_the_room_profile() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "gable",
             "name": "Gable",
             "spawn": { "x": 2.0, "z": 2.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0,
-                      "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 1.0 } }
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0,
+                      "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 1.0 } } ]
         }"#,
     )
     .expect("the gable room parses");
@@ -1214,11 +1214,11 @@ fn jump_apex_is_frame_rate_independent() {
 fn ceiling_bump_clamps_the_head_and_zeroes_upward_velocity() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "low_room",
             "name": "Low Room",
             "spawn": { "x": 1.0, "z": 1.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 2.2 }
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 2.2 } ]
         }"#,
     )
     .expect("the low room parses");
@@ -1603,12 +1603,12 @@ fn a_shallow_pool_still_lets_the_swimmer_submerge() {
     // are 1.35 m apart, less than the 1.6 m standing eye height.
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "shallow_pool",
             "name": "Shallow Pool",
             "spawn": { "x": 1.0, "z": 1.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 8.0,
-                      "height": 4.2, "floor_y": -1.5 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 12.0, "depth": 8.0,
+                      "height": 4.2, "floor_y": -1.5 } ],
             "floor_regions": [
                 { "x": 2.0, "z": 1.0, "width": 8.0, "depth": 6.0, "offset_y": -1.5 }
             ],
@@ -1707,11 +1707,11 @@ fn standing_jump_lands_on_the_demo_desk_top() {
 fn a_prop_underside_blocks_the_head_and_a_crouch_fits_under() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "low_beam",
             "name": "Low Beam",
             "spawn": { "x": 2.0, "z": 5.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0 } ],
             "props": [
                 { "model": "core:crate", "x": 5.0, "z": 5.0, "y": 1.0,
                   "size": [2.0, 0.3, 2.0], "solid": true }
@@ -1798,11 +1798,11 @@ fn crouch_toggles_and_anchors_the_feet() {
 fn blocked_uncrouch_keeps_the_crouched_body() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "blocked_uncrouch",
             "name": "Blocked Uncrouch",
             "spawn": { "x": 2.0, "z": 5.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0 } ],
             "props": [
                 { "model": "core:crate", "x": 5.0, "z": 5.0, "y": 1.0,
                   "size": [2.0, 0.3, 2.0], "solid": true }
@@ -2132,11 +2132,11 @@ fn the_demo_pool_ladder_climbs_from_the_water_to_the_deck() {
 fn a_ladder_never_attaches_from_its_exit_side() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "ladder_sides",
             "name": "Ladder Sides",
             "spawn": { "x": 2.0, "z": 5.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0 } ],
             "ladders": [
                 { "x": 4.7, "z": 4.7, "width": 0.6, "depth": 0.6,
                   "bottom_y": 0.0, "top_y": 3.0, "facing_degrees": 90.0 }
@@ -2175,11 +2175,11 @@ fn a_ladder_never_attaches_from_its_exit_side() {
 fn a_ladder_obstruction_holds_the_climber_in_place() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "ladder_obstruction",
             "name": "Ladder Obstruction",
             "spawn": { "x": 2.0, "z": 5.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0 } ],
             "props": [
                 { "model": "core:crate", "x": 5.0, "z": 5.0, "y": 1.2,
                   "size": [2.0, 0.3, 2.0], "solid": true }
@@ -2328,11 +2328,11 @@ fn wading_uses_the_stance_eye_offset_on_the_real_step() {
 fn a_mid_depth_pool_wades_and_recovers_from_a_crouch() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "mid_depth",
             "name": "Mid Depth",
             "spawn": { "x": 1.0, "z": 4.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 8.0, "height": 4.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 8.0, "height": 4.0 } ],
             "floor_regions": [
                 { "x": 2.0, "z": 1.0, "width": 8.0, "depth": 6.0, "offset_y": -0.6 }
             ],
@@ -2576,11 +2576,11 @@ fn stance_changes_on_stairs_in_air_and_on_ladders_anchor_the_feet() {
 fn interaction_level(props_json: &str, walls_json: &str, triggers_json: &str) -> LevelDef {
     LevelDef::from_json(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "interaction_test",
             "name": "Interaction Test",
             "spawn": {{ "x": 2.0, "z": 5.0, "yaw_degrees": 0.0 }},
-            "room": {{ "x": 0.0, "z": 0.0, "width": 20.0, "depth": 20.0, "height": 4.0 }},
+            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 20.0, "depth": 20.0, "height": 4.0 }} ],
             "walls": {walls_json},
             "props": {props_json},
             "area_triggers": {triggers_json}
@@ -3299,12 +3299,12 @@ fn explicit_targets_can_be_label_only_props() {
 fn a_crouch_toggle_in_water_does_not_fabricate_a_trigger_crossing() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "swim_stance_trigger",
             "name": "Swim Stance Trigger",
             "spawn": { "x": 4.0, "z": 4.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 4.0,
-                      "floor_y": -2.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 4.0,
+                      "floor_y": -2.0 } ],
             "water": [
                 { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0,
                   "surface_y": 0.0, "bottom_y": -2.0 }
@@ -3352,12 +3352,12 @@ fn a_crouch_toggle_in_water_does_not_fabricate_a_trigger_crossing() {
 fn a_swept_crossing_of_a_later_trigger_is_deferred_not_dropped() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "stacked_triggers",
             "name": "Stacked Triggers",
             "spawn": { "x": 4.0, "z": 4.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 6.0,
-                      "floor_y": -3.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 6.0,
+                      "floor_y": -3.0 } ],
             "props": [
                 { "id": "upper", "display_name": "Upper", "model": "core:plant",
                   "x": 1.0, "z": 1.0,
@@ -3414,11 +3414,11 @@ fn a_swept_crossing_of_a_later_trigger_is_deferred_not_dropped() {
 fn routed_entity_level() -> LevelDef {
     LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "routed_entity",
             "name": "Routed Entity",
             "spawn": { "x": 1.0, "z": 1.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 } ],
             "walls": [
                 { "x": 5.0, "z": 0.0, "width": 0.2, "depth": 10.0, "height": 3.5 }
             ],
@@ -3486,11 +3486,11 @@ fn a_route_moves_the_entity_and_its_live_anchor_follows() {
 fn a_route_never_walks_the_entity_through_a_wall() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "blocked_route",
             "name": "Blocked Route",
             "spawn": { "x": 1.0, "z": 1.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 } ],
             "walls": [
                 { "x": 5.0, "z": 0.0, "width": 0.2, "depth": 10.0, "height": 3.5 }
             ],
@@ -3749,11 +3749,11 @@ fn reset_to_spawn_restores_a_routed_entitys_authored_anchor_and_bounds() {
 fn play_animation_can_pose_a_prop_with_no_interaction_of_its_own() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "cue_only_target",
             "name": "Cue Only Target",
             "spawn": { "x": 1.0, "z": 1.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 } ],
             "props": [
                 { "id": "actor", "model": "core:crate", "x": 2.0, "z": 2.0,
                   "size": [0.4, 0.4, 0.4],
@@ -3798,11 +3798,11 @@ fn play_animation_can_pose_a_prop_with_no_interaction_of_its_own() {
 fn a_route_turn_reorients_the_live_aim_bounds() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "turning_route",
             "name": "Turning Route",
             "spawn": { "x": 1.0, "z": 1.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 } ],
             "props": [
                 { "id": "turner", "display_name": "Turner", "model": "entity:x",
                   "x": 4.0, "z": 2.0, "rotation_degrees": 0.0,
@@ -3852,11 +3852,11 @@ fn a_route_turn_reorients_the_live_aim_bounds() {
 fn switch_level() -> LevelDef {
     LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "switch_test",
             "name": "Switch Test",
             "spawn": { "x": 1.0, "z": 1.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 } ],
             "props": [
                 { "id": "switch_a", "display_name": "Switch A", "model": "home:wall_switch",
                   "x": 2.0, "z": 0.2, "size": [0.18, 0.18, 0.1],

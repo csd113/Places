@@ -374,12 +374,12 @@ fn group_d_intensity_inputs_brighten_monotonically_up_to_the_clamp() {
 }
 
 #[test]
-fn group_d_loader_rejects_invalid_intensities_and_accepts_both_spellings() {
+fn group_d_loader_rejects_invalid_intensities() {
     let with_field = |field: &str| {
         let separator = if field.is_empty() { "" } else { ", " };
         format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "intensity",
                 "name": "Intensity",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -389,25 +389,18 @@ fn group_d_loader_rejects_invalid_intensities_and_accepts_both_spellings() {
         )
     };
 
-    // `brightness` (canonical) and `intensity` (alias) parse to the same value.
+    // `brightness` is the one fixture-intensity spelling.
     let canonical = parse(&with_field(r#""brightness": 1.4"#));
-    let alias = parse(&with_field(r#""intensity": 1.4"#));
     assert_exact(canonical.ceiling_lights[0].intensity(), 1.4);
-    assert_exact(alias.ceiling_lights[0].intensity(), 1.4);
-    assert_exact(
-        bake(&canonical).rooms()[0].baseline.luminance(),
-        bake(&alias).rooms()[0].baseline.luminance(),
-    );
+    let baked = bake(&canonical);
+    assert!(baked.rooms()[0].baseline.luminance() > 0.0);
 
-    // Omitting both means the standard fixture.
+    // Omitting it means the standard fixture.
     assert_exact(parse(&with_field("")).ceiling_lights[0].intensity(), 1.0);
 
-    // Negative and non-finite values are rejected by the loader with a message.
-    for field in [
-        r#""brightness": -1.0"#,
-        r#""intensity": -0.001"#,
-        r#""brightness": null"#,
-    ] {
+    // Negative values are rejected by the loader with a message; a null is the
+    // omitted case.
+    for field in [r#""brightness": -1.0"#, r#""brightness": null"#] {
         let level = parse(&with_field(field));
         if field.contains("null") {
             assert_exact(level.ceiling_lights[0].intensity(), 1.0);
@@ -422,15 +415,12 @@ fn group_d_loader_rejects_invalid_intensities_and_accepts_both_spellings() {
 
     // NaN/Infinity are not representable in strict JSON, and serde rejects them
     // deterministically instead of silently parsing.
-    assert!(LevelDef::from_json(&with_field(r#""intensity": NaN"#)).is_err());
-    assert!(LevelDef::from_json(&with_field(r#""intensity": Infinity"#)).is_err());
+    assert!(LevelDef::from_json(&with_field(r#""brightness": NaN"#)).is_err());
+    assert!(LevelDef::from_json(&with_field(r#""brightness": Infinity"#)).is_err());
 
-    // Supplying both keys is ambiguous, so it must not silently pick one:
-    // serde reports the duplicate field deterministically.
-    let both = LevelDef::from_json(&with_field(r#""brightness": 1.0, "intensity": 2.0"#));
-    let first_error = both.expect_err("both keys must fail loudly, not pick one");
-    let both_again = LevelDef::from_json(&with_field(r#""brightness": 1.0, "intensity": 2.0"#));
-    assert_eq!(first_error.to_string(), both_again.unwrap_err().to_string());
+    // Duplicating the one key is ambiguous, and serde reports it deterministically.
+    let both = LevelDef::from_json(&with_field(r#""brightness": 1.0, "brightness": 2.0"#));
+    let first_error = both.expect_err("duplicate keys must fail loudly");
     assert!(
         first_error.to_string().contains("duplicate"),
         "the failure must name the ambiguity: {first_error}"
@@ -660,7 +650,7 @@ fn group_f_rotation_swaps_the_panel_pool_orientation() {
 fn overlap_level(rooms: &str, lights: &str) -> LevelDef {
     parse(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "overlap",
             "name": "Overlap",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -823,7 +813,7 @@ fn two_room_opening(opening_json: &str, bright_on_left: bool, wall_x: f32) -> (L
     };
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "opening",
             "name": "Opening",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1045,7 +1035,7 @@ fn group_h_vertical_fade_above_the_header_and_non_connecting_openings() {
     // and an internal wall must not silently rewrite the room-wide baseline.
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "unconnected",
             "name": "Unconnected",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1113,7 +1103,7 @@ fn group_h_two_openings_between_the_same_rooms_stay_bounded() {
     let mut with_two = level.clone();
     with_two.walls[0].openings = parse(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "two",
             "name": "Two",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1186,7 +1176,7 @@ fn group_i_propagation_is_one_hop_only() {
             .join(",");
         parse(&format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "hops",
                 "name": "Hops",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1350,7 +1340,7 @@ fn group_l_lighting_multiplies_materials_instead_of_replacing_them() {
     // all of them.
     let level = parse(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "materials",
             "name": "Materials",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1410,7 +1400,7 @@ fn group_l_lighting_multiplies_materials_instead_of_replacing_them() {
     // texture is multiplied by the vertex colour, which is exactly the light.
     let dark = bake(&parse(&format!(
         r#"{{
-            "format_version": 1, "id": "dark", "name": "Dark", "spawn": {{ "x": 0.0, "z": 0.0 }},
+            "format_version": 2, "id": "dark", "name": "Dark", "spawn": {{ "x": 0.0, "z": 0.0 }},
             "rooms": [{}], "ceiling_lights": [{}]
         }}"#,
         room(0.0, 0.0, 10.0, 10.0, 3.0),
@@ -1435,7 +1425,7 @@ fn group_l_lighting_multiplies_materials_instead_of_replacing_them() {
 fn prop_level(props_json: &str, lights_json: &str) -> LevelDef {
     parse(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "props",
             "name": "Props",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1579,7 +1569,7 @@ fn group_n_extreme_prop_offsets_are_lit_without_correction_or_rejection() {
 fn group_o_fixtures_outside_rooms_are_defined_and_isolated() {
     let level = parse(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "outside",
             "name": "Outside",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1636,12 +1626,13 @@ fn group_o_fixtures_outside_rooms_are_defined_and_isolated() {
 
 fn empty_level() -> LevelDef {
     LevelDef {
+        doors: Vec::new(),
+        effects: Vec::new(),
         routes: Vec::new(),
         format_version: 1,
         id: "empty".into(),
         name: "Empty".into(),
         author: String::new(),
-        room: None,
         rooms: Vec::new(),
         spawn: SpawnDef {
             x: 0.0,
@@ -1707,6 +1698,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
         ceiling_tile_rotation_degrees: None,
     });
     zero_room.ceiling_lights.push(LightFixtureDef {
+                switchable: false,
         id: None,
         fixture: "core:fluorescent_panel_01".into(),
         x: 5.0,
@@ -1778,6 +1770,8 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
 
     // A level containing only props (no rooms at all).
     let props_only = LevelDef {
+        doors: Vec::new(),
+        effects: Vec::new(),
         props: vec![PropDef {
             id: None,
             display_name: None,
@@ -1811,6 +1805,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     // A level with nothing but a ceiling fixture list.
     let mut lights_only = empty.clone();
     lights_only.ceiling_lights.push(LightFixtureDef {
+                switchable: false,
         id: None,
         fixture: "core:fluorescent_panel_01".into(),
         x: 0.0,
@@ -1839,6 +1834,7 @@ fn group_p_degenerate_levels_never_panic_and_never_emit_bad_vertices() {
     // Non-finite fixtures are dropped, not propagated.
     let mut broken = empty;
     broken.ceiling_lights.push(LightFixtureDef {
+                switchable: false,
         id: None,
         fixture: "core:fluorescent_panel_01".into(),
         x: f32::INFINITY,

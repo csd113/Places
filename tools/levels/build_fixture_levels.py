@@ -59,13 +59,13 @@ def prop(model, x, z, rotation=0.0, y=0.0, scale=1.0, solid=None, size=None) -> 
     return entry
 
 
-def light(x, z, rotation=0.0, intensity=None) -> Dict:
-    """Ceiling fixture entry. `intensity` is omitted for the standard 1.0 panel."""
+def light(x, z, rotation=0.0, brightness=None) -> Dict:
+    """Ceiling fixture entry. `brightness` is omitted for the standard 1.0 panel."""
     entry: Dict = {"fixture": "core:fluorescent_panel_01", "x": x, "z": z}
     if rotation:
         entry["rotation_degrees"] = rotation
-    if intensity is not None:
-        entry["intensity"] = intensity
+    if brightness is not None:
+        entry["brightness"] = brightness
     return entry
 
 
@@ -167,7 +167,7 @@ def showcase_level() -> Dict:
     ]
 
     return {
-        "format_version": 1,
+        "format_version": 2,
         "id": "prop_showcase",
         "name": "Prop Showcase (dev)",
         "author": "Places Team",
@@ -178,8 +178,8 @@ def showcase_level() -> Dict:
         "ceiling_lights": [
             # Deliberately mixed fixture outputs, so the development fixture also
             # exercises the optional intensity field (0.8 low output, 1.4 high).
-            light(-7.0, -1.0, intensity=0.8),
-            light(3.0, -1.0, intensity=1.4),
+            light(-7.0, -1.0, brightness=0.8),
+            light(3.0, -1.0, brightness=1.4),
         ],
         "props": props,
     }
@@ -247,13 +247,13 @@ def stress_level() -> Dict:
         props.append(prop("core:cardboard_box", 9.6, -8.0 + index * 0.62, y=-0.02 * index))
 
     return {
-        "format_version": 1,
+        "format_version": 2,
         "id": "prop_stress",
         "name": "Prop Stress Test (dev)",
         "author": "Places Team",
         "spawn": {"x": -11.0, "z": 0.0, "yaw_degrees": 30.0},
         "defaults": dict(DEFAULTS),
-        "room": room,
+        "rooms": [room],
         "walls": walls,
         "ceiling_lights": [
             light(-6.0, -4.0),

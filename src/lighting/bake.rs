@@ -2921,8 +2921,7 @@ mod light_index_tests {
             .first()
             .cloned()
             .ok_or("fixture has no light")?;
-        let room = level.room.clone().ok_or("fixture has no room")?;
-        level.room = None;
+        let room = level.rooms.first().cloned().ok_or("fixture has no room")?;
         level.rooms = vec![room.clone(), room.clone(), room];
         if let Some(room) = level.rooms.get_mut(1) {
             room.floor_y = 4.0;

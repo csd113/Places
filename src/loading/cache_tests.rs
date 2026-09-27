@@ -38,7 +38,7 @@ fn loaded_fixture(with_prop: bool) -> LoadedLevel {
         ""
     };
     let level = crate::level::LevelDef::from_json(&format!(
-        r#"{{"format_version":1,"id":"cache_test","name":"Cache Test","spawn":{{"x":0,"z":0}}{props}}}"#
+        r#"{{"format_version":2,"id":"cache_test","name":"Cache Test","spawn":{{"x":0,"z":0}}{props}}}"#
     )).expect("tiny level");
     LoadedLevel {
         materials: crate::materials::MaterialTable::logical(&level, catalog.assets(), None),

@@ -1,11 +1,20 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "id": "geometry_broken",
   "name": "Geometry Checker Broken Fixture",
   "author": "Places",
-  "spawn": { "x": 24.0, "z": 24.0 },
+  "spawn": {
+    "x": 24.0,
+    "z": 24.0
+  },
   "rooms": [
-    { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 8.0, "height": 3.0 }
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 12.0,
+      "depth": 8.0,
+      "height": 3.0
+    }
   ],
   "walls": [
     {
@@ -16,8 +25,20 @@
       "height": 3.0,
       "material": "core:wallpaper_yellow_01",
       "openings": [
-        { "kind": "door", "offset": 2.0, "width": 1.2, "height": 2.1, "sill": 0.0 },
-        { "kind": "door", "offset": 2.6, "width": 1.2, "height": 2.1, "sill": 0.0 }
+        {
+          "kind": "door",
+          "offset": 2.0,
+          "width": 1.2,
+          "height": 2.1,
+          "sill": 0.0
+        },
+        {
+          "kind": "door",
+          "offset": 2.6,
+          "width": 1.2,
+          "height": 2.1,
+          "sill": 0.0
+        }
       ]
     },
     {
@@ -28,10 +49,22 @@
       "height": 2.4,
       "material": "core:wallpaper_yellow_01",
       "openings": [
-        { "kind": "window", "offset": 4.0, "width": 1.0, "height": 0.6, "sill": 2.6 }
+        {
+          "kind": "window",
+          "offset": 4.0,
+          "width": 1.0,
+          "height": 0.6,
+          "sill": 2.6
+        }
       ]
     },
-    { "x": 11.7, "z": 0.0, "width": 0.3, "depth": 8.0, "height": 3.0 },
+    {
+      "x": 11.7,
+      "z": 0.0,
+      "width": 0.3,
+      "depth": 8.0,
+      "height": 3.0
+    },
     {
       "x": 0.0,
       "z": 4.0,
@@ -82,6 +115,11 @@
     }
   ],
   "ceiling_lights": [
-    { "fixture": "core:fluorescent_panel_01", "x": 6.0, "z": 4.0, "brightness": 0.5 }
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 6.0,
+      "z": 4.0,
+      "brightness": 0.5
+    }
   ]
 }

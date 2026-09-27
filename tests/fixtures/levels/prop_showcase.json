@@ -1,5 +1,5 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "id": "prop_showcase",
   "name": "Prop Showcase (dev)",
   "author": "Places Team",
@@ -80,13 +80,13 @@
       "fixture": "core:fluorescent_panel_01",
       "x": -7.0,
       "z": -1.0,
-      "intensity": 0.8
+      "brightness": 0.8
     },
     {
       "fixture": "core:fluorescent_panel_01",
       "x": 3.0,
       "z": -1.0,
-      "intensity": 1.4
+      "brightness": 1.4
     }
   ],
   "props": [

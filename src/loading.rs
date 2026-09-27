@@ -674,9 +674,9 @@ mod tests {
     fn a_retained_build_only_matches_the_same_level_content() {
         let level = crate::level::LevelDef::from_json(
             r#"{
-                "format_version": 1, "id": "build_identity", "name": "Build Identity",
+                "format_version": 2, "id": "build_identity", "name": "Build Identity",
                 "spawn": { "x": 0.0, "z": 0.0 },
-                "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 },
+                "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
                 "ceiling_lights": [
                     { "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 4.0 }
                 ]
@@ -754,9 +754,9 @@ mod tests {
     fn retained_sources_only_match_identical_definitions() {
         let level = crate::level::LevelDef::from_json(
             r#"{
-                "format_version": 1, "id": "retained_identity", "name": "Retained Identity",
+                "format_version": 2, "id": "retained_identity", "name": "Retained Identity",
                 "spawn": { "x": 0.0, "z": 0.0 },
-                "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 },
+                "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
                 "ceiling_lights": [
                     { "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 4.0 }
                 ]

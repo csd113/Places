@@ -1127,7 +1127,7 @@ mod tests {
     fn demo_level() -> LevelDef {
         level_from(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "dynamic_test",
                 "name": "Dynamic Test",
                 "spawn": { "x": 2.0, "z": 5.0 },
@@ -1616,7 +1616,7 @@ mod tests {
     fn the_demo_follows_a_rotated_machine() {
         let level = level_from(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "dynamic_test_rotated",
                 "name": "Rotated",
                 "spawn": { "x": 2.0, "z": 2.0 },
@@ -1651,7 +1651,7 @@ mod tests {
     fn the_demo_scales_the_drum_with_the_machine() {
         let level = level_from(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "dynamic_test_scaled",
                 "name": "Scaled",
                 "spawn": { "x": 2.0, "z": 2.0 },
@@ -1751,7 +1751,7 @@ mod tests {
     fn a_level_with_no_machine_spawns_nothing() {
         let level = level_from(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "dynamic_test_empty",
                 "name": "Empty",
                 "spawn": { "x": 1.0, "z": 1.0 },
@@ -1815,7 +1815,7 @@ mod tests {
     fn duck_level() -> LevelDef {
         level_from(
             r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "float_test",
             "name": "Float Test",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -1913,7 +1913,7 @@ mod tests {
     fn two_floats_with_different_phases_bob_independently() {
         let level = level_from(
             r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "two_ducks",
             "name": "Two Ducks",
             "spawn": { "x": 1.0, "z": 1.0 },

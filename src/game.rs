@@ -3,11 +3,12 @@ use std::time::Instant;
 use glam::{Vec2, Vec3};
 
 use crate::collision::{
-    CONTACT_EPS, CROUCH_HEIGHT, PLAYER_HEIGHT, PLAYER_RADIUS, PLAYER_STEP_HEIGHT, STEP_EPS,
-    WallAabb, highest_support_top_indexed, lowest_underside_indexed,
-    resolve_player_collision_for_body_indexed, segment_overlaps_aabb,
+    CONTACT_EPS, CROUCH_HEIGHT, DoorCollider, PLAYER_HEIGHT, PLAYER_RADIUS, PLAYER_STEP_HEIGHT,
+    STEP_EPS, WallAabb, highest_support_top_indexed, lowest_door_underside,
+    lowest_underside_indexed, resolve_player_collision_with_doors, segment_overlaps_aabb,
 };
 use crate::collision_index::CollisionIndex;
+use crate::door::{DoorRuntime, Doors};
 use crate::entity::{EntityFrame, EntityRoutes, PoseCue, RouteState, RouteWorld};
 use crate::input::{Control, InputState};
 use crate::interact::{Interactables, nearest_target_indexed};
@@ -242,16 +243,23 @@ pub struct CollisionWorld {
     pub ladders: Ladders,
     /// Authored area triggers, resolved with their ids and vertical bounds.
     pub triggers: AreaTriggers,
-    /// Placed props/entities that declare a map-authored interaction.
+    /// Placed props/entities that declare a map-authored interaction, plus
+    /// every manually interactable door.
     pub interactables: Interactables,
     /// Authored movement/pose routes for placed entities.
     pub routes: EntityRoutes,
+    /// Every authored door with its run-time state.
+    pub doors: Doors,
+    /// Every ceiling fixture's switch state.
+    pub fixtures: Vec<FixtureSwitch>,
 }
 
 impl CollisionWorld {
     /// Resolves every collision sampler against a level.
     #[must_use]
     pub fn from_level(level: &LevelDef) -> Self {
+        let doors = Doors::from_level(level);
+        let interactables = Interactables::from_level(level, &doors);
         Self {
             walls: level.collision_aabbs(),
             floor: WalkableFloor::from_level(level),
@@ -259,8 +267,10 @@ impl CollisionWorld {
             ceiling: WalkableCeiling::from_level(level),
             ladders: Ladders::from_level(level),
             triggers: AreaTriggers::from_level(level),
-            interactables: Interactables::from_level(level),
+            interactables,
             routes: EntityRoutes::from_level(level),
+            doors,
+            fixtures: FixtureSwitch::from_level(level),
         }
     }
 }
@@ -311,6 +321,10 @@ pub struct DispatchReport {
     pub unsupported: usize,
     /// Animation cues started on placed entities, summed over the batch.
     pub animations_started: usize,
+    /// Door leaves the batch requested to open, close or flip.
+    pub doors_acted: usize,
+    /// Light fixtures the batch switched on or off.
+    pub lights_toggled: usize,
 }
 
 impl DispatchReport {
@@ -318,6 +332,42 @@ impl DispatchReport {
     #[must_use]
     pub const fn labels_toggled(&self) -> usize {
         self.labels_shown.saturating_add(self.labels_hidden)
+    }
+}
+
+/// One light fixture's switch state.
+///
+/// The state lives here because a switch is a gameplay input; the renderer owns
+/// the expensive half (the lightmap refill and the fixture's emission), and the
+/// frame loop hands it the dirty switches with [`Game::take_light_toggles`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FixtureSwitch {
+    /// The fixture's instance id, its action-target name.
+    pub id: String,
+    /// Whether a map action may switch it.
+    pub switchable: bool,
+    /// Current on/off state, initialised from the fixture's `enabled` flag.
+    pub enabled: bool,
+    /// True when the state changed and the renderer has not applied it yet.
+    pub dirty: bool,
+}
+
+impl FixtureSwitch {
+    /// Per-fixture switch state for a level, in fixture order.
+    #[must_use]
+    fn from_level(level: &LevelDef) -> Vec<Self> {
+        let ids = level.light_instance_ids();
+        level
+            .ceiling_lights
+            .iter()
+            .zip(ids)
+            .map(|(fixture, id)| Self {
+                id,
+                switchable: fixture.switchable,
+                enabled: fixture.enabled,
+                dirty: false,
+            })
+            .collect()
     }
 }
 
@@ -417,6 +467,16 @@ pub struct Game {
     routes: EntityRoutes,
     /// Per-route runtime state, parallel to [`Game::routes`].
     route_states: Vec<RouteState>,
+    /// Every authored door with its run-time pose, private with
+    /// [`Game::doors`] so the id map can never go stale.
+    doors: Doors,
+    /// Every ceiling fixture's switch state, parallel to the level's
+    /// `ceiling_lights`.
+    fixtures: Vec<FixtureSwitch>,
+    /// The leaf colliders at the doors' current angles, refreshed whenever a
+    /// leaf moves. Movement, headroom and aiming read this slice; a level with
+    /// only resting doors pays one comparison per query.
+    door_colliders: Vec<DoorCollider>,
     /// Live `play_animation` overrides per instance id, in dispatch order.
     /// An override wins over the route's own cue until a reset or another
     /// override replaces it.
@@ -453,6 +513,14 @@ enum VerticalStep {
     /// zeroed velocity to the frame boundary and let the fall resume next
     /// frame.
     Bumped,
+}
+
+/// Which end a door action asks one leaf to move toward.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DoorRequest {
+    Open,
+    Close,
+    Toggle,
 }
 
 /// How one frame's horizontal move treats floors and the collision band.
@@ -520,6 +588,9 @@ impl Game {
             trigger_states: Vec::new(),
             routes: world.routes,
             route_states: Vec::new(),
+            door_colliders: world.doors.colliders(),
+            doors: world.doors,
+            fixtures: world.fixtures,
             animation_overrides: Vec::new(),
             entity_frames: Vec::new(),
             label_visible: Vec::new(),
@@ -547,6 +618,8 @@ impl Game {
             triggers: self.triggers.clone(),
             interactables: self.interactables.clone(),
             routes: self.routes.clone(),
+            doors: self.doors.clone(),
+            fixtures: self.fixtures.clone(),
         }
     }
 
@@ -594,6 +667,9 @@ impl Game {
         self.triggers = world.triggers;
         self.interactables = world.interactables;
         self.routes = world.routes;
+        self.doors = world.doors;
+        self.door_colliders = self.doors.colliders();
+        self.fixtures = world.fixtures;
         self.spawn_position = spawn_pos;
         self.spawn_yaw = spawn_yaw.rem_euclid(TWO_PI);
         self.label_visible = vec![false; self.interactables.len()];
@@ -621,6 +697,10 @@ impl Game {
         // `toggle_animation` scrub is retargeted to its rest end instead of
         // dropped: a rigid prop has no locomotion state to fall back to.
         self.seed_entity_state();
+        // Doors return to their authored start state too: a reset is a clean
+        // run, not a half-open house.
+        self.doors.reset();
+        self.publish_door_colliders();
         self.reset_count = self.reset_count.saturating_add(1);
     }
 
@@ -961,6 +1041,9 @@ impl Game {
         // The Interact latch is an edge exactly like Jump and Crouch: one press
         // is one interaction, and a held key never repeats.
         self.update_interact(input);
+        // Doors advance before the player moves, so this frame's movement reads
+        // the leaf colliders at this frame's angles (the slab the player sees).
+        self.update_doors(delta);
         let trigger_origin = Vec3::new(
             self.player_position.x,
             self.feet_y(),
@@ -1201,6 +1284,7 @@ impl Game {
             self.interactables.items(),
             &self.collision_index,
             &self.walls,
+            &self.door_colliders,
         )
     }
 
@@ -1347,6 +1431,11 @@ impl Game {
                         frames_dirty = true;
                     }
                 }
+                ActionDef::OpenDoor { .. }
+                | ActionDef::CloseDoor { .. }
+                | ActionDef::Toggle { .. } => {
+                    self.dispatch_door_or_light(action, &mut report);
+                }
                 ActionDef::PlayAudio { .. } => {
                     report.unsupported = report.unsupported.saturating_add(1);
                 }
@@ -1356,6 +1445,79 @@ impl Game {
             self.rebuild_entity_frames();
         }
         report
+    }
+
+    /// Runs one door/light action and folds the outcome into `report`.
+    fn dispatch_door_or_light(&mut self, action: &ActionDef, report: &mut DispatchReport) {
+        let (target, request) = match action {
+            ActionDef::OpenDoor { target } => (target.trim(), DoorRequest::Open),
+            ActionDef::CloseDoor { target } => (target.trim(), DoorRequest::Close),
+            ActionDef::Toggle { target } => (target.trim(), DoorRequest::Toggle),
+            ActionDef::ToggleLabel { .. }
+            | ActionDef::ResetToStart
+            | ActionDef::PlayAnimation { .. }
+            | ActionDef::ToggleAnimation { .. }
+            | ActionDef::PlayAudio { .. } => return,
+        };
+        if let Some(index) = self.doors.index_of(target) {
+            let changed = match request {
+                DoorRequest::Open => self.doors.request_open(target),
+                DoorRequest::Close => self.doors.request_close(target),
+                DoorRequest::Toggle => self
+                    .doors
+                    .get_mut(index)
+                    .is_some_and(DoorRuntime::toggle),
+            };
+            if changed {
+                report.actions_run = report.actions_run.saturating_add(1);
+                report.doors_acted = report.doors_acted.saturating_add(1);
+            }
+            return;
+        }
+        // A `toggle` may instead name a switchable fixture; open/close may not.
+        if request == DoorRequest::Toggle && self.toggle_fixture(target) {
+            report.actions_run = report.actions_run.saturating_add(1);
+            report.lights_toggled = report.lights_toggled.saturating_add(1);
+            return;
+        }
+        report.missing_targets = report.missing_targets.saturating_add(1);
+    }
+
+    /// Flips one switchable fixture, returning whether it changed.
+    fn toggle_fixture(&mut self, id: &str) -> bool {
+        let Some(fixture) = self
+            .fixtures
+            .iter_mut()
+            .find(|fixture| fixture.id == id && fixture.switchable)
+        else {
+            return false;
+        };
+        fixture.enabled = !fixture.enabled;
+        fixture.dirty = true;
+        true
+    }
+
+    /// Drains the fixture switches whose state changed since the last call.
+    ///
+    /// The frame loop hands these to the renderer, which owns the lightmap
+    /// refill and the fixture emission. An empty result (the common case) is a
+    /// `Vec::new` with no allocation per frame.
+    #[must_use]
+    pub fn take_light_toggles(&mut self) -> Vec<(usize, bool)> {
+        let mut toggles = Vec::new();
+        for (index, fixture) in self.fixtures.iter_mut().enumerate() {
+            if fixture.dirty {
+                fixture.dirty = false;
+                toggles.push((index, fixture.enabled));
+            }
+        }
+        toggles
+    }
+
+    /// The switch state of every fixture, in fixture order.
+    #[must_use]
+    pub fn fixtures(&self) -> &[FixtureSwitch] {
+        &self.fixtures
     }
 
     /// Stages one `toggle_animation` action and returns whether it cued an
@@ -1448,6 +1610,135 @@ impl Game {
     #[must_use]
     pub const fn triggers(&self) -> &AreaTriggers {
         &self.triggers
+    }
+
+    /// Every door resident for this level, in authored order.
+    #[must_use]
+    pub const fn doors(&self) -> &Doors {
+        &self.doors
+    }
+
+    /// The door leaf colliders at the current angles.
+    #[must_use]
+    pub fn door_colliders(&self) -> &[DoorCollider] {
+        &self.door_colliders
+    }
+
+    /// Republishes the door colliders after a pose change.
+    fn publish_door_colliders(&mut self) {
+        if self.door_colliders.len() != self.doors.len() {
+            self.door_colliders = self.doors.colliders();
+            return;
+        }
+        for (slot, door) in self.door_colliders.iter_mut().zip(self.doors.iter()) {
+            *slot = door.collider();
+        }
+    }
+
+    /// Republishes every door target's aim bound, anchor and phase prompt.
+    ///
+    /// Called whenever a leaf moved; a level with only resting doors pays
+    /// nothing, and the entries the player can aim at always match the leaf on
+    /// screen.
+    fn sync_door_interactables(&mut self) {
+        if self.doors.is_empty() {
+            return;
+        }
+        for index in 0..self.doors.len() {
+            let (Some(collider), Some(door)) =
+                (self.door_colliders.get(index), self.doors.get(index))
+            else {
+                continue;
+            };
+            let phase = door.phase();
+            let prompt = door.def.prompt.clone();
+            self.interactables
+                .sync_door(index, collider, phase, prompt.as_deref());
+        }
+    }
+
+    /// True when a candidate leaf pose would overlap the player's body.
+    ///
+    /// Deliberately conservative: a leaf that would touch the body at the new
+    /// angle stops instead of pushing the player. That is the whole anti-trap
+    /// rule — the collider never advances into a body, so the player can never
+    /// be launched or wedged by a closing door.
+    fn door_pose_hits_player(
+        candidate: &DoorCollider,
+        player: Vec3,
+        feet: f32,
+        body_height: f32,
+    ) -> bool {
+        candidate.overlaps_body_y(feet, body_height)
+            && candidate.overlaps_disc(player.x, player.z, PLAYER_RADIUS)
+    }
+
+    /// True when a candidate leaf pose enters static collision.
+    ///
+    /// Both faces of the leaf are sampled at three heights along three stations
+    /// (hinge, centre, latch). The samples sit on the leaf's own surfaces, so a
+    /// resting leaf flush against a reveal does not self-block, while a leaf
+    /// swinging into a wall, jamb or piece of furniture stops before it
+    /// intersects.
+    fn door_pose_hits_static(
+        index: &CollisionIndex,
+        walls: &[WallAabb],
+        candidate: &DoorCollider,
+    ) -> bool {
+        let low = 0.05_f32
+            .min(candidate.height * 0.25)
+            .mul_add(1.0, candidate.hinge_y);
+        let high = (candidate.height - 0.05)
+            .max(0.0)
+            .mul_add(1.0, candidate.hinge_y);
+        let middle = candidate.height.mul_add(0.5, candidate.hinge_y);
+        for t in [0.0_f32, 0.5, 1.0] {
+            for side in [-1.0_f32, 1.0] {
+                let (px, pz) = candidate.point_at(t, side);
+                for y in [low, middle, high] {
+                    let mut blocked = false;
+                    index.for_each_point(px, pz, walls, |wall| {
+                        if blocked {
+                            return;
+                        }
+                        if y > wall.min_y + STEP_EPS
+                            && y < wall.max_y - STEP_EPS
+                            && px > wall.min_x
+                            && px < wall.max_x
+                            && pz > wall.min_z
+                            && pz < wall.max_z
+                        {
+                            blocked = true;
+                        }
+                    });
+                    if blocked {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    /// Advances every moving door by one frame and republishes its collider.
+    fn update_doors(&mut self, delta: f32) {
+        if !self.doors.any_moving() {
+            return;
+        }
+        let player = self.player_position;
+        let feet = self.feet_y();
+        let body = self.body_height();
+        let index = &self.collision_index;
+        let walls = &self.walls;
+        let doors = &mut self.doors;
+        let moved = doors.advance(delta, |_, candidate| {
+            Self::door_pose_hits_player(candidate, player, feet, body)
+                || Self::door_pose_hits_static(index, walls, candidate)
+        });
+        if moved > 0 {
+            self.publish_door_colliders();
+            self.sync_door_interactables();
+        }
     }
 
     /// The collision world's boxes, for presentation-side occlusion tests.
@@ -1572,11 +1863,22 @@ impl Game {
             feet,
             &self.walls,
         );
-        match (ceiling, underside) {
-            (Some(a), Some(b)) => Some(a.min(b)),
-            (Some(a), None) => Some(a),
-            (None, Some(b)) => Some(b),
-            (None, None) => None,
+        let door_underside = lowest_door_underside(
+            &self.door_colliders,
+            self.player_position.x,
+            self.player_position.z,
+            PLAYER_RADIUS,
+            feet,
+        );
+        match (ceiling, underside, door_underside) {
+            (Some(a), Some(b), Some(c)) => Some(a.min(b).min(c)),
+            (Some(a), Some(b), None) => Some(a.min(b)),
+            (Some(a), None, Some(c)) => Some(a.min(c)),
+            (None, Some(b), Some(c)) => Some(b.min(c)),
+            (Some(a), None, None) => Some(a),
+            (None, Some(b), None) => Some(b),
+            (None, None, Some(c)) => Some(c),
+            (None, None, None) => None,
         }
     }
 
@@ -1693,13 +1995,14 @@ impl Game {
                 HorizontalMode::Swim { surface_y } => surface_y - PLAYER_STEP_HEIGHT,
             };
             let raw = Vec2::new(current_pos.x + step_delta.x, current_pos.y + step_delta.z);
-            let candidate = resolve_player_collision_for_body_indexed(
+            let candidate = resolve_player_collision_with_doors(
                 &self.collision_index,
                 raw,
                 PLAYER_RADIUS,
                 foot_y,
                 body_height,
                 &self.walls,
+                &self.door_colliders,
             );
             // A depenetration deeper than the body radius is a teleport (the
             // centre was inside a box, or several boxes pushed at once): refuse

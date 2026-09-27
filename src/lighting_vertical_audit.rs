@@ -63,7 +63,7 @@ mod tests {
         let upper_floor = 3.0 + gap;
         parse(&format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "stacked",
                 "name": "Stacked",
                 "spawn": {{ "x": 3.0, "z": 3.0 }},
@@ -96,7 +96,7 @@ mod tests {
     pub(super) fn shaft_level(fixture_y: f32) -> LevelDef {
         parse(&format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "shaft",
                 "name": "Shaft",
                 "spawn": {{ "x": 1.0, "z": 3.0 }},
@@ -306,7 +306,7 @@ mod tests {
     fn a_lowered_basin_and_a_raised_platform_stay_connected_to_their_room() {
         let level = parse(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "basin_platform",
                 "name": "Basin Platform",
                 "spawn": { "x": 3.0, "z": 3.0 },
@@ -370,7 +370,7 @@ mod tests {
     fn a_raised_neighbour_keeps_its_own_light_behind_the_shared_wall() {
         let level = parse(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "raised_neighbour",
                 "name": "Raised Neighbour",
                 "spawn": { "x": 3.0, "z": 3.0 },
@@ -465,7 +465,7 @@ mod tests {
     fn a_gable_ridge_is_lit_by_its_own_fixture() {
         let level = parse(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "gable_vertical",
                 "name": "Gable Vertical",
                 "spawn": { "x": 4.0, "z": 4.0 },

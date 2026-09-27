@@ -521,7 +521,7 @@ fn a_page_encodes_as_a_decodable_png() {
 fn content_key_is_stable_and_changes_with_the_inputs() {
     let level = crate::level::LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "key",
             "name": "Key",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -624,7 +624,7 @@ fn the_format_version_is_current_and_is_part_of_every_key_prefix() {
     assert_eq!(LIGHTMAP_FORMAT_VERSION, 10);
     let level = crate::level::LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "version_key",
             "name": "Version Key",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -838,7 +838,7 @@ fn large_tower_level_with_storeys(storeys: u32) -> crate::level::LevelDef {
     }
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "large_tower",
             "name": "Large Tower",
             "spawn": {{ "x": 9.0, "z": 9.0 }},
@@ -1119,7 +1119,7 @@ fn samples_in_first_room(level: &crate::level::LevelDef) -> Vec<[f32; 3]> {
 #[test]
 fn an_unrelated_distant_room_does_not_darken_a_lit_room() {
     const LIT_ROOM: &str = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "capacity_lit",
         "name": "Capacity Lit",
         "spawn": { "x": 2.0, "z": 2.0 },
@@ -1131,7 +1131,7 @@ fn an_unrelated_distant_room_does_not_darken_a_lit_room() {
         ]
     }"#;
     const LIT_ROOM_WITH_DISTANT_ROOM: &str = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "capacity_lit",
         "name": "Capacity Lit",
         "spawn": { "x": 2.0, "z": 2.0 },
@@ -1191,7 +1191,7 @@ fn reordering_equivalent_lights_does_not_change_the_bake() {
     let level_with = |lights: &[String]| {
         crate::level::LevelDef::from_json(&format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "light_order",
                 "name": "Light Order",
                 "spawn": {{ "x": 2.0, "z": 2.0 }},

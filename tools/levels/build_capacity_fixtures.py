@@ -297,7 +297,7 @@ def build_sparse(rng: Rng) -> Dict:
             )
 
     return {
-        "format_version": 1,
+        "format_version": 2,
         "id": "capacity_sparse",
         "name": "Capacity: Sparse World (dev)",
         "author": "Places Team",
@@ -597,7 +597,7 @@ def build_dense(rng: Rng, placeables: List[Dict]) -> Dict:
         )
 
     return {
-        "format_version": 1,
+        "format_version": 2,
         "id": "capacity_dense",
         "name": "Capacity: Dense Content (dev)",
         "author": "Places Team",

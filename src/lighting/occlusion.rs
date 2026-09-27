@@ -1069,7 +1069,7 @@ mod tests {
     fn receiver_scene(lights: &[String], props: &[String]) -> crate::lighting::LevelLighting {
         let json = format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "receiver",
                 "name": "Receiver",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1163,7 +1163,7 @@ mod tests {
             let asset = cache.assets.resolve(&path).expect("shipped model loads");
             let level = crate::level::LevelDef::from_json(&format!(
                 r#"{{
-                    "format_version": 1,
+                    "format_version": 2,
                     "id": "receiver",
                     "name": "Receiver",
                     "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1209,7 +1209,7 @@ mod tests {
             };
             let json = format!(
                 r#"{{
-                    "format_version": 1,
+                    "format_version": 2,
                     "id": "wall_shadow",
                     "name": "Wall Shadow",
                     "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1336,7 +1336,7 @@ mod tests {
             };
             let level = crate::level::LevelDef::from_json(&format!(
                 r#"{{
-                    "format_version": 1,
+                    "format_version": 2,
                     "id": "receiver",
                     "name": "Receiver",
                     "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1894,7 +1894,7 @@ mod tests {
         let mut cache = PropOcclusionCache::with_root("target/definitely-not-here");
         let level = crate::level::LevelDef::from_json(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "no_assets",
                 "name": "No Assets",
                 "spawn": { "x": 0.0, "z": 0.0 },
@@ -1924,7 +1924,7 @@ mod tests {
         // the one placeholder box, and the two must differ.
         let level = crate::level::LevelDef::from_json(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "one_prop",
                 "name": "One Prop",
                 "spawn": { "x": 0.0, "z": 0.0 },
@@ -1958,7 +1958,7 @@ mod tests {
         // guard.
         let level = crate::level::LevelDef::from_json(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "one_prop",
                 "name": "One Prop",
                 "spawn": { "x": 0.0, "z": 0.0 },
@@ -1986,7 +1986,7 @@ mod tests {
     fn a_level_without_props_does_no_loading() {
         let level = crate::level::LevelDef::from_json(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "no_props",
                 "name": "No Props",
                 "spawn": { "x": 0.0, "z": 0.0 },

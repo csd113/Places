@@ -2079,7 +2079,7 @@ mod tests {
     fn split_room() -> LevelDef {
         level(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "visibility",
                 "name": "Visibility",
                 "spawn": { "x": 1.0, "z": 1.0 },
@@ -2097,7 +2097,7 @@ mod tests {
     fn stacked_rooms() -> LevelDef {
         level(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "stacked",
                 "name": "Stacked",
                 "spawn": { "x": 2.0, "z": 2.0 },
@@ -2125,6 +2125,7 @@ mod tests {
     fn doorway_span_passes_but_the_header_blocks() {
         let mut level = split_room();
         level.walls[0].openings.push(crate::level::WallOpeningDef {
+            solid: false,
             kind: "door".into(),
             offset: 1.0,
             width: 1.0,
@@ -2147,6 +2148,7 @@ mod tests {
     fn split_room_with_window() -> LevelDef {
         let mut level = split_room();
         level.walls[0].openings.push(crate::level::WallOpeningDef {
+            solid: false,
             kind: "window".into(),
             offset: 1.0,
             width: 1.0,
@@ -2191,7 +2193,7 @@ mod tests {
         // piece on one side or the other; the old shrink left a slit exactly on
         // the seam.
         let json = r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "seam",
             "name": "Seam",
             "spawn": { "x": 0.5, "z": 0.5 },
@@ -2332,7 +2334,7 @@ mod tests {
         // that corner.
         let level = level(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "floor_contact",
                 "name": "Floor Contact",
                 "spawn": { "x": 2.0, "z": 2.0 },
@@ -2367,7 +2369,7 @@ mod tests {
         // must still light its own ceiling.
         let level = level(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "zero_gap",
                 "name": "Zero Gap",
                 "spawn": { "x": 2.0, "z": 2.0 },
@@ -2391,7 +2393,7 @@ mod tests {
     #[test]
     fn a_lowered_basin_is_not_sealed_from_its_room() {
         let json = r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "basin",
             "name": "Basin",
             "spawn": { "x": 3.0, "z": 3.0 },
@@ -2425,7 +2427,7 @@ mod tests {
     #[test]
     fn a_raised_platform_does_not_isolate_the_room_above_it() {
         let json = r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "platform",
             "name": "Platform",
             "spawn": { "x": 3.0, "z": 3.0 },
@@ -2464,7 +2466,7 @@ mod tests {
     #[test]
     fn a_gable_ceiling_body_sits_above_the_slope() {
         let json = r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "gable",
             "name": "Gable",
             "spawn": { "x": 2.0, "z": 2.0 },
@@ -2610,7 +2612,7 @@ mod tests {
     fn penumbra_room() -> LevelDef {
         level(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "penumbra",
                 "name": "Penumbra",
                 "spawn": { "x": 3.0, "z": 5.0 },
@@ -2840,6 +2842,7 @@ mod tests {
         // is the invariant the pool visibility shares with the wall mesh.
         let mut level = split_room();
         level.walls[0].openings.push(crate::level::WallOpeningDef {
+            solid: false,
             kind: "vent".into(),
             offset: 1.0,
             width: 1.0,
@@ -2875,7 +2878,7 @@ mod tests {
     fn a_threshold_height_step_shadows_only_its_own_footprint() {
         let level = level(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "trim_threshold",
                 "name": "Trim Threshold",
                 "spawn": { "x": 1.0, "z": 2.0 },
@@ -2919,7 +2922,7 @@ mod tests {
     fn a_baseboard_against_its_wall_does_not_shadow_the_open_floor() {
         let level = level(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "trim_baseboard",
                 "name": "Trim Baseboard",
                 "spawn": { "x": 3.0, "z": 1.0 },
@@ -2992,7 +2995,7 @@ mod tests {
     fn a_wall_shadow_starts_at_the_wall_base_and_only_brightens_outward() {
         let level = level(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "contact",
                 "name": "Contact",
                 "spawn": { "x": 0.0, "z": 0.0 },
@@ -3043,7 +3046,7 @@ mod tests {
         // edge: inside the range, so the bake asks for it.
         let level = level(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "reach",
                 "name": "Reach",
                 "spawn": { "x": 2.0, "z": 10.0 },

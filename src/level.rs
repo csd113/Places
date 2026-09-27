@@ -658,6 +658,27 @@ pub enum ActionDef {
         #[serde(default)]
         sound: Option<String>,
     },
+    /// Drive a door to its open end. Target must be a door entity id.
+    OpenDoor {
+        /// Door entity id. Required: a door action without a target does not
+        /// identify which leaf to move.
+        target: String,
+    },
+    /// Drive a door to its closed end. Target must be a door entity id.
+    CloseDoor {
+        /// Door entity id. Required.
+        target: String,
+    },
+    /// Flip a door between its open and closed ends, mid-travel included.
+    ///
+    /// The same tag also flips a light fixture between enabled and disabled:
+    /// the acting entity's `<entity>.toggle` semantic is the entity's own, so
+    /// one switch can drive a door and a light in one press without the
+    /// dispatcher knowing what either is.
+    Toggle {
+        /// Entity id of the door or light fixture to flip. Required.
+        target: String,
+    },
 }
 
 impl ActionDef {
@@ -670,6 +691,9 @@ impl ActionDef {
             Self::PlayAnimation { .. } => "play_animation",
             Self::ToggleAnimation { .. } => "toggle_animation",
             Self::PlayAudio { .. } => "play_audio",
+            Self::OpenDoor { .. } => "open",
+            Self::CloseDoor { .. } => "close",
+            Self::Toggle { .. } => "toggle",
         }
     }
 
@@ -681,6 +705,9 @@ impl ActionDef {
             | Self::PlayAnimation { target, .. }
             | Self::ToggleAnimation { target, .. }
             | Self::PlayAudio { target, .. } => target.as_deref(),
+            Self::OpenDoor { target } | Self::CloseDoor { target } | Self::Toggle { target } => {
+                Some(target.as_str())
+            }
             Self::ResetToStart => None,
         }
     }
@@ -791,6 +818,353 @@ impl AreaTriggerDef {
 
 /// Default height of an area trigger whose `top_y` is omitted, in metres.
 pub const DEFAULT_TRIGGER_HEIGHT_M: f32 = 2.0;
+
+/// Which way a door leaf swings about its hinge, seen from above with the
+/// closed leaf running from the hinge to the latch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum DoorSwing {
+    /// Positive rotation about the hinge: the latch moves to the hinge's left.
+    #[default]
+    Left,
+    /// Negative rotation about the hinge: the latch moves to the hinge's right.
+    Right,
+}
+
+/// A door's initial state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum DoorStartState {
+    /// The leaf begins closed (angle 0).
+    #[default]
+    Closed,
+    /// The leaf begins fully open (angle `swing_degrees`).
+    Open,
+}
+
+/// What a door does when its sweep meets the player or solid geometry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum DoorObstruction {
+    /// Hold the current angle; resume when the obstruction clears.
+    #[default]
+    Stop,
+    /// Reverse direction once per obstruction.
+    Reverse,
+}
+
+/// The door's visual build: an interior painted leaf or a sauna leaf.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum DoorKind {
+    /// A white painted interior door with a round brass handle.
+    #[default]
+    Interior,
+    /// A wooden-framed sauna door with a glass panel and a wooden handle.
+    Sauna,
+}
+
+/// Material a door kind uses when the map authors no override.
+pub struct DoorMaterials {
+    /// The moving leaf's material.
+    pub slab: &'static str,
+    /// The static frame's material.
+    pub frame: &'static str,
+    /// The handle's material.
+    pub handle: &'static str,
+}
+
+/// The glass a sauna leaf's panel uses.
+pub const SAUNA_DOOR_GLASS_MATERIAL: &str = "core:glass_window_clear_01";
+
+/// The axis-aligned half-extents of a yaw-rotated rectangle's covering box.
+///
+/// A solid prop's collider is conservative in exactly the way its visible
+/// model needs: every rotated corner is inside the box, so the player can never
+/// clip a corner the model shows.
+#[must_use]
+fn rotated_half_extents_local(half_width: f32, half_depth: f32, rotation_degrees: f32) -> (f32, f32) {
+    let (sin, cos) = rotation_degrees.to_radians().sin_cos();
+    let sin = sin.abs();
+    let cos = cos.abs();
+    (
+        half_width.mul_add(cos, half_depth * sin),
+        half_width.mul_add(sin, half_depth * cos),
+    )
+}
+
+/// The default material set for one door kind.
+#[must_use]
+pub const fn door_materials(kind: DoorKind) -> DoorMaterials {
+    match kind {
+        DoorKind::Interior => DoorMaterials {
+            slab: "home:door_white_01",
+            frame: "home:baseboard_white_01",
+            handle: "core:metal_brass_01",
+        },
+        DoorKind::Sauna => DoorMaterials {
+            slab: "home:sauna_wood_01",
+            frame: "home:baseboard_wood_01",
+            handle: "home:sauna_wood_01",
+        },
+    }
+}
+
+/// One interactive door leaf.
+///
+/// A door is placed by its **hinge edge**: `(x, y, z)` is the bottom of the
+/// hinge jamb, `rotation_degrees` aims the closed leaf (0 runs toward `+X`,
+/// 90 toward `-Z`), and the leaf extends `width` metres from the hinge along
+/// that direction. `swing_degrees` and `open_direction` describe where it goes
+/// when it opens. The wall opening that the door fills is authored separately
+/// on the wall, exactly like any other opening; validation proves the closed
+/// leaf does not start inside a solid.
+///
+/// ```json
+/// { "id": "office_door", "x": 2.0, "y": 0.0, "z": 0.15,
+///   "rotation_degrees": 0.0, "width": 0.9, "height": 2.1, "thickness": 0.045,
+///   "open_direction": "left", "swing_degrees": 90.0,
+///   "open_speed_degrees": 120.0, "initial_state": "closed",
+///   "manual_interaction": true }
+/// ```
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DoorDef {
+    /// Stable entity id: the name triggers and switches address.
+    pub id: String,
+    /// World X of the hinge edge.
+    pub x: f32,
+    /// Height of the leaf's bottom above the walkable floor under the hinge.
+    #[serde(default)]
+    pub y: f32,
+    /// World Z of the hinge edge.
+    pub z: f32,
+    /// Yaw of the closed leaf in degrees (0 runs toward `+X`, 90 toward `-Z`).
+    #[serde(default)]
+    pub rotation_degrees: f32,
+    /// Leaf width, in metres, from the hinge to the latch edge.
+    pub width: f32,
+    /// Leaf height, in metres.
+    pub height: f32,
+    /// Leaf thickness, in metres.
+    #[serde(default = "default_door_thickness_m")]
+    pub thickness: f32,
+    /// Which way the leaf swings.
+    #[serde(default)]
+    pub open_direction: DoorSwing,
+    /// Opening angle, in degrees. Negative means the opposite swing.
+    #[serde(default = "default_door_swing_degrees")]
+    pub swing_degrees: f32,
+    /// Angular speed while opening, in degrees per second.
+    #[serde(default = "default_door_speed_degrees")]
+    pub open_speed_degrees: f32,
+    /// Angular speed while closing. Defaults to `open_speed_degrees`.
+    #[serde(default)]
+    pub close_speed_degrees: Option<f32>,
+    /// Authored starting state.
+    #[serde(default)]
+    pub initial_state: DoorStartState,
+    /// Whether the player can open/close this door by interacting with it.
+    ///
+    /// `false` marks an externally controlled door: it only moves when a map
+    /// action drives it, and it is not an interaction target.
+    #[serde(default = "default_true")]
+    pub manual_interaction: bool,
+    /// Prompt shown while the leaf is the interaction target.
+    #[serde(default)]
+    pub prompt: Option<String>,
+    /// Interaction reach in metres; the loader caps it like any interaction.
+    #[serde(default)]
+    pub reach: Option<f32>,
+    /// What happens when the sweep is obstructed.
+    #[serde(default)]
+    pub obstruction: DoorObstruction,
+    /// Visual build.
+    #[serde(default)]
+    pub kind: DoorKind,
+    /// Slab material override.
+    #[serde(default)]
+    pub material: Option<String>,
+    /// Frame material override.
+    #[serde(default)]
+    pub frame_material: Option<String>,
+    /// Handle material override.
+    #[serde(default)]
+    pub handle_material: Option<String>,
+}
+
+const fn default_door_thickness_m() -> f32 {
+    0.045
+}
+const fn default_door_swing_degrees() -> f32 {
+    90.0
+}
+const fn default_door_speed_degrees() -> f32 {
+    120.0
+}
+
+impl DoorDef {
+    /// Resolved close speed: the authored value, else the open speed.
+    #[must_use]
+    pub fn close_speed(&self) -> f32 {
+        self.close_speed_degrees
+            .filter(|speed| speed.is_finite() && *speed > 0.0)
+            .unwrap_or(self.open_speed_degrees)
+    }
+
+    /// Signed swing in degrees: positive for a left-hand swing.
+    #[must_use]
+    pub fn signed_swing(&self) -> f32 {
+        match self.open_direction {
+            DoorSwing::Left => self.swing_degrees,
+            DoorSwing::Right => -self.swing_degrees,
+        }
+    }
+
+    /// The door's base world Y: the walkable floor under the hinge plus `y`.
+    #[must_use]
+    pub fn base_y(&self, level: &LevelDef) -> f32 {
+        LevelSurfaces::new(level)
+            .floor_y_at(self.x, self.z)
+            .unwrap_or(0.0)
+            + self.y
+    }
+
+    /// The closed leaf's direction in world `(x, z)`: a unit vector.
+    #[must_use]
+    pub fn closed_direction(&self) -> (f32, f32) {
+        let yaw = self.rotation_degrees.to_radians();
+        (yaw.cos(), -yaw.sin())
+    }
+
+    /// The leaf's current direction at `angle_degrees` of opening.
+    #[must_use]
+    pub fn direction_at(&self, angle_degrees: f32) -> (f32, f32) {
+        let yaw = (self.rotation_degrees + angle_degrees).to_radians();
+        (yaw.cos(), -yaw.sin())
+    }
+}
+
+impl Default for DoorDef {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            rotation_degrees: 0.0,
+            width: 0.9,
+            height: 2.1,
+            thickness: default_door_thickness_m(),
+            open_direction: DoorSwing::default(),
+            swing_degrees: default_door_swing_degrees(),
+            open_speed_degrees: default_door_speed_degrees(),
+            close_speed_degrees: None,
+            initial_state: DoorStartState::default(),
+            manual_interaction: true,
+            prompt: None,
+            reach: None,
+            obstruction: DoorObstruction::default(),
+            kind: DoorKind::default(),
+            material: None,
+            frame_material: None,
+            handle_material: None,
+        }
+    }
+}
+
+/// One localized ambient effect emitter.
+///
+/// Effects are presentation-only: they never collide, never occlude and are
+/// not part of the lighting bake. The only current kind is `steam`, a bounded
+/// plume of drifting translucent billboards.
+///
+/// ```json
+/// { "kind": "steam", "x": 4.0, "y": 0.0, "z": 2.0,
+///   "width": 1.2, "depth": 0.8, "height": 1.8,
+///   "count": 24, "size": 0.35, "drift": 0.25 }
+/// ```
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EffectDef {
+    /// Optional stable id, for diagnostics and future actions.
+    #[serde(default)]
+    pub id: Option<String>,
+    /// Effect kind. Only `steam` exists.
+    pub kind: String,
+    #[serde(default)]
+    pub x: f32,
+    #[serde(default)]
+    pub y: f32,
+    #[serde(default)]
+    pub z: f32,
+    /// Emitter footprint width along X, in metres.
+    #[serde(default = "default_effect_footprint_m")]
+    pub width: f32,
+    /// Emitter footprint depth along Z, in metres.
+    #[serde(default = "default_effect_footprint_m")]
+    pub depth: f32,
+    /// Plume height above the emitter, in metres.
+    #[serde(default = "default_effect_height_m")]
+    pub height: f32,
+    /// Particle budget. Bounded by [`MAX_EFFECT_PARTICLES`].
+    #[serde(default = "default_effect_count")]
+    pub count: u32,
+    /// Particle billboard size, in metres.
+    #[serde(default = "default_effect_size_m")]
+    pub size: f32,
+    /// Horizontal wander amplitude, in metres.
+    #[serde(default)]
+    pub drift: f32,
+    /// Seconds one particle takes to cross the plume.
+    #[serde(default = "default_effect_lifetime_s")]
+    pub lifetime_seconds: f32,
+    /// Material used for the billboards. Defaults to the built-in steam
+    /// material.
+    #[serde(default)]
+    pub material: Option<String>,
+}
+
+const fn default_effect_footprint_m() -> f32 {
+    0.8
+}
+const fn default_effect_height_m() -> f32 {
+    1.6
+}
+const fn default_effect_count() -> u32 {
+    24
+}
+const fn default_effect_size_m() -> f32 {
+    0.35
+}
+const fn default_effect_lifetime_s() -> f32 {
+    3.0
+}
+
+/// The material an effect uses when it names none.
+pub const DEFAULT_STEAM_MATERIAL: &str = "core:steam_01";
+
+/// The only effect kind the engine implements.
+pub const EFFECT_KIND_STEAM: &str = "steam";
+
+/// Hard cap on one effect's particle count.
+pub const MAX_EFFECT_PARTICLES: u32 = 128;
+/// Hard cap on the effects one level may declare.
+pub const MAX_LEVEL_EFFECTS: usize = 64;
+
+/// Collision thickness of a glazed opening that authors `solid`: the visible
+/// pane is a zero-thickness surface, so the physical slab needs a small,
+/// invisible depth to be a stable collider.
+pub const OPENING_GLASS_THICKNESS_M: f32 = 0.06;
+
+/// Hard cap on the doors one level may declare.
+pub const MAX_LEVEL_DOORS: u64 = 256;
+/// Largest door dimension (width, height or thickness) in metres.
+pub const MAX_DOOR_DIMENSION_M: f32 = 12.0;
+/// Smallest meaningful opening swing, in degrees.
+pub const MIN_DOOR_SWING_DEGREES: f32 = 5.0;
+/// Largest opening swing, in degrees.
+pub const MAX_DOOR_SWING_DEGREES: f32 = 179.0;
+/// Largest angular door speed, in degrees per second.
+pub const MAX_DOOR_SPEED_DEGREES: f32 = 720.0;
 
 /// One authored animation route for a placed entity instance.
 ///
@@ -1823,12 +2197,22 @@ pub struct WallOpeningDef {
     /// The value is an ordinary material id, so the pane's colour, dirt,
     /// roughness, sheen and translucency are the material's, not the opening's
     /// (`"glass": "core:glass_window_dirty_01"`). An opening without `glass` is
-    /// exactly the historical hole.
+    /// a bare hole.
     #[serde(default)]
     pub glass: Option<String>,
     /// Per-surface shine override for [`Self::glass`]'s material.
     #[serde(default)]
     pub glass_shine: Option<f32>,
+    /// Whether the glazed opening physically blocks the player.
+    ///
+    /// Rendering and collision are independent: a `blend` glass draws
+    /// transparently in the translucent pass, and this flag decides whether the
+    /// pane is also a solid slab. `true` requires [`Self::glass`] — an
+    /// invisible solid barrier is a wall, not an opening. The shipped maps mark
+    /// windows and glass walls `solid: true`; a purely decorative pane authors
+    /// `false` (the default).
+    #[serde(default)]
+    pub solid: bool,
 }
 
 fn default_opening_kind() -> String {
@@ -3807,24 +4191,20 @@ pub enum FixtureAlign {
 
 /// Ceiling light fixture placement.
 ///
-/// `brightness` is the optional fixture intensity/power and stays the
-/// canonical key; the more descriptive `intensity` spelling is accepted as an
-/// alias so levels written from the design notes load unchanged. Omitted means `1.0`.
+/// `brightness` is the optional fixture intensity/power. Omitted means `1.0`.
 ///
 /// `color` is the optional emitted light colour as an `[r, g, b]` array of
 /// `0.0..=1.0` fractions. It drives the coloured illumination the bake applies
 /// to surrounding geometry; the fixture's visible face is texture-first and is
-/// never tinted by it. Levels that omit it keep loading: they emit
-/// [`DEFAULT_LIGHT_COLOR`], the restrained warm fluorescent the game has always
-/// implied.
+/// never tinted by it. An omitted colour emits [`DEFAULT_LIGHT_COLOR`], the
+/// restrained warm fluorescent the game's lighting model is calibrated around.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LightFixtureDef {
     /// Stable per-instance id, distinct from the shared `fixture` catalog id.
     ///
     /// Omitted means the deterministic default `<fixture short name>_<n>`,
-    /// counted like [`PropDef::id`]. Currently used for identity, duplicate
-    /// validation and future action targets; no implemented action drives a
-    /// fixture yet.
+    /// counted like [`PropDef::id`]. The id names the fixture for duplicate
+    /// validation and for `toggle` actions on [`Self::switchable`] fixtures.
     #[serde(default)]
     pub id: Option<String>,
     pub fixture: String,
@@ -3832,7 +4212,7 @@ pub struct LightFixtureDef {
     pub z: f32,
     #[serde(default)]
     pub rotation_degrees: f32,
-    #[serde(default, alias = "intensity")]
+    #[serde(default)]
     pub brightness: Option<f32>,
     /// Emitted light colour; omitted means [`DEFAULT_LIGHT_COLOR`].
     ///
@@ -3884,6 +4264,15 @@ pub struct LightFixtureDef {
     /// from `brightness` (and only while `enabled`).
     #[serde(default)]
     pub emission: Option<f32>,
+    /// Whether a map action can switch this fixture on and off at runtime.
+    ///
+    /// A switchable fixture is excluded from its room's baked *baseline*
+    /// illumination and contributes only its local pool; toggling it then
+    /// re-fills exactly the affected lightmap charts, and its visible face
+    /// turns off with it. A fixture that is not switchable is baked once and
+    /// never changes — the default, and the cheapest.
+    #[serde(default)]
+    pub switchable: bool,
 }
 
 impl LightFixtureDef {
@@ -4266,6 +4655,12 @@ impl GeometryIntentDef {
     }
 }
 
+/// The only level format version the engine reads.
+///
+/// The engine is pre-release and there is exactly one current schema; a level
+/// whose `format_version` differs is rejected by name rather than migrated.
+pub const LEVEL_FORMAT_VERSION: u32 = 2;
+
 /// The level definition: rooms, geometry, props, fixtures and interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDef {
@@ -4274,8 +4669,7 @@ pub struct LevelDef {
     pub name: String,
     #[serde(default)]
     pub author: String,
-    #[serde(default)]
-    pub room: Option<RoomDef>,
+    /// Every room section, in ownership order.
     #[serde(default)]
     pub rooms: Vec<RoomDef>,
     pub spawn: SpawnDef,
@@ -4286,22 +4680,20 @@ pub struct LevelDef {
     #[serde(default)]
     pub floor_patches: Vec<FloorPatchDef>,
     /// Rectangular local floor areas with their own vertical offset (recesses,
-    /// raised platforms). Empty on every legacy level.
+    /// raised platforms).
     #[serde(default)]
     pub floor_regions: Vec<FloorRegionDef>,
     /// Rectangular bodies of water: surface, footprint and swimming contract.
-    /// Empty on every legacy level.
-    #[serde(default, alias = "water_volumes")]
+    #[serde(default)]
     pub water: Vec<WaterVolumeDef>,
     /// Climbable ladder volumes: footprint, vertical reach and the direction
-    /// the climber faces. Empty on every legacy level.
+    /// the climber faces.
     #[serde(default)]
     pub ladders: Vec<LadderDef>,
-    /// Straight sloped walking surfaces (ramps). Empty on every legacy level.
+    /// Straight sloped walking surfaces (ramps).
     #[serde(default)]
     pub ramps: Vec<RampDef>,
-    /// Straight stepped walking surfaces (staircases). Empty on every legacy
-    /// level.
+    /// Straight stepped walking surfaces (staircases).
     #[serde(default)]
     pub stairs: Vec<StairDef>,
     /// Solid half-height walls: partitions, parapets and knee walls.
@@ -4333,22 +4725,27 @@ pub struct LevelDef {
     pub decals: Vec<DecalDef>,
     /// Every placed light fixture, in bake order.
     ///
-    /// The key is `ceiling_lights` for compatibility with existing levels
-    /// (and accepts `lights` as an alias); it holds every fixture, including
-    /// wall-mounted ones, which author `"mount": "wall"` plus a world-space
-    /// `y`. A fixture is visible geometry that owns one generic light; lights
-    /// attached to props live on the prop instead (see [`PropDef::lights`]).
-    #[serde(default, alias = "lights")]
+    /// The key holds every fixture, including wall-mounted ones, which author
+    /// `"mount": "wall"` plus a world-space `y`. A fixture is visible geometry
+    /// that owns one generic light; lights attached to props live on the prop
+    /// instead (see [`PropDef::lights`]).
+    #[serde(default)]
     pub ceiling_lights: Vec<LightFixtureDef>,
     /// Placed props / furniture / appliances.
     #[serde(default)]
     pub props: Vec<PropDef>,
+    /// Interactive door leaves with their own state machine, collision and
+    /// map-wireable actions.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub doors: Vec<DoorDef>,
+    /// Localized ambient effects (sauna steam and future emitters).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub effects: Vec<EffectDef>,
     /// Authored area triggers: entering the volume runs its actions once.
-    /// Empty on every legacy level.
     #[serde(default)]
     pub area_triggers: Vec<AreaTriggerDef>,
     /// Authored movement/pose routes for placed entities, keyed by instance
-    /// id. Empty on every legacy level.
+    /// id.
     #[serde(default)]
     pub routes: Vec<EntityRouteDef>,
     /// Surfaces whose *emission* moves over time: a breathing illuminated sign,
@@ -4737,10 +5134,9 @@ impl LevelDef {
         serde_json::from_str(json_str)
     }
 
-    /// Iterates over all room sections (merging optional `room` and `rooms`)
-    /// without cloning or allocating.
-    pub fn room_iter(&self) -> impl Iterator<Item = &RoomDef> {
-        self.rooms.iter().chain(self.room.iter())
+    /// Iterates over every room section without cloning or allocating.
+    pub fn room_iter(&self) -> std::slice::Iter<'_, RoomDef> {
+        self.rooms.iter()
     }
 
     /// Stable per-instance id for every placed prop, in array order.
@@ -4773,11 +5169,20 @@ impl LevelDef {
             .collect()
     }
 
+    /// Stable per-instance id for every door, in array order.
+    ///
+    /// A door's id is required and authored; this accessor exists so id
+    /// validation and action resolution can treat doors exactly like props and
+    /// fixtures.
+    #[must_use]
+    pub fn door_instance_ids(&self) -> Vec<String> {
+        self.doors.iter().map(|door| door.id.clone()).collect()
+    }
+
     /// Stable per-instance id for every light fixture, in array order.
     ///
     /// Same scheme as [`Self::prop_instance_ids`], counting per fixture short
-    /// name. Fixtures are identity only today: no implemented action drives
-    /// one, but the id is stable for references.
+    /// name. A switchable fixture's id is the name a `toggle` action addresses.
     #[must_use]
     pub fn light_instance_ids(&self) -> Vec<String> {
         let mut counters: HashMap<&str, usize> = HashMap::new();
@@ -5304,6 +5709,16 @@ impl LevelDef {
                     slice_depth,
                 ));
             }
+
+            // A glazed opening marked `solid` blocks the player: rendering
+            // transparency and collision are independent, so the pane is a
+            // thin slab on the wall's centre plane. `solid` without `glass` is
+            // refused by validation (an invisible barrier is a wall).
+            for opening in &wall.openings {
+                if let Some(pane) = opening_glass_collider(wall, opening) {
+                    aabbs.push(pane);
+                }
+            }
         }
 
         for room in self.room_iter() {
@@ -5326,29 +5741,104 @@ impl LevelDef {
         }
 
         for prop in &self.props {
-            if !prop.solid {
-                continue;
+            if let Some(collider) = prop.solid_collider(&surfaces) {
+                aabbs.push(collider);
             }
-            let size = prop.resolved_size(PROP_FALLBACK_SIZE);
-            if !size.iter().all(|v| v.is_finite() && *v > 0.0)
-                || !prop.x.is_finite()
-                || !prop.y.is_finite()
-                || !prop.z.is_finite()
-            {
-                continue;
-            }
-            let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
-            aabbs.push(WallAabb::with_y(
-                size[0].mul_add(-0.5, prop.x),
-                base_y + prop.y,
-                size[2].mul_add(-0.5, prop.z),
-                size[0],
-                size[1],
-                size[2],
-            ));
         }
 
         aabbs
+    }
+}
+
+/// The collision slab of a glazed opening that authors `solid`, if any.
+///
+/// The visible pane is a zero-thickness quad on the wall's centre plane; the
+/// physical slab is [`OPENING_GLASS_THICKNESS_M`] thick around it, spanning the
+/// opening's rectangle. An opening without `glass`, or with `solid: false`, is
+/// the bare hole.
+#[must_use]
+fn opening_glass_collider(
+    wall: &WallDef,
+    opening: &WallOpeningDef,
+) -> Option<WallAabb> {
+    if !opening.solid || opening.glass_material().is_none() {
+        return None;
+    }
+    if !opening.offset.is_finite()
+        || !opening.width.is_finite()
+        || !opening.height.is_finite()
+        || !opening.sill.is_finite()
+        || opening.width <= 0.0
+        || opening.height <= 0.0
+    {
+        return None;
+    }
+    let (min_x, max_x) = (
+        wall.x.min(wall.x + wall.width),
+        wall.x.max(wall.x + wall.width),
+    );
+    let (min_z, max_z) = (
+        wall.z.min(wall.z + wall.depth),
+        wall.z.max(wall.z + wall.depth),
+    );
+    let (origin_x, origin_z) = wall.length_origin();
+    let bottom = opening.bottom(wall.y);
+    let half_thickness = OPENING_GLASS_THICKNESS_M * 0.5;
+    let (pane_x, pane_z, pane_w, pane_d) = match wall.axis() {
+        WallAxis::X => (
+            origin_x + opening.offset,
+            f32::midpoint(min_z, max_z) - half_thickness,
+            opening.width,
+            OPENING_GLASS_THICKNESS_M,
+        ),
+        WallAxis::Z => (
+            f32::midpoint(min_x, max_x) - half_thickness,
+            origin_z + opening.offset,
+            OPENING_GLASS_THICKNESS_M,
+            opening.width,
+        ),
+    };
+    Some(WallAabb::with_y(
+        pane_x,
+        bottom,
+        pane_z,
+        pane_w,
+        opening.height,
+        pane_d,
+    ))
+}
+
+impl PropDef {
+    /// The prop's collision box when it is solid, placed on its local floor.
+    ///
+    /// A yaw-rotated prop's box is conservatively covered by the axis-aligned
+    /// box of the rotated rectangle: the collider then contains every visible
+    /// corner at any angle, instead of colliding where the model is not and
+    /// passing through where it is.
+    #[must_use]
+    fn solid_collider(&self, surfaces: &LevelSurfaces<'_>) -> Option<WallAabb> {
+        if !self.solid {
+            return None;
+        }
+        let size = self.resolved_size(PROP_FALLBACK_SIZE);
+        if !size.iter().all(|v| v.is_finite() && *v > 0.0)
+            || !self.x.is_finite()
+            || !self.y.is_finite()
+            || !self.z.is_finite()
+        {
+            return None;
+        }
+        let base_y = surfaces.floor_y_at(self.x, self.z).unwrap_or(0.0);
+        let (extent_x, extent_z) =
+            rotated_half_extents_local(size[0] * 0.5, size[2] * 0.5, self.rotation_degrees);
+        Some(WallAabb::with_y(
+            self.x - extent_x,
+            base_y + self.y,
+            self.z - extent_z,
+            extent_x * 2.0,
+            size[1],
+            extent_z * 2.0,
+        ))
     }
 }
 

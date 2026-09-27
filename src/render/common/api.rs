@@ -916,11 +916,11 @@ mod tests {
     fn tiny_level() -> LevelDef {
         LevelDef::from_json(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "async_fill_test",
                 "name": "Async Fill Test",
                 "spawn": { "x": 0.0, "z": 0.0 },
-                "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 },
+                "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
                 "ceiling_lights": [
                     { "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 4.0 }
                 ]

@@ -235,6 +235,300 @@ pub fn lowest_underside_indexed(
     lowest
 }
 
+/// A door leaf's collision box at its current opening angle.
+///
+/// The leaf is an oriented box: a rectangle in the XZ plane from the hinge
+/// along the leaf direction, with a vertical span. The collider is rebuilt from
+/// the runtime angle every time a door moves, so the physical slab and the
+/// drawn slab always share one transform.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DoorCollider {
+    /// World X of the hinge edge, at the leaf's bottom.
+    pub hinge_x: f32,
+    /// World Y of the leaf's bottom.
+    pub hinge_y: f32,
+    /// World Z of the hinge edge.
+    pub hinge_z: f32,
+    /// Unit direction from the hinge along the leaf, in the XZ plane.
+    pub dir_x: f32,
+    /// Unit direction from the hinge along the leaf, in the XZ plane.
+    pub dir_z: f32,
+    /// Leaf width from the hinge to the latch edge.
+    pub width: f32,
+    /// Leaf thickness.
+    pub thickness: f32,
+    /// Leaf height above [`Self::hinge_y`].
+    pub height: f32,
+}
+
+impl DoorCollider {
+    /// Builds the collider for a hinge pose and leaf direction.
+    ///
+    /// `hinge` is the leaf's bottom hinge edge, `direction` the unit `(x, z)`
+    /// from the hinge along the leaf. A zero-length direction is not a pose; it
+    /// falls back to `+X` so a malformed call cannot produce a NaN normal.
+    #[must_use]
+    pub fn from_pose(
+        hinge: [f32; 3],
+        direction: [f32; 2],
+        width: f32,
+        thickness: f32,
+        height: f32,
+    ) -> Self {
+        let [dir_x, dir_z] = direction;
+        let (dir_x, dir_z) = if dir_x.is_finite() && dir_z.is_finite() {
+            let length = dir_x.hypot(dir_z);
+            if length > 1e-6 {
+                (dir_x / length, dir_z / length)
+            } else {
+                (1.0, 0.0)
+            }
+        } else {
+            (1.0, 0.0)
+        };
+        Self {
+            hinge_x: hinge[0],
+            hinge_y: hinge[1],
+            hinge_z: hinge[2],
+            dir_x,
+            dir_z,
+            width,
+            thickness,
+            height,
+        }
+    }
+
+    /// True when the leaf's vertical span overlaps a body band.
+    #[must_use]
+    pub fn overlaps_body_y(&self, foot_y: f32, body_height: f32) -> bool {
+        self.hinge_y + self.height > foot_y + STEP_EPS
+            && self.hinge_y + CONTACT_EPS < foot_y + body_height
+    }
+
+    /// Local `(u, v)` of a world point: `u` along the leaf, `v` across it.
+    #[must_use]
+    fn local(&self, x: f32, z: f32) -> (f32, f32) {
+        let dx = x - self.hinge_x;
+        let dz = z - self.hinge_z;
+        (
+            dx.mul_add(self.dir_x, dz * self.dir_z),
+            dx.mul_add(-self.dir_z, dz * self.dir_x),
+        )
+    }
+
+    /// World `(x, z)` of a local `(u, v)` point.
+    #[must_use]
+    fn world(&self, u: f32, v: f32) -> (f32, f32) {
+        (
+            (-self.dir_z).mul_add(v, self.dir_x.mul_add(u, self.hinge_x)),
+            self.dir_x.mul_add(v, self.dir_z.mul_add(u, self.hinge_z)),
+        )
+    }
+
+    /// Depenetrates a body disc from the leaf, or returns `None` when clear.
+    ///
+    /// The disc is resolved in the leaf's local frame: the closest point on the
+    /// box pushes the centre out along the contact normal, and a centre inside
+    /// the box exits through the shallowest face. This is the same rule
+    /// [`WallAabb`] uses, expressed for an oriented rectangle.
+    #[must_use]
+    pub fn depenetrate(&self, x: f32, z: f32, radius: f32) -> Option<(f32, f32)> {
+        let half_thickness = self.thickness * 0.5;
+        let (u, v) = self.local(x, z);
+        let closest_u = u.clamp(0.0, self.width);
+        let closest_v = v.clamp(-half_thickness, half_thickness);
+        let du = u - closest_u;
+        let dv = v - closest_v;
+        let dist_sq = du.mul_add(du, dv * dv);
+        if dist_sq >= radius * radius {
+            return None;
+        }
+        if dist_sq > 1e-6 {
+            let dist = dist_sq.sqrt();
+            let normal_u = du / dist;
+            let normal_v = dv / dist;
+            let penetration = radius - dist;
+            return Some(self.world(
+                normal_u.mul_add(penetration, u),
+                normal_v.mul_add(penetration, v),
+            ));
+        }
+        // Centre inside the box: leave through the nearest face.
+        let d_start = u.abs();
+        let d_end = (self.width - u).abs();
+        let d_side = (v + half_thickness).abs();
+        let d_other = (half_thickness - v).abs();
+        let min_d = d_start.min(d_end).min(d_side).min(d_other);
+        if (min_d - d_start).abs() < 1e-5 {
+            Some(self.world(-radius, v))
+        } else if (min_d - d_end).abs() < 1e-5 {
+            Some(self.world(self.width + radius, v))
+        } else if (min_d - d_side).abs() < 1e-5 {
+            Some(self.world(u, -half_thickness - radius))
+        } else {
+            Some(self.world(u, half_thickness + radius))
+        }
+    }
+
+    /// A world point on one face of the leaf.
+    ///
+    /// `t` runs `0`..`1` from the hinge to the latch edge and `side` is `-1`
+    /// for one face and `+1` for the other.
+    #[must_use]
+    pub fn point_at(&self, t: f32, side: f32) -> (f32, f32) {
+        let u = self.width * t.clamp(0.0, 1.0);
+        let v = self.thickness * 0.5 * side;
+        self.world(u, v)
+    }
+
+    /// True when the leaf's footprint touches a disc (`x`, `z`, `radius`).
+    #[must_use]
+    pub fn overlaps_disc(&self, x: f32, z: f32, radius: f32) -> bool {
+        let half_thickness = self.thickness * 0.5;
+        let (u, v) = self.local(x, z);
+        let closest_u = u.clamp(0.0, self.width);
+        let closest_v = v.clamp(-half_thickness, half_thickness);
+        let du = u - closest_u;
+        let dv = v - closest_v;
+        du.mul_add(du, dv * dv) < radius * radius
+    }
+
+    /// True when a world point lies inside the leaf.
+    #[must_use]
+    pub fn contains_point(&self, point_x: f32, point_y: f32, point_z: f32) -> bool {
+        if point_y < self.hinge_y || point_y > self.hinge_y + self.height {
+            return false;
+        }
+        let half_thickness = self.thickness * 0.5;
+        let (u, v) = self.local(point_x, point_z);
+        u >= 0.0 && u <= self.width && v >= -half_thickness && v <= half_thickness
+    }
+
+    /// Entry distance of a ray into the leaf, or `None` when it misses.
+    #[must_use]
+    pub fn ray_entry(&self, origin: Vec3, direction: Vec3, max_distance: f32) -> Option<f32> {
+        if !origin.is_finite() || !direction.is_finite() {
+            return None;
+        }
+        let half_thickness = self.thickness * 0.5;
+        // The ray in the leaf's local frame.
+        let o = self.local(origin.x, origin.z);
+        let d = (
+            direction.x.mul_add(self.dir_x, direction.z * self.dir_z),
+            direction.x.mul_add(-self.dir_z, direction.z * self.dir_x),
+        );
+        let mut t_enter = 0.0_f32;
+        let mut t_exit = f32::INFINITY;
+        for (o, d, lo, hi) in [
+            (o.0, d.0, 0.0, self.width),
+            (o.1, d.1, -half_thickness, half_thickness),
+        ] {
+            let (near, far) = slab_axis(o, d, lo, hi)?;
+            t_enter = t_enter.max(near);
+            t_exit = t_exit.min(far);
+            if t_enter > t_exit {
+                return None;
+            }
+        }
+        let (near, far) = slab_axis(
+            origin.y,
+            direction.y,
+            self.hinge_y,
+            self.hinge_y + self.height,
+        )?;
+        t_enter = t_enter.max(near);
+        t_exit = t_exit.min(far);
+        if t_enter > t_exit {
+            return None;
+        }
+        (t_enter <= max_distance).then_some(t_enter)
+    }
+}
+
+/// The nearest door-leaf entry along a ray, if any is within `max_distance`.
+#[must_use]
+pub fn nearest_door_entry(
+    doors: &[DoorCollider],
+    origin: Vec3,
+    direction: Vec3,
+    max_distance: f32,
+) -> Option<(usize, f32)> {
+    let mut best: Option<(usize, f32)> = None;
+    for (index, door) in doors.iter().enumerate() {
+        let Some(entry) = door.ray_entry(origin, direction, max_distance) else {
+            continue;
+        };
+        if best.is_none_or(|(_, best_entry)| entry < best_entry) {
+            best = Some((index, entry));
+        }
+    }
+    best
+}
+
+/// Resolves a body disc against walls **and** door leaves.
+///
+/// The wall pass keeps its indexed path; doors are few and linearly scanned.
+/// Both are interleaved for the same four rounds so a corner where a wall and
+/// a moving leaf meet cannot leave the body wedged between them.
+#[must_use]
+pub fn resolve_player_collision_with_doors(
+    index: &crate::collision_index::CollisionIndex,
+    pos: Vec2,
+    radius: f32,
+    foot_y: f32,
+    body_height: f32,
+    walls: &[WallAabb],
+    doors: &[DoorCollider],
+) -> Vec2 {
+    let mut pos = pos;
+    for _ in 0..4 {
+        let mut collided = false;
+        index.for_each_disc(pos.x, pos.y, radius, walls, |wall| {
+            if !wall.blocks_body(foot_y, body_height) {
+                return;
+            }
+            let Some(next) = depenetrate(pos, radius, wall) else {
+                return;
+            };
+            pos = next;
+            collided = true;
+        });
+        for door in doors {
+            if !door.overlaps_body_y(foot_y, body_height) {
+                continue;
+            }
+            if let Some((x, z)) = door.depenetrate(pos.x, pos.y, radius) {
+                pos = Vec2::new(x, z);
+                collided = true;
+            }
+        }
+        if !collided {
+            break;
+        }
+    }
+    pos
+}
+
+/// The lowest door-leaf underside above `above_y` whose footprint touches the
+/// disc `(x, z, radius)`.
+#[must_use]
+pub fn lowest_door_underside(
+    doors: &[DoorCollider],
+    x: f32,
+    z: f32,
+    radius: f32,
+    above_y: f32,
+) -> Option<f32> {
+    let mut lowest: Option<f32> = None;
+    for door in doors {
+        if door.hinge_y <= above_y + STEP_EPS || !door.overlaps_disc(x, z, radius) {
+            continue;
+        }
+        lowest = Some(lowest.map_or(door.hinge_y, |bottom| bottom.min(door.hinge_y)));
+    }
+    lowest
+}
+
 /// One axis of the slab test: the ray's `[t_enter, t_exit]` span on `[lo, hi]`.
 ///
 /// A direction component within [`f32::EPSILON`] of zero is treated as

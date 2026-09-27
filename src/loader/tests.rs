@@ -26,12 +26,13 @@ use std::io::Cursor;
 #[test]
 fn test_validate_level_success() {
     let level = LevelDef {
+        doors: Vec::new(),
+        effects: Vec::new(),
         routes: Vec::new(),
-        format_version: 1,
+        format_version: 2,
         id: "test_level".into(),
         name: "Test Level".into(),
         author: "Author".into(),
-        room: None,
         rooms: vec![RoomDef {
             ceiling: crate::level::CeilingProfileDef::Flat,
             floor_y: 0.0,
@@ -93,12 +94,13 @@ fn test_validate_level_success() {
 #[test]
 fn test_validate_level_invalid_version() {
     let level = LevelDef {
+        doors: Vec::new(),
+        effects: Vec::new(),
         routes: Vec::new(),
-        format_version: 2,
+        format_version: 1,
         id: "test".into(),
         name: "Test".into(),
         author: String::new(),
-        room: None,
         rooms: vec![],
         spawn: crate::level::SpawnDef {
             x: 0.0,
@@ -135,12 +137,13 @@ fn test_validate_level_invalid_version() {
 fn test_validate_level_preserves_overlapping_geometry() {
     // Overlapping walls and rooms are explicitly legal
     let level = LevelDef {
+        doors: Vec::new(),
+        effects: Vec::new(),
         routes: Vec::new(),
-        format_version: 1,
+        format_version: 2,
         id: "overlap".into(),
         name: "Overlap".into(),
         author: String::new(),
-        room: None,
         rooms: vec![
             RoomDef {
                 ceiling: crate::level::CeilingProfileDef::Flat,
@@ -287,7 +290,7 @@ fn test_zip_level_pack_extraction() {
             SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
         let level_json = r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "zip_test",
             "name": "Zip Test Level",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -318,12 +321,13 @@ fn test_zip_level_pack_extraction() {
 #[test]
 fn test_missing_pack_materials_use_the_diagnostic_texture_with_an_error() {
     let level = LevelDef {
+        doors: Vec::new(),
+        effects: Vec::new(),
         routes: Vec::new(),
-        format_version: 1,
+        format_version: 2,
         id: "fallback_test".into(),
         name: "Fallback Test".into(),
         author: String::new(),
-        room: None,
         rooms: vec![],
         spawn: crate::level::SpawnDef {
             x: 0.0,
@@ -409,7 +413,7 @@ fn test_damaged_material_variants_resolve() {
     for (maintained, damaged) in variants {
         let sample = |material: &str| {
             let mut level = LevelDef::from_json(
-                r#"{"format_version": 1, "id": "x", "name": "x", "spawn": {"x": 0.0, "z": 0.0}}"#,
+                r#"{"format_version": 2, "id": "x", "name": "x", "spawn": {"x": 0.0, "z": 0.0}}"#,
             )
             .expect("minimal level");
             level.defaults.wall = material.into();
@@ -446,7 +450,7 @@ fn test_damaged_material_variants_resolve() {
 fn level_from_rooms_json(rooms_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "budget_test",
             "name": "Budget Test",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -516,11 +520,11 @@ fn test_validate_rejects_huge_geometry_without_overflowing() {
 fn vertical_level(room_extra: &str, level_extra: &str) -> LevelDef {
     LevelDef::from_json(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "vertical",
             "name": "Vertical",
             "spawn": {{ "x": 4.0, "z": 4.0 }},
-            "room": {{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0{room_extra} }}{level_extra}
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0{room_extra} }}]{level_extra}
         }}"#
     ))
     .expect("valid vertical json")
@@ -621,7 +625,7 @@ fn test_validate_rejects_impossible_gable_definitions() {
 fn shine_level(value: &str) -> LevelDef {
     LevelDef::from_json(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "shine",
             "name": "Shine",
             "spawn": {{ "x": 4.0, "z": 4.0 }},
@@ -630,10 +634,10 @@ fn shine_level(value: &str) -> LevelDef {
                           "ceiling": "core:ceiling_panel_01",
                           "wall_shine": {value}, "floor_shine": {value},
                           "ceiling_shine": {value} }},
-            "room": {{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0,
+            "rooms": [{{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0,
                        "material": "core:linoleum_polished_01", "shine": {value},
                        "ceiling_material": "core:ceiling_panel_01",
-                       "ceiling_shine": {value} }},
+                       "ceiling_shine": {value} }}],
             "walls": [
                 {{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 0.3, "height": 3.0,
                    "material": "core:metal_brushed_01", "shine": {value},
@@ -710,7 +714,7 @@ fn test_validate_rejects_malformed_shine_by_surface_name() {
     // Malformed JSON (a string where a number belongs) is a load error, not a
     // panic: the level loader reports it and the level is skipped.
     let json = r#"{
-        "format_version": 1, "id": "bad_shine", "name": "Bad Shine",
+        "format_version": 2, "id": "bad_shine", "name": "Bad Shine",
         "spawn": { "x": 0.0, "z": 0.0 },
         "floor_patches": [ { "x": 0.0, "z": 0.0, "width": 1.0, "depth": 1.0,
                              "material": "core:carpet_beige_01", "shine": "very" } ]
@@ -824,7 +828,7 @@ fn test_validate_rejects_too_many_wall_openings() {
         .collect();
     let level = LevelDef::from_json(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "openings",
             "name": "Openings",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -902,7 +906,7 @@ fn test_read_zip_level_json_only_reads_level_json() {
         let options =
             SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
-        let level_json = r#"{ "format_version": 1, "id": "probe", "name": "Probe",
+        let level_json = r#"{ "format_version": 2, "id": "probe", "name": "Probe",
             "spawn": { "x": 0.0, "z": 0.0 },
             "rooms": [{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 }] }"#;
         writer.start_file("level.json", options).unwrap();
@@ -965,11 +969,11 @@ fn test_extract_zip_shares_texture_blobs_between_aliases() {
 fn level_with_opening_json(opening_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "opening_test",
             "name": "Opening Test",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
-            "room": {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 }},
+            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 }} ],
             "walls": [{{
                 "x": 0.0, "z": 4.8, "width": 10.0, "depth": 0.4, "height": 3.5,
                 "openings": [{opening_json}]
@@ -982,11 +986,11 @@ fn level_with_opening_json(opening_json: &str) -> LevelDef {
 fn level_with_props_json(props_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "props_test",
             "name": "Props Test",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
-            "room": {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 }},
+            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 }} ],
             "props": {props_json}
         }}"#
     );
@@ -1138,7 +1142,7 @@ fn test_parse_hex_color() {
 #[test]
 fn test_prop_catalog_from_json_str() {
     let json = r##"{
-        "format_version": 1,
+        "format_version": 2,
         "props": [
             { "id": "core:couch", "name": "Couch", "category": "Furniture",
               "size": [2.0, 0.9, 0.9], "color": "#6b5f4a", "model": null, "solid": true },
@@ -1393,7 +1397,7 @@ fn test_custom_levels_are_discovered_and_loaded() {
     fs::create_dir_all(&levels_dir).expect("test levels dir");
 
     let level_json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "community_room",
         "name": "Community Room",
         "author": "A Player",
@@ -1423,7 +1427,7 @@ fn test_custom_levels_are_discovered_and_loaded() {
         let options =
             SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
         let pack_json = r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "pack_room",
             "name": "Pack Room",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -1481,33 +1485,33 @@ fn test_ceiling_light_intensity_is_optional_and_sanitized() {
     let base = |lights: &str| {
         format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "intensity",
                 "name": "Intensity",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
-                "room": {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 }},
+                "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 }} ],
                 "ceiling_lights": {lights}
             }}"#
         )
     };
 
-    // Backward compatibility: an omitted intensity is the standard fixture.
+    // An omitted brightness is the standard fixture.
     let omitted = LevelDef::from_json(&base(
         r#"[{ "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0 }]"#,
     ))
-    .expect("omitted intensity parses");
-    validate_level(&omitted).expect("an omitted intensity validates");
+    .expect("omitted brightness parses");
+    validate_level(&omitted).expect("an omitted brightness validates");
     assert_eq!(omitted.ceiling_lights[0].brightness, None);
     assert_exact(omitted.ceiling_lights[0].intensity(), 1.0);
 
-    // The `brightness` key and the `intensity` alias both load.
+    // Authored brightness values load and sanitise.
     let both = LevelDef::from_json(&base(
         r#"[
             { "fixture": "core:fluorescent_panel_01", "x": 2.0, "z": 2.0, "brightness": 0.8 },
-            { "fixture": "core:fluorescent_panel_01", "x": 8.0, "z": 8.0, "intensity": 1.4 }
+            { "fixture": "core:fluorescent_panel_01", "x": 8.0, "z": 8.0, "brightness": 1.4 }
         ]"#,
     ))
-    .expect("both spellings parse");
+    .expect("authored brightness parses");
     assert_exact(both.ceiling_lights[0].intensity(), 0.8);
     assert_exact(both.ceiling_lights[1].intensity(), 1.4);
     validate_level(&both).expect("authored intensities validate");
@@ -1544,11 +1548,11 @@ fn test_ceiling_light_colour_is_optional_validated_and_round_trips() {
     let base = |lights: &str| {
         format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "colour",
                 "name": "Colour",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
-                "room": {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 }},
+                "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.0 }} ],
                 "ceiling_lights": {lights}
             }}"#
         )
@@ -1674,7 +1678,7 @@ fn fixture_level(name: &str) -> LevelDef {
 fn decal_level(body: &str) -> String {
     format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "decal_level",
             "name": "Decal Level",
             "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -1859,7 +1863,7 @@ fn test_vertical_diagnostic_level_exercises_the_new_geometry() {
 fn test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "fixture_sheets",
             "name": "Fixture Sheets",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -1987,7 +1991,7 @@ fn gcd(mut a: u32, mut b: u32) -> u32 {
 fn test_fixtures_without_a_sheet_resolve_to_nothing() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "sheetless_fixtures",
             "name": "Sheetless Fixtures",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -2095,11 +2099,11 @@ fn test_validate_accepts_the_home_showcase_fixture() {
 fn architecture_level(extra: &str) -> Result<(), String> {
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "architecture",
             "name": "Architecture",
             "spawn": {{ "x": 1.0, "z": 1.0 }},
-            "room": {{ "x": 0.0, "z": 0.0, "width": 14.0, "depth": 10.0, "height": 4.0 }}{extra}
+            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 14.0, "depth": 10.0, "height": 4.0 }} ]{extra}
         }}"#
     );
     let level = LevelDef::from_json(&json).expect("architecture json parses");
@@ -2238,11 +2242,11 @@ fn test_validate_water_accepts_a_valid_volume_and_rejects_bad_ones() {
     let json = |water: &str| -> String {
         format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "water_gate",
                 "name": "Water Gate",
                 "spawn": {{ "x": 1.0, "z": 1.0 }},
-                "room": {{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }},
+                "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }} ],
                 "water": [{water}]
             }}"#
         )
@@ -2305,11 +2309,11 @@ fn test_validate_ladders_accepts_the_demo_and_rejects_bad_reach() {
     let json = |ladders: &str| -> String {
         format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "ladder_gate",
                 "name": "Ladder Gate",
                 "spawn": {{ "x": 1.0, "z": 1.0 }},
-                "room": {{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }},
+                "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }} ],
                 "ladders": [{ladders}]
             }}"#
         )
@@ -2383,7 +2387,7 @@ fn baseboard_level(extra: &str) -> LevelDef {
     let separator = if extra.trim().is_empty() { "" } else { "," };
     LevelDef::from_json(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "baseboard_prep",
             "name": "Baseboard Prep",
             "spawn": {{ "x": 2.5, "z": 2.5 }},
@@ -2446,7 +2450,7 @@ fn test_prepare_level_generates_office_baseboards_around_floor_openings() {
 fn test_prepare_level_skips_faces_that_front_no_walkable_floor() {
     let mut level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "baseboard_void",
             "name": "Baseboard Void",
             "spawn": { "x": 2.5, "z": 2.5 },
@@ -2667,11 +2671,11 @@ fn test_prepared_demo_baseboard_geometry_sits_at_floor_level() {
 fn level_with_triggers_json(triggers_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "triggers_test",
             "name": "Triggers Test",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
-            "room": {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 }},
+            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 }} ],
             "area_triggers": {triggers_json}
         }}"#
     );
@@ -2685,11 +2689,11 @@ fn level_with_triggers_json(triggers_json: &str) -> LevelDef {
 fn test_validate_accepts_ids_interactions_and_area_triggers() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "interactions",
             "name": "Interactions",
             "spawn": { "x": 1.0, "z": 1.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 } ],
             "props": [
                 { "id": "cooler", "display_name": "Water Cooler",
                   "model": "core:water_cooler", "x": 1.0, "z": 1.0,
@@ -2713,7 +2717,7 @@ fn test_validate_accepts_ids_interactions_and_area_triggers() {
     .expect("the interaction level parses");
     validate_level(&level).expect("valid ids, targets and trigger");
 
-    let items = crate::interact::Interactables::from_level(&level);
+    let items = crate::interact::Interactables::from_level(&level, &crate::door::Doors::from_level(&level));
     assert_eq!(items.len(), 2);
     let cooler = items.get(0).expect("the cooler interactable");
     assert_eq!(cooler.id, "cooler");
@@ -2895,7 +2899,7 @@ fn test_legacy_maps_load_without_interactions_or_triggers() {
     );
     validate_level(&level).expect("a legacy prop list is still valid");
     assert!(
-        crate::interact::Interactables::from_level(&level).is_empty(),
+        crate::interact::Interactables::from_level(&level, &crate::door::Doors::from_level(&level)).is_empty(),
         "scenery without an interaction is not aimable"
     );
     assert!(
@@ -2907,7 +2911,7 @@ fn test_legacy_maps_load_without_interactions_or_triggers() {
     // The shipped demo's demo interactions resolve and validate.
     let manager = LevelManager::new();
     let loaded = manager.load_default().expect("the demo loads");
-    let interactables = crate::interact::Interactables::from_level(&loaded.level);
+    let interactables = crate::interact::Interactables::from_level(&loaded.level, &crate::door::Doors::from_level(&loaded.level));
     assert!(
         interactables.len() >= 5,
         "the demo authors several label interactions: {}",
@@ -2933,7 +2937,7 @@ fn test_validate_accepts_a_label_only_target() {
         ]"#,
     );
     validate_level(&level).expect("a label-only target is valid");
-    let items = crate::interact::Interactables::from_level(&level);
+    let items = crate::interact::Interactables::from_level(&level, &crate::door::Doors::from_level(&level));
     let lamp = items.index_of("lamp").expect("the target is resolved");
     assert!(
         items.get(lamp).expect("lamp").actions.is_empty(),
@@ -2947,11 +2951,11 @@ fn test_validate_accepts_a_label_only_target() {
 fn level_with_routes_json(props_json: &str, routes_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "routes_test",
             "name": "Routes Test",
             "spawn": {{ "x": 1.0, "z": 1.0 }},
-            "room": {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 }},
+            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 }} ],
             "walls": [{{ "x": 5.0, "z": 0.0, "width": 0.2, "depth": 10.0, "height": 3.5 }}],
             "props": {props_json},
             "routes": {routes_json}
@@ -3081,7 +3085,7 @@ const DEMO_DUCK_FLOAT: &str = r#"{ "model": "core:rubber_duck", "x": 10.5, "z": 
 fn float_level_with_routes(prop_json: &str, routes_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "float_test",
             "name": "Float Test",
             "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -3251,11 +3255,11 @@ fn test_the_shipped_demo_duck_validates() {
 fn validate_with(extra: &str) -> Result<(), String> {
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "round_validation",
             "name": "Round Validation",
             "spawn": {{ "x": 1.0, "z": 1.0 }},
-            "room": {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0 }},
+            "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0 }} ],
             {extra}
         }}"#
     );
@@ -3336,7 +3340,7 @@ fn test_valid_round_primitives_pass_validation() {
 fn test_ceiling_tile_frame_validation() {
     let bad_origin = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "bad_frame",
             "name": "Bad Frame",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -3347,7 +3351,7 @@ fn test_ceiling_tile_frame_validation() {
     assert!(bad_origin.is_err(), "a null origin is a parse error");
     let mut level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "frame",
             "name": "Frame",
             "spawn": { "x": 0.0, "z": 0.0 },

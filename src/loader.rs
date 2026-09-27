@@ -452,6 +452,8 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_ceiling_lights(level)?;
     validate_props(level)?;
     validate_prop_lights(level)?;
+    validate_doors(level)?;
+    validate_effects(level)?;
     validate_instance_ids(level)?;
     validate_area_triggers(level)?;
     validate_routes(level)?;
@@ -515,10 +517,11 @@ fn validate_animated_emissions(level: &LevelDef) -> Result<(), String> {
 /// Format version, identity and spawn point.
 fn validate_header(level: &LevelDef) -> Result<(), String> {
     // 1. Format version
-    if level.format_version != 1 {
+    if level.format_version != crate::level::LEVEL_FORMAT_VERSION {
         return Err(format!(
-            "Unsupported level format_version: {} (expected 1)",
-            level.format_version
+            "Unsupported level format_version: {} (expected {})",
+            level.format_version,
+            crate::level::LEVEL_FORMAT_VERSION
         ));
     }
 
@@ -2040,19 +2043,34 @@ fn validate_instance_ids(level: &LevelDef) -> Result<(), String> {
     let mut first: HashMap<&str, String> = HashMap::new();
 
     let prop_ids = level.prop_instance_ids();
-    let mut known: HashSet<&str> = HashSet::with_capacity(prop_ids.len());
+    let known: HashSet<&str> = prop_ids.iter().map(String::as_str).collect();
     for (i, id) in prop_ids.iter().enumerate() {
         validate_instance_id(&mut seen, &mut first, id, &format!("Prop {i}"))?;
-        known.insert(id.as_str());
     }
     let light_ids = level.light_instance_ids();
+    let light_known: HashSet<&str> = light_ids
+        .iter()
+        .zip(level.ceiling_lights.iter())
+        .filter(|(_, fixture)| fixture.switchable)
+        .map(|(id, _)| id.as_str())
+        .collect();
     for (i, id) in light_ids.iter().enumerate() {
         validate_instance_id(&mut seen, &mut first, id, &format!("Ceiling light {i}"))?;
+    }
+    let door_ids = level.door_instance_ids();
+    let door_known: HashSet<&str> = door_ids.iter().map(String::as_str).collect();
+    for (i, id) in door_ids.iter().enumerate() {
+        validate_instance_id(&mut seen, &mut first, id, &format!("Door {i}"))?;
     }
     let trigger_ids = level.area_trigger_instance_ids();
     for (i, id) in trigger_ids.iter().enumerate() {
         validate_instance_id(&mut seen, &mut first, id, &format!("Area trigger {i}"))?;
     }
+    let targets = ActionTargets {
+        props: &known,
+        doors: &door_known,
+        lights: &light_known,
+    };
 
     for (i, prop) in level.props.iter().enumerate() {
         if let Some(name) = prop.display_name.as_deref()
@@ -2086,7 +2104,7 @@ fn validate_instance_ids(level: &LevelDef) -> Result<(), String> {
             &format!("Prop {i} interaction"),
             &interaction.actions,
             prop_ids.get(i).map(String::as_str),
-            &known,
+            &targets,
         )?;
     }
     Ok(())
@@ -2117,13 +2135,24 @@ fn validate_instance_id<'a>(
     Ok(())
 }
 
+/// Every entity id an action may address, grouped by the entity kind that
+/// defines which actions are valid.
+struct ActionTargets<'a> {
+    /// Placed prop/entity instance ids: labels, animations and poses.
+    props: &'a HashSet<&'a str>,
+    /// Door entity ids: `open`, `close` and `toggle`.
+    doors: &'a HashSet<&'a str>,
+    /// Switchable light fixture ids: `toggle`.
+    lights: &'a HashSet<&'a str>,
+}
+
 /// One source's action list: bounded, non-empty and composed only of
 /// implemented actions with resolvable targets.
 fn validate_action_list(
     context: &str,
     actions: &[crate::level::ActionDef],
     implicit_target: Option<&str>,
-    prop_ids: &HashSet<&str>,
+    targets: &ActionTargets<'_>,
 ) -> Result<(), String> {
     if actions.is_empty() {
         return Err(format!("{context} must declare at least one action"));
@@ -2136,9 +2165,32 @@ fn validate_action_list(
         ));
     }
     for (j, action) in actions.iter().enumerate() {
-        validate_action(context, j, action, implicit_target, prop_ids)?;
+        validate_action(context, j, action, implicit_target, targets)?;
     }
     Ok(())
+}
+
+/// Resolves one required entity id, producing a named error with the action
+/// kind when it is blank or unknown.
+fn resolve_action_target<'a>(
+    context: &str,
+    index: usize,
+    action_kind: &str,
+    target: &'a str,
+    known: &HashSet<&'a str>,
+) -> Result<&'a str, String> {
+    let resolved = target.trim();
+    if resolved.is_empty() {
+        return Err(format!(
+            "{context} action {index} (`{action_kind}`) target must not be blank"
+        ));
+    }
+    if !known.contains(resolved) {
+        return Err(format!(
+            "{context} action {index} (`{action_kind}`) targets unknown entity `{resolved}`"
+        ));
+    }
+    Ok(resolved)
 }
 
 /// One action: implemented, and every explicit target resolvable.
@@ -2147,8 +2199,9 @@ fn validate_action(
     index: usize,
     action: &crate::level::ActionDef,
     implicit_target: Option<&str>,
-    prop_ids: &HashSet<&str>,
+    targets: &ActionTargets<'_>,
 ) -> Result<(), String> {
+    let prop_ids = targets.props;
     match action {
         crate::level::ActionDef::ToggleLabel { target } => {
             if target.as_deref().is_some_and(|raw| raw.trim().is_empty()) {
@@ -2172,52 +2225,44 @@ fn validate_action(
         }
         crate::level::ActionDef::ResetToStart => {}
         crate::level::ActionDef::PlayAnimation { target, clip, .. } => {
-            if target.as_deref().is_some_and(|raw| raw.trim().is_empty()) {
-                return Err(format!(
-                    "{context} action {index} (`play_animation`) target must not be blank"
-                ));
-            }
-            if clip.as_deref().map(str::trim).is_none_or(str::is_empty) {
-                return Err(format!(
-                    "{context} action {index} (`play_animation`) needs a clip name"
-                ));
-            }
-            let explicit = target.as_deref().map(str::trim).filter(|id| !id.is_empty());
-            let Some(resolved) = explicit.or(implicit_target) else {
-                return Err(format!(
-                    "{context} action {index} (`play_animation`) needs a `target`: an area \
-                     trigger is not a placed entity that can be posed"
-                ));
-            };
-            if !prop_ids.contains(resolved) {
-                return Err(format!(
-                    "{context} action {index} (`play_animation`) targets unknown instance \
-                     `{resolved}`"
-                ));
-            }
+            validate_animation_action(
+                context,
+                index,
+                "play_animation",
+                target.as_deref(),
+                clip.as_deref(),
+                implicit_target,
+                prop_ids,
+            )?;
         }
         crate::level::ActionDef::ToggleAnimation { target, clip } => {
-            if target.as_deref().is_some_and(|raw| raw.trim().is_empty()) {
+            validate_animation_action(
+                context,
+                index,
+                "toggle_animation",
+                target.as_deref(),
+                clip.as_deref(),
+                implicit_target,
+                prop_ids,
+            )?;
+        }
+        crate::level::ActionDef::OpenDoor { target } => {
+            resolve_action_target(context, index, "open", target, targets.doors)?;
+        }
+        crate::level::ActionDef::CloseDoor { target } => {
+            resolve_action_target(context, index, "close", target, targets.doors)?;
+        }
+        crate::level::ActionDef::Toggle { target } => {
+            let resolved = target.trim();
+            if resolved.is_empty() {
                 return Err(format!(
-                    "{context} action {index} (`toggle_animation`) target must not be blank"
+                    "{context} action {index} (`toggle`) target must not be blank"
                 ));
             }
-            if clip.as_deref().map(str::trim).is_none_or(str::is_empty) {
+            if !targets.doors.contains(resolved) && !targets.lights.contains(resolved) {
                 return Err(format!(
-                    "{context} action {index} (`toggle_animation`) needs a clip name"
-                ));
-            }
-            let explicit = target.as_deref().map(str::trim).filter(|id| !id.is_empty());
-            let Some(resolved) = explicit.or(implicit_target) else {
-                return Err(format!(
-                    "{context} action {index} (`toggle_animation`) needs a `target`: an area \
-                     trigger is not a placed object that can be toggled"
-                ));
-            };
-            if !prop_ids.contains(resolved) {
-                return Err(format!(
-                    "{context} action {index} (`toggle_animation`) targets unknown instance \
-                     `{resolved}`"
+                    "{context} action {index} (`toggle`) targets unknown entity `{resolved}`; \
+                     a toggle target is a door or a switchable light fixture"
                 ));
             }
         }
@@ -2228,6 +2273,41 @@ fn validate_action(
                 action.kind()
             ));
         }
+    }
+    Ok(())
+}
+
+/// A pose/animation action: a non-blank clip and a resolvable placed target.
+fn validate_animation_action(
+    context: &str,
+    index: usize,
+    kind: &str,
+    target: Option<&str>,
+    clip: Option<&str>,
+    implicit_target: Option<&str>,
+    prop_ids: &HashSet<&str>,
+) -> Result<(), String> {
+    if target.is_some_and(|raw| raw.trim().is_empty()) {
+        return Err(format!(
+            "{context} action {index} (`{kind}`) target must not be blank"
+        ));
+    }
+    if clip.map(str::trim).is_none_or(str::is_empty) {
+        return Err(format!(
+            "{context} action {index} (`{kind}`) needs a clip name"
+        ));
+    }
+    let explicit = target.map(str::trim).filter(|id| !id.is_empty());
+    let Some(resolved) = explicit.or(implicit_target) else {
+        return Err(format!(
+            "{context} action {index} (`{kind}`) needs a `target`: an area trigger is not \
+             a placed entity that can be posed"
+        ));
+    };
+    if !prop_ids.contains(resolved) {
+        return Err(format!(
+            "{context} action {index} (`{kind}`) targets unknown instance `{resolved}`"
+        ));
     }
     Ok(())
 }
@@ -2615,6 +2695,20 @@ fn validate_area_triggers(level: &LevelDef) -> Result<(), String> {
     }
     let prop_ids = level.prop_instance_ids();
     let known: HashSet<&str> = prop_ids.iter().map(String::as_str).collect();
+    let door_ids = level.door_instance_ids();
+    let doors: HashSet<&str> = door_ids.iter().map(String::as_str).collect();
+    let light_ids = level.light_instance_ids();
+    let lights: HashSet<&str> = light_ids
+        .iter()
+        .zip(level.ceiling_lights.iter())
+        .filter(|(_, fixture)| fixture.switchable)
+        .map(|(id, _)| id.as_str())
+        .collect();
+    let targets = ActionTargets {
+        props: &known,
+        doors: &doors,
+        lights: &lights,
+    };
     for (i, trigger) in level.area_triggers.iter().enumerate() {
         if !trigger.x.is_finite()
             || !trigger.z.is_finite()
@@ -2650,7 +2744,211 @@ fn validate_area_triggers(level: &LevelDef) -> Result<(), String> {
         if !rect_overlaps_room(level, trigger.bounds()) {
             return Err(format!("Area trigger {i} lies outside every room section"));
         }
-        validate_action_list(&format!("Area trigger {i}"), &trigger.actions, None, &known)?;
+        validate_action_list(
+            &format!("Area trigger {i}"),
+            &trigger.actions,
+            None,
+            &targets,
+        )?;
+    }
+    Ok(())
+}
+
+/// Doors: count, geometry, swing, state and interaction contract.
+///
+/// A door is a physical leaf, so the checks are geometric: a positive leaf,
+/// a non-zero bounded swing, finite positive speeds, a swing direction that
+/// agrees with its sign, a closed leaf that does not start inside solid
+/// geometry, and an interaction reach inside the engine cap. A door's id is
+/// validated with every other instance id, so a door and a prop can never share
+/// a name.
+fn validate_doors(level: &LevelDef) -> Result<(), String> {
+    if u64::try_from(level.doors.len()).unwrap_or(u64::MAX) > crate::level::MAX_LEVEL_DOORS {
+        return Err(format!(
+            "Level contains too many doors: {} (limit: {})",
+            level.doors.len(),
+            crate::level::MAX_LEVEL_DOORS
+        ));
+    }
+    let surfaces = LevelSurfaces::new(level);
+    let solids = level.collision_aabbs();
+    for (i, door) in level.doors.iter().enumerate() {
+        validate_door_fields(i, door)?;
+        // The hinge must stand somewhere with a floor: a door floating in the
+        // void has no base to swing from.
+        if surfaces.floor_y_at(door.x, door.z).is_none() {
+            return Err(format!(
+                "Door {i} hinge ({:.2}, {:.2}) is outside every room section",
+                door.x, door.z
+            ));
+        }
+        validate_door_leaf_is_clear(i, door, level, &solids)?;
+    }
+    Ok(())
+}
+
+/// One door's own dimensions, swing, state and interaction contract.
+fn validate_door_fields(i: usize, door: &crate::level::DoorDef) -> Result<(), String> {
+    if !door.x.is_finite()
+        || !door.y.is_finite()
+        || !door.z.is_finite()
+        || !door.rotation_degrees.is_finite()
+        || !door.width.is_finite()
+        || !door.height.is_finite()
+        || !door.thickness.is_finite()
+        || !door.swing_degrees.is_finite()
+        || !door.open_speed_degrees.is_finite()
+    {
+        return Err(format!("Door {i} geometry must be finite numbers"));
+    }
+    if door.width <= 0.0 || door.height <= 0.0 || door.thickness <= 0.0 {
+        return Err(format!(
+            "Door {i} width, height and thickness must be positive"
+        ));
+    }
+    if door.width > crate::level::MAX_DOOR_DIMENSION_M
+        || door.height > crate::level::MAX_DOOR_DIMENSION_M
+        || door.thickness > crate::level::MAX_DOOR_DIMENSION_M
+    {
+        return Err(format!(
+            "Door {i} dimensions exceed the {} m limit",
+            crate::level::MAX_DOOR_DIMENSION_M
+        ));
+    }
+    if door.swing_degrees.abs() < crate::level::MIN_DOOR_SWING_DEGREES
+        || door.swing_degrees.abs() > crate::level::MAX_DOOR_SWING_DEGREES
+    {
+        return Err(format!(
+            "Door {i} swing_degrees must be between {} and {} degrees",
+            crate::level::MIN_DOOR_SWING_DEGREES,
+            crate::level::MAX_DOOR_SWING_DEGREES
+        ));
+    }
+    if door.open_speed_degrees <= 0.0 || door.open_speed_degrees > crate::level::MAX_DOOR_SPEED_DEGREES
+    {
+        return Err(format!(
+            "Door {i} open_speed_degrees must be between 0 and {}",
+            crate::level::MAX_DOOR_SPEED_DEGREES
+        ));
+    }
+    if let Some(close) = door.close_speed_degrees
+        && (!close.is_finite() || close <= 0.0 || close > crate::level::MAX_DOOR_SPEED_DEGREES)
+    {
+        return Err(format!(
+            "Door {i} close_speed_degrees must be between 0 and {}",
+            crate::level::MAX_DOOR_SPEED_DEGREES
+        ));
+    }
+    if let Some(prompt) = door.prompt.as_deref()
+        && prompt.trim().is_empty()
+    {
+        return Err(format!("Door {i} prompt must not be blank when specified"));
+    }
+    if let Some(reach) = door.reach
+        && !(reach.is_finite()
+            && reach > 0.0
+            && reach <= crate::interact::MAX_INTERACTION_REACH_M)
+    {
+        return Err(format!(
+            "Door {i} interaction reach ({reach:?} m) must be between 0 and {} metres",
+            crate::interact::MAX_INTERACTION_REACH_M
+        ));
+    }
+    Ok(())
+}
+
+/// The closed leaf must be clear of solid geometry.
+///
+/// The hinge, the leaf centre and the latch edge are sampled: this is the
+/// authoring mistake that matters (a leaf inside a wall or a closed cabinet).
+/// A full sweep belongs to the runtime, not the loader.
+fn validate_door_leaf_is_clear(
+    i: usize,
+    door: &crate::level::DoorDef,
+    level: &LevelDef,
+    solids: &[crate::collision::WallAabb],
+) -> Result<(), String> {
+    let base = door.base_y(level);
+    let (dx, dz) = door.closed_direction();
+    let half = door.width * 0.5;
+    let samples = [
+        (door.x, door.z),
+        (dx.mul_add(half, door.x), dz.mul_add(half, door.z)),
+        (dx.mul_add(door.width, door.x), dz.mul_add(door.width, door.z)),
+    ];
+    for (sx, sz) in samples {
+        for solid in solids {
+            if solid.blocks_body(base, door.height)
+                && sx > solid.min_x
+                && sx < solid.max_x
+                && sz > solid.min_z
+                && sz < solid.max_z
+            {
+                return Err(format!(
+                    "Door {i} leaf starts inside solid geometry at ({sx:.2}, {sz:.2}); \
+                     cut a wall opening for it"
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Effects: count, kind, bounds and material.
+fn validate_effects(level: &LevelDef) -> Result<(), String> {
+    if level.effects.len() > crate::level::MAX_LEVEL_EFFECTS {
+        return Err(format!(
+            "Level contains too many effects: {} (limit: {})",
+            level.effects.len(),
+            crate::level::MAX_LEVEL_EFFECTS
+        ));
+    }
+    for (i, effect) in level.effects.iter().enumerate() {
+        if !effect.kind.eq_ignore_ascii_case(crate::level::EFFECT_KIND_STEAM) {
+            return Err(format!(
+                "Effect {i} has unknown kind `{}`; expected `{}`",
+                effect.kind,
+                crate::level::EFFECT_KIND_STEAM
+            ));
+        }
+        if !effect.x.is_finite()
+            || !effect.y.is_finite()
+            || !effect.z.is_finite()
+            || !effect.width.is_finite()
+            || !effect.depth.is_finite()
+            || !effect.height.is_finite()
+            || !effect.size.is_finite()
+            || !effect.drift.is_finite()
+            || !effect.lifetime_seconds.is_finite()
+        {
+            return Err(format!("Effect {i} parameters must be finite numbers"));
+        }
+        if effect.width <= 0.0 || effect.depth <= 0.0 || effect.height <= 0.0 || effect.size <= 0.0 {
+            return Err(format!(
+                "Effect {i} width, depth, height and size must be positive"
+            ));
+        }
+        if effect.count == 0 || effect.count > crate::level::MAX_EFFECT_PARTICLES {
+            return Err(format!(
+                "Effect {i} count must be between 1 and {}",
+                crate::level::MAX_EFFECT_PARTICLES
+            ));
+        }
+        if effect.drift < 0.0 {
+            return Err(format!("Effect {i} drift cannot be negative"));
+        }
+        if effect.lifetime_seconds <= 0.0 || effect.lifetime_seconds > 60.0 {
+            return Err(format!(
+                "Effect {i} lifetime_seconds must be between 0 and 60"
+            ));
+        }
+        if let Some(material) = effect.material.as_deref()
+            && material.trim().is_empty()
+        {
+            return Err(format!(
+                "Effect {i} material must not be blank when specified"
+            ));
+        }
     }
     Ok(())
 }

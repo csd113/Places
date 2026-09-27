@@ -1,17 +1,50 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "id": "geometry_invalid",
   "name": "Geometry Checker Invalid Fixture",
   "author": "Places",
-  "spawn": { "x": 2.0, "z": 2.0 },
+  "spawn": {
+    "x": 2.0,
+    "z": 2.0
+  },
   "rooms": [
-    { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 }
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 8.0,
+      "depth": 8.0,
+      "height": 3.0
+    }
   ],
   "walls": [
-    { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 0.3, "height": 3.0 },
-    { "x": 0.0, "z": 7.7, "width": 8.0, "depth": 0.3, "height": 3.0 },
-    { "x": 0.0, "z": 0.0, "width": 0.3, "depth": 8.0, "height": 3.0 },
-    { "x": 7.7, "z": 0.0, "width": 0.3, "depth": 8.0, "height": 3.0 }
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 8.0,
+      "depth": 0.3,
+      "height": 3.0
+    },
+    {
+      "x": 0.0,
+      "z": 7.7,
+      "width": 8.0,
+      "depth": 0.3,
+      "height": 3.0
+    },
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 0.3,
+      "depth": 8.0,
+      "height": 3.0
+    },
+    {
+      "x": 7.7,
+      "z": 0.0,
+      "width": 0.3,
+      "depth": 8.0,
+      "height": 3.0
+    }
   ],
   "arc_walls": [
     {
@@ -32,10 +65,25 @@
     }
   ],
   "pillars": [
-    { "x": 2.0, "z": 2.0, "radius": -0.5 },
-    { "x": 6.0, "z": 2.0, "radius": 0.2, "segments": 2, "material": "core:metal_brushed_01" }
+    {
+      "x": 2.0,
+      "z": 2.0,
+      "radius": -0.5
+    },
+    {
+      "x": 6.0,
+      "z": 2.0,
+      "radius": 0.2,
+      "segments": 2,
+      "material": "core:metal_brushed_01"
+    }
   ],
   "ceiling_lights": [
-    { "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 4.0, "brightness": 0.5 }
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 4.0,
+      "z": 4.0,
+      "brightness": 0.5
+    }
   ]
 }

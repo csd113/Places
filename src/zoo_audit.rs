@@ -128,7 +128,10 @@ fn the_zoo_contains_every_required_demonstration() {
                     crate::level::ActionDef::ToggleLabel { .. }
                     | crate::level::ActionDef::ResetToStart
                     | crate::level::ActionDef::ToggleAnimation { .. }
-                    | crate::level::ActionDef::PlayAudio { .. } => None,
+                    | crate::level::ActionDef::PlayAudio { .. }
+                    | crate::level::ActionDef::OpenDoor { .. }
+                    | crate::level::ActionDef::CloseDoor { .. }
+                    | crate::level::ActionDef::Toggle { .. } => None,
                 })
             })
         })
@@ -528,7 +531,7 @@ fn the_raised_caps_accept_content_past_the_old_boundary() {
         ));
     }
     let json = format!(
-        r#"{{"format_version": 1, "id": "beyond_old_caps", "name": "Beyond Old Caps",
+        r#"{{"format_version": 2, "id": "beyond_old_caps", "name": "Beyond Old Caps",
             "spawn": {{"x": 1.0, "z": 1.0}},
             "rooms": [{}], "walls": [{}], "ceiling_lights": [{}], "props": [{}]}}"#,
         rooms.join(","),

@@ -14,11 +14,11 @@ use crate::test_support::{assert_exact, assert_exact_named};
 #[test]
 fn test_parse_single_room_level() {
     let json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "test_room",
         "name": "Test Room",
         "spawn": { "x": 0.0, "z": 0.0 },
-        "room": { "x": -6.0, "z": -12.0, "width": 12.0, "depth": 16.0, "height": 3.5 }
+        "rooms": [ { "x": -6.0, "z": -12.0, "width": 12.0, "depth": 16.0, "height": 3.5 } ]
     }"#;
     let level = LevelDef::from_json(json).expect("valid json");
     let rooms: Vec<&RoomDef> = level.room_iter().collect();
@@ -30,7 +30,7 @@ fn test_parse_single_room_level() {
 #[test]
 fn test_parse_multi_room_level_with_walls() {
     let json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "multi_room",
         "name": "Connected Rooms",
         "spawn": { "x": 2.0, "z": 2.0, "yaw_degrees": 90.0 },
@@ -53,11 +53,11 @@ fn test_parse_multi_room_level_with_walls() {
 #[test]
 fn test_parse_variable_wall_properties() {
     let json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "variable_walls",
         "name": "Variable Walls Test",
         "spawn": { "x": 0.0, "z": 0.0 },
-        "room": { "x": 0.0, "z": 0.0, "width": 20.0, "depth": 20.0, "height": 4.0 },
+        "rooms": [ { "x": 0.0, "z": 0.0, "width": 20.0, "depth": 20.0, "height": 4.0 } ],
         "walls": [
             { "x": 1.0, "z": 1.0, "width": 2.0, "depth": 0.2 },
             { "x": 5.0, "z": 5.0, "width": 3.0, "depth": 0.2, "y": 0.0, "height": 1.5 },
@@ -96,7 +96,7 @@ fn test_estimate_geometry_scales_with_rooms_not_area() {
     // and a 400x400 m room must not cost any more: the baked-lighting grid
     // is capped per axis, so geometry never scales with floor area.
     let json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "big",
         "name": "Big",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -116,7 +116,7 @@ fn test_estimate_geometry_scales_with_rooms_not_area() {
     assert_eq!(estimate.floor_area_m2, 10_000);
 
     let huge = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "huge",
         "name": "Huge",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -128,7 +128,7 @@ fn test_estimate_geometry_scales_with_rooms_not_area() {
     // A small room that needs no lighting resolution stays a single quad.
     let small = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "small",
             "name": "Small",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -145,12 +145,13 @@ fn test_estimate_geometry_scales_with_rooms_not_area() {
 fn test_estimate_geometry_saturates_on_extreme_input() {
     // Direct construction with absurd dimensions must not overflow or panic.
     let level = LevelDef {
+        doors: Vec::new(),
+        effects: Vec::new(),
         routes: Vec::new(),
         format_version: 1,
         id: "extreme".into(),
         name: "Extreme".into(),
         author: String::new(),
-        room: None,
         rooms: vec![RoomDef {
             x: f32::MAX,
             z: -f32::MAX,
@@ -406,11 +407,11 @@ fn test_wall_solid_slices_z_axis_wall() {
 #[test]
 fn test_estimate_geometry_accounts_for_openings_and_props() {
     let json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "estimate",
         "name": "Estimate",
         "spawn": { "x": 0.0, "z": 0.0 },
-        "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 },
+        "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 } ],
         "walls": [{
             "x": 0.0, "z": 0.0, "width": 4.0, "depth": 0.4,
             "openings": [{ "offset": 1.0, "width": 1.0, "height": 2.1 }]
@@ -447,11 +448,11 @@ fn test_estimate_geometry_accounts_for_openings_and_props() {
 fn test_collision_aabbs_for_z_axis_wall_follow_depth() {
     // A wall running along Z: the slice spans must follow depth, not width.
     let json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "z_wall",
         "name": "Z Wall",
         "spawn": { "x": 5.0, "z": 5.0 },
-        "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 },
+        "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 } ],
         "walls": [{
             "x": 4.8, "z": 0.0, "width": 0.4, "depth": 10.0, "height": 3.5,
             "openings": [{ "kind": "door", "offset": 4.0, "width": 2.0, "height": 2.1 }]
@@ -475,11 +476,11 @@ fn test_collision_aabbs_for_z_axis_wall_follow_depth() {
 #[test]
 fn test_collision_aabbs_include_solid_props_only() {
     let json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "props",
         "name": "Props",
         "spawn": { "x": 0.0, "z": 0.0 },
-        "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 },
+        "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 } ],
         "props": [
             { "model": "core:crate", "x": 2.0, "y": 0.0, "z": 3.0, "size": [1.0, 1.0, 1.0], "solid": true },
             { "model": "core:rug", "x": 5.0, "z": 5.0, "solid": false }
@@ -502,11 +503,11 @@ fn test_collision_aabbs_include_solid_props_only() {
 fn test_legacy_room_gets_zero_elevation_flat_ceiling_and_the_new_default_height() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "legacy",
             "name": "Legacy",
             "spawn": { "x": 0.0, "z": 0.0 },
-            "room": { "x": -6.0, "z": -6.0, "width": 12.0, "depth": 12.0 }
+            "rooms": [ { "x": -6.0, "z": -6.0, "width": 12.0, "depth": 12.0 } ]
         }"#,
     )
     .expect("legacy json");
@@ -522,7 +523,7 @@ fn test_legacy_room_gets_zero_elevation_flat_ceiling_and_the_new_default_height(
 fn test_room_elevation_moves_floor_and_ceiling_together() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "raised",
             "name": "Raised",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -623,13 +624,13 @@ fn test_malformed_gable_profiles_degrade_to_the_eave_plane() {
 fn test_gable_room_helpers_report_the_ridge() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "gable",
             "name": "Gable",
             "spawn": { "x": 5.0, "z": 4.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 8.0,
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 8.0,
                       "height": 3.0,
-                      "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 2.0 } }
+                      "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 2.0 } } ]
         }"#,
     )
     .expect("gable json");
@@ -644,11 +645,11 @@ fn test_gable_room_helpers_report_the_ridge() {
 fn test_floor_region_offsets_resolve_inside_outside_and_last_wins() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "regions",
             "name": "Regions",
             "spawn": { "x": 5.0, "z": 5.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0 } ],
             "floor_regions": [
                 { "x": 2.0, "z": 2.0, "width": 4.0, "depth": 4.0, "offset_y": -1.0 },
                 { "x": 3.0, "z": 3.0, "width": 1.0, "depth": 1.0, "offset_y": -2.0 }
@@ -673,11 +674,11 @@ fn test_floor_region_offsets_resolve_inside_outside_and_last_wins() {
 fn test_floor_grid_cuts_at_region_edges_and_carries_offsets() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "grid",
             "name": "Grid",
             "spawn": { "x": 5.0, "z": 5.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 4.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 4.0 } ],
             "floor_regions": [
                 { "x": 2.0, "z": 2.0, "width": 2.0, "depth": 2.0, "offset_y": -0.5 }
             ]
@@ -704,11 +705,11 @@ fn test_floor_grid_cuts_at_region_edges_and_carries_offsets() {
 fn test_floor_region_rims_are_solid_only_for_unwalkable_steps() {
     let deep = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "deep",
             "name": "Deep",
             "spawn": { "x": 5.0, "z": 5.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 4.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 4.0 } ],
             "floor_regions": [
                 { "x": 2.0, "z": 2.0, "width": 2.0, "depth": 2.0, "offset_y": -1.2 }
             ]
@@ -729,11 +730,11 @@ fn test_floor_region_rims_are_solid_only_for_unwalkable_steps() {
     // A step the controller can walk is deliberately not a wall.
     let shallow = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "shallow",
             "name": "Shallow",
             "spawn": { "x": 5.0, "z": 5.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 4.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 4.0 } ],
             "floor_regions": [
                 { "x": 2.0, "z": 2.0, "width": 2.0, "depth": 2.0, "offset_y": -0.3 }
             ]
@@ -752,7 +753,7 @@ fn test_floor_region_rims_are_solid_only_for_unwalkable_steps() {
 fn test_walkable_floor_matches_the_surface_queries() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "walkable",
             "name": "Walkable",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -789,11 +790,11 @@ fn test_walkable_floor_matches_the_surface_queries() {
 fn test_estimate_geometry_accounts_for_regions_and_gables() {
     let plain = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "plain",
             "name": "Plain",
             "spawn": { "x": 5.0, "z": 5.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 20.0, "depth": 20.0, "height": 4.0 }
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 20.0, "depth": 20.0, "height": 4.0 } ]
         }"#,
     )
     .expect("plain json");
@@ -801,12 +802,12 @@ fn test_estimate_geometry_accounts_for_regions_and_gables() {
 
     let complex = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "complex",
             "name": "Complex",
             "spawn": { "x": 5.0, "z": 5.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 20.0, "depth": 20.0, "height": 4.0,
-                      "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 2.0 } },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 20.0, "depth": 20.0, "height": 4.0,
+                      "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 2.0 } } ],
             "floor_regions": [
                 { "x": 4.0, "z": 4.0, "width": 4.0, "depth": 3.0, "offset_y": -1.5 }
             ]
@@ -835,7 +836,7 @@ fn test_estimate_geometry_accounts_for_regions_and_gables() {
 /// A level with a shine override on every surface carrier.
 fn shine_level_json() -> &'static str {
     r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "shine",
         "name": "Shine",
         "spawn": { "x": 4.0, "z": 4.0 },
@@ -893,9 +894,9 @@ fn every_authored_shine_survives_a_json_round_trip() {
 fn a_level_without_shine_keeps_every_override_empty() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1, "id": "plain", "name": "Plain",
+            "format_version": 2, "id": "plain", "name": "Plain",
             "spawn": { "x": 0.0, "z": 0.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 }
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 } ]
         }"#,
     )
     .expect("plain level parses");
@@ -946,7 +947,7 @@ fn wall_face_shine_resolves_face_then_wall_then_material() {
     // A face with a different material does not inherit the wall's override:
     // its own material default applies.
     let json = r#"{
-        "format_version": 1, "id": "faces", "name": "Faces",
+        "format_version": 2, "id": "faces", "name": "Faces",
         "spawn": { "x": 0.0, "z": 0.0 },
         "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0 } ],
         "walls": [
@@ -980,11 +981,11 @@ fn wall_face_shine_resolves_face_then_wall_then_material() {
 #[test]
 fn test_ramp_offset_is_linear_and_signed() {
     let json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "ramps",
         "name": "Ramps",
         "spawn": { "x": 1.0, "z": 1.0 },
-        "room": { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 4.0 },
+        "rooms": [ { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 4.0 } ],
         "ramps": [
             { "x": 1.0, "z": 1.0, "width": 1.0, "depth": 4.0, "rise": 1.0 },
             { "x": 5.0, "z": 1.0, "width": 1.0, "depth": 4.0, "offset_y": 0.5, "rise": -0.5 }
@@ -1019,11 +1020,11 @@ fn test_ramp_offset_is_linear_and_signed() {
 #[test]
 fn test_staircase_offset_steps_over_its_risers() {
     let json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "stairs",
         "name": "Stairs",
         "spawn": { "x": 1.0, "z": 1.0 },
-        "room": { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 4.0 },
+        "rooms": [ { "x": 0.0, "z": 0.0, "width": 12.0, "depth": 12.0, "height": 4.0 } ],
         "stairs": [
             { "x": 1.0, "z": 1.0, "width": 1.0, "depth": 2.0, "rise": 0.8, "steps": 4 }
         ]
@@ -1046,7 +1047,7 @@ fn test_staircase_offset_steps_over_its_risers() {
 #[test]
 fn test_walkable_floor_follows_ramps_and_stairs() {
     let json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "walkable_architecture",
         "name": "Walkable Architecture",
         "spawn": { "x": 1.0, "z": 1.0 },
@@ -1090,11 +1091,11 @@ fn test_walkable_floor_follows_ramps_and_stairs() {
 #[test]
 fn test_architecture_solids_cover_walls_piers_rails_and_not_trim() {
     let json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "solids",
         "name": "Solids",
         "spawn": { "x": 1.0, "z": 1.0 },
-        "room": { "x": 0.0, "z": 0.0, "width": 14.0, "depth": 10.0, "height": 4.0 },
+        "rooms": [ { "x": 0.0, "z": 0.0, "width": 14.0, "depth": 10.0, "height": 4.0 } ],
         "ramps": [
             { "x": 1.0, "z": 1.0, "width": 1.0, "depth": 2.0, "rise": 0.5 }
         ],
@@ -1150,11 +1151,11 @@ fn test_architecture_solids_cover_walls_piers_rails_and_not_trim() {
 fn test_water_volumes_resolve_surface_bottom_and_legacy_default() {
     let legacy = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "dry",
             "name": "Dry",
             "spawn": { "x": 1.0, "z": 1.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 }
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 } ]
         }"#,
     )
     .expect("legacy level");
@@ -1165,7 +1166,7 @@ fn test_water_volumes_resolve_surface_bottom_and_legacy_default() {
 
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "wet",
             "name": "Wet",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -1248,7 +1249,7 @@ fn alignment_table(level: &LevelDef) -> crate::materials::MaterialTable {
 fn alignment_level(fixture: &str, ceiling_material: &str, ceiling: &str) -> LevelDef {
     LevelDef::from_json(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "align",
             "name": "Align",
             "spawn": {{ "x": 2.0, "z": 2.0 }},
@@ -1396,7 +1397,7 @@ fn test_grid_alignment_counts_and_periods_match() {
 fn level_from_json_with_defaults(defaults: &str, fixture: &str) -> LevelDef {
     LevelDef::from_json(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "align_defaults",
             "name": "Align Defaults",
             "spawn": {{ "x": 2.0, "z": 2.0 }},
@@ -1495,11 +1496,11 @@ fn test_action_defs_parse_as_tagged_objects() {
 fn test_prop_instance_ids_default_deterministically() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "ids",
             "name": "Ids",
             "spawn": { "x": 1.0, "z": 1.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
             "props": [
                 { "model": "core:chair", "x": 1.0, "z": 1.0 },
                 { "id": "nook_chair", "model": "core:chair", "x": 2.0, "z": 1.0 },
@@ -1522,11 +1523,11 @@ fn test_prop_instance_ids_default_deterministically() {
 
     let light_level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "light_ids",
             "name": "Light Ids",
             "spawn": { "x": 1.0, "z": 1.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
             "ceiling_lights": [
                 { "fixture": "core:fluorescent_panel_01", "x": 1.0, "z": 1.0 },
                 { "fixture": "core:fluorescent_panel_01", "x": 3.0, "z": 1.0 }
@@ -1546,12 +1547,12 @@ fn test_prop_instance_ids_default_deterministically() {
 fn test_area_triggers_resolve_ids_and_bounds() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "triggers",
             "name": "Triggers",
             "spawn": { "x": 1.0, "z": 1.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0,
-                      "floor_y": -1.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0,
+                      "floor_y": -1.0 } ],
             "floor_regions": [
                 { "x": 6.0, "z": 6.0, "width": 2.0, "depth": 2.0, "offset_y": -1.0 }
             ],
@@ -1598,11 +1599,11 @@ fn test_area_triggers_resolve_ids_and_bounds() {
 fn test_malformed_area_triggers_are_skipped_at_resolution() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "bad_triggers",
             "name": "Bad Triggers",
             "spawn": { "x": 1.0, "z": 1.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
             "area_triggers": [
                 { "x": 1.0, "z": 1.0, "width": 0.0, "depth": 1.0,
                   "bottom_y": 0.0, "top_y": 1.0,
@@ -1630,11 +1631,11 @@ fn test_prop_float_is_optional_and_defaults_fill_in() {
     // An untouched prop schema: no `float` key anywhere.
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "float_defaults",
             "name": "Float Defaults",
             "spawn": { "x": 0.0, "z": 0.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 } ],
             "props": [
                 { "model": "core:chair", "x": 1.0, "z": 1.0 },
                 { "model": "core:rubber_duck", "x": 2.0, "z": 2.0 }
@@ -1660,11 +1661,11 @@ fn test_prop_float_is_optional_and_defaults_fill_in() {
     // The same defaults apply when the block is parsed inside a level.
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "float_defaults",
             "name": "Float Defaults",
             "spawn": { "x": 0.0, "z": 0.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 4.0, "depth": 4.0, "height": 3.0 } ],
             "props": [
                 { "model": "core:rubber_duck", "x": 2.0, "z": 2.0,
                   "float": { "draft": 0.03 } }
@@ -1686,7 +1687,7 @@ fn test_water_contains_disc_requires_one_volume_to_hold_the_whole_disc() {
     // half of the rule is testable.
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "disc_test",
             "name": "Disc Test",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -1733,11 +1734,11 @@ fn test_water_contains_disc_requires_one_volume_to_hold_the_whole_disc() {
 fn test_round_primitives_parse_with_sensible_defaults() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "round_parse",
             "name": "Round Parse",
             "spawn": { "x": 0.0, "z": 0.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0 } ],
             "arc_walls": [
                 { "x": 5.0, "z": 5.0, "radius": 2.0 }
             ],
@@ -1778,7 +1779,7 @@ fn test_round_primitives_parse_with_sensible_defaults() {
 fn test_ceiling_tile_frame_round_trips_and_rotates() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "tile_frame",
             "name": "Tile Frame",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -1813,7 +1814,7 @@ fn test_ceiling_tile_frame_round_trips_and_rotates() {
 fn test_ceiling_uvs_follow_the_room_tile_frame() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "tile_uv",
             "name": "Tile Uv",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -1872,7 +1873,7 @@ fn test_ceiling_uvs_follow_the_room_tile_frame() {
 fn test_ceiling_grid_decals_snap_in_the_rooms_own_frame() {
     let mut level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "tile_decal",
             "name": "Tile Decal",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -1918,7 +1919,7 @@ fn test_ceiling_grid_decals_snap_in_the_rooms_own_frame() {
 fn raised_region_keeps_its_height_through_the_room_edge_tolerance() {
     let level = LevelDef::from_json(
         r#"{
-        "format_version": 1, "id": "join", "name": "Join", "spawn": {"x": 1, "z": 1},
+        "format_version": 2, "id": "join", "name": "Join", "spawn": {"x": 1, "z": 1},
         "rooms": [
             {"x": 0, "z": 0, "width": 4, "depth": 4, "height": 3, "floor_y": -1.5},
             {"x": 4, "z": 0, "width": 4, "depth": 4, "height": 3, "floor_y": -0.9}

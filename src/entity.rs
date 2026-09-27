@@ -476,11 +476,11 @@ mod tests {
     fn level_with_route(route: &str) -> LevelDef {
         LevelDef::from_json(&format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "entity_route_test",
                 "name": "Entity Route Test",
                 "spawn": {{ "x": 1.0, "z": 1.0 }},
-                "room": {{ "x": 0.0, "z": 0.0, "width": 20.0, "depth": 20.0, "height": 4.0 }},
+                "rooms": [ {{ "x": 0.0, "z": 0.0, "width": 20.0, "depth": 20.0, "height": 4.0 }} ],
                 "props": [
                     {{ "id": "runner", "model": "core:crate", "x": 2.0, "z": 2.0,
                        "size": [0.4, 0.4, 0.4] }}
@@ -553,7 +553,7 @@ mod tests {
                     { "step": "move_to", "x": 2.0, "z": 2.0, "speed": 1.0 }
                 ] }"#,
             );
-            level.room.as_mut().expect("room").floor_y = -1.2;
+            level.rooms.first_mut().expect("room").floor_y = -1.2;
             level.floor_regions.push(
                 serde_json::from_value(serde_json::json!({
                     "x": 4.0, "z": 0.0, "width": 4.0, "depth": 4.0, "offset_y": rise

@@ -47,7 +47,7 @@ use crate::test_support::assert_exact_named;
 pub fn level_json(rooms_json: &str, lights_json: &str) -> String {
     format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "audit",
             "name": "Audit",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -69,7 +69,7 @@ pub fn light(x: f32, z: f32, intensity: Option<f32>) -> String {
         || format!(r#"{{ "fixture": "core:fluorescent_panel_01", "x": {x}, "z": {z} }}"#),
         |value| {
             format!(
-                r#"{{ "fixture": "core:fluorescent_panel_01", "x": {x}, "z": {z}, "intensity": {value} }}"#
+                r#"{{ "fixture": "core:fluorescent_panel_01", "x": {x}, "z": {z}, "brightness": {value} }}"#
             )
         },
     )
@@ -225,7 +225,7 @@ pub fn assert_vertex_colors_safe(vertices: &[crate::render::Vertex]) {
 fn bench_tiny() -> LevelDef {
     parse(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "bench_tiny",
             "name": "Bench Tiny",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -246,7 +246,7 @@ fn bench_tiny() -> LevelDef {
 fn bench_many_lights(count: usize) -> LevelDef {
     parse(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "bench_many_lights",
             "name": "Bench Many Lights",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -319,7 +319,7 @@ fn bench_many_rooms(grid: usize) -> LevelDef {
     }
     parse(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "bench_many_rooms",
             "name": "Bench Many Rooms",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -351,7 +351,7 @@ fn bench_prop_heavy() -> LevelDef {
     }
     parse(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "bench_prop_heavy",
             "name": "Bench Prop Heavy",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -413,7 +413,7 @@ fn bench_worst_reasonable() -> LevelDef {
     }
     parse(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "bench_worst_reasonable",
             "name": "Bench Worst Reasonable",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -650,7 +650,7 @@ fn budget_estimate_bounds_generated_geometry_for_opening_heavy_walls() {
             .collect();
         let level = parse(&format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "openings",
                 "name": "Openings",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -694,7 +694,7 @@ fn budget_estimate_bounds_generated_geometry_for_opening_heavy_walls() {
     }
     let level = parse(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "wall_forest",
             "name": "Wall Forest",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -768,7 +768,7 @@ fn draw_calls_do_not_scale_with_fixture_count_and_batching_is_stable() {
     for count in [1usize, 4, 16, 64] {
         let level = parse(&format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "draws",
                 "name": "Draws",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -832,7 +832,7 @@ fn ten_chairs_in_different_lighting_stay_one_batch() {
     }
     let level = parse(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "ten_chairs",
             "name": "Ten Chairs",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -853,7 +853,7 @@ fn ten_chairs_in_different_lighting_stay_one_batch() {
     let single = {
         let one = parse(&format!(
             r#"{{
-                "format_version": 1, "id": "one", "name": "One", "spawn": {{ "x": 0.0, "z": 0.0 }},
+                "format_version": 2, "id": "one", "name": "One", "spawn": {{ "x": 0.0, "z": 0.0 }},
                 "rooms": [{}], "ceiling_lights": [{}],
                 "props": [{{ "model": "core:chair", "x": 1.5, "z": 1.5 }}]
             }}"#,
@@ -1051,7 +1051,7 @@ fn deterministic_fuzz_levels_bake_and_build_within_budget() {
 
         let json = format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "fuzz_{case}",
                 "name": "Fuzz {case}",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1114,7 +1114,7 @@ fn deterministic_fuzz_levels_bake_and_build_within_budget() {
 fn shared_wall_level(wall_y: f32, opening_sill: f32, opening_width: f32) -> LevelDef {
     parse(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "shared",
             "name": "Shared",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1269,7 +1269,7 @@ fn regression_fractional_rotations_agree_between_bake_and_panel_geometry() {
         let (half_w, half_d) = fixture_half_extents(rotation);
         let level = parse(&format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "rotation",
                 "name": "Rotation",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1487,7 +1487,7 @@ fn merged_wall_strips_share_exact_edges() {
     let wall_lights = format!("{},{}", light(4.0, 4.0, None), light(20.0, 4.0, None));
     let level = parse(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "wall_edges",
             "name": "Wall Edges",
             "spawn": {{ "x": 0.0, "z": 0.0 }},

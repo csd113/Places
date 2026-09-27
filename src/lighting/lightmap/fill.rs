@@ -250,7 +250,7 @@ mod tests {
     fn fill_chart_spans_the_patch_edge_to_edge_row_major_along_v() {
         let level = level(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "fill",
                 "name": "Fill",
                 "spawn": { "x": 1.0, "z": 1.0 },
@@ -306,7 +306,7 @@ mod tests {
     fn a_single_texel_axis_samples_the_middle() {
         let level = level(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "fill_thin",
                 "name": "Fill Thin",
                 "spawn": { "x": 1.0, "z": 1.0 },
@@ -342,7 +342,7 @@ mod tests {
     fn fill_chart_samples_a_patch_outside_every_room_through_sample() {
         let level = level(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "fill_outside",
                 "name": "Fill Outside",
                 "spawn": { "x": 1.0, "z": 1.0 },
@@ -391,7 +391,7 @@ mod tests {
         // the bias replaces.
         let level = level(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "fill_wall",
                 "name": "Fill Wall",
                 "spawn": { "x": 1.0, "z": 1.0 },
@@ -480,7 +480,7 @@ mod tests {
         // `sample_in_room` path, not the fast texel path.
         let level = level(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "fill_junction",
                 "name": "Fill Junction",
                 "spawn": { "x": 1.0, "z": 1.0 },
@@ -548,7 +548,7 @@ mod tests {
     fn fill_chart_of_an_empty_chart_is_empty() {
         let level = level(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "fill_empty",
                 "name": "Fill Empty",
                 "spawn": { "x": 1.0, "z": 1.0 },

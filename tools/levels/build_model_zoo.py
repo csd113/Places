@@ -95,15 +95,16 @@ LADDER_COMPANION = "core:pool_ladder"
 # placement's own `lights` array, exactly as Places Demo does.
 PROP_LIGHTS = {
     "core:exit_sign": {
-        "kind": "rect",
+        "shape": "rect",
         "offset": [0.0, 0.0, 0.08],
         "color": [0.35, 1.0, 0.45],
         "intensity": 0.55,
         "range": 3.2,
-        "half_extent": [0.22, 0.28],
+        "half_width": 0.22,
+        "half_depth": 0.28,
     },
     "home:ball_light": {
-        "kind": "point",
+        "shape": "point",
         "offset": [0.0, -0.10, 0.0],
         "color": [1.0, 0.93, 0.82],
         "intensity": 0.7,
@@ -1119,7 +1120,7 @@ def build_level(catalog: Dict, inspections: Dict[str, Dict]) -> Dict:
     ]
 
     return {
-        "format_version": 1,
+        "format_version": 2,
         "id": "model_zoo",
         "name": "Model Zoo",
         "author": "Places",

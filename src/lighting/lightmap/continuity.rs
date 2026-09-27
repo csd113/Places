@@ -58,7 +58,7 @@ use crate::render::{
 /// fixture sits on the far side of the seam so the light has a real gradient
 /// there, and neither side saturates.
 const MATERIAL_REGIONS_X: &str = r#"{
-    "format_version": 1,
+    "format_version": 2,
     "id": "continuity_regions_x",
     "name": "Continuity Regions X",
     "spawn": { "x": 2.0, "z": 6.0 },
@@ -76,7 +76,7 @@ const MATERIAL_REGIONS_X: &str = r#"{
 /// The same boundary rotated 90 degrees in plan, so the seam terminates the
 /// charts' other (`v`) axis.
 const MATERIAL_REGIONS_Z: &str = r#"{
-    "format_version": 1,
+    "format_version": 2,
     "id": "continuity_regions_z",
     "name": "Continuity Regions Z",
     "spawn": { "x": 12.0, "z": 2.0 },
@@ -95,7 +95,7 @@ const MATERIAL_REGIONS_Z: &str = r#"{
 /// [`super::MAX_CHART_SPAN_M`] and emits two coplanar floor quads that differ
 /// only in which emit call produced them.
 const SAME_MATERIAL_SPAN: &str = r#"{
-    "format_version": 1,
+    "format_version": 2,
     "id": "continuity_span",
     "name": "Continuity Span",
     "spawn": { "x": 2.0, "z": 6.0 },
@@ -108,7 +108,7 @@ const SAME_MATERIAL_SPAN: &str = r#"{
 
 /// A floor meeting a wall at a real 90-degree corner.
 const RIGHT_ANGLE_CORNER: &str = r#"{
-    "format_version": 1,
+    "format_version": 2,
     "id": "continuity_corner",
     "name": "Continuity Corner",
     "spawn": { "x": 10.0, "z": 6.0 },

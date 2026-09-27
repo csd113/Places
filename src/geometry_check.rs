@@ -2581,11 +2581,11 @@ mod tests {
         // crouched one passes, and head collision resolves its underside.
         let raised = LevelDef::from_json(
             r#"{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "raised_arc",
                 "name": "Raised Arc",
                 "spawn": { "x": 1.0, "z": 1.0 },
-                "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 },
+                "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
                 "arc_walls": [
                     { "x": 4.0, "z": 4.0, "radius": 2.0, "thickness": 0.3,
                       "start_degrees": 90.0, "sweep_degrees": 90.0,

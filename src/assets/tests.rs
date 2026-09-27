@@ -280,7 +280,7 @@ fn malformed_catalog_entries_are_rejected_with_a_useful_message() {
 #[test]
 fn legacy_props_shaped_catalog_still_parses() {
     let json = r##"{
-        "format_version": 1,
+        "format_version": 2,
         "props": [
             { "id": "core-crate", "name": "Legacy Crate", "category": "Utility",
               "size": [0.6, 0.6, 0.6], "color": "#7a6244", "model": "models/crate.glb", "solid": true },

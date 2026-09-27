@@ -1,5 +1,5 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "id": "model_zoo",
   "name": "Model Zoo",
   "author": "Places",
@@ -1901,7 +1901,7 @@
       "y": 4.43,
       "lights": [
         {
-          "kind": "rect",
+          "shape": "rect",
           "offset": [
             0.0,
             0.0,
@@ -1914,10 +1914,8 @@
           ],
           "intensity": 0.55,
           "range": 3.2,
-          "half_extent": [
-            0.22,
-            0.28
-          ]
+          "half_width": 0.22,
+          "half_depth": 0.28
         }
       ]
     },
@@ -1944,7 +1942,7 @@
       "y": 4.2,
       "lights": [
         {
-          "kind": "point",
+          "shape": "point",
           "offset": [
             0.0,
             -0.1,

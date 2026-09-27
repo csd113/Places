@@ -284,6 +284,18 @@ pub fn referenced_material_ids(level: &LevelDef) -> Vec<String> {
     for volume in &level.water {
         push(volume.material_id());
     }
+    for door in &level.doors {
+        let defaults = crate::level::door_materials(door.kind);
+        push(door.material.as_deref().unwrap_or(defaults.slab));
+        push(door.frame_material.as_deref().unwrap_or(defaults.frame));
+        push(door.handle_material.as_deref().unwrap_or(defaults.handle));
+        if door.kind == crate::level::DoorKind::Sauna {
+            push(crate::level::SAUNA_DOOR_GLASS_MATERIAL);
+        }
+    }
+    for effect in &level.effects {
+        push(effect.material.as_deref().unwrap_or(crate::level::DEFAULT_STEAM_MATERIAL));
+    }
     push_architecture_materials(level, &mut push);
     ids
 }

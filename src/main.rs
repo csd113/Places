@@ -5,6 +5,7 @@ pub mod bench;
 pub mod collision;
 pub mod collision_index;
 pub mod display;
+pub mod door;
 pub mod entity;
 pub mod font;
 pub mod game;

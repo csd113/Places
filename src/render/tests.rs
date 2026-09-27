@@ -327,7 +327,7 @@ fn test_floor_geometry_does_not_scale_with_room_area() {
     let level = |size: f32| {
         let json = format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "big",
                 "name": "Big",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -707,11 +707,11 @@ fn level_with_wall_and_lights(
 ) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "geometry_test",
             "name": "Geometry Test",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
-            "room": {{ "x": -5.0, "z": -5.0, "width": 10.0, "depth": 10.0, "height": 3.5 }},
+            "rooms": [ {{ "x": -5.0, "z": -5.0, "width": 10.0, "depth": 10.0, "height": 3.5 }} ],
             "walls": [{{
                 "x": -5.0, "z": 0.0, "width": 10.0, "depth": 0.4, "height": 3.5,
                 "openings": {openings_json}
@@ -727,7 +727,7 @@ fn level_with_wall_and_lights(
 fn lit_room_level(width: f32, depth: f32, height: f32, lights_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "lit_room",
             "name": "Lit Room",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -794,7 +794,7 @@ fn xz_bounds(vertices: &[Vertex]) -> (f32, f32, f32, f32) {
 fn material_ids_resolve_to_their_own_keys_tiling_and_tint() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "material_keys",
             "name": "Material Keys",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -844,7 +844,7 @@ fn material_ids_resolve_to_their_own_keys_tiling_and_tint() {
 fn room_material_overrides_pick_the_damaged_sheets_for_that_room_only() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "damaged_rooms",
             "name": "Damaged Rooms",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -889,7 +889,7 @@ fn room_material_overrides_pick_the_damaged_sheets_for_that_room_only() {
 fn a_floor_patch_keeps_its_exact_edges_without_a_second_slab() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "patchy",
             "name": "Patchy",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -941,7 +941,7 @@ fn a_floor_patch_keeps_its_exact_edges_without_a_second_slab() {
 fn wall_material_and_face_overrides_apply_only_to_the_faces_they_name() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "stained_walls",
             "name": "Stained Walls",
             "spawn": { "x": 4.0, "z": 4.0 },
@@ -1006,7 +1006,7 @@ fn two_cluster_level(props_per_cluster: usize) -> LevelDef {
     }
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "two_clusters",
             "name": "Two Clusters",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -1389,7 +1389,7 @@ fn negative_and_extreme_level_coordinates_still_batch_and_cull() {
     // cells but still inside the 100 m far plane, plus a near room. Cell
     // keys are therefore negative and the grid spans a wide extent.
     let json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "extreme",
         "name": "Extreme",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -1429,7 +1429,7 @@ fn overlapping_rooms_and_sunken_props_keep_every_cell_cullable() {
     // the floor between them. Neither is corrected: the geometry stays where
     // the level puts it, and every range still carries usable bounds.
     let json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "overlap",
         "name": "Overlap",
         "spawn": { "x": 0.0, "z": 0.0 },
@@ -2011,11 +2011,11 @@ fn test_geometry_without_openings_contains_floor_ceiling_and_wall_batches() {
 #[test]
 fn test_z_axis_wall_geometry_runs_along_z() {
     let json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "z_wall",
         "name": "Z Wall",
         "spawn": { "x": 5.0, "z": 5.0 },
-        "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 },
+        "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 3.5 } ],
         "walls": [{
             "x": 4.8, "z": 0.0, "width": 0.4, "depth": 10.0, "height": 3.5,
             "openings": [{ "kind": "door", "offset": 4.0, "width": 2.0, "height": 2.1 }]
@@ -2091,7 +2091,7 @@ fn test_props_with_invalid_extents_are_skipped() {
 fn test_prop_catalog_supplies_size_and_colour() {
     let catalog = crate::loader::PropCatalog::from_json_str(
         r##"{
-            "format_version": 1,
+            "format_version": 2,
             "props": [{
                 "id": "core:test_prop", "name": "Test Prop", "category": "Decorative",
                 "size": [1.0, 2.0, 0.5], "color": "#804020", "solid": false
@@ -2461,7 +2461,7 @@ fn the_stress_level_batches_repeats_into_one_draw_per_model_and_cell() {
 fn a_broken_model_falls_back_to_the_placeholder_box_without_panicking() {
     let catalog = crate::loader::PropCatalog::from_json_str(
         r##"{
-            "format_version": 1,
+            "format_version": 2,
             "props": [{
                 "id": "core:broken", "name": "Broken", "category": "Other",
                 "size": [0.5, 1.0, 0.5], "color": "#808080",
@@ -2488,7 +2488,7 @@ fn a_broken_model_falls_back_to_the_placeholder_box_without_panicking() {
 fn level_with_decals(decals_json: &str, walls_json: &str, lights_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "decal_test",
             "name": "Decal Test",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -2974,7 +2974,7 @@ fn decal_planes(vertices: &[Vertex]) -> Vec<([f32; 3], f32)> {
 fn six_surface_room(decals_json: &str) -> LevelDef {
     LevelDef::from_json(&format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "six_surface_decals",
             "name": "Six Surface Decals",
             "spawn": {{ "x": 3.0, "z": 3.0 }},
@@ -3112,7 +3112,7 @@ fn rotated_decals_keep_the_full_normal_offset() {
 fn decals_tucked_into_a_corner_keep_their_offsets() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "corner_decals",
             "name": "Corner Decals",
             "spawn": { "x": 2.0, "z": 2.0 },
@@ -3186,7 +3186,7 @@ fn coincident_wall_level(
     };
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "coincident",
             "name": "Coincident",
             "spawn": {{ "x": 0.0, "z": 0.0 }},
@@ -3347,7 +3347,7 @@ fn an_overlay_only_covers_a_hole_when_it_is_solid_there() {
 fn an_empty_material_id_emits_a_bare_key_not_an_arbitrary_material() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "empty_materials",
             "name": "Empty Materials",
             "spawn": { "x": 0.0, "z": 0.0 },
@@ -3385,12 +3385,12 @@ fn y_bounds(vertices: &[Vertex]) -> (f32, f32) {
 fn test_elevated_room_shifts_floor_and_ceiling_together() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "elevated",
             "name": "Elevated",
             "spawn": { "x": 4.0, "z": 4.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0,
-                      "height": 3.0, "floor_y": 2.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0,
+                      "height": 3.0, "floor_y": 2.0 } ],
             "ceiling_lights": [
                 { "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 4.0 }
             ]
@@ -3413,7 +3413,7 @@ fn test_elevated_room_shifts_floor_and_ceiling_together() {
 fn fixture_family_level() -> LevelDef {
     LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "fixture_families",
             "name": "Fixture Families",
             "spawn": { "x": 1.0, "z": 1.0 },
@@ -3780,11 +3780,11 @@ fn the_round_diffuser_ring_has_no_uv_seam() {
 fn test_recessed_region_emits_a_lowered_slab_and_real_transition_faces() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "recess",
             "name": "Recess",
             "spawn": { "x": 1.0, "z": 1.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 10.0, "depth": 10.0, "height": 4.0 } ],
             "floor_regions": [
                 { "x": 3.0, "z": 3.0, "width": 4.0, "depth": 2.0, "offset_y": -1.2,
                   "material": "core:carpet_damp_01",
@@ -3833,11 +3833,11 @@ fn test_shallow_region_transition_faces_still_render() {
     // deliberately does not make it solid.
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "step",
             "name": "Step",
             "spawn": { "x": 1.0, "z": 1.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
             "floor_regions": [
                 { "x": 2.0, "z": 2.0, "width": 4.0, "depth": 4.0, "offset_y": -0.3 }
             ]
@@ -3857,12 +3857,12 @@ fn test_shallow_region_transition_faces_still_render() {
 fn test_gable_ceiling_is_real_sloped_geometry() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "gable",
             "name": "Gable",
             "spawn": { "x": 4.0, "z": 4.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0,
-                      "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 2.0 } },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0,
+                      "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 2.0 } } ],
             "ceiling_lights": [
                 { "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 1.0 },
                 { "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 4.0 }
@@ -3908,12 +3908,12 @@ fn test_gable_ceiling_is_real_sloped_geometry() {
 fn test_gable_end_wall_follows_the_sloped_ceiling() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "gable_walls",
             "name": "Gable Walls",
             "spawn": { "x": 4.0, "z": 4.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0,
-                      "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 2.0 } },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0,
+                      "ceiling": { "kind": "gable", "ridge": "x", "ridge_rise": 2.0 } } ],
             "walls": [
                 { "x": 0.0, "z": 0.0, "width": 0.3, "depth": 8.0 },
                 { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 0.3 }
@@ -4040,7 +4040,7 @@ fn test_walls_follow_the_local_ceiling_when_their_origin_is_not_at_zero() {
     // room in the level.
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "offset_walls",
             "name": "Offset Walls",
             "spawn": { "x": 25.0, "z": 5.0 },
@@ -4081,12 +4081,12 @@ fn test_walls_follow_the_local_ceiling_when_their_origin_is_not_at_zero() {
 fn test_horizontal_decals_follow_the_real_surface_height() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "elevated_decals",
             "name": "Elevated Decals",
             "spawn": { "x": 4.0, "z": 4.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0,
-                      "height": 3.0, "floor_y": 2.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0,
+                      "height": 3.0, "floor_y": 2.0 } ],
             "decals": [
                 { "x": 4.0, "y": 0.0, "z": 4.0, "width": 1.0, "height": 1.0,
                   "material": "core:decal_test_01", "surface": "floor" },
@@ -4112,12 +4112,12 @@ fn test_horizontal_decals_follow_the_real_surface_height() {
 fn test_props_stand_on_the_local_walkable_floor() {
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "elevated_props",
             "name": "Elevated Props",
             "spawn": { "x": 4.0, "z": 4.0 },
-            "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0,
-                      "height": 3.0, "floor_y": 2.0 },
+            "rooms": [{ "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0,
+                      "height": 3.0, "floor_y": 2.0 } ],
             "floor_regions": [
                 { "x": 3.0, "z": 3.0, "width": 2.0, "depth": 2.0, "offset_y": -0.5 }
             ],
@@ -4371,7 +4371,7 @@ fn multi_material_scene() -> (
 
     let catalog = crate::loader::PropCatalog::from_json_str(&format!(
         r##"{{
-            "format_version": 1,
+            "format_version": 2,
             "props": [{{
                 "id": "core:test_multimat", "name": "Test Multimat", "category": "Decorative",
                 "model": "{model_path}", "size": [1.0, 0.2, 2.0],
@@ -5396,7 +5396,7 @@ fn every_window_cap_spans_its_opening_in_world_space() {
     // other by exactly the wall's origin, which is a hole at one corner of
     // every opening on a wall whose min corner is not zero.
     let level = crate::level::LevelDef::from_json(
-        r#"{ "format_version": 1, "id": "cap_origin", "name": "Cap Origin",
+        r#"{ "format_version": 2, "id": "cap_origin", "name": "Cap Origin",
             "spawn": { "x": 1.0, "z": 1.0, "yaw_degrees": 0.0 },
             "rooms": [{ "x": 0.0, "z": 0.0, "width": 10.0, "depth": 14.0,
                         "height": 3.0, "floor_y": 0.0 }],
@@ -6175,7 +6175,7 @@ fn a_per_surface_shine_override_reaches_the_batch_key() {
     // carries the override, which is the one place the draw path reads it.
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1, "id": "shine_key", "name": "Shine Key",
+            "format_version": 2, "id": "shine_key", "name": "Shine Key",
             "spawn": { "x": 1.0, "z": 1.0 },
             "defaults": { "wall": "core:wallpaper_yellow_01",
                           "floor": "core:carpet_beige_01",
@@ -6465,7 +6465,7 @@ fn water_test_level(opacity: Option<f32>, material: Option<&str>) -> LevelDef {
     let material = material.map_or(String::new(), |id| format!(r#", "material": "{id}""#));
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "water_test",
             "name": "Water Test",
             "spawn": {{ "x": 3.0, "z": 3.0 }},
@@ -6655,7 +6655,7 @@ fn water_is_ordered_with_the_other_translucent_surfaces() {
 
     let level = LevelDef::from_json(
         r#"{
-            "format_version": 1,
+            "format_version": 2,
             "id": "two_pools",
             "name": "Two Pools",
             "spawn": { "x": 4.0, "z": 4.0 },
@@ -7357,7 +7357,7 @@ const DEMO_DUCK: &str = r#"{ "model": "core:rubber_duck", "x": 10.5, "z": 10.4,
 fn duck_pool_level(props_json: &str) -> LevelDef {
     let json = format!(
         r#"{{
-            "format_version": 1,
+            "format_version": 2,
             "id": "float_render_test",
             "name": "Float Render Test",
             "spawn": {{ "x": 1.0, "z": 1.0 }},
@@ -7604,11 +7604,11 @@ fn wall_reveals_and_ends_face_out_of_the_solid_on_both_axes() {
         };
         let json = format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "winding_test",
                 "name": "Winding Test",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
-                "room": {{ "x": -5.0, "z": -5.0, "width": 10.0, "depth": 10.0, "height": 3.5 }},
+                "rooms": [ {{ "x": -5.0, "z": -5.0, "width": 10.0, "depth": 10.0, "height": 3.5 }} ],
                 "walls": [{{
                     "x": -5.0, "z": -5.0, "width": {width}, "depth": {depth}, "height": 3.5,
                     "openings": [{{ "kind": "door", "offset": 4.0, "width": 1.0, "height": 2.1 }}]
@@ -7659,11 +7659,11 @@ fn a_wall_end_abutting_an_opening_keeps_its_exposed_reveal() {
     // it because B's footprint merely touches the plane leaves a void in the
     // doorway, visible only once back faces are culled.
     let json = r#"{
-        "format_version": 1,
+        "format_version": 2,
         "id": "abutting_opening",
         "name": "Abutting Opening",
         "spawn": { "x": 1.0, "z": 1.0 },
-        "room": { "x": -2.0, "z": -2.0, "width": 12.0, "depth": 14.0, "height": 3.0 },
+        "rooms": [ { "x": -2.0, "z": -2.0, "width": 12.0, "depth": 14.0, "height": 3.0 } ],
         "walls": [
             { "x": 0.0, "z": 0.0, "width": 0.3, "depth": 4.0, "height": 2.7 },
             { "x": 0.0, "z": 4.0, "width": 6.0, "depth": 0.3, "height": 2.7,
@@ -7827,9 +7827,9 @@ fn graphics_rebuild_preserves_each_characters_live_playback_by_instance_id() {
 fn a_full_height_partition_does_not_emit_the_wall_face_hidden_behind_it() {
     let level = LevelDef::from_json(
         r#"{
-        "format_version":1, "id":"hidden_length_face", "name":"Hidden length face",
+        "format_version":2, "id":"hidden_length_face", "name":"Hidden length face",
         "spawn":{"x":1,"z":1},
-        "room":{"x":0,"z":0,"width":10,"depth":10,"height":3},
+        "rooms": [ { "x":0,"z":0,"width":10,"depth":10,"height":3 } ],
         "walls":[
             {"x":0,"z":6,"width":8,"depth":0.3,"height":3},
             {"x":3,"z":0,"width":0.3,"depth":6,"height":3}

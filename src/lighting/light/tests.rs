@@ -286,7 +286,7 @@ impl AuditScene {
             .collect();
         format!(
             r#"{{
-                "format_version": 1,
+                "format_version": 2,
                 "id": "distribution_audit",
                 "name": "Distribution Audit",
                 "spawn": {{ "x": 0.0, "z": 0.0 }},
