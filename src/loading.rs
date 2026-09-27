@@ -54,6 +54,36 @@ impl Source {
             Self::Retained(loaded) => &loaded.level.id,
         }
     }
+
+    /// True when both requests name the same world content.
+    ///
+    /// This deliberately requires more than a matching level name: an `Entry`
+    /// also compares the discovered file identity (including its size and
+    /// modification time when it exists on disk), and a `Retained` world
+    /// compares the serialised definition, so an edited level can never reuse
+    /// preparation started for its previous content.
+    #[must_use]
+    pub fn same_preparation(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Default, Self::Default) => true,
+            (Self::Entry(a), Self::Entry(b)) => {
+                a == b && entry_file_identity(a) == entry_file_identity(b)
+            }
+            (Self::Retained(a), Self::Retained(b)) => {
+                a.entry == b.entry
+                    && serde_json::to_vec(&a.level).ok() == serde_json::to_vec(&b.level).ok()
+            }
+            _ => false,
+        }
+    }
+}
+
+/// `(len, modified)` of a discovered level file, or `None` for embedded and
+/// missing paths whose definition cannot change on disk between requests.
+fn entry_file_identity(entry: &LevelEntry) -> Option<(u64, std::time::SystemTime)> {
+    let metadata = std::fs::metadata(&entry.path).ok()?;
+    let modified = metadata.modified().ok()?;
+    Some((metadata.len(), modified))
 }
 pub struct Request {
     pub source: Source,
@@ -688,6 +718,74 @@ mod tests {
         assert!(
             BuildCache::default().get(&original).is_none(),
             "no retained build never matches"
+        );
+    }
+
+    /// Coalescing reuses an outstanding request only for identical content.
+    #[test]
+    fn same_preparation_compares_content_not_only_the_level_name() {
+        let entry = |id: &str, path: &str| LevelEntry {
+            id: id.to_string(),
+            name: "Same Name".to_string(),
+            author: "Author".to_string(),
+            source_type: crate::loader::LevelSourceType::CustomJson,
+            path: std::path::PathBuf::from(path),
+        };
+        let source = Source::Entry(entry("same_name", "/levels/a.json"));
+        assert!(
+            source.same_preparation(&Source::Entry(entry("same_name", "/levels/a.json"))),
+            "an identical entry reuses its preparation"
+        );
+        assert!(
+            !source.same_preparation(&Source::Entry(entry("same_name", "/levels/b.json"))),
+            "a different file with the same level id is different content"
+        );
+        assert!(
+            !source.same_preparation(&Source::Entry(entry("other_level", "/levels/a.json"))),
+            "a different level id is different content"
+        );
+        assert!(!source.same_preparation(&Source::Default));
+        assert!(Source::Default.same_preparation(&Source::Default));
+    }
+
+    /// A retained world's serialised definition decides reuse; an edit that
+    /// keeps the id cannot silently answer the new request with the old build.
+    #[test]
+    fn retained_sources_only_match_identical_definitions() {
+        let level = crate::level::LevelDef::from_json(
+            r#"{
+                "format_version": 1, "id": "retained_identity", "name": "Retained Identity",
+                "spawn": { "x": 0.0, "z": 0.0 },
+                "room": { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 },
+                "ceiling_lights": [
+                    { "fixture": "core:fluorescent_panel_01", "x": 4.0, "z": 4.0 }
+                ]
+            }"#,
+        )
+        .expect("identity fixture parses");
+        let loaded = LoadedLevel {
+            materials: crate::render::logical_materials(&level),
+            catalog: Arc::new(crate::loader::PropCatalog::builtin()),
+            entry: crate::loader::LevelEntry {
+                id: level.id.clone(),
+                name: level.name.clone(),
+                author: String::new(),
+                source_type: crate::loader::LevelSourceType::CustomJson,
+                path: std::path::PathBuf::new(),
+            },
+            level,
+            light_sheets: Vec::new(),
+        };
+        let source = Source::Retained(Box::new(loaded.clone()));
+        assert!(
+            source.same_preparation(&Source::Retained(Box::new(loaded.clone()))),
+            "an identical retained world reuses its preparation"
+        );
+        let mut edited = loaded;
+        edited.level.ceiling_lights.first_mut().expect("fixture").x += 0.25;
+        assert!(
+            !source.same_preparation(&Source::Retained(Box::new(edited))),
+            "an edited retained world is different content"
         );
     }
 

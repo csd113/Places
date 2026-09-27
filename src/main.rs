@@ -639,6 +639,21 @@ struct PendingCommit {
     intent: LoadIntent,
 }
 
+/// Where startup is in bringing up the first world.
+///
+/// The first preparation is essential: it is the only thing that can give the
+/// menu a background, so it is neither cancellable nor skippable, while a
+/// later replacement is cancellable back to the committed world.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum StartupPhase {
+    /// First world requested and not yet committed: menu hidden, input gated.
+    Preparing,
+    /// The first preparation failed and the default level is being retried.
+    Retrying,
+    /// A world has been committed; the ordinary menu experience applies.
+    Ready,
+}
+
 #[derive(Default)]
 struct PresentationState {
     has_presented: bool,
@@ -692,17 +707,43 @@ struct FrameLoop<'a> {
     pending_commit: Option<PendingCommit>,
     load_source: Option<loading::Source>,
     load_generation: u64,
+    /// Lightmap quality the in-flight preparation was requested with, so an
+    /// equivalent request can reuse it and a changed quality cannot.
+    load_lightmaps: quality::LightmapQuality,
     load_return_state: AppState,
     load_phase: Option<loading::Phase>,
+    /// Where startup stands on bringing up the first world (see
+    /// [`StartupPhase`]). The ordinary menu is not offered before it is
+    /// `Ready`: the window keeps pumping events and showing the preparation
+    /// screen, and the first normal menu frame already draws the requested
+    /// level behind it.
+    startup: StartupPhase,
     launch_overrides: bool,
     ready_frames: u64,
     presentation: PresentationState,
     trace: perf::loading::LoadTrace,
     actions: Option<perf::actions::Actions>,
     applied_graphics_settings: Settings,
+    /// The exact "Applying ..." hint currently owned by
+    /// [`Self::refresh_graphics_status_hint`], so it is cleared only when it is
+    /// still the message on screen.
+    graphics_hint: Option<String>,
 }
 
 impl FrameLoop<'_> {
+    /// Requests the first world and runs the frame loop to completion.
+    fn start(&mut self, initial_entry: Option<loader::LevelEntry>, direct: bool) {
+        self.request_load(
+            initial_entry.map_or(loading::Source::Default, loading::Source::Entry),
+            if direct {
+                LoadIntent::Play
+            } else {
+                LoadIntent::Background
+            },
+        );
+        self.run();
+    }
+
     /// Runs frames until the game stops.
     fn run(&mut self) {
         while self.game.is_running() {
@@ -948,18 +989,24 @@ impl FrameLoop<'_> {
     /// when it is the message still on screen, so a genuine status (a saved
     /// binding, a load failure) is never overwritten or dropped.
     fn refresh_graphics_status_hint(&mut self) {
-        const HINT: &str = "Applying lightmaps...";
         match self.renderer.graphics_transition_status() {
             GraphicsTransition::Preparing(stage) => {
                 if self.ui_state.status_message.is_none() {
-                    self.ui_state
-                        .set_status(format!("Applying {stage}..."), false);
+                    let hint = format!("Applying {stage}...");
+                    self.ui_state.set_status(hint.clone(), false);
+                    self.graphics_hint = Some(hint);
                 }
             }
             GraphicsTransition::Idle => {
-                if self.ui_state.status_message.as_deref() == Some(HINT) {
+                // Clear exactly the hint this function installed, even if a
+                // screen kept it on show across frames; a genuine status that
+                // replaced it stays.
+                if self.graphics_hint.is_some()
+                    && self.graphics_hint.as_deref() == self.ui_state.status_message.as_deref()
+                {
                     self.ui_state.clear_status();
                 }
+                self.graphics_hint = None;
             }
         }
     }
@@ -1329,6 +1376,14 @@ impl FrameLoop<'_> {
             return true;
         }
 
+        // Until the first world is committed, preparation is the only thing
+        // that can produce the menu background, so no menu or cancel input is
+        // accepted: window events, Quit and scripted actions were handled
+        // above and still work.
+        if self.startup != StartupPhase::Ready {
+            return true;
+        }
+
         if self.load_intent.is_some()
             && matches!(
                 event,
@@ -1644,10 +1699,19 @@ impl FrameLoop<'_> {
     }
 
     fn request_load(&mut self, source: loading::Source, intent: LoadIntent) {
+        // An outstanding preparation for the same world and effective lightmap
+        // quality is promoted instead of restarted: the startup background
+        // world must survive the player selecting that same level, and a
+        // partially uploaded install must not be torn down to redo identical
+        // work. A superseded request for different content still replaces it.
+        if self.reuse_outstanding_preparation(&source, intent) {
+            return;
+        }
         let level_id = source.level_id().to_string();
+        let lightmaps = self.settings.lightmap_quality();
         let request = loading::Request {
             source: source.clone(),
-            lightmaps: self.settings.lightmap_quality(),
+            lightmaps,
         };
         match self.loader.request(request) {
             Ok(id) => {
@@ -1659,6 +1723,7 @@ impl FrameLoop<'_> {
                 self.load_generation = id;
                 self.load_intent = Some(intent);
                 self.load_source = Some(source);
+                self.load_lightmaps = lightmaps;
                 self.load_phase = None;
                 if self.game.app_state() == AppState::Playing {
                     self.game.set_app_state(AppState::Paused);
@@ -1675,8 +1740,71 @@ impl FrameLoop<'_> {
                     self.game.stop();
                 }
             }
-            Err(error) => self.ui_state.set_status(error, true),
+            Err(error) => {
+                self.ui_state.set_status(error, true);
+                // A request that cannot even be queued must not leave the
+                // startup screen gated with nothing being prepared: reveal the
+                // recovery screen instead of waiting forever.
+                if self.startup != StartupPhase::Ready {
+                    self.startup = StartupPhase::Ready;
+                    self.game.set_app_state(self.load_return_state);
+                }
+            }
         }
+    }
+
+    /// True when the request already being prepared covers `source` exactly.
+    ///
+    /// A completed-but-uploading install may only be reused while no GPU
+    /// setting changed since it was captured: the install uploads with the
+    /// configuration it recorded when it was created, so a changed quality,
+    /// reflection, bloom or filtering setting must issue a fresh request.
+    fn reuse_outstanding_preparation(
+        &mut self,
+        source: &loading::Source,
+        intent: LoadIntent,
+    ) -> bool {
+        if self.load_intent.is_none() || self.load_lightmaps != self.settings.lightmap_quality() {
+            return false;
+        }
+        if self.pending_commit.is_some() && self.gpu_settings_changed() {
+            return false;
+        }
+        let Some(active_intent) = self.load_intent else {
+            return false;
+        };
+        let Some(active) = self.load_source.as_ref() else {
+            return false;
+        };
+        if !active.same_preparation(source) {
+            return false;
+        }
+        let promoted = match (active_intent, intent) {
+            (LoadIntent::Play, _) | (_, LoadIntent::Play) => LoadIntent::Play,
+            (LoadIntent::Background, _) | (_, LoadIntent::Background) => LoadIntent::Background,
+            // Only Graphics intents remain.
+            (LoadIntent::Graphics, LoadIntent::Graphics) => LoadIntent::Graphics,
+        };
+        self.load_intent = Some(promoted);
+        if let Some(pending) = self.pending_commit.as_mut() {
+            pending.intent = promoted;
+        }
+        if matches!(promoted, LoadIntent::Play) {
+            self.ui_state
+                .set_status("Preparing level... Esc to cancel".to_string(), false);
+        }
+        true
+    }
+
+    /// True when an installed or uploading world's GPU configuration no longer
+    /// matches the current settings.
+    fn gpu_settings_changed(&self) -> bool {
+        self.settings.quality_level() != self.applied_graphics_settings.quality_level()
+            || self.settings.reflection_quality()
+                != self.applied_graphics_settings.reflection_quality()
+            || self.settings.bloom_enabled() != self.applied_graphics_settings.bloom_enabled()
+            || self.settings.texture_filtering_preset()
+                != self.applied_graphics_settings.texture_filtering_preset()
     }
 
     fn restore_applied_graphics(&mut self) {
@@ -1710,6 +1838,12 @@ impl FrameLoop<'_> {
     }
 
     fn cancel_loading(&mut self) {
+        // Before the first world exists, the outstanding preparation is the
+        // only thing that can produce a usable background; cancelling it would
+        // strand the process on an empty menu with nothing left to wait for.
+        if self.startup != StartupPhase::Ready {
+            return;
+        }
         self.loader.cancel();
         self.trace
             .record("cancel_disposal_begin", self.load_generation, "");
@@ -1781,25 +1915,7 @@ impl FrameLoop<'_> {
                         return;
                     }
                 }
-                Err(error) => {
-                    if let (Some(actions), Some(source)) = (&self.actions, &self.load_source)
-                        && let Err(notify_error) =
-                            actions.notify(&format!("failed:{}", source.level_id()))
-                    {
-                        self.fatal_error = Some(notify_error);
-                        self.game.stop();
-                    }
-                    self.restore_applied_graphics();
-                    self.load_intent = None;
-                    self.load_source = None;
-                    self.game.set_app_state(self.load_return_state);
-                    self.input_handler.clear_gameplay_inputs();
-                    self.game.reset_timing();
-                    self.trace_world("load_recovered");
-                    self.trace.record("failed", id, &error);
-                    self.ui_state
-                        .set_status(format!("Could not load level: {error}"), true);
-                }
+                Err(error) => self.recover_from_preparation_failure(id, &error),
             }
         }
         if self.pending_commit.is_some() {
@@ -1830,6 +1946,41 @@ impl FrameLoop<'_> {
                 self.trace.record("phase", self.load_generation, label);
             }
         }
+    }
+
+    /// Handles one failed preparation: restores the last good configuration
+    /// and either retries the essential first world or returns to a screen.
+    fn recover_from_preparation_failure(&mut self, id: u64, error: &str) {
+        if let (Some(actions), Some(source)) = (&self.actions, &self.load_source)
+            && let Err(notify_error) = actions.notify(&format!("failed:{}", source.level_id()))
+        {
+            self.fatal_error = Some(notify_error);
+            self.game.stop();
+        }
+        self.restore_applied_graphics();
+        self.load_intent = None;
+        self.load_source = None;
+        self.trace_world("load_recovered");
+        self.trace.record("failed", id, error);
+        self.ui_state
+            .set_status(format!("Could not load level: {error}"), true);
+        // The initial world is what gives the menu its background, so a
+        // failure here retries the default level once rather than leaving no
+        // preparation and a black menu.
+        if self.startup != StartupPhase::Ready {
+            if self.startup == StartupPhase::Preparing {
+                self.startup = StartupPhase::Retrying;
+                crate::logging::warn(format!(
+                    "initial level preparation failed; retrying the demo: {error}"
+                ));
+                self.request_load(loading::Source::Default, LoadIntent::Background);
+                return;
+            }
+            self.startup = StartupPhase::Ready;
+        }
+        self.game.set_app_state(self.load_return_state);
+        self.input_handler.clear_gameplay_inputs();
+        self.game.reset_timing();
     }
 
     fn notify_upload(&mut self) -> Result<(), String> {
@@ -1885,10 +2036,20 @@ impl FrameLoop<'_> {
             }
             self.ready_frames = 0;
         }
-        self.presentation.pending_scene = Some(self.load_generation);
+        // A graphics-only rebuild replaces the resident resources in place: it
+        // is the same visited world, so it emits no new scene-presented signal
+        // and does not restart the ready-frame/capture counter. A real level
+        // commit (menu background, play, or a replacement) does both.
+        if !matches!(intent, LoadIntent::Graphics) {
+            self.presentation.pending_scene = Some(self.load_generation);
+        }
         self.applied_graphics_settings = self.settings.clone();
         log_prop_usage(self.renderer);
         *self.current_level = Some(loaded);
+        // The first committed world is the menu background; the normal menu
+        // may be revealed from now on. It is also the fallback a later
+        // replacement can be cancelled back to.
+        self.startup = StartupPhase::Ready;
         self.load_source = None;
         self.load_phase = None;
         self.ui_state.clear_status();
@@ -1966,6 +2127,14 @@ impl FrameLoop<'_> {
             // `PLACES_BENCH_NORENDER=1`: measure the presentation path alone.
             return;
         }
+        if self.startup != StartupPhase::Ready {
+            // The ordinary menu is not drawn until the requested level backs
+            // it. Until then the preparation screen is the visible state; it
+            // carries the live status and the window stays responsive.
+            let vertices = ui::loading_geometry(self.ui_state, APP_VERSION);
+            self.renderer.render_ui(&vertices);
+            return;
+        }
         let ui_vertices = self.ui_cache.get(
             self.game.app_state(),
             self.ui_state,
@@ -2000,6 +2169,28 @@ impl FrameLoop<'_> {
         } else {
             self.renderer.render_ui(ui_vertices);
         }
+    }
+
+    /// Takes the one-shot `PLACES_CAPTURE` frame when it is due.
+    ///
+    /// The capture waits for a ready world so it records the finished screen,
+    /// never a preparation frame.
+    fn capture_if_due(&mut self, ready: bool) {
+        if !ready
+            || !self
+                .actions
+                .as_ref()
+                .is_none_or(perf::actions::Actions::complete)
+            || self.ready_frames < self.capture_at_frame
+        {
+            return;
+        }
+        let Some(path) = self.capture_path.take() else {
+            return;
+        };
+        write_capture(self.renderer, &path);
+        perf::startup_mark("capture readback");
+        self.game.stop();
     }
 
     fn notify_presented(&mut self, ready: bool, presented: bool) {
@@ -2122,18 +2313,7 @@ impl FrameLoop<'_> {
         if ready {
             self.ready_frames = self.ready_frames.saturating_add(1);
         }
-        if ready
-            && self
-                .actions
-                .as_ref()
-                .is_none_or(perf::actions::Actions::complete)
-            && self.ready_frames >= self.capture_at_frame
-            && let Some(path) = self.capture_path.take()
-        {
-            write_capture(self.renderer, &path);
-            perf::startup_mark("capture readback");
-            self.game.stop();
-        }
+        self.capture_if_due(ready);
 
         // Swap window buffer (double buffered, VSync synchronized). The
         // renderer presents its acquired surface texture.
@@ -2332,6 +2512,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let capture_at_frame = capture_frame_from_env();
 
     let applied_graphics_settings = settings.clone();
+    let initial_lightmaps = settings.lightmap_quality();
     let mut frame_loop = FrameLoop {
         window: &mut window,
         sdl: &sdl_context,
@@ -2366,22 +2547,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         load_generation: 0,
         load_return_state: AppState::MainMenu,
         load_phase: None,
+        load_lightmaps: initial_lightmaps,
+        startup: StartupPhase::Preparing,
         launch_overrides: true,
         ready_frames: 0,
         presentation: PresentationState::default(),
         trace,
         actions,
         applied_graphics_settings,
+        graphics_hint: None,
     };
-    frame_loop.request_load(
-        initial_entry.map_or(loading::Source::Default, loading::Source::Entry),
-        if direct {
-            LoadIntent::Play
-        } else {
-            LoadIntent::Background
-        },
-    );
-    frame_loop.run();
+    frame_loop.start(initial_entry, direct);
 
     if let Some(error) = frame_loop.fatal_error.take() {
         return Err(error.into());

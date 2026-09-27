@@ -548,6 +548,102 @@ fn main_menu_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState, version: &
     draw_legend(vertices, "W/S: Move   ENTER: Select", 22.0, 458.0, 235.0);
 }
 
+/// Startup preparation screen shown until the first world backs the menu.
+///
+/// Uses the main menu's panel, typography and palette, replacing its items
+/// with the live preparation status: the ordinary menu is never presented
+/// against a scene that does not contain the requested level yet. The window
+/// stays responsive here; this is the visible state during initial
+/// preparation, not the finished menu.
+#[must_use]
+pub fn loading_geometry(ui_state: &UiState, version: &str) -> Vec<Vertex> {
+    let mut vertices = Vec::new();
+    // The same scrim border and inner panel the main menu draws, so the
+    // startup screen does not introduce a second visual language.
+    let opacity = 0.70;
+    add_rect_rgba(
+        &mut vertices,
+        20.0,
+        20.0,
+        460.0,
+        22.0,
+        [0.08, 0.08, 0.07, opacity],
+    );
+    add_rect_rgba(
+        &mut vertices,
+        20.0,
+        250.0,
+        460.0,
+        252.0,
+        [0.08, 0.08, 0.07, opacity],
+    );
+    add_rect_rgba(
+        &mut vertices,
+        20.0,
+        22.0,
+        22.0,
+        250.0,
+        [0.08, 0.08, 0.07, opacity],
+    );
+    add_rect_rgba(
+        &mut vertices,
+        458.0,
+        22.0,
+        460.0,
+        250.0,
+        [0.08, 0.08, 0.07, opacity],
+    );
+    add_rect_rgba(
+        &mut vertices,
+        22.0,
+        22.0,
+        458.0,
+        250.0,
+        [0.12, 0.11, 0.10, opacity],
+    );
+
+    draw_text(
+        &mut vertices,
+        "Places",
+        centered_x("Places", 2.0, 22.0, 458.0),
+        36.0,
+        2.0,
+        [0.92, 0.88, 0.45],
+    );
+    draw_text(
+        &mut vertices,
+        "an experience",
+        centered_x("an experience", 1.0, 22.0, 458.0),
+        58.0,
+        1.0,
+        [0.65, 0.65, 0.60],
+    );
+
+    // The live preparation status takes the place of the menu's items.
+    let status = ui_state
+        .status_message
+        .as_deref()
+        .unwrap_or("Preparing level...");
+    let status = fit_text(status, 400.0, 1.0);
+    let status_color = if ui_state.status_is_error {
+        [1.0, 0.4, 0.3]
+    } else {
+        [0.85, 0.85, 0.80]
+    };
+    draw_text(
+        &mut vertices,
+        &status,
+        centered_x(&status, 1.0, 22.0, 458.0),
+        128.0,
+        1.0,
+        status_color,
+    );
+
+    let ver_text = format!("v{version}");
+    draw_text(&mut vertices, &ver_text, 40.0, 235.0, 1.0, [0.5, 0.5, 0.5]);
+    vertices
+}
+
 /// Level selection: scrolling list of installed levels, status line and legend.
 fn level_select_geometry(vertices: &mut Vec<Vertex>, ui_state: &UiState) {
     add_rect(vertices, 20.0, 20.0, 460.0, 252.0, [0.08, 0.08, 0.07]);
@@ -1288,6 +1384,36 @@ mod tests {
                 "prompt for {action} is too wide: {prompt:?}"
             );
         }
+    }
+
+    #[test]
+    fn the_startup_screen_carries_the_preparation_status_not_the_menu() {
+        let mut ui = UiState::new();
+        ui.set_status("Filling lightmaps... Esc to cancel", false);
+        let loading = loading_geometry(&ui, "9.9.9");
+        let menu = build_ui_geometry(
+            AppState::MainMenu,
+            &ui,
+            &Settings::default(),
+            &DisplayStatus::default(),
+            "9.9.9",
+        );
+        assert!(
+            !loading.is_empty(),
+            "the preparation screen draws something"
+        );
+        assert_ne!(
+            loading.len(),
+            menu.len(),
+            "the startup screen is not the ordinary main menu"
+        );
+        // Panel, title, subtitle and the status glyphs; an empty submission or
+        // a status-less screen would be far smaller.
+        assert!(
+            loading.len() > 60,
+            "panel and status text must be present: {} vertices",
+            loading.len()
+        );
     }
 
     #[test]

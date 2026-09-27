@@ -643,6 +643,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         """Runs real worker/event processing; only an owned scratch input may be corrupted."""
         state = os.path.join(SMOKE_ROOT, name)
         shutil.rmtree(state, ignore_errors=True)
+        os.makedirs(state, exist_ok=True)
         for level in levels:
             _write_level(state, level)
         script = os.path.join(state, "actions.json")
@@ -776,17 +777,24 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
 
     def test_loading_resize_cancel_and_retry_process_real_events(self):
         anchor = f"request:{SECOND_LEVEL_ID}"
-        events, _ = self.run_loading_actions("cancel-retry-state", [_second_level()], SECOND_LEVEL_ID, [
+        events, _ = self.run_loading_actions("cancel-retry-state", [_second_level()], "places_demo", [
+            {"after": "ready:places_demo", "delay_ms": 0,
+             "action": {"kind": "load", "level": SECOND_LEVEL_ID}},
             {"after": anchor, "delay_ms": 100, "action": {"kind": "resize", "width": 800, "height": 450}},
             {"after": anchor, "delay_ms": 250, "action": {"kind": "escape"}},
             {"after": anchor, "delay_ms": 400, "action": {"kind": "load", "level": SECOND_LEVEL_ID}},
         ])
         requests = [event for event in events if event["event"] == "request"]
-        self.assertEqual([event["detail"] for event in requests], [SECOND_LEVEL_ID] * 2)
+        # The direct world commits first; its replacement is cancelled and
+        # retried. Cancellation belongs to a replacement, never to the initial
+        # world that gives the menu its background.
+        self.assertEqual([event["detail"] for event in requests],
+                         ["places_demo", SECOND_LEVEL_ID, SECOND_LEVEL_ID])
         cancelled = [event for event in events if event["event"] == "cancel"]
-        self.assertEqual([event["request"] for event in cancelled], [requests[0]["request"]])
-        commits = [event for event in events if event["event"] == "gpu_ready"]
-        self.assertEqual([event["request"] for event in commits], [requests[1]["request"]])
+        self.assertEqual([event["request"] for event in cancelled], [requests[1]["request"]])
+        commits = [json.loads(event["detail"]) for event in events if event["event"] == "world_committed"]
+        self.assertEqual([snapshot["current_level_id"] for snapshot in commits],
+                         ["places_demo", SECOND_LEVEL_ID])
         self.assertTrue(any(event["event"] == "present" and event["detail"] == "loading"
                             and requests[0]["elapsed_ms"] < event["elapsed_ms"] < cancelled[0]["elapsed_ms"]
                             for event in events), "the real window must present while preparation is blocked")
@@ -794,7 +802,32 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertTrue(any(size["logical"] == [800, 450] and all(value > 0 for value in size["drawable"])
                             for size in sizes), "observe the actual native resized window")
         self.assertEqual([event["detail"] for event in events if event["event"] == "scene_presented"],
-                         [SECOND_LEVEL_ID])
+                         ["places_demo", SECOND_LEVEL_ID])
+
+    def test_selecting_the_preparing_background_level_reuses_its_preparation(self):
+        # No PLACES_LEVEL: the ordinary startup prepares the menu background.
+        # Selecting that same world from the level list while it is preparing
+        # must promote the request, never cancel and restart the expensive
+        # build.
+        events, output = self.run_loading_actions(
+            "background-promote-state", [], "", [
+                {"after": "start", "delay_ms": 300,
+                 "action": {"kind": "load", "level": "places_demo"}},
+                {"after": "ready:places_demo", "delay_ms": 0, "action": {"kind": "quit"}},
+            ],
+            extra_env={"PLACES_LEVEL": ""},
+        )
+        self.assert_no_gpu_failure(output)
+        requests = [event for event in events if event["event"] == "request"]
+        self.assertEqual([event["detail"] for event in requests], ["places_demo"],
+                         "selecting the preparing background level must reuse its request")
+        self.assertEqual([event["detail"] for event in events
+                          if event["event"] == "cpu_ready"], ["places_demo"])
+        commits = [json.loads(event["detail"]) for event in events if event["event"] == "world_committed"]
+        self.assertEqual([snapshot["current_level_id"] for snapshot in commits], ["places_demo"])
+        self.assert_world_snapshot_consistent(commits[0])
+        self.assertEqual([event["detail"] for event in events if event["event"] == "scene_presented"],
+                         ["places_demo"])
 
     def test_quit_during_preparation_joins_owned_work_without_committing(self):
         events, _ = self.run_loading_actions("quit-loading-state", [_second_level()], SECOND_LEVEL_ID, [

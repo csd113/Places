@@ -71,7 +71,7 @@ pub enum LevelSourceType {
 }
 
 /// Discovered level entry for level selection menu.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LevelEntry {
     pub id: String,
     pub name: String,

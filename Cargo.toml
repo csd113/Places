@@ -86,3 +86,13 @@ lto = true
 codegen-units = 1
 strip = true
 panic = "abort"
+
+# The level preparation pass (lighting bake, lightmap fill and static geometry)
+# is numeric loop work and is unusably slow at the default `opt-level = 0`.
+# Measured on this host (High quality, full lightmaps), a cold development
+# launch prepared the demo in 181 s of CPU time, 168 s of it in the atlas fill;
+# a warm launch still took 13.9 s. `opt-level = 1` keeps full debug info and
+# debug assertions and cuts those to 18.2 s cold and 2.1 s warm. Release
+# remains the performance reference (16.4 s cold / 1.5 s warm).
+[profile.dev]
+opt-level = 1
