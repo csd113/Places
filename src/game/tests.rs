@@ -5006,3 +5006,62 @@ fn a_manual_door_is_an_interaction_target_and_an_external_one_is_not() {
     assert_eq!(report.doors_acted, 1);
     assert_eq!(game.doors().get(0).expect("door").phase().name(), "opening");
 }
+
+/// Action batches are finite by construction: an action targets an entity (a
+/// door, a label, an animation), never another action list, so a self-referential
+/// switch cannot recurse and a dispatch always terminates within the batch
+/// bound.
+#[test]
+fn self_referential_actions_dispatch_once_and_terminate() {
+    let level = LevelDef::from_json(
+        r#"{
+            "format_version": 2,
+            "id": "self_actions",
+            "name": "Self Actions",
+            "spawn": { "x": 2.0, "z": 2.0 },
+            "rooms": [ { "x": 0.0, "z": 0.0, "width": 8.0, "depth": 8.0, "height": 3.0 } ],
+            "doors": [
+                { "id": "self_door", "x": 1.0, "z": 3.0, "rotation_degrees": 0.0,
+                  "width": 1.0, "height": 2.1, "manual_interaction": false }
+            ],
+            "props": [
+                { "id": "self_switch", "model": "home:wall_switch", "x": 1.0, "y": 1.2, "z": 2.0,
+                  "solid": false,
+                  "interaction": { "prompt": "Self", "actions": [
+                      { "action": "toggle_label", "target": "self_switch" },
+                      { "action": "toggle", "target": "self_door" },
+                      { "action": "toggle_label", "target": "self_switch" }
+                  ] } }
+            ]
+        }"#,
+    )
+    .expect("the self-action level parses");
+    crate::loader::validate_level(&level).expect("the self-action level validates");
+    let mut game = game_for(&level);
+    let actions = game
+        .interactables()
+        .items()
+        .iter()
+        .find(|item| item.id == "self_switch")
+        .expect("the switch is aimable")
+        .actions
+        .clone();
+    let report = game.dispatch_actions(&actions, None);
+    assert_eq!(
+        report.actions_run, 3,
+        "the batch runs exactly its own actions, never a chain"
+    );
+    assert_eq!(report.doors_acted, 1);
+    assert_eq!(
+        report.labels_toggled(),
+        2,
+        "two self-label toggles run in order and both are counted"
+    );
+    assert!(
+        !game.is_label_visible(
+            game.interactables()
+                .index_of("self_switch")
+                .expect("the switch label")
+        )
+    );
+}
